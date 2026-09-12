@@ -8,6 +8,7 @@ renvoie un **objet**. Les deux formes sont gérées.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -35,6 +36,15 @@ VARIABLES_HORAIRES = (
 FORMAT_HEURE = "%Y-%m-%dT%H:%M"
 
 DELAI_S = 30.0
+
+#: Modèle global proposé quand le point sort du domaine d'un modèle régional.
+MODELE_GLOBAL_SUGGERE = "icon_seamless"
+
+#: Un littéral `nan` / `NaN` / `inf` là où un nombre est attendu (`"latitude":nan`).
+#: Mesuré sur le vrai service : hors du domaine d'AROME, Open-Meteo répond
+#: HTTP 200 avec un corps que `json.loads` refuse. La classe de caractères en
+#: tête évite de confondre avec un `nan` dans une chaîne (« Nanterre »).
+LITTERAL_NON_JSON = re.compile(r"[:,\[]\s*-?(?:nan|inf(?:inity)?)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -117,6 +127,8 @@ class ClientOpenMeteo:
         try:
             charge = reponse.json()
         except ValueError as e:
+            if LITTERAL_NON_JSON.search(reponse.text):
+                raise _hors_domaine(modele) from e
             raise ErreurConnecteur(f"Open-Meteo : réponse non-JSON sur {self.url_prevision} ({e})") from e
 
         blocs = _blocs(charge, self.url_prevision)
@@ -125,9 +137,11 @@ class ClientOpenMeteo:
                 f"Open-Meteo : {len(blocs)} bloc(s) reçu(s) pour {len(points)} point(s) demandé(s) "
                 f"sur {self.url_prevision}"
             )
-        return [self._point(bloc, demande) for bloc, demande in zip(blocs, points, strict=True)]
+        return [
+            self._point(bloc, demande, modele) for bloc, demande in zip(blocs, points, strict=True)
+        ]
 
-    def _point(self, bloc: Any, demande: tuple[float, float]) -> PrevisionPoint:
+    def _point(self, bloc: Any, demande: tuple[float, float], modele: str) -> PrevisionPoint:
         if not isinstance(bloc, dict):
             raise ErreurConnecteur(
                 f"Open-Meteo : bloc de prévision inattendu ({type(bloc).__name__}) sur {self.url_prevision}"
@@ -158,6 +172,11 @@ class ClientOpenMeteo:
                     temp_c=colonnes["temperature_2m"][i],
                 )
             )
+        if heures and all(_heure_vide(h) for h in heures):
+            # Un point sans une seule valeur sur tout l'horizon : le modèle ne
+            # couvre pas ce point. Le dire, plutôt que de propager des trous
+            # qui rendraient `meilleure_direction` arbitraire.
+            raise _hors_domaine(modele)
         return PrevisionPoint(
             lat=_flottant(bloc.get("latitude"), demande[0]),
             lon=_flottant(bloc.get("longitude"), demande[1]),
@@ -207,6 +226,28 @@ class ClientOpenMeteo:
                 f"Open-Meteo : horodatage illisible {brut!r} sur {self.url_prevision}"
             ) from e
         return t.replace(tzinfo=UTC) if t.tzinfo is None else t.astimezone(UTC)
+
+
+def _heure_vide(h: PrevisionHeure) -> bool:
+    """Aucune valeur du tout à cette heure-là (tout `null` côté API)."""
+    return all(
+        v is None
+        for v in (h.pluie_mm, h.vent_kmh, h.rafales_kmh, h.vent_depuis_deg, h.ressenti_c, h.temp_c)
+    )
+
+
+def _hors_domaine(modele: str) -> ErreurConnecteur:
+    """Le point demandé sort de la grille du modèle.
+
+    Deux signatures, toutes deux mesurées sur le vrai service : un corps
+    HTTP 200 contenant des littéraux `nan` (donc invalide en JSON), ou un
+    bloc entièrement à `null`. Le message ne cite pas les coordonnées : les
+    messages Open-Meteo ne doivent jamais publier le point de départ.
+    """
+    return ErreurConnecteur(
+        f"Open-Meteo : point hors du domaine du modèle {modele}, essayer un modèle "
+        f"global (par exemple --modele {MODELE_GLOBAL_SUGGERE})"
+    )
 
 
 def _blocs(charge: Any, url: str) -> list[Any]:

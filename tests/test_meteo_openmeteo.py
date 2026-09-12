@@ -298,3 +298,103 @@ def test_base_url_personnalisee():
     client.base_url = "https://exemple.invalide"
     client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
     assert str(vues[0].url).startswith("https://exemple.invalide/v1/forecast")
+
+
+# --- point hors du domaine du modèle ----------------------------------------
+#
+# Tests qui auraient attrapé D1. Mesuré sur le vrai service : pour un point
+# hors couverture d'AROME, Open-Meteo répond **HTTP 200** avec un corps
+# contenant des littéraux `nan` en minuscules — donc invalide en JSON, que
+# `reponse.json()` refuse. L'utilisateur recevait « réponse non-JSON
+# (Expecting value: line 1 column 14) », qui ne dit rien de la cause.
+
+#: Corps HTTP 200 tel que le vrai service le renvoie hors du domaine du modèle.
+CORPS_HORS_DOMAINE = (
+    '{"latitude":nan,"longitude":nan,"generationtime_ms":0.07,"utc_offset_seconds":0,'
+    '"timezone":"GMT","timezone_abbreviation":"GMT","elevation":nan,'
+    '"hourly_units":{"time":"iso8601","precipitation":"mm"},'
+    '"hourly":{"time":["2026-09-13T08:00"],"precipitation":[null]}}'
+)
+
+
+def client_texte(corps: str, code: int = 200) -> ClientOpenMeteo:
+    """Un client qui répond un corps **brut** : indispensable pour du JSON invalide."""
+    return client_avec(lambda _: httpx.Response(code, text=corps))
+
+
+def test_corps_avec_des_litteraux_nan_donne_hors_du_domaine():
+    client = client_texte(CORPS_HORS_DOMAINE)
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions(
+            [(0.0, 0.0)], modele="meteofrance_arome_france_hd", debut=DEBUT, horizon_h=1
+        )
+    message = str(e.value)
+    assert "hors du domaine" in message
+    assert "meteofrance_arome_france_hd" in message, "le message doit nommer le modèle fautif"
+    assert "global" in message and "--modele" in message, "il doit dire quoi faire"
+    assert "Expecting value" not in message, "l'erreur de parsing ne renseigne personne"
+
+
+def test_le_message_hors_domaine_ne_publie_pas_les_coordonnees():
+    """Les messages Open-Meteo ne citent jamais le point de départ (confidentialité)."""
+    client = client_texte(CORPS_HORS_DOMAINE)
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(48.1173, -1.6778)], modele="m", debut=DEBUT, horizon_h=1)
+    for morceau in ("48.1", "1.67", "-1.6"):
+        assert morceau not in str(e.value)
+
+
+@pytest.mark.parametrize(
+    "corps",
+    [
+        '{"latitude":nan}',
+        '{"elevation":-nan,"hourly":{}}',
+        '{"latitude":[nan,nan]}',
+        '{"latitude":inf}',
+    ],
+)
+def test_toutes_les_formes_de_litteral_non_json_sont_reconnues(corps: str):
+    with pytest.raises(ErreurConnecteur, match="hors du domaine"):
+        client_texte(corps).previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+
+
+@pytest.mark.parametrize(
+    "corps",
+    [
+        "<html>503 Service Unavailable</html>",
+        "",
+        '{"timezone":"Europe/Paris","ville":"Nanterre"',  # « nan » dans une chaîne
+    ],
+)
+def test_un_corps_illisible_sans_nan_garde_le_message_generique(corps: str):
+    """On ne veut pas diagnostiquer « hors du domaine » à tort sur n'importe quel corps cassé."""
+    with pytest.raises(ErreurConnecteur) as e:
+        client_texte(corps).previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "non-JSON" in str(e.value)
+    assert "hors du domaine" not in str(e.value)
+
+
+def test_un_point_entierement_nul_donne_hors_du_domaine():
+    """Autre signature du même défaut : 200, JSON valide, mais pas une valeur pour ce point."""
+    vide = {nom: [None, None, None] for nom in VARIABLES_HORAIRES}
+    b = bloc(0.0, 0.0, **vide)
+    client, _ = client_repondant([b])
+    with pytest.raises(ErreurConnecteur, match="hors du domaine"):
+        client.previsions([(0.0, 0.0)], modele="arome", debut=DEBUT, horizon_h=3)
+
+
+def test_un_point_nul_parmi_plusieurs_est_signale():
+    nul = bloc(0.1, 0.0, **{nom: [None] * 3 for nom in VARIABLES_HORAIRES})
+    charge = [bloc(0.0, 0.0), nul, bloc(0.0, 0.1)]
+    client, _ = client_repondant(charge)
+    with pytest.raises(ErreurConnecteur, match="hors du domaine"):
+        client.previsions(POINTS_3, modele="arome", debut=DEBUT, horizon_h=3)
+
+
+def test_une_seule_valeur_presente_suffit_a_ne_pas_crier_au_hors_domaine():
+    vide = {nom: [None, None, None] for nom in VARIABLES_HORAIRES}
+    vide["temperature_2m"] = [None, 12.0, None]
+    b = bloc(0.0, 0.0, **vide)
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="arome", debut=DEBUT, horizon_h=3)
+    assert point.heures[1].temp_c == 12.0
