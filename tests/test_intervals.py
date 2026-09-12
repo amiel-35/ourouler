@@ -16,7 +16,6 @@ import pytest
 
 from ourouler.activites.cache import Cache
 from ourouler.connecteurs.intervals import (
-    SEUIL_TRONCATURE,
     ClientIntervals,
     RapportSynchro,
     metadonnees,
@@ -155,8 +154,12 @@ def test_activites_appelle_le_bon_endpoint():
     c, espion = client(json_fixe([ACTIVITE_1, ACTIVITE_2]))
     activites = c.activites(date(2024, 3, 1), date(2024, 4, 30))
     assert [a["id"] for a in activites] == ["a111", "a222"]
-    assert espion.chemins == [f"/api/v1/athlete/{ATHLETE}/activities"]
-    assert espion.fenetres("activities") == [("2024-03-01", "2024-04-30")]
+    # Deux mois civils demandés, donc deux appels au même endpoint, dédoublonnés.
+    assert espion.chemins == [f"/api/v1/athlete/{ATHLETE}/activities"] * 2
+    assert espion.fenetres("activities") == [
+        ("2024-03-01", "2024-03-31"),
+        ("2024-04-01", "2024-04-30"),
+    ]
 
 
 def test_activites_reponse_vide():
@@ -202,55 +205,105 @@ def test_activites_ignore_les_elements_non_dictionnaires():
     assert [a["id"] for a in c.activites(date(2024, 3, 1), date(2024, 3, 31))] == ["a111"]
 
 
-# --- découpe par mois quand l'API tronque -------------------------------------
+# --- découpe systématique par mois --------------------------------------------
+#
+# Tests qui auraient attrapé D3 : la découpe mensuelle n'avait lieu qu'au-delà
+# de `SEUIL_TRONCATURE = 100` activités dans une réponse, une constante
+# devinée. Si la vraie limite de l'API est plus basse, des sorties manquaient
+# en silence. La découpe est maintenant systématique, et c'est le **nombre de
+# requêtes** qui le mesure — pas le comportement d'un seuil.
 
 
-def test_decoupe_par_mois_si_la_reponse_est_tronquee():
-    """Une réponse pleine sur une fenêtre de plusieurs mois = API qui tronque."""
-    pleine = [
-        {"id": f"p{i}", "start_date_local": f"2024-01-{1 + i % 28:02d}T09:00:00"}
-        for i in range(SEUIL_TRONCATURE)
-    ]
+def un_par_mois(requete: httpx.Request) -> httpx.Response:
+    """Une activité par fenêtre mensuelle, identifiée par le mois demandé."""
+    oldest = requete.url.params.get("oldest")
+    return httpx.Response(
+        200, json=[{"id": f"m{oldest[:7]}", "start_date_local": f"{oldest}T09:00:00"}]
+    )
 
-    def reponses(requete: httpx.Request) -> httpx.Response:
-        oldest = requete.url.params.get("oldest")
-        if oldest == "2024-01-01" and requete.url.params.get("newest") == "2024-03-31":
-            return httpx.Response(200, json=pleine)
-        mois = oldest[:7]
-        return httpx.Response(200, json=[{"id": f"m{mois}", "start_date_local": f"{oldest}T09:00:00"}])
 
-    c, espion = client(reponses)
+def test_une_requete_par_mois_civil_sur_une_fenetre_de_trois_mois():
+    """Trois mois demandés = trois appels, aux bornes des mois civils."""
+    c, espion = client(un_par_mois)
     activites = c.activites(date(2024, 1, 1), date(2024, 3, 31))
-    assert [a["id"] for a in activites] == ["m2024-01", "m2024-02", "m2024-03"]
     assert espion.fenetres("activities") == [
-        ("2024-01-01", "2024-03-31"),
         ("2024-01-01", "2024-01-31"),
         ("2024-02-01", "2024-02-29"),  # 2024 est bissextile
         ("2024-03-01", "2024-03-31"),
     ]
+    assert len(espion.fenetres("activities")) == 3, "ni plus ni moins d'un appel par mois"
+    assert [a["id"] for a in activites] == ["m2024-01", "m2024-02", "m2024-03"]
 
 
-def test_pas_de_decoupe_si_la_fenetre_tient_dans_un_mois():
-    pleine = [{"id": f"p{i}"} for i in range(SEUIL_TRONCATURE)]
-    c, espion = client(json_fixe(pleine))
-    assert len(c.activites(date(2024, 3, 1), date(2024, 3, 31))) == SEUIL_TRONCATURE
-    assert len(espion.fenetres("activities")) == 1
+def test_la_decoupe_ne_depend_pas_de_la_taille_des_reponses():
+    """Une seule activité par mois : la découpe a lieu quand même."""
+    c, espion = client(un_par_mois)
+    c.activites(date(2024, 1, 15), date(2024, 3, 10))
+    assert espion.fenetres("activities") == [
+        ("2024-01-15", "2024-01-31"),  # le premier mois part du jour demandé
+        ("2024-02-01", "2024-02-29"),
+        ("2024-03-01", "2024-03-10"),  # le dernier s'arrête au jour demandé
+    ]
+
+
+@pytest.mark.parametrize(
+    "depuis, jusqua, appels_attendus",
+    [
+        (date(2024, 3, 5), date(2024, 3, 20), 1),  # tient dans un mois
+        (date(2024, 3, 1), date(2024, 3, 31), 1),
+        (date(2024, 3, 31), date(2024, 4, 1), 2),  # deux jours, deux mois civils
+        (date(2024, 1, 1), date(2024, 3, 31), 3),
+        (date(2023, 12, 1), date(2024, 11, 30), 12),
+        (date(2023, 12, 1), date(2025, 12, 31), 25),  # deux ans d'historique
+    ],
+)
+def test_nombre_d_appels_egal_au_nombre_de_mois_civils(
+    depuis: date, jusqua: date, appels_attendus: int
+):
+    c, espion = client(un_par_mois)
+    c.activites(depuis, jusqua)
+    assert len(espion.fenetres("activities")) == appels_attendus
+
+
+def test_le_passage_decembre_janvier_est_correct():
+    c, espion = client(un_par_mois)
+    c.activites(date(2023, 12, 15), date(2024, 1, 15))
+    assert espion.fenetres("activities") == [
+        ("2023-12-15", "2023-12-31"),
+        ("2024-01-01", "2024-01-15"),
+    ]
+
+
+def test_aucun_appel_si_la_fenetre_est_vide():
+    c, espion = client(un_par_mois)
+    assert c.activites(date(2024, 3, 31), date(2024, 3, 1)) == []
+    assert espion.fenetres("activities") == []
 
 
 def test_la_decoupe_dedoublonne_les_activites_a_cheval():
-    """Les fenêtres mensuelles peuvent renvoyer deux fois la même activité."""
-    pleine = [{"id": f"p{i}"} for i in range(SEUIL_TRONCATURE)]
+    """Deux fenêtres mensuelles peuvent renvoyer la même activité : un seul exemplaire."""
     doublon = {"id": "a111", "start_date_local": "2024-02-15T09:00:00"}
-
-    def reponses(requete: httpx.Request) -> httpx.Response:
-        fenetre = (requete.url.params.get("oldest"), requete.url.params.get("newest"))
-        if fenetre == ("2024-01-01", "2024-03-31"):
-            return httpx.Response(200, json=pleine)
-        return httpx.Response(200, json=[doublon])  # le même mois après mois
-
-    c, _ = client(reponses)
+    c, espion = client(json_fixe([doublon]))  # le même mois après mois
     activites = c.activites(date(2024, 1, 1), date(2024, 3, 31))
+    assert len(espion.fenetres("activities")) == 3
     assert [a["id"] for a in activites] == ["a111"]
+
+
+def test_le_dedoublonnage_garde_toutes_les_activites_distinctes():
+    def trois_par_mois(requete: httpx.Request) -> httpx.Response:
+        oldest = requete.url.params.get("oldest")
+        mois = oldest[:7]
+        return httpx.Response(
+            200,
+            json=[
+                {"id": f"{mois}-{k}", "start_date_local": f"{oldest}T0{k}:00:00"} for k in (1, 2, 3)
+            ],
+        )
+
+    c, _ = client(trois_par_mois)
+    activites = c.activites(date(2024, 1, 1), date(2024, 3, 31))
+    assert len(activites) == 9
+    assert len({a["id"] for a in activites}) == 9
 
 
 # --- téléchargement du fichier ------------------------------------------------
@@ -424,7 +477,13 @@ def test_synchroniser_echoue_proprement_sur_un_fichier_illisible(cache: Cache):
 
 
 def test_synchroniser_activite_sans_identifiant(cache: Cache):
-    c, _ = client(json_fixe([{"name": "sans id"}]))
+    def un_seul_mois(requete: httpx.Request) -> httpx.Response:
+        """L'activité sans id n'existe qu'en mars : la découpe mensuelle interroge tous les mois."""
+        if requete.url.params.get("oldest") == "2024-03-01":
+            return httpx.Response(200, json=[{"name": "sans id"}])
+        return httpx.Response(200, json=[])
+
+    c, _ = client(un_seul_mois)
     rapport = synchroniser(c, cache, date(2024, 3, 1))
     assert (rapport.vues, rapport.echecs) == (1, 1)
     assert "sans identifiant" in rapport.messages[0]

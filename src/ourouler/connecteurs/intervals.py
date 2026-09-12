@@ -24,10 +24,6 @@ BASE_URL = "https://intervals.icu"
 #: Délai par défaut d'un appel, en secondes.
 DELAI_S = 30.0
 
-#: Au-delà de ce nombre d'activités dans une réponse, on suppose que l'API a
-#: tronqué et on redemande mois par mois.
-SEUIL_TRONCATURE = 100
-
 #: Extension retenue quand la réponse ne dit rien du format du fichier.
 EXTENSION_DEFAUT = "fit"
 
@@ -71,17 +67,26 @@ class ClientIntervals:
     def activites(self, depuis: date, jusqua: date | None = None) -> list[dict]:
         """Activités de la fenêtre, triées du plus ancien au plus récent.
 
-        Si l'API tronque la réponse (voir `SEUIL_TRONCATURE`), la fenêtre est
-        redemandée mois par mois et les résultats sont dédoublonnés par `id`.
+        La fenêtre est **systématiquement** découpée par mois civil : un appel
+        par mois, quelle que soit la taille des réponses, et dédoublonnage par
+        `id` à l'arrivée (deux fenêtres mensuelles peuvent renvoyer la même
+        activité).
+
+        Il y avait avant une détection de troncature : au-delà de 100
+        activités dans une réponse, on redemandait mois par mois. Ce 100
+        était **deviné** — la limite de l'API n'est pas documentée et le
+        connecteur n'a jamais pu être confronté au vrai service, faute de clé
+        (Q1). Si la vraie limite est plus basse, la troncature passait
+        inaperçue et des sorties manquaient sans un mot. La découpe
+        systématique coûte 25 appels gratuits pour deux ans d'historique et
+        ne dépend d'aucune constante devinée.
         """
         jusqua = jusqua or date.today()
         if jusqua < depuis:
             return []
-        brut = self._activites_fenetre(depuis, jusqua)
-        if len(brut) >= SEUIL_TRONCATURE and _mois_suivant(depuis) <= jusqua:
-            brut = []
-            for debut_mois, fin_mois in _par_mois(depuis, jusqua):
-                brut.extend(self._activites_fenetre(debut_mois, fin_mois))
+        brut: list[dict] = []
+        for debut_mois, fin_mois in _par_mois(depuis, jusqua):
+            brut.extend(self._activites_fenetre(debut_mois, fin_mois))
         return _dedoublonner(brut)
 
     def telecharger_fichier(self, activite_id: str) -> tuple[bytes, str]:
