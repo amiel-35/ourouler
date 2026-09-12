@@ -252,6 +252,55 @@ def test_chaque_troncon_est_rattache_au_point_qui_le_termine(microdegres):
     )
 
 
+#: Un tracé entièrement dans la bande |coordonnée| ≤ 0,001°, à cheval sur
+#: l'équateur **et** sur le méridien de Greenwich. C'est la seule zone où une
+#: conversion microdegrés/degrés décidée valeur par valeur se trompe : 570
+#: microdegrés valent 0,00057°, pas 570 degrés. Contrat §8, « le cap au
+#: passage du méridien 0 » ; point 12 de la relecture du sprint 2.
+BANDE_AMBIGUE = {"depart": (-0.0004, -0.0004), "pas_m": 20.0, "cap_deg": 45.0}
+
+
+@pytest.mark.parametrize("microdegres", [True, False])
+def test_la_bande_d_ambiguite_autour_des_axes_est_lue_dans_la_bonne_unite(microdegres):
+    """Sous 0,001°, une coordonnée de message tient en moins de 1 000 microdegrés.
+
+    Une règle « au-delà de 1 000, c'est des microdegrés » y voit donc des
+    degrés, et le tronçon part s'accrocher au point le plus proche d'une
+    latitude de 570° — c'est-à-dire n'importe lequel, en silence. Les tags,
+    et donc `km_trafic`, deviennent faux sans le moindre message.
+    """
+    module = _module()
+    coords = fabriques.ligne(9, **BANDE_AMBIGUE)
+    assert all(abs(lat) <= 0.001 and abs(lon) <= 0.001 for lat, lon, _ in coords), (
+        "le tracé de ce test doit rester dans la bande d'ambiguïté"
+    )
+    assert any(lat > 0 for lat, _, _ in coords) and any(lat < 0 for lat, _, _ in coords), (
+        "et traverser l'équateur"
+    )
+
+    client, _ = _client(
+        module, _reponse(coords, tags=TAGS_DISTINCTS, pas_messages=2, microdegres=microdegres)
+    )
+    trace, erreur = robuste(
+        lambda: client.itineraire([DEPART, ARRIVEE]),
+        quoi=f"itineraire(bande d'ambiguïté, {'microdegrés' if microdegres else 'degrés'})",
+        erreurs_acceptees=(ErreurUtilisateur,),
+    )
+    if erreur is not None:
+        assert str(erreur).strip(), "une ErreurConnecteur doit expliquer ce qui cloche"
+        return
+
+    fabriques.verifier_trace(trace, quoi="bande d'ambiguïté", distance_max_km=50.0)
+    if not trace.segments:
+        return  # lecture dégradée assumée : pas de segments, pas de mensonge
+    assert [s.tags.get("highway") for s in trace.segments] == [
+        t["highway"] for t in TAGS_DISTINCTS
+    ], "tronçons rattachés dans le désordre : l'unité des coordonnées a été mal lue"
+    assert [s.fin_idx for s in trace.segments] == [2, 4, 6, 8], (
+        f"fins de tronçon aux indices {[s.fin_idx for s in trace.segments]}, attendu [2, 4, 6, 8]"
+    )
+
+
 def test_messages_absents_ne_font_pas_de_segments_imaginaires():
     module = _module()
     coords = fabriques.ligne(4, pas_m=300.0)
