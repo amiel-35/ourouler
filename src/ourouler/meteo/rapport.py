@@ -34,8 +34,11 @@ CONFIANCE_INCONNUE = "inconnu"
 #: Lettre affichée dans la table pour chaque vent relatif.
 LETTRE_VENT = {VENT_FACE: "f", VENT_DOS: "d", VENT_TRAVERS: "t"}
 
-#: Largeur d'une cellule de la table (« 0.0 14f 12°? » tient en 12).
-LARGEUR_CELLULE = 12
+#: Largeur d'une cellule de la table. 12 suffisait pour « 0.0 14f 12°? » mais
+#: pas pour une pluie à deux chiffres : « 12.5 100f -10°? » fait 15 caractères
+#: (pluie 4 + vent 3 + lettre 1 + ressenti 4 + marqueur 1 + 2 espaces), et la
+#: cellule débordait sur la colonne suivante. Mesuré par un test sur le rendu.
+LARGEUR_CELLULE = 15
 #: Largeur de la colonne des noms de direction (« NNE », « ici »).
 LARGEUR_LIBELLE = 5
 

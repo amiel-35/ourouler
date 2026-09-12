@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from ourouler.activites.cache import NOM_BRUT, NOM_INDEX, Cache
+from ourouler.activites.cache import NOM_BRUT, NOM_INDEX, VERSION_SCHEMA, Cache
 from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
 
 
@@ -265,3 +265,44 @@ def test_l_index_est_bien_du_sqlite_standard(cache: Cache, activites: Path):
         assert cx.execute("PRAGMA user_version").fetchone()[0] >= 1
     finally:
         cx.close()
+
+
+# --- version du schéma de l'index --------------------------------------------
+#
+# Dette notée en relecture (C3) : `PRAGMA user_version` était écrit sans jamais
+# être relu. Au schéma 2, un index v1 aurait été relu comme s'il était à jour.
+
+
+def test_l_index_porte_la_version_du_schema(cache: Cache):
+    with sqlite3.connect(cache.index) as cx:
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+
+
+def test_reouvrir_un_index_a_la_bonne_version_marche(cache: Cache, activites: Path):
+    cache.ajouter(
+        octets(activites, "boucle.gpx"), source="fichier", id_externe="x.gpx", extension="gpx", meta={}
+    )
+    rouvert = Cache(cache.dossier)
+    assert len(rouvert.lister()) == 1
+
+
+def test_un_index_d_un_autre_schema_est_refuse_avec_la_marche_a_suivre(cache: Cache):
+    """Un index venu d'une version future : on refuse en disant quoi faire."""
+    with sqlite3.connect(cache.index) as cx:
+        cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA + 1}")
+    with pytest.raises(ErreurUtilisateur) as e:
+        Cache(cache.dossier)
+    message = str(e.value)
+    assert str(VERSION_SCHEMA + 1) in message and str(VERSION_SCHEMA) in message
+    assert "index.sqlite" in message, "le message doit dire quel fichier supprimer"
+    assert "bruts sont conservés" in message
+
+
+def test_un_index_anterieur_au_versionnement_est_tolere(cache: Cache):
+    """`user_version = 0` : index d'avant le versionnement, le schéma se repose."""
+    with sqlite3.connect(cache.index) as cx:
+        cx.execute("PRAGMA user_version = 0")
+    rouvert = Cache(cache.dossier)
+    assert rouvert.lister() == []
+    with sqlite3.connect(rouvert.index) as cx:
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA

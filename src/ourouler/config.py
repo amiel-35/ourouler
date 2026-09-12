@@ -8,7 +8,7 @@ Le reste du cœur reçoit un objet `Config` déjà construit.
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -124,7 +124,7 @@ def charger(chemin: Path | None = None) -> Config:
         raise ErreurConfig(f"{chemin} : TOML invalide ({e})") from e
     config = depuis_dict(brut)
     # Seul endroit où « ~ » est développé : le cœur reçoit un chemin absolu.
-    return _remplacer(config, cache=ParametresCache(config.cache.dossier.expanduser()))
+    return replace(config, cache=ParametresCache(config.cache.dossier.expanduser()))
 
 
 def depuis_dict(d: dict[str, Any]) -> Config:
@@ -251,9 +251,3 @@ def _velo(v: Any, i: int) -> Velo:
         intervals_gear=str(v.get("intervals_gear", "") or ""),
         periodes=tuple(periodes),
     )
-
-
-def _remplacer(config: Config, **champs: Any) -> Config:
-    from dataclasses import replace
-
-    return replace(config, **champs)

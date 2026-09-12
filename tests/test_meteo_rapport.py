@@ -13,11 +13,14 @@ from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
     CONFIANCE_INCONNUE,
+    LARGEUR_CELLULE,
+    LARGEUR_LIBELLE,
     VENT_DOS,
     VENT_FACE,
     VENT_TRAVERS,
     Cellule,
     RapportMeteo,
+    _case,
     confiance,
     construire,
     date_en_francais,
@@ -556,3 +559,56 @@ def test_les_directions_gardent_bien_leur_lettre():
     assert "f" in ligne_nord, ligne_nord  # vent du nord, on part au nord : face
     ligne_sud = ligne_de(rendu, "S ")
     assert "d" in ligne_sud, ligne_sud  # même vent, on part au sud : dos
+
+
+# --- largeur de cellule ------------------------------------------------------
+#
+# Dette notée en relecture (D10) : LARGEUR_CELLULE = 12 suffisait pour
+# « 0.0 14f 12°? » mais pas pour une pluie à deux chiffres, qui décalait la
+# colonne suivante.
+
+
+def rapport_pluvieux(pluie: float, vent_kmh: float, ressenti: float) -> RapportMeteo:
+    """Un rapport dont toutes les cellules portent les valeurs les plus larges."""
+    cellules = []
+    for nom in ("ici", "N", "SO"):
+        for heure in (8, 9):
+            c = cellule(nom, pluie, VENT_FACE, heure=heure)
+            c.vent_kmh = vent_kmh
+            c.ressenti_c = ressenti
+            cellules.append(c)
+    return rapport_de(cellules)
+
+
+@pytest.mark.parametrize(
+    "pluie, vent, ressenti",
+    [
+        (0.0, 14.0, 12.0),  # le cas courant
+        (12.5, 14.0, 12.0),  # la pluie à deux chiffres du rapport de relecture
+        (12.5, 100.0, -10.0),  # le pire réaliste : tout à sa largeur maximale
+    ],
+)
+def test_les_colonnes_restent_alignees(pluie: float, vent: float, ressenti: float):
+    """Toutes les lignes de la table doivent avoir leurs colonnes au même endroit."""
+    rendu = rendre_texte(rapport_pluvieux(pluie, vent, ressenti))
+    lignes_table = [
+        ligne
+        for ligne in rendu.splitlines()
+        if ligne.startswith(("ici", "N ", "SO ")) or ligne.lstrip().startswith("08h")
+    ]
+    assert len(lignes_table) >= 3, rendu
+    # La deuxième colonne commence après le libellé et une cellule entière.
+    debuts = {len(ligne) - len(ligne[LARGEUR_LIBELLE + LARGEUR_CELLULE :]) for ligne in lignes_table}
+    assert len(debuts) == 1, f"colonnes désalignées :\n{rendu}"
+
+
+def test_une_cellule_pluvieuse_tient_dans_la_largeur():
+    """La mesure directe : la cellule la plus large ne doit pas dépasser."""
+    c = cellule("N", 12.5, VENT_FACE)
+    c.vent_kmh = 100.0
+    c.ressenti_c = -10.0
+    c.confiance = CONFIANCE_DESACCORD
+    case = _case(c)
+    assert len(case) <= LARGEUR_CELLULE, f"« {case} » fait {len(case)} > {LARGEUR_CELLULE}"
+    assert "12.5" in case, "la pluie doit rester lisible en entier"
+    assert case.endswith("?")

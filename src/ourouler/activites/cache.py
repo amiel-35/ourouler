@@ -89,9 +89,35 @@ class Cache:
         except OSError as e:
             raise ErreurUtilisateur(f"cache : dossier {self.dossier} inutilisable ({e})") from e
         self.echecs: list[str] = []
+        index_existant = self.index.is_file()
         with self._connexion() as cx:
+            if index_existant:
+                self._verifier_version(cx)
             cx.executescript(_SCHEMA)
             cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
+
+    def _verifier_version(self, cx: sqlite3.Connection) -> None:
+        """Refuse d'ouvrir un index d'un schéma plus ancien ou plus récent.
+
+        `PRAGMA user_version` était écrit sans jamais être relu : au schéma 2,
+        un index v1 aurait été relu comme s'il était à jour, avec des colonnes
+        manquantes et des lectures fausses. Le cache est reconstructible
+        (fichiers bruts + réimport), donc le message dit quoi faire plutôt que
+        de tenter une migration qui n'existe pas encore.
+        """
+        version = cx.execute("PRAGMA user_version").fetchone()[0]
+        if version == VERSION_SCHEMA:
+            return
+        if version == 0:
+            # Index antérieur au versionnement, ou base tout juste créée par
+            # une connexion précédente : le schéma est posé en `CREATE IF NOT
+            # EXISTS`, laisser faire.
+            return
+        raise ErreurUtilisateur(
+            f"cache : index {self.index} au schéma {version}, attendu {VERSION_SCHEMA} "
+            "— supprimer le fichier index.sqlite le reconstruira (les fichiers "
+            "bruts sont conservés)"
+        )
 
     # --- écriture -------------------------------------------------------------
 
