@@ -17,7 +17,12 @@ from pathlib import Path
 import gpxpy
 import gpxpy.gpx
 
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.boucle.trace import (
+    DENIVELE_GPX_RELU,
+    PointTrace,
+    Trace,
+    distance_m,
+)
 from ourouler.erreurs import ErreurLecture
 
 Entree = Path | str | bytes | bytearray
@@ -48,13 +53,25 @@ def ecrire_gpx(trace: Trace, nom: str) -> str:
 
 
 def description(trace: Trace) -> str:
-    """« 60,3 km · D+ 412 m · 2 h 14 estimées » — ce que le moteur a dit du tracé."""
+    """« 60,3 km · D+ 412 m (moteur) · 2 h 14 estimées » — ce qu'on sait du tracé.
+
+    Le D+ porte sa provenance : sans elle, relire avec `--gpx` le fichier
+    qu'on vient d'écrire affichait un dénivelé différent de celui inscrit
+    dans le `<desc>`, sans qu'on puisse comprendre pourquoi (point 5 de la
+    relecture du sprint 2).
+    """
     morceaux = [f"{trace.distance_m / 1000:.1f} km".replace(".", ",")]
     if trace.denivele_m is not None:
-        morceaux.append(f"D+ {trace.denivele_m:.0f} m")
+        morceaux.append(f"D+ {trace.denivele_m:.0f} m{_provenance(trace)}")
     if trace.temps_moteur_s is not None:
         morceaux.append(f"{_duree(trace.temps_moteur_s)} estimées")
     return " · ".join(morceaux)
+
+
+def _provenance(trace: Trace) -> str:
+    """« (moteur) », « (gpx relu) », ou rien si la provenance n'a pas été notée."""
+    source = trace.meta.get("denivele_source")
+    return f" ({source})" if source else ""
 
 
 def _duree(secondes: float) -> str:
@@ -100,14 +117,22 @@ def lire_gpx_trace(chemin_ou_bytes: Entree) -> Trace:
     if not points:
         raise ErreurLecture(f"{fichier or '<octets>'} : GPX sans point de tracé")
 
+    denivele = _denivele(points)
     return Trace(
         nom=nom or (Path(fichier).stem if fichier else "Trace importée"),
         points=points,
         segments=[],  # un GPX ne porte pas les tags OSM du moteur
         distance_m=cumul,
-        denivele_m=_denivele(points),
+        denivele_m=denivele,
         temps_moteur_s=None,  # aucun moteur n'a estimé ce tracé
-        meta={"source": "gpx", "fichier": fichier or "", "couts_partiels": True},
+        meta={
+            "source": "gpx",
+            "fichier": fichier or "",
+            "couts_partiels": True,
+            # Recalculé sur les altitudes du fichier, pas repris d'un moteur :
+            # les deux chiffres diffèrent, la colonne doit dire lequel.
+            "denivele_source": DENIVELE_GPX_RELU if denivele is not None else None,
+        },
     )
 
 

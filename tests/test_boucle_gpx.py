@@ -108,6 +108,30 @@ def test_la_description_omet_ce_que_le_moteur_n_a_pas_dit():
     assert description(trace) == "2,2 km"
 
 
+def test_la_description_dit_d_ou_vient_le_denivele():
+    """Point 5 de la relecture : le `<desc>` portait le D+ du moteur sans le dire.
+
+    Relire avec `--gpx` le fichier qu'on vient d'écrire donne un autre
+    chiffre (recalculé sur les altitudes) : sans la provenance des deux
+    côtés, l'écart est un mystère.
+    """
+    trace = trace_brouter()
+    assert trace.meta["denivele_source"] == "moteur"
+    assert "(moteur)" in description(trace)
+
+    relue = lire_gpx_trace(ecrire_gpx(trace, trace.nom).encode("utf-8"))
+    assert relue.meta["denivele_source"] == "gpx relu"
+    assert "(gpx relu)" in description(relue)
+
+
+def test_la_provenance_du_denivele_est_absente_quand_le_denivele_l_est():
+    trace = trace_simple(altitudes=False)
+    relue = lire_gpx_trace(ecrire_gpx(trace, "Sans altitude").encode("utf-8"))
+    assert relue.denivele_m is None
+    assert relue.meta["denivele_source"] is None
+    assert "D+" not in description(relue)
+
+
 def test_les_altitudes_sont_ecrites_quand_elles_existent():
     racine = balises(ecrire_gpx(trace_simple(), "Essai"))
     assert [n.text for n in racine.iter() if sans_espace(n.tag) == "ele"] == [

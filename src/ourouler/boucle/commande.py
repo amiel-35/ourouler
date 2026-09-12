@@ -396,7 +396,7 @@ def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[
     cellules = [
         str(evaluation.numero),
         f"{_fr(evaluation.trace.distance_m / 1000, 1)} km",
-        f"{evaluation.trace.denivele_m:.0f} m" if evaluation.trace.denivele_m is not None else ABSENT,
+        _denivele(evaluation.trace),
         _duree(evaluation.trace.distance_m / 1000, config.boucle.vitesse_moyenne_kmh),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
         ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
@@ -410,6 +410,20 @@ def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[
             f"{_fr(meteo.ressenti_min_c, 1)} °C" if meteo and meteo.ressenti_min_c is not None else ABSENT,
         ]
     return cellules
+
+
+def _denivele(trace: Trace) -> str:
+    """« 362 m (moteur) » ou « 362 m (gpx relu) » — le D+ dit d'où il vient.
+
+    Le « filtered ascend » du moteur et le D+ recalculé à la relecture d'un
+    GPX divergent de 10 à 32 % sur les tracés mesurés, dans les deux sens :
+    afficher le chiffre sans sa provenance rendait l'écart incompréhensible
+    (point 5 de la relecture du sprint 2).
+    """
+    if trace.denivele_m is None:
+        return ABSENT
+    source = trace.meta.get("denivele_source")
+    return f"{trace.denivele_m:.0f} m" + (f" ({source})" if source else "")
 
 
 def _duree(distance_km: float, vitesse_kmh: float) -> str:
@@ -466,6 +480,7 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "nom": trace.nom,
         "distance_km": round(distance_km, 3),
         "denivele_m": trace.denivele_m,
+        "denivele_source": trace.meta.get("denivele_source"),
         "temps_estime_s": round(distance_km / config.boucle.vitesse_moyenne_kmh * 3600),
         "azimut_deg": evaluation.azimut_deg,
         "rayon_m": evaluation.rayon_m,

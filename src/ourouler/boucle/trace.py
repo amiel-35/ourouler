@@ -15,6 +15,14 @@ RAYON_TERRE_M = 6_371_000.0
 #: Distance sous laquelle premier et dernier point font une boucle fermée.
 FERMETURE_M = 300.0
 
+#: Provenances de `Trace.denivele_m`, rangées dans `meta["denivele_source"]`.
+#: Le « filtered ascend » du moteur et le D+ recalculé à la relecture d'un GPX
+#: divergent de 10 à 32 % sur les tracés mesurés, dans les deux sens : afficher
+#: un chiffre sans dire d'où il vient laisse l'écart inexplicable (règle
+#: absolue 5, un désaccord s'affiche comme un désaccord).
+DENIVELE_MOTEUR = "moteur"
+DENIVELE_GPX_RELU = "gpx relu"
+
 
 @dataclass(frozen=True)
 class PointTrace:

@@ -346,6 +346,38 @@ def test_gpx_importe_affiche_des_couts_partiels(tmp_path: Path, monkeypatch, cap
     assert charge["candidates"][0]["meteo"] is not None
 
 
+def test_la_colonne_d_plus_dit_d_ou_vient_le_chiffre(tmp_path: Path, monkeypatch, capsys):
+    """Point 5 de la relecture : « D+ 362 m » ne disait pas moteur ou GPX relu.
+
+    Les deux divergent de 10 à 32 % sur les tracés mesurés, dans les deux
+    sens. Sans la provenance, `--gpx` sur le fichier qu'on vient d'écrire
+    affiche un autre chiffre que celui inscrit dedans, sans explication.
+    """
+    monkeypatch.chdir(tmp_path)
+    executer(args(candidates=1), config_de_test(), moteur_brouter(), moteur_meteo())
+    (ligne,) = lignes_du_tableau(capsys.readouterr().out)
+    assert "m (moteur)" in ligne, ligne
+
+    chemin = gpx_de_test(tmp_path)
+    executer(args(gpx=str(chemin)), config_de_test(), moteur_brouter(), moteur_meteo())
+    (ligne,) = lignes_du_tableau(capsys.readouterr().out)
+    assert "m (gpx relu)" in ligne, ligne
+
+
+def test_la_provenance_du_denivele_est_dans_le_json(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(args(candidates=1, json=True), config_de_test(), moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["candidates"][0]["denivele_source"] == "moteur"
+
+    chemin = gpx_de_test(tmp_path)
+    executer(
+        args(gpx=str(chemin), json=True), config_de_test(), moteur_brouter(), moteur_meteo()
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["candidates"][0]["denivele_source"] == "gpx relu"
+
+
 def test_gpx_importe_n_appelle_pas_brouter(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     chemin = gpx_de_test(tmp_path)

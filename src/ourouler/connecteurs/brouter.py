@@ -24,7 +24,7 @@ from typing import Any
 
 import httpx
 
-from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
+from ourouler.boucle.trace import DENIVELE_MOTEUR, PointTrace, Segment, Trace, distance_m
 from ourouler.config import ParametresBrouter
 from ourouler.erreurs import ErreurConnecteur
 
@@ -227,6 +227,7 @@ def _trace(charge: Any, *, nom: str, profil: str, url: str) -> Trace:
     segments = _segments(points, proprietes.get("messages"), ignores)
     cumul = points[-1].dist_m
     distance = _nombre(proprietes.get("track-length"))
+    denivele = _nombre(proprietes.get("filtered ascend"))
     meta: dict = {
         "moteur": "brouter",
         "profil": profil,
@@ -234,6 +235,9 @@ def _trace(charge: Any, *, nom: str, profil: str, url: str) -> Trace:
         "cout": _nombre(proprietes.get("cost")),
         "distance_cumulee_m": round(cumul, 1),
         "messages_ignores": len(ignores),
+        # Le D+ vient du « filtered ascend » du moteur, pas d'un recalcul sur
+        # les altitudes : les deux divergent, et la colonne doit le dire.
+        "denivele_source": DENIVELE_MOTEUR if denivele is not None else None,
     }
     if ignores:
         # Une ligne de message illisible ne doit pas faire perdre tout
@@ -244,7 +248,7 @@ def _trace(charge: Any, *, nom: str, profil: str, url: str) -> Trace:
         points=points,
         segments=segments,
         distance_m=distance if distance is not None else cumul,
-        denivele_m=_nombre(proprietes.get("filtered ascend")),
+        denivele_m=denivele,
         temps_moteur_s=_nombre(proprietes.get("total-time")),
         meta=meta,
     )
