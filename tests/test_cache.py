@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -195,6 +197,48 @@ def test_indexer_dossier_deux_fois_n_ajoute_rien(cache: Cache, activites: Path):
     assert cache.indexer_dossier(activites) == 8
     assert cache.indexer_dossier(activites) == 0
     assert len(cache.lister()) == 8
+
+
+def test_indexer_dossier_compte_un_fichier_illisible_sans_trace(
+    cache: Cache, activites: Path, tmp_path: Path
+):
+    """Test qui aurait attrapé C1 : `read_bytes()` était hors du `try`.
+
+    Un fichier sans droit de lecture levait une `PermissionError` nue — pas
+    une `ErreurUtilisateur` — qui sortait en trace avec le code 1, contre le
+    docstring de `indexer_dossier`.
+    """
+    if os.geteuid() == 0:  # pragma: no cover - root lit tout, le test n'a pas de sens
+        pytest.skip("root peut lire un fichier en mode 000")
+    dossier = tmp_path / "a_importer"
+    dossier.mkdir()
+    shutil.copy(activites / "boucle.gpx", dossier / "lisible.gpx")
+    interdit = dossier / "interdit.gpx"
+    shutil.copy(activites / "boucle.gpx", interdit)
+    interdit.chmod(0o000)
+    try:
+        assert not os.access(interdit, os.R_OK), "le fichier doit vraiment être illisible"
+        ajoutes = cache.indexer_dossier(dossier)
+    finally:
+        interdit.chmod(0o600)  # sinon tmp_path n'est pas nettoyable
+    assert ajoutes == 1, "le fichier lisible est importé malgré le voisin illisible"
+    assert len(cache.echecs) == 1
+    assert cache.echecs[0].startswith("interdit.gpx : "), cache.echecs
+    assert "<octets>" not in cache.echecs[0]
+
+
+def test_indexer_dossier_compte_un_fichier_disparu_sans_trace(
+    cache: Cache, activites: Path, tmp_path: Path
+):
+    """Même famille : un lien symbolique cassé est une `OSError`, pas une trace."""
+    dossier = tmp_path / "liens"
+    dossier.mkdir()
+    shutil.copy(activites / "boucle.gpx", dossier / "lisible.gpx")
+    (dossier / "casse.gpx").symlink_to(tmp_path / "nulle_part.gpx")
+    ajoutes = cache.indexer_dossier(dossier)
+    assert ajoutes == 1
+    # `is_file()` est faux sur un lien cassé : il est ignoré avant la lecture.
+    assert len(cache.echecs) == 0
 
 
 def test_indexer_dossier_absent(cache: Cache, tmp_path: Path):

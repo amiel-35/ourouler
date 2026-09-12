@@ -134,7 +134,12 @@ class Cache:
         """Importe tous les .fit/.gpx/.tcx d'un dossier. Renvoie le nombre ajoutés.
 
         Les fichiers illisibles sont comptés dans `self.echecs` et ignorés :
-        un seul fichier abîmé ne doit pas faire échouer tout un import.
+        un seul fichier abîmé ne doit pas faire échouer tout un import. Cela
+        vaut pour le **contenu** illisible comme pour le **fichier** illisible
+        (droits, lien cassé, disparu entre le parcours et la lecture) : la
+        lecture des octets est donc dans le `try`, et `OSError` compté comme
+        une `ErreurLecture`. Jamais de trace : un import n'a pas à se
+        terminer en code 1 parce qu'un fichier du dossier est en mode 000.
         """
         dossier = Path(dossier)
         if not dossier.is_dir():
@@ -144,11 +149,11 @@ class Cache:
         for chemin in sorted(dossier.rglob("*")):
             if not chemin.is_file() or chemin.suffix.lower().lstrip(".") not in EXTENSIONS:
                 continue
-            contenu = chemin.read_bytes()
-            identifiant = hashlib.sha256(contenu).hexdigest()
-            if self.contient_identifiant(identifiant):
-                continue
             try:
+                contenu = chemin.read_bytes()
+                identifiant = hashlib.sha256(contenu).hexdigest()
+                if self.contient_identifiant(identifiant):
+                    continue
                 self.ajouter(
                     contenu,
                     source="fichier",
@@ -156,7 +161,7 @@ class Cache:
                     extension=chemin.suffix,
                     meta={"fichier": chemin.name},
                 )
-            except (ErreurLecture, ErreurUtilisateur) as e:
+            except (ErreurLecture, ErreurUtilisateur, OSError) as e:
                 # Le lecteur a reçu des octets : il ne connaît pas le nom du
                 # fichier, on le remplace par celui qu'on a sous la main.
                 self.echecs.append(f"{chemin.name} : {str(e).removeprefix('<octets> : ')}")
