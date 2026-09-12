@@ -4,7 +4,7 @@ Les agents ne tranchent aucune de ces questions ; ils avancent sur ce qui
 n'en dépend pas. Répondre ici ou en session ; la réponse est reportée dans
 la doctrine ou la configuration, puis la question est marquée close.
 
-## Q1 — Clé d'API Intervals.icu (bloque la vérification réelle de L1.4)
+## Q1 — Clé d'API Intervals.icu — **close le 12/09/2026** (clé posée dans la config locale)
 
 Aucune clé n'existe sur le Mac : le MCP Intervals est un proxy hébergé
 (IcuSync), pas la clé. Il faut la clé personnelle d'Intervals.icu
@@ -26,6 +26,15 @@ novembre 2024 sur la grande majorité des sorties. Il faut :
   réponse : toute sortie extérieure sans équipement = vélo de route
   principal, sur toute la période.
 
+**Réponse d'Amiel (12/09/2026)** : deux vélos. **RCR** (SRAM Rival, capteur
+d'un seul côté → puissance symétrique, valeurs paires) = **route** ; **BMC**
+(SRAM Force, capteur dans chaque manivelle) = **CLM**. Distinguer par le
+capteur plutôt que par Intervals. Piste retenue : lire dans le FIT les
+messages `device_info` (fabricant/produit du capteur) et la présence du
+champ d'équilibre gauche/droite (bilatéral = Force = BMC) ; parité de la
+puissance en repli. Lot « rattachement par capteur » au sprint 2, à valider
+sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
+
 ## Q3 — Point de départ et règles de tenue / de séance
 
 - Coordonnées du point de départ habituel (dans le fichier de configuration,
@@ -36,7 +45,7 @@ novembre 2024 sur la grande majorité des sorties. Il faut :
 - Règles de séance : que veut dire « un bloc tient sur un terrain » (pente
   max, longueur minimale sans carrefour, etc.) — S4.
 
-## Q4 — Moteur de tracé et lieu d'installation (bloque le sprint 2)
+## Q4 — Moteur de tracé — **close le 12/09/2026** : BRouter sur Coolify (pas sur le Mac, pour pouvoir partager)
 
 BRouter auto-hébergé (Java absent sur le Mac ; Docker présent ; ou sur le
 serveur Coolify/Hetzner) ou GraphHopper API (clé, gratuit à petit volume) ?
@@ -48,6 +57,13 @@ Le jeton `~/.config/ha/garmin-token` est un jeton Home Assistant pour
 l'utilisateur HA « garmin » (chantier Connect IQ), pas un accès Garmin
 Connect. Comment veut-on pousser un parcours : identifiants Garmin Connect
 (bibliothèque non officielle type `garth`), export manuel du GPX, ou via HA ?
+
+**Réponse (12/09/2026)** : pas d'API Garmin Connect pour un particulier,
+confirmé. Décision : **le GPX généré suffit** (import manuel dans Garmin
+Connect). La synchronisation Intervals → Garmin ne pousse aujourd'hui que
+les séances structurées, pas les parcours (doc et forum Intervals.icu) ; à
+revérifier plus tard. Bibliothèque non officielle : seulement avec accord
+explicite, plus tard.
 
 ## Q6 — Nom du projet, visibilité du dépôt, et purge avant publication
 
