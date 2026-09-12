@@ -15,7 +15,6 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
-from conftest import _generateur
 
 from ourouler.activites.lecture import lire_fit
 from ourouler.erreurs import ErreurLecture
@@ -23,6 +22,22 @@ from ourouler.meteo.couronne import distance_haversine_km
 
 SOURCES = Path(__file__).resolve().parents[1] / "src" / "ourouler"
 TESTS = Path(__file__).resolve().parent
+
+
+def _generateur():
+    """Charge `tests/fixtures/generer_activites.py` par chemin (deux conftest.py
+    coexistent dans tests/, on n'importe donc pas `conftest`)."""
+    import importlib.util
+    import sys
+
+    if "generer_activites" in sys.modules:
+        return sys.modules["generer_activites"]
+    chemin = TESTS / "fixtures" / "generer_activites.py"
+    spec = importlib.util.spec_from_file_location("generer_activites", chemin)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["generer_activites"] = module
+    spec.loader.exec_module(module)
+    return module
 
 #: Modules autorisés à lire l'environnement d'exécution.
 AUTORISES = {"cli.py", "config.py"}
