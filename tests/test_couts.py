@@ -101,6 +101,36 @@ def test_le_changement_de_cap_passe_le_nord_sans_inventer_de_demi_tour():
     assert (couts.virages_gauche, couts.virages_droite) == (0, 0)
 
 
+def test_un_demi_tour_exact_n_est_compte_ni_a_gauche_ni_a_droite():
+    """Point 6 de la relecture : un aller-retour était compté comme un tourne-à-gauche.
+
+    Mesuré : `_ecart_cap(0°, 180°)` rend −180, parce que
+    `(vers − depuis + 180) % 360 − 180` couvre [−180, 180). Chaque demi-tour
+    d'un tracé coûtait donc 0,3 de score (1,3 sur une route à trafic) pour un
+    virage qu'il ne fait pas : on repart d'où l'on vient, le signe n'a aucun
+    sens géométrique.
+    """
+    aller_retour = evaluer(trace_de_caps([0, 0, 180, 180]))
+    assert (aller_retour.virages_gauche, aller_retour.virages_droite) == (0, 0)
+    assert aller_retour.virages_gauche_trafic == 0
+
+    # Et dans l'autre sens de parcours, même réponse : le signe n'entre pas en jeu.
+    retour_aller = evaluer(trace_de_caps([180, 180, 0, 0]))
+    assert (retour_aller.virages_gauche, retour_aller.virages_droite) == (0, 0)
+
+    # Un virage franc mais qui n'est pas un demi-tour reste compté, lui.
+    assert evaluer(trace_de_caps([0, 0, 170, 170])).virages_droite == 1
+    assert evaluer(trace_de_caps([0, 0, 190, 190])).virages_gauche == 1
+
+
+def test_un_demi_tour_ne_coute_rien_au_score():
+    """Corollaire : le score d'un aller-retour ne porte pas de pénalité de virage."""
+    couts = evaluer(trace_de_caps([0, 0, 180, 180]))
+    assert couts.score == pytest.approx(PENALITE_MAUVAIS_SENS), (
+        "seul le sens indéterminé doit peser, pas un tourne-à-gauche imaginaire"
+    )
+
+
 def test_un_virage_a_gauche_est_detecte_a_cheval_sur_le_nord():
     """Cap 10° → 300° : −70°, donc à gauche, malgré un écart brut de +290°."""
     couts = evaluer(trace_de_caps([10, 10, 300, 300]))

@@ -80,6 +80,12 @@ ANGLE_VIRAGE_DEG = 45.0
 #: une courbe : les 45° doivent être pris en moins de 60 m.
 LONGUEUR_VIRAGE_M = 60.0
 
+#: Tolérance de flottant autour du demi-tour exact. Un changement de cap de
+#: 180° n'est ni à gauche ni à droite : on repart d'où l'on vient, le signe
+#: n'a pas de sens géométrique. Compter un aller-retour comme un
+#: tourne-à-gauche le pénalisait pour un virage qu'il ne fait pas.
+EPSILON_DEMI_TOUR_DEG = 1e-6
+
 SENS_INDETERMINE = "indetermine"
 
 
@@ -199,6 +205,9 @@ def _virages(trace: Trace, segments: Sequence[Segment]) -> tuple[int, int, int]:
     `ESPACEMENT_CAP_M` : sans ce sous-échantillonnage, deux points GPS
     consécutifs à 2 m l'un de l'autre donnent un cap dominé par le bruit et
     une boucle bien lisse se retrouve pleine de « virages ».
+
+    Un demi-tour exact (±180°) n'est compté d'aucun côté : voir
+    `EPSILON_DEMI_TOUR_DEG`.
     """
     indices = _indices_espaces(trace.points, ESPACEMENT_CAP_M)
     if len(indices) < 3:
@@ -214,6 +223,11 @@ def _virages(trace: Trace, segments: Sequence[Segment]) -> tuple[int, int, int]:
         j, cumul = _accumuler(caps, noeuds, i)
         if cumul is None:
             i += 1
+            continue
+        if abs(cumul) >= 180.0 - EPSILON_DEMI_TOUR_DEG:
+            # Demi-tour : ni à gauche, ni à droite. Le virage est quand même
+            # consommé, sinon il serait réexaminé au décalage suivant.
+            i = j + 1
             continue
         if cumul <= -ANGLE_VIRAGE_DEG:
             gauche += 1
@@ -254,13 +268,15 @@ def _accumuler(
 
 
 def _ecart_cap(depuis: float, vers: float) -> float:
-    """Changement de cap signé, ramené dans (−180, 180] : négatif = à gauche.
+    """Changement de cap signé, ramené dans [−180, 180) : négatif = à gauche.
 
     Le modulo est ce qui fait que passer du cap 350° au cap 10° est un petit
     virage **à droite** (+20°) et non un demi-tour à gauche (−340°). Le cas
     se présente à chaque passage par le nord, donc sur toute boucle.
-    Un demi-tour exact (180°) est compté à droite, faute de mieux : le signe
-    n'y a pas de sens géométrique.
+
+    L'intervalle est fermé à gauche : un demi-tour exact rend −180, jamais
+    +180. C'est sans conséquence, parce que `_virages` ne compte un demi-tour
+    d'aucun côté — le signe n'y a pas de sens géométrique.
     """
     return (vers - depuis + 180.0) % 360.0 - 180.0
 
