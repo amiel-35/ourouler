@@ -41,8 +41,39 @@ def construire_parseur() -> argparse.ArgumentParser:
 # --- sous-commandes -----------------------------------------------------------
 
 
+def parent_json() -> argparse.ArgumentParser:
+    """Parseur parent qui rend `--json` acceptable **après** la sous-commande.
+
+    Le contrat de sprint écrit `ourouler meteo [...] [--json]`, mais l'option
+    n'existait qu'en global : `ourouler meteo --json` répondait
+    « unrecognized arguments », et la seule forme qui marchait
+    (`ourouler --json meteo`) n'était écrite nulle part.
+
+    Deux précautions :
+    - `add_help=False`, sinon le parent redéclare `-h` et argparse refuse ;
+    - `default=argparse.SUPPRESS`, sinon le sous-parseur écrirait
+      `json=False` par-dessus la valeur posée par l'option globale et
+      casserait `ourouler --json meteo`. Avec SUPPRESS, l'attribut n'est
+      touché que si l'option est vraiment passée.
+
+    Le `dest` reste `json` des deux côtés : les commandes lisent un seul champ.
+    """
+    parent = argparse.ArgumentParser(add_help=False)
+    parent.add_argument(
+        "--json",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="sortie JSON au lieu du texte (accepté avant ou après la sous-commande)",
+    )
+    return parent
+
+
 def ajouter_config(sous: argparse._SubParsersAction) -> None:
-    p = sous.add_parser("config", help="vérifie et affiche la configuration chargée")
+    p = sous.add_parser(
+        "config",
+        help="vérifie et affiche la configuration chargée",
+        parents=[parent_json()],
+    )
     p.set_defaults(fonction=_commande_config)
 
 
@@ -72,7 +103,11 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
 
 
 def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
-    p = sous.add_parser("inventaire", help="inventaire des sorties par vélo et par mois")
+    p = sous.add_parser(
+        "inventaire",
+        help="inventaire des sorties par vélo et par mois",
+        parents=[parent_json()],
+    )
     p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
     p.add_argument("--importer", type=Path, metavar="DOSSIER", help="indexe les FIT/GPX/TCX d'un dossier")
     p.add_argument("--synchroniser", action="store_true", help="rapatrie les activités Intervals.icu")
@@ -86,7 +121,11 @@ def _commande_inventaire(args: argparse.Namespace, config: Config) -> int:
 
 
 def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
-    p = sous.add_parser("meteo", help="pluie, vent et ressenti par direction et par heure")
+    p = sous.add_parser(
+        "meteo",
+        help="pluie, vent et ressenti par direction et par heure",
+        parents=[parent_json()],
+    )
     p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
     p.add_argument("--horizon", type=int, help="nombre d'heures (défaut : config)")
     p.add_argument("--distance", type=float, help="n'afficher qu'une couronne (km)")
