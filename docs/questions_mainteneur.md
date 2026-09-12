@@ -100,6 +100,16 @@ sorties, kilométrage, noms d'équipement Intervals. Le code, les tests et
 `config.example.toml` n'en contiennent aucun. Décider : anonymiser ces
 documents, ou déplacer les chiffres dans un fichier ignoré par git.
 
+**Aggravé au sprint 2 (relecture, point 1)** : le contrat du sprint 2 et ce
+fichier citent les deux numéros de capteur et quatre identifiants
+d'équipement Intervals ; et le nom réel du capteur a transité par
+`config.py`, un test et `config.example.toml` avant purge, donc **il reste
+dans l'historique git** de `sprint-2` (commits non encore sur `main`).
+Avant tout passage en public : soit réécrire/écraser l'historique de la
+branche (squash de la PR du sprint 2 suffit pour les commits concernés),
+soit repartir d'un dépôt neuf avec un seul commit initial, ce qui est le
+plus simple et le plus sûr. Tant que le dépôt est privé, aucune urgence.
+
 ## Q7 — Ordre des règles de rattachement vélo — **close le 13/09/2026**
 
 Le contrat place la règle « période d'un vélo » avant la règle
