@@ -514,3 +514,45 @@ def test_rendu_json_serialisable():
 
     n = 9
     json.dumps(rendre_json(rapport_simple([[0.0, 0.0]] * n)), ensure_ascii=False)
+
+
+# --- la ligne « ici » n'a pas de vent relatif -------------------------------
+#
+# Test qui aurait attrapé D8 : le point de départ est créé avec un azimut de
+# 0°, donc son vent relatif était calculé comme si l'on partait plein nord.
+# La table affichait « ici 0.0 16f 23° », ce « f » laissant croire à un vent
+# de face sur place.
+
+
+def ligne_de(rendu: str, libelle: str) -> str:
+    lignes = [ligne for ligne in rendu.splitlines() if ligne.startswith(libelle)]
+    assert len(lignes) == 1, f"ligne « {libelle} » introuvable ou dupliquée dans :\n{rendu}"
+    return lignes[0]
+
+
+@pytest.mark.parametrize("vent_depuis", [0.0, 45.0, 90.0, 180.0, 225.0, 315.0])
+def test_la_ligne_ici_n_affiche_aucune_lettre_de_vent_relatif(vent_depuis: float):
+    """Quel que soit le vent, « ici » ne dit ni face, ni dos, ni travers."""
+    n = len(couronne(DEPART, 8, (15.0,)))
+    rendu = rendre_texte(rapport_simple([[0.0, 0.0]] * n, vents_depuis=[vent_depuis] * n))
+    ligne_ici = ligne_de(rendu, "ici")
+    assert "f" not in ligne_ici and "d" not in ligne_ici and "t" not in ligne_ici, ligne_ici
+
+
+def test_la_ligne_ici_garde_la_vitesse_du_vent_et_le_ressenti():
+    """On enlève la lettre, pas l'information : la vitesse reste utile sur place."""
+    n = len(couronne(DEPART, 8, (15.0,)))
+    rendu = rendre_texte(rapport_simple([[0.0, 0.0]] * n, vents_depuis=[0.0] * n))
+    ligne_ici = ligne_de(rendu, "ici")
+    assert "14" in ligne_ici, ligne_ici  # la vitesse de vent des fixtures
+    assert "°" in ligne_ici, ligne_ici  # le ressenti
+
+
+def test_les_directions_gardent_bien_leur_lettre():
+    """Le correctif ne doit pas vider la table de son information utile."""
+    n = len(couronne(DEPART, 8, (15.0,)))
+    rendu = rendre_texte(rapport_simple([[0.0, 0.0]] * n, vents_depuis=[0.0] * n))
+    ligne_nord = ligne_de(rendu, "N ")
+    assert "f" in ligne_nord, ligne_nord  # vent du nord, on part au nord : face
+    ligne_sud = ligne_de(rendu, "S ")
+    assert "d" in ligne_sud, ligne_sud  # même vent, on part au sud : dos

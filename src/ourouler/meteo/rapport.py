@@ -314,12 +314,21 @@ def _ligne_direction(rapport: RapportMeteo, distance: float, nom: str, heures: S
 
 
 def _case(cellule: Cellule | None) -> str:
-    """La cellule compacte : « 0.0 14f 12° », suivie de « ? » en cas de désaccord."""
+    """La cellule compacte : « 0.0 14f 12° », suivie de « ? » en cas de désaccord.
+
+    Pas de lettre f/d/t sur la ligne « ici » : le point de départ n'est pas
+    une direction, il est créé avec un azimut de 0° et son vent relatif
+    était donc calculé comme si l'on partait plein nord. La table affichait
+    « ici 0.0 16f 23° », ce « f » laissant croire à un vent de face sur
+    place. `meilleure_direction` excluait déjà « ici », le rendu non.
+    """
     if cellule is None:
         return "-"
     pluie = f"{cellule.pluie_mm:.1f}" if cellule.pluie_mm is not None else "-"
     if cellule.vent_kmh is None:
         vent = "-"
+    elif cellule.direction == NOM_ICI:
+        vent = f"{cellule.vent_kmh:.0f}"
     else:
         vent = f"{cellule.vent_kmh:.0f}{LETTRE_VENT.get(cellule.vent_relatif or '', '')}"
     ressenti = f"{cellule.ressenti_c:.0f}°" if cellule.ressenti_c is not None else "-"
