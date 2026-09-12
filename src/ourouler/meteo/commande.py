@@ -12,14 +12,15 @@ import json
 import sys
 from datetime import datetime
 
-from ourouler.config import Config
+from ourouler.config import HORIZON_MAX_H, Config
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.couronne import couronne
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import construire, rendre_json, rendre_texte
 
-#: Horizon maximal accepté : au-delà, AROME HD n'a plus rien à dire.
-HORIZON_MAX_H = 48
+#: Horizon maximal accepté : au-delà, AROME HD n'a plus rien à dire. Défini
+#: dans `config`, qui valide `[meteo] horizon_h` au chargement ; importé ici
+#: pour que `--horizon` applique exactement la même borne.
 
 
 def executer(args: argparse.Namespace, config: Config, client: ClientOpenMeteo | None = None) -> int:

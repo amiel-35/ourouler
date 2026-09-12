@@ -19,6 +19,14 @@ CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
 USAGES_VELO = ("route", "clm")
 
+#: Nombres de directions acceptés pour la couronne. Défini ici, et non dans
+#: `meteo.couronne`, pour que la validation ait lieu au chargement : c'est ce
+#: module qui doit nommer le champ fautif. `couronne.py` le réimporte.
+DIRECTIONS_ACCEPTEES = (8, 16)
+
+#: Horizon maximal accepté, en heures : au-delà, AROME HD n'a plus rien à dire.
+HORIZON_MAX_H = 48
+
 
 @dataclass(frozen=True)
 class Depart:
@@ -129,6 +137,12 @@ def charger(chemin: Path | None = None) -> Config:
 
 def depuis_dict(d: dict[str, Any]) -> Config:
     """Construit la `Config` depuis un dictionnaire (contenu TOML déjà lu). Valide et nomme les champs."""
+    if not isinstance(d, dict):
+        # Un TOML valide donne toujours un dict, mais `depuis_dict` est aussi
+        # appelée directement (tests, futurs appelants) : une liste ou une
+        # chaîne finissait en `AttributeError: 'list' object has no attribute
+        # 'get'`, donc une trace et un code 1 au lieu d'un message.
+        raise ErreurConfig(f"configuration : dictionnaire attendu, reçu {type(d).__name__}")
     depart = _section(d, "depart")
     cycliste = _section(d, "cycliste")
     velos = tuple(_velo(v, i) for i, v in enumerate(d.get("velos", []) or []))
@@ -149,11 +163,15 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         ),
         velos=velos,
         meteo=ParametresMeteo(
-            directions=int(meteo.get("directions", 8)),
+            directions=_entier(
+                meteo.get("directions", 8), "directions", "meteo", parmi=DIRECTIONS_ACCEPTEES
+            ),
             distances_km=_distances(meteo.get("distances_km", (15, 25, 40))),
             modele=str(meteo.get("modele", ParametresMeteo.modele)),
             second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
-            horizon_h=int(meteo.get("horizon_h", 6)),
+            horizon_h=_entier(
+                meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H
+            ),
         ),
         intervals=ParametresIntervals(
             athlete_id=str(intervals.get("athlete_id", "") or ""),
@@ -171,16 +189,76 @@ def _section(d: dict[str, Any], nom: str) -> dict[str, Any]:
     return s
 
 
+def _champ(section: str, cle: str) -> str:
+    """« [meteo] horizon_h » pour une section TOML, « velos[0] masse_kg » pour un élément."""
+    return f"{section} {cle}" if "[" in section else f"[{section}] {cle}"
+
+
 def _nombre(s: dict[str, Any], cle: str, section: str, mini: float, maxi: float) -> float:
     if cle not in s:
         raise ErreurConfig(f"[{section}] {cle} manquant")
+    return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
+
+
+def _flottant(
+    x: Any,
+    cle: str,
+    section: str,
+    *,
+    mini: float | None = None,
+    maxi: float | None = None,
+) -> float:
+    """Une valeur de configuration en `float`, ou `ErreurConfig` nommant le champ.
+
+    Les booléens sont refusés : `latitude = true` passait à 1.0 parce que
+    `bool` hérite de `int`, et la commande partait interroger Open-Meteo à
+    une latitude de 1° sans un mot. Un `true` dans un champ numérique est
+    une faute de frappe, pas une valeur.
+    """
+    if isinstance(x, bool):
+        raise ErreurConfig(f"{_champ(section, cle)} : nombre attendu, reçu le booléen {x!r}")
     try:
-        x = float(s[cle])
+        valeur = float(x)
     except (TypeError, ValueError) as e:
-        raise ErreurConfig(f"[{section}] {cle} : nombre attendu, reçu {s[cle]!r}") from e
-    if not mini <= x <= maxi:
-        raise ErreurConfig(f"[{section}] {cle} = {x} hors de [{mini}, {maxi}]")
-    return x
+        raise ErreurConfig(f"{_champ(section, cle)} : nombre attendu, reçu {x!r}") from e
+    if valeur != valeur or valeur in (float("inf"), float("-inf")):
+        raise ErreurConfig(f"{_champ(section, cle)} : nombre fini attendu, reçu {x!r}")
+    if mini is not None and maxi is not None and not mini <= valeur <= maxi:
+        raise ErreurConfig(f"{_champ(section, cle)} = {valeur} hors de [{mini}, {maxi}]")
+    return valeur
+
+
+def _entier(
+    x: Any,
+    cle: str,
+    section: str,
+    *,
+    mini: int | None = None,
+    maxi: int | None = None,
+    parmi: tuple[int, ...] | None = None,
+) -> int:
+    """Un entier de configuration, ou `ErreurConfig` nommant le champ.
+
+    `int(meteo.get(...))` laissait remonter la `ValueError` brute de
+    `int("huit")` : trace et code 1, là où le contrat demande une erreur
+    utilisateur nommant le champ. Les bornes sont vérifiées ici plutôt qu'au
+    moment de s'en servir, pour que la faute soit signalée au chargement.
+    """
+    if isinstance(x, bool):
+        raise ErreurConfig(f"{_champ(section, cle)} : entier attendu, reçu le booléen {x!r}")
+    try:
+        valeur = int(x)
+    except (TypeError, ValueError) as e:
+        raise ErreurConfig(f"{_champ(section, cle)} : entier attendu, reçu {x!r}") from e
+    if isinstance(x, float) and valeur != x:
+        raise ErreurConfig(f"{_champ(section, cle)} : entier attendu, reçu {x!r}")
+    if parmi is not None and valeur not in parmi:
+        raise ErreurConfig(f"{_champ(section, cle)} = {valeur}, attendu un de {parmi}")
+    if mini is not None and valeur < mini:
+        raise ErreurConfig(f"{_champ(section, cle)} = {valeur}, attendu entre {mini} et {maxi}")
+    if maxi is not None and valeur > maxi:
+        raise ErreurConfig(f"{_champ(section, cle)} = {valeur}, attendu entre {mini} et {maxi}")
+    return valeur
 
 
 def _distances(brut: Any) -> tuple[float, ...]:
@@ -246,8 +324,18 @@ def _velo(v: Any, i: int) -> Velo:
     return Velo(
         nom=str(v["nom"]),
         usage=usage,
-        masse_kg=float(v["masse_kg"]) if v.get("masse_kg") is not None else None,
-        cda_m2=float(v["cda_m2"]) if v.get("cda_m2") is not None else None,
+        # `float(v["masse_kg"])` laissait passer la ValueError brute de
+        # `float("leger")` : trace et code 1 pour une faute de frappe.
+        masse_kg=(
+            _flottant(v["masse_kg"], "masse_kg", section, mini=1, maxi=50)
+            if v.get("masse_kg") is not None
+            else None
+        ),
+        cda_m2=(
+            _flottant(v["cda_m2"], "cda_m2", section, mini=0.1, maxi=1.0)
+            if v.get("cda_m2") is not None
+            else None
+        ),
         intervals_gear=str(v.get("intervals_gear", "") or ""),
         periodes=tuple(periodes),
     )

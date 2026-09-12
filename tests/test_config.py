@@ -142,6 +142,101 @@ def test_distances_km_de_type_inattendu_nommee():
         depuis_dict({**BASE, "meteo": {"distances_km": 15}})
 
 
+# --- champs numériques : refus nommé plutôt que trace ------------------------
+#
+# Tous ces cas donnaient une `ValueError` / `TypeError` / `AttributeError`
+# brute, donc une trace et le code de sortie 1, là où le contrat de sprint
+# demande une `ErreurConfig` nommant le champ (code 2, une ligne).
+
+
+@pytest.mark.parametrize("valeur", ["huit", "", None, [8], {"n": 8}, 8.5])
+def test_directions_de_type_inattendu_nommee(valeur):
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict({**BASE, "meteo": {"directions": valeur}})
+    assert "directions" in str(e.value) and "[meteo]" in str(e.value)
+
+
+@pytest.mark.parametrize("valeur", [0, 1, 5, 7, 9, 12, 17, 32, -8])
+def test_directions_hors_des_valeurs_acceptees(valeur):
+    """Le contrat ne connaît que 8 et 16 secteurs : le reste est refusé au chargement."""
+    if valeur in (8, 16):  # garde-fou si le contrat évolue
+        return
+    with pytest.raises(ErreurConfig, match="directions"):
+        depuis_dict({**BASE, "meteo": {"directions": valeur}})
+
+
+@pytest.mark.parametrize("valeur", [8, 16])
+def test_directions_acceptees(valeur):
+    assert depuis_dict({**BASE, "meteo": {"directions": valeur}}).meteo.directions == valeur
+
+
+@pytest.mark.parametrize("valeur", ["deux", "", None, [2], 2.5])
+def test_horizon_h_de_type_inattendu_nomme(valeur):
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict({**BASE, "meteo": {"horizon_h": valeur}})
+    assert "horizon_h" in str(e.value) and "[meteo]" in str(e.value)
+
+
+@pytest.mark.parametrize("valeur", [0, -1, 49, 1000])
+def test_horizon_h_hors_bornes(valeur):
+    """Entre 1 et 48 h : au-delà, AROME HD n'a plus rien à dire."""
+    with pytest.raises(ErreurConfig, match="horizon_h"):
+        depuis_dict({**BASE, "meteo": {"horizon_h": valeur}})
+
+
+@pytest.mark.parametrize("valeur", [1, 6, 24, 48])
+def test_horizon_h_dans_les_bornes(valeur):
+    assert depuis_dict({**BASE, "meteo": {"horizon_h": valeur}}).meteo.horizon_h == valeur
+
+
+@pytest.mark.parametrize("champ", ["masse_kg", "cda_m2"])
+def test_velo_champ_numerique_de_type_inattendu(champ):
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict({**BASE, "velos": [{"nom": "Route", champ: "leger"}]})
+    message = str(e.value)
+    assert champ in message and "velos[0]" in message, f"le champ fautif doit être nommé : {message}"
+
+
+def test_velo_masse_kg_valide_acceptee():
+    c = depuis_dict({**BASE, "velos": [{"nom": "Route", "masse_kg": 7.8, "cda_m2": 0.32}]})
+    assert c.velo("Route").masse_kg == 7.8 and c.velo("Route").cda_m2 == 0.32
+
+
+@pytest.mark.parametrize(
+    "section, champ",
+    [
+        ("depart", "latitude"),
+        ("depart", "longitude"),
+        ("cycliste", "masse_kg"),
+        ("cycliste", "ftp_w"),
+    ],
+)
+@pytest.mark.parametrize("valeur", [True, False])
+def test_un_booleen_n_est_pas_un_nombre(section, champ, valeur):
+    """`latitude = true` valait 1.0 : `bool` hérite de `int`, donc `float(True) == 1.0`.
+
+    La commande partait interroger Open-Meteo à une latitude de 1° sans un mot.
+    """
+    d = {**BASE, section: {**BASE[section], champ: valeur}}
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict(d)
+    assert champ in str(e.value) and "booléen" in str(e.value)
+
+
+def test_un_booleen_n_est_pas_un_entier():
+    for champ in ("directions", "horizon_h"):
+        with pytest.raises(ErreurConfig) as e:
+            depuis_dict({**BASE, "meteo": {champ: True}})
+        assert champ in str(e.value) and "booléen" in str(e.value)
+
+
+@pytest.mark.parametrize("valeur", [None, [], ["depart"], "texte", 42, 3.5, True])
+def test_depuis_dict_d_autre_chose_qu_un_dict(valeur):
+    """Une liste finissait en `AttributeError: 'list' object has no attribute 'get'`."""
+    with pytest.raises(ErreurConfig, match="dictionnaire attendu"):
+        depuis_dict(valeur)
+
+
 def test_historique_depuis_en_datetime_toml_accepte(tmp_path: Path):
     """`historique_depuis = 2023-12-01T00:00:00` est du TOML légal : il donnait un `datetime`.
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -16,7 +17,7 @@ import httpx
 import pytest
 
 from ourouler.config import Config, depuis_dict
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.commande import HORIZON_MAX_H, executer, heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 
@@ -247,10 +248,19 @@ def test_executer_horizon_hors_bornes(horizon: int):
 
 
 def test_executer_directions_invalides_dans_la_config():
-    config = depuis_dict({**CONFIG_BRUTE, "meteo": {**CONFIG_BRUTE["meteo"], "directions": 5}})
+    """`directions = 5` est refusé au chargement, donc avant même d'exécuter.
+
+    C'était `couronne()` qui s'en apercevait, au milieu de la commande ; la
+    faute est dans le fichier de configuration, elle se signale à sa lecture.
+    """
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict({**CONFIG_BRUTE, "meteo": {**CONFIG_BRUTE["meteo"], "directions": 5}})
+    assert "directions" in str(e.value)
+    # Et la couronne garde sa propre garde pour un appel direct depuis le code.
+    config = depuis_dict(CONFIG_BRUTE)
     client, appels = client_mock()
     with pytest.raises(ErreurUtilisateur) as e:
-        executer(args(), config, client=client)
+        executer(args(), replace(config, meteo=replace(config.meteo, directions=5)), client=client)
     assert "directions" in str(e.value)
     assert appels == []
 

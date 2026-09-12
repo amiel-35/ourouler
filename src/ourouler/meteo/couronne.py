@@ -11,7 +11,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ourouler.config import Depart
+from ourouler.config import DIRECTIONS_ACCEPTEES, Depart
 from ourouler.erreurs import ErreurConfig
 
 #: Rayon moyen de la Terre, en kilomètres.
@@ -43,8 +43,8 @@ NOMS_DIRECTIONS_16 = (
     "NNO",
 )
 
-#: Nombres de directions acceptés.
-DIRECTIONS_ACCEPTEES = (8, 16)
+#: Nombres de directions acceptés. Défini dans `config` — c'est lui qui doit
+#: refuser la valeur au chargement ; importé ici pour le message d'erreur.
 
 
 @dataclass(frozen=True)
