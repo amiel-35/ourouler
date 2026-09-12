@@ -293,3 +293,18 @@ def test_periodes_en_datetime_toml_aussi(tmp_path: Path):
     periode = charger(f).velo("Route").periodes[0]
     assert (periode.debut, periode.fin) == (date(2024, 1, 1), date(2024, 6, 30))
     assert periode.contient(date(2024, 3, 15))
+
+
+def test_brouter_et_boucle():
+    d = dict(BASE)
+    d["brouter"] = {"url": "https://exemple.invalid/", "utilisateur": "u", "mot_de_passe": "secret-xyz"}
+    d["boucle"] = {"vitesse_moyenne_kmh": 30, "sens": "antihoraire", "candidates": 3}
+    d["velos"] = [{"nom": "Route", "capteur_puissance": "SRAM 1052", "intervals_gear_id": "b1"}]
+    c = depuis_dict(d)
+    assert c.brouter.renseigne and c.brouter.url == "https://exemple.invalid"
+    assert "secret-xyz" not in repr(c) and "secret-xyz" not in repr(c.brouter)
+    assert c.boucle.sens == "antihoraire" and c.boucle.candidates == 3
+    assert c.velo("Route").capteur_puissance == "SRAM 1052"
+    assert not depuis_dict(BASE).brouter.renseigne
+    with pytest.raises(ErreurConfig, match=r"\[boucle\] sens"):
+        depuis_dict({**BASE, "boucle": {"sens": "gauche"}})

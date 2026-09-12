@@ -17,6 +17,8 @@ usage = "route"        # route | clm
 masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 cda_m2 = 0.32          # point de départ, recalibré sur l'historique
 intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
+intervals_gear_id = "" # identifiant Intervals du vélo (ex. b1234567), plus fiable que le nom
+capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex. "SRAM 1052"
 # periodes = [{ debut = 2024-01-01 }, { debut = 2025-03-01, fin = 2025-06-30 }]
 
 [meteo]
@@ -32,5 +34,18 @@ api_key = ""      # Intervals.icu → Settings → Developer. Jamais dans le dé
 
 [cache]
 dossier = "~/.cache/ourouler"
+
+[brouter]
+# Serveur BRouter (auto-hébergé, voir doctrine §6). Vide = sous-commande boucle indisponible.
+url = ""
+utilisateur = ""
+mot_de_passe = ""
+profil = "fastbike"
+
+[boucle]
+vitesse_moyenne_kmh = 27   # en attendant le modèle physique
+sens = "horaire"           # horaire en France, antihoraire au Royaume-Uni
+candidates = 5
+tolerance_distance = 0.10
 
 historique_depuis = 2023-12-01   # fenêtre d'historique pour la calibration
