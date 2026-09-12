@@ -65,6 +65,15 @@ les séances structurées, pas les parcours (doc et forum Intervals.icu) ; à
 revérifier plus tard. Bibliothèque non officielle : seulement avec accord
 explicite, plus tard.
 
+**Complément (nuit du 12/09)** : avec le futur client web mobile, la voie
+la plus simple est le **partage système du GPX** vers l'application Garmin
+Connect (« ouvrir avec » / feuille de partage iOS-Android, ou lien
+téléchargeable) : Connect importe le parcours et l'envoie au compteur, sans
+API. À prévoir dans l'API/le front (livrer le GPX avec le bon type MIME
+`application/gpx+xml`). **Backlog** : mêmes voies pour Coros, Wahoo
+(ELEMNT : import de fichier / lien) et Hammerhead (Karoo : import par le
+tableau de bord web).
+
 ## Q6 — Nom du projet, visibilité du dépôt, et purge avant publication
 
 Nom de travail du paquet et de la commande : `ourouler`. Dépôt GitHub créé

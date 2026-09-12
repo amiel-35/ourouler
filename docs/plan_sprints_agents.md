@@ -129,9 +129,17 @@ question Q4. Le lot « coûts de virage à droite » dépend du moteur retenu
 Jalon : pour chaque vélo, des paramètres calibrés (masse, CdA, roulement) et
 un rapport d'erreur de temps sur des sorties non vues. Relecture Fable.
 
-### Plus tard — S4 séance ↔ terrain, S5 Garmin Connect, HA
+### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
 
 Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
+
+Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
+Connect pour un particulier → le GPX généré est le socle ; sur mobile,
+partage système du GPX vers l'application Garmin Connect (deep link /
+« ouvrir avec ») ; puis, dans l'ordre d'intérêt exprimé, **Coros, Wahoo
+(ELEMNT), Hammerhead (Karoo)** par la même mécanique (fichier GPX + import
+propre à chaque écosystème). L'Edge sait charger un parcours et une séance
+structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
 
