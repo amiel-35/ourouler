@@ -1,0 +1,300 @@
+"""Tests du client Open-Meteo (L1.5).
+
+Aucun accès réseau : `httpx.MockTransport` intercepte tout. Les réponses
+sont **fabriquées** (coordonnées au point zéro, valeurs inventées).
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
+
+import httpx
+import pytest
+
+from ourouler.erreurs import ErreurConnecteur
+from ourouler.meteo.openmeteo import VARIABLES_HORAIRES, ClientOpenMeteo
+
+DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
+POINTS_3 = [(0.0, 0.0), (0.1, 0.0), (0.0, 0.1)]
+
+
+def bloc(lat: float, lon: float, n: int = 3, **remplacements: Any) -> dict[str, Any]:
+    """Un bloc de réponse fabriqué, n heures à partir de 08:00 UTC."""
+    horaire: dict[str, Any] = {"time": [f"2026-09-13T{8 + i:02d}:00" for i in range(n)]}
+    valeurs = {
+        "precipitation": [0.0, 0.5, 1.2],
+        "rain": [0.0, 0.5, 1.2],
+        "wind_speed_10m": [14.0, 16.0, 18.0],
+        "wind_direction_10m": [45.0, 50.0, 200.0],
+        "wind_gusts_10m": [25.0, 28.0, 33.0],
+        "apparent_temperature": [12.0, 12.5, 11.0],
+        "temperature_2m": [14.0, 14.5, 13.0],
+    }
+    for nom in VARIABLES_HORAIRES:
+        horaire[nom] = valeurs[nom][:n]
+    horaire.update(remplacements)
+    return {"latitude": lat, "longitude": lon, "timezone": "GMT", "hourly": horaire}
+
+
+def client_avec(gestionnaire) -> ClientOpenMeteo:
+    """Un client dont tout le trafic passe par un `MockTransport` : jamais le réseau."""
+    return ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def client_repondant(charge: Any, code: int = 200) -> tuple[ClientOpenMeteo, list[httpx.Request]]:
+    vues: list[httpx.Request] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        vues.append(requete)
+        return httpx.Response(code, json=charge)
+
+    return client_avec(gestionnaire), vues
+
+
+# --- un seul appel, bons paramètres -----------------------------------------
+
+
+def test_un_seul_appel_http_pour_tous_les_points():
+    charge = [bloc(lat, lon) for lat, lon in POINTS_3]
+    client, vues = client_repondant(charge)
+    previsions = client.previsions(POINTS_3, modele="modele_test", debut=DEBUT, horizon_h=3)
+    assert len(vues) == 1
+    assert len(previsions) == 3
+
+
+def test_parametres_envoyes():
+    client, vues = client_repondant([bloc(lat, lon) for lat, lon in POINTS_3])
+    client.previsions(POINTS_3, modele="modele_test", debut=DEBUT, horizon_h=3)
+    p = vues[0].url.params
+    assert p["latitude"] == "0.0000,0.1000,0.0000"
+    assert p["longitude"] == "0.0000,0.0000,0.1000"
+    assert p["hourly"] == ",".join(VARIABLES_HORAIRES)
+    assert p["models"] == "modele_test"
+    assert p["timezone"] == "UTC"
+    # ISO sans secondes, fenêtre inclusive de horizon_h heures.
+    assert p["start_hour"] == "2026-09-13T08:00"
+    assert p["end_hour"] == "2026-09-13T10:00"
+    assert vues[0].url.path == "/v1/forecast"
+
+
+def test_debut_naif_lu_comme_utc():
+    client, vues = client_repondant(bloc(0.0, 0.0, n=1))
+    client.previsions([(0.0, 0.0)], modele="m", debut=datetime(2026, 9, 13, 8, 0), horizon_h=1)
+    assert vues[0].url.params["start_hour"] == "2026-09-13T08:00"
+
+
+def test_debut_dans_un_autre_fuseau_converti_en_utc():
+    """10:00 en UTC+2 (heure d'été européenne) = 08:00 UTC."""
+    heure_ete = timezone(timedelta(hours=2))
+    client, vues = client_repondant(bloc(0.0, 0.0, n=1))
+    client.previsions(
+        [(0.0, 0.0)], modele="m", debut=datetime(2026, 9, 13, 10, 0, tzinfo=heure_ete), horizon_h=1
+    )
+    assert vues[0].url.params["start_hour"] == "2026-09-13T08:00"
+
+
+def test_valeurs_decodees():
+    client, _ = client_repondant([bloc(0.0, 0.0)])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert point.lat == 0.0 and point.lon == 0.0
+    assert [h.t for h in point.heures] == [
+        datetime(2026, 9, 13, 8, tzinfo=UTC),
+        datetime(2026, 9, 13, 9, tzinfo=UTC),
+        datetime(2026, 9, 13, 10, tzinfo=UTC),
+    ]
+    assert [h.pluie_mm for h in point.heures] == [0.0, 0.5, 1.2]
+    assert point.heures[0].vent_kmh == 14.0
+    assert point.heures[0].rafales_kmh == 25.0
+    assert point.heures[0].vent_depuis_deg == 45.0
+    assert point.heures[0].ressenti_c == 12.0
+    assert point.heures[0].temp_c == 14.0
+
+
+# --- un seul point : l'API renvoie un objet, pas une liste ------------------
+
+
+def test_reponse_objet_pour_un_seul_point():
+    client, _ = client_repondant(bloc(1.0, 2.0, n=2))
+    previsions = client.previsions([(1.0, 2.0)], modele="m", debut=DEBUT, horizon_h=2)
+    assert len(previsions) == 1
+    assert previsions[0].lat == 1.0 and previsions[0].lon == 2.0
+    assert len(previsions[0].heures) == 2
+
+
+def test_reponse_liste_a_un_element_pour_un_seul_point():
+    client, _ = client_repondant([bloc(1.0, 2.0, n=2)])
+    previsions = client.previsions([(1.0, 2.0)], modele="m", debut=DEBUT, horizon_h=2)
+    assert len(previsions) == 1 and len(previsions[0].heures) == 2
+
+
+# --- valeurs nulles ---------------------------------------------------------
+
+
+def test_valeurs_nulles_tolerees():
+    b = bloc(0.0, 0.0, precipitation=[None, 0.4, None], apparent_temperature=[None, None, None])
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    # precipitation manquante → repli sur rain, qui vaut 0.0 puis 1.2.
+    assert point.heures[0].pluie_mm == 0.0
+    assert point.heures[1].pluie_mm == 0.4
+    assert point.heures[2].pluie_mm == 1.2
+    assert all(h.ressenti_c is None for h in point.heures)
+
+
+def test_pluie_none_si_precipitation_et_rain_nulles():
+    b = bloc(0.0, 0.0, precipitation=[None, None, None], rain=[None, None, None])
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert all(h.pluie_mm is None for h in point.heures)
+
+
+def test_variable_entierement_absente_donne_des_none():
+    b = bloc(0.0, 0.0)
+    del b["hourly"]["wind_gusts_10m"]
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert all(h.rafales_kmh is None for h in point.heures)
+
+
+# --- erreurs ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("code", [400, 401, 429, 500, 503])
+def test_erreur_http_donne_erreur_connecteur(code: int):
+    client, _ = client_repondant({"error": True, "reason": "Minutely API request limit"}, code=code)
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions(POINTS_3, modele="m", debut=DEBUT, horizon_h=3)
+    message = str(e.value)
+    assert str(code) in message
+    assert "api.open-meteo.com/v1/forecast" in message
+    # L'URL est citée sans paramètres : ni coordonnées, ni fenêtre.
+    assert "latitude" not in message and "start_hour" not in message
+
+
+def test_erreur_http_cite_le_motif_de_l_api_et_le_modele():
+    client, _ = client_repondant({"error": True, "reason": "Cannot initialize WeatherModel"}, code=400)
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="modele_inexistant", debut=DEBUT, horizon_h=3)
+    assert "Cannot initialize WeatherModel" in str(e.value)
+    assert "modele_inexistant" in str(e.value)
+
+
+def test_erreur_reseau_donne_erreur_connecteur():
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("injoignable", request=requete)
+
+    with pytest.raises(ErreurConnecteur) as e:
+        client_avec(gestionnaire).previsions(POINTS_3, modele="m", debut=DEBUT, horizon_h=3)
+    assert "injoignable" in str(e.value) or "ConnectError" in str(e.value)
+
+
+def test_reponse_non_json():
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>pas du json</html>")
+
+    with pytest.raises(ErreurConnecteur) as e:
+        client_avec(gestionnaire).previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "non-JSON" in str(e.value)
+
+
+def test_erreur_json_sans_code_http():
+    """Open-Meteo répond parfois 200 avec un objet d'erreur."""
+    client, _ = client_repondant({"error": True, "reason": "paramètre inconnu"})
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "paramètre inconnu" in str(e.value)
+
+
+def test_nombre_de_blocs_different_du_nombre_de_points():
+    client, _ = client_repondant([bloc(0.0, 0.0), bloc(0.1, 0.0)])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions(POINTS_3, modele="m", debut=DEBUT, horizon_h=3)
+    assert "2 bloc" in str(e.value) and "3 point" in str(e.value)
+
+
+def test_hourly_absent():
+    client, _ = client_repondant([{"latitude": 0.0, "longitude": 0.0}])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "hourly" in str(e.value)
+
+
+def test_hourly_time_absent():
+    client, _ = client_repondant([{"latitude": 0.0, "longitude": 0.0, "hourly": {}}])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "hourly.time" in str(e.value)
+
+
+def test_tableaux_de_longueurs_differentes():
+    client, _ = client_repondant([bloc(0.0, 0.0, wind_speed_10m=[14.0, 16.0])])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert "wind_speed_10m" in str(e.value) and "2 valeurs" in str(e.value)
+
+
+def test_variable_qui_n_est_pas_un_tableau():
+    client, _ = client_repondant([bloc(0.0, 0.0, precipitation=0.5)])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert "tableau" in str(e.value)
+
+
+def test_valeur_de_type_inattendu():
+    client, _ = client_repondant([bloc(0.0, 0.0, precipitation=[0.0, "beaucoup", 1.0])])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert "nombre" in str(e.value)
+
+
+def test_horodatage_illisible():
+    client, _ = client_repondant([bloc(0.0, 0.0, time=["pas une date", "x", "y"])])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert "horodatage" in str(e.value)
+
+
+def test_json_de_type_inattendu():
+    client, _ = client_repondant("une chaîne")
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "JSON inattendu" in str(e.value)
+
+
+def test_bloc_de_type_inattendu():
+    client, _ = client_repondant([42])
+    with pytest.raises(ErreurConnecteur) as e:
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert "bloc de prévision inattendu" in str(e.value)
+
+
+def test_aucun_point():
+    client, vues = client_repondant([])
+    with pytest.raises(ErreurConnecteur):
+        client.previsions([], modele="m", debut=DEBUT, horizon_h=1)
+    assert vues == []  # pas d'appel inutile
+
+
+def test_horizon_nul():
+    client, vues = client_repondant([])
+    with pytest.raises(ErreurConnecteur):
+        client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=0)
+    assert vues == []
+
+
+def test_coordonnees_de_retour_defaut_sur_la_demande():
+    """Si l'API ne renvoie pas de latitude exploitable, on garde celle demandée."""
+    b = bloc(0.0, 0.0, n=1)
+    b["latitude"] = None
+    b["longitude"] = "?"
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(1.5, -2.5)], modele="m", debut=DEBUT, horizon_h=1)
+    assert (point.lat, point.lon) == (1.5, -2.5)
+
+
+def test_base_url_personnalisee():
+    client, vues = client_repondant(bloc(0.0, 0.0, n=1))
+    client.base_url = "https://exemple.invalide"
+    client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1)
+    assert str(vues[0].url).startswith("https://exemple.invalide/v1/forecast")
