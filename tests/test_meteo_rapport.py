@@ -559,6 +559,32 @@ def test_la_ligne_ici_n_affiche_aucune_lettre_de_vent_relatif(vent_depuis: float
     assert "f" not in ligne_ici and "d" not in ligne_ici and "t" not in ligne_ici, ligne_ici
 
 
+@pytest.mark.parametrize("vent_depuis", [0.0, 45.0, 90.0, 180.0, 225.0, 315.0])
+def test_ici_porte_un_vent_relatif_nul_dans_les_donnees_et_le_json(vent_depuis: float):
+    """La correction est dans la donnée, pas seulement dans l'affichage.
+
+    « ici » est créé avec un azimut de 0° : `vent_relatif` valait donc
+    « face » dès que le vent venait du nord. Seul le rendu texte masquait la
+    lettre ; un consommateur du JSON lisait la valeur fausse sans rien pour
+    le prévenir. Sur le point de départ il n'y a pas d'aller : c'est `None`.
+    """
+    n = len(couronne(DEPART, 8, (15.0,)))
+    r = rapport_simple([[0.0, 0.0]] * n, vents_depuis=[vent_depuis] * n)
+    ici = [c for c in r.cellules if c.direction == "ici"]
+    assert ici, "le point de départ doit figurer dans les cellules"
+    assert all(c.vent_relatif is None for c in ici)
+    # La vitesse et la provenance du vent, elles, restent : on n'enlève que
+    # l'interprétation « à l'aller », qui n'a pas de sens sur place.
+    assert all(c.vent_kmh is not None and c.vent_depuis_deg == vent_depuis for c in ici)
+    # Les vraies directions gardent bien la leur.
+    autres = [c for c in r.cellules if c.direction != "ici"]
+    assert all(c.vent_relatif in ("face", "dos", "travers") for c in autres)
+
+    d = rendre_json(r)
+    cellules_ici = [c for c in d["cellules"] if c["direction"] == "ici"]
+    assert cellules_ici and all(c["vent_relatif"] is None for c in cellules_ici)
+
+
 def test_la_ligne_ici_garde_la_vitesse_du_vent_et_le_ressenti():
     """On enlève la lettre, pas l'information : la vitesse reste utile sur place."""
     n = len(couronne(DEPART, 8, (15.0,)))

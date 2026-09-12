@@ -165,13 +165,22 @@ class RapportMeteo:
         return sorted({c.t for c in self.cellules})
 
 
-def vent_relatif(azimut_deg: float, vent_depuis_deg: float | None) -> str | None:
+def vent_relatif(
+    azimut_deg: float, vent_depuis_deg: float | None, *, direction: str | None = None
+) -> str | None:
     """« face », « dos » ou « travers » pour qui **s'éloigne** du départ selon `azimut_deg`.
 
     `vent_depuis_deg` est la direction d'où vient le vent (convention
     météo). Vent de face = il vient de là où on va.
+
+    Sur le point de départ (`direction == NOM_ICI`), il n'y a pas de « à
+    l'aller » : la valeur est `None`. Ce point est créé avec un azimut de 0°,
+    donc le calcul répondait « face » dès que le vent venait du nord — et
+    cette valeur fausse partait telle quelle dans le JSON. Le rendu texte
+    masquait la lettre, ce qui trompait un consommateur du JSON : il lisait
+    `vent_relatif: "face"` sur « ici » sans rien pour le prévenir.
     """
-    if vent_depuis_deg is None:
+    if direction == NOM_ICI or vent_depuis_deg is None:
         return None
     ecart = ecart_angulaire(azimut_deg, vent_depuis_deg)
     if ecart <= SECTEUR_VENT_DEG:
@@ -241,7 +250,9 @@ def construire(
                     pluie_second_avis_mm=pluie_second,
                     vent_kmh=heure.vent_kmh,
                     vent_depuis_deg=heure.vent_depuis_deg,
-                    vent_relatif=vent_relatif(point.azimut_deg, heure.vent_depuis_deg),
+                    vent_relatif=vent_relatif(
+                        point.azimut_deg, heure.vent_depuis_deg, direction=point.nom
+                    ),
                     ressenti_c=heure.ressenti_c,
                     confiance=confiance(heure.pluie_mm, pluie_second),
                 )
@@ -325,19 +336,16 @@ def _ligne_direction(rapport: RapportMeteo, distance: float, nom: str, heures: S
 def _case(cellule: Cellule | None) -> str:
     """La cellule compacte : « 0.0 14f 12° », suivie de « ? » en cas de désaccord.
 
-    Pas de lettre f/d/t sur la ligne « ici » : le point de départ n'est pas
-    une direction, il est créé avec un azimut de 0° et son vent relatif
-    était donc calculé comme si l'on partait plein nord. La table affichait
-    « ici 0.0 16f 23° », ce « f » laissant croire à un vent de face sur
-    place. `meilleure_direction` excluait déjà « ici », le rendu non.
+    Pas de cas particulier pour « ici » : sa cellule porte désormais
+    `vent_relatif = None` (voir `vent_relatif`), donc aucune lettre à
+    afficher — la règle générale « pas de vent relatif, pas de lettre »
+    suffit, ici comme pour une direction dont le vent est inconnu.
     """
     if cellule is None:
         return "-"
     pluie = f"{cellule.pluie_mm:.1f}" if cellule.pluie_mm is not None else "-"
     if cellule.vent_kmh is None:
         vent = "-"
-    elif cellule.direction == NOM_ICI:
-        vent = f"{cellule.vent_kmh:.0f}"
     else:
         vent = f"{cellule.vent_kmh:.0f}{LETTRE_VENT.get(cellule.vent_relatif or '', '')}"
     ressenti = f"{cellule.ressenti_c:.0f}°" if cellule.ressenti_c is not None else "-"
