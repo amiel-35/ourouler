@@ -86,7 +86,10 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
             return str(o)
 
         d = dataclasses.asdict(config)
+        # `asdict` ignore les `__repr__` qui masquent : sans ces deux lignes,
+        # `ourouler config --json` publie la clé et le mot de passe en clair.
         d["intervals"]["api_key"] = "***" if config.intervals.api_key else ""
+        d["brouter"]["mot_de_passe"] = "***" if config.brouter.mot_de_passe else ""
         print(json.dumps(d, default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
@@ -97,6 +100,20 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         f"{config.meteo.modele} (second avis {config.meteo.second_avis}), horizon {config.meteo.horizon_h} h"
     )
     print(f"Intervals: {'renseigné' if config.intervals.renseigne else 'non renseigné'}")
+    # L'URL du serveur s'affiche — c'est une adresse, pas un secret ; le mot de
+    # passe, lui, n'est jamais imprimé, pas même masqué par un compte-caractères.
+    if config.brouter.renseigne:
+        print(
+            f"BRouter  : renseigné — {config.brouter.url}, profil {config.brouter.profil}, "
+            f"timeout {config.brouter.timeout_s:.0f} s"
+        )
+    else:
+        print("BRouter  : non renseigné")
+    print(
+        f"Boucle   : {config.boucle.candidates} candidates, sens {config.boucle.sens}, "
+        f"{config.boucle.vitesse_moyenne_kmh:.0f} km/h, tolérance "
+        f"{config.boucle.tolerance_distance:.0%}"
+    )
     print(f"Cache    : {config.cache.dossier}")
     print(f"Historique depuis : {config.historique_depuis}")
     return 0
