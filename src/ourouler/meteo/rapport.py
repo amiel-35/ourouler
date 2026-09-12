@@ -204,16 +204,22 @@ def construire(
 ) -> RapportMeteo:
     """Croise la couronne et les prévisions en une liste de cellules.
 
-    `prevision_second_avis` peut être `None` (second avis indisponible) : la
-    confiance de toutes les cellules vaut alors « inconnu ».
+    `prevision_second_avis` peut être `None` **ou une liste vide** (second
+    avis indisponible : modèle hors domaine, appel en échec, option non
+    demandée) : la confiance de toutes les cellules vaut alors « inconnu ».
+    Une liste vide levait `ValueError` — « 0 prévision pour 9 points » — donc
+    une trace et un code 1 pour un second avis simplement absent, alors que
+    `None` passait. Une liste **non vide** de la mauvaise longueur reste une
+    erreur : là, les deux séries ne se correspondent pas.
     """
     if len(couronne) != len(prevision_principale):
         raise ValueError(
             f"{len(prevision_principale)} prévision(s) pour {len(couronne)} point(s) de couronne"
         )
-    if prevision_second_avis is not None and len(prevision_second_avis) != len(couronne):
+    avec_second = bool(prevision_second_avis)
+    if avec_second and len(prevision_second_avis) != len(couronne):  # type: ignore[arg-type]
         raise ValueError(
-            f"second avis : {len(prevision_second_avis)} prévision(s) pour "
+            f"second avis : {len(prevision_second_avis)} prévision(s) pour "  # type: ignore[arg-type]
             f"{len(couronne)} point(s) de couronne"
         )
 
@@ -222,10 +228,10 @@ def construire(
         # Le second avis peut ne pas couvrir exactement les mêmes heures :
         # on l'indexe par horodatage plutôt que par position.
         second_par_heure: dict[datetime, float | None] = {}
-        if prevision_second_avis is not None:
+        if avec_second:
             second_par_heure = {h.t: h.pluie_mm for h in prevision_second_avis[i].heures}
         for heure in prevision_principale[i].heures:
-            pluie_second = second_par_heure.get(heure.t) if prevision_second_avis is not None else None
+            pluie_second = second_par_heure.get(heure.t) if avec_second else None
             cellules.append(
                 Cellule(
                     direction=point.nom,

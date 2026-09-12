@@ -171,6 +171,23 @@ def test_construire_sans_second_avis_donne_confiance_inconnue():
     assert all(c.pluie_second_avis_mm is None for c in r.cellules)
 
 
+@pytest.mark.parametrize("second", [None, []], ids=["None", "liste vide"])
+def test_construire_second_avis_absent_donne_confiance_inconnue(second):
+    """Une liste vide vaut `None` : second avis absent, pas incohérent.
+
+    `[]` levait `ValueError` (« 0 prévision(s) pour 9 point(s) ») là où `None`
+    passait : un second modèle hors domaine finissait donc en trace et code 1
+    au lieu d'une table entière en « inconnu ».
+    """
+    points = couronne(DEPART, 8, [15.0])
+    r = construire(
+        DEPART, points, previsions(points, [[0.0, 0.0]] * len(points)), second, DEBUT, 2
+    )
+    assert len(r.cellules) == (1 + 8) * 2
+    assert all(c.confiance == CONFIANCE_INCONNUE for c in r.cellules)
+    assert all(c.pluie_second_avis_mm is None for c in r.cellules)
+
+
 def test_construire_avec_second_avis_en_accord():
     n = 9
     r = rapport_simple([[0.0, 0.0]] * n, [[0.0, 0.05]] * n)
