@@ -189,6 +189,19 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   entre utilisateurs). Le module météo est donc écrit avec une couche de
   cache injectable devant le client HTTP dès le sprint 2.
 
+  Ordres de grandeur (question du mainteneur, 12/09/2026) : le gratuit
+  tolère environ 10 000 appels par jour et par adresse IP (5 000 par heure,
+  600 par minute), et un `ourouler meteo` à 25 points × 2 modèles compte
+  pour ~50 appels — soit ~200 consultations par jour depuis un seul
+  serveur, tous utilisateurs confondus. En CLI, chacun appelle depuis sa
+  propre adresse : aucun sujet. En hébergé, l'escalade décidée : (1) cache
+  mutualisé par maille (~2 km) et par heure dès le premier jour ; (2) offre
+  API payante d'Open-Meteo (quelques dizaines d'euros par mois, usage
+  commercial autorisé, rien à exploiter) au premier signe de saturation ;
+  (3) auto-hébergement d'Open-Meteo (open source, Docker, rapatrie lui-même
+  les données ouvertes Météo-France / ICON / ECMWF) seulement si le volume
+  ou la souveraineté des données l'exigent.
+
 ### 10.2 Ce qu'on décide maintenant, pour construire plus tard
 
 - **Authentification : déléguée, jamais de mot de passe chez nous.** OpenID
