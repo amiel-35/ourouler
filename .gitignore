@@ -17,6 +17,8 @@ config.*.toml
 *.tcx
 *.gpx
 !tests/fixtures/**
+# ... mais pas le bytecode que pytest y laisse en chargeant le generateur.
+tests/fixtures/**/__pycache__/
 cache/
 data/
 .env

@@ -85,11 +85,11 @@ def lire_fit(source: Entree) -> Activite:
                     if point is not None:
                         points.append(point)
                 elif trame.name == "session":
-                    sport = sport or _texte(_champ(trame, "sport"))
+                    sport = sport or _sport_fit(trame)
                     duree_mouvement_s = _flottant(_champ(trame, "total_timer_time"))
                     distance_m = _flottant(_champ(trame, "total_distance"))
                 elif trame.name == "sport":
-                    sport = sport or _texte(_champ(trame, "sport"))
+                    sport = sport or _sport_fit(trame)
                 elif trame.name == "file_id":
                     appareil = _appareil_fit(trame)
                 elif trame.name == "device_info" and appareil is None:
@@ -141,6 +141,19 @@ def _champ(trame, *noms: str):
             if valeur is not None:
                 return valeur
     return None
+
+
+def _sport_fit(trame) -> str | None:
+    """« cycling », ou « cycling/indoor_cycling » quand le sous-sport est significatif.
+
+    Le sous-sport est la seule chose qui, dans un FIT, distingue une sortie
+    d'un home-trainer : on le garde, tel que la source le nomme.
+    """
+    sport = _texte(_champ(trame, "sport"))
+    sous_sport = _texte(_champ(trame, "sub_sport"))
+    if sous_sport and sous_sport not in ("generic", "all", "255"):
+        return f"{sport or '?'}/{sous_sport}"
+    return sport
 
 
 def _appareil_fit(trame) -> str | None:

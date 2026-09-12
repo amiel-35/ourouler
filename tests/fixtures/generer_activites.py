@@ -170,6 +170,7 @@ CHAMPS_SESSION = [
     (253, "uint32"),  # timestamp
     (2, "uint32"),  # start_time
     (5, "enum"),  # sport (2 = cycling)
+    (6, "enum"),  # sub_sport (6 = indoor_cycling, 0 = generic)
     (7, "uint32"),  # total_elapsed_time (ms)
     (8, "uint32"),  # total_timer_time (ms)
     (9, "uint32"),  # total_distance (cm)
@@ -190,7 +191,7 @@ def _champs_record(*, gps: bool, altitude: bool, puissance: bool) -> list[tuple[
     return champs
 
 
-def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2) -> bytes:
+def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2, sous_sport: int = 0) -> bytes:
     gps = echantillons[0].lat is not None
     altitude = echantillons[0].alt_m is not None
     puissance = echantillons[0].puissance_w is not None
@@ -227,6 +228,7 @@ def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2) -> bytes:
             _horodatage_fit(dernier.t),
             _horodatage_fit(premier.t),
             sport,
+            sous_sport,
             round(ecoule * 1000),
             round(ecoule * 1000) - 30_000,  # temps de mouvement : 30 s d'arrêt
             round(dernier.dist_m * 100),
@@ -359,7 +361,9 @@ def generer(dossier: Path = DOSSIER_DEFAUT) -> dict[str, Path]:
         "boucle.gpx": encoder_gpx(complete).encode("utf-8"),
         "boucle.tcx": encoder_tcx(complete).encode("utf-8"),
         # --- variantes valides ---
-        "home_trainer.fit": encoder_fit(sans_gps, sport=2),
+        # sous-sport 6 = indoor_cycling : la seule chose qui, dans un FIT,
+        # distingue un home-trainer d'une sortie.
+        "home_trainer.fit": encoder_fit(sans_gps, sport=2, sous_sport=6),
         "sans_puissance.gpx": encoder_gpx(sans_puissance).encode("utf-8"),
         "sans_altitude.gpx": encoder_gpx(
             trajectoire(n=200, avec_altitude=False)
