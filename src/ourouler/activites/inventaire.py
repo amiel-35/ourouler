@@ -152,7 +152,7 @@ def inventaire(cache: Cache, config: Config, depuis: date) -> Inventaire:
 def _anomalies(entree: EntreeCache) -> list[Anomalie]:
     trouvees = []
     if entree.duree_s is not None and entree.duree_s < DUREE_MINIMALE_S:
-        trouvees.append(f"durée {entree.duree_s / 60:.1f} min (< 10 min)")
+        trouvees.append(f"durée {entree.duree_s:.0f} s (< 10 min)")
     if not entree.distance_m:
         trouvees.append("distance nulle")
     if entree.puissance_moy_w is None:
