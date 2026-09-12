@@ -63,14 +63,25 @@ class ParametresMeteo:
     horizon_h: int = 6
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class ParametresIntervals:
+    """`repr` explicite (d'où `repr=False` sur la dataclass) : la clé ne doit jamais s'imprimer.
+
+    Une trace pytest (`-l`), un futur log de contexte ou un `print(config)`
+    suffirait à publier la clé d'API si le `repr` engendré était conservé.
+    `Config` imprime ses champs avec leur `repr`, le masquage se propage donc.
+    """
+
     athlete_id: str = ""
     api_key: str = ""
 
     @property
     def renseigne(self) -> bool:
         return bool(self.athlete_id and self.api_key)
+
+    def __repr__(self) -> str:
+        etat = "***" if self.api_key else ""
+        return f"ParametresIntervals(athlete_id={self.athlete_id!r}, api_key={etat!r})"
 
 
 @dataclass(frozen=True)
