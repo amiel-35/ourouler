@@ -380,15 +380,26 @@ def _occurrences(texte: str) -> list[str]:
     return [jeton for jeton in _jetons_prives() if jeton.casefold() in minuscule]
 
 
-def _fichiers_a_scanner() -> list[Path]:
-    """`src/` et `tests/` seulement.
+#: Fichiers hors `src/` et `tests/` que le détecteur doit quand même lire.
+#: `config.example.toml` est celui que l'utilisateur copie — et c'est
+#: précisément lui qui portait le capteur réel avant `24d2f09` : le détecteur
+#: regardait à côté du seul endroit où la faute s'est produite (point 13 de la
+#: relecture du sprint 2). `README.md` est publié tel quel.
+FICHIERS_PUBLIES = ("config.example.toml", "README.md")
 
-    `docs/` cite volontairement les capteurs et les identifiants du mainteneur :
-    c'est là que le contrat dit au code quoi chercher. `config.example.toml`
-    n'est pas scanné non plus — c'est de la documentation d'usage — mais s'il
-    porte une vraie valeur, elle mérite d'être signalée au mainteneur.
+
+def _fichiers_a_scanner() -> list[Path]:
+    """`src/`, `tests/`, et les fichiers publiés à la racine.
+
+    `docs/` reste hors du champ : il cite volontairement les capteurs et les
+    identifiants du mainteneur, c'est là que le contrat dit au code quoi
+    chercher. Le sort de ces valeurs est une décision du mainteneur (Q6), pas
+    un test.
     """
-    return _fichiers_texte(SRC) + _fichiers_texte(TESTS)
+    racine = [RACINE / nom for nom in FICHIERS_PUBLIES]
+    manquants = [chemin.name for chemin in racine if not chemin.is_file()]
+    assert not manquants, f"fichiers publiés attendus à la racine, absents : {manquants}"
+    return _fichiers_texte(SRC) + _fichiers_texte(TESTS) + racine
 
 
 def test_le_detecteur_de_donnees_personnelles_fonctionne():
@@ -401,8 +412,12 @@ def test_le_detecteur_de_donnees_personnelles_fonctionne():
     assert not _occurrences("gear_id = 'g-beta'"), "faux positif sur un identifiant inventé"
 
 
-def test_aucune_donnee_personnelle_du_mainteneur_dans_src_et_tests():
-    """Règle absolue 1 : capteurs, identifiants d'équipement et URL privée restent dans docs/."""
+def test_aucune_donnee_personnelle_du_mainteneur_hors_de_docs():
+    """Règle absolue 1 : capteurs, identifiants d'équipement et URL privée restent dans docs/.
+
+    Le champ couvre `src/`, `tests/`, `config.example.toml` et `README.md` —
+    tout ce qu'un dépôt public publie et qu'un utilisateur recopie.
+    """
     fautes = []
     for chemin in _fichiers_a_scanner():
         texte = chemin.read_text(encoding="utf-8", errors="replace")
