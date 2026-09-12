@@ -8,6 +8,7 @@ renvoie un **objet**. Les deux formes sont gérées.
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -202,6 +203,7 @@ class ClientOpenMeteo:
         return [self._valeur(v, nom) for v in valeurs]
 
     def _valeur(self, v: Any, nom: str) -> float | None:
+        """Une valeur horaire en `float`, ou None si elle est absente ou non finie."""
         if v is None:
             return None
         if isinstance(v, bool) or not isinstance(v, (int, float, str)):
@@ -210,12 +212,18 @@ class ClientOpenMeteo:
                 f"sur {self.url_prevision}"
             )
         try:
-            return float(v)
+            x = float(v)
         except ValueError as e:
             raise ErreurConnecteur(
                 f"Open-Meteo : « hourly.{nom} » contient {v!r}, un nombre était attendu "
                 f"sur {self.url_prevision}"
             ) from e
+        # `NaN` majuscule (et `Infinity`) sont acceptés par le module `json` de
+        # Python, qui les rend en flottants. Un NaN de pluie se propagerait
+        # dans les cumuls et rendrait `meilleure_direction` arbitraire, sans
+        # un message. `lecture.py:429` les écarte déjà, l'asymétrie était
+        # accidentelle : ici aussi, une valeur non finie vaut « absente ».
+        return x if math.isfinite(x) else None
 
     def _instant(self, brut: Any) -> datetime:
         """Un horodatage Open-Meteo (`2026-09-13T08:00`, en UTC car `timezone=UTC`)."""

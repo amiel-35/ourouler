@@ -398,3 +398,95 @@ def test_une_seule_valeur_presente_suffit_a_ne_pas_crier_au_hors_domaine():
     client, _ = client_repondant([b])
     (point,) = client.previsions([(0.0, 0.0)], modele="arome", debut=DEBUT, horizon_h=3)
     assert point.heures[1].temp_c == 12.0
+
+
+# --- NaN numérique ----------------------------------------------------------
+#
+# Tests qui auraient attrapé D9 : `NaN` majuscule (et `Infinity`) sont acceptés
+# par le module `json` de Python, qui les rend en flottants. Un NaN de pluie se
+# propageait dans les cumuls et rendait `meilleure_direction` arbitraire, sans
+# un message — alors que `lecture.py` les écarte explicitement.
+
+
+def client_json_brut(corps: str) -> ClientOpenMeteo:
+    """Un corps JSON écrit à la main : le seul moyen d'y mettre un littéral `NaN`."""
+    return client_avec(
+        lambda _: httpx.Response(200, text=corps, headers={"content-type": "application/json"})
+    )
+
+
+# `-NaN` n'est pas accepté par le module `json` : il tombe dans la détection
+# « hors du domaine » du point 5, testée plus haut.
+@pytest.mark.parametrize("litteral", ["NaN", "Infinity", "-Infinity"])
+def test_nan_et_infinis_traites_comme_des_valeurs_absentes(litteral: str):
+    corps = (
+        '{"latitude":0.0,"longitude":0.0,"hourly":{'
+        '"time":["2026-09-13T08:00","2026-09-13T09:00"],'
+        f'"precipitation":[{litteral},0.5],'
+        f'"rain":[{litteral},0.5],'
+        f'"wind_speed_10m":[{litteral},16.0],'
+        '"wind_direction_10m":[45.0,50.0],"wind_gusts_10m":[25.0,28.0],'
+        '"apparent_temperature":[12.0,12.5],"temperature_2m":[14.0,14.5]}}'
+    )
+    (point,) = client_json_brut(corps).previsions(
+        [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=2
+    )
+    assert point.heures[0].pluie_mm is None, "un NaN de pluie doit valoir « absente »"
+    assert point.heures[0].vent_kmh is None
+    assert point.heures[1].pluie_mm == 0.5, "la valeur saine de l'heure suivante est gardée"
+
+
+def test_un_nan_de_pluie_ne_contamine_pas_les_cumuls():
+    """La conséquence concrète : un NaN rendait tout cumul, donc tout conseil, arbitraire."""
+    corps = (
+        '{"latitude":0.0,"longitude":0.0,"hourly":{'
+        '"time":["2026-09-13T08:00","2026-09-13T09:00"],'
+        '"precipitation":[NaN,1.5],"rain":[NaN,1.5],'
+        '"wind_speed_10m":[14.0,16.0],"wind_direction_10m":[45.0,50.0],'
+        '"wind_gusts_10m":[25.0,28.0],"apparent_temperature":[12.0,12.5],'
+        '"temperature_2m":[14.0,14.5]}}'
+    )
+    (point,) = client_json_brut(corps).previsions(
+        [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=2
+    )
+    connues = [h.pluie_mm for h in point.heures if h.pluie_mm is not None]
+    cumul = sum(connues)
+    assert cumul == 1.5
+    assert cumul == cumul, "un NaN dans le cumul rendrait toute comparaison fausse"
+
+
+def test_le_repli_precipitation_vers_rain_marche_aussi_avec_un_nan():
+    """`precipitation` à NaN doit se replier sur `rain`, comme un `null` le fait."""
+    corps = (
+        '{"latitude":0.0,"longitude":0.0,"hourly":{'
+        '"time":["2026-09-13T08:00"],'
+        '"precipitation":[NaN],"rain":[0.8],'
+        '"wind_speed_10m":[14.0],"wind_direction_10m":[45.0],'
+        '"wind_gusts_10m":[25.0],"apparent_temperature":[12.0],'
+        '"temperature_2m":[14.0]}}'
+    )
+    (point,) = client_json_brut(corps).previsions(
+        [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1
+    )
+    assert point.heures[0].pluie_mm == 0.8
+
+
+def test_un_point_entierement_nan_est_un_point_hors_domaine():
+    """Cohérence avec le point 5 : tout à NaN, c'est tout à None, donc hors du domaine."""
+    corps = (
+        '{"latitude":0.0,"longitude":0.0,"hourly":{'
+        '"time":["2026-09-13T08:00"],'
+        '"precipitation":[NaN],"rain":[NaN],"wind_speed_10m":[NaN],'
+        '"wind_direction_10m":[NaN],"wind_gusts_10m":[NaN],'
+        '"apparent_temperature":[NaN],"temperature_2m":[NaN]}}'
+    )
+    with pytest.raises(ErreurConnecteur, match="hors du domaine"):
+        client_json_brut(corps).previsions([(0.0, 0.0)], modele="arome", debut=DEBUT, horizon_h=1)
+
+
+def test_les_valeurs_finies_restent_intactes():
+    """Le filtre ne doit pas manger les valeurs légitimes, zéro et négatives comprises."""
+    b = bloc(0.0, 0.0, apparent_temperature=[-5.0, 0.0, 37.5])
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert [h.ressenti_c for h in point.heures] == [-5.0, 0.0, 37.5]
