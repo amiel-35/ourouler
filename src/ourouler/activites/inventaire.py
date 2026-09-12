@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ourouler.activites.cache import Cache, EntreeCache
+from ourouler.activites.modele import est_sport_velo
 from ourouler.config import Config
 
 #: Rattachement rendu pour une sortie manifestement faite en intérieur.
@@ -37,6 +38,10 @@ class StatsVelo:
     premiere: date | None = None
     derniere: date | None = None
     avec_puissance: int = 0
+    capteurs: list[str] = field(default_factory=list)
+    """Valeurs distinctes de `power_meter` vues sur ce vélo, dans l'ordre
+    d'apparition : c'est sur elles que repose la règle 2 du rattachement, le
+    mainteneur doit pouvoir les lire sans ouvrir le cache."""
 
     @property
     def part_puissance(self) -> float:
@@ -66,6 +71,10 @@ class Inventaire:
     par_velo: list[StatsVelo] = field(default_factory=list)
     par_mois: list[StatsMois] = field(default_factory=list)
     anomalies: list[Anomalie] = field(default_factory=list)
+    autres_sports: int = 0
+    """Entrées du cache écartées parce qu'elles ne sont pas du vélo (course à
+    pied, natation, musculation…). Elles restent stockées, elles ne sont
+    simplement pas comptées comme des sorties."""
 
 
 # --- rattachement -------------------------------------------------------------
@@ -74,10 +83,37 @@ class Inventaire:
 def rattacher_velo(entree: EntreeCache, config: Config) -> str:
     """Nom du vélo auquel rattacher une sortie.
 
-    Dans l'ordre du contrat : (1) l'équipement de la source correspond au
-    `intervals_gear` d'un vélo ; (2) une période d'un vélo contient la date ;
-    (3) sortie en intérieur ; (4) à défaut le premier vélo d'usage route.
+    Ordre du contrat du sprint 2, §7 (lot L2.7) — il a changé depuis le
+    sprint 1, où l'équipement primait sur tout :
+
+    1. sortie en **intérieur** (`VirtualRide`, `meta["trainer"]`, appareil
+       Zwift/Rouvy, `meta["interieur"]`) → « home-trainer » ;
+    2. `meta["power_meter"]` égal au `capteur_puissance` non vide d'un vélo,
+       à la casse et aux espaces près — c'est le signal le plus sûr, le
+       capteur étant physiquement monté sur un vélo et un seul ;
+    3. `meta["gear_id"]` égal à l'`intervals_gear_id` non vide d'un vélo, ou
+       `equipement` égal (casse) à son `intervals_gear` non vide ;
+    4. une période d'un vélo contient la date ;
+    5. à défaut, le premier vélo d'usage route.
+
+    L'intérieur passe devant parce qu'un capteur ou un équipement déclaré ne
+    dit rien du lieu : une séance de home-trainer faite avec le capteur du
+    vélo de route resterait comptée en sortie extérieure.
     """
+    if en_interieur(entree):
+        return HOME_TRAINER
+
+    capteur = _sans_blancs(entree.meta.get("power_meter"))
+    if capteur:
+        for velo in config.velos:
+            if velo.capteur_puissance and _sans_blancs(velo.capteur_puissance) == capteur:
+                return velo.nom
+
+    gear_id = str(entree.meta.get("gear_id") or "").strip()
+    if gear_id:
+        for velo in config.velos:
+            if velo.intervals_gear_id and velo.intervals_gear_id.strip() == gear_id:
+                return velo.nom
     equipement = (entree.equipement or "").strip().casefold()
     if equipement:
         for velo in config.velos:
@@ -90,18 +126,27 @@ def rattacher_velo(entree: EntreeCache, config: Config) -> str:
             if any(periode.contient(jour) for periode in velo.periodes):
                 return velo.nom
 
-    if en_interieur(entree):
-        return HOME_TRAINER
-
     for velo in config.velos:
         if velo.usage == "route":
             return velo.nom
     return config.velos[0].nom if config.velos else INCONNU
 
 
+def _sans_blancs(valeur: object) -> str:
+    """Forme comparable d'un nom de capteur : sans aucun blanc, sans casse.
+
+    « MARQUE 0000 », « marque0000 » et « MARQUE  0000 » désignent le même
+    capteur : la valeur vient d'un champ libre côté Intervals, on ne la
+    compare pas caractère à caractère.
+    """
+    if valeur is None:
+        return ""
+    return "".join(str(valeur).split()).casefold()
+
+
 def en_interieur(entree: EntreeCache) -> bool:
     """Vrai si la sortie a manifestement été faite sur home-trainer."""
-    if entree.meta.get("interieur"):
+    if entree.meta.get("interieur") or entree.meta.get("trainer"):
         return True
     sport = (entree.sport or "").casefold().replace("_", "")
     if "virtual" in sport or "indoor" in sport:
@@ -114,8 +159,18 @@ def en_interieur(entree: EntreeCache) -> bool:
 
 
 def inventaire(cache: Cache, config: Config, depuis: date) -> Inventaire:
-    entrees = cache.lister(depuis=depuis)
-    inv = Inventaire(depuis=depuis, total=len(entrees))
+    """Ce que le cache contient en **vélo**, par vélo et par mois.
+
+    Le cache peut contenir d'autres sports (le compte Intervals du mainteneur
+    mêle course à pied, natation et musculation aux sorties) : ces entrées
+    restent stockées mais sont écartées ici et comptées dans `autres_sports`,
+    sans quoi « RCR : 697 sorties » additionnerait les footings.
+    """
+    toutes = cache.lister(depuis=depuis)
+    entrees = [e for e in toutes if est_sport_velo(e.sport)]
+    inv = Inventaire(
+        depuis=depuis, total=len(entrees), autres_sports=len(toutes) - len(entrees)
+    )
     velos: dict[str, StatsVelo] = {}
     mois: dict[str, StatsMois] = {}
 
@@ -130,6 +185,9 @@ def inventaire(cache: Cache, config: Config, depuis: date) -> Inventaire:
         stats.km += km
         stats.heures += heures
         stats.avec_puissance += int(avec_puissance)
+        capteur = str(entree.meta.get("power_meter") or "").strip()
+        if capteur and capteur not in stats.capteurs:
+            stats.capteurs.append(capteur)
         jour = entree.jour
         if jour is not None:
             stats.premiere = jour if stats.premiere is None else min(stats.premiere, jour)
@@ -172,12 +230,15 @@ def rendre_texte(inv: Inventaire) -> str:
 
     lignes.append("")
     lignes.append("Par vélo")
-    lignes.append(f"  {'vélo':<18}{'sorties':>8}{'km':>10}{'heures':>8}{'% puiss.':>10}  période")
+    lignes.append(
+        f"  {'vélo':<18}{'sorties':>8}{'km':>10}{'heures':>8}{'% puiss.':>10}"
+        f"  {'capteur':<22}période"
+    )
     for s in inv.par_velo:
         plage = f"{s.premiere or '?'} → {s.derniere or '?'}"
         lignes.append(
             f"  {s.velo:<18}{s.nombre:>8}{s.km:>10.0f}{s.heures:>8.0f}"
-            f"{100 * s.part_puissance:>9.0f}%  {plage}"
+            f"{100 * s.part_puissance:>9.0f}%  {_capteurs(s):<22}{plage}"
         )
 
     lignes.append("")
@@ -189,6 +250,9 @@ def rendre_texte(inv: Inventaire) -> str:
         )
 
     lignes.append("")
+    if inv.autres_sports:
+        lignes.append(f"{inv.autres_sports} activité(s) d'autres sports ignorée(s).")
+        lignes.append("")
     if inv.anomalies:
         lignes.append(f"Anomalies ({len(inv.anomalies)})")
         for a in inv.anomalies:
@@ -198,10 +262,19 @@ def rendre_texte(inv: Inventaire) -> str:
     return "\n".join(lignes)
 
 
+def _capteurs(stats: StatsVelo) -> str:
+    """Capteurs vus sur un vélo, en une cellule de tableau."""
+    if not stats.capteurs:
+        return "—"
+    texte = ", ".join(stats.capteurs)
+    return texte if len(texte) <= 21 else texte[:20] + "…"
+
+
 def rendre_json(inv: Inventaire) -> dict:
     return {
         "depuis": inv.depuis.isoformat(),
         "total": inv.total,
+        "autres_sports": inv.autres_sports,
         "par_velo": [
             {
                 "velo": s.velo,
@@ -212,6 +285,7 @@ def rendre_json(inv: Inventaire) -> dict:
                 "derniere": s.derniere.isoformat() if s.derniere else None,
                 "avec_puissance": s.avec_puissance,
                 "part_puissance": round(s.part_puissance, 3),
+                "capteurs": list(s.capteurs),
             }
             for s in inv.par_velo
         ],
