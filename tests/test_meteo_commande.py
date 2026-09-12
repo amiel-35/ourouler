@@ -116,13 +116,14 @@ def test_heure_depart_minutes_tronquees():
     assert heure_depart("2026-09-15T07:45", maintenant).minute == 0
 
 
-@pytest.mark.parametrize("mauvais", ["", "   ", "25:00", "demain", "2026-13-45T07:00", "7h"])
+@pytest.mark.parametrize("mauvais", ["", "   ", "\t", "25:00", "demain", "2026-13-45T07:00", "7h"])
 def test_heure_depart_invalide(mauvais: str):
+    """Une valeur fournie et illisible est refusée, chaîne vide comprise.
+
+    `--depart ''` était traité comme l'absence d'option : la commande partait
+    interroger Open-Meteo. Seul `None` — l'option omise — vaut « maintenant ».
+    """
     maintenant = datetime(2026, 9, 13, 6, 0, tzinfo=UTC)
-    if not mauvais.strip():
-        # Chaîne vide = pas d'option : on retombe sur l'heure courante.
-        assert heure_depart(mauvais, maintenant) == maintenant
-        return
     with pytest.raises(ErreurUtilisateur) as e:
         heure_depart(mauvais, maintenant)
     assert "--depart" in str(e.value)

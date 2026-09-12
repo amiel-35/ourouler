@@ -95,9 +95,18 @@ def heure_depart(depart: str | None, maintenant: datetime | None = None) -> date
     else:
         reference = maintenant if maintenant.tzinfo is not None else maintenant.astimezone()
         zone = reference.tzinfo
-    texte = (depart or "").strip()
-    if not texte:
+    if depart is None:
         return reference.replace(minute=0, second=0, microsecond=0)
+    texte = depart.strip()
+    if not texte:
+        # `--depart ''` (ou que des blancs) n'est pas « pas d'option » : c'est
+        # une valeur fournie et illisible. C'était confondu avec `None`, donc
+        # la commande partait interroger Open-Meteo comme si de rien n'était,
+        # au lieu de refuser avant tout appel comme pour « 25:00 ».
+        raise ErreurUtilisateur(
+            f"--depart {depart!r} : valeur vide, attendu HH:MM ou AAAA-MM-JJTHH:MM "
+            "(heure locale) — omettre l'option pour partir à l'heure courante"
+        )
 
     essais = (
         lambda: datetime.combine(reference.date(), datetime.strptime(texte, "%H:%M").time()),
