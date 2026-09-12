@@ -146,17 +146,28 @@ def _indice(code: int) -> str:
 
 
 def _liste_de_dicts(reponse: httpx.Response, libelle: str) -> list[dict]:
+    """Le corps doit être un tableau de dictionnaires, sinon erreur connecteur.
+
+    `null` était traduit en liste vide et les éléments non-dictionnaires
+    silencieusement filtrés. Les deux mentaient : « aucune activité » et « le
+    service a répondu n'importe quoi » sont des situations différentes, et la
+    seconde doit se voir. Une liste vide, elle, reste une réponse valide.
+    """
     try:
         charge = reponse.json()
     except ValueError as e:
         raise ErreurConnecteur(f"Intervals.icu {libelle} : réponse JSON illisible") from e
-    if charge is None:
-        return []
     if not isinstance(charge, list):
         raise ErreurConnecteur(
             f"Intervals.icu {libelle} : tableau attendu, reçu {type(charge).__name__}"
         )
-    return [element for element in charge if isinstance(element, dict)]
+    intrus = [type(e).__name__ for e in charge if not isinstance(e, dict)]
+    if intrus:
+        raise ErreurConnecteur(
+            f"Intervals.icu {libelle} : {len(intrus)} élément(s) du tableau ne sont pas "
+            f"des objets JSON ({', '.join(sorted(set(intrus)))})"
+        )
+    return list(charge)
 
 
 def _dedoublonner(activites: list[dict]) -> list[dict]:

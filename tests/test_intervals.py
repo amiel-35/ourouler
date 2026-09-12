@@ -168,13 +168,20 @@ def test_activites_reponse_vide():
 
 
 def test_activites_reponse_null():
-    """Certaines API rendent `null` plutôt qu'un tableau vide."""
+    """`null` n'est pas « aucune activité » : c'est une réponse inattendue.
+
+    C'était traduit en liste vide. Un inventaire vide parce que le service a
+    renvoyé `null` est indiscernable d'un inventaire vide parce qu'on n'a pas
+    roulé — donc on refuse, en nommant l'endpoint.
+    """
 
     def nul(requete: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"null", headers={"content-type": "application/json"})
 
     c, _ = client(nul)
-    assert c.activites(date(2024, 3, 1), date(2024, 3, 31)) == []
+    with pytest.raises(ErreurConnecteur) as e:
+        c.activites(date(2024, 3, 1), date(2024, 3, 31))
+    assert "activities" in str(e.value) and "tableau attendu" in str(e.value)
 
 
 def test_activites_fenetre_a_l_envers_n_appelle_rien():
@@ -200,9 +207,17 @@ def test_activites_json_illisible():
     assert "JSON illisible" in str(e.value)
 
 
-def test_activites_ignore_les_elements_non_dictionnaires():
+def test_activites_refuse_les_elements_non_dictionnaires():
+    """Un tableau mêlant activités et bruit est refusé, pas filtré en silence.
+
+    Filtrer laissait passer une réponse à moitié comprise : on aurait
+    synchronisé « a111 » en croyant avoir tout vu.
+    """
     c, _ = client(json_fixe([ACTIVITE_1, "bruit", 42, None]))
-    assert [a["id"] for a in c.activites(date(2024, 3, 1), date(2024, 3, 31))] == ["a111"]
+    with pytest.raises(ErreurConnecteur) as e:
+        c.activites(date(2024, 3, 1), date(2024, 3, 31))
+    assert "activities" in str(e.value)
+    assert CLE not in str(e.value)
 
 
 # --- découpe systématique par mois --------------------------------------------
