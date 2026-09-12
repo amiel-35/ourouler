@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from datetime import UTC, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -250,3 +252,76 @@ def test_executer_directions_invalides_dans_la_config():
         executer(args(), config, client=client)
     assert "directions" in str(e.value)
     assert appels == []
+
+
+# --- changement d'heure sur --depart ----------------------------------------
+#
+# Tests qui auraient attrapé D2 : le décalage d'aujourd'hui était recopié sur
+# la date demandée. En 2026, l'heure d'été se termine le dimanche 25 octobre
+# à 03:00 CEST (+02:00 → +01:00).
+
+PARIS = ZoneInfo("Europe/Paris")
+
+
+@pytest.mark.parametrize(
+    "reference, demande, decalage_attendu_h, heure_utc_attendue",
+    [
+        # Référence en heure d'été, date demandée en heure d'hiver.
+        ("2026-09-13T08:00", "2026-12-20T10:00", 1, 9),
+        ("2026-10-24T08:00", "2026-10-26T10:00", 1, 9),
+        # Référence en heure d'hiver, date demandée en heure d'été.
+        ("2026-12-01T08:00", "2026-07-15T10:00", 2, 8),
+        ("2026-10-26T08:00", "2026-10-24T10:00", 2, 8),
+        # De part et d'autre du basculement, le même jour.
+        ("2026-09-13T08:00", "2026-10-25T01:00", 2, 23),
+        ("2026-09-13T08:00", "2026-10-25T04:00", 1, 3),
+    ],
+)
+def test_heure_depart_applique_le_decalage_de_la_date_demandee(
+    reference: str, demande: str, decalage_attendu_h: int, heure_utc_attendue: int
+):
+    maintenant = datetime.fromisoformat(reference).replace(tzinfo=PARIS)
+    t = heure_depart(demande, maintenant)
+    assert t.utcoffset() == timedelta(hours=decalage_attendu_h), (
+        f"{demande} demandé le {reference} : décalage {t.utcoffset()}"
+    )
+    assert t.astimezone(UTC).hour == heure_utc_attendue
+    assert t.replace(tzinfo=None) == datetime.fromisoformat(demande), (
+        "l'heure locale demandée est conservée telle quelle"
+    )
+
+
+def test_heure_depart_hh_mm_suit_le_decalage_du_jour_de_reference():
+    """La forme HH:MM vise aujourd'hui : c'est le décalage du jour de référence qui vaut."""
+    hiver = heure_depart("14:00", datetime(2026, 12, 1, 8, 0, tzinfo=PARIS))
+    assert hiver.utcoffset() == timedelta(hours=1)
+    assert hiver.astimezone(UTC).hour == 13
+    ete = heure_depart("14:00", datetime(2026, 7, 15, 8, 0, tzinfo=PARIS))
+    assert ete.utcoffset() == timedelta(hours=2)
+    assert ete.astimezone(UTC).hour == 12
+
+
+@pytest.mark.parametrize(
+    "demande, heure_utc_attendue",
+    [("2026-12-20T10:00", 9), ("2026-07-15T10:00", 8)],
+)
+def test_heure_depart_sans_reference_utilise_le_fuseau_du_systeme_date_par_date(
+    monkeypatch: pytest.MonkeyPatch, demande: str, heure_utc_attendue: int
+):
+    """Chemin réel (`maintenant=None`) : c'est celui où le décalage fixe faisait le bug.
+
+    Quelle que soit la saison où ce test tourne, une des deux dates demandées
+    est de l'autre côté du changement d'heure : l'ancien code échouait sur
+    l'une ou sur l'autre.
+    """
+    if not hasattr(time, "tzset"):  # pragma: no cover - Windows
+        pytest.skip("time.tzset() indisponible sur cette plateforme")
+    monkeypatch.setenv("TZ", "Europe/Paris")
+    time.tzset()
+    try:
+        t = heure_depart(demande)
+        assert t.replace(tzinfo=None) == datetime.fromisoformat(demande)
+        assert t.astimezone(UTC).hour == heure_utc_attendue
+    finally:
+        monkeypatch.undo()
+        time.tzset()  # restaure le fuseau réel de la machine

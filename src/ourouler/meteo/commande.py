@@ -79,10 +79,22 @@ def heure_depart(depart: str | None, maintenant: datetime | None = None) -> date
     `None` → l'heure courante. `HH:MM` → aujourd'hui à cette heure.
     `AAAA-MM-JJTHH:MM` → cette date et cette heure. Les minutes sont
     tronquées : les prévisions Open-Meteo sont horaires.
+
+    Le piège : `datetime.now().astimezone()` porte un fuseau à décalage
+    **fixe** (CEST +02:00 en septembre). Recopier ce décalage sur une date
+    demandée de l'autre côté d'un changement d'heure décalait toute la
+    fenêtre de prévision d'une heure. On ne recopie donc pas le décalage
+    d'aujourd'hui : `astimezone()` sur l'horodatage naïf applique le
+    décalage réel du fuseau du système **pour cette date-là**. Quand
+    l'appelant injecte `maintenant` (tests), c'est son fuseau qui sert : un
+    `ZoneInfo` calcule ses changements d'heure tout seul.
     """
-    reference = maintenant if maintenant is not None else datetime.now().astimezone()
-    if reference.tzinfo is None:
-        reference = reference.astimezone()
+    if maintenant is None:
+        reference = datetime.now().astimezone()
+        zone = None  # « fuseau du système », résolu date par date via astimezone()
+    else:
+        reference = maintenant if maintenant.tzinfo is not None else maintenant.astimezone()
+        zone = reference.tzinfo
     texte = (depart or "").strip()
     if not texte:
         return reference.replace(minute=0, second=0, microsecond=0)
@@ -96,7 +108,9 @@ def heure_depart(depart: str | None, maintenant: datetime | None = None) -> date
             t = essai()
         except ValueError:
             continue
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=reference.tzinfo)
-        return t.replace(minute=0, second=0, microsecond=0)
+        # Tronquer avant d'attacher le fuseau : le décalage est celui de l'heure retenue.
+        t = t.replace(minute=0, second=0, microsecond=0)
+        if t.tzinfo is not None:
+            return t
+        return t.astimezone() if zone is None else t.replace(tzinfo=zone)
     raise ErreurUtilisateur(f"--depart {depart!r} : attendu HH:MM ou AAAA-MM-JJTHH:MM (heure locale)")
