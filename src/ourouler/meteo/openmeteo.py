@@ -159,13 +159,20 @@ class ClientOpenMeteo:
             )
 
         colonnes = {nom: self._colonne(horaire, nom, len(temps)) for nom in VARIABLES_HORAIRES}
+        # Repli `precipitation` → `rain` : il se décide **une fois pour la
+        # série**, et seulement si le modèle ne fournit pas du tout
+        # `precipitation`. Le faire valeur par valeur inventait une pluie :
+        # `precipitation` à `null` à une heure donnée veut dire « le modèle ne
+        # sait pas », et `rain` à 0.0 à la même heure porte sur une autre
+        # variable (pluie liquide seule) ; recopier ce 0.0 affirmait « il ne
+        # pleut pas » là où la réponse ne dit rien. Un `null` reste `None`.
+        pluie = colonnes["precipitation" if horaire.get("precipitation") is not None else "rain"]
         heures = []
         for i, brut_t in enumerate(temps):
-            precipitation = colonnes["precipitation"][i]
             heures.append(
                 PrevisionHeure(
                     t=self._instant(brut_t),
-                    pluie_mm=precipitation if precipitation is not None else colonnes["rain"][i],
+                    pluie_mm=pluie[i],
                     vent_kmh=colonnes["wind_speed_10m"][i],
                     rafales_kmh=colonnes["wind_gusts_10m"][i],
                     vent_depuis_deg=colonnes["wind_direction_10m"][i],

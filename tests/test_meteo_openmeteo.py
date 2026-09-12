@@ -132,14 +132,34 @@ def test_reponse_liste_a_un_element_pour_un_seul_point():
 
 
 def test_valeurs_nulles_tolerees():
+    """Un `null` de `precipitation` reste `None` : pas de repli valeur par valeur.
+
+    Le repli sur `rain` se décidait heure par heure et recopiait le 0.0 de
+    `rain` à la place d'un `null` de `precipitation` : la table affichait
+    « il ne pleut pas » là où le modèle ne disait rien.
+    """
     b = bloc(0.0, 0.0, precipitation=[None, 0.4, None], apparent_temperature=[None, None, None])
     client, _ = client_repondant([b])
     (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
-    # precipitation manquante → repli sur rain, qui vaut 0.0 puis 1.2.
-    assert point.heures[0].pluie_mm == 0.0
-    assert point.heures[1].pluie_mm == 0.4
-    assert point.heures[2].pluie_mm == 1.2
+    assert [h.pluie_mm for h in point.heures] == [None, 0.4, None]
     assert all(h.ressenti_c is None for h in point.heures)
+
+
+def test_repli_sur_rain_si_precipitation_absente_de_la_reponse():
+    """Le repli ne joue que si le modèle ne sert pas du tout `precipitation`."""
+    b = bloc(0.0, 0.0)
+    del b["hourly"]["precipitation"]
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert [h.pluie_mm for h in point.heures] == [0.0, 0.5, 1.2]
+
+
+def test_repli_sur_rain_si_la_serie_precipitation_est_nulle():
+    """`"precipitation": null` = série non fournie, donc repli sur `rain`."""
+    b = bloc(0.0, 0.0, precipitation=None)
+    client, _ = client_repondant([b])
+    (point,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
+    assert [h.pluie_mm for h in point.heures] == [0.0, 0.5, 1.2]
 
 
 def test_pluie_none_si_precipitation_et_rain_nulles():
@@ -455,8 +475,12 @@ def test_un_nan_de_pluie_ne_contamine_pas_les_cumuls():
     assert cumul == cumul, "un NaN dans le cumul rendrait toute comparaison fausse"
 
 
-def test_le_repli_precipitation_vers_rain_marche_aussi_avec_un_nan():
-    """`precipitation` à NaN doit se replier sur `rain`, comme un `null` le fait."""
+def test_un_nan_de_precipitation_ne_se_replie_pas_sur_rain():
+    """Un NaN se comporte comme un `null` : il reste `None`, il n'emprunte pas `rain`.
+
+    La série `precipitation` est bien servie par le modèle ; le repli ne joue
+    donc pas, et la valeur de cette heure-là reste inconnue.
+    """
     corps = (
         '{"latitude":0.0,"longitude":0.0,"hourly":{'
         '"time":["2026-09-13T08:00"],'
@@ -468,7 +492,7 @@ def test_le_repli_precipitation_vers_rain_marche_aussi_avec_un_nan():
     (point,) = client_json_brut(corps).previsions(
         [(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=1
     )
-    assert point.heures[0].pluie_mm == 0.8
+    assert point.heures[0].pluie_mm is None
 
 
 def test_un_point_entierement_nan_est_un_point_hors_domaine():
