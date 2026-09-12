@@ -258,7 +258,8 @@ def metadonnees(activite: dict, equipements: dict[str, str] | None = None) -> di
     lisible vient de là. Sans elle, on se rabat sur ce que `gear` contient.
 
     Les champs de rattachement (contrat §7) sont recopiés tels quels :
-    `power_meter` (« SRAM 0000 »), son numéro de série, `bilateral` (déduit de
+    `power_meter` (« MARQUE 1234 », inventé : la valeur réelle du
+    mainteneur reste dans `docs/`), son numéro de série, `bilateral` (déduit de
     la présence d'`avg_lr_balance`, qu'un capteur unilatéral ne renvoie pas),
     `gear_id`, `trainer` et `device_name`.
     """
