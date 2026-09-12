@@ -133,13 +133,20 @@ secondary) étaient donc trop sévères : les secondaires font un quart de sa
 pratique. Amiel : « la majorité de mes traces sont des routes acceptables
 et pas dangereuses, surtout en semaine ; le dimanche j'en suis sûr à 90 % ;
 souvent issues de Strava, très bon pour ça ». D'où le renversement : **les
-traces du cycliste sont la vérité terrain**, pas les étiquettes OSM.
-- Construire depuis l'historique une couche de tronçons parcourus (maille
-  ~30 m ou tronçons OSM rejoués), avec nombre de passages et jour de
+traces du cycliste sont la vérité terrain pour apprendre**, pas les
+étiquettes OSM. **Attention (précision d'Amiel)** : ces traces ne couvrent
+que le sud et l'ouest de Rennes ; elles servent à l'apprentissage, jamais
+comme critère de choix — sinon toute boucle vers le nord ou l'est serait
+pénalisée à tort. « Inconnu » n'est jamais un malus.
+- Construire depuis l'historique la liste des tronçons parcourus (rejoués
+  dans BRouter pour en avoir les tags), avec nombre de passages et jour de
   semaine (semaine > dimanche).
-- Par candidate : colonne « routes connues » = part des km sur tronçons déjà
-  roulés ; les étiquettes OSM ne pèsent plus que sur l'inconnu, avec
-  `secondary` moins pénalisé que `primary`.
+- **Apprendre** sur ces tronçons ce qui est accepté : type de route,
+  `maxspeed`, `lanes`, revêtement, coût BRouter par km… → en déduire les
+  poids du score, appliqués partout ; `secondary` moins pénalisé que
+  `primary` si les données le confirment.
+- Par candidate : colonne « routes connues » (part des km déjà roulés), à
+  titre **informatif** seulement.
 - Afficher le **coût moyen du profil BRouter** (colonne `CostPerKm` des
   messages) : c'est le jugement du routeur lui-même sur le trafic.
 - Liste d'évitement (routes à ne plus prendre) → `nogos` BRouter.
