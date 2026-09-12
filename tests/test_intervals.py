@@ -481,6 +481,40 @@ def test_synchroniser_ne_retelecharge_pas_ce_qui_est_en_cache(cache: Cache, acti
     assert espion.chemins.count("/api/v1/activity/a111/file") == telechargements
 
 
+def test_synchroniser_converge_quand_deux_activites_partagent_le_fichier(
+    cache: Cache, activites: Path
+):
+    """Deux activités, un seul fichier d'origine (le cas du triathlon).
+
+    Point 2 de la relecture du sprint 2 : le cache était indexé par le sha256
+    du contenu, donc les deux segments d'un triathlon (natation et vélo dans
+    le même FIT) n'avaient qu'une ligne, celle de la dernière. `contient()`
+    devenait faux pour la première, qui était retéléchargée à chaque passe en
+    faisant disparaître la seconde : la synchronisation n'a jamais convergé.
+    """
+    premiere = {**ACTIVITE_1, "id": "t1", "name": "Segment invente 1"}
+    seconde = {**ACTIVITE_1, "id": "t2", "name": "Segment invente 2"}
+    c, espion = client(connecteur_complet(activites, [premiere, seconde]))
+
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.ignorees) == (2, 2, 0)
+    entrees = cache.lister()
+    assert {e.id_externe for e in entrees} == {"t1", "t2"}, "lister() doit rendre les deux"
+    assert len({e.identifiant for e in entrees}) == 1, "même contenu = même identifiant"
+    assert len(list(cache.brut.iterdir())) == 1, "un seul fichier brut"
+    assert cache.contient(source="intervals", id_externe="t1")
+    assert cache.contient(source="intervals", id_externe="t2")
+    telechargements = [chemin for chemin in espion.chemins if chemin.endswith("/file")]
+    assert len(telechargements) == 2
+
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.ignorees) == (2, 0, 2), "seconde passe : 0 ajout"
+    assert [
+        chemin for chemin in espion.chemins if chemin.endswith("/file")
+    ] == telechargements, "seconde passe : aucun appel /file"
+    assert {e.id_externe for e in cache.lister()} == {"t1", "t2"}, "aucune des deux ne disparaît"
+
+
 def test_synchroniser_compte_les_echecs_sans_s_arreter(cache: Cache, activites: Path):
     """Un fichier illisible ou en erreur ne doit pas interrompre la synchro."""
     fit = (activites / "boucle.fit").read_bytes()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import sqlite3
@@ -94,13 +95,26 @@ def test_ajouter_archive_le_brut_et_indexe(cache: Cache, activites: Path):
     assert entree.meta["nom"] == "Sortie inventée"
 
 
-def test_ajouter_deux_fois_le_meme_contenu_est_idempotent(cache: Cache, activites: Path):
+def test_ajouter_deux_fois_la_meme_identite_est_idempotent(cache: Cache, activites: Path):
     contenu = octets(activites, "boucle.gpx")
     premier = cache.ajouter(contenu, source="fichier", id_externe="a.gpx", extension="gpx", meta={})
-    second = cache.ajouter(contenu, source="fichier", id_externe="b.gpx", extension="gpx", meta={})
+    second = cache.ajouter(contenu, source="fichier", id_externe="a.gpx", extension="gpx", meta={})
     assert premier == second
     assert len(cache.lister()) == 1
     assert len(list((cache.dossier / NOM_BRUT).iterdir())) == 1
+
+
+def test_deux_identites_sur_le_meme_contenu_font_deux_entrees(cache: Cache, activites: Path):
+    """Un triathlon : natation et vélo, deux activités, un seul FIT (point 2 de la relecture)."""
+    contenu = octets(activites, "boucle.gpx")
+    premier = cache.ajouter(contenu, source="intervals", id_externe="i1", extension="gpx", meta={})
+    second = cache.ajouter(contenu, source="intervals", id_externe="i2", extension="gpx", meta={})
+    assert premier == second, "l'identifiant reste le sha256 du contenu : le fichier est partagé"
+    entrees = cache.lister()
+    assert [e.id_externe for e in entrees] == ["i1", "i2"], "lister() doit rendre les deux"
+    assert len(list((cache.dossier / NOM_BRUT).iterdir())) == 1, "un seul fichier brut"
+    assert cache.contient(source="intervals", id_externe="i1")
+    assert cache.contient(source="intervals", id_externe="i2")
 
 
 def test_extension_toleree_avec_point_et_majuscules(cache: Cache, activites: Path):
@@ -337,6 +351,67 @@ def test_un_index_anterieur_au_versionnement_est_tolere(cache: Cache):
     assert rouvert.lister() == []
     with sqlite3.connect(rouvert.index) as cx:
         assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+
+
+#: Le schéma 1, tel qu'il était écrit : `identifiant` clé primaire. Recopié
+#: ici (et pas importé) pour que le test continue de décrire l'ancien index
+#: même quand le module ne le connaîtra plus.
+_SCHEMA_V1 = """
+CREATE TABLE activites (
+    identifiant       TEXT PRIMARY KEY,
+    source            TEXT NOT NULL,
+    id_externe        TEXT,
+    extension         TEXT NOT NULL,
+    debut             TEXT,
+    duree_s           REAL,
+    distance_m        REAL,
+    puissance_moy_w   REAL,
+    sport             TEXT,
+    appareil          TEXT,
+    equipement        TEXT,
+    meta              TEXT NOT NULL DEFAULT '{}',
+    ajoutee_le        TEXT NOT NULL
+);
+CREATE INDEX idx_activites_debut ON activites(debut);
+CREATE INDEX idx_activites_source ON activites(source, id_externe);
+"""
+
+
+def test_un_index_au_schema_1_est_migre_sans_perdre_les_fichiers_bruts(
+    tmp_path: Path, activites: Path
+):
+    """Migration v1 → v2 : les lignes et les fichiers bruts survivent (point 2).
+
+    Le schéma 1 ne sait pas représenter deux activités au même fichier ; on
+    ne peut donc pas récupérer ce qu'il avait déjà perdu, mais on ne doit
+    rien perdre de plus, ni forcer l'utilisateur à tout retélécharger.
+    """
+    dossier = tmp_path / "cache"
+    (dossier / NOM_BRUT).mkdir(parents=True)
+    contenu = octets(activites, "boucle.gpx")
+    identifiant = hashlib.sha256(contenu).hexdigest()
+    (dossier / NOM_BRUT / f"{identifiant}.gpx").write_bytes(contenu)
+    with sqlite3.connect(dossier / NOM_INDEX) as cx:
+        cx.executescript(_SCHEMA_V1)
+        cx.execute(
+            "INSERT INTO activites (identifiant, source, id_externe, extension, debut, "
+            "ajoutee_le) VALUES (?,?,?,?,?,?)",
+            (identifiant, "intervals", "a111", "gpx", "2024-03-30T09:00:00+00:00", "2024-03-30"),
+        )
+        cx.execute("PRAGMA user_version = 1")
+
+    cache = Cache(dossier)
+    (entree,) = cache.lister()
+    assert (entree.identifiant, entree.source, entree.id_externe) == (identifiant, "intervals", "a111")
+    assert cache.contient(source="intervals", id_externe="a111")
+    assert cache.chemin(identifiant).is_file(), "le fichier brut ne doit pas bouger"
+    with sqlite3.connect(cache.index) as cx:
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+
+    # Et l'index migré accepte bien deux activités au même contenu.
+    cache.ajouter(contenu, source="intervals", id_externe="a222", extension="gpx", meta={})
+    assert {e.id_externe for e in cache.lister()} == {"a111", "a222"}
+    assert len(list((dossier / NOM_BRUT).iterdir())) == 1
 
 
 # --- mise à jour des métadonnées sur place (L2.7) ------------------------------
