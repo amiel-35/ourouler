@@ -334,3 +334,70 @@ def test_denivele_compte_la_montee_seule():
 
 def test_denivele_none_sans_altitude():
     assert denivele_positif(_points(altitudes=[None] * 50)) is None
+
+
+# --- FIT à plusieurs sessions -----------------------------------------------
+#
+# Tests qui auraient attrapé B2 : `duree_mouvement_s` et `distance_m` étaient
+# réaffectés à chaque trame `session`, alors que `sport` était protégé par
+# `sport or ...`. Un fichier multisport, ou une sortie coupée en deux,
+# rapportait donc la distance du **dernier tronçon seulement**, en silence.
+
+
+def test_fit_deux_sessions_somme_les_distances(generateur):
+    """Une sortie coupée en deux : la distance est celle des deux tronçons."""
+    trace = generateur.trajectoire(n=200)
+    premier, second = trace[:100], trace[100:]
+    octets = generateur.encoder_fit_multisession([premier, second])
+
+    distance_1 = premier[-1].dist_m - premier[0].dist_m
+    distance_2 = second[-1].dist_m - second[0].dist_m
+    assert distance_2 < distance_1 * 3, "les deux tronçons doivent être distinguables"
+
+    activite = lire_fit(octets)
+    assert activite.distance_m == pytest.approx(distance_1 + distance_2, rel=1e-3)
+    assert activite.distance_m != pytest.approx(distance_2, rel=1e-3), (
+        "c'était le bug : seule la dernière session comptait"
+    )
+
+
+def test_fit_deux_sessions_somme_les_durees_de_mouvement(generateur):
+    trace = generateur.trajectoire(n=200)
+    premier, second = trace[:100], trace[100:]
+    une_seule = lire_fit(generateur.encoder_fit_multisession([second]))
+    deux = lire_fit(generateur.encoder_fit_multisession([premier, second]))
+    assert une_seule.duree_mouvement_s is not None
+    assert deux.duree_mouvement_s is not None
+    assert deux.duree_mouvement_s > une_seule.duree_mouvement_s
+
+
+def test_fit_deux_sessions_avertit_dans_meta(generateur):
+    """Le lecteur ne doit pas cumuler en silence : l'inventaire doit pouvoir le dire."""
+    trace = generateur.trajectoire(n=200)
+    activite = lire_fit(generateur.encoder_fit_multisession([trace[:100], trace[100:]]))
+    assert activite.meta.get("sessions") == 2
+    avertissements = " ".join(activite.avertissements)
+    assert "session" in avertissements, activite.avertissements
+    assert "2" in avertissements
+
+
+def test_fit_trois_sessions(generateur):
+    trace = generateur.trajectoire(n=210)
+    troncons = [trace[:70], trace[70:140], trace[140:]]
+    attendu = sum(t[-1].dist_m - t[0].dist_m for t in troncons)
+    activite = lire_fit(generateur.encoder_fit_multisession(troncons))
+    assert activite.distance_m == pytest.approx(attendu, rel=1e-3)
+    assert activite.meta.get("sessions") == 3
+
+
+def test_fit_une_seule_session_n_avertit_pas(generateur):
+    """Le cas courant ne doit pas hériter d'un avertissement ni d'un champ en trop."""
+    activite = lire_fit(generateur.encoder_fit(generateur.trajectoire(n=120)))
+    assert "sessions" not in activite.meta
+    assert all("session" not in a for a in activite.avertissements), activite.avertissements
+
+
+def test_fit_deux_sessions_garde_tous_les_points(generateur):
+    trace = generateur.trajectoire(n=200)
+    activite = lire_fit(generateur.encoder_fit_multisession([trace[:100], trace[100:]]))
+    assert len(activite.points) == 200

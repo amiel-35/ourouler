@@ -192,9 +192,27 @@ def _champs_record(*, gps: bool, altitude: bool, puissance: bool) -> list[tuple[
 
 
 def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2, sous_sport: int = 0) -> bytes:
-    gps = echantillons[0].lat is not None
-    altitude = echantillons[0].alt_m is not None
-    puissance = echantillons[0].puissance_w is not None
+    """Un FIT à une seule session — le cas courant."""
+    return encoder_fit_multisession([echantillons], sport=sport, sous_sport=sous_sport)
+
+
+def encoder_fit_multisession(
+    troncons: list[list[Echantillon]], *, sport: int = 2, sous_sport: int = 0
+) -> bytes:
+    """Un FIT portant **une trame `session` par tronçon**.
+
+    C'est ce qu'écrit un appareil quand la sortie est coupée en deux (pause
+    longue, changement d'activité) ou pour un fichier multisport. Les
+    `record` sont écrits d'affilée, avec leur distance cumulée depuis le tout
+    début ; chaque `session` porte la distance et la durée **de son
+    tronçon**, si bien que le total est la somme des sessions — et pas la
+    valeur de la dernière.
+    """
+    assert troncons and all(troncons), "chaque tronçon doit porter au moins un échantillon"
+    tous = [e for troncon in troncons for e in troncon]
+    gps = tous[0].lat is not None
+    altitude = tous[0].alt_m is not None
+    puissance = tous[0].puissance_w is not None
     champs_record = _champs_record(gps=gps, altitude=altitude, puissance=puissance)
 
     corps = bytearray()
@@ -202,10 +220,10 @@ def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2, sous_sport: 
     corps += message_donnees(
         0,
         CHAMPS_FILE_ID,
-        [4, 255, 0, _horodatage_fit(echantillons[0].t)],  # type=activity, fabricant=development
+        [4, 255, 0, _horodatage_fit(tous[0].t)],  # type=activity, fabricant=development
     )
     corps += message_definition(1, 20, champs_record)
-    for e in echantillons:
+    for e in tous:
         valeurs: list[float | None] = [_horodatage_fit(e.t)]
         if gps:
             valeurs += [_semicercles(e.lat), _semicercles(e.lon)]
@@ -217,11 +235,21 @@ def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2, sous_sport: 
         valeurs.append(e.temp_c)
         corps += message_donnees(1, champs_record, valeurs)
 
+    corps += message_definition(2, 18, CHAMPS_SESSION)
+    for troncon in troncons:
+        corps += _donnees_session(troncon, sport=sport, sous_sport=sous_sport)
+    return fichier_fit(bytes(corps))
+
+
+def _donnees_session(
+    echantillons: list[Echantillon], *, sport: int, sous_sport: int
+) -> bytes:
+    """La trame `session` d'un tronçon : sa durée et sa distance, pas celles du fichier."""
     premier, dernier = echantillons[0], echantillons[-1]
     ecoule = (dernier.t - premier.t).total_seconds()
+    distance = dernier.dist_m - premier.dist_m
     puissances = [e.puissance_w for e in echantillons if e.puissance_w is not None]
-    corps += message_definition(2, 18, CHAMPS_SESSION)
-    corps += message_donnees(
+    return message_donnees(
         2,
         CHAMPS_SESSION,
         [
@@ -230,12 +258,11 @@ def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2, sous_sport: 
             sport,
             sous_sport,
             round(ecoule * 1000),
-            round(ecoule * 1000) - 30_000,  # temps de mouvement : 30 s d'arrêt
-            round(dernier.dist_m * 100),
+            max(round(ecoule * 1000) - 30_000, 0),  # temps de mouvement : 30 s d'arrêt
+            round(distance * 100),
             round(sum(puissances) / len(puissances)) if puissances else None,
         ],
     )
-    return fichier_fit(bytes(corps))
 
 
 # --- GPX ----------------------------------------------------------------------

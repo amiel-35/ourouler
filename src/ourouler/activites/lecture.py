@@ -71,9 +71,14 @@ def lire_fit(source: Entree) -> Activite:
     avertissements: list[str] = []
     sport: str | None = None
     appareil: str | None = None
-    duree_mouvement_s: float | None = None
-    distance_m: float | None = None
     meta: dict = {}
+    # Un FIT peut porter plusieurs trames `session` : sortie coupée en deux,
+    # fichier multisport. Les valeurs étaient réaffectées à chaque session, si
+    # bien que la distance rapportée était celle du **dernier tronçon
+    # seulement**, en silence. On les cumule, et on le dit.
+    sessions = 0
+    distances_sessions: list[float] = []
+    durees_sessions: list[float] = []
 
     try:
         with fitdecode.FitReader(io.BytesIO(contenu)) as fit:
@@ -85,9 +90,14 @@ def lire_fit(source: Entree) -> Activite:
                     if point is not None:
                         points.append(point)
                 elif trame.name == "session":
+                    sessions += 1
                     sport = sport or _sport_fit(trame)
-                    duree_mouvement_s = _flottant(_champ(trame, "total_timer_time"))
-                    distance_m = _flottant(_champ(trame, "total_distance"))
+                    duree = _flottant(_champ(trame, "total_timer_time"))
+                    if duree is not None:
+                        durees_sessions.append(duree)
+                    distance = _flottant(_champ(trame, "total_distance"))
+                    if distance is not None:
+                        distances_sessions.append(distance)
                 elif trame.name == "sport":
                     sport = sport or _sport_fit(trame)
                 elif trame.name == "file_id":
@@ -99,6 +109,14 @@ def lire_fit(source: Entree) -> Activite:
 
     if not points:
         raise ErreurLecture(f"{fichier or '<octets>'} : FIT sans enregistrement exploitable")
+    duree_mouvement_s = sum(durees_sessions) if durees_sessions else None
+    distance_m = sum(distances_sessions) if distances_sessions else None
+    if sessions > 1:
+        meta["sessions"] = sessions
+        avertissements.append(
+            f"{sessions} sessions dans le fichier : distance et durée de mouvement "
+            "sont la somme des sessions"
+        )
     if distance_m is None:
         distance_m = _derniere_distance(points)
     return _assembler(
