@@ -78,6 +78,7 @@ def args(**champs) -> argparse.Namespace:
         "candidates": None,
         "profil": None,
         "sortie": None,
+        "ecraser": False,
         "gpx": None,
         "json": False,
     }
@@ -311,6 +312,100 @@ def test_sortie_choisie_par_l_utilisateur(tmp_path: Path, monkeypatch, capsys):
     executer(args(sortie=str(voulu)), config_de_test(), moteur_brouter(), moteur_meteo())
     assert voulu.is_file()
     assert list(tmp_path.glob("*.gpx")) == [voulu]
+
+
+# --- écriture du GPX : refus d'avance et erreurs utilisateur (point 8) --------
+
+
+def test_un_dossier_de_sortie_inexistant_est_refuse_avant_tout_appel(tmp_path: Path, monkeypatch):
+    """Point 8 : le refus doit tomber dans `lire_options`, pas après 22 appels externes."""
+    monkeypatch.chdir(tmp_path)
+    manquant = tmp_path / "jamais" / "cree" / "x.gpx"
+    with pytest.raises(ErreurUtilisateur, match="n'existe pas"):
+        lire_options(args(sortie=str(manquant)), config_de_test())
+
+
+def test_un_dossier_de_sortie_non_inscriptible_est_refuse_avant_tout_appel(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    interdit = tmp_path / "interdit"
+    interdit.mkdir()
+    interdit.chmod(0o500)
+    try:
+        with pytest.raises(ErreurUtilisateur, match="écriture impossible"):
+            lire_options(args(sortie=str(interdit / "x.gpx")), config_de_test())
+    finally:
+        interdit.chmod(0o700)
+
+
+def test_aucun_appel_reseau_quand_la_sortie_est_impossible(tmp_path: Path, monkeypatch):
+    """Le refus d'avance doit épargner jusqu'à 12 appels BRouter et 10 Open-Meteo."""
+    monkeypatch.chdir(tmp_path)
+
+    def interdit(requete: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"aucun appel ne doit partir : {requete.url}")
+
+    brouter = ClientBrouter(
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(interdit))
+    )
+    meteo = ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(interdit)))
+    with pytest.raises(ErreurUtilisateur):
+        executer(
+            args(sortie=str(tmp_path / "absent" / "x.gpx")), config_de_test(), brouter, meteo
+        )
+
+
+def test_une_ecriture_qui_echoue_sort_en_erreur_utilisateur(tmp_path: Path, monkeypatch):
+    """Point 8 : `write_text` hors de tout `try` sortait en `OSError` nue, donc en trace.
+
+    Le dossier est inscriptible au moment de la vérification et ne l'est plus
+    à l'écriture : c'est le seul chemin qui reste après le refus d'avance,
+    et il doit donner un message, pas une trace.
+    """
+    monkeypatch.chdir(tmp_path)
+    voulu = tmp_path / "ma_boucle.gpx"
+
+    def refuser(*a, **kw):
+        raise OSError("disque plein")
+
+    monkeypatch.setattr(Path, "write_text", refuser)
+    with pytest.raises(ErreurUtilisateur, match="écriture impossible"):
+        executer(args(sortie=str(voulu)), config_de_test(), moteur_brouter(), moteur_meteo())
+
+
+def test_un_fichier_de_sortie_existant_n_est_pas_ecrase_sans_ecraser(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Point 19, tranché par le superviseur : `--sortie` ne remplace pas en silence."""
+    monkeypatch.chdir(tmp_path)
+    voulu = tmp_path / "ma_boucle.gpx"
+    executer(args(sortie=str(voulu)), config_de_test(), moteur_brouter(), moteur_meteo())
+    capsys.readouterr()
+    ancien = voulu.read_text(encoding="utf-8")
+
+    with pytest.raises(ErreurUtilisateur) as capture:
+        executer(args(sortie=str(voulu)), config_de_test(), moteur_brouter(), moteur_meteo())
+    assert "ma_boucle.gpx" in str(capture.value), "le message doit nommer le fichier"
+    assert "--ecraser" in str(capture.value), "et dire quoi faire"
+    assert voulu.read_text(encoding="utf-8") == ancien, "le fichier ne doit pas bouger"
+
+    code = executer(
+        args(sortie=str(voulu), ecraser=True), config_de_test(), moteur_brouter(), moteur_meteo()
+    )
+    assert code == 0 and voulu.is_file()
+
+
+def test_le_nom_par_defaut_horodate_est_ecrase_sans_question(tmp_path: Path, monkeypatch, capsys):
+    """Il porte l'heure à la minute : la collision est improbable, et sans enjeu."""
+    monkeypatch.chdir(tmp_path)
+    executer(args(), config_de_test(), moteur_brouter(), moteur_meteo())
+    capsys.readouterr()
+    (ecrit,) = list(tmp_path.glob("*.gpx"))
+    ecrit.write_text("contenu précédent", encoding="utf-8")
+
+    assert executer(args(), config_de_test(), moteur_brouter(), moteur_meteo()) == 0
+    assert "<trkpt" in ecrit.read_text(encoding="utf-8")
 
 
 # --- le mode --gpx -------------------------------------------------------------

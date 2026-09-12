@@ -31,6 +31,7 @@ import argparse
 import json
 import math
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -75,6 +76,7 @@ class Demande:
     profil: str
     depart: datetime
     sortie: Path | None
+    ecraser: bool = False
 
 
 @dataclass
@@ -193,7 +195,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         )
 
     sortie = getattr(args, "sortie", None)
-    return Demande(
+    demande = Demande(
         gpx=chemin_gpx,
         distance_km=float(distance_km) if distance_km is not None else None,
         direction=libelle,
@@ -202,7 +204,59 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         profil=profil,
         depart=heure_depart(getattr(args, "depart", None)),
         sortie=Path(sortie) if sortie else None,
+        ecraser=bool(getattr(args, "ecraser", False)),
     )
+    if demande.gpx is None:
+        _verifier_sortie(demande)
+    return demande
+
+
+def _verifier_sortie(demande: Demande) -> None:
+    """Refuse d'avance un GPX qu'on ne pourra pas écrire (contrat §6, avant-réseau).
+
+    Un dossier inexistant ou non inscriptible se voyait au moment de
+    l'écriture, c'est-à-dire après avoir consommé jusqu'à 12 appels BRouter et
+    10 appels Open-Meteo, et sortait en trace plutôt qu'en message.
+
+    Un `--sortie` qui existe déjà n'est **pas** écrasé sans `--ecraser` : avec
+    un nom choisi, la deuxième exécution est le cas normal, et remplacer sans
+    un mot le fichier qu'on vient de relire serait une perte. Le nom par
+    défaut, lui, porte l'horodatage à la minute : il est écrasé sans question
+    (décision du superviseur, point 19 de la relecture).
+    """
+    chemin = demande.sortie if demande.sortie is not None else Path(nom_par_defaut(demande))
+    dossier = chemin.parent if str(chemin.parent) else Path(".")
+    if not dossier.is_dir():
+        raise ErreurUtilisateur(
+            f"--sortie {chemin} : le dossier {dossier} n'existe pas"
+        )
+    _verifier_inscriptible(dossier, chemin)
+    if demande.sortie is not None and chemin.exists() and not demande.ecraser:
+        raise ErreurUtilisateur(
+            f"{chemin} existe déjà — ajouter --ecraser pour le remplacer, "
+            "ou choisir un autre nom"
+        )
+
+
+def _verifier_inscriptible(dossier: Path, chemin: Path) -> None:
+    """Écrit et efface un fichier témoin : la seule façon de savoir vraiment.
+
+    Un droit d'écriture se mesure, il ne se déduit pas des bits de mode (ACL,
+    montage en lecture seule, quota). Le témoin porte un nom unique et est
+    effacé aussitôt, y compris si la création a échoué à mi-chemin.
+    """
+    temoin = dossier / f".ourouler-{uuid.uuid4().hex}.tmp"
+    try:
+        temoin.touch()
+    except OSError as e:
+        raise ErreurUtilisateur(
+            f"--sortie {chemin} : écriture impossible dans {dossier} ({e})"
+        ) from e
+    finally:
+        try:
+            temoin.unlink(missing_ok=True)
+        except OSError:  # pragma: no cover - le témoin existe et vient d'être créé
+            pass
 
 
 def direction_en_azimut(texte: str) -> tuple[str, float]:
@@ -307,7 +361,12 @@ def _classer(
 def _ecrire_meilleure(trace: Trace, demande: Demande) -> Path:
     """Écrit la boucle retenue en GPX et rend son chemin."""
     chemin = demande.sortie if demande.sortie is not None else Path(nom_par_defaut(demande))
-    chemin.write_text(ecrire_gpx(trace, trace.nom), encoding="utf-8")
+    try:
+        chemin.write_text(ecrire_gpx(trace, trace.nom), encoding="utf-8")
+    except OSError as e:
+        # Disque plein, droits retirés entre-temps, chemin devenu un dossier :
+        # un message, pas une trace — les appels externes sont déjà consommés.
+        raise ErreurUtilisateur(f"écriture impossible dans {chemin} ({e})") from e
     return chemin
 
 

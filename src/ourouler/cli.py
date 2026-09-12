@@ -181,6 +181,11 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     p.add_argument("--profil", help="profil BRouter (défaut : config)")
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
+    p.add_argument(
+        "--ecraser",
+        action="store_true",
+        help="remplacer le fichier de --sortie s'il existe déjà",
+    )
     p.add_argument("--gpx", metavar="ENTREE.GPX", help="évaluer ce GPX au lieu d'en générer")
     p.set_defaults(fonction=_commande_boucle)
 
