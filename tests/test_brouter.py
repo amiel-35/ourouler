@@ -189,6 +189,40 @@ def test_coordonnees_de_messages_en_degres_acceptees_aussi():
     assert [s.fin_idx for s in trace.segments] == [5, 10, 15, 20, 25, 29]
 
 
+def test_une_coordonnee_de_message_pres_du_meridien_0_reste_des_microdegres():
+    """« 570 » microdegrés vaut 0,00057°, pas 570 degrés (point 3 de la relecture).
+
+    La bande d'ambiguïté |coordonnée| ≤ 0,001° fait ±111 m de part et d'autre
+    de l'équateur **et** du méridien de Greenwich — et toutes les fixtures du
+    dépôt y vivent. Deviner l'unité valeur par valeur y voyait des degrés :
+    le tronçon partait s'accrocher au point le plus proche d'une latitude
+    impossible, c'est-à-dire n'importe lequel, sans le moindre message.
+    """
+    generateur = _generateur()
+    points = generateur.trajectoire()
+    dans_la_bande = [
+        i
+        for i, (lat, lon, _) in enumerate(points)
+        if i > 1 and (0 < abs(lat) <= 0.001 or 0 < abs(lon) <= 0.001)
+    ]
+    assert dans_la_bande, "la fixture doit frôler un axe pour que le test ait un sens"
+    cible = dans_la_bande[0]
+
+    charge = generateur.reponse_boucle(points)
+    messages = charge["features"][0]["properties"]["messages"]
+    lat, lon, _ = points[cible]
+    messages[1][0] = str(round(lon * 1e6))
+    messages[1][1] = str(round(lat * 1e6))
+    assert min(abs(float(messages[1][0])), abs(float(messages[1][1]))) <= 1000.0
+
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert trace.segments[0].fin_idx == cible, (
+        f"tronçon rattaché au point {trace.segments[0].fin_idx} au lieu de {cible} : "
+        "une coordonnée sous 0,001° a été lue comme des degrés"
+    )
+
+
 def test_messages_sans_en_tete_lus_avec_l_ordre_de_colonnes_connu():
     charge = reponse_fabriquee()
     proprietes = charge["features"][0]["properties"]

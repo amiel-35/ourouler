@@ -51,9 +51,14 @@ COLONNES_MESSAGE = (
     "Energy",
 )
 
-#: Au-delà de cette valeur absolue, une coordonnée de message est en
-#: microdegrés (une latitude vaut au plus 90, une longitude au plus 180).
+#: Au-delà de cette médiane, les coordonnées des messages sont en microdegrés
+#: (une latitude vaut au plus 90, une longitude au plus 180). Le seuil se
+#: compare à la **médiane de toute la réponse**, jamais à une valeur isolée :
+#: voir `_facteur_coordonnees`.
 SEUIL_MICRODEGRES = 1000.0
+
+#: Facteur appliqué à une coordonnée de message selon son unité.
+DEGRES, MICRODEGRES = 1.0, 1e-6
 
 
 class ClientBrouter:
@@ -283,6 +288,7 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
     if not isinstance(messages, list) or len(messages) < 2:
         return []
     colonnes, lignes = _colonnes(messages)
+    facteur = _facteur_coordonnees(points, lignes, colonnes)
     index = _index_des_points(points)
     segments: list[Segment] = []
     curseur = 0
@@ -293,8 +299,8 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
             ignores.append(f"ligne {numero} trop courte")
             continue
         try:
-            lat = _degres(ligne[colonnes["Latitude"]])
-            lon = _degres(ligne[colonnes["Longitude"]])
+            lat = _degres(ligne[colonnes["Latitude"]], facteur)
+            lon = _degres(ligne[colonnes["Longitude"]], facteur)
         except (TypeError, ValueError):
             ignores.append(f"ligne {numero} : coordonnée illisible")
             continue
@@ -367,15 +373,68 @@ def _point_suivant(
     return min(range(depuis, len(points)), key=lambda i: distance_m(points[i], cible))
 
 
-def _degres(brut: Any) -> float:
-    """Une coordonnée de message en degrés.
+def _facteur_coordonnees(
+    points: list[PointTrace], lignes: list, colonnes: dict[str, int]
+) -> float:
+    """L'unité des coordonnées des messages, décidée **une fois pour toute la réponse**.
+
+    Deviner valeur par valeur était faux : une coordonnée à moins de 0,001°
+    d'un axe vaut moins de 1 000 microdegrés, et « 570 » (0,00057°) était lu
+    comme 570 degrés. Le tronçon partait alors s'accrocher au point le plus
+    proche d'une latitude impossible — c'est-à-dire n'importe lequel, en
+    silence, et `km_trafic` devenait faux. La bande d'ambiguïté fait ±111 m
+    autour de l'équateur **et du méridien de Greenwich**, et toutes les
+    fixtures du dépôt y vivent (anonymisation).
+
+    Deux critères, dans cet ordre :
+
+    1. médiane des |valeurs| au-dessus de `SEUIL_MICRODEGRES` : des
+       microdegrés, sans discussion (le cas de tous les serveurs mesurés) ;
+    2. sinon, la médiane seule ne tranche pas — on compare à la géométrie,
+       qui est toujours en degrés, et on retient le facteur qui rapproche le
+       plus les deux.
+
+    Sans aucune valeur lisible, on retient les microdegrés : c'est ce que
+    rendent les serveurs mesurés, et aucune coordonnée ne sera convertie de
+    toute façon.
+    """
+    valeurs = []
+    for ligne in lignes:
+        if not isinstance(ligne, (list, tuple)):
+            continue
+        for nom in ("Latitude", "Longitude"):
+            brut = _colonne(ligne, colonnes, nom)
+            try:
+                valeurs.append(abs(float(brut)))
+            except (TypeError, ValueError):
+                continue
+    if not valeurs:
+        return MICRODEGRES
+    mediane = _mediane(valeurs)
+    if mediane > SEUIL_MICRODEGRES:
+        return MICRODEGRES
+    reference = _mediane([abs(p.lat) for p in points] + [abs(p.lon) for p in points])
+    ecart_micro = abs(mediane * MICRODEGRES - reference)
+    ecart_degres = abs(mediane * DEGRES - reference)
+    return MICRODEGRES if ecart_micro < ecart_degres else DEGRES
+
+
+def _mediane(valeurs: list[float]) -> float:
+    ordonnees = sorted(valeurs)
+    milieu = len(ordonnees) // 2
+    if len(ordonnees) % 2:
+        return ordonnees[milieu]
+    return (ordonnees[milieu - 1] + ordonnees[milieu]) / 2.0
+
+
+def _degres(brut: Any, facteur: float) -> float:
+    """Une coordonnée de message en degrés, avec le facteur décidé pour la réponse.
 
     Mesuré sur le serveur réel : des **microdegrés entiers passés en chaînes**
-    (« 4811234 »). Le seuil couvre aussi un serveur qui renverrait des degrés,
-    puisqu'une latitude vaut au plus 90 et une longitude au plus 180.
+    (« 4811234 »). L'unité n'est jamais devinée ici : `_facteur_coordonnees`
+    l'a tranchée pour toutes les lignes à la fois.
     """
-    valeur = float(brut)
-    return valeur / 1e6 if abs(valeur) > SEUIL_MICRODEGRES else valeur
+    return float(brut) * facteur
 
 
 def _tags(brut: Any) -> dict[str, str]:
