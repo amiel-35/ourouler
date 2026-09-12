@@ -13,15 +13,19 @@ enfouis dans une formule.
 Sans `segments` (un GPX importé n'en a pas), les kilomètres par type de
 route ne sont pas calculables : ils valent 0 et `trace.meta["couts_partiels"]`
 passe à `True` pour que l'affichage ne fasse pas passer une ignorance pour
-une mesure (règle absolue 5).
+une mesure (règle absolue 5). Un tronçon dont la longueur est absurde
+(négative, NaN, infinie) est écarté du calcul plutôt que soustrait des
+kilomètres réels, et compté dans `trace.meta["segments_ignores"]` — pour la
+même raison : une ignorance se dit, elle ne se déguise pas en mesure.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m, sens_boucle
+from ourouler.boucle.trace import PointTrace, Segment, Trace, cap_deg, distance_m, sens_boucle
 
 # --- classes de routes et de revêtements ------------------------------------
 
@@ -99,9 +103,14 @@ def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
     `sens_prefere` vaut « horaire » ou « antihoraire ». Un tracé dont le sens
     est indéterminé (aller-retour, tracé non bouclé) est pénalisé comme un
     mauvais sens : on ne sait pas, donc on ne promet rien.
+
+    Un tronçon à la longueur absurde est écarté et compté dans
+    `trace.meta["segments_ignores"]` : mieux vaut un kilométrage incomplet et
+    signalé qu'un kilométrage négatif ou NaN.
     """
-    km_trafic, km_calme, km_non_revetu = _kilometrages(trace)
-    gauche, gauche_trafic, droite = _virages(trace)
+    segments = _segments_utilisables(trace)
+    km_trafic, km_calme, km_non_revetu = _kilometrages(trace, segments)
+    gauche, gauche_trafic, droite = _virages(trace, segments)
     sens = sens_boucle(trace)
 
     score = (
@@ -126,16 +135,39 @@ def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
 # --- kilomètres par classe de route ------------------------------------------
 
 
-def _kilometrages(trace: Trace) -> tuple[float, float, float]:
+def _segments_utilisables(trace: Trace) -> list[Segment]:
+    """Les tronçons exploitables ; les autres sont comptés dans `meta`.
+
+    BRouter n'a aucune raison d'annoncer une longueur négative ou NaN, mais un
+    GPX bricolé ou un jour de panne le peuvent. Retrancher un tel tronçon des
+    kilomètres ferait un `km_trafic` négatif et un `score` faux, sans que rien
+    ne le dise : on l'écarte, et on écrit combien on en a écarté.
+    """
+    gardes = [s for s in trace.segments if _longueur_exploitable(s.longueur_m)]
+    ignores = len(trace.segments) - len(gardes)
+    if ignores:
+        trace.meta["segments_ignores"] = ignores
+    return gardes
+
+
+def _longueur_exploitable(longueur_m: object) -> bool:
+    """Vrai pour une longueur de tronçon utilisable : un nombre fini et positif ou nul."""
+    if not isinstance(longueur_m, (int, float)) or isinstance(longueur_m, bool):
+        return False
+    return math.isfinite(longueur_m) and longueur_m >= 0
+
+
+def _kilometrages(trace: Trace, segments: Sequence[Segment]) -> tuple[float, float, float]:
     """(trafic, calme, non revêtu) en km. Tout à 0 si le tracé n'a pas de segments."""
-    if not trace.segments:
+    if not segments:
         # Un GPX importé ne dit rien des routes empruntées : on le marque
-        # plutôt que de laisser croire à 0 km de trafic.
+        # plutôt que de laisser croire à 0 km de trafic. Un tracé dont tous
+        # les tronçons ont été écartés est dans le même cas.
         trace.meta["couts_partiels"] = True
         return (0.0, 0.0, 0.0)
 
     trafic = calme = non_revetu = 0.0
-    for segment in trace.segments:
+    for segment in segments:
         km = segment.longueur_m / 1000.0
         highway = segment.tags.get("highway", "")
         if highway in HIGHWAY_TRAFIC:
@@ -160,7 +192,7 @@ def _non_revetu(tags: dict[str, str]) -> bool:
 # --- virages -----------------------------------------------------------------
 
 
-def _virages(trace: Trace) -> tuple[int, int, int]:
+def _virages(trace: Trace, segments: Sequence[Segment]) -> tuple[int, int, int]:
     """(gauche, gauche à trafic, droite).
 
     Les caps sont calculés entre des points espacés d'au moins
@@ -174,7 +206,7 @@ def _virages(trace: Trace) -> tuple[int, int, int]:
 
     noeuds = [trace.points[i] for i in indices]
     caps = [cap_deg(a, b) for a, b in zip(noeuds[:-1], noeuds[1:], strict=True)]
-    a_trafic = _points_a_trafic(trace)
+    a_trafic = _points_a_trafic(trace.points, segments)
 
     gauche = gauche_trafic = droite = 0
     i = 0
@@ -244,18 +276,22 @@ def _indices_espaces(points: Sequence[PointTrace], espacement_m: float) -> list[
     return gardes
 
 
-def _points_a_trafic(trace: Trace) -> list[bool]:
+def _points_a_trafic(
+    points: Sequence[PointTrace], segments: Sequence[Segment]
+) -> list[bool]:
     """Pour chaque point du tracé : le segment qui le porte est-il à trafic ?"""
-    tags = _tags_par_point(trace)
+    tags = _tags_par_point(points, segments)
     return [t is not None and t.get("highway", "") in HIGHWAY_TRAFIC for t in tags]
 
 
-def _tags_par_point(trace: Trace) -> list[dict[str, str] | None]:
+def _tags_par_point(
+    points: Sequence[PointTrace], segments: Sequence[Segment]
+) -> list[dict[str, str] | None]:
     """Les tags du segment couvrant chaque point, `None` si aucun ne le couvre."""
-    tags: list[dict[str, str] | None] = [None] * len(trace.points)
-    for segment in trace.segments:
+    tags: list[dict[str, str] | None] = [None] * len(points)
+    for segment in segments:
         debut = max(0, segment.debut_idx)
-        fin = min(len(trace.points) - 1, segment.fin_idx)
+        fin = min(len(points) - 1, segment.fin_idx)
         for i in range(debut, fin + 1):
             if tags[i] is None:  # en cas de recouvrement, le premier segment gagne
                 tags[i] = segment.tags

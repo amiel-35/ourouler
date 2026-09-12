@@ -360,6 +360,12 @@ def rendre_texte(
         lignes.append(
             f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus."
         )
+    ignores = sum(int(e.trace.meta.get("segments_ignores") or 0) for e in evaluations)
+    if ignores:
+        lignes.append(
+            f"{ignores} tronçon(s) à la longueur inexploitable écartés du kilométrage : "
+            "trafic et revêtement sont sous-estimés d'autant."
+        )
     if chemin is not None:
         lignes.append(f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}, écrite dans {chemin}")
     return "\n".join(lignes)
@@ -466,6 +472,7 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "ecart_relatif": evaluation.ecart_relatif,
         "total_tri": round(evaluation.total, 3),
         "couts_partiels": bool(trace.meta.get("couts_partiels")),
+        "segments_ignores": int(trace.meta.get("segments_ignores") or 0),
         "couts": {
             "km_trafic": round(couts.km_trafic, 3),
             "km_calme": round(couts.km_calme, 3),

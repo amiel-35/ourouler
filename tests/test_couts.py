@@ -242,6 +242,31 @@ def test_avec_segments_aucun_marqueur_de_couts_partiels():
     assert "couts_partiels" not in avec.meta
 
 
+@pytest.mark.parametrize("longueur", [-500.0, float("nan"), float("inf")])
+def test_un_troncon_a_la_longueur_absurde_est_ecarte_et_compte(longueur):
+    """Le retrancher donnerait un `km_trafic` négatif ou NaN, et un score faux."""
+    trace = trace_de_caps(
+        [0, 90],
+        segments=[
+            Segment(0, 1, longueur, {"highway": "primary"}),
+            Segment(1, 2, 1000.0, {"highway": "primary"}),
+        ],
+    )
+    couts = evaluer(trace)
+    assert couts.km_trafic == pytest.approx(1.0), "seul le tronçon exploitable est compté"
+    assert math.isfinite(couts.score) and couts.score >= 0
+    assert trace.meta["segments_ignores"] == 1
+    assert "couts_partiels" not in trace.meta, "il reste un tronçon mesuré"
+
+
+def test_tous_les_troncons_ecartes_donnent_des_couts_partiels():
+    trace = trace_de_caps([0, 90], segments=[Segment(0, 2, -1.0, {"highway": "primary"})])
+    couts = evaluer(trace)
+    assert (couts.km_trafic, couts.km_calme, couts.km_non_revetu) == (0.0, 0.0, 0.0)
+    assert trace.meta["segments_ignores"] == 1
+    assert trace.meta["couts_partiels"] is True
+
+
 def test_trace_vide():
     vide = Trace(
         nom="vide", points=[], segments=[], distance_m=0.0,
