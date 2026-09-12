@@ -417,6 +417,41 @@ def test_un_index_au_schema_1_est_migre_sans_perdre_les_fichiers_bruts(
 # --- mise à jour des métadonnées sur place (L2.7) ------------------------------
 
 
+def test_mettre_a_jour_meta_reecrit_aussi_ce_qui_derive_de_la_meta(cache: Cache, activites: Path):
+    """`sport` et `appareil` dérivent de `meta` : les laisser rendait l'index incohérent.
+
+    Mesuré sur le cache réel du mainteneur : quatre triathlons, hérités d'une
+    collision de contenu du schéma 1, portaient l'identifiant Intervals de
+    leur segment vélo mais le sport de leur segment natation. Un
+    `--synchroniser` réécrivait leur `meta` (« Ride ») sans toucher à la
+    colonne `sport` (« OpenWaterSwim ») : l'inventaire continuait de les
+    écarter, indéfiniment.
+    """
+    cache.ajouter(
+        octets(activites, "boucle.fit"),
+        source="intervals",
+        id_externe="t1",
+        extension="fit",
+        meta={"sport": "OpenWaterSwim", "appareil": "Montre"},
+    )
+    assert cache.lister()[0].sport == "OpenWaterSwim"
+
+    assert cache.mettre_a_jour_meta(
+        source="intervals",
+        id_externe="t1",
+        meta={"sport": "Ride", "appareil": "Compteur", "power_meter": "CAPTEUR 0001"},
+    )
+    (entree,) = cache.lister()
+    assert entree.sport == "Ride", "la colonne doit suivre la meta qu'elle résume"
+    assert entree.appareil == "Compteur"
+    assert entree.meta["power_meter"] == "CAPTEUR 0001"
+
+    # Une réponse plus pauvre n'efface pas ce qu'on savait déjà.
+    assert cache.mettre_a_jour_meta(source="intervals", id_externe="t1", meta={"nom": "Sortie"})
+    (entree,) = cache.lister()
+    assert (entree.sport, entree.appareil) == ("Ride", "Compteur")
+
+
 def test_mettre_a_jour_meta_reecrit_sans_toucher_au_fichier(cache: Cache, activites: Path):
     """Enrichir une entrée déjà rapatriée ne doit pas dépendre d'un retéléchargement."""
     identifiant = cache.ajouter(

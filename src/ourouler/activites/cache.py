@@ -220,20 +220,38 @@ class Cache:
         meta: dict,
         equipement: str | None = None,
     ) -> bool:
-        """Réécrit `meta` (et `equipement`) d'une entrée déjà indexée. Vrai si trouvée.
+        """Réécrit `meta` (et ce qui en dérive) d'une entrée déjà indexée. Vrai si trouvée.
 
         Sert à enrichir des entrées rapatriées avant qu'on sache quoi en
         retenir (capteur de puissance, identifiant d'équipement) **sans**
         retélécharger le fichier : le fichier brut n'est pas touché, seule la
-        ligne d'index change. `equipement` à `None` laisse en place ce qu'on
-        savait déjà, plutôt que de l'effacer avec une réponse plus pauvre.
+        ligne d'index change.
+
+        `sport` et `appareil` sont recalculés avec `meta`, parce qu'ils en
+        **dérivent** (`_ligne` : les métadonnées de la source priment sur le
+        fichier). Les laisser en place réécrivait `meta` sans réécrire les
+        colonnes qui la résument : l'index se contredisait lui-même, et une
+        ligne héritée d'une collision de contenu — le cas des triathlons du
+        schéma 1 — restait classée au sport de l'autre segment pour toujours.
+        Une valeur absente de `meta` laisse en place ce qu'on savait déjà,
+        plutôt que de l'effacer avec une réponse plus pauvre ; c'est aussi la
+        règle pour `equipement`.
         """
-        charge = json.dumps(_serialisable(meta or {}), ensure_ascii=False, default=str)
+        meta = meta or {}
+        charge = json.dumps(_serialisable(meta), ensure_ascii=False, default=str)
         with self._connexion() as cx:
             curseur = cx.execute(
-                "UPDATE activites SET meta = ?, equipement = COALESCE(?, equipement) "
+                "UPDATE activites SET meta = ?, equipement = COALESCE(?, equipement), "
+                "sport = COALESCE(?, sport), appareil = COALESCE(?, appareil) "
                 "WHERE source = ? AND id_externe = ?",
-                (charge, equipement or None, str(source), str(id_externe)),
+                (
+                    charge,
+                    equipement or None,
+                    meta.get("sport") or None,
+                    meta.get("appareil") or None,
+                    str(source),
+                    str(id_externe),
+                ),
             )
             modifiees = curseur.rowcount
         return modifiees > 0
