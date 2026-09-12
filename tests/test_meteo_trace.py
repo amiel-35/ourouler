@@ -16,6 +16,7 @@ import pytest
 
 from ourouler.boucle.meteo_trace import SEUIL_PLUIE_MM_H, Echantillon, evaluer
 from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import VARIABLES_HORAIRES, ClientOpenMeteo
 
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
@@ -332,16 +333,33 @@ def test_echantillon_unique():
 
 
 def test_trace_sans_point():
+    """Une entrée que l'utilisateur peut corriger : `ErreurUtilisateur`, pas `ValueError`.
+
+    Convention du sprint 1 (contrat §0) reprise par le contrat du sprint 2 :
+    seule une `ErreurUtilisateur` est affichée en une ligne avec le code 2 ;
+    toute autre exception est un bug et sort en trace.
+    """
     vide = Trace(
         nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
     )
-    with pytest.raises(ValueError, match="sans point"):
+    with pytest.raises(ErreurUtilisateur, match="sans point"):
         evaluer(vide, client_simple(horaire(2)), depart=DEBUT, vitesse_kmh=20.0, modele=MODELE)
 
 
-@pytest.mark.parametrize(("vitesse", "pas"), [(0.0, 5000.0), (-5.0, 5000.0), (20.0, 0.0)])
+@pytest.mark.parametrize(
+    ("vitesse", "pas"),
+    [
+        (0.0, 5000.0),
+        (-5.0, 5000.0),
+        (float("nan"), 5000.0),
+        (20.0, 0.0),
+        (20.0, -5000.0),
+        (20.0, float("inf")),
+    ],
+)
 def test_vitesse_ou_pas_non_positifs(vitesse: float, pas: float):
-    with pytest.raises(ValueError):
+    """Le message nomme le paramètre fautif : c'est ce que l'utilisateur doit corriger."""
+    with pytest.raises(ErreurUtilisateur, match=r"vitesse_kmh|pas_m"):
         evaluer(
             trace_droite(), client_simple(horaire(4)), depart=DEBUT,
             vitesse_kmh=vitesse, modele=MODELE, pas_m=pas,

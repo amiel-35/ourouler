@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo, PrevisionHeure
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
@@ -92,12 +92,19 @@ def evaluer(
     `depart + distance / vitesse`. Elle vient de la configuration, jamais
     d'une lecture faite ici (règle absolue 2).
     """
+    # Ces trois refus tombent **avant** le premier appel à Open-Meteo : une
+    # entrée absurde ne consomme pas de quota et ne fait pas attendre.
     if not trace.points:
-        raise ValueError("tracé sans point : rien à évaluer")
-    if vitesse_kmh <= 0:
-        raise ValueError(f"vitesse de {vitesse_kmh} km/h : une vitesse strictement positive est attendue")
-    if pas_m <= 0:
-        raise ValueError(f"pas d'échantillonnage de {pas_m} m : une valeur strictement positive est attendue")
+        raise ErreurUtilisateur("tracé sans point : il n'y a rien à évaluer le long du parcours")
+    if not _strictement_positif(vitesse_kmh):
+        raise ErreurUtilisateur(
+            f"vitesse_kmh = {vitesse_kmh} : une vitesse strictement positive est attendue "
+            "(l'heure de passage vaut départ + distance / vitesse)"
+        )
+    if not _strictement_positif(pas_m):
+        raise ErreurUtilisateur(
+            f"pas_m = {pas_m} : un pas d'échantillonnage strictement positif est attendu"
+        )
 
     depart_tz = depart if depart.tzinfo else depart.replace(tzinfo=UTC)
     distances = _distances_cumulees(trace.points)
@@ -148,6 +155,11 @@ def evaluer(
 
 
 # --- échantillonnage ---------------------------------------------------------
+
+
+def _strictement_positif(valeur: float) -> bool:
+    """Vrai pour un nombre fini et > 0. NaN et l'infini sont des refus, pas des vitesses."""
+    return math.isfinite(valeur) and valeur > 0
 
 
 def _distances_cumulees(points: Sequence[PointTrace]) -> list[float]:
