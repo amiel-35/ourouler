@@ -95,6 +95,12 @@ class Couts:
 
     km_trafic: float
     km_calme: float
+    #: Kilomètres de tronçons dont le `highway` est absent ou d'une classe
+    #: qu'on ne connaît pas (`path`, `footway`, `steps`, une valeur OSM
+    #: nouvelle). Ni trafic ni calme : sans ce chiffre, un tracé à moitié sur
+    #: des chemins non classés s'affichait « 0,0 km de trafic » comme un tracé
+    #: parfaitement calme.
+    km_non_classe: float
     km_non_revetu: float
     virages_gauche: int
     virages_gauche_trafic: int  # sous-ensemble de `virages_gauche`
@@ -115,7 +121,7 @@ def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
     signalé qu'un kilométrage négatif ou NaN.
     """
     segments = _segments_utilisables(trace)
-    km_trafic, km_calme, km_non_revetu = _kilometrages(trace, segments)
+    km_trafic, km_calme, km_non_classe, km_non_revetu = _kilometrages(trace, segments)
     gauche, gauche_trafic, droite = _virages(trace, segments)
     sens = sens_boucle(trace)
 
@@ -129,6 +135,7 @@ def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
     return Couts(
         km_trafic=km_trafic,
         km_calme=km_calme,
+        km_non_classe=km_non_classe,
         km_non_revetu=km_non_revetu,
         virages_gauche=gauche,
         virages_gauche_trafic=gauche_trafic,
@@ -163,16 +170,18 @@ def _longueur_exploitable(longueur_m: object) -> bool:
     return math.isfinite(longueur_m) and longueur_m >= 0
 
 
-def _kilometrages(trace: Trace, segments: Sequence[Segment]) -> tuple[float, float, float]:
-    """(trafic, calme, non revêtu) en km. Tout à 0 si le tracé n'a pas de segments."""
+def _kilometrages(
+    trace: Trace, segments: Sequence[Segment]
+) -> tuple[float, float, float, float]:
+    """(trafic, calme, non classé, non revêtu) en km. Tout à 0 sans segments."""
     if not segments:
         # Un GPX importé ne dit rien des routes empruntées : on le marque
         # plutôt que de laisser croire à 0 km de trafic. Un tracé dont tous
         # les tronçons ont été écartés est dans le même cas.
         trace.meta["couts_partiels"] = True
-        return (0.0, 0.0, 0.0)
+        return (0.0, 0.0, 0.0, 0.0)
 
-    trafic = calme = non_revetu = 0.0
+    trafic = calme = non_classe = non_revetu = 0.0
     for segment in segments:
         km = segment.longueur_m / 1000.0
         highway = segment.tags.get("highway", "")
@@ -180,11 +189,14 @@ def _kilometrages(trace: Trace, segments: Sequence[Segment]) -> tuple[float, flo
             trafic += km
         elif highway in HIGHWAY_CALME:
             calme += km
-        # Un segment sans `highway` (ou d'une classe inconnue) n'est compté ni
-        # d'un côté ni de l'autre : il n'est pas « calme » par défaut.
+        else:
+            # Un segment sans `highway` (ou d'une classe inconnue) n'est ni
+            # trafic ni calme : il n'est pas « calme » par défaut, mais il ne
+            # s'évapore plus non plus du kilométrage.
+            non_classe += km
         if _non_revetu(segment.tags):
             non_revetu += km
-    return (trafic, calme, non_revetu)
+    return (trafic, calme, non_classe, non_revetu)
 
 
 def _non_revetu(tags: dict[str, str]) -> bool:

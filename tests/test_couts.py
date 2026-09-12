@@ -228,17 +228,38 @@ def test_kilometrages_par_classe_de_route():
     assert couts.km_trafic == pytest.approx(2.0)
     assert couts.km_calme == pytest.approx(4.5)  # tertiary + track + residential
     assert couts.km_non_revetu == pytest.approx(1.5)  # track + gravel
+    assert couts.km_non_classe == pytest.approx(0.7)  # le tronçon sans highway
+
+
+def test_les_kilometres_non_classes_ne_s_evaporent_plus():
+    """Point 15 de la relecture : `km_trafic + km_calme` peut valoir bien moins que tout.
+
+    Un tracé à moitié sur des chemins sans `highway` connu s'affichait
+    « 0,0 km de trafic » exactement comme un tracé parfaitement calme.
+    """
+    segments = [
+        Segment(0, 1, 1000.0, {"highway": "tertiary"}),
+        Segment(1, 2, 1000.0, {"highway": "path"}),  # classe inconnue
+        Segment(2, 3, 1000.0, {}),  # aucun highway
+    ]
+    couts = evaluer(trace_de_caps([0, 90, 0], segments=segments))
+    assert (couts.km_trafic, couts.km_calme) == (0.0, pytest.approx(1.0))
+    assert couts.km_non_classe == pytest.approx(2.0)
+    total = couts.km_trafic + couts.km_calme + couts.km_non_classe
+    assert total == pytest.approx(3.0), "les trois classes doivent couvrir tous les tronçons"
 
 
 def test_un_segment_sans_highway_n_est_compte_dans_aucune_classe():
     couts = evaluer(trace_de_caps([0, 90], segments=[Segment(0, 2, 1000.0, {})]))
     assert (couts.km_trafic, couts.km_calme, couts.km_non_revetu) == (0.0, 0.0, 0.0)
+    assert couts.km_non_classe == pytest.approx(1.0), "mais il est compté quelque part"
 
 
 def test_une_classe_de_highway_inconnue_n_est_pas_calme_par_defaut():
     segments = [Segment(0, 2, 1000.0, {"highway": "motorway", "surface": "asphalt"})]
     couts = evaluer(trace_de_caps([0, 90], segments=segments))
     assert (couts.km_trafic, couts.km_calme) == (0.0, 0.0)
+    assert couts.km_non_classe == pytest.approx(1.0)
 
 
 # --- cas dégénérés -----------------------------------------------------------

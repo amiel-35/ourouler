@@ -58,6 +58,11 @@ POIDS_PLUIE_TRI = 2.0
 #: Marque de la ligne retenue dans le tableau texte.
 MARQUE_RETENUE = "→"
 
+#: Part de kilomètres non classés au-delà de laquelle le tableau le dit. En
+#: dessous, c'est le bruit habituel des tronçons de raccordement ; au-delà,
+#: « 0,0 km de trafic » ne veut plus dire « tracé calme ».
+PART_NON_CLASSE_SIGNALEE = 0.05
+
 #: Ce qu'on affiche à la place d'une mesure absente (jamais un zéro : un
 #: GPX importé ne dit rien des routes empruntées, ce n'est pas « 0 km de
 #: trafic »).
@@ -419,6 +424,12 @@ def rendre_texte(
         lignes.append(
             f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus."
         )
+    non_classes = _non_classes_signales(evaluations)
+    if non_classes:
+        lignes.append(
+            f"{_fr(non_classes, 1)} km sur des routes non classées (ni trafic ni calme) : "
+            "« trafic » et « calme » ne couvrent pas tout le tracé."
+        )
     ignores = sum(int(e.trace.meta.get("segments_ignores") or 0) for e in evaluations)
     if ignores:
         lignes.append(
@@ -428,6 +439,25 @@ def rendre_texte(
     if chemin is not None:
         lignes.append(f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}, écrite dans {chemin}")
     return "\n".join(lignes)
+
+
+def _non_classes_signales(evaluations: list[Evaluation]) -> float:
+    """Le plus gros kilométrage non classé à signaler, ou 0 s'il n'y a rien à dire.
+
+    Un tracé dont la moitié passe par des chemins sans `highway` connu
+    (`path`, `footway`, une valeur OSM nouvelle) affichait « 0,0 km de
+    trafic » exactement comme un tracé parfaitement calme : `km_trafic` et
+    `km_calme` peuvent valoir bien moins que la distance, et rien ne le disait
+    (point 15 de la relecture du sprint 2).
+    """
+    a_signaler = [
+        e.couts.km_non_classe
+        for e in evaluations
+        if not e.trace.meta.get("couts_partiels")
+        and e.trace.distance_m > 0
+        and e.couts.km_non_classe / (e.trace.distance_m / 1000.0) > PART_NON_CLASSE_SIGNALEE
+    ]
+    return max(a_signaler, default=0.0)
 
 
 def _entete(demande: Demande, config: Config, avec_meteo: bool) -> list[str]:
@@ -550,6 +580,7 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "couts": {
             "km_trafic": round(couts.km_trafic, 3),
             "km_calme": round(couts.km_calme, 3),
+            "km_non_classe": round(couts.km_non_classe, 3),
             "km_non_revetu": round(couts.km_non_revetu, 3),
             "virages_gauche": couts.virages_gauche,
             "virages_gauche_trafic": couts.virages_gauche_trafic,

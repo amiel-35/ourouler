@@ -314,6 +314,38 @@ def test_sortie_choisie_par_l_utilisateur(tmp_path: Path, monkeypatch, capsys):
     assert list(tmp_path.glob("*.gpx")) == [voulu]
 
 
+def test_les_kilometres_non_classes_sont_dans_le_json(tmp_path: Path, monkeypatch, capsys):
+    """Point 15 : `km_trafic + km_calme` peut valoir bien moins que la distance."""
+    monkeypatch.chdir(tmp_path)
+    executer(args(candidates=1, json=True), config_de_test(), moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    couts = charge["candidates"][0]["couts"]
+    assert "km_non_classe" in couts
+    assert couts["km_non_classe"] >= 0.0
+
+
+def test_un_trace_surtout_non_classe_le_dit_dans_le_tableau(tmp_path: Path, monkeypatch, capsys):
+    """Sans cette ligne, « 0,0 km de trafic » se lit comme « tracé calme »."""
+    monkeypatch.chdir(tmp_path)
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        charge = reponse_fabriquee()
+        proprietes = charge["features"][0]["properties"]
+        entete, lignes = proprietes["messages"][0], proprietes["messages"][1:]
+        for ligne in lignes:  # colonne WayTags : une classe qu'on ne connaît pas
+            ligne[9] = "highway=path surface=asphalt"
+        proprietes["messages"] = [entete, *lignes]
+        proprietes["track-length"] = "60000"
+        return httpx.Response(200, json=charge)
+
+    brouter = ClientBrouter(
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    executer(args(candidates=1), config_de_test(), brouter, moteur_meteo())
+    sortie = capsys.readouterr().out
+    assert "non classées" in sortie, sortie
+
+
 # --- écriture du GPX : refus d'avance et erreurs utilisateur (point 8) --------
 
 
@@ -502,6 +534,7 @@ def test_json_valide_avec_toutes_les_mesures(tmp_path: Path, monkeypatch, capsys
     assert set(candidate["couts"]) == {
         "km_trafic",
         "km_calme",
+        "km_non_classe",
         "km_non_revetu",
         "virages_gauche",
         "virages_gauche_trafic",
