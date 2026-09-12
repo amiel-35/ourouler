@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -150,7 +150,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         velos=velos,
         meteo=ParametresMeteo(
             directions=int(meteo.get("directions", 8)),
-            distances_km=tuple(float(x) for x in meteo.get("distances_km", (15, 25, 40))),
+            distances_km=_distances(meteo.get("distances_km", (15, 25, 40))),
             modele=str(meteo.get("modele", ParametresMeteo.modele)),
             second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
             horizon_h=int(meteo.get("horizon_h", 6)),
@@ -183,11 +183,45 @@ def _nombre(s: dict[str, Any], cle: str, section: str, mini: float, maxi: float)
     return x
 
 
+def _distances(brut: Any) -> tuple[float, ...]:
+    """Les distances de couronne, toutes strictement positives.
+
+    Une distance négative ou nulle était silencieusement ignorée plus loin
+    (`couronne.py`) : l'utilisateur obtenait une table sans la couronne
+    demandée et sans explication. Le contrat veut que `ErreurConfig` nomme le
+    champ fautif, et c'est le rôle de ce module.
+    """
+    try:
+        valeurs = tuple(float(x) for x in brut)
+    except (TypeError, ValueError) as e:
+        raise ErreurConfig(f"[meteo] distances_km : liste de nombres attendue, reçu {brut!r}") from e
+    fautives = [x for x in valeurs if x <= 0]
+    if fautives:
+        raise ErreurConfig(
+            f"[meteo] distances_km : distance(s) négative(s) ou nulle(s) "
+            f"{fautives} — une couronne se mesure en km strictement positifs"
+        )
+    return valeurs
+
+
 def _date(x: Any, champ: str) -> date:
+    # `isinstance(x, date)` est vrai pour un `datetime` : TOML accepte
+    # parfaitement `historique_depuis = 2023-12-01T00:00:00`, et le `datetime`
+    # qui en sortait cassait la première comparaison de période en
+    # `TypeError: '<=' not supported between date and datetime`. On le ramène
+    # donc à sa date avant tout autre test.
+    if isinstance(x, datetime):
+        return x.date()
     if isinstance(x, date):
         return x
+    texte = str(x)
     try:
-        return date.fromisoformat(str(x))
+        return date.fromisoformat(texte)
+    except ValueError:
+        pass
+    try:
+        # Même tolérance pour la forme écrite en chaîne (« 2024-03-01T06:30:00 »).
+        return datetime.fromisoformat(texte).date()
     except ValueError as e:
         raise ErreurConfig(f"{champ} : date AAAA-MM-JJ attendue, reçu {x!r}") from e
 

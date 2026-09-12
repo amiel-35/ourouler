@@ -112,3 +112,89 @@ def test_le_repr_sans_cle_ne_pretend_pas_qu_il_y_en_a_une():
     c = depuis_dict(BASE)
     assert "***" not in repr(c.intervals)
     assert not c.intervals.renseigne
+
+
+# --- validations manquantes (point 13 de la relecture) ----------------------
+
+
+@pytest.mark.parametrize(
+    "distances",
+    [[-3, 0], [0], [15, -1, 40], [15, 0.0, 40]],
+)
+def test_distances_km_negatives_ou_nulles_refusees(distances):
+    """Elles étaient silencieusement ignorées par `couronne` : table sans couronne, sans mot."""
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict({**BASE, "meteo": {"distances_km": distances}})
+    message = str(e.value)
+    assert "distances_km" in message, "le message doit nommer le champ fautif"
+    assert "[meteo]" in message
+
+
+def test_distances_km_valides_acceptees():
+    c = depuis_dict({**BASE, "meteo": {"distances_km": [5, 12.5, 60]}})
+    assert c.meteo.distances_km == (5.0, 12.5, 60.0)
+
+
+def test_distances_km_de_type_inattendu_nommee():
+    with pytest.raises(ErreurConfig, match="distances_km"):
+        depuis_dict({**BASE, "meteo": {"distances_km": ["quinze"]}})
+    with pytest.raises(ErreurConfig, match="distances_km"):
+        depuis_dict({**BASE, "meteo": {"distances_km": 15}})
+
+
+def test_historique_depuis_en_datetime_toml_accepte(tmp_path: Path):
+    """`historique_depuis = 2023-12-01T00:00:00` est du TOML légal : il donnait un `datetime`.
+
+    La première comparaison de période levait alors
+    `TypeError: '<=' not supported between date and datetime` — trace et code
+    1 pour une faute de frappe de configuration.
+    """
+    f = tmp_path / "c.toml"
+    f.write_text(
+        '[depart]\nnom="Test"\nlatitude=0.0\nlongitude=0.0\n'
+        "[cycliste]\nmasse_kg=80\nftp_w=250\n"
+        "historique_depuis = 2023-12-01T00:00:00\n",
+        encoding="utf-8",
+    )
+    c = charger(f)
+    assert c.historique_depuis == date(2023, 12, 1)
+    assert type(c.historique_depuis) is date, "un datetime casse la comparaison de périodes"
+
+
+def test_historique_depuis_en_datetime_comparable_a_une_periode():
+    """Le vrai symptôme : la comparaison qui levait `TypeError`."""
+    from datetime import datetime as _datetime
+
+    c = depuis_dict({**BASE, "historique_depuis": _datetime(2023, 12, 1, 0, 0)})
+    assert Periode(debut=date(2024, 1, 1)).contient(date(2024, 6, 1))
+    # La comparaison directe est celle qui plantait.
+    assert c.historique_depuis <= date(2024, 1, 1)
+
+
+@pytest.mark.parametrize(
+    "valeur, attendu",
+    [
+        ("2024-02-29", date(2024, 2, 29)),
+        (date(2024, 3, 1), date(2024, 3, 1)),
+        ("2024-03-01T06:30:00", date(2024, 3, 1)),
+    ],
+)
+def test_historique_depuis_formes_acceptees(valeur, attendu):
+    c = depuis_dict({**BASE, "historique_depuis": valeur})
+    assert c.historique_depuis == attendu
+    assert type(c.historique_depuis) is date
+
+
+def test_periodes_en_datetime_toml_aussi(tmp_path: Path):
+    """Même piège dans les périodes de vélo, même correction."""
+    f = tmp_path / "c.toml"
+    f.write_text(
+        '[depart]\nnom="Test"\nlatitude=0.0\nlongitude=0.0\n'
+        "[cycliste]\nmasse_kg=80\nftp_w=250\n"
+        '[[velos]]\nnom="Route"\n'
+        "periodes = [{ debut = 2024-01-01T00:00:00, fin = 2024-06-30T23:59:59 }]\n",
+        encoding="utf-8",
+    )
+    periode = charger(f).velo("Route").periodes[0]
+    assert (periode.debut, periode.fin) == (date(2024, 1, 1), date(2024, 6, 30))
+    assert periode.contient(date(2024, 3, 15))
