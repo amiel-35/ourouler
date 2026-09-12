@@ -6,13 +6,14 @@ fabriquée (anneau autour du point fictif (0.0, 0.0)) ou sont construits ici.
 
 from __future__ import annotations
 
+import random
 from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
 from test_brouter import client_fabrique  # même dossier : pytest y met le sys.path
 
-from ourouler.boucle.gpx import description, ecrire_gpx, lire_gpx_trace
+from ourouler.boucle.gpx import _denivele, description, ecrire_gpx, lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.erreurs import ErreurLecture
 
@@ -106,6 +107,48 @@ def test_la_description_omet_ce_que_le_moteur_n_a_pas_dit():
     trace.denivele_m = None
     trace.temps_moteur_s = None
     assert description(trace) == "2,2 km"
+
+
+def test_ce_que_le_seuil_de_denivele_fait_vraiment():
+    """Point 17 de la relecture : le docstring affirmait un effet non mesuré.
+
+    Il disait que sans filtre, « le bruit d'un altimètre barométrique double
+    le dénivelé d'un parcours plat ». C'est une affirmation sans mesure
+    (règle absolue 5), et elle décrit mal ce que fait le seuil : il efface le
+    bruit strictement plus petit que lui, et rien d'autre. Ce test mesure les
+    trois cas écrits dans le docstring de `_denivele`.
+    """
+    n = 1000
+
+    def profil(base, amplitude: float) -> list[PointTrace]:
+        alea = random.Random(12)
+        return [
+            PointTrace(lat=0.0, lon=i * 1e-4, alt_m=a + alea.uniform(-amplitude, amplitude), dist_m=i * 11.0)
+            for i, a in enumerate(base)
+        ]
+
+    def brut(points: list[PointTrace]) -> float:
+        return sum(max(0.0, b.alt_m - a.alt_m) for a, b in zip(points[:-1], points[1:], strict=True))
+
+    plat = [50.0] * n
+    montee = [50.0 + 20.0 * i / n for i in range(n)]
+
+    plat_leger = profil(plat, 1.0)
+    assert brut(plat_leger) > 300.0, "le bruit brut doit bien être massif"
+    assert _denivele(plat_leger) == pytest.approx(0.0), (
+        "sous le seuil, le bruit d'un parcours plat disparaît entièrement"
+    )
+
+    montee_legere = profil(montee, 1.0)
+    assert brut(montee_legere) > 300.0
+    assert _denivele(montee_legere) == pytest.approx(20.0, abs=2.0), (
+        "et le vrai dénivelé, lui, survit"
+    )
+
+    plat_fort = profil(plat, 2.5)  # oscillation au-dessus du seuil de 2 m
+    assert _denivele(plat_fort) > 400.0, (
+        "au-delà du seuil, le filtre ne protège plus : c'est ce que le docstring doit dire"
+    )
 
 
 def test_la_description_dit_d_ou_vient_le_denivele():

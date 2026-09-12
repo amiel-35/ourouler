@@ -151,10 +151,22 @@ def _premiere_suite(gpx) -> tuple[str, list]:
 def _denivele(points: list[PointTrace]) -> float | None:
     """Le D+ du tracé, ou None si aucun point n'a d'altitude.
 
-    Les montées sous `SEUIL_DENIVELE_M` sont ignorées : sans filtre, le bruit
-    d'un altimètre barométrique double le dénivelé d'un parcours plat. Le
-    chiffre reste indicatif — le moteur, lui, donne son propre « filtered
-    ascend », qu'on préfère quand on l'a.
+    Une montée n'est comptée que si elle dépasse `SEUIL_DENIVELE_M` depuis la
+    dernière référence. Ce n'est pas un lissage : le seuil efface le bruit
+    **strictement plus petit que lui**, et rien d'autre. Mesuré sur un profil
+    de 1 000 points (test `test_ce_que_le_seuil_de_denivele_fait_vraiment`) :
+
+    | profil | D+ brut | après le seuil |
+    |---|---|---|
+    | plat, bruit ±1 m | 334 m | 0 m |
+    | montée régulière de 20 m, bruit ±1 m | 345 m | 19 m |
+    | plat, bruit ±2,5 m | 832 m | 550 m |
+
+    Autrement dit : sous un mètre d'oscillation, le seuil rend le chiffre
+    exploitable et conserve le vrai dénivelé ; au-delà de 2 m, il ne protège
+    plus de grand-chose. Le chiffre reste indicatif — le moteur donne son
+    propre « filtered ascend », qu'on préfère quand on l'a, et la provenance
+    est écrite dans `meta["denivele_source"]`.
     """
     altitudes = [p.alt_m for p in points if p.alt_m is not None]
     if len(altitudes) < 2:
