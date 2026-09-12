@@ -299,12 +299,12 @@ def test_brouter_et_boucle():
     d = dict(BASE)
     d["brouter"] = {"url": "https://exemple.invalid/", "utilisateur": "u", "mot_de_passe": "secret-xyz"}
     d["boucle"] = {"vitesse_moyenne_kmh": 30, "sens": "antihoraire", "candidates": 3}
-    d["velos"] = [{"nom": "Route", "capteur_puissance": "SRAM 1052", "intervals_gear_id": "b1"}]
+    d["velos"] = [{"nom": "Route", "capteur_puissance": "CAPTEUR 0001", "intervals_gear_id": "b1"}]
     c = depuis_dict(d)
     assert c.brouter.renseigne and c.brouter.url == "https://exemple.invalid"
     assert "secret-xyz" not in repr(c) and "secret-xyz" not in repr(c.brouter)
     assert c.boucle.sens == "antihoraire" and c.boucle.candidates == 3
-    assert c.velo("Route").capteur_puissance == "SRAM 1052"
+    assert c.velo("Route").capteur_puissance == "CAPTEUR 0001"
     assert not depuis_dict(BASE).brouter.renseigne
     with pytest.raises(ErreurConfig, match=r"\[boucle\] sens"):
         depuis_dict({**BASE, "boucle": {"sens": "gauche"}})

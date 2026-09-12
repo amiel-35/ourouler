@@ -18,7 +18,7 @@ masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 cda_m2 = 0.32          # point de départ, recalibré sur l'historique
 intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
 intervals_gear_id = "" # identifiant Intervals du vélo (ex. b1234567), plus fiable que le nom
-capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex. "SRAM 1052"
+capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex. "MARQUE 1234"
 # periodes = [{ debut = 2024-01-01 }, { debut = 2025-03-01, fin = 2025-06-30 }]
 
 [meteo]

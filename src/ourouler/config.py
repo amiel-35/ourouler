@@ -60,7 +60,7 @@ class Velo:
     cda_m2: float | None = None
     intervals_gear: str = ""
     intervals_gear_id: str = ""
-    capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « SRAM 1052 »
+    capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
     periodes: tuple[Periode, ...] = ()
 
 
