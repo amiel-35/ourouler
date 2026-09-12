@@ -156,6 +156,14 @@ pénalisée à tort. « Inconnu » n'est jamais un malus.
 (masse, CdA, roulement) et un rapport d'erreur de temps sur des sorties non
 vues ; home-trainer exclu (Q7). Relecture Fable.
 
+Niveau de précision voulu (Amiel, 13/09) : **pas de folie**, la route est
+ouverte, avec circulation, stops et vent qui tourne. Une masse approximative
+par vélo suffit (1 kg sur 100 kg = 1 % en montée, rien sur le plat) ; le
+poids du cycliste vient d'Intervals quand il y est, sinon une constante, car
+hors montagne il pèse peu. L'effort va dans ce qui compte : CdA par vélo,
+vent réel (archives Open-Meteo), et **l'exclusion des sorties en groupe**
+(peloton = aérodynamique faussée), règle à définir avec le mainteneur.
+
 ### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
 
 Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
