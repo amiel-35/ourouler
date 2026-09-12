@@ -87,10 +87,17 @@ sorties, kilométrage, noms d'équipement Intervals. Le code, les tests et
 `config.example.toml` n'en contiennent aucun. Décider : anonymiser ces
 documents, ou déplacer les chiffres dans un fichier ignoré par git.
 
-## Q7 — Ordre des règles de rattachement vélo (relecture sprint 1)
+## Q7 — Ordre des règles de rattachement vélo — **close le 13/09/2026**
 
 Le contrat place la règle « période d'un vélo » avant la règle
 « home-trainer ». Dès que Q2 renseignera des périodes, une séance
 d'intérieur tombant dans la période d'un vélo lui sera attribuée au lieu
 d'aller en « home-trainer ». Proposition : inverser (intérieur d'abord),
 sauf si un vélo est explicitement déclaré d'usage home-trainer.
+
+**Réponse d'Amiel (13/09/2026)** : le home-trainer est majoritairement en
+mode ergo (puissance contrôlée), on n'y apprend rien sur le vélo : classé à
+part et **exclu de la calibration**. Ordre appliqué : intérieur → capteur →
+équipement Intervals → période → vélo route par défaut. Rappel du rôle de
+l'historique : apprentissage et test du modèle physique seulement ; l'usage
+quotidien (météo, boucle) ne s'en sert pas.
