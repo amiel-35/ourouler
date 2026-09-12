@@ -12,12 +12,13 @@ Le client est injectable : ce module ne connaît ni l'URL ni les identifiants.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from ourouler.boucle.trace import Trace
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 #: Rapport de départ entre la longueur d'une boucle et le rayon demandé.
 #: Point d'entrée de l'ajustement, pas une constante de vérité.
@@ -76,15 +77,27 @@ def generer(
     Un azimut qui fait échouer le moteur (profil refusé sur une direction,
     panne passagère) ne fait pas perdre les autres : l'erreur est retenue et
     relancée seulement si **aucune** candidate n'a pu être produite.
+
+    Une `distance_km` qui n'est pas un nombre fini strictement positif et un
+    `nb` inférieur à 1 sont des `ErreurUtilisateur` levées **avant** tout
+    appel : sans cible, `ecart_relatif` ne veut rien dire (NaN), et sans
+    candidate demandée il n'y a rien à chercher.
     """
-    if distance_km <= 0:
-        raise ErreurConnecteur(f"boucle : distance de {distance_km} km, une distance positive attendue")
+    # Les deux refus tombent avant le premier appel : une entrée absurde ne
+    # doit pas coûter un aller-retour sur le serveur BRouter du mainteneur.
+    if not math.isfinite(distance_km) or distance_km <= 0:
+        raise ErreurUtilisateur(
+            f"distance_km = {distance_km} : une distance strictement positive est attendue "
+            "(l'écart relatif vaut (distance − cible) / cible)"
+        )
+    if nb < 1:
+        raise ErreurUtilisateur(f"nb = {nb} : au moins une candidate est attendue")
     cible_m = distance_km * 1000.0
     appels = 0
     candidates: list[Candidate] = []
     derniere_erreur: ErreurConnecteur | None = None
 
-    for azimut in azimuts(azimut_deg, max(1, nb)):
+    for azimut in azimuts(azimut_deg, nb):
         rayon = cible_m / RAPPORT_RAYON_DEFAUT
         meilleure: Candidate | None = None
         for _ in range(1 + AJUSTEMENTS_MAX):

@@ -22,7 +22,7 @@ from ourouler.boucle.candidates import (
 )
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 DEPART = Depart(nom="Point fictif", latitude=0.0, longitude=0.0)
 
@@ -186,11 +186,26 @@ def test_une_distance_nulle_n_entraine_pas_de_correction_infinie():
     assert all(c.ecart_relatif == pytest.approx(-1.0) for c in trouvees)
 
 
-def test_distance_demandee_nulle_refusee():
+@pytest.mark.parametrize("distance_km", [0, -10.0, float("nan"), float("inf")])
+def test_distance_demandee_absurde_refusee(distance_km):
+    """Une distance de cible inexploitable est une erreur d'usage, pas une panne du moteur.
+
+    `ErreurConnecteur` est réservée à « échec d'un appel à un service
+    externe » (`ourouler.erreurs`) : ici rien n'est encore parti. Le refus est
+    une `ErreurUtilisateur` qui nomme le paramètre, levée avant tout appel.
+    """
     client, appels = moteur(20_000)
-    with pytest.raises(ErreurConnecteur, match="distance"):
-        generer(client, DEPART, distance_km=0, azimut_deg=45, nb=3, tolerance=0.10)
+    with pytest.raises(ErreurUtilisateur, match="distance_km"):
+        generer(client, DEPART, distance_km=distance_km, azimut_deg=45, nb=3, tolerance=0.10)
     assert appels == [], "rien ne part avant la validation"
+
+
+@pytest.mark.parametrize("nb", [0, -3])
+def test_nombre_de_candidates_absurde_refuse(nb):
+    client, appels = moteur(20_000)
+    with pytest.raises(ErreurUtilisateur, match="nb"):
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=nb, tolerance=0.10)
+    assert appels == [], "aucune candidate demandée, aucun appel"
 
 
 def test_un_azimut_en_echec_ne_perd_pas_les_autres():
