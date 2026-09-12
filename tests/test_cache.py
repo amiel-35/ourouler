@@ -87,9 +87,9 @@ def test_ajouter_archive_le_brut_et_indexe(cache: Cache, activites: Path):
     assert entree.identifiant == identifiant
     assert entree.source == "intervals" and entree.id_externe == "42"
     assert entree.jour == date(2024, 3, 30)
-    assert entree.duree_s == pytest.approx(678, abs=1)
+    assert entree.duree_s == pytest.approx(708, abs=1)
     assert entree.distance_m and entree.distance_m > 4000
-    assert entree.puissance_moy_w == pytest.approx(206.6, abs=0.5)
+    assert entree.puissance_moy_w == pytest.approx(206.9, abs=0.5)
     assert entree.equipement == "Route"
     assert entree.meta["nom"] == "Sortie inventée"
 
@@ -177,7 +177,7 @@ def test_relire_rend_tous_les_points(cache: Cache, activites: Path):
         octets(activites, "boucle.tcx"), source="fichier", id_externe="x.tcx", extension="tcx", meta={}
     )
     activite = cache.relire(identifiant)
-    assert len(activite.points) == 340
+    assert len(activite.points) == 60
     assert activite.source == "tcx"
 
 

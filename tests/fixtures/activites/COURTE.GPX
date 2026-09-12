@@ -16,33 +16,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.000471" lon="0.008988">
-        <ele>21.6</ele>
-        <time>2024-04-02T08:00:02Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>206</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>131</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.000941" lon="0.008951">
-        <ele>23.1</ele>
-        <time>2024-04-02T08:00:04Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>212</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>133</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.001408" lon="0.008889">
         <ele>24.7</ele>
-        <time>2024-04-02T08:00:06Z</time>
+        <time>2024-04-02T08:00:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>218</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -52,33 +28,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.001871" lon="0.008803">
-        <ele>26.2</ele>
-        <time>2024-04-02T08:00:08Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>224</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>135</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.002329" lon="0.008693">
-        <ele>27.8</ele>
-        <time>2024-04-02T08:00:10Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>230</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>137</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.002781" lon="0.008560">
         <ele>29.3</ele>
-        <time>2024-04-02T08:00:12Z</time>
+        <time>2024-04-02T08:00:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>235</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -88,59 +40,11 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.003225" lon="0.008402">
-        <ele>30.8</ele>
-        <time>2024-04-02T08:00:14Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>240</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.003661" lon="0.008222">
-        <ele>32.2</ele>
-        <time>2024-04-02T08:00:16Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>244</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.004086" lon="0.008019">
         <ele>33.6</ele>
-        <time>2024-04-02T08:00:18Z</time>
+        <time>2024-04-02T08:00:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>248</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.004500" lon="0.007794">
-        <ele>35.0</ele>
-        <time>2024-04-02T08:00:20Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>251</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>140</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.004902" lon="0.007548">
-        <ele>36.3</ele>
-        <time>2024-04-02T08:00:22Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>254</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>139</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -150,7 +54,7 @@
       </trkpt>
       <trkpt lat="0.005290" lon="0.007281">
         <ele>37.6</ele>
-        <time>2024-04-02T08:00:24Z</time>
+        <time>2024-04-02T08:00:48Z</time>
         <extensions>
           <gpxpx:PowerInWatts>257</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -160,33 +64,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.005664" lon="0.006994">
-        <ele>38.9</ele>
-        <time>2024-04-02T08:00:26Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>258</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.006022" lon="0.006688">
-        <ele>40.1</ele>
-        <time>2024-04-02T08:00:28Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>259</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.006364" lon="0.006364">
         <ele>41.2</ele>
-        <time>2024-04-02T08:00:30Z</time>
+        <time>2024-04-02T08:01:00Z</time>
         <extensions>
           <gpxpx:PowerInWatts>260</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -196,33 +76,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.006688" lon="0.006022">
-        <ele>42.3</ele>
-        <time>2024-04-02T08:00:32Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>259</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>135</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.006994" lon="0.005664">
-        <ele>43.3</ele>
-        <time>2024-04-02T08:00:34Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>258</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>134</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.007281" lon="0.005290">
         <ele>44.3</ele>
-        <time>2024-04-02T08:00:36Z</time>
+        <time>2024-04-02T08:01:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>257</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -232,33 +88,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.007548" lon="0.004902">
-        <ele>45.2</ele>
-        <time>2024-04-02T08:00:38Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>254</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>131</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.007794" lon="0.004500">
-        <ele>46.0</ele>
-        <time>2024-04-02T08:00:40Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>251</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>130</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.008019" lon="0.004086">
         <ele>46.7</ele>
-        <time>2024-04-02T08:00:42Z</time>
+        <time>2024-04-02T08:01:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>248</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -268,33 +100,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.008222" lon="0.003661">
-        <ele>47.4</ele>
-        <time>2024-04-02T08:00:44Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>244</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>127</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.008402" lon="0.003225">
-        <ele>48.0</ele>
-        <time>2024-04-02T08:00:46Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>240</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>126</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.008560" lon="0.002781">
         <ele>48.5</ele>
-        <time>2024-04-02T08:00:48Z</time>
+        <time>2024-04-02T08:01:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>235</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -304,33 +112,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.008693" lon="0.002329">
-        <ele>49.0</ele>
-        <time>2024-04-02T08:00:50Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>230</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>123</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.008803" lon="0.001871">
-        <ele>49.3</ele>
-        <time>2024-04-02T08:00:52Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>224</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.008889" lon="0.001408">
         <ele>49.6</ele>
-        <time>2024-04-02T08:00:54Z</time>
+        <time>2024-04-02T08:01:48Z</time>
         <extensions>
           <gpxpx:PowerInWatts>218</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -340,33 +124,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.008951" lon="0.000941">
-        <ele>49.8</ele>
-        <time>2024-04-02T08:00:56Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>212</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.008988" lon="0.000471">
-        <ele>50.0</ele>
-        <time>2024-04-02T08:00:58Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>206</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.009000" lon="0.000000">
         <ele>50.0</ele>
-        <time>2024-04-02T08:01:00Z</time>
+        <time>2024-04-02T08:02:00Z</time>
         <extensions>
           <gpxpx:PowerInWatts>200</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -376,33 +136,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.008988" lon="-0.000471">
-        <ele>50.0</ele>
-        <time>2024-04-02T08:01:02Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>193</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.008951" lon="-0.000941">
-        <ele>49.8</ele>
-        <time>2024-04-02T08:01:04Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>187</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.008889" lon="-0.001408">
         <ele>49.6</ele>
-        <time>2024-04-02T08:01:06Z</time>
+        <time>2024-04-02T08:02:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>181</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -412,33 +148,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.008803" lon="-0.001871">
-        <ele>49.3</ele>
-        <time>2024-04-02T08:01:08Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>175</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.008693" lon="-0.002329">
-        <ele>49.0</ele>
-        <time>2024-04-02T08:01:10Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>170</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>123</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.008560" lon="-0.002781">
         <ele>48.5</ele>
-        <time>2024-04-02T08:01:12Z</time>
+        <time>2024-04-02T08:02:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>164</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -448,33 +160,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.008402" lon="-0.003225">
-        <ele>48.0</ele>
-        <time>2024-04-02T08:01:14Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>159</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>126</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.008222" lon="-0.003661">
-        <ele>47.4</ele>
-        <time>2024-04-02T08:01:16Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>155</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>127</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.008019" lon="-0.004086">
         <ele>46.7</ele>
-        <time>2024-04-02T08:01:18Z</time>
+        <time>2024-04-02T08:02:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>151</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -484,33 +172,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.007794" lon="-0.004500">
-        <ele>46.0</ele>
-        <time>2024-04-02T08:01:20Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>148</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>130</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.007548" lon="-0.004902">
-        <ele>45.2</ele>
-        <time>2024-04-02T08:01:22Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>145</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>131</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.007281" lon="-0.005290">
         <ele>44.3</ele>
-        <time>2024-04-02T08:01:24Z</time>
+        <time>2024-04-02T08:02:48Z</time>
         <extensions>
           <gpxpx:PowerInWatts>142</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -520,33 +184,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.006994" lon="-0.005664">
-        <ele>43.3</ele>
-        <time>2024-04-02T08:01:26Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>141</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>134</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.006688" lon="-0.006022">
-        <ele>42.3</ele>
-        <time>2024-04-02T08:01:28Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>140</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>135</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.006364" lon="-0.006364">
         <ele>41.2</ele>
-        <time>2024-04-02T08:01:30Z</time>
+        <time>2024-04-02T08:03:00Z</time>
         <extensions>
           <gpxpx:PowerInWatts>140</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -556,33 +196,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.006022" lon="-0.006688">
-        <ele>40.1</ele>
-        <time>2024-04-02T08:01:32Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>140</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.005664" lon="-0.006994">
-        <ele>38.9</ele>
-        <time>2024-04-02T08:01:34Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>141</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.005290" lon="-0.007281">
         <ele>37.6</ele>
-        <time>2024-04-02T08:01:36Z</time>
+        <time>2024-04-02T08:03:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>142</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -592,33 +208,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.004902" lon="-0.007548">
-        <ele>36.3</ele>
-        <time>2024-04-02T08:01:38Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>145</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.004500" lon="-0.007794">
-        <ele>35.0</ele>
-        <time>2024-04-02T08:01:40Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>148</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>140</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.004086" lon="-0.008019">
         <ele>33.6</ele>
-        <time>2024-04-02T08:01:42Z</time>
+        <time>2024-04-02T08:03:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>151</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -628,33 +220,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.003661" lon="-0.008222">
-        <ele>32.2</ele>
-        <time>2024-04-02T08:01:44Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>155</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.003225" lon="-0.008402">
-        <ele>30.8</ele>
-        <time>2024-04-02T08:01:46Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>159</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.002781" lon="-0.008560">
         <ele>29.3</ele>
-        <time>2024-04-02T08:01:48Z</time>
+        <time>2024-04-02T08:03:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>164</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -664,33 +232,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.002329" lon="-0.008693">
-        <ele>27.8</ele>
-        <time>2024-04-02T08:01:50Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>170</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>137</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.001871" lon="-0.008803">
-        <ele>26.2</ele>
-        <time>2024-04-02T08:01:52Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>175</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>135</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.001408" lon="-0.008889">
         <ele>24.7</ele>
-        <time>2024-04-02T08:01:54Z</time>
+        <time>2024-04-02T08:03:48Z</time>
         <extensions>
           <gpxpx:PowerInWatts>181</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -700,33 +244,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="0.000941" lon="-0.008951">
-        <ele>23.1</ele>
-        <time>2024-04-02T08:01:56Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>187</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>133</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="0.000471" lon="-0.008988">
-        <ele>21.6</ele>
-        <time>2024-04-02T08:01:58Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>193</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>131</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="0.000000" lon="-0.009000">
         <ele>20.0</ele>
-        <time>2024-04-02T08:02:00Z</time>
+        <time>2024-04-02T08:04:00Z</time>
         <extensions>
           <gpxpx:PowerInWatts>199</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -736,33 +256,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.000471" lon="-0.008988">
-        <ele>18.4</ele>
-        <time>2024-04-02T08:02:02Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>206</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>129</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.000941" lon="-0.008951">
-        <ele>16.9</ele>
-        <time>2024-04-02T08:02:04Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>212</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>127</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.001408" lon="-0.008889">
         <ele>15.3</ele>
-        <time>2024-04-02T08:02:06Z</time>
+        <time>2024-04-02T08:04:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>218</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -772,33 +268,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.001871" lon="-0.008803">
-        <ele>13.8</ele>
-        <time>2024-04-02T08:02:08Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>224</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>125</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.002329" lon="-0.008693">
-        <ele>12.2</ele>
-        <time>2024-04-02T08:02:10Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>229</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>123</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.002781" lon="-0.008560">
         <ele>10.7</ele>
-        <time>2024-04-02T08:02:12Z</time>
+        <time>2024-04-02T08:04:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>235</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -808,59 +280,11 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.003225" lon="-0.008402">
-        <ele>9.2</ele>
-        <time>2024-04-02T08:02:14Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>240</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.003661" lon="-0.008222">
-        <ele>7.8</ele>
-        <time>2024-04-02T08:02:16Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>244</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.004086" lon="-0.008019">
         <ele>6.4</ele>
-        <time>2024-04-02T08:02:18Z</time>
+        <time>2024-04-02T08:04:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>248</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.004500" lon="-0.007794">
-        <ele>5.0</ele>
-        <time>2024-04-02T08:02:20Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>251</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>120</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.004902" lon="-0.007548">
-        <ele>3.7</ele>
-        <time>2024-04-02T08:02:22Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>254</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>121</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -870,9 +294,9 @@
       </trkpt>
       <trkpt lat="-0.005290" lon="-0.007281">
         <ele>2.4</ele>
-        <time>2024-04-02T08:02:24Z</time>
+        <time>2024-04-02T08:04:48Z</time>
         <extensions>
-          <gpxpx:PowerInWatts>257</gpxpx:PowerInWatts>
+          <gpxpx:PowerInWatts>297</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>121</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -880,35 +304,11 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.005664" lon="-0.006994">
-        <ele>1.1</ele>
-        <time>2024-04-02T08:02:26Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>258</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.006022" lon="-0.006688">
-        <ele>-0.1</ele>
-        <time>2024-04-02T08:02:28Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>259</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.006364" lon="-0.006364">
         <ele>-1.2</ele>
-        <time>2024-04-02T08:02:30Z</time>
+        <time>2024-04-02T08:05:00Z</time>
         <extensions>
-          <gpxpx:PowerInWatts>260</gpxpx:PowerInWatts>
+          <gpxpx:PowerInWatts>300</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>123</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -916,35 +316,11 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.006688" lon="-0.006022">
-        <ele>-2.3</ele>
-        <time>2024-04-02T08:02:32Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>259</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>125</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.006994" lon="-0.005664">
-        <ele>-3.3</ele>
-        <time>2024-04-02T08:02:34Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>258</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>126</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.007281" lon="-0.005290">
         <ele>-4.3</ele>
-        <time>2024-04-02T08:02:36Z</time>
+        <time>2024-04-02T08:05:12Z</time>
         <extensions>
-          <gpxpx:PowerInWatts>257</gpxpx:PowerInWatts>
+          <gpxpx:PowerInWatts>297</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>127</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -952,35 +328,11 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.007548" lon="-0.004902">
-        <ele>-5.2</ele>
-        <time>2024-04-02T08:02:38Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>254</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>129</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.007794" lon="-0.004500">
-        <ele>-6.0</ele>
-        <time>2024-04-02T08:02:40Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>251</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>130</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.008019" lon="-0.004086">
         <ele>-6.7</ele>
-        <time>2024-04-02T08:02:42Z</time>
+        <time>2024-04-02T08:05:24Z</time>
         <extensions>
-          <gpxpx:PowerInWatts>248</gpxpx:PowerInWatts>
+          <gpxpx:PowerInWatts>288</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>131</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -988,35 +340,11 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.008222" lon="-0.003661">
-        <ele>-7.4</ele>
-        <time>2024-04-02T08:02:44Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>244</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>133</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008402" lon="-0.003225">
-        <ele>-8.0</ele>
-        <time>2024-04-02T08:02:46Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>240</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>134</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.008560" lon="-0.002781">
         <ele>-8.5</ele>
-        <time>2024-04-02T08:02:48Z</time>
+        <time>2024-04-02T08:05:36Z</time>
         <extensions>
-          <gpxpx:PowerInWatts>235</gpxpx:PowerInWatts>
+          <gpxpx:PowerInWatts>275</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>135</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
@@ -1024,61 +352,13 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.008693" lon="-0.002329">
-        <ele>-9.0</ele>
-        <time>2024-04-02T08:02:50Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>230</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>137</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008803" lon="-0.001871">
-        <ele>-9.3</ele>
-        <time>2024-04-02T08:02:52Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>224</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.008889" lon="-0.001408">
         <ele>-9.6</ele>
-        <time>2024-04-02T08:02:54Z</time>
+        <time>2024-04-02T08:05:48Z</time>
         <extensions>
-          <gpxpx:PowerInWatts>218</gpxpx:PowerInWatts>
+          <gpxpx:PowerInWatts>258</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008951" lon="-0.000941">
-        <ele>-9.8</ele>
-        <time>2024-04-02T08:02:56Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>212</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008988" lon="-0.000471">
-        <ele>-10.0</ele>
-        <time>2024-04-02T08:02:58Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>206</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
             <gpxtpx:atemp>14</gpxtpx:atemp>
           </gpxtpx:TrackPointExtension>
@@ -1086,7 +366,7 @@
       </trkpt>
       <trkpt lat="-0.009000" lon="-0.000000">
         <ele>-10.0</ele>
-        <time>2024-04-02T08:03:00Z</time>
+        <time>2024-04-02T08:06:00Z</time>
         <extensions>
           <gpxpx:PowerInWatts>200</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1096,33 +376,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.008988" lon="0.000471">
-        <ele>-10.0</ele>
-        <time>2024-04-02T08:03:02Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>193</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008951" lon="0.000941">
-        <ele>-9.8</ele>
-        <time>2024-04-02T08:03:04Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>187</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>139</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.008889" lon="0.001408">
         <ele>-9.6</ele>
-        <time>2024-04-02T08:03:06Z</time>
+        <time>2024-04-02T08:06:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>181</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1132,33 +388,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.008803" lon="0.001871">
-        <ele>-9.3</ele>
-        <time>2024-04-02T08:03:08Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>175</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>138</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008693" lon="0.002329">
-        <ele>-9.0</ele>
-        <time>2024-04-02T08:03:10Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>169</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>137</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.008560" lon="0.002781">
         <ele>-8.5</ele>
-        <time>2024-04-02T08:03:12Z</time>
+        <time>2024-04-02T08:06:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>164</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1168,33 +400,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.008402" lon="0.003225">
-        <ele>-8.0</ele>
-        <time>2024-04-02T08:03:14Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>159</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>134</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.008222" lon="0.003661">
-        <ele>-7.4</ele>
-        <time>2024-04-02T08:03:16Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>155</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>133</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.008019" lon="0.004086">
         <ele>-6.7</ele>
-        <time>2024-04-02T08:03:18Z</time>
+        <time>2024-04-02T08:06:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>151</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1204,33 +412,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.007794" lon="0.004500">
-        <ele>-6.0</ele>
-        <time>2024-04-02T08:03:20Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>148</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>130</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.007548" lon="0.004902">
-        <ele>-5.2</ele>
-        <time>2024-04-02T08:03:22Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>145</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>129</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.007281" lon="0.005290">
         <ele>-4.3</ele>
-        <time>2024-04-02T08:03:24Z</time>
+        <time>2024-04-02T08:06:48Z</time>
         <extensions>
           <gpxpx:PowerInWatts>142</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1240,33 +424,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.006994" lon="0.005664">
-        <ele>-3.3</ele>
-        <time>2024-04-02T08:03:26Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>141</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>126</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.006688" lon="0.006022">
-        <ele>-2.3</ele>
-        <time>2024-04-02T08:03:28Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>140</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>125</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.006364" lon="0.006364">
         <ele>-1.2</ele>
-        <time>2024-04-02T08:03:30Z</time>
+        <time>2024-04-02T08:07:00Z</time>
         <extensions>
           <gpxpx:PowerInWatts>140</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1276,33 +436,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.006022" lon="0.006688">
-        <ele>-0.1</ele>
-        <time>2024-04-02T08:03:32Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>140</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.005664" lon="0.006994">
-        <ele>1.1</ele>
-        <time>2024-04-02T08:03:34Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>141</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.005290" lon="0.007281">
         <ele>2.4</ele>
-        <time>2024-04-02T08:03:36Z</time>
+        <time>2024-04-02T08:07:12Z</time>
         <extensions>
           <gpxpx:PowerInWatts>142</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1312,33 +448,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.004902" lon="0.007548">
-        <ele>3.7</ele>
-        <time>2024-04-02T08:03:38Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>145</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.004500" lon="0.007794">
-        <ele>5.0</ele>
-        <time>2024-04-02T08:03:40Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>148</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>120</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.004086" lon="0.008019">
         <ele>6.4</ele>
-        <time>2024-04-02T08:03:42Z</time>
+        <time>2024-04-02T08:07:24Z</time>
         <extensions>
           <gpxpx:PowerInWatts>151</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1348,33 +460,9 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.003661" lon="0.008222">
-        <ele>7.8</ele>
-        <time>2024-04-02T08:03:44Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>155</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>121</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.003225" lon="0.008402">
-        <ele>9.2</ele>
-        <time>2024-04-02T08:03:46Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>159</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>122</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.002781" lon="0.008560">
         <ele>10.7</ele>
-        <time>2024-04-02T08:03:48Z</time>
+        <time>2024-04-02T08:07:36Z</time>
         <extensions>
           <gpxpx:PowerInWatts>164</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
@@ -1384,61 +472,13 @@
           </gpxtpx:TrackPointExtension>
         </extensions>
       </trkpt>
-      <trkpt lat="-0.002329" lon="0.008693">
-        <ele>12.2</ele>
-        <time>2024-04-02T08:03:50Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>170</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>123</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.001871" lon="0.008803">
-        <ele>13.8</ele>
-        <time>2024-04-02T08:03:52Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>175</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>125</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
       <trkpt lat="-0.001408" lon="0.008889">
         <ele>15.3</ele>
-        <time>2024-04-02T08:03:54Z</time>
+        <time>2024-04-02T08:07:48Z</time>
         <extensions>
           <gpxpx:PowerInWatts>181</gpxpx:PowerInWatts>
           <gpxtpx:TrackPointExtension>
             <gpxtpx:hr>126</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.000941" lon="0.008951">
-        <ele>16.9</ele>
-        <time>2024-04-02T08:03:56Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>187</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>127</gpxtpx:hr>
-            <gpxtpx:cad>85</gpxtpx:cad>
-            <gpxtpx:atemp>14</gpxtpx:atemp>
-          </gpxtpx:TrackPointExtension>
-        </extensions>
-      </trkpt>
-      <trkpt lat="-0.000471" lon="0.008988">
-        <ele>18.4</ele>
-        <time>2024-04-02T08:03:58Z</time>
-        <extensions>
-          <gpxpx:PowerInWatts>193</gpxpx:PowerInWatts>
-          <gpxtpx:TrackPointExtension>
-            <gpxtpx:hr>129</gpxtpx:hr>
             <gpxtpx:cad>85</gpxtpx:cad>
             <gpxtpx:atemp>14</gpxtpx:atemp>
           </gpxtpx:TrackPointExtension>

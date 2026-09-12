@@ -27,11 +27,11 @@ def test_lire_les_trois_formats(activites: Path, nom: str):
     assert a.fichier and a.fichier.endswith(nom)
     assert a.debut == datetime(2024, 3, 30, 9, 0, tzinfo=UTC)
     assert a.debut.tzinfo is not None
-    assert a.duree_s == pytest.approx(678, abs=1)
-    assert len(a.points) == 340
+    assert a.duree_s == pytest.approx(708, abs=1)
+    assert len(a.points) == 60
     assert a.distance_m and 4000 < a.distance_m < 8000
-    assert a.puissance_moy_w == pytest.approx(206.6, abs=0.5)
-    assert a.denivele_m == pytest.approx(58.3, abs=1.0)
+    assert a.puissance_moy_w == pytest.approx(206.9, abs=0.5)
+    assert a.denivele_m == pytest.approx(50.0, abs=1.0)
     assert a.sport
     assert a.appareil
     assert not a.avertissements
@@ -72,7 +72,7 @@ def test_les_points_portent_les_capteurs(activites: Path):
 
 
 def test_fit_donne_le_temps_de_mouvement_les_autres_non(activites: Path):
-    assert lire(activites / "boucle.fit").duree_mouvement_s == pytest.approx(648, abs=1)
+    assert lire(activites / "boucle.fit").duree_mouvement_s == pytest.approx(678, abs=1)
     assert lire(activites / "boucle.gpx").duree_mouvement_s is None
     assert lire(activites / "boucle.tcx").duree_mouvement_s is None
 
@@ -80,7 +80,7 @@ def test_fit_donne_le_temps_de_mouvement_les_autres_non(activites: Path):
 def test_extension_en_majuscules(activites: Path):
     a = lire(activites / "COURTE.GPX")
     assert a.source == "gpx"
-    assert len(a.points) == 120
+    assert len(a.points) == 40
 
 
 def test_lecteurs_acceptent_des_octets(activites: Path):
@@ -91,7 +91,7 @@ def test_lecteurs_acceptent_des_octets(activites: Path):
     ):
         a = lecteur((activites / nom).read_bytes())
         assert a.fichier is None
-        assert len(a.points) == 340
+        assert len(a.points) == 60
 
 
 # --- sources incomplètes, mais valides ----------------------------------------

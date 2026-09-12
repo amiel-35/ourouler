@@ -4,5 +4,5 @@
     <Activity Sport="Biking">
       <Id>2024-03-30T09:00:00Z</Id>
       <Lap StartTime="2024-03-30T09:00:00Z">
-        <TotalTimeSeconds>678.0</TotalTimeSeconds>
-        <DistanceMeters>52
+        <TotalTimeSeconds>708.0</TotalTimeSeconds>
+        <DistanceMeters>55

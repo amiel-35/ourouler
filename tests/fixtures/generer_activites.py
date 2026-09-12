@@ -50,15 +50,21 @@ class Echantillon:
 
 
 def trajectoire(
-    n: int = 340,
+    n: int = 60,
     *,
-    pas_s: int = 2,
+    pas_s: int = 12,
     debut: datetime = DEBUT,
     avec_gps: bool = True,
     avec_altitude: bool = True,
     avec_puissance: bool = True,
 ) -> list[Echantillon]:
-    """Boucle circulaire de rayon ~1 km autour du point fictif, à ~28 km/h."""
+    """Boucle circulaire de rayon ~1 km autour du point fictif, à ~28 km/h.
+
+    60 points à 12 s : ~11,8 min et ~5,5 km, soit assez pour tout ce que les
+    tests mesurent (dénivelé lissé, NP, anomalie « durée < 10 min » non
+    déclenchée) sans peser 700 Ko dans le dépôt. Le profil de puissance est
+    exprimé en fraction de `n` pour garder la même forme à toute taille.
+    """
     rayon_deg = 0.009  # ~1 km
     vitesse = 7.8  # m/s
     echantillons: list[Echantillon] = []
@@ -66,7 +72,10 @@ def trajectoire(
         angle = 2 * math.pi * i / n
         dist = vitesse * i * pas_s
         # Puissance : plateau à 200 W avec une bosse et une descente franches.
-        puissance = 200 + 60 * math.sin(4 * math.pi * i / n) + (40 if 200 <= i < 260 else 0)
+        # Bornes en fraction de `n` (0,59 → 0,76), pour que la forme du profil
+        # ne dépende pas du nombre de points.
+        bosse = 40 if round(0.59 * n) <= i < round(0.76 * n) else 0
+        puissance = 200 + 60 * math.sin(4 * math.pi * i / n) + bosse
         echantillons.append(
             Echantillon(
                 t=debut + timedelta(seconds=i * pas_s),
@@ -378,9 +387,9 @@ def generer(dossier: Path = DOSSIER_DEFAUT) -> dict[str, Path]:
     """Écrit toutes les fixtures et renvoie {nom de fichier: chemin}."""
     dossier.mkdir(parents=True, exist_ok=True)
     complete = trajectoire()
-    sans_gps = trajectoire(n=300, avec_gps=False, avec_altitude=False)
-    sans_puissance = trajectoire(n=300, avec_puissance=False)
-    courte = trajectoire(n=120, debut=datetime(2024, 4, 2, 8, 0, tzinfo=UTC))
+    sans_gps = trajectoire(n=55, avec_gps=False, avec_altitude=False)
+    sans_puissance = trajectoire(n=55, avec_puissance=False)
+    courte = trajectoire(n=40, debut=datetime(2024, 4, 2, 8, 0, tzinfo=UTC))
 
     fichiers: dict[str, bytes] = {
         # --- cas nominaux, un par format ---
@@ -393,7 +402,7 @@ def generer(dossier: Path = DOSSIER_DEFAUT) -> dict[str, Path]:
         "home_trainer.fit": encoder_fit(sans_gps, sport=2, sous_sport=6),
         "sans_puissance.gpx": encoder_gpx(sans_puissance).encode("utf-8"),
         "sans_altitude.gpx": encoder_gpx(
-            trajectoire(n=200, avec_altitude=False)
+            trajectoire(n=50, avec_altitude=False)
         ).encode("utf-8"),
         "COURTE.GPX": encoder_gpx(courte).encode("utf-8"),  # extension en majuscules
         # --- cas dégradés ---
@@ -406,8 +415,8 @@ def generer(dossier: Path = DOSSIER_DEFAUT) -> dict[str, Path]:
         "inconnu.dat": b"ni FIT ni GPX ni TCX\n",
     }
     # Horodatages non monotones : on permute deux points au milieu de la trace.
-    desordre = trajectoire(n=200)
-    desordre[100], desordre[120] = desordre[120], desordre[100]
+    desordre = trajectoire(n=50)
+    desordre[20], desordre[30] = desordre[30], desordre[20]
     fichiers["non_monotone.gpx"] = encoder_gpx(desordre).encode("utf-8")
 
     ecrits: dict[str, Path] = {}

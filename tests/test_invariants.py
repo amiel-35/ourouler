@@ -15,6 +15,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import pytest
+from conftest import _generateur
 
 from ourouler.activites.lecture import lire_fit
 from ourouler.erreurs import ErreurLecture
@@ -227,7 +228,15 @@ def ville_trop_proche(lat: float, lon: float) -> tuple[str, float] | None:
 
 
 def fixtures_avec_coordonnees() -> list[Path]:
-    """Les fixtures d'activité dont on sait extraire des coordonnées."""
+    """Les fixtures d'activité dont on sait extraire des coordonnées.
+
+    Appelée au **moment de la collecte** par `parametrize`, donc avant toute
+    fixture pytest : si le dossier est vide (fixtures supprimées), il faut le
+    regarnir ici, sinon la paramétrisation serait vide et l'invariant
+    passerait pour vert en ne mesurant rien — l'erreur même qu'on corrige.
+    """
+    if not FIXTURES_ACTIVITES.is_dir() or not any(FIXTURES_ACTIVITES.iterdir()):
+        _generateur().generer(FIXTURES_ACTIVITES)
     return sorted(
         p
         for p in FIXTURES_ACTIVITES.iterdir()
@@ -278,3 +287,51 @@ def test_aucun_fichier_de_configuration_du_depot_ne_porte_de_point_reel(config: 
 def test_aucune_cle_dans_la_configuration_de_test():
     config = (TESTS / "fixtures" / "config_test.toml").read_text(encoding="utf-8")
     assert 'api_key = ""' in config
+
+
+# --- poids des fixtures versionnées -----------------------------------------
+#
+# Dette notée en relecture : 712 Ko de fixtures versionnées alors que
+# `conftest.py` les régénère quand elles manquent. On garde les fichiers
+# (reproductibilité : un `git clone` suffit à lancer les tests, sans exécuter
+# le générateur), mais les traces sont réduites à ~60 points.
+
+#: Budget de taille pour `tests/fixtures/activites/`, en kilo-octets.
+TAILLE_MAX_FIXTURES_KO = 150
+
+
+def test_les_fixtures_versionnees_restent_legeres():
+    poids = {p.name: p.stat().st_size for p in FIXTURES_ACTIVITES.iterdir() if p.is_file()}
+    total = sum(poids.values())
+    detail = ", ".join(f"{nom} {taille // 1024} Kio" for nom, taille in sorted(poids.items()))
+    assert total < TAILLE_MAX_FIXTURES_KO * 1000, (
+        f"{total} octets de fixtures, budget {TAILLE_MAX_FIXTURES_KO} Ko — "
+        f"réduire le nombre de points dans generer_activites.py ({detail})"
+    )
+
+
+def test_les_traces_restent_courtes():
+    """~60 points : assez pour tout ce que les tests mesurent, pas plus."""
+    for fixture in fixtures_avec_coordonnees():
+        points = coordonnees_de(fixture)
+        if not points:
+            continue  # fixture volontairement tronquée
+        assert len(points) <= 80, f"{fixture.name} : {len(points)} points, ~60 attendus"
+
+
+def test_le_generateur_de_fixtures_est_reproductible(generateur, tmp_path: Path):
+    """Ce qui justifie de versionner sa sortie : elle ne dérive pas du générateur.
+
+    Le générateur reste la source de vérité ; les fichiers sont versionnés pour
+    qu'un `git clone` suffise à lancer les tests. Encore faut-il que les deux
+    disent la même chose, octet pour octet.
+    """
+    ecrits = generateur.generer(tmp_path)
+    assert ecrits, "le générateur doit écrire quelque chose"
+    for nom, chemin in ecrits.items():
+        versionnee = FIXTURES_ACTIVITES / nom
+        assert versionnee.is_file(), f"{nom} n'est pas versionnée"
+        assert chemin.read_bytes() == versionnee.read_bytes(), (
+            f"{nom} : la fixture versionnée diffère de ce que le générateur produit "
+            "— relancer `uv run python tests/fixtures/generer_activites.py`"
+        )
