@@ -30,10 +30,18 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | Commande | Rôle | État |
 |---|---|---|
 | `ourouler meteo` | pluie, vent et ressenti par direction et par heure autour du point de départ (Open-Meteo, AROME 1,3 km + second modèle en indice de confiance) | sprint 1 |
-| `ourouler inventaire` | lecture FIT / GPX / TCX, cache local, inventaire des sorties par vélo et par mois, synchronisation Intervals.icu | sprint 1 |
+| `ourouler inventaire` | lecture FIT / GPX / TCX, cache local, inventaire des sorties par vélo et par mois, synchronisation Intervals.icu | sprint 1 — **non vérifié sur vraies données** (clé Intervals et fichiers réels absents, Q1) |
 | `ourouler boucle` | boucle de la bonne distance dans la direction sèche, vent de face à l'aller, GPX | sprint 2 |
 | `ourouler sortie` | séance du jour ↔ terrain : modèle physique calibré par vélo, choix de la boucle, résumé, tenue | plus tard |
 | envoi vers Garmin Connect | | plus tard |
+
+`ourouler meteo` est le seul lot du sprint 1 **vérifié pour de vrai** :
+Open-Meteo est gratuit et sans clé, la commande tourne sur le point de
+départ de la configuration. `ourouler inventaire` n'a jamais parlé au vrai
+service Intervals.icu ni lu un fichier d'activité réel : il est testé sur
+des fixtures synthétiques et des réponses fabriquées. C'est écrit ici parce
+que la règle 4 de `CLAUDE.md` l'exige : un lot non vérifié le dit en toutes
+lettres.
 
 ## Installation (développement)
 
@@ -45,7 +53,12 @@ uv run ourouler config
 
 Renseigner ensuite le point de départ, le cycliste, les vélos et, pour la
 synchronisation, la clé d'API Intervals.icu. Les données et les clés restent
-chez l'utilisateur : rien de personnel n'entre dans ce dépôt.
+chez l'utilisateur : rien de personnel n'entre dans ce dépôt — dans le code,
+les tests et la configuration d'exemple. Le fichier de configuration réel
+n'est jamais commité ; `config.example.toml` ne porte que des valeurs
+inventées, et un test le mesure (`tests/test_invariants.py`). La
+documentation de cadrage, elle, contient encore des chiffres réels du
+mainteneur : à trancher avant l'ouverture du dépôt (Q6).
 
 ## Documentation
 
