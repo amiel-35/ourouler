@@ -49,8 +49,23 @@ l'utilisateur HA « garmin » (chantier Connect IQ), pas un accès Garmin
 Connect. Comment veut-on pousser un parcours : identifiants Garmin Connect
 (bibliothèque non officielle type `garth`), export manuel du GPX, ou via HA ?
 
-## Q6 — Nom du projet et visibilité du dépôt
+## Q6 — Nom du projet, visibilité du dépôt, et purge avant publication
 
 Nom de travail du paquet et de la commande : `ourouler`. Dépôt GitHub créé
 en **privé** sous le nom `bike-routing` ; à renommer et passer en public
 quand le nom est validé (le projet est destiné à être open source, MIT).
+
+**Avant tout passage en public** (relevé par le relecteur du sprint 1) :
+les documents de cadrage (`docs/cadrage.md`, `docs/plan_sprints_agents.md`,
+ce fichier) citent des chiffres du mainteneur — FTP, masse, nombre de
+sorties, kilométrage, noms d'équipement Intervals. Le code, les tests et
+`config.example.toml` n'en contiennent aucun. Décider : anonymiser ces
+documents, ou déplacer les chiffres dans un fichier ignoré par git.
+
+## Q7 — Ordre des règles de rattachement vélo (relecture sprint 1)
+
+Le contrat place la règle « période d'un vélo » avant la règle
+« home-trainer ». Dès que Q2 renseignera des périodes, une séance
+d'intérieur tombant dans la période d'un vélo lui sera attribuée au lieu
+d'aller en « home-trainer ». Proposition : inverser (intérieur d'abord),
+sauf si un vélo est explicitement déclaré d'usage home-trainer.

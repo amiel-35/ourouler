@@ -1,33 +1,36 @@
 # Configuration ourouler — à copier dans ~/.config/ourouler/config.toml
 # (ou passer --config <fichier>). Ce fichier d'exemple ne contient aucune donnée
-# personnelle ; le vrai fichier est ignoré par git.
+# réelle : toutes les valeurs sont inventées. Le vrai fichier est ignoré par git.
 
 [depart]
 nom = "Maison"
-latitude = 48.11     # Rennes centre en exemple : mettre son vrai point de départ
-longitude = -1.68
+latitude = 47.0000    # inventé : mettre son vrai point de départ
+longitude = -1.0000
 
 [cycliste]
-masse_kg = 91.0
-ftp_w = 258
+masse_kg = 75.0
+ftp_w = 250
 
 [[velos]]
 nom = "Route"
 usage = "route"        # route | clm
 masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 cda_m2 = 0.32          # point de départ, recalibré sur l'historique
-intervals_gear = ""    # identifiant ou nom du vélo dans Intervals.icu
+intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
+# periodes = [{ debut = 2024-01-01 }, { debut = 2025-03-01, fin = 2025-06-30 }]
 
 [meteo]
-directions = 8                 # N, NE, E, SE, S, SO, O, NO
+directions = 8                 # 8 ou 16
 distances_km = [15, 25, 40]
 modele = "meteofrance_arome_france_hd"
 second_avis = "icon_seamless"  # désaccord entre modèles = indice de confiance
 horizon_h = 6
 
 [intervals]
-athlete_id = ""   # ex. i183365
+athlete_id = ""   # ex. i123456 (Intervals.icu → Settings)
 api_key = ""      # Intervals.icu → Settings → Developer. Jamais dans le dépôt.
 
 [cache]
 dossier = "~/.cache/ourouler"
+
+historique_depuis = 2023-12-01   # fenêtre d'historique pour la calibration
