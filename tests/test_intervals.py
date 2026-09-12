@@ -743,3 +743,19 @@ def test_synchroniser_n_appelle_pas_gear_sur_une_liste_vide(cache: Cache):
     c, espion = client(json_fixe([]))
     synchroniser(c, cache, date(2024, 3, 1))
     assert not [c for c in espion.chemins if c.endswith("/gear")]
+
+
+def test_une_entree_creuse_n_est_jamais_telechargee(cache: Cache, activites: Path):
+    """Décision du superviseur (13/09/2026) : le compte du mainteneur contient des
+    entrées Strava creuses — ni type, ni nom, ni durée, ni distance — dont le
+    téléchargement répond 422 à chaque synchronisation. Une entrée sans
+    contenu n'a pas de fichier : comptée dans `sans_contenu`, jamais appelée.
+    Une activité sans type mais avec une durée reste rapatriée (point 7)."""
+    creuse = {"id": "c1", "start_date_local": ACTIVITE_1["start_date_local"]}
+    sans_type = {**ACTIVITE_1, "id": "s1"}
+    sans_type.pop("type")
+    c, espion = client(connecteur_complet(activites, [creuse, sans_type]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.sans_contenu, rapport.echecs) == (2, 1, 1, 0)
+    assert "/api/v1/activity/c1/file" not in espion.chemins
+    assert [e.id_externe for e in cache.lister()] == ["s1"]

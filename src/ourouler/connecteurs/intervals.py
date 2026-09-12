@@ -43,6 +43,7 @@ class RapportSynchro:
     ignorees: int = 0
     mises_a_jour: int = 0
     autres_sports: int = 0
+    sans_contenu: int = 0  # entrées creuses (ni type, ni nom, ni durée) : jamais de fichier derrière
     echecs: int = 0
     messages: list[str] = field(default_factory=list)
 
@@ -175,6 +176,12 @@ def _indice(code: int) -> str:
     if code >= 500:
         return " — panne côté Intervals.icu, réessayer plus tard"
     return ""
+
+
+def sans_contenu(activite: dict) -> bool:
+    """Vrai pour une entrée creuse : ni type, ni nom, ni durée. Rien à télécharger."""
+    cles = ("type", "name", "moving_time", "elapsed_time", "distance", "icu_training_load")
+    return not any(activite.get(cle) for cle in cles)
 
 
 def _liste_de_dicts(reponse: httpx.Response, libelle: str) -> list[dict]:
@@ -339,6 +346,13 @@ def synchroniser(
         identifiant = str(identifiant)
         if filtre_velo and not est_sport_velo(activite.get("type")):
             rapport.autres_sports += 1
+            continue
+        if sans_contenu(activite):
+            # Décision du superviseur (13/09/2026) : le compte du mainteneur
+            # contient des entrées Strava creuses (ni type, ni nom, ni durée)
+            # dont le téléchargement répond 422 à chaque passage. Une entrée
+            # sans contenu n'a pas de fichier : on la compte, on ne l'appelle pas.
+            rapport.sans_contenu += 1
             continue
         meta = metadonnees(activite, equipements)
         if cache.contient(source="intervals", id_externe=identifiant):

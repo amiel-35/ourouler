@@ -79,7 +79,7 @@ def _synchroniser(
         f"{rapport.vues} vue(s), {rapport.ajoutees} ajoutée(s), "
         f"{rapport.ignorees} déjà en cache (dont {rapport.mises_a_jour} "
         f"métadonnées mises à jour), {rapport.autres_sports} autre(s) sport(s), "
-        f"{rapport.echecs} échec(s)."
+        f"{rapport.sans_contenu} sans contenu, {rapport.echecs} échec(s)."
     ]
     journal.extend(f"  échec — {m}" for m in rapport.messages)
     return journal

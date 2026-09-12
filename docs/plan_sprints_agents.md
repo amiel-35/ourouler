@@ -113,16 +113,19 @@ l'inventaire des sorties depuis décembre 2023 par vélo.
 | L1.6 Tests adversariaux du sprint | testeur-adversarial · Opus | fichiers corrompus, réponses d'API hostiles, fuseaux, cache absent ; invariants (pas de réseau, pas de config dans le cœur, pas de coordonnée réelle en fixture) |
 | L1.7 Relecture | relecteur · Opus | verdict écrit par lot |
 
-### Sprint 2 — Tracé **[figé, à découper au lancement]**
+### Sprint 2 — Tracé **[livré le 13/09/2026, PR en attente]**
 
-Jalon : `ourouler boucle --distance 60 --direction NE` produit un GPX de
-boucle depuis le point de départ, vent de face à l'aller, avec revérification
-de la pluie le long du tracé à l'heure de passage.
+Jalon atteint : `ourouler boucle --distance 60 --direction NE` produit un
+GPX de boucle depuis le point de départ, avec candidates comparées (trafic,
+revêtement, virages à gauche, sens, pluie et vent à l'heure de passage), et
+`--gpx` évalue un tracé importé. Contrat : `docs/sprint2_contrat.md` ;
+relecture : `docs/sprint2_relecture.md`.
 
-Prérequis bloquant : choix du moteur (BRouter auto-hébergé en Docker sur le
-Mac ou sur le serveur, ou GraphHopper API) et accord d'installation —
-question Q4. Le lot « coûts de virage à droite » dépend du moteur retenu
-(profil BRouter personnalisé vs. post-traitement des candidates).
+Moteur : **BRouter auto-hébergé sur Coolify** (Q4), image nightly épinglée
+(le tag stable lit un format de segments dépassé), segments Bretagne, proxy
+nginx à auth basique ; identifiants dans la config locale du mainteneur.
+Le lot « virages à droite » est un post-traitement des candidates (aucun
+moteur ne distingue gauche/droite nativement).
 
 ### Sprint 3 — Routes connues, puis modèle physique **[esquissé, non figé]**
 
@@ -188,6 +191,25 @@ COROS sans rien demander à personne. L'Edge sait charger un parcours et une sé
 structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
+
+- **2026-09-13, nuit** — Sprint 2 livré sur `sprint-2` (branche issue de
+  `sprint-1`), PR vers `sprint-1`/`main` en attente. Déroulé : BRouter
+  déployé sur Coolify ; quatre agents en parallèle (BRouter+GPX+candidates,
+  coûts+météo le long, rattachement par capteur, testeur adversarial) puis
+  assemblage de la CLI ; relecture (19 points, aucun bloquant technique) ;
+  deux passes de corrections. État : 1 329 tests, ruff vert. **Vérifié sur
+  vraies données** : `boucle` (5 candidates de 60 km en ~2 s de BRouter +
+  10 appels Open-Meteo), `inventaire --synchroniser` (355 sorties vélo :
+  RCR 120 / BMC 43 / home-trainer 192, séparés par le capteur de
+  puissance, triathlons compris, 21 entrées Strava creuses ignorées).
+  Écarts prévu/réalisé : rayon→distance ≈ ×5 mesuré et auto-ajusté ;
+  classes de trafic trop sévères sur `secondary` (23 % de la pratique
+  réelle) → lot « routes connues » au sprint 3 ; cache météo ajourné à
+  l'hébergé (doctrine mise à jour) ; D+ moteur ≠ D+ GPX relu (provenance
+  affichée) ; index du cache passé en v2 (une ligne par activité, pas par
+  contenu). Dette assumée : poids du score et de la pluie non calibrés ;
+  filtre de sport par vocabulaire Intervals ; historique git à purger avant
+  publication (Q6).
 
 - **2026-09-12** — Sprint 0 fait en session de cadrage (Fable). Sprint 1
   lancé le soir même, mainteneur absent : les lots avancent sur fixtures et
