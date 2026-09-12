@@ -17,6 +17,53 @@ FENETRE_NP = timedelta(seconds=30)
 #: Nombre de points de la moyenne glissante qui lisse l'altitude.
 FENETRE_ALTITUDE = 5
 
+#: Types d'activité cyclistes tels qu'Intervals.icu les nomme. Sert au
+#: connecteur (ne rapatrier que le vélo) comme à l'inventaire (ne compter que
+#: le vélo) : le compte Intervals du mainteneur contient aussi de la course à
+#: pied, de la natation et de la musculation, qui n'ont rien à faire dans un
+#: inventaire de sorties vélo.
+TYPES_VELO = (
+    "Ride",
+    "VirtualRide",
+    "GravelRide",
+    "MountainBikeRide",
+    "EBikeRide",
+    "Velomobile",
+    "Handcycle",
+    "TrackRide",
+    "Cyclocross",
+)
+
+#: Mêmes sports, tels que les **fichiers** les nomment : un FIT dit
+#: « cycling » (et « cycling/indoor_cycling » avec son sous-sport), un TCX dit
+#: « Biking », un GPX importé dit ce qu'il veut. Sans cette seconde liste, un
+#: filtre calé sur le seul vocabulaire d'Intervals jetterait toutes les
+#: activités importées par `--importer`.
+SPORTS_VELO_FICHIER = ("cycling", "biking", "bike", "cycle", "ebiking", "velo")
+
+_SPORTS_VELO_REDUITS = frozenset(
+    "".join(nom.split()).casefold().replace("-", "").replace("_", "")
+    for nom in TYPES_VELO + SPORTS_VELO_FICHIER
+)
+
+
+def est_sport_velo(sport: str | None) -> bool:
+    """Vrai si ce libellé de sport désigne du vélo. Un sport inconnu compte.
+
+    Le sport absent (`None`, chaîne vide) renvoie **vrai** : on ne jette pas
+    une sortie parce que la source s'est tue. Seul un sport nommé et
+    manifestement autre (« Run », « Swim », « WeightTraining ») est écarté.
+    Le sous-sport, s'il y en a un, est ignoré : « cycling/indoor_cycling »
+    reste du vélo.
+    """
+    if sport is None:
+        return True
+    base = str(sport).split("/", 1)[0]
+    reduit = "".join(base.split()).casefold().replace("-", "").replace("_", "")
+    if not reduit:
+        return True
+    return reduit in _SPORTS_VELO_REDUITS
+
 
 @dataclass
 class Point:

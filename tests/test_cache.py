@@ -337,3 +337,57 @@ def test_un_index_anterieur_au_versionnement_est_tolere(cache: Cache):
     assert rouvert.lister() == []
     with sqlite3.connect(rouvert.index) as cx:
         assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+
+
+# --- mise à jour des métadonnées sur place (L2.7) ------------------------------
+
+
+def test_mettre_a_jour_meta_reecrit_sans_toucher_au_fichier(cache: Cache, activites: Path):
+    """Enrichir une entrée déjà rapatriée ne doit pas dépendre d'un retéléchargement."""
+    identifiant = cache.ajouter(
+        octets(activites, "boucle.fit"),
+        source="intervals",
+        id_externe="42",
+        extension="fit",
+        meta={"nom": "Sortie inventée"},
+    )
+    horodatage = cache.chemin(identifiant).stat().st_mtime_ns
+
+    assert cache.mettre_a_jour_meta(
+        source="intervals",
+        id_externe="42",
+        meta={"nom": "Sortie inventée", "power_meter": "CAPTEUR 0001"},
+        equipement="Route inventee",
+    )
+    (entree,) = cache.lister()
+    assert entree.identifiant == identifiant
+    assert entree.meta["power_meter"] == "CAPTEUR 0001"
+    assert entree.equipement == "Route inventee"
+    assert cache.chemin(identifiant).stat().st_mtime_ns == horodatage
+
+
+def test_mettre_a_jour_meta_sur_une_entree_absente_renvoie_faux(cache: Cache):
+    assert not cache.mettre_a_jour_meta(source="intervals", id_externe="inconnu", meta={})
+
+
+def test_mettre_a_jour_meta_sans_equipement_n_efface_pas_l_ancien(cache: Cache, activites: Path):
+    """Une réponse plus pauvre ne doit pas effacer ce qu'on savait déjà."""
+    cache.ajouter(
+        octets(activites, "boucle.fit"),
+        source="intervals",
+        id_externe="42",
+        extension="fit",
+        meta={"equipement": "Route inventee"},
+    )
+    cache.mettre_a_jour_meta(source="intervals", id_externe="42", meta={"gear_id": "b000"})
+    (entree,) = cache.lister()
+    assert entree.equipement == "Route inventee"
+    assert entree.meta["gear_id"] == "b000"
+
+
+def test_mettre_a_jour_meta_ne_touche_que_la_bonne_source(cache: Cache, activites: Path):
+    cache.ajouter(
+        octets(activites, "boucle.fit"), source="fichier", id_externe="42", extension="fit", meta={}
+    )
+    assert not cache.mettre_a_jour_meta(source="intervals", id_externe="42", meta={"x": 1})
+    assert cache.lister()[0].meta == {}

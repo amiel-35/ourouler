@@ -111,6 +111,12 @@ def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
     p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
     p.add_argument("--importer", type=Path, metavar="DOSSIER", help="indexe les FIT/GPX/TCX d'un dossier")
     p.add_argument("--synchroniser", action="store_true", help="rapatrie les activités Intervals.icu")
+    p.add_argument(
+        "--sans-rafraichir",
+        dest="sans_rafraichir",
+        action="store_true",
+        help="avec --synchroniser : ne pas rafraîchir les métadonnées des sorties déjà en cache",
+    )
     p.set_defaults(fonction=_commande_inventaire)
 
 
