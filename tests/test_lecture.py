@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 import random
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -217,6 +219,92 @@ def test_np_penalise_les_variations_longues():
     blocs = ([100.0] * 120 + [300.0] * 120) * 3
     np = puissance_normalisee(_points(puissances=blocs))
     assert np is not None and np > 230
+
+
+# --- NP et échantillonnage irrégulier ---------------------------------------
+#
+# Tests qui auraient attrapé B1 : la moyenne extérieure des puissances⁴ était
+# faite par échantillon et non pondérée par la durée. Un même effort physique
+# donnait 315,1 W ou 196,4 W au lieu de 275 W selon la façon de l'enregistrer.
+
+#: Profil physique unique : 900 s à 320 W, 900 s à 150 W, ondulation de ±30 W.
+#: Les variations sont lentes devant le pas le plus grossier testé (10 s), donc
+#: un échantillonnage grossier décrit bien le même effort — sans quoi la
+#: comparaison n'aurait aucun sens.
+def profil_physique(t: float) -> float:
+    if t < 900:
+        return 320.0 + 30.0 * math.sin(t / 23.0)
+    return 150.0 + 20.0 * math.sin(t / 23.0)
+
+
+def points_du_profil(pas: Callable[[int, float], float], duree_s: float = 1800.0) -> list[Point]:
+    """Échantillonne `profil_physique` avec un pas quelconque, éventuellement variable."""
+    t0 = datetime(2026, 1, 1, 8, 0, tzinfo=UTC)
+    points: list[Point] = []
+    t, i = 0.0, 0
+    while t <= duree_s:
+        points.append(Point(t=t0 + timedelta(seconds=t), puissance_w=profil_physique(t)))
+        t += pas(i, t)
+        i += 1
+    return points
+
+
+#: Le même profil à 0,1 s : la valeur de référence, 275,1 W.
+def np_de_reference() -> float:
+    valeur = puissance_normalisee(points_du_profil(lambda i, t: 0.1))
+    assert valeur is not None
+    return valeur
+
+
+def test_np_de_reference_du_profil():
+    assert np_de_reference() == pytest.approx(275.1, abs=0.1)
+
+
+@pytest.mark.parametrize(
+    "nom, pas",
+    [
+        ("1 s constant", lambda i, t: 1.0),
+        ("2 s constant", lambda i, t: 2.0),
+        ("5 s constant", lambda i, t: 5.0),
+        ("10 s constant", lambda i, t: 10.0),
+        # Les deux cas qui faussaient la NP : une moitié enregistrée dix fois
+        # plus densément que l'autre, dans un sens puis dans l'autre.
+        ("1 s puis 10 s", lambda i, t: 1.0 if t < 900 else 10.0),
+        ("10 s puis 1 s", lambda i, t: 10.0 if t < 900 else 1.0),
+        # Pas irrégulier de 1 à 9 s, sans motif aligné sur le profil.
+        ("pas irrégulier", lambda i, t: 1.0 + (i * 7) % 9),
+    ],
+)
+def test_np_ne_depend_pas_de_l_echantillonnage(nom: str, pas: Callable[[int, float], float]):
+    """Même profil physique, sept échantillonnages : la NP doit tenir à 1 %."""
+    reference = np_de_reference()
+    mesure = puissance_normalisee(points_du_profil(pas))
+    assert mesure is not None
+    ecart = abs(mesure - reference) / reference
+    assert ecart < 0.01, f"{nom} : {mesure:.1f} W contre {reference:.1f} W ({ecart:.1%})"
+
+
+def test_np_les_deux_echantillonnages_du_relecteur_donnent_la_meme_np():
+    """Le cas exact mesuré en relecture : 1 s constant contre 1 s puis 10 s."""
+    regulier = puissance_normalisee(points_du_profil(lambda i, t: 1.0))
+    dense_puis_creux = puissance_normalisee(points_du_profil(lambda i, t: 1.0 if t < 900 else 10.0))
+    assert regulier is not None and dense_puis_creux is not None
+    assert dense_puis_creux == pytest.approx(regulier, rel=0.01)
+
+
+def test_np_constante_meme_a_pas_irregulier():
+    """Une puissance constante reste sa propre NP, quel que soit le pas."""
+    t0 = datetime(2026, 1, 1, 8, 0, tzinfo=UTC)
+    instants = [0, 1, 2, 3, 10, 11, 30, 31, 32, 90, 200, 201, 400]
+    points = [Point(t=t0 + timedelta(seconds=s), puissance_w=180.0) for s in instants]
+    assert puissance_normalisee(points) == pytest.approx(180.0)
+
+
+def test_np_tous_les_points_au_meme_instant_se_reduit_a_la_moyenne():
+    """Cas dégénéré : sans durée, pondérer n'a pas de sens, pas de division par zéro."""
+    t0 = datetime(2026, 1, 1, 8, 0, tzinfo=UTC)
+    points = [Point(t=t0, puissance_w=w) for w in (100.0, 200.0, 300.0)]
+    assert puissance_normalisee(points) == pytest.approx(200.0)
 
 
 def test_np_none_sans_puissance():

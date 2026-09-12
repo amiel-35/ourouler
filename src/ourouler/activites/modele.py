@@ -71,26 +71,66 @@ def puissance_moyenne(points: list[Point]) -> float | None:
 def puissance_normalisee(points: list[Point]) -> float | None:
     """Puissance normalisée : moyenne glissante 30 s, puissance 4, moyenne, racine 4ᵉ.
 
-    Fenêtre glissante sur les horodatages réels (et non sur un nombre fixe
-    d'échantillons) : une trace à 1 Hz, à 2 s ou irrégulière donne le même
-    sens. None si moins de deux échantillons de puissance.
+    La fenêtre glisse sur les horodatages réels, et **les deux moyennes sont
+    pondérées par la durée** que chaque échantillon représente (son
+    intervalle jusqu'au suivant). Sans cette pondération, une portion
+    enregistrée plus densément pèse plus lourd que le temps qu'elle occupe
+    réellement, et la NP d'un même effort physique change avec la façon de
+    l'enregistrer.
+
+    Mesure (voir `tests/test_lecture.py`), sur un seul profil physique —
+    900 s à 320 W puis 900 s à 150 W, ondulation de ±30 W — échantillonné de
+    plusieurs façons. Référence : le même profil à 0,1 s, soit 275,1 W.
+
+    | échantillonnage | avant pondération | après |
+    |-----------------|-------------------|-------|
+    | 1 s constant    | 275,0 W           | 275,0 W |
+    | 1 s puis 10 s   | 315,1 W (+15 %)   | 274,6 W |
+    | 10 s puis 1 s   | 196,4 W (−29 %)   | 274,7 W |
+
+    L'écart résiduel est sous 0,2 %. À pas régulier, 1, 2, 5 et 10 s donnent
+    la même valeur à mieux que 0,3 %.
+
+    Écart connu et assumé avec l'implémentation de référence : les 30
+    premières secondes sont gardées avec une fenêtre partielle, non
+    rejetées. None si moins de deux échantillons de puissance.
     """
     echantillons = sorted(
         (p.t, float(p.puissance_w)) for p in points if p.puissance_w is not None and p.t is not None
     )
     if len(echantillons) < 2:
         return None
+    instants = [t for t, _ in echantillons]
+    watts = [w for _, w in echantillons]
+    # Durée représentée par un échantillon : son intervalle jusqu'au suivant.
+    # Le dernier n'en a pas, il reprend l'intervalle précédent.
+    durees = [(instants[i + 1] - instants[i]).total_seconds() for i in range(len(instants) - 1)]
+    durees.append(durees[-1])
+
     somme_puissance4 = 0.0
-    cumul = 0.0
+    duree_totale = 0.0
+    cumul_pondere = 0.0
+    cumul_duree = 0.0
     debut = 0
-    for i, (t, watts) in enumerate(echantillons):
-        cumul += watts
-        while echantillons[debut][0] < t - FENETRE_NP:
-            cumul -= echantillons[debut][1]
+    for i, t in enumerate(instants):
+        cumul_pondere += watts[i] * durees[i]
+        cumul_duree += durees[i]
+        while instants[debut] < t - FENETRE_NP:
+            cumul_pondere -= watts[debut] * durees[debut]
+            cumul_duree -= durees[debut]
             debut += 1
-        moyenne = cumul / (i - debut + 1)
-        somme_puissance4 += moyenne**4
-    return (somme_puissance4 / len(echantillons)) ** 0.25
+        if cumul_duree > 0:
+            moyenne = cumul_pondere / cumul_duree
+        else:
+            # Horodatages identiques dans toute la fenêtre : pondérer n'a plus
+            # de sens, on retombe sur la moyenne par échantillon.
+            moyenne = sum(watts[debut : i + 1]) / (i - debut + 1)
+        somme_puissance4 += moyenne**4 * durees[i]
+        duree_totale += durees[i]
+    if duree_totale <= 0:
+        # Tous les points au même instant : la NP se réduit à la moyenne.
+        return sum(watts) / len(watts)
+    return (somme_puissance4 / duree_totale) ** 0.25
 
 
 def denivele_positif(points: list[Point]) -> float | None:
