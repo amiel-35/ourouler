@@ -298,7 +298,16 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
     curseur = 0
     for numero, ligne in enumerate(lignes):
         if curseur >= len(points) - 1:
-            break  # plus de point où accrocher un tronçon
+            # Plus de point où accrocher un tronçon : le serveur a envoyé plus
+            # de messages que la géométrie ne porte de points. Les lignes
+            # restantes sont perdues, et ça se compte — sinon
+            # `meta["messages_ignores"]` annoncerait 0 alors que des tronçons
+            # ont disparu, le contraire de l'intention.
+            ignores.extend(
+                f"ligne {reste} : plus de point où s'accrocher"
+                for reste in range(numero, len(lignes))
+            )
+            break
         if not isinstance(ligne, (list, tuple)) or len(ligne) <= colonnes["Latitude"]:
             ignores.append(f"ligne {numero} trop courte")
             continue

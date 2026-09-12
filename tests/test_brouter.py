@@ -223,6 +223,33 @@ def test_une_coordonnee_de_message_pres_du_meridien_0_reste_des_microdegres():
     )
 
 
+def test_des_messages_sans_point_ou_s_accrocher_sont_comptes():
+    """Point 14 de la relecture : ces lignes disparaissaient sans être comptées.
+
+    Si le serveur envoie plus de messages que la géométrie ne porte de
+    points, la boucle de rattachement s'arrête. `meta["messages_ignores"]`
+    annonçait alors 0 alors que des tronçons avaient été perdus — exactement
+    le contraire de l'intention affichée.
+    """
+    charge = reponse_fabriquee()
+    proprietes = charge["features"][0]["properties"]
+    entete, lignes = proprietes["messages"][0], proprietes["messages"][1:]
+    # La géométrie est réduite à trois points : il n'y a plus de quoi accrocher
+    # les six tronçons que les messages décrivent.
+    geometrie = charge["features"][0]["geometry"]["coordinates"]
+    charge["features"][0]["geometry"]["coordinates"] = geometrie[:3]
+    proprietes["messages"] = [entete, *lignes]
+
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    perdus = len(lignes) - len(trace.segments)
+    assert perdus > 0, "le test n'a de sens que si des lignes sont bien perdues"
+    assert trace.meta["messages_ignores"] == perdus, (
+        f"{perdus} ligne(s) perdue(s), {trace.meta['messages_ignores']} comptée(s)"
+    )
+    assert trace.meta["messages_ignores_motifs"], "le motif doit être dit, pas seulement le compte"
+
+
 def test_messages_sans_en_tete_lus_avec_l_ordre_de_colonnes_connu():
     charge = reponse_fabriquee()
     proprietes = charge["features"][0]["properties"]
