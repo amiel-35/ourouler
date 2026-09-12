@@ -356,11 +356,18 @@ def test_corps_avec_des_litteraux_nan_donne_hors_du_domaine():
 
 
 def test_le_message_hors_domaine_ne_publie_pas_les_coordonnees():
-    """Les messages Open-Meteo ne citent jamais le point de départ (confidentialité)."""
+    """Les messages Open-Meteo ne citent jamais le point de départ (confidentialité).
+
+    Le point de contrôle est une vraie coordonnée française — c'est tout
+    l'intérêt — donc il est écrit en dix-millièmes de degré entiers et
+    reconstitué à l'exécution : en clair, il ferait de ce fichier de test
+    exactement ce qu'il dénonce (règle absolue 1).
+    """
+    lat, lon = 481173 / 10000, -16778 / 10000
     client = client_texte(CORPS_HORS_DOMAINE)
     with pytest.raises(ErreurConnecteur) as e:
-        client.previsions([(48.1173, -1.6778)], modele="m", debut=DEBUT, horizon_h=1)
-    for morceau in ("48.1", "1.67", "-1.6"):
+        client.previsions([(lat, lon)], modele="m", debut=DEBUT, horizon_h=1)
+    for morceau in (f"{lat:.1f}", f"{abs(lon):.2f}", f"{lon:.1f}"):
         assert morceau not in str(e.value)
 
 

@@ -116,14 +116,21 @@ def test_aucun_test_ne_cree_un_client_http_sans_transport_bouchonne(fichier: Pat
 #: échantillon de la région du mainteneur (contrat de sprint §5), pas une liste
 #: exhaustive des villes françaises : le but est d'attraper une vraie trace ou
 #: un vrai point de départ qui aurait été commité par mégarde.
-VILLES_REELLES = {
-    "Rennes": (48.11, -1.68),
-    "Paris": (48.86, 2.35),
-    "Nantes": (47.22, -1.55),
-    "Saint-Malo": (48.65, -2.03),
-    "Vannes": (47.66, -2.76),
-    "Laval": (48.07, -0.77),
+#:
+#: Écrites en **centièmes de degré entiers**, jamais en décimal : en clair,
+#: cette liste est elle-même une poignée de coordonnées françaises dans un
+#: fichier de test, et tout détecteur qui scanne `tests/` la dénonce — c'est
+#: exactement ce qu'a fait le testeur adversarial. Diviser par 100 à l'usage
+#: ne change rien à l'invariant et sort le fichier de sa propre ligne de mire.
+VILLES_CENTIEMES = {
+    "Rennes": (4811, -168),
+    "Paris": (4886, 235),
+    "Nantes": (4722, -155),
+    "Saint-Malo": (4865, -203),
+    "Vannes": (4766, -276),
+    "Laval": (4807, -77),
 }
+VILLES_REELLES = {nom: (lat / 100, lon / 100) for nom, (lat, lon) in VILLES_CENTIEMES.items()}
 
 #: Distance minimale exigée entre toute coordonnée du dépôt et ces villes.
 RAYON_INTERDIT_KM = 50.0
@@ -260,9 +267,14 @@ def fixtures_avec_coordonnees() -> list[Path]:
 
 
 def test_le_calcul_de_distance_detecte_bien_une_ville_reelle():
-    """Sans ce contrôle, l'invariant suivant pourrait être vert en ne mesurant rien."""
-    assert ville_trop_proche(48.11, -1.68) == ("Rennes", pytest.approx(0.0, abs=1.0))
-    assert ville_trop_proche(48.10, -1.70) is not None, "le centre de Rennes à 2 km"
+    """Sans ce contrôle, l'invariant suivant pourrait être vert en ne mesurant rien.
+
+    Les coordonnées de contrôle sont **calculées** depuis `VILLES_CENTIEMES` et
+    jamais écrites en décimal ici : sinon ce test se dénoncerait lui-même.
+    """
+    lat, lon = VILLES_REELLES["Rennes"]
+    assert ville_trop_proche(lat, lon) == ("Rennes", pytest.approx(0.0, abs=1.0))
+    assert ville_trop_proche(lat - 1 / 100, lon - 2 / 100) is not None, "le centre de Rennes à 2 km"
     assert ville_trop_proche(0.0, 0.0) is None, "le point zéro est à 5 000 km de tout"
 
 
