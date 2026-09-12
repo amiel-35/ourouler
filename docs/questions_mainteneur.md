@@ -45,6 +45,19 @@ sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
 - Règles de séance : que veut dire « un bloc tient sur un terrain » (pente
   max, longueur minimale sans carrefour, etc.) — S4.
 
+**Réponse d'Amiel (13/09/2026), à préciser au sprint 4** :
+- Séance : quand la séance a des blocs, chercher à **éviter les villages et
+  les descentes** pendant les blocs.
+- Tenue : des **seuils par catégorie**. Humidité : sec / humide / pluie /
+  averses. Température : canicule / chaud / modéré / frais / froid / très
+  froid. Le vent compte deux fois : impact sur la performance et ressenti
+  de froid. Les bornes chiffrées de chaque catégorie et la tenue associée
+  restent à donner (un tableau dans la configuration).
+- Sorties en groupe (sprint 3) : les FIT ne le disent pas ; Strava le sait
+  souvent (champ « nombre d'athlètes » de l'activité). Voies : export
+  Strava, ou détection statistique (vitesse trop élevée pour la puissance =
+  peloton) par la calibration elle-même.
+
 ## Q4 — Moteur de tracé — **close le 12/09/2026** : BRouter sur Coolify (pas sur le Mac, pour pouvoir partager)
 
 BRouter auto-hébergé (Java absent sur le Mac ; Docker présent ; ou sur le

@@ -162,7 +162,10 @@ par vélo suffit (1 kg sur 100 kg = 1 % en montée, rien sur le plat) ; le
 poids du cycliste vient d'Intervals quand il y est, sinon une constante, car
 hors montagne il pèse peu. L'effort va dans ce qui compte : CdA par vélo,
 vent réel (archives Open-Meteo), et **l'exclusion des sorties en groupe**
-(peloton = aérodynamique faussée), règle à définir avec le mainteneur.
+(peloton = aérodynamique faussée). Les FIT ne le disent pas ; Strava a un
+champ « nombre d'athlètes » (export Strava ou API en lecture) ; à défaut,
+détection statistique par la calibration : une sortie dont la vitesse est
+trop élevée pour la puissance est un peloton, à écarter comme aberrante.
 
 ### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
 
