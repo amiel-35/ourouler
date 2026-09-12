@@ -1,0 +1,141 @@
+# Plan de sprints et équipe d'agents — ourouler
+
+Déroulé de la roadmap en sprints, avec pour chaque lot l'agent, le modèle et
+les critères d'acceptation. Puis l'équipe Claude Code qui l'exécute. Le
+découpage d'origine (S0 → S5) est dans `docs/cadrage.md` ; ce document le
+transpose en sprints et le fera vivre.
+
+## Cadence de repriorisation — tous les deux sprints
+
+Règle reprise d'ix-presenter, appliquée dès le premier cycle :
+
+- **Les deux prochains sprints sont figés.** On les exécute tels qu'ils sont
+  écrits ; ce qui déborde attend le point de repriorisation.
+- **Un troisième est esquissé.** Il donne une direction, il n'engage à rien.
+- **À la fin des deux figés, le mainteneur reprioritise** à partir de ce qui
+  a été livré, **des écarts entre prévu et réalisé**, et du backlog.
+- **La dernière décision reçue se relit en premier** : les corrections
+  issues d'un aller-retour sont celles qu'on relit le moins bien.
+
+## Cadence et règles de sprint
+
+Un sprint = un jalon démontrable sur les vraies données du mainteneur, pas un
+pourcentage. La capacité se compte en sessions d'agents supervisées, pas en
+jours. Un lot n'est fini que si ses tests passent, si `ruff` est vert et si
+la commande du jalon tourne pour de vrai — ou si le lot est explicitement
+marqué **non vérifié** avec la raison (clé absente, données absentes).
+
+Règle d'or : à la fin de chaque sprint, `uv run ourouler --help` et chaque
+sous-commande déjà livrée fonctionnent toujours.
+
+## Doctrine d'affectation des modèles
+
+Décision du mainteneur (12/09/2026) : Fable est très puissant mais très
+cher ; le réserver au plus critique, Opus quand ça suffit. Le critère n'est
+pas le prix au token mais le coût total de l'aller-retour.
+
+- **Fable** : le cadrage initial, le découpage des sprints, la relecture des
+  points critiques — modèle physique et sa calibration (S3), boucle
+  séance ↔ terrain (S4), tout ce qui écrit chez Garmin (S5). Débogage de ce
+  qu'Opus n'a pas résolu en deux passes.
+- **Opus** : le défaut. Développement des lots, spécification et écriture
+  des tests adversariaux, relecture courante, supervision hors cadrage.
+- **Haiku** : le mécanique borné et bien spécifié — fixtures, boilerplate,
+  corrections de lint, mise à jour de docs depuis un diff. Jamais sur du
+  code de comportement.
+- **Sonnet** : non retenu pour l'instant. À reconsidérer si le coût Opus
+  devient un sujet sur des features standard.
+
+Avant de lancer un sprint, demander au mainteneur s'il veut Fable ou Opus
+pour le superviseur ; ce choix vaut pour tout le sprint.
+
+## L'équipe d'agents
+
+Cinq rôles, définis dans `.claude/agents/`. Tous partagent trois règles
+d'arrêt : ambiguïté = on s'arrête et on demande ; contradiction avec la
+doctrine = on s'arrête et on signale ; installation sur une machine, copie
+d'une clé ou donnée personnelle dans le dépôt = interdit.
+
+- **superviseur** (Fable au cadrage, Opus sinon) — découpe, distribue,
+  arbitre la technique, remonte le produit. Ne merge jamais.
+- **dev-feature** (Opus) — implémente une tâche avec ses tests unitaires.
+- **dev-mecanique** (Haiku) — exécute les checklists mécaniques.
+- **testeur-adversarial** (Opus) — écrit, en aveugle du code et dans son
+  propre worktree, les tests qui essaient de casser le lot.
+- **relecteur** (Opus, Fable sur les points critiques) — revue finale avant
+  le mainteneur, verdict écrit.
+
+Flux type : superviseur découpe → dev-feature implémente en parallèle du
+testeur-adversarial → les tests rencontrent le code → relecteur → le
+mainteneur merge. Deux agents en parallèle tournent chacun dans son
+worktree (leçon d'ix-presenter : deux agents dans le même arbre s'écrasent en
+silence et l'aveuglement du testeur est compromis).
+
+## Les sprints
+
+### Sprint 0 — Socle **[fait le 12/09/2026]**
+
+Jalon : dépôt initialisé avec doctrine, CLAUDE.md, fiches d'agents,
+`pyproject` (uv), config d'exemple, `.gitignore` protégeant données et clés,
+inventaire des données réelles disponibles.
+
+Constats sur pièces au cadrage :
+- Intervals.icu (via le MCP) : 355 sorties vélo depuis le 02/12/2023, dont
+  163 en extérieur (9 128 km, 93 % avec puissance) et 192 sur home-trainer.
+  Le vélo n'est renseigné que sur 68 sorties (`rcr` 55, `VR` 11, `BMC` 2),
+  presque plus depuis novembre 2024 : le rattachement par vélo sera une règle
+  par période et par appareil (`device_name`), à valider avec le mainteneur.
+  31 « vélo d'intérieur » enregistrées à la montre, sans distance ni
+  puissance, sont inutilisables pour la calibration.
+- Aucun fichier FIT/GPX/TCX conservé sur le Mac (nettoyage du 11/09). Les
+  vraies données passeront par l'API Intervals (téléchargement du FIT
+  d'origine), qui exige une clé d'API que le mainteneur doit fournir.
+- Le jeton `~/.config/ha/garmin-token` est un jeton Home Assistant, pas un
+  accès Garmin Connect : S5 reste à cadrer.
+- Sur le Mac : `uv`, Python 3.14, Docker ; pas de Java (BRouter natif
+  demanderait Java ou Docker).
+
+### Sprint 1 — Données et météo par direction **[figé]**
+
+Jalon : `ourouler meteo` affiche, pour le point de départ du mainteneur, la
+pluie, le vent et la température ressentie par direction et par heure sur
+les prochaines heures, avec le désaccord entre modèles ; `ourouler
+inventaire` lit des fichiers FIT/GPX/TCX et le cache Intervals et sort
+l'inventaire des sorties depuis décembre 2023 par vélo.
+
+| Lot | Agent · Modèle | Critères d'acceptation |
+|---|---|---|
+| L1.1 Config et cœur sans configuration : `config.py` (dataclasses, TOML), `cli.py` (argparse, sous-commandes) | dev-feature · Opus | `ourouler --help` ; `ourouler --config x.toml` charge et valide ; une erreur de config nomme le champ ; aucun module hors `cli.py`/`config.py` n'importe `os.environ`, `pathlib.Path.home()` ni `tomllib` |
+| L1.2 Lecteur unique FIT/GPX/TCX → `Activite` (métadonnées + trajectoire horodatée : temps, lat/lon, altitude, distance, vitesse, puissance, cadence, FC, température si présents) | dev-feature · Opus | les trois formats donnent le même modèle ; fixtures synthétiques (générées, pas réelles) ; fichier tronqué ou vide = erreur nommée, pas une exception brute |
+| L1.3 Cache local : fichiers bruts + index SQLite ; `inventaire` par vélo et par mois | dev-feature · Opus | `ourouler inventaire --depuis 2023-12-01` liste les sorties par vélo (règle de rattachement configurable : équipement Intervals, période, appareil) et par mois ; relance idempotente |
+| L1.4 Connecteur Intervals : liste des activités depuis une date, téléchargement du FIT d'origine dans le cache, séance planifiée du jour | dev-feature · Opus | client injectable, réponses enregistrées en fixtures ; **vérification sur vraies données conditionnée à la clé d'API** (question Q1) — sinon lot marqué non vérifié |
+| L1.5 Météo par direction : client Open-Meteo (plusieurs points par appel, AROME HD + second modèle), couronne de points (N directions × distances), rapport par direction et par heure, désaccord entre modèles | dev-feature · Opus | `ourouler meteo --depart 08:00 --horizon 6` affiche 8 directions × 3 distances × heures : pluie mm/h, vent (force, direction, face/dos par direction), ressenti ; un indice de confiance par cellule ; tourne pour de vrai sur le point de départ ; tests sur réponses enregistrées |
+| L1.6 Tests adversariaux du sprint | testeur-adversarial · Opus | fichiers corrompus, réponses d'API hostiles, fuseaux, cache absent ; invariants (pas de réseau, pas de config dans le cœur, pas de coordonnée réelle en fixture) |
+| L1.7 Relecture | relecteur · Opus | verdict écrit par lot |
+
+### Sprint 2 — Tracé **[figé, à découper au lancement]**
+
+Jalon : `ourouler boucle --distance 60 --direction NE` produit un GPX de
+boucle depuis le point de départ, vent de face à l'aller, avec revérification
+de la pluie le long du tracé à l'heure de passage.
+
+Prérequis bloquant : choix du moteur (BRouter auto-hébergé en Docker sur le
+Mac ou sur le serveur, ou GraphHopper API) et accord d'installation —
+question Q4. Le lot « coûts de virage à droite » dépend du moteur retenu
+(profil BRouter personnalisé vs. post-traitement des candidates).
+
+### Sprint 3 — Modèle physique **[esquissé, non figé]**
+
+Jalon : pour chaque vélo, des paramètres calibrés (masse, CdA, roulement) et
+un rapport d'erreur de temps sur des sorties non vues. Relecture Fable.
+
+### Plus tard — S4 séance ↔ terrain, S5 Garmin Connect, HA
+
+Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
+
+## Historique des sprints
+
+- **2026-09-12** — Sprint 0 fait en session de cadrage (Fable). Sprint 1
+  lancé le soir même, mainteneur absent : les lots avancent sur fixtures et
+  sur Open-Meteo (pas de clé nécessaire) ; le connecteur Intervals attend la
+  clé pour sa vérification réelle.

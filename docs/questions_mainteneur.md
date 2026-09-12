@@ -1,0 +1,56 @@
+# Questions au mainteneur
+
+Les agents ne tranchent aucune de ces questions ; ils avancent sur ce qui
+n'en dépend pas. Répondre ici ou en session ; la réponse est reportée dans
+la doctrine ou la configuration, puis la question est marquée close.
+
+## Q1 — Clé d'API Intervals.icu (bloque la vérification réelle de L1.4)
+
+Aucune clé n'existe sur le Mac : le MCP Intervals est un proxy hébergé
+(IcuSync), pas la clé. Il faut la clé personnelle d'Intervals.icu
+(Settings → Developer → API key) dans `~/.config/ourouler/config.toml`
+(`[intervals] api_key`), jamais ailleurs. Sans elle, l'inventaire ne peut
+pas rapatrier les FIT d'origine.
+
+## Q2 — Liste des vélos et règle de rattachement
+
+Intervals ne connaît un vélo que sur 68 sorties sur 355 : `rcr` (55, du
+02/12/2023 au 22/03/2026, surtout extérieur), `VR` (11, home-trainer,
+déc. 2023 → janv. 2024), `BMC` (2, oct.–nov. 2024). Rien d'affecté depuis
+novembre 2024 sur la grande majorité des sorties. Il faut :
+- la liste des vélos réellement utilisés depuis décembre 2023 : nom, usage
+  (route / CLM), masse équipée, roues, et pour chacun **les périodes** où il
+  a servi ;
+- une règle pour les sorties sans équipement : par période ? par
+  appareil (Edge 830 = route, montre = ?) ? Proposition par défaut si aucune
+  réponse : toute sortie extérieure sans équipement = vélo de route
+  principal, sur toute la période.
+
+## Q3 — Point de départ et règles de tenue / de séance
+
+- Coordonnées du point de départ habituel (dans le fichier de configuration,
+  jamais dans le dépôt). En attendant, la démo `meteo` tourne sur le centre
+  de Rennes.
+- Règles de tenue : seuils de température ressentie, de vent, de pluie et
+  ce qu'on met à chaque palier (utiles à partir de S4).
+- Règles de séance : que veut dire « un bloc tient sur un terrain » (pente
+  max, longueur minimale sans carrefour, etc.) — S4.
+
+## Q4 — Moteur de tracé et lieu d'installation (bloque le sprint 2)
+
+BRouter auto-hébergé (Java absent sur le Mac ; Docker présent ; ou sur le
+serveur Coolify/Hetzner) ou GraphHopper API (clé, gratuit à petit volume) ?
+Aucune installation ne sera faite sans accord.
+
+## Q5 — Garmin Connect (S5)
+
+Le jeton `~/.config/ha/garmin-token` est un jeton Home Assistant pour
+l'utilisateur HA « garmin » (chantier Connect IQ), pas un accès Garmin
+Connect. Comment veut-on pousser un parcours : identifiants Garmin Connect
+(bibliothèque non officielle type `garth`), export manuel du GPX, ou via HA ?
+
+## Q6 — Nom du projet et visibilité du dépôt
+
+Nom de travail du paquet et de la commande : `ourouler`. Dépôt GitHub créé
+en **privé** sous le nom `bike-routing` ; à renommer et passer en public
+quand le nom est validé (le projet est destiné à être open source, MIT).

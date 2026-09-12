@@ -1,0 +1,27 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Données et secrets de l'utilisateur : JAMAIS dans le dépôt
+config.toml
+config.*.toml
+!config.example.toml
+*.fit
+*.FIT
+*.tcx
+*.gpx
+!tests/fixtures/**
+cache/
+data/
+.env
+.env.*
+
+# Outillage local
+.claude/worktrees/
+.DS_Store
