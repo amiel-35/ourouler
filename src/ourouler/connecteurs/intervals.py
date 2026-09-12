@@ -17,6 +17,7 @@ from datetime import date, timedelta
 import httpx
 
 from ourouler.activites.cache import Cache
+from ourouler.activites.modele import TYPES_VELO
 from ourouler.erreurs import ErreurConnecteur, ErreurLecture
 
 BASE_URL = "https://intervals.icu"
@@ -30,9 +31,18 @@ EXTENSION_DEFAUT = "fit"
 
 @dataclass
 class RapportSynchro:
+    """Ce qu'une synchronisation a fait. `vues` compte tout ce que l'API a rendu.
+
+    `ignorees` = déjà en cache, donc pas retéléchargée ; `mises_a_jour` est le
+    sous-ensemble de celles-là dont on a rafraîchi les métadonnées sur place.
+    `autres_sports` compte ce qui n'est pas du vélo et n'a jamais été demandé.
+    """
+
     vues: int = 0
     ajoutees: int = 0
     ignorees: int = 0
+    mises_a_jour: int = 0
+    autres_sports: int = 0
     echecs: int = 0
     messages: list[str] = field(default_factory=list)
 
@@ -58,6 +68,9 @@ class ClientIntervals:
         # L'authentification est passée par requête : un client injecté par un
         # test n'est jamais modifié, et la clé ne vit que dans cet objet.
         self._auth = httpx.BasicAuth("API_KEY", str(api_key))
+        # Résolu au premier besoin, puis gardé : l'endpoint gear est appelé
+        # une seule fois par client, quel que soit le nombre d'activités.
+        self._equipements: dict[str, str] | None = None
 
     def __repr__(self) -> str:  # ne jamais laisser fuir la clé dans une trace
         return f"ClientIntervals(athlete_id={self.athlete_id!r}, base_url={self.base_url!r})"
@@ -98,6 +111,25 @@ class ClientIntervals:
                 f"Intervals.icu activity/{activite_id}/file : réponse vide"
             )
         return contenu, _extension(reponse, contenu)
+
+    def equipements(self) -> dict[str, str]:
+        """Équipements de l'athlète : identifiant → nom. Un seul appel par client.
+
+        La liste d'activités ne porte qu'un `gear.id` (« b0000001 ») : le nom
+        lisible (« rcr », « BMC ») ne vient que d'ici. Le résultat est gardé
+        dans l'instance, y compris quand il est vide.
+        """
+        if self._equipements is None:
+            reponse = self._get(
+                f"/api/v1/athlete/{self.athlete_id}/gear", "athlete/{id}/gear"
+            )
+            liste = _liste_de_dicts(reponse, "athlete/{id}/gear")
+            self._equipements = {
+                str(e["id"]): str(e.get("name") or "")
+                for e in liste
+                if e.get("id") is not None and e.get("name")
+            }
+        return self._equipements
 
     def evenements(self, jour: date) -> list[dict]:
         """Séances planifiées d'un jour."""
@@ -218,30 +250,78 @@ def _extension(reponse: httpx.Response, contenu: bytes) -> str:
 # --- synchronisation ----------------------------------------------------------
 
 
-def metadonnees(activite: dict) -> dict:
-    """Métadonnées Intervals à recopier dans `meta` de l'entrée de cache."""
-    equipement = activite.get("gear")
-    if isinstance(equipement, dict):
-        nom_equipement = equipement.get("name")
-    else:
-        nom_equipement = str(equipement) if equipement else None
+def metadonnees(activite: dict, equipements: dict[str, str] | None = None) -> dict:
+    """Métadonnées Intervals à recopier dans `meta` de l'entrée de cache.
+
+    `equipements` est la table « identifiant → nom » de `ClientIntervals.
+    equipements()` : la liste d'activités ne porte qu'un `gear.id`, le nom
+    lisible vient de là. Sans elle, on se rabat sur ce que `gear` contient.
+
+    Les champs de rattachement (contrat §7) sont recopiés tels quels :
+    `power_meter` (« SRAM 0000 »), son numéro de série, `bilateral` (déduit de
+    la présence d'`avg_lr_balance`, qu'un capteur unilatéral ne renvoie pas),
+    `gear_id`, `trainer` et `device_name`.
+    """
+    brut_equipement = activite.get("gear")
+    gear_id = None
+    nom_equipement = None
+    if isinstance(brut_equipement, dict):
+        if brut_equipement.get("id") is not None:
+            gear_id = str(brut_equipement["id"])
+        nom_equipement = brut_equipement.get("name")
+    elif brut_equipement:
+        nom_equipement = str(brut_equipement)
+    if gear_id and equipements:
+        nom_equipement = equipements.get(gear_id) or nom_equipement
     type_activite = str(activite.get("type") or "")
     return {
         "source_id": activite.get("id"),
         "nom": activite.get("name"),
         "sport": activite.get("type"),
         "appareil": activite.get("device_name"),
+        "device_name": activite.get("device_name"),
         "equipement": nom_equipement,
+        "gear_id": gear_id,
+        "power_meter": activite.get("power_meter"),
+        "power_meter_serial": activite.get("power_meter_serial"),
+        "bilateral": activite.get("avg_lr_balance") is not None,
+        "trainer": bool(activite.get("trainer")),
         "puissance_moy_w": activite.get("icu_average_watts") or activite.get("average_watts"),
         "interieur": bool(activite.get("trainer")) or type_activite.casefold().startswith("virtual"),
         "debut_local": activite.get("start_date_local"),
     }
 
 
-def synchroniser(client: ClientIntervals, cache: Cache, depuis: date) -> RapportSynchro:
-    """Rapatrie dans le cache les activités absentes. Ne télécharge rien d'autre."""
+def synchroniser(
+    client: ClientIntervals,
+    cache: Cache,
+    depuis: date,
+    *,
+    rafraichir_meta: bool = True,
+    types: tuple[str, ...] | None = TYPES_VELO,
+) -> RapportSynchro:
+    """Rapatrie dans le cache les sorties vélo absentes. Ne télécharge rien d'autre.
+
+    `types` filtre sur le type d'activité Intervals : par défaut seul le vélo
+    est rapatrié, le compte contenant aussi de la course, de la natation et de
+    la musculation. `types=None` élargit à tout.
+
+    `rafraichir_meta` met à jour sur place les métadonnées des entrées déjà en
+    cache (capteur de puissance, équipement, appareil) **sans** retélécharger
+    le fichier : c'est ce qui permet d'enrichir un cache rempli avant que le
+    rattachement par capteur existe, sans repayer 355 téléchargements.
+    """
     rapport = RapportSynchro()
-    for activite in client.activites(depuis):
+    activites = client.activites(depuis)
+    equipements: dict[str, str] = {}
+    if activites:
+        try:
+            equipements = client.equipements()
+        except ErreurConnecteur as e:
+            # Un nom d'équipement manquant dégrade le rattachement, il ne doit
+            # pas empêcher la synchronisation — mais il se dit.
+            rapport.messages.append(f"équipements non résolus : {e}")
+    for activite in activites:
         rapport.vues += 1
         identifiant = activite.get("id")
         if identifiant is None:
@@ -249,8 +329,19 @@ def synchroniser(client: ClientIntervals, cache: Cache, depuis: date) -> Rapport
             rapport.messages.append("activité sans identifiant, ignorée")
             continue
         identifiant = str(identifiant)
+        if types is not None and str(activite.get("type") or "") not in types:
+            rapport.autres_sports += 1
+            continue
+        meta = metadonnees(activite, equipements)
         if cache.contient(source="intervals", id_externe=identifiant):
             rapport.ignorees += 1
+            if rafraichir_meta and cache.mettre_a_jour_meta(
+                source="intervals",
+                id_externe=identifiant,
+                meta=meta,
+                equipement=meta.get("equipement"),
+            ):
+                rapport.mises_a_jour += 1
             continue
         try:
             contenu, extension = client.telecharger_fichier(identifiant)
@@ -259,7 +350,7 @@ def synchroniser(client: ClientIntervals, cache: Cache, depuis: date) -> Rapport
                 source="intervals",
                 id_externe=identifiant,
                 extension=extension,
-                meta=metadonnees(activite),
+                meta=meta,
             )
         except (ErreurConnecteur, ErreurLecture) as e:
             rapport.echecs += 1

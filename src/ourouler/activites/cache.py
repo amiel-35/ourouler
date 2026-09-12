@@ -156,6 +156,32 @@ class Cache:
             )
         return identifiant
 
+    def mettre_a_jour_meta(
+        self,
+        *,
+        source: str,
+        id_externe: str,
+        meta: dict,
+        equipement: str | None = None,
+    ) -> bool:
+        """Réécrit `meta` (et `equipement`) d'une entrée déjà indexée. Vrai si trouvée.
+
+        Sert à enrichir des entrées rapatriées avant qu'on sache quoi en
+        retenir (capteur de puissance, identifiant d'équipement) **sans**
+        retélécharger le fichier : le fichier brut n'est pas touché, seule la
+        ligne d'index change. `equipement` à `None` laisse en place ce qu'on
+        savait déjà, plutôt que de l'effacer avec une réponse plus pauvre.
+        """
+        charge = json.dumps(_serialisable(meta or {}), ensure_ascii=False, default=str)
+        with self._connexion() as cx:
+            curseur = cx.execute(
+                "UPDATE activites SET meta = ?, equipement = COALESCE(?, equipement) "
+                "WHERE source = ? AND id_externe = ?",
+                (charge, equipement or None, str(source), str(id_externe)),
+            )
+            modifiees = curseur.rowcount
+        return modifiees > 0
+
     def indexer_dossier(self, dossier: Path) -> int:
         """Importe tous les .fit/.gpx/.tcx d'un dossier. Renvoie le nombre ajoutés.
 
