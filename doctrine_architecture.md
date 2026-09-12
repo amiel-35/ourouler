@@ -22,6 +22,17 @@ cyclistes se créent un compte, renseignent leur profil et importent leurs
 données. On ne le construit pas maintenant, mais on s'interdit ce qui le
 rendrait impossible : un profil utilisateur est une donnée, pas une constante.
 
+**Il y aura un front web, à terme (confirmé par le mainteneur le
+12/09/2026).** La cible finale est un service hébergé avec une interface
+web : compte, profil (puissance, point de départ habituel, vélos), import de
+données, et les mêmes résultats que la CLI (météo par direction, boucle,
+sortie du jour). D'où, dès aujourd'hui : le cœur est appelable sans fichier
+ni environnement, chaque commande sait rendre du JSON, et la CLI n'est qu'un
+adaptateur parmi d'autres — l'API web en sera un second, le moment venu.
+Ordre imposé : d'abord la CLI qui couvre le besoin du mainteneur, ensuite
+l'API, enfin le front. Ni API ni front ne s'écrivent avant que le sprint
+« séance ↔ terrain » ait tourné sur ses vraies sorties.
+
 **Les données et les clés restent chez l'utilisateur.** Rien de personnel
 dans le dépôt : ni fichier d'activité, ni coordonnées, ni clé d'API. Le
 `.gitignore` ignore par défaut tout `.fit`/`.gpx`/`.tcx` et tout
