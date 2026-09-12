@@ -35,6 +35,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_config(sous)
     ajouter_inventaire(sous)
     ajouter_meteo(sous)
+    ajouter_boucle(sous)
     return p
 
 
@@ -159,6 +160,33 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
 
 def _commande_meteo(args: argparse.Namespace, config: Config) -> int:
     from ourouler.meteo.commande import executer  # import paresseux (lot L1.5)
+
+    return executer(args, config)
+
+
+def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "boucle",
+        help="propose des boucles dans une direction, avec coûts et météo le long du tracé",
+        parents=[parent_json()],
+    )
+    p.add_argument(
+        "--distance", type=float, metavar="KM", help="longueur voulue en km (obligatoire sans --gpx)"
+    )
+    p.add_argument(
+        "--direction",
+        help="N, NE, … NO ou un azimut en degrés (obligatoire sans --gpx)",
+    )
+    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
+    p.add_argument("--profil", help="profil BRouter (défaut : config)")
+    p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
+    p.add_argument("--gpx", metavar="ENTREE.GPX", help="évaluer ce GPX au lieu d'en générer")
+    p.set_defaults(fonction=_commande_boucle)
+
+
+def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
 
     return executer(args, config)
 

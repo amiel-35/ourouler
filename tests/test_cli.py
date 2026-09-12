@@ -37,7 +37,7 @@ def test_config_absente_code_2(tmp_path: Path, capsys):
 
 @pytest.mark.parametrize(
     "commande",
-    ["config", "inventaire", "meteo"],
+    ["config", "inventaire", "meteo", "boucle"],
     ids=lambda c: c,
 )
 @pytest.mark.parametrize("place", ["avant", "apres"], ids=lambda p: f"--json {p}")
@@ -50,7 +50,7 @@ def test_json_accepte_avant_et_apres_la_sous_commande(commande: str, place: str)
     assert args.commande == commande
 
 
-@pytest.mark.parametrize("commande", ["config", "inventaire", "meteo"])
+@pytest.mark.parametrize("commande", ["config", "inventaire", "meteo", "boucle"])
 def test_sans_json_la_sortie_reste_en_texte(commande: str):
     """Le sous-parseur ne doit pas non plus forcer `--json` à vrai."""
     assert construire_parseur().parse_args([commande]).json is False
