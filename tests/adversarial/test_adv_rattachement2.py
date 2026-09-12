@@ -484,6 +484,37 @@ def test_rafraichir_meta_resout_l_equipement_en_un_seul_appel(tmp_path, hostiles
     assert equipements == {"Vélo Beta"}, f"équipement résolu attendu, reçu {equipements}"
 
 
+def test_synchroniser_nu_rafraichit_la_meta_par_defaut(tmp_path, hostiles):
+    """Point 11 de la relecture : plus aucun test n'exerçait le **défaut** du drapeau.
+
+    Depuis `c25aaeb`, tous passaient `rafraichir_meta` explicitement, alors
+    que la DoD repose sur le comportement sans option : `ourouler inventaire
+    --synchroniser` doit enrichir les entrées déjà en cache pour séparer les
+    deux vélos. Ce test appelle donc `synchroniser(client, cache, depuis)`
+    nu, exactement comme la commande.
+    """
+    module = _intervals()
+    _exiger_rafraichir(module)
+    cache = _cache_module().Cache(tmp_path / "cache")
+    octets = hostiles["nominal.gpx"].read_bytes()
+    cache.ajouter(octets, source="intervals", id_externe="i1", extension="gpx", meta={"sport": "Ride"})
+    avant = cache.lister()[0]
+    assert "power_meter" not in avant.meta, "l'entrée part bien sans métadonnée de rattachement"
+
+    client, espion = _client(module, _serveur([dict(ACTIVITE, id="i1")], octets))
+    rapport = module.synchroniser(client, cache, date(2026, 4, 1))
+
+    entree = cache.lister()[0]
+    assert entree.meta.get("power_meter") == CAPTEUR_BETA, (
+        f"sans option, `meta` doit être rafraîchie : {entree.meta!r}"
+    )
+    assert entree.equipement == "Vélo Beta", f"équipement non résolu : {entree.equipement!r}"
+    assert outils.champ(rapport, "mises_a_jour") == 1, "la mise à jour doit être rapportée"
+    assert [c for c in espion.chemins if c.endswith("/file")] == [], (
+        "rafraîchir ne doit pas retélécharger le fichier"
+    )
+
+
 def test_sans_rafraichir_meta_rien_ne_bouge(tmp_path, hostiles):
     """`rafraichir_meta=False` : l'entrée déjà en cache est laissée telle quelle.
 
