@@ -40,6 +40,9 @@ dossier = "~/.cache/ourouler"
 url = ""
 utilisateur = ""
 mot_de_passe = ""
+# Profils relevés sur le serveur : fastbike, fastbike-verylowtraffic, trekking,
+# gravel… ATTENTION : « fastbike-lowtraffic » n'existe pas, et un profil absent
+# se manifeste par un HTTP 500 sans corps.
 profil = "fastbike"
 
 [boucle]
