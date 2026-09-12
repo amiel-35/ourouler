@@ -439,6 +439,42 @@ def test_inventaire_ecarte_les_autres_sports(tmp_path: Path, config: Config, mon
     assert rendre_json(inv)["autres_sports"] == 3
 
 
+def test_l_inventaire_dit_lesquels_il_ecarte(tmp_path: Path, config: Config, monkeypatch):
+    """Point 16 de la relecture : le nombre seul ne suffit pas.
+
+    Avec « Triathlon » parmi les libellés écartés, le mainteneur ne pouvait
+    pas savoir que des sorties vélo réelles venaient de sortir de
+    l'inventaire. Les libellés sont donc cités, du plus fréquent au moins.
+    """
+    entrees = [entree(identifiant=f"{i:064d}", sport="Run") for i in range(10)]
+    entrees += [entree(identifiant=f"{100 + i:064d}", sport="Swim") for i in range(4)]
+    entrees += [entree(identifiant=f"{200 + i:064d}", sport="Triathlon") for i in range(2)]
+    entrees.append(entree(identifiant="f" * 64, sport="Ride"))
+    cache = _cache_bouchonne(tmp_path, entrees, monkeypatch)
+
+    inv = inventaire(cache, config, date(2023, 12, 1))
+    assert inv.autres_sports == 16
+    assert inv.autres_sports_par_libelle == {"Run": 10, "Swim": 4, "Triathlon": 2}
+    texte = rendre_texte(inv)
+    assert "16 activité(s) d'autres sports ignorée(s) (Run 10, Swim 4, Triathlon 2)." in texte, texte
+    assert rendre_json(inv)["autres_sports_par_libelle"] == {"Run": 10, "Swim": 4, "Triathlon": 2}
+
+
+def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(
+    tmp_path: Path, config: Config, monkeypatch
+):
+    """Au-delà de quelques libellés, la ligne dit « … » plutôt que de tout dérouler."""
+    autres = ["Run", "Swim", "WeightTraining", "Hike", "AlpineSki", "Rowing"]
+    entrees = [entree(identifiant=f"{i:064d}", sport=sport) for i, sport in enumerate(autres)]
+    entrees.append(entree(identifiant="f" * 64, sport="Ride"))
+    cache = _cache_bouchonne(tmp_path, entrees, monkeypatch)
+
+    inv = inventaire(cache, config, date(2023, 12, 1))
+    ligne = next(x for x in rendre_texte(inv).splitlines() if "autres sports" in x)
+    assert ligne.endswith("…)."), ligne
+    assert len(inv.autres_sports_par_libelle) == len(autres), "le JSON, lui, garde tout"
+
+
 @pytest.mark.parametrize(
     "sport", ["cycling", "cycling/indoor_cycling", "Biking", None, "", "GravelRide"]
 )

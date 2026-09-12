@@ -25,6 +25,15 @@ INCONNU = "inconnu"
 #: Une sortie plus courte que ça est signalée comme anomalie.
 DUREE_MINIMALE_S = 600.0
 
+#: Libellé de repli quand une entrée écartée n'a pas de sport nommé. Ne
+#: devrait pas se produire (`est_sport_velo` compte un sport absent comme du
+#: vélo), mais mieux vaut un libellé lisible qu'une chaîne vide.
+SPORT_SANS_NOM = "sans sport"
+
+#: Nombre de libellés cités dans la ligne « autres sports ignorés » ; au-delà,
+#: la ligne dit « … » plutôt que de dérouler toute la liste.
+LIBELLES_CITES = 4
+
 #: Marques d'appareil qui signent une sortie en intérieur.
 APPAREILS_INTERIEUR = ("zwift", "rouvy", "trainerroad", "bkool", "mywhoosh", "indievelo")
 
@@ -75,6 +84,11 @@ class Inventaire:
     """Entrées du cache écartées parce qu'elles ne sont pas du vélo (course à
     pied, natation, musculation…). Elles restent stockées, elles ne sont
     simplement pas comptées comme des sorties."""
+    autres_sports_par_libelle: dict[str, int] = field(default_factory=dict)
+    """Les libellés écartés et leur compte, du plus fréquent au moins
+    fréquent. Le nombre seul ne suffisait pas : avec « Triathlon » parmi les
+    libellés, le mainteneur ne pouvait pas savoir que quatre sorties vélo
+    réelles venaient d'en sortir."""
 
 
 # --- rattachement -------------------------------------------------------------
@@ -168,8 +182,12 @@ def inventaire(cache: Cache, config: Config, depuis: date) -> Inventaire:
     """
     toutes = cache.lister(depuis=depuis)
     entrees = [e for e in toutes if est_sport_velo(e.sport)]
+    ecartees = [e for e in toutes if not est_sport_velo(e.sport)]
     inv = Inventaire(
-        depuis=depuis, total=len(entrees), autres_sports=len(toutes) - len(entrees)
+        depuis=depuis,
+        total=len(entrees),
+        autres_sports=len(ecartees),
+        autres_sports_par_libelle=_par_libelle(ecartees),
     )
     velos: dict[str, StatsVelo] = {}
     mois: dict[str, StatsMois] = {}
@@ -205,6 +223,15 @@ def inventaire(cache: Cache, config: Config, depuis: date) -> Inventaire:
     inv.par_velo = sorted(velos.values(), key=lambda s: (-s.nombre, s.velo))
     inv.par_mois = sorted(mois.values(), key=lambda s: s.mois)
     return inv
+
+
+def _par_libelle(ecartees: list[EntreeCache]) -> dict[str, int]:
+    """Les libellés de sport écartés et leur compte, du plus fréquent au moins."""
+    comptes: dict[str, int] = {}
+    for entree in ecartees:
+        libelle = (entree.sport or "").strip() or SPORT_SANS_NOM
+        comptes[libelle] = comptes.get(libelle, 0) + 1
+    return dict(sorted(comptes.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
 def _anomalies(entree: EntreeCache) -> list[Anomalie]:
@@ -251,7 +278,9 @@ def rendre_texte(inv: Inventaire) -> str:
 
     lignes.append("")
     if inv.autres_sports:
-        lignes.append(f"{inv.autres_sports} activité(s) d'autres sports ignorée(s).")
+        lignes.append(
+            f"{inv.autres_sports} activité(s) d'autres sports ignorée(s){_libelles_ecartes(inv)}."
+        )
         lignes.append("")
     if inv.anomalies:
         lignes.append(f"Anomalies ({len(inv.anomalies)})")
@@ -260,6 +289,21 @@ def rendre_texte(inv: Inventaire) -> str:
     else:
         lignes.append("Aucune anomalie.")
     return "\n".join(lignes)
+
+
+def _libelles_ecartes(inv: Inventaire) -> str:
+    """« (Run 410, Swim 180, Triathlon 4…) » — dire *lesquels*, pas seulement combien.
+
+    Avec « Triathlon » parmi les libellés écartés, le nombre seul ne permet
+    pas de voir que des sorties vélo réelles viennent de sortir de
+    l'inventaire (point 16 de la relecture du sprint 2).
+    """
+    comptes = list(inv.autres_sports_par_libelle.items())
+    if not comptes:
+        return ""
+    cites = [f"{libelle} {nombre}" for libelle, nombre in comptes[:LIBELLES_CITES]]
+    suite = "…" if len(comptes) > LIBELLES_CITES else ""
+    return f" ({', '.join(cites)}{suite})"
 
 
 def _capteurs(stats: StatsVelo) -> str:
@@ -275,6 +319,7 @@ def rendre_json(inv: Inventaire) -> dict:
         "depuis": inv.depuis.isoformat(),
         "total": inv.total,
         "autres_sports": inv.autres_sports,
+        "autres_sports_par_libelle": dict(inv.autres_sports_par_libelle),
         "par_velo": [
             {
                 "velo": s.velo,
