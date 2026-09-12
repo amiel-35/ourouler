@@ -124,10 +124,30 @@ Mac ou sur le serveur, ou GraphHopper API) et accord d'installation —
 question Q4. Le lot « coûts de virage à droite » dépend du moteur retenu
 (profil BRouter personnalisé vs. post-traitement des candidates).
 
-### Sprint 3 — Modèle physique **[esquissé, non figé]**
+### Sprint 3 — Routes connues, puis modèle physique **[esquissé, non figé]**
 
-Jalon : pour chaque vélo, des paramètres calibrés (masse, CdA, roulement) et
-un rapport d'erreur de temps sur des sorties non vues. Relecture Fable.
+**Lot « routes connues » (décision d'Amiel, nuit du 12 au 13/09).** Mesuré
+sur dix vraies sorties rejouées dans BRouter (747 km) : 65 % de `tertiary`,
+23 % de `secondary`, 2 % de `primary`. Nos classes « trafic » (primary +
+secondary) étaient donc trop sévères : les secondaires font un quart de sa
+pratique. Amiel : « la majorité de mes traces sont des routes acceptables
+et pas dangereuses, surtout en semaine ; le dimanche j'en suis sûr à 90 % ;
+souvent issues de Strava, très bon pour ça ». D'où le renversement : **les
+traces du cycliste sont la vérité terrain**, pas les étiquettes OSM.
+- Construire depuis l'historique une couche de tronçons parcourus (maille
+  ~30 m ou tronçons OSM rejoués), avec nombre de passages et jour de
+  semaine (semaine > dimanche).
+- Par candidate : colonne « routes connues » = part des km sur tronçons déjà
+  roulés ; les étiquettes OSM ne pèsent plus que sur l'inconnu, avec
+  `secondary` moins pénalisé que `primary`.
+- Afficher le **coût moyen du profil BRouter** (colonne `CostPerKm` des
+  messages) : c'est le jugement du routeur lui-même sur le trafic.
+- Liste d'évitement (routes à ne plus prendre) → `nogos` BRouter.
+- Ce même jeu de sorties sert ensuite à calibrer les poids du score.
+
+**Lot modèle physique.** Jalon : pour chaque vélo, des paramètres calibrés
+(masse, CdA, roulement) et un rapport d'erreur de temps sur des sorties non
+vues ; home-trainer exclu (Q7). Relecture Fable.
 
 ### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
 
