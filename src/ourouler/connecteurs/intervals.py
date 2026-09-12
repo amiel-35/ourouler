@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import httpx
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.modele import TYPES_VELO
+from ourouler.activites.modele import est_sport_velo
 from ourouler.erreurs import ErreurConnecteur, ErreurLecture
 
 BASE_URL = "https://intervals.icu"
@@ -299,13 +299,20 @@ def synchroniser(
     depuis: date,
     *,
     rafraichir_meta: bool = True,
-    types: tuple[str, ...] | None = TYPES_VELO,
+    filtre_velo: bool = True,
 ) -> RapportSynchro:
     """Rapatrie dans le cache les sorties vélo absentes. Ne télécharge rien d'autre.
 
-    `types` filtre sur le type d'activité Intervals : par défaut seul le vélo
-    est rapatrié, le compte contenant aussi de la course, de la natation et de
-    la musculation. `types=None` élargit à tout.
+    Le filtre est `activites.modele.est_sport_velo`, **le même que celui de
+    l'inventaire** : seul un sport nommé et manifestement autre (« Run »,
+    « Swim », « WeightTraining ») est écarté, le compte du mainteneur en
+    contenant beaucoup. Une activité sans `type`, ou d'un type nouveau, est
+    rapatriée et classée ensuite par le fichier — on ne jette pas une sortie
+    parce que la source s'est tue. Les deux filtres se contredisaient jusqu'à
+    la relecture du sprint 2 (point 7) : le connecteur écartait ce que
+    l'inventaire aurait compté, et l'activité était perdue en silence.
+
+    `filtre_velo=False` élargit à tout.
 
     `rafraichir_meta` met à jour sur place les métadonnées des entrées déjà en
     cache (capteur de puissance, équipement, appareil) **sans** retélécharger
@@ -330,7 +337,7 @@ def synchroniser(
             rapport.messages.append("activité sans identifiant, ignorée")
             continue
         identifiant = str(identifiant)
-        if types is not None and str(activite.get("type") or "") not in types:
+        if filtre_velo and not est_sport_velo(activite.get("type")):
             rapport.autres_sports += 1
             continue
         meta = metadonnees(activite, equipements)

@@ -15,7 +15,7 @@ import httpx
 import pytest
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.modele import TYPES_VELO
+from ourouler.activites.modele import TYPES_VELO, est_sport_velo
 from ourouler.connecteurs.intervals import (
     ClientIntervals,
     RapportSynchro,
@@ -634,10 +634,56 @@ def test_synchroniser_ne_rapatrie_que_le_velo(cache: Cache, activites: Path):
     assert [e.id_externe for e in cache.lister()] == ["a111"]
 
 
-def test_synchroniser_types_elargi(cache: Cache, activites: Path):
+def test_synchroniser_filtre_velo_desactive_elargit_a_tout(cache: Cache, activites: Path):
     c, _ = client(connecteur_complet(activites, [ACTIVITE_COURSE]))
-    rapport = synchroniser(c, cache, date(2024, 3, 1), types=None)
+    rapport = synchroniser(c, cache, date(2024, 3, 1), filtre_velo=False)
     assert (rapport.ajoutees, rapport.autres_sports) == (1, 0)
+
+
+def test_les_deux_filtres_de_sport_sont_le_meme(cache: Cache, activites: Path):
+    """Point 7 de la relecture : le connecteur et l'inventaire se contredisaient.
+
+    Le connecteur écartait tout `type` absent de `TYPES_VELO` — un type vide
+    ou absent compris —, là où `est_sport_velo` compte comme du vélo un sport
+    que la source n'a pas nommé : « on ne jette pas une sortie parce que la
+    source s'est tue ». Une activité sans type, ou d'un type nouveau
+    (« Gravel » plutôt que « GravelRide »), n'était donc jamais rapatriée, et
+    se retrouvait comptée en `autres_sports`, perdue en silence.
+    """
+    sans_type = {**ACTIVITE_1, "id": "s1"}
+    sans_type.pop("type")
+    type_vide = {**ACTIVITE_1, "id": "s2", "type": ""}
+    course = {**ACTIVITE_COURSE, "id": "s3"}
+
+    c, espion = client(connecteur_complet(activites, [sans_type, type_vide, course]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+
+    assert (rapport.vues, rapport.ajoutees, rapport.autres_sports) == (3, 2, 1)
+    assert {e.id_externe for e in cache.lister()} == {"s1", "s2"}
+    assert "/api/v1/activity/s3/file" not in espion.chemins, "« Run » reste écarté"
+    # Rapatriée sans type, l'activité est classée par ce que dit le fichier.
+    (entree,) = [e for e in cache.lister() if e.id_externe == "s1"]
+    assert entree.sport == "cycling", "à défaut de type Intervals, le FIT tranche"
+    assert est_sport_velo(entree.sport), "et l'inventaire la compte bien en vélo"
+
+
+@pytest.mark.parametrize(
+    "libelle", [None, "", "Ride", "VirtualRide", "GravelRide", "Run", "Swim", "Triathlon"]
+)
+def test_le_connecteur_rapatrie_exactement_ce_que_l_inventaire_compte(
+    cache: Cache, activites: Path, libelle
+):
+    """Point 7 : un seul filtre, donc la même réponse des deux côtés, libellé par libellé."""
+    activite = {**ACTIVITE_1, "id": "u1"}
+    if libelle is None:
+        activite.pop("type")
+    else:
+        activite["type"] = libelle
+    c, _ = client(connecteur_complet(activites, [activite]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.ajoutees == 1) is est_sport_velo(libelle), (
+        f"{libelle!r} : le connecteur et `est_sport_velo` doivent dire la même chose"
+    )
 
 
 def test_types_velo_contient_les_types_cyclistes_d_intervals():
