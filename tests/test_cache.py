@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import sqlite3
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -165,6 +165,37 @@ def test_lister_filtre_par_dates(cache: Cache, activites: Path):
     assert cache.lister(depuis=date(2025, 1, 1)) == []
     # Les bornes sont incluses.
     assert len(cache.lister(depuis=date(2024, 3, 30), jusqua=date(2024, 3, 30))) == 7
+
+
+def test_lister_bornes_datetime_et_chaine_iso(cache: Cache, activites: Path):
+    """Une borne peut être une `date`, un `datetime` ou une chaîne ISO."""
+    cache.indexer_dossier(activites)
+    attendu = cache.lister(depuis=date(2024, 4, 1))
+    assert cache.lister(depuis=datetime(2024, 4, 1, 13, 45, tzinfo=UTC)) == attendu
+    assert cache.lister(depuis="2024-04-01") == attendu
+    assert cache.lister(depuis="2024-04-01T13:45:00+00:00") == attendu
+    assert cache.lister(depuis=" 2024-04-01 ") == attendu
+
+
+@pytest.mark.parametrize("borne", [15, 3.5, True, object(), date, ["2024-04-01"]])
+def test_lister_borne_de_type_refuse_nomme_le_parametre(cache: Cache, borne):
+    with pytest.raises(ErreurUtilisateur, match="depuis"):
+        cache.lister(depuis=borne)
+    with pytest.raises(ErreurUtilisateur, match="jusqua"):
+        cache.lister(jusqua=borne)
+
+
+def test_lister_borne_chaine_non_iso_refusee(cache: Cache):
+    with pytest.raises(ErreurUtilisateur, match="depuis"):
+        cache.lister(depuis="hier")
+    with pytest.raises(ErreurUtilisateur, match="jusqua"):
+        cache.lister(jusqua="01/04/2024")
+
+
+def test_lister_bornes_inversees_rend_une_liste_vide(cache: Cache, activites: Path):
+    """Un intervalle vide n'est pas une erreur : il est simplement vide."""
+    cache.indexer_dossier(activites)
+    assert cache.lister(depuis=date(2024, 12, 31), jusqua=date(2024, 1, 1)) == []
 
 
 def test_chemin_inconnu_leve_key_error(cache: Cache):

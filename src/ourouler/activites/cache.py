@@ -213,7 +213,14 @@ class Cache:
         return trouve is not None
 
     def lister(self, depuis: date | None = None, jusqua: date | None = None) -> list[EntreeCache]:
-        """Entrées dont le jour de début est dans l'intervalle, triées par date."""
+        """Entrées dont le jour de début est dans l'intervalle, triées par date.
+
+        Les bornes acceptent une `date`, un `datetime` (ramené à sa date) ou une
+        chaîne ISO ; tout autre type est une erreur utilisateur. Des bornes
+        inversées ne sont pas une erreur : l'intervalle est vide, on renvoie [].
+        """
+        depuis = _borne_en_date(depuis, "depuis")
+        jusqua = _borne_en_date(jusqua, "jusqua")
         conditions, parametres = [], []
         if depuis is not None:
             conditions.append("substr(debut, 1, 10) >= ?")
@@ -345,3 +352,30 @@ def _json(texte: str | None) -> dict:
     except json.JSONDecodeError:
         return {}
     return charge if isinstance(charge, dict) else {}
+
+
+def _borne_en_date(valeur: object, nom: str) -> date | None:
+    """Normalise une borne de `lister` en `date`, ou lève une erreur utilisateur.
+
+    Accepté : `None`, `date`, `datetime` (ramené à sa date), chaîne ISO
+    (`AAAA-MM-JJ` ou datetime ISO complet). Refusé : tout le reste, y compris
+    les booléens et les nombres, pour lesquels une conversion silencieuse
+    serait un piège.
+    """
+    if valeur is None:
+        return None
+    if isinstance(valeur, datetime):
+        return valeur.date()
+    if isinstance(valeur, date):
+        return valeur
+    if isinstance(valeur, str):
+        texte = valeur.strip()
+        try:
+            return datetime.fromisoformat(texte).date() if len(texte) > 10 else date.fromisoformat(texte)
+        except ValueError as e:
+            raise ErreurUtilisateur(
+                f"cache : borne {nom} = {valeur!r} n'est pas une date ISO (AAAA-MM-JJ)"
+            ) from e
+    raise ErreurUtilisateur(
+        f"cache : borne {nom} de type {type(valeur).__name__} — date, datetime ou chaîne ISO attendue"
+    )
