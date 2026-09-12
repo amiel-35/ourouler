@@ -96,18 +96,30 @@ class RapportMeteo:
         égalité (moins de 0,2 mm d'écart), on préfère le vent de face à
         l'aller — on rentre alors poussé, ce qui est le bon sens du cycliste.
         Le point « ici » n'est pas une direction : il est exclu.
+
+        Une cellule de pluie absente n'ajoutait rien au cumul : une direction
+        dont le modèle ne rendait aucune pluie affichait donc 0,0 mm et
+        était **conseillée**, avec le motif « cumul de pluie le plus faible ».
+        C'est l'affirmation sans mesure que la règle absolue 5 interdit. Les
+        directions incomplètes sont donc écartées tant qu'il reste une
+        direction complète ; s'il n'en reste aucune, on conseille la moins
+        trouée et **le motif dit combien d'heures manquent**.
         """
         cumuls: dict[str, float] = {}
         faces: dict[str, int] = {}
         ordre: dict[str, int] = {}
+        trous: dict[str, int] = {}
         for c in self.cellules:
             if c.direction == NOM_ICI:
                 continue
             if c.direction not in cumuls:
                 cumuls[c.direction] = 0.0
                 faces[c.direction] = 0
+                trous[c.direction] = 0
                 ordre[c.direction] = len(ordre)
-            if c.pluie_mm is not None:
+            if c.pluie_mm is None:
+                trous[c.direction] += 1
+            else:
                 cumuls[c.direction] += c.pluie_mm
             if c.vent_relatif == VENT_FACE:
                 faces[c.direction] += 1
@@ -115,17 +127,31 @@ class RapportMeteo:
         if not cumuls:
             return ("", "aucune prévision exploitable")
 
-        mini = min(cumuls.values())
-        ex_aequo = [d for d, cumul in cumuls.items() if cumul - mini < SEUIL_EGALITE_MM]
+        completes = [d for d in cumuls if trous[d] == 0]
+        if completes:
+            candidates = completes
+            ecartees = len(cumuls) - len(completes)
+            reserve = f", {ecartees} direction(s) écartée(s) faute de données" if ecartees else ""
+        else:
+            # Aucune direction complète : on conseille quand même, mais en le disant.
+            moins_troue = min(trous.values())
+            candidates = [d for d in cumuls if trous[d] == moins_troue]
+            reserve = f", {moins_troue} h sans donnée sur cette direction"
+
+        mini = min(cumuls[d] for d in candidates)
+        ex_aequo = [d for d in candidates if cumuls[d] - mini < SEUIL_EGALITE_MM]
         if len(ex_aequo) == 1:
             nom = ex_aequo[0]
-            return (nom, f"cumul de pluie le plus faible sur l'horizon ({cumuls[nom]:.1f} mm)")
+            return (
+                nom,
+                f"cumul de pluie le plus faible sur l'horizon ({cumuls[nom]:.1f} mm){reserve}",
+            )
 
         nom = max(ex_aequo, key=lambda d: (faces[d], -ordre[d]))
         egalite = f"{len(ex_aequo)} directions à égalité ({cumuls[nom]:.1f} mm de pluie)"
         if faces[nom]:
-            return (nom, f"{egalite}, vent de face à l'aller")
-        return (nom, f"{egalite}, aucun vent de face à l'aller")
+            return (nom, f"{egalite}, vent de face à l'aller{reserve}")
+        return (nom, f"{egalite}, aucun vent de face à l'aller{reserve}")
 
     def distances(self) -> list[float]:
         """Les distances présentes, croissantes."""

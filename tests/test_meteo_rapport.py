@@ -316,11 +316,73 @@ def test_meilleure_direction_sans_cellule():
     assert "aucune" in motif
 
 
-def test_meilleure_direction_pluie_absente_ne_plante_pas():
-    c = cellule("N", 0.0)
-    c.pluie_mm = None
-    r = rapport_de([c, cellule("E", 1.0)])
-    assert r.meilleure_direction()[0] == "N"
+# --- directions incomplètes -------------------------------------------------
+#
+# Tests qui auraient attrapé D7 : une cellule de pluie à None n'ajoutait rien
+# au cumul, donc une direction sans aucune donnée affichait 0,0 mm et était
+# conseillée avec le motif « cumul de pluie le plus faible ».
+
+
+def test_meilleure_direction_ecarte_une_direction_sans_donnee():
+    """N n'a aucune pluie connue : elle ne doit pas passer pour la plus sèche."""
+    sans_donnee = cellule("N", 0.0)
+    sans_donnee.pluie_mm = None
+    r = rapport_de([sans_donnee, cellule("E", 1.0)])
+    nom, motif = r.meilleure_direction()
+    assert nom == "E", "E est mouillée mais mesurée ; N n'est pas mesurée du tout"
+    assert "écartée" in motif and "1 direction" in motif
+
+
+def test_une_seule_heure_manquante_suffit_a_ecarter_une_direction():
+    """Le contrat ne tolère pas un cumul partiel comparé à un cumul complet."""
+    partielle = [cellule("N", 0.0, heure=8), cellule("N", 0.0, heure=9)]
+    partielle[1].pluie_mm = None
+    completes = [cellule("E", 0.3, heure=8), cellule("E", 0.3, heure=9)]
+    nom, motif = rapport_de(partielle + completes).meilleure_direction()
+    assert nom == "E"
+    assert "écartée" in motif
+
+
+def test_meilleure_direction_le_dit_quand_aucune_direction_n_est_complete():
+    """Plus aucune direction mesurée de bout en bout : on conseille, mais on le dit."""
+    cellules = []
+    for nom_direction, pluie in (("N", 2.0), ("E", 0.5)):
+        c1 = cellule(nom_direction, pluie, heure=8)
+        c2 = cellule(nom_direction, 0.0, heure=9)
+        c2.pluie_mm = None
+        cellules += [c1, c2]
+    nom, motif = rapport_de(cellules).meilleure_direction()
+    assert nom == "E"
+    assert "sans donnée" in motif, motif
+    assert "1 h sans donnée" in motif
+
+
+def test_la_direction_la_moins_trouee_est_preferee_si_toutes_sont_incompletes():
+    cellules = []
+    # N : deux heures manquantes ; E : une seule, mais plus de pluie mesurée.
+    for heure in (8, 9):
+        c = cellule("N", 0.0, heure=heure)
+        c.pluie_mm = None
+        cellules.append(c)
+    manquante = cellule("E", 0.0, heure=8)
+    manquante.pluie_mm = None
+    cellules += [manquante, cellule("E", 5.0, heure=9)]
+    nom, motif = rapport_de(cellules).meilleure_direction()
+    assert nom == "E", "une seule heure manquante vaut mieux que deux, même sous la pluie"
+    assert "1 h sans donnée" in motif
+
+
+def test_pas_de_reserve_quand_toutes_les_directions_sont_completes():
+    r = rapport_de([cellule("N", 5.0), cellule("E", 0.4)])
+    _, motif = r.meilleure_direction()
+    assert "écartée" not in motif and "sans donnée" not in motif
+
+
+def test_une_direction_incomplete_ne_plante_pas_le_rendu_texte():
+    sans_donnee = cellule("N", 0.0)
+    sans_donnee.pluie_mm = None
+    rendu = rendre_texte(rapport_de([sans_donnee, cellule("E", 1.0)]))
+    assert "Direction conseillée : E" in rendu
 
 
 # --- rendu texte ------------------------------------------------------------
