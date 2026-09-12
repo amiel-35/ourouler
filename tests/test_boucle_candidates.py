@@ -17,6 +17,8 @@ from ourouler.boucle.candidates import (
     AJUSTEMENTS_MAX,
     PAS_AZIMUT_DEG,
     RAPPORT_RAYON_DEFAUT,
+    RAYON_MAX_M,
+    RAYON_MIN_M,
     azimuts,
     generer,
 )
@@ -206,6 +208,46 @@ def test_nombre_de_candidates_absurde_refuse(nb):
     with pytest.raises(ErreurUtilisateur, match="nb"):
         generer(client, DEPART, distance_km=60, azimut_deg=45, nb=nb, tolerance=0.10)
     assert appels == [], "aucune candidate demandée, aucun appel"
+
+
+def test_un_moteur_qui_rend_toujours_100_m_ne_fait_pas_exploser_le_rayon():
+    """Point 4 de la relecture : l'ajustement n'était borné ni en facteur ni en valeur.
+
+    Mesuré avant correction, avec une cible de 60 km : les rayons demandés au
+    serveur du mainteneur étaient 12 000 m, puis 7 200 000 m, puis
+    4 320 000 000 m — `roundTripDistance` à 4,3 millions de kilomètres.
+    `appels_max` bornait le nombre d'appels, pas leur coût.
+    """
+    client, appels = moteur(100.0)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=3, tolerance=0.10)
+
+    rayons = [a["rayon"] for a in appels]
+    assert rayons, "le premier essai de chaque azimut doit bien partir"
+    assert max(rayons) <= RAYON_MAX_M, f"rayon demandé hors plage : {max(rayons)} m"
+    assert min(rayons) >= RAYON_MIN_M, f"rayon demandé hors plage : {min(rayons)} m"
+    assert len(appels) == 3, (
+        f"un essai par azimut attendu (la borne abandonne l'azimut), {len(appels)} faits : {rayons}"
+    )
+    # L'azimut est abandonné, mais sa meilleure tentative reste proposée : une
+    # boucle de 100 m est une mauvaise réponse, pas une absence de réponse.
+    assert len(trouvees) == 3
+    assert all(c.trace.distance_m == pytest.approx(100.0) for c in trouvees)
+
+
+def test_un_moteur_qui_rend_une_boucle_bien_trop_longue_ne_reduit_pas_le_rayon_a_rien():
+    """Symétrique du précédent : le rayon ne descend pas sous la borne basse."""
+    client, appels = moteur(6_000_000.0)  # 6 000 km pour une cible de 60
+    generer(client, DEPART, distance_km=60, azimut_deg=45, nb=2, tolerance=0.10)
+    rayons = [a["rayon"] for a in appels]
+    assert min(rayons) >= RAYON_MIN_M, f"rayon demandé hors plage : {min(rayons)} m"
+    assert len(appels) == 2, f"un essai par azimut attendu, {len(appels)} faits : {rayons}"
+
+
+def test_le_rayon_initial_reste_dans_la_plage_exploitable():
+    """Une cible démesurée ne doit pas sortir de la plage dès le premier appel."""
+    client, appels = moteur(lambda rayon: rayon * 5.0)
+    generer(client, DEPART, distance_km=5000, azimut_deg=0, nb=1, tolerance=0.10)
+    assert appels[0]["rayon"] == pytest.approx(RAYON_MAX_M)
 
 
 def test_un_azimut_en_echec_ne_perd_pas_les_autres():

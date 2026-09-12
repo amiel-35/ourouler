@@ -30,6 +30,17 @@ PAS_AZIMUT_DEG = 20.0
 #: Nombre d'ajustements de rayon par azimut, après le premier essai.
 AJUSTEMENTS_MAX = 2
 
+#: Bornes du facteur de correction d'une itération à la suivante. Diviser ou
+#: multiplier le rayon par plus de 4 d'un coup, c'est croire une réponse que
+#: le moteur ne sait manifestement pas rattacher au rayon demandé (boucle de
+#: 100 m pour une cible de 60 km).
+FACTEUR_MIN, FACTEUR_MAX = 0.25, 4.0
+
+#: Bornes du rayon lui-même. En dessous de 500 m, aucun moteur ne rend une
+#: boucle exploitable ; au-delà de 200 km, on demande à un serveur
+#: auto-hébergé un calcul qui n'a plus de sens pour une sortie à vélo.
+RAYON_MIN_M, RAYON_MAX_M = 500.0, 200_000.0
+
 
 @dataclass
 class Candidate:
@@ -69,10 +80,19 @@ def generer(
     tant que l'écart dépasse `tolerance`. Seules les boucles **bornées** sont
     retenues : un tracé qui ne revient pas au départ n'est pas une boucle.
 
-    Le total d'appels au moteur est plafonné par `appels_max` : c'est la seule
-    garantie que la commande finit en un temps borné, quel que soit le terrain.
-    Si aucune candidate n'entre dans la tolérance, les meilleures sont rendues
-    quand même — l'utilisateur juge mieux sur des chiffres que sur du vide.
+    La correction est **bornée des deux côtés** : facteur dans
+    `[FACTEUR_MIN, FACTEUR_MAX]`, rayon dans `[RAYON_MIN_M, RAYON_MAX_M]`. Une
+    réponse qui force une borne est une réponse qu'on ne sait pas exploiter,
+    pas une réponse à laquelle il faut insister : l'azimut est abandonné, avec
+    sa meilleure tentative. Sans ces bornes, un moteur qui rend 100 m pour une
+    cible de 60 km faisait demander 7 200 km puis 4,3 millions de kilomètres
+    au serveur du mainteneur.
+
+    Deux garde-fous, donc, et ils ne disent pas la même chose : `appels_max`
+    borne le **nombre** d'appels au moteur, les bornes ci-dessus bornent leur
+    **coût**. Si aucune candidate n'entre dans la tolérance, les meilleures
+    sont rendues quand même — l'utilisateur juge mieux sur des chiffres que
+    sur du vide.
 
     Un azimut qui fait échouer le moteur (profil refusé sur une direction,
     panne passagère) ne fait pas perdre les autres : l'erreur est retenue et
@@ -98,7 +118,7 @@ def generer(
     derniere_erreur: ErreurConnecteur | None = None
 
     for azimut in azimuts(azimut_deg, nb):
-        rayon = cible_m / RAPPORT_RAYON_DEFAUT
+        rayon = _borner(cible_m / RAPPORT_RAYON_DEFAUT)
         meilleure: Candidate | None = None
         for _ in range(1 + AJUSTEMENTS_MAX):
             if appels >= appels_max:
@@ -126,7 +146,13 @@ def generer(
                 # Rien à corriger proportionnellement : insister coûterait des
                 # appels pour le même résultat.
                 break
-            rayon *= cible_m / trace.distance_m
+            facteur = cible_m / trace.distance_m
+            if not FACTEUR_MIN <= facteur <= FACTEUR_MAX:
+                break  # correction hors de portée : on abandonne l'azimut
+            suivant = rayon * facteur
+            if not RAYON_MIN_M <= suivant <= RAYON_MAX_M:
+                break  # le rayon sortirait de la plage exploitable
+            rayon = suivant
         if meilleure is not None:
             candidates.append(meilleure)
         if appels >= appels_max:
@@ -135,3 +161,8 @@ def generer(
     if not candidates and derniere_erreur is not None:
         raise derniere_erreur
     return sorted(candidates, key=lambda c: abs(c.ecart_relatif))
+
+
+def _borner(rayon_m: float) -> float:
+    """Le rayon ramené dans `[RAYON_MIN_M, RAYON_MAX_M]`."""
+    return min(max(rayon_m, RAYON_MIN_M), RAYON_MAX_M)
