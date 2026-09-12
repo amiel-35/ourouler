@@ -137,8 +137,16 @@ Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
 Connect pour un particulier → le GPX généré est le socle ; sur mobile,
 partage système du GPX vers l'application Garmin Connect (deep link /
 « ouvrir avec ») ; puis, dans l'ordre d'intérêt exprimé, **Coros, Wahoo
-(ELEMNT), Hammerhead (Karoo)** par la même mécanique (fichier GPX + import
-propre à chaque écosystème). L'Edge sait charger un parcours et une séance
+(ELEMNT), Hammerhead (Karoo)**. Vérifié le 12/09 (doc des marques) :
+**Wahoo** a une vraie API cloud (OAuth 2, envoi d'un parcours FIT qui
+arrive sur le compteur ; accès développeur sur demande motivée) — la voie
+la plus propre, à demander quand le service sera hébergé ; **COROS** : GPX
+« ouvrir avec » l'application, ou synchro depuis Strava / Komoot / Ride with
+GPS, programme développeur sur candidature ; **Hammerhead** : tableau de
+bord avec import par URL (Strava, RWGPS, Komoot) et comptes liés (dont
+Intervals.icu pour les séances), pas de dépôt direct public → intermédiaire
+ou import de fichier. Le GPX partagé depuis le mobile couvre Garmin et
+COROS sans rien demander à personne. L'Edge sait charger un parcours et une séance
 structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
