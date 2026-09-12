@@ -485,14 +485,26 @@ def test_rafraichir_meta_resout_l_equipement_en_un_seul_appel(tmp_path, hostiles
 
 
 def test_sans_rafraichir_meta_rien_ne_bouge(tmp_path, hostiles):
+    """`rafraichir_meta=False` : l'entrée déjà en cache est laissée telle quelle.
+
+    Le drapeau est passé explicitement. Le contrat du sprint 2 §7 écrit
+    « `synchroniser` gagne `rafraichir_meta=True` », c'est-à-dire un paramètre
+    dont la **valeur par défaut est True** — comme tous les autres défauts du
+    contrat (`nb_points: int = 5`, `pas_m: float = 5000`). C'est aussi ce que
+    la DoD demande : `ourouler inventaire --synchroniser` doit enrichir les
+    sorties déjà en cache pour séparer les deux vélos, sans option à ajouter.
+    La première version de ce test omettait l'argument et exigeait quand même
+    le comportement de `False` : elle contredisait le contrat.
+    """
     module = _intervals()
     _exiger_rafraichir(module)
     cache = _cache_module().Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
     cache.ajouter(octets, source="intervals", id_externe="i1", extension="gpx", meta={"sport": "Ride"})
+    avant = cache.lister()[0]
 
     client, espion = _client(module, _serveur([dict(ACTIVITE, id="i1")], octets))
-    module.synchroniser(client, cache, date(2026, 4, 1))
+    rapport = module.synchroniser(client, cache, date(2026, 4, 1), rafraichir_meta=False)
 
     assert [c for c in espion.chemins if c.endswith("/file")] == [], (
         "l'activité est déjà en cache : elle est ignorée"
@@ -500,6 +512,13 @@ def test_sans_rafraichir_meta_rien_ne_bouge(tmp_path, hostiles):
     entree = cache.lister()[0]
     assert "power_meter" not in entree.meta, (
         f"sans `rafraichir_meta`, la meta existante n'est pas touchée : {entree.meta!r}"
+    )
+    assert entree.meta == avant.meta, f"meta modifiée : {avant.meta!r} → {entree.meta!r}"
+    assert entree.equipement == avant.equipement, (
+        f"équipement modifié : {avant.equipement!r} → {entree.equipement!r}"
+    )
+    assert outils.champ(rapport, "mises_a_jour") == 0, (
+        "aucune mise à jour ne doit être rapportée quand le drapeau les interdit"
     )
 
 
