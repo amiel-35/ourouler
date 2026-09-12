@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -312,6 +313,37 @@ def test_sortie_choisie_par_l_utilisateur(tmp_path: Path, monkeypatch, capsys):
     executer(args(sortie=str(voulu)), config_de_test(), moteur_brouter(), moteur_meteo())
     assert voulu.is_file()
     assert list(tmp_path.glob("*.gpx")) == [voulu]
+
+
+def test_la_colonne_vent_face_dit_sur_combien_d_echantillons(tmp_path: Path, monkeypatch, capsys):
+    """Point 18 : « vent face 100 % » ne distinguait pas 12 sur 12 d'un seul sur 12.
+
+    Le bouchon météo n'a que quelques heures de série : les échantillons de
+    fin de boucle tombent hors de l'horizon et n'ont pas de vent. C'est
+    exactement la situation qui rendait le pourcentage trompeur.
+    """
+    monkeypatch.chdir(tmp_path)
+    executer(args(candidates=1), config_de_test(), moteur_brouter(), moteur_meteo())
+    (ligne,) = lignes_du_tableau(capsys.readouterr().out)
+    trouve = re.search(r"(\d+) % \((\d+)/(\d+)\)", ligne)
+    assert trouve, ligne
+    connus, total = int(trouve.group(2)), int(trouve.group(3))
+    assert connus < total, (
+        f"ce bouchon doit produire un dénominateur partiel, reçu {connus}/{total}"
+    )
+
+
+def test_le_denominateur_du_vent_est_dans_le_json(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(args(candidates=1, json=True), config_de_test(), moteur_brouter(), moteur_meteo())
+    meteo = json.loads(capsys.readouterr().out)["candidates"][0]["meteo"]
+    assert meteo["n_echantillons"] == len(meteo["echantillons"])
+    assert 0 < meteo["n_vent_connu"] < meteo["n_echantillons"], meteo["n_vent_connu"]
+    # Le pourcentage porte bien sur les seuls échantillons au vent connu.
+    connus = [e for e in meteo["echantillons"] if e["vent_relatif"] is not None]
+    assert len(connus) == meteo["n_vent_connu"]
+    face = [e for e in connus if e["vent_relatif"] == "face"]
+    assert meteo["part_vent_face"] == pytest.approx(len(face) / len(connus), abs=1e-3)
 
 
 def test_les_kilometres_non_classes_sont_dans_le_json(tmp_path: Path, monkeypatch, capsys):

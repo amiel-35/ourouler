@@ -73,6 +73,11 @@ class MeteoTrace:
     part_vent_dos: float
     ressenti_min_c: float | None
     confiance: str
+    n_vent_connu: int = 0
+    """Dénominateur des deux parts de vent : nombre d'échantillons dont le
+    vent est connu. Sans lui, « vent face 100 % » ne distingue pas 12
+    échantillons sur 12 d'un seul sur 12, les onze autres étant hors de
+    l'horizon de prévision."""
 
 
 def evaluer(
@@ -365,6 +370,7 @@ def _resumer(
         minutes_pluie=minutes_pluie,
         part_vent_face=part_face,
         part_vent_dos=part_dos,
+        n_vent_connu=len(connus),
         ressenti_min_c=min(ressentis) if ressentis else None,
         confiance=_confiance_globale(echantillons, pluies_second_avis),
     )

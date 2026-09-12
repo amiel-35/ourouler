@@ -495,7 +495,7 @@ def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[
     if avec_meteo:
         cellules += [
             f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
-            f"{meteo.part_vent_face * 100:.0f} %" if meteo else ABSENT,
+            _vent_face(meteo),
             f"{_fr(meteo.ressenti_min_c, 1)} °C" if meteo and meteo.ressenti_min_c is not None else ABSENT,
         ]
     return cellules
@@ -513,6 +513,20 @@ def _denivele(trace: Trace) -> str:
         return ABSENT
     source = trace.meta.get("denivele_source")
     return f"{trace.denivele_m:.0f} m" + (f" ({source})" if source else "")
+
+
+def _vent_face(meteo: MeteoTrace | None) -> str:
+    """« 38 % (12/12) » — le pourcentage et le nombre d'échantillons qui le portent.
+
+    Les parts de vent se calculent sur les seuls échantillons au vent connu,
+    ce qui est le bon choix : un échantillon sans donnée ne doit pas compter
+    pour du travers. Mais « vent face 100 % » ne disait pas s'il reposait sur
+    douze échantillons ou sur un seul, les onze autres étant hors de
+    l'horizon de prévision (point 18 de la relecture du sprint 2).
+    """
+    if meteo is None:
+        return ABSENT
+    return f"{meteo.part_vent_face * 100:.0f} % ({meteo.n_vent_connu}/{len(meteo.echantillons)})"
 
 
 def _duree(distance_km: float, vitesse_kmh: float) -> str:
@@ -601,6 +615,8 @@ def _meteo_json(meteo: MeteoTrace | None) -> dict | None:
         "minutes_pluie": round(meteo.minutes_pluie, 1),
         "part_vent_face": round(meteo.part_vent_face, 3),
         "part_vent_dos": round(meteo.part_vent_dos, 3),
+        "n_vent_connu": meteo.n_vent_connu,
+        "n_echantillons": len(meteo.echantillons),
         "ressenti_min_c": meteo.ressenti_min_c,
         "confiance": meteo.confiance,
         "echantillons": [

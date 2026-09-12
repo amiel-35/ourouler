@@ -226,6 +226,7 @@ def test_parts_de_vent_face_et_dos():
     )
     assert resultat.part_vent_face == pytest.approx(1.0)
     assert resultat.part_vent_dos == pytest.approx(0.0)
+    assert resultat.n_vent_connu == len(resultat.echantillons), "ici, tout le vent est connu"
 
 
 def test_un_vent_de_direction_inconnue_ne_compte_pour_aucune_part():
@@ -236,6 +237,28 @@ def test_un_vent_de_direction_inconnue_ne_compte_pour_aucune_part():
     )
     assert all(e.vent_relatif is None for e in resultat.echantillons)
     assert (resultat.part_vent_face, resultat.part_vent_dos) == (0.0, 0.0)
+    assert resultat.n_vent_connu == 0, "et le dénominateur le dit, au lieu de laisser croire à 0 %"
+
+
+def test_le_denominateur_des_parts_de_vent_est_expose():
+    """Point 18 de la relecture : « 100 % » sur un seul échantillon sur cinq.
+
+    Les parts se calculent sur les seuls échantillons au vent connu — c'est
+    le bon choix, un échantillon sans donnée ne doit pas compter pour du
+    travers — mais il faut pouvoir lire sur combien d'échantillons repose le
+    pourcentage.
+    """
+    serie = horaire(4, wind_direction_10m=[90.0, None, None, None])
+    resultat = evaluer(
+        trace_droite(cap=90.0), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        modele=MODELE, pas_m=5000.0,
+    )
+    connus = [e for e in resultat.echantillons if e.vent_relatif is not None]
+    assert 0 < len(connus) < len(resultat.echantillons), "le test n'a de sens qu'en vent partiel"
+    assert resultat.n_vent_connu == len(connus)
+    assert resultat.part_vent_face == pytest.approx(1.0), (
+        "le pourcentage reste calculé sur les seuls échantillons connus"
+    )
 
 
 # --- pluie cumulée et minutes sous la pluie ---------------------------------
