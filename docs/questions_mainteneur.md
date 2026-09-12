@@ -74,11 +74,11 @@ API. À prévoir dans l'API/le front (livrer le GPX avec le bon type MIME
 (ELEMNT : import de fichier / lien) et Hammerhead (Karoo : import par le
 tableau de bord web).
 
-## Q6 — Nom du projet, visibilité du dépôt, et purge avant publication
+## Q6 — Nom du projet — **nom validé le 13/09/2026 : ourouler** ; reste la purge avant publication
 
-Nom de travail du paquet et de la commande : `ourouler`. Dépôt GitHub créé
-en **privé** sous le nom `bike-routing` ; à renommer et passer en public
-quand le nom est validé (le projet est destiné à être open source, MIT).
+Nom validé : `ourouler` (paquet, commande, dépôt GitHub `amiel-35/ourouler`,
+renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessous ;
+le projet est destiné à être open source, MIT.
 
 **Avant tout passage en public** (relevé par le relecteur du sprint 1) :
 les documents de cadrage (`docs/cadrage.md`, `docs/plan_sprints_agents.md`,

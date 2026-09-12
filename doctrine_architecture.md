@@ -1,7 +1,7 @@
 # Doctrine d'architecture — ourouler (« où rouler ? »)
 
-Nom de travail : **ourouler** (paquet Python et commande). À renommer si le
-mainteneur trouve mieux ; le dépôt GitHub s'appelle `bike-routing`. Ce
+Nom : **ourouler** (paquet Python, commande et dépôt GitHub `amiel-35/ourouler`),
+validé par le mainteneur le 13/09/2026. Ce
 document fixe les choix structurants et leurs raisons. On le modifie par
 décision explicite du mainteneur, jamais par dérive. `CLAUDE.md` en est le
 résumé opérationnel pour les agents ; en cas de doute, c'est ce document qui
