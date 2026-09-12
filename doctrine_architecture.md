@@ -142,10 +142,87 @@ leur sprint : pas de squelette vide « pour plus tard ».
   le projet ne l'importe jamais et ne lit jamais sa configuration.
 - **Une base serveur, un compte, une API web** tant que la CLI ne couvre pas
   le besoin du mainteneur. On garde la porte ouverte (principe « le cœur ne
-  sait pas où il tourne »), on ne la franchit pas.
+  sait pas où il tourne », chapitre 10), on ne la franchit pas.
+- **Un mot de passe stocké chez nous, un jour.** L'authentification sera
+  déléguée (Google, Apple) ; voir chapitre 10.
 - **Copier une clé ou un jeton dans le dépôt, un test ou une fixture.** Sans
   exception.
 - **Une moyenne de modèles météo.** Le désaccord est une information, on
   l'affiche.
 - **Un service payant obligatoire.** Une option payante (Solcast, GraphHopper
   au-delà du gratuit) reste une option, jamais le chemin nominal.
+
+## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
+
+Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
+avec **authentification déléguée** (Google d'abord, Apple ensuite — plus
+contraignant), et il faut y penser tôt parce que ça a des implications
+techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
+Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
+mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
+
+### 10.1 Ce qui s'applique dès aujourd'hui (coût nul, dette évitée)
+
+- **L'unité de tout est le profil, pas la machine.** `Config` (départ,
+  cycliste, vélos, clés, fenêtre d'historique) est *le* profil d'un
+  utilisateur. Toute fonction du cœur reçoit ce profil ; aucune ne suppose
+  qu'il n'y en a qu'un. Quand l'hébergé arrivera, `Config` gagnera un
+  identifiant d'utilisateur et sera chargée depuis la base au lieu d'un TOML :
+  le cœur ne le verra pas.
+- **Les dépôts de données sont des interfaces.** Le cache d'activités
+  (fichiers bruts + index) est aujourd'hui un dossier et un SQLite ; en
+  hébergé ce sera un stockage d'objets et Postgres. Le cœur parle à une
+  classe `Cache` (ajouter, contient, lister, chemin), jamais à un chemin ni
+  à une requête SQL. Le schéma de l'index local est écrit avec une colonne
+  « propriétaire » en tête, pour que la migration soit un déplacement, pas
+  une réécriture.
+- **Les clés d'API externes sont des données du profil, secrètes.** Clé
+  Intervals, plus tard GraphHopper, Garmin : jamais en clair dans un log,
+  une erreur, un JSON de sortie (`ourouler config --json` les masque déjà).
+  En hébergé : chiffrées au repos, une par utilisateur.
+- **Chaque commande rend du JSON.** C'est la future réponse d'API, et donc
+  le contrat du front.
+- **Les quotas externes se pensent par service, pas par utilisateur.**
+  Open-Meteo gratuit est réservé à un usage non commercial et limité par
+  adresse IP : un service hébergé devra soit passer sur l'offre payante,
+  soit mutualiser (cache des prévisions par maille et par heure, partagé
+  entre utilisateurs). Le module météo est donc écrit avec une couche de
+  cache injectable devant le client HTTP dès le sprint 2.
+
+### 10.2 Ce qu'on décide maintenant, pour construire plus tard
+
+- **Authentification : déléguée, jamais de mot de passe chez nous.** OpenID
+  Connect avec Google en premier fournisseur ; Apple (« Sign in with Apple »)
+  en second, avec ses contraintes propres — compte développeur Apple payant,
+  clé privée et identifiant de service, relais d'adresse e-mail privée,
+  obligation d'Apple si une app iOS propose d'autres connexions sociales.
+  L'identité interne est un identifiant opaque ; l'e-mail est une donnée du
+  profil, pas une clé primaire (un utilisateur peut changer de fournisseur).
+  Bibliothèque au moment venu (Authlib ou équivalent), jamais une
+  implémentation maison d'OAuth.
+- **Base de données hébergée : PostgreSQL, dès le premier jour de
+  l'hébergé, jamais SQLite.** Même raison qu'ix-presenter : le coût d'un
+  Postgres sur Coolify est quasi nul, le coût d'une migration SQLite →
+  Postgres tombe toujours au mauvais moment. Migrations SQL numérotées, SQL
+  nu, pas d'ORM. Le SQLite local de la CLI reste : c'est un cache, pas la
+  base.
+- **Fichiers bruts (FIT/GPX/TCX) : stockage d'objets**, pas la base ni le
+  disque du serveur — un utilisateur actif représente vite des centaines de
+  fichiers. Cible naturelle : un stockage S3-compatible (Hetzner Object
+  Storage ou équivalent), un préfixe par utilisateur.
+- **Isolation des données : par utilisateur, vérifiée côté serveur** à
+  chaque requête, jamais seulement côté front. Aucune requête sans clause
+  de propriétaire.
+- **RGPD par construction** : export de toutes ses données et suppression
+  du compte (profil, fichiers, calibrations, clés) disponibles dès la
+  première version hébergée ; pas de suivi d'audience ; hébergement en
+  Europe.
+- **API avant front.** L'API expose ce que la CLI sait déjà rendre en
+  JSON ; le front la consomme. Le front ne parle jamais directement au cœur.
+
+### 10.3 Ce qu'on ne décide pas encore
+
+Le cadre web (FastAPI ou autre), le front (framework ou HTML autonome comme
+ix-presenter), l'hébergement exact (Coolify sur Hetzner est le candidat
+naturel), la tarification éventuelle. Ces choix se prendront au point de
+repriorisation qui ouvrira l'hébergé, avec une CLI qui marche sous les yeux.
