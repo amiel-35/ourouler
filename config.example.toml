@@ -5,7 +5,7 @@
 [depart]
 nom = "Maison"
 latitude = 47.0000    # inventé : mettre son vrai point de départ
-longitude = -1.0000
+longitude = -0.5000   # (47.0, -1.0) tombait à 48 km de Nantes, sous le seuil de l'invariant
 
 [cycliste]
 masse_kg = 75.0
