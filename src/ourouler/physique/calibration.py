@@ -5,8 +5,9 @@ La chaîne, en cinq temps :
 1. `sorties_calibrables` choisit les sorties exploitables (extérieur, avec
    puissance, ≥ 20 km, nom sans mot de groupe) ;
 2. `echantillonner` découpe chaque sortie en tronçons d'environ 200 m et note,
-   pour chacun, vitesse, puissance, pente, vent de face et masse volumique de
-   l'air — puis marque ceux qu'on garde et **pourquoi** on jette les autres ;
+   pour chacun, vitesse (moyenne et aux deux bouts), puissance, pente, vent de
+   face et masse volumique de l'air — puis marque ceux qu'on garde et
+   **pourquoi** on jette les autres ;
 3. `calibrer` ajuste (CdA, Crr) aux moindres carrés sur l'écart de puissance ;
 4. `detecter_groupe` repère, avec le modèle obtenu, les sorties
    anormalement rapides — l'aspiration d'un peloton, que ni la pente ni le
@@ -49,6 +50,7 @@ from ourouler.config import Config, Velo
 from ourouler.connecteurs.openmeteo_archive import HeureArchive
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import (
+    RENDEMENT_DEFAUT,
     RHO_DEFAUT,
     Parametres,
     Simulation,
@@ -83,9 +85,16 @@ PUISSANCE_MIN_W = 50.0
 FACTEUR_FTP_MAX = 2.0
 
 #: Variation de vitesse tolérée entre deux échantillons voisins, en m/s.
-#: Au-delà, le cycliste accélère ou freine : l'énergie cinétique change, et le
-#: modèle, qui ne connaît que l'équilibre, attribuerait cet écart au CdA.
-DELTA_V_MAX_MS = 0.3
+#:
+#: Le seuil valait 0,3 m/s (contrat §3) : il ne gardait que des tronçons
+#: « stationnaires », 5 % du total, et ceux-là ne sont pas un échantillon
+#: neutre d'une sortie (faux plats descendants, vent arrière). Depuis que la
+#: variation d'énergie cinétique du tronçon entre dans la part **connue** de sa
+#: puissance (`Echantillon.puissance_cinetique_w`), l'accélération n'est plus
+#: une nuisance à fuir mais une grandeur mesurée : le seuil est relâché à
+#: 1,0 m/s et ne sert plus qu'à écarter les freinages et relances brutaux, où
+#: la vitesse moyenne du tronçon ne décrit plus rien.
+DELTA_V_MAX_MS = 1.0
 
 #: Demi-fenêtre, **en mètres**, sur laquelle l'altitude est moyennée avant
 #: d'en tirer une pente : assez pour noyer le bruit de l'altimètre
@@ -143,7 +152,13 @@ class Echantillon:
     `retenu` dit si la calibration s'en sert, `motif` dit pourquoi pas. Les
     champs après `motif` sont des compléments du contrat de sprint : la
     longueur (pour pondérer par la distance), la masse volumique de l'air
-    mesurée du jour, si le vent était connu, et l'instant de passage.
+    mesurée du jour, si le vent était connu, l'instant de passage, et les
+    **vitesses aux deux bouts** — sans elles, on ne sait pas si le cycliste a
+    accéléré pendant les 200 m.
+
+    `v_debut_ms` et `v_fin_ms` valent 0 par défaut : un échantillon construit à
+    la main (un test, une fixture) n'a alors aucun terme cinétique, ce qui est
+    le comportement d'avant.
     """
 
     v_ms: float
@@ -158,6 +173,41 @@ class Echantillon:
     vent_connu: bool = True
     t: datetime | None = None
     dist_m: float = 0.0
+    v_debut_ms: float = 0.0
+    v_fin_ms: float = 0.0
+
+    @property
+    def duree_s(self) -> float:
+        """La durée du tronçon, en secondes. 0 si la vitesse moyenne est nulle.
+
+        Elle n'est pas stockée : `v_ms` **est** `longueur_m / duree`, la
+        redonder serait offrir deux occasions de se contredire.
+        """
+        return self.longueur_m / self.v_ms if self.v_ms > 0 and self.longueur_m > 0 else 0.0
+
+    def puissance_cinetique_w(
+        self, masse_totale_kg: float, rendement: float = RENDEMENT_DEFAUT
+    ) -> float:
+        """La puissance qu'a coûtée (ou rendue) le changement de vitesse du tronçon.
+
+        `m · (v_fin² − v_début²) / (2 · Δt)`, au pédalier donc divisée par le
+        rendement. Positive quand le cycliste accélère — cette puissance-là
+        n'est allée ni dans l'air ni dans les pneus, et l'attribuer au CdA le
+        faussait. Négative quand il ralentit : l'élan a payé une part de la
+        résistance, et le capteur a vu moins de watts que l'équilibre n'en
+        demandait.
+
+        Ce terme est **connu** : il ne dépend ni de CdA ni de Crr, seulement de
+        la masse et de deux vitesses mesurées. Il rejoint donc la colonne `c`
+        de la régression, du côté des constantes.
+        """
+        duree = self.duree_s
+        if duree <= 0 or rendement <= 0:
+            return 0.0
+        delta = self.v_fin_ms**2 - self.v_debut_ms**2
+        if not math.isfinite(delta):
+            return 0.0
+        return masse_totale_kg * delta / (2.0 * duree) / rendement
 
 
 def echantillonner(
@@ -213,6 +263,8 @@ def echantillonner(
                 vent_connu=face is not None,
                 t=t_milieu,
                 dist_m=distances[j],
+                v_debut_ms=_vitesse_au_point(points, distances, i),
+                v_fin_ms=_vitesse_au_point(points, distances, j),
             )
         )
         if puissance is None:
@@ -307,6 +359,34 @@ def _puissance_moyenne(points: Sequence[Point], i: int, j: int) -> float | None:
         somme += float(a.puissance_w) * dt
         duree += dt
     return somme / duree if duree > 0 else None
+
+
+def _vitesse_au_point(points: Sequence[Point], distances: Sequence[float], k: int) -> float:
+    """La vitesse instantanée au point `k`, en m/s.
+
+    Celle qu'a enregistrée le compteur si elle existe ; sinon une différence
+    finie centrée sur les deux points voisins. Un GPX sans champ de vitesse ne
+    doit pas priver la calibration de son terme cinétique — la géométrie la
+    donne, à un pas d'échantillonnage près.
+
+    Rend 0 quand rien ne permet de conclure : le terme cinétique est alors le
+    même aux deux bouts et s'annule, ce qui est exactement l'ancien
+    comportement.
+    """
+    valeur = points[k].vitesse_ms
+    if valeur is not None:
+        valeur = float(valeur)
+        if math.isfinite(valeur) and valeur >= 0:
+            return valeur
+    avant = max(0, k - 1)
+    apres = min(len(points) - 1, k + 1)
+    if apres == avant:
+        return 0.0
+    duree = (points[apres].t - points[avant].t).total_seconds()
+    if duree <= 0:
+        return 0.0
+    portee = distances[apres] - distances[avant]
+    return portee / duree if portee > 0 else 0.0
 
 
 def _contient_un_arret(points: Sequence[Point], i: int, j: int) -> bool:
@@ -565,6 +645,13 @@ def _matrices(
     unitaires : `a = P(CdA=1, Crr=0) − P(0, 0)`, `b = P(0, Crr=1) − P(0, 0)`,
     `c = P(0, 0)` (la part gravité + rendement). Aucune formule n'est donc
     recopiée ici.
+
+    À `c` s'ajoute la **variation d'énergie cinétique** du tronçon,
+    `m · (v_fin² − v_début²) / (2 · Δt)`, elle aussi connue sans CdA ni Crr.
+    Sans elle, la calibration ne pouvait garder que des tronçons à vitesse
+    constante ; avec elle, un tronçon où le cycliste accélère de 1 m/s dit
+    autant qu'un autre, et il y en a des milliers au lieu de quelques
+    centaines.
     """
     a = np.empty(len(retenus))
     b = np.empty(len(retenus))
@@ -574,9 +661,13 @@ def _matrices(
         base = Parametres(masse_totale_kg=masse_totale_kg, cda_m2=0.0, crr=0.0, rho=e.rho)
         seul_cda = Parametres(masse_totale_kg=masse_totale_kg, cda_m2=1.0, crr=0.0, rho=e.rho)
         seul_crr = Parametres(masse_totale_kg=masse_totale_kg, cda_m2=0.0, crr=1.0, rho=e.rho)
-        c[i] = puissance_requise(e.v_ms, e.pente, e.vent_face_ms, base)
-        a[i] = puissance_requise(e.v_ms, e.pente, e.vent_face_ms, seul_cda) - c[i]
-        b[i] = puissance_requise(e.v_ms, e.pente, e.vent_face_ms, seul_crr) - c[i]
+        # `sans_rien` sert de référence aux deux colonnes : le terme cinétique
+        # ne doit surtout pas entrer dans `a` et `b`, qui sont des **écarts**
+        # à cette référence. Il ne rejoint `c` qu'ensuite.
+        sans_rien = puissance_requise(e.v_ms, e.pente, e.vent_face_ms, base)
+        a[i] = puissance_requise(e.v_ms, e.pente, e.vent_face_ms, seul_cda) - sans_rien
+        b[i] = puissance_requise(e.v_ms, e.pente, e.vent_face_ms, seul_crr) - sans_rien
+        c[i] = sans_rien + e.puissance_cinetique_w(masse_totale_kg, base.rendement)
         y[i] = e.puissance_w
     return a, b, c, y
 
@@ -911,7 +1002,12 @@ def detecter_groupe(
         return (False, 0.0)
     rapide = 0.0
     for e in echantillons:
-        attendue = vitesse_regime(e.puissance_w, e.pente, e.vent_face_ms, p)
+        # La part de la puissance qui a servi à accélérer n'a pas servi à
+        # tenir une vitesse : la retirer avant de demander au modèle quelle
+        # vitesse d'équilibre la puissance justifie, sinon tout tronçon de
+        # relance passerait pour un tronçon d'aspiration.
+        equilibre = e.puissance_w - e.puissance_cinetique_w(p.masse_totale_kg, p.rendement)
+        attendue = vitesse_regime(equilibre, e.pente, e.vent_face_ms, p)
         if attendue > 0 and (e.v_ms - attendue) / attendue > SEUIL_RESIDU_GROUPE:
             rapide += e.longueur_m
     part = rapide / distance

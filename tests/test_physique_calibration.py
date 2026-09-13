@@ -25,6 +25,7 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.calibration import (
     CDA_MAX,
     DELTA_V_MAX_MS,
+    LONGUEUR_ECHANTILLON_M,
     MASSE_VELO_DEFAUT_KG,
     Echantillon,
     Parametres,
@@ -177,6 +178,54 @@ def echantillons_synthetiques(
     return echantillons
 
 
+def echantillons_avec_acceleration(
+    n: int = 400,
+    *,
+    p: Parametres = VRAI,
+    graine: int = 7,
+    bruit_w: float = 0.0,
+    dv_min: float = -0.9,
+    dv_max: float = 0.9,
+) -> list[Echantillon]:
+    """Des tronçons où le cycliste **accélère**, d'une quantité connue.
+
+    La puissance de chacun est la somme exacte de deux termes : celle qu'exige
+    l'équilibre à la vitesse moyenne, et celle qu'a coûtée la variation
+    d'énergie cinétique entre les deux bouts. C'est le cas que le point 2 de la
+    relecture veut savoir traiter : il ne s'agit plus de jeter ces tronçons
+    mais de leur retrancher ce qu'on sait d'eux.
+    """
+    alea = random.Random(graine)
+    echantillons = []
+    for _ in range(n):
+        v = alea.uniform(6.0, 13.0)
+        pente = alea.uniform(-0.03, 0.05)
+        vent = alea.uniform(-4.0, 4.0)
+        longueur = LONGUEUR_ECHANTILLON_M
+        duree = longueur / v
+        dv = alea.uniform(dv_min, dv_max)
+        v_debut, v_fin = v - dv / 2, v + dv / 2
+        cinetique = p.masse_totale_kg * (v_fin**2 - v_debut**2) / (2 * duree) / p.rendement
+        echantillons.append(
+            Echantillon(
+                v_ms=v,
+                puissance_w=puissance_requise(v, pente, vent, p)
+                + cinetique
+                + alea.gauss(0.0, bruit_w),
+                pente=pente,
+                vent_face_ms=vent,
+                temp_c=15.0,
+                retenu=True,
+                motif="",
+                longueur_m=longueur,
+                rho=p.rho,
+                v_debut_ms=v_debut,
+                v_fin_ms=v_fin,
+            )
+        )
+    return echantillons
+
+
 # --- échantillonnage ----------------------------------------------------------
 
 
@@ -290,8 +339,10 @@ def test_acceleration_forte_jetee():
     )
     echantillons = echantillonner(activite, archive())
     assert any(e.motif == "accélération" for e in echantillons)
-    # Le seuil est bien celui du contrat.
-    assert DELTA_V_MAX_MS == 0.3
+    # Seuil relâché à 1,0 m/s (point 2 de la relecture) : depuis que la
+    # variation d'énergie cinétique est comptée, seuls les sauts brutaux
+    # restent à écarter.
+    assert DELTA_V_MAX_MS == 1.0
 
 
 def test_la_pente_ne_depend_pas_de_la_densite_des_points():
@@ -701,3 +752,95 @@ def test_masse_totale_kg():
         {**CONFIG_BRUTE, "velos": [{"nom": "Route", "usage": "route", "masse_kg": 8.2}]}
     )
     assert masse_totale_kg(lourd, lourd.velo("Route")) == pytest.approx(88.2)
+
+
+# --- terme d'énergie cinétique (point 2 de la relecture) ----------------------
+
+
+def test_calibrer_retrouve_cda_et_crr_sur_des_troncons_qui_accelerent():
+    """Accélération connue retranchée : les deux paramètres sont retrouvés exactement."""
+    ajustement = calibrer(echantillons_avec_acceleration(), masse_totale_kg=MASSE)
+    assert ajustement.cda_m2 == pytest.approx(CDA_VRAI, rel=0.01)
+    assert ajustement.crr == pytest.approx(CRR_VRAI, rel=0.02)
+    assert ajustement.rmse_w < 0.5  # il ne reste rien à expliquer
+
+
+def test_sans_les_vitesses_aux_bornes_l_acceleration_fausse_l_ajustement():
+    """Les mêmes tronçons, vitesses aux bouts effacées : CdA et Crr dérapent.
+
+    C'est la mesure de ce que le terme apporte. Le cycliste accélère ici
+    systématiquement (`dv_min > 0`) ; sans le terme cinétique, ces watts-là
+    n'ont nulle part où aller et se rangent dans la traînée et le roulement.
+    """
+    avec = echantillons_avec_acceleration(dv_min=0.2, dv_max=0.9)
+    sans = [
+        Echantillon(**{**e.__dict__, "v_debut_ms": 0.0, "v_fin_ms": 0.0}) for e in avec
+    ]
+    juste = calibrer(avec, masse_totale_kg=MASSE)
+    faux = calibrer(sans, masse_totale_kg=MASSE)
+    assert juste.cda_m2 == pytest.approx(CDA_VRAI, rel=0.01)
+    assert juste.crr == pytest.approx(CRR_VRAI, rel=0.02)
+    assert abs(faux.cda_m2 - CDA_VRAI) > 0.02 or abs(faux.crr - CRR_VRAI) > 0.001
+    assert faux.rmse_w > 10 * max(juste.rmse_w, 0.01)
+
+
+def test_puissance_cinetique_signe_et_ordre_de_grandeur():
+    """Accélérer coûte, ralentir rend, et l'ordre de grandeur est celui attendu.
+
+    Passer de 8 à 9 m/s sur 200 m à 8,5 m/s de moyenne (≈ 23,5 s) coûte
+    100 × (81 − 64) / (2 × 23,5) ≈ 36 W au pédalier, soit 37 W avec le
+    rendement — l'ordre de grandeur d'une relance, pas d'un détail.
+    """
+    monte = Echantillon(
+        v_ms=8.5,
+        puissance_w=0.0,
+        pente=0.0,
+        vent_face_ms=0.0,
+        temp_c=15.0,
+        retenu=True,
+        motif="",
+        longueur_m=200.0,
+        v_debut_ms=8.0,
+        v_fin_ms=9.0,
+    )
+    descend = Echantillon(**{**monte.__dict__, "v_debut_ms": 9.0, "v_fin_ms": 8.0})
+    assert monte.duree_s == pytest.approx(200.0 / 8.5)
+    assert monte.puissance_cinetique_w(100.0) == pytest.approx(37.0, abs=1.0)
+    assert descend.puissance_cinetique_w(100.0) == pytest.approx(
+        -monte.puissance_cinetique_w(100.0)
+    )
+
+
+def test_puissance_cinetique_nulle_sans_vitesses_aux_bornes():
+    """Un échantillon fabriqué à la main n'a aucun terme cinétique."""
+    e = Echantillon(
+        v_ms=8.0,
+        puissance_w=200.0,
+        pente=0.0,
+        vent_face_ms=0.0,
+        temp_c=15.0,
+        retenu=True,
+        motif="",
+        longueur_m=200.0,
+    )
+    assert e.puissance_cinetique_w(100.0) == 0.0
+
+
+def test_echantillonner_note_les_vitesses_aux_deux_bouts():
+    """Sur une sortie fabriquée, les vitesses aux bornes encadrent la moyenne."""
+    activite = sortie_synthetique(duree_s=1200)
+    retenus = [e for e in echantillonner(activite, archive()) if e.retenu]
+    assert retenus
+    for e in retenus:
+        assert e.v_debut_ms > 0 and e.v_fin_ms > 0
+        assert min(e.v_debut_ms, e.v_fin_ms) - 0.5 <= e.v_ms <= max(e.v_debut_ms, e.v_fin_ms) + 0.5
+
+
+def test_vitesses_aux_bornes_sans_champ_de_vitesse():
+    """Un enregistrement sans vitesse (GPX nu) les retrouve par la géométrie."""
+    activite = sortie_synthetique(duree_s=1200)
+    for point in activite.points:
+        point.vitesse_ms = None
+    retenus = [e for e in echantillonner(activite, archive()) if e.retenu]
+    assert retenus
+    assert all(e.v_debut_ms > 0 and e.v_fin_ms > 0 for e in retenus)
