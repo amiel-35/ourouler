@@ -264,6 +264,7 @@ class _Etat:
         self.sans_puissance = 0
         self.nulles = 0
         self.groupes_ignores = 0
+        self.puissances_negatives = 0  # consignes de puissance négative, donc illisibles
         self.reps_bornees = 0  # groupes dont le `reps` a mordu sur `REPS_MAX`
         self.reps_tronquees = 0  # groupes dont le `reps` n'était pas entier
         self.trop_profond = 0
@@ -317,6 +318,7 @@ class _Etat:
             ("etapes_libres_reclassees", self.libres_reclassees),
             ("unites_inconnues", self.unites_inconnues),
             ("etapes_sans_puissance", self.sans_puissance),
+            ("etapes_puissance_negative", self.puissances_negatives),
             ("etapes_nulles", self.nulles),
             ("groupes_ignores", self.groupes_ignores),
             ("groupes_reps_bornees", self.reps_bornees),
@@ -393,6 +395,16 @@ def _etape(step: dict, *, etat: _Etat, libelle: str) -> _Lue | None:
         etat.nulles += 1
         return None
     bas, haut, descripteur, sans_consigne = _puissance(step, etat=etat)
+    if (bas is not None and bas < 0) or (haut is not None and haut < 0):
+        # Une puissance négative est une consigne illisible, pas une consigne
+        # de freinage : `{"units": "%ftp", "value": -0.5}` donnait −125 W et
+        # `Etape` levait, en contradiction avec le docstring de
+        # `depuis_workout_doc` (« ne lève jamais sur un document mal formé »).
+        # L'étape est gardée — elle occupe de la route — sans puissance, et la
+        # perte se compte.
+        etat.puissances_negatives += 1
+        bas = haut = None
+        descripteur = _joindre(descripteur, "puissance négative ignorée")
     if bas is None and haut is None:
         etat.sans_puissance += 1
     type_, source = _type(step, herite=libelle)

@@ -199,6 +199,36 @@ def test_un_reps_borne_ou_tronque_se_compte_dans_meta(reps, cle):
     )
 
 
+@pytest.mark.parametrize(
+    "consigne",
+    [
+        {"units": "%ftp", "value": -0.5},
+        {"units": "%ftp", "value": -80},
+        {"units": "watts", "value": -200},
+        {"units": "%ftp", "start": -10, "end": 90},
+    ],
+    ids=["fraction", "pourcentage", "watts", "rampe"],
+)
+def test_une_puissance_negative_ne_fait_pas_lever_depuis_workout_doc(consigne):
+    """`depuis_workout_doc` promet de ne **jamais** lever sur un document mal formé.
+
+    Mesuré : `{"units": "%ftp", "value": -0.5}` donnait −125 W et `Etape`
+    levait `ErreurUtilisateur`, en contradiction avec son propre docstring.
+    Une puissance négative n'est pas une consigne de freinage, c'est une
+    consigne illisible : l'étape est gardée — elle occupe de la route — sans
+    puissance, et la perte se compte dans `meta`.
+    """
+    mod = _intervals()
+    document = fabriques4.doc([groupe([{"duration": 600.0, "power": consigne}])])
+    seance = appeler_depuis_workout(mod, document)  # ne doit pas lever
+    _verifier(seance)
+    [lue] = seance.etapes
+    assert lue.puissance_min_w is None and lue.puissance_max_w is None, (
+        f"puissance {lue.puissance_min_w}-{lue.puissance_max_w} W tirée de {consigne}"
+    )
+    assert seance.meta.get("etapes_puissance_negative") == 1, sorted(seance.meta)
+
+
 def test_une_consigne_de_puissance_vide_ne_masque_pas_une_frequence_cardiaque_valide():
     """S3 : `power: {}` s'arrêtait au premier champ présent et perdait le `hr`.
 
@@ -251,13 +281,30 @@ def test_une_etape_sans_puissance_ni_frequence_cardiaque_reste_sans_puissance():
         assert e.puissance_cible_w is None
 
 
-@pytest.mark.parametrize("units", ["kj"], ids=["kj"])
+@pytest.mark.parametrize("units", ["kj", "rpe", "", "%FTP_BIS"], ids=["kj", "rpe", "vide", "voisin"])
 def test_une_unite_inconnue_ne_fabrique_pas_de_puissance_fantaisiste(units):
+    """Le module le dit : « une unité absente ou inconnue ne donne aucune puissance ».
+
+    L'assertion d'origine se réduisait à `_verifier(seance)`, dont le contrôle
+    de puissance tolère tout jusqu'à 5 × FTP : une unité inconnue traduite en
+    un wattage plausible — `{"units": "kj", "value": 250}` lu comme 250 W —
+    passait donc malgré le nom du test. On mesure maintenant ce que le nom
+    annonce.
+    """
     mod = _intervals()
-    document = fabriques4.doc([groupe([etape_doc(600.0, units=units)])])
+    # Construit à la main : `etape_doc(units="")` retomberait sur « watts »,
+    # et le test ne mesurerait alors que sa propre fabrique.
+    document = fabriques4.doc([groupe([{"duration": 600.0, "power": {"units": units, "value": 250}}])])
     seance, erreur = _robuste(lambda: appeler_depuis_workout(mod, document), quoi=f"units={units!r}")
-    if erreur is None:
-        _verifier(seance)
+    if erreur is not None:
+        return
+    _verifier(seance)
+    [lue] = seance.etapes
+    assert lue.puissance_min_w is None and lue.puissance_max_w is None, (
+        f"units={units!r} a donné {lue.puissance_min_w}-{lue.puissance_max_w} W : "
+        "une unité inconnue ne se devine pas, elle se dit inconnue"
+    )
+    assert lue.puissance_cible_w is None
 
 
 def test_un_pourcentage_de_ftp_sans_ftp_ne_devient_pas_zero_watt():

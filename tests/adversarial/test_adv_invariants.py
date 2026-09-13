@@ -814,17 +814,34 @@ def test_le_terrain_le_placement_et_la_tenue_n_ouvrent_aucune_connexion():
     assert not fautes, "réseau dans le cœur du sprint 4 :\n  " + "\n  ".join(fautes)
 
 
+#: Ce que `seance/terrain.py` doit **importer** de `boucle.couts` plutôt que de
+#: le réécrire : la liste des routes passantes, la détection géométrique des
+#: virages, et le découpage en tronçons qui ferme la contamination d'un bloc
+#: par les tags du tronçon précédent.
+SYMBOLES_DE_COUTS = {"HIGHWAY_TRAFIC", "virages_detectes", "tags_par_troncon"}
+
+
 def test_le_terrain_reutilise_la_mecanique_des_couts():
-    """Contrat §2 : « réutiliser la mécanique de `couts`, ne pas la dupliquer »."""
+    """Contrat §2 : « réutiliser la mécanique de `couts`, ne pas la dupliquer ».
+
+    L'assertion d'origine se contentait de `"couts" in texte` : un commentaire
+    contenant le mot suffisait à la satisfaire, et une réécriture complète de
+    la détection des virages serait passée au vert. On exige maintenant un
+    **import réel** des symboles nommés.
+    """
     modules = {chemin.name: chemin for chemin in _modules_seance()}
     terrain = modules.get("terrain.py")
     if terrain is None:
         pytest.skip("terrain.py absent (lot L4.2)")
-    modules_importes = {module for _, module in _imports(terrain)}
-    texte = terrain.read_text(encoding="utf-8")
-    assert "couts" in modules_importes or "couts" in texte, (
-        "terrain.py ne fait référence ni à `boucle.couts` ni à ses constantes : "
-        "la détection des virages et la liste des routes passantes ont été réécrites"
+    importes: set[str] = set()
+    for noeud in ast.walk(_arbre(terrain)):
+        if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").endswith("boucle.couts"):
+            importes.update(alias.name for alias in noeud.names)
+    manquants = sorted(SYMBOLES_DE_COUTS - importes)
+    assert not manquants, (
+        f"terrain.py n'importe pas de `boucle.couts` : {manquants} — la détection "
+        "des virages, la liste des routes passantes ou le découpage en tronçons "
+        "ont été réécrits au lieu d'être réutilisés (contrat §2)"
     )
 
 

@@ -502,6 +502,76 @@ def test_a_note_egale_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
     assert premiere["meteo"]["pluie_cumulee_mm"] < seconde["meteo"]["pluie_cumulee_mm"]
 
 
+def test_une_candidate_de_note_catastrophique_reste_affichee_en_derniere_position(tmp_path: Path):
+    """Règle produit (e) : « on note, on ne filtre pas ».
+
+    Rien ne protégeait explicitement cette règle. Le seul garde-fou était le
+    dépaquetage `premiere, seconde = charge["candidates"]` d'un test de tri :
+    un filtre qui laisserait toujours passer deux candidates l'aurait franchi
+    sans bruit. Le test d'écartement voisin, lui, écarte une boucle **trop
+    courte** — une impossibilité physique, pas une mauvaise note.
+
+    Ici la troisième candidate est roulable de bout en bout ; elle est
+    simplement épouvantable. Elle doit rester dans le JSON, rester dans le
+    tableau, et finir dernière.
+    """
+    # Fabriqué à la main plutôt que par la commande : la note est alors une
+    # donnée du test, pas le sous-produit d'un relief qu'il faudrait régler.
+    bonnes = [_proposition_avec_demi_tour(), _proposition_avec_demi_tour()]
+    catastrophique = _proposition_avec_demi_tour()
+    for numero, proposition in enumerate(bonnes, start=1):
+        proposition.numero = numero
+        proposition.placement.note_totale = float(numero) * 0.1
+    catastrophique.numero = 3
+    catastrophique.placement.note_totale = 250.0
+    propositions = [*bonnes, catastrophique]
+    assert propositions == sorted(propositions, key=lambda p: p.tri), (
+        "la fixture doit être déjà triée, sinon le test ne mesure que le tri"
+    )
+
+    texte = rendre_texte(propositions, _contexte_minimal(tmp_path, _seance_fabriquee()))
+
+    lignes = lignes_du_tableau(texte)
+    assert len(lignes) == 3, texte
+    assert lignes[-1].split()[0] == "3", lignes[-1]
+    assert "250,00" in lignes[-1], (
+        f"la candidate épouvantable est affichée sans sa note : {lignes[-1]}"
+    )
+
+
+@pytest.mark.parametrize("en_json", [False, True], ids=["texte", "json"])
+def test_une_candidate_epouvantable_n_est_jamais_filtree(
+    tmp_path: Path, monkeypatch, capsys, en_json
+):
+    """Suite du précédent : le rendu, texte comme JSON, la montre toujours."""
+    reglages = {0.0: {"amplitude_m": 1.0}, 120.0: {"amplitude_m": 1.0}, 240.0: {"amplitude_m": 120.0}}
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        brouter=moteur_brouter(reglages),
+        candidates=3,
+        json=en_json,
+    )
+    sortie = capsys.readouterr().out
+    assert code == 0
+    if en_json:
+        charge = json.loads(sortie)
+        assert "écartée" not in sortie
+        assert len(charge["candidates"]) == 3, (
+            "une candidate roulable a disparu du JSON : on note, on ne filtre pas"
+        )
+        notes = [c["placement"]["note_totale"] for c in charge["candidates"]]
+        assert notes == sorted(notes), notes
+        pire = charge["candidates"][-1]
+        assert pire["azimut_deg"] == 240.0, charge["candidates"]
+        assert pire["placement"]["note_totale"] > 5 * notes[0], notes
+        assert pire["retenue"] is False
+    else:
+        lignes = lignes_du_tableau(sortie)
+        assert len(lignes) == 3, sortie
+        assert "candidate(s) écartée(s)" not in sortie
+
+
 def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
     tmp_path: Path, monkeypatch, capsys
 ):
