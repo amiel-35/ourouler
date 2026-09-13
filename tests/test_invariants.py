@@ -362,3 +362,40 @@ def test_le_generateur_de_fixtures_est_reproductible(generateur, tmp_path: Path)
             f"{nom} : la fixture versionnée diffère de ce que le générateur produit "
             "— relancer `uv run python tests/fixtures/generer_activites.py`"
         )
+
+
+# --- numpy est confiné au paquet physique ------------------------------------
+#
+# Contrat du sprint 3 §4 : « numpy interdit hors physique/ ». La dépendance a
+# été ajoutée pour les moindres carrés de la calibration ; elle n'a rien à
+# faire dans un lecteur de fichier ou un connecteur, où elle ferait entrer des
+# scalaires `np.float64` dans des dataclasses censées porter des `float`.
+
+PAQUET_NUMPY = "physique"
+
+
+@pytest.mark.parametrize(
+    "module", sorted(SOURCES.rglob("*.py")), ids=lambda p: str(p.relative_to(SOURCES))
+)
+def test_numpy_reste_dans_le_paquet_physique(module: Path):
+    arbre = ast.parse(module.read_text(encoding="utf-8"))
+    importes = set()
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Import):
+            importes.update(alias.name.split(".")[0] for alias in noeud.names)
+        elif isinstance(noeud, ast.ImportFrom) and noeud.module:
+            importes.add(noeud.module.split(".")[0])
+    if "numpy" not in importes:
+        return
+    assert module.parent.name == PAQUET_NUMPY, (
+        f"{module.relative_to(SOURCES)} importe numpy : seul le paquet "
+        f"{PAQUET_NUMPY}/ y a droit (contrat du sprint 3 §4)"
+    )
+
+
+def test_l_invariant_numpy_mesure_bien_quelque_chose():
+    """Vert par absence de numpy nulle part serait un invariant creux."""
+    sources = [p.read_text(encoding="utf-8") for p in SOURCES.rglob("*.py")]
+    assert any("import numpy" in s for s in sources), (
+        "aucun module n'importe numpy : l'invariant ci-dessus ne mesure rien"
+    )
