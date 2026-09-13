@@ -135,6 +135,21 @@ class Proposition:
         return sum(1 for e in self.placement.emplacements if e.demi_tour)
 
     @property
+    def distance_parcours_m(self) -> float:
+        """Ce qui sera **roulé**, demi-tours compris — pas le tour de la boucle."""
+        return self.placement.distance_totale_m
+
+    @property
+    def denivele_parcours_m(self) -> float | None:
+        """Le D+ recalculé sur le parcours placé, ou `None` si l'altitude manque.
+
+        À ne pas confondre avec `trace.denivele_m`, qui est le « filtered
+        ascend » du moteur pour la **boucle**. Les deux mesurent des choses
+        différentes par deux méthodes différentes : voir `_note_denivele`.
+        """
+        return trace_parcourue(self.placement, self.trace).denivele_m
+
+    @property
     def tri(self) -> tuple[float, float]:
         """Note de placement d'abord, pluie cumulée ensuite (contrat §4)."""
         return (self.placement.note_totale, self.pluie_mm * POIDS_PLUIE_TRI)
@@ -690,13 +705,30 @@ def _notes_carte(proposition: Proposition, seance: Seance, tenue: Tenue | None) 
 
 # --- rendu texte ---------------------------------------------------------------
 
+#: Écart, en mètres, au-delà duquel le parcours réellement roulé mérite sa
+#: propre colonne. Sans demi-tour il vaut la boucle au mètre près ; avec, il
+#: peut valoir le double (72,7 km sur une boucle de 38,5 le 22/04). Cent mètres
+#: parce qu'en dessous l'écart n'est que l'arrondi du placement.
+ECART_PARCOURS_M = 100.0
+
+#: Écart, en mètres de dénivelé, au-delà duquel les deux D+ méritent d'être
+#: montrés côte à côte. Dix mètres : en dessous, les deux méthodes disent la
+#: même chose et une ligne de plus ne ferait que du bruit.
+ECART_DENIVELE_M = 10.0
+
 #: Colonnes du tableau. Le second membre nomme la mesure dont la colonne
 #: dépend : sans cette mesure, la colonne **disparaît** au lieu d'afficher une
 #: colonne de tirets. `None` = toujours affichée.
+#:
+#: « boucle » et « D+ boucle » décrivent le tracé proposé par le moteur ;
+#: « parcours » et « temps » décrivent ce que la séance fait réellement rouler.
+#: La ligne mélangeait les deux — 38,5 km en 2 h 44, soit 14 km/h — parce que
+#: la distance venait de la boucle et la durée du placement.
 COLONNES = (
     ("n°", None),
-    ("distance", None),
-    ("D+", None),
+    ("boucle", None),
+    ("D+ boucle", None),
+    ("parcours", "parcours"),
     ("temps", None),
     ("trafic", None),
     ("connu %", "connu"),
@@ -724,6 +756,7 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
         marque = f"{MARQUE_RETENUE} " if proposition is propositions[0] else marge
         lignes.append(marque + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
 
+    lignes += _notes_sous_tableau(propositions[0], presentes)
     lignes.append("")
     lignes += _seance_placee(propositions[0], contexte)
     lignes.append("")
@@ -733,6 +766,36 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
     if contexte.carte is not None:
         lignes.append(f"{MARQUE_RETENUE} Carte : {contexte.carte}")
     return "\n".join(lignes)
+
+
+def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[str]:
+    """Ce que les colonnes ne peuvent pas dire : les deux parcours, et les deux D+.
+
+    Règle absolue 5 : « deux modèles qui divergent sont affichés comme un
+    désaccord, jamais moyennés ». Ici ce n'est pas deux modèles mais deux
+    mesures — le « filtered ascend » que BRouter annonce pour la boucle, et le
+    D+ que `denivele_filtre` recalcule sur le parcours placé, hystérésis de 2 m
+    comprise. Elles diffèrent de −33 % dans le cas relevé le 22/04, alors qu'un
+    aller-retour devrait plutôt *augmenter* le D+. La provenance était écrite
+    dans chaque artefact (`(moteur)`, `(parcours placé)`), mais il fallait
+    ouvrir le GPX pour voir le désaccord : il s'affiche maintenant.
+    """
+    lignes: list[str] = []
+    if "parcours" in presentes:
+        lignes.append(
+            f"Boucle {_fr(proposition.trace.distance_m / 1000, 1)} km, parcours réellement "
+            f"roulé {_fr(proposition.distance_parcours_m / 1000, 1)} km "
+            f"({proposition.demi_tours} demi-tour(s)) : le GPX porte le parcours, la carte "
+            "montre la boucle. La colonne « temps » va avec le parcours."
+        )
+    moteur, parcours = proposition.trace.denivele_m, proposition.denivele_parcours_m
+    if moteur is not None and parcours is not None and abs(moteur - parcours) > ECART_DENIVELE_M:
+        lignes.append(
+            f"D+ : {moteur:.0f} m annoncés par le moteur pour la boucle, {parcours:.0f} m "
+            "recalculés sur le parcours placé — deux méthodes, pas deux parcours "
+            "(le recalcul efface les vallonnements de moins de 2 m)."
+        )
+    return lignes
 
 
 def _entete(
@@ -795,6 +858,10 @@ def _mesures_presentes(propositions: list[Proposition]) -> set[str]:
         presentes.add("connu")
     if any(p.demi_tours for p in propositions):
         presentes.add("demi_tours")
+    if any(
+        abs(p.distance_parcours_m - p.trace.distance_m) > ECART_PARCOURS_M for p in propositions
+    ):
+        presentes.add("parcours")
     return presentes
 
 
@@ -805,6 +872,10 @@ def _cellules(proposition: Proposition, presentes: set[str]) -> list[str]:
         str(proposition.numero),
         f"{_fr(trace.distance_m / 1000, 1)} km",
         f"{trace.denivele_m:.0f} m" if trace.denivele_m is not None else ABSENT,
+    ]
+    if "parcours" in presentes:
+        cellules.append(f"{_fr(proposition.distance_parcours_m / 1000, 1)} km")
+    cellules += [
         _duree_courte(proposition.placement.duree_totale_s),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
     ]
@@ -965,6 +1036,14 @@ def _candidate_json(proposition: Proposition) -> dict:
             "decalage_z2_s": round(placement.decalage_z2_s),
             "duree_totale_s": round(placement.duree_totale_s),
             "distance_totale_m": round(placement.distance_totale_m, 1),
+            # Le D+ du **parcours placé**, recalculé par `denivele_filtre`, à côté
+            # du `denivele_m` de la boucle annoncé par le moteur : deux méthodes
+            # qui divergent, et la règle absolue 5 demande qu'on le voie.
+            "denivele_parcours_m": (
+                None
+                if proposition.denivele_parcours_m is None
+                else round(proposition.denivele_parcours_m, 1)
+            ),
             "blocs_bien_places": proposition.blocs_bien_places,
             "demi_tours": proposition.demi_tours,
             "avertissements": placement.avertissements,

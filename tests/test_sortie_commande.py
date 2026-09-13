@@ -27,6 +27,7 @@ import httpx
 import pytest
 from test_seance_intervals import ATHLETE, CLE, W
 
+from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.boucle.trace import distance_m as distance_points
@@ -38,16 +39,19 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.modele import Parametres
-from ourouler.seance.modele import Seance
+from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
 from ourouler.sortie import carte
 from ourouler.sortie.carte import COULEURS_BLOCS
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
+    Proposition,
+    _Contexte,
     _ecrire_gpx,
     executer,
     lire_options,
+    rendre_texte,
 )
 
 JOUR = date(2026, 9, 8)
@@ -627,6 +631,122 @@ def _trace_anneau() -> Trace:
         denivele_m=0.0,
         temps_moteur_s=None,
     )
+
+
+def _proposition_avec_demi_tour(denivele_moteur_m: float = 460.0):
+    """Une candidate dont le parcours placé vaut le double de la boucle.
+
+    C'est le cas réel du 22/04 réduit à ce qu'il faut pour l'afficher : une
+    boucle, un placement qui fait demi-tour, et un D+ moteur qui ne peut pas
+    être celui du parcours.
+    """
+    trace = _trace_anneau()
+    trace.denivele_m = denivele_moteur_m
+    place = Placement(
+        decalage_z2_s=0.0,
+        emplacements=[
+            Emplacement(
+                etape_idx=1, debut_m=6000.0, longueur_m=3000.0, demi_tour=True, note=NoteBloc(0.0)
+            )
+        ],
+        note_totale=1.0,
+        duree_totale_s=9840.0,  # 2 h 44, comme le cas relevé
+        distance_totale_m=2 * trace.distance_m,
+        jalons_m=[0.0, trace.distance_m, 0.0],
+    )
+    return Proposition(
+        numero=1,
+        trace=trace,
+        placement=place,
+        couts=Couts(
+            km_trafic=0.0,
+            km_calme=trace.distance_m / 1000,
+            km_non_classe=0.0,
+            km_non_revetu=0.0,
+            antennes_m=0.0,
+            virages_gauche=0,
+            virages_gauche_trafic=0,
+            virages_droite=0,
+            sens="horaire",
+            score=0.0,
+        ),
+        meteo=None,
+        azimut_deg=0.0,
+        ecart_relatif=0.0,
+        part_connue=None,
+        vitesse_kmh=25.0,
+    )
+
+
+def _seance_fabriquee() -> Seance:
+    """Une Z2 d'ouverture et un bloc : de quoi que `_seance_placee` ait un indice 1."""
+    etapes = [
+        Etape("echauffement", 1200.0, 140.0, 160.0, "Z2", elastique=True),
+        Etape("bloc", 1200.0, 200.0, 220.0, "bloc"),
+    ]
+    return Seance(
+        nom="4x8 fabriquée", jour=JOUR, etapes=etapes, duree_s=2400.0, meta={}
+    )
+
+
+def _contexte_minimal(tmp_path: Path, seance: Seance) -> Any:
+    config = config_de_test(tmp_path / "cache")
+    return _Contexte(
+        seance=seance,
+        demande=lire_options(args(), config),
+        config=config,
+        distance_km=34.0,
+        distance_source="déduite de la séance",
+        provenance_modele="calibration du vélo Route",
+        ecartees=[],
+        tenue=None,
+        gpx=None,
+        carte=None,
+    )
+
+
+def test_le_tableau_distingue_la_boucle_du_parcours_reellement_roule(tmp_path: Path):
+    """C1 : la même ligne affichait 38,5 km et 2 h 44, soit 14 km/h.
+
+    La distance venait de la boucle, la durée du placement. Les deux sont
+    justes et ne parlent pas du même parcours : le tableau porte maintenant
+    les deux distances, et « temps » va avec « parcours ».
+    """
+    proposition = _proposition_avec_demi_tour()
+    texte = rendre_texte([proposition], _contexte_minimal(tmp_path, _seance_fabriquee()))
+
+    entete = next(ligne for ligne in texte.splitlines() if "note placement" in ligne)
+    assert "boucle" in entete and "parcours" in entete, entete
+    assert "distance" not in entete, "« distance » ne dit pas de quel parcours il s'agit"
+
+    boucle_km = proposition.trace.distance_m / 1000
+    ligne = next(ligne for ligne in texte.splitlines() if ligne.startswith("→"))
+    assert f"{boucle_km:.1f}".replace(".", ",") in ligne
+    assert f"{2 * boucle_km:.1f}".replace(".", ",") in ligne, (
+        f"le parcours réellement roulé n'est pas dans la ligne : {ligne}"
+    )
+    assert "Boucle" in texte and "parcours réellement roulé" in texte
+
+
+def test_les_deux_denivelés_sont_montrés_cote_a_cote(tmp_path: Path):
+    """C2 : 460 m annoncés par le moteur, 308 m recalculés — et rien ne le disait.
+
+    Règle absolue 5 : deux mesures qui divergent s'affichent comme un
+    désaccord. La provenance était bien écrite dans chaque artefact, mais il
+    fallait ouvrir le GPX pour voir l'écart.
+    """
+    proposition = _proposition_avec_demi_tour(denivele_moteur_m=460.0)
+    recalcule = proposition.denivele_parcours_m
+    assert recalcule is not None
+    assert abs(recalcule - 460.0) > 10.0, (
+        "la fixture doit faire diverger les deux mesures, sinon le test ne prouve rien"
+    )
+    texte = rendre_texte([proposition], _contexte_minimal(tmp_path, _seance_fabriquee()))
+
+    ligne = next((ligne for ligne in texte.splitlines() if ligne.startswith("D+ :")), None)
+    assert ligne is not None, f"aucune ligne ne compare les deux D+ :\n{texte}"
+    assert "460 m" in ligne and f"{recalcule:.0f} m" in ligne, ligne
+    assert "moteur" in ligne and "parcours placé" in ligne
 
 
 def test_le_gpx_d_un_parcours_avec_demi_tour_contient_l_aller_retour(
