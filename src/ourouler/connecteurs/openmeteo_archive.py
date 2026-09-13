@@ -6,9 +6,13 @@ plate, c'est 20 % de puissance aérodynamique en plus. C'est le seul point sur
 lequel le mainteneur a demandé de ne pas transiger (« l'effort va dans ce qui
 compte : CdA par vélo, vent réel, exclusion des sorties en groupe »).
 
-L'archive du passé **ne change pas** : chaque réponse est mémoïsée dans un
-SQLite dont le chemin est passé au constructeur (le cœur ne connaît aucun
-chemin, règle absolue 2). Une deuxième calibration ne rappelle donc rien.
+L'archive d'un jour **clos** ne change plus : ces réponses-là sont mémoïsées
+dans un SQLite dont le chemin est passé au constructeur (le cœur ne connaît
+aucun chemin, règle absolue 2). Une deuxième calibration ne les rappelle donc
+pas. Le jour courant, lui, change encore — la réponse est souvent tronquée ou
+partiellement `null` — et une réponse vide peut aussi bien être un point hors
+grille qu'un hoquet du service : ni l'un ni l'autre n'est écrit sur disque,
+seulement gardé le temps du processus.
 
 Un appel par (jour, point arrondi à `ARRONDI_DEG`). Arrondir n'est pas une
 approximation gratuite : la grille de l'archive est bien plus grossière que
@@ -132,6 +136,10 @@ class ClientArchive:
         entièrement à `null` (point hors de la grille) est rendue telle
         quelle — c'est à l'appelant de décider qu'il roulera sans vent
         plutôt que de ne pas rouler.
+
+        Seule une réponse non vide d'un jour **révolu** est écrite sur disque :
+        le jour courant n'est pas clos et une réponse vide n'est pas une
+        mesure. Les deux restent mémoïsées en mémoire le temps du processus.
         """
         if not (math.isfinite(lat) and math.isfinite(lon)):
             raise ErreurUtilisateur(f"archive : point ({lat}, {lon}) illisible")
@@ -158,7 +166,15 @@ class ClientArchive:
             return en_cache
         heures = self._demander(lat_a, lon_a, jour)
         self._memoire[cle] = heures
-        self._ecrire_cache(lat_a, lon_a, jour, heures)
+        # L'archive d'un jour non clos peut encore changer : la réponse du jour
+        # même est souvent tronquée ou partiellement `null`, et l'écrire sur
+        # disque la figerait pour toutes les calibrations suivantes — la sortie
+        # la plus récente perdrait son vent pour de bon. Une réponse vide (point
+        # hors grille, ou hoquet du service, indiscernables) n'est pas figée non
+        # plus. Dans les deux cas on garde la valeur le temps du processus, pour
+        # ne pas rappeler le même point dix fois dans la même calibration.
+        if jour < aujourd_hui and heures:
+            self._ecrire_cache(lat_a, lon_a, jour, heures)
         return heures
 
     # --- réseau ---------------------------------------------------------------

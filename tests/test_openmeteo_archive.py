@@ -232,18 +232,85 @@ def test_memoisation_par_point_arrondi(tmp_path: Path):
     assert len(appels) == 1
 
 
-def test_une_archive_vide_est_aussi_memoisee(tmp_path: Path):
-    """Un point hors grille ne doit pas être redemandé à chaque calibration."""
+def test_une_archive_vide_est_memoisee_en_memoire_pas_sur_disque(tmp_path: Path):
+    """Un point hors grille n'est pas redemandé dans le même processus.
+
+    Mais on ne le fige pas sur disque : une réponse vide due à un hoquet du
+    service est indiscernable d'un point hors grille, et serait alors
+    définitive.
+    """
     appels = []
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         appels.append(requete)
         return httpx.Response(200, json={"latitude": 0.0})
 
-    c = client(gestionnaire, tmp_path / "a.sqlite")
+    chemin = tmp_path / "a.sqlite"
+    c = client(gestionnaire, chemin)
     assert c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI) == []
     assert c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI) == []
     assert len(appels) == 1
+    assert _lignes_en_cache(chemin) == 0
+
+    # Un processus suivant redemande, et peut donc obtenir une vraie archive.
+    neuf = client(reponse(charge_complete()), chemin)
+    assert len(neuf.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)) == 24
+
+
+def _lignes_en_cache(chemin: Path) -> int:
+    import sqlite3
+
+    cx = sqlite3.connect(chemin)
+    try:
+        return int(cx.execute("SELECT count(*) FROM archive").fetchone()[0])
+    finally:
+        cx.close()
+
+
+def test_le_jour_courant_n_est_pas_ecrit_en_cache(tmp_path: Path):
+    """Le jour n'est pas clos : sa réponse est encore tronquée, on ne la fige pas.
+
+    Sans cette précaution, le mainteneur qui rentre de sortie et lance
+    `calibrer` le jour même enregistre son vent comme inconnu pour de bon :
+    toutes les calibrations ultérieures reliraient la version tronquée.
+    """
+    appels = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        appels.append(requete)
+        return httpx.Response(200, json=charge_complete(10))
+
+    chemin = tmp_path / "a.sqlite"
+    c = client(gestionnaire, chemin)
+    assert len(c.horaires(0.0, 0.0, AUJOURD_HUI, aujourd_hui=AUJOURD_HUI)) == 10
+    assert len(appels) == 1
+    assert _lignes_en_cache(chemin) == 0
+
+    # Mémoïsé quand même le temps du processus : pas de second appel.
+    assert len(c.horaires(0.0, 0.0, AUJOURD_HUI, aujourd_hui=AUJOURD_HUI)) == 10
+    assert len(appels) == 1
+
+    # Le lendemain, un nouveau client redemande et obtient les 24 heures.
+    demain = client(reponse(charge_complete()), chemin)
+    assert len(demain.horaires(0.0, 0.0, AUJOURD_HUI, aujourd_hui=date(2026, 9, 14))) == 24
+    assert _lignes_en_cache(chemin) == 1
+
+
+def test_la_veille_est_ecrite_en_cache(tmp_path: Path):
+    """Un jour clos ne change plus : c'est le cas qui justifie la mémoïsation."""
+    chemin = tmp_path / "a.sqlite"
+    veille = date(2026, 9, 12)
+    c = client(reponse(charge_complete()), chemin)
+    assert len(c.horaires(0.0, 0.0, veille, aujourd_hui=AUJOURD_HUI)) == 24
+    assert _lignes_en_cache(chemin) == 1
+
+    # Relu par un autre processus sans aucun appel.
+    def refuser(requete: httpx.Request) -> httpx.Response:  # pragma: no cover
+        raise AssertionError("le cache aurait dû suffire")
+
+    autre = client(refuser, chemin)
+    assert len(autre.horaires(0.0, 0.0, veille, aujourd_hui=AUJOURD_HUI)) == 24
+    assert autre.appels == 0
 
 
 def test_cache_corrompu_ne_fait_pas_echouer(tmp_path: Path):
