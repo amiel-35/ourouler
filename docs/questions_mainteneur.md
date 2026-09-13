@@ -40,6 +40,13 @@ sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
 - Coordonnées du point de départ habituel (dans le fichier de configuration,
   jamais dans le dépôt). En attendant, la démo `meteo` tourne sur le centre
   de Rennes.
+  **Réponse (13/09/2026)** : adresse donnée, géocodée et posée dans la
+  configuration locale (« Maison »). Règle produit : **le point de départ
+  est un paramètre utilisateur, remplaçable ponctuellement** (déplacement,
+  vacances) — à prévoir : option `--depuis "<adresse ou lat,lon>"` sur
+  `meteo` et `boucle`, géocodage à la demande (Nominatim), et plusieurs
+  départs nommés dans la configuration (`[[departs]]`). Lot du sprint 3
+  ou 4, au choix du point de repriorisation.
 - Règles de tenue : seuils de température ressentie, de vent, de pluie et
   ce qu'on met à chaque palier (utiles à partir de S4).
 - Règles de séance : que veut dire « un bloc tient sur un terrain » (pente
@@ -53,6 +60,18 @@ sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
   froid. Le vent compte deux fois : impact sur la performance et ressenti
   de froid. Les bornes chiffrées de chaque catégorie et la tenue associée
   restent à donner (un tableau dans la configuration).
+  **Précision (13/09/2026)** : l'échelle proposée par le superviseur
+  (canicule ≥ 30, chaud 22-30, modéré 15-22, frais 9-15, froid 3-9, très
+  froid < 3 °C ressentis ; sec / humide / averses / pluie à 0 / 0,2 / 0,5 /
+  1 mm/h) est jugée bonne, mais **ce n'est pas simple : le vent joue
+  beaucoup et ça change vite ; ce qui compte, c'est la variation sur la
+  durée, surtout en sortie longue.** Conséquence de conception pour S4 : la
+  tenue ne se calcule pas sur la météo au départ mais sur la **série des
+  échantillons le long du tracé à l'heure de passage** (déjà produite par
+  `boucle`) — on prend le pire moment pour la couche de base, et on
+  recommande « à emporter / à enlever » pour l'amplitude (départ frais,
+  retour chaud ; averse annoncée au km 40). Le vent entre dans le ressenti
+  et déclenche seul la veste au-delà d'un seuil.
 - Sorties en groupe (sprint 3) : les FIT ne le disent pas ; Strava le sait
   souvent (champ « nombre d'athlètes » de l'activité). Voies : export
   Strava, ou détection statistique (vitesse trop élevée pour la puissance =
