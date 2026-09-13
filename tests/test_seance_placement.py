@@ -102,9 +102,8 @@ def _installer_les_doubles() -> list[str]:
 
 DOUBLES = _installer_les_doubles()
 
-from ourouler.seance.modele import Etape, Seance  # noqa: E402
-
 from ourouler.seance import placement  # noqa: E402
+from ourouler.seance.modele import Etape, Seance  # noqa: E402
 from ourouler.seance.terrain import NoteBloc  # noqa: E402
 
 # --- fixtures synthétiques ----------------------------------------------------
