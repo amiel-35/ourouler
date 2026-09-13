@@ -25,6 +25,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from ourouler.boucle.antennes import detecter
 from ourouler.boucle.trace import PointTrace, Segment, Trace, cap_deg, distance_m, sens_boucle
 
 # --- classes de routes et de revêtements ------------------------------------
@@ -102,6 +103,12 @@ class Couts:
     #: parfaitement calme.
     km_non_classe: float
     km_non_revetu: float
+    #: Mètres d'antennes (aller-retour dans un cul-de-sac) **avant** élagage,
+    #: pour information : le tracé proposé n'en a plus. Ils viennent de
+    #: `trace.meta["antennes"]` quand la génération les a déjà mesurés, d'une
+    #: détection à la volée sinon (un GPX importé, lui, n'est pas élagué).
+    #: Le score ne les compte pas : ce qui a été retiré n'a plus de coût.
+    antennes_m: float
     virages_gauche: int
     virages_gauche_trafic: int  # sous-ensemble de `virages_gauche`
     virages_droite: int
@@ -137,12 +144,33 @@ def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
         km_calme=km_calme,
         km_non_classe=km_non_classe,
         km_non_revetu=km_non_revetu,
+        antennes_m=_antennes_m(trace),
         virages_gauche=gauche,
         virages_gauche_trafic=gauche_trafic,
         virages_droite=droite,
         sens=sens,
         score=score,
     )
+
+
+# --- antennes -----------------------------------------------------------------
+
+
+def _antennes_m(trace: Trace) -> float:
+    """Les mètres d'antennes du tracé, avant élagage s'il a eu lieu.
+
+    Une candidate générée par `boucle.candidates` est déjà élaguée : la mesure
+    est dans `meta["antennes"]`, et la redétecter rendrait 0. Un GPX importé,
+    lui, n'est pas élagué — on le mesure alors à la volée, sinon la colonne
+    afficherait « 0 m d'antennes » pour un tracé qui en est plein (règle
+    absolue 5 : une ignorance ne se déguise pas en mesure).
+    """
+    mesure = trace.meta.get("antennes")
+    if isinstance(mesure, dict):
+        retires = mesure.get("metres_retires")
+        if isinstance(retires, (int, float)) and not isinstance(retires, bool):
+            return float(retires)
+    return sum(a.longueur_m for a in detecter(trace))
 
 
 # --- kilomètres par classe de route ------------------------------------------

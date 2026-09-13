@@ -368,3 +368,34 @@ def test_le_seuil_de_virage_est_bien_celui_annonce():
     assert evaluer(trace_de_caps([0, sous])).virages_droite == 0
     assert evaluer(trace_de_caps([0, au_dessus])).virages_droite == 1
     assert evaluer(trace_de_caps([0, -au_dessus])).virages_gauche == 1
+
+
+# --- antennes (L3.1) ----------------------------------------------------------
+
+
+def test_les_metres_d_antennes_viennent_de_la_mesure_d_avant_elagage():
+    """Une candidate élaguée n'a plus d'antenne : la colonne lit ce qui a été retiré."""
+    trace = trace_de_caps([0, 90])
+    trace.meta["antennes"] = {"nombre": 2, "metres_retires": 740.0}
+    couts = evaluer(trace)
+    assert couts.antennes_m == pytest.approx(740.0)
+    # Informatif : le score n'en tient pas compte (ces mètres ne sont plus là).
+    assert couts.score == pytest.approx(PENALITE_MAUVAIS_SENS)
+
+
+def test_un_trace_non_elague_est_mesure_a_la_volee():
+    """Un GPX importé n'a pas de `meta["antennes"]` : on ne rend pas 0 sans regarder."""
+    aller_retour = trace_de_caps([0] * 10 + [180] * 10, pas_m=20.0)
+    assert "antennes" not in aller_retour.meta
+    assert evaluer(aller_retour).antennes_m > 300
+
+
+def test_une_mesure_d_antennes_illisible_est_refaite():
+    trace = trace_de_caps([0, 90])
+    for valeur in ({"nombre": 1}, {"metres_retires": None}, {"metres_retires": True}, "740"):
+        trace.meta["antennes"] = valeur
+        assert evaluer(trace).antennes_m == 0.0
+
+
+def test_un_trace_sans_antenne_rend_zero_metre():
+    assert evaluer(trace_de_caps([0, 90, 180, 270])).antennes_m == 0.0

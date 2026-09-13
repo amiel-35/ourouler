@@ -256,7 +256,9 @@ def test_les_colonnes_du_contrat_sont_toutes_la(tmp_path: Path, monkeypatch, cap
     monkeypatch.chdir(tmp_path)
     executer(args(), config_de_test(), moteur_brouter(), moteur_meteo(pluie=0.5))
     sortie = capsys.readouterr().out
-    for titre in ("n°", "distance", "D+", "temps", "trafic", "non revêtu", "virages G", "sens"):
+    for titre in (
+        "n°", "distance", "D+", "temps", "trafic", "non revêtu", "antennes m", "virages G", "sens"
+    ):
         assert titre in sortie
     for titre in ("pluie", "vent face", "ressenti min"):
         assert titre in sortie
@@ -568,6 +570,7 @@ def test_json_valide_avec_toutes_les_mesures(tmp_path: Path, monkeypatch, capsys
         "km_calme",
         "km_non_classe",
         "km_non_revetu",
+        "antennes_m",
         "virages_gauche",
         "virages_gauche_trafic",
         "virages_droite",
@@ -614,3 +617,64 @@ def test_la_sous_commande_est_enregistree_et_accepte_json_apres():
 
 def test_json_global_avant_la_sous_commande_boucle():
     assert construire_parseur().parse_args(["--json", "boucle"]).json is True
+
+
+# --- colonne des antennes (L3.1) ----------------------------------------------
+
+
+def moteur_brouter_avec_antenne() -> ClientBrouter:
+    """BRouter bouchonné dont chaque boucle porte un cul-de-sac de 150 m aller-retour."""
+    from test_boucle_candidates import anneau_avec_antenne
+
+    points = anneau_avec_antenne()
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        charge = reponse_fabriquee()
+        entite = charge["features"][0]
+        entite["geometry"]["coordinates"] = points
+        entite["properties"]["messages"] = []
+        entite["properties"].pop("track-length", None)
+        return httpx.Response(200, json=charge)
+
+    params = config_de_test().brouter
+    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def test_la_colonne_antennes_compte_les_metres_retires(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(distance=7.0, candidates=1),
+        config_de_test(),
+        moteur_brouter_avec_antenne(),
+        moteur_meteo(),
+    )
+    lignes = capsys.readouterr().out.splitlines()
+    entete = next(ligne for ligne in lignes if "antennes m" in ligne)
+    # Les colonnes sont justifiées à droite : la cellule finit là où finit son titre.
+    fin = entete.index("antennes m") + len("antennes m")
+    cellule = lignes[lignes.index(entete) + 1][:fin].rsplit(None, 1)[-1]
+    assert 270 <= float(cellule) <= 330
+
+
+def test_le_json_porte_les_antennes_retirees(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(distance=7.0, candidates=1, json=True),
+        config_de_test(),
+        moteur_brouter_avec_antenne(),
+        moteur_meteo(),
+    )
+    candidate = json.loads(capsys.readouterr().out)["candidates"][0]
+    assert candidate["couts"]["antennes_m"] == pytest.approx(300, abs=30)
+    assert candidate["antennes"]["nombre"] == 1
+    assert candidate["distance_source"] == "recalculee"
+    assert candidate["meta"]["denivele_approximatif"] is True
+
+
+def test_sans_antenne_la_colonne_affiche_zero(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(args(json=True), config_de_test(), moteur_brouter(), moteur_meteo())
+    candidate = json.loads(capsys.readouterr().out)["candidates"][0]
+    assert candidate["couts"]["antennes_m"] == 0.0
+    assert candidate["antennes"] == {"nombre": 0, "metres_retires": 0.0}
+    assert candidate["distance_source"] is None

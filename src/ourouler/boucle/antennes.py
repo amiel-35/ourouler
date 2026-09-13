@@ -97,6 +97,12 @@ RATIO_RETOURNEMENT = 0.5
 #: l'antenne débordait sur la vraie route des deux côtés.
 FENETRE_APPARIEMENT = 2
 
+#: Tolérance de flottant sur les comparaisons de distance parcourue. Un
+#: aller-retour parfait était refusé parce que l'aller mesurait
+#: 199,999 999 999 m pour un retour de 200,000 000 001 m : la comparaison
+#: d'arcs égaux ne peut pas être exacte.
+EPSILON_M = 1e-6
+
 #: Valeur de `meta["distance_source"]` après élagage.
 DISTANCE_RECALCULEE = "recalculee"
 
@@ -260,18 +266,19 @@ def _antenne_autour(
     meilleure: tuple[int, int, float] | None = None
     for fin in range(k + 1, len(points)):
         retour_m = arc[fin] - arc[k]
-        while debut > 0 and arc[k] - arc[debut] < retour_m:
+        while debut > 0 and arc[k] - arc[debut] < retour_m - EPSILON_M:
             debut -= 1
-        if arc[k] - arc[debut] < retour_m:
+        if arc[k] - arc[debut] < retour_m - EPSILON_M:
             break  # l'aller ne remonte pas assez loin : début du tracé atteint
         longueur = arc[fin] - arc[debut]
-        if longueur > fenetre_m:
+        if longueur > fenetre_m + EPSILON_M:
             # Toujours superposé au-delà de la fenêtre : aller-retour voulu,
             # pas une antenne. On abandonne la candidate entière.
             return None
         if _ecart_a_l_aller(points, debut, k, points[fin]) > tolerance_m:
             break
-        if longueur >= LONGUEUR_MIN_M and distance_m(points[debut], points[fin]) <= tolerance_m:
+        jonction = distance_m(points[debut], points[fin])
+        if longueur >= LONGUEUR_MIN_M and jonction <= tolerance_m + EPSILON_M:
             # Les deux bouts se rejoignent : c'est bien une jonction, et pas
             # un point pris au hasard de part et d'autre sur la vraie route.
             meilleure = (debut, fin, longueur)
