@@ -35,7 +35,7 @@ from ourouler.physique.calibration import (
     masse_totale_kg,
     motif_exclusion,
     partager,
-    profil_puissance,
+    puissance_moyenne_en_mouvement,
     sorties_calibrables,
     temps_mouvement_s,
     valider,
@@ -382,15 +382,13 @@ def test_temps_mouvement_sans_vitesse_retombe_sur_la_source():
     assert temps_mouvement_s(activite) == pytest.approx(599.0)
 
 
-def test_profil_puissance_suit_la_distance():
+def test_puissance_moyenne_en_mouvement_ignore_les_arrets():
     activite = sortie_synthetique(duree_s=1200)
-    profil = profil_puissance(activite)
-    assert profil is not None
-    attendu = [p.puissance_w for p in activite.points if 5000 <= (p.dist_m or 0) < 5100]
-    if attendu:
-        assert profil(5050.0) == pytest.approx(sum(attendu) / len(attendu), rel=0.02)
-    # Hors bornes : on ne sort pas de la liste.
-    assert profil(-10.0) > 0 and profil(10_000_000.0) > 0
+    for p in activite.points[400:600]:
+        p.vitesse_ms = 0.0
+        p.puissance_w = 0.0
+    moyenne = puissance_moyenne_en_mouvement(activite)
+    assert moyenne is not None and moyenne > 150.0
 
 
 # --- validation ---------------------------------------------------------------

@@ -259,6 +259,12 @@ def _charger_sorties(
         except (KeyError, ErreurUtilisateur, OSError) as e:
             pannes.append(f"sortie {entree.identifiant[:12]} illisible ({e})")
             continue
+        # Le nom de la sortie vit dans l'index du cache, pas dans le fichier
+        # brut : sans ce report, le rapport désignait chaque sortie par le
+        # chemin de son FIT, ce qui n'apprend rien à personne.
+        nom = entree.meta.get("nom")
+        if nom:
+            activite.meta["nom"] = str(nom)
         vent = _archive_du_depart(activite, client, pannes)
         sorties.append(
             calib.SortieCalibration(activite=activite, vent=vent, identifiant=entree.identifiant)
@@ -349,6 +355,11 @@ def rendre_texte_calibration(
     )
     lignes.append(
         f"  résidu de puissance : RMSE {_fr(a.rmse_w, 1)} W, MAE {_fr(a.mae_w, 1)} W"
+    )
+    lignes.append(
+        f"  résistance totale à {calib.V_REFERENCE_KMH:g} km/h : "
+        f"{_fr(a.force_reference_n, 1)} N — c'est ce que les données contraignent le "
+        "mieux, CdA et Crr pouvant se compenser l'un l'autre"
     )
     lignes.append(
         f"  première passe (avec les sorties en groupe) : CdA {_fr(rapport.passe1.cda_m2, 3)}, "
