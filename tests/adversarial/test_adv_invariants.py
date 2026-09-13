@@ -20,8 +20,10 @@ from __future__ import annotations
 import ast
 import re
 import socket
+from datetime import date, datetime
 from pathlib import Path
 
+import fabriques4
 import httpx
 import outils
 import pytest
@@ -29,6 +31,7 @@ from conftest import RACINE, ReseauInterdit
 
 from ourouler import cli, erreurs
 from ourouler import config as module_config
+from ourouler.sortie import commande as commande_sortie
 
 SRC = RACINE / "src" / "ourouler"
 TESTS = RACINE / "tests"
@@ -306,6 +309,125 @@ def test_aucun_fichier_d_activite_hors_des_fixtures():
     assert not suspects, f"fichiers d'activité hors de tests/fixtures/ : {suspects}"
 
 
+def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
+    """Un test ne doublure pas un module de production : il l'importe.
+
+    Le fichier de placement installait, **à l'import**, de faux
+    `ourouler.seance.modele` et `ourouler.seance.terrain` quand les vrais ne
+    s'importaient pas. L'échafaudage a servi le temps que les lots s'écrivent
+    en parallèle ; gardé, il rendait la suite menteuse — un symbole renommé
+    dans `boucle.couts` aurait fait passer vingt-quatre tests au vert contre
+    un `evaluer_couloir` qui rend toujours 0 et une `demi_tour_faisable` qui
+    dit toujours oui.
+
+    Trois gestes interdits, tous ceux qu'il fallait pour monter la doublure :
+    fabriquer un `ModuleType` au nom d'`ourouler`, l'accrocher au paquet par
+    `setattr`, ou l'écrire dans `sys.modules`. Charger par chemin un module de
+    fixtures (`generer_activites`, `workouts`…) reste permis : il ne masque
+    aucun module de production. `monkeypatch.setattr` aussi, qui est défait à
+    la fin de chaque test — ce qu'une écriture à l'import n'est pas.
+    """
+    fautes: list[str] = []
+    for chemin in _fichiers_python(TESTS):
+        for noeud in ast.walk(_arbre(chemin)):
+            texte = ast.unparse(noeud)
+            if isinstance(noeud, ast.Assign):
+                for cible in noeud.targets:
+                    if (
+                        isinstance(cible, ast.Subscript)
+                        and ast.unparse(cible.value) == "sys.modules"
+                        and "ourouler" in ast.unparse(cible.slice)
+                    ):
+                        fautes.append(f"{chemin.relative_to(RACINE)}:{noeud.lineno} {texte}")
+            if not isinstance(noeud, ast.Call):
+                continue
+            appele = ast.unparse(noeud.func)
+            fabrique = appele.endswith("ModuleType") and "ourouler" in texte
+            accroche = (
+                appele == "setattr"
+                and noeud.args
+                and ast.unparse(noeud.args[0]).startswith("ourouler")
+            )
+            if fabrique or accroche:
+                fautes.append(f"{chemin.relative_to(RACINE)}:{noeud.lineno} {texte}")
+    assert not fautes, (
+        "un test remplace un module de production au lieu de l'importer :\n  "
+        + "\n  ".join(fautes)
+    )
+
+
+def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monkeypatch):
+    """`fabriques4.module` doit laisser remonter un `ImportError` **interne**.
+
+    Sauter est le bon comportement quand le lot n'existe pas encore. Le faire
+    quand le paquet est là mais qu'un de ses imports a disparu transforme une
+    suite adversariale entière en « skipped », c'est-à-dire en vert.
+    """
+    paquet = tmp_path / "paquet_de_test"
+    paquet.mkdir()
+    (paquet / "__init__.py").write_text("", encoding="utf-8")
+    (paquet / "present.py").write_text("VALEUR = 1\n", encoding="utf-8")
+    (paquet / "casse.py").write_text(
+        "from paquet_de_test.inexistant import quoi_que_ce_soit\n", encoding="utf-8"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(fabriques4, "PAQUETS", ("paquet_de_test",))
+
+    assert fabriques4.module("present", motif="absent").VALEUR == 1
+
+    with pytest.raises(ModuleNotFoundError):
+        fabriques4.module("casse", motif="ne doit pas être sauté")
+
+    with pytest.raises(pytest.skip.Exception, match="lot jamais écrit"):
+        fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
+
+
+def test_tout_fichier_ecrit_par_defaut_par_sortie_est_ignore_par_git():
+    """Règle absolue 1 : `ourouler sortie` écrit dans le dossier courant, dépôt compris.
+
+    Les deux noms par défaut — `sortie_<AAAAMMJJ>.gpx` et
+    `sortie_<AAAAMMJJ>.html` — sont écrits **toujours**, même sans `--sortie`
+    ni `--carte`, et la carte porte la géométrie complète de la boucle, donc
+    le point de départ du mainteneur. Un `ourouler sortie` lancé à la racine
+    du dépôt met donc la règle absolue 1 à la merci d'un `git add -A` dès
+    qu'une de ces extensions n'est pas ignorée.
+
+    Le test lit les chemins **depuis le code de la commande**, et non une
+    liste écrite ici : ajouter demain un troisième fichier de sortie le fera
+    échouer tant que `.gitignore` ne l'aura pas suivi.
+    """
+    demande = commande_sortie.Demande(
+        jour=date(2026, 2, 8),
+        distance_km=None,
+        direction="",
+        azimut_deg=None,
+        nb_candidates=4,
+        profil="route",
+        depart=datetime(2026, 2, 8, 9, 0),
+        velo=None,
+        sortie=None,
+        carte=None,
+    )
+    par_defaut = [
+        commande_sortie.chemin_gpx_par_defaut(demande),
+        commande_sortie.chemin_carte_par_defaut(demande),
+    ]
+    lignes = {
+        ligne.strip()
+        for ligne in (RACINE / ".gitignore").read_text(encoding="utf-8").splitlines()
+        if ligne.strip() and not ligne.strip().startswith("#")
+    }
+    oublies = [
+        chemin.name
+        for chemin in par_defaut
+        if f"*{chemin.suffix}" not in lignes and chemin.name not in lignes
+    ]
+    assert not oublies, (
+        "`ourouler sortie` écrit ces fichiers dans le dossier courant et "
+        f".gitignore ne les ignore pas : {oublies}"
+    )
+
+
 # --- sprint 2 : le mot de passe BRouter ne sort jamais -----------------------
 
 #: Faux mot de passe de serveur BRouter (aucune valeur réelle, règle absolue 1).
@@ -560,3 +682,186 @@ def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
     assert not any(f in t for t in textes for f in FICHIERS_DU_CACHE if f != "poids_routes.json"), (
         "faux positif sur un nom de fichier qui n'est pas du sprint 3"
     )
+
+
+# --- sprint 4 : le paquet de la séance reste dans le cœur --------------------
+
+#: Le contrat du sprint 4 nomme le paquet `seance/`, la doctrine §4 `sortie/`.
+#: Les règles valent pour celui des deux qui existe.
+PAQUETS_SEANCE = ("seance", "sortie")
+
+#: Modules du cœur du sprint 4. `commande.py` en est exclu : c'est lui qui a le
+#: droit de lire le disque et de connaître le jour courant (CLAUDE.md règle 2).
+MODULES_SEANCE_COEUR = ("modele.py", "intervals.py", "terrain.py", "placement.py", "tenue.py")
+
+#: Modules qui trahissent un accès au disque. `json` est traité à part : seuls
+#: `json.load` et `json.dump` (les variantes fichier) sont interdits.
+MODULES_DISQUE = {"pathlib", "sqlite3", "shutil", "tempfile", "os", "tomllib", "csv"}
+APPELS_DISQUE = {
+    "open", "read_text", "write_text", "read_bytes", "write_bytes",
+    "mkdir", "unlink", "iterdir", "glob", "rglob", "connect",
+}
+#: Lectures de l'horloge : le cœur reçoit le jour, il ne le devine pas.
+APPELS_HORLOGE = {"now", "today", "utcnow", "fromtimestamp"}
+
+
+def _dossier_seance() -> Path | None:
+    for nom in PAQUETS_SEANCE:
+        if (SRC / nom).is_dir():
+            return SRC / nom
+    return None
+
+
+def _modules_seance() -> list[Path]:
+    dossier = _dossier_seance()
+    if dossier is None:
+        pytest.skip("paquet du sprint 4 absent (src/ourouler/seance/ ou sortie/)")
+    modules = [p for p in _fichiers_python(dossier) if p.name in MODULES_SEANCE_COEUR]
+    assert modules, (
+        f"{dossier.relative_to(RACINE)} existe mais ne contient aucun des modules du contrat "
+        f"{MODULES_SEANCE_COEUR}"
+    )
+    return modules
+
+
+def _appels(chemin: Path) -> list[tuple[int, str]]:
+    """(ligne, nom appelé) pour chaque appel de fonction ou de méthode."""
+    trouves: list[tuple[int, str]] = []
+    for noeud in ast.walk(_arbre(chemin)):
+        if not isinstance(noeud, ast.Call):
+            continue
+        fonction = noeud.func
+        if isinstance(fonction, ast.Name):
+            trouves.append((noeud.lineno, fonction.id))
+        elif isinstance(fonction, ast.Attribute):
+            if isinstance(fonction.value, ast.Name):
+                trouves.append((noeud.lineno, f"{fonction.value.id}.{fonction.attr}"))
+            trouves.append((noeud.lineno, fonction.attr))
+    return trouves
+
+
+def _fautes_de_disque(chemin: Path) -> list[str]:
+    relatif = chemin.relative_to(RACINE) if chemin.is_relative_to(RACINE) else chemin.name
+    fautes = [
+        f"{relatif}:{ligne} import {module}"
+        for ligne, module in _imports(chemin)
+        if module in MODULES_DISQUE
+    ]
+    for ligne, appel in _appels(chemin):
+        if appel in APPELS_DISQUE or appel in ("json.load", "json.dump"):
+            fautes.append(f"{relatif}:{ligne} {appel}(…)")
+    return fautes
+
+
+def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
+    """La règle « le cœur ne sait pas où il tourne » doit couvrir le paquet du sprint 4.
+
+    Les détecteurs des sprints 1 à 3 parcourent `src/ourouler/` en entier : ce
+    test vérifie que le nouveau paquet n'y échappe pas, sans quoi la garantie
+    serait vide pour les modules qui viennent d'arriver.
+    """
+    modules = _modules_seance()
+    scannes = set(_fichiers_python(SRC))
+    manquants = [str(m.relative_to(RACINE)) for m in modules if m not in scannes]
+    assert not manquants, f"modules du sprint 4 hors du champ des règles du cœur : {manquants}"
+
+
+def test_le_coeur_de_la_seance_ne_touche_pas_au_disque():
+    """Contrat §1 à §3 : le cœur reçoit une séance, un tracé et des paramètres.
+
+    Seuls `cli.py` et les `commande.py` lisent un chemin. Un `open()` ou un
+    `pathlib` dans `placement.py` est la règle absolue 2 contournée.
+    """
+    fautes = [faute for chemin in _modules_seance() for faute in _fautes_de_disque(chemin)]
+    assert not fautes, (
+        "accès au disque dans le cœur du sprint 4 (seuls cli.py et les commande.py y ont droit) :\n  "
+        + "\n  ".join(fautes)
+    )
+
+
+def test_le_coeur_de_la_seance_ne_lit_pas_l_horloge():
+    """`seance_du_jour(client, jour)` reçoit le jour : le cœur ne consulte pas la machine.
+
+    C'est la même règle que le disque et l'environnement : deux exécutions du
+    placement sur les mêmes entrées doivent donner le même résultat, y compris
+    à cheval sur minuit ou sur un changement d'heure.
+    """
+    fautes = []
+    for chemin in _modules_seance():
+        for ligne, appel in _appels(chemin):
+            nom = appel.split(".")[-1]
+            if nom in APPELS_HORLOGE:
+                fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} {appel}(…)")
+    assert not fautes, (
+        "lecture de l'horloge dans le cœur du sprint 4 (le jour est un paramètre) :\n  "
+        + "\n  ".join(sorted(set(fautes)))
+    )
+
+
+#: Modules du sprint 4 qui ne parlent à personne : ils reçoivent des objets.
+MODULES_SANS_RESEAU = ("modele.py", "terrain.py", "placement.py", "tenue.py")
+
+
+def test_le_terrain_le_placement_et_la_tenue_n_ouvrent_aucune_connexion():
+    """Règle absolue 3 : le client HTTP est injecté, et seulement au connecteur."""
+    fautes = []
+    for chemin in _modules_seance():
+        if chemin.name not in MODULES_SANS_RESEAU:
+            continue
+        for ligne, module in _imports(chemin):
+            if module in {"httpx", "requests", "urllib", "http", "socket"}:
+                fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} import {module}")
+    assert not fautes, "réseau dans le cœur du sprint 4 :\n  " + "\n  ".join(fautes)
+
+
+#: Ce que `seance/terrain.py` doit **importer** de `boucle.couts` plutôt que de
+#: le réécrire : la liste des routes passantes, la détection géométrique des
+#: virages, et le découpage en tronçons qui ferme la contamination d'un bloc
+#: par les tags du tronçon précédent.
+SYMBOLES_DE_COUTS = {"HIGHWAY_TRAFIC", "virages_detectes", "tags_par_troncon"}
+
+
+def test_le_terrain_reutilise_la_mecanique_des_couts():
+    """Contrat §2 : « réutiliser la mécanique de `couts`, ne pas la dupliquer ».
+
+    L'assertion d'origine se contentait de `"couts" in texte` : un commentaire
+    contenant le mot suffisait à la satisfaire, et une réécriture complète de
+    la détection des virages serait passée au vert. On exige maintenant un
+    **import réel** des symboles nommés.
+    """
+    modules = {chemin.name: chemin for chemin in _modules_seance()}
+    terrain = modules.get("terrain.py")
+    if terrain is None:
+        pytest.skip("terrain.py absent (lot L4.2)")
+    importes: set[str] = set()
+    for noeud in ast.walk(_arbre(terrain)):
+        if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").endswith("boucle.couts"):
+            importes.update(alias.name for alias in noeud.names)
+    manquants = sorted(SYMBOLES_DE_COUTS - importes)
+    assert not manquants, (
+        f"terrain.py n'importe pas de `boucle.couts` : {manquants} — la détection "
+        "des virages, la liste des routes passantes ou le découpage en tronçons "
+        "ont été réécrits au lieu d'être réutilisés (contrat §2)"
+    )
+
+
+def test_les_detecteurs_du_sprint_4_fonctionnent(tmp_path):
+    """Un test négatif ne prouve rien sans la preuve que le détecteur détecte."""
+    faux = tmp_path / "faux.py"
+    faux.write_text(
+        "import pathlib\n"
+        "from datetime import date\n"
+        "def lire(c):\n"
+        "    with open(c) as f:\n"
+        "        return f.read(), date.today()\n",
+        encoding="utf-8",
+    )
+    fautes = _fautes_de_disque(faux)
+    assert any("pathlib" in f for f in fautes), f"import pathlib non repéré : {fautes}"
+    assert any("open" in f for f in fautes), f"open() non repéré : {fautes}"
+    appels = {appel for _, appel in _appels(faux)}
+    assert "date.today" in appels and "today" in appels, f"date.today() non repéré : {appels}"
+    propre = tmp_path / "propre.py"
+    propre.write_text("def placer(seance, trace, p):\n    return sum(e.duree_s for e in seance.etapes)\n",
+                      encoding="utf-8")
+    assert not _fautes_de_disque(propre), "faux positif sur un module qui ne touche à rien"

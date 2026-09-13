@@ -12,7 +12,7 @@ Aucune clé n'existe sur le Mac : le MCP Intervals est un proxy hébergé
 (`[intervals] api_key`), jamais ailleurs. Sans elle, l'inventaire ne peut
 pas rapatrier les FIT d'origine.
 
-## Q2 — Liste des vélos et règle de rattachement
+## Q2 — Liste des vélos et règle de rattachement — **close le 13/09/2026**
 
 Intervals ne connaît un vélo que sur 68 sorties sur 355 : `rcr` (55, du
 02/12/2023 au 22/03/2026, surtout extérieur), `VR` (11, home-trainer,
@@ -34,6 +34,20 @@ messages `device_info` (fabricant/produit du capteur) et la présence du
 champ d'équilibre gauche/droite (bilatéral = Force = BMC) ; parité de la
 puissance en repli. Lot « rattachement par capteur » au sprint 2, à valider
 sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
+
+**Réponse d'Amiel (13/09/2026) — masses, et Q2 close.** Posées dans sa
+configuration locale, hors dépôt :
+- **RCR** : Van Rysel, SRAM Rival, roues Zipp 303s → 8,5 kg, plus 0,5 kg de
+  porte-bidon, pédales et compteur = **9,0 kg**.
+- **BMC** : Timemachine 2021, SRAM Force, roues Hologram 64 arrière et 45
+  avant → 9,5 kg, plus 0,5 = **10,0 kg**.
+
+Masses totales avec le cycliste : 100,0 et 101,0 kg. Effet mesuré sur la
+calibration : **nul** — erreur de temps inchangée à 4,2 % et 2,4 %. C'est
+ce que le cadrage annonçait : hors montagne, un kilo sur cent ne se voit
+pas. Les masses sont désormais justes, ce qui compte pour le jour où une
+sortie montagneuse entrera dans le jeu.
+
 
 ## Q3 — Point de départ et règles de tenue / de séance
 
@@ -234,3 +248,208 @@ calibration ?
 
 </details>
 
+
+## Q11 — Les séances prescrites en zones de FC — **close le 13/09/2026**
+
+**Close.** Règle retenue : **zone de FC basse (Z1, Z2) → `[seance]
+puissance_endurance_pct` × FTP**, défaut **0,60** ; **zone de FC haute (Z3 et
+au-dessus) → table des zones de puissance de même numéro**, inchangée.
+L'avertissement à l'écran dit laquelle des deux s'applique.
+
+**C'est un cas minoritaire, et il faut le garder en tête.** Comptage des
+unités sur les 82 séances vélo de 2026 : **259 étapes en `%ftp`**, 16 en
+`power_zone`, **28 en `hr_zone`**. Les séances de coach (iDOSport) et le plan
+Ironman sont **tous en pourcentage de FTP** : traduction exacte, aucune
+approximation, aucun avertissement. Les zones de FC sont un lot de séances
+« Vélo HIT / Sortie EF » de juin à septembre 2026.
+
+**Pourquoi la table des zones ne marchait pas pour les zones basses.** La Z1
+de puissance s'étend de 0 à 55 % de FTP ; son milieu vaut 27,5 % de FTP,
+c'est-à-dire du pédalage à vide, et une zone ouverte vers le bas n'a de toute
+façon pas de milieu qui veuille dire quelque chose. Une zone de FC n'est pas
+non plus la zone de puissance de même numéro : un plan qui écrit « Z1 de FC »
+pour une endurance désigne une puissance d'endurance franche.
+
+**La valeur, mesurée.** Médiane de 60 % de FTP (154 W pour 258 W de FTP) sur
+les 96 sorties extérieures de plus d'une heure depuis 2025 ; 59 % sur toutes
+les sorties extérieures confondues. Les EF de 3 h font 75-81 km, soit
+25-27 km/h.
+
+**Ce que ça change, mesuré sur les vraies séances (`ourouler seance`) :**
+
+| Séance | Avant | Après | Référence |
+|---|---|---|---|
+| « Sortie EF 2h » du 29/08 (Z1 de FC) | 36,1 km (18,0 km/h) | **57,3 km (28,6 km/h)** | ses EF réelles : 25-27 km/h |
+| Récup de 4 min de « 4x8min Z4 » du 08/09 | 0,6 km au-delà du segment | **1,0 km** | cadrage S4 : « 4 min à 25 km/h ≈ 800 m » |
+| Blocs Z4 du 08/09 | 4,9 km à 235-271 W | **inchangés** | plausible pour du seuil |
+
+Les zones hautes n'ont pas bougé : la table des zones tombe juste pour elles.
+
+**Ce qui reste incertain.** 0,60 est une médiane sur l'historique, pas une
+correspondance FC → puissance. Une vraie table (FC et puissance sont toutes
+deux enregistrées dans les FIT du cache) serait plus juste, et reste ouverte
+si le besoin revient — il est faible tant que les séances de coach sont
+prescrites en pourcentage de FTP.
+
+<details><summary>Historique de la question</summary>
+
+Ouverte le 13/09/2026 au lot L4.1. Le contrat de sprint 4 §1 demandait
+d'approximer une consigne en zone de FC par la zone de **puissance** de même
+numéro, et de le dire. C'était fait, et affiché, mais le résultat chiffré
+n'était pas utilisable : « Sortie EF 2h » prescrite en Z1 de FC donnait 71 W
+de cible, donc 36,1 km pour 2 h — 18 km/h là où une EF de 2 h fait 50 à
+60 km. Même effet, plus discret, sur les récupérations : 4 min de Z1 donnaient
+1,2 km, donc 0,6 km de route nécessaire au-delà du segment pour un demi-tour,
+contre les 800 m du cadrage.
+
+La première version de la question portait sur « les séances sont prescrites
+en FC » ; le mainteneur a corrigé le cadrage : c'est l'exception, pas la
+règle, et le jour de vérification avait été choisi dans l'exception.
+
+</details>
+
+## Q12 — Comment savoir qu'une étape est un bloc ? — **close le 13/09/2026**
+
+**Close.** Cascade de **trois règles**, première qui répond gagne, plus un
+recadrage des extrémités. La provenance du type de chaque étape est gardée
+dans `meta["typage_source"]` : on doit toujours pouvoir dire pourquoi une
+étape est un bloc.
+
+1. **Marqueurs explicites** — `warmup`, `cooldown`, `intensity` : la règle du
+   contrat de sprint 4 §1, inchangée.
+2. **Mots du champ `text`**, sans accents ni casse : « échauffement » et
+   « warm » ; « récupération », « recup », « recovery » ; « retour au calme »
+   et « cool ». Le texte de l'étape l'emporte sur celui de son groupe.
+3. **Puissance relative à la FTP** — `[seance] seuil_recuperation_pct`,
+   défaut **0,75** (la frontière Z2/Z3) : sous ce seuil, une étape n'est pas
+   un bloc. Selon sa position : première → échauffement, dernière → retour au
+   calme, sinon → récupération.
+
+Puis, aux **extrémités seulement**, la position l'emporte sur le nom : une
+récupération en première ou dernière position devient un échauffement ou un
+retour au calme, donc élastique. Les séances de coach nomment
+« Récupération » jusqu'au retour à la maison, et c'est cette étape-là qui
+referme la boucle.
+
+**Pourquoi.** Les séances de coach (iDOSport) — la majorité, et les deux
+séances de référence du cadrage produit — **ne portent aucun marqueur**. Sans
+cette cascade, `ourouler seance --jour 2026-02-08` annonçait **14 étapes,
+14 blocs** : ni échauffement, ni récupération, donc aucune élasticité, aucun
+demi-tour possible, et le placement (L4.3) serait parti chercher un couloir
+propre pour 30 minutes d'échauffement et 20 minutes de retour au calme.
+
+**Vérifié sur les trois séances réelles** (FTP 258 W, donc seuil à 193 W) :
+
+| Séance | Avant | Après |
+|---|---|---|
+| « 2x20' + 4x3' » du 08/02 (texte) | 14 blocs | **6 blocs**, échauffement 30 min élastique, 6 récups, calme 20 min élastique |
+| « 4x8 SV1 outdoor » du 22/04 (muette) | 19 blocs | **9 blocs**, récups à 129-134 W, extrémités libres élastiques |
+| « 4x8min Z4 » du 08/09 (marqueurs) | 4 blocs | **4 blocs**, inchangée |
+
+**Deux garde-fous.** Si la FTP est inconnue, le seuil est le mi-chemin entre
+la plus faible et la plus forte puissance cible de la séance, et
+`meta["seuil_recuperation_replie"]` le dit — c'est une frontière tirée de la
+séance, pas du cycliste ; sans contraste de puissance, on ne devine rien. Si
+toutes les étapes tombent du même côté du seuil (sortie d'endurance
+uniforme), la séance n'a **aucun bloc**, et c'est correct : on ne fabrique
+pas un bloc artificiel pour avoir quelque chose à placer.
+
+**Ce qui reste discutable.** Sur « 4x8 SV1 outdoor », la règle 3 classe en
+bloc les 4 × 40 s à 375 W (des activations d'échauffement) et les 5 min à
+208 W qui précèdent le corps de séance : 9 blocs là où le mainteneur n'en
+voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
+règle est appliquée correctement ; c'est le placement (L4.3) qui devra
+décider s'il contraint le terrain sous un effort de 40 secondes.
+
+## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger, pas une question**
+
+Relevé par le mainteneur le 13/09/2026 en lisant la sortie du 08/02 :
+« t'as pas oublié l'échauffement ? ». Il n'était pas oublié — 28 min à
+155 W, soit 13,2 km, exactement là où le premier bloc démarre — mais
+**rien ne le montrait** : `sortie/commande.py` ne liste que les étapes de
+type « bloc », parce que `Placement.emplacements` ne mémorise que celles-là.
+
+Ce qui rend le défaut sérieux : on ne peut pas vérifier ce qu'on ne voit
+pas, et c'est précisément ce qu'on demande au mainteneur de faire sur la
+carte. À corriger au prochain lot touchant `sortie/` :
+
+- **Lister toutes les étapes** avec leur kilomètre de début et de fin, pas
+  seulement les blocs. Les non-blocs n'ont pas de note — ils n'en méritent
+  pas, aucun terrain n'est évalué sous une récupération — mais ils ont une
+  position, et elle se déduit du déroulé.
+- **Les montrer sur la carte** : échauffement et retour au calme dans une
+  teinte neutre distincte, récupérations déjà en pointillés. Aujourd'hui
+  tout ce qui n'est pas bloc est gris comme le reste du tracé, donc on ne
+  distingue pas « je roule ici pendant l'échauffement » de « cette portion
+  de la boucle n'est jamais parcourue ».
+- Conséquence de conception : `placer` doit rendre la position de **chaque**
+  étape, pas seulement des blocs. C'est une extension de `Placement`, pas
+  une nouvelle mesure.
+
+## Q14 — Le retour au calme ne peut pas absorber la variabilité de la boucle
+
+Constaté le 13/09/2026 par le superviseur, en essayant de corriger un
+symptôme et en aggravant le mal. À traiter au prochain lot touchant
+`seance/placement.py` ou `sortie/commande.py`.
+
+**Le symptôme.** Sur la séance du 08/02, aucune candidate ne tient la
+séance dans sa fenêtre d'élasticité : le retour au calme dure 38 min au
+lieu des 20 prescrites, soit +90 %.
+
+**La fausse piste, mesurée.** La distance demandée était arrondie au
+multiple de 5 km **supérieur**, donc 65 km pour une séance de 60,8. Passer
+à l'arrondi **au plus proche** donne 60 km demandés, une boucle de 58 —
+et le retour au calme monte à **+201 %**, parce que le placement retenu
+fait alors un demi-tour et que le parcours passe à 78,7 km sur une boucle
+de 58. Changement annulé, l'arrondi supérieur reste.
+
+**La cause réelle, en deux morceaux.**
+1. **Un demi-tour ajoute de la distance que le dimensionnement ignore.**
+   La distance demandée vient de la séance sur le plat ; elle ne sait rien
+   des allers-retours que `placer` décidera ensuite. Un parcours peut
+   dépasser sa boucle de 90 % (72,7 km sur 38,5 le 22/04).
+2. **Une Z2 de fin de 20 min ne peut pas absorber une boucle de 60 km.**
+   20 min à ±20 % font ±1,9 km, quand la tolérance du générateur de
+   boucles vaut déjà ±3 km et l'écart mesuré jusqu'à +9 km. Le levier est
+   structurellement trop court.
+
+**Pistes, aucune tranchée.** (a) Pénaliser le demi-tour aussi pour la
+distance qu'il ajoute, pas seulement pour l'inconfort. (b) Dimensionner la
+boucle en deux temps : demander, placer, puis redemander avec la distance
+réellement consommée. (c) Autoriser la Z2 de fin à absorber plus largement
+que ±20 % — ce serait revenir sur une décision du mainteneur du 13/09, à
+lui demander. (d) Accepter et le dire clairement, ce que fait déjà
+l'avertissement : la séance est roulée entière, seul le retour au calme
+s'allonge, ce qui est le défaut le moins grave.
+
+
+## Q15 — Nom de l'heure et du lieu de départ — **close le 13/09/2026**
+
+**Close. Décision du mainteneur : deux noms explicites, aucun des trois
+choix proposés.**
+
+- **`--heure-depart`** est le nom canonique de l'**heure** de départ, sur
+  `meteo`, `boucle`, `simuler` et `sortie`.
+- **`--adresse-depart`** est le nom **réservé** du **lieu** de départ — un
+  départ autre que la maison, annoncé au plan du sprint 4 sous le nom
+  provisoire `--depuis`. **Il n'est pas livré** : aucune commande ne le
+  porte aujourd'hui, et un test le vérifie pour qu'il ne soit pas pris par
+  autre chose entre-temps. Le nom est posé maintenant parce qu'après il
+  serait trop tard.
+
+Les deux noms disent ce qu'ils désignent et ne se ressemblent plus : c'était
+tout le problème.
+
+**Ce qui reste accepté, sans être documenté** : `--depart` (l'ancien nom de
+l'heure) et `--heure` (le synonyme ajouté en attendant la décision).
+Aucun script ni aucune habitude ne casse ; mais l'aide ne les propose plus,
+parce qu'un nom déprécié qu'on documente est un nom qu'on enseigne encore.
+Techniquement, une seconde déclaration `argparse` sous `SUPPRESS` écrivant
+dans le même `dest` — argparse ne sait pas masquer un alias, il les imprime
+tous ou aucun (`cli.ajouter_heure_depart`).
+
+**État d'origine, pour mémoire.** Relevé le 13/09/2026 par le relecteur
+(C5). `--depart HH:MM` désignait une heure, le plan annonçait `--depuis`
+pour un lieu : deux options dont les noms diffèrent d'une lettre pour deux
+sens sans rapport, sur la même commande. Personne d'autre que le mainteneur
+n'utilise la commande, le renommage était donc gratuit — il a été fait.

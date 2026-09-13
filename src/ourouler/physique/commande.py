@@ -600,7 +600,7 @@ def vent_depuis_meteo(meteo):
 
     La prévision, comme l'archive, donne le vent à 10 m du sol :
     `vent_au_cycliste` le ramène à la hauteur où il est subi. C'est le **seul**
-    endroit où la prévision est convertie — `ourouler simuler --depart` et la
+    endroit où la prévision est convertie — `ourouler simuler --heure-depart` et la
     colonne « temps » de `ourouler boucle` passent toutes deux par ici — et
     c'est le pendant exact de ce que fait la calibration sur l'archive. Les
     échantillons météo, eux, gardent la valeur du bulletin : la colonne

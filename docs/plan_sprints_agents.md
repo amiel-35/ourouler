@@ -190,7 +190,7 @@ d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
 modèle obtenu pour repérer les autres (résidu de vitesse anormalement
 positif sur une grande part de la sortie) et les écarter ; itérer une fois.
 
-### Sprint 4 — Séance ↔ terrain **[à figer au point de repriorisation]**
+### Sprint 4 — Séance ↔ terrain **[livré le 13/09/2026, PR en attente]**
 
 Le cœur du projet. Jalon : `ourouler sortie` lit la séance du jour dans
 Intervals, génère des boucles, les simule avec le modèle calibré, place les
@@ -299,19 +299,74 @@ plutôt que de ne rien proposer. Hiérarchie des pénalités à calibrer sur les
 sorties réelles : une descente longue coûte plus qu'un carrefour.
 
 Reste à préciser au lancement : bornes chiffrées des catégories de tenue
-(Q3, réglables à l'usage) et option `--depuis` pour un départ autre que la
-maison.
+(Q3, réglables à l'usage) et option pour un départ autre que la maison —
+**`--adresse-depart`**, nom réservé par Q15 (l'option annoncée ici sous le
+nom `--depuis` était trop proche de `--depart`).
 
-### Sprint 5 — La sortie du jour au quotidien **[esquissé]**
+### Sprint 5 — La page du jour **[esquissé]**
 
-Confort d'usage : nom de fichier et résumé soignés, `--depuis`, mémoire de
-ce qui a été proposé et fait. Le GPX étant déjà produit, l'envoi au
-compteur se limite au partage du fichier (voir backlog ci-dessous).
+Une page HTML autonome, écrite sur le disque et ouverte dans le navigateur.
+Aucun serveur, aucun compte, aucune base : tout le calcul existe déjà, on
+ajoute le rendu. Dedans : la météo par direction en grille, les boucles
+proposées sur carte avec les blocs de la séance à leur place, la tenue, et
+le GPX à télécharger pour le partager vers Garmin Connect depuis le
+téléphone. Plus le confort d'usage : `--adresse-depart` pour partir
+d'ailleurs (Q15),
+noms de fichiers et résumés soignés, mémoire de ce qui a été proposé.
 
-### Ensuite — l'hébergé
+**Trois propositions contrastées, et le cycliste choisit** (idée du
+mainteneur, 13/09). Aujourd'hui `sortie` classe N candidates et retient la
+première. À la place : **trois** options, et c'est lui qui tranche. Le point
+qui fait la valeur de l'idée : trois propositions ne servent à rien si elles
+se ressemblent, et les trois premières d'un même classement se ressemblent
+souvent. Il faut donc les choisir **contrastées**, chacune meilleure sur un
+axe différent — la plus sèche, la meilleure pour les blocs, la plus calme,
+la plus courte — avec en une phrase ce qui la distingue des deux autres, et
+sa carte. Mécaniquement : on génère plus de candidates qu'aujourd'hui, on
+les note sur plusieurs axes, et on retient trois représentants éloignés les
+uns des autres plutôt que le sommet d'un tri unique.
 
-API au-dessus du même cœur, puis front web et comptes, dans cet ordre
-(doctrine §10).
+**Pourquoi cette page et pas l'hébergé tout de suite** : elle est la
+maquette du futur front. Le jour où l'API existera, la même page sera
+servie par le serveur au lieu d'être écrite sur le disque. Et le cœur
+produit se stabilise à peine ; chaque changement de sortie se paierait
+deux fois.
+
+### Sprint 6 — Dogfooding **[cap fixé par le mainteneur]**
+
+Pas de nouvelle fonctionnalité. Le mainteneur s'en sert **pour de vrai**,
+tous les jours de sortie, pendant plusieurs semaines. On mesure ce qui
+cloche et on corrige : boucles refusées sur le terrain, blocs mal placés
+constatés au retour, tenue à côté de la plaque, temps prédits faux, GPX
+que l'Edge n'aime pas. Le livrable est une liste d'écarts entre ce que
+l'outil annonce et ce qui s'est passé, et leur correction. C'est ce sprint
+qui dit si le produit tient.
+
+### Sprint 7 — L'hébergé **[esquissé]**
+
+API au-dessus du même cœur, puis front web servi par elle, puis comptes
+avec authentification déléguée Google (doctrine §10). Postgres, stockage
+d'objets pour les fichiers, isolation par utilisateur vérifiée côté
+serveur, cache météo mutualisé (le quota Open-Meteo devient un sujet ici,
+pas avant).
+
+### Sprint 8 — Prêt à inviter des copains **[cap fixé par le mainteneur]**
+
+Le jalon d'ouverture. Un cycliste que le mainteneur invite doit pouvoir,
+sans lui : créer son compte, renseigner son profil, brancher son
+Intervals, obtenir une boucle qui tient la route, et ne jamais voir les
+données d'un autre. Ce qu'il faut en plus de l'hébergé brut : parcours
+d'accueil, valeurs par défaut qui marchent sans calibration (le nouveau
+n'a pas d'historique), messages d'erreur compréhensibles par quelqu'un qui
+n'a pas écrit le code, export et suppression de compte (RGPD), et un coût
+maîtrisé par utilisateur. Sans calibration personnelle, le modèle doit
+tourner sur des paramètres génériques et le dire.
+
+### Après — dépôt public
+
+MIT, anonymisation des documents de cadrage (Q6). Le dépôt peut s'ouvrir
+avant le sprint 8 : la publication du code et l'invitation de personnes
+sont deux décisions distinctes.
 
 Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
 Connect pour un particulier → le GPX généré est le socle ; sur mobile,
@@ -330,6 +385,87 @@ COROS sans rien demander à personne. L'Edge sait charger un parcours et une sé
 structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
+
+- **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
+  d'une descente sous un bloc **dépend maintenant de l'intensité demandée**,
+  décision du mainteneur : « la descente doit être réduite dans les blocs et
+  son poids négatif augmente avec la zone. Faire du Z3 en descente faible à
+  moyenne, ça reste possible, position relevée face au vent. Z5 en descente,
+  pas possible ou presque. » `evaluer_couloir` accepte la puissance cible du
+  bloc et la FTP ; `POIDS_M_DESCENTE` est multiplié par un facteur de zone
+  croissant (×0,4 sous 75 % de FTP, ×1 de 75 à 90 %, ×2 de 90 à 105 %, ×4
+  au-delà) et le motif le dit — « descente de 0,4 km, coûteuse à cette
+  intensité ». Les récupérations ne reçoivent toujours **aucune** évaluation,
+  et leur puissance n'est donnée à personne : un test dédié garde les deux.
+
+  **Mesuré, pas affirmé.** La validation rétrospective relancée passe de
+  **42,7 % à 33,2 %** de la note du hasard (critère : au plus 70 %) — le
+  facteur améliore la discrimination, parce que les tirages au hasard portent
+  plus de descente (1,89 m/km) que les emplacements choisis (1,08). Sur les
+  vraies séances : le 08/02, le **classement des candidates change** (les 3ᵉ
+  et 4ᵉ s'échangent, 6,97/8,66 → 6,76/7,12) et la retenue reste la même ; le
+  22/04, l'ordre ne bouge pas mais les notes et le nombre de demi-tours des
+  candidates 2 à 4 changent. Une partie de la « dette assumée » du sprint 4
+  est levée : le poids de la descente reste un arbitrage produit, mais il
+  n'est plus un chiffre unique qui ignore ce qu'on demande au cycliste.
+
+  **Q15 tranchée par le mainteneur** : l'heure de départ s'appelle
+  **`--heure-depart`** partout (`meteo`, `boucle`, `simuler`, `sortie`), le
+  lieu de départ s'appellera **`--adresse-depart`** — nom réservé, non livré,
+  et gardé par un test pour qu'il ne soit pas pris entre-temps. Il remplace le
+  `--depuis` annoncé au sprint 4, trop proche de `--depart`. Les anciens noms
+  `--depart` et `--heure` restent acceptés et ne sont plus documentés.
+
+- **2026-09-13, soirée** — Sprint 4 livré sur `sprint-4` (PR vers `main` en
+  attente). Le cœur du projet : `ourouler sortie` lit la séance du jour,
+  génère des boucles, place les blocs sur le terrain, écrit le GPX du
+  **parcours réellement roulé** (demi-tours compris) et une **carte** qui
+  montre chaque bloc à sa place. Quatre lots en parallèle + testeur
+  adversarial, relecture Opus (13 points), **audit de probité des tests par
+  mutation** (5 points de plus), quatre passes de corrections. État :
+  2 892 tests, ruff vert.
+
+  **Vérifié sur les vraies séances du mainteneur.** Le modèle et son
+  cadrage écrit à la main se recoupent : bloc de 20 min à 206-219 W →
+  11,2 km estimés contre « 11 km d'un trait » annoncés ; 8 min à 253 W →
+  4,9 km contre « environ 4 km » ; demi-tour en 4 min de récup → 1,0 km de
+  route au-delà contre « ≈ 800 m ». **Validation rétrospective** sur deux
+  séances réellement faites dehors (22/04 et 25/04/2026) : les emplacements
+  de blocs qu'il a choisis sont notés **43 % de la note du hasard**, donc
+  nettement meilleurs — les poids sont justes. Et sur ses blocs longs, le
+  constat qui justifie l'outil : ses 2×20' sont tombés sur un couloir noté
+  6,46 alors qu'un couloir noté **1,81 existait sur la même boucle**.
+
+  **Ce que la mesure a appris contre l'intuition** : il évite les zones
+  bâties et les descentes, mais **ne fuit pas les montées** (il en prend
+  plus que le hasard) et **ne se soucie pas des carrefours**. Poids corrigés
+  dans ce sens.
+
+  **Deux bugs trouvés par les seuls tests adversariaux** : les pentes
+  étaient en pourcentage d'un côté et en tangente de l'autre, donc **tout
+  demi-tour était refusé dès 0,1 % de pente** ; et un village traversé
+  pendant une récupération était **facturé au bloc suivant**, en violation
+  de la règle du mainteneur. **Deux règles non gardées trouvées par
+  mutation** : un placement qui étirerait les récupérations « quand ça
+  arrange » passait les 2 855 tests (288 sélections effectives), et « on
+  note, on ne filtre pas » n'était protégé que par un dépaquetage de tuple.
+  Les quatre sont corrigés et gardés par des tests qui échouent sur la
+  mutation.
+
+  **Décisions** : Q11 (`%ftp` nominal, zones de FC minoritaires), Q12
+  (cascade de typage marqueurs → texte → puissance), Q13 (l'affichage ne
+  montre que les blocs, à corriger), Q14 (le retour au calme ne peut pas
+  absorber la variabilité de la boucle — arrondi au plus proche essayé et
+  **annulé**, mesure à l'appui), Q15 (nom de l'heure et du lieu de
+  départ — **tranchée la nuit suivante**, voir l'entrée ci-dessus). Fenêtre de détection des antennes portée de 3 à **6 km** après
+  qu'un cul-de-sac de 3,4 km a été vu sur carte par le mainteneur.
+
+  **Dette assumée** : le poids de la descente (0,10) n'est plus soutenu par
+  sa mesure (57 % du hasard, pas 14 %) et reste un arbitrage produit ; le
+  D+ du moteur et celui du parcours recalculé divergent de 40 % et sont
+  désormais affichés côte à côte ; la météo et la tenue n'existent que dans
+  la fenêtre de prévision, donc pas sur une séance passée ; Q13 et Q14
+  restent entières.
 
 - **2026-09-13, journée** — Sprint 3 livré sur `sprint-3` (PR vers `main` en
   attente). Trois lots en parallèle (antennes, routes connues, physique) +

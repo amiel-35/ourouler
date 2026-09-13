@@ -104,11 +104,11 @@ bike-routing/
 │   ├── meteo/                 ← openmeteo.py (client), couronne.py (directions), rapport
 │   ├── boucle/                ← S2 : moteurs de tracé, coûts, GPX
 │   ├── physique/              ← S3 : modèle puissance→vitesse, calibration
-│   └── sortie/                ← S4 : séance ↔ terrain, tenue, résumé
+│   └── seance/                ← S4 : séance ↔ terrain, tenue, résumé
 └── tests/
 ```
 
-Les dossiers `boucle/`, `physique/`, `sortie/` n'existent qu'à partir de
+Les dossiers `boucle/`, `physique/`, `seance/` n'existent qu'à partir de
 leur sprint : pas de squelette vide « pour plus tard ».
 
 ## 5. Données de l'utilisateur

@@ -90,7 +90,7 @@ PAS_ECHANTILLON_M = 10.0
 #: et s'il arrive qu'on en rogne un, la candidate est simplement plus courte,
 #: ce que l'ajustement de rayon de `boucle.candidates` compense à l'appel
 #: suivant.
-FENETRE_DEFAUT_M = 3000.0
+FENETRE_DEFAUT_M = 6000.0
 
 #: Écart maximal admis entre le retour et l'aller (contrat §1).
 TOLERANCE_DEFAUT_M = 20.0

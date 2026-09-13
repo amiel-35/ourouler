@@ -1,0 +1,1021 @@
+"""Tests de `seance.placement` (sprint 4, lot L4.3).
+
+Les fonctions de terrain sont remplacées par `monkeypatch` dans chaque test :
+on veut un terrain dont on connaît la réponse, pas le vrai. Les **modules**,
+eux, sont importés normalement.
+
+Ce fichier a porté, le temps que les lots L4.1 et L4.2 s'écrivent en
+parallèle, un mécanisme de doubles qui installait de faux
+`ourouler.seance.modele` et `ourouler.seance.terrain` dans `sys.modules` quand
+les vrais ne s'importaient pas. Il est retiré : son `except ModuleNotFoundError`
+n'attrapait pas seulement « le module n'existe pas encore » mais aussi « le
+module existe et un de ses imports a disparu », et il aurait alors installé
+silencieusement un `evaluer_couloir` qui rend toujours 0 et une
+`demi_tour_faisable` qui dit toujours oui — vingt-quatre tests au vert contre
+une production cassée.
+
+Aucune coordonnée réelle : le tracé est une ligne droite au large du golfe de
+Guinée, comme les autres tracés synthétiques du dépôt. Aucun réseau.
+"""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import date
+
+import pytest
+
+from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.physique.modele import Parametres, vitesse_regime
+from ourouler.seance import placement
+from ourouler.seance.modele import Etape, Seance
+from ourouler.seance.terrain import PENALITE_BLOC_TRONQUE, POIDS_KM_BATI, NoteBloc
+
+# --- fixtures synthétiques ----------------------------------------------------
+
+#: Un cycliste plausible, aucune donnée personnelle : 80 kg tout compris.
+P = Parametres(masse_totale_kg=80.0, cda_m2=0.35, crr=0.006)
+
+PUISSANCE_Z2 = 180.0
+PUISSANCE_BLOC = 210.0
+PUISSANCE_RECUP = 140.0
+PUISSANCE_CALME = 150.0
+
+#: Degrés de longitude par mètre à l'équateur (le tracé est une ligne droite).
+DEG_PAR_M = 1.0 / 111_194.9
+
+
+def _trace(longueur_m: float = 78_000.0, *, pente: float = 0.0, pas_m: float = 500.0) -> Trace:
+    """Une ligne droite vers l'est, d'altitude constante (ou de pente constante)."""
+    n = int(longueur_m // pas_m)
+    points = [
+        PointTrace(lat=0.0, lon=i * pas_m * DEG_PAR_M, alt_m=100.0 + pente * i * pas_m, dist_m=i * pas_m)
+        for i in range(n + 1)
+    ]
+    return Trace(
+        nom="essai",
+        points=points,
+        segments=[],
+        distance_m=points[-1].dist_m,
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+
+
+def _etape(type_: str, minutes: float, puissance: float | None, *, elastique: bool = False) -> Etape:
+    return Etape(
+        type=type_,
+        duree_s=minutes * 60.0,
+        puissance_min_w=None if puissance is None else puissance - 10,
+        puissance_max_w=None if puissance is None else puissance + 10,
+        libelle=f"{type_} {minutes:g} min",
+        elastique=elastique,
+    )
+
+
+def _seance() -> Seance:
+    """1 h d'échauffement, 2 × [20 min de bloc, 4 min de récup], 30 min de calme."""
+    etapes = [
+        _etape("echauffement", 60, PUISSANCE_Z2, elastique=True),
+        _etape("bloc", 20, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("bloc", 20, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("calme", 30, PUISSANCE_CALME, elastique=True),
+    ]
+    return Seance(
+        nom="2x20' de test",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _vitesse(puissance: float) -> float:
+    """La vitesse du modèle sur le plat : le tracé d'essai n'a aucune pente."""
+    return vitesse_regime(puissance, 0.0, 0.0, P)
+
+
+def _positions(decalage_s: float) -> list[float]:
+    """Les positions attendues [début bloc 1, fin bloc 1, début bloc 2, fin bloc 2]."""
+    debut1 = _vitesse(PUISSANCE_Z2) * (3600.0 + decalage_s)
+    fin1 = debut1 + _vitesse(PUISSANCE_BLOC) * 1200.0
+    debut2 = fin1 + _vitesse(PUISSANCE_RECUP) * 240.0
+    return [debut1, fin1, debut2, debut2 + _vitesse(PUISSANCE_BLOC) * 1200.0]
+
+
+def _couloirs(monkeypatch, bon: tuple[float, float], *, mauvais: float = 10.0, pente: float = 0.0):
+    """Terrain factice : note 0 dans la fenêtre `bon`, `mauvais` partout ailleurs.
+
+    Rend la liste des couloirs évalués — début, longueur et **puissance
+    donnée** — pour vérifier ce qui a été noté, à quelle intensité, et surtout
+    ce qui ne l'a pas été.
+    """
+    appels: list[tuple[float, float, float | None, float | None]] = []
+
+    def evaluer_couloir(
+        trace,
+        debut_m: float,
+        longueur_m: float,
+        *,
+        puissance_w: float | None = None,
+        ftp_w: float | None = None,
+    ) -> NoteBloc:
+        appels.append((debut_m, longueur_m, puissance_w, ftp_w))
+        dedans = bon[0] <= debut_m and debut_m + longueur_m <= bon[1]
+        return NoteBloc(
+            note=0.0 if dedans else mauvais,
+            motifs=[] if dedans else ["hors du bon couloir"],
+            pente_moyenne=pente,
+            pente_max=pente,
+            carrefours=0,
+            km_batis=0.0,
+            descente_m=0.0,
+            montee_m=0.0,
+        )
+
+    monkeypatch.setattr(placement, "evaluer_couloir", evaluer_couloir)
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: True)
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: True)
+    return appels
+
+
+def _seance_recups_inegales() -> Seance:
+    """Deux blocs séparés par des récupérations **de durées différentes**, sans Z2 de fin.
+
+    Sans retour au calme élastique, `duree_totale_s` est entièrement prescrite :
+    c'est la somme des durées des étapes plus le décalage de la Z2 d'ouverture,
+    et rien d'autre. Toute seconde en plus ou en moins est une récupération qui
+    a bougé.
+
+    Les deux récupérations sont inégales (4 min et 7 min) : un étirement
+    *uniforme* n'est pas le seul défaut possible, et un test qui ne compare que
+    deux placements entre eux ne verrait pas une récup étirée « quand ça
+    arrange ».
+    """
+    etapes = [
+        _etape("echauffement", 40, PUISSANCE_Z2, elastique=True),
+        _etape("bloc", 8, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("bloc", 8, PUISSANCE_BLOC),
+        _etape("recuperation", 7, PUISSANCE_RECUP),
+        _etape("bloc", 8, PUISSANCE_BLOC),
+    ]
+    return Seance(
+        nom="3x8 à récups inégales",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _terrain_vallonne(monkeypatch, *, demi_tour: bool = False):
+    """Un terrain dont la note varie vite le long du tracé, sans trou ni plateau.
+
+    C'est la condition pour que le test morde : sur un terrain uniforme, étirer
+    une récupération ne rapporte rien et un placement tricheur n'aurait aucune
+    raison de le faire. Ici la note oscille tous les ~700 m, donc décaler le
+    bloc suivant de quelques centaines de mètres change sa note — la tentation
+    est permanente.
+    """
+    import math as _math
+
+    def evaluer_couloir(
+        trace,
+        debut_m: float,
+        longueur_m: float,
+        *,
+        puissance_w: float | None = None,
+        ftp_w: float | None = None,
+    ) -> NoteBloc:
+        milieu = debut_m + longueur_m / 2.0
+        return NoteBloc(
+            note=5.0 * _math.sin(milieu / 700.0) ** 2,
+            motifs=[],
+            pente_moyenne=0.0,
+            pente_max=0.0,
+            carrefours=0,
+            km_batis=0.0,
+            descente_m=0.0,
+            montee_m=0.0,
+        )
+
+    monkeypatch.setattr(placement, "evaluer_couloir", evaluer_couloir)
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: demi_tour)
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: demi_tour)
+
+
+@pytest.mark.parametrize("demi_tour", [False, True], ids=["tout_droit", "demi_tours_permis"])
+def test_aucune_duree_de_recuperation_ne_bouge_quel_que_soit_le_decalage(monkeypatch, demi_tour):
+    """Règle (b) du mainteneur : « aucune récupération ne bouge, jamais ».
+
+    L'invariant n'avait aucun test dédié : il n'était vérifié qu'indirectement,
+    et un placement qui essaierait chaque récupération à sa durée prescrite
+    **et** à ×1,2 en gardant la mieux notée passait toute la suite au vert.
+
+    Ici la séance n'a pas de retour au calme élastique : `duree_totale_s` est
+    donc entièrement prescrite — la somme des durées plus le décalage de la Z2
+    d'ouverture, à la seconde près. Le terrain est volontairement vallonné pour
+    qu'une variante étirée soit tentante à chaque bloc.
+    """
+    _terrain_vallonne(monkeypatch, demi_tour=demi_tour)
+    seance = _seance_recups_inegales()
+    prescrite = sum(e.duree_s for e in seance.etapes)
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert resultat.duree_totale_s == pytest.approx(
+        prescrite + resultat.decalage_z2_s, abs=1.0
+    ), (
+        f"{resultat.duree_totale_s:.0f} s roulées pour {prescrite + resultat.decalage_z2_s:.0f} s "
+        f"prescrites (décalage compris) : une durée non élastique a bougé de "
+        f"{resultat.duree_totale_s - prescrite - resultat.decalage_z2_s:+.0f} s"
+    )
+    # Les durées de la prescription elle-même n'ont pas été réécrites en place.
+    assert [e.duree_s for e in seance.etapes] == [
+        e.duree_s for e in _seance_recups_inegales().etapes
+    ]
+
+
+def test_l_ecart_entre_deux_blocs_vaut_exactement_la_recuperation_prescrite(monkeypatch):
+    """La même règle, mesurée en mètres plutôt qu'en secondes.
+
+    Sur un tracé plat, la vitesse de récupération est constante : l'écart le
+    long du tracé entre la fin d'un bloc et le début du suivant vaut donc
+    exactement `vitesse(récup) × durée prescrite`. Deux récupérations inégales,
+    donc deux écarts différents : un étirement d'une seule des deux se voit.
+    """
+    _terrain_vallonne(monkeypatch, demi_tour=False)
+    seance = _seance_recups_inegales()
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert len(resultat.emplacements) == 3
+    recups = [e for e in seance.etapes if e.type == "recuperation"]
+    for numero, (recup, avant, apres) in enumerate(
+        zip(recups, resultat.emplacements[:-1], resultat.emplacements[1:], strict=True), start=1
+    ):
+        attendu = _vitesse(PUISSANCE_RECUP) * recup.duree_s
+        mesure = apres.debut_m - (avant.debut_m + avant.longueur_m)
+        assert mesure == pytest.approx(attendu, abs=5.0), (
+            f"récupération {numero} : {mesure:.0f} m roulés pour {attendu:.0f} m prescrits "
+            f"({recup.duree_s / 60:.0f} min à {_vitesse(PUISSANCE_RECUP) * 3.6:.1f} km/h)"
+        )
+
+
+# --- l'asymétrie des deux pénalités de séance (point produit 2 de la relecture) ---
+
+#: Les deux formes de séance de référence, réduites à ce qui pèse dans la
+#: comparaison : la durée de chaque bloc et celle du retour au calme prescrit.
+#: Aucune donnée personnelle — un 2×20' et un 4×8' sont des structures
+#: d'entraînement courantes, les durées ci-dessous sont celles de la forme, pas
+#: d'un fichier du mainteneur.
+FORMES_DE_REFERENCE = (
+    ("2x20 + 4x3", (1200.0, 1200.0, 180.0, 180.0, 180.0, 180.0), 1200.0),
+    ("4x40s + 5 + 4x8", (40.0, 40.0, 40.0, 40.0, 300.0, 480.0, 480.0, 480.0, 480.0), 2400.0),
+)
+
+#: Le retard qu'on compare : rentrer vingt minutes après l'heure prescrite.
+RETARD_S = 20 * 60.0
+
+
+def _note_du_village(durees: tuple[float, ...], *, km_batis: float = 1.0) -> float:
+    """Ce que coûte 1 km de village traversé pendant le **plus long** bloc.
+
+    C'est-à-dire ce que la note de terrain pondérée par la durée retient d'un
+    défaut franc sous le bloc qui compte le plus dans la séance.
+    """
+    etapes = [_etape("bloc", duree / 60.0, PUISSANCE_BLOC) for duree in durees]
+    pire = max(range(len(durees)), key=lambda i: durees[i])
+    emplacements = [
+        placement.Emplacement(
+            etape_idx=i,
+            debut_m=0.0,
+            longueur_m=1000.0,
+            demi_tour=False,
+            note=NoteBloc(
+                note=(POIDS_KM_BATI * km_batis) if i == pire else 0.0,
+                motifs=[],
+                pente_moyenne=0.0,
+                pente_max=0.0,
+                carrefours=0,
+                km_batis=km_batis if i == pire else 0.0,
+                descente_m=0.0,
+                montee_m=0.0,
+            ),
+        )
+        for i in range(len(durees))
+    ]
+    return placement._note_ponderee(emplacements, etapes)
+
+
+@pytest.mark.parametrize(
+    ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
+)
+def test_un_village_sous_un_bloc_coute_plus_cher_qu_un_retour_de_vingt_minutes(
+    nom, durees, calme_s
+):
+    """Point produit 2 : l'outil préférait faire traverser un village plutôt que rentrer tard.
+
+    Un retour au calme de 38 min au lieu de 20 coûtait 1,4 km équivalent ;
+    traverser un bourg sur 1 km pendant un bloc en coûtait 0,5 après
+    pondération par la durée des blocs. L'arbitrage n'avait jamais été posé
+    comme tel, et il était à l'envers : le défaut de terrain, qu'on subit, se
+    payait moins cher que le retard, qu'on rattrape en rentrant.
+
+    La comparaison est faite sur les **durées réelles** des deux séances de
+    référence, et sur les mêmes fonctions que la production (`_penalite_seance`
+    et `_note_ponderee`), pas sur une arithmétique refaite ici.
+    """
+    elasticite = (-0.05, 0.20)
+    retard = placement._penalite_seance([RETARD_S / calme_s], elasticite)
+    village = _note_du_village(durees)
+    assert retard < village, (
+        f"{nom} : rentrer 20 min en retard coûte {retard:.2f} km équivalent, traverser "
+        f"1 km de village pendant le bloc le plus long en coûte {village:.2f} — "
+        "l'outil préfère donc le village"
+    )
+
+
+@pytest.mark.parametrize(
+    ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
+)
+def test_une_seance_tronquee_coute_plus_cher_qu_un_bloc_mutile(nom, durees, calme_s):
+    """L'autre bord : amputer la séance doit rester le défaut le plus cher.
+
+    C'est tout l'objet de `PENALITE_SEANCE_NON_TENUE`, et la borne basse est
+    nommée : `terrain.PENALITE_BLOC_TRONQUE`, ce que coûte un bloc qui ne tient
+    pas du tout sur le tracé. Un retour au calme supprimé doit coûter plus que
+    ça, sans quoi tronquer la séance redevient une option.
+    """
+    elasticite = (-0.05, 0.20)
+    supprime = placement._penalite_seance([-1.0], elasticite)  # retour au calme à 0 min
+    assert supprime > PENALITE_BLOC_TRONQUE, (
+        f"{nom} : supprimer le retour au calme coûte {supprime:.1f}, un bloc qui ne tient "
+        f"pas sur le tracé en coûte {PENALITE_BLOC_TRONQUE:.1f} — tronquer la séance redevient "
+        "moins cher que de renoncer à un bloc"
+    )
+    # Et il reste plus cher que le pire terrain franc mesurable sous les blocs.
+    assert supprime > 4 * _note_du_village(durees, km_batis=1.0)
+
+
+def test_les_deux_penalites_de_seance_restent_dans_le_bon_ordre():
+    """Raccourcir la séance coûte plus cher que l'allonger, et de loin.
+
+    Allonger fait rentrer plus tard ; raccourcir supprime de la séance. Un
+    poids d'allongement qui rattraperait celui du raccourcissement rendrait les
+    deux défauts équivalents, ce qu'ils ne sont pas.
+    """
+    assert placement.PENALITE_SEANCE_ALLONGEE < placement.PENALITE_SEANCE_NON_TENUE
+    # Et il reste sous le poids brut d'un défaut de terrain franc sous un bloc :
+    # un kilomètre de village, avant toute pondération.
+    assert placement.PENALITE_SEANCE_ALLONGEE < POIDS_KM_BATI
+
+
+# --- le décalage de la Z2 d'ouverture -----------------------------------------
+
+
+def test_le_decalage_va_chercher_le_seul_bon_couloir(monkeypatch):
+    # Le bon couloir est exactement là où la séance tombe avec +20 % d'échauffement.
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50))
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(720.0)
+    assert resultat.note_totale == 0.0
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    assert resultat.emplacements[0].debut_m == pytest.approx(attendues[0], abs=1.0)
+    assert resultat.emplacements[1].debut_m == pytest.approx(attendues[2], abs=1.0)
+    assert [e.etape_idx for e in resultat.emplacements] == [1, 3]
+
+
+def test_sans_le_bon_decalage_la_note_est_mauvaise(monkeypatch):
+    """Le même terrain, mais sans élasticité : on tombe à côté et on le dit."""
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50))
+
+    resultat = placement.placer(_seance(), _trace(), P, elasticite=(0.0, 0.0))
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == 0.0
+    # Le premier bloc tombe avant le bon couloir : la note est bien moins bonne.
+    # 10 sous l'un des deux blocs, 0 sous l'autre, et les deux durent 20 min :
+    # la moyenne pondérée par la durée vaut 5 (décision du 13/09, Q12).
+    assert resultat.note_terrain == 5.0
+    assert "hors du bon couloir" in resultat.emplacements[0].note.motifs
+    assert resultat.emplacements[1].note.motifs == []
+
+
+def test_pas_plus_grand_que_la_marge_essaie_quand_meme_les_bornes(monkeypatch):
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50))
+
+    resultat = placement.placer(_seance(), _trace(), P, pas_s=10_000.0)
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(720.0)
+    assert resultat.note_totale == 0.0
+
+
+def test_pas_s_absurde_ne_boucle_pas(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    for pas in (0.0, -60.0, float("nan"), float("inf"), 1e-3):
+        resultat = placement.placer(_seance(), _trace(), P, pas_s=pas)
+        assert resultat is not None
+
+
+# --- le demi-tour --------------------------------------------------------------
+
+
+def test_demi_tour_choisi_quand_il_n_y_a_qu_un_bon_segment(monkeypatch):
+    # Le bon couloir ne fait la longueur que d'un seul bloc.
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+
+    resultat = placement.placer(_seance(), _trace(), P, penalite_demi_tour=1.0)
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(720.0)
+    assert [e.demi_tour for e in resultat.emplacements] == [False, True]
+    # Le second bloc reprend exactement le segment du premier, en sens inverse.
+    premier, second = resultat.emplacements
+    assert second.debut_m == pytest.approx(premier.debut_m, abs=1.0)
+    assert second.longueur_m == pytest.approx(premier.longueur_m, abs=1.0)
+    # La pénalité de demi-tour ne porte que sur le second des deux blocs de
+    # 20 min : pondérée par la durée, elle compte pour la moitié.
+    assert resultat.note_terrain == pytest.approx(0.5)
+    assert any("demi-tour" in m for m in second.note.motifs)
+
+
+def test_demi_tour_refuse_sans_route_au_dela(monkeypatch):
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: False)
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    # Un seul des deux blocs de 20 min tombe hors du bon couloir : 10 et 0,
+    # moyenne pondérée par la durée = 5.
+    assert resultat.note_terrain == 5.0
+
+
+# --- la note est pondérée par la durée des blocs -------------------------------
+
+#: Une activation de 40 s, comme les quatre du « 4x8 SV1 outdoor » du 22/04.
+ACTIVATION_S = 40.0
+BLOC_LONG_S = 1200.0
+MAUVAIS = 10.0
+
+
+def _seance_courte_et_longue() -> Seance:
+    """1 h de Z2, une activation de 40 s, une récup, un bloc de 20 min, la fin."""
+    etapes = [
+        _etape("echauffement", 60, PUISSANCE_Z2, elastique=True),
+        _etape("bloc", ACTIVATION_S / 60.0, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("bloc", BLOC_LONG_S / 60.0, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("calme", 30, PUISSANCE_CALME, elastique=True),
+    ]
+    return Seance(
+        nom="activation + bloc long",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _positions_courte_et_longue() -> tuple[tuple[float, float], tuple[float, float]]:
+    """(activation, bloc long), chacun (début, fin), sans décalage d'ouverture."""
+    debut_court = _vitesse(PUISSANCE_Z2) * 3600.0
+    fin_court = debut_court + _vitesse(PUISSANCE_BLOC) * ACTIVATION_S
+    debut_long = fin_court + _vitesse(PUISSANCE_RECUP) * 240.0
+    return (debut_court, fin_court), (debut_long, debut_long + _vitesse(PUISSANCE_BLOC) * BLOC_LONG_S)
+
+
+def _zone_sale(monkeypatch, zone: tuple[float, float]):
+    """Terrain noté `MAUVAIS` dès qu'un couloir touche `zone`, 0 partout ailleurs.
+
+    Le demi-tour est fermé (`route_au_dela` faux) : on compare ici deux
+    placements droits, pas deux figures.
+    """
+
+    def evaluer_couloir(
+        trace,
+        debut_m: float,
+        longueur_m: float,
+        *,
+        puissance_w: float | None = None,
+        ftp_w: float | None = None,
+    ) -> NoteBloc:
+        touche = debut_m < zone[1] and debut_m + longueur_m > zone[0]
+        return NoteBloc(
+            note=MAUVAIS if touche else 0.0,
+            motifs=["zone salie"] if touche else [],
+            pente_moyenne=0.0,
+            pente_max=0.0,
+            carrefours=0,
+            km_batis=0.0,
+            descente_m=0.0,
+            montee_m=0.0,
+        )
+
+    monkeypatch.setattr(placement, "evaluer_couloir", evaluer_couloir)
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: False)
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: False)
+
+
+def test_un_mauvais_couloir_sous_un_bloc_long_pese_bien_plus_que_sous_une_activation(monkeypatch):
+    """Décision du superviseur du 13/09 (Q12) : la note est pondérée par la durée.
+
+    Même séance, même terrain, même mauvais couloir de note 10 : une fois sous
+    l'activation de 40 s, une fois sous le bloc de 20 min. Le second doit être
+    nettement plus pénalisé — exactement dans le rapport des durées, 1200/40.
+    """
+    court, long = _positions_courte_et_longue()
+
+    _zone_sale(monkeypatch, court)
+    sous_activation = placement.placer(
+        _seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0)
+    )
+    monkeypatch.undo()
+
+    _zone_sale(monkeypatch, long)
+    sous_bloc_long = placement.placer(
+        _seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0)
+    )
+
+    assert sous_activation is not None and sous_bloc_long is not None
+    assert [e.demi_tour for e in sous_activation.emplacements] == [False, False]
+    assert [e.demi_tour for e in sous_bloc_long.emplacements] == [False, False]
+    # Un seul bloc est sali dans chaque cas, et c'est le bon.
+    assert [e.note.note for e in sous_activation.emplacements] == [MAUVAIS, 0.0]
+    assert [e.note.note for e in sous_bloc_long.emplacements] == [0.0, MAUVAIS]
+
+    total_s = ACTIVATION_S + BLOC_LONG_S
+    assert sous_activation.note_terrain == pytest.approx(MAUVAIS * ACTIVATION_S / total_s)
+    assert sous_bloc_long.note_terrain == pytest.approx(MAUVAIS * BLOC_LONG_S / total_s)
+    assert sous_bloc_long.note_terrain == pytest.approx(
+        sous_activation.note_terrain * BLOC_LONG_S / ACTIVATION_S
+    )
+    # Une somme brute aurait donné la même note aux deux : c'est le bug corrigé.
+    assert sous_bloc_long.note_terrain > 20 * sous_activation.note_terrain
+
+
+def test_demi_tour_refuse_sur_une_route_a_trafic(monkeypatch):
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: False)
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+
+
+def test_demi_tour_refuse_en_cote(monkeypatch):
+    """« Un tronçon marche dans les deux sens sur du plat, mais en côte » non."""
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50), pente=0.04)
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+
+
+def test_la_penalite_de_demi_tour_peut_le_rendre_moins_interessant(monkeypatch):
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50), mauvais=0.5)
+
+    resultat = placement.placer(_seance(), _trace(), P, penalite_demi_tour=1.0)
+
+    assert resultat is not None
+    # Un couloir moyen tout droit (0,5) coûte moins qu'un bon couloir repris à
+    # l'envers (0 + 1,0) : on reste tout droit.
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+
+
+# --- ce que la récupération ne subit pas ---------------------------------------
+
+
+def test_aucune_recuperation_n_est_evaluee(monkeypatch):
+    """La règle produit du sprint : une récup n'est jamais notée, à aucun titre.
+
+    Deux façons de la trahir, et les deux sont gardées ici : évaluer un couloir
+    de la longueur d'une récupération, et — depuis que le prix d'une descente
+    dépend de l'intensité (13/09) — évaluer un couloir **à la puissance d'une
+    récupération**. La seconde ferait entrer l'intensité d'une récup dans une
+    note de terrain, ce qui est le même défaut sous un autre nom.
+    """
+    appels = _couloirs(monkeypatch, (0.0, 1e9))
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    longueur_bloc = _vitesse(PUISSANCE_BLOC) * 1200.0
+    assert appels, "aucun couloir évalué"
+    for _debut, longueur, puissance, _ftp in appels:
+        assert longueur == pytest.approx(longueur_bloc, abs=1.0)
+        assert puissance == pytest.approx(PUISSANCE_BLOC), (
+            "un couloir a été noté à une autre puissance que celle du bloc"
+        )
+    assert all(p != pytest.approx(PUISSANCE_RECUP) for _, _, p, _ in appels)
+
+
+# --- la Z2 de fin absorbe -------------------------------------------------------
+
+
+def test_la_z2_de_fin_absorbe_le_reste(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    trace = _trace()
+
+    resultat = placement.placer(_seance(), trace, P)
+
+    assert resultat is not None
+    # Le retour au calme ramène jusqu'au bout du tracé, quelle que soit sa durée.
+    assert resultat.distance_totale_m == pytest.approx(trace.points[-1].dist_m, abs=1.0)
+    prescrit = sum(e.duree_s for e in _seance().etapes[:-1]) + resultat.decalage_z2_s
+    calme = resultat.duree_totale_s - prescrit
+    assert calme > 0
+    # La dernière récupération est roulée elle aussi avant le retour au calme.
+    fin_seance = _positions(resultat.decalage_z2_s)[3] + _vitesse(PUISSANCE_RECUP) * 240.0
+    reste_m = trace.points[-1].dist_m - fin_seance
+    assert calme == pytest.approx(reste_m / _vitesse(PUISSANCE_CALME), rel=1e-3)
+
+
+def _trace_de_longueur(longueur_m: float) -> Trace:
+    """Le tracé droit, mais d'une longueur **exacte** : le dernier point tombe pile.
+
+    `_trace` arrondit au pas de 500 m ; ici on veut que le dernier bloc puisse
+    finir exactement au bout du tracé, parce que c'est ce qui met le retour au
+    calme à zéro.
+    """
+    trace = _trace(longueur_m)
+    if trace.points[-1].dist_m < longueur_m:
+        trace.points.append(
+            PointTrace(lat=0.0, lon=longueur_m * DEG_PAR_M, alt_m=100.0, dist_m=longueur_m)
+        )
+        trace.distance_m = longueur_m
+    return trace
+
+
+def _seance_calme(calme_s: float) -> Seance:
+    """La même séance, avec un retour au calme d'une durée choisie."""
+    etapes = list(_seance().etapes)
+    etapes[-1] = replace(etapes[-1], duree_s=calme_s)
+    return Seance(
+        nom="2x20' de test",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _fin_de_seance(decalage_s: float) -> float:
+    """La position atteinte quand la dernière récupération est finie."""
+    return _positions(decalage_s)[3] + _vitesse(PUISSANCE_RECUP) * 240.0
+
+
+def test_une_seance_tronquee_perd_contre_un_placement_complet(monkeypatch):
+    """Le défaut mesuré le 08/02 : le placement gagnant ne tenait pas la séance.
+
+    Le tracé finit exactement là où la séance se termine au décalage +12 min :
+    à ce décalage, les deux blocs tombent dans le seul bon couloir (note 0),
+    mais il ne reste que cinq mètres pour le retour au calme, qui tombe à 0 min
+    au lieu des 13 prescrites — la séance n'est pas tenue. Au décalage nul, le
+    premier bloc tombe avant le bon couloir (note 2 ; le second, lui, y retombe)
+    et le retour au calme dure exactement ce qui est prescrit. C'est ce second
+    placement qui doit gagner : un terrain moins bon vaut mieux qu'une séance
+    amputée du cinquième de sa durée.
+    """
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50), mauvais=2.0)
+    longueur = _fin_de_seance(720.0) + 5.0
+    # Le retour au calme prescrit : exactement de quoi rentrer depuis le
+    # décalage nul, donc un écart de 0 % à cet endroit-là.
+    calme_s = _vitesse(PUISSANCE_Z2) * 720.0 / _vitesse(PUISSANCE_CALME)
+
+    resultat = placement.placer(_seance_calme(calme_s), _trace_de_longueur(longueur), P)
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(0.0), (
+        "le placement retenu doit être celui qui tient la séance, pas celui qui la tronque"
+    )
+    assert resultat.note_terrain == pytest.approx(1.0), (
+        "le premier bloc tombe hors du bon couloir (note 2), le second dedans (note 0) : "
+        "moyenne pondérée par des durées égales, 1,0"
+    )
+    assert resultat.penalite_seance == pytest.approx(0.0), "cette séance-là est tenue en entier"
+    assert resultat.note_totale == pytest.approx(1.0)
+    assert not any("retour au calme" in a for a in resultat.avertissements)
+
+
+def test_un_retour_au_calme_a_zero_se_paie_et_se_dit(monkeypatch):
+    """Le même tracé, mais le décalage tronqué imposé : ce qu'il coûte.
+
+    L'élasticité réduite au seul +20 % force le placement que la correction
+    écarte. Il note toujours 0 sur le terrain — et c'est bien le piège — mais
+    porte une pénalité de séance non tenue hors de proportion, et l'avertissement
+    du lot précédent est toujours là : on note, on ne refuse pas.
+    """
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50), mauvais=2.0)
+    longueur = _fin_de_seance(720.0) + 5.0
+    calme_s = _vitesse(PUISSANCE_Z2) * 720.0 / _vitesse(PUISSANCE_CALME)
+
+    resultat = placement.placer(
+        _seance_calme(calme_s), _trace_de_longueur(longueur), P, elasticite=(0.20, 0.20)
+    )
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(720.0)
+    assert resultat.note_terrain == pytest.approx(0.0), "le terrain sous les blocs est parfait"
+    # Écart de −100 % pour une fenêtre réduite à +20 % : 1,20 hors de la fenêtre.
+    assert resultat.penalite_seance == pytest.approx(
+        placement.PENALITE_SEANCE_NON_TENUE * 1.20, rel=0.01
+    ), "la pénalité se compte hors de la fenêtre, au prorata"
+    assert resultat.note_totale == pytest.approx(
+        resultat.note_terrain + resultat.penalite_seance
+    )
+    assert any("retour au calme" in a and "-100%" in a for a in resultat.avertissements), (
+        f"l'avertissement du lot précédent doit rester : {resultat.avertissements}"
+    )
+
+
+def test_un_retour_au_calme_hors_fenetre_se_dit(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    # Tracé bien trop long pour la séance : le retour au calme s'étire.
+    resultat = placement.placer(_seance(), _trace(120_000.0), P)
+
+    assert resultat is not None
+    assert any("retour au calme" in a for a in resultat.avertissements)
+
+
+# --- le parcours réellement roulé -----------------------------------------------
+
+
+def _boucle_carree(cote_m: float = 20_000.0, pas_m: float = 500.0) -> Trace:
+    """Un carré fermé de `4 × cote_m`, plat, au large du golfe de Guinée.
+
+    Une vraie boucle, pas une ligne droite : le parcours rendu doit recoller
+    des morceaux qui tournent, pas seulement des longitudes croissantes.
+    """
+    n = int(cote_m // pas_m)
+    cotes = ((1, 0), (0, 1), (-1, 0), (0, -1))  # est, nord, ouest, sud
+    x = y = 0.0
+    points = [PointTrace(lat=0.0, lon=0.0, alt_m=100.0, dist_m=0.0)]
+    for dx, dy in cotes:
+        for _ in range(n):
+            x, y = x + dx * pas_m, y + dy * pas_m
+            points.append(
+                PointTrace(
+                    lat=y * DEG_PAR_M,
+                    lon=x * DEG_PAR_M,
+                    alt_m=100.0,
+                    dist_m=points[-1].dist_m + pas_m,
+                )
+            )
+    return Trace(
+        nom="carré d'essai",
+        points=points,
+        segments=[],
+        distance_m=points[-1].dist_m,
+        denivele_m=0.0,
+        temps_moteur_s=None,
+    )
+
+
+def _point_du_parcours(parcours: Trace, distance_m_: float) -> PointTrace:
+    """Le point du parcours à `distance_m_` du départ, interpolé."""
+    return placement._point_a(parcours.points, [p.dist_m for p in parcours.points], distance_m_)
+
+
+def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
+    """Défaut mesuré le 22/04 : le GPX écrit ne contenait aucun aller-retour.
+
+    Une boucle fabriquée, un seul bon couloir de la longueur d'un bloc : le
+    placement fait demi-tour, et le parcours rendu doit faire la distance
+    **placée**, pas celle de la boucle, en repassant exactement sur ses pas.
+    """
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+    trace = _boucle_carree()
+
+    resultat = placement.placer(_seance(), trace, P, penalite_demi_tour=1.0)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, True], (
+        "ce test a besoin du demi-tour pour avoir quelque chose à vérifier"
+    )
+    assert len(resultat.jalons_m) == 3, f"un demi-tour, donc trois jalons : {resultat.jalons_m}"
+
+    parcours = placement.trace_parcourue(resultat, trace)
+
+    assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01), (
+        f"parcours de {parcours.distance_m:.0f} m pour une séance placée sur "
+        f"{resultat.distance_totale_m:.0f} m : ce n'est pas ce qui sera roulé"
+    )
+    assert parcours.distance_m != pytest.approx(trace.distance_m, rel=0.01), (
+        "le parcours ne peut pas faire la longueur de la boucle : on a fait demi-tour"
+    )
+    # On revient sur ses pas : de part et d'autre du demi-tour, mêmes points.
+    demi_tour_m = resultat.jalons_m[1]
+    for ecart in (50.0, 500.0, 2_000.0, 5_000.0):
+        avant = _point_du_parcours(parcours, demi_tour_m - ecart)
+        apres = _point_du_parcours(parcours, demi_tour_m + ecart)
+        assert distance_m(avant, apres) < 1.0, (
+            f"à {ecart:.0f} m du demi-tour, le retour passe à {distance_m(avant, apres):.1f} m "
+            "de l'aller : le parcours ne revient pas sur ses pas"
+        )
+    # Et le premier point du parcours est bien le départ de la boucle.
+    assert distance_m(parcours.points[0], trace.points[0]) < 1.0
+
+
+def test_un_parcours_sans_demi_tour_redonne_le_trace(monkeypatch):
+    """Sans demi-tour, le parcours est la boucle elle-même, du départ à l'arrivée."""
+    _couloirs(monkeypatch, (0.0, 1e9))
+    trace = _boucle_carree()
+
+    resultat = placement.placer(_seance(), trace, P)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    parcours = placement.trace_parcourue(resultat, trace)
+    assert parcours.distance_m == pytest.approx(trace.distance_m, rel=0.001)
+    assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01)
+
+
+def test_un_placement_sans_jalons_rend_le_trace_tel_quel(monkeypatch):
+    """Un `Placement` construit à la main ne dit pas ce qui a été roulé : on n'invente pas."""
+    trace = _boucle_carree()
+    nu = placement.Placement(
+        decalage_z2_s=0.0,
+        emplacements=[],
+        note_totale=0.0,
+        duree_totale_s=0.0,
+        distance_totale_m=0.0,
+    )
+    assert placement.trace_parcourue(nu, trace) is trace
+
+
+# --- refus ----------------------------------------------------------------------
+
+
+def test_seance_trop_longue_pour_le_trace(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    trace = _trace(20_000.0)
+
+    assert placement.placer(_seance(), trace, P) is None
+    motif = trace.meta[placement.CLE_MOTIF]
+    assert "ne tient pas" in motif
+    assert "20.0 km" in motif
+    assert "décalages essayés" in motif
+
+
+def test_seance_vide_et_trace_degenere(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    vide = Seance(nom="vide", jour=date(2026, 9, 13), etapes=[], duree_s=0.0, meta={})
+    trace = _trace()
+    assert placement.placer(vide, trace, P) is None
+    assert "sans étape" in trace.meta[placement.CLE_MOTIF]
+
+    point = Trace(
+        nom="point",
+        points=[PointTrace(0.0, 0.0, None, 0.0)],
+        segments=[],
+        distance_m=0.0,
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+    assert placement.placer(_seance(), point, P) is None
+    assert "deux points" in point.meta[placement.CLE_MOTIF]
+
+
+def test_le_motif_disparait_quand_le_placement_reussit(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    trace = _trace()
+    trace.meta[placement.CLE_MOTIF] = "vieux motif"
+
+    assert placement.placer(_seance(), trace, P) is not None
+    assert placement.CLE_MOTIF not in trace.meta
+
+
+# --- cas dégradés ----------------------------------------------------------------
+
+
+def test_etape_sans_puissance_cible_se_dit(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    etapes = list(_seance().etapes)
+    etapes[2] = _etape("recuperation", 4, None)
+    seance = Seance(
+        nom="sans puissance",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert any("aucune puissance cible" in a for a in resultat.avertissements)
+
+
+def test_seance_sans_z2_elastiques(monkeypatch):
+    _couloirs(monkeypatch, (0.0, 1e9))
+    etapes = [
+        _etape("echauffement", 60, PUISSANCE_Z2),
+        _etape("bloc", 20, PUISSANCE_BLOC),
+    ]
+    seance = Seance(
+        nom="sans élastique",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == 0.0
+    assert any("aucune Z2 d'ouverture élastique" in a for a in resultat.avertissements)
+    assert any("aucun retour au calme élastique" in a for a in resultat.avertissements)
+
+
+def test_un_trace_en_pente_change_les_positions(monkeypatch):
+    """La pente entre bien dans le modèle : à 1 %, on avance moins loin."""
+    appels_plat = _couloirs(monkeypatch, (0.0, 1e9))
+    plat = placement.placer(_seance(), _trace(), P, elasticite=(0.0, 0.0))
+    assert plat is not None
+    assert appels_plat
+
+    appels_cote = _couloirs(monkeypatch, (0.0, 1e9))
+    cote = placement.placer(_seance(), _trace(pente=0.01), P, elasticite=(0.0, 0.0))
+    assert cote is not None
+    assert appels_cote
+    assert cote.emplacements[0].debut_m < plat.emplacements[0].debut_m
+    assert cote.emplacements[0].longueur_m < plat.emplacements[0].longueur_m
+
+
+# --- l'intensité du bloc atteint l'évaluation du terrain -----------------------
+
+
+def test_la_ftp_de_la_seance_atteint_l_evaluation_du_terrain(monkeypatch):
+    """Décision du 13/09 : le prix d'une descente dépend de la zone du bloc.
+
+    Le placement doit donc donner à `evaluer_couloir` la puissance du bloc
+    **et** la FTP de la séance — celle qui a produit les watts des étapes,
+    rangée dans `meta["ftp_w"]` par `seance.intervals`. Sans elle, le facteur
+    de zone resterait neutre sans que personne ne s'en aperçoive.
+    """
+    appels = _couloirs(monkeypatch, (0.0, 1e9))
+    seance = _seance()
+    seance.meta["ftp_w"] = 258.0
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert appels
+    assert all(ftp == pytest.approx(258.0) for _, _, _, ftp in appels)
+
+
+def test_une_seance_sans_ftp_n_en_invente_pas(monkeypatch):
+    appels = _couloirs(monkeypatch, (0.0, 1e9))
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert appels
+    assert all(ftp is None for _, _, _, ftp in appels)
+
+
+@pytest.mark.parametrize(
+    ("meta", "attendu"),
+    [
+        ({}, None),
+        ({"ftp_w": None}, None),
+        ({"ftp_w": 0.0}, None),
+        ({"ftp_w": -258.0}, None),
+        ({"ftp_w": float("nan")}, None),
+        ({"ftp_w": True}, None),
+        ({"ftp_w": "illisible"}, None),
+        ({"ftp_w": 258}, 258.0),
+        ({"ftp_w": 258.0}, 258.0),
+    ],
+)
+def test_ftp_de_ne_rend_qu_une_ftp_exploitable(meta, attendu):
+    seance = _seance()
+    seance.meta = dict(meta)
+    assert placement.ftp_de(seance) == attendu

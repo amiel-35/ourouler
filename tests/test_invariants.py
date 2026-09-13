@@ -90,7 +90,15 @@ def test_aucun_client_http_reel_n_est_cree_a_l_import():
     "fichier", sorted(TESTS.glob("test_*.py")), ids=lambda p: p.name
 )
 def test_aucun_test_ne_cree_un_client_http_sans_transport_bouchonne(fichier: Path):
-    """`httpx.Client(...)` n'est permis dans les tests qu'avec un MockTransport."""
+    """`httpx.Client(...)` n'est permis dans les tests qu'avec un MockTransport.
+
+    **Périmètre : `tests/*.py` seulement.** Le `glob` n'est pas récursif, donc
+    `tests/adversarial/` n'est pas scanné ici — il l'est par l'invariant jumeau
+    `test_adv_invariants.test_tout_client_httpx_des_tests_recoit_un_transport`,
+    qui parcourt tout `tests/` et couvre donc le fond. Les deux sont gardés :
+    celui-ci paramétré fichier par fichier (l'échec nomme le coupable), l'autre
+    exhaustif.
+    """
     source = fichier.read_text(encoding="utf-8")
     for noeud in ast.walk(ast.parse(source)):
         if not isinstance(noeud, ast.Call):

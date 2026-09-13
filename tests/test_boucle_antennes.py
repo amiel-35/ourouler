@@ -125,13 +125,18 @@ def test_un_carre_ferme_n_a_aucune_antenne():
 
 
 def test_la_fenetre_par_defaut_est_celle_decidee_le_13_09():
-    """3 000 m, et non les 600 m du contrat d'origine.
+    """6 000 m, et non les 600 m du contrat d'origine.
 
-    Décision du mainteneur prise sur mesure : les culs-de-sac relevés sur les
-    boucles réelles de 60 km font 1,5 à 2,7 km, et une fenêtre de 600 m les
-    laissait tous passer. Voir `FENETRE_DEFAUT_M`.
+    Deux mesures successives, toutes deux sur des boucles réelles. D'abord
+    3 000 m : les culs-de-sac relevés sur les boucles de 60 km font 1,5 à
+    2,7 km, une fenêtre de 600 m les laissait tous passer. Puis 6 000 m,
+    le 13/09 au soir : le mainteneur a vu sur la carte d'une sortie un
+    crochet que 3 000 m laissait encore passer — mesuré sur le GPX, une
+    antenne de 3 453 m. Élargir ne coûte rien en fausse détection, puisque
+    la détection exige que le retour repasse à moins de 20 m de l'aller :
+    une vraie boucle ne repasse pas sur elle-même. Voir `FENETRE_DEFAUT_M`.
     """
-    assert FENETRE_DEFAUT_M == 3000.0
+    assert FENETRE_DEFAUT_M == 6000.0
     assert TOLERANCE_DEFAUT_M == 20.0
     crochet = trace_avec_antenne(longueur_antenne_m=1200.0)  # 2 400 m aller + retour
     assert len(detecter(crochet)) == 1
@@ -139,17 +144,17 @@ def test_la_fenetre_par_defaut_est_celle_decidee_le_13_09():
 
 
 def test_une_boucle_qui_repasse_par_son_depart_au_dela_de_la_fenetre_n_est_pas_une_antenne():
-    """Un aller-retour assumé de 4 km dépasse la fenêtre : il n'est pas rogné.
+    """Un aller-retour assumé de 8 km dépasse la fenêtre : il n'est pas rogné.
 
     Le piège est de rendre l'antenne « tronquée à la fenêtre » : couper ses
-    3 000 premiers mètres supprimerait une vraie route. La fenêtre est le
+    6 000 premiers mètres supprimerait une vraie route. La fenêtre est le
     seul curseur : assez large, la même géométrie redevient une antenne.
     """
     trace = tracer(
-        polyligne([(0.0, 0.0), (2000.0, 0.0), (0.0, 0.0), (0.0, 600.0)], pas_m=20.0)
+        polyligne([(0.0, 0.0), (4000.0, 0.0), (0.0, 0.0), (0.0, 600.0)], pas_m=20.0)
     )
     assert detecter(trace) == []
-    assert len(detecter(trace, fenetre_m=5000)) == 1
+    assert len(detecter(trace, fenetre_m=9000)) == 1
 
 
 def test_un_aller_retour_plus_long_que_la_fenetre_reste_ignore_quelle_qu_elle_soit():

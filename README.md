@@ -36,7 +36,8 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | `ourouler calibrer` | ajuste CdA et Crr d'un vélo sur les sorties réelles (vent d'archive compris) et mesure l'erreur de temps sur des sorties non vues | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu | sprint 3 — **vérifié** sur une boucle générée |
 | `ourouler comparer` | de combien un vélo va plus vite que l'autre **à puissance égale**, mesuré sur des séries plates sans arrêt, sans modèle physique | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
-| `ourouler sortie` | séance du jour ↔ terrain : choix de la boucle, résumé, tenue | plus tard |
+| `ourouler seance` | la séance planifiée du jour (Intervals.icu), étape par étape, avec la longueur de route que chaque bloc demande et celle qu'il faut au-delà pour faire demi-tour pendant la récupération | sprint 4 — **vérifié sur vraies données (13/09/2026)** |
+| `ourouler sortie` | séance du jour ↔ terrain : boucles candidates, placement des blocs, tableau trié par note de placement puis pluie, **GPX du parcours réellement roulé** (demi-tours compris), tenue et **carte HTML de vérification** (tracé, blocs colorés, profil d'altitude) | sprint 4 — **vérifié sur vraies données (13/09/2026)**, météo absente sur les jours passés (hors horizon de prévision) |
 | envoi vers Garmin Connect | | plus tard |
 
 Ces commandes ont toutes tourné sur les vraies données du mainteneur, et pas
@@ -51,6 +52,11 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   seconde synchronisation n'ajoute rien et ne retélécharge rien.
 - `ourouler boucle` : sur le serveur BRouter auto-hébergé et Open-Meteo, avec
   écriture du GPX et relecture de ce GPX par `--gpx`.
+- `ourouler sortie` : le 13/09/2026, sur les deux séances de coach de référence
+  (08/02/2026 « 2x20' + 4x3' », 22/04/2026 « 4x8 SV1 outdoor »), quatre boucles
+  candidates chacune, GPX et carte écrits. Pluie, vent et tenue ne sortent que
+  pour un jour dans l'horizon de prévision : sur un jour passé, les colonnes
+  météo disparaissent et le tableau le dit.
 - `ourouler routes` : le 13/09/2026, 154 sorties extérieures rejouées dans
   BRouter (2 min 26). Ce que le mainteneur roule vraiment : 58 % de
   `tertiary`, 20 % de `secondary`, 13 % d'`unclassified`, 3 % de `primary`.
@@ -81,6 +87,24 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   résistance totale calibrée ci-dessus (17 W de moins pour le BMC à
   27 km/h) — deux mesures indépendantes qui vont dans le même sens. Aucun
   appel réseau : tout vient du cache.
+
+### Noms d'options
+
+L'heure de départ s'appelle **`--heure-depart`** sur `meteo`, `boucle`,
+`simuler` et `sortie` :
+
+```
+ourouler meteo --heure-depart 08:00 --horizon 6
+ourouler sortie --jour 2026-02-08 --heure-depart 09:30 --candidates 4
+```
+
+Le **lieu** de départ s'appellera **`--adresse-depart`** — nom réservé,
+**pas encore livré** : pour l'instant le départ est toujours celui de la
+configuration. Deux noms explicites plutôt que deux noms qui se ressemblent,
+décision du mainteneur (`docs/questions_mainteneur.md`, Q15).
+
+Les anciens noms `--depart` et `--heure` restent acceptés pour ne rien
+casser, mais l'aide ne les propose plus.
 
 ### Comparer deux vélos
 
@@ -117,6 +141,57 @@ Les traces servent à **apprendre**, jamais de critère : elles ne couvrent
 qu'une partie du territoire, et pénaliser ce qu'elles ignorent condamnerait
 toute boucle vers une direction jamais explorée. La colonne « connu % » de
 `ourouler boucle` est informative et n'entre dans aucun score.
+
+## Validation rétrospective du terrain sous un bloc (sprint 4)
+
+Les poids de `seance/terrain.py` — ce que coûtent un village, une descente,
+un virage sous un bloc — ne sont pas devinés : ils sont confrontés aux
+emplacements où le mainteneur a **réellement** fait ses blocs, sur deux
+sorties de référence, contre des emplacements tirés au hasard sur la même
+boucle. Le script est versionné :
+
+```bash
+uv run python tests/validation/terrain_retrospectif.py
+```
+
+**Conclusion du 13/09/2026, mode nominal — OUI, code de sortie 0.** Sur les
+9 blocs courts et moyens des deux sorties (11 blocs trouvés au total), la note
+médiane des emplacements réels vaut **33,2 % de celle du hasard**, là où le
+critère demande au plus 70 %. Composition au kilomètre, blocs réels contre
+tirages : km bâtis 0,00 contre 0,05 (**3 %**, le poste le plus discriminant) ;
+descente 1,08 m contre 1,89 m (57 %) ; virages 0,74 contre 1,00 (74 %) ;
+irrégularité 1,55 % contre 1,58 % (98 %, ne sépare rien) ; montée 4,34 m contre
+3,39 m (**128 %** — le mainteneur monte *plus* que le hasard, il ne fuit pas
+les côtes).
+
+**Le prix d'une descente dépend de l'intensité du bloc** (décision du
+mainteneur du 13/09 : « Z5 en descente, pas possible ou presque »). Le poids
+de la descente est multiplié par un facteur de zone croissant — ×0,4 sous
+75 % de FTP, ×1 de 75 à 90 %, ×2 de 90 à 105 %, ×4 au-delà
+(`FACTEURS_ZONE_DESCENTE`). Blocs réels et tirages au hasard sont notés à la
+**même** intensité, celle du bloc : la mesure reste une mesure de terrain.
+Le facteur n'a pas dégradé la discrimination, il l'a améliorée — **42,7 %
+avant, 33,2 % après** — parce que les tirages portent plus de descente que
+les emplacements que le mainteneur a choisis.
+
+**Ce qui fait foi, et pourquoi.** Le mode nominal lit les **intervalles
+marqués** dans Intervals.icu : ce sont les blocs réellement prescrits et
+exécutés. Le mode `--sans-reseau`, seul reproductible sans la clé d'API du
+mainteneur, les **devine** à partir de la puissance : il en trouve 15 au lieu
+de 11, coupe un 20' en trois et ramasse des fragments d'échauffement. Il
+conclut aujourd'hui NON à 71,3 % pour un seuil de 70 % : c'est la conclusion
+honnête d'un mode qui borne moins bien les blocs, **pas un désaveu des poids**.
+Le script échoue explicitement quand les deux modes divergent, en le disant,
+plutôt que de laisser croire que l'un vaut l'autre.
+
+**Deux limites à lire avec la conclusion.** (1) `POIDS_CARREFOUR` — ce que
+coûte un feu ou un stop sous un bloc — n'est validé par aucune mesure : une
+trace GPS ne porte pas de nœud OSM. C'est un raisonnement produit, et son
+commentaire le dit. (2) Le critère ne porte que sur les blocs de **moins de
+6 km** : décision du mainteneur, motivée par le fait que sur un bloc de 11 km
+le cycliste ne choisit pas son terrain, il roule là où il en est rendu. Les
+blocs longs sont mesurés et affichés — les deux 20' du 25/04 sont notés plus
+mal que 95 % des tirages de même longueur — mais ils ne jugent pas les poids.
 
 ## Limites connues
 

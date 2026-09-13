@@ -126,6 +126,54 @@ class ParametresBrouter:
 
 
 @dataclass(frozen=True)
+class ParametresSeance:
+    """Marge de placement d'une séance sur une boucle (sprint 4).
+
+    Seules les zones 2 d'ouverture et de fermeture sont élastiques : toutes
+    les récupérations font partie de la prescription et ne bougent pas.
+    """
+
+    elasticite_z2_max: float = 0.20  # allongement maximal de la Z2 d'ouverture
+    elasticite_z2_min: float = -0.05  # raccourcissement maximal
+    demi_tour_penalite: float = 1.0  # coût d'un bloc qui reprend le segment précédent à l'envers
+
+    #: Puissance d'endurance du cycliste, en fraction de sa FTP. Elle sert de
+    #: cible aux étapes prescrites en **zone de fréquence cardiaque basse**
+    #: (Z1, Z2), dont la traduction par la table des zones de puissance donne
+    #: un résultat faux (Q11, close le 13/09/2026 : la médiane mesurée sur
+    #: 96 sorties extérieures de plus d'une heure est 60 % de FTP).
+    puissance_endurance_pct: float = 0.60
+
+    #: Sous cette part de FTP, une étape n'est pas un bloc : c'est de
+    #: l'échauffement, de la récupération ou du retour au calme. Dernier
+    #: recours du typage, quand la séance ne porte ni marqueur ni texte —
+    #: c'est le cas des séances de coach en pourcentage de FTP.
+    seuil_recuperation_pct: float = 0.75
+
+
+@dataclass(frozen=True)
+class ParametresTenue:
+    """Seuils de tenue. Les bornes sont en ressenti, croissantes."""
+
+    #: très froid < 3 ; froid < 9 ; frais < 15 ; modéré < 22 ; chaud < 30 ; canicule au-delà.
+    bornes_c: tuple[float, ...] = (3.0, 9.0, 15.0, 22.0, 30.0)
+    #: sec < 0,2 ; humide < 0,5 ; averses < 1,0 ; pluie au-delà, en mm/h.
+    bornes_pluie_mmh: tuple[float, ...] = (0.2, 0.5, 1.0)
+    vent_veste_kmh: float = 30.0
+    #: Tenue par catégorie de température : {"froid": ["collant", "veste"], …}.
+    #: Vide = le jeu par défaut de `seance/tenue.py`. Les catégories données
+    #: remplacent celles du défaut, une par une.
+    tenues: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def tenue_de(self, categorie: str) -> tuple[str, ...] | None:
+        """Les vêtements configurés pour une catégorie, ou None si non configurée."""
+        for nom, pieces in self.tenues:
+            if nom == categorie:
+                return pieces
+        return None
+
+
+@dataclass(frozen=True)
 class ParametresCalibration:
     # Une sortie dont le nom contient un de ces mots est écartée de la
     # calibration (peloton). Les quatre valeurs du contrat de sprint §0 : la
@@ -165,6 +213,8 @@ class Config:
     brouter: ParametresBrouter = field(default_factory=ParametresBrouter)
     boucle: ParametresBoucle = field(default_factory=ParametresBoucle)
     calibration: ParametresCalibration = field(default_factory=ParametresCalibration)
+    seance: ParametresSeance = field(default_factory=ParametresSeance)
+    tenue: ParametresTenue = field(default_factory=ParametresTenue)
     evitements: tuple[Evitement, ...] = ()
     historique_depuis: date = HISTORIQUE_DEPUIS_DEFAUT
 
@@ -215,6 +265,8 @@ def depuis_dict(d: dict[str, Any]) -> Config:
     brouter = d.get("brouter", {}) or {}
     boucle = d.get("boucle", {}) or {}
     calibration = d.get("calibration", {}) or {}
+    seance_brut = d.get("seance", {}) or {}
+    tenue_brut = d.get("tenue", {}) or {}
     evitements = tuple(_evitement(e, i) for i, e in enumerate(d.get("evitements", []) or []))
     sens = str(boucle.get("sens", "horaire"))
     if sens not in SENS_BOUCLE:
@@ -278,6 +330,55 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 calibration.get("vitesse_min_kmh", 8.0), "vitesse_min_kmh", "calibration", mini=1, maxi=30
             ),
         ),
+        seance=ParametresSeance(
+            elasticite_z2_max=_flottant(
+                seance_brut.get("elasticite_z2_max", 0.20),
+                "elasticite_z2_max",
+                "seance",
+                mini=0.0,
+                maxi=1.0,
+            ),
+            elasticite_z2_min=_flottant(
+                seance_brut.get("elasticite_z2_min", -0.05),
+                "elasticite_z2_min",
+                "seance",
+                mini=-0.5,
+                maxi=0.0,
+            ),
+            demi_tour_penalite=_flottant(
+                seance_brut.get("demi_tour_penalite", 1.0),
+                "demi_tour_penalite",
+                "seance",
+                mini=0.0,
+                maxi=20.0,
+            ),
+            puissance_endurance_pct=_flottant(
+                seance_brut.get("puissance_endurance_pct", 0.60),
+                "puissance_endurance_pct",
+                "seance",
+                mini=0.40,
+                maxi=0.80,
+            ),
+            seuil_recuperation_pct=_flottant(
+                seance_brut.get("seuil_recuperation_pct", 0.75),
+                "seuil_recuperation_pct",
+                "seance",
+                mini=0.50,
+                maxi=0.90,
+            ),
+        ),
+        tenue=ParametresTenue(
+            bornes_c=_bornes(
+                tenue_brut.get("bornes_c", (3.0, 9.0, 15.0, 22.0, 30.0)), "bornes_c", "tenue"
+            ),
+            bornes_pluie_mmh=_bornes(
+                tenue_brut.get("bornes_pluie_mmh", (0.2, 0.5, 1.0)), "bornes_pluie_mmh", "tenue"
+            ),
+            vent_veste_kmh=_flottant(
+                tenue_brut.get("vent_veste_kmh", 30.0), "vent_veste_kmh", "tenue", mini=0.0, maxi=100.0
+            ),
+            tenues=_tenues(tenue_brut.get("tenues", {})),
+        ),
         evitements=evitements,
         historique_depuis=_date(d.get("historique_depuis", HISTORIQUE_DEPUIS_DEFAUT), "historique_depuis"),
     )
@@ -292,6 +393,32 @@ def _mots(brut: Any) -> tuple[str, ...]:
         )
     mots = tuple(str(m).strip().casefold() for m in brut if str(m).strip())
     return mots
+
+
+def _tenues(brut: Any) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """{catégorie: [vêtements]} → couples figés. Une catégorie absente garde le défaut du code."""
+    if not brut:
+        return ()
+    if not isinstance(brut, dict):
+        raise ErreurConfig(f"[tenue] tenues : table {{catégorie = [vêtements]}} attendue, reçu {brut!r}")
+    couples = []
+    for categorie, pieces in brut.items():
+        if isinstance(pieces, str) or not isinstance(pieces, (list, tuple)):
+            raise ErreurConfig(f"[tenue] tenues.{categorie} : liste de vêtements attendue, reçu {pieces!r}")
+        couples.append((str(categorie), tuple(str(p) for p in pieces)))
+    return tuple(couples)
+
+
+def _bornes(brut: Any, cle: str, section: str) -> tuple[float, ...]:
+    """Suite de bornes strictement croissantes. Une chaîne nue est refusée."""
+    if isinstance(brut, str) or not isinstance(brut, (list, tuple)):
+        raise ErreurConfig(f"[{section}] {cle} : liste de nombres croissants attendue, reçu {brut!r}")
+    valeurs = tuple(_flottant(x, cle, section, mini=-100, maxi=1000) for x in brut)
+    if not valeurs:
+        raise ErreurConfig(f"[{section}] {cle} : au moins une borne est attendue")
+    if any(b <= a for a, b in zip(valeurs, valeurs[1:], strict=False)):
+        raise ErreurConfig(f"[{section}] {cle} : bornes non strictement croissantes ({list(valeurs)})")
+    return valeurs
 
 
 def _evitement(e: Any, i: int) -> Evitement:

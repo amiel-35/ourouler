@@ -69,7 +69,7 @@
       "0",
       "0",
       "highway=secondary surface=asphalt",
-      "",
+      "highway=traffic_signals",
       "360",
       "27000"
      ],
@@ -99,7 +99,7 @@
       "0",
       "0",
       "highway=cycleway surface=paved",
-      "",
+      "highway=crossing",
       "600",
       "45000"
      ],

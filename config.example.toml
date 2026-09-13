@@ -64,3 +64,32 @@ vitesse_min_kmh = 8
 # latitude = 47.0
 # longitude = -0.5
 # rayon_m = 200
+
+[seance]
+# Seules les zones 2 d'ouverture et de fermeture sont élastiques : les récupérations
+# font partie de la prescription et ne bougent jamais.
+elasticite_z2_max = 0.20     # allongement maximal de l'échauffement, pour atteindre un bon couloir
+elasticite_z2_min = -0.05
+demi_tour_penalite = 1.0     # coût d'un bloc qui reprend le segment précédent en sens inverse
+# Puissance d'endurance, en fraction de la FTP. Sert de cible aux étapes prescrites en
+# zone de FC basse (Z1, Z2), que la table des zones de puissance traduit très mal.
+# 0,60 = médiane mesurée sur les sorties extérieures du mainteneur (Q11). Bornes : 0,40 à 0,80.
+puissance_endurance_pct = 0.60
+# Sous cette part de FTP, une étape n'est pas un bloc mais de l'échauffement, de la
+# récupération ou du retour au calme. Dernier recours du typage, quand la séance ne porte
+# ni marqueur ni texte explicite. Bornes : 0,50 à 0,90.
+seuil_recuperation_pct = 0.75
+
+[tenue]
+bornes_c = [3, 9, 15, 22, 30]      # très froid / froid / frais / modéré / chaud / canicule, en ressenti
+bornes_pluie_mmh = [0.2, 0.5, 1.0] # sec / humide / averses / pluie
+vent_veste_kmh = 30
+
+# Tenue par catégorie. Une catégorie absente garde le défaut du code.
+# [tenue.tenues]
+# "très froid" = ["collant", "veste hiver", "sous-couche", "gants longs", "couvre-chaussures", "bonnet"]
+# froid = ["collant", "veste", "gants longs", "couvre-chaussures", "tour de cou"]
+# frais = ["cuissard", "maillot long", "gilet", "jambières"]
+# "modéré" = ["cuissard", "maillot", "manchettes dans la poche"]
+# chaud = ["cuissard", "maillot"]
+# canicule = ["cuissard", "maillot ajouré", "crème solaire", "deux bidons"]

@@ -300,58 +300,91 @@ def _non_revetu(tags: dict[str, str]) -> bool:
 # --- virages -----------------------------------------------------------------
 
 
-def _virages(trace: Trace, segments: Sequence[Segment]) -> tuple[int, int, int]:
-    """(gauche, gauche à trafic, droite).
+@dataclass(frozen=True)
+class Virage:
+    """Un changement de direction marqué, détecté sur la seule géométrie.
+
+    Les indices sont ceux de la liste de points passée à `virages_detectes`.
+    `entrant` et `sortant` bornent les tronçons qui entrent dans le virage et
+    qui en sortent, au sens d'une tranche `points[debut:fin]`.
+    """
+
+    amplitude_deg: float  # signée, négative à gauche
+    sommet_idx: int  # premier point du virage
+    entrant: tuple[int, int]
+    sortant: tuple[int, int]
+
+
+def virages_detectes(
+    points: Sequence[PointTrace], *, angle_deg: float = ANGLE_VIRAGE_DEG
+) -> list[Virage]:
+    """Les virages d'au moins `angle_deg`, demi-tours exclus.
 
     Les caps sont calculés entre des points espacés d'au moins
     `ESPACEMENT_CAP_M` : sans ce sous-échantillonnage, deux points GPS
     consécutifs à 2 m l'un de l'autre donnent un cap dominé par le bruit et
     une boucle bien lisse se retrouve pleine de « virages ».
 
-    Un demi-tour exact (±180°) n'est compté d'aucun côté : voir
-    `EPSILON_DEMI_TOUR_DEG`.
+    Un demi-tour exact (±180°) n'est pas un virage : voir
+    `EPSILON_DEMI_TOUR_DEG`. Il est quand même consommé, sinon il serait
+    réexaminé au décalage suivant.
+
+    `angle_deg` est le seul réglage : les coûts d'un tracé comptent les
+    tourne-à-gauche à partir de 45° (`ANGLE_VIRAGE_DEG`), `seance.terrain`
+    compte les carrefours traversés sous un bloc à partir de 60°. La
+    mécanique, elle, est la même des deux côtés.
     """
-    indices = _indices_espaces(trace.points, ESPACEMENT_CAP_M)
+    indices = _indices_espaces(points, ESPACEMENT_CAP_M)
     if len(indices) < 3:
-        return (0, 0, 0)
-
-    noeuds = [trace.points[i] for i in indices]
+        return []
+    noeuds = [points[i] for i in indices]
     caps = [cap_deg(a, b) for a, b in zip(noeuds[:-1], noeuds[1:], strict=True)]
-    a_trafic = _points_a_trafic(trace.points, segments)
 
-    gauche = gauche_trafic = droite = 0
+    trouves: list[Virage] = []
     i = 0
     while i + 1 < len(caps):
-        j, cumul = _accumuler(caps, noeuds, i)
+        j, cumul = _accumuler(caps, noeuds, i, angle_deg)
         if cumul is None:
             i += 1
             continue
-        if abs(cumul) >= 180.0 - EPSILON_DEMI_TOUR_DEG:
-            # Demi-tour : ni à gauche, ni à droite. Le virage est quand même
-            # consommé, sinon il serait réexaminé au décalage suivant.
-            i = j + 1
-            continue
-        if cumul <= -ANGLE_VIRAGE_DEG:
+        if abs(cumul) < 180.0 - EPSILON_DEMI_TOUR_DEG:
+            trouves.append(
+                Virage(
+                    amplitude_deg=cumul,
+                    sommet_idx=indices[i + 1],
+                    entrant=(indices[i], indices[i + 1]),
+                    sortant=(indices[j + 1], indices[j + 2]),
+                )
+            )
+        # Le virage consomme les caps i..j+1 : on repart du tronçon sortant,
+        # sinon un virage à 90° serait recompté à chaque décalage.
+        i = j + 1
+    return trouves
+
+
+def _virages(trace: Trace, segments: Sequence[Segment]) -> tuple[int, int, int]:
+    """(gauche, gauche à trafic, droite), à partir de `ANGLE_VIRAGE_DEG`."""
+    a_trafic = _points_a_trafic(trace.points, segments)
+    gauche = gauche_trafic = droite = 0
+    for virage in virages_detectes(trace.points):
+        if virage.amplitude_deg <= -ANGLE_VIRAGE_DEG:
             gauche += 1
-            entrant = _troncon_a_trafic(a_trafic, indices[i], indices[i + 1])
-            sortant = _troncon_a_trafic(a_trafic, indices[j + 1], indices[j + 2])
+            entrant = _troncon_a_trafic(a_trafic, *virage.entrant)
+            sortant = _troncon_a_trafic(a_trafic, *virage.sortant)
             if entrant or sortant:
                 gauche_trafic += 1
         else:
             droite += 1
-        # Le virage consomme les caps i..j+1 : on repart du tronçon sortant,
-        # sinon un virage à 90° serait recompté à chaque décalage.
-        i = j + 1
     return (gauche, gauche_trafic, droite)
 
 
 def _accumuler(
-    caps: Sequence[float], noeuds: Sequence[PointTrace], i: int
+    caps: Sequence[float], noeuds: Sequence[PointTrace], i: int, angle_deg: float
 ) -> tuple[int, float | None]:
     """Cumule les changements de cap depuis `caps[i]` tant qu'on reste sous 60 m.
 
     Renvoie `(j, cumul)` où `caps[j + 1]` est le tronçon sortant du virage,
-    ou `(i, None)` si les 45° ne sont pas atteints dans la fenêtre. Le premier
+    ou `(i, None)` si `angle_deg` n'est pas atteint dans la fenêtre. Le premier
     changement est toujours examiné : un virage sec à 90° entre deux tronçons
     ne doit pas dépendre de leur longueur.
     """
@@ -360,7 +393,7 @@ def _accumuler(
     j = i
     while j + 1 < len(caps):
         cumul += _ecart_cap(caps[j], caps[j + 1])
-        if abs(cumul) >= ANGLE_VIRAGE_DEG:
+        if abs(cumul) >= angle_deg:
             return (j, cumul)
         longueur += distance_m(noeuds[j + 1], noeuds[j + 2])
         if longueur > LONGUEUR_VIRAGE_M:
@@ -398,19 +431,52 @@ def _points_a_trafic(
     points: Sequence[PointTrace], segments: Sequence[Segment]
 ) -> list[bool]:
     """Pour chaque point du tracé : le segment qui le porte est-il à trafic ?"""
-    tags = _tags_par_point(points, segments)
+    tags = tags_par_point(points, segments)
     return [t is not None and t.get("highway", "") in HIGHWAY_TRAFIC for t in tags]
 
 
-def _tags_par_point(
+def tags_par_point(
     points: Sequence[PointTrace], segments: Sequence[Segment]
 ) -> list[dict[str, str] | None]:
-    """Les tags du segment couvrant chaque point, `None` si aucun ne le couvre."""
+    """Les tags du segment couvrant chaque point, `None` si aucun ne le couvre.
+
+    Un point de jonction appartient aux **deux** segments qui s'y touchent ;
+    c'est le premier qui l'emporte. Cette correspondance répond donc à « suis-je
+    passé par une route à trafic ? » et non à « sur quelle route suis-je entre
+    ce point et le suivant ? » : pour cette question-là, qui est celle d'une
+    longueur parcourue, c'est `tags_par_troncon` qu'il faut.
+    """
     tags: list[dict[str, str] | None] = [None] * len(points)
     for segment in segments:
         debut = max(0, segment.debut_idx)
         fin = min(len(points) - 1, segment.fin_idx)
         for i in range(debut, fin + 1):
+            if tags[i] is None:  # en cas de recouvrement, le premier segment gagne
+                tags[i] = segment.tags
+    return tags
+
+
+def tags_par_troncon(
+    points: Sequence[PointTrace], segments: Sequence[Segment]
+) -> list[dict[str, str] | None]:
+    """Les tags du segment couvrant chaque **intervalle** `[i, i + 1]`.
+
+    Un tronçon, lui, n'appartient qu'à un seul segment : la liste rendue a un
+    élément de moins que `points`, et l'élément `i` décrit ce qu'on a sous les
+    roues entre le point `i` et le point `i + 1`.
+
+    Public depuis le sprint 4 : `seance.terrain` mesure des kilomètres bâtis
+    sous un bloc, donc des longueurs, et il n'y a pas deux façons de
+    construire cette correspondance. La différence avec `tags_par_point` n'est
+    pas cosmétique : attribuer à l'intervalle qui *commence* au point `i` les
+    tags du segment qui *finit* en `i` faisait payer à un bloc le village
+    traversé juste avant lui, pendant la récupération.
+    """
+    tags: list[dict[str, str] | None] = [None] * max(len(points) - 1, 0)
+    for segment in segments:
+        debut = max(0, segment.debut_idx)
+        fin = min(len(tags), segment.fin_idx)
+        for i in range(debut, fin):
             if tags[i] is None:  # en cas de recouvrement, le premier segment gagne
                 tags[i] = segment.tags
     return tags

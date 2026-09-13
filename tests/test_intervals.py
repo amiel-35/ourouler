@@ -759,3 +759,40 @@ def test_une_entree_creuse_n_est_jamais_telechargee(cache: Cache, activites: Pat
     assert (rapport.vues, rapport.ajoutees, rapport.sans_contenu, rapport.echecs) == (2, 1, 1, 0)
     assert "/api/v1/activity/c1/file" not in espion.chemins
     assert [e.id_externe for e in cache.lister()] == ["s1"]
+
+
+# --- intervalles d'une activité ------------------------------------------------
+
+
+INTERVALLES_FABRIQUES = [
+    {"type": "WORK", "start_index": 600, "end_index": 1080, "average_watts": 250},
+    {"type": "RECOVERY", "start_index": 1080, "end_index": 1200, "average_watts": 120},
+]
+
+
+def test_intervalles_lus_depuis_un_objet_icu_intervals():
+    c, espion = client(json_fixe({"id": "a111", "icu_intervals": INTERVALLES_FABRIQUES}))
+    assert c.intervalles("a111") == INTERVALLES_FABRIQUES
+    assert espion.chemins == ["/api/v1/activity/a111/intervals"]
+
+
+def test_intervalles_lus_depuis_un_tableau_nu():
+    c, _ = client(json_fixe(INTERVALLES_FABRIQUES))
+    assert c.intervalles("a111") == INTERVALLES_FABRIQUES
+
+
+def test_intervalles_absents_donnent_une_liste_vide():
+    c, _ = client(json_fixe({"id": "a111"}))
+    assert c.intervalles("a111") == []
+
+
+def test_intervalles_de_forme_inattendue_sont_une_erreur():
+    c, _ = client(json_fixe({"icu_intervals": "deux"}))
+    with pytest.raises(ErreurConnecteur, match="intervals"):
+        c.intervalles("a111")
+
+
+def test_intervalles_http_en_erreur_remonte():
+    c, _ = client(json_fixe({}, code=404))
+    with pytest.raises(ErreurConnecteur, match="404"):
+        c.intervalles("a111")

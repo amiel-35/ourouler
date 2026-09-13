@@ -40,6 +40,8 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_calibrer(sous)
     ajouter_simuler(sous)
     ajouter_comparer(sous)
+    ajouter_seance(sous)
+    ajouter_sortie(sous)
     return p
 
 
@@ -71,6 +73,37 @@ def parent_json() -> argparse.ArgumentParser:
         help="sortie JSON au lieu du texte (accepté avant ou après la sous-commande)",
     )
     return parent
+
+
+#: Les anciens noms de l'heure de départ, acceptés et **non documentés**.
+#:
+#: Q15, tranchée par le mainteneur le 13/09 : l'heure de départ s'appelle
+#: `--heure-depart` et le lieu de départ s'appellera `--adresse-depart` (nom
+#: réservé, pas encore livré). `--depart` seul était ambigu dès que le lieu
+#: existerait ; `--heure` avait été ajouté en attendant la décision.
+#:
+#: Les deux restent acceptés pour ne rien casser — le mainteneur a des scripts
+#: et des habitudes — mais ils ne figurent plus dans l'aide : un nom déprécié
+#: qu'on documente est un nom qu'on enseigne encore.
+ANCIENS_NOMS_HEURE_DEPART = ("--depart", "--heure")
+
+
+def ajouter_heure_depart(p: argparse.ArgumentParser, aide: str) -> None:
+    """Ajoute `--heure-depart` à une sous-commande, plus ses anciens noms.
+
+    Deux déclarations et non une seule liste d'alias, parce qu'argparse ne
+    sait pas masquer un alias dans l'aide : il les imprime tous ou aucun. La
+    seconde déclaration, sous `argparse.SUPPRESS`, écrit dans le même `dest`
+    que la première — `depart`, inchangé, pour que les commandes continuent de
+    lire un seul champ.
+    """
+    p.add_argument("--heure-depart", dest="depart", metavar="HEURE", help=aide)
+    p.add_argument(
+        *ANCIENS_NOMS_HEURE_DEPART,
+        dest="depart",
+        metavar="HEURE",
+        help=argparse.SUPPRESS,
+    )
 
 
 def ajouter_config(sous: argparse._SubParsersAction) -> None:
@@ -154,7 +187,7 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
         help="pluie, vent et ressenti par direction et par heure",
         parents=[parent_json()],
     )
-    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
     p.add_argument("--horizon", type=int, help="nombre d'heures (défaut : config)")
     p.add_argument("--distance", type=float, help="n'afficher qu'une couronne (km)")
     p.add_argument("--modele", help="modèle principal Open-Meteo (défaut : config)")
@@ -181,7 +214,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         "--direction",
         help="N, NE, … NO ou un azimut en degrés (obligatoire sans --gpx)",
     )
-    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     p.add_argument("--profil", help="profil BRouter (défaut : config)")
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
@@ -292,7 +325,7 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
     p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à simuler")
     p.add_argument("--puissance", type=float, metavar="W", required=True, help="puissance tenue")
     p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
-    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
     p.set_defaults(fonction=_commande_simuler)
 
 
@@ -349,6 +382,62 @@ def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
     from ourouler.physique.comparer import executer_comparer  # import paresseux (lot L3.3)
 
     return executer_comparer(args, config)
+
+
+def ajouter_seance(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "seance",
+        help="la séance planifiée du jour, étape par étape, avec la route que chaque bloc demande",
+        parents=[parent_json()],
+    )
+    p.add_argument("--jour", metavar="AAAA-MM-JJ", help="date de la séance (défaut : aujourd'hui)")
+    p.set_defaults(fonction=_commande_seance)
+
+
+def _commande_seance(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.seance.commande import executer  # import paresseux (lot L4.1)
+
+    return executer(args, config)
+
+
+def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "sortie",
+        help="la séance du jour posée sur une boucle : tableau, GPX, tenue et carte HTML",
+        parents=[parent_json()],
+    )
+    p.add_argument("--jour", metavar="AAAA-MM-JJ", help="date de la séance (défaut : aujourd'hui)")
+    p.add_argument(
+        "--distance",
+        type=float,
+        metavar="KM",
+        help="longueur de la boucle (défaut : la distance estimée de la séance, "
+        "arrondie au multiple de 5 supérieur)",
+    )
+    p.add_argument(
+        "--direction",
+        help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon)",
+    )
+    p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
+    p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
+    ajouter_heure_depart(
+        p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)"
+    )
+    p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
+    p.add_argument("--carte", metavar="FICHIER.HTML", help="où écrire la carte de vérification")
+    p.add_argument("--profil", help="profil BRouter (défaut : config)")
+    p.add_argument(
+        "--ecraser",
+        action="store_true",
+        help="remplacer les fichiers de --sortie et --carte s'ils existent déjà",
+    )
+    p.set_defaults(fonction=_commande_sortie)
+
+
+def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.sortie.commande import executer  # import paresseux (lot L4.4)
+
+    return executer(args, config)
 
 
 # --- point d'entrée -----------------------------------------------------------
