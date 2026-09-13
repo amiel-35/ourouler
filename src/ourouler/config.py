@@ -261,9 +261,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             ),
         ),
         calibration=ParametresCalibration(
-            mots_groupe=tuple(
-                str(m).casefold() for m in calibration.get("mots_groupe", ("club", "groupe", "peloton"))
-            ),
+            mots_groupe=_mots(calibration.get("mots_groupe", ("club", "groupe", "peloton"))),
             part_validation=_flottant(
                 calibration.get("part_validation", 0.25),
                 "part_validation",
@@ -278,6 +276,15 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         evitements=evitements,
         historique_depuis=_date(d.get("historique_depuis", HISTORIQUE_DEPUIS_DEFAUT), "historique_depuis"),
     )
+
+
+def _mots(brut: Any) -> tuple[str, ...]:
+    """Liste de mots, en minuscules. Une chaîne nue est refusée : `"club"` itéré
+    donnerait ('c', 'l', 'u', 'b') et écarterait presque toutes les sorties."""
+    if isinstance(brut, str) or not isinstance(brut, (list, tuple)):
+        raise ErreurConfig(f"[calibration] mots_groupe : liste de mots attendue (ex. [\"club\"]), reçu {brut!r}")
+    mots = tuple(str(m).strip().casefold() for m in brut if str(m).strip())
+    return mots
 
 
 def _evitement(e: Any, i: int) -> Evitement:

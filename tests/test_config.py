@@ -322,3 +322,9 @@ def test_calibration_et_evitements():
     assert depuis_dict(BASE).calibration.mots_groupe == ("club", "groupe", "peloton")
     with pytest.raises(ErreurConfig, match=r"evitements\[0\]\] latitude"):
         depuis_dict({**BASE, "evitements": [{"longitude": 0}]})
+
+
+def test_mots_groupe_chaine_nue_refusee():
+    with pytest.raises(ErreurConfig, match="mots_groupe"):
+        depuis_dict({**BASE, "calibration": {"mots_groupe": "club"}})
+    assert depuis_dict({**BASE, "calibration": {"mots_groupe": [" Club ", ""]}}).calibration.mots_groupe == ("club",)
