@@ -571,7 +571,7 @@ def _releve_pentes(couloir: _Couloir) -> _Releve:
     pentes = [pente for _, _, pente in pas]
     descentes = _descentes(pas)
     return _Releve(
-        pente_moyenne=(profil[-1][1] - profil[0][1]) / couloir.longueur_m,
+        pente_moyenne=_pente_moyenne(profil, couloir.longueur_m),
         pente_max=max(pentes, key=abs),
         descente_m=sum(chute for _, chute in descentes),
         montee_m=sum(denivele for _, denivele, pente in pas if pente > PENTE_MONTEE_TOLEREE),
@@ -579,6 +579,27 @@ def _releve_pentes(couloir: _Couloir) -> _Releve:
         descentes=[longueur for longueur, _ in descentes],
         altitude_connue=True,
     )
+
+
+def _pente_moyenne(profil: list[tuple[float, float]], longueur_m: float) -> float:
+    """Le dénivelé du profil divisé par la longueur **sur laquelle il est mesuré**.
+
+    `profil` ne retient que les points qui portent une altitude : sur un couloir
+    dont la moitié est sans altitude, diviser par la longueur du couloir donnait
+    une pente moyenne deux fois trop faible. C'est cette pente-là qui décide du
+    demi-tour (`placement.PENTE_DEMI_TOUR_MAX`), donc la sous-estimer autorisait
+    un demi-tour dans une côte — précisément la condition que le mainteneur a
+    posée.
+
+    On divise donc par l'étendue du profil, et par la longueur du couloir
+    seulement si cette étendue est nulle (tous les points d'altitude à la même
+    distance), auquel cas il n'y a de toute façon rien à mesurer.
+    """
+    etendue = profil[-1][0] - profil[0][0]
+    denivele = profil[-1][1] - profil[0][1]
+    if etendue > 0:
+        return denivele / etendue
+    return denivele / longueur_m if longueur_m > 0 else 0.0
 
 
 def _pas_de_pente(profil: list[tuple[float, float]]) -> list[tuple[float, float, float]]:

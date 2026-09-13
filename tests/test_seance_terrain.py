@@ -12,6 +12,7 @@ import math
 import pytest
 
 from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.seance.placement import PENTE_DEMI_TOUR_MAX
 from ourouler.seance.terrain import (
     PENALITE_BLOC_TRONQUE,
     POIDS_CARREFOUR,
@@ -203,6 +204,30 @@ def test_les_pentes_sont_des_tangentes_pas_des_pourcentages():
     assert note.pente_max == pytest.approx(0.04, abs=0.002)
     # Le pourcentage ne survit que dans les motifs, qui se lisent.
     assert any("2,0 %" in motif for motif in note.motifs)
+
+
+def test_la_pente_moyenne_se_divise_par_la_longueur_du_profil_pas_du_couloir():
+    """D4 : sur un couloir partiellement dépourvu d'altitude, la pente était divisée par deux.
+
+    `_releve_pentes` ne garde dans son profil que les points qui portent une
+    altitude. Diviser le dénivelé par la longueur **du couloir** sous-estimait
+    donc la pente d'autant que le couloir était mal renseigné — et c'est cette
+    pente-là que `placement.PENTE_DEMI_TOUR_MAX` compare à 0,015 pour
+    autoriser un demi-tour. Une côte à 4 % lue à 2 % passait le seuil des 1,5 %
+    dès que les trois quarts du couloir manquaient d'altitude.
+
+    Ici : 2 km de couloir, mais seuls les 500 premiers mètres portent une
+    altitude, et ils montent de 20 m. La pente mesurée est celle de ces 500 m
+    (+4 %), pas celle qu'on obtiendrait en étalant les 20 m sur 2 km (+1 %).
+    """
+    points = ligne_droite(2000.0, lambda d: 100.0 + 0.04 * d if d <= 500.0 else None)
+    trace = trace_de(points, un_segment(points, highway="tertiary"))
+
+    note = evaluer_couloir(trace, 0.0, 2000.0)
+    assert note.pente_moyenne == pytest.approx(0.04, abs=0.002)
+    assert note.pente_moyenne > PENTE_DEMI_TOUR_MAX, (
+        "une côte à 4 % ne doit pas passer pour un faux-plat propice au demi-tour"
+    )
 
 
 def test_un_faux_plat_descendant_court_ne_compte_pas():
