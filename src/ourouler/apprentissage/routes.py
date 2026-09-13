@@ -268,10 +268,13 @@ class _Morceau:
 def _decouper(trace: Trace) -> list[_Morceau]:
     """Le tracé découpé en morceaux (maille, tags), longueurs cumulées.
 
-    Chaque paire de points consécutifs est attribuée à la maille de son
-    **milieu** : à 30 m de maille et quelques mètres entre deux points d'un
-    tracé BRouter, la différence avec une découpe exacte est en dessous du
-    bruit, pour un code dix fois plus simple.
+    Chaque paire de points consécutifs est sous-échantillonnée à la
+    **demi-maille** (`_mailles_traversees`) et sa longueur répartie à parts
+    égales sur toutes les mailles ainsi rencontrées — pas seulement sur celle
+    de son milieu. C'est ce qui rend la mesure indépendante du pas
+    d'échantillonnage : `part_connue` fait exactement le même découpage, un
+    GPX relu à cent mètres et un tracé BRouter à quelques mètres se
+    répondent donc maille pour maille.
     """
     par_intervalle = _par_intervalle(trace)
     cumul: dict[tuple, _Morceau] = {}
