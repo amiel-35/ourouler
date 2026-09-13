@@ -12,9 +12,13 @@ Trois précautions, qui sont le cœur du lot :
    le sud et l'ouest de Rennes ; s'en servir comme critère pénaliserait toute
    boucle vers le nord ou l'est. `part_connue` est **informative**, elle
    n'entre dans aucun score.
-2. **On ne lit aucun chemin.** `BaseRoutes` reçoit un `Path` déjà résolu,
-   `apprendre` reçoit un `Cache`, un `ClientBrouter` et une `Config`. C'est
-   la ligne de commande qui sait où vivent les fichiers.
+2. **On ne lit aucun chemin, et on n'en fabrique aucun.** `BaseRoutes` reçoit
+   un `Path` déjà résolu, `apprendre` reçoit un `Cache`, un `ClientBrouter` et
+   une `Config`. Les *noms* des fichiers du cache vivent eux aussi dans
+   `apprentissage/commande.py` : écrire le nom du fichier de base ou celui
+   des poids ici, ce serait savoir où l'on tourne — la règle absolue 2 de
+   CLAUDE.md contournée par une chaîne. La ligne de commande sait où vivent
+   les fichiers ; le cœur non.
 3. **Une ignorance se dit.** Une sortie qu'on n'a pas su rejouer est comptée
    dans le rapport ; elle ne disparaît pas en silence.
 
@@ -47,13 +51,6 @@ from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
-
-#: Nom du fichier de base, sous le dossier de cache. La CLI compose le chemin ;
-#: ce module ne le fabrique jamais lui-même.
-NOM_BASE = "routes_connues.sqlite"
-
-#: Nom du fichier de poids appris, sous le dossier de cache.
-NOM_POIDS = "poids_routes.json"
 
 #: Facteur de la maille : 1/3000 de degré ≈ 37 m en latitude, ~37 m en
 #: longitude à nos latitudes. « ~30 m » du contrat, au degré de précision près.

@@ -36,7 +36,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ourouler.apprentissage.routes import NOM_BASE, NOM_POIDS, BaseRoutes, lire_poids
+from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
+from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts

@@ -23,8 +23,6 @@ from datetime import date
 from ourouler.activites.cache import Cache
 from ourouler.apprentissage.routes import (
     LIBELLE_SANS_HIGHWAY,
-    NOM_BASE,
-    NOM_POIDS,
     BaseRoutes,
     RapportApprentissage,
     Statistiques,
@@ -40,6 +38,15 @@ from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, azimut_de
+
+#: Nom du fichier de base des routes connues, sous le dossier de cache. Il vit
+#: ici et non dans `apprentissage/routes.py` : le cœur reçoit un `Path` déjà
+#: résolu, il ne fabrique pas le nom du fichier (règle absolue 2 de CLAUDE.md,
+#: contrat du sprint 3 §2). `boucle/commande.py` le lit ici aussi.
+NOM_BASE = "routes_connues.sqlite"
+
+#: Nom du fichier de poids appris, sous le dossier de cache. Même raison.
+NOM_POIDS = "poids_routes.json"
 
 #: Distance des boucles d'exposition, en kilomètres. Assez long pour sortir de
 #: l'agglomération et rencontrer les mêmes classes de routes qu'une vraie
