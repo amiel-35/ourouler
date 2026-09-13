@@ -148,3 +148,61 @@ part et **exclu de la calibration**. Ordre appliqué : intérieur → capteur �
 équipement Intervals → période → vélo route par défaut. Rappel du rôle de
 l'historique : apprentissage et test du modèle physique seulement ; l'usage
 quotidien (météo, boucle) ne s'en sert pas.
+
+## Q8 — À quelle puissance calculer la colonne « temps estimé » de `boucle` ?
+
+Le contrat du sprint 3 demande que la colonne « temps estimé » vienne du
+modèle calibré, sans dire à quelle puissance. Un temps sans puissance n'a pas
+de sens : 58 km de la boucle NE font 2 h 19 à 130 W et 1 h 48 à 200 W.
+
+Choix provisoire de `boucle/commande.py` : **65 % de la FTP** (168 W pour une
+FTP de 258 W), affiché dans l'en-tête, remplaçable par `--puissance`. C'est
+une allure d'endurance plausible, pas une mesure.
+
+À trancher : garder ce défaut, en choisir un autre (une puissance en watts
+dans `[boucle]` ? une part de FTP configurable ?), ou faire venir la
+puissance de la séance du jour quand le sprint 4 la connaîtra — ce dernier
+choix semble le bon à terme.
+
+## Q9 — CdA et Crr ne se séparent pas sur les données réelles
+
+Mesuré le 13/09/2026 sur les vraies sorties (100 RCR, 37 BMC, vent d'archive
+Open-Meteo au point de départ). Les moindres carrés par tronçons de 200 m
+prévus au contrat rendent **CdA = 0,18 (borne basse) et Crr ≈ 0,011** pour
+les deux vélos — physiquement absurde pris paramètre par paramètre : un Crr
+de 0,011 est celui d'un VTT sur chemin, un CdA de 0,18 celui d'un pistard en
+position de contre-la-montre.
+
+Ce que les données disent **bien** : la résistance totale à 27 km/h, 17,2 N
+pour le RCR et 16,8 N pour le BMC — cohérente avec un vélo de route normal
+(CdA ≈ 0,40 et Crr ≈ 0,005 donnent 17,6 N). Le couple rendu prédit
+correctement le temps des sorties non vues (MAE 5,2 % RCR, 5,5 % BMC), parce
+que dans la plage d'allure observée (20 à 36 km/h) les deux paramétrages se
+valent. Il serait faux **hors de cette plage** : à 45 km/h, CdA 0,18 promet
+une vitesse que le vélo ne tiendra pas.
+
+Cause probable, mesurée : sur les tronçons plats et sans vent, la puissance
+mesurée croît presque linéairement avec la vitesse (120 W à 24 km/h, 151 W à
+27 km/h, 167 W à 30 km/h) au lieu de croître comme v³. Les échantillons
+rapides sont vraisemblablement pollués par ce que le modèle ne voit pas :
+l'élan (le cycliste arrive vite sur le plat après une descente), et le vent
+local que l'archive, maillée à plusieurs kilomètres, ne connaît pas. Le
+sous-ensemble « vent d'archive presque nul » rend d'ailleurs un couple
+beaucoup plus plausible (CdA 0,26, Crr 0,0093).
+
+Pistes, par coût croissant : (a) borner CdA par le bas plus haut (0,28 pour
+un vélo de route) et laisser Crr absorber le reste ; (b) ne calibrer que Crr
+en fixant CdA par vélo à une valeur de catalogue ; (c) calibrer sur des
+sorties choisies (sortie longue régulière, seul, par temps calme) plutôt que
+sur tout l'historique ; (d) descendre chercher le vent local (station
+Météo-France la plus proche) plutôt que la maille d'archive.
+
+## Q10 — Les fichiers multisport faussent la calibration
+
+La pire erreur de validation du BMC (−20 %, 223 km en 10 h) est le fichier
+d'un triathlon : le FIT contient la natation, le vélo **et** la course à
+pied, et l'inventaire le compte comme une sortie vélo de 223 km. Le modèle
+simule les 42 km de course à pied à la puissance du vélo, donc bien trop
+vite. Faut-il découper les fichiers multisport par segment (le FIT porte les
+trames `session`, une par sport), ou simplement les écarter de la
+calibration ?
