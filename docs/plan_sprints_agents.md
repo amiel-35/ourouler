@@ -227,6 +227,18 @@ Trois conséquences de conception :
   absorbent les villages ; (2) tronçons réutilisés avec demi-tour en
   récup, pénalité légère ; (3) village ou carrefour **dans** le bloc,
   pénalité forte.
+- **Les parties non contraintes sont élastiques** (mainteneur, 13/09 :
+  « l'échauffement peut durer plus longtemps, ainsi que le retour au calme,
+  on va dire 15-20 % pour trouver la zone »). C'est la variable
+  d'ajustement principale : sur 1h d'échauffement, +20 % donne 6 km de jeu,
+  donc on ne cherche plus un bon couloir **au** km 30 mais **entre** les
+  km 28,5 et 36. Barème proposé : échauffement et retour au calme de −5 %
+  à +20 % ; récups longues (4 min, 45 min Z2) ±20 % ; récups **courtes**
+  (1'30) **fixes**, elles font partie de la prescription ; durée des blocs
+  **jamais** modifiée. La recherche devient un glissement : on fait
+  coulisser la séance le long du tracé dans la fenêtre autorisée et on
+  garde la position qui met le plus de blocs sur du bon terrain ; la durée
+  totale annoncée s'ajuste en conséquence.
 - **L'échauffement fixe où chercher.** 1h d'échauffement place le premier
   bloc vers le km 30 ; la seconde série de « Durabilité » vers le km 65.
   C'est une contrainte **géométrique** sur la forme de la boucle, pas
