@@ -147,6 +147,17 @@ class ParametresTenue:
     #: sec < 0,2 ; humide < 0,5 ; averses < 1,0 ; pluie au-delà, en mm/h.
     bornes_pluie_mmh: tuple[float, ...] = (0.2, 0.5, 1.0)
     vent_veste_kmh: float = 30.0
+    #: Tenue par catégorie de température : {"froid": ["collant", "veste"], …}.
+    #: Vide = le jeu par défaut de `seance/tenue.py`. Les catégories données
+    #: remplacent celles du défaut, une par une.
+    tenues: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def tenue_de(self, categorie: str) -> tuple[str, ...] | None:
+        """Les vêtements configurés pour une catégorie, ou None si non configurée."""
+        for nom, pieces in self.tenues:
+            if nom == categorie:
+                return pieces
+        return None
 
 
 @dataclass(frozen=True)
@@ -339,6 +350,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             vent_veste_kmh=_flottant(
                 tenue_brut.get("vent_veste_kmh", 30.0), "vent_veste_kmh", "tenue", mini=0.0, maxi=100.0
             ),
+            tenues=_tenues(tenue_brut.get("tenues", {})),
         ),
         evitements=evitements,
         historique_depuis=_date(d.get("historique_depuis", HISTORIQUE_DEPUIS_DEFAUT), "historique_depuis"),
@@ -354,6 +366,20 @@ def _mots(brut: Any) -> tuple[str, ...]:
         )
     mots = tuple(str(m).strip().casefold() for m in brut if str(m).strip())
     return mots
+
+
+def _tenues(brut: Any) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """{catégorie: [vêtements]} → couples figés. Une catégorie absente garde le défaut du code."""
+    if not brut:
+        return ()
+    if not isinstance(brut, dict):
+        raise ErreurConfig(f"[tenue] tenues : table {{catégorie = [vêtements]}} attendue, reçu {brut!r}")
+    couples = []
+    for categorie, pieces in brut.items():
+        if isinstance(pieces, str) or not isinstance(pieces, (list, tuple)):
+            raise ErreurConfig(f"[tenue] tenues.{categorie} : liste de vêtements attendue, reçu {pieces!r}")
+        couples.append((str(categorie), tuple(str(p) for p in pieces)))
+    return tuple(couples)
 
 
 def _bornes(brut: Any, cle: str, section: str) -> tuple[float, ...]:

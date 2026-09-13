@@ -353,3 +353,13 @@ def test_seance_et_tenue():
         depuis_dict({**BASE, "tenue": {"bornes_c": [9, 3]}})
     with pytest.raises(ErreurConfig, match="bornes_c"):
         depuis_dict({**BASE, "tenue": {"bornes_c": "froid"}})
+
+
+def test_tenues_configurees():
+    d = {**BASE, "tenue": {"tenues": {"froid": ["collant", "veste"], "chaud": ["cuissard"]}}}
+    c = depuis_dict(d)
+    assert c.tenue.tenue_de("froid") == ("collant", "veste")
+    assert c.tenue.tenue_de("canicule") is None, "une catégorie absente garde le défaut du code"
+    assert depuis_dict(BASE).tenue.tenues == ()
+    with pytest.raises(ErreurConfig, match="tenues.froid"):
+        depuis_dict({**BASE, "tenue": {"tenues": {"froid": "collant"}}})
