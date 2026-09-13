@@ -299,8 +299,9 @@ plutôt que de ne rien proposer. Hiérarchie des pénalités à calibrer sur les
 sorties réelles : une descente longue coûte plus qu'un carrefour.
 
 Reste à préciser au lancement : bornes chiffrées des catégories de tenue
-(Q3, réglables à l'usage) et option `--depuis` pour un départ autre que la
-maison.
+(Q3, réglables à l'usage) et option pour un départ autre que la maison —
+**`--adresse-depart`**, nom réservé par Q15 (l'option annoncée ici sous le
+nom `--depuis` était trop proche de `--depart`).
 
 ### Sprint 5 — La page du jour **[esquissé]**
 
@@ -309,7 +310,8 @@ Aucun serveur, aucun compte, aucune base : tout le calcul existe déjà, on
 ajoute le rendu. Dedans : la météo par direction en grille, les boucles
 proposées sur carte avec les blocs de la séance à leur place, la tenue, et
 le GPX à télécharger pour le partager vers Garmin Connect depuis le
-téléphone. Plus le confort d'usage : `--depuis` pour partir d'ailleurs,
+téléphone. Plus le confort d'usage : `--adresse-depart` pour partir
+d'ailleurs (Q15),
 noms de fichiers et résumés soignés, mémoire de ce qui a été proposé.
 
 **Trois propositions contrastées, et le cycliste choisit** (idée du
@@ -407,6 +409,13 @@ structurée en même temps : la séance vient déjà d'Intervals.icu.
   est levée : le poids de la descente reste un arbitrage produit, mais il
   n'est plus un chiffre unique qui ignore ce qu'on demande au cycliste.
 
+  **Q15 tranchée par le mainteneur** : l'heure de départ s'appelle
+  **`--heure-depart`** partout (`meteo`, `boucle`, `simuler`, `sortie`), le
+  lieu de départ s'appellera **`--adresse-depart`** — nom réservé, non livré,
+  et gardé par un test pour qu'il ne soit pas pris entre-temps. Il remplace le
+  `--depuis` annoncé au sprint 4, trop proche de `--depart`. Les anciens noms
+  `--depart` et `--heure` restent acceptés et ne sont plus documentés.
+
 - **2026-09-13, soirée** — Sprint 4 livré sur `sprint-4` (PR vers `main` en
   attente). Le cœur du projet : `ourouler sortie` lit la séance du jour,
   génère des boucles, place les blocs sur le terrain, écrit le GPX du
@@ -447,8 +456,8 @@ structurée en même temps : la séance vient déjà d'Intervals.icu.
   (cascade de typage marqueurs → texte → puissance), Q13 (l'affichage ne
   montre que les blocs, à corriger), Q14 (le retour au calme ne peut pas
   absorber la variabilité de la boucle — arrondi au plus proche essayé et
-  **annulé**, mesure à l'appui), Q15 (`--depart` / `--depuis`, nom à
-  trancher). Fenêtre de détection des antennes portée de 3 à **6 km** après
+  **annulé**, mesure à l'appui), Q15 (nom de l'heure et du lieu de
+  départ — **tranchée la nuit suivante**, voir l'entrée ci-dessus). Fenêtre de détection des antennes portée de 3 à **6 km** après
   qu'un cul-de-sac de 3,4 km a été vu sur carte par le mainteneur.
 
   **Dette assumée** : le poids de la descente (0,10) n'est plus soutenu par

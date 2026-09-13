@@ -423,28 +423,33 @@ l'avertissement : la séance est roulée entière, seul le retour au calme
 s'allonge, ce qui est le défaut le moins grave.
 
 
-## Q15 — `--depart` (heure) et le `--depuis` (lieu) prévu vont se télescoper
+## Q15 — Nom de l'heure et du lieu de départ — **close le 13/09/2026**
 
-Relevé le 13/09/2026 par le relecteur (C5), non tranché : c'est un nom
-d'option publique, donc une question produit.
+**Close. Décision du mainteneur : deux noms explicites, aucun des trois
+choix proposés.**
 
-`--depart HH:MM` existe sur `meteo`, `boucle`, `simuler` et `sortie` et
-désigne une **heure**. Le plan du sprint 4 annonce une option `--depuis`
-pour un départ « autre que la maison », donc un **lieu**, non livrée. Deux
-options dont les noms diffèrent d'une lettre pour deux sens sans rapport,
-sur la même commande.
+- **`--heure-depart`** est le nom canonique de l'**heure** de départ, sur
+  `meteo`, `boucle`, `simuler` et `sortie`.
+- **`--adresse-depart`** est le nom **réservé** du **lieu** de départ — un
+  départ autre que la maison, annoncé au plan du sprint 4 sous le nom
+  provisoire `--depuis`. **Il n'est pas livré** : aucune commande ne le
+  porte aujourd'hui, et un test le vérifie pour qu'il ne soit pas pris par
+  autre chose entre-temps. Le nom est posé maintenant parce qu'après il
+  serait trop tard.
 
-**Fait en attendant, sans rien casser** : `--heure` est accepté partout
-comme synonyme de `--depart`. Rien n'est retiré, aucun comportement ne
-change, et le nom sans ambiguïté existe désormais.
+Les deux noms disent ce qu'ils désignent et ne se ressemblent plus : c'était
+tout le problème.
 
-**À trancher avant que `--depuis` soit écrit**, parce qu'après il sera trop
-tard :
-- (a) `--heure` devient le nom canonique, `--depart` reste accepté sans être
-  documenté, `--depuis` prend le lieu ;
-- (b) `--depart` reste le nom canonique pour l'heure et le lieu s'appelle
-  autrement (`--lieu`, `--point-de-depart`) ;
-- (c) on garde les deux tels quels et on assume la proximité.
+**Ce qui reste accepté, sans être documenté** : `--depart` (l'ancien nom de
+l'heure) et `--heure` (le synonyme ajouté en attendant la décision).
+Aucun script ni aucune habitude ne casse ; mais l'aide ne les propose plus,
+parce qu'un nom déprécié qu'on documente est un nom qu'on enseigne encore.
+Techniquement, une seconde déclaration `argparse` sous `SUPPRESS` écrivant
+dans le même `dest` — argparse ne sait pas masquer un alias, il les imprime
+tous ou aucun (`cli.ajouter_heure_depart`).
 
-Personne d'autre que le mainteneur n'utilise la commande : le renommage
-reste gratuit aujourd'hui.
+**État d'origine, pour mémoire.** Relevé le 13/09/2026 par le relecteur
+(C5). `--depart HH:MM` désignait une heure, le plan annonçait `--depuis`
+pour un lieu : deux options dont les noms diffèrent d'une lettre pour deux
+sens sans rapport, sur la même commande. Personne d'autre que le mainteneur
+n'utilise la commande, le renommage était donc gratuit — il a été fait.

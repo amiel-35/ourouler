@@ -88,6 +88,24 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   27 km/h) — deux mesures indépendantes qui vont dans le même sens. Aucun
   appel réseau : tout vient du cache.
 
+### Noms d'options
+
+L'heure de départ s'appelle **`--heure-depart`** sur `meteo`, `boucle`,
+`simuler` et `sortie` :
+
+```
+ourouler meteo --heure-depart 08:00 --horizon 6
+ourouler sortie --jour 2026-02-08 --heure-depart 09:30 --candidates 4
+```
+
+Le **lieu** de départ s'appellera **`--adresse-depart`** — nom réservé,
+**pas encore livré** : pour l'instant le départ est toujours celui de la
+configuration. Deux noms explicites plutôt que deux noms qui se ressemblent,
+décision du mainteneur (`docs/questions_mainteneur.md`, Q15).
+
+Les anciens noms `--depart` et `--heure` restent acceptés pour ne rien
+casser, mais l'aide ne les propose plus.
+
 ### Comparer deux vélos
 
 ```

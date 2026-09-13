@@ -75,7 +75,7 @@ def executer(args: argparse.Namespace, config: Config, client: ClientOpenMeteo |
 
 
 def heure_depart(depart: str | None, maintenant: datetime | None = None) -> datetime:
-    """Interprète `--depart` en **heure locale**, ramenée au début de l'heure.
+    """Interprète `--heure-depart` en **heure locale**, ramenée au début de l'heure.
 
     `None` → l'heure courante. `HH:MM` → aujourd'hui à cette heure.
     `AAAA-MM-JJTHH:MM` → cette date et cette heure. Les minutes sont
@@ -100,12 +100,12 @@ def heure_depart(depart: str | None, maintenant: datetime | None = None) -> date
         return reference.replace(minute=0, second=0, microsecond=0)
     texte = depart.strip()
     if not texte:
-        # `--depart ''` (ou que des blancs) n'est pas « pas d'option » : c'est
+        # `--heure-depart ''` (ou que des blancs) n'est pas « pas d'option » : c'est
         # une valeur fournie et illisible. C'était confondu avec `None`, donc
         # la commande partait interroger Open-Meteo comme si de rien n'était,
         # au lieu de refuser avant tout appel comme pour « 25:00 ».
         raise ErreurUtilisateur(
-            f"--depart {depart!r} : valeur vide, attendu HH:MM ou AAAA-MM-JJTHH:MM "
+            f"--heure-depart {depart!r} : valeur vide, attendu HH:MM ou AAAA-MM-JJTHH:MM "
             "(heure locale) — omettre l'option pour partir à l'heure courante"
         )
 
@@ -123,4 +123,6 @@ def heure_depart(depart: str | None, maintenant: datetime | None = None) -> date
         if t.tzinfo is not None:
             return t
         return t.astimezone() if zone is None else t.replace(tzinfo=zone)
-    raise ErreurUtilisateur(f"--depart {depart!r} : attendu HH:MM ou AAAA-MM-JJTHH:MM (heure locale)")
+    raise ErreurUtilisateur(
+        f"--heure-depart {depart!r} : attendu HH:MM ou AAAA-MM-JJTHH:MM (heure locale)"
+    )

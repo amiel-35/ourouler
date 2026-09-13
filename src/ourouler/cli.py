@@ -75,6 +75,37 @@ def parent_json() -> argparse.ArgumentParser:
     return parent
 
 
+#: Les anciens noms de l'heure de départ, acceptés et **non documentés**.
+#:
+#: Q15, tranchée par le mainteneur le 13/09 : l'heure de départ s'appelle
+#: `--heure-depart` et le lieu de départ s'appellera `--adresse-depart` (nom
+#: réservé, pas encore livré). `--depart` seul était ambigu dès que le lieu
+#: existerait ; `--heure` avait été ajouté en attendant la décision.
+#:
+#: Les deux restent acceptés pour ne rien casser — le mainteneur a des scripts
+#: et des habitudes — mais ils ne figurent plus dans l'aide : un nom déprécié
+#: qu'on documente est un nom qu'on enseigne encore.
+ANCIENS_NOMS_HEURE_DEPART = ("--depart", "--heure")
+
+
+def ajouter_heure_depart(p: argparse.ArgumentParser, aide: str) -> None:
+    """Ajoute `--heure-depart` à une sous-commande, plus ses anciens noms.
+
+    Deux déclarations et non une seule liste d'alias, parce qu'argparse ne
+    sait pas masquer un alias dans l'aide : il les imprime tous ou aucun. La
+    seconde déclaration, sous `argparse.SUPPRESS`, écrit dans le même `dest`
+    que la première — `depart`, inchangé, pour que les commandes continuent de
+    lire un seul champ.
+    """
+    p.add_argument("--heure-depart", dest="depart", metavar="HEURE", help=aide)
+    p.add_argument(
+        *ANCIENS_NOMS_HEURE_DEPART,
+        dest="depart",
+        metavar="HEURE",
+        help=argparse.SUPPRESS,
+    )
+
+
 def ajouter_config(sous: argparse._SubParsersAction) -> None:
     p = sous.add_parser(
         "config",
@@ -156,11 +187,7 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
         help="pluie, vent et ressenti par direction et par heure",
         parents=[parent_json()],
     )
-    p.add_argument(
-        "--depart",
-        "--heure",
-        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)",
-    )
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
     p.add_argument("--horizon", type=int, help="nombre d'heures (défaut : config)")
     p.add_argument("--distance", type=float, help="n'afficher qu'une couronne (km)")
     p.add_argument("--modele", help="modèle principal Open-Meteo (défaut : config)")
@@ -187,11 +214,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         "--direction",
         help="N, NE, … NO ou un azimut en degrés (obligatoire sans --gpx)",
     )
-    p.add_argument(
-        "--depart",
-        "--heure",
-        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)",
-    )
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     p.add_argument("--profil", help="profil BRouter (défaut : config)")
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
@@ -302,11 +325,7 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
     p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à simuler")
     p.add_argument("--puissance", type=float, metavar="W", required=True, help="puissance tenue")
     p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
-    p.add_argument(
-        "--depart",
-        "--heure",
-        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)",
-    )
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
     p.set_defaults(fonction=_commande_simuler)
 
 
@@ -401,10 +420,8 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
     )
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
-    p.add_argument(
-        "--depart",
-        "--heure",
-        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)",
+    ajouter_heure_depart(
+        p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)"
     )
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
     p.add_argument("--carte", metavar="FICHIER.HTML", help="où écrire la carte de vérification")

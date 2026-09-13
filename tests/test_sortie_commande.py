@@ -791,24 +791,60 @@ def test_sortie_dit_qu_une_autre_seance_du_jour_a_ete_ignoree(tmp_path: Path):
     assert "Vélo B, Vélo C" in texte
 
 
-def test_l_heure_de_depart_accepte_aussi_heure():
-    """C5 : `--depart` (heure) et le `--depuis` (lieu) prévu diffèrent d'une lettre.
+#: Les quatre commandes qui portent une heure de départ, et le minimum à leur
+#: passer pour que le parseur accepte la ligne.
+COMMANDES_A_HEURE_DEPART = {
+    "meteo": [],
+    "boucle": ["--distance", "40", "--direction", "N"],
+    "simuler": ["--gpx", "x.gpx", "--puissance", "200"],
+    "sortie": [],
+}
 
-    `--heure` est accepté partout comme synonyme, sans rien retirer : le nom
-    sans ambiguïté existe avant que `--depuis` soit écrit (Q15).
+
+def test_l_heure_de_depart_s_appelle_heure_depart_partout():
+    """Q15, tranchée par le mainteneur le 13/09.
+
+    L'heure de départ s'appelle `--heure-depart` ; le lieu de départ
+    s'appellera `--adresse-depart` (nom réservé, non livré). `--depart`, qui
+    disait « heure » alors que `--depuis`/`--adresse-depart` dira « lieu »,
+    et `--heure`, ajouté en attendant la décision, restent acceptés pour ne
+    rien casser.
     """
     parseur = construire_parseur()
-    for commande in ("meteo", "boucle", "simuler", "sortie"):
-        arguments = {
-            "meteo": [],
-            "boucle": ["--distance", "40", "--direction", "N"],
-            "simuler": ["--gpx", "x.gpx", "--puissance", "200"],
-            "sortie": [],
-        }[commande]
+    for commande, arguments in COMMANDES_A_HEURE_DEPART.items():
+        lus = parseur.parse_args([commande, *arguments, "--heure-depart", "08:00"])
+        assert lus.depart == "08:00", f"{commande} : --heure-depart n'alimente pas `depart`"
         lus = parseur.parse_args([commande, *arguments, "--heure", "09:30"])
         assert lus.depart == "09:30", f"{commande} : --heure n'alimente pas `depart`"
         lus = parseur.parse_args([commande, *arguments, "--depart", "10:15"])
         assert lus.depart == "10:15", f"{commande} : --depart a été perdu"
+
+
+def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
+    """Acceptés, oui ; enseignés, non (Q15).
+
+    L'aide ne doit plus proposer `--depart` ni `--heure` : les laisser dans
+    l'aide reviendrait à ne rien avoir tranché. Le nom réservé pour le lieu,
+    lui, n'existe pas encore comme option — il ne doit donc apparaître nulle
+    part dans l'aide non plus.
+    """
+    parseur = construire_parseur()
+    sous = next(
+        action
+        for action in parseur._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    for commande in COMMANDES_A_HEURE_DEPART:
+        aide = sous.choices[commande].format_help()
+        assert "--heure-depart" in aide, f"{commande} : le nom canonique manque dans l'aide"
+        sans_canonique = aide.replace("--heure-depart", "")
+        for ancien in ("--depart", "--heure"):
+            assert ancien not in sans_canonique, (
+                f"{commande} : l'aide documente encore {ancien}"
+            )
+        assert "--adresse-depart" not in aide, (
+            f"{commande} : --adresse-depart est un nom réservé, pas une option livrée"
+        )
 
 
 def test_le_tableau_distingue_la_boucle_du_parcours_reellement_roule(tmp_path: Path):

@@ -121,13 +121,18 @@ def test_heure_depart_minutes_tronquees():
 def test_heure_depart_invalide(mauvais: str):
     """Une valeur fournie et illisible est refusée, chaîne vide comprise.
 
-    `--depart ''` était traité comme l'absence d'option : la commande partait
-    interroger Open-Meteo. Seul `None` — l'option omise — vaut « maintenant ».
+    `--heure-depart ''` était traité comme l'absence d'option : la commande
+    partait interroger Open-Meteo. Seul `None` — l'option omise — vaut
+    « maintenant ».
+
+    Le message nomme l'option **canonique** (Q15, tranchée le 13/09) : dire
+    `--depart` à quelqu'un qui a tapé `--heure-depart` lui apprendrait un nom
+    qu'on ne documente plus.
     """
     maintenant = datetime(2026, 9, 13, 6, 0, tzinfo=UTC)
     with pytest.raises(ErreurUtilisateur) as e:
         heure_depart(mauvais, maintenant)
-    assert "--depart" in str(e.value)
+    assert "--heure-depart" in str(e.value)
 
 
 # --- exécution --------------------------------------------------------------
