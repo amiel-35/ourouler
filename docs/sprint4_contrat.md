@@ -68,7 +68,14 @@ donnent le type. Règles :
 - `reps` développe le groupe autant de fois.
 - Type : `warmup`/`intensity=warmup` → "echauffement" ; `cooldown` →
   "calme" ; `intensity=recovery` → "recuperation" ; sinon "bloc".
-- Puissance : `units="%ftp"` → fraction × `ftp_w` ; `"watts"` → tel quel ;
+- Puissance : `units="%ftp"` → part de FTP × `ftp_w`, **les deux écritures
+  acceptées** : les séances du mainteneur donnent l'entier (`80` pour 80 %,
+  soit 206-219 W pour une FTP de 258 W le 08/02), d'autres sources la
+  fraction (`1.05` pour 105 %). Le seuil `SEUIL_FRACTION_FTP = 3.0` tranche
+  — au-dessus, un pourcentage ; au-dessous ou égal, une fraction — parce que
+  3 % de FTP vaudrait 8 W, ce qui n'existe pas comme consigne, alors que
+  3 × FTP est un sprint plausible. L'interprétation retenue est écrite dans
+  `meta["convention_pourcent_ftp"]`. `"watts"` → tel quel ;
   `"hr_zone"` → **approximation documentée** par les bornes de
   `zones_puissance` (pourcentages de FTP de la config, ex. Z4 = 105-120 %).
   Une approximation se dit : `meta["puissance_approximee"] = True` et le

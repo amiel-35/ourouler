@@ -20,6 +20,7 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.seance.intervals import (
     PROFONDEUR_MAX,
     REPS_MAX,
+    SEUIL_FRACTION_FTP,
     depuis_workout_doc,
     seance_du_jour,
 )
@@ -299,6 +300,68 @@ def test_units_inconnue_ne_donne_aucune_puissance_et_se_dit():
 def test_units_absente_est_signalee():
     doc = {"steps": [{"duration": 600, "power": {"value": 3}}]}
     assert lire(doc).meta["unites_inconnues"] == ["(absente)"]
+
+
+# --- les deux écritures d'une consigne `%ftp` ---------------------------------
+
+
+def _une_consigne(valeur, **bornes):
+    consigne = {"units": "%ftp"}
+    consigne.update({"value": valeur} if not bornes else bornes)
+    return {"steps": [{"duration": 600, "power": consigne}]}
+
+
+@pytest.mark.parametrize(
+    ("valeur", "attendu"),
+    [
+        (80, 0.80 * FTP),  # l'entier des séances du mainteneur : 80 % de FTP
+        (105, 1.05 * FTP),
+        (0.80, 0.80 * FTP),  # la fraction : la même consigne, l'autre écriture
+        (1.05, 1.05 * FTP),
+        (3.0, 3.0 * FTP),  # seuil inclus : 3 × FTP, un sprint
+        (3.5, 0.035 * FTP),  # juste au-dessus : 3,5 % de FTP
+    ],
+)
+def test_les_deux_ecritures_de_pourcent_ftp_sont_acceptees(valeur, attendu):
+    """`80` et `0.80` désignent la même chose ; `SEUIL_FRACTION_FTP` tranche."""
+    etape = lire(_une_consigne(valeur)).etapes[0]
+    assert etape.puissance_cible_w == pytest.approx(attendu)
+
+
+def test_une_rampe_est_lue_d_apres_sa_borne_haute():
+    """`{start: 0, end: 80}` est un pourcentage bien que son début vaille 0."""
+    etape = lire(_une_consigne(None, start=0, end=80)).etapes[0]
+    assert (etape.puissance_min_w, etape.puissance_max_w) == (0.0, 0.80 * FTP)
+    fraction = lire(_une_consigne(None, start=0.5, end=0.75)).etapes[0]
+    assert (fraction.puissance_min_w, fraction.puissance_max_w) == (0.50 * FTP, 0.75 * FTP)
+
+
+@pytest.mark.parametrize(
+    ("valeur", "lecture"), [(80, "pourcentage"), (0.80, "fraction")]
+)
+def test_l_interpretation_retenue_est_ecrite_dans_meta(valeur, lecture):
+    meta = lire(_une_consigne(valeur)).meta
+    assert meta["convention_pourcent_ftp"]["lecture"] == lecture
+    assert meta["convention_pourcent_ftp"]["seuil"] == SEUIL_FRACTION_FTP
+
+
+def test_une_seance_qui_melange_les_deux_ecritures_le_dit():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "%ftp", "value": 60}},
+            {"duration": 600, "power": {"units": "%ftp", "value": 1.05}},
+        ]
+    }
+    seance = lire(doc)
+    assert [e.puissance_cible_w for e in seance.etapes] == [0.60 * FTP, 1.05 * FTP]
+    convention = seance.meta["convention_pourcent_ftp"]
+    assert convention["lecture"] == "mixte"
+    assert (convention["etapes_en_pourcentage"], convention["etapes_en_fraction"]) == (1, 1)
+
+
+def test_sans_consigne_en_pourcent_ftp_la_convention_ne_figure_pas_dans_meta():
+    seance = lire(W.groupes_watts())
+    assert "convention_pourcent_ftp" not in seance.meta
 
 
 def test_pourcent_ftp_sans_ftp_ne_devine_pas_de_watts():

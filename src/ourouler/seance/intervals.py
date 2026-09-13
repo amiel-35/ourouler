@@ -28,8 +28,10 @@ qui demande des précautions.
 
 Les traductions, de la plus sûre à la moins sûre :
 
-- `%ftp` → fraction × FTP. **Exact.** Une consigne `{start, end}` donne une
-  fourchette, dont `Etape.puissance_cible_w` prend le milieu.
+- `%ftp` → part de FTP × FTP. **Exact.** Une consigne `{start, end}` donne
+  une fourchette, dont `Etape.puissance_cible_w` prend le milieu. Deux
+  écritures coexistent dans la nature et sont toutes deux acceptées, voir
+  `SEUIL_FRACTION_FTP`.
 - `watts` → tel quel. Exact aussi, mais absent de ce compte.
 - `power_zone` → bornes de la zone × FTP. C'est une **traduction** : la
   consigne était déjà en puissance.
@@ -84,6 +86,25 @@ REPS_MAX = 500
 #: Unités de puissance reconnues (en minuscules, sans espace).
 UNITES_WATTS = ("watts", "w", "watt")
 UNITES_POURCENT_FTP = ("%ftp", "ftp%", "percent_ftp", "pctftp")
+
+#: Frontière entre les deux écritures d'une consigne `%ftp`.
+#:
+#: Le nom de l'unité dit « pourcentage », mais l'écriture ne suit pas : les
+#: séances du mainteneur donnent l'entier (`80` pour 80 % de FTP, soit
+#: 206-219 W pour une FTP de 258 W sur la séance du 08/02), et d'autres
+#: sources donnent la fraction (`1.05` pour 105 %). Aucun champ ne distingue
+#: les deux : c'est l'ordre de grandeur qui tranche, et il tranche sans
+#: ambiguïté pratique. Une valeur **strictement supérieure** à ce seuil est
+#: un pourcentage ; une valeur inférieure ou égale est une fraction.
+#:
+#: Le motif du seuil, et non d'un autre : 3 % de FTP vaudrait 8 W, ce qui
+#: n'existe pas comme consigne d'entraînement, alors que 3 × FTP est un
+#: sprint parfaitement plausible. Entre les deux lectures d'une même valeur
+#: autour de 3, une seule est une consigne de cycliste.
+#:
+#: L'interprétation retenue n'est pas muette : elle est écrite dans
+#: `Seance.meta["convention_pourcent_ftp"]`.
+SEUIL_FRACTION_FTP = 3.0
 UNITES_ZONE_PUISSANCE = ("power_zone", "powerzone")
 UNITES_ZONE_FC = ("hr_zone", "hrzone", "heart_rate_zone")
 
@@ -231,6 +252,23 @@ class _Etat:
         self.trop_profond = 0
         self.elements_illisibles = 0
         self.ftp_manquante = 0
+        self.fractions = 0  # consignes `%ftp` écrites en fraction (« 1.05 »)
+        self.pourcentages = 0  # consignes `%ftp` écrites en pourcentage (« 105 »)
+
+    def convention_pourcent_ftp(self) -> dict:
+        """L'interprétation retenue pour les consignes `%ftp`, dite en clair."""
+        if self.fractions and self.pourcentages:
+            lecture = "mixte"
+        elif self.pourcentages:
+            lecture = "pourcentage"
+        else:
+            lecture = "fraction"
+        return {
+            "lecture": lecture,
+            "seuil": SEUIL_FRACTION_FTP,
+            "etapes_en_fraction": self.fractions,
+            "etapes_en_pourcentage": self.pourcentages,
+        }
 
     def unite_inconnue(self, unite: str) -> None:
         if unite not in self.unites_inconnues:
@@ -248,6 +286,8 @@ class _Etat:
             meta["seuil_recuperation_w"] = round(self.seuil_w, 1)
         if self.seuil_replie:
             meta["seuil_recuperation_replie"] = True
+        if self.fractions or self.pourcentages:
+            meta["convention_pourcent_ftp"] = self.convention_pourcent_ftp()
         if self.approximee:
             meta["approximation"] = (
                 "consignes données en zones de fréquence cardiaque : les zones basses "
@@ -610,6 +650,7 @@ def _depuis_consigne(consigne: dict, *, etat: _Etat) -> tuple[float | None, floa
         return (bas, haut, _descripteur(bas, haut, "W"))
 
     if unite in UNITES_POURCENT_FTP:
+        bas, haut = _en_pourcent_ftp(bas, haut, etat=etat)
         if etat.ftp_w is None:
             etat.ftp_manquante += 1
             return (None, None, _descripteur(bas, haut, "% FTP"))
@@ -628,6 +669,21 @@ def _depuis_consigne(consigne: dict, *, etat: _Etat) -> tuple[float | None, floa
 
     etat.unite_inconnue(str(consigne.get("units") or "(absente)"))
     return (None, None, "")
+
+
+def _en_pourcent_ftp(bas: float, haut: float, *, etat: _Etat) -> tuple[float, float]:
+    """Ramène une consigne `%ftp` au pourcentage, quelle que soit son écriture.
+
+    C'est la borne haute qui décide pour toute la fourchette : une rampe
+    `{start: 0, end: 80}` est en pourcentage alors que son début vaut 0, et
+    une rampe `{start: 0.5, end: 0.75}` est en fraction. Voir
+    `SEUIL_FRACTION_FTP` pour le motif du seuil.
+    """
+    if haut > SEUIL_FRACTION_FTP:
+        etat.pourcentages += 1
+        return (bas, haut)
+    etat.fractions += 1
+    return (bas * 100.0, haut * 100.0)
 
 
 def _depuis_zones(
