@@ -740,3 +740,98 @@ def test_sorties_calibrables_respecte_la_date_de_depart(tmp_path, generateur):
         erreurs_acceptees=ERREURS,
     )
     assert retenues == [], f"{retenues!r} rendues pour un « depuis » postérieur à toute sortie"
+
+
+# --- socle du sprint 3 déjà livré : [calibration] et Velo.crr ------------------
+#
+# Contrairement au reste de ce fichier, cette section ne saute pas : le
+# superviseur a livré `ParametresCalibration` et `Velo.crr` avec le contrat.
+
+
+def _charger(corps: str):
+    return module_config.depuis_dict(
+        {
+            "depart": {"nom": "Point fictif", "latitude": 0.0, "longitude": 0.0},
+            "cycliste": {"masse_kg": 76.0, "ftp_w": 250.0},
+            **json.loads(corps),
+        }
+    )
+
+
+def test_les_defauts_de_la_section_calibration():
+    """Contrat §0 : `mots_groupe`, `part_validation = 0,25`, `vitesse_min_kmh = 8`."""
+    config = _charger("{}")
+    assert config.calibration.part_validation == 0.25
+    assert config.calibration.vitesse_min_kmh == 8.0
+    assert "club" in config.calibration.mots_groupe, (
+        f"mots_groupe par défaut = {config.calibration.mots_groupe}"
+    )
+    assert all(m == m.casefold() for m in config.calibration.mots_groupe), (
+        f"mots_groupe non normalisés : {config.calibration.mots_groupe} — la comparaison avec "
+        "un nom de sortie se ferait au hasard de la casse"
+    )
+
+
+@pytest.mark.parametrize(
+    ("champ", "valeur"),
+    [
+        ("part_validation", 0.0),
+        ("part_validation", 1.0),
+        ("part_validation", -0.25),
+        ("part_validation", "un quart"),
+        ("part_validation", True),
+        ("vitesse_min_kmh", 0.0),
+        ("vitesse_min_kmh", 200.0),
+        ("vitesse_min_kmh", "huit"),
+    ],
+)
+def test_une_valeur_de_calibration_hors_bornes_nomme_le_champ(champ, valeur):
+    """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ fautif, pas une trace."""
+    from ourouler.erreurs import ErreurConfig
+
+    with pytest.raises(ErreurConfig) as capture:
+        _charger(json.dumps({"calibration": {champ: valeur}}))
+    assert champ in str(capture.value), (
+        f"le message ne nomme pas le champ fautif : « {capture.value} »"
+    )
+
+
+def test_mots_groupe_donne_comme_une_chaine():
+    """`mots_groupe = "club"` : une chaîne est itérable, et s'égrène en lettres.
+
+    Le TOML rend une chaîne pour `mots_groupe = "club"` au lieu d'une liste. Ce
+    qui est attendu, c'est soit une `ErreurConfig` nommant le champ, soit le mot
+    entier — jamais `('c', 'l', 'u', 'b')`, qui écarterait de la calibration
+    toute sortie dont le nom contient un « c ».
+    """
+    from ourouler.erreurs import ErreurConfig
+
+    config, erreur = robuste(
+        lambda: _charger(json.dumps({"calibration": {"mots_groupe": "club"}})),
+        quoi='depuis_dict(mots_groupe = "club")',
+        erreurs_acceptees=(ErreurConfig,),
+    )
+    if config is None:
+        assert "mots_groupe" in str(erreur), f"le champ fautif n'est pas nommé : « {erreur} »"
+        return
+    assert config.calibration.mots_groupe == ("club",), (
+        f"mots_groupe = {config.calibration.mots_groupe} : la chaîne a été égrenée en lettres"
+    )
+
+
+@pytest.mark.parametrize("crr", [0.0, 0.5, -0.004, "leger", True])
+def test_un_crr_de_velo_invalide_nomme_le_champ(crr):
+    """Contrat §0 : `Velo.crr` est un coefficient de roulement, pas un nombre libre."""
+    from ourouler.erreurs import ErreurConfig
+
+    with pytest.raises(ErreurConfig) as capture:
+        _charger(json.dumps({"velos": [{"nom": "Essai", "crr": crr}]}))
+    assert "crr" in str(capture.value), f"le champ fautif n'est pas nommé : « {capture.value} »"
+
+
+def test_un_crr_de_velo_valide_est_conserve():
+    config = _charger(json.dumps({"velos": [{"nom": "Essai", "crr": 0.0042}]}))
+    assert config.velos[0].crr == pytest.approx(0.0042)
+    assert _charger(json.dumps({"velos": [{"nom": "Essai"}]})).velos[0].crr is None, (
+        "un vélo non calibré doit avoir `crr = None`, pas une valeur inventée"
+    )

@@ -558,3 +558,78 @@ def test_poids_appris_avec_des_parts_qui_ne_somment_pas_a_un(tmp_path, facteur):
         f"multiplier les kilomètres des sorties par {facteur} change les poids {ecarts} : "
         "le contrat compare des parts, pas des kilomètres"
     )
+
+
+# --- socle du sprint 3 déjà livré : [[evitements]] -----------------------------
+#
+# Contrat §2 : « Évitements : `Config.evitements` → paramètre
+# `nogos=lon,lat,rayon|…` passé par `ClientBrouter.boucle/itineraire` ». La
+# configuration, elle, est déjà livrée : cette section ne saute pas.
+
+
+def _charger(sections: dict):
+    from ourouler import config as module_config
+
+    return module_config.depuis_dict(
+        {
+            "depart": {"nom": "Point fictif", "latitude": 0.0, "longitude": 0.0},
+            "cycliste": {"masse_kg": 76.0, "ftp_w": 250.0},
+            **sections,
+        }
+    )
+
+
+def test_un_evitement_complet_est_relu():
+    config = _charger(
+        {"evitements": [{"nom": "Rond-point", "latitude": 0.001, "longitude": 0.002, "rayon_m": 150}]}
+    )
+    assert len(config.evitements) == 1
+    evitement = config.evitements[0]
+    assert evitement.nom == "Rond-point"
+    assert evitement.rayon_m == pytest.approx(150.0)
+
+
+def test_un_evitement_sans_nom_en_recoit_un():
+    """Un évitement sans nom doit rester affichable : la CLI en liste plusieurs."""
+    config = _charger({"evitements": [{"latitude": 0.001, "longitude": 0.002}]})
+    assert config.evitements[0].nom.strip(), "évitement sans nom lisible"
+    assert config.evitements[0].rayon_m > 0, "rayon par défaut nul : l'évitement n'évite rien"
+
+
+@pytest.mark.parametrize(
+    "evitement",
+    [
+        pytest.param({"latitude": 91.0, "longitude": 0.0}, id="latitude hors du globe"),
+        pytest.param({"latitude": 0.0, "longitude": 181.0}, id="longitude hors du globe"),
+        pytest.param({"longitude": 0.0}, id="latitude absente"),
+        pytest.param({"latitude": 0.0}, id="longitude absente"),
+        pytest.param({"latitude": 0.0, "longitude": 0.0, "rayon_m": 0}, id="rayon nul"),
+        pytest.param({"latitude": 0.0, "longitude": 0.0, "rayon_m": -50}, id="rayon négatif"),
+        pytest.param({"latitude": True, "longitude": 0.0}, id="latitude booléenne"),
+        pytest.param("Rennes", id="chaîne au lieu d'une table"),
+    ],
+)
+def test_un_evitement_invalide_nomme_la_section(evitement):
+    """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ, jamais une trace et un code 1."""
+    from ourouler.erreurs import ErreurConfig
+
+    with pytest.raises(ErreurConfig) as capture:
+        _charger({"evitements": [evitement]})
+    assert "evitements" in str(capture.value), (
+        f"le message ne dit pas quelle section reprendre : « {capture.value} »"
+    )
+
+
+def test_un_evitement_ne_fuite_pas_dans_le_repr_de_la_configuration():
+    """Une zone évitée est une adresse : elle ne sort pas dans un `repr` de trace pytest.
+
+    Le contrat ne tranche pas ; ce test **documente** le comportement actuel
+    plutôt que de le contraindre — il échouera le jour où quelqu'un décidera de
+    masquer les évitements comme le mot de passe BRouter, et c'est le moment où
+    le mainteneur devra trancher (règle absolue 1).
+    """
+    config = _charger({"evitements": [{"nom": "Chez X", "latitude": 0.001, "longitude": 0.002}]})
+    assert "Chez X" in repr(config), (
+        "les évitements sont désormais masqués dans le repr de Config : mettre à jour "
+        "docs/questions_mainteneur.md, c'est une décision produit"
+    )
