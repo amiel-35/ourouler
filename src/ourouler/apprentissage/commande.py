@@ -23,6 +23,7 @@ from datetime import date
 from ourouler.activites.cache import Cache
 from ourouler.apprentissage.routes import (
     LIBELLE_SANS_HIGHWAY,
+    PART_EXPOSITION_MIN,
     BaseRoutes,
     RapportApprentissage,
     Statistiques,
@@ -328,6 +329,8 @@ def _poids_texte(
         f"{len(NOMS_DIRECTIONS)} directions)",
         "Poids = min(4, max(0, log2(part exposition / part sorties))), en km "
         "équivalents par km ; tertiary est la référence, donc 0.",
+        f"Sous {PART_EXPOSITION_MIN * 100:.0f} % d'exposition, la classe garde son poids par "
+        "défaut : trop peu proposée pour que le rapport veuille dire quelque chose.",
         "",
     ]
     classes = sorted(

@@ -28,6 +28,7 @@ from ourouler.activites.cache import Cache
 from ourouler.activites.modele import Activite, Point
 from ourouler.apprentissage.routes import (
     MAILLE,
+    PART_EXPOSITION_MIN,
     POIDS_MAX,
     BaseRoutes,
     Statistiques,
@@ -426,6 +427,43 @@ def test_multiplier_les_kilometres_de_l_exposition_ne_change_pas_les_poids():
         km_par_highway={"tertiary": 60.0, "secondary": 140.0},
     )
     assert poids_appris(stats, double) == pytest.approx(reference)
+
+
+def test_une_classe_trop_peu_exposee_garde_son_poids_par_defaut():
+    """Réglage du superviseur du 13/09 : sous 2 % d'exposition, on ne sait pas.
+
+    `living_street` sortait à 2,56 km équivalents par km pour 0,8 %
+    d'exposition mesurée, `service` à 2,35 pour 0,6 % — des malus lourds tirés
+    de quelques centaines de mètres. Voir `PART_EXPOSITION_MIN`.
+    """
+    assert PART_EXPOSITION_MIN == 0.02
+    poids = poids_appris(
+        # `living_street` prise dix fois moins que proposée : la formule
+        # donnerait log2(10) plafonné à 4 si on la laissait parler.
+        stats_de({"tertiary": 999.0, "living_street": 0.1}),
+        stats_de({"tertiary": 999.0, "living_street": 1.0}),
+    )
+    assert poids["living_street"] == 0.0, (
+        "0,1 % d'exposition : c'est le poids par défaut qui doit rester, pas un malus appris"
+    )
+
+
+def test_une_classe_a_trafic_trop_peu_exposee_garde_son_malus_par_defaut():
+    """« Défaut » ne veut pas dire « zéro » : une classe à trafic garde ses 3 km."""
+    poids = poids_appris(
+        stats_de({"tertiary": 999.0, "primary": 50.0}),
+        stats_de({"tertiary": 999.0, "primary": 1.0}),
+    )
+    assert poids["primary"] == POIDS_HIGHWAY_DEFAUT["primary"] == 3.0
+
+
+def test_juste_au_dessus_du_seuil_le_poids_est_bien_appris():
+    """La borne est stricte : à 2 % pile, la mesure parle."""
+    poids = poids_appris(
+        stats_de({"tertiary": 99.0, "secondary": 1.0}),  # part sorties : 1 %
+        stats_de({"tertiary": 98.0, "secondary": 2.0}),  # part exposition : 2 % pile
+    )
+    assert poids["secondary"] == pytest.approx(1.0), "log2(2 % / 1 %) = 1, poids appris"
 
 
 def test_tous_les_poids_sont_finis_et_positifs():

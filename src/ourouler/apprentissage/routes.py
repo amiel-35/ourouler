@@ -46,7 +46,7 @@ from pathlib import Path
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
 from ourouler.activites.modele import Activite, est_sport_velo
-from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
+from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT, POIDS_HIGHWAY_INCONNU
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -84,6 +84,24 @@ POIDS_MAX = 4.0
 #: Classe de référence : le cycliste roule dessus par défaut, elle ne coûte
 #: rien. Le contrat la force à 0 quoi que disent les mesures.
 HIGHWAY_REFERENCE = "tertiary"
+
+#: Part d'exposition en dessous de laquelle une classe garde son poids par
+#: défaut au lieu du poids appris.
+#:
+#: Décision du superviseur du 13/09/2026, prise sur la vérification réelle.
+#: L'exposition est mesurée sur ~8 boucles de 40 km : une classe qui n'y pèse
+#: que quelques centaines de mètres tient dans une poignée de tronçons, et le
+#: rapport de parts y devient du bruit amplifié par un logarithme. Mesuré ce
+#: jour-là : `living_street` sortait à 2,56 pour 0,8 % d'exposition et
+#: `service` à 2,35 pour 0,6 % — des malus lourds tirés de presque rien, quand
+#: leur défaut est 0. En dessous de 2 %, on ne sait pas : on garde ce qu'on
+#: avait avant de mesurer (règle absolue 5 de CLAUDE.md).
+#:
+#: Une classe **absente** de l'exposition, elle, reste à 0 : le contrat §2 le
+#: dit en toutes lettres (« on n'a rien à comparer, et l'ignorance n'est
+#: jamais un malus »). Les deux cas ne disent pas la même chose — rien vu du
+#: tout, contre trop peu vu pour en tirer un rapport.
+PART_EXPOSITION_MIN = 0.02
 
 #: Version du schéma SQLite de la base de routes.
 VERSION_SCHEMA = 1
@@ -707,8 +725,11 @@ def poids_appris(stats: Statistiques, exposition: Statistiques | None = None) ->
       mainteneur, 65 % de sa pratique mesurée ;
     * une classe **absente de l'exposition** vaut 0 — on n'a rien à comparer,
       et l'ignorance n'est jamais un malus ;
-    * une classe **absente des sorties** mais proposée vaut le plafond : le
-      cycliste ne la prend jamais alors qu'on la lui propose.
+    * une classe **trop peu exposée** (moins de `PART_EXPOSITION_MIN`) garde
+      son poids par défaut : le rapport de parts y serait du bruit amplifié
+      par un logarithme ;
+    * une classe **absente des sorties** mais suffisamment proposée vaut le
+      plafond : le cycliste ne la prend jamais alors qu'on la lui propose.
 
     Sans `exposition`, on rend les poids par défaut du score : sans point de
     comparaison, les parts brutes ne veulent rien dire (une classe peut être
@@ -761,6 +782,10 @@ def _poids_classe(highway: str, part_sorties: float, part_expo: float) -> float:
         return 0.0
     if part_expo <= 0:
         return 0.0
+    if part_expo < PART_EXPOSITION_MIN:
+        # Trop peu proposée pour qu'un rapport de parts veuille dire quelque
+        # chose : on garde le poids d'avant la mesure. Voir PART_EXPOSITION_MIN.
+        return POIDS_HIGHWAY_DEFAUT.get(highway, POIDS_HIGHWAY_INCONNU)
     if part_sorties <= 0:
         return POIDS_MAX
     return min(POIDS_MAX, max(0.0, math.log2(part_expo / part_sorties)))
