@@ -177,6 +177,43 @@ def test_les_tags_de_chemin_sont_decoupes():
     assert trace.segments[5].tags == {"highway": "primary", "surface": "asphalt", "lanes": "2"}
 
 
+def test_le_cout_par_km_du_moteur_est_retenu():
+    """`CostPerKm` est le jugement du routeur sur le trafic : il ne se perd pas."""
+    client, _ = client_fabrique()
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert [s.cout_km for s in trace.segments] == [1200.0] * 6
+
+
+def test_un_cout_par_km_absent_ou_illisible_vaut_none_jamais_zero():
+    """Une mesure manquante se dit ; un 0 voudrait dire « route idéale »."""
+    charge = reponse_fabriquee()
+    messages = charge["features"][0]["properties"]["messages"]
+    messages[1][4] = ""
+    messages[2][4] = "sans valeur"
+    del messages[3][4:]
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert trace.segments[0].cout_km is None
+    assert trace.segments[1].cout_km is None
+    assert trace.segments[2].cout_km is None
+    assert trace.segments[3].cout_km == 1200.0
+
+
+def test_le_cout_par_km_suit_la_colonne_de_l_entete_pas_sa_position():
+    """Colonnes réordonnées par le serveur : c'est l'en-tête qui fait foi."""
+    charge = reponse_fabriquee()
+    proprietes = charge["features"][0]["properties"]
+    entete, *lignes = proprietes["messages"]
+    ordre = [entete.index(nom) for nom in ("CostPerKm", *[n for n in entete if n != "CostPerKm"])]
+    proprietes["messages"] = [
+        [ligne[i] for i in ordre] for ligne in ([entete] + lignes)
+    ]
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert [s.cout_km for s in trace.segments] == [1200.0] * 6
+    assert trace.segments[0].tags["highway"] == "residential"
+
+
 def test_coordonnees_de_messages_en_degres_acceptees_aussi():
     """Le serveur mesuré renvoie des microdegrés ; des degrés doivent marcher pareil."""
     charge = reponse_fabriquee()

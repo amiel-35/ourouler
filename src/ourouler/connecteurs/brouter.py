@@ -11,7 +11,9 @@ Format de réponse (relevé sur le serveur réel, profil `fastbike`) :
 `features[0].geometry.coordinates` = `[lon, lat, alt]` en degrés ;
 `properties` porte `track-length` (m), `total-time` (s), `filtered ascend`
 (m) et `messages`, dont la première ligne est l'en-tête et chaque ligne
-suivante décrit le tronçon **se terminant** au point cité. Les coordonnées
+suivante décrit le tronçon **se terminant** au point cité. La colonne
+`CostPerKm` de ces messages est retenue dans `Segment.cout_km` : c'est le
+jugement du moteur lui-même sur le trafic du tronçon. Les coordonnées
 des messages sont des **microdegrés entiers passés en chaînes** (mesuré :
 rapport message/géométrie = 1 000 000) et retombent **exactement** sur un
 point de la géométrie (117/117 puis 802/802 sur deux réponses réelles).
@@ -327,6 +329,12 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
                 fin_idx=fin,
                 longueur_m=longueur,
                 tags=_tags(_colonne(ligne, colonnes, "WayTags")),
+                # `CostPerKm` est le jugement du moteur sur le tronçon : on le
+                # garde tel quel, sans le convertir ni le moyenner ici. Une
+                # colonne absente ou illisible donne `None`, jamais 0 — un
+                # coût nul voudrait dire « route idéale », ce qui est le
+                # contraire d'une mesure manquante (règle absolue 5).
+                cout_km=_nombre(_colonne(ligne, colonnes, "CostPerKm")),
             )
         )
         curseur = fin
