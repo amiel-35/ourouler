@@ -211,14 +211,22 @@ la nature du problème : on ne place pas des blocs isolés, on place des
 | Séance | Structure | Contrainte de terrain |
 |---|---|---|
 | « 2x20' (80 % FTP) + 2x10' r4/3' », 2h44 | 1h à 168-194 W ; 2 × [20 min à 199-214 W, récup 4 min] ; 2 × [10 min à 212-224 W, récup 3 min] ; 30 min calme | un couloir propre de **11 km d'un trait**, deux fois |
-| « Durabilité », 2h57 | 1h à 155-181 W ; 4 × [5 min à 232-258 W, récup 1'30] ; 45 min ; 4 × [5 min, récup 1'30] ; 20 min | **deux couloirs de 14 km**, séparés d'environ 20 km |
+| « Durabilité », 2h57 | 1h à 155-181 W ; 4 × [5 min à 232-258 W, récup 1'30] ; 45 min ; 4 × [5 min, récup 1'30] ; 20 min | 4 tronçons propres d'**environ 2,8 km**, deux fois |
 
 Trois conséquences de conception :
-- **Une série est une seule contrainte, pas quatre.** 4×5' avec 1'30 de
-  récup = 14 km d'affilée sans bourg ni stop. Bien plus dur que quatre
-  blocs placés librement.
-- **La récupération est un amortisseur.** Pendant une récup, traverser un
-  village est idéal : l'algorithme doit y faire tomber les points durs.
+- **La récupération absorbe le point dur, même courte** (correction du
+  mainteneur, 13/09 : « pour durabilité non, pas 14 kilomètres »). Une
+  récup de 1'30 suffit à caser une **traversée de village** ou un
+  **demi-tour**. La contrainte porte donc sur chaque bloc pris isolément,
+  pas sur la série entière.
+- **Le demi-tour rend le problème soluble, mais il se paie.** Avec un
+  demi-tour à chaque récup, un seul bon tronçon de 3 km suffit pour tout
+  un 4×5'. Le mainteneur le trouve « plus chiant » que la traversée de
+  village : hiérarchie du score, du meilleur au moins bon —
+  (1) autant de tronçons propres distincts que de blocs, récups qui
+  absorbent les villages ; (2) tronçons réutilisés avec demi-tour en
+  récup, pénalité légère ; (3) village ou carrefour **dans** le bloc,
+  pénalité forte.
 - **L'échauffement fixe où chercher.** 1h d'échauffement place le premier
   bloc vers le km 30 ; la seconde série de « Durabilité » vers le km 65.
   C'est une contrainte **géométrique** sur la forme de la boucle, pas
