@@ -332,7 +332,8 @@ def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
         "--cap-max",
         type=float,
         metavar="DEGRES",
-        help="écart de cap toléré d'un tronçon au suivant, en degrés (défaut : 15)",
+        help="filtre optionnel : écart de cap toléré d'un tronçon au suivant, en degrés "
+        "(par défaut, aucun filtre de cap ; 15 ne garde que les lignes droites franches)",
     )
     p.add_argument(
         "--longueur-min",

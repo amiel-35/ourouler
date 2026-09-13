@@ -19,7 +19,7 @@ from ourouler.activites.cache import Cache
 from ourouler.activites.modele import Activite, Point
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.comparer import (
-    CAP_MAX_DEG_DEFAUT,
+    CAP_MAX_DEG_SUGGERE,
     LONGUEUR_MIN_M_DEFAUT,
     PENTE_MAX_DEFAUT,
     SERIES_MIN_REGRESSION,
@@ -30,6 +30,7 @@ from ourouler.physique.comparer import (
     regresser,
     series_droites,
 )
+from ourouler.physique.modele import Parametres, puissance_requise
 
 METRE_EN_DEGRE = 1.0 / 111_194.93
 DEPART = datetime(2026, 3, 15, 9, 0, tzinfo=UTC)
@@ -143,12 +144,18 @@ def test_un_arret_coupe_la_serie_en_deux():
     assert len(series(sortie_a_allure(30.0, 170.0, duree_s=2400))) == 1
 
 
-def test_un_virage_coupe_la_serie():
+def test_le_filtre_de_cap_est_desactive_par_defaut():
+    """Un virage à 90° ne coupe rien tant que `--cap-max` n'est pas posé."""
+    tournante = sortie_a_allure(30.0, 170.0, duree_s=2400, virage_a_s=1200)
+    assert len(series(tournante)) == 1
+
+
+def test_un_virage_coupe_la_serie_quand_le_cap_est_filtre():
     """La route tourne de l'est vers le nord : l'écart de cap dépasse 15°."""
-    trouvees = series(sortie_a_allure(30.0, 170.0, duree_s=2400, virage_a_s=1200))
-    assert len(trouvees) == 2
-    # Avec un cap maximal de 180°, plus rien ne coupe : une seule série.
-    assert len(series(sortie_a_allure(30.0, 170.0, duree_s=2400, virage_a_s=1200), cap_max_deg=180.0)) == 1
+    tournante = sortie_a_allure(30.0, 170.0, duree_s=2400, virage_a_s=1200)
+    assert len(series(tournante, cap_max_deg=CAP_MAX_DEG_SUGGERE)) == 2
+    # La même sortie sans virage n'est pas coupée par le filtre : c'est bien lui.
+    assert len(series(sortie_a_allure(30.0, 170.0, duree_s=2400), cap_max_deg=CAP_MAX_DEG_SUGGERE)) == 1
 
 
 def test_une_pente_trop_forte_exclut_tout():
@@ -253,8 +260,30 @@ def test_l_ecart_est_lu_au_milieu_de_la_zone_et_converti_en_watts():
     assert resultat.vitesse_lue("RCR") == pytest.approx(28.0, abs=0.01)
     assert resultat.vitesse_lue("BMC") == pytest.approx(30.5, abs=0.01)
     assert resultat.ecart_kmh == pytest.approx(2.5, abs=0.01)
-    # ΔV / pente(RCR) = 2,5 / 0,05 = 50 W.
-    assert resultat.ecart_w == pytest.approx(50.0, abs=0.5)
+    # Loi en v³ : 3 × 169 × 2,5 / 28,0 = 45,3 W.
+    assert resultat.ecart_w_v3 == pytest.approx(3 * 169.0 * 2.5 / 28.0, abs=0.5)
+    # Sans calibration passée, pas de seconde conversion : rien n'est inventé.
+    assert resultat.ecart_w_modele is None
+
+
+def test_la_conversion_par_le_modele_se_fait_avec_la_calibration_du_premier_velo():
+    parametres = Parametres(masse_totale_kg=91.0, cda_m2=0.30, crr=0.005)
+    resultat = comparer(
+        {"RCR": jeu_de_series(28.0), "BMC": jeu_de_series(30.5)},
+        velos=("RCR", "BMC"),
+        zone_w=(144.0, 194.0),
+        parametres_reference=parametres,
+    )
+    attendu = puissance_requise(30.5 / 3.6, 0.0, 0.0, parametres) - puissance_requise(
+        28.0 / 3.6, 0.0, 0.0, parametres
+    )
+    assert resultat.ecart_w_modele == pytest.approx(attendu, abs=0.01)
+    # Les deux conversions se rejoignent — mais chacune sur SA puissance : la loi
+    # en v³ part de la puissance mesurée (169 W), le modèle de celle qu'il
+    # calcule lui-même à 28 km/h avec ces paramètres. C'est pourquoi les deux
+    # chiffres diffèrent quand la calibration ne décrit pas le cycliste mesuré.
+    p_modele = puissance_requise(28.0 / 3.6, 0.0, 0.0, parametres)
+    assert resultat.ecart_w_modele == pytest.approx(3 * p_modele * 2.5 / 28.0, rel=0.25)
 
 
 def test_les_bandes_separent_les_puissances():
@@ -294,7 +323,8 @@ def test_sans_serie_aucun_ecart():
     )
     assert resultat.par_velo["BMC"].n_series == 0
     assert resultat.ecart_kmh is None
-    assert resultat.ecart_w is None
+    assert resultat.ecart_w_v3 is None
+    assert resultat.ecart_w_modele is None
 
 
 # --- la commande de bout en bout ----------------------------------------------
@@ -351,9 +381,10 @@ def test_comparer_de_bout_en_bout(tmp_path: Path, capsys):
     assert executer_comparer(args(), config) == 0
     texte = capsys.readouterr().out
     assert "Comparaison RCR / BMC" in texte
-    assert "BMC roule +2.5 km/h à puissance égale" in texte
-    assert "W à vitesse égale" in texte
-    assert "ΔV / pente(RCR)" in texte
+    assert "Mesure : BMC roule +2.5 km/h à puissance égale" in texte
+    assert "ordre de grandeur (loi en v³) : ΔP ≈ 3·P·Δv/v" in texte
+    assert "les watts en sont une conversion, pas une mesure" in texte
+    assert "aucun filtre de cap" in texte
     # Le feu rouge coupe chaque sortie en deux séries.
     assert "  RCR " in texte and "  BMC " in texte
     assert "en commun (information" in texte
@@ -379,8 +410,10 @@ def test_comparer_en_json(tmp_path: Path, capsys):
         _vitesse(V_RCR_AU_MILIEU, lue), abs=0.2
     )
     assert charge["synthese"]["ecart_kmh"] == pytest.approx(2.5, abs=0.2)
-    assert charge["synthese"]["ecart_w"] == pytest.approx(50.0, abs=5.0)
-    assert "pente(RCR)" in charge["synthese"]["formule"]
+    assert charge["synthese"]["ecart_w_v3"] == pytest.approx(3 * lue * 2.5 / 28.0, abs=5.0)
+    assert charge["synthese"]["ecart_w_modele"] is None  # pas de calibration.json ici
+    assert "3 × puissance_w" in charge["synthese"]["formules"]["ecart_w_v3"]
+    assert charge["cap_max_deg"] is None
     assert len(charge["bandes"]) == 3
     assert charge["mailles_communes"] > 0  # les deux vélos roulent sur la même droite
 
@@ -425,9 +458,10 @@ def test_options_absurdes_refusees(tmp_path: Path, champs, message):
 
 
 def test_les_defauts_sont_ceux_du_schema_valide():
+    """Le schéma validé le 13/09 : plats, ≥ 500 m, sans arrêt ni relance, Z2 — pas de cap."""
     assert PENTE_MAX_DEFAUT == 0.008
-    assert CAP_MAX_DEG_DEFAUT == 15.0
     assert LONGUEUR_MIN_M_DEFAUT == 500.0
+    assert CAP_MAX_DEG_SUGGERE == 15.0  # valeur de l'option, pas un défaut
 
 
 def test_une_serie_pile_sur_la_borne_haute_tombe_dans_la_derniere_bande():

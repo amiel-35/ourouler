@@ -93,8 +93,17 @@ la calibration (−17 W) et avec l'expérience du mainteneur.
 
 Mesure refaite selon le schéma du mainteneur (validé par lui : « tu as
 trouvé un schéma cohérent, c'est OK ») — séries de tronçons **plats
-(|pente| ≤ 0,8 %), droits (cap stable à 15°), ≥ 500 m, sans arrêt ni
-relance, en Z2 (56-75 % FTP)**, vitesse à puissance égale par vélo :
+(|pente| ≤ 0,8 %), ≥ 500 m, sans arrêt ni relance, en Z2 (56-75 % FTP)**,
+vitesse à puissance égale par vélo :
+
+*Correction du 13/09, après vérification* : le script qui a produit ces
+chiffres lisait un champ `cap_deg` que `calibration.Echantillon` ne porte
+pas — le filtre « droits (cap stable à 15°) » annoncé ici était **inerte**,
+la mesure validée a été faite sans lui. Le filtre de cap existe dans
+`comparer` sous `--cap-max`, **optionnel et désactivé par défaut** : posé à
+15°, il ne garde que les lignes droites franches, divise par deux la pente
+de la régression et doublerait le chiffre en watts (≈ 71 W au lieu de
+≈ 40 W).
 
 | | RCR | BMC |
 |---|---|---|
@@ -105,6 +114,12 @@ relance, en Z2 (56-75 % FTP)**, vitesse à puissance égale par vélo :
 Soit **+2,6 km/h à puissance égale, ≈ 30-40 W à vitesse égale** en faveur
 du BMC — cohérent avec la calibration et avec le « 25-30 W à la louche ».
 **À faire dans la passe de corrections** : `comparer` adopte ce schéma
-(séries, filtres, Z2 par défaut, résultat en km/h à puissance égale ET en
-W à vitesse égale via la pente de la régression), et n'utilise plus les
-classes de vitesse toutes mailles confondues.
+(séries, filtres, Z2 par défaut, filtre de cap optionnel), et n'utilise
+plus les classes de vitesse toutes mailles confondues. La **mesure** est
+l'écart en km/h à puissance égale (régression pondérée par la longueur,
+lue au milieu de la zone) ; les watts n'en sont qu'une **conversion**,
+dite comme telle : ordre de grandeur par la loi en v³
+(`ΔP ≈ 3·P·Δv/v`, la traînée domine sur le plat) et, quand le vélo de
+référence a une calibration, `P(v_B) − P(v_A)` avec ses paramètres. La
+pente de la régression ne sert plus à convertir : trop sensible aux
+filtres pour porter un chiffre en watts.

@@ -24,18 +24,24 @@ sens, c'est-à-dire là où le cycliste roule vraiment :
    ni relance** (motifs `retenu`, `accélération`, `départ` — jamais « arrêt »
    ni « sans puissance ») et dont la puissance tombe dans la **zone** demandée
    (56-75 % de la FTP par défaut, l'endurance : ni la descente, ni l'effort) ;
-3. les recoller en **séries consécutives** tant que la route reste **droite**
-   (écart de cap d'un tronçon au suivant ≤ `cap_max`) ; une série est gardée si
-   elle fait au moins `longueur_min` (500 m par défaut) ;
+3. les recoller en **séries consécutives**, gardées si elles font au moins
+   `longueur_min` (500 m par défaut) ; `--cap-max` peut en plus couper la série
+   dès que la route tourne de plus de tant de degrés d'un tronçon au suivant,
+   mais ce filtre est **optionnel et désactivé par défaut** : la mesure validée
+   par le mainteneur a été faite sans lui ;
 4. par série : vitesse moyenne (longueur / temps), puissance moyenne pondérée
    par la longueur, longueur ;
 5. par vélo : vitesse médiane dans trois bandes de puissance égales à
    l'intérieur de la zone, puis la régression `vitesse = a + b · puissance`
    pondérée par la longueur, lue **au milieu de la zone**.
 
-La différence de vitesse au milieu de la zone est la réponse en km/h ; divisée
-par la pente de la régression du premier vélo (en km/h par watt), elle rend la
-réponse en watts à vitesse égale — la formule est écrite dans la sortie.
+**La mesure, c'est l'écart en km/h** au milieu de la zone. Les watts n'en sont
+qu'une conversion, dite comme telle : `ΔP ≈ 3 · P · Δv / v` (sur le plat, la
+traînée domine et la puissance suit `v³`), et, si le vélo de référence a une
+calibration, `P(v_second) − P(v_premier)` avec ses paramètres. La conversion ne
+passe **pas** par la pente de la régression : estimée sur des séries bruitées,
+elle variait du simple au double selon les filtres, et le chiffre en watts avec
+elle. Les formules sont écrites dans la sortie.
 
 Les mailles communes aux deux vélos ne sont plus un **filtre** : les séries
 droites et plates d'un CLM et d'un vélo de route ne se superposent pas assez
@@ -66,16 +72,20 @@ from ourouler.boucle.trace import PointTrace, cap_deg, distance_m
 from ourouler.config import Config
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique import calibration as calib
+from ourouler.physique.modele import Parametres, puissance_requise
 
 #: Pente maximale, en valeur absolue, d'un tronçon comparable. 0,8 % sur 200 m,
 #: c'est un mètre et demi de dénivelé : à 30 km/h et 90 kg, une quinzaine de
 #: watts. Au-delà, la comparaison mesurerait le terrain plutôt que le vélo.
 PENTE_MAX_DEFAUT = 0.008
 
-#: Écart de cap toléré d'un tronçon au suivant, en degrés. Au-delà, la route
-#: tourne : le cycliste freine, se redresse, relance — sa vitesse ne dit plus
-#: ce que vaut sa position sur le vélo.
-CAP_MAX_DEG_DEFAUT = 15.0
+#: Écart de cap toléré d'un tronçon au suivant, en degrés, **quand l'option est
+#: posée**. Le défaut est `None` : aucun filtre de cap. C'est la mesure validée
+#: par le mainteneur, et la seule qui reste cohérente avec la calibration —
+#: exiger 15° ne garde que les lignes droites franches, divise par deux la
+#: pente de la régression et double le chiffre en watts. `--cap-max 15` reste
+#: disponible pour ceux qui veulent ne voir que les segments rectilignes.
+CAP_MAX_DEG_SUGGERE = 15.0
 
 #: Longueur minimale d'une série, en mètres. En dessous, la vitesse moyenne
 #: dépend surtout de ce que le cycliste faisait juste avant.
@@ -163,7 +173,7 @@ class Comparaison:
     zone_w: tuple[float, float]
     zone_ftp: tuple[float, float]
     pente_max: float
-    cap_max_deg: float
+    cap_max_deg: float | None
     longueur_min_m: float
     par_velo: dict[str, ResultatVelo] = field(default_factory=dict)
     bandes: list[Bande] = field(default_factory=list)
@@ -171,6 +181,10 @@ class Comparaison:
     """Nombre de mailles de ~30 m touchées par les séries de chaque vélo."""
     mailles_communes: int = 0
     """Information seulement : les mailles communes ne filtrent plus rien."""
+    parametres_reference: Parametres | None = None
+    """Calibration du **premier** vélo, quand elle existe : elle donne une
+    seconde conversion de l'écart de vitesse en watts, à côté de la loi en v³.
+    Le cœur ne la lit jamais lui-même, la couche commande la lui passe."""
 
     @property
     def puissance_milieu_w(self) -> float:
@@ -194,23 +208,45 @@ class Comparaison:
         return b - a
 
     @property
-    def ecart_w(self) -> float | None:
-        """L'écart de vitesse converti en watts : `ΔV / pente(premier)`.
+    def ecart_w_v3(self) -> float | None:
+        """L'écart de vitesse converti en watts par la loi dominante sur le plat.
 
-        La pente du **premier** vélo est celle qu'on inverse : « combien de
-        watts faudrait-il de plus au premier vélo pour rouler à la vitesse du
-        second ». Une pente nulle ou négative ne s'inverse pas — ce serait un
-        vélo qui n'accélère pas quand on appuie, donc un échantillon qui ne dit
-        rien : la conversion est alors refusée.
+        Sur du plat sans vent, la traînée l'emporte et la puissance suit `v³` :
+        `dP/P = 3·dv/v`, donc `ΔP ≈ 3 · P · Δv / v`, avec `P` la puissance lue
+        (le milieu de la zone) et `v` la vitesse du vélo de **référence**, le
+        premier nommé.
+
+        C'est un **ordre de grandeur**, pas une mesure : la part roulement
+        (`Crr·m·g·v`, linéaire en v) n'y est pas séparée, ce qui surestime un
+        peu l'écart en watts. Cette conversion ne passe volontairement plus par
+        la pente de la régression : estimée sur des séries bruitées, elle
+        variait du simple au double selon les filtres, et le chiffre en watts
+        avec elle.
         """
-        premier = self.par_velo.get(self.velos[0])
+        vitesse = self.vitesse_lue(self.velos[0])
         ecart = self.ecart_kmh
-        if ecart is None or premier is None or premier.regression is None:
+        if ecart is None or vitesse is None or vitesse <= 0:
             return None
-        pente = premier.regression.pente_kmh_par_w
-        if pente <= 0:
+        return 3.0 * self.puissance_milieu_w * ecart / vitesse
+
+    @property
+    def ecart_w_modele(self) -> float | None:
+        """Le même écart, vu par le modèle calibré du vélo de référence.
+
+        `P(v_second) − P(v_premier)` à plat et sans vent, avec le CdA, le Crr et
+        la masse issus de la calibration : ce que coûterait, au premier vélo,
+        de rouler à l'allure du second. `None` quand le vélo de référence n'a
+        pas de calibration — la commande n'invente alors aucun paramètre.
+        """
+        if self.parametres_reference is None:
             return None
-        return ecart / pente
+        premier, second = self.velos
+        avant, apres = self.vitesse_lue(premier), self.vitesse_lue(second)
+        if avant is None or apres is None or avant <= 0 or apres <= 0:
+            return None
+        return puissance_requise(apres / 3.6, 0.0, 0.0, self.parametres_reference) - puissance_requise(
+            avant / 3.6, 0.0, 0.0, self.parametres_reference
+        )
 
 
 # --- cœur : d'une sortie aux séries -------------------------------------------
@@ -273,7 +309,7 @@ def series_droites(
     *,
     zone_w: tuple[float, float],
     pente_max: float = PENTE_MAX_DEFAUT,
-    cap_max_deg: float = CAP_MAX_DEG_DEFAUT,
+    cap_max_deg: float | None = None,
     longueur_min_m: float = LONGUEUR_MIN_M_DEFAUT,
     ftp_w: float = 250.0,
     vitesse_min_kmh: float = 8.0,
@@ -307,7 +343,7 @@ def series_droites(
     for e in echantillons:
         garde = _admissible(e, zone_w=zone_w, pente_max=pente_max)
         cap = None
-        if garde and courante:
+        if garde and courante and cap_max_deg is not None:
             cap = _cap_entre(courante[-1], e)
             if cap is not None and cap_precedent is not None:
                 garde = _ecart_cap(cap, cap_precedent) <= cap_max_deg
@@ -371,8 +407,9 @@ def comparer(
     zone_w: tuple[float, float],
     zone_ftp: tuple[float, float] = ZONE_DEFAUT,
     pente_max: float = PENTE_MAX_DEFAUT,
-    cap_max_deg: float = CAP_MAX_DEG_DEFAUT,
+    cap_max_deg: float | None = None,
     longueur_min_m: float = LONGUEUR_MIN_M_DEFAUT,
+    parametres_reference: Parametres | None = None,
 ) -> Comparaison:
     """Vitesse médiane par bande de puissance, régression, et l'écart entre les deux vélos."""
     resultat = Comparaison(
@@ -382,6 +419,7 @@ def comparer(
         pente_max=pente_max,
         cap_max_deg=cap_max_deg,
         longueur_min_m=longueur_min_m,
+        parametres_reference=parametres_reference,
     )
     for nom in velos:
         series = par_velo.get(nom, [])
@@ -503,6 +541,7 @@ def executer_comparer(args: argparse.Namespace, config: Config) -> int:
         pente_max=pente_max,
         cap_max_deg=cap_max,
         longueur_min_m=longueur_min,
+        parametres_reference=_calibration_de_reference(config, velos[0].nom),
     )
     for nom, lues in sorties.items():
         resultat.par_velo[nom].sorties = lues
@@ -513,6 +552,20 @@ def executer_comparer(args: argparse.Namespace, config: Config) -> int:
     else:
         print(rendre_texte(resultat, depuis))
     return 0
+
+
+def _calibration_de_reference(config: Config, velo: str) -> Parametres | None:
+    """Les paramètres calibrés du vélo de référence, ou `None` s'il n'en a pas.
+
+    C'est **ici**, dans la couche commande, que le fichier de calibration est
+    lu, et par `physique.commande` qui seul en connaît le nom : le cœur ne
+    fabrique aucun chemin. Rien n'est inventé — un vélo sans calibration
+    n'a pas de seconde conversion, et la sortie n'en parle pas.
+    """
+    from ourouler.physique.commande import chemin_calibration, lire_calibration
+
+    calibree = lire_calibration(chemin_calibration(config), velo)
+    return None if calibree is None else calibree.parametres
 
 
 def _pente_max(valeur) -> float:
@@ -552,9 +605,10 @@ def _zone(valeur) -> tuple[float, float]:
     return (bas, haut)
 
 
-def _cap_max(valeur) -> float:
+def _cap_max(valeur) -> float | None:
+    """`None` quand l'option n'est pas posée : aucun filtre de cap."""
     if valeur is None:
-        return CAP_MAX_DEG_DEFAUT
+        return None
     try:
         cap = float(valeur)
     except (TypeError, ValueError) as e:
@@ -604,7 +658,7 @@ def rendre_texte(resultat: Comparaison, depuis: date) -> str:
         f"|pente| ≤ {resultat.pente_max * 100:.1f} %, {_libelle_cap(resultat.cap_max_deg)}, "
         f"≥ {resultat.longueur_min_m:.0f} m, sans arrêt ni relance,",
         f"puissance dans la zone {resultat.zone_ftp[0] * 100:.0f}-{resultat.zone_ftp[1] * 100:.0f} % "
-        f"de la FTP, soit {bas:.0f}-{haut:.0f} W. Vent inconnu, aucun modèle physique.",
+        f"de la FTP, soit {bas:.0f}-{haut:.0f} W. Vent inconnu ; la mesure n'utilise aucun modèle.",
         "",
         f"  {'vélo':<8}{'séries':>8}{'km':>8}{'P moy':>9}{'V médiane':>12}",
     ]
@@ -632,7 +686,7 @@ def rendre_texte(resultat: Comparaison, depuis: date) -> str:
     ]
     for nom in resultat.velos:
         lignes.append(f"  {_ligne_regression(resultat, nom)}")
-    lignes += ["", _synthese(resultat)]
+    lignes += ["", *_synthese(resultat)]
     lignes.append(
         "Mailles de ~30 m touchées par ces séries : "
         + ", ".join(f"{nom} {resultat.mailles.get(nom, 0)}" for nom in resultat.velos)
@@ -640,17 +694,17 @@ def rendre_texte(resultat: Comparaison, depuis: date) -> str:
         "filtrent rien ici)."
     )
     lignes.append(
-        "Aucun modèle n'intervient : ce sont des moyennes mesurées. Le vent, la fraîcheur et "
-        "le sens de passage diffèrent d'une série à l'autre — ils se compensent en partie, ils "
-        "ne s'annulent pas."
+        "La mesure ne doit rien à un modèle : ce sont des moyennes de vitesse et de puissance "
+        "mesurées. Le vent, la fraîcheur et le sens de passage diffèrent d'une série à l'autre "
+        "— ils se compensent en partie, ils ne s'annulent pas."
     )
     return "\n".join(lignes)
 
 
-def _libelle_cap(cap_max_deg: float) -> str:
-    """`--cap-max 180` ne coupe plus rien : le dire plutôt qu'afficher « ≤ 180° »."""
-    if cap_max_deg >= 180:
-        return "aucun filtre de cap"
+def _libelle_cap(cap_max_deg: float | None) -> str:
+    """Sans option, aucun cap n'est filtré : le dire plutôt que de taire le filtre absent."""
+    if cap_max_deg is None or cap_max_deg >= 180:
+        return "aucun filtre de cap (--cap-max pour en poser un)"
     return f"écart de cap ≤ {cap_max_deg:.0f}°"
 
 
@@ -669,32 +723,47 @@ def _ligne_regression(resultat: Comparaison, nom: str) -> str:
     )
 
 
-def _synthese(resultat: Comparaison) -> str:
-    """La ligne qui répond à la question posée, ou dit pourquoi elle ne peut pas."""
+def _synthese(resultat: Comparaison) -> list[str]:
+    """Les lignes qui répondent à la question posée, ou disent pourquoi elles ne peuvent pas.
+
+    L'ordre est volontaire : la **mesure** d'abord, en km/h, puis les
+    conversions en watts, chacune avec sa formule et son statut.
+    """
     premier, second = resultat.velos
     ecart = resultat.ecart_kmh
     if ecart is None:
-        return (
+        return [
             f"Écart non mesurable : il manque une régression "
             f"({premier} {resultat.par_velo[premier].n_series} série(s), "
             f"{second} {resultat.par_velo[second].n_series})."
-        )
+        ]
     milieu = resultat.puissance_milieu_w
-    watts = resultat.ecart_w
-    debut = (
-        f"{second} roule {ecart:+.1f} km/h à puissance égale ({milieu:.0f} W, milieu de la zone)"
-    )
-    if watts is None:
-        return (
-            f"{debut}, mais la pente de {premier} ne s'inverse pas : pas de conversion en watts."
+    vitesse = resultat.vitesse_lue(premier)
+    lignes = [
+        f"Mesure : {second} roule {ecart:+.1f} km/h à puissance égale "
+        f"({milieu:.0f} W, milieu de la zone)."
+    ]
+    v3 = resultat.ecart_w_v3
+    if v3 is not None:
+        lent, rapide = (premier, second) if v3 >= 0 else (second, premier)
+        lignes.append(
+            f"Conversion, ordre de grandeur (loi en v³) : ΔP ≈ 3·P·Δv/v = "
+            f"3 × {milieu:.0f} × {ecart:+.2f} / {vitesse:.1f} ≈ {abs(v3):.0f} W — "
+            f"{lent} doit fournir ≈ {abs(v3):.0f} W de plus pour tenir l'allure de {rapide}."
         )
-    pente = resultat.par_velo[premier].regression.pente_kmh_par_w
-    lent, rapide = (premier, second) if watts >= 0 else (second, premier)
-    return (
-        f"{debut}, soit ≈ {abs(watts):.0f} W à vitesse égale — {lent} doit fournir "
-        f"{abs(watts):.0f} W de plus pour tenir l'allure de {rapide} "
-        f"(Y = ΔV / pente({premier}) = {ecart:+.2f} / {pente:.4f} km/h par W)."
+    modele = resultat.ecart_w_modele
+    if modele is not None:
+        p = resultat.parametres_reference
+        lignes.append(
+            f"Conversion par la calibration de {premier} (CdA {p.cda_m2:.3f} m², "
+            f"Crr {p.crr:.5f}, {p.masse_totale_kg:.0f} kg) : "
+            f"P({resultat.vitesse_lue(second):.1f} km/h) − P({vitesse:.1f} km/h) "
+            f"≈ {abs(modele):.0f} W à plat et sans vent."
+        )
+    lignes.append(
+        "Les km/h sont la mesure ; les watts en sont une conversion, pas une mesure."
     )
+    return lignes
 
 
 def _vitesse_et_n(bande: Bande, nom: str) -> str:
@@ -767,9 +836,19 @@ def rendre_json(resultat: Comparaison, depuis: date) -> dict:
                 nom: _arrondi(resultat.vitesse_lue(nom), 2) for nom in (premier, second)
             },
             "ecart_kmh": _arrondi(resultat.ecart_kmh, 2),
-            "ecart_w": _arrondi(resultat.ecart_w, 0),
-            "formule": f"ecart_w = ecart_kmh / pente({premier}) en km/h par W",
+            "ecart_w_v3": _arrondi(resultat.ecart_w_v3, 0),
+            "ecart_w_modele": _arrondi(resultat.ecart_w_modele, 0),
+            "formules": {
+                "mesure": "ecart_kmh = vitesse(second) − vitesse(premier) au milieu de la zone",
+                "ecart_w_v3": f"3 × puissance_w × ecart_kmh / vitesse({premier})",
+                "ecart_w_modele": (
+                    f"puissance_requise(vitesse(second)) − puissance_requise(vitesse({premier}))"
+                    f" avec la calibration de {premier}, à plat et sans vent"
+                ),
+            },
         },
+        # La mesure (les km/h) ne doit rien à un modèle ; seule la conversion en
+        # watts en emprunte un, et elle est rendue à part.
         "modele_physique": False,
     }
 
@@ -779,7 +858,7 @@ def _arrondi(valeur: float | None, decimales: int = 1) -> float | None:
 
 
 __all__ = [
-    "CAP_MAX_DEG_DEFAUT",
+    "CAP_MAX_DEG_SUGGERE",
     "LONGUEUR_MIN_M_DEFAUT",
     "NB_BANDES",
     "PENTE_MAX_DEFAUT",
