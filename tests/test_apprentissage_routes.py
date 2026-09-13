@@ -561,6 +561,14 @@ def test_le_dernier_point_de_la_sortie_est_toujours_retenu():
     )
 
 
+@pytest.mark.parametrize("maximum", [1, 2, 3])
+def test_les_points_de_passage_tiennent_sur_un_maximum_minuscule(maximum: int):
+    """`maximum = 1` divisait par zéro : une borne ne doit pas casser à sa valeur basse."""
+    passages = points_de_passage(activite_de(301, 100.0), maximum=maximum)
+    assert passages, "un itinéraire tronqué vaut encore mieux qu'une exception"
+    assert len(passages) <= max(2, maximum + 1)
+
+
 def test_une_sortie_sans_position_ne_donne_aucun_point_de_passage():
     activite = activite_de(50, 100.0)
     for p in activite.points:

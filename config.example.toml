@@ -55,7 +55,7 @@ tolerance_distance = 0.10
 historique_depuis = 2023-12-01   # fenêtre d'historique pour la calibration
 
 [calibration]
-mots_groupe = ["club", "groupe", "peloton"]   # sorties écartées de la calibration (peloton)
+mots_groupe = ["club", "groupe", "peloton", "sortie club"]  # sorties écartées de la calibration
 part_validation = 0.25                        # part des sorties gardées pour tester le modèle
 vitesse_min_kmh = 8
 

@@ -319,7 +319,15 @@ def test_calibration_et_evitements():
     assert c.calibration.mots_groupe == ("club", "sortie groupe") and c.calibration.part_validation == 0.3
     assert c.evitements[0].rayon_m == 150 and c.evitements[0].nom == "carrefour"
     assert c.velo("Route").crr == 0.004
-    assert depuis_dict(BASE).calibration.mots_groupe == ("club", "groupe", "peloton")
+    # Les quatre valeurs du contrat de sprint §0. « sortie club » est
+    # redondante avec « club » (la recherche est par sous-chaîne), mais le
+    # défaut doit dire ce que le contrat écrit.
+    assert depuis_dict(BASE).calibration.mots_groupe == (
+        "club",
+        "groupe",
+        "peloton",
+        "sortie club",
+    )
     with pytest.raises(ErreurConfig, match=r"evitements\[0\]\] latitude"):
         depuis_dict({**BASE, "evitements": [{"longitude": 0}]})
 

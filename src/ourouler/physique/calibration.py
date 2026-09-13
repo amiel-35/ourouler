@@ -301,7 +301,7 @@ def _decouper(
     points: Sequence[Point], distances: Sequence[float]
 ) -> list[tuple[int, int, float, float]]:
     """(début, fin, longueur, durée) de chaque tronçon d'environ 200 m."""
-    tronçons = []
+    troncons = []
     debut = 0
     for i in range(1, len(points)):
         longueur = distances[i] - distances[debut]
@@ -309,9 +309,9 @@ def _decouper(
             continue
         duree = (points[i].t - points[debut].t).total_seconds()
         if duree > 0:
-            tronçons.append((debut, i, longueur, duree))
+            troncons.append((debut, i, longueur, duree))
         debut = i
-    return tronçons
+    return troncons
 
 
 def _distances_points(points: Sequence[Point]) -> list[float]:
@@ -1254,13 +1254,18 @@ def calibrer_en_deux_passes(
         raise ErreurUtilisateur(f"calibration : aucune sortie exploitable pour le vélo {velo}")
     apprentissage, validation_sorties = partager(sorties, part_validation)
 
-    par_sortie = {
-        s.identifiant or s.nom: echantillonner(
-            s.activite, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
-        )
+    # Indexé par **position** dans `apprentissage`, et non par une clé
+    # reconstruite : `identifiant` vaut `""` par défaut et `nom` retombe sur le
+    # nom du fichier, si bien que deux sorties sans identifiant nommées
+    # « Sortie du matin » s'écrasaient l'une l'autre — elles disparaissaient
+    # alors de `tous` **et** de `restants` sans un mot. La commande passe
+    # toujours un identifiant, donc c'était sans effet sur elle ; un appelant
+    # de bibliothèque, lui, perdait des échantillons.
+    par_sortie = [
+        echantillonner(s.activite, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
         for s in apprentissage
-    }
-    tous = [e for liste in par_sortie.values() for e in liste]
+    ]
+    tous = [e for liste in par_sortie for e in liste]
     motifs: dict[str, int] = {}
     for e in tous:
         if not e.retenu:
@@ -1270,17 +1275,17 @@ def calibrer_en_deux_passes(
     p1 = passe1.parametres()
 
     groupes: list[tuple[str, float]] = []
-    gardees: list[SortieCalibration] = []
-    for s in apprentissage:
+    gardees: list[int] = []
+    for rang, s in enumerate(apprentissage):
         en_groupe, part = detecter_groupe(
             s.activite, p1, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
         )
         if en_groupe:
             groupes.append((s.nom, part))
         else:
-            gardees.append(s)
+            gardees.append(rang)
 
-    restants = [e for s in gardees for e in par_sortie[s.identifiant or s.nom]]
+    restants = [e for rang in gardees for e in par_sortie[rang]]
     passe2 = calibrer(restants, masse_totale_kg=masse_totale_kg) if gardees else passe1
     p2 = passe2.parametres()
 

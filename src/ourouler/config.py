@@ -127,8 +127,11 @@ class ParametresBrouter:
 
 @dataclass(frozen=True)
 class ParametresCalibration:
-    # Une sortie dont le nom contient un de ces mots est écartée de la calibration (peloton).
-    mots_groupe: tuple[str, ...] = ("club", "groupe", "peloton")
+    # Une sortie dont le nom contient un de ces mots est écartée de la
+    # calibration (peloton). Les quatre valeurs du contrat de sprint §0 : la
+    # recherche étant par sous-chaîne, « club » couvre déjà « sortie club »,
+    # mais la valeur par défaut doit dire ce que le contrat écrit.
+    mots_groupe: tuple[str, ...] = ("club", "groupe", "peloton", "sortie club")
     part_validation: float = 0.25  # part des sorties (les plus récentes) réservée au test
     vitesse_min_kmh: float = 8.0
 
@@ -261,7 +264,9 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             ),
         ),
         calibration=ParametresCalibration(
-            mots_groupe=_mots(calibration.get("mots_groupe", ("club", "groupe", "peloton"))),
+            mots_groupe=_mots(
+                calibration.get("mots_groupe", ParametresCalibration().mots_groupe)
+            ),
             part_validation=_flottant(
                 calibration.get("part_validation", 0.25),
                 "part_validation",

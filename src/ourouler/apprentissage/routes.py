@@ -588,7 +588,10 @@ def points_de_passage(
     if retenus[-1] is not geolocalises[-1]:
         retenus.append(geolocalises[-1])
     if len(retenus) > maximum:
-        pas = math.ceil(len(retenus) / (maximum - 1))
+        # `max(1, …)` : à `maximum = 1`, le dénominateur valait 0. Aucun
+        # appelant ne passe autre chose que `PASSAGES_MAX`, mais une borne qui
+        # divise par zéro à sa valeur la plus basse n'est pas une borne.
+        pas = math.ceil(len(retenus) / max(1, maximum - 1))
         allege = retenus[::pas]
         if allege[-1] is not retenus[-1]:
             allege.append(retenus[-1])

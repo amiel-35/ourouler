@@ -655,6 +655,29 @@ def test_deux_passes_ecartent_la_sortie_en_groupe():
     assert "départ" in rapport.motifs
 
 
+def test_deux_sorties_sans_identifiant_ne_s_ecrasent_pas():
+    """Les échantillons sont rangés par position, pas sous une clé reconstruite.
+
+    `identifiant` vaut `""` par défaut et `nom` retombe sur le nom du fichier :
+    deux sorties sans identifiant et de même nom (« Sortie du matin »)
+    disparaissaient l'une dans l'autre, donc de l'ajustement comme de la
+    seconde passe, sans un mot. La commande passe toujours un identifiant ;
+    un appelant de bibliothèque, lui, perdait des échantillons.
+    """
+    jours = [date(2026, 1, j) for j in (1, 2, 4, 5, 6, 7)]
+    avec = [_sortie(j, duree_s=2600) for j in jours]
+    sans = [_sortie(j, duree_s=2600) for j in jours]
+    assert len({s.nom for s in sans}) == 1, "même nom pour toutes : c'est le cas qui collisionnait"
+    for s in sans:
+        s.identifiant = ""
+
+    reference = calibrer_en_deux_passes(avec, velo="Essai", masse_totale_kg=MASSE)
+    anonymes = calibrer_en_deux_passes(sans, velo="Essai", masse_totale_kg=MASSE)
+    assert anonymes.echantillons == reference.echantillons
+    assert anonymes.echantillons_retenus == reference.echantillons_retenus
+    assert anonymes.ajustement.cda_m2 == pytest.approx(reference.ajustement.cda_m2)
+
+
 def test_deux_passes_sans_sortie():
     with pytest.raises(ErreurUtilisateur, match="aucune sortie"):
         calibrer_en_deux_passes([], velo="Essai", masse_totale_kg=MASSE)
