@@ -272,7 +272,9 @@ def test_les_autres_seances_du_jour_sont_nommees(tmp_path, capsys):
         W.evenement(W.groupes_watts(), nom="Vélo B", identifiant=2),
     ]
     executer(args(), config, client=client_bouchon(evenements))
-    assert "Vélo B" in capsys.readouterr().out
+    sortie = capsys.readouterr().out
+    assert "Vélo B" in sortie
+    assert "ignorée(s) au profit de la plus longue" in sortie
 
 
 def test_jour_absent_vaut_aujourd_hui(tmp_path, capsys):

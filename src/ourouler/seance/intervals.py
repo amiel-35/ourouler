@@ -180,30 +180,45 @@ def seance_du_jour(
     séances (notes, congés). Le filtre est donc triple : catégorie
     « WORKOUT », sport reconnu comme du vélo par `activites.modele.
     est_sport_velo` — le même filtre que l'inventaire — et `workout_doc`
-    présent. S'il reste plusieurs candidates, la première du calendrier est
-    retenue et les autres sont nommées dans `meta["autres_seances"]`.
+    présent.
+
+    **S'il reste plusieurs candidates, il n'en sort qu'une.** Une séance
+    n'est pas la somme de deux prescriptions : coller bout à bout un home
+    trainer du matin et une sortie du soir fabriquerait une séance que
+    personne n'a prescrite, et le placement chercherait des couloirs pour
+    elle. On retient donc la **plus longue en durée** — celle qui structure
+    la journée — et les autres sont nommées dans `meta["seances_ignorees"]`.
+    À durée égale, la première du calendrier l'emporte.
     """
     evenements = client.evenements(jour)
     candidates = [e for e in evenements if _est_seance_velo(e)]
     if not candidates:
         return None
-    retenue, *autres = candidates
-    seance = depuis_workout_doc(
-        retenue.get("workout_doc") or {},
-        nom=str(retenue.get("name") or "séance sans nom"),
-        jour=jour,
-        ftp_w=ftp_w,
-        zones_puissance=zones_puissance,
-        puissance_endurance_pct=puissance_endurance_pct,
-        seuil_recuperation_pct=seuil_recuperation_pct,
-    )
+    lues = [
+        (
+            evenement,
+            depuis_workout_doc(
+                evenement.get("workout_doc") or {},
+                nom=str(evenement.get("name") or "séance sans nom"),
+                jour=jour,
+                ftp_w=ftp_w,
+                zones_puissance=zones_puissance,
+                puissance_endurance_pct=puissance_endurance_pct,
+                seuil_recuperation_pct=seuil_recuperation_pct,
+            ),
+        )
+        for evenement in candidates
+    ]
+    # `max` garde le premier des ex æquo : l'ordre du calendrier départage.
+    retenue, seance = max(lues, key=lambda couple: couple[1].duree_s)
     seance.meta["source"] = "intervals"
     seance.meta["evenement_id"] = retenue.get("id")
     seance.meta["sport"] = retenue.get("type")
     if retenue.get("description") and "description" not in seance.meta:
         seance.meta["description"] = str(retenue["description"])
-    if autres:
-        seance.meta["autres_seances"] = [str(e.get("name") or "sans nom") for e in autres]
+    ignorees = [e for e, _ in lues if e is not retenue]
+    if ignorees:
+        seance.meta["seances_ignorees"] = [str(e.get("name") or "sans nom") for e in ignorees]
     return seance
 
 

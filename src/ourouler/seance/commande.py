@@ -260,9 +260,11 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
         "« au-delà » : route nécessaire après la fin du bloc pour faire demi-tour "
         "pendant la récupération (moitié de la récupération, à la vitesse de récupération)."
     )
-    if seance.meta.get("autres_seances"):
-        autres = ", ".join(str(n) for n in seance.meta["autres_seances"])
-        lignes.append(f"Autre(s) séance(s) vélo ce jour-là, non traitée(s) : {autres}.")
+    if seance.meta.get("seances_ignorees"):
+        autres = ", ".join(str(n) for n in seance.meta["seances_ignorees"])
+        lignes.append(
+            f"Autre(s) séance(s) vélo ce jour-là, ignorée(s) au profit de la plus longue : {autres}."
+        )
     return "\n".join(lignes)
 
 

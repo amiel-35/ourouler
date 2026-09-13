@@ -548,17 +548,61 @@ def test_seance_du_jour_retient_le_velo_et_nomme_les_autres():
     assert seance.meta["source"] == "intervals"
     assert seance.meta["evenement_id"] == 1
     assert seance.meta["sport"] == "Ride"
-    assert "autres_seances" not in seance.meta
+    assert "seances_ignorees" not in seance.meta
 
 
-def test_deux_seances_velo_le_meme_jour():
+def _seance_de(minutes: float) -> dict:
+    """Un `workout_doc` d'une seule étape, de la durée voulue."""
+    return {"steps": [{"duration": minutes * 60, "power": {"units": "%ftp", "value": 100}}]}
+
+
+def test_deux_seances_velo_le_meme_jour_donnent_la_plus_longue():
+    """Une séance n'est pas la somme de deux prescriptions : on en garde une."""
+    evenements = [
+        W.evenement(_seance_de(30), nom="Vélo A", identifiant=1),
+        W.evenement(_seance_de(90), nom="Vélo B", identifiant=2),
+    ]
+    seance = seance_du_jour(client_bouchon(evenements), JOUR, ftp_w=FTP)
+    assert seance is not None and seance.nom == "Vélo B"
+    assert seance.duree_s == 90 * 60
+    assert seance.meta["evenement_id"] == 2
+    assert seance.meta["seances_ignorees"] == ["Vélo A"]
+
+
+def test_la_plus_longue_est_retenue_meme_si_elle_est_en_tete():
+    evenements = [
+        W.evenement(_seance_de(90), nom="Vélo A", identifiant=1),
+        W.evenement(_seance_de(30), nom="Vélo B", identifiant=2),
+        W.evenement(_seance_de(45), nom="Vélo C", identifiant=3),
+    ]
+    seance = seance_du_jour(client_bouchon(evenements), JOUR, ftp_w=FTP)
+    assert seance is not None and seance.nom == "Vélo A"
+    assert seance.meta["seances_ignorees"] == ["Vélo B", "Vélo C"]
+
+
+def test_a_duree_egale_la_premiere_du_calendrier_l_emporte():
     evenements = [
         W.evenement(W.groupes_watts(), nom="Vélo A", identifiant=1),
         W.evenement(W.groupes_watts(), nom="Vélo B", identifiant=2),
     ]
     seance = seance_du_jour(client_bouchon(evenements), JOUR, ftp_w=FTP)
     assert seance is not None and seance.nom == "Vélo A"
-    assert seance.meta["autres_seances"] == ["Vélo B"]
+    assert seance.meta["seances_ignorees"] == ["Vélo B"]
+
+
+def test_deux_seances_ne_sont_jamais_concatenees():
+    """Les étapes de la séance ignorée ne doivent pas se retrouver dans l'autre."""
+    longue = W.groupes_watts()
+    evenements = [
+        W.evenement(longue, nom="Vélo A", identifiant=1),
+        W.evenement(longue, nom="Vélo B", identifiant=2),
+    ]
+    seule = seance_du_jour(client_bouchon(evenements[:1]), JOUR, ftp_w=FTP)
+    deux = seance_du_jour(client_bouchon(evenements), JOUR, ftp_w=FTP)
+    assert seule is not None and deux is not None
+    assert len(deux.etapes) == len(seule.etapes)
+    assert len(deux.blocs()) == len(seule.blocs())
+    assert deux.duree_s == seule.duree_s
 
 
 def test_aucune_seance_ce_jour_la():
