@@ -35,8 +35,8 @@ PAS_AZIMUT_DEG = 20.0
 #: de mètres à la boucle rendue par le moteur : la distance mesurée oscille
 #: alors d'une itération à l'autre — 53,6 km puis 65,4 km pour 60 km demandés
 #: — et deux corrections s'arrêtaient au milieu de l'oscillation. Une
-#: itération de plus affine sans coûter cher : trois candidates tiennent
-#: encore dans les 12 appels d'`appels_max` (3 × 4).
+#: itération de plus affine sans coûter cher, à condition que le plafond
+#: d'appels suive la demande — c'est ce que fait `appels_pour`.
 AJUSTEMENTS_MAX = 3
 
 #: Bornes du facteur de correction d'une itération à la suivante. Diviser ou
@@ -57,6 +57,18 @@ class Candidate:
     azimut_deg: float
     rayon_m: float
     ecart_relatif: float  # (distance − cible) / cible
+
+
+def appels_pour(nb: int) -> int:
+    """Plafond d'appels au moteur pour `nb` candidates demandées.
+
+    Chaque azimut a droit à son premier essai et à ses `AJUSTEMENTS_MAX`
+    corrections : le plafond doit donc suivre la demande, et non l'inverse.
+    Un plafond fixe faisait rendre trois candidates à qui en demandait cinq
+    dès que le moteur cessait de converger — l'utilisateur demandait cinq
+    directions, en voyait trois, et rien ne le lui disait.
+    """
+    return nb * (1 + AJUSTEMENTS_MAX)
 
 
 def azimuts(azimut_deg: float, nb: int) -> list[float]:
@@ -80,7 +92,7 @@ def generer(
     nb: int,
     tolerance: float,
     profil: str | None = None,
-    appels_max: int = 12,
+    appels_max: int | None = None,
 ) -> list[Candidate]:
     """Jusqu'à `nb` boucles autour de `azimut_deg`, triées par écart à la distance voulue.
 
@@ -103,7 +115,9 @@ def generer(
     borne le **nombre** d'appels au moteur, les bornes ci-dessus bornent leur
     **coût**. Si aucune candidate n'entre dans la tolérance, les meilleures
     sont rendues quand même — l'utilisateur juge mieux sur des chiffres que
-    sur du vide.
+    sur du vide. Par défaut, `appels_max` vaut `appels_pour(nb)` : le plafond
+    suit la demande, pour que `nb = 5` rende bien cinq candidates même quand
+    le moteur épuise ses ajustements sur chacune.
 
     Un azimut qui fait échouer le moteur (profil refusé sur une direction,
     panne passagère) ne fait pas perdre les autres : l'erreur est retenue et
@@ -130,6 +144,7 @@ def generer(
         )
     if nb < 1:
         raise ErreurUtilisateur(f"nb = {nb} : au moins une candidate est attendue")
+    appels_max = appels_max if appels_max is not None else appels_pour(nb)
     cible_m = distance_km * 1000.0
     appels = 0
     candidates: list[Candidate] = []

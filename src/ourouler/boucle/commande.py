@@ -39,7 +39,7 @@ from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
-from ourouler.boucle.candidates import generer
+from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
@@ -170,6 +170,10 @@ def executer(
             nb=demande.nb_candidates,
             tolerance=config.boucle.tolerance_distance,
             profil=demande.profil,
+            # Le plafond d'appels suit le nombre de candidates demandées :
+            # sinon, cinq directions demandées face à un moteur qui n'arrive
+            # pas à la distance voulue en rendaient trois, sans rien en dire.
+            appels_max=appels_pour(demande.nb_candidates),
         )
         if not trouvees:
             raise ErreurConnecteur(

@@ -256,6 +256,33 @@ def test_le_tableau_montre_les_candidates_demandees(tmp_path: Path, monkeypatch,
     assert len(lignes_du_tableau(sortie)) == 3, sortie
 
 
+def test_cinq_candidates_demandees_cinq_rendues_moteur_qui_ne_converge_pas(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """La commande donne au générateur un plafond d'appels à la hauteur de la demande.
+
+    Sans cela, cinq directions demandées en rendaient trois dès que le moteur
+    n'atteignait pas la distance voulue — et l'utilisateur ne voyait que le
+    tableau, pas la raison.
+    """
+    monkeypatch.chdir(tmp_path)
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        # 50 km quel que soit le rayon demandé : chaque azimut épuise ses
+        # ajustements sans jamais entrer dans la tolérance.
+        charge = reponse_fabriquee()
+        charge["features"][0]["properties"]["track-length"] = "50000"
+        return httpx.Response(200, json=charge)
+
+    brouter = ClientBrouter(
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    code = executer(args(candidates=5), config_de_test(), brouter, moteur_meteo())
+    sortie = capsys.readouterr().out
+    assert code == 0
+    assert len(lignes_du_tableau(sortie)) == 5, sortie
+
+
 def test_les_colonnes_du_contrat_sont_toutes_la(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     executer(args(), config_de_test(), moteur_brouter(), moteur_meteo(pluie=0.5))

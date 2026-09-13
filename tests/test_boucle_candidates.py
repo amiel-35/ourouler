@@ -20,6 +20,7 @@ from ourouler.boucle.candidates import (
     RAPPORT_RAYON_DEFAUT,
     RAYON_MAX_M,
     RAYON_MIN_M,
+    appels_pour,
     azimuts,
     generer,
 )
@@ -122,6 +123,23 @@ def test_l_ajustement_s_arrete_apres_trois_corrections():
     assert len(appels) == 1 + AJUSTEMENTS_MAX == 4
     assert len(trouvees) == 1, "une candidate hors tolérance vaut mieux que rien"
     assert trouvees[0].ecart_relatif == pytest.approx(-1 / 6)
+
+
+def test_cinq_demandees_cinq_rendues_meme_si_le_moteur_ne_converge_pas():
+    """Le plafond d'appels suit la demande, il ne la rabote pas.
+
+    Régression du 13/09/2026 : `AJUSTEMENTS_MAX` passé à 3 contre un plafond
+    fixe de 12 appels rendait **trois** candidates à qui en demandait cinq,
+    dès que le moteur cessait de converger — c'est-à-dire le cas que le
+    troisième ajustement devait justement absorber. Rien ne le disait à
+    l'utilisateur.
+    """
+    # 50 km quel que soit le rayon : chaque azimut épuise ses ajustements.
+    client, appels = moteur(50_000)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05)
+    assert len(trouvees) == 5
+    assert len(appels) == appels_pour(5) == 5 * (1 + AJUSTEMENTS_MAX)
+    assert len({round(c.azimut_deg) for c in trouvees}) == 5, "cinq directions distinctes"
 
 
 def test_une_candidate_dans_la_tolerance_suffit():
