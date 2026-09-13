@@ -124,6 +124,47 @@ qu'une partie du territoire, et pénaliser ce qu'elles ignorent condamnerait
 toute boucle vers une direction jamais explorée. La colonne « connu % » de
 `ourouler boucle` est informative et n'entre dans aucun score.
 
+## Validation rétrospective du terrain sous un bloc (sprint 4)
+
+Les poids de `seance/terrain.py` — ce que coûtent un village, une descente,
+un virage sous un bloc — ne sont pas devinés : ils sont confrontés aux
+emplacements où le mainteneur a **réellement** fait ses blocs, sur deux
+sorties de référence, contre des emplacements tirés au hasard sur la même
+boucle. Le script est versionné :
+
+```bash
+uv run python tests/validation/terrain_retrospectif.py
+```
+
+**Conclusion du 13/09/2026, mode nominal — OUI, code de sortie 0.** Sur les
+9 blocs courts et moyens des deux sorties (11 blocs trouvés au total), la note
+médiane des emplacements réels vaut **42,7 % de celle du hasard**, là où le
+critère demande au plus 70 %. Composition au kilomètre, blocs réels contre
+tirages : km bâtis 0,00 contre 0,05 (**3 %**, le poste le plus discriminant) ;
+descente 1,08 m contre 1,89 m (57 %) ; virages 0,74 contre 1,00 (74 %) ;
+irrégularité 1,55 % contre 1,58 % (98 %, ne sépare rien) ; montée 4,34 m contre
+3,39 m (**128 %** — le mainteneur monte *plus* que le hasard, il ne fuit pas
+les côtes).
+
+**Ce qui fait foi, et pourquoi.** Le mode nominal lit les **intervalles
+marqués** dans Intervals.icu : ce sont les blocs réellement prescrits et
+exécutés. Le mode `--sans-reseau`, seul reproductible sans la clé d'API du
+mainteneur, les **devine** à partir de la puissance : il en trouve 15 au lieu
+de 11, coupe un 20' en trois et ramasse des fragments d'échauffement. Il
+conclut aujourd'hui NON à 70,3 % pour un seuil de 70 % : c'est la conclusion
+honnête d'un mode qui borne moins bien les blocs, **pas un désaveu des poids**.
+Le script échoue explicitement quand les deux modes divergent, en le disant,
+plutôt que de laisser croire que l'un vaut l'autre.
+
+**Deux limites à lire avec la conclusion.** (1) `POIDS_CARREFOUR` — ce que
+coûte un feu ou un stop sous un bloc — n'est validé par aucune mesure : une
+trace GPS ne porte pas de nœud OSM. C'est un raisonnement produit, et son
+commentaire le dit. (2) Le critère ne porte que sur les blocs de **moins de
+6 km** : décision du mainteneur, motivée par le fait que sur un bloc de 11 km
+le cycliste ne choisit pas son terrain, il roule là où il en est rendu. Les
+blocs longs sont mesurés et affichés — les deux 20' du 25/04 sont notés plus
+mal que 95 % des tirages de même longueur — mais ils ne jugent pas les poids.
+
 ## Limites connues
 
 Ce que le mainteneur doit savoir avant de lire un chiffre.

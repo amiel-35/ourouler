@@ -8,10 +8,13 @@ et 3).
 from __future__ import annotations
 
 import math
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.seance import terrain
 from ourouler.seance.placement import PENTE_DEMI_TOUR_MAX
 from ourouler.seance.terrain import (
     PENALITE_BLOC_TRONQUE,
@@ -22,6 +25,7 @@ from ourouler.seance.terrain import (
     route_au_dela,
 )
 
+RACINE = Path(__file__).resolve().parents[1]
 LAT_FICTIVE = 0.0
 LON_FICTIVE = 0.0
 #: Un degré de longitude à l'équateur, en mètres (sphère de rayon 6 371 km).
@@ -204,6 +208,164 @@ def test_les_pentes_sont_des_tangentes_pas_des_pourcentages():
     assert note.pente_max == pytest.approx(0.04, abs=0.002)
     # Le pourcentage ne survit que dans les motifs, qui se lisent.
     assert any("2,0 %" in motif for motif in note.motifs)
+
+
+# --- chaque poids doit être auditable par la validation rétrospective ---------
+
+#: Les poids que le script de validation **ne peut pas** mesurer, et qui le
+#: disent en toutes lettres dans leur commentaire. `POIDS_CARREFOUR` tarife un
+#: feu ou un stop sous un bloc : une sortie enregistrée est une trace GPS, elle
+#: ne porte aucun nœud OSM. Ce poids reste un raisonnement produit, et la règle
+#: absolue 5 demande qu'il soit annoncé comme tel, pas qu'il disparaisse.
+POIDS_NON_MESURABLES = {"POIDS_CARREFOUR"}
+
+
+def _validation():
+    """Le script `tests/validation/terrain_retrospectif.py`, chargé par chemin.
+
+    Il n'est pas collecté par pytest (son nom ne commence pas par `test_`) et
+    c'est voulu : il lit le cache réel du mainteneur. On l'importe quand même
+    ici, parce que son **contenu** — la liste des postes qu'il diagnostique —
+    est ce qui rend les poids auditables, et qu'un poids qui sort de cette
+    liste redevient une opinion.
+    """
+    import importlib.util
+    import sys
+
+    if "terrain_retrospectif" in sys.modules:
+        return sys.modules["terrain_retrospectif"]
+    chemin = RACINE / "tests" / "validation" / "terrain_retrospectif.py"
+    spec = importlib.util.spec_from_file_location("terrain_retrospectif", chemin)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["terrain_retrospectif"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_chaque_poids_de_la_note_est_mesure_par_le_script_de_validation():
+    """D1 : un poids qu'aucun mode du script ne mesure ne peut pas être justifié.
+
+    Les docstrings des poids citent des chiffres. Ces chiffres doivent être
+    reproductibles en relançant le script versionné — sinon ils redeviennent
+    des opinions (règle absolue 5), et c'est exactement ce qui était arrivé à
+    `POIDS_IRREGULARITE`, dont l'écart-type n'était pas lisible depuis
+    `NoteBloc`.
+    """
+    poids = {nom for nom in dir(terrain) if nom.startswith("POIDS_")}
+    assert poids, "aucun poids trouvé : le test ne mesure rien"
+    mesures = {nom_poids for _, nom_poids, _ in _validation().POSTES}
+    orphelins = sorted(poids - mesures - POIDS_NON_MESURABLES)
+    assert not orphelins, (
+        f"poids qu'aucun poste du script de validation ne mesure : {orphelins} — "
+        "soit le script les diagnostique, soit leur commentaire déclare qu'ils ne "
+        "sont pas mesurables, comme POIDS_CARREFOUR"
+    )
+
+
+def test_chaque_poste_du_script_lit_un_champ_distinct_de_la_note():
+    """Le corollaire : un poste qui ne lirait rien passerait inaperçu.
+
+    On fabrique une `NoteBloc` neutre, on met **un seul** champ à une valeur
+    reconnaissable, et on vérifie que le poste correspondant est le seul à
+    bouger. Un poste branché sur le mauvais champ, ou sur rien, tombe ici.
+    """
+    validation = _validation()
+    neutre = terrain.NoteBloc(note=0.0)
+    reference = validation._par_km(neutre, 1000.0)
+    champs = {
+        "carrefours": ("carrefours", 7),
+        "km bâtis": ("km_batis", 0.5),
+        "descente (m)": ("descente_m", 42.0),
+        "montée (m)": ("montee_m", 23.0),
+        "irrégularité %": ("irregularite", 0.017),
+    }
+    postes = [nom for nom, _, _ in validation.POSTES]
+    assert sorted(champs) == sorted(postes), (
+        f"postes du script : {postes}, champs couverts par ce test : {sorted(champs)}"
+    )
+    for poste, (champ, valeur) in champs.items():
+        modifiee = replace(neutre, **{champ: valeur})
+        mesure = validation._par_km(modifiee, 1000.0)
+        bouges = sorted(nom for nom in postes if mesure[nom] != reference[nom])
+        assert bouges == [poste], (
+            f"mettre {champ}={valeur} fait bouger {bouges} au lieu de [{poste!r}] : "
+            "un poste du diagnostic ne lit pas le champ qu'il annonce"
+        )
+
+
+def test_le_script_echoue_quand_les_deux_modes_divergent(capsys):
+    """D2 : le mode dégradé n'a le droit ni de conclure seul, ni de se taire.
+
+    Il conclut NON là où le mode nominal conclut OUI, parce qu'il devine les
+    blocs à partir de la puissance et en découpe d'autres. Laisser ce NON
+    passer pour un verdict — ou le laisser sortir en 1 avec « les poids sont
+    faux » — revient à laisser croire que les deux modes se valent. Le script
+    échoue donc **sur la divergence**, et le message la nomme.
+    """
+    validation = _validation()
+    attendu = bool(validation.REFERENCE_NOMINALE["verdict"])
+
+    assert validation._confronter_au_nominal(attendu, blocs=11) == 0
+    accord = capsys.readouterr()
+    assert "ACCORD DES DEUX MODES" in accord.out
+
+    assert validation._confronter_au_nominal(not attendu, blocs=15) == 1
+    divergence = capsys.readouterr()
+    assert "LES DEUX MODES DIVERGENT" in divergence.err, divergence
+    assert "c'est lui qui fait foi" in divergence.err
+    assert "Ce n'est pas un désaveu des poids" in divergence.err
+
+
+def _bilan_qui_echoue(validation):
+    """Un bilan de blocs courts dont la note vaut 80 % du hasard : verdict NON."""
+    bloc = validation.Bloc(
+        libelle="bloc 1", debut_m=0.0, longueur_m=1500.0, duree_s=300.0, puissance_w=210.0
+    )
+    comparaison = validation.Comparaison(
+        sortie="sortie fabriquée",
+        bloc=bloc,
+        note=terrain.NoteBloc(note=0.8),
+        au_hasard=[terrain.NoteBloc(note=1.0) for _ in range(20)],
+        part_tags=1.0,
+    )
+    return [validation.Bilan(validation.categorie(bloc.longueur_m), [comparaison])]
+
+
+def test_le_mode_degrade_n_accuse_jamais_les_poids(capsys):
+    """« Les poids sont faux » est une affirmation sur le modèle.
+
+    Un mode qui ne borne pas correctement les blocs n'est pas en position de la
+    faire : il conclut NON sur ce qu'il a mesuré, et dit que ce n'est pas le
+    même objet. Seul le mode qui fait foi accuse.
+    """
+    validation = _validation()
+    bilans = _bilan_qui_echoue(validation)
+
+    assert validation._juger_les_placables(bilans, fait_foi=True) is False
+    qui_fait_foi = capsys.readouterr().out
+    assert "Les poids sont faux" in qui_fait_foi
+
+    assert validation._juger_les_placables(bilans, fait_foi=False) is False
+    degrade = capsys.readouterr().out
+    assert "Les poids sont faux" not in degrade, degrade
+    assert "ce mode ne juge pas les poids" in degrade
+    # Et le pourcentage n'est plus arrondi à l'unité : « 70 % pour un seuil de
+    # 70 % » se lisait comme une conclusion qui se contredit.
+    assert "80.0%" in degrade, degrade
+
+
+def test_la_conclusion_de_la_validation_est_ecrite_dans_le_readme():
+    """D2 : la *definition of done* dit « le script tourne et **conclut** ».
+
+    Le résultat n'existait nulle part dans le dépôt, hors des docstrings de
+    constantes : un lecteur sans la clé d'API du mainteneur ne pouvait pas
+    savoir ce que le mode qui fait foi avait conclu. Il est maintenant dans le
+    README, avec sa date, ses chiffres et ses deux limites.
+    """
+    readme = (RACINE / "README.md").read_text(encoding="utf-8")
+    assert "tests/validation/terrain_retrospectif.py" in readme
+    for morceau in ("13/09/2026", "mode nominal", "42,7 %", "POIDS_CARREFOUR", "6 km"):
+        assert morceau in readme, f"le README ne dit pas « {morceau} »"
 
 
 def test_la_pente_moyenne_se_divise_par_la_longueur_du_profil_pas_du_couloir():

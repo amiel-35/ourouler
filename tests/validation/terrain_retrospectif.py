@@ -16,6 +16,30 @@ même sortie. Si l'évaluateur est juste, les emplacements réels doivent être
 nettement mieux notés que le hasard. S'ils ne le sont pas, les poids sont
 faux — et le script le dit au lieu de le taire.
 
+**LE MODE NOMINAL FAIT FOI.** Le script a deux modes, qui ne se valent pas :
+
+* **nominal** (celui-ci, sans option) : les blocs sont les **intervalles
+  marqués** dans Intervals.icu, c'est-à-dire ce que le cycliste a réellement
+  prescrit et exécuté. Onze blocs sur les deux sorties de référence, qui
+  correspondent un à un à la séance. C'est ce mode qui juge les poids ;
+* **`--sans-reseau`** : faute de clé d'API, les blocs sont **devinés** à partir
+  de la seule puissance. Il en trouve quinze : il coupe un 20' en trois quand
+  la puissance passe sous le seuil au milieu, et il ramasse des fragments
+  d'échauffement au-dessus de 75 % de FTP qui n'étaient pas des blocs. Il borne
+  donc moins bien les blocs, et il mesure autre chose.
+
+Conséquence : le mode dégradé conclut aujourd'hui **NON**, à 70,3 % pour un
+seuil de 70 %. C'est la conclusion honnête d'un mode qui découpe mal, **pas un
+désaveu des poids** — un bloc coupé en trois porte des morceaux de récupération
+que le vrai bloc n'a pas. Le script **échoue** quand les deux modes divergent,
+avec un message qui le dit : laisser croire que l'un vaut l'autre serait pire
+que l'écart lui-même. La référence nominale est figée dans
+`REFERENCE_NOMINALE`, avec sa date et ses chiffres.
+
+Le mode dégradé reste utile, et c'est pour cela qu'il existe : il est le seul
+reproductible par un relecteur qui n'a pas la clé du mainteneur, et il vérifie
+que le code tourne de bout en bout. Il ne vaut pas verdict.
+
 **LIMITE PRINCIPALE — LES FEUX NE SONT PAS VALIDÉS PAR LA MESURE.** Une sortie
 enregistrée est une trace GPS : elle ne porte ni feu ni stop. Les tags de route
 viennent de `routes_connues.sqlite` (bâti par `ourouler apprendre`, qui a rejoué
@@ -87,6 +111,21 @@ GRAINE = 20260913
 #: Ce qu'on appelle « nettement meilleure » : la médiane des blocs réels doit
 #: valoir au plus cette part de la médiane au hasard.
 AMELIORATION_ATTENDUE = 0.70
+
+#: Le résultat du **mode nominal**, celui qui fait foi, tel que mesuré le
+#: 13/09/2026 sur les deux sorties de référence. Il sert à deux choses : dire
+#: au lecteur ce que le mode qui fait foi a conclu même s'il ne peut pas le
+#: relancer, et détecter une divergence entre les deux modes.
+#:
+#: Le mettre à jour est un geste explicite : on relance le mode nominal, on
+#: recopie ce qu'il imprime, et on date.
+REFERENCE_NOMINALE = {
+    "date": "2026-09-13",
+    "verdict": True,
+    "blocs_juges": 9,
+    "rapport": 0.43,
+    "blocs_trouves": 11,
+}
 
 #: Les trois tailles de bloc, et ce qu'on attend de chacune. Un bloc de 3 min
 #: (1,5 km) et un 20' (11 km) ne posent pas le même problème : le premier se
@@ -526,13 +565,21 @@ def bilans(comparaisons: list[Comparaison]) -> list[Bilan]:
     return [Bilan(nom, liste) for nom, liste in par_nom.items() if liste]
 
 
-def conclure(comparaisons: list[Comparaison]) -> bool:
+def conclure(comparaisons: list[Comparaison], *, fait_foi: bool = True) -> bool:
     """Imprime la conclusion. Rend vrai si le critère d'acceptation du lot est tenu.
 
     Le critère ne porte **que** sur les blocs courts et moyens, ceux que le
-    cycliste peut effectivement placer sur une boucle. Les blocs longs sont
-    mesurés et rapportés, mais ils ne jugent pas les poids : voir
-    `_constater_les_longs`.
+    cycliste peut effectivement placer sur une boucle. **C'est une décision du
+    mainteneur du 13/09/2026**, motivée : sur un bloc de 11 km, le cycliste ne
+    choisit pas son terrain, il roule là où il en est rendu quand la montre
+    sonne. Les blocs longs sont donc mesurés et rapportés, jamais juges — voir
+    `_constater_les_longs`, qui le redit à l'écran pour que personne ne lise la
+    conclusion sans cette restriction.
+
+    `fait_foi` dit si ce qu'on mesure juge les poids. Il est faux en mode
+    dégradé, où les blocs sont devinés à partir de la puissance : un « NON » y
+    accuse le découpage avant d'accuser les poids, et la conclusion imprimée
+    doit le dire.
     """
     if not comparaisons:
         print("\nAucun bloc trouvé : rien à conclure.")
@@ -553,12 +600,12 @@ def conclure(comparaisons: list[Comparaison]) -> bool:
     print("  (rang = part des tirages moins bons que le bloc réel ; 50 % = le hasard)")
 
     diagnostiquer(comparaisons)
-    tenu = _juger_les_placables(tous)
+    tenu = _juger_les_placables(tous, fait_foi=fait_foi)
     _constater_les_longs(tous)
     return tenu
 
 
-def _juger_les_placables(tous: list[Bilan]) -> bool:
+def _juger_les_placables(tous: list[Bilan], *, fait_foi: bool = True) -> bool:
     """Le critère d'acceptation : blocs courts et moyens contre le hasard."""
     juges = [b for b in tous if b.nom in CATEGORIES_JUGEES]
     retenues = [c for b in juges for c in b.comparaisons]
@@ -580,18 +627,31 @@ def _juger_les_placables(tous: list[Bilan]) -> bool:
     rapport = reelles / au_hasard
     print(
         f"\nCRITÈRE D'ACCEPTATION (blocs courts et moyens, {len(retenues)} blocs) — "
-        f"ce sont ceux\nque le cycliste peut placer, et ce sont eux qui jugent les poids."
+        f"ce sont ceux\nque le cycliste peut **placer** ; les blocs de plus de 6 km sont "
+        "mesurés plus bas\nmais ne jugent pas les poids (décision du mainteneur du "
+        "13/09 : sur 11 km, le\ncycliste ne choisit pas son terrain)."
     )
+    # Un pourcentage arrondi à l'unité donnait « 70 % pour un seuil de 70 % »,
+    # c'est-à-dire une conclusion qui a l'air de se contredire.
     if rapport <= AMELIORATION_ATTENDUE:
         print(
-            f"  OUI : les emplacements réels sont nettement mieux notés — {rapport:.0%} "
+            f"  OUI : les emplacements réels sont nettement mieux notés — {rapport:.1%} "
             f"de la note\n  du hasard, là où on attend au plus {AMELIORATION_ATTENDUE:.0%}."
         )
         return True
+    if fait_foi:
+        print(
+            f"  NON : la note médiane des blocs réels vaut {rapport:.1%} de celle du hasard,\n"
+            f"  alors qu'on attend au plus {AMELIORATION_ATTENDUE:.0%}. Les poids sont faux — "
+            "voir la composition ci-dessus."
+        )
+        return False
     print(
-        f"  NON : la note médiane des blocs réels vaut {rapport:.0%} de celle du hasard,\n"
-        f"  alors qu'on attend au plus {AMELIORATION_ATTENDUE:.0%}. Les poids sont faux — "
-        "voir la composition ci-dessus."
+        f"  NON : la note médiane des blocs réels vaut {rapport:.1%} de celle du hasard,\n"
+        f"  alors qu'on attend au plus {AMELIORATION_ATTENDUE:.0%}.\n"
+        "  Mais ce mode ne juge pas les poids : il devine les blocs à partir de la\n"
+        "  puissance, il en découpe donc d'autres que ceux qui ont été prescrits.\n"
+        "  Voir la confrontation des deux modes en fin d'exécution."
     )
     return False
 
@@ -646,11 +706,15 @@ def _constater_les_longs(tous: list[Bilan]) -> None:
 #: (pas de nœuds OSM, voir l'en-tête du fichier) : c'est donc
 #: `POIDS_VIRAGE_MARQUE` que la ligne « carrefours » juge, et `POIDS_CARREFOUR`
 #: reste hors de portée de ce script.
-POSTES: tuple[tuple[str, str], ...] = (
-    ("carrefours", "POIDS_VIRAGE_MARQUE"),
-    ("km bâtis", "POIDS_KM_BATI"),
-    ("descente (m)", "POIDS_M_DESCENTE"),
-    ("montée (m)", "POIDS_M_MONTEE"),
+#: Le dernier membre dit si le poste se ramène au kilomètre. L'irrégularité,
+#: elle, est déjà une grandeur intensive (un écart-type de pente) : la diviser
+#: par la longueur du bloc n'aurait aucun sens.
+POSTES: tuple[tuple[str, str, bool], ...] = (
+    ("carrefours", "POIDS_VIRAGE_MARQUE", True),
+    ("km bâtis", "POIDS_KM_BATI", True),
+    ("descente (m)", "POIDS_M_DESCENTE", True),
+    ("montée (m)", "POIDS_M_MONTEE", True),
+    ("irrégularité %", "POIDS_IRREGULARITE", False),
 )
 
 
@@ -661,6 +725,9 @@ def _par_km(note: NoteBloc, longueur_m: float) -> dict[str, float]:
         "km bâtis": note.km_batis / km,
         "descente (m)": note.descente_m / km,
         "montée (m)": note.montee_m / km,
+        # En points de pourcentage : la pente est une tangente partout ailleurs,
+        # mais un écart-type de 0,0147 ne se lit pas dans un tableau.
+        "irrégularité %": 100.0 * note.irregularite,
     }
 
 
@@ -673,9 +740,9 @@ def diagnostiquer(comparaisons: list[Comparaison]) -> None:
     Tout est ramené au kilomètre, sans quoi un bloc de 5 km et un bloc de 1,4 km
     ne se compareraient pas.
     """
-    print("\nComposition au kilomètre — blocs réels contre tirages au hasard :")
+    print("\nComposition — blocs réels contre tirages au hasard (au km sauf mention) :")
     print(f"  {'poste':<14} {'réels':>8} {'hasard':>8} {'écart':>8}   poids")
-    for poste, poids in POSTES:
+    for poste, poids, _ in POSTES:
         reels = statistics.fmean([_par_km(c.note, c.bloc.longueur_m)[poste] for c in comparaisons])
         tires = [
             _par_km(n, c.bloc.longueur_m)[poste] for c in comparaisons for n in c.au_hasard
@@ -742,7 +809,47 @@ def executer(arguments: argparse.Namespace) -> int:
         )
     print()
     imprimer(comparaisons)
-    return 0 if conclure(comparaisons) else 1
+    fait_foi = not arguments.sans_reseau
+    tenu = conclure(comparaisons, fait_foi=fait_foi)
+    if fait_foi:
+        return 0 if tenu else 1
+    return _confronter_au_nominal(tenu, len(comparaisons))
+
+
+def _confronter_au_nominal(tenu: bool, blocs: int) -> int:
+    """Le mode dégradé contre la référence du mode qui fait foi.
+
+    Le mode dégradé n'a pas le droit de conclure seul, mais il n'a pas non plus
+    le droit de se taire quand il dit autre chose que le mode nominal : un
+    lecteur qui le lance sans la clé du mainteneur doit savoir qu'il regarde un
+    résultat d'un mode qui borne moins bien les blocs, et pas un verdict sur
+    les poids. Le script **échoue** donc sur la divergence, avec le message qui
+    la nomme — plutôt que de laisser croire que les deux modes se valent.
+    """
+    reference = REFERENCE_NOMINALE
+    attendu = bool(reference["verdict"])
+    if tenu == attendu:
+        print(
+            f"\nACCORD DES DEUX MODES : ce mode dégradé conclut comme le mode nominal du "
+            f"{reference['date']}\n({'OUI' if attendu else 'NON'}, {reference['rapport']:.0%} "
+            f"de la note du hasard sur {reference['blocs_juges']} blocs jugés)."
+        )
+        return 0
+    print(
+        f"\nÉCHEC — LES DEUX MODES DIVERGENT.\n"
+        f"  Mode dégradé (ci-dessus, blocs devinés par la puissance) : "
+        f"{'OUI' if tenu else 'NON'}, {blocs} blocs trouvés.\n"
+        f"  Mode nominal du {reference['date']} (blocs lus dans les intervalles Intervals, "
+        f"et\n  c'est lui qui fait foi) : {'OUI' if attendu else 'NON'}, "
+        f"{reference['rapport']:.0%} de la note du hasard sur\n"
+        f"  {reference['blocs_juges']} blocs jugés, {reference['blocs_trouves']} blocs trouvés.\n"
+        "\n  Ce n'est pas un désaveu des poids : la détection par la puissance coupe un 20'\n"
+        "  en trois quand la puissance passe sous le seuil, et ramasse des fragments\n"
+        "  d'échauffement. Elle borne moins bien les blocs, donc elle mesure autre chose.\n"
+        "  Pour trancher sur les poids, relancer sans --sans-reseau, avec la clé d'API.",
+        file=sys.stderr,
+    )
+    return 1
 
 
 def _blocs(

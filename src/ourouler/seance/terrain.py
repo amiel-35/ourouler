@@ -92,6 +92,22 @@ PENTE_MONTEE_TOLEREE = 0.02
 # terrain_retrospectif.py`) : les emplacements où le mainteneur a réellement
 # fait ses blocs doivent recevoir une note nettement meilleure que des
 # emplacements tirés au hasard sur la même sortie.
+#
+# **Tous les chiffres cités ci-dessous viennent du mode nominal du script**
+# — celui qui lit les intervalles marqués dans Intervals — **relancé le
+# 13/09/2026**, et sont reproductibles en relançant :
+#
+#     uv run python tests/validation/terrain_retrospectif.py
+#
+# Le mode nominal fait foi (voir l'en-tête du script). Le mode `--sans-reseau`
+# détecte les blocs par la seule puissance : il en retient 15 au lieu des 11
+# marqués, dont des fragments d'échauffement et un 20' coupé en trois, donc il
+# mesure autre chose. Ses chiffres sont donnés entre parenthèses quand ils
+# éclairent, jamais comme référence.
+#
+# Une mesure citée doit être reproductible par le script versionné, sinon elle
+# redevient une opinion (règle absolue 5). Les chiffres de la première
+# rédaction ne l'étaient plus : ceux-ci le sont.
 
 #: Un **nœud tagué** traversé pendant un bloc — un feu, un stop, un
 #: cédez-le-passage : on lève le pied, parfois on pose le pied.
@@ -104,35 +120,53 @@ POIDS_CARREFOUR = 1.0
 
 #: Un **virage marqué** sans nœud tagué : la route tourne, c'est tout. Dix fois
 #: moins cher qu'un feu, et pour cause — mesuré le 13/09 sur les deux sorties
-#: de référence, les blocs réels du mainteneur en contiennent 0,86 par km
-#: contre 0,90 par km pour des emplacements tirés au hasard : il ne les évite
-#: pas. À 1,0 ce poste noyait, à lui seul, tout le reste de la note.
+#: de référence (mode nominal), les blocs réels du mainteneur en contiennent
+#: **0,74 par km contre 1,00 au hasard**, soit 74 % : il les évite un peu, pas
+#: assez pour que le poste pèse. (Mode dégradé : 0,67 contre 1,15, 58 %.)
+#: À 1,0 ce poste noyait, à lui seul, tout le reste de la note.
 POIDS_VIRAGE_MARQUE = 0.10
 
-#: Un kilomètre de bloc en zone bâtie. Mesuré le 13/09 : les blocs réels en
-#: contiennent **zéro**, contre 0,06 km par km au hasard. C'est le poste le
-#: plus discriminant qui soit, il mérite de peser.
+#: Un kilomètre de bloc en zone bâtie. Mesuré le 13/09 (mode nominal) : les
+#: blocs réels en contiennent **0,00 km par km contre 0,05 au hasard**, soit
+#: 3 %. (Mode dégradé : 0,00 contre 0,04, 6 %.) C'est le poste le plus
+#: discriminant qui soit — le seul que le mainteneur évite presque
+#: entièrement — et c'est pour cela qu'il pèse le plus lourd.
 POIDS_KM_BATI = 3.0
 
-#: Un mètre de dénivelé perdu dans une descente qualifiante. Le défaut le plus
-#: grave, et le second poste le plus discriminant (mesuré le 13/09 : 0,36 m par
-#: km dans les blocs réels contre 2,52 au hasard, soit 14 %). Une descente de
-#: 1 km à −3 % (30 m) coûte trois fois un feu.
+#: Un mètre de dénivelé perdu dans une descente qualifiante. Le second poste le
+#: plus discriminant, mais nettement moins que ne le disait la première
+#: rédaction : mesuré le 13/09 (mode nominal), **1,08 m par km dans les blocs
+#: réels contre 1,89 au hasard, soit 57 %** — le script imprime « sépare un
+#: peu » et non « nettement évité ». (Mode dégradé : 1,49 contre 1,63, 91 %,
+#: soit rien du tout : ce mode découpe les blocs autrement et y fait entrer des
+#: descentes que les blocs marqués n'ont pas.)
+#:
+#: Le poids reste à 0,10 malgré cela, et c'est un choix qui se dit : c'est le
+#: défaut le plus **grave** sur un bloc de seuil — en descente, on ne peut pas
+#: tenir la puissance, quoi qu'en dise la fréquence à laquelle le mainteneur
+#: l'évite. Une descente de 1 km à −3 % (30 m) coûte trois fois un feu.
 POIDS_M_DESCENTE = 0.10
 
 #: Un mètre de dénivelé gagné dans une portion plus raide que
-#: `PENTE_MONTEE_TOLEREE`. Presque rien, et c'est mesuré : les blocs réels
-#: du mainteneur montent **plus** que le hasard (4,85 m par km contre 3,64,
-#: soit 133 %). Il ne fuit pas les montées, il les cherche — la puissance s'y
-#: tient mieux qu'ailleurs. Le poids ne sert plus qu'à départager deux couloirs
-#: par ailleurs identiques.
+#: `PENTE_MONTEE_TOLEREE`. Presque rien, et c'est mesuré : le 13/09 (mode
+#: nominal), les blocs réels du mainteneur montent **plus** que le hasard —
+#: **4,34 m par km contre 3,39, soit 128 %**. (Mode dégradé : 5,39 contre
+#: 2,61, 207 %, même conclusion en plus net.) Il ne fuit pas les montées, il
+#: les cherche : la puissance s'y tient mieux qu'ailleurs. Le poids ne sert
+#: plus qu'à départager deux couloirs par ailleurs identiques.
 POIDS_M_MONTEE = 0.002
 
 #: Une unité d'écart-type de la pente sur le bloc — la pente étant une
 #: tangente, un point de pourcentage d'écart-type coûte donc 0,30. Faible,
-#: comme le veut le contrat, et la mesure du 13/09 le confirme : 1,47 % dans
-#: les blocs réels contre 1,72 % au hasard (86 %), une discrimination réelle
-#: mais ténue.
+#: comme le veut le contrat, et la mesure du 13/09 (mode nominal) dit pourquoi
+#: il doit le rester : **1,55 % dans les blocs réels contre 1,58 % au hasard,
+#: soit 98 %** — ce poste ne sépare **rien**. (Mode dégradé : 1,63 contre 1,44,
+#: 113 %, c'est-à-dire l'inverse, et pas davantage de discrimination.)
+#:
+#: La première rédaction citait 1,47 % contre 1,72 % (86 %), « une
+#: discrimination réelle mais ténue » : ce chiffre n'était reproductible par
+#: aucun mode du script, parce que `NoteBloc` n'exposait pas l'écart-type.
+#: Il l'expose maintenant, et le script le mesure comme les autres postes.
 POIDS_IRREGULARITE = 30.0
 
 #: Ce que coûte un bloc qui **ne tient pas** sur le tracé disponible.
@@ -181,6 +215,12 @@ class NoteBloc:
     #: `PENTE_MONTEE_TOLEREE` (positif). Pas le D+ du bloc : la part
     #: tolérée n'y est pas.
     montee_m: float = 0.0
+    #: Écart-type de la pente sur le bloc, **en tangente** : 0,015 pour
+    #: ± 1,5 %. Ajout au contrat §2, qui ne le listait pas : c'est le seul
+    #: poste de la note dont le poids ne pouvait pas être audité par la
+    #: validation rétrospective, faute d'être lisible depuis l'extérieur. Il
+    #: était déjà calculé et déjà utilisé — il n'était pas rendu.
+    irregularite: float = 0.0
 
 
 # --- l'évaluation -------------------------------------------------------------
@@ -233,6 +273,7 @@ def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc
         km_batis=km_batis,
         descente_m=releve.descente_m,
         montee_m=releve.montee_m,
+        irregularite=releve.irregularite,
     )
 
 
