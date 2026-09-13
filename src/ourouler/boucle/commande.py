@@ -63,6 +63,15 @@ MARQUE_RETENUE = "→"
 #: « 0,0 km de trafic » ne veut plus dire « tracé calme ».
 PART_NON_CLASSE_SIGNALEE = 0.05
 
+#: Les deux libellés de la colonne des antennes. Ils ne disent pas la même
+#: chose : une candidate générée est **élaguée**, le tableau compte donc les
+#: mètres qu'on lui a retirés et le tracé proposé n'en a plus ; un GPX importé
+#: n'est pas touché, le tableau compte les mètres qui y sont **encore**.
+#: Afficher le même mot pour les deux ferait croire à un élagage qui n'a pas
+#: eu lieu (règle absolue 5).
+TITRE_ANTENNES_RETIREES = "antennes retirées"
+TITRE_ANTENNES_DETECTEES = "antennes détectées"
+
 #: Ce qu'on affiche à la place d'une mesure absente (jamais un zéro : un
 #: GPX importé ne dit rien des routes empruntées, ce n'est pas « 0 km de
 #: trafic »).
@@ -393,7 +402,7 @@ COLONNES = (
     ("temps", False),
     ("trafic", False),
     ("non revêtu", False),
-    ("antennes m", False),
+    (TITRE_ANTENNES_RETIREES, False),  # remplacé par `_titres` pour un GPX importé
     ("virages G", False),
     ("sens", False),
     ("pluie", True),
@@ -409,7 +418,7 @@ def rendre_texte(
     avec_meteo = any(e.meteo is not None for e in evaluations)
     lignes = _entete(demande, config, avec_meteo)
 
-    titres = [titre for titre, meteo in COLONNES if avec_meteo or not meteo]
+    titres = _titres(avec_meteo, elaguees=demande.gpx is None)
     cellules = [_cellules(e, config, avec_meteo) for e in evaluations]
     largeurs = [
         max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
@@ -440,6 +449,14 @@ def rendre_texte(
     if chemin is not None:
         lignes.append(f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}, écrite dans {chemin}")
     return "\n".join(lignes)
+
+
+def _titres(avec_meteo: bool, *, elaguees: bool) -> list[str]:
+    """Les titres des colonnes affichées, la colonne des antennes selon le cas."""
+    titres = [titre for titre, meteo in COLONNES if avec_meteo or not meteo]
+    if not elaguees:
+        titres[titres.index(TITRE_ANTENNES_RETIREES)] = TITRE_ANTENNES_DETECTEES
+    return titres
 
 
 def _non_classes_signales(evaluations: list[Evaluation]) -> float:
@@ -490,7 +507,7 @@ def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[
         _duree(evaluation.trace.distance_m / 1000, config.boucle.vitesse_moyenne_kmh),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
         ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
-        f"{couts.antennes_m:.0f}",
+        f"{couts.antennes_m:.0f} m",
         f"{couts.virages_gauche} ({couts.virages_gauche_trafic})",
         couts.sens,
     ]
@@ -593,6 +610,9 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "total_tri": round(evaluation.total, 3),
         "couts_partiels": bool(trace.meta.get("couts_partiels")),
         "segments_ignores": int(trace.meta.get("segments_ignores") or 0),
+        # « retirees » : le tracé proposé n'a plus ces mètres. « detectees » :
+        # un GPX importé n'est pas élagué, ils y sont encore.
+        "antennes_source": "retirees" if trace.meta.get("antennes") is not None else "detectees",
         "antennes": trace.meta.get("antennes"),
         "distance_source": trace.meta.get("distance_source"),
         "couts": {

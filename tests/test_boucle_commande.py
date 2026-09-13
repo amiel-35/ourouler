@@ -24,6 +24,8 @@ from test_brouter import reponse_fabriquee  # même dossier : pytest y met le sy
 
 from ourouler.boucle.commande import (
     MARQUE_RETENUE,
+    TITRE_ANTENNES_DETECTEES,
+    TITRE_ANTENNES_RETIREES,
     direction_en_azimut,
     executer,
     lire_options,
@@ -257,7 +259,8 @@ def test_les_colonnes_du_contrat_sont_toutes_la(tmp_path: Path, monkeypatch, cap
     executer(args(), config_de_test(), moteur_brouter(), moteur_meteo(pluie=0.5))
     sortie = capsys.readouterr().out
     for titre in (
-        "n°", "distance", "D+", "temps", "trafic", "non revêtu", "antennes m", "virages G", "sens"
+        "n°", "distance", "D+", "temps", "trafic", "non revêtu",
+        TITRE_ANTENNES_RETIREES, "virages G", "sens",
     ):
         assert titre in sortie
     for titre in ("pluie", "vent face", "ressenti min"):
@@ -649,11 +652,9 @@ def test_la_colonne_antennes_compte_les_metres_retires(tmp_path: Path, monkeypat
         moteur_meteo(),
     )
     lignes = capsys.readouterr().out.splitlines()
-    entete = next(ligne for ligne in lignes if "antennes m" in ligne)
-    # Les colonnes sont justifiées à droite : la cellule finit là où finit son titre.
-    fin = entete.index("antennes m") + len("antennes m")
-    cellule = lignes[lignes.index(entete) + 1][:fin].rsplit(None, 1)[-1]
-    assert 270 <= float(cellule) <= 330
+    entete = next(ligne for ligne in lignes if TITRE_ANTENNES_RETIREES in ligne)
+    assert TITRE_ANTENNES_DETECTEES not in entete
+    assert 270 <= _cellule(lignes, entete, TITRE_ANTENNES_RETIREES) <= 330
 
 
 def test_le_json_porte_les_antennes_retirees(tmp_path: Path, monkeypatch, capsys):
@@ -678,3 +679,56 @@ def test_sans_antenne_la_colonne_affiche_zero(tmp_path: Path, monkeypatch, capsy
     assert candidate["couts"]["antennes_m"] == 0.0
     assert candidate["antennes"] == {"nombre": 0, "metres_retires": 0.0}
     assert candidate["distance_source"] is None
+
+
+def _cellule(lignes: list[str], entete: str, titre: str) -> float:
+    """La valeur en mètres de la colonne `titre`, sur la ligne suivant l'en-tête.
+
+    Les colonnes sont justifiées à droite : la cellule finit là où finit son
+    titre.
+    """
+    fin = entete.index(titre) + len(titre)
+    return float(lignes[lignes.index(entete) + 1][:fin].rsplit(None, 2)[-2])
+
+
+def test_un_gpx_importe_dit_antennes_detectees_et_non_retirees(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Un GPX n'est pas élagué : ses antennes sont encore là, le titre le dit."""
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(distance=7.0, candidates=1),
+        config_de_test(),
+        moteur_brouter_avec_antenne(),
+        moteur_meteo(),
+    )
+    gpx = next(tmp_path.glob("*.gpx"))
+    capsys.readouterr()
+
+    executer(args(gpx=str(gpx), distance=None), config_de_test(), None, moteur_meteo())
+    lignes = capsys.readouterr().out.splitlines()
+    entete = next(ligne for ligne in lignes if TITRE_ANTENNES_DETECTEES in ligne)
+    assert TITRE_ANTENNES_RETIREES not in entete
+    # Le GPX écrit vient d'une candidate déjà élaguée : il n'a plus d'antenne.
+    assert _cellule(lignes, entete, TITRE_ANTENNES_DETECTEES) == 0.0
+
+
+def test_le_json_nomme_la_provenance_des_metres_d_antennes(
+    tmp_path: Path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(distance=7.0, candidates=1, json=True),
+        config_de_test(),
+        moteur_brouter_avec_antenne(),
+        moteur_meteo(),
+    )
+    assert json.loads(capsys.readouterr().out)["candidates"][0]["antennes_source"] == "retirees"
+
+    gpx = next(tmp_path.glob("*.gpx"))
+    executer(
+        args(gpx=str(gpx), distance=None, json=True), config_de_test(), None, moteur_meteo()
+    )
+    candidate = json.loads(capsys.readouterr().out)["candidates"][0]
+    assert candidate["antennes_source"] == "detectees"
+    assert candidate["antennes"] is None
