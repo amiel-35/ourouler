@@ -17,7 +17,7 @@ from __future__ import annotations
 import importlib
 import sys
 import types
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 
 import pytest
@@ -239,7 +239,7 @@ def test_sans_le_bon_decalage_la_note_est_mauvaise(monkeypatch):
     # Le premier bloc tombe avant le bon couloir : la note est bien moins bonne.
     # 10 sous l'un des deux blocs, 0 sous l'autre, et les deux durent 20 min :
     # la moyenne pondérée par la durée vaut 5 (décision du 13/09, Q12).
-    assert resultat.note_totale == 5.0
+    assert resultat.note_terrain == 5.0
     assert "hors du bon couloir" in resultat.emplacements[0].note.motifs
     assert resultat.emplacements[1].note.motifs == []
 
@@ -281,7 +281,7 @@ def test_demi_tour_choisi_quand_il_n_y_a_qu_un_bon_segment(monkeypatch):
     assert second.longueur_m == pytest.approx(premier.longueur_m, abs=1.0)
     # La pénalité de demi-tour ne porte que sur le second des deux blocs de
     # 20 min : pondérée par la durée, elle compte pour la moitié.
-    assert resultat.note_totale == pytest.approx(0.5)
+    assert resultat.note_terrain == pytest.approx(0.5)
     assert any("demi-tour" in m for m in second.note.motifs)
 
 
@@ -296,7 +296,7 @@ def test_demi_tour_refuse_sans_route_au_dela(monkeypatch):
     assert [e.demi_tour for e in resultat.emplacements] == [False, False]
     # Un seul des deux blocs de 20 min tombe hors du bon couloir : 10 et 0,
     # moyenne pondérée par la durée = 5.
-    assert resultat.note_totale == 5.0
+    assert resultat.note_terrain == 5.0
 
 
 # --- la note est pondérée par la durée des blocs -------------------------------
@@ -387,13 +387,13 @@ def test_un_mauvais_couloir_sous_un_bloc_long_pese_bien_plus_que_sous_une_activa
     assert [e.note.note for e in sous_bloc_long.emplacements] == [0.0, MAUVAIS]
 
     total_s = ACTIVATION_S + BLOC_LONG_S
-    assert sous_activation.note_totale == pytest.approx(MAUVAIS * ACTIVATION_S / total_s)
-    assert sous_bloc_long.note_totale == pytest.approx(MAUVAIS * BLOC_LONG_S / total_s)
-    assert sous_bloc_long.note_totale == pytest.approx(
-        sous_activation.note_totale * BLOC_LONG_S / ACTIVATION_S
+    assert sous_activation.note_terrain == pytest.approx(MAUVAIS * ACTIVATION_S / total_s)
+    assert sous_bloc_long.note_terrain == pytest.approx(MAUVAIS * BLOC_LONG_S / total_s)
+    assert sous_bloc_long.note_terrain == pytest.approx(
+        sous_activation.note_terrain * BLOC_LONG_S / ACTIVATION_S
     )
     # Une somme brute aurait donné la même note aux deux : c'est le bug corrigé.
-    assert sous_bloc_long.note_totale > 20 * sous_activation.note_totale
+    assert sous_bloc_long.note_terrain > 20 * sous_activation.note_terrain
 
 
 def test_demi_tour_refuse_sur_une_route_a_trafic(monkeypatch):
@@ -464,6 +464,106 @@ def test_la_z2_de_fin_absorbe_le_reste(monkeypatch):
     fin_seance = _positions(resultat.decalage_z2_s)[3] + _vitesse(PUISSANCE_RECUP) * 240.0
     reste_m = trace.points[-1].dist_m - fin_seance
     assert calme == pytest.approx(reste_m / _vitesse(PUISSANCE_CALME), rel=1e-3)
+
+
+def _trace_de_longueur(longueur_m: float) -> Trace:
+    """Le tracé droit, mais d'une longueur **exacte** : le dernier point tombe pile.
+
+    `_trace` arrondit au pas de 500 m ; ici on veut que le dernier bloc puisse
+    finir exactement au bout du tracé, parce que c'est ce qui met le retour au
+    calme à zéro.
+    """
+    trace = _trace(longueur_m)
+    if trace.points[-1].dist_m < longueur_m:
+        trace.points.append(
+            PointTrace(lat=0.0, lon=longueur_m * DEG_PAR_M, alt_m=100.0, dist_m=longueur_m)
+        )
+        trace.distance_m = longueur_m
+    return trace
+
+
+def _seance_calme(calme_s: float) -> Seance:
+    """La même séance, avec un retour au calme d'une durée choisie."""
+    etapes = list(_seance().etapes)
+    etapes[-1] = replace(etapes[-1], duree_s=calme_s)
+    return Seance(
+        nom="2x20' de test",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _fin_de_seance(decalage_s: float) -> float:
+    """La position atteinte quand la dernière récupération est finie."""
+    return _positions(decalage_s)[3] + _vitesse(PUISSANCE_RECUP) * 240.0
+
+
+def test_une_seance_tronquee_perd_contre_un_placement_complet(monkeypatch):
+    """Le défaut mesuré le 08/02 : le placement gagnant ne tenait pas la séance.
+
+    Le tracé finit exactement là où la séance se termine au décalage +12 min :
+    à ce décalage, les deux blocs tombent dans le seul bon couloir (note 0),
+    mais il ne reste que cinq mètres pour le retour au calme, qui tombe à 0 min
+    au lieu des 13 prescrites — la séance n'est pas tenue. Au décalage nul, le
+    premier bloc tombe avant le bon couloir (note 2 ; le second, lui, y retombe)
+    et le retour au calme dure exactement ce qui est prescrit. C'est ce second
+    placement qui doit gagner : un terrain moins bon vaut mieux qu'une séance
+    amputée du cinquième de sa durée.
+    """
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50), mauvais=2.0)
+    longueur = _fin_de_seance(720.0) + 5.0
+    # Le retour au calme prescrit : exactement de quoi rentrer depuis le
+    # décalage nul, donc un écart de 0 % à cet endroit-là.
+    calme_s = _vitesse(PUISSANCE_Z2) * 720.0 / _vitesse(PUISSANCE_CALME)
+
+    resultat = placement.placer(_seance_calme(calme_s), _trace_de_longueur(longueur), P)
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(0.0), (
+        "le placement retenu doit être celui qui tient la séance, pas celui qui la tronque"
+    )
+    assert resultat.note_terrain == pytest.approx(1.0), (
+        "le premier bloc tombe hors du bon couloir (note 2), le second dedans (note 0) : "
+        "moyenne pondérée par des durées égales, 1,0"
+    )
+    assert resultat.penalite_seance == pytest.approx(0.0), "cette séance-là est tenue en entier"
+    assert resultat.note_totale == pytest.approx(1.0)
+    assert not any("retour au calme" in a for a in resultat.avertissements)
+
+
+def test_un_retour_au_calme_a_zero_se_paie_et_se_dit(monkeypatch):
+    """Le même tracé, mais le décalage tronqué imposé : ce qu'il coûte.
+
+    L'élasticité réduite au seul +20 % force le placement que la correction
+    écarte. Il note toujours 0 sur le terrain — et c'est bien le piège — mais
+    porte une pénalité de séance non tenue hors de proportion, et l'avertissement
+    du lot précédent est toujours là : on note, on ne refuse pas.
+    """
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50), mauvais=2.0)
+    longueur = _fin_de_seance(720.0) + 5.0
+    calme_s = _vitesse(PUISSANCE_Z2) * 720.0 / _vitesse(PUISSANCE_CALME)
+
+    resultat = placement.placer(
+        _seance_calme(calme_s), _trace_de_longueur(longueur), P, elasticite=(0.20, 0.20)
+    )
+
+    assert resultat is not None
+    assert resultat.decalage_z2_s == pytest.approx(720.0)
+    assert resultat.note_terrain == pytest.approx(0.0), "le terrain sous les blocs est parfait"
+    # Écart de −100 % pour une fenêtre réduite à +20 % : 1,20 hors de la fenêtre.
+    assert resultat.penalite_seance == pytest.approx(
+        placement.PENALITE_SEANCE_NON_TENUE * 1.20, rel=0.01
+    ), "la pénalité se compte hors de la fenêtre, au prorata"
+    assert resultat.note_totale == pytest.approx(
+        resultat.note_terrain + resultat.penalite_seance
+    )
+    assert any("retour au calme" in a and "-100%" in a for a in resultat.avertissements), (
+        f"l'avertissement du lot précédent doit rester : {resultat.avertissements}"
+    )
 
 
 def test_un_retour_au_calme_hors_fenetre_se_dit(monkeypatch):

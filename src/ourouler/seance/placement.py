@@ -37,6 +37,14 @@ par la durée de chaque bloc** :
 Décision du superviseur du 13/09 (Q12) : un bloc de 20 min pèse trente fois
 une activation de 40 s. Voir `_note_ponderee` pour le motif.
 
+S'y ajoute la **pénalité de séance non tenue** : le terrain sous les blocs ne
+dit rien de ce qui arrive aux extrémités élastiques, et un placement qui fait
+demi-tour, revient au km 0 et laisse le retour au calme à 0 min au lieu des
+20 prescrites était jusqu'ici le mieux noté de tous — il ne traversait aucun
+village, et pour cause : il ne roulait presque plus. Toute étape élastique
+dont la durée placée sort de sa fenêtre d'élasticité coûte donc au prorata de
+ce qui la sépare de cette fenêtre. Voir `_penalite_seance`.
+
 Une note, jamais un filtre : chaque emplacement porte sa note et ses motifs,
 on garde la configuration la moins mauvaise et on dit ce qui cloche. `None`
 n'est rendu que si la séance ne tient pas du tout sur le tracé ; le motif est
@@ -84,6 +92,24 @@ PENTE_DEMI_TOUR_MAX = 0.015
 #: Garde-fou : nombre maximal de décalages essayés pour un `pas_s` minuscule.
 MAX_DECALAGES = 2000
 
+#: Pénalité de séance non tenue, en kilomètres équivalents par unité d'écart
+#: relatif hors de la fenêtre d'élasticité, pour une étape élastique
+#: **raccourcie**. Un retour au calme tombé à 0 min au lieu des 20 prescrites
+#: (écart −100 %, soit 0,95 hors d'une fenêtre qui descend à −5 %) coûte ainsi
+#: 19 kilomètres équivalents. C'est volontairement hors de proportion avec le
+#: terrain : sur les boucles mesurées le 08/02, deux à quatre km équivalents
+#: séparent le meilleur couloir du pire, donc aucune qualité de terrain ne doit
+#: pouvoir racheter une séance amputée d'un cinquième de sa durée.
+PENALITE_SEANCE_NON_TENUE = 20.0
+
+#: Même pénalité pour une étape élastique **allongée** au-delà de sa fenêtre.
+#: Dix fois moins, parce que les deux défauts ne sont pas le même défaut :
+#: allonger le retour au calme fait rentrer plus tard, mais tout ce qui était
+#: prescrit a été roulé ; le raccourcir supprime de la séance. Elle reste
+#: pénalisante — une boucle qui demande une heure de Z2 de plus que prévu n'est
+#: pas la boucle qu'on a demandée.
+PENALITE_SEANCE_ALLONGEE = 2.0
+
 
 @dataclass
 class Emplacement:
@@ -102,10 +128,19 @@ class Placement:
 
     decalage_z2_s: float  # allongement (ou raccourcissement) de la Z2 d'ouverture
     emplacements: list[Emplacement]
-    note_totale: float
+    note_totale: float  # `note_terrain` + `penalite_seance`, et c'est elle qui trie
     duree_totale_s: float
     distance_totale_m: float
     avertissements: list[str] = field(default_factory=list)
+    #: Le terrain seul : moyenne des notes de couloir pondérée par la durée des
+    #: blocs. C'est ce que `note_totale` valait avant qu'on lui ajoute la
+    #: pénalité, et ce qu'il faut regarder pour comparer deux couloirs.
+    note_terrain: float = 0.0
+    #: Ce que coûtent les étapes élastiques sorties de leur fenêtre (voir
+    #: `_penalite_seance`). Zéro quand la séance est tenue telle qu'elle est
+    #: prescrite. L'identité `note_totale = note_terrain + penalite_seance`
+    #: tient toujours.
+    penalite_seance: float = 0.0
 
 
 def placer(
@@ -121,9 +156,9 @@ def placer(
 
     `elasticite` est une fraction de la durée de la Z2 d'ouverture (−5 % à
     +20 % par défaut) ; le décalage est balayé par pas de `pas_s` secondes,
-    bornes comprises. La meilleure configuration est celle dont la somme des
-    notes de blocs est la plus basse ; à égalité, celle qui touche le moins à
-    la séance.
+    bornes comprises. La meilleure configuration est celle dont la `note_totale`
+    est la plus basse — terrain sous les blocs **et** pénalité de séance non
+    tenue ; à égalité, celle qui touche le moins à la séance.
     """
     if not seance.etapes:
         return _echec(trace, "séance sans étape : il n'y a rien à placer")
@@ -270,6 +305,7 @@ def _essayer(
     etat = _Etat()
     emplacements: list[Emplacement] = []
     avertissements: list[str] = []
+    ecarts: list[float] = []  # écarts relatifs des étapes élastiques, pour la pénalité
 
     i = 0
     while i < fin:
@@ -280,6 +316,8 @@ def _essayer(
                 f"un décalage de {_minutes(decalage_s)} raccourcit la Z2 d'ouverture "
                 "au-delà de sa durée"
             )
+        if i == idx_ouverture and etape.duree_s > 0:
+            ecarts.append(duree / etape.duree_s - 1.0)
         puissance = _puissance(etape, avertissements, i)
         suivante = etapes[i + 1] if i + 1 < fin else None
 
@@ -319,7 +357,9 @@ def _essayer(
         i += 1
 
     if idx_fermeture is not None:
-        motif = _fermer(terrain, etat, etapes[idx_fermeture], idx_fermeture, elasticite, avertissements)
+        motif = _fermer(
+            terrain, etat, etapes[idx_fermeture], idx_fermeture, elasticite, avertissements, ecarts
+        )
         if motif is not None:
             return motif
     elif etat.sens > 0 and terrain.total - etat.position_m > 0:
@@ -332,14 +372,49 @@ def _essayer(
             "la séance se termine en sens inverse : le retour se fait sur le tracé à l'envers"
         )
 
+    penalite = _penalite_seance(ecarts, elasticite)
+    terrain_note = _note_ponderee(emplacements, etapes)
     return Placement(
         decalage_z2_s=decalage_s,
         emplacements=emplacements,
-        note_totale=_note_ponderee(emplacements, etapes),
+        note_totale=terrain_note + penalite,
         duree_totale_s=etat.duree_s,
         distance_totale_m=etat.distance_m,
         avertissements=list(dict.fromkeys(avertissements)),
+        note_terrain=terrain_note,
+        penalite_seance=penalite,
     )
+
+
+def _penalite_seance(ecarts: Sequence[float], elasticite: tuple[float, float]) -> float:
+    """Ce que coûte une séance qu'on ne tient pas, en kilomètres équivalents.
+
+    `ecarts` porte l'écart relatif de chaque étape élastique — durée placée
+    contre durée prescrite, `−1.0` pour un retour au calme tombé à zéro. Tant
+    qu'une étape reste dans sa fenêtre d'élasticité, elle ne coûte rien : la
+    fenêtre **est** la définition de ce que le mainteneur accepte (« on va dire
+    15-20 % pour trouver la zone »). Au-delà, on paie au prorata de ce qui l'en
+    sépare, et non de l'écart entier : une minute de plus que la borne ne doit
+    pas coûter d'un coup une note entière.
+
+    Deux poids, parce qu'il y a deux défauts distincts (voir les constantes) :
+    raccourcir retire de la séance, allonger ne fait que rentrer plus tard.
+
+    Mesuré sur la vérification réelle du 08/02 : le placement qui faisait
+    demi-tour au bloc 2, repartait à l'envers et rentrait au km 0 avec 0 min de
+    retour au calme au lieu de 20 notait 1,81 — le meilleur de tous. Il paie
+    maintenant 19,0 de pénalité et se retrouve dernier, ce qui est le but.
+    """
+    bas, haut = min(elasticite), max(elasticite)
+    total = 0.0
+    for ecart in ecarts:
+        if not math.isfinite(ecart):
+            continue
+        if ecart < bas:
+            total += PENALITE_SEANCE_NON_TENUE * (bas - ecart)
+        elif ecart > haut:
+            total += PENALITE_SEANCE_ALLONGEE * (ecart - haut)
+    return total
 
 
 def _note_ponderee(emplacements: Sequence[Emplacement], etapes: Sequence[Etape]) -> float:
@@ -357,9 +432,10 @@ def _note_ponderee(emplacements: Sequence[Emplacement], etapes: Sequence[Etape])
 
     Le résultat reste une note en kilomètres équivalents, comparable d'une
     séance à l'autre, ce qu'une somme brute n'était pas : elle grandissait
-    avec le nombre de blocs. Le choix du décalage de la Z2 d'ouverture, lui,
-    est inchangé — les durées des blocs ne dépendent pas du décalage, donc
-    diviser par leur somme ne peut pas changer quel décalage gagne.
+    avec le nombre de blocs. La pondération seule ne change pas quel décalage
+    gagne — les durées des blocs ne dépendent pas du décalage, donc diviser par
+    leur somme ne peut pas renverser un classement. La pénalité de séance non
+    tenue, elle, en dépend et le renverse : c'est tout son objet.
 
     Un jeu de blocs sans durée positive n'a pas de pondération possible : la
     moyenne simple prend le relais plutôt que d'effacer les pénalités.
@@ -553,6 +629,7 @@ def _fermer(
     idx: int,
     elasticite: tuple[float, float],
     avertissements: list[str],
+    ecarts: list[float],
 ) -> str | None:
     """La Z2 de fin absorbe la distance restante. Elle ne place rien, elle referme.
 
@@ -573,6 +650,7 @@ def _fermer(
     etat.position_m = terrain.total if etat.sens > 0 else 0.0
     if etape.duree_s > 0:
         ecart = duree / etape.duree_s - 1.0
+        ecarts.append(ecart)
         if not min(elasticite) <= ecart <= max(elasticite):
             avertissements.append(
                 f"retour au calme : {duree / 60:.0f} min pour rentrer au lieu des "

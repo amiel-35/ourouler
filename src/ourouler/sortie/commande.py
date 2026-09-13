@@ -749,7 +749,9 @@ def _entete(
             )
     lignes.append(
         "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; "
-        "plus bas = mieux."
+        "plus bas = mieux. La note additionne le terrain sous les blocs et la pénalité "
+        "des étapes élastiques sorties de leur fenêtre — une séance qu'on ne tient pas "
+        "coûte plus cher qu'un mauvais couloir."
     )
     lignes.append(
         f"« blocs bien placés » : note du couloir sous {_fr(NOTE_BLOC_BIEN_PLACE, 1)} km "
@@ -810,9 +812,14 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     """
     placement = proposition.placement
     seance = contexte.seance
+    note = _fr(placement.note_totale, 2)
+    if placement.penalite_seance > 0:
+        note += (
+            f" = terrain {_fr(placement.note_terrain, 2)} + séance non tenue "
+            f"{_fr(placement.penalite_seance, 2)}"
+        )
     lignes = [
-        f"Séance placée sur la candidate n° {proposition.numero} "
-        f"(note {_fr(placement.note_totale, 2)}) :",
+        f"Séance placée sur la candidate n° {proposition.numero} (note {note}) :",
         f"    Z2 d'ouverture allongée de {_minutes(placement.decalage_z2_s)} — c'est elle qui "
         "fait coulisser les blocs le long du tracé.",
     ]
@@ -928,6 +935,8 @@ def _candidate_json(proposition: Proposition) -> dict:
         "vitesse_kmh": round(proposition.vitesse_kmh, 2),
         "placement": {
             "note_totale": round(placement.note_totale, 4),
+            "note_terrain": round(placement.note_terrain, 4),
+            "penalite_seance": round(placement.penalite_seance, 4),
             "decalage_z2_s": round(placement.decalage_z2_s),
             "duree_totale_s": round(placement.duree_totale_s),
             "distance_totale_m": round(placement.distance_totale_m, 1),

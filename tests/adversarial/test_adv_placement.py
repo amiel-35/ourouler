@@ -119,6 +119,8 @@ def _placer(seance: Any, trace: Any, **kwargs: Any) -> Any:
 def _verifier(placement: Any, seance: Any, trace: Any) -> None:
     fabriques4.nombre_fini(placement.decalage_z2_s, "Placement.decalage_z2_s")
     fabriques4.nombre_fini(placement.note_totale, "Placement.note_totale", positif=True)
+    fabriques4.nombre_fini(placement.note_terrain, "Placement.note_terrain", positif=True)
+    fabriques4.nombre_fini(placement.penalite_seance, "Placement.penalite_seance", positif=True)
     fabriques4.nombre_fini(placement.duree_totale_s, "Placement.duree_totale_s", positif=True)
     fabriques4.nombre_fini(placement.distance_totale_m, "Placement.distance_totale_m", positif=True)
     fabriques4.liste_de_chaines(placement.avertissements, "Placement.avertissements")
@@ -147,19 +149,28 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
         assert isinstance(e.demi_tour, bool), f"emplacements[{n}].demi_tour : booléen attendu"
         fabriques4.verifier_note(e.note, quoi=f"emplacements[{n}].note")
         notes.append(float(e.note.note))
-    # `note_totale` est la moyenne des notes de couloir pondérée par la durée
+    # `note_terrain` est la moyenne des notes de couloir pondérée par la durée
     # des blocs (décision du superviseur du 13/09, Q12) : une activation de
     # 40 s ne pèse pas comme un bloc de 20 min. Ce n'est donc plus une somme,
     # et l'invariant porte sur ce qu'une moyenne doit respecter — rester dans
-    # l'intervalle des notes, et ne pas effacer une pénalité.
+    # l'intervalle des notes, et ne pas effacer une pénalité. `note_totale` y
+    # ajoute la pénalité de séance non tenue (correction du 13/09 : un retour
+    # au calme tombé à 0 min ne doit plus donner le meilleur placement), donc
+    # elle n'est plus bornée par les notes de couloir — l'identité, elle, l'est.
+    assert placement.note_totale == pytest.approx(
+        placement.note_terrain + placement.penalite_seance
+    ), (
+        f"note_totale = {placement.note_totale} alors que note_terrain + penalite_seance vaut "
+        f"{placement.note_terrain + placement.penalite_seance} : la note ne se décompose plus"
+    )
     if notes:
-        assert min(notes) - 1e-6 <= placement.note_totale <= max(notes) + 1e-6, (
-            f"note_totale = {placement.note_totale} hors de l'intervalle des notes de bloc "
+        assert min(notes) - 1e-6 <= placement.note_terrain <= max(notes) + 1e-6, (
+            f"note_terrain = {placement.note_terrain} hors de l'intervalle des notes de bloc "
             f"([{min(notes)}, {max(notes)}]) : ce n'est pas une moyenne pondérée"
         )
         if max(notes) > 0.0:
-            assert placement.note_totale > 0.0, (
-                f"note_totale = {placement.note_totale} alors qu'un bloc porte une pénalité de "
+            assert placement.note_terrain > 0.0, (
+                f"note_terrain = {placement.note_terrain} alors qu'un bloc porte une pénalité de "
                 f"{max(notes)} : une pénalité a été perdue en route"
             )
 
@@ -182,8 +193,8 @@ def test_une_seance_tient_sur_une_boucle_propre():
     seance, trace = _seance(), _boucle()
     placement = _placer(seance, trace)
     assert placement is not None, "une séance de 50 min doit tenir sur une boucle de 60 km"
-    assert placement.note_totale == pytest.approx(0.0, abs=1e-9), (
-        f"note {placement.note_totale} sur une boucle plate sans obstacle — "
+    assert placement.note_terrain == pytest.approx(0.0, abs=1e-9), (
+        f"note de terrain {placement.note_terrain} sur une boucle plate sans obstacle — "
         f"motifs : {[m for e in placement.emplacements for m in e.note.motifs]}"
     )
     assert [e.debut_m for e in placement.emplacements] == sorted(
@@ -228,7 +239,7 @@ def test_une_seance_sans_bloc_ne_place_rien():
     )
     placement = _placer(seance, _boucle())
     if placement is not None:
-        assert placement.emplacements == [] and placement.note_totale == pytest.approx(0.0)
+        assert placement.emplacements == [] and placement.note_terrain == pytest.approx(0.0)
 
 
 @pytest.mark.parametrize(
