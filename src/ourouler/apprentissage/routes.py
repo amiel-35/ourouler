@@ -68,6 +68,11 @@ PASSAGES_MAX = 60
 #: En dessous, une sortie n'apprend rien qui vaille un appel au serveur.
 DISTANCE_MIN_M = 3000.0
 
+#: Pas de découpe d'un segment pour l'attribution aux mailles : une demi-maille,
+#: pour qu'aucune maille traversée ne soit sautée quel que soit l'espacement
+#: des points du tracé.
+PAS_ECHANTILLON_M = 15.0
+
 #: Libellé des tags absents, côté base comme côté statistiques. SQLite accepte
 #: des NULL dans une clé primaire (et casse alors l'unicité) : on stocke une
 #: chaîne vide, qu'on retraduit en `None` à la lecture.
@@ -196,35 +201,41 @@ def cle_maille(lat: float, lon: float) -> tuple[int, int]:
     return (round(lat * MAILLE), round(lon * MAILLE))
 
 
-def _milieu(a: PointTrace, b: PointTrace) -> tuple[float, float]:
-    """Milieu approché de deux points. Suffisant sur 30 m."""
-    return ((a.lat + b.lat) / 2.0, (a.lon + b.lon) / 2.0)
+def _mailles_traversees(a: PointTrace, b: PointTrace, longueur: float) -> list[tuple[int, int]]:
+    """Les mailles rencontrées entre deux points, une par sous-pas de ~15 m.
+
+    Un tracé BRouter a des points espacés de quelques mètres, un GPX relu
+    parfois de cent. Sans subdivision, un pas de 100 m ne marquerait qu'**une**
+    maille sur les trois qu'il traverse : la base aurait des trous, et
+    `part_connue` chuterait pour la seule raison que deux tracés n'ont pas le
+    même pas d'échantillonnage. On découpe donc à une demi-maille, des deux
+    côtés — apprentissage et mesure — pour que les deux se répondent.
+    """
+    n = max(1, math.ceil(longueur / PAS_ECHANTILLON_M))
+    mailles = []
+    for k in range(n):
+        f = (k + 0.5) / n
+        mailles.append(cle_maille(a.lat + (b.lat - a.lat) * f, a.lon + (b.lon - a.lon) * f))
+    return mailles
 
 
-def _tags_par_point(trace: Trace) -> list[dict[str, str] | None]:
-    """Les tags du segment couvrant chaque point (le premier segment gagne)."""
-    tags: list[dict[str, str] | None] = [None] * len(trace.points)
+def _par_intervalle(trace: Trace) -> list[tuple[dict[str, str], float | None]]:
+    """Les tags et le coût du tronçon couvrant chaque **intervalle** `[i, i+1]`.
+
+    Par intervalle et non par point : un point de jonction appartient aux deux
+    tronçons voisins, et attribuer par point rangeait tout l'intervalle suivant
+    sous les tags du tronçon précédent — une `secondary` disparaissait dans la
+    `tertiary` qui la précédait. Un intervalle, lui, n'a qu'un tronçon.
+    """
+    n = max(0, len(trace.points) - 1)
+    par_intervalle: list[tuple[dict[str, str], float | None] | None] = [None] * n
     for segment in trace.segments:
         debut = max(0, segment.debut_idx)
-        fin = min(len(trace.points) - 1, segment.fin_idx)
-        for i in range(debut, fin + 1):
-            if tags[i] is None:
-                tags[i] = segment.tags
-    return tags
-
-
-def _couts_par_point(trace: Trace) -> list[float | None]:
-    """Le `CostPerKm` du segment couvrant chaque point, `None` si inconnu."""
-    couts: list[float | None] = [None] * len(trace.points)
-    vus = [False] * len(trace.points)
-    for segment in trace.segments:
-        debut = max(0, segment.debut_idx)
-        fin = min(len(trace.points) - 1, segment.fin_idx)
-        for i in range(debut, fin + 1):
-            if not vus[i]:
-                vus[i] = True
-                couts[i] = segment.cout_km
-    return couts
+        fin = min(n, segment.fin_idx)
+        for i in range(debut, fin):
+            if par_intervalle[i] is None:  # en cas de recouvrement, le premier gagne
+                par_intervalle[i] = (segment.tags, segment.cout_km)
+    return [({}, None) if x is None else x for x in par_intervalle]
 
 
 @dataclass
@@ -247,32 +258,35 @@ def _decouper(trace: Trace) -> list[_Morceau]:
     tracé BRouter, la différence avec une découpe exacte est en dessous du
     bruit, pour un code dix fois plus simple.
     """
-    tags = _tags_par_point(trace)
-    couts = _couts_par_point(trace)
+    par_intervalle = _par_intervalle(trace)
     cumul: dict[tuple, _Morceau] = {}
     for i in range(len(trace.points) - 1):
         a, b = trace.points[i], trace.points[i + 1]
         longueur = distance_m(a, b)
         if not math.isfinite(longueur) or longueur <= 0:
             continue
-        t = tags[i] or tags[i + 1] or {}
-        lat, lon = _milieu(a, b)
-        morceau = _Morceau(
-            cle=cle_maille(lat, lon),
-            highway=str(t.get("highway", SANS_TAG) or SANS_TAG),
-            surface=str(t.get("surface", SANS_TAG) or SANS_TAG),
-            maxspeed=str(t.get("maxspeed", SANS_TAG) or SANS_TAG),
-            metres=longueur,
-            cout_km=couts[i] if couts[i] is not None else couts[i + 1],
-        )
-        identite = (morceau.cle, morceau.highway, morceau.surface, morceau.maxspeed)
-        connu = cumul.get(identite)
-        if connu is None:
-            cumul[identite] = morceau
-        else:
-            connu.metres += morceau.metres
-            if connu.cout_km is None:
-                connu.cout_km = morceau.cout_km
+        t, cout_km = par_intervalle[i]
+        highway = str(t.get("highway", SANS_TAG) or SANS_TAG)
+        surface = str(t.get("surface", SANS_TAG) or SANS_TAG)
+        maxspeed = str(t.get("maxspeed", SANS_TAG) or SANS_TAG)
+        mailles = _mailles_traversees(a, b, longueur)
+        part = longueur / len(mailles)
+        for cle in mailles:
+            identite = (cle, highway, surface, maxspeed)
+            connu = cumul.get(identite)
+            if connu is None:
+                cumul[identite] = _Morceau(
+                    cle=cle,
+                    highway=highway,
+                    surface=surface,
+                    maxspeed=maxspeed,
+                    metres=part,
+                    cout_km=cout_km,
+                )
+            else:
+                connu.metres += part
+                if connu.cout_km is None:
+                    connu.cout_km = cout_km
     return list(cumul.values())
 
 
@@ -418,14 +432,15 @@ class BaseRoutes:
         Un tracé vide, ou de longueur nulle, rend 0,0 — pas une division par
         zéro, et pas 1,0 : on ne connaît rien de ce qu'on n'a pas mesuré.
         """
-        paires = []
+        paires: list[tuple[tuple[int, int], float]] = []
         for i in range(len(trace.points) - 1):
             a, b = trace.points[i], trace.points[i + 1]
             longueur = distance_m(a, b)
             if not math.isfinite(longueur) or longueur <= 0:
                 continue
-            lat, lon = _milieu(a, b)
-            paires.append((cle_maille(lat, lon), longueur))
+            mailles = _mailles_traversees(a, b, longueur)
+            part = longueur / len(mailles)
+            paires.extend((cle, part) for cle in mailles)
         total = sum(longueur for _, longueur in paires)
         if total <= 0:
             return 0.0
@@ -545,7 +560,7 @@ def points_de_passage(
         return []
     retenus = [geolocalises[0]]
     cumul = 0.0
-    for a, b in zip(geolocalises, geolocalises[1:], strict=True):
+    for a, b in zip(geolocalises[:-1], geolocalises[1:], strict=True):
         cumul += distance_m(
             PointTrace(a.lat, a.lon, None, 0.0), PointTrace(b.lat, b.lon, None, 0.0)
         )
