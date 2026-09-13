@@ -14,6 +14,7 @@ import pytest
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import (
+    FACTEUR_VENT_HAUTEUR,
     FENETRE_ALTITUDE,
     PAS_M,
     RHO_DEFAUT,
@@ -23,6 +24,7 @@ from ourouler.physique.modele import (
     masse_volumique_air,
     puissance_requise,
     simuler,
+    vent_au_cycliste,
     vitesse_regime,
 )
 
@@ -274,3 +276,22 @@ def test_le_dernier_pas_absorbe_le_reste():
         )
     ]
     assert min(longueurs) >= PAS_M / 10
+
+
+# --- vent météo ramené à hauteur de cycliste ---------------------------------
+
+
+def test_facteur_vent_hauteur_suit_le_profil_logarithmique():
+    """0,6 n'est pas un réglage : c'est ln(1,5/0,1) / ln(10/0,1) arrondi.
+
+    z = 1,5 m (buste), z₀ = 0,1 m (bocage), référence météo 10 m.
+    """
+    theorique = math.log(1.5 / 0.1) / math.log(10.0 / 0.1)
+    assert theorique == pytest.approx(0.588, abs=0.001)
+    assert FACTEUR_VENT_HAUTEUR == pytest.approx(theorique, abs=0.02)
+
+
+def test_vent_au_cycliste_conserve_le_signe_et_le_zero():
+    assert vent_au_cycliste(10.0) == pytest.approx(6.0)
+    assert vent_au_cycliste(-10.0) == pytest.approx(-6.0)
+    assert vent_au_cycliste(0.0) == 0.0

@@ -41,7 +41,13 @@ from ourouler.physique.calibration import (
     temps_mouvement_s,
     valider,
 )
-from ourouler.physique.modele import RHO_DEFAUT, puissance_requise, vitesse_regime
+from ourouler.physique.modele import (
+    FACTEUR_VENT_HAUTEUR,
+    RHO_DEFAUT,
+    puissance_requise,
+    vent_au_cycliste,
+    vitesse_regime,
+)
 
 MASSE = 100.0
 CDA_VRAI = 0.31
@@ -67,6 +73,16 @@ def archive(vent_kmh: float = 0.0, depuis_deg: float = 0.0, temp_c: float = 15.0
         )
         for h in range(24)
     ]
+
+
+def vent_archive_kmh(face_ms: float) -> float:
+    """Le vent **d'archive** (10 m) qui donne `face_ms` à hauteur de cycliste.
+
+    Les sorties fabriquées le sont avec un vent subi ; l'archive, elle, est
+    donnée à 10 m du sol. Sans cette conversion, les tests fabriqueraient une
+    sortie avec un vent et la reliraient avec un autre.
+    """
+    return abs(face_ms) * 3.6 / FACTEUR_VENT_HAUTEUR
 
 
 def puissance_ondulante(seconde: int) -> float:
@@ -169,7 +185,9 @@ def test_echantillonner_retrouve_vitesse_pente_et_vent():
     vent_ms = 5.0
     activite = sortie_synthetique(pente=0.02, vent_face_ms=vent_ms)
     # Le tracé va plein est (cap 90°) : un vent qui vient de l'est est de face.
-    echantillons = echantillonner(activite, archive(vent_kmh=vent_ms * 3.6, depuis_deg=90.0))
+    echantillons = echantillonner(
+        activite, archive(vent_kmh=vent_archive_kmh(vent_ms), depuis_deg=90.0)
+    )
     retenus = [e for e in echantillons if e.retenu]
     assert len(retenus) > 40
     milieu = retenus[len(retenus) // 2]
@@ -184,7 +202,25 @@ def test_vent_de_dos_est_negatif():
     activite = sortie_synthetique(duree_s=800)
     # Vent venant de l'ouest (270°) alors qu'on va vers l'est : de dos.
     echantillons = echantillonner(activite, archive(vent_kmh=18.0, depuis_deg=270.0))
-    assert echantillons[-1].vent_face_ms == pytest.approx(-5.0, abs=0.01)
+    assert echantillons[-1].vent_face_ms == pytest.approx(-5.0 * FACTEUR_VENT_HAUTEUR, abs=0.01)
+
+
+def test_le_vent_d_archive_est_ramene_a_hauteur_de_cycliste():
+    """18 km/h de face à 10 m ne sont plus que 0,6 × 5 m/s pour le cycliste.
+
+    C'est le point 1 de la relecture Fable : l'archive et la prévision donnent
+    le vent à 10 m, le modèle en attend un à 1,5 m. Sans cette conversion, le
+    régresseur aérodynamique est bâti sur un vent trop fort.
+    """
+    activite = sortie_synthetique(duree_s=800)
+    echantillons = echantillonner(activite, archive(vent_kmh=18.0, depuis_deg=90.0))
+    subi = echantillons[-1].vent_face_ms
+    assert subi == pytest.approx(vent_au_cycliste(5.0), abs=0.01)
+    assert subi == pytest.approx(5.0 * 0.6, abs=0.01)
+    # Et l'aller-retour est exact : le vent d'archive qu'on fabrique pour
+    # obtenir 5 m/s subis redonne bien 5 m/s.
+    a_5_ms = echantillonner(activite, archive(vent_kmh=vent_archive_kmh(5.0), depuis_deg=90.0))
+    assert a_5_ms[-1].vent_face_ms == pytest.approx(5.0, abs=0.01)
 
 
 def test_vent_de_travers_est_nul():
@@ -450,7 +486,7 @@ def test_valider_voit_un_cda_trop_grand():
 def test_valider_tient_compte_du_vent():
     """Une sortie faite avec 5 m/s de face n'est explicable qu'avec ce vent."""
     activite = sortie_synthetique(duree_s=2600, vent_face_ms=5.0)
-    avec = valider([(activite, archive(vent_kmh=18.0, depuis_deg=90.0))], VRAI)
+    avec = valider([(activite, archive(vent_kmh=vent_archive_kmh(5.0), depuis_deg=90.0))], VRAI)
     sans = valider([(activite, archive(vent_kmh=0.0))], VRAI)
     assert abs(avec.sorties[0].erreur_relative) < 0.02
     assert sans.sorties[0].erreur_relative < -0.10  # sans vent, le modèle se croit rapide
@@ -513,7 +549,9 @@ def test_un_vent_de_dos_ignore_ferait_croire_a_un_groupe():
     """
     poussee = sortie_synthetique(duree_s=2600, vent_face_ms=-6.0)
     sans_vent, part_sans = detecter_groupe(poussee, VRAI, [])
-    avec_vent, part_avec = detecter_groupe(poussee, VRAI, archive(vent_kmh=21.6, depuis_deg=270.0))
+    avec_vent, part_avec = detecter_groupe(
+        poussee, VRAI, archive(vent_kmh=vent_archive_kmh(6.0), depuis_deg=270.0)
+    )
     assert sans_vent and part_sans > 0.9
     assert not avec_vent and part_avec < 0.1
 

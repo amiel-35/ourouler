@@ -385,3 +385,63 @@ def test_parametres_est_bien_un_parametres(tmp_path: Path):
     chemin = tmp_path / "calibration.json"
     ecrire_calibration(chemin, "RCR", {"cda_m2": 0.31, "crr": 0.0045, "masse_totale_kg": 100.0})
     assert isinstance(lire_calibration(chemin, "RCR").parametres, Parametres)
+
+
+# --- vent de prévision ramené à hauteur de cycliste (point 1 de la relecture) --
+
+
+def _meteo_a_vent_constant(vent_kmh: float, depuis_deg: float):
+    """Un `MeteoTrace` minimal : un seul échantillon, au vent connu."""
+    from ourouler.boucle.meteo_trace import Echantillon as EchantillonMeteo
+    from ourouler.boucle.meteo_trace import MeteoTrace
+
+    return MeteoTrace(
+        echantillons=[
+            EchantillonMeteo(
+                dist_m=0.0,
+                t=datetime(2026, 3, 15, 9, 0, tzinfo=UTC),
+                lat=0.0,
+                lon=0.0,
+                cap_deg=90.0,
+                pluie_mm=0.0,
+                vent_kmh=vent_kmh,
+                vent_relatif="face",
+                ressenti_c=12.0,
+                vent_depuis_deg=depuis_deg,
+            )
+        ],
+        pluie_cumulee_mm=0.0,
+        minutes_pluie=0.0,
+        part_vent_face=1.0,
+        part_vent_dos=0.0,
+        ressenti_min_c=12.0,
+        confiance="bonne",
+        n_vent_connu=1,
+    )
+
+
+def test_vent_prevu_est_ramene_a_hauteur_de_cycliste():
+    """18 km/h de face prévus à 10 m valent 0,6 × 5 m/s pour le cycliste.
+
+    Pendant exact de ce que la calibration fait sur l'archive : le modèle est
+    calibré avec un vent converti, il doit être utilisé avec un vent converti.
+    """
+    from ourouler.physique.commande import vent_depuis_meteo
+    from ourouler.physique.modele import vent_au_cycliste
+
+    face = vent_depuis_meteo(_meteo_a_vent_constant(18.0, 90.0))
+    assert face is not None
+    assert face(0.0, 90.0) == pytest.approx(vent_au_cycliste(5.0), abs=1e-9)
+    assert face(0.0, 90.0) == pytest.approx(3.0, abs=1e-9)
+    # De dos : le signe survit à la conversion.
+    de_dos = vent_depuis_meteo(_meteo_a_vent_constant(18.0, 270.0))
+    assert de_dos(0.0, 90.0) == pytest.approx(-3.0, abs=1e-9)
+
+
+def test_vent_prevu_absent_reste_absent():
+    """Un tracé sans vent connu ne fabrique pas un vent nul converti."""
+    from ourouler.physique.commande import vent_depuis_meteo
+
+    meteo = _meteo_a_vent_constant(18.0, 90.0)
+    meteo.echantillons[0].vent_kmh = None
+    assert vent_depuis_meteo(meteo) is None

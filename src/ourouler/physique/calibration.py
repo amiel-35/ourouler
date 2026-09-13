@@ -18,11 +18,16 @@ Le tout deux fois (`calibrer_en_deux_passes`) : la première passe sert à
 trouver les sorties en groupe, la seconde à calibrer sans elles.
 
 Ce que le modèle ne sait pas, et qu'il faut lire avec le rapport : il ignore
-les arrêts (le temps rendu est un temps **en mouvement**), il ignore l'inertie
-(une sortie hachée coûte plus cher que ce qu'il dit), et il prend le vent à
-10 m du sol tel que l'archive le donne, alors que le cycliste roule à 1,5 m,
-dans un couloir d'arbres et de haies. Ces trois écarts vont tous dans le même
-sens : ils font paraître le cycliste plus lent que le modèle.
+les arrêts (le temps rendu est un temps **en mouvement**) et il ne connaît du
+vent que ce qu'une maille d'archive de plusieurs kilomètres en dit, interpolée
+à l'heure — pas la haie qui coupe le vent sur deux cents mètres. Ces écarts
+vont dans le même sens : ils font paraître le cycliste plus lent que le modèle.
+
+Le vent d'archive est donné à 10 m du sol ; il est **ramené à hauteur de
+cycliste** avant d'entrer dans le modèle (`modele.vent_au_cycliste`). Sans
+cela, le régresseur aérodynamique est construit sur un vent systématiquement
+trop fort, et l'erreur sur un régresseur tire son coefficient vers zéro : le
+CdA descendait en butée basse et le Crr absorbait le reste.
 """
 
 from __future__ import annotations
@@ -50,6 +55,7 @@ from ourouler.physique.modele import (
     masse_volumique_air,
     puissance_requise,
     simuler,
+    vent_au_cycliste,
     vitesse_regime,
 )
 
@@ -378,17 +384,23 @@ def _interpoler_archive(heures: Sequence[HeureArchive], t: datetime) -> HeureArc
 
 
 def _vent_de_face(heure: HeureArchive | None, cap: float | None) -> float | None:
-    """Composante de face du vent, en m/s (positive de face, négative de dos).
+    """Composante de face du vent **à hauteur de cycliste**, en m/s (de face positive).
 
     `vent_depuis_deg` est la direction **d'où** vient le vent. Le vent est de
     face quand il vient de là où l'on va : la composante vaut donc
     `v · cos(direction_d_où − cap)`.
+
+    L'archive donne le vent à 10 m du sol ; `vent_au_cycliste` le ramène à la
+    hauteur où le cycliste le subit. C'est le **seul** endroit où l'archive est
+    convertie : `echantillonner`, `detecter_groupe` et `vent_le_long` passent
+    tous par ici.
     """
     if heure is None or cap is None:
         return None
     if heure.vent_kmh is None or heure.vent_depuis_deg is None:
         return None
-    return (heure.vent_kmh / 3.6) * math.cos(math.radians(heure.vent_depuis_deg - cap))
+    a_10m = (heure.vent_kmh / 3.6) * math.cos(math.radians(heure.vent_depuis_deg - cap))
+    return vent_au_cycliste(a_10m)
 
 
 def _lineaire(a: float | None, b: float | None, f: float) -> float | None:

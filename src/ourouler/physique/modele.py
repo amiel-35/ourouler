@@ -14,6 +14,10 @@ rapide que le cycliste (`v_air < 0`) rendait alors une traînée **positive**,
 c'est-à-dire un vent de dos qui freine. `v_air·|v_air|` garde le signe : la
 poussée est une puissance négative. Écart au contrat assumé et signalé.
 
+Le vent que ce bilan attend est celui **à hauteur de cycliste**, pas celui
+des bulletins : `vent_au_cycliste` fait la conversion, une fois pour toutes,
+pour l'archive comme pour la prévision.
+
 Deux grandeurs sortent de ce module :
 
 - `puissance_requise(v)` — directe, exacte ;
@@ -68,6 +72,24 @@ FENETRE_ALTITUDE = 7
 #: affiché, pas une mesure.
 V_MIN_MS = 0.5
 
+#: Facteur qui ramène un vent **météo** (mesuré ou prévu à 10 m du sol) au vent
+#: que le cycliste subit réellement, à hauteur de buste.
+#:
+#: Le profil de vent en couche limite est logarithmique :
+#: `v(z) = v* / k · ln(z / z₀)`, donc `v(z₁)/v(z₂) = ln(z₁/z₀) / ln(z₂/z₀)`.
+#: Avec `z = 1,5 m` (buste d'un cycliste sur la route), `z₀ = 0,1 m`
+#: (longueur de rugosité d'un bocage : haies, arbres, cultures hautes) et la
+#: hauteur de référence de 10 m des modèles météo :
+#:
+#:     ln(1,5 / 0,1) / ln(10 / 0,1) = ln(15) / ln(100) ≈ 0,588
+#:
+#: soit **0,6** en chiffre rond. Ce n'est pas un réglage libre : c'est la
+#: conversion d'une grandeur météo en la grandeur physique dont le modèle a
+#: besoin. Elle s'applique des deux côtés — archive (calibration) et
+#: prévision (simulation) — sans quoi le modèle serait calibré sur un vent et
+#: utilisé sur un autre.
+FACTEUR_VENT_HAUTEUR = 0.6
+
 #: Tolérance de la bissection, en m/s. 10⁻¹⁰ m/s rend `puissance_requise(
 #: vitesse_regime(P))` égale à P à bien mieux que 0,1 W sur toute la plage utile.
 TOLERANCE_MS = 1e-10
@@ -110,6 +132,21 @@ class Simulation:
     pas_bloques: int = 0
     """Pas où la vitesse calculée était sous `V_MIN_MS` (puissance nulle ou
     quasi nulle) : le temps de ces pas est un plancher, pas une mesure."""
+
+
+def vent_au_cycliste(vent_10m: float) -> float:
+    """Le vent vu par le cycliste, à partir d'un vent météo donné à 10 m.
+
+    Une seule multiplication, mais **un seul endroit** : archive et prévision
+    passent toutes deux par ici, et le jour où le facteur change (autre
+    rugosité, autre hauteur de référence), il change pour les deux à la fois.
+
+    Le signe est conservé : un vent de dos (compté négatif en composante de
+    face) reste un vent de dos. Une valeur non finie est rendue telle quelle —
+    c'est à l'appelant de décider qu'un vent inconnu vaut zéro, pas à cette
+    conversion de le masquer.
+    """
+    return vent_10m * FACTEUR_VENT_HAUTEUR
 
 
 def masse_volumique_air(temp_c: float | None, pression_hpa: float | None) -> float:

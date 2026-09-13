@@ -28,7 +28,7 @@ from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique import calibration as calib
-from ourouler.physique.modele import Parametres, Simulation, simuler
+from ourouler.physique.modele import Parametres, Simulation, simuler, vent_au_cycliste
 
 #: Nom du fichier où la calibration est écrite, dans le dossier de cache.
 NOM_CALIBRATION = "calibration.json"
@@ -556,6 +556,15 @@ def vent_depuis_meteo(meteo):
     L'échantillon le plus proche en distance sert tel quel : les échantillons
     sont espacés de 5 km, le vent d'une prévision horaire ne varie pas plus
     vite que ça.
+
+    La prévision, comme l'archive, donne le vent à 10 m du sol :
+    `vent_au_cycliste` le ramène à la hauteur où il est subi. C'est le **seul**
+    endroit où la prévision est convertie — `ourouler simuler --depart` et la
+    colonne « temps » de `ourouler boucle` passent toutes deux par ici — et
+    c'est le pendant exact de ce que fait la calibration sur l'archive. Les
+    échantillons météo, eux, gardent la valeur du bulletin : la colonne
+    « vent » d'un rapport météo doit rester comparable à ce qu'annonce
+    Météo-France.
     """
     connus = [
         (e.dist_m, e.vent_kmh, e.vent_depuis_deg)
@@ -567,7 +576,7 @@ def vent_depuis_meteo(meteo):
 
     def face(dist_m: float, cap: float) -> float:
         _, vitesse, depuis = min(connus, key=lambda c: abs(c[0] - dist_m))
-        return (vitesse / 3.6) * math.cos(math.radians(depuis - cap))
+        return vent_au_cycliste((vitesse / 3.6) * math.cos(math.radians(depuis - cap)))
 
     return face
 
