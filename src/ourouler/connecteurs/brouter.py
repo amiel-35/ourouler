@@ -11,7 +11,9 @@ Format de réponse (relevé sur le serveur réel, profil `fastbike`) :
 `features[0].geometry.coordinates` = `[lon, lat, alt]` en degrés ;
 `properties` porte `track-length` (m), `total-time` (s), `filtered ascend`
 (m) et `messages`, dont la première ligne est l'en-tête et chaque ligne
-suivante décrit le tronçon **se terminant** au point cité. Les coordonnées
+suivante décrit le tronçon **se terminant** au point cité. La colonne
+`CostPerKm` de ces messages est retenue dans `Segment.cout_km` : c'est le
+jugement du moteur lui-même sur le trafic du tronçon. Les coordonnées
 des messages sont des **microdegrés entiers passés en chaînes** (mesuré :
 rapport message/géométrie = 1 000 000) et retombent **exactement** sur un
 point de la géométrie (117/117 puis 802/802 sur deux réponses réelles).
@@ -19,13 +21,14 @@ point de la géométrie (117/117 puis 802/802 sur deux réponses réelles).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Any
 
 import httpx
 
 from ourouler.boucle.trace import DENIVELE_MOTEUR, PointTrace, Segment, Trace, distance_m
-from ourouler.config import ParametresBrouter
+from ourouler.config import Evitement, ParametresBrouter
 from ourouler.erreurs import ErreurConnecteur
 
 CHEMIN_ITINERAIRE = "/brouter"
@@ -81,7 +84,13 @@ CORRECTION_POINTS_DE_PASSAGE: dict[str, Any] = {
 class ClientBrouter:
     """Accès à un serveur BRouter. `http` est injectable : les tests ne sortent jamais."""
 
-    def __init__(self, params: ParametresBrouter, http: httpx.Client | None = None):
+    def __init__(
+        self,
+        params: ParametresBrouter,
+        http: httpx.Client | None = None,
+        *,
+        evitements: Sequence[Evitement] = (),
+    ):
         if not params.url:
             raise ErreurConnecteur(
                 "BRouter : [brouter] url est vide — renseigner l'adresse du serveur "
@@ -97,6 +106,9 @@ class ClientBrouter:
         self._auth = (
             httpx.BasicAuth(params.utilisateur, params.mot_de_passe) if params.utilisateur else None
         )
+        # Les zones à éviter viennent de `Config.evitements` et sont passées
+        # par l'appelant : ce module ne lit aucune configuration.
+        self.nogos = _nogos(evitements)
 
     def __repr__(self) -> str:  # ni mot de passe, ni utilisateur dans une trace
         return f"ClientBrouter(base_url={self.base_url!r}, profil={self.profil_defaut!r})"
@@ -118,12 +130,14 @@ class ClientBrouter:
             )
         profil = profil or self.profil_defaut
         charge = self._appeler(
-            {
-                "lonlats": "|".join(_lonlat(lat, lon) for lat, lon in points),
-                "profile": profil,
-                "alternativeidx": 0,
-                "format": "geojson",
-            },
+            self._avec_nogos(
+                {
+                    "lonlats": "|".join(_lonlat(lat, lon) for lat, lon in points),
+                    "profile": profil,
+                    "alternativeidx": 0,
+                    "format": "geojson",
+                }
+            ),
             profil,
         )
         return _trace(charge, nom=f"Itinéraire {profil}", profil=profil, url=self.url_itineraire)
@@ -166,7 +180,7 @@ class ClientBrouter:
         }
         if ecart_deg is not None:
             params["roundTripDirectionAdd"] = int(ecart_deg)
-        charge = self._appeler(params, profil)
+        charge = self._appeler(self._avec_nogos(params), profil)
         trace = _trace(
             charge,
             nom=f"Boucle {azimut:.0f}° {rayon_m / 1000:.1f} km",
@@ -178,6 +192,17 @@ class ClientBrouter:
         return trace
 
     # --- interne --------------------------------------------------------------
+
+    def _avec_nogos(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Ajoute `nogos` aux paramètres s'il y a des zones à éviter.
+
+        Le paramètre est **omis** quand la liste est vide plutôt qu'envoyé
+        vide : un `nogos=` nu n'a pas de sens pour le moteur, et une URL sans
+        le paramètre est celle qu'on sait déjà juste.
+        """
+        if not self.nogos:
+            return params
+        return {**params, "nogos": self.nogos}
 
     def _appeler(self, params: dict[str, Any], profil: str) -> Any:
         """Un GET authentifié. Les messages ne citent que l'URL nue et le code HTTP."""
@@ -202,6 +227,11 @@ class ClientBrouter:
             ) from e
 
 
+#: Nombre de caractères du corps d'erreur cités dans un message. Assez pour
+#: « datafile W5_N40.rd5 not found », trop peu pour noyer la sortie.
+CORPS_ERREUR_MAX = 120
+
+
 def _indice(reponse: httpx.Response, profil: str) -> str:
     """Ce qu'on peut dire du code HTTP. Ne cite jamais les identifiants envoyés."""
     code = reponse.status_code
@@ -216,12 +246,47 @@ def _indice(reponse: httpx.Response, profil: str) -> str:
         return f" sans corps — profil inconnu ? ({profil})"
     if code >= 500:
         return " — panne côté serveur BRouter, réessayer plus tard"
-    return ""
+    # Sur un 400, le moteur dit **pourquoi** en clair : « datafile W5_N40.rd5
+    # not found » (région absente du serveur), « target island detected for
+    # section 3 » (aucun itinéraire possible). Sans ce mot, un rejeu de 156
+    # sorties rendait 156 fois « HTTP 400 » et rien d'exploitable.
+    return _corps(reponse)
+
+
+def _corps(reponse: httpx.Response) -> str:
+    """Le message du moteur, sur une ligne et borné. Vide si illisible ou absent."""
+    try:
+        texte = reponse.text
+    except (UnicodeDecodeError, ValueError):  # pragma: no cover - corps binaire
+        return ""
+    texte = " ".join(texte.split())
+    if not texte:
+        return ""
+    if len(texte) > CORPS_ERREUR_MAX:
+        texte = texte[:CORPS_ERREUR_MAX] + "…"
+    return f" — {texte}"
 
 
 def _lonlat(lat: float, lon: float) -> str:
     """BRouter attend `lon,lat` ; le reste du projet manipule des (lat, lon)."""
     return f"{lon:.6f},{lat:.6f}"
+
+
+def _nogos(evitements: Sequence[Evitement]) -> str:
+    """`lon,lat,rayon|lon,lat,rayon…` — les zones que le moteur doit contourner.
+
+    Même convention que `lonlats` : BRouter attend `lon,lat`, le rayon en
+    mètres entiers. Une zone au rayon absurde (négatif, nul, non fini) est
+    écartée : demander au moteur d'éviter un disque de rayon négatif ne veut
+    rien dire, et un `nogos` illisible fait échouer **tout** l'itinéraire.
+    """
+    morceaux = []
+    for e in evitements:
+        rayon = float(e.rayon_m)
+        if not math.isfinite(rayon) or rayon <= 0:
+            continue
+        morceaux.append(f"{_lonlat(e.latitude, e.longitude)},{round(rayon)}")
+    return "|".join(morceaux)
 
 
 # --- lecture du GeoJSON -------------------------------------------------------
@@ -348,6 +413,12 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
                 fin_idx=fin,
                 longueur_m=longueur,
                 tags=_tags(_colonne(ligne, colonnes, "WayTags")),
+                # `CostPerKm` est le jugement du moteur sur le tronçon : on le
+                # garde tel quel, sans le convertir ni le moyenner ici. Une
+                # colonne absente ou illisible donne `None`, jamais 0 — un
+                # coût nul voudrait dire « route idéale », ce qui est le
+                # contraire d'une mesure manquante (règle absolue 5).
+                cout_km=_nombre(_colonne(ligne, colonnes, "CostPerKm")),
             )
         )
         curseur = fin

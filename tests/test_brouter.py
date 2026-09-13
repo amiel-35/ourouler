@@ -19,7 +19,7 @@ from typing import Any
 import httpx
 import pytest
 
-from ourouler.config import ParametresBrouter
+from ourouler.config import Evitement, ParametresBrouter
 from ourouler.connecteurs.brouter import MODE_BOUCLE, ClientBrouter
 from ourouler.erreurs import ErreurConnecteur
 
@@ -144,6 +144,70 @@ def test_l_authentification_basique_est_envoyee():
 # --- lecture du GeoJSON -------------------------------------------------------
 
 
+# --- zones à éviter (nogos) ---------------------------------------------------
+#
+# Points fictifs uniquement : aucune coordonnée réelle n'entre dans le dépôt.
+
+EVITEMENTS = (
+    Evitement(nom="carrefour fictif", latitude=0.002, longitude=0.003, rayon_m=250.0),
+    Evitement(nom="pont fictif", latitude=-0.004, longitude=0.005, rayon_m=80.0),
+)
+
+
+def client_avec_evitements(evitements) -> tuple[ClientBrouter, list[httpx.Request]]:
+    vues: list[httpx.Request] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        vues.append(requete)
+        return httpx.Response(200, json=reponse_fabriquee())
+
+    client = ClientBrouter(
+        PARAMS,
+        http=httpx.Client(transport=httpx.MockTransport(gestionnaire)),
+        evitements=evitements,
+    )
+    return client, vues
+
+
+def test_les_evitements_partent_en_nogos_sur_un_itineraire():
+    client, vues = client_avec_evitements(EVITEMENTS)
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert vues[0].url.params["nogos"] == "0.003000,0.002000,250|0.005000,-0.004000,80"
+
+
+def test_les_evitements_partent_en_nogos_sur_une_boucle():
+    client, vues = client_avec_evitements(EVITEMENTS)
+    client.boucle((0.0, 0.0), azimut_deg=45, rayon_m=1500)
+    assert vues[0].url.params["nogos"].startswith("0.003000,0.002000,250")
+    assert vues[0].url.params["engineMode"] == str(MODE_BOUCLE)
+
+
+def test_sans_evitement_le_parametre_nogos_est_absent():
+    """Un `nogos=` vide n'a pas de sens pour le moteur : on l'omet."""
+    client, vues = client_fabrique()
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert "nogos" not in vues[0].url.params
+
+
+def test_un_rayon_absurde_est_ecarte_pas_envoye():
+    """Un `nogos` illisible ferait échouer tout l'itinéraire : on jette la zone."""
+    evitements = (
+        Evitement(nom="rayon nul", latitude=0.001, longitude=0.001, rayon_m=0.0),
+        Evitement(nom="rayon négatif", latitude=0.002, longitude=0.002, rayon_m=-50.0),
+        Evitement(nom="valable", latitude=0.003, longitude=0.004, rayon_m=120.0),
+    )
+    client, vues = client_avec_evitements(evitements)
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert vues[0].url.params["nogos"] == "0.004000,0.003000,120"
+
+
+def test_tous_les_rayons_absurdes_valent_aucun_evitement():
+    evitements = (Evitement(nom="nulle", latitude=0.001, longitude=0.001, rayon_m=0.0),)
+    client, vues = client_avec_evitements(evitements)
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert "nogos" not in vues[0].url.params
+
+
 def test_trace_lue_depuis_la_reponse_fabriquee():
     client, _ = client_fabrique()
     trace = client.boucle((0.0, 0.0), azimut_deg=45, rayon_m=1500)
@@ -196,6 +260,43 @@ def test_les_tags_de_chemin_sont_decoupes():
     assert trace.segments[0].tags == {"highway": "residential", "surface": "asphalt"}
     assert trace.segments[3].tags["surface"] == "gravel"
     assert trace.segments[5].tags == {"highway": "primary", "surface": "asphalt", "lanes": "2"}
+
+
+def test_le_cout_par_km_du_moteur_est_retenu():
+    """`CostPerKm` est le jugement du routeur sur le trafic : il ne se perd pas."""
+    client, _ = client_fabrique()
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert [s.cout_km for s in trace.segments] == [1200.0] * 6
+
+
+def test_un_cout_par_km_absent_ou_illisible_vaut_none_jamais_zero():
+    """Une mesure manquante se dit ; un 0 voudrait dire « route idéale »."""
+    charge = reponse_fabriquee()
+    messages = charge["features"][0]["properties"]["messages"]
+    messages[1][4] = ""
+    messages[2][4] = "sans valeur"
+    del messages[3][4:]
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert trace.segments[0].cout_km is None
+    assert trace.segments[1].cout_km is None
+    assert trace.segments[2].cout_km is None
+    assert trace.segments[3].cout_km == 1200.0
+
+
+def test_le_cout_par_km_suit_la_colonne_de_l_entete_pas_sa_position():
+    """Colonnes réordonnées par le serveur : c'est l'en-tête qui fait foi."""
+    charge = reponse_fabriquee()
+    proprietes = charge["features"][0]["properties"]
+    entete, *lignes = proprietes["messages"]
+    ordre = [entete.index(nom) for nom in ("CostPerKm", *[n for n in entete if n != "CostPerKm"])]
+    proprietes["messages"] = [
+        [ligne[i] for i in ordre] for ligne in ([entete] + lignes)
+    ]
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert [s.cout_km for s in trace.segments] == [1200.0] * 6
+    assert trace.segments[0].tags["highway"] == "residential"
 
 
 def test_coordonnees_de_messages_en_degres_acceptees_aussi():
@@ -340,6 +441,31 @@ def test_500_sans_corps_evoque_le_profil():
 def test_401_oriente_vers_les_identifiants():
     client, _ = client_repondant(b"", code=401)
     with pytest.raises(ErreurConnecteur, match="identifiants refus"):
+        client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+
+
+def test_un_400_cite_le_message_du_moteur():
+    """« datafile W5_N40.rd5 not found » vaut mille « HTTP 400 » nus.
+
+    Mesuré sur le serveur réel en rejouant 156 sorties : deux échecs, tous
+    deux hors de la région chargée sur le serveur. Sans le corps, le rapport
+    d'apprentissage disait seulement « HTTP 400 », deux fois.
+    """
+    client, _ = client_repondant(b"datafile W5_N40.rd5 not found\n", code=400)
+    with pytest.raises(ErreurConnecteur, match="datafile W5_N40.rd5 not found"):
+        client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+
+
+def test_un_corps_d_erreur_trop_long_est_borne():
+    client, _ = client_repondant(b"x" * 5000, code=400)
+    with pytest.raises(ErreurConnecteur) as e:
+        client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert len(str(e.value)) < 300 and "…" in str(e.value)
+
+
+def test_un_400_sans_corps_reste_lisible():
+    client, _ = client_repondant(b"", code=400)
+    with pytest.raises(ErreurConnecteur, match="HTTP 400"):
         client.itineraire([(0.0, 0.0), (0.01, 0.0)])
 
 

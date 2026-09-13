@@ -8,7 +8,10 @@ dans le bon sens présente moins de tourne-à-gauche.
 
 Le score agrège tout ça en **kilomètres équivalents** : plus bas = mieux.
 Tous les poids sont des constantes nommées ci-dessous, jamais des nombres
-enfouis dans une formule.
+enfouis dans une formule. Depuis le sprint 3, le poids d'une classe de route
+peut aussi être **appris** sur les sorties réelles du cycliste et injecté par
+la ligne de commande (`evaluer(..., poids=...)`) : les constantes restent le
+cas par défaut, celui d'un cycliste dont on ne sait rien.
 
 Sans `segments` (un GPX importé n'en a pas), les kilomètres par type de
 route ne sont pas calculables : ils valent 0 et `trace.meta["couts_partiels"]`
@@ -23,7 +26,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ourouler.boucle.antennes import detecter
 from ourouler.boucle.trace import PointTrace, Segment, Trace, cap_deg, distance_m, sens_boucle
@@ -61,6 +64,18 @@ HIGHWAY_NON_REVETU_SANS_SURFACE = frozenset({"track"})
 
 #: Un kilomètre de route à trafic « coûte » autant que 3 km de route calme.
 POIDS_KM_TRAFIC = 3.0
+
+#: Poids par classe `highway`, en kilomètres équivalents par kilomètre roulé.
+#: C'est la forme générale du score : les constantes ci-dessus en sont le cas
+#: par défaut. `apprentissage.routes.poids_appris` produit un dictionnaire de
+#: même forme, appris sur les sorties du cycliste, que la ligne de commande
+#: injecte dans `evaluer`.
+POIDS_HIGHWAY_DEFAUT: dict[str, float] = {h: POIDS_KM_TRAFIC for h in sorted(HIGHWAY_TRAFIC)}
+
+#: Ce que coûte une classe absente du dictionnaire de poids. Zéro, jamais
+#: autre chose : une classe qu'on ne sait pas juger ne se pénalise pas
+#: (« inconnu » n'est jamais un malus, contrat du sprint 3 §2).
+POIDS_HIGHWAY_INCONNU = 0.0
 #: Un kilomètre non revêtu en coûte 4.
 POIDS_KM_NON_REVETU = 4.0
 #: Un tourne-à-gauche ordinaire.
@@ -114,26 +129,50 @@ class Couts:
     virages_droite: int
     sens: str  # "horaire" | "antihoraire" | "indetermine"
     score: float
+    #: Kilomètres par classe `highway`, telle que le moteur l'a écrite. C'est
+    #: la matière du score dès que les poids sont appris : `km_trafic` et
+    #: `km_calme` n'en sont qu'un résumé en deux cases.
+    km_par_highway: dict[str, float] = field(default_factory=dict)
+    #: Moyenne du `CostPerKm` du moteur, pondérée par la longueur des
+    #: tronçons — le jugement du routeur lui-même sur le trafic du tracé.
+    #: `None` quand aucun tronçon ne le donne (GPX importé) : jamais 0, qui
+    #: voudrait dire « tracé idéal ».
+    cout_km_moyen: float | None = None
 
 
-def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
+def evaluer(
+    trace: Trace, *, sens_prefere: str = "horaire", poids: dict[str, float] | None = None
+) -> Couts:
     """Les coûts du tracé, et le score qui les agrège en kilomètres équivalents.
 
     `sens_prefere` vaut « horaire » ou « antihoraire ». Un tracé dont le sens
     est indéterminé (aller-retour, tracé non bouclé) est pénalisé comme un
     mauvais sens : on ne sait pas, donc on ne promet rien.
 
+    `poids` associe un coût en kilomètres équivalents à chaque classe
+    `highway`. Absent, c'est `POIDS_HIGHWAY_DEFAUT` — les constantes
+    historiques, donc exactement le score du sprint 2. Fourni, il vient de
+    `apprentissage.routes.poids_appris` et c'est **la ligne de commande** qui
+    l'injecte : ce module ne lit aucun fichier. Une classe absente du
+    dictionnaire ne coûte rien (`POIDS_HIGHWAY_INCONNU`) : on ne pénalise pas
+    ce qu'on ne sait pas juger.
+
     Un tronçon à la longueur absurde est écarté et compté dans
     `trace.meta["segments_ignores"]` : mieux vaut un kilométrage incomplet et
     signalé qu'un kilométrage négatif ou NaN.
     """
+    bareme = POIDS_HIGHWAY_DEFAUT if poids is None else poids
     segments = _segments_utilisables(trace)
     km_trafic, km_calme, km_non_classe, km_non_revetu = _kilometrages(trace, segments)
+    km_par_highway = _km_par_highway(segments)
     gauche, gauche_trafic, droite = _virages(trace, segments)
     sens = sens_boucle(trace)
 
+    km_ponderes = sum(
+        km * bareme.get(highway, POIDS_HIGHWAY_INCONNU) for highway, km in km_par_highway.items()
+    )
     score = (
-        km_trafic * POIDS_KM_TRAFIC
+        km_ponderes
         + km_non_revetu * POIDS_KM_NON_REVETU
         + gauche * POIDS_VIRAGE_GAUCHE
         + gauche_trafic * POIDS_VIRAGE_GAUCHE_TRAFIC
@@ -150,6 +189,8 @@ def evaluer(trace: Trace, *, sens_prefere: str = "horaire") -> Couts:
         virages_droite=droite,
         sens=sens,
         score=score,
+        km_par_highway=km_par_highway,
+        cout_km_moyen=_cout_km_moyen(segments),
     )
 
 
@@ -174,6 +215,27 @@ def _antennes_m(trace: Trace) -> float:
 
 
 # --- kilomètres par classe de route ------------------------------------------
+
+
+def _km_par_highway(segments: Sequence[Segment]) -> dict[str, float]:
+    """Kilomètres par classe `highway`, la classe absente sous la clé vide."""
+    par_classe: dict[str, float] = {}
+    for segment in segments:
+        highway = segment.tags.get("highway", "")
+        par_classe[highway] = par_classe.get(highway, 0.0) + segment.longueur_m / 1000.0
+    return par_classe
+
+
+def _cout_km_moyen(segments: Sequence[Segment]) -> float | None:
+    """Moyenne du `CostPerKm` du moteur pondérée par la longueur, `None` sans donnée."""
+    pondere = 0.0
+    longueur = 0.0
+    for segment in segments:
+        if segment.cout_km is None or not math.isfinite(segment.cout_km):
+            continue
+        pondere += segment.cout_km * segment.longueur_m
+        longueur += segment.longueur_m
+    return pondere / longueur if longueur > 0 else None
 
 
 def _segments_utilisables(trace: Trace) -> list[Segment]:

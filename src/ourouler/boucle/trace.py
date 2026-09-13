@@ -40,6 +40,13 @@ class Segment:
     fin_idx: int
     longueur_m: float
     tags: dict[str, str]
+    #: Coût par kilomètre que le moteur attribue au tronçon (colonne
+    #: `CostPerKm` des messages BRouter) : c'est le jugement du routeur
+    #: lui-même sur le trafic. `None` quand la source ne le donne pas — un
+    #: GPX importé, ou un serveur qui ne renvoie pas la colonne. Le champ a
+    #: une valeur par défaut pour que les `Segment(debut, fin, longueur,
+    #: tags)` déjà écrits continuent de se construire.
+    cout_km: float | None = None
 
 
 @dataclass

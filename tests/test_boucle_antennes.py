@@ -375,6 +375,24 @@ def test_les_segments_a_cheval_sont_tronques_et_les_intacts_gardes_tels_quels():
     assert somme == pytest.approx(elaguee.distance_m, abs=5)
 
 
+def test_l_elagage_garde_le_cout_par_km_du_moteur():
+    """Le `CostPerKm` suit le tronçon : sans lui, la colonne « coût profil » disparaît.
+
+    Il ne dépend pas de la longueur du tronçon — c'est un coût *par*
+    kilomètre. Le laisser tomber à la réindexation rendait `cout_km_moyen`
+    absent sur **toute** candidate générée (donc élaguée), et la colonne du
+    lot L3.2 ne s'affichait que sur un GPX importé.
+    """
+    trace = trace_segmentee()
+    for i, segment in enumerate(trace.segments):
+        trace.segments[i] = Segment(
+            segment.debut_idx, segment.fin_idx, segment.longueur_m, segment.tags, cout_km=1200.0
+        )
+    elaguee = elaguer(trace, detecter(trace))
+    assert elaguee.segments
+    assert all(s.cout_km == 1200.0 for s in elaguee.segments)
+
+
 def test_chaque_segment_elague_couvre_la_distance_entre_ses_bornes():
     trace = trace_segmentee()
     elaguee = elaguer(trace, detecter(trace))

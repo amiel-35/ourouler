@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from ourouler.apprentissage.routes import NOM_BASE, NOM_POIDS, BaseRoutes, lire_poids
 from ourouler.boucle.candidates import generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
@@ -105,6 +106,10 @@ class Evaluation:
     azimut_deg: float | None
     rayon_m: float | None
     total: float
+    #: Part des kilomètres déjà roulés, entre 0 et 1, ou `None` si aucune base
+    #: de routes connues n'existe. **Informative** : elle n'entre dans aucun
+    #: score (contrat du sprint 3 §2 — « inconnu » n'est jamais un malus).
+    part_connue: float | None = None
 
 
 def executer(
@@ -119,7 +124,13 @@ def executer(
     if demande.gpx is not None:
         traces = [(lire_gpx_trace(demande.gpx), None, None)]
     else:
-        client_brouter = client_brouter if client_brouter is not None else ClientBrouter(config.brouter)
+        client_brouter = (
+            client_brouter
+            if client_brouter is not None
+            # Les zones à éviter sont passées au client, pas lues par lui :
+            # le cœur ne connaît pas la configuration, il la reçoit.
+            else ClientBrouter(config.brouter, evitements=config.evitements)
+        )
         trouvees = generer(
             client_brouter,
             config.depart,
@@ -142,7 +153,15 @@ def executer(
         [t for t, _, _ in traces], client_meteo, config, depart=demande.depart
     )
 
-    evaluations = _classer(traces, meteos, sens_prefere=config.boucle.sens)
+    # Les deux fichiers appris (L3.2) sont lus **ici** et passés au cœur en
+    # objets : `couts.evaluer` ne connaît pas de chemin, `BaseRoutes` reçoit
+    # le sien. Absents, on retombe sur les poids par défaut et la colonne
+    # « connu % » disparaît — elle n'a jamais pesé sur le tri de toute façon.
+    poids = lire_poids(config.cache.dossier / NOM_POIDS)
+    base_routes = _base_routes(config)
+    evaluations = _classer(
+        traces, meteos, sens_prefere=config.boucle.sens, poids=poids, base=base_routes
+    )
     chemin = _ecrire_meilleure(evaluations[0].trace, demande) if demande.gpx is None else None
 
     if panne is not None:
@@ -152,10 +171,32 @@ def executer(
             file=sys.stderr,
         )
     if getattr(args, "json", False):
-        print(json.dumps(rendre_json(evaluations, demande, config, chemin), ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                rendre_json(evaluations, demande, config, chemin, poids=poids),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
-        print(rendre_texte(evaluations, demande, config, chemin))
+        print(rendre_texte(evaluations, demande, config, chemin, poids=poids))
     return 0
+
+
+def _base_routes(config: Config) -> BaseRoutes | None:
+    """La base des routes connues si elle existe déjà, sinon `None`.
+
+    On ne la **crée** pas au passage : `ourouler boucle` n'a pas à fabriquer
+    un fichier vide dans le cache pour afficher une colonne informative. Une
+    base illisible ne fait pas non plus perdre la boucle — on s'en passe.
+    """
+    chemin = config.cache.dossier / NOM_BASE
+    if not chemin.is_file():
+        return None
+    try:
+        return BaseRoutes(chemin)
+    except ErreurUtilisateur:
+        return None
 
 
 # --- options ------------------------------------------------------------------
@@ -348,11 +389,19 @@ def _classer(
     meteos: list[MeteoTrace | None],
     *,
     sens_prefere: str,
+    poids: dict[str, float] | None = None,
+    base: BaseRoutes | None = None,
 ) -> list[Evaluation]:
-    """Les candidates mesurées et triées par `score + pluie × 2`, numérotées à partir de 1."""
+    """Les candidates mesurées et triées par `score + pluie × 2`, numérotées à partir de 1.
+
+    `part_connue` est calculée si une base existe, mais **n'entre pas dans
+    `total`** : c'est tout l'objet du lot. Les traces du cycliste ne couvrent
+    qu'une partie du territoire ; les prendre pour un critère condamnerait
+    d'avance toute direction jamais explorée.
+    """
     evaluations = []
     for (trace, ecart, candidate), meteo in zip(traces, meteos, strict=True):
-        couts = evaluer_couts(trace, sens_prefere=sens_prefere)
+        couts = evaluer_couts(trace, sens_prefere=sens_prefere, poids=poids)
         pluie = meteo.pluie_cumulee_mm if meteo is not None else 0.0
         evaluations.append(
             Evaluation(
@@ -364,6 +413,7 @@ def _classer(
                 azimut_deg=getattr(candidate, "azimut_deg", None),
                 rayon_m=getattr(candidate, "rayon_m", None),
                 total=couts.score + pluie * POIDS_PLUIE_TRI,
+                part_connue=base.part_connue(trace) if base is not None else None,
             )
         )
     evaluations.sort(key=lambda e: e.total)
@@ -392,34 +442,42 @@ def nom_par_defaut(demande: Demande) -> str:
 
 # --- rendu texte ---------------------------------------------------------------
 
-#: Colonnes du tableau, dans l'ordre du contrat §6. Le drapeau dit si la
-#: colonne vient de la météo : sans météo, elle disparaît au lieu d'afficher
-#: une colonne de tirets.
+#: Colonnes du tableau, dans l'ordre des contrats §6 (sprint 2) et §2
+#: (sprint 3). Le second membre nomme la mesure dont la colonne dépend :
+#: sans cette mesure, la colonne **disparaît** au lieu d'afficher une colonne
+#: de tirets. `None` = toujours affichée.
 COLONNES = (
-    ("n°", False),
-    ("distance", False),
-    ("D+", False),
-    ("temps", False),
-    ("trafic", False),
-    ("non revêtu", False),
-    (TITRE_ANTENNES_RETIREES, False),  # remplacé par `_titres` pour un GPX importé
-    ("virages G", False),
-    ("sens", False),
-    ("pluie", True),
-    ("vent face", True),
-    ("ressenti min", True),
+    ("n°", None),
+    ("distance", None),
+    ("D+", None),
+    ("temps", None),
+    ("trafic", None),
+    ("non revêtu", None),
+    ("coût profil", "cout"),
+    ("virages G", None),
+    ("sens", None),
+    ("connu %", "connu"),
+    (TITRE_ANTENNES_RETIREES, None),  # remplacé par `_titres` pour un GPX importé
+    ("pluie", "meteo"),
+    ("vent face", "meteo"),
+    ("ressenti min", "meteo"),
 )
 
 
 def rendre_texte(
-    evaluations: list[Evaluation], demande: Demande, config: Config, chemin: Path | None
+    evaluations: list[Evaluation],
+    demande: Demande,
+    config: Config,
+    chemin: Path | None,
+    *,
+    poids: dict[str, float] | None = None,
 ) -> str:
     """Le tableau des candidates, la ligne retenue marquée d'une flèche."""
-    avec_meteo = any(e.meteo is not None for e in evaluations)
-    lignes = _entete(demande, config, avec_meteo)
+    presentes = _mesures_presentes(evaluations)
+    lignes = _entete(demande, config, "meteo" in presentes, poids, evaluations)
 
-    titres = _titres(avec_meteo, elaguees=demande.gpx is None)
-    cellules = [_cellules(e, config, avec_meteo) for e in evaluations]
+    titres = _titres(presentes, elaguees=demande.gpx is None)
+    cellules = [_cellules(e, config, presentes) for e in evaluations]
     largeurs = [
         max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
     ]
@@ -451,9 +509,9 @@ def rendre_texte(
     return "\n".join(lignes)
 
 
-def _titres(avec_meteo: bool, *, elaguees: bool) -> list[str]:
+def _titres(presentes: set[str], *, elaguees: bool) -> list[str]:
     """Les titres des colonnes affichées, la colonne des antennes selon le cas."""
-    titres = [titre for titre, meteo in COLONNES if avec_meteo or not meteo]
+    titres = [titre for titre, mesure in COLONNES if mesure is None or mesure in presentes]
     if not elaguees:
         titres[titres.index(TITRE_ANTENNES_RETIREES)] = TITRE_ANTENNES_DETECTEES
     return titres
@@ -478,7 +536,25 @@ def _non_classes_signales(evaluations: list[Evaluation]) -> float:
     return max(a_signaler, default=0.0)
 
 
-def _entete(demande: Demande, config: Config, avec_meteo: bool) -> list[str]:
+def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
+    """Les mesures dont au moins une candidate dispose — donc les colonnes à montrer."""
+    presentes = set()
+    if any(e.meteo is not None for e in evaluations):
+        presentes.add("meteo")
+    if any(e.couts.cout_km_moyen is not None for e in evaluations):
+        presentes.add("cout")
+    if any(e.part_connue is not None for e in evaluations):
+        presentes.add("connu")
+    return presentes
+
+
+def _entete(
+    demande: Demande,
+    config: Config,
+    avec_meteo: bool,
+    poids: dict[str, float] | None = None,
+    evaluations: list[Evaluation] | None = None,
+) -> list[str]:
     lignes = []
     if demande.gpx is not None:
         lignes.append(f"Tracé importé : {demande.gpx}")
@@ -494,10 +570,46 @@ def _entete(demande: Demande, config: Config, avec_meteo: bool) -> list[str]:
     if avec_meteo:
         lignes.append(f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}")
     lignes.append("Tri : score (km équivalents) + pluie cumulée × 2 ; plus bas = mieux.")
+    if poids:
+        # D'où viennent les poids : sans cette ligne, deux exécutions
+        # séparées par un `routes poids --appliquer` donneraient des scores
+        # différents sans que rien ne l'explique.
+        cites = _classes_citees(poids, evaluations or [])
+        lignes.append(
+            "Poids des routes : appris sur vos sorties"
+            + (f" ({cites})." if cites else ".")
+        )
+    else:
+        lignes.append(
+            "Poids des routes : valeurs par défaut — `ourouler routes poids --appliquer` "
+            "les apprend sur vos sorties."
+        )
+    lignes.append(
+        "« connu % » : part des km déjà roulés — informatif, jamais dans le score."
+    )
     return lignes
 
 
-def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[str]:
+def _classes_citees(
+    poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4
+) -> str:
+    """Le poids des classes les plus **présentes dans les candidates affichées**.
+
+    Citer les plus pénalisées donnait une ligne vraie mais inutile
+    (« primary_link 4,0, pedestrian 3,3 ») : ces classes ne font pas
+    cinquante mètres du tracé. Ce que le lecteur veut savoir, c'est ce que
+    coûtent les routes qu'il a sous les yeux.
+    """
+    km_par_classe: dict[str, float] = {}
+    for evaluation in evaluations:
+        for classe, km in evaluation.couts.km_par_highway.items():
+            if classe:
+                km_par_classe[classe] = km_par_classe.get(classe, 0.0) + km
+    classes = sorted(km_par_classe.items(), key=lambda kv: (-kv[1], kv[0]))[:nombre]
+    return ", ".join(f"{classe} {_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
+
+
+def _cellules(evaluation: Evaluation, config: Config, presentes: set[str]) -> list[str]:
     couts, meteo = evaluation.couts, evaluation.meteo
     partiels = bool(evaluation.trace.meta.get("couts_partiels"))
     cellules = [
@@ -507,11 +619,21 @@ def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[
         _duree(evaluation.trace.distance_m / 1000, config.boucle.vitesse_moyenne_kmh),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
         ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
-        f"{couts.antennes_m:.0f} m",
+    ]
+    if "cout" in presentes:
+        cellules.append(
+            _fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT
+        )
+    cellules += [
         f"{couts.virages_gauche} ({couts.virages_gauche_trafic})",
         couts.sens,
     ]
-    if avec_meteo:
+    if "connu" in presentes:
+        cellules.append(
+            f"{evaluation.part_connue * 100:.0f} %" if evaluation.part_connue is not None else ABSENT
+        )
+    cellules.append(f"{couts.antennes_m:.0f} m")
+    if "meteo" in presentes:
         cellules += [
             f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
             _vent_face(meteo),
@@ -565,7 +687,12 @@ def _fr(valeur: float, decimales: int) -> str:
 
 
 def rendre_json(
-    evaluations: list[Evaluation], demande: Demande, config: Config, chemin: Path | None
+    evaluations: list[Evaluation],
+    demande: Demande,
+    config: Config,
+    chemin: Path | None,
+    *,
+    poids: dict[str, float] | None = None,
 ) -> dict:
     """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
     return {
@@ -588,6 +715,7 @@ def rendre_json(
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
         "gpx": str(chemin) if chemin is not None else None,
+        "poids_routes": dict(poids) if poids else None,
         "candidates": [_candidate_json(e, config, chemin) for e in evaluations],
     }
 
@@ -615,6 +743,11 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "antennes_source": "retirees" if trace.meta.get("antennes") is not None else "detectees",
         "antennes": trace.meta.get("antennes"),
         "distance_source": trace.meta.get("distance_source"),
+        # Informatifs, hors score : le coût que le moteur s'attribue à
+        # lui-même, et la part de kilomètres déjà roulés.
+        "cout_km_moyen": couts.cout_km_moyen,
+        "part_connue": evaluation.part_connue,
+        "km_par_highway": {k: round(v, 3) for k, v in couts.km_par_highway.items()},
         "couts": {
             "km_trafic": round(couts.km_trafic, 3),
             "km_calme": round(couts.km_calme, 3),

@@ -32,10 +32,11 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | `ourouler meteo` | pluie, vent et ressenti par direction et par heure autour du point de départ (Open-Meteo, AROME 1,3 km + second modèle en indice de confiance) | sprint 1 |
 | `ourouler inventaire` | lecture FIT / GPX / TCX, cache local, inventaire des sorties par vélo et par mois, synchronisation Intervals.icu | sprint 1 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler boucle` | boucle de la bonne distance dans la direction sèche, vent de face à l'aller, GPX | sprint 2 — **vérifié pour de vrai** sur BRouter auto-hébergé + Open-Meteo |
+| `ourouler routes` | apprend sur vos sorties passées quelles routes vous acceptez (rejeu dans BRouter), et en tire les poids du score | sprint 3 — **vérifié pour de vrai** sur 154 sorties rejouées |
 | `ourouler sortie` | séance du jour ↔ terrain : modèle physique calibré par vélo, choix de la boucle, résumé, tenue | plus tard |
 | envoi vers Garmin Connect | | plus tard |
 
-Les trois commandes ont tourné sur les vraies données du mainteneur, et pas
+Ces commandes ont toutes tourné sur les vraies données du mainteneur, et pas
 seulement sur des fixtures — c'est la règle 4 de `CLAUDE.md` : un lot non
 vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
 
@@ -47,11 +48,39 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   seconde synchronisation n'ajoute rien et ne retélécharge rien.
 - `ourouler boucle` : sur le serveur BRouter auto-hébergé et Open-Meteo, avec
   écriture du GPX et relecture de ce GPX par `--gpx`.
+- `ourouler routes` : le 13/09/2026, 154 sorties extérieures rejouées dans
+  BRouter (2 min 26). Ce que le mainteneur roule vraiment : 58 % de
+  `tertiary`, 20 % de `secondary`, 13 % d'`unclassified`, 3 % de `primary`.
+  Les poids appris qui en sortent renversent le score du sprint 2 — la
+  `secondary` passe de 3,0 à 0,4 km équivalents par kilomètre.
+
+### Apprendre ses routes
+
+```
+ourouler routes apprendre        # rejoue les sorties du cache dans BRouter (idempotent)
+ourouler routes stats            # km et part par classe de route, part semaine
+ourouler routes poids            # compare vos sorties à huit boucles d'exposition
+ourouler routes poids --appliquer   # écrit les poids, `ourouler boucle` les utilise
+```
+
+Les traces servent à **apprendre**, jamais de critère : elles ne couvrent
+qu'une partie du territoire, et pénaliser ce qu'elles ignorent condamnerait
+toute boucle vers une direction jamais explorée. La colonne « connu % » de
+`ourouler boucle` est informative et n'entre dans aucun score.
 
 ## Limites connues
 
 Ce que le mainteneur doit savoir avant de lire un chiffre.
 
+- **`maxspeed` absent des tags BRouter.** Le profil `fastbike` n'expose pas
+  `maxspeed` dans ses `WayTags` : la table « par maxspeed » de
+  `ourouler routes stats` est donc vide à 100 %, et le dit plutôt que
+  d'inventer une vitesse. Le profil expose en revanche son propre
+  `estimated_traffic_class`, qu'on n'exploite pas encore.
+- **Routes hors de la région chargée sur le serveur.** BRouter ne route que
+  sur les tuiles OSM présentes sur le serveur : deux sorties de vacances à
+  350 km n'ont pas pu être rejouées (« datafile … not found »). Elles sont
+  comptées en échec, avec le message du moteur.
 - **Activités multisport.** Intervals découpe un triathlon en segments qui
   citent le **même** fichier d'origine. Chaque segment a sa propre ligne de
   cache depuis le sprint 2, et le fichier brut est partagé ; une version

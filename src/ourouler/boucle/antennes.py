@@ -429,7 +429,17 @@ def _resegmenter(
             segment.longueur_m if intact else points[fin].dist_m - points[debut].dist_m
         )
         resegmentes.append(
-            Segment(debut_idx=debut, fin_idx=fin, longueur_m=longueur, tags=dict(segment.tags))
+            Segment(
+                debut_idx=debut,
+                fin_idx=fin,
+                longueur_m=longueur,
+                tags=dict(segment.tags),
+                # Le `CostPerKm` du moteur suit le tronçon : il ne dépend pas
+                # de sa longueur. Le perdre à l'élagage faisait disparaître la
+                # colonne « coût profil » de toute candidate générée (lot L3.2),
+                # sans que rien ne le dise.
+                cout_km=segment.cout_km,
+            )
         )
     return resegmentes
 
