@@ -371,3 +371,39 @@ carte. À corriger au prochain lot touchant `sortie/` :
 - Conséquence de conception : `placer` doit rendre la position de **chaque**
   étape, pas seulement des blocs. C'est une extension de `Placement`, pas
   une nouvelle mesure.
+
+## Q14 — Le retour au calme ne peut pas absorber la variabilité de la boucle
+
+Constaté le 13/09/2026 par le superviseur, en essayant de corriger un
+symptôme et en aggravant le mal. À traiter au prochain lot touchant
+`seance/placement.py` ou `sortie/commande.py`.
+
+**Le symptôme.** Sur la séance du 08/02, aucune candidate ne tient la
+séance dans sa fenêtre d'élasticité : le retour au calme dure 38 min au
+lieu des 20 prescrites, soit +90 %.
+
+**La fausse piste, mesurée.** La distance demandée était arrondie au
+multiple de 5 km **supérieur**, donc 65 km pour une séance de 60,8. Passer
+à l'arrondi **au plus proche** donne 60 km demandés, une boucle de 58 —
+et le retour au calme monte à **+201 %**, parce que le placement retenu
+fait alors un demi-tour et que le parcours passe à 78,7 km sur une boucle
+de 58. Changement annulé, l'arrondi supérieur reste.
+
+**La cause réelle, en deux morceaux.**
+1. **Un demi-tour ajoute de la distance que le dimensionnement ignore.**
+   La distance demandée vient de la séance sur le plat ; elle ne sait rien
+   des allers-retours que `placer` décidera ensuite. Un parcours peut
+   dépasser sa boucle de 90 % (72,7 km sur 38,5 le 22/04).
+2. **Une Z2 de fin de 20 min ne peut pas absorber une boucle de 60 km.**
+   20 min à ±20 % font ±1,9 km, quand la tolérance du générateur de
+   boucles vaut déjà ±3 km et l'écart mesuré jusqu'à +9 km. Le levier est
+   structurellement trop court.
+
+**Pistes, aucune tranchée.** (a) Pénaliser le demi-tour aussi pour la
+distance qu'il ajoute, pas seulement pour l'inconfort. (b) Dimensionner la
+boucle en deux temps : demander, placer, puis redemander avec la distance
+réellement consommée. (c) Autoriser la Z2 de fin à absorber plus largement
+que ±20 % — ce serait revenir sur une décision du mainteneur du 13/09, à
+lui demander. (d) Accepter et le dire clairement, ce que fait déjà
+l'avertissement : la séance est roulée entière, seul le retour au calme
+s'allonge, ce qui est le défaut le moins grave.
