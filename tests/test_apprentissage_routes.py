@@ -678,6 +678,33 @@ def test_apprendre_respecte_max_sorties(tmp_path: Path, cache_garni: Cache):
     assert len(vues) == 1
 
 
+def test_max_sorties_borne_les_appels_meme_quand_ils_echouent(tmp_path: Path, cache_garni: Cache):
+    """`--max N` promet de borner un coût : un appel raté a coûté un appel.
+
+    Le cas réel : deux sorties de vacances hors des tuiles OSM du serveur
+    rendent « datafile … not found ». Tant que le quota ne comptait que les
+    succès, `--max 1` sur un lot de sorties hors région passait autant
+    d'appels qu'il y avait de sorties.
+    """
+    vues: list[httpx.Request] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        vues.append(requete)
+        return httpx.Response(500, content=b"datafile not found")
+
+    client = ClientBrouter(
+        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    base = BaseRoutes(tmp_path / "routes.sqlite")
+    rapport = apprendre(
+        cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1), max_sorties=1
+    )
+    assert rapport.sorties_vues >= 2, "il y avait bien d'autres sorties à tenter"
+    assert len(vues) == 1, "un seul appel, alors qu'il a échoué"
+    assert rapport.sorties_apprises == 0
+    assert rapport.echecs == 1
+
+
 def test_un_echec_du_moteur_est_compte_pas_fatal(tmp_path: Path, cache_garni: Cache):
     """Une sortie perdue ne doit pas faire perdre les autres, ni disparaître."""
     appels = {"n": 0}

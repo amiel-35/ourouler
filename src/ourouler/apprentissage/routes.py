@@ -629,18 +629,27 @@ def apprendre(
     Une sortie qu'on ne sait pas relire, ou que le moteur refuse, est comptée
     dans `echecs` avec son motif : elle ne fait pas échouer la passe, et elle
     ne disparaît pas non plus en silence (règle absolue 5).
+
+    `max_sorties` borne les **appels au moteur**, pas les succès : un tracé
+    refusé par le serveur (deux sorties de vacances hors des tuiles OSM
+    rendent « datafile … not found ») a bien coûté un appel, et le quota doit
+    s'en souvenir. L'option promet de borner un coût — sinon `--max 5` sur un
+    lot de sorties hors région passait des dizaines d'appels au serveur du
+    mainteneur alors qu'elle existe précisément pour « essayer sans tout
+    lancer ». Ce qui ne coûte aucun appel (sortie illisible, sans position
+    exploitable) n'entame rien.
     """
     rapport = RapportApprentissage()
     deja = base.sorties_apprises()
     candidates = sorties_a_apprendre(cache, config, depuis=depuis)
     rapport.sorties_vues = len(candidates)
-    restantes = max_sorties
+    appels_restants = max_sorties
 
     for entree in candidates:
         if entree.identifiant in deja:
             rapport.sorties_deja_connues += 1
             continue
-        if restantes is not None and restantes <= 0:
+        if appels_restants is not None and appels_restants <= 0:
             continue
         jour = entree.jour
         if jour is None:  # pragma: no cover - filtré par `sorties_a_apprendre`
@@ -658,14 +667,16 @@ def apprendre(
                 f"{jour} {entree.identifiant[:12]} : aucune position exploitable"
             )
             continue
+        if appels_restants is not None:
+            # Décrémenté **avant** l'appel : c'est lui qu'on borne, pas son
+            # issue. Un échec du serveur a coûté autant qu'un succès.
+            appels_restants -= 1
         try:
             trace = client.itineraire(passages)
         except ErreurConnecteur as e:
             rapport.echecs += 1
             rapport.messages.append(f"{jour} {entree.identifiant[:12]} : {e}")
             continue
-        if restantes is not None:
-            restantes -= 1
         rapport.mailles += base.ajouter_trace(trace, jour=jour, id_sortie=entree.identifiant)
         rapport.sorties_apprises += 1
         rapport.km += trace.distance_m / 1000.0

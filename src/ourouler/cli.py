@@ -235,7 +235,7 @@ def ajouter_routes(sous: argparse._SubParsersAction) -> None:
         type=int,
         dest="max_sorties",
         metavar="N",
-        help="n'apprendre que N sorties de plus (pour essayer sans tout lancer)",
+        help="borner à N les appels au moteur (pour essayer sans tout lancer)",
     )
 
     actions.add_parser(
