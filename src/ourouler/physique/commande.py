@@ -191,13 +191,14 @@ def executer_calibrer(
     depuis = _date_option(getattr(args, "depuis", None), config.historique_depuis)
     cache = Cache(config.cache.dossier)
 
-    toutes = cache.lister(depuis=depuis)
-    motifs: dict[str, int] = {}
-    for entree in toutes:
-        motif = calib.motif_exclusion(entree, config, velo)
-        if motif and motif not in ("pas du vélo", "autre vélo", "home-trainer"):
-            motifs[motif] = motifs.get(motif, 0) + 1
-    entrees = calib.sorties_calibrables(cache, config, velo, depuis=depuis)
+    # Un seul lecteur pour toute la commande : le choix des sorties a besoin
+    # du contenu des fichiers (combien de sessions ? quel sport ?) et le
+    # chargement en a besoin aussi. Sans mémoïsation, chaque FIT serait analysé
+    # deux fois.
+    lecteur = _Lecteur(cache)
+    entrees, motifs = calib.sorties_calibrables_et_motifs(
+        cache, config, velo, depuis=depuis, relire=lecteur
+    )
     maximum = getattr(args, "max", None)
     if maximum:
         entrees = entrees[-int(maximum) :]
@@ -212,7 +213,7 @@ def executer_calibrer(
         if client_archive is not None
         else ClientArchive(chemin_cache=config.cache.dossier / NOM_CACHE)
     )
-    sorties, pannes = _charger_sorties(cache, entrees, client)
+    sorties, pannes = _charger_sorties(lecteur, entrees, client)
     if not sorties:
         raise ErreurUtilisateur(
             f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible"
@@ -246,8 +247,32 @@ def executer_calibrer(
     return 0
 
 
+class _Lecteur:
+    """Relit une sortie du cache **une seule fois**, et retient les pannes.
+
+    `cache.relire` analyse un FIT de bout en bout ; la commande a besoin du
+    contenu deux fois (choisir les sorties, puis les échantillonner). Un
+    dictionnaire suffit à ne payer qu'une fois — et une lecture impossible est
+    mémorisée comme telle, elle aussi, pour ne pas être retentée.
+    """
+
+    def __init__(self, cache: Cache):
+        self.cache = cache
+        self._lues: dict[str, object] = {}
+        self.pannes: dict[str, str] = {}
+
+    def __call__(self, identifiant: str):
+        if identifiant not in self._lues:
+            try:
+                self._lues[identifiant] = self.cache.relire(identifiant)
+            except (KeyError, ErreurUtilisateur, OSError) as e:
+                self._lues[identifiant] = None
+                self.pannes[identifiant] = str(e)
+        return self._lues[identifiant]
+
+
 def _charger_sorties(
-    cache: Cache, entrees, client: ClientArchive
+    lecteur: _Lecteur, entrees, client: ClientArchive
 ) -> tuple[list[calib.SortieCalibration], list[str]]:
     """Relit chaque sortie et va chercher l'archive météo de son jour, à son départ.
 
@@ -258,10 +283,10 @@ def _charger_sorties(
     sorties: list[calib.SortieCalibration] = []
     pannes: list[str] = []
     for entree in entrees:
-        try:
-            activite = cache.relire(entree.identifiant)
-        except (KeyError, ErreurUtilisateur, OSError) as e:
-            pannes.append(f"sortie {entree.identifiant[:12]} illisible ({e})")
+        activite = lecteur(entree.identifiant)
+        if activite is None:
+            motif = lecteur.pannes.get(entree.identifiant, "cause inconnue")
+            pannes.append(f"sortie {entree.identifiant[:12]} illisible ({motif})")
             continue
         # Le nom de la sortie vit dans l'index du cache, pas dans le fichier
         # brut : sans ce report, le rapport désignait chaque sortie par le

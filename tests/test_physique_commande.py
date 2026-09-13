@@ -445,3 +445,40 @@ def test_vent_prevu_absent_reste_absent():
     meteo = _meteo_a_vent_constant(18.0, 90.0)
     meteo.echantillons[0].vent_kmh = None
     assert vent_depuis_meteo(meteo) is None
+
+
+# --- fichiers multisport écartés (point 4 de la relecture, Q10) ---------------
+
+
+def test_calibrer_ecarte_un_fichier_multisport(tmp_path: Path, capsys):
+    """Intervals annonce « Ride », le fichier dit « Running » : c'est le fichier qui tranche.
+
+    C'est la forme que prend un triathlon dans le cache : trois segments
+    Intervals qui citent le même enregistrement, dont seul l'un est du vélo.
+    """
+    cache = cache_de_sorties(
+        tmp_path / "cache", [date(2026, 1, j) for j in range(1, 7)], duree_s=2600
+    )
+    octets = _en_tcx(sortie_synthetique(duree_s=2600), date(2026, 2, 1)).replace(
+        b'Sport="Biking"', b'Sport="Running"'
+    )
+    cache.ajouter(
+        octets,
+        source="intervals",
+        id_externe="segment-velo-du-triathlon",
+        extension="tcx",
+        meta={
+            "nom": "segment vélo du triathlon",
+            "power_meter": "CAPTEUR 0001",
+            "sport": "Ride",
+        },
+    )
+    config = config_de_test(tmp_path / "cache")
+
+    executer_calibrer(args(velo="RCR", json=True), config, client_archive=archive_bouchonnee())
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["sorties_ecartees"].get("multisport") == 1
+    assert charge["sorties_calibrables"] == 6
+    assert all(
+        "triathlon" not in s["nom"] for s in charge["validation"]["sorties"]
+    )

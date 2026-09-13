@@ -3,7 +3,8 @@
 La chaîne, en cinq temps :
 
 1. `sorties_calibrables` choisit les sorties exploitables (extérieur, avec
-   puissance, ≥ 20 km, nom sans mot de groupe) ;
+   puissance, ≥ 20 km, nom sans mot de groupe, et — quand elle peut relire les
+   fichiers — sans mélange de sports dans le même enregistrement) ;
 2. `echantillonner` découpe chaque sortie en tronçons d'environ 200 m et note,
    pour chacun, vitesse (moyenne et aux deux bouts), puissance, pente, vent de
    face et masse volumique de l'air — puis marque ceux qu'on garde et
@@ -135,6 +136,11 @@ DISTANCE_MINIMALE_M = 20_000.0
 V_REFERENCE_KMH = 27.0
 
 MOTIF_RETENU = ""
+
+#: Motif d'exclusion d'un fichier qui ne contient pas *que* du vélo : un FIT de
+#: triathlon, un enregistrement coupé en plusieurs sessions, un fichier dont le
+#: sport déclaré n'est pas cycliste (Q10 du mainteneur).
+MOTIF_MULTISPORT = "multisport"
 
 #: Date de repli pour trier une entrée sans horodatage — avant tout le reste,
 #: et consciente du fuseau, sinon la comparaison échoue sur un mélange de
@@ -1059,15 +1065,89 @@ def motif_exclusion(entree: EntreeCache, config: Config, velo: Velo) -> str | No
     return None
 
 
+def motif_multisport(activite: Activite | None) -> str | None:
+    """`MOTIF_MULTISPORT` si ce fichier ne contient pas *que* du vélo, sinon `None`.
+
+    Trois signes, et un seul suffit :
+
+    - `meta["sessions"]` vaut plus de 1 — le lecteur FIT l'y met quand le
+      fichier porte plusieurs trames `session` ;
+    - un avertissement de lecture parle de sessions multiples (même cause, vue
+      de l'autre côté : un fichier relu par une version qui n'écrivait pas
+      encore la clé le dit quand même) ;
+    - le sport **du fichier** n'est pas cycliste.
+
+    Ce dernier point ne fait pas doublon avec `motif_exclusion`, qui regarde le
+    sport de l'**index** : celui-ci vient d'Intervals, qui annonce « Ride »
+    pour le segment vélo d'un triathlon alors que le FIT d'origine, partagé
+    entre les trois segments, contient aussi la natation et la course. Relu
+    entièrement, un tel fichier donne une « sortie » qui commence à 3 km/h dans
+    l'eau : la calibrer reviendrait à demander au modèle d'expliquer une
+    brasse par de la traînée aérodynamique.
+
+    Une activité absente (fichier illisible) rend `None` : on ne sait pas,
+    donc on ne juge pas — la commande la signalera pour ce qu'elle est.
+    """
+    if activite is None:
+        return None
+    sessions = activite.meta.get("sessions")
+    if isinstance(sessions, (int, float)) and sessions > 1:
+        return MOTIF_MULTISPORT
+    for avertissement in activite.avertissements:
+        if "session" in str(avertissement).casefold():
+            return MOTIF_MULTISPORT
+    if not est_sport_velo(activite.sport):
+        return MOTIF_MULTISPORT
+    return None
+
+
+def sorties_calibrables_et_motifs(
+    cache: Cache,
+    config: Config,
+    velo: Velo,
+    *,
+    depuis: date | None = None,
+    relire: Callable[[str], Activite | None] | None = None,
+) -> tuple[list[EntreeCache], dict[str, int]]:
+    """(sorties utilisables, décompte des sorties **de ce vélo** écartées et pourquoi).
+
+    `relire` est le seul moyen d'atteindre le contenu d'un fichier : l'index ne
+    dit pas combien de sessions il porte. Il n'est appelé que sur les sorties
+    qui ont déjà passé tous les filtres à bon marché, donc jamais sur les
+    footings ni sur les sorties de l'autre vélo. Sans lui, la fonction se
+    comporte exactement comme avant : le motif « multisport » n'existe pas.
+
+    Les motifs « pas du vélo », « autre vélo » et « home-trainer » ne sont pas
+    comptés : ils décrivent le reste du cache, pas ce que ce vélo a perdu.
+    """
+    depuis = depuis if depuis is not None else config.historique_depuis
+    hors_sujet = ("pas du vélo", "autre vélo", "home-trainer")
+    retenues: list[EntreeCache] = []
+    motifs: dict[str, int] = {}
+    for entree in cache.lister(depuis=depuis):
+        motif = motif_exclusion(entree, config, velo)
+        if motif is None and relire is not None:
+            motif = motif_multisport(relire(entree.identifiant))
+        if motif is None:
+            retenues.append(entree)
+        elif motif not in hors_sujet:
+            motifs[motif] = motifs.get(motif, 0) + 1
+    retenues.sort(key=lambda e: (e.debut or _JAMAIS, e.identifiant))
+    return (retenues, motifs)
+
+
 def sorties_calibrables(
-    cache: Cache, config: Config, velo: Velo, *, depuis: date | None = None
+    cache: Cache,
+    config: Config,
+    velo: Velo,
+    *,
+    depuis: date | None = None,
+    relire: Callable[[str], Activite | None] | None = None,
 ) -> list[EntreeCache]:
     """Les sorties utilisables pour calibrer ce vélo, de la plus ancienne à la plus récente."""
-    depuis = depuis if depuis is not None else config.historique_depuis
-    retenues = [
-        e for e in cache.lister(depuis=depuis) if motif_exclusion(e, config, velo) is None
-    ]
-    return sorted(retenues, key=lambda e: (e.debut or _JAMAIS, e.identifiant))
+    return sorties_calibrables_et_motifs(
+        cache, config, velo, depuis=depuis, relire=relire
+    )[0]
 
 
 # --- les deux passes ----------------------------------------------------------

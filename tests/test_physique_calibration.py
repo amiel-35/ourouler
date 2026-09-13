@@ -36,9 +36,11 @@ from ourouler.physique.calibration import (
     echantillonner,
     masse_totale_kg,
     motif_exclusion,
+    motif_multisport,
     partager,
     puissance_moyenne_en_mouvement,
     sorties_calibrables,
+    sorties_calibrables_et_motifs,
     temps_mouvement_s,
     valider,
 )
@@ -844,3 +846,147 @@ def test_vitesses_aux_bornes_sans_champ_de_vitesse():
     retenus = [e for e in echantillonner(activite, archive()) if e.retenu]
     assert retenus
     assert all(e.v_debut_ms > 0 and e.v_fin_ms > 0 for e in retenus)
+
+
+# --- fichiers multisport (point 4 de la relecture, Q10) -----------------------
+
+
+def test_motif_multisport_sur_plusieurs_sessions():
+    """Le lecteur FIT pose `meta["sessions"]` : un fichier à trois sessions est écarté."""
+    activite = sortie_synthetique(duree_s=600)
+    activite.meta["sessions"] = 3
+    assert motif_multisport(activite) == "multisport"
+
+
+def test_motif_multisport_sur_l_avertissement_de_lecture():
+    """Même fichier vu de l'autre côté : l'avertissement suffit."""
+    activite = sortie_synthetique(duree_s=600)
+    activite.meta["avertissements"] = [
+        "3 sessions dans le fichier : distance et durée de mouvement sont la somme des sessions"
+    ]
+    assert motif_multisport(activite) == "multisport"
+
+
+@pytest.mark.parametrize("sport", ["swimming", "running", "Run", "transition"])
+def test_motif_multisport_sur_le_sport_du_fichier(sport: str):
+    """Le sport du **fichier** prime : Intervals annonce « Ride » pour un segment de triathlon."""
+    activite = sortie_synthetique(duree_s=600)
+    activite.sport = sport
+    assert motif_multisport(activite) == "multisport"
+
+
+@pytest.mark.parametrize("sport", ["cycling", "Ride", "biking", "cycling/road", None, ""])
+def test_une_sortie_velo_ordinaire_n_est_pas_multisport(sport):
+    activite = sortie_synthetique(duree_s=600)
+    activite.sport = sport
+    assert motif_multisport(activite) is None
+    activite.meta["sessions"] = 1
+    assert motif_multisport(activite) is None
+
+
+def test_un_fichier_illisible_n_est_pas_declare_multisport():
+    """On ne sait pas : on ne juge pas. La commande le signalera pour ce qu'il est."""
+    assert motif_multisport(None) is None
+
+
+def _cache_a_deux_sorties(tmp_path: Path, generateur) -> tuple[Cache, dict]:
+    """Un cache avec deux sorties vélo rattachées au même vélo."""
+    fixtures = generateur.generer(tmp_path / "fixtures")
+    cache = Cache(tmp_path / "cache")
+    # Deux fichiers de **contenus différents** : le cache range les bruts par
+    # empreinte, deux copies du même octet-pour-octet n'auraient qu'un
+    # identifiant, et le test ne distinguerait plus les deux sorties.
+    for id_externe, fixture in (("normale", "boucle.fit"), ("triathlon", "boucle.tcx")):
+        cache.ajouter(
+            fixtures[fixture].read_bytes(),
+            source="intervals",
+            id_externe=id_externe,
+            extension=fixture.rsplit(".", 1)[1],
+            meta={
+                "nom": f"sortie {id_externe}",
+                "power_meter": "CAPTEUR 0001",
+                "sport": "Ride",
+                "puissance_moy_w": 200.0,
+            },
+        )
+    return (cache, fixtures)
+
+
+def test_sorties_calibrables_ecarte_le_multisport(tmp_path: Path, generateur, monkeypatch):
+    """La sortie dont le fichier porte trois sessions est écartée, avec son motif."""
+    import ourouler.physique.calibration as calib
+
+    monkeypatch.setattr(calib, "DISTANCE_MINIMALE_M", 1000.0)
+    cache, _ = _cache_a_deux_sorties(tmp_path, generateur)
+    config = depuis_dict(CONFIG_BRUTE)
+    velo = config.velo("Route")
+    identifiants = {
+        e.meta.get("nom"): e.identifiant
+        for e in cache.lister(depuis=date(2000, 1, 1))
+    }
+
+    def relire(identifiant: str):
+        activite = cache.relire(identifiant)
+        if identifiant == identifiants["sortie triathlon"]:
+            activite.meta["sessions"] = 3
+        return activite
+
+    sans_relecture = sorties_calibrables(cache, config, velo, depuis=date(2000, 1, 1))
+    assert len(sans_relecture) == 2  # l'index seul ne voit rien
+
+    retenues, motifs = sorties_calibrables_et_motifs(
+        cache, config, velo, depuis=date(2000, 1, 1), relire=relire
+    )
+    assert [e.meta.get("nom") for e in retenues] == ["sortie normale"]
+    assert motifs == {"multisport": 1}
+
+
+def test_sorties_calibrables_ne_relit_pas_les_sorties_deja_ecartees(
+    tmp_path: Path, generateur, monkeypatch
+):
+    """Le lecteur ne doit pas être appelé sur les footings ni sur l'autre vélo.
+
+    Relire un FIT coûte cher ; le cache du mainteneur en contient neuf cents,
+    dont la plupart ne sont pas des sorties de ce vélo.
+    """
+    import ourouler.physique.calibration as calib
+
+    monkeypatch.setattr(calib, "DISTANCE_MINIMALE_M", 1000.0)
+    cache, fixtures = _cache_a_deux_sorties(tmp_path, generateur)
+    cache.ajouter(
+        fixtures["boucle.gpx"].read_bytes(),
+        source="intervals",
+        id_externe="footing",
+        extension="gpx",
+        meta={
+            "nom": "footing",
+            "power_meter": "CAPTEUR 0001",
+            "sport": "Run",
+            "puissance_moy_w": 200.0,
+        },
+    )
+    config = depuis_dict(CONFIG_BRUTE)
+    appels: list[str] = []
+
+    def relire(identifiant: str):
+        appels.append(identifiant)
+        return cache.relire(identifiant)
+
+    retenues, _ = sorties_calibrables_et_motifs(
+        cache, config, config.velo("Route"), depuis=date(2000, 1, 1), relire=relire
+    )
+    assert len(retenues) == 2
+    assert len(appels) == 2  # le footing n'a jamais été ouvert
+
+
+def test_sans_relecture_le_comportement_est_celui_d_avant(tmp_path: Path, generateur, monkeypatch):
+    import ourouler.physique.calibration as calib
+
+    monkeypatch.setattr(calib, "DISTANCE_MINIMALE_M", 1000.0)
+    cache, _ = _cache_a_deux_sorties(tmp_path, generateur)
+    config = depuis_dict(CONFIG_BRUTE)
+    retenues, motifs = sorties_calibrables_et_motifs(
+        cache, config, config.velo("Route"), depuis=date(2000, 1, 1)
+    )
+    assert len(retenues) == 2
+    assert "multisport" not in motifs

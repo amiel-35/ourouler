@@ -228,15 +228,32 @@ def executer_comparer(args: argparse.Namespace, config: Config) -> int:
     par_velo: dict[str, list[Troncon]] = {}
     sorties: dict[str, int] = {}
     pannes: list[str] = []
+    lues_une_fois: dict[str, object] = {}
+
+    def relire(identifiant: str):
+        """Relit une sortie **une seule fois** ; `None` si elle est illisible.
+
+        Le choix des sorties (motif « multisport ») et leur découpe ont tous
+        deux besoin du contenu : sans mémoïsation, chaque fichier serait
+        analysé deux fois.
+        """
+        if identifiant not in lues_une_fois:
+            try:
+                lues_une_fois[identifiant] = cache.relire(identifiant)
+            except (KeyError, ErreurUtilisateur, OSError) as e:
+                lues_une_fois[identifiant] = None
+                pannes.append(f"sortie {identifiant[:12]} illisible ({e})")
+        return lues_une_fois[identifiant]
+
     for velo in velos:
-        entrees = calib.sorties_calibrables(cache, config, velo, depuis=depuis)
+        entrees = calib.sorties_calibrables(
+            cache, config, velo, depuis=depuis, relire=relire
+        )
         troncons: list[Troncon] = []
         lues = 0
         for entree in entrees:
-            try:
-                activite = cache.relire(entree.identifiant)
-            except (KeyError, ErreurUtilisateur, OSError) as e:
-                pannes.append(f"sortie {entree.identifiant[:12]} illisible ({e})")
+            activite = relire(entree.identifiant)
+            if activite is None:
                 continue
             lues += 1
             troncons += troncons_comparables(
