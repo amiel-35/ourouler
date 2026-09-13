@@ -29,7 +29,15 @@ RAPPORT_RAYON_DEFAUT = 5.0
 PAS_AZIMUT_DEG = 20.0
 
 #: Nombre d'ajustements de rayon par azimut, après le premier essai.
-AJUSTEMENTS_MAX = 2
+#:
+#: Passé de 2 à 3 le 13/09/2026, décision du superviseur prise après la
+#: vérification réelle. L'élagage des antennes (lot L3.1) retire des centaines
+#: de mètres à la boucle rendue par le moteur : la distance mesurée oscille
+#: alors d'une itération à l'autre — 53,6 km puis 65,4 km pour 60 km demandés
+#: — et deux corrections s'arrêtaient au milieu de l'oscillation. Une
+#: itération de plus affine sans coûter cher : trois candidates tiennent
+#: encore dans les 12 appels d'`appels_max` (3 × 4).
+AJUSTEMENTS_MAX = 3
 
 #: Bornes du facteur de correction d'une itération à la suivante. Diviser ou
 #: multiplier le rayon par plus de 4 d'un coup, c'est croire une réponse que
@@ -78,8 +86,10 @@ def generer(
 
     Pour chaque azimut : un premier essai au rayon `distance / 5`, puis au plus
     `AJUSTEMENTS_MAX` corrections par proportion (`rayon × cible / obtenu`)
-    tant que l'écart dépasse `tolerance`. Seules les boucles **bornées** sont
-    retenues : un tracé qui ne revient pas au départ n'est pas une boucle.
+    tant que l'écart dépasse `tolerance` — trois corrections depuis le
+    13/09/2026, l'élagage des antennes faisant osciller la distance mesurée.
+    Seules les boucles **bornées** sont retenues : un tracé qui ne revient pas
+    au départ n'est pas une boucle.
 
     La correction est **bornée des deux côtés** : facteur dans
     `[FACTEUR_MIN, FACTEUR_MAX]`, rayon dans `[RAYON_MIN_M, RAYON_MAX_M]`. Une

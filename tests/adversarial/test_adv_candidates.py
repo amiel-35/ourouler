@@ -217,14 +217,25 @@ def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
     assert len(candidates) <= 5, "pas plus de candidates que demandé"
 
 
-def test_un_azimut_ne_coute_jamais_plus_de_deux_ajustements():
-    """Contrat §3 : « ajustement par proportion au plus 2 fois »."""
+#: Ajustements de rayon consentis à un azimut, essai initial exclu. Le contrat
+#: du sprint 2 §3 écrivait « au plus 2 fois » ; le superviseur l'a porté à 3 le
+#: 13/09/2026, après la vérification réelle : l'élagage des antennes (L3.1)
+#: retire des centaines de mètres à la boucle du moteur, la distance mesurée
+#: oscille (53,6 puis 65,4 km pour 60 demandés) et deux corrections
+#: s'arrêtaient au milieu de l'oscillation. Ce qui est testé ici n'a pas
+#: changé : un azimut ne mange pas le plafond global d'appels.
+AJUSTEMENTS_CONSENTIS = 3
+
+
+def test_un_azimut_ne_coute_jamais_plus_de_trois_ajustements():
+    """Contrat §3, révisé par le superviseur le 13/09 : voir `AJUSTEMENTS_CONSENTIS`."""
     module = _module()
     moteur = MoteurFactice(30_000.0)  # ne converge jamais vers 60 km
     _generer(module, moteur, nb=1, tolerance=0.01, appels_max=12)
-    assert len(moteur.appels) <= 3, (
-        f"{len(moteur.appels)} appels pour un seul azimut : un essai initial et deux "
-        "ajustements au maximum, même quand le plafond global le permettrait"
+    assert len(moteur.appels) <= 1 + AJUSTEMENTS_CONSENTIS, (
+        f"{len(moteur.appels)} appels pour un seul azimut : un essai initial et "
+        f"{AJUSTEMENTS_CONSENTIS} ajustements au maximum, même quand le plafond global "
+        "le permettrait"
     )
 
 

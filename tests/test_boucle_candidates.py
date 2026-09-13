@@ -107,13 +107,21 @@ def test_le_rayon_est_ajuste_par_proportion():
     assert trouvees[0].ecart_relatif == pytest.approx(0.0)
 
 
-def test_l_ajustement_s_arrete_apres_deux_corrections():
-    """Un moteur qui ignore le rayon ne doit pas faire tourner la boucle indéfiniment."""
-    client, appels = moteur(20_000)  # toujours 20 km, quel que soit le rayon
+def test_l_ajustement_s_arrete_apres_trois_corrections():
+    """Un moteur qui ignore le rayon ne doit pas faire tourner la boucle indéfiniment.
+
+    Trois corrections depuis le 13/09/2026 : l'élagage des antennes fait
+    osciller la distance mesurée, deux s'arrêtaient au milieu de l'oscillation.
+    Voir `AJUSTEMENTS_MAX`.
+    """
+    # 50 km quel que soit le rayon : la correction reste bornée (facteur 1,2,
+    # rayon sous `RAYON_MAX_M`), c'est donc bien `AJUSTEMENTS_MAX` qui arrête.
+    client, appels = moteur(50_000)
     trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.05)
-    assert len(appels) == 1 + AJUSTEMENTS_MAX == 3
+    assert AJUSTEMENTS_MAX == 3
+    assert len(appels) == 1 + AJUSTEMENTS_MAX == 4
     assert len(trouvees) == 1, "une candidate hors tolérance vaut mieux que rien"
-    assert trouvees[0].ecart_relatif == pytest.approx(-2 / 3)
+    assert trouvees[0].ecart_relatif == pytest.approx(-1 / 6)
 
 
 def test_une_candidate_dans_la_tolerance_suffit():
@@ -279,7 +287,7 @@ def test_le_mot_de_passe_n_apparait_pas_dans_l_erreur_relevee():
 
 def test_la_meilleure_tentative_d_un_azimut_est_gardee():
     """Si la correction dégrade le résultat, on garde la boucle la plus proche."""
-    longueurs = iter([66_000, 40_000, 40_000])
+    longueurs = iter([66_000, 40_000, 40_000, 40_000])
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         charge = reponse_fabriquee()
