@@ -36,6 +36,7 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | `ourouler calibrer` | ajuste CdA et Crr d'un vélo sur les sorties réelles (vent d'archive compris) et mesure l'erreur de temps sur des sorties non vues | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu | sprint 3 — **vérifié** sur une boucle générée |
 | `ourouler comparer` | de combien un vélo va plus vite que l'autre **à puissance égale**, mesuré sur des séries plates sans arrêt, sans modèle physique | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
+| `ourouler seance` | la séance planifiée du jour (Intervals.icu), étape par étape, avec la longueur de route que chaque bloc demande et celle qu'il faut au-delà pour faire demi-tour pendant la récupération | sprint 4 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler sortie` | séance du jour ↔ terrain : choix de la boucle, résumé, tenue | plus tard |
 | envoi vers Garmin Connect | | plus tard |
 

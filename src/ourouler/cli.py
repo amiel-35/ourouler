@@ -40,6 +40,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_calibrer(sous)
     ajouter_simuler(sous)
     ajouter_comparer(sous)
+    ajouter_seance(sous)
     return p
 
 
@@ -349,6 +350,22 @@ def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
     from ourouler.physique.comparer import executer_comparer  # import paresseux (lot L3.3)
 
     return executer_comparer(args, config)
+
+
+def ajouter_seance(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "seance",
+        help="la séance planifiée du jour, étape par étape, avec la route que chaque bloc demande",
+        parents=[parent_json()],
+    )
+    p.add_argument("--jour", metavar="AAAA-MM-JJ", help="date de la séance (défaut : aujourd'hui)")
+    p.set_defaults(fonction=_commande_seance)
+
+
+def _commande_seance(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.seance.commande import executer  # import paresseux (lot L4.1)
+
+    return executer(args, config)
 
 
 # --- point d'entrée -----------------------------------------------------------
