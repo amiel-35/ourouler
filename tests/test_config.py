@@ -337,3 +337,19 @@ def test_mots_groupe_chaine_nue_refusee():
         depuis_dict({**BASE, "calibration": {"mots_groupe": "club"}})
     c = depuis_dict({**BASE, "calibration": {"mots_groupe": [" Club ", ""]}})
     assert c.calibration.mots_groupe == ("club",)
+
+
+def test_seance_et_tenue():
+    d = dict(BASE)
+    d["seance"] = {"elasticite_z2_max": 0.3, "demi_tour_penalite": 2.5}
+    d["tenue"] = {"bornes_c": [2, 8, 14, 21, 29], "vent_veste_kmh": 25}
+    c = depuis_dict(d)
+    assert c.seance.elasticite_z2_max == 0.3 and c.seance.demi_tour_penalite == 2.5
+    assert c.tenue.bornes_c == (2.0, 8.0, 14.0, 21.0, 29.0) and c.tenue.vent_veste_kmh == 25
+    defauts = depuis_dict(BASE)
+    assert defauts.seance.elasticite_z2_min == -0.05
+    assert defauts.tenue.bornes_pluie_mmh == (0.2, 0.5, 1.0)
+    with pytest.raises(ErreurConfig, match="croissantes"):
+        depuis_dict({**BASE, "tenue": {"bornes_c": [9, 3]}})
+    with pytest.raises(ErreurConfig, match="bornes_c"):
+        depuis_dict({**BASE, "tenue": {"bornes_c": "froid"}})

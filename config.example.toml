@@ -64,3 +64,15 @@ vitesse_min_kmh = 8
 # latitude = 47.0
 # longitude = -0.5
 # rayon_m = 200
+
+[seance]
+# Seules les zones 2 d'ouverture et de fermeture sont élastiques : les récupérations
+# font partie de la prescription et ne bougent jamais.
+elasticite_z2_max = 0.20     # allongement maximal de l'échauffement, pour atteindre un bon couloir
+elasticite_z2_min = -0.05
+demi_tour_penalite = 1.0     # coût d'un bloc qui reprend le segment précédent en sens inverse
+
+[tenue]
+bornes_c = [3, 9, 15, 22, 30]      # très froid / froid / frais / modéré / chaud / canicule, en ressenti
+bornes_pluie_mmh = [0.2, 0.5, 1.0] # sec / humide / averses / pluie
+vent_veste_kmh = 30
