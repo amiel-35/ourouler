@@ -148,6 +148,14 @@ ne pas publier : numéros de série, identifiants Intervals (athlète,
 les documents de cadrage, à anonymiser avant publication. Tant que le dépôt
 est privé, aucune urgence.
 
+**Réponse d'Amiel (13/09/2026) — seuls les identifiants comptent.** « Les
+chiffres, je m'en fous un peu ; Intervals, plus chiant. » Donc avant
+publication : purger **les identifiants Intervals** (identifiant d'athlète,
+identifiants d'équipement `b…`) et rien d'autre. Les chiffres
+d'entraînement — FTP, masse, kilométrages, nombres de sorties — peuvent
+rester : ils documentent les décisions et ne donnent accès à rien.
+
+
 ## Q7 — Ordre des règles de rattachement vélo — **close le 13/09/2026**
 
 Le contrat place la règle « période d'un vélo » avant la règle
