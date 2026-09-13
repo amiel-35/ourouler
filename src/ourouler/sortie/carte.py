@@ -46,8 +46,12 @@ LEAFLET_CSS = f"https://cdnjs.cloudflare.com/ajax/libs/leaflet/{LEAFLET_VERSION}
 LEAFLET_JS = f"https://cdnjs.cloudflare.com/ajax/libs/leaflet/{LEAFLET_VERSION}/leaflet.min.js"
 
 #: Fond de carte : OpenStreetMap, avec l'attribution que sa licence impose.
+#: L'ODbL demande une attribution qui **pointe** vers la page de licence, pas
+#: seulement le nom du projet : c'est un lien, et Leaflet le rend tel quel.
 TUILES_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-TUILES_ATTRIBUTION = "© OpenStreetMap"
+TUILES_ATTRIBUTION = (
+    '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+)
 
 #: Couleurs des blocs, dans l'ordre. Vives et distinctes les unes des autres,
 #: y compris pour un œil qui confond le rouge et le vert : la teinte n'est pas
@@ -435,6 +439,30 @@ def _graduations(total_m: float) -> list[float]:
 # --- la page ------------------------------------------------------------------
 
 
+def _charge_json(donnees: dict) -> str:
+    """Le JSON des données, sûr à écrire tel quel dans un `<script>`.
+
+    Aujourd'hui rien ne peut y faire entrer `</script>` — tout le texte libre
+    (consignes, motifs) passe par `html.escape` avant d'entrer dans la charge.
+    Mais la garantie tient alors à ce chemin-là et non à la sérialisation : le
+    jour où un champ arrive sans échappement, la page devient injectable. On
+    neutralise donc `<` à la source, ce que le JSON accepte sans changer la
+    valeur lue par le navigateur.
+
+    `&` et `\u2028`/`\u2029` n'ont pas besoin du même traitement dans un
+    `<script>` classique, mais les échapper ne coûte rien et ferme le cas d'une
+    page servie un jour en XHTML ou d'un JSON relu par `eval`.
+    """
+    return (
+        json.dumps(donnees, ensure_ascii=False)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+
+
 def _page(*, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str) -> str:
     """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
     puces = "".join(
@@ -443,7 +471,7 @@ def _page(*, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: s
         for bloc in blocs
     )
     lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
-    charge = json.dumps(donnees, ensure_ascii=False)
+    charge = _charge_json(donnees)
     return f"""<!doctype html>
 <html lang="fr">
 <head>

@@ -41,6 +41,7 @@ from ourouler.physique.modele import Parametres
 from ourouler.seance.modele import Seance
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
+from ourouler.sortie import carte
 from ourouler.sortie.carte import COULEURS_BLOCS
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
@@ -779,7 +780,45 @@ def test_la_carte_utilise_le_cdn_autorise_et_osm(tmp_path: Path, monkeypatch, ca
     assert "https://cdnjs.cloudflare.com/ajax/libs/leaflet/" in page
     assert "tile.openstreetmap.org" in page
     externes = set(re.findall(r"https?://[a-z0-9.\-]+", page))
-    assert externes <= {"https://cdnjs.cloudflare.com", "https://tile.openstreetmap.org"}, externes
+    # `www.openstreetmap.org` n'est pas une ressource chargée : c'est le lien
+    # d'attribution que l'ODbL impose (C4), et il ne part que si l'on clique.
+    assert externes <= {
+        "https://cdnjs.cloudflare.com",
+        "https://tile.openstreetmap.org",
+        "https://www.openstreetmap.org",
+    }, externes
+
+
+def test_l_attribution_openstreetmap_est_un_lien_vers_la_licence(tmp_path: Path, monkeypatch, capsys):
+    """C4 : l'ODbL demande une attribution qui **pointe** vers la page de licence."""
+    page = carte_produite(tmp_path, monkeypatch)
+    capsys.readouterr()
+    donnees = json.loads(re.search(r"^const D = (\{.*\});$", page, re.M).group(1))
+    attribution = donnees["tuiles"]["attribution"]
+    assert "OpenStreetMap" in attribution
+    assert 'href="https://www.openstreetmap.org/copyright"' in attribution, (
+        f"attribution sans lien vers la licence : {attribution!r}"
+    )
+
+
+def test_la_charge_json_de_la_carte_ne_peut_pas_fermer_le_script(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """C3 : `<` est neutralisé à la sérialisation, pas seulement en amont.
+
+    Rien aujourd'hui ne fait entrer `</script>` dans la charge — tout le texte
+    libre passe par `html.escape`. La garantie tenait donc à ce chemin-là et
+    non à la sérialisation : le jour où un champ arrive sans échappement, la
+    page devient injectable. On mesure la sérialisation elle-même.
+    """
+    charge = carte._charge_json({"motif": "</script><img src=x onerror=alert(1)>"})
+    assert "<" not in charge and ">" not in charge, charge
+    assert json.loads(charge)["motif"] == "</script><img src=x onerror=alert(1)>"
+
+    page = carte_produite(tmp_path, monkeypatch)
+    capsys.readouterr()
+    script = re.search(r"^const D = (\{.*\});$", page, re.M).group(1)
+    assert "<" not in script and ">" not in script
 
 
 def test_la_carte_dessine_le_profil_d_altitude(tmp_path: Path, monkeypatch, capsys):
