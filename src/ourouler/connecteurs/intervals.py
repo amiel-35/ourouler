@@ -113,6 +113,39 @@ class ClientIntervals:
             )
         return contenu, _extension(reponse, contenu)
 
+    def intervalles(self, activite_id: str) -> list[dict]:
+        """Les intervalles d'une activité, dans l'ordre où ils ont été roulés.
+
+        C'est ce qui dit **où les blocs sont réellement tombés** sur une sortie
+        passée, et c'est la matière de la validation rétrospective du terrain
+        (`tests/validation/terrain_retrospectif.py`).
+
+        Le service répond soit un tableau d'intervalles, soit un objet portant
+        `icu_intervals` : les deux formes sont acceptées, parce que le
+        connecteur n'a pas pu être confronté aux deux (Q1). Toute autre forme
+        est une erreur, jamais une liste vide : « aucun intervalle » et « le
+        service a répondu autre chose » ne sont pas la même situation.
+        """
+        reponse = self._get(
+            f"/api/v1/activity/{activite_id}/intervals", "activity/{id}/intervals"
+        )
+        try:
+            charge = reponse.json()
+        except ValueError as e:
+            raise ErreurConnecteur(
+                "Intervals.icu activity/{id}/intervals : réponse JSON illisible"
+            ) from e
+        if isinstance(charge, dict):
+            charge = charge.get("icu_intervals")
+            if charge is None:
+                return []
+        if not isinstance(charge, list):
+            raise ErreurConnecteur(
+                "Intervals.icu activity/{id}/intervals : tableau ou objet attendu, "
+                f"reçu {type(charge).__name__}"
+            )
+        return [element for element in charge if isinstance(element, dict)]
+
     def equipements(self) -> dict[str, str]:
         """Équipements de l'athlète : identifiant → nom. Un seul appel par client.
 
