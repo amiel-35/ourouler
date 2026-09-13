@@ -222,3 +222,61 @@ def evenement(doc: dict, *, nom: str, sport: str = "Ride", identifiant: int = 1)
         "start_date_local": "2026-09-08T00:00:00",
         "workout_doc": doc,
     }
+
+
+def coach_sans_marqueur() -> dict:
+    """Séance de coach : aucun marqueur, le type est écrit dans `text`.
+
+    Forme des séances iDOSport remontées dans Intervals : ni `warmup`, ni
+    `cooldown`, ni `intensity` — seulement « RPE cible 2, Échauffement » et
+    « RPE cible 2, Récupération » dans le champ libre.
+    """
+    calme = {
+        "text": "RPE cible 2,  Récupération",
+        "power": {"end": 70, "start": 50, "units": "%ftp"},
+        "duration": 1200,
+    }
+    return _doc(
+        [
+            {
+                "text": "RPE cible 2,  Échauffement",
+                "power": {"end": 70, "start": 50, "units": "%ftp"},
+                "duration": 1800,
+            },
+            _groupe(
+                2,
+                "2x",
+                [
+                    {"power": {"end": 85, "start": 80, "units": "%ftp"}, "duration": 1200},
+                    {
+                        "text": "RPE cible 2,  Récupération",
+                        "power": {"end": 70, "start": 50, "units": "%ftp"},
+                        "duration": 300,
+                    },
+                ],
+            ),
+            calme,
+        ]
+    )
+
+
+def coach_muet() -> dict:
+    """Séance de coach sans marqueur **ni** texte : seule la puissance parle.
+
+    Forme de « 4x8 SV1 outdoor » : des efforts à 98-145 % de FTP séparés de
+    récupérations à 50 %, et rien d'autre pour les distinguer.
+    """
+    return _doc(
+        [
+            {"power": {"units": "%ftp", "value": 50}, "duration": 1200},
+            _groupe(
+                4,
+                "4x",
+                [
+                    {"power": {"units": "%ftp", "value": 98}, "duration": 480},
+                    {"power": {"units": "%ftp", "value": 50}, "duration": 165},
+                ],
+            ),
+            {"power": {"units": "%ftp", "value": 50}, "duration": 900},
+        ]
+    )

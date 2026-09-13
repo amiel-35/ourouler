@@ -349,6 +349,7 @@ def test_seance_et_tenue():
     defauts = depuis_dict(BASE)
     assert defauts.seance.elasticite_z2_min == -0.05
     assert defauts.seance.puissance_endurance_pct == 0.60
+    assert defauts.seance.seuil_recuperation_pct == 0.75
     assert defauts.tenue.bornes_pluie_mmh == (0.2, 0.5, 1.0)
     with pytest.raises(ErreurConfig, match="croissantes"):
         depuis_dict({**BASE, "tenue": {"bornes_c": [9, 3]}})
@@ -368,3 +369,14 @@ def test_puissance_endurance_pct_est_lue_et_bornee():
     d["seance"] = {"puissance_endurance_pct": "beaucoup"}
     with pytest.raises(ErreurConfig, match="puissance_endurance_pct"):
         depuis_dict(d)
+
+
+def test_seuil_recuperation_pct_est_lu_et_borne():
+    """Sous cette part de FTP, une étape n'est pas un bloc (cascade de typage L4.1)."""
+    d = dict(BASE)
+    d["seance"] = {"seuil_recuperation_pct": 0.8}
+    assert depuis_dict(d).seance.seuil_recuperation_pct == 0.8
+    for hors_bornes in (0.1, 0.49, 0.91, 2.0):
+        d["seance"] = {"seuil_recuperation_pct": hors_bornes}
+        with pytest.raises(ErreurConfig, match="seuil_recuperation_pct"):
+            depuis_dict(d)

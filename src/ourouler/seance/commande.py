@@ -145,6 +145,7 @@ def executer(
         ftp_w=config.cycliste.ftp_w,
         zones_puissance=ZONES_PUISSANCE_DEFAUT,
         puissance_endurance_pct=config.seance.puissance_endurance_pct,
+        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
     )
     if seance is None:
         if getattr(args, "json", False):
@@ -318,6 +319,12 @@ def _avertissements(seance: Seance) -> list[str]:
         messages.append(
             f"{meta['etapes_sans_puissance']} étape(s) sans consigne de puissance : "
             "aucune longueur de route ne leur est attribuée."
+        )
+    if meta.get("seuil_recuperation_replie"):
+        messages.append(
+            "FTP inconnue : le seuil qui sépare un bloc d'une récupération a été tiré de la "
+            f"séance elle-même ({_fr(float(meta.get('seuil_recuperation_w') or 0), 0)} W), "
+            "pas du cycliste."
         )
     if meta.get("etapes_libres_reclassees"):
         detail = ", ".join(

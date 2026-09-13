@@ -144,6 +144,12 @@ class ParametresSeance:
     #: 96 sorties extérieures de plus d'une heure est 60 % de FTP).
     puissance_endurance_pct: float = 0.60
 
+    #: Sous cette part de FTP, une étape n'est pas un bloc : c'est de
+    #: l'échauffement, de la récupération ou du retour au calme. Dernier
+    #: recours du typage, quand la séance ne porte ni marqueur ni texte —
+    #: c'est le cas des séances de coach en pourcentage de FTP.
+    seuil_recuperation_pct: float = 0.75
+
 
 @dataclass(frozen=True)
 class ParametresTenue:
@@ -341,6 +347,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 "seance",
                 mini=0.40,
                 maxi=0.80,
+            ),
+            seuil_recuperation_pct=_flottant(
+                seance_brut.get("seuil_recuperation_pct", 0.75),
+                "seuil_recuperation_pct",
+                "seance",
+                mini=0.50,
+                maxi=0.90,
             ),
         ),
         tenue=ParametresTenue(

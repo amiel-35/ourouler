@@ -399,3 +399,43 @@ def test_les_etapes_libres_reclassees_sont_dites(tmp_path, capsys):
     assert "ce ne sont pas des blocs" in sortie
     assert "#1 → échauffement" in sortie
     assert "5 bloc(s)" in sortie
+
+
+# --- cascade de typage, de bout en bout ---------------------------------------
+
+
+def test_une_seance_de_coach_sans_marqueur_a_ses_blocs_et_ses_recups(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.coach_sans_marqueur(), nom="2x20' fabriquée")]
+    executer(args(json=True), config, client=client_bouchon(evenements))
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["n_blocs"] == 2
+    assert charge["etapes"][0]["type"] == "echauffement"
+    assert charge["etapes"][0]["elastique"] is True
+    assert charge["etapes"][-1]["type"] == "calme"
+    assert charge["etapes"][-1]["elastique"] is True
+    # Chaque bloc est suivi d'une récup, donc chacun a sa route au-delà.
+    assert all(e["route_au_dela_m"] > 0 for e in charge["etapes"] if e["type"] == "bloc")
+
+
+def test_une_seance_muette_est_typee_par_la_puissance(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.coach_muet(), nom="4x8 fabriquée")]
+    executer(args(json=True), config, client=client_bouchon(evenements))
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["n_blocs"] == 4
+    assert charge["meta"]["seuil_recuperation_w"] == 150.0
+    assert charge["meta"]["typage_source"][2] == "puissance"
+
+
+def test_le_seuil_de_la_configuration_est_utilise(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path, seance={"seuil_recuperation_pct": 0.90})
+    evenements = [W.evenement(W.coach_sans_marqueur(), nom="2x20' fabriquée")]
+    executer(args(json=True), config, client=client_bouchon(evenements))
+    charge = json.loads(capsys.readouterr().out)
+    # 80-85 % de FTP passe sous un seuil à 90 % : plus aucun bloc.
+    assert charge["meta"]["seuil_recuperation_pct"] == 0.90
+    assert charge["n_blocs"] == 0

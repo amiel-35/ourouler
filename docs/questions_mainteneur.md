@@ -293,3 +293,56 @@ en FC » ; le mainteneur a corrigé le cadrage : c'est l'exception, pas la
 règle, et le jour de vérification avait été choisi dans l'exception.
 
 </details>
+
+## Q12 — Comment savoir qu'une étape est un bloc ? — **close le 13/09/2026**
+
+**Close.** Cascade de **trois règles**, première qui répond gagne, plus un
+recadrage des extrémités. La provenance du type de chaque étape est gardée
+dans `meta["typage_source"]` : on doit toujours pouvoir dire pourquoi une
+étape est un bloc.
+
+1. **Marqueurs explicites** — `warmup`, `cooldown`, `intensity` : la règle du
+   contrat de sprint 4 §1, inchangée.
+2. **Mots du champ `text`**, sans accents ni casse : « échauffement » et
+   « warm » ; « récupération », « recup », « recovery » ; « retour au calme »
+   et « cool ». Le texte de l'étape l'emporte sur celui de son groupe.
+3. **Puissance relative à la FTP** — `[seance] seuil_recuperation_pct`,
+   défaut **0,75** (la frontière Z2/Z3) : sous ce seuil, une étape n'est pas
+   un bloc. Selon sa position : première → échauffement, dernière → retour au
+   calme, sinon → récupération.
+
+Puis, aux **extrémités seulement**, la position l'emporte sur le nom : une
+récupération en première ou dernière position devient un échauffement ou un
+retour au calme, donc élastique. Les séances de coach nomment
+« Récupération » jusqu'au retour à la maison, et c'est cette étape-là qui
+referme la boucle.
+
+**Pourquoi.** Les séances de coach (iDOSport) — la majorité, et les deux
+séances de référence du cadrage produit — **ne portent aucun marqueur**. Sans
+cette cascade, `ourouler seance --jour 2026-02-08` annonçait **14 étapes,
+14 blocs** : ni échauffement, ni récupération, donc aucune élasticité, aucun
+demi-tour possible, et le placement (L4.3) serait parti chercher un couloir
+propre pour 30 minutes d'échauffement et 20 minutes de retour au calme.
+
+**Vérifié sur les trois séances réelles** (FTP 258 W, donc seuil à 193 W) :
+
+| Séance | Avant | Après |
+|---|---|---|
+| « 2x20' + 4x3' » du 08/02 (texte) | 14 blocs | **6 blocs**, échauffement 30 min élastique, 6 récups, calme 20 min élastique |
+| « 4x8 SV1 outdoor » du 22/04 (muette) | 19 blocs | **9 blocs**, récups à 129-134 W, extrémités libres élastiques |
+| « 4x8min Z4 » du 08/09 (marqueurs) | 4 blocs | **4 blocs**, inchangée |
+
+**Deux garde-fous.** Si la FTP est inconnue, le seuil est le mi-chemin entre
+la plus faible et la plus forte puissance cible de la séance, et
+`meta["seuil_recuperation_replie"]` le dit — c'est une frontière tirée de la
+séance, pas du cycliste ; sans contraste de puissance, on ne devine rien. Si
+toutes les étapes tombent du même côté du seuil (sortie d'endurance
+uniforme), la séance n'a **aucun bloc**, et c'est correct : on ne fabrique
+pas un bloc artificiel pour avoir quelque chose à placer.
+
+**Ce qui reste discutable.** Sur « 4x8 SV1 outdoor », la règle 3 classe en
+bloc les 4 × 40 s à 375 W (des activations d'échauffement) et les 5 min à
+208 W qui précèdent le corps de séance : 9 blocs là où le mainteneur n'en
+voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
+règle est appliquée correctement ; c'est le placement (L4.3) qui devra
+décider s'il contraint le terrain sous un effort de 40 secondes.

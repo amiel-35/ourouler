@@ -393,13 +393,54 @@ def test_l_ecart_avec_la_duree_annoncee_est_signale():
     ],
 )
 def test_type_d_une_etape(step, attendu):
-    doc = {"steps": [{"duration": 60, "power": {"units": "watts", "value": 200}, **step}]}
-    assert lire(doc).etapes[0].type == attendu
+    """L'étape testée est encadrée de deux blocs : les extrémités ont leurs propres
+    règles (une récupération en bout de séance est un échauffement ou un calme)."""
+    bloc = {"duration": 600, "power": {"units": "watts", "value": 200}}
+    milieu = {"duration": 60, "power": {"units": "watts", "value": 200}, **step}
+    doc = {"steps": [dict(bloc), milieu, dict(bloc)]}
+    assert lire(doc).etapes[1].type == attendu
 
 
 def test_warmup_l_emporte_sur_recovery():
     doc = {"steps": [{"duration": 60, "warmup": True, "intensity": "recovery"}]}
     assert lire(doc).etapes[0].type == "echauffement"
+
+
+def test_une_recuperation_en_fin_de_seance_devient_un_retour_au_calme():
+    """Les séances de coach nomment « Récupération » jusqu'au retour à la maison."""
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 220}},
+            {"duration": 300, "intensity": "recovery", "power": {"units": "watts", "value": 120}},
+            {"duration": 1200, "intensity": "recovery", "power": {"units": "watts", "value": 120}},
+        ]
+    }
+    seance = lire(doc)
+    assert [e.type for e in seance.etapes] == ["bloc", "recuperation", "calme"]
+    assert seance.etapes[-1].elastique is True
+    assert seance.meta["typage_source"] == ["defaut", "marqueur", "position"]
+
+
+def test_une_recuperation_en_tete_de_seance_devient_un_echauffement():
+    doc = {
+        "steps": [
+            {"duration": 600, "intensity": "recovery", "power": {"units": "watts", "value": 120}},
+            {"duration": 600, "power": {"units": "watts", "value": 220}},
+        ]
+    }
+    seance = lire(doc)
+    assert seance.etapes[0].type == "echauffement" and seance.etapes[0].elastique is True
+
+
+def test_une_recuperation_au_milieu_garde_son_type():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 220}},
+            {"duration": 300, "intensity": "recovery", "power": {"units": "watts", "value": 120}},
+            {"duration": 600, "power": {"units": "watts", "value": 220}},
+        ]
+    }
+    assert lire(doc).etapes[1].type == "recuperation"
 
 
 def test_un_echauffement_qui_n_est_pas_en_tete_n_est_pas_elastique():
@@ -661,3 +702,178 @@ def test_les_deux_etapes_libres_d_une_seance_mixte_sont_reclassees():
     assert seance.etapes[-1].type == "calme"
     assert len(seance.blocs()) == 5  # 4 sprints + 1 bloc de 5 min, les libres en moins
     assert len(seance.meta["etapes_libres_reclassees"]) == 2
+
+
+# --- cascade de typage : marqueurs, puis texte, puis puissance -----------------
+
+
+def test_regle_2_les_mots_du_texte_typent_une_seance_sans_marqueur():
+    seance = lire(W.coach_sans_marqueur())
+    assert [e.type for e in seance.etapes] == [
+        "echauffement",
+        "bloc",
+        "recuperation",
+        "bloc",
+        "recuperation",
+        "calme",
+    ]
+    assert seance.meta["typage_source"] == [
+        "texte",
+        "defaut",
+        "texte",
+        "defaut",
+        "texte",
+        "position",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("texte", "attendu"),
+    [
+        ("RPE cible 2,  Échauffement", "echauffement"),
+        ("echauffement", "echauffement"),
+        ("Warm up", "echauffement"),
+        ("WARMUP", "echauffement"),
+        ("RPE cible 2,  Récupération", "recuperation"),
+        ("recup 3'", "recuperation"),
+        ("Recovery spin", "recuperation"),
+        ("Retour au calme", "calme"),
+        ("Cool down", "calme"),
+        ("Bloc seuil", None),
+        ("", None),
+    ],
+)
+def test_les_mots_reconnus_dans_le_texte(texte, attendu):
+    """Le mot est cherché sans accents ni casse, au milieu d'un texte libre."""
+    bloc = {"duration": 600, "power": {"units": "watts", "value": 200}}
+    milieu = {"duration": 300, "power": {"units": "watts", "value": 200}, "text": texte}
+    seance = lire({"steps": [dict(bloc), milieu, dict(bloc)]})
+    assert seance.etapes[1].type == (attendu or "bloc")
+
+
+def test_un_marqueur_l_emporte_sur_le_texte():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 200}},
+            {
+                "duration": 300,
+                "power": {"units": "watts", "value": 200},
+                "text": "Récupération",
+                "warmup": True,
+            },
+            {"duration": 600, "power": {"units": "watts", "value": 200}},
+        ]
+    }
+    seance = lire(doc)
+    assert seance.etapes[1].type == "echauffement"
+    assert seance.meta["typage_source"][1] == "marqueur"
+
+
+def test_le_texte_du_groupe_sert_quand_l_etape_se_tait():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 200}},
+            {
+                "reps": 1,
+                "text": "Récupération longue",
+                "steps": [{"duration": 900, "power": {"units": "watts", "value": 200}}],
+            },
+            {"duration": 600, "power": {"units": "watts", "value": 200}},
+        ]
+    }
+    assert lire(doc).etapes[1].type == "recuperation"
+
+
+def test_regle_3_la_puissance_type_une_seance_muette():
+    """« 4x8 SV1 outdoor » : ni marqueur ni texte, seulement 50 % contre 98 %."""
+    seance = lire(W.coach_muet())
+    types = [e.type for e in seance.etapes]
+    assert types[0] == "echauffement"
+    assert types[1:9] == ["bloc", "recuperation"] * 4
+    assert types[9] == "calme"
+    assert seance.meta["typage_source"][1] == "defaut"  # le bloc n'a pas été reclassé
+    assert seance.meta["typage_source"][2] == "puissance"
+
+
+def test_le_seuil_est_la_part_de_ftp_configuree():
+    seance = lire(W.coach_muet())
+    assert seance.meta["seuil_recuperation_pct"] == 0.75
+    assert seance.meta["seuil_recuperation_w"] == 150.0  # 75 % de 200 W
+    assert "seuil_recuperation_replie" not in seance.meta
+
+
+def test_un_seuil_plus_haut_fait_basculer_des_blocs_en_recuperation():
+    doc = {
+        "steps": [
+            {"power": {"units": "%ftp", "value": 50}, "duration": 600},
+            {"power": {"units": "%ftp", "value": 85}, "duration": 600},
+            {"power": {"units": "%ftp", "value": 50}, "duration": 600},
+        ]
+    }
+    normal = depuis_workout_doc(doc, nom="s", jour=JOUR, ftp_w=FTP)
+    assert normal.etapes[1].type == "bloc"
+    haut = depuis_workout_doc(doc, nom="s", jour=JOUR, ftp_w=FTP, seuil_recuperation_pct=0.90)
+    assert haut.etapes[1].type == "recuperation"
+
+
+@pytest.mark.parametrize("mauvais", [0.0, -1.0, 5.0, "haut", None])
+def test_un_seuil_inutilisable_revient_au_defaut(mauvais):
+    seance = depuis_workout_doc(
+        W.coach_muet(), nom="s", jour=JOUR, ftp_w=FTP, seuil_recuperation_pct=mauvais
+    )
+    assert seance.meta["seuil_recuperation_pct"] == 0.75
+
+
+def test_sans_ftp_le_seuil_est_tire_de_la_seance_et_le_dit():
+    doc = {
+        "steps": [
+            {"power": {"units": "watts", "value": 100}, "duration": 600},
+            {"power": {"units": "watts", "value": 250}, "duration": 600},
+            {"power": {"units": "watts", "value": 100}, "duration": 600},
+        ]
+    }
+    seance = lire(doc, ftp=None)
+    assert seance.meta["seuil_recuperation_replie"] is True
+    assert seance.meta["seuil_recuperation_w"] == 175.0  # mi-chemin entre 100 et 250
+    assert [e.type for e in seance.etapes] == ["echauffement", "bloc", "calme"]
+
+
+def test_sans_ftp_et_sans_contraste_on_ne_devine_rien():
+    doc = {"steps": [{"power": {"units": "watts", "value": 150}, "duration": 600}] * 3}
+    seance = lire(doc, ftp=None)
+    assert "seuil_recuperation_w" not in seance.meta
+    assert [e.type for e in seance.etapes] == ["bloc", "bloc", "bloc"]
+
+
+def test_une_sortie_uniforme_n_a_aucun_bloc_et_c_est_correct():
+    """Toutes les étapes du même côté du seuil : on ne fabrique pas de bloc."""
+    doc = {
+        "steps": [
+            {"power": {"units": "%ftp", "value": 60}, "duration": 1800},
+            {"power": {"units": "%ftp", "value": 62}, "duration": 1800},
+            {"power": {"units": "%ftp", "value": 58}, "duration": 1800},
+        ]
+    }
+    seance = lire(doc)
+    assert seance.blocs() == []
+    assert [e.type for e in seance.etapes] == ["echauffement", "recuperation", "calme"]
+
+
+def test_une_seance_entierement_au_dessus_du_seuil_reste_en_blocs():
+    doc = {"steps": [{"power": {"units": "%ftp", "value": 95}, "duration": 600}] * 3}
+    seance = lire(doc)
+    assert len(seance.blocs()) == 3
+
+
+def test_typage_source_a_une_entree_par_etape():
+    for fabrique in ("groupes_hr_zone", "groupes_watts", "coach_sans_marqueur", "coach_muet"):
+        seance = lire(getattr(W, fabrique)())
+        assert len(seance.meta["typage_source"]) == len(seance.etapes)
+        assert set(seance.meta["typage_source"]) <= {
+            "marqueur",
+            "texte",
+            "puissance",
+            "libre",
+            "position",
+            "defaut",
+        }

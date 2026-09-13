@@ -87,6 +87,22 @@ ZONE_FC_BASSE_MAX = 2
 #: sur dix, et celles-là se traduisent exactement.
 PUISSANCE_ENDURANCE_PCT_DEFAUT = 0.60
 
+#: Sous cette part de FTP, une étape n'est pas un bloc.
+#:
+#: C'est le **dernier recours** du typage : quand la séance ne porte ni
+#: marqueur (`warmup`, `cooldown`, `intensity`) ni mot reconnaissable dans son
+#: texte, il ne reste que la puissance pour distinguer un bloc du reste. Les
+#: séances de coach du mainteneur sont dans ce cas : « 4x8 SV1 outdoor » du
+#: 22/04/2026 n'a aucun marqueur et aucun texte, ses récupérations ne se
+#: reconnaissent qu'à leurs 50 % de FTP entre des efforts à 98 et 145 %.
+#:
+#: 0,75 est la frontière Z2/Z3 de la table des zones : au-dessus, on est dans
+#: l'effort prescrit ; en dessous, on roule. Vérifié sur les deux séances de
+#: référence avec 258 W de FTP, soit un seuil à 193 W — 08/02 : 155 W en
+#: dessous (échauffement, récups, calme), 212 et 258 W au-dessus (blocs) ;
+#: 22/04 : 129 et 134 W en dessous, 253 et 375 W au-dessus.
+SEUIL_RECUPERATION_PCT_DEFAUT = 0.75
+
 
 @dataclass(frozen=True)
 class Etape:
@@ -216,6 +232,7 @@ def _puissance_valide(valeur: float | None, nom: str) -> float | None:
 
 __all__ = [
     "PUISSANCE_ENDURANCE_PCT_DEFAUT",
+    "SEUIL_RECUPERATION_PCT_DEFAUT",
     "TYPES",
     "TYPES_ELASTIQUES",
     "ZONE_FC_BASSE_MAX",

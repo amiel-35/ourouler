@@ -57,6 +57,7 @@ les zones lui sont passées.
 from __future__ import annotations
 
 import math
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 
@@ -64,6 +65,7 @@ from ourouler.activites.modele import est_sport_velo
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.seance.modele import (
     PUISSANCE_ENDURANCE_PCT_DEFAUT,
+    SEUIL_RECUPERATION_PCT_DEFAUT,
     ZONE_FC_BASSE_MAX,
     ZONES_PUISSANCE_DEFAUT,
     Etape,
@@ -88,6 +90,13 @@ UNITES_ZONE_FC = ("hr_zone", "hrzone", "heart_rate_zone")
 #: Valeurs d'`intensity` qui désignent une récupération.
 INTENSITES_RECUP = ("recovery", "rest", "recover")
 
+#: Mots qui nomment un type dans le champ `text` d'une étape (deuxième règle
+#: de la cascade de typage). Comparés sans accents et en minuscules, par
+#: sous-chaîne : « recup » couvre « récupération » comme « recup ».
+MOTS_ECHAUFFEMENT = ("echauffement", "warm")
+MOTS_RECUPERATION = ("recuperation", "recup", "recovery")
+MOTS_CALME = ("retour au calme", "cool")
+
 
 def depuis_workout_doc(
     doc: dict,
@@ -97,6 +106,7 @@ def depuis_workout_doc(
     ftp_w: float | None,
     zones_puissance: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT,
     puissance_endurance_pct: float = PUISSANCE_ENDURANCE_PCT_DEFAUT,
+    seuil_recuperation_pct: float = SEUIL_RECUPERATION_PCT_DEFAUT,
 ) -> Seance:
     """Construit une `Seance` à partir du `workout_doc` d'un événement Intervals.
 
@@ -108,13 +118,16 @@ def depuis_workout_doc(
     etat = _Etat(
         ftp_w=_ftp(ftp_w),
         zones=_zones(zones_puissance),
-        endurance_pct=_pct(puissance_endurance_pct),
+        endurance_pct=_pct(puissance_endurance_pct, PUISSANCE_ENDURANCE_PCT_DEFAUT),
+        seuil_pct=_pct(seuil_recuperation_pct, SEUIL_RECUPERATION_PCT_DEFAUT),
     )
     brut = doc.get("steps") if isinstance(doc, dict) else None
     lues = _aplatir(brut, etat=etat, profondeur=0, libelle="")
-    etapes = _marquer_elastiques(_reclasser_libres(lues, etat=etat))
+    etapes, sources = _reclasser(lues, etat=etat)
+    etapes = _marquer_elastiques(etapes)
     duree_s = sum(e.duree_s for e in etapes)
     meta = etat.meta()
+    meta["typage_source"] = sources
     meta["nom_source"] = str(nom)
     if isinstance(doc, dict):
         duree_doc = _nombre(doc.get("duration"))
@@ -137,6 +150,7 @@ def seance_du_jour(
     ftp_w: float | None,
     zones_puissance: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT,
     puissance_endurance_pct: float = PUISSANCE_ENDURANCE_PCT_DEFAUT,
+    seuil_recuperation_pct: float = SEUIL_RECUPERATION_PCT_DEFAUT,
 ) -> Seance | None:
     """La séance **vélo** planifiée ce jour-là, ou `None` s'il n'y en a pas.
 
@@ -160,6 +174,7 @@ def seance_du_jour(
         ftp_w=ftp_w,
         zones_puissance=zones_puissance,
         puissance_endurance_pct=puissance_endurance_pct,
+        seuil_recuperation_pct=seuil_recuperation_pct,
     )
     seance.meta["source"] = "intervals"
     seance.meta["evenement_id"] = retenue.get("id")
@@ -197,10 +212,14 @@ class _Etat:
         ftp_w: float | None,
         zones: tuple[tuple[float, float], ...],
         endurance_pct: float,
+        seuil_pct: float,
     ):
         self.ftp_w = ftp_w
         self.zones = zones
         self.endurance_pct = endurance_pct
+        self.seuil_pct = seuil_pct
+        self.seuil_w: float | None = None
+        self.seuil_replie = False
         self.approximee = False
         self.fc_basses = 0  # étapes en zone de FC basse, calées sur l'endurance mesurée
         self.fc_hautes = 0  # étapes en zone de FC haute, traduites par la table des zones
@@ -223,7 +242,12 @@ class _Etat:
             "ftp_w": self.ftp_w,
             "zones_puissance": [list(z) for z in self.zones],
             "puissance_endurance_pct": self.endurance_pct,
+            "seuil_recuperation_pct": self.seuil_pct,
         }
+        if self.seuil_w is not None:
+            meta["seuil_recuperation_w"] = round(self.seuil_w, 1)
+        if self.seuil_replie:
+            meta["seuil_recuperation_replie"] = True
         if self.approximee:
             meta["approximation"] = (
                 "consignes données en zones de fréquence cardiaque : les zones basses "
@@ -259,6 +283,7 @@ class _Lue:
 
     etape: Etape
     sans_consigne: bool
+    source_type: str  # « marqueur » | « texte » | « defaut »
 
 
 def _aplatir(brut: object, *, etat: _Etat, profondeur: int, libelle: str) -> list[_Lue]:
@@ -311,31 +336,125 @@ def _etape(step: dict, *, etat: _Etat, libelle: str) -> _Lue | None:
     bas, haut, descripteur, sans_consigne = _puissance(step, etat=etat)
     if bas is None and haut is None:
         etat.sans_puissance += 1
+    type_, source = _type(step, herite=libelle)
     return _Lue(
         etape=Etape(
-            type=_type(step),
+            type=type_,
             duree_s=duree,
             puissance_min_w=bas,
             puissance_max_w=haut,
             libelle=_joindre(libelle, descripteur),
         ),
         sans_consigne=sans_consigne,
+        source_type=source,
     )
 
 
-def _type(step: dict) -> str:
-    """Le type d'une étape, dans l'ordre de priorité du contrat de sprint §1."""
+def _type(step: dict, *, herite: str) -> tuple[str, str]:
+    """(type de l'étape, d'où il vient) — les deux premières règles de la cascade.
+
+    1. **Marqueurs explicites** `warmup`, `cooldown`, `intensity` : la règle du
+       contrat de sprint §1, inchangée. C'est ce que portent les séances
+       « Vélo HIT » et « Sortie EF ».
+    2. **Mots du champ `text`**, insensibles à la casse et aux accents. Les
+       séances de coach (iDOSport) ne portent aucun marqueur : le type y est
+       écrit en toutes lettres, « RPE cible 2, Échauffement », « RPE cible 2,
+       Récupération ». Le texte de l'étape l'emporte sur celui de son groupe.
+
+    La troisième règle — la puissance — ne peut pas s'appliquer ici : elle a
+    besoin de toute la séance et de sa FTP. Elle est dans `_reclasser`, et ne
+    corrige que ce que ces deux règles ont laissé en « bloc » par défaut.
+    """
     intensite = str(step.get("intensity") or "").strip().casefold()
     if step.get("warmup") is True or intensite == "warmup":
-        return "echauffement"
+        return ("echauffement", "marqueur")
     if step.get("cooldown") is True or intensite == "cooldown":
-        return "calme"
+        return ("calme", "marqueur")
     if intensite in INTENSITES_RECUP:
-        return "recuperation"
-    return "bloc"
+        return ("recuperation", "marqueur")
+    for texte in (str(step.get("text") or ""), herite):
+        type_ = _type_du_texte(texte)
+        if type_ is not None:
+            return (type_, "texte")
+    return ("bloc", "defaut")
 
 
-def _reclasser_libres(lues: list[_Lue], *, etat: _Etat) -> list[Etape]:
+def _type_du_texte(texte: str) -> str | None:
+    """Le type que nomme un texte libre, ou `None`. Sans accents ni casse.
+
+    Ordre calqué sur celui des marqueurs : échauffement, puis retour au calme,
+    puis récupération.
+    """
+    reduit = _sans_accents(texte)
+    if not reduit:
+        return None
+    for mots, type_ in (
+        (MOTS_ECHAUFFEMENT, "echauffement"),
+        (MOTS_CALME, "calme"),
+        (MOTS_RECUPERATION, "recuperation"),
+    ):
+        if any(mot in reduit for mot in mots):
+            return type_
+    return None
+
+
+def _sans_accents(texte: str) -> str:
+    """Minuscules, sans signes diacritiques : « Récupération » → « recuperation »."""
+    decompose = unicodedata.normalize("NFD", str(texte).casefold())
+    return "".join(c for c in decompose if not unicodedata.combining(c))
+
+
+def _reclasser(lues: list[_Lue], *, etat: _Etat) -> tuple[list[Etape], list[str]]:
+    """Applique ce que la lecture étape par étape ne pouvait pas voir.
+
+    Deux corrections, dans cet ordre, sur les seules étapes que les marqueurs
+    et le texte ont laissées en « bloc » par défaut :
+
+    1. **Aucune consigne** (`freeride`, ou rien du tout) : rien ne contraint
+       le terrain, ce n'est pas un bloc.
+    2. **Puissance sous le seuil de récupération** : troisième règle de la
+       cascade de typage — voir `_reclasser_par_puissance`.
+
+    Puis une dernière passe, sur les extrémités : voir
+    `_recadrer_extremites`.
+
+    Rend (les étapes, la provenance du type de chacune). La provenance va dans
+    `meta["typage_source"]` : on doit toujours pouvoir dire pourquoi une étape
+    est un bloc.
+    """
+    etapes = [lue.etape for lue in lues]
+    sources = [lue.source_type for lue in lues]
+    _reclasser_libres(lues, etapes, sources, etat=etat)
+    _reclasser_par_puissance(etapes, sources, etat=etat)
+    _recadrer_extremites(etapes, sources)
+    return (etapes, sources)
+
+
+def _recadrer_extremites(etapes: list[Etape], sources: list[str]) -> None:
+    """Une récupération en bout de séance est en réalité un échauffement ou un calme.
+
+    Les séances de coach nomment « Récupération » tout ce qui n'est pas un
+    effort, la dernière étape comprise : « 2x20' + 4x3' » du 08/02/2026 finit
+    par 20 minutes ainsi nommées. Ce n'est pas une récupération entre deux
+    blocs, c'est le retour à la maison — et c'est lui qui referme la boucle,
+    donc lui qui doit être élastique (cadrage du sprint 4 : « la Z2 de fin
+    absorbe le reste »).
+
+    La position l'emporte donc sur le nom, mais aux deux extrémités
+    seulement : une récupération au milieu reste une récupération, quoi qu'on
+    l'appelle.
+    """
+    if not etapes:
+        return
+    for indice, type_ in ((0, "echauffement"), (len(etapes) - 1, "calme")):
+        if etapes[indice].type == "recuperation":
+            etapes[indice] = _retyper(etapes[indice], type_)
+            sources[indice] = "position"
+
+
+def _reclasser_libres(
+    lues: list[_Lue], etapes: list[Etape], sources: list[str], *, etat: _Etat
+) -> None:
     """Une étape sans aucune consigne n'est pas un bloc : c'est du roulage libre.
 
     Décision du superviseur (13/09/2026). Sans puissance ni zone, rien ne
@@ -345,24 +464,80 @@ def _reclasser_libres(lues: list[_Lue], *, etat: _Etat) -> list[Etape]:
     ouvre la séance, un retour au calme si elle la ferme, une récupération
     au milieu.
 
-    Les marqueurs explicites de la source restent prioritaires : une étape
-    libre déjà marquée `warmup`, `cooldown` ou `intensity=recovery` garde son
-    type, seul le « sinon bloc » par défaut est corrigé.
+    Les marqueurs et le texte de la source restent prioritaires : une étape
+    libre déjà nommée « Échauffement » garde son type, seul le « sinon bloc »
+    par défaut est corrigé.
     """
-    etapes = [lue.etape for lue in lues]
-    dernier = len(etapes) - 1
     for indice, lue in enumerate(lues):
-        if not lue.sans_consigne or lue.etape.type != "bloc":
+        if not lue.sans_consigne or sources[indice] != "defaut":
             continue
-        if indice == 0:
-            type_ = "echauffement"
-        elif indice == dernier:
-            type_ = "calme"
-        else:
-            type_ = "recuperation"
-        etapes[indice] = _retyper(lue.etape, type_)
+        type_ = _type_par_position(indice, len(etapes))
+        etapes[indice] = _retyper(etapes[indice], type_)
+        sources[indice] = "libre"
         etat.libres_reclassees.append({"indice": indice, "type": type_})
-    return etapes
+
+
+def _reclasser_par_puissance(etapes: list[Etape], sources: list[str], *, etat: _Etat) -> None:
+    """Troisième règle de la cascade : sous le seuil, ce n'est pas un bloc.
+
+    Les séances de coach ne portent ni marqueur ni texte : « 4x8 SV1 outdoor »
+    du 22/04/2026 enchaîne des efforts à 98 et 145 % de FTP et des
+    récupérations à 50 %, sans qu'un seul champ ne le dise. Sans cette règle,
+    la séance entière serait un bloc, et le placement (L4.3) irait chercher un
+    couloir propre pour un retour au calme de 40 minutes.
+
+    Le seuil est `seuil_recuperation_pct × FTP`. Si la FTP est inconnue, on se
+    rabat sur le mi-chemin entre la plus faible et la plus forte puissance
+    cible de la séance, et `meta["seuil_recuperation_replie"]` le dit : c'est
+    une frontière tirée de la séance elle-même, pas du cycliste.
+
+    Si toutes les étapes tombent du même côté du seuil — une sortie
+    d'endurance uniforme, par exemple — la séance n'a simplement aucun bloc.
+    C'est correct : on ne cherche alors aucun couloir, et on ne fabrique pas
+    un bloc artificiel pour avoir quelque chose à placer.
+    """
+    seuil = _seuil_recuperation(etapes, etat=etat)
+    if seuil is None:
+        return
+    etat.seuil_w = seuil
+    for indice, etape in enumerate(etapes):
+        if sources[indice] != "defaut":
+            continue
+        cible = etape.puissance_cible_w
+        if cible is None or cible >= seuil:
+            continue
+        type_ = _type_par_position(indice, len(etapes))
+        etapes[indice] = _retyper(etape, type_)
+        sources[indice] = "puissance"
+
+
+def _type_par_position(indice: int, total: int) -> str:
+    """Ce qu'est une étape qui n'est pas un bloc, selon l'endroit où elle tombe.
+
+    En tête, c'est un échauffement ; en queue, un retour au calme ; entre les
+    deux, une récupération. Le cas visé au milieu est celui d'une étape prise
+    entre deux efforts ; une étape calme au milieu qui ne sépare pas deux
+    blocs est traitée de même — une récupération ne demande rien au terrain
+    (décision du 13/09), c'est donc le classement le plus prudent.
+    """
+    if indice == 0:
+        return "echauffement"
+    if indice == total - 1:
+        return "calme"
+    return "recuperation"
+
+
+def _seuil_recuperation(etapes: list[Etape], *, etat: _Etat) -> float | None:
+    """Le seuil en watts, ou `None` si la séance ne permet pas d'en fixer un."""
+    if etat.ftp_w is not None:
+        return etat.seuil_pct * etat.ftp_w
+    cibles = [e.puissance_cible_w for e in etapes if e.puissance_cible_w is not None]
+    if len(cibles) < 2 or min(cibles) == max(cibles):
+        # Sans FTP et sans contraste, rien ne distingue un effort d'une
+        # récupération : on ne devine pas, on laisse les types en place.
+        return None
+    etat.seuil_replie = True
+    return (min(cibles) + max(cibles)) / 2
 
 
 def _retyper(etape: Etape, type_: str) -> Etape:
@@ -546,11 +721,11 @@ def _nombre(brut: object) -> float | None:
     return valeur if math.isfinite(valeur) else None
 
 
-def _pct(brut: float) -> float:
-    """La part de FTP visée en endurance. Une valeur inutilisable revient au défaut."""
+def _pct(brut: float, defaut: float) -> float:
+    """Une part de FTP. Une valeur inutilisable revient au défaut plutôt que de lever."""
     valeur = _nombre(brut)
     if valeur is None or not 0.0 < valeur <= 2.0:
-        return PUISSANCE_ENDURANCE_PCT_DEFAUT
+        return defaut
     return valeur
 
 
@@ -574,4 +749,12 @@ def _zones(brut: object) -> tuple[tuple[float, float], ...]:
     return tuple(table)
 
 
-__all__ = ["PROFONDEUR_MAX", "REPS_MAX", "depuis_workout_doc", "seance_du_jour"]
+__all__ = [
+    "MOTS_CALME",
+    "MOTS_ECHAUFFEMENT",
+    "MOTS_RECUPERATION",
+    "PROFONDEUR_MAX",
+    "REPS_MAX",
+    "depuis_workout_doc",
+    "seance_du_jour",
+]
