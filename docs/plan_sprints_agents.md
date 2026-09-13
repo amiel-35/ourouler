@@ -232,13 +232,25 @@ Trois conséquences de conception :
   on va dire 15-20 % pour trouver la zone »). C'est la variable
   d'ajustement principale : sur 1h d'échauffement, +20 % donne 6 km de jeu,
   donc on ne cherche plus un bon couloir **au** km 30 mais **entre** les
-  km 28,5 et 36. Barème proposé : échauffement et retour au calme de −5 %
-  à +20 % ; récups longues (4 min, 45 min Z2) ±20 % ; récups **courtes**
-  (1'30) **fixes**, elles font partie de la prescription ; durée des blocs
-  **jamais** modifiée. La recherche devient un glissement : on fait
-  coulisser la séance le long du tracé dans la fenêtre autorisée et on
-  garde la position qui met le plus de blocs sur du bon terrain ; la durée
-  totale annoncée s'ajuste en conséquence.
+  km 28,5 et 36. Barème **corrigé par le mainteneur** (13/09, « y a la Z2
+  début et la Z2 fin qui change ») : **seules** la Z2 d'échauffement et la
+  Z2 de retour au calme sont élastiques, de −5 % à +20 %. **Toutes les
+  récupérations sont fixes**, courtes comme longues, y compris les 45 min
+  de Z2 au milieu de « Durabilité » : elles font partie de la prescription.
+  Durée des blocs jamais modifiée.
+
+  Les deux leviers ont des rôles distincts :
+  - **Z2 de début = placement.** L'allonger décale toute la partie
+    contrainte plus loin sur le tracé ; c'est le seul moyen de faire
+    coulisser les blocs jusqu'à un bon couloir.
+  - **Z2 de fin = absorption.** Elle ne place rien : elle ramène à la
+    maison une fois le dernier bloc fini, quelle que soit la distance
+    restante. C'est elle qui referme la boucle.
+
+  La recherche devient donc : pour chaque candidate, faire varier la Z2 de
+  début dans sa fenêtre, mesurer la qualité du terrain sous chaque bloc,
+  garder le meilleur décalage ; la Z2 de fin s'ajuste et la durée totale
+  annoncée avec elle.
 - **L'échauffement fixe où chercher.** 1h d'échauffement place le premier
   bloc vers le km 30 ; la seconde série de « Durabilité » vers le km 65.
   C'est une contrainte **géométrique** sur la forme de la boucle, pas
