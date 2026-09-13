@@ -164,6 +164,13 @@ dans `[boucle]` ? une part de FTP configurable ?), ou faire venir la
 puissance de la séance du jour quand le sprint 4 la connaîtra — ce dernier
 choix semble le bon à terme.
 
+**Réponse d'Amiel (13/09/2026) — close.** « Soit c'est une séance full Z2,
+donc OK ; sinon ça dépend justement de la séance avec des blocs, c'est tout
+l'enjeu. » Donc : sans séance, `boucle` affiche une durée à l'allure Z2
+(65 % de la FTP, affiché en tête) ; dès le sprint 4, `sortie` simule la
+boucle bloc par bloc à partir de la séance Intervals du jour, et la durée
+est celle de la séance sur ce terrain.
+
 ## Q9 — CdA et Crr ne se séparent pas sur les données réelles
 
 Mesuré le 13/09/2026 sur les vraies sorties (100 RCR, 37 BMC, vent d'archive
