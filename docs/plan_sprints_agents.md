@@ -139,3 +139,19 @@ Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
   lancé le soir même, mainteneur absent : les lots avancent sur fixtures et
   sur Open-Meteo (pas de clé nécessaire) ; le connecteur Intervals attend la
   clé pour sa vérification réelle.
+- **2026-09-12, soir** — Sprint 1 livré sur la branche `sprint-1`, PR vers
+  `main` en attente du mainteneur. Déroulé : deux dev-feature (données,
+  météo) et un testeur-adversarial en aveugle, chacun dans son worktree ;
+  relecture Opus (17 points, 1 bloquant : valeurs réelles dans
+  `config.example.toml`, corrigé) ; deux passes de corrections. État final :
+  822 tests, ruff vert. **Vérifié sur vraies données** : `ourouler meteo`
+  (Rennes, AROME HD + ICON, soirée sans pluie donc branche « désaccord »
+  démontrée sur fixtures seulement). **Non vérifié** : lecteurs, cache,
+  inventaire et connecteur Intervals — aucun fichier réel ni clé (Q1).
+  Écarts prévu/réalisé : sous-commande `config` ajoutée ; `--depart`
+  tronqué à l'heure ; second avis apparié par horodatage ; découpe Intervals
+  systématique par mois (le seuil de troncature deviné a été retiré).
+  Dette assumée, à reprendre : fenêtre partielle des 30 premières secondes
+  de la puissance normalisée ; lissage du dénivelé à 5 points non calibré ;
+  découpage mois/jour en UTC ; règle « ici » sans vent relatif ; budget de
+  fixtures à 2 % de sa borne ; Q7 (ordre des règles de rattachement).

@@ -1,23 +1,70 @@
 # ourouler — où rouler ?
 
-Bibliothèque Python et ligne de commande pour cyclistes avec capteur de
-puissance : où va-t-il pleuvoir dans les prochaines heures autour de chez
-moi, dans quelle direction partir, sur quel parcours de la bonne durée,
-cohérent avec la séance du jour, et avec quelle tenue.
+Pour cyclistes avec capteur de puissance. La question de départ : *« je vais
+rouler ; au nord, au sud ou à l'est, où va-t-il pleuvoir ? »* — puis un
+parcours de la bonne durée dans la bonne direction, cohérent avec la séance
+du jour, avec la tenue à mettre, poussé sur le compteur.
 
-État : **en cadrage** (septembre 2026). Voir `docs/cadrage.md` pour le besoin,
-`doctrine_architecture.md` pour les choix, `docs/plan_sprints_agents.md`
-pour l'avancement.
+## Où ça va
+
+La cible est un **service hébergé avec une interface web** : chacun se crée
+un compte, renseigne son profil (puissance, point de départ habituel, vélos),
+importe ses données (FIT / GPX / TCX, Intervals.icu…) et obtient la météo par
+direction, une boucle adaptée et sa sortie du jour.
+
+Le chemin pour y arriver, dans cet ordre, sans brûler d'étape :
+
+1. **Une bibliothèque Python et une ligne de commande** qui couvrent d'abord
+   le besoin du mainteneur, premier utilisateur, sur ses vraies données.
+   C'est là qu'on en est (sprint 1, septembre 2026).
+2. **Une API** au-dessus du même cœur : la CLI n'est qu'un adaptateur, l'API
+   en sera un second.
+3. **Le front web** et les comptes.
+
+Le cœur est écrit dès aujourd'hui pour ça : il ne lit ni fichier local ni
+variable d'environnement, il reçoit un profil et des connecteurs, et chaque
+commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
+
+## Ce que fait la ligne de commande
+
+| Commande | Rôle | État |
+|---|---|---|
+| `ourouler meteo` | pluie, vent et ressenti par direction et par heure autour du point de départ (Open-Meteo, AROME 1,3 km + second modèle en indice de confiance) | sprint 1 |
+| `ourouler inventaire` | lecture FIT / GPX / TCX, cache local, inventaire des sorties par vélo et par mois, synchronisation Intervals.icu | sprint 1 — **non vérifié sur vraies données** (clé Intervals et fichiers réels absents, Q1) |
+| `ourouler boucle` | boucle de la bonne distance dans la direction sèche, vent de face à l'aller, GPX | sprint 2 |
+| `ourouler sortie` | séance du jour ↔ terrain : modèle physique calibré par vélo, choix de la boucle, résumé, tenue | plus tard |
+| envoi vers Garmin Connect | | plus tard |
+
+`ourouler meteo` est le seul lot du sprint 1 **vérifié pour de vrai** :
+Open-Meteo est gratuit et sans clé, la commande tourne sur le point de
+départ de la configuration. `ourouler inventaire` n'a jamais parlé au vrai
+service Intervals.icu ni lu un fichier d'activité réel : il est testé sur
+des fixtures synthétiques et des réponses fabriquées. C'est écrit ici parce
+que la règle 4 de `CLAUDE.md` l'exige : un lot non vérifié le dit en toutes
+lettres.
 
 ## Installation (développement)
 
 ```bash
 uv sync --extra dev
-cp config.example.toml ~/.config/ourouler/config.toml   # puis renseigner
-uv run ourouler --help
+mkdir -p ~/.config/ourouler && cp config.example.toml ~/.config/ourouler/config.toml
+uv run ourouler config
 ```
 
-Les données et les clés d'API restent chez l'utilisateur : rien de
-personnel n'entre dans ce dépôt.
+Renseigner ensuite le point de départ, le cycliste, les vélos et, pour la
+synchronisation, la clé d'API Intervals.icu. Les données et les clés restent
+chez l'utilisateur : rien de personnel n'entre dans ce dépôt — dans le code,
+les tests et la configuration d'exemple. Le fichier de configuration réel
+n'est jamais commité ; `config.example.toml` ne porte que des valeurs
+inventées, et un test le mesure (`tests/test_invariants.py`). La
+documentation de cadrage, elle, contient encore des chiffres réels du
+mainteneur : à trancher avant l'ouverture du dépôt (Q6).
+
+## Documentation
+
+- `docs/cadrage.md` — le besoin d'origine.
+- `doctrine_architecture.md` — les choix structurants et leurs raisons.
+- `docs/plan_sprints_agents.md` — sprints, critères d'acceptation, équipe d'agents.
+- `docs/questions_mainteneur.md` — ce qui attend une décision.
 
 Licence MIT.

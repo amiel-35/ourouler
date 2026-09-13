@@ -1,0 +1,49 @@
+# Configuration de test — aucune donnée réelle.
+# Point de départ fictif (0.0, 0.0) : en pleine mer, dans le golfe de Guinée.
+# Cache dans un dossier relatif `cache/`, ignoré par git.
+#
+# Sert la vérification de bout en bout du lot L1.3 :
+#   uv run ourouler --config tests/fixtures/config_test.toml \
+#       inventaire --importer tests/fixtures/activites
+
+historique_depuis = "2023-12-01"
+
+[depart]
+nom = "Point fictif"
+latitude = 0.0
+longitude = 0.0
+
+[cycliste]
+masse_kg = 80.0
+ftp_w = 250
+
+[[velos]]
+nom = "Route"
+usage = "route"
+masse_kg = 8.5
+cda_m2 = 0.32
+intervals_gear = "velo-test-route"   # identifiant inventé
+
+[[velos]]
+nom = "CLM"
+usage = "clm"
+masse_kg = 9.5
+cda_m2 = 0.26
+intervals_gear = "velo-test-clm"     # identifiant inventé
+# Période volontairement hors de la fenêtre des fixtures, pour que la règle
+# de rattachement par période soit testable sans tout capturer.
+periodes = [{ debut = "2023-12-01", fin = "2023-12-31" }]
+
+[meteo]
+directions = 8
+distances_km = [15, 25, 40]
+modele = "meteofrance_arome_france_hd"
+second_avis = "icon_seamless"
+horizon_h = 6
+
+[intervals]
+athlete_id = ""   # non renseigné : --synchroniser refuse proprement
+api_key = ""
+
+[cache]
+dossier = "cache"
