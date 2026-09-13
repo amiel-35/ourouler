@@ -37,7 +37,7 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | `ourouler simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu | sprint 3 — **vérifié** sur une boucle générée |
 | `ourouler comparer` | de combien un vélo va plus vite que l'autre **à puissance égale**, mesuré sur des séries plates sans arrêt, sans modèle physique | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler seance` | la séance planifiée du jour (Intervals.icu), étape par étape, avec la longueur de route que chaque bloc demande et celle qu'il faut au-delà pour faire demi-tour pendant la récupération | sprint 4 — **vérifié sur vraies données (13/09/2026)** |
-| `ourouler sortie` | séance du jour ↔ terrain : choix de la boucle, résumé, tenue | plus tard |
+| `ourouler sortie` | séance du jour ↔ terrain : boucles candidates, placement des blocs, tableau trié par note de placement puis pluie, GPX, tenue et **carte HTML de vérification** (tracé, blocs colorés, profil d'altitude) | sprint 4 — **vérifié sur vraies données (13/09/2026)**, météo absente sur les jours passés (hors horizon de prévision) |
 | envoi vers Garmin Connect | | plus tard |
 
 Ces commandes ont toutes tourné sur les vraies données du mainteneur, et pas
@@ -52,6 +52,11 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   seconde synchronisation n'ajoute rien et ne retélécharge rien.
 - `ourouler boucle` : sur le serveur BRouter auto-hébergé et Open-Meteo, avec
   écriture du GPX et relecture de ce GPX par `--gpx`.
+- `ourouler sortie` : le 13/09/2026, sur les deux séances de coach de référence
+  (08/02/2026 « 2x20' + 4x3' », 22/04/2026 « 4x8 SV1 outdoor »), quatre boucles
+  candidates chacune, GPX et carte écrits. Pluie, vent et tenue ne sortent que
+  pour un jour dans l'horizon de prévision : sur un jour passé, les colonnes
+  météo disparaissent et le tableau le dit.
 - `ourouler routes` : le 13/09/2026, 154 sorties extérieures rejouées dans
   BRouter (2 min 26). Ce que le mainteneur roule vraiment : 58 % de
   `tertiary`, 20 % de `secondary`, 13 % d'`unclassified`, 3 % de `primary`.

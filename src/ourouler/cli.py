@@ -41,6 +41,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_simuler(sous)
     ajouter_comparer(sous)
     ajouter_seance(sous)
+    ajouter_sortie(sous)
     return p
 
 
@@ -364,6 +365,47 @@ def ajouter_seance(sous: argparse._SubParsersAction) -> None:
 
 def _commande_seance(args: argparse.Namespace, config: Config) -> int:
     from ourouler.seance.commande import executer  # import paresseux (lot L4.1)
+
+    return executer(args, config)
+
+
+def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "sortie",
+        help="la séance du jour posée sur une boucle : tableau, GPX, tenue et carte HTML",
+        parents=[parent_json()],
+    )
+    p.add_argument("--jour", metavar="AAAA-MM-JJ", help="date de la séance (défaut : aujourd'hui)")
+    p.add_argument(
+        "--distance",
+        type=float,
+        metavar="KM",
+        help="longueur de la boucle (défaut : la distance estimée de la séance, "
+        "arrondie au multiple de 5 supérieur)",
+    )
+    p.add_argument(
+        "--direction",
+        help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon)",
+    )
+    p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
+    p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
+    p.add_argument(
+        "--depart",
+        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)",
+    )
+    p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
+    p.add_argument("--carte", metavar="FICHIER.HTML", help="où écrire la carte de vérification")
+    p.add_argument("--profil", help="profil BRouter (défaut : config)")
+    p.add_argument(
+        "--ecraser",
+        action="store_true",
+        help="remplacer les fichiers de --sortie et --carte s'ils existent déjà",
+    )
+    p.set_defaults(fonction=_commande_sortie)
+
+
+def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.sortie.commande import executer  # import paresseux (lot L4.4)
 
     return executer(args, config)
 
