@@ -12,7 +12,7 @@ Aucune clé n'existe sur le Mac : le MCP Intervals est un proxy hébergé
 (`[intervals] api_key`), jamais ailleurs. Sans elle, l'inventaire ne peut
 pas rapatrier les FIT d'origine.
 
-## Q2 — Liste des vélos et règle de rattachement
+## Q2 — Liste des vélos et règle de rattachement — **close le 13/09/2026**
 
 Intervals ne connaît un vélo que sur 68 sorties sur 355 : `rcr` (55, du
 02/12/2023 au 22/03/2026, surtout extérieur), `VR` (11, home-trainer,
@@ -34,6 +34,20 @@ messages `device_info` (fabricant/produit du capteur) et la présence du
 champ d'équilibre gauche/droite (bilatéral = Force = BMC) ; parité de la
 puissance en repli. Lot « rattachement par capteur » au sprint 2, à valider
 sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
+
+**Réponse d'Amiel (13/09/2026) — masses, et Q2 close.** Posées dans sa
+configuration locale, hors dépôt :
+- **RCR** : Van Rysel, SRAM Rival, roues Zipp 303s → 8,5 kg, plus 0,5 kg de
+  porte-bidon, pédales et compteur = **9,0 kg**.
+- **BMC** : Timemachine 2021, SRAM Force, roues Hologram 64 arrière et 45
+  avant → 9,5 kg, plus 0,5 = **10,0 kg**.
+
+Masses totales avec le cycliste : 100,0 et 101,0 kg. Effet mesuré sur la
+calibration : **nul** — erreur de temps inchangée à 4,2 % et 2,4 %. C'est
+ce que le cadrage annonçait : hors montagne, un kilo sur cent ne se voit
+pas. Les masses sont désormais justes, ce qui compte pour le jour où une
+sortie montagneuse entrera dans le jeu.
+
 
 ## Q3 — Point de départ et règles de tenue / de séance
 
