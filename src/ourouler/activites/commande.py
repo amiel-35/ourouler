@@ -28,7 +28,14 @@ def executer(args: argparse.Namespace, config: Config) -> int:
             journal.append(f"  ignoré — {echec}")
 
     if getattr(args, "synchroniser", False):
-        journal.extend(_synchroniser(cache, config, depuis))
+        journal.extend(
+            _synchroniser(
+                cache,
+                config,
+                depuis,
+                rafraichir_meta=not getattr(args, "sans_rafraichir", False),
+            )
+        )
 
     inv = inventaire(cache, config, depuis)
     if getattr(args, "json", False):
@@ -53,7 +60,9 @@ def _depuis(brut: str | None, config: Config) -> date:
         raise ErreurUtilisateur(f"--depuis : date AAAA-MM-JJ attendue, reçu « {brut} »") from e
 
 
-def _synchroniser(cache: Cache, config: Config, depuis: date) -> list[str]:
+def _synchroniser(
+    cache: Cache, config: Config, depuis: date, *, rafraichir_meta: bool = True
+) -> list[str]:
     """Rapatrie les activités Intervals.icu manquantes. Import paresseux : le
     connecteur n'est chargé que si on s'en sert."""
     if not config.intervals.renseigne:
@@ -64,11 +73,13 @@ def _synchroniser(cache: Cache, config: Config, depuis: date) -> list[str]:
     from ourouler.connecteurs.intervals import ClientIntervals, synchroniser
 
     client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
-    rapport = synchroniser(client, cache, depuis)
+    rapport = synchroniser(client, cache, depuis, rafraichir_meta=rafraichir_meta)
     journal = [
         f"Synchronisation Intervals.icu depuis le {depuis.isoformat()} : "
         f"{rapport.vues} vue(s), {rapport.ajoutees} ajoutée(s), "
-        f"{rapport.ignorees} déjà en cache, {rapport.echecs} échec(s)."
+        f"{rapport.ignorees} déjà en cache (dont {rapport.mises_a_jour} "
+        f"métadonnées mises à jour), {rapport.autres_sports} autre(s) sport(s), "
+        f"{rapport.sans_contenu} sans contenu, {rapport.echecs} échec(s)."
     ]
     journal.extend(f"  échec — {m}" for m in rapport.messages)
     return journal

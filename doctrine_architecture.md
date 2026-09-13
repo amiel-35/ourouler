@@ -1,7 +1,7 @@
 # Doctrine d'architecture — ourouler (« où rouler ? »)
 
-Nom de travail : **ourouler** (paquet Python et commande). À renommer si le
-mainteneur trouve mieux ; le dépôt GitHub s'appelle `bike-routing`. Ce
+Nom : **ourouler** (paquet Python, commande et dépôt GitHub `amiel-35/ourouler`),
+validé par le mainteneur le 13/09/2026. Ce
 document fixe les choix structurants et leurs raisons. On le modifie par
 décision explicite du mainteneur, jamais par dérive. `CLAUDE.md` en est le
 résumé opérationnel pour les agents ; en cas de doute, c'est ce document qui
@@ -186,8 +186,14 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   Open-Meteo gratuit est réservé à un usage non commercial et limité par
   adresse IP : un service hébergé devra soit passer sur l'offre payante,
   soit mutualiser (cache des prévisions par maille et par heure, partagé
-  entre utilisateurs). Le module météo est donc écrit avec une couche de
-  cache injectable devant le client HTTP dès le sprint 2.
+  entre utilisateurs). Le module météo recevra une couche de cache
+  injectable devant le client HTTP **au premier sprint de l'hébergé** —
+  l'exigence « dès le sprint 2 » écrite au cadrage a été ajournée par le
+  superviseur le 13/09/2026 (relecture du sprint 2, point 9) : en CLI,
+  chaque utilisateur appelle depuis sa propre adresse, et un `boucle` à 5
+  candidates coûte ~10 appels Open-Meteo + 12 BRouter, sans enjeu de quota.
+  Le client Open-Meteo est déjà injectable, ce qui suffit à poser le cache
+  plus tard sans toucher au cœur.
 
   Ordres de grandeur (question du mainteneur, 12/09/2026) : le gratuit
   tolère environ 10 000 appels par jour et par adresse IP (5 000 par heure,

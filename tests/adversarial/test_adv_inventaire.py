@@ -1,8 +1,13 @@
 """L1.3 — rattachement au vélo et inventaire, mis à l'épreuve.
 
-Cible : contrat §2. La règle de rattachement est ordonnée (1 équipement,
-2 période, 3 sport intérieur, 4 premier vélo « route ») : la moitié des
-tests ici vérifie l'**ordre**, pas seulement chaque règle prise à part.
+Cible : contrat §2 du sprint 1, **révisé par le contrat du sprint 2 §7**
+(lot L2.7). La règle de rattachement est ordonnée ; l'ordre a changé : il
+était (1 équipement, 2 période, 3 sport intérieur, 4 premier vélo « route »),
+il est désormais (1 intérieur, 2 capteur de puissance, 3 équipement — par
+`gear_id` ou par nom, 4 période, 5 premier vélo « route »). La moitié des
+tests ici vérifie l'**ordre**, pas seulement chaque règle prise à part ; les
+trois tests d'ordre ci-dessous ont été réécrits en conséquence, la cible
+ayant bougé sous eux.
 
 Les `EntreeCache` sont fabriquées directement (`outils.fabriquer`) : le
 contrat donne la liste des champs mais ni leur ordre ni leurs défauts, et il
@@ -49,7 +54,7 @@ def _config(velos: list[dict], **reste):
 
 
 #: Deux vélos « route » qui se succèdent dans le temps, plus un CLM en tête de
-#: liste pour que la règle 4 (« premier vélo d'usage route ») soit distinguable
+#: liste pour que la règle 5 (« premier vélo d'usage route ») soit distinguable
 #: d'un simple « premier vélo de la liste ».
 VELOS = [
     {"nom": "Chrono", "usage": "clm", "intervals_gear": ""},
@@ -95,14 +100,14 @@ def _rattacher(module, config, **surcharges) -> str:
     return resultat
 
 
-# --- règle 1 : équipement ----------------------------------------------------
+# --- règle 3 : équipement ----------------------------------------------------
 
 
 @pytest.mark.parametrize("equipement", ["gear-beta", "GEAR-BETA", "Gear-Beta", "gEaR-bEtA"])
 def test_equipement_insensible_a_la_casse(equipement):
     module = _inventaire_module()
     assert _rattacher(module, _config(VELOS), equipement=equipement, debut=DEBUT_REF) == "Beta", (
-        "l'équipement doit primer sur la période, quelle que soit la casse"
+        "l'équipement (règle 3) doit primer sur la période (règle 4), quelle que soit la casse"
     )
 
 
@@ -112,17 +117,17 @@ def test_equipement_vide_ou_inconnu_ne_capture_pas(equipement):
 
     Le vélo « Chrono » a un `intervals_gear` vide : si l'implémentation
     compare deux chaînes vides, elle lui rattache tout le reste, alors que la
-    règle 4 désigne le premier vélo d'usage *route*.
+    règle 5 désigne le premier vélo d'usage *route*.
     """
     module = _inventaire_module()
     resultat = _rattacher(
         module, _config(VELOS), equipement=equipement, debut=datetime(2023, 5, 1, 12, tzinfo=UTC)
     )
     assert resultat != "Chrono", "un intervals_gear vide ne doit rien capturer"
-    assert resultat == "Alpha", "règle 4 : premier vélo d'usage route"
+    assert resultat == "Alpha", "règle 5 : premier vélo d'usage route"
 
 
-# --- règle 2 : période -------------------------------------------------------
+# --- règle 4 : période -------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -166,7 +171,7 @@ def test_debut_naif_ne_fait_pas_planter_le_rattachement():
     )
 
 
-# --- règle 3 : sport intérieur ----------------------------------------------
+# --- règle 1 : sport intérieur ----------------------------------------------
 
 
 @pytest.mark.parametrize("sport", ["VirtualRide", "virtualride", "VIRTUALRIDE"])
@@ -238,12 +243,20 @@ def test_meta_interieur_faux_ne_suffit_pas():
 
 
 def test_equipement_prime_sur_la_periode():
+    """Contrat sprint 2 §7 : « (3) gear_id / equipement ; (4) période »."""
     module = _inventaire_module()
     resultat = _rattacher(module, _config(VELOS), equipement="gear-beta", debut=DEBUT_REF)
-    assert resultat == "Beta", "règle 1 avant règle 2 (la période de mars 2024 est celle d'Alpha)"
+    assert resultat == "Beta", "règle 3 avant règle 4 (la période de mars 2024 est celle d'Alpha)"
 
 
-def test_equipement_prime_sur_le_home_trainer():
+def test_l_interieur_prime_sur_l_equipement():
+    """Contrat sprint 2 §7 : « (1) intérieur […] ; (3) gear_id / equipement ».
+
+    Inversion assumée par rapport au sprint 1, où l'équipement gagnait. Une
+    séance de home-trainer faite avec le capteur et l'équipement du vélo de
+    route reste une séance d'intérieur : sinon elle serait comptée en sortie
+    extérieure et fausserait les kilomètres du vélo.
+    """
     module = _inventaire_module()
     resultat = _rattacher(
         module,
@@ -254,19 +267,20 @@ def test_equipement_prime_sur_le_home_trainer():
         meta={"interieur": True},
         debut=datetime(2023, 5, 1, 12, tzinfo=UTC),
     )
-    assert resultat == "Alpha", "règle 1 avant règle 3 : un home-trainer déclaré sur un vélo reste ce vélo"
+    assert resultat == HOME_TRAINER, "règle 1 avant règle 3"
 
 
-def test_periode_prime_sur_le_home_trainer():
+def test_l_interieur_prime_sur_la_periode():
+    """Contrat sprint 2 §7 : « (1) intérieur […] ; (4) période »."""
     module = _inventaire_module()
     resultat = _rattacher(
         module, _config(VELOS), sport="VirtualRide", appareil="ZWIFT", debut=DEBUT_REF
     )
-    assert resultat == "Alpha", "règle 2 avant règle 3"
+    assert resultat == HOME_TRAINER, "règle 1 avant règle 4"
 
 
 def test_aucun_velo_de_route_configure():
-    """Le contrat ne dit pas quoi faire si la règle 4 n'a pas de candidat."""
+    """Le contrat ne dit pas quoi faire si la règle 5 n'a pas de candidat."""
     module = _inventaire_module()
     config = _config([{"nom": "Chrono", "usage": "clm"}])
     resultat, erreur = outils.robuste(

@@ -15,6 +15,7 @@ import httpx
 import pytest
 
 from ourouler.activites.cache import Cache
+from ourouler.activites.modele import TYPES_VELO, est_sport_velo
 from ourouler.connecteurs.intervals import (
     ClientIntervals,
     RapportSynchro,
@@ -36,6 +37,22 @@ ACTIVITE_1 = {
     "gear": {"id": "b000", "name": "Route"},
     "icu_average_watts": 205,
     "trainer": False,
+    "power_meter": "CAPTEUR 0001",
+    "power_meter_serial": "SN-0001",
+}
+
+#: Réponse de `GET /api/v1/athlete/{id}/gear` : noms entièrement inventés.
+EQUIPEMENTS = [
+    {"id": "b000", "name": "Route inventee", "type": "Bike", "retired": False},
+    {"id": "b001", "name": "CLM inventee", "type": "Bike", "retired": False},
+]
+
+#: Une course à pied : l'API en renvoie, la synchronisation ne doit pas la prendre.
+ACTIVITE_COURSE = {
+    "id": "a333",
+    "name": "Footing invente",
+    "type": "Run",
+    "start_date_local": "2024-03-31T18:00:00",
 }
 ACTIVITE_2 = {
     "id": "a222",
@@ -424,13 +441,15 @@ def cache(tmp_path: Path) -> Cache:
     return Cache(tmp_path / "cache")
 
 
-def connecteur_complet(activites_dossier: Path, liste: list[dict]):
-    """Transport qui sert une liste d'activités puis un FIT valide pour chacune."""
+def connecteur_complet(activites_dossier: Path, liste: list[dict], gear: list[dict] | None = None):
+    """Transport qui sert la liste d'activités, l'équipement, puis un FIT valide."""
     fit = (activites_dossier / "boucle.fit").read_bytes()
 
     def reponses(requete: httpx.Request) -> httpx.Response:
         if requete.url.path.endswith("/activities"):
             return httpx.Response(200, json=liste)
+        if requete.url.path.endswith("/gear"):
+            return httpx.Response(200, json=gear if gear is not None else EQUIPEMENTS)
         return httpx.Response(200, content=fit)
 
     return reponses
@@ -442,7 +461,9 @@ def test_synchroniser_ajoute_et_recopie_les_metadonnees(cache: Cache, activites:
     assert (rapport.vues, rapport.ajoutees, rapport.ignorees, rapport.echecs) == (1, 1, 0, 0)
     (entree,) = cache.lister()
     assert entree.source == "intervals" and entree.id_externe == "a111"
-    assert entree.equipement == "Route"
+    assert entree.equipement == "Route inventee"  # résolu par l'endpoint gear
+    assert entree.meta["power_meter"] == "CAPTEUR 0001"
+    assert entree.meta["gear_id"] == "b000"
     assert entree.sport == "Ride"  # le type Intervals prime sur le « cycling » du FIT
     assert entree.meta["nom"] == "Sortie inventee 1"
     assert entree.extension == "fit"
@@ -460,6 +481,40 @@ def test_synchroniser_ne_retelecharge_pas_ce_qui_est_en_cache(cache: Cache, acti
     assert espion.chemins.count("/api/v1/activity/a111/file") == telechargements
 
 
+def test_synchroniser_converge_quand_deux_activites_partagent_le_fichier(
+    cache: Cache, activites: Path
+):
+    """Deux activités, un seul fichier d'origine (le cas du triathlon).
+
+    Point 2 de la relecture du sprint 2 : le cache était indexé par le sha256
+    du contenu, donc les deux segments d'un triathlon (natation et vélo dans
+    le même FIT) n'avaient qu'une ligne, celle de la dernière. `contient()`
+    devenait faux pour la première, qui était retéléchargée à chaque passe en
+    faisant disparaître la seconde : la synchronisation n'a jamais convergé.
+    """
+    premiere = {**ACTIVITE_1, "id": "t1", "name": "Segment invente 1"}
+    seconde = {**ACTIVITE_1, "id": "t2", "name": "Segment invente 2"}
+    c, espion = client(connecteur_complet(activites, [premiere, seconde]))
+
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.ignorees) == (2, 2, 0)
+    entrees = cache.lister()
+    assert {e.id_externe for e in entrees} == {"t1", "t2"}, "lister() doit rendre les deux"
+    assert len({e.identifiant for e in entrees}) == 1, "même contenu = même identifiant"
+    assert len(list(cache.brut.iterdir())) == 1, "un seul fichier brut"
+    assert cache.contient(source="intervals", id_externe="t1")
+    assert cache.contient(source="intervals", id_externe="t2")
+    telechargements = [chemin for chemin in espion.chemins if chemin.endswith("/file")]
+    assert len(telechargements) == 2
+
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.ignorees) == (2, 0, 2), "seconde passe : 0 ajout"
+    assert [
+        chemin for chemin in espion.chemins if chemin.endswith("/file")
+    ] == telechargements, "seconde passe : aucun appel /file"
+    assert {e.id_externe for e in cache.lister()} == {"t1", "t2"}, "aucune des deux ne disparaît"
+
+
 def test_synchroniser_compte_les_echecs_sans_s_arreter(cache: Cache, activites: Path):
     """Un fichier illisible ou en erreur ne doit pas interrompre la synchro."""
     fit = (activites / "boucle.fit").read_bytes()
@@ -467,6 +522,8 @@ def test_synchroniser_compte_les_echecs_sans_s_arreter(cache: Cache, activites: 
     def reponses(requete: httpx.Request) -> httpx.Response:
         if requete.url.path.endswith("/activities"):
             return httpx.Response(200, json=[ACTIVITE_1, ACTIVITE_2])
+        if requete.url.path.endswith("/gear"):
+            return httpx.Response(200, json=EQUIPEMENTS)
         if "a111" in requete.url.path:
             return httpx.Response(500, json={})
         return httpx.Response(200, content=fit)
@@ -483,6 +540,8 @@ def test_synchroniser_echoue_proprement_sur_un_fichier_illisible(cache: Cache):
     def reponses(requete: httpx.Request) -> httpx.Response:
         if requete.url.path.endswith("/activities"):
             return httpx.Response(200, json=[ACTIVITE_1])
+        if requete.url.path.endswith("/gear"):
+            return httpx.Response(200, json=EQUIPEMENTS)
         return httpx.Response(200, content=b"\x00 pas un fichier d'activite")
 
     c, _ = client(reponses)
@@ -507,3 +566,196 @@ def test_synchroniser_activite_sans_identifiant(cache: Cache):
 def test_synchroniser_liste_vide(cache: Cache):
     c, _ = client(json_fixe([]))
     assert synchroniser(c, cache, date(2024, 3, 1)) == RapportSynchro()
+
+
+# --- L2.7 : équipements, métadonnées de rattachement, rafraîchissement --------
+
+
+def test_equipements_resout_les_noms_et_n_appelle_qu_une_fois():
+    """Un seul appel à `athlete/{id}/gear` par client, quel que soit l'usage."""
+    c, espion = client(json_fixe(EQUIPEMENTS))
+    assert c.equipements() == {"b000": "Route inventee", "b001": "CLM inventee"}
+    assert c.equipements() == {"b000": "Route inventee", "b001": "CLM inventee"}
+    assert espion.chemins == [f"/api/v1/athlete/{ATHLETE}/gear"]
+
+
+def test_equipements_ignore_les_entrees_sans_id_ni_nom():
+    c, _ = client(json_fixe([{"id": "b1"}, {"name": "sans id"}, {"id": "b2", "name": "Vu"}]))
+    assert c.equipements() == {"b2": "Vu"}
+
+
+def test_equipements_liste_vide():
+    c, _ = client(json_fixe([]))
+    assert c.equipements() == {}
+
+
+def test_equipements_erreur_http_ne_laisse_pas_fuir_la_cle():
+    c, _ = client(json_fixe({}, code=403))
+    with pytest.raises(ErreurConnecteur) as e:
+        c.equipements()
+    assert "gear" in str(e.value) and CLE not in str(e.value)
+
+
+def test_metadonnees_recopie_les_champs_de_rattachement():
+    """Contrat §7 : power_meter, power_meter_serial, bilateral, gear_id, trainer,
+    device_name."""
+    m = metadonnees(ACTIVITE_1)
+    assert m["power_meter"] == "CAPTEUR 0001"
+    assert m["power_meter_serial"] == "SN-0001"
+    assert m["gear_id"] == "b000"
+    assert m["trainer"] is False
+    assert m["device_name"] == "Appareil de test"
+
+
+def test_metadonnees_bilateral_depend_de_avg_lr_balance():
+    """Un capteur unilatéral ne renvoie pas `avg_lr_balance` ; un bilatéral, si."""
+    assert metadonnees({"id": 1})["bilateral"] is False
+    assert metadonnees({"id": 1, "avg_lr_balance": None})["bilateral"] is False
+    assert metadonnees({"id": 1, "avg_lr_balance": 49.7})["bilateral"] is True
+    assert metadonnees({"id": 1, "avg_lr_balance": 0})["bilateral"] is True
+
+
+def test_metadonnees_resout_l_equipement_par_l_endpoint_gear():
+    """La liste d'activités ne porte qu'un `gear.id` : le nom vient de la table."""
+    sans_nom = {"id": "a1", "gear": {"id": "b001"}}
+    assert metadonnees(sans_nom)["equipement"] is None
+    assert metadonnees(sans_nom, {"b001": "CLM inventee"})["equipement"] == "CLM inventee"
+    assert metadonnees(sans_nom, {})["equipement"] is None
+    # Un identifiant absent de la table laisse le nom porté par l'activité.
+    assert metadonnees(ACTIVITE_1, {"b999": "Autre"})["equipement"] == "Route"
+
+
+def test_synchroniser_ne_rapatrie_que_le_velo(cache: Cache, activites: Path):
+    """Le compte contient d'autres sports : ils sont comptés, jamais téléchargés."""
+    c, espion = client(connecteur_complet(activites, [ACTIVITE_1, ACTIVITE_COURSE]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.autres_sports) == (2, 1, 1)
+    assert "/api/v1/activity/a333/file" not in espion.chemins
+    assert [e.id_externe for e in cache.lister()] == ["a111"]
+
+
+def test_synchroniser_filtre_velo_desactive_elargit_a_tout(cache: Cache, activites: Path):
+    c, _ = client(connecteur_complet(activites, [ACTIVITE_COURSE]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1), filtre_velo=False)
+    assert (rapport.ajoutees, rapport.autres_sports) == (1, 0)
+
+
+def test_les_deux_filtres_de_sport_sont_le_meme(cache: Cache, activites: Path):
+    """Point 7 de la relecture : le connecteur et l'inventaire se contredisaient.
+
+    Le connecteur écartait tout `type` absent de `TYPES_VELO` — un type vide
+    ou absent compris —, là où `est_sport_velo` compte comme du vélo un sport
+    que la source n'a pas nommé : « on ne jette pas une sortie parce que la
+    source s'est tue ». Une activité sans type, ou d'un type nouveau
+    (« Gravel » plutôt que « GravelRide »), n'était donc jamais rapatriée, et
+    se retrouvait comptée en `autres_sports`, perdue en silence.
+    """
+    sans_type = {**ACTIVITE_1, "id": "s1"}
+    sans_type.pop("type")
+    type_vide = {**ACTIVITE_1, "id": "s2", "type": ""}
+    course = {**ACTIVITE_COURSE, "id": "s3"}
+
+    c, espion = client(connecteur_complet(activites, [sans_type, type_vide, course]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+
+    assert (rapport.vues, rapport.ajoutees, rapport.autres_sports) == (3, 2, 1)
+    assert {e.id_externe for e in cache.lister()} == {"s1", "s2"}
+    assert "/api/v1/activity/s3/file" not in espion.chemins, "« Run » reste écarté"
+    # Rapatriée sans type, l'activité est classée par ce que dit le fichier.
+    (entree,) = [e for e in cache.lister() if e.id_externe == "s1"]
+    assert entree.sport == "cycling", "à défaut de type Intervals, le FIT tranche"
+    assert est_sport_velo(entree.sport), "et l'inventaire la compte bien en vélo"
+
+
+@pytest.mark.parametrize(
+    "libelle", [None, "", "Ride", "VirtualRide", "GravelRide", "Run", "Swim", "Triathlon"]
+)
+def test_le_connecteur_rapatrie_exactement_ce_que_l_inventaire_compte(
+    cache: Cache, activites: Path, libelle
+):
+    """Point 7 : un seul filtre, donc la même réponse des deux côtés, libellé par libellé."""
+    activite = {**ACTIVITE_1, "id": "u1"}
+    if libelle is None:
+        activite.pop("type")
+    else:
+        activite["type"] = libelle
+    c, _ = client(connecteur_complet(activites, [activite]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.ajoutees == 1) is est_sport_velo(libelle), (
+        f"{libelle!r} : le connecteur et `est_sport_velo` doivent dire la même chose"
+    )
+
+
+def test_types_velo_contient_les_types_cyclistes_d_intervals():
+    assert "Ride" in TYPES_VELO and "VirtualRide" in TYPES_VELO
+    assert "Run" not in TYPES_VELO and "Swim" not in TYPES_VELO
+
+
+def test_rafraichir_meta_met_a_jour_sans_retelecharger(cache: Cache, activites: Path):
+    """Le cœur de L2.7 : enrichir un cache déjà rempli sans repayer les téléchargements."""
+    pauvre = {k: v for k, v in ACTIVITE_1.items() if k not in ("power_meter", "power_meter_serial")}
+    c, espion = client(connecteur_complet(activites, [pauvre]))
+    synchroniser(c, cache, date(2024, 3, 1))
+    telechargements = espion.chemins.count("/api/v1/activity/a111/file")
+    assert cache.lister()[0].meta.get("power_meter") is None
+
+    c2, espion2 = client(connecteur_complet(activites, [ACTIVITE_1]))
+    rapport = synchroniser(c2, cache, date(2024, 3, 1), rafraichir_meta=True)
+    assert (rapport.ajoutees, rapport.ignorees, rapport.mises_a_jour) == (0, 1, 1)
+    assert espion2.chemins.count("/api/v1/activity/a111/file") == 0
+    assert espion.chemins.count("/api/v1/activity/a111/file") == telechargements
+    (entree,) = cache.lister()
+    assert entree.meta["power_meter"] == "CAPTEUR 0001"
+    assert entree.equipement == "Route inventee"
+    assert entree.chemin.is_file()
+
+
+def test_sans_rafraichir_meta_ne_touche_a_rien(cache: Cache, activites: Path):
+    pauvre = {k: v for k, v in ACTIVITE_1.items() if k != "power_meter"}
+    c, _ = client(connecteur_complet(activites, [pauvre]))
+    synchroniser(c, cache, date(2024, 3, 1))
+
+    c2, _ = client(connecteur_complet(activites, [ACTIVITE_1]))
+    rapport = synchroniser(c2, cache, date(2024, 3, 1), rafraichir_meta=False)
+    assert (rapport.ignorees, rapport.mises_a_jour) == (1, 0)
+    assert cache.lister()[0].meta.get("power_meter") is None
+
+
+def test_equipement_injoignable_n_arrete_pas_la_synchronisation(cache: Cache, activites: Path):
+    """Le nom d'équipement manque : le rattachement dégrade, la synchro continue — et le dit."""
+    fit = (activites / "boucle.fit").read_bytes()
+
+    def reponses(requete: httpx.Request) -> httpx.Response:
+        if requete.url.path.endswith("/activities"):
+            return httpx.Response(200, json=[ACTIVITE_1])
+        if requete.url.path.endswith("/gear"):
+            return httpx.Response(500, json={})
+        return httpx.Response(200, content=fit)
+
+    c, _ = client(reponses)
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert rapport.ajoutees == 1 and rapport.echecs == 0
+    assert any("équipements non résolus" in m for m in rapport.messages)
+    assert CLE not in " ".join(rapport.messages)
+
+
+def test_synchroniser_n_appelle_pas_gear_sur_une_liste_vide(cache: Cache):
+    c, espion = client(json_fixe([]))
+    synchroniser(c, cache, date(2024, 3, 1))
+    assert not [c for c in espion.chemins if c.endswith("/gear")]
+
+
+def test_une_entree_creuse_n_est_jamais_telechargee(cache: Cache, activites: Path):
+    """Décision du superviseur (13/09/2026) : le compte du mainteneur contient des
+    entrées Strava creuses — ni type, ni nom, ni durée, ni distance — dont le
+    téléchargement répond 422 à chaque synchronisation. Une entrée sans
+    contenu n'a pas de fichier : comptée dans `sans_contenu`, jamais appelée.
+    Une activité sans type mais avec une durée reste rapatriée (point 7)."""
+    creuse = {"id": "c1", "start_date_local": ACTIVITE_1["start_date_local"]}
+    sans_type = {**ACTIVITE_1, "id": "s1"}
+    sans_type.pop("type")
+    c, espion = client(connecteur_complet(activites, [creuse, sans_type]))
+    rapport = synchroniser(c, cache, date(2024, 3, 1))
+    assert (rapport.vues, rapport.ajoutees, rapport.sans_contenu, rapport.echecs) == (2, 1, 1, 0)
+    assert "/api/v1/activity/c1/file" not in espion.chemins
+    assert [e.id_externe for e in cache.lister()] == ["s1"]

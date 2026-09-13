@@ -138,14 +138,28 @@ def test_ajout_idempotent(tmp_path, generateur):
 
 
 def test_ajout_meme_contenu_sous_deux_identites(tmp_path, generateur):
-    """Même octets, deux `id_externe` : le contenu est la clé (sha256)."""
+    """Mêmes octets, deux `id_externe` : deux entrées, un seul fichier brut.
+
+    Le cas réel est le triathlon : Intervals en fait deux activités, natation
+    et vélo, qui citent le même FIT. Le test exigeait l'inverse (« le contenu
+    est la clé ») jusqu'à la relecture du sprint 2 (point 2) : c'est ce qui
+    faisait perdre une des deux, puis osciller `--synchroniser`.
+    L'identifiant, lui, reste le sha256 : c'est le nom du fichier brut,
+    partagé.
+    """
     module = _cache_module()
     cache = module.Cache(tmp_path / "cache")
     contenu = _gpx(generateur)
     assert _ajouter(cache, contenu, source="intervals", id_externe="a1") == _ajouter(
         cache, contenu, source="intervals", id_externe="a2"
     )
-    assert len(cache.lister()) == 1
+    entrees = cache.lister()
+    assert len(entrees) == 2, "deux activités distinctes = deux entrées"
+    assert {e.id_externe for e in entrees} == {"a1", "a2"}
+    bruts = list((tmp_path / "cache" / "brut").iterdir())
+    assert len(bruts) == 1, f"un seul fichier brut attendu, trouvé {[p.name for p in bruts]}"
+    assert cache.contient(source="intervals", id_externe="a1"), "la première ne doit pas s'effacer"
+    assert cache.contient(source="intervals", id_externe="a2")
 
 
 def test_contenus_differents_entrees_differentes(tmp_path, generateur):
@@ -352,6 +366,13 @@ def test_indexer_dossier_extensions_en_majuscules(tmp_path, hostiles):
 
 
 def test_indexer_dossier_deux_noms_un_seul_contenu(tmp_path, hostiles):
+    """Deux noms = deux entrées, un seul fichier brut — et le second import n'ajoute rien.
+
+    Le test exigeait « même contenu = une seule entrée » jusqu'à la relecture
+    du sprint 2 (point 2) : c'est ce qui faisait disparaître une des deux
+    moitiés d'un triathlon. L'identité d'une entrée est désormais
+    `(source, id_externe)`, le fichier brut restant partagé par contenu.
+    """
     module = _cache_module()
     source = tmp_path / "doublons"
     source.mkdir()
@@ -360,8 +381,12 @@ def test_indexer_dossier_deux_noms_un_seul_contenu(tmp_path, hostiles):
     (source / "copie_b.gpx").write_bytes(octets)
     cache = module.Cache(tmp_path / "cache")
     ajoutes = cache.indexer_dossier(source)
-    assert len(cache.lister()) == 1, "même contenu = une seule entrée"
-    assert ajoutes <= 1, f"un seul ajout effectif attendu, rapporté {ajoutes}"
+    assert ajoutes == 2, f"deux noms, deux entrées, rapporté {ajoutes}"
+    assert len(cache.lister()) == 2, "deux noms = deux entrées"
+    bruts = list((tmp_path / "cache" / "brut").iterdir())
+    assert len(bruts) == 1, f"un seul fichier brut attendu, trouvé {[p.name for p in bruts]}"
+    assert cache.indexer_dossier(source) == 0, "le second import ne doit rien ajouter"
+    assert len(cache.lister()) == 2, "le second import ne doit rien dupliquer"
 
 
 def test_indexer_dossier_avec_un_fichier_corrompu(tmp_path, hostiles):

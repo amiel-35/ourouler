@@ -26,11 +26,21 @@ from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
 
 NOM_INDEX = "index.sqlite"
 NOM_BRUT = "brut"
-VERSION_SCHEMA = 1
 
-_SCHEMA = """
+#: Schéma 1 : `identifiant` (sha256 du contenu) était la clé primaire, donc
+#: deux activités distinctes partageant un même fichier d'origine (les deux
+#: segments d'un triathlon, natation et vélo dans le même FIT) n'avaient
+#: qu'une ligne. Schéma 2 : **une ligne par (source, id_externe)**, le
+#: fichier brut restant partagé. Voir `_migrer`.
+VERSION_SCHEMA = 2
+
+#: Nom de l'index qui porte l'identité d'une activité. Sa présence sert aussi
+#: à reconnaître un index déjà migré.
+INDEX_IDENTITE = "idx_activites_identite"
+
+_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS activites (
-    identifiant       TEXT PRIMARY KEY,
+    identifiant       TEXT NOT NULL,
     source            TEXT NOT NULL,
     id_externe        TEXT,
     extension         TEXT NOT NULL,
@@ -41,12 +51,20 @@ CREATE TABLE IF NOT EXISTS activites (
     sport             TEXT,
     appareil          TEXT,
     equipement        TEXT,
-    meta              TEXT NOT NULL DEFAULT '{}',
+    meta              TEXT NOT NULL DEFAULT '{{}}',
     ajoutee_le        TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_activites_debut ON activites(debut);
-CREATE INDEX IF NOT EXISTS idx_activites_source ON activites(source, id_externe);
+CREATE INDEX IF NOT EXISTS idx_activites_identifiant ON activites(identifiant);
+CREATE UNIQUE INDEX IF NOT EXISTS {INDEX_IDENTITE}
+    ON activites(source, COALESCE(id_externe, identifiant));
 """
+
+#: Cible du `ON CONFLICT` de `ajouter` : exactement les colonnes de
+#: `INDEX_IDENTITE`. Un `id_externe` absent retombe sur le contenu, qui était
+#: l'identité du schéma 1 — un même fichier réimporté deux fois sans nom
+#: extérieur ne fait toujours qu'une ligne.
+_CONFLIT_IDENTITE = "source, COALESCE(id_externe, identifiant)"
 
 _COLONNES = (
     "identifiant, source, id_externe, extension, debut, duree_s, distance_m, "
@@ -89,34 +107,59 @@ class Cache:
         except OSError as e:
             raise ErreurUtilisateur(f"cache : dossier {self.dossier} inutilisable ({e})") from e
         self.echecs: list[str] = []
-        index_existant = self.index.is_file()
         with self._connexion() as cx:
-            if index_existant:
-                self._verifier_version(cx)
+            self._migrer(cx)
             cx.executescript(_SCHEMA)
             cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
 
-    def _verifier_version(self, cx: sqlite3.Connection) -> None:
-        """Refuse d'ouvrir un index d'un schéma plus ancien ou plus récent.
+    def _migrer(self, cx: sqlite3.Connection) -> None:
+        """Amène un index existant au schéma courant. Refuse un schéma plus récent.
 
-        `PRAGMA user_version` était écrit sans jamais être relu : au schéma 2,
-        un index v1 aurait été relu comme s'il était à jour, avec des colonnes
-        manquantes et des lectures fausses. Le cache est reconstructible
-        (fichiers bruts + réimport), donc le message dit quoi faire plutôt que
-        de tenter une migration qui n'existe pas encore.
+        Un index plus récent que le code est refusé : il porte peut-être des
+        colonnes qu'on relirait de travers. Un index plus ancien est
+        **reconstruit sur place**, sans toucher aux fichiers bruts : c'est le
+        même contenu, rangé sous une autre clé.
+
+        `PRAGMA user_version` vaut 0 sur une base tout juste créée comme sur
+        un index antérieur au versionnement : c'est la présence de la table,
+        pas le numéro, qui dit s'il y a quelque chose à migrer.
         """
         version = cx.execute("PRAGMA user_version").fetchone()[0]
-        if version == VERSION_SCHEMA:
-            return
-        if version == 0:
-            # Index antérieur au versionnement, ou base tout juste créée par
-            # une connexion précédente : le schéma est posé en `CREATE IF NOT
-            # EXISTS`, laisser faire.
-            return
-        raise ErreurUtilisateur(
-            f"cache : index {self.index} au schéma {version}, attendu {VERSION_SCHEMA} "
-            "— supprimer le fichier index.sqlite le reconstruira (les fichiers "
-            "bruts sont conservés)"
+        if version > VERSION_SCHEMA:
+            raise ErreurUtilisateur(
+                f"cache : index {self.index} au schéma {version}, attendu {VERSION_SCHEMA} "
+                "— supprimer le fichier index.sqlite le reconstruira (les fichiers "
+                "bruts sont conservés)"
+            )
+        if not _table_existe(cx, "activites") or _index_existe(cx, INDEX_IDENTITE):
+            return  # base neuve, ou index déjà au schéma 2
+        self._migrer_vers_identite(cx)
+
+    def _migrer_vers_identite(self, cx: sqlite3.Connection) -> None:
+        """Schéma 1 → 2 : `identifiant` cesse d'être la clé, `(source, id_externe)` la devient.
+
+        La table du schéma 1 déclare `identifiant TEXT PRIMARY KEY`, et SQLite
+        ne sait pas retirer une clé primaire : on recopie dans une table
+        neuve. Les colonnes sont les mêmes, seules les contraintes changent.
+
+        Deux lignes du schéma 1 ne peuvent pas entrer en conflit sur
+        `(source, id_externe)` par construction — mais un index bricolé à la
+        main le pourrait : on garde alors la plus récemment ajoutée plutôt que
+        de refuser d'ouvrir le cache.
+        """
+        colonnes = f"{_COLONNES}, ajoutee_le"
+        cx.executescript(
+            f"""
+            ALTER TABLE activites RENAME TO activites_schema1;
+            {_SCHEMA}
+            INSERT INTO activites ({colonnes})
+                SELECT {colonnes} FROM activites_schema1
+                WHERE rowid IN (
+                    SELECT MAX(rowid) FROM activites_schema1
+                    GROUP BY source, COALESCE(id_externe, identifiant)
+                );
+            DROP TABLE activites_schema1;
+            """
         )
 
     # --- écriture -------------------------------------------------------------
@@ -132,7 +175,17 @@ class Cache:
     ) -> str:
         """Relit le contenu, l'archive et l'indexe. Renvoie l'identifiant (sha256).
 
-        Idempotent : ajouter deux fois le même contenu ne crée qu'une entrée.
+        **Une ligne par `(source, id_externe)`, un fichier brut par contenu.**
+        Deux activités distinctes peuvent partager le même fichier d'origine —
+        Intervals découpe un triathlon en un segment natation et un segment
+        vélo qui citent le même FIT : chacune garde sa ligne, et le fichier
+        n'est écrit qu'une fois. Réajouter la même `(source, id_externe)` met
+        la ligne à jour au lieu d'en créer une seconde, donc `--synchroniser`
+        converge : la deuxième passe n'ajoute rien et ne retélécharge rien.
+
+        Sans `id_externe`, l'identité retombe sur le contenu : réimporter deux
+        fois les mêmes octets ne fait toujours qu'une entrée.
+
         Lève `ErreurLecture` si le contenu est illisible — rien n'est écrit.
         """
         extension = extension.lower().lstrip(".")
@@ -149,12 +202,59 @@ class Cache:
             cx.execute(
                 f"INSERT INTO activites ({_COLONNES}, ajoutee_le) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
-                "ON CONFLICT(identifiant) DO UPDATE SET "
-                "source=excluded.source, id_externe=excluded.id_externe, "
+                f"ON CONFLICT({_CONFLIT_IDENTITE}) DO UPDATE SET "
+                "identifiant=excluded.identifiant, extension=excluded.extension, "
+                "debut=excluded.debut, duree_s=excluded.duree_s, "
+                "distance_m=excluded.distance_m, puissance_moy_w=excluded.puissance_moy_w, "
+                "sport=excluded.sport, appareil=excluded.appareil, "
                 "equipement=excluded.equipement, meta=excluded.meta",
                 (*ligne, datetime.now(UTC).isoformat(timespec="seconds")),
             )
         return identifiant
+
+    def mettre_a_jour_meta(
+        self,
+        *,
+        source: str,
+        id_externe: str,
+        meta: dict,
+        equipement: str | None = None,
+    ) -> bool:
+        """Réécrit `meta` (et ce qui en dérive) d'une entrée déjà indexée. Vrai si trouvée.
+
+        Sert à enrichir des entrées rapatriées avant qu'on sache quoi en
+        retenir (capteur de puissance, identifiant d'équipement) **sans**
+        retélécharger le fichier : le fichier brut n'est pas touché, seule la
+        ligne d'index change.
+
+        `sport` et `appareil` sont recalculés avec `meta`, parce qu'ils en
+        **dérivent** (`_ligne` : les métadonnées de la source priment sur le
+        fichier). Les laisser en place réécrivait `meta` sans réécrire les
+        colonnes qui la résument : l'index se contredisait lui-même, et une
+        ligne héritée d'une collision de contenu — le cas des triathlons du
+        schéma 1 — restait classée au sport de l'autre segment pour toujours.
+        Une valeur absente de `meta` laisse en place ce qu'on savait déjà,
+        plutôt que de l'effacer avec une réponse plus pauvre ; c'est aussi la
+        règle pour `equipement`.
+        """
+        meta = meta or {}
+        charge = json.dumps(_serialisable(meta), ensure_ascii=False, default=str)
+        with self._connexion() as cx:
+            curseur = cx.execute(
+                "UPDATE activites SET meta = ?, equipement = COALESCE(?, equipement), "
+                "sport = COALESCE(?, sport), appareil = COALESCE(?, appareil) "
+                "WHERE source = ? AND id_externe = ?",
+                (
+                    charge,
+                    equipement or None,
+                    meta.get("sport") or None,
+                    meta.get("appareil") or None,
+                    str(source),
+                    str(id_externe),
+                ),
+            )
+            modifiees = curseur.rowcount
+        return modifiees > 0
 
     def indexer_dossier(self, dossier: Path) -> int:
         """Importe tous les .fit/.gpx/.tcx d'un dossier. Renvoie le nombre ajoutés.
@@ -178,7 +278,13 @@ class Cache:
             try:
                 contenu = chemin.read_bytes()
                 identifiant = hashlib.sha256(contenu).hexdigest()
-                if self.contient_identifiant(identifiant):
+                # Déjà importé : même nom **et** même contenu. Un même contenu
+                # sous un autre nom est une autre entrée (l'identité est
+                # `(source, id_externe)`) ; un même nom au contenu modifié met
+                # l'entrée à jour au lieu d'en créer une seconde.
+                if self.contient(source="fichier", id_externe=chemin.name) and (
+                    self.contient_identifiant(identifiant)
+                ):
                     continue
                 self.ajouter(
                     contenu,
@@ -231,7 +337,8 @@ class Cache:
         ou = (" WHERE " + " AND ".join(conditions)) if conditions else ""
         with self._connexion() as cx:
             lignes = cx.execute(
-                f"SELECT {_COLONNES} FROM activites{ou} ORDER BY debut, identifiant", parametres
+                f"SELECT {_COLONNES} FROM activites{ou} ORDER BY debut, identifiant, source, id_externe",
+                parametres,
             ).fetchall()
         return [self._entree(ligne) for ligne in lignes]
 
@@ -301,6 +408,24 @@ class Cache:
             meta=_json(meta),
             extension=extension,
         )
+
+
+def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
+    return (
+        cx.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
+        ).fetchone()
+        is not None
+    )
+
+
+def _index_existe(cx: sqlite3.Connection, nom: str) -> bool:
+    return (
+        cx.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (nom,)
+        ).fetchone()
+        is not None
+    )
 
 
 def _ligne(

@@ -59,6 +59,8 @@ class Velo:
     masse_kg: float | None = None
     cda_m2: float | None = None
     intervals_gear: str = ""
+    intervals_gear_id: str = ""
+    capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
     periodes: tuple[Periode, ...] = ()
 
 
@@ -97,6 +99,39 @@ class ParametresCache:
     dossier: Path = Path("~/.cache/ourouler")
 
 
+SENS_BOUCLE = ("horaire", "antihoraire")
+
+
+@dataclass(frozen=True, repr=False)
+class ParametresBrouter:
+    """Serveur BRouter (auto-hébergé sur Coolify). Le mot de passe n'apparaît jamais dans `repr`."""
+
+    url: str = ""
+    utilisateur: str = ""
+    mot_de_passe: str = ""
+    profil: str = "fastbike"
+    timeout_s: float = 120.0
+
+    @property
+    def renseigne(self) -> bool:
+        return bool(self.url)
+
+    def __repr__(self) -> str:
+        etat = "***" if self.mot_de_passe else ""
+        return (
+            f"ParametresBrouter(url={self.url!r}, utilisateur={self.utilisateur!r}, "
+            f"mot_de_passe={etat!r}, profil={self.profil!r}, timeout_s={self.timeout_s!r})"
+        )
+
+
+@dataclass(frozen=True)
+class ParametresBoucle:
+    vitesse_moyenne_kmh: float = 27.0  # en attendant le modèle physique (S3)
+    sens: str = "horaire"  # sens de boucle préféré (horaire en France, antihoraire au Royaume-Uni)
+    candidates: int = 5
+    tolerance_distance: float = 0.10  # écart relatif accepté sur la distance cible
+
+
 @dataclass(frozen=True)
 class Config:
     depart: Depart
@@ -105,6 +140,8 @@ class Config:
     meteo: ParametresMeteo = field(default_factory=ParametresMeteo)
     intervals: ParametresIntervals = field(default_factory=ParametresIntervals)
     cache: ParametresCache = field(default_factory=ParametresCache)
+    brouter: ParametresBrouter = field(default_factory=ParametresBrouter)
+    boucle: ParametresBoucle = field(default_factory=ParametresBoucle)
     historique_depuis: date = HISTORIQUE_DEPUIS_DEFAUT
 
     def velo(self, nom: str) -> Velo:
@@ -151,6 +188,11 @@ def depuis_dict(d: dict[str, Any]) -> Config:
     meteo = d.get("meteo", {}) or {}
     intervals = d.get("intervals", {}) or {}
     cache = d.get("cache", {}) or {}
+    brouter = d.get("brouter", {}) or {}
+    boucle = d.get("boucle", {}) or {}
+    sens = str(boucle.get("sens", "horaire"))
+    if sens not in SENS_BOUCLE:
+        raise ErreurConfig(f"[boucle] sens = {sens!r}, attendu un de {SENS_BOUCLE}")
     return Config(
         depart=Depart(
             nom=str(depart.get("nom", "Départ")),
@@ -178,6 +220,23 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             api_key=str(intervals.get("api_key", "") or ""),
         ),
         cache=ParametresCache(dossier=Path(str(cache.get("dossier", "~/.cache/ourouler")))),
+        brouter=ParametresBrouter(
+            url=str(brouter.get("url", "") or "").rstrip("/"),
+            utilisateur=str(brouter.get("utilisateur", "") or ""),
+            mot_de_passe=str(brouter.get("mot_de_passe", "") or ""),
+            profil=str(brouter.get("profil", "fastbike") or "fastbike"),
+            timeout_s=_flottant(brouter.get("timeout_s", 120.0), "timeout_s", "brouter", mini=1, maxi=600),
+        ),
+        boucle=ParametresBoucle(
+            vitesse_moyenne_kmh=_flottant(
+                boucle.get("vitesse_moyenne_kmh", 27.0), "vitesse_moyenne_kmh", "boucle", mini=5, maxi=60
+            ),
+            sens=sens,
+            candidates=_entier(boucle.get("candidates", 5), "candidates", "boucle", mini=1, maxi=20),
+            tolerance_distance=_flottant(
+                boucle.get("tolerance_distance", 0.10), "tolerance_distance", "boucle", mini=0.01, maxi=0.5
+            ),
+        ),
         historique_depuis=_date(d.get("historique_depuis", HISTORIQUE_DEPUIS_DEFAUT), "historique_depuis"),
     )
 
@@ -337,5 +396,7 @@ def _velo(v: Any, i: int) -> Velo:
             else None
         ),
         intervals_gear=str(v.get("intervals_gear", "") or ""),
+        intervals_gear_id=str(v.get("intervals_gear_id", "") or ""),
+        capteur_puissance=str(v.get("capteur_puissance", "") or ""),
         periodes=tuple(periodes),
     )

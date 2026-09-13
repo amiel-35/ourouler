@@ -113,27 +113,123 @@ l'inventaire des sorties depuis décembre 2023 par vélo.
 | L1.6 Tests adversariaux du sprint | testeur-adversarial · Opus | fichiers corrompus, réponses d'API hostiles, fuseaux, cache absent ; invariants (pas de réseau, pas de config dans le cœur, pas de coordonnée réelle en fixture) |
 | L1.7 Relecture | relecteur · Opus | verdict écrit par lot |
 
-### Sprint 2 — Tracé **[figé, à découper au lancement]**
+### Sprint 2 — Tracé **[livré le 13/09/2026, PR en attente]**
 
-Jalon : `ourouler boucle --distance 60 --direction NE` produit un GPX de
-boucle depuis le point de départ, vent de face à l'aller, avec revérification
-de la pluie le long du tracé à l'heure de passage.
+Jalon atteint : `ourouler boucle --distance 60 --direction NE` produit un
+GPX de boucle depuis le point de départ, avec candidates comparées (trafic,
+revêtement, virages à gauche, sens, pluie et vent à l'heure de passage), et
+`--gpx` évalue un tracé importé. Contrat : `docs/sprint2_contrat.md` ;
+relecture : `docs/sprint2_relecture.md`.
 
-Prérequis bloquant : choix du moteur (BRouter auto-hébergé en Docker sur le
-Mac ou sur le serveur, ou GraphHopper API) et accord d'installation —
-question Q4. Le lot « coûts de virage à droite » dépend du moteur retenu
-(profil BRouter personnalisé vs. post-traitement des candidates).
+Moteur : **BRouter auto-hébergé sur Coolify** (Q4), image nightly épinglée
+(le tag stable lit un format de segments dépassé), segments Bretagne, proxy
+nginx à auth basique ; identifiants dans la config locale du mainteneur.
+Le lot « virages à droite » est un post-traitement des candidates (aucun
+moteur ne distingue gauche/droite nativement).
 
-### Sprint 3 — Modèle physique **[esquissé, non figé]**
+### Sprint 3 — Routes connues, puis modèle physique **[esquissé, non figé]**
 
-Jalon : pour chaque vélo, des paramètres calibrés (masse, CdA, roulement) et
-un rapport d'erreur de temps sur des sorties non vues. Relecture Fable.
+**Lot « routes connues » (décision d'Amiel, nuit du 12 au 13/09).** Mesuré
+sur dix vraies sorties rejouées dans BRouter (747 km) : 65 % de `tertiary`,
+23 % de `secondary`, 2 % de `primary`. Nos classes « trafic » (primary +
+secondary) étaient donc trop sévères : les secondaires font un quart de sa
+pratique. Amiel : « la majorité de mes traces sont des routes acceptables
+et pas dangereuses, surtout en semaine ; le dimanche j'en suis sûr à 90 % ;
+souvent issues de Strava, très bon pour ça ». D'où le renversement : **les
+traces du cycliste sont la vérité terrain pour apprendre**, pas les
+étiquettes OSM. **Attention (précision d'Amiel)** : ces traces ne couvrent
+que le sud et l'ouest de Rennes ; elles servent à l'apprentissage, jamais
+comme critère de choix — sinon toute boucle vers le nord ou l'est serait
+pénalisée à tort. « Inconnu » n'est jamais un malus.
+- Construire depuis l'historique la liste des tronçons parcourus (rejoués
+  dans BRouter pour en avoir les tags), avec nombre de passages et jour de
+  semaine (semaine > dimanche).
+- **Apprendre** sur ces tronçons ce qui est accepté : type de route,
+  `maxspeed`, `lanes`, revêtement, coût BRouter par km… → en déduire les
+  poids du score, appliqués partout ; `secondary` moins pénalisé que
+  `primary` si les données le confirment.
+- Par candidate : colonne « routes connues » (part des km déjà roulés), à
+  titre **informatif** seulement.
+- Afficher le **coût moyen du profil BRouter** (colonne `CostPerKm` des
+  messages) : c'est le jugement du routeur lui-même sur le trafic.
+- Liste d'évitement (routes à ne plus prendre) → `nogos` BRouter.
+- Ce même jeu de sorties sert ensuite à calibrer les poids du score.
 
-### Plus tard — S4 séance ↔ terrain, S5 Garmin Connect, HA
+**Vu par Amiel sur une boucle réelle (carte du 13/09).** Un seul vrai
+défaut : les **antennes en cul-de-sac** (Thorigné-Fouillard : crochet
+aller-retour sur un chemin non revêtu ; Noyal-sur-Vilaine : petit crochet),
+artefact du mode boucle de BRouter dont les points de passage sur le cercle
+tombent à côté des routes. À corriger dans ce lot : activer
+`profile:correct_misplaced_via_points` (et sa distance) dans l'appel, et
+détecter dans le tracé tout aller-retour sur lui-même (même géométrie
+parcourue dans les deux sens sur < 500 m) pour l'élaguer ou pénaliser la
+candidate. **Le reste lui va** : les traversées de bourg (Noyal par la D92)
+ne sont pas un défaut — c'est la principale différence entre `fastbike` et
+`fastbike-verylowtraffic`, et **`fastbike` reste le profil par défaut**.
+Nuance mineure de classement, sans urgence : une simple traversée d'une
+route à trafic (Chevaigné, D3175 sur quelques dizaines de mètres) ne
+devrait pas compter comme un tronçon « trafic ».
+
+**Lot modèle physique.** Jalon : pour chaque vélo, des paramètres calibrés
+(masse, CdA, roulement) et un rapport d'erreur de temps sur des sorties non
+vues ; home-trainer exclu (Q7). Relecture Fable.
+
+Niveau de précision voulu (Amiel, 13/09) : **pas de folie**, la route est
+ouverte, avec circulation, stops et vent qui tourne. Une masse approximative
+par vélo suffit (1 kg sur 100 kg = 1 % en montée, rien sur le plat) ; le
+poids du cycliste vient d'Intervals quand il y est, sinon une constante, car
+hors montagne il pèse peu. L'effort va dans ce qui compte : CdA par vélo,
+vent réel (archives Open-Meteo), et **l'exclusion des sorties en groupe**
+(peloton = aérodynamique faussée). Les FIT ne le disent pas ; Strava a un
+champ « nombre d'athlètes » (export Strava ou API en lecture). **Décision
+d'Amiel (13/09) : c'est le plus dur, donc combiner** (1) le nom de la
+sortie (« sortie club », « groupe », « peloton »… liste de mots dans la
+configuration) et (2) l'incohérence physique : vitesse élevée pour une
+puissance basse que ni la pente ni le vent n'expliquent. Méthode : calibrer
+d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
+modèle obtenu pour repérer les autres (résidu de vitesse anormalement
+positif sur une grande part de la sortie) et les écarter ; itérer une fois.
+
+### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
 
 Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
 
+Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
+Connect pour un particulier → le GPX généré est le socle ; sur mobile,
+partage système du GPX vers l'application Garmin Connect (deep link /
+« ouvrir avec ») ; puis, dans l'ordre d'intérêt exprimé, **Coros, Wahoo
+(ELEMNT), Hammerhead (Karoo)**. Vérifié le 12/09 (doc des marques) :
+**Wahoo** a une vraie API cloud (OAuth 2, envoi d'un parcours FIT qui
+arrive sur le compteur ; accès développeur sur demande motivée) — la voie
+la plus propre, à demander quand le service sera hébergé ; **COROS** : GPX
+« ouvrir avec » l'application, ou synchro depuis Strava / Komoot / Ride with
+GPS, programme développeur sur candidature ; **Hammerhead** : tableau de
+bord avec import par URL (Strava, RWGPS, Komoot) et comptes liés (dont
+Intervals.icu pour les séances), pas de dépôt direct public → intermédiaire
+ou import de fichier. Le GPX partagé depuis le mobile couvre Garmin et
+COROS sans rien demander à personne. L'Edge sait charger un parcours et une séance
+structurée en même temps : la séance vient déjà d'Intervals.icu.
+
 ## Historique des sprints
+
+- **2026-09-13, nuit** — Sprint 2 livré sur `sprint-2` (branche issue de
+  `sprint-1`), PR vers `sprint-1`/`main` en attente. Déroulé : BRouter
+  déployé sur Coolify ; quatre agents en parallèle (BRouter+GPX+candidates,
+  coûts+météo le long, rattachement par capteur, testeur adversarial) puis
+  assemblage de la CLI ; relecture (19 points, aucun bloquant technique) ;
+  deux passes de corrections. État : 1 329 tests, ruff vert. **Vérifié sur
+  vraies données** : `boucle` (5 candidates de 60 km en ~2 s de BRouter +
+  10 appels Open-Meteo), `inventaire --synchroniser` (355 sorties vélo :
+  RCR 120 / BMC 43 / home-trainer 192, séparés par le capteur de
+  puissance, triathlons compris, 21 entrées Strava creuses ignorées).
+  Écarts prévu/réalisé : rayon→distance ≈ ×5 mesuré et auto-ajusté ;
+  classes de trafic trop sévères sur `secondary` (23 % de la pratique
+  réelle) → lot « routes connues » au sprint 3 ; cache météo ajourné à
+  l'hébergé (doctrine mise à jour) ; D+ moteur ≠ D+ GPX relu (provenance
+  affichée) ; index du cache passé en v2 (une ligne par activité, pas par
+  contenu). Dette assumée : poids du score et de la pluie non calibrés ;
+  filtre de sport par vocabulaire Intervals ; historique git à purger avant
+  publication (Q6).
 
 - **2026-09-12** — Sprint 0 fait en session de cadrage (Fable). Sprint 1
   lancé le soir même, mainteneur absent : les lots avancent sur fixtures et

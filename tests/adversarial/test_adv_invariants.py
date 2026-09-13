@@ -304,3 +304,153 @@ def test_aucun_fichier_d_activite_hors_des_fixtures():
         if p.is_file() and p.suffix.lower() in (".fit", ".tcx", ".gpx") and fixtures not in p.parents
     ]
     assert not suspects, f"fichiers d'activité hors de tests/fixtures/ : {suspects}"
+
+
+# --- sprint 2 : le mot de passe BRouter ne sort jamais -----------------------
+
+#: Faux mot de passe de serveur BRouter (aucune valeur réelle, règle absolue 1).
+MOT_DE_PASSE_BIDON = "mot-de-passe-brouter-de-test-qui-ne-doit-jamais-fuiter-0123456789"
+SECTION_BROUTER = (
+    '[brouter]\nurl = "https://brouter.exemple.invalide"\n'
+    'utilisateur = "utilisateur-de-test"\n'
+    f'mot_de_passe = "{MOT_DE_PASSE_BIDON}"\n'
+)
+
+
+@pytest.mark.parametrize("arguments", [["config"], ["--json", "config"]])
+def test_le_mot_de_passe_brouter_ne_s_affiche_jamais(ecrire_config, capsys, arguments):
+    """Contrat sprint 2 §0 : « jamais le mot de passe dans une erreur, un log, un `repr` »."""
+    chemin = ecrire_config(SECTION_BROUTER)
+    assert cli.main(["--config", str(chemin), *arguments]) == 0
+    sortie = capsys.readouterr()
+    assert MOT_DE_PASSE_BIDON not in sortie.out, (
+        f"`ourouler {' '.join(arguments)}` imprime le mot de passe du serveur BRouter"
+    )
+    assert MOT_DE_PASSE_BIDON not in sortie.err
+
+
+def test_le_mot_de_passe_brouter_n_est_ni_dans_str_ni_dans_repr_de_la_config(ecrire_config):
+    chemin = ecrire_config(SECTION_BROUTER)
+    config = module_config.charger(chemin)
+    assert config.brouter.mot_de_passe == MOT_DE_PASSE_BIDON, "le mot de passe doit rester lisible"
+    for texte, quoi in ((repr(config), "repr(Config)"), (str(config), "str(Config)")):
+        assert MOT_DE_PASSE_BIDON not in texte, f"{quoi} publie le mot de passe BRouter"
+    for texte, quoi in (
+        (repr(config.brouter), "repr(ParametresBrouter)"),
+        (str(config.brouter), "str(ParametresBrouter)"),
+        (f"{config.brouter}", "format(ParametresBrouter)"),
+    ):
+        assert MOT_DE_PASSE_BIDON not in texte, f"{quoi} publie le mot de passe BRouter"
+
+
+def test_le_mot_de_passe_brouter_ne_sort_pas_d_une_erreur_de_configuration(ecrire_config):
+    """Une faute ailleurs dans le fichier ne doit pas recracher la section [brouter]."""
+    chemin = ecrire_config(SECTION_BROUTER + '[meteo]\nhorizon_h = "six"\n')
+    with pytest.raises(erreurs.ErreurConfig) as capture:
+        module_config.charger(chemin)
+    for texte in (str(capture.value), repr(capture.value)):
+        assert MOT_DE_PASSE_BIDON not in texte, f"le mot de passe fuit dans « {texte[:200]} »"
+
+
+# --- sprint 2 : rien de personnel dans src/ ni tests/ ------------------------
+
+#: Identifiants d'équipement Intervals et capteurs du mainteneur. Ils ont leur
+#: place dans `docs/` (le contrat les cite pour que le code sache quoi chercher)
+#: mais **pas** dans `src/` ni `tests/` : ce sont ses données.
+#:
+#: Écrits à l'envers, comme `VILLES_CENTIEMES` : sinon ce fichier se
+#: dénoncerait lui-même et il faudrait l'exclure de son propre scan.
+GEAR_INVERSES = ("43457531", "45455051", "3537449", "7772295")
+CAPTEURS_INVERSES = (("MARS", "2501"), ("QRAUQ", "55043"))
+DOMAINE_PRIVE = ".".join(("inflexion", "me"))
+
+
+def _jetons_prives() -> list[str]:
+    jetons = [f"b{inverse[::-1]}" for inverse in GEAR_INVERSES]
+    jetons += [inverse[::-1] for inverse in GEAR_INVERSES]
+    for marque_inverse, numero_inverse in CAPTEURS_INVERSES:
+        marque, numero = marque_inverse[::-1], numero_inverse[::-1]
+        jetons += [marque, f"{marque} {numero}", f"{marque}{numero}"]
+    jetons.append(DOMAINE_PRIVE)
+    return jetons
+
+
+def _occurrences(texte: str) -> list[str]:
+    minuscule = texte.casefold()
+    return [jeton for jeton in _jetons_prives() if jeton.casefold() in minuscule]
+
+
+#: Fichiers hors `src/` et `tests/` que le détecteur doit quand même lire.
+#: `config.example.toml` est celui que l'utilisateur copie — et c'est
+#: précisément lui qui portait le capteur réel avant `24d2f09` : le détecteur
+#: regardait à côté du seul endroit où la faute s'est produite (point 13 de la
+#: relecture du sprint 2). `README.md` est publié tel quel.
+FICHIERS_PUBLIES = ("config.example.toml", "README.md")
+
+
+def _fichiers_a_scanner() -> list[Path]:
+    """`src/`, `tests/`, et les fichiers publiés à la racine.
+
+    `docs/` reste hors du champ : il cite volontairement les capteurs et les
+    identifiants du mainteneur, c'est là que le contrat dit au code quoi
+    chercher. Le sort de ces valeurs est une décision du mainteneur (Q6), pas
+    un test.
+    """
+    racine = [RACINE / nom for nom in FICHIERS_PUBLIES]
+    manquants = [chemin.name for chemin in racine if not chemin.is_file()]
+    assert not manquants, f"fichiers publiés attendus à la racine, absents : {manquants}"
+    return _fichiers_texte(SRC) + _fichiers_texte(TESTS) + racine
+
+
+def test_le_detecteur_de_donnees_personnelles_fonctionne():
+    """Un test négatif ne prouve rien sans la preuve que le détecteur détecte."""
+    marque, numero = CAPTEURS_INVERSES[0][0][::-1], CAPTEURS_INVERSES[0][1][::-1]
+    assert _occurrences(f'capteur_puissance = "{marque} {numero}"'), "le capteur doit être repéré"
+    assert _occurrences(f"gear id b{GEAR_INVERSES[0][::-1]}"), "l'identifiant doit être repéré"
+    assert _occurrences(f"url = 'https://brouter.{DOMAINE_PRIVE}'"), "le domaine doit être repéré"
+    assert not _occurrences('capteur_puissance = "CAPTEUR ALPHA 1234"'), "faux positif sur un nom inventé"
+    assert not _occurrences("gear_id = 'g-beta'"), "faux positif sur un identifiant inventé"
+
+
+def test_aucune_donnee_personnelle_du_mainteneur_hors_de_docs():
+    """Règle absolue 1 : capteurs, identifiants d'équipement et URL privée restent dans docs/.
+
+    Le champ couvre `src/`, `tests/`, `config.example.toml` et `README.md` —
+    tout ce qu'un dépôt public publie et qu'un utilisateur recopie.
+    """
+    fautes = []
+    for chemin in _fichiers_a_scanner():
+        texte = chemin.read_text(encoding="utf-8", errors="replace")
+        for numero, ligne in enumerate(texte.splitlines(), start=1):
+            for jeton in _occurrences(ligne):
+                fautes.append(f"{chemin.relative_to(RACINE)}:{numero} — « {jeton} »")
+    assert not fautes, (
+        "données du mainteneur hors de docs/ (capteur, identifiant d'équipement ou URL privée) :\n  "
+        + "\n  ".join(fautes)
+    )
+
+
+def test_les_tests_adversariaux_n_appellent_que_des_domaines_de_test():
+    """Aucune URL réelle dans ce dossier : tout serveur fabriqué finit en `.invalide`."""
+    # Les espaces de noms XML (GPX, TCX) sont des URL qui ne sont jamais appelées.
+    autorises = (
+        "exemple.invalide",
+        "www.topografix.com",
+        "www.w3.org",
+        "www.garmin.com",
+        "opengis.net",
+    )
+    url = re.compile(r"https?://([A-Za-z0-9.:-]+)")
+    fautes = []
+    for chemin in _fichiers_python(TESTS / "adversarial"):
+        texte = chemin.read_text(encoding="utf-8", errors="replace")
+        for numero, ligne in enumerate(texte.splitlines(), start=1):
+            for hote in url.findall(ligne):
+                if hote.endswith("."):
+                    continue  # URL recomposée à l'exécution (f-string)
+                if not any(hote.endswith(suffixe) for suffixe in autorises):
+                    fautes.append(f"{chemin.relative_to(RACINE)}:{numero} — {hote}")
+    assert not fautes, (
+        "hôte non fictif dans les tests adversariaux (utiliser un domaine .invalide) :\n  "
+        + "\n  ".join(fautes)
+    )
