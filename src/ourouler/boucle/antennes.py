@@ -33,8 +33,9 @@ Deux garde-fous, et ils ne disent pas la même chose :
   qui continue de se superposer au-delà de la fenêtre n'est **pas** une
   antenne tronquée à la fenêtre : c'est un aller-retour assumé sur une route
   (une fin de boucle qui repasse par le départ), et la candidate est
-  abandonnée entièrement. Rendre ses 600 premiers mètres aurait coupé une
-  vraie route.
+  abandonnée entièrement. En rendre les premiers mètres aurait coupé une
+  vraie route. Le défaut, 3 000 m, est une décision du mainteneur prise sur
+  mesure : voir `FENETRE_DEFAUT_M`.
 - `LONGUEUR_MIN_M` écarte les micro-allers-retours. Sans lui, deux points
   sous-échantillonnés consécutifs sont toujours à moins de 20 m l'un de
   l'autre : *tout* point du tracé serait le départ d'une « antenne » de
@@ -68,6 +69,24 @@ from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
 #: BRouter (quelques mètres entre points) sans gagner en justesse : la
 #: tolérance de rattachement est de 20 m.
 PAS_ECHANTILLON_M = 10.0
+
+#: Longueur totale (aller + retour) au-delà de laquelle un reparcours n'est
+#: plus tenu pour un crochet du moteur mais pour un aller-retour voulu sur une
+#: route. C'est **le** curseur du lot : il ne mesure rien, il tranche.
+#:
+#: Décision du mainteneur du 13/09/2026, prise sur mesure. Le contrat partait
+#: sur 600 m ; les culs-de-sac relevés sur les boucles réelles de 60 km font
+#: 1,5 à 2,7 km (jonction d'entrée et de sortie au même point à 0,0 m, bout à
+#: 700-1 065 m à vol d'oiseau, parcours à 60-70 % sur `track` et
+#: `unclassified`) — une fenêtre de 600 m les laissait tous passer. Un vrai
+#: aller-retour assumé, lui, dépasse rarement 3 km sur une boucle de 60 km ;
+#: et s'il arrive qu'on en rogne un, la candidate est simplement plus courte,
+#: ce que l'ajustement de rayon de `boucle.candidates` compense à l'appel
+#: suivant.
+FENETRE_DEFAUT_M = 3000.0
+
+#: Écart maximal admis entre le retour et l'aller (contrat §1).
+TOLERANCE_DEFAUT_M = 20.0
 
 #: Longueur totale (aller + retour) en dessous de laquelle un aller-retour
 #: n'est pas traité comme une antenne. Un rond-point, un décalage de voie ou
@@ -116,11 +135,18 @@ class Antenne:
     longueur_m: float  # aller + retour
 
 
-def detecter(trace: Trace, *, fenetre_m: float = 600, tolerance_m: float = 20) -> list[Antenne]:
+def detecter(
+    trace: Trace,
+    *,
+    fenetre_m: float = FENETRE_DEFAUT_M,
+    tolerance_m: float = TOLERANCE_DEFAUT_M,
+) -> list[Antenne]:
     """Les antennes du tracé, maximales et sans chevauchement, dans l'ordre du parcours.
 
     `fenetre_m` borne la longueur totale d'une antenne (aller + retour) ;
     `tolerance_m` est l'écart maximal admis entre le retour et l'aller.
+    Le défaut de `fenetre_m` est un arbitrage du mainteneur, pas une mesure :
+    voir `FENETRE_DEFAUT_M`.
 
     Une portion qui se superpose à elle-même **au-delà** de `fenetre_m` n'est
     pas rendue du tout : c'est un aller-retour voulu, pas un crochet.

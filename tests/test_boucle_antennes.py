@@ -14,7 +14,9 @@ import math
 import pytest
 
 from ourouler.boucle.antennes import (
+    FENETRE_DEFAUT_M,
     LONGUEUR_MIN_M,
+    TOLERANCE_DEFAUT_M,
     Antenne,
     detecter,
     elaguer,
@@ -122,16 +124,32 @@ def test_un_carre_ferme_n_a_aucune_antenne():
     assert detecter(trace_sans_antenne()) == []
 
 
-def test_une_boucle_qui_repasse_par_son_depart_sur_800_m_n_est_pas_une_antenne():
-    """Un aller-retour assumé de 800 m dépasse la fenêtre : il n'est pas rogné.
+def test_la_fenetre_par_defaut_est_celle_decidee_le_13_09():
+    """3 000 m, et non les 600 m du contrat d'origine.
+
+    Décision du mainteneur prise sur mesure : les culs-de-sac relevés sur les
+    boucles réelles de 60 km font 1,5 à 2,7 km, et une fenêtre de 600 m les
+    laissait tous passer. Voir `FENETRE_DEFAUT_M`.
+    """
+    assert FENETRE_DEFAUT_M == 3000.0
+    assert TOLERANCE_DEFAUT_M == 20.0
+    crochet = trace_avec_antenne(longueur_antenne_m=1200.0)  # 2 400 m aller + retour
+    assert len(detecter(crochet)) == 1
+    assert detecter(crochet, fenetre_m=600) == []
+
+
+def test_une_boucle_qui_repasse_par_son_depart_au_dela_de_la_fenetre_n_est_pas_une_antenne():
+    """Un aller-retour assumé de 4 km dépasse la fenêtre : il n'est pas rogné.
 
     Le piège est de rendre l'antenne « tronquée à la fenêtre » : couper ses
-    600 premiers mètres supprimerait une vraie route.
+    3 000 premiers mètres supprimerait une vraie route. La fenêtre est le
+    seul curseur : assez large, la même géométrie redevient une antenne.
     """
     trace = tracer(
-        polyligne([(0.0, 0.0), (400.0, 0.0), (0.0, 0.0), (0.0, 600.0)])
+        polyligne([(0.0, 0.0), (2000.0, 0.0), (0.0, 0.0), (0.0, 600.0)], pas_m=20.0)
     )
-    assert detecter(trace, fenetre_m=600) == []
+    assert detecter(trace) == []
+    assert len(detecter(trace, fenetre_m=5000)) == 1
 
 
 def test_un_aller_retour_plus_long_que_la_fenetre_reste_ignore_quelle_qu_elle_soit():

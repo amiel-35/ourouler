@@ -31,9 +31,14 @@ part_validation=0.25, vitesse_min_kmh=8.0)` ; `[[evitements]]` →
 @dataclass(frozen=True)
 class Antenne:
     debut_idx: int; fin_idx: int; longueur_m: float   # aller + retour, indices dans trace.points
-def detecter(trace: Trace, *, fenetre_m: float = 600, tolerance_m: float = 20) -> list[Antenne]
+def detecter(trace: Trace, *, fenetre_m: float = 3000, tolerance_m: float = 20) -> list[Antenne]
 def elaguer(trace: Trace, antennes: list[Antenne]) -> Trace   # nouveau Trace, distances recalculées, segments réindexés
 ```
+**`fenetre_m` : défaut 3000, décision du mainteneur du 13/09** (le contrat
+partait sur 600). Mesuré sur les boucles réelles de 60 km : les culs-de-sac
+font 1,5 à 2,7 km et 600 m les laissait tous passer ; un aller-retour assumé
+dépasse rarement 3 km sur une telle boucle, et si l'on en rogne un, la
+candidate est simplement raccourcie — l'ajustement de rayon compense.
 Antenne = portion du tracé où la géométrie est reparcourue en sens inverse
 (chaque point du retour à moins de `tolerance_m` d'un point de l'aller,
 sur une longueur totale ≤ `fenetre_m`). `elaguer` retire l'aller-retour et
