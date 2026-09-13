@@ -870,6 +870,29 @@ def test_le_tableau_distingue_la_boucle_du_parcours_reellement_roule(tmp_path: P
     assert "Boucle" in texte and "parcours réellement roulé" in texte
 
 
+def test_un_retour_au_calme_qui_s_allonge_s_affiche_sans_avertissement(tmp_path: Path):
+    """Q14 : « c'est du kilomètre facile » ne s'affiche pas avec un ⚠.
+
+    Les deux listes du placement ne se rendent pas de la même façon : les
+    avertissements portent un ⚠, les informations non. Un retour au calme qui
+    s'allonge dans sa fenêtre est une information, et l'afficher comme une
+    alerte était précisément le ton que le mainteneur a corrigé.
+    """
+    proposition = _proposition_avec_demi_tour()
+    proposition.placement.informations = [
+        "retour au calme : 38 min au lieu des 20 prescrites, 8 km de plus à allure facile"
+    ]
+    proposition.placement.avertissements = ["étape 1 (libre) : aucune puissance cible"]
+
+    texte = rendre_texte([proposition], _contexte_minimal(tmp_path, _seance_fabriquee()))
+
+    info = next(ligne for ligne in texte.splitlines() if "retour au calme : 38 min" in ligne)
+    assert "⚠" not in info, info
+    assert "8 km de plus à allure facile" in info
+    alerte = next(ligne for ligne in texte.splitlines() if "aucune puissance cible" in ligne)
+    assert "⚠" in alerte, "les vrais défauts gardent leur ⚠"
+
+
 def test_les_deux_denivelés_sont_montrés_cote_a_cote(tmp_path: Path):
     """C2 : 460 m annoncés par le moteur, 308 m recalculés — et rien ne le disait.
 

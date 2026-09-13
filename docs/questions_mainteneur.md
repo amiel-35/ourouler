@@ -394,22 +394,29 @@ carte. À corriger au prochain lot touchant `sortie/` :
   étape, pas seulement des blocs. C'est une extension de `Placement`, pas
   une nouvelle mesure.
 
-## Q14 — Le retour au calme ne peut pas absorber la variabilité de la boucle
+## Q14 — Le retour au calme ne peut pas absorber la variabilité de la boucle — **close le 13/09/2026**
 
-Constaté le 13/09/2026 par le superviseur, en essayant de corriger un
-symptôme et en aggravant le mal. À traiter au prochain lot touchant
-`seance/placement.py` ou `sortie/commande.py`.
+**Close. Décision du mainteneur, ses mots :** « le retour au calme en fait
+peut dépasser de plus, c'est souvent ce que je fais car c'est incontrôlable de
+faire parfait, et c'est du kilomètre facile. Faut réduire le dépassement au
+max. »
 
-**Le symptôme.** Sur la séance du 08/02, aucune candidate ne tient la
-séance dans sa fenêtre d'élasticité : le retour au calme dure 38 min au
-lieu des 20 prescrites, soit +90 %.
+C'est la piste (c) des pistes ci-dessous, et elle retourne le problème : un
+retour au calme qui s'allonge **n'est pas une faute**, c'est la façon normale
+de refermer une boucle dont la longueur n'est jamais exacte. Entre deux
+placements de terrain équivalent, le plus court gagne ; mais **raccourcir**
+reste cher, parce qu'amputer une séance est un vrai défaut.
 
-**La fausse piste, mesurée.** La distance demandée était arrondie au
-multiple de 5 km **supérieur**, donc 65 km pour une séance de 60,8. Passer
-à l'arrondi **au plus proche** donne 60 km demandés, une boucle de 58 —
-et le retour au calme monte à **+201 %**, parce que le placement retenu
-fait alors un demi-tour et que le parcours passe à 78,7 km sur une boucle
-de 58. Changement annulé, l'arrondi supérieur reste.
+**Le symptôme.** Sur la séance du 08/02, aucune candidate ne tenait la séance
+dans sa fenêtre d'élasticité : le retour au calme durait 38 min au lieu des 20
+prescrites, soit +90 %, et l'outil l'affichait comme une alerte.
+
+**La fausse piste, mesurée.** La distance demandée était arrondie au multiple
+de 5 km **supérieur**, donc 65 km pour une séance de 60,8. Passer à l'arrondi
+**au plus proche** donne 60 km demandés, une boucle de 58 — et le retour au
+calme monte à **+201 %**, parce que le placement retenu fait alors un demi-tour
+et que le parcours passe à 78,7 km sur une boucle de 58. Changement annulé,
+l'arrondi supérieur reste.
 
 **La cause réelle, en deux morceaux.**
 1. **Un demi-tour ajoute de la distance que le dimensionnement ignore.**
@@ -421,14 +428,65 @@ de 58. Changement annulé, l'arrondi supérieur reste.
    boucles vaut déjà ±3 km et l'écart mesuré jusqu'à +9 km. Le levier est
    structurellement trop court.
 
-**Pistes, aucune tranchée.** (a) Pénaliser le demi-tour aussi pour la
-distance qu'il ajoute, pas seulement pour l'inconfort. (b) Dimensionner la
-boucle en deux temps : demander, placer, puis redemander avec la distance
-réellement consommée. (c) Autoriser la Z2 de fin à absorber plus largement
-que ±20 % — ce serait revenir sur une décision du mainteneur du 13/09, à
-lui demander. (d) Accepter et le dire clairement, ce que fait déjà
-l'avertissement : la séance est roulée entière, seul le retour au calme
-s'allonge, ce qui est le défaut le moins grave.
+### Ce qui a été fait
+
+**1. Les deux élasticités sont séparées** (`config.ParametresSeance`). Elles
+ne font pas le même métier : la Z2 **d'ouverture** est le levier de placement
+et garde sa fenêtre étroite (`elasticite_z2_min` / `elasticite_z2_max`, −5 % à
++20 %) ; le **retour au calme** absorbe et reçoit la sienne,
+`elasticite_calme_min` / `elasticite_calme_max`, **−5 % à +150 %**. Les noms
+existants ne bougent pas.
+
+**2. La pénalité d'allongement devient douce, proportionnelle et sans seuil.**
+`PENALITE_SEANCE_ALLONGEE` (1,0 par unité d'écart relatif **hors de la
+fenêtre**) est remplacée par `PENALITE_CALME_ALLONGE_KM_PAR_H = 0,6` : 0,6 km
+équivalent par **heure** de retour au calme en trop, comptée dès la première
+minute. Les chiffres, en kilomètres équivalents :
+
+| dépassement du retour au calme | coût |
+|---|---|
+| 10 min | **0,10** |
+| 20 min | **0,20** |
+| 40 min | **0,40** |
+
+à comparer au coût d'un défaut de terrain franc sous un bloc : **1 km de
+village traversé pendant un bloc de 20 min** de la séance du 08/02 coûte
+`POIDS_KM_BATI` × 1200/3120 = **1,15** après pondération par la durée des
+blocs. Rentrer 20 minutes plus tard est donc près de **six fois moins cher**
+que de faire traverser un bourg pendant un 20' — et même 40 minutes de trop
+restent près de trois fois moins chères. Dit dans l'autre sens : 20 min de retour au
+calme en plus, c'est environ 9 km de vrai bitume à allure facile, facturés
+0,20.
+
+La disparition du **seuil** compte autant que la valeur : sous l'ancienne
+marche, deux placements de terrain égal étaient à égalité parfaite tant qu'ils
+restaient dans la fenêtre, et le départage retombait sur autre chose. Le
+dépassement se réduit maintenant toujours, il ne s'interdit jamais.
+
+Le **raccourcissement** garde `PENALITE_SEANCE_NON_TENUE = 20,0` : un retour au
+calme supprimé coûte toujours 19,0, soit bien plus qu'un bloc qui ne tient pas
+sur le tracé (`PENALITE_BLOC_TRONQUE = 10,0`).
+
+**3. L'avertissement change de ton.** « ⚠ retour au calme : 38 min pour rentrer
+au lieu des 20 min prescrites (+90%) » devient « retour au calme : 38 min au
+lieu des 20 prescrites, 8 km de plus à allure facile » — une information
+neutre, rangée dans `Placement.informations`, que l'affichage ne préfixe pas
+d'un ⚠. Un ⚠ ne reste que pour les deux vrais défauts : un retour au calme
+**raccourci** (la séance n'est pas roulée en entier) et un dépassement qui sort
+de la **fenêtre haute** (ce n'est plus la boucle qui tombe mal, c'est la boucle
+qui ne va pas avec la séance).
+
+**Effet mesuré sur les deux sorties réelles** (4 candidates chacune) : la
+candidate retenue **ne change pas** — 63,9 km le 08/02, 35,5 km le 22/04, mêmes
+emplacements de blocs. Le 08/02, les 3ᵉ et 4ᵉ candidates s'échangent : celle
+qui rentrait très en retard n'est plus surfacturée (7,12 → 5,27) et passe
+devant. C'est exactement l'arbitrage demandé.
+
+**Ce qui reste ouvert** : les deux autres causes listées plus haut. Le
+dimensionnement de la boucle ignore toujours la distance qu'ajoutent les
+demi-tours (piste b, « demander, placer, puis redemander »), et rien ne
+pénalise encore le demi-tour pour la distance qu'il ajoute (piste a). Ce n'est
+plus un défaut affiché, c'est une imprécision de dimensionnement.
 
 
 ## Q15 — Nom de l'heure et du lieu de départ — **close le 13/09/2026**

@@ -677,6 +677,10 @@ répète, et le `README.md` le donne comme l'une des deux limites à lire avec l
 conclusion.
 
 **Point produit 2 — l'asymétrie 20 / 2 était un vrai défaut, corrigé.**
+(*Suite, le 13/09 au soir : Q14 supprime `PENALITE_SEANCE_ALLONGEE` et son
+seuil, remplacés par un coût proportionnel de 0,6 km équivalent par heure de
+retour au calme en trop. Ce qui suit est l'état de la journée, pas l'état du
+code.*)
 `PENALITE_SEANCE_ALLONGEE` passe de **2,0 à 1,0** ;
 `PENALITE_SEANCE_NON_TENUE` reste à **20,0**. Les deux critères, mesurés sur
 les quatre candidates réelles du 08/02 et du 22/04 :
