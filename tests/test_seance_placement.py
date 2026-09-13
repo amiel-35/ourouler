@@ -133,6 +133,125 @@ def _couloirs(monkeypatch, bon: tuple[float, float], *, mauvais: float = 10.0, p
     return appels
 
 
+def _seance_recups_inegales() -> Seance:
+    """Deux blocs séparés par des récupérations **de durées différentes**, sans Z2 de fin.
+
+    Sans retour au calme élastique, `duree_totale_s` est entièrement prescrite :
+    c'est la somme des durées des étapes plus le décalage de la Z2 d'ouverture,
+    et rien d'autre. Toute seconde en plus ou en moins est une récupération qui
+    a bougé.
+
+    Les deux récupérations sont inégales (4 min et 7 min) : un étirement
+    *uniforme* n'est pas le seul défaut possible, et un test qui ne compare que
+    deux placements entre eux ne verrait pas une récup étirée « quand ça
+    arrange ».
+    """
+    etapes = [
+        _etape("echauffement", 40, PUISSANCE_Z2, elastique=True),
+        _etape("bloc", 8, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("bloc", 8, PUISSANCE_BLOC),
+        _etape("recuperation", 7, PUISSANCE_RECUP),
+        _etape("bloc", 8, PUISSANCE_BLOC),
+    ]
+    return Seance(
+        nom="3x8 à récups inégales",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _terrain_vallonne(monkeypatch, *, demi_tour: bool = False):
+    """Un terrain dont la note varie vite le long du tracé, sans trou ni plateau.
+
+    C'est la condition pour que le test morde : sur un terrain uniforme, étirer
+    une récupération ne rapporte rien et un placement tricheur n'aurait aucune
+    raison de le faire. Ici la note oscille tous les ~700 m, donc décaler le
+    bloc suivant de quelques centaines de mètres change sa note — la tentation
+    est permanente.
+    """
+    import math as _math
+
+    def evaluer_couloir(trace, debut_m: float, longueur_m: float) -> NoteBloc:
+        milieu = debut_m + longueur_m / 2.0
+        return NoteBloc(
+            note=5.0 * _math.sin(milieu / 700.0) ** 2,
+            motifs=[],
+            pente_moyenne=0.0,
+            pente_max=0.0,
+            carrefours=0,
+            km_batis=0.0,
+            descente_m=0.0,
+            montee_m=0.0,
+        )
+
+    monkeypatch.setattr(placement, "evaluer_couloir", evaluer_couloir)
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: demi_tour)
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: demi_tour)
+
+
+@pytest.mark.parametrize("demi_tour", [False, True], ids=["tout_droit", "demi_tours_permis"])
+def test_aucune_duree_de_recuperation_ne_bouge_quel_que_soit_le_decalage(monkeypatch, demi_tour):
+    """Règle (b) du mainteneur : « aucune récupération ne bouge, jamais ».
+
+    L'invariant n'avait aucun test dédié : il n'était vérifié qu'indirectement,
+    et un placement qui essaierait chaque récupération à sa durée prescrite
+    **et** à ×1,2 en gardant la mieux notée passait toute la suite au vert.
+
+    Ici la séance n'a pas de retour au calme élastique : `duree_totale_s` est
+    donc entièrement prescrite — la somme des durées plus le décalage de la Z2
+    d'ouverture, à la seconde près. Le terrain est volontairement vallonné pour
+    qu'une variante étirée soit tentante à chaque bloc.
+    """
+    _terrain_vallonne(monkeypatch, demi_tour=demi_tour)
+    seance = _seance_recups_inegales()
+    prescrite = sum(e.duree_s for e in seance.etapes)
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert resultat.duree_totale_s == pytest.approx(
+        prescrite + resultat.decalage_z2_s, abs=1.0
+    ), (
+        f"{resultat.duree_totale_s:.0f} s roulées pour {prescrite + resultat.decalage_z2_s:.0f} s "
+        f"prescrites (décalage compris) : une durée non élastique a bougé de "
+        f"{resultat.duree_totale_s - prescrite - resultat.decalage_z2_s:+.0f} s"
+    )
+    # Les durées de la prescription elle-même n'ont pas été réécrites en place.
+    assert [e.duree_s for e in seance.etapes] == [
+        e.duree_s for e in _seance_recups_inegales().etapes
+    ]
+
+
+def test_l_ecart_entre_deux_blocs_vaut_exactement_la_recuperation_prescrite(monkeypatch):
+    """La même règle, mesurée en mètres plutôt qu'en secondes.
+
+    Sur un tracé plat, la vitesse de récupération est constante : l'écart le
+    long du tracé entre la fin d'un bloc et le début du suivant vaut donc
+    exactement `vitesse(récup) × durée prescrite`. Deux récupérations inégales,
+    donc deux écarts différents : un étirement d'une seule des deux se voit.
+    """
+    _terrain_vallonne(monkeypatch, demi_tour=False)
+    seance = _seance_recups_inegales()
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert len(resultat.emplacements) == 3
+    recups = [e for e in seance.etapes if e.type == "recuperation"]
+    for numero, (recup, avant, apres) in enumerate(
+        zip(recups, resultat.emplacements[:-1], resultat.emplacements[1:], strict=True), start=1
+    ):
+        attendu = _vitesse(PUISSANCE_RECUP) * recup.duree_s
+        mesure = apres.debut_m - (avant.debut_m + avant.longueur_m)
+        assert mesure == pytest.approx(attendu, abs=5.0), (
+            f"récupération {numero} : {mesure:.0f} m roulés pour {attendu:.0f} m prescrits "
+            f"({recup.duree_s / 60:.0f} min à {_vitesse(PUISSANCE_RECUP) * 3.6:.1f} km/h)"
+        )
+
+
 # --- le décalage de la Z2 d'ouverture -----------------------------------------
 
 
