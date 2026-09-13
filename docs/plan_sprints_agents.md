@@ -240,9 +240,13 @@ Trois conséquences de conception :
     deux sens sur du plat, mais en côte » non : à l'envers c'est une
     descente. Une répétition en côte consomme toute la récup pour
     redescendre, ce n'est pas la même figure et il faut la traiter à part.
-  - **De la route au-delà du segment.** La moitié de la récup sert à le
-    dépasser : 4 min de récup à 25 km/h ≈ 800 m roulables après la fin du
-    segment ; 1'30 ≈ 300 m.
+  - **De la route au-delà du segment**, et c'est tout ce qu'on demande à la
+    récup (mainteneur, 13/09 : « en récup, village, croisement etc. c'est
+    pas grave ; il faut de la route au-delà du segment »). **Aucune
+    évaluation de terrain pendant une récup** : ni village, ni carrefour,
+    ni revêtement, aucune pénalité. La seule question est mécanique — la
+    moitié de la récup sert à dépasser le segment : 4 min à 25 km/h
+    ≈ 800 m roulables après sa fin ; 1'30 ≈ 300 m.
   - **Le demi-tour doit être faisable.** Petite route oui ; départementale
     passante non, pénalité supplémentaire.
 - **Les parties non contraintes sont élastiques** (mainteneur, 13/09 :
