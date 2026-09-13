@@ -282,7 +282,9 @@ def _mots(brut: Any) -> tuple[str, ...]:
     """Liste de mots, en minuscules. Une chaîne nue est refusée : `"club"` itéré
     donnerait ('c', 'l', 'u', 'b') et écarterait presque toutes les sorties."""
     if isinstance(brut, str) or not isinstance(brut, (list, tuple)):
-        raise ErreurConfig(f"[calibration] mots_groupe : liste de mots attendue (ex. [\"club\"]), reçu {brut!r}")
+        raise ErreurConfig(
+            f"[calibration] mots_groupe : liste de mots attendue (ex. [\"club\"]), reçu {brut!r}"
+        )
     mots = tuple(str(m).strip().casefold() for m in brut if str(m).strip())
     return mots
 
