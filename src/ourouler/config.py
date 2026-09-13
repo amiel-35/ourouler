@@ -137,6 +137,13 @@ class ParametresSeance:
     elasticite_z2_min: float = -0.05  # raccourcissement maximal
     demi_tour_penalite: float = 1.0  # coût d'un bloc qui reprend le segment précédent à l'envers
 
+    #: Puissance d'endurance du cycliste, en fraction de sa FTP. Elle sert de
+    #: cible aux étapes prescrites en **zone de fréquence cardiaque basse**
+    #: (Z1, Z2), dont la traduction par la table des zones de puissance donne
+    #: un résultat faux (Q11, close le 13/09/2026 : la médiane mesurée sur
+    #: 96 sorties extérieures de plus d'une heure est 60 % de FTP).
+    puissance_endurance_pct: float = 0.60
+
 
 @dataclass(frozen=True)
 class ParametresTenue:
@@ -327,6 +334,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 "seance",
                 mini=0.0,
                 maxi=20.0,
+            ),
+            puissance_endurance_pct=_flottant(
+                seance_brut.get("puissance_endurance_pct", 0.60),
+                "puissance_endurance_pct",
+                "seance",
+                mini=0.40,
+                maxi=0.80,
             ),
         ),
         tenue=ParametresTenue(

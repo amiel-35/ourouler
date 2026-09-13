@@ -348,8 +348,23 @@ def test_seance_et_tenue():
     assert c.tenue.bornes_c == (2.0, 8.0, 14.0, 21.0, 29.0) and c.tenue.vent_veste_kmh == 25
     defauts = depuis_dict(BASE)
     assert defauts.seance.elasticite_z2_min == -0.05
+    assert defauts.seance.puissance_endurance_pct == 0.60
     assert defauts.tenue.bornes_pluie_mmh == (0.2, 0.5, 1.0)
     with pytest.raises(ErreurConfig, match="croissantes"):
         depuis_dict({**BASE, "tenue": {"bornes_c": [9, 3]}})
     with pytest.raises(ErreurConfig, match="bornes_c"):
         depuis_dict({**BASE, "tenue": {"bornes_c": "froid"}})
+
+
+def test_puissance_endurance_pct_est_lue_et_bornee():
+    """Part de FTP visée en endurance (Q11) : réglable, entre 40 et 80 % de FTP."""
+    d = dict(BASE)
+    d["seance"] = {"puissance_endurance_pct": 0.65}
+    assert depuis_dict(d).seance.puissance_endurance_pct == 0.65
+    for hors_bornes in (0.2, 0.39, 0.81, 1.5):
+        d["seance"] = {"puissance_endurance_pct": hors_bornes}
+        with pytest.raises(ErreurConfig, match="puissance_endurance_pct"):
+            depuis_dict(d)
+    d["seance"] = {"puissance_endurance_pct": "beaucoup"}
+    with pytest.raises(ErreurConfig, match="puissance_endurance_pct"):
+        depuis_dict(d)

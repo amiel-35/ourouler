@@ -46,7 +46,9 @@ TYPES_ELASTIQUES = ("echauffement", "calme")
 #:
 #: Elle sert deux fois : pour traduire une consigne donnée en zone de
 #: puissance (traduction exacte) et pour **approximer** une consigne donnée en
-#: zone de fréquence cardiaque (approximation, toujours annoncée comme telle).
+#: zone de fréquence cardiaque **haute** (approximation, toujours annoncée
+#: comme telle ; les zones de FC basses passent par
+#: `PUISSANCE_ENDURANCE_PCT_DEFAUT`).
 ZONES_PUISSANCE_DEFAUT: tuple[tuple[float, float], ...] = (
     (0.00, 0.55),
     (0.56, 0.75),
@@ -56,6 +58,34 @@ ZONES_PUISSANCE_DEFAUT: tuple[tuple[float, float], ...] = (
     (1.21, 1.50),
     (1.51, 2.00),
 )
+
+#: Numéro de la plus haute zone de **fréquence cardiaque** considérée comme
+#: basse. Jusqu'à Z2 incluse, la table des zones de puissance ne sait pas
+#: traduire une consigne de FC (voir `PUISSANCE_ENDURANCE_PCT_DEFAUT`).
+ZONE_FC_BASSE_MAX = 2
+
+#: Puissance d'endurance par défaut, en fraction de la FTP.
+#:
+#: C'est la cible d'une étape prescrite en zone de FC **basse**. Traduire une
+#: telle consigne par la table des zones de puissance donne un résultat faux
+#: d'un facteur deux : la Z1 de puissance s'étend de 0 à 55 % de FTP, son
+#: milieu vaut 27,5 % de FTP — du pédalage à vide — et une zone ouverte vers
+#: le bas n'a de toute façon pas de milieu qui veuille dire quelque chose. Une
+#: zone de FC n'est pas non plus la zone de puissance de même numéro : un plan
+#: qui écrit « Z1 de FC » pour une endurance désigne en pratique une
+#: puissance d'endurance franche.
+#:
+#: 0,60 est la **médiane mesurée** sur les 96 sorties extérieures de plus
+#: d'une heure du mainteneur depuis 2025 (154 W pour 258 W de FTP ; 59 % sur
+#: toutes les sorties extérieures confondues). Question Q11, close le
+#: 13/09/2026. C'est une valeur de cycliste, donc un paramètre de
+#: configuration (`[seance] puissance_endurance_pct`), pas une constante du
+#: modèle : celle-ci n'est que le défaut.
+#:
+#: C'est un **garde-fou pour un cas minoritaire**, pas une règle centrale :
+#: les séances sont prescrites en pourcentage de FTP dans plus de huit cas
+#: sur dix, et celles-là se traduisent exactement.
+PUISSANCE_ENDURANCE_PCT_DEFAUT = 0.60
 
 
 @dataclass(frozen=True)
@@ -185,8 +215,10 @@ def _puissance_valide(valeur: float | None, nom: str) -> float | None:
 
 
 __all__ = [
+    "PUISSANCE_ENDURANCE_PCT_DEFAUT",
     "TYPES",
     "TYPES_ELASTIQUES",
+    "ZONE_FC_BASSE_MAX",
     "ZONES_PUISSANCE_DEFAUT",
     "Etape",
     "Seance",

@@ -35,7 +35,12 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance.intervals import seance_du_jour
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Etape, Seance
+from ourouler.seance.modele import (
+    ZONE_FC_BASSE_MAX,
+    ZONES_PUISSANCE_DEFAUT,
+    Etape,
+    Seance,
+)
 
 #: Comment les types s'écrivent dans le tableau.
 LIBELLES_TYPE = {
@@ -139,6 +144,7 @@ def executer(
         jour,
         ftp_w=config.cycliste.ftp_w,
         zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        puissance_endurance_pct=config.seance.puissance_endurance_pct,
     )
     if seance is None:
         if getattr(args, "json", False):
@@ -237,12 +243,7 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
     )
     lignes.append(source.resume)
     if seance.meta.get("puissance_approximee"):
-        lignes.append(
-            "⚠ Puissances **approximées** : la séance est prescrite en zones de fréquence "
-            "cardiaque, traduites par la zone de puissance de même numéro "
-            f"(FTP {_fr(float(seance.meta.get('ftp_w') or 0), 0)} W). Une FC n'est pas une "
-            "puissance : la fourchette est indicative."
-        )
+        lignes.extend(_approximation(seance))
     for message in _avertissements(seance):
         lignes.append(f"⚠ {message}")
     lignes.append("")
@@ -262,6 +263,35 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
         autres = ", ".join(str(n) for n in seance.meta["autres_seances"])
         lignes.append(f"Autre(s) séance(s) vélo ce jour-là, non traitée(s) : {autres}.")
     return "\n".join(lignes)
+
+
+def _approximation(seance: Seance) -> list[str]:
+    """Dire d'où sortent les watts quand la séance est prescrite en zones de FC.
+
+    Les deux traductions n'ont pas la même nature et ne se disent donc pas de
+    la même façon : les zones basses sont calées sur ce que le cycliste fait
+    vraiment en endurance (une mesure), les zones hautes sur la table des
+    zones de puissance (une correspondance de numéros).
+    """
+    meta = seance.meta
+    ftp = float(meta.get("ftp_w") or 0.0)
+    pct = float(meta.get("puissance_endurance_pct") or 0.0)
+    lignes = [
+        f"⚠ Puissances **approximées** : la séance est prescrite en zones de fréquence "
+        f"cardiaque (FTP {_fr(ftp, 0)} W)."
+    ]
+    if meta.get("etapes_fc_basses"):
+        lignes.append(
+            f"  Zones basses (jusqu'à Z{ZONE_FC_BASSE_MAX}) : visées à "
+            f"{_fr(pct * 100, 0)} % de FTP, soit {_fr(pct * ftp, 0)} W — la puissance "
+            "d'endurance mesurée sur vos sorties, pas le milieu de la zone de puissance."
+        )
+    if meta.get("etapes_fc_hautes"):
+        lignes.append(
+            "  Zones hautes : traduites par la table des zones de **puissance** de même "
+            "numéro. Une FC n'est pas une puissance : la fourchette est indicative."
+        )
+    return lignes
 
 
 def _ligne(mesure: LongueurEtape) -> str:
@@ -288,6 +318,15 @@ def _avertissements(seance: Seance) -> list[str]:
         messages.append(
             f"{meta['etapes_sans_puissance']} étape(s) sans consigne de puissance : "
             "aucune longueur de route ne leur est attribuée."
+        )
+    if meta.get("etapes_libres_reclassees"):
+        detail = ", ".join(
+            f"#{r['indice'] + 1} → {LIBELLES_TYPE[r['type']]}"
+            for r in meta["etapes_libres_reclassees"]
+        )
+        messages.append(
+            f"étape(s) libre(s), sans puissance ni zone : ce ne sont pas des blocs "
+            f"et aucun couloir ne sera cherché pour elles ({detail})."
         )
     if meta.get("unites_inconnues"):
         messages.append(f"unité(s) de consigne non reconnue(s) : {', '.join(meta['unites_inconnues'])}.")

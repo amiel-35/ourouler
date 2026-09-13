@@ -235,40 +235,61 @@ calibration ?
 </details>
 
 
-## Q11 — Quelle puissance viser dans une séance prescrite en zones de FC ?
+## Q11 — Les séances prescrites en zones de FC — **close le 13/09/2026**
 
-**Ouverte le 13/09/2026 (lot L4.1).** Les deux séances de référence du
-compte sont prescrites en **zones de fréquence cardiaque** (`hr: {units:
-"hr_zone", value: N}`), pas en puissance. Le contrat de sprint 4 §1 demande
-de les approximer par la zone de **puissance** de même numéro, et de le dire.
-C'est fait, et l'approximation est affichée. Mais le résultat chiffré n'est
-pas utilisable tel quel :
+**Close.** Règle retenue : **zone de FC basse (Z1, Z2) → `[seance]
+puissance_endurance_pct` × FTP**, défaut **0,60** ; **zone de FC haute (Z3 et
+au-dessus) → table des zones de puissance de même numéro**, inchangée.
+L'avertissement à l'écran dit laquelle des deux s'applique.
 
-- « Vélo — Sortie EF 2h » du 29/08 est prescrite en **Z1 de FC**. Traduite en
-  Z1 de puissance (0-55 % de FTP), la cible est le milieu de la fourchette,
-  soit **71 W** : `ourouler seance --jour 2026-08-29` annonce **36,1 km pour
-  2 h**, c'est-à-dire 18 km/h. Une sortie EF de 2 h fait 50 à 60 km.
-- Même effet, plus discret, sur les récupérations de « 4x8min Z4 » : 4 min de
-  Z1 donnent **1,2 km**, donc **0,6 km** de route nécessaire au-delà du
-  segment pour un demi-tour, là où le cadrage du sprint 4 écrit « 4 min à
-  25 km/h ≈ 800 m ». L'estimation du demi-tour est donc **optimiste de 25 %**.
+**C'est un cas minoritaire, et il faut le garder en tête.** Comptage des
+unités sur les 82 séances vélo de 2026 : **259 étapes en `%ftp`**, 16 en
+`power_zone`, **28 en `hr_zone`**. Les séances de coach (iDOSport) et le plan
+Ironman sont **tous en pourcentage de FTP** : traduction exacte, aucune
+approximation, aucun avertissement. Les zones de FC sont un lot de séances
+« Vélo HIT / Sortie EF » de juin à septembre 2026.
 
-Deux causes se cumulent, et aucune ne se tranche sans le mainteneur :
+**Pourquoi la table des zones ne marchait pas pour les zones basses.** La Z1
+de puissance s'étend de 0 à 55 % de FTP ; son milieu vaut 27,5 % de FTP,
+c'est-à-dire du pédalage à vide, et une zone ouverte vers le bas n'a de toute
+façon pas de milieu qui veuille dire quelque chose. Une zone de FC n'est pas
+non plus la zone de puissance de même numéro : un plan qui écrit « Z1 de FC »
+pour une endurance désigne une puissance d'endurance franche.
 
-1. **La cible au milieu de la fourchette.** Pour Z4 (91-105 %) le milieu est
-   bon ; pour Z1 (0-55 %) il vaut 27,5 % de FTP, c'est-à-dire du pédalage à
-   vide. Une borne basse non nulle sur Z1, ou une cible aux deux tiers de la
-   fourchette, corrigerait — mais c'est un choix d'entraîneur.
-2. **Une zone de FC n'est pas la zone de puissance de même numéro.** Un plan
-   qui écrit « Z1 de FC » pour une endurance fondamentale désigne en pratique
-   la Z2 de puissance. Un décalage d'un rang, ou une table de correspondance
-   FC → puissance, réglerait les deux séances de référence d'un coup.
+**La valeur, mesurée.** Médiane de 60 % de FTP (154 W pour 258 W de FTP) sur
+les 96 sorties extérieures de plus d'une heure depuis 2025 ; 59 % sur toutes
+les sorties extérieures confondues. Les EF de 3 h font 75-81 km, soit
+25-27 km/h.
 
-Trois façons de sortir, par coût croissant : (a) une table de correspondance
-zone de FC → zone de puissance dans la configuration ; (b) mesurer la
-correspondance sur les sorties réelles du cache (FC et puissance sont toutes
-deux enregistrées) ; (c) demander que les séances soient prescrites en
-puissance chez le planificateur.
+**Ce que ça change, mesuré sur les vraies séances (`ourouler seance`) :**
 
-En attendant, la longueur de route d'une séance en zones de FC est à lire
-comme un ordre de grandeur bas, et l'avertissement le dit à l'écran.
+| Séance | Avant | Après | Référence |
+|---|---|---|---|
+| « Sortie EF 2h » du 29/08 (Z1 de FC) | 36,1 km (18,0 km/h) | **57,3 km (28,6 km/h)** | ses EF réelles : 25-27 km/h |
+| Récup de 4 min de « 4x8min Z4 » du 08/09 | 0,6 km au-delà du segment | **1,0 km** | cadrage S4 : « 4 min à 25 km/h ≈ 800 m » |
+| Blocs Z4 du 08/09 | 4,9 km à 235-271 W | **inchangés** | plausible pour du seuil |
+
+Les zones hautes n'ont pas bougé : la table des zones tombe juste pour elles.
+
+**Ce qui reste incertain.** 0,60 est une médiane sur l'historique, pas une
+correspondance FC → puissance. Une vraie table (FC et puissance sont toutes
+deux enregistrées dans les FIT du cache) serait plus juste, et reste ouverte
+si le besoin revient — il est faible tant que les séances de coach sont
+prescrites en pourcentage de FTP.
+
+<details><summary>Historique de la question</summary>
+
+Ouverte le 13/09/2026 au lot L4.1. Le contrat de sprint 4 §1 demandait
+d'approximer une consigne en zone de FC par la zone de **puissance** de même
+numéro, et de le dire. C'était fait, et affiché, mais le résultat chiffré
+n'était pas utilisable : « Sortie EF 2h » prescrite en Z1 de FC donnait 71 W
+de cible, donc 36,1 km pour 2 h — 18 km/h là où une EF de 2 h fait 50 à
+60 km. Même effet, plus discret, sur les récupérations : 4 min de Z1 donnaient
+1,2 km, donc 0,6 km de route nécessaire au-delà du segment pour un demi-tour,
+contre les 800 m du cadrage.
+
+La première version de la question portait sur « les séances sont prescrites
+en FC » ; le mainteneur a corrigé le cadrage : c'est l'exception, pas la
+règle, et le jour de vérification avait été choisi dans l'exception.
+
+</details>

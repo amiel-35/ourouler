@@ -18,16 +18,37 @@ libre que ce que le contrat de sprint §1 décrit :
   elle est gardée, sans puissance. Le rendu le dit et aucune longueur de
   route ne lui est attribuée.
 
-Deux traductions, et une seule est exacte :
+**Le cas nominal est `%ftp`, et il est exact.** Comptage des 82 séances vélo
+de 2026 sur le compte du mainteneur : 259 étapes en `%ftp`, 16 en
+`power_zone`, 28 en `hr_zone`. Les séances de son coach et son plan Ironman
+sont toutes en pourcentage de FTP ; elles se traduisent en watts sans
+approximation et sans avertissement. Les zones de fréquence cardiaque sont
+l'exception (un lot de séances de juin à septembre 2026), et c'est la seule
+qui demande des précautions.
 
+Les traductions, de la plus sûre à la moins sûre :
+
+- `%ftp` → fraction × FTP. **Exact.** Une consigne `{start, end}` donne une
+  fourchette, dont `Etape.puissance_cible_w` prend le milieu.
+- `watts` → tel quel. Exact aussi, mais absent de ce compte.
 - `power_zone` → bornes de la zone × FTP. C'est une **traduction** : la
   consigne était déjà en puissance.
-- `hr_zone` → bornes de la zone de puissance **de même numéro** × FTP. C'est
-  une **approximation**, et elle se dit : `meta["puissance_approximee"]` passe
-  à vrai et le rendu l'affiche. Une zone de fréquence cardiaque n'est pas une
-  zone de puissance — la FC dérive, traîne au départ d'un effort et monte
-  seule à la chaleur. C'est la meilleure passerelle disponible sans modèle
-  FC ↔ puissance, pas une équivalence.
+- `hr_zone` **haute** (au-dessus de `ZONE_FC_BASSE_MAX`) → bornes de la zone
+  de puissance de même numéro × FTP. C'est une **approximation**, mais elle
+  tombe juste : une Z4 de FC donne 235-271 W pour 258 W de FTP, ce qui est
+  bien du seuil.
+- `hr_zone` **basse** (Z1, Z2) → `puissance_endurance_pct × FTP`. La table
+  des zones ne sait pas traduire celles-là : la Z1 de puissance va de 0 à
+  55 % de FTP, son milieu vaut 27,5 % — du pédalage à vide — et une zone
+  ouverte vers le bas n'a pas de milieu qui veuille dire quelque chose. Une
+  zone de FC n'est pas davantage la zone de puissance de même numéro : un
+  plan qui écrit « Z1 de FC » pour une endurance désigne une puissance
+  d'endurance franche. Le défaut, 60 % de FTP, est la médiane **mesurée** sur
+  les sorties extérieures du mainteneur (Q11, close le 13/09/2026).
+
+Seules les deux formes `hr_zone` font passer `meta["puissance_approximee"]`
+à vrai, et le rendu l'affiche alors. `%ftp`, `watts` et `power_zone` ne
+déclenchent aucun avertissement : il n'y a rien à avertir.
 
 Ce module ne lit aucun fichier, ne connaît aucune configuration : la FTP et
 les zones lui sont passées.
@@ -36,11 +57,18 @@ les zones lui sont passées.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import date
 
 from ourouler.activites.modele import est_sport_velo
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Etape, Seance
+from ourouler.seance.modele import (
+    PUISSANCE_ENDURANCE_PCT_DEFAUT,
+    ZONE_FC_BASSE_MAX,
+    ZONES_PUISSANCE_DEFAUT,
+    Etape,
+    Seance,
+)
 
 #: Profondeur d'imbrication maximale des groupes. Le format n'en impose
 #: aucune ; trois niveaux ont été vus. Au-delà, on s'arrête plutôt que de
@@ -68,6 +96,7 @@ def depuis_workout_doc(
     jour: date,
     ftp_w: float | None,
     zones_puissance: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT,
+    puissance_endurance_pct: float = PUISSANCE_ENDURANCE_PCT_DEFAUT,
 ) -> Seance:
     """Construit une `Seance` à partir du `workout_doc` d'un événement Intervals.
 
@@ -76,10 +105,14 @@ def depuis_workout_doc(
     pourquoi. C'est l'appelant qui décide si une séance vide est utilisable —
     la commande, elle, l'affiche et le dit.
     """
-    etat = _Etat(ftp_w=_ftp(ftp_w), zones=_zones(zones_puissance))
+    etat = _Etat(
+        ftp_w=_ftp(ftp_w),
+        zones=_zones(zones_puissance),
+        endurance_pct=_pct(puissance_endurance_pct),
+    )
     brut = doc.get("steps") if isinstance(doc, dict) else None
-    etapes = _aplatir(brut, etat=etat, profondeur=0, libelle="")
-    etapes = _marquer_elastiques(etapes)
+    lues = _aplatir(brut, etat=etat, profondeur=0, libelle="")
+    etapes = _marquer_elastiques(_reclasser_libres(lues, etat=etat))
     duree_s = sum(e.duree_s for e in etapes)
     meta = etat.meta()
     meta["nom_source"] = str(nom)
@@ -103,6 +136,7 @@ def seance_du_jour(
     *,
     ftp_w: float | None,
     zones_puissance: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT,
+    puissance_endurance_pct: float = PUISSANCE_ENDURANCE_PCT_DEFAUT,
 ) -> Seance | None:
     """La séance **vélo** planifiée ce jour-là, ou `None` s'il n'y en a pas.
 
@@ -125,6 +159,7 @@ def seance_du_jour(
         jour=jour,
         ftp_w=ftp_w,
         zones_puissance=zones_puissance,
+        puissance_endurance_pct=puissance_endurance_pct,
     )
     seance.meta["source"] = "intervals"
     seance.meta["evenement_id"] = retenue.get("id")
@@ -156,10 +191,20 @@ def _est_seance_velo(evenement: object) -> bool:
 class _Etat:
     """Ce que l'aplatissement accumule en chemin, et qui finit dans `meta`."""
 
-    def __init__(self, *, ftp_w: float | None, zones: tuple[tuple[float, float], ...]):
+    def __init__(
+        self,
+        *,
+        ftp_w: float | None,
+        zones: tuple[tuple[float, float], ...],
+        endurance_pct: float,
+    ):
         self.ftp_w = ftp_w
         self.zones = zones
+        self.endurance_pct = endurance_pct
         self.approximee = False
+        self.fc_basses = 0  # étapes en zone de FC basse, calées sur l'endurance mesurée
+        self.fc_hautes = 0  # étapes en zone de FC haute, traduites par la table des zones
+        self.libres_reclassees: list[dict] = []
         self.unites_inconnues: list[str] = []
         self.sans_puissance = 0
         self.nulles = 0
@@ -177,13 +222,18 @@ class _Etat:
             "puissance_approximee": self.approximee,
             "ftp_w": self.ftp_w,
             "zones_puissance": [list(z) for z in self.zones],
+            "puissance_endurance_pct": self.endurance_pct,
         }
         if self.approximee:
             meta["approximation"] = (
-                "puissance déduite des zones de fréquence cardiaque par la zone de "
-                "puissance de même numéro — une FC n'est pas une puissance"
+                "consignes données en zones de fréquence cardiaque : les zones basses "
+                f"(jusqu'à Z{ZONE_FC_BASSE_MAX}) sont calées sur la puissance d'endurance "
+                "mesurée du cycliste, les zones hautes sur la table des zones de puissance"
             )
         for cle, valeur in (
+            ("etapes_fc_basses", self.fc_basses),
+            ("etapes_fc_hautes", self.fc_hautes),
+            ("etapes_libres_reclassees", self.libres_reclassees),
             ("unites_inconnues", self.unites_inconnues),
             ("etapes_sans_puissance", self.sans_puissance),
             ("etapes_nulles", self.nulles),
@@ -197,7 +247,21 @@ class _Etat:
         return meta
 
 
-def _aplatir(brut: object, *, etat: _Etat, profondeur: int, libelle: str) -> list[Etape]:
+@dataclass(frozen=True)
+class _Lue:
+    """Une étape et ce que l'aplatissement doit encore savoir d'elle.
+
+    `sans_consigne` distingue « la source ne dit rien de l'intensité » de
+    « la consigne existe mais n'a pas pu être convertie en watts » (un `%ftp`
+    sans FTP disponible, par exemple). Les deux donnent une étape sans
+    puissance, seule la première est du roulage libre.
+    """
+
+    etape: Etape
+    sans_consigne: bool
+
+
+def _aplatir(brut: object, *, etat: _Etat, profondeur: int, libelle: str) -> list[_Lue]:
     """Développe groupes et répétitions en une liste d'étapes, dans l'ordre."""
     if not isinstance(brut, list):
         if brut is not None:
@@ -206,7 +270,7 @@ def _aplatir(brut: object, *, etat: _Etat, profondeur: int, libelle: str) -> lis
     if profondeur > PROFONDEUR_MAX:
         etat.trop_profond += 1
         return []
-    etapes: list[Etape] = []
+    etapes: list[_Lue] = []
     for element in brut:
         if not isinstance(element, dict):
             etat.elements_illisibles += 1
@@ -220,7 +284,7 @@ def _aplatir(brut: object, *, etat: _Etat, profondeur: int, libelle: str) -> lis
     return etapes
 
 
-def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list[Etape]:
+def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list[_Lue]:
     reps = _reps(groupe.get("reps"))
     if reps <= 0:
         # `reps: 0` ou négatif : le groupe ne se roule pas. On ne le garde pas,
@@ -228,7 +292,7 @@ def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list
         etat.groupes_ignores += 1
         return []
     texte = str(groupe.get("text") or "").strip()
-    etapes: list[Etape] = []
+    etapes: list[_Lue] = []
     for tour in range(1, reps + 1):
         prefixe = _joindre(libelle, _libelle_groupe(texte, tour, reps))
         etapes.extend(
@@ -237,22 +301,25 @@ def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list
     return etapes
 
 
-def _etape(step: dict, *, etat: _Etat, libelle: str) -> Etape | None:
+def _etape(step: dict, *, etat: _Etat, libelle: str) -> _Lue | None:
     duree = _nombre(step.get("duration"))
     if duree is None or duree <= 0:
         # Une étape de durée nulle ou absente ne se roule pas et n'occupe
         # aucun mètre de route : elle est écartée, et comptée.
         etat.nulles += 1
         return None
-    bas, haut, descripteur = _puissance(step, etat=etat)
+    bas, haut, descripteur, sans_consigne = _puissance(step, etat=etat)
     if bas is None and haut is None:
         etat.sans_puissance += 1
-    return Etape(
-        type=_type(step),
-        duree_s=duree,
-        puissance_min_w=bas,
-        puissance_max_w=haut,
-        libelle=_joindre(libelle, descripteur),
+    return _Lue(
+        etape=Etape(
+            type=_type(step),
+            duree_s=duree,
+            puissance_min_w=bas,
+            puissance_max_w=haut,
+            libelle=_joindre(libelle, descripteur),
+        ),
+        sans_consigne=sans_consigne,
     )
 
 
@@ -266,6 +333,47 @@ def _type(step: dict) -> str:
     if intensite in INTENSITES_RECUP:
         return "recuperation"
     return "bloc"
+
+
+def _reclasser_libres(lues: list[_Lue], *, etat: _Etat) -> list[Etape]:
+    """Une étape sans aucune consigne n'est pas un bloc : c'est du roulage libre.
+
+    Décision du superviseur (13/09/2026). Sans puissance ni zone, rien ne
+    contraint le terrain : chercher un couloir propre pour une telle étape
+    n'a pas de sens, et la laisser typée « bloc » enverrait le placement
+    (L4.3) travailler pour rien. Elle devient donc un échauffement si elle
+    ouvre la séance, un retour au calme si elle la ferme, une récupération
+    au milieu.
+
+    Les marqueurs explicites de la source restent prioritaires : une étape
+    libre déjà marquée `warmup`, `cooldown` ou `intensity=recovery` garde son
+    type, seul le « sinon bloc » par défaut est corrigé.
+    """
+    etapes = [lue.etape for lue in lues]
+    dernier = len(etapes) - 1
+    for indice, lue in enumerate(lues):
+        if not lue.sans_consigne or lue.etape.type != "bloc":
+            continue
+        if indice == 0:
+            type_ = "echauffement"
+        elif indice == dernier:
+            type_ = "calme"
+        else:
+            type_ = "recuperation"
+        etapes[indice] = _retyper(lue.etape, type_)
+        etat.libres_reclassees.append({"indice": indice, "type": type_})
+    return etapes
+
+
+def _retyper(etape: Etape, type_: str) -> Etape:
+    return Etape(
+        type=type_,
+        duree_s=etape.duree_s,
+        puissance_min_w=etape.puissance_min_w,
+        puissance_max_w=etape.puissance_max_w,
+        libelle=etape.libelle,
+        elastique=etape.elastique,
+    )
 
 
 def _marquer_elastiques(etapes: list[Etape]) -> list[Etape]:
@@ -298,13 +406,16 @@ def _elastique(etape: Etape) -> Etape:
 # --- consigne de puissance ----------------------------------------------------
 
 
-def _puissance(step: dict, *, etat: _Etat) -> tuple[float | None, float | None, str]:
-    """(min, max, descripteur lisible) d'une étape. `(None, None, …)` si muette."""
+def _puissance(step: dict, *, etat: _Etat) -> tuple[float | None, float | None, str, bool]:
+    """(min, max, descripteur lisible, aucune consigne) d'une étape."""
     for champ in ("power", "hr"):
         consigne = step.get(champ)
         if isinstance(consigne, dict):
-            return _depuis_consigne(consigne, etat=etat)
-    return (None, None, "libre" if step.get("freeride") else "")
+            bas, haut, descripteur = _depuis_consigne(consigne, etat=etat)
+            # Une consigne illisible (unité inconnue, bornes absentes) reste
+            # une consigne : la source a voulu dire quelque chose.
+            return (bas, haut, descripteur, False)
+    return (None, None, "libre", True)
 
 
 def _depuis_consigne(consigne: dict, *, etat: _Etat) -> tuple[float | None, float | None, str]:
@@ -355,6 +466,15 @@ def _depuis_zones(
     if etat.ftp_w is None:
         etat.ftp_manquante += 1
         return (None, None, nom + suffixe)
+    if fc and z_haut + 1 <= ZONE_FC_BASSE_MAX:
+        # Zone de FC basse : la table des zones de puissance ne sait pas la
+        # traduire (voir la docstring du module). On vise la puissance
+        # d'endurance mesurée du cycliste, une valeur et non une fourchette.
+        etat.fc_basses += 1
+        puissance = etat.endurance_pct * etat.ftp_w
+        return (puissance, puissance, nom + suffixe)
+    if fc:
+        etat.fc_hautes += 1
     return (
         etat.zones[z_bas][0] * etat.ftp_w,
         etat.zones[z_haut][1] * etat.ftp_w,
@@ -424,6 +544,14 @@ def _nombre(brut: object) -> float | None:
     except (TypeError, ValueError):
         return None
     return valeur if math.isfinite(valeur) else None
+
+
+def _pct(brut: float) -> float:
+    """La part de FTP visée en endurance. Une valeur inutilisable revient au défaut."""
+    valeur = _nombre(brut)
+    if valeur is None or not 0.0 < valeur <= 2.0:
+        return PUISSANCE_ENDURANCE_PCT_DEFAUT
+    return valeur
 
 
 def _ftp(brut: float | None) -> float | None:

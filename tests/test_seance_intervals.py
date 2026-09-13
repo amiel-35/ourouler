@@ -511,3 +511,153 @@ def test_une_seance_est_serialisable_en_json():
     """`meta` doit rester un dictionnaire de types simples (rendu `--json`)."""
     seance = lire(W.groupes_hr_zone())
     assert json.loads(json.dumps(seance.meta))["puissance_approximee"] is True
+
+
+# --- zones de FC basses : la puissance d'endurance mesurée (Q11) ---------------
+
+
+def test_le_cas_nominal_pourcent_ftp_n_est_pas_une_approximation():
+    """Huit séances sur dix sont en `%ftp` : rien à approximer, rien à avertir."""
+    seance = lire(W.groupes_pourcent_ftp())
+    assert seance.meta["puissance_approximee"] is False
+    assert "approximation" not in seance.meta
+    assert "etapes_fc_basses" not in seance.meta
+    assert "etapes_fc_hautes" not in seance.meta
+
+
+@pytest.mark.parametrize("zone", [1, 2])
+def test_une_zone_de_fc_basse_vise_la_puissance_d_endurance(zone):
+    doc = {"steps": [{"hr": {"units": "hr_zone", "value": zone}, "duration": 3600}]}
+    etape = lire(doc).etapes[0]
+    # 60 % de 200 W, une valeur et non une fourchette : le milieu de Z1
+    # (0-55 % de FTP) vaudrait 55 W, soit du pédalage à vide.
+    assert etape.puissance_min_w == etape.puissance_max_w == 120.0
+    assert etape.puissance_cible_w == 120.0
+
+
+@pytest.mark.parametrize("zone", [3, 4, 5])
+def test_une_zone_de_fc_haute_garde_la_table_des_zones(zone):
+    doc = {"steps": [{"hr": {"units": "hr_zone", "value": zone}, "duration": 480}]}
+    etape = lire(doc).etapes[0]
+    bas, haut = ZONES_PUISSANCE_DEFAUT[zone - 1]
+    assert (etape.puissance_min_w, etape.puissance_max_w) == (bas * FTP, haut * FTP)
+
+
+def test_la_zone_quatre_de_fc_reste_plausible_pour_du_seuil():
+    doc = {"steps": [{"hr": {"units": "hr_zone", "value": 4}, "duration": 480}]}
+    etape = lire(doc, ftp=258.0).etapes[0]
+    assert (round(etape.puissance_min_w), round(etape.puissance_max_w)) == (235, 271)
+
+
+def test_un_intervalle_de_zones_de_fc_qui_deborde_vers_le_haut_reste_haut():
+    doc = {"steps": [{"hr": {"units": "hr_zone", "start": 1, "end": 4}, "duration": 600}]}
+    etape = lire(doc).etapes[0]
+    assert etape.puissance_max_w == 1.05 * FTP
+
+
+def test_les_deux_familles_sont_comptees_dans_meta():
+    seance = lire(W.groupes_hr_zone())
+    # échauffement Z2 + 4 récups Z1 + 1 calme Z1 = 6 basses ; 4 blocs Z4 = 4 hautes.
+    assert seance.meta["etapes_fc_basses"] == 6
+    assert seance.meta["etapes_fc_hautes"] == 4
+    assert "zones basses" in seance.meta["approximation"]
+
+
+def test_la_part_de_ftp_visee_est_reglable():
+    doc = {"steps": [{"hr": {"units": "hr_zone", "value": 1}, "duration": 60}]}
+    seance = depuis_workout_doc(
+        doc, nom="EF", jour=JOUR, ftp_w=FTP, puissance_endurance_pct=0.70
+    )
+    assert seance.etapes[0].puissance_cible_w == 140.0
+    assert seance.meta["puissance_endurance_pct"] == 0.70
+
+
+@pytest.mark.parametrize("mauvais", [0.0, -0.5, 3.0, "beaucoup", None, True])
+def test_une_part_de_ftp_inutilisable_revient_au_defaut(mauvais):
+    doc = {"steps": [{"hr": {"units": "hr_zone", "value": 1}, "duration": 60}]}
+    seance = depuis_workout_doc(
+        doc, nom="EF", jour=JOUR, ftp_w=FTP, puissance_endurance_pct=mauvais
+    )
+    assert seance.etapes[0].puissance_cible_w == 0.60 * FTP
+
+
+def test_une_zone_de_puissance_basse_n_est_pas_concernee():
+    """`power_zone` est une consigne de puissance : la table s'applique telle quelle."""
+    doc = {"steps": [{"power": {"units": "power_zone", "value": 1}, "duration": 60}]}
+    etape = lire(doc).etapes[0]
+    assert (etape.puissance_min_w, etape.puissance_max_w) == (0.0, 0.55 * FTP)
+    assert lire(doc).meta["puissance_approximee"] is False
+
+
+def test_une_zone_de_fc_basse_sans_ftp_ne_devine_rien():
+    doc = {"steps": [{"hr": {"units": "hr_zone", "value": 1}, "duration": 60}]}
+    assert lire(doc, ftp=None).etapes[0].puissance_cible_w is None
+
+
+# --- étapes libres : pas des blocs ---------------------------------------------
+
+
+def test_une_etape_libre_seule_devient_un_echauffement():
+    seance = lire({"steps": [{"duration": 1200, "freeride": True}]})
+    assert seance.etapes[0].type == "echauffement"
+    assert seance.etapes[0].elastique is True
+    assert seance.blocs() == []
+    assert seance.meta["etapes_libres_reclassees"] == [{"indice": 0, "type": "echauffement"}]
+
+
+def test_une_etape_libre_au_milieu_devient_une_recuperation():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 150}},
+            {"duration": 900, "freeride": True},
+            {"duration": 600, "power": {"units": "watts", "value": 150}},
+        ]
+    }
+    assert [e.type for e in lire(doc).etapes] == ["bloc", "recuperation", "bloc"]
+
+
+def test_une_etape_libre_en_fin_devient_un_retour_au_calme():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 150}},
+            {"duration": 900, "freeride": True},
+        ]
+    }
+    etapes = lire(doc).etapes
+    assert etapes[1].type == "calme" and etapes[1].elastique is True
+
+
+def test_une_etape_libre_gardee_marquee_par_la_source_garde_son_type():
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 150}},
+            {"duration": 900, "intensity": "recovery"},
+            {"duration": 600, "warmup": True},
+        ]
+    }
+    seance = lire(doc)
+    assert [e.type for e in seance.etapes] == ["bloc", "recuperation", "echauffement"]
+    # Aucune reclassification : les deux étaient déjà typées par la source.
+    assert "etapes_libres_reclassees" not in seance.meta
+
+
+def test_une_consigne_illisible_n_est_pas_du_roulage_libre():
+    """Une unité inconnue reste une consigne : la source a voulu dire quelque chose."""
+    doc = {
+        "steps": [
+            {"duration": 600, "power": {"units": "watts", "value": 150}},
+            {"duration": 480, "power": {"units": "furlongs", "value": 3}},
+            {"duration": 600, "power": {"units": "watts", "value": 150}},
+        ]
+    }
+    seance = lire(doc)
+    assert seance.etapes[1].type == "bloc"
+    assert "etapes_libres_reclassees" not in seance.meta
+
+
+def test_les_deux_etapes_libres_d_une_seance_mixte_sont_reclassees():
+    seance = lire(W.plat_et_groupes())
+    assert seance.etapes[0].type == "echauffement"
+    assert seance.etapes[-1].type == "calme"
+    assert len(seance.blocs()) == 5  # 4 sprints + 1 bloc de 5 min, les libres en moins
+    assert len(seance.meta["etapes_libres_reclassees"]) == 2

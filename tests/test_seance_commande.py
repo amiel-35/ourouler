@@ -340,3 +340,62 @@ def test_le_json_est_serialisable_et_complet():
 def test_chemin_calibration_reste_dans_le_cache(tmp_path):
     config = config_de_test(tmp_path)
     assert chemin_calibration(config) == tmp_path / "calibration.json"
+
+
+# --- zones de FC et étapes libres dans le rendu (Q11) --------------------------
+
+
+def test_le_message_d_approximation_distingue_zones_basses_et_hautes(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.groupes_hr_zone(), nom="HIT fabriquée")]
+    executer(args(), config, client=client_bouchon(evenements))
+    sortie = capsys.readouterr().out
+    assert "Zones basses" in sortie
+    assert "60 % de FTP" in sortie
+    assert "puissance d'endurance mesurée" in sortie
+    assert "Zones hautes" in sortie
+
+
+def test_une_seance_en_pourcent_ftp_n_affiche_aucun_avertissement(tmp_path, capsys):
+    """Le cas nominal : rien à approximer, donc rien à dire."""
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.groupes_pourcent_ftp(), nom="Séance en %FTP")]
+    executer(args(), config, client=client_bouchon(evenements))
+    sortie = capsys.readouterr().out
+    assert "approximées" not in sortie
+    assert "Zones basses" not in sortie
+
+
+def test_la_part_de_ftp_de_la_configuration_est_utilisee(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path, seance={"puissance_endurance_pct": 0.70})
+    evenements = [W.evenement(W.groupes_hr_zone(), nom="HIT fabriquée")]
+    executer(args(json=True), config, client=client_bouchon(evenements))
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["meta"]["puissance_endurance_pct"] == 0.70
+    assert charge["etapes"][0]["puissance_cible_w"] == 140  # 70 % de 200 W
+
+
+def test_une_endurance_en_zone_de_fc_donne_une_distance_plausible(tmp_path, capsys):
+    """2 h en Z1 de FC : une EF, pas du pédalage à vide."""
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.sortie_libre(), nom="EF fabriquée")]
+    executer(args(json=True), config, client=client_bouchon(evenements))
+    charge = json.loads(capsys.readouterr().out)
+    etape = charge["etapes"][0]
+    assert etape["puissance_cible_w"] == 120  # 60 % de 200 W
+    assert 24.0 < etape["vitesse_kmh"] < 34.0
+
+
+def test_les_etapes_libres_reclassees_sont_dites(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.plat_et_groupes(), nom="mixte")]
+    executer(args(), config, client=client_bouchon(evenements))
+    sortie = capsys.readouterr().out
+    assert "ce ne sont pas des blocs" in sortie
+    assert "#1 → échauffement" in sortie
+    assert "5 bloc(s)" in sortie
