@@ -22,10 +22,16 @@ rien apporter (la tolérance est de 20 m).
 Pour chaque point `k` qui ressemble à un demi-tour (voir
 `RATIO_RETOURNEMENT`), on fait grandir le retour point par point. À chaque
 pas, `i` est le point de l'aller d'où l'on est parti pour couvrir la
-distance déjà refaite au retour — c'est le point de jonction candidat. La
-portion `[k, j]` est une antenne si **chacun** de ses points est à moins de
-`tolerance_m` d'un point de l'aller `[i, k]` (distance de Hausdorff dirigée
-du retour vers l'aller).
+distance déjà refaite au retour ; on **projette** le nouveau point du retour
+sur la portion d'aller qui entoure `i`, et le sommet le plus proche de cette
+projection est le point de jonction candidat. La portion `[k, j]` est une
+antenne si **chacun** de ses points est à moins de `tolerance_m` de la
+*géométrie* de l'aller (distance de Hausdorff dirigée du retour vers
+l'aller, mesurée aux segments et non aux sommets).
+
+C'est la géométrie qui compte, pas les nœuds : un moteur de tracé ramène le
+cycliste par le même axe sans forcément repasser par les mêmes points, et le
+contrat §1 admet explicitement un retour décalé jusqu'à `tolerance_m`.
 
 Deux garde-fous, et ils ne disent pas la même chose :
 
@@ -60,10 +66,11 @@ absolue 5).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
+from ourouler.boucle.trace import RAYON_TERRE_M, PointTrace, Segment, Trace, distance_m
 
 #: Espacement du sous-échantillonnage. En dessous, on paye la résolution de
 #: BRouter (quelques mètres entre points) sans gagner en justesse : la
@@ -108,12 +115,16 @@ DEMI_FENETRE_RETOURNEMENT = 3
 #: antenne.
 RATIO_RETOURNEMENT = 0.5
 
-#: Décalage maximal, en nombre d'échantillons, entre un point du retour et le
-#: point de l'aller auquel on l'apparie. Le retour d'une antenne repasse par
-#: la même route : à distance parcourue égale depuis le demi-tour, on doit
-#: retomber au même endroit, à ±20 m près. Sans cette contrainte, un point
-#: situé **après** la jonction s'appariait au point de jonction lui-même, et
-#: l'antenne débordait sur la vraie route des deux côtés.
+#: Décalage maximal, en nombre d'échantillons, entre un point du retour et la
+#: portion de l'aller sur laquelle on le projette. Le retour d'une antenne
+#: repasse par la même route : à distance parcourue égale depuis le demi-tour,
+#: on doit retomber au même endroit. Sans cette contrainte, un point situé
+#: **après** la jonction se projetterait sur la jonction elle-même, et
+#: l'antenne déborderait sur la vraie route des deux côtés.
+#:
+#: Deux échantillons (≈ 20 m de part et d'autre) : le retour d'une antenne
+#: bruitée est un peu plus long que l'aller — il louvoie — et la distance
+#: parcourue dérive d'autant. C'est cette dérive que la fenêtre absorbe.
 FENETRE_APPARIEMENT = 2
 
 #: Tolérance de flottant sur les comparaisons de distance parcourue. Un
@@ -294,11 +305,12 @@ def _antenne_autour(
         retour_m = arc[fin] - arc[k]
         while debut > 0 and arc[k] - arc[debut] < retour_m - EPSILON_M:
             debut -= 1
-        if arc[k] - arc[debut] < retour_m - EPSILON_M:
+        if arc[k] - arc[debut] < retour_m - tolerance_m:
             break  # l'aller ne remonte pas assez loin : début du tracé atteint
-        longueur = arc[fin] - arc[debut]
-        if _ecart_a_l_aller(points, debut, k, points[fin]) > tolerance_m:
+        ecart, jointure = _appariement_a_l_aller(points, debut, k, points[fin])
+        if ecart > tolerance_m:
             break  # le retour quitte l'aller : l'antenne s'arrête là
+        longueur = arc[fin] - arc[jointure]
         if longueur > fenetre_m + EPSILON_M:
             # Toujours superposé **au-delà** de la fenêtre : aller-retour
             # voulu, pas une antenne. On abandonne la candidate entière.
@@ -306,32 +318,74 @@ def _antenne_autour(
             # 590 m dont le point suivant dépasse la fenêtre *et* quitte
             # l'aller serait perdue au lieu d'être rendue.
             return None
-        jonction = distance_m(points[debut], points[fin])
+        jonction = distance_m(points[jointure], points[fin])
         if longueur >= LONGUEUR_MIN_M and jonction <= tolerance_m + EPSILON_M:
             # Les deux bouts se rejoignent : c'est bien une jonction, et pas
             # un point pris au hasard de part et d'autre sur la vraie route.
-            meilleure = (debut, fin, longueur)
+            meilleure = (jointure, fin, longueur)
     return meilleure
 
 
-def _ecart_a_l_aller(
+def _appariement_a_l_aller(
     points: Sequence[PointTrace], debut: int, k: int, point: PointTrace
-) -> float:
-    """Distance du `point` au plus proche point de l'aller, autour de `debut`.
+) -> tuple[float, int]:
+    """Écart du `point` du retour à la **géométrie** de l'aller, et sommet de jonction.
 
-    L'appariement est cherché **à distance parcourue égale** depuis le
-    demi-tour (c'est ce que veut dire « parcouru en sens inverse »), à
-    `FENETRE_APPARIEMENT` échantillons près. Comparer au plus proche point de
-    tout l'aller laissait un point situé après la jonction s'apparier à la
-    jonction elle-même et faisait déborder l'antenne sur la vraie route.
+    Le contrat §1 définit l'antenne comme une géométrie reparcourue, pas comme
+    des nœuds repassés : un moteur de tracé rend un retour qui emprunte le même
+    axe sans repasser par les mêmes points. On mesure donc la distance du point
+    du retour au **segment** de l'aller le plus proche, et non à ses sommets.
 
-    On compare aux sommets, pas aux segments : à 10 m d'échantillonnage
-    l'écart entre les deux vaut au plus 5 m, très en dessous des 20 m de
-    tolérance, et le code reste lisible.
+    Comparer des sommets faisait rater les retours bruités : un retour décalé
+    de 10 m est aussi un peu plus long que l'aller (il louvoie), la distance
+    parcourue dérive, et l'appariement à distance égale finissait par tomber en
+    deçà de la vraie jonction — l'aller-retour du contrat §4 « quasi-exact
+    (bruit 10 m) » n'était plus reconnu alors que 10 m tient largement dans les
+    20 m de tolérance.
+
+    La recherche reste bornée à `FENETRE_APPARIEMENT` échantillons autour de
+    `debut`, le point de l'aller atteint à distance parcourue égale : sans
+    cela, un point situé après la jonction se projetterait sur la jonction
+    elle-même et l'antenne déborderait sur la vraie route.
+
+    Le sommet rendu est celui dont la projection est la plus proche : c'est lui
+    qui sert de point de jonction, `elaguer` ne sachant couper qu'aux sommets.
     """
     premier = max(0, debut - FENETRE_APPARIEMENT)
     dernier = min(k, debut + FENETRE_APPARIEMENT)
-    return min(distance_m(points[m], point) for m in range(premier, dernier + 1))
+    meilleur = distance_m(points[premier], point)
+    jointure = premier
+    for m in range(premier, dernier):
+        ecart, avancement = _ecart_au_segment(points[m], points[m + 1], point)
+        if ecart < meilleur:
+            meilleur = ecart
+            jointure = m if avancement < 0.5 else m + 1
+    return meilleur, jointure
+
+
+def _ecart_au_segment(a: PointTrace, b: PointTrace, point: PointTrace) -> tuple[float, float]:
+    """Distance du `point` au segment `[a, b]`, et position de sa projection dans `[0, 1]`.
+
+    Projection équirectangulaire locale centrée sur `a` : sur les quelques
+    dizaines de mètres d'un segment sous-échantillonné, l'écart à l'haversine
+    est très en dessous du millimètre — et bien en dessous de la tolérance.
+    """
+    lat0 = math.radians(a.lat)
+
+    def plan(q: PointTrace) -> tuple[float, float]:
+        return (
+            math.radians(q.lon - a.lon) * math.cos(lat0) * RAYON_TERRE_M,
+            math.radians(q.lat - a.lat) * RAYON_TERRE_M,
+        )
+
+    bx, by = plan(b)
+    px, py = plan(point)
+    carre = bx * bx + by * by
+    if carre <= 0.0:
+        # Deux points confondus : le segment se réduit à `a`.
+        return math.hypot(px, py), 0.0
+    avancement = min(1.0, max(0.0, (px * bx + py * by) / carre))
+    return math.hypot(px - avancement * bx, py - avancement * by), avancement
 
 
 def _maximales(antennes: Sequence[Antenne]) -> list[Antenne]:
