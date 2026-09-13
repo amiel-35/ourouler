@@ -560,3 +560,169 @@ def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
     assert not any(f in t for t in textes for f in FICHIERS_DU_CACHE if f != "poids_routes.json"), (
         "faux positif sur un nom de fichier qui n'est pas du sprint 3"
     )
+
+
+# --- sprint 4 : le paquet de la séance reste dans le cœur --------------------
+
+#: Le contrat du sprint 4 nomme le paquet `seance/`, la doctrine §4 `sortie/`.
+#: Les règles valent pour celui des deux qui existe.
+PAQUETS_SEANCE = ("seance", "sortie")
+
+#: Modules du cœur du sprint 4. `commande.py` en est exclu : c'est lui qui a le
+#: droit de lire le disque et de connaître le jour courant (CLAUDE.md règle 2).
+MODULES_SEANCE_COEUR = ("modele.py", "intervals.py", "terrain.py", "placement.py", "tenue.py")
+
+#: Modules qui trahissent un accès au disque. `json` est traité à part : seuls
+#: `json.load` et `json.dump` (les variantes fichier) sont interdits.
+MODULES_DISQUE = {"pathlib", "sqlite3", "shutil", "tempfile", "os", "tomllib", "csv"}
+APPELS_DISQUE = {
+    "open", "read_text", "write_text", "read_bytes", "write_bytes",
+    "mkdir", "unlink", "iterdir", "glob", "rglob", "connect",
+}
+#: Lectures de l'horloge : le cœur reçoit le jour, il ne le devine pas.
+APPELS_HORLOGE = {"now", "today", "utcnow", "fromtimestamp"}
+
+
+def _dossier_seance() -> Path | None:
+    for nom in PAQUETS_SEANCE:
+        if (SRC / nom).is_dir():
+            return SRC / nom
+    return None
+
+
+def _modules_seance() -> list[Path]:
+    dossier = _dossier_seance()
+    if dossier is None:
+        pytest.skip("paquet du sprint 4 absent (src/ourouler/seance/ ou sortie/)")
+    modules = [p for p in _fichiers_python(dossier) if p.name in MODULES_SEANCE_COEUR]
+    assert modules, (
+        f"{dossier.relative_to(RACINE)} existe mais ne contient aucun des modules du contrat "
+        f"{MODULES_SEANCE_COEUR}"
+    )
+    return modules
+
+
+def _appels(chemin: Path) -> list[tuple[int, str]]:
+    """(ligne, nom appelé) pour chaque appel de fonction ou de méthode."""
+    trouves: list[tuple[int, str]] = []
+    for noeud in ast.walk(_arbre(chemin)):
+        if not isinstance(noeud, ast.Call):
+            continue
+        fonction = noeud.func
+        if isinstance(fonction, ast.Name):
+            trouves.append((noeud.lineno, fonction.id))
+        elif isinstance(fonction, ast.Attribute):
+            if isinstance(fonction.value, ast.Name):
+                trouves.append((noeud.lineno, f"{fonction.value.id}.{fonction.attr}"))
+            trouves.append((noeud.lineno, fonction.attr))
+    return trouves
+
+
+def _fautes_de_disque(chemin: Path) -> list[str]:
+    relatif = chemin.relative_to(RACINE) if chemin.is_relative_to(RACINE) else chemin.name
+    fautes = [
+        f"{relatif}:{ligne} import {module}"
+        for ligne, module in _imports(chemin)
+        if module in MODULES_DISQUE
+    ]
+    for ligne, appel in _appels(chemin):
+        if appel in APPELS_DISQUE or appel in ("json.load", "json.dump"):
+            fautes.append(f"{relatif}:{ligne} {appel}(…)")
+    return fautes
+
+
+def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
+    """La règle « le cœur ne sait pas où il tourne » doit couvrir le paquet du sprint 4.
+
+    Les détecteurs des sprints 1 à 3 parcourent `src/ourouler/` en entier : ce
+    test vérifie que le nouveau paquet n'y échappe pas, sans quoi la garantie
+    serait vide pour les modules qui viennent d'arriver.
+    """
+    modules = _modules_seance()
+    scannes = set(_fichiers_python(SRC))
+    manquants = [str(m.relative_to(RACINE)) for m in modules if m not in scannes]
+    assert not manquants, f"modules du sprint 4 hors du champ des règles du cœur : {manquants}"
+
+
+def test_le_coeur_de_la_seance_ne_touche_pas_au_disque():
+    """Contrat §1 à §3 : le cœur reçoit une séance, un tracé et des paramètres.
+
+    Seuls `cli.py` et les `commande.py` lisent un chemin. Un `open()` ou un
+    `pathlib` dans `placement.py` est la règle absolue 2 contournée.
+    """
+    fautes = [faute for chemin in _modules_seance() for faute in _fautes_de_disque(chemin)]
+    assert not fautes, (
+        "accès au disque dans le cœur du sprint 4 (seuls cli.py et les commande.py y ont droit) :\n  "
+        + "\n  ".join(fautes)
+    )
+
+
+def test_le_coeur_de_la_seance_ne_lit_pas_l_horloge():
+    """`seance_du_jour(client, jour)` reçoit le jour : le cœur ne consulte pas la machine.
+
+    C'est la même règle que le disque et l'environnement : deux exécutions du
+    placement sur les mêmes entrées doivent donner le même résultat, y compris
+    à cheval sur minuit ou sur un changement d'heure.
+    """
+    fautes = []
+    for chemin in _modules_seance():
+        for ligne, appel in _appels(chemin):
+            nom = appel.split(".")[-1]
+            if nom in APPELS_HORLOGE:
+                fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} {appel}(…)")
+    assert not fautes, (
+        "lecture de l'horloge dans le cœur du sprint 4 (le jour est un paramètre) :\n  "
+        + "\n  ".join(sorted(set(fautes)))
+    )
+
+
+#: Modules du sprint 4 qui ne parlent à personne : ils reçoivent des objets.
+MODULES_SANS_RESEAU = ("modele.py", "terrain.py", "placement.py", "tenue.py")
+
+
+def test_le_terrain_le_placement_et_la_tenue_n_ouvrent_aucune_connexion():
+    """Règle absolue 3 : le client HTTP est injecté, et seulement au connecteur."""
+    fautes = []
+    for chemin in _modules_seance():
+        if chemin.name not in MODULES_SANS_RESEAU:
+            continue
+        for ligne, module in _imports(chemin):
+            if module in {"httpx", "requests", "urllib", "http", "socket"}:
+                fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} import {module}")
+    assert not fautes, "réseau dans le cœur du sprint 4 :\n  " + "\n  ".join(fautes)
+
+
+def test_le_terrain_reutilise_la_mecanique_des_couts():
+    """Contrat §2 : « réutiliser la mécanique de `couts`, ne pas la dupliquer »."""
+    modules = {chemin.name: chemin for chemin in _modules_seance()}
+    terrain = modules.get("terrain.py")
+    if terrain is None:
+        pytest.skip("terrain.py absent (lot L4.2)")
+    modules_importes = {module for _, module in _imports(terrain)}
+    texte = terrain.read_text(encoding="utf-8")
+    assert "couts" in modules_importes or "couts" in texte, (
+        "terrain.py ne fait référence ni à `boucle.couts` ni à ses constantes : "
+        "la détection des virages et la liste des routes passantes ont été réécrites"
+    )
+
+
+def test_les_detecteurs_du_sprint_4_fonctionnent(tmp_path):
+    """Un test négatif ne prouve rien sans la preuve que le détecteur détecte."""
+    faux = tmp_path / "faux.py"
+    faux.write_text(
+        "import pathlib\n"
+        "from datetime import date\n"
+        "def lire(c):\n"
+        "    with open(c) as f:\n"
+        "        return f.read(), date.today()\n",
+        encoding="utf-8",
+    )
+    fautes = _fautes_de_disque(faux)
+    assert any("pathlib" in f for f in fautes), f"import pathlib non repéré : {fautes}"
+    assert any("open" in f for f in fautes), f"open() non repéré : {fautes}"
+    appels = {appel for _, appel in _appels(faux)}
+    assert "date.today" in appels and "today" in appels, f"date.today() non repéré : {appels}"
+    propre = tmp_path / "propre.py"
+    propre.write_text("def placer(seance, trace, p):\n    return sum(e.duree_s for e in seance.etapes)\n",
+                      encoding="utf-8")
+    assert not _fautes_de_disque(propre), "faux positif sur un module qui ne touche à rien"
