@@ -68,10 +68,15 @@ sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
   durée, surtout en sortie longue.** Conséquence de conception pour S4 : la
   tenue ne se calcule pas sur la météo au départ mais sur la **série des
   échantillons le long du tracé à l'heure de passage** (déjà produite par
-  `boucle`) — on prend le pire moment pour la couche de base, et on
-  recommande « à emporter / à enlever » pour l'amplitude (départ frais,
-  retour chaud ; averse annoncée au km 40). Le vent entre dans le ressenti
-  et déclenche seul la veste au-delà d'un seuil.
+  `boucle`). **Correction d'Amiel (13/09)** : le **départ est ce qui
+  compte** pour la tenue de base, parce que c'est là qu'on a froid ; puis on
+  tient compte de la suite du parcours — montée en température (couches à
+  enlever, rangeables : manchettes, gilet) ou pluie annoncée (veste à
+  emporter). Règle S4 : tenue = conditions au départ (ressenti, vent) ;
+  puis pour chaque échantillon du tracé, si le ressenti monte d'une
+  catégorie → « prévoir d'enlever X », si pluie ≥ seuil → « emporter la
+  veste », si le ressenti baisse (retour tardif) → « garder X ». Le vent
+  entre dans le ressenti et déclenche seul la veste au-delà d'un seuil.
 - Sorties en groupe (sprint 3) : les FIT ne le disent pas ; Strava le sait
   souvent (champ « nombre d'athlètes » de l'activité). Voies : export
   Strava, ou détection statistique (vitesse trop élevée pour la puissance =
