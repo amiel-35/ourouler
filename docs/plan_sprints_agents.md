@@ -227,6 +227,24 @@ Trois conséquences de conception :
   absorbent les villages ; (2) tronçons réutilisés avec demi-tour en
   récup, pénalité légère ; (3) village ou carrefour **dans** le bloc,
   pénalité forte.
+
+  **Mécanique exacte du demi-tour** (mainteneur, 13/09) : la récup se coupe
+  en deux moitiés symétriques autour du demi-tour —
+
+      10 min bloc (aller) → 2 min récup → demi-tour → 2 min récup (retour)
+      → 10 min bloc (sens inverse)
+
+  On revient donc exactement au bout du segment, et **le segment n'a pas
+  besoin d'être plus long que le bloc**. Trois conditions à vérifier :
+  - **Plat ou faux-plat seulement.** « Un tronçon marche souvent dans les
+    deux sens sur du plat, mais en côte » non : à l'envers c'est une
+    descente. Une répétition en côte consomme toute la récup pour
+    redescendre, ce n'est pas la même figure et il faut la traiter à part.
+  - **De la route au-delà du segment.** La moitié de la récup sert à le
+    dépasser : 4 min de récup à 25 km/h ≈ 800 m roulables après la fin du
+    segment ; 1'30 ≈ 300 m.
+  - **Le demi-tour doit être faisable.** Petite route oui ; départementale
+    passante non, pénalité supplémentaire.
 - **Les parties non contraintes sont élastiques** (mainteneur, 13/09 :
   « l'échauffement peut durer plus longtemps, ainsi que le retour au calme,
   on va dire 15-20 % pour trouver la zone »). C'est la variable
