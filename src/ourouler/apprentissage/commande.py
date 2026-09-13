@@ -10,8 +10,9 @@ Trois actions :
   par sortie, idempotent, on peut relancer sans compter ;
 * `stats` montre ce que le cycliste roule vraiment, par classe de route ;
 * `poids` génère huit boucles de 40 km autour du départ pour mesurer ce que le
-  moteur **propose** (l'exposition), le compare à ce qu'il **prend**, et rend
-  les poids appris — écrits dans `poids_routes.json` avec `--appliquer`.
+  moteur **propose** (l'exposition, élaguée de ses antennes comme les
+  candidates de `boucle`), le compare à ce qu'il **prend**, et rend les poids
+  appris — écrits dans `poids_routes.json` avec `--appliquer`.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from ourouler.apprentissage.routes import (
     poids_appris,
     statistiques_de_traces,
 )
+from ourouler.boucle.antennes import detecter, elaguer
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
 from ourouler.boucle.trace import Trace
 from ourouler.config import Config
@@ -292,6 +294,15 @@ def _poids(
 def _boucles_exposition(client: ClientBrouter, config: Config) -> tuple[list[Trace], list[str]]:
     """Une boucle de 40 km par direction : ce que le moteur **propose** au départ.
 
+    Chaque réponse est **élaguée de ses antennes**, exactement comme
+    `boucle.candidates.generer` le fait : l'exposition doit mesurer ce que
+    `ourouler boucle` proposera vraiment, pas ce que le moteur rend avant
+    élagage. Sans cela, les deux parts du rapport
+    `log2(part exposition / part sorties)` ne décrivent pas la même chose, et
+    l'écart n'est pas réparti au hasard — les culs-de-sac sont parcourus à
+    60-70 % sur `track` et `unclassified` (voir `boucle.antennes`), c'est-à-dire
+    sur les classes marginales où le logarithme amplifie déjà le bruit.
+
     Une direction qui échoue n'annule pas la mesure : on compte l'échec et on
     continue. Comparer sept directions vaut mieux que ne rien comparer — mais
     le nombre de boucles est affiché, pour qu'on sache sur quoi repose le
@@ -302,14 +313,13 @@ def _boucles_exposition(client: ClientBrouter, config: Config) -> tuple[list[Tra
     rayon = DISTANCE_EXPOSITION_KM * 1000.0 / RAPPORT_RAYON
     for nom in NOMS_DIRECTIONS:
         try:
-            traces.append(
-                client.boucle(
-                    (config.depart.latitude, config.depart.longitude),
-                    azimut_deg=azimut_de(nom),
-                    rayon_m=rayon,
-                    profil=config.brouter.profil,
-                )
+            trace = client.boucle(
+                (config.depart.latitude, config.depart.longitude),
+                azimut_deg=azimut_de(nom),
+                rayon_m=rayon,
+                profil=config.brouter.profil,
             )
+            traces.append(elaguer(trace, detecter(trace)))
         except ErreurConnecteur as e:
             echecs.append(f"{nom} : {e}")
     return (traces, echecs)

@@ -276,6 +276,73 @@ def test_poids_en_json_montre_les_deux_parts(tmp_path: Path, capsys):
     assert charge["directions"] == ["N", "NE", "E", "SE", "S", "SO", "O", "NO"]
 
 
+def reponse_avec_antenne_en_track() -> dict:
+    """Une ligne de 2 km en `secondary`, prolongée d'un aller-retour de 2 km en `track`.
+
+    C'est la forme réelle du cul-de-sac que le mode boucle de BRouter fabrique
+    en allant chercher un point de passage tombé à côté de la route : il tombe
+    majoritairement sur `track` et `unclassified`.
+    """
+    pas_deg = 0.0009
+    aller = [[0.0, i * pas_deg, 10.0] for i in range(21)]  # 0 → 20 : la ligne
+    antenne = [[0.0, (20 + i) * pas_deg, 10.0] for i in range(1, 11)]  # 21 → 30
+    retour = antenne[-2::-1] + [aller[20]]  # on redescend par le même chemin
+    coordonnees = aller + antenne + retour
+    entete = [
+        "Longitude", "Latitude", "Elevation", "Distance", "CostPerKm", "ElevCost",
+        "TurnCost", "NodeCost", "InitialCost", "WayTags", "NodeTags", "Time", "Energy",
+    ]  # fmt: skip
+    messages = [entete]
+    # Deux tronçons : la ligne finit au point 20, l'aller-retour y revient. Le
+    # rattachement des messages avance, il ne confond donc pas les deux.
+    for lat_fin, distance, tags in (
+        (20 * pas_deg, "2004", "highway=secondary"),
+        (20 * pas_deg, "2004", "highway=track"),
+    ):
+        messages.append(
+            [
+                "0", str(round(lat_fin * 1e6)), "10", distance, "1200",
+                "0", "0", "0", "0", tags, "", "600", "9000",
+            ]  # fmt: skip
+        )
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {"filtered ascend": "0", "total-time": "900", "messages": messages},
+                "geometry": {"type": "LineString", "coordinates": coordonnees},
+            }
+        ],
+    }
+
+
+def test_l_exposition_est_elaguee_de_ses_antennes(tmp_path: Path, capsys):
+    """L'exposition doit mesurer ce que `boucle` proposera, c'est-à-dire après élagage.
+
+    Sinon les deux parts du rapport `log2(part expo / part sorties)` ne
+    décrivent pas la même chose, et l'écart tombe justement sur les classes
+    marginales où le logarithme amplifie le bruit : `track` compterait pour
+    la moitié de l'exposition alors qu'aucune candidate ne la proposerait.
+    """
+    base_garnie(tmp_path)
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=reponse_avec_antenne_en_track())
+
+    client = ClientBrouter(
+        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    executer(args_de(action="poids", json=True), config_de(tmp_path), client)
+    charge = json.loads(capsys.readouterr().out)
+    classes = {c["classe"]: c for c in charge["classes"]}
+
+    assert classes["secondary"]["part_exposition"] == pytest.approx(1.0)
+    assert classes.get("track", {}).get("part_exposition", 0.0) == 0.0
+    # 8 directions × 2 km de ligne : l'aller-retour de 2 km n'est pas compté.
+    assert charge["km_exposition"] == pytest.approx(16.0, abs=0.5)
+
+
 def test_une_direction_en_panne_ne_perd_pas_les_autres(tmp_path: Path, capsys):
     """Sept directions valent mieux que rien — mais le nombre est affiché."""
     base_garnie(tmp_path)
