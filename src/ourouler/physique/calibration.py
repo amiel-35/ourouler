@@ -175,6 +175,11 @@ class Echantillon:
     dist_m: float = 0.0
     v_debut_ms: float = 0.0
     v_fin_ms: float = 0.0
+    lat: float | None = None
+    lon: float | None = None
+    """Position du **milieu** du tronçon, quand elle est connue. Elle ne sert
+    pas à la calibration mais à `physique.comparer`, qui range les tronçons par
+    maille du terrain pour comparer deux vélos sur les mêmes routes."""
 
     @property
     def duree_s(self) -> float:
@@ -243,6 +248,7 @@ def echantillonner(
         heure = _interpoler_archive(vent, t_milieu)
         cap = _cap(points, i, j)
         face = _vent_de_face(heure, cap)
+        milieu = points[(i + j) // 2]
         echantillons.append(
             Echantillon(
                 v_ms=longueur / duree,
@@ -265,6 +271,8 @@ def echantillonner(
                 dist_m=distances[j],
                 v_debut_ms=_vitesse_au_point(points, distances, i),
                 v_fin_ms=_vitesse_au_point(points, distances, j),
+                lat=milieu.lat if milieu is not None else None,
+                lon=milieu.lon if milieu is not None else None,
             )
         )
         if puissance is None:

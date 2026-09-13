@@ -39,6 +39,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_routes(sous)
     ajouter_calibrer(sous)
     ajouter_simuler(sous)
+    ajouter_comparer(sous)
     return p
 
 
@@ -299,6 +300,35 @@ def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
     from ourouler.physique.commande import executer_simuler  # import paresseux (lot L3.3)
 
     return executer_simuler(args, config)
+
+
+def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "comparer",
+        help="combien de watts séparent deux vélos, sur les routes roulées par les deux",
+        parents=[parent_json()],
+    )
+    p.add_argument(
+        "--velos",
+        nargs=2,
+        metavar="VELO",
+        required=True,
+        help="les deux vélos à comparer, par exemple `--velos RCR BMC`",
+    )
+    p.add_argument(
+        "--pente-max",
+        type=float,
+        metavar="PENTE",
+        help="pente maximale d'un tronçon comparable, en tangente (défaut : 0.01, soit 1 %%)",
+    )
+    p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
+    p.set_defaults(fonction=_commande_comparer)
+
+
+def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.comparer import executer_comparer  # import paresseux (lot L3.3)
+
+    return executer_comparer(args, config)
 
 
 # --- point d'entrée -----------------------------------------------------------
