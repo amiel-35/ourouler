@@ -20,6 +20,7 @@ from __future__ import annotations
 import ast
 import re
 import socket
+from datetime import date, datetime
 from pathlib import Path
 
 import httpx
@@ -29,6 +30,7 @@ from conftest import RACINE, ReseauInterdit
 
 from ourouler import cli, erreurs
 from ourouler import config as module_config
+from ourouler.sortie import commande as commande_sortie
 
 SRC = RACINE / "src" / "ourouler"
 TESTS = RACINE / "tests"
@@ -304,6 +306,52 @@ def test_aucun_fichier_d_activite_hors_des_fixtures():
         if p.is_file() and p.suffix.lower() in (".fit", ".tcx", ".gpx") and fixtures not in p.parents
     ]
     assert not suspects, f"fichiers d'activité hors de tests/fixtures/ : {suspects}"
+
+
+def test_tout_fichier_ecrit_par_defaut_par_sortie_est_ignore_par_git():
+    """Règle absolue 1 : `ourouler sortie` écrit dans le dossier courant, dépôt compris.
+
+    Les deux noms par défaut — `sortie_<AAAAMMJJ>.gpx` et
+    `sortie_<AAAAMMJJ>.html` — sont écrits **toujours**, même sans `--sortie`
+    ni `--carte`, et la carte porte la géométrie complète de la boucle, donc
+    le point de départ du mainteneur. Un `ourouler sortie` lancé à la racine
+    du dépôt met donc la règle absolue 1 à la merci d'un `git add -A` dès
+    qu'une de ces extensions n'est pas ignorée.
+
+    Le test lit les chemins **depuis le code de la commande**, et non une
+    liste écrite ici : ajouter demain un troisième fichier de sortie le fera
+    échouer tant que `.gitignore` ne l'aura pas suivi.
+    """
+    demande = commande_sortie.Demande(
+        jour=date(2026, 2, 8),
+        distance_km=None,
+        direction="",
+        azimut_deg=None,
+        nb_candidates=4,
+        profil="route",
+        depart=datetime(2026, 2, 8, 9, 0),
+        velo=None,
+        sortie=None,
+        carte=None,
+    )
+    par_defaut = [
+        commande_sortie.chemin_gpx_par_defaut(demande),
+        commande_sortie.chemin_carte_par_defaut(demande),
+    ]
+    lignes = {
+        ligne.strip()
+        for ligne in (RACINE / ".gitignore").read_text(encoding="utf-8").splitlines()
+        if ligne.strip() and not ligne.strip().startswith("#")
+    }
+    oublies = [
+        chemin.name
+        for chemin in par_defaut
+        if f"*{chemin.suffix}" not in lignes and chemin.name not in lignes
+    ]
+    assert not oublies, (
+        "`ourouler sortie` écrit ces fichiers dans le dossier courant et "
+        f".gitignore ne les ignore pas : {oublies}"
+    )
 
 
 # --- sprint 2 : le mot de passe BRouter ne sort jamais -----------------------

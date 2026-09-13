@@ -16,6 +16,10 @@ config.*.toml
 *.FIT
 *.tcx
 *.gpx
+# Les cartes de `ourouler sortie` portent la géométrie complète de la boucle,
+# donc le point de départ du mainteneur. Elles sont écrites dans le dossier
+# courant, y compris quand on lance la commande à la racine du dépôt.
+*.html
 !tests/fixtures/**
 # ... mais pas le bytecode que pytest y laisse en chargeant le generateur.
 tests/fixtures/**/__pycache__/
