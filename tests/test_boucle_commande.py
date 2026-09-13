@@ -82,6 +82,8 @@ def args(**champs) -> argparse.Namespace:
         "ecraser": False,
         "gpx": None,
         "json": False,
+        "velo": None,
+        "puissance": None,
     }
     return argparse.Namespace(**{**defauts, **champs})
 
@@ -614,3 +616,74 @@ def test_la_sous_commande_est_enregistree_et_accepte_json_apres():
 
 def test_json_global_avant_la_sous_commande_boucle():
     assert construire_parseur().parse_args(["--json", "boucle"]).json is True
+
+
+# --- colonne « temps estimé » (L3.3) ------------------------------------------
+#
+# Le contrat du sprint 3 §3 : la colonne « temps estimé » vient du modèle
+# calibré si `calibration.json` existe, avec la mention `(modèle)` ; sinon la
+# vitesse moyenne de la configuration, avec la mention `(27 km/h)`.
+
+
+def config_avec_cache(dossier: Path, **sections: Any) -> Config:
+    return config_de_test(
+        cache={"dossier": str(dossier)},
+        velos=[{"nom": "RCR", "usage": "route"}],
+        **sections,
+    )
+
+
+def test_sans_calibration_la_colonne_dit_la_vitesse_moyenne(tmp_path: Path, capsys):
+    config = config_avec_cache(tmp_path)
+    executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
+    texte = capsys.readouterr().out
+    assert "temps (27 km/h)" in texte
+    assert "aucun vélo calibré" in texte
+
+
+def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, capsys):
+    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+
+    config = config_avec_cache(tmp_path)
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {"cda_m2": 0.31, "crr": 0.0045, "masse_totale_kg": 100.0, "date": "2026-09-13"},
+    )
+    executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
+    texte = capsys.readouterr().out
+    assert "temps (modèle)" in texte
+    assert "modèle calibré du RCR" in texte
+    assert "arrêts non modélisés" in texte
+
+
+def test_le_temps_du_modele_depend_de_la_puissance(tmp_path: Path, capsys):
+    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+
+    config = config_avec_cache(tmp_path)
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {"cda_m2": 0.31, "crr": 0.0045, "masse_totale_kg": 100.0},
+    )
+    temps = []
+    for puissance in (150.0, 250.0):
+        executer(
+            args(velo="RCR", puissance=puissance, json=True),
+            config,
+            moteur_brouter(),
+            moteur_meteo(),
+        )
+        charge = json.loads(capsys.readouterr().out)
+        assert charge["modele_physique"]["puissance_w"] == puissance
+        assert all(c["temps_source"] == "modele" for c in charge["candidates"])
+        temps.append(charge["candidates"][0]["temps_estime_s"])
+    assert temps[0] > temps[1]
+
+
+def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(tmp_path: Path, capsys):
+    config = config_avec_cache(tmp_path)
+    executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["modele_physique"] is None
+    assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])

@@ -36,6 +36,8 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_inventaire(sous)
     ajouter_meteo(sous)
     ajouter_boucle(sous)
+    ajouter_calibrer(sous)
+    ajouter_simuler(sous)
     return p
 
 
@@ -187,6 +189,16 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         help="remplacer le fichier de --sortie s'il existe déjà",
     )
     p.add_argument("--gpx", metavar="ENTREE.GPX", help="évaluer ce GPX au lieu d'en générer")
+    p.add_argument(
+        "--velo",
+        help="vélo dont la calibration sert au temps estimé (défaut : premier vélo route)",
+    )
+    p.add_argument(
+        "--puissance",
+        type=float,
+        metavar="W",
+        help="puissance tenue pour le temps estimé par le modèle (défaut : part de la FTP)",
+    )
     p.set_defaults(fonction=_commande_boucle)
 
 
@@ -194,6 +206,45 @@ def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
 
     return executer(args, config)
+
+
+def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "calibrer",
+        help="ajuste CdA et Crr d'un vélo sur les sorties réelles, et mesure l'erreur",
+        parents=[parent_json()],
+    )
+    p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
+    p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
+    p.add_argument(
+        "--max", type=int, metavar="N", help="ne garder que les N sorties les plus récentes"
+    )
+    p.set_defaults(fonction=_commande_calibrer)
+
+
+def _commande_calibrer(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.commande import executer_calibrer  # import paresseux (lot L3.3)
+
+    return executer_calibrer(args, config)
+
+
+def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "simuler",
+        help="temps en mouvement d'un GPX à puissance constante, avec le modèle calibré",
+        parents=[parent_json()],
+    )
+    p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à simuler")
+    p.add_argument("--puissance", type=float, metavar="W", required=True, help="puissance tenue")
+    p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
+    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
+    p.set_defaults(fonction=_commande_simuler)
+
+
+def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.commande import executer_simuler  # import paresseux (lot L3.3)
+
+    return executer_simuler(args, config)
 
 
 # --- point d'entrée -----------------------------------------------------------
