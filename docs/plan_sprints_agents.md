@@ -302,16 +302,57 @@ Reste à préciser au lancement : bornes chiffrées des catégories de tenue
 (Q3, réglables à l'usage) et option `--depuis` pour un départ autre que la
 maison.
 
-### Sprint 5 — La sortie du jour au quotidien **[esquissé]**
+### Sprint 5 — La page du jour **[esquissé]**
 
-Confort d'usage : nom de fichier et résumé soignés, `--depuis`, mémoire de
-ce qui a été proposé et fait. Le GPX étant déjà produit, l'envoi au
-compteur se limite au partage du fichier (voir backlog ci-dessous).
+Une page HTML autonome, écrite sur le disque et ouverte dans le navigateur.
+Aucun serveur, aucun compte, aucune base : tout le calcul existe déjà, on
+ajoute le rendu. Dedans : la météo par direction en grille, les boucles
+proposées sur carte avec les blocs de la séance à leur place, la tenue, et
+le GPX à télécharger pour le partager vers Garmin Connect depuis le
+téléphone. Plus le confort d'usage : `--depuis` pour partir d'ailleurs,
+noms de fichiers et résumés soignés, mémoire de ce qui a été proposé.
 
-### Ensuite — l'hébergé
+**Pourquoi cette page et pas l'hébergé tout de suite** : elle est la
+maquette du futur front. Le jour où l'API existera, la même page sera
+servie par le serveur au lieu d'être écrite sur le disque. Et le cœur
+produit se stabilise à peine ; chaque changement de sortie se paierait
+deux fois.
 
-API au-dessus du même cœur, puis front web et comptes, dans cet ordre
-(doctrine §10).
+### Sprint 6 — Dogfooding **[cap fixé par le mainteneur]**
+
+Pas de nouvelle fonctionnalité. Le mainteneur s'en sert **pour de vrai**,
+tous les jours de sortie, pendant plusieurs semaines. On mesure ce qui
+cloche et on corrige : boucles refusées sur le terrain, blocs mal placés
+constatés au retour, tenue à côté de la plaque, temps prédits faux, GPX
+que l'Edge n'aime pas. Le livrable est une liste d'écarts entre ce que
+l'outil annonce et ce qui s'est passé, et leur correction. C'est ce sprint
+qui dit si le produit tient.
+
+### Sprint 7 — L'hébergé **[esquissé]**
+
+API au-dessus du même cœur, puis front web servi par elle, puis comptes
+avec authentification déléguée Google (doctrine §10). Postgres, stockage
+d'objets pour les fichiers, isolation par utilisateur vérifiée côté
+serveur, cache météo mutualisé (le quota Open-Meteo devient un sujet ici,
+pas avant).
+
+### Sprint 8 — Prêt à inviter des copains **[cap fixé par le mainteneur]**
+
+Le jalon d'ouverture. Un cycliste que le mainteneur invite doit pouvoir,
+sans lui : créer son compte, renseigner son profil, brancher son
+Intervals, obtenir une boucle qui tient la route, et ne jamais voir les
+données d'un autre. Ce qu'il faut en plus de l'hébergé brut : parcours
+d'accueil, valeurs par défaut qui marchent sans calibration (le nouveau
+n'a pas d'historique), messages d'erreur compréhensibles par quelqu'un qui
+n'a pas écrit le code, export et suppression de compte (RGPD), et un coût
+maîtrisé par utilisateur. Sans calibration personnelle, le modèle doit
+tourner sur des paramètres génériques et le dire.
+
+### Après — dépôt public
+
+MIT, anonymisation des documents de cadrage (Q6). Le dépôt peut s'ouvrir
+avant le sprint 8 : la publication du code et l'invitation de personnes
+sont deux décisions distinctes.
 
 Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
 Connect pour un particulier → le GPX généré est le socle ; sur mobile,
