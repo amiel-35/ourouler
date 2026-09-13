@@ -713,11 +713,18 @@ def test_les_poids_appris_changent_le_score(tmp_path: Path, monkeypatch, capsys)
 
 
 def test_l_entete_dit_d_ou_viennent_les_poids(tmp_path: Path, monkeypatch, capsys):
+    """Et cite les classes **présentes dans le tableau**, pas les plus pénalisées.
+
+    Citer les plus pénalisées donnait une ligne vraie mais inutile
+    (« primary_link 4,0 ») : ces classes ne font pas cinquante mètres du tracé.
+    """
     monkeypatch.chdir(tmp_path)
-    ecrire_poids_de_test(tmp_path, {"primary": 3.5, "tertiary": 0.0})
+    ecrire_poids_de_test(tmp_path, {"secondary": 1.5, "trunk_link": 4.0})
     executer(args(), config_avec_cache(tmp_path), moteur_brouter(), moteur_meteo())
     sortie = capsys.readouterr().out
-    assert "appris sur vos sorties" in sortie and "primary 3,5" in sortie
+    assert "appris sur vos sorties" in sortie
+    assert "secondary 1,5" in sortie, "la fixture porte de la secondary : elle doit être citée"
+    assert "trunk_link" not in sortie, "une classe absente du tracé n'a rien à faire là"
 
 
 def test_un_fichier_de_poids_abime_ne_fait_pas_perdre_la_boucle(

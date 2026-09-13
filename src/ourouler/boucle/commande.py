@@ -464,7 +464,7 @@ def rendre_texte(
 ) -> str:
     """Le tableau des candidates, la ligne retenue marquée d'une flèche."""
     presentes = _mesures_presentes(evaluations)
-    lignes = _entete(demande, config, "meteo" in presentes, poids)
+    lignes = _entete(demande, config, "meteo" in presentes, poids, evaluations)
 
     titres = [titre for titre, mesure in COLONNES if mesure is None or mesure in presentes]
     cellules = [_cellules(e, config, presentes) for e in evaluations]
@@ -531,7 +531,11 @@ def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
 
 
 def _entete(
-    demande: Demande, config: Config, avec_meteo: bool, poids: dict[str, float] | None = None
+    demande: Demande,
+    config: Config,
+    avec_meteo: bool,
+    poids: dict[str, float] | None = None,
+    evaluations: list[Evaluation] | None = None,
 ) -> list[str]:
     lignes = []
     if demande.gpx is not None:
@@ -552,10 +556,10 @@ def _entete(
         # D'où viennent les poids : sans cette ligne, deux exécutions
         # séparées par un `routes poids --appliquer` donneraient des scores
         # différents sans que rien ne l'explique.
+        cites = _classes_citees(poids, evaluations or [])
         lignes.append(
-            "Poids des routes : appris sur vos sorties ("
-            + ", ".join(f"{classe} {valeur:.1f}".replace(".", ",") for classe, valeur in _principaux(poids))
-            + ")."
+            "Poids des routes : appris sur vos sorties"
+            + (f" ({cites})." if cites else ".")
         )
     else:
         lignes.append(
@@ -568,9 +572,23 @@ def _entete(
     return lignes
 
 
-def _principaux(poids: dict[str, float], nombre: int = 4) -> list[tuple[str, float]]:
-    """Les classes les plus pénalisées, pour tenir en une ligne d'en-tête."""
-    return sorted(poids.items(), key=lambda kv: (-kv[1], kv[0]))[:nombre]
+def _classes_citees(
+    poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4
+) -> str:
+    """Le poids des classes les plus **présentes dans les candidates affichées**.
+
+    Citer les plus pénalisées donnait une ligne vraie mais inutile
+    (« primary_link 4,0, pedestrian 3,3 ») : ces classes ne font pas
+    cinquante mètres du tracé. Ce que le lecteur veut savoir, c'est ce que
+    coûtent les routes qu'il a sous les yeux.
+    """
+    km_par_classe: dict[str, float] = {}
+    for evaluation in evaluations:
+        for classe, km in evaluation.couts.km_par_highway.items():
+            if classe:
+                km_par_classe[classe] = km_par_classe.get(classe, 0.0) + km
+    classes = sorted(km_par_classe.items(), key=lambda kv: (-kv[1], kv[0]))[:nombre]
+    return ", ".join(f"{classe} {_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
 
 
 def _cellules(evaluation: Evaluation, config: Config, presentes: set[str]) -> list[str]:
