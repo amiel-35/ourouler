@@ -827,6 +827,14 @@ def _entete(
         lignes.append(
             "⚠ puissances approximées : la séance est prescrite en zones de fréquence cardiaque."
         )
+    if seance.meta.get("seances_ignorees"):
+        # S1 : `ourouler seance` le disait, `ourouler sortie` non — et c'est
+        # justement la commande qui construit une boucle entière pour la séance
+        # choisie. Le choix (la plus longue) ne doit pas rester dans `meta`.
+        autres = ", ".join(str(n) for n in seance.meta["seances_ignorees"])
+        lignes.append(
+            f"Autre(s) séance(s) vélo ce jour-là, ignorée(s) au profit de la plus longue : {autres}."
+        )
     if contexte.ecartees:
         lignes.append(
             f"{len(contexte.ecartees)} candidate(s) écartée(s) : la séance n'y tenait pas —"

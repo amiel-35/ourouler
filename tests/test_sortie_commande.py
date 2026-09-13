@@ -705,6 +705,42 @@ def _contexte_minimal(tmp_path: Path, seance: Seance) -> Any:
     )
 
 
+def test_sortie_dit_qu_une_autre_seance_du_jour_a_ete_ignoree(tmp_path: Path):
+    """S1 : `ourouler seance` le disait, `ourouler sortie` non.
+
+    C'est pourtant `sortie` qui construit une boucle entière pour la séance
+    choisie en silence — la plus longue. La clé restait dans `meta`, donc
+    visible en `--json` seul.
+    """
+    seance = _seance_fabriquee()
+    seance.meta["seances_ignorees"] = ["Vélo B", "Vélo C"]
+    texte = rendre_texte(
+        [_proposition_avec_demi_tour()], _contexte_minimal(tmp_path, seance)
+    )
+    assert "ignorée(s) au profit de la plus longue" in texte
+    assert "Vélo B, Vélo C" in texte
+
+
+def test_l_heure_de_depart_accepte_aussi_heure():
+    """C5 : `--depart` (heure) et le `--depuis` (lieu) prévu diffèrent d'une lettre.
+
+    `--heure` est accepté partout comme synonyme, sans rien retirer : le nom
+    sans ambiguïté existe avant que `--depuis` soit écrit (Q15).
+    """
+    parseur = construire_parseur()
+    for commande in ("meteo", "boucle", "simuler", "sortie"):
+        arguments = {
+            "meteo": [],
+            "boucle": ["--distance", "40", "--direction", "N"],
+            "simuler": ["--gpx", "x.gpx", "--puissance", "200"],
+            "sortie": [],
+        }[commande]
+        lus = parseur.parse_args([commande, *arguments, "--heure", "09:30"])
+        assert lus.depart == "09:30", f"{commande} : --heure n'alimente pas `depart`"
+        lus = parseur.parse_args([commande, *arguments, "--depart", "10:15"])
+        assert lus.depart == "10:15", f"{commande} : --depart a été perdu"
+
+
 def test_le_tableau_distingue_la_boucle_du_parcours_reellement_roule(tmp_path: Path):
     """C1 : la même ligne affichait 38,5 km et 2 h 44, soit 14 km/h.
 

@@ -264,6 +264,8 @@ class _Etat:
         self.sans_puissance = 0
         self.nulles = 0
         self.groupes_ignores = 0
+        self.reps_bornees = 0  # groupes dont le `reps` a mordu sur `REPS_MAX`
+        self.reps_tronquees = 0  # groupes dont le `reps` n'était pas entier
         self.trop_profond = 0
         self.elements_illisibles = 0
         self.ftp_manquante = 0
@@ -317,6 +319,8 @@ class _Etat:
             ("etapes_sans_puissance", self.sans_puissance),
             ("etapes_nulles", self.nulles),
             ("groupes_ignores", self.groupes_ignores),
+            ("groupes_reps_bornees", self.reps_bornees),
+            ("groupes_reps_tronquees", self.reps_tronquees),
             ("groupes_trop_profonds", self.trop_profond),
             ("elements_illisibles", self.elements_illisibles),
             ("etapes_sans_ftp", self.ftp_manquante),
@@ -365,7 +369,7 @@ def _aplatir(brut: object, *, etat: _Etat, profondeur: int, libelle: str) -> lis
 
 
 def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list[_Lue]:
-    reps = _reps(groupe.get("reps"))
+    reps = _reps(groupe.get("reps"), etat=etat)
     if reps <= 0:
         # `reps: 0` ou négatif : le groupe ne se roule pas. On ne le garde pas,
         # et on le compte — une séance qui perd un groupe doit pouvoir le dire.
@@ -638,13 +642,23 @@ def _elastique(etape: Etape) -> Etape:
 
 def _puissance(step: dict, *, etat: _Etat) -> tuple[float | None, float | None, str, bool]:
     """(min, max, descripteur lisible, aucune consigne) d'une étape."""
+    illisible: tuple[float | None, float | None, str] | None = None
     for champ in ("power", "hr"):
         consigne = step.get(champ)
-        if isinstance(consigne, dict):
-            bas, haut, descripteur = _depuis_consigne(consigne, etat=etat)
-            # Une consigne illisible (unité inconnue, bornes absentes) reste
-            # une consigne : la source a voulu dire quelque chose.
-            return (bas, haut, descripteur, False)
+        if not isinstance(consigne, dict):
+            continue
+        lue = _depuis_consigne(consigne, etat=etat)
+        if _bornes(consigne) is not None:
+            return (*lue, False)
+        # Une consigne dont l'unité est inconnue mais qui porte des bornes
+        # reste une consigne : la source a voulu dire quelque chose, et on la
+        # garde telle quelle. Un dictionnaire **sans aucune borne** (`power: {}`)
+        # ne dit rien du tout : il ne doit pas masquer le `hr` qui suit, qui
+        # lui en porte. On le garde en réserve, pour le cas où rien d'autre ne
+        # vient — le descripteur qu'il produit reste utile au lecteur.
+        illisible = illisible or lue
+    if illisible is not None:
+        return (*illisible, False)
     return (None, None, "libre", True)
 
 
@@ -773,12 +787,24 @@ def _libelle_groupe(texte: str, tour: int, reps: int) -> str:
     return f"{texte} ({tour}/{reps})" if reps > 1 else texte
 
 
-def _reps(brut: object) -> int:
-    """Le nombre de répétitions d'un groupe : 1 par défaut, borné à `REPS_MAX`."""
+def _reps(brut: object, *, etat: _Etat | None = None) -> int:
+    """Le nombre de répétitions d'un groupe : 1 par défaut, borné à `REPS_MAX`.
+
+    Les deux pertes se comptent, parce que le principe du lot est que rien ne
+    disparaît en silence : `reps: 100000` ramené à 500 amputerait la séance de
+    99 500 répétitions (absurde, donc sans conséquence pratique, mais muet),
+    et `reps: 2.9` tronqué en 2 supprime un tour bien réel.
+    """
     valeur = _nombre(brut)
     if valeur is None:
         return 1
-    return min(int(valeur), REPS_MAX)
+    entier = int(valeur)
+    if etat is not None:
+        if entier != valeur:
+            etat.reps_tronquees += 1
+        if entier > REPS_MAX:
+            etat.reps_bornees += 1
+    return min(entier, REPS_MAX)
 
 
 def _nombre(brut: object) -> float | None:

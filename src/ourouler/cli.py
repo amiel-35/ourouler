@@ -156,7 +156,11 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
         help="pluie, vent et ressenti par direction et par heure",
         parents=[parent_json()],
     )
-    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    p.add_argument(
+        "--depart",
+        "--heure",
+        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)",
+    )
     p.add_argument("--horizon", type=int, help="nombre d'heures (défaut : config)")
     p.add_argument("--distance", type=float, help="n'afficher qu'une couronne (km)")
     p.add_argument("--modele", help="modèle principal Open-Meteo (défaut : config)")
@@ -183,7 +187,11 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         "--direction",
         help="N, NE, … NO ou un azimut en degrés (obligatoire sans --gpx)",
     )
-    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    p.add_argument(
+        "--depart",
+        "--heure",
+        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)",
+    )
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     p.add_argument("--profil", help="profil BRouter (défaut : config)")
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
@@ -294,7 +302,11 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
     p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à simuler")
     p.add_argument("--puissance", type=float, metavar="W", required=True, help="puissance tenue")
     p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
-    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
+    p.add_argument(
+        "--depart",
+        "--heure",
+        help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)",
+    )
     p.set_defaults(fonction=_commande_simuler)
 
 
@@ -391,6 +403,7 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
     p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
     p.add_argument(
         "--depart",
+        "--heure",
         help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)",
     )
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")

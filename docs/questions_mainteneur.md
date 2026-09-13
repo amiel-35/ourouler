@@ -407,3 +407,30 @@ que ±20 % — ce serait revenir sur une décision du mainteneur du 13/09, à
 lui demander. (d) Accepter et le dire clairement, ce que fait déjà
 l'avertissement : la séance est roulée entière, seul le retour au calme
 s'allonge, ce qui est le défaut le moins grave.
+
+
+## Q15 — `--depart` (heure) et le `--depuis` (lieu) prévu vont se télescoper
+
+Relevé le 13/09/2026 par le relecteur (C5), non tranché : c'est un nom
+d'option publique, donc une question produit.
+
+`--depart HH:MM` existe sur `meteo`, `boucle`, `simuler` et `sortie` et
+désigne une **heure**. Le plan du sprint 4 annonce une option `--depuis`
+pour un départ « autre que la maison », donc un **lieu**, non livrée. Deux
+options dont les noms diffèrent d'une lettre pour deux sens sans rapport,
+sur la même commande.
+
+**Fait en attendant, sans rien casser** : `--heure` est accepté partout
+comme synonyme de `--depart`. Rien n'est retiré, aucun comportement ne
+change, et le nom sans ambiguïté existe désormais.
+
+**À trancher avant que `--depuis` soit écrit**, parce qu'après il sera trop
+tard :
+- (a) `--heure` devient le nom canonique, `--depart` reste accepté sans être
+  documenté, `--depuis` prend le lieu ;
+- (b) `--depart` reste le nom canonique pour l'heure et le lieu s'appelle
+  autrement (`--lieu`, `--point-de-depart`) ;
+- (c) on garde les deux tels quels et on assume la proximité.
+
+Personne d'autre que le mainteneur n'utilise la commande : le renommage
+reste gratuit aujourd'hui.

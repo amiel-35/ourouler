@@ -170,6 +170,59 @@ def test_un_groupe_a_repetitions_nulles_ou_negatives_ne_produit_rien(reps):
 
 
 @pytest.mark.parametrize(
+    ("reps", "cle"),
+    [(100_000, "groupes_reps_bornees"), (2.9, "groupes_reps_tronquees")],
+    ids=["borne", "tronque"],
+)
+def test_un_reps_borne_ou_tronque_se_compte_dans_meta(reps, cle):
+    """S2 : `reps <= 0` était compté, `reps` borné ou tronqué ne l'était pas.
+
+    `min(int(valeur), REPS_MAX)` ramenait `reps: 100000` à 500 sans rien écrire
+    nulle part — une séance amputée de 99 500 répétitions est absurde, donc
+    sans conséquence pratique. Mais `int(valeur)` tronque aussi `2.9` en `2`,
+    et celui-là supprime un tour bien réel. Le principe du lot est que toute
+    perte se compte.
+    """
+    mod = _intervals()
+    document = fabriques4.doc(
+        [
+            groupe([etape_doc(600.0, ftp_pct=0.6, warmup=True)]),
+            groupe([etape_doc(60.0, ftp_pct=1.05)], reps=reps),
+        ]
+    )
+    seance, erreur = _robuste(lambda: appeler_depuis_workout(mod, document), quoi=f"reps={reps}")
+    if erreur is not None:
+        return
+    _verifier(seance)
+    assert seance.meta.get(cle), (
+        f"reps={reps} a été ramené en silence : « {cle} » absent de meta {sorted(seance.meta)}"
+    )
+
+
+def test_une_consigne_de_puissance_vide_ne_masque_pas_une_frequence_cardiaque_valide():
+    """S3 : `power: {}` s'arrêtait au premier champ présent et perdait le `hr`.
+
+    Une consigne dont l'unité est inconnue mais qui porte des bornes reste une
+    consigne — la source a voulu dire quelque chose. Un dictionnaire **sans
+    aucune borne** ne dit rien du tout et ne doit pas manger le `hr` qui suit.
+    """
+    mod = _intervals()
+    etape = {"duration": 600.0, "power": {}, "hr": {"units": "hr_zone", "value": 4}}
+    document = fabriques4.doc([groupe([etape])])
+    seance, erreur = _robuste(
+        lambda: appeler_depuis_workout(mod, document), quoi="power vide + hr valide"
+    )
+    if erreur is not None:
+        return
+    _verifier(seance)
+    [lue] = seance.etapes
+    assert lue.puissance_min_w is not None and lue.puissance_max_w is not None, (
+        "la consigne de fréquence cardiaque a été perdue derrière un `power: {}` vide"
+    )
+    assert 0.0 < lue.puissance_min_w <= lue.puissance_max_w <= 5 * FTP_TEST_W
+
+
+@pytest.mark.parametrize(
     "duree", [None, "abc"], ids=["absente", "chaine"]
 )
 def test_une_duree_absurde_ne_fabrique_pas_de_seance_incoherente(duree):
