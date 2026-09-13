@@ -423,6 +423,31 @@ def test_401_oriente_vers_les_identifiants():
         client.itineraire([(0.0, 0.0), (0.01, 0.0)])
 
 
+def test_un_400_cite_le_message_du_moteur():
+    """« datafile W5_N40.rd5 not found » vaut mille « HTTP 400 » nus.
+
+    Mesuré sur le serveur réel en rejouant 156 sorties : deux échecs, tous
+    deux hors de la région chargée sur le serveur. Sans le corps, le rapport
+    d'apprentissage disait seulement « HTTP 400 », deux fois.
+    """
+    client, _ = client_repondant(b"datafile W5_N40.rd5 not found\n", code=400)
+    with pytest.raises(ErreurConnecteur, match="datafile W5_N40.rd5 not found"):
+        client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+
+
+def test_un_corps_d_erreur_trop_long_est_borne():
+    client, _ = client_repondant(b"x" * 5000, code=400)
+    with pytest.raises(ErreurConnecteur) as e:
+        client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert len(str(e.value)) < 300 and "…" in str(e.value)
+
+
+def test_un_400_sans_corps_reste_lisible():
+    client, _ = client_repondant(b"", code=400)
+    with pytest.raises(ErreurConnecteur, match="HTTP 400"):
+        client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+
+
 def test_corps_vide_en_200():
     client, _ = client_repondant(b"", code=200)
     with pytest.raises(ErreurConnecteur, match="vide"):

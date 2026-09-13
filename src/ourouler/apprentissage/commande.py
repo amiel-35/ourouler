@@ -331,8 +331,8 @@ def _poids_texte(
     cellules = [
         [
             _libelle(classe),
-            f"{stats.part(classe) * 100:.1f} %",
-            f"{exposition.part(classe) * 100:.1f} %",
+            f"{_fr(stats.part(classe) * 100, 1)} %",
+            f"{_fr(exposition.part(classe) * 100, 1)} %",
             _fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
             _fr(poids[classe], 2) if classe in poids else ABSENT,
         ]

@@ -206,6 +206,11 @@ class ClientBrouter:
             ) from e
 
 
+#: Nombre de caractères du corps d'erreur cités dans un message. Assez pour
+#: « datafile W5_N40.rd5 not found », trop peu pour noyer la sortie.
+CORPS_ERREUR_MAX = 120
+
+
 def _indice(reponse: httpx.Response, profil: str) -> str:
     """Ce qu'on peut dire du code HTTP. Ne cite jamais les identifiants envoyés."""
     code = reponse.status_code
@@ -220,7 +225,25 @@ def _indice(reponse: httpx.Response, profil: str) -> str:
         return f" sans corps — profil inconnu ? ({profil})"
     if code >= 500:
         return " — panne côté serveur BRouter, réessayer plus tard"
-    return ""
+    # Sur un 400, le moteur dit **pourquoi** en clair : « datafile W5_N40.rd5
+    # not found » (région absente du serveur), « target island detected for
+    # section 3 » (aucun itinéraire possible). Sans ce mot, un rejeu de 156
+    # sorties rendait 156 fois « HTTP 400 » et rien d'exploitable.
+    return _corps(reponse)
+
+
+def _corps(reponse: httpx.Response) -> str:
+    """Le message du moteur, sur une ligne et borné. Vide si illisible ou absent."""
+    try:
+        texte = reponse.text
+    except (UnicodeDecodeError, ValueError):  # pragma: no cover - corps binaire
+        return ""
+    texte = " ".join(texte.split())
+    if not texte:
+        return ""
+    if len(texte) > CORPS_ERREUR_MAX:
+        texte = texte[:CORPS_ERREUR_MAX] + "…"
+    return f" — {texte}"
 
 
 def _lonlat(lat: float, lon: float) -> str:
