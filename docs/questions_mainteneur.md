@@ -171,7 +171,17 @@ l'enjeu. » Donc : sans séance, `boucle` affiche une durée à l'allure Z2
 boucle bloc par bloc à partir de la séance Intervals du jour, et la durée
 est celle de la séance sur ce terrain.
 
-## Q9 — CdA et Crr ne se séparent pas sur les données réelles
+## Q9 — CdA et Crr ne se séparent pas sur les données réelles — **close**
+
+**Close le 13/09/2026.** Décision du mainteneur : « on va trop dans le
+détail pour un coureur amateur ». On ne cherche plus à séparer CdA et
+roulement ; le modèle sert à prédire une durée (MAE 4,2 % RCR, 2,4 % BMC
+après vent à hauteur du cycliste et terme cinétique, CdA 0,22 hors butée)
+et l'avantage du CLM se mesure directement : +2,5 km/h à puissance égale en
+Z2 sur tronçons plats (`ourouler comparer`), ≈ 40 W à vitesse égale.
+Détail : `docs/sprint3_relecture_fable.md`.
+
+<details><summary>Historique de la question</summary>
 
 Mesuré le 13/09/2026 sur les vraies sorties (100 RCR, 37 BMC, vent d'archive
 Open-Meteo au point de départ). Les moindres carrés par tronçons de 200 m
@@ -204,7 +214,15 @@ sorties choisies (sortie longue régulière, seul, par temps calme) plutôt que
 sur tout l'historique ; (d) descendre chercher le vent local (station
 Météo-France la plus proche) plutôt que la maille d'archive.
 
-## Q10 — Les fichiers multisport faussent la calibration
+</details>
+
+## Q10 — Les fichiers multisport faussent la calibration — **close**
+
+**Close le 13/09/2026.** Les fichiers multisport (triathlons) sont
+**écartés** de la calibration avec le motif « multisport » (le lecteur FIT
+signale plusieurs sessions). Ils restent dans l'inventaire.
+
+<details><summary>Historique de la question</summary>
 
 La pire erreur de validation du BMC (−20 %, 223 km en 10 h) est le fichier
 d'un triathlon : le FIT contient la natation, le vélo **et** la course à
@@ -213,3 +231,6 @@ simule les 42 km de course à pied à la puissance du vélo, donc bien trop
 vite. Faut-il découper les fichiers multisport par segment (le FIT porte les
 trames `session`, une par sport), ou simplement les écarter de la
 calibration ?
+
+</details>
+
