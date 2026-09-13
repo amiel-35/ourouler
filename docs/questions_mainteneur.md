@@ -346,3 +346,28 @@ bloc les 4 × 40 s à 375 W (des activations d'échauffement) et les 5 min à
 voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
 règle est appliquée correctement ; c'est le placement (L4.3) qui devra
 décider s'il contraint le terrain sous un effort de 40 secondes.
+
+## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger, pas une question**
+
+Relevé par le mainteneur le 13/09/2026 en lisant la sortie du 08/02 :
+« t'as pas oublié l'échauffement ? ». Il n'était pas oublié — 28 min à
+155 W, soit 13,2 km, exactement là où le premier bloc démarre — mais
+**rien ne le montrait** : `sortie/commande.py` ne liste que les étapes de
+type « bloc », parce que `Placement.emplacements` ne mémorise que celles-là.
+
+Ce qui rend le défaut sérieux : on ne peut pas vérifier ce qu'on ne voit
+pas, et c'est précisément ce qu'on demande au mainteneur de faire sur la
+carte. À corriger au prochain lot touchant `sortie/` :
+
+- **Lister toutes les étapes** avec leur kilomètre de début et de fin, pas
+  seulement les blocs. Les non-blocs n'ont pas de note — ils n'en méritent
+  pas, aucun terrain n'est évalué sous une récupération — mais ils ont une
+  position, et elle se déduit du déroulé.
+- **Les montrer sur la carte** : échauffement et retour au calme dans une
+  teinte neutre distincte, récupérations déjà en pointillés. Aujourd'hui
+  tout ce qui n'est pas bloc est gris comme le reste du tracé, donc on ne
+  distingue pas « je roule ici pendant l'échauffement » de « cette portion
+  de la boucle n'est jamais parcourue ».
+- Conséquence de conception : `placer` doit rendre la position de **chaque**
+  étape, pas seulement des blocs. C'est une extension de `Placement`, pas
+  une nouvelle mesure.
