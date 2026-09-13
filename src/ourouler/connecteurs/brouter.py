@@ -60,6 +60,23 @@ SEUIL_MICRODEGRES = 1000.0
 #: Facteur appliqué à une coordonnée de message selon son unité.
 DEGRES, MICRODEGRES = 1.0, 1e-6
 
+#: Paramètres de profil qui demandent au moteur de recaler lui-même les points
+#: de passage tombés à côté de la route — la cause des crochets en mode boucle,
+#: où c'est le moteur qui place ces points (contrat du sprint 3 §1).
+#:
+#: **Mesuré sur le serveur du mainteneur le 13/09/2026 : acceptés, et sans
+#: effet.** La réponse est identique octet pour octet avec et sans eux, et il
+#: en va de même de *tout* paramètre `profile:…`, y compris `avoid_unsafe` qui
+#: existe pourtant dans `fastbike` — alors que `profile`, `alternativeidx` et
+#: `roundTripPoints`, eux, changent bien le tracé. Ce serveur ignore donc le
+#: mécanisme entier. On les envoie quand même : ils ne coûtent rien et un
+#: serveur plus récent les honorera. La correction des crochets, elle, repose
+#: sur `boucle/antennes.py`.
+CORRECTION_POINTS_DE_PASSAGE: dict[str, Any] = {
+    "profile:correct_misplaced_via_points": 1,
+    "profile:correct_misplaced_via_points_distance": 40,
+}
+
 
 class ClientBrouter:
     """Accès à un serveur BRouter. `http` est injectable : les tests ne sortent jamais."""
@@ -126,6 +143,9 @@ class ClientBrouter:
         `rayon_m` est le paramètre `roundTripDistance` du moteur, **pas** la
         longueur de la boucle : mesuré sur le serveur réel, la boucle obtenue
         vaut environ cinq fois ce rayon. C'est `boucle.candidates` qui ajuste.
+
+        `CORRECTION_POINTS_DE_PASSAGE` est joint à la demande — sans effet sur
+        le serveur du mainteneur, voir la constante.
         """
         if rayon_m <= 0:
             raise ErreurConnecteur(f"BRouter : rayon de boucle de {rayon_m} m, un rayon positif attendu")
@@ -142,6 +162,7 @@ class ClientBrouter:
             "profile": profil,
             "alternativeidx": 0,
             "format": "geojson",
+            **CORRECTION_POINTS_DE_PASSAGE,
         }
         if ecart_deg is not None:
             params["roundTripDirectionAdd"] = int(ecart_deg)

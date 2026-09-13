@@ -114,6 +114,27 @@ def test_le_profil_de_l_appel_prime_sur_celui_de_la_configuration():
     assert vues[0].url.params["profile"] == "gravel"
 
 
+def test_la_boucle_demande_le_recalage_des_points_de_passage():
+    """Contrat §1 : les paramètres de `correct_misplaced_via_points` partent avec la demande.
+
+    Mesuré sur le serveur du mainteneur : acceptés et **sans effet** (voir
+    `CORRECTION_POINTS_DE_PASSAGE`). Le test vérifie qu'on les envoie, pas
+    qu'ils servent — c'est `boucle/antennes.py` qui corrige les crochets.
+    """
+    client, vues = client_fabrique()
+    client.boucle((0.0, 0.0), azimut_deg=45, rayon_m=8000)
+    p = vues[0].url.params
+    assert p["profile:correct_misplaced_via_points"] == "1"
+    assert p["profile:correct_misplaced_via_points_distance"] == "40"
+
+
+def test_un_itineraire_simple_ne_demande_pas_le_recalage():
+    """Un A→B n'a que les points de passage donnés par l'appelant : rien à recaler."""
+    client, vues = client_fabrique()
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert "profile:correct_misplaced_via_points" not in vues[0].url.params
+
+
 def test_l_authentification_basique_est_envoyee():
     client, vues = client_fabrique()
     client.itineraire([(0.0, 0.0), (0.01, 0.0)])

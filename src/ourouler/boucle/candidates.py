@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from ourouler.boucle.antennes import detecter, elaguer
 from ourouler.boucle.trace import Trace
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -98,6 +99,13 @@ def generer(
     panne passagère) ne fait pas perdre les autres : l'erreur est retenue et
     relancée seulement si **aucune** candidate n'a pu être produite.
 
+    Chaque réponse du moteur est **élaguée de ses antennes** avant d'être
+    mesurée (contrat §1) : les crochets que le mode boucle fabrique en allant
+    chercher un point de passage tombé à côté de la route sont retirés, et
+    `trace.meta["antennes"]` dit combien et combien de mètres. L'ajustement de
+    rayon travaille donc sur la distance **réellement proposée au cycliste**,
+    pas sur celle qui incluait l'aller-retour.
+
     Une `distance_km` qui n'est pas un nombre fini strictement positif et un
     `nb` inférieur à 1 sont des `ErreurUtilisateur` levées **avant** tout
     appel : sans cible, `ecart_relatif` ne veut rien dire (NaN), et sans
@@ -135,6 +143,7 @@ def generer(
                 appels += 1
                 break
             appels += 1
+            trace = elaguer(trace, detecter(trace))
             ecart = (trace.distance_m - cible_m) / cible_m
             if trace.bornee() and (meilleure is None or abs(ecart) < abs(meilleure.ecart_relatif)):
                 meilleure = Candidate(

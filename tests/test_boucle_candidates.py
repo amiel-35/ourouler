@@ -7,6 +7,7 @@ mesurer l'ajustement de rayon sans dépendre du terrain.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import httpx
@@ -289,3 +290,79 @@ def test_la_meilleure_tentative_d_un_azimut_est_gardee():
     trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.01)
     assert trouvees[0].trace.distance_m == 66_000
     assert trouvees[0].ecart_relatif == pytest.approx(0.1)
+
+
+# --- élagage des antennes (L3.1) ----------------------------------------------
+
+
+def anneau_avec_antenne(
+    rayon_deg: float = 0.01, pas_m: float = 10.0, antenne_m: float = 150.0
+) -> list[list[float]]:
+    """Un anneau fermé autour de (0, 0), avec un cul-de-sac radial vers l'extérieur.
+
+    Coordonnées `[lon, lat, alt]` comme les rend BRouter. Le cul-de-sac part
+    du point à l'est de l'anneau, sort de `antenne_m` et revient par le même
+    chemin : un aller-retour de `2 × antenne_m`.
+    """
+    degre_m = 111_320.0
+    circonference = 2 * math.pi * rayon_deg * degre_m
+    nb = max(8, round(circonference / pas_m))
+    anneau = [
+        [rayon_deg * math.sin(2 * math.pi * i / nb), rayon_deg * math.cos(2 * math.pi * i / nb), 30.0]
+        for i in range(nb + 1)
+    ]
+    # Le point à l'est (quart du tour) porte l'antenne.
+    pied = nb // 4
+    pas_deg = pas_m / degre_m
+    nb_pas = round(antenne_m / pas_m)
+    dehors = [[rayon_deg + pas_deg * i, 0.0, 30.0] for i in range(1, nb_pas + 1)]
+    return anneau[: pied + 1] + dehors + dehors[-2::-1] + anneau[pied:]
+
+
+def moteur_avec_antenne(points: list[list[float]]) -> ClientBrouter:
+    """Un moteur bouchonné qui rend toujours la géométrie donnée, sans tronçons."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        charge = reponse_fabriquee()
+        entite = charge["features"][0]
+        entite["geometry"]["coordinates"] = points
+        entite["properties"]["messages"] = []
+        entite["properties"].pop("track-length", None)  # distance = cumul haversine
+        return httpx.Response(200, json=charge)
+
+    return ClientBrouter(PARAMS, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def test_les_candidates_sont_elaguees_de_leurs_antennes():
+    client = moteur_avec_antenne(anneau_avec_antenne())
+    trouvees = generer(client, DEPART, distance_km=7.0, azimut_deg=45, nb=1, tolerance=0.5)
+
+    trace = trouvees[0].trace
+    assert trace.meta["antennes"]["nombre"] == 1
+    assert trace.meta["antennes"]["metres_retires"] == pytest.approx(300, abs=30)
+    assert trace.meta["distance_source"] == "recalculee"
+    # Le cul-de-sac partait à 0,01 + 150 m vers l'est : plus aucun point là-bas.
+    assert max(p.lon for p in trace.points) < 0.0102
+
+
+def test_l_ecart_relatif_est_mesure_apres_elagage():
+    """L'ajustement de rayon travaille sur la distance réellement proposée."""
+    points = anneau_avec_antenne()
+    client = moteur_avec_antenne(points)
+    trouvees = generer(client, DEPART, distance_km=7.0, azimut_deg=45, nb=1, tolerance=0.5)
+
+    trace = trouvees[0].trace
+    attendu = (trace.distance_m - 7000.0) / 7000.0
+    assert trouvees[0].ecart_relatif == pytest.approx(attendu)
+    # L'anneau seul fait environ 7 000 m ; avec l'antenne il en ferait 7 300.
+    assert trace.distance_m == pytest.approx(6993, abs=60)
+
+
+def test_une_candidate_sans_antenne_garde_la_distance_du_moteur():
+    """Sans rien à retirer, `track-length` n'est pas remplacé par un recalcul."""
+    client, _ = moteur(59_000)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    trace = trouvees[0].trace
+    assert trace.distance_m == 59_000
+    assert trace.meta["antennes"] == {"nombre": 0, "metres_retires": 0.0}
+    assert "distance_source" not in trace.meta
