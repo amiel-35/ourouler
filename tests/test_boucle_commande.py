@@ -892,18 +892,22 @@ def config_avec_velo_calibrable(dossier: Path, **sections: Any) -> Config:
     )
 
 
-def test_sans_calibration_la_colonne_dit_la_vitesse_moyenne(tmp_path: Path, capsys):
+def test_sans_calibration_la_colonne_dit_la_vitesse_moyenne(
+    tmp_path: Path, monkeypatch, capsys
+):
     config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
     texte = capsys.readouterr().out
     assert "temps (27 km/h)" in texte
     assert "aucun vélo calibré" in texte
 
 
-def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, capsys):
+def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, monkeypatch, capsys):
     from ourouler.physique.commande import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     ecrire_calibration(
         chemin_calibration(config),
         "RCR",
@@ -916,10 +920,11 @@ def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, capsys):
     assert "arrêts non modélisés" in texte
 
 
-def test_le_temps_du_modele_depend_de_la_puissance(tmp_path: Path, capsys):
+def test_le_temps_du_modele_depend_de_la_puissance(tmp_path: Path, monkeypatch, capsys):
     from ourouler.physique.commande import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     ecrire_calibration(
         chemin_calibration(config),
         "RCR",
@@ -940,9 +945,80 @@ def test_le_temps_du_modele_depend_de_la_puissance(tmp_path: Path, capsys):
     assert temps[0] > temps[1]
 
 
-def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(tmp_path: Path, capsys):
+def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
+    tmp_path: Path, monkeypatch, capsys
+):
     config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
     assert charge["modele_physique"] is None
     assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])
+
+
+# --- heure de passage météo à la vitesse du modèle (point 5 de la relecture) --
+
+
+def test_sans_calibration_les_heures_de_passage_restent_a_la_vitesse_de_config(
+    tmp_path: Path, monkeypatch, capsys
+):
+    config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    assert all(
+        c["vitesse_meteo_kmh"] == pytest.approx(config.boucle.vitesse_moyenne_kmh)
+        for c in charge["candidates"]
+    )
+
+
+def test_avec_calibration_les_heures_de_passage_suivent_le_modele(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """La vitesse qui date la prévision vient du modèle, pas des 27 km/h de la config.
+
+    Deux puissances très différentes doivent donner deux vitesses de passage
+    différentes : c'est la preuve que la vitesse vient bien de la simulation.
+    """
+    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+
+    config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {"cda_m2": 0.31, "crr": 0.0045, "masse_totale_kg": 100.0},
+    )
+    vitesses = []
+    for puissance in (120.0, 300.0):
+        executer(
+            args(velo="RCR", puissance=puissance, json=True),
+            config,
+            moteur_brouter(),
+            moteur_meteo(),
+        )
+        charge = json.loads(capsys.readouterr().out)
+        relevees = [c["vitesse_meteo_kmh"] for c in charge["candidates"]]
+        assert all(v is not None and v > 0 for v in relevees)
+        vitesses.append(relevees[0])
+    assert vitesses[0] < vitesses[1]
+    assert vitesses[0] != pytest.approx(config.boucle.vitesse_moyenne_kmh)
+
+
+def test_l_entete_dit_que_la_vitesse_de_passage_vient_du_modele(
+    tmp_path: Path, monkeypatch, capsys
+):
+    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+
+    config = config_avec_velo_calibrable(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {"cda_m2": 0.31, "crr": 0.0045, "masse_totale_kg": 100.0},
+    )
+    executer(args(velo="RCR", puissance=300.0), config, moteur_brouter(), moteur_meteo())
+    entete = capsys.readouterr().out.splitlines()[1]
+    assert "heures de passage météo" in entete
+    assert "(modèle)" in entete
+    assert "27 km/h" not in entete

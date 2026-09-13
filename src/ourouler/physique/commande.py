@@ -331,6 +331,10 @@ def _contenu_json(rapport: calib.RapportCalibration) -> dict:
         "cda_incertitude": _arrondi(a.incertitudes.cda, 5),
         "crr_incertitude": _arrondi(a.incertitudes.crr, 6),
         "rmse_w": round(a.rmse_w, 2),
+        "resistance": {
+            f"{vitesse:g}": {"force_n": round(force, 2), "puissance_w": round(puissance, 1)}
+            for vitesse, force, puissance in a.resistances
+        },
         "mae": _arrondi(rapport.validation.mae, 4),
         "mediane": _arrondi(rapport.validation.mediane, 4),
         "biais": _arrondi(rapport.validation.biais, 4),
@@ -377,18 +381,22 @@ def rendre_texte_calibration(
             f"  {rapport.echantillons_sans_vent} échantillon(s) retenu(s) sans vent archivé "
             "(comptés à vent nul)"
         )
-    lignes.append(
-        f"  CdA {_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)}   "
-        f"Crr {_fr(a.crr, 5)}{_incertitude(a.incertitudes.crr, 5)}   "
-        f"masse {_fr(a.masse_totale_kg, 1)} kg   ρ moyen {_fr(a.rho_moyen, 3)}"
-    )
+    # Ce que les données mesurent vraiment vient en premier ; CdA et Crr, qui
+    # peuvent se compenser l'un l'autre, sont relégués à une ligne de détail
+    # (décision du 13/09 — on ne cherche plus à les séparer).
+    lignes.append("  résistance totale sur le plat sans vent, vélo + cycliste :")
+    for vitesse, force, puissance in a.resistances:
+        lignes.append(
+            f"    à {vitesse:g} km/h : {_fr(force, 1)} N  —  {_fr(puissance, 0)} W au pédalier"
+        )
     lignes.append(
         f"  résidu de puissance : RMSE {_fr(a.rmse_w, 1)} W, MAE {_fr(a.mae_w, 1)} W"
     )
     lignes.append(
-        f"  résistance totale à {calib.V_REFERENCE_KMH:g} km/h : "
-        f"{_fr(a.force_reference_n, 1)} N — c'est ce que les données contraignent le "
-        "mieux, CdA et Crr pouvant se compenser l'un l'autre"
+        f"  détail (mal séparé, à ne pas citer seul) : CdA {_fr(a.cda_m2, 3)} m²"
+        f"{_incertitude(a.incertitudes.cda, 3)}, Crr {_fr(a.crr, 5)}"
+        f"{_incertitude(a.incertitudes.crr, 5)}, masse {_fr(a.masse_totale_kg, 1)} kg, "
+        f"ρ moyen {_fr(a.rho_moyen, 3)}"
     )
     lignes.append(
         f"  première passe (avec les sorties en groupe) : CdA {_fr(rapport.passe1.cda_m2, 3)}, "
@@ -468,6 +476,14 @@ def rendre_json_calibration(
             "n_echantillons": a.n_echantillons,
             "rmse_w": a.rmse_w,
             "mae_w": a.mae_w,
+            "resistance": [
+                {
+                    "v_kmh": vitesse,
+                    "force_n": round(force, 2),
+                    "puissance_w": round(puissance, 1),
+                }
+                for vitesse, force, puissance in a.resistances
+            ],
             "bornes_atteintes": list(a.bornes_atteintes),
             "avertissements": list(a.avertissements),
         },

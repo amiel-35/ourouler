@@ -482,3 +482,66 @@ def test_calibrer_ecarte_un_fichier_multisport(tmp_path: Path, capsys):
     assert all(
         "triathlon" not in s["nom"] for s in charge["validation"]["sorties"]
     )
+
+
+# --- le rapport chiffre la résistance totale (point 5 de la relecture) --------
+
+
+def test_le_rapport_donne_la_resistance_a_27_et_35(tmp_path: Path, capsys):
+    """Ce que les données mesurent passe devant ; CdA et Crr sont relégués au détail."""
+    cache_de_sorties(
+        tmp_path / "cache", [date(2026, 1, j) for j in range(1, 9)], duree_s=2600
+    )
+    config = config_de_test(tmp_path / "cache")
+    executer_calibrer(args(velo="RCR"), config, client_archive=archive_bouchonnee())
+    texte = capsys.readouterr().out
+
+    assert "résistance totale sur le plat sans vent" in texte
+    assert "à 27 km/h" in texte and "à 35 km/h" in texte
+    assert "N  —" in texte and "W au pédalier" in texte
+    # CdA et Crr restent lisibles, mais en ligne secondaire et avec la mise en garde.
+    detail = next(ligne for ligne in texte.splitlines() if "CdA" in ligne)
+    assert "mal séparé" in detail and "Crr" in detail
+    # La résistance vient avant le détail.
+    lignes = texte.splitlines()
+    assert lignes.index("  résistance totale sur le plat sans vent, vélo + cycliste :") < (
+        lignes.index(detail)
+    )
+
+
+def test_la_resistance_est_dans_le_json(tmp_path: Path, capsys):
+    cache_de_sorties(
+        tmp_path / "cache", [date(2026, 1, j) for j in range(1, 7)], duree_s=2600
+    )
+    config = config_de_test(tmp_path / "cache")
+    executer_calibrer(args(velo="RCR", json=True), config, client_archive=archive_bouchonnee())
+    charge = json.loads(capsys.readouterr().out)
+    resistance = charge["ajustement"]["resistance"]
+    assert [r["v_kmh"] for r in resistance] == [27.0, 35.0]
+    # Plus vite, c'est plus dur : force et puissance croissent toutes deux.
+    assert resistance[1]["force_n"] > resistance[0]["force_n"]
+    assert resistance[1]["puissance_w"] > resistance[0]["puissance_w"]
+    # Et le fichier de calibration en garde trace.
+    ecrit = json.loads(chemin_calibration(config).read_text(encoding="utf-8"))
+    assert set(ecrit["velos"]["RCR"]["resistance"]) == {"27", "35"}
+
+
+def test_la_resistance_ne_depend_que_du_couple_cda_crr(tmp_path: Path):
+    """Deux couples (CdA, Crr) qui se compensent donnent la même résistance à 27 km/h.
+
+    C'est toute la raison d'être de cette grandeur : elle est stable là où CdA
+    et Crr, pris séparément, ne le sont pas.
+    """
+    from ourouler.physique.calibration import Ajustement
+
+    def a_27(cda: float, crr: float) -> float:
+        return Ajustement(
+            cda_m2=cda, crr=crr, masse_totale_kg=100.0, n_echantillons=9, rmse_w=0.0, mae_w=0.0
+        ).resistance_a(27.0)[0]
+
+    reference = a_27(0.30, 0.005)
+    # Moins de traînée, plus de roulement : à 27 km/h, la somme ne bouge pas.
+    v = 27.0 / 3.6
+    delta_cda = 0.02
+    compensation = 0.5 * 1.226 * delta_cda * v**2 / (100.0 * 9.80665)
+    assert a_27(0.30 - delta_cda, 0.005 + compensation) == pytest.approx(reference, rel=1e-6)

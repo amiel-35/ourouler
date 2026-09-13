@@ -135,6 +135,13 @@ DISTANCE_MINIMALE_M = 20_000.0
 #: à l'allure d'entraînement, elle, est bien contrainte par les données.
 V_REFERENCE_KMH = 27.0
 
+#: Les deux allures auxquelles le rapport chiffre cette résistance totale
+#: (décision du 13/09, point 5 de la relecture) : l'allure d'entraînement et
+#: l'allure de contre-la-montre. Deux points valent mieux qu'un : c'est leur
+#: **écart** qui dit la part aérodynamique, sans qu'on ait à prétendre séparer
+#: CdA de Crr.
+V_REFERENCES_KMH = (27.0, 35.0)
+
 MOTIF_RETENU = ""
 
 #: Motif d'exclusion d'un fichier qui ne contient pas *que* du vélo : un FIT de
@@ -546,6 +553,24 @@ class Ajustement:
     rho_moyen: float = RHO_DEFAUT
     bornes_atteintes: tuple[str, ...] = ()
     avertissements: tuple[str, ...] = ()
+
+    def resistance_a(self, v_kmh: float) -> tuple[float, float]:
+        """(force en newtons, puissance au pédalier en watts) sur le plat sans vent.
+
+        C'est **la** grandeur que ces données mesurent. CdA et Crr peuvent se
+        compenser l'un l'autre — un CdA trop bas avec un Crr trop haut donne la
+        même puissance à 27 km/h — mais cette somme-là, non : elle est
+        directement ce que le capteur a vu, à l'allure où il l'a vu.
+        """
+        p = self.parametres()
+        v = v_kmh / 3.6
+        puissance = puissance_requise(v, 0.0, 0.0, p)
+        return (puissance * p.rendement / v, puissance)
+
+    @property
+    def resistances(self) -> list[tuple[float, float, float]]:
+        """(vitesse km/h, force N, puissance W) à chacune des `V_REFERENCES_KMH`."""
+        return [(v, *self.resistance_a(v)) for v in V_REFERENCES_KMH]
 
     @property
     def force_reference_n(self) -> float:
