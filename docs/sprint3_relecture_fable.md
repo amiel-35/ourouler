@@ -81,3 +81,30 @@ données mesurent bien.
   par défaut (proposé), ou la puissance de la séance du jour quand S4
   existera.
 - **Q9** : close dans l'esprit ci-dessus — on ne sépare plus CdA et Crr.
+
+## Complément du 13/09 (après la passe de corrections) — `comparer` à aligner
+
+La passe a donné : calibration RCR MAE 4,2 %, BMC 2,4 %, CdA décollé de la
+butée (0,22 les deux) grâce au vent à hauteur du cycliste **et** au terme
+cinétique (l'un sans l'autre ne suffit pas). Mais `ourouler comparer`, qui
+compare la puissance à vitesse égale sur toutes les mailles communes, arrêts
+et relances compris, donnait « BMC +6 W à 30 km/h », en contradiction avec
+la calibration (−17 W) et avec l'expérience du mainteneur.
+
+Mesure refaite selon le schéma du mainteneur (validé par lui : « tu as
+trouvé un schéma cohérent, c'est OK ») — séries de tronçons **plats
+(|pente| ≤ 0,8 %), droits (cap stable à 15°), ≥ 500 m, sans arrêt ni
+relance, en Z2 (56-75 % FTP)**, vitesse à puissance égale par vélo :
+
+| | RCR | BMC |
+|---|---|---|
+| séries / km | 339 / 257 | 163 / 129 |
+| vitesse à 160-175 W | 29,1 km/h | 31,8 km/h |
+| vitesse à 165 W (régression) | 29,0 km/h | 31,6 km/h |
+
+Soit **+2,6 km/h à puissance égale, ≈ 30-40 W à vitesse égale** en faveur
+du BMC — cohérent avec la calibration et avec le « 25-30 W à la louche ».
+**À faire dans la passe de corrections** : `comparer` adopte ce schéma
+(séries, filtres, Z2 par défaut, résultat en km/h à puissance égale ET en
+W à vitesse égale via la pente de la régression), et n'utilise plus les
+classes de vitesse toutes mailles confondues.
