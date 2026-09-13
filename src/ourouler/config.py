@@ -58,6 +58,7 @@ class Velo:
     usage: str = "route"
     masse_kg: float | None = None
     cda_m2: float | None = None
+    crr: float | None = None  # coefficient de roulement, estimé par la calibration (S3)
     intervals_gear: str = ""
     intervals_gear_id: str = ""
     capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
@@ -125,6 +126,24 @@ class ParametresBrouter:
 
 
 @dataclass(frozen=True)
+class ParametresCalibration:
+    # Une sortie dont le nom contient un de ces mots est écartée de la calibration (peloton).
+    mots_groupe: tuple[str, ...] = ("club", "groupe", "peloton")
+    part_validation: float = 0.25  # part des sorties (les plus récentes) réservée au test
+    vitesse_min_kmh: float = 8.0
+
+
+@dataclass(frozen=True)
+class Evitement:
+    """Zone à éviter, transmise au moteur de tracé (nogo BRouter)."""
+
+    nom: str
+    latitude: float
+    longitude: float
+    rayon_m: float = 200.0
+
+
+@dataclass(frozen=True)
 class ParametresBoucle:
     vitesse_moyenne_kmh: float = 27.0  # en attendant le modèle physique (S3)
     sens: str = "horaire"  # sens de boucle préféré (horaire en France, antihoraire au Royaume-Uni)
@@ -142,6 +161,8 @@ class Config:
     cache: ParametresCache = field(default_factory=ParametresCache)
     brouter: ParametresBrouter = field(default_factory=ParametresBrouter)
     boucle: ParametresBoucle = field(default_factory=ParametresBoucle)
+    calibration: ParametresCalibration = field(default_factory=ParametresCalibration)
+    evitements: tuple[Evitement, ...] = ()
     historique_depuis: date = HISTORIQUE_DEPUIS_DEFAUT
 
     def velo(self, nom: str) -> Velo:
@@ -190,6 +211,8 @@ def depuis_dict(d: dict[str, Any]) -> Config:
     cache = d.get("cache", {}) or {}
     brouter = d.get("brouter", {}) or {}
     boucle = d.get("boucle", {}) or {}
+    calibration = d.get("calibration", {}) or {}
+    evitements = tuple(_evitement(e, i) for i, e in enumerate(d.get("evitements", []) or []))
     sens = str(boucle.get("sens", "horaire"))
     if sens not in SENS_BOUCLE:
         raise ErreurConfig(f"[boucle] sens = {sens!r}, attendu un de {SENS_BOUCLE}")
@@ -237,7 +260,35 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 boucle.get("tolerance_distance", 0.10), "tolerance_distance", "boucle", mini=0.01, maxi=0.5
             ),
         ),
+        calibration=ParametresCalibration(
+            mots_groupe=tuple(
+                str(m).casefold() for m in calibration.get("mots_groupe", ("club", "groupe", "peloton"))
+            ),
+            part_validation=_flottant(
+                calibration.get("part_validation", 0.25),
+                "part_validation",
+                "calibration",
+                mini=0.05,
+                maxi=0.5,
+            ),
+            vitesse_min_kmh=_flottant(
+                calibration.get("vitesse_min_kmh", 8.0), "vitesse_min_kmh", "calibration", mini=1, maxi=30
+            ),
+        ),
+        evitements=evitements,
         historique_depuis=_date(d.get("historique_depuis", HISTORIQUE_DEPUIS_DEFAUT), "historique_depuis"),
+    )
+
+
+def _evitement(e: Any, i: int) -> Evitement:
+    section = f"evitements[{i}]"
+    if not isinstance(e, dict):
+        raise ErreurConfig(f"{section} : table attendue")
+    return Evitement(
+        nom=str(e.get("nom", f"évitement {i + 1}")),
+        latitude=_nombre(e, "latitude", section, -90, 90),
+        longitude=_nombre(e, "longitude", section, -180, 180),
+        rayon_m=_flottant(e.get("rayon_m", 200.0), "rayon_m", section, mini=10, maxi=20000),
     )
 
 
@@ -393,6 +444,11 @@ def _velo(v: Any, i: int) -> Velo:
         cda_m2=(
             _flottant(v["cda_m2"], "cda_m2", section, mini=0.1, maxi=1.0)
             if v.get("cda_m2") is not None
+            else None
+        ),
+        crr=(
+            _flottant(v["crr"], "crr", section, mini=0.001, maxi=0.05)
+            if v.get("crr") is not None
             else None
         ),
         intervals_gear=str(v.get("intervals_gear", "") or ""),

@@ -308,3 +308,17 @@ def test_brouter_et_boucle():
     assert not depuis_dict(BASE).brouter.renseigne
     with pytest.raises(ErreurConfig, match=r"\[boucle\] sens"):
         depuis_dict({**BASE, "boucle": {"sens": "gauche"}})
+
+
+def test_calibration_et_evitements():
+    d = dict(BASE)
+    d["calibration"] = {"mots_groupe": ["Club", "sortie groupe"], "part_validation": 0.3}
+    d["evitements"] = [{"nom": "carrefour", "latitude": 0.5, "longitude": 0.5, "rayon_m": 150}]
+    d["velos"] = [{"nom": "Route", "crr": 0.004}]
+    c = depuis_dict(d)
+    assert c.calibration.mots_groupe == ("club", "sortie groupe") and c.calibration.part_validation == 0.3
+    assert c.evitements[0].rayon_m == 150 and c.evitements[0].nom == "carrefour"
+    assert c.velo("Route").crr == 0.004
+    assert depuis_dict(BASE).calibration.mots_groupe == ("club", "groupe", "peloton")
+    with pytest.raises(ErreurConfig, match=r"evitements\[0\]\] latitude"):
+        depuis_dict({**BASE, "evitements": [{"longitude": 0}]})
