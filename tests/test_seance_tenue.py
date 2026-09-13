@@ -6,11 +6,12 @@ golfe de Guinée (0, 0), comme les autres tracés synthétiques du dépôt.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import tomllib
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
-from ourouler.config import ParametresTenue
+from ourouler.config import ParametresTenue, depuis_dict
 from ourouler.seance.tenue import (
     CATEGORIES_PLUIE,
     CATEGORIES_TEMP,
@@ -21,6 +22,7 @@ from ourouler.seance.tenue import (
     conseiller,
 )
 
+RACINE = Path(__file__).resolve().parents[1]
 DEPART = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
 
 
@@ -172,16 +174,63 @@ def test_pluie_absente_ne_conseille_pas_de_veste():
 
 
 def test_les_tenues_de_la_configuration_remplacent_le_defaut():
-    @dataclass(frozen=True)
-    class TenueConfiguree(ParametresTenue):
-        tenues: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    """Avec le **vrai** `ParametresTenue`, pas une sous-classe écrite pour le test.
 
-    p = TenueConfiguree(tenues={"frais": ["maillot de laine", "casquette"]})
+    Le champ `tenues` est un tuple de couples `(catégorie, vêtements)` : c'est
+    la seule forme qu'une dataclass gelée peut porter, et la seule que la
+    chaîne TOML → `depuis_dict` produise. Un test qui passe un `dict` mesure
+    une forme que la configuration ne fabrique jamais.
+    """
+    p = ParametresTenue(tenues=(("frais", ("maillot de laine", "casquette")),))
     tenue = conseiller(_meteo((0.0, 12.0, 0.0, 5.0)), p)
     assert tenue.base == ["maillot de laine", "casquette"]
     # Les autres catégories gardent le défaut.
     autre = conseiller(_meteo((0.0, 25.0, 0.0, 5.0)), p)
     assert autre.base == list(TENUES_DEFAUT["chaud"])
+
+
+def test_les_onze_lignes_de_config_example_font_ce_qu_elles_promettent():
+    """De bout en bout : le TOML commenté de `config.example.toml` → la tenue rendue.
+
+    `config.example.toml` promet au mainteneur qu'il peut remplacer une tenue
+    par catégorie. Le seul test qui le vérifiait construisait lui-même ses
+    paramètres ; il ne disait donc rien de la chaîne réelle. Celui-ci part du
+    fichier d'exemple versionné, **décommente** le bloc `[tenue.tenues]`, le
+    passe à `depuis_dict` et regarde ce que `conseiller` rend.
+    """
+    exemple = (RACINE / "config.example.toml").read_text(encoding="utf-8")
+    lignes = []
+    dans_le_bloc = False
+    for ligne in exemple.splitlines():
+        if ligne.startswith("# [tenue.tenues]"):
+            dans_le_bloc = True
+        elif dans_le_bloc and not ligne.startswith("# "):
+            dans_le_bloc = False
+        lignes.append(ligne[2:] if dans_le_bloc else ligne)
+    brut = tomllib.loads("\n".join(lignes))
+    assert "tenues" in brut["tenue"], "le bloc [tenue.tenues] n'a pas été décommenté"
+
+    config = depuis_dict(brut)
+    assert config.tenue.tenue_de("froid") is not None
+
+    for categorie in CATEGORIES_TEMP:
+        attendue = config.tenue.tenue_de(categorie)
+        assert attendue is not None, f"{categorie} absente de l'exemple"
+        ressenti = _ressenti_de(categorie, config.tenue.bornes_c)
+        tenue = conseiller(_meteo((0.0, ressenti, 0.0, 5.0)), config.tenue)
+        assert tenue.categorie_temp == categorie
+        assert tenue.base == list(attendue), (
+            f"[tenue.tenues] {categorie} : l'exemple promet {list(attendue)}, "
+            f"la commande rend {tenue.base}"
+        )
+
+
+def _ressenti_de(categorie: str, bornes: tuple[float, ...]) -> float:
+    """Un ressenti qui tombe au milieu de la catégorie demandée."""
+    rang = CATEGORIES_TEMP.index(categorie)
+    bas = bornes[rang - 1] if rang > 0 else bornes[0] - 10.0
+    haut = bornes[rang] if rang < len(bornes) else bornes[-1] + 10.0
+    return (bas + haut) / 2.0
 
 
 def test_bornes_inhabituelles_donnent_des_paliers_numerotes():

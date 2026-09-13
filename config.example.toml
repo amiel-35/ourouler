@@ -90,6 +90,6 @@ vent_veste_kmh = 30
 # "très froid" = ["collant", "veste hiver", "sous-couche", "gants longs", "couvre-chaussures", "bonnet"]
 # froid = ["collant", "veste", "gants longs", "couvre-chaussures", "tour de cou"]
 # frais = ["cuissard", "maillot long", "gilet", "jambières"]
-# modéré = ["cuissard", "maillot", "manchettes dans la poche"]
+# "modéré" = ["cuissard", "maillot", "manchettes dans la poche"]
 # chaud = ["cuissard", "maillot"]
 # canicule = ["cuissard", "maillot ajouré", "crème solaire", "deux bidons"]

@@ -263,17 +263,24 @@ def _variation(
 def _tenues(p: ParametresTenue) -> dict[str, tuple[str, ...]]:
     """Le tableau des tenues : le jeu par défaut, catégorie par catégorie, écrasé par la configuration.
 
-    `ParametresTenue` n'expose pas encore de champ `tenues` (le contrat du
-    sprint 4 §0 l'annonce, la configuration ne le porte pas) : on le lit s'il
-    apparaît, sans en dépendre. Une configuration qui ne décrit qu'une
-    catégorie garde le défaut pour les autres.
+    La source est `ParametresTenue.tenue_de`, l'accesseur prévu par le contrat
+    du sprint 4 §0 : `ParametresTenue.tenues` est un **tuple de couples**
+    `(catégorie, vêtements)` — une dataclass gelée ne peut pas porter un dict —
+    et c'est cette forme-là, et elle seule, que produit la chaîne
+    TOML → `depuis_dict` → `Config`. Une configuration qui ne décrit qu'une
+    catégorie garde le défaut pour les autres, comme le promettent les onze
+    lignes de `config.example.toml`.
+
+    Ce module a lu pendant un temps `p.tenues` en attendant un `dict` : le
+    champ existait, la validation TOML aussi, et la tenue rendue restait celle
+    du code. On passe donc par `tenue_de`, qui est le contrat public, plutôt
+    que par la représentation interne du champ.
     """
-    configurees = getattr(p, "tenues", None)
     tableau = dict(TENUES_DEFAUT)
-    if isinstance(configurees, dict):
-        for categorie, vetements in configurees.items():
-            if isinstance(vetements, (list, tuple)):
-                tableau[str(categorie)] = tuple(str(v) for v in vetements)
+    for categorie, _ in getattr(p, "tenues", ()):
+        pieces = p.tenue_de(categorie)
+        if pieces is not None:
+            tableau[str(categorie)] = tuple(str(v) for v in pieces)
     return tableau
 
 
