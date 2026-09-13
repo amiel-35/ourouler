@@ -190,7 +190,7 @@ d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
 modèle obtenu pour repérer les autres (résidu de vitesse anormalement
 positif sur une grande part de la sortie) et les écarter ; itérer une fois.
 
-### Sprint 4 — Séance ↔ terrain **[à figer au point de repriorisation]**
+### Sprint 4 — Séance ↔ terrain **[livré le 13/09/2026, PR en attente]**
 
 Le cœur du projet. Jalon : `ourouler sortie` lit la séance du jour dans
 Intervals, génère des boucles, les simule avec le modèle calibré, place les
@@ -383,6 +383,57 @@ COROS sans rien demander à personne. L'Edge sait charger un parcours et une sé
 structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
+
+- **2026-09-13, soirée** — Sprint 4 livré sur `sprint-4` (PR vers `main` en
+  attente). Le cœur du projet : `ourouler sortie` lit la séance du jour,
+  génère des boucles, place les blocs sur le terrain, écrit le GPX du
+  **parcours réellement roulé** (demi-tours compris) et une **carte** qui
+  montre chaque bloc à sa place. Quatre lots en parallèle + testeur
+  adversarial, relecture Opus (13 points), **audit de probité des tests par
+  mutation** (5 points de plus), quatre passes de corrections. État :
+  2 892 tests, ruff vert.
+
+  **Vérifié sur les vraies séances du mainteneur.** Le modèle et son
+  cadrage écrit à la main se recoupent : bloc de 20 min à 206-219 W →
+  11,2 km estimés contre « 11 km d'un trait » annoncés ; 8 min à 253 W →
+  4,9 km contre « environ 4 km » ; demi-tour en 4 min de récup → 1,0 km de
+  route au-delà contre « ≈ 800 m ». **Validation rétrospective** sur deux
+  séances réellement faites dehors (22/04 et 25/04/2026) : les emplacements
+  de blocs qu'il a choisis sont notés **43 % de la note du hasard**, donc
+  nettement meilleurs — les poids sont justes. Et sur ses blocs longs, le
+  constat qui justifie l'outil : ses 2×20' sont tombés sur un couloir noté
+  6,46 alors qu'un couloir noté **1,81 existait sur la même boucle**.
+
+  **Ce que la mesure a appris contre l'intuition** : il évite les zones
+  bâties et les descentes, mais **ne fuit pas les montées** (il en prend
+  plus que le hasard) et **ne se soucie pas des carrefours**. Poids corrigés
+  dans ce sens.
+
+  **Deux bugs trouvés par les seuls tests adversariaux** : les pentes
+  étaient en pourcentage d'un côté et en tangente de l'autre, donc **tout
+  demi-tour était refusé dès 0,1 % de pente** ; et un village traversé
+  pendant une récupération était **facturé au bloc suivant**, en violation
+  de la règle du mainteneur. **Deux règles non gardées trouvées par
+  mutation** : un placement qui étirerait les récupérations « quand ça
+  arrange » passait les 2 855 tests (288 sélections effectives), et « on
+  note, on ne filtre pas » n'était protégé que par un dépaquetage de tuple.
+  Les quatre sont corrigés et gardés par des tests qui échouent sur la
+  mutation.
+
+  **Décisions** : Q11 (`%ftp` nominal, zones de FC minoritaires), Q12
+  (cascade de typage marqueurs → texte → puissance), Q13 (l'affichage ne
+  montre que les blocs, à corriger), Q14 (le retour au calme ne peut pas
+  absorber la variabilité de la boucle — arrondi au plus proche essayé et
+  **annulé**, mesure à l'appui), Q15 (`--depart` / `--depuis`, nom à
+  trancher). Fenêtre de détection des antennes portée de 3 à **6 km** après
+  qu'un cul-de-sac de 3,4 km a été vu sur carte par le mainteneur.
+
+  **Dette assumée** : le poids de la descente (0,10) n'est plus soutenu par
+  sa mesure (57 % du hasard, pas 14 %) et reste un arbitrage produit ; le
+  D+ du moteur et celui du parcours recalculé divergent de 40 % et sont
+  désormais affichés côte à côte ; la météo et la tenue n'existent que dans
+  la fenêtre de prévision, donc pas sur une séance passée ; Q13 et Q14
+  restent entières.
 
 - **2026-09-13, journée** — Sprint 3 livré sur `sprint-3` (PR vers `main` en
   attente). Trois lots en parallèle (antennes, routes connues, physique) +
