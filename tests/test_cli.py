@@ -148,3 +148,29 @@ def test_comparer_exige_deux_velos():
 def test_comparer_sans_velos_est_refusee():
     with pytest.raises(SystemExit):
         construire_parseur().parse_args(["comparer"])
+
+
+# --- ourouler seance (L4.1) ---------------------------------------------------
+
+
+def test_seance_est_enregistree_avec_ses_options():
+    args = construire_parseur().parse_args(["seance", "--jour", "2026-09-08", "--json"])
+    assert args.commande == "seance"
+    assert args.jour == "2026-09-08"
+    assert args.json is True
+
+
+def test_seance_sans_option():
+    args = construire_parseur().parse_args(["seance"])
+    assert args.commande == "seance"
+    assert args.jour is None
+    assert args.json is False
+
+
+def test_seance_accepte_json_avant_la_sous_commande():
+    assert construire_parseur().parse_args(["--json", "seance"]).json is True
+
+
+def test_seance_refuse_une_option_inconnue():
+    with pytest.raises(SystemExit):
+        construire_parseur().parse_args(["seance", "--velo", "RCR"])
