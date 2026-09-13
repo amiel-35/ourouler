@@ -23,6 +23,7 @@ import socket
 from datetime import date, datetime
 from pathlib import Path
 
+import fabriques4
 import httpx
 import outils
 import pytest
@@ -306,6 +307,79 @@ def test_aucun_fichier_d_activite_hors_des_fixtures():
         if p.is_file() and p.suffix.lower() in (".fit", ".tcx", ".gpx") and fixtures not in p.parents
     ]
     assert not suspects, f"fichiers d'activité hors de tests/fixtures/ : {suspects}"
+
+
+def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
+    """Un test ne doublure pas un module de production : il l'importe.
+
+    Le fichier de placement installait, **à l'import**, de faux
+    `ourouler.seance.modele` et `ourouler.seance.terrain` quand les vrais ne
+    s'importaient pas. L'échafaudage a servi le temps que les lots s'écrivent
+    en parallèle ; gardé, il rendait la suite menteuse — un symbole renommé
+    dans `boucle.couts` aurait fait passer vingt-quatre tests au vert contre
+    un `evaluer_couloir` qui rend toujours 0 et une `demi_tour_faisable` qui
+    dit toujours oui.
+
+    Trois gestes interdits, tous ceux qu'il fallait pour monter la doublure :
+    fabriquer un `ModuleType` au nom d'`ourouler`, l'accrocher au paquet par
+    `setattr`, ou l'écrire dans `sys.modules`. Charger par chemin un module de
+    fixtures (`generer_activites`, `workouts`…) reste permis : il ne masque
+    aucun module de production. `monkeypatch.setattr` aussi, qui est défait à
+    la fin de chaque test — ce qu'une écriture à l'import n'est pas.
+    """
+    fautes: list[str] = []
+    for chemin in _fichiers_python(TESTS):
+        for noeud in ast.walk(_arbre(chemin)):
+            texte = ast.unparse(noeud)
+            if isinstance(noeud, ast.Assign):
+                for cible in noeud.targets:
+                    if (
+                        isinstance(cible, ast.Subscript)
+                        and ast.unparse(cible.value) == "sys.modules"
+                        and "ourouler" in ast.unparse(cible.slice)
+                    ):
+                        fautes.append(f"{chemin.relative_to(RACINE)}:{noeud.lineno} {texte}")
+            if not isinstance(noeud, ast.Call):
+                continue
+            appele = ast.unparse(noeud.func)
+            fabrique = appele.endswith("ModuleType") and "ourouler" in texte
+            accroche = (
+                appele == "setattr"
+                and noeud.args
+                and ast.unparse(noeud.args[0]).startswith("ourouler")
+            )
+            if fabrique or accroche:
+                fautes.append(f"{chemin.relative_to(RACINE)}:{noeud.lineno} {texte}")
+    assert not fautes, (
+        "un test remplace un module de production au lieu de l'importer :\n  "
+        + "\n  ".join(fautes)
+    )
+
+
+def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monkeypatch):
+    """`fabriques4.module` doit laisser remonter un `ImportError` **interne**.
+
+    Sauter est le bon comportement quand le lot n'existe pas encore. Le faire
+    quand le paquet est là mais qu'un de ses imports a disparu transforme une
+    suite adversariale entière en « skipped », c'est-à-dire en vert.
+    """
+    paquet = tmp_path / "paquet_de_test"
+    paquet.mkdir()
+    (paquet / "__init__.py").write_text("", encoding="utf-8")
+    (paquet / "present.py").write_text("VALEUR = 1\n", encoding="utf-8")
+    (paquet / "casse.py").write_text(
+        "from paquet_de_test.inexistant import quoi_que_ce_soit\n", encoding="utf-8"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(fabriques4, "PAQUETS", ("paquet_de_test",))
+
+    assert fabriques4.module("present", motif="absent").VALEUR == 1
+
+    with pytest.raises(ModuleNotFoundError):
+        fabriques4.module("casse", motif="ne doit pas être sauté")
+
+    with pytest.raises(pytest.skip.Exception, match="lot jamais écrit"):
+        fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
 
 
 def test_tout_fichier_ecrit_par_defaut_par_sortie_est_ignore_par_git():

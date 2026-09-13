@@ -47,11 +47,22 @@ PAQUETS = ("ourouler.seance", "ourouler.sortie")
 
 
 def module(nom: str, *, motif: str) -> Any:
-    """`ourouler.seance.<nom>`, ou `ourouler.sortie.<nom>`, ou skip."""
+    """`ourouler.seance.<nom>`, ou `ourouler.sortie.<nom>`, ou skip.
+
+    Le saut n'est toléré que si le **paquet lui-même** est absent — c'est le
+    seul cas prévu, celui d'un lot pas encore écrit. Tout autre `ImportError`
+    remonte : un symbole renommé dans `boucle.couts` et importé par
+    `seance/terrain.py` transformerait sinon une suite adversariale entière en
+    « skipped » vert, ce qui se lit comme « rien à signaler ».
+    """
     for paquet in PAQUETS:
         try:
             return importlib.import_module(f"{paquet}.{nom}")
-        except ImportError:
+        except ModuleNotFoundError as e:
+            if e.name is not None and not (
+                e.name == paquet or e.name == f"{paquet}.{nom}"
+            ):
+                raise  # le paquet est là, c'est un de ses imports qui manque
             continue
     pytest.skip(motif)
 

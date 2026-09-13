@@ -1,12 +1,18 @@
 """Tests de `seance.placement` (sprint 4, lot L4.3).
 
-`seance/modele.py` (lot L4.1) et `seance/terrain.py` (lot L4.2) sont écrits en
-parallèle par d'autres agents. Le **code de production les importe pour de
-vrai** ; ce fichier de test, lui, installe des doubles minimaux — mêmes
-champs, mêmes signatures que le contrat du sprint 4 §1 et §2 — tant que les
-vrais modules ne sont pas fusionnés, et s'efface dès qu'ils arrivent. Les
-fonctions de terrain sont de toute façon remplacées par `monkeypatch` dans
-chaque test : on veut un terrain dont on connaît la réponse, pas le vrai.
+Les fonctions de terrain sont remplacées par `monkeypatch` dans chaque test :
+on veut un terrain dont on connaît la réponse, pas le vrai. Les **modules**,
+eux, sont importés normalement.
+
+Ce fichier a porté, le temps que les lots L4.1 et L4.2 s'écrivent en
+parallèle, un mécanisme de doubles qui installait de faux
+`ourouler.seance.modele` et `ourouler.seance.terrain` dans `sys.modules` quand
+les vrais ne s'importaient pas. Il est retiré : son `except ModuleNotFoundError`
+n'attrapait pas seulement « le module n'existe pas encore » mais aussi « le
+module existe et un de ses imports a disparu », et il aurait alors installé
+silencieusement un `evaluer_couloir` qui rend toujours 0 et une
+`demi_tour_faisable` qui dit toujours oui — vingt-quatre tests au vert contre
+une production cassée.
 
 Aucune coordonnée réelle : le tracé est une ligne droite au large du golfe de
 Guinée, comme les autres tracés synthétiques du dépôt. Aucun réseau.
@@ -14,97 +20,16 @@ Guinée, comme les autres tracés synthétiques du dépôt. Aucun réseau.
 
 from __future__ import annotations
 
-import importlib
-import sys
-import types
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from datetime import date
 
 import pytest
 
-import ourouler.seance
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
-
-TYPES = ("echauffement", "bloc", "recuperation", "calme")
-
-
-# --- doubles des deux lots parallèles ----------------------------------------
-
-
-@dataclass(frozen=True)
-class _Etape:
-    type: str
-    duree_s: float
-    puissance_min_w: float | None
-    puissance_max_w: float | None
-    libelle: str = ""
-    elastique: bool = False
-
-    @property
-    def puissance_cible_w(self) -> float | None:
-        if self.puissance_min_w is None or self.puissance_max_w is None:
-            return self.puissance_min_w if self.puissance_max_w is None else self.puissance_max_w
-        return (self.puissance_min_w + self.puissance_max_w) / 2
-
-
-@dataclass
-class _Seance:
-    nom: str
-    jour: date
-    etapes: list[_Etape]
-    duree_s: float
-    meta: dict = field(default_factory=dict)
-
-    def blocs(self) -> list[tuple[int, _Etape]]:
-        return [(i, e) for i, e in enumerate(self.etapes) if e.type == "bloc"]
-
-
-@dataclass
-class _NoteBloc:
-    note: float
-    motifs: list[str] = field(default_factory=list)
-    pente_moyenne: float = 0.0
-    pente_max: float = 0.0
-    carrefours: int = 0
-    km_batis: float = 0.0
-    descente_m: float = 0.0
-    montee_m: float = 0.0
-
-
-def _double(nom: str) -> types.ModuleType:
-    module = types.ModuleType(f"ourouler.seance.{nom}")
-    sys.modules[module.__name__] = module
-    setattr(ourouler.seance, nom, module)
-    return module
-
-
-def _installer_les_doubles() -> list[str]:
-    """Installe un double pour chaque module du sprint 4 qui n'existe pas encore."""
-    absents = []
-    try:
-        importlib.import_module("ourouler.seance.modele")
-    except ModuleNotFoundError:
-        modele = _double("modele")
-        modele.TYPES, modele.Etape, modele.Seance = TYPES, _Etape, _Seance
-        absents.append("seance.modele")
-    try:
-        importlib.import_module("ourouler.seance.terrain")
-    except ModuleNotFoundError:
-        terrain = _double("terrain")
-        terrain.NoteBloc = _NoteBloc
-        terrain.evaluer_couloir = lambda trace, debut_m, longueur_m: _NoteBloc(0.0)
-        terrain.route_au_dela = lambda trace, position_m, besoin_m: True
-        terrain.demi_tour_faisable = lambda trace, position_m: True
-        absents.append("seance.terrain")
-    return absents
-
-
-DOUBLES = _installer_les_doubles()
-
-from ourouler.seance import placement  # noqa: E402
-from ourouler.seance.modele import Etape, Seance  # noqa: E402
-from ourouler.seance.terrain import NoteBloc  # noqa: E402
+from ourouler.seance import placement
+from ourouler.seance.modele import Etape, Seance
+from ourouler.seance.terrain import NoteBloc
 
 # --- fixtures synthétiques ----------------------------------------------------
 
