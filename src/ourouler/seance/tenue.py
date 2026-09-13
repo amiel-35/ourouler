@@ -88,8 +88,16 @@ TENUES_DEFAUT: dict[str, tuple[str, ...]] = {
 }
 
 #: Ce qu'on emporte quand la pluie ou le vent l'imposent.
+#:
+#: Deux vestes, pas une : l'imperméable arrête l'eau, la coupe-vent arrête le
+#: vent. Et une **veste** coupe-vent, pas le gilet coupe-vent de la tenue de
+#: base : à 30 km/h de vent ce sont les bras qui prennent, et le contrat du
+#: sprint 4 §3 nomme bien la veste (« le vent [...] déclenche seul la veste
+#: au-delà de `vent_veste_kmh` »). Un cycliste qui porte déjà une veste
+#: coupe-vent — la tenue « très froid » — n'en emporte pas une seconde,
+#: `_ajouter` s'en charge.
 VESTE_PLUIE = "veste imperméable"
-COUPE_VENT = "coupe-vent"
+VESTE_VENT = "veste coupe-vent"
 
 
 @dataclass
@@ -200,10 +208,10 @@ def _vent(
         return
     vent_max, dist = max(vents)
     if vent_max >= p.vent_veste_kmh:
-        _ajouter(a_emporter, COUPE_VENT, base)
+        _ajouter(a_emporter, VESTE_VENT, base)
         motifs.append(
             f"vent jusqu'à {vent_max:.0f} km/h au km {dist / 1000:.0f} "
-            f"(seuil {p.vent_veste_kmh:.0f}) : emporter le coupe-vent"
+            f"(seuil {p.vent_veste_kmh:.0f}) : {_conseil(a_emporter, VESTE_VENT)}"
         )
 
 
@@ -301,6 +309,18 @@ def _ajouter(liste: list[str], vetement: str, base: Sequence[str]) -> None:
     if any(vetement in porte for porte in base):
         return
     liste.append(vetement)
+
+
+def _conseil(a_emporter: Sequence[str], vetement: str) -> str:
+    """« emporter la veste coupe-vent », ou le fait qu'elle soit déjà sur le dos.
+
+    Un motif qui dit « emporter X » alors que « à emporter » est vide se lit
+    comme un oubli. Quand `_ajouter` a jugé que le vêtement était déjà porté,
+    le motif le dit plutôt que de le taire.
+    """
+    if vetement in a_emporter:
+        return f"emporter la {vetement}"
+    return f"la {vetement} est déjà dans la tenue de base"
 
 
 def _liste(vetements: Sequence[str]) -> str:

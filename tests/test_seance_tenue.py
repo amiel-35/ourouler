@@ -14,10 +14,10 @@ from ourouler.config import ParametresTenue
 from ourouler.seance.tenue import (
     CATEGORIES_PLUIE,
     CATEGORIES_TEMP,
-    COUPE_VENT,
     INCONNU,
     TENUES_DEFAUT,
     VESTE_PLUIE,
+    VESTE_VENT,
     conseiller,
 )
 
@@ -123,17 +123,28 @@ def test_pluie_au_dela_du_seuil_fait_emporter_la_veste():
 
 def test_le_vent_seul_declenche_la_veste():
     calme = conseiller(_meteo((0.0, 18.0, 0.0, 29.9)), P)
-    assert COUPE_VENT not in calme.a_emporter
+    assert VESTE_VENT not in calme.a_emporter
 
     vente = conseiller(_meteo((0.0, 18.0, 0.0, 20.0), (25.0, 18.0, 0.0, 30.0)), P)
-    assert COUPE_VENT in vente.a_emporter
+    assert VESTE_VENT in vente.a_emporter
     assert any("vent jusqu'à 30" in m for m in vente.motifs)
 
 
-def test_le_coupe_vent_deja_sur_le_dos_n_est_pas_a_emporter():
-    tenue = conseiller(_meteo((0.0, 5.0, 0.0, 45.0)), P)
-    assert "gilet coupe-vent" in tenue.base
-    assert COUPE_VENT not in tenue.a_emporter
+def test_un_gilet_coupe_vent_ne_remplace_pas_la_veste():
+    """À 35 km/h de vent, ce sont les bras qui prennent (contrat §3)."""
+    tenue = conseiller(_meteo((0.0, 14.0, 0.0, 35.0)), P)
+    assert "gilet coupe-vent" in tenue.base  # tenue « frais »
+    assert VESTE_VENT in tenue.a_emporter
+    assert any("emporter la veste coupe-vent" in m for m in tenue.motifs)
+
+
+def test_la_veste_coupe_vent_deja_sur_le_dos_n_est_pas_a_emporter():
+    """La tenue « très froid » en porte une : le motif le dit plutôt que de se taire."""
+    tenue = conseiller(_meteo((0.0, 1.0, 0.0, 45.0)), P)
+    assert tenue.categorie_temp == "très froid"
+    assert VESTE_VENT in tenue.base
+    assert tenue.a_emporter == []
+    assert any("déjà dans la tenue de base" in m for m in tenue.motifs)
 
 
 def test_aucun_echantillon():
