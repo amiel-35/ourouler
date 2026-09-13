@@ -104,10 +104,31 @@ HIGHWAY_REFERENCE = "tertiary"
 PART_EXPOSITION_MIN = 0.02
 
 #: Version du schéma SQLite de la base de routes.
-VERSION_SCHEMA = 1
+#:
+#: Passée à 2 le 13/09/2026 : les deux tables gagnent une colonne
+#: `proprietaire`. Voir `PROPRIETAIRE_LOCAL` et `_migrer`.
+VERSION_SCHEMA = 2
 
-_SCHEMA = """
+#: Propriétaire des lignes écrites par la ligne de commande.
+#:
+#: Doctrine §10.1 : « le schéma de l'index local est écrit avec une colonne
+#: *propriétaire* en tête, pour que la migration soit un déplacement, pas une
+#: réécriture ». Ce sont bien des données **par utilisateur** — les routes
+#: qu'*un* cycliste a roulées — et en hébergé deux utilisateurs de la même
+#: ville partageront des mailles sans devoir partager des passages. En local
+#: il n'y a qu'un propriétaire et la colonne ne sert à rien d'autre qu'à être
+#: là le jour venu : rien ne filtre dessus aujourd'hui, et la ligne de
+#: commande n'a aucun moyen d'écrire autre chose.
+#:
+#: `archive_meteo.sqlite`, lui, n'en a pas besoin et n'en aura pas : sa clé
+#: `(lat, lon, jour)` ne porte aucune donnée personnelle et se mutualise telle
+#: quelle entre utilisateurs (doctrine §10.1, « cache des prévisions par
+#: maille et par heure, partagé entre utilisateurs »).
+PROPRIETAIRE_LOCAL = "local"
+
+_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS troncons (
+    proprietaire     TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}',
     cle_lat          INTEGER NOT NULL,
     cle_lon          INTEGER NOT NULL,
     highway          TEXT NOT NULL,
@@ -122,11 +143,12 @@ CREATE TABLE IF NOT EXISTS troncons (
 );
 CREATE INDEX IF NOT EXISTS idx_troncons_maille ON troncons(cle_lat, cle_lon);
 CREATE TABLE IF NOT EXISTS sorties (
-    id_sortie  TEXT PRIMARY KEY,
-    jour       TEXT,
-    mailles    INTEGER NOT NULL DEFAULT 0,
-    metres     REAL NOT NULL DEFAULT 0,
-    ajoutee_le TEXT NOT NULL
+    proprietaire TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}',
+    id_sortie    TEXT PRIMARY KEY,
+    jour         TEXT,
+    mailles      INTEGER NOT NULL DEFAULT 0,
+    metres       REAL NOT NULL DEFAULT 0,
+    ajoutee_le   TEXT NOT NULL
 );
 """
 
@@ -323,15 +345,43 @@ class BaseRoutes:
                 f"routes : dossier {self.chemin.parent} inutilisable ({e})"
             ) from e
         with self._connexion() as cx:
-            version = cx.execute("PRAGMA user_version").fetchone()[0]
-            if version > VERSION_SCHEMA:
-                raise ErreurUtilisateur(
-                    f"routes : base {self.chemin} au schéma {version}, attendu "
-                    f"{VERSION_SCHEMA} — supprimer le fichier la reconstruira "
-                    "(`ourouler routes apprendre` la remplit à nouveau)"
-                )
+            self._migrer(cx)
             cx.executescript(_SCHEMA)
             cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
+
+    def _migrer(self, cx: sqlite3.Connection) -> None:
+        """Amène une base existante au schéma courant. Refuse un schéma plus récent.
+
+        Une base plus récente que le code est refusée : elle porte peut-être
+        des colonnes qu'on relirait de travers.
+
+        Schéma 1 → 2 : les deux tables gagnent `proprietaire`. La migration est
+        **douce** — un `ALTER TABLE … ADD COLUMN` avec un défaut constant, donc
+        aucune ligne recopiée, aucun passage perdu, aucune clé primaire
+        touchée. La colonne se range en queue sur une base migrée et en tête
+        sur une base neuve ; l'ordre physique n'a aucune conséquence, seul le
+        nom compte, et le jour où l'hébergé filtrera dessus les deux bases
+        répondront pareil.
+
+        `PRAGMA user_version` vaut 0 sur une base tout juste créée comme sur
+        une base antérieure au versionnement : c'est la présence de la colonne,
+        pas le numéro, qui dit s'il y a quelque chose à faire.
+        """
+        version = cx.execute("PRAGMA user_version").fetchone()[0]
+        if version > VERSION_SCHEMA:
+            raise ErreurUtilisateur(
+                f"routes : base {self.chemin} au schéma {version}, attendu "
+                f"{VERSION_SCHEMA} — supprimer le fichier la reconstruira "
+                "(`ourouler routes apprendre` la remplit à nouveau)"
+            )
+        for table in ("troncons", "sorties"):
+            if _table_existe(cx, table) and not _colonne_existe(cx, table, "proprietaire"):
+                # Le nom de table vient d'un littéral de ce fichier, jamais
+                # d'une entrée : rien à échapper ici.
+                cx.execute(
+                    f"ALTER TABLE {table} ADD COLUMN proprietaire "
+                    f"TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}'"
+                )
 
     # --- écriture -------------------------------------------------------------
 
@@ -554,6 +604,20 @@ def _paquets(valeurs: Sequence, taille: int) -> Iterator[list]:
 def _en_semaine(jour: date) -> bool:
     """Lundi-vendredi. Le mainteneur : « surtout en semaine ; le dimanche à 90 % »."""
     return jour.weekday() < 5
+
+
+def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
+    return (
+        cx.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
+        ).fetchone()
+        is not None
+    )
+
+
+def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
+    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
+    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
 
 
 # --- apprentissage ------------------------------------------------------------

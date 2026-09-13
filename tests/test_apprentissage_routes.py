@@ -30,6 +30,8 @@ from ourouler.apprentissage.routes import (
     MAILLE,
     PART_EXPOSITION_MIN,
     POIDS_MAX,
+    PROPRIETAIRE_LOCAL,
+    VERSION_SCHEMA,
     BaseRoutes,
     Statistiques,
     apprendre,
@@ -242,6 +244,138 @@ def test_une_base_au_schema_plus_recent_est_refusee(tmp_path: Path):
     cx.close()
     with pytest.raises(ErreurUtilisateur, match="schéma"):
         BaseRoutes(chemin)
+
+
+#: Le schéma v1, mot pour mot tel qu'il a été livré au sprint 3 : sans la
+#: colonne `proprietaire`. C'est la base que le mainteneur a sur son disque.
+SCHEMA_V1 = """
+CREATE TABLE IF NOT EXISTS troncons (
+    cle_lat          INTEGER NOT NULL,
+    cle_lon          INTEGER NOT NULL,
+    highway          TEXT NOT NULL,
+    surface          TEXT NOT NULL,
+    maxspeed         TEXT NOT NULL,
+    cout_km          REAL,
+    passages         INTEGER NOT NULL DEFAULT 0,
+    passages_semaine INTEGER NOT NULL DEFAULT 0,
+    metres           REAL NOT NULL DEFAULT 0,
+    metres_semaine   REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (cle_lat, cle_lon, highway, surface, maxspeed)
+);
+CREATE INDEX IF NOT EXISTS idx_troncons_maille ON troncons(cle_lat, cle_lon);
+CREATE TABLE IF NOT EXISTS sorties (
+    id_sortie  TEXT PRIMARY KEY,
+    jour       TEXT,
+    mailles    INTEGER NOT NULL DEFAULT 0,
+    metres     REAL NOT NULL DEFAULT 0,
+    ajoutee_le TEXT NOT NULL
+);
+"""
+
+
+def base_v1(chemin: Path) -> tuple[int, float, int]:
+    """Une base au schéma 1 avec une sortie apprise. Rend (mailles, mètres, sorties)."""
+    import sqlite3
+
+    cx = sqlite3.connect(chemin)
+    cx.executescript(SCHEMA_V1)
+    cx.execute("PRAGMA user_version = 1")
+    cx.executemany(
+        "INSERT INTO troncons (cle_lat, cle_lon, highway, surface, maxspeed, cout_km, "
+        "passages, passages_semaine, metres, metres_semaine) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+            (300, i, "tertiary", "asphalt", "", 1400.0, 3, 2, 120.0, 80.0)
+            for i in range(1, 6)
+        ],
+    )
+    cx.execute(
+        "INSERT INTO sorties (id_sortie, jour, mailles, metres, ajoutee_le) VALUES (?,?,?,?,?)",
+        ("sortie-1", LUNDI.isoformat(), 5, 600.0, "2026-09-01T09:00:00"),
+    )
+    cx.commit()
+    cx.close()
+    return (5, 600.0, 1)
+
+
+def test_une_base_v1_est_migree_sans_rien_perdre(tmp_path: Path):
+    """La colonne « propriétaire » de la doctrine §10.1 s'ajoute sans réécriture.
+
+    `ALTER TABLE … ADD COLUMN` avec un défaut constant : aucune ligne
+    recopiée, aucun passage perdu, aucune clé primaire touchée. Les lignes
+    déjà là deviennent celles du propriétaire local.
+    """
+    import sqlite3
+
+    chemin = tmp_path / "routes_connues.sqlite"
+    mailles, metres, sorties = base_v1(chemin)
+
+    base = BaseRoutes(chemin)  # l'ouverture migre
+
+    stats = base.statistiques()
+    assert (stats.mailles, stats.sorties) == (mailles, sorties)
+    assert stats.km_total == pytest.approx(metres / 1000.0)
+    assert base.sorties_apprises() == {"sortie-1"}
+
+    cx = sqlite3.connect(chemin)
+    try:
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA == 2
+        for table in ("troncons", "sorties"):
+            colonnes = {ligne[1] for ligne in cx.execute(f"PRAGMA table_info({table})")}
+            assert "proprietaire" in colonnes, table
+        proprietaires = {
+            ligne[0] for ligne in cx.execute("SELECT DISTINCT proprietaire FROM troncons")
+        }
+        assert proprietaires == {PROPRIETAIRE_LOCAL}
+        assert [ligne[0] for ligne in cx.execute("SELECT proprietaire FROM sorties")] == [
+            PROPRIETAIRE_LOCAL
+        ]
+    finally:
+        cx.close()
+
+    # La base migrée s'écrit encore, et la deuxième ouverture ne remigre rien.
+    base = BaseRoutes(chemin)
+    base.ajouter_trace(droite(10), jour=LUNDI, id_sortie="sortie-2")
+    assert base.statistiques().sorties == sorties + 1
+
+
+def test_une_base_neuve_porte_la_colonne_proprietaire(tmp_path: Path):
+    import sqlite3
+
+    chemin = tmp_path / "routes.sqlite"
+    base = BaseRoutes(chemin)
+    base.ajouter_trace(droite(10), jour=LUNDI, id_sortie="s1")
+    cx = sqlite3.connect(chemin)
+    try:
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+        for table in ("troncons", "sorties"):
+            assert (
+                cx.execute(f"SELECT DISTINCT proprietaire FROM {table}").fetchall()
+                == [(PROPRIETAIRE_LOCAL,)]
+            ), table
+    finally:
+        cx.close()
+
+
+def test_l_archive_meteo_n_a_pas_de_colonne_proprietaire(tmp_path: Path):
+    """Doctrine §10.1 : la météo par maille et par heure se mutualise telle quelle.
+
+    Sa clé `(lat, lon, jour)` ne porte aucune donnée personnelle ; lui coller
+    un propriétaire empêcherait précisément la mutualisation qu'on vise.
+    """
+    import sqlite3
+
+    from ourouler.connecteurs.openmeteo_archive import ClientArchive
+
+    chemin = tmp_path / "archive_meteo.sqlite"
+    ClientArchive(http=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200))),
+                  chemin_cache=chemin)
+    cx = sqlite3.connect(chemin)
+    try:
+        colonnes = {ligne[1] for ligne in cx.execute("PRAGMA table_info(archive)")}
+    finally:
+        cx.close()
+    assert "proprietaire" not in colonnes
+    assert {"lat", "lon", "jour"} <= colonnes
 
 
 def test_un_fichier_qui_n_est_pas_une_base_donne_une_erreur_utilisateur(tmp_path: Path):
