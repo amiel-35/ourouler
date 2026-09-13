@@ -64,21 +64,27 @@ HIGHWAY_BATI = frozenset({"residential", "living_street", "service"})
 MAXSPEED_BATI_KMH = 50.0
 
 # --- ce qui fait une pente ---------------------------------------------------
+#
+# **Une pente est une tangente**, jamais un pourcentage : 0,05 vaut 5 %. C'est
+# la convention de tout le dépôt — `physique.modele.puissance_requise`,
+# `physique.calibration.PENTE_MIN/PENTE_MAX`, `--pente-max` de la ligne de
+# commande, `seance.placement.PENTE_DEMI_TOUR_MAX`. Le pourcentage n'apparaît
+# qu'au moment d'écrire un motif lisible, dans `_pourcent`.
 
 #: Pas de mesure de la pente. Deux points GPS consécutifs sont trop proches
 #: pour qu'une différence d'altitude au mètre près veuille dire quelque chose :
 #: on agrège jusqu'à cette longueur avant de calculer une pente.
 PAS_PENTE_M = 100.0
 
-#: Pente (en %) au-dessous de laquelle on descend pour de bon.
-PENTE_DESCENTE_PCT = -1.5
+#: Pente au-dessous de laquelle on descend pour de bon (−1,5 %).
+PENTE_DESCENTE = -0.015
 
 #: Longueur minimale d'une descente pour qu'elle compte. Un faux plat
 #: descendant de 150 m ne casse pas un bloc de 8 minutes.
 LONGUEUR_DESCENTE_M = 300.0
 
-#: Pente (en %) tolérée en montée sans aucune pénalité.
-PENTE_MONTEE_TOLEREE_PCT = 2.0
+#: Pente tolérée en montée sans aucune pénalité (+2 %).
+PENTE_MONTEE_TOLEREE = 0.02
 
 # --- poids de la note, en kilomètres équivalents ------------------------------
 #
@@ -115,17 +121,19 @@ POIDS_KM_BATI = 3.0
 POIDS_M_DESCENTE = 0.10
 
 #: Un mètre de dénivelé gagné dans une portion plus raide que
-#: `PENTE_MONTEE_TOLEREE_PCT`. Presque rien, et c'est mesuré : les blocs réels
+#: `PENTE_MONTEE_TOLEREE`. Presque rien, et c'est mesuré : les blocs réels
 #: du mainteneur montent **plus** que le hasard (4,85 m par km contre 3,64,
 #: soit 133 %). Il ne fuit pas les montées, il les cherche — la puissance s'y
 #: tient mieux qu'ailleurs. Le poids ne sert plus qu'à départager deux couloirs
 #: par ailleurs identiques.
 POIDS_M_MONTEE = 0.002
 
-#: Un point d'écart-type de la pente sur le bloc. Faible, comme le veut le
-#: contrat, et la mesure du 13/09 le confirme : 1,47 % dans les blocs réels
-#: contre 1,72 % au hasard (86 %), une discrimination réelle mais ténue.
-POIDS_IRREGULARITE = 0.30
+#: Une unité d'écart-type de la pente sur le bloc — la pente étant une
+#: tangente, un point de pourcentage d'écart-type coûte donc 0,30. Faible,
+#: comme le veut le contrat, et la mesure du 13/09 le confirme : 1,47 % dans
+#: les blocs réels contre 1,72 % au hasard (86 %), une discrimination réelle
+#: mais ténue.
+POIDS_IRREGULARITE = 30.0
 
 #: Ce que coûte un bloc qui **ne tient pas** sur le tracé disponible.
 #:
@@ -137,9 +145,9 @@ POIDS_IRREGULARITE = 0.30
 #: tracé disponible », et choisira autre chose de lui-même.
 PENALITE_BLOC_TRONQUE = 10.0
 
-#: Écart-type de pente (en %) à partir duquel l'irrégularité mérite un motif.
+#: Écart-type de pente à partir duquel l'irrégularité mérite un motif (1 %).
 #: En dessous, la ligne « pente irrégulière » ferait du bruit pour rien.
-SEUIL_MOTIF_IRREGULARITE_PCT = 1.0
+SEUIL_MOTIF_IRREGULARITE = 0.01
 
 #: Distance sous laquelle un virage marqué et un nœud tagué sont le **même**
 #: carrefour. Un feu se trouve presque toujours à un endroit où la route
@@ -156,11 +164,12 @@ class NoteBloc:
 
     note: float  # en kilomètres équivalents, comme `boucle.couts.Couts.score`
     motifs: list[str] = field(default_factory=list)
-    #: Pente moyenne du bloc en %, du premier au dernier point.
+    #: Pente moyenne du bloc, du premier au dernier point, **en tangente** :
+    #: 0,03 pour 3 % (convention du dépôt, voir plus haut).
     pente_moyenne: float = 0.0
-    #: Pente la plus raide rencontrée, en % et **signée** : −6,0 pour une
-    #: descente à 6 %. C'est la valeur absolue qui est maximale, le signe dit
-    #: de quel côté.
+    #: Pente la plus raide rencontrée, en tangente et **signée** : −0,06 pour
+    #: une descente à 6 %. C'est la valeur absolue qui est maximale, le signe
+    #: dit de quel côté.
     pente_max: float = 0.0
     #: Nœuds tagués (feux, stops…) et virages marqués, dédoublonnés.
     carrefours: int = 0
@@ -169,7 +178,7 @@ class NoteBloc:
     #: Mètres de dénivelé perdus dans les descentes qualifiantes (positif).
     descente_m: float = 0.0
     #: Mètres de dénivelé gagnés dans les portions plus raides que
-    #: `PENTE_MONTEE_TOLEREE_PCT` (positif). Pas le D+ du bloc : la part
+    #: `PENTE_MONTEE_TOLEREE` (positif). Pas le D+ du bloc : la part
     #: tolérée n'y est pas.
     montee_m: float = 0.0
 
@@ -204,7 +213,7 @@ def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc
         + km_batis * POIDS_KM_BATI
         + releve.descente_m * POIDS_M_DESCENTE
         + releve.montee_m * POIDS_M_MONTEE
-        + releve.irregularite_pct * POIDS_IRREGULARITE
+        + releve.irregularite * POIDS_IRREGULARITE
         + (PENALITE_BLOC_TRONQUE if couloir.tronque else 0.0)
     )
 
@@ -235,9 +244,14 @@ def route_au_dela(trace: Trace, position_m: float, besoin_m: float) -> bool:
     au-delà du segment »). La moitié d'une récup sert à dépasser le segment
     avant de faire demi-tour : 4 min à 25 km/h ≈ 800 m, 1'30 ≈ 300 m.
 
-    Sur une boucle fermée, on continue sur la boucle : vrai tant que le besoin
-    n'excède pas le tour complet. Sur un tracé ouvert, il faut que la longueur
+    Sur une boucle fermée, **la réponse est toujours oui** : la route ne
+    s'arrête pas, on repart sur le tour suivant (contrat §2, « ou si le tracé
+    est une boucle fermée (on continue sur la boucle) »). Un besoin plus long
+    que le tour lui-même ne change rien à la question posée — on repasse au
+    même endroit, mais on roule. Sur un tracé ouvert, il faut que la longueur
     restante suffise.
+
+    Un tracé sans longueur rend faux : il n'y a pas de route du tout.
     """
     if besoin_m <= 0:
         return True
@@ -245,7 +259,7 @@ def route_au_dela(trace: Trace, position_m: float, besoin_m: float) -> bool:
     if total <= 0:
         return False
     if trace.bornee():
-        return besoin_m <= total
+        return True
     position = min(max(position_m, 0.0), total)
     return total - position >= besoin_m
 
@@ -521,11 +535,11 @@ def _maxspeed_kmh(brut: str | None) -> float | None:
 
 @dataclass(frozen=True)
 class _Releve:
-    pente_moyenne: float
-    pente_max: float
+    pente_moyenne: float  # tangente
+    pente_max: float  # tangente, signée
     descente_m: float
     montee_m: float
-    irregularite_pct: float
+    irregularite: float  # écart-type des pentes, en tangente lui aussi
     descentes: list[float]  # longueur de chaque descente qualifiante, en mètres
     altitude_connue: bool
 
@@ -537,7 +551,7 @@ def _releve_pentes(couloir: _Couloir) -> _Releve:
         pente_max=0.0,
         descente_m=0.0,
         montee_m=0.0,
-        irregularite_pct=0.0,
+        irregularite=0.0,
         descentes=[],
         altitude_connue=False,
     )
@@ -551,20 +565,18 @@ def _releve_pentes(couloir: _Couloir) -> _Releve:
     pentes = [pente for _, _, pente in pas]
     descentes = _descentes(pas)
     return _Releve(
-        pente_moyenne=100.0 * (profil[-1][1] - profil[0][1]) / couloir.longueur_m,
+        pente_moyenne=(profil[-1][1] - profil[0][1]) / couloir.longueur_m,
         pente_max=max(pentes, key=abs),
         descente_m=sum(chute for _, chute in descentes),
-        montee_m=sum(
-            denivele for _, denivele, pente in pas if pente > PENTE_MONTEE_TOLEREE_PCT
-        ),
-        irregularite_pct=statistics.pstdev(pentes) if len(pentes) > 1 else 0.0,
+        montee_m=sum(denivele for _, denivele, pente in pas if pente > PENTE_MONTEE_TOLEREE),
+        irregularite=statistics.pstdev(pentes) if len(pentes) > 1 else 0.0,
         descentes=[longueur for longueur, _ in descentes],
         altitude_connue=True,
     )
 
 
 def _pas_de_pente(profil: list[tuple[float, float]]) -> list[tuple[float, float, float]]:
-    """Le couloir en pas d'au moins `PAS_PENTE_M` : (longueur, dénivelé, pente en %).
+    """Le couloir en pas d'au moins `PAS_PENTE_M` : (longueur, dénivelé, pente en tangente).
 
     Le dernier pas peut être plus court que `PAS_PENTE_M` : on ne jette pas la
     fin du bloc, mais on ne la rallonge pas non plus. Un couloir plus court
@@ -576,25 +588,25 @@ def _pas_de_pente(profil: list[tuple[float, float]]) -> list[tuple[float, float,
         if d1 - d0 < PAS_PENTE_M:
             continue
         longueur = d1 - d0
-        pas.append((longueur, a1 - a0, 100.0 * (a1 - a0) / longueur))
+        pas.append((longueur, a1 - a0, (a1 - a0) / longueur))
         d0, a0 = d1, a1
     reste = profil[-1][0] - d0
     if reste > 0:
-        pas.append((reste, profil[-1][1] - a0, 100.0 * (profil[-1][1] - a0) / reste))
+        pas.append((reste, profil[-1][1] - a0, (profil[-1][1] - a0) / reste))
     return pas
 
 
 def _descentes(pas: list[tuple[float, float, float]]) -> list[tuple[float, float]]:
     """Les descentes qualifiantes : (longueur en m, dénivelé perdu en m, positif).
 
-    Une descente est une suite de pas consécutifs sous `PENTE_DESCENTE_PCT`,
+    Une descente est une suite de pas consécutifs sous `PENTE_DESCENTE`,
     d'une longueur totale supérieure à `LONGUEUR_DESCENTE_M`. Le pas neutre
     ajouté en fin de liste sert à fermer la dernière suite.
     """
     trouvees: list[tuple[float, float]] = []
     longueur = chute = 0.0
     for pas_longueur, denivele, pente in [*pas, (0.0, 0.0, 0.0)]:
-        if pas_longueur > 0 and pente < PENTE_DESCENTE_PCT:
+        if pas_longueur > 0 and pente < PENTE_DESCENTE:
             longueur += pas_longueur
             chute += -denivele
             continue
@@ -631,14 +643,14 @@ def _motifs(
             (
                 releve.montee_m * POIDS_M_MONTEE,
                 f"montée de {releve.montee_m:.0f} m au-delà de "
-                f"{_nombre(PENTE_MONTEE_TOLEREE_PCT)} %",
+                f"{_pourcent(PENTE_MONTEE_TOLEREE)}",
             )
         )
-    if releve.irregularite_pct >= SEUIL_MOTIF_IRREGULARITE_PCT:
+    if releve.irregularite >= SEUIL_MOTIF_IRREGULARITE:
         pesees.append(
             (
-                releve.irregularite_pct * POIDS_IRREGULARITE,
-                f"pente irrégulière (± {_nombre(releve.irregularite_pct)} %)",
+                releve.irregularite * POIDS_IRREGULARITE,
+                f"pente irrégulière (± {_pourcent(releve.irregularite)})",
             )
         )
     motifs = [motif for _, motif in sorted(pesees, key=lambda p: -p[0])]
@@ -694,6 +706,15 @@ def _en_lettres(nombre: int, *, feminin: bool = False) -> str:
 def _nombre(valeur: float) -> str:
     """Un nombre à une décimale, virgule française."""
     return f"{valeur:.1f}".replace(".", ",")
+
+
+def _pourcent(pente: float) -> str:
+    """Une pente (tangente) écrite en pourcentage : 0,015 → « 1,5 % ».
+
+    Le seul endroit du module où une pente devient un pourcentage : un motif
+    se lit, il ne se calcule pas.
+    """
+    return f"{_nombre(100.0 * pente)} %"
 
 
 # --- tags à une position ------------------------------------------------------

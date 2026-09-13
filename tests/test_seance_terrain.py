@@ -181,10 +181,28 @@ def test_descente_de_un_kilometre():
 
     note = evaluer_couloir(trace, 0.0, 3000.0)
     assert note.descente_m == pytest.approx(30.0, abs=1.0)
-    assert note.pente_max == pytest.approx(-3.0, abs=0.2)
+    # Une pente est une tangente, comme partout ailleurs dans le dépôt.
+    assert note.pente_max == pytest.approx(-0.03, abs=0.002)
     assert note.montee_m == pytest.approx(0.0)
     assert any("descente de 1,0 km" in motif for motif in note.motifs)
     assert note.note > 1.5
+
+
+def test_les_pentes_sont_des_tangentes_pas_des_pourcentages():
+    """Convention du dépôt (`physique.modele`, `--pente-max`, `placement`).
+
+    `placement.PENTE_DEMI_TOUR_MAX` compare directement `note.pente_moyenne`
+    à 0,015 : une pente rendue en pourcentage y refuserait tout demi-tour dès
+    le premier faux-plat.
+    """
+    points = ligne_droite(2000.0, lambda d: 100.0 + 0.04 * d)  # +4 % d'un bout à l'autre
+    trace = trace_de(points, un_segment(points, highway="tertiary"))
+
+    note = evaluer_couloir(trace, 0.0, 2000.0)
+    assert note.pente_moyenne == pytest.approx(0.04, abs=0.002)
+    assert note.pente_max == pytest.approx(0.04, abs=0.002)
+    # Le pourcentage ne survit que dans les motifs, qui se lisent.
+    assert any("2,0 %" in motif for motif in note.motifs)
 
 
 def test_un_faux_plat_descendant_court_ne_compte_pas():
@@ -331,8 +349,10 @@ def test_route_au_dela_sur_boucle_fermee():
     assert trace.bornee()
     # Où qu'on soit sur la boucle, on peut continuer : la route ne s'arrête pas.
     assert route_au_dela(trace, total - 10.0, 800.0) is True
-    # Mais on ne demande pas plus que le tour complet.
-    assert route_au_dela(trace, 0.0, total * 2) is False
+    # Y compris pour un besoin plus long que le tour lui-même (contrat §2 :
+    # « ou si le tracé est une boucle fermée ») : on repasse au même endroit,
+    # mais on roule. En pratique le besoin vaut une demi-récup, jamais un tour.
+    assert route_au_dela(trace, 0.0, total * 2) is True
 
 
 def test_route_au_dela_sur_trace_sans_longueur():
