@@ -203,6 +203,27 @@ blocs sur le terrain et rend GPX, résumé, tenue et **carte de vérification**.
 - « Vélo — Sortie EF 2h » : aucune contrainte de terrain.
 - « 2x20' 80-85 % + 4x3' 100 % FTP » : deux longs puis quatre courts.
 
+**Deux séances de coach fournies par le mainteneur le 13/09 (iDOSport,
+planifiées par son entraîneur, remontées dans Intervals).** Elles changent
+la nature du problème : on ne place pas des blocs isolés, on place des
+**séries**, et l'échauffement fixe *où* chercher sur la boucle.
+
+| Séance | Structure | Contrainte de terrain |
+|---|---|---|
+| « 2x20' (80 % FTP) + 2x10' r4/3' », 2h44 | 1h à 168-194 W ; 2 × [20 min à 199-214 W, récup 4 min] ; 2 × [10 min à 212-224 W, récup 3 min] ; 30 min calme | un couloir propre de **11 km d'un trait**, deux fois |
+| « Durabilité », 2h57 | 1h à 155-181 W ; 4 × [5 min à 232-258 W, récup 1'30] ; 45 min ; 4 × [5 min, récup 1'30] ; 20 min | **deux couloirs de 14 km**, séparés d'environ 20 km |
+
+Trois conséquences de conception :
+- **Une série est une seule contrainte, pas quatre.** 4×5' avec 1'30 de
+  récup = 14 km d'affilée sans bourg ni stop. Bien plus dur que quatre
+  blocs placés librement.
+- **La récupération est un amortisseur.** Pendant une récup, traverser un
+  village est idéal : l'algorithme doit y faire tomber les points durs.
+- **L'échauffement fixe où chercher.** 1h d'échauffement place le premier
+  bloc vers le km 30 ; la seconde série de « Durabilité » vers le km 65.
+  C'est une contrainte **géométrique** sur la forme de la boucle, pas
+  seulement sur sa qualité.
+
 **Comment on teste, sans attendre une sortie réelle (décision du 13/09).**
 Validation rétrospective sur des séances déjà faites dehors : « 4x8 SV1
 outdoor » du 22/04/2026 sur 61 km et « 2x20' + 4x3' » du 25/04/2026 sur
