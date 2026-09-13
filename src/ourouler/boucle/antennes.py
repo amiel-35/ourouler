@@ -271,12 +271,15 @@ def _antenne_autour(
         if arc[k] - arc[debut] < retour_m - EPSILON_M:
             break  # l'aller ne remonte pas assez loin : début du tracé atteint
         longueur = arc[fin] - arc[debut]
-        if longueur > fenetre_m + EPSILON_M:
-            # Toujours superposé au-delà de la fenêtre : aller-retour voulu,
-            # pas une antenne. On abandonne la candidate entière.
-            return None
         if _ecart_a_l_aller(points, debut, k, points[fin]) > tolerance_m:
-            break
+            break  # le retour quitte l'aller : l'antenne s'arrête là
+        if longueur > fenetre_m + EPSILON_M:
+            # Toujours superposé **au-delà** de la fenêtre : aller-retour
+            # voulu, pas une antenne. On abandonne la candidate entière.
+            # L'ordre compte : l'écart se teste avant, sinon une antenne de
+            # 590 m dont le point suivant dépasse la fenêtre *et* quitte
+            # l'aller serait perdue au lieu d'être rendue.
+            return None
         jonction = distance_m(points[debut], points[fin])
         if longueur >= LONGUEUR_MIN_M and jonction <= tolerance_m + EPSILON_M:
             # Les deux bouts se rejoignent : c'est bien une jonction, et pas

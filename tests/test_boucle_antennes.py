@@ -408,3 +408,17 @@ def test_elaguer_refuse_de_reduire_le_trace_a_un_point():
     elaguee = elaguer(trace, [Antenne(0, len(trace.points) - 1, 1000.0)])
     assert len(elaguee.points) == len(trace.points)
     assert elaguee.meta["antennes"]["nombre"] == 0
+
+
+def test_une_antenne_juste_sous_la_fenetre_n_est_pas_perdue_par_son_voisinage():
+    """L'écart à l'aller se teste avant la fenêtre.
+
+    Une antenne de 300 m dans une fenêtre de 310 m : le point suivant du
+    retour dépasse la fenêtre **et** a déjà quitté l'aller. C'est le second
+    fait qui compte — sinon l'antenne serait abandonnée comme un aller-retour
+    voulu alors qu'elle tient dans la fenêtre.
+    """
+    trace = trace_avec_antenne()
+    antennes = detecter(trace, fenetre_m=310)
+    assert len(antennes) == 1
+    assert antennes[0].longueur_m == pytest.approx(300, abs=25)
