@@ -190,9 +190,128 @@ d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
 modèle obtenu pour repérer les autres (résidu de vitesse anormalement
 positif sur une grande part de la sortie) et les écarter ; itérer une fois.
 
-### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
+### Sprint 4 — Séance ↔ terrain **[à figer au point de repriorisation]**
 
-Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
+Le cœur du projet. Jalon : `ourouler sortie` lit la séance du jour dans
+Intervals, génère des boucles, les simule avec le modèle calibré, place les
+blocs sur le terrain et rend GPX, résumé, tenue et **carte de vérification**.
+
+**Séances de référence, relevées dans le compte du mainteneur le 13/09.**
+48 séances vélo planifiées depuis mars 2026, trois formes :
+- « Vélo HIT — 4x8min Z4 », 55 min : quatre tronçons d'environ 4 km chacun,
+  roulants, sans village ni descente. C'est le cas dur.
+- « Vélo — Sortie EF 2h » : aucune contrainte de terrain.
+- « 2x20' 80-85 % + 4x3' 100 % FTP » : deux longs puis quatre courts.
+
+**Deux séances de coach fournies par le mainteneur le 13/09 (iDOSport,
+planifiées par son entraîneur, remontées dans Intervals).** Elles changent
+la nature du problème : on ne place pas des blocs isolés, on place des
+**séries**, et l'échauffement fixe *où* chercher sur la boucle.
+
+| Séance | Structure | Contrainte de terrain |
+|---|---|---|
+| « 2x20' (80 % FTP) + 2x10' r4/3' », 2h44 | 1h à 168-194 W ; 2 × [20 min à 199-214 W, récup 4 min] ; 2 × [10 min à 212-224 W, récup 3 min] ; 30 min calme | un couloir propre de **11 km d'un trait**, deux fois |
+| « Durabilité », 2h57 | 1h à 155-181 W ; 4 × [5 min à 232-258 W, récup 1'30] ; 45 min ; 4 × [5 min, récup 1'30] ; 20 min | 4 tronçons propres d'**environ 2,8 km**, deux fois |
+
+Trois conséquences de conception :
+- **La récupération absorbe le point dur, même courte** (correction du
+  mainteneur, 13/09 : « pour durabilité non, pas 14 kilomètres »). Une
+  récup de 1'30 suffit à caser une **traversée de village** ou un
+  **demi-tour**. La contrainte porte donc sur chaque bloc pris isolément,
+  pas sur la série entière.
+- **Le demi-tour rend le problème soluble, mais il se paie.** Avec un
+  demi-tour à chaque récup, un seul bon tronçon de 3 km suffit pour tout
+  un 4×5'. Le mainteneur le trouve « plus chiant » que la traversée de
+  village : hiérarchie du score, du meilleur au moins bon —
+  (1) autant de tronçons propres distincts que de blocs, récups qui
+  absorbent les villages ; (2) tronçons réutilisés avec demi-tour en
+  récup, pénalité légère ; (3) village ou carrefour **dans** le bloc,
+  pénalité forte.
+
+  **Mécanique exacte du demi-tour** (mainteneur, 13/09) : la récup se coupe
+  en deux moitiés symétriques autour du demi-tour —
+
+      10 min bloc (aller) → 2 min récup → demi-tour → 2 min récup (retour)
+      → 10 min bloc (sens inverse)
+
+  On revient donc exactement au bout du segment, et **le segment n'a pas
+  besoin d'être plus long que le bloc**. Trois conditions à vérifier :
+  - **Plat ou faux-plat seulement.** « Un tronçon marche souvent dans les
+    deux sens sur du plat, mais en côte » non : à l'envers c'est une
+    descente. Une répétition en côte consomme toute la récup pour
+    redescendre, ce n'est pas la même figure et il faut la traiter à part.
+  - **De la route au-delà du segment**, et c'est tout ce qu'on demande à la
+    récup (mainteneur, 13/09 : « en récup, village, croisement etc. c'est
+    pas grave ; il faut de la route au-delà du segment »). **Aucune
+    évaluation de terrain pendant une récup** : ni village, ni carrefour,
+    ni revêtement, aucune pénalité. La seule question est mécanique — la
+    moitié de la récup sert à dépasser le segment : 4 min à 25 km/h
+    ≈ 800 m roulables après sa fin ; 1'30 ≈ 300 m.
+  - **Le demi-tour doit être faisable.** Petite route oui ; départementale
+    passante non, pénalité supplémentaire.
+- **Les parties non contraintes sont élastiques** (mainteneur, 13/09 :
+  « l'échauffement peut durer plus longtemps, ainsi que le retour au calme,
+  on va dire 15-20 % pour trouver la zone »). C'est la variable
+  d'ajustement principale : sur 1h d'échauffement, +20 % donne 6 km de jeu,
+  donc on ne cherche plus un bon couloir **au** km 30 mais **entre** les
+  km 28,5 et 36. Barème **corrigé par le mainteneur** (13/09, « y a la Z2
+  début et la Z2 fin qui change ») : **seules** la Z2 d'échauffement et la
+  Z2 de retour au calme sont élastiques, de −5 % à +20 %. **Toutes les
+  récupérations sont fixes**, courtes comme longues, y compris les 45 min
+  de Z2 au milieu de « Durabilité » : elles font partie de la prescription.
+  Durée des blocs jamais modifiée.
+
+  Les deux leviers ont des rôles distincts :
+  - **Z2 de début = placement.** L'allonger décale toute la partie
+    contrainte plus loin sur le tracé ; c'est le seul moyen de faire
+    coulisser les blocs jusqu'à un bon couloir.
+  - **Z2 de fin = absorption.** Elle ne place rien : elle ramène à la
+    maison une fois le dernier bloc fini, quelle que soit la distance
+    restante. C'est elle qui referme la boucle.
+
+  La recherche devient donc : pour chaque candidate, faire varier la Z2 de
+  début dans sa fenêtre, mesurer la qualité du terrain sous chaque bloc,
+  garder le meilleur décalage ; la Z2 de fin s'ajuste et la durée totale
+  annoncée avec elle.
+- **L'échauffement fixe où chercher.** 1h d'échauffement place le premier
+  bloc vers le km 30 ; la seconde série de « Durabilité » vers le km 65.
+  C'est une contrainte **géométrique** sur la forme de la boucle, pas
+  seulement sur sa qualité.
+
+**Comment on teste, sans attendre une sortie réelle (décision du 13/09).**
+Validation rétrospective sur des séances déjà faites dehors : « 4x8 SV1
+outdoor » du 22/04/2026 sur 61 km et « 2x20' + 4x3' » du 25/04/2026 sur
+63 km. On relit où les blocs sont **réellement** tombés, et on mesure si
+l'évaluateur de terrain aurait noté ces emplacements comme bons. Trop
+sévère s'il les rejette ; trop permissif s'il note aussi bien un tronçon
+que le mainteneur n'a jamais utilisé pour un bloc. C'est le critère
+d'acceptation chiffré du lot.
+
+**La carte est le livrable de vérification** (demande du mainteneur) : le
+tracé, les blocs colorés là où ils tomberont, le profil d'altitude
+dessous. On voit d'un coup d'œil qu'un bloc traverse un bourg.
+
+**Une note, jamais un filtre** (« ça ne sera pas toujours possible d'éviter
+les villages et les croisements »). Chaque emplacement de bloc reçoit un
+score et un motif lisible, par exemple « bloc 3 : deux croisements, note
+moyenne ». On garde la boucle la moins mauvaise et on dit ce qui cloche,
+plutôt que de ne rien proposer. Hiérarchie des pénalités à calibrer sur les
+sorties réelles : une descente longue coûte plus qu'un carrefour.
+
+Reste à préciser au lancement : bornes chiffrées des catégories de tenue
+(Q3, réglables à l'usage) et option `--depuis` pour un départ autre que la
+maison.
+
+### Sprint 5 — La sortie du jour au quotidien **[esquissé]**
+
+Confort d'usage : nom de fichier et résumé soignés, `--depuis`, mémoire de
+ce qui a été proposé et fait. Le GPX étant déjà produit, l'envoi au
+compteur se limite au partage du fichier (voir backlog ci-dessous).
+
+### Ensuite — l'hébergé
+
+API au-dessus du même cœur, puis front web et comptes, dans cet ordre
+(doctrine §10).
 
 Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
 Connect pour un particulier → le GPX généré est le socle ; sur mobile,
