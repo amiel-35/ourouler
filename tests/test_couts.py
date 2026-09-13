@@ -24,6 +24,8 @@ from ourouler.boucle.couts import (
     POIDS_VIRAGE_GAUCHE_TRAFIC,
     SURFACES_NON_REVETUES,
     evaluer,
+    tags_par_point,
+    tags_par_troncon,
 )
 from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
 
@@ -492,3 +494,46 @@ def test_les_troncons_sans_cout_ne_tirent_pas_la_moyenne_vers_le_bas():
 def test_sans_aucun_cout_la_moyenne_est_absente_pas_nulle():
     """Un GPX importé ne dit rien du coût : « — », jamais « 0 »."""
     assert evaluer(trace_de_caps([0.0, 90.0])).cout_km_moyen is None
+
+
+# --- point et tronçon ---------------------------------------------------------
+
+
+def test_un_point_de_jonction_appartient_aux_deux_segments_mais_un_troncon_a_un_seul():
+    """La distinction que `seance.terrain` paie cher quand on l'oublie.
+
+    Le point 2 ferme le premier segment et ouvre le second : `tags_par_point`
+    lui donne les tags du premier. Le tronçon qui part du point 2, lui, est
+    tout entier sur le second — et c'est une longueur, pas un point.
+    """
+    points = [
+        PointTrace(lat=0.0, lon=0.0, alt_m=None, dist_m=0.0),
+        PointTrace(lat=0.0, lon=0.0, alt_m=None, dist_m=100.0),
+        PointTrace(lat=0.0, lon=0.0, alt_m=None, dist_m=200.0),
+        PointTrace(lat=0.0, lon=0.0, alt_m=None, dist_m=300.0),
+    ]
+    segments = [
+        Segment(0, 2, 200.0, {"highway": "residential"}),
+        Segment(2, 3, 100.0, {"highway": "tertiary"}),
+    ]
+
+    par_point = tags_par_point(points, segments)
+    par_troncon = tags_par_troncon(points, segments)
+
+    assert [t["highway"] for t in par_point] == [
+        "residential",
+        "residential",
+        "residential",
+        "tertiary",
+    ]
+    assert len(par_troncon) == len(points) - 1
+    assert [t["highway"] for t in par_troncon] == ["residential", "residential", "tertiary"]
+
+
+def test_sans_segment_aucun_troncon_n_a_de_tags():
+    points = [
+        PointTrace(lat=0.0, lon=0.0, alt_m=None, dist_m=0.0),
+        PointTrace(lat=0.0, lon=0.0, alt_m=None, dist_m=100.0),
+    ]
+    assert tags_par_troncon(points, []) == [None]
+    assert tags_par_troncon([], []) == []

@@ -440,15 +440,43 @@ def tags_par_point(
 ) -> list[dict[str, str] | None]:
     """Les tags du segment couvrant chaque point, `None` si aucun ne le couvre.
 
-    Public depuis le sprint 4 : `seance.terrain` a besoin de la même
-    correspondance point → tags pour mesurer les kilomètres bâtis sous un
-    bloc, et il n'y a pas deux façons de la construire.
+    Un point de jonction appartient aux **deux** segments qui s'y touchent ;
+    c'est le premier qui l'emporte. Cette correspondance répond donc à « suis-je
+    passé par une route à trafic ? » et non à « sur quelle route suis-je entre
+    ce point et le suivant ? » : pour cette question-là, qui est celle d'une
+    longueur parcourue, c'est `tags_par_troncon` qu'il faut.
     """
     tags: list[dict[str, str] | None] = [None] * len(points)
     for segment in segments:
         debut = max(0, segment.debut_idx)
         fin = min(len(points) - 1, segment.fin_idx)
         for i in range(debut, fin + 1):
+            if tags[i] is None:  # en cas de recouvrement, le premier segment gagne
+                tags[i] = segment.tags
+    return tags
+
+
+def tags_par_troncon(
+    points: Sequence[PointTrace], segments: Sequence[Segment]
+) -> list[dict[str, str] | None]:
+    """Les tags du segment couvrant chaque **intervalle** `[i, i + 1]`.
+
+    Un tronçon, lui, n'appartient qu'à un seul segment : la liste rendue a un
+    élément de moins que `points`, et l'élément `i` décrit ce qu'on a sous les
+    roues entre le point `i` et le point `i + 1`.
+
+    Public depuis le sprint 4 : `seance.terrain` mesure des kilomètres bâtis
+    sous un bloc, donc des longueurs, et il n'y a pas deux façons de
+    construire cette correspondance. La différence avec `tags_par_point` n'est
+    pas cosmétique : attribuer à l'intervalle qui *commence* au point `i` les
+    tags du segment qui *finit* en `i` faisait payer à un bloc le village
+    traversé juste avant lui, pendant la récupération.
+    """
+    tags: list[dict[str, str] | None] = [None] * max(len(points) - 1, 0)
+    for segment in segments:
+        debut = max(0, segment.debut_idx)
+        fin = min(len(tags), segment.fin_idx)
+        for i in range(debut, fin):
             if tags[i] is None:  # en cas de recouvrement, le premier segment gagne
                 tags[i] = segment.tags
     return tags

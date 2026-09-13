@@ -248,6 +248,31 @@ def test_zone_batie_comptee_au_kilometre():
     assert note.note == pytest.approx(POIDS_KM_BATI, abs=0.15)
 
 
+def test_un_village_qui_s_arrete_avant_le_bloc_ne_lui_est_pas_facture():
+    """Décision du 13/09 : aucune évaluation sous une récupération.
+
+    Le village occupe le premier kilomètre — là où tombe la récup — et le
+    bloc commence exactement là où il finit. Le point de jonction appartient
+    aux deux tronçons : lui demander ses tags faisait payer le village au bloc.
+    """
+    points = ligne_droite(3000.0)
+    jonction = 20  # au km 1,0
+    segments = [
+        Segment(0, jonction, points[jonction].dist_m, {"highway": "residential"}),
+        Segment(
+            jonction,
+            len(points) - 1,
+            points[-1].dist_m - points[jonction].dist_m,
+            {"highway": "tertiary"},
+        ),
+    ]
+    trace = trace_de(points, segments)
+
+    note = evaluer_couloir(trace, 1000.0, 2000.0)
+    assert note.km_batis == pytest.approx(0.0)
+    assert note.note == pytest.approx(0.0)
+
+
 def test_maxspeed_50_vaut_zone_batie():
     points = ligne_droite(2000.0)
     trace = trace_de(points, un_segment(points, highway="tertiary", maxspeed="50"))
@@ -397,3 +422,7 @@ def test_demi_tour_lit_le_troncon_de_la_position():
     trace = trace_de(points, segments)
     assert demi_tour_faisable(trace, 500.0) is False
     assert demi_tour_faisable(trace, 1500.0) is True
+    # Dix mètres après la jonction, on est déjà sur l'unclassified : le point
+    # de jonction porte les tags des deux tronçons, c'est celui qu'on parcourt
+    # qui décide.
+    assert demi_tour_faisable(trace, 1010.0) is True

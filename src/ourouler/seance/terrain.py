@@ -36,7 +36,7 @@ import math
 import statistics
 from dataclasses import dataclass, field
 
-from ourouler.boucle.couts import HIGHWAY_TRAFIC, tags_par_point, virages_detectes
+from ourouler.boucle.couts import HIGHWAY_TRAFIC, tags_par_troncon, virages_detectes
 from ourouler.boucle.trace import PointTrace, Trace
 
 # --- ce qui fait un carrefour -------------------------------------------------
@@ -481,13 +481,19 @@ def _noeuds_tagues(trace: Trace, couloir: _Couloir) -> list[tuple[float, str]]:
 def _zone_batie(trace: Trace, couloir: _Couloir) -> tuple[float, bool]:
     """(kilomètres bâtis, tags disponibles ?).
 
+    Ce sont les tags du **tronçon** parcouru, pas ceux de son point de départ :
+    le point de départ d'un tronçon est aussi le point d'arrivée du précédent,
+    et c'est par là que le village traversé pendant la récupération se
+    retrouvait facturé au bloc qui suit (décision du 13/09 : aucune évaluation
+    sous une récup).
+
     Sans `segments` — un tracé relu d'une activité enregistrée — on ne sait
     rien des routes : 0 km bâti, et le second membre est faux pour que le
     motif « routes inconnues » le dise.
     """
     if not trace.segments:
         return (0.0, False)
-    tags = tags_par_point(trace.points, trace.segments)
+    tags = tags_par_troncon(trace.points, trace.segments)
     metres = 0.0
     connu = False
     for part in couloir.parts:
@@ -721,7 +727,12 @@ def _pourcent(pente: float) -> str:
 
 
 def _tags_a(trace: Trace, position_m: float) -> dict[str, str] | None:
-    """Les tags du tronçon qui porte cette position, `None` si on ne sait pas."""
+    """Les tags du tronçon qui porte cette position, `None` si on ne sait pas.
+
+    Le tronçon parcouru, pas le point qui l'ouvre : à dix mètres après une
+    jonction, on est sur la nouvelle route, pas sur celle qu'on vient de
+    quitter.
+    """
     if not trace.segments or len(trace.points) < 2:
         return None
     total = _longueur(trace)
@@ -729,7 +740,7 @@ def _tags_a(trace: Trace, position_m: float) -> dict[str, str] | None:
         return None
     position = _position(position_m, total, trace.bornee())
     idx = _point_a(trace, position)
-    tags = tags_par_point(trace.points, trace.segments)
+    tags = tags_par_troncon(trace.points, trace.segments)
     return tags[idx] if 0 <= idx < len(tags) else None
 
 
