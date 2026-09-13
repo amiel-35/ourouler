@@ -13,7 +13,10 @@ Format de réponse (relevé sur le serveur réel, profil `fastbike`) :
 (m) et `messages`, dont la première ligne est l'en-tête et chaque ligne
 suivante décrit le tronçon **se terminant** au point cité. La colonne
 `CostPerKm` de ces messages est retenue dans `Segment.cout_km` : c'est le
-jugement du moteur lui-même sur le trafic du tronçon. Les coordonnées
+jugement du moteur lui-même sur le trafic du tronçon. La colonne `NodeTags`
+va dans `Segment.node_tags` : ce sont les tags du **nœud de fin** du tronçon
+(`highway=traffic_signals`, `highway=crossing`…), d'où `seance.terrain` tire
+les feux et les stops sous un bloc. Les coordonnées
 des messages sont des **microdegrés entiers passés en chaînes** (mesuré :
 rapport message/géométrie = 1 000 000) et retombent **exactement** sur un
 point de la géométrie (117/117 puis 802/802 sur deux réponses réelles).
@@ -419,6 +422,11 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
                 # coût nul voudrait dire « route idéale », ce qui est le
                 # contraire d'une mesure manquante (règle absolue 5).
                 cout_km=_nombre(_colonne(ligne, colonnes, "CostPerKm")),
+                # `NodeTags` décrit le **nœud de fin** du tronçon, celui que la
+                # ligne cite : `highway=traffic_signals`, `highway=crossing`…
+                # C'est la seule source de feux et de stops du projet ; la
+                # colonne était lue et jetée jusqu'ici.
+                node_tags=_tags(_colonne(ligne, colonnes, "NodeTags")),
             )
         )
         curseur = fin
