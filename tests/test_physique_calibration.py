@@ -8,6 +8,7 @@ donnée du mainteneur, aucun réseau.
 
 from __future__ import annotations
 
+import json
 import math
 import random
 from collections.abc import Callable
@@ -257,6 +258,41 @@ def test_acceleration_forte_jetee():
     assert DELTA_V_MAX_MS == 0.3
 
 
+def test_la_pente_ne_depend_pas_de_la_densite_des_points():
+    """Un point tous les 200 m ou un point par seconde : la même pente.
+
+    Le lissage d'altitude se compte en **mètres**, pas en nombre de points.
+    Compté en points, il s'étalait sur 2 200 m pour une trace allégée et la
+    pente d'une sortie à 14 % y tombait à 7 % — assez pour passer sous la
+    borne de +8 % et polluer la calibration.
+    """
+    dense = sortie_synthetique(pente=0.14, duree_s=1200)
+    clairseme = Activite(**{**dense.__dict__, "points": dense.points[::40]})
+    assert len(clairseme.points) < 40
+    for activite, quoi in ((dense, "1 Hz"), (clairseme, "allégée")):
+        echantillons = echantillonner(activite, archive())
+        assert echantillons, quoi
+        assert all(e.pente > 0.12 for e in echantillons), quoi
+        assert not [e for e in echantillons if e.retenu], quoi
+
+
+def test_une_sortie_sans_puissance_ne_donne_pas_de_nan():
+    """Sans capteur : motif « sans puissance » et un zéro inoffensif, jamais un NaN."""
+    activite = sortie_synthetique(duree_s=1200)
+    for p in activite.points:
+        p.puissance_w = None
+    echantillons = echantillonner(activite, archive())
+    assert echantillons
+    assert all(math.isfinite(e.puissance_w) for e in echantillons)
+    assert all(not e.retenu and e.motif == "sans puissance" for e in echantillons)
+
+
+def test_tout_echantillon_ecarte_porte_un_motif():
+    activite = sortie_synthetique(pente=-0.08, duree_s=900)
+    for e in echantillonner(activite, archive()):
+        assert e.retenu != bool(e.motif.strip())
+
+
 def test_sortie_trop_courte_ne_donne_aucun_echantillon():
     courte = sortie_synthetique(duree_s=5)
     assert echantillonner(courte, archive()) == []
@@ -291,8 +327,8 @@ def test_calibrer_sans_bruit_est_exact():
 def test_l_incertitude_diminue_quand_les_echantillons_augmentent():
     peu = calibrer(echantillons_synthetiques(40, graine=2), masse_totale_kg=MASSE)
     beaucoup = calibrer(echantillons_synthetiques(1000, graine=2), masse_totale_kg=MASSE)
-    assert peu.cda_incertitude is not None and beaucoup.cda_incertitude is not None
-    assert beaucoup.cda_incertitude < peu.cda_incertitude
+    assert peu.incertitudes.cda is not None and beaucoup.incertitudes.cda is not None
+    assert beaucoup.incertitudes.cda < peu.incertitudes.cda
 
 
 def test_calibrer_n_utilise_que_les_echantillons_retenus():
@@ -430,6 +466,21 @@ def test_valider_ignore_une_sortie_inexploitable():
 def test_validation_vide():
     validation = valider([], VRAI)
     assert validation.n == 0 and validation.mae is None and validation.pire is None
+
+
+def test_la_validation_est_serialisable_en_json():
+    """Contrat §3 : « rapport texte + JSON ». Les lignes par sortie doivent passer.
+
+    D'où `ErreurSortie` en `NamedTuple` avec un jour en chaîne ISO : une
+    dataclass portant une `date` faisait échouer `json.dumps` sur le rapport.
+    """
+    validation = valider([(sortie_synthetique(duree_s=1500), archive())], VRAI)
+    assert validation.n == 1
+    for nom in (n for n in dir(validation) if not n.startswith("_")):
+        valeur = getattr(validation, nom)
+        if isinstance(valeur, (list, dict)):
+            json.dumps(valeur)  # ne doit pas lever
+    assert validation.sorties[0].jour == "2026-03-15"
 
 
 # --- détection de groupe ------------------------------------------------------

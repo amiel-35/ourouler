@@ -135,7 +135,12 @@ def puissance_requise(v_ms: float, pente: float, vent_face_ms: float, p: Paramet
     `pente` est une tangente (0,05 = 5 %), `vent_face_ms` le vent de face
     compté positif (un vent de dos est négatif). Le résultat peut être
     négatif : en descente, il faudrait freiner.
+
+    Une entrée non finie est **refusée**. Rendre `nan` serait pire que lever :
+    le NaN traverse les additions sans bruit, ressort en « temps estimé » vide
+    ou en tri arbitraire, et personne ne sait d'où il vient.
     """
+    _finis(v_ms=v_ms, pente=pente, vent_face_ms=vent_face_ms)
     theta = math.atan(pente)
     v_air = v_ms + vent_face_ms
     resistance = (
@@ -143,6 +148,14 @@ def puissance_requise(v_ms: float, pente: float, vent_face_ms: float, p: Paramet
     )
     trainee = 0.5 * p.rho * p.cda_m2 * v_air * abs(v_air)
     return (resistance * v_ms + trainee * v_ms) / p.rendement
+
+
+def _finis(**valeurs: float) -> None:
+    """Refuse toute entrée non finie, en nommant le paramètre fautif."""
+    fautifs = {nom: v for nom, v in valeurs.items() if not math.isfinite(v)}
+    if fautifs:
+        detail = ", ".join(f"{nom}={v!r}" for nom, v in fautifs.items())
+        raise ErreurUtilisateur(f"modèle physique : {detail} — des nombres finis sont attendus")
 
 
 def vitesse_regime(puissance_w: float, pente: float, vent_face_ms: float, p: Parametres) -> float:
@@ -166,10 +179,7 @@ def vitesse_regime(puissance_w: float, pente: float, vent_face_ms: float, p: Par
     # finie sont refusées d'entrée.
     if not math.isfinite(puissance_w) or puissance_w < 0:
         return 0.0
-    if not math.isfinite(pente) or not math.isfinite(vent_face_ms):
-        raise ErreurUtilisateur(
-            f"vitesse_regime : pente={pente!r}, vent_face_ms={vent_face_ms!r} — nombres finis attendus"
-        )
+    _finis(pente=pente, vent_face_ms=vent_face_ms)
 
     def ecart(v: float) -> float:
         return puissance_requise(v, pente, vent_face_ms, p) - puissance_w

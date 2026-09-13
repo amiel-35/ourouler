@@ -32,12 +32,13 @@ import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from typing import NamedTuple
 
 import numpy as np
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattacher_velo
-from ourouler.activites.modele import Activite, Point, est_sport_velo, moyenne_glissante
+from ourouler.activites.modele import Activite, Point, est_sport_velo
 from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
 from ourouler.config import Config, Velo
 from ourouler.connecteurs.openmeteo_archive import HeureArchive
@@ -80,10 +81,20 @@ FACTEUR_FTP_MAX = 2.0
 #: modèle, qui ne connaît que l'équilibre, attribuerait cet écart au CdA.
 DELTA_V_MAX_MS = 0.3
 
-#: Pas de la moyenne glissante qui lisse l'altitude des échantillons. Trois
-#: échantillons de 200 m font une fenêtre de 600 m, comparable aux 700 m de
-#: `physique.modele.FENETRE_ALTITUDE`.
-FENETRE_ALTITUDE = 3
+#: Demi-fenêtre, **en mètres**, sur laquelle l'altitude est moyennée avant
+#: d'en tirer une pente : assez pour noyer le bruit de l'altimètre
+#: barométrique (quelques dizaines de centimètres), assez peu pour que la
+#: pente reste celle du tronçon et pas celle de la colline.
+#:
+#: En mètres et non en nombre de points : un FIT à 1 Hz donne un point tous
+#: les 7 m à 28 km/h, un GPX allégé un point tous les 200 m. Une fenêtre
+#: comptée en points lissait 80 m dans un cas et 2 200 m dans l'autre, et la
+#: pente d'une sortie à 14 % y tombait à 7 %.
+#:
+#: La pente est calculée **sur le tronçon lui-même**, entre ses deux bouts :
+#: une différence centrale sur les tronçons voisins donnait une pente deux
+#: fois trop faible aux deux extrémités de la sortie.
+DEMI_FENETRE_ALTITUDE_M = 40.0
 
 #: Bornes de l'ajustement (contrat §3).
 CDA_MIN, CDA_MAX = 0.18, 0.60
@@ -167,12 +178,11 @@ def echantillonner(
     if not bruts:
         return []
 
-    altitudes = moyenne_glissante(
-        [_altitude_moyenne(points, i, j) for i, j, *_ in bruts], FENETRE_ALTITUDE
-    )
+    altitudes = _altitudes_lissees(points, distances)
     echantillons: list[Echantillon] = []
-    for indice, (i, j, longueur, duree) in enumerate(bruts):
-        pente = _pente(altitudes, indice, longueur)
+    for i, j, longueur, duree in bruts:
+        pente = (altitudes[j] - altitudes[i]) / longueur
+        puissance = _puissance_moyenne(points, i, j)
         t_milieu = points[i].t + (points[j].t - points[i].t) / 2
         heure = _interpoler_archive(vent, t_milieu)
         cap = _cap(points, i, j)
@@ -180,7 +190,11 @@ def echantillonner(
         echantillons.append(
             Echantillon(
                 v_ms=longueur / duree,
-                puissance_w=_puissance_moyenne(points, i, j),
+                # 0 W quand la source n'en donne pas : l'échantillon est alors
+                # écarté avec le motif « sans puissance », et ce zéro ne sert
+                # jamais à rien d'autre. Un NaN, lui, aurait traversé les
+                # sommes sans bruit.
+                puissance_w=puissance if puissance is not None else 0.0,
                 pente=pente,
                 vent_face_ms=face if face is not None else 0.0,
                 temp_c=heure.temp_c if heure is not None and heure.temp_c is not None else float("nan"),
@@ -195,7 +209,9 @@ def echantillonner(
                 dist_m=distances[j],
             )
         )
-        if _contient_un_arret(points, i, j):
+        if puissance is None:
+            echantillons[-1].motif = "sans puissance"
+        elif _contient_un_arret(points, i, j):
             echantillons[-1].motif = "arrêt"
 
     _qualifier(echantillons, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
@@ -235,6 +251,32 @@ def _distances_points(points: Sequence[Point]) -> list[float]:
     return cumul
 
 
+def _altitudes_lissees(
+    points: Sequence[Point], distances: Sequence[float], demi_m: float = DEMI_FENETRE_ALTITUDE_M
+) -> list[float]:
+    """L'altitude de chaque point, moyennée sur ±`demi_m` mètres le long du parcours.
+
+    Fenêtre glissante sur la distance, pas sur le nombre de points : deux
+    curseurs qui n'avancent jamais à reculons, donc un seul passage. Un point
+    sans altitude compte pour 0 — un parcours entier sans altitude est
+    simplement plat, et `Trace.denivele_m` vaut alors `None` pour le dire.
+    """
+    alts = [float(p.alt_m) if p.alt_m is not None else 0.0 for p in points]
+    cumul = [0.0]
+    for a in alts:
+        cumul.append(cumul[-1] + a)
+    lisse: list[float] = []
+    bas = haut = 0
+    for i, d in enumerate(distances):
+        while distances[bas] < d - demi_m:
+            bas += 1
+        haut = max(haut, i)
+        while haut + 1 < len(distances) and distances[haut + 1] <= d + demi_m:
+            haut += 1
+        lisse.append((cumul[haut + 1] - cumul[bas]) / (haut + 1 - bas))
+    return lisse
+
+
 def _cap(points: Sequence[Point], i: int, j: int) -> float | None:
     """Cap moyen du tronçon, ou `None` si l'un des deux bouts n'a pas de position."""
     if any(p.lat is None or p.lon is None for p in (points[i], points[j])):
@@ -247,27 +289,8 @@ def _en_point_trace(p: Point) -> PointTrace:
     return PointTrace(lat=float(p.lat), lon=float(p.lon), alt_m=p.alt_m, dist_m=float(p.dist_m or 0.0))
 
 
-def _altitude_moyenne(points: Sequence[Point], i: int, j: int) -> float:
-    """Altitude moyenne du tronçon. 0 si la sortie n'a pas d'altitude (terrain plat faute de mieux)."""
-    valeurs = [float(p.alt_m) for p in points[i : j + 1] if p.alt_m is not None]
-    return sum(valeurs) / len(valeurs) if valeurs else 0.0
-
-
-def _pente(altitudes: Sequence[float], indice: int, longueur: float) -> float:
-    """Pente du tronçon : différence des altitudes lissées voisines, sur deux demi-longueurs.
-
-    L'altitude lissée d'un tronçon vaut en son milieu : la dénivelée entre le
-    tronçon précédent et le suivant couvre donc deux longueurs de tronçon.
-    Aux deux bouts, on se rabat sur le voisin qui existe.
-    """
-    avant = altitudes[indice - 1] if indice > 0 else altitudes[indice]
-    apres = altitudes[indice + 1] if indice + 1 < len(altitudes) else altitudes[indice]
-    portee = longueur * (2 if 0 < indice < len(altitudes) - 1 else 1)
-    return (apres - avant) / portee if portee > 0 else 0.0
-
-
-def _puissance_moyenne(points: Sequence[Point], i: int, j: int) -> float:
-    """Puissance moyenne du tronçon, pondérée par la durée. NaN si aucune valeur."""
+def _puissance_moyenne(points: Sequence[Point], i: int, j: int) -> float | None:
+    """Puissance moyenne du tronçon, pondérée par la durée. `None` si aucune valeur."""
     somme = duree = 0.0
     for a, b in zip(points[i:j], points[i + 1 : j + 1], strict=True):
         if a.puissance_w is None:
@@ -277,7 +300,7 @@ def _puissance_moyenne(points: Sequence[Point], i: int, j: int) -> float:
             continue
         somme += float(a.puissance_w) * dt
         duree += dt
-    return somme / duree if duree > 0 else float("nan")
+    return somme / duree if duree > 0 else None
 
 
 def _contient_un_arret(points: Sequence[Point], i: int, j: int) -> bool:
@@ -303,8 +326,6 @@ def _qualifier(
         if not motif:
             if e.dist_m - e.longueur_m < DEBUT_IGNORE_M:
                 motif = "départ"
-            elif not math.isfinite(e.puissance_w):
-                motif = "sans puissance"
             elif not (PUISSANCE_MIN_W <= e.puissance_w <= puissance_max):
                 motif = "puissance"
             elif e.v_ms < vitesse_min_ms:
@@ -391,6 +412,20 @@ def _angulaire(a: float | None, b: float | None, f: float) -> float | None:
 # --- ajustement ---------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class Incertitudes:
+    """Écarts-types des deux paramètres ajustés. `None` quand ils ne se calculent pas.
+
+    Regroupées plutôt que posées à plat sur `Ajustement` : un attribut
+    `cda_incertitude` à côté de `cda_m2` donne deux nombres « CdA » sur le
+    même objet, et le premier lecteur venu — humain ou test — prend l'un pour
+    l'autre.
+    """
+
+    cda: float | None = None
+    crr: float | None = None
+
+
 @dataclass
 class Ajustement:
     """Le couple (CdA, Crr) qui explique le mieux les échantillons, et ce qu'il vaut."""
@@ -401,8 +436,7 @@ class Ajustement:
     n_echantillons: int
     rmse_w: float
     mae_w: float
-    cda_incertitude: float | None = None
-    crr_incertitude: float | None = None
+    incertitudes: Incertitudes = field(default_factory=Incertitudes)
     rho_moyen: float = RHO_DEFAUT
     bornes_atteintes: tuple[str, ...] = ()
     avertissements: tuple[str, ...] = ()
@@ -503,8 +537,7 @@ def calibrer(
         n_echantillons=n,
         rmse_w=rmse,
         mae_w=mae,
-        cda_incertitude=incertitudes[0],
-        crr_incertitude=incertitudes[1],
+        incertitudes=Incertitudes(*incertitudes),
         rho_moyen=float(np.mean([e.rho for e in retenus])),
         bornes_atteintes=bornes,
         avertissements=tuple(avertissements),
@@ -614,11 +647,15 @@ def _incertitudes(
 # --- validation ---------------------------------------------------------------
 
 
-@dataclass
-class ErreurSortie:
-    """L'écart entre le temps simulé et le temps en mouvement réel d'une sortie."""
+class ErreurSortie(NamedTuple):
+    """L'écart entre le temps simulé et le temps en mouvement réel d'une sortie.
 
-    jour: date | None
+    `NamedTuple` et non dataclass, et `jour` en chaîne ISO : le contrat §3
+    demande un rapport **texte et JSON**, et `json.dumps` doit pouvoir avaler
+    la liste telle quelle sans conversion préalable.
+    """
+
+    jour: str  # AAAA-MM-JJ, vide si la source n'a pas d'horodatage
     nom: str
     distance_m: float
     temps_reel_s: float
@@ -697,7 +734,7 @@ def valider(
         simulation, reel = mesure
         validation.sorties.append(
             ErreurSortie(
-                jour=activite.debut.date() if activite.debut else None,
+                jour=activite.debut.date().isoformat() if activite.debut else "",
                 nom=str(activite.meta.get("nom") or activite.fichier or ""),
                 distance_m=simulation.distance_m,
                 temps_reel_s=reel,

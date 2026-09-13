@@ -299,8 +299,8 @@ def _contenu_json(rapport: calib.RapportCalibration) -> dict:
         "date": datetime.now().date().isoformat(),
         "n_sorties": rapport.n_apprentissage,
         "n_echantillons": a.n_echantillons,
-        "cda_incertitude": _arrondi(a.cda_incertitude, 5),
-        "crr_incertitude": _arrondi(a.crr_incertitude, 6),
+        "cda_incertitude": _arrondi(a.incertitudes.cda, 5),
+        "crr_incertitude": _arrondi(a.incertitudes.crr, 6),
         "rmse_w": round(a.rmse_w, 2),
         "mae": _arrondi(rapport.validation.mae, 4),
         "mediane": _arrondi(rapport.validation.mediane, 4),
@@ -349,8 +349,8 @@ def rendre_texte_calibration(
             "(comptés à vent nul)"
         )
     lignes.append(
-        f"  CdA {_fr(a.cda_m2, 3)} m²{_incertitude(a.cda_incertitude, 3)}   "
-        f"Crr {_fr(a.crr, 5)}{_incertitude(a.crr_incertitude, 5)}   "
+        f"  CdA {_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)}   "
+        f"Crr {_fr(a.crr, 5)}{_incertitude(a.incertitudes.crr, 5)}   "
         f"masse {_fr(a.masse_totale_kg, 1)} kg   ρ moyen {_fr(a.rho_moyen, 3)}"
     )
     lignes.append(
@@ -384,7 +384,7 @@ def rendre_texte_calibration(
         lignes.append(f"  {'jour':<12}{'km':>7}{'réel':>9}{'simulé':>9}{'écart':>9}  nom")
         for sortie in sorted(v.sorties, key=lambda s: abs(s.erreur_relative), reverse=True):
             lignes.append(
-                f"  {str(sortie.jour or '?'):<12}{sortie.distance_m / 1000:>7.1f}"
+                f"  {sortie.jour or '?':<12}{sortie.distance_m / 1000:>7.1f}"
                 f"{_duree(sortie.temps_reel_s):>9}{_duree(sortie.temps_simule_s):>9}"
                 f"{sortie.erreur_relative * 100:>+8.1f}%  {sortie.nom[:40]}"
             )
@@ -432,8 +432,8 @@ def rendre_json_calibration(
         "ajustement": {
             "cda_m2": a.cda_m2,
             "crr": a.crr,
-            "cda_incertitude": a.cda_incertitude,
-            "crr_incertitude": a.crr_incertitude,
+            "cda_incertitude": a.incertitudes.cda,
+            "crr_incertitude": a.incertitudes.crr,
             "masse_totale_kg": a.masse_totale_kg,
             "rho_moyen": a.rho_moyen,
             "n_echantillons": a.n_echantillons,
@@ -453,7 +453,7 @@ def rendre_json_calibration(
             ],
             "sorties": [
                 {
-                    "jour": s.jour.isoformat() if s.jour else None,
+                    "jour": s.jour or None,
                     "nom": s.nom,
                     "distance_km": round(s.distance_m / 1000, 2),
                     "temps_reel_s": round(s.temps_reel_s),

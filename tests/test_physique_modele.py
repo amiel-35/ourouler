@@ -134,10 +134,18 @@ def test_vent_de_dos_fort_pousse_sans_freiner():
 
 
 def test_pente_ou_vent_non_finis_sont_refuses():
+    """Refuser, plutôt que rendre un NaN qui traverse tout sans bruit.
+
+    Un NaN de pente ressortirait en « temps estimé » vide ou en tri
+    arbitraire de candidates, sans que rien ne dise d'où il vient.
+    """
+    for pente, vent in ((float("nan"), 0.0), (0.0, float("inf")), (float("inf"), 0.0)):
+        with pytest.raises(ErreurUtilisateur):
+            vitesse_regime(200.0, pente, vent, P)
+        with pytest.raises(ErreurUtilisateur):
+            puissance_requise(6.0, pente, vent, P)
     with pytest.raises(ErreurUtilisateur):
-        vitesse_regime(200.0, float("nan"), 0.0, P)
-    with pytest.raises(ErreurUtilisateur):
-        vitesse_regime(200.0, 0.0, float("inf"), P)
+        puissance_requise(float("nan"), 0.0, 0.0, P)
 
 
 # --- masse volumique ----------------------------------------------------------

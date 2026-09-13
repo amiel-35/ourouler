@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -91,8 +92,10 @@ class ClientArchive:
     """Client de l'archive Open-Meteo, mémoïsé sur disque.
 
     `http` est injectable (les tests ne touchent jamais le réseau) et
-    `chemin_cache` est passé par l'appelant : sans lui, le client fonctionne
-    mais rappelle le service à chaque question.
+    `chemin_cache` est passé par l'appelant. Sans fichier de cache, le client
+    mémorise quand même ce qu'il a demandé, mais seulement le temps du
+    processus : c'est le fichier qui fait durer l'économie d'une exécution à
+    la suivante.
     """
 
     def __init__(
@@ -104,6 +107,11 @@ class ClientArchive:
         self.base_url = base_url.rstrip("/")
         self.http = http if http is not None else httpx.Client(timeout=DELAI_S)
         self.chemin_cache = Path(chemin_cache) if chemin_cache is not None else None
+        self._memoire: dict[tuple[float, float, str], list[HeureArchive]] = {}
+        """Mémoïsation en mémoire, doublant celle sur disque. Sans elle, une
+        calibration sans fichier de cache redemandait le même jour au même
+        point autant de fois qu'on le lui demandait ; et c'est elle qui tient
+        quand le fichier de cache s'avère inutilisable."""
         self.appels = 0
         """Nombre d'appels HTTP réellement passés — ce qui n'a pas été trouvé
         en cache. Sert au rapport de calibration."""
@@ -129,6 +137,11 @@ class ClientArchive:
         """
         if not (math.isfinite(lat) and math.isfinite(lon)):
             raise ErreurUtilisateur(f"archive : point ({lat}, {lon}) illisible")
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            raise ErreurUtilisateur(
+                f"archive : point ({lat}, {lon}) hors du globe — latitude dans [-90, 90], "
+                "longitude dans [-180, 180]"
+            )
         aujourd_hui = aujourd_hui if aujourd_hui is not None else datetime.now(UTC).date()
         if jour > aujourd_hui:
             raise ErreurUtilisateur(
@@ -136,11 +149,17 @@ class ClientArchive:
                 "l'archive météo ne connaît que le passé"
             )
         lat_a, lon_a = arrondir(lat), arrondir(lon)
+        cle = (lat_a, lon_a, jour.isoformat())
+        if cle in self._memoire:
+            self.lectures_cache += 1
+            return self._memoire[cle]
         en_cache = self._lire_cache(lat_a, lon_a, jour)
         if en_cache is not None:
             self.lectures_cache += 1
+            self._memoire[cle] = en_cache
             return en_cache
         heures = self._demander(lat_a, lon_a, jour)
+        self._memoire[cle] = heures
         self._ecrire_cache(lat_a, lon_a, jour, heures)
         return heures
 
@@ -178,15 +197,26 @@ class ClientArchive:
     # --- mémoïsation ----------------------------------------------------------
 
     def _preparer_cache(self) -> None:
+        """Ouvre (ou crée) le fichier de mémoïsation. En cas d'échec, on s'en passe.
+
+        Le fichier appartient à l'utilisateur : il peut être un reliquat d'une
+        autre version, un fichier texte, un lien cassé. Refuser de calibrer
+        pour autant serait absurde — la mémoïsation est une commodité, pas
+        une source de vérité. On le dit sur la sortie d'erreur et on continue
+        avec la seule mémoire du processus.
+        """
         try:
             self.chemin_cache.parent.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            raise ErreurUtilisateur(
-                f"archive : dossier {self.chemin_cache.parent} inutilisable ({e})"
-            ) from e
-        with self._connexion() as cx:
-            cx.executescript(_SCHEMA)
-            cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
+            with self._connexion() as cx:
+                cx.executescript(_SCHEMA)
+                cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
+        except (OSError, sqlite3.Error, ErreurUtilisateur) as e:
+            print(
+                f"ourouler : cache d'archive {self.chemin_cache} inutilisable ({e}) — "
+                "les archives seront redemandées à chaque exécution",
+                file=sys.stderr,
+            )
+            self.chemin_cache = None
 
     @contextmanager
     def _connexion(self) -> Iterator[sqlite3.Connection]:

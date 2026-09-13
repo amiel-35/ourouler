@@ -248,8 +248,7 @@ def test_une_archive_vide_est_aussi_memoisee(tmp_path: Path):
 
 def test_cache_corrompu_ne_fait_pas_echouer(tmp_path: Path):
     chemin = tmp_path / "a.sqlite"
-    c = client(reponse(charge_complete()), chemin)
-    c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
+    client(reponse(charge_complete()), chemin).horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
     # Contenu illisible dans la colonne mémoïsée : on rappelle le service.
     import sqlite3
 
@@ -257,10 +256,31 @@ def test_cache_corrompu_ne_fait_pas_echouer(tmp_path: Path):
     cx.execute("UPDATE archive SET heures = ?", ("{pas du json",))
     cx.commit()
     cx.close()
+    neuf = client(reponse(charge_complete()), chemin)
+    assert len(neuf.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)) == 24
+
+
+def test_un_fichier_de_cache_qui_n_est_pas_du_sqlite(tmp_path: Path, capsys):
+    """Le fichier appartient à l'utilisateur : on s'en passe, on le dit, on continue."""
+    chemin = tmp_path / "a.sqlite"
+    chemin.write_bytes(b"ni sqlite ni json\x00\xff" * 50)
+    c = client(reponse(charge_complete()), chemin)
+    assert "inutilisable" in capsys.readouterr().err
     assert len(c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)) == 24
 
 
-def test_sans_cache_le_client_fonctionne():
+def test_coordonnees_hors_du_globe(tmp_path: Path):
+    for lat, lon in ((91.0, 0.0), (-90.5, 0.0), (0.0, 180.5), (0.0, -181.0)):
+        with pytest.raises(ErreurUtilisateur, match="globe"):
+            client(reponse(charge_complete())).horaires(lat, lon, JOUR, aujourd_hui=AUJOURD_HUI)
+
+
+def test_sans_cache_le_client_memorise_quand_meme_le_temps_du_processus():
+    """Pas de fichier : la mémoire du client suffit à ne pas redemander deux fois.
+
+    Un nouveau client, lui, repart de zéro — c'est bien la mémoïsation sur
+    disque qui fait durer l'économie d'un appel d'une exécution à l'autre.
+    """
     appels = []
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -270,6 +290,8 @@ def test_sans_cache_le_client_fonctionne():
     c = client(gestionnaire, None)
     c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
     c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
+    assert len(appels) == 1
+    client(gestionnaire, None).horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
     assert len(appels) == 2
 
 
