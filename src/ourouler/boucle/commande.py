@@ -82,7 +82,12 @@ TITRE_ANTENNES_DETECTEES = "antennes détectées"
 #: un **choix**, pas une mesure : le contrat de sprint donne la colonne
 #: « temps estimé » sans dire à quelle puissance la calculer. 65 % de la FTP
 #: est une allure d'endurance plausible ; `--puissance` la remplace, et
-#: l'en-tête dit toujours laquelle a servi. À arbitrer par le mainteneur.
+#: l'en-tête dit toujours laquelle a servi.
+#:
+#: Q8, close le 13/09/2026 : tant que la séance du jour n'est pas connue,
+#: `boucle` affiche une durée à l'allure Z2. Au sprint 4, `sortie` simulera
+#: la boucle bloc par bloc à partir de la séance Intervals, et la durée sera
+#: celle de la séance sur ce terrain — ce défaut n'aura plus à servir.
 PART_FTP_DEFAUT = 0.65
 
 #: Ce qu'on affiche à la place d'une mesure absente (jamais un zéro : un
