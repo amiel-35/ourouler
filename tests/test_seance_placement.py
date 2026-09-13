@@ -108,13 +108,21 @@ def _positions(decalage_s: float) -> list[float]:
 def _couloirs(monkeypatch, bon: tuple[float, float], *, mauvais: float = 10.0, pente: float = 0.0):
     """Terrain factice : note 0 dans la fenêtre `bon`, `mauvais` partout ailleurs.
 
-    Rend la liste des couloirs évalués, pour vérifier ce qui a été noté — et
-    surtout ce qui ne l'a pas été.
+    Rend la liste des couloirs évalués — début, longueur et **puissance
+    donnée** — pour vérifier ce qui a été noté, à quelle intensité, et surtout
+    ce qui ne l'a pas été.
     """
-    appels: list[tuple[float, float]] = []
+    appels: list[tuple[float, float, float | None, float | None]] = []
 
-    def evaluer_couloir(trace, debut_m: float, longueur_m: float) -> NoteBloc:
-        appels.append((debut_m, longueur_m))
+    def evaluer_couloir(
+        trace,
+        debut_m: float,
+        longueur_m: float,
+        *,
+        puissance_w: float | None = None,
+        ftp_w: float | None = None,
+    ) -> NoteBloc:
+        appels.append((debut_m, longueur_m, puissance_w, ftp_w))
         dedans = bon[0] <= debut_m and debut_m + longueur_m <= bon[1]
         return NoteBloc(
             note=0.0 if dedans else mauvais,
@@ -174,7 +182,14 @@ def _terrain_vallonne(monkeypatch, *, demi_tour: bool = False):
     """
     import math as _math
 
-    def evaluer_couloir(trace, debut_m: float, longueur_m: float) -> NoteBloc:
+    def evaluer_couloir(
+        trace,
+        debut_m: float,
+        longueur_m: float,
+        *,
+        puissance_w: float | None = None,
+        ftp_w: float | None = None,
+    ) -> NoteBloc:
         milieu = debut_m + longueur_m / 2.0
         return NoteBloc(
             note=5.0 * _math.sin(milieu / 700.0) ** 2,
@@ -494,7 +509,14 @@ def _zone_sale(monkeypatch, zone: tuple[float, float]):
     placements droits, pas deux figures.
     """
 
-    def evaluer_couloir(trace, debut_m: float, longueur_m: float) -> NoteBloc:
+    def evaluer_couloir(
+        trace,
+        debut_m: float,
+        longueur_m: float,
+        *,
+        puissance_w: float | None = None,
+        ftp_w: float | None = None,
+    ) -> NoteBloc:
         touche = debut_m < zone[1] and debut_m + longueur_m > zone[0]
         return NoteBloc(
             note=MAUVAIS if touche else 0.0,
@@ -587,6 +609,14 @@ def test_la_penalite_de_demi_tour_peut_le_rendre_moins_interessant(monkeypatch):
 
 
 def test_aucune_recuperation_n_est_evaluee(monkeypatch):
+    """La règle produit du sprint : une récup n'est jamais notée, à aucun titre.
+
+    Deux façons de la trahir, et les deux sont gardées ici : évaluer un couloir
+    de la longueur d'une récupération, et — depuis que le prix d'une descente
+    dépend de l'intensité (13/09) — évaluer un couloir **à la puissance d'une
+    récupération**. La seconde ferait entrer l'intensité d'une récup dans une
+    note de terrain, ce qui est le même défaut sous un autre nom.
+    """
     appels = _couloirs(monkeypatch, (0.0, 1e9))
 
     resultat = placement.placer(_seance(), _trace(), P)
@@ -594,8 +624,12 @@ def test_aucune_recuperation_n_est_evaluee(monkeypatch):
     assert resultat is not None
     longueur_bloc = _vitesse(PUISSANCE_BLOC) * 1200.0
     assert appels, "aucun couloir évalué"
-    for _debut, longueur in appels:
+    for _debut, longueur, puissance, _ftp in appels:
         assert longueur == pytest.approx(longueur_bloc, abs=1.0)
+        assert puissance == pytest.approx(PUISSANCE_BLOC), (
+            "un couloir a été noté à une autre puissance que celle du bloc"
+        )
+    assert all(p != pytest.approx(PUISSANCE_RECUP) for _, _, p, _ in appels)
 
 
 # --- la Z2 de fin absorbe -------------------------------------------------------
@@ -933,3 +967,55 @@ def test_un_trace_en_pente_change_les_positions(monkeypatch):
     assert appels_cote
     assert cote.emplacements[0].debut_m < plat.emplacements[0].debut_m
     assert cote.emplacements[0].longueur_m < plat.emplacements[0].longueur_m
+
+
+# --- l'intensité du bloc atteint l'évaluation du terrain -----------------------
+
+
+def test_la_ftp_de_la_seance_atteint_l_evaluation_du_terrain(monkeypatch):
+    """Décision du 13/09 : le prix d'une descente dépend de la zone du bloc.
+
+    Le placement doit donc donner à `evaluer_couloir` la puissance du bloc
+    **et** la FTP de la séance — celle qui a produit les watts des étapes,
+    rangée dans `meta["ftp_w"]` par `seance.intervals`. Sans elle, le facteur
+    de zone resterait neutre sans que personne ne s'en aperçoive.
+    """
+    appels = _couloirs(monkeypatch, (0.0, 1e9))
+    seance = _seance()
+    seance.meta["ftp_w"] = 258.0
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert appels
+    assert all(ftp == pytest.approx(258.0) for _, _, _, ftp in appels)
+
+
+def test_une_seance_sans_ftp_n_en_invente_pas(monkeypatch):
+    appels = _couloirs(monkeypatch, (0.0, 1e9))
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert appels
+    assert all(ftp is None for _, _, _, ftp in appels)
+
+
+@pytest.mark.parametrize(
+    ("meta", "attendu"),
+    [
+        ({}, None),
+        ({"ftp_w": None}, None),
+        ({"ftp_w": 0.0}, None),
+        ({"ftp_w": -258.0}, None),
+        ({"ftp_w": float("nan")}, None),
+        ({"ftp_w": True}, None),
+        ({"ftp_w": "illisible"}, None),
+        ({"ftp_w": 258}, 258.0),
+        ({"ftp_w": 258.0}, 258.0),
+    ],
+)
+def test_ftp_de_ne_rend_qu_une_ftp_exploitable(meta, attendu):
+    seance = _seance()
+    seance.meta = dict(meta)
+    assert placement.ftp_de(seance) == attendu

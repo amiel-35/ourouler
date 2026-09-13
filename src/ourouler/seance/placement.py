@@ -29,6 +29,13 @@ plat ou faux-plat, de la route au-delà du segment, demi-tour faisable. La
 récupération elle-même n'est **jamais** évaluée : ni village, ni carrefour,
 ni revêtement — elle absorbe le point dur, c'est son rôle.
 
+Chaque bloc est noté **à son intensité** : `evaluer_couloir` reçoit la
+puissance cible du bloc et la FTP de la séance (`ftp_de`), parce qu'une
+descente sous un bloc à 110 % de FTP n'est pas le même défaut qu'une descente
+sous un bloc à 70 % (décision du mainteneur du 13/09,
+`terrain.FACTEURS_ZONE_DESCENTE`). La puissance d'une **récupération** n'est
+donnée à personne : une récup n'est pas évaluée du tout.
+
 La note de la configuration est la **moyenne des notes de couloir pondérée
 par la durée de chaque bloc** :
 
@@ -447,6 +454,7 @@ def _essayer(
 ) -> Placement | str:
     """Déroule la séance pour un décalage donné : un `Placement`, ou le motif qui a coincé."""
     etapes = seance.etapes
+    ftp_w = ftp_de(seance)
     fin = idx_fermeture if idx_fermeture is not None else len(etapes)
     etat = _Etat(jalons=[0.0])
     emplacements: list[Emplacement] = []
@@ -483,6 +491,7 @@ def _essayer(
                 bloc_idx=i + 1,
                 bloc_puissance=_puissance(suivante, avertissements, i + 1),
                 penalite_demi_tour=penalite_demi_tour,
+                ftp_w=ftp_w,
             )
             if isinstance(emplacement, str):
                 return emplacement
@@ -491,7 +500,7 @@ def _essayer(
             continue
 
         if etape.type == TYPE_BLOC:
-            emplacement = _bloc_droit(trace, terrain, etat, etape, i, puissance, duree)
+            emplacement = _bloc_droit(trace, terrain, etat, etape, i, puissance, duree, ftp_w)
             if isinstance(emplacement, str):
                 return emplacement
             emplacements.append(emplacement)
@@ -615,6 +624,7 @@ def _bloc_droit(
     bloc_idx: int,
     puissance_w: float,
     duree_s: float,
+    ftp_w: float | None,
 ) -> Emplacement | str:
     """Le bloc tel quel, dans le sens de marche, à partir de la position courante."""
     depart = etat.position_m
@@ -626,7 +636,7 @@ def _bloc_droit(
         debut_m=debut,
         longueur_m=longueur,
         demi_tour=False,
-        note=evaluer_couloir(trace, debut, longueur),
+        note=evaluer_couloir(trace, debut, longueur, puissance_w=puissance_w, ftp_w=ftp_w),
     )
 
 
@@ -641,13 +651,16 @@ def _recup_puis_bloc(
     bloc_idx: int,
     bloc_puissance: float,
     penalite_demi_tour: float,
+    ftp_w: float | None,
 ) -> Emplacement | str:
     """La paire (récupération, bloc) : variante droite contre variante demi-tour.
 
     Les deux se jouent depuis le même état ; on garde la moins mal notée et
     on applique alors seulement son effet sur la position. La récupération
     n'est jamais évaluée : village, carrefour et revêtement y sont sans
-    importance, elle est là pour absorber le point dur.
+    importance, elle est là pour absorber le point dur. Seule la puissance du
+    **bloc** est donnée à `evaluer_couloir` — celle de la récup n'entre nulle
+    part, sans quoi l'intensité d'une récup pèserait sur une note de terrain.
 
     **Limite à connaître (T3).** L'arbitrage se fait ici au seul vu de la note
     de couloir, bloc par bloc, alors que `_penalite_seance` n'est calculée
@@ -660,7 +673,9 @@ def _recup_puis_bloc(
     qui croit que la pénalité arbitre tout se trompe : elle n'arbitre que ce
     qui vient après.
     """
-    droite = _variante_droite(trace, terrain, etat, recup, recup_puissance, bloc, bloc_idx, bloc_puissance)
+    droite = _variante_droite(
+        trace, terrain, etat, recup, recup_puissance, bloc, bloc_idx, bloc_puissance, ftp_w
+    )
     demi = _variante_demi_tour(
         trace,
         terrain,
@@ -671,6 +686,7 @@ def _recup_puis_bloc(
         bloc_idx,
         bloc_puissance,
         penalite_demi_tour,
+        ftp_w,
     )
     candidates = [c for c in (droite, demi) if c is not None]
     if not candidates:
@@ -691,6 +707,7 @@ def _variante_droite(
     bloc: Etape,
     bloc_idx: int,
     bloc_puissance: float,
+    ftp_w: float | None,
 ) -> tuple[Emplacement, _Etat] | None:
     """Récup puis bloc, tout droit : le cas normal, sans pénalité."""
     essai = replace(etat)
@@ -705,7 +722,7 @@ def _variante_droite(
         debut_m=debut,
         longueur_m=longueur,
         demi_tour=False,
-        note=evaluer_couloir(trace, debut, longueur),
+        note=evaluer_couloir(trace, debut, longueur, puissance_w=bloc_puissance, ftp_w=ftp_w),
     )
     return emplacement, essai
 
@@ -720,6 +737,7 @@ def _variante_demi_tour(
     bloc_idx: int,
     bloc_puissance: float,
     penalite_demi_tour: float,
+    ftp_w: float | None,
 ) -> tuple[Emplacement, _Etat] | None:
     """Le bloc repris en sens inverse, la récup coupée en deux autour du demi-tour.
 
@@ -749,7 +767,7 @@ def _variante_demi_tour(
     if not _rouler(terrain, essai, bloc.duree_s, bloc_puissance):
         return None
     debut, longueur = _couloir(depart, essai.position_m)
-    note = evaluer_couloir(trace, debut, longueur)
+    note = evaluer_couloir(trace, debut, longueur, puissance_w=bloc_puissance, ftp_w=ftp_w)
     if abs(note.pente_moyenne) > PENTE_DEMI_TOUR_MAX:
         return None  # en côte, le retour est une descente : ce n'est plus la même figure
     note = replace(
@@ -834,6 +852,33 @@ def _puissance(etape: Etape, avertissements: list[str], idx: int) -> float:
         )
         return PUISSANCE_SANS_CIBLE_W
     return float(cible)
+
+
+def ftp_de(seance: Seance) -> float | None:
+    """La FTP avec laquelle cette séance a été construite, ou `None`.
+
+    Elle sert à une seule chose ici : donner à `seance.terrain.evaluer_couloir`
+    la fraction de FTP de chaque bloc, dont dépend le prix d'une descente
+    (décision du mainteneur du 13/09, voir `terrain.FACTEURS_ZONE_DESCENTE`).
+
+    Elle est lue dans `seance.meta["ftp_w"]`, que `seance.intervals` y écrit, et
+    **pas** reçue en paramètre : c'est la FTP qui a produit les watts des
+    étapes. Une autre FTP donnerait des fractions qui ne correspondent à aucune
+    des consignes de la séance — un appelant ne peut donc pas se tromper ici,
+    parce qu'il n'a rien à choisir.
+
+    `None` dès que la valeur manque ou n'est pas exploitable : une séance
+    construite à la main n'a pas de `meta`, le facteur de zone reste alors
+    neutre et la note est celle d'avant. On ne devine pas une FTP.
+    """
+    brut = seance.meta.get("ftp_w") if isinstance(seance.meta, dict) else None
+    if brut is None or isinstance(brut, bool):
+        return None
+    try:
+        ftp = float(brut)
+    except (TypeError, ValueError):
+        return None
+    return ftp if math.isfinite(ftp) and ftp > 0 else None
 
 
 def _nom(etape: Etape, idx: int) -> str:

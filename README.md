@@ -138,7 +138,7 @@ uv run python tests/validation/terrain_retrospectif.py
 
 **Conclusion du 13/09/2026, mode nominal — OUI, code de sortie 0.** Sur les
 9 blocs courts et moyens des deux sorties (11 blocs trouvés au total), la note
-médiane des emplacements réels vaut **42,7 % de celle du hasard**, là où le
+médiane des emplacements réels vaut **33,2 % de celle du hasard**, là où le
 critère demande au plus 70 %. Composition au kilomètre, blocs réels contre
 tirages : km bâtis 0,00 contre 0,05 (**3 %**, le poste le plus discriminant) ;
 descente 1,08 m contre 1,89 m (57 %) ; virages 0,74 contre 1,00 (74 %) ;
@@ -146,12 +146,22 @@ irrégularité 1,55 % contre 1,58 % (98 %, ne sépare rien) ; montée 4,34 m con
 3,39 m (**128 %** — le mainteneur monte *plus* que le hasard, il ne fuit pas
 les côtes).
 
+**Le prix d'une descente dépend de l'intensité du bloc** (décision du
+mainteneur du 13/09 : « Z5 en descente, pas possible ou presque »). Le poids
+de la descente est multiplié par un facteur de zone croissant — ×0,4 sous
+75 % de FTP, ×1 de 75 à 90 %, ×2 de 90 à 105 %, ×4 au-delà
+(`FACTEURS_ZONE_DESCENTE`). Blocs réels et tirages au hasard sont notés à la
+**même** intensité, celle du bloc : la mesure reste une mesure de terrain.
+Le facteur n'a pas dégradé la discrimination, il l'a améliorée — **42,7 %
+avant, 33,2 % après** — parce que les tirages portent plus de descente que
+les emplacements que le mainteneur a choisis.
+
 **Ce qui fait foi, et pourquoi.** Le mode nominal lit les **intervalles
 marqués** dans Intervals.icu : ce sont les blocs réellement prescrits et
 exécutés. Le mode `--sans-reseau`, seul reproductible sans la clé d'API du
 mainteneur, les **devine** à partir de la puissance : il en trouve 15 au lieu
 de 11, coupe un 20' en trois et ramasse des fragments d'échauffement. Il
-conclut aujourd'hui NON à 70,3 % pour un seuil de 70 % : c'est la conclusion
+conclut aujourd'hui NON à 71,3 % pour un seuil de 70 % : c'est la conclusion
 honnête d'un mode qui borne moins bien les blocs, **pas un désaveu des poids**.
 Le script échoue explicitement quand les deux modes divergent, en le disant,
 plutôt que de laisser croire que l'un vaut l'autre.

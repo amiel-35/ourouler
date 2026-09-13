@@ -11,6 +11,15 @@ Une montée régulière, elle, n'est pas un défaut : la puissance se tient trè
 bien, seule la vitesse baisse. Elle n'est donc pénalisée qu'au-delà de
 `PENTE_MONTEE_TOLEREE`, et faiblement.
 
+**Ce que coûte une descente dépend de l'intensité demandée** (décision du
+mainteneur, 13/09) : « la descente doit être réduite dans les blocs et son
+poids négatif augmente avec la zone. Faire du Z3 en descente faible à
+moyenne, ça reste possible, position relevée face au vent. Z5 en descente,
+pas possible ou presque. » `evaluer_couloir` accepte donc la puissance cible
+du bloc et la FTP, et multiplie `POIDS_M_DESCENTE` par
+`facteur_zone(fraction de FTP)`. Sans ces deux valeurs, le poids reste celui
+d'avant : on ne devine pas une intensité qu'on ne nous a pas donnée.
+
 **Ce module ne dit jamais non.** Il rend une note en kilomètres équivalents
 (0 = parfait, plus haut = moins bon, même unité que `boucle.couts`) et des
 motifs lisibles — « deux feux », « descente de 1,2 km ». Le placement garde
@@ -145,7 +154,63 @@ POIDS_KM_BATI = 3.0
 #: défaut le plus **grave** sur un bloc de seuil — en descente, on ne peut pas
 #: tenir la puissance, quoi qu'en dise la fréquence à laquelle le mainteneur
 #: l'évite. Une descente de 1 km à −3 % (30 m) coûte trois fois un feu.
+#:
+#: **C'est le poids à intensité inconnue, et à cette seule condition.** Dès que
+#: l'appelant donne la puissance cible du bloc et la FTP, il est multiplié par
+#: `facteur_zone` — voir `FACTEURS_ZONE_DESCENTE`.
 POIDS_M_DESCENTE = 0.10
+
+#: Ce qui multiplie `POIDS_M_DESCENTE` selon l'intensité demandée sous le bloc :
+#: `(borne haute de la fraction de FTP, facteur, adjectif du motif)`, bornes
+#: hautes **exclues**, table croissante lue de haut en bas.
+#:
+#: Décision du mainteneur du 13/09, dans ses mots : « la descente doit être
+#: réduite dans les blocs et son poids négatif augmente avec la zone. Faire du
+#: Z3 en descente faible à moyenne, ça reste possible, position relevée face au
+#: vent. Z5 en descente, pas possible ou presque. »
+#:
+#: D'où les quatre paliers, qui sont sa phrase traduite en chiffres :
+#: * **sous 75 % de FTP** — en dessous de sa zone de travail, une descente
+#:   gêne peu : on relance, on ne perd rien de la séance. Facteur 0,4 ;
+#: * **75 à 90 %** — son Z3, « possible, position relevée » : la descente est
+#:   tolérable, et c'est le palier qui garde le poids nu, 1,0. C'est aussi ce
+#:   que vaut une intensité inconnue : le défaut par défaut est « tolérable »,
+#:   ni gratuit ni rédhibitoire ;
+#: * **90 à 105 %** — autour du seuil, tenir la puissance en descente devient
+#:   un exercice : coûteuse, facteur 2,0 ;
+#: * **au-delà de 105 %** — son Z5, « pas possible ou presque ». Facteur 4,0 :
+#:   une descente de 1 km à −3 % (30 m) coûte alors 12 km équivalents, plus
+#:   que `PENALITE_BLOC_TRONQUE`, c'est-à-dire plus qu'un bloc qui ne tient
+#:   pas sur le tracé. C'est voulu, et c'est le sens de « presque ».
+#:
+#: **Les facteurs sont un ordre de grandeur, pas une mesure**, et la règle
+#: absolue 5 veut qu'on le dise : la validation rétrospective mesure la
+#: *composition* des blocs réels — combien de mètres de descente — pas ce que
+#: le cycliste ressent à y tenir sa puissance. Aucune donnée du dépôt ne dit
+#: qu'un Z5 en descente coûte quatre fois un Z3 ; c'est la phrase du
+#: mainteneur, chiffrée.
+#:
+#: Ce que la mesure dit, en revanche, c'est que la table ne dégrade pas la
+#: discrimination : `tests/validation/terrain_retrospectif.py` relancé le
+#: 13/09/2026 conclut toujours OUI, et le rapport passe de **42,7 % à 33,2 %**
+#: de la note du hasard (critère : au plus 70 %). Il s'améliore parce que les
+#: emplacements tirés au hasard portent plus de descente que ceux que le
+#: mainteneur a choisis (1,89 m/km contre 1,08) : rendre la descente plus
+#: chère les éloigne davantage. Blocs réels et tirages y sont notés à la même
+#: intensité, sans quoi on mesurerait le facteur au lieu du terrain.
+FACTEURS_ZONE_DESCENTE: tuple[tuple[float, float, str], ...] = (
+    (0.75, 0.4, "peu gênante"),
+    (0.90, 1.0, "tolérable"),
+    (1.05, 2.0, "coûteuse"),
+    (math.inf, 4.0, "rédhibitoire"),
+)
+
+#: Le facteur retenu quand on ignore l'intensité — aucune puissance, aucune
+#: FTP, ou l'une des deux inexploitable. Il vaut 1,0, donc le poids nu : le
+#: comportement d'avant la décision du 13/09, à l'identique. Une intensité
+#: inconnue n'est ni une excuse (facteur plus bas) ni un soupçon (facteur plus
+#: haut), et le motif ne dit alors rien de l'intensité.
+FACTEUR_ZONE_INCONNUE = 1.0
 
 #: Un mètre de dénivelé gagné dans une portion plus raide que
 #: `PENTE_MONTEE_TOLEREE`. Presque rien, et c'est mesuré : le 13/09 (mode
@@ -221,12 +286,26 @@ class NoteBloc:
     #: validation rétrospective, faute d'être lisible depuis l'extérieur. Il
     #: était déjà calculé et déjà utilisé — il n'était pas rendu.
     irregularite: float = 0.0
+    #: Ce par quoi `POIDS_M_DESCENTE` a été multiplié, d'après l'intensité
+    #: demandée sous ce bloc (`FACTEURS_ZONE_DESCENTE`). Vaut
+    #: `FACTEUR_ZONE_INCONNUE` quand l'appelant n'a donné ni puissance ni FTP.
+    #: Rendu pour que la note reste auditable : deux blocs au même endroit et
+    #: à deux intensités différentes n'ont pas la même note, et il faut
+    #: pouvoir dire pourquoi sans relire le code.
+    facteur_descente: float = FACTEUR_ZONE_INCONNUE
 
 
 # --- l'évaluation -------------------------------------------------------------
 
 
-def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc:
+def evaluer_couloir(
+    trace: Trace,
+    debut_m: float,
+    longueur_m: float,
+    *,
+    puissance_w: float | None = None,
+    ftp_w: float | None = None,
+) -> NoteBloc:
     """Note le couloir de `longueur_m` qui commence à `debut_m` sur le tracé.
 
     Sur une boucle fermée, le couloir continue au-delà du dernier point en
@@ -235,12 +314,30 @@ def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc
     tracé est ramené dans le tracé (modulo sur une boucle, borné sinon)
     plutôt que refusé : ce module ne lève pas d'exception sur une demande
     bancale, il la note.
+
+    `puissance_w` est la puissance cible du bloc et `ftp_w` la FTP du cycliste
+    à ce moment-là. Les deux ensemble donnent la fraction de FTP, donc le
+    facteur qui pèse la descente (`FACTEURS_ZONE_DESCENTE`). **Les deux sont
+    facultatives et ne servent qu'à cela** : sans elles — ou avec l'une des
+    deux seulement, ou avec une FTP nulle — la note est exactement celle
+    d'avant, `FACTEUR_ZONE_INCONNUE`, et aucun motif ne parle d'intensité. Un
+    appelant qui ne connaît pas l'intensité n'a rien à changer.
+
+    Pourquoi la puissance **et** la FTP plutôt qu'une fraction toute faite :
+    aucun appelant ne détient une fraction. Intervals donne des watts
+    (`Etape.puissance_cible_w`), la configuration donne une FTP
+    (`Config.cycliste.ftp_w`, recopiée dans `Seance.meta["ftp_w"]`). Faire
+    diviser chaque appelant, c'est recopier chez chacun les trois mêmes gardes
+    — FTP absente, nulle, non finie — et laisser à chacun l'occasion de les
+    oublier. Elles vivent ici, une fois.
     """
+    facteur, adjectif_zone = _zone_descente(puissance_w, ftp_w)
     couloir = _couloir(trace, debut_m, longueur_m)
     if not couloir.points:
         return NoteBloc(
             note=PENALITE_BLOC_TRONQUE,
             motifs=["aucun tracé sous le bloc"],
+            facteur_descente=facteur,
         )
 
     tagues, virages, motifs_carrefours = _carrefours(trace, couloir)
@@ -251,7 +348,7 @@ def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc
         tagues * POIDS_CARREFOUR
         + virages * POIDS_VIRAGE_MARQUE
         + km_batis * POIDS_KM_BATI
-        + releve.descente_m * POIDS_M_DESCENTE
+        + releve.descente_m * POIDS_M_DESCENTE * facteur
         + releve.montee_m * POIDS_M_MONTEE
         + releve.irregularite * POIDS_IRREGULARITE
         + (PENALITE_BLOC_TRONQUE if couloir.tronque else 0.0)
@@ -263,6 +360,8 @@ def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc
         km_batis=km_batis,
         routes_connues=routes_connues,
         releve=releve,
+        facteur_descente=facteur,
+        adjectif_zone=adjectif_zone,
     )
     return NoteBloc(
         note=note,
@@ -274,7 +373,44 @@ def evaluer_couloir(trace: Trace, debut_m: float, longueur_m: float) -> NoteBloc
         descente_m=releve.descente_m,
         montee_m=releve.montee_m,
         irregularite=releve.irregularite,
+        facteur_descente=facteur,
     )
+
+
+def facteur_zone(fraction_ftp: float | None) -> float:
+    """Ce par quoi `POIDS_M_DESCENTE` est multiplié à cette fraction de FTP.
+
+    `FACTEUR_ZONE_INCONNUE` si la fraction est absente, non finie ou nulle :
+    une intensité illisible est une ignorance, pas un zéro.
+    """
+    return _facteur_et_adjectif(fraction_ftp)[0]
+
+
+def _zone_descente(puissance_w: float | None, ftp_w: float | None) -> tuple[float, str]:
+    """(facteur, adjectif du motif) pour une puissance cible et une FTP."""
+    return _facteur_et_adjectif(_fraction_ftp(puissance_w, ftp_w))
+
+
+def _facteur_et_adjectif(fraction_ftp: float | None) -> tuple[float, str]:
+    """La ligne de `FACTEURS_ZONE_DESCENTE` qui s'applique, bornes hautes exclues."""
+    if fraction_ftp is None or not math.isfinite(fraction_ftp) or fraction_ftp <= 0:
+        return (FACTEUR_ZONE_INCONNUE, "")
+    for borne, facteur, adjectif in FACTEURS_ZONE_DESCENTE:
+        if fraction_ftp < borne:
+            return (facteur, adjectif)
+    _, facteur, adjectif = FACTEURS_ZONE_DESCENTE[-1]
+    return (facteur, adjectif)
+
+
+def _fraction_ftp(puissance_w: float | None, ftp_w: float | None) -> float | None:
+    """La puissance cible en part de FTP, ou `None` si l'une des deux manque."""
+    if puissance_w is None or ftp_w is None:
+        return None
+    if not (math.isfinite(puissance_w) and math.isfinite(ftp_w)):
+        return None
+    if puissance_w <= 0 or ftp_w <= 0:
+        return None
+    return puissance_w / ftp_w
 
 
 def route_au_dela(trace: Trace, position_m: float, besoin_m: float) -> bool:
@@ -694,13 +830,20 @@ def _motifs(
     km_batis: float,
     routes_connues: bool,
     releve: _Releve,
+    facteur_descente: float,
+    adjectif_zone: str,
 ) -> list[str]:
     """Les motifs lisibles, du plus coûteux au moins coûteux."""
     pesees: list[tuple[float, str]] = []
     if couloir.tronque:
         pesees.append((PENALITE_BLOC_TRONQUE, "bloc plus long que le tracé disponible"))
     if releve.descentes:
-        pesees.append((releve.descente_m * POIDS_M_DESCENTE, _motif_descentes(releve)))
+        pesees.append(
+            (
+                releve.descente_m * POIDS_M_DESCENTE * facteur_descente,
+                _motif_descentes(releve, adjectif_zone),
+            )
+        )
     for nature, nombre in motifs_carrefours.items():
         poids = POIDS_VIRAGE_MARQUE if nature == "virage" else POIDS_CARREFOUR
         pesees.append((nombre * poids, _motif_carrefour(nature, nombre)))
@@ -731,13 +874,25 @@ def _motifs(
     return motifs
 
 
-def _motif_descentes(releve: _Releve) -> str:
+def _motif_descentes(releve: _Releve, adjectif_zone: str) -> str:
+    """« descente de 1,2 km, rédhibitoire à cette intensité ».
+
+    L'adjectif vient de `FACTEURS_ZONE_DESCENTE` et ne s'écrit que si l'appelant
+    a donné l'intensité : une descente est plus ou moins grave selon ce qu'on
+    demande de tenir dessus, et le motif doit le dire — sinon deux notes très
+    différentes portent le même mot. Les quatre adjectifs de la table prennent
+    tous leur pluriel par un « s ».
+    """
     if len(releve.descentes) == 1:
-        return f"descente de {_nombre(releve.descentes[0] / 1000.0)} km"
-    return (
-        f"{_en_lettres(len(releve.descentes), feminin=True)} descentes, "
-        f"{releve.descente_m:.0f} m de dénivelé"
-    )
+        motif = f"descente de {_nombre(releve.descentes[0] / 1000.0)} km"
+        qualite = adjectif_zone
+    else:
+        motif = (
+            f"{_en_lettres(len(releve.descentes), feminin=True)} descentes, "
+            f"{releve.descente_m:.0f} m de dénivelé"
+        )
+        qualite = f"{adjectif_zone}s" if adjectif_zone else ""
+    return f"{motif}, {qualite} à cette intensité" if qualite else motif
 
 
 #: Comment nommer chaque nature de carrefour au singulier et au pluriel, avec

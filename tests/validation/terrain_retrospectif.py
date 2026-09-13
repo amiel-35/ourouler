@@ -28,7 +28,7 @@ faux — et le script le dit au lieu de le taire.
   d'échauffement au-dessus de 75 % de FTP qui n'étaient pas des blocs. Il borne
   donc moins bien les blocs, et il mesure autre chose.
 
-Conséquence : le mode dégradé conclut aujourd'hui **NON**, à 70,3 % pour un
+Conséquence : le mode dégradé conclut aujourd'hui **NON**, à 71,3 % pour un
 seuil de 70 %. C'est la conclusion honnête d'un mode qui découpe mal, **pas un
 désaveu des poids** — un bloc coupé en trois porte des morceaux de récupération
 que le vrai bloc n'a pas. Le script **échoue** quand les deux modes divergent,
@@ -123,9 +123,18 @@ REFERENCE_NOMINALE = {
     "date": "2026-09-13",
     "verdict": True,
     "blocs_juges": 9,
-    "rapport": 0.43,
+    "rapport": 0.33,
     "blocs_trouves": 11,
 }
+
+#: Ce que la même exécution donnait **avant** que le prix d'une descente
+#: dépende de l'intensité du bloc (13/09, `terrain.FACTEURS_ZONE_DESCENTE`) :
+#: 0,427. Le facteur de zone n'a pas dégradé la discrimination, il l'a
+#: améliorée — les tirages au hasard portent plus de descente que les
+#: emplacements réels, et une descente plus chère les éloigne donc davantage.
+#: Gardé ici pour que la comparaison reste vérifiable, et parce qu'un chiffre
+#: qui bouge sans qu'on dise d'où il vient n'est plus une mesure.
+RAPPORT_AVANT_FACTEUR_DE_ZONE = 0.427
 
 #: Les trois tailles de bloc, et ce qu'on attend de chacune. Un bloc de 3 min
 #: (1,5 km) et un 20' (11 km) ne posent pas le même problème : le premier se
@@ -470,9 +479,25 @@ class Comparaison:
 
 
 def comparer(
-    trace: Trace, blocs: list[Bloc], *, tirages: int, alea: random.Random, part_tags: float, sortie: str
+    trace: Trace,
+    blocs: list[Bloc],
+    *,
+    tirages: int,
+    alea: random.Random,
+    part_tags: float,
+    sortie: str,
+    ftp_w: float,
 ) -> list[Comparaison]:
-    """Note chaque bloc réel et `tirages` emplacements au hasard de même longueur."""
+    """Note chaque bloc réel et `tirages` emplacements au hasard de même longueur.
+
+    Le bloc réel **et** ses tirages sont notés à la **même** intensité, celle
+    que le cycliste a réellement tenue dans ce bloc-là : depuis la décision du
+    mainteneur du 13/09, le prix d'une descente dépend de la zone
+    (`seance.terrain.FACTEURS_ZONE_DESCENTE`), et noter les deux côtés à des
+    intensités différentes mesurerait le facteur de zone au lieu de mesurer le
+    terrain. La question posée reste « à intensité égale, l'emplacement qu'il a
+    choisi est-il meilleur qu'un emplacement pris au hasard ? ».
+    """
     total = trace.points[-1].dist_m if trace.points else 0.0
     occupes = [(b.debut_m, b.debut_m + b.longueur_m) for b in blocs]
     resultats = []
@@ -488,12 +513,22 @@ def comparer(
             # tronçon **qu'il n'a jamais utilisé** (cadrage du sprint 4).
             if any(depart < fin and depart + bloc.longueur_m > debut for debut, fin in occupes):
                 continue
-            notes.append(evaluer_couloir(trace, depart, bloc.longueur_m))
+            notes.append(
+                evaluer_couloir(
+                    trace, depart, bloc.longueur_m, puissance_w=bloc.puissance_w, ftp_w=ftp_w
+                )
+            )
         resultats.append(
             Comparaison(
                 sortie=sortie,
                 bloc=bloc,
-                note=evaluer_couloir(trace, bloc.debut_m, bloc.longueur_m),
+                note=evaluer_couloir(
+                    trace,
+                    bloc.debut_m,
+                    bloc.longueur_m,
+                    puissance_w=bloc.puissance_w,
+                    ftp_w=ftp_w,
+                ),
                 au_hasard=notes,
                 part_tags=part_tags,
             )
@@ -755,6 +790,25 @@ def diagnostiquer(comparaisons: list[Comparaison]) -> None:
         "  (écart = ce que les blocs réels portent, en part de ce que porte le hasard ;\n"
         "   100 % = le poste ne distingue rien, 0 % = le mainteneur l'évite entièrement)"
     )
+    _dire_les_facteurs_de_zone(comparaisons)
+
+
+def _dire_les_facteurs_de_zone(comparaisons: list[Comparaison]) -> None:
+    """Ce par quoi `POIDS_M_DESCENTE` a été multiplié, bloc par bloc.
+
+    La colonne « poids » du tableau nomme une constante ; pour la descente,
+    cette constante n'est plus le poids appliqué depuis la décision du 13/09.
+    Le taire ferait lire le tableau de travers.
+    """
+    facteurs = sorted({c.note.facteur_descente for c in comparaisons})
+    if not facteurs:
+        return
+    dits = ", ".join(f"×{f:g}" for f in facteurs)
+    print(
+        f"  Descente : POIDS_M_DESCENTE est multiplié par le facteur de zone du bloc\n"
+        f"  (décision du 13/09) — facteurs appliqués ici : {dits}. Les mètres du tableau\n"
+        "  sont bruts ; blocs réels et tirages sont notés à la même intensité."
+    )
 
 
 def _verdict(rapport: float) -> str:
@@ -805,6 +859,7 @@ def executer(arguments: argparse.Namespace) -> int:
                 alea=alea,
                 part_tags=part_tags,
                 sortie=sortie.nom,
+                ftp_w=ftp,
             )
         )
     print()

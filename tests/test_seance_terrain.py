@@ -210,6 +210,172 @@ def test_les_pentes_sont_des_tangentes_pas_des_pourcentages():
     assert any("2,0 %" in motif for motif in note.motifs)
 
 
+# --- ce que coûte une descente dépend de l'intensité du bloc -------------------
+
+
+def _trace_descente_de_un_km() -> Trace:
+    """3 km de tracé dont un kilomètre à −3 % au milieu : 30 m de descente."""
+
+    def altitude(d: float) -> float:
+        if d <= 1000.0:
+            return 100.0
+        if d >= 2000.0:
+            return 70.0
+        return 100.0 - 0.03 * (d - 1000.0)
+
+    points = ligne_droite(3000.0, altitude)
+    return trace_de(points, un_segment(points, highway="tertiary"))
+
+
+def test_la_table_des_facteurs_de_zone_est_croissante_et_couvre_tout():
+    """La table doit être lisible de haut en bas et ne laisser aucun trou.
+
+    Bornes strictement croissantes, facteurs strictement croissants (« son
+    poids négatif augmente avec la zone »), dernière borne infinie : sans quoi
+    une intensité tomberait entre deux lignes, ou une zone plus dure coûterait
+    moins cher qu'une zone plus facile.
+    """
+    bornes = [borne for borne, _, _ in terrain.FACTEURS_ZONE_DESCENTE]
+    facteurs = [facteur for _, facteur, _ in terrain.FACTEURS_ZONE_DESCENTE]
+    adjectifs = [adjectif for _, _, adjectif in terrain.FACTEURS_ZONE_DESCENTE]
+
+    assert bornes == sorted(bornes) and len(set(bornes)) == len(bornes)
+    assert facteurs == sorted(facteurs) and len(set(facteurs)) == len(facteurs)
+    assert bornes[-1] == math.inf, "la dernière ligne doit attraper toutes les intensités"
+    assert all(adjectifs), "chaque ligne doit porter de quoi écrire un motif"
+
+
+@pytest.mark.parametrize(
+    ("fraction", "attendu"),
+    [
+        (0.50, 0.4),  # bien en dessous de la zone de travail
+        (0.7499, 0.4),
+        (0.75, 1.0),  # borne haute exclue : 75 % est déjà le Z3 « tolérable »
+        (0.85, 1.0),  # « faire du Z3 en descente, ça reste possible »
+        (0.90, 2.0),
+        (1.00, 2.0),
+        (1.05, 4.0),  # « Z5 en descente, pas possible ou presque »
+        (1.30, 4.0),
+    ],
+)
+def test_le_facteur_de_zone_suit_la_table(fraction, attendu):
+    assert terrain.facteur_zone(fraction) == pytest.approx(attendu)
+
+
+@pytest.mark.parametrize("fraction", [None, 0.0, -1.0, math.nan, math.inf])
+def test_une_intensite_illisible_laisse_le_facteur_neutre(fraction):
+    """Une ignorance n'est ni une excuse ni un soupçon : le poids reste nu."""
+    assert terrain.facteur_zone(fraction) == terrain.FACTEUR_ZONE_INCONNUE
+
+
+def test_sans_intensite_la_note_est_exactement_celle_d_avant():
+    """Aucun appelant existant ne change de comportement (contrat du point 1)."""
+    trace = _trace_descente_de_un_km()
+
+    muette = evaluer_couloir(trace, 0.0, 3000.0)
+    explicite = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=None, ftp_w=None)
+
+    assert muette.note == pytest.approx(explicite.note)
+    assert muette.facteur_descente == terrain.FACTEUR_ZONE_INCONNUE
+    assert muette.motifs == explicite.motifs
+    assert not any("intensité" in motif for motif in muette.motifs)
+
+
+@pytest.mark.parametrize(
+    ("puissance", "ftp"),
+    [(210.0, None), (None, 260.0), (210.0, 0.0), (210.0, -260.0), (math.nan, 260.0)],
+)
+def test_une_intensite_a_moitie_donnee_ne_change_rien(puissance, ftp):
+    """Puissance sans FTP, FTP nulle, valeur non finie : on ne devine pas."""
+    trace = _trace_descente_de_un_km()
+    nue = evaluer_couloir(trace, 0.0, 3000.0)
+
+    note = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=puissance, ftp_w=ftp)
+
+    assert note.note == pytest.approx(nue.note)
+    assert note.facteur_descente == terrain.FACTEUR_ZONE_INCONNUE
+
+
+def test_la_meme_descente_coute_quatre_fois_plus_cher_en_z5_qu_en_z3():
+    """Décision du mainteneur du 13/09 : « son poids négatif augmente avec la zone ».
+
+    Même couloir, même descente de 30 m : seule l'intensité demandée change.
+    L'écart de note doit valoir exactement l'écart des facteurs appliqué au
+    seul poste « descente », le reste de la note étant identique.
+    """
+    trace = _trace_descente_de_un_km()
+    ftp = 260.0
+
+    z2 = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=0.65 * ftp, ftp_w=ftp)
+    z3 = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=0.85 * ftp, ftp_w=ftp)
+    seuil = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=1.00 * ftp, ftp_w=ftp)
+    z5 = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=1.10 * ftp, ftp_w=ftp)
+
+    assert z2.note < z3.note < seuil.note < z5.note
+    assert (z2.facteur_descente, z3.facteur_descente) == (0.4, 1.0)
+    assert (seuil.facteur_descente, z5.facteur_descente) == (2.0, 4.0)
+    # Le supplément est celui de la descente, et de rien d'autre.
+    descente = z3.descente_m * terrain.POIDS_M_DESCENTE
+    assert z5.note - z3.note == pytest.approx(3.0 * descente)
+    assert z3.note - z2.note == pytest.approx(0.6 * descente)
+    # Les mètres mesurés, eux, ne bougent pas : c'est leur prix qui change.
+    assert {note.descente_m for note in (z2, z3, seuil, z5)} == {z3.descente_m}
+
+
+def test_seule_la_descente_depend_de_l_intensite():
+    """Village, virages et montées se paient pareil quelle que soit la zone.
+
+    Le mainteneur n'a tranché que la descente ; élargir le facteur au reste de
+    la note serait décider à sa place.
+    """
+    points = ligne_droite(2000.0, lambda d: 100.0 + 0.04 * d)  # +4 %, aucune descente
+    trace = trace_de(points, un_segment(points, highway="residential"))
+
+    facile = evaluer_couloir(trace, 0.0, 2000.0, puissance_w=150.0, ftp_w=260.0)
+    dur = evaluer_couloir(trace, 0.0, 2000.0, puissance_w=300.0, ftp_w=260.0)
+
+    assert facile.descente_m == pytest.approx(0.0)
+    assert dur.note == pytest.approx(facile.note)
+    assert dur.motifs == facile.motifs
+
+
+def test_le_motif_dit_ce_que_la_descente_vaut_a_cette_intensite():
+    """« descente de 1,0 km, rédhibitoire à cette intensité » — et pas seulement
+    « descente de 1,0 km » : deux notes très différentes portaient le même mot."""
+    trace = _trace_descente_de_un_km()
+    ftp = 260.0
+
+    z5 = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=1.10 * ftp, ftp_w=ftp)
+    z3 = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=0.85 * ftp, ftp_w=ftp)
+    z2 = evaluer_couloir(trace, 0.0, 3000.0, puissance_w=0.65 * ftp, ftp_w=ftp)
+
+    assert "descente de 1,0 km, rédhibitoire à cette intensité" in z5.motifs
+    assert "descente de 1,0 km, tolérable à cette intensité" in z3.motifs
+    assert "descente de 1,0 km, peu gênante à cette intensité" in z2.motifs
+
+
+def test_le_motif_de_plusieurs_descentes_s_accorde_au_pluriel():
+    def altitude(d: float) -> float:
+        """Deux descentes de 400 m à −4 %, séparées par un plat."""
+        if d <= 500.0:
+            return 100.0
+        if d <= 900.0:
+            return 100.0 - 0.04 * (d - 500.0)
+        if d <= 1400.0:
+            return 84.0
+        if d <= 1800.0:
+            return 84.0 - 0.04 * (d - 1400.0)
+        return 68.0
+
+    points = ligne_droite(2500.0, altitude)
+    trace = trace_de(points, un_segment(points, highway="tertiary"))
+
+    note = evaluer_couloir(trace, 0.0, 2500.0, puissance_w=286.0, ftp_w=260.0)
+
+    assert len([m for m in note.motifs if "descentes" in m]) == 1
+    assert any("descentes" in m and "rédhibitoires à cette intensité" in m for m in note.motifs)
+
+
 # --- chaque poids doit être auditable par la validation rétrospective ---------
 
 #: Les poids que le script de validation **ne peut pas** mesurer, et qui le
@@ -364,7 +530,7 @@ def test_la_conclusion_de_la_validation_est_ecrite_dans_le_readme():
     """
     readme = (RACINE / "README.md").read_text(encoding="utf-8")
     assert "tests/validation/terrain_retrospectif.py" in readme
-    for morceau in ("13/09/2026", "mode nominal", "42,7 %", "POIDS_CARREFOUR", "6 km"):
+    for morceau in ("13/09/2026", "mode nominal", "33,2 %", "POIDS_CARREFOUR", "6 km"):
         assert morceau in readme, f"le README ne dit pas « {morceau} »"
 
 

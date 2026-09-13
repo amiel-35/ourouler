@@ -384,6 +384,29 @@ structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
 
+- **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
+  d'une descente sous un bloc **dépend maintenant de l'intensité demandée**,
+  décision du mainteneur : « la descente doit être réduite dans les blocs et
+  son poids négatif augmente avec la zone. Faire du Z3 en descente faible à
+  moyenne, ça reste possible, position relevée face au vent. Z5 en descente,
+  pas possible ou presque. » `evaluer_couloir` accepte la puissance cible du
+  bloc et la FTP ; `POIDS_M_DESCENTE` est multiplié par un facteur de zone
+  croissant (×0,4 sous 75 % de FTP, ×1 de 75 à 90 %, ×2 de 90 à 105 %, ×4
+  au-delà) et le motif le dit — « descente de 0,4 km, coûteuse à cette
+  intensité ». Les récupérations ne reçoivent toujours **aucune** évaluation,
+  et leur puissance n'est donnée à personne : un test dédié garde les deux.
+
+  **Mesuré, pas affirmé.** La validation rétrospective relancée passe de
+  **42,7 % à 33,2 %** de la note du hasard (critère : au plus 70 %) — le
+  facteur améliore la discrimination, parce que les tirages au hasard portent
+  plus de descente (1,89 m/km) que les emplacements choisis (1,08). Sur les
+  vraies séances : le 08/02, le **classement des candidates change** (les 3ᵉ
+  et 4ᵉ s'échangent, 6,97/8,66 → 6,76/7,12) et la retenue reste la même ; le
+  22/04, l'ordre ne bouge pas mais les notes et le nombre de demi-tours des
+  candidates 2 à 4 changent. Une partie de la « dette assumée » du sprint 4
+  est levée : le poids de la descente reste un arbitrage produit, mais il
+  n'est plus un chiffre unique qui ignore ce qu'on demande au cycliste.
+
 - **2026-09-13, soirée** — Sprint 4 livré sur `sprint-4` (PR vers `main` en
   attente). Le cœur du projet : `ourouler sortie` lit la séance du jour,
   génère des boucles, place les blocs sur le terrain, écrit le GPX du
