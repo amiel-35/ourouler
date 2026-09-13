@@ -102,19 +102,45 @@ MAX_DECALAGES = 2000
 #: relatif hors de la fenêtre d'élasticité, pour une étape élastique
 #: **raccourcie**. Un retour au calme tombé à 0 min au lieu des 20 prescrites
 #: (écart −100 %, soit 0,95 hors d'une fenêtre qui descend à −5 %) coûte ainsi
-#: 19 kilomètres équivalents. C'est volontairement hors de proportion avec le
-#: terrain : sur les boucles mesurées le 08/02, deux à quatre km équivalents
-#: séparent le meilleur couloir du pire, donc aucune qualité de terrain ne doit
-#: pouvoir racheter une séance amputée d'un cinquième de sa durée.
+#: 19 kilomètres équivalents.
+#:
+#: Elle doit rester **au-dessus d'un bloc mutilé** — `terrain.PENALITE_BLOC_TRONQUE`
+#: vaut 10 — parce que c'est tout son objet : empêcher qu'une séance tronquée
+#: gagne. Mesuré le 13/09 sur les quatre candidates des deux sorties réelles :
+#: à 20, aucun placement retenu ne tronque la séance sur le 08/02, et celui du
+#: 22/04 qui tronque (retour au calme à 20 min au lieu de 40) paie 8,9 et finit
+#: dernier. Le même calcul avec la pénalité à 0 fait aussitôt gagner des
+#: placements amputés : le 08/02, une candidate bascule sur un placement à
+#: 0 min de retour au calme (−98 %) et remonte de la 4ᵉ à la 3ᵉ place ; le
+#: 22/04, une autre bascule sur 12 min au lieu de 40 (−69 %) et passe devant.
 PENALITE_SEANCE_NON_TENUE = 20.0
 
 #: Même pénalité pour une étape élastique **allongée** au-delà de sa fenêtre.
-#: Dix fois moins, parce que les deux défauts ne sont pas le même défaut :
+#: Vingt fois moins, parce que les deux défauts ne sont pas le même défaut :
 #: allonger le retour au calme fait rentrer plus tard, mais tout ce qui était
-#: prescrit a été roulé ; le raccourcir supprime de la séance. Elle reste
-#: pénalisante — une boucle qui demande une heure de Z2 de plus que prévu n'est
-#: pas la boucle qu'on a demandée.
-PENALITE_SEANCE_ALLONGEE = 2.0
+#: prescrit a été roulé ; le raccourcir supprime de la séance.
+#:
+#: **Valeur revue le 13/09 (2,0 → 1,0), décision du mainteneur sur le point
+#: produit 2 de la relecture.** À 2,0 elle était plus chère qu'un défaut de
+#: terrain franc sous un bloc, donc l'outil préférait faire traverser un
+#: village plutôt que rentrer 20 minutes en retard. Les deux comparaisons, sur
+#: les durées réelles des deux séances de référence :
+#:
+#: * 08/02 (2×20' + 4×3', retour au calme de 20 min) — rentrer 20 min plus tard
+#:   fait +100 %, soit 0,80 hors de la fenêtre : **1,60** à l'ancien poids,
+#:   **0,80** au nouveau. Traverser 1 km de village pendant un 20' coûte
+#:   `POIDS_KM_BATI` × 1200/3120 = **1,15** après pondération par la durée des
+#:   blocs. 1,60 > 1,15 : le village gagnait. 0,80 < 1,15 : il perd.
+#: * 22/04 (4×40 s + 5' + 4×8', retour au calme de 40 min) — rentrer 20 min
+#:   plus tard fait +50 %, soit 0,30 hors fenêtre : **0,60** puis **0,30**.
+#:   1 km de village pendant un 8' coûte 3,0 × 480/2380 = **0,61**. C'était une
+#:   égalité à 0,01 près ; c'est maintenant un facteur deux.
+#:
+#: Elle reste pénalisante : une heure de Z2 de plus que prévu le 08/02 (+300 %)
+#: coûte encore 2,80, et sur les quatre candidates réelles du 08/02 l'ordre de
+#: classement ne change pas — la pénalité départage toujours dans le même sens,
+#: elle pèse simplement moins que le terrain qu'elle écrasait.
+PENALITE_SEANCE_ALLONGEE = 1.0
 
 
 @dataclass
@@ -622,6 +648,17 @@ def _recup_puis_bloc(
     on applique alors seulement son effet sur la position. La récupération
     n'est jamais évaluée : village, carrefour et revêtement y sont sans
     importance, elle est là pour absorber le point dur.
+
+    **Limite à connaître (T3).** L'arbitrage se fait ici au seul vu de la note
+    de couloir, bloc par bloc, alors que `_penalite_seance` n'est calculée
+    qu'à la fin du déroulé. La pénalité de séance non tenue peut donc
+    départager deux **décalages**, jamais deux variantes d'une même paire : si
+    le demi-tour gagne localement de 0,1 km équivalent, il est retenu même
+    s'il fera payer 19 en bout de course, et tous les décalages en héritent.
+    C'est exactement la cause (1) décrite dans Q14 — « un demi-tour ajoute de
+    la distance que le dimensionnement ignore » — et sa piste (a). Le lecteur
+    qui croit que la pénalité arbitre tout se trompe : elle n'arbitre que ce
+    qui vient après.
     """
     droite = _variante_droite(trace, terrain, etat, recup, recup_puissance, bloc, bloc_idx, bloc_puissance)
     demi = _variante_demi_tour(

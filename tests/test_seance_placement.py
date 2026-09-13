@@ -29,7 +29,7 @@ from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance import placement
 from ourouler.seance.modele import Etape, Seance
-from ourouler.seance.terrain import NoteBloc
+from ourouler.seance.terrain import PENALITE_BLOC_TRONQUE, POIDS_KM_BATI, NoteBloc
 
 # --- fixtures synthétiques ----------------------------------------------------
 
@@ -250,6 +250,115 @@ def test_l_ecart_entre_deux_blocs_vaut_exactement_la_recuperation_prescrite(monk
             f"récupération {numero} : {mesure:.0f} m roulés pour {attendu:.0f} m prescrits "
             f"({recup.duree_s / 60:.0f} min à {_vitesse(PUISSANCE_RECUP) * 3.6:.1f} km/h)"
         )
+
+
+# --- l'asymétrie des deux pénalités de séance (point produit 2 de la relecture) ---
+
+#: Les deux formes de séance de référence, réduites à ce qui pèse dans la
+#: comparaison : la durée de chaque bloc et celle du retour au calme prescrit.
+#: Aucune donnée personnelle — un 2×20' et un 4×8' sont des structures
+#: d'entraînement courantes, les durées ci-dessous sont celles de la forme, pas
+#: d'un fichier du mainteneur.
+FORMES_DE_REFERENCE = (
+    ("2x20 + 4x3", (1200.0, 1200.0, 180.0, 180.0, 180.0, 180.0), 1200.0),
+    ("4x40s + 5 + 4x8", (40.0, 40.0, 40.0, 40.0, 300.0, 480.0, 480.0, 480.0, 480.0), 2400.0),
+)
+
+#: Le retard qu'on compare : rentrer vingt minutes après l'heure prescrite.
+RETARD_S = 20 * 60.0
+
+
+def _note_du_village(durees: tuple[float, ...], *, km_batis: float = 1.0) -> float:
+    """Ce que coûte 1 km de village traversé pendant le **plus long** bloc.
+
+    C'est-à-dire ce que la note de terrain pondérée par la durée retient d'un
+    défaut franc sous le bloc qui compte le plus dans la séance.
+    """
+    etapes = [_etape("bloc", duree / 60.0, PUISSANCE_BLOC) for duree in durees]
+    pire = max(range(len(durees)), key=lambda i: durees[i])
+    emplacements = [
+        placement.Emplacement(
+            etape_idx=i,
+            debut_m=0.0,
+            longueur_m=1000.0,
+            demi_tour=False,
+            note=NoteBloc(
+                note=(POIDS_KM_BATI * km_batis) if i == pire else 0.0,
+                motifs=[],
+                pente_moyenne=0.0,
+                pente_max=0.0,
+                carrefours=0,
+                km_batis=km_batis if i == pire else 0.0,
+                descente_m=0.0,
+                montee_m=0.0,
+            ),
+        )
+        for i in range(len(durees))
+    ]
+    return placement._note_ponderee(emplacements, etapes)
+
+
+@pytest.mark.parametrize(
+    ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
+)
+def test_un_village_sous_un_bloc_coute_plus_cher_qu_un_retour_de_vingt_minutes(
+    nom, durees, calme_s
+):
+    """Point produit 2 : l'outil préférait faire traverser un village plutôt que rentrer tard.
+
+    Un retour au calme de 38 min au lieu de 20 coûtait 1,4 km équivalent ;
+    traverser un bourg sur 1 km pendant un bloc en coûtait 0,5 après
+    pondération par la durée des blocs. L'arbitrage n'avait jamais été posé
+    comme tel, et il était à l'envers : le défaut de terrain, qu'on subit, se
+    payait moins cher que le retard, qu'on rattrape en rentrant.
+
+    La comparaison est faite sur les **durées réelles** des deux séances de
+    référence, et sur les mêmes fonctions que la production (`_penalite_seance`
+    et `_note_ponderee`), pas sur une arithmétique refaite ici.
+    """
+    elasticite = (-0.05, 0.20)
+    retard = placement._penalite_seance([RETARD_S / calme_s], elasticite)
+    village = _note_du_village(durees)
+    assert retard < village, (
+        f"{nom} : rentrer 20 min en retard coûte {retard:.2f} km équivalent, traverser "
+        f"1 km de village pendant le bloc le plus long en coûte {village:.2f} — "
+        "l'outil préfère donc le village"
+    )
+
+
+@pytest.mark.parametrize(
+    ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
+)
+def test_une_seance_tronquee_coute_plus_cher_qu_un_bloc_mutile(nom, durees, calme_s):
+    """L'autre bord : amputer la séance doit rester le défaut le plus cher.
+
+    C'est tout l'objet de `PENALITE_SEANCE_NON_TENUE`, et la borne basse est
+    nommée : `terrain.PENALITE_BLOC_TRONQUE`, ce que coûte un bloc qui ne tient
+    pas du tout sur le tracé. Un retour au calme supprimé doit coûter plus que
+    ça, sans quoi tronquer la séance redevient une option.
+    """
+    elasticite = (-0.05, 0.20)
+    supprime = placement._penalite_seance([-1.0], elasticite)  # retour au calme à 0 min
+    assert supprime > PENALITE_BLOC_TRONQUE, (
+        f"{nom} : supprimer le retour au calme coûte {supprime:.1f}, un bloc qui ne tient "
+        f"pas sur le tracé en coûte {PENALITE_BLOC_TRONQUE:.1f} — tronquer la séance redevient "
+        "moins cher que de renoncer à un bloc"
+    )
+    # Et il reste plus cher que le pire terrain franc mesurable sous les blocs.
+    assert supprime > 4 * _note_du_village(durees, km_batis=1.0)
+
+
+def test_les_deux_penalites_de_seance_restent_dans_le_bon_ordre():
+    """Raccourcir la séance coûte plus cher que l'allonger, et de loin.
+
+    Allonger fait rentrer plus tard ; raccourcir supprime de la séance. Un
+    poids d'allongement qui rattraperait celui du raccourcissement rendrait les
+    deux défauts équivalents, ce qu'ils ne sont pas.
+    """
+    assert placement.PENALITE_SEANCE_ALLONGEE < placement.PENALITE_SEANCE_NON_TENUE
+    # Et il reste sous le poids brut d'un défaut de terrain franc sous un bloc :
+    # un kilomètre de village, avant toute pondération.
+    assert placement.PENALITE_SEANCE_ALLONGEE < POIDS_KM_BATI
 
 
 # --- le décalage de la Z2 d'ouverture -----------------------------------------
