@@ -29,6 +29,14 @@ plat ou faux-plat, de la route au-delà du segment, demi-tour faisable. La
 récupération elle-même n'est **jamais** évaluée : ni village, ni carrefour,
 ni revêtement — elle absorbe le point dur, c'est son rôle.
 
+La note de la configuration est la **moyenne des notes de couloir pondérée
+par la durée de chaque bloc** :
+
+    note_totale = Σ (note_i × duree_i) / Σ duree_i
+
+Décision du superviseur du 13/09 (Q12) : un bloc de 20 min pèse trente fois
+une activation de 40 s. Voir `_note_ponderee` pour le motif.
+
 Une note, jamais un filtre : chaque emplacement porte sa note et ses motifs,
 on garde la configuration la moins mauvaise et on dit ce qui cloche. `None`
 n'est rendu que si la séance ne tient pas du tout sur le tracé ; le motif est
@@ -327,11 +335,42 @@ def _essayer(
     return Placement(
         decalage_z2_s=decalage_s,
         emplacements=emplacements,
-        note_totale=sum(e.note.note for e in emplacements),
+        note_totale=_note_ponderee(emplacements, etapes),
         duree_totale_s=etat.duree_s,
         distance_totale_m=etat.distance_m,
         avertissements=list(dict.fromkeys(avertissements)),
     )
+
+
+def _note_ponderee(emplacements: Sequence[Emplacement], etapes: Sequence[Etape]) -> float:
+    """Moyenne des notes de couloir, pondérée par la durée de chaque bloc.
+
+        note_totale = Σ (note_i × duree_i) / Σ duree_i
+
+    Décision du superviseur du 13/09 (Q12). Les quatre activations de 40 s à
+    375 W de la séance du 22/04 sont des blocs au sens de la séance, et c'est
+    juste. Mais chercher un couloir propre pour 40 s n'a pas de sens, et la
+    validation rétrospective montre que les blocs courts ne se discriminent
+    pas : leur note est du bruit. Plutôt qu'un seuil arbitraire qui les
+    exclurait, on pondère — un bloc de 20 min pèse trente fois un bloc de
+    40 s, et c'est le rapport de leurs durées, pas une constante de plus.
+
+    Le résultat reste une note en kilomètres équivalents, comparable d'une
+    séance à l'autre, ce qu'une somme brute n'était pas : elle grandissait
+    avec le nombre de blocs. Le choix du décalage de la Z2 d'ouverture, lui,
+    est inchangé — les durées des blocs ne dépendent pas du décalage, donc
+    diviser par leur somme ne peut pas changer quel décalage gagne.
+
+    Un jeu de blocs sans durée positive n'a pas de pondération possible : la
+    moyenne simple prend le relais plutôt que d'effacer les pénalités.
+    """
+    if not emplacements:
+        return 0.0
+    poids = [max(0.0, float(etapes[e.etape_idx].duree_s)) for e in emplacements]
+    total = sum(poids)
+    if total <= 0.0:
+        return sum(e.note.note for e in emplacements) / len(emplacements)
+    return sum(e.note.note * p for e, p in zip(emplacements, poids, strict=True)) / total
 
 
 def _rouler(terrain: _Terrain, etat: _Etat, duree_s: float, puissance_w: float) -> bool:

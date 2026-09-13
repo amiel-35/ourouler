@@ -237,7 +237,9 @@ def test_sans_le_bon_decalage_la_note_est_mauvaise(monkeypatch):
     assert resultat is not None
     assert resultat.decalage_z2_s == 0.0
     # Le premier bloc tombe avant le bon couloir : la note est bien moins bonne.
-    assert resultat.note_totale == 10.0
+    # 10 sous l'un des deux blocs, 0 sous l'autre, et les deux durent 20 min :
+    # la moyenne pondérée par la durée vaut 5 (décision du 13/09, Q12).
+    assert resultat.note_totale == 5.0
     assert "hors du bon couloir" in resultat.emplacements[0].note.motifs
     assert resultat.emplacements[1].note.motifs == []
 
@@ -277,7 +279,9 @@ def test_demi_tour_choisi_quand_il_n_y_a_qu_un_bon_segment(monkeypatch):
     premier, second = resultat.emplacements
     assert second.debut_m == pytest.approx(premier.debut_m, abs=1.0)
     assert second.longueur_m == pytest.approx(premier.longueur_m, abs=1.0)
-    assert resultat.note_totale == pytest.approx(1.0)  # la seule pénalité de demi-tour
+    # La pénalité de demi-tour ne porte que sur le second des deux blocs de
+    # 20 min : pondérée par la durée, elle compte pour la moitié.
+    assert resultat.note_totale == pytest.approx(0.5)
     assert any("demi-tour" in m for m in second.note.motifs)
 
 
@@ -290,7 +294,106 @@ def test_demi_tour_refuse_sans_route_au_dela(monkeypatch):
 
     assert resultat is not None
     assert [e.demi_tour for e in resultat.emplacements] == [False, False]
-    assert resultat.note_totale == 10.0
+    # Un seul des deux blocs de 20 min tombe hors du bon couloir : 10 et 0,
+    # moyenne pondérée par la durée = 5.
+    assert resultat.note_totale == 5.0
+
+
+# --- la note est pondérée par la durée des blocs -------------------------------
+
+#: Une activation de 40 s, comme les quatre du « 4x8 SV1 outdoor » du 22/04.
+ACTIVATION_S = 40.0
+BLOC_LONG_S = 1200.0
+MAUVAIS = 10.0
+
+
+def _seance_courte_et_longue() -> Seance:
+    """1 h de Z2, une activation de 40 s, une récup, un bloc de 20 min, la fin."""
+    etapes = [
+        _etape("echauffement", 60, PUISSANCE_Z2, elastique=True),
+        _etape("bloc", ACTIVATION_S / 60.0, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("bloc", BLOC_LONG_S / 60.0, PUISSANCE_BLOC),
+        _etape("recuperation", 4, PUISSANCE_RECUP),
+        _etape("calme", 30, PUISSANCE_CALME, elastique=True),
+    ]
+    return Seance(
+        nom="activation + bloc long",
+        jour=date(2026, 9, 13),
+        etapes=etapes,
+        duree_s=sum(e.duree_s for e in etapes),
+        meta={},
+    )
+
+
+def _positions_courte_et_longue() -> tuple[tuple[float, float], tuple[float, float]]:
+    """(activation, bloc long), chacun (début, fin), sans décalage d'ouverture."""
+    debut_court = _vitesse(PUISSANCE_Z2) * 3600.0
+    fin_court = debut_court + _vitesse(PUISSANCE_BLOC) * ACTIVATION_S
+    debut_long = fin_court + _vitesse(PUISSANCE_RECUP) * 240.0
+    return (debut_court, fin_court), (debut_long, debut_long + _vitesse(PUISSANCE_BLOC) * BLOC_LONG_S)
+
+
+def _zone_sale(monkeypatch, zone: tuple[float, float]):
+    """Terrain noté `MAUVAIS` dès qu'un couloir touche `zone`, 0 partout ailleurs.
+
+    Le demi-tour est fermé (`route_au_dela` faux) : on compare ici deux
+    placements droits, pas deux figures.
+    """
+
+    def evaluer_couloir(trace, debut_m: float, longueur_m: float) -> NoteBloc:
+        touche = debut_m < zone[1] and debut_m + longueur_m > zone[0]
+        return NoteBloc(
+            note=MAUVAIS if touche else 0.0,
+            motifs=["zone salie"] if touche else [],
+            pente_moyenne=0.0,
+            pente_max=0.0,
+            carrefours=0,
+            km_batis=0.0,
+            descente_m=0.0,
+            montee_m=0.0,
+        )
+
+    monkeypatch.setattr(placement, "evaluer_couloir", evaluer_couloir)
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: False)
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: False)
+
+
+def test_un_mauvais_couloir_sous_un_bloc_long_pese_bien_plus_que_sous_une_activation(monkeypatch):
+    """Décision du superviseur du 13/09 (Q12) : la note est pondérée par la durée.
+
+    Même séance, même terrain, même mauvais couloir de note 10 : une fois sous
+    l'activation de 40 s, une fois sous le bloc de 20 min. Le second doit être
+    nettement plus pénalisé — exactement dans le rapport des durées, 1200/40.
+    """
+    court, long = _positions_courte_et_longue()
+
+    _zone_sale(monkeypatch, court)
+    sous_activation = placement.placer(
+        _seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0)
+    )
+    monkeypatch.undo()
+
+    _zone_sale(monkeypatch, long)
+    sous_bloc_long = placement.placer(
+        _seance_courte_et_longue(), _trace(), P, elasticite=(0.0, 0.0)
+    )
+
+    assert sous_activation is not None and sous_bloc_long is not None
+    assert [e.demi_tour for e in sous_activation.emplacements] == [False, False]
+    assert [e.demi_tour for e in sous_bloc_long.emplacements] == [False, False]
+    # Un seul bloc est sali dans chaque cas, et c'est le bon.
+    assert [e.note.note for e in sous_activation.emplacements] == [MAUVAIS, 0.0]
+    assert [e.note.note for e in sous_bloc_long.emplacements] == [0.0, MAUVAIS]
+
+    total_s = ACTIVATION_S + BLOC_LONG_S
+    assert sous_activation.note_totale == pytest.approx(MAUVAIS * ACTIVATION_S / total_s)
+    assert sous_bloc_long.note_totale == pytest.approx(MAUVAIS * BLOC_LONG_S / total_s)
+    assert sous_bloc_long.note_totale == pytest.approx(
+        sous_activation.note_totale * BLOC_LONG_S / ACTIVATION_S
+    )
+    # Une somme brute aurait donné la même note aux deux : c'est le bug corrigé.
+    assert sous_bloc_long.note_totale > 20 * sous_activation.note_totale
 
 
 def test_demi_tour_refuse_sur_une_route_a_trafic(monkeypatch):

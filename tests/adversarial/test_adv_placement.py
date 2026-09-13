@@ -128,7 +128,7 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
         "chaque bloc de la prescription doit être placé"
     )
     indices_blocs = [i for i, _ in seance.blocs()]
-    somme = 0.0
+    notes: list[float] = []
     for n, e in enumerate(placement.emplacements):
         assert e.etape_idx in indices_blocs, (
             f"emplacements[{n}].etape_idx = {e.etape_idx} ne désigne pas une étape de type bloc"
@@ -146,11 +146,22 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
             )
         assert isinstance(e.demi_tour, bool), f"emplacements[{n}].demi_tour : booléen attendu"
         fabriques4.verifier_note(e.note, quoi=f"emplacements[{n}].note")
-        somme += float(e.note.note)
-    assert placement.note_totale >= somme - 1e-6, (
-        f"note_totale = {placement.note_totale} inférieure à la somme des notes de bloc ({somme}) : "
-        "une pénalité a été perdue en route"
-    )
+        notes.append(float(e.note.note))
+    # `note_totale` est la moyenne des notes de couloir pondérée par la durée
+    # des blocs (décision du superviseur du 13/09, Q12) : une activation de
+    # 40 s ne pèse pas comme un bloc de 20 min. Ce n'est donc plus une somme,
+    # et l'invariant porte sur ce qu'une moyenne doit respecter — rester dans
+    # l'intervalle des notes, et ne pas effacer une pénalité.
+    if notes:
+        assert min(notes) - 1e-6 <= placement.note_totale <= max(notes) + 1e-6, (
+            f"note_totale = {placement.note_totale} hors de l'intervalle des notes de bloc "
+            f"([{min(notes)}, {max(notes)}]) : ce n'est pas une moyenne pondérée"
+        )
+        if max(notes) > 0.0:
+            assert placement.note_totale > 0.0, (
+                f"note_totale = {placement.note_totale} alors qu'un bloc porte une pénalité de "
+                f"{max(notes)} : une pénalité a été perdue en route"
+            )
 
 
 def _demi_tours(placement: Any) -> list[int]:
