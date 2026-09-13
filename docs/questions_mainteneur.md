@@ -234,3 +234,41 @@ calibration ?
 
 </details>
 
+
+## Q11 — Quelle puissance viser dans une séance prescrite en zones de FC ?
+
+**Ouverte le 13/09/2026 (lot L4.1).** Les deux séances de référence du
+compte sont prescrites en **zones de fréquence cardiaque** (`hr: {units:
+"hr_zone", value: N}`), pas en puissance. Le contrat de sprint 4 §1 demande
+de les approximer par la zone de **puissance** de même numéro, et de le dire.
+C'est fait, et l'approximation est affichée. Mais le résultat chiffré n'est
+pas utilisable tel quel :
+
+- « Vélo — Sortie EF 2h » du 29/08 est prescrite en **Z1 de FC**. Traduite en
+  Z1 de puissance (0-55 % de FTP), la cible est le milieu de la fourchette,
+  soit **71 W** : `ourouler seance --jour 2026-08-29` annonce **36,1 km pour
+  2 h**, c'est-à-dire 18 km/h. Une sortie EF de 2 h fait 50 à 60 km.
+- Même effet, plus discret, sur les récupérations de « 4x8min Z4 » : 4 min de
+  Z1 donnent **1,2 km**, donc **0,6 km** de route nécessaire au-delà du
+  segment pour un demi-tour, là où le cadrage du sprint 4 écrit « 4 min à
+  25 km/h ≈ 800 m ». L'estimation du demi-tour est donc **optimiste de 25 %**.
+
+Deux causes se cumulent, et aucune ne se tranche sans le mainteneur :
+
+1. **La cible au milieu de la fourchette.** Pour Z4 (91-105 %) le milieu est
+   bon ; pour Z1 (0-55 %) il vaut 27,5 % de FTP, c'est-à-dire du pédalage à
+   vide. Une borne basse non nulle sur Z1, ou une cible aux deux tiers de la
+   fourchette, corrigerait — mais c'est un choix d'entraîneur.
+2. **Une zone de FC n'est pas la zone de puissance de même numéro.** Un plan
+   qui écrit « Z1 de FC » pour une endurance fondamentale désigne en pratique
+   la Z2 de puissance. Un décalage d'un rang, ou une table de correspondance
+   FC → puissance, réglerait les deux séances de référence d'un coup.
+
+Trois façons de sortir, par coût croissant : (a) une table de correspondance
+zone de FC → zone de puissance dans la configuration ; (b) mesurer la
+correspondance sur les sorties réelles du cache (FC et puissance sont toutes
+deux enregistrées) ; (c) demander que les séances soient prescrites en
+puissance chez le planificateur.
+
+En attendant, la longueur de route d'une séance en zones de FC est à lire
+comme un ordre de grandeur bas, et l'avertissement le dit à l'écran.
