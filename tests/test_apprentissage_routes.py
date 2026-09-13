@@ -396,6 +396,38 @@ def test_le_poids_ne_depasse_jamais_le_plafond():
     assert poids["trunk"] == POIDS_MAX
 
 
+def test_multiplier_les_kilometres_des_sorties_ne_change_pas_les_poids():
+    """Contrat §2 : on compare des **parts**, jamais des kilomètres.
+
+    Les deux jeux sont normalisés chacun sur son propre total. Un jeu de
+    sorties dix fois plus fourni — ou une table filtrée en amont, dont les
+    parts ne somment plus à 1 — doit rendre exactement les mêmes poids.
+    """
+    expo = stats_de({"tertiary": 30.0, "secondary": 70.0})
+    reference = poids_appris(stats_de({"tertiary": 60.0, "secondary": 40.0}), expo)
+    for facteur in (0.4, 2.5, 10.0):
+        mis_a_echelle = Statistiques(
+            # `km_total` reste celui d'origine : c'est précisément le cas d'une
+            # table filtrée en amont, que `part()` seul ne saurait pas normaliser.
+            km_total=100.0,
+            km_par_highway={"tertiary": 60.0 * facteur, "secondary": 40.0 * facteur},
+        )
+        assert poids_appris(mis_a_echelle, expo) == pytest.approx(reference), (
+            f"les poids changent quand les kilomètres des sorties sont multipliés par {facteur}"
+        )
+
+
+def test_multiplier_les_kilometres_de_l_exposition_ne_change_pas_les_poids():
+    """Le pendant côté exposition : ~8 boucles de 40 km ou 80, même verdict."""
+    stats = stats_de({"tertiary": 60.0, "secondary": 40.0})
+    reference = poids_appris(stats, stats_de({"tertiary": 30.0, "secondary": 70.0}))
+    double = Statistiques(
+        km_total=100.0,
+        km_par_highway={"tertiary": 60.0, "secondary": 140.0},
+    )
+    assert poids_appris(stats, double) == pytest.approx(reference)
+
+
 def test_tous_les_poids_sont_finis_et_positifs():
     poids = poids_appris(
         stats_de({"tertiary": 65.0, "secondary": 23.0, "primary": 2.0, "residential": 10.0}),

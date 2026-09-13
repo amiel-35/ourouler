@@ -716,16 +716,47 @@ def poids_appris(stats: Statistiques, exposition: Statistiques | None = None) ->
     Sans `exposition`, on rend les poids par défaut du score : sans point de
     comparaison, les parts brutes ne veulent rien dire (une classe peut être
     majoritaire simplement parce qu'elle est majoritaire sur le terrain).
+
+    Chaque jeu est normalisé sur **son propre** total (voir `_parts`) : ce
+    sont des parts qu'on compare, pas des kilomètres. Un jeu de sorties deux
+    fois plus fourni rend exactement les mêmes poids.
     """
-    if exposition is None or exposition.km_total <= 0 or stats.km_total <= 0:
+    if exposition is None:
+        return dict(POIDS_HIGHWAY_DEFAUT)
+    parts_sorties = _parts(stats)
+    parts_expo = _parts(exposition)
+    if not parts_sorties or not parts_expo:
         return dict(POIDS_HIGHWAY_DEFAUT)
 
     poids: dict[str, float] = {}
-    for highway in sorted(set(stats.km_par_highway) | set(exposition.km_par_highway)):
+    for highway in sorted(set(parts_sorties) | set(parts_expo)):
         if not highway:
             continue  # une classe sans `highway` ne se pondère pas : on ne sait rien d'elle
-        poids[highway] = _poids_classe(highway, stats.part(highway), exposition.part(highway))
+        poids[highway] = _poids_classe(
+            highway, parts_sorties.get(highway, 0.0), parts_expo.get(highway, 0.0)
+        )
     return poids
+
+
+def _parts(stats: Statistiques) -> dict[str, float]:
+    """Part de chaque classe dans **ce** jeu de kilomètres, entre 0 et 1.
+
+    Le dénominateur est la somme de `km_par_highway`, et non `km_total` : les
+    deux coïncident sur une base complète, mais une table filtrée en amont
+    (une classe écartée, un jeu restreint à quelques sorties, une exposition
+    générée à part) les désynchronise. `poids_appris` comparerait alors des
+    **kilomètres** déguisés en parts : multiplier les kilomètres d'un des deux
+    jeux par un facteur changerait tous les poids, et une base plus fournie
+    pénaliserait tout. Le contrat §2 compare des parts ; c'est ici qu'on les
+    fabrique.
+
+    Un total nul ou négatif rend un dictionnaire vide : il n'y a pas de part à
+    tirer de rien, et l'appelant retombe sur les poids par défaut.
+    """
+    total = sum(stats.km_par_highway.values())
+    if total <= 0:
+        return {}
+    return {classe: km / total for classe, km in stats.km_par_highway.items()}
 
 
 def _poids_classe(highway: str, part_sorties: float, part_expo: float) -> float:
