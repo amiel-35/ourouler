@@ -305,7 +305,7 @@ def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
 def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
     p = sous.add_parser(
         "comparer",
-        help="combien de watts séparent deux vélos, sur les routes roulées par les deux",
+        help="de combien de km/h (et de watts) deux vélos diffèrent, sur le plat en ligne droite",
         parents=[parent_json()],
     )
     p.add_argument(
@@ -316,10 +316,29 @@ def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
         help="les deux vélos à comparer, par exemple `--velos RCR BMC`",
     )
     p.add_argument(
+        "--zone",
+        nargs=2,
+        type=float,
+        metavar=("BAS", "HAUT"),
+        help="zone de puissance en fraction de la FTP (défaut : 0.56 0.75, soit Z2)",
+    )
+    p.add_argument(
         "--pente-max",
         type=float,
         metavar="PENTE",
-        help="pente maximale d'un tronçon comparable, en tangente (défaut : 0.01, soit 1 %%)",
+        help="pente maximale d'un tronçon, en tangente (défaut : 0.008, soit 0,8 %%)",
+    )
+    p.add_argument(
+        "--cap-max",
+        type=float,
+        metavar="DEGRES",
+        help="écart de cap toléré d'un tronçon au suivant, en degrés (défaut : 15)",
+    )
+    p.add_argument(
+        "--longueur-min",
+        type=float,
+        metavar="METRES",
+        help="longueur minimale d'une série retenue, en mètres (défaut : 500)",
     )
     p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
     p.set_defaults(fonction=_commande_comparer)
