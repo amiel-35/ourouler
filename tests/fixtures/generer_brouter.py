@@ -48,6 +48,19 @@ TAGS = (
     "highway=primary surface=asphalt lanes=2",
 )
 
+#: Tags du **nœud de fin** de chaque tronçon (colonne `NodeTags`). La plupart
+#: des nœuds n'en portent aucun — c'est le cas réel — mais deux en portent,
+#: pour que la lecture de la colonne soit prouvée sur une fixture : un feu et
+#: un passage piéton.
+NODE_TAGS = (
+    "",
+    "",
+    "highway=traffic_signals",
+    "",
+    "highway=crossing",
+    "",
+)
+
 
 def distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
     """Haversine entre deux (lat, lon), en mètres."""
@@ -101,7 +114,7 @@ def reponse_boucle(points: list[tuple[float, float, float]] | None = None) -> di
                 "0",
                 "0",
                 TAGS[numero],
-                "",
+                NODE_TAGS[numero],
                 str(120 * (numero + 1)),
                 str(9000 * (numero + 1)),
             ]

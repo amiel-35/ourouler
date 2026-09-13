@@ -47,6 +47,14 @@ class Segment:
     #: une valeur par défaut pour que les `Segment(debut, fin, longueur,
     #: tags)` déjà écrits continuent de se construire.
     cout_km: float | None = None
+    #: Tags OSM du **nœud où le tronçon se termine** (colonne `NodeTags` des
+    #: messages BRouter) : `{"highway": "traffic_signals"}` pour un feu,
+    #: `{"highway": "crossing"}` pour un passage piéton. Vide quand le nœud
+    #: n'en porte pas, et vide aussi pour une source qui ne les donne pas (un
+    #: GPX importé) — un dictionnaire vide veut donc dire « rien de connu »,
+    #: jamais « carrefour libre » : c'est `seance.terrain` qui en tire les
+    #: conséquences, et qui dit ce qu'il ne sait pas.
+    node_tags: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

@@ -262,6 +262,38 @@ def test_les_tags_de_chemin_sont_decoupes():
     assert trace.segments[5].tags == {"highway": "primary", "surface": "asphalt", "lanes": "2"}
 
 
+def test_les_tags_de_noeud_sont_retenus():
+    """`NodeTags` décrit le nœud de fin du tronçon : feux et stops en viennent."""
+    client, _ = client_fabrique()
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert trace.segments[2].node_tags == {"highway": "traffic_signals"}
+    assert trace.segments[4].node_tags == {"highway": "crossing"}
+    assert trace.segments[0].node_tags == {}
+
+
+def test_un_noeud_sans_tags_donne_un_dictionnaire_vide_jamais_none():
+    charge = reponse_fabriquee()
+    messages = charge["features"][0]["properties"]["messages"]
+    messages[3][10] = ""
+    del messages[4][10:]
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert trace.segments[2].node_tags == {}
+    assert trace.segments[3].node_tags == {}
+
+
+def test_les_tags_de_noeud_suivent_la_colonne_de_l_entete():
+    """Colonnes réordonnées par le serveur : c'est l'en-tête qui fait foi."""
+    charge = reponse_fabriquee()
+    proprietes = charge["features"][0]["properties"]
+    entete, *lignes = proprietes["messages"]
+    ordre = [entete.index(nom) for nom in ("NodeTags", *[n for n in entete if n != "NodeTags"])]
+    proprietes["messages"] = [[ligne[i] for i in ordre] for ligne in ([entete] + lignes)]
+    client, _ = client_repondant(charge)
+    trace = client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert trace.segments[2].node_tags == {"highway": "traffic_signals"}
+
+
 def test_le_cout_par_km_du_moteur_est_retenu():
     """`CostPerKm` est le jugement du routeur sur le trafic : il ne se perd pas."""
     client, _ = client_fabrique()
