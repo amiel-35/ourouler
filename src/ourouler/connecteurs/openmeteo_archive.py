@@ -82,7 +82,7 @@ def arrondir(valeur: float, pas: float = ARRONDI_DEG) -> float:
     """Ramène une coordonnée au multiple de `pas` le plus proche.
 
     L'arrondi passe par les centièmes : `round(x / 0.05) * 0.05` rendait
-    `48.150000000000006`, donc une clé de cache différente d'une exécution à
+    `0.15000000000000002`, donc une clé de cache différente d'une exécution à
     l'autre selon le chemin de calcul.
     """
     return round(round(valeur / pas) * pas, 6)
