@@ -18,11 +18,14 @@ pluie, vent, ressenti à l'heure de passage), `gpx.ecrire_gpx`,
 `physique.commande` (lecture de `calibration.json`), `apprentissage.routes`
 (`BaseRoutes.part_connue`), `Cache`, `ClientIntervals`.
 
-Le superviseur ajoute au socle : `Config.seance` →
-`ParametresSeance(elasticite_z2=0.20, elasticite_z2_min=-0.05,
-demi_tour_penalite=1.0, ftp_defaut_w=None)` ; `Config.tenue` →
+Le superviseur ajoute au socle, **tel que livré** (le code fait foi, pas
+cette ligne) : `Config.seance` → `ParametresSeance(elasticite_z2_max=0.20,
+elasticite_z2_min=-0.05, demi_tour_penalite=1.0, puissance_endurance_pct=0.60,
+seuil_recuperation_pct=0.75)` — il n'y a **pas** de `ftp_defaut_w`, la FTP
+vient de `Config.cycliste.ftp_w` ; `Config.tenue` →
 `ParametresTenue(bornes_c=(3.0, 9.0, 15.0, 22.0, 30.0),
-bornes_pluie_mmh=(0.2, 0.5, 1.0), vent_veste_kmh=30.0, tenues={})`.
+bornes_pluie_mmh=(0.2, 0.5, 1.0), vent_veste_kmh=30.0, tenues=())` avec
+`tenue_de(categorie)` qui rend les vêtements configurés ou `None`.
 
 ## 1. Lot L4.1 — La séance du jour (`seance/`)
 
@@ -121,7 +124,12 @@ rétrospective** :
 - `route_au_dela` : vrai s'il reste `besoin_m` de tracé après la position,
   ou si le tracé est une boucle fermée (on continue sur la boucle).
 - `demi_tour_faisable` : faux si le segment à cette position est dans
-  `HIGHWAY_TRAFIC`, vrai sinon.
+  `HIGHWAY_TRAFIC`, vrai sinon. **Il ne juge que le type de route.** La
+  troisième condition du mainteneur — un demi-tour ne vaut que sur du plat
+  ou du faux-plat, parce qu'à l'envers une côte devient une descente —
+  vit dans `placement.py` (constante `PENTE_DEMI_TOUR_MAX`), qui seul
+  connaît le couple aller/retour. Les trois conditions sont donc : pente
+  du segment, route au-delà, type de route.
 
 **Aucune évaluation sous une récupération** (décision du 13/09) : ni
 village, ni carrefour, ni revêtement. La seule question posée à une récup
@@ -170,7 +178,10 @@ variante **demi-tour** : le bloc reprend le segment du bloc précédent en
 sens inverse si `route_au_dela(fin du bloc précédent, moitié de la récup)`
 et `demi_tour_faisable`, avec `penalite_demi_tour` ajoutée à la note. La Z2
 de fin absorbe le reste : elle n'est pas un levier de placement, seulement
-la fermeture. Si la séance ne tient pas sur la boucle, `None` et le motif.
+la fermeture. Si la séance ne tient pas sur la boucle, `placer` rend `None` et range le
+motif dans `trace.meta[CLE_MOTIF]` — `None` ne transporte rien, et
+`Placement.avertissements` n'existe pas dans ce cas. Même convention que
+`boucle.couts`, qui range ses réserves dans `meta`.
 
 `seance/tenue.py` :
 
