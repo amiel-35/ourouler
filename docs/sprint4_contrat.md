@@ -90,6 +90,14 @@ alimenté depuis la colonne `NodeTags` des messages BRouter (déjà lue dans
 `COLONNES_MESSAGE`, non conservée à ce jour) — format observé :
 `highway=traffic_signals`, `highway=crossing`, etc. ; vide si absent.
 
+**Convention d'unité, écrite parce que son absence a produit un bug réel :
+toutes les pentes du dépôt sont des tangentes**, jamais des pourcentages —
+`0.05` vaut 5 %. C'est la convention de `physique/modele.py`, de
+`physique/calibration.py` et de la CLI. `NoteBloc.pente_moyenne` et
+`pente_max` la suivent ; le pourcentage n'apparaît que dans les motifs
+lisibles. `pente_max` est signée et maximale en valeur absolue : −0,06 pour
+une descente à 6 %.
+
 ```python
 @dataclass
 class NoteBloc:
@@ -121,6 +129,11 @@ rétrospective** :
 - **Montée** : tolérée et non pénalisée jusqu'à +2 % ; au-delà, poids
   modéré (la puissance se tient, la vitesse chute).
 - **Irrégularité** : écart-type de la pente sur le bloc, poids faible.
+- **Les poids ne se devinent pas, ils se mesurent.** Ceux du dépôt sont
+  calibrés par la validation rétrospective : le mainteneur évite les zones
+  bâties et les descentes, ne fuit pas les montées (il en prend plus que le
+  hasard) et ne se soucie pas des carrefours. Un test qui exigerait un
+  ordre contraire a tort contre la mesure.
 - `route_au_dela` : vrai s'il reste `besoin_m` de tracé après la position,
   ou si le tracé est une boucle fermée (on continue sur la boucle).
 - `demi_tour_faisable` : faux si le segment à cette position est dans
@@ -164,6 +177,13 @@ class Placement:
     distance_totale_m: float
     avertissements: list[str]
 
+`note_totale` est la moyenne des notes de couloir **pondérée par la durée
+de chaque bloc**, décision du superviseur du 13/09 : une activation de 40 s
+et un bloc de 20 min sont tous deux des blocs, mais chercher un couloir
+propre pour 40 s n'a pas de sens et la validation rétrospective montre que
+les blocs courts ne se discriminent pas. On pondère plutôt que d'exclure.
+
+```python
 def placer(seance: Seance, trace: Trace, p: Parametres, *,
            elasticite: tuple[float, float] = (-0.05, 0.20),
            pas_s: float = 60.0, penalite_demi_tour: float = 1.0) -> Placement | None
