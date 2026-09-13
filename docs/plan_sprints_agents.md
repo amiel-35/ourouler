@@ -190,9 +190,53 @@ d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
 modèle obtenu pour repérer les autres (résidu de vitesse anormalement
 positif sur une grande part de la sortie) et les écarter ; itérer une fois.
 
-### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
+### Sprint 4 — Séance ↔ terrain **[à figer au point de repriorisation]**
 
-Rien de planifié tant que les sprints 1 et 2 n'ont pas été reparcourus.
+Le cœur du projet. Jalon : `ourouler sortie` lit la séance du jour dans
+Intervals, génère des boucles, les simule avec le modèle calibré, place les
+blocs sur le terrain et rend GPX, résumé, tenue et **carte de vérification**.
+
+**Séances de référence, relevées dans le compte du mainteneur le 13/09.**
+48 séances vélo planifiées depuis mars 2026, trois formes :
+- « Vélo HIT — 4x8min Z4 », 55 min : quatre tronçons d'environ 4 km chacun,
+  roulants, sans village ni descente. C'est le cas dur.
+- « Vélo — Sortie EF 2h » : aucune contrainte de terrain.
+- « 2x20' 80-85 % + 4x3' 100 % FTP » : deux longs puis quatre courts.
+
+**Comment on teste, sans attendre une sortie réelle (décision du 13/09).**
+Validation rétrospective sur des séances déjà faites dehors : « 4x8 SV1
+outdoor » du 22/04/2026 sur 61 km et « 2x20' + 4x3' » du 25/04/2026 sur
+63 km. On relit où les blocs sont **réellement** tombés, et on mesure si
+l'évaluateur de terrain aurait noté ces emplacements comme bons. Trop
+sévère s'il les rejette ; trop permissif s'il note aussi bien un tronçon
+que le mainteneur n'a jamais utilisé pour un bloc. C'est le critère
+d'acceptation chiffré du lot.
+
+**La carte est le livrable de vérification** (demande du mainteneur) : le
+tracé, les blocs colorés là où ils tomberont, le profil d'altitude
+dessous. On voit d'un coup d'œil qu'un bloc traverse un bourg.
+
+**Une note, jamais un filtre** (« ça ne sera pas toujours possible d'éviter
+les villages et les croisements »). Chaque emplacement de bloc reçoit un
+score et un motif lisible, par exemple « bloc 3 : deux croisements, note
+moyenne ». On garde la boucle la moins mauvaise et on dit ce qui cloche,
+plutôt que de ne rien proposer. Hiérarchie des pénalités à calibrer sur les
+sorties réelles : une descente longue coûte plus qu'un carrefour.
+
+Reste à préciser au lancement : bornes chiffrées des catégories de tenue
+(Q3, réglables à l'usage) et option `--depuis` pour un départ autre que la
+maison.
+
+### Sprint 5 — La sortie du jour au quotidien **[esquissé]**
+
+Confort d'usage : nom de fichier et résumé soignés, `--depuis`, mémoire de
+ce qui a été proposé et fait. Le GPX étant déjà produit, l'envoi au
+compteur se limite au partage du fichier (voir backlog ci-dessous).
+
+### Ensuite — l'hébergé
+
+API au-dessus du même cœur, puis front web et comptes, dans cet ordre
+(doctrine §10).
 
 Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
 Connect pour un particulier → le GPX généré est le socle ; sur mobile,
