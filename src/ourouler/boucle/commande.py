@@ -110,7 +110,13 @@ def executer(
     if demande.gpx is not None:
         traces = [(lire_gpx_trace(demande.gpx), None, None)]
     else:
-        client_brouter = client_brouter if client_brouter is not None else ClientBrouter(config.brouter)
+        client_brouter = (
+            client_brouter
+            if client_brouter is not None
+            # Les zones à éviter sont passées au client, pas lues par lui :
+            # le cœur ne connaît pas la configuration, il la reçoit.
+            else ClientBrouter(config.brouter, evitements=config.evitements)
+        )
         trouvees = generer(
             client_brouter,
             config.depart,

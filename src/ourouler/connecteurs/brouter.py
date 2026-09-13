@@ -21,13 +21,14 @@ point de la géométrie (117/117 puis 802/802 sur deux réponses réelles).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Any
 
 import httpx
 
 from ourouler.boucle.trace import DENIVELE_MOTEUR, PointTrace, Segment, Trace, distance_m
-from ourouler.config import ParametresBrouter
+from ourouler.config import Evitement, ParametresBrouter
 from ourouler.erreurs import ErreurConnecteur
 
 CHEMIN_ITINERAIRE = "/brouter"
@@ -66,7 +67,13 @@ DEGRES, MICRODEGRES = 1.0, 1e-6
 class ClientBrouter:
     """Accès à un serveur BRouter. `http` est injectable : les tests ne sortent jamais."""
 
-    def __init__(self, params: ParametresBrouter, http: httpx.Client | None = None):
+    def __init__(
+        self,
+        params: ParametresBrouter,
+        http: httpx.Client | None = None,
+        *,
+        evitements: Sequence[Evitement] = (),
+    ):
         if not params.url:
             raise ErreurConnecteur(
                 "BRouter : [brouter] url est vide — renseigner l'adresse du serveur "
@@ -82,6 +89,9 @@ class ClientBrouter:
         self._auth = (
             httpx.BasicAuth(params.utilisateur, params.mot_de_passe) if params.utilisateur else None
         )
+        # Les zones à éviter viennent de `Config.evitements` et sont passées
+        # par l'appelant : ce module ne lit aucune configuration.
+        self.nogos = _nogos(evitements)
 
     def __repr__(self) -> str:  # ni mot de passe, ni utilisateur dans une trace
         return f"ClientBrouter(base_url={self.base_url!r}, profil={self.profil_defaut!r})"
@@ -103,12 +113,14 @@ class ClientBrouter:
             )
         profil = profil or self.profil_defaut
         charge = self._appeler(
-            {
-                "lonlats": "|".join(_lonlat(lat, lon) for lat, lon in points),
-                "profile": profil,
-                "alternativeidx": 0,
-                "format": "geojson",
-            },
+            self._avec_nogos(
+                {
+                    "lonlats": "|".join(_lonlat(lat, lon) for lat, lon in points),
+                    "profile": profil,
+                    "alternativeidx": 0,
+                    "format": "geojson",
+                }
+            ),
             profil,
         )
         return _trace(charge, nom=f"Itinéraire {profil}", profil=profil, url=self.url_itineraire)
@@ -147,7 +159,7 @@ class ClientBrouter:
         }
         if ecart_deg is not None:
             params["roundTripDirectionAdd"] = int(ecart_deg)
-        charge = self._appeler(params, profil)
+        charge = self._appeler(self._avec_nogos(params), profil)
         trace = _trace(
             charge,
             nom=f"Boucle {azimut:.0f}° {rayon_m / 1000:.1f} km",
@@ -159,6 +171,17 @@ class ClientBrouter:
         return trace
 
     # --- interne --------------------------------------------------------------
+
+    def _avec_nogos(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Ajoute `nogos` aux paramètres s'il y a des zones à éviter.
+
+        Le paramètre est **omis** quand la liste est vide plutôt qu'envoyé
+        vide : un `nogos=` nu n'a pas de sens pour le moteur, et une URL sans
+        le paramètre est celle qu'on sait déjà juste.
+        """
+        if not self.nogos:
+            return params
+        return {**params, "nogos": self.nogos}
 
     def _appeler(self, params: dict[str, Any], profil: str) -> Any:
         """Un GET authentifié. Les messages ne citent que l'URL nue et le code HTTP."""
@@ -203,6 +226,23 @@ def _indice(reponse: httpx.Response, profil: str) -> str:
 def _lonlat(lat: float, lon: float) -> str:
     """BRouter attend `lon,lat` ; le reste du projet manipule des (lat, lon)."""
     return f"{lon:.6f},{lat:.6f}"
+
+
+def _nogos(evitements: Sequence[Evitement]) -> str:
+    """`lon,lat,rayon|lon,lat,rayon…` — les zones que le moteur doit contourner.
+
+    Même convention que `lonlats` : BRouter attend `lon,lat`, le rayon en
+    mètres entiers. Une zone au rayon absurde (négatif, nul, non fini) est
+    écartée : demander au moteur d'éviter un disque de rayon négatif ne veut
+    rien dire, et un `nogos` illisible fait échouer **tout** l'itinéraire.
+    """
+    morceaux = []
+    for e in evitements:
+        rayon = float(e.rayon_m)
+        if not math.isfinite(rayon) or rayon <= 0:
+            continue
+        morceaux.append(f"{_lonlat(e.latitude, e.longitude)},{round(rayon)}")
+    return "|".join(morceaux)
 
 
 # --- lecture du GeoJSON -------------------------------------------------------

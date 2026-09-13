@@ -19,7 +19,7 @@ from typing import Any
 import httpx
 import pytest
 
-from ourouler.config import ParametresBrouter
+from ourouler.config import Evitement, ParametresBrouter
 from ourouler.connecteurs.brouter import MODE_BOUCLE, ClientBrouter
 from ourouler.erreurs import ErreurConnecteur
 
@@ -121,6 +121,70 @@ def test_l_authentification_basique_est_envoyee():
 
 
 # --- lecture du GeoJSON -------------------------------------------------------
+
+
+# --- zones à éviter (nogos) ---------------------------------------------------
+#
+# Points fictifs uniquement : aucune coordonnée réelle n'entre dans le dépôt.
+
+EVITEMENTS = (
+    Evitement(nom="carrefour fictif", latitude=0.002, longitude=0.003, rayon_m=250.0),
+    Evitement(nom="pont fictif", latitude=-0.004, longitude=0.005, rayon_m=80.0),
+)
+
+
+def client_avec_evitements(evitements) -> tuple[ClientBrouter, list[httpx.Request]]:
+    vues: list[httpx.Request] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        vues.append(requete)
+        return httpx.Response(200, json=reponse_fabriquee())
+
+    client = ClientBrouter(
+        PARAMS,
+        http=httpx.Client(transport=httpx.MockTransport(gestionnaire)),
+        evitements=evitements,
+    )
+    return client, vues
+
+
+def test_les_evitements_partent_en_nogos_sur_un_itineraire():
+    client, vues = client_avec_evitements(EVITEMENTS)
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert vues[0].url.params["nogos"] == "0.003000,0.002000,250|0.005000,-0.004000,80"
+
+
+def test_les_evitements_partent_en_nogos_sur_une_boucle():
+    client, vues = client_avec_evitements(EVITEMENTS)
+    client.boucle((0.0, 0.0), azimut_deg=45, rayon_m=1500)
+    assert vues[0].url.params["nogos"].startswith("0.003000,0.002000,250")
+    assert vues[0].url.params["engineMode"] == str(MODE_BOUCLE)
+
+
+def test_sans_evitement_le_parametre_nogos_est_absent():
+    """Un `nogos=` vide n'a pas de sens pour le moteur : on l'omet."""
+    client, vues = client_fabrique()
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert "nogos" not in vues[0].url.params
+
+
+def test_un_rayon_absurde_est_ecarte_pas_envoye():
+    """Un `nogos` illisible ferait échouer tout l'itinéraire : on jette la zone."""
+    evitements = (
+        Evitement(nom="rayon nul", latitude=0.001, longitude=0.001, rayon_m=0.0),
+        Evitement(nom="rayon négatif", latitude=0.002, longitude=0.002, rayon_m=-50.0),
+        Evitement(nom="valable", latitude=0.003, longitude=0.004, rayon_m=120.0),
+    )
+    client, vues = client_avec_evitements(evitements)
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert vues[0].url.params["nogos"] == "0.004000,0.003000,120"
+
+
+def test_tous_les_rayons_absurdes_valent_aucun_evitement():
+    evitements = (Evitement(nom="nulle", latitude=0.001, longitude=0.001, rayon_m=0.0),)
+    client, vues = client_avec_evitements(evitements)
+    client.itineraire([(0.0, 0.0), (0.01, 0.0)])
+    assert "nogos" not in vues[0].url.params
 
 
 def test_trace_lue_depuis_la_reponse_fabriquee():
