@@ -181,9 +181,14 @@ poids du cycliste vient d'Intervals quand il y est, sinon une constante, car
 hors montagne il pèse peu. L'effort va dans ce qui compte : CdA par vélo,
 vent réel (archives Open-Meteo), et **l'exclusion des sorties en groupe**
 (peloton = aérodynamique faussée). Les FIT ne le disent pas ; Strava a un
-champ « nombre d'athlètes » (export Strava ou API en lecture) ; à défaut,
-détection statistique par la calibration : une sortie dont la vitesse est
-trop élevée pour la puissance est un peloton, à écarter comme aberrante.
+champ « nombre d'athlètes » (export Strava ou API en lecture). **Décision
+d'Amiel (13/09) : c'est le plus dur, donc combiner** (1) le nom de la
+sortie (« sortie club », « groupe », « peloton »… liste de mots dans la
+configuration) et (2) l'incohérence physique : vitesse élevée pour une
+puissance basse que ni la pente ni le vent n'expliquent. Méthode : calibrer
+d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
+modèle obtenu pour repérer les autres (résidu de vitesse anormalement
+positif sur une grande part de la sortie) et les écarter ; itérer une fois.
 
 ### Plus tard — S4 séance ↔ terrain, S5 envoi au compteur, HA
 
