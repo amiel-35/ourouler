@@ -454,3 +454,109 @@ def test_les_tests_adversariaux_n_appellent_que_des_domaines_de_test():
         "hôte non fictif dans les tests adversariaux (utiliser un domaine .invalide) :\n  "
         + "\n  ".join(fautes)
     )
+
+
+# --- sprint 3 : numpy reste dans physique/ -----------------------------------
+
+#: `numpy` est autorisé par le contrat du sprint 3 §3 pour l'ajustement aux
+#: moindres carrés, et **seulement** là. Partout ailleurs il transformerait une
+#: bibliothèque que le mainteneur installe en une seconde en un paquet compilé
+#: de 20 Mo, pour une somme pondérée qu'un `for` écrit aussi bien (CLAUDE.md :
+#: « 50 lignes évidentes valent mieux que 20 lignes malignes »).
+DOSSIER_NUMPY_AUTORISE = SRC / "physique"
+MODULES_CALCUL_LOURD = {"numpy", "scipy", "pandas"}
+
+
+def _imports(chemin: Path) -> list[tuple[int, str]]:
+    """(ligne, module racine) pour chaque import du fichier."""
+    trouves: list[tuple[int, str]] = []
+    for noeud in ast.walk(_arbre(chemin)):
+        if isinstance(noeud, ast.Import):
+            for alias in noeud.names:
+                trouves.append((noeud.lineno, alias.name.split(".")[0]))
+        elif isinstance(noeud, ast.ImportFrom):
+            trouves.append((noeud.lineno, (noeud.module or "").split(".")[0]))
+    return trouves
+
+
+def test_numpy_ne_sort_pas_de_physique():
+    """Contrat sprint 3 §3 et §4 : « numpy autorisé, pas scipy » — et seulement dans `physique/`."""
+    fautes = []
+    for chemin in _fichiers_python(SRC):
+        dans_physique = DOSSIER_NUMPY_AUTORISE in chemin.parents
+        for ligne, module in _imports(chemin):
+            if module not in MODULES_CALCUL_LOURD:
+                continue
+            if module == "numpy" and dans_physique:
+                continue
+            fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} import {module}")
+    assert not fautes, (
+        "calcul lourd hors de src/ourouler/physique/ (le contrat n'autorise que numpy, "
+        "et seulement là ; scipy est exclu partout) :\n  " + "\n  ".join(fautes)
+    )
+
+
+def test_le_detecteur_d_imports_fonctionne(tmp_path):
+    """Un test négatif ne prouve rien sans la preuve que le détecteur détecte."""
+    faux = tmp_path / "faux.py"
+    faux.write_text("import numpy as np\nfrom scipy import optimize\nimport math\n", encoding="utf-8")
+    modules = {module for _, module in _imports(faux)}
+    assert {"numpy", "scipy"} <= modules, f"le détecteur laisse passer {modules}"
+    assert "math" in modules, "le détecteur doit voir tous les imports, pas seulement les interdits"
+
+
+# --- sprint 3 : le cœur ne fabrique pas les chemins du cache -----------------
+
+#: Fichiers que le sprint 3 range dans `cache.dossier`. Le contrat est explicite :
+#: « le cœur ne lit pas de fichier : c'est `boucle/commande.py` qui lit le JSON
+#: et passe le dict », « le cache est passé en paramètre (le cœur ne connaît pas
+#: le chemin) ». Un module du cœur qui écrit le nom de fichier en dur sait donc
+#: où il tourne — c'est la règle absolue 2 contournée par une chaîne.
+FICHIERS_DU_CACHE = (
+    "routes_connues.sqlite",
+    "poids_routes.json",
+    "archive_meteo.sqlite",
+    "calibration.json",
+)
+
+
+def _chaines(chemin: Path) -> list[tuple[int, str]]:
+    return [
+        (noeud.lineno, noeud.value)
+        for noeud in ast.walk(_arbre(chemin))
+        if isinstance(noeud, ast.Constant) and isinstance(noeud.value, str)
+    ]
+
+
+def _peut_nommer_un_fichier_du_cache(chemin: Path) -> bool:
+    """`cli.py` et les `commande.py` de chaque paquet : eux seuls lisent le disque."""
+    return chemin.name == "cli.py" or chemin.name == "commande.py"
+
+
+def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
+    """Contrat sprint 3 §2 et §3 : le cœur reçoit des objets, la CLI lit les fichiers."""
+    fautes = []
+    for chemin in _fichiers_python(SRC):
+        if _peut_nommer_un_fichier_du_cache(chemin):
+            continue
+        for ligne, texte in _chaines(chemin):
+            for fichier in FICHIERS_DU_CACHE:
+                if fichier in texte:
+                    fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} — « {fichier} »")
+    assert not fautes, (
+        "nom de fichier du cache écrit en dur hors de cli.py et des commande.py "
+        "(le cœur reçoit un chemin ou un dict, il ne le fabrique pas) :\n  "
+        + "\n  ".join(sorted(set(fautes)))
+    )
+
+
+def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
+    faux = tmp_path / "faux.py"
+    faux.write_text(
+        'CHEMIN = dossier / "poids_routes.json"\nAUTRE = "index.sqlite"\n', encoding="utf-8"
+    )
+    textes = {texte for _, texte in _chaines(faux)}
+    assert "poids_routes.json" in textes, "le détecteur ne voit pas la chaîne fautive"
+    assert not any(f in t for t in textes for f in FICHIERS_DU_CACHE if f != "poids_routes.json"), (
+        "faux positif sur un nom de fichier qui n'est pas du sprint 3"
+    )

@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from ourouler.boucle.antennes import detecter, elaguer
 from ourouler.boucle.trace import Trace
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -28,7 +29,15 @@ RAPPORT_RAYON_DEFAUT = 5.0
 PAS_AZIMUT_DEG = 20.0
 
 #: Nombre d'ajustements de rayon par azimut, après le premier essai.
-AJUSTEMENTS_MAX = 2
+#:
+#: Passé de 2 à 3 le 13/09/2026, décision du superviseur prise après la
+#: vérification réelle. L'élagage des antennes (lot L3.1) retire des centaines
+#: de mètres à la boucle rendue par le moteur : la distance mesurée oscille
+#: alors d'une itération à l'autre — 53,6 km puis 65,4 km pour 60 km demandés
+#: — et deux corrections s'arrêtaient au milieu de l'oscillation. Une
+#: itération de plus affine sans coûter cher, à condition que le plafond
+#: d'appels suive la demande — c'est ce que fait `appels_pour`.
+AJUSTEMENTS_MAX = 3
 
 #: Bornes du facteur de correction d'une itération à la suivante. Diviser ou
 #: multiplier le rayon par plus de 4 d'un coup, c'est croire une réponse que
@@ -48,6 +57,18 @@ class Candidate:
     azimut_deg: float
     rayon_m: float
     ecart_relatif: float  # (distance − cible) / cible
+
+
+def appels_pour(nb: int) -> int:
+    """Plafond d'appels au moteur pour `nb` candidates demandées.
+
+    Chaque azimut a droit à son premier essai et à ses `AJUSTEMENTS_MAX`
+    corrections : le plafond doit donc suivre la demande, et non l'inverse.
+    Un plafond fixe faisait rendre trois candidates à qui en demandait cinq
+    dès que le moteur cessait de converger — l'utilisateur demandait cinq
+    directions, en voyait trois, et rien ne le lui disait.
+    """
+    return nb * (1 + AJUSTEMENTS_MAX)
 
 
 def azimuts(azimut_deg: float, nb: int) -> list[float]:
@@ -71,14 +92,16 @@ def generer(
     nb: int,
     tolerance: float,
     profil: str | None = None,
-    appels_max: int = 12,
+    appels_max: int | None = None,
 ) -> list[Candidate]:
     """Jusqu'à `nb` boucles autour de `azimut_deg`, triées par écart à la distance voulue.
 
     Pour chaque azimut : un premier essai au rayon `distance / 5`, puis au plus
     `AJUSTEMENTS_MAX` corrections par proportion (`rayon × cible / obtenu`)
-    tant que l'écart dépasse `tolerance`. Seules les boucles **bornées** sont
-    retenues : un tracé qui ne revient pas au départ n'est pas une boucle.
+    tant que l'écart dépasse `tolerance` — trois corrections depuis le
+    13/09/2026, l'élagage des antennes faisant osciller la distance mesurée.
+    Seules les boucles **bornées** sont retenues : un tracé qui ne revient pas
+    au départ n'est pas une boucle.
 
     La correction est **bornée des deux côtés** : facteur dans
     `[FACTEUR_MIN, FACTEUR_MAX]`, rayon dans `[RAYON_MIN_M, RAYON_MAX_M]`. Une
@@ -92,11 +115,20 @@ def generer(
     borne le **nombre** d'appels au moteur, les bornes ci-dessus bornent leur
     **coût**. Si aucune candidate n'entre dans la tolérance, les meilleures
     sont rendues quand même — l'utilisateur juge mieux sur des chiffres que
-    sur du vide.
+    sur du vide. Par défaut, `appels_max` vaut `appels_pour(nb)` : le plafond
+    suit la demande, pour que `nb = 5` rende bien cinq candidates même quand
+    le moteur épuise ses ajustements sur chacune.
 
     Un azimut qui fait échouer le moteur (profil refusé sur une direction,
     panne passagère) ne fait pas perdre les autres : l'erreur est retenue et
     relancée seulement si **aucune** candidate n'a pu être produite.
+
+    Chaque réponse du moteur est **élaguée de ses antennes** avant d'être
+    mesurée (contrat §1) : les crochets que le mode boucle fabrique en allant
+    chercher un point de passage tombé à côté de la route sont retirés, et
+    `trace.meta["antennes"]` dit combien et combien de mètres. L'ajustement de
+    rayon travaille donc sur la distance **réellement proposée au cycliste**,
+    pas sur celle qui incluait l'aller-retour.
 
     Une `distance_km` qui n'est pas un nombre fini strictement positif et un
     `nb` inférieur à 1 sont des `ErreurUtilisateur` levées **avant** tout
@@ -112,6 +144,7 @@ def generer(
         )
     if nb < 1:
         raise ErreurUtilisateur(f"nb = {nb} : au moins une candidate est attendue")
+    appels_max = appels_max if appels_max is not None else appels_pour(nb)
     cible_m = distance_km * 1000.0
     appels = 0
     candidates: list[Candidate] = []
@@ -135,6 +168,7 @@ def generer(
                 appels += 1
                 break
             appels += 1
+            trace = elaguer(trace, detecter(trace))
             ecart = (trace.distance_m - cible_m) / cible_m
             if trace.bornee() and (meilleure is None or abs(ecart) < abs(meilleure.ecart_relatif)):
                 meilleure = Candidate(

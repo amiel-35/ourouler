@@ -127,7 +127,7 @@ nginx à auth basique ; identifiants dans la config locale du mainteneur.
 Le lot « virages à droite » est un post-traitement des candidates (aucun
 moteur ne distingue gauche/droite nativement).
 
-### Sprint 3 — Routes connues, puis modèle physique **[esquissé, non figé]**
+### Sprint 3 — Antennes, routes connues, modèle physique **[livré le 13/09/2026, PR en attente]**
 
 **Lot « routes connues » (décision d'Amiel, nuit du 12 au 13/09).** Mesuré
 sur dix vraies sorties rejouées dans BRouter (747 km) : 65 % de `tertiary`,
@@ -211,6 +211,27 @@ COROS sans rien demander à personne. L'Edge sait charger un parcours et une sé
 structurée en même temps : la séance vient déjà d'Intervals.icu.
 
 ## Historique des sprints
+
+- **2026-09-13, journée** — Sprint 3 livré sur `sprint-3` (PR vers `main` en
+  attente). Trois lots en parallèle (antennes, routes connues, physique) +
+  testeur adversarial ; relecture Opus (9 points, aucun bloquant) et passe
+  Fable sur la physique ; trois passes de corrections. État : 2 364 tests,
+  ruff vert. **Vérifié sur vraies données** : antennes (jusqu'à 6,6 km de
+  culs-de-sac retirés par boucle, fenêtre 3 km décidée sur mesure ;
+  `profile:correct_misplaced_via_points` est ignoré par le serveur) ;
+  routes connues (154 sorties rejouées, tertiary 58 % / secondary 20 % /
+  unclassified 13 %, poids appris secondary 3,0 → 0,44, colonne « connu % »
+  cohérente avec la pratique : S 86-89 %, O 51 %) ; calibration RCR MAE
+  4,2 %, BMC 2,4 % sur sorties non vues, après vent à hauteur du cycliste
+  (×0,6) et terme cinétique — l'un sans l'autre laissait le CdA en butée ;
+  `comparer` : BMC +2,4 km/h à puissance égale en Z2 sur séries plates,
+  ≈ 27-42 W, conforme au « 25-30 W à la louche » d'Amiel. Décisions :
+  on ne sépare plus CdA et Crr (Q9), multisport écarté (Q10), Q8 = Z2 par
+  défaut puis la séance (S4). Dette assumée : `routes poids` fait 8 appels
+  BRouter même sans `--appliquer` ; conversion en watts = fourchette, pas
+  un chiffre ; BRouter bimodal sur l'azimut NE à 60 km ; élagage des
+  antennes approximatif au raccord (re-tracé par le moteur à envisager) ;
+  facteur vent 0,6 = hypothèse de rugosité, non mesurée.
 
 - **2026-09-13, nuit** — Sprint 2 livré sur `sprint-2` (branche issue de
   `sprint-1`), PR vers `sprint-1`/`main` en attente. Déroulé : BRouter

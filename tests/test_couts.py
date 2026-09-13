@@ -368,3 +368,127 @@ def test_le_seuil_de_virage_est_bien_celui_annonce():
     assert evaluer(trace_de_caps([0, sous])).virages_droite == 0
     assert evaluer(trace_de_caps([0, au_dessus])).virages_droite == 1
     assert evaluer(trace_de_caps([0, -au_dessus])).virages_gauche == 1
+
+
+# --- antennes (L3.1) ----------------------------------------------------------
+
+
+def test_les_metres_d_antennes_viennent_de_la_mesure_d_avant_elagage():
+    """Une candidate élaguée n'a plus d'antenne : la colonne lit ce qui a été retiré."""
+    trace = trace_de_caps([0, 90])
+    trace.meta["antennes"] = {"nombre": 2, "metres_retires": 740.0}
+    couts = evaluer(trace)
+    assert couts.antennes_m == pytest.approx(740.0)
+    # Informatif : le score n'en tient pas compte (ces mètres ne sont plus là).
+    assert couts.score == pytest.approx(PENALITE_MAUVAIS_SENS)
+
+
+def test_un_trace_non_elague_est_mesure_a_la_volee():
+    """Un GPX importé n'a pas de `meta["antennes"]` : on ne rend pas 0 sans regarder."""
+    aller_retour = trace_de_caps([0] * 10 + [180] * 10, pas_m=20.0)
+    assert "antennes" not in aller_retour.meta
+    assert evaluer(aller_retour).antennes_m > 300
+
+
+def test_une_mesure_d_antennes_illisible_est_refaite():
+    trace = trace_de_caps([0, 90])
+    for valeur in ({"nombre": 1}, {"metres_retires": None}, {"metres_retires": True}, "740"):
+        trace.meta["antennes"] = valeur
+        assert evaluer(trace).antennes_m == 0.0
+
+
+def test_un_trace_sans_antenne_rend_zero_metre():
+    assert evaluer(trace_de_caps([0, 90, 180, 270])).antennes_m == 0.0
+
+# --- poids injectés (L3.2) ----------------------------------------------------
+#
+# Le score du sprint 2 était figé : trois kilomètres équivalents par kilomètre
+# de « trafic », zéro pour tout le reste. Le sprint 3 le rend paramétrable par
+# classe `highway`, les constantes restant le cas par défaut.
+
+
+def _droite_taggee(tags: list[dict[str, str]], pas_m: float = 1000.0) -> Trace:
+    """Une ligne droite d'un tronçon de 1 km par jeu de tags — aucun virage.
+
+    Une droite n'a pas de sens de boucle : son score porte toujours
+    `PENALITE_MAUVAIS_SENS`, qu'on retranche pour ne comparer que les routes.
+    """
+    segments = [Segment(i, i + 1, pas_m, t) for i, t in enumerate(tags)]
+    return trace_de_caps([0.0] * len(tags), pas_m=pas_m, segments=segments)
+
+
+def _score_routes(couts) -> float:
+    """Le score sans la pénalité de sens : une droite n'est jamais une boucle."""
+    return couts.score - PENALITE_MAUVAIS_SENS
+
+
+def test_sans_poids_le_score_est_exactement_celui_du_sprint_2():
+    trace = _droite_taggee([{"highway": "secondary"}, {"highway": "tertiary"}])
+    assert _score_routes(evaluer(trace)) == pytest.approx(POIDS_KM_TRAFIC, rel=0.02)
+
+
+def test_les_poids_injectes_remplacent_les_constantes():
+    trace = _droite_taggee([{"highway": "secondary"}, {"highway": "tertiary"}])
+    couts = evaluer(trace, poids={"secondary": 1.0, "tertiary": 0.0})
+    assert _score_routes(couts) == pytest.approx(1.0, rel=0.02)
+
+
+def test_une_classe_penalisee_par_les_poids_appris_pese_sur_le_score():
+    trace = _droite_taggee([{"highway": "primary"}])
+    leger = evaluer(trace, poids={"primary": 0.5})
+    lourd = evaluer(trace, poids={"primary": 4.0})
+    assert lourd.score > leger.score
+    assert lourd.score - leger.score == pytest.approx(3.5, rel=0.02)
+
+
+def test_une_classe_absente_des_poids_ne_coute_rien():
+    """« Inconnu » n'est jamais un malus, y compris dans le barème."""
+    trace = _droite_taggee([{"highway": "living_street"}])
+    assert _score_routes(evaluer(trace, poids={"primary": 4.0})) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_un_bareme_vide_annule_le_cout_des_routes_mais_pas_le_reste():
+    trace = _droite_taggee([{"highway": "primary", "surface": "gravel"}])
+    couts = evaluer(trace, poids={})
+    assert _score_routes(couts) == pytest.approx(POIDS_KM_NON_REVETU, rel=0.02)
+
+
+def test_les_kilometres_par_classe_sont_rendus():
+    trace = _droite_taggee(
+        [{"highway": "tertiary"}, {"highway": "tertiary"}, {"highway": "secondary"}]
+    )
+    couts = evaluer(trace)
+    assert couts.km_par_highway["tertiary"] == pytest.approx(2.0)
+    assert couts.km_par_highway["secondary"] == pytest.approx(1.0)
+
+
+def test_un_troncon_sans_highway_se_range_sous_la_classe_vide():
+    couts = evaluer(_droite_taggee([{"surface": "asphalt"}]))
+    assert couts.km_par_highway[""] == pytest.approx(1.0)
+    assert _score_routes(couts) == pytest.approx(0.0, abs=1e-9)
+
+
+# --- coût du profil BRouter ---------------------------------------------------
+
+
+def test_le_cout_profil_est_la_moyenne_ponderee_par_la_longueur():
+    segments = [
+        Segment(0, 1, 1000.0, {"highway": "tertiary"}, cout_km=1000.0),
+        Segment(1, 2, 3000.0, {"highway": "tertiary"}, cout_km=2000.0),
+    ]
+    couts = evaluer(trace_de_caps([0.0, 0.0], pas_m=1000.0, segments=segments))
+    assert couts.cout_km_moyen == pytest.approx(1750.0)
+
+
+def test_les_troncons_sans_cout_ne_tirent_pas_la_moyenne_vers_le_bas():
+    segments = [
+        Segment(0, 1, 1000.0, {"highway": "tertiary"}, cout_km=None),
+        Segment(1, 2, 1000.0, {"highway": "tertiary"}, cout_km=3000.0),
+    ]
+    couts = evaluer(trace_de_caps([0.0, 0.0], pas_m=1000.0, segments=segments))
+    assert couts.cout_km_moyen == pytest.approx(3000.0)
+
+
+def test_sans_aucun_cout_la_moyenne_est_absente_pas_nulle():
+    """Un GPX importé ne dit rien du coût : « — », jamais « 0 »."""
+    assert evaluer(trace_de_caps([0.0, 90.0])).cout_km_moyen is None

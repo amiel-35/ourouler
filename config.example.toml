@@ -16,6 +16,7 @@ nom = "Route"
 usage = "route"        # route | clm
 masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 cda_m2 = 0.32          # point de départ, recalibré sur l'historique
+# crr = 0.005          # roulement, estimé par `ourouler calibrer`
 intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
 intervals_gear_id = "" # identifiant Intervals du vélo (ex. b1234567), plus fiable que le nom
 capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex. "MARQUE 1234"
@@ -52,3 +53,14 @@ candidates = 5
 tolerance_distance = 0.10
 
 historique_depuis = 2023-12-01   # fenêtre d'historique pour la calibration
+
+[calibration]
+mots_groupe = ["club", "groupe", "peloton", "sortie club"]  # sorties écartées de la calibration
+part_validation = 0.25                        # part des sorties gardées pour tester le modèle
+vitesse_min_kmh = 8
+
+# [[evitements]]                               # zones à éviter, transmises au moteur de tracé
+# nom = "carrefour dangereux"
+# latitude = 47.0
+# longitude = -0.5
+# rayon_m = 200

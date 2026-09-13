@@ -125,3 +125,26 @@ def test_le_mot_de_passe_brouter_est_masque_en_json(tmp_path: Path, capsys):
     assert MOT_DE_PASSE_CLI not in sortie
     assert json.loads(sortie)["brouter"]["mot_de_passe"] == "***"
     assert json.loads(sortie)["brouter"]["url"] == "https://brouter.exemple.test"
+
+
+# --- ourouler comparer (L3.3, point 3 de la relecture) ------------------------
+
+
+def test_comparer_est_enregistree_avec_ses_options():
+    args = construire_parseur().parse_args(
+        ["comparer", "--velos", "RCR", "BMC", "--pente-max", "0.02", "--json"]
+    )
+    assert args.commande == "comparer"
+    assert args.velos == ["RCR", "BMC"]
+    assert args.pente_max == 0.02
+    assert args.json is True
+
+
+def test_comparer_exige_deux_velos():
+    with pytest.raises(SystemExit):
+        construire_parseur().parse_args(["comparer", "--velos", "RCR"])
+
+
+def test_comparer_sans_velos_est_refusee():
+    with pytest.raises(SystemExit):
+        construire_parseur().parse_args(["comparer"])

@@ -7,6 +7,7 @@ mesurer l'ajustement de rayon sans dépendre du terrain.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import httpx
@@ -19,6 +20,7 @@ from ourouler.boucle.candidates import (
     RAPPORT_RAYON_DEFAUT,
     RAYON_MAX_M,
     RAYON_MIN_M,
+    appels_pour,
     azimuts,
     generer,
 )
@@ -106,13 +108,38 @@ def test_le_rayon_est_ajuste_par_proportion():
     assert trouvees[0].ecart_relatif == pytest.approx(0.0)
 
 
-def test_l_ajustement_s_arrete_apres_deux_corrections():
-    """Un moteur qui ignore le rayon ne doit pas faire tourner la boucle indéfiniment."""
-    client, appels = moteur(20_000)  # toujours 20 km, quel que soit le rayon
+def test_l_ajustement_s_arrete_apres_trois_corrections():
+    """Un moteur qui ignore le rayon ne doit pas faire tourner la boucle indéfiniment.
+
+    Trois corrections depuis le 13/09/2026 : l'élagage des antennes fait
+    osciller la distance mesurée, deux s'arrêtaient au milieu de l'oscillation.
+    Voir `AJUSTEMENTS_MAX`.
+    """
+    # 50 km quel que soit le rayon : la correction reste bornée (facteur 1,2,
+    # rayon sous `RAYON_MAX_M`), c'est donc bien `AJUSTEMENTS_MAX` qui arrête.
+    client, appels = moteur(50_000)
     trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.05)
-    assert len(appels) == 1 + AJUSTEMENTS_MAX == 3
+    assert AJUSTEMENTS_MAX == 3
+    assert len(appels) == 1 + AJUSTEMENTS_MAX == 4
     assert len(trouvees) == 1, "une candidate hors tolérance vaut mieux que rien"
-    assert trouvees[0].ecart_relatif == pytest.approx(-2 / 3)
+    assert trouvees[0].ecart_relatif == pytest.approx(-1 / 6)
+
+
+def test_cinq_demandees_cinq_rendues_meme_si_le_moteur_ne_converge_pas():
+    """Le plafond d'appels suit la demande, il ne la rabote pas.
+
+    Régression du 13/09/2026 : `AJUSTEMENTS_MAX` passé à 3 contre un plafond
+    fixe de 12 appels rendait **trois** candidates à qui en demandait cinq,
+    dès que le moteur cessait de converger — c'est-à-dire le cas que le
+    troisième ajustement devait justement absorber. Rien ne le disait à
+    l'utilisateur.
+    """
+    # 50 km quel que soit le rayon : chaque azimut épuise ses ajustements.
+    client, appels = moteur(50_000)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05)
+    assert len(trouvees) == 5
+    assert len(appels) == appels_pour(5) == 5 * (1 + AJUSTEMENTS_MAX)
+    assert len({round(c.azimut_deg) for c in trouvees}) == 5, "cinq directions distinctes"
 
 
 def test_une_candidate_dans_la_tolerance_suffit():
@@ -278,7 +305,7 @@ def test_le_mot_de_passe_n_apparait_pas_dans_l_erreur_relevee():
 
 def test_la_meilleure_tentative_d_un_azimut_est_gardee():
     """Si la correction dégrade le résultat, on garde la boucle la plus proche."""
-    longueurs = iter([66_000, 40_000, 40_000])
+    longueurs = iter([66_000, 40_000, 40_000, 40_000])
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         charge = reponse_fabriquee()
@@ -289,3 +316,79 @@ def test_la_meilleure_tentative_d_un_azimut_est_gardee():
     trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.01)
     assert trouvees[0].trace.distance_m == 66_000
     assert trouvees[0].ecart_relatif == pytest.approx(0.1)
+
+
+# --- élagage des antennes (L3.1) ----------------------------------------------
+
+
+def anneau_avec_antenne(
+    rayon_deg: float = 0.01, pas_m: float = 10.0, antenne_m: float = 150.0
+) -> list[list[float]]:
+    """Un anneau fermé autour de (0, 0), avec un cul-de-sac radial vers l'extérieur.
+
+    Coordonnées `[lon, lat, alt]` comme les rend BRouter. Le cul-de-sac part
+    du point à l'est de l'anneau, sort de `antenne_m` et revient par le même
+    chemin : un aller-retour de `2 × antenne_m`.
+    """
+    degre_m = 111_320.0
+    circonference = 2 * math.pi * rayon_deg * degre_m
+    nb = max(8, round(circonference / pas_m))
+    anneau = [
+        [rayon_deg * math.sin(2 * math.pi * i / nb), rayon_deg * math.cos(2 * math.pi * i / nb), 30.0]
+        for i in range(nb + 1)
+    ]
+    # Le point à l'est (quart du tour) porte l'antenne.
+    pied = nb // 4
+    pas_deg = pas_m / degre_m
+    nb_pas = round(antenne_m / pas_m)
+    dehors = [[rayon_deg + pas_deg * i, 0.0, 30.0] for i in range(1, nb_pas + 1)]
+    return anneau[: pied + 1] + dehors + dehors[-2::-1] + anneau[pied:]
+
+
+def moteur_avec_antenne(points: list[list[float]]) -> ClientBrouter:
+    """Un moteur bouchonné qui rend toujours la géométrie donnée, sans tronçons."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        charge = reponse_fabriquee()
+        entite = charge["features"][0]
+        entite["geometry"]["coordinates"] = points
+        entite["properties"]["messages"] = []
+        entite["properties"].pop("track-length", None)  # distance = cumul haversine
+        return httpx.Response(200, json=charge)
+
+    return ClientBrouter(PARAMS, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def test_les_candidates_sont_elaguees_de_leurs_antennes():
+    client = moteur_avec_antenne(anneau_avec_antenne())
+    trouvees = generer(client, DEPART, distance_km=7.0, azimut_deg=45, nb=1, tolerance=0.5)
+
+    trace = trouvees[0].trace
+    assert trace.meta["antennes"]["nombre"] == 1
+    assert trace.meta["antennes"]["metres_retires"] == pytest.approx(300, abs=30)
+    assert trace.meta["distance_source"] == "recalculee"
+    # Le cul-de-sac partait à 0,01 + 150 m vers l'est : plus aucun point là-bas.
+    assert max(p.lon for p in trace.points) < 0.0102
+
+
+def test_l_ecart_relatif_est_mesure_apres_elagage():
+    """L'ajustement de rayon travaille sur la distance réellement proposée."""
+    points = anneau_avec_antenne()
+    client = moteur_avec_antenne(points)
+    trouvees = generer(client, DEPART, distance_km=7.0, azimut_deg=45, nb=1, tolerance=0.5)
+
+    trace = trouvees[0].trace
+    attendu = (trace.distance_m - 7000.0) / 7000.0
+    assert trouvees[0].ecart_relatif == pytest.approx(attendu)
+    # L'anneau seul fait environ 7 000 m ; avec l'antenne il en ferait 7 300.
+    assert trace.distance_m == pytest.approx(6993, abs=60)
+
+
+def test_une_candidate_sans_antenne_garde_la_distance_du_moteur():
+    """Sans rien à retirer, `track-length` n'est pas remplacé par un recalcul."""
+    client, _ = moteur(59_000)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    trace = trouvees[0].trace
+    assert trace.distance_m == 59_000
+    assert trace.meta["antennes"] == {"nombre": 0, "metres_retires": 0.0}
+    assert "distance_source" not in trace.meta

@@ -32,11 +32,14 @@ import json
 import math
 import sys
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from ourouler.boucle.candidates import generer
+from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
+from ourouler.apprentissage.routes import BaseRoutes, lire_poids
+from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
@@ -58,10 +61,34 @@ POIDS_PLUIE_TRI = 2.0
 #: Marque de la ligne retenue dans le tableau texte.
 MARQUE_RETENUE = "→"
 
+#: Mention accolée au titre de la colonne « temps » quand il vient du modèle.
+MENTION_MODELE = "(modèle)"
+
 #: Part de kilomètres non classés au-delà de laquelle le tableau le dit. En
 #: dessous, c'est le bruit habituel des tronçons de raccordement ; au-delà,
 #: « 0,0 km de trafic » ne veut plus dire « tracé calme ».
 PART_NON_CLASSE_SIGNALEE = 0.05
+
+#: Les deux libellés de la colonne des antennes. Ils ne disent pas la même
+#: chose : une candidate générée est **élaguée**, le tableau compte donc les
+#: mètres qu'on lui a retirés et le tracé proposé n'en a plus ; un GPX importé
+#: n'est pas touché, le tableau compte les mètres qui y sont **encore**.
+#: Afficher le même mot pour les deux ferait croire à un élagage qui n'a pas
+#: eu lieu (règle absolue 5).
+TITRE_ANTENNES_RETIREES = "antennes retirées"
+TITRE_ANTENNES_DETECTEES = "antennes détectées"
+
+#: Part de la FTP tenue par défaut pour le temps estimé par le modèle. C'est
+#: un **choix**, pas une mesure : le contrat de sprint donne la colonne
+#: « temps estimé » sans dire à quelle puissance la calculer. 65 % de la FTP
+#: est une allure d'endurance plausible ; `--puissance` la remplace, et
+#: l'en-tête dit toujours laquelle a servi.
+#:
+#: Q8, close le 13/09/2026 : tant que la séance du jour n'est pas connue,
+#: `boucle` affiche une durée à l'allure Z2. Au sprint 4, `sortie` simulera
+#: la boucle bloc par bloc à partir de la séance Intervals, et la durée sera
+#: celle de la séance sur ce terrain — ce défaut n'aura plus à servir.
+PART_FTP_DEFAUT = 0.65
 
 #: Ce qu'on affiche à la place d'une mesure absente (jamais un zéro : un
 #: GPX importé ne dit rien des routes empruntées, ce n'est pas « 0 km de
@@ -84,6 +111,16 @@ class Demande:
     ecraser: bool = False
 
 
+@dataclass(frozen=True)
+class ModeleTemps:
+    """De quoi calculer un temps estimé par le modèle physique, si on en a un."""
+
+    parametres: object  # ourouler.physique.modele.Parametres (import paresseux)
+    puissance_w: float
+    velo: str
+    provenance: str  # « calibration », « configuration » ou « défaut »
+
+
 @dataclass
 class Evaluation:
     """Une candidate mesurée : son tracé, ses coûts, sa météo, son total de tri."""
@@ -96,6 +133,19 @@ class Evaluation:
     azimut_deg: float | None
     rayon_m: float | None
     total: float
+    #: Part des kilomètres déjà roulés, entre 0 et 1, ou `None` si aucune base
+    #: de routes connues n'existe. **Informative** : elle n'entre dans aucun
+    #: score (contrat du sprint 3 §2 — « inconnu » n'est jamais un malus).
+    part_connue: float | None = None
+    temps_s: float | None = None
+    """Temps **en mouvement** rendu par le modèle physique calibré, ou `None`
+    si aucun modèle n'était disponible — la colonne retombe alors sur la
+    vitesse moyenne de la configuration."""
+    vitesse_meteo_kmh: float | None = None
+    """Vitesse qui a daté les heures de passage météo sur ce tracé. Elle vient
+    du modèle quand il existe, de la configuration sinon ; l'entête la dit,
+    sans quoi deux exécutions interrogeraient la prévision à deux heures
+    différentes sans que rien ne l'explique."""
 
 
 def executer(
@@ -110,7 +160,13 @@ def executer(
     if demande.gpx is not None:
         traces = [(lire_gpx_trace(demande.gpx), None, None)]
     else:
-        client_brouter = client_brouter if client_brouter is not None else ClientBrouter(config.brouter)
+        client_brouter = (
+            client_brouter
+            if client_brouter is not None
+            # Les zones à éviter sont passées au client, pas lues par lui :
+            # le cœur ne connaît pas la configuration, il la reçoit.
+            else ClientBrouter(config.brouter, evitements=config.evitements)
+        )
         trouvees = generer(
             client_brouter,
             config.depart,
@@ -119,6 +175,10 @@ def executer(
             nb=demande.nb_candidates,
             tolerance=config.boucle.tolerance_distance,
             profil=demande.profil,
+            # Le plafond d'appels suit le nombre de candidates demandées :
+            # sinon, cinq directions demandées face à un moteur qui n'arrive
+            # pas à la distance voulue en rendaient trois, sans rien en dire.
+            appels_max=appels_pour(demande.nb_candidates),
         )
         if not trouvees:
             raise ErreurConnecteur(
@@ -128,12 +188,32 @@ def executer(
             )
         traces = [(c.trace, c.ecart_relatif, c) for c in trouvees]
 
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
-    meteos, panne = _meteos(
-        [t for t, _, _ in traces], client_meteo, config, depart=demande.depart
-    )
+    # Les trois fichiers appris ou calibrés (L3.2, L3.3) sont lus **ici** et
+    # passés au cœur en objets : `couts.evaluer` ne connaît pas de chemin,
+    # `BaseRoutes` reçoit le sien et le modèle physique reçoit ses
+    # `Parametres`. Absents, on retombe sur les poids par défaut, la colonne
+    # « connu % » disparaît — elle n'a jamais pesé sur le tri de toute façon —
+    # et le temps revient à la vitesse moyenne de la configuration.
+    #
+    # Le modèle est construit **avant** la météo : c'est lui qui dit à quelle
+    # vitesse le cycliste passera, donc à quelle heure interroger la prévision.
+    poids = lire_poids(config.cache.dossier / NOM_POIDS)
+    base_routes = _base_routes(config)
+    modele = _modele_temps(args, config)
 
-    evaluations = _classer(traces, meteos, sens_prefere=config.boucle.sens)
+    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+    meteos, panne, vitesses = _meteos(
+        [t for t, _, _ in traces], client_meteo, config, depart=demande.depart, modele=modele
+    )
+    evaluations = _classer(
+        traces,
+        meteos,
+        sens_prefere=config.boucle.sens,
+        poids=poids,
+        base=base_routes,
+        modele=modele,
+        vitesses_meteo=vitesses,
+    )
     chemin = _ecrire_meilleure(evaluations[0].trace, demande) if demande.gpx is None else None
 
     if panne is not None:
@@ -143,10 +223,62 @@ def executer(
             file=sys.stderr,
         )
     if getattr(args, "json", False):
-        print(json.dumps(rendre_json(evaluations, demande, config, chemin), ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                rendre_json(evaluations, demande, config, chemin, modele, poids=poids),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
-        print(rendre_texte(evaluations, demande, config, chemin))
+        print(rendre_texte(evaluations, demande, config, chemin, modele, poids=poids))
     return 0
+
+
+def _base_routes(config: Config) -> BaseRoutes | None:
+    """La base des routes connues si elle existe déjà, sinon `None`.
+
+    On ne la **crée** pas au passage : `ourouler boucle` n'a pas à fabriquer
+    un fichier vide dans le cache pour afficher une colonne informative. Une
+    base illisible ne fait pas non plus perdre la boucle — on s'en passe.
+    """
+    chemin = config.cache.dossier / NOM_BASE
+    if not chemin.is_file():
+        return None
+    try:
+        return BaseRoutes(chemin)
+    except ErreurUtilisateur:
+        return None
+
+
+def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | None:
+    """Le modèle physique à utiliser pour la colonne « temps », ou `None`.
+
+    C'est **ici**, dans la couche commande, que `calibration.json` est lu : le
+    cœur reçoit des `Parametres` déjà construits (règle absolue 2, même
+    partage que pour `poids_routes.json`). Sans calibration mesurée, on
+    retombe sur la vitesse moyenne de la configuration plutôt que d'afficher
+    un temps « modèle » calculé avec un CdA inventé.
+    """
+    from ourouler.physique.commande import chemin_calibration, lire_calibration, velo_demande
+
+    velo = velo_demande(config, getattr(args, "velo", None))
+    calibree = lire_calibration(chemin_calibration(config), velo.nom)
+    if calibree is None:
+        return None
+    puissance = getattr(args, "puissance", None)
+    if puissance is None:
+        puissance = config.cycliste.ftp_w * PART_FTP_DEFAUT
+    if not math.isfinite(puissance) or puissance <= 0:
+        raise ErreurUtilisateur(
+            f"--puissance {puissance} : une puissance en watts strictement positive est attendue"
+        )
+    return ModeleTemps(
+        parametres=calibree.parametres,
+        puissance_w=float(puissance),
+        velo=velo.nom,
+        provenance="calibration",
+    )
 
 
 # --- options ------------------------------------------------------------------
@@ -303,17 +435,30 @@ def direction_en_azimut(texte: str) -> tuple[str, float]:
 
 
 def _meteos(
-    traces: list[Trace], client: ClientOpenMeteo, config: Config, *, depart: datetime
-) -> tuple[list[MeteoTrace | None], str | None]:
-    """La météo de chaque tracé, et le motif de panne s'il y en a une.
+    traces: list[Trace],
+    client: ClientOpenMeteo,
+    config: Config,
+    *,
+    depart: datetime,
+    modele: ModeleTemps | None = None,
+) -> tuple[list[MeteoTrace | None], str | None, list[float]]:
+    """La météo de chaque tracé, le motif de panne s'il y en a un, et les vitesses retenues.
 
     Dès qu'un appel échoue, on cesse d'insister : si Open-Meteo est
     injoignable pour la première candidate, il l'est pour les quatre autres,
     et attendre cinq timeouts ne rend service à personne.
+
+    L'heure de passage en un point vaut `départ + distance / vitesse`. Cette
+    vitesse était celle de la configuration (27 km/h), la même pour un
+    plat-pays que pour une boucle à 900 m de D+ ; quand le vélo est calibré,
+    c'est **le modèle** qui la donne, tracé par tracé.
     """
     resultats: list[MeteoTrace | None] = []
+    vitesses: list[float] = []
     panne: str | None = None
     for trace in traces:
+        vitesse = _vitesse_meteo(trace, modele, config)
+        vitesses.append(vitesse)
         if panne is not None:
             resultats.append(None)
             continue
@@ -323,7 +468,7 @@ def _meteos(
                     trace,
                     client,
                     depart=depart,
-                    vitesse_kmh=config.boucle.vitesse_moyenne_kmh,
+                    vitesse_kmh=vitesse,
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
                 )
@@ -331,7 +476,34 @@ def _meteos(
         except ErreurConnecteur as e:
             panne = str(e)
             resultats.append(None)
-    return (resultats, panne)
+    return (resultats, panne, vitesses)
+
+
+def _vitesse_meteo(trace: Trace, modele: ModeleTemps | None, config: Config) -> float:
+    """La vitesse qui date les heures de passage sur ce tracé, en km/h.
+
+    Celle du modèle calibré quand il existe, celle de la configuration sinon.
+
+    La simulation est faite **à vent nul** : le vent qu'on cherche à connaître
+    dépendrait sinon de l'heure, qui dépend de la vitesse, qui dépend du vent.
+    L'erreur commise est du second ordre — quelques minutes sur une boucle de
+    trois heures, là où l'écart entre 27 km/h supposés et la vraie allure d'un
+    parcours vallonné se compte en dizaines de minutes.
+
+    Une simulation qui échoue (tracé dégénéré) retombe sur la configuration :
+    la boucle reste affichable.
+    """
+    if modele is None:
+        return config.boucle.vitesse_moyenne_kmh
+    from ourouler.physique.modele import simuler
+
+    try:
+        vitesse = simuler(trace, modele.puissance_w, modele.parametres).vitesse_moy_kmh
+    except ErreurUtilisateur:
+        return config.boucle.vitesse_moyenne_kmh
+    if not math.isfinite(vitesse) or vitesse <= 0:
+        return config.boucle.vitesse_moyenne_kmh
+    return vitesse
 
 
 def _classer(
@@ -339,11 +511,24 @@ def _classer(
     meteos: list[MeteoTrace | None],
     *,
     sens_prefere: str,
+    poids: dict[str, float] | None = None,
+    base: BaseRoutes | None = None,
+    modele: ModeleTemps | None = None,
+    vitesses_meteo: Sequence[float] | None = None,
 ) -> list[Evaluation]:
-    """Les candidates mesurées et triées par `score + pluie × 2`, numérotées à partir de 1."""
+    """Les candidates mesurées et triées par `score + pluie × 2`, numérotées à partir de 1.
+
+    `part_connue` est calculée si une base existe, mais **n'entre pas dans
+    `total`** : c'est tout l'objet du lot. Les traces du cycliste ne couvrent
+    qu'une partie du territoire ; les prendre pour un critère condamnerait
+    d'avance toute direction jamais explorée.
+    """
     evaluations = []
-    for (trace, ecart, candidate), meteo in zip(traces, meteos, strict=True):
-        couts = evaluer_couts(trace, sens_prefere=sens_prefere)
+    vitesses = list(vitesses_meteo) if vitesses_meteo is not None else [None] * len(traces)
+    for (trace, ecart, candidate), meteo, vitesse in zip(
+        traces, meteos, vitesses, strict=True
+    ):
+        couts = evaluer_couts(trace, sens_prefere=sens_prefere, poids=poids)
         pluie = meteo.pluie_cumulee_mm if meteo is not None else 0.0
         evaluations.append(
             Evaluation(
@@ -355,12 +540,33 @@ def _classer(
                 azimut_deg=getattr(candidate, "azimut_deg", None),
                 rayon_m=getattr(candidate, "rayon_m", None),
                 total=couts.score + pluie * POIDS_PLUIE_TRI,
+                part_connue=base.part_connue(trace) if base is not None else None,
+                temps_s=_temps_modele(trace, meteo, modele),
+                vitesse_meteo_kmh=vitesse,
             )
         )
     evaluations.sort(key=lambda e: e.total)
     for numero, evaluation in enumerate(evaluations, start=1):
         evaluation.numero = numero
     return evaluations
+
+
+def _temps_modele(trace: Trace, meteo: MeteoTrace | None, modele: ModeleTemps | None) -> float | None:
+    """Le temps en mouvement du modèle sur ce tracé, vent prévu compris. `None` sans modèle.
+
+    Une simulation qui échoue (tracé dégénéré) ne fait pas tomber la commande :
+    la colonne retombe simplement sur la vitesse moyenne.
+    """
+    if modele is None:
+        return None
+    from ourouler.physique.commande import vent_depuis_meteo
+    from ourouler.physique.modele import simuler
+
+    vent = vent_depuis_meteo(meteo) if meteo is not None else None
+    try:
+        return simuler(trace, modele.puissance_w, modele.parametres, vent=vent).temps_s
+    except ErreurUtilisateur:
+        return None
 
 
 def _ecrire_meilleure(trace: Trace, demande: Demande) -> Path:
@@ -383,33 +589,43 @@ def nom_par_defaut(demande: Demande) -> str:
 
 # --- rendu texte ---------------------------------------------------------------
 
-#: Colonnes du tableau, dans l'ordre du contrat §6. Le drapeau dit si la
-#: colonne vient de la météo : sans météo, elle disparaît au lieu d'afficher
-#: une colonne de tirets.
+#: Colonnes du tableau, dans l'ordre des contrats §6 (sprint 2) et §2
+#: (sprint 3). Le second membre nomme la mesure dont la colonne dépend :
+#: sans cette mesure, la colonne **disparaît** au lieu d'afficher une colonne
+#: de tirets. `None` = toujours affichée.
 COLONNES = (
-    ("n°", False),
-    ("distance", False),
-    ("D+", False),
-    ("temps", False),
-    ("trafic", False),
-    ("non revêtu", False),
-    ("virages G", False),
-    ("sens", False),
-    ("pluie", True),
-    ("vent face", True),
-    ("ressenti min", True),
+    ("n°", None),
+    ("distance", None),
+    ("D+", None),
+    ("temps", None),  # le titre porte sa provenance, voir `_titres`
+    ("trafic", None),
+    ("non revêtu", None),
+    ("coût profil", "cout"),
+    ("virages G", None),
+    ("sens", None),
+    ("connu %", "connu"),
+    (TITRE_ANTENNES_RETIREES, None),  # remplacé par `_titres` pour un GPX importé
+    ("pluie", "meteo"),
+    ("vent face", "meteo"),
+    ("ressenti min", "meteo"),
 )
 
 
 def rendre_texte(
-    evaluations: list[Evaluation], demande: Demande, config: Config, chemin: Path | None
+    evaluations: list[Evaluation],
+    demande: Demande,
+    config: Config,
+    chemin: Path | None,
+    modele: ModeleTemps | None = None,
+    *,
+    poids: dict[str, float] | None = None,
 ) -> str:
     """Le tableau des candidates, la ligne retenue marquée d'une flèche."""
-    avec_meteo = any(e.meteo is not None for e in evaluations)
-    lignes = _entete(demande, config, avec_meteo)
+    presentes = _mesures_presentes(evaluations)
+    lignes = _entete(demande, config, "meteo" in presentes, poids, evaluations, modele)
 
-    titres = [titre for titre, meteo in COLONNES if avec_meteo or not meteo]
-    cellules = [_cellules(e, config, avec_meteo) for e in evaluations]
+    titres = _titres(presentes, elaguees=demande.gpx is None, config=config, modele=modele)
+    cellules = [_cellules(e, config, presentes) for e in evaluations]
     largeurs = [
         max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
     ]
@@ -441,6 +657,55 @@ def rendre_texte(
     return "\n".join(lignes)
 
 
+def _titres(
+    presentes: set[str],
+    *,
+    elaguees: bool,
+    config: Config,
+    modele: ModeleTemps | None = None,
+) -> list[str]:
+    """Les titres des colonnes affichées — antennes et temps disent d'où ils viennent.
+
+    Antennes : « retirées » sur une candidate générée (elle est élaguée),
+    « détectées » sur un GPX importé (il ne l'est pas). Temps : `(modèle)`
+    quand la calibration du vélo existe, `(27 km/h)` — la vitesse moyenne de
+    la configuration — sinon. Sans ces mentions, deux exécutions du même
+    ordre donnaient deux chiffres différents sans rien dire.
+    """
+    mention = (
+        MENTION_MODELE if modele is not None else f"({config.boucle.vitesse_moyenne_kmh:g} km/h)"
+    )
+    titres = [
+        f"temps {mention}" if titre == "temps" else titre
+        for titre, mesure in COLONNES
+        if mesure is None or mesure in presentes
+    ]
+    if not elaguees:
+        titres[titres.index(TITRE_ANTENNES_RETIREES)] = TITRE_ANTENNES_DETECTEES
+    return titres
+
+
+def _vitesse_passage(config: Config, evaluations: list[Evaluation] | None) -> str:
+    """« 27 km/h » ou « 29,4 km/h (modèle) » — la vitesse qui a daté la météo.
+
+    Les candidates n'ont pas toutes la même : une boucle vallonnée se parcourt
+    moins vite qu'un plat-pays à la même puissance. L'entête affiche donc la
+    moyenne des candidates dès qu'elles diffèrent d'un dixième.
+    """
+    connues = [
+        e.vitesse_meteo_kmh for e in (evaluations or []) if e.vitesse_meteo_kmh is not None
+    ]
+    if not connues:
+        return f"{config.boucle.vitesse_moyenne_kmh:g} km/h"
+    moyenne = sum(connues) / len(connues)
+    if abs(moyenne - config.boucle.vitesse_moyenne_kmh) < 0.05:
+        return f"{config.boucle.vitesse_moyenne_kmh:g} km/h"
+    etendue = ""
+    if max(connues) - min(connues) >= 0.1:
+        etendue = f" de {min(connues):.1f} à {max(connues):.1f}".replace(".", ",")
+    return f"{moyenne:.1f} km/h {MENTION_MODELE}{etendue}".replace(".", ",", 1)
+
+
 def _non_classes_signales(evaluations: list[Evaluation]) -> float:
     """Le plus gros kilométrage non classé à signaler, ou 0 s'il n'y a rien à dire.
 
@@ -460,7 +725,26 @@ def _non_classes_signales(evaluations: list[Evaluation]) -> float:
     return max(a_signaler, default=0.0)
 
 
-def _entete(demande: Demande, config: Config, avec_meteo: bool) -> list[str]:
+def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
+    """Les mesures dont au moins une candidate dispose — donc les colonnes à montrer."""
+    presentes = set()
+    if any(e.meteo is not None for e in evaluations):
+        presentes.add("meteo")
+    if any(e.couts.cout_km_moyen is not None for e in evaluations):
+        presentes.add("cout")
+    if any(e.part_connue is not None for e in evaluations):
+        presentes.add("connu")
+    return presentes
+
+
+def _entete(
+    demande: Demande,
+    config: Config,
+    avec_meteo: bool,
+    poids: dict[str, float] | None = None,
+    evaluations: list[Evaluation] | None = None,
+    modele: ModeleTemps | None = None,
+) -> list[str]:
     lignes = []
     if demande.gpx is not None:
         lignes.append(f"Tracé importé : {demande.gpx}")
@@ -470,29 +754,86 @@ def _entete(demande: Demande, config: Config, avec_meteo: bool) -> list[str]:
             f"{demande.direction} ({demande.azimut_deg:.0f}°), profil {demande.profil}"
         )
     lignes.append(
-        f"Départ {date_en_francais(demande.depart)} — {config.boucle.vitesse_moyenne_kmh:g} km/h, "
-        f"sens préféré {config.boucle.sens}"
+        f"Départ {date_en_francais(demande.depart)} — {_vitesse_passage(config, evaluations)} "
+        f"(heures de passage météo), sens préféré {config.boucle.sens}"
     )
+    if modele is not None:
+        lignes.append(
+            f"Temps estimé par le modèle calibré du {modele.velo} à {modele.puissance_w:.0f} W "
+            "— temps en mouvement, arrêts non modélisés"
+        )
+    else:
+        lignes.append(
+            f"Temps estimé à {config.boucle.vitesse_moyenne_kmh:g} km/h : aucun vélo calibré "
+            "(lancer `ourouler calibrer`)"
+        )
     if avec_meteo:
         lignes.append(f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}")
     lignes.append("Tri : score (km équivalents) + pluie cumulée × 2 ; plus bas = mieux.")
+    if poids:
+        # D'où viennent les poids : sans cette ligne, deux exécutions
+        # séparées par un `routes poids --appliquer` donneraient des scores
+        # différents sans que rien ne l'explique.
+        cites = _classes_citees(poids, evaluations or [])
+        lignes.append(
+            "Poids des routes : appris sur vos sorties"
+            + (f" ({cites})." if cites else ".")
+        )
+    else:
+        lignes.append(
+            "Poids des routes : valeurs par défaut — `ourouler routes poids --appliquer` "
+            "les apprend sur vos sorties."
+        )
+    lignes.append(
+        "« connu % » : part des km déjà roulés — informatif, jamais dans le score."
+    )
     return lignes
 
 
-def _cellules(evaluation: Evaluation, config: Config, avec_meteo: bool) -> list[str]:
+def _classes_citees(
+    poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4
+) -> str:
+    """Le poids des classes les plus **présentes dans les candidates affichées**.
+
+    Citer les plus pénalisées donnait une ligne vraie mais inutile
+    (« primary_link 4,0, pedestrian 3,3 ») : ces classes ne font pas
+    cinquante mètres du tracé. Ce que le lecteur veut savoir, c'est ce que
+    coûtent les routes qu'il a sous les yeux.
+    """
+    km_par_classe: dict[str, float] = {}
+    for evaluation in evaluations:
+        for classe, km in evaluation.couts.km_par_highway.items():
+            if classe:
+                km_par_classe[classe] = km_par_classe.get(classe, 0.0) + km
+    classes = sorted(km_par_classe.items(), key=lambda kv: (-kv[1], kv[0]))[:nombre]
+    return ", ".join(f"{classe} {_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
+
+
+def _cellules(evaluation: Evaluation, config: Config, presentes: set[str]) -> list[str]:
     couts, meteo = evaluation.couts, evaluation.meteo
     partiels = bool(evaluation.trace.meta.get("couts_partiels"))
     cellules = [
         str(evaluation.numero),
         f"{_fr(evaluation.trace.distance_m / 1000, 1)} km",
         _denivele(evaluation.trace),
-        _duree(evaluation.trace.distance_m / 1000, config.boucle.vitesse_moyenne_kmh),
+        _temps(evaluation, config),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
         ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
+    ]
+    if "cout" in presentes:
+        cellules.append(
+            _fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT
+        )
+    cellules += [
         f"{couts.virages_gauche} ({couts.virages_gauche_trafic})",
         couts.sens,
     ]
-    if avec_meteo:
+    if "connu" in presentes:
+        cellules.append(
+            f"{evaluation.part_connue * 100:.0f} %" if evaluation.part_connue is not None else ABSENT
+        )
+    cellules.append(f"{couts.antennes_m:.0f} m")
+    if "meteo" in presentes:
         cellules += [
             f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
             _vent_face(meteo),
@@ -529,11 +870,18 @@ def _vent_face(meteo: MeteoTrace | None) -> str:
     return f"{meteo.part_vent_face * 100:.0f} % ({meteo.n_vent_connu}/{len(meteo.echantillons)})"
 
 
-def _duree(distance_km: float, vitesse_kmh: float) -> str:
-    """« 2:14 » — le temps estimé à la vitesse moyenne de la configuration."""
-    if vitesse_kmh <= 0:
+def _temps(evaluation: Evaluation, config: Config) -> str:
+    """« 2:14 » — le temps du modèle s'il y en a un, sinon celui de la vitesse moyenne."""
+    if evaluation.temps_s is not None:
+        return _duree_texte(evaluation.temps_s)
+    vitesse = config.boucle.vitesse_moyenne_kmh
+    if vitesse <= 0:
         return ABSENT
-    minutes = round(distance_km / vitesse_kmh * 60)
+    return _duree_texte(evaluation.trace.distance_m / 1000 / vitesse * 3600)
+
+
+def _duree_texte(secondes: float) -> str:
+    minutes = round(secondes / 60)
     return f"{minutes // 60}:{minutes % 60:02d}"
 
 
@@ -546,7 +894,13 @@ def _fr(valeur: float, decimales: int) -> str:
 
 
 def rendre_json(
-    evaluations: list[Evaluation], demande: Demande, config: Config, chemin: Path | None
+    evaluations: list[Evaluation],
+    demande: Demande,
+    config: Config,
+    chemin: Path | None,
+    modele: ModeleTemps | None = None,
+    *,
+    poids: dict[str, float] | None = None,
 ) -> dict:
     """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
     return {
@@ -569,6 +923,17 @@ def rendre_json(
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
         "gpx": str(chemin) if chemin is not None else None,
+        "poids_routes": dict(poids) if poids else None,
+        "modele_physique": None
+        if modele is None
+        else {
+            "velo": modele.velo,
+            "puissance_w": modele.puissance_w,
+            "provenance": modele.provenance,
+            "cda_m2": modele.parametres.cda_m2,
+            "crr": modele.parametres.crr,
+            "masse_totale_kg": modele.parametres.masse_totale_kg,
+        },
         "candidates": [_candidate_json(e, config, chemin) for e in evaluations],
     }
 
@@ -584,18 +949,39 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "distance_km": round(distance_km, 3),
         "denivele_m": trace.denivele_m,
         "denivele_source": trace.meta.get("denivele_source"),
-        "temps_estime_s": round(distance_km / config.boucle.vitesse_moyenne_kmh * 3600),
+        "temps_estime_s": (
+            round(evaluation.temps_s)
+            if evaluation.temps_s is not None
+            else round(distance_km / config.boucle.vitesse_moyenne_kmh * 3600)
+        ),
+        "temps_source": "modele" if evaluation.temps_s is not None else "vitesse_moyenne",
+        "vitesse_meteo_kmh": (
+            None
+            if evaluation.vitesse_meteo_kmh is None
+            else round(evaluation.vitesse_meteo_kmh, 2)
+        ),
         "azimut_deg": evaluation.azimut_deg,
         "rayon_m": evaluation.rayon_m,
         "ecart_relatif": evaluation.ecart_relatif,
         "total_tri": round(evaluation.total, 3),
         "couts_partiels": bool(trace.meta.get("couts_partiels")),
         "segments_ignores": int(trace.meta.get("segments_ignores") or 0),
+        # « retirees » : le tracé proposé n'a plus ces mètres. « detectees » :
+        # un GPX importé n'est pas élagué, ils y sont encore.
+        "antennes_source": "retirees" if trace.meta.get("antennes") is not None else "detectees",
+        "antennes": trace.meta.get("antennes"),
+        "distance_source": trace.meta.get("distance_source"),
+        # Informatifs, hors score : le coût que le moteur s'attribue à
+        # lui-même, et la part de kilomètres déjà roulés.
+        "cout_km_moyen": couts.cout_km_moyen,
+        "part_connue": evaluation.part_connue,
+        "km_par_highway": {k: round(v, 3) for k, v in couts.km_par_highway.items()},
         "couts": {
             "km_trafic": round(couts.km_trafic, 3),
             "km_calme": round(couts.km_calme, 3),
             "km_non_classe": round(couts.km_non_classe, 3),
             "km_non_revetu": round(couts.km_non_revetu, 3),
+            "antennes_m": round(couts.antennes_m, 1),
             "virages_gauche": couts.virages_gauche,
             "virages_gauche_trafic": couts.virages_gauche_trafic,
             "virages_droite": couts.virages_droite,

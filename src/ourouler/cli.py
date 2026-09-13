@@ -36,6 +36,10 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_inventaire(sous)
     ajouter_meteo(sous)
     ajouter_boucle(sous)
+    ajouter_routes(sous)
+    ajouter_calibrer(sous)
+    ajouter_simuler(sous)
+    ajouter_comparer(sous)
     return p
 
 
@@ -187,6 +191,16 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         help="remplacer le fichier de --sortie s'il existe déjà",
     )
     p.add_argument("--gpx", metavar="ENTREE.GPX", help="évaluer ce GPX au lieu d'en générer")
+    p.add_argument(
+        "--velo",
+        help="vélo dont la calibration sert au temps estimé (défaut : premier vélo route)",
+    )
+    p.add_argument(
+        "--puissance",
+        type=float,
+        metavar="W",
+        help="puissance tenue pour le temps estimé par le modèle (défaut : part de la FTP)",
+    )
     p.set_defaults(fonction=_commande_boucle)
 
 
@@ -194,6 +208,147 @@ def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
 
     return executer(args, config)
+
+
+def ajouter_routes(sous: argparse._SubParsersAction) -> None:
+    """`ourouler routes {apprendre,stats,poids}` — ce que les sorties passées apprennent.
+
+    Les actions sont des sous-sous-commandes : chacune a ses options, et
+    `--json` est accepté aux trois niveaux (global, `routes`, action) grâce à
+    `parent_json()` et son `SUPPRESS`.
+    """
+    p = sous.add_parser(
+        "routes",
+        help="routes connues : apprendre des sorties passées, statistiques et poids",
+        parents=[parent_json()],
+    )
+    actions = p.add_subparsers(dest="action", metavar="<action>")
+
+    a = actions.add_parser(
+        "apprendre",
+        help="rejoue les sorties extérieures dans BRouter (un appel par sortie, idempotent)",
+        parents=[parent_json()],
+    )
+    a.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
+    a.add_argument(
+        "--max",
+        type=int,
+        dest="max_sorties",
+        metavar="N",
+        help="borner à N les appels au moteur (pour essayer sans tout lancer)",
+    )
+
+    actions.add_parser(
+        "stats",
+        help="km et part par classe de route, part semaine, poids par défaut et appris",
+        parents=[parent_json()],
+    )
+
+    w = actions.add_parser(
+        "poids",
+        help="compare les sorties à huit boucles d'exposition et en déduit les poids",
+        parents=[parent_json()],
+    )
+    w.add_argument(
+        "--appliquer",
+        action="store_true",
+        help="écrire les poids dans poids_routes.json (le cache), utilisés par `boucle`",
+    )
+    p.set_defaults(fonction=_commande_routes)
+
+
+def _commande_routes(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.apprentissage.commande import executer  # import paresseux (lot L3.2)
+
+    return executer(args, config)
+
+
+def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "calibrer",
+        help="ajuste CdA et Crr d'un vélo sur les sorties réelles, et mesure l'erreur",
+        parents=[parent_json()],
+    )
+    p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
+    p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
+    p.add_argument(
+        "--max", type=int, metavar="N", help="ne garder que les N sorties les plus récentes"
+    )
+    p.set_defaults(fonction=_commande_calibrer)
+
+
+def _commande_calibrer(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.commande import executer_calibrer  # import paresseux (lot L3.3)
+
+    return executer_calibrer(args, config)
+
+
+def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "simuler",
+        help="temps en mouvement d'un GPX à puissance constante, avec le modèle calibré",
+        parents=[parent_json()],
+    )
+    p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à simuler")
+    p.add_argument("--puissance", type=float, metavar="W", required=True, help="puissance tenue")
+    p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
+    p.add_argument("--depart", help="heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
+    p.set_defaults(fonction=_commande_simuler)
+
+
+def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.commande import executer_simuler  # import paresseux (lot L3.3)
+
+    return executer_simuler(args, config)
+
+
+def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "comparer",
+        help="de combien de km/h (et de watts) deux vélos diffèrent, sur le plat en ligne droite",
+        parents=[parent_json()],
+    )
+    p.add_argument(
+        "--velos",
+        nargs=2,
+        metavar="VELO",
+        required=True,
+        help="les deux vélos à comparer, par exemple `--velos RCR BMC`",
+    )
+    p.add_argument(
+        "--zone",
+        nargs=2,
+        type=float,
+        metavar=("BAS", "HAUT"),
+        help="zone de puissance en fraction de la FTP (défaut : 0.56 0.75, soit Z2)",
+    )
+    p.add_argument(
+        "--pente-max",
+        type=float,
+        metavar="PENTE",
+        help="pente maximale d'un tronçon, en tangente (défaut : 0.008, soit 0,8 %%)",
+    )
+    p.add_argument(
+        "--cap-max",
+        type=float,
+        metavar="DEGRES",
+        help="filtre optionnel : écart de cap toléré d'un tronçon au suivant, en degrés "
+        "(par défaut, aucun filtre de cap ; 15 ne garde que les lignes droites franches)",
+    )
+    p.add_argument(
+        "--longueur-min",
+        type=float,
+        metavar="METRES",
+        help="longueur minimale d'une série retenue, en mètres (défaut : 500)",
+    )
+    p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
+    p.set_defaults(fonction=_commande_comparer)
+
+
+def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.comparer import executer_comparer  # import paresseux (lot L3.3)
+
+    return executer_comparer(args, config)
 
 
 # --- point d'entrée -----------------------------------------------------------
