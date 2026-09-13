@@ -33,7 +33,9 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | `ourouler inventaire` | lecture FIT / GPX / TCX, cache local, inventaire des sorties par vélo et par mois, synchronisation Intervals.icu | sprint 1 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler boucle` | boucle de la bonne distance dans la direction sèche, vent de face à l'aller, GPX | sprint 2 — **vérifié pour de vrai** sur BRouter auto-hébergé + Open-Meteo |
 | `ourouler routes` | apprend sur vos sorties passées quelles routes vous acceptez (rejeu dans BRouter), et en tire les poids du score | sprint 3 — **vérifié pour de vrai** sur 154 sorties rejouées |
-| `ourouler sortie` | séance du jour ↔ terrain : modèle physique calibré par vélo, choix de la boucle, résumé, tenue | plus tard |
+| `ourouler calibrer` | ajuste CdA et Crr d'un vélo sur les sorties réelles (vent d'archive compris) et mesure l'erreur de temps sur des sorties non vues | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
+| `ourouler simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu | sprint 3 — **vérifié** sur une boucle générée |
+| `ourouler sortie` | séance du jour ↔ terrain : choix de la boucle, résumé, tenue | plus tard |
 | envoi vers Garmin Connect | | plus tard |
 
 Ces commandes ont toutes tourné sur les vraies données du mainteneur, et pas
@@ -53,6 +55,11 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   `tertiary`, 20 % de `secondary`, 13 % d'`unclassified`, 3 % de `primary`.
   Les poids appris qui en sortent renversent le score du sprint 2 — la
   `secondary` passe de 3,0 à 0,4 km équivalents par kilomètre.
+- `ourouler calibrer` : le 13/09/2026, sur 100 sorties RCR et 37 sorties BMC,
+  avec 137 jours d'archive météo Open-Meteo téléchargés une fois pour toutes.
+  Erreur de temps en mouvement sur les 25 % de sorties les plus récentes,
+  jamais vues par l'ajustement : **MAE 5,2 % (médiane 4,0 %) pour le RCR**,
+  **MAE 5,5 % (médiane 3,1 %) pour le BMC**.
 
 ### Apprendre ses routes
 
@@ -94,6 +101,17 @@ Ce que le mainteneur doit savoir avant de lire un chiffre.
   216 m côté moteur, 287 m à la relecture, soit +33 %. Les deux sont
   affichés avec leur provenance — « 216 m (moteur) », « 287 m (gpx relu) » —
   plutôt que moyennés ou choisis en silence.
+- **Le temps simulé est un temps *en mouvement*.** Ni les feux, ni les stops,
+  ni les ravitaillements ne sont modélisés, et l'inertie non plus. Un temps de
+  sortie réel, montre en main, est plus long — de ce que le cycliste passe à
+  l'arrêt.
+- **CdA et Crr ne se séparent pas.** La calibration rend un CdA en butée basse
+  (0,18 m²) et un Crr trop grand (0,011) pour les deux vélos : pris un par un,
+  ces chiffres sont absurdes. Ce que les données mesurent bien, et ce qu'il
+  faut lire, c'est leur **résistance totale à l'allure courante** — 17,2 N à
+  27 km/h pour le RCR. Le couple prédit correctement le temps entre 20 et
+  36 km/h, et se tromperait hors de cette plage. Détail, chiffres et pistes :
+  Q9 de `docs/questions_mainteneur.md`.
 - **Classes de trafic provisoires.** Le classement d'une route en
   « trafic » ou « calme » suit les tags `highway` d'OpenStreetMap, et la
   pondération (un kilomètre à trafic en coûte trois) est un arbitrage, pas

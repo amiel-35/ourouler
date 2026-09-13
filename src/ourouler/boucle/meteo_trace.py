@@ -60,6 +60,10 @@ class Echantillon:
     vent_kmh: float | None
     vent_relatif: str | None
     ressenti_c: float | None
+    vent_depuis_deg: float | None = None
+    """Direction d'où vient le vent, interpolée. `vent_relatif` la résume en
+    trois secteurs, ce qui suffit à la lecture mais pas au modèle physique :
+    celui-ci a besoin de la composante de face en m/s, donc de l'angle."""
 
 
 @dataclass
@@ -150,6 +154,7 @@ def evaluer(
                     vent_relatif(cap, valeurs.vent_depuis_deg) if cap is not None else None
                 ),
                 ressenti_c=valeurs.ressenti_c,
+                vent_depuis_deg=valeurs.vent_depuis_deg,
             )
         )
 
