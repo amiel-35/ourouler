@@ -60,7 +60,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
 from ourouler.activites.modele import moyenne_glissante
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.boucle.trace import (
+    DENIVELE_PARCOURS,
+    PointTrace,
+    Trace,
+    denivele_filtre,
+    distance_m,
+)
 from ourouler.physique.modele import (
     FENETRE_ALTITUDE,
     PAS_M,
@@ -141,6 +147,12 @@ class Placement:
     #: prescrite. L'identité `note_totale = note_terrain + penalite_seance`
     #: tient toujours.
     penalite_seance: float = 0.0
+    #: Les positions le long du tracé, du départ à l'arrivée, à **chaque
+    #: changement de sens** : `[0, 23100, 0]` se lit « on est allé jusqu'au
+    #: km 23,1, on a fait demi-tour, on est rentré ». Entre deux jalons on
+    #: roule dans un seul sens, ce qui suffit à reconstruire le parcours
+    #: réellement roulé — voir `trace_parcourue`.
+    jalons_m: list[float] = field(default_factory=list)
 
 
 def placer(
@@ -210,6 +222,110 @@ def placer(
     meilleur.avertissements = list(dict.fromkeys(prealables + meilleur.avertissements))
     trace.meta.pop(CLE_MOTIF, None)
     return meilleur
+
+
+#: Sous cette distance, deux points consécutifs du parcours sont le même point :
+#: le point interpolé d'un jalon tombe sur un point du tracé, et on n'écrit pas
+#: deux fois la même coordonnée dans le GPX.
+DOUBLON_PARCOURS_M = 0.01
+
+
+def trace_parcourue(placement: Placement, trace: Trace) -> Trace:
+    """Le parcours réellement roulé, demi-tours compris, comme un `Trace`.
+
+    Le tracé d'origine décrit la boucle que le moteur a proposée ; le placement,
+    lui, en roule parfois un morceau deux fois et en laisse un autre de côté. Le
+    fichier envoyé au compteur doit contenir ce qu'on va rouler : le 22/04, avec
+    quatre demi-tours, le placement comptait 72,7 km sur une boucle de 38,5 et
+    le GPX n'en portait aucun — ce n'était pas la séance.
+
+    `placement.jalons_m` suffit à reconstruire le parcours : entre deux jalons
+    on roule dans un seul sens, donc on découpe le tracé à ces positions et on
+    recolle les morceaux, à l'endroit ou à l'envers. Distances cumulées,
+    distance totale et D+ sont recalculés sur le résultat — un aller-retour
+    monte deux fois la même côte, et le `<desc>` du GPX doit le dire.
+
+    Un placement sans jalons (construit à la main, ou d'une version antérieure)
+    rend le tracé tel quel : on ne sait pas ce qui a été roulé, on n'invente pas.
+    """
+    if len(trace.points) < 2:
+        return trace
+    distances = _distances_cumulees(trace.points)
+    total = distances[-1]
+    if total <= 0 or len(placement.jalons_m) < 2:
+        return trace
+    jalons = [min(max(float(j), 0.0), total) for j in placement.jalons_m]
+
+    points: list[PointTrace] = []
+    for depart, arrivee in zip(jalons[:-1], jalons[1:], strict=True):
+        for point in _points_entre(trace.points, distances, depart, arrivee):
+            _empiler(points, point)
+    if len(points) < 2:
+        return trace
+
+    denivele = denivele_filtre(points)
+    return Trace(
+        nom=f"{trace.nom} — parcours placé",
+        points=points,
+        segments=[],  # les indices de segments du tracé d'origine ne désignent plus rien
+        distance_m=points[-1].dist_m,
+        denivele_m=denivele,
+        temps_moteur_s=None,  # aucun moteur n'a estimé ce parcours-là
+        meta={
+            "source": "parcours placé",
+            "trace_origine": trace.nom,
+            "denivele_source": DENIVELE_PARCOURS if denivele is not None else None,
+            "demi_tours": sum(1 for e in placement.emplacements if e.demi_tour),
+        },
+    )
+
+
+def _points_entre(
+    points: Sequence[PointTrace], distances: Sequence[float], depart: float, arrivee: float
+) -> list[PointTrace]:
+    """Les points du tracé de `depart` à `arrivee`, bornes interpolées comprises.
+
+    À l'envers quand `arrivee` est avant `depart` : c'est exactement ce que fait
+    le cycliste après un demi-tour, il repasse sur ses propres points.
+    """
+    bas, haut = min(depart, arrivee), max(depart, arrivee)
+    entre = [p for p, d in zip(points, distances, strict=True) if bas < d < haut]
+    if arrivee < depart:
+        entre.reverse()
+    return [
+        _point_a(points, distances, depart),
+        *entre,
+        _point_a(points, distances, arrivee),
+    ]
+
+
+def _point_a(points: Sequence[PointTrace], distances: Sequence[float], d: float) -> PointTrace:
+    """Le point du tracé à la distance `d`, interpolé entre les deux qui l'encadrent."""
+    i = min(max(bisect.bisect_right(distances, d) - 1, 0), len(points) - 2)
+    avant, apres = points[i], points[i + 1]
+    portee = distances[i + 1] - distances[i]
+    f = min(max((d - distances[i]) / portee if portee > 0 else 0.0, 0.0), 1.0)
+    if avant.alt_m is None or apres.alt_m is None:
+        altitude = avant.alt_m if apres.alt_m is None else apres.alt_m
+    else:
+        altitude = avant.alt_m + (apres.alt_m - avant.alt_m) * f
+    return PointTrace(
+        lat=avant.lat + (apres.lat - avant.lat) * f,
+        lon=avant.lon + (apres.lon - avant.lon) * f,
+        alt_m=altitude,
+        dist_m=d,
+    )
+
+
+def _empiler(points: list[PointTrace], point: PointTrace) -> None:
+    """Ajoute le point au parcours avec sa distance cumulée, sans écrire de doublon."""
+    if not points:
+        points.append(replace(point, dist_m=0.0))
+        return
+    pas = distance_m(points[-1], point)
+    if pas < DOUBLON_PARCOURS_M:
+        return
+    points.append(replace(point, dist_m=points[-1].dist_m + pas))
 
 
 def _classement(placement: Placement) -> tuple[float, float]:
@@ -286,6 +402,10 @@ class _Etat:
     sens: int = 1  # +1 dans le sens du tracé, −1 après un demi-tour
     distance_m: float = 0.0
     duree_s: float = 0.0
+    #: Les positions où l'on a fait demi-tour, dans l'ordre, départ compris.
+    #: Toujours **rebâtie**, jamais modifiée en place : `replace(etat)` partage
+    #: la liste entre les deux variantes d'une paire récup/bloc.
+    jalons: list[float] = field(default_factory=list)
 
 
 def _essayer(
@@ -302,7 +422,7 @@ def _essayer(
     """Déroule la séance pour un décalage donné : un `Placement`, ou le motif qui a coincé."""
     etapes = seance.etapes
     fin = idx_fermeture if idx_fermeture is not None else len(etapes)
-    etat = _Etat()
+    etat = _Etat(jalons=[0.0])
     emplacements: list[Emplacement] = []
     avertissements: list[str] = []
     ecarts: list[float] = []  # écarts relatifs des étapes élastiques, pour la pénalité
@@ -383,6 +503,7 @@ def _essayer(
         avertissements=list(dict.fromkeys(avertissements)),
         note_terrain=terrain_note,
         penalite_seance=penalite,
+        jalons_m=[*etat.jalons, etat.position_m],
     )
 
 
@@ -520,6 +641,7 @@ def _recup_puis_bloc(
     emplacement, etat_apres = min(candidates, key=lambda c: c[0].note.note)
     etat.position_m, etat.sens = etat_apres.position_m, etat_apres.sens
     etat.distance_m, etat.duree_s = etat_apres.distance_m, etat_apres.duree_s
+    etat.jalons = list(etat_apres.jalons)
     return emplacement
 
 
@@ -583,6 +705,7 @@ def _variante_demi_tour(
     # exactement du bout du segment, dans l'autre sens.
     essai = replace(etat)
     essai.sens = -etat.sens
+    essai.jalons = [*etat.jalons, terrain.dans_le_trace(etat.position_m + etat.sens * besoin_m)]
     essai.distance_m += 2 * besoin_m
     essai.duree_s += recup.duree_s
     depart = essai.position_m
@@ -737,6 +860,18 @@ class _Terrain:
         """La pente du pas qui contient `position_m` (celle du pas le plus proche aux bouts)."""
         i = bisect.bisect_right(self.bornes, position_m) - 1
         return self.pentes[min(max(i, 0), len(self.pentes) - 1)]
+
+    def dans_le_trace(self, position_m: float) -> float:
+        """Ramène une position entre le départ et l'arrivée, sans faire le tour.
+
+        À distinguer de `borner`, qui fait le tour d'une boucle fermée. Ici on
+        veut la position telle qu'on la reparcourra sur le tracé : un demi-tour
+        amorcé à moins d'une demi-récup de la fin d'une boucle se fait donc au
+        bout du tracé, quelques centaines de mètres plus tôt que dans le calcul
+        des durées. C'est la seule approximation du parcours rendu par
+        `trace_parcourue`, et elle ne joue qu'à cet endroit-là.
+        """
+        return min(max(position_m, 0.0), self.total)
 
     def borner(self, position_m: float) -> float:
         """Ramène une position dans le tracé : par le tour de boucle si elle est fermée."""

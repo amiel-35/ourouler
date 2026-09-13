@@ -22,6 +22,14 @@ FERMETURE_M = 300.0
 #: absolue 5, un désaccord s'affiche comme un désaccord).
 DENIVELE_MOTEUR = "moteur"
 DENIVELE_GPX_RELU = "gpx relu"
+#: Dénivelé recalculé sur le parcours réellement roulé, demi-tours compris
+#: (`seance.placement.trace_parcourue`) : ce n'est ni le D+ du moteur ni celui
+#: du tracé d'origine, puisqu'un aller-retour monte deux fois la même côte.
+DENIVELE_PARCOURS = "parcours placé"
+
+#: Montées inférieures à ce seuil : du bruit d'altimètre, pas du dénivelé.
+#: BRouter appelle cela « filtered ascend » ; on fait pareil, plus simplement.
+SEUIL_DENIVELE_M = 2.0
 
 
 @dataclass(frozen=True)
@@ -111,3 +119,38 @@ def sens_boucle(trace: Trace) -> str:
     if abs(aire2) / 2 < 10_000:
         return "indetermine"
     return "antihoraire" if aire2 > 0 else "horaire"
+
+
+def denivele_filtre(points: list[PointTrace]) -> float | None:
+    """Le D+ du tracé, ou None si aucun point n'a d'altitude.
+
+    Une montée n'est comptée que si elle dépasse `SEUIL_DENIVELE_M` depuis la
+    dernière référence. Ce n'est pas un lissage : le seuil efface le bruit
+    **strictement plus petit que lui**, et rien d'autre. Mesuré sur un profil
+    de 1 000 points (test `test_ce_que_le_seuil_de_denivele_fait_vraiment`) :
+
+    | profil | D+ brut | après le seuil |
+    |---|---|---|
+    | plat, bruit ±1 m | 334 m | 0 m |
+    | montée régulière de 20 m, bruit ±1 m | 345 m | 19 m |
+    | plat, bruit ±2,5 m | 832 m | 550 m |
+
+    Autrement dit : sous un mètre d'oscillation, le seuil rend le chiffre
+    exploitable et conserve le vrai dénivelé ; au-delà de 2 m, il ne protège
+    plus de grand-chose. Le chiffre reste indicatif — le moteur donne son
+    propre « filtered ascend », qu'on préfère quand on l'a, et la provenance
+    est écrite dans `meta["denivele_source"]`.
+    """
+    altitudes = [p.alt_m for p in points if p.alt_m is not None]
+    if len(altitudes) < 2:
+        return None
+    total = 0.0
+    reference = altitudes[0]
+    for altitude in altitudes[1:]:
+        ecart = altitude - reference
+        if ecart >= SEUIL_DENIVELE_M:
+            total += ecart
+            reference = altitude
+        elif ecart <= -SEUIL_DENIVELE_M:
+            reference = altitude
+    return total

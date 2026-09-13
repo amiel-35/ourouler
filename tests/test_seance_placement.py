@@ -23,7 +23,7 @@ from datetime import date
 import pytest
 
 import ourouler.seance
-from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
 
 TYPES = ("echauffement", "bloc", "recuperation", "calme")
@@ -573,6 +573,113 @@ def test_un_retour_au_calme_hors_fenetre_se_dit(monkeypatch):
 
     assert resultat is not None
     assert any("retour au calme" in a for a in resultat.avertissements)
+
+
+# --- le parcours réellement roulé -----------------------------------------------
+
+
+def _boucle_carree(cote_m: float = 20_000.0, pas_m: float = 500.0) -> Trace:
+    """Un carré fermé de `4 × cote_m`, plat, au large du golfe de Guinée.
+
+    Une vraie boucle, pas une ligne droite : le parcours rendu doit recoller
+    des morceaux qui tournent, pas seulement des longitudes croissantes.
+    """
+    n = int(cote_m // pas_m)
+    cotes = ((1, 0), (0, 1), (-1, 0), (0, -1))  # est, nord, ouest, sud
+    x = y = 0.0
+    points = [PointTrace(lat=0.0, lon=0.0, alt_m=100.0, dist_m=0.0)]
+    for dx, dy in cotes:
+        for _ in range(n):
+            x, y = x + dx * pas_m, y + dy * pas_m
+            points.append(
+                PointTrace(
+                    lat=y * DEG_PAR_M,
+                    lon=x * DEG_PAR_M,
+                    alt_m=100.0,
+                    dist_m=points[-1].dist_m + pas_m,
+                )
+            )
+    return Trace(
+        nom="carré d'essai",
+        points=points,
+        segments=[],
+        distance_m=points[-1].dist_m,
+        denivele_m=0.0,
+        temps_moteur_s=None,
+    )
+
+
+def _point_du_parcours(parcours: Trace, distance_m_: float) -> PointTrace:
+    """Le point du parcours à `distance_m_` du départ, interpolé."""
+    return placement._point_a(parcours.points, [p.dist_m for p in parcours.points], distance_m_)
+
+
+def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
+    """Défaut mesuré le 22/04 : le GPX écrit ne contenait aucun aller-retour.
+
+    Une boucle fabriquée, un seul bon couloir de la longueur d'un bloc : le
+    placement fait demi-tour, et le parcours rendu doit faire la distance
+    **placée**, pas celle de la boucle, en repassant exactement sur ses pas.
+    """
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+    trace = _boucle_carree()
+
+    resultat = placement.placer(_seance(), trace, P, penalite_demi_tour=1.0)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, True], (
+        "ce test a besoin du demi-tour pour avoir quelque chose à vérifier"
+    )
+    assert len(resultat.jalons_m) == 3, f"un demi-tour, donc trois jalons : {resultat.jalons_m}"
+
+    parcours = placement.trace_parcourue(resultat, trace)
+
+    assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01), (
+        f"parcours de {parcours.distance_m:.0f} m pour une séance placée sur "
+        f"{resultat.distance_totale_m:.0f} m : ce n'est pas ce qui sera roulé"
+    )
+    assert parcours.distance_m != pytest.approx(trace.distance_m, rel=0.01), (
+        "le parcours ne peut pas faire la longueur de la boucle : on a fait demi-tour"
+    )
+    # On revient sur ses pas : de part et d'autre du demi-tour, mêmes points.
+    demi_tour_m = resultat.jalons_m[1]
+    for ecart in (50.0, 500.0, 2_000.0, 5_000.0):
+        avant = _point_du_parcours(parcours, demi_tour_m - ecart)
+        apres = _point_du_parcours(parcours, demi_tour_m + ecart)
+        assert distance_m(avant, apres) < 1.0, (
+            f"à {ecart:.0f} m du demi-tour, le retour passe à {distance_m(avant, apres):.1f} m "
+            "de l'aller : le parcours ne revient pas sur ses pas"
+        )
+    # Et le premier point du parcours est bien le départ de la boucle.
+    assert distance_m(parcours.points[0], trace.points[0]) < 1.0
+
+
+def test_un_parcours_sans_demi_tour_redonne_le_trace(monkeypatch):
+    """Sans demi-tour, le parcours est la boucle elle-même, du départ à l'arrivée."""
+    _couloirs(monkeypatch, (0.0, 1e9))
+    trace = _boucle_carree()
+
+    resultat = placement.placer(_seance(), trace, P)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    parcours = placement.trace_parcourue(resultat, trace)
+    assert parcours.distance_m == pytest.approx(trace.distance_m, rel=0.001)
+    assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01)
+
+
+def test_un_placement_sans_jalons_rend_le_trace_tel_quel(monkeypatch):
+    """Un `Placement` construit à la main ne dit pas ce qui a été roulé : on n'invente pas."""
+    trace = _boucle_carree()
+    nu = placement.Placement(
+        decalage_z2_s=0.0,
+        emplacements=[],
+        note_totale=0.0,
+        duree_totale_s=0.0,
+        distance_totale_m=0.0,
+    )
+    assert placement.trace_parcourue(nu, trace) is trace
 
 
 # --- refus ----------------------------------------------------------------------

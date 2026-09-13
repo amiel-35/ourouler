@@ -13,8 +13,8 @@ from xml.etree import ElementTree
 import pytest
 from test_brouter import client_fabrique  # même dossier : pytest y met le sys.path
 
-from ourouler.boucle.gpx import _denivele, description, ecrire_gpx, lire_gpx_trace
-from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.boucle.gpx import description, ecrire_gpx, lire_gpx_trace
+from ourouler.boucle.trace import PointTrace, Trace, denivele_filtre
 from ourouler.erreurs import ErreurLecture
 
 GPX_ROUTE_SEULE = """<?xml version="1.0" encoding="UTF-8"?>
@@ -116,7 +116,7 @@ def test_ce_que_le_seuil_de_denivele_fait_vraiment():
     le dénivelé d'un parcours plat ». C'est une affirmation sans mesure
     (règle absolue 5), et elle décrit mal ce que fait le seuil : il efface le
     bruit strictement plus petit que lui, et rien d'autre. Ce test mesure les
-    trois cas écrits dans le docstring de `_denivele`.
+    trois cas écrits dans le docstring de `denivele_filtre`.
     """
     n = 1000
 
@@ -135,23 +135,23 @@ def test_ce_que_le_seuil_de_denivele_fait_vraiment():
 
     plat_leger = profil(plat, 1.0)
     assert brut(plat_leger) > 300.0, "le bruit brut doit bien être massif"
-    assert _denivele(plat_leger) == pytest.approx(0.0), (
+    assert denivele_filtre(plat_leger) == pytest.approx(0.0), (
         "sous le seuil, le bruit d'un parcours plat disparaît entièrement"
     )
 
     montee_legere = profil(montee, 1.0)
     assert brut(montee_legere) > 300.0
-    assert _denivele(montee_legere) == pytest.approx(20.0, abs=2.0), (
+    assert denivele_filtre(montee_legere) == pytest.approx(20.0, abs=2.0), (
         "et le vrai dénivelé, lui, survit"
     )
 
     plat_fort = profil(plat, 2.5)  # oscillation au-dessus du seuil de 2 m
-    assert _denivele(plat_fort) > 400.0, (
+    assert denivele_filtre(plat_fort) > 400.0, (
         "au-delà du seuil, le filtre ne protège plus : c'est ce que le docstring doit dire"
     )
 
 
-def test_la_description_dit_d_ou_vient_le_denivele():
+def test_la_description_dit_d_ou_vient_ledenivele_filtre():
     """Point 5 de la relecture : le `<desc>` portait le D+ du moteur sans le dire.
 
     Relire avec `--gpx` le fichier qu'on vient d'écrire donne un autre

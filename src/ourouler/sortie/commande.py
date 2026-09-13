@@ -45,6 +45,7 @@ from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.commande import direction_en_azimut
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
+from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
@@ -60,7 +61,7 @@ from ourouler.physique.modele import Parametres
 from ourouler.seance.commande import longueurs
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
-from ourouler.seance.placement import CLE_MOTIF, Placement, placer
+from ourouler.seance.placement import CLE_MOTIF, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.sortie.carte import construire as construire_carte
@@ -199,7 +200,7 @@ def executer(
     tenue = (
         conseiller_tenue(meilleure.meteo, config.tenue) if meilleure.meteo is not None else None
     )
-    chemin_gpx = _ecrire_gpx(meilleure.trace, seance, demande)
+    chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande)
     chemin_carte = _ecrire_carte(meilleure, seance, demande, config, tenue)
 
     if panne is not None:
@@ -594,14 +595,38 @@ def _base_routes(config: Config) -> BaseRoutes | None:
 # --- écriture des fichiers -----------------------------------------------------
 
 
-def _ecrire_gpx(trace: Trace, seance: Seance, demande: Demande) -> Path:
+def _ecrire_gpx(trace: Trace, placement: Placement, seance: Seance, demande: Demande) -> Path:
+    """Le GPX du **parcours placé**, demi-tours compris — pas celui de la boucle.
+
+    Défaut mesuré le 22/04 : avec quatre demi-tours, le placement comptait
+    72,7 km sur une boucle de 38,5, et le fichier envoyé au compteur n'en
+    portait aucun. Ce qu'on écrit doit être ce qu'on va rouler, sans quoi le
+    GPX ne correspond pas à la séance. La carte, elle, montre toujours la
+    boucle : c'est son rôle de situer les blocs sur le tracé d'origine.
+    """
     chemin = chemin_gpx_par_defaut(demande)
     nom = f"{seance.nom} — {seance.jour.isoformat()}"
+    parcours = trace_parcourue(placement, trace)
     try:
-        chemin.write_text(ecrire_gpx(trace, nom), encoding="utf-8")
+        chemin.write_text(
+            ecrire_gpx(parcours, nom, desc=_description_parcours(parcours, placement)),
+            encoding="utf-8",
+        )
     except OSError as e:
         raise ErreurUtilisateur(f"écriture impossible dans {chemin} ({e})") from e
     return chemin
+
+
+def _description_parcours(parcours: Trace, placement: Placement) -> str:
+    """« 47,8 km · D+ 210 m (parcours placé) · 4 demi-tours » — ce que contient le fichier."""
+    demi_tours = sum(1 for e in placement.emplacements if e.demi_tour)
+    if demi_tours == 0:
+        combien = "sans demi-tour"
+    elif demi_tours == 1:
+        combien = "1 demi-tour"
+    else:
+        combien = f"{demi_tours} demi-tours"
+    return f"{description_gpx(parcours)} · {combien}"
 
 
 def _ecrire_carte(

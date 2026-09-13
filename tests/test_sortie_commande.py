@@ -27,6 +27,9 @@ import httpx
 import pytest
 from test_seance_intervals import ATHLETE, CLE, W
 
+from ourouler.boucle.gpx import lire_gpx_trace
+from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -35,8 +38,16 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.modele import Parametres
+from ourouler.seance.modele import Seance
+from ourouler.seance.placement import Emplacement, Placement
+from ourouler.seance.terrain import NoteBloc
 from ourouler.sortie.carte import COULEURS_BLOCS
-from ourouler.sortie.commande import ARRONDI_DISTANCE_KM, executer, lire_options
+from ourouler.sortie.commande import (
+    ARRONDI_DISTANCE_KM,
+    _ecrire_gpx,
+    executer,
+    lire_options,
+)
 
 JOUR = date(2026, 9, 8)
 FTP = W.FTP_TEST  # 200 W, inventée
@@ -581,6 +592,84 @@ def test_le_gpx_et_la_carte_sont_ecrits_dans_le_dossier_courant(
     assert gpx.is_file() and carte.is_file()
     assert gpx.name in sortie and carte.name in sortie
     assert gpx.read_text(encoding="utf-8").startswith("<?xml")
+
+
+def test_le_gpx_ecrit_est_le_parcours_place(tmp_path: Path, monkeypatch, capsys):
+    """Défaut mesuré le 22/04 : le fichier envoyé au compteur ignorait le placement.
+
+    Ici la séance tient sur l'anneau sans demi-tour, donc parcours et boucle se
+    confondent — ce que le fichier doit dire, c'est la distance **placée** et
+    combien de demi-tours il contient.
+    """
+    code = lancer(tmp_path, monkeypatch, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    place = charge["candidates"][0]["placement"]
+    texte = (tmp_path / f"sortie_{JOUR:%Y%m%d}.gpx").read_text(encoding="utf-8")
+    relu = lire_gpx_trace(texte.encode("utf-8"))
+    assert relu.distance_m == pytest.approx(place["distance_totale_m"], rel=0.01)
+    assert "sans demi-tour" in texte, texte[:400]
+
+
+def _trace_anneau() -> Trace:
+    """L'anneau des tests, monté en `Trace` avec ses distances cumulées."""
+    points: list[PointTrace] = []
+    for lat, lon, alt in anneau(0.0):
+        point = PointTrace(lat=lat, lon=lon, alt_m=alt, dist_m=0.0)
+        cumul = 0.0 if not points else points[-1].dist_m + distance_points(points[-1], point)
+        points.append(PointTrace(lat=lat, lon=lon, alt_m=alt, dist_m=cumul))
+    return Trace(
+        nom="anneau",
+        points=points,
+        segments=[],
+        distance_m=points[-1].dist_m,
+        denivele_m=0.0,
+        temps_moteur_s=None,
+    )
+
+
+def test_le_gpx_d_un_parcours_avec_demi_tour_contient_l_aller_retour(
+    tmp_path: Path, monkeypatch
+):
+    """Un placement qui fait demi-tour au km 12 et rentre au km 6 : 18 km de fichier.
+
+    Le placement est fabriqué ici, parce que l'anneau des autres tests porte la
+    séance de bout en bout sans jamais avoir à se retourner. Ce qui est vérifié
+    est ce que le mainteneur a mesuré le 22/04 : le fichier doit contenir
+    l'aller-retour, et son `<desc>` le dire.
+    """
+    monkeypatch.chdir(tmp_path)
+    trace = _trace_anneau()
+    place = Placement(
+        decalage_z2_s=0.0,
+        emplacements=[
+            Emplacement(etape_idx=1, debut_m=6000.0, longueur_m=3000.0, demi_tour=True, note=NoteBloc(0.0))
+        ],
+        note_totale=1.0,
+        duree_totale_s=3600.0,
+        distance_totale_m=18_000.0,
+        jalons_m=[0.0, 12_000.0, 6_000.0],
+    )
+    seance = Seance(nom="séance fabriquée", jour=JOUR, etapes=[], duree_s=0.0, meta={})
+    demande = lire_options(args(), config_de_test(tmp_path / "cache"))
+
+    chemin = _ecrire_gpx(trace, place, seance, demande)
+
+    texte = chemin.read_text(encoding="utf-8")
+    relu = lire_gpx_trace(texte.encode("utf-8"))
+    assert relu.distance_m == pytest.approx(18_000.0, rel=0.01), (
+        f"{relu.distance_m:.0f} m écrits pour 18 000 m roulés : le demi-tour manque au fichier"
+    )
+    assert "1 demi-tour" in texte and "18,0 km" in texte, texte[:400]
+    # Le GPX repasse bien deux fois par le même endroit : le point du km 9 de la
+    # boucle est écrit à l'aller et au retour.
+    passages = [p for p in relu.points if distance_points(p, _point_a_9_km(trace)) < 50.0]
+    assert len(passages) >= 2, f"{len(passages)} passage(s) au km 9 : l'aller-retour n'y est pas"
+
+
+def _point_a_9_km(trace: Trace) -> PointTrace:
+    """Le point de la boucle au km 9, entre le demi-tour et le retour."""
+    return min(trace.points, key=lambda p: abs(p.dist_m - 9_000.0))
 
 
 def test_les_chemins_demandes_sont_respectes(tmp_path: Path, monkeypatch, capsys):

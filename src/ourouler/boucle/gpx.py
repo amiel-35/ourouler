@@ -8,6 +8,10 @@ enregistrée** (points horodatés, puissance, cadence) pour l'inventaire.
 Ici on lit un **parcours** : ni horodatage ni capteur, juste une suite de
 points. Un GPX de parcours sans horodatage est refusé par l'autre lecteur,
 et c'est précisément le cas courant.
+
+Le calcul du D+ (`denivele_filtre`, `SEUIL_DENIVELE_M`) a rejoint
+`boucle.trace` : il ne dépend pas du format, et `seance.placement` en a besoin
+pour le parcours réellement roulé.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from ourouler.boucle.trace import (
     DENIVELE_GPX_RELU,
     PointTrace,
     Trace,
+    denivele_filtre,
     distance_m,
 )
 from ourouler.erreurs import ErreurLecture
@@ -29,19 +34,20 @@ Entree = Path | str | bytes | bytearray
 
 CREATEUR = "ourouler"
 
-#: Montées inférieures à ce seuil : du bruit d'altimètre, pas du dénivelé.
-#: BRouter appelle cela « filtered ascend » ; on fait pareil, plus simplement.
-SEUIL_DENIVELE_M = 2.0
-
 
 # --- écriture -----------------------------------------------------------------
 
 
-def ecrire_gpx(trace: Trace, nom: str) -> str:
-    """Le tracé en GPX 1.1 : une `<trk>` nommée, avec altitudes si elles existent."""
+def ecrire_gpx(trace: Trace, nom: str, *, desc: str | None = None) -> str:
+    """Le tracé en GPX 1.1 : une `<trk>` nommée, avec altitudes si elles existent.
+
+    `desc` remplace la description par défaut quand l'appelant en sait plus que
+    le tracé lui-même — `ourouler sortie` y met le nombre de demi-tours du
+    parcours placé, que la géométrie seule ne dit pas.
+    """
     gpx = gpxpy.gpx.GPX()
     gpx.creator = CREATEUR
-    piste = gpxpy.gpx.GPXTrack(name=nom, description=description(trace))
+    piste = gpxpy.gpx.GPXTrack(name=nom, description=desc if desc is not None else description(trace))
     segment = gpxpy.gpx.GPXTrackSegment()
     segment.points = [
         gpxpy.gpx.GPXTrackPoint(latitude=p.lat, longitude=p.lon, elevation=p.alt_m)
@@ -117,7 +123,7 @@ def lire_gpx_trace(chemin_ou_bytes: Entree) -> Trace:
     if not points:
         raise ErreurLecture(f"{fichier or '<octets>'} : GPX sans point de tracé")
 
-    denivele = _denivele(points)
+    denivele = denivele_filtre(points)
     return Trace(
         nom=nom or (Path(fichier).stem if fichier else "Trace importée"),
         points=points,
@@ -146,41 +152,6 @@ def _premiere_suite(gpx) -> tuple[str, list]:
         if route.points:
             return (route.name or ""), list(route.points)
     return "", []
-
-
-def _denivele(points: list[PointTrace]) -> float | None:
-    """Le D+ du tracé, ou None si aucun point n'a d'altitude.
-
-    Une montée n'est comptée que si elle dépasse `SEUIL_DENIVELE_M` depuis la
-    dernière référence. Ce n'est pas un lissage : le seuil efface le bruit
-    **strictement plus petit que lui**, et rien d'autre. Mesuré sur un profil
-    de 1 000 points (test `test_ce_que_le_seuil_de_denivele_fait_vraiment`) :
-
-    | profil | D+ brut | après le seuil |
-    |---|---|---|
-    | plat, bruit ±1 m | 334 m | 0 m |
-    | montée régulière de 20 m, bruit ±1 m | 345 m | 19 m |
-    | plat, bruit ±2,5 m | 832 m | 550 m |
-
-    Autrement dit : sous un mètre d'oscillation, le seuil rend le chiffre
-    exploitable et conserve le vrai dénivelé ; au-delà de 2 m, il ne protège
-    plus de grand-chose. Le chiffre reste indicatif — le moteur donne son
-    propre « filtered ascend », qu'on préfère quand on l'a, et la provenance
-    est écrite dans `meta["denivele_source"]`.
-    """
-    altitudes = [p.alt_m for p in points if p.alt_m is not None]
-    if len(altitudes) < 2:
-        return None
-    total = 0.0
-    reference = altitudes[0]
-    for altitude in altitudes[1:]:
-        ecart = altitude - reference
-        if ecart >= SEUIL_DENIVELE_M:
-            total += ecart
-            reference = altitude
-        elif ecart <= -SEUIL_DENIVELE_M:
-            reference = altitude
-    return total
 
 
 def _octets(source: Entree) -> tuple[bytes, str | None]:

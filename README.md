@@ -37,7 +37,7 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 | `ourouler simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu | sprint 3 — **vérifié** sur une boucle générée |
 | `ourouler comparer` | de combien un vélo va plus vite que l'autre **à puissance égale**, mesuré sur des séries plates sans arrêt, sans modèle physique | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler seance` | la séance planifiée du jour (Intervals.icu), étape par étape, avec la longueur de route que chaque bloc demande et celle qu'il faut au-delà pour faire demi-tour pendant la récupération | sprint 4 — **vérifié sur vraies données (13/09/2026)** |
-| `ourouler sortie` | séance du jour ↔ terrain : boucles candidates, placement des blocs, tableau trié par note de placement puis pluie, GPX, tenue et **carte HTML de vérification** (tracé, blocs colorés, profil d'altitude) | sprint 4 — **vérifié sur vraies données (13/09/2026)**, météo absente sur les jours passés (hors horizon de prévision) |
+| `ourouler sortie` | séance du jour ↔ terrain : boucles candidates, placement des blocs, tableau trié par note de placement puis pluie, **GPX du parcours réellement roulé** (demi-tours compris), tenue et **carte HTML de vérification** (tracé, blocs colorés, profil d'altitude) | sprint 4 — **vérifié sur vraies données (13/09/2026)**, météo absente sur les jours passés (hors horizon de prévision) |
 | envoi vers Garmin Connect | | plus tard |
 
 Ces commandes ont toutes tourné sur les vraies données du mainteneur, et pas
