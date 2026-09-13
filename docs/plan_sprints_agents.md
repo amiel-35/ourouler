@@ -155,22 +155,20 @@ pénalisée à tort. « Inconnu » n'est jamais un malus.
 - Liste d'évitement (routes à ne plus prendre) → `nogos` BRouter.
 - Ce même jeu de sorties sert ensuite à calibrer les poids du score.
 
-**Défauts vus par Amiel sur une boucle réelle (carte du 13/09, « c'est
-débile », à corriger dans ce lot) :**
-- **Antennes en cul-de-sac** (Thorigné-Fouillard : crochet aller-retour sur
-  un chemin non revêtu ; Noyal-sur-Vilaine : petit crochet) — artefact du
-  mode boucle de BRouter, dont les points de passage sur le cercle tombent
-  à côté des routes. Activer `profile:correct_misplaced_via_points` (et sa
-  distance) dans l'appel, et détecter dans le tracé tout aller-retour sur
-  lui-même (même géométrie parcourue dans les deux sens sur < 500 m) pour
-  l'élaguer ou pénaliser la candidate.
-- **Traversée d'un bourg** (Noyal-sur-Vilaine par la D92) : « éviter les
-  villages » vaut pour le tracé, pas seulement pour les blocs de la
-  séance — pénaliser les tronçons en zone bâtie (`place`, `landuse`,
-  `maxspeed ≤ 50`, `residential` dense) dans le score, ou via le profil.
-- **Une traversée n'est pas un tronçon à trafic** (Chevaigné : la D3175
-  franchie sur quelques dizaines de mètres compte en rouge) : ne classer
-  « trafic » qu'au-delà d'une longueur minimale sur la route en question.
+**Vu par Amiel sur une boucle réelle (carte du 13/09).** Un seul vrai
+défaut : les **antennes en cul-de-sac** (Thorigné-Fouillard : crochet
+aller-retour sur un chemin non revêtu ; Noyal-sur-Vilaine : petit crochet),
+artefact du mode boucle de BRouter dont les points de passage sur le cercle
+tombent à côté des routes. À corriger dans ce lot : activer
+`profile:correct_misplaced_via_points` (et sa distance) dans l'appel, et
+détecter dans le tracé tout aller-retour sur lui-même (même géométrie
+parcourue dans les deux sens sur < 500 m) pour l'élaguer ou pénaliser la
+candidate. **Le reste lui va** : les traversées de bourg (Noyal par la D92)
+ne sont pas un défaut — c'est la principale différence entre `fastbike` et
+`fastbike-verylowtraffic`, et **`fastbike` reste le profil par défaut**.
+Nuance mineure de classement, sans urgence : une simple traversée d'une
+route à trafic (Chevaigné, D3175 sur quelques dizaines de mètres) ne
+devrait pas compter comme un tronçon « trafic ».
 
 **Lot modèle physique.** Jalon : pour chaque vélo, des paramètres calibrés
 (masse, CdA, roulement) et un rapport d'erreur de temps sur des sorties non
