@@ -111,6 +111,15 @@ class Etape:
         return sum(bornes) / len(bornes)
 
     @property
+    def libelle_court(self) -> str:
+        """Le dernier morceau du libellé : la consigne, sans le nom du groupe.
+
+        `libelle` accumule le chemin — « Main Set 4x (2/4) · Z4 (FC) » ; un
+        tableau n'a la place que de la fin.
+        """
+        return self.libelle.rsplit(" · ", 1)[-1].strip()
+
+    @property
     def contraignante(self) -> bool:
         """Vrai pour un bloc : la seule étape sous laquelle le terrain compte."""
         return self.type == "bloc"
