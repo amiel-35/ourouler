@@ -100,15 +100,15 @@ sorties, kilométrage, noms d'équipement Intervals. Le code, les tests et
 `config.example.toml` n'en contiennent aucun. Décider : anonymiser ces
 documents, ou déplacer les chiffres dans un fichier ignoré par git.
 
-**Aggravé au sprint 2 (relecture, point 1)** : le contrat du sprint 2 et ce
-fichier citent les deux numéros de capteur et quatre identifiants
-d'équipement Intervals ; et le nom réel du capteur a transité par
-`config.py`, un test et `config.example.toml` avant purge, donc **il reste
-dans l'historique git** de `sprint-2` (commits non encore sur `main`).
-Avant tout passage en public : soit réécrire/écraser l'historique de la
-branche (squash de la PR du sprint 2 suffit pour les commits concernés),
-soit repartir d'un dépôt neuf avec un seul commit initial, ce qui est le
-plus simple et le plus sûr. Tant que le dépôt est privé, aucune urgence.
+**Précision du mainteneur (13/09/2026)** : le nom d'un modèle de capteur de
+puissance (« SRAM 1052 », « QUARQ 34055 » : numéros de produit ANT+ communs
+à tous les capteurs de ce modèle) **n'est pas une donnée personnelle**. La
+purge du sprint 2 et la mention « réécrire l'historique git » pour ce motif
+étaient un excès de prudence ; l'historique reste tel quel. Ce qui reste à
+ne pas publier : numéros de série, identifiants Intervals (athlète,
+équipements), coordonnées, chiffres d'entraînement — présents seulement dans
+les documents de cadrage, à anonymiser avant publication. Tant que le dépôt
+est privé, aucune urgence.
 
 ## Q7 — Ordre des règles de rattachement vélo — **close le 13/09/2026**
 
