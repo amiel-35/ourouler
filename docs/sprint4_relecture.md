@@ -654,3 +654,113 @@ qui deviendra sensible si une API doit répondre en moins d'une seconde.
 5. **La tenue configurée dans le TOML est ignorée** (T1) : tant que ce n'est
    pas corrigé, `[tenue.tenues]` ne sert à rien et le conseil vient toujours
    du jeu par défaut du code.
+
+
+---
+
+# Suites données (13/09/2026)
+
+Corrections apportées sur `sprint-4` après cette relecture, un commit par point
+ou par famille, chacun avec le test qui aurait attrapé le défaut. `uv run ruff
+check .` et `uv run pytest -q` verts (2 892 passed, 32 skipped).
+
+## Les deux décisions du §12, tranchées par le mainteneur
+
+**Point produit 1 — le critère d'acceptation restreint aux blocs de moins de
+6 km est validé tel quel.** C'est une décision du mainteneur, motivée : sur un
+bloc de 11 km, le cycliste ne choisit pas le terrain, il roule là où il en est
+rendu quand la montre sonne. Rien n'est changé au code ; ce qui est changé,
+c'est que le script le **dit clairement** — l'en-tête du critère porte
+maintenant « les blocs de plus de 6 km sont mesurés plus bas mais ne jugent pas
+les poids (décision du mainteneur du 13/09) », le docstring de `conclure` le
+répète, et le `README.md` le donne comme l'une des deux limites à lire avec la
+conclusion.
+
+**Point produit 2 — l'asymétrie 20 / 2 était un vrai défaut, corrigé.**
+`PENALITE_SEANCE_ALLONGEE` passe de **2,0 à 1,0** ;
+`PENALITE_SEANCE_NON_TENUE` reste à **20,0**. Les deux critères, mesurés sur
+les quatre candidates réelles du 08/02 et du 22/04 :
+
+* **(a) aucune séance tronquée ne gagne.** À 20, aucun placement retenu ne
+  tronque la séance le 08/02 ; celui du 22/04 qui tronque (retour au calme à
+  20 min au lieu de 40) paie 8,9 et finit dernier. Le même calcul avec la
+  pénalité à 0 fait aussitôt gagner des placements amputés : le 08/02, une
+  candidate bascule sur 0 min de retour au calme (−98 %) et remonte de la 4ᵉ à
+  la 3ᵉ place ; le 22/04, une autre bascule sur 12 min au lieu de 40 (−69 %) et
+  passe devant. Le poids reste au-dessus de `PENALITE_BLOC_TRONQUE` (10), sa
+  borne basse nommée.
+* **(b) un village sous un bloc coûte plus qu'un retour tardif de 20 minutes.**
+
+  | séance | retard de 20 min | 1 km de village sous le bloc le plus long | verdict |
+  |---|---|---|---|
+  | 08/02 (2×20' + 4×3', calme 20 min) | +100 %, 0,80 hors fenêtre → **1,60** avant, **0,80** après | 3,0 × 1200/3120 = **1,15** | 1,60 > 1,15 devient 0,80 < 1,15 |
+  | 22/04 (4×40 s + 5' + 4×8', calme 40 min) | +50 %, 0,30 hors fenêtre → **0,60** avant, **0,30** après | 3,0 × 480/2380 = **0,61** | l'égalité à 0,01 près devient un facteur deux |
+
+L'ordre de classement des candidates ne change sur aucune des deux journées :
+la pénalité départage toujours dans le même sens, elle pèse simplement moins
+que le terrain qu'elle écrasait.
+
+## Le mode nominal de la validation rétrospective fait foi
+
+Écrit en tête de `tests/validation/terrain_retrospectif.py`, dans le `README.md`
+et ici.
+
+Le **mode nominal** lit les intervalles marqués dans Intervals.icu : ce sont
+les blocs réellement prescrits et exécutés, onze sur les deux sorties de
+référence. Le mode **`--sans-reseau`** les devine à partir de la seule
+puissance : il en trouve quinze, coupe un 20' en trois quand la puissance passe
+sous le seuil au milieu, et ramasse des fragments d'échauffement au-dessus de
+75 % de FTP. Il borne moins bien les blocs, donc il mesure autre chose.
+
+Sa conclusion du jour — **NON, 70,3 % pour un seuil de 70 %** — est la
+conclusion honnête d'un mode dégradé, **pas un désaveu des poids** : un bloc
+coupé en trois porte des morceaux de récupération que le vrai bloc n'a pas. Le
+mode dégradé garde son utilité (il est le seul reproductible sans la clé d'API
+du mainteneur, et il vérifie que le code tourne de bout en bout), il n'a
+simplement pas valeur de verdict.
+
+Le script **échoue maintenant avec un message clair quand les deux modes
+divergent**, plutôt que de sortir en 1 sur « les poids sont faux » — laisser
+croire que l'un vaut l'autre serait pire que l'écart lui-même. La référence
+nominale est figée, datée et chiffrée dans `REFERENCE_NOMINALE`.
+
+**Conclusion du mode qui fait foi, 13/09/2026, code 0 :** 9 blocs courts et
+moyens jugés sur 11 trouvés, note médiane des emplacements réels à **42,7 % de
+celle du hasard**, là où le critère demande au plus 70 %. **OUI.**
+
+## Les treize points de la liste
+
+| # | Point | État |
+|---|---|---|
+| 1 | T1 — `[tenue.tenues]` sans effet | **corrigé** — `_tenues` passe par `tenue_de` ; deuxième défaut trouvé au passage, `modéré` était une clé TOML invalide dans `config.example.toml` |
+| 2 | A1 — `.gitignore` n'ignore pas les cartes | **corrigé** — `*.html`, plus un invariant qui lit les chemins par défaut depuis le code de la commande |
+| 3 | X2 — doublures de modules | **corrigé** — supprimées, plus un invariant sur la suite elle-même |
+| 4 | D1 — chiffres des poids | **corrigé** — cinq docstrings réécrites, mode déclaré ; `NoteBloc.irregularite` exposée pour que le dernier poids devienne auditable |
+| 5 | D2 — conclusion et mode qui fait foi | **corrigé** — README, en-tête du script, échec sur divergence |
+| 6 | C1 — boucle contre parcours | **corrigé** — colonnes `boucle` / `parcours`, ligne d'explication |
+| 7 | C2 — les deux D+ | **corrigé** — ligne sous le tableau, `denivele_parcours_m` en JSON |
+| 8 | X1 — test de tenue non probant | **corrigé** — vrai `ParametresTenue`, plus un test de bout en bout depuis `config.example.toml` |
+| 9 | X3 — `fabriques4.module` saute trop | **corrigé** — ne saute que si le paquet est absent |
+| 10 | D4 — pente moyenne mal divisée | **corrigé** — divisée par l'étendue du profil |
+| 11 | C3, C4 — `<` dans le JSON, lien OSM | **corrigé** |
+| 12 | S1, S2, S3, C5 — quatre points légers | **corrigés** ; pour C5, `--heure` est accepté partout comme synonyme de `--depart` sans rien retirer, et le choix du nom canonique est posé au mainteneur en Q15 |
+| 13 | Test manquant de la règle (b) | **ajouté** — trois tests, vérifiés contre une mutation « récup étirée quand ça arrange » qui passait les 2 869 tests précédents |
+
+## Audit de probité des tests (mené en parallèle, par mutation)
+
+* **Mutant « récup étirée quand ça arrange » : tué.** Les trois tests de la
+  règle (b) l'attrapent ; les 2 869 tests d'avant le laissaient passer.
+* **Mutant « filtre les mauvaises candidates » : tué.** La règle produit (e)
+  n'était protégée que par un dépaquetage à deux éléments. Deux tests
+  explicites, texte et JSON.
+* **`depuis_workout_doc` levait sur une puissance négative**, en contradiction
+  avec son docstring : corrigé, l'étape est gardée sans puissance et la perte
+  se compte.
+* **Deux assertions creuses réécrites** : « terrain réutilise la mécanique de
+  couts » se satisfaisait d'un commentaire contenant le mot, « une unité
+  inconnue ne fabrique pas de puissance fantaisiste » tolérait tout jusqu'à
+  5 × FTP.
+* Non corrigés, à connaître : `terrain_retrospectif.py` n'est pas collecté par
+  pytest (c'est voulu, il lit le cache réel) ; le `glob` non récursif de
+  `test_invariants.py` reste, son docstring nomme maintenant son périmètre et
+  renvoie à l'invariant jumeau qui couvre le fond.
