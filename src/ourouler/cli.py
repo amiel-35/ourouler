@@ -36,6 +36,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_inventaire(sous)
     ajouter_meteo(sous)
     ajouter_boucle(sous)
+    ajouter_routes(sous)
     return p
 
 
@@ -192,6 +193,59 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
 
 def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
+
+    return executer(args, config)
+
+
+def ajouter_routes(sous: argparse._SubParsersAction) -> None:
+    """`ourouler routes {apprendre,stats,poids}` — ce que les sorties passées apprennent.
+
+    Les actions sont des sous-sous-commandes : chacune a ses options, et
+    `--json` est accepté aux trois niveaux (global, `routes`, action) grâce à
+    `parent_json()` et son `SUPPRESS`.
+    """
+    p = sous.add_parser(
+        "routes",
+        help="routes connues : apprendre des sorties passées, statistiques et poids",
+        parents=[parent_json()],
+    )
+    actions = p.add_subparsers(dest="action", metavar="<action>")
+
+    a = actions.add_parser(
+        "apprendre",
+        help="rejoue les sorties extérieures dans BRouter (un appel par sortie, idempotent)",
+        parents=[parent_json()],
+    )
+    a.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
+    a.add_argument(
+        "--max",
+        type=int,
+        dest="max_sorties",
+        metavar="N",
+        help="n'apprendre que N sorties de plus (pour essayer sans tout lancer)",
+    )
+
+    actions.add_parser(
+        "stats",
+        help="km et part par classe de route, part semaine, poids par défaut et appris",
+        parents=[parent_json()],
+    )
+
+    w = actions.add_parser(
+        "poids",
+        help="compare les sorties à huit boucles d'exposition et en déduit les poids",
+        parents=[parent_json()],
+    )
+    w.add_argument(
+        "--appliquer",
+        action="store_true",
+        help="écrire les poids dans poids_routes.json (le cache), utilisés par `boucle`",
+    )
+    p.set_defaults(fonction=_commande_routes)
+
+
+def _commande_routes(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.apprentissage.commande import executer  # import paresseux (lot L3.2)
 
     return executer(args, config)
 
