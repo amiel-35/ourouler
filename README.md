@@ -137,8 +137,10 @@ Ce que le mainteneur doit savoir avant de lire un chiffre.
   plus bas avec un Crr plus haut expliquerait les mêmes données. Ce qu'il faut
   lire, et ce que le rapport met en avant, c'est la **résistance totale** à 27
   et 35 km/h. Le couple prédit correctement le temps entre 20 et 36 km/h, et
-  se tromperait hors de cette plage. Détail et pistes : Q9 de
-  `docs/questions_mainteneur.md`.
+  se tromperait hors de cette plage. C'est une limite acceptée, pas une
+  question en attente : Q9 est close depuis le 13/09/2026 (« on va trop dans
+  le détail pour un coureur amateur »), on ne cherche plus à séparer les deux
+  termes. Historique : Q9 de `docs/questions_mainteneur.md`.
 - **Le vent météo n'est pas le vent du cycliste.** Archive et prévision le
   donnent à 10 m du sol ; un facteur 0,6 (profil logarithmique, bocage) le
   ramène à 1,5 m. Ce facteur est une hypothèse de rugosité moyenne, pas une
