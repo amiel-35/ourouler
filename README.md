@@ -16,7 +16,7 @@ Le chemin pour y arriver, dans cet ordre, sans brûler d'étape :
 
 1. **Une bibliothèque Python et une ligne de commande** qui couvrent d'abord
    le besoin du mainteneur, premier utilisateur, sur ses vraies données.
-   C'est là qu'on en est (sprint 2, septembre 2026).
+   C'est là qu'on en est (sprint 3, septembre 2026).
 2. **Une API** au-dessus du même cœur : la CLI n'est qu'un adaptateur, l'API
    en sera un second.
 3. **Le front web** et les comptes.
@@ -31,11 +31,11 @@ commande sait rendre du JSON. Détail des choix : `doctrine_architecture.md`.
 |---|---|---|
 | `ourouler meteo` | pluie, vent et ressenti par direction et par heure autour du point de départ (Open-Meteo, AROME 1,3 km + second modèle en indice de confiance) | sprint 1 |
 | `ourouler inventaire` | lecture FIT / GPX / TCX, cache local, inventaire des sorties par vélo et par mois, synchronisation Intervals.icu | sprint 1 — **vérifié sur vraies données (13/09/2026)** |
-| `ourouler boucle` | boucle de la bonne distance dans la direction sèche, vent de face à l'aller, GPX | sprint 2 — **vérifié pour de vrai** sur BRouter auto-hébergé + Open-Meteo |
+| `ourouler boucle` | boucle de la bonne distance dans la direction sèche, vent de face à l'aller, GPX | sprint 2, enrichi au sprint 3 (temps du modèle calibré, poids appris, « connu % », antennes) — **vérifié pour de vrai** sur BRouter auto-hébergé + Open-Meteo |
 | `ourouler routes` | apprend sur vos sorties passées quelles routes vous acceptez (rejeu dans BRouter), et en tire les poids du score | sprint 3 — **vérifié pour de vrai** sur 154 sorties rejouées |
 | `ourouler calibrer` | ajuste CdA et Crr d'un vélo sur les sorties réelles (vent d'archive compris) et mesure l'erreur de temps sur des sorties non vues | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler simuler` | temps en mouvement d'un GPX à puissance tenue, avec le modèle calibré et le vent prévu | sprint 3 — **vérifié** sur une boucle générée |
-| `ourouler comparer` | combien de watts séparent deux vélos, mesuré sur les seules routes roulées par les deux, sans modèle physique | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
+| `ourouler comparer` | de combien un vélo va plus vite que l'autre **à puissance égale**, mesuré sur des séries plates sans arrêt, sans modèle physique | sprint 3 — **vérifié sur vraies données (13/09/2026)** |
 | `ourouler sortie` | séance du jour ↔ terrain : choix de la boucle, résumé, tenue | plus tard |
 | envoi vers Garmin Connect | | plus tard |
 
@@ -55,7 +55,9 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   BRouter (2 min 26). Ce que le mainteneur roule vraiment : 58 % de
   `tertiary`, 20 % de `secondary`, 13 % d'`unclassified`, 3 % de `primary`.
   Les poids appris qui en sortent renversent le score du sprint 2 — la
-  `secondary` passe de 3,0 à 0,4 km équivalents par kilomètre.
+  `secondary` passe de 3,0 à 0,4 km équivalents par kilomètre (0,44 mesuré le
+  13/09/2026, l'exposition étant élaguée de ses antennes comme les candidates
+  de `boucle`).
 - `ourouler calibrer` : le 13/09/2026, sur 99 sorties RCR et 35 sorties BMC,
   avec 137 jours d'archive météo Open-Meteo téléchargés une fois pour toutes.
   Erreur de temps en mouvement sur les 25 % de sorties les plus récentes,
@@ -65,25 +67,42 @@ vérifié le dit en toutes lettres, un lot vérifié dit quand et sur quoi.
   (139 W) à 27 km/h et 23,2 N (231 W) à 35 km/h pour le RCR, 15,9 N (122 W)
   et 21,0 N (210 W) pour le BMC. CdA et Crr pris séparément sont mal
   contraints par ces données et ne doivent pas être cités seuls.
-- `ourouler comparer` : le 13/09/2026, RCR contre BMC sur les 1 602 mailles
-  de 30 m roulées par les deux, tronçons de 200 m à moins de 1 % de pente.
-  À 30-32 km/h, sur 676 tronçons RCR et 551 tronçons BMC : **+6 W pour le
-  BMC**, c'est-à-dire aucun avantage mesurable au vélo de contre-la-montre à
-  cette allure. Ce résultat **contredit** la résistance totale calibrée
-  ci-dessus (−17 W à 27 km/h pour le BMC) ; l'écart n'est pas expliqué, et
-  retirer les sorties en groupe ne le referme pas (+4 W au lieu de +6 W).
+- `ourouler comparer` : le 13/09/2026, RCR contre BMC. La mesure est une
+  **vitesse à puissance égale**, prise sur des séries de tronçons plats
+  (|pente| ≤ 0,8 %), d'au moins 500 m, sans arrêt ni relance, à une puissance
+  d'endurance (56-75 % de la FTP, soit 144-194 W) : 317 séries et 239 km pour
+  le RCR, 145 séries et 116 km pour le BMC. Lues au milieu de la zone
+  (169 W) : **RCR 29,0 km/h, BMC 31,5 km/h, soit +2,4 km/h pour le BMC**.
+  Les watts n'en sont qu'une conversion, et elle dépend de la façon de
+  convertir : **27 W** par la calibration du RCR (ce qu'il faut de plus pour
+  tenir 31,5 km/h au lieu de 29,0), **42 W** par la loi en v³
+  (`ΔP ≈ 3·P·Δv/v`). Retenir **25 à 45 W en faveur du BMC**, du même ordre
+  que le « 25-30 W à la louche » du mainteneur, et de même signe que la
+  résistance totale calibrée ci-dessus (17 W de moins pour le BMC à
+  27 km/h) — deux mesures indépendantes qui vont dans le même sens. Aucun
+  appel réseau : tout vient du cache.
 
 ### Comparer deux vélos
 
 ```
-ourouler comparer --velos RCR BMC              # différence de watts par classe de vitesse
+ourouler comparer --velos RCR BMC                     # écart de vitesse à puissance égale
 ourouler comparer --velos RCR BMC --pente-max 0.005   # plat plus strict
+ourouler comparer --velos RCR BMC --cap-max 15        # ne garder que les lignes droites
 ```
 
-Aucun modèle physique n'intervient : les sorties des deux vélos sont découpées
-en tronçons de 200 m, rangées dans la maille de 30 m qu'elles traversent, et
-seules les mailles roulées par **les deux** vélos sont comparées, classe de
-vitesse par classe de vitesse.
+Aucun modèle physique n'intervient dans la mesure. Les sorties des deux vélos
+sont découpées en tronçons de 200 m ; on ne garde que les tronçons plats, sans
+arrêt ni relance, dont la puissance tombe dans la zone d'endurance ; on les
+recolle en **séries** consécutives d'au moins 500 m ; et on compare la vitesse
+des séries à puissance égale, par une régression `vitesse = a + b·puissance`
+lue au milieu de la zone.
+
+**La mesure est en km/h**, les watts en sont une conversion — par la loi en v³
+ou par la calibration du vélo de référence, les deux affichées avec leur
+formule. Le nombre de mailles communes aux deux vélos est indiqué pour dire à
+quel point ils ont roulé aux mêmes endroits, mais il ne filtre rien : les
+séries plates et droites d'un vélo de route et d'un CLM ne se superposent pas
+assez pour qu'il en reste quelque chose.
 
 ### Apprendre ses routes
 
@@ -122,9 +141,10 @@ Ce que le mainteneur doit savoir avant de lire un chiffre.
 - **D+ moteur ou D+ relu, ce n'est pas le même chiffre.** BRouter donne son
   « filtered ascend » ; relire un GPX recalcule le dénivelé depuis les
   altitudes, avec un seuil de 2 m. Mesuré sur une même boucle de 43 km :
-  216 m côté moteur, 287 m à la relecture, soit +33 %. Les deux sont
-  affichés avec leur provenance — « 216 m (moteur) », « 287 m (gpx relu) » —
-  plutôt que moyennés ou choisis en silence.
+  216 m côté moteur, 287 m à la relecture, soit +33 % ; revérifié le
+  13/09/2026 sur une boucle de 60 km, 295 m contre 405 m, soit +37 %. Les
+  deux sont affichés avec leur provenance — « 295 m (moteur) », « 405 m (gpx
+  relu) » — plutôt que moyennés ou choisis en silence.
 - **Le temps simulé est un temps *en mouvement*.** Ni les feux, ni les stops,
   ni les ravitaillements ne sont modélisés. L'inertie, elle, est comptée dans
   la calibration depuis le 13/09/2026 (la variation d'énergie cinétique de
@@ -146,11 +166,13 @@ Ce que le mainteneur doit savoir avant de lire un chiffre.
   ramène à 1,5 m. Ce facteur est une hypothèse de rugosité moyenne, pas une
   mesure du terrain : une route abritée par une haie et une route en plein
   champ le subissent différemment, et rien ici ne les distingue.
-- **Deux mesures de l'écart RCR / BMC se contredisent.** La résistance
-  calibrée donne 17 W de moins au BMC à 27 km/h ; `ourouler comparer`, qui
-  compare des moyennes de puissance sur les seules routes roulées par les
-  deux, n'en voit aucun (+6 W pour le BMC à 30-32 km/h). L'écart n'est pas
-  expliqué ; aucune des deux valeurs ne doit être citée seule.
+- **L'écart RCR / BMC est un ordre de grandeur, pas une mesure de
+  soufflerie.** `ourouler comparer` mesure +2,4 km/h à puissance égale ; le
+  passage aux watts dépend de la conversion (27 W par la calibration, 42 W par
+  la loi en v³), d'où la fourchette 25-45 W. Deux séries n'ont ni le même
+  vent, ni la même fraîcheur, ni le même sens de passage : sur des centaines
+  de séries ces écarts se compensent en partie, ils ne s'annulent pas. Citer
+  la fourchette, jamais un chiffre au watt près.
 - **Classes de trafic provisoires.** Le classement d'une route en
   « trafic » ou « calme » suit les tags `highway` d'OpenStreetMap, et la
   pondération (un kilomètre à trafic en coûte trois) est un arbitrage, pas
