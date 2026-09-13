@@ -312,6 +312,18 @@ le GPX à télécharger pour le partager vers Garmin Connect depuis le
 téléphone. Plus le confort d'usage : `--depuis` pour partir d'ailleurs,
 noms de fichiers et résumés soignés, mémoire de ce qui a été proposé.
 
+**Trois propositions contrastées, et le cycliste choisit** (idée du
+mainteneur, 13/09). Aujourd'hui `sortie` classe N candidates et retient la
+première. À la place : **trois** options, et c'est lui qui tranche. Le point
+qui fait la valeur de l'idée : trois propositions ne servent à rien si elles
+se ressemblent, et les trois premières d'un même classement se ressemblent
+souvent. Il faut donc les choisir **contrastées**, chacune meilleure sur un
+axe différent — la plus sèche, la meilleure pour les blocs, la plus calme,
+la plus courte — avec en une phrase ce qui la distingue des deux autres, et
+sa carte. Mécaniquement : on génère plus de candidates qu'aujourd'hui, on
+les note sur plusieurs axes, et on retient trois représentants éloignés les
+uns des autres plutôt que le sommet d'un tri unique.
+
 **Pourquoi cette page et pas l'hébergé tout de suite** : elle est la
 maquette du futur front. Le jour où l'API existera, la même page sera
 servie par le serveur au lieu d'être écrite sur le disque. Et le cœur
