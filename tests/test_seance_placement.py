@@ -510,7 +510,14 @@ def test_pas_s_absurde_ne_boucle_pas(monkeypatch):
 
 
 def _verifier_continuite(resultat: placement.Placement, seance: Seance) -> None:
-    """Toutes les étapes, dans l'ordre, sans trou ni recouvrement en distance roulée."""
+    """Toutes les étapes, dans l'ordre, sans trou ni recouvrement en distance roulée.
+
+    Vérifie `debut_parcouru_m` lui-même, pas seulement la somme des
+    longueurs : un `debut_parcouru_m` resté à 0.0 par défaut (un champ
+    oublié à un site de construction) laisserait passer la somme — la
+    longueur totale ne dépend pas de l'endroit où chaque étape *dit* qu'elle
+    commence, seulement de combien elle dit avoir roulé.
+    """
     assert [e.etape_idx for e in resultat.emplacements] == list(range(len(seance.etapes))), (
         "chaque étape de la séance doit apparaître une fois, dans l'ordre : "
         f"{[e.etape_idx for e in resultat.emplacements]}"
@@ -519,6 +526,11 @@ def _verifier_continuite(resultat: placement.Placement, seance: Seance) -> None:
     for emplacement in resultat.emplacements:
         assert math.isfinite(emplacement.longueur_m) and emplacement.longueur_m >= 0.0, (
             f"étape {emplacement.etape_idx} : longueur {emplacement.longueur_m!r} invalide"
+        )
+        assert emplacement.debut_parcouru_m == pytest.approx(parcouru, abs=1e-6), (
+            f"étape {emplacement.etape_idx} : debut_parcouru_m = "
+            f"{emplacement.debut_parcouru_m:.3f} m, attendu {parcouru:.3f} m — le compteur "
+            "ne suit pas la somme des longueurs déjà roulées"
         )
         parcouru += emplacement.longueur_m
     assert parcouru == pytest.approx(resultat.distance_totale_m, abs=1e-6), (
@@ -586,6 +598,41 @@ def test_invariant_continuite_avec_recuperations_inegales(monkeypatch):
 
     assert resultat is not None
     _verifier_continuite(resultat, seance)
+
+
+def test_le_compteur_de_debut_est_strictement_croissant_avec_demi_tour(monkeypatch):
+    """Le test qui protège l'affichage : le compteur ne recule ni ne stagne.
+
+    `debut_m` — une position sur le tracé — recule après un demi-tour : les
+    blocs 2, 3 et 4 d'une même paire récup-bloc reprise en boucle peuvent
+    tomber au même kilomètre de tracé, ou plus bas. Affiché tel quel à un
+    cycliste, « km 11,4 » qui revient deux fois de suite est indiscernable
+    d'un moteur cassé — c'est le défaut que le mainteneur a signalé sur la
+    carte du 01/09. `debut_parcouru_m`, lui, ne doit jamais reculer ni
+    stagner : c'est le compteur du vélo, pas la géométrie du tracé.
+    """
+    seance = _seance()
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+
+    resultat = placement.placer(seance, _trace(), P, penalite_demi_tour=1.0)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.blocs()] == [False, True], (
+        "cette fixture a besoin du demi-tour pour avoir quelque chose à vérifier"
+    )
+    debuts_tracee = [e.debut_m for e in resultat.emplacements]
+    assert len(set(round(d, 3) for d in debuts_tracee)) < len(debuts_tracee), (
+        "cette fixture doit faire reculer debut_m quelque part (deux étapes au même "
+        "kilomètre de tracé), sinon elle ne distingue pas debut_m de debut_parcouru_m"
+    )
+
+    compteurs = [e.debut_parcouru_m for e in resultat.emplacements]
+    for avant, apres in zip(compteurs[:-1], compteurs[1:], strict=True):
+        assert apres > avant, (
+            f"le compteur recule ou stagne : {avant:.1f} m puis {apres:.1f} m — "
+            f"suite complète : {[round(c, 1) for c in compteurs]}"
+        )
 
 
 # --- le demi-tour --------------------------------------------------------------

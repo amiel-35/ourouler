@@ -176,6 +176,10 @@ def _blocs(
                 "milieu": _milieu(portion.points),
                 "etiquette": f"{numero} · {_fr(emplacement.note.note, 1)}",
                 "infobulle": _infobulle(numero, emplacement, etape),
+                # Position sur le tracé, pas le compteur : c'est ce dont le
+                # profil d'altitude a besoin pour placer sa bande (`cumuls`
+                # est lui aussi indexé sur le tracé). Le compteur, lui, ne
+                # sert qu'à l'affichage humain — voir `_infobulle`.
                 "debut_m": emplacement.debut_m,
                 "fin_m": emplacement.debut_m + emplacement.longueur_m,
                 "note": emplacement.note.note,
@@ -192,7 +196,15 @@ def _etape(seance: Seance, emplacement: Emplacement):
 
 
 def _infobulle(numero: int, emplacement: Emplacement, etape) -> str:
-    """Ce que le survol affiche : la consigne, la position, la note, les motifs."""
+    """Ce que le survol affiche : la consigne, la position, la note, les motifs.
+
+    Le kilomètre montré est `debut_parcouru_m`, le compteur — jamais
+    `debut_m`, une position sur le tracé qui recule après un demi-tour. Deux
+    blocs qui reprennent le même couloir (un demi-tour) afficheraient sinon
+    « km 11,4 » tous les deux : correct pour qui lit le code, un moteur cassé
+    pour qui lit un compteur de vélo. Le demi-tour se dit par ailleurs, en
+    toutes lettres, plutôt que par un second nombre appelé « km ».
+    """
     note = emplacement.note
     lignes = [f"<b>Bloc {numero}</b>"]
     if etape is not None:
@@ -201,9 +213,9 @@ def _infobulle(numero: int, emplacement: Emplacement, etape) -> str:
         puissances = [p for p in (etape.puissance_min_w, etape.puissance_max_w) if p is not None]
         watts = f" — {min(puissances):.0f}-{max(puissances):.0f} W" if puissances else ""
         lignes.append(html.escape(f"{consigne} · {duree}{watts}"))
+    fin_parcourue = emplacement.debut_parcouru_m + emplacement.longueur_m
     lignes.append(
-        f"km {_fr(emplacement.debut_m / 1000, 1)} → "
-        f"{_fr((emplacement.debut_m + emplacement.longueur_m) / 1000, 1)} "
+        f"km {_fr(emplacement.debut_parcouru_m / 1000, 1)} → {_fr(fin_parcourue / 1000, 1)} "
         f"({_fr(emplacement.longueur_m / 1000, 1)} km)"
     )
     lignes.append(f"note {_fr(note.note, 2)} km équivalents")

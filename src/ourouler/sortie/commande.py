@@ -1070,6 +1070,11 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     donc la colonne reste vide pour le reste plutôt que de porter un tiret
     ambigu (contrat §2.2 b). Le décalage de la Z2 d'ouverture et la durée
     totale disent, eux, ce qui arrive aux extrémités.
+
+    Le kilomètre affiché est `debut_parcouru_m`, le compteur — jamais
+    `debut_m`, qui repère une position sur le tracé et peut reculer après un
+    demi-tour. Un lecteur qui roule veut lire un compteur qui monte, pas la
+    géométrie du tracé ; le demi-tour se dit par ailleurs, en toutes lettres.
     """
     placement = proposition.placement
     seance = contexte.seance
@@ -1091,9 +1096,9 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     numero_bloc = 0
     for emplacement in placement.emplacements:
         etape = seance.etapes[emplacement.etape_idx]
-        fin = emplacement.debut_m + emplacement.longueur_m
+        fin = emplacement.debut_parcouru_m + emplacement.longueur_m
         km = (
-            f"km {_fr(emplacement.debut_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
+            f"km {_fr(emplacement.debut_parcouru_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
             f"({_fr(emplacement.longueur_m / 1000, 1)} km, {_duree_courte(etape.duree_s)}, "
             f"{_puissance(etape)})"
         )
@@ -1208,10 +1213,15 @@ def _emplacement_json(e: Emplacement) -> dict:
     Q13, lot L5.2 : un `0.0` à la place de `None` se lirait, par un script
     comme par un humain, comme un couloir parfait — c'est précisément le
     défaut que le contrat §2.2 a) interdit.
+
+    `debut_parcouru_m` est le compteur kilométrique (ne recule jamais) ;
+    `debut_m` reste la position sur le tracé (recule après un demi-tour). Un
+    script qui veut afficher un kilomètre lit le premier, pas le second.
     """
     base = {
         "etape_idx": e.etape_idx,
         "debut_m": round(e.debut_m, 1),
+        "debut_parcouru_m": round(e.debut_parcouru_m, 1),
         "longueur_m": round(e.longueur_m, 1),
         "demi_tour": e.demi_tour,
     }
