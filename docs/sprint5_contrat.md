@@ -257,11 +257,47 @@ devient optionnelle plutôt que d'inventer une valeur neutre. Le champ
 `demi_tour` garde son sens pour les récupérations qui en portent un.
 
 **Invariant à tenir et à tester** : les emplacements se suivent sans trou ni
-recouvrement, du départ à l'arrivée. La somme de leurs longueurs vaut
-`distance_totale_m`, et le début de chacun est la fin du précédent — au sens
-du parcours réellement roulé, demi-tours compris, donc en suivant `jalons_m`.
-C'est l'invariant qui prouve qu'on montre bien toute la séance et pas des
-morceaux.
+recouvrement, du départ à l'arrivée, et **la somme de leurs longueurs vaut
+`distance_totale_m`**. C'est l'invariant qui prouve qu'on montre bien toute
+la séance et pas des morceaux.
+
+**Correction du 16/09/2026 — la première rédaction de cet invariant se
+contredisait**, et le testeur adversarial l'a trouvée en la mesurant. Elle
+faisait de `distance_totale_m` **et** de `jalons_m` deux autorités de la même
+chose ; elles ne peuvent pas toutes les deux avoir raison. Sur une boucle
+fermée de 48 km, `_variante_demi_tour` ajoute `2 × besoin_m` à la distance
+mais range dans `jalons_m` le point de demi-tour **écrêté** par
+`_Terrain.dans_le_trace` : 96 000 m de jalons contre 97 814 m de distance.
+
+L'arbitrage n'est pas arbitraire — cet écrêtage est une approximation
+**connue et documentée depuis le sprint 4** (docstring de `dans_le_trace` :
+« la seule approximation du parcours rendu par `trace_parcourue` ») :
+
+- **`distance_totale_m` fait autorité pour la distance.** L'invariant porte
+  sur elle, et sur rien d'autre.
+- **`jalons_m` fait autorité pour la géométrie** — où l'on est sur le tracé —
+  avec son écrêtage aux bouts de boucle. Ce n'est pas une autorité de
+  distance, et **on ne la corrige pas ici** : ce serait changer
+  `trace_parcourue`, hors périmètre.
+
+**Conséquence : la continuité s'exprime au compteur kilométrique, pas en
+position sur le tracé.** `debut_m` est une position (`_couloir` rend
+`min(a, b)`), pas un relevé de compteur : sur un demi-tour, la récup part de
+P, monte à P+b, revient à P. « Le début de chacun est la fin du précédent »
+est donc **faux au sens du tracé et vrai au sens du compteur**. `debut_m` ne
+change pas de sémantique — les tests du sprint 4 restent valides — et le
+compteur, si l'affichage en a besoin (« du km 13,2 au km 21,4 », qui est ce
+que le mainteneur veut lire), est un **champ ajouté explicitement**, jamais
+`debut_m` détourné.
+
+**Le piège le plus coûteux du lot**, mesuré lui aussi : seize sites lisent
+`e.note.note` sans condition (`sortie/commande.py` 144, 148, 1077, 1080,
+1217 ; `sortie/carte.py` 166, 172, 185). Ils lèveront `AttributeError` dès
+qu'un non-bloc arrivera — bruyant, donc ce n'est pas le danger. Le danger est
+le réflexe `if e.note else 0.0` qui les ferait taire **en comptant faux** :
+un `0.0` dans la moyenne pondérée fait passer `note_terrain` de 10,00 à 2,99
+sans un mot. À ces seize endroits on **filtre sur les blocs**, on ne met
+jamais de valeur par défaut.
 
 **Compatibilité** : les appelants qui ne veulent que les blocs doivent le
 rester simplement — une propriété `blocs()` ou un filtre sur le type
