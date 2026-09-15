@@ -49,7 +49,7 @@ pas. Les masses sont désormais justes, ce qui compte pour le jour où une
 sortie montagneuse entrera dans le jeu.
 
 
-## Q3 — Point de départ et règles de tenue / de séance
+## Q3 — Point de départ et règles de tenue / de séance — **départ et séance clos ; tenue en attente de l'usage**
 
 - Coordonnées du point de départ habituel (dans le fichier de configuration,
   jamais dans le dépôt). En attendant, la démo `meteo` tourne sur le centre
@@ -91,6 +91,13 @@ sortie montagneuse entrera dans le jeu.
   catégorie → « prévoir d'enlever X », si pluie ≥ seuil → « emporter la
   veste », si le ressenti baisse (retour tardif) → « garder X ». Le vent
   entre dans le ressenti et déclenche seul la veste au-delà d'un seuil.
+**Décision du 15/09/2026 — on attend.** Les tables de tenue livrées au
+sprint 4 (bornes de température, de pluie, seuil de veste au vent) ne se
+règlent pas sur le papier : « on attend ». Elles se corrigeront au sprint 6,
+sur des sorties réelles où le mainteneur constate qu'il a eu trop chaud ou
+trop froid. Aucun lot n'est ouvert là-dessus d'ici là ; les valeurs
+actuelles restent en configuration, donc modifiables sans toucher au code.
+
 - Sorties en groupe (sprint 3) : les FIT ne le disent pas ; Strava le sait
   souvent (champ « nombre d'athlètes » de l'activité). Voies : export
   Strava, ou détection statistique (vitesse trop élevée pour la puissance =
@@ -102,7 +109,7 @@ BRouter auto-hébergé (Java absent sur le Mac ; Docker présent ; ou sur le
 serveur Coolify/Hetzner) ou GraphHopper API (clé, gratuit à petit volume) ?
 Aucune installation ne sera faite sans accord.
 
-## Q5 — Garmin Connect (S5)
+## Q5 — Garmin Connect — **close le 15/09/2026** : partage système du GPX depuis le mobile
 
 Le jeton `~/.config/ha/garmin-token` est un jeton Home Assistant pour
 l'utilisateur HA « garmin » (chantier Connect IQ), pas un accès Garmin
@@ -124,6 +131,16 @@ API. À prévoir dans l'API/le front (livrer le GPX avec le bon type MIME
 `application/gpx+xml`). **Backlog** : mêmes voies pour Coros, Wahoo
 (ELEMNT : import de fichier / lien) et Hammerhead (Karoo : import par le
 tableau de bord web).
+
+**Close le 15/09/2026. Décision du mainteneur, ses mots :** « deep link
+mobile marche avec pas mal d'applis, Coros, Garmin, etc. » Donc **le
+partage système du GPX est la voie retenue, pour toutes les marques**, et
+non un pis-aller en attendant une API. Conséquence pour le sprint 5 : la
+page du jour livre le GPX en téléchargement avec le type MIME
+`application/gpx+xml`, un nom de fichier lisible sur le téléphone, et rien
+d'autre — pas de client Garmin, pas de bibliothèque non officielle, pas de
+compte à brancher. Les API constructeurs (Wahoo en tête, la seule vraie)
+restent au backlog du service hébergé, pas du besoin du mainteneur.
 
 ## Q6 — Nom du projet — **nom validé le 13/09/2026 : ourouler** ; reste la purge avant publication
 
@@ -369,7 +386,7 @@ voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
 règle est appliquée correctement ; c'est le placement (L4.3) qui devra
 décider s'il contraint le terrain sous un effort de 40 secondes.
 
-## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger, pas une question**
+## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger dans le sprint 5** (arbitré le 15/09/2026)
 
 Relevé par le mainteneur le 13/09/2026 en lisant la sortie du 08/02 :
 « t'as pas oublié l'échauffement ? ». Il n'était pas oublié — 28 min à
@@ -379,7 +396,10 @@ type « bloc », parce que `Placement.emplacements` ne mémorise que celles-là.
 
 Ce qui rend le défaut sérieux : on ne peut pas vérifier ce qu'on ne voit
 pas, et c'est précisément ce qu'on demande au mainteneur de faire sur la
-carte. À corriger au prochain lot touchant `sortie/` :
+carte. **Arbitrage du 15/09/2026** : « on règle pendant le sprint ». Ce n'est donc
+pas un lot à part, c'est une contrainte du sprint 5 — la page du jour ne
+peut pas montrer trois propositions contrastées si elle ne montre pas la
+séance entière. À corriger dans le lot qui touche `sortie/` :
 
 - **Lister toutes les étapes** avec leur kilomètre de début et de fin, pas
   seulement les blocs. Les non-blocs n'ont pas de note — ils n'en méritent
