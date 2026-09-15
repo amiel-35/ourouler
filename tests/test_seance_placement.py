@@ -282,6 +282,12 @@ FORMES_DE_REFERENCE = (
 #: Le retard qu'on compare : rentrer vingt minutes après l'heure prescrite.
 RETARD_S = 20 * 60.0
 
+#: Les deux fenêtres d'élasticité par défaut, désormais distinctes (Q14) : la
+#: Z2 d'ouverture est un levier de placement et reste étroite, le retour au
+#: calme absorbe et s'ouvre largement vers le haut.
+ELASTICITE = (-0.05, 0.20)
+ELASTICITE_CALME = (-0.05, 1.5)
+
 
 def _note_du_village(durees: tuple[float, ...], *, km_batis: float = 1.0) -> float:
     """Ce que coûte 1 km de village traversé pendant le **plus long** bloc.
@@ -313,32 +319,65 @@ def _note_du_village(durees: tuple[float, ...], *, km_batis: float = 1.0) -> flo
     return placement._note_ponderee(emplacements, etapes)
 
 
+def _calme(ecart: float, depassement_s: float = 0.0) -> placement._EcartElastique:
+    """Un retour au calme tel qu'il a été placé, dans la forme attendue par la pénalité."""
+    return placement._EcartElastique(ecart=ecart, depassement_s=depassement_s, absorbe=True)
+
+
+def _cout_du_retard(retard_s: float, calme_s: float) -> float:
+    """Ce que coûte un retour au calme qui dure `retard_s` de plus que prescrit."""
+    return placement._penalite_seance(
+        [_calme(ecart=retard_s / calme_s, depassement_s=retard_s)], ELASTICITE, ELASTICITE_CALME
+    )
+
+
 @pytest.mark.parametrize(
     ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
 )
 def test_un_village_sous_un_bloc_coute_plus_cher_qu_un_retour_de_vingt_minutes(
     nom, durees, calme_s
 ):
-    """Point produit 2 : l'outil préférait faire traverser un village plutôt que rentrer tard.
+    """Q14 : rentrer plus tard doit rester bien moins cher qu'un défaut de terrain franc.
 
-    Un retour au calme de 38 min au lieu de 20 coûtait 1,4 km équivalent ;
-    traverser un bourg sur 1 km pendant un bloc en coûtait 0,5 après
-    pondération par la durée des blocs. L'arbitrage n'avait jamais été posé
-    comme tel, et il était à l'envers : le défaut de terrain, qu'on subit, se
-    payait moins cher que le retard, qu'on rattrape en rentrant.
+    Le mainteneur, 13/09 : « le retour au calme en fait peut dépasser de plus,
+    c'est souvent ce que je fais car c'est incontrôlable de faire parfait, et
+    c'est du kilomètre facile. » L'arbitrage est donc posé dans ce sens-là : le
+    défaut de terrain, qu'on subit pendant un bloc, doit coûter plus que le
+    retard, qui n'est que du kilomètre facile en plus.
 
     La comparaison est faite sur les **durées réelles** des deux séances de
     référence, et sur les mêmes fonctions que la production (`_penalite_seance`
     et `_note_ponderee`), pas sur une arithmétique refaite ici.
     """
-    elasticite = (-0.05, 0.20)
-    retard = placement._penalite_seance([RETARD_S / calme_s], elasticite)
+    retard = _cout_du_retard(RETARD_S, calme_s)
     village = _note_du_village(durees)
-    assert retard < village, (
+    assert retard < village / 2, (
         f"{nom} : rentrer 20 min en retard coûte {retard:.2f} km équivalent, traverser "
         f"1 km de village pendant le bloc le plus long en coûte {village:.2f} — "
-        "l'outil préfère donc le village"
+        "le retard doit rester très loin derrière, pas le disputer"
     )
+
+
+@pytest.mark.parametrize(
+    ("nom", "durees", "calme_s"), FORMES_DE_REFERENCE, ids=[f[0] for f in FORMES_DE_REFERENCE]
+)
+def test_le_depassement_du_retour_au_calme_se_paie_des_la_premiere_minute(nom, durees, calme_s):
+    """Q14, l'autre moitié : « faut réduire le dépassement au max. »
+
+    Aucun seuil, donc : le coût court dès la première minute en trop, et il
+    est proportionnel. C'est ce qui fait qu'à terrain égal la boucle la plus
+    juste gagne — avec une marche, les deux étaient à égalité parfaite en deçà
+    de la fenêtre et le tri retombait sur l'ordre des candidates.
+    """
+    dix, vingt, quarante = (_cout_du_retard(n * 60.0, calme_s) for n in (10, 20, 40))
+    assert dix > 0.0, "un dépassement de 10 minutes doit déjà coûter quelque chose"
+    assert dix == pytest.approx(0.10) and vingt == pytest.approx(0.20)
+    assert quarante == pytest.approx(0.40), "le coût est proportionnel, sans palier"
+    # Et il ne dépend pas de la durée prescrite : 20 min de trop, c'est 20 min
+    # de trop, que le retour au calme prescrit dure 20 ou 40 minutes.
+    assert vingt == pytest.approx(_cout_du_retard(20 * 60.0, 2 * calme_s))
+    # Même le dépassement le plus large reste sous un défaut de terrain franc.
+    assert quarante < _note_du_village(durees)
 
 
 @pytest.mark.parametrize(
@@ -347,13 +386,15 @@ def test_un_village_sous_un_bloc_coute_plus_cher_qu_un_retour_de_vingt_minutes(
 def test_une_seance_tronquee_coute_plus_cher_qu_un_bloc_mutile(nom, durees, calme_s):
     """L'autre bord : amputer la séance doit rester le défaut le plus cher.
 
-    C'est tout l'objet de `PENALITE_SEANCE_NON_TENUE`, et la borne basse est
-    nommée : `terrain.PENALITE_BLOC_TRONQUE`, ce que coûte un bloc qui ne tient
-    pas du tout sur le tracé. Un retour au calme supprimé doit coûter plus que
-    ça, sans quoi tronquer la séance redevient une option.
+    C'est tout l'objet de `PENALITE_SEANCE_NON_TENUE`, que Q14 laisse intact,
+    et la borne basse est nommée : `terrain.PENALITE_BLOC_TRONQUE`, ce que
+    coûte un bloc qui ne tient pas du tout sur le tracé. Un retour au calme
+    supprimé doit coûter plus que ça, sans quoi tronquer la séance redevient
+    une option.
     """
-    elasticite = (-0.05, 0.20)
-    supprime = placement._penalite_seance([-1.0], elasticite)  # retour au calme à 0 min
+    supprime = placement._penalite_seance(  # retour au calme à 0 min
+        [_calme(ecart=-1.0)], ELASTICITE, ELASTICITE_CALME
+    )
     assert supprime > PENALITE_BLOC_TRONQUE, (
         f"{nom} : supprimer le retour au calme coûte {supprime:.1f}, un bloc qui ne tient "
         f"pas sur le tracé en coûte {PENALITE_BLOC_TRONQUE:.1f} — tronquer la séance redevient "
@@ -364,16 +405,37 @@ def test_une_seance_tronquee_coute_plus_cher_qu_un_bloc_mutile(nom, durees, calm
 
 
 def test_les_deux_penalites_de_seance_restent_dans_le_bon_ordre():
-    """Raccourcir la séance coûte plus cher que l'allonger, et de loin.
+    """Raccourcir la séance coûte plus cher que l'allonger, et de très loin.
 
-    Allonger fait rentrer plus tard ; raccourcir supprime de la séance. Un
-    poids d'allongement qui rattraperait celui du raccourcissement rendrait les
-    deux défauts équivalents, ce qu'ils ne sont pas.
+    Allonger fait rentrer plus tard — « c'est du kilomètre facile » ; raccourcir
+    supprime de la séance. Un coût de dépassement qui rattraperait celui du
+    raccourcissement rendrait les deux défauts équivalents, ce qu'ils ne sont
+    pas. Les deux ne se mesurent même pas dans la même unité : le premier en
+    kilomètres équivalents par heure de trop, le second en part de séance
+    manquante.
     """
-    assert placement.PENALITE_SEANCE_ALLONGEE < placement.PENALITE_SEANCE_NON_TENUE
-    # Et il reste sous le poids brut d'un défaut de terrain franc sous un bloc :
-    # un kilomètre de village, avant toute pondération.
-    assert placement.PENALITE_SEANCE_ALLONGEE < POIDS_KM_BATI
+    heure_de_trop = placement.PENALITE_CALME_ALLONGE_KM_PAR_H
+    calme_supprime = placement._penalite_seance([_calme(ecart=-1.0)], ELASTICITE, ELASTICITE_CALME)
+    assert heure_de_trop < calme_supprime / 10
+    # Et une heure entière de trop reste sous le poids brut d'un défaut de
+    # terrain franc sous un bloc : un kilomètre de village, avant pondération.
+    assert heure_de_trop < POIDS_KM_BATI
+
+
+def test_la_fenetre_du_retour_au_calme_ne_facture_pas_le_depassement():
+    """La fenêtre haute dit, elle ne facture pas — sinon le seuil revient.
+
+    Deux fenêtres très différentes, le même dépassement : le même coût. Ce qui
+    change au-delà de la fenêtre, c'est le ton du message (voir `_fermer`), pas
+    l'addition.
+    """
+    etroite = placement._penalite_seance(
+        [_calme(ecart=1.0, depassement_s=1200.0)], ELASTICITE, (-0.05, 0.20)
+    )
+    large = placement._penalite_seance(
+        [_calme(ecart=1.0, depassement_s=1200.0)], ELASTICITE, (-0.05, 1.5)
+    )
+    assert etroite == pytest.approx(large) == pytest.approx(0.20)
 
 
 # --- le décalage de la Z2 d'ouverture -----------------------------------------
@@ -388,7 +450,12 @@ def test_le_decalage_va_chercher_le_seul_bon_couloir(monkeypatch):
 
     assert resultat is not None
     assert resultat.decalage_z2_s == pytest.approx(720.0)
-    assert resultat.note_totale == 0.0
+    assert resultat.note_terrain == 0.0
+    # Le retour au calme dépasse de deux minutes sur ce tracé : depuis Q14 cela
+    # se paie sans seuil, donc la note n'est plus exactement nulle — mais deux
+    # minutes valent deux centièmes de kilomètre équivalent.
+    assert resultat.penalite_seance < 0.05
+    assert resultat.note_totale == pytest.approx(resultat.penalite_seance)
     assert [e.demi_tour for e in resultat.emplacements] == [False, False]
     assert resultat.emplacements[0].debut_m == pytest.approx(attendues[0], abs=1.0)
     assert resultat.emplacements[1].debut_m == pytest.approx(attendues[2], abs=1.0)
@@ -420,7 +487,8 @@ def test_pas_plus_grand_que_la_marge_essaie_quand_meme_les_bornes(monkeypatch):
 
     assert resultat is not None
     assert resultat.decalage_z2_s == pytest.approx(720.0)
-    assert resultat.note_totale == 0.0
+    assert resultat.note_terrain == 0.0
+    assert resultat.penalite_seance < 0.05  # deux minutes de retour au calme en trop
 
 
 def test_pas_s_absurde_ne_boucle_pas(monkeypatch):
@@ -716,8 +784,10 @@ def test_une_seance_tronquee_perd_contre_un_placement_complet(monkeypatch):
         "le premier bloc tombe hors du bon couloir (note 2), le second dedans (note 0) : "
         "moyenne pondérée par des durées égales, 1,0"
     )
-    assert resultat.penalite_seance == pytest.approx(0.0), "cette séance-là est tenue en entier"
-    assert resultat.note_totale == pytest.approx(1.0)
+    assert resultat.penalite_seance == pytest.approx(0.0, abs=0.01), (
+        "cette séance-là est tenue en entier : il ne reste que l'arrondi du placement"
+    )
+    assert resultat.note_totale == pytest.approx(1.0, abs=0.01)
     assert not any("retour au calme" in a for a in resultat.avertissements)
 
 
@@ -741,25 +811,98 @@ def test_un_retour_au_calme_a_zero_se_paie_et_se_dit(monkeypatch):
     assert resultat is not None
     assert resultat.decalage_z2_s == pytest.approx(720.0)
     assert resultat.note_terrain == pytest.approx(0.0), "le terrain sous les blocs est parfait"
-    # Écart de −100 % pour une fenêtre réduite à +20 % : 1,20 hors de la fenêtre.
+    # Écart de −100 % pour une fenêtre de retour au calme qui descend à −5 % :
+    # 0,95 hors de la fenêtre. L'élasticité de l'ouverture, réduite ici à
+    # +20 % pour forcer le placement, n'entre pas dans ce calcul : depuis Q14
+    # les deux fenêtres sont distinctes.
     assert resultat.penalite_seance == pytest.approx(
-        placement.PENALITE_SEANCE_NON_TENUE * 1.20, rel=0.01
-    ), "la pénalité se compte hors de la fenêtre, au prorata"
+        placement.PENALITE_SEANCE_NON_TENUE * 0.95, rel=0.01
+    ), "la pénalité se compte hors de la fenêtre du retour au calme, au prorata"
     assert resultat.note_totale == pytest.approx(
         resultat.note_terrain + resultat.penalite_seance
     )
-    assert any("retour au calme" in a and "-100%" in a for a in resultat.avertissements), (
-        f"l'avertissement du lot précédent doit rester : {resultat.avertissements}"
+    assert any(
+        "retour au calme raccourci" in a and "-100%" in a for a in resultat.avertissements
+    ), f"l'avertissement du lot précédent doit rester, et garder son ⚠ : {resultat.avertissements}"
+    assert not resultat.informations, (
+        "une séance amputée n'est pas une information neutre (Q14)"
     )
 
 
-def test_un_retour_au_calme_hors_fenetre_se_dit(monkeypatch):
+def test_un_retour_au_calme_tres_au_dela_de_sa_fenetre_reste_un_avertissement(monkeypatch):
+    """Au-delà de la fenêtre haute, ce n'est plus la boucle qui tombe mal.
+
+    Q14 laisse un ⚠ dans exactement deux cas : la séance amputée, et le
+    dépassement qui sort de la fenêtre — à ce point-là, c'est la boucle qui ne
+    va pas avec la séance, et c'est un choix de boucle à refaire.
+    """
     _couloirs(monkeypatch, (0.0, 1e9))
     # Tracé bien trop long pour la séance : le retour au calme s'étire.
     resultat = placement.placer(_seance(), _trace(120_000.0), P)
 
     assert resultat is not None
-    assert any("retour au calme" in a for a in resultat.avertissements)
+    dits = [a for a in resultat.avertissements if "retour au calme" in a]
+    assert len(dits) == 1, resultat.avertissements
+    assert "au-delà de la fenêtre" in dits[0]
+    assert "km de plus à allure facile" in dits[0], dits[0]
+    assert not any("retour au calme" in i for i in resultat.informations), (
+        "hors fenêtre, c'est un avertissement et rien d'autre"
+    )
+
+
+def test_un_retour_au_calme_qui_s_allonge_dans_sa_fenetre_est_une_information(monkeypatch):
+    """Q14, le ton : « c'est du kilomètre facile » ne se dit pas avec un ⚠.
+
+    Le mainteneur, 13/09 : « le retour au calme en fait peut dépasser de plus,
+    c'est souvent ce que je fais car c'est incontrôlable de faire parfait ».
+    Un retour au calme qui s'allonge dans sa fenêtre n'est donc pas un défaut :
+    c'est une information, rangée à part pour que l'affichage ne lui colle pas
+    un ⚠ — et elle se dit en kilomètres, pas en pourcentage de dépassement.
+    """
+    _couloirs(monkeypatch, (0.0, 1e9))
+
+    resultat = placement.placer(_seance(), _trace(), P)
+
+    assert resultat is not None
+    assert not any("retour au calme" in a for a in resultat.avertissements), (
+        f"rentrer un peu plus tard n'est pas une alerte : {resultat.avertissements}"
+    )
+    dits = [i for i in resultat.informations if "retour au calme" in i]
+    assert len(dits) == 1, resultat.informations
+    assert "⚠" not in dits[0]
+    assert "au lieu des 30 prescrites" in dits[0], dits[0]
+    assert "de plus à allure facile" in dits[0], dits[0]
+
+
+def test_a_terrain_egal_le_placement_qui_deborde_le_moins_gagne(monkeypatch):
+    """Q14 : « faut réduire le dépassement au max. » — et sans seuil, sinon rien ne départage.
+
+    Terrain uniformément parfait : la note de terrain ne dit rien, tous les
+    décalages sont à égalité. Avant Q14, la marche de l'ancienne pénalité les
+    laissait exactement à égalité tant qu'on restait dans la fenêtre, et le
+    départage retombait sur « le décalage qui touche le moins à la séance »,
+    c'est-à-dire zéro — en laissant le retour au calme déborder le plus.
+    Maintenant le dépassement se paie dès la première minute : le levier de
+    placement sert à le réduire, et le placement retenu est celui qui rentre le
+    plus près de l'heure prescrite.
+    """
+    _couloirs(monkeypatch, (0.0, 1e9))
+
+    retenu = placement.placer(_seance(), _trace(), P)
+    fige = placement.placer(_seance(), _trace(), P, elasticite=(0.0, 0.0))
+
+    assert retenu is not None and fige is not None
+    assert retenu.note_terrain == fige.note_terrain == 0.0, "le terrain ne départage rien ici"
+    assert retenu.decalage_z2_s == pytest.approx(720.0), (
+        "la Z2 d'ouverture est allongée au maximum pour raccourcir le retour au calme"
+    )
+    assert 0.0 < retenu.penalite_seance < fige.penalite_seance, (
+        "le placement retenu dépasse moins, et ce moindre dépassement est ce qui l'a fait gagner"
+    )
+    assert retenu.duree_totale_s < fige.duree_totale_s, (
+        "moins de dépassement, c'est aussi rentrer plus tôt : la même distance est "
+        "roulée à l'allure de la Z2 plutôt qu'à celle du retour au calme"
+    )
 
 
 # --- le parcours réellement roulé -----------------------------------------------

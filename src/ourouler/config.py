@@ -131,10 +131,32 @@ class ParametresSeance:
 
     Seules les zones 2 d'ouverture et de fermeture sont élastiques : toutes
     les récupérations font partie de la prescription et ne bougent pas.
+
+    Les deux élasticités ne sont pas la même chose (Q14, close le 13/09/2026).
+    La Z2 d'**ouverture** est le levier de placement : l'allonger fait
+    coulisser les blocs jusqu'à un bon couloir, et le mainteneur a fixé sa
+    fenêtre à −5 % / +20 %. Le **retour au calme**, lui, ne place rien : il
+    referme une boucle dont la longueur n'est jamais exacte, et sa fenêtre est
+    largement ouverte vers le haut — « le retour au calme en fait peut dépasser
+    de plus, c'est souvent ce que je fais car c'est incontrôlable de faire
+    parfait, et c'est du kilomètre facile. Faut réduire le dépassement au max. »
     """
 
     elasticite_z2_max: float = 0.20  # allongement maximal de la Z2 d'ouverture
     elasticite_z2_min: float = -0.05  # raccourcissement maximal
+
+    #: Allongement maximal du **retour au calme** avant qu'il soit signalé
+    #: comme anormal : +150 %. Ce n'est pas une autorisation de dépasser —
+    #: chaque minute de dépassement se paie déjà, au prorata et sans seuil
+    #: (`seance.placement.PENALITE_CALME_ALLONGE_KM_PAR_H`) — c'est la limite
+    #: au-delà de laquelle le dépassement n'est plus « la boucle qui ne tombe
+    #: pas juste » mais une boucle qui ne va pas avec la séance.
+    elasticite_calme_max: float = 1.5
+    #: Raccourcissement maximal du retour au calme, inchangé : amputer une
+    #: séance reste un vrai défaut, et il se paie très cher
+    #: (`seance.placement.PENALITE_SEANCE_NON_TENUE`).
+    elasticite_calme_min: float = -0.05
+
     demi_tour_penalite: float = 1.0  # coût d'un bloc qui reprend le segment précédent à l'envers
 
     #: Puissance d'endurance du cycliste, en fraction de sa FTP. Elle sert de
@@ -341,6 +363,20 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             elasticite_z2_min=_flottant(
                 seance_brut.get("elasticite_z2_min", -0.05),
                 "elasticite_z2_min",
+                "seance",
+                mini=-0.5,
+                maxi=0.0,
+            ),
+            elasticite_calme_max=_flottant(
+                seance_brut.get("elasticite_calme_max", 1.5),
+                "elasticite_calme_max",
+                "seance",
+                mini=0.0,
+                maxi=5.0,
+            ),
+            elasticite_calme_min=_flottant(
+                seance_brut.get("elasticite_calme_min", -0.05),
+                "elasticite_calme_min",
                 "seance",
                 mini=-0.5,
                 maxi=0.0,

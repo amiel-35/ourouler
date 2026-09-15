@@ -21,7 +21,9 @@ pluie, vent, ressenti à l'heure de passage), `gpx.ecrire_gpx`,
 Le superviseur ajoute au socle, **tel que livré** (le code fait foi, pas
 cette ligne) : `Config.seance` → `ParametresSeance(elasticite_z2_max=0.20,
 elasticite_z2_min=-0.05, demi_tour_penalite=1.0, puissance_endurance_pct=0.60,
-seuil_recuperation_pct=0.75)` — il n'y a **pas** de `ftp_defaut_w`, la FTP
+seuil_recuperation_pct=0.75)` — depuis Q14 (close le 13/09/2026) s'y ajoutent
+`elasticite_calme_max=1.5` et `elasticite_calme_min=-0.05`, la fenêtre propre
+au retour au calme, qui absorbe et n'est pas un levier — il n'y a **pas** de `ftp_defaut_w`, la FTP
 vient de `Config.cycliste.ftp_w` ; `Config.tenue` →
 `ParametresTenue(bornes_c=(3.0, 9.0, 15.0, 22.0, 30.0),
 bornes_pluie_mmh=(0.2, 0.5, 1.0), vent_veste_kmh=30.0, tenues=())` avec

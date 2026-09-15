@@ -341,13 +341,23 @@ def test_mots_groupe_chaine_nue_refusee():
 
 def test_seance_et_tenue():
     d = dict(BASE)
-    d["seance"] = {"elasticite_z2_max": 0.3, "demi_tour_penalite": 2.5}
+    d["seance"] = {
+        "elasticite_z2_max": 0.3,
+        "elasticite_calme_max": 2.0,
+        "demi_tour_penalite": 2.5,
+    }
     d["tenue"] = {"bornes_c": [2, 8, 14, 21, 29], "vent_veste_kmh": 25}
     c = depuis_dict(d)
     assert c.seance.elasticite_z2_max == 0.3 and c.seance.demi_tour_penalite == 2.5
+    assert c.seance.elasticite_calme_max == 2.0
     assert c.tenue.bornes_c == (2.0, 8.0, 14.0, 21.0, 29.0) and c.tenue.vent_veste_kmh == 25
     defauts = depuis_dict(BASE)
     assert defauts.seance.elasticite_z2_min == -0.05
+    # Q14 : le retour au calme absorbe, sa fenêtre est bien plus large que
+    # celle de la Z2 d'ouverture, qui est un levier de placement.
+    assert defauts.seance.elasticite_calme_max == 1.5
+    assert defauts.seance.elasticite_calme_min == -0.05
+    assert defauts.seance.elasticite_calme_max > defauts.seance.elasticite_z2_max
     assert defauts.seance.puissance_endurance_pct == 0.60
     assert defauts.seance.seuil_recuperation_pct == 0.75
     assert defauts.tenue.bornes_pluie_mmh == (0.2, 0.5, 1.0)

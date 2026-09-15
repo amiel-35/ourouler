@@ -70,6 +70,17 @@ vitesse_min_kmh = 8
 # font partie de la prescription et ne bougent jamais.
 elasticite_z2_max = 0.20     # allongement maximal de l'échauffement, pour atteindre un bon couloir
 elasticite_z2_min = -0.05
+# Le retour au calme, lui, ne place rien : il referme une boucle dont la longueur n'est
+# jamais exacte. Sa fenêtre est donc largement ouverte vers le haut (Q14, 13/09/2026 —
+# « le retour au calme en fait peut dépasser de plus, c'est souvent ce que je fais car
+# c'est incontrôlable de faire parfait, et c'est du kilomètre facile. Faut réduire le
+# dépassement au max. »). Dépasser n'est pas une faute : chaque minute en trop se paie,
+# mais peu et sans seuil, ce qui suffit à préférer la boucle la plus juste à terrain égal.
+# Au-delà de cette borne haute, ce n'est plus la boucle qui tombe mal, c'est la boucle qui
+# ne va pas avec la séance : on le dit. Bornes : 0 à 5 (soit jusqu'à +500 %).
+elasticite_calme_max = 1.5   # +150 % : le retour au calme absorbe, il n'est pas un levier
+# Le raccourcir, en revanche, ampute la séance et reste très cher. Bornes : −0,5 à 0.
+elasticite_calme_min = -0.05
 demi_tour_penalite = 1.0     # coût d'un bloc qui reprend le segment précédent en sens inverse
 # Puissance d'endurance, en fraction de la FTP. Sert de cible aux étapes prescrites en
 # zone de FC basse (Z1, Z2), que la table des zones de puissance traduit très mal.

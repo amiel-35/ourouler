@@ -241,6 +241,7 @@ def test_les_valeurs_par_defaut_sont_celles_du_contrat(ecrire_config):
     assert config.tenue.bornes_pluie_mmh == (0.2, 0.5, 1.0)
     assert config.tenue.vent_veste_kmh == 30.0
     assert config.seance.elasticite_z2_max == 0.20 and config.seance.elasticite_z2_min == -0.05
+    assert config.seance.elasticite_calme_max == 1.5 and config.seance.elasticite_calme_min == -0.05
     assert config.seance.demi_tour_penalite == 1.0
 
 
@@ -250,9 +251,18 @@ def test_les_valeurs_par_defaut_sont_celles_du_contrat(ecrire_config):
         '[tenue]\nbornes_c = [9.0, 3.0]\n',
         '[tenue]\nvent_veste_kmh = -5.0\n',
         '[seance]\nelasticite_z2_max = 2.0\n',
+        '[seance]\nelasticite_calme_max = 50.0\n',
+        '[seance]\nelasticite_calme_min = 0.5\n',
         '[seance]\ndemi_tour_penalite = -1.0\n',
     ],
-    ids=["bornes_decroissantes", "vent_negatif", "elasticite_demesuree", "penalite_negative"],
+    ids=[
+        "bornes_decroissantes",
+        "vent_negatif",
+        "elasticite_demesuree",
+        "calme_demesure",
+        "calme_min_positif",
+        "penalite_negative",
+    ],
 )
 def test_une_configuration_de_seance_ou_de_tenue_invalide_est_refusee(ecrire_config, corps):
     with pytest.raises(ErreurConfig):
@@ -263,4 +273,9 @@ def test_les_parametres_de_seance_disent_la_decision_du_13_09():
     """Une élasticité par défaut qui encadre zéro : la Z2 peut s'allonger ou se raccourcir."""
     p = ParametresSeance()
     assert p.elasticite_z2_min <= 0.0 <= p.elasticite_z2_max
+    # Q14 (13/09) : le retour au calme absorbe, il n'est pas un levier — sa
+    # fenêtre s'ouvre largement vers le haut, et pas vers le bas.
+    assert p.elasticite_calme_min <= 0.0 <= p.elasticite_calme_max
+    assert p.elasticite_calme_max > p.elasticite_z2_max
+    assert p.elasticite_calme_min == p.elasticite_z2_min
     assert p.demi_tour_penalite >= 0.0, "un demi-tour ne peut pas améliorer une note"

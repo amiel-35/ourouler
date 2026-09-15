@@ -492,6 +492,7 @@ def _placer_toutes(
     retenues: list[tuple[object, Placement]] = []
     ecartees: list[Ecartee] = []
     elasticite = (config.seance.elasticite_z2_min, config.seance.elasticite_z2_max)
+    elasticite_calme = (config.seance.elasticite_calme_min, config.seance.elasticite_calme_max)
     for candidate in candidates:
         trace = candidate.trace
         placement = placer(
@@ -499,6 +500,7 @@ def _placer_toutes(
             trace,
             parametres,
             elasticite=elasticite,
+            elasticite_calme=elasticite_calme,
             penalite_demi_tour=config.seance.demi_tour_penalite,
         )
         if placement is None:
@@ -698,6 +700,7 @@ def _notes_carte(proposition: Proposition, seance: Seance, tenue: Tenue | None) 
         notes.append("Météo indisponible pour ce jour : ni pluie, ni vent, ni tenue.")
     if tenue is not None:
         notes.append("Tenue : " + _tenue_courte(tenue))
+    notes.extend(proposition.placement.informations)
     for avertissement in proposition.placement.avertissements:
         notes.append("⚠ " + avertissement)
     return notes
@@ -845,9 +848,10 @@ def _entete(
             )
     lignes.append(
         "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; "
-        "plus bas = mieux. La note additionne le terrain sous les blocs et la pénalité "
-        "des étapes élastiques sorties de leur fenêtre — une séance qu'on ne tient pas "
-        "coûte plus cher qu'un mauvais couloir."
+        "plus bas = mieux. La note additionne le terrain sous les blocs, le coût — faible "
+        "et sans seuil — de chaque minute de retour au calme en trop, et la pénalité, "
+        "elle très lourde, d'une séance amputée : rentrer plus tard est normal, ne pas "
+        "rouler la séance ne l'est pas."
     )
     lignes.append(
         f"« blocs bien placés » : note du couloir sous {_fr(NOTE_BLOC_BIEN_PLACE, 1)} km "
@@ -919,7 +923,11 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     note = _fr(placement.note_totale, 2)
     if placement.penalite_seance > 0:
         note += (
-            f" = terrain {_fr(placement.note_terrain, 2)} + séance non tenue "
+            # « extrémités » et non « séance non tenue » : depuis Q14 cette
+            # pénalité additionne deux choses de natures différentes — une
+            # séance amputée, qui est un défaut, et le dépassement du retour au
+            # calme, qui n'en est pas un. Le détail se lit deux lignes plus bas.
+            f" = terrain {_fr(placement.note_terrain, 2)} + extrémités "
             f"{_fr(placement.penalite_seance, 2)}"
         )
     lignes = [
@@ -943,6 +951,8 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
         f"    Retour au calme : {_duree_longue(placement.duree_totale_s)} et "
         f"{_fr(placement.distance_totale_m / 1000, 1)} km au total — il absorbe ce qui reste."
     )
+    for information in placement.informations:
+        lignes.append(f"    {information}")
     for avertissement in placement.avertissements:
         lignes.append(f"    ⚠ {avertissement}")
     return lignes
@@ -1055,6 +1065,10 @@ def _candidate_json(proposition: Proposition) -> dict:
             "blocs_bien_places": proposition.blocs_bien_places,
             "demi_tours": proposition.demi_tours,
             "avertissements": placement.avertissements,
+            # Ce qui se dit sans être un défaut — le retour au calme qui
+            # s'allonge dans sa fenêtre (Q14). Séparé des avertissements
+            # parce qu'un script qui compte les défauts ne doit pas le compter.
+            "informations": placement.informations,
             "emplacements": [
                 {
                     "bloc": numero,
