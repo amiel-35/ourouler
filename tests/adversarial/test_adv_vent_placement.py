@@ -139,6 +139,15 @@ def test_sentinelle_l5_1_pas_encore_livre():
     assert callable(getattr(champ, "vent_face_ms", None)), (
         "ChampVent doit exposer vent_face_ms(position_m, cap_deg, sens)"
     )
+    # La sentinelle ne surveillait que le module. Or huit tests — dont **les
+    # deux GOLDEN de non-régression** — sont gardés par `_exiger_parametre_vent`,
+    # qui teste la signature de `placer`. Renommer le mot-clé `vent=` les
+    # aurait tous fait basculer en skip sans qu'aucun test n'échoue. On
+    # surveille donc aussi la signature, ici, au seul endroit qui crie.
+    assert _placer_accepte_vent(), (
+        "placer(...) doit garder le mot-clé `vent` : huit tests de ce fichier, "
+        "dont la non-régression GOLDEN, se mettent en skip sans lui"
+    )
 
 
 # =============================================================================
@@ -982,7 +991,14 @@ def test_le_sens_du_pas_arrive_bien_jusqu_au_champ():
     retour = terrain.avancer(depart, -1, 600.0, 210.0)
     assert aller is not None and retour is not None, "600 s tiennent dans la moitié du tracé"
     d_aller, d_retour = abs(aller - depart), abs(retour - depart)
-    assert d_aller < d_retour, (
+    # La marge n'est pas cosmétique. Relecture du 15/09/2026 : avec un simple
+    # `d_aller < d_retour`, neutraliser `_Terrain.vent_face` laissait ce test
+    # vert — 5 670,348277761150 m contre 5 670,348277761152 m, soit 1,8e-12 m
+    # d'écart, satisfait par le seul sens d'arrondi. Le test annonçait garder
+    # le `sens` non transmis au champ ; il ne gardait rien. Un vent de 5 m/s
+    # au cap du tracé doit creuser des centaines de mètres sur 600 s, pas des
+    # picomètres.
+    assert d_aller < d_retour * 0.8, (
         f"vent venant du cap {cap}° : 600 s à 210 W couvrent {d_aller:.0f} m dans le sens "
         f"du tracé et {d_retour:.0f} m en sens inverse — l'aller est vent de face, il doit "
         "être le plus court. Signe inversé au branchement, ou `sens` non transmis au champ."

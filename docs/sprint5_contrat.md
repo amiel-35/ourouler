@@ -154,6 +154,77 @@ ne porte le vent. La carte de leur interface web est calculée côté
 navigateur. **Notre source de vent reste Open-Meteo, pour la prévision comme
 pour l'archive** ; Intervals ne sert que de juge.
 
+### 1.5 Résultat mesuré le 15/09/2026 — le seuil de biais n'est pas tenu
+
+Écrit ici **en toutes lettres** (règle 4) et pas seulement en commentaire du
+script de validation, parce qu'un « non vérifié » que seul un lecteur du code
+découvre n'est pas un aveu, c'est un enfouissement.
+
+Sur 161 des 162 sorties (une écartée, aucune archive de vent) :
+
+| Mesure | Obtenu | Seuil du §1.3 | Verdict |
+|---|---|---|---|
+| Écart absolu médian à `headwind_percent` | 6,6 points | ≤ 10 | tenu |
+| Biais | **−7,0 points** | ±5 | **non tenu** |
+| 90ᵉ centile | 15,6 points | — | — |
+
+**L'explication, et pourquoi elle ne condamne pas le lot.** Nous comptons
+moins de vent de face **et** moins de vent de dos qu'Intervals, donc plus de
+travers : c'est la définition du **secteur** qui diffère, pas le vent. Le
+biais s'annule vers 55° de demi-angle (écart médian 3,1, biais −1,3) là où
+`meteo.rapport.vent_relatif` applique ±45°.
+
+**Décision : on garde nos ±45° et on écrit l'écart.** S'aligner sur ~55°
+serait se caler sur une définition qu'on ne connaît pas, et ce secteur sert
+aussi à l'affichage de `meteo`.
+
+**Ce que révèle surtout cet écart, c'est que le critère du §1.3 était mal
+conçu** — il mélangeait deux choses. Le secteur ±45° ne sert qu'à *dire*
+« face » ou « dos » ; la physique du placement, elle, n'utilise pas de
+secteur du tout, mais le cosinus continu. Le biais mesure donc un désaccord
+de vocabulaire avec Intervals, pas une erreur de calcul.
+
+La vraie preuve du lot est ailleurs, et elle est plus forte (13 053 tronçons,
+oracle = la vitesse GPS réelle) :
+
+| Terme de vent | Erreur absolue moyenne sur la vitesse |
+|---|---|
+| avec le vent | **0,993 m/s** |
+| sans le vent | 1,063 m/s |
+| **vent retourné** | **1,445 m/s** |
+
+Un signe inversé donnerait l'inverse de cette hiérarchie. C'est le contrôle
+qui compte.
+
+**Réserve de la relecture, retenue** : ce contrôle passe par
+`physique/calibration._vent_de_face`, pas par `ChampVent`. Il valide la
+convention de la calibration, et ne transfère au lot que par transitivité —
+transitivité établie par mesure en relecture (`ChampVent.vent_face_ms` ≡
+`_vent_de_face` à 1,5·10⁻¹⁴ m/s près sur 20 000 tirages, même fonction de
+cap des deux côtés, facteur de hauteur appliqué une seule fois). **À
+corriger un jour** : faire passer `erreurs_de_vitesse` par `ChampVent`, pour
+que le juge mesure le code que le placement utilise vraiment.
+
+### 1.6 Ce qui reste ouvert à la fin du lot
+
+- **Le branchement dans `ourouler sortie` n'est pas fait.** `ChampVent` est
+  livré, testé, validé — et rien ne l'appelle. Au sens de la règle 4, le lot
+  n'est donc pas livré tant qu'une commande ne l'exerce pas.
+- Le branchement n'est **pas** une ligne : `sortie/commande.py` place *avant*
+  d'évaluer la météo, et date la météo avec la vitesse tirée du placement.
+  Le §1.2 d écrivait « comme aujourd'hui », ce qui était faux sur le code
+  d'aujourd'hui. Il faut donc soit une deuxième passe de placement (placer
+  sans vent → heures de passage → météo → replacer avec vent), soit dater la
+  météo à l'allure d'endurance, ce qui déplace aussi les heures de la pluie.
+  **La deuxième passe est la voie retenue** : elle préserve la datation
+  actuelle, et son coût est négligeable (le placement pèse 0,09 s quand
+  BRouter en pèse 4,2).
+- **Décision produit en attente du mainteneur** : une fois branché, le vent
+  entre dans la note de placement, donc il départage les candidates **avant**
+  la pluie. Le test `test_a_note_egale_la_pluie_departage` du sprint 4 tombe.
+  Branche `l5.1-branchement-sortie`, déposée rouge et volontairement non
+  fusionnée.
+
 ## 2. Lot L5.2 — La séance entière visible (Q13)
 
 Conséquence de conception déjà écrite dans `docs/questions_mainteneur.md`

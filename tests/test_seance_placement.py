@@ -1196,11 +1196,19 @@ def _champ_vent(vent_kmh: float, vent_depuis_deg: float, *, longueur_m: float = 
     return ChampVent(echantillons)
 
 
-def test_sans_vent_le_placement_ne_bouge_pas_dun_pouce(monkeypatch):
-    """`vent=None` doit rendre **exactement** ce qu'il rendait avant le lot L5.1.
+def test_le_defaut_de_vent_vaut_bien_none(monkeypatch):
+    """Ne pas passer `vent` et passer `vent=None` donnent le même placement.
 
-    C'est la garantie de non-régression : les milliers de tests existants ne
-    passent pas le paramètre, et aucun ne doit changer de résultat.
+    **Ce test ne prouve pas la non-régression**, et son nom précédent le
+    laissait croire : il compare `placer` à lui-même, donc les deux branches
+    bougeraient ensemble si le lot L5.1 avait déplacé quoi que ce soit. Ce
+    qu'il garde vraiment, c'est que le paramètre par défaut est bien `None` et
+    qu'aucun chemin caché ne fabrique un champ de vent implicite.
+
+    La vraie non-régression est ailleurs, et elle est dure : un `GOLDEN` de
+    positions figées avant le lot, comparé à l'égalité exacte, dans
+    `tests/adversarial/test_adv_vent_placement.py` (relevé sur `b311d88` puis
+    rejoué à l'identique en relecture).
     """
     attendues = _positions(0.0)
     _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50))

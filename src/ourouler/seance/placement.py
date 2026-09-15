@@ -170,11 +170,16 @@ PENALITE_SEANCE_NON_TENUE = 20.0
 PENALITE_CALME_ALLONGE_KM_PAR_H = 0.6
 
 #: Pas d'arrondi de la composante de vent, en m/s, pour la mémoïsation des
-#: vitesses. Le balayage des décalages repasse des milliers de fois sur les
-#: mêmes pas : sans arrondi, chaque passage tomberait sur une valeur de vent
-#: légèrement différente, aucune clé ne serait réutilisée et le cache ne
-#: servirait plus à rien. 0,25 m/s vaut 0,9 km/h de vent — bien en deçà de ce
-#: que la prévision sait dire.
+#: vitesses. 0,25 m/s vaut 0,9 km/h — bien en deçà de ce que la prévision sait
+#: dire, donc l'arrondi ne coûte aucune justesse.
+#:
+#: Il ne gagne pas grand-chose non plus, et c'est mesuré (15/09/2026, relecture
+#: du lot L5.1) : le supprimer coûte **2 %** sur un placement, pas l'explosion
+#: de cache qu'annonçait la première rédaction de ce commentaire. La raison est
+#: que `_Terrain.vent_face` mémoïse déjà par `(pas, sens)` : il n'existe que
+#: deux valeurs de vent possibles par pas, quoi qu'il arrive. On garde
+#: l'arrondi parce qu'il est gratuit et qu'il borne la clé, pas parce qu'il
+#: sauve le cache.
 PAS_VENT_MS = 0.25
 
 
@@ -1255,6 +1260,11 @@ def _caps_pas(
         if distance_m(a, b) > 0:
             caps.append(cap_deg(a, b))
         else:
+            # Deux points confondus : le cap n'existe pas. On prolonge le
+            # précédent ; au tout premier pas il n'y en a pas, et le repli
+            # vaut alors 0.0, c'est-à-dire plein nord — une valeur fausse
+            # qu'on assume parce qu'un tracé qui commence par deux points
+            # confondus est refusé par `placer` bien avant d'arriver ici.
             caps.append(caps[-1] if caps else 0.0)
     return caps
 
