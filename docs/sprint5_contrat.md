@@ -239,6 +239,48 @@ Cadrage à écrire avant ouverture. Le point dur, dans les mots du mainteneur :
 trois propositions ne servent à rien si elles se ressemblent, et les trois
 premières d'un même classement se ressemblent souvent.
 
+### 3.1 L'orientation au vent est un axe de contraste, pas une constante
+
+Décision du mainteneur, 15/09/2026, à propos de l'arbitrage « le vent
+départage-t-il avant la pluie ? » : **« on peut laisser arbitrer le
+user ? »** — et il ajoute aussitôt le choix suivant, qui est du même
+ordre : *vent dans le dos au départ de la sortie, ou à la fin, ou plutôt
+vent latéral ?*
+
+Conséquence de conception, et elle est structurante : ces questions ne se
+tranchent pas une fois pour toutes dans le code. **Elles deviennent une
+dimension sur laquelle on fabrique des propositions contrastées**, chacune
+résumable en une phrase que le cycliste comprend sans explication :
+
+- « vous rentrez avec le vent dans le dos » — dure au début, facile au retour ;
+- « vent dans le dos au départ » — vous partez vite, vous rentrez dans le dur ;
+- « vent de travers » — ni l'un ni l'autre, mais jamais de répit non plus.
+
+Même chose pour vent contre pluie : au lieu d'arbitrer, une proposition est
+« la plus sèche » et une autre « la mieux orientée ». La tolérance de note
+introduite au branchement de L5.1 reste utile comme **départage** quand rien
+ne distingue deux candidates ; elle cesse d'être un arbitrage produit.
+
+C'est aussi la bonne forme vis-à-vis de la doctrine §10 (« le profil est une
+donnée, pas une constante ») : une préférence d'orientation au vent est un
+champ de profil, pas une constante de module. Elle devra suivre l'utilisateur
+dans la version hébergée.
+
+### 3.2 Mesurer la préférence avant de la demander
+
+Avant d'ajouter un réglage, on regarde ce que le mainteneur **fait déjà** :
+162 sorties avec vent enregistré et traces GPS permettent de dire s'il part
+face au vent pour rentrer avec. Précédent du sprint 3 : les poids du terrain
+avaient été calibrés contre son intuition, et la mesure l'avait contredit sur
+les côtes — il ne les évite pas.
+
+Piège à écarter explicitement dans cette mesure : un effet apparent peut
+n'être que de la géographie. Le vent dominant en Bretagne vient de
+l'ouest-sud-ouest, et si ses routes habituelles partent majoritairement dans
+une direction, le résultat serait un artefact du réseau routier. Le contrôle
+qui décide : l'effet tient-il les jours où le vent vient du nord ou de l'est ?
+Script : `tests/validation/orientation_vent_retrospectif.py`.
+
 ## 4. Lot L5.4 — La page du jour
 
 Page HTML autonome écrite sur le disque. GPX en téléchargement avec le type
