@@ -83,6 +83,7 @@ from ourouler.boucle.trace import (
     DENIVELE_PARCOURS,
     PointTrace,
     Trace,
+    cap_deg,
     denivele_filtre,
     distance_m,
 )
@@ -96,6 +97,7 @@ from ourouler.physique.modele import (
 )
 from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.terrain import NoteBloc, demi_tour_faisable, evaluer_couloir, route_au_dela
+from ourouler.seance.vent import ChampVent
 
 #: Clé de `Trace.meta` où le motif d'échec est rangé quand `placer` rend `None`.
 CLE_MOTIF = "placement_motif"
@@ -167,6 +169,15 @@ PENALITE_SEANCE_NON_TENUE = 20.0
 #: une séance reste un vrai défaut, et les deux ne sont pas le même défaut.
 PENALITE_CALME_ALLONGE_KM_PAR_H = 0.6
 
+#: Pas d'arrondi de la composante de vent, en m/s, pour la mémoïsation des
+#: vitesses. Le balayage des décalages repasse des milliers de fois sur les
+#: mêmes pas : sans arrondi, chaque passage tomberait sur une valeur de vent
+#: légèrement différente, aucune clé ne serait réutilisée et le cache ne
+#: servirait plus à rien. 0,25 m/s vaut 0,9 km/h de vent — bien en deçà de ce
+#: que la prévision sait dire.
+PAS_VENT_MS = 0.25
+
+
 #: Dépassement du retour au calme à partir duquel on le dit. Une minute : en
 #: deçà, c'est l'arrondi du placement, pas une information.
 DEPASSEMENT_CALME_DIT_S = 60.0
@@ -221,6 +232,7 @@ def placer(
     trace: Trace,
     p: Parametres,
     *,
+    vent: ChampVent | None = None,
     elasticite: tuple[float, float] = (-0.05, 0.20),
     elasticite_calme: tuple[float, float] = (-0.05, 1.5),
     pas_s: float = 60.0,
@@ -238,6 +250,12 @@ def placer(
     fenêtre par le haut se dit ; dépasser tout court se paie, au prorata et
     sans seuil.
 
+    `vent` est le champ de vent le long du tracé (`seance.vent.ChampVent`),
+    ou `None` pour ne pas en tenir compte. Il change la vitesse de chaque pas,
+    donc l'endroit où les blocs tombent : 20 km/h de face ou dans le dos,
+    c'est 4 km d'écart sur un bloc de 20 min qui en fait 11. Sans lui, le
+    placement rend **exactement** ce qu'il rendait avant que le vent existe.
+
     La meilleure configuration est celle dont la `note_totale` est la plus
     basse — terrain sous les blocs **et** pénalité de séance ; à égalité, celle
     qui touche le moins à la séance.
@@ -247,7 +265,7 @@ def placer(
     if len(trace.points) < 2:
         return _echec(trace, "tracé de moins de deux points : il n'y a rien à parcourir")
 
-    terrain = _Terrain(trace, p)
+    terrain = _Terrain(trace, p, vent)
     if not (math.isfinite(terrain.total) and terrain.total > 0):
         return _echec(trace, "tracé de longueur nulle : il n'y a rien à parcourir")
 
@@ -833,7 +851,14 @@ def _variante_demi_tour(
     moitie = recup.duree_s / 2.0
     if moitie <= 0:
         return None
-    besoin_m = terrain.vitesse(recup_puissance, terrain.pente_a(etat.position_m) * etat.sens) * moitie
+    besoin_m = (
+        terrain.vitesse(
+            recup_puissance,
+            terrain.pente_a(etat.position_m) * etat.sens,
+            terrain.vent_face_a(etat.position_m, etat.sens),
+        )
+        * moitie
+    )
     if not _route_au_dela(trace, terrain, etat.position_m, besoin_m, etat.sens):
         return None
     if not demi_tour_faisable(trace, terrain.borner(etat.position_m + etat.sens * besoin_m)):
@@ -1026,18 +1051,28 @@ def _minutes(secondes: float) -> str:
 
 
 class _Terrain:
-    """Le tracé découpé en pas de `PAS_M` mètres, avec la pente de chaque pas.
+    """Le tracé découpé en pas de `PAS_M` mètres, avec la pente et le cap de chaque pas.
 
     Même découpage et même lissage d'altitude que `physique.modele.simuler` :
     l'altimètre bruite de quelques dizaines de centimètres, ce qui fabrique
     des pentes fantômes de plusieurs pour cent sur 100 m. Les vitesses sont
-    mémorisées par (puissance, pente arrondie) : le balayage des décalages
-    repasse mille fois sur les mêmes pas, et la bissection du modèle n'a
-    aucune raison d'être refaite.
+    mémorisées par (puissance, pente arrondie, vent de face arrondi) : le
+    balayage des décalages repasse mille fois sur les mêmes pas, et la
+    bissection du modèle n'a aucune raison d'être refaite.
+
+    Le **cap** de chaque pas est de la géométrie pure, calculée une fois à la
+    construction au même titre que les pentes. Il ne sert qu'au vent — mais
+    sans lui, un champ de vent ne saurait pas dire si le cycliste va vers lui
+    ou s'en éloigne.
+
+    Sans champ de vent (`vent=None`), la composante de face vaut zéro partout
+    et les vitesses sont **exactement** celles d'avant : c'est la garantie de
+    non-régression.
     """
 
-    def __init__(self, trace: Trace, p: Parametres) -> None:
+    def __init__(self, trace: Trace, p: Parametres, vent: ChampVent | None = None) -> None:
         self.p = p
+        self.vent = vent
         distances = _distances_cumulees(trace.points)
         self.total = distances[-1]
         self.bornes = _bornes_pas(self.total)
@@ -1048,21 +1083,56 @@ class _Terrain:
             (altitudes[i + 1] - altitudes[i]) / (self.bornes[i + 1] - self.bornes[i])
             for i in range(len(self.bornes) - 1)
         ]
+        self.caps = _caps_pas(trace.points, distances, self.bornes)
         self.bornee = trace.bornee()
-        self._vitesses: dict[tuple[float, float], float] = {}
+        self._vitesses: dict[tuple[float, float, float], float] = {}
+        self._vents: dict[tuple[int, int], float] = {}
 
-    def vitesse(self, puissance_w: float, pente: float) -> float:
-        """La vitesse de régime, en m/s, avec les mêmes garde-fous que la simulation."""
-        cle = (round(puissance_w, 1), round(pente, 5))
+    def vitesse(self, puissance_w: float, pente: float, vent_face_ms: float = 0.0) -> float:
+        """La vitesse de régime, en m/s, avec les mêmes garde-fous que la simulation.
+
+        `vent_face_ms` est compté positif de face, comme dans `physique.modele`.
+        Il est arrondi à `PAS_VENT_MS` avant d'entrer dans la clé de cache —
+        et c'est la valeur arrondie qui va au modèle, pour que deux appels à
+        la même clé rendent le même nombre.
+        """
+        cle = (round(puissance_w, 1), round(pente, 5), _arrondir_vent(vent_face_ms))
         connue = self._vitesses.get(cle)
         if connue is not None:
             return connue
-        v = vitesse_regime(cle[0], cle[1], 0.0, self.p)
+        v = vitesse_regime(cle[0], cle[1], cle[2], self.p)
         if cle[1] < 0:
             v = min(v, V_MAX_DESCENTE_KMH / 3.6)  # le cycliste freine, le modèle ne le sait pas
         v = max(v, V_MIN_MS)  # plancher affiché, pas une mesure
         self._vitesses[cle] = v
         return v
+
+    def vent_face(self, i: int, sens: int) -> float:
+        """La composante de face, en m/s, au milieu du pas `i` parcouru dans `sens`.
+
+        Le milieu du pas plutôt qu'une de ses bornes : le vent y vaut la
+        moyenne du pas, et une borne partagée par deux pas voisins donnerait
+        au vent une discontinuité que la pente n'a pas.
+
+        Mémoïsée par (pas, sens) : il n'y a que deux valeurs possibles par
+        pas, et le balayage des décalages les redemande des milliers de fois.
+        """
+        if self.vent is None:
+            return 0.0
+        cle = (i, 1 if sens > 0 else -1)
+        connue = self._vents.get(cle)
+        if connue is None:
+            milieu = (self.bornes[i] + self.bornes[i + 1]) / 2.0
+            connue = self.vent.vent_face_ms(milieu, self.caps[i], sens)
+            self._vents[cle] = connue
+        return connue
+
+    def vent_face_a(self, position_m: float, sens: int) -> float:
+        """La composante de face à une position, prise sur le pas qui la contient."""
+        if self.vent is None:
+            return 0.0
+        i = bisect.bisect_right(self.bornes, position_m) - 1
+        return self.vent_face(min(max(i, 0), len(self.pentes) - 1), sens)
 
     def pente_a(self, position_m: float) -> float:
         """La pente du pas qui contient `position_m` (celle du pas le plus proche aux bouts)."""
@@ -1102,7 +1172,7 @@ class _Terrain:
             if i is None:
                 return None
             borne = self.bornes[i + 1] if sens > 0 else self.bornes[i]
-            v = self.vitesse(puissance_w, self.pentes[i] * sens)
+            v = self.vitesse(puissance_w, self.pentes[i] * sens, self.vent_face(i, sens))
             t = abs(borne - pos) / v
             if t >= restant:
                 return pos + sens * v * restant
@@ -1122,7 +1192,7 @@ class _Terrain:
             if i is None:
                 return None
             borne = self.bornes[i + 1] if sens > 0 else self.bornes[i]
-            v = self.vitesse(puissance_w, self.pentes[i] * sens)
+            v = self.vitesse(puissance_w, self.pentes[i] * sens, self.vent_face(i, sens))
             longueur = abs(borne - pos)
             if longueur >= restant:
                 return duree + restant / v
@@ -1138,6 +1208,36 @@ class _Terrain:
         else:
             i = bisect.bisect_left(self.bornes, position_m) - 1
         return i if 0 <= i < len(self.pentes) else None
+
+
+def _arrondir_vent(vent_face_ms: float) -> float:
+    """Le vent de face arrondi au multiple de `PAS_VENT_MS` le plus proche.
+
+    Rend `0.0` — et non `-0.0` — pour un vent nul : les deux sont égaux pour
+    Python mais font la même clé de cache, autant n'en écrire qu'une.
+    """
+    return round(vent_face_ms / PAS_VENT_MS) * PAS_VENT_MS or 0.0
+
+
+def _caps_pas(
+    points: Sequence[PointTrace], distances: Sequence[float], bornes: Sequence[float]
+) -> list[float]:
+    """Le cap de chaque pas, en degrés (0 = nord, sens horaire).
+
+    Même géométrie que `boucle.trace.cap_deg`, entre les deux bouts du pas.
+    Un pas dont les deux bouts tombent sur le même point — un tracé qui
+    revient sur lui-même, deux points GPS identiques — reprend le cap du pas
+    précédent plutôt que de rendre un zéro qui se lirait « plein nord ».
+    """
+    caps: list[float] = []
+    for i in range(len(bornes) - 1):
+        a = _point_a(points, distances, bornes[i])
+        b = _point_a(points, distances, bornes[i + 1])
+        if distance_m(a, b) > 0:
+            caps.append(cap_deg(a, b))
+        else:
+            caps.append(caps[-1] if caps else 0.0)
+    return caps
 
 
 def _bornes_pas(total: float) -> list[float]:

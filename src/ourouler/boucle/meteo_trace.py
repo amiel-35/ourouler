@@ -266,7 +266,7 @@ def _interpoler(heures: Sequence[PrevisionHeure], t: datetime) -> _Valeurs:
     return _Valeurs(
         pluie_mm=_lineaire(avant.pluie_mm, apres.pluie_mm, f),
         vent_kmh=_lineaire(avant.vent_kmh, apres.vent_kmh, f),
-        vent_depuis_deg=_angulaire(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
+        vent_depuis_deg=interpoler_angle(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
         ressenti_c=_lineaire(avant.ressenti_c, apres.ressenti_c, f),
     )
 
@@ -297,8 +297,13 @@ def _lineaire(a: float | None, b: float | None, f: float) -> float | None:
     return a + (b - a) * f
 
 
-def _angulaire(a: float | None, b: float | None, f: float) -> float | None:
-    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°."""
+def interpoler_angle(a: float | None, b: float | None, f: float) -> float | None:
+    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°.
+
+    Publique parce que `seance.vent` interpole le même angle entre deux
+    échantillons distants de 5 km : une seconde version aurait tôt fait de
+    diverger de celle-ci, et c'est exactement la faute qu'elle évite.
+    """
     if a is None or b is None:
         return None
     ra, rb = math.radians(a), math.radians(b)
