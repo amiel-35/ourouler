@@ -256,10 +256,30 @@ résumable en une phrase que le cycliste comprend sans explication :
 - « vent dans le dos au départ » — vous partez vite, vous rentrez dans le dur ;
 - « vent de travers » — ni l'un ni l'autre, mais jamais de répit non plus.
 
-Même chose pour vent contre pluie : au lieu d'arbitrer, une proposition est
-« la plus sèche » et une autre « la mieux orientée ». La tolérance de note
-introduite au branchement de L5.1 reste utile comme **départage** quand rien
-ne distingue deux candidates ; elle cesse d'être un arbitrage produit.
+**Vent contre pluie relève du même principe** (confirmé par le mainteneur le
+15/09/2026 : « oui et priorité vent ou pluie »). Au lieu d'arbitrer, une
+proposition est « la plus sèche » et une autre « la mieux orientée ». La
+tolérance de note introduite au branchement de L5.1 reste utile comme
+**départage** quand rien ne distingue deux candidates ; elle cesse d'être un
+arbitrage produit.
+
+### 3.1.1 « Laisser arbitrer le user » a une bonne et une mauvaise forme
+
+À tenir fermement, parce que la pente est glissante :
+
+- **Mauvaise forme** : un fichier de configuration avec douze réglages que
+  personne ne touche, et des valeurs par défaut qui décident en réalité à la
+  place du cycliste tout en se donnant l'air de lui laisser le choix.
+- **Bonne forme** : il arbitre **en regardant**, pas en réglant. Trois
+  propositions, une carte chacune, une phrase qui dit ce qui les distingue.
+  Le réglage n'existe que pour **figer** une préférence quand on en a assez
+  de la reprendre à chaque sortie.
+
+Règle de conception qui en découle : **tout réglage ajouté doit avoir un
+défaut qui n'a pas besoin d'être touché**, et toute question produit qui se
+pose à chaque sortie se traite par le contraste, pas par un champ de
+configuration. Un réglage supplémentaire se justifie devant le mainteneur,
+il ne s'ajoute pas au fil de l'eau.
 
 C'est aussi la bonne forme vis-à-vis de la doctrine §10 (« le profil est une
 donnée, pas une constante ») : une préférence d'orientation au vent est un
