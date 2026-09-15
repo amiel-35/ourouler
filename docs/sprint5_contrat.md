@@ -286,6 +286,48 @@ donnée, pas une constante ») : une préférence d'orientation au vent est un
 champ de profil, pas une constante de module. Elle devra suivre l'utilisateur
 dans la version hébergée.
 
+### 3.1.2 Jusqu'à quand la prévision de vent est-elle fiable ? — mesuré le 16/09/2026
+
+Question du mainteneur. Elle décide de l'horizon sur lequel l'outil a le
+droit de proposer une orientation au vent.
+
+**Horizon des modèles**, relevé le 16/09/2026 : AROME France HD (notre
+principal) **67 h**, Météo-France seamless 115 h, ICON seamless (notre second
+avis) 168 h. Au-delà de deux jours et demi, la haute résolution ne répond
+plus du tout.
+
+**Justesse**, 2 064 heures à Rennes, du 16/06 au 09/09/2026, **référence =
+archive ERA5** (qui assimile les observations) :
+
+| Prévu | Erreur vitesse | Erreur direction | Direction dans le bon secteur de ±45° |
+|---|---|---|---|
+| 1 jour avant | 1,3 km/h | 7° | 93 % |
+| 2 jours | 1,8 km/h | 8° | 92 % |
+| 3 jours | 2,1 km/h | 11° | 88 % |
+| 4 jours | 2,1 km/h | 13° | 85 % |
+| 5 jours | 2,2 km/h | 17° | 78 % |
+
+**Règle produit qui en découle : on ne propose une orientation au vent que
+jusqu'à 3 jours.** Au-delà, AROME est déjà sorti du jeu et une direction sur
+cinq se trompe de secteur entier ; l'outil dit qu'il ne sait pas plutôt que
+de promettre « vous rentrerez avec le vent dans le dos ». C'est la règle 5
+appliquée : afficher un désaccord plutôt que le moyenner.
+
+**Deux réserves, dont une qui corrige une affirmation antérieure.**
+
+1. Une première mesure prenait pour référence la meilleure estimation
+   courante d'Open-Meteo, et j'avais annoncé que l'erreur contre la réalité
+   serait *plus grande*. Elle est **plus petite** (7° contre 11° à un jour) :
+   cette première référence est elle-même un autre modèle, on mesurait donc
+   un désaccord entre modèles. Signe qui le prouve : dans la mesure contre
+   ERA5, le « run du jour » score moins bien (11°) que la prévision de la
+   veille (7°) — impossible pour un même modèle, normal pour deux modèles
+   différents. C'est AROME qui répond sur le court terme, et AROME s'écarte
+   plus d'ERA5 parce qu'il voit du relief local qu'ERA5 lisse à 25 km.
+2. **ERA5 n'est pas le vent que le cycliste sent.** À 25 km de maille, elle
+   ignore le bocage, les vallons, les haies. L'écart réel est plus grand que
+   7°, et on n'a aucun moyen de le mesurer sans anémomètre embarqué.
+
 ### 3.2 Mesurer la préférence avant de la demander
 
 Avant d'ajouter un réglage, on regarde ce que le mainteneur **fait déjà** :
