@@ -20,6 +20,7 @@ Guinée, comme les autres tracés synthétiques du dépôt. Aucun réseau.
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from datetime import UTC, date, datetime
 
@@ -496,6 +497,95 @@ def test_pas_s_absurde_ne_boucle_pas(monkeypatch):
     for pas in (0.0, -60.0, float("nan"), float("inf"), 1e-3):
         resultat = placement.placer(_seance(), _trace(), P, pas_s=pas)
         assert resultat is not None
+
+
+# --- l'invariant de continuité (Q13, lot L5.2) --------------------------------
+#
+# Le cœur du lot : les emplacements se suivent sans trou ni recouvrement, du
+# départ à l'arrivée, et la somme de leurs longueurs vaut `distance_totale_m`
+# — au sens du parcours réellement roulé, demi-tours compris. C'est ce qui
+# prouve qu'on montre toute la séance et pas des morceaux (contrat sprint 5
+# §2.2 a)). Écrit avant le reste de l'implémentation, et rejoué sur une
+# séance tout droit et une séance à demi-tour.
+
+
+def _verifier_continuite(resultat: placement.Placement, seance: Seance) -> None:
+    """Toutes les étapes, dans l'ordre, sans trou ni recouvrement en distance roulée."""
+    assert [e.etape_idx for e in resultat.emplacements] == list(range(len(seance.etapes))), (
+        "chaque étape de la séance doit apparaître une fois, dans l'ordre : "
+        f"{[e.etape_idx for e in resultat.emplacements]}"
+    )
+    parcouru = 0.0
+    for emplacement in resultat.emplacements:
+        assert math.isfinite(emplacement.longueur_m) and emplacement.longueur_m >= 0.0, (
+            f"étape {emplacement.etape_idx} : longueur {emplacement.longueur_m!r} invalide"
+        )
+        parcouru += emplacement.longueur_m
+    assert parcouru == pytest.approx(resultat.distance_totale_m, abs=1e-6), (
+        f"la somme des longueurs affichées ({parcouru:.3f} m) ne vaut pas la distance "
+        f"réellement roulée ({resultat.distance_totale_m:.3f} m) : la séance affichée "
+        "n'est pas la séance roulée"
+    )
+
+
+def test_invariant_continuite_sans_demi_tour(monkeypatch):
+    """Placement tout droit : cinq étapes, aucun trou, la somme fait le compte."""
+    seance = _seance()
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[3] + 50))
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    assert not any(e.demi_tour for e in resultat.emplacements), (
+        "cette fixture ne doit pas provoquer de demi-tour, sinon elle double ce que "
+        "l'autre test vérifie"
+    )
+    _verifier_continuite(resultat, seance)
+
+
+def test_invariant_continuite_avec_demi_tour(monkeypatch):
+    """La récupération coupée en deux par un demi-tour reste une seule étape.
+
+    Elle roule deux fois la demi-distance (aller, puis retour) : sa longueur
+    compte donc pour `2 × besoin_m`, pas pour l'écart entre les deux points du
+    tracé (qui sous-compterait de moitié) ni pour zéro (départ et arrivée sont
+    le même point). L'invariant ne tiendrait pas sinon.
+    """
+    seance = _seance()
+    attendues = _positions(720.0)
+    _couloirs(monkeypatch, (attendues[0] - 50, attendues[1] + 50))
+
+    resultat = placement.placer(seance, _trace(), P, penalite_demi_tour=1.0)
+
+    assert resultat is not None
+    assert [e.demi_tour for e in resultat.blocs()] == [False, True], (
+        "cette fixture a besoin du demi-tour pour avoir quelque chose à vérifier"
+    )
+    _verifier_continuite(resultat, seance)
+
+    # Et le détail qui prouve que ce n'est pas un accident de la somme globale :
+    # la récupération du demi-tour (étape 2) roule bien deux fois sa moitié.
+    recup = next(e for e in resultat.emplacements if e.etape_idx == 2)
+    bloc1 = next(e for e in resultat.emplacements if e.etape_idx == 1)
+    tournant = resultat.jalons_m[1]
+    aller = tournant - (bloc1.debut_m + bloc1.longueur_m)
+    assert aller > 100.0, "la fixture doit laisser une demi-récup franche, sinon c'est du bruit"
+    assert recup.longueur_m == pytest.approx(2.0 * aller, abs=1.0), (
+        f"la récupération du demi-tour roule {recup.longueur_m:.0f} m, attendu "
+        f"{2 * aller:.0f} m (aller + retour)"
+    )
+
+
+def test_invariant_continuite_avec_recuperations_inegales(monkeypatch):
+    """Trois blocs, deux récupérations de durées différentes : toujours pas de trou."""
+    seance = _seance_recups_inegales()
+    _terrain_vallonne(monkeypatch, demi_tour=False)
+
+    resultat = placement.placer(seance, _trace(), P)
+
+    assert resultat is not None
+    _verifier_continuite(resultat, seance)
 
 
 # --- le demi-tour --------------------------------------------------------------

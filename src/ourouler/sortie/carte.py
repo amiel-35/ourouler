@@ -109,10 +109,9 @@ def construire(
     """
     titre = titre or f"{seance.nom} — {seance.jour.isoformat()}"
     cumuls = _cumuls(trace.points)
-    total = cumuls[-1] if cumuls else 0.0
 
     blocs = _blocs(trace, seance, placement, cumuls)
-    liaisons = _liaisons(trace, placement, cumuls, total)
+    liaisons = _liaisons(trace, placement, cumuls)
     trace_js = [[round(p.lat, 6), round(p.lon, 6)] for p in trace.points]
     depart = trace_js[0] if trace_js else [0.0, 0.0]
 
@@ -151,9 +150,15 @@ def construire(
 def _blocs(
     trace: Trace, seance: Seance, placement: Placement, cumuls: Sequence[float]
 ) -> list[dict]:
-    """Un dictionnaire par bloc : géométrie, couleur, étiquette, infobulle."""
+    """Un dictionnaire par bloc : géométrie, couleur, étiquette, infobulle.
+
+    `placement.blocs()`, pas `placement.emplacements` : depuis le lot L5.2
+    (Q13), ce dernier porte aussi l'échauffement, les récupérations et le
+    retour au calme, qui n'ont pas de note — `emplacement.note.note`
+    lèverait sur l'un d'eux. `_liaisons` s'occupe de les dessiner.
+    """
     dessins = []
-    for numero, emplacement in enumerate(placement.emplacements, start=1):
+    for numero, emplacement in enumerate(placement.blocs(), start=1):
         couleur = COULEURS_BLOCS[(numero - 1) % len(COULEURS_BLOCS)]
         portion = _portion(trace, cumuls, emplacement.debut_m, emplacement.longueur_m)
         etape = _etape(seance, emplacement)
@@ -205,44 +210,31 @@ def _infobulle(numero: int, emplacement: Emplacement, etape) -> str:
     return "<br>".join(lignes)
 
 
-def _liaisons(
-    trace: Trace, placement: Placement, cumuls: Sequence[float], total: float
-) -> list[_Portion]:
-    """Les portions entre les blocs : échauffement, récupérations, retour au calme.
+def _liaisons(trace: Trace, placement: Placement, cumuls: Sequence[float]) -> list[_Portion]:
+    """Les portions non notées : échauffement, récupérations, retour au calme.
+
+    Depuis le lot L5.2 (Q13), chacune est un `Emplacement` à part entière —
+    on la dessine donc **directement**, sur son propre `debut_m`/`longueur_m`,
+    au lieu de deviner un trou entre deux blocs par soustraction. L'ancienne
+    méthode (« ce qui n'est pas un bloc ») peignait tout ce qui suit le
+    dernier bloc jusqu'à la fin du tracé, y compris la portion qu'un
+    demi-tour ne fait jamais rouler — exactement le défaut que Q13 signale.
+    Nourrir cette fonction avec des positions déjà connues, et non avec un
+    calcul de gap, est aussi ce qui rend un demi-tour visible d'un bloc à
+    l'autre : la récupération qui y mène a sa propre portion, là où l'ancien
+    calcul ne lui trouvait aucun trou (deux couloirs qui se chevauchent).
 
     Elles ne sont pas notées et ne portent donc ni couleur ni motif — elles
-    disent seulement par où l'on passe pour aller d'un bloc au suivant.
-
-    Le sens de marche n'est pas toujours celui du tracé : après un demi-tour,
-    `seance.placement` continue à l'envers, et les blocs suivants ont des
-    kilomètres **décroissants**. On prend donc, entre deux couloirs, l'écart
-    qui les sépare dans un sens comme dans l'autre ; deux couloirs qui se
-    chevauchent (le demi-tour lui-même) ne donnent aucune liaison. La
-    dernière liaison suit le sens des deux derniers blocs : vers la fin du
-    tracé si l'on avance, vers le départ si l'on revient à l'envers.
-
-    Ce qui reste en gris est donc ce que la séance **ne parcourt pas** : sur
-    un placement qui se termine en sens inverse, la moitié de la boucle reste
-    grise, et c'est précisément ce que la carte doit montrer.
+    disent seulement par où l'on passe. Ce qui reste en gris (`COULEUR_TRACE`)
+    est donc ce que la séance **ne parcourt jamais** : sur un placement qui
+    fait demi-tour, toute la portion au-delà reste grise, et c'est
+    précisément ce que la carte doit montrer.
     """
-    if not placement.emplacements:
-        return [_portion(trace, cumuls, 0.0, total)] if total > 0 else []
-    bornes = [(e.debut_m, e.debut_m + e.longueur_m) for e in placement.emplacements]
-    coupures = [(0.0, bornes[0][0])]
-    for (debut_a, fin_a), (debut_b, fin_b) in zip(bornes[:-1], bornes[1:], strict=True):
-        if debut_b >= fin_a:  # on continue dans le sens du tracé
-            coupures.append((fin_a, debut_b))
-        elif fin_b <= debut_a:  # on revient en arrière
-            coupures.append((fin_b, debut_a))
-    if len(bornes) >= 2 and bornes[-1][1] <= bornes[-2][0]:
-        coupures.append((0.0, bornes[-1][0]))  # retour au calme à l'envers, vers le départ
-    else:
-        coupures.append((bornes[-1][1], total))
     portions = []
-    for debut, fin in coupures:
-        if fin - debut <= 0:
-            continue
-        portion = _portion(trace, cumuls, debut, fin - debut)
+    for emplacement in placement.emplacements:
+        if emplacement.note is not None:
+            continue  # un bloc : `_blocs` s'en charge
+        portion = _portion(trace, cumuls, emplacement.debut_m, emplacement.longueur_m)
         if len(portion.points) >= 2:
             portions.append(portion)
     return portions

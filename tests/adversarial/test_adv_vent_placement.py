@@ -732,7 +732,7 @@ def _mesure(placement: Any) -> dict:
         "jalons_m": list(placement.jalons_m),
         "emplacements": [
             (e.etape_idx, e.debut_m, e.longueur_m, e.demi_tour, e.note.note)
-            for e in placement.emplacements
+            for e in placement.blocs()
         ],
     }
 
@@ -1030,8 +1030,8 @@ def test_le_vent_de_dos_mene_plus_loin_que_le_vent_de_face():
     assert avec_face is not None and avec_dos is not None, (
         "la séance doit tenir sur 60 km de droite dans les deux cas"
     )
-    bloc_face = avec_face.emplacements[0].longueur_m
-    bloc_dos = avec_dos.emplacements[0].longueur_m
+    bloc_face = avec_face.blocs()[0].longueur_m
+    bloc_dos = avec_dos.blocs()[0].longueur_m
     assert bloc_dos > bloc_face, (
         f"premier bloc : {bloc_dos:.0f} m vent de dos contre {bloc_face:.0f} m vent de face — "
         "à durée prescrite égale, le vent de dos doit couvrir plus de terrain "

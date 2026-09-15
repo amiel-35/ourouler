@@ -192,56 +192,50 @@ DEPASSEMENT_CALME_DIT_S = 60.0
 class Emplacement:
     """Où tombe une étape de la séance, et ce que vaut le terrain à cet endroit.
 
-    Depuis le lot L5.2 (Q13), **toutes** les étapes de la séance apparaissent
-    ici, pas seulement les blocs : l'échauffement, les récupérations et le
-    retour au calme ont eux aussi une position, même sans note — aucun
-    terrain n'est évalué sous une récupération, c'est la règle du sprint 4 et
-    elle ne bouge pas. `note` vaut donc `None` pour tout ce qui n'est pas un
-    bloc ; ce n'est pas une valeur neutre inventée, c'est l'absence de
-    mesure. Un appelant qui ne veut que les blocs (l'ancien comportement)
-    utilise `Placement.blocs()`.
+    Depuis le lot L5.2 (Q13), **une étape de la séance = un `Emplacement`**,
+    pas seulement les blocs : l'échauffement, les récupérations et le retour
+    au calme ont eux aussi une position, même sans note — aucun terrain n'est
+    évalué sous une récupération, c'est la règle du sprint 4 et elle ne
+    bouge pas. `note` vaut donc `None` pour tout ce qui n'est pas un bloc ;
+    ce n'est pas une valeur neutre inventée, c'est l'absence de mesure. Un
+    appelant qui ne veut que les blocs (l'ancien comportement) utilise
+    `Placement.blocs()`, qui filtre sur `note is not None` — c'est exactement
+    équivalent à filtrer sur le type de l'étape, sans avoir besoin de le
+    répéter ici : `Placement` ne connaît pas la `Seance`, `note` suffit.
 
-    Deux systèmes de coordonnées, et ils divergent après un demi-tour :
+    `debut_m`/`longueur_m` repèrent une position **sur le tracé d'origine**
+    (celle que `_couloir` calcule depuis les deux bouts du pas), pas un
+    compteur kilométrique — c'est ce dont la carte a besoin pour savoir
+    quels points dessiner. Après un demi-tour, `debut_m` peut **reculer** :
+    le bloc suivant reprend le couloir du bloc précédent, à l'envers.
 
-    * `debut_m`/`longueur_m` repèrent une position **sur le tracé d'origine**
-      (celle que `_couloir` calcule depuis les deux bouts du pas) — c'est ce
-      dont la carte a besoin pour savoir quels points dessiner. Après un
-      demi-tour, `debut_m` **recule** : le bloc suivant reprend le couloir du
-      bloc précédent, à l'envers.
-    * `debut_parcouru_m` repère une position **sur le parcours réellement
-      roulé**, au sens du compteur kilométrique du vélo : elle vaut 0 au
-      départ et ne recule jamais, quel que soit le nombre de demi-tours.
-      C'est elle que l'affichage texte utilise (« du km 13,2 au km 21,4 »)
-      et c'est sur elle que porte l'invariant de continuité : pour toute la
-      liste, `emplacements[i].debut_parcouru_m + emplacements[i].longueur_m
-      == emplacements[i+1].debut_parcouru_m`, et le total vaut
-      `Placement.distance_totale_m`. **`jalons_m` n'est pas cette autorité** :
-      au bout d'une boucle fermée, le point de demi-tour qu'il mémorise est
-      écrêté par `_Terrain.dans_le_trace` (approximation connue depuis le
-      sprint 4, voir sa docstring) et peut donc totaliser un peu moins que
-      `distance_totale_m`. `debut_parcouru_m` est calculé indépendamment de
-      `jalons_m`, à partir des longueurs de jambe réellement ajoutées à
-      `_Etat.distance_m`, et ne porte pas cet écrêtage.
+    **Le demi-tour d'une récupération ne se coupe pas en deux `Emplacement`.**
+    Elle reste **une** étape de la séance, donc **un** `Emplacement` : celui
+    qui va du point où le bloc précédent s'est arrêté jusqu'au point de
+    demi-tour, puis en revient. Son `debut_m` est le début de ce couloir
+    (`_couloir` sur le point de départ et le point de demi-tour, non écrêté —
+    voir plus bas) ; sa `longueur_m` vaut **deux fois** la demi-distance
+    estimée (`2 × besoin_m`, aller et retour), pas l'écart entre les deux
+    points du tracé (qui vaudrait `besoin_m`) et surtout pas zéro (le départ
+    et l'arrivée de cette étape sont le même point). C'est cette même
+    estimation `2 × besoin_m` qui est ajoutée à `_Etat.distance_m` ; l'un des
+    deux invariants du contrat §2.2 a) — la somme des longueurs vaut
+    `distance_totale_m` — tient donc par construction.
 
-    **Le demi-tour d'une paire récupération-bloc devient trois `Emplacement`
-    consécutifs**, jamais un seul : la moitié de récup vers le demi-tour, la
-    moitié de récup au retour, puis le bloc repris en sens inverse. Les deux
-    moitiés de récup portent le **même** `debut_m`/`longueur_m` — c'est la
-    même route, parcourue une fois dans chaque sens — alors qu'en
-    `debut_parcouru_m` elles se suivent sans jamais se chevaucher, comme
-    n'importe quelle autre paire d'étapes.
+    **`jalons_m` n'est pas cette même autorité.** Au bout d'une boucle
+    fermée, le point de demi-tour qu'il mémorise est écrêté par
+    `_Terrain.dans_le_trace` (approximation connue et documentée depuis le
+    sprint 4, voir sa docstring) : `jalons_m` peut alors totaliser un peu
+    moins que `distance_totale_m`. `debut_m`/`longueur_m` ne portent pas cet
+    écrêtage — ils viennent du point de demi-tour **non écrêté**, cohérent
+    avec ce qui est réellement ajouté à `_Etat.distance_m`.
     """
 
     etape_idx: int
     debut_m: float
     longueur_m: float
     demi_tour: bool  # le bloc réutilise le segment précédent en sens inverse
-    type: str = TYPE_BLOC
     note: NoteBloc | None = None
-    #: Position sur le parcours réellement roulé (compteur), voir la
-    #: docstring de la classe. 0.0 par défaut pour les appelants qui
-    #: construisent un `Emplacement` à la main sans s'en soucier (tests).
-    debut_parcouru_m: float = 0.0
 
 
 @dataclass
@@ -284,10 +278,9 @@ class Placement:
 
         C'est ce que `Placement.emplacements` rendait avant le lot L5.2
         (Q13) : la note de terrain, `blocs_bien_places`, `demi_tours`
-        continuent de ne compter qu'eux — jamais une récupération, jamais un
-        demi-tour compté deux fois pour ses deux moitiés de récup.
+        continuent de ne compter qu'eux, jamais une récupération.
         """
-        return [e for e in self.emplacements if e.type == TYPE_BLOC]
+        return [e for e in self.emplacements if e.note is not None]
 
 
 def placer(
@@ -672,7 +665,6 @@ def _essayer(
         # comme celle de n'importe quelle autre étape (Q13) — sans note,
         # aucun terrain n'est évalué ici.
         depart = etat.position_m
-        parcouru = etat.distance_m
         if not _rouler(terrain, etat, duree, puissance):
             return _plus_de_route(etat, terrain, etape, i)
         debut, longueur = _couloir(depart, etat.position_m)
@@ -682,9 +674,7 @@ def _essayer(
                 debut_m=debut,
                 longueur_m=longueur,
                 demi_tour=False,
-                type=etape.type,
                 note=None,
-                debut_parcouru_m=parcouru,
             )
         )
         i += 1
@@ -718,7 +708,7 @@ def _essayer(
     # (règle du sprint 4). `_note_ponderee` suppose que chaque emplacement
     # qu'on lui passe a un `note` non `None` — un filtre, jamais un `or 0.0`,
     # qui ferait entrer une note neutre inventée dans la moyenne.
-    terrain_note = _note_ponderee([e for e in emplacements if e.type == TYPE_BLOC], etapes)
+    terrain_note = _note_ponderee([e for e in emplacements if e.note is not None], etapes)
     return Placement(
         decalage_z2_s=decalage_s,
         emplacements=emplacements,
@@ -831,7 +821,6 @@ def _bloc_droit(
 ) -> Emplacement | str:
     """Le bloc tel quel, dans le sens de marche, à partir de la position courante."""
     depart = etat.position_m
-    parcouru = etat.distance_m
     if not _rouler(terrain, etat, duree_s, puissance_w):
         return _plus_de_route(etat, terrain, bloc, bloc_idx)
     debut, longueur = _couloir(depart, etat.position_m)
@@ -840,9 +829,7 @@ def _bloc_droit(
         debut_m=debut,
         longueur_m=longueur,
         demi_tour=False,
-        type=TYPE_BLOC,
         note=evaluer_couloir(trace, debut, longueur, puissance_w=puissance_w, ftp_w=ftp_w),
-        debut_parcouru_m=parcouru,
     )
 
 
@@ -869,10 +856,10 @@ def _recup_puis_bloc(
     **bloc** est donnée à `evaluer_couloir` — celle de la récup n'entre nulle
     part, sans quoi l'intensité d'une récup pèserait sur une note de terrain.
 
-    Rend une **liste** d'`Emplacement`, pas un seul : la récupération obtient
-    désormais sa propre position (Q13, lot L5.2), et le demi-tour la coupe en
-    deux (voir `_variante_demi_tour`). Le dernier élément de la liste est
-    toujours le bloc — c'est lui qui porte la note qui arbitre.
+    Rend une **liste** de deux `Emplacement` (récup, bloc), pas un seul : la
+    récupération obtient désormais sa propre position (Q13, lot L5.2). Le
+    second élément est toujours le bloc — c'est lui qui porte la note qui
+    arbitre.
 
     **Limite à connaître (T3).** L'arbitrage se fait ici au seul vu de la note
     de couloir, bloc par bloc, alors que `_penalite_seance` n'est calculée
@@ -926,7 +913,6 @@ def _variante_droite(
     """Récup puis bloc, tout droit : le cas normal, sans pénalité."""
     essai = replace(etat)
     depart_recup = essai.position_m
-    parcouru_recup = essai.distance_m
     if not _rouler(terrain, essai, recup.duree_s, recup_puissance):
         return None
     debut_r, longueur_r = _couloir(depart_recup, essai.position_m)
@@ -935,12 +921,9 @@ def _variante_droite(
         debut_m=debut_r,
         longueur_m=longueur_r,
         demi_tour=False,
-        type=TYPE_RECUP,
         note=None,
-        debut_parcouru_m=parcouru_recup,
     )
     depart_bloc = essai.position_m
-    parcouru_bloc = essai.distance_m
     if not _rouler(terrain, essai, bloc.duree_s, bloc_puissance):
         return None
     debut, longueur = _couloir(depart_bloc, essai.position_m)
@@ -949,9 +932,7 @@ def _variante_droite(
         debut_m=debut,
         longueur_m=longueur,
         demi_tour=False,
-        type=TYPE_BLOC,
         note=evaluer_couloir(trace, debut, longueur, puissance_w=bloc_puissance, ftp_w=ftp_w),
-        debut_parcouru_m=parcouru_bloc,
     )
     return [recup_emp, bloc_emp], essai
 
@@ -977,19 +958,18 @@ def _variante_demi_tour(
     `route_au_dela` qui dit si cette route existe, y compris sur une boucle
     fermée où le tracé continue au-delà de sa fin.
 
-    **La récupération devient deux `Emplacement`** (Q13, lot L5.2) : la
-    moitié aller (vers le point de demi-tour) et la moitié retour, toutes
-    deux avec le même `debut_m`/`longueur_m` — la même route, parcourue une
-    fois dans chaque sens, comme sur la carte il n'y a qu'un seul couloir à
-    dessiner. `longueur_m` vaut `besoin_m`, la distance **estimée** à vitesse
-    de récup constante, pas la distance géométrique au point de demi-tour
-    (qui peut être légèrement écrêtée par `_Terrain.dans_le_trace` en bout de
-    boucle, voir sa docstring) : c'est cette même estimation qui est ajoutée
-    à `etat.distance_m`, et l'invariant de continuité (§2.2.a du contrat)
-    tient sur ce qui est effectivement compté, pas sur la géométrie exacte du
-    point de rebroussement. `jalons_m`, lui, garde le point écrêté — c'est
-    la seule autorité de géométrie, pas de distance (voir la docstring
-    d'`Emplacement`).
+    **La récupération reste une seule étape, donc un seul `Emplacement`**
+    (Q13, lot L5.2) — elle ne se coupe pas en deux : son `debut_m` est le
+    début du couloir entre le point de départ et le point de demi-tour, et sa
+    `longueur_m` vaut **`2 × besoin_m`**, l'aller et le retour, pas l'écart
+    entre ses deux extrémités (qui vaudrait `besoin_m` et sous-compterait de
+    moitié) ni zéro (départ et arrivée sont le même point). C'est cette même
+    estimation, à vitesse de récup constante, qui est ajoutée à
+    `etat.distance_m` : l'invariant de continuité (contrat §2.2.a, « la somme
+    des longueurs vaut `distance_totale_m` ») tient par construction, sur ce
+    qui est effectivement compté — pas sur la géométrie exacte, légèrement
+    écrêtée en bout de boucle fermée, que `jalons_m` mémorise pour son propre
+    usage (voir la docstring d'`Emplacement`).
     """
     moitie = recup.duree_s / 2.0
     if moitie <= 0:
@@ -1008,30 +988,16 @@ def _variante_demi_tour(
         return None
 
     depart = etat.position_m
-    parcouru = etat.distance_m
     tournant_brut = depart + etat.sens * besoin_m
     tournant_ecrete = terrain.dans_le_trace(tournant_brut)
-    debut_aller, _ = _couloir(depart, tournant_brut)
-    jambes = [
-        Emplacement(
-            etape_idx=recup_idx,
-            debut_m=debut_aller,
-            longueur_m=besoin_m,
-            demi_tour=True,
-            type=TYPE_RECUP,
-            note=None,
-            debut_parcouru_m=parcouru,
-        ),
-        Emplacement(
-            etape_idx=recup_idx,
-            debut_m=debut_aller,
-            longueur_m=besoin_m,
-            demi_tour=True,
-            type=TYPE_RECUP,
-            note=None,
-            debut_parcouru_m=parcouru + besoin_m,
-        ),
-    ]
+    debut_recup, _ = _couloir(depart, tournant_brut)
+    recup_emp = Emplacement(
+        etape_idx=recup_idx,
+        debut_m=debut_recup,
+        longueur_m=2.0 * besoin_m,
+        demi_tour=True,
+        note=None,
+    )
 
     # Figure symétrique : les deux moitiés de récup se compensent, on repart
     # exactement du bout du segment, dans l'autre sens.
@@ -1052,18 +1018,14 @@ def _variante_demi_tour(
         note=note.note + penalite_demi_tour,
         motifs=[*note.motifs, "demi-tour : le segment du bloc précédent, repris en sens inverse"],
     )
-    jambes.append(
-        Emplacement(
-            etape_idx=bloc_idx,
-            debut_m=debut,
-            longueur_m=longueur,
-            demi_tour=True,
-            type=TYPE_BLOC,
-            note=note,
-            debut_parcouru_m=parcouru + 2 * besoin_m,
-        )
+    bloc_emp = Emplacement(
+        etape_idx=bloc_idx,
+        debut_m=debut,
+        longueur_m=longueur,
+        demi_tour=True,
+        note=note,
     )
-    return jambes, essai
+    return [recup_emp, bloc_emp], essai
 
 
 def _route_au_dela(
@@ -1115,7 +1077,6 @@ def _fermer(
     position dans `emplacements`, sans note.
     """
     depart = etat.position_m
-    parcouru = etat.distance_m
     reste = terrain.total - etat.position_m if etat.sens > 0 else etat.position_m
     if reste < 0:
         reste = 0.0
@@ -1133,9 +1094,7 @@ def _fermer(
             debut_m=debut,
             longueur_m=longueur,
             demi_tour=False,
-            type=etape.type,
             note=None,
-            debut_parcouru_m=parcouru,
         )
     )
     if etape.duree_s > 0:

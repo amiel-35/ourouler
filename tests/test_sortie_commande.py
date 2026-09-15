@@ -567,8 +567,13 @@ def test_le_vent_change_ou_tombent_les_blocs(tmp_path: Path, monkeypatch, capsys
     assert avec_vent["note_totale"] != pytest.approx(sans_vent["note_totale"]), (
         "un vent fort et uniforme doit changer la note de placement"
     )
-    assert avec_vent["emplacements"][0]["debut_m"] != pytest.approx(
-        sans_vent["emplacements"][0]["debut_m"]
+    # Depuis le lot L5.2, `emplacements[0]` est l'échauffement (toujours au
+    # km 0) : c'est le premier **bloc** — le premier emplacement noté — qui
+    # doit bouger avec le vent.
+    premier_bloc_sans = next(e for e in sans_vent["emplacements"] if e["note"] is not None)
+    premier_bloc_avec = next(e for e in avec_vent["emplacements"] if e["note"] is not None)
+    assert premier_bloc_avec["debut_m"] != pytest.approx(
+        premier_bloc_sans["debut_m"]
     ), "…et donc l'endroit où tombe le premier bloc"
 
 
@@ -1241,7 +1246,15 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
     assert charge["tenue"]["base"]
     candidate = charge["candidates"][0]
     assert candidate["retenue"] is True
-    assert len(candidate["placement"]["emplacements"]) == 4
+    # Depuis le lot L5.2 (Q13), `emplacements` porte toutes les étapes, pas
+    # seulement les blocs : échauffement, 4 blocs, 4 récupérations, retour au
+    # calme — 10 étapes pour 4 blocs.
+    assert len(candidate["placement"]["emplacements"]) == 10
     for emplacement in candidate["placement"]["emplacements"]:
         assert emplacement["longueur_m"] > 0
-        assert isinstance(emplacement["motifs"], list)
+        if emplacement["note"] is None:
+            assert emplacement["motifs"] is None, (
+                "une étape sans note ne doit pas porter de motifs inventés"
+            )
+        else:
+            assert isinstance(emplacement["motifs"], list)

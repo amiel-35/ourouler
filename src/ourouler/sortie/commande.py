@@ -73,7 +73,7 @@ from ourouler.physique.modele import Parametres
 from ourouler.seance.commande import longueurs
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
-from ourouler.seance.placement import CLE_MOTIF, Placement, placer, trace_parcourue
+from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
@@ -141,11 +141,19 @@ class Proposition:
 
     @property
     def blocs_bien_places(self) -> int:
-        return sum(1 for e in self.placement.emplacements if e.note.note < NOTE_BLOC_BIEN_PLACE)
+        # `placement.blocs()`, jamais `placement.emplacements` : depuis le lot
+        # L5.2, cette liste porte aussi l'échauffement, les récupérations et le
+        # retour au calme, qui n'ont pas de note. `e.note.note` lèverait sur un
+        # `None`, et un `e.note.note if e.note else 0.0` compterait ces
+        # non-blocs comme « bien placés » — la régression silencieuse que le
+        # contrat signale explicitement.
+        return sum(1 for e in self.placement.blocs() if e.note.note < NOTE_BLOC_BIEN_PLACE)
 
     @property
     def demi_tours(self) -> int:
-        return sum(1 for e in self.placement.emplacements if e.demi_tour)
+        # Idem : une récupération de demi-tour porte aussi `demi_tour=True`
+        # (contrat §2.2 a)) — la compter en plus du bloc doublerait l'affichage.
+        return sum(1 for e in self.placement.blocs() if e.demi_tour)
 
     @property
     def distance_parcours_m(self) -> float:
@@ -767,7 +775,9 @@ def _ecrire_gpx(trace: Trace, placement: Placement, seance: Seance, demande: Dem
 
 def _description_parcours(parcours: Trace, placement: Placement) -> str:
     """« 47,8 km · D+ 210 m (parcours placé) · 4 demi-tours » — ce que contient le fichier."""
-    demi_tours = sum(1 for e in placement.emplacements if e.demi_tour)
+    # `.blocs()` : la récupération d'un demi-tour porte aussi `demi_tour=True`
+    # (contrat §2.2 a)), la compter en plus du bloc doublerait ce chiffre.
+    demi_tours = sum(1 for e in placement.blocs() if e.demi_tour)
     if demi_tours == 0:
         combien = "sans demi-tour"
     elif demi_tours == 1:
@@ -807,7 +817,7 @@ def _sous_titre(proposition: Proposition, demande: Demande, config: Config) -> s
         f"{_fr(trace.distance_m / 1000, 1)} km",
         f"D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else f"D+ {ABSENT}",
         f"note de placement {_fr(proposition.placement.note_totale, 2)}",
-        f"{proposition.blocs_bien_places}/{len(proposition.placement.emplacements)} blocs bien placés",
+        f"{proposition.blocs_bien_places}/{len(proposition.placement.blocs())} blocs bien placés",
     ]
     if demande.direction:
         morceaux.insert(1, f"vers {demande.direction}")
@@ -1035,21 +1045,31 @@ def _cellules(proposition: Proposition, presentes: set[str]) -> list[str]:
         ]
     cellules += [
         _fr(proposition.placement.note_totale, 2),
-        f"{proposition.blocs_bien_places}/{len(proposition.placement.emplacements)}",
+        f"{proposition.blocs_bien_places}/{len(proposition.placement.blocs())}",
     ]
     if "demi_tours" in presentes:
         cellules.append(str(proposition.demi_tours) if proposition.demi_tours else ABSENT)
     return cellules
 
 
-def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
-    """La séance posée sur la candidate retenue, bloc par bloc, motifs en clair.
+#: Libellé humain d'un type d'étape non-bloc, pour l'affichage texte (Q13, lot L5.2).
+_LIBELLES_ETAPE = {
+    "echauffement": "échauffement",
+    "recuperation": "récupération",
+    "calme": "retour au calme",
+}
 
-    Seuls les blocs portent une position et une note : `seance.placement` ne
-    mémorise l'emplacement que des étapes contraignantes (contrat §3), et
-    inventer un kilomètre pour les autres serait inventer une mesure. Le
-    décalage de la Z2 d'ouverture et la durée totale disent, eux, ce qui
-    arrive aux extrémités.
+
+def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
+    """La séance posée sur la candidate retenue, étape par étape, motifs en clair.
+
+    Toutes les étapes de la séance apparaissent, pas seulement les blocs
+    (Q13, lot L5.2) : `seance.placement` mémorise désormais la position de
+    chacune. Seuls les blocs portent une note — aucun terrain n'est évalué
+    sous une récupération, c'est la règle du sprint 4 et elle ne bouge pas —
+    donc la colonne reste vide pour le reste plutôt que de porter un tiret
+    ambigu (contrat §2.2 b). Le décalage de la Z2 d'ouverture et la durée
+    totale disent, eux, ce qui arrive aux extrémités.
     """
     placement = proposition.placement
     seance = contexte.seance
@@ -1068,18 +1088,27 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
         f"    Z2 d'ouverture allongée de {_minutes(placement.decalage_z2_s)} — c'est elle qui "
         "fait coulisser les blocs le long du tracé.",
     ]
-    for numero, emplacement in enumerate(placement.emplacements, start=1):
+    numero_bloc = 0
+    for emplacement in placement.emplacements:
         etape = seance.etapes[emplacement.etape_idx]
         fin = emplacement.debut_m + emplacement.longueur_m
-        lignes.append(
-            f"    bloc {numero} — km {_fr(emplacement.debut_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
+        km = (
+            f"km {_fr(emplacement.debut_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
             f"({_fr(emplacement.longueur_m / 1000, 1)} km, {_duree_courte(etape.duree_s)}, "
-            f"{_puissance(etape)}) : note {_fr(emplacement.note.note, 2)}"
-            + (" — demi-tour" if emplacement.demi_tour else "")
+            f"{_puissance(etape)})"
         )
-        if emplacement.note.note >= NOTE_BLOC_BIEN_PLACE:
-            for motif in emplacement.note.motifs or ["aucun motif détaillé"]:
-                lignes.append(f"        • {motif}")
+        demi_tour = " — demi-tour" if emplacement.demi_tour else ""
+        if emplacement.note is not None:
+            numero_bloc += 1
+            lignes.append(
+                f"    bloc {numero_bloc} — {km} : note {_fr(emplacement.note.note, 2)}{demi_tour}"
+            )
+            if emplacement.note.note >= NOTE_BLOC_BIEN_PLACE:
+                for motif in emplacement.note.motifs or ["aucun motif détaillé"]:
+                    lignes.append(f"        • {motif}")
+        else:
+            libelle = _LIBELLES_ETAPE.get(etape.type, etape.type)
+            lignes.append(f"    {libelle} — {km}{demi_tour}")
     lignes.append(
         f"    Retour au calme : {_duree_longue(placement.duree_totale_s)} et "
         f"{_fr(placement.distance_totale_m / 1000, 1)} km au total — il absorbe ce qui reste."
@@ -1173,6 +1202,42 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
     }
 
 
+def _emplacement_json(e: Emplacement) -> dict:
+    """Un emplacement en JSON — `note` et le reste de `NoteBloc` à `None` sans bloc.
+
+    Q13, lot L5.2 : un `0.0` à la place de `None` se lirait, par un script
+    comme par un humain, comme un couloir parfait — c'est précisément le
+    défaut que le contrat §2.2 a) interdit.
+    """
+    base = {
+        "etape_idx": e.etape_idx,
+        "debut_m": round(e.debut_m, 1),
+        "longueur_m": round(e.longueur_m, 1),
+        "demi_tour": e.demi_tour,
+    }
+    if e.note is None:
+        return base | {
+            "note": None,
+            "motifs": None,
+            "pente_moyenne": None,
+            "pente_max": None,
+            "carrefours": None,
+            "km_batis": None,
+            "descente_m": None,
+            "montee_m": None,
+        }
+    return base | {
+        "note": round(e.note.note, 4),
+        "motifs": e.note.motifs,
+        "pente_moyenne": round(e.note.pente_moyenne, 5),
+        "pente_max": round(e.note.pente_max, 5),
+        "carrefours": e.note.carrefours,
+        "km_batis": round(e.note.km_batis, 3),
+        "descente_m": round(e.note.descente_m, 1),
+        "montee_m": round(e.note.montee_m, 1),
+    }
+
+
 def _candidate_json(proposition: Proposition) -> dict:
     trace, placement, meteo = proposition.trace, proposition.placement, proposition.meteo
     return {
@@ -1207,24 +1272,11 @@ def _candidate_json(proposition: Proposition) -> dict:
             # s'allonge dans sa fenêtre (Q14). Séparé des avertissements
             # parce qu'un script qui compte les défauts ne doit pas le compter.
             "informations": placement.informations,
-            "emplacements": [
-                {
-                    "bloc": numero,
-                    "etape_idx": e.etape_idx,
-                    "debut_m": round(e.debut_m, 1),
-                    "longueur_m": round(e.longueur_m, 1),
-                    "demi_tour": e.demi_tour,
-                    "note": round(e.note.note, 4),
-                    "motifs": e.note.motifs,
-                    "pente_moyenne": round(e.note.pente_moyenne, 5),
-                    "pente_max": round(e.note.pente_max, 5),
-                    "carrefours": e.note.carrefours,
-                    "km_batis": round(e.note.km_batis, 3),
-                    "descente_m": round(e.note.descente_m, 1),
-                    "montee_m": round(e.note.montee_m, 1),
-                }
-                for numero, e in enumerate(placement.emplacements, start=1)
-            ],
+            # Toutes les étapes de la séance, pas seulement les blocs (Q13, lot
+            # L5.2) : `_emplacement_json` met `None`, jamais `0.0`, pour tout ce
+            # qu'une récupération n'a pas — un script qui lirait un `0.0` le
+            # prendrait pour un couloir parfait.
+            "emplacements": [_emplacement_json(e) for e in placement.emplacements],
         },
         "couts": {
             "km_trafic": round(proposition.couts.km_trafic, 3),
