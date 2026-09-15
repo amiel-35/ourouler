@@ -459,6 +459,60 @@ def test_le_demi_tour_ne_se_compte_pas_deux_fois(monkeypatch):
     )
 
 
+def test_un_demi_tour_ecrete_ne_perd_pas_de_distance(monkeypatch):
+    """Boucle fermée de 48 km : `jalons_m` et `distance_totale_m` se contredisent déjà.
+
+    **Constat mesuré le 16/09/2026 sur `essai-l5.1`, avant le lot**, et remonté
+    au superviseur : sur une boucle fermée, `_variante_demi_tour` ajoute
+    `2 × besoin_m` à `distance_m` mais range dans `jalons_m` le point de
+    demi-tour **écrêté** par `_Terrain.dans_le_trace`. Sur une boucle de
+    48,0 km, les jalons totalisent 96 000 m quand `distance_totale_m` annonce
+    97 814 m : **1 814 m d'écart**. C'est une approximation assumée et
+    documentée dans `dans_le_trace`, mais le contrat §2.2 a) fait des deux des
+    autorités et elles ne peuvent pas toutes les deux avoir raison.
+
+    Ce test n'arbitre pas — ce n'est pas à lui de le faire. Il vérifie la
+    moitié de l'invariant qui, elle, ne dépend d'aucun arbitrage : **la somme
+    des longueurs affichées vaut `distance_totale_m`**, et aucune étape ne
+    manque. Si le lot choisit de suivre `jalons_m`, il affichera 96 km là où
+    le placement en a compté 97,8 et ce test le dira.
+
+    `verifier_continuite`, qui exige les deux, n'est volontairement pas appelé
+    ici : il échouerait sur une contradiction antérieure au lot.
+
+    Ce que ce test impose en pratique : la longueur d'une étape se prend dans
+    le **déroulé**, où `_variante_demi_tour` connaît son `2 × besoin_m`, et non
+    dans la géométrie recollée depuis `jalons_m`. Une implémentation de
+    référence bâtie sur les seuls jalons échoue ici — vérifié le 16/09/2026.
+    """
+    exiger_lot()
+    seance = fab.seance_2x20()
+    attendues = fab.positions_2x20(720.0)
+    trace = fab.boucle_carree(cote_m=12_000.0, pas_m=250.0)
+    resultat, _ = placer(
+        monkeypatch,
+        seance,
+        trace,
+        bon=(attendues[0] - 50.0, attendues[1] + 50.0),
+        demi_tour=True,
+        penalite_demi_tour=1.0,
+    )
+    jalons = sum(
+        abs(b - a) for a, b in zip(resultat.jalons_m[:-1], resultat.jalons_m[1:], strict=True)
+    )
+    assert abs(resultat.distance_totale_m - jalons) > 1_000.0, (
+        "cette fixture doit reproduire l'écrêtage du jalon de demi-tour, sinon elle "
+        f"ne teste rien : jalons {jalons:.0f} m, distance {resultat.distance_totale_m:.0f} m"
+    )
+    assert [e.etape_idx for e in resultat.emplacements] == list(range(len(seance.etapes)))
+    somme = sum(e.longueur_m for e in resultat.emplacements)
+    assert somme == pytest.approx(resultat.distance_totale_m, abs=fab.MARGE_M), (
+        f"la somme des longueurs vaut {somme:.1f} m pour un parcours de "
+        f"{resultat.distance_totale_m:.1f} m. Les jalons, eux, n'en comptent que "
+        f"{jalons:.1f} : le lot a suivi les jalons plutôt que la distance roulée."
+    )
+
+
 def test_le_parcours_reconstruit_fait_la_distance_annoncee(monkeypatch):
     """`trace_parcourue` et la somme des longueurs doivent raconter la même sortie.
 
