@@ -18,6 +18,7 @@ import argparse
 import json
 import math
 import re
+import types
 from datetime import date, datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -47,8 +48,10 @@ from ourouler.sortie.carte import COULEURS_BLOCS
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
     Proposition,
+    _comparer,
     _Contexte,
     _ecrire_gpx,
+    _notes_egales,
     executer,
     lire_options,
     rendre_texte,
@@ -254,7 +257,7 @@ def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
 # --- Open-Meteo bouchonné -----------------------------------------------------
 
 
-def bloc_meteo(lat: float, lon: float, n: int, pluie: float) -> dict:
+def bloc_meteo(lat: float, lon: float, n: int, pluie: float, vent_kmh: float = 14.0) -> dict:
     return {
         "latitude": lat,
         "longitude": lon,
@@ -262,7 +265,7 @@ def bloc_meteo(lat: float, lon: float, n: int, pluie: float) -> dict:
             "time": [f"2026-09-08T{6 + i:02d}:00" for i in range(n)],
             "precipitation": [pluie] * n,
             "rain": [pluie] * n,
-            "wind_speed_10m": [14.0] * n,
+            "wind_speed_10m": [vent_kmh] * n,
             "wind_direction_10m": [45.0] * n,
             "wind_gusts_10m": [25.0] * n,
             "apparent_temperature": [11.5] * n,
@@ -271,8 +274,15 @@ def bloc_meteo(lat: float, lon: float, n: int, pluie: float) -> dict:
     }
 
 
-def moteur_meteo(pluie=None, en_panne: bool = False) -> ClientOpenMeteo:
-    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h."""
+def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
+    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h.
+
+    `vent_kmh` : vitesse constante du vent bouchonné (14 km/h @ 45° par
+    défaut, comme avant L5.1 — les tests existants qui ne le précisent pas
+    ne changent donc pas de fixture). `0.0` fabrique une météo sans vent,
+    utile pour comparer un placement au vent à son équivalent sans vent
+    (`test_le_vent_change_ou_tombent_les_blocs`).
+    """
     pluie = pluie if pluie is not None else (lambda lat, lon: 0.0)
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -287,7 +297,8 @@ def moteur_meteo(pluie=None, en_panne: bool = False) -> ClientOpenMeteo:
         return httpx.Response(
             200,
             json=[
-                bloc_meteo(a, o, n, pluie(a, o)) for a, o in zip(lats, lons, strict=True)
+                bloc_meteo(a, o, n, pluie(a, o), vent_kmh=vent_kmh)
+                for a, o in zip(lats, lons, strict=True)
             ],
         )
 
@@ -500,6 +511,84 @@ def test_a_note_egale_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
     )
     assert premiere["azimut_deg"] == 180.0
     assert premiere["meteo"]["pluie_cumulee_mm"] < seconde["meteo"]["pluie_cumulee_mm"]
+
+
+def test_le_vent_change_ou_tombent_les_blocs(tmp_path: Path, monkeypatch, capsys):
+    """Le cœur du lot L5.1 : `ourouler sortie` place maintenant avec le vent.
+
+    Une candidate unique (azimut 0°, `candidates=1`), placée deux fois avec
+    la même géométrie et la même séance — sans vent, puis avec un vent fort
+    et uniforme (45 km/h @ 45°). Si le vent n'était pas branché, les deux
+    placements seraient identiques au bit près (c'est exactement ce que
+    `placer(..., vent=None)` garantit, et ce que les 2 936 tests du sprint 4
+    vérifiaient déjà). Ici ils doivent différer : c'est la preuve que
+    `ourouler sortie` construit bien un `ChampVent` et replace la séance
+    avec (contrat §1.6, deuxième passe).
+    """
+    dossier_sans = tmp_path / "sans_vent"
+    dossier_sans.mkdir()
+    code = lancer(
+        dossier_sans, monkeypatch, meteo=moteur_meteo(vent_kmh=0.0), candidates=1, json=True
+    )
+    assert code == 0
+    sans_vent = json.loads(capsys.readouterr().out)["candidates"][0]["placement"]
+
+    dossier_avec = tmp_path / "avec_vent"
+    dossier_avec.mkdir()
+    code = lancer(
+        dossier_avec, monkeypatch, meteo=moteur_meteo(vent_kmh=45.0), candidates=1, json=True
+    )
+    assert code == 0
+    avec_vent = json.loads(capsys.readouterr().out)["candidates"][0]["placement"]
+
+    assert avec_vent["note_totale"] != pytest.approx(sans_vent["note_totale"]), (
+        "un vent fort et uniforme doit changer la note de placement"
+    )
+    assert avec_vent["emplacements"][0]["debut_m"] != pytest.approx(
+        sans_vent["emplacements"][0]["debut_m"]
+    ), "…et donc l'endroit où tombe le premier bloc"
+
+
+def _proposition_note_pluie(note: float, pluie_mm: float) -> Proposition:
+    """Une `Proposition` minimale, seules la note de placement et la pluie comptent."""
+    proposition = _proposition_avec_demi_tour()
+    proposition.placement.note_totale = note
+    proposition.meteo = types.SimpleNamespace(pluie_cumulee_mm=pluie_mm)
+    return proposition
+
+
+def test_notes_egales_ecart_relatif():
+    """`_notes_egales` : deux notes comptent comme égales sous la tolérance (écart relatif)."""
+    assert _notes_egales(1.0, 1.0, 0.0)
+    assert _notes_egales(0.0, 0.0, 0.0), "deux notes nulles sont égales même à tolérance nulle"
+    assert _notes_egales(0.0049, 0.0056, 0.15), "l'écart mesuré au sprint 4 (~12,5 %) est sous 15 %"
+    assert not _notes_egales(0.0049, 0.0056, 0.05), "…mais pas sous 5 %"
+    assert not _notes_egales(1.0, 2.0, 0.15), "un écart de 50 % n'est jamais une égalité"
+
+
+def test_comparer_departage_par_la_pluie_dans_la_tolerance():
+    """`_comparer` : à tolérance non nulle, la pluie décide entre deux notes proches (contrat sprint 4).
+
+    Les deux notes (0,0049 et 0,0056) sont celles mesurées le 15/09/2026 sur
+    les deux anneaux de même relief de `test_a_note_egale_la_pluie_departage`
+    — 12,5 % d'écart relatif une fois le vent dans le placement. Sans
+    tolérance, la meilleure note gagne même mouillée ; avec la tolérance par
+    défaut, l'écart compte comme une égalité et c'est la boucle sèche qui
+    l'emporte, comme au sprint 4.
+    """
+    mouillee_mieux_notee = _proposition_note_pluie(note=0.0049, pluie_mm=3.0)
+    seche_un_peu_moins_bien_notee = _proposition_note_pluie(note=0.0056, pluie_mm=0.0)
+
+    comparer_strict = _comparer(0.0)
+    assert comparer_strict(mouillee_mieux_notee, seche_un_peu_moins_bien_notee) < 0, (
+        "sans tolérance, la note seule décide même mouillée"
+    )
+
+    comparer_tolerant = _comparer(0.15)
+    assert comparer_tolerant(mouillee_mieux_notee, seche_un_peu_moins_bien_notee) > 0, (
+        "à tolérance 15 %, l'écart de note (12,5 %) compte comme une égalité : la pluie décide"
+    )
+    assert comparer_tolerant(seche_un_peu_moins_bien_notee, mouillee_mieux_notee) < 0
 
 
 def test_une_candidate_de_note_catastrophique_reste_affichee_en_derniere_position(tmp_path: Path):

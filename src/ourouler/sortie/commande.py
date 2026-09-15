@@ -6,16 +6,27 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
    pas, on le dit et on sort en 0 — ce n'est pas une erreur ;
 2. des **boucles candidates** sont demandées au moteur (lot L2.3), de la
    longueur qu'il faut pour la séance ;
-3. chacune reçoit le **placement** des blocs (lot L4.3). Celles où la séance
-   ne tient pas sont écartées, et le tableau dit combien et pourquoi ;
-4. sur les retenues seulement : **coûts** du tracé (L2.4), **météo** à l'heure
-   de passage (L2.5) et **tenue** (L4.3) ;
-5. tri par **note de placement d'abord**, puis par pluie cumulée ;
-6. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`).
+3. chacune reçoit un premier **placement** des blocs, sans vent (lot L4.3).
+   Celles où la séance ne tient pas sont écartées, et le tableau dit combien
+   et pourquoi ;
+4. sur les retenues : ce premier placement date une météo qui n'a qu'un but,
+   donner le **champ de vent** le long du tracé (lot L5.1) — et la séance est
+   **replacée** avec ce vent. C'est une deuxième passe, pas une itération : le
+   vent bouge lentement et l'écart d'heure de passage qu'induit le premier
+   placement se compte en minutes (contrat §1.2 d, §1.6) ;
+5. sur les retenues, avec leur placement définitif : **coûts** du tracé
+   (L2.4), **météo** à l'heure de passage définitive (L2.5) et **tenue**
+   (L4.3) ;
+6. tri par **note de placement d'abord** — elle inclut le vent depuis le
+   sprint 5 —, puis par **pluie cumulée** quand deux notes sont égales à
+   `config.seance.tolerance_egalite` près ;
+7. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`).
 
 L'ordre du tri est celui du contrat et il n'est pas anodin : la pluie se
 contourne en partant une heure plus tard, un bloc de seuil dans un village ne
-se contourne pas. La météo départage, elle ne décide pas.
+se contourne pas, et depuis le sprint 5 un vent de face non plus. La météo
+départage, elle ne décide pas — sauf à égalité de note, où c'est elle qui
+tranche entre deux boucles que le terrain et le vent ne distinguent pas.
 
 Ce module est la couche commande : c'est lui qui lit `calibration.json` et
 `poids_routes.json` (par les fonctions qui savent où ils sont) et qui passe
@@ -31,6 +42,7 @@ C'est le cas normal pour un `--jour` passé, hors de l'horizon de prévision.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import math
 import sys
@@ -64,6 +76,7 @@ from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
 from ourouler.seance.placement import CLE_MOTIF, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
+from ourouler.seance.vent import ChampVent
 from ourouler.sortie.carte import construire as construire_carte
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
@@ -151,7 +164,17 @@ class Proposition:
 
     @property
     def tri(self) -> tuple[float, float]:
-        """Note de placement d'abord, pluie cumulée ensuite (contrat §4)."""
+        """Note de placement d'abord, pluie cumulée ensuite (contrat §4).
+
+        **N'est pas le tri réellement appliqué par `executer`** depuis que le
+        vent entre dans la note (sprint 5) : ce tuple compare les notes au
+        bit près, alors que `executer` les compare à `tolerance_egalite`
+        près (`_comparer`), pour laisser la pluie départager deux boucles que
+        le terrain et le vent ne distinguent pas vraiment. Cette propriété
+        reste utile telle quelle — introspection, tests — pour un jeu de
+        candidates aux notes déjà nettement distinctes, où les deux tris
+        s'accordent.
+        """
         return (self.placement.note_totale, self.pluie_mm * POIDS_PLUIE_TRI)
 
 
@@ -206,8 +229,9 @@ def executer(
         raise ErreurUtilisateur(_motif_aucune(seance, ecartees, distance_km))
 
     client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+    retenues = _replacer_avec_vent(retenues, seance, config, parametres, demande, client_meteo)
     propositions, panne = _mesurer(retenues, config, demande, client_meteo)
-    propositions.sort(key=lambda p: p.tri)
+    propositions.sort(key=functools.cmp_to_key(_comparer(config.seance.tolerance_egalite)))
     for numero, proposition in enumerate(propositions, start=1):
         proposition.numero = numero
 
@@ -514,6 +538,113 @@ def _placer_toutes(
             continue
         retenues.append((candidate, placement))
     return retenues, ecartees
+
+
+def _replacer_avec_vent(
+    retenues: list[tuple[object, Placement]],
+    seance: Seance,
+    config: Config,
+    parametres: Parametres,
+    demande: Demande,
+    client_meteo: ClientOpenMeteo,
+) -> list[tuple[object, Placement]]:
+    """Rejoue le placement de chaque candidate retenue avec son champ de vent.
+
+    La deuxième passe du contrat §1.6 : le premier placement (sans vent) sert
+    à dater un premier appel à Open-Meteo, dont on ne garde que le vent —
+    c'est lui qui construit le `ChampVent` qui replace la séance. On ne
+    boucle pas une seconde fois : le champ de vent bouge lentement (pas
+    horaire interpolé) et l'écart d'heure de passage qu'introduit le premier
+    placement se compte en minutes, pas en heures. Le coût mesuré est à
+    rapporter dans le résumé du lot, pas à supposer.
+
+    Une panne d'Open-Meteo, ou un second placement qui échoue là où le
+    premier réussissait (non observé en pratique — le plancher de vitesse du
+    modèle physique empêche le vent de rendre une séance infaisable — mais
+    pas impossible), ne fait pas perdre la candidate : elle retombe sur son
+    placement sans vent, avec un avertissement. `_mesurer` retentera sa
+    propre météo juste après et dira la panne une fois, sur la sortie
+    d'erreur ; ici on se tait, silencieusement correct.
+    """
+    elasticite = (config.seance.elasticite_z2_min, config.seance.elasticite_z2_max)
+    elasticite_calme = (config.seance.elasticite_calme_min, config.seance.elasticite_calme_max)
+    resultat: list[tuple[object, Placement]] = []
+    for candidate, placement_sans_vent in retenues:
+        trace = candidate.trace
+        vitesse = _vitesse(placement_sans_vent, config)
+        try:
+            meteo_vent = evaluer_meteo(
+                trace,
+                client_meteo,
+                depart=demande.depart,
+                vitesse_kmh=vitesse,
+                modele=config.meteo.modele,
+                # Pas de `second_avis` : lui seul sert au second modèle de
+                # pluie, et ce premier appel ne sert qu'au vent du modèle
+                # principal — l'économiser garde le coût à un appel de plus
+                # par candidate, pas deux.
+            )
+        except ErreurConnecteur:
+            resultat.append((candidate, placement_sans_vent))
+            continue
+        champ = ChampVent(meteo_vent.echantillons)
+        replacement = placer(
+            seance,
+            trace,
+            parametres,
+            vent=champ,
+            elasticite=elasticite,
+            elasticite_calme=elasticite_calme,
+            penalite_demi_tour=config.seance.demi_tour_penalite,
+        )
+        if replacement is None:
+            placement_sans_vent.avertissements = list(
+                dict.fromkeys(
+                    [
+                        *placement_sans_vent.avertissements,
+                        "vent non pris en compte : le replacement avec vent a échoué "
+                        "(placement sans vent conservé)",
+                    ]
+                )
+            )
+            resultat.append((candidate, placement_sans_vent))
+            continue
+        resultat.append((candidate, replacement))
+    return resultat
+
+
+def _comparer(tolerance: float):
+    """Le comparateur de tri du contrat §4 : note de placement d'abord, pluie
+    cumulée ensuite — mais seulement quand les deux notes sont égales à
+    `tolerance` (écart relatif) près.
+
+    Depuis que le vent entre dans la note (sprint 5), deux notes ne sont
+    presque plus jamais égales au bit près, même pour deux boucles dont le
+    terrain sous les blocs est identique : sans cette tolérance, le vent
+    déciderait toujours et la pluie ne départagerait plus jamais, ce que le
+    contrat du sprint 4 avait pourtant pesé. `tolerance` est une préférence
+    du cycliste (`config.seance.tolerance_egalite`), pas une constante du
+    code : à 0, le vent tranche toujours, sans exception.
+    """
+
+    def comparer(a: Proposition, b: Proposition) -> int:
+        na, nb = a.placement.note_totale, b.placement.note_totale
+        if not _notes_egales(na, nb, tolerance):
+            return -1 if na < nb else 1
+        pa, pb = a.pluie_mm, b.pluie_mm
+        if pa != pb:
+            return -1 if pa < pb else 1
+        return 0
+
+    return comparer
+
+
+def _notes_egales(a: float, b: float, tolerance: float) -> bool:
+    """Deux notes de placement sont égales si leur écart relatif est sous `tolerance`."""
+    if a == b:
+        return True
+    echelle = max(abs(a), abs(b))
+    return echelle > 0 and abs(a - b) / echelle <= tolerance
 
 
 def _motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) -> str:
@@ -848,10 +979,12 @@ def _entete(
             )
     lignes.append(
         "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; "
-        "plus bas = mieux. La note additionne le terrain sous les blocs, le coût — faible "
-        "et sans seuil — de chaque minute de retour au calme en trop, et la pénalité, "
-        "elle très lourde, d'une séance amputée : rentrer plus tard est normal, ne pas "
-        "rouler la séance ne l'est pas."
+        "plus bas = mieux. La note additionne le terrain sous les blocs (vent de face "
+        "compris depuis le sprint 5), le coût — faible et sans seuil — de chaque minute "
+        "de retour au calme en trop, et la pénalité, elle très lourde, d'une séance "
+        "amputée : rentrer plus tard est normal, ne pas rouler la séance ne l'est pas. "
+        f"À note égale à {config.seance.tolerance_egalite * 100:.0f} % près, c'est la "
+        "pluie cumulée qui décide (`tolerance_egalite`, config [seance])."
     )
     lignes.append(
         f"« blocs bien placés » : note du couloir sous {_fr(NOTE_BLOC_BIEN_PLACE, 1)} km "
@@ -1011,6 +1144,11 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         },
         "modele_physique": contexte.provenance_modele,
         "seuil_bloc_bien_place": NOTE_BLOC_BIEN_PLACE,
+        # Écart relatif de note en dessous duquel la pluie départage plutôt que
+        # le vent (préférence du cycliste, `config.seance.tolerance_egalite`) :
+        # publié pour que le rang des candidates dans `candidates` s'explique
+        # sans relire la configuration.
+        "tolerance_egalite": contexte.config.seance.tolerance_egalite,
         "gpx": str(contexte.gpx) if contexte.gpx is not None else None,
         "carte": str(contexte.carte) if contexte.carte is not None else None,
         "ecartees": [
