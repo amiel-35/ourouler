@@ -172,6 +172,23 @@ class ParametresSeance:
     #: c'est le cas des séances de coach en pourcentage de FTP.
     seuil_recuperation_pct: float = 0.75
 
+    #: Écart relatif de note de placement en dessous duquel deux boucles
+    #: comptent comme équivalentes. Depuis le sprint 5 la note inclut le
+    #: vent, donc deux boucles ne sont quasiment plus jamais égales au bit
+    #: près : sans cette tolérance, le vent l'emporterait toujours, même sur
+    #: un écart de note minuscule, et la pluie ne départagerait plus jamais
+    #: comme au sprint 4. Au-dessus du seuil, c'est la note — vent compris —
+    #: qui décide directement.
+    #:
+    #: **Ce n'est pas un réglage technique, c'est une préférence du
+    #: cycliste** : « le vent doit-il faire préférer une boucle plus mouillée
+    #: à une boucle plus sèche ? » Le défaut ci-dessous répond non dans le cas
+    #: mesuré en L5.1 (deux boucles de même relief, seul le vent les
+    #: distingue) : voir `docs/sprint5_contrat.md` §1.6 pour la mesure sur
+    #: les boucles réelles du mainteneur qui le justifie. 0.0 = le vent
+    #: tranche toujours, sans tolérance — l'autre réponse possible.
+    tolerance_egalite: float = 0.15
+
 
 @dataclass(frozen=True)
 class ParametresTenue:
@@ -401,6 +418,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 "seance",
                 mini=0.50,
                 maxi=0.90,
+            ),
+            tolerance_egalite=_flottant(
+                seance_brut.get("tolerance_egalite", 0.15),
+                "tolerance_egalite",
+                "seance",
+                mini=0.0,
+                maxi=0.5,
             ),
         ),
         tenue=ParametresTenue(

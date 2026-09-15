@@ -90,6 +90,14 @@ puissance_endurance_pct = 0.60
 # récupération ou du retour au calme. Dernier recours du typage, quand la séance ne porte
 # ni marqueur ni texte explicite. Bornes : 0,50 à 0,90.
 seuil_recuperation_pct = 0.75
+# Depuis le sprint 5, le vent entre dans la note qui classe les boucles — avant lui,
+# seul le relief (carrefours, bâti, pente) comptait. En dessous de cet écart relatif de
+# note, deux boucles sont considérées équivalentes et c'est la plus sèche qui gagne,
+# comme avant le sprint 5 ; au-delà, c'est la boucle la mieux orientée par rapport au
+# vent qui gagne, même si elle prend un peu plus la pluie. Mettre à 0 pour que le vent
+# tranche toujours. 0,15 (15 %) est la valeur mesurée par défaut sur les boucles réelles
+# du mainteneur (docs/sprint5_contrat.md §1.6) ; bornes : 0 à 0,5.
+tolerance_egalite = 0.15
 
 [tenue]
 bornes_c = [3, 9, 15, 22, 30]      # très froid / froid / frais / modéré / chaud / canicule, en ressenti
