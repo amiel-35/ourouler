@@ -336,7 +336,41 @@ face au vent pour rentrer avec. Précédent du sprint 3 : les poids du terrain
 avaient été calibrés contre son intuition, et la mesure l'avait contredit sur
 les côtes — il ne les évite pas.
 
-Piège à écarter explicitement dans cette mesure : un effet apparent peut
+**Résultat, mesuré le 16/09/2026 sur 161 sorties : il n'y a pas de
+préférence. C'est du bruit.**
+
+| Angle | Résultat | p |
+|---|---|---|
+| Premier quart plus de face que le dernier | 82 sorties sur 161 (50,9 %) | 0,87 |
+| Ampleur | médiane +0,14 m/s, moyenne +0,04 (écart-type 2,22) | — |
+| Majoritairement en travers | 47,8 % | 0,64 |
+| Sous vent **habituel** (ouest-sud-ouest, 93 sorties) | 54,8 % | 0,41 |
+| Sous vent **inhabituel** (nord/est, 68 sorties) | 45,6 % | 0,54 |
+| Jours de vent fort (> 6 m/s, 16 sorties) | 50,0 % | 1,0 |
+
+Une pièce non truquée donnerait 50 %. Le contrôle géographique, qui devait
+départager « préférence » et « artefact du réseau routier », **confirme la
+nullité au lieu de la contredire** : l'effet n'existe dans aucun des deux
+sous-groupes.
+
+**Ce que ce résultat ne dit pas, et c'est l'essentiel.** Il ne prouve pas que
+le mainteneur n'a pas de préférence — il prouve qu'il n'en a jamais exprimé
+une. Et c'est attendu : on ne peut pas choisir son orientation au vent sans
+un outil qui annonce le vent à l'avance, et cet outil n'existait pas. La
+mesure constate donc l'absence d'un moyen, pas l'absence d'un goût.
+
+**Conséquence : on ne pré-sélectionne rien.** La question se pose au
+cycliste, avec « peu importe » comme réponse valable qui retombe sur les
+trois propositions contrastées. Et elle redeviendra mesurable au sprint 6,
+une fois que l'outil aura permis d'y répondre — c'est alors seulement que le
+choix voudra dire quelque chose.
+
+**Réserve de l'agent, retenue** : les sous-groupes sont modestes (68 sorties
+sous vent inhabituel, 16 jours de vent fort), donc l'absence de signal y a
+une puissance statistique limitée. Elle va dans le même sens que la mesure
+globale, elle ne la renforce pas beaucoup.
+
+Piège écarté par construction dans cette mesure : un effet apparent peut
 n'être que de la géographie. Le vent dominant en Bretagne vient de
 l'ouest-sud-ouest, et si ses routes habituelles partent majoritairement dans
 une direction, le résultat serait un artefact du réseau routier. Le contrôle
