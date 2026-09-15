@@ -227,11 +227,68 @@ que le juge mesure le code que le placement utilise vraiment.
 
 ## 2. Lot L5.2 — La séance entière visible (Q13)
 
-Conséquence de conception déjà écrite dans `docs/questions_mainteneur.md`
-(Q13) : `placer` doit rendre la position de **chaque** étape, pas seulement
-des blocs. Extension de `Placement`, pas une nouvelle mesure. Détail à
-cadrer à l'ouverture du lot, après L5.1 — les deux touchent `Placement` et
-ne se parallélisent pas.
+Origine : le mainteneur lit la sortie du 08/02 et demande « t'as pas oublié
+l'échauffement ? ». Il n'était pas oublié — 28 min à 155 W, 13,2 km, très
+exactement là où le premier bloc démarre — mais **rien ne le montrait**. Ce
+qui rend le défaut sérieux : on ne peut pas vérifier ce qu'on ne voit pas, et
+c'est précisément ce qu'on lui demande de faire sur la carte.
+
+### 2.1 L'état des lieux
+
+`Emplacement` (`seance/placement.py:192`) porte `etape_idx`, `debut_m`,
+`longueur_m`, `demi_tour`, `note`. `Placement.emplacements` ne contient
+**que les blocs** : `_dérouler` n'y ajoute rien pour l'échauffement, les
+récupérations et le retour au calme, alors qu'il connaît leur position — il
+vient de les parcourir pour arriver au bloc suivant.
+
+`sortie/commande.py` liste ces emplacements, donc n'affiche que des blocs.
+`sortie/carte.py` colore ces emplacements (`COULEURS_BLOCS`) sur un tracé
+gris uniforme (`COULEUR_TRACE`). Conséquence visuelle : on ne distingue pas
+« je roule ici pendant l'échauffement » de « cette portion de la boucle n'est
+jamais parcourue ».
+
+### 2.2 Ce qu'il faut écrire
+
+**a) `placer` rend la position de chaque étape.** Toutes les étapes de la
+séance retenue apparaissent dans l'ordre, avec leur début et leur longueur.
+Les non-blocs n'ont **pas** de note — aucun terrain n'est évalué sous une
+récupération, c'est la règle du sprint 4 et elle ne bouge pas — donc `note`
+devient optionnelle plutôt que d'inventer une valeur neutre. Le champ
+`demi_tour` garde son sens pour les récupérations qui en portent un.
+
+**Invariant à tenir et à tester** : les emplacements se suivent sans trou ni
+recouvrement, du départ à l'arrivée. La somme de leurs longueurs vaut
+`distance_totale_m`, et le début de chacun est la fin du précédent — au sens
+du parcours réellement roulé, demi-tours compris, donc en suivant `jalons_m`.
+C'est l'invariant qui prouve qu'on montre bien toute la séance et pas des
+morceaux.
+
+**Compatibilité** : les appelants qui ne veulent que les blocs doivent le
+rester simplement — une propriété `blocs()` ou un filtre sur le type
+d'étape. **Aucun test existant du sprint 4 ne doit changer de sens** ; s'il
+faut en modifier un, c'est un signal, pas une formalité.
+
+**b) L'affichage texte liste toutes les étapes**, avec leur kilomètre de
+début et de fin. Les blocs gardent leur note, les autres n'en ont pas et la
+colonne reste vide plutôt que de porter un tiret ambigu.
+
+**c) La carte montre la séance entière.** Échauffement et retour au calme
+dans une teinte neutre **distincte du tracé non parcouru**, récupérations
+déjà en pointillés. Le lecteur doit pouvoir répondre d'un coup d'œil à :
+« où est-ce que je roule, et à quelle intensité ? ».
+
+### 2.3 Critère d'acceptation
+
+Sur une vraie séance à blocs du mainteneur, la sortie texte et la carte
+doivent montrer **l'intégralité** de la séance, et la somme des longueurs
+affichées doit égaler la distance du parcours. Le contrôle qui compte, dans
+ses mots : l'échauffement du 08/02 était de 13,2 km et invisible — il doit
+maintenant se voir, et se voir au bon endroit.
+
+### 2.4 Ce qui n'est pas dans ce lot
+
+Pas de changement de la règle de placement, pas de nouvelle note, pas de
+nouveau critère de tri. On rend visible ce qui est déjà calculé.
 
 ## 3. Lot L5.3 — Trois propositions contrastées
 
