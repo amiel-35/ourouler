@@ -9,6 +9,7 @@ ne bronche. Les trois cas canoniques sont donc testés avant tout le reste.
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 
 import pytest
@@ -192,11 +193,91 @@ def test_un_champ_vide_nest_pas_complet_et_ne_leve_pas():
     assert c.vent_face_ms(0.0, cap_deg=0.0, sens=1) == 0.0
 
 
-def test_une_position_dans_un_intervalle_inconnu_rend_zero():
-    """On ne prolonge pas le dernier vent connu : ce serait affirmer sans mesure."""
+def test_un_trou_dans_la_serie_est_traverse_et_non_creuse():
+    """Un échantillon manquant sur trois ne fait pas perdre le vent des deux autres.
+
+    Le champ interpole entre les échantillons **connus** qui encadrent la
+    position. Ici le vent passe de 0 à 36 km/h entre le km 0 et le km 20 ;
+    au km 10, le trou traversé, il vaut la moitié. Rendre zéro à cet endroit
+    jetterait de l'information réelle — `complet` suffit à dire le manque.
+    """
+    c = champ(
+        echantillon(0.0, vent_kmh=0.0, vent_depuis_deg=0.0),
+        echantillon(10_000.0, vent_kmh=None, vent_depuis_deg=None),
+        echantillon(20_000.0, vent_kmh=36.0, vent_depuis_deg=0.0),
+    )
+    assert c.complet is False
+    assert c.vent_face_ms(10_000.0, cap_deg=0.0, sens=1) == pytest.approx(5.0)
+
+
+def test_un_bout_manquant_prolonge_le_dernier_vent_connu():
+    """Au-delà du dernier échantillon connu, on maintient sa valeur, on ne rend pas zéro."""
     c = champ(
         echantillon(0.0, vent_kmh=36.0, vent_depuis_deg=0.0),
         echantillon(10_000.0, vent_kmh=None, vent_depuis_deg=None),
     )
-    assert c.vent_face_ms(0.0, cap_deg=0.0, sens=1) == pytest.approx(10.0)
+    assert c.complet is False
+    assert c.vent_face_ms(10_000.0, cap_deg=0.0, sens=1) == pytest.approx(10.0)
+
+
+def test_un_champ_sans_aucun_vent_connu_rend_zero_partout():
+    c = champ(
+        echantillon(0.0, vent_kmh=None, vent_depuis_deg=None),
+        echantillon(10_000.0, vent_kmh=None, vent_depuis_deg=None),
+    )
+    assert c.complet is False
     assert c.vent_face_ms(5_000.0, cap_deg=0.0, sens=1) == 0.0
+
+
+# --- une prévision abîmée ne tue pas la sortie --------------------------------
+
+
+@pytest.mark.parametrize("abime", [float("nan"), float("inf"), float("-inf")])
+def test_un_vent_non_fini_est_traite_comme_un_vent_inconnu(abime: float):
+    """Un NaN qui ressortirait ferait lever `physique.modele._finis` au milieu du balayage.
+
+    Personne ne saurait alors d'où vient l'erreur. L'échantillon abîmé est
+    donc écarté comme un échantillon absent, et `complet` le dit.
+    """
+    c = champ(
+        echantillon(0.0, vent_kmh=abime, vent_depuis_deg=0.0),
+        echantillon(10_000.0, vent_kmh=36.0, vent_depuis_deg=0.0),
+    )
+    assert c.complet is False
+    resultat = c.vent_face_ms(0.0, cap_deg=0.0, sens=1)
+    assert math.isfinite(resultat)
+    assert resultat == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize("abime", [float("nan"), float("inf")])
+def test_une_direction_non_finie_est_traitee_comme_inconnue(abime: float):
+    c = champ(echantillon(0.0, vent_kmh=36.0, vent_depuis_deg=abime))
+    assert c.complet is False
+    assert c.vent_face_ms(0.0, cap_deg=0.0, sens=1) == 0.0
+
+
+def test_une_position_dechantillon_non_finie_est_ecartee():
+    """Une distance NaN rendrait le tri et la dichotomie absurdes."""
+    c = champ(
+        echantillon(float("nan"), vent_kmh=72.0, vent_depuis_deg=0.0),
+        echantillon(0.0, vent_kmh=36.0, vent_depuis_deg=0.0),
+    )
+    assert c.complet is False
+    assert c.vent_face_ms(0.0, cap_deg=0.0, sens=1) == pytest.approx(10.0)
+
+
+def test_un_cap_non_fini_ne_fait_pas_de_nan():
+    c = champ(echantillon(0.0, vent_kmh=36.0, vent_depuis_deg=0.0))
+    assert c.vent_face_ms(0.0, cap_deg=float("nan"), sens=1) == 0.0
+
+
+def test_aucune_valeur_non_finie_ne_sort_jamais():
+    """L'invariant dur du module, vérifié sur toutes les combinaisons abîmées."""
+    abimes = [None, float("nan"), float("inf"), float("-inf"), 36.0]
+    for vitesse in abimes:
+        for direction in abimes:
+            c = champ(echantillon(0.0, vent_kmh=vitesse, vent_depuis_deg=direction))
+            for position in (-1.0, 0.0, 5_000.0, float("nan"), float("inf")):
+                for cap in (0.0, 180.0, float("nan")):
+                    for sens in (1, -1):
+                        assert math.isfinite(c.vent_face_ms(position, cap, sens))

@@ -1345,3 +1345,95 @@ def test_le_cap_de_chaque_pas_suit_le_trace():
     terrain = placement._Terrain(_trace(longueur_m=3_000.0), P)
     assert len(terrain.caps) == len(terrain.pentes)
     assert all(cap == pytest.approx(90.0, abs=0.5) for cap in terrain.caps)
+
+
+# --- le signe du vent doit survivre au branchement, pas seulement au calcul ------
+#
+# `_Terrain.vitesse(210, 0, ±5)` reçoit un vent déjà signé : elle ne voit rien
+# de ce qui s'est passé en amont. Un `sens` oublié en chemin, ou recollé à
+# l'envers entre `ChampVent` et `vitesse_regime`, passerait tous les tests
+# unitaires du champ de vent sans qu'aucun ne bronche. Ces deux-là vérifient
+# donc la chaîne entière, depuis `placer`.
+
+
+def test_le_terrain_transmet_bien_le_sens_au_champ_de_vent():
+    """Le même pas, parcouru dans les deux sens, doit rendre des vents opposés."""
+    terrain = placement._Terrain(_trace(longueur_m=5_000.0), P, _champ_vent(36.0, CAP_TRACE_DEG))
+    aller = terrain.vent_face(10, 1)
+    retour = terrain.vent_face(10, -1)
+    assert aller > 0  # cap est, vent d'est : de face
+    assert retour == pytest.approx(-aller)
+
+
+def test_un_demi_tour_change_le_vent_de_face_en_vent_de_dos(monkeypatch):
+    """Le bloc repris en sens inverse doit être plus long que celui de l'aller.
+
+    Figure du demi-tour : bloc à l'aller, demi-récup, demi-tour, demi-récup,
+    même bloc en sens inverse. Avec un vent de face à l'aller, le retour se
+    fait vent dans le dos : à durée identique, le second bloc couvre plus de
+    route. Si le `sens` n'était pas transmis — ou transmis à l'envers — les
+    deux couloirs feraient la même longueur, ou l'inverse.
+    """
+    vent = _champ_vent(25.0, CAP_TRACE_DEG)
+
+    # Premier passage, tout droit, pour savoir où le bloc 1 tombe réellement
+    # avec ce vent-là : la borne du bon couloir se déduit de la mesure plutôt
+    # que d'une position devinée qui ne vaudrait que pour un vent nul.
+    _couloirs(monkeypatch, (0.0, 1e9))
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: False)
+    droit = placement.placer(_seance(), _trace(), P, vent=vent)
+    assert droit is not None
+    borne = droit.emplacements[0].debut_m + droit.emplacements[0].longueur_m + 200.0
+
+    # Second passage : au-delà de `borne`, tout est mauvais. Le bloc 2 ne peut
+    # être bien noté qu'en revenant sur ses pas — la figure du demi-tour.
+    _couloirs(monkeypatch, (0.0, borne))
+    monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: True)
+    monkeypatch.setattr(placement, "demi_tour_faisable", lambda trace, position_m: True)
+    resultat = placement.placer(
+        _seance(), _trace(), P, vent=vent, penalite_demi_tour=0.0, pas_s=120.0
+    )
+    assert resultat is not None
+    demi_tours = [e for e in resultat.emplacements if e.demi_tour]
+    assert demi_tours, "le terrain devait rendre le demi-tour indispensable"
+    aller = resultat.emplacements[0]
+    for retour in demi_tours:
+        assert retour.longueur_m > aller.longueur_m
+
+
+def test_le_vent_de_dos_mene_plus_loin_que_le_vent_de_face_a_travers_placer():
+    """De bout en bout, sans terrain factice : la géométrie seule doit suffire.
+
+    Aucun `monkeypatch` ici — le vrai `evaluer_couloir` tourne. Ce qu'on
+    mesure n'est pas la note mais la distance atteinte au bout de la séance,
+    et elle ne peut venir que du modèle physique nourri par le bon signe.
+    """
+    face = placement.placer(_seance(), _trace(), P, vent=_champ_vent(25.0, CAP_TRACE_DEG))
+    dos = placement.placer(_seance(), _trace(), P, vent=_champ_vent(25.0, CAP_TRACE_DEG + 180.0))
+    assert face is not None and dos is not None
+    fin_face = face.emplacements[-1].debut_m + face.emplacements[-1].longueur_m
+    fin_dos = dos.emplacements[-1].debut_m + dos.emplacements[-1].longueur_m
+    assert fin_dos > fin_face + 5_000.0
+
+
+# --- le garde-fou du tracé de longueur nulle -------------------------------------
+
+
+def test_un_trace_de_deux_points_confondus_est_refuse_sans_planter():
+    """Le motif était déjà écrit, mais la construction du terrain levait avant lui.
+
+    `_Terrain` divise par la longueur de chaque pas pour en tirer la pente :
+    sur un tracé de 0 m, c'était une `ZeroDivisionError` nue au lieu du refus
+    lisible que `placer` avait prévu deux lignes plus bas.
+    """
+    point = PointTrace(lat=0.0, lon=0.0, alt_m=100.0, dist_m=0.0)
+    trace = Trace(
+        nom="deux fois le même point",
+        points=[point, point],
+        segments=[],
+        distance_m=0.0,
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+    assert placement.placer(_seance(), trace, P) is None
+    assert "longueur nulle" in str(trace.meta[placement.CLE_MOTIF])

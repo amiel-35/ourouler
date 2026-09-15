@@ -265,9 +265,14 @@ def placer(
     if len(trace.points) < 2:
         return _echec(trace, "tracé de moins de deux points : il n'y a rien à parcourir")
 
-    terrain = _Terrain(trace, p, vent)
-    if not (math.isfinite(terrain.total) and terrain.total > 0):
+    # Le refus tombe **avant** la construction du terrain : celle-ci divise par
+    # la longueur de chaque pas pour en tirer la pente, et un tracé de deux
+    # points confondus la faisait lever `ZeroDivisionError` — une erreur nue,
+    # alors que le motif était déjà écrit deux lignes plus bas.
+    total = _distances_cumulees(trace.points)[-1]
+    if not (math.isfinite(total) and total > 0):
         return _echec(trace, "tracé de longueur nulle : il n'y a rien à parcourir")
+    terrain = _Terrain(trace, p, vent)
 
     idx_ouverture, idx_fermeture = _extremites(seance.etapes)
     prealables: list[str] = []
@@ -1131,13 +1136,20 @@ class _Terrain:
         """La composante de face à une position, prise sur le pas qui la contient."""
         if self.vent is None:
             return 0.0
-        i = bisect.bisect_right(self.bornes, position_m) - 1
-        return self.vent_face(min(max(i, 0), len(self.pentes) - 1), sens)
+        return self.vent_face(self._pas_contenant(position_m), sens)
 
     def pente_a(self, position_m: float) -> float:
         """La pente du pas qui contient `position_m` (celle du pas le plus proche aux bouts)."""
+        return self.pentes[self._pas_contenant(position_m)]
+
+    def cap_a(self, position_m: float) -> float:
+        """Le cap du pas qui contient `position_m`, en degrés. Pendant de `pente_a`."""
+        return self.caps[self._pas_contenant(position_m)]
+
+    def _pas_contenant(self, position_m: float) -> int:
+        """L'indice du pas qui contient `position_m`, celui du bout au-delà des bornes."""
         i = bisect.bisect_right(self.bornes, position_m) - 1
-        return self.pentes[min(max(i, 0), len(self.pentes) - 1)]
+        return min(max(i, 0), len(self.pentes) - 1)
 
     def dans_le_trace(self, position_m: float) -> float:
         """Ramène une position entre le départ et l'arrivée, sans faire le tour.
