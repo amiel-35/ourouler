@@ -77,11 +77,21 @@ en est aussi le premier utilisateur : **son besoin passe en premier**.
   fin des deux figés, le mainteneur reprioritise à partir des livraisons,
   des écarts entre prévu et réalisé et du backlog. Un agent ne propose jamais
   d'élargir un sprint figé en cours de route.
-- **Modèles.** Fable est réservé au plus critique : cadrage initial,
-  découpage d'un sprint, relecture des points critiques (modèle physique,
-  boucle séance ↔ terrain, tout ce qui écrit chez Garmin). Opus partout où
-  ça suffit — c'est le défaut pour développer, tester et relire. Haiku pour
-  le mécanique en checklist. Détail dans `docs/plan_sprints_agents.md`.
+- **Modèles** (aligné le 15/09/2026 sur les instructions globales du
+  mainteneur ; ce qui précédait, « Opus partout où ça suffit », était une
+  incompréhension). **Sonnet est le défaut** : toute implémentation bien
+  cadrée, avec des critères d'acceptation clairs. **Haiku** pour le
+  mécanique en masse — renommage, boilerplate, conversion de format.
+  **Opus** pour le jugement pur et les algorithmes subtils : relecture,
+  tests adversariaux, découpage de sprint, débogage coriace, concurrence.
+  **Fable** seulement quand l'indépendance vis-à-vis du contexte du
+  mainteneur est le but, et **toujours en demandant d'abord**.
+
+  Le `model` est **obligatoire** sur chaque appel d'agent : l'omettre hérite
+  silencieusement du modèle de session. Ne pas monter en tier sur un aveu
+  d'incertitude quand la tâche est du jugement — un agent sous-tieré ne dit
+  pas qu'il doute, il répond faux avec assurance. Le tier se choisit
+  d'avance. Détail dans `docs/plan_sprints_agents.md`.
 - **Le code substantiel est écrit par un sous-agent et relu par un second
   avant d'être montré au mainteneur.** Deux agents en parallèle travaillent
   chacun dans son propre worktree git ; la fusion est un geste explicite.

@@ -30,24 +30,40 @@ sous-commande déjà livrée fonctionnent toujours.
 
 ## Doctrine d'affectation des modèles
 
-Décision du mainteneur (12/09/2026) : Fable est très puissant mais très
-cher ; le réserver au plus critique, Opus quand ça suffit. Le critère n'est
-pas le prix au token mais le coût total de l'aller-retour.
+**Révisée le 15/09/2026**, alignée sur les instructions globales du
+mainteneur. La version précédente — « Fable au critique, Opus partout où ça
+suffit » — venait d'une incompréhension de ma part, appliquée aux sprints 2
+à 4. Le critère n'est pas le prix au token mais le coût total de
+l'aller-retour, et surtout **la nature de la tâche** : implémentation cadrée
+ou jugement.
 
-- **Fable** : le cadrage initial, le découpage des sprints, la relecture des
-  points critiques — modèle physique et sa calibration (S3), boucle
-  séance ↔ terrain (S4), tout ce qui écrit chez Garmin (S5). Débogage de ce
-  qu'Opus n'a pas résolu en deux passes.
-- **Opus** : le défaut. Développement des lots, spécification et écriture
-  des tests adversariaux, relecture courante, supervision hors cadrage.
-- **Haiku** : le mécanique borné et bien spécifié — fixtures, boilerplate,
-  corrections de lint, mise à jour de docs depuis un diff. Jamais sur du
-  code de comportement.
-- **Sonnet** : non retenu pour l'instant. À reconsidérer si le coût Opus
-  devient un sujet sur des features standard.
+- **Sonnet — le défaut.** Toute implémentation dont les critères
+  d'acceptation sont clairs : un lot décrit par le contrat de sprint, des
+  tests à écrire depuis une spec, une correction dont le symptôme est
+  mesuré.
+- **Haiku.** Le mécanique en masse : renommage, boilerplate, conversion de
+  format, triage de logs, mise à jour de docs depuis un diff.
+- **Opus.** Le jugement pur et les algorithmes subtils : relecture de lot,
+  tests adversariaux (imaginer ce qui casse n'a pas de critère
+  d'acceptation), découpage d'un sprint, débogage coriace, fusion délicate,
+  concurrence. Sur ce projet, les lots « placement », « calibration » et
+  les résolutions de conflit multi-lots relèvent d'Opus.
+- **Fable.** Seulement quand l'indépendance vis-à-vis du contexte du
+  mainteneur est le but — relecture adverse d'un plan ou d'un diff qu'il a
+  écrit. **Toujours demander d'abord.**
 
-Avant de lancer un sprint, demander au mainteneur s'il veut Fable ou Opus
-pour le superviseur ; ce choix vaut pour tout le sprint.
+Deux règles qui vont avec :
+- **Le `model` est obligatoire sur chaque appel d'agent.** L'omettre hérite
+  silencieusement du modèle de session.
+- **Ne pas escalader sur un aveu d'incertitude quand la tâche est du
+  jugement.** Un agent sous-tieré ne se déclare pas incertain, il répond
+  faux avec assurance. Le cheap-then-escalate ne vaut que là où existe un
+  signal mécanique : tests, lint, CI. Changer de tier en cours de tâche
+  redémarre à zéro, le cache de prompt appartient au modèle qui l'a écrit.
+
+Ce qui revient d'un sous-agent : des **pointeurs** — chemins, plages de
+commit, identifiants —, pas du contenu brut. Un contenu entier posé dans le
+contexte paie un loyer à chaque tour.
 
 ## L'équipe d'agents
 

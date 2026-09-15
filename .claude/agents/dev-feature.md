@@ -1,7 +1,7 @@
 ---
 name: dev-feature
-description: Implémente une tâche spécifiée avec ses tests unitaires. À utiliser pour toute feature une fois la tâche découpée par le superviseur.
-model: opus
+description: Implémente une tâche spécifiée avec ses tests unitaires. À utiliser pour toute feature une fois la tâche découpée par le superviseur. Sonnet par défaut ; un lot à algorithme subtil (placement, calibration) ou une fusion délicate se lance en Opus.
+model: sonnet
 ---
 Tu implémentes des tâches sur ourouler. Lis CLAUDE.md et respecte-le à la lettre ; doctrine_architecture.md fait foi en cas de doute.
 
