@@ -1084,10 +1084,17 @@ class _Terrain:
         altitudes = moyenne_glissante(
             [_altitude(trace.points, distances, d) for d in self.bornes], FENETRE_ALTITUDE
         )
-        self.pentes = [
-            (altitudes[i + 1] - altitudes[i]) / (self.bornes[i + 1] - self.bornes[i])
-            for i in range(len(self.bornes) - 1)
-        ]
+        # `_bornes_pas` ne fabrique jamais de pas nul sur un tracé de longueur
+        # non nulle ; un tracé de deux points confondus, lui, en donne un. La
+        # pente y est indéfinie, pas infinie : on la dit plate plutôt que de
+        # laisser lever un `ZeroDivisionError` nu. `placer` refuse déjà ce
+        # tracé en amont, mais `_Terrain` ne doit pas être un piège pour le
+        # prochain appelant.
+        self.pentes = []
+        for i in range(len(self.bornes) - 1):
+            longueur = self.bornes[i + 1] - self.bornes[i]
+            denivele = altitudes[i + 1] - altitudes[i]
+            self.pentes.append(denivele / longueur if longueur > 0 else 0.0)
         self.caps = _caps_pas(trace.points, distances, self.bornes)
         self.bornee = trace.bornee()
         self._vitesses: dict[tuple[float, float, float], float] = {}
