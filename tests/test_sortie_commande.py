@@ -33,7 +33,7 @@ from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
-from ourouler.config import Config, depuis_dict
+from ourouler.config import Config, ParametresSeance, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
@@ -493,8 +493,27 @@ def test_le_tri_prend_la_note_de_placement_avant_la_pluie(tmp_path: Path, monkey
     assert premiere["meteo"]["pluie_cumulee_mm"] > seconde["meteo"]["pluie_cumulee_mm"]
 
 
-def test_a_note_egale_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
-    """Deux anneaux de même relief, l'un au nord sous la pluie, l'autre au sud au sec."""
+def test_a_note_equivalente_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
+    """Deux anneaux de même relief, l'un au nord sous la pluie, l'autre au sud au sec.
+
+    **Ce test exigeait des notes bit-identiques (`abs=1e-9`) jusqu'au lot
+    L5.1.** Ce n'était pas son propos — c'était sa *précondition* : sans elle,
+    « c'est la pluie qui départage » pourrait passer pour la mauvaise raison,
+    parce que l'anneau sud aurait simplement une meilleure note.
+
+    Depuis que le vent entre dans la note, deux anneaux de même relief mais
+    d'orientation opposée **ne peuvent plus** avoir la même note : l'un est
+    parcouru vent de face là où l'autre l'a dans le dos. C'est une
+    impossibilité de construction, pas un réglage à trouver — aucune valeur de
+    `tolerance_egalite` n'y changerait rien, puisqu'elle n'agit que sur le tri
+    et jamais sur la valeur stockée.
+
+    La précondition est donc réécrite dans la forme qu'elle aurait dû avoir
+    dès le début : les deux notes doivent être **équivalentes au sens de la
+    tolérance**. Si un jour elles s'écartent au-delà, ce test redeviendra
+    rouge — et il aura raison, parce que le scénario aura cessé d'être une
+    égalité et que l'assertion sur la pluie ne prouverait plus rien.
+    """
     code = lancer(
         tmp_path,
         monkeypatch,
@@ -506,8 +525,12 @@ def test_a_note_egale_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
     charge = json.loads(capsys.readouterr().out)
     assert code == 0
     premiere, seconde = charge["candidates"]
-    assert premiere["placement"]["note_totale"] == pytest.approx(
-        seconde["placement"]["note_totale"], abs=1e-9
+    note_premiere = premiere["placement"]["note_totale"]
+    note_seconde = seconde["placement"]["note_totale"]
+    tolerance = ParametresSeance().tolerance_egalite
+    assert _notes_egales(note_premiere, note_seconde, tolerance), (
+        f"le scénario n'est plus une égalité : {note_premiere} contre {note_seconde}. "
+        "L'assertion sur la pluie ne prouverait plus rien."
     )
     assert premiere["azimut_deg"] == 180.0
     assert premiere["meteo"]["pluie_cumulee_mm"] < seconde["meteo"]["pluie_cumulee_mm"]
