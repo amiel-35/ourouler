@@ -13,19 +13,25 @@ motifs sont ceux de `seance.terrain`, recopiés tels quels.
 
 Trois couches sur la carte :
 
-- le tracé complet en gris, dessous ;
+- le tracé complet en gris (`COULEUR_TRACE`), dessous — ce que la séance ne
+  parcourt **jamais** ;
 - chaque **bloc** dans une couleur vive, avec son numéro et sa note ; au
   survol, ses motifs ;
-- ce qui sépare deux blocs (échauffement, récupérations, retour au calme) en
-  **pointillés clairs**. Ces portions-là ne sont pas notées — décision du
-  13/09, une récupération absorbe le point dur et ne se juge pas.
+- chaque autre étape (échauffement, récupérations, retour au calme) en
+  **pointillés clairs** (`COULEUR_LIAISON`), sur sa propre position — Q13,
+  lot L5.2. Ces portions-là ne sont pas notées — décision du 13/09, une
+  récupération absorbe le point dur et ne se juge pas — mais elles sont
+  roulées, et la carte doit le montrer : c'est tout le défaut que Q13
+  signalait (« t'as pas oublié l'échauffement ? »).
 
 Sous la carte, le **profil d'altitude** en SVG, avec les mêmes couleurs aux
 mêmes endroits : une descente sous un bloc s'y voit mieux que sur la carte.
 
-Un demi-tour ne dessine pas de portion de liaison : le bloc suivant reprend
-le même couloir en sens inverse, il n'y a rien à tracer entre les deux. Le
-fait est écrit dans l'étiquette du bloc.
+Un demi-tour dessine bien une portion de liaison pour sa récupération : le
+couloir qu'elle emprunte (aller et retour) est le même que le bloc qui
+précède, mais elle est roulée deux fois là où le bloc ne l'est qu'une —
+d'où la pénalité du bloc suivant et le motif « demi-tour » dans son
+étiquette, pendant que la récupération, elle, reste sans note.
 """
 
 from __future__ import annotations
