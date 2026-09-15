@@ -254,10 +254,10 @@ def test_l_ecart_entre_deux_blocs_vaut_exactement_la_recuperation_prescrite(monk
     resultat = placement.placer(seance, _trace(), P)
 
     assert resultat is not None
-    assert len(resultat.emplacements) == 3
+    assert len(resultat.blocs()) == 3
     recups = [e for e in seance.etapes if e.type == "recuperation"]
     for numero, (recup, avant, apres) in enumerate(
-        zip(recups, resultat.emplacements[:-1], resultat.emplacements[1:], strict=True), start=1
+        zip(recups, resultat.blocs()[:-1], resultat.blocs()[1:], strict=True), start=1
     ):
         attendu = _vitesse(PUISSANCE_RECUP) * recup.duree_s
         mesure = apres.debut_m - (avant.debut_m + avant.longueur_m)
@@ -456,10 +456,10 @@ def test_le_decalage_va_chercher_le_seul_bon_couloir(monkeypatch):
     # minutes valent deux centièmes de kilomètre équivalent.
     assert resultat.penalite_seance < 0.05
     assert resultat.note_totale == pytest.approx(resultat.penalite_seance)
-    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
-    assert resultat.emplacements[0].debut_m == pytest.approx(attendues[0], abs=1.0)
-    assert resultat.emplacements[1].debut_m == pytest.approx(attendues[2], abs=1.0)
-    assert [e.etape_idx for e in resultat.emplacements] == [1, 3]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, False]
+    assert resultat.blocs()[0].debut_m == pytest.approx(attendues[0], abs=1.0)
+    assert resultat.blocs()[1].debut_m == pytest.approx(attendues[2], abs=1.0)
+    assert [e.etape_idx for e in resultat.blocs()] == [1, 3]
 
 
 def test_sans_le_bon_decalage_la_note_est_mauvaise(monkeypatch):
@@ -475,8 +475,8 @@ def test_sans_le_bon_decalage_la_note_est_mauvaise(monkeypatch):
     # 10 sous l'un des deux blocs, 0 sous l'autre, et les deux durent 20 min :
     # la moyenne pondérée par la durée vaut 5 (décision du 13/09, Q12).
     assert resultat.note_terrain == 5.0
-    assert "hors du bon couloir" in resultat.emplacements[0].note.motifs
-    assert resultat.emplacements[1].note.motifs == []
+    assert "hors du bon couloir" in resultat.blocs()[0].note.motifs
+    assert resultat.blocs()[1].note.motifs == []
 
 
 def test_pas_plus_grand_que_la_marge_essaie_quand_meme_les_bornes(monkeypatch):
@@ -510,9 +510,9 @@ def test_demi_tour_choisi_quand_il_n_y_a_qu_un_bon_segment(monkeypatch):
 
     assert resultat is not None
     assert resultat.decalage_z2_s == pytest.approx(720.0)
-    assert [e.demi_tour for e in resultat.emplacements] == [False, True]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, True]
     # Le second bloc reprend exactement le segment du premier, en sens inverse.
-    premier, second = resultat.emplacements
+    premier, second = resultat.blocs()
     assert second.debut_m == pytest.approx(premier.debut_m, abs=1.0)
     assert second.longueur_m == pytest.approx(premier.longueur_m, abs=1.0)
     # La pénalité de demi-tour ne porte que sur le second des deux blocs de
@@ -529,7 +529,7 @@ def test_demi_tour_refuse_sans_route_au_dela(monkeypatch):
     resultat = placement.placer(_seance(), _trace(), P)
 
     assert resultat is not None
-    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, False]
     # Un seul des deux blocs de 20 min tombe hors du bon couloir : 10 et 0,
     # moyenne pondérée par la durée = 5.
     assert resultat.note_terrain == 5.0
@@ -623,11 +623,11 @@ def test_un_mauvais_couloir_sous_un_bloc_long_pese_bien_plus_que_sous_une_activa
     )
 
     assert sous_activation is not None and sous_bloc_long is not None
-    assert [e.demi_tour for e in sous_activation.emplacements] == [False, False]
-    assert [e.demi_tour for e in sous_bloc_long.emplacements] == [False, False]
+    assert [e.demi_tour for e in sous_activation.blocs()] == [False, False]
+    assert [e.demi_tour for e in sous_bloc_long.blocs()] == [False, False]
     # Un seul bloc est sali dans chaque cas, et c'est le bon.
-    assert [e.note.note for e in sous_activation.emplacements] == [MAUVAIS, 0.0]
-    assert [e.note.note for e in sous_bloc_long.emplacements] == [0.0, MAUVAIS]
+    assert [e.note.note for e in sous_activation.blocs()] == [MAUVAIS, 0.0]
+    assert [e.note.note for e in sous_bloc_long.blocs()] == [0.0, MAUVAIS]
 
     total_s = ACTIVATION_S + BLOC_LONG_S
     assert sous_activation.note_terrain == pytest.approx(MAUVAIS * ACTIVATION_S / total_s)
@@ -647,7 +647,7 @@ def test_demi_tour_refuse_sur_une_route_a_trafic(monkeypatch):
     resultat = placement.placer(_seance(), _trace(), P)
 
     assert resultat is not None
-    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, False]
 
 
 def test_demi_tour_refuse_en_cote(monkeypatch):
@@ -658,7 +658,7 @@ def test_demi_tour_refuse_en_cote(monkeypatch):
     resultat = placement.placer(_seance(), _trace(), P)
 
     assert resultat is not None
-    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, False]
 
 
 def test_la_penalite_de_demi_tour_peut_le_rendre_moins_interessant(monkeypatch):
@@ -670,7 +670,7 @@ def test_la_penalite_de_demi_tour_peut_le_rendre_moins_interessant(monkeypatch):
     assert resultat is not None
     # Un couloir moyen tout droit (0,5) coûte moins qu'un bon couloir repris à
     # l'envers (0 + 1,0) : on reste tout droit.
-    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, False]
 
 
 # --- ce que la récupération ne subit pas ---------------------------------------
@@ -958,7 +958,7 @@ def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
     resultat = placement.placer(_seance(), trace, P, penalite_demi_tour=1.0)
 
     assert resultat is not None
-    assert [e.demi_tour for e in resultat.emplacements] == [False, True], (
+    assert [e.demi_tour for e in resultat.blocs()] == [False, True], (
         "ce test a besoin du demi-tour pour avoir quelque chose à vérifier"
     )
     assert len(resultat.jalons_m) == 3, f"un demi-tour, donc trois jalons : {resultat.jalons_m}"
@@ -993,7 +993,7 @@ def test_un_parcours_sans_demi_tour_redonne_le_trace(monkeypatch):
     resultat = placement.placer(_seance(), trace, P)
 
     assert resultat is not None
-    assert [e.demi_tour for e in resultat.emplacements] == [False, False]
+    assert [e.demi_tour for e in resultat.blocs()] == [False, False]
     parcours = placement.trace_parcourue(resultat, trace)
     assert parcours.distance_m == pytest.approx(trace.distance_m, rel=0.001)
     assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01)
@@ -1108,8 +1108,8 @@ def test_un_trace_en_pente_change_les_positions(monkeypatch):
     cote = placement.placer(_seance(), _trace(pente=0.01), P, elasticite=(0.0, 0.0))
     assert cote is not None
     assert appels_cote
-    assert cote.emplacements[0].debut_m < plat.emplacements[0].debut_m
-    assert cote.emplacements[0].longueur_m < plat.emplacements[0].longueur_m
+    assert cote.blocs()[0].debut_m < plat.blocs()[0].debut_m
+    assert cote.blocs()[0].longueur_m < plat.blocs()[0].longueur_m
 
 
 # --- l'intensité du bloc atteint l'évaluation du terrain -----------------------
@@ -1216,8 +1216,8 @@ def test_le_defaut_de_vent_vaut_bien_none(monkeypatch):
     sans_parametre = placement.placer(_seance(), trace, P)
     avec_none = placement.placer(_seance(), _trace(), P, vent=None)
     assert sans_parametre is not None and avec_none is not None
-    assert [e.debut_m for e in avec_none.emplacements] == [
-        e.debut_m for e in sans_parametre.emplacements
+    assert [e.debut_m for e in avec_none.blocs()] == [
+        e.debut_m for e in sans_parametre.blocs()
     ]
     assert avec_none.distance_totale_m == sans_parametre.distance_totale_m
     assert avec_none.duree_totale_s == sans_parametre.duree_totale_s
@@ -1231,7 +1231,7 @@ def test_un_champ_de_vent_nul_vaut_labsence_de_vent(monkeypatch):
     sans = placement.placer(_seance(), _trace(), P, vent=None)
     nul = placement.placer(_seance(), _trace(), P, vent=_champ_vent(0.0, 90.0))
     assert sans is not None and nul is not None
-    assert [e.debut_m for e in nul.emplacements] == [e.debut_m for e in sans.emplacements]
+    assert [e.debut_m for e in nul.blocs()] == [e.debut_m for e in sans.blocs()]
     assert nul.distance_totale_m == pytest.approx(sans.distance_totale_m)
 
 
@@ -1249,7 +1249,7 @@ def test_le_vent_de_face_raccourcit_le_couloir_dun_bloc(monkeypatch):
     face = placement.placer(_seance(), _trace(), P, vent=_champ_vent(20.0, CAP_TRACE_DEG))
     dos = placement.placer(_seance(), _trace(), P, vent=_champ_vent(20.0, CAP_TRACE_DEG + 180.0))
     assert sans is not None and face is not None and dos is not None
-    longueurs = [p.emplacements[0].longueur_m for p in (face, sans, dos)]
+    longueurs = [p.blocs()[0].longueur_m for p in (face, sans, dos)]
     assert longueurs[0] < longueurs[1] < longueurs[2]
     # 20 km/h de vent valent plus de deux kilomètres d'écart sur un bloc de 20 min.
     assert longueurs[2] - longueurs[0] > 2_000.0
@@ -1262,7 +1262,7 @@ def test_le_vent_deplace_le_debut_des_blocs(monkeypatch):
     sans = placement.placer(_seance(), _trace(), P, vent=None)
     face = placement.placer(_seance(), _trace(), P, vent=_champ_vent(20.0, CAP_TRACE_DEG))
     assert sans is not None and face is not None
-    assert face.emplacements[0].debut_m < sans.emplacements[0].debut_m - 500.0
+    assert face.blocs()[0].debut_m < sans.blocs()[0].debut_m - 500.0
 
 
 def test_un_vent_de_travers_ne_change_rien(monkeypatch):
@@ -1391,7 +1391,7 @@ def test_un_demi_tour_change_le_vent_de_face_en_vent_de_dos(monkeypatch):
     monkeypatch.setattr(placement, "route_au_dela", lambda trace, position_m, besoin_m: False)
     droit = placement.placer(_seance(), _trace(), P, vent=vent)
     assert droit is not None
-    borne = droit.emplacements[0].debut_m + droit.emplacements[0].longueur_m + 200.0
+    borne = droit.blocs()[0].debut_m + droit.blocs()[0].longueur_m + 200.0
 
     # Second passage : au-delà de `borne`, tout est mauvais. Le bloc 2 ne peut
     # être bien noté qu'en revenant sur ses pas — la figure du demi-tour.
@@ -1402,9 +1402,9 @@ def test_un_demi_tour_change_le_vent_de_face_en_vent_de_dos(monkeypatch):
         _seance(), _trace(), P, vent=vent, penalite_demi_tour=0.0, pas_s=120.0
     )
     assert resultat is not None
-    demi_tours = [e for e in resultat.emplacements if e.demi_tour]
+    demi_tours = [e for e in resultat.blocs() if e.demi_tour]
     assert demi_tours, "le terrain devait rendre le demi-tour indispensable"
-    aller = resultat.emplacements[0]
+    aller = resultat.blocs()[0]
     for retour in demi_tours:
         assert retour.longueur_m > aller.longueur_m
 
@@ -1419,8 +1419,8 @@ def test_le_vent_de_dos_mene_plus_loin_que_le_vent_de_face_a_travers_placer():
     face = placement.placer(_seance(), _trace(), P, vent=_champ_vent(25.0, CAP_TRACE_DEG))
     dos = placement.placer(_seance(), _trace(), P, vent=_champ_vent(25.0, CAP_TRACE_DEG + 180.0))
     assert face is not None and dos is not None
-    fin_face = face.emplacements[-1].debut_m + face.emplacements[-1].longueur_m
-    fin_dos = dos.emplacements[-1].debut_m + dos.emplacements[-1].longueur_m
+    fin_face = face.blocs()[-1].debut_m + face.blocs()[-1].longueur_m
+    fin_dos = dos.blocs()[-1].debut_m + dos.blocs()[-1].longueur_m
     assert fin_dos > fin_face + 5_000.0
 
 
