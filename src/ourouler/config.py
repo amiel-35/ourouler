@@ -19,9 +19,30 @@ from ourouler.erreurs import ErreurConfig
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 from ourouler.seance.zones import (
     POSITION_ENDURANCE_DEFAUT,
+    ZONE_ENDURANCE,
     position_endurance,
     puissance_endurance_pct,
 )
+
+#: Bornes de chargement de `[seance] position_zone` : au plus une largeur de
+#: bande au-dessous du bas de la zone, une au-dessus du haut. Ce n'est pas le
+#: domaine normal — l'écran de FTP tient l'utilisateur dans [0, 1] — c'est la
+#: marge que la décision 8 réclame pour qu'une saisie fautive **se voie** au
+#: lieu d'être corrigée en douce (0,508 × FTP se lit −0,274 dans la table par
+#: défaut, « à −27 % de la bande »).
+#:
+#: Ces deux nombres sont la **seule** borne du réglage : le chemin de
+#: migration depuis `puissance_endurance_pct` passe par eux comme le chemin
+#: direct (`_position_zone`), de sorte qu'aucune configuration ne puisse se
+#: charger une fois puis être refusée à la relecture.
+POSITION_ZONE_MINI = -1.0
+POSITION_ZONE_MAXI = 2.0
+
+#: Bornes de lecture de l'ancienne clé `puissance_endurance_pct`, en fraction
+#: de FTP. Inchangées depuis avant la décision 7 : on ne convertit pas plus
+#: largement qu'on n'acceptait.
+ENDURANCE_PCT_MINI = 0.40
+ENDURANCE_PCT_MAXI = 0.80
 
 CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
@@ -211,13 +232,12 @@ class ParametresSeance:
     #: la Z2 de la table par défaut — de sorte que la dérivation ne change
     #: aucun comportement (règle absolue 5).
     #:
-    #: Bornes de chargement : [−1, 2], soit au plus une largeur de bande
-    #: au-dessous ou au-dessus. Ce n'est pas le domaine normal — l'écran de
-    #: FTP tient l'utilisateur dans [0, 1] — c'est ce qu'il faut pour que
-    #: **toute** ancienne valeur de `puissance_endurance_pct`, elle-même
-    #: bornée à [0,40 ; 0,80], se convertisse exactement plutôt que d'être
-    #: écrêtée en silence. Une position hors bande se voit et se dit ; elle ne
-    #: se corrige pas à l'insu du cycliste (décision 8).
+    #: Bornes de chargement : [`POSITION_ZONE_MINI`, `POSITION_ZONE_MAXI`],
+    #: soit au plus une largeur de bande au-dessous ou au-dessus. Une position
+    #: hors bande se voit et se dit ; elle ne se corrige pas à l'insu du
+    #: cycliste (décision 8). Le chemin de migration depuis
+    #: `puissance_endurance_pct` passe par **ces bornes-là** (`_position_zone`)
+    #: : ce qui se charge doit pouvoir se recharger.
     position_zone: float = POSITION_ENDURANCE_DEFAUT
 
     @property
@@ -646,9 +666,40 @@ def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, fl
     garantit l'aller-retour). Rien ne bouge pour une configuration existante,
     et c'est la seule réponse acceptable à la règle absolue 5.
 
-    Les bornes de lecture de l'ancienne clé sont inchangées ([0,40 ; 0,80]) :
-    on ne convertit pas plus largement qu'on n'acceptait. Les positions
-    correspondantes tiennent dans [−1 ; 2], d'où ces bornes-là côté position.
+    Les bornes de lecture de l'ancienne clé sont inchangées
+    ([`ENDURANCE_PCT_MINI` ; `ENDURANCE_PCT_MAXI`]) : on ne convertit pas plus
+    largement qu'on n'acceptait.
+
+    **La conversion passe par la même borne que le chemin direct**
+    ([`POSITION_ZONE_MINI` ; `POSITION_ZONE_MAXI`]), et c'est l'invariant qui
+    compte : *tout ce qui se charge doit pouvoir se recharger*. Un profil
+    chargé est réécrit par le produit sous sa forme d'aujourd'hui — une
+    position — et la relecture de cette position ne doit jamais échouer.
+    Avant cette borne, `zones = [[0,0.55],[0.70,0.72],[0.73,0.90],[0.91,1.05]]`
+    avec `puissance_endurance_pct = 0.40` se chargeait en silence sur
+    `position_zone = −15,0`, valeur que le chargement suivant refusait.
+
+    **Ce qui est refusé, et pourquoi c'est un refus et non un écrêtage.** Une
+    table `zones` personnalisée dont la Z2 ne contient ni n'approche l'ancienne
+    valeur décrit un fichier qui dit deux choses contradictoires : « ma Z2 va
+    de 70 à 72 % de FTP » et « mon endurance est à 40 % ». Rien ne peut les
+    réconcilier sans en jeter une :
+
+    - écrêter à −1 ferait passer l'endurance de 0,40 à 0,68 × FTP — +70 %, en
+      silence, sur la valeur qui pilote les étapes prescrites en FC basse.
+      Règle absolue 5 : on n'aligne pas deux sources qui divergent, on montre
+      le désaccord ;
+    - convertir dans la table **par défaut** puis appliquer la position à la
+      table de l'utilisateur ferait passer 0,40 à 0,7042 × FTP — pire ;
+    - élargir les bornes garderait un chiffre (« −15 ») auquel ne correspond
+      aucune réalité : personne ne roule à quinze largeurs de bande sous sa Z2.
+
+    **Aucune configuration d'avant la décision 7 n'est bloquée par là**, et
+    c'est démontrable : `zones` n'existait pas encore quand l'ancienne clé
+    s'écrivait, donc une telle configuration est lue avec la table par défaut,
+    où [0,40 ; 0,80] se convertit dans [−0,842 ; 1,263] — à l'intérieur des
+    bornes. Le refus ne peut donc atteindre qu'un fichier qui porte les deux
+    générations de réglages à la fois.
 
     **Si les deux clés sont présentes**, `position_zone` l'emporte et
     l'ancienne est ignorée : c'est la nouvelle qui est stockée, et refuser le
@@ -657,17 +708,32 @@ def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, fl
     """
     if "position_zone" in seance_brut:
         return _flottant(
-            seance_brut["position_zone"], "position_zone", "seance", mini=-1.0, maxi=2.0
+            seance_brut["position_zone"],
+            "position_zone",
+            "seance",
+            mini=POSITION_ZONE_MINI,
+            maxi=POSITION_ZONE_MAXI,
         )
     if "puissance_endurance_pct" in seance_brut:
         ancienne = _flottant(
             seance_brut["puissance_endurance_pct"],
             "puissance_endurance_pct",
             "seance",
-            mini=0.40,
-            maxi=0.80,
+            mini=ENDURANCE_PCT_MINI,
+            maxi=ENDURANCE_PCT_MAXI,
         )
-        return position_endurance(ancienne, zones_pct)
+        position = position_endurance(ancienne, zones_pct)
+        if not POSITION_ZONE_MINI <= position <= POSITION_ZONE_MAXI:
+            bas, haut = zones_pct[ZONE_ENDURANCE - 1]
+            raise ErreurConfig(
+                f"[seance] puissance_endurance_pct = {ancienne} ne peut pas se convertir "
+                f"en position : la Z2 de votre table zones va de {bas} à {haut} de FTP, "
+                f"cette valeur s'y situe à {position:.1f}, hors de "
+                f"[{POSITION_ZONE_MINI}, {POSITION_ZONE_MAXI}]. Les deux réglages ne disent "
+                "pas la même chose. Écrivez position_zone (0 = bas de la Z2, 1 = haut) et "
+                "retirez puissance_endurance_pct, ou corrigez zones."
+            )
+        return position
     # Ni l'une ni l'autre : le défaut du projet, qui est lui-même la position
     # de la puissance d'endurance mesurée dans la table par défaut. Avec une
     # table personnalisée, cette position désigne le même endroit *relatif* de

@@ -106,6 +106,11 @@ position_zone = 0.2105263157894737
 # Compatibilité : une configuration qui porte encore `puissance_endurance_pct` (une valeur,
 # bornes 0,40 à 0,80) est lue et convertie en position, à l'identique. Si les deux clés sont
 # là, `position_zone` l'emporte. Ne gardez que l'une des deux.
+# La conversion passe par les mêmes bornes (−1 à 2) que `position_zone` : ce qui se charge
+# doit pouvoir se recharger. Elle est donc refusée, en nommant votre Z2, si l'ancienne valeur
+# tombe loin de la bande d'une table `zones` personnalisée — les deux réglages disent alors
+# deux choses différentes, et rien ne peut les réconcilier sans en jeter une en silence.
+# Écrivez `position_zone` et retirez l'ancienne clé.
 # puissance_endurance_pct = 0.60
 # Sous cette part de FTP, une étape n'est pas un bloc mais de l'échauffement, de la
 # récupération ou du retour au calme. Dernier recours du typage, quand la séance ne porte
