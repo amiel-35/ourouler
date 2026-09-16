@@ -146,10 +146,9 @@ SECTEURS = ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
 #: extérieures lues depuis le 01/12/2023, dont 109 parties de la base
 #: principale — les seules que les mesures de direction regardent, un azimut
 #: n'ayant de sens que par rapport à un point fixe. Recopié ici pour qu'un
-#: chiffre qui bouge se
-#: voie, et pour que le lecteur sache ce que la mesure a donné même s'il ne
-#: peut pas la relancer. Mettre à jour est un geste explicite : on relance, on
-#: recopie, on date.
+#: chiffre qui bouge se voie, et pour que le lecteur sache ce que la mesure a
+#: donné même s'il ne peut pas la relancer. Mettre à jour est un geste
+#: explicite : on relance, on recopie, on date.
 MESURE_DU_16_09_2026 = {
     "date": "2026-09-16",
     "sorties_route_exterieures": 161,
@@ -988,6 +987,13 @@ def imprimer_effort(base: Base, masse_kg: float) -> None:
     print("     « puissance constante » → la puissance ne bouge pas avec la pente : 0 W/point")
     print("     « vitesse constante »   → il faut m·g·v watts de plus par point de pente")
     print("   Où tombe-t-il entre les deux ?")
+    print()
+    print("   RÉSERVE DE MÉTHODE, à lire avant les chiffres : la pente d'un tronçon de")
+    print("   200 m est bruitée (altimètre barométrique, altitudes lissées). Un bruit sur")
+    print("   la variable explicative **aplatit** une pente de régression — c'est la")
+    print("   dilution classique. Le chiffre rendu ici est donc une **borne basse** : il")
+    print("   suit le terrain d'au moins autant, pas de moins. Le sens de l'erreur va")
+    print("   contre la conclusion, ce qui est la bonne direction pour s'y fier.")
 
     variabilites = [s.variabilite for s in base.sorties if s.variabilite]
     if variabilites:
