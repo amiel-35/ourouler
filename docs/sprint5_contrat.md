@@ -536,6 +536,87 @@ une direction, le résultat serait un artefact du réseau routier. Le contrôle
 qui décide : l'effet tient-il les jours où le vent vient du nord ou de l'est ?
 Script : `tests/validation/orientation_vent_retrospectif.py`.
 
+### 3.3 Le lot, tel qu'il s'ouvre le 16/09/2026
+
+Cadré après les quatre constats ci-dessus, donc sur de la mesure et non sur
+une intuition. Le point dur, dans les mots du mainteneur : **trois
+propositions ne servent à rien si elles se ressemblent**, et les trois
+premières d'un même classement se ressemblent presque toujours.
+
+#### 3.3.1 Le risque à écarter, nommé d'abord
+
+Trois candidates peuvent différer nettement **sur le papier** — 1,93 contre
+2,30 contre 4,72 — et paraître identiques **sur une carte**. Une note de
+placement n'est pas une différence perceptible.
+
+Donc la règle de conception : **deux propositions ne sont contrastées que si
+elles diffèrent sur quelque chose que le cycliste voit ou sent.** La liste
+est courte et elle sort des trois soirées de mesure : la durée réelle, la
+présence de demi-tours, la traversée de ville, l'orientation au vent, la
+pluie, la part de routes qu'il connaît déjà. Pas la note.
+
+#### 3.3.2 Les axes, et pourquoi ceux-là
+
+| Axe | Mesure existante | Pourquoi il discrimine |
+|---|---|---|
+| Terrain sous les blocs | `Placement.note_terrain` | Le cœur du produit — **mais vaut zéro sur une séance sans bloc**, donc jamais seul |
+| Durée tenue | écart entre `duree_totale_s` et la séance | Mesuré trois fois : le tri retient des dépassements de 29 à 43 min |
+| Demi-tours | `Placement`, déjà compté | « Autorisé mais pas forcément à mettre en avant » |
+| Pluie | `MeteoTrace.pluie_cumulee_mm` | Déjà au tri, en second rang |
+| Orientation au vent | `ChampVent`, part de face par quart | Le seul axe que le mainteneur a demandé explicitement |
+| Ville | densité de nœuds tagués au km | Ce qu'il appelle « la ville » : feux, passages piétons, ralentisseurs |
+| Routes connues | `BaseRoutes.part_connue` | Tout un lot du sprint 3, **aujourd'hui absent du classement** |
+
+**La densité de marqueurs au kilomètre est à écrire** : c'est la seule
+mesure nouvelle du lot, et elle remplace la détection de zone bâtie dont
+l'angle mort est documenté (`terrain.MAXSPEED_BATI_KMH`). Elle se valide
+contre les 162 sorties : les portions que le mainteneur roule vraiment
+doivent en porter moins que des portions tirées au hasard, comme les poids
+du terrain au sprint 3.
+
+#### 3.3.3 Choisir trois représentants éloignés
+
+On génère plus de candidates qu'aujourd'hui (`candidates = 5`), on les note
+sur chaque axe, puis on retient **trois représentants éloignés les uns des
+autres** — pas les trois premières d'un tri unique.
+
+**Contrainte de coût, chiffrée** : BRouter pèse ~4,2 s par boucle quand tout
+le reste d'une sortie coûte 0,5 s. Le nombre de candidates est donc le seul
+poste qui compte. Mesure le temps total et rapporte-le ; si générer plus
+coûte trop, dis-le plutôt que de livrer une commande qui prend une minute.
+
+**Chaque proposition porte une phrase qui dit ce qui la distingue des deux
+autres**, en langage de cycliste et jamais en langage de note : « vous
+rentrez avec le vent dans le dos », « aucun demi-tour », « la plus sèche »,
+« 20 minutes de moins », « elle évite les villages ». Si aucune phrase n'est
+écrivable, c'est que les trois ne sont pas contrastées — et il vaut mieux
+n'en proposer que deux et le dire.
+
+#### 3.3.4 La question posée avant la recherche
+
+Idée du mainteneur, qui réduit aussi l'espace de recherche : demander avant
+de chercher plutôt que contraster après. « Pour moi ça peut être une question
+avant de lancer la recherche. »
+
+Forme retenue : une option d'orientation au vent, dont **« peu importe » est
+une réponse valable** et le défaut — elle retombe alors sur les trois
+propositions. Quand il répond, on cherche dans cette direction.
+
+**Deux gardes, tous deux mesurés :**
+
+- **On ne pose la question que si le vent a un effet.** Vent médian 14 km/h
+  mais descend à 2,5 : sous le seuil, l'orientation ne change rien de
+  perceptible et la question n'apprend qu'à cliquer sans lire.
+- **On ne la pose pas au-delà de 3 jours.** §3.1.2 : à 3 jours la direction
+  tombe dans le bon secteur 88 % du temps, à 5 jours 78 %, et AROME s'arrête
+  de toute façon à 67 h. Au-delà, l'outil dit qu'il ne sait pas.
+
+#### 3.3.5 Ce qui n'est pas dans ce lot
+
+Pas de page HTML (c'est L5.4), pas de correction du profil d'altitude ni des
+flèches au-delà d'un demi-tour (§3.1.4 b), pas de nouvelle règle de
+placement. On note, on contraste, on explique — on ne replace pas.
+
 ## 4. Lot L5.4 — La page du jour
 
 Page HTML autonome écrite sur le disque. GPX en téléchargement avec le type
