@@ -1099,3 +1099,71 @@ lui rendrait en les appelant ses préférences.
    pour attraper la ligne droite ». À reprendre dans Q20/Q21 quand les
    phrases seront revues.
 
+## Q25 — Évite-t-il une classe de trafic estimé ? — **oui, nettement, mesuré le 16/09/2026**
+
+Question du mainteneur : « tu peux voir si sur mes sorties réelles un truc
+montre que j'évite clairement une classe de trafic estimé ? »
+
+`estimated_traffic_class` est un pseudo-tag que BRouter calcule — population
+des villes proches pondérée par le **carré** de la distance, zones
+industrielles, aéroports, densité du réseau. Ce n'est pas une classe de route
+et il n'existe **aucune correspondance en véhicules par jour** : c'est une
+pénalité de routage. Les trois autres pseudo-tags documentés (`town_class`,
+`forest_class`, `river_class`) ne sont **pas** renvoyés par notre serveur, ni
+`maxspeed`, ni `lanes` — vérifié.
+
+**Le résultat, standardisé par anneau de 5 km à la base** — le contrôle qui
+compte, puisque la classe monte près des villes et que ses sorties partent de
+chez lui :
+
+| Classe | Observé / attendu | Sorties sous l'attendu |
+|---|---|---|
+| 1 | 215 % | 17 % |
+| 2 | 101 % | 67 % |
+| 3 | 146 % | 21 % |
+| 4 | 84 % | 71 % |
+| **5** | **54 %** | **88 %** |
+| **6** | **51 %** | **81 %** |
+
+**Classes hautes (5 et 6) réunies : 53,7 % de l'attendu, 102 sorties sur 111
+en dessous, p < 0,0001.** Il prend la moitié de ce que le moteur lui
+proposerait à distance de base égale.
+
+Et le gradient est monotone à partir de la classe 3 : 146 → 84 → 54 → 51. Ce
+n'est pas l'évitement d'une classe en particulier, c'est une pente.
+
+**Le contrôle qui aurait pu démentir, et qui ne le fait pas** : la part de
+tronçons **sans classe** (18 % des km) sort à **103,2 %, p = 0,85** —
+parfaitement neutre. Si l'effet venait d'un artefact du rejeu BRouter ou de la
+reconstruction d'itinéraire, cette part aurait dérivé elle aussi. Elle ne
+bouge pas.
+
+**Pourquoi ce résultat compte plus que les autres :**
+
+1. **Il tranche**, là où l'orientation au vent était nulle et où les marqueurs
+   urbains allaient dans le sens contraire de l'intuition.
+2. **Il correspond à ce qu'il dit** : « grand axe dans ma tête c'est une
+   nationale ou une grosse pénétrante à fort trafic ; une départementale, je
+   dirais que c'est pas chiant ». La mesure confirme sa propre description.
+3. **Il n'entre pas en contradiction avec Q17.** Il roule *plus* de marqueurs
+   urbains que les boucles proposées (feux, passages piétons — les arrêts des
+   bourgs) et *moins* de trafic estimé. Il accepte de s'arrêter dans un
+   village, il refuse de rouler sur une route passante. Ce sont deux choses
+   différentes et il les traite différemment.
+4. **La donnée est gratuite et déjà là**, dans chaque réponse BRouter, et le
+   code ne la lit nulle part.
+
+**Conséquence : `estimated_traffic_class` remplace notre classement binaire.**
+`HIGHWAY_TRAFIC` (`boucle/couts.py`) met `primary`, `secondary` et `trunk`
+dans le même sac ; `trunk` vaut zéro et vaudra toujours zéro (mesuré sur 381
+km dans huit directions, BRouter n'y envoie jamais un vélo), et `secondary`
+porte les deux tiers du chiffre alors qu'il n'en a cure. Le trafic estimé,
+lui, distingue la départementale tranquille de la passante — et c'est
+précisément ce qu'il évite.
+
+Script : `tests/validation/trafic_estime_retrospectif.py`.
+
+**Réserve, à reprendre partout où cette mesure est citée** : le rejeu BRouter
+n'est pas la trace GPS — un point de passage tous les 1,5 km, le moteur
+recolle entre eux. Ce qui est mesuré est l'itinéraire reconstruit.
+
