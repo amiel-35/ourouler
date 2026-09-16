@@ -57,6 +57,24 @@ NOEUDS_CARREFOUR = frozenset(
     {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
 )
 
+#: Un **ralentisseur** : dos d'âne, coussin, chicane, plateau. Il arrive par la
+#: clé `traffic_calming` des `NodeTags`, pas par `highway` — c'est pourquoi la
+#: première rédaction ne le voyait pas du tout, alors que BRouter en pose 30
+#: sur une seule boucle au nord de Rennes (mesuré le 16/09/2026).
+#:
+#: Le mainteneur les nomme lui-même parmi ce qui fait « la ville » : « des
+#: croisements, des voitures, des dos d'âne ou des chicanes, des feux ». Sous
+#: un bloc, un dos d'âne fait lever du selle : on le compte comme un carrefour.
+#: Sous une Z2 ou une récupération, on ne le compte pas — « en Z2 je m'en fous,
+#: c'est les blocs qui doivent limiter ça » — mais c'est déjà acquis, aucun
+#: terrain n'est évalué hors bloc.
+CLE_RALENTISSEUR = "traffic_calming"
+
+#: Valeurs de `traffic_calming` qui ne ralentissent pas un cycliste : une
+#: écluse ou un rétrécissement se franchit sans lever du selle quand on est
+#: seul. On les écarte plutôt que de gonfler la note pour rien.
+RALENTISSEURS_SANS_EFFET = frozenset({"choker", "island", "dip"})
+
 #: Changement de direction à partir duquel on compte un carrefour, même sans
 #: nœud tagué : à 60° on a tourné, donc on a ralenti. La détection elle-même
 #: est celle de `boucle.couts` (sous-échantillonnage des caps, fenêtre de 60 m,
@@ -70,6 +88,20 @@ HIGHWAY_BATI = frozenset({"residential", "living_street", "service"})
 
 #: Vitesse limite (km/h) au-dessous ou égale à laquelle on se sait en
 #: agglomération, quand le tag existe. Une `tertiary` à 50 traverse un bourg.
+#:
+#: **Cette règle ne se déclenche jamais avec BRouter, et c'est mesuré**
+#: (16/09/2026) : les `WayTags` renvoyés par notre serveur portent `highway`,
+#: `surface`, `smoothness`, `oneway`, `cycleway*`, `estimated_traffic_class`,
+#: `access`, `junction`, `tracktype` — **jamais `maxspeed`**. Le profil ne
+#: l'exporte pas. On garde le code, qui est juste et servirait si le profil
+#: changeait ou si la trace venait d'ailleurs, mais il faut savoir qu'en
+#: pratique la zone bâtie se réduit aujourd'hui à `HIGHWAY_BATI` : un bourg
+#: traversé sur une départementale n'est pas vu.
+#:
+#: La piste à instruire pour le corriger n'est pas `maxspeed` mais la
+#: **densité de marqueurs au kilomètre** — feux, passages piétons,
+#: ralentisseurs, cédez-le-passage — qui est ce qu'un cycliste perçoit
+#: réellement comme « la ville », et qui est désormais entièrement disponible.
 MAXSPEED_BATI_KMH = 50.0
 
 # --- ce qui fait une pente ---------------------------------------------------
@@ -638,11 +670,19 @@ def _noeuds_tagues(trace: Trace, couloir: _Couloir) -> list[tuple[float, str]]:
     `fin_idx` qui porte le tag. Un tracé sans segments n'en a aucun — et ne
     prétend pas qu'il n'y a pas de feu, voir le motif « routes inconnues ».
     """
-    natures = {
-        segment.fin_idx: segment.node_tags.get("highway", "")
-        for segment in trace.segments
-        if segment.node_tags.get("highway", "") in NOEUDS_CARREFOUR
-    }
+    natures = {}
+    for segment in trace.segments:
+        nature = segment.node_tags.get("highway", "")
+        if nature in NOEUDS_CARREFOUR:
+            natures[segment.fin_idx] = nature
+            continue
+        # Un ralentisseur n'est pas un `highway` : il vit sous sa propre clé, et
+        # se perdait donc entièrement. Il ne prend la place d'un carrefour que
+        # si le nœud n'en est pas déjà un — un feu sur un plateau surélevé
+        # reste un feu, et se compter deux fois serait pire que de se manquer.
+        calme = segment.node_tags.get(CLE_RALENTISSEUR, "")
+        if calme and calme not in RALENTISSEURS_SANS_EFFET:
+            natures[segment.fin_idx] = CLE_RALENTISSEUR
     if not natures:
         return []
     return [
@@ -903,6 +943,7 @@ LIBELLES_CARREFOUR: dict[str, tuple[str, str, bool]] = {
     "give_way": ("cédez-le-passage", "cédez-le-passage", False),
     "mini_roundabout": ("rond-point", "ronds-points", False),
     "crossing": ("passage piéton", "passages piétons", False),
+    "traffic_calming": ("ralentisseur", "ralentisseurs", False),
     "virage": ("virage marqué", "virages marqués", False),
 }
 
