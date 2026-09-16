@@ -461,6 +461,32 @@ ville ». Vérifié — avec la vraie EF 2 h, la boucle passe à 55,2 km pour
 2 h 00 pile et sort de l'agglomération. Les séances home-trainer ont des Z2
 volontairement tronquées et **ne doivent pas servir de référence de test**.
 
+### 3.1.4 Deux points remontés le 16/09/2026, à traiter plus tard
+
+**a) Le demi-tour est autorisé, pas à mettre en avant.** Mots du mainteneur :
+« le demi-tour est autorisé mais pas forcément à mettre en avant. Mais ça on
+verra après, et ça peut être un choix visuel ». Donc : aucune règle nouvelle
+dans le tri, et « sans demi-tour » devient un **axe de contraste** de L5.3 —
+c'est exactement le genre de proposition qui se choisit en un coup d'œil.
+
+Le motif est constant sur les trois sorties regardées ce soir : le tri retient
+une candidate défendable, mais pas celle que le mainteneur prendrait. Sur la
+HIT étendue, la retenue dépasse de 29 min avec deux demi-tours, quand la
+quatrième roule 81,1 km en 2 h 54 **sans aucun demi-tour** et place deux blocs
+sur quatre contre un sur quatre.
+
+**b) Défaut d'affichage : le profil d'altitude superpose les blocs d'un
+demi-tour.** Repéré par le mainteneur sur la HIT étendue — le bloc 1 (rouge)
+et le bloc 3 (orange) se dessinent au même endroit vers le km 26, étiquettes
+imprimées l'une sur l'autre.
+
+Cause : L5.2 a fait passer le texte et les infobulles au **compteur
+kilométrique** (`debut_parcouru_m`), mais la bande du profil d'altitude est
+restée sur la **position dans le tracé** (`debut_m`). Après un demi-tour, deux
+blocs partagent la même position et se recouvrent. Correction : le profil doit
+suivre le parcours réellement roulé, comme le texte — chaque bloc apparaît
+alors une fois, à sa place.
+
 ### 3.2 Mesurer la préférence avant de la demander
 
 Avant d'ajouter un réglage, on regarde ce que le mainteneur **fait déjà** :
