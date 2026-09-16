@@ -24,8 +24,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
-from ourouler.meteo.openmeteo import ClientOpenMeteo, PrevisionHeure
+from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
+from ourouler.meteo.openmeteo import ClientOpenMeteo, PrevisionHeure, PrevisionPoint
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
@@ -87,6 +87,16 @@ class MeteoTrace:
     vent est connu. Sans lui, « vent face 100 % » ne distingue pas 12
     échantillons sur 12 d'un seul sur 12, les onze autres étant hors de
     l'horizon de prévision."""
+    modele_utilise: str = ""
+    """Le modèle qui a effectivement répondu — celui demandé, ou le repli
+    (Q19) quand celui-ci ne couvrait pas la fenêtre. Toujours renseigné
+    quand la météo a pu être évaluée, pour que l'affichage nomme le modèle
+    plutôt que de se taire dessus."""
+    repli: bool = False
+    """Vrai quand `modele_utilise` n'est pas le modèle demandé : le modèle
+    principal ne couvrait pas cette fenêtre et `evaluer` a basculé sur
+    `modele_repli`. Deux modèles qui divergent s'affichent (règle absolue
+    5) ; ici un seul a répondu, et c'est encore une divergence à dire."""
 
 
 def evaluer(
@@ -97,6 +107,7 @@ def evaluer(
     vitesse_kmh: float,
     modele: str,
     second_avis: str | None = None,
+    modele_repli: str | None = None,
     pas_m: float = PAS_DEFAUT_M,
 ) -> MeteoTrace:
     """La météo le long de `trace`, échantillonnée tous les `pas_m`.
@@ -105,6 +116,17 @@ def evaluer(
     `vitesse_kmh` sert à dater chaque échantillon : heure de passage =
     `depart + distance / vitesse`. Elle vient de la configuration, jamais
     d'une lecture faite ici (règle absolue 2).
+
+    `modele_repli` est le **repli** (Q19) : quand `modele` ne couvre pas la
+    fenêtre demandée (`ErreurHorsDomaine` — AROME publie à 67 h, une sortie
+    à J+3 en demande davantage), on retente une fois avec `modele_repli`
+    comme modèle **principal** de remplacement, pas comme second avis. Sans
+    lui (`None`, le défaut), le comportement est inchangé : l'échec remonte
+    tel quel. `MeteoTrace.modele_utilise` et `.repli` disent ce qui a
+    répondu, pour que l'affichage le nomme plutôt que de se taire dessus. Le
+    second avis (`second_avis`) n'est pas redemandé si le repli l'a déjà
+    utilisé comme principal : le comparer à lui-même n'apprendrait rien
+    (règle absolue 5 — on ne moyenne ni ne compare un modèle avec lui-même).
     """
     # Ces trois refus tombent **avant** le premier appel à Open-Meteo : une
     # entrée absurde ne consomme pas de quota et ne fait pas attendre.
@@ -136,8 +158,8 @@ def evaluer(
     coordonnees = [(p.lat, p.lon) for _, _, p, _ in bases]
 
     debut_heure, horizon_h = _fenetre(depart_tz, bases[-1][1])
-    previsions = client.previsions(
-        coordonnees, modele=modele, debut=debut_heure, horizon_h=horizon_h
+    previsions, modele_utilise, repli = _previsions_avec_repli(
+        client, coordonnees, modele, modele_repli, debut_heure, horizon_h
     )
 
     echantillons = []
@@ -164,10 +186,51 @@ def evaluer(
             )
         )
 
+    # Pas de comparaison d'un modèle avec lui-même : si le repli a déjà pris
+    # la place du principal, redemander `second_avis` quand il lui est égal
+    # ne comparerait rien à rien, seulement le coût d'un appel de plus.
+    avis_pour_comparaison = second_avis if second_avis != modele_utilise else None
     pluies_second_avis = _second_avis(
-        client, coordonnees, [t for _, t, _, _ in bases], debut_heure, horizon_h, second_avis
+        client,
+        coordonnees,
+        [t for _, t, _, _ in bases],
+        debut_heure,
+        horizon_h,
+        avis_pour_comparaison,
     )
-    return _resumer(echantillons, pluies_second_avis)
+    resultat = _resumer(echantillons, pluies_second_avis)
+    resultat.modele_utilise = modele_utilise
+    resultat.repli = repli
+    return resultat
+
+
+def _previsions_avec_repli(
+    client: ClientOpenMeteo,
+    coordonnees: Sequence[tuple[float, float]],
+    modele: str,
+    modele_repli: str | None,
+    debut_heure: datetime,
+    horizon_h: int,
+) -> tuple[list[PrevisionPoint], str, bool]:
+    """Les prévisions du modèle principal, ou du repli (Q19) s'il ne couvre pas la fenêtre.
+
+    Ne retente **que** sur `ErreurHorsDomaine` : une panne réseau, un JSON
+    illisible ou un refus du service restent des échecs sur lesquels
+    retenter avec un autre modèle ne changerait rien et masquerait la vraie
+    cause.
+    """
+    try:
+        previsions = client.previsions(
+            coordonnees, modele=modele, debut=debut_heure, horizon_h=horizon_h
+        )
+        return previsions, modele, False
+    except ErreurHorsDomaine:
+        if not modele_repli or modele_repli == modele:
+            raise
+        previsions = client.previsions(
+            coordonnees, modele=modele_repli, debut=debut_heure, horizon_h=horizon_h
+        )
+        return previsions, modele_repli, True
 
 
 # --- échantillonnage ---------------------------------------------------------

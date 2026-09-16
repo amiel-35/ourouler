@@ -382,20 +382,35 @@ def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monk
         fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
 
 
-def test_tout_fichier_ecrit_par_defaut_par_sortie_est_ignore_par_git():
-    """Règle absolue 1 : `ourouler sortie` écrit dans le dossier courant, dépôt compris.
+def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(
+    tmp_path, tmp_path_factory, monkeypatch
+):
+    """Règle absolue 1, version Q23 : ne plus dépendre de `.gitignore`.
 
-    Les deux noms par défaut — `sortie_<AAAAMMJJ>.gpx` et
-    `sortie_<AAAAMMJJ>.html` — sont écrits **toujours**, même sans `--sortie`
-    ni `--carte`, et la carte porte la géométrie complète de la boucle, donc
-    le point de départ du mainteneur. Un `ourouler sortie` lancé à la racine
-    du dépôt met donc la règle absolue 1 à la merci d'un `git add -A` dès
-    qu'une de ces extensions n'est pas ignorée.
+    Avant ce correctif, sans `--sortie` ni `--carte`, les deux noms par
+    défaut — `sortie_<AAAAMMJJ>.gpx` et `sortie_<AAAAMMJJ>.html` —
+    s'écrivaient dans le **répertoire courant**, donc le dépôt quand la
+    commande y est lancée depuis là — ce que fait le mainteneur. `.gitignore`
+    les couvrait (voir l'historique de ce test), mais « un fichier que seul
+    `.gitignore` protège n'est pas protégé, il est seulement discret » : ces
+    fichiers portent ses coordonnées de départ, et ils étaient à un
+    `git add -f` ou un `zip -r` du dépôt près de voyager avec lui.
 
-    Le test lit les chemins **depuis le code de la commande**, et non une
-    liste écrite ici : ajouter demain un troisième fichier de sortie le fera
-    échouer tant que `.gitignore` ne l'aura pas suivi.
+    La correction retire le risque à la source plutôt que de le masquer :
+    le répertoire courant n'entre même plus dans le calcul du chemin par
+    défaut, qui vit sous le dossier de cache déjà configuré
+    (`config.cache.dossier`). Le test se place dans un dossier qui **est**
+    un dépôt (un `.git/` y suffit à le faire ressembler à celui du
+    mainteneur) et vérifie que les deux chemins par défaut n'y tombent pas.
     """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    dossier_cache = tmp_path_factory.mktemp("cache-hors-depot")
+    config = module_config.Config(
+        depart=module_config.Depart(nom="Point zéro", latitude=0.0, longitude=0.0),
+        cycliste=module_config.Cycliste(masse_kg=75.0, ftp_w=250.0),
+        cache=module_config.ParametresCache(dossier=dossier_cache),
+    )
     demande = commande_sortie.Demande(
         jour=date(2026, 2, 8),
         distance_km=None,
@@ -409,23 +424,17 @@ def test_tout_fichier_ecrit_par_defaut_par_sortie_est_ignore_par_git():
         carte=None,
     )
     par_defaut = [
-        commande_sortie.chemin_gpx_par_defaut(demande),
-        commande_sortie.chemin_carte_par_defaut(demande),
+        commande_sortie.chemin_gpx_par_defaut(demande, config),
+        commande_sortie.chemin_carte_par_defaut(demande, config),
     ]
-    lignes = {
-        ligne.strip()
-        for ligne in (RACINE / ".gitignore").read_text(encoding="utf-8").splitlines()
-        if ligne.strip() and not ligne.strip().startswith("#")
-    }
-    oublies = [
-        chemin.name
-        for chemin in par_defaut
-        if f"*{chemin.suffix}" not in lignes and chemin.name not in lignes
-    ]
-    assert not oublies, (
-        "`ourouler sortie` écrit ces fichiers dans le dossier courant et "
-        f".gitignore ne les ignore pas : {oublies}"
+    dans_le_depot = [c for c in par_defaut if c.resolve().is_relative_to(tmp_path.resolve())]
+    assert not dans_le_depot, (
+        f"`ourouler sortie` écrirait ces fichiers dans le dépôt : {dans_le_depot}"
     )
+    for chemin in par_defaut:
+        assert chemin.resolve().is_relative_to(dossier_cache.resolve()), (
+            f"{chemin} n'est pas sous le dossier de cache configuré {dossier_cache}"
+        )
 
 
 # --- sprint 2 : le mot de passe BRouter ne sort jamais -----------------------
