@@ -842,3 +842,41 @@ qui l'intéresse.
 À trancher avec lui : renommer (« routes départementales »), requalifier
 (distinguer `secondary` de `primary`/`trunk`, qui n'ont pas le même sens à
 vélo), ou retirer de la ligne de résumé et le garder au détail.
+
+### Complément du 16/09/2026, sur une séance **à blocs** cette fois
+
+Le mainteneur a rejoué une séance à blocs. Deux constats de plus, tous deux
+vérifiés dans le code.
+
+**d) Un trou dans la carte : la boucle de la sélection n'est pas dessinée.**
+Ses mots : « on n'a plus de tracé sur la carte sur une zone ».
+
+`carte.py:1095` construit la polyligne grise de la boucle complète pour
+**chaque** proposition, mais `:1102` ne l'ajoute que `si p.n !== actifN` —
+donc uniquement pour les **non sélectionnées**. La sélectionnée ne dessine que
+ses blocs et ses liaisons : la portion qu'elle ne parcourt pas, au-delà d'un
+demi-tour, n'est peinte par personne.
+
+Ce n'est pas un défaut de calcul — vérifié, les blocs et liaisons couvrent
+2 687 points pour une boucle de 2 269, demi-tours compris. C'est un calque
+manquant. Correction : la sélectionnée dessine **aussi** sa boucle en fond,
+sous ses blocs.
+
+**e) Les pointillés doivent changer de sens, et sa règle est meilleure que la
+nôtre.** Ses mots : « les pointillés sont très mal lisibles, il faut les
+réserver à la trace non sélectionnée ».
+
+Aujourd'hui le pointillé (`dashArray: '6 8'`, `carte.py:1070`) veut dire
+« cette portion n'est pas un bloc » — héritage de L5.2, où il distinguait
+l'échauffement et les récupérations du tracé non parcouru. Sur la page du
+jour, il entre en collision avec la hiérarchie qui compte : sélectionnée
+contre les autres.
+
+**Règle retenue : le pointillé veut dire « ce n'est pas la sélection », et
+rien d'autre.** Un seul sens au lieu de deux. La proposition sélectionnée est
+donc **pleine de bout en bout** — blocs en couleurs vives, reste du parcours
+en couleur franche, boucle non parcourue en fond — et les autres propositions
+sont en pointillé gris. Ça résout aussi (a) et (b) plus haut : le fort devient
+franchement fort, et le faible devient identifiable au trait plutôt qu'à une
+nuance de gris.
+
