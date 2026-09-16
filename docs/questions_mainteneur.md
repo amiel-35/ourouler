@@ -1190,3 +1190,52 @@ donne **18,2 % sans classe** et une échelle qui va bien **de 1 à 6** — les
 classes 1 et 2 existent en quantité non négligeable (17,3 % et 13,5 % des km).
 Une boucle n'est pas un échantillon.
 
+## Q26 — Le levier est plus simple que prévu : privilégier les `tertiary` — **mesuré et validé le 16/09/2026**
+
+Question du mainteneur, après une discussion qui partait dans le détail :
+« pour être sûr — je prends plus de tertiary, ou bien BRouter en propose
+plus ? »
+
+Mesuré sur 25 de ses sorties rejouées (1 559 km, de 28 à 134 km) contre des
+boucles proposées **aux mêmes longueurs**, dans six directions :
+
+| Classe OSM | Lui | Proposé |
+|---|---|---|
+| `tertiary` | **60,0 %** | 37,6 % |
+| `secondary` | 16,2 % | **32,5 %** |
+| `unclassified` | 15,3 % | 15,6 % |
+| `primary` | 4,2 % | 6,9 % |
+| `residential` | 1,1 % | 3,4 % |
+
+**C'est lui qui va chercher les `tertiary`** — une fois et demie ce qu'on lui
+propose — **et le moteur qui le ramène vers les `secondary`**, dont il prend
+moitié moins.
+
+**Deux mesures indépendantes, la même réalité.** Les classes de trafic calmes
+vivent dans les `tertiary` (359 km de classes 1-2 sur 428, croisé sur ses
+sorties). Prendre 1,5 fois plus de `tertiary` et la moitié du `secondary`,
+c'est exactement le « 54 % des classes hautes » de Q25, vu depuis l'autre
+côté.
+
+**Conséquence, et elle simplifie tout ce qui précède** : le levier n'est ni de
+trier à l'intérieur des `secondary` — les `secondary` calmes ne pèsent que 4 %
+de ses kilomètres — ni de pénaliser `primary`, qui n'en pèse que 4,2 %.
+**C'est de privilégier les `tertiary`.** Un seul critère, sur la grandeur la
+plus séparante : 22 points d'écart sur `tertiary`, 16 sur `secondary`.
+
+Le trafic estimé reste en réserve : il capte la proximité des villes, que la
+classe OSM ignore. À garder si, une fois le poids `tertiary` calibré, les
+boucles produites ne reproduisent pas sa répartition de classes de trafic.
+
+**Calibration** : la cible est chiffrée — 60 % de `tertiary`, 16 % de
+`secondary`. On règle le poids jusqu'à ce que les boucles proposées s'en
+approchent. Même méthode que les poids de terrain au sprint 3.
+
+**Erreur du superviseur, enregistrée parce qu'elle est instructive.** J'avais
+affirmé au mainteneur : « il vous propose plus de routes très calmes que vous
+n'en prenez », sur la foi de la répartition **brute** (24,1 % de classe 1
+proposée contre 17,3 % réelle). Or le rapport de mesure dit lui-même que le
+brut « ne sert qu'à situer l'écart avant le contrôle », et le chiffre
+**contrôlé** disait l'inverse. J'ai conclu à partir du nombre que la mesure
+me disait de ne pas utiliser. Le mainteneur l'a relevé.
+
