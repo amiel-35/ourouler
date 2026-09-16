@@ -565,7 +565,37 @@ pluie, la part de routes qu'il connaît déjà. Pas la note.
 | Pluie | `MeteoTrace.pluie_cumulee_mm` | Déjà au tri, en second rang |
 | Orientation au vent | `ChampVent`, part de face par quart | Le seul axe que le mainteneur a demandé explicitement |
 | Ville | densité de nœuds tagués au km | Ce qu'il appelle « la ville » : feux, passages piétons, ralentisseurs |
-| Routes connues | `BaseRoutes.part_connue` | Tout un lot du sprint 3, **aujourd'hui absent du classement** |
+| ~~Routes connues~~ | — | **Retiré le 16/09/2026 : contredit le contrat du sprint 3** (voir ci-dessous) |
+| **Recouvrement entre propositions** | mailles de 30 m, `apprentissage.routes.cle_maille` | Le seul axe qui mesure la différence **entre** les boucles et non leurs attributs |
+
+**Erreur corrigée le 16/09/2026 — l'axe « routes connues » est retiré.**
+`BaseRoutes.part_connue` porte la règle du sprint 3 dans sa docstring :
+« **Informatif seulement.** Le contrat l'interdit dans tout score : les traces
+ne couvrent qu'une partie du territoire, et pénaliser l'inconnu condamnerait
+d'avance toute direction jamais explorée. » La première rédaction de ce
+tableau l'avait mis en axe sans voir la règle. Et la règle est bonne : le
+mainteneur a lui-même demandé au sprint 3 d'aller « tester des routes sud
+sud-ouest pour voir ». La part connue reste **affichée**, peut servir à
+décrire une proposition retenue pour une autre raison, et n'entre ni dans une
+note ni dans la sélection.
+
+**Le recouvrement entre propositions — idée du mainteneur, 16/09/2026** :
+« pas forcément une bonne idée mais un seuil de pourcentage de route identique
+entre des propositions ». C'est meilleur que les six autres axes pour ce qu'il
+mesure, et il faut le dire : **les autres mesurent des attributs de chaque
+boucle, celui-ci mesure la différence entre les boucles elles-mêmes.** Deux
+boucles peuvent avoir des notes très éloignées et emprunter les mêmes routes ;
+elles se ressembleront sur la carte quoi qu'en disent les chiffres.
+
+Il s'applique en **contrainte de sélection** et non en note : deux
+propositions dont le recouvrement dépasse le seuil ne sont pas contrastées,
+quelles que soient leurs notes. La machinerie existe — `cle_maille` découpe
+en mailles de 30 m et `part_connue` calcule déjà une part de kilomètres
+tombant dans un ensemble de mailles ; on réutilise, on ne réécrit pas. Le
+seuil se **mesure** sur la distribution des recouvrements deux à deux de
+candidates réellement générées, il ne s'invente pas. Le recouvrement n'étant
+pas symétrique quand les boucles diffèrent en longueur, la convention retenue
+doit être écrite.
 
 **La densité de marqueurs au kilomètre est à écrire** : c'est la seule
 mesure nouvelle du lot, et elle remplace la détection de zone bâtie dont
