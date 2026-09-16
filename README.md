@@ -273,11 +273,19 @@ inventées, et un test le mesure (`tests/test_invariants.py`). La
 documentation de cadrage, elle, contient encore des chiffres réels du
 mainteneur : à trancher avant l'ouverture du dépôt (Q6).
 
+## L'hébergé minimal (tourner en local)
+
+`deploiement/` construit ce que `docs/heberge_minimal_contrat.md` demande :
+un conteneur qui produit la page du jour une fois par jour, un serveur
+statique qui la sert derrière une authentification basique — à essayer sur
+sa propre machine, rien n'est déployé (`deploiement/README.md`).
+
 ## Documentation
 
 - `docs/cadrage.md` — le besoin d'origine.
 - `doctrine_architecture.md` — les choix structurants et leurs raisons.
 - `docs/plan_sprints_agents.md` — sprints, critères d'acceptation, équipe d'agents.
 - `docs/questions_mainteneur.md` — ce qui attend une décision.
+- `docs/heberge_minimal_contrat.md` — le contrat de l'hébergé minimal.
 
 Licence MIT.

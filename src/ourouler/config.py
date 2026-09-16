@@ -7,7 +7,9 @@ Le reste du cœur reçoit un objet `Config` déjà construit.
 
 from __future__ import annotations
 
+import os
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from pathlib import Path
@@ -18,6 +20,10 @@ from ourouler.erreurs import ErreurConfig
 CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
 USAGES_VELO = ("route", "clm")
+
+#: Préfixe commun des variables d'environnement lues par `charger()` (contrat
+#: de l'hébergé minimal, docs/heberge_minimal_contrat.md § « Les secrets »).
+PREFIXE_ENV = "OUROULER_"
 
 #: Nombres de directions acceptés pour la couronne. Défini ici, et non dans
 #: `meteo.couronne`, pour que la validation ait lieu au chargement : c'est ce
@@ -267,8 +273,23 @@ class Config:
 # --- chargement -------------------------------------------------------------
 
 
-def charger(chemin: Path | None = None) -> Config:
-    """Lit un fichier TOML et construit la `Config`. Chemin par défaut : ~/.config/ourouler/config.toml."""
+def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = None) -> Config:
+    """Lit un fichier TOML, le complète depuis l'environnement, et construit la `Config`.
+
+    Chemin par défaut : ~/.config/ourouler/config.toml. `environ` est
+    injectable pour les tests (défaut : `os.environ`, jamais lu ailleurs que
+    dans ce module et `cli.py`, règle absolue 2).
+
+    Contrat de l'hébergé minimal (docs/heberge_minimal_contrat.md, § « Les
+    secrets ») : la tâche planifiée conteneurisée n'a ni fichier de
+    configuration personnel dans l'image, ni coordonnée de départ commitée.
+    La clé Intervals, le point de départ et le serveur BRouter viennent donc
+    de l'environnement — posés dans l'interface Coolify, jamais écrits
+    ailleurs — et l'emportent sur le TOML quand ils sont présents. Pour
+    l'usage local (CLI interactive), rien ne change : sans ces variables,
+    le TOML seul décide, comme avant.
+    """
+    environ = os.environ if environ is None else environ
     chemin = (chemin or CHEMIN_CONFIG_DEFAUT).expanduser()
     if not chemin.is_file():
         raise ErreurConfig(
@@ -280,9 +301,50 @@ def charger(chemin: Path | None = None) -> Config:
             brut = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
         raise ErreurConfig(f"{chemin} : TOML invalide ({e})") from e
+    brut = _survoler_environnement(brut, environ)
     config = depuis_dict(brut)
     # Seul endroit où « ~ » est développé : le cœur reçoit un chemin absolu.
     return replace(config, cache=ParametresCache(config.cache.dossier.expanduser()))
+
+
+def _survoler_environnement(brut: dict[str, Any], environ: Mapping[str, str]) -> dict[str, Any]:
+    """Complète ou remplace, dans le dict TOML, les trois sections que le contrat de
+    l'hébergé minimal fait venir de l'environnement : le point de départ, la
+    clé Intervals, l'URL et les identifiants BRouter. Une variable absente
+    laisse le TOML inchangé ; présente, elle l'emporte toujours — c'est
+    l'environnement qui fait foi en conteneur. Ne mute jamais `brut` : une
+    copie superficielle par section touchée.
+    """
+    d = dict(brut)
+
+    depart = dict(d.get("depart") or {})
+    _reporter(depart, "nom", environ, "DEPART_NOM")
+    _reporter(depart, "latitude", environ, "DEPART_LATITUDE")
+    _reporter(depart, "longitude", environ, "DEPART_LONGITUDE")
+    if depart:
+        d["depart"] = depart
+
+    intervals = dict(d.get("intervals") or {})
+    _reporter(intervals, "api_key", environ, "INTERVALS_API_KEY")
+    _reporter(intervals, "athlete_id", environ, "INTERVALS_ATHLETE_ID")
+    if intervals:
+        d["intervals"] = intervals
+
+    brouter = dict(d.get("brouter") or {})
+    _reporter(brouter, "url", environ, "BROUTER_URL")
+    _reporter(brouter, "utilisateur", environ, "BROUTER_UTILISATEUR")
+    _reporter(brouter, "mot_de_passe", environ, "BROUTER_MOT_DE_PASSE")
+    if brouter:
+        d["brouter"] = brouter
+
+    return d
+
+
+def _reporter(section: dict[str, Any], champ: str, environ: Mapping[str, str], suffixe: str) -> None:
+    """Pose `section[champ]` depuis `{PREFIXE_ENV}<suffixe>`, si la variable est présente."""
+    valeur = environ.get(f"{PREFIXE_ENV}{suffixe}")
+    if valeur is not None:
+        section[champ] = valeur
 
 
 def depuis_dict(d: dict[str, Any]) -> Config:

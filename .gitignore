@@ -27,6 +27,8 @@ cache/
 data/
 .env
 .env.*
+!.env.example
+!deploiement/.env.example
 
 # Outillage local
 .claude/worktrees/

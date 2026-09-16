@@ -95,7 +95,7 @@ from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
 from ourouler.sortie import contraste, orientation, vent_demande
-from ourouler.sortie.carte import PropositionCarte, construire_page_jour
+from ourouler.sortie.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
 #: haut** : une séance de 72 km demande une boucle de 75 km. Vers le haut et
@@ -229,19 +229,35 @@ def executer(
 
     seance = _seance(demande, config, client_intervals)
     if seance is None:
+        # Service planifié (contrat de l'hébergé minimal, périmètre point 4) :
+        # un jour sans séance doit produire une page qui le dit, jamais rien
+        # ni la page de la veille. Par défaut (`--carte-sans-seance` absent),
+        # rien n'est écrit — comportement inchangé pour l'usage interactif,
+        # où un fichier à chaque essai sans séance serait du bruit.
+        chemin_carte = None
+        if getattr(args, "carte_sans_seance", False):
+            chemin_carte = _ecrire_page_sans_seance(demande, config)
         if getattr(args, "json", False):
             print(
                 json.dumps(
-                    {"jour": demande.jour.isoformat(), "seance": None, "candidates": []},
+                    {
+                        "jour": demande.jour.isoformat(),
+                        "seance": None,
+                        "candidates": [],
+                        "carte": str(chemin_carte) if chemin_carte else None,
+                    },
                     ensure_ascii=False,
                     indent=2,
                 )
             )
         else:
-            print(
+            message = (
                 f"Aucune séance vélo planifiée le {demande.jour.isoformat()} sur Intervals.icu — "
                 "rien à placer. `ourouler boucle` propose une sortie libre."
             )
+            if chemin_carte is not None:
+                message += f"\nPage écrite : {chemin_carte}"
+            print(message)
         return 0
 
     parametres, provenance = _parametres(config, demande.velo)
@@ -903,6 +919,27 @@ def _description_parcours(parcours: Trace, placement: Placement) -> str:
     else:
         combien = f"{demi_tours} demi-tours"
     return f"{description_gpx(parcours)} · {combien}"
+
+
+def _ecrire_page_sans_seance(demande: Demande, config: Config) -> Path:
+    """La page du jour quand rien n'est planifié (contrat de l'hébergé minimal, périmètre point 4).
+
+    Réutilise l'emplacement standard de la carte (`--carte`, ou le nom daté
+    par défaut `chemin_carte_par_defaut`) : le serveur statique qui sert le
+    dossier n'a besoin de rien savoir de plus qu'un jour ouvré. Le contenu
+    dit qu'il n'y a rien à rouler et quand la page a été produite (point 5) —
+    une page qui le dit vaut mieux qu'aucune page, jamais une erreur ni la
+    page de la veille servie en silence.
+    """
+    chemin = chemin_carte_par_defaut(demande, config)
+    try:
+        chemin.write_text(
+            construire_page_sans_seance(demande.jour, maintenant=datetime.now()),
+            encoding="utf-8",
+        )
+    except OSError as e:
+        raise ErreurUtilisateur(f"écriture impossible dans {chemin} ({e})") from e
+    return chemin
 
 
 def _ecrire_page_jour(

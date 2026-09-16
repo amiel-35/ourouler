@@ -114,6 +114,7 @@ def args(**champs) -> argparse.Namespace:
         "carte": None,
         "profil": None,
         "ecraser": False,
+        "carte_sans_seance": False,
         "json": False,
     }
     return argparse.Namespace(**{**defauts, **champs})
@@ -443,6 +444,13 @@ def test_la_sous_commande_est_declaree_dans_la_cli():
     assert lus.json is True
 
 
+def test_carte_sans_seance_absente_par_defaut_et_activable():
+    parseur = construire_parseur()
+    assert parseur.parse_args(["sortie", "--jour", "2026-09-08"]).carte_sans_seance is False
+    lus = parseur.parse_args(["sortie", "--jour", "2026-09-08", "--carte-sans-seance"])
+    assert lus.carte_sans_seance is True
+
+
 # --- aucune séance ------------------------------------------------------------
 
 
@@ -461,6 +469,51 @@ def test_sans_seance_le_json_le_dit(tmp_path: Path, monkeypatch, capsys):
     assert code == 0
     assert charge["seance"] is None
     assert charge["candidates"] == []
+    assert charge["carte"] is None, "--carte-sans-seance absent : rien n'est écrit"
+
+
+def test_sans_seance_et_carte_sans_seance_ecrit_une_page(tmp_path: Path, monkeypatch, capsys):
+    """Contrat de l'hébergé minimal, périmètre point 4 : le service planifié
+    doit produire une page, jamais rien ni une erreur, un jour sans séance."""
+    code = lancer(
+        tmp_path, monkeypatch, intervals=client_intervals([]), carte_sans_seance=True
+    )
+    sortie = capsys.readouterr().out
+    assert code == 0
+    pages = list((tmp_path / "cache" / "sorties").glob("*.html"))
+    assert len(pages) == 1
+    contenu = pages[0].read_text(encoding="utf-8")
+    assert "Rien de prévu" in contenu
+    assert JOUR.isoformat() in contenu
+    assert not list((tmp_path / "cache" / "sorties").glob("*.gpx")), "rien à rouler, pas de GPX"
+    assert str(pages[0]) in sortie
+
+
+def test_sans_seance_et_carte_sans_seance_le_json_donne_le_chemin(tmp_path: Path, monkeypatch, capsys):
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        intervals=client_intervals([]),
+        carte_sans_seance=True,
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert charge["seance"] is None
+    assert charge["carte"] is not None
+    assert Path(charge["carte"]).is_file()
+
+
+def test_sans_seance_et_carte_sans_seance_respecte_loption_carte(tmp_path: Path, monkeypatch):
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        intervals=client_intervals([]),
+        carte_sans_seance=True,
+        carte=str(tmp_path / "ma_page.html"),
+    )
+    assert code == 0
+    assert (tmp_path / "ma_page.html").is_file()
 
 
 # --- le tableau ---------------------------------------------------------------

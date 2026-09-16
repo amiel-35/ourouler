@@ -71,6 +71,7 @@ import html
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date, datetime
 
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
@@ -1236,4 +1237,63 @@ document.querySelectorAll('.carte-item').forEach(function (el) {{
 """
 
 
-__all__ = ["COULEURS_BLOCS", "PropositionCarte", "construire", "construire_page_jour"]
+# --- la page « rien de prévu » (contrat de l'hébergé minimal) ---------------
+
+
+def construire_page_sans_seance(jour: date, *, maintenant: datetime | None = None) -> str:
+    """La page du jour quand Intervals.icu ne porte aucune séance vélo ce jour-là.
+
+    Le contrat de l'hébergé minimal (docs/heberge_minimal_contrat.md, §
+    périmètre point 4) interdit deux choses à la fois : planter, et laisser
+    filer en silence la page de la veille. Cette page dit donc en clair
+    qu'il n'y a rien à rouler **et** de quand elle date (point 5 du même
+    contrat) — `maintenant` est injectable pour les tests, `datetime.now()`
+    par défaut : lire l'horloge n'est pas lire l'environnement (règle
+    absolue 2 de CLAUDE.md, voir `tests/test_invariants.py`), seul un module
+    du cœur qui ouvrirait un fichier ou une variable serait fautif ici.
+
+    Volontairement minimale : pas de carte, pas de Leaflet — rien à dessiner
+    un jour sans boucle. Le style reprend celui de `_page`/`_page_jour` pour
+    que la page reste reconnaissable.
+    """
+    maintenant = maintenant or datetime.now()
+    titre = f"Rien de prévu — {jour.isoformat()}"
+    horodatage = maintenant.strftime("%d/%m/%Y à %H:%M")
+    return f"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{html.escape(titre)}</title>
+<style>
+:root {{ color-scheme: light; }}
+body {{ margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1c1c1c;
+       background: #fbfbfb; }}
+header {{ padding: 16px 16px 8px; }}
+h1 {{ font-size: 18px; margin: 0 0 2px; }}
+h2 {{ font-size: 13px; font-weight: 400; color: #555; margin: 0; }}
+section {{ padding: 4px 16px 24px; }}
+p.horodatage {{ color: #777; font-size: 12px; margin-top: 18px; }}
+</style>
+</head>
+<body>
+<header>
+<h1>{html.escape(titre)}</h1>
+<h2>Aucune séance vélo planifiée sur Intervals.icu ce jour-là.</h2>
+</header>
+<section>
+<p><code>ourouler boucle</code> propose une sortie libre quand il n'y a rien au calendrier.</p>
+<p class="horodatage">Page générée le {horodatage}.</p>
+</section>
+</body>
+</html>
+"""
+
+
+__all__ = [
+    "COULEURS_BLOCS",
+    "PropositionCarte",
+    "construire",
+    "construire_page_jour",
+    "construire_page_sans_seance",
+]
