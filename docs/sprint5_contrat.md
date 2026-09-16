@@ -421,6 +421,46 @@ appliquée : afficher un désaccord plutôt que le moyenner.
    ignore le bocage, les vallons, les haies. L'écart réel est plus grand que
    7°, et on n'a aucun moyen de le mesurer sans anémomètre embarqué.
 
+### 3.1.3 Trois constats du 16/09/2026 qui cadrent L5.3
+
+Relevés en rejouant la commande sur les vraies données après la correction
+des feux, et en regardant la carte avec le mainteneur.
+
+**a) Le classement des routes ne compte pas dans la note d'un bloc.**
+`HIGHWAY_TRAFIC` (`boucle/couts.py:36`) sert à choisir la boucle et à refuser
+un demi-tour sur une départementale passante (`seance/terrain.py:455`). Il
+**n'entre pas** dans la note du couloir. Un bloc peut donc tomber sur une
+départementale rapide sans le moindre malus. Repéré à l'œil par le
+mainteneur sur le bloc 4 du 01/09 : « me questionne plus sur l'absence de
+feux et la capacité à rouler à plus de 35 ».
+
+**b) Pour une séance sans bloc, le tri ne regarde presque rien.** Mesuré sur
+la vraie EF 2 h du 12/09 : les cinq candidates notent 0,00 / 0,05 / 0,08 /
+0,15 / 0,29 — ces écarts ne sont que la pénalité de dépassement du retour au
+calme. Le terrain n'est pas évalué, faute de bloc sous lequel l'évaluer.
+Conséquence concrète : la retenue porte **24,1 km de routes à trafic** sur
+55,2, quand la quatrième n'en a que 20,9 et la cinquième 98 % de routes déjà
+connues du mainteneur. Ni le trafic ni la part de routes connues — tout un
+lot du sprint 3 — n'entrent dans le classement.
+
+C'est d'autant plus lourd que **son plan actuel ne contient aucune séance à
+blocs en extérieur** : sur 85 jours, toutes les séances vélo planifiées
+dehors sont des EF ou des sorties cool, les HIT sont tous sur home-trainer.
+Le cas « endurance » n'est donc pas un cas secondaire, c'est **son cas
+courant**.
+
+**Conséquence pour L5.3** : les axes de contraste ne peuvent pas reposer sur
+la seule note de terrain sous les blocs, qui vaut zéro la plupart du temps.
+Ils doivent couvrir le trafic, la part de routes connues, l'orientation au
+vent et la pluie. Sans quoi les trois propositions seront identiques sur une
+EF, c'est-à-dire sur la majorité des sorties.
+
+**c) La forme de la séance décide de la géographie.** Constat du mainteneur :
+« c'est la Z2 de 5 min à la fin qui fait que le moteur reste près de la
+ville ». Vérifié — avec la vraie EF 2 h, la boucle passe à 55,2 km pour
+2 h 00 pile et sort de l'agglomération. Les séances home-trainer ont des Z2
+volontairement tronquées et **ne doivent pas servir de référence de test**.
+
 ### 3.2 Mesurer la préférence avant de la demander
 
 Avant d'ajouter un réglage, on regarde ce que le mainteneur **fait déjà** :
