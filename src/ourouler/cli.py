@@ -406,6 +406,16 @@ def ajouter_seance(sous: argparse._SubParsersAction) -> None:
         parents=[parent_json()],
     )
     p.add_argument("--jour", metavar="AAAA-MM-JJ", help="date de la séance (défaut : aujourd'hui)")
+    p.add_argument(
+        "--depuis",
+        metavar="AAAA-MM-JJ",
+        help="début d'une plage de jours (avec --jusqua ; exclusif de --jour)",
+    )
+    p.add_argument(
+        "--jusqua",
+        metavar="AAAA-MM-JJ",
+        help="fin d'une plage de jours, incluse (avec --depuis)",
+    )
     p.set_defaults(fonction=_commande_seance)
 
 

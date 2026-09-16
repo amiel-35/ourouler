@@ -10,19 +10,21 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import httpx
 import pytest
 
 from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.erreurs import ErreurUtilisateur
 from ourouler.seance.intervals import (
     PROFONDEUR_MAX,
     REPS_MAX,
     SEUIL_FRACTION_FTP,
     depuis_workout_doc,
     seance_du_jour,
+    seances_periode,
 )
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 
@@ -984,3 +986,89 @@ def test_typage_source_a_une_entree_par_etape():
             "position",
             "defaut",
         }
+
+
+# --- seances_periode (F0.3 : lecture d'une plage) ------------------------------
+
+
+def test_periode_un_seul_appel_reseau_pour_toute_la_plage():
+    """Une plage de sept jours se lit en un appel, jamais sept (F0.3, point 1)."""
+    urls: list[httpx.URL] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        urls.append(requete.url)
+        return httpx.Response(200, json=[])
+
+    client = ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    depuis, jusqua = date(2026, 9, 7), date(2026, 9, 13)
+    resultats = seances_periode(client, depuis, jusqua, ftp_w=FTP)
+    assert len(urls) == 1
+    assert urls[0].params["oldest"] == "2026-09-07"
+    assert urls[0].params["newest"] == "2026-09-13"
+    assert set(resultats) == {depuis + timedelta(days=n) for n in range(7)}
+
+
+def test_periode_un_jour_vide_vaut_none_et_reste_une_cle():
+    """Un jour sans séance est présent (`None`), un jour hors plage est absent (point 2)."""
+    depuis, jusqua = date(2026, 9, 7), date(2026, 9, 9)
+    evenements = [W.evenement(W.groupes_watts(), nom="Vélo", jour="2026-09-08")]
+    resultats = seances_periode(client_bouchon(evenements), depuis, jusqua, ftp_w=FTP)
+    assert resultats[date(2026, 9, 7)] is None
+    assert resultats[date(2026, 9, 8)] is not None
+    assert resultats[date(2026, 9, 9)] is None
+    assert date(2026, 9, 6) not in resultats
+    assert date(2026, 9, 10) not in resultats
+
+
+def test_periode_plusieurs_seances_le_meme_jour_garde_la_plus_longue():
+    """Même règle que `seance_du_jour`, appliquée jour par jour (point 3)."""
+    depuis, jusqua = date(2026, 9, 7), date(2026, 9, 9)
+    longue = W.sortie_libre()  # 2 h, plus longue que la forme de référence ci-dessous
+    courte = W.groupes_watts()
+    evenements = [
+        W.evenement(longue, nom="Vélo A", identifiant=1, jour="2026-09-08"),
+        W.evenement(courte, nom="Vélo B", identifiant=2, jour="2026-09-08"),
+    ]
+    resultats = seances_periode(client_bouchon(evenements), depuis, jusqua, ftp_w=FTP)
+    seance = resultats[date(2026, 9, 8)]
+    assert seance is not None and seance.nom == "Vélo A"
+    assert seance.meta["seances_ignorees"] == ["Vélo B"]
+
+
+def test_periode_regroupe_par_jour_local_pas_par_ordre_de_reponse():
+    """Le tri par jour se fait sur `start_date_local`, quel que soit l'ordre du service."""
+    depuis, jusqua = date(2026, 9, 7), date(2026, 9, 9)
+    evenements = [
+        W.evenement(W.groupes_watts(), nom="Mercredi", identifiant=1, jour="2026-09-09"),
+        W.evenement(W.sortie_libre(), nom="Lundi", identifiant=2, jour="2026-09-07"),
+    ]
+    resultats = seances_periode(client_bouchon(evenements), depuis, jusqua, ftp_w=FTP)
+    assert resultats[date(2026, 9, 7)].nom == "Lundi"
+    assert resultats[date(2026, 9, 8)] is None
+    assert resultats[date(2026, 9, 9)].nom == "Mercredi"
+
+
+def test_periode_ignore_un_evenement_hors_plage():
+    """Un événement dont le jour local tombe hors `[depuis, jusqua]` n'est rattaché à rien."""
+    depuis, jusqua = date(2026, 9, 7), date(2026, 9, 9)
+    evenements = [W.evenement(W.groupes_watts(), nom="Avant", jour="2026-09-01")]
+    resultats = seances_periode(client_bouchon(evenements), depuis, jusqua, ftp_w=FTP)
+    assert all(seance is None for seance in resultats.values())
+
+
+def test_periode_plage_inversee_refusee():
+    with pytest.raises(ErreurUtilisateur):
+        seances_periode(client_bouchon([]), date(2026, 9, 9), date(2026, 9, 7), ftp_w=FTP)
+
+
+def test_periode_un_seul_jour_se_comporte_comme_seance_du_jour():
+    evenements = [W.evenement(W.groupes_watts(), nom="4x8 fabriquée", jour="2026-09-08")]
+    unique = seances_periode(
+        client_bouchon(evenements), date(2026, 9, 8), date(2026, 9, 8), ftp_w=FTP
+    )
+    seance_jour = seance_du_jour(client_bouchon(evenements), date(2026, 9, 8), ftp_w=FTP)
+    assert list(unique) == [date(2026, 9, 8)]
+    assert unique[date(2026, 9, 8)] is not None and seance_jour is not None
+    assert unique[date(2026, 9, 8)].duree_s == seance_jour.duree_s

@@ -441,3 +441,86 @@ def test_le_seuil_de_la_configuration_est_utilise(tmp_path, capsys):
     # 80-85 % de FTP passe sous un seuil à 90 % : plus aucun bloc.
     assert charge["meta"]["seuil_recuperation_pct"] == 0.90
     assert charge["n_blocs"] == 0
+
+
+# --- plage --depuis/--jusqua (F0.3) --------------------------------------------
+
+
+def test_plage_json_couvre_chaque_jour_seance_ou_non(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [
+        W.evenement(W.groupes_watts(), nom="Lundi", identifiant=1, jour="2026-09-07"),
+        W.evenement(W.groupes_watts(), nom="Mercredi", identifiant=2, jour="2026-09-09"),
+    ]
+    code = executer(
+        args(jour=None, depuis="2026-09-07", jusqua="2026-09-09", json=True),
+        config,
+        client=client_bouchon(evenements),
+    )
+    assert code == 0
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["depuis"] == "2026-09-07"
+    assert charge["jusqua"] == "2026-09-09"
+    jours = {j["jour"]: j["seance"] for j in charge["jours"]}
+    assert list(jours) == ["2026-09-07", "2026-09-08", "2026-09-09"]
+    assert jours["2026-09-07"]["nom"] == "Lundi"
+    assert jours["2026-09-08"] is None  # jour demandé, sans séance : distinct d'un jour absent
+    assert jours["2026-09-09"]["nom"] == "Mercredi"
+    # La séance de la plage a la même forme que celle de `seance --jour`.
+    assert "etapes" in jours["2026-09-07"] and "distance_estimee_m" in jours["2026-09-07"]
+
+
+def test_plage_texte_dit_les_jours_vides(tmp_path, capsys):
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.groupes_watts(), nom="Mercredi", jour="2026-09-09")]
+    executer(
+        args(jour=None, depuis="2026-09-07", jusqua="2026-09-09"),
+        config,
+        client=client_bouchon(evenements),
+    )
+    sortie = capsys.readouterr().out
+    assert "2026-09-07 — aucune séance vélo planifiée." in sortie
+    assert "2026-09-08 — aucune séance vélo planifiée." in sortie
+    assert "Mercredi" in sortie
+
+
+def test_plage_un_seul_appel_reseau(tmp_path, capsys):
+    config = config_de_test(tmp_path)
+    urls: list[httpx.URL] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        urls.append(requete.url)
+        return httpx.Response(200, json=[])
+
+    client = ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    executer(args(jour=None, depuis="2026-09-07", jusqua="2026-09-13"), config, client=client)
+    assert len(urls) == 1
+    assert urls[0].params["oldest"] == "2026-09-07"
+    assert urls[0].params["newest"] == "2026-09-13"
+
+
+def test_jour_et_plage_ensemble_sont_refuses(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="exclusifs"):
+        executer(
+            args(depuis="2026-09-07", jusqua="2026-09-13"), config, client=client_bouchon([])
+        )
+
+
+def test_depuis_sans_jusqua_est_refuse(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="ensemble"):
+        executer(args(jour=None, depuis="2026-09-07"), config, client=client_bouchon([]))
+
+
+def test_plage_inversee_est_refusee(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur):
+        executer(
+            args(jour=None, depuis="2026-09-13", jusqua="2026-09-07"),
+            config,
+            client=client_bouchon([]),
+        )

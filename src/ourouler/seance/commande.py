@@ -34,7 +34,7 @@ from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
-from ourouler.seance.intervals import seance_du_jour
+from ourouler.seance.intervals import seance_du_jour, seances_periode
 from ourouler.seance.modele import (
     ZONE_FC_BASSE_MAX,
     Etape,
@@ -128,8 +128,16 @@ def longueurs(
 def executer(
     args: argparse.Namespace, config: Config, client: ClientIntervals | None = None
 ) -> int:
-    """Exécute `ourouler seance`. Sans séance ce jour-là : message clair, code 0."""
-    jour = _jour(getattr(args, "jour", None))
+    """Exécute `ourouler seance`. Sans séance ce jour-là : message clair, code 0.
+
+    Deux modes, exclusifs : `--jour` (un jour, inchangé depuis L4.1) ou
+    `--depuis`/`--jusqua` ensemble (une plage, F0.3) — voir `_executer_periode`.
+    """
+    jour_brut = getattr(args, "jour", None)
+    depuis_brut = getattr(args, "depuis", None)
+    jusqua_brut = getattr(args, "jusqua", None)
+    _valider_mode(jour_brut, depuis_brut, jusqua_brut)
+
     if client is None:
         if not config.intervals.renseigne:
             raise ErreurUtilisateur(
@@ -138,6 +146,10 @@ def executer(
             )
         client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
 
+    if depuis_brut or jusqua_brut:
+        return _executer_periode(args, config, client, _jour(depuis_brut), _jour(jusqua_brut))
+
+    jour = _jour(jour_brut)
     seance = seance_du_jour(
         client,
         jour,
@@ -159,6 +171,46 @@ def executer(
         print(json.dumps(rendre_json(seance, mesures, source), ensure_ascii=False, indent=2))
     else:
         print(rendre_texte(seance, mesures, source))
+    return 0
+
+
+def _valider_mode(jour: str | None, depuis: str | None, jusqua: str | None) -> None:
+    if jour and (depuis or jusqua):
+        raise ErreurUtilisateur("séance : --jour et --depuis/--jusqua sont exclusifs")
+    if bool(depuis) != bool(jusqua):
+        raise ErreurUtilisateur("séance : --depuis et --jusqua se donnent ensemble")
+
+
+def _executer_periode(
+    args: argparse.Namespace, config: Config, client: ClientIntervals, depuis: date, jusqua: date
+) -> int:
+    """Le mode `--depuis`/`--jusqua` : une séance par jour de la plage, un seul appel réseau.
+
+    `seances_periode` porte déjà la garde `jusqua < depuis`. Chaque jour de la
+    plage figure dans le rendu, avec `seance: null` s'il n'y en a pas — un
+    jour vide s'y distingue donc d'un jour jamais demandé, qui n'apparaît
+    simplement pas.
+    """
+    resultats = seances_periode(
+        client,
+        depuis,
+        jusqua,
+        ftp_w=config.cycliste.ftp_w,
+        zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        puissance_endurance_pct=config.seance.puissance_endurance_pct,
+        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
+    )
+    vitesses, source = _vitesses(config)
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                rendre_json_periode(depuis, jusqua, resultats, vitesses, source),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(rendre_texte_periode(depuis, jusqua, resultats, vitesses, source))
     return 0
 
 
@@ -394,6 +446,52 @@ def rendre_json(seance: Seance, mesures: list[LongueurEtape], source: SourceVite
     }
 
 
+def rendre_json_periode(
+    depuis: date,
+    jusqua: date,
+    resultats: dict[date, Seance | None],
+    vitesses: dict,
+    source: SourceVitesse,
+) -> dict:
+    """Une entrée par jour de `depuis` à `jusqua`, séance ou `null` — jamais d'absent.
+
+    L'objet `seance` de chaque jour a exactement la forme que rend
+    `rendre_json` pour `seance --jour` : un front qui sait déjà lire l'un sait
+    lire l'autre.
+    """
+    return {
+        "depuis": depuis.isoformat(),
+        "jusqua": jusqua.isoformat(),
+        "jours": [
+            {
+                "jour": jour.isoformat(),
+                "seance": None
+                if seance is None
+                else rendre_json(seance, longueurs(seance, **vitesses), source),
+            }
+            for jour, seance in sorted(resultats.items())
+        ],
+    }
+
+
+def rendre_texte_periode(
+    depuis: date,
+    jusqua: date,
+    resultats: dict[date, Seance | None],
+    vitesses: dict,
+    source: SourceVitesse,
+) -> str:
+    lignes = [f"Séances planifiées du {depuis.isoformat()} au {jusqua.isoformat()}", ""]
+    for jour, seance in sorted(resultats.items()):
+        if seance is None:
+            lignes.append(f"{jour.isoformat()} — aucune séance vélo planifiée.")
+            lignes.append("")
+            continue
+        lignes.append(rendre_texte(seance, longueurs(seance, **vitesses), source))
+        lignes.append("")
+    return "\n".join(lignes).rstrip("\n")
+
+
 # --- petits rendus ------------------------------------------------------------
 
 
@@ -443,4 +541,13 @@ def _duree_longue(secondes: float) -> str:
     return f"{minutes // 60} h {minutes % 60:02d}"
 
 
-__all__ = ["LongueurEtape", "SourceVitesse", "executer", "longueurs", "rendre_json", "rendre_texte"]
+__all__ = [
+    "LongueurEtape",
+    "SourceVitesse",
+    "executer",
+    "longueurs",
+    "rendre_json",
+    "rendre_json_periode",
+    "rendre_texte",
+    "rendre_texte_periode",
+]
