@@ -493,6 +493,20 @@ def _resegmenter(
                 # colonne « coût profil » de toute candidate générée (lot L3.2),
                 # sans que rien ne le dise.
                 cout_km=segment.cout_km,
+                # Même histoire que `cout_km`, un champ plus tard : `node_tags`
+                # est arrivé au sprint 4 et ce constructeur ne l'a jamais repris.
+                # Conséquence, trouvée le 16/09/2026 : **toute candidate élaguée
+                # perdait ses feux, stops et passages piétons**, donc
+                # `evaluer_couloir` notait un couloir urbain comme une route de
+                # campagne. Mesuré sur une boucle réelle au nord de Rennes : le
+                # couloir du premier bloc notait 2,43 sans un carrefour, contre
+                # 22,51 avec quatre feux une fois les tags conservés.
+                #
+                # Nuance qui compte : `node_tags` décrit le **nœud de fin** du
+                # tronçon. Si l'élagage a déplacé cette fin, ce ne sont plus les
+                # tags du bon nœud — on les laisse tomber plutôt que de les
+                # attribuer à un point qui n'est pas le leur.
+                node_tags=dict(segment.node_tags) if fin == ancien_fin else {},
             )
         )
     return resegmentes

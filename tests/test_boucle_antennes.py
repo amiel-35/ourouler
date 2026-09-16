@@ -463,3 +463,34 @@ def test_une_antenne_juste_sous_la_fenetre_n_est_pas_perdue_par_son_voisinage():
     antennes = detecter(trace, fenetre_m=310)
     assert len(antennes) == 1
     assert antennes[0].longueur_m == pytest.approx(300, abs=25)
+
+
+def test_l_elagage_garde_les_tags_de_noeud():
+    """Les feux suivent le tronçon : sans eux, une boucle urbaine se note comme la campagne.
+
+    Même faute que `cout_km`, un champ et trois mois plus tard. `node_tags`
+    est arrivé au sprint 4 et le constructeur de `_resegmenter` ne l'a jamais
+    repris : **toute candidate générée passe par l'élagage**, donc toute
+    candidate perdait ses feux, stops et passages piétons avant d'être notée.
+    `evaluer_couloir` jugeait des couloirs urbains sans un carrefour.
+
+    Mesuré le 16/09/2026 sur une boucle réelle au nord de Rennes, avant et
+    après correction : le couloir du premier bloc notait **2,43 sans un seul
+    carrefour**, contre **22,51 avec quatre feux** une fois les tags gardés.
+    Le mainteneur l'avait vu à l'œil sur la carte — « le 1er bloc en zone 4 et
+    en pleine ville, je suis persuadé qu'il y a des feux, jamais je prends
+    ça » — avant qu'aucun des 3 206 tests ne s'en aperçoive.
+    """
+    trace = trace_segmentee()
+    for i, segment in enumerate(trace.segments):
+        trace.segments[i] = Segment(
+            segment.debut_idx,
+            segment.fin_idx,
+            segment.longueur_m,
+            segment.tags,
+            node_tags={"highway": "traffic_signals"},
+        )
+    elaguee = elaguer(trace, detecter(trace))
+    assert elaguee.segments
+    gardes = [s for s in elaguee.segments if s.node_tags.get("highway") == "traffic_signals"]
+    assert gardes, "aucun tronçon élagué n'a gardé ses tags de nœud : les feux sont perdus"
