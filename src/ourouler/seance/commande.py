@@ -5,6 +5,11 @@ est) et appelle Intervals.icu ; le reste de `seance/` ne connaît ni fichier,
 ni réseau. Le client est injectable pour que les tests ne touchent jamais le
 réseau.
 
+**`--fichier-seance`** (F1) remplace Intervals.icu par un `.ZWO`/`.MRC` donné
+en ligne de commande, lu par `seance.fichier.lire_fichier_seance` — voir
+`_executer_fichier`. C'est le seul autre module qui touche un chemin ici, et
+seulement celui que `cli.py` lui passe déjà résolu (règle absolue 2).
+
 **Ce que « longueur de route nécessaire » veut dire.** Pour chaque étape, on
 demande au modèle physique la vitesse d'équilibre à la puissance cible, **sur
 le plat et sans vent** ; la longueur est cette vitesse multipliée par la
@@ -29,6 +34,7 @@ import argparse
 import json
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
@@ -130,13 +136,25 @@ def executer(
 ) -> int:
     """Exécute `ourouler seance`. Sans séance ce jour-là : message clair, code 0.
 
-    Deux modes, exclusifs : `--jour` (un jour, inchangé depuis L4.1) ou
-    `--depuis`/`--jusqua` ensemble (une plage, F0.3) — voir `_executer_periode`.
+    Trois modes, exclusifs entre eux sauf `--jour` qui reste compatible avec
+    `--fichier-seance` (il y fixe alors le jour auquel la séance importée est
+    rattachée, aujourd'hui par défaut) :
+
+    - `--jour` seul : un jour chez Intervals.icu (inchangé depuis L4.1) ;
+    - `--depuis`/`--jusqua` ensemble : une plage chez Intervals.icu (F0.3,
+      voir `_executer_periode`) ;
+    - `--fichier-seance` : un `.ZWO`/`.MRC` donné en ligne de commande au lieu
+      d'Intervals.icu (F1, comble C1 de `docs/ux/relecture_f0.md` — voir
+      `_executer_fichier`).
     """
     jour_brut = getattr(args, "jour", None)
     depuis_brut = getattr(args, "depuis", None)
     jusqua_brut = getattr(args, "jusqua", None)
-    _valider_mode(jour_brut, depuis_brut, jusqua_brut)
+    fichier_brut = getattr(args, "fichier_seance", None)
+    _valider_mode(jour_brut, depuis_brut, jusqua_brut, fichier_brut)
+
+    if fichier_brut:
+        return _executer_fichier(args, config, Path(fichier_brut), _jour(jour_brut))
 
     if client is None:
         if not config.intervals.renseigne:
@@ -165,6 +183,33 @@ def executer(
             print(f"Aucune séance vélo planifiée le {jour.isoformat()} sur Intervals.icu.")
         return 0
 
+    return _rendre(args, config, seance)
+
+
+def _executer_fichier(
+    args: argparse.Namespace, config: Config, chemin: Path, jour: date
+) -> int:
+    """Séance lue depuis un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, C1).
+
+    Le reste de l'enchaînement — vitesses, longueurs, rendu — est celui de
+    `executer` : un fichier remplace seulement la source de la `Seance`.
+    `lire_fichier_seance` lève `ErreurLecture` (sous-classe d'`ErreurUtilisateur`)
+    pour un fichier absent, vide, mal formé ou d'extension inconnue ; `cli.py`
+    l'affiche en une ligne comme toute autre erreur utilisateur.
+    """
+    from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
+
+    seance = lire_fichier_seance(
+        chemin,
+        ftp_w=config.cycliste.ftp_w,
+        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
+        jour=jour,
+    )
+    return _rendre(args, config, seance)
+
+
+def _rendre(args: argparse.Namespace, config: Config, seance: Seance) -> int:
+    """La queue commune à `--jour` et `--fichier-seance` : vitesses, longueurs, rendu."""
     vitesses, source = _vitesses(config)
     mesures = longueurs(seance, **vitesses)
     if getattr(args, "json", False):
@@ -174,7 +219,14 @@ def executer(
     return 0
 
 
-def _valider_mode(jour: str | None, depuis: str | None, jusqua: str | None) -> None:
+def _valider_mode(
+    jour: str | None, depuis: str | None, jusqua: str | None, fichier: str | None = None
+) -> None:
+    if fichier and (depuis or jusqua):
+        raise ErreurUtilisateur(
+            "séance : --fichier-seance est exclusif de --depuis/--jusqua "
+            "— un fichier ne couvre qu'un seul jour"
+        )
     if jour and (depuis or jusqua):
         raise ErreurUtilisateur("séance : --jour et --depuis/--jusqua sont exclusifs")
     if bool(depuis) != bool(jusqua):
@@ -294,6 +346,12 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
         + (f" (hors {inconnues} étape(s) sans puissance)" if inconnues else "")
     )
     lignes.append(source.resume)
+    if seance.meta.get("conversion"):
+        # Séance venue d'un fichier (`.ZWO`/`.MRC`, F1) : la conversion des
+        # pourcentages de FTP en watts doit être visible et dire qu'elle a eu
+        # lieu (docs/ux/maquettes_v1.html E17) — c'est ainsi que quelqu'un
+        # découvre que sa FTP est mal renseignée.
+        lignes.append(seance.meta["conversion"])
     if seance.meta.get("puissance_approximee"):
         lignes.extend(_approximation(seance))
     for message in _avertissements(seance):

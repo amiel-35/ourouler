@@ -174,3 +174,92 @@ def test_seance_accepte_json_avant_la_sous_commande():
 def test_seance_refuse_une_option_inconnue():
     with pytest.raises(SystemExit):
         construire_parseur().parse_args(["seance", "--velo", "RCR"])
+
+
+# --- la troisième valeur de l'écran de FTP (F1, comble C2 de la relecture) ---
+#
+# `moyenne_compteur_kmh` (physique.modele) existait déjà, sans appelant : ces
+# tests couvrent le branchement dans `ourouler config`, pas le calcul
+# lui-même (couvert par tests/test_physique_modele.py).
+
+CONFIG_VELO = (
+    CONFIG + '[[velos]]\nnom="Route"\nusage="route"\nmasse_kg=9.0\ncda_m2=0.30\ncrr=0.005\n'
+)
+CONFIG_VELO_MESURE = CONFIG_VELO + "facteur_compteur=0.85\n"
+
+
+def test_config_sans_section_velos_prend_quand_meme_le_velo_route_par_defaut(tmp_path, capsys):
+    """`depuis_dict` pose déjà un vélo « Route » par défaut sans `[[velos]]` :
+    la ligne apparaît donc dès la config la plus nue, avec un CdA/Crr par
+    défaut — pas de crash, et le facteur reste marqué supposé."""
+    assert main(["--config", str(_config(tmp_path, CONFIG)), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "Vitesse" in out
+    assert "SUPPOSÉ" in out
+
+
+def test_info_vitesse_compteur_rend_none_sans_le_moindre_velo():
+    """Garde défensive : `_info_vitesse_compteur` ne doit jamais planter si
+    `Config.velos` est vide, même si `depuis_dict` ne produit jamais ce cas
+    en pratique (elle pose toujours un vélo « Route » par défaut)."""
+    import dataclasses
+
+    from ourouler.cli import _info_vitesse_compteur
+    from ourouler.config import depuis_dict
+
+    config = depuis_dict(
+        {
+            "depart": {"nom": "Test", "latitude": 0.0, "longitude": 0.0},
+            "cycliste": {"masse_kg": 80, "ftp_w": 250},
+        }
+    )
+    assert _info_vitesse_compteur(dataclasses.replace(config, velos=())) is None
+
+
+def test_config_avec_velo_affiche_la_vitesse_a_plat_et_la_moyenne_compteur(tmp_path, capsys):
+    assert main(["--config", str(_config(tmp_path, CONFIG_VELO)), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "Vitesse" in out
+    assert "à plat" in out
+    assert "moyenne compteur" in out
+
+
+def test_config_sans_facteur_regle_dit_suppose(tmp_path, capsys):
+    """Défaut du facteur (F0.6) : dérivé, pas mesuré — l'écran doit le dire."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_VELO)), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "SUPPOSÉ" in out
+
+
+def test_config_avec_facteur_regle_dit_mesure_et_pas_suppose(tmp_path, capsys):
+    """Un utilisateur qui a réglé son facteur ne reçoit pas le même avertissement."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_VELO_MESURE)), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "mesuré" in out
+    assert "SUPPOSÉ" not in out
+
+
+def test_config_json_distingue_facteur_mesure_de_suppose(tmp_path, capsys):
+    assert main(["--config", str(_config(tmp_path, CONFIG_VELO)), "config", "--json"]) == 0
+    suppose = json.loads(capsys.readouterr().out)["seance"]["vitesse_compteur"]
+    assert suppose["facteur_mesure"] is False
+
+    assert main(["--config", str(_config(tmp_path, CONFIG_VELO_MESURE)), "config", "--json"]) == 0
+    mesure = json.loads(capsys.readouterr().out)["seance"]["vitesse_compteur"]
+    assert mesure["facteur_mesure"] is True
+    assert mesure["facteur_compteur"] == pytest.approx(0.85)
+
+
+def test_config_json_vitesse_compteur_plus_basse_que_vitesse_a_plat(tmp_path, capsys):
+    """C'est tout l'intérêt de l'afficher : elle est plus basse dès que le
+    facteur l'est (docstring de `moyenne_compteur_kmh`)."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_VELO_MESURE)), "config", "--json"]) == 0
+    info = json.loads(capsys.readouterr().out)["seance"]["vitesse_compteur"]
+    assert info["moyenne_compteur_kmh"] < info["vitesse_a_plat_kmh"]
+
+
+def test_config_json_vitesse_compteur_present_avec_le_velo_par_defaut(tmp_path, capsys):
+    assert main(["--config", str(_config(tmp_path, CONFIG)), "config", "--json"]) == 0
+    info = json.loads(capsys.readouterr().out)["seance"]["vitesse_compteur"]
+    assert info is not None
+    assert info["facteur_mesure"] is False

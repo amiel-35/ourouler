@@ -524,3 +524,115 @@ def test_plage_inversee_est_refusee(tmp_path):
             config,
             client=client_bouchon([]),
         )
+
+
+# --- --fichier-seance (F1, C1 de docs/ux/relecture_f0.md) ---------------------
+
+ZWO_FABRIQUE = (
+    "<?xml version='1.0'?>\n<workout_file>\n<name>4x8 fabriquée (fichier)</name>\n"
+    '<workout><SteadyState Duration="480" Power="0.9"/></workout>\n'
+    "</workout_file>\n"
+)
+
+
+def _ecrire_zwo(tmp_path: Path) -> Path:
+    chemin = tmp_path / "seance.zwo"
+    chemin.write_text(ZWO_FABRIQUE, encoding="utf-8")
+    return chemin
+
+
+def test_fichier_seance_ne_touche_jamais_intervals(tmp_path):
+    """Un `client` est donné mais ne doit jamais être sollicité : la preuve
+    qu'un fichier remplace vraiment Intervals.icu, pas seulement en apparence."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        raise AssertionError("Intervals.icu appelé alors qu'un fichier était donné")
+
+    client = ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    code = executer(args(jour=None, fichier_seance=str(chemin)), config, client=client)
+    assert code == 0
+
+
+def test_fichier_seance_affiche_la_seance_lue(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin)), config)
+    sortie = capsys.readouterr().out
+    assert "4x8 fabriquée (fichier)" in sortie
+    assert "8 min" in sortie or "8:00" in sortie
+
+
+def test_fichier_seance_dit_la_conversion_en_watts(tmp_path, capsys):
+    """C1 + E17 : la conversion pourcentage → watts est visible en texte."""
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin)), config)
+    sortie = capsys.readouterr().out
+    assert f"FTP de {FTP:g} W" in sortie
+
+
+def test_fichier_seance_json_porte_la_conversion_dans_meta(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, json=True, fichier_seance=str(chemin)), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["meta"]["source"] == "zwo"
+    assert "convertis en watts" in charge["meta"]["conversion"]
+
+
+def test_fichier_seance_utilise_le_jour_donne(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour="2026-01-05", fichier_seance=str(chemin), json=True), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["jour"] == "2026-01-05"
+
+
+def test_fichier_seance_sans_jour_vaut_aujourd_hui(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin), json=True), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["jour"] == date.today().isoformat()
+
+
+def test_fichier_seance_utilise_le_modele_calibre_comme_les_autres_modes(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin), json=True), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["vitesses"]["provenance"] == "calibration"
+
+
+def test_fichier_seance_exclusif_de_depuis_jusqua(tmp_path):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="exclusif"):
+        executer(
+            args(
+                jour=None,
+                fichier_seance=str(chemin),
+                depuis="2026-09-07",
+                jusqua="2026-09-13",
+            ),
+            config,
+        )
+
+
+def test_fichier_seance_inexistant_est_une_erreur_utilisateur(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur):
+        executer(args(jour=None, fichier_seance=str(tmp_path / "absent.zwo")), config)
+
+
+def test_fichier_seance_extension_inconnue_nomme_l_extension(tmp_path):
+    chemin = tmp_path / "seance.fit"
+    chemin.write_text("peu importe", encoding="utf-8")
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="inconnue"):
+        executer(args(jour=None, fichier_seance=str(chemin)), config)

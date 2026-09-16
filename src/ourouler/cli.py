@@ -264,6 +264,7 @@ def ajouter_config(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_config(args: argparse.Namespace, config: Config) -> int:
+    info_vitesse = _info_vitesse_compteur(config)
     if args.json:
         import dataclasses
         import json
@@ -281,6 +282,9 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         # front la lit dans ce JSON. Sans cette ligne, elle disparaîtrait du
         # contrat d'API sans que rien ne le signale.
         d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
+        # Troisième valeur de l'écran de FTP (F1, comble C2 de
+        # docs/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
+        d["seance"]["vitesse_compteur"] = info_vitesse
         print(json.dumps(d, default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
@@ -311,9 +315,64 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         f"{config.seance.puissance_endurance_pct:.0%} de FTP, soit "
         f"{config.seance.puissance_endurance_pct * config.cycliste.ftp_w:.0f} W"
     )
+    if info_vitesse is not None:
+        mention = (
+            "mesuré"
+            if info_vitesse["facteur_mesure"]
+            else "SUPPOSÉ, non mesuré — `ourouler calibrer` puis "
+            "tests/validation/facteur_compteur_retrospectif.py"
+        )
+        print(
+            f"Vitesse  : {info_vitesse['puissance_endurance_w']:.0f} W → "
+            f"{info_vitesse['vitesse_a_plat_kmh']:.1f} km/h à plat, moyenne compteur ≈ "
+            f"{info_vitesse['moyenne_compteur_kmh']:.1f} km/h (vélo {info_vitesse['velo']}, "
+            f"facteur {info_vitesse['facteur_compteur']:.3f}, {mention})"
+        )
     print(f"Cache    : {config.cache.dossier}")
     print(f"Historique depuis : {config.historique_depuis}")
     return 0
+
+
+def _info_vitesse_compteur(config: Config) -> dict | None:
+    """La troisième valeur de l'écran de FTP (F1, comble C2 de `docs/ux/relecture_f0.md`).
+
+    À la puissance d'endurance de la configuration : la vitesse à plat que
+    prédit le modèle physique du premier vélo route, et la moyenne compteur
+    qu'elle en déduit — celle qui empêche de saisir sa moyenne de compteur
+    dans un champ « à plat » (`config.py`, `Velo.facteur_compteur`).
+
+    `None` si la configuration ne porte aucun vélo : rien à calculer, et
+    `ourouler config` doit rester utilisable sans vélo déclaré.
+
+    **`facteur_mesure` distingue un facteur réglé par l'utilisateur** (mesuré
+    sur son propre historique, `tests/validation/facteur_compteur_retrospectif.py`)
+    **d'un facteur dérivé par défaut** d'une sortie de référence supposée — 10 m
+    de dénivelé par kilomètre, 5 % d'arrêts (`physique.modele.facteur_compteur_defaut`).
+    Ce n'est alors pas une mesure, et c'est le seul chiffre de F0.6 qui n'en
+    soit pas une : tout écran qui l'affiche doit le dire, donc ce champ existe.
+    """
+    if not config.velos:
+        return None
+    from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
+    from ourouler.physique.modele import (
+        facteur_compteur_defaut,
+        moyenne_compteur_kmh,
+        vitesse_a_plat_kmh,
+    )
+
+    velo = velo_demande(config, None)
+    parametres, _provenance_modele = parametres_du_velo(config, velo, chemin_calibration(config))
+    puissance_w = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
+    mesure = velo.facteur_compteur is not None
+    facteur = velo.facteur_compteur if mesure else facteur_compteur_defaut(puissance_w, parametres)
+    return {
+        "velo": velo.nom,
+        "puissance_endurance_w": round(puissance_w, 1),
+        "vitesse_a_plat_kmh": round(vitesse_a_plat_kmh(puissance_w, parametres), 1),
+        "moyenne_compteur_kmh": round(moyenne_compteur_kmh(puissance_w, parametres, facteur), 1),
+        "facteur_compteur": round(facteur, 3),
+        "facteur_mesure": mesure,
+    }
 
 
 def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
@@ -575,6 +634,12 @@ def ajouter_seance(sous: argparse._SubParsersAction) -> None:
         metavar="AAAA-MM-JJ",
         help="fin d'une plage de jours, incluse (avec --depuis)",
     )
+    p.add_argument(
+        "--fichier-seance",
+        metavar="FICHIER",
+        help="lit la séance dans un fichier .ZWO ou .MRC au lieu d'Intervals.icu "
+        "(exclusif de --depuis/--jusqua ; --jour fixe alors le jour auquel elle est rattachée)",
+    )
     p.set_defaults(fonction=_commande_seance)
 
 
@@ -591,6 +656,12 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
         parents=[parent_json()],
     )
     p.add_argument("--jour", metavar="AAAA-MM-JJ", help="date de la séance (défaut : aujourd'hui)")
+    p.add_argument(
+        "--fichier-seance",
+        metavar="FICHIER",
+        help="place les blocs d'une séance lue dans un .ZWO ou .MRC au lieu de celle d'Intervals.icu "
+        "(--jour fixe alors le jour auquel elle est rattachée)",
+    )
     p.add_argument(
         "--distance",
         type=float,
