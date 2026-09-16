@@ -20,6 +20,9 @@ config.*.toml
 # donc le point de départ du mainteneur. Elles sont écrites dans le dossier
 # courant, y compris quand on lance la commande à la racine du dépôt.
 *.html
+# ...sauf les maquettes du cycle UX, qui sont du travail de conception et
+# non une sortie de `ourouler sortie` (la raison de la règle ci-dessus).
+!docs/ux/*.html
 !tests/fixtures/**
 # ... mais pas le bytecode que pytest y laisse en chargeant le generateur.
 tests/fixtures/**/__pycache__/

@@ -1,0 +1,797 @@
+<title>Où rouler — maquettes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  --papier:#F7F8F7; --carte:#FFFFFF; --encre:#161C1A; --encre-2:#41504C;
+  --muet:#6B7573; --trait:#DCE2E0; --trait-fort:#C3CCC9;
+  --accent:#12657F; --accent-doux:#E4EFF3; --accent-fort:#0B4B60;
+  --z1:#8A9794; --z2:#5B8C7B; --z3:#B08A1E; --z4:#BE6229; --z5:#A03028;
+  --bien:#2F6B52; --attention:#9A5416; --alerte:#9B2F27;
+  --bien-fond:#E6F0EA; --attention-fond:#F7EBDD; --alerte-fond:#F7E4E2; --info-fond:#E4EFF3;
+  --ombre:0 1px 2px rgba(22,28,26,.06), 0 8px 24px -12px rgba(22,28,26,.18);
+  --ombre-tel:0 2px 4px rgba(22,28,26,.08), 0 24px 48px -24px rgba(22,28,26,.35);
+  --r:10px;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --titre:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --papier:#0E1413; --carte:#171F1D; --encre:#E8EDEB; --encre-2:#B4C0BC;
+    --muet:#8A9793; --trait:#28332F; --trait-fort:#3A4844;
+    --accent:#5AB3CE; --accent-doux:#12292F; --accent-fort:#8CD0E4;
+    --z1:#7C8A86; --z2:#6FA891; --z3:#CBA63A; --z4:#D97F45; --z5:#C4534A;
+    --bien:#6FB894; --attention:#D39A5A; --alerte:#D7736A;
+    --bien-fond:#152620; --attention-fond:#2A2013; --alerte-fond:#2B1817; --info-fond:#12292F;
+    --ombre:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    --ombre-tel:0 2px 4px rgba(0,0,0,.5), 0 24px 48px -24px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --papier:#0E1413; --carte:#171F1D; --encre:#E8EDEB; --encre-2:#B4C0BC;
+  --muet:#8A9793; --trait:#28332F; --trait-fort:#3A4844;
+  --accent:#5AB3CE; --accent-doux:#12292F; --accent-fort:#8CD0E4;
+  --z1:#7C8A86; --z2:#6FA891; --z3:#CBA63A; --z4:#D97F45; --z5:#C4534A;
+  --bien:#6FB894; --attention:#D39A5A; --alerte:#D7736A;
+  --bien-fond:#152620; --attention-fond:#2A2013; --alerte-fond:#2B1817; --info-fond:#12292F;
+  --ombre:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  --ombre-tel:0 2px 4px rgba(0,0,0,.5), 0 24px 48px -24px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--papier);color:var(--encre);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+h1,h2,h3,h4{text-wrap:balance;margin:0}
+a{color:var(--accent)}
+
+/* ---------- chrome de la page ---------- */
+.enveloppe{max-width:1280px;margin:0 auto;padding:0 20px 96px}
+header.tete{padding-block:56px 32px;border-bottom:1px solid var(--trait)}
+.sur-titre{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muet);margin-bottom:14px}
+h1{font-family:var(--titre);font-size:clamp(34px,5.4vw,58px);line-height:1.02;font-weight:700;letter-spacing:-.022em;max-width:17ch}
+.chapo{margin-top:18px;max-width:62ch;color:var(--encre-2);font-size:17px}
+.chapo em{font-style:normal;color:var(--encre);font-weight:600;box-shadow:inset 0 -.42em 0 var(--accent-doux)}
+
+.decisions{display:grid;gap:1px;background:var(--trait);border:1px solid var(--trait);border-radius:var(--r);margin-top:32px;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));overflow:hidden}
+.decision{background:var(--carte);padding:16px 17px}
+.decision b{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:7px;font-weight:600}
+.decision span{font-size:13.5px;color:var(--encre-2);display:block}
+
+nav.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:color-mix(in srgb,var(--papier) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--trait);margin:0 -20px 0;padding:0 20px}
+.rail-inner{max-width:1280px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin;padding:9px 0}
+.rail-inner a{flex:0 0 auto;font-family:var(--mono);font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muet);text-decoration:none;padding:6px 11px;border-radius:99px;white-space:nowrap}
+.rail-inner a:hover{background:var(--accent-doux);color:var(--accent)}
+.rail-inner a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+section.flux{padding-block:64px 8px;scroll-margin-top:80px}
+.flux-tete{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;border-bottom:2px solid var(--encre);padding-bottom:12px;margin-bottom:10px}
+.flux-tete h2{font-family:var(--titre);font-size:clamp(23px,3vw,32px);letter-spacing:-.018em;font-weight:700}
+.flux-tete .compte{font-family:var(--mono);font-size:12px;color:var(--muet)}
+.flux-intro{max-width:64ch;color:var(--encre-2);margin:14px 0 6px;font-size:15.5px}
+
+/* ---------- paire écran + commentaire ---------- */
+.paire{display:grid;grid-template-columns:375px minmax(0,1fr);gap:40px;align-items:start;padding-block:40px;border-bottom:1px solid var(--trait)}
+.paire:last-child{border-bottom:none}
+@media (max-width:900px){.paire{grid-template-columns:minmax(0,1fr);gap:26px}}
+.notes h3{font-family:var(--titre);font-size:20px;font-weight:700;letter-spacing:-.012em;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.notes h3 .ref{font-family:var(--mono);font-size:11.5px;color:var(--accent);background:var(--accent-doux);padding:2px 7px;border-radius:5px;font-weight:600;letter-spacing:.04em}
+.notes p{margin:12px 0;max-width:60ch;color:var(--encre-2)}
+.notes p strong{color:var(--encre)}
+.notes ul{margin:12px 0;padding-left:0;list-style:none;max-width:60ch;display:flex;flex-direction:column;gap:9px}
+.notes ul li{padding-left:17px;position:relative;color:var(--encre-2)}
+.notes ul li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:1.5px;background:var(--trait-fort)}
+.notes ul li strong{color:var(--encre)}
+
+.pastilles{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.p{font-family:var(--mono);font-size:10.5px;letter-spacing:.045em;padding:3px 8px;border-radius:5px;font-weight:500;display:inline-flex;gap:5px;align-items:center}
+.p::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.p.ok{background:var(--bien-fond);color:var(--bien)}
+.p.ecrire{background:var(--attention-fond);color:var(--attention)}
+.p.ouvert{background:var(--info-fond);color:var(--accent)}
+
+.citation{border-left:2px solid var(--accent);padding:2px 0 2px 15px;margin:18px 0;color:var(--encre-2);font-style:italic;max-width:58ch}
+.citation b{font-style:normal;color:var(--encre)}
+
+/* ---------- cadre téléphone ---------- */
+.tel{width:375px;max-width:100%;background:var(--carte);border:1px solid var(--trait-fort);border-radius:26px;box-shadow:var(--ombre-tel);overflow:hidden;position:sticky;top:76px}
+@media (max-width:900px){.tel{position:static;margin-inline:auto}}
+.tel.large{width:100%;position:static;border-radius:14px}
+.barre-etat{display:flex;justify-content:space-between;align-items:center;padding:9px 18px 4px;font-family:var(--mono);font-size:10.5px;color:var(--muet);letter-spacing:.03em}
+.ecran{padding:12px 18px 22px;min-height:120px}
+.tel.large .ecran{padding:18px 22px 24px}
+
+/* ---------- éléments d'interface de la maquette ---------- */
+.app-tete{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--trait);margin-bottom:16px}
+.app-tete .quand{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muet);display:block;margin-bottom:4px}
+.app-tete h4{font-size:19px;font-weight:600;letter-spacing:-.015em;line-height:1.2}
+.marque{font-family:var(--titre);font-weight:700;font-size:15px;letter-spacing:-.02em}
+.marque span{color:var(--accent)}
+
+.champ{margin-bottom:14px}
+.champ label{display:block;font-size:12.5px;font-weight:600;color:var(--encre);margin-bottom:5px}
+.champ .aide{font-size:12px;color:var(--muet);margin-top:5px;line-height:1.45}
+.saisie{width:100%;border:1px solid var(--trait-fort);background:var(--papier);border-radius:8px;padding:9px 11px;font-family:var(--sans);font-size:14.5px;color:var(--encre)}
+.saisie.mono{font-family:var(--mono);font-size:13px}
+.saisie.vide{color:var(--muet)}
+.saisie-unite{display:flex;align-items:center;gap:0}
+.saisie-unite .saisie{border-radius:8px 0 0 8px;border-right:none}
+.saisie-unite .unite{font-family:var(--mono);font-size:12.5px;color:var(--muet);border:1px solid var(--trait-fort);border-left:1px solid var(--trait);border-radius:0 8px 8px 0;padding:9px 11px;background:var(--carte)}
+
+.bouton{display:block;width:100%;text-align:center;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:12px;font-family:var(--sans);font-size:15px;font-weight:600;cursor:default}
+:root[data-theme="dark"] .bouton,:root:not([data-theme="light"]) .bouton{color:#08181E}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .bouton{color:#08181E}}
+.bouton.second{background:transparent;color:var(--accent);border:1px solid var(--trait-fort)}
+.bouton.fantome{background:transparent;color:var(--muet);border:none;font-weight:500;font-size:13.5px;padding:9px}
+.boutons{display:flex;gap:9px;margin-top:6px}
+.boutons .bouton{flex:1}
+
+.bloc{border:1px solid var(--trait);border-radius:var(--r);padding:13px 14px;margin-bottom:12px;background:var(--carte)}
+.bloc.doux{background:var(--papier)}
+.bloc.choisi{border-color:var(--accent);border-width:2px;padding:12px 13px}
+.bloc-tete{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.bloc-tete h5{font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.bloc-tete .rang{font-family:var(--mono);font-size:10.5px;color:var(--muet);letter-spacing:.08em;text-transform:uppercase}
+
+.chiffres{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--encre-2)}
+.chiffres b{color:var(--encre);font-weight:600}
+.grand{font-family:var(--mono);font-size:27px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.grand small{font-size:13px;font-weight:400;color:var(--muet);margin-left:3px}
+
+.mention{font-size:12px;color:var(--muet);line-height:1.45}
+.encart{border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:12px}
+.encart.info{background:var(--info-fond);color:var(--accent-fort)}
+.encart.attention{background:var(--attention-fond);color:var(--attention)}
+.encart.alerte{background:var(--alerte-fond);color:var(--alerte)}
+.encart.bien{background:var(--bien-fond);color:var(--bien)}
+.encart b{font-weight:600}
+:root[data-theme="dark"] .encart.info{color:var(--accent)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .encart.info{color:var(--accent)}}
+
+/* barre de zones */
+.zones{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.zone-l{display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:center;font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
+.zone-l .n{color:var(--muet);letter-spacing:.04em}
+.zone-l .b{height:9px;border-radius:2px}
+.zone-l .v{color:var(--encre-2);font-size:11px}
+
+/* profil / carte schématique */
+.carte-mini{position:relative;border-radius:8px;overflow:hidden;background:var(--papier);border:1px solid var(--trait);aspect-ratio:16/10}
+.carte-mini svg{display:block;width:100%;height:100%}
+.carte-grande{aspect-ratio:4/3}
+
+/* étapes */
+.etapes{display:flex;flex-direction:column;gap:0;margin:2px 0 14px}
+.etape{display:grid;grid-template-columns:18px 1fr auto;gap:11px;align-items:center;padding:7px 0;border-bottom:1px solid var(--trait);font-size:13px}
+.etape:last-child{border-bottom:none}
+.etape .pt{width:9px;height:9px;border-radius:50%;justify-self:center}
+.etape .km{font-family:var(--mono);font-size:11.5px;color:var(--muet);font-variant-numeric:tabular-nums}
+.etape .nom b{font-weight:600}
+.etape .nom small{display:block;color:var(--muet);font-size:11.5px}
+
+/* progression */
+.jalons{display:flex;flex-direction:column;gap:0;margin:8px 0 4px}
+.jalon{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:9px 0;font-size:13.5px;border-bottom:1px solid var(--trait)}
+.jalon:last-child{border-bottom:none}
+.jalon .etat{font-family:var(--mono);font-size:13px;text-align:center}
+.jalon.fait{color:var(--encre-2)} .jalon.fait .etat{color:var(--bien)}
+.jalon.cours{color:var(--encre);font-weight:600} .jalon.cours .etat{color:var(--accent)}
+.jalon.suite{color:var(--muet)}
+.jalon .detail{font-family:var(--mono);font-size:11px;color:var(--muet);font-variant-numeric:tabular-nums}
+
+/* segments / onglets */
+.segments{display:flex;background:var(--papier);border:1px solid var(--trait);border-radius:8px;padding:2px;gap:2px;margin-bottom:14px}
+.segments span{flex:1;text-align:center;font-size:12.5px;padding:6px 4px;border-radius:6px;color:var(--muet);font-weight:500}
+.segments span.actif{background:var(--carte);color:var(--encre);font-weight:600;box-shadow:var(--ombre)}
+
+.rangee{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--trait);font-size:13.5px}
+.rangee:last-child{border-bottom:none}
+.rangee .cle{color:var(--muet);font-size:12.5px}
+.rangee .val{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;text-align:right}
+.lien{color:var(--accent);font-size:12.5px;font-weight:500;text-decoration:none}
+
+.depot{border:1.5px dashed var(--trait-fort);border-radius:var(--r);padding:26px 16px;text-align:center;background:var(--papier);margin-bottom:12px}
+.depot .grosse{font-size:14px;font-weight:600;margin-bottom:5px}
+.depot .fmt{font-family:var(--mono);font-size:11.5px;color:var(--muet);letter-spacing:.05em;margin-top:8px}
+
+.file-ligne{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--trait)}
+.file-ligne:last-child{border-bottom:none}
+.file-ligne .qui{font-size:14px;font-weight:600}
+.file-ligne .meta{font-family:var(--mono);font-size:11.5px;color:var(--muet);margin-top:3px}
+.file-actions{display:flex;gap:7px}
+.mini{font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:7px;border:1px solid var(--trait-fort);background:var(--carte);color:var(--encre)}
+.mini.oui{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .mini.oui{color:#08181E}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mini.oui{color:#08181E}}
+
+/* légende + clôture */
+.legende{margin-top:44px;border:1px solid var(--trait);border-radius:var(--r);padding:20px 22px;background:var(--carte)}
+.legende h3{font-family:var(--titre);font-size:17px;font-weight:700;margin-bottom:12px}
+.legende .rangs{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.legende .rangs div{font-size:13.5px;color:var(--encre-2)}
+.legende .rangs b{display:block;color:var(--encre);margin-bottom:2px}
+
+footer.fin{margin-top:64px;padding-top:28px;border-top:2px solid var(--encre)}
+footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spacing:-.018em;margin-bottom:14px}
+.ouvertes{display:grid;gap:1px;background:var(--trait);border:1px solid var(--trait);border-radius:var(--r);overflow:hidden;margin-top:18px}
+.ouverte{background:var(--carte);padding:15px 17px;display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}
+.ouverte .num{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600;background:var(--accent-doux);width:26px;height:26px;border-radius:6px;display:grid;place-items:center}
+.ouverte b{display:block;margin-bottom:3px}
+.ouverte span{font-size:13.5px;color:var(--encre-2)}
+@media (prefers-reduced-motion:no-preference){.paire{transition:none}}
+</style>
+
+<div class="enveloppe">
+
+<header class="tete">
+  <div class="sur-titre">Cycle discovery &amp; UX · 16 septembre 2026</div>
+  <h1>Où rouler, pour quelqu'un d'autre que soi</h1>
+  <p class="chapo">Dix-huit écrans qui font passer l'outil d'une ligne de commande à une application qu'un cycliste invité peut utiliser sans qu'on lui explique. Chaque écran indique <em>ce qui existe déjà</em>, ce qui reste à écrire, et ce qui attend un arbitrage.</p>
+
+  <div class="decisions">
+    <div class="decision"><b>Entrée</b><span>Demande modérée à la main, lien de connexion par e-mail, puis clé d'accès. Google et Apple en V2.</span></div>
+    <div class="decision"><b>Vent</b><span>Horizon de trois jours — la mesure sur 2 064 heures l'emporte sur l'intuition.</span></div>
+    <div class="decision"><b>Clé Intervals</b><span>L'écran montre où la trouver. Aucun produit du domaine ne fait ce geste : rien à copier.</span></div>
+    <div class="decision"><b>Organisation</b><span>Le générateur suit la logique Strava : les réglages et le résultat cohabitent. La retenue vient d'Apple.</span></div>
+  </div>
+</header>
+
+<nav class="rail"><div class="rail-inner">
+  <a href="#entrer">Entrer</a>
+  <a href="#assistant">S'installer</a>
+  <a href="#semaine">Sa semaine</a>
+  <a href="#generer">Demander un parcours</a>
+  <a href="#attendre">Attendre</a>
+  <a href="#choisir">Choisir et emporter</a>
+  <a href="#reglages">Réglages</a>
+  <a href="#ouvert">Ce qui reste ouvert</a>
+</div></nav>
+
+<!-- ============================ ENTRER ============================ -->
+<section class="flux" id="entrer">
+  <div class="flux-tete"><h2>Entrer</h2><span class="compte">E1 · E2 · E4 · E5</span></div>
+  <p class="flux-intro">Le seul délai du parcours qui dépend d'un humain. Un invité qui demande l'accès est au sommet de sa motivation, et il le passe à attendre — c'est le premier endroit où on le perd.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>oùrouler.fr</span></div><div class="ecran">
+      <div class="marque" style="margin-bottom:18px">où<span>rouler</span></div>
+      <h4 style="font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.18;margin-bottom:12px">Votre séance du jour,<br>là où il ne pleut pas.</h4>
+      <p class="mention" style="font-size:13.5px;line-height:1.55;margin-bottom:18px;color:var(--encre-2)">Vous donnez la séance, on cherche la boucle : la bonne durée, le bon terrain sous les blocs, et le vent dans le dos au retour plutôt qu'à l'aller.</p>
+      <div class="bloc doux" style="margin-bottom:18px">
+        <div class="chiffres" style="flex-direction:column;gap:7px">
+          <span><b>1.</b> Vous demandez un accès</span>
+          <span><b>2.</b> Amiel ouvre la porte à la main</span>
+          <span><b>3.</b> Vous recevez un lien, et c'est tout</span>
+        </div>
+      </div>
+      <div class="champ"><label for="e1-mail">Votre adresse e-mail</label>
+        <input class="saisie" id="e1-mail" type="email" value="camille.ruiz@exemple.fr" readonly></div>
+      <div class="champ"><label for="e1-mot">En une phrase, ce que vous cherchez</label>
+        <input class="saisie" id="e1-mot" value="Je roule 3× par semaine avec un capteur." readonly>
+        <div class="aide">Facultatif. Ça aide Amiel à savoir qui frappe.</div></div>
+      <button class="bouton">Demander un accès</button>
+      <p class="mention" style="text-align:center;margin-top:12px">Pas de mot de passe. Jamais.</p>
+    </div></div>
+    <div class="notes">
+      <h3>Accueil public <span class="ref">E1</span></h3>
+      <p>La page dit <strong>en trois lignes ce que l'outil fait</strong>, puis annonce la modération avant de demander l'adresse. L'ordre compte : quelqu'un qui découvre qu'il devra attendre <em>après</em> avoir donné son adresse se sent piégé ; l'apprendre avant en fait une file qu'on choisit de rejoindre.</p>
+      <p>La phrase libre n'est pas de la politesse. C'est <strong>la matière de l'écran de modération</strong> : sans elle, Amiel arbitre sur une adresse e-mail seule.</p>
+      <p><strong>« Pas de mot de passe. Jamais. »</strong> se dit ici et pas plus tard. C'est ce qui rend acceptable de demander une adresse à quelqu'un qui ne connaît pas encore le produit.</p>
+      <div class="pastilles"><span class="p ecrire">demande d'accès à écrire</span><span class="p ecrire">envoi Brevo à écrire</span><span class="p ouvert">délai annoncé ou non</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>oùrouler.fr</span></div><div class="ecran">
+      <div class="marque" style="margin-bottom:22px">où<span>rouler</span></div>
+      <div style="text-align:center;padding:14px 0 6px">
+        <div class="grand" style="font-size:40px;color:var(--accent)">3<small style="font-size:15px"> devant vous</small></div>
+        <h4 style="font-size:18px;font-weight:600;margin:14px 0 8px;letter-spacing:-.015em">Demande enregistrée</h4>
+        <p class="mention" style="font-size:13.5px;color:var(--encre-2);max-width:31ch;margin:0 auto 4px">Amiel ouvre sa file à peu près une fois par semaine. Vous recevrez un e-mail à <b>camille.ruiz@exemple.fr</b>.</p>
+      </div>
+      <div class="encart info" style="margin-top:20px"><b>Rien à faire de votre côté.</b> Le lien reste valable sept jours après son envoi — s'il expire, une seule demande de plus suffit.</div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>En attendant</h5></div>
+        <p class="mention">Munissez-vous de votre FTP si vous la connaissez, et de l'adresse d'où vous partez d'habitude. L'installation prend quatre minutes.</p>
+      </div>
+    </div></div>
+    <div class="notes">
+      <h3>Demande enregistrée <span class="ref">E2</span></h3>
+      <p>Cet écran porte le premier des cinq moments décisifs. La recherche est nette là-dessus : les produits qui affichent une <strong>position dans la file</strong> et une <strong>cadence de traitement</strong> perdent moins de monde que ceux qui disent « nous reviendrons vers vous ».</p>
+      <p>« À peu près une fois par semaine » est une promesse tenable — plus honnête qu'un délai précis qu'Amiel ne tiendra pas. Mais <strong>il faut qu'il la tienne</strong> : c'est une contrainte d'exploitation, pas une formule.</p>
+      <p>Le dernier bloc travaille l'attente au lieu de la subir. Il prépare l'étape FTP, qui est le second moment décisif.</p>
+      <div class="pastilles"><span class="p ecrire">position dans la file</span><span class="p ouvert">cadence annoncée à tenir</span><span class="p ouvert">sort d'une demande refusée</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel large"><div class="barre-etat"><span>File de modération</span><span>Amiel</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Réservé au mainteneur</span><h4>4 demandes en attente</h4></div>
+        <div class="chiffres"><span><b>12</b> comptes actifs</span></div></div>
+      <div class="file-ligne"><div><div class="qui">camille.ruiz@exemple.fr</div>
+        <div class="meta">il y a 2 jours · « Je roule 3× par semaine avec un capteur. »</div></div>
+        <div class="file-actions"><span class="mini">Refuser</span><span class="mini oui">Inviter</span></div></div>
+      <div class="file-ligne"><div><div class="qui">n.dupas@exemple.fr</div>
+        <div class="meta">il y a 5 jours · « Découvert par un copain du club. »</div></div>
+        <div class="file-actions"><span class="mini">Refuser</span><span class="mini oui">Inviter</span></div></div>
+      <div class="file-ligne"><div><div class="qui">contact@exemple-seo.biz</div>
+        <div class="meta">il y a 9 jours · aucune phrase</div></div>
+        <div class="file-actions"><span class="mini">Refuser</span><span class="mini oui">Inviter</span></div></div>
+      <div class="encart attention" style="margin-top:14px"><b>Une demande attend depuis 9 jours.</b> Au-delà de sept jours, la personne a oublié qu'elle avait demandé.</div>
+    </div></div>
+    <div class="notes">
+      <h3>File de modération <span class="ref">E4</span></h3>
+      <p>Le seul écran que <strong>vous seul</strong> voyez. Il est volontairement pauvre : trois informations et deux boutons. Ce n'est pas un tableau de bord, c'est une porte.</p>
+      <p><strong>L'ancienneté est affichée en premier et elle alerte.</strong> Sans ça, la file se traite dans l'ordre où l'œil tombe, et la plus vieille demande est celle qu'on ne voit plus. Le seuil de sept jours n'est pas décoratif : c'est la durée de validité du lien annoncée en E2.</p>
+      <p>La troisième ligne montre pourquoi la phrase libre de E1 existe. Sans elle, cette demande-là ressemble aux deux autres.</p>
+      <div class="pastilles"><span class="p ecrire">file et états à écrire</span><span class="p ouvert">refus : silencieux ou notifié</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>oùrouler.fr</span></div><div class="ecran">
+      <div class="marque" style="margin-bottom:26px">où<span>rouler</span></div>
+      <h4 style="font-size:20px;font-weight:600;letter-spacing:-.015em;margin-bottom:6px">Content de vous revoir</h4>
+      <p class="mention" style="margin-bottom:20px">Deux façons d'entrer, aucune à retenir.</p>
+      <button class="bouton" style="margin-bottom:10px">Entrer avec ma clé d'accès</button>
+      <p class="mention" style="text-align:center;margin-bottom:18px">Visage, empreinte ou code de votre téléphone</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px"><div style="flex:1;height:1px;background:var(--trait)"></div><span class="mention">ou</span><div style="flex:1;height:1px;background:var(--trait)"></div></div>
+      <div class="champ"><label for="e5-mail">Recevoir un lien par e-mail</label>
+        <input class="saisie" id="e5-mail" type="email" value="camille.ruiz@exemple.fr" readonly></div>
+      <button class="bouton second">M'envoyer un lien</button>
+      <div class="encart info" style="margin-top:20px"><b>La clé d'accès ne remplace pas l'e-mail.</b> Elle vit dans votre téléphone : si vous le perdez, le lien par e-mail reste la porte de secours.</div>
+    </div></div>
+    <div class="notes">
+      <h3>Connexion <span class="ref">E5</span></h3>
+      <p>La clé d'accès passe devant parce que c'est le geste d'une seconde, et le lien reste <strong>visible sur le même écran</strong> — pas replié derrière « autres options ». C'est le filet, et un filet qu'on cache ne rassure personne.</p>
+      <p><strong>« Visage, empreinte ou code de votre téléphone » remplace le mot technique.</strong> C'est la seule recommandation qui fasse consensus dans les données d'adoption : les gens comprennent le geste, pas le nom.</p>
+      <p>L'encart dit la vérité désagréable — une clé d'accès se perd avec l'appareil ou le trousseau qui la synchronise. Le dire ici évite de le découvrir un dimanche matin.</p>
+      <div class="citation">Aucun produit de cyclisme ne propose de clés d'accès aujourd'hui : ni Strava, ni Garmin, ni intervals.icu, ni TrainerRoad. <b>Il n'y a personne à imiter, et personne pour avoir formé l'utilisateur au geste.</b></div>
+      <div class="pastilles"><span class="p ecrire">WebAuthn à écrire</span><span class="p ecrire">lien à usage unique</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ ASSISTANT ============================ -->
+<section class="flux" id="assistant">
+  <div class="flux-tete"><h2>S'installer</h2><span class="compte">E9 · E10 · E11 · E12</span></div>
+  <p class="flux-intro">Cinq étapes, quatre minutes. L'ordre n'est pas administratif : il va du <strong>bloquant</strong> (sans FTP, rien ne tourne) vers le <strong>reportable</strong> (Intervals peut se brancher un mois plus tard). Amiel ne voit jamais ces écrans.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Étape 2 sur 5</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Votre puissance</span><h4>Quelle est votre FTP ?</h4></div></div>
+      <div class="segments"><span class="actif">Je la connais</span><span>L'estimer</span><span>Depuis Intervals</span></div>
+      <div class="champ"><label for="e9-ftp">Puissance seuil</label>
+        <div class="saisie-unite"><input class="saisie mono" id="e9-ftp" value="245" readonly><span class="unite">W</span></div>
+        <div class="aide">La puissance que vous tenez environ une heure. Si vous avez fait un test de 20 minutes, comptez 95 % de la moyenne.</div></div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>Vos zones</h5><span class="rang">Calculées</span></div>
+        <div class="zones">
+          <div class="zone-l"><span class="n">Z1</span><span class="b" style="background:var(--z1);width:32%"></span><span class="v">&lt; 135 W</span></div>
+          <div class="zone-l"><span class="n">Z2</span><span class="b" style="background:var(--z2);width:46%"></span><span class="v">137 – 184 W</span></div>
+          <div class="zone-l"><span class="n">Z3</span><span class="b" style="background:var(--z3);width:58%"></span><span class="v">186 – 221 W</span></div>
+          <div class="zone-l"><span class="n">Z4</span><span class="b" style="background:var(--z4);width:70%"></span><span class="v">223 – 257 W</span></div>
+          <div class="zone-l"><span class="n">Z5</span><span class="b" style="background:var(--z5);width:84%"></span><span class="v">260 – 294 W</span></div>
+        </div>
+        <p class="mention" style="margin-top:11px">C'est la <b>Z2</b> qui fixe la longueur de vos boucles : à 160 W, vous tenez environ 27 km/h sur le plat.</p>
+      </div>
+      <button class="bouton">Continuer</button>
+    </div></div>
+    <div class="notes">
+      <h3>FTP et zones <span class="ref">E9</span></h3>
+      <p>Le deuxième moment décisif, et le seul champ du parcours auquel <strong>un cycliste normal peut ne pas savoir répondre</strong>. Amiel connaît la sienne au watt près ; un copain qui roule sans plan structuré peut ne l'avoir jamais mesurée. Et ce champ bloque tout l'aval : sans cible de puissance, ni placement de blocs, ni Z2 pour l'itinéraire manuel.</p>
+      <p>D'où les <strong>trois entrées en haut</strong> plutôt qu'un champ nu. C'est ce que font les produits qui ont ce problème : TrainerRoad estime depuis l'historique, Zwift part du poids et du niveau déclaré, intervals.icu calcule une FTP estimée en continu. Aucun ne laisse le champ vide.</p>
+      <p>Les zones s'affichent tout de suite parce qu'elles <strong>rendent la FTP vérifiable</strong> : quelqu'un qui voit « Z2 : 137–184 W » et se dit « je roule à 190 en endurance » vient d'apprendre que sa FTP est fausse. Le tableau est un contrôle, pas une décoration.</p>
+      <p>Et la dernière phrase relie la saisie à sa conséquence : <strong>une FTP haute allonge les boucles.</strong> C'est le seul endroit du parcours où on peut le dire avant que ça surprenne.</p>
+      <div class="pastilles"><span class="p ok">FTP existe en config</span><span class="p ecrire">zones figées dans le code, non éditables</span><span class="p ecrire">estimation par le poids</span><span class="p ouvert">édition précise en V2</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Étape 3 sur 5</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Votre départ</span><h4>D'où partez-vous ?</h4></div></div>
+      <div class="champ"><label for="e10-adr">Adresse habituelle</label>
+        <input class="saisie" id="e10-adr" value="12 rue des Ajoncs, 35740 Pacé" readonly>
+        <div class="aide">Vous pourrez partir d'ailleurs à chaque sortie. Celle-ci n'est que le défaut.</div></div>
+      <div class="carte-mini" style="margin-bottom:12px" role="img" aria-label="Carte schématique du point de départ et de son voisinage">
+        <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+          <rect width="320" height="200" fill="var(--papier)"/>
+          <g stroke="var(--trait-fort)" stroke-width="1.5" fill="none">
+            <path d="M0 132 C60 128 96 150 150 146 S250 120 320 128"/>
+            <path d="M74 200 C80 150 62 110 78 62 S70 20 66 0"/>
+            <path d="M320 58 C260 66 210 48 156 60 S60 92 0 82"/>
+          </g>
+          <g stroke="var(--trait)" stroke-width="1" fill="none">
+            <path d="M180 200 C190 160 214 134 208 96"/><path d="M0 172 C70 168 130 184 190 178"/>
+          </g>
+          <circle cx="146" cy="120" r="26" fill="var(--accent)" opacity=".1"/>
+          <circle cx="146" cy="120" r="6" fill="var(--accent)"/>
+          <text x="146" y="150" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muet)">Pacé</text>
+        </svg>
+      </div>
+      <div class="encart bien"><b>Bonne nouvelle pour vous.</b> À 4 km de chez vous, la densité de feux et de stops tombe à 0,3 au kilomètre — vos blocs pourront tomber en dehors de la ville.</div>
+      <button class="bouton">Continuer</button>
+    </div></div>
+    <div class="notes">
+      <h3>Départ habituel <span class="ref">E10</span></h3>
+      <p>Le seul champ <strong>strictement bloquant</strong> du parcours : rien ne tourne sans point de départ. Il est donc seul sur son écran, et la carte confirme qu'on a compris l'adresse — un géocodage qui se trompe de commune est indétectable dans un champ texte.</p>
+      <p>L'encart vert est le passage le plus discutable de toute la maquette, et je le propose exprès. La mesure radiale sur quatre villes a montré que <strong>le produit ne rend pas le même service partout</strong> : à Pacé la ville se dégage en 4 km, aux Lilas la densité de feux ne retombe jamais avant 30 km. Dire au nouveau ce que sa géographie lui promet, c'est de la franchise ; le dire ici, alors qu'il vient de s'installer, c'est peut-être aussi le décourager avant d'avoir essayé.</p>
+      <div class="citation"><b>À trancher :</b> on le dit à l'installation, on le dit à la première génération ratée, ou on ne le dit jamais.</div>
+      <div class="pastilles"><span class="p ecrire">géocodage absent du dépôt</span><span class="p ok">mesure de densité faite</span><span class="p ouvert">dire ou non la géographie</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Étape 4 sur 5</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Votre vélo</span><h4>Avec quoi roulez-vous ?</h4></div></div>
+      <div class="segments"><span class="actif">Route</span><span>Gravel</span><span>Chrono</span></div>
+      <div class="champ"><label for="e11-nom">Nom</label>
+        <input class="saisie" id="e11-nom" value="Le gris" readonly>
+        <div class="aide">Pour le reconnaître quand vous en aurez deux.</div></div>
+      <div class="champ"><label for="e11-poids">Poids du vélo</label>
+        <div class="saisie-unite"><input class="saisie mono" id="e11-poids" value="8,4" readonly><span class="unite">kg</span></div></div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>Ce qu'on en fait</h5></div>
+        <p class="mention">Le poids total — vous, le vélo, ce que vous emportez — entre dans le calcul du temps. Le type fixe votre position sur le vélo, donc la prise au vent : un chrono avance plus vite à puissance égale, et souffre moins de face.</p>
+      </div>
+      <button class="bouton">Continuer</button>
+      <button class="bouton fantome">Ajouter un second vélo plus tard</button>
+    </div></div>
+    <div class="notes">
+      <h3>Le vélo <span class="ref">E11</span></h3>
+      <p>Un seul vélo en V1, comme demandé, mais <strong>l'écran est déjà celui d'une liste</strong> : il a un nom, et le bouton du bas nomme la suite. C'est ce qui évite la refonte quand le second arrive — le modèle du cœur porte déjà une liste de vélos.</p>
+      <p><strong>« Gravel » n'existe pas aujourd'hui</strong> dans les usages reconnus par le code : il connaît route et chrono. C'est un ajout, pas un branchement.</p>
+      <p>Le bloc du bas répond à la question que personne ne pose mais que tout le monde se fait : <em>pourquoi on me demande ça ?</em> Deux phrases suffisent, et elles disent la vérité du modèle physique.</p>
+      <div class="pastilles"><span class="p ok">liste de vélos dans le modèle</span><span class="p ok">masse et usage utilisés</span><span class="p ecrire">usage gravel à ajouter</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Étape 5 sur 5</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Facultatif</span><h4>Brancher intervals.icu</h4></div></div>
+      <p class="mention" style="margin-bottom:16px;font-size:13.5px;color:var(--encre-2)">Si vous y planifiez vos séances, on les lit et on vous propose le parcours qui va avec. Sinon, vous décrirez vos sorties à la main — ça marche aussi.</p>
+      <div class="bloc doux" style="padding:12px 13px">
+        <div class="bloc-tete"><h5>Où trouver votre clé</h5></div>
+        <div class="etapes" style="margin-bottom:8px">
+          <div class="etape"><span class="km">1</span><span class="nom"><b>intervals.icu</b> <small>Ouvrez vos réglages</small></span><span class="lien">Ouvrir ↗</span></div>
+          <div class="etape"><span class="km">2</span><span class="nom"><b>Tout en bas de la page</b> <small>Section « Developer Settings »</small></span><span></span></div>
+          <div class="etape"><span class="km">3</span><span class="nom"><b>Copiez la clé</b> <small>Une suite de lettres et de chiffres</small></span><span></span></div>
+        </div>
+      </div>
+      <div class="champ"><label for="e12-cle">Votre clé</label>
+        <input class="saisie mono" id="e12-cle" value="1l0nlqjq3j1obdhg08rz5rfhx" readonly>
+        <div class="aide">Elle reste chiffrée chez nous et ne sort jamais d'ici.</div></div>
+      <div class="encart bien"><b>Clé vérifiée.</b> Compte trouvé, 3 séances planifiées cette semaine.</div>
+      <div class="boutons"><button class="bouton second">Plus tard</button><button class="bouton">Terminer</button></div>
+    </div></div>
+    <div class="notes">
+      <h3>Brancher Intervals <span class="ref">E12</span></h3>
+      <p>Votre décision — <strong>montrer où trouver la clé</strong> — est appliquée littéralement : trois étapes numérotées, et un lien qui ouvre la bonne page. La recherche explique pourquoi ça ne peut pas être plus léger.</p>
+      <div class="citation">Dans l'écosystème cycliste, la norme est l'écran de consentement : Strava, Wahoo, TrainerRoad passent tous par là. <b>intervals.icu est l'exception qui expose une clé personnelle à recopier</b> — et il documente le format de la clé, jamais le chemin pour y arriver.</div>
+      <p>Conséquence : le cycliste n'a <strong>jamais fait ce geste ailleurs</strong>. On ne peut compter sur aucune habitude, il faut construire le chemin entièrement.</p>
+      <p>La clé est <strong>affichée en clair</strong>, pas masquée par des points. Masquer un secret qu'on vient de coller n'ajoute rien — on ne peut pas le relire pour vérifier, et c'est comme ça qu'on colle un espace en trop sans le voir.</p>
+      <p><strong>La vérification se fait avant d'enregistrer</strong>, et elle dit quelque chose de reconnaissable : « 3 séances planifiées cette semaine ». Un « clé valide » ne prouve pas qu'on a branché le bon compte.</p>
+      <p>Enfin, l'étape est la dernière et <strong>elle se saute</strong>. Sans Intervals, l'itinéraire manuel fonctionne entièrement.</p>
+      <div class="pastilles"><span class="p ok">connecteur Intervals existe</span><span class="p ecrire">vérification de clé à écrire</span><span class="p ecrire">clé révoquée : à signaler</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ SEMAINE ============================ -->
+<section class="flux" id="semaine">
+  <div class="flux-tete"><h2>Sa semaine</h2><span class="compte">E14 · E15 · E17</span></div>
+  <p class="flux-intro">Ce qu'on voit en arrivant, trois minutes avant de partir rouler, sur un téléphone, souvent dehors.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>oùrouler</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Mercredi 16 septembre</span><h4>HT reprise — très facile</h4></div>
+        <div style="text-align:right"><div class="grand" style="font-size:22px">35<small>min</small></div></div></div>
+      <div class="etapes">
+        <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Échauffement</b> <small>103 – 155 W</small></span><span class="km">10 min</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z2)"></span><span class="nom"><b>3 × (5 min + 2 min)</b> <small>168 W / 142 W</small></span><span class="km">21 min</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Retour au calme</b> <small>129 W</small></span><span class="km">4 min</span></div>
+      </div>
+      <div class="bloc choisi">
+        <div class="bloc-tete"><h5>Parcours prêt</h5><span class="rang">Généré à 6:00</span></div>
+        <div class="carte-mini" style="margin-bottom:10px" role="img" aria-label="Boucle proposée de 17 kilomètres">
+          <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="320" height="200" fill="var(--papier)"/>
+            <g stroke="var(--trait-fort)" stroke-width="1" fill="none" opacity=".7">
+              <path d="M0 150 C70 144 120 162 180 156 S260 140 320 146"/><path d="M96 200 C102 150 88 108 104 56"/>
+            </g>
+            <path d="M150 158 C96 152 62 116 78 82 S140 36 192 48 258 82 252 120 206 166 150 158Z" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="150" cy="158" r="5" fill="var(--accent)"/>
+            <path d="M104 74 L118 66 M104 74 L104 86" stroke="var(--z3)" stroke-width="2.5" fill="none"/>
+            <path d="M232 132 L246 124 M232 132 L232 144" stroke="var(--z3)" stroke-width="2.5" fill="none"/>
+          </svg>
+        </div>
+        <div class="chiffres"><span><b>17,0</b> km</span><span><b>69</b> m D+</span><span><b>10</b> feux</span><span><b>3 %</b> de nationales</span></div>
+        <p class="mention" style="margin-top:9px">Vent de travers. 17 °C ressentis, sec.</p>
+      </div>
+      <div class="boutons"><button class="bouton second">Autre parcours</button><button class="bouton">Ouvrir</button></div>
+    </div></div>
+    <div class="notes">
+      <h3>Aujourd'hui <span class="ref">E14</span></h3>
+      <p>L'écran d'arrivée par défaut, et le seul qui doit se lire <strong>en trois secondes, bras tendu, en plein soleil</strong>. D'où l'ordre : ce qu'on va faire, puis où.</p>
+      <p><strong>Le parcours est déjà là.</strong> Il a été calculé à 6 h, pendant la nuit, pas au moment où on ouvre l'application — c'est ce que fait déjà la version en ligne, et ça supprime le troisième moment décisif dans le cas le plus fréquent.</p>
+      <p>Les quatre chiffres sont ceux que le produit sait vraiment dire, et <strong>ils ont été choisis contre trois autres</strong> qui avaient été retirés parce qu'illisibles ou alarmants à tort. Les feux se comptent en nombre absolu, jamais « 1,7 au kilomètre » : sur 100 km, personne ne croise 170 feux.</p>
+      <p>Les deux flèches ocre sur la carte sont le vent. Elles n'apparaissent qu'au-delà de 8 km/h — en dessous, le vent ne se sent pas sur le visage et le dessiner serait du bruit.</p>
+      <div class="pastilles"><span class="p ok">tous les chiffres existent</span><span class="p ecrire">géométrie du tracé absente du JSON</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Ma semaine</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Depuis intervals.icu</span><h4>Cette semaine</h4></div></div>
+      <div class="bloc choisi">
+        <div class="bloc-tete"><h5>Mer. 16 — HT reprise</h5><span class="rang">Aujourd'hui</span></div>
+        <div class="chiffres" style="margin-bottom:9px"><span><b>35</b> min</span><span>3 × 5 min à 168 W</span></div>
+        <div class="encart bien" style="margin-bottom:0"><b>Parcours prêt</b> — 17,0 km, vent de travers</div>
+      </div>
+      <div class="bloc">
+        <div class="bloc-tete"><h5>Ven. 18 — 4 × 15 SST</h5><span class="rang">Dans 2 jours</span></div>
+        <div class="chiffres" style="margin-bottom:9px"><span><b>1 h 45</b></span><span>4 × 15 min à 90 % FTP</span></div>
+        <button class="bouton second" style="padding:9px;font-size:13.5px">Générer le parcours</button>
+      </div>
+      <div class="bloc">
+        <div class="bloc-tete"><h5>Dim. 20 — Endurance</h5><span class="rang">Dans 4 jours</span></div>
+        <div class="chiffres" style="margin-bottom:9px"><span><b>3 h</b></span><span>Z2 continu</span></div>
+        <button class="bouton second" style="padding:9px;font-size:13.5px">Générer le parcours</button>
+        <p class="mention" style="margin-top:9px">Sans le vent : à quatre jours, on ne sait pas encore d'où il soufflera.</p>
+      </div>
+    </div></div>
+    <div class="notes">
+      <h3>Ma semaine <span class="ref">E15</span></h3>
+      <p>Trois séances, trois états différents, et c'est le sujet de l'écran : <strong>une séance proche et une séance lointaine ne se traitent pas pareil.</strong></p>
+      <p>Dimanche est à quatre jours. <strong>L'orientation au vent disparaît, et l'écran dit pourquoi</strong> plutôt que de l'omettre en silence. C'est votre arbitrage de tout à l'heure appliqué : trois jours inclus, quatre non — la direction tombe dans le bon secteur 88 % du temps à trois jours, et le modèle régional s'arrête de toute façon à 67 heures.</p>
+      <p>Le parcours n'est pré-calculé que pour aujourd'hui. Les autres portent un bouton, parce que générer coûte environ 150 appels météo : <strong>on ne calcule pas trois parcours par nuit et par personne</strong> pour que deux soient jetés.</p>
+      <div class="pastilles"><span class="p ok">séances lues via Intervals</span><span class="p ecrire">le connecteur ne lit qu'un jour</span><span class="p ok">horizon de vent mesuré</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Importer</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Sans Intervals</span><h4>Déposer une séance</h4></div></div>
+      <div class="depot"><div class="grosse">Déposez votre fichier</div>
+        <p class="mention">ou choisissez-le sur votre téléphone</p>
+        <div class="fmt">.ZWO · .MRC · .FIT</div></div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>4x15 SST.zwo</h5><span class="rang">Compris</span></div>
+        <div class="etapes">
+          <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Échauffement</b> <small>50 → 70 % FTP</small></span><span class="km">15 min</span></div>
+          <div class="etape"><span class="pt" style="background:var(--z4)"></span><span class="nom"><b>4 × 15 min</b> <small>90 % FTP — 220 W</small></span><span class="km">60 min</span></div>
+          <div class="etape"><span class="pt" style="background:var(--z2)"></span><span class="nom"><b>3 × 3 min</b> <small>Récupération — 145 W</small></span><span class="km">9 min</span></div>
+          <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Retour au calme</b> <small>55 % FTP</small></span><span class="km">10 min</span></div>
+        </div>
+        <p class="mention" style="margin-top:8px">1 h 34 au total. Les pourcentages sont convertis avec votre FTP de 245 W.</p>
+      </div>
+      <button class="bouton">Chercher un parcours</button>
+    </div></div>
+    <div class="notes">
+      <h3>Importer une séance <span class="ref">E17</span></h3>
+      <p>L'écran ne se contente pas d'accepter le fichier : <strong>il montre ce qu'il a compris dedans</strong>, dans le même vocabulaire que partout ailleurs. C'est le seul moyen pour l'utilisateur de voir qu'un fichier a été mal lu avant de partir rouler avec.</p>
+      <p>La dernière ligne explique la conversion. Un fichier ZWO ne porte que des pourcentages ; <strong>les watts affichés dépendent de la FTP saisie à l'étape 2</strong>, et quelqu'un qui voit 220 W là où il attendait 250 vient d'apprendre que sa FTP est mal renseignée.</p>
+      <div class="citation"><b>C'est l'écran le plus cher de la maquette.</b> Aucun de ces trois formats n'est lu aujourd'hui comme une prescription de séance : la seule source structurée est l'API d'Intervals. Ce n'est pas un branchement, c'est un lot entier — et il faudra choisir s'il lit une séance prescrite ou une sortie déjà faite.</div>
+      <div class="pastilles"><span class="p ecrire">aucun des trois formats n'est lu</span><span class="p ok">modèle de séance existe</span><span class="p ouvert">prescription ou activité</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ GENERER ============================ -->
+<section class="flux" id="generer">
+  <div class="flux-tete"><h2>Demander un parcours</h2><span class="compte">E16</span></div>
+  <p class="flux-intro">L'écran où votre consigne s'applique le plus directement : <strong>les réglages et le résultat cohabitent.</strong> On ajuste, on voit l'effet, on ne change pas d'écran pour ça.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Un parcours</span></div><div class="ecran">
+      <div class="bloc choisi" style="margin-bottom:16px">
+        <div class="bloc-tete"><h5>Ce que ça donnera</h5><span class="rang">Estimation</span></div>
+        <div style="display:flex;gap:22px;align-items:baseline;margin-bottom:6px">
+          <div><div class="grand">54<small>km</small></div><p class="mention">à 160 W en Z2</p></div>
+          <div><div class="grand">2:00<small></small></div><p class="mention">retour vers 11 h 40</p></div>
+        </div>
+        <p class="mention">Les kilomètres suivent votre puissance : à 160 W vous tenez 27 km/h sur le plat, moins dans le vent de face.</p>
+      </div>
+      <div class="champ"><label for="e16-duree">Durée</label>
+        <div class="saisie-unite"><input class="saisie mono" id="e16-duree" value="2:00" readonly><span class="unite">h</span></div></div>
+      <div class="champ"><label for="e16-quoi">Ce que vous faites</label>
+        <div class="segments" style="margin-bottom:0"><span class="actif">Endurance Z2</span><span>Une séance</span></div></div>
+      <div class="champ"><label for="e16-quand">Quand</label>
+        <div class="segments" style="margin-bottom:0"><span>Aujourd'hui</span><span class="actif">Demain</span><span>Ven. 18</span></div>
+        <div class="aide">Départ à 9 h 40.</div></div>
+      <div class="champ"><label for="e16-vent">Orientation au vent</label>
+        <div class="segments" style="margin-bottom:0"><span>Peu importe</span><span class="actif">Rentrer avec</span><span>De travers</span></div>
+        <div class="aide">Vent de sud-ouest à 22 km/h demain matin.</div></div>
+      <div class="champ"><label for="e16-ou">Départ</label>
+        <input class="saisie" id="e16-ou" value="12 rue des Ajoncs, Pacé" readonly>
+        <div class="aide"><span class="lien">Partir d'ailleurs cette fois</span></div></div>
+      <button class="bouton">Chercher trois parcours</button>
+      <p class="mention" style="text-align:center;margin-top:10px">Environ une minute.</p>
+    </div></div>
+    <div class="notes">
+      <h3>Demander un parcours <span class="ref">E16</span></h3>
+      <p><strong>Le résultat est en haut, les réglages en dessous, et le résultat bouge quand on touche un réglage.</strong> C'est ce qui rend le générateur de Strava bon : on ne remplit pas un formulaire pour découvrir la réponse à la fin, on négocie avec un chiffre qu'on a sous les yeux.</p>
+      <p>Une différence assumée avec Strava : <strong>chez eux le tracé lui-même se redessine en direct, ici il ne peut pas.</strong> Une boucle coûte environ 150 appels météo et plusieurs appels de calcul — ça ne se recalcule pas à chaque frappe. Ce qui bouge en direct, c'est donc l'<em>estimation</em> : la distance, l'heure de retour. Le tracé, lui, attend le bouton.</p>
+      <p>Cette contrainte physique se rembourse ailleurs : <strong>l'estimation, elle, est vraie.</strong> Elle vient du même modèle qui calcule le temps sur le vrai parcours — masse, puissance, pente, vent de face — pas d'une vitesse moyenne inventée.</p>
+      <p>La question du vent est posée <strong>avant</strong> la recherche, pas après. C'est l'idée du mainteneur, et elle réduit l'espace de recherche au lieu de le trier après coup. « Peu importe » reste une réponse valable, et c'est le défaut.</p>
+      <p>Enfin, « environ une minute » est là parce que le bouton ouvre <strong>la seule attente longue du produit</strong>. Annoncer l'ordre de grandeur coûte une ligne ; ne pas l'annoncer coûte un rechargement, et un rechargement coûte un second cycle complet d'appels.</p>
+      <div class="pastilles"><span class="p ok">modèle physique calibré</span><span class="p ok">question du vent existe</span><span class="p ecrire">géocodage du départ ponctuel</span><span class="p ecrire">Z2 depuis les zones</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ ATTENDRE ============================ -->
+<section class="flux" id="attendre">
+  <div class="flux-tete"><h2>Attendre</h2><span class="compte">E18</span></div>
+  <p class="flux-intro">Le troisième moment décisif. Un écran muet pendant un calcul long est indistinguable d'un écran cassé — et la personne qui recharge déclenche un second cycle complet d'appels.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Recherche</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Demain matin · 2 h · Z2</span><h4>On cherche</h4></div></div>
+      <div class="jalons">
+        <div class="jalon fait"><span class="etat">✓</span><span>Vent et pluie relevés</span><span class="detail">8 directions</span></div>
+        <div class="jalon fait"><span class="etat">✓</span><span>Le sud-est est au sec</span><span class="detail">0,0 mm</span></div>
+        <div class="jalon cours"><span class="etat">→</span><span>Cinq boucles tracées</span><span class="detail">3 sur 5</span></div>
+        <div class="jalon suite"><span class="etat">·</span><span>Terrain relevé sous les blocs</span><span class="detail"></span></div>
+        <div class="jalon suite"><span class="etat">·</span><span>Trois parcours retenus</span><span class="detail"></span></div>
+      </div>
+      <div class="encart info" style="margin-top:18px"><b>Vous pouvez fermer.</b> On vous prévient quand c'est prêt — le calcul continue sans vous.</div>
+      <button class="bouton fantome">Annuler la recherche</button>
+    </div></div>
+    <div class="notes">
+      <h3>Génération en cours <span class="ref">E18</span></h3>
+      <p>Pas un rond qui tourne : <strong>cinq jalons qui nomment ce qui se passe</strong>, dans le vocabulaire du cycliste et pas dans celui du serveur. « Le sud-est est au sec » est déjà un résultat — l'attente rend quelque chose avant d'être finie.</p>
+      <p>Les compteurs (« 8 directions », « 3 sur 5 ») ont une fonction précise : <strong>ils prouvent que ça avance.</strong> Une barre de progression qui n'avance pas et un écran figé se ressemblent ; un compteur qui passe de 2 à 3 ne ment pas.</p>
+      <p><strong>« Vous pouvez fermer » est la phrase la plus importante de l'écran.</strong> Elle désamorce le rechargement d'impatience, qui est exactement ce qui fait déraper le coût par utilisateur exigé au sprint 8. Elle engage en retour à savoir prévenir — donc à écrire une notification.</p>
+      <p>Et « Annuler » existe, en bas, discret. Quelqu'un qui s'est trompé de durée ne devrait pas avoir à attendre la fin pour recommencer.</p>
+      <div class="pastilles"><span class="p ecrire">génération asynchrone</span><span class="p ecrire">notification quand c'est prêt</span><span class="p ouvert">annuler : rembourse-t-on les appels ?</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ CHOISIR ============================ -->
+<section class="flux" id="choisir">
+  <div class="flux-tete"><h2>Choisir et emporter</h2><span class="compte">E19 · E20</span></div>
+  <p class="flux-intro">Trois propositions qui diffèrent vraiment, puis le geste qui fait tout converger : le parcours qui passe dans le compteur.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Trois parcours</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Demain 9 h 40 · 2 h · Z2</span><h4>Trois parcours</h4></div></div>
+      <div class="carte-mini carte-grande" style="margin-bottom:14px" role="img" aria-label="Trois boucles superposées, celle qui est sélectionnée en couleur forte">
+        <svg viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg">
+          <rect width="320" height="240" fill="var(--papier)"/>
+          <g stroke="var(--trait-fort)" stroke-width="1" fill="none" opacity=".6">
+            <path d="M0 176 C70 170 130 190 200 182 S280 166 320 172"/><path d="M110 240 C116 184 100 136 118 72"/>
+            <path d="M320 74 C250 84 196 62 140 76 S50 106 0 96"/>
+          </g>
+          <path d="M160 190 C104 180 52 140 72 96 S150 34 214 46 292 92 282 140 220 200 160 190Z" fill="none" stroke="var(--trait-fort)" stroke-width="2" stroke-dasharray="5 4"/>
+          <path d="M160 190 C120 184 86 152 96 118 S156 72 202 82 252 118 244 150 200 196 160 190Z" fill="none" stroke="var(--trait-fort)" stroke-width="2" stroke-dasharray="5 4"/>
+          <path d="M160 190 C108 182 64 148 80 108 S154 52 212 64 278 106 268 146 212 198 160 190Z" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round"/>
+          <circle cx="160" cy="190" r="5.5" fill="var(--accent)"/>
+          <path d="M96 100 L112 92 M96 100 L96 114" stroke="var(--z3)" stroke-width="2.5" fill="none"/>
+          <path d="M244 140 L260 132 M244 140 L244 154" stroke="var(--z3)" stroke-width="2.5" fill="none"/>
+        </svg>
+      </div>
+      <div class="bloc choisi">
+        <div class="bloc-tete"><h5>La plus calme</h5><span class="rang">Choisie</span></div>
+        <p class="mention" style="margin-bottom:8px;color:var(--encre-2)">Six feux de moins que les deux autres, et aucune nationale.</p>
+        <div class="chiffres"><span><b>56,2</b> km</span><span><b>312</b> m D+</span><span><b>4</b> feux</span><span><b>0 %</b> nat.</span></div>
+      </div>
+      <div class="bloc">
+        <div class="bloc-tete"><h5>La plus sèche</h5><span class="rang">2</span></div>
+        <p class="mention" style="margin-bottom:8px">Passe au large de l'averse de 11 h ; 10 feux.</p>
+        <div class="chiffres"><span><b>53,8</b> km</span><span><b>288</b> m D+</span><span><b>0,0</b> mm</span></div>
+      </div>
+      <div class="bloc">
+        <div class="bloc-tete"><h5>La plus roulante</h5><span class="rang">3</span></div>
+        <p class="mention" style="margin-bottom:8px">Rentre avec le vent sur les 18 derniers kilomètres.</p>
+        <div class="chiffres"><span><b>58,0</b> km</span><span><b>196</b> m D+</span><span><b>1:58</b></span></div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <h3>Les trois propositions <span class="ref">E19</span></h3>
+      <p>Une seule carte, trois tracés superposés, <strong>le choisi en couleur pleine et les deux autres en pointillé gris</strong>. C'est la méthode que le mainteneur a demandée en regardant Strava, et elle a été corrigée une fois déjà : dans la première version, le pointillé désignait la version sélectionnée et l'autre était carrément absente.</p>
+      <p><strong>Chaque proposition dit d'abord ce qui la distingue</strong>, en une phrase, et ses chiffres ensuite. Trois parcours ne servent à rien s'ils se ressemblent — et les trois premiers d'un même classement se ressemblent presque toujours.</p>
+      <p>Les chiffres <strong>ne sont pas les mêmes d'une carte à l'autre</strong> : la plus sèche montre les millimètres de pluie, la plus roulante montre le temps. Montrer les quatre mêmes colonnes partout obligerait à lire quatre chiffres pour trouver celui qui compte.</p>
+      <p>Aucune note globale, aucun classement sur dix. Le produit refuse de moyenner des choses qui ne se moyennent pas : <strong>c'est au cycliste de savoir si aujourd'hui il préfère le sec ou le calme.</strong></p>
+      <div class="citation">Et quand les candidates ne se distinguent pas assez, <b>le produit en propose deux et dit pourquoi</b> — « toutes empruntaient plus de 25 % des mêmes routes ». Ça existe déjà, et l'interface doit savoir l'afficher sans avoir l'air en panne.</div>
+      <div class="pastilles"><span class="p ok">trois propositions contrastées</span><span class="p ok">cas « une seule » géré</span><span class="p ecrire">géométrie du tracé en JSON</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>La plus calme</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Demain 9 h 40</span><h4>La plus calme</h4></div>
+        <div style="text-align:right"><div class="grand" style="font-size:21px">56,2<small>km</small></div></div></div>
+      <div class="segments"><span class="actif">Le parcours</span><span>La tenue</span></div>
+      <div class="carte-mini" style="margin-bottom:12px" role="img" aria-label="Boucle avec les blocs de la séance placés dessus">
+        <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
+          <rect width="320" height="200" fill="var(--papier)"/>
+          <path d="M150 168 C100 160 58 126 74 88 S146 34 200 46 264 88 254 126 200 176 150 168Z" fill="none" stroke="var(--trait-fort)" stroke-width="2.5"/>
+          <path d="M74 88 C90 56 146 34 200 46" fill="none" stroke="var(--z4)" stroke-width="4" stroke-linecap="round"/>
+          <path d="M254 126 C244 152 200 176 150 168" fill="none" stroke="var(--z4)" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="150" cy="168" r="5.5" fill="var(--encre)"/>
+          <path d="M92 74 L108 66 M92 74 L92 88" stroke="var(--z3)" stroke-width="2.5" fill="none"/>
+        </svg>
+      </div>
+      <div class="etapes">
+        <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Échauffement</b> <small>Z2, sort de la ville</small></span><span class="km">0 → 14,2</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z4)"></span><span class="nom"><b>Bloc 1 — 15 min</b> <small>220 W · plat, 1 seul carrefour</small></span><span class="km">14,2 → 22,8</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z2)"></span><span class="nom"><b>Récupération</b> <small>145 W</small></span><span class="km">22,8 → 25,4</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z4)"></span><span class="nom"><b>Bloc 2 — 15 min</b> <small>220 W · vent de dos</small></span><span class="km">25,4 → 34,6</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Retour au calme</b> <small>Absorbe ce qui reste</small></span><span class="km">34,6 → 56,2</span></div>
+      </div>
+      <div class="encart info"><b>Z2 d'ouverture allongée de 4 min</b> pour faire tomber le premier bloc hors de la ville.</div>
+      <button class="bouton">Envoyer vers mon compteur</button>
+      <button class="bouton fantome">Télécharger le GPX</button>
+    </div></div>
+    <div class="notes">
+      <h3>Le détail, et emporter <span class="ref">E20</span></h3>
+      <p>Tout le produit converge ici. <strong>Les blocs sont dessinés sur le tracé</strong>, pas listés à côté : c'est la seule façon de voir qu'un bloc tombe sur une portion plate et sans carrefour, ce qui est la raison d'être de l'outil.</p>
+      <p>Chaque étape porte <strong>son kilométrage de début et de fin</strong>, parce que c'est ce qu'on lit sur un compteur en roulant. Et chaque bloc porte la raison de sa place — « plat, un seul carrefour », « vent de dos ».</p>
+      <p>L'encart bleu expose le seul levier du placement : <strong>l'échauffement coulisse</strong>, et les blocs coulissent avec lui. Le dire transforme un chiffre bizarre en décision compréhensible.</p>
+      <p><strong>« Envoyer vers mon compteur » plutôt que « Télécharger ».</strong> C'est le quatrième moment décisif, et la décision était déjà prise : le partage système du mobile, qui marche avec Garmin, Coros, Wahoo et les autres, sans intégration par marque. Le téléchargement direct reste en dessous, discret, pour celui qui est sur un ordinateur.</p>
+      <div class="pastilles"><span class="p ok">placement des blocs mesuré</span><span class="p ok">GPX du parcours roulé</span><span class="p ok">motif du placement affiché</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ REGLAGES ============================ -->
+<section class="flux" id="reglages">
+  <div class="flux-tete"><h2>Réglages</h2><span class="compte">E21 · E22</span></div>
+  <p class="flux-intro">Tout ce que l'assistant a demandé se retrouve ici, et tout ce qu'on a sauté s'y branche plus tard.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Réglages</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Camille Ruiz</span><h4>Réglages</h4></div></div>
+      <div class="bloc doux" style="padding:4px 14px">
+        <div class="rangee"><span class="cle">FTP</span><span class="val">245 W</span></div>
+        <div class="rangee"><span class="cle">Poids</span><span class="val">72 kg</span></div>
+        <div class="rangee"><span class="cle">Zones</span><span class="val" style="color:var(--muet);font-family:var(--sans);font-size:12.5px">Calculées · édition en V2</span></div>
+      </div>
+      <div class="bloc doux" style="padding:4px 14px">
+        <div class="rangee"><span class="cle">Départ</span><span class="val" style="font-family:var(--sans);font-size:13px">Pacé</span></div>
+        <div class="rangee"><span class="cle">Le gris</span><span class="val">Route · 8,4 kg</span></div>
+        <div class="rangee"><span class="cle">Second vélo</span><span class="lien">Ajouter</span></div>
+      </div>
+      <div class="bloc doux" style="padding:4px 14px">
+        <div class="rangee"><span class="cle">intervals.icu</span><span class="val" style="color:var(--bien);font-family:var(--sans);font-size:13px">Branché</span></div>
+        <div class="rangee"><span class="cle">Clés d'accès</span><span class="val" style="font-family:var(--sans);font-size:13px">1 · iPhone</span></div>
+      </div>
+      <div class="bloc doux" style="padding:4px 14px">
+        <div class="rangee"><span class="cle">Mes données</span><span class="lien">Tout exporter</span></div>
+        <div class="rangee"><span class="cle">Mon compte</span><span class="lien" style="color:var(--alerte)">Supprimer</span></div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <h3>Profil et réglages <span class="ref">E21 · E22</span></h3>
+      <p>Quatre groupes, dans l'ordre où on y revient : <strong>ce qui change souvent en haut</strong> — un poids bouge, une FTP progresse — et ce qui ne se touche qu'une fois en bas.</p>
+      <p>« Zones : calculées · édition en V2 » dit ce qui existe et ce qui viendra, <strong>au lieu d'un bouton grisé</strong>. Une ligne qui annonce est plus honnête qu'un bouton qui refuse.</p>
+      <p><strong>Export et suppression sont sur cet écran dès la première version</strong>, pas repoussés. La doctrine l'exige, et les construire après coup revient à traverser toute la base une seconde fois.</p>
+      <p>« 1 · iPhone » montre les clés d'accès comme des objets qu'on possède, avec l'appareil où elles vivent. Quelqu'un qui change de téléphone doit pouvoir retirer l'ancienne sans nous écrire.</p>
+      <div class="pastilles"><span class="p ok">tous les champs existent en config</span><span class="p ecrire">édition des zones</span><span class="p ecrire">export et suppression</span></div>
+    </div>
+  </div>
+
+  <div class="legende">
+    <h3>Les pastilles, et ce qu'elles engagent</h3>
+    <div class="rangs">
+      <div><b><span class="p ok">existe</span></b>La donnée sort déjà d'une commande, en JSON. Le front la consomme, il n'y a rien à écrire côté cœur.</div>
+      <div><b><span class="p ecrire">à écrire</span></b>Rien dans le dépôt ne rend cette donnée aujourd'hui. Chaque pastille orange est un lot, pas un branchement.</div>
+      <div><b><span class="p ouvert">décision ouverte</span></b>Une question de produit que le mainteneur tranche. L'écran montre une réponse possible, pas la réponse.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ OUVERT ============================ -->
+<footer class="fin" id="ouvert">
+  <h2>Ce qui reste à trancher</h2>
+  <p class="chapo" style="font-size:16px">Quatre décisions bloquent la suite, dans cet ordre. Les maquettes proposent une réponse à chacune — aucune n'est prise.</p>
+  <div class="ouvertes">
+    <div class="ouverte"><span class="num">1</span><div><b>Ce qu'on montre pendant qu'on calcule</b><span>La maquette parie sur l'asynchrone : on peut fermer, on est prévenu. C'est le choix le plus cher à construire, et le seul qui protège le coût par utilisateur exigé au sprint 8. L'alternative — attendre écran ouvert — est gratuite et fragile.</span></div></div>
+    <div class="ouverte"><span class="num">2</span><div><b>Ce qu'on montre à un invité sans historique</b><span>Vos chiffres sont calibrés sur 162 sorties. Les siens ne le seront sur rien. Les afficher de la même façon serait un mensonge par mise en page ; afficher une fourchette rend l'outil moins net. La maquette n'a pas tranché : elle montre les chiffres d'un compte installé.</span></div></div>
+    <div class="ouverte"><span class="num">3</span><div><b>Le téléversement de séance</b><span>Ni <code>.FIT</code>, ni <code>.MRC</code>, ni <code>.ZWO</code> ne sont lus aujourd'hui comme une prescription. C'est le plus gros lot caché du brief, et il porte une question préalable : lit-on une séance à faire, ou une sortie déjà faite ?</span></div></div>
+    <div class="ouverte"><span class="num">4</span><div><b>Ce qu'on dit de la géographie</b><span>La mesure sur quatre villes a montré que le service ne rend pas le même résultat partout. À l'installation, à la première génération décevante, ou jamais — c'est un choix de franchise, pas un choix technique.</span></div></div>
+  </div>
+  <p class="mention" style="margin-top:26px;max-width:66ch">Dix-huit écrans dessinés sur vingt-quatre identifiés. Les six absents — activation du lien, étapes d'identité et de récapitulatif de l'assistant, sorties passées, compte et données — ne posaient aucune question nouvelle. Toutes les valeurs affichées sont inventées.</p>
+</footer>
+
+</div>
