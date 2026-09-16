@@ -1,0 +1,661 @@
+"""Trois propositions qui diffèrent pour de vrai — et la phrase qui le dit.
+
+Le point dur du lot L5.3, dans les mots du mainteneur : **trois propositions
+ne servent à rien si elles se ressemblent**, et les trois premières d'un même
+classement se ressemblent presque toujours.
+
+Le risque, nommé d'abord
+------------------------
+
+Trois candidates peuvent noter 1,93 / 2,30 / 4,72 et **paraître identiques sur
+une carte**. Une note de placement n'est pas une différence perceptible. D'où
+la règle qui porte tout ce module : **deux propositions ne sont contrastées
+que si elles diffèrent sur quelque chose que le cycliste voit ou sent.**
+
+Ce qu'on ne fait surtout pas
+----------------------------
+
+On ne normalise pas sept grandeurs hétérogènes — des minutes, des millimètres,
+un compte de demi-tours, des kilomètres équivalents — pour en tirer une
+« distance » entre propositions. Il faudrait des poids arbitraires, et un
+seuil sur cette distance serait infalsifiable. **Chaque axe se compare dans sa
+propre unité**, et un écart compte quand il dépasse le pas nommé de cet axe.
+
+Les trois conditions
+--------------------
+
+Trois propositions sont contrastées quand les trois tiennent :
+
+a) **chacune est la meilleure des trois sur au moins un axe**, et sur un axe
+   différent de celles des deux autres — c'est ce qui garantit qu'aucune n'est
+   là pour faire nombre ;
+b) **elle l'est d'une marge exprimée dans l'unité de l'axe** (les `PAS_*`
+   ci-dessous), jamais en pourcentage d'une note ;
+c) **le recouvrement de routes** entre deux propositions reste sous
+   `SEUIL_RECOUVREMENT` — critère du mainteneur : deux boucles peuvent avoir
+   des notes très différentes et emprunter les mêmes routes, elles se
+   ressembleront alors sur la carte quoi qu'en disent les chiffres.
+
+Et le garde-fou qui prime sur tout : **si la phrase n'est pas écrivable et
+vraie, la proposition n'existe pas.** On en rend deux, et on dit pourquoi
+(`Selection.motif_deux_propositions`).
+
+Ce que ce module ne fait pas
+----------------------------
+
+Il ne **replace** rien et ne **retrie** rien. La première proposition reste
+celle que le tri de `sortie.commande` a retenue : on ne change pas ce que
+l'outil recommande, on ajoute ce à quoi le comparer. Les deux autres sont
+cherchées parmi toutes les combinaisons possibles, et à validité égale on
+prend celles que ce même tri classe le mieux — « les meilleures qui diffèrent
+vraiment », et non « trois représentants pris n'importe où ».
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from itertools import combinations, permutations
+
+from ourouler.apprentissage.routes import mailles_ponderees
+from ourouler.boucle.marqueurs import compter
+from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.seance.vent import (
+    SEUIL_VENT_SENSIBLE_KMH,
+    ChampVent,
+    seuil_vent_sensible_ms,
+)
+from ourouler.sortie.orientation import (
+    ORIENTATION_DEPART_DOS,
+    ORIENTATION_FACE,
+    ORIENTATION_RETOUR_DOS,
+    ORIENTATION_TRAVERS,
+)
+
+# --- les axes ------------------------------------------------------------------
+
+AXE_VENT = "vent"
+AXE_DEMI_TOURS = "demi_tours"
+AXE_DUREE = "duree"
+AXE_VILLE = "ville"
+AXE_TRAFIC = "trafic"
+AXE_PLUIE = "pluie"
+AXE_TERRAIN = "terrain"
+
+#: Ordre de priorité des axes quand plusieurs attributions sont possibles.
+#:
+#: Ce n'est pas un classement de qualité, c'est l'ordre dans lequel le
+#: mainteneur en a parlé : le **vent** est le seul axe qu'il ait demandé
+#: explicitement (« vent dans le dos au départ de la sortie, ou à la fin, ou
+#: plutôt vent latéral ? ») ; le **demi-tour** vient ensuite (« autorisé mais
+#: pas forcément à mettre en avant… ça peut être un choix visuel ») ; la
+#: **durée** est ce qu'il a reproché trois fois au tri (des dépassements de 29
+#: à 43 min) ; la **ville** est ce qu'il décrit sous « des croisements, des
+#: dos d'âne, des feux » ; le **trafic** est le reproche du contrat §3.1.3 a)
+#: — « un bloc peut tomber sur une départementale rapide sans le moindre
+#: malus », et §3.1.3 b) le chiffre : 24,1 km de routes à trafic sur 55,2 pour
+#: la retenue contre 20,9 pour la quatrième ; la **pluie** et le **terrain**
+#: sont déjà dans le tri et n'ont pas besoin d'une phrase pour exister.
+ORDRE_AXES = (
+    AXE_VENT,
+    AXE_DEMI_TOURS,
+    AXE_DUREE,
+    AXE_VILLE,
+    AXE_TRAFIC,
+    AXE_PLUIE,
+    AXE_TERRAIN,
+)
+
+# --- ce qui fait une différence perceptible ------------------------------------
+#
+# Chaque pas est dans l'unité de son axe. Aucun n'est un pourcentage de note.
+
+#: Écart de durée réellement roulée en dessous duquel deux propositions durent
+#: la même chose. **Un arbitrage, pas une mesure** — comme
+#: `sortie.commande.NOTE_BLOC_BIEN_PLACE`, et il faut le dire. Dix minutes,
+#: parce que c'est l'unité dans laquelle le mainteneur parle de ses sorties
+#: (« la retenue dépasse de 29 min ») et que sur une séance de 2 h c'est 8 %
+#: du temps, soit l'ordre de grandeur d'un retour au calme entier.
+PAS_DUREE_S = 600.0
+
+#: Écart de pluie cumulée en dessous duquel deux propositions sont aussi
+#: sèches l'une que l'autre, en mm. Repris de la configuration du mainteneur :
+#: `ParametresTenue.bornes_pluie_mmh` place à 0,5 mm/h la frontière entre
+#: « humide » et « averses ». C'est une transposition d'une intensité vers un
+#: cumul, pas une mesure de cumul — mais elle vient de son fichier, pas d'un
+#: chiffre inventé ici.
+PAS_PLUIE_MM = 0.5
+
+#: Écart de densité de marqueurs en dessous duquel deux propositions traversent
+#: autant de village l'une que l'autre, en marqueurs par kilomètre.
+#:
+#: **Chiffré sur la mesure du 16/09/2026**
+#: (`tests/validation/marqueurs_retrospectif.py`, 143 boucles proposées par le
+#: moteur autour du départ du mainteneur) : q1 = 1,21, médiane = 1,50,
+#: q3 = 2,01, soit un écart interquartile de 0,80. La moitié de cet écart,
+#: 0,40, est l'oscillation ordinaire entre deux candidates ; 0,50 est
+#: au-dessus. Et dans ses unités à lui : sur une boucle de 60 km, c'est
+#: 30 marqueurs d'écart — un arrêt tous les deux kilomètres contre un arrêt
+#: tous les kilomètres.
+PAS_MARQUEURS_KM = 0.5
+
+#: Écart de **part de la boucle passée sur des routes à trafic** en dessous
+#: duquel deux propositions roulent autant l'une que l'autre sur les grands
+#: axes. Une part et non des kilomètres : deux boucles n'ont pas la même
+#: longueur, et 24 km de départementale sur 55 n'est pas la même sortie que
+#: 24 km sur 100.
+#:
+#: **Chiffré sur la mesure du 16/09/2026** (35 boucles proposées par le moteur
+#: autour du départ du mainteneur, à 40, 60 et 80 km) : q1 = 34,8 %,
+#: médiane = 41,1 %, q3 = 49,5 %, soit un écart interquartile de 14,7 points
+#: et un écart-type de 12,0. La moitié de l'écart interquartile, 7,4 points,
+#: est l'oscillation ordinaire entre deux candidates ; 10 points est au-dessus.
+#: Et dans ses unités à lui : sur une boucle de 60 km, 6 km de départementale
+#: en plus ou en moins.
+PAS_TRAFIC_PART = 0.10
+
+#: Écart de note de terrain en dessous duquel deux couloirs se valent, en
+#: kilomètres équivalents. Ce n'est pas un nouveau chiffre : c'est
+#: `seance.terrain.POIDS_CARREFOUR`, ce que coûte **un feu rouge** sous un
+#: bloc. Une différence de note qui ne vaut pas un feu ne vaut pas une phrase.
+PAS_TERRAIN_KM_EQ = 1.0
+
+#: Part de routes communes au-delà de laquelle deux propositions se
+#: ressemblent sur la carte, quoi que disent leurs notes.
+#:
+#: **Mesuré le 16/09/2026**, sur les recouvrements deux à deux de boucles de
+#: 60 km générées depuis le départ du mainteneur dans 12 directions :
+#:
+#: | écart d'azimut | recouvrement médian | max |
+#: |---|---|---|
+#: | 30° | 28,2 % | 52,7 % |
+#: | 60° | 14,4 % | 23,3 % |
+#: | 90° | 8,0 % | 20,0 % |
+#: | 180° | 0,4 % | 1,0 % |
+#:
+#: Deux enseignements. **Il n'y a pas de plancher** : deux boucles opposées ne
+#: partagent que 0,4 % de route, donc le couloir de départ ne fausse rien —
+#: tout recouvrement mesuré est de la route vraiment commune. Et **le
+#: recouvrement suit la direction** : à 30° d'écart les deux boucles vont au
+#: même endroit (médiane 28 %), à 60° et au-delà non (médiane 14 %, max 23 %).
+#: 25 % tombe donc juste au-dessus de ce que produisent deux directions
+#: franchement différentes, et juste en dessous de ce que produisent deux
+#: directions voisines. En absolu, sur une boucle de 60 km : 15 km de route
+#: identique.
+SEUIL_RECOUVREMENT = 0.25
+
+# --- orientation au vent -------------------------------------------------------
+
+# Les quatre orientations vivent dans `sortie.orientation`, un module sans
+# dépendance que la ligne de commande peut importer sans payer httpx.
+
+#: Part du tracé prise pour « le début » et pour « la fin ».
+QUART = 0.25
+
+
+@dataclass(frozen=True)
+class Profil:
+    """Ce qu'une proposition donne à voir ou à sentir, axe par axe.
+
+    Toute valeur peut manquer, et `None` veut dire **on ne sait pas**, jamais
+    zéro : une boucle relue d'un GPX ne porte aucun tag de nœud, ce qui n'est
+    pas la même chose que n'avoir aucun feu (règle absolue 5). Un axe inconnu
+    ne distingue rien et ne pénalise rien.
+    """
+
+    duree_s: float
+    demi_tours: int
+    note_terrain: float
+    pluie_mm: float | None = None
+    densite_marqueurs_km: float | None = None
+    part_trafic: float | None = None
+    orientation: str | None = None
+
+    def valeur(self, axe: str):
+        """La valeur de cet axe, ou `None` si elle est inconnue."""
+        return {
+            AXE_DUREE: self.duree_s,
+            AXE_DEMI_TOURS: float(self.demi_tours),
+            AXE_TERRAIN: self.note_terrain,
+            AXE_PLUIE: self.pluie_mm,
+            AXE_VILLE: self.densite_marqueurs_km,
+            AXE_TRAFIC: self.part_trafic,
+            AXE_VENT: self.orientation,
+        }.get(axe)
+
+
+def profil(proposition, meteo: MeteoTrace | None = None) -> Profil:
+    """Le profil d'une `sortie.commande.Proposition`.
+
+    `meteo` est celle de la proposition ; elle n'est prise en argument à part
+    que pour que les tests puissent en fournir une sans construire une
+    `Proposition` entière.
+    """
+    meteo = meteo if meteo is not None else getattr(proposition, "meteo", None)
+    marqueurs = compter(proposition.trace)
+    return Profil(
+        duree_s=float(proposition.placement.duree_totale_s),
+        demi_tours=int(proposition.demi_tours),
+        note_terrain=float(proposition.placement.note_terrain),
+        pluie_mm=(meteo.pluie_cumulee_mm if meteo is not None else None),
+        densite_marqueurs_km=marqueurs.par_km,
+        part_trafic=_part_trafic(proposition),
+        orientation=orientation_au_vent(meteo),
+    )
+
+
+def _part_trafic(proposition) -> float | None:
+    """Part de la boucle sur des routes à trafic, ou `None` si les tags manquent.
+
+    `trace.meta["couts_partiels"]` est vrai quand le tracé n'a pas de
+    `segments` (un GPX importé) : les kilomètres par type de route valent
+    alors 0 **faute de les connaître**, et les rendre tels quels ferait passer
+    une ignorance pour une boucle sans le moindre grand axe.
+    """
+    if proposition.trace.meta.get("couts_partiels"):
+        return None
+    km = proposition.trace.distance_m / 1000.0
+    if not math.isfinite(km) or km <= 0:
+        return None
+    return proposition.couts.km_trafic / km
+
+
+def orientation_au_vent(meteo: MeteoTrace | None) -> str | None:
+    """Comment le vent tombe sur le tracé : dos au retour, dos au départ, travers.
+
+    On compare la composante de face **moyenne du premier quart** du tracé à
+    celle du **dernier quart**, en m/s à hauteur de cycliste, contre
+    `seance.vent.seuil_vent_sensible_ms()` — le même seuil que celui qui
+    décide de dessiner une flèche sur la carte. Rend `None` quand le vent est
+    inconnu ou trop faible pour qu'une orientation veuille dire quelque chose.
+
+    **« Pas de vent » n'est pas « vent de travers ».** Les deux rendent une
+    composante de face nulle, et la première rédaction les confondait : sur
+    une journée à 5 km/h, les cinq candidates étaient annoncées « vent de
+    travers », ce qui promet une sensation qui n'existe pas. On regarde donc
+    d'abord la **vitesse** du vent le long du tracé : sous le seuil, il n'y a
+    pas d'orientation à nommer, et l'axe du vent ne distingue plus rien — ce
+    qui est exactement vrai.
+
+    **Approximation assumée** : les quarts sont ceux du *tracé*, pas du
+    parcours réellement roulé. Ils diffèrent après un demi-tour — mais un
+    demi-tour se roule dans les deux sens sur la même route, et son exposition
+    au vent s'annule pour l'essentiel. La reconstruction exacte demanderait de
+    réinterroger le champ de vent le long de `trace_parcourue`, ce qui n'est
+    pas dans ce lot.
+    """
+    if meteo is None or not meteo.echantillons:
+        return None
+    champ = ChampVent(meteo.echantillons)
+    if not champ.positions:
+        return None
+    vitesses = [e.vent_kmh for e in meteo.echantillons if e.vent_kmh is not None]
+    if not vitesses or sum(vitesses) / len(vitesses) < SEUIL_VENT_SENSIBLE_KMH:
+        return None
+    total = max(e.dist_m for e in meteo.echantillons)
+    if not math.isfinite(total) or total <= 0:
+        return None
+    debut = _face_moyenne(champ, meteo, lambda d: d <= QUART * total)
+    fin = _face_moyenne(champ, meteo, lambda d: d >= (1 - QUART) * total)
+    if debut is None or fin is None:
+        return None
+    seuil = seuil_vent_sensible_ms()
+    if fin <= -seuil:
+        return ORIENTATION_RETOUR_DOS
+    if debut <= -seuil:
+        return ORIENTATION_DEPART_DOS
+    if debut >= seuil and fin >= seuil:
+        return ORIENTATION_FACE
+    return ORIENTATION_TRAVERS
+
+
+def _face_moyenne(champ: ChampVent, meteo: MeteoTrace, garde) -> float | None:
+    valeurs = [
+        champ.vent_face_ms(e.dist_m, e.cap_deg, 1)
+        for e in meteo.echantillons
+        if garde(e.dist_m) and e.vent_kmh is not None and e.vent_depuis_deg is not None
+    ]
+    return sum(valeurs) / len(valeurs) if valeurs else None
+
+
+# --- la sélection ---------------------------------------------------------------
+
+
+@dataclass
+class Retenue:
+    """Une proposition retenue, avec ce qui la distingue des autres."""
+
+    proposition: object
+    profil: Profil
+    axe_distinctif: str
+    distinction: str
+
+
+@dataclass
+class Selection:
+    """Les propositions retenues, et la raison quand il y en a moins de trois."""
+
+    retenues: list[Retenue] = field(default_factory=list)
+    motif_deux_propositions: str | None = None
+    #: Recouvrements deux à deux des retenues, pour l'affichage et le JSON.
+    recouvrements: dict[tuple[int, int], float] = field(default_factory=dict)
+
+
+def choisir(
+    propositions: list,
+    *,
+    combien: int = 3,
+    seuil_recouvrement: float = SEUIL_RECOUVREMENT,
+) -> Selection:
+    """Les `combien` propositions les mieux classées **qui diffèrent vraiment**.
+
+    La première du tri — celle que l'outil recommande — fait toujours partie
+    du groupe : on ne remet pas en cause ce qu'il recommande, on ajoute ce à
+    quoi le comparer. Les autres sont cherchées **par recherche exhaustive**
+    sur les combinaisons, et non en descendant le classement une à une : un
+    parcours glouton s'engage sur une paire qui interdit tout troisième, et
+    conclut « il n'y a pas de trio » alors qu'il n'avait pas regardé. Avec une
+    dizaine de candidates et trois places, c'est une centaine de combinaisons
+    dont les recouvrements sont déjà en cache : ça ne coûte rien.
+
+    À égalité de validité, on préfère le groupe dont les candidates sont les
+    mieux classées (somme des rangs la plus basse) : « les meilleures qui
+    diffèrent », jamais « trois prises n'importe où ».
+
+    Si aucun groupe de `combien` ne tient, on redescend à `combien - 1`, et
+    ainsi de suite — et `motif_deux_propositions` dit pourquoi.
+    """
+    if not propositions:
+        return Selection(motif_deux_propositions="aucune candidate à proposer")
+    profils = {id(p): profil(p) for p in propositions}
+    mesure = _Recouvrements()
+    refus = _Refus()
+
+    groupe, attribution = _meilleur_groupe(
+        propositions, profils, mesure, refus, combien, seuil_recouvrement
+    )
+
+    retenues = [
+        Retenue(
+            proposition=p,
+            profil=profils[id(p)],
+            axe_distinctif=axe or "",
+            distinction=phrase(axe, profils[id(p)], [profils[id(q)] for q in groupe if q is not p]),
+        )
+        for p, axe in zip(groupe, attribution, strict=True)
+    ]
+    selection = Selection(retenues=retenues)
+    if len(retenues) < combien:
+        selection.motif_deux_propositions = _motif(
+            len(retenues), combien, len(propositions), refus
+        )
+    for i in range(len(groupe)):
+        for j in range(i + 1, len(groupe)):
+            selection.recouvrements[(i, j)] = mesure.entre(groupe[i].trace, groupe[j].trace)
+    return selection
+
+
+@dataclass
+class _Refus:
+    """Pourquoi les autres candidates n'ont pas été retenues, pour le motif."""
+
+    recouvrement: set[int] = field(default_factory=set)
+    axe: set[int] = field(default_factory=set)
+
+
+def _meilleur_groupe(
+    propositions: list,
+    profils: dict,
+    mesure: _Recouvrements,
+    refus: _Refus,
+    combien: int,
+    seuil_recouvrement: float,
+) -> tuple[list, list[str]]:
+    """Le meilleur groupe valide de `combien` propositions, ou moins s'il n'y en a pas."""
+    tete, reste = propositions[0], propositions[1:]
+    for taille in range(min(combien, len(propositions)), 1, -1):
+        meilleur: tuple[tuple[int, ...], list, list[str]] | None = None
+        for indices in combinations(range(len(reste)), taille - 1):
+            groupe = [tete, *(reste[i] for i in indices)]
+            if not _recouvrements_acceptables(groupe, mesure, seuil_recouvrement, refus, indices):
+                continue
+            attribution = _attribuer([profils[id(p)] for p in groupe])
+            if attribution is None:
+                refus.axe.update(indices)
+                continue
+            rang = tuple(indices)
+            if meilleur is None or rang < meilleur[0]:
+                meilleur = (rang, groupe, attribution)
+        if meilleur is not None:
+            return meilleur[1], meilleur[2]
+    return [tete], [""]
+
+
+def _recouvrements_acceptables(
+    groupe: list, mesure: _Recouvrements, seuil: float, refus: _Refus, indices
+) -> bool:
+    for i in range(len(groupe)):
+        for j in range(i + 1, len(groupe)):
+            if mesure.entre(groupe[i].trace, groupe[j].trace) > seuil:
+                refus.recouvrement.update(indices)
+                return False
+    return True
+
+
+class _Recouvrements:
+    """`recouvrement_max` avec les mailles de chaque tracé calculées une fois.
+
+    Sans ce cache, choisir trois propositions parmi cinq redécoupait le même
+    tracé de 60 km en mailles une dizaine de fois. Le résultat est
+    identique à `apprentissage.routes.recouvrement_max`, dont c'est le calcul,
+    recopié ici pour pouvoir réutiliser les découpages.
+    """
+
+    def __init__(self) -> None:
+        self._mailles: dict[int, dict[tuple[int, int], float]] = {}
+        self._totaux: dict[int, float] = {}
+
+    def entre(self, a, b) -> float:
+        return max(self._sens(a, b), self._sens(b, a))
+
+    def _sens(self, a, b) -> float:
+        metres_a, total = self._de(a)
+        if total <= 0:
+            return 0.0
+        mailles_b = self._de(b)[0]
+        return sum(m for cle, m in metres_a.items() if cle in mailles_b) / total
+
+    def _de(self, trace) -> tuple[dict[tuple[int, int], float], float]:
+        cle = id(trace)
+        if cle not in self._mailles:
+            metres = mailles_ponderees(trace)
+            self._mailles[cle] = metres
+            self._totaux[cle] = sum(metres.values())
+        return self._mailles[cle], self._totaux[cle]
+
+
+#: Les axes tels qu'on les nomme dans un message, dans l'ordre de `ORDRE_AXES`.
+_NOMS_AXES = {
+    AXE_VENT: "orientation au vent",
+    AXE_DEMI_TOURS: "demi-tours",
+    AXE_DUREE: "durée",
+    AXE_VILLE: "ville",
+    AXE_TRAFIC: "grands axes",
+    AXE_PLUIE: "pluie",
+    AXE_TERRAIN: "terrain sous les blocs",
+}
+
+
+def _motif(retenues: int, voulu: int, candidates: int, refus: _Refus) -> str:
+    if candidates <= retenues:
+        return (
+            f"{candidates} candidate(s) seulement portaient la séance : "
+            f"il n'y a pas de quoi en contraster {voulu}"
+        )
+    axes = ", ".join(_NOMS_AXES[axe] for axe in ORDRE_AXES)
+    # Pas de décompte par motif : une même candidate est refusée dans certaines
+    # combinaisons pour son recouvrement et dans d'autres faute d'axe, et
+    # additionner les deux donnerait des chiffres qui ne s'additionnent pas.
+    # On dit ce qui a été essayé et pourquoi rien n'a tenu.
+    morceaux = []
+    if refus.recouvrement:
+        morceaux.append(
+            f"soit elles empruntaient plus de {SEUIL_RECOUVREMENT:.0%} des mêmes routes "
+            "qu'une autre du groupe"
+        )
+    if refus.axe:
+        morceaux.append(
+            f"soit l'une des trois ne se distinguait des deux autres sur aucun axe "
+            f"d'une marge perceptible ({axes})"
+        )
+    detail = " ; ".join(morceaux) if morceaux else "aucune ne se distinguait"
+    return (
+        f"{retenues} proposition(s) au lieu de {voulu}. Toutes les combinaisons des "
+        f"{candidates} candidates ont été essayées : {detail}. Mieux vaut en proposer "
+        "moins et le dire que trois qui se ressemblent."
+    )
+
+
+# --- attribution d'un axe à chaque proposition ----------------------------------
+
+
+def _attribuer(profils: list[Profil]) -> list[str] | None:
+    """Un axe distinctif par profil, tous différents, ou `None` si impossible.
+
+    Avec une seule proposition, il n'y a rien à distinguer : on rend une liste
+    d'un axe vide, ce qui est vrai — elle est seule, pas contrastée.
+
+    Le choix entre plusieurs attributions possibles suit `ORDRE_AXES`, du plus
+    au moins parlant pour le mainteneur. La recherche est exhaustive : au plus
+    trois profils et sept axes.
+
+    **Le vent compte pour autant d'axes qu'il a d'orientations**, sous les
+    clés `vent:retour-dos`, `vent:depart-dos`, `vent:travers`, `vent:face`.
+    Sans cela, l'exemple que le contrat donne lui-même en §3.1 serait interdit
+    — « vous rentrez avec le vent dans le dos », « vent dans le dos au
+    départ », « vent de travers » sont trois propositions qui ne diffèrent
+    *que* par le vent, et c'est très exactement ce que le mainteneur a
+    demandé. La condition « un axe différent chacune » sert à garantir
+    qu'aucune n'est là pour faire nombre ; trois orientations distinctes la
+    remplissent, puisque chacune est la seule de la sienne.
+    """
+    if len(profils) <= 1:
+        return [""] * len(profils)
+    possibles = [_axes_gagnes(p, [q for q in profils if q is not p]) for p in profils]
+    if any(not axes for axes in possibles):
+        return None
+    meilleure: list[str] | None = None
+    meilleur_cout: tuple | None = None
+    for combinaison in _systemes(possibles):
+        cout = tuple(sorted(_priorite(axe) for axe in combinaison))
+        if meilleur_cout is None or cout < meilleur_cout:
+            meilleure, meilleur_cout = list(combinaison), cout
+    return meilleure
+
+
+def axe_de_base(axe: str) -> str:
+    """L'axe sans son orientation : `vent:travers` → `vent`, le reste inchangé."""
+    return axe.split(":", 1)[0]
+
+
+def _priorite(axe: str) -> int:
+    return ORDRE_AXES.index(axe_de_base(axe))
+
+
+def _systemes(possibles: list[list[str]]):
+    """Toutes les attributions d'axes **tous distincts**, une par profil."""
+    union = sorted({axe for axes in possibles for axe in axes})
+    if len(union) < len(possibles):
+        return
+    for combinaison in permutations(union, len(possibles)):
+        if all(axe in axes for axe, axes in zip(combinaison, possibles, strict=True)):
+            yield combinaison
+
+
+def _axes_gagnes(sujet: Profil, autres: list[Profil]) -> list[str]:
+    """Les axes sur lesquels `sujet` est meilleur que **tous** les `autres`, d'un pas entier.
+
+    L'axe du vent est rendu sous la forme `vent:<orientation>` : voir
+    `_attribuer` pour pourquoi une orientation est un axe à elle seule.
+    """
+    gagnes = []
+    for axe in ORDRE_AXES:
+        if not _gagne(axe, sujet, autres):
+            continue
+        gagnes.append(f"{AXE_VENT}:{sujet.orientation}" if axe == AXE_VENT else axe)
+    return gagnes
+
+
+def _gagne(axe: str, sujet: Profil, autres: list[Profil]) -> bool:
+    valeur = sujet.valeur(axe)
+    if valeur is None:
+        return False
+    if axe == AXE_VENT:  # noqa: SIM102 - lisibilité : chaque axe a sa clause
+        # Le vent n'a pas de « meilleur » : le mainteneur a dit qu'il voulait
+        # arbitrer lui-même entre rentrer avec, partir avec, ou du travers.
+        # « Gagner » l'axe, c'est donc être la **seule** de son orientation —
+        # c'est bien ce qui la distingue des deux autres, et c'est la marge
+        # que le contrat demande pour un axe catégoriel.
+        return all(autre.orientation != valeur for autre in autres)
+    pas = _PAS[axe]
+    for autre in autres:
+        sienne = autre.valeur(axe)
+        if sienne is None:
+            return False  # on ne bat pas une inconnue : l'ignorance ne fait gagner personne
+        if valeur > sienne - pas:
+            return False
+    return True
+
+
+_PAS = {
+    AXE_DUREE: PAS_DUREE_S,
+    AXE_DEMI_TOURS: 1.0,
+    AXE_PLUIE: PAS_PLUIE_MM,
+    AXE_VILLE: PAS_MARQUEURS_KM,
+    AXE_TRAFIC: PAS_TRAFIC_PART,
+    AXE_TERRAIN: PAS_TERRAIN_KM_EQ,
+}
+
+
+# --- les phrases ----------------------------------------------------------------
+
+
+def phrase(axe: str | None, sujet: Profil, autres: list[Profil]) -> str:
+    """La phrase qui distingue `sujet` des `autres`, en langage de cycliste.
+
+    Jamais en langage de note : « vous rentrez avec le vent dans le dos »,
+    « aucun demi-tour », « la plus sèche », « 20 minutes de moins », « elle
+    évite les villages ». Si la phrase n'est pas écrivable, la proposition
+    n'existe pas — `choisir` ne la retient donc pas, et cette fonction ne rend
+    la chaîne vide que pour une proposition seule.
+    """
+    if not axe or not autres:
+        return ""
+    if axe_de_base(axe) == AXE_VENT:
+        return _PHRASES_VENT.get(sujet.orientation or "", "")
+    if axe == AXE_DEMI_TOURS:
+        if sujet.demi_tours == 0:
+            return "aucun demi-tour"
+        if sujet.demi_tours == 1:
+            return "un seul demi-tour"
+        return f"{sujet.demi_tours} demi-tours seulement"
+    if axe == AXE_DUREE:
+        ecart = min(a.duree_s for a in autres) - sujet.duree_s
+        return f"{ecart / 60:.0f} minutes de moins"
+    if axe == AXE_PLUIE:
+        return "au sec" if (sujet.pluie_mm or 0.0) <= 0.0 else "la plus sèche"
+    if axe == AXE_VILLE:
+        return "elle évite les villages"
+    if axe == AXE_TRAFIC:
+        return "elle évite les grands axes"
+    if axe == AXE_TERRAIN:
+        return "c'est là que les blocs tombent le mieux"
+    return ""
+
+
+_PHRASES_VENT = {
+    ORIENTATION_RETOUR_DOS: "vous rentrez avec le vent dans le dos",
+    ORIENTATION_DEPART_DOS: "vent dans le dos au départ, vous rentrez dans le dur",
+    ORIENTATION_TRAVERS: "vent de travers, ni répit ni mur",
+    ORIENTATION_FACE: "du vent de face au départ comme au retour",
+}

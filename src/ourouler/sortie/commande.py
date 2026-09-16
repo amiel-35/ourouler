@@ -4,6 +4,12 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
 
 1. la **séance du jour** est lue chez Intervals.icu (lot L4.1) ; s'il n'y en a
    pas, on le dit et on sort en 0 — ce n'est pas une erreur ;
+1 bis. la **question de l'orientation au vent** est posée **avant** la
+   recherche (lot L5.3) : un appel Open-Meteo sur un point et une heure, donc
+   le poste le moins cher, et il tombe avant BRouter. Elle ne se pose que si
+   le vent se sent (8 km/h, `seance.vent.SEUIL_VENT_SENSIBLE_KMH`) et à trois
+   jours au plus. Quand elle a une réponse (`--vent`), elle **dirige** la
+   recherche au lieu de contraster après coup ;
 2. des **boucles candidates** sont demandées au moteur (lot L2.3), de la
    longueur qu'il faut pour la séance ;
 3. chacune reçoit un premier **placement** des blocs, sans vent (lot L4.3).
@@ -20,7 +26,13 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
 6. tri par **note de placement d'abord** — elle inclut le vent depuis le
    sprint 5 —, puis par **pluie cumulée** quand deux notes sont égales à
    `config.seance.tolerance_egalite` près ;
-7. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`).
+7. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`) ;
+8. et **deux ou trois propositions contrastées** sont extraites de ce
+   classement (lot L5.3, `sortie.contraste`), chacune avec la phrase qui la
+   distingue des autres en langage de cycliste. La première reste celle du
+   tri : on ne change pas ce que l'outil recommande, on ajoute ce à quoi le
+   comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
+   rend deux et on dit pourquoi.
 
 L'ordre du tri est celui du contrat et il n'est pas anodin : la pluie se
 contourne en partant une heure plus tard, un bloc de seuil dans un village ne
@@ -77,6 +89,7 @@ from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer,
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
+from ourouler.sortie import contraste, orientation, vent_demande
 from ourouler.sortie.carte import construire as construire_carte
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
@@ -119,6 +132,10 @@ class Demande:
     sortie: Path | None
     carte: Path | None
     ecraser: bool = False
+    #: Réponse à la question d'orientation au vent (`--vent`). « peu-importe »
+    #: est le défaut **et une réponse valable** : elle retombe sur les
+    #: propositions contrastées (contrat §3.3.4).
+    vent: str = orientation.PEU_IMPORTE
 
 
 @dataclass
@@ -225,23 +242,41 @@ def executer(
     parametres, provenance = _parametres(config, demande.velo)
     distance_km, distance_source = _distance(demande, seance, parametres, config)
 
+    # La question du vent se pose **avant** la recherche (contrat §3.3.4) :
+    # c'est un appel Open-Meteo sur un point et une heure, donc le poste le
+    # moins cher de la commande, et il tombe avant les appels BRouter, qui
+    # sont le seul poste qui compte.
+    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+    question = vent_demande.interroger(
+        client_meteo,
+        config.depart,
+        depart_heure=demande.depart,
+        jour=demande.jour,
+        modele=config.meteo.modele,
+    )
+    azimut_vent = question.azimut_pour(demande.vent)
+
     client_brouter = (
         client_brouter
         if client_brouter is not None
         else ClientBrouter(config.brouter, evitements=config.evitements)
     )
-    candidates = _candidates(client_brouter, config, demande, distance_km)
+    candidates = _candidates(client_brouter, config, demande, distance_km, azimut_vent)
 
     retenues, ecartees = _placer_toutes(candidates, seance, config, parametres)
     if not retenues:
         raise ErreurUtilisateur(_motif_aucune(seance, ecartees, distance_km))
 
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
     retenues = _replacer_avec_vent(retenues, seance, config, parametres, demande, client_meteo)
     propositions, panne = _mesurer(retenues, config, demande, client_meteo)
     propositions.sort(key=functools.cmp_to_key(_comparer(config.seance.tolerance_egalite)))
     for numero, proposition in enumerate(propositions, start=1):
         proposition.numero = numero
+
+    # Les trois propositions contrastées (lot L5.3). La première reste celle
+    # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
+    # recommande, on ajoute ce à quoi le comparer.
+    selection = contraste.choisir(propositions)
 
     meilleure = propositions[0]
     tenue = (
@@ -267,6 +302,8 @@ def executer(
         tenue=tenue,
         gpx=chemin_gpx,
         carte=chemin_carte,
+        selection=selection,
+        question_vent=question,
     )
     if getattr(args, "json", False):
         print(json.dumps(rendre_json(propositions, contexte), ensure_ascii=False, indent=2))
@@ -289,6 +326,10 @@ class _Contexte:
     tenue: Tenue | None
     gpx: Path | None
     carte: Path | None
+    #: Les propositions contrastées et leurs phrases (lot L5.3).
+    selection: contraste.Selection | None = None
+    #: Ce que le vent au départ permettait de demander, et pourquoi.
+    question_vent: vent_demande.QuestionVent | None = None
 
 
 # --- options ------------------------------------------------------------------
@@ -331,6 +372,8 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
             "y mettre l'adresse du serveur BRouter"
         )
 
+    vent = orientation.valider(getattr(args, "vent", None))
+
     sortie = getattr(args, "sortie", None)
     carte = getattr(args, "carte", None)
     demande = Demande(
@@ -345,6 +388,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         sortie=Path(sortie) if sortie else None,
         carte=Path(carte) if carte else None,
         ecraser=bool(getattr(args, "ecraser", False)),
+        vent=vent,
     )
     for chemin, demande_explicite in (
         (chemin_gpx_par_defaut(demande), demande.sortie is not None),
@@ -491,7 +535,11 @@ def _distance(
 
 
 def _candidates(
-    client: ClientBrouter, config: Config, demande: Demande, distance_km: float
+    client: ClientBrouter,
+    config: Config,
+    demande: Demande,
+    distance_km: float,
+    azimut_vent: float | None = None,
 ) -> list:
     """Les boucles candidates, dans la direction demandée ou tout autour.
 
@@ -500,13 +548,20 @@ def _candidates(
     tableau montrer ce que chaque direction donne, terrain et pluie compris.
     C'est aussi ce qui rend `ourouler sortie --jour …` utilisable tel quel, ce
     que le contrat de sprint demande.
+
+    `azimut_vent` est l'azimut qu'impose une réponse à la question
+    d'orientation au vent (lot L5.3). Il **réduit l'espace de recherche** au
+    lieu de contraster après coup, ce qui est l'intérêt de poser la question
+    avant. `--direction`, explicitement demandée, reste prioritaire : le
+    cycliste qui écrit « au nord » veut aller au nord.
     """
-    if demande.azimut_deg is not None:
+    azimut = demande.azimut_deg if demande.azimut_deg is not None else azimut_vent
+    if azimut is not None:
         trouvees = generer(
             client,
             config.depart,
             distance_km=distance_km,
-            azimut_deg=demande.azimut_deg,
+            azimut_deg=azimut,
             nb=demande.nb_candidates,
             tolerance=config.boucle.tolerance_distance,
             profil=demande.profil,
@@ -922,6 +977,7 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
 
     lignes += _notes_sous_tableau(propositions[0], presentes)
     lignes.append("")
+    lignes += _propositions_contrastees(contexte)
     lignes += _seance_placee(propositions[0], contexte)
     lignes.append("")
     lignes += _tenue_lignes(contexte)
@@ -930,6 +986,113 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
     if contexte.carte is not None:
         lignes.append(f"{MARQUE_RETENUE} Carte : {contexte.carte}")
     return "\n".join(lignes)
+
+
+def _lignes_vent(contexte: _Contexte) -> list[str]:
+    """La question d'orientation au vent, ou la raison pour laquelle on ne la pose pas.
+
+    Elle est imprimée dans l'en-tête parce qu'elle a été posée **avant** la
+    recherche : ce que le lecteur voit en dessous est déjà la réponse à ce
+    qu'il a (ou n'a pas) demandé.
+    """
+    question, demande = contexte.question_vent, contexte.demande
+    if question is None:
+        return []
+    if not question.posee:
+        return [f"Orientation au vent : pas d'avis — {question.motif}."]
+    vent = f"Vent au départ {question.vent_kmh:.0f} km/h de {_azimut(question.vent_depuis_deg)}"
+    if demande.vent != orientation.PEU_IMPORTE:
+        azimut = question.azimut_pour(demande.vent)
+        ou = f" — recherche dirigée vers {_azimut(azimut)}" if azimut is not None else ""
+        if demande.azimut_deg is not None:
+            ou = " — mais --direction, demandée explicitement, garde la main"
+        return [f"{vent}. Demandé : {_LIBELLES_VENT[demande.vent]}{ou}."]
+    return [
+        f"{vent}. Question : `--vent retour-dos` pour rentrer avec, `--vent depart-dos` "
+        "pour partir avec, `--vent travers` — ou rien, et les propositions ci-dessous "
+        "répondent à votre place."
+    ]
+
+
+#: Comment on nomme chaque réponse à la question du vent, à l'affichage.
+_LIBELLES_VENT = {
+    orientation.PEU_IMPORTE: "peu importe",
+    orientation.ORIENTATION_RETOUR_DOS: "rentrer avec le vent dans le dos",
+    orientation.ORIENTATION_DEPART_DOS: "partir avec le vent dans le dos",
+    orientation.ORIENTATION_TRAVERS: "vent de travers",
+}
+
+
+def _propositions_contrastees(contexte: _Contexte) -> list[str]:
+    """Les deux ou trois propositions retenues, chacune avec sa phrase.
+
+    C'est le livrable du lot L5.3 : la phrase, en langage de cycliste et
+    jamais en langage de note, est ce qui permet d'arbitrer **en regardant**
+    plutôt qu'en réglant.
+    """
+    selection = contexte.selection
+    if selection is None or not selection.retenues:
+        return []
+    lignes = [
+        f"{len(selection.retenues)} proposition(s) qui diffèrent vraiment "
+        "(et non les trois premières du tri) :"
+    ]
+    for retenue in selection.retenues:
+        numero = retenue.proposition.numero
+        phrase = retenue.distinction or "la seule candidate"
+        lignes.append(f"    n° {numero} — {phrase}")
+        lignes.append(f"           {_details_proposition(retenue)}")
+    if selection.recouvrements:
+        parts = ", ".join(
+            f"n° {selection.retenues[i].proposition.numero}/"
+            f"n° {selection.retenues[j].proposition.numero} {part:.0%}"
+            for (i, j), part in sorted(selection.recouvrements.items())
+        )
+        lignes.append(
+            f"    Routes communes : {parts} "
+            f"(au-delà de {contraste.SEUIL_RECOUVREMENT:.0%}, deux boucles se ressemblent "
+            "sur la carte quoi que disent leurs notes)."
+        )
+    if selection.motif_deux_propositions:
+        lignes.append(f"    {selection.motif_deux_propositions}")
+    lignes.append("")
+    return lignes
+
+
+def _details_proposition(retenue) -> str:
+    """Les mesures qui portent la phrase, dans les unités du cycliste."""
+    profil = retenue.profil
+    morceaux = [_duree_courte(profil.duree_s)]
+    if profil.densite_marqueurs_km is not None:
+        morceaux.append(f"{_fr(profil.densite_marqueurs_km, 1)} feux/stops/passages au km")
+    else:
+        morceaux.append("marqueurs inconnus")
+    morceaux.append(
+        "aucun demi-tour" if profil.demi_tours == 0 else f"{profil.demi_tours} demi-tour(s)"
+    )
+    if profil.part_trafic is not None:
+        morceaux.append(f"{profil.part_trafic * 100:.0f} % de grands axes")
+    if profil.pluie_mm is not None:
+        morceaux.append(f"{_fr(profil.pluie_mm, 1)} mm de pluie")
+    if profil.orientation is not None:
+        morceaux.append(f"vent : {_LIBELLES_ORIENTATION[profil.orientation]}")
+    part = getattr(retenue.proposition, "part_connue", None)
+    if part is not None:
+        morceaux.append(f"{part * 100:.0f} % de routes connues")
+    return ", ".join(morceaux)
+
+
+#: Comment on nomme une orientation au vent dans la ligne de détail. La part
+#: connue y figure aussi, mais **seulement pour décrire** une proposition déjà
+#: retenue : le contrat du sprint 3 interdit qu'elle entre dans un score, et
+#: le lot L5.3 le redit — pénaliser l'inconnu condamnerait d'avance toute
+#: direction jamais explorée.
+_LIBELLES_ORIENTATION = {
+    orientation.ORIENTATION_RETOUR_DOS: "dans le dos au retour",
+    orientation.ORIENTATION_DEPART_DOS: "dans le dos au départ",
+    orientation.ORIENTATION_TRAVERS: "de travers",
+    orientation.ORIENTATION_FACE: "de face aux deux bouts",
+}
 
 
 def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[str]:
@@ -966,11 +1129,23 @@ def _entete(
     propositions: list[Proposition], contexte: _Contexte, presentes: set[str]
 ) -> list[str]:
     seance, demande, config = contexte.seance, contexte.demande, contexte.config
-    direction = (
-        f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
-        if demande.azimut_deg is not None
-        else "dans toutes les directions (aucune --direction demandée)"
+    # Trois cas et non deux : depuis le lot L5.3, une réponse à la question
+    # d'orientation au vent dirige la recherche elle aussi. Dire « dans toutes
+    # les directions » alors qu'on a cherché au sud-ouest serait faux.
+    azimut_vent = (
+        contexte.question_vent.azimut_pour(demande.vent)
+        if contexte.question_vent is not None
+        else None
     )
+    if demande.azimut_deg is not None:
+        direction = f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
+    elif azimut_vent is not None:
+        direction = (
+            f"vers {_azimut(azimut_vent)} ({azimut_vent:.0f}°), direction imposée par "
+            f"--vent {demande.vent}"
+        )
+    else:
+        direction = "dans toutes les directions (aucune --direction demandée)"
     lignes = [
         f"Sortie du {seance.jour.isoformat()} — « {seance.nom} »",
         f"Séance : {_duree_longue(seance.duree_s)}, {len(seance.etapes)} étape(s), "
@@ -987,6 +1162,7 @@ def _entete(
             "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un "
             "CdA et un Crr par défaut (`ourouler calibrer`)."
         )
+    lignes += _lignes_vent(contexte)
     if seance.meta.get("puissance_approximee"):
         lignes.append(
             "⚠ puissances approximées : la séance est prescrite en zones de fréquence cardiaque."
@@ -1223,7 +1399,88 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
             "a_enlever": contexte.tenue.a_enlever,
             "motifs": contexte.tenue.motifs,
         },
+        # Les clés du lot L5.3. `propositions` est le sous-ensemble contrasté
+        # de `candidates` : mêmes objets, repérés par `numero`, avec la phrase
+        # qui les distingue. `candidates` reste la liste complète et
+        # inchangée — un script qui la lisait continue de marcher.
+        "propositions": _propositions_json(contexte),
+        "question_vent": _question_vent_json(contexte),
+        "motif_deux_propositions": (
+            contexte.selection.motif_deux_propositions if contexte.selection else None
+        ),
         "candidates": [_candidate_json(p) for p in propositions],
+    }
+
+
+def _propositions_json(contexte: _Contexte) -> list[dict]:
+    """Les deux ou trois propositions contrastées, dans l'ordre du tri.
+
+    `distinction` porte la phrase en langage de cycliste, `axe_distinctif`
+    l'axe qui la motive. `recouvrement_max_avec` dit, pour chaque autre
+    proposition, la part de routes communes — c'est le critère qui garantit
+    que deux propositions ne se ressemblent pas sur la carte.
+    """
+    selection = contexte.selection
+    if selection is None:
+        return []
+    par_paire = selection.recouvrements
+    sortie = []
+    for i, retenue in enumerate(selection.retenues):
+        profil = retenue.profil
+        sortie.append(
+            {
+                "numero": retenue.proposition.numero,
+                "retenue": i == 0,
+                "distinction": retenue.distinction,
+                # L'axe de base, sans son orientation : un consommateur lit « vent »,
+                # pas « vent:travers » — l'orientation est déjà sous
+                # `orientation_vent`.
+                "axe_distinctif": (
+                    contraste.axe_de_base(retenue.axe_distinctif)
+                    if retenue.axe_distinctif
+                    else None
+                ),
+                "duree_s": round(profil.duree_s),
+                "demi_tours": profil.demi_tours,
+                "pluie_mm": (None if profil.pluie_mm is None else round(profil.pluie_mm, 3)),
+                # `None` et jamais `0.0` : un tracé sans tag de nœud ne prouve
+                # pas qu'il n'y a pas de feu (règle absolue 5), et l'ignorance
+                # n'est jamais un malus (contrat du sprint 3).
+                "densite_marqueurs_km": (
+                    None
+                    if profil.densite_marqueurs_km is None
+                    else round(profil.densite_marqueurs_km, 3)
+                ),
+                "part_trafic": (
+                    None if profil.part_trafic is None else round(profil.part_trafic, 4)
+                ),
+                "orientation_vent": profil.orientation,
+                "note_terrain": round(profil.note_terrain, 4),
+                "recouvrement_max_avec": {
+                    str(selection.retenues[j].proposition.numero): round(part, 4)
+                    for (a, b), part in par_paire.items()
+                    for j in ((b,) if a == i else (a,) if b == i else ())
+                },
+            }
+        )
+    return sortie
+
+
+def _question_vent_json(contexte: _Contexte) -> dict | None:
+    """Ce que le vent au départ permettait de demander, et ce qui a été demandé."""
+    question = contexte.question_vent
+    if question is None:
+        return None
+    return {
+        "posee": question.posee,
+        "motif": question.motif or None,
+        "vent_kmh": question.vent_kmh,
+        "vent_depuis_deg": question.vent_depuis_deg,
+        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
+        "reponse": contexte.demande.vent,
+        "azimut_recherche_deg": question.azimut_pour(contexte.demande.vent),
+        "choix": list(orientation.CHOIX),
     }
 
 

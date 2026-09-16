@@ -17,6 +17,10 @@ from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, charger
 from ourouler.erreurs import ErreurUtilisateur
 
+# Module volontairement sans dépendance : la liste des réponses à `--vent`
+# est nécessaire à la construction du parseur, donc à chaque `--help`.
+from ourouler.sortie.orientation import CHOIX as CHOIX_VENT
+
 
 def construire_parseur() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -419,6 +423,17 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
         help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon)",
     )
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
+    # La question d'orientation au vent, posée **avant** la recherche (lot
+    # L5.3). « peu-importe » est le défaut **et une réponse valable** : elle
+    # retombe sur les propositions contrastées. Ce n'est donc pas un réglage
+    # de plus qu'il faudrait toucher — c'est un choix qui se fait en
+    # regardant, et dont l'absence de réponse est une réponse.
+    p.add_argument(
+        "--vent",
+        choices=list(CHOIX_VENT),
+        help="orientation au vent voulue : retour-dos (rentrer avec), depart-dos (partir avec), "
+        "travers, ou peu-importe (défaut — les propositions contrastées répondent)",
+    )
     p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
     ajouter_heure_depart(
         p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)"

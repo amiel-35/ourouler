@@ -38,8 +38,11 @@ from ourouler.apprentissage.routes import (
     cle_maille,
     ecrire_poids,
     lire_poids,
+    mailles_ponderees,
     poids_appris,
     points_de_passage,
+    recouvrement,
+    recouvrement_max,
     sorties_a_apprendre,
     statistiques_de_traces,
 )
@@ -913,3 +916,54 @@ def test_une_valeur_non_finie_est_ecartee_des_poids_relus(tmp_path: Path):
     chemin = tmp_path / "poids_routes.json"
     chemin.write_text('{"poids": {"a": 1e999, "secondary": 2.0}}', encoding="utf-8")
     assert lire_poids(chemin) == {"secondary": 2.0}
+
+
+# --- recouvrement de deux tracés (lot L5.3) -----------------------------------
+#
+# Le critère du mainteneur : « un seuil de pourcentage de route identique entre
+# des propositions ». Il mesure la différence entre les boucles elles-mêmes, là
+# où les autres axes mesurent des attributs de chacune — deux boucles peuvent
+# avoir des notes très différentes et emprunter les mêmes routes.
+
+
+def test_un_trace_se_recouvre_entierement_lui_meme():
+    trace = droite(50)
+    assert recouvrement(trace, trace) == pytest.approx(1.0)
+
+
+def test_deux_traces_eloignes_ne_se_recouvrent_pas():
+    """Un degré de latitude, soit 111 km : aucune maille en commun."""
+    a, b = droite(50), droite(50, depart_lat=1.0)
+    assert recouvrement(a, b) == pytest.approx(0.0)
+    assert recouvrement_max(a, b) == pytest.approx(0.0)
+
+
+def test_le_recouvrement_n_est_pas_symetrique_et_le_maximum_le_dit():
+    """Une petite boucle incluse dans une grande la recouvre à 100 %, et n'en
+    est recouverte qu'à moitié. `recouvrement_max` répond « oui, elles se
+    ressemblent », ce qui est la question posée."""
+    petite, grande = droite(26), droite(51)  # 2,5 km dans 5 km, même départ
+    assert recouvrement(petite, grande) == pytest.approx(1.0, abs=0.02)
+    assert recouvrement(grande, petite) == pytest.approx(0.5, abs=0.05)
+    assert recouvrement_max(petite, grande) == pytest.approx(1.0, abs=0.02)
+
+
+def test_un_recouvrement_avec_un_trace_vide_ne_divise_pas_par_zero():
+    vide = Trace("vide", [], [], 0.0, None, None)
+    assert recouvrement(vide, droite(10)) == 0.0
+    assert recouvrement(droite(10), vide) == 0.0
+
+
+def test_les_mailles_ponderees_totalisent_la_longueur_du_trace():
+    trace = droite(51)  # 50 intervalles de 100 m
+    assert sum(mailles_ponderees(trace).values()) == pytest.approx(5_000.0, rel=1e-6)
+
+
+def test_part_connue_et_recouvrement_partagent_le_meme_decoupage(tmp_path: Path):
+    """La même question posée à deux ensembles de mailles : une base apprise
+    sur un tracé doit rendre `part_connue` ≈ 1 pour ce tracé, exactement comme
+    son recouvrement avec lui-même."""
+    trace = droite(50)
+    base = BaseRoutes(tmp_path / "routes.sqlite")
+    base.ajouter_trace(trace, jour=LUNDI, id_sortie="s1")
+    assert base.part_connue(trace) == pytest.approx(recouvrement(trace, trace), abs=1e-9)

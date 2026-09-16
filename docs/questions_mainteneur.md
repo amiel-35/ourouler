@@ -572,3 +572,64 @@ dans le score, c'est l'outil qui lui renvoie son reflet, et toute validation
 devient circulaire. La popularité d'**autres** cyclistes serait une donnée
 extérieure, donc un critère parfaitement légitime. Il se trouve seulement
 qu'aucune source libre n'existe.
+
+## Q17 — La densité de marqueurs : quel côté de l'axe est le bon ? — **ouverte le 16/09/2026**
+
+Le lot L5.3 a écrit la densité de marqueurs au kilomètre (feux, stops,
+passages piétons, cédez-le-passage, ralentisseurs) et l'a validée comme le
+contrat le demandait, contre les sorties réelles. **La mesure contredit
+l'hypothèse, et nettement.**
+
+Sur 111 sorties d'entraînement réelles rejouées dans BRouter contre
+143 boucles proposées par le moteur aux mêmes distances : médiane **2,91**
+marqueurs/km pour les vraies sorties contre **1,50** pour les boucles
+proposées, soit un rapport de 1,94 ; 77 sorties sur 111 sont au-dessus de la
+médiane du lot proposé de leur longueur. Autrement dit : **il roule des
+routes deux fois plus « urbaines » que ce que l'outil lui propose.** L'écart
+grandit avec la distance, ce qui écarte l'explication par le couloir de
+départ.
+
+L'axe **discrimine** très bien (facteur 2,7 entre candidates d'une même
+journée, soit 125 arrêts d'écart sur 56 km) — la question n'est pas là. Elle
+est sur le **signe** :
+
+- **Option A** — on garde « moins de marqueurs = le côté à mettre en avant »,
+  comme le contrat le supposait, et la phrase reste « elle évite les
+  villages ». La mesure dit alors qu'on lui propose l'inverse de ce qu'il
+  fait, ce qui est peut-être exactement ce qu'il veut (il subissait le manque
+  d'outil).
+- **Option B** — on considère que sa pratique révèle un goût pour les routes
+  de bourg à bourg, et l'axe se retourne : « elle passe par les villages »
+  devient la phrase valorisée.
+- **Option C** — l'axe n'a pas de bon côté et les deux extrêmes portent
+  chacun leur phrase, le cycliste tranchant à la lecture.
+
+**Aujourd'hui l'option A est implémentée**, parce que c'est ce que le contrat
+écrivait ; le code ne s'en sert que pour **décrire** et **contraster**, jamais
+comme signal de qualité dans un score. Le retournement coûte une ligne
+(`contraste._gagne`) plus une phrase.
+
+Reproductible : `uv run python tests/validation/marqueurs_retrospectif.py`.
+
+## Q18 — Une carte par proposition, ou une seule ? — **ouverte le 16/09/2026**
+
+Le contrat §3.1.1 décrit la bonne forme de l'arbitrage : « il arbitre **en
+regardant**, pas en réglant. Trois propositions, **une carte chacune**, une
+phrase qui dit ce qui les distingue. »
+
+Le lot L5.3 livre les trois phrases et les mesures, mais **continue de
+n'écrire qu'une carte et qu'un GPX**, ceux de la proposition retenue. Deux
+raisons de ne pas l'avoir élargi sans demander : §3.3.5 exclut la page HTML
+du lot (c'est L5.4), et écrire trois fichiers change la convention de nommage
+(`sortie_AAAAMMJJ.html`) et la sémantique de `--carte`, qui désigne
+aujourd'hui **un** fichier.
+
+Trois formes possibles, à trancher :
+
+- **une carte par proposition** — `sortie_AAAAMMJJ_1.html`, `_2`, `_3`, et
+  `--carte` devient un préfixe ;
+- **une seule page à trois onglets**, ce qui est plutôt la forme de L5.4 ;
+- **on attend L5.4** et la page du jour porte les trois.
+
+Sans réponse, le cycliste arbitre sur les phrases et les chiffres, pas sur
+les tracés — c'est-à-dire pas tout à fait « en regardant ».
