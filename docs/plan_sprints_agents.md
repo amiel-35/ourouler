@@ -319,7 +319,7 @@ Reste à préciser au lancement : bornes chiffrées des catégories de tenue
 **`--adresse-depart`**, nom réservé par Q15 (l'option annoncée ici sous le
 nom `--depuis` était trop proche de `--depart`).
 
-### Sprint 5 — Le vent, la séance visible, les trois propositions **[en cours, PR #7]**
+### Sprint 5 — Le vent, la séance visible, les trois propositions **[livré le 16/09/2026, fusionné]**
 
 Une page HTML autonome, écrite sur le disque et ouverte dans le navigateur.
 Aucun serveur, aucun compte, aucune base : tout le calcul existe déjà, on
@@ -390,6 +390,34 @@ urbains par kilomètre contre 1,50 sur les boucles proposées. Non par goût —
 sont donc pas la cible à imiter mais la référence à battre, et c'est la
 validation la plus concrète de la règle de doctrine écrite le même jour.
 
+**Ce que le sprint a pris au sprint 7, et pourquoi** (16/09/2026) — le
+mainteneur avait besoin de la page **sur son téléphone**, pas dans son
+navigateur de bureau. Une page écrite sur disque ne l'atteint pas. Deux lots
+non prévus ont donc été tirés du sprint 7 :
+
+- **La mise en service** — cinq défauts qu'il a trouvés en regardant des
+  cartes, aucun par un test : la carte de la page du jour n'appliquait pas
+  la méthode Strava qu'elle annonçait, trois chiffres illisibles ou alarmants
+  à tort, la météo perdue à J+2 et J+3 par un « hors de portée » pris pour
+  un « hors du domaine », le GPX qui atterrissait dans le dépôt.
+- **L'hébergé minimal** — pas l'API du sprint 7 : le même binaire, lancé une
+  fois par jour dans un conteneur, et un serveur statique de 100 lignes
+  derrière une authentification basique. **Déployé sur son Coolify le
+  16/09/2026**, à son accord explicite, sur un domaine à lui.
+
+C'est un débordement de sprint figé, contraire à la règle de cadence — acté
+par le mainteneur en connaissance de cause, parce que le sprint 6 est du
+dogfooding et que le dogfooding sans la page sur le téléphone n'a pas lieu.
+
+**Neuf mesures sur son historique de 162 sorties**, demandées au fil de
+l'eau, qui ont déplacé le produit plus que le code : le trafic estimé évité
+à 54 % de l'attendu, les séances à blocs qui prennent trois fois moins de
+départementales, l'absence de tout signal entre blocs et récupérations sur
+les carrefours (un résultat nul, et c'en est un), et la densité urbaine
+radiale sur quatre villes qui dit que **le produit ne rend pas le même
+service partout** — aux Lilas, la densité de feux ne retombe jamais à moins
+de 30 km.
+
 ### Sprint 6 — Dogfooding **[cap fixé par le mainteneur]**
 
 Pas de nouvelle fonctionnalité. Le mainteneur s'en sert **pour de vrai**,
@@ -400,7 +428,7 @@ que l'Edge n'aime pas. Le livrable est une liste d'écarts entre ce que
 l'outil annonce et ce qui s'est passé, et leur correction. C'est ce sprint
 qui dit si le produit tient.
 
-### Sprint 7 — L'hébergé **[esquissé]**
+### Sprint 7 — L'hébergé **[esquissé — son premier étage est livré, voir sprint 5]**
 
 API au-dessus du même cœur, puis front web servi par elle, puis comptes
 avec authentification déléguée Google (doctrine §10). Postgres, stockage
