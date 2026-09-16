@@ -1528,3 +1528,65 @@ veut pas dire « le même outil pour tout le monde ». Un Rennais et un
 Francilien n'ont pas besoin du même produit. Découverte qui vaut mieux
 maintenant qu'au sprint 8.
 
+
+## Q33 — La cible de course, et la butée qui l'empêche — **V2, mesuré le 16/09/2026**
+
+Idée du mainteneur, née d'une digression sur le potentiel de son vélo de
+chrono : *« ça peut permettre de calculer une cible de course d'ailleurs avec
+le parcours et la météo à 3 jours de la course »*.
+
+**Ce qui existe déjà.** `ourouler simuler` prend le GPX d'un parcours, une
+puissance et le vélo calibré, va chercher **le vent prévu** si on lui donne
+une heure de départ, et rend le temps simulé — en texte comme en JSON. Les
+trois quarts du chemin sont faits.
+
+**Ce qui manque, par ordre de coût.**
+
+1. **L'inversion.** Aujourd'hui : puissance → temps. Il faudrait : temps visé
+   → puissance à tenir. C'est une bissection sur la même fonction, et le
+   module en fait déjà une dans `vitesse_regime`. Peu de code.
+2. **Le rappel de l'horizon.** Le vent se demande pour une heure de départ,
+   mais la fiabilité mesurée s'arrête à trois jours (`HORIZON_ORIENTATION_J`,
+   88 % de bon secteur à J+3). Une cible préparée à une semaine doit dire
+   qu'elle ne sait pas, pas deviner.
+3. **Le CdA du jour de course — et c'est le point bloquant.**
+
+**La butée, mesurée sur deux courses.** Ajustement CdA/Crr fait sur la seule
+partie vélo de deux triathlons, isolée par les points portant de la puissance,
+avec le vent d'archive du jour :
+
+| course | partie vélo | CdA | Crr | RMSE |
+|---|---|---|---|---|
+| Sables-d'Olonne, 22/06/2025 | 176,5 km en 5 h 32, 31,9 km/h | **0,1800** *(butée)* | 0,00583 | 81 W |
+| Châtelaillon, 11/05/2025 | 86,0 km en 2 h 38, 32,7 km/h | **0,1800** *(butée)* | 0,00883 | 83 W |
+
+`CDA_MIN = 0,18` (`physique/calibration.py:138`) est **un plancher trop haut
+pour une position de chrono tenue**. Les deux courses s'y collent : ce n'est
+pas un accident de l'une d'elles.
+
+**Conséquence sur la lecture, et elle est importante.** Quand le CdA est
+coincé à la butée, **le Crr n'est plus identifié** : il devient le résidu qui
+absorbe ce que le CdA n'a pas eu le droit d'expliquer. Les deux valeurs de Crr
+ci-dessus ne parlent donc pas des pneus — elles disent que la résistance
+totale inexpliquée diffère entre les deux courses.
+
+**Et l'écart de 62 W** que ce CdA donne contre le vélo de route à 32 km/h est
+donc **un minimum, pas une estimation**. Le mainteneur situe le gain de sa
+seule position à 25-30 W ; le reste vient des roues, des pneus, de la tenue,
+du casque et de l'asphalte neuf.
+
+**Pourquoi ça bloque la cible de course, et pas les sorties d'entraînement.**
+Pour une sortie ordinaire, le CdA moyen des positions réellement tenues est le
+bon chiffre — c'est la réserve écrite dans l'en-tête du module. Pour une cible
+de course, il faut le CdA du jour de course. Avec celui d'entraînement, la
+cible serait systématiquement pessimiste : une puissance plus haute que
+nécessaire pour tenir le temps visé. Sur cinq heures, c'est l'erreur qui coûte
+le marathon derrière.
+
+**Réserves de la mesure.** Une course porte des relances et des passages
+abrités, et le modèle n'a aucun terme d'aspiration — d'où un RMSE de plus de
+80 W. Une chute est visible à Châtelaillon (102 s sous 8 km/h au km 5,8) mais
+ne pollue pas l'ajustement : l'échantillonnage écarte déjà tout ce qui roule
+sous 8 km/h, et 236 tronçons sur 420 ont été retenus.
+
+**Décision du mainteneur** : noté pour la V2. Le cadrage du front passe avant.
