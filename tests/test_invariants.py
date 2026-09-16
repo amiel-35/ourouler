@@ -78,6 +78,34 @@ def test_le_coeur_n_importe_pas_tomllib(module: Path):
     assert "os" not in importes
 
 
+#: Les trois paquets de commandes qui partent d'un point. Ils reçoivent un
+#: `Depart` déjà tranché ; ils ne doivent jamais résoudre une adresse eux-mêmes.
+PAQUETS_DE_COMMANDE = ("meteo", "boucle", "sortie")
+
+
+@pytest.mark.parametrize("paquet", PAQUETS_DE_COMMANDE)
+def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
+    """F0.7 : l'adresse devient un `Depart` dans `cli.py`, et nulle part ailleurs.
+
+    Le connecteur de géocodage sort sur le réseau et interprète une saisie
+    d'utilisateur : le cœur, qui ne sait pas où il tourne (règle absolue 2),
+    reçoit le point déjà choisi. Seuls `cli.py` et le paquet `geocodage`
+    (qui sert la sous-commande dédiée) ont le droit de l'importer.
+    """
+    for module in sorted((SOURCES / paquet).rglob("*.py")):
+        source = module.read_text(encoding="utf-8")
+        for noeud in ast.walk(ast.parse(source)):
+            depuis = None
+            if isinstance(noeud, ast.ImportFrom) and noeud.module:
+                depuis = noeud.module
+            elif isinstance(noeud, ast.Import):
+                depuis = " ".join(alias.name for alias in noeud.names)
+            assert depuis is None or "geocodage" not in depuis, (
+                f"{module.relative_to(SOURCES)} importe le géocodage : "
+                "seul cli.py résout une adresse, le cœur reçoit un Depart"
+            )
+
+
 def test_aucun_client_http_reel_n_est_cree_a_l_import():
     """Un connecteur ne doit ouvrir un client qu'à la demande, jamais au chargement."""
     intervals = (SOURCES / "connecteurs" / "intervals.py").read_text(encoding="utf-8")

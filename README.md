@@ -98,10 +98,31 @@ ourouler meteo --heure-depart 08:00 --horizon 6
 ourouler sortie --jour 2026-02-08 --heure-depart 09:30 --candidates 4
 ```
 
-Le **lieu** de départ s'appellera **`--adresse-depart`** — nom réservé,
-**pas encore livré** : pour l'instant le départ est toujours celui de la
-configuration. Deux noms explicites plutôt que deux noms qui se ressemblent,
+Le **lieu** de départ s'appelle **`--adresse-depart`**, sur `meteo`, `boucle`
+et `sortie`. Deux noms explicites plutôt que deux noms qui se ressemblent,
 décision du mainteneur (`docs/questions_mainteneur.md`, Q15).
+
+```
+ourouler meteo --adresse-depart "7 rue du If 44999 Vallombreuse" --horizon 6
+ourouler boucle --adresse-depart "gare de Vallombreuse" --distance 60 --direction S
+```
+
+(Les adresses de ces exemples sont **inventées**, comme partout dans ce dépôt :
+aucune adresse réelle n'y figure, pas même dans un exemple.)
+
+L'adresse est géocodée, la configuration n'est pas modifiée : c'est un départ
+**pour cette fois**. Une adresse ambiguë est la normale — « 12 rue de la
+Gare » existe dans des centaines de communes. La ligne de commande retient le
+candidat le mieux noté et **l'annonce en toutes lettres** avant de travailler,
+avec le nombre de candidats écartés ; `ourouler geocoder "<adresse>"` les
+montre tous. Une adresse introuvable est une erreur (code 2) et ne retombe
+**jamais** sur le départ configuré : une boucle autour de chez soi pour qui a
+demandé une autre ville serait une réponse fausse, pas une erreur.
+
+Deux réserves. Les **routes connues** et les poids appris ont été mesurés
+autour du départ configuré : loin de là, « connu % » tombe à zéro sans que le
+tracé soit inédit pour autant — la commande le dit. Et le choix entre
+candidats trop proches est une question ouverte (Q34).
 
 Les anciens noms `--depart` et `--heure` restent acceptés pour ne rien
 casser, mais l'aide ne les propose plus.

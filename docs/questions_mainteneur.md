@@ -516,12 +516,15 @@ choix proposés.**
 
 - **`--heure-depart`** est le nom canonique de l'**heure** de départ, sur
   `meteo`, `boucle`, `simuler` et `sortie`.
-- **`--adresse-depart`** est le nom **réservé** du **lieu** de départ — un
-  départ autre que la maison, annoncé au plan du sprint 4 sous le nom
-  provisoire `--depuis`. **Il n'est pas livré** : aucune commande ne le
-  porte aujourd'hui, et un test le vérifie pour qu'il ne soit pas pris par
-  autre chose entre-temps. Le nom est posé maintenant parce qu'après il
-  serait trop tard.
+- **`--adresse-depart`** est le nom du **lieu** de départ — un départ autre
+  que la maison, annoncé au plan du sprint 4 sous le nom provisoire
+  `--depuis`. Le nom a d'abord été **réservé** (gardé par un test, pour qu'il
+  ne soit pas pris par autre chose), puis **livré le 17/09/2026 par le lot
+  F0.7** sur `meteo`, `boucle` et `sortie` — pas sur `simuler`, qui part du
+  GPX qu'on lui donne et non d'un point. Ce que le test réservait est
+  désormais vérifié à l'endroit : le nom retenu existe, les noms écartés non,
+  et le lieu n'écrase pas l'heure. Ce que la commande fait d'une adresse
+  ambiguë est en Q34.
 
 Les deux noms disent ce qu'ils désignent et ne se ressemblent plus : c'était
 tout le problème.
@@ -1590,3 +1593,47 @@ ne pollue pas l'ajustement : l'échantillonnage écarte déjà tout ce qui roule
 sous 8 km/h, et 236 tronçons sur 420 ont été retenus.
 
 **Décision du mainteneur** : noté pour la V2. Le cadrage du front passe avant.
+
+
+## Q34 — Une adresse sans commune donne cinq départs à égalité — **mesuré le 17/09/2026, une question**
+
+Livré au lot F0.7, `--adresse-depart` retient le **premier candidat** rendu
+par le géocodeur et l'annonce sur la sortie d'erreur avant tout appel coûteux
+(le raisonnement complet est dans la docstring de `cli.lieu_depart`). La
+question est de savoir s'il faut, en plus, **refuser** quand les meilleurs
+candidats sont trop proches.
+
+**Ce qui a été mesuré**, en appelant la BAN pour de vrai le 17/09/2026. Les
+requêtes étaient des **lieux publics** — des gares, des mairies — et jamais une
+adresse du mainteneur ; elles ne sont pas recopiées ici, ce dépôt ne porte
+aucune adresse réelle, pas même dans une mesure. Seuls les chiffres comptent :
+
+| forme de la requête | score du 1ᵉʳ | score du 2ᵉ | les deux sont-ils au même endroit ? |
+|---|---|---|---|
+| une rue avec son numéro, son code postal et sa commune | 0,98 | 0,71 | oui, même commune |
+| une gare, désignée par sa grande ville | 0,55 | plus bas | oui |
+| une gare, désignée par une ville moyenne | 0,61 | 0,56 | **non** — le 2ᵉ est à 200 km, dans un autre département |
+| une rue avec son numéro, **sans commune** | 0,9774 | 0,9773 | **non** — cinq communes, jusqu'à 400 km d'écart |
+
+Deux enseignements. Une adresse **avec** sa commune ne pose pas de problème :
+l'écart de score est franc, le premier candidat est le bon. Une adresse
+**sans** commune donne des scores séparés par un dix-millième, dans des
+communes sans rapport : le premier candidat est alors **arbitraire**, et seule
+l'annonce du lieu retenu évite la réponse fausse.
+
+**Pourquoi rien n'a été ajouté.** Refuser « quand c'est trop serré » demande un
+seuil, et aucun seuil ne se déduit de ces quatre mesures : 0,0001 d'écart est
+clairement une égalité, 0,27 clairement pas, et la gare de ville moyenne (0,05) tombe
+entre les deux avec la bonne réponse en tête. Poser un chiffre maintenant
+serait un choix arbitraire présenté comme une mesure (règle absolue 5).
+
+**La question** : le mainteneur préfère-t-il (a) ce qui est livré — on retient
+le premier et on le dit ; (b) un refus quand l'écart entre les deux premiers
+est sous un seuil qu'il fixe, avec la liste affichée et le code de sortie 2 ;
+ou (c) un refus dès que les deux premiers sont dans des **communes
+différentes**, ce qui ne demande aucun seuil mais demande à `Candidat` de
+porter la commune, que la BAN rend déjà et que le connecteur jette aujourd'hui ?
+
+Côté API (F1), la question ne se pose pas : la route de géocodage rendra la
+liste complète au front, qui fera choisir, et les routes de parcours
+recevront des **coordonnées** déjà tranchées.

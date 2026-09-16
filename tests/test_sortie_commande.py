@@ -33,7 +33,7 @@ from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
-from ourouler.config import Config, ParametresSeance, depuis_dict
+from ourouler.config import Config, Depart, ParametresSeance, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
@@ -347,7 +347,9 @@ def clients_interdits():
     )
 
 
-def lancer(tmp_path: Path, monkeypatch, *, meteo=None, brouter=None, intervals=None, **champs):
+def lancer(
+    tmp_path: Path, monkeypatch, *, meteo=None, brouter=None, intervals=None, lieu_depart=None, **champs
+):
     """Exécute la commande dans `tmp_path`, clients bouchonnés, et rend le code."""
     monkeypatch.chdir(tmp_path)
     ecrire_calibration(tmp_path / "cache")
@@ -357,6 +359,7 @@ def lancer(tmp_path: Path, monkeypatch, *, meteo=None, brouter=None, intervals=N
         brouter if brouter is not None else moteur_brouter(),
         meteo if meteo is not None else moteur_meteo(),
         intervals if intervals is not None else client_intervals(),
+        lieu_depart=lieu_depart,
     )
 
 
@@ -989,14 +992,19 @@ COMMANDES_A_HEURE_DEPART = {
 }
 
 
+#: Les trois commandes qui partent d'un **lieu**, donc qui portent
+#: `--adresse-depart` (lot F0.7). `simuler` n'en est pas : elle part du GPX
+#: qu'on lui donne, pas d'un point.
+COMMANDES_A_ADRESSE_DEPART = ("meteo", "boucle", "sortie")
+
+
 def test_l_heure_de_depart_s_appelle_heure_depart_partout():
     """Q15, tranchée par le mainteneur le 13/09.
 
     L'heure de départ s'appelle `--heure-depart` ; le lieu de départ
-    s'appellera `--adresse-depart` (nom réservé, non livré). `--depart`, qui
-    disait « heure » alors que `--depuis`/`--adresse-depart` dira « lieu »,
-    et `--heure`, ajouté en attendant la décision, restent acceptés pour ne
-    rien casser.
+    s'appelle `--adresse-depart` (livré par F0.7). `--depart`, qui disait
+    « heure » alors que `--adresse-depart` dit « lieu », et `--heure`, ajouté
+    en attendant la décision, restent acceptés pour ne rien casser.
     """
     parseur = construire_parseur()
     for commande, arguments in COMMANDES_A_HEURE_DEPART.items():
@@ -1012,9 +1020,7 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
     """Acceptés, oui ; enseignés, non (Q15).
 
     L'aide ne doit plus proposer `--depart` ni `--heure` : les laisser dans
-    l'aide reviendrait à ne rien avoir tranché. Le nom réservé pour le lieu,
-    lui, n'existe pas encore comme option — il ne doit donc apparaître nulle
-    part dans l'aide non plus.
+    l'aide reviendrait à ne rien avoir tranché.
     """
     parseur = construire_parseur()
     sous = next(
@@ -1025,14 +1031,160 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
     for commande in COMMANDES_A_HEURE_DEPART:
         aide = sous.choices[commande].format_help()
         assert "--heure-depart" in aide, f"{commande} : le nom canonique manque dans l'aide"
-        sans_canonique = aide.replace("--heure-depart", "")
+        # Les deux noms canoniques sont retirés avant de chercher les anciens :
+        # « --adresse-depart » est cité dans l'aide de `--heure-depart` et
+        # réciproquement, précisément pour qu'on ne les confonde pas.
+        sans_noms_canoniques = aide.replace("--heure-depart", "").replace("--adresse-depart", "")
         for ancien in ("--depart", "--heure"):
-            assert ancien not in sans_canonique, (
+            assert ancien not in sans_noms_canoniques, (
                 f"{commande} : l'aide documente encore {ancien}"
             )
-        assert "--adresse-depart" not in aide, (
-            f"{commande} : --adresse-depart est un nom réservé, pas une option livrée"
+
+
+def test_le_lieu_de_depart_s_appelle_adresse_depart_et_rien_d_autre():
+    """Ce que gardait le test du nom réservé, maintenant que le nom est livré (F0.7).
+
+    Le test écrit au sprint 4 vérifiait que `--adresse-depart` **n'existait
+    pas**, pour que le nom ne soit pas pris par autre chose avant qu'on le
+    livre. Ce qu'il protégeait vraiment, c'est le nom lui-même — pas son
+    absence : c'est ce qui est vérifié ici.
+
+    Aucun des noms écartés (`--depuis`, provisoire du plan du sprint 4,
+    `--lieu-depart`, `--depart-adresse`) ne doit apparaître à la place, et
+    l'option n'existe que là où partir d'ailleurs a un sens : `simuler` part
+    du GPX qu'on lui donne, pas d'un point.
+    """
+    parseur = construire_parseur()
+    sous = next(
+        action
+        for action in parseur._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    for commande in COMMANDES_A_HEURE_DEPART:
+        aide = sous.choices[commande].format_help()
+        attendu = commande in COMMANDES_A_ADRESSE_DEPART
+        assert ("--adresse-depart" in aide) is attendu, (
+            f"{commande} : --adresse-depart devrait "
+            f"{'figurer' if attendu else 'être absent'} de l'aide"
         )
+        for ecarte in ("--depuis", "--lieu-depart", "--depart-adresse"):
+            assert ecarte not in aide, (
+                f"{commande} : {ecarte} a été livré à la place du nom retenu"
+            )
+
+
+def test_l_adresse_de_depart_et_l_heure_de_depart_ne_se_confondent_pas():
+    """Les deux options sur la même ligne, chacune dans son `dest` (Q15).
+
+    C'est la confusion pour laquelle le lieu ne s'appelle pas `--depart` : un
+    `dest` partagé ferait qu'une heure deviendrait un lieu, ou l'inverse, sans
+    que rien ne le dise.
+    """
+    parseur = construire_parseur()
+    for commande in COMMANDES_A_ADRESSE_DEPART:
+        arguments = COMMANDES_A_HEURE_DEPART[commande]
+        lus = parseur.parse_args(
+            [commande, *arguments, "--heure-depart", "08:00", "--adresse-depart", "Place du Test"]
+        )
+        assert lus.depart == "08:00", f"{commande} : l'heure a été écrasée par le lieu"
+        assert lus.adresse_depart == "Place du Test", f"{commande} : le lieu n'est pas arrivé"
+
+        # L'ordre inverse, et l'ancien nom de l'heure, ne changent rien.
+        lus = parseur.parse_args(
+            [commande, *arguments, "--adresse-depart", "Place du Test", "--depart", "10:15"]
+        )
+        assert lus.depart == "10:15"
+        assert lus.adresse_depart == "Place du Test"
+
+        # Sans l'option, aucun lieu n'est demandé : la configuration décide.
+        lus = parseur.parse_args([commande, *arguments])
+        assert lus.adresse_depart is None
+
+
+#: Un départ « ailleurs », toujours fictif : à quelques centièmes de degré du
+#: point zéro de la configuration de test, donc mesurable sans nommer un lieu
+#: réel (règle absolue 1).
+AILLEURS = Depart(nom="Place inventée 44999 Vallombreuse", latitude=0.123456, longitude=0.234567)
+
+
+def test_sortie_part_du_lieu_recu_et_pas_de_celui_de_la_configuration(tmp_path: Path, monkeypatch):
+    """F0.7 : le cœur reçoit un `Depart`, il ne le lit pas.
+
+    Les deux services qui partent d'un point sont surveillés : la question
+    d'orientation au vent (premier appel Open-Meteo, sur le départ) et la
+    génération des candidates (BRouter). Un seul des deux resté sur la
+    configuration donnerait une sortie fausse — le vent de chez soi, ou la
+    boucle de chez soi.
+    """
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(tmp_path / "cache")
+
+    departs_brouter: list[tuple[float, float]] = []
+    points_meteo: list[tuple[float, float]] = []
+
+    def espion_brouter(requete: httpx.Request) -> httpx.Response:
+        lon, lat = requete.url.params["lonlats"].split(",")
+        departs_brouter.append((float(lat), float(lon)))
+        azimut = float(requete.url.params["roundTripStartDirection"])
+        return httpx.Response(200, json=reponse_anneau(anneau(azimut)))
+
+    def espion_meteo(requete: httpx.Request) -> httpx.Response:
+        p = requete.url.params
+        lats = [float(x) for x in p["latitude"].split(",")]
+        lons = [float(x) for x in p["longitude"].split(",")]
+        points_meteo.extend(zip(lats, lons, strict=True))
+        debut = datetime.fromisoformat(p["start_hour"])
+        fin = datetime.fromisoformat(p["end_hour"])
+        n = int((fin - debut).total_seconds() // 3600) + 1
+        return httpx.Response(
+            200, json=[bloc_meteo(a, o, n, 0.0) for a, o in zip(lats, lons, strict=True)]
+        )
+
+    brouter = ClientBrouter(
+        depuis_dict(CONFIG_BRUTE).brouter,
+        http=httpx.Client(transport=httpx.MockTransport(espion_brouter)),
+    )
+    meteo = ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(espion_meteo)))
+
+    code = executer(
+        args(json=True),
+        config_de_test(tmp_path / "cache"),
+        brouter,
+        meteo,
+        client_intervals(),
+        lieu_depart=AILLEURS,
+    )
+    assert code == 0
+
+    assert departs_brouter, "aucune candidate demandée au moteur"
+    for lat, lon in departs_brouter:
+        assert (lat, lon) == pytest.approx((AILLEURS.latitude, AILLEURS.longitude), abs=1e-6)
+
+    # Le tout premier appel météo est la question du vent, posée sur le départ.
+    # `abs=1e-3` : le client arrondit les coordonnées qu'il envoie.
+    assert points_meteo[0] == pytest.approx(
+        (AILLEURS.latitude, AILLEURS.longitude), abs=1e-3
+    ), "la question du vent est restée sur le départ configuré"
+
+
+def test_le_json_de_sortie_dit_de_quel_lieu_la_boucle_part(tmp_path: Path, monkeypatch, capsys):
+    """Sans cette clé, deux réponses identiques décriraient deux parcours différents.
+
+    C'est ce dont l'API aura besoin pour que le front sache d'où part ce
+    qu'il affiche : l'heure de départ était publiée, le lieu non.
+    """
+    lancer(tmp_path, monkeypatch, json=True, lieu_depart=AILLEURS)
+    charge = json.loads(capsys.readouterr().out)
+    lieu = charge["demande"]["lieu_depart"]
+    assert lieu["nom"] == AILLEURS.nom
+    assert lieu["latitude"] == pytest.approx(AILLEURS.latitude)
+    assert lieu["longitude"] == pytest.approx(AILLEURS.longitude)
+
+    lancer(tmp_path, monkeypatch, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["demande"]["lieu_depart"]["nom"] == "Point zéro", (
+        "sans lieu fourni, le JSON doit nommer le départ de la configuration"
+    )
 
 
 def test_le_tableau_distingue_la_boucle_du_parcours_reellement_roule(tmp_path: Path):

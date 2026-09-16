@@ -101,11 +101,12 @@ sans être avalée.
   (`src/ourouler/geocodage/commande.py`) expose le connecteur sans jamais
   trancher entre les candidats — exactement la forme qu'une future route
   d'API (F1) reprendra telle quelle.
-- **`--adresse-depart` reste réservé, non livré.** Le brancher sur
-  `meteo`/`boucle`/`sortie` (résoudre l'adresse en un `Depart` avant
-  d'appeler le cœur) est un lot séparé, volontairement laissé de côté :
-  le périmètre de celui-ci était le géocodage seul, et ces trois commandes
-  sont éditées par d'autres agents en parallèle sur ce cycle.
+- **`--adresse-depart` était réservé à la fin de ce lot ; il a été livré par
+  le lot F0.7** (17/09/2026) sur `meteo`, `boucle` et `sortie` : `cli.py`
+  résout l'adresse en un `Depart` et le passe au cœur, qui ne géocode
+  toujours rien. La CLI retient le premier candidat et l'annonce ; la
+  justification et ce que l'API devra faire à la place sont dans la docstring
+  de `cli.lieu_depart`, et la question du seuil de refus dans Q34.
 
 ## Ce qui reste ouvert
 
