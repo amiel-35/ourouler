@@ -615,6 +615,54 @@ le reste d'une sortie coûte 0,5 s. Le nombre de candidates est donc le seul
 poste qui compte. Mesure le temps total et rapporte-le ; si générer plus
 coûte trop, dis-le plutôt que de livrer une commande qui prend une minute.
 
+#### 3.3.3 bis — Ce que « éloignées » veut dire (tranché le 16/09/2026)
+
+Le testeur adversarial a relevé que la première rédaction ne le chiffrait
+pas, et que c'était **le plus large trou de sa couverture** : une
+implémentation rendant trois propositions séparées de 1 % serait passée. Il
+avait raison, et le trou venait du contrat, pas du code.
+
+**Ce que ça ne veut pas dire : une distance dans un espace d'axes
+normalisés.** Normaliser sept grandeurs hétérogènes — des minutes, des
+millimètres, un compte de demi-tours, des km équivalents — demande des poids
+arbitraires, et un seuil sur cette distance serait infalsifiable.
+
+Trois propositions sont contrastées quand **les trois conditions** tiennent :
+
+a) **Chacune est la meilleure des trois sur au moins un axe**, et sur un axe
+   différent de celles des deux autres. Aucune n'est là pour faire nombre.
+b) **Elle l'est d'une marge exprimée dans l'unité de l'axe**, jamais en
+   pourcentage d'une note — être meilleur de 1 % n'est pas une différence
+   pour un cycliste. Point de départ, à ajuster si la mesure contredit :
+   durée ≥ 10 min ; demi-tours : un compte différent ; pluie ≥ 0,5 mm ;
+   vent : une catégorie relative dominante différente ; ville : un écart de
+   densité chiffré par la mesure du lot ; terrain : au moins 1,0 km
+   équivalent, soit le prix d'un feu (`POIDS_CARREFOUR`).
+c) **Le recouvrement de routes reste sous le seuil mesuré** (§3.3.2).
+
+Et le garde-fou qui prime sur les trois : **si la phrase n'est pas écrivable
+et vraie, la proposition n'existe pas.** On en rend deux, et on le dit.
+
+#### 3.3.3 ter — Les noms publiés
+
+`--json` : la phrase sous `distinction`, l'axe qui la motive sous
+`axe_distinctif`, la densité sous `densite_marqueurs_km`, la question du vent
+sous `question_vent`, et `motif_deux_propositions` quand il n'y en a que deux.
+
+Deux conventions reprises d'ailleurs plutôt qu'inventées :
+
+- **Le seuil de vent de la question est `SEUIL_AFFICHAGE_VENT_KMH` (8 km/h)**,
+  celui des flèches de la carte. Une constante, un sens : la question se pose
+  exactement quand les flèches se dessinent. Si le vent ne mérite pas d'être
+  montré, il ne mérite pas qu'on demande son orientation.
+- **La densité inconnue vaut `None`**, comme `note` pour les non-blocs depuis
+  L5.2. Et l'invariant du sprint 3 tient : une portion sans nœud tagué n'est
+  pas « la campagne prouvée », c'est « on ne sait pas », et ce n'est **jamais
+  un malus**.
+
+« Jusqu'à 3 jours » est **inclusif** : le jour 3 tient 88 % de directions dans
+le bon secteur (§3.1.2), le jour 4 non.
+
 **Chaque proposition porte une phrase qui dit ce qui la distingue des deux
 autres**, en langage de cycliste et jamais en langage de note : « vous
 rentrez avec le vent dans le dos », « aucun demi-tour », « la plus sèche »,
