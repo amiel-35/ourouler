@@ -113,9 +113,11 @@ CLE_CLASSE = "estimated_traffic_class"
 #: une classe numérique, jamais traitée comme un zéro (règle absolue 5).
 ABSENTE = "absente"
 
-#: Les deux classes les plus hautes observées sur le réseau du mainteneur
-#: (mesuré le 16/09/2026 : valeurs présentes 3, 4, 5, 6). C'est le
-#: regroupement qui répond à « évite-t-il le trafic estimé », par contraste
+#: Les deux classes les plus hautes que BRouter attribue sur le réseau du
+#: mainteneur. Mesuré le 16/09/2026 sur 111 sorties réelles rejouées et leurs
+#: boucles comparées : l'échelle observée va de 1 à 6, pas de 3 à 6 comme
+#: attendu au départ — 1 et 2 existent aussi, en petite quantité. Le
+#: regroupement 5+6 répond à « évite-t-il le trafic estimé », par contraste
 #: avec le décompte classe par classe (`imprimer_par_classe`) qui répond à
 #: « est-ce spécifiquement la 6, ou tout le haut de l'échelle ? ». À revoir si
 #: une classe au-delà de 6 apparaît un jour sur ce réseau.
