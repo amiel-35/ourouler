@@ -151,6 +151,29 @@ leur sprint : pas de squelette vide « pour plus tard ».
   l'affiche.
 - **Un service payant obligatoire.** Une option payante (Solcast, GraphHopper
   au-delà du gratuit) reste une option, jamais le chemin nominal.
+- **Les routes déjà roulées comme critère de choix.** Elles sont un
+  **instrument de mesure**, jamais un critère. Mots du mainteneur, 16/09/2026 :
+  « les routes connues et leur fréquence, c'est pour du test. Ce que je fais,
+  c'est des routes sûres : ça permet de comparer les critères de BRouter à ma
+  réalité dans ses choix, pas du tout de privilégier mes choix. »
+
+  C'est la règle du sprint 3, et sa raison technique est écrite dans
+  `apprentissage.routes.BaseRoutes.part_connue` : pénaliser l'inconnu
+  condamnerait d'avance toute direction jamais explorée, alors que le
+  mainteneur a lui-même demandé d'aller « tester des routes sud sud-ouest pour
+  voir ».
+
+  La raison de fond est plus forte que la raison technique : **le jour où les
+  routes connues entrent dans le score, l'outil cesse de mesurer quoi que ce
+  soit.** Il renvoie au cycliste ses propres habitudes en prétendant les avoir
+  trouvées, et toute validation rétrospective devient circulaire — on
+  vérifierait que le modèle prédit bien ce qu'on lui a donné comme cible.
+
+  Conséquence pratique : la part connue s'**affiche**, sert d'**étalon** pour
+  valider un critère nouveau (les poids du terrain au sprint 3, la densité de
+  marqueurs urbains au sprint 5), et n'entre **ni dans une note, ni dans un
+  tri, ni dans une sélection**. Une erreur de ce genre a été faite et
+  rattrapée dans le cadrage de L5.3, le 16/09/2026.
 
 ## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
 
