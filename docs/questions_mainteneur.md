@@ -785,3 +785,60 @@ fin » ; il est fin et gris, et illisible.
 3. Vérifier la même page sur une séance **à blocs** : la hiérarchie doit
    rester lisible à trois niveaux — blocs en couleurs vives, reste du parcours
    sélectionné en couleur franche, autres propositions en gris lisible.
+
+## Q21 — Les trois chiffres affichés sous une proposition sont illisibles ou alarmants à tort — **ouverte le 16/09/2026, à corriger**
+
+Relevé par le mainteneur sur la ligne de sa sortie du 19/09 :
+
+> `1:59 (⚠ séance amputée de 1 min), 1,3 feux/stops/passages au km, aucun
+> demi-tour, 57 % de grands axes, 93 % de routes connues`
+
+### a) « ⚠ séance amputée de 1 min » — le seuil existe déjà et n'est pas respecté
+
+Ses mots : « 1 min en plus ou en moins n'est pas un seuil important, faire une
+alerte quand on est à 5 % de différence de durée, pas moins ».
+
+**Sa règle des 5 % est déjà dans sa configuration** : `ParametresSeance.
+elasticite_calme_min = -0.05`, et `placement.py` s'en sert pour décider d'un
+« retour au calme raccourci ». Pourtant 1 h 59 pour 2 h prescrites — **0,8 %**
+— sort avec l'avertissement. Le paramètre est là, l'affichage ne le respecte
+pas. **Corriger en honorant la valeur existante, pas en ajoutant un second
+seuil** : le mainteneur a déjà répondu à cette question, dans son fichier.
+
+### b) « 1,3 feux/stops/passages au km » — la moyenne cache ce qui compte
+
+Ses mots : « pas simple à comprendre pour un béotien et ça paraît énorme. Ça
+veut dire un arrêt tous les km ou presque. Mais **la distribution de ça est
+plus importante** : si c'est ça tout du long c'est affreux, si y en a beaucoup
+en début et fin c'est pas pareil. »
+
+Deux défauts en un. Le chiffre est **illisible** (une densité par kilomètre
+n'est pas une grandeur de cycliste) et il est **faux comme résumé** : la même
+moyenne recouvre une sortie hachée de bout en bout et une sortie fluide
+encadrée de deux traversées d'agglomération — et la seconde, c'est presque
+toutes ses sorties, qui partent de Rennes et y reviennent.
+
+**C'est exactement l'intuition de Q17** — « ce qui sépare le village de la
+ville, c'est l'étendue, pas la densité » — appliquée cette fois à
+l'affichage. Les deux se corrigent ensemble : regrouper les marqueurs, puis
+dire la chose en langage de cycliste, par exemple « 6 km hachés au départ,
+puis rien pendant 40 km ».
+
+### c) « 57 % de grands axes » — l'étiquette fait peur pour rien
+
+Ses mots : « ça fait peur, ça veut dire quoi ? »
+
+Ça veut dire : 57 % des kilomètres sont sur des routes classées `primary`,
+`secondary` ou `trunk` dans OpenStreetMap (`boucle/couts.py::HIGHWAY_TRAFIC`).
+Autour de Rennes une `secondary` est une **départementale ordinaire**, pas une
+quatre-voies. L'étiquette « grands axes » évoque le danger là où la mesure ne
+décrit qu'une classe administrative.
+
+Et surtout : **il a déjà dit que ça ne le gêne pas.** « Une départementale
+rapide ne me gêne pas pour un bloc ; là, le souci, c'est que c'est en ville. »
+On l'alarme donc sur le critère dont il se moque, et on reste muet sur celui
+qui l'intéresse.
+
+À trancher avec lui : renommer (« routes départementales »), requalifier
+(distinguer `secondary` de `primary`/`trunk`, qui n'ont pas le même sens à
+vélo), ou retirer de la ligne de résumé et le garder au détail.
