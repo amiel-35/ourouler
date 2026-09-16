@@ -399,3 +399,22 @@ def test_seuil_recuperation_pct_est_lu_et_borne():
         d["seance"] = {"seuil_recuperation_pct": hors_bornes}
         with pytest.raises(ErreurConfig, match="seuil_recuperation_pct"):
             depuis_dict(d)
+
+
+def test_tolerance_egalite_est_lue_et_bornee():
+    """Préférence du cycliste (L5.1) : vent contre pluie à note de placement égale.
+
+    0.0 = le vent tranche toujours ; le défaut du code (0.15) doit rester
+    accessible sans qu'aucune configuration ne le touche (`test_seance_et_tenue`
+    le vérifie déjà indirectement en ne passant pas ce champ).
+    """
+    d = dict(BASE)
+    d["seance"] = {"tolerance_egalite": 0.05}
+    assert depuis_dict(d).seance.tolerance_egalite == 0.05
+    d["seance"] = {"tolerance_egalite": 0.0}
+    assert depuis_dict(d).seance.tolerance_egalite == 0.0, "0 = le vent tranche toujours"
+    assert depuis_dict(BASE).seance.tolerance_egalite == 0.15
+    for hors_bornes in (-0.01, 0.51):
+        d["seance"] = {"tolerance_egalite": hors_bornes}
+        with pytest.raises(ErreurConfig, match="tolerance_egalite"):
+            depuis_dict(d)

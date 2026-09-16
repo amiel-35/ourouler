@@ -49,7 +49,7 @@ pas. Les masses sont désormais justes, ce qui compte pour le jour où une
 sortie montagneuse entrera dans le jeu.
 
 
-## Q3 — Point de départ et règles de tenue / de séance
+## Q3 — Point de départ et règles de tenue / de séance — **départ et séance clos ; tenue en attente de l'usage**
 
 - Coordonnées du point de départ habituel (dans le fichier de configuration,
   jamais dans le dépôt). En attendant, la démo `meteo` tourne sur le centre
@@ -91,6 +91,13 @@ sortie montagneuse entrera dans le jeu.
   catégorie → « prévoir d'enlever X », si pluie ≥ seuil → « emporter la
   veste », si le ressenti baisse (retour tardif) → « garder X ». Le vent
   entre dans le ressenti et déclenche seul la veste au-delà d'un seuil.
+**Décision du 15/09/2026 — on attend.** Les tables de tenue livrées au
+sprint 4 (bornes de température, de pluie, seuil de veste au vent) ne se
+règlent pas sur le papier : « on attend ». Elles se corrigeront au sprint 6,
+sur des sorties réelles où le mainteneur constate qu'il a eu trop chaud ou
+trop froid. Aucun lot n'est ouvert là-dessus d'ici là ; les valeurs
+actuelles restent en configuration, donc modifiables sans toucher au code.
+
 - Sorties en groupe (sprint 3) : les FIT ne le disent pas ; Strava le sait
   souvent (champ « nombre d'athlètes » de l'activité). Voies : export
   Strava, ou détection statistique (vitesse trop élevée pour la puissance =
@@ -102,7 +109,7 @@ BRouter auto-hébergé (Java absent sur le Mac ; Docker présent ; ou sur le
 serveur Coolify/Hetzner) ou GraphHopper API (clé, gratuit à petit volume) ?
 Aucune installation ne sera faite sans accord.
 
-## Q5 — Garmin Connect (S5)
+## Q5 — Garmin Connect — **close le 15/09/2026** : partage système du GPX depuis le mobile
 
 Le jeton `~/.config/ha/garmin-token` est un jeton Home Assistant pour
 l'utilisateur HA « garmin » (chantier Connect IQ), pas un accès Garmin
@@ -124,6 +131,16 @@ API. À prévoir dans l'API/le front (livrer le GPX avec le bon type MIME
 `application/gpx+xml`). **Backlog** : mêmes voies pour Coros, Wahoo
 (ELEMNT : import de fichier / lien) et Hammerhead (Karoo : import par le
 tableau de bord web).
+
+**Close le 15/09/2026. Décision du mainteneur, ses mots :** « deep link
+mobile marche avec pas mal d'applis, Coros, Garmin, etc. » Donc **le
+partage système du GPX est la voie retenue, pour toutes les marques**, et
+non un pis-aller en attendant une API. Conséquence pour le sprint 5 : la
+page du jour livre le GPX en téléchargement avec le type MIME
+`application/gpx+xml`, un nom de fichier lisible sur le téléphone, et rien
+d'autre — pas de client Garmin, pas de bibliothèque non officielle, pas de
+compte à brancher. Les API constructeurs (Wahoo en tête, la seule vraie)
+restent au backlog du service hébergé, pas du besoin du mainteneur.
 
 ## Q6 — Nom du projet — **nom validé le 13/09/2026 : ourouler** ; reste la purge avant publication
 
@@ -369,7 +386,7 @@ voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
 règle est appliquée correctement ; c'est le placement (L4.3) qui devra
 décider s'il contraint le terrain sous un effort de 40 secondes.
 
-## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger, pas une question**
+## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger dans le sprint 5** (arbitré le 15/09/2026)
 
 Relevé par le mainteneur le 13/09/2026 en lisant la sortie du 08/02 :
 « t'as pas oublié l'échauffement ? ». Il n'était pas oublié — 28 min à
@@ -379,7 +396,10 @@ type « bloc », parce que `Placement.emplacements` ne mémorise que celles-là.
 
 Ce qui rend le défaut sérieux : on ne peut pas vérifier ce qu'on ne voit
 pas, et c'est précisément ce qu'on demande au mainteneur de faire sur la
-carte. À corriger au prochain lot touchant `sortie/` :
+carte. **Arbitrage du 15/09/2026** : « on règle pendant le sprint ». Ce n'est donc
+pas un lot à part, c'est une contrainte du sprint 5 — la page du jour ne
+peut pas montrer trois propositions contrastées si elle ne montre pas la
+séance entière. À corriger dans le lot qui touche `sortie/` :
 
 - **Lister toutes les étapes** avec leur kilomètre de début et de fin, pas
   seulement les blocs. Les non-blocs n'ont pas de note — ils n'en méritent
@@ -519,3 +539,133 @@ tous ou aucun (`cli.ajouter_heure_depart`).
 pour un lieu : deux options dont les noms diffèrent d'une lettre pour deux
 sens sans rapport, sur la même commande. Personne d'autre que le mainteneur
 n'utilise la commande, le renommage était donc gratuit — il a été fait.
+
+## Q16 — Peut-on disposer d'un signal de popularité des routes chez les cyclistes ? — **close le 16/09/2026 : non, aucune source utilisable**
+
+Question du mainteneur : « BRouter a des infos sur la popularité des routes
+par les cyclistes ? C'est la force de Strava sur son générateur d'itinéraire. »
+
+**Trois réponses, vérifiées le 16/09/2026.**
+
+1. **BRouter n'en a pas.** Il calcule sur OpenStreetMap, qui ne contient
+   aucune donnée d'usage. Ce qui y ressemble dans les tags reçus —
+   `estimated_traffic_class`, `estimated_crossing_class` — sont ses propres
+   estimations à partir des tags, pas des cyclistes réels.
+2. **La heatmap de Strava n'est pas réplicable.** Elle agrège le GPS de
+   millions de sorties ; c'est propriétaire, l'API ne l'expose pas, et les
+   conditions d'usage interdisent d'en dériver un produit. Il n'existe pas
+   d'équivalent libre. C'est une force que ce projet n'aura pas, et le dire
+   vaut mieux que de chercher un ersatz.
+3. **Les itinéraires balisés sont un contre-signal, et c'est le mainteneur
+   qui tranche** : « pas bon signal, c'est des itinéraires rando souvent ».
+   BRouter renvoie bien `route_bicycle_lcn` (52 tronçons sur une boucle au
+   nord de Rennes) et `route_bicycle_ncn` (3), mais en France ces réseaux
+   sont des véloroutes et voies vertes — partagées avec les piétons, parfois
+   en revêtement souple. C'est du tourisme, pas de l'entraînement : un
+   balisage est même un contre-signal pour un bloc à 250 W. **Aucune mesure
+   n'est lancée** : la piste est écartée sur le fond, pas faute de données.
+
+**La distinction à retenir**, parce qu'elle n'est pas évidente et qu'elle
+survivra à cette question : la règle de doctrine « les routes connues ne sont
+jamais un critère » vise **les routes du cycliste lui-même** — les siennes
+dans le score, c'est l'outil qui lui renvoie son reflet, et toute validation
+devient circulaire. La popularité d'**autres** cyclistes serait une donnée
+extérieure, donc un critère parfaitement légitime. Il se trouve seulement
+qu'aucune source libre n'existe.
+
+## Q17 — La densité de marqueurs : quel côté de l'axe est le bon ? — **close le 16/09/2026 par le mainteneur : moins de marqueurs est bien, et l'écart mesuré est la valeur à apporter**
+
+Le lot L5.3 a écrit la densité de marqueurs au kilomètre (feux, stops,
+passages piétons, cédez-le-passage, ralentisseurs) et l'a validée comme le
+contrat le demandait, contre les sorties réelles. **La mesure contredit
+l'hypothèse, et nettement.**
+
+Sur 111 sorties d'entraînement réelles rejouées dans BRouter contre
+143 boucles proposées par le moteur aux mêmes distances : médiane **2,91**
+marqueurs/km pour les vraies sorties contre **1,50** pour les boucles
+proposées, soit un rapport de 1,94 ; 77 sorties sur 111 sont au-dessus de la
+médiane du lot proposé de leur longueur. Autrement dit : **il roule des
+routes deux fois plus « urbaines » que ce que l'outil lui propose.** L'écart
+grandit avec la distance, ce qui écarte l'explication par le couloir de
+départ.
+
+L'axe **discrimine** très bien (facteur 2,7 entre candidates d'une même
+journée, soit 125 arrêts d'écart sur 56 km) — la question n'est pas là. Elle
+est sur le **signe** :
+
+- **Option A** — on garde « moins de marqueurs = le côté à mettre en avant »,
+  comme le contrat le supposait, et la phrase reste « elle évite les
+  villages ». La mesure dit alors qu'on lui propose l'inverse de ce qu'il
+  fait, ce qui est peut-être exactement ce qu'il veut (il subissait le manque
+  d'outil).
+- **Option B** — on considère que sa pratique révèle un goût pour les routes
+  de bourg à bourg, et l'axe se retourne : « elle passe par les villages »
+  devient la phrase valorisée.
+- **Option C** — l'axe n'a pas de bon côté et les deux extrêmes portent
+  chacun leur phrase, le cycliste tranchant à la lecture.
+
+**Aujourd'hui l'option A est implémentée**, parce que c'est ce que le contrat
+écrivait ; le code ne s'en sert que pour **décrire** et **contraster**, jamais
+comme signal de qualité dans un score. Le retournement coûte une ligne
+(`contraste._gagne`) plus une phrase.
+
+Reproductible : `uv run python tests/validation/marqueurs_retrospectif.py`.
+
+## Réponse du mainteneur (16/09/2026) — et elle retourne la question
+
+Ses mots : « **plus village que ville, mais parce que je ne connais pas les
+routes de contournement je pense** ».
+
+**Il diagnostique son propre biais.** Il traverse les bourgs non par
+préférence mais par méconnaissance des contournements. C'est une lacune, pas
+un goût.
+
+Donc le signe de l'axe est tranché : **moins de marqueurs est bien**. Et
+l'écart mesuré — 2,91 marqueurs/km sur ses sorties contre 1,50 sur les
+boucles proposées — n'est pas une erreur du modèle à corriger, c'est
+**précisément la valeur que l'outil peut apporter**. Ses 162 sorties ne sont
+pas la cible à imiter, elles sont la référence à battre.
+
+**Cette réponse valide la règle de doctrine écrite le même jour** (« les
+routes connues sont un instrument de mesure, jamais un critère ») de la façon
+la plus concrète qui soit : si on avait mis ses routes connues dans le score,
+on aurait appris à le faire passer par les villages, en croyant apprendre sa
+préférence alors qu'on aurait figé sa méconnaissance du terrain.
+
+## Ce qui reste à faire, et qui est une piste technique précise
+
+La densité actuelle **mélange le village et la ville**, et `crossing` pèse
+deux marqueurs sur trois — or il y a des passages piétons dans le moindre
+bourg. Ce qui sépare les deux n'est pas la densité mais **l'étendue** : 300 m
+de traversée, c'est un village qu'on n'évite pas dans le bocage ; 3 km
+continus, c'est une agglomération qu'on contourne.
+
+Piste : regrouper les marqueurs le long du couloir et mesurer la **longueur
+de la portion dense**, pas seulement leur nombre au kilomètre. Un village
+traversé coûte alors peu, une ville coûte cher, et le contournement qu'il ne
+connaît pas devient proposable. À instruire au sprint 6, sur ses vraies
+sorties : une traversée de bourg et une traversée d'agglomération doivent se
+distinguer nettement, sinon la mesure ne vaut pas mieux que l'actuelle.
+
+## Q18 — Une carte par proposition, ou une seule ? — **ouverte le 16/09/2026**
+
+Le contrat §3.1.1 décrit la bonne forme de l'arbitrage : « il arbitre **en
+regardant**, pas en réglant. Trois propositions, **une carte chacune**, une
+phrase qui dit ce qui les distingue. »
+
+Le lot L5.3 livre les trois phrases et les mesures, mais **continue de
+n'écrire qu'une carte et qu'un GPX**, ceux de la proposition retenue. Deux
+raisons de ne pas l'avoir élargi sans demander : §3.3.5 exclut la page HTML
+du lot (c'est L5.4), et écrire trois fichiers change la convention de nommage
+(`sortie_AAAAMMJJ.html`) et la sémantique de `--carte`, qui désigne
+aujourd'hui **un** fichier.
+
+Trois formes possibles, à trancher :
+
+- **une carte par proposition** — `sortie_AAAAMMJJ_1.html`, `_2`, `_3`, et
+  `--carte` devient un préfixe ;
+- **une seule page à trois onglets**, ce qui est plutôt la forme de L5.4 ;
+- **on attend L5.4** et la page du jour porte les trois.
+
+Sans réponse, le cycliste arbitre sur les phrases et les chiffres, pas sur
+les tracés — c'est-à-dire pas tout à fait « en regardant ».

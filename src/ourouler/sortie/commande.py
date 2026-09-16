@@ -4,18 +4,41 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
 
 1. la **séance du jour** est lue chez Intervals.icu (lot L4.1) ; s'il n'y en a
    pas, on le dit et on sort en 0 — ce n'est pas une erreur ;
+1 bis. la **question de l'orientation au vent** est posée **avant** la
+   recherche (lot L5.3) : un appel Open-Meteo sur un point et une heure, donc
+   le poste le moins cher, et il tombe avant BRouter. Elle ne se pose que si
+   le vent se sent (8 km/h, `seance.vent.SEUIL_VENT_SENSIBLE_KMH`) et à trois
+   jours au plus. Quand elle a une réponse (`--vent`), elle **dirige** la
+   recherche au lieu de contraster après coup ;
 2. des **boucles candidates** sont demandées au moteur (lot L2.3), de la
    longueur qu'il faut pour la séance ;
-3. chacune reçoit le **placement** des blocs (lot L4.3). Celles où la séance
-   ne tient pas sont écartées, et le tableau dit combien et pourquoi ;
-4. sur les retenues seulement : **coûts** du tracé (L2.4), **météo** à l'heure
-   de passage (L2.5) et **tenue** (L4.3) ;
-5. tri par **note de placement d'abord**, puis par pluie cumulée ;
-6. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`).
+3. chacune reçoit un premier **placement** des blocs, sans vent (lot L4.3).
+   Celles où la séance ne tient pas sont écartées, et le tableau dit combien
+   et pourquoi ;
+4. sur les retenues : ce premier placement date une météo qui n'a qu'un but,
+   donner le **champ de vent** le long du tracé (lot L5.1) — et la séance est
+   **replacée** avec ce vent. C'est une deuxième passe, pas une itération : le
+   vent bouge lentement et l'écart d'heure de passage qu'induit le premier
+   placement se compte en minutes (contrat §1.2 d, §1.6) ;
+5. sur les retenues, avec leur placement définitif : **coûts** du tracé
+   (L2.4), **météo** à l'heure de passage définitive (L2.5) et **tenue**
+   (L4.3) ;
+6. tri par **note de placement d'abord** — elle inclut le vent depuis le
+   sprint 5 —, puis par **pluie cumulée** quand deux notes sont égales à
+   `config.seance.tolerance_egalite` près ;
+7. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`) ;
+8. et **deux ou trois propositions contrastées** sont extraites de ce
+   classement (lot L5.3, `sortie.contraste`), chacune avec la phrase qui la
+   distingue des autres en langage de cycliste. La première reste celle du
+   tri : on ne change pas ce que l'outil recommande, on ajoute ce à quoi le
+   comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
+   rend deux et on dit pourquoi.
 
 L'ordre du tri est celui du contrat et il n'est pas anodin : la pluie se
 contourne en partant une heure plus tard, un bloc de seuil dans un village ne
-se contourne pas. La météo départage, elle ne décide pas.
+se contourne pas, et depuis le sprint 5 un vent de face non plus. La météo
+départage, elle ne décide pas — sauf à égalité de note, où c'est elle qui
+tranche entre deux boucles que le terrain et le vent ne distinguent pas.
 
 Ce module est la couche commande : c'est lui qui lit `calibration.json` et
 `poids_routes.json` (par les fonctions qui savent où ils sont) et qui passe
@@ -31,6 +54,7 @@ C'est le cas normal pour un `--jour` passé, hors de l'horizon de prévision.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import math
 import sys
@@ -57,13 +81,15 @@ from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
-from ourouler.physique.modele import Parametres
+from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance.commande import longueurs
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
-from ourouler.seance.placement import CLE_MOTIF, Placement, placer, trace_parcourue
+from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
+from ourouler.seance.vent import ChampVent
+from ourouler.sortie import contraste, orientation, vent_demande
 from ourouler.sortie.carte import construire as construire_carte
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
@@ -106,6 +132,10 @@ class Demande:
     sortie: Path | None
     carte: Path | None
     ecraser: bool = False
+    #: Réponse à la question d'orientation au vent (`--vent`). « peu-importe »
+    #: est le défaut **et une réponse valable** : elle retombe sur les
+    #: propositions contrastées (contrat §3.3.4).
+    vent: str = orientation.PEU_IMPORTE
 
 
 @dataclass
@@ -128,11 +158,19 @@ class Proposition:
 
     @property
     def blocs_bien_places(self) -> int:
-        return sum(1 for e in self.placement.emplacements if e.note.note < NOTE_BLOC_BIEN_PLACE)
+        # `placement.blocs()`, jamais `placement.emplacements` : depuis le lot
+        # L5.2, cette liste porte aussi l'échauffement, les récupérations et le
+        # retour au calme, qui n'ont pas de note. `e.note.note` lèverait sur un
+        # `None`, et un `e.note.note if e.note else 0.0` compterait ces
+        # non-blocs comme « bien placés » — la régression silencieuse que le
+        # contrat signale explicitement.
+        return sum(1 for e in self.placement.blocs() if e.note.note < NOTE_BLOC_BIEN_PLACE)
 
     @property
     def demi_tours(self) -> int:
-        return sum(1 for e in self.placement.emplacements if e.demi_tour)
+        # Idem : une récupération de demi-tour porte aussi `demi_tour=True`
+        # (contrat §2.2 a)) — la compter en plus du bloc doublerait l'affichage.
+        return sum(1 for e in self.placement.blocs() if e.demi_tour)
 
     @property
     def distance_parcours_m(self) -> float:
@@ -151,7 +189,17 @@ class Proposition:
 
     @property
     def tri(self) -> tuple[float, float]:
-        """Note de placement d'abord, pluie cumulée ensuite (contrat §4)."""
+        """Note de placement d'abord, pluie cumulée ensuite (contrat §4).
+
+        **N'est pas le tri réellement appliqué par `executer`** depuis que le
+        vent entre dans la note (sprint 5) : ce tuple compare les notes au
+        bit près, alors que `executer` les compare à `tolerance_egalite`
+        près (`_comparer`), pour laisser la pluie départager deux boucles que
+        le terrain et le vent ne distinguent pas vraiment. Cette propriété
+        reste utile telle quelle — introspection, tests — pour un jeu de
+        candidates aux notes déjà nettement distinctes, où les deux tris
+        s'accordent.
+        """
         return (self.placement.note_totale, self.pluie_mm * POIDS_PLUIE_TRI)
 
 
@@ -194,22 +242,41 @@ def executer(
     parametres, provenance = _parametres(config, demande.velo)
     distance_km, distance_source = _distance(demande, seance, parametres, config)
 
+    # La question du vent se pose **avant** la recherche (contrat §3.3.4) :
+    # c'est un appel Open-Meteo sur un point et une heure, donc le poste le
+    # moins cher de la commande, et il tombe avant les appels BRouter, qui
+    # sont le seul poste qui compte.
+    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+    question = vent_demande.interroger(
+        client_meteo,
+        config.depart,
+        depart_heure=demande.depart,
+        jour=demande.jour,
+        modele=config.meteo.modele,
+    )
+    azimut_vent = question.azimut_pour(demande.vent)
+
     client_brouter = (
         client_brouter
         if client_brouter is not None
         else ClientBrouter(config.brouter, evitements=config.evitements)
     )
-    candidates = _candidates(client_brouter, config, demande, distance_km)
+    candidates = _candidates(client_brouter, config, demande, distance_km, azimut_vent)
 
     retenues, ecartees = _placer_toutes(candidates, seance, config, parametres)
     if not retenues:
         raise ErreurUtilisateur(_motif_aucune(seance, ecartees, distance_km))
 
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+    retenues = _replacer_avec_vent(retenues, seance, config, parametres, demande, client_meteo)
     propositions, panne = _mesurer(retenues, config, demande, client_meteo)
-    propositions.sort(key=lambda p: p.tri)
+    propositions.sort(key=functools.cmp_to_key(_comparer(config.seance.tolerance_egalite)))
     for numero, proposition in enumerate(propositions, start=1):
         proposition.numero = numero
+
+    # Les trois propositions contrastées (lot L5.3). La première reste celle
+    # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
+    # recommande, on ajoute ce à quoi le comparer.
+    selection = contraste.choisir(propositions)
 
     meilleure = propositions[0]
     tenue = (
@@ -235,6 +302,8 @@ def executer(
         tenue=tenue,
         gpx=chemin_gpx,
         carte=chemin_carte,
+        selection=selection,
+        question_vent=question,
     )
     if getattr(args, "json", False):
         print(json.dumps(rendre_json(propositions, contexte), ensure_ascii=False, indent=2))
@@ -257,6 +326,10 @@ class _Contexte:
     tenue: Tenue | None
     gpx: Path | None
     carte: Path | None
+    #: Les propositions contrastées et leurs phrases (lot L5.3).
+    selection: contraste.Selection | None = None
+    #: Ce que le vent au départ permettait de demander, et pourquoi.
+    question_vent: vent_demande.QuestionVent | None = None
 
 
 # --- options ------------------------------------------------------------------
@@ -299,6 +372,8 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
             "y mettre l'adresse du serveur BRouter"
         )
 
+    vent = orientation.valider(getattr(args, "vent", None))
+
     sortie = getattr(args, "sortie", None)
     carte = getattr(args, "carte", None)
     demande = Demande(
@@ -313,6 +388,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         sortie=Path(sortie) if sortie else None,
         carte=Path(carte) if carte else None,
         ecraser=bool(getattr(args, "ecraser", False)),
+        vent=vent,
     )
     for chemin, demande_explicite in (
         (chemin_gpx_par_defaut(demande), demande.sortie is not None),
@@ -428,7 +504,26 @@ def _distance(
     if demande.distance_km is not None:
         return demande.distance_km, "demandée"
     mesures = longueurs(seance, parametres=parametres)
-    metres = sum(m.longueur_m for m in mesures if m.longueur_m is not None)
+    # Une étape « libre » — sans puissance prescrite — n'a pas de longueur
+    # chiffrée. La première rédaction la comptait pour **zéro kilomètre**, ce
+    # qui sous-dimensionnait la boucle à proportion. Mesuré le 16/09/2026 sur
+    # la séance de référence « 4x8 SV1 outdoor » du 22/04 : 22 étapes, dont
+    # trois libres (échauffement 20 min, récupération 12 min, retour au calme
+    # 40 min). 63 min chiffrées sur 135 — **plus de la moitié de la séance
+    # était invisible**, et le moteur demandait 35 km pour une sortie de 67.
+    # Il rattrapait ensuite en roulant la boucle presque deux fois, avec des
+    # demi-tours dont personne n'avait besoin.
+    #
+    # Une étape libre se roule à l'allure d'endurance : c'est l'hypothèse la
+    # plus plate qui soit, et infiniment meilleure que zéro.
+    connues = [m.longueur_m for m in mesures if m.longueur_m is not None]
+    libres_s = sum(
+        m.etape.duree_s for m in mesures if m.longueur_m is None and m.etape.duree_s > 0
+    )
+    metres = sum(connues)
+    if libres_s > 0:
+        puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
+        metres += vitesse_regime(puissance, 0.0, 0.0, parametres) * libres_s
     source = "estimée par le modèle sur le plat"
     if metres <= 0:
         # Aucune étape ne porte de puissance : on retombe sur la vitesse
@@ -440,7 +535,11 @@ def _distance(
 
 
 def _candidates(
-    client: ClientBrouter, config: Config, demande: Demande, distance_km: float
+    client: ClientBrouter,
+    config: Config,
+    demande: Demande,
+    distance_km: float,
+    azimut_vent: float | None = None,
 ) -> list:
     """Les boucles candidates, dans la direction demandée ou tout autour.
 
@@ -449,13 +548,20 @@ def _candidates(
     tableau montrer ce que chaque direction donne, terrain et pluie compris.
     C'est aussi ce qui rend `ourouler sortie --jour …` utilisable tel quel, ce
     que le contrat de sprint demande.
+
+    `azimut_vent` est l'azimut qu'impose une réponse à la question
+    d'orientation au vent (lot L5.3). Il **réduit l'espace de recherche** au
+    lieu de contraster après coup, ce qui est l'intérêt de poser la question
+    avant. `--direction`, explicitement demandée, reste prioritaire : le
+    cycliste qui écrit « au nord » veut aller au nord.
     """
-    if demande.azimut_deg is not None:
+    azimut = demande.azimut_deg if demande.azimut_deg is not None else azimut_vent
+    if azimut is not None:
         trouvees = generer(
             client,
             config.depart,
             distance_km=distance_km,
-            azimut_deg=demande.azimut_deg,
+            azimut_deg=azimut,
             nb=demande.nb_candidates,
             tolerance=config.boucle.tolerance_distance,
             profil=demande.profil,
@@ -514,6 +620,113 @@ def _placer_toutes(
             continue
         retenues.append((candidate, placement))
     return retenues, ecartees
+
+
+def _replacer_avec_vent(
+    retenues: list[tuple[object, Placement]],
+    seance: Seance,
+    config: Config,
+    parametres: Parametres,
+    demande: Demande,
+    client_meteo: ClientOpenMeteo,
+) -> list[tuple[object, Placement]]:
+    """Rejoue le placement de chaque candidate retenue avec son champ de vent.
+
+    La deuxième passe du contrat §1.6 : le premier placement (sans vent) sert
+    à dater un premier appel à Open-Meteo, dont on ne garde que le vent —
+    c'est lui qui construit le `ChampVent` qui replace la séance. On ne
+    boucle pas une seconde fois : le champ de vent bouge lentement (pas
+    horaire interpolé) et l'écart d'heure de passage qu'introduit le premier
+    placement se compte en minutes, pas en heures. Le coût mesuré est à
+    rapporter dans le résumé du lot, pas à supposer.
+
+    Une panne d'Open-Meteo, ou un second placement qui échoue là où le
+    premier réussissait (non observé en pratique — le plancher de vitesse du
+    modèle physique empêche le vent de rendre une séance infaisable — mais
+    pas impossible), ne fait pas perdre la candidate : elle retombe sur son
+    placement sans vent, avec un avertissement. `_mesurer` retentera sa
+    propre météo juste après et dira la panne une fois, sur la sortie
+    d'erreur ; ici on se tait, silencieusement correct.
+    """
+    elasticite = (config.seance.elasticite_z2_min, config.seance.elasticite_z2_max)
+    elasticite_calme = (config.seance.elasticite_calme_min, config.seance.elasticite_calme_max)
+    resultat: list[tuple[object, Placement]] = []
+    for candidate, placement_sans_vent in retenues:
+        trace = candidate.trace
+        vitesse = _vitesse(placement_sans_vent, config)
+        try:
+            meteo_vent = evaluer_meteo(
+                trace,
+                client_meteo,
+                depart=demande.depart,
+                vitesse_kmh=vitesse,
+                modele=config.meteo.modele,
+                # Pas de `second_avis` : lui seul sert au second modèle de
+                # pluie, et ce premier appel ne sert qu'au vent du modèle
+                # principal — l'économiser garde le coût à un appel de plus
+                # par candidate, pas deux.
+            )
+        except ErreurConnecteur:
+            resultat.append((candidate, placement_sans_vent))
+            continue
+        champ = ChampVent(meteo_vent.echantillons)
+        replacement = placer(
+            seance,
+            trace,
+            parametres,
+            vent=champ,
+            elasticite=elasticite,
+            elasticite_calme=elasticite_calme,
+            penalite_demi_tour=config.seance.demi_tour_penalite,
+        )
+        if replacement is None:
+            placement_sans_vent.avertissements = list(
+                dict.fromkeys(
+                    [
+                        *placement_sans_vent.avertissements,
+                        "vent non pris en compte : le replacement avec vent a échoué "
+                        "(placement sans vent conservé)",
+                    ]
+                )
+            )
+            resultat.append((candidate, placement_sans_vent))
+            continue
+        resultat.append((candidate, replacement))
+    return resultat
+
+
+def _comparer(tolerance: float):
+    """Le comparateur de tri du contrat §4 : note de placement d'abord, pluie
+    cumulée ensuite — mais seulement quand les deux notes sont égales à
+    `tolerance` (écart relatif) près.
+
+    Depuis que le vent entre dans la note (sprint 5), deux notes ne sont
+    presque plus jamais égales au bit près, même pour deux boucles dont le
+    terrain sous les blocs est identique : sans cette tolérance, le vent
+    déciderait toujours et la pluie ne départagerait plus jamais, ce que le
+    contrat du sprint 4 avait pourtant pesé. `tolerance` est une préférence
+    du cycliste (`config.seance.tolerance_egalite`), pas une constante du
+    code : à 0, le vent tranche toujours, sans exception.
+    """
+
+    def comparer(a: Proposition, b: Proposition) -> int:
+        na, nb = a.placement.note_totale, b.placement.note_totale
+        if not _notes_egales(na, nb, tolerance):
+            return -1 if na < nb else 1
+        pa, pb = a.pluie_mm, b.pluie_mm
+        if pa != pb:
+            return -1 if pa < pb else 1
+        return 0
+
+    return comparer
+
+
+def _notes_egales(a: float, b: float, tolerance: float) -> bool:
+    """Deux notes de placement sont égales si leur écart relatif est sous `tolerance`."""
+    if a == b:
+        return True
+    echelle = max(abs(a), abs(b))
+    return echelle > 0 and abs(a - b) / echelle <= tolerance
 
 
 def _motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) -> str:
@@ -636,7 +849,9 @@ def _ecrire_gpx(trace: Trace, placement: Placement, seance: Seance, demande: Dem
 
 def _description_parcours(parcours: Trace, placement: Placement) -> str:
     """« 47,8 km · D+ 210 m (parcours placé) · 4 demi-tours » — ce que contient le fichier."""
-    demi_tours = sum(1 for e in placement.emplacements if e.demi_tour)
+    # `.blocs()` : la récupération d'un demi-tour porte aussi `demi_tour=True`
+    # (contrat §2.2 a)), la compter en plus du bloc doublerait ce chiffre.
+    demi_tours = sum(1 for e in placement.blocs() if e.demi_tour)
     if demi_tours == 0:
         combien = "sans demi-tour"
     elif demi_tours == 1:
@@ -661,6 +876,7 @@ def _ecrire_carte(
         titre=f"{seance.nom} — {date_en_francais(demande.depart)}",
         sous_titre=_sous_titre(proposition, demande, config),
         notes=_notes_carte(proposition, seance, tenue),
+        meteo=proposition.meteo,
     )
     try:
         chemin.write_text(page, encoding="utf-8")
@@ -676,7 +892,7 @@ def _sous_titre(proposition: Proposition, demande: Demande, config: Config) -> s
         f"{_fr(trace.distance_m / 1000, 1)} km",
         f"D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else f"D+ {ABSENT}",
         f"note de placement {_fr(proposition.placement.note_totale, 2)}",
-        f"{proposition.blocs_bien_places}/{len(proposition.placement.emplacements)} blocs bien placés",
+        f"{proposition.blocs_bien_places}/{len(proposition.placement.blocs())} blocs bien placés",
     ]
     if demande.direction:
         morceaux.insert(1, f"vers {demande.direction}")
@@ -761,6 +977,7 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
 
     lignes += _notes_sous_tableau(propositions[0], presentes)
     lignes.append("")
+    lignes += _propositions_contrastees(contexte)
     lignes += _seance_placee(propositions[0], contexte)
     lignes.append("")
     lignes += _tenue_lignes(contexte)
@@ -769,6 +986,113 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
     if contexte.carte is not None:
         lignes.append(f"{MARQUE_RETENUE} Carte : {contexte.carte}")
     return "\n".join(lignes)
+
+
+def _lignes_vent(contexte: _Contexte) -> list[str]:
+    """La question d'orientation au vent, ou la raison pour laquelle on ne la pose pas.
+
+    Elle est imprimée dans l'en-tête parce qu'elle a été posée **avant** la
+    recherche : ce que le lecteur voit en dessous est déjà la réponse à ce
+    qu'il a (ou n'a pas) demandé.
+    """
+    question, demande = contexte.question_vent, contexte.demande
+    if question is None:
+        return []
+    if not question.posee:
+        return [f"Orientation au vent : pas d'avis — {question.motif}."]
+    vent = f"Vent au départ {question.vent_kmh:.0f} km/h de {_azimut(question.vent_depuis_deg)}"
+    if demande.vent != orientation.PEU_IMPORTE:
+        azimut = question.azimut_pour(demande.vent)
+        ou = f" — recherche dirigée vers {_azimut(azimut)}" if azimut is not None else ""
+        if demande.azimut_deg is not None:
+            ou = " — mais --direction, demandée explicitement, garde la main"
+        return [f"{vent}. Demandé : {_LIBELLES_VENT[demande.vent]}{ou}."]
+    return [
+        f"{vent}. Question : `--vent retour-dos` pour rentrer avec, `--vent depart-dos` "
+        "pour partir avec, `--vent travers` — ou rien, et les propositions ci-dessous "
+        "répondent à votre place."
+    ]
+
+
+#: Comment on nomme chaque réponse à la question du vent, à l'affichage.
+_LIBELLES_VENT = {
+    orientation.PEU_IMPORTE: "peu importe",
+    orientation.ORIENTATION_RETOUR_DOS: "rentrer avec le vent dans le dos",
+    orientation.ORIENTATION_DEPART_DOS: "partir avec le vent dans le dos",
+    orientation.ORIENTATION_TRAVERS: "vent de travers",
+}
+
+
+def _propositions_contrastees(contexte: _Contexte) -> list[str]:
+    """Les deux ou trois propositions retenues, chacune avec sa phrase.
+
+    C'est le livrable du lot L5.3 : la phrase, en langage de cycliste et
+    jamais en langage de note, est ce qui permet d'arbitrer **en regardant**
+    plutôt qu'en réglant.
+    """
+    selection = contexte.selection
+    if selection is None or not selection.retenues:
+        return []
+    lignes = [
+        f"{len(selection.retenues)} proposition(s) qui diffèrent vraiment "
+        "(et non les trois premières du tri) :"
+    ]
+    for retenue in selection.retenues:
+        numero = retenue.proposition.numero
+        phrase = retenue.distinction or "la seule candidate"
+        lignes.append(f"    n° {numero} — {phrase}")
+        lignes.append(f"           {_details_proposition(retenue)}")
+    if selection.recouvrements:
+        parts = ", ".join(
+            f"n° {selection.retenues[i].proposition.numero}/"
+            f"n° {selection.retenues[j].proposition.numero} {part:.0%}"
+            for (i, j), part in sorted(selection.recouvrements.items())
+        )
+        lignes.append(
+            f"    Routes communes : {parts} "
+            f"(au-delà de {contraste.SEUIL_RECOUVREMENT:.0%}, deux boucles se ressemblent "
+            "sur la carte quoi que disent leurs notes)."
+        )
+    if selection.motif_deux_propositions:
+        lignes.append(f"    {selection.motif_deux_propositions}")
+    lignes.append("")
+    return lignes
+
+
+def _details_proposition(retenue) -> str:
+    """Les mesures qui portent la phrase, dans les unités du cycliste."""
+    profil = retenue.profil
+    morceaux = [_duree_courte(profil.duree_s)]
+    if profil.densite_marqueurs_km is not None:
+        morceaux.append(f"{_fr(profil.densite_marqueurs_km, 1)} feux/stops/passages au km")
+    else:
+        morceaux.append("marqueurs inconnus")
+    morceaux.append(
+        "aucun demi-tour" if profil.demi_tours == 0 else f"{profil.demi_tours} demi-tour(s)"
+    )
+    if profil.part_trafic is not None:
+        morceaux.append(f"{profil.part_trafic * 100:.0f} % de grands axes")
+    if profil.pluie_mm is not None:
+        morceaux.append(f"{_fr(profil.pluie_mm, 1)} mm de pluie")
+    if profil.orientation is not None:
+        morceaux.append(f"vent : {_LIBELLES_ORIENTATION[profil.orientation]}")
+    part = getattr(retenue.proposition, "part_connue", None)
+    if part is not None:
+        morceaux.append(f"{part * 100:.0f} % de routes connues")
+    return ", ".join(morceaux)
+
+
+#: Comment on nomme une orientation au vent dans la ligne de détail. La part
+#: connue y figure aussi, mais **seulement pour décrire** une proposition déjà
+#: retenue : le contrat du sprint 3 interdit qu'elle entre dans un score, et
+#: le lot L5.3 le redit — pénaliser l'inconnu condamnerait d'avance toute
+#: direction jamais explorée.
+_LIBELLES_ORIENTATION = {
+    orientation.ORIENTATION_RETOUR_DOS: "dans le dos au retour",
+    orientation.ORIENTATION_DEPART_DOS: "dans le dos au départ",
+    orientation.ORIENTATION_TRAVERS: "de travers",
+    orientation.ORIENTATION_FACE: "de face aux deux bouts",
+}
 
 
 def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[str]:
@@ -805,11 +1129,23 @@ def _entete(
     propositions: list[Proposition], contexte: _Contexte, presentes: set[str]
 ) -> list[str]:
     seance, demande, config = contexte.seance, contexte.demande, contexte.config
-    direction = (
-        f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
-        if demande.azimut_deg is not None
-        else "dans toutes les directions (aucune --direction demandée)"
+    # Trois cas et non deux : depuis le lot L5.3, une réponse à la question
+    # d'orientation au vent dirige la recherche elle aussi. Dire « dans toutes
+    # les directions » alors qu'on a cherché au sud-ouest serait faux.
+    azimut_vent = (
+        contexte.question_vent.azimut_pour(demande.vent)
+        if contexte.question_vent is not None
+        else None
     )
+    if demande.azimut_deg is not None:
+        direction = f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
+    elif azimut_vent is not None:
+        direction = (
+            f"vers {_azimut(azimut_vent)} ({azimut_vent:.0f}°), direction imposée par "
+            f"--vent {demande.vent}"
+        )
+    else:
+        direction = "dans toutes les directions (aucune --direction demandée)"
     lignes = [
         f"Sortie du {seance.jour.isoformat()} — « {seance.nom} »",
         f"Séance : {_duree_longue(seance.duree_s)}, {len(seance.etapes)} étape(s), "
@@ -826,6 +1162,7 @@ def _entete(
             "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un "
             "CdA et un Crr par défaut (`ourouler calibrer`)."
         )
+    lignes += _lignes_vent(contexte)
     if seance.meta.get("puissance_approximee"):
         lignes.append(
             "⚠ puissances approximées : la séance est prescrite en zones de fréquence cardiaque."
@@ -848,10 +1185,12 @@ def _entete(
             )
     lignes.append(
         "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; "
-        "plus bas = mieux. La note additionne le terrain sous les blocs, le coût — faible "
-        "et sans seuil — de chaque minute de retour au calme en trop, et la pénalité, "
-        "elle très lourde, d'une séance amputée : rentrer plus tard est normal, ne pas "
-        "rouler la séance ne l'est pas."
+        "plus bas = mieux. La note additionne le terrain sous les blocs (vent de face "
+        "compris depuis le sprint 5), le coût — faible et sans seuil — de chaque minute "
+        "de retour au calme en trop, et la pénalité, elle très lourde, d'une séance "
+        "amputée : rentrer plus tard est normal, ne pas rouler la séance ne l'est pas. "
+        f"À note égale à {config.seance.tolerance_egalite * 100:.0f} % près, c'est la "
+        "pluie cumulée qui décide (`tolerance_egalite`, config [seance])."
     )
     lignes.append(
         f"« blocs bien placés » : note du couloir sous {_fr(NOTE_BLOC_BIEN_PLACE, 1)} km "
@@ -902,21 +1241,36 @@ def _cellules(proposition: Proposition, presentes: set[str]) -> list[str]:
         ]
     cellules += [
         _fr(proposition.placement.note_totale, 2),
-        f"{proposition.blocs_bien_places}/{len(proposition.placement.emplacements)}",
+        f"{proposition.blocs_bien_places}/{len(proposition.placement.blocs())}",
     ]
     if "demi_tours" in presentes:
         cellules.append(str(proposition.demi_tours) if proposition.demi_tours else ABSENT)
     return cellules
 
 
-def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
-    """La séance posée sur la candidate retenue, bloc par bloc, motifs en clair.
+#: Libellé humain d'un type d'étape non-bloc, pour l'affichage texte (Q13, lot L5.2).
+_LIBELLES_ETAPE = {
+    "echauffement": "échauffement",
+    "recuperation": "récupération",
+    "calme": "retour au calme",
+}
 
-    Seuls les blocs portent une position et une note : `seance.placement` ne
-    mémorise l'emplacement que des étapes contraignantes (contrat §3), et
-    inventer un kilomètre pour les autres serait inventer une mesure. Le
-    décalage de la Z2 d'ouverture et la durée totale disent, eux, ce qui
-    arrive aux extrémités.
+
+def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
+    """La séance posée sur la candidate retenue, étape par étape, motifs en clair.
+
+    Toutes les étapes de la séance apparaissent, pas seulement les blocs
+    (Q13, lot L5.2) : `seance.placement` mémorise désormais la position de
+    chacune. Seuls les blocs portent une note — aucun terrain n'est évalué
+    sous une récupération, c'est la règle du sprint 4 et elle ne bouge pas —
+    donc la colonne reste vide pour le reste plutôt que de porter un tiret
+    ambigu (contrat §2.2 b). Le décalage de la Z2 d'ouverture et la durée
+    totale disent, eux, ce qui arrive aux extrémités.
+
+    Le kilomètre affiché est `debut_parcouru_m`, le compteur — jamais
+    `debut_m`, qui repère une position sur le tracé et peut reculer après un
+    demi-tour. Un lecteur qui roule veut lire un compteur qui monte, pas la
+    géométrie du tracé ; le demi-tour se dit par ailleurs, en toutes lettres.
     """
     placement = proposition.placement
     seance = contexte.seance
@@ -935,18 +1289,27 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
         f"    Z2 d'ouverture allongée de {_minutes(placement.decalage_z2_s)} — c'est elle qui "
         "fait coulisser les blocs le long du tracé.",
     ]
-    for numero, emplacement in enumerate(placement.emplacements, start=1):
+    numero_bloc = 0
+    for emplacement in placement.emplacements:
         etape = seance.etapes[emplacement.etape_idx]
-        fin = emplacement.debut_m + emplacement.longueur_m
-        lignes.append(
-            f"    bloc {numero} — km {_fr(emplacement.debut_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
+        fin = emplacement.debut_parcouru_m + emplacement.longueur_m
+        km = (
+            f"km {_fr(emplacement.debut_parcouru_m / 1000, 1)} → {_fr(fin / 1000, 1)} "
             f"({_fr(emplacement.longueur_m / 1000, 1)} km, {_duree_courte(etape.duree_s)}, "
-            f"{_puissance(etape)}) : note {_fr(emplacement.note.note, 2)}"
-            + (" — demi-tour" if emplacement.demi_tour else "")
+            f"{_puissance(etape)})"
         )
-        if emplacement.note.note >= NOTE_BLOC_BIEN_PLACE:
-            for motif in emplacement.note.motifs or ["aucun motif détaillé"]:
-                lignes.append(f"        • {motif}")
+        demi_tour = " — demi-tour" if emplacement.demi_tour else ""
+        if emplacement.note is not None:
+            numero_bloc += 1
+            lignes.append(
+                f"    bloc {numero_bloc} — {km} : note {_fr(emplacement.note.note, 2)}{demi_tour}"
+            )
+            if emplacement.note.note >= NOTE_BLOC_BIEN_PLACE:
+                for motif in emplacement.note.motifs or ["aucun motif détaillé"]:
+                    lignes.append(f"        • {motif}")
+        else:
+            libelle = _LIBELLES_ETAPE.get(etape.type, etape.type)
+            lignes.append(f"    {libelle} — {km}{demi_tour}")
     lignes.append(
         f"    Retour au calme : {_duree_longue(placement.duree_totale_s)} et "
         f"{_fr(placement.distance_totale_m / 1000, 1)} km au total — il absorbe ce qui reste."
@@ -1011,6 +1374,11 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         },
         "modele_physique": contexte.provenance_modele,
         "seuil_bloc_bien_place": NOTE_BLOC_BIEN_PLACE,
+        # Écart relatif de note en dessous duquel la pluie départage plutôt que
+        # le vent (préférence du cycliste, `config.seance.tolerance_egalite`) :
+        # publié pour que le rang des candidates dans `candidates` s'explique
+        # sans relire la configuration.
+        "tolerance_egalite": contexte.config.seance.tolerance_egalite,
         "gpx": str(contexte.gpx) if contexte.gpx is not None else None,
         "carte": str(contexte.carte) if contexte.carte is not None else None,
         "ecartees": [
@@ -1031,7 +1399,129 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
             "a_enlever": contexte.tenue.a_enlever,
             "motifs": contexte.tenue.motifs,
         },
+        # Les clés du lot L5.3. `propositions` est le sous-ensemble contrasté
+        # de `candidates` : mêmes objets, repérés par `numero`, avec la phrase
+        # qui les distingue. `candidates` reste la liste complète et
+        # inchangée — un script qui la lisait continue de marcher.
+        "propositions": _propositions_json(contexte),
+        "question_vent": _question_vent_json(contexte),
+        "motif_deux_propositions": (
+            contexte.selection.motif_deux_propositions if contexte.selection else None
+        ),
         "candidates": [_candidate_json(p) for p in propositions],
+    }
+
+
+def _propositions_json(contexte: _Contexte) -> list[dict]:
+    """Les deux ou trois propositions contrastées, dans l'ordre du tri.
+
+    `distinction` porte la phrase en langage de cycliste, `axe_distinctif`
+    l'axe qui la motive. `recouvrement_max_avec` dit, pour chaque autre
+    proposition, la part de routes communes — c'est le critère qui garantit
+    que deux propositions ne se ressemblent pas sur la carte.
+    """
+    selection = contexte.selection
+    if selection is None:
+        return []
+    par_paire = selection.recouvrements
+    sortie = []
+    for i, retenue in enumerate(selection.retenues):
+        profil = retenue.profil
+        sortie.append(
+            {
+                "numero": retenue.proposition.numero,
+                "retenue": i == 0,
+                "distinction": retenue.distinction,
+                # L'axe de base, sans son orientation : un consommateur lit « vent »,
+                # pas « vent:travers » — l'orientation est déjà sous
+                # `orientation_vent`.
+                "axe_distinctif": (
+                    contraste.axe_de_base(retenue.axe_distinctif)
+                    if retenue.axe_distinctif
+                    else None
+                ),
+                "duree_s": round(profil.duree_s),
+                "demi_tours": profil.demi_tours,
+                "pluie_mm": (None if profil.pluie_mm is None else round(profil.pluie_mm, 3)),
+                # `None` et jamais `0.0` : un tracé sans tag de nœud ne prouve
+                # pas qu'il n'y a pas de feu (règle absolue 5), et l'ignorance
+                # n'est jamais un malus (contrat du sprint 3).
+                "densite_marqueurs_km": (
+                    None
+                    if profil.densite_marqueurs_km is None
+                    else round(profil.densite_marqueurs_km, 3)
+                ),
+                "part_trafic": (
+                    None if profil.part_trafic is None else round(profil.part_trafic, 4)
+                ),
+                "orientation_vent": profil.orientation,
+                "note_terrain": round(profil.note_terrain, 4),
+                "recouvrement_max_avec": {
+                    str(selection.retenues[j].proposition.numero): round(part, 4)
+                    for (a, b), part in par_paire.items()
+                    for j in ((b,) if a == i else (a,) if b == i else ())
+                },
+            }
+        )
+    return sortie
+
+
+def _question_vent_json(contexte: _Contexte) -> dict | None:
+    """Ce que le vent au départ permettait de demander, et ce qui a été demandé."""
+    question = contexte.question_vent
+    if question is None:
+        return None
+    return {
+        "posee": question.posee,
+        "motif": question.motif or None,
+        "vent_kmh": question.vent_kmh,
+        "vent_depuis_deg": question.vent_depuis_deg,
+        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
+        "reponse": contexte.demande.vent,
+        "azimut_recherche_deg": question.azimut_pour(contexte.demande.vent),
+        "choix": list(orientation.CHOIX),
+    }
+
+
+def _emplacement_json(e: Emplacement) -> dict:
+    """Un emplacement en JSON — `note` et le reste de `NoteBloc` à `None` sans bloc.
+
+    Q13, lot L5.2 : un `0.0` à la place de `None` se lirait, par un script
+    comme par un humain, comme un couloir parfait — c'est précisément le
+    défaut que le contrat §2.2 a) interdit.
+
+    `debut_parcouru_m` est le compteur kilométrique (ne recule jamais) ;
+    `debut_m` reste la position sur le tracé (recule après un demi-tour). Un
+    script qui veut afficher un kilomètre lit le premier, pas le second.
+    """
+    base = {
+        "etape_idx": e.etape_idx,
+        "debut_m": round(e.debut_m, 1),
+        "debut_parcouru_m": round(e.debut_parcouru_m, 1),
+        "longueur_m": round(e.longueur_m, 1),
+        "demi_tour": e.demi_tour,
+    }
+    if e.note is None:
+        return base | {
+            "note": None,
+            "motifs": None,
+            "pente_moyenne": None,
+            "pente_max": None,
+            "carrefours": None,
+            "km_batis": None,
+            "descente_m": None,
+            "montee_m": None,
+        }
+    return base | {
+        "note": round(e.note.note, 4),
+        "motifs": e.note.motifs,
+        "pente_moyenne": round(e.note.pente_moyenne, 5),
+        "pente_max": round(e.note.pente_max, 5),
+        "carrefours": e.note.carrefours,
+        "km_batis": round(e.note.km_batis, 3),
+        "descente_m": round(e.note.descente_m, 1),
+        "montee_m": round(e.note.montee_m, 1),
     }
 
 
@@ -1069,24 +1559,11 @@ def _candidate_json(proposition: Proposition) -> dict:
             # s'allonge dans sa fenêtre (Q14). Séparé des avertissements
             # parce qu'un script qui compte les défauts ne doit pas le compter.
             "informations": placement.informations,
-            "emplacements": [
-                {
-                    "bloc": numero,
-                    "etape_idx": e.etape_idx,
-                    "debut_m": round(e.debut_m, 1),
-                    "longueur_m": round(e.longueur_m, 1),
-                    "demi_tour": e.demi_tour,
-                    "note": round(e.note.note, 4),
-                    "motifs": e.note.motifs,
-                    "pente_moyenne": round(e.note.pente_moyenne, 5),
-                    "pente_max": round(e.note.pente_max, 5),
-                    "carrefours": e.note.carrefours,
-                    "km_batis": round(e.note.km_batis, 3),
-                    "descente_m": round(e.note.descente_m, 1),
-                    "montee_m": round(e.note.montee_m, 1),
-                }
-                for numero, e in enumerate(placement.emplacements, start=1)
-            ],
+            # Toutes les étapes de la séance, pas seulement les blocs (Q13, lot
+            # L5.2) : `_emplacement_json` met `None`, jamais `0.0`, pour tout ce
+            # qu'une récupération n'a pas — un script qui lirait un `0.0` le
+            # prendrait pour un couloir parfait.
+            "emplacements": [_emplacement_json(e) for e in placement.emplacements],
         },
         "couts": {
             "km_trafic": round(proposition.couts.km_trafic, 3),

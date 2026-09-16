@@ -64,6 +64,11 @@ class Echantillon:
     """Direction d'où vient le vent, interpolée. `vent_relatif` la résume en
     trois secteurs, ce qui suffit à la lecture mais pas au modèle physique :
     celui-ci a besoin de la composante de face en m/s, donc de l'angle."""
+    rafales_kmh: float | None = None
+    """Rafale interpolée **linéairement**, comme `vent_kmh` — c'est une
+    vitesse, pas une direction : l'interpoler angulairement n'aurait pas de
+    sens. Portée jusqu'ici pour l'affichage (flèches de vent de la carte) ;
+    le modèle physique ne s'en sert pas, seul `vent_kmh` l'alimente."""
 
 
 @dataclass
@@ -155,6 +160,7 @@ def evaluer(
                 ),
                 ressenti_c=valeurs.ressenti_c,
                 vent_depuis_deg=valeurs.vent_depuis_deg,
+                rafales_kmh=valeurs.rafales_kmh,
             )
         )
 
@@ -248,6 +254,7 @@ class _Valeurs:
     vent_kmh: float | None = None
     vent_depuis_deg: float | None = None
     ressenti_c: float | None = None
+    rafales_kmh: float | None = None
 
 
 def _interpoler(heures: Sequence[PrevisionHeure], t: datetime) -> _Valeurs:
@@ -266,8 +273,9 @@ def _interpoler(heures: Sequence[PrevisionHeure], t: datetime) -> _Valeurs:
     return _Valeurs(
         pluie_mm=_lineaire(avant.pluie_mm, apres.pluie_mm, f),
         vent_kmh=_lineaire(avant.vent_kmh, apres.vent_kmh, f),
-        vent_depuis_deg=_angulaire(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
+        vent_depuis_deg=interpoler_angle(avant.vent_depuis_deg, apres.vent_depuis_deg, f),
         ressenti_c=_lineaire(avant.ressenti_c, apres.ressenti_c, f),
+        rafales_kmh=_lineaire(avant.rafales_kmh, apres.rafales_kmh, f),
     )
 
 
@@ -297,8 +305,13 @@ def _lineaire(a: float | None, b: float | None, f: float) -> float | None:
     return a + (b - a) * f
 
 
-def _angulaire(a: float | None, b: float | None, f: float) -> float | None:
-    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°."""
+def interpoler_angle(a: float | None, b: float | None, f: float) -> float | None:
+    """Interpolation d'un angle par ses composantes : 350° et 10° donnent 0°, pas 180°.
+
+    Publique parce que `seance.vent` interpole le même angle entre deux
+    échantillons distants de 5 km : une seconde version aurait tôt fait de
+    diverger de celle-ci, et c'est exactement la faute qu'elle évite.
+    """
     if a is None or b is None:
         return None
     ra, rb = math.radians(a), math.radians(b)

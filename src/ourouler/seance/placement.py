@@ -83,6 +83,7 @@ from ourouler.boucle.trace import (
     DENIVELE_PARCOURS,
     PointTrace,
     Trace,
+    cap_deg,
     denivele_filtre,
     distance_m,
 )
@@ -96,6 +97,7 @@ from ourouler.physique.modele import (
 )
 from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.terrain import NoteBloc, demi_tour_faisable, evaluer_couloir, route_au_dela
+from ourouler.seance.vent import ChampVent
 
 #: Clé de `Trace.meta` où le motif d'échec est rangé quand `placer` rend `None`.
 CLE_MOTIF = "placement_motif"
@@ -167,6 +169,20 @@ PENALITE_SEANCE_NON_TENUE = 20.0
 #: une séance reste un vrai défaut, et les deux ne sont pas le même défaut.
 PENALITE_CALME_ALLONGE_KM_PAR_H = 0.6
 
+#: Pas d'arrondi de la composante de vent, en m/s, pour la mémoïsation des
+#: vitesses. 0,25 m/s vaut 0,9 km/h — bien en deçà de ce que la prévision sait
+#: dire, donc l'arrondi ne coûte aucune justesse.
+#:
+#: Il ne gagne pas grand-chose non plus, et c'est mesuré (15/09/2026, relecture
+#: du lot L5.1) : le supprimer coûte **2 %** sur un placement, pas l'explosion
+#: de cache qu'annonçait la première rédaction de ce commentaire. La raison est
+#: que `_Terrain.vent_face` mémoïse déjà par `(pas, sens)` : il n'existe que
+#: deux valeurs de vent possibles par pas, quoi qu'il arrive. On garde
+#: l'arrondi parce qu'il est gratuit et qu'il borne la clé, pas parce qu'il
+#: sauve le cache.
+PAS_VENT_MS = 0.25
+
+
 #: Dépassement du retour au calme à partir duquel on le dit. Une minute : en
 #: deçà, c'est l'arrondi du placement, pas une information.
 DEPASSEMENT_CALME_DIT_S = 60.0
@@ -174,13 +190,66 @@ DEPASSEMENT_CALME_DIT_S = 60.0
 
 @dataclass
 class Emplacement:
-    """Où tombe un bloc, et ce que vaut le terrain à cet endroit."""
+    """Où tombe une étape de la séance, et ce que vaut le terrain à cet endroit.
+
+    Depuis le lot L5.2 (Q13), **une étape de la séance = un `Emplacement`**,
+    pas seulement les blocs : l'échauffement, les récupérations et le retour
+    au calme ont eux aussi une position, même sans note — aucun terrain n'est
+    évalué sous une récupération, c'est la règle du sprint 4 et elle ne
+    bouge pas. `note` vaut donc `None` pour tout ce qui n'est pas un bloc ;
+    ce n'est pas une valeur neutre inventée, c'est l'absence de mesure. Un
+    appelant qui ne veut que les blocs (l'ancien comportement) utilise
+    `Placement.blocs()`, qui filtre sur `note is not None` — c'est exactement
+    équivalent à filtrer sur le type de l'étape, sans avoir besoin de le
+    répéter ici : `Placement` ne connaît pas la `Seance`, `note` suffit.
+
+    Deux positions, et elles divergent après un demi-tour :
+
+    * `debut_m`/`longueur_m` repèrent une position **sur le tracé d'origine**
+      (celle que `_couloir` calcule depuis les deux bouts du pas) — c'est ce
+      dont la carte a besoin pour savoir quels points dessiner. Après un
+      demi-tour, `debut_m` peut **reculer** : le bloc suivant reprend le
+      couloir du bloc précédent, à l'envers.
+    * `debut_parcouru_m` est le **compteur kilométrique** : la distance
+      parcourue depuis le départ, cumulée, qui ne recule **jamais** — c'est
+      lui que l'affichage texte et les infobulles de la carte utilisent,
+      parce que c'est ce que « km » veut dire pour quelqu'un qui roule.
+      Deux étapes qui reprennent le même couloir (un demi-tour) tombent au
+      même `debut_m`, mais jamais au même `debut_parcouru_m` : sur une
+      séance qui fait des demi-tours, la suite des `debut_parcouru_m` est
+      **strictement croissante** d'une étape à la suivante (testé).
+
+    **Le demi-tour d'une récupération ne se coupe pas en deux `Emplacement`.**
+    Elle reste **une** étape de la séance, donc **un** `Emplacement` : celui
+    qui va du point où le bloc précédent s'est arrêté jusqu'au point de
+    demi-tour, puis en revient. Son `debut_m` est le début de ce couloir
+    (`_couloir` sur le point de départ et le point de demi-tour, non écrêté —
+    voir plus bas) ; sa `longueur_m` vaut **deux fois** la demi-distance
+    estimée (`2 × besoin_m`, aller et retour), pas l'écart entre les deux
+    points du tracé (qui vaudrait `besoin_m`) et surtout pas zéro (le départ
+    et l'arrivée de cette étape sont le même point). C'est cette même
+    estimation `2 × besoin_m` qui est ajoutée à `_Etat.distance_m` ; l'un des
+    deux invariants du contrat §2.2 a) — la somme des longueurs vaut
+    `distance_totale_m` — tient donc par construction.
+
+    **`jalons_m` n'est pas cette même autorité.** Au bout d'une boucle
+    fermée, le point de demi-tour qu'il mémorise est écrêté par
+    `_Terrain.dans_le_trace` (approximation connue et documentée depuis le
+    sprint 4, voir sa docstring) : `jalons_m` peut alors totaliser un peu
+    moins que `distance_totale_m`. `debut_m`/`longueur_m` ne portent pas cet
+    écrêtage — ils viennent du point de demi-tour **non écrêté**, cohérent
+    avec ce qui est réellement ajouté à `_Etat.distance_m`.
+    """
 
     etape_idx: int
     debut_m: float
     longueur_m: float
     demi_tour: bool  # le bloc réutilise le segment précédent en sens inverse
-    note: NoteBloc
+    note: NoteBloc | None = None
+    #: Le compteur kilométrique — voir la docstring de la classe. 0.0 par
+    #: défaut pour les appelants qui construisent un `Emplacement` à la main
+    #: sans s'en soucier (tests).
+    debut_parcouru_m: float = 0.0
 
 
 @dataclass
@@ -188,6 +257,9 @@ class Placement:
     """Une séance posée sur un tracé : le décalage retenu et ce qu'il donne."""
 
     decalage_z2_s: float  # allongement (ou raccourcissement) de la Z2 d'ouverture
+    #: **Toutes** les étapes de la séance, dans l'ordre où on les roule
+    #: (Q13, lot L5.2) — voir `Emplacement`. `blocs()` filtre ce que
+    #: contenait ce champ avant ce lot.
     emplacements: list[Emplacement]
     note_totale: float  # `note_terrain` + `penalite_seance`, et c'est elle qui trie
     duree_totale_s: float
@@ -215,12 +287,22 @@ class Placement:
     #: réellement roulé — voir `trace_parcourue`.
     jalons_m: list[float] = field(default_factory=list)
 
+    def blocs(self) -> list[Emplacement]:
+        """Les seuls emplacements notés : les blocs, dans l'ordre où on les roule.
+
+        C'est ce que `Placement.emplacements` rendait avant le lot L5.2
+        (Q13) : la note de terrain, `blocs_bien_places`, `demi_tours`
+        continuent de ne compter qu'eux, jamais une récupération.
+        """
+        return [e for e in self.emplacements if e.note is not None]
+
 
 def placer(
     seance: Seance,
     trace: Trace,
     p: Parametres,
     *,
+    vent: ChampVent | None = None,
     elasticite: tuple[float, float] = (-0.05, 0.20),
     elasticite_calme: tuple[float, float] = (-0.05, 1.5),
     pas_s: float = 60.0,
@@ -238,6 +320,12 @@ def placer(
     fenêtre par le haut se dit ; dépasser tout court se paie, au prorata et
     sans seuil.
 
+    `vent` est le champ de vent le long du tracé (`seance.vent.ChampVent`),
+    ou `None` pour ne pas en tenir compte. Il change la vitesse de chaque pas,
+    donc l'endroit où les blocs tombent : 20 km/h de face ou dans le dos,
+    c'est 4 km d'écart sur un bloc de 20 min qui en fait 11. Sans lui, le
+    placement rend **exactement** ce qu'il rendait avant que le vent existe.
+
     La meilleure configuration est celle dont la `note_totale` est la plus
     basse — terrain sous les blocs **et** pénalité de séance ; à égalité, celle
     qui touche le moins à la séance.
@@ -247,9 +335,14 @@ def placer(
     if len(trace.points) < 2:
         return _echec(trace, "tracé de moins de deux points : il n'y a rien à parcourir")
 
-    terrain = _Terrain(trace, p)
-    if not (math.isfinite(terrain.total) and terrain.total > 0):
+    # Le refus tombe **avant** la construction du terrain : celle-ci divise par
+    # la longueur de chaque pas pour en tirer la pente, et un tracé de deux
+    # points confondus la faisait lever `ZeroDivisionError` — une erreur nue,
+    # alors que le motif était déjà écrit deux lignes plus bas.
+    total = _distances_cumulees(trace.points)[-1]
+    if not (math.isfinite(total) and total > 0):
         return _echec(trace, "tracé de longueur nulle : il n'y a rien à parcourir")
+    terrain = _Terrain(trace, p, vent)
 
     idx_ouverture, idx_fermeture = _extremites(seance.etapes)
     prealables: list[str] = []
@@ -519,6 +612,13 @@ def _essayer(
     ecarts: list[_EcartElastique] = []  # les étapes élastiques telles que placées
 
     i = 0
+    # `True` dès qu'un bloc a été placé : condition exacte de la variante
+    # demi-tour, « précédé d'une récupération et d'un autre bloc ». Avant le
+    # lot L5.2, `emplacements` ne contenait que des blocs et servait de proxy
+    # à cette question ; il contient maintenant l'échauffement et les
+    # récupérations aussi, donc le proxy ne suffit plus — il faut le dire
+    # explicitement.
+    un_bloc_precedent = False
     while i < fin:
         etape = etapes[i]
         duree = etape.duree_s + (decalage_s if i == idx_ouverture else 0.0)
@@ -542,23 +642,25 @@ def _essayer(
             etape.type == TYPE_RECUP
             and suivante is not None
             and suivante.type == TYPE_BLOC
-            and emplacements
+            and un_bloc_precedent
         ):
-            emplacement = _recup_puis_bloc(
+            jambes = _recup_puis_bloc(
                 trace,
                 terrain,
                 etat,
                 recup=etape,
                 recup_puissance=puissance,
+                recup_idx=i,
                 bloc=suivante,
                 bloc_idx=i + 1,
                 bloc_puissance=_puissance(suivante, avertissements, i + 1),
                 penalite_demi_tour=penalite_demi_tour,
                 ftp_w=ftp_w,
             )
-            if isinstance(emplacement, str):
-                return emplacement
-            emplacements.append(emplacement)
+            if isinstance(jambes, str):
+                return jambes
+            emplacements.extend(jambes)
+            un_bloc_precedent = True
             i += 2
             continue
 
@@ -567,11 +669,30 @@ def _essayer(
             if isinstance(emplacement, str):
                 return emplacement
             emplacements.append(emplacement)
+            un_bloc_precedent = True
             i += 1
             continue
 
+        # Ni bloc, ni paire récup+bloc : l'échauffement, une récupération
+        # isolée (avant le premier bloc, ou en queue sans bloc pour
+        # l'absorber). Elle roule quand même, et sa position se mémorise
+        # comme celle de n'importe quelle autre étape (Q13) — sans note,
+        # aucun terrain n'est évalué ici.
+        depart = etat.position_m
+        parcouru = etat.distance_m
         if not _rouler(terrain, etat, duree, puissance):
             return _plus_de_route(etat, terrain, etape, i)
+        debut, longueur = _couloir(depart, etat.position_m)
+        emplacements.append(
+            Emplacement(
+                etape_idx=i,
+                debut_m=debut,
+                longueur_m=longueur,
+                demi_tour=False,
+                note=None,
+                debut_parcouru_m=parcouru,
+            )
+        )
         i += 1
 
     if idx_fermeture is not None:
@@ -584,6 +705,7 @@ def _essayer(
             avertissements,
             informations,
             ecarts,
+            emplacements,
         )
         if motif is not None:
             return motif
@@ -598,7 +720,11 @@ def _essayer(
         )
 
     penalite = _penalite_seance(ecarts, elasticite, elasticite_calme)
-    terrain_note = _note_ponderee(emplacements, etapes)
+    # Seuls les blocs portent une note : une récupération n'est jamais évaluée
+    # (règle du sprint 4). `_note_ponderee` suppose que chaque emplacement
+    # qu'on lui passe a un `note` non `None` — un filtre, jamais un `or 0.0`,
+    # qui ferait entrer une note neutre inventée dans la moyenne.
+    terrain_note = _note_ponderee([e for e in emplacements if e.note is not None], etapes)
     return Placement(
         decalage_z2_s=decalage_s,
         emplacements=emplacements,
@@ -711,6 +837,7 @@ def _bloc_droit(
 ) -> Emplacement | str:
     """Le bloc tel quel, dans le sens de marche, à partir de la position courante."""
     depart = etat.position_m
+    parcouru = etat.distance_m
     if not _rouler(terrain, etat, duree_s, puissance_w):
         return _plus_de_route(etat, terrain, bloc, bloc_idx)
     debut, longueur = _couloir(depart, etat.position_m)
@@ -720,6 +847,7 @@ def _bloc_droit(
         longueur_m=longueur,
         demi_tour=False,
         note=evaluer_couloir(trace, debut, longueur, puissance_w=puissance_w, ftp_w=ftp_w),
+        debut_parcouru_m=parcouru,
     )
 
 
@@ -730,12 +858,13 @@ def _recup_puis_bloc(
     *,
     recup: Etape,
     recup_puissance: float,
+    recup_idx: int,
     bloc: Etape,
     bloc_idx: int,
     bloc_puissance: float,
     penalite_demi_tour: float,
     ftp_w: float | None,
-) -> Emplacement | str:
+) -> list[Emplacement] | str:
     """La paire (récupération, bloc) : variante droite contre variante demi-tour.
 
     Les deux se jouent depuis le même état ; on garde la moins mal notée et
@@ -744,6 +873,11 @@ def _recup_puis_bloc(
     importance, elle est là pour absorber le point dur. Seule la puissance du
     **bloc** est donnée à `evaluer_couloir` — celle de la récup n'entre nulle
     part, sans quoi l'intensité d'une récup pèserait sur une note de terrain.
+
+    Rend une **liste** de deux `Emplacement` (récup, bloc), pas un seul : la
+    récupération obtient désormais sa propre position (Q13, lot L5.2). Le
+    second élément est toujours le bloc — c'est lui qui porte la note qui
+    arbitre.
 
     **Limite à connaître (T3).** L'arbitrage se fait ici au seul vu de la note
     de couloir, bloc par bloc, alors que `_penalite_seance` n'est calculée
@@ -757,7 +891,7 @@ def _recup_puis_bloc(
     qui vient après.
     """
     droite = _variante_droite(
-        trace, terrain, etat, recup, recup_puissance, bloc, bloc_idx, bloc_puissance, ftp_w
+        trace, terrain, etat, recup, recup_puissance, recup_idx, bloc, bloc_idx, bloc_puissance, ftp_w
     )
     demi = _variante_demi_tour(
         trace,
@@ -765,6 +899,7 @@ def _recup_puis_bloc(
         etat,
         recup,
         recup_puissance,
+        recup_idx,
         bloc,
         bloc_idx,
         bloc_puissance,
@@ -774,11 +909,11 @@ def _recup_puis_bloc(
     candidates = [c for c in (droite, demi) if c is not None]
     if not candidates:
         return _plus_de_route(etat, terrain, bloc, bloc_idx)
-    emplacement, etat_apres = min(candidates, key=lambda c: c[0].note.note)
+    jambes, etat_apres = min(candidates, key=lambda c: c[0][-1].note.note)
     etat.position_m, etat.sens = etat_apres.position_m, etat_apres.sens
     etat.distance_m, etat.duree_s = etat_apres.distance_m, etat_apres.duree_s
     etat.jalons = list(etat_apres.jalons)
-    return emplacement
+    return jambes
 
 
 def _variante_droite(
@@ -787,27 +922,41 @@ def _variante_droite(
     etat: _Etat,
     recup: Etape,
     recup_puissance: float,
+    recup_idx: int,
     bloc: Etape,
     bloc_idx: int,
     bloc_puissance: float,
     ftp_w: float | None,
-) -> tuple[Emplacement, _Etat] | None:
+) -> tuple[list[Emplacement], _Etat] | None:
     """Récup puis bloc, tout droit : le cas normal, sans pénalité."""
     essai = replace(etat)
+    depart_recup = essai.position_m
+    parcouru_recup = essai.distance_m
     if not _rouler(terrain, essai, recup.duree_s, recup_puissance):
         return None
-    depart = essai.position_m
+    debut_r, longueur_r = _couloir(depart_recup, essai.position_m)
+    recup_emp = Emplacement(
+        etape_idx=recup_idx,
+        debut_m=debut_r,
+        longueur_m=longueur_r,
+        demi_tour=False,
+        note=None,
+        debut_parcouru_m=parcouru_recup,
+    )
+    depart_bloc = essai.position_m
+    parcouru_bloc = essai.distance_m
     if not _rouler(terrain, essai, bloc.duree_s, bloc_puissance):
         return None
-    debut, longueur = _couloir(depart, essai.position_m)
-    emplacement = Emplacement(
+    debut, longueur = _couloir(depart_bloc, essai.position_m)
+    bloc_emp = Emplacement(
         etape_idx=bloc_idx,
         debut_m=debut,
         longueur_m=longueur,
         demi_tour=False,
         note=evaluer_couloir(trace, debut, longueur, puissance_w=bloc_puissance, ftp_w=ftp_w),
+        debut_parcouru_m=parcouru_bloc,
     )
-    return emplacement, essai
+    return [recup_emp, bloc_emp], essai
 
 
 def _variante_demi_tour(
@@ -816,12 +965,13 @@ def _variante_demi_tour(
     etat: _Etat,
     recup: Etape,
     recup_puissance: float,
+    recup_idx: int,
     bloc: Etape,
     bloc_idx: int,
     bloc_puissance: float,
     penalite_demi_tour: float,
     ftp_w: float | None,
-) -> tuple[Emplacement, _Etat] | None:
+) -> tuple[list[Emplacement], _Etat] | None:
     """Le bloc repris en sens inverse, la récup coupée en deux autour du demi-tour.
 
     `None` dès qu'une des trois conditions manque. Le besoin de route au-delà
@@ -829,27 +979,61 @@ def _variante_demi_tour(
     à la vitesse du moment, « 4 min à 25 km/h ≈ 800 m » — et c'est
     `route_au_dela` qui dit si cette route existe, y compris sur une boucle
     fermée où le tracé continue au-delà de sa fin.
+
+    **La récupération reste une seule étape, donc un seul `Emplacement`**
+    (Q13, lot L5.2) — elle ne se coupe pas en deux : son `debut_m` est le
+    début du couloir entre le point de départ et le point de demi-tour, et sa
+    `longueur_m` vaut **`2 × besoin_m`**, l'aller et le retour, pas l'écart
+    entre ses deux extrémités (qui vaudrait `besoin_m` et sous-compterait de
+    moitié) ni zéro (départ et arrivée sont le même point). C'est cette même
+    estimation, à vitesse de récup constante, qui est ajoutée à
+    `etat.distance_m` : l'invariant de continuité (contrat §2.2.a, « la somme
+    des longueurs vaut `distance_totale_m` ») tient par construction, sur ce
+    qui est effectivement compté — pas sur la géométrie exacte, légèrement
+    écrêtée en bout de boucle fermée, que `jalons_m` mémorise pour son propre
+    usage (voir la docstring d'`Emplacement`).
     """
     moitie = recup.duree_s / 2.0
     if moitie <= 0:
         return None
-    besoin_m = terrain.vitesse(recup_puissance, terrain.pente_a(etat.position_m) * etat.sens) * moitie
+    besoin_m = (
+        terrain.vitesse(
+            recup_puissance,
+            terrain.pente_a(etat.position_m) * etat.sens,
+            terrain.vent_face_a(etat.position_m, etat.sens),
+        )
+        * moitie
+    )
     if not _route_au_dela(trace, terrain, etat.position_m, besoin_m, etat.sens):
         return None
     if not demi_tour_faisable(trace, terrain.borner(etat.position_m + etat.sens * besoin_m)):
         return None
 
+    depart = etat.position_m
+    parcouru = etat.distance_m
+    tournant_brut = depart + etat.sens * besoin_m
+    tournant_ecrete = terrain.dans_le_trace(tournant_brut)
+    debut_recup, _ = _couloir(depart, tournant_brut)
+    recup_emp = Emplacement(
+        etape_idx=recup_idx,
+        debut_m=debut_recup,
+        longueur_m=2.0 * besoin_m,
+        demi_tour=True,
+        note=None,
+        debut_parcouru_m=parcouru,
+    )
+
     # Figure symétrique : les deux moitiés de récup se compensent, on repart
     # exactement du bout du segment, dans l'autre sens.
     essai = replace(etat)
     essai.sens = -etat.sens
-    essai.jalons = [*etat.jalons, terrain.dans_le_trace(etat.position_m + etat.sens * besoin_m)]
+    essai.jalons = [*etat.jalons, tournant_ecrete]
     essai.distance_m += 2 * besoin_m
     essai.duree_s += recup.duree_s
-    depart = essai.position_m
+    depart_bloc = essai.position_m
     if not _rouler(terrain, essai, bloc.duree_s, bloc_puissance):
         return None
-    debut, longueur = _couloir(depart, essai.position_m)
+    debut, longueur = _couloir(depart_bloc, essai.position_m)
     note = evaluer_couloir(trace, debut, longueur, puissance_w=bloc_puissance, ftp_w=ftp_w)
     if abs(note.pente_moyenne) > PENTE_DEMI_TOUR_MAX:
         return None  # en côte, le retour est une descente : ce n'est plus la même figure
@@ -858,14 +1042,15 @@ def _variante_demi_tour(
         note=note.note + penalite_demi_tour,
         motifs=[*note.motifs, "demi-tour : le segment du bloc précédent, repris en sens inverse"],
     )
-    emplacement = Emplacement(
+    bloc_emp = Emplacement(
         etape_idx=bloc_idx,
         debut_m=debut,
         longueur_m=longueur,
         demi_tour=True,
         note=note,
+        debut_parcouru_m=parcouru + 2.0 * besoin_m,
     )
-    return emplacement, essai
+    return [recup_emp, bloc_emp], essai
 
 
 def _route_au_dela(
@@ -892,6 +1077,7 @@ def _fermer(
     avertissements: list[str],
     informations: list[str],
     ecarts: list[_EcartElastique],
+    emplacements: list[Emplacement],
 ) -> str | None:
     """La Z2 de fin absorbe la distance restante. Elle ne place rien, elle referme.
 
@@ -911,8 +1097,12 @@ def _fermer(
       **sort de la fenêtre haute**, où ce n'est plus la boucle qui tombe mal
       mais la boucle qui ne va pas avec la séance.
 
-    Dans les deux cas on ne refuse pas : une note, jamais un filtre.
+    Dans les deux cas on ne refuse pas : une note, jamais un filtre. Comme
+    toute étape (Q13, lot L5.2), le retour au calme obtient sa propre
+    position dans `emplacements`, sans note.
     """
+    depart = etat.position_m
+    parcouru = etat.distance_m
     reste = terrain.total - etat.position_m if etat.sens > 0 else etat.position_m
     if reste < 0:
         reste = 0.0
@@ -923,6 +1113,17 @@ def _fermer(
     etat.duree_s += duree
     etat.distance_m += reste
     etat.position_m = terrain.total if etat.sens > 0 else 0.0
+    debut, longueur = _couloir(depart, etat.position_m)
+    emplacements.append(
+        Emplacement(
+            etape_idx=idx,
+            debut_m=debut,
+            longueur_m=longueur,
+            demi_tour=False,
+            note=None,
+            debut_parcouru_m=parcouru,
+        )
+    )
     if etape.duree_s > 0:
         ecart = duree / etape.duree_s - 1.0
         depassement = max(0.0, duree - etape.duree_s)
@@ -1026,48 +1227,107 @@ def _minutes(secondes: float) -> str:
 
 
 class _Terrain:
-    """Le tracé découpé en pas de `PAS_M` mètres, avec la pente de chaque pas.
+    """Le tracé découpé en pas de `PAS_M` mètres, avec la pente et le cap de chaque pas.
 
     Même découpage et même lissage d'altitude que `physique.modele.simuler` :
     l'altimètre bruite de quelques dizaines de centimètres, ce qui fabrique
     des pentes fantômes de plusieurs pour cent sur 100 m. Les vitesses sont
-    mémorisées par (puissance, pente arrondie) : le balayage des décalages
-    repasse mille fois sur les mêmes pas, et la bissection du modèle n'a
-    aucune raison d'être refaite.
+    mémorisées par (puissance, pente arrondie, vent de face arrondi) : le
+    balayage des décalages repasse mille fois sur les mêmes pas, et la
+    bissection du modèle n'a aucune raison d'être refaite.
+
+    Le **cap** de chaque pas est de la géométrie pure, calculée une fois à la
+    construction au même titre que les pentes. Il ne sert qu'au vent — mais
+    sans lui, un champ de vent ne saurait pas dire si le cycliste va vers lui
+    ou s'en éloigne.
+
+    Sans champ de vent (`vent=None`), la composante de face vaut zéro partout
+    et les vitesses sont **exactement** celles d'avant : c'est la garantie de
+    non-régression.
     """
 
-    def __init__(self, trace: Trace, p: Parametres) -> None:
+    def __init__(self, trace: Trace, p: Parametres, vent: ChampVent | None = None) -> None:
         self.p = p
+        self.vent = vent
         distances = _distances_cumulees(trace.points)
         self.total = distances[-1]
         self.bornes = _bornes_pas(self.total)
         altitudes = moyenne_glissante(
             [_altitude(trace.points, distances, d) for d in self.bornes], FENETRE_ALTITUDE
         )
-        self.pentes = [
-            (altitudes[i + 1] - altitudes[i]) / (self.bornes[i + 1] - self.bornes[i])
-            for i in range(len(self.bornes) - 1)
-        ]
+        # `_bornes_pas` ne fabrique jamais de pas nul sur un tracé de longueur
+        # non nulle ; un tracé de deux points confondus, lui, en donne un. La
+        # pente y est indéfinie, pas infinie : on la dit plate plutôt que de
+        # laisser lever un `ZeroDivisionError` nu. `placer` refuse déjà ce
+        # tracé en amont, mais `_Terrain` ne doit pas être un piège pour le
+        # prochain appelant.
+        self.pentes = []
+        for i in range(len(self.bornes) - 1):
+            longueur = self.bornes[i + 1] - self.bornes[i]
+            denivele = altitudes[i + 1] - altitudes[i]
+            self.pentes.append(denivele / longueur if longueur > 0 else 0.0)
+        self.caps = _caps_pas(trace.points, distances, self.bornes)
         self.bornee = trace.bornee()
-        self._vitesses: dict[tuple[float, float], float] = {}
+        self._vitesses: dict[tuple[float, float, float], float] = {}
+        self._vents: dict[tuple[int, int], float] = {}
 
-    def vitesse(self, puissance_w: float, pente: float) -> float:
-        """La vitesse de régime, en m/s, avec les mêmes garde-fous que la simulation."""
-        cle = (round(puissance_w, 1), round(pente, 5))
+    def vitesse(self, puissance_w: float, pente: float, vent_face_ms: float = 0.0) -> float:
+        """La vitesse de régime, en m/s, avec les mêmes garde-fous que la simulation.
+
+        `vent_face_ms` est compté positif de face, comme dans `physique.modele`.
+        Il est arrondi à `PAS_VENT_MS` avant d'entrer dans la clé de cache —
+        et c'est la valeur arrondie qui va au modèle, pour que deux appels à
+        la même clé rendent le même nombre.
+        """
+        cle = (round(puissance_w, 1), round(pente, 5), _arrondir_vent(vent_face_ms))
         connue = self._vitesses.get(cle)
         if connue is not None:
             return connue
-        v = vitesse_regime(cle[0], cle[1], 0.0, self.p)
+        v = vitesse_regime(cle[0], cle[1], cle[2], self.p)
         if cle[1] < 0:
             v = min(v, V_MAX_DESCENTE_KMH / 3.6)  # le cycliste freine, le modèle ne le sait pas
         v = max(v, V_MIN_MS)  # plancher affiché, pas une mesure
         self._vitesses[cle] = v
         return v
 
+    def vent_face(self, i: int, sens: int) -> float:
+        """La composante de face, en m/s, au milieu du pas `i` parcouru dans `sens`.
+
+        Le milieu du pas plutôt qu'une de ses bornes : le vent y vaut la
+        moyenne du pas, et une borne partagée par deux pas voisins donnerait
+        au vent une discontinuité que la pente n'a pas.
+
+        Mémoïsée par (pas, sens) : il n'y a que deux valeurs possibles par
+        pas, et le balayage des décalages les redemande des milliers de fois.
+        """
+        if self.vent is None:
+            return 0.0
+        cle = (i, 1 if sens > 0 else -1)
+        connue = self._vents.get(cle)
+        if connue is None:
+            milieu = (self.bornes[i] + self.bornes[i + 1]) / 2.0
+            connue = self.vent.vent_face_ms(milieu, self.caps[i], sens)
+            self._vents[cle] = connue
+        return connue
+
+    def vent_face_a(self, position_m: float, sens: int) -> float:
+        """La composante de face à une position, prise sur le pas qui la contient."""
+        if self.vent is None:
+            return 0.0
+        return self.vent_face(self._pas_contenant(position_m), sens)
+
     def pente_a(self, position_m: float) -> float:
         """La pente du pas qui contient `position_m` (celle du pas le plus proche aux bouts)."""
+        return self.pentes[self._pas_contenant(position_m)]
+
+    def cap_a(self, position_m: float) -> float:
+        """Le cap du pas qui contient `position_m`, en degrés. Pendant de `pente_a`."""
+        return self.caps[self._pas_contenant(position_m)]
+
+    def _pas_contenant(self, position_m: float) -> int:
+        """L'indice du pas qui contient `position_m`, celui du bout au-delà des bornes."""
         i = bisect.bisect_right(self.bornes, position_m) - 1
-        return self.pentes[min(max(i, 0), len(self.pentes) - 1)]
+        return min(max(i, 0), len(self.pentes) - 1)
 
     def dans_le_trace(self, position_m: float) -> float:
         """Ramène une position entre le départ et l'arrivée, sans faire le tour.
@@ -1102,7 +1362,7 @@ class _Terrain:
             if i is None:
                 return None
             borne = self.bornes[i + 1] if sens > 0 else self.bornes[i]
-            v = self.vitesse(puissance_w, self.pentes[i] * sens)
+            v = self.vitesse(puissance_w, self.pentes[i] * sens, self.vent_face(i, sens))
             t = abs(borne - pos) / v
             if t >= restant:
                 return pos + sens * v * restant
@@ -1122,7 +1382,7 @@ class _Terrain:
             if i is None:
                 return None
             borne = self.bornes[i + 1] if sens > 0 else self.bornes[i]
-            v = self.vitesse(puissance_w, self.pentes[i] * sens)
+            v = self.vitesse(puissance_w, self.pentes[i] * sens, self.vent_face(i, sens))
             longueur = abs(borne - pos)
             if longueur >= restant:
                 return duree + restant / v
@@ -1138,6 +1398,41 @@ class _Terrain:
         else:
             i = bisect.bisect_left(self.bornes, position_m) - 1
         return i if 0 <= i < len(self.pentes) else None
+
+
+def _arrondir_vent(vent_face_ms: float) -> float:
+    """Le vent de face arrondi au multiple de `PAS_VENT_MS` le plus proche.
+
+    Rend `0.0` — et non `-0.0` — pour un vent nul : les deux sont égaux pour
+    Python mais font la même clé de cache, autant n'en écrire qu'une.
+    """
+    return round(vent_face_ms / PAS_VENT_MS) * PAS_VENT_MS or 0.0
+
+
+def _caps_pas(
+    points: Sequence[PointTrace], distances: Sequence[float], bornes: Sequence[float]
+) -> list[float]:
+    """Le cap de chaque pas, en degrés (0 = nord, sens horaire).
+
+    Même géométrie que `boucle.trace.cap_deg`, entre les deux bouts du pas.
+    Un pas dont les deux bouts tombent sur le même point — un tracé qui
+    revient sur lui-même, deux points GPS identiques — reprend le cap du pas
+    précédent plutôt que de rendre un zéro qui se lirait « plein nord ».
+    """
+    caps: list[float] = []
+    for i in range(len(bornes) - 1):
+        a = _point_a(points, distances, bornes[i])
+        b = _point_a(points, distances, bornes[i + 1])
+        if distance_m(a, b) > 0:
+            caps.append(cap_deg(a, b))
+        else:
+            # Deux points confondus : le cap n'existe pas. On prolonge le
+            # précédent ; au tout premier pas il n'y en a pas, et le repli
+            # vaut alors 0.0, c'est-à-dire plein nord — une valeur fausse
+            # qu'on assume parce qu'un tracé qui commence par deux points
+            # confondus est refusé par `placer` bien avant d'arriver ici.
+            caps.append(caps[-1] if caps else 0.0)
+    return caps
 
 
 def _bornes_pas(total: float) -> list[float]:

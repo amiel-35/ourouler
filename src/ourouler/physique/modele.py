@@ -137,9 +137,13 @@ class Simulation:
 def vent_au_cycliste(vent_10m: float) -> float:
     """Le vent vu par le cycliste, à partir d'un vent météo donné à 10 m.
 
-    Une seule multiplication, mais **un seul endroit** : archive et prévision
-    passent toutes deux par ici, et le jour où le facteur change (autre
-    rugosité, autre hauteur de référence), il change pour les deux à la fois.
+    Une seule multiplication, et **une seule constante** :
+    `FACTEUR_VENT_HAUTEUR`. La calibration passe par cette fonction ;
+    `seance.vent.ChampVent` applique la même constante lui-même, parce qu'il
+    expose un `facteur_hauteur` injectable que ses tests font varier. Les deux
+    ne peuvent donc pas diverger numériquement, mais ce ne sont pas les mêmes
+    lignes — la version antérieure de cette docstring disait « un seul
+    endroit », et c'est devenu faux avec le lot L5.1.
 
     Le signe est conservé : un vent de dos (compté négatif en composante de
     face) reste un vent de dos. Une valeur non finie est rendue telle quelle —

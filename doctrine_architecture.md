@@ -151,6 +151,29 @@ leur sprint : pas de squelette vide « pour plus tard ».
   l'affiche.
 - **Un service payant obligatoire.** Une option payante (Solcast, GraphHopper
   au-delà du gratuit) reste une option, jamais le chemin nominal.
+- **Les routes déjà roulées comme critère de choix.** Elles sont un
+  **instrument de mesure**, jamais un critère. Mots du mainteneur, 16/09/2026 :
+  « les routes connues et leur fréquence, c'est pour du test. Ce que je fais,
+  c'est des routes sûres : ça permet de comparer les critères de BRouter à ma
+  réalité dans ses choix, pas du tout de privilégier mes choix. »
+
+  C'est la règle du sprint 3, et sa raison technique est écrite dans
+  `apprentissage.routes.BaseRoutes.part_connue` : pénaliser l'inconnu
+  condamnerait d'avance toute direction jamais explorée, alors que le
+  mainteneur a lui-même demandé d'aller « tester des routes sud sud-ouest pour
+  voir ».
+
+  La raison de fond est plus forte que la raison technique : **le jour où les
+  routes connues entrent dans le score, l'outil cesse de mesurer quoi que ce
+  soit.** Il renvoie au cycliste ses propres habitudes en prétendant les avoir
+  trouvées, et toute validation rétrospective devient circulaire — on
+  vérifierait que le modèle prédit bien ce qu'on lui a donné comme cible.
+
+  Conséquence pratique : la part connue s'**affiche**, sert d'**étalon** pour
+  valider un critère nouveau (les poids du terrain au sprint 3, la densité de
+  marqueurs urbains au sprint 5), et n'entre **ni dans une note, ni dans un
+  tri, ni dans une sélection**. Une erreur de ce genre a été faite et
+  rattrapée dans le cadrage de L5.3, le 16/09/2026.
 
 ## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
 
@@ -191,7 +214,32 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   l'exigence « dès le sprint 2 » écrite au cadrage a été ajournée par le
   superviseur le 13/09/2026 (relecture du sprint 2, point 9) : en CLI,
   chaque utilisateur appelle depuis sa propre adresse, et un `boucle` à 5
-  candidates coûte ~10 appels Open-Meteo + 12 BRouter, sans enjeu de quota.
+  candidates coûte ~10 **requêtes** Open-Meteo + 12 BRouter, sans enjeu de
+  quota.
+
+  **Correction du 16/09/2026 : requêtes et appels décomptés ne sont pas la
+  même chose, et le chiffre ci-dessus confondait les deux.** Open-Meteo
+  décompte **un appel par coordonnée**, pas par requête : grouper plusieurs
+  points dans une requête économise du temps réseau, jamais du quota. La
+  ligne « ~50 appels pour un `meteo` à 25 points × 2 modèles » appliquait
+  déjà la bonne règle ; celle du `boucle` l'avait oubliée.
+
+  Le vrai chiffre, pour une `sortie` à 5 candidates sur une boucle de 70 km
+  échantillonnée tous les 5 km (`meteo_trace.PAS_DEFAUT_M`) : 14 points par
+  requête, `1 + 2 × candidates` requêtes, soit **~150 appels décomptés**. À 8
+  candidates, ~240.
+
+  Conséquence pratique, mesurée le 16/09/2026 : un agent a vu passer un
+  `HTTP 429 — Minutely API request limit exceeded` et en a conclu qu'il ne
+  fallait pas augmenter le nombre de candidates. **Le diagnostic était faux** :
+  240 appels restent sous les 600 par minute, et la limite n'a été atteinte
+  qu'en enchaînant des essais. Une commande par jour coûte ~150 appels sur
+  10 000. Le 429 était un artefact de test, pas une limite produit.
+
+  Les leviers réels, si le poste devient contraignant : espacer les
+  échantillons (`PAS_DEFAUT_M`), mettre le cache, et ne pas demander le
+  second avis météo pour chaque candidate. **Pas « grouper les appels »** :
+  c'est déjà fait et ça ne change rien au décompte.
   Le client Open-Meteo est déjà injectable, ce qui suffit à poser le cache
   plus tard sans toucher au cœur.
 

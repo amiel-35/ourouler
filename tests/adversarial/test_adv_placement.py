@@ -124,14 +124,14 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
     fabriques4.nombre_fini(placement.duree_totale_s, "Placement.duree_totale_s", positif=True)
     fabriques4.nombre_fini(placement.distance_totale_m, "Placement.distance_totale_m", positif=True)
     fabriques4.liste_de_chaines(placement.avertissements, "Placement.avertissements")
-    assert isinstance(placement.emplacements, list), "Placement.emplacements : liste attendue"
-    assert len(placement.emplacements) == len(seance.blocs()), (
-        f"{len(placement.emplacements)} emplacements pour {len(seance.blocs())} blocs : "
+    assert isinstance(placement.blocs(), list), "Placement.blocs() : liste attendue"
+    assert len(placement.blocs()) == len(seance.blocs()), (
+        f"{len(placement.blocs())} emplacements pour {len(seance.blocs())} blocs : "
         "chaque bloc de la prescription doit être placé"
     )
     indices_blocs = [i for i, _ in seance.blocs()]
     notes: list[float] = []
-    for n, e in enumerate(placement.emplacements):
+    for n, e in enumerate(placement.blocs()):
         assert e.etape_idx in indices_blocs, (
             f"emplacements[{n}].etape_idx = {e.etape_idx} ne désigne pas une étape de type bloc"
         )
@@ -178,7 +178,7 @@ def _verifier(placement: Any, seance: Any, trace: Any) -> None:
 def _demi_tours(placement: Any) -> list[int]:
     if placement is None:
         return []
-    return [n for n, e in enumerate(placement.emplacements) if e.demi_tour]
+    return [n for n, e in enumerate(placement.blocs()) if e.demi_tour]
 
 
 def _exiger_node_tags() -> None:
@@ -195,10 +195,10 @@ def test_une_seance_tient_sur_une_boucle_propre():
     assert placement is not None, "une séance de 50 min doit tenir sur une boucle de 60 km"
     assert placement.note_terrain == pytest.approx(0.0, abs=1e-9), (
         f"note de terrain {placement.note_terrain} sur une boucle plate sans obstacle — "
-        f"motifs : {[m for e in placement.emplacements for m in e.note.motifs]}"
+        f"motifs : {[m for e in placement.blocs() for m in e.note.motifs]}"
     )
-    assert [e.debut_m for e in placement.emplacements] == sorted(
-        e.debut_m for e in placement.emplacements
+    assert [e.debut_m for e in placement.blocs()] == sorted(
+        e.debut_m for e in placement.blocs()
     ), "les blocs doivent être placés dans l'ordre de la séance"
 
 
@@ -221,8 +221,8 @@ def test_le_placement_est_deterministe():
     if a is None:
         return
     assert a.decalage_z2_s == b.decalage_z2_s and a.note_totale == b.note_totale
-    assert [(e.debut_m, e.longueur_m, e.demi_tour) for e in a.emplacements] == [
-        (e.debut_m, e.longueur_m, e.demi_tour) for e in b.emplacements
+    assert [(e.debut_m, e.longueur_m, e.demi_tour) for e in a.blocs()] == [
+        (e.debut_m, e.longueur_m, e.demi_tour) for e in b.blocs()
     ], "deux appels identiques donnent deux placements différents"
 
 
@@ -239,7 +239,7 @@ def test_une_seance_sans_bloc_ne_place_rien():
     )
     placement = _placer(seance, _boucle())
     if placement is not None:
-        assert placement.emplacements == [] and placement.note_terrain == pytest.approx(0.0)
+        assert placement.blocs() == [] and placement.note_terrain == pytest.approx(0.0)
 
 
 @pytest.mark.parametrize(
@@ -335,13 +335,13 @@ def test_les_ecarts_entre_blocs_ne_dependent_pas_de_l_elasticite():
     seance, trace = _seance(), _boucle()
     serre = _placer(seance, trace, elasticite=(0.0, 0.0))
     large = _placer(seance, trace, elasticite=(-0.05, 0.20))
-    if serre is None or large is None or len(serre.emplacements) < 2:
+    if serre is None or large is None or len(serre.blocs()) < 2:
         pytest.skip("pas de placement à deux blocs : l'écart n'est pas observable")
     def ecart(p: Any) -> float:
-        premier = p.emplacements[0]
-        return p.emplacements[1].debut_m - (premier.debut_m + premier.longueur_m)
+        premier = p.blocs()[0]
+        return p.blocs()[1].debut_m - (premier.debut_m + premier.longueur_m)
 
-    if large.emplacements[0].demi_tour or large.emplacements[1].demi_tour:
+    if large.blocs()[0].demi_tour or large.blocs()[1].demi_tour:
         pytest.skip("demi-tour choisi : l'écart le long du tracé n'est plus comparable")
     assert ecart(serre) == pytest.approx(ecart(large), rel=0.02), (
         f"écart entre blocs de {ecart(serre):.0f} m sans élasticité contre {ecart(large):.0f} m avec : "
@@ -363,10 +363,10 @@ def test_un_village_et_des_feux_sous_la_recuperation_ne_changent_rien():
     _exiger_node_tags()
     seance, propre = _seance(), _boucle()
     reference = _placer(seance, propre, elasticite=(0.0, 0.0))
-    assert reference is not None and len(reference.emplacements) == 2, (
+    assert reference is not None and len(reference.blocs()) == 2, (
         "ce test a besoin des deux blocs placés pour savoir où tombe la récupération"
     )
-    premier, second = reference.emplacements[0], reference.emplacements[1]
+    premier, second = reference.blocs()[0], reference.blocs()[1]
     if premier.demi_tour or second.demi_tour:
         pytest.skip("demi-tour choisi sur une boucle propre : l'intervalle de récup n'est pas un segment")
     debut_recup = premier.debut_m + premier.longueur_m + 20.0
@@ -380,8 +380,8 @@ def test_un_village_et_des_feux_sous_la_recuperation_ne_changent_rien():
         f"note {apres.note_totale} contre {reference.note_totale} : le village et les feux traversés "
         "pendant la récupération ont été comptés — décision du 13/09, on n'évalue rien sous une récup"
     )
-    assert [(e.debut_m, e.longueur_m, e.demi_tour) for e in apres.emplacements] == [
-        (e.debut_m, e.longueur_m, e.demi_tour) for e in reference.emplacements
+    assert [(e.debut_m, e.longueur_m, e.demi_tour) for e in apres.blocs()] == [
+        (e.debut_m, e.longueur_m, e.demi_tour) for e in reference.blocs()
     ], "les blocs ont bougé à cause d'obstacles situés sous la récupération"
 
 
@@ -390,8 +390,8 @@ def test_un_village_sous_les_blocs_change_la_note():
     _exiger_node_tags()
     seance, propre = _seance(), _boucle()
     reference = _placer(seance, propre, elasticite=(0.0, 0.0))
-    assert reference is not None and reference.emplacements
-    zones = [(e.debut_m, e.debut_m + e.longueur_m) for e in reference.emplacements]
+    assert reference is not None and reference.blocs()
+    zones = [(e.debut_m, e.debut_m + e.longueur_m) for e in reference.blocs()]
     sale = fabriques4.salir(propre, zones)
     apres = _placer(seance, sale, elasticite=(0.0, 0.0))
     assert apres is not None
@@ -415,8 +415,8 @@ def test_ce_qui_suit_le_dernier_bloc_ne_change_pas_le_decalage_d_ouverture():
     _exiger_node_tags()
     seance, propre = _seance(calme_s=1800.0), _boucle()
     reference = _placer(seance, propre, elasticite=(-0.05, 0.20))
-    assert reference is not None and reference.emplacements
-    fin_dernier = max(e.debut_m + e.longueur_m for e in reference.emplacements)
+    assert reference is not None and reference.blocs()
+    fin_dernier = max(e.debut_m + e.longueur_m for e in reference.blocs())
     # Marge généreuse : même au décalage maximal, aucun bloc ne peut atteindre
     # cette zone (0,20 × 1200 s à 60 km/h font moins de 4 km).
     marge_m = 0.20 * seance.etapes[0].duree_s * 17.0 + 1000.0
@@ -431,8 +431,8 @@ def test_ce_qui_suit_le_dernier_bloc_ne_change_pas_le_decalage_d_ouverture():
         f"décalage {apres.decalage_z2_s} s contre {reference.decalage_z2_s} s : ce qui se trouve "
         "après le dernier bloc a servi à placer la séance"
     )
-    assert [(e.debut_m, e.longueur_m) for e in apres.emplacements] == [
-        (e.debut_m, e.longueur_m) for e in reference.emplacements
+    assert [(e.debut_m, e.longueur_m) for e in apres.blocs()] == [
+        (e.debut_m, e.longueur_m) for e in reference.blocs()
     ], "les blocs ont bougé à cause du terrain traversé pendant la Z2 de fin"
     assert apres.note_totale == pytest.approx(reference.note_totale), (
         f"note {apres.note_totale} contre {reference.note_totale} : le terrain de la Z2 de fin est entré "

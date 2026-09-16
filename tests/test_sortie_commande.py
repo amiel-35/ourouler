@@ -18,6 +18,7 @@ import argparse
 import json
 import math
 import re
+import types
 from datetime import date, datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -32,7 +33,7 @@ from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
-from ourouler.config import Config, depuis_dict
+from ourouler.config import Config, ParametresSeance, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
@@ -47,8 +48,11 @@ from ourouler.sortie.carte import COULEURS_BLOCS
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
     Proposition,
+    _comparer,
     _Contexte,
+    _distance,
     _ecrire_gpx,
+    _notes_egales,
     executer,
     lire_options,
     rendre_texte,
@@ -254,7 +258,7 @@ def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
 # --- Open-Meteo bouchonné -----------------------------------------------------
 
 
-def bloc_meteo(lat: float, lon: float, n: int, pluie: float) -> dict:
+def bloc_meteo(lat: float, lon: float, n: int, pluie: float, vent_kmh: float = 14.0) -> dict:
     return {
         "latitude": lat,
         "longitude": lon,
@@ -262,7 +266,7 @@ def bloc_meteo(lat: float, lon: float, n: int, pluie: float) -> dict:
             "time": [f"2026-09-08T{6 + i:02d}:00" for i in range(n)],
             "precipitation": [pluie] * n,
             "rain": [pluie] * n,
-            "wind_speed_10m": [14.0] * n,
+            "wind_speed_10m": [vent_kmh] * n,
             "wind_direction_10m": [45.0] * n,
             "wind_gusts_10m": [25.0] * n,
             "apparent_temperature": [11.5] * n,
@@ -271,8 +275,15 @@ def bloc_meteo(lat: float, lon: float, n: int, pluie: float) -> dict:
     }
 
 
-def moteur_meteo(pluie=None, en_panne: bool = False) -> ClientOpenMeteo:
-    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h."""
+def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
+    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h.
+
+    `vent_kmh` : vitesse constante du vent bouchonné (14 km/h @ 45° par
+    défaut, comme avant L5.1 — les tests existants qui ne le précisent pas
+    ne changent donc pas de fixture). `0.0` fabrique une météo sans vent,
+    utile pour comparer un placement au vent à son équivalent sans vent
+    (`test_le_vent_change_ou_tombent_les_blocs`).
+    """
     pluie = pluie if pluie is not None else (lambda lat, lon: 0.0)
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -287,7 +298,8 @@ def moteur_meteo(pluie=None, en_panne: bool = False) -> ClientOpenMeteo:
         return httpx.Response(
             200,
             json=[
-                bloc_meteo(a, o, n, pluie(a, o)) for a, o in zip(lats, lons, strict=True)
+                bloc_meteo(a, o, n, pluie(a, o), vent_kmh=vent_kmh)
+                for a, o in zip(lats, lons, strict=True)
             ],
         )
 
@@ -482,8 +494,27 @@ def test_le_tri_prend_la_note_de_placement_avant_la_pluie(tmp_path: Path, monkey
     assert premiere["meteo"]["pluie_cumulee_mm"] > seconde["meteo"]["pluie_cumulee_mm"]
 
 
-def test_a_note_egale_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
-    """Deux anneaux de même relief, l'un au nord sous la pluie, l'autre au sud au sec."""
+def test_a_note_equivalente_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
+    """Deux anneaux de même relief, l'un au nord sous la pluie, l'autre au sud au sec.
+
+    **Ce test exigeait des notes bit-identiques (`abs=1e-9`) jusqu'au lot
+    L5.1.** Ce n'était pas son propos — c'était sa *précondition* : sans elle,
+    « c'est la pluie qui départage » pourrait passer pour la mauvaise raison,
+    parce que l'anneau sud aurait simplement une meilleure note.
+
+    Depuis que le vent entre dans la note, deux anneaux de même relief mais
+    d'orientation opposée **ne peuvent plus** avoir la même note : l'un est
+    parcouru vent de face là où l'autre l'a dans le dos. C'est une
+    impossibilité de construction, pas un réglage à trouver — aucune valeur de
+    `tolerance_egalite` n'y changerait rien, puisqu'elle n'agit que sur le tri
+    et jamais sur la valeur stockée.
+
+    La précondition est donc réécrite dans la forme qu'elle aurait dû avoir
+    dès le début : les deux notes doivent être **équivalentes au sens de la
+    tolérance**. Si un jour elles s'écartent au-delà, ce test redeviendra
+    rouge — et il aura raison, parce que le scénario aura cessé d'être une
+    égalité et que l'assertion sur la pluie ne prouverait plus rien.
+    """
     code = lancer(
         tmp_path,
         monkeypatch,
@@ -495,11 +526,98 @@ def test_a_note_egale_la_pluie_departage(tmp_path: Path, monkeypatch, capsys):
     charge = json.loads(capsys.readouterr().out)
     assert code == 0
     premiere, seconde = charge["candidates"]
-    assert premiere["placement"]["note_totale"] == pytest.approx(
-        seconde["placement"]["note_totale"], abs=1e-9
+    note_premiere = premiere["placement"]["note_totale"]
+    note_seconde = seconde["placement"]["note_totale"]
+    tolerance = ParametresSeance().tolerance_egalite
+    assert _notes_egales(note_premiere, note_seconde, tolerance), (
+        f"le scénario n'est plus une égalité : {note_premiere} contre {note_seconde}. "
+        "L'assertion sur la pluie ne prouverait plus rien."
     )
     assert premiere["azimut_deg"] == 180.0
     assert premiere["meteo"]["pluie_cumulee_mm"] < seconde["meteo"]["pluie_cumulee_mm"]
+
+
+def test_le_vent_change_ou_tombent_les_blocs(tmp_path: Path, monkeypatch, capsys):
+    """Le cœur du lot L5.1 : `ourouler sortie` place maintenant avec le vent.
+
+    Une candidate unique (azimut 0°, `candidates=1`), placée deux fois avec
+    la même géométrie et la même séance — sans vent, puis avec un vent fort
+    et uniforme (45 km/h @ 45°). Si le vent n'était pas branché, les deux
+    placements seraient identiques au bit près (c'est exactement ce que
+    `placer(..., vent=None)` garantit, et ce que les 2 936 tests du sprint 4
+    vérifiaient déjà). Ici ils doivent différer : c'est la preuve que
+    `ourouler sortie` construit bien un `ChampVent` et replace la séance
+    avec (contrat §1.6, deuxième passe).
+    """
+    dossier_sans = tmp_path / "sans_vent"
+    dossier_sans.mkdir()
+    code = lancer(
+        dossier_sans, monkeypatch, meteo=moteur_meteo(vent_kmh=0.0), candidates=1, json=True
+    )
+    assert code == 0
+    sans_vent = json.loads(capsys.readouterr().out)["candidates"][0]["placement"]
+
+    dossier_avec = tmp_path / "avec_vent"
+    dossier_avec.mkdir()
+    code = lancer(
+        dossier_avec, monkeypatch, meteo=moteur_meteo(vent_kmh=45.0), candidates=1, json=True
+    )
+    assert code == 0
+    avec_vent = json.loads(capsys.readouterr().out)["candidates"][0]["placement"]
+
+    assert avec_vent["note_totale"] != pytest.approx(sans_vent["note_totale"]), (
+        "un vent fort et uniforme doit changer la note de placement"
+    )
+    # Depuis le lot L5.2, `emplacements[0]` est l'échauffement (toujours au
+    # km 0) : c'est le premier **bloc** — le premier emplacement noté — qui
+    # doit bouger avec le vent.
+    premier_bloc_sans = next(e for e in sans_vent["emplacements"] if e["note"] is not None)
+    premier_bloc_avec = next(e for e in avec_vent["emplacements"] if e["note"] is not None)
+    assert premier_bloc_avec["debut_m"] != pytest.approx(
+        premier_bloc_sans["debut_m"]
+    ), "…et donc l'endroit où tombe le premier bloc"
+
+
+def _proposition_note_pluie(note: float, pluie_mm: float) -> Proposition:
+    """Une `Proposition` minimale, seules la note de placement et la pluie comptent."""
+    proposition = _proposition_avec_demi_tour()
+    proposition.placement.note_totale = note
+    proposition.meteo = types.SimpleNamespace(pluie_cumulee_mm=pluie_mm)
+    return proposition
+
+
+def test_notes_egales_ecart_relatif():
+    """`_notes_egales` : deux notes comptent comme égales sous la tolérance (écart relatif)."""
+    assert _notes_egales(1.0, 1.0, 0.0)
+    assert _notes_egales(0.0, 0.0, 0.0), "deux notes nulles sont égales même à tolérance nulle"
+    assert _notes_egales(0.0049, 0.0056, 0.15), "l'écart mesuré au sprint 4 (~12,5 %) est sous 15 %"
+    assert not _notes_egales(0.0049, 0.0056, 0.05), "…mais pas sous 5 %"
+    assert not _notes_egales(1.0, 2.0, 0.15), "un écart de 50 % n'est jamais une égalité"
+
+
+def test_comparer_departage_par_la_pluie_dans_la_tolerance():
+    """`_comparer` : à tolérance non nulle, la pluie décide entre deux notes proches (contrat sprint 4).
+
+    Les deux notes (0,0049 et 0,0056) sont celles mesurées le 15/09/2026 sur
+    les deux anneaux de même relief de `test_a_note_egale_la_pluie_departage`
+    — 12,5 % d'écart relatif une fois le vent dans le placement. Sans
+    tolérance, la meilleure note gagne même mouillée ; avec la tolérance par
+    défaut, l'écart compte comme une égalité et c'est la boucle sèche qui
+    l'emporte, comme au sprint 4.
+    """
+    mouillee_mieux_notee = _proposition_note_pluie(note=0.0049, pluie_mm=3.0)
+    seche_un_peu_moins_bien_notee = _proposition_note_pluie(note=0.0056, pluie_mm=0.0)
+
+    comparer_strict = _comparer(0.0)
+    assert comparer_strict(mouillee_mieux_notee, seche_un_peu_moins_bien_notee) < 0, (
+        "sans tolérance, la note seule décide même mouillée"
+    )
+
+    comparer_tolerant = _comparer(0.15)
+    assert comparer_tolerant(mouillee_mieux_notee, seche_un_peu_moins_bien_notee) > 0, (
+        "à tolérance 15 %, l'écart de note (12,5 %) compte comme une égalité : la pluie décide"
+    )
+    assert comparer_tolerant(seche_un_peu_moins_bien_notee, mouillee_mieux_notee) < 0
 
 
 def test_une_candidate_de_note_catastrophique_reste_affichee_en_derniere_position(tmp_path: Path):
@@ -1129,7 +1247,187 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
     assert charge["tenue"]["base"]
     candidate = charge["candidates"][0]
     assert candidate["retenue"] is True
-    assert len(candidate["placement"]["emplacements"]) == 4
+    # Depuis le lot L5.2 (Q13), `emplacements` porte toutes les étapes, pas
+    # seulement les blocs : échauffement, 4 blocs, 4 récupérations, retour au
+    # calme — 10 étapes pour 4 blocs.
+    assert len(candidate["placement"]["emplacements"]) == 10
     for emplacement in candidate["placement"]["emplacements"]:
         assert emplacement["longueur_m"] > 0
-        assert isinstance(emplacement["motifs"], list)
+        if emplacement["note"] is None:
+            assert emplacement["motifs"] is None, (
+                "une étape sans note ne doit pas porter de motifs inventés"
+            )
+        else:
+            assert isinstance(emplacement["motifs"], list)
+
+
+def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):
+    """Une étape sans puissance prescrite n'est pas une étape de longueur nulle.
+
+    Faute trouvée le 16/09/2026 sur la séance de référence « 4x8 SV1 outdoor »
+    du 22/04 : 22 étapes, dont trois « libres » — échauffement 20 min,
+    récupération 12 min, retour au calme 40 min. `_distance` ne sommait que
+    les longueurs chiffrées, donc **63 min sur 135 seulement comptaient** :
+    le moteur demandait une boucle de 35 km pour une sortie de 67, puis
+    rattrapait en roulant la boucle presque deux fois avec des demi-tours
+    dont personne n'avait besoin.
+
+    Le test compare deux séances de même durée : l'une entièrement chiffrée,
+    l'autre dont la moitié est libre. Les distances demandées doivent rester
+    du même ordre — sans le repli à l'allure d'endurance, la seconde tombe à
+    la moitié de la première.
+    """
+    config = config_de_test(tmp_path)
+    parametres = PARAMETRES
+    chiffree = Seance(
+        nom="chiffrée",
+        jour=JOUR,
+        duree_s=3600.0,
+        etapes=[
+            Etape("echauffement", 1800.0, 150.0, 150.0, "Z2"),
+            Etape("bloc", 1800.0, 150.0, 150.0, "Z2"),
+        ],
+    )
+    moitie_libre = Seance(
+        nom="moitié libre",
+        jour=JOUR,
+        duree_s=3600.0,
+        etapes=[
+            Etape("echauffement", 1800.0, None, None, "libre"),
+            Etape("bloc", 1800.0, 150.0, 150.0, "Z2"),
+        ],
+    )
+    demande = types.SimpleNamespace(distance_km=None)
+    km_chiffree, _ = _distance(demande, chiffree, parametres, config)
+    km_libre, _ = _distance(demande, moitie_libre, parametres, config)
+    assert km_libre > km_chiffree * 0.7, (
+        f"une séance à moitié libre est dimensionnée à {km_libre} km contre "
+        f"{km_chiffree} km pour la même durée entièrement chiffrée : les étapes "
+        "libres comptent encore pour zéro"
+    )
+
+
+# --- les propositions contrastées (lot L5.3) ----------------------------------
+
+
+def test_le_json_publie_les_propositions_avec_leur_phrase(tmp_path: Path, monkeypatch, capsys):
+    """Les clés que le contrat du lot fixe : `distinction`, `axe_distinctif`,
+    `densite_marqueurs_km`, `question_vent`."""
+    code = lancer(tmp_path, monkeypatch, candidates=3, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    propositions = charge["propositions"]
+    assert propositions, charge
+    assert propositions[0]["retenue"] is True
+    assert propositions[0]["numero"] == 1
+    for proposition in propositions:
+        for cle in (
+            "distinction",
+            "axe_distinctif",
+            "densite_marqueurs_km",
+            "part_trafic",
+            "orientation_vent",
+            "recouvrement_max_avec",
+        ):
+            assert cle in proposition, proposition
+    assert charge["question_vent"] is not None
+    assert "motif_deux_propositions" in charge
+
+
+def test_chaque_proposition_porte_une_phrase_et_un_axe_distinct(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le garde-fou du lot : pas de phrase, pas de proposition — et deux
+    propositions ne peuvent pas se réclamer du même axe."""
+    lancer(tmp_path, monkeypatch, candidates=3, json=True)
+    propositions = json.loads(capsys.readouterr().out)["propositions"]
+    if len(propositions) == 1:
+        return  # une seule : rien à distinguer, c'est un cas légitime
+    axes = [p["axe_distinctif"] for p in propositions]
+    assert all(p["distinction"] for p in propositions), propositions
+    assert all(axe for axe in axes), propositions
+    vents = [p["orientation_vent"] for p in propositions if p["axe_distinctif"] == "vent"]
+    assert len(set(vents)) == len(vents), "deux propositions du même vent"
+    non_vent = [a for a in axes if a != "vent"]
+    assert len(set(non_vent)) == len(non_vent), axes
+
+
+def test_moins_de_trois_propositions_dit_pourquoi(tmp_path: Path, monkeypatch, capsys):
+    """Avec une seule candidate, il n'y a rien à contraster — et c'est écrit."""
+    lancer(tmp_path, monkeypatch, candidates=1, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert len(charge["propositions"]) == 1
+    assert charge["motif_deux_propositions"]
+
+
+def test_les_propositions_sont_un_sous_ensemble_des_candidates(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """`candidates` reste la liste complète et inchangée : un script du sprint 4
+    qui la lisait continue de marcher."""
+    lancer(tmp_path, monkeypatch, candidates=3, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    numeros_candidates = {c["numero"] for c in charge["candidates"]}
+    numeros_propositions = {p["numero"] for p in charge["propositions"]}
+    assert numeros_propositions <= numeros_candidates
+    assert len(charge["candidates"]) >= len(charge["propositions"])
+
+
+def test_sous_le_seuil_de_vent_la_question_n_est_pas_posee(tmp_path: Path, monkeypatch, capsys):
+    lancer(tmp_path, monkeypatch, meteo=moteur_meteo(vent_kmh=1.0), candidates=2, json=True)
+    question = json.loads(capsys.readouterr().out)["question_vent"]
+    assert question["posee"] is False
+    assert question["motif"]
+    assert question["azimut_recherche_deg"] is None
+
+
+def test_au_dessus_du_seuil_la_question_est_posee_et_le_texte_la_montre(
+    tmp_path: Path, monkeypatch, capsys
+):
+    lancer(tmp_path, monkeypatch, meteo=moteur_meteo(vent_kmh=30.0), candidates=2)
+    sortie = capsys.readouterr().out
+    assert "Vent au départ" in sortie
+    assert "--vent retour-dos" in sortie
+
+
+def test_une_reponse_au_vent_dirige_la_recherche(tmp_path: Path, monkeypatch, capsys):
+    """Le vent bouchonné vient de 45° : pour rentrer avec, on part vers 45°."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        candidates=2,
+        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["question_vent"]["reponse"] == "retour-dos"
+    assert charge["question_vent"]["azimut_recherche_deg"] == pytest.approx(45.0)
+
+
+def test_une_direction_explicite_garde_la_main_sur_le_vent(tmp_path: Path, monkeypatch, capsys):
+    """« Au nord » veut dire au nord, même si le vent conseillait autre chose."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        direction="N",
+        candidates=2,
+        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["demande"]["azimut_deg"] == 0.0
+
+
+def test_une_reponse_au_vent_inconnue_est_refusee_avant_tout_appel(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    brouter, meteo, intervals = clients_interdits()
+    with pytest.raises(ErreurUtilisateur, match="--vent"):
+        executer(
+            args(vent="plein-nord"),
+            config_de_test(tmp_path / "cache"),
+            brouter,
+            meteo,
+            intervals,
+        )

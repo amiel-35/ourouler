@@ -46,16 +46,25 @@ import statistics
 from dataclasses import dataclass, field
 
 from ourouler.boucle.couts import HIGHWAY_TRAFIC, tags_par_troncon, virages_detectes
+from ourouler.boucle.marqueurs import nature_du_noeud
 from ourouler.boucle.trace import PointTrace, Trace
 
 # --- ce qui fait un carrefour -------------------------------------------------
-
-#: `highway` d'un **nœud** qui impose un arrêt ou un ralentissement. Ils
-#: arrivent par `Segment.node_tags`, alimenté par la colonne `NodeTags` des
-#: messages BRouter.
-NOEUDS_CARREFOUR = frozenset(
-    {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
-)
+#
+# Le vocabulaire — `NOEUDS_CARREFOUR`, `CLE_RALENTISSEUR`,
+# `RALENTISSEURS_SANS_EFFET` — vit dans `boucle.marqueurs` depuis le lot L5.3
+# et n'est **pas** redéfini ici : le même module compte la densité de
+# marqueurs sur le tracé entier, et deux définitions de « ce qui fait lever le
+# pied » finiraient par diverger. Les noms restent lisibles comme
+# `boucle.marqueurs.nature_du_noeud`, la seule fonction qui décide si un nœud
+# fait lever le pied.
+#
+# Le mainteneur les nomme lui-même parmi ce qui fait « la ville » : « des
+# croisements, des voitures, des dos d'âne ou des chicanes, des feux ». Sous
+# un bloc, un dos d'âne fait lever du selle : on le compte comme un carrefour.
+# Sous une Z2 ou une récupération, on ne le compte pas — « en Z2 je m'en fous,
+# c'est les blocs qui doivent limiter ça » — mais c'est déjà acquis, aucun
+# terrain n'est évalué hors bloc.
 
 #: Changement de direction à partir duquel on compte un carrefour, même sans
 #: nœud tagué : à 60° on a tourné, donc on a ralenti. La détection elle-même
@@ -70,6 +79,24 @@ HIGHWAY_BATI = frozenset({"residential", "living_street", "service"})
 
 #: Vitesse limite (km/h) au-dessous ou égale à laquelle on se sait en
 #: agglomération, quand le tag existe. Une `tertiary` à 50 traverse un bourg.
+#:
+#: **Cette règle ne se déclenche jamais avec BRouter, et c'est mesuré**
+#: (16/09/2026) : les `WayTags` renvoyés par notre serveur portent `highway`,
+#: `surface`, `smoothness`, `oneway`, `cycleway*`, `estimated_traffic_class`,
+#: `access`, `junction`, `tracktype` — **jamais `maxspeed`**. Le profil ne
+#: l'exporte pas. On garde le code, qui est juste et servirait si le profil
+#: changeait ou si la trace venait d'ailleurs, mais il faut savoir qu'en
+#: pratique la zone bâtie se réduit aujourd'hui à `HIGHWAY_BATI` : un bourg
+#: traversé sur une départementale n'est pas vu.
+#:
+#: La piste à instruire pour le corriger n'était pas `maxspeed` mais la
+#: **densité de marqueurs au kilomètre** — feux, passages piétons,
+#: ralentisseurs, cédez-le-passage — qui est ce qu'un cycliste perçoit
+#: réellement comme « la ville ». Elle est écrite depuis le lot L5.3 :
+#: `boucle.marqueurs.compter`. Elle ne remplace pas ce code-ci, qui mesure
+#: des **kilomètres bâtis sous un bloc** et reste juste ; elle couvre le
+#: tracé entier, et c'est elle qui sert de contraste sur une séance sans
+#: bloc, où la note de terrain vaut zéro.
 MAXSPEED_BATI_KMH = 50.0
 
 # --- ce qui fait une pente ---------------------------------------------------
@@ -638,11 +665,16 @@ def _noeuds_tagues(trace: Trace, couloir: _Couloir) -> list[tuple[float, str]]:
     `fin_idx` qui porte le tag. Un tracé sans segments n'en a aucun — et ne
     prétend pas qu'il n'y a pas de feu, voir le motif « routes inconnues ».
     """
-    natures = {
-        segment.fin_idx: segment.node_tags.get("highway", "")
-        for segment in trace.segments
-        if segment.node_tags.get("highway", "") in NOEUDS_CARREFOUR
-    }
+    natures = {}
+    for segment in trace.segments:
+        # `nature_du_noeud` porte toute la règle, y compris le ralentisseur
+        # qui n'est pas un `highway` et le feu posé sur un plateau surélevé
+        # qui ne doit compter qu'une fois. Elle est partagée avec la densité
+        # de marqueurs du tracé entier (`boucle.marqueurs.compter`) : les deux
+        # mesures doivent parler des mêmes objets.
+        nature = nature_du_noeud(segment.node_tags)
+        if nature is not None:
+            natures[segment.fin_idx] = nature
     if not natures:
         return []
     return [
@@ -903,6 +935,7 @@ LIBELLES_CARREFOUR: dict[str, tuple[str, str, bool]] = {
     "give_way": ("cédez-le-passage", "cédez-le-passage", False),
     "mini_roundabout": ("rond-point", "ronds-points", False),
     "crossing": ("passage piéton", "passages piétons", False),
+    "traffic_calming": ("ralentisseur", "ralentisseurs", False),
     "virage": ("virage marqué", "virages marqués", False),
 }
 
