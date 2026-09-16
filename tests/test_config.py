@@ -7,6 +7,8 @@ import pytest
 
 from ourouler.config import Depart, Periode, charger, depuis_dict
 from ourouler.erreurs import ErreurConfig
+from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
+from ourouler.seance.zones import POSITION_ENDURANCE_DEFAUT
 
 # Point fictif en mer, loin de toute ville : jamais une coordonnée réelle.
 BASE = {
@@ -455,7 +457,13 @@ def test_tenues_configurees():
         depuis_dict({**BASE, "tenue": {"tenues": {"froid": "collant"}}})
 
 def test_puissance_endurance_pct_est_lue_et_bornee():
-    """Part de FTP visée en endurance (Q11) : réglable, entre 40 et 80 % de FTP."""
+    """L'ancienne clé reste lisible, et rend **exactement** la même puissance.
+
+    Depuis la décision 7 elle n'est plus stockée : elle est convertie en
+    position à la lecture puis redérivée. Une configuration existante ne doit
+    rien voir de ce changement — c'est la règle absolue 5 appliquée à une
+    valeur mesurée (Q11).
+    """
     d = dict(BASE)
     d["seance"] = {"puissance_endurance_pct": 0.65}
     assert depuis_dict(d).seance.puissance_endurance_pct == 0.65
@@ -466,6 +474,93 @@ def test_puissance_endurance_pct_est_lue_et_bornee():
     d["seance"] = {"puissance_endurance_pct": "beaucoup"}
     with pytest.raises(ErreurConfig, match="puissance_endurance_pct"):
         depuis_dict(d)
+
+
+@pytest.mark.parametrize("ancienne", [0.40, 0.55, 0.60, 0.655, 0.70, 0.80])
+def test_toute_ancienne_puissance_endurance_se_convertit_a_l_identique(ancienne):
+    """Aucune valeur acceptable hier n'est écrêtée aujourd'hui.
+
+    Les bornes de la position ([−1, 2]) ont été choisies pour couvrir
+    exactement l'ancienne plage ([0,40 ; 0,80]) : la migration ne perd rien.
+    """
+    c = depuis_dict({**BASE, "seance": {"puissance_endurance_pct": ancienne}})
+    assert c.seance.puissance_endurance_pct == ancienne
+    assert -1.0 <= c.seance.position_zone <= 2.0
+
+
+def test_la_position_est_ce_qui_est_stocke_et_l_endurance_en_decoule():
+    c = depuis_dict({**BASE, "seance": {"position_zone": 0.5}})
+    assert c.seance.position_zone == 0.5
+    # Milieu de la Z2 par défaut : (0,56 + 0,75) / 2.
+    assert c.seance.puissance_endurance_pct == pytest.approx(0.655)
+
+
+def test_position_zone_l_emporte_sur_l_ancienne_cle():
+    """Les deux clés dans le même fichier : la nouvelle décide, sans erreur.
+
+    Refuser le chargement pour une clé oubliée serait la pire des réponses —
+    la seule chose qui compte est qu'il n'y ait plus deux sources de vérité.
+    """
+    c = depuis_dict({**BASE, "seance": {"position_zone": 0.0, "puissance_endurance_pct": 0.80}})
+    assert c.seance.position_zone == 0.0
+    assert c.seance.puissance_endurance_pct == pytest.approx(0.56)
+
+
+@pytest.mark.parametrize("hors_bornes", [-1.5, 2.5])
+def test_position_zone_hors_bornes_est_refusee(hors_bornes):
+    with pytest.raises(ErreurConfig, match="position_zone"):
+        depuis_dict({**BASE, "seance": {"position_zone": hors_bornes}})
+
+
+def test_une_position_hors_bande_reste_lisible_et_n_est_pas_ecretee():
+    """Décision 8 : hors de [0, 1] se voit, ça ne se corrige pas en douce."""
+    c = depuis_dict({**BASE, "seance": {"position_zone": -0.2737}})
+    assert c.seance.position_zone == -0.2737
+    assert c.seance.puissance_endurance_pct == pytest.approx(0.508, abs=1e-4)
+
+
+def test_les_zones_de_puissance_sont_editables():
+    zones = [[0.0, 0.50], [0.51, 0.70], [0.71, 0.85], [0.86, 1.0], [1.01, 2.0]]
+    c = depuis_dict({**BASE, "seance": {"zones": zones, "position_zone": 0.5}})
+    assert c.seance.zones_pct == tuple(tuple(z) for z in zones)
+    # L'endurance suit la table éditée, sans qu'on ait rien d'autre à toucher.
+    assert c.seance.puissance_endurance_pct == pytest.approx((0.51 + 0.70) / 2)
+
+
+def test_une_ancienne_puissance_endurance_se_situe_dans_la_table_editee():
+    """La conversion lit la Z2 **configurée**, pas celle de Coggan."""
+    zones = [[0.0, 0.50], [0.51, 0.70], [0.71, 0.85], [0.86, 1.0], [1.01, 2.0]]
+    c = depuis_dict({**BASE, "seance": {"zones": zones, "puissance_endurance_pct": 0.60}})
+    assert c.seance.puissance_endurance_pct == 0.60
+    assert c.seance.position_zone == pytest.approx((0.60 - 0.51) / (0.70 - 0.51))
+
+
+def test_les_zones_par_defaut_sont_la_table_du_code():
+    assert depuis_dict(BASE).seance.zones_pct == ZONES_PUISSANCE_DEFAUT
+    assert depuis_dict(BASE).seance.position_zone == POSITION_ENDURANCE_DEFAUT
+
+
+@pytest.mark.parametrize(
+    ("zones", "motif"),
+    [
+        ("Coggan", "zones"),
+        ([[0.0, 0.55], [0.56, 0.75]], "trois zones"),
+        ([[0.0, 0.55], [0.56, 0.75], [0.70, 0.90]], "chevauchent"),
+        ([[0.0, 0.55], [0.60, 0.60], [0.76, 2.0]], "haut doit"),
+        ([[0.0, 0.55], [0.56], [0.76, 2.0]], "paire"),
+        ([[0.0, 0.55], [0.56, "haut"], [0.76, 2.0]], "haut"),
+        ([[0.0, 0.55], [0.56, 9.0], [0.76, 2.0]], "hors de"),
+    ],
+)
+def test_une_table_de_zones_fautive_est_refusee_en_nommant_le_champ(zones, motif):
+    """Une table de configuration fausse se dit ; elle ne se remplace pas en silence.
+
+    `seance.intervals._zones` se rabat, lui, sur la table par défaut — mais il
+    traite des données d'API, qu'on ne contrôle pas. Ici c'est le cycliste qui
+    a écrit le fichier.
+    """
+    with pytest.raises(ErreurConfig, match=motif):
+        depuis_dict({**BASE, "seance": {"zones": zones}})
 
 
 def test_seuil_recuperation_pct_est_lu_et_borne():
@@ -496,3 +591,14 @@ def test_tolerance_egalite_est_lue_et_bornee():
         d["seance"] = {"tolerance_egalite": hors_bornes}
         with pytest.raises(ErreurConfig, match="tolerance_egalite"):
             depuis_dict(d)
+
+
+def test_config_example_tient_la_promesse_de_sa_position():
+    """`config.example.toml` est le contrat écrit : sa position rend bien 0,60.
+
+    Le fichier est commité, lui : si quelqu'un y retouche `position_zone` sans
+    voir ce qu'elle vaut en puissance d'endurance, ce test le lui dit.
+    """
+    c = charger(Path(__file__).resolve().parents[1] / "config.example.toml", environ={})
+    assert c.seance.zones_pct == ZONES_PUISSANCE_DEFAUT
+    assert c.seance.puissance_endurance_pct == 0.60

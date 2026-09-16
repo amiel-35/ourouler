@@ -33,11 +33,10 @@ from datetime import date
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
-from ourouler.physique.modele import Parametres, vitesse_regime
+from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.modele import (
     ZONE_FC_BASSE_MAX,
-    ZONES_PUISSANCE_DEFAUT,
     Etape,
     Seance,
 )
@@ -98,7 +97,7 @@ def longueurs(
         cible = etape.puissance_cible_w
         if cible is None:
             return None
-        return vitesse_regime(cible, 0.0, 0.0, parametres)
+        return vitesse_a_plat_ms(cible, parametres)
 
     mesures: list[LongueurEtape] = []
     for indice, etape in enumerate(seance.etapes):
@@ -143,7 +142,7 @@ def executer(
         client,
         jour,
         ftp_w=config.cycliste.ftp_w,
-        zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        zones_puissance=config.seance.zones_pct,
         puissance_endurance_pct=config.seance.puissance_endurance_pct,
         seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
     )

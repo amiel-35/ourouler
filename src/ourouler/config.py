@@ -16,6 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from ourouler.erreurs import ErreurConfig
+from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
+from ourouler.seance.zones import (
+    POSITION_ENDURANCE_DEFAUT,
+    position_endurance,
+    puissance_endurance_pct,
+)
 
 CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
@@ -165,12 +171,48 @@ class ParametresSeance:
 
     demi_tour_penalite: float = 1.0  # coût d'un bloc qui reprend le segment précédent à l'envers
 
-    #: Puissance d'endurance du cycliste, en fraction de sa FTP. Elle sert de
-    #: cible aux étapes prescrites en **zone de fréquence cardiaque basse**
-    #: (Z1, Z2), dont la traduction par la table des zones de puissance donne
-    #: un résultat faux (Q11, close le 13/09/2026 : la médiane mesurée sur
-    #: 96 sorties extérieures de plus d'une heure est 60 % de FTP).
-    puissance_endurance_pct: float = 0.60
+    #: Les bornes des zones de **puissance**, en fraction de FTP, de Z1 à Z7.
+    #:
+    #: Éditable depuis la décision 7 du cycle UX : la table était jusque-là une
+    #: constante Python que rien ne reliait à `Config`, contrairement à tous
+    #: les autres réglages de séance. Le défaut est la table de Coggan
+    #: (`seance/modele.ZONES_PUISSANCE_DEFAUT`), celle que le compte
+    #: Intervals.icu du mainteneur renvoie au pourcent près.
+    zones_pct: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT
+
+    #: **La position du cycliste dans sa bande**, entre 0 (bas de la zone) et
+    #: 1 (haut). C'est la seule chose qu'on stocke, et c'est la décision 7 :
+    #: « on stocke la position dans la zone, pas la valeur — comme ça la FTP
+    #: change ou les zones décalent, on suit ». Elle se propage à toutes les
+    #: zones fermées : qui se met au milieu de sa Z2 prend le milieu de sa Z3.
+    #:
+    #: Le défaut n'est pas un chiffre choisi mais la position qu'occupe la
+    #: puissance d'endurance **mesurée** du mainteneur (0,60 de FTP, Q11) dans
+    #: la Z2 de la table par défaut — de sorte que la dérivation ne change
+    #: aucun comportement (règle absolue 5).
+    #:
+    #: Bornes de chargement : [−1, 2], soit au plus une largeur de bande
+    #: au-dessous ou au-dessus. Ce n'est pas le domaine normal — l'écran de
+    #: FTP tient l'utilisateur dans [0, 1] — c'est ce qu'il faut pour que
+    #: **toute** ancienne valeur de `puissance_endurance_pct`, elle-même
+    #: bornée à [0,40 ; 0,80], se convertisse exactement plutôt que d'être
+    #: écrêtée en silence. Une position hors bande se voit et se dit ; elle ne
+    #: se corrige pas à l'insu du cycliste (décision 8).
+    position_zone: float = POSITION_ENDURANCE_DEFAUT
+
+    @property
+    def puissance_endurance_pct(self) -> float:
+        """Puissance d'endurance en fraction de FTP — **dérivée**, plus stockée.
+
+        Elle sert de cible aux étapes prescrites en **zone de fréquence
+        cardiaque basse** (Z1, Z2 de FC), dont la traduction par la table des
+        zones de puissance donne un résultat faux (Q11, close le 13/09/2026).
+        Depuis la décision 7 elle n'est plus un réglage : elle se lit dans la
+        Z2 de `zones_pct`, à `position_zone`. C'est une
+        propriété et non un champ — les appelants ne changent pas, et il n'y a
+        plus deux définitions de « la Z2 » qui puissent diverger.
+        """
+        return puissance_endurance_pct(self.position_zone, self.zones_pct)
 
     #: Sous cette part de FTP, une étape n'est pas un bloc : c'est de
     #: l'échauffement, de la récupération ou du retour au calme. Dernier
@@ -367,6 +409,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
     boucle = d.get("boucle", {}) or {}
     calibration = d.get("calibration", {}) or {}
     seance_brut = d.get("seance", {}) or {}
+    zones_pct = _zones_pct(seance_brut.get("zones", ZONES_PUISSANCE_DEFAUT))
     tenue_brut = d.get("tenue", {}) or {}
     evitements = tuple(_evitement(e, i) for i, e in enumerate(d.get("evitements", []) or []))
     sens = str(boucle.get("sens", "horaire"))
@@ -467,13 +510,8 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 mini=0.0,
                 maxi=20.0,
             ),
-            puissance_endurance_pct=_flottant(
-                seance_brut.get("puissance_endurance_pct", 0.60),
-                "puissance_endurance_pct",
-                "seance",
-                mini=0.40,
-                maxi=0.80,
-            ),
+            zones_pct=zones_pct,
+            position_zone=_position_zone(seance_brut, zones_pct),
             seuil_recuperation_pct=_flottant(
                 seance_brut.get("seuil_recuperation_pct", 0.75),
                 "seuil_recuperation_pct",
@@ -529,6 +567,92 @@ def _tenues(brut: Any) -> tuple[tuple[str, tuple[str, ...]], ...]:
             raise ErreurConfig(f"[tenue] tenues.{categorie} : liste de vêtements attendue, reçu {pieces!r}")
         couples.append((str(categorie), tuple(str(p) for p in pieces)))
     return tuple(couples)
+
+
+def _zones_pct(brut: Any) -> tuple[tuple[float, float], ...]:
+    """La table des zones de puissance, en fractions de FTP, ou `ErreurConfig`.
+
+    Elle s'écrit `zones = [[0.0, 0.55], [0.56, 0.75], …]` sous `[seance]`.
+    Contrairement à `seance.intervals._zones`, qui se rabat en silence sur la
+    table par défaut — là il s'agit de données venues d'une API, qu'on ne
+    contrôle pas — une table de configuration fautive est **refusée en nommant
+    le champ** : c'est le cycliste qui l'a écrite, il doit savoir qu'elle est
+    fausse plutôt que de rouler avec une autre.
+
+    Trois zones au minimum : la Z2 porte l'endurance et doit être fermée, donc
+    ni première ni dernière (`seance/zones.zone_ouverte`).
+    """
+    if isinstance(brut, str) or not isinstance(brut, (list, tuple)):
+        raise ErreurConfig(
+            "[seance] zones : liste de paires [bas, haut] en fraction de FTP attendue "
+            f"(ex. [[0.0, 0.55], [0.56, 0.75], …]), reçu {brut!r}"
+        )
+    if len(brut) < 3:
+        raise ErreurConfig(
+            f"[seance] zones : au moins trois zones attendues, reçu {len(brut)} — "
+            "la zone d'endurance (Z2) doit être fermée, donc ni la première ni la dernière"
+        )
+    table: list[tuple[float, float]] = []
+    for i, zone in enumerate(brut):
+        numero = i + 1
+        if isinstance(zone, str) or not isinstance(zone, (list, tuple)) or len(zone) != 2:
+            raise ErreurConfig(
+                f"[seance] zones : Z{numero} — paire [bas, haut] attendue, reçu {zone!r}"
+            )
+        bas = _flottant(zone[0], f"zones Z{numero} (bas)", "seance", mini=0.0, maxi=5.0)
+        haut = _flottant(zone[1], f"zones Z{numero} (haut)", "seance", mini=0.0, maxi=5.0)
+        if haut <= bas:
+            raise ErreurConfig(
+                f"[seance] zones : Z{numero} = [{bas}, {haut}] — le haut doit dépasser le bas "
+                "(une bande de largeur nulle n'a pas de position)"
+            )
+        if table and bas < table[-1][1]:
+            raise ErreurConfig(
+                f"[seance] zones : Z{numero} commence à {bas}, sous le haut de Z{numero - 1} "
+                f"({table[-1][1]}) — les zones montent et ne se chevauchent pas"
+            )
+        table.append((bas, haut))
+    return tuple(table)
+
+
+def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, float], ...]) -> float:
+    """La position du cycliste dans sa bande, 0 = bas de zone, 1 = haut.
+
+    **Compatibilité.** Une configuration écrite avant la décision 7 ne porte
+    pas `position_zone` mais `puissance_endurance_pct`, une valeur. On la lit
+    alors telle quelle et on la **convertit en position** dans la Z2 de
+    `zones_pct` : 0,60 de FTP avec la table par défaut donne 0,2105, et la
+    puissance d'endurance dérivée revient exactement à 0,60 (`DECIMALES_PCT`
+    garantit l'aller-retour). Rien ne bouge pour une configuration existante,
+    et c'est la seule réponse acceptable à la règle absolue 5.
+
+    Les bornes de lecture de l'ancienne clé sont inchangées ([0,40 ; 0,80]) :
+    on ne convertit pas plus largement qu'on n'acceptait. Les positions
+    correspondantes tiennent dans [−1 ; 2], d'où ces bornes-là côté position.
+
+    **Si les deux clés sont présentes**, `position_zone` l'emporte et
+    l'ancienne est ignorée : c'est la nouvelle qui est stockée, et refuser le
+    chargement pour une clé oubliée dans un fichier serait la pire des
+    réponses.
+    """
+    if "position_zone" in seance_brut:
+        return _flottant(
+            seance_brut["position_zone"], "position_zone", "seance", mini=-1.0, maxi=2.0
+        )
+    if "puissance_endurance_pct" in seance_brut:
+        ancienne = _flottant(
+            seance_brut["puissance_endurance_pct"],
+            "puissance_endurance_pct",
+            "seance",
+            mini=0.40,
+            maxi=0.80,
+        )
+        return position_endurance(ancienne, zones_pct)
+    # Ni l'une ni l'autre : le défaut du projet, qui est lui-même la position
+    # de la puissance d'endurance mesurée dans la table par défaut. Avec une
+    # table personnalisée, cette position désigne le même endroit *relatif* de
+    # la bande — c'est tout l'intérêt de stocker une position.
+    return POSITION_ENDURANCE_DEFAUT
 
 
 def _bornes(brut: Any, cle: str, section: str) -> tuple[float, ...]:

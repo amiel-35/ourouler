@@ -244,6 +244,47 @@ def vitesse_regime(puissance_w: float, pente: float, vent_face_ms: float, p: Par
     return (bas + haut) / 2
 
 
+# --- à plat, sans vent, lancé -------------------------------------------------
+#
+# Les trois fonctions qui suivent ne sont que `puissance_requise` et
+# `vitesse_regime` au cas particulier « pente nulle, vent nul », en km/h. Elles
+# existent parce que **c'est ce cas-là que l'écran de FTP montre** (décision 7
+# du cycle UX) : « la vitesse à plat, sans vent, lancé » est l'entrée de celui
+# qui ne pense pas en watts, et éditer l'une doit recalculer l'autre. Écrire
+# `vitesse_regime(p, 0.0, 0.0, params)` à chaque appel marchait, mais laissait
+# à chaque appelant le soin de se rappeler lequel des deux zéros est la pente.
+#
+# **Ce n'est pas la moyenne du compteur.** Mesuré le 16/09/2026 sur les sorties
+# extérieures du mainteneur (décision 8) : le compteur affiche 87 à 90 % de
+# cette vitesse-là selon le vélo, le relief et le vent coûtant plus cher que
+# les arrêts. Confondre les deux décale tout l'escalier des zones vers le bas.
+
+
+def vitesse_a_plat_ms(puissance_w: float, p: Parametres) -> float:
+    """Vitesse d'équilibre sur le plat, sans vent, en m/s."""
+    return vitesse_regime(puissance_w, 0.0, 0.0, p)
+
+
+def vitesse_a_plat_kmh(puissance_w: float, p: Parametres) -> float:
+    """Vitesse d'équilibre sur le plat, sans vent, en km/h."""
+    return vitesse_a_plat_ms(puissance_w, p) * 3.6
+
+
+def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
+    """Puissance à tenir pour rouler `vitesse_kmh` sur le plat, sans vent.
+
+    L'inverse exact de `vitesse_a_plat_kmh` : c'est `puissance_requise`, pas
+    une bissection, donc l'aller-retour ne coûte rien en précision. Une
+    vitesse négative est refusée — reculer n'est pas un régime.
+    """
+    _finis(vitesse_kmh=vitesse_kmh)
+    if vitesse_kmh < 0:
+        raise ErreurUtilisateur(
+            f"modèle physique : vitesse à plat négative ({vitesse_kmh} km/h)"
+        )
+    return puissance_requise(vitesse_kmh / 3.6, 0.0, 0.0, p)
+
+
 # --- simulation d'un parcours -------------------------------------------------
 
 

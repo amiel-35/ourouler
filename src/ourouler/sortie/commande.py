@@ -86,10 +86,10 @@ from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
-from ourouler.physique.modele import Parametres, vitesse_regime
+from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.intervals import seance_du_jour
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
+from ourouler.seance.modele import Seance
 from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
@@ -522,7 +522,7 @@ def _seance(demande: Demande, config: Config, client: ClientIntervals | None) ->
         client,
         demande.jour,
         ftp_w=config.cycliste.ftp_w,
-        zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        zones_puissance=config.seance.zones_pct,
         puissance_endurance_pct=config.seance.puissance_endurance_pct,
         seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
     )
@@ -571,7 +571,7 @@ def _distance(
     metres = sum(connues)
     if libres_s > 0:
         puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
-        metres += vitesse_regime(puissance, 0.0, 0.0, parametres) * libres_s
+        metres += vitesse_a_plat_ms(puissance, parametres) * libres_s
     source = "estimée par le modèle sur le plat"
     if metres <= 0:
         # Aucune étape ne porte de puissance : on retombe sur la vitesse

@@ -22,9 +22,12 @@ from ourouler.physique.modele import (
     V_MAX_DESCENTE_KMH,
     Parametres,
     masse_volumique_air,
+    puissance_a_plat_w,
     puissance_requise,
     simuler,
     vent_au_cycliste,
+    vitesse_a_plat_kmh,
+    vitesse_a_plat_ms,
     vitesse_regime,
 )
 
@@ -295,3 +298,56 @@ def test_vent_au_cycliste_conserve_le_signe_et_le_zero():
     assert vent_au_cycliste(10.0) == pytest.approx(6.0)
     assert vent_au_cycliste(-10.0) == pytest.approx(-6.0)
     assert vent_au_cycliste(0.0) == 0.0
+
+
+# --- à plat, sans vent, lancé (décision 7 : l'édition bidirectionnelle) --------
+
+
+@pytest.mark.parametrize("puissance", [50.0, 100.0, 155.0, 250.0, 400.0])
+def test_a_plat_l_aller_retour_puissance_vitesse_est_exact(puissance):
+    """Éditer les watts puis la vitesse doit ramener aux mêmes watts.
+
+    C'est le mécanisme de l'écran de FTP : les deux champs se répondent, et
+    l'utilisateur ne doit pas voir sa saisie dériver de quelques watts à
+    chaque aller-retour.
+    """
+    kmh = vitesse_a_plat_kmh(puissance, P)
+    assert puissance_a_plat_w(kmh, P) == pytest.approx(puissance, abs=1e-6)
+
+
+@pytest.mark.parametrize("kmh", [10.0, 20.0, 28.6, 35.0, 45.0])
+def test_a_plat_l_aller_retour_vitesse_puissance_est_exact(kmh):
+    watts = puissance_a_plat_w(kmh, P)
+    assert vitesse_a_plat_kmh(watts, P) == pytest.approx(kmh, abs=1e-6)
+
+
+def test_a_plat_est_exactement_le_cas_pente_nulle_vent_nul():
+    """Les raccourcis ne sont pas un second modèle : ce sont les mêmes lignes."""
+    assert vitesse_a_plat_ms(200.0, P) == vitesse_regime(200.0, 0.0, 0.0, P)
+    assert vitesse_a_plat_kmh(200.0, P) == pytest.approx(vitesse_regime(200.0, 0.0, 0.0, P) * 3.6)
+    assert puissance_a_plat_w(30.0, P) == puissance_requise(30.0 / 3.6, 0.0, 0.0, P)
+
+
+def test_a_plat_la_vitesse_croit_avec_la_puissance():
+    vitesses = [vitesse_a_plat_kmh(p, P) for p in (50.0, 100.0, 200.0, 300.0)]
+    assert vitesses == sorted(vitesses)
+    assert all(b > a for a, b in zip(vitesses, vitesses[1:], strict=False))
+
+
+def test_a_plat_puissance_nulle_donne_une_vitesse_nulle():
+    assert vitesse_a_plat_kmh(0.0, P) == pytest.approx(0.0, abs=1e-6)
+    assert puissance_a_plat_w(0.0, P) == pytest.approx(0.0, abs=1e-9)
+
+
+@pytest.mark.parametrize("mauvaise", [-1.0, -30.0])
+def test_a_plat_une_vitesse_negative_est_refusee(mauvaise):
+    """Reculer n'est pas un régime : mieux vaut lever que rendre une puissance
+    négative que l'écran afficherait comme une cible."""
+    with pytest.raises(ErreurUtilisateur, match="négative"):
+        puissance_a_plat_w(mauvaise, P)
+
+
+@pytest.mark.parametrize("mauvaise", [float("nan"), float("inf")])
+def test_a_plat_une_vitesse_non_finie_est_refusee(mauvaise):
+    with pytest.raises(ErreurUtilisateur, match="vitesse_kmh"):
+        puissance_a_plat_w(mauvaise, P)

@@ -132,6 +132,11 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         # `ourouler config --json` publie la clé et le mot de passe en clair.
         d["intervals"]["api_key"] = "***" if config.intervals.api_key else ""
         d["brouter"]["mot_de_passe"] = "***" if config.brouter.mot_de_passe else ""
+        # `asdict` ne voit que les champs : la puissance d'endurance est une
+        # **propriété** dérivée de la position depuis la décision 7, et le
+        # front la lit dans ce JSON. Sans cette ligne, elle disparaîtrait du
+        # contrat d'API sans que rien ne le signale.
+        d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
         print(json.dumps(d, default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
@@ -155,6 +160,12 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         f"Boucle   : {config.boucle.candidates} candidates, sens {config.boucle.sens}, "
         f"{config.boucle.vitesse_moyenne_kmh:.0f} km/h, tolérance "
         f"{config.boucle.tolerance_distance:.0%}"
+    )
+    print(
+        f"Zones    : position {config.seance.position_zone:.3f} dans la bande "
+        f"({len(config.seance.zones_pct)} zones) → endurance "
+        f"{config.seance.puissance_endurance_pct:.0%} de FTP, soit "
+        f"{config.seance.puissance_endurance_pct * config.cycliste.ftp_w:.0f} W"
     )
     print(f"Cache    : {config.cache.dossier}")
     print(f"Historique depuis : {config.historique_depuis}")

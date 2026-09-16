@@ -82,10 +82,25 @@ elasticite_calme_max = 1.5   # +150 % : le retour au calme absorbe, il n'est pas
 # Le raccourcir, en revanche, ampute la séance et reste très cher. Bornes : −0,5 à 0.
 elasticite_calme_min = -0.05
 demi_tour_penalite = 1.0     # coût d'un bloc qui reprend le segment précédent en sens inverse
-# Puissance d'endurance, en fraction de la FTP. Sert de cible aux étapes prescrites en
-# zone de FC basse (Z1, Z2), que la table des zones de puissance traduit très mal.
-# 0,60 = médiane mesurée sur les sorties extérieures du mainteneur (Q11). Bornes : 0,40 à 0,80.
-puissance_endurance_pct = 0.60
+# Les zones de puissance, en fraction de la FTP, de Z1 à la dernière. Défaut : la table
+# de Coggan, celle que le compte Intervals.icu du mainteneur renvoie au pourcent près.
+# Trois zones au minimum, croissantes, sans chevauchement (les trous sont permis).
+# zones = [[0.0, 0.55], [0.56, 0.75], [0.76, 0.90], [0.91, 1.05], [1.06, 1.20], [1.21, 1.50], [1.51, 2.00]]
+
+# OÙ VOUS VOUS PLACEZ DANS VOTRE BANDE : 0 = bas de la zone, 1 = haut, 0,5 = milieu.
+# C'est la seule chose qu'on stocke (décision 7 du cycle UX) : la FTP progresse ou les
+# zones décalent, tout l'escalier suit sans qu'on touche à ce fichier. La même position
+# vaut pour toutes les zones fermées — au milieu de sa Z2, on est au milieu de sa Z3.
+# La puissance d'endurance n'est donc PLUS un réglage : elle se déduit de cette position
+# dans la Z2, et `ourouler config` l'affiche en watts pour que vous la vérifiiez.
+# Défaut 0,2105 = la position qu'occupe 0,60 de FTP — la médiane mesurée sur les sorties
+# extérieures du mainteneur (Q11) — dans la Z2 par défaut. Bornes : −1 à 2 ; hors de
+# [0, 1] veut dire « hors de la bande », ce qui se voit plutôt que de se corriger tout seul.
+position_zone = 0.2105263157894737
+# Compatibilité : une configuration qui porte encore `puissance_endurance_pct` (une valeur,
+# bornes 0,40 à 0,80) est lue et convertie en position, à l'identique. Si les deux clés sont
+# là, `position_zone` l'emporte. Ne gardez que l'une des deux.
+# puissance_endurance_pct = 0.60
 # Sous cette part de FTP, une étape n'est pas un bloc mais de l'échauffement, de la
 # récupération ou du retour au calme. Dernier recours du typage, quand la séance ne porte
 # ni marqueur ni texte explicite. Bornes : 0,50 à 0,90.
