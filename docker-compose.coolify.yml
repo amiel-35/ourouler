@@ -20,6 +20,13 @@
 # fabrique une valeur fausse est pire que pas de garde : `${VAR}` seul laisse
 # la variable vide, et `config.charger` échoue franchement au démarrage.
 #
+# Et il vit à la racine, pas dans `deploiement/`, pour une raison mesurée :
+# avec le fichier dans `deploiement/` et un `context: ..`, le déploiement
+# échoue sur `lstat /artifacts/deploiement: no such file or directory`.
+# Coolify ne résout pas le contexte de construction relativement au fichier
+# compose comme le fait `docker compose`. À la racine, `context: .` désigne
+# la racine du dépôt quelle que soit la façon dont l'outil s'y prend.
+#
 # Tout le reste — les deux rôles, le volume partagé, le fait que le départ,
 # la clé Intervals et BRouter ne vivent qu'en variables — est identique au
 # local, et c'est voulu : ce qui tourne en ligne doit être ce qu'on a vérifié
@@ -28,7 +35,7 @@
 services:
   generateur:
     build:
-      context: ..
+      context: .
       dockerfile: deploiement/Dockerfile
     command: ["python3", "deploiement/generateur/entrypoint.py"]
     environment:
@@ -50,7 +57,7 @@ services:
 
   serveur:
     build:
-      context: ..
+      context: .
       dockerfile: deploiement/Dockerfile
     command: ["python3", "deploiement/serveur/serveur.py"]
     environment:
