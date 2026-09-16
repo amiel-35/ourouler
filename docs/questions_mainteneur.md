@@ -1379,3 +1379,71 @@ commence à ressembler à un principe plutôt qu'à trois exceptions :
 séances structurées portent-elles des paquets d'arrêts plus petits que ses
 sorties régulières, à distance de base appariée ?
 
+## Q30 — Les feux sous les blocs : rien de net, et c'est un résultat — **mesuré le 16/09/2026**
+
+Idée du mainteneur : « faire générer des itinéraires de type bloc et regarder
+la concentration des éléments de circulation — cédez-le-passage, feux, stops,
+giratoires — entre récup et bloc ». Comparaison **appariée dans la même
+sortie**, donc qui contrôle la géographie, la distance au départ, le jour et
+la météo d'un seul coup.
+
+Deux questions distinctes, et les deux ont été mesurées.
+
+### Q1 — notre moteur fait-il son travail ? **Non concluant, par la géographie**
+
+`placer` note le terrain sous les blocs et **n'évalue jamais les
+récupérations** (règle du sprint 4). Si le placement fonctionne, les blocs
+doivent porter moins d'arrêts que les récups de la même sortie.
+
+Mesuré sur 32 sorties générées, 120 blocs et 88 récups : **la médiane vaut
+zéro marqueur des deux côtés** — 205 étapes sur 208 strictement sans marqueur.
+Le test du signe ne trouve que des égalités. Rien à trancher.
+
+**Ce n'est pas un bug de comptage**, et l'agent l'a vérifié : en forçant un
+échauffement d'une minute, donc un bloc collé au départ, les marqueurs
+réapparaissent par dizaines. La cause est ailleurs — **autour de Rennes, les
+nœuds tagués disparaissent presque entièrement dès qu'on sort du cœur urbain,
+dans toutes les directions**. Avec un échauffement réaliste, le bloc *et* la
+récup voisine trouvent tous deux un couloir à zéro carrefour.
+
+**Ce n'est donc pas une preuve que le moteur échoue, ni qu'il réussit.** La
+mesure n'a pas de prise sur cette géographie.
+
+### Q2 — le critère est-il réel ? **Rien de net**
+
+16 sorties réelles exploitables sur 21, 64 blocs et 54 récupérations.
+
+| | Bloc | Récup | Test du signe |
+|---|---|---|---|
+| Arrêts au km | 0,28 | 0,00 | 7/15 favorables, **p = 1,000** |
+| Ralentissements au km | — | — | 6/16 favorables, **p = 0,454** |
+
+**Rien ne sépare ses blocs de ses récupérations.** Les contrôles
+(échauffement et retour au calme contre récup) sont tout aussi muets.
+
+### Ce qu'il faut en conclure, et ce qu'il ne faut pas
+
+**Ne pas conclure qu'il ne cherche pas à éviter les carrefours.** Les deux
+médianes sont minuscules (0,28 et 0,00) : il n'y a **rien à éviter** une fois
+hors de la ville, donc rien à mesurer. La mesure ne sépare pas « il ne le fait
+pas » de « il n'y a pas lieu de le faire ».
+
+**Conclure que le poids des carrefours sous les blocs est quasi inerte sur son
+terrain.** `POIDS_CARREFOUR = 1,0` porte déjà dans le code l'aveu qu'il n'est
+« pas validé par la validation rétrospective… le raisonnement produit, pas une
+mesure ». Cette mesure-ci a essayé de le valider et n'a rien trouvé, non
+parce qu'il est faux mais parce qu'il ne s'applique presque jamais.
+
+**Et ça réordonne le sprint 6.** Ce qui distingue vraiment ses jours de blocs
+n'est pas le carrefour mais **la classe de route** : 4,9 % de départementales
+contre 14,5 % (Q27), un écart net et testé. La concentration des feux (Q29)
+perd donc beaucoup de son intérêt : elle décrirait un phénomène qui n'existe
+qu'en ville, où il ne fait pas ses blocs.
+
+**Réserve qui pourrait tout changer** : la mesure a été faite au départ de
+chez lui, en Bretagne bocagère. Un cycliste partant d'une agglomération dense
+aurait une tout autre réponse — c'est un rappel que les poids du placement
+sont calibrés sur **un** terrain, et que la version hébergée devra le dire.
+
+Script : `tests/validation/arrets_bloc_recup.py`.
+
