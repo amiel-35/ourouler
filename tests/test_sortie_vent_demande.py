@@ -22,7 +22,11 @@ from ourouler.sortie.orientation import (
     PEU_IMPORTE,
     valider,
 )
-from ourouler.sortie.vent_demande import HORIZON_ORIENTATION_J, interroger
+from ourouler.sortie.vent_demande import (
+    HORIZON_ORIENTATION_J,
+    QuestionVent,
+    interroger,
+)
 
 DEPART = Depart(nom="Fictif", latitude=0.0, longitude=0.0)
 AUJOURDHUI = date(2026, 9, 16)
@@ -180,3 +184,35 @@ def test_une_reponse_inconnue_nomme_les_reponses_possibles():
     with pytest.raises(ErreurUtilisateur) as erreur:
         valider("plein-nord")
     assert all(choix in str(erreur.value) for choix in CHOIX)
+
+
+# --- un nombre non fini est une ignorance, jamais une mesure -------------------
+#
+# Défaut relevé par les tests adversariaux du 17/09/2026 : la vitesse était
+# filtrée par `math.isfinite`, la direction par le seul `is None`. Une
+# direction `nan` passait les deux gardes, ressortait de `azimut_pour`
+# (`nan % 360` vaut `nan`) et partait chez BRouter en
+# `roundTripStartDirection=nan`.
+
+
+@pytest.mark.parametrize("valeur", [float("nan"), float("inf"), float("-inf")])
+def test_une_direction_de_vent_non_finie_ne_pose_pas_la_question(valeur):
+    question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=valeur)
+    assert question.posee is False
+    assert question.vent_depuis_deg is None
+    assert question.azimut_pour(ORIENTATION_RETOUR_DOS) is None
+
+
+@pytest.mark.parametrize("valeur", [float("nan"), float("inf"), float("-inf")])
+def test_une_vitesse_de_vent_non_finie_ne_pose_pas_la_question(valeur):
+    question, _ = demander(AUJOURDHUI, vent_kmh=valeur, depuis_deg=270.0)
+    assert question.posee is False
+    assert question.vent_kmh is None
+
+
+def test_aucun_azimut_non_fini_ne_sort_jamais_d_azimut_pour():
+    """`QuestionVent` est un objet public : la barrière tient même quand on le
+    construit à la main, sans passer par `interroger`."""
+    question = QuestionVent(vent_kmh=25.0, vent_depuis_deg=float("nan"), posee=True)
+    for reponse in CHOIX:
+        assert question.azimut_pour(reponse) is None

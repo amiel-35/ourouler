@@ -95,9 +95,21 @@ class FausseProposition:
     part_connue: float | None = None
 
 
+#: Durée prescrite de la séance de référence de ces tests, en secondes.
+#: L'axe de la durée compare l'écart **à cette valeur**, pas les durées nues :
+#: sans quoi la candidate qui ampute la séance gagne l'axe.
+DUREE_SEANCE_S = 7200.0
+
+
 def profil(**kw) -> Profil:
+    """Un profil de référence. `duree_s` fixe le dépassement, sauf s'il est donné.
+
+    Écrire `profil(duree_s=DUREE_SEANCE_S + 600)` veut donc dire « une sortie
+    qui rentre 10 min plus tard que prévu », et non « une sortie de 2 h 10 »
+    dans l'absolu — c'est bien l'écart qui porte l'axe.
+    """
     base = {
-        "duree_s": 7200.0,
+        "duree_s": DUREE_SEANCE_S,
         "demi_tours": 0,
         "note_terrain": 0.0,
         "pluie_mm": 0.0,
@@ -105,7 +117,14 @@ def profil(**kw) -> Profil:
         "part_trafic": 0.40,
         "orientation": None,
     }
-    return Profil(**{**base, **kw})
+    champs = {**base, **kw}
+    champs.setdefault("depassement_s", champs["duree_s"] - DUREE_SEANCE_S)
+    # Par défaut, une sortie plus courte que la prescription d'au moins une
+    # minute est traitée comme amputée : c'est ce que le placement dirait, et
+    # ces tests n'ont pas de placement. `seance_amputee=` reste passable
+    # explicitement pour le cas de l'arrondi.
+    champs.setdefault("seance_amputee", champs["depassement_s"] < -60.0)
+    return Profil(**champs)
 
 
 def selection_de(profils: list[Profil], *, traces: list[Trace] | None = None):
@@ -127,7 +146,7 @@ def selection_de(profils: list[Profil], *, traces: list[Trace] | None = None):
     ]
     par_id = dict(zip((id(p) for p in propositions), profils, strict=True))
     vrai = contraste.profil
-    contraste.profil = lambda proposition, meteo=None: par_id[id(proposition)]
+    contraste.profil = lambda proposition, meteo=None, **_: par_id[id(proposition)]
     try:
         return choisir(propositions), propositions
     finally:
@@ -393,3 +412,85 @@ def test_une_seule_candidate_est_rendue_sans_phrase():
     assert len(selection.retenues) == 1
     assert selection.retenues[0].distinction == ""
     assert "1 candidate(s)" in (selection.motif_deux_propositions or "")
+
+
+# --- l'axe de la durée porte l'écart à la séance, pas la durée nue ------------
+#
+# Le défaut que ces tests gardent fermé, relevé par les tests adversariaux du
+# 17/09/2026 : l'axe comparait les durées brutes, donc la candidate qui
+# amputait le plus la séance gagnait — et recevait la phrase « 71 minutes de
+# moins », présentée comme un avantage. Une phrase est une affirmation ;
+# celle-là était fausse de la pire façon, parce qu'elle était flatteuse.
+
+
+def test_une_seance_amputee_ne_gagne_jamais_l_axe_de_la_duree():
+    """Le cas exact du testeur : 2 905 s pour une séance de 7 200."""
+    amputee = profil(duree_s=2905.0)
+    entiere = profil(duree_s=7151.0, seance_amputee=False)
+    assert AXE_DUREE not in contraste._axes_gagnes(amputee, [entiere])
+    assert AXE_DUREE in contraste._axes_gagnes(entiere, [amputee])
+
+
+def test_la_phrase_d_une_seance_amputee_ne_vante_jamais_sa_brieveté():
+    selection, _ = selection_de(
+        [profil(duree_s=7151.0, seance_amputee=False), profil(duree_s=2905.0)]
+    )
+    phrases = [r.distinction for r in selection.retenues]
+    assert "71 minutes de moins" not in phrases, phrases
+    assert not any("minutes de moins" in p for p in phrases if p), phrases
+
+
+def test_amputer_de_vingt_minutes_vaut_depasser_de_vingt_minutes():
+    """L'axe est un écart en valeur absolue : les deux ratent la cible d'autant.
+
+    Mais seule celle qui tient la séance peut gagner l'axe — l'amputation est
+    déjà payée par `PENALITE_SEANCE_NON_TENUE`.
+    """
+    court = profil(duree_s=DUREE_SEANCE_S - 1200.0)
+    long_ = profil(duree_s=DUREE_SEANCE_S + 1200.0)
+    assert court.ecart_duree_s == long_.ecart_duree_s == 1200.0
+    assert court.seance_tenue is False
+    assert long_.seance_tenue is True
+
+
+def test_depasser_moins_gagne_l_axe():
+    """Deux sorties qui tiennent la séance : la plus proche de la cible gagne."""
+    juste = profil(duree_s=DUREE_SEANCE_S + 60.0)
+    longue = profil(duree_s=DUREE_SEANCE_S + 60.0 + PAS_DUREE_S)
+    assert AXE_DUREE in contraste._axes_gagnes(juste, [longue])
+    assert AXE_DUREE not in contraste._axes_gagnes(longue, [juste])
+
+
+def test_la_phrase_dit_la_plus_proche_quand_l_autre_est_plus_courte_mais_amputee():
+    """Le gagnant n'est pas le plus court du groupe : « X minutes de moins »
+    serait faux, et on ne le dit pas."""
+    selection, _ = selection_de(
+        [
+            profil(duree_s=DUREE_SEANCE_S + 60.0, part_trafic=0.50),
+            profil(duree_s=DUREE_SEANCE_S - 3000.0, part_trafic=0.50 - PAS_TRAFIC_PART),
+        ]
+    )
+    par_axe = {r.axe_distinctif: r.distinction for r in selection.retenues}
+    assert par_axe.get(AXE_DUREE) == "la plus proche de la durée prévue"
+
+
+def test_un_arrondi_de_moins_d_une_minute_n_est_pas_une_amputation():
+    """Le placement seul décide : 49 s de moins que la prescription, avec un
+    retour au calme entier, reste une séance tenue."""
+    juste = profil(duree_s=DUREE_SEANCE_S - 49.0, seance_amputee=False)
+    # Deux pas d'écart : l'axe se mesure entre |−49 s| et |+20 min|, soit
+    # 1 151 s — au-dessus du pas. À un seul pas, les deux se vaudraient, et
+    # c'est normal : 49 s de moins et 10 min de plus, ça n'est pas 10 min
+    # d'écart pour le cycliste.
+    longue = profil(duree_s=DUREE_SEANCE_S + 2 * PAS_DUREE_S)
+    assert juste.seance_tenue is True
+    assert AXE_DUREE in contraste._axes_gagnes(juste, [longue])
+
+
+def test_sans_duree_de_seance_l_axe_de_la_duree_est_inconnu_et_non_faux():
+    """Mieux vaut un axe qui ne distingue rien qu'un axe qui ment."""
+    sujet = Profil(duree_s=3600.0, demi_tours=0, note_terrain=0.0)
+    autre = Profil(duree_s=9000.0, demi_tours=0, note_terrain=0.0)
+    assert sujet.ecart_duree_s is None
+    assert AXE_DUREE not in contraste._axes_gagnes(sujet, [autre])
+    assert AXE_DUREE not in contraste._axes_gagnes(autre, [sujet])

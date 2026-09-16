@@ -85,7 +85,12 @@ class QuestionVent:
         decalage = DECALAGE_AZIMUT_DEG.get(reponse)
         if decalage is None:
             return None
-        return (self.vent_depuis_deg + decalage) % 360.0
+        azimut = (self.vent_depuis_deg + decalage) % 360.0
+        # Dernière barrière avant BRouter : `interroger` refuse déjà une
+        # direction non finie, mais `QuestionVent` est un objet public qu'un
+        # appelant peut construire lui-même, et `nan % 360` vaut `nan`. Un
+        # azimut non fini partirait tel quel dans `roundTripStartDirection`.
+        return azimut if math.isfinite(azimut) else None
 
 
 def interroger(
@@ -135,9 +140,17 @@ def interroger(
     heure = heures[0] if heures else None
     vitesse = heure.vent_kmh if heure is not None else None
     direction = heure.vent_depuis_deg if heure is not None else None
-    if vitesse is None or not math.isfinite(vitesse) or direction is None:
+    # `_fini` des deux côtés, et pas seulement de la vitesse : une direction
+    # `nan` passait les deux gardes, ressortait en `azimut_pour` (`nan % 360`
+    # vaut `nan`), traversait `boucle.candidates.azimuts` et partait chez
+    # BRouter en `roundTripStartDirection=nan`. Un nombre non fini est une
+    # **ignorance**, exactement comme une valeur absente — c'est déjà la règle
+    # de `seance.vent._utilisable`, et il n'y a pas deux façons de la tenir.
+    if not _fini(vitesse) or not _fini(direction):
         return QuestionVent(
-            vent_kmh=vitesse, vent_depuis_deg=direction, posee=False,
+            vent_kmh=vitesse if _fini(vitesse) else None,
+            vent_depuis_deg=direction if _fini(direction) else None,
+            posee=False,
             motif="vent au départ inconnu : la prévision ne le donne pas",
         )
     if vitesse < SEUIL_VENT_SENSIBLE_KMH:
@@ -150,3 +163,13 @@ def interroger(
             ),
         )
     return QuestionVent(vent_kmh=vitesse, vent_depuis_deg=direction, posee=True)
+
+
+def _fini(valeur: object) -> bool:
+    """Vrai si la valeur est un nombre exploitable : présente **et** finie.
+
+    Même règle que `seance.vent._utilisable`, dont c'est le pendant côté
+    prévision : un NaN ou un infini reçu d'Open-Meteo est une ignorance, pas
+    une mesure.
+    """
+    return isinstance(valeur, (int, float)) and math.isfinite(valeur)
