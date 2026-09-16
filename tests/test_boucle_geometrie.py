@@ -17,6 +17,10 @@ from ourouler.boucle.geometrie import (
 )
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
 
+#: Rayon terrestre, redéfini ici plutôt qu'importé : la règle de contrôle ne
+#: doit rien partager avec ce qu'elle mesure, constantes comprises.
+RAYON_TERRE_M = 6_371_000.0
+
 
 def _trace(points: list[PointTrace]) -> Trace:
     return Trace(
@@ -63,19 +67,68 @@ def test_simplification_reduit_le_volume_et_reste_fidele():
     assert mesure["tolerance_m"] == TOLERANCE_DEFAUT_M
 
 
+def _distance_segment_plane(p, a, b):
+    """Distance de `p` au segment `[a, b]`, par projection plane locale.
+
+    **Une seconde règle, qui ne partage aucun code avec la première.** Ce test
+    existait déjà mais mesurait l'écart avec `_distance_segment_m` — la
+    fonction même qu'il prétendait contrôler. Il a donc laissé passer une
+    perte de signe qui rendait 0,01 m pour un point situé 280 m derrière le
+    début d'un segment. Une règle faussée qui se vérifie elle-même trouve
+    toujours que tout va bien.
+
+    Ici : équirectangulaire centrée sur `a` (les degrés de longitude
+    rétrécissent en `cos(lat)`), puis la projection scalaire classique bornée
+    à [0, 1]. Sur quelques kilomètres l'écart à la sphère est très inférieur
+    au mètre, et c'est le **bornage** qui importe — c'est lui qui distingue
+    un segment d'une droite infinie, et c'est lui qui manquait.
+    """
+    rad = math.radians
+    k = math.cos(rad(a.lat))
+    ax, ay = 0.0, 0.0
+    bx, by = (b.lon - a.lon) * k, (b.lat - a.lat)
+    px, py = (p.lon - a.lon) * k, (p.lat - a.lat)
+    dx, dy = bx - ax, by - ay
+    long2 = dx * dx + dy * dy
+    t = 0.0 if long2 == 0 else max(0.0, min(1.0, (px * dx + py * dy) / long2))
+    ex, ey = px - t * dx, py - t * dy
+    return math.hypot(ex, ey) * math.radians(1.0) * RAYON_TERRE_M
+
+
+def test_distance_au_segment_pour_un_point_en_arriere_du_depart():
+    """Un point derrière `a` se mesure contre `a`, pas contre la droite infinie.
+
+    Le cas que la perte de signe de `acos` rendait invisible : la projection
+    tombe hors du segment, du côté du début. Sans garde, seule la distance au
+    travers était rendue — quasi nulle pour un point aligné, donc un point
+    lointain passait pour confondu avec le tracé. Ce que Douglas-Peucker
+    effaçait alors, ce sont les antennes et les demi-tours.
+    """
+    a = PointTrace(48.10, -1.70, None, None)
+    b = PointTrace(48.10, -1.6960, None, None)  # ~300 m plein est
+    for recul_m in (10.0, 100.0, 280.0, 400.0):
+        p = PointTrace(48.10, -1.70 - recul_m / 74000.0, None, None)
+        attendu = distance_m(a, p)
+        obtenu = _distance_segment_m(p, a, b)
+        assert abs(obtenu - attendu) < 1.0, (
+            f"point à {recul_m:.0f} m derrière le départ : {obtenu:.2f} m rendu "
+            f"pour {attendu:.1f} m réels"
+        )
+
+
 def test_ecart_mesure_est_reellement_borne_par_la_tolerance():
     """Simplifie à plusieurs tolérances et vérifie l'écart réel à chaque fois.
 
     Pas seulement « l'algorithme le garantit » : on mesure, comme demande la
-    règle absolue 5. Le point le plus proche du tracé simplifié est cherché
-    par force brute, indépendamment de l'implémentation de `simplifier`.
+    règle absolue 5. Et on mesure avec une règle qui n'est pas celle qu'on
+    contrôle — voir `_distance_segment_plane`.
     """
     points = _cercle_bruite(n=500, rayon_deg=0.02, bruit_deg=0.0003)  # ~33 m de bruit
     for tolerance in (1.0, 5.0, 20.0):
         simplifies = simplifier(points, tolerance_m=tolerance)
         ecart_reel = max(
             min(
-                _distance_segment_m(p, simplifies[i], simplifies[i + 1])
+                _distance_segment_plane(p, simplifies[i], simplifies[i + 1])
                 for i in range(len(simplifies) - 1)
             )
             for p in points

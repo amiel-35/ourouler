@@ -163,6 +163,18 @@ def _distance_segment_m(p: PointTrace, a: PointTrace, b: PointTrace) -> float:
     dxt = math.asin(max(-1.0, min(1.0, sin_dxt))) * RAYON_TERRE_M
     cos_dat = math.cos(d_ap / RAYON_TERRE_M) / math.cos(dxt / RAYON_TERRE_M)
     dat = math.acos(max(-1.0, min(1.0, cos_dat))) * RAYON_TERRE_M
+    # `acos` rend toujours une valeur positive : la distance « le long » perd
+    # son signe, et sans ce signe un point situé *en arrière* de `a` est mesuré
+    # contre la droite infinie au lieu du segment. Mesuré avant correction : un
+    # point à 280 m derrière `a`, aligné, était rendu à 0,01 m — Douglas-Peucker
+    # le supprimait en certifiant un écart d'un centimètre. Ce qui disparaissait
+    # ainsi, ce sont les antennes et les demi-tours, c'est-à-dire exactement la
+    # forme que le reste du projet s'attache à modéliser.
+    #
+    # Le signe se lit sur l'angle entre le cap `a→p` et le cap `a→b` : au-delà
+    # de 90°, la projection tombe derrière `a`.
+    if math.cos(brg_ap - brg_ab) < 0:
+        return d_ap
     if dat <= 0:
         return d_ap
     if dat >= d_ab:
