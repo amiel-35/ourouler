@@ -14,8 +14,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from ourouler import __version__
-from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, charger
-from ourouler.connecteurs.geocodage import LIMITE_DEFAUT
+from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger
+from ourouler.connecteurs.geocodage import (
+    LIMITE_DEFAUT,
+    ClientBAN,
+    ClientNominatim,
+    chercher_adresse,
+)
 from ourouler.erreurs import ErreurUtilisateur
 
 # Module volontairement sans dépendance : la liste des réponses à `--vent`
@@ -84,9 +89,9 @@ def parent_json() -> argparse.ArgumentParser:
 #: Les anciens noms de l'heure de départ, acceptés et **non documentés**.
 #:
 #: Q15, tranchée par le mainteneur le 13/09 : l'heure de départ s'appelle
-#: `--heure-depart` et le lieu de départ s'appellera `--adresse-depart` (nom
-#: réservé, pas encore livré). `--depart` seul était ambigu dès que le lieu
-#: existerait ; `--heure` avait été ajouté en attendant la décision.
+#: `--heure-depart` et le lieu de départ s'appelle `--adresse-depart` (livré
+#: par le lot F0.7). `--depart` seul était ambigu dès que le lieu existerait ;
+#: `--heure` avait été ajouté en attendant la décision.
 #:
 #: Les deux restent acceptés pour ne rien casser — le mainteneur a des scripts
 #: et des habitudes — mais ils ne figurent plus dans l'aide : un nom déprécié
@@ -110,6 +115,143 @@ def ajouter_heure_depart(p: argparse.ArgumentParser, aide: str) -> None:
         metavar="HEURE",
         help=argparse.SUPPRESS,
     )
+
+
+def ajouter_adresse_depart(p: argparse.ArgumentParser) -> None:
+    """Ajoute `--adresse-depart` : partir d'ailleurs **cette fois**, sans rien réécrire.
+
+    Le nom est celui que Q15 avait réservé, et il est long exprès : `--depart`
+    disait « heure », `--adresse-depart` dit « lieu ». Les deux options
+    cohabitent sur la même ligne de commande sans se marcher dessus, elles
+    n'écrivent pas dans le même `dest` (`depart` pour l'heure,
+    `adresse_depart` pour le lieu).
+    """
+    p.add_argument(
+        "--adresse-depart",
+        dest="adresse_depart",
+        metavar="ADRESSE",
+        help="partir d'une autre adresse que celle de la configuration, cette fois seulement "
+        "(géocodée ; la configuration n'est pas modifiée). Ne pas confondre avec "
+        "--heure-depart, qui est une heure.",
+    )
+
+
+#: Mention exigée par la licence ODbL quand un résultat Nominatim est affiché
+#: (politique d'usage du service, voir la docstring du connecteur).
+ATTRIBUTION_NOMINATIM = "© contributeurs OpenStreetMap"
+
+
+def lieu_depart(
+    args: argparse.Namespace,
+    config: Config,
+    *,
+    ban: ClientBAN | None = None,
+    nominatim: ClientNominatim | None = None,
+    avertir_routes: bool = False,
+    flux: object = None,
+) -> Depart:
+    """Le point de départ de cette exécution : `--adresse-depart` géocodée, ou la configuration.
+
+    C'est **ici**, dans `cli.py`, que l'adresse devient un `Depart` : le cœur
+    ne géocode rien et ne connaît aucune adresse (règle absolue 2). Les deux
+    clients sont injectables pour que les tests ne touchent jamais le réseau.
+
+    **Une adresse ambiguë est la normale, pas l'exception**, et le connecteur
+    (F0.2) ne tranche jamais : il rend une liste ordonnée. Une ligne de
+    commande, elle, doit bien partir de quelque part — elle ne peut pas rendre
+    une liste à qui a tapé `ourouler boucle --adresse-depart "…"`.
+
+    **Décision : le premier candidat, le mieux noté, est retenu, et il est
+    annoncé en toutes lettres sur la sortie d'erreur avant tout appel
+    coûteux.** Trois raisons :
+
+    1. Refuser dès qu'il y a plusieurs candidats rendrait l'option
+       inutilisable : la BAN en rend presque toujours plusieurs, même pour une
+       adresse parfaitement précise (le numéro voisin, la rue sans numéro…).
+    2. Faire choisir au clavier ferait de chaque commande un dialogue et
+       interdirait l'usage en script ou en tâche planifiée — un usage déjà
+       livré (`--carte-sans-seance`).
+    3. Le seul échec qui coûte cher est de rouler depuis un point qu'on
+       croyait être un autre. Il est donc traité par l'affichage et non par le
+       silence : le lieu retenu est imprimé **avant** le travail, le nombre de
+       candidats écartés aussi, et `ourouler geocoder` montre la liste
+       complète. Le lieu retenu figure ensuite dans le rendu de chaque
+       commande, en texte comme en JSON.
+
+    **Ce que l'API devra faire, et qui est l'inverse.** Une requête d'API n'a
+    pas de sortie d'erreur que quelqu'un lise, et le front, lui, *peut*
+    montrer une liste. L'API expose donc le géocodage comme une route à part
+    (la forme de `ourouler geocoder --json`, écrite pour ça), rend **tous**
+    les candidats au front avec leur score et leur source, et les routes de
+    parcours reçoivent ensuite des **coordonnées déjà tranchées** — jamais une
+    adresse à géocoder au vol. Là où la CLI choisit et le dit, l'API ne
+    choisit pas et fait choisir.
+
+    Une adresse introuvable lève `ErreurUtilisateur` — affichée en une ligne,
+    code de sortie 2, aucune trace Python. Elle ne retombe **jamais** sur le
+    départ configuré : rendre une boucle autour de la maison à qui a demandé
+    une autre ville serait une réponse fausse, ce qui est pire qu'une erreur.
+
+    **Ordre assumé** : le géocodage a lieu **avant** que la sous-commande
+    valide ses autres options, donc `boucle --adresse-depart X --distance -5`
+    interroge le géocodeur avant de refuser la distance. Les commandes tiennent
+    par ailleurs à refuser une option fautive avant tout appel réseau, et cette
+    ligne y déroge : c'est un appel unique, sans clé et gratuit, contre la
+    complication qu'il faudrait pour le repousser après une validation qui vit
+    dans le cœur. Le contrat vaut pour BRouter, Open-Meteo et Intervals — les
+    postes qui coûtent — et il est intact.
+    """
+    adresse = getattr(args, "adresse_depart", None)
+    if adresse is None:
+        return config.depart
+    if not adresse.strip():
+        raise ErreurUtilisateur(
+            f"--adresse-depart {adresse!r} : valeur vide, attendu une adresse — "
+            "omettre l'option pour partir du point de la configuration"
+        )
+
+    candidats = chercher_adresse(adresse, ban=ban, nominatim=nominatim, limite=LIMITE_DEFAUT)
+    if not candidats:
+        raise ErreurUtilisateur(
+            f"--adresse-depart {adresse!r} : aucune adresse trouvée — préciser la commune "
+            "ou le code postal, `ourouler geocoder` montre ce que les services rendent. "
+            f"Le départ de la configuration ({config.depart.nom}) n'a pas servi à la place."
+        )
+
+    retenu = candidats[0]
+    flux = flux if flux is not None else sys.stderr
+    ligne = (
+        f"ourouler : départ « {retenu.label} » ({retenu.latitude:.5f}, {retenu.longitude:.5f}), "
+        f"source {retenu.source}, score {retenu.score:.2f}"
+    )
+    if len(candidats) > 1:
+        ligne += (
+            f" — {len(candidats) - 1} autre(s) candidat(s) écarté(s) ; "
+            f'`ourouler geocoder "{adresse}"` les montre tous'
+        )
+    if retenu.source == "nominatim":
+        ligne += f" [{ATTRIBUTION_NOMINATIM}]"
+    print(ligne, file=flux)
+
+    if avertir_routes and _routes_connues_existent(config):
+        print(
+            "ourouler : les routes connues et les poids appris ont été mesurés autour du "
+            "départ de la configuration — loin de là, « connu % » tombe à zéro sans que le "
+            "tracé soit pour autant inédit (la part connue n'entre dans aucun score).",
+            file=flux,
+        )
+
+    return Depart(nom=retenu.label, latitude=retenu.latitude, longitude=retenu.longitude)
+
+
+def _routes_connues_existent(config: Config) -> bool:
+    """Vrai si le cache porte déjà une base de routes apprises. Lecture de fichier : `cli.py` a le droit."""
+    from ourouler.apprentissage.commande import NOM_BASE
+
+    try:
+        return (config.cache.dossier / NOM_BASE).exists()
+    except OSError:
+        return False
 
 
 def ajouter_config(sous: argparse._SubParsersAction) -> None:
@@ -205,6 +347,7 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
         parents=[parent_json()],
     )
     ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    ajouter_adresse_depart(p)
     p.add_argument("--horizon", type=int, help="nombre d'heures (défaut : config)")
     p.add_argument("--distance", type=float, help="n'afficher qu'une couronne (km)")
     p.add_argument("--modele", help="modèle principal Open-Meteo (défaut : config)")
@@ -215,7 +358,7 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
 def _commande_meteo(args: argparse.Namespace, config: Config) -> int:
     from ourouler.meteo.commande import executer  # import paresseux (lot L1.5)
 
-    return executer(args, config)
+    return executer(args, config, lieu_depart=lieu_depart(args, config))
 
 
 def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
@@ -232,6 +375,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         help="N, NE, … NO ou un azimut en degrés (obligatoire sans --gpx)",
     )
     ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
+    ajouter_adresse_depart(p)
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     p.add_argument("--profil", help="profil BRouter (défaut : config)")
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
@@ -257,7 +401,20 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
 def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
 
-    return executer(args, config)
+    # Avec `--gpx`, la boucle n'est pas générée : elle est lue dans le fichier,
+    # qui porte son propre départ. Géocoder une adresse pour l'annoncer ensuite
+    # comme point de départ du tracé serait faux. On refuse plutôt que d'ignorer
+    # l'option en silence — un départ demandé et jeté sans un mot est
+    # exactement la réponse fausse que ce lot cherche à éviter.
+    if getattr(args, "adresse_depart", None) is not None and getattr(args, "gpx", None):
+        raise ErreurUtilisateur(
+            "--adresse-depart et --gpx ne vont pas ensemble : avec --gpx la boucle est lue "
+            "dans le fichier, qui porte déjà son départ — rien n'est généré depuis une adresse"
+        )
+    # `avertir_routes` : `boucle` affiche une part de kilomètres déjà connus,
+    # mesurée autour du départ configuré — partir d'ailleurs la fait tomber à
+    # zéro pour une raison qui n'a rien à voir avec le tracé proposé.
+    return executer(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
 
 
 def ajouter_routes(sous: argparse._SubParsersAction) -> None:
@@ -461,6 +618,7 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
     ajouter_heure_depart(
         p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)"
     )
+    ajouter_adresse_depart(p)
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
     p.add_argument("--carte", metavar="FICHIER.HTML", help="où écrire la carte de vérification")
     p.add_argument("--profil", help="profil BRouter (défaut : config)")
@@ -482,17 +640,17 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
 def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
     from ourouler.sortie.commande import executer  # import paresseux (lot L4.4)
 
-    return executer(args, config)
+    return executer(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
 
 
 def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
-    """`ourouler geocoder ADRESSE` — le nom réservé `--adresse-depart` (Q15) n'est pas livré ici.
+    """`ourouler geocoder ADRESSE` — le géocodage nu, qui ne tranche jamais.
 
-    Cette commande livre le géocodage lui-même : une adresse tapée devient
-    des candidats notés. Elle ne tranche jamais toute seule entre plusieurs
-    candidats (une adresse ambiguë est la normale) — c'est un usage
-    ultérieur (`--adresse-depart` sur `meteo`/`boucle`/`sortie`, ou le front)
-    qui fera choisir l'utilisateur.
+    Une adresse tapée devient des candidats notés, tous rendus. Cette
+    commande reste le seul endroit qui montre la **liste** : c'est elle qu'on
+    consulte quand `--adresse-depart` a retenu le premier candidat et qu'on
+    veut voir les autres, et c'est sa forme JSON que la route de géocodage de
+    l'API reprendra pour faire choisir le front (voir `lieu_depart`).
     """
     p = sous.add_parser(
         "geocoder",

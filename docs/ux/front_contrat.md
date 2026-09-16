@@ -37,7 +37,7 @@ Aucun ne se contourne, tous sont nommés dans `discovery_donnees.md`.
 | trou | ce qu'il bloque | coût |
 |---|---|---|
 | **La géométrie du tracé** n'est nulle part en JSON — les coordonnées ne vivent que dans le GPX et le HTML Leaflet | toute carte, donc la moitié des écrans | le plus gros |
-| **Le géocodage d'une adresse** n'existe pas ; `--adresse-depart` est un nom réservé non livré | l'assistant, le départ ponctuel | dépendance externe à choisir |
+| **Le géocodage d'une adresse** n'existe pas ; `--adresse-depart` est un nom réservé non livré — *comblé : F0.2 (connecteur BAN + Nominatim, `ourouler geocoder`) puis F0.7 (`--adresse-depart` sur `meteo`/`boucle`/`sortie`, le cœur reçoit un `Depart`)* | l'assistant, le départ ponctuel | dépendance externe à choisir |
 | **Le connecteur Intervals ne lit qu'un jour** à la fois | « Ma semaine » | faible |
 | **Les zones de puissance sont figées** dans `seance/modele.py`, jamais reliées à `Config` | l'écran de FTP et la décision 7 | moyen |
 | **Ni `.ZWO` ni `.MRC` ne sont lus** comme une prescription | l'import de séance | moyen, sans dépendance nouvelle |

@@ -64,7 +64,7 @@ import json
 import math
 import sys
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 
@@ -80,7 +80,7 @@ from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
-from ourouler.config import Config
+from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
@@ -224,8 +224,36 @@ def executer(
     client_brouter: ClientBrouter | None = None,
     client_meteo: ClientOpenMeteo | None = None,
     client_intervals: ClientIntervals | None = None,
+    *,
+    lieu_depart: Depart | None = None,
 ) -> int:
-    """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »)."""
+    """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
+
+    `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
+    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
+    requête d'API demain. Absent, c'est celui de la configuration. Le cœur ne
+    géocode rien, ne lit aucune adresse et ne sait pas d'où vient ce point
+    (règle absolue 2) — il reçoit un `Depart`.
+
+    À ne pas confondre avec `demande.depart`, qui porte une **heure**.
+
+    Ce qui ne suit pas le départ : les **routes connues** et les **poids
+    appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
+    autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
+    connue est informative et n'entre dans aucun score (contrat du sprint 3
+    §2) — mais elle tombera naturellement à zéro loin de chez soi. `cli.py`
+    le dit sur la sortie d'erreur plutôt que de laisser croire à un tracé
+    inédit.
+    """
+    if lieu_depart is not None:
+        # Substitué dans la `Config` plutôt que passé de fonction en fonction :
+        # la question du vent, la génération des candidates, les en-têtes de
+        # texte, la carte et le JSON lisent tous `config.depart`, et un seul de
+        # ces points oublié rendrait une réponse fausse — une boucle autour de
+        # la maison pour une adresse à 400 km. `Config` est un dataclass gelé :
+        # `replace` rend une copie, la configuration de l'appelant n'est pas
+        # touchée.
+        config = replace(config, depart=lieu_depart)
     demande = lire_options(args, config)
 
     seance = _seance(demande, config, client_intervals)
@@ -1570,6 +1598,16 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
             "candidates": demande.nb_candidates,
             "profil": demande.profil,
             "depart": demande.depart.isoformat(),
+            # Le **lieu** d'où part cette sortie, en regard de l'heure
+            # ci-dessus. Il vaut celui de la configuration, sauf si l'appelant
+            # en a fourni un autre (`--adresse-depart`, demain une requête
+            # d'API) : sans cette clé, deux réponses JSON identiques
+            # décriraient deux parcours partant de deux endroits différents.
+            "lieu_depart": {
+                "nom": contexte.config.depart.nom,
+                "latitude": contexte.config.depart.latitude,
+                "longitude": contexte.config.depart.longitude,
+            },
             "velo": demande.velo,
         },
         "modele_physique": contexte.provenance_modele,

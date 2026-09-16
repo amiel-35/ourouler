@@ -10,9 +10,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import replace
 from datetime import datetime
 
-from ourouler.config import HORIZON_MAX_H, Config
+from ourouler.config import HORIZON_MAX_H, Config, Depart
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.couronne import couronne
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -23,8 +24,33 @@ from ourouler.meteo.rapport import construire, rendre_json, rendre_texte
 #: pour que `--horizon` applique exactement la même borne.
 
 
-def executer(args: argparse.Namespace, config: Config, client: ClientOpenMeteo | None = None) -> int:
-    """Exécute `ourouler meteo`. Renvoie le code de sortie (0 = succès)."""
+def executer(
+    args: argparse.Namespace,
+    config: Config,
+    client: ClientOpenMeteo | None = None,
+    *,
+    lieu_depart: Depart | None = None,
+) -> int:
+    """Exécute `ourouler meteo`. Renvoie le code de sortie (0 = succès).
+
+    `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
+    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
+    requête d'API demain. Absent, c'est celui de la configuration. Le cœur ne
+    géocode rien, ne lit aucune adresse et ne sait pas d'où vient ce point
+    (règle absolue 2) — il reçoit un `Depart`.
+
+    À ne pas confondre avec `args.depart`, qui porte une **heure** (ancien nom
+    de `--heure-depart`) : c'est exactement la confusion pour laquelle le lieu
+    s'appelle `--adresse-depart` et non `--depart`.
+    """
+    if lieu_depart is not None:
+        # Substitué dans la `Config` plutôt que passé de fonction en fonction :
+        # la couronne, le rapport, le texte et le JSON lisent tous
+        # `config.depart`, et un seul de ces points oublié rendrait une
+        # réponse fausse — la météo autour de la maison pour une adresse à
+        # 400 km. `Config` est un dataclass gelé : `replace` rend une copie,
+        # la configuration de l'appelant n'est pas touchée.
+        config = replace(config, depart=lieu_depart)
     modele = getattr(args, "modele", None) or config.meteo.modele
     second_avis = getattr(args, "second_avis", None) or config.meteo.second_avis
     # `or` ne conviendrait pas : --horizon 0 doit être refusé, pas remplacé par la config.
