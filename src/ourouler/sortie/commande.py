@@ -821,6 +821,7 @@ def _ecrire_carte(
         titre=f"{seance.nom} — {date_en_francais(demande.depart)}",
         sous_titre=_sous_titre(proposition, demande, config),
         notes=_notes_carte(proposition, seance, tenue),
+        meteo=proposition.meteo,
     )
     try:
         chemin.write_text(page, encoding="utf-8")

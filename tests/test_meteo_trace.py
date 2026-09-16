@@ -176,6 +176,28 @@ def test_interpolation_lineaire_entre_les_deux_heures_encadrantes():
     assert resultat.ressenti_min_c == pytest.approx(10.0)
 
 
+def test_la_rafale_est_interpolee_lineairement():
+    """La rafale est une vitesse, pas une direction : interpolation linéaire,
+    comme `vent_kmh` — surtout pas angulaire, ce serait absurde pour une norme.
+    """
+    serie = horaire(2, wind_gusts_10m=[10.0, 30.0])
+    resultat = evaluer(
+        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        modele=MODELE, pas_m=5000.0,
+    )
+    rafales = [e.rafales_kmh for e in resultat.echantillons]
+    assert rafales == pytest.approx([10.0, 15.0, 20.0, 25.0, 30.0])
+
+
+def test_une_rafale_absente_reste_absente_jamais_zero():
+    serie = horaire(4, wind_gusts_10m=[None] * 4)
+    resultat = evaluer(
+        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        modele=MODELE, pas_m=5000.0,
+    )
+    assert all(e.rafales_kmh is None for e in resultat.echantillons)
+
+
 def test_l_heure_pile_prend_sa_valeur_meme_si_l_heure_precedente_manque():
     """Une valeur absente à 08 h ne doit pas effacer celle de 09 h."""
     serie = horaire(2, precipitation=[None, 1.0])

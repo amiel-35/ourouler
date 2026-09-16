@@ -11,7 +11,7 @@ aucune coordonnée : **la géométrie vient du `Trace` qu'on lui passe**, les
 emplacements du `Placement`. Il n'invente aucune règle : les notes et les
 motifs sont ceux de `seance.terrain`, recopiés tels quels.
 
-Trois couches sur la carte :
+Quatre couches sur la carte :
 
 - le tracé complet en gris (`COULEUR_TRACE`), dessous — ce que la séance ne
   parcourt **jamais** ;
@@ -22,7 +22,18 @@ Trois couches sur la carte :
   lot L5.2. Ces portions-là ne sont pas notées — décision du 13/09, une
   récupération absorbe le point dur et ne se juge pas — mais elles sont
   roulées, et la carte doit le montrer : c'est tout le défaut que Q13
-  signalait (« t'as pas oublié l'échauffement ? »).
+  signalait (« t'as pas oublié l'échauffement ? ») ;
+- des **flèches de vent**, une par échantillon météo assez venté (lot du
+  16/09/2026) : le sprint 5 a mis le vent dans le placement, il déplace les
+  blocs de plusieurs kilomètres, et sans une flèche sur la carte personne ne
+  peut vérifier à l'œil que ce déplacement est cohérent avec le vent réel —
+  exactement la leçon de Q13, appliquée cette fois au vent plutôt qu'à la
+  séance entière. La flèche pointe d'où vient le vent, comme une girouette ;
+  sa forme (pleine, creuse ou en pointillés) dit si ce vent est de face, dans
+  le dos ou de travers **au cap suivi à cet endroit** — `vent_relatif` de
+  `meteo.rapport`, pas une règle réinventée ici. Chiffres à côté : vitesse
+  moyenne puis rafale, en km/h. En dessous de `SEUIL_AFFICHAGE_VENT_KMH`,
+  rien n'est dessiné — voir la constante pour la raison.
 
 Sous la carte, le **profil d'altitude** en SVG, avec les mêmes couleurs aux
 mêmes endroits : une descente sous un bloc s'y voit mieux que sur la carte.
@@ -42,6 +53,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.seance.modele import Seance
 from ourouler.seance.placement import Emplacement, Placement
@@ -83,6 +95,17 @@ COULEUR_LIAISON = "#9fb8cd"
 #: quatre fois plus.
 POINTS_PROFIL_MAX = 800
 
+#: Vent moyen en dessous duquel aucune flèche n'est dessinée, en km/h.
+#:
+#: Raison, pas une valeur ronde choisie au hasard : 8 km/h est le haut de la
+#: force 1 de l'échelle de Beaufort (« très légère brise, à peine perceptible
+#: sur un visage ») et le bas de la force 2 (« légère brise, sentie sur le
+#: visage ») — le seuil météorologique usuel entre « rien à sentir » et « on
+#: sent quelque chose ». Le vent médian du mainteneur est de 14 km/h (bien
+#: au-dessus) mais descend à 2,5 km/h ; dessiner une flèche à ces vitesses-là
+#: serait du bruit qui apprend à ne plus regarder la carte (cadrage du lot).
+SEUIL_AFFICHAGE_VENT_KMH = 8.0
+
 #: Dimensions du dessin du profil, en unités du `viewBox`.
 PROFIL_LARGEUR = 1000.0
 PROFIL_HAUTEUR = 220.0
@@ -106,18 +129,23 @@ def construire(
     titre: str = "",
     sous_titre: str = "",
     notes: Sequence[str] = (),
+    meteo: MeteoTrace | None = None,
 ) -> str:
     """La page HTML complète, prête à être écrite dans un fichier.
 
     `titre` par défaut : le nom de la séance et son jour. `notes` sont des
     phrases ajoutées sous la légende — la commande y met ce qu'elle sait et
-    que la carte ne montre pas (distance, D+, météo, tenue).
+    que la carte ne montre pas (distance, D+, météo, tenue). `meteo` est
+    optionnel : à `None` (le défaut), la carte se construit exactement comme
+    avant les flèches de vent — aucune régression pour un appelant qui ne
+    passe pas cet argument.
     """
     titre = titre or f"{seance.nom} — {seance.jour.isoformat()}"
     cumuls = _cumuls(trace.points)
 
     blocs = _blocs(trace, seance, placement, cumuls)
     liaisons = _liaisons(trace, placement, cumuls)
+    fleches_vent = _vent_fleches(meteo)
     trace_js = [[round(p.lat, 6), round(p.lon, 6)] for p in trace.points]
     depart = trace_js[0] if trace_js else [0.0, 0.0]
 
@@ -135,6 +163,7 @@ def construire(
             for b in blocs
         ],
         "liaisons": [liaison.points for liaison in liaisons],
+        "vent": fleches_vent,
         "depart": depart,
         "couleurs": {"trace": COULEUR_TRACE, "liaison": COULEUR_LIAISON},
         "tuiles": {"url": TUILES_URL, "attribution": TUILES_ATTRIBUTION},
@@ -147,6 +176,7 @@ def construire(
         donnees=donnees,
         blocs=blocs,
         profil=_profil_svg(trace, cumuls, blocs),
+        avec_vent=meteo is not None,
     )
 
 
@@ -256,6 +286,50 @@ def _liaisons(trace: Trace, placement: Placement, cumuls: Sequence[float]) -> li
         if len(portion.points) >= 2:
             portions.append(portion)
     return portions
+
+
+# --- flèches de vent -----------------------------------------------------------
+
+
+def _vent_fleches(meteo: MeteoTrace | None) -> list[dict]:
+    """Un point de flèche par échantillon météo assez venté.
+
+    `meteo.echantillons` couvre le tracé complet (comme le tracé gris), pas
+    seulement le parcours réellement roulé : un échantillon au-delà d'un
+    demi-tour, par exemple, peut donc porter une flèche. C'est le même choix
+    que pour le tracé gris — situer la météo sur le terrain — et pas une
+    inadvertance.
+
+    Écarté si le vent ou sa direction manque (`None` : `vent_face_ms` de
+    `seance.vent` traite pareillement ce cas comme « inconnu », jamais
+    « nul ») — sans direction connue, aucune rotation n'aurait de sens, et en
+    inventer une (par exemple 0°) affirmerait une direction sans preuve
+    (règle absolue 5). Écarté aussi sous `SEUIL_AFFICHAGE_VENT_KMH`.
+    """
+    if meteo is None:
+        return []
+    fleches = []
+    for e in meteo.echantillons:
+        if e.vent_kmh is None or e.vent_depuis_deg is None:
+            continue
+        if e.vent_kmh < SEUIL_AFFICHAGE_VENT_KMH:
+            continue
+        fleches.append(
+            {
+                "pt": [round(e.lat, 6), round(e.lon, 6)],
+                # Direction d'où vient le vent (convention météo, 0 = nord,
+                # sens horaire) : la flèche s'oriente dessus telle quelle,
+                # comme une girouette qui pointe vers d'où souffle le vent.
+                "depuis_deg": round(e.vent_depuis_deg, 1),
+                "vent_kmh": round(e.vent_kmh),
+                "rafale_kmh": round(e.rafales_kmh) if e.rafales_kmh is not None else None,
+                # « face »/« dos »/« travers », déjà tranché par
+                # `meteo.rapport.vent_relatif` au cap local — voir
+                # `boucle.meteo_trace.evaluer`. Jamais recalculé ici.
+                "relatif": e.vent_relatif,
+            }
+        )
+    return fleches
 
 
 # --- géométrie ----------------------------------------------------------------
@@ -473,7 +547,37 @@ def _charge_json(donnees: dict) -> str:
     )
 
 
-def _page(*, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str) -> str:
+#: Le triangle réutilisé par les trois flèches (légende et carte) : pointe en
+#: haut au repos (0°), donc orienté nord — la rotation JS l'amène ensuite sur
+#: `depuis_deg`.
+_FORME_FLECHE_VENT = "M10 1 L17 18 L10 14 L3 18 Z"
+
+
+def _section_vent() -> str:
+    """La légende du vent : trois glyphes, un par vent relatif.
+
+    Triangle plein (face), triangle creux (dos), losange creux (travers) —
+    trois **formes** distinctes, pas trois teintes d'une même forme : lisible
+    sans dépendre de la couleur (règle du lot : pas seulement rouge/vert pour
+    un œil daltonien). Des caractères, pas un `<svg>` : la page ne porte
+    ainsi toujours qu'un seul vrai `<svg>`, celui du profil d'altitude — les
+    flèches de la carte, elles, sont construites par le script, dans le
+    texte du `<script>` et non dans le HTML de la page.
+    """
+    return f"""<h3>Vent</h3>
+<ul class="legende legende-vent">
+<li><span class="vent-swatch vent-face">▲</span>face (ralentit)</li>
+<li><span class="vent-swatch vent-dos">△</span>dos (pousse)</li>
+<li><span class="vent-swatch vent-travers">◇</span>travers</li>
+</ul>
+<p class="note">La flèche pointe d'où vient le vent, comme une girouette. Chiffres à côté :
+vitesse moyenne puis rafale, en km/h. Rien en dessous de {SEUIL_AFFICHAGE_VENT_KMH:.0f} km/h
+(en deçà, on ne sent quasiment plus l'air).</p>"""
+
+
+def _page(
+    *, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool
+) -> str:
     """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
     puces = "".join(
         f'<li><i style="background:{bloc["couleur"]}"></i>bloc {bloc["n"]} — note '
@@ -481,6 +585,7 @@ def _page(*, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: s
         for bloc in blocs
     )
     lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
+    section_vent = _section_vent() if avec_vent else ""
     charge = _charge_json(donnees)
     return f"""<!doctype html>
 <html lang="fr">
@@ -514,6 +619,27 @@ p.note {{ margin: 3px 0; color: #333; }}
 p.vide {{ color: #777; font-style: italic; }}
 .etiq {{ background: #fff; border: 1px solid #999; border-radius: 9px; padding: 0 5px;
          font: bold 11px system-ui, sans-serif; white-space: nowrap; box-shadow: 0 1px 3px #0003; }}
+/* Flèches de vent : forme distincte par vent relatif (pas seulement la teinte,
+   lisible pour un œil daltonien) — pleine (face), creuse (dos), pointillée
+   (travers). `vent-inconnu` est un repli défensif ; `vent_relatif` ne devrait
+   jamais être absent ici, un vent sans direction n'ayant pas de flèche. */
+.vent-marqueur {{ display: flex; flex-direction: column; align-items: center; }}
+.vent-fleche {{ width: 20px; height: 20px; display: block;
+                filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }}
+.vent-face .fleche-forme {{ fill: #c1440e; stroke: #c1440e; stroke-width: 1; }}
+.vent-dos .fleche-forme {{ fill: none; stroke: #1b6ca8; stroke-width: 2.6; stroke-linejoin: round; }}
+.vent-travers .fleche-forme {{ fill: none; stroke: #6b6b6b; stroke-width: 1.8;
+                                stroke-dasharray: 2.2 2.2; }}
+.vent-inconnu .fleche-forme {{ fill: none; stroke: #999; stroke-width: 1.2; stroke-dasharray: 1 3; }}
+.vent-etiquette {{ margin-top: 1px; font: 700 10px/1 system-ui, sans-serif; background: #fff;
+                    border: 1px solid #999; border-radius: 8px; padding: 1px 4px;
+                    white-space: nowrap; box-shadow: 0 1px 2px #0003; }}
+ul.legende-vent li {{ display: flex; align-items: center; }}
+.vent-swatch {{ display: inline-block; width: 1.3em; margin-right: 6px; text-align: center;
+                 font-size: 15px; line-height: 1; }}
+.vent-swatch.vent-face {{ color: #c1440e; }}
+.vent-swatch.vent-dos {{ color: #1b6ca8; }}
+.vent-swatch.vent-travers {{ color: #6b6b6b; }}
 </style>
 </head>
 <body>
@@ -530,6 +656,7 @@ p.vide {{ color: #777; font-style: italic; }}
 (non notés)</li>
 </ul>
 {lignes_notes}
+{section_vent}
 <h3>Profil d'altitude</h3>
 {profil}
 </section>
@@ -559,6 +686,30 @@ for (const b of D.blocs) {{
                         iconSize: null}})
     }}).bindTooltip(b.infobulle).addTo(groupe);
   }}
+}}
+function iconeVent(f) {{
+  const cat = f.relatif || 'inconnu';
+  const etiquette = String(f.vent_kmh) + (f.rafale_kmh != null ? '/' + f.rafale_kmh : '');
+  const svg = '<svg class="vent-fleche" viewBox="0 0 20 20">'
+    + '<g transform="rotate(' + f.depuis_deg + ' 10 10)">'
+    + '<path class="fleche-forme" d="{_FORME_FLECHE_VENT}"></path></g></svg>';
+  return L.divIcon({{
+    className: '',
+    html: '<div class="vent-marqueur vent-' + cat + '">' + svg
+      + '<span class="vent-etiquette">' + etiquette + '</span></div>',
+    iconSize: null,
+    iconAnchor: [10, 10],
+  }});
+}}
+function infoVent(f) {{
+  const mots = {{face: 'vent de face', dos: 'vent dans le dos', travers: 'vent de travers'}};
+  let txt = 'Vent ' + f.vent_kmh + ' km/h';
+  if (f.rafale_kmh != null) {{ txt += ', rafale ' + f.rafale_kmh + ' km/h'; }}
+  if (mots[f.relatif]) {{ txt += ' — ' + mots[f.relatif]; }}
+  return txt;
+}}
+for (const f of D.vent) {{
+  L.marker(f.pt, {{icon: iconeVent(f)}}).bindTooltip(infoVent(f), {{sticky: true}}).addTo(groupe);
 }}
 groupe.addTo(carte);
 L.marker(D.depart).addTo(carte).bindPopup('Départ');
