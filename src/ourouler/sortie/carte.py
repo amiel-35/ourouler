@@ -796,6 +796,7 @@ def construire_page_jour(
     *,
     titre: str = "",
     motif_deux_propositions: str | None = None,
+    maintenant: datetime | None = None,
 ) -> str:
     """La page du jour : les propositions contrastées, superposées sur une carte.
 
@@ -877,6 +878,7 @@ def construire_page_jour(
         "tuiles": {"url": TUILES_URL, "attribution": TUILES_ATTRIBUTION},
     }
     return _page_jour(
+        horodatage=(maintenant or datetime.now()).strftime("%d/%m/%Y à %H:%M"),
         titre=titre,
         donnees=donnees,
         propositions=propositions,
@@ -918,6 +920,7 @@ def _page_jour(
     propositions: Sequence[PropositionCarte],
     panneaux: Sequence[str],
     motif_deux_propositions: str | None,
+    horodatage: str,
 ) -> str:
     """Le HTML autonome de la page du jour. Les données partent en JSON, comme `_page`."""
     n = len(propositions)
@@ -985,6 +988,7 @@ ul.legende {{ list-style: none; padding: 0; margin: 6px 0; display: flex; flex-w
 ul.legende i {{ display: inline-block; width: 16px; height: 4px; margin-right: 6px;
                 vertical-align: middle; border-radius: 2px; }}
 p.note {{ margin: 3px 0; color: #333; }}
+p.horodatage {{ color: #777; font-size: 12px; margin: 14px 16px 24px; }}
 p.sous-titre {{ font-weight: 600; color: #1c1c1c; }}
 p.motif {{ font-style: italic; }}
 p.vide {{ color: #777; font-style: italic; }}
@@ -1232,6 +1236,7 @@ document.querySelectorAll('.carte-item').forEach(function (el) {{
   }});
 }});
 </script>
+<p class="horodatage">Page générée le {horodatage}.</p>
 </body>
 </html>
 """

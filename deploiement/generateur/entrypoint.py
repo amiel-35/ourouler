@@ -69,8 +69,33 @@ def executer_une_fois() -> int:
     return resultat.returncode
 
 
+def _valider_heure(heure: str) -> tuple[int, int]:
+    """« HH:MM », ou une erreur claire **avant** la première génération.
+
+    Relecture du 16/09/2026, point 2 b : sans cette validation, une faute de
+    frappe (`6h`, `06h00`) laissait passer la première génération — ~150 appels
+    Open-Meteo et 5 BRouter — puis faisait tomber le conteneur sur
+    `int("6h")`. Avec `restart: unless-stopped`, Docker le relançait, et la
+    boucle brûlait le quota toute la nuit à raison d'un cycle par minute.
+    On échoue donc **au démarrage**, avant de dépenser quoi que ce soit.
+    """
+    morceaux = heure.split(":")
+    if len(morceaux) != 2 or not all(m.isdigit() for m in morceaux):
+        raise SystemExit(
+            f"OUROULER_HEURE_GENERATION = {heure!r} : format attendu « HH:MM », "
+            "par exemple 06:00"
+        )
+    h, m = int(morceaux[0]), int(morceaux[1])
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        raise SystemExit(
+            f"OUROULER_HEURE_GENERATION = {heure!r} : heure hors des bornes "
+            "(00:00 à 23:59)"
+        )
+    return h, m
+
+
 def _prochain_declenchement(heure: str, maintenant: datetime) -> datetime:
-    h, m = (int(x) for x in heure.split(":"))
+    h, m = _valider_heure(heure)
     cible = maintenant.replace(hour=h, minute=m, second=0, microsecond=0)
     if cible <= maintenant:
         cible += timedelta(days=1)
@@ -78,6 +103,9 @@ def _prochain_declenchement(heure: str, maintenant: datetime) -> datetime:
 
 
 def main() -> None:
+    # La validation passe **avant** la première génération : un format
+    # invalide doit coûter zéro appel, pas 150 par redémarrage.
+    _valider_heure(HEURE_QUOTIDIENNE)
     os.makedirs(DOSSIER_PAGES, exist_ok=True)
     executer_une_fois()
     while True:

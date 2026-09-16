@@ -61,6 +61,14 @@ class GestionnaireAuthentifie(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(corps)
 
+    def list_directory(self, path):  # noqa: N802 - signature imposée par http.server
+        """Pas de listage : un volume neuf ou une première génération ratée
+        exposait sinon les noms des `sortie_AAAAMMJJ.gpx` accumulés. Derrière
+        l'authentification, mais gratuit à fermer (relecture du 16/09/2026).
+        """
+        self.send_error(404, "Rien à cet endroit")
+        return None
+
     def do_GET(self):  # noqa: N802 - signature imposée par http.server
         if not self._authentifie():
             self._refuser()
