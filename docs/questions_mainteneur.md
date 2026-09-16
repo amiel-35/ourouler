@@ -670,7 +670,7 @@ Trois formes possibles, à trancher :
 Sans réponse, le cycliste arbitre sur les phrases et les chiffres, pas sur
 les tracés — c'est-à-dire pas tout à fait « en regardant ».
 
-## Q19 — `sortie` perd toute la météo à J+2 et J+3, avec un message trompeur — **ouverte le 16/09/2026**
+## Q19 — `sortie` perd toute la météo au-delà de la portée d'AROME — **diagnostiquée le 16/09/2026, correction à écrire**
 
 Constaté en préparant les sorties réelles du mainteneur :
 
@@ -710,3 +710,39 @@ exacte n'est pas trouvée** — à instruire.
 repli sur le second modèle est de toute façon à écrire, indépendamment de la
 cause : c'est la règle 5 du projet appliquée à la météo — deux modèles qui
 divergent s'affichent, mais un modèle muet ne doit pas emporter les deux.
+
+## Diagnostic, trouvé le 16/09/2026
+
+**Ce n'est pas « hors du domaine », c'est « hors de portée ».**
+
+`meteo/openmeteo.py::_hors_domaine` conclut « le point sort de la grille »
+sur deux signatures : un corps HTTP 200 contenant des littéraux `nan`, ou
+**un bloc entièrement à `null`**. La seconde est ambiguë : un bloc nul, c'est
+aussi ce qu'Open-Meteo rend quand on demande des heures **au-delà de la
+portée du modèle**. AROME publie jusqu'au 18/09 23 h ; la sortie du club est
+le 19 à 10 h. L'heuristique confond une limite d'espace et une limite de
+temps, et le message envoie chercher au mauvais endroit.
+
+**Vérifié en basculant le modèle principal sur `icon_seamless`** (portée
+168 h) : la sortie du 19/09 rend la pluie, le vent, la tenue — et **trois
+propositions au lieu de deux**, dont « vous rentrez avec le vent dans le
+dos ». Le vent redevient un axe vivant, et le lot L5.3 retrouve son objet.
+
+**Contournement immédiat** : dans la configuration locale, `[meteo] modele =
+"icon_seamless"` et `second_avis = "meteofrance_seamless"`. On perd la maille
+fine d'AROME sur le court terme, on gagne les jours 3 à 7.
+
+**Correction à écrire** — trois choses, dans cet ordre d'importance :
+
+1. **Le repli automatique.** Quand le modèle principal ne couvre pas la
+   fenêtre demandée, basculer sur le modèle global déjà configuré, et le dire
+   dans l'en-tête (« AROME ne va pas jusqu'à samedi, prévision ICON »). C'est
+   la règle 5 appliquée à la météo : deux modèles qui divergent s'affichent,
+   mais un modèle muet ne doit pas emporter les deux. À écrire même si le
+   diagnostic évolue.
+2. **Distinguer les deux causes.** Un bloc nul au-delà de la dernière heure
+   publiée par le modèle n'est pas un point hors grille. La portée se lit dans
+   la réponse elle-même (dernière heure non nulle) ou se demande une fois.
+3. **Le conseil `--modele` est faux** : `ourouler sortie` n'a pas cette
+   option. Un message de la couche connecteur ne doit pas nommer une option de
+   ligne de commande qu'il ne connaît pas.
