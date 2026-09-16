@@ -118,6 +118,75 @@ hébergé : voir `maquettes_v1.html` et la section des mesures ci-dessous. La
 durée annoncée à l'écran doit venir de là, et être revue quand le calcul
 change.
 
+### 7. La position dans la zone, jamais la valeur
+
+Idée du mainteneur, et c'est la décision structurante de la journée.
+
+**Le problème qu'elle résout.** Le code porte aujourd'hui deux définitions de
+« la Z2 » qui ne sont pas d'accord : la table `ZONES_PUISSANCE_DEFAUT`
+(56–75 % de FTP) et `puissance_endurance_pct` (0,60), posés à des endroits
+différents. Tant qu'un seul homme édite un TOML, ça passe. Le jour où une
+interface laisse quelqu'un caler ses zones, les deux divergent en silence.
+
+**Le mécanisme.** L'écran de FTP montre trois valeurs liées :
+
+| | |
+|---|---|
+| la puissance visée | éditable — pour qui pense en watts |
+| la vitesse **à plat, sans vent, lancé** | éditable — pour tous les autres |
+| la moyenne compteur attendue | **non éditable** — la réconciliation |
+
+Éditer l'une recalcule l'autre par le modèle physique. Là où l'utilisateur
+s'arrête définit une **position dans sa Z2** — et c'est cette position, et
+elle seule, qui est **stockée**. Elle se propage ensuite aux autres zones :
+qui se met au milieu de sa Z2 prend le milieu de sa Z3 et de sa Z4.
+
+**Et c'est le stockage qui fait la valeur de l'idée.** Mots du mainteneur :
+« on stocke la position dans la zone, pas la valeur — comme ça la FTP change
+ou les zones décalent, on suit ». Une FTP qui progresse de 12 W déplace tout
+l'escalier sans qu'on touche à rien. Stocker des watts aurait recréé
+exactement la dette qu'on vient de retirer : une valeur figée à côté d'une
+table qui bouge.
+
+`puissance_endurance_pct` cesse donc d'être un réglage : il devient une
+conséquence de la position et de la table.
+
+**V2** : un écran avancé où l'on cale chaque zone en watts. Même stockage —
+la position, pas la valeur.
+
+### 8. Pourquoi la troisième valeur est obligatoire, et son chiffre
+
+Sans elle, quelqu'un tape dans le champ « à plat » la moyenne qu'il lit sur
+son compteur. **Tout l'escalier des zones se décale alors vers le bas** :
+mesuré chez le mainteneur, 26 km/h déclarés au lieu de 28,6 le placeraient à
+131 W, soit 0,508 × FTP — *sous* sa Z2, à −27 % de la bande. Et cette
+position fausse se propagerait à la Z3, la Z4 et toutes les autres.
+
+**Mesuré le 16/09/2026**, sorties libres extérieures d'au moins une heure,
+vélos séparés par le capteur de puissance, modèle pris à 0,60 × FTP :
+
+| vélo | sorties | à plat, sans vent | en mouvement | au compteur |
+|---|---|---|---|---|
+| RCR (route) | 69 | 28,6 km/h | 26,1 (**91 %**) | 24,8 (**87 %**) |
+| BMC (chrono) | 22 | 30,4 km/h | 28,5 (**94 %**) | 27,4 (**90 %**) |
+
+Deux lectures qui comptent :
+
+- **Le terrain coûte plus cher que les arrêts.** Sur les 13 points que perd le
+  RCR, 9 viennent du relief et du vent, 4 seulement des arrêts et des
+  relances. La relation puissance → vitesse est convexe : une côte coûte plus
+  que la descente ne rend, un vent de face plus que le vent de dos.
+- **Le facteur dépend du vélo**, et pas seulement par l'aérodynamique : le
+  chrono perd 10 % quand la route en perd 13. Il ne roule pas sur les mêmes
+  parcours.
+
+**Ce que la mesure a corrigé dans ce document.** Une conclusion précédente
+proposait de monter `puissance_endurance_pct` de 0,60 à 0,655 au motif que la
+puissance normalisée mesurée valait 0,689 × FTP. C'était confondre deux
+questions : la NP dit **quel effort est fourni**, pas **quelle distance est
+parcourue**. Le mainteneur situe sa vitesse de croisière à plat entre 28 et
+30 km/h, et le modèle à 0,60 en prédit 28,6 : il n'y avait rien à corriger.
+
 ## Ce qui reste à trancher
 
 Les questions ouvertes sont numérotées dans `discovery_parcours.md`. Les
