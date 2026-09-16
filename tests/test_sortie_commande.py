@@ -51,7 +51,9 @@ from ourouler.sortie.commande import (
     _comparer,
     _Contexte,
     _distance,
+    _ecart_seance,
     _ecrire_gpx,
+    _ligne_modele_meteo,
     _notes_egales,
     executer,
     lire_options,
@@ -112,6 +114,7 @@ def args(**champs) -> argparse.Namespace:
         "carte": None,
         "profil": None,
         "ecraser": False,
+        "carte_sans_seance": False,
         "json": False,
     }
     return argparse.Namespace(**{**defauts, **champs})
@@ -441,6 +444,13 @@ def test_la_sous_commande_est_declaree_dans_la_cli():
     assert lus.json is True
 
 
+def test_carte_sans_seance_absente_par_defaut_et_activable():
+    parseur = construire_parseur()
+    assert parseur.parse_args(["sortie", "--jour", "2026-09-08"]).carte_sans_seance is False
+    lus = parseur.parse_args(["sortie", "--jour", "2026-09-08", "--carte-sans-seance"])
+    assert lus.carte_sans_seance is True
+
+
 # --- aucune séance ------------------------------------------------------------
 
 
@@ -459,6 +469,51 @@ def test_sans_seance_le_json_le_dit(tmp_path: Path, monkeypatch, capsys):
     assert code == 0
     assert charge["seance"] is None
     assert charge["candidates"] == []
+    assert charge["carte"] is None, "--carte-sans-seance absent : rien n'est écrit"
+
+
+def test_sans_seance_et_carte_sans_seance_ecrit_une_page(tmp_path: Path, monkeypatch, capsys):
+    """Contrat de l'hébergé minimal, périmètre point 4 : le service planifié
+    doit produire une page, jamais rien ni une erreur, un jour sans séance."""
+    code = lancer(
+        tmp_path, monkeypatch, intervals=client_intervals([]), carte_sans_seance=True
+    )
+    sortie = capsys.readouterr().out
+    assert code == 0
+    pages = list((tmp_path / "cache" / "sorties").glob("*.html"))
+    assert len(pages) == 1
+    contenu = pages[0].read_text(encoding="utf-8")
+    assert "Rien de prévu" in contenu
+    assert JOUR.isoformat() in contenu
+    assert not list((tmp_path / "cache" / "sorties").glob("*.gpx")), "rien à rouler, pas de GPX"
+    assert str(pages[0]) in sortie
+
+
+def test_sans_seance_et_carte_sans_seance_le_json_donne_le_chemin(tmp_path: Path, monkeypatch, capsys):
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        intervals=client_intervals([]),
+        carte_sans_seance=True,
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert charge["seance"] is None
+    assert charge["carte"] is not None
+    assert Path(charge["carte"]).is_file()
+
+
+def test_sans_seance_et_carte_sans_seance_respecte_loption_carte(tmp_path: Path, monkeypatch):
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        intervals=client_intervals([]),
+        carte_sans_seance=True,
+        carte=str(tmp_path / "ma_page.html"),
+    )
+    assert code == 0
+    assert (tmp_path / "ma_page.html").is_file()
 
 
 # --- le tableau ---------------------------------------------------------------
@@ -774,16 +829,29 @@ def test_sans_meteo_le_tableau_reste_et_la_tenue_disparait(tmp_path: Path, monke
 # --- les fichiers écrits -------------------------------------------------------
 
 
-def test_le_gpx_et_la_carte_sont_ecrits_dans_le_dossier_courant(
+def test_le_gpx_et_la_carte_sont_ecrits_hors_du_dossier_courant(
     tmp_path: Path, monkeypatch, capsys
 ):
+    """Q23 : par défaut, les fichiers produits ne vont plus dans le dossier courant.
+
+    Avant ce correctif, ce test s'appelait
+    `..._sont_ecrits_dans_le_dossier_courant` et vérifiait exactement ce
+    défaut : sans `--sortie` ni `--carte`, les fichiers atterrissaient dans
+    le répertoire courant, donc le dépôt quand la commande y est lancée
+    depuis là. Ils vivent maintenant sous le dossier de cache configuré
+    (`config.cache.dossier / "sorties"`), et le dossier courant ne doit plus
+    en porter aucun.
+    """
     code = lancer(tmp_path, monkeypatch)
     sortie = capsys.readouterr().out
     assert code == 0
-    gpx = tmp_path / f"sortie_{JOUR:%Y%m%d}.gpx"
-    carte = tmp_path / f"sortie_{JOUR:%Y%m%d}.html"
+    gpx = tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.gpx"
+    carte = tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html"
     assert gpx.is_file() and carte.is_file()
-    assert gpx.name in sortie and carte.name in sortie
+    assert not list(tmp_path.glob("*.gpx")) and not list(tmp_path.glob("*.html")), (
+        "le dossier courant ne doit porter aucun fichier produit par défaut (Q23)"
+    )
+    assert str(gpx) in sortie and str(carte) in sortie, "le chemin complet doit être dit en clair"
     assert gpx.read_text(encoding="utf-8").startswith("<?xml")
 
 
@@ -798,7 +866,9 @@ def test_le_gpx_ecrit_est_le_parcours_place(tmp_path: Path, monkeypatch, capsys)
     charge = json.loads(capsys.readouterr().out)
     assert code == 0
     place = charge["candidates"][0]["placement"]
-    texte = (tmp_path / f"sortie_{JOUR:%Y%m%d}.gpx").read_text(encoding="utf-8")
+    texte = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.gpx").read_text(
+        encoding="utf-8"
+    )
     relu = lire_gpx_trace(texte.encode("utf-8"))
     assert relu.distance_m == pytest.approx(place["distance_totale_m"], rel=0.01)
     assert "sans demi-tour" in texte, texte[:400]
@@ -1055,9 +1125,10 @@ def test_le_gpx_d_un_parcours_avec_demi_tour_contient_l_aller_retour(
         jalons_m=[0.0, 12_000.0, 6_000.0],
     )
     seance = Seance(nom="séance fabriquée", jour=JOUR, etapes=[], duree_s=0.0, meta={})
-    demande = lire_options(args(), config_de_test(tmp_path / "cache"))
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(), config)
 
-    chemin = _ecrire_gpx(trace, place, seance, demande)
+    chemin = _ecrire_gpx(trace, place, seance, demande, config)
 
     texte = chemin.read_text(encoding="utf-8")
     relu = lire_gpx_trace(texte.encode("utf-8"))
@@ -1132,7 +1203,11 @@ class _Compteur(HTMLParser):
 
 def carte_produite(tmp_path: Path, monkeypatch, **champs) -> str:
     lancer(tmp_path, monkeypatch, **champs)
-    return (tmp_path / f"sortie_{JOUR:%Y%m%d}.html").read_text(encoding="utf-8")
+    # Q23 : le fichier par défaut vit sous le dossier de cache, plus le
+    # dossier courant — voir `chemin_carte_par_defaut`.
+    return (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_la_carte_se_parse_en_html_et_porte_le_nom_de_la_seance(
@@ -1440,3 +1515,68 @@ def test_une_reponse_au_vent_inconnue_est_refusee_avant_tout_appel(tmp_path: Pat
             meteo,
             intervals,
         )
+
+
+# --- Q21 a : l'alerte d'amputation suit le placement, pas un seuil en minutes --
+
+
+def test_moins_d_une_minute_n_est_jamais_dit():
+    """Sous 60 s, l'écart n'est même pas affiché — arrondi du placement, pas une info."""
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=30.0)) == ""
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=-30.0)) == ""
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=None)) == ""
+
+
+def test_un_depassement_positif_reste_neutre():
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=18 * 60.0)) == " (+18 min)"
+
+
+def test_un_ecart_negatif_sans_verdict_d_amputation_n_alerte_pas():
+    """Le défaut mesuré (Q21 a) : 1 min sur 2 h prescrites (0,8 %) déclenchait ⚠
+
+    à tort, alors que le seuil du mainteneur (`elasticite_calme_min`, −5 %)
+    ne le justifiait pas. `seance_amputee` porte le verdict du placement, qui
+    honore déjà ce seuil (`seance.placement`) — ce test fige seulement que
+    l'affichage le respecte, sans lui-même recalculer un pourcentage.
+    """
+    profil = types.SimpleNamespace(depassement_s=-60.0, seance_amputee=False)
+    texte = _ecart_seance(profil)
+    assert "⚠" not in texte
+    assert "amput" not in texte
+    assert texte == " (-1 min)"
+
+
+def test_un_ecart_negatif_amputant_la_seance_alerte():
+    profil = types.SimpleNamespace(depassement_s=-12 * 60.0, seance_amputee=True)
+    assert _ecart_seance(profil) == " (⚠ séance amputée de 12 min)"
+
+
+# --- Q19 : le modèle météo utilisé est nommé dans l'en-tête --------------------
+
+
+def _config_avec_modele(modele: str) -> types.SimpleNamespace:
+    return types.SimpleNamespace(meteo=types.SimpleNamespace(modele=modele))
+
+
+def _proposition_avec_meteo(meteo) -> types.SimpleNamespace:
+    return types.SimpleNamespace(meteo=meteo)
+
+
+def test_sans_meteo_aucune_ligne_de_modele():
+    lignes = _ligne_modele_meteo([_proposition_avec_meteo(None)], _config_avec_modele("AROME"))
+    assert lignes == []
+
+
+def test_sans_repli_la_ligne_nomme_juste_le_modele():
+    meteo = types.SimpleNamespace(modele_utilise="AROME", repli=False)
+    lignes = _ligne_modele_meteo([_proposition_avec_meteo(meteo)], _config_avec_modele("AROME"))
+    assert lignes == ["Météo : modèle AROME."]
+
+
+def test_le_repli_est_dit_et_nomme_les_deux_modeles():
+    """Critère d'acceptation du contrat : « en nommant le modèle utilisé »."""
+    meteo = types.SimpleNamespace(modele_utilise="ICON", repli=True)
+    lignes = _ligne_modele_meteo([_proposition_avec_meteo(meteo)], _config_avec_modele("AROME"))
+    assert len(lignes) == 1
+    assert "AROME" in lignes[0] and "ICON" in lignes[0]
+    assert "ne couvre pas" in lignes[0]

@@ -16,7 +16,7 @@ import pytest
 
 from ourouler.boucle.meteo_trace import SEUIL_PLUIE_MM_H, Echantillon, evaluer
 from ourouler.boucle.trace import PointTrace, Trace
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.erreurs import ErreurHorsDomaine, ErreurUtilisateur
 from ourouler.meteo.openmeteo import VARIABLES_HORAIRES, ClientOpenMeteo
 
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
@@ -491,3 +491,76 @@ def test_un_second_avis_indisponible_ne_fait_pas_echouer_l_evaluation():
     assert resultat.confiance == "inconnu"
     assert [e.pluie_mm for e in resultat.echantillons] == pytest.approx([1.0] * 5)
     assert resultat.minutes_pluie == pytest.approx(60.0)
+
+
+# --- repli (Q19) --------------------------------------------------------------
+#
+# `ourouler sortie --jour <J+2 ou J+3>` perdait toute la météo : le modèle
+# principal (AROME, portée 67 h) ne couvre pas une fenêtre à J+3, et rien ne
+# basculait sur le second avis déjà configuré. Ces tests couvrent le repli
+# ajouté dans `evaluer` : `modele_repli`, `MeteoTrace.modele_utilise/.repli`.
+
+
+def horaire_vide(n_heures: int) -> dict:
+    """Un bloc « hors de portée » : toutes les variables à `None` (Q19)."""
+    return horaire(n_heures, **{nom: [None] * n_heures for nom in VARIABLES_HORAIRES})
+
+
+def test_sans_defaut_le_modele_demande_est_nomme():
+    """Même sans repli, `modele_utilise` est renseigné : la ligne d'affichage en dépend."""
+    resultat = evaluer(
+        trace_droite(), client_simple(horaire(4, precipitation=[1.0] * 4)), depart=DEBUT,
+        vitesse_kmh=20.0, modele=MODELE, pas_m=5000.0,
+    )
+    assert resultat.modele_utilise == MODELE
+    assert resultat.repli is False
+
+
+def test_le_repli_prend_le_relais_quand_le_principal_est_hors_de_portee():
+    """Le cas de Q19 : le principal ne couvre pas la fenêtre, le repli si."""
+    def par_modele(modele: str):
+        return horaire_vide(4) if modele == MODELE else horaire(4, precipitation=[3.0] * 4)
+
+    vues: list[httpx.Request] = []
+    resultat = evaluer(
+        trace_droite(), client_bouchonne(par_modele, vues), depart=DEBUT, vitesse_kmh=20.0,
+        modele=MODELE, modele_repli=SECOND, pas_m=5000.0,
+    )
+    assert [r.url.params["models"] for r in vues] == [MODELE, SECOND]
+    assert resultat.modele_utilise == SECOND
+    assert resultat.repli is True
+    assert [e.pluie_mm for e in resultat.echantillons] == pytest.approx([3.0] * 5)
+
+
+def test_sans_modele_de_repli_l_echec_remonte_tel_quel():
+    """Le comportement d'avant Q19 est inchangé quand personne ne fournit de repli."""
+    with pytest.raises(ErreurHorsDomaine):
+        evaluer(
+            trace_droite(), client_simple(horaire_vide(4)), depart=DEBUT, vitesse_kmh=20.0,
+            modele=MODELE, pas_m=5000.0,
+        )
+
+
+def test_le_repli_egal_au_principal_n_est_pas_retente():
+    """Un `modele_repli` égal au principal ne changerait rien : on ne boucle pas dessus."""
+    with pytest.raises(ErreurHorsDomaine):
+        evaluer(
+            trace_droite(), client_simple(horaire_vide(4)), depart=DEBUT, vitesse_kmh=20.0,
+            modele=MODELE, modele_repli=MODELE, pas_m=5000.0,
+        )
+
+
+def test_le_repli_n_interroge_pas_deux_fois_le_meme_modele_pour_le_second_avis():
+    """`second_avis` == le modèle de repli : pas de troisième appel qui comparerait un modèle à lui-même."""
+    def par_modele(modele: str):
+        return horaire_vide(4) if modele == MODELE else horaire(4, precipitation=[1.0] * 4)
+
+    vues: list[httpx.Request] = []
+    resultat = evaluer(
+        trace_droite(), client_bouchonne(par_modele, vues), depart=DEBUT, vitesse_kmh=20.0,
+        modele=MODELE, second_avis=SECOND, modele_repli=SECOND, pas_m=5000.0,
+    )
+    assert [r.url.params["models"] for r in vues] == [MODELE, SECOND], (
+        "un troisième appel demanderait le second avis en plus du repli, pour rien"
+    )
+    assert resultat.confiance == "inconnu", "comparer un modèle à lui-même n'est pas un second avis"

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ourouler.config import Periode, charger, depuis_dict
+from ourouler.config import Depart, Periode, charger, depuis_dict
 from ourouler.erreurs import ErreurConfig
 
 # Point fictif en mer, loin de toute ville : jamais une coordonnée réelle.
@@ -77,6 +77,84 @@ def test_charger_absent_ou_invalide(tmp_path: Path):
     f.write_text("[depart\n", encoding="utf-8")
     with pytest.raises(ErreurConfig, match="TOML invalide"):
         charger(f)
+
+
+# --- environnement (contrat de l'hébergé minimal) ---------------------------
+#
+# Le contrat (docs/heberge_minimal_contrat.md, § « Les secrets ») fait venir
+# de l'environnement le point de départ, la clé Intervals et le serveur
+# BRouter — jamais commités, jamais dans une image. `environ=` est injectable
+# pour ne jamais dépendre de ce qui traîne sur la machine qui exécute le test
+# (règle absolue 3 : pas de réseau, et par extension pas de dépendance à un
+# état extérieur non maîtrisé).
+
+
+def _toml_minimal(tmp_path: Path, extra: str = "") -> Path:
+    f = tmp_path / "c.toml"
+    f.write_text(
+        '[depart]\nnom="Test"\nlatitude=1.0\nlongitude=2.0\n'
+        "[cycliste]\nmasse_kg=80\nftp_w=250\n" + extra,
+        encoding="utf-8",
+    )
+    return f
+
+
+def test_environnement_complete_depart_intervals_brouter(tmp_path: Path):
+    f = _toml_minimal(tmp_path)
+    environ = {
+        "OUROULER_DEPART_LATITUDE": "10.0",
+        "OUROULER_DEPART_LONGITUDE": "-30.0",
+        "OUROULER_INTERVALS_API_KEY": "cle-factice-test",
+        "OUROULER_INTERVALS_ATHLETE_ID": "i999999",
+        "OUROULER_BROUTER_URL": "https://brouter.exemple.invalid",
+        "OUROULER_BROUTER_UTILISATEUR": "amiel",
+        "OUROULER_BROUTER_MOT_DE_PASSE": "secret-factice",
+    }
+    c = charger(f, environ=environ)
+    assert (c.depart.latitude, c.depart.longitude) == (10.0, -30.0)
+    assert c.depart.nom == "Test", "la variable DEPART_NOM n'est pas posée : le TOML décide"
+    assert c.intervals.api_key == "cle-factice-test"
+    assert c.intervals.athlete_id == "i999999"
+    assert c.brouter.url == "https://brouter.exemple.invalid"
+    assert c.brouter.utilisateur == "amiel"
+    assert c.brouter.mot_de_passe == "secret-factice"
+
+
+def test_environnement_absent_laisse_le_toml_inchange(tmp_path: Path):
+    f = _toml_minimal(tmp_path, '[intervals]\napi_key="depuis-toml"\n')
+    c = charger(f, environ={})
+    assert c.depart.latitude == 1.0
+    assert c.intervals.api_key == "depuis-toml"
+
+
+def test_environnement_present_ecrase_le_toml(tmp_path: Path):
+    f = _toml_minimal(tmp_path, '[intervals]\napi_key="depuis-toml"\n')
+    c = charger(f, environ={"OUROULER_INTERVALS_API_KEY": "depuis-env"})
+    assert c.intervals.api_key == "depuis-env"
+    assert c.depart.latitude == 1.0, "non touché : seule la variable posée l'emporte"
+
+
+def test_environnement_peut_construire_depart_sans_section_toml(tmp_path: Path):
+    """Cas du conteneur : aucune coordonnée dans le fichier, tout vient de l'environnement."""
+    f = tmp_path / "c.toml"
+    f.write_text("[cycliste]\nmasse_kg=80\nftp_w=250\n", encoding="utf-8")
+    c = charger(
+        f,
+        environ={
+            "OUROULER_DEPART_NOM": "Conteneur",
+            "OUROULER_DEPART_LATITUDE": "10.0",
+            "OUROULER_DEPART_LONGITUDE": "-30.0",
+        },
+    )
+    assert c.depart == Depart(nom="Conteneur", latitude=10.0, longitude=-30.0)
+
+
+def test_charger_lit_os_environ_par_defaut(tmp_path: Path, monkeypatch):
+    """Sans `environ=`, `charger()` lit bien `os.environ` — le paramètre par
+    défaut n'est pas mort code."""
+    monkeypatch.setenv("OUROULER_INTERVALS_API_KEY", "depuis-os-environ")
+    f = _toml_minimal(tmp_path)
+    assert charger(f).intervals.api_key == "depuis-os-environ"
 
 
 # --- invariant de sécurité : la clé d'API ne s'imprime jamais ---------------

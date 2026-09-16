@@ -446,6 +446,13 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
         action="store_true",
         help="remplacer les fichiers de --sortie et --carte s'ils existent déjà",
     )
+    p.add_argument(
+        "--carte-sans-seance",
+        action="store_true",
+        help="écrire quand même la page (« rien de prévu ») à l'emplacement de --carte "
+        "s'il n'y a aucune séance ce jour-là — pour un service planifié, où pas de page "
+        "vaut moins bien que le dire",
+    )
     p.set_defaults(fonction=_commande_sortie)
 
 

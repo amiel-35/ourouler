@@ -541,7 +541,15 @@ def _couts(classe, km_trafic: float, km_total: float):
     """
     import dataclasses
 
-    valeurs = {"km_trafic": km_trafic, "km_calme": max(km_total - km_trafic, 0.0)}
+    # `km_par_highway` (Q21 c) porte maintenant le détail par classe que
+    # `sortie.contraste._part_trafic` lit directement (`primary` seul) —
+    # un `0.0` par défaut (comme avant que ce champ existe) casserait son
+    # `.get(...)` avec un `AttributeError`, pas un simple faux zéro.
+    valeurs = {
+        "km_trafic": km_trafic,
+        "km_calme": max(km_total - km_trafic, 0.0),
+        "km_par_highway": {"primary": km_trafic},
+    }
     for champ in dataclasses.fields(classe):
         if champ.name in valeurs:
             continue
@@ -549,6 +557,8 @@ def _couts(classe, km_trafic: float, km_total: float):
             valeurs[champ.name] = "horaire"
         elif champ.type in ("int", int):
             valeurs[champ.name] = 0
+        elif str(champ.type).startswith(("dict", "typing.Dict")):
+            valeurs[champ.name] = {}
         else:
             valeurs[champ.name] = 0.0
     return classe(**valeurs)

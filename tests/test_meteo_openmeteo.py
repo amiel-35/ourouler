@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 import pytest
 
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine
 from ourouler.meteo.openmeteo import VARIABLES_HORAIRES, ClientOpenMeteo
 
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
@@ -351,7 +351,11 @@ def test_corps_avec_des_litteraux_nan_donne_hors_du_domaine():
     message = str(e.value)
     assert "hors du domaine" in message
     assert "meteofrance_arome_france_hd" in message, "le message doit nommer le modèle fautif"
-    assert "global" in message and "--modele" in message, "il doit dire quoi faire"
+    assert "global" in message, "il doit dire quoi faire"
+    # Q19 : `ourouler sortie` n'a pas d'option `--modele` — un message de la
+    # couche connecteur ne doit pas conseiller une option de ligne de
+    # commande qu'il ne connaît pas (c'est à l'appelant de savoir la sienne).
+    assert "--modele" not in message
     assert "Expecting value" not in message, "l'erreur de parsing ne renseigne personne"
 
 
@@ -407,6 +411,19 @@ def test_un_point_entierement_nul_donne_hors_du_domaine():
     b = bloc(0.0, 0.0, **vide)
     client, _ = client_repondant([b])
     with pytest.raises(ErreurConnecteur, match="hors du domaine"):
+        client.previsions([(0.0, 0.0)], modele="arome", debut=DEBUT, horizon_h=3)
+
+
+def test_hors_domaine_est_un_type_distinct_pour_permettre_un_repli():
+    """Q19 : `ErreurHorsDomaine` doit être catchable à part d'une panne quelconque.
+
+    C'est ce qui permet à un appelant (`boucle.meteo_trace.evaluer`) de
+    retenter avec un modèle de repli seulement dans ce cas précis, sans
+    masquer une vraie panne réseau sur laquelle retenter ne changerait rien.
+    """
+    vide = {nom: [None, None, None] for nom in VARIABLES_HORAIRES}
+    client, _ = client_repondant([bloc(0.0, 0.0, **vide)])
+    with pytest.raises(ErreurHorsDomaine):
         client.previsions([(0.0, 0.0)], modele="arome", debut=DEBUT, horizon_h=3)
 
 

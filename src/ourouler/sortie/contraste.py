@@ -241,6 +241,21 @@ class Profil:
     seance_amputee: bool = False
     pluie_mm: float | None = None
     densite_marqueurs_km: float | None = None
+    #: Feux et stops du parcours, en nombre absolu. Affiché tel quel : « 28
+    #: feux, 20 stops ». Une densité au kilomètre invitait à multiplier —
+    #: « 1,7 au km, donc 170 sur 100 km » — sur un composite dont 65 % étaient
+    #: des passages piétons (mesuré le 16/09/2026).
+    feux: int | None = None
+    stops: int | None = None
+    #: Part de la boucle en `highway=primary` seul (Q21 c) — plus le
+    #: composite `boucle.couts.HIGHWAY_TRAFIC` (primary + secondary + trunk)
+    #: d'avant ce correctif. Mesuré sur les vraies sorties du mainteneur :
+    #: `trunk` vaut zéro sur 381 km dans huit directions (BRouter n'y envoie
+    #: jamais un vélo), et `secondary` — une départementale ordinaire, pas
+    #: une quatre-voies — portait deux tiers du chiffre composite « alors
+    #: qu'il n'en a cure » (ses mots). Le nom du champ ne change pas : ce que
+    #: `primary` mesure reste une route à trafic, la seule que le composite
+    #: comptait à raison.
     part_trafic: float | None = None
     orientation: str | None = None
 
@@ -265,6 +280,9 @@ class Profil:
             AXE_DEMI_TOURS: float(self.demi_tours),
             AXE_TERRAIN: self.note_terrain,
             AXE_PLUIE: self.pluie_mm,
+            # L'axe compare des **arrêts au kilomètre** — comparable entre
+            # boucles de longueurs différentes — là où l'affichage montre des
+            # nombres absolus. Deux besoins, deux formes de la même mesure.
             AXE_VILLE: self.densite_marqueurs_km,
             AXE_TRAFIC: self.part_trafic,
             AXE_VENT: self.orientation,
@@ -299,7 +317,9 @@ def profil(
         demi_tours=int(proposition.demi_tours),
         note_terrain=float(proposition.placement.note_terrain),
         pluie_mm=(meteo.pluie_cumulee_mm if meteo is not None else None),
-        densite_marqueurs_km=marqueurs.par_km,
+        densite_marqueurs_km=marqueurs.arrets_par_km,
+        feux=(None if not marqueurs.connue else marqueurs.par_nature.get("traffic_signals", 0)),
+        stops=(None if not marqueurs.connue else marqueurs.par_nature.get("stop", 0)),
         part_trafic=_part_trafic(proposition),
         orientation=orientation_au_vent(meteo),
     )
@@ -314,19 +334,25 @@ def _seance_amputee(placement) -> bool:
 
 
 def _part_trafic(proposition) -> float | None:
-    """Part de la boucle sur des routes à trafic, ou `None` si les tags manquent.
+    """Part de la boucle en `highway=primary`, ou `None` si les tags manquent (Q21 c).
+
+    Avant ce correctif, la mesure était `couts.km_trafic` — le composite
+    `boucle.couts.HIGHWAY_TRAFIC` (primary + secondary + trunk) que le score
+    utilise pour router. Décision du mainteneur : la catégorie composite
+    disparaît de l'affichage, `primary` seul reste. `couts.km_par_highway`
+    porte déjà le détail par classe, il n'y avait rien à mesurer de plus.
 
     `trace.meta["couts_partiels"]` est vrai quand le tracé n'a pas de
     `segments` (un GPX importé) : les kilomètres par type de route valent
     alors 0 **faute de les connaître**, et les rendre tels quels ferait passer
-    une ignorance pour une boucle sans le moindre grand axe.
+    une ignorance pour une boucle sans la moindre route nationale.
     """
     if proposition.trace.meta.get("couts_partiels"):
         return None
     km = proposition.trace.distance_m / 1000.0
     if not math.isfinite(km) or km <= 0:
         return None
-    return proposition.couts.km_trafic / km
+    return proposition.couts.km_par_highway.get("primary", 0.0) / km
 
 
 def orientation_au_vent(meteo: MeteoTrace | None) -> str | None:
@@ -560,7 +586,7 @@ _NOMS_AXES = {
     AXE_DEMI_TOURS: "les demi-tours",
     AXE_DUREE: "la durée",
     AXE_VILLE: "la ville",
-    AXE_TRAFIC: "les grands axes",
+    AXE_TRAFIC: "les nationales",
     AXE_PLUIE: "la pluie",
     AXE_TERRAIN: "le terrain sous les blocs",
 }
@@ -793,7 +819,7 @@ def phrase(axe: str | None, sujet: Profil, autres: list[Profil]) -> str:
     if axe == AXE_VILLE:
         return "elle évite les villages"
     if axe == AXE_TRAFIC:
-        return "elle évite les grands axes"
+        return "elle évite les nationales"
     if axe == AXE_TERRAIN:
         return "c'est là que les blocs tombent le mieux"
     return ""

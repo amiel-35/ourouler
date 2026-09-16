@@ -95,7 +95,7 @@ from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
 from ourouler.sortie import contraste, orientation, vent_demande
-from ourouler.sortie.carte import PropositionCarte, construire_page_jour
+from ourouler.sortie.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
 #: haut** : une séance de 72 km demande une boucle de 75 km. Vers le haut et
@@ -229,19 +229,35 @@ def executer(
 
     seance = _seance(demande, config, client_intervals)
     if seance is None:
+        # Service planifié (contrat de l'hébergé minimal, périmètre point 4) :
+        # un jour sans séance doit produire une page qui le dit, jamais rien
+        # ni la page de la veille. Par défaut (`--carte-sans-seance` absent),
+        # rien n'est écrit — comportement inchangé pour l'usage interactif,
+        # où un fichier à chaque essai sans séance serait du bruit.
+        chemin_carte = None
+        if getattr(args, "carte_sans_seance", False):
+            chemin_carte = _ecrire_page_sans_seance(demande, config)
         if getattr(args, "json", False):
             print(
                 json.dumps(
-                    {"jour": demande.jour.isoformat(), "seance": None, "candidates": []},
+                    {
+                        "jour": demande.jour.isoformat(),
+                        "seance": None,
+                        "candidates": [],
+                        "carte": str(chemin_carte) if chemin_carte else None,
+                    },
                     ensure_ascii=False,
                     indent=2,
                 )
             )
         else:
-            print(
+            message = (
                 f"Aucune séance vélo planifiée le {demande.jour.isoformat()} sur Intervals.icu — "
                 "rien à placer. `ourouler boucle` propose une sortie libre."
             )
+            if chemin_carte is not None:
+                message += f"\nPage écrite : {chemin_carte}"
+            print(message)
         return 0
 
     parametres, provenance = _parametres(config, demande.velo)
@@ -258,6 +274,7 @@ def executer(
         depart_heure=demande.depart,
         jour=demande.jour,
         modele=config.meteo.modele,
+        modele_repli=config.meteo.second_avis,
     )
     azimut_vent = question.azimut_pour(demande.vent)
 
@@ -287,7 +304,7 @@ def executer(
     tenue = (
         conseiller_tenue(meilleure.meteo, config.tenue) if meilleure.meteo is not None else None
     )
-    chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande)
+    chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande, config)
     chemin_carte = _ecrire_page_jour(seance, demande, config, selection)
 
     if panne is not None:
@@ -396,8 +413,8 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         vent=vent,
     )
     for chemin, demande_explicite in (
-        (chemin_gpx_par_defaut(demande), demande.sortie is not None),
-        (chemin_carte_par_defaut(demande), demande.carte is not None),
+        (chemin_gpx_par_defaut(demande, config), demande.sortie is not None),
+        (chemin_carte_par_defaut(demande, config), demande.carte is not None),
     ):
         _verifier_ecriture(chemin, explicite=demande_explicite, ecraser=demande.ecraser)
     return demande
@@ -427,14 +444,40 @@ def _heure_depart(brut: str | None, jour: date) -> datetime:
     return quand.replace(year=jour.year, month=jour.month, day=jour.day)
 
 
-def chemin_gpx_par_defaut(demande: Demande) -> Path:
-    """`sortie_<AAAAMMJJ>.gpx` dans le dossier courant, ou le `--sortie` demandé."""
-    return demande.sortie or Path(f"sortie_{demande.jour:%Y%m%d}.gpx")
+def _dossier_sorties_par_defaut(config: Config) -> Path:
+    """Le dossier des fichiers produits par défaut, hors du dépôt (Q23).
+
+    Avant ce correctif, sans `--sortie` ni `--carte`, `sortie_AAAAMMJJ.gpx`
+    et `.html` s'écrivaient dans le répertoire courant — le dépôt, quand la
+    commande est lancée de là, ce que fait le mainteneur. `.gitignore` les
+    couvre, mais ces fichiers portent ses coordonnées de départ : « un
+    fichier que seul `.gitignore` protège n'est pas protégé, il est
+    seulement discret. »
+
+    Un sous-dossier du cache déjà configuré (`config.cache.dossier`,
+    `~/.cache/ourouler` par défaut) — l'une des deux destinations que le
+    contrat proposait, et celle qui n'ajoute pas un nouveau réglage. Créé au
+    besoin : le premier `ourouler sortie` d'une machine neuve ne doit pas
+    échouer faute de dossier.
+    """
+    dossier = config.cache.dossier / "sorties"
+    try:
+        dossier.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise ErreurUtilisateur(f"{dossier} : impossible de créer le dossier ({e})") from e
+    return dossier
 
 
-def chemin_carte_par_defaut(demande: Demande) -> Path:
-    """`sortie_<AAAAMMJJ>.html` dans le dossier courant, ou le `--carte` demandé."""
-    return demande.carte or Path(f"sortie_{demande.jour:%Y%m%d}.html")
+def chemin_gpx_par_defaut(demande: Demande, config: Config) -> Path:
+    """`sortie_<AAAAMMJJ>.gpx` dans le dossier de sortie par défaut, ou le `--sortie` demandé."""
+    return demande.sortie or (_dossier_sorties_par_defaut(config) / f"sortie_{demande.jour:%Y%m%d}.gpx")
+
+
+def chemin_carte_par_defaut(demande: Demande, config: Config) -> Path:
+    """`sortie_<AAAAMMJJ>.html` dans le dossier de sortie par défaut, ou le `--carte` demandé."""
+    return demande.carte or (
+        _dossier_sorties_par_defaut(config) / f"sortie_{demande.jour:%Y%m%d}.html"
+    )
 
 
 def _verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
@@ -670,6 +713,12 @@ def _replacer_avec_vent(
                 # pluie, et ce premier appel ne sert qu'au vent du modèle
                 # principal — l'économiser garde le coût à un appel de plus
                 # par candidate, pas deux.
+                #
+                # `modele_repli` (Q19), lui, ne coûte rien tant que le
+                # principal répond : il ne se déclenche que si celui-ci ne
+                # couvre pas la fenêtre, exactement le cas qui privait cette
+                # deuxième passe de vent — et donc de son replacement.
+                modele_repli=config.meteo.second_avis,
             )
         except ErreurConnecteur:
             resultat.append((candidate, placement_sans_vent))
@@ -783,6 +832,10 @@ def _mesurer(
                     vitesse_kmh=vitesse,
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
+                    # Repli Q19 : sans lui, une fenêtre hors de portée
+                    # d'AROME (sortie à J+3, par exemple) perdait toute la
+                    # météo et toute la tenue, pas seulement une colonne.
+                    modele_repli=config.meteo.second_avis,
                 )
             except ErreurConnecteur as e:
                 panne = str(e)
@@ -830,7 +883,9 @@ def _base_routes(config: Config) -> BaseRoutes | None:
 # --- écriture des fichiers -----------------------------------------------------
 
 
-def _ecrire_gpx(trace: Trace, placement: Placement, seance: Seance, demande: Demande) -> Path:
+def _ecrire_gpx(
+    trace: Trace, placement: Placement, seance: Seance, demande: Demande, config: Config
+) -> Path:
     """Le GPX du **parcours placé**, demi-tours compris — pas celui de la boucle.
 
     Défaut mesuré le 22/04 : avec quatre demi-tours, le placement comptait
@@ -839,7 +894,7 @@ def _ecrire_gpx(trace: Trace, placement: Placement, seance: Seance, demande: Dem
     GPX ne correspond pas à la séance. La carte, elle, montre toujours la
     boucle : c'est son rôle de situer les blocs sur le tracé d'origine.
     """
-    chemin = chemin_gpx_par_defaut(demande)
+    chemin = chemin_gpx_par_defaut(demande, config)
     nom = f"{seance.nom} — {seance.jour.isoformat()}"
     parcours = trace_parcourue(placement, trace)
     try:
@@ -866,6 +921,27 @@ def _description_parcours(parcours: Trace, placement: Placement) -> str:
     return f"{description_gpx(parcours)} · {combien}"
 
 
+def _ecrire_page_sans_seance(demande: Demande, config: Config) -> Path:
+    """La page du jour quand rien n'est planifié (contrat de l'hébergé minimal, périmètre point 4).
+
+    Réutilise l'emplacement standard de la carte (`--carte`, ou le nom daté
+    par défaut `chemin_carte_par_defaut`) : le serveur statique qui sert le
+    dossier n'a besoin de rien savoir de plus qu'un jour ouvré. Le contenu
+    dit qu'il n'y a rien à rouler et quand la page a été produite (point 5) —
+    une page qui le dit vaut mieux qu'aucune page, jamais une erreur ni la
+    page de la veille servie en silence.
+    """
+    chemin = chemin_carte_par_defaut(demande, config)
+    try:
+        chemin.write_text(
+            construire_page_sans_seance(demande.jour, maintenant=datetime.now()),
+            encoding="utf-8",
+        )
+    except OSError as e:
+        raise ErreurUtilisateur(f"écriture impossible dans {chemin} ({e})") from e
+    return chemin
+
+
 def _ecrire_page_jour(
     seance: Seance,
     demande: Demande,
@@ -885,7 +961,7 @@ def _ecrire_page_jour(
     un téléchargement `blob:` côté navigateur (§4.2 du contrat — « le
     fichier suit le choix du cycliste, pas le classement »).
     """
-    chemin = chemin_carte_par_defaut(demande)
+    chemin = chemin_carte_par_defaut(demande, config)
     cartes_props = []
     for retenue in selection.retenues:
         p = retenue.proposition
@@ -1096,35 +1172,77 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     return lignes
 
 
+#: Écart de durée en deçà duquel on n'affiche rien : 5 % de la séance.
+#: Mots du mainteneur (16/09/2026) : « 1 min en plus ou en moins n'est pas un
+#: seuil important, faire une alerte quand on est à 5 % de différence de durée,
+#: pas moins ». Deux seuils, deux rôles : celui-ci décide si l'écart mérite
+#: d'être dit, `elasticite_calme_min` s'il mérite une alerte.
+SEUIL_ECART_DUREE = 0.05
+
+
 def _ecart_seance(profil) -> str:
-    """« (+18 min) » ou « (séance amputée de 12 min) », ou rien si elle tombe juste.
+    """« (+18 min) » ou « (⚠ séance amputée de 12 min) », ou rien si elle tombe juste.
 
     Le signe compte et se dit : rentrer plus tard est normal — c'est le rôle
     du retour au calme —, rouler moins que la séance ne l'est pas. Les deux
     écarts sont du même côté de la valeur absolue dans l'axe de contraste, ils
     ne doivent pas l'être à l'affichage.
+
+    **Le ⚠ suit le verdict du placement (`profil.seance_amputee`), pas un
+    seuil recalculé ici (Q21 a).** Avant ce correctif, 60 secondes (1 min)
+    suffisaient à afficher « ⚠ séance amputée », y compris pour un écart de
+    0,8 % sur une séance de 2 h — alors que le mainteneur a déjà fixé le
+    seuil qui compte, `elasticite_calme_min` (config `[seance]`, −5 % par
+    défaut), et que `seance.placement` l'applique déjà pour décider si le
+    retour au calme est raccourci. Un écart sous ce seuil reste visible en
+    minutes, neutre, sans ⚠ — symétrique du dépassement positif.
+
+    **Et sous le seuil, on n'affiche rien du tout (correction du 16/09/2026).**
+    La première version gardait « (−5 min) » sans le ⚠ ; le mainteneur a
+    répondu « pas réglé ». Il avait raison : sa phrase était « faire une
+    alerte quand on est à 5 % de différence de durée, pas moins », et un
+    écart qu'on juge négligeable n'a pas à s'afficher. Une ligne qui signale
+    ce qui ne compte pas apprend à ne plus lire la ligne.
     """
     depassement = getattr(profil, "depassement_s", None)
+    duree = getattr(profil, "duree_s", None)
     if depassement is None or abs(depassement) < 60:
         return ""
+    if duree:
+        prescrite = duree - depassement
+        if prescrite > 0 and abs(depassement) / prescrite < SEUIL_ECART_DUREE:
+            return ""
     if depassement > 0:
         return f" (+{depassement / 60:.0f} min)"
-    return f" (⚠ séance amputée de {-depassement / 60:.0f} min)"
+    if getattr(profil, "seance_amputee", False):
+        return f" (⚠ séance amputée de {-depassement / 60:.0f} min)"
+    return f" ({depassement / 60:.0f} min)"
 
 
 def _details_proposition(retenue) -> str:
     """Les mesures qui portent la phrase, dans les unités du cycliste."""
     profil = retenue.profil
     morceaux = [_duree_courte(profil.duree_s) + _ecart_seance(profil)]
-    if profil.densite_marqueurs_km is not None:
-        morceaux.append(f"{_fr(profil.densite_marqueurs_km, 1)} feux/stops/passages au km")
+    if profil.feux is not None:
+        # Nombres absolus, et séparés : « 1,7 feux/stops/passages au km » se
+        # lisait « 170 sur 100 km » (mots du mainteneur) sur un composite dont
+        # les deux tiers étaient des passages piétons, qu'on traverse sans
+        # lever le pied. On ne montre plus que ce qui pose le pied.
+        arrets = [f"{profil.feux} feu{'x' if profil.feux > 1 else ''}"]
+        if profil.stops:
+            arrets.append(f"{profil.stops} stop{'s' if profil.stops > 1 else ''}")
+        morceaux.append(", ".join(arrets))
     else:
         morceaux.append("marqueurs inconnus")
     morceaux.append(
         "aucun demi-tour" if profil.demi_tours == 0 else f"{profil.demi_tours} demi-tour(s)"
     )
     if profil.part_trafic is not None:
-        morceaux.append(f"{profil.part_trafic * 100:.0f} % de grands axes")
+        # Q21 c : le % de `primary` seul, plus le composite primary +
+        # secondary + trunk qui multipliait par quatre ce qui devait
+        # inquiéter (« secondary », une départementale ordinaire ici, en
+        # portait les deux tiers).
+        morceaux.append(f"{profil.part_trafic * 100:.0f} % de nationales")
     if profil.pluie_mm is not None:
         morceaux.append(f"{_fr(profil.pluie_mm, 1)} mm de pluie")
     if profil.orientation is not None:
@@ -1178,6 +1296,33 @@ def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[s
     return lignes
 
 
+def _ligne_modele_meteo(propositions: list[Proposition], config: Config) -> list[str]:
+    """Nomme le modèle météo utilisé (Q19), et le dit haut quand c'est un repli.
+
+    « en nommant le modèle utilisé » est le critère d'acceptation du contrat
+    de mise en service : sans cette ligne, un repli sur le second avis se
+    passait en silence — exactement ce que la règle absolue 5 interdit pour
+    deux modèles qui divergent, et ici un seul des deux a pu répondre.
+    """
+    meteo = next((p.meteo for p in propositions if p.meteo is not None), None)
+    if meteo is None or not meteo.modele_utilise:
+        return []
+    if meteo.repli:
+        return [
+            f"Météo : {config.meteo.modele} ne couvre pas cette fenêtre — bascule sur "
+            f"{meteo.modele_utilise} (second avis, configuré en repli)."
+        ]
+    return [f"Météo : modèle {meteo.modele_utilise}."]
+
+
+def _modele_meteo_json(propositions: list[Proposition]) -> dict | None:
+    """L'équivalent JSON de `_ligne_modele_meteo` : même donnée, forme structurée."""
+    meteo = next((p.meteo for p in propositions if p.meteo is not None), None)
+    if meteo is None or not meteo.modele_utilise:
+        return None
+    return {"utilise": meteo.modele_utilise, "repli": meteo.repli}
+
+
 def _entete(
     propositions: list[Proposition], contexte: _Contexte, presentes: set[str]
 ) -> list[str]:
@@ -1215,6 +1360,7 @@ def _entete(
             "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un "
             "CdA et un Crr par défaut (`ourouler calibrer`)."
         )
+    lignes += _ligne_modele_meteo(propositions, config)
     lignes += _lignes_vent(contexte)
     if seance.meta.get("puissance_approximee"):
         lignes.append(
@@ -1426,6 +1572,10 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
             "velo": demande.velo,
         },
         "modele_physique": contexte.provenance_modele,
+        # Q19 : le modèle météo qui a effectivement répondu, et si c'est un
+        # repli sur le second avis (le principal ne couvrait pas la
+        # fenêtre) — `None` quand aucune candidate n'a de météo (panne).
+        "modele_meteo": _modele_meteo_json(propositions),
         "seuil_bloc_bien_place": NOTE_BLOC_BIEN_PLACE,
         # Écart relatif de note en dessous duquel la pluie départage plutôt que
         # le vent (préférence du cycliste, `config.seance.tolerance_egalite`) :
@@ -1640,6 +1790,8 @@ def _candidate_json(proposition: Proposition) -> dict:
             "ressenti_min_c": meteo.ressenti_min_c,
             "confiance": meteo.confiance,
             "n_echantillons": len(meteo.echantillons),
+            "modele_utilise": meteo.modele_utilise,
+            "repli": meteo.repli,
         },
     }
 
