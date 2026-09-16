@@ -1239,3 +1239,92 @@ brut « ne sert qu'à situer l'écart avant le contrôle », et le chiffre
 **contrôlé** disait l'inverse. J'ai conclu à partir du nombre que la mesure
 me disait de ne pas utiliser. Le mainteneur l'a relevé.
 
+## Q27 — Les séances à blocs ont une autre répartition de routes — **mesuré le 16/09/2026**
+
+Question du mainteneur : « les sorties où j'ai des blocs spécifiques ont-elles
+la même répartition ? Je fais beaucoup de Z2 et ça s'entend de faire du
+tertiary où le côté roulant importe peu. Mais quand j'ai des blocs, est-ce que
+la répartition est fondamentalement différente ? »
+
+### Comment reconnaître une séance à blocs — deux méthodes fausses avant la bonne
+
+1. **La variabilité de puissance : fausse**, et c'est lui qui l'a dit — « la
+   moindre montée un peu poussée, c'est foutu ». Elle attrapait 6 sorties dont
+   5 n'étaient que des bosses, et donnait un résultat **inversé** (41 % de
+   `tertiary` sur les prétendues séances à blocs, contre 70 % en réalité).
+2. **La séance planifiée au calendrier : fausse aussi.** Elle ne trouvait
+   qu'**une** sortie sur 142, ce qui m'a fait écrire au mainteneur que le cœur
+   du produit servait un cas quasi inexistant. Faux : ses séances ne sont pas
+   toujours posées au calendrier.
+3. **La bonne : le nom de l'activité.** « des découpages clairs dans la séance
+   par bloc avec souvent un nom associé » — « Rennes - 4x15 SST R3' (90 % FTP) ».
+   Motif `NxM`, plus « durabilité », « rappel », « dont NN' ». Exclus : les
+   endurances encadrées (EF, Z2, « 4H », « 3H à 75 % »). **21 séances
+   structurées en extérieur**, pas une.
+
+### Le résultat
+
+Médianes, 20 séances structurées contre 35 régulières :
+
+| | Blocs | Sans bloc | Écart |
+|---|---|---|---|
+| `tertiary` | **72,2 %** | 61,8 % | **+10,4** |
+| `secondary` | **4,9 %** | 14,5 % | **−9,6** |
+| `unclassified` | 14,6 % | 15,7 % | −1,1 |
+| `primary` | 0,1 % | 0,7 % | −0,6 |
+
+**Les jours de blocs, il prend trois fois moins de départementales.** Le
+chiffre bouge à peine entre 17 et 21 séances détectées, ce qui plaide pour sa
+solidité.
+
+**Le biais joue en faveur de la conclusion** — réserve du mainteneur, retenue :
+la détection ne voit que ce qui est dans le nom, donc ses séances à blocs non
+nommées sont comptées comme régulières et **rapprochent les deux colonnes**.
+L'écart réel est plus grand que 10 points, pas plus petit.
+
+### Ce qui bouge, et ce qui ne bouge pas
+
+Observation du mainteneur : `primary` et `unclassified` sont **stables**.
+`unclassified` est un fond constant (≈15 % dans les deux cas), `primary` un
+plancher (il n'en prend jamais). **Tout ce qui varie avec le type de séance
+est un arbitrage `tertiary` contre `secondary`, et rien d'autre** — donc un
+seul paramètre à faire varier avec l'intensité, pas une grille.
+
+### Les trois règles, chacune avec son motif distinct
+
+| Règle | Pourquoi |
+|---|---|
+| `trunk` interdit | Sécurité. Gratuit : il vaut déjà zéro sur 381 km mesurés. |
+| `primary` pénalisé, toujours | **Corrige le moteur, pas le cycliste** : les boucles proposées en portent 6,9 % quand il en prend 4,2 %, et ≈0 sur ses séances structurées. |
+| `secondary` pénalisé **selon l'intensité** | 14,5 % en Z2, 4,9 % en blocs. |
+
+`unclassified` n'a besoin d'aucune règle : 15,3 % chez lui, 15,6 % dans les
+boucles proposées. Ils sont déjà d'accord.
+
+### Ce que ça corrige de ce que j'avais proposé
+
+**Le trafic doit peser dans la note des blocs.** Je proposais l'inverse, en
+m'appuyant sur ses mots — « une départementale rapide ne me gêne pas pour un
+bloc ». Ses sorties disent le contraire : ces jours-là il les évite trois fois
+plus. **Troisième cas de la soirée où la mesure contredit le souvenir**, après
+les côtes (sprint 3) et les villages (Q17).
+
+Et le poids n'est pas unique : il varie avec l'intensité, comme le coût des
+descentes depuis le sprint 4.
+
+### La cible de calibration, corrigée du biais de corridor
+
+Le mainteneur a soulevé le bon doute : son corridor répété fausse-t-il les
+pourcentages ? Mesuré, sur 30 sorties et 13 089 mailles distinctes de 30 m :
+
+| | Par km | Par sortie | **Routes distinctes** |
+|---|---|---|---|
+| `tertiary` | 58,7 % | 62,1 % | **48,0 %** |
+| `secondary` | 16,5 % | 14,3 % | **25,0 %** |
+
+Son corridor répété est **plus `tertiary` que son réseau** : compter chaque
+route une fois fait perdre 11 points au `tertiary`. Calibrer sur 60 %
+reviendrait à calibrer sur sa répétition, donc à apprendre ses habitudes en
+croyant apprendre ses goûts — le piège que la doctrine interdit. **48 % est la
+cible honnête.** Les 11 points d'écart sont la mesure du corridor.
+
