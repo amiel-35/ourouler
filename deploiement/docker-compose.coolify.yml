@@ -12,6 +12,14 @@
 # 3. **Le domaine vient de `SERVICE_FQDN_SERVEUR_8080`**, la variable magique
 #    de Coolify : elle lui dit quel service exposer et sur quel port.
 #
+# Et une absence, qui se remarque en comparant avec le fichier local : pas un
+# seul `${VAR:?message}`. Coolify ne connaît pas cette forme — il prend le
+# message pour une valeur par défaut et démarre le conteneur avec, au lieu de
+# refuser. Mesuré ici : `OUROULER_CONFIG_TOML_B64` valait littéralement « le
+# TOML non-secrets, encodé en base64 ». Un garde qui ne garde pas et qui
+# fabrique une valeur fausse est pire que pas de garde : `${VAR}` seul laisse
+# la variable vide, et `config.charger` échoue franchement au démarrage.
+#
 # Tout le reste — les deux rôles, le volume partagé, le fait que le départ,
 # la clé Intervals et BRouter ne vivent qu'en variables — est identique au
 # local, et c'est voulu : ce qui tourne en ligne doit être ce qu'on a vérifié
@@ -25,15 +33,15 @@ services:
     command: ["python3", "deploiement/generateur/entrypoint.py"]
     environment:
       OUROULER_CONFIG: /config/config.toml
-      OUROULER_CONFIG_TOML_B64: ${OUROULER_CONFIG_TOML_B64:?le TOML non-secrets, encodé en base64}
+      OUROULER_CONFIG_TOML_B64: ${OUROULER_CONFIG_TOML_B64}
       OUROULER_DOSSIER_PAGES: /data/pages
       OUROULER_HEURE_GENERATION: ${OUROULER_HEURE_GENERATION:-06:00}
-      OUROULER_INTERVALS_API_KEY: ${OUROULER_INTERVALS_API_KEY:?}
-      OUROULER_INTERVALS_ATHLETE_ID: ${OUROULER_INTERVALS_ATHLETE_ID:?}
-      OUROULER_DEPART_NOM: ${OUROULER_DEPART_NOM:?}
-      OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE:?}
-      OUROULER_DEPART_LONGITUDE: ${OUROULER_DEPART_LONGITUDE:?}
-      OUROULER_BROUTER_URL: ${OUROULER_BROUTER_URL:?}
+      OUROULER_INTERVALS_API_KEY: ${OUROULER_INTERVALS_API_KEY}
+      OUROULER_INTERVALS_ATHLETE_ID: ${OUROULER_INTERVALS_ATHLETE_ID}
+      OUROULER_DEPART_NOM: ${OUROULER_DEPART_NOM}
+      OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE}
+      OUROULER_DEPART_LONGITUDE: ${OUROULER_DEPART_LONGITUDE}
+      OUROULER_BROUTER_URL: ${OUROULER_BROUTER_URL}
       OUROULER_BROUTER_UTILISATEUR: ${OUROULER_BROUTER_UTILISATEUR:-}
       OUROULER_BROUTER_MOT_DE_PASSE: ${OUROULER_BROUTER_MOT_DE_PASSE:-}
     volumes:
@@ -49,8 +57,8 @@ services:
       - SERVICE_FQDN_SERVEUR_8080
       - OUROULER_DOSSIER_PAGES=/data/pages
       - OUROULER_PORT=8080
-      - OUROULER_WWW_UTILISATEUR=${OUROULER_WWW_UTILISATEUR:?}
-      - OUROULER_WWW_MOT_DE_PASSE=${OUROULER_WWW_MOT_DE_PASSE:?}
+      - OUROULER_WWW_UTILISATEUR=${OUROULER_WWW_UTILISATEUR}
+      - OUROULER_WWW_MOT_DE_PASSE=${OUROULER_WWW_MOT_DE_PASSE}
     volumes:
       - pages:/data/pages:ro
     expose:
