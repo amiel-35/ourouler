@@ -880,3 +880,50 @@ sont en pointillé gris. Ça résout aussi (a) et (b) plus haut : le fort devien
 franchement fort, et le faible devient identifiable au trait plutôt qu'à une
 nuance de gris.
 
+## Q22 — Le GPX se télécharge, mais la page n'est pas sur le téléphone — **constat du 16/09/2026, sans correction possible avant le sprint 7**
+
+**Le doute déclaré de L5.4 est levé** : le mainteneur a ouvert la page depuis
+son Bureau et le lien « Télécharger le GPX » fonctionne. Ni l'agent ni le
+superviseur ne pouvaient le vérifier — leur navigateur refuse `file://`. Le
+mécanisme `blob:` + `<a download>` tient donc depuis une page locale sur
+macOS.
+
+**Mais il ajoute : « je suis sur ordi, pas sur mobile », et c'est le vrai
+sujet.** Q5 a été close sur le **partage système depuis le téléphone** vers
+Garmin, Coros et les autres. Or la page du jour vit sur le disque du Mac :
+télécharger le GPX sur l'ordinateur ne met rien sur le compteur.
+
+**Les deux chemins qui marchent aujourd'hui**, et ce sont des contournements :
+
+- importer le GPX dans Garmin Connect web, qui le pousse sur l'Edge ;
+- envoyer le `.gpx` (ou la page) vers le téléphone par AirDrop, puis
+  « Ouvrir avec » → Garmin Connect. C'est bien le partage système de Q5, à
+  ceci près que le fichier part du Mac au lieu d'être déjà sur le téléphone.
+
+**Ce n'est pas un défaut du lot, c'est la limite d'une page écrite sur un
+disque**, et elle était connue au cadrage : `docs/plan_sprints_agents.md`
+décrit la page du jour comme « la maquette du futur front », et le sprint 7
+comme le moment où « la même page sera servie par le serveur au lieu d'être
+écrite sur le disque ». C'est ce jour-là que le partage devient direct.
+
+Rien à corriger d'ici là. À garder en tête pour le dogfooding : le mainteneur
+jugera la **page** sur son Mac, mais le trajet réel vers le compteur restera
+manuel, et ce n'est donc pas ce que le sprint 6 mesure.
+
+## Q23 — Les fichiers produits atterrissent dans le dépôt — **ouverte le 16/09/2026, une ligne**
+
+`ourouler sortie` sans `--carte` ni `--sortie` écrit `sortie_AAAAMMJJ.gpx` et
+`sortie_AAAAMMJJ.html` **dans le répertoire courant**, c'est-à-dire le dépôt
+quand on lance la commande depuis là — ce que fait le mainteneur.
+
+**Aucune fuite possible aujourd'hui** : `*.gpx` est dans `.gitignore`, les
+`.html` aussi, et `git status` reste vide. La règle absolue 1 tient.
+
+Mais ces fichiers portent ses **coordonnées de départ**, et ils s'accumulent
+dans le dossier du projet. Ils sont à un `zip -r` de voyager avec le dépôt le
+jour où il l'envoie à quelqu'un, ou à un `git add -f` près. Un fichier que
+seul `.gitignore` protège n'est pas protégé, il est seulement discret.
+
+Correction : destination par défaut hors du dépôt — `~/ourouler/` ou le
+répertoire de cache déjà configuré.
+
