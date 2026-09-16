@@ -21,6 +21,7 @@ l'environnement du sous-processus, il ne les connaît ni ne les stocke.
 
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import sys
@@ -34,6 +35,13 @@ DOSSIER_PAGES = os.environ.get("OUROULER_DOSSIER_PAGES", "/data/pages")
 #: rien de secret : depart/intervals/brouter viennent de l'environnement,
 #: voir docs/heberge_minimal_contrat.md). Monté en lecture seule.
 CHEMIN_CONFIG = os.environ.get("OUROULER_CONFIG", "/config/config.toml")
+
+#: Contenu du fichier TOML, encodé en base64, quand il ne vient pas d'un
+#: montage. Sur une machine on monte un fichier ; sur un hébergeur qui ne
+#: gère que des variables (Coolify), le TOML arrive par cette variable et ce
+#: script l'écrit au démarrage. Base64 et non le TOML brut : un `.env` ne
+#: transporte pas une valeur multiligne sans se faire tronquer ou reciter.
+CONFIG_TOML_B64 = os.environ.get("OUROULER_CONFIG_TOML_B64", "")
 
 #: Heure locale quotidienne d'exécution, "HH:MM".
 HEURE_QUOTIDIENNE = os.environ.get("OUROULER_HEURE_GENERATION", "06:00")
@@ -67,6 +75,37 @@ def executer_une_fois() -> int:
     if resultat.returncode != 0:
         print(f"[{horodatage}] ourouler sortie a échoué (code {resultat.returncode})", file=sys.stderr)
     return resultat.returncode
+
+
+def _ecrire_config_depuis_environnement() -> None:
+    """Matérialiser le TOML porté par `OUROULER_CONFIG_TOML_B64`, s'il y en a un.
+
+    Ne fait rien quand la variable est absente : le fichier est alors monté,
+    comme en local (docker-compose.yml). Quand elle est là, elle gagne — c'est
+    le seul cas où elle est posée, et un fichier monté **et** une variable
+    serait une ambiguïté sans réponse juste.
+
+    Le fichier est écrit en 0600 : il ne porte aucun secret par construction
+    (départ, clé Intervals et BRouter restent des variables, voir la
+    docstring de module), mais il porte la masse, la FTP et les vélos du
+    cycliste — des données personnelles au sens de la règle absolue 1.
+    """
+    if not CONFIG_TOML_B64:
+        return
+    try:
+        contenu = base64.b64decode(CONFIG_TOML_B64, validate=True)
+    except Exception as e:  # noqa: BLE001 - toute erreur de décodage se traite pareil
+        raise SystemExit(
+            f"OUROULER_CONFIG_TOML_B64 n'est pas du base64 valide ({e}) : "
+            "encoder le fichier TOML avec `base64 -i config.toml`"
+        ) from e
+    os.makedirs(os.path.dirname(CHEMIN_CONFIG) or ".", exist_ok=True)
+    # Ouverture explicite en 0600 plutôt qu'un chmod après coup : entre les
+    # deux, le fichier existerait en lecture pour tout le conteneur.
+    fd = os.open(CHEMIN_CONFIG, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(contenu)
+    print(f"config écrite depuis l'environnement : {CHEMIN_CONFIG}", flush=True)
 
 
 def _valider_heure(heure: str) -> tuple[int, int]:
@@ -106,6 +145,7 @@ def main() -> None:
     # La validation passe **avant** la première génération : un format
     # invalide doit coûter zéro appel, pas 150 par redémarrage.
     _valider_heure(HEURE_QUOTIDIENNE)
+    _ecrire_config_depuis_environnement()
     os.makedirs(DOSSIER_PAGES, exist_ok=True)
     executer_une_fois()
     while True:
