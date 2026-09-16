@@ -791,6 +791,58 @@ journées à blocs, elle en rend trois.
 
 ## 4. Lot L5.4 — La page du jour
 
+### 4.1 La forme, tranchée le 16/09/2026 (Q18)
+
+Le mainteneur a proposé deux formes : « une carte et 3 itinéraires superposés
+qui se mettent en grisé ou en surbrillance, c'est la méthode de Strava et des
+GPS » ; ou « 3 cartes en miniature et on clique pour le détail ».
+
+**Retenu : la première.** La raison n'est pas esthétique — **c'est la seule
+qui montre où les trois divergent.** Le critère de contraste qu'il a
+lui-même proposé est le pourcentage de route commune ; une carte unique le
+rend visible littéralement, trois miniatures ne le montrent jamais et
+obligent à comparer de mémoire.
+
+Vérifié sur le cas réel du 08/09 : les trois propositions avaient **0 %, 0 %
+et 17 % de routes communes**, donc trois directions différentes au départ de
+chez lui. Superposées, elles répondent d'un coup d'œil à la question
+d'origine du projet — *au sud, au nord ou à l'est ?*
+
+**Ce qui empêche le spaghetti** : seule la proposition sélectionnée montre
+ses blocs en couleurs ; les deux autres retombent en trait gris fin. On ne
+demande jamais à l'œil de suivre trois choses à la fois.
+
+**Les miniatures ne sont pas perdues, elles deviennent le sélecteur** : trois
+cartes sous la grande, chacune avec sa phrase et ses chiffres ; cliquer
+allume le tracé correspondant. Les deux formes proposées coexistent donc,
+sans onglet — **un onglet cache, et comparer demande de voir ensemble.**
+
+### 4.2 Ce que la page porte
+
+- Les trois tracés superposés, la sélection, les blocs de la proposition
+  active, et les flèches de vent déjà livrées au sprint 5.
+- La météo par direction, la tenue, le profil d'altitude.
+- **Un GPX par proposition**, téléchargeable : si c'est le cycliste qui
+  choisit, le fichier suit son choix et non le classement. Type MIME
+  `application/gpx+xml` et nom lisible sur un téléphone — Q5 est close, le
+  partage système couvre Garmin, Coros et les autres.
+- Aucun serveur, aucun compte, aucune base : un fichier HTML autonome.
+
+### 4.3 Deux points à trancher pendant le lot
+
+**a) La page garde-t-elle une recommandation ?** Soit elle présente trois
+options à égalité, soit elle en met une en avant et laisse la contredire. Le
+superviseur penche pour la seconde — il y aura des jours où le mainteneur ne
+veut pas choisir — mais c'est une décision produit, à lui poser.
+
+**b) Le nombre de candidates peut monter.** L5.3 l'a laissé à 5 sur un
+diagnostic faux (`HTTP 429` pris pour une limite produit alors que c'était un
+artefact de test ; voir la correction de doctrine du 16/09). Plus de
+candidates, c'est mécaniquement plus de contraste. À mesurer avant de
+changer.
+
+### 4.4 Reste de l'ancien cadrage
+
 Page HTML autonome écrite sur le disque. GPX en téléchargement avec le type
 MIME `application/gpx+xml` et un nom de fichier lisible sur un téléphone :
 Q5 est close le 15/09/2026, **le partage système du GPX est la voie retenue
