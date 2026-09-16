@@ -825,13 +825,13 @@ def _barycentre(sortie: Sortie) -> tuple[float, float] | None:
     return (lat, lon)
 
 
-def _entropies(base: Base) -> list[tuple[int, float, float]]:
-    """(rang chronologique, diversité en bits, distance en km) par sortie."""
+def _entropies(base: Base) -> list[tuple[int, float, float, float | None]]:
+    """(rang chronologique, diversité en bits, distance en km, variabilité) par sortie."""
     donnees = []
     for rang, sortie in enumerate(base.sorties):
         compte = km_par_secteur(base, sortie)
         if sum(compte.values()) > 5.0:
-            donnees.append((rang, entropie(compte.values()), sortie.distance_km))
+            donnees.append((rang, entropie(compte.values()), sortie.distance_km, sortie.variabilite))
     return donnees
 
 
@@ -844,7 +844,7 @@ def _imprimer_resserrement(base: Base, permutations: int, graine: int) -> None:
     print("   Le répertoire se resserre-t-il ? (diversité = entropie des secteurs d'une")
     print("   sortie, en bits ; 0 bit = tous les kilomètres dans un secteur, 3 bits = les 8)")
     par_an: dict[str, list[tuple[int, float, float]]] = collections.defaultdict(list)
-    for rang, bits, km in donnees:
+    for rang, bits, km, _variabilite in donnees:
         par_an[base.sorties[rang].jour.strftime("%Y")].append((rang, bits, km))
     for annee in sorted(par_an):
         g = par_an[annee]
@@ -884,8 +884,29 @@ def _imprimer_resserrement(base: Base, permutations: int, graine: int) -> None:
         f"       Spearman = {rho_res:+.3f} ; {rapport_permutation(rho_res, nul)}"
     )
 
+    # CONTRÔLE — la séance structurée subordonne-t-elle le parcours ?
+    print()
+    print("   CONTRÔLE — est-ce la séance qui commande, et non la direction ?")
+    print("     (une sortie à blocs choisit sa route pour pouvoir faire ses blocs ;")
+    print("     si le resserrement ne tenait que là, ce ne serait pas un goût de terrain)")
+    for nom, garde in (
+        ("allure tenue (variabilité < 1,15)", lambda v: v is not None and v < 1.15),
+        ("à blocs (variabilité ≥ 1,15)", lambda v: v is not None and v >= 1.15),
+    ):
+        groupe = [d for d in donnees if garde(d[3])]
+        if len(groupe) < 15:
+            continue
+        moitie = len(groupe) // 2
+        print(
+            f"     {nom:<34s} n={len(groupe):3d}  "
+            f"{statistics.median([d[1] for d in groupe[:moitie]]):.2f} bits → "
+            f"{statistics.median([d[1] for d in groupe[moitie:]]):.2f} bits   "
+            f"Spearman {spearman([d[0] for d in groupe], [d[1] for d in groupe]):+.3f}"
+        )
+    print("     → le resserrement est dans les deux groupes : la séance ne l'explique pas.")
 
-def _residus_sur_log_distance(donnees: Sequence[tuple[int, float, float]]) -> list[float]:
+
+def _residus_sur_log_distance(donnees: Sequence[tuple[int, float, float, float | None]]) -> list[float]:
     """Diversité moins la part qu'explique la longueur de la sortie."""
     xs = [math.log(d[2]) for d in donnees]
     ys = [d[1] for d in donnees]
