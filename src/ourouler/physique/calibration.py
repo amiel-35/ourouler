@@ -25,6 +25,28 @@ vent que ce qu'une maille d'archive de plusieurs kilomètres en dit, interpolée
 à l'heure — pas la haie qui coupe le vent sur deux cents mètres. Ces écarts
 vont dans le même sens : ils font paraître le cycliste plus lent que le modèle.
 
+Troisième réserve, mesurée le 16/09/2026 et expliquée par le mainteneur :
+**le CdA d'un vélo n'est pas le CdA d'une position, c'est la moyenne des
+positions réellement tenues sur ce vélo.** Sur ses deux vélos, la calibration
+trouve le même CdA à 0,7 % près — dans le bruit des incertitudes (±2 % et
+±2,5 %) — alors qu'un chrono devrait être nettement plus aérodynamique. Tout
+l'écart entre les deux (16 W à 25 km/h, 26 W à 40 km/h) est passé dans le Crr,
+plus bas de 21 % sur le chrono.
+
+Ce n'est pas un artefact de régression. Le mainteneur roule une partie de ses
+sorties de chrono **hors prolongateur**, en particulier en Z2 ; le chrono porte
+de meilleures roues et des pneus plus larges, donc son Crr est réellement plus
+bas ; et les gains marginaux (tenue, casque, chaussettes) ne sont pas mis à
+toutes les sorties. Le CdA calibré décrit donc un mélange de positions et
+d'équipements — ce qui est **exactement ce qu'il faut** pour prédire des
+sorties ordinaires, et faux pour prédire un effort tenu au prolongateur de
+bout en bout.
+
+Conséquence à connaître : la sensibilité au vent de face est elle aussi une
+moyenne. Le gain du chrono ne grandit que de 0,6 W entre l'absence de vent et
+20 km/h de vent de face à 30 km/h, là où un vrai gain aérodynamique grandirait
+franchement. Pour un effort réellement en position, le modèle sous-estime.
+
 Le vent d'archive est donné à 10 m du sol ; il est **ramené à hauteur de
 cycliste** avant d'entrer dans le modèle (`modele.vent_au_cycliste`). Sans
 cela, le régresseur aérodynamique est construit sur un vent systématiquement
