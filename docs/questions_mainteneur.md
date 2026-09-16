@@ -1118,7 +1118,7 @@ chez lui :
 
 | Classe | Observé / attendu | Sorties sous l'attendu |
 |---|---|---|
-| 1 | 215 % | 17 % |
+| 1 | 215 % *(magnitude peu fiable, voir réserve)* | 17 % |
 | 2 | 101 % | 67 % |
 | 3 | 146 % | 21 % |
 | 4 | 84 % | 71 % |
@@ -1163,7 +1163,30 @@ précisément ce qu'il évite.
 
 Script : `tests/validation/trafic_estime_retrospectif.py`.
 
-**Réserve, à reprendre partout où cette mesure est citée** : le rejeu BRouter
-n'est pas la trace GPS — un point de passage tous les 1,5 km, le moteur
-recolle entre eux. Ce qui est mesuré est l'itinéraire reconstruit.
+**Le second contrôle, et c'est celui qui emporte l'affaire** : le brut
+**comprimait** l'effet, la standardisation l'a **renforcé**. Classe 5 : 82 %
+en brut, 54 % standardisé ; classe 6 : 76 % en brut, 51 %. Si la distance à la
+base avait gonflé un effet apparent, la contrôler l'aurait réduit. C'est
+l'inverse qui se produit.
+
+**Réserves, à reprendre partout où cette mesure est citée :**
+
+- **La classe 1 (215 %) a une magnitude peu fiable** : beaucoup de sorties ont
+  un « attendu » quasi nul pour cette classe, ce qui fait exploser le ratio.
+  La **direction** résiste au test du signe, pas le chiffre.
+- **Le rejeu BRouter n'est pas la trace GPS** — un point de passage tous les
+  1,5 km, le moteur recolle entre eux. Ce qui est mesuré est l'itinéraire
+  reconstruit.
+- **15 % des kilomètres réels classables sont exclus** faute d'anneau couvert
+  côté proposé.
+- **Le comparateur tourne en profil `fastbike`, qui fuit déjà le trafic.** Le
+  test est donc **conservateur** : l'écart réel est probablement plus grand
+  que 54 %, pas plus petit.
+
+**Correction d'une observation antérieure du superviseur** : j'avais annoncé
+au mainteneur « 34 % de tronçons sans classe » et « une échelle de 3 à 6 » sur
+la foi d'**une seule boucle** sondée au cap 135°. La mesure sur 111 sorties
+donne **18,2 % sans classe** et une échelle qui va bien **de 1 à 6** — les
+classes 1 et 2 existent en quantité non négligeable (17,3 % et 13,5 % des km).
+Une boucle n'est pas un échantillon.
 
