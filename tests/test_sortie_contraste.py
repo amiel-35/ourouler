@@ -176,7 +176,7 @@ def test_un_ecart_de_duree_au_pas_distingue_si_l_autre_gagne_un_axe():
     )
     assert [r.axe_distinctif for r in selection.retenues] == [AXE_DUREE, AXE_TRAFIC]
     assert selection.retenues[0].distinction == "10 minutes de moins"
-    assert selection.retenues[1].distinction == "elle évite les grands axes"
+    assert selection.retenues[1].distinction == "elle évite les nationales"
 
 
 @pytest.mark.parametrize(

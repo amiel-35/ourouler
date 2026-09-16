@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from ourouler.config import Depart
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.sortie.orientation import (
@@ -100,6 +100,7 @@ def interroger(
     depart_heure: datetime,
     jour: date,
     modele: str,
+    modele_repli: str = "",
     aujourdhui: date | None = None,
 ) -> QuestionVent:
     """Le vent au départ, et si la question de l'orientation mérite d'être posée.
@@ -124,13 +125,34 @@ def interroger(
                 "— on ne promet pas une orientation qu'on ne sait pas prévoir"
             ),
         )
-    try:
-        points = client.previsions(
+    def _demander(nom: str):
+        return client.previsions(
             [(depart_lieu.latitude, depart_lieu.longitude)],
-            modele=modele,
+            modele=nom,
             debut=depart_heure,
             horizon_h=1,
         )
+
+    try:
+        points = _demander(modele)
+    except ErreurHorsDomaine:
+        # Même repli que la météo du tracé (Q19) : le modèle régional ne couvre
+        # pas la fenêtre, le modèle global la couvre. Sans ce repli, la page
+        # affichait le vent dans son tableau **et** « vent indisponible » dans
+        # la question d'orientation, sur la même sortie — une contradiction que
+        # le mainteneur aurait vue avant nous.
+        if not modele_repli:
+            return QuestionVent(
+                vent_kmh=None, vent_depuis_deg=None, posee=False,
+                motif=f"{modele} ne couvre pas cette fenêtre et aucun modèle de repli n'est configuré",
+            )
+        try:
+            points = _demander(modele_repli)
+        except (ErreurConnecteur, ErreurUtilisateur) as e:
+            return QuestionVent(
+                vent_kmh=None, vent_depuis_deg=None, posee=False,
+                motif=f"vent au départ indisponible, repli {modele_repli} compris ({e})",
+            )
     except (ErreurConnecteur, ErreurUtilisateur) as e:
         return QuestionVent(
             vent_kmh=None, vent_depuis_deg=None, posee=False,

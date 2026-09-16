@@ -258,6 +258,7 @@ def executer(
         depart_heure=demande.depart,
         jour=demande.jour,
         modele=config.meteo.modele,
+        modele_repli=config.meteo.second_avis,
     )
     azimut_vent = question.azimut_pour(demande.vent)
 

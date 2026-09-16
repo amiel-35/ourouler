@@ -575,7 +575,7 @@ _NOMS_AXES = {
     AXE_DEMI_TOURS: "les demi-tours",
     AXE_DUREE: "la durée",
     AXE_VILLE: "la ville",
-    AXE_TRAFIC: "les grands axes",
+    AXE_TRAFIC: "les nationales",
     AXE_PLUIE: "la pluie",
     AXE_TERRAIN: "le terrain sous les blocs",
 }
@@ -808,7 +808,7 @@ def phrase(axe: str | None, sujet: Profil, autres: list[Profil]) -> str:
     if axe == AXE_VILLE:
         return "elle évite les villages"
     if axe == AXE_TRAFIC:
-        return "elle évite les grands axes"
+        return "elle évite les nationales"
     if axe == AXE_TERRAIN:
         return "c'est là que les blocs tombent le mieux"
     return ""
