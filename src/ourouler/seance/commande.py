@@ -196,7 +196,7 @@ def _executer_periode(
         depuis,
         jusqua,
         ftp_w=config.cycliste.ftp_w,
-        zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        zones_puissance=config.seance.zones_pct,
         puissance_endurance_pct=config.seance.puissance_endurance_pct,
         seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
     )
