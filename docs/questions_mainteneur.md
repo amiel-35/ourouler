@@ -746,3 +746,42 @@ fine d'AROME sur le court terme, on gagne les jours 3 à 7.
 3. **Le conseil `--modele` est faux** : `ourouler sortie` n'a pas cette
    option. Un message de la couche connecteur ne doit pas nommer une option de
    ligne de commande qu'il ne connaît pas.
+
+## Q20 — La page du jour n'applique pas la méthode Strava qu'elle voulait — **ouverte le 16/09/2026, à corriger**
+
+Constat du mainteneur devant la page du 19/09 : « la méthode Strava, c'est
+d'afficher les propositions en même temps mais de mettre en couleur forte la
+version sélectionnée. Là, la version sélectionnée est en pointillé faible et
+l'autre absente. »
+
+Il a raison sur le symptôme. **Les deux causes sont distinctes, et aucune des
+deux n'est un mauvais choix de style** — ce sont deux réglages qui s'annulent.
+
+**a) La sélectionnée est dessinée comme une liaison, pas comme un tracé.**
+La sortie du club est une Z2 **sans bloc** : zéro bloc à colorer, et tout le
+parcours tombe dans le calque « échauffement / récupérations / retour au
+calme » créé par L5.2 — bleu-gris `#9fb8cd`, en pointillé. Le style prévu pour
+l'échauffement a avalé la sortie entière. Vérifié dans les données de la page :
+`blocs: 0`, `liaisons: 1` sur les deux propositions.
+
+Ce n'est pas un cas de bord : **c'est le cas courant du mainteneur.** Son plan
+ne contient aucune séance à blocs en extérieur ; toutes ses sorties sont des
+endurances, donc toutes ses pages sont pâles.
+
+**b) La non-sélectionnée est dessinée, mais invisible.** Sa trace est bien
+dans la page (1 963 points) et peinte en `#c9c9c9` — un gris trop clair pour
+se détacher des tuiles OpenStreetMap. Le contrat §4.1 demandait « trait gris
+fin » ; il est fin et gris, et illisible.
+
+**Correction à écrire :**
+
+1. **Le tracé de la proposition sélectionnée est toujours en couleur forte et
+   en trait plein**, qu'elle porte des blocs ou non. Les blocs se surimposent
+   dessus quand il y en a ; ils ne le remplacent pas. Une séance sans bloc
+   n'est pas une séance sans parcours.
+2. **Assombrir la non-sélectionnée** jusqu'à ce qu'elle se lise sur les
+   tuiles — à régler à l'œil sur une vraie page, pas au jugé, et sur la zone
+   de Rennes où le fond est dense.
+3. Vérifier la même page sur une séance **à blocs** : la hiérarchie doit
+   rester lisible à trois niveaux — blocs en couleurs vives, reste du parcours
+   sélectionné en couleur franche, autres propositions en gris lisible.
