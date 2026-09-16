@@ -49,12 +49,18 @@ précède : c'est la même carte, une par proposition contrastée, superposées.
 Décision du 16/09/2026 (Q18, contrat du sprint 5 §4.1) — « une carte et 3
 itinéraires superposés qui se mettent en grisé ou en surbrillance, c'est la
 méthode de Strava et des GPS » — retenue contre trois cartes séparées, parce
-que c'est la seule forme qui montre **où** les propositions divergent. Seule
-la proposition sélectionnée montre ses blocs en couleurs ; les autres
-retombent en trait gris fin. Les miniatures sous la carte ne sont pas
-perdues : elles deviennent le sélecteur, chacune avec sa phrase de
-distinction (`sortie.contraste`) et ses chiffres — jamais un onglet, un
-onglet cache et comparer demande de voir ensemble.
+que c'est la seule forme qui montre **où** les propositions divergent.
+Correction du 16/09/2026 (Q20, contrat de la mise en service) : la
+sélectionnée est **pleine de bout en bout** — blocs en couleurs vives,
+liaisons en couleur franche, et sa boucle non parcourue en fond, sous ses
+blocs, pour que la portion au-delà d'un demi-tour ne reste plus invisible.
+Les autres propositions passent en **pointillé gris** — le pointillé ne veut
+plus dire « ce n'est pas un bloc » (héritage de L5.2) mais « ce n'est pas la
+sélection », et rien d'autre : un seul sens, celui que le mainteneur a
+demandé. Les miniatures sous la carte ne sont pas perdues : elles deviennent
+le sélecteur, chacune avec sa phrase de distinction (`sortie.contraste`) et
+ses chiffres — jamais un onglet, un onglet cache et comparer demande de voir
+ensemble.
 """
 
 from __future__ import annotations
@@ -104,10 +110,11 @@ COULEUR_TRACE = "#8c8c8c"
 #: Les liaisons non notées (échauffement, récupérations, retour au calme).
 COULEUR_LIAISON = "#9fb8cd"
 #: Le tracé d'une proposition **non sélectionnée**, sur la page du jour
-#: (`construire_page_jour`) : plus clair que `COULEUR_TRACE`, pour qu'on
-#: distingue à l'œil « une autre proposition possible » de « la portion de
-#: la proposition active qu'on ne roule jamais ».
-COULEUR_AUTRE_PROPOSITION = "#c9c9c9"
+#: (`construire_page_jour`), toujours en pointillé (Q20 b — le pointillé ne
+#: veut plus dire que « ce n'est pas la sélection »). Assombri le 16/09/2026
+#: (Q20 b) : `#c9c9c9` ne se lisait pas sur les tuiles OpenStreetMap denses
+#: (vérifié à l'œil sur la zone de Rennes) — réglé, pas mesuré.
+COULEUR_AUTRE_PROPOSITION = "#707070"
 
 #: Nombre maximal de points du profil d'altitude. Au-delà, on sous-échantillonne :
 #: un SVG de 3 000 points ne se lit pas mieux qu'un de 800, il pèse seulement
@@ -791,13 +798,20 @@ def construire_page_jour(
 ) -> str:
     """La page du jour : les propositions contrastées, superposées sur une carte.
 
-    Une seule grande carte porte les tracés de toutes les `propositions` ;
-    seule celle qui est sélectionnée montre ses blocs en couleurs et ses
-    flèches de vent, les autres retombent en trait gris fin
-    (`COULEUR_AUTRE_PROPOSITION`) — on ne demande jamais à l'œil de suivre
-    plusieurs choses à la fois. Sous la carte, une miniature par proposition
-    sert de sélecteur : cliquer en allume une, sans jamais en cacher une
-    autre (pas d'onglet).
+    Une seule grande carte porte les tracés de toutes les `propositions`.
+    La sélectionnée est **pleine de bout en bout** : ses blocs en couleurs
+    vives et ses flèches de vent comme avant, ses liaisons (échauffement,
+    récupérations, retour au calme) en couleur franche plutôt qu'en
+    pointillé, et sa boucle non parcourue en fond, sous ses blocs — Q20 a et
+    c, la correction du 16/09/2026 : sans ce fond, la portion au-delà d'un
+    demi-tour n'était peinte par personne, et une séance sans bloc (le cas
+    courant du mainteneur) n'avait que des liaisons pâles et pointillées.
+    Les autres propositions passent en **pointillé gris**
+    (`COULEUR_AUTRE_PROPOSITION`) — le pointillé ne veut plus dire « ce
+    n'est pas un bloc » mais « ce n'est pas la sélection », et rien d'autre
+    (Q20 b) : on ne demande jamais à l'œil de suivre plusieurs choses à la
+    fois. Sous la carte, une miniature par proposition sert de sélecteur :
+    cliquer en allume une, sans jamais en cacher une autre (pas d'onglet).
 
     `propositions` vient de `sortie.contraste.choisir(...).retenues`, dans
     l'ordre du tri — la première est celle que l'outil recommande, et c'est
@@ -950,7 +964,15 @@ body {{ margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-se
 header {{ padding: 12px 16px 8px; }}
 h1 {{ font-size: 18px; margin: 0 0 2px; }}
 h2 {{ font-size: 13px; font-weight: 400; color: #555; margin: 0; }}
-#carte {{ height: 52vh; min-height: 300px; }}
+/* Q20 d : le conteneur, sans borne de largeur, prenait toute la page — bien
+   plus large que haut (jusqu'à ~3:1 mesuré sur une fenêtre courante). Une
+   boucle de club est plutôt ronde : `fitBounds` cale alors le zoom sur la
+   hauteur et laisse filer la largeur, une vue de ~150 km pour des boucles
+   de ~18 km de diamètre (vérifié à l'œil, contrat de la mise en service
+   §1 d). `max-width: min(100%, 78vh)` borne le rapport largeur/hauteur à
+   78/52 = 1,5 quelle que soit la fenêtre — resserré sans dépendre de JS,
+   et sans toucher `fitBounds` lui-même, qui reste correct. */
+#carte {{ height: 52vh; min-height: 300px; max-width: min(100%, 78vh); margin: 0 auto; }}
 section {{ padding: 10px 16px 20px; }}
 h3 {{ font-size: 13px; margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .04em;
      color: #555; }}
@@ -1059,15 +1081,16 @@ function infoVent(f) {{
   return txt;
 }}
 
-// Une couche « riche » (blocs colorés, liaisons, vent) par proposition,
-// construite une fois — et une couche grise, son tracé complet, affichée
-// quand cette proposition n'est pas la sélectionnée. Ce qui empêche le
-// spaghetti (contrat §4.1) : une seule couche riche visible à la fois.
+// Une couche « riche » (blocs colorés, liaisons pleines, vent) par
+// proposition, construite une fois — visible seulement pour la sélection,
+// pleine de bout en bout (Q20 b : le pointillé ne sert plus à distinguer
+// un bloc d'une liaison, il ne vaut que pour « pas la sélection »). Ce qui
+// empêche le spaghetti (contrat §4.1) : une seule couche riche à la fois.
 function construireRiche(p) {{
   const g = L.featureGroup();
   for (const l of p.liaisons) {{
     if (l.length > 1) {{
-      L.polyline(l, {{color: D.couleurs.liaison, weight: 5, opacity: .9, dashArray: '6 8'}}).addTo(g);
+      L.polyline(l, {{color: D.couleurs.liaison, weight: 5, opacity: .9}}).addTo(g);
     }}
   }}
   for (const b of p.blocs) {{
@@ -1088,27 +1111,38 @@ function construireRiche(p) {{
   return g;
 }}
 
+// La boucle complète de chaque proposition est **toujours** affichée
+// (Q20 a : avant ce correctif, elle manquait pour la sélection — la portion
+// au-delà d'un demi-tour n'était peinte par personne). Son style change
+// avec la sélection : fond plein sous les blocs pour la sélectionnée
+// (`D.couleurs.trace`, la même teinte que « ce que la séance ne parcourt
+// jamais » sur la carte simple), pointillé gris pour les autres
+// (`D.couleurs.autre`) — `dashArray: null` efface explicitement le
+// pointillé au passage actif, `setStyle` ne fait que fusionner les clés
+// données, il n'enlève pas celles qu'on omet.
+function styleGris(estActif) {{
+  return estActif
+    ? {{color: D.couleurs.trace, weight: 3, opacity: .6, dashArray: null}}
+    : {{color: D.couleurs.autre, weight: 3, opacity: .85, dashArray: '5 7'}};
+}}
+
+let actifN = D.propositions[0].n;
 const grisesParN = {{}};
 const richesParN = {{}};
 for (const p of D.propositions) {{
   if (p.trace.length > 1) {{
-    grisesParN[p.n] = L.polyline(p.trace, {{color: D.couleurs.autre, weight: 3, opacity: .6}});
+    grisesParN[p.n] = L.polyline(p.trace, styleGris(p.n === actifN)).addTo(carte);
   }}
   richesParN[p.n] = construireRiche(p);
 }}
-
-let actifN = D.propositions[0].n;
-for (const p of D.propositions) {{
-  if (p.n !== actifN && grisesParN[p.n]) grisesParN[p.n].addTo(carte);
-}}
-richesParN[actifN].addTo(carte);
+richesParN[actifN].addTo(carte);  // ajoutée après toutes les grises : au-dessus
 
 function selectionner(n) {{
   if (n === actifN || !richesParN[n]) return;
-  if (grisesParN[actifN]) grisesParN[actifN].addTo(carte);
+  if (grisesParN[actifN]) grisesParN[actifN].setStyle(styleGris(false));
   richesParN[actifN].remove();
   actifN = n;
-  if (grisesParN[actifN]) grisesParN[actifN].remove();
+  if (grisesParN[actifN]) grisesParN[actifN].setStyle(styleGris(true));
   richesParN[actifN].addTo(carte);
   document.querySelectorAll('.panneau-prop').forEach(function (el) {{
     el.hidden = el.dataset.prop !== String(n);
