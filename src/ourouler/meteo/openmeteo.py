@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine
 
 BASE_URL_DEFAUT = "https://api.open-meteo.com"
 CHEMIN_PREVISION = "/v1/forecast"
@@ -251,17 +251,29 @@ def _heure_vide(h: PrevisionHeure) -> bool:
     )
 
 
-def _hors_domaine(modele: str) -> ErreurConnecteur:
-    """Le point demandé sort de la grille du modèle.
+def _hors_domaine(modele: str) -> ErreurHorsDomaine:
+    """Le modèle ne rend rien pour ce point ou cette fenêtre (Q19).
 
     Deux signatures, toutes deux mesurées sur le vrai service : un corps
     HTTP 200 contenant des littéraux `nan` (donc invalide en JSON), ou un
-    bloc entièrement à `null`. Le message ne cite pas les coordonnées : les
-    messages Open-Meteo ne doivent jamais publier le point de départ.
+    bloc entièrement à `null`. La première est sans ambiguïté géographique ;
+    la seconde l'est aussi, mais elle est **également** ce qu'Open-Meteo rend
+    quand la fenêtre demandée dépasse la portée temporelle du modèle (AROME
+    publie à 67 h) — le message ne tranche donc pas entre les deux plutôt que
+    d'affirmer une cause qu'il ne mesure pas (règle absolue 5).
+
+    Le message ne cite pas les coordonnées : les messages Open-Meteo ne
+    doivent jamais publier le point de départ. Il ne nomme pas non plus
+    `--modele` : ce n'est pas une option de toutes les commandes qui
+    appellent ce client (`ourouler sortie` ne l'a pas) — c'est à l'appelant,
+    qui connaît sa propre ligne de commande, de dire quoi faire ;
+    `ErreurHorsDomaine` lui permet de retenter avec son modèle de repli
+    (`second_avis`) sans avoir à relire ce texte.
     """
-    return ErreurConnecteur(
-        f"Open-Meteo : point hors du domaine du modèle {modele}, essayer un modèle "
-        f"global (par exemple --modele {MODELE_GLOBAL_SUGGERE})"
+    return ErreurHorsDomaine(
+        f"Open-Meteo : {modele} ne couvre pas ce point ou cette fenêtre (hors du "
+        "domaine, ou hors de sa portée temporelle) — un modèle global comme second "
+        f"avis (par exemple {MODELE_GLOBAL_SUGGERE}) peut couvrir plus loin"
     )
 
 
