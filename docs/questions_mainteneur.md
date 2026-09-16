@@ -927,3 +927,25 @@ seul `.gitignore` protège n'est pas protégé, il est seulement discret.
 Correction : destination par défaut hors du dépôt — `~/ourouler/` ou le
 répertoire de cache déjà configuré.
 
+### Complément du 16/09/2026 — un quatrième empêchement : le cadrage
+
+Relevé par le superviseur sur la capture de la page du 19/09 ouverte dans
+Safari : les deux boucles font 56 km de tour, soit ~18 km de diamètre, et la
+vue s'étale de Ploërmel à Laval — environ 150 km. Elles se réduisent à deux
+petits pointillés au centre.
+
+**Hypothèse, à vérifier** : ce n'est pas un défaut de calcul des limites mais
+une proportion. Le conteneur de la carte est très large et peu haut ;
+`fitBounds` ajuste alors sur la hauteur et laisse la largeur s'étaler. La
+correction est côté mise en page — une carte plus haute — ou côté cadrage.
+
+**Les quatre empêchements de Q20 se cumulent**, et c'est ce qui explique
+qu'une carte dont toutes les données sont présentes paraisse vide :
+
+1. la boucle de la sélection n'est pas dessinée (trou au-delà d'un demi-tour) ;
+2. le tracé sélectionné est en pointillé pâle quand la séance n'a pas de bloc ;
+3. la non-sélectionnée est peinte trop clair pour les tuiles ;
+4. et le cadrage réduit le tout à quelques pixels au centre.
+
+Aucun des quatre n'est grave seul. Ensemble, ils annulent la carte.
+
