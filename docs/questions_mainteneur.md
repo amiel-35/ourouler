@@ -1447,3 +1447,84 @@ sont calibrés sur **un** terrain, et que la version hébergée devra le dire.
 
 Script : `tests/validation/arrets_bloc_recup.py`.
 
+## Q31 — La distance de dégagement urbain, et pourquoi elle se dit en kilomètres — **à écrire, sprint 6 ou 7**
+
+Demande du mainteneur : « une fonction qui fait une recherche à partir de
+l'adresse de départ sur la **distance minimum d'échauffement** avant de
+trouver une zone où la densité de feux et stops est intéressante. Et je parle
+bien de **distance**, car en zone urbaine la puissance n'aide pas ou peu :
+c'est la densité de feux et d'arrêts qui gère. »
+
+### Pourquoi la distance et pas la durée — et c'est une limite du modèle
+
+**La calibration exclut les échantillons sous 8 km/h**, marqués « arrêt »
+(`physique/calibration.py`, `vitesse_min_kmh = 8.0`). Le modèle physique a
+donc appris la vitesse **en roulant**, et n'a jamais appris le coût d'un
+arrêt. Il ne l'a pas appris de travers : il ne l'a pas appris du tout.
+
+Conséquence : **toute durée annoncée sur une portion urbaine est optimiste**,
+d'autant plus que la densité de feux est forte. Le mainteneur a donc raison
+au-delà de la formulation — le kilomètre est la seule grandeur que l'outil
+sait dire juste en ville.
+
+### Le profil radial, mesuré le 16/09/2026
+
+Feux + stops au kilomètre, huit boucles par ville, par anneau :
+
+| | 0-3 | 3-6 | 6-9 | 9-12 |
+|---|---|---|---|---|
+| Rennes | 2,70 | 0,79 | **0,30** | 0,55 |
+| Nantes | 2,51 | 0,78 | 0,44 | 0,46 |
+| Angers | 2,09 | 0,95 | **0,34** | 0,38 |
+| **Les Lilas (93)** | 3,26 | 2,91 | **3,49** | 2,54 |
+
+Distance de dégagement (seuil 0,40/km, la campagne rennaise) : **Rennes et
+Angers 6 km, Nantes 12 km, Les Lilas jamais à moins de 15**.
+
+Poussé plus loin pour Les Lilas, par anneaux de 5 km : 3,03 / 3,22 / 2,18 /
+1,33 / 0,85 / 0,93 / 0,64. **À une heure de vélo, on est encore à trois fois
+la campagne bretonne**, et la densité *monte* entre 0-5 et 5-10 km — on sort
+d'un arrondissement pour entrer dans la petite couronne, qui est pire.
+
+### Ce que ça change, et pour qui
+
+**Pas pour le mainteneur.** Mesuré sur ses séances structurées : son premier
+bloc démarre à **63 min de médiane** (min 41, max 113), soit ~29 km — quatre à
+cinq fois la distance de dégagement. La question ne se pose jamais chez lui.
+
+**La règle plutôt que le paramètre.** Ce n'est pas la durée d'échauffement qui
+compte, c'est **où le bloc tombe par rapport au départ**. Cette formulation
+couvre les trois cas sans rien régler : chez lui rien à signaler ; son
+exception « enchaînement vélo-course avec bloc final » signalée
+automatiquement, le bloc étant près de la maison ; et l'Île-de-France signalée
+honnêtement — « vos blocs porteront 4 à 5 feux ».
+
+**Et pour l'Île-de-France, la vraie réponse n'est pas routière.** Le
+mainteneur la donne lui-même : « aller à Longchamp, ou trouver d'autres
+segments boucle pour tourner en cercle ». C'est ce que font les cyclistes
+franciliens — un anneau court sans feux, répété. Voir Q32.
+
+## Q32 — Le mode circuit : tourner en rond quand il n'y a pas de couloir — **idée à instruire**
+
+Notre modèle produit propose **une boucle parcourue une fois**, blocs placés
+dessus. Un Francilien a besoin d'un **circuit court répété** : quatre tours de
+Longchamp (3,6 km, sans un feu) pour un 4×8.
+
+**C'est à portée de ce qui existe** : le moteur sait générer des boucles ; il
+suffirait d'en demander des **courtes** (3 à 6 km), de les noter sur les nœuds
+d'arrêt, et de proposer « 2 tours par bloc » quand l'une sort à zéro feu. La
+détection est le comptage qu'on vient d'écrire.
+
+**Ce qui est un vrai morceau, c'est le placement** : il fait coulisser les
+blocs le long d'un tracé, il faudrait qu'il sache les poser sur des tours
+répétés.
+
+Effet de bord notable : la règle « le demi-tour, autorisé mais pas à mettre en
+avant » (Q20) **ne s'applique plus** en mode circuit. Répéter le même segment
+vingt fois y est la fonctionnalité, pas le défaut.
+
+**Et ça déplace la question de la version hébergée** : inviter des copains ne
+veut pas dire « le même outil pour tout le monde ». Un Rennais et un
+Francilien n'ont pas besoin du même produit. Découverte qui vaut mieux
+maintenant qu'au sprint 8.
+
