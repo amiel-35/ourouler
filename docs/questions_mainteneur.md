@@ -669,3 +669,44 @@ Trois formes possibles, à trancher :
 
 Sans réponse, le cycliste arbitre sur les phrases et les chiffres, pas sur
 les tracés — c'est-à-dire pas tout à fait « en regardant ».
+
+## Q19 — `sortie` perd toute la météo à J+2 et J+3, avec un message trompeur — **ouverte le 16/09/2026**
+
+Constaté en préparant les sorties réelles du mainteneur :
+
+```
+$ ourouler sortie --jour 2026-09-18
+ourouler : météo indisponible (Open-Meteo : point hors du domaine du modèle
+meteofrance_arome_france_hd, essayer un modèle global (par exemple
+--modele icon_seamless)) — tableau sans les colonnes météo et sans tenue
+```
+
+Même chose le 19/09. **C'est le cas d'usage le plus utile du produit** —
+préparer mercredi la sortie du club de samedi — et il rend une page sans
+pluie, sans vent et sans tenue.
+
+**Trois défauts distincts dans un seul message :**
+
+1. **Le message est faux.** Il parle du « domaine » du modèle, c'est-à-dire de
+   sa couverture géographique. Rennes est au centre du domaine d'AROME. La
+   cause est ailleurs, et le message envoie chercher au mauvais endroit.
+2. **Il conseille une option qui n'existe pas.** `ourouler sortie` n'accepte
+   pas `--modele` : ses options sont `--json --jour --distance --direction
+   --candidates --vent --velo --heure-depart`. Le conseil vient de la couche
+   Open-Meteo, qui ignore la commande appelante.
+3. **Il n'y a aucun repli sur le second modèle**, alors que la configuration
+   en déclare un (`second_avis = "icon_seamless"`, portée de 168 h contre 67 h
+   pour AROME) et que la commande `meteo` s'en sert déjà comme second avis. Au
+   lieu de basculer, on perd toute la météo.
+
+**Ce qui est vérifié et ce qui ne l'est pas.** Vérifié : `ourouler meteo`
+fonctionne le jour même ; une requête AROME directe pour le 18/09 de 08h à 12h
+rend `200` ; AROME publie jusqu'au 18/09 23h (55 heures connues). Donc ni la
+géographie ni l'horizon ne suffisent à expliquer l'échec du 18. **La cause
+exacte n'est pas trouvée** — à instruire.
+
+**Piste** : comparer la requête réellement émise par `sortie` à celle de
+`meteo` (nombre de points, `start_hour`/`end_hour`, modèles demandés). Le
+repli sur le second modèle est de toute façon à écrire, indépendamment de la
+cause : c'est la règle 5 du projet appliquée à la météo — deux modèles qui
+divergent s'affichent, mais un modèle muet ne doit pas emporter les deux.
