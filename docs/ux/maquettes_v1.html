@@ -202,6 +202,11 @@ section.flux{padding-block:64px 8px;scroll-margin-top:80px}
 :root[data-theme="dark"] .mini.oui{color:#08181E}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .mini.oui{color:#08181E}}
 
+/* barre d'onglets : il n'y en avait aucune, relecture adverse G4 */
+.onglets{display:flex;gap:2px;border-top:1px solid var(--trait);margin:16px -18px -22px;padding:9px 10px calc(12px + env(safe-area-inset-bottom,0px));background:var(--papier)}
+.onglets span{flex:1;text-align:center;font-size:11px;color:var(--muet);padding:4px 2px;letter-spacing:.01em}
+.onglets span.actif{color:var(--accent);font-weight:600}
+
 /* légende + clôture */
 .legende{margin-top:44px;border:1px solid var(--trait);border-radius:var(--r);padding:20px 22px;background:var(--carte)}
 .legende h3{font-family:var(--titre);font-size:17px;font-weight:700;margin-bottom:12px}
@@ -224,7 +229,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
 <header class="tete">
   <div class="sur-titre">Cycle discovery &amp; UX · 16 septembre 2026</div>
   <h1>Où rouler, pour quelqu'un d'autre que soi</h1>
-  <p class="chapo">Dix-huit écrans qui font passer l'outil d'une ligne de commande à une application qu'un cycliste invité peut utiliser sans qu'on lui explique. Chaque écran indique <em>ce qui existe déjà</em>, ce qui reste à écrire, et ce qui attend un arbitrage.</p>
+  <p class="chapo">Vingt écrans qui font passer l'outil d'une ligne de commande à une application qu'un cycliste invité peut utiliser sans qu'on lui explique — <em>dont quatre qui montrent ce que ça donne quand ça casse</em>. Chaque écran indique ce qui existe déjà, ce qui reste à écrire, et ce qui attend un arbitrage.</p>
 
   <div class="decisions">
     <div class="decision"><b>Entrée</b><span>Demande modérée à la main, lien de connexion par e-mail, puis clé d'accès. Google et Apple en V2.</span></div>
@@ -242,6 +247,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
   <a href="#attendre">Attendre</a>
   <a href="#choisir">Choisir et emporter</a>
   <a href="#reglages">Réglages</a>
+  <a href="#casse">Quand ça casse</a>
   <a href="#ouvert">Ce qui reste ouvert</a>
 </div></nav>
 
@@ -298,7 +304,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p>Cet écran porte le premier des cinq moments décisifs. La recherche est nette là-dessus : les produits qui affichent une <strong>position dans la file</strong> et une <strong>cadence de traitement</strong> perdent moins de monde que ceux qui disent « nous reviendrons vers vous ».</p>
       <p>« À peu près une fois par semaine » est une promesse tenable — plus honnête qu'un délai précis qu'Amiel ne tiendra pas. Mais <strong>il faut qu'il la tienne</strong> : c'est une contrainte d'exploitation, pas une formule.</p>
       <p>Le dernier bloc travaille l'attente au lieu de la subir. Il prépare l'étape FTP, qui est le second moment décisif.</p>
-      <div class="pastilles"><span class="p ecrire">position dans la file</span><span class="p ouvert">cadence annoncée à tenir</span><span class="p ouvert">sort d'une demande refusée</span></div>
+      <div class="pastilles"><span class="p ecrire">position dans la file</span><span class="p ouvert">cadence annoncée à tenir</span><span class="p ouvert">durée de validité du lien</span><span class="p ouvert">sort d'une demande refusée</span></div>
     </div>
   </div>
 
@@ -358,7 +364,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
   <div class="paire">
     <div class="tel"><div class="barre-etat"><span>9:41</span><span>Étape 2 sur 5</span></div><div class="ecran">
       <div class="app-tete"><div><span class="quand">Votre puissance</span><h4>Quelle est votre FTP ?</h4></div></div>
-      <div class="segments"><span class="actif">Je la connais</span><span>L'estimer</span><span>Depuis Intervals</span></div>
+      <div class="segments"><span class="actif">Je la connais</span><span>L'estimer</span></div>
       <div class="champ"><label for="e9-ftp">Puissance seuil</label>
         <div class="saisie-unite"><input class="saisie mono" id="e9-ftp" value="245" readonly><span class="unite">W</span></div>
         <div class="aide">La puissance que vous tenez environ une heure. Si vous avez fait un test de 20 minutes, comptez 95 % de la moyenne.</div></div>
@@ -371,7 +377,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
           <div class="zone-l"><span class="n">Z4</span><span class="b" style="background:var(--z4);width:70%"></span><span class="v">223 – 257 W</span></div>
           <div class="zone-l"><span class="n">Z5</span><span class="b" style="background:var(--z5);width:84%"></span><span class="v">260 – 294 W</span></div>
         </div>
-        <p class="mention" style="margin-top:11px">C'est la <b>Z2</b> qui fixe la longueur de vos boucles : à 160 W, vous tenez environ 27 km/h sur le plat.</p>
+        <p class="mention" style="margin-top:11px">Pour une sortie d'endurance, on vise <b>147 W</b> — 60 % de votre FTP, le bas de la Z2. C'est cette puissance-là qui fixe la longueur de vos boucles.</p>
       </div>
       <button class="bouton">Continuer</button>
     </div></div>
@@ -407,7 +413,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
           <text x="146" y="150" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muet)">Pacé</text>
         </svg>
       </div>
-      <div class="encart bien"><b>Bonne nouvelle pour vous.</b> À 4 km de chez vous, la densité de feux et de stops tombe à 0,3 au kilomètre — vos blocs pourront tomber en dehors de la ville.</div>
+      <div class="encart bien"><b>Bonne nouvelle pour vous.</b> La ville se dégage vite autour de chez vous — vos blocs pourront tomber en dehors du trafic.</div>
       <button class="bouton">Continuer</button>
     </div></div>
     <div class="notes">
@@ -415,7 +421,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p>Le seul champ <strong>strictement bloquant</strong> du parcours : rien ne tourne sans point de départ. Il est donc seul sur son écran, et la carte confirme qu'on a compris l'adresse — un géocodage qui se trompe de commune est indétectable dans un champ texte.</p>
       <p>L'encart vert est le passage le plus discutable de toute la maquette, et je le propose exprès. La mesure radiale sur quatre villes a montré que <strong>le produit ne rend pas le même service partout</strong> : à Pacé la ville se dégage en 4 km, aux Lilas la densité de feux ne retombe jamais avant 30 km. Dire au nouveau ce que sa géographie lui promet, c'est de la franchise ; le dire ici, alors qu'il vient de s'installer, c'est peut-être aussi le décourager avant d'avoir essayé.</p>
       <div class="citation"><b>À trancher :</b> on le dit à l'installation, on le dit à la première génération ratée, ou on ne le dit jamais.</div>
-      <div class="pastilles"><span class="p ecrire">géocodage absent du dépôt</span><span class="p ok">mesure de densité faite</span><span class="p ouvert">dire ou non la géographie</span></div>
+      <div class="pastilles"><span class="p ecrire">géocodage absent du dépôt</span><span class="p ecrire">aucune fonction de dégagement</span><span class="p ouvert">dire ou non la géographie</span></div>
     </div>
   </div>
 
@@ -504,9 +510,11 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
           </svg>
         </div>
         <div class="chiffres"><span><b>17,0</b> km</span><span><b>69</b> m D+</span><span><b>10</b> feux</span><span><b>3 %</b> de nationales</span></div>
+        <p class="mention" style="margin-top:7px;color:var(--attention)">Le compte de feux existe en texte ; le JSON n'expose qu'une densité de marqueurs.</p>
         <p class="mention" style="margin-top:9px">Vent de travers. 17 °C ressentis, sec.</p>
       </div>
       <div class="boutons"><button class="bouton second">Autre parcours</button><button class="bouton">Ouvrir</button></div>
+      <div class="onglets"><span class="actif">Aujourd'hui</span><span>Ma semaine</span><span>Demander</span><span>Réglages</span></div>
     </div></div>
     <div class="notes">
       <h3>Aujourd'hui <span class="ref">E14</span></h3>
@@ -514,7 +522,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p><strong>Le parcours est déjà là.</strong> Il a été calculé à 6 h, pendant la nuit, pas au moment où on ouvre l'application — c'est ce que fait déjà la version en ligne, et ça supprime le troisième moment décisif dans le cas le plus fréquent.</p>
       <p>Les quatre chiffres sont ceux que le produit sait vraiment dire, et <strong>ils ont été choisis contre trois autres</strong> qui avaient été retirés parce qu'illisibles ou alarmants à tort. Les feux se comptent en nombre absolu, jamais « 1,7 au kilomètre » : sur 100 km, personne ne croise 170 feux.</p>
       <p>Les deux flèches ocre sur la carte sont le vent. Elles n'apparaissent qu'au-delà de 8 km/h — en dessous, le vent ne se sent pas sur le visage et le dessiner serait du bruit.</p>
-      <div class="pastilles"><span class="p ok">tous les chiffres existent</span><span class="p ecrire">géométrie du tracé absente du JSON</span></div>
+      <div class="pastilles"><span class="p ok">distance, D+, nationales</span><span class="p ecrire">compte de feux absent du JSON</span><span class="p ecrire">géométrie du tracé absente du JSON</span><span class="p ouvert">écran d'un invité sans Intervals</span></div>
     </div>
   </div>
 
@@ -537,6 +545,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
         <button class="bouton second" style="padding:9px;font-size:13.5px">Générer le parcours</button>
         <p class="mention" style="margin-top:9px">Sans le vent : à quatre jours, on ne sait pas encore d'où il soufflera.</p>
       </div>
+      <div class="onglets"><span>Aujourd'hui</span><span class="actif">Ma semaine</span><span>Demander</span><span>Réglages</span></div>
     </div></div>
     <div class="notes">
       <h3>Ma semaine <span class="ref">E15</span></h3>
@@ -552,7 +561,8 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <div class="app-tete"><div><span class="quand">Sans Intervals</span><h4>Déposer une séance</h4></div></div>
       <div class="depot"><div class="grosse">Déposez votre fichier</div>
         <p class="mention">ou choisissez-le sur votre téléphone</p>
-        <div class="fmt">.ZWO · .MRC · .FIT</div></div>
+        <div class="fmt">.ZWO · .MRC</div>
+        <p class="mention" style="margin-top:9px">Le <b>.FIT</b> viendra plus tard — c'est le seul des trois qui soit un format binaire.</p></div>
       <div class="bloc doux">
         <div class="bloc-tete"><h5>4x15 SST.zwo</h5><span class="rang">Compris</span></div>
         <div class="etapes">
@@ -569,8 +579,9 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <h3>Importer une séance <span class="ref">E17</span></h3>
       <p>L'écran ne se contente pas d'accepter le fichier : <strong>il montre ce qu'il a compris dedans</strong>, dans le même vocabulaire que partout ailleurs. C'est le seul moyen pour l'utilisateur de voir qu'un fichier a été mal lu avant de partir rouler avec.</p>
       <p>La dernière ligne explique la conversion. Un fichier ZWO ne porte que des pourcentages ; <strong>les watts affichés dépendent de la FTP saisie à l'étape 2</strong>, et quelqu'un qui voit 220 W là où il attendait 250 vient d'apprendre que sa FTP est mal renseignée.</p>
-      <div class="citation"><b>C'est l'écran le plus cher de la maquette.</b> Aucun de ces trois formats n'est lu aujourd'hui comme une prescription de séance : la seule source structurée est l'API d'Intervals. Ce n'est pas un branchement, c'est un lot entier — et il faudra choisir s'il lit une séance prescrite ou une sortie déjà faite.</div>
-      <div class="pastilles"><span class="p ecrire">aucun des trois formats n'est lu</span><span class="p ok">modèle de séance existe</span><span class="p ouvert">prescription ou activité</span></div>
+      <p><strong>Le mainteneur a tranché l'ordre : les deux formats simples d'abord, le FIT ensuite.</strong> Et la vérification lui donne raison en mieux qu'il ne le pensait — <em>aucun des trois ne demande d'installer quoi que ce soit</em>. Le <code>.ZWO</code> est du XML, que la bibliothèque standard lit déjà pour le TCX. Le <code>.MRC</code> est du texte. Et <code>fitdecode</code> est <em>déjà</em> une dépendance du projet.</p>
+      <div class="citation"><b>Ce qui coûte n'est donc pas la lecture du fichier.</b> C'est qu'une séance prescrite n'a pas la même forme qu'une sortie enregistrée, et que ce modèle-là manque. Le FIT ajoute sa difficulté propre : ses messages de séance sont d'une autre famille que ses messages d'activité, les seuls que le projet sache lire.</div>
+      <div class="pastilles"><span class="p ecrire">ZWO et MRC à lire — sans dépendance</span><span class="p ecrire">FIT reporté</span><span class="p ok">modèle de séance existe</span><span class="p ouvert">prescription ou activité</span></div>
     </div>
   </div>
 </section>
@@ -585,10 +596,10 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <div class="bloc choisi" style="margin-bottom:16px">
         <div class="bloc-tete"><h5>Ce que ça donnera</h5><span class="rang">Estimation</span></div>
         <div style="display:flex;gap:22px;align-items:baseline;margin-bottom:6px">
-          <div><div class="grand">54<small>km</small></div><p class="mention">à 160 W en Z2</p></div>
+          <div><div class="grand">54<small>km</small></div><p class="mention">à 147 W en endurance</p></div>
           <div><div class="grand">2:00<small></small></div><p class="mention">retour vers 11 h 40</p></div>
         </div>
-        <p class="mention">Les kilomètres suivent votre puissance : à 160 W vous tenez 27 km/h sur le plat, moins dans le vent de face.</p>
+        <p class="mention">Les kilomètres suivent votre puissance, votre poids et le relief — moins dans le vent de face, plus dans le dos.</p>
       </div>
       <div class="champ"><label for="e16-duree">Durée</label>
         <div class="saisie-unite"><input class="saisie mono" id="e16-duree" value="2:00" readonly><span class="unite">h</span></div></div>
@@ -604,16 +615,17 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
         <input class="saisie" id="e16-ou" value="12 rue des Ajoncs, Pacé" readonly>
         <div class="aide"><span class="lien">Partir d'ailleurs cette fois</span></div></div>
       <button class="bouton">Chercher trois parcours</button>
-      <p class="mention" style="text-align:center;margin-top:10px">Environ une minute.</p>
+      <p class="mention" style="text-align:center;margin-top:10px">Environ cinq secondes.</p>
+      <div class="onglets"><span>Aujourd'hui</span><span>Ma semaine</span><span class="actif">Demander</span><span>Réglages</span></div>
     </div></div>
     <div class="notes">
       <h3>Demander un parcours <span class="ref">E16</span></h3>
       <p><strong>Le résultat est en haut, les réglages en dessous, et le résultat bouge quand on touche un réglage.</strong> C'est ce qui rend le générateur de Strava bon : on ne remplit pas un formulaire pour découvrir la réponse à la fin, on négocie avec un chiffre qu'on a sous les yeux.</p>
       <p>Une différence assumée avec Strava : <strong>chez eux le tracé lui-même se redessine en direct, ici il ne peut pas.</strong> Une boucle coûte environ 150 appels météo et plusieurs appels de calcul — ça ne se recalcule pas à chaque frappe. Ce qui bouge en direct, c'est donc l'<em>estimation</em> : la distance, l'heure de retour. Le tracé, lui, attend le bouton.</p>
-      <p>Cette contrainte physique se rembourse ailleurs : <strong>l'estimation, elle, est vraie.</strong> Elle vient du même modèle qui calcule le temps sur le vrai parcours — masse, puissance, pente, vent de face — pas d'une vitesse moyenne inventée.</p>
+      <p>Cette contrainte se rembourse ailleurs : <strong>l'estimation vient du même modèle</strong> qui calcule le temps sur le vrai parcours — masse, puissance, pente, vent de face — pas d'une vitesse forfaitaire. Réserve, et elle compte : ce modèle <em>se calibre sur l'historique</em>. Pour quelqu'un qui vient d'arriver, il tourne sur ses valeurs par défaut, et l'écran ne le dit pas encore.</p>
       <p>La question du vent est posée <strong>avant</strong> la recherche, pas après. C'est l'idée du mainteneur, et elle réduit l'espace de recherche au lieu de le trier après coup. « Peu importe » reste une réponse valable, et c'est le défaut.</p>
       <p>Enfin, « environ une minute » est là parce que le bouton ouvre <strong>la seule attente longue du produit</strong>. Annoncer l'ordre de grandeur coûte une ligne ; ne pas l'annoncer coûte un rechargement, et un rechargement coûte un second cycle complet d'appels.</p>
-      <div class="pastilles"><span class="p ok">modèle physique calibré</span><span class="p ok">question du vent existe</span><span class="p ecrire">géocodage du départ ponctuel</span><span class="p ecrire">Z2 depuis les zones</span></div>
+      <div class="pastilles"><span class="p ok">modèle physique</span><span class="p ok">question du vent existe</span><span class="p ecrire">géocodage du départ ponctuel</span><span class="p ouvert">modèle non calibré pour un invité</span><span class="p ouvert">une adresse ponctuelle, ou une liste</span></div>
     </div>
   </div>
 </section>
@@ -633,16 +645,19 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
         <div class="jalon suite"><span class="etat">·</span><span>Terrain relevé sous les blocs</span><span class="detail"></span></div>
         <div class="jalon suite"><span class="etat">·</span><span>Trois parcours retenus</span><span class="detail"></span></div>
       </div>
-      <div class="encart info" style="margin-top:18px"><b>Vous pouvez fermer.</b> On vous prévient quand c'est prêt — le calcul continue sans vous.</div>
+      <div class="encart info" style="margin-top:18px"><b>Cinq secondes environ.</b> Si ça dure plus longtemps, vous pouvez fermer — on vous préviendra.</div>
       <button class="bouton fantome">Annuler la recherche</button>
     </div></div>
     <div class="notes">
       <h3>Génération en cours <span class="ref">E18</span></h3>
       <p>Pas un rond qui tourne : <strong>cinq jalons qui nomment ce qui se passe</strong>, dans le vocabulaire du cycliste et pas dans celui du serveur. « Le sud-est est au sec » est déjà un résultat — l'attente rend quelque chose avant d'être finie.</p>
       <p>Les compteurs (« 8 directions », « 3 sur 5 ») ont une fonction précise : <strong>ils prouvent que ça avance.</strong> Une barre de progression qui n'avance pas et un écran figé se ressemblent ; un compteur qui passe de 2 à 3 ne ment pas.</p>
-      <p><strong>« Vous pouvez fermer » est la phrase la plus importante de l'écran.</strong> Elle désamorce le rechargement d'impatience, qui est exactement ce qui fait déraper le coût par utilisateur exigé au sprint 8. Elle engage en retour à savoir prévenir — donc à écrire une notification.</p>
-      <p>Et « Annuler » existe, en bas, discret. Quelqu'un qui s'est trompé de durée ne devrait pas avoir à attendre la fin pour recommencer.</p>
-      <div class="pastilles"><span class="p ecrire">génération asynchrone</span><span class="p ecrire">notification quand c'est prêt</span><span class="p ouvert">annuler : rembourse-t-on les appels ?</span></div>
+      <div class="citation"><b>La première version de cet écran annonçait « environ une minute ». C'était inventé.</b> La relecture adverse l'a relevé, et la mesure a renversé la conception.</div>
+      <p><strong>Mesuré le 16/09/2026</strong>, sur la machine du mainteneur, contre le BRouter hébergé : une boucle de 55 km à cinq candidates prend <strong>4,2 s</strong> le cache chaud, <strong>3,8 s</strong> le cache vide ; la sortie complète du jour, séance placée et carte écrite, <strong>5,6 s</strong>. Trois mesures, jamais une minute.</p>
+      <p>J'avais confondu deux choses. <strong>Le coût en quota et le temps d'attente ne sont pas la même grandeur</strong> : Open-Meteo décompte un appel par coordonnée, donc 150 appels décomptés — mais ils voyagent groupés dans quelques requêtes seulement. Cher au compteur, rapide à l'horloge.</p>
+      <p>Conséquence sur le choix du mainteneur, « asynchrone ou semi-synchrone en précisant que ça prend X secondes » : <strong>à cinq secondes, c'est le semi-synchrone qui gagne.</strong> On reste sur l'écran, les jalons défilent, et l'asynchrone ne se déclenche qu'en dépassement. Construire une file de travaux et des notifications pour cinq secondes serait payer cher une peur mal mesurée.</p>
+      <p>Les jalons restent, eux : cinq secondes muettes suffisent à faire douter, et « Le sud-est est au sec » est déjà un résultat.</p>
+      <div class="pastilles"><span class="p ok">durée mesurée</span><span class="p ecrire">jalons en temps réel</span><span class="p ouvert">seuil de bascule vers l'asynchrone</span><span class="p ouvert">annuler : rembourse-t-on les appels ?</span></div>
     </div>
   </div>
 </section>
@@ -716,7 +731,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
         <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Échauffement</b> <small>Z2, sort de la ville</small></span><span class="km">0 → 14,2</span></div>
         <div class="etape"><span class="pt" style="background:var(--z4)"></span><span class="nom"><b>Bloc 1 — 15 min</b> <small>220 W · plat, 1 seul carrefour</small></span><span class="km">14,2 → 22,8</span></div>
         <div class="etape"><span class="pt" style="background:var(--z2)"></span><span class="nom"><b>Récupération</b> <small>145 W</small></span><span class="km">22,8 → 25,4</span></div>
-        <div class="etape"><span class="pt" style="background:var(--z4)"></span><span class="nom"><b>Bloc 2 — 15 min</b> <small>220 W · vent de dos</small></span><span class="km">25,4 → 34,6</span></div>
+        <div class="etape"><span class="pt" style="background:var(--z4)"></span><span class="nom"><b>Bloc 2 — 15 min</b> <small>220 W · faux plat montant</small></span><span class="km">25,4 → 34,6</span></div>
         <div class="etape"><span class="pt" style="background:var(--z1)"></span><span class="nom"><b>Retour au calme</b> <small>Absorbe ce qui reste</small></span><span class="km">34,6 → 56,2</span></div>
       </div>
       <div class="encart info"><b>Z2 d'ouverture allongée de 4 min</b> pour faire tomber le premier bloc hors de la ville.</div>
@@ -729,7 +744,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p>Chaque étape porte <strong>son kilométrage de début et de fin</strong>, parce que c'est ce qu'on lit sur un compteur en roulant. Et chaque bloc porte la raison de sa place — « plat, un seul carrefour », « vent de dos ».</p>
       <p>L'encart bleu expose le seul levier du placement : <strong>l'échauffement coulisse</strong>, et les blocs coulissent avec lui. Le dire transforme un chiffre bizarre en décision compréhensible.</p>
       <p><strong>« Envoyer vers mon compteur » plutôt que « Télécharger ».</strong> C'est le quatrième moment décisif, et la décision était déjà prise : le partage système du mobile, qui marche avec Garmin, Coros, Wahoo et les autres, sans intégration par marque. Le téléchargement direct reste en dessous, discret, pour celui qui est sur un ordinateur.</p>
-      <div class="pastilles"><span class="p ok">placement des blocs mesuré</span><span class="p ok">GPX du parcours roulé</span><span class="p ok">motif du placement affiché</span></div>
+      <div class="pastilles"><span class="p ok">placement des blocs mesuré</span><span class="p ok">GPX du parcours roulé</span><span class="p ok">motif du placement affiché</span><span class="p ecrire">envoi vers le compteur</span></div>
     </div>
   </div>
 </section>
@@ -760,6 +775,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
         <div class="rangee"><span class="cle">Mes données</span><span class="lien">Tout exporter</span></div>
         <div class="rangee"><span class="cle">Mon compte</span><span class="lien" style="color:var(--alerte)">Supprimer</span></div>
       </div>
+      <div class="onglets"><span>Aujourd'hui</span><span>Ma semaine</span><span>Demander</span><span class="actif">Réglages</span></div>
     </div></div>
     <div class="notes">
       <h3>Profil et réglages <span class="ref">E21 · E22</span></h3>
@@ -767,7 +783,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p>« Zones : calculées · édition en V2 » dit ce qui existe et ce qui viendra, <strong>au lieu d'un bouton grisé</strong>. Une ligne qui annonce est plus honnête qu'un bouton qui refuse.</p>
       <p><strong>Export et suppression sont sur cet écran dès la première version</strong>, pas repoussés. La doctrine l'exige, et les construire après coup revient à traverser toute la base une seconde fois.</p>
       <p>« 1 · iPhone » montre les clés d'accès comme des objets qu'on possède, avec l'appareil où elles vivent. Quelqu'un qui change de téléphone doit pouvoir retirer l'ancienne sans nous écrire.</p>
-      <div class="pastilles"><span class="p ok">tous les champs existent en config</span><span class="p ecrire">édition des zones</span><span class="p ecrire">export et suppression</span></div>
+      <div class="pastilles"><span class="p ok">FTP, poids, départ, vélo</span><span class="p ecrire">nom et prénom : aucun champ</span><span class="p ecrire">édition des zones</span><span class="p ecrire">clés d'accès</span><span class="p ecrire">export et suppression</span></div>
     </div>
   </div>
 
@@ -781,17 +797,112 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
   </div>
 </section>
 
+
+<!-- ============================ QUAND CA CASSE ============================ -->
+<section class="flux" id="casse">
+  <div class="flux-tete"><h2>Quand ça casse</h2><span class="compte">Quatre échecs sur quatre écrans</span></div>
+  <p class="flux-intro">La première version de ces maquettes ne dessinait que des écrans qui marchent. La relecture adverse l'a relevé comme la faute la plus grave, et elle avait raison : <strong>le contrat exige que chaque écran ait ses états dégradés dessinés</strong>, et un produit qui dépend de trois services extérieurs passe une partie de sa vie en panne.</p>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Recherche</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Demain matin · 2 h · Z2</span><h4>Aucune boucle</h4></div></div>
+      <div class="encart alerte"><b>On n'a rien trouvé qui tienne en 2 h depuis Pacé.</b> Les cinq essais sont revenus trop courts ou trop longs de plus de 10 %.</div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>Ce qui peut aider</h5></div>
+        <div class="etapes">
+          <div class="etape"><span class="km">→</span><span class="nom"><b>Élargir la durée</b> <small>1 h 45 à 2 h 15</small></span><span class="lien">Essayer</span></div>
+          <div class="etape"><span class="km">→</span><span class="nom"><b>Laisser la direction libre</b> <small>« Peu importe » au lieu du sud-est</small></span><span class="lien">Essayer</span></div>
+        </div>
+      </div>
+      <p class="mention">Rien n'a été décompté de votre côté : un essai qui ne rend rien ne coûte rien.</p>
+    </div></div>
+    <div class="notes">
+      <h3>Aucune boucle trouvée <span class="ref">E18 · échec</span></h3>
+      <p>L'échec le plus fréquent, et le seul qui ne soit la faute de personne : le moteur n'a pas trouvé de boucle dans la tolérance de distance. <strong>Un message d'erreur seul serait une impasse</strong> — l'écran propose donc les deux leviers qui marchent réellement, avec leurs valeurs, pas un « réessayez ».</p>
+      <p>La dernière ligne existe parce que l'utilisateur ne sait pas ce qu'il consomme. Le dire une fois vaut mieux que de le laisser imaginer.</p>
+      <div class="pastilles"><span class="p ok">le moteur sait déjà dire qu'il n'a rien</span><span class="p ecrire">propositions de repli</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>oùrouler</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Mercredi 16 septembre</span><h4>HT reprise — très facile</h4></div>
+        <div style="text-align:right"><div class="grand" style="font-size:22px">35<small>min</small></div></div></div>
+      <div class="encart attention"><b>Pas de météo ce matin.</b> Le parcours est calculé sans la pluie ni le vent — on ne vous dira pas où il fait sec.</div>
+      <div class="bloc choisi">
+        <div class="bloc-tete"><h5>Parcours prêt</h5><span class="rang">Généré à 6:00</span></div>
+        <div class="chiffres"><span><b>17,0</b> km</span><span><b>69</b> m D+</span><span><b>10</b> feux</span></div>
+        <p class="mention" style="margin-top:9px;color:var(--attention)">Pluie et vent : inconnus</p>
+      </div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>La tenue</h5></div>
+        <p class="mention">Sans température, on ne conseille rien plutôt que de conseiller au hasard.</p>
+      </div>
+      <button class="bouton second">Réessayer la météo</button>
+    </div></div>
+    <div class="notes">
+      <h3>Météo indisponible <span class="ref">E14 · dégradé</span></h3>
+      <p>Le cas s'est déjà produit en vrai, et il avait été mal traité : la commande rendait « hors de portée » quand le modèle régional ne couvrait pas la fenêtre, et l'utilisateur lisait « hors du domaine ». Deux causes, un seul message.</p>
+      <p><strong>Le parcours reste servi</strong>, parce qu'une boucle sans météo vaut mieux que pas de boucle. Ce qui disparaît, ce sont les affirmations qu'on ne peut plus soutenir : la pluie, le vent, et la tenue.</p>
+      <p><strong>Et la tenue dit pourquoi elle se tait.</strong> Un bloc vide laisserait croire à un bug ; une phrase le transforme en refus assumé — règle absolue 5, on n'affirme rien sans mesure.</p>
+      <div class="pastilles"><span class="p ok">repli de modèle déjà écrit</span><span class="p ecrire">état « météo absente » à l'écran</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Parcours</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Demain 9 h 40 · 2 h</span><h4>Un seul parcours</h4></div></div>
+      <div class="encart info"><b>On en voulait trois, on n'en propose qu'un.</b> Les cinq boucles essayées empruntaient plus du quart des mêmes routes, ou ne se distinguaient sur aucun critère perceptible.</div>
+      <div class="bloc choisi">
+        <div class="bloc-tete"><h5>La seule candidate</h5><span class="rang">Retenue</span></div>
+        <div class="chiffres"><span><b>54,8</b> km</span><span><b>276</b> m D+</span><span><b>6</b> feux</span><span><b>0,0</b> mm</span></div>
+        <p class="mention" style="margin-top:9px">Ce jour-là, le vent, les demi-tours, la durée et le terrain valaient la même chose partout.</p>
+      </div>
+      <button class="bouton">Ouvrir</button>
+      <button class="bouton fantome">Chercher plus loin (8 candidates)</button>
+    </div></div>
+    <div class="notes">
+      <h3>Une seule proposition <span class="ref">E19 · dégradé</span></h3>
+      <p>Ce n'est pas une panne, <strong>et c'est tout le problème</strong> : il faut que l'écran ne ressemble pas à une panne. Le comportement existe déjà dans la commande, qui refuse de servir trois boucles qui se ressemblent et dit pourquoi.</p>
+      <p>Le bouton du bas est le seul recours honnête : chercher plus large coûte plus cher et peut ne rien donner de plus. <strong>On le propose, on ne le fait pas d'office.</strong></p>
+      <div class="pastilles"><span class="p ok">le cas existe et s'explique déjà</span><span class="p ouvert">relancer à 8 candidates : qui paie ?</span></div>
+    </div>
+  </div>
+
+  <div class="paire">
+    <div class="tel"><div class="barre-etat"><span>9:41</span><span>Ma semaine</span></div><div class="ecran">
+      <div class="app-tete"><div><span class="quand">Depuis intervals.icu</span><h4>Cette semaine</h4></div></div>
+      <div class="encart alerte"><b>intervals.icu ne nous répond plus.</b> Votre clé a sans doute été changée ou retirée. Vos séances ne sont plus lues depuis le 12 septembre.</div>
+      <button class="bouton" style="margin-bottom:14px">Remettre une clé</button>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>En attendant</h5></div>
+        <p class="mention">Vous pouvez demander un parcours à la main, ou déposer un fichier de séance. Tout le reste fonctionne.</p>
+        <div class="boutons" style="margin-top:11px"><button class="bouton second" style="font-size:13px;padding:9px">Demander</button><button class="bouton second" style="font-size:13px;padding:9px">Déposer</button></div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <h3>Clé Intervals révoquée <span class="ref">E15 · échec</span></h3>
+      <p>Le plus insidieux des quatre : <strong>la clé marchait, et elle a cessé.</strong> Personne ne s'en aperçoit, et l'écran se contente de se vider. Un écran vide se lit comme « rien de prévu cette semaine » — l'utilisateur ne va pas rouler.</p>
+      <p><strong>La date compte plus que le message.</strong> « Plus lues depuis le 12 septembre » dit à quelqu'un ce qu'il a manqué ; « erreur de connexion » ne dit rien.</p>
+      <p>Et le bloc du bas rappelle que <strong>Intervals n'est pas le produit</strong>, juste une source. Le reste marche sans lui, et c'est le moment de le prouver.</p>
+      <div class="citation">La recherche n'a trouvé <b>aucun produit du domaine</b> qui documente ce cas. Le motif le plus proche vient d'ailleurs : mettre l'intégration en pause et afficher « reconnexion nécessaire » plutôt que de réessayer en silence.</div>
+      <div class="pastilles"><span class="p ecrire">détection d'une clé révoquée</span><span class="p ecrire">date du dernier succès</span></div>
+    </div>
+  </div>
+</section>
+
 <!-- ============================ OUVERT ============================ -->
 <footer class="fin" id="ouvert">
   <h2>Ce qui reste à trancher</h2>
   <p class="chapo" style="font-size:16px">Quatre décisions bloquent la suite, dans cet ordre. Les maquettes proposent une réponse à chacune — aucune n'est prise.</p>
   <div class="ouvertes">
-    <div class="ouverte"><span class="num">1</span><div><b>Ce qu'on montre pendant qu'on calcule</b><span>La maquette parie sur l'asynchrone : on peut fermer, on est prévenu. C'est le choix le plus cher à construire, et le seul qui protège le coût par utilisateur exigé au sprint 8. L'alternative — attendre écran ouvert — est gratuite et fragile.</span></div></div>
-    <div class="ouverte"><span class="num">2</span><div><b>Ce qu'on montre à un invité sans historique</b><span>Vos chiffres sont calibrés sur 162 sorties. Les siens ne le seront sur rien. Les afficher de la même façon serait un mensonge par mise en page ; afficher une fourchette rend l'outil moins net. La maquette n'a pas tranché : elle montre les chiffres d'un compte installé.</span></div></div>
-    <div class="ouverte"><span class="num">3</span><div><b>Le téléversement de séance</b><span>Ni <code>.FIT</code>, ni <code>.MRC</code>, ni <code>.ZWO</code> ne sont lus aujourd'hui comme une prescription. C'est le plus gros lot caché du brief, et il porte une question préalable : lit-on une séance à faire, ou une sortie déjà faite ?</span></div></div>
-    <div class="ouverte"><span class="num">4</span><div><b>Ce qu'on dit de la géographie</b><span>La mesure sur quatre villes a montré que le service ne rend pas le même résultat partout. À l'installation, à la première génération décevante, ou jamais — c'est un choix de franchise, pas un choix technique.</span></div></div>
+    <div class="ouverte"><span class="num">1</span><div><b>Ce qu'on montre à un invité sans historique</b><span>Vos chiffres sont calibrés sur 162 sorties. Les siens ne le seront sur rien. Les afficher de la même façon serait un mensonge par mise en page ; afficher une fourchette rend l'outil moins net. Les maquettes n'ont pas tranché : elles montrent les chiffres d'un compte installé, et le signalent en pastille.</span></div></div>
+    <div class="ouverte"><span class="num">2</span><div><b>Ce qu'on dit de la géographie</b><span>La mesure sur quatre villes a montré que le service ne rend pas le même résultat partout : à Pacé la ville se dégage en quelques kilomètres, aux Lilas la densité de feux ne retombe jamais avant trente. À l'installation, à la première génération décevante, ou jamais — c'est un choix de franchise, pas un choix technique. Et la fonction qui mesurerait ce dégagement n'existe pas : seule une étude ponctuelle a été faite.</span></div></div>
+    <div class="ouverte"><span class="num">3</span><div><b>Une séance prescrite, ou une sortie déjà faite ?</b><span>L'ordre des formats est tranché — <code>.ZWO</code> et <code>.MRC</code> d'abord, <code>.FIT</code> ensuite — mais pas ce qu'on lit dedans. Un fichier déposé peut être la séance à faire, ou la sortie qu'on vient de faire. Les deux sont utiles, et la seconde ouvre la boucle de vérification que le sprint 6 attend toujours.</span></div></div>
+    <div class="ouverte"><span class="num">4</span><div><b>L'âge, et ce qu'on en fait</b><span>Le brief le demande, et rien dans le dépôt ne s'en sert — ni le modèle physique, ni les zones, ni la tenue. Le demander sans usage est du formulaire pour du formulaire ; ne pas le demander écarte une donnée du brief. C'est le seul écran de l'assistant que je n'ai pas dessiné, et la première version prétendait à tort qu'il ne posait aucune question.</span></div></div>
   </div>
-  <p class="mention" style="margin-top:26px;max-width:66ch">Dix-huit écrans dessinés sur vingt-quatre identifiés. Les six absents — activation du lien, étapes d'identité et de récapitulatif de l'assistant, sorties passées, compte et données — ne posaient aucune question nouvelle. Toutes les valeurs affichées sont inventées.</p>
+  <div class="citation" style="margin-top:28px;max-width:70ch"><b>Cette page est une deuxième version.</b> La première a été relue en adversaire par un modèle tenu à l'écart de sa conception, qui a trouvé cinq points bloquants et neuf graves. Les corrections faites ici : aucun état d'échec n'était dessiné, alors que le contrat en fait un critère ; cinq pastilles vertes couvraient des données absentes du JSON ; la Z2 était annoncée à 160 W quand le code cible 147 ; « 27 km/h » était présenté comme un résultat du modèle alors que c'est une valeur d'attente dans la configuration ; l'attente était annoncée à « environ une minute » sans aucune mesure ; et seize cadres n'avaient aucune navigation.</div>
+  <p class="mention" style="margin-top:20px;max-width:66ch">Vingt écrans dessinés : seize du parcours nominal sur les vingt-quatre identifiés, plus quatre états d'échec. Les huit absents comprennent l'étape d'identité de l'assistant, qui n'est pas un oubli mais la question ouverte n° 4. Toutes les valeurs affichées sont inventées — la personne, la commune, la puissance, le poids et le vélo.</p>
 </footer>
 
 </div>

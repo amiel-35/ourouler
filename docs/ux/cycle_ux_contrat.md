@@ -79,6 +79,45 @@ Ce n'est pas une charte graphique. C'est une règle de **placement de
 l'information**, et elle se juge sur « est-ce que je trouve ce que je
 cherche », pas sur « est-ce que c'est joli ».
 
+### 5. L'import de séance : les deux formats simples d'abord
+
+Arbitrage du mainteneur : « le FIT est complexe, peut-être les autres très
+simples, et il y a sûrement même des bibliothèques toutes faites ».
+
+**Vérifié, et son intuition est juste — en mieux :**
+
+- `.ZWO` est du XML. `xml.etree` de la bibliothèque standard suffit, et le
+  projet s'en sert déjà pour le TCX. **Aucune dépendance nouvelle.**
+- `.MRC` est du texte : un en-tête, puis des couples minute / pourcentage.
+  **Aucune dépendance nouvelle.**
+- `.FIT` est binaire, mais `fitdecode` est **déjà** une dépendance du projet
+  (`pyproject.toml`), utilisée par `activites/lecture.py`.
+
+Donc **aucun des trois ne demande d'installer quoi que ce soit**. Ce qui
+coûte n'est pas la lecture du fichier, c'est ce qu'on en fait : une séance
+prescrite n'a pas la même forme qu'une activité enregistrée, et c'est ce
+modèle-là qui manque. Le FIT ajoute en plus une difficulté propre — ses
+messages de séance sont d'une autre famille que ses messages d'activité, les
+seuls que le projet sait lire aujourd'hui.
+
+**V1 : `.ZWO` et `.MRC`. `.FIT` attend**, et son absence se dit à l'écran
+plutôt que de se découvrir au moment du dépôt.
+
+### 6. L'attente : asynchrone, avec la durée annoncée
+
+Arbitrage du mainteneur : « asynchrone ou semi-synchrone en précisant que ça
+prend X secondes ».
+
+La deuxième moitié de la phrase est la plus exigeante : **X doit être mesuré,
+pas inventé.** La première version des maquettes annonçait « environ une
+minute » sans aucune mesure derrière — la relecture adverse l'a relevé, et
+elle avait raison.
+
+Mesures du 16/09/2026, sur la machine du mainteneur, contre le BRouter
+hébergé : voir `maquettes_v1.html` et la section des mesures ci-dessous. La
+durée annoncée à l'écran doit venir de là, et être revue quand le calcul
+change.
+
 ## Ce qui reste à trancher
 
 Les questions ouvertes sont numérotées dans `discovery_parcours.md`. Les
