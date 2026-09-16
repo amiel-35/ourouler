@@ -26,13 +26,18 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
 6. tri par **note de placement d'abord** — elle inclut le vent depuis le
    sprint 5 —, puis par **pluie cumulée** quand deux notes sont égales à
    `config.seance.tolerance_egalite` près ;
-7. la meilleure part en **GPX** et en **carte HTML** (`sortie.carte`) ;
+7. la meilleure part en **GPX** sur disque (le parcours qu'on va rouler) ;
 8. et **deux ou trois propositions contrastées** sont extraites de ce
    classement (lot L5.3, `sortie.contraste`), chacune avec la phrase qui la
    distingue des autres en langage de cycliste. La première reste celle du
    tri : on ne change pas ce que l'outil recommande, on ajoute ce à quoi le
    comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
-   rend deux et on dit pourquoi.
+   rend deux et on dit pourquoi ;
+9. et ces mêmes propositions deviennent **la page du jour** (lot L5.4,
+   `sortie.carte.construire_page_jour`) : une carte, les tracés superposés,
+   seule la sélectionnée en couleurs — et un GPX par proposition,
+   téléchargeable depuis la page, qui suit le choix du cycliste et non le
+   classement.
 
 L'ordre du tri est celui du contrat et il n'est pas anodin : la pluie se
 contourne en partant une heure plus tard, un bloc de seuil dans un village ne
@@ -90,7 +95,7 @@ from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
 from ourouler.sortie import contraste, orientation, vent_demande
-from ourouler.sortie.carte import construire as construire_carte
+from ourouler.sortie.carte import PropositionCarte, construire_page_jour
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
 #: haut** : une séance de 72 km demande une boucle de 75 km. Vers le haut et
@@ -283,7 +288,7 @@ def executer(
         conseiller_tenue(meilleure.meteo, config.tenue) if meilleure.meteo is not None else None
     )
     chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande)
-    chemin_carte = _ecrire_carte(meilleure, seance, demande, config, tenue)
+    chemin_carte = _ecrire_page_jour(seance, demande, config, selection)
 
     if panne is not None:
         print(
@@ -861,22 +866,54 @@ def _description_parcours(parcours: Trace, placement: Placement) -> str:
     return f"{description_gpx(parcours)} · {combien}"
 
 
-def _ecrire_carte(
-    proposition: Proposition,
+def _ecrire_page_jour(
     seance: Seance,
     demande: Demande,
     config: Config,
-    tenue: Tenue | None,
+    selection: contraste.Selection,
 ) -> Path:
+    """La page du jour (lot L5.4) : les propositions contrastées, superposées.
+
+    Une `carte.PropositionCarte` par proposition retenue par
+    `contraste.choisir` — jamais recalculée ici, seulement mise en forme
+    pour l'affichage. Chacune porte sa **propre** tenue : la météo diffère
+    d'une direction à l'autre, et un cycliste qui choisit la deuxième
+    proposition doit lire son conseil à elle, pas celui de la première. Le
+    GPX embarqué dans la page est celui du **parcours placé**, demi-tours
+    compris — même règle que `_ecrire_gpx` pour le fichier écrit sur disque,
+    mais celui-ci n'est jamais écrit : il part en base64 dans la page, pour
+    un téléchargement `blob:` côté navigateur (§4.2 du contrat — « le
+    fichier suit le choix du cycliste, pas le classement »).
+    """
     chemin = chemin_carte_par_defaut(demande)
-    page = construire_carte(
-        proposition.trace,
+    cartes_props = []
+    for retenue in selection.retenues:
+        p = retenue.proposition
+        tenue_p = conseiller_tenue(p.meteo, config.tenue) if p.meteo is not None else None
+        parcours = trace_parcourue(p.placement, p.trace)
+        cartes_props.append(
+            PropositionCarte(
+                numero=p.numero,
+                trace=p.trace,
+                placement=p.placement,
+                meteo=p.meteo,
+                distinction=retenue.distinction or "la seule candidate",
+                chiffres=_details_proposition(retenue),
+                sous_titre=_sous_titre(p, demande, config),
+                notes=_notes_carte(p, seance, tenue_p),
+                gpx_nom=f"sortie_{demande.jour:%Y%m%d}_n{p.numero}.gpx",
+                gpx_texte=ecrire_gpx(
+                    parcours,
+                    f"{seance.nom} — {seance.jour.isoformat()}",
+                    desc=_description_parcours(parcours, p.placement),
+                ),
+            )
+        )
+    page = construire_page_jour(
         seance,
-        proposition.placement,
+        cartes_props,
         titre=f"{seance.nom} — {date_en_francais(demande.depart)}",
-        sous_titre=_sous_titre(proposition, demande, config),
-        notes=_notes_carte(proposition, seance, tenue),
-        meteo=proposition.meteo,
+        motif_deux_propositions=selection.motif_deux_propositions,
     )
     try:
         chemin.write_text(page, encoding="utf-8")
