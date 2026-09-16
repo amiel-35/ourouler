@@ -42,6 +42,7 @@ from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
+from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
@@ -990,6 +991,10 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         },
         "meteo": _meteo_json(meteo),
         "meta": trace.meta,
+        # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
+        # le GPX écrit sur disque (`docs/ux/discovery_donnees.md` §2). Voir
+        # `boucle.geometrie` pour la forme et la simplification appliquée.
+        "trace": geometrie_json(trace),
     }
 
 

@@ -74,6 +74,7 @@ from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.commande import direction_en_azimut
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
+from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.meteo_trace import MeteoTrace
@@ -1793,6 +1794,12 @@ def _candidate_json(proposition: Proposition) -> dict:
             "modele_utilise": meteo.modele_utilise,
             "repli": meteo.repli,
         },
+        # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
+        # le GPX et le HTML Leaflet (`docs/ux/discovery_donnees.md` §2). Les
+        # `debut_m`/`longueur_m` des `emplacements` ci-dessus se raccordent à
+        # `trace.profil` par recherche dichotomique sur `dist_m` — voir la
+        # docstring de `boucle.geometrie`.
+        "trace": geometrie_json(trace),
     }
 
 
