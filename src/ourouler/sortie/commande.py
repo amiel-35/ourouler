@@ -1135,6 +1135,14 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     return lignes
 
 
+#: Écart de durée en deçà duquel on n'affiche rien : 5 % de la séance.
+#: Mots du mainteneur (16/09/2026) : « 1 min en plus ou en moins n'est pas un
+#: seuil important, faire une alerte quand on est à 5 % de différence de durée,
+#: pas moins ». Deux seuils, deux rôles : celui-ci décide si l'écart mérite
+#: d'être dit, `elasticite_calme_min` s'il mérite une alerte.
+SEUIL_ECART_DUREE = 0.05
+
+
 def _ecart_seance(profil) -> str:
     """« (+18 min) » ou « (⚠ séance amputée de 12 min) », ou rien si elle tombe juste.
 
@@ -1151,10 +1159,22 @@ def _ecart_seance(profil) -> str:
     défaut), et que `seance.placement` l'applique déjà pour décider si le
     retour au calme est raccourci. Un écart sous ce seuil reste visible en
     minutes, neutre, sans ⚠ — symétrique du dépassement positif.
+
+    **Et sous le seuil, on n'affiche rien du tout (correction du 16/09/2026).**
+    La première version gardait « (−5 min) » sans le ⚠ ; le mainteneur a
+    répondu « pas réglé ». Il avait raison : sa phrase était « faire une
+    alerte quand on est à 5 % de différence de durée, pas moins », et un
+    écart qu'on juge négligeable n'a pas à s'afficher. Une ligne qui signale
+    ce qui ne compte pas apprend à ne plus lire la ligne.
     """
     depassement = getattr(profil, "depassement_s", None)
+    duree = getattr(profil, "duree_s", None)
     if depassement is None or abs(depassement) < 60:
         return ""
+    if duree:
+        prescrite = duree - depassement
+        if prescrite > 0 and abs(depassement) / prescrite < SEUIL_ECART_DUREE:
+            return ""
     if depassement > 0:
         return f" (+{depassement / 60:.0f} min)"
     if getattr(profil, "seance_amputee", False):
