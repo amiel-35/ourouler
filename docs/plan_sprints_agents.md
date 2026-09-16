@@ -129,7 +129,7 @@ l'inventaire des sorties depuis décembre 2023 par vélo.
 | L1.6 Tests adversariaux du sprint | testeur-adversarial · Opus | fichiers corrompus, réponses d'API hostiles, fuseaux, cache absent ; invariants (pas de réseau, pas de config dans le cœur, pas de coordonnée réelle en fixture) |
 | L1.7 Relecture | relecteur · Opus | verdict écrit par lot |
 
-### Sprint 2 — Tracé **[livré le 13/09/2026, PR en attente]**
+### Sprint 2 — Tracé **[livré le 13/09/2026, fusionné]**
 
 Jalon atteint : `ourouler boucle --distance 60 --direction NE` produit un
 GPX de boucle depuis le point de départ, avec candidates comparées (trafic,
@@ -143,7 +143,7 @@ nginx à auth basique ; identifiants dans la config locale du mainteneur.
 Le lot « virages à droite » est un post-traitement des candidates (aucun
 moteur ne distingue gauche/droite nativement).
 
-### Sprint 3 — Antennes, routes connues, modèle physique **[livré le 13/09/2026, PR en attente]**
+### Sprint 3 — Antennes, routes connues, modèle physique **[livré le 13/09/2026, fusionné]**
 
 **Lot « routes connues » (décision d'Amiel, nuit du 12 au 13/09).** Mesuré
 sur dix vraies sorties rejouées dans BRouter (747 km) : 65 % de `tertiary`,
@@ -206,7 +206,7 @@ d'abord sur les sorties sûres (nom neutre, sortie seul), puis utiliser le
 modèle obtenu pour repérer les autres (résidu de vitesse anormalement
 positif sur une grande part de la sortie) et les écarter ; itérer une fois.
 
-### Sprint 4 — Séance ↔ terrain **[livré le 13/09/2026, PR en attente]**
+### Sprint 4 — Séance ↔ terrain **[livré le 13/09/2026, fusionné]**
 
 Le cœur du projet. Jalon : `ourouler sortie` lit la séance du jour dans
 Intervals, génère des boucles, les simule avec le modèle calibré, place les
@@ -319,7 +319,7 @@ Reste à préciser au lancement : bornes chiffrées des catégories de tenue
 **`--adresse-depart`**, nom réservé par Q15 (l'option annoncée ici sous le
 nom `--depuis` était trop proche de `--depart`).
 
-### Sprint 5 — La page du jour **[esquissé]**
+### Sprint 5 — Le vent, la séance visible, les trois propositions **[en cours, PR #7]**
 
 Une page HTML autonome, écrite sur le disque et ouverte dans le navigateur.
 Aucun serveur, aucun compte, aucune base : tout le calcul existe déjà, on
@@ -347,6 +347,48 @@ maquette du futur front. Le jour où l'API existera, la même page sera
 servie par le serveur au lieu d'être écrite sur le disque. Et le cœur
 produit se stabilise à peine ; chaque changement de sortie se paierait
 deux fois.
+
+**Ce que le sprint a réellement contenu** (16/09/2026) — il a débordé de son
+esquisse, et c'est le débordement qui a le plus rapporté :
+
+- **L5.1** le vent dans le placement. Un bloc de 20 min à 210 W fait 9,18 km
+  vent de face contre 13,28 km vent de dos : 4,1 km d'écart sur un bloc qui
+  en fait 11. Validé sur 161 sorties, erreur du modèle de 1,063 à 0,993 m/s,
+  et 1,445 avec le vent retourné — le contrôle qui prouve le signe.
+- **L5.2** la séance entière visible (Q13), avec un compteur kilométrique
+  distinct de la position sur le tracé.
+- **L5.3** trois propositions contrastées — deux seulement quand les
+  candidates ne le sont pas, et la commande dit pourquoi.
+- **L5.4** la page du jour, forme tranchée en Q18.
+- Les flèches de vent, pour que le lot le plus subtil du sprint devienne
+  vérifiable à l'œil.
+
+**Six défauts trouvés hors périmètre, tous en regardant de vraies sorties**,
+aucun par un test :
+
+1. **Les feux perdus à l'élagage** — `antennes._resegmenter` reconstruisait
+   les tronçons sans leurs `node_tags` : toute candidate perdait ses feux et
+   passages piétons avant d'être notée. 2,43 sans un carrefour contre 22,51
+   avec quatre feux. Même faute que `cout_km` au sprint 3, au même endroit.
+2. **Le dimensionnement à moitié** — une étape « libre » comptait zéro
+   kilomètre : 35 km demandés pour une sortie de 67.
+3. **Les ralentisseurs invisibles** — clé `traffic_calming`, jamais lue.
+4. **Les rafales jetées** — téléchargées à chaque appel, abandonnées avant
+   le tracé.
+5. **`_Terrain`** levait `ZeroDivisionError` sur un tracé dégénéré.
+6. **Le profil d'altitude** superpose les blocs après un demi-tour (ouvert).
+
+**Trois corrections de doctrine ou de cadrage, dont deux de mes propres
+erreurs** : les routes connues promues en doctrine comme instrument de mesure
+et jamais critère ; Open-Meteo qui décompte par coordonnée et non par requête
+(un `boucle` coûte ~150 appels, pas 10) ; et « éloignées » qui n'était pas
+défini dans le contrat L5.3 — trou relevé par le testeur adversarial.
+
+**La mesure qui a le plus appris** : le mainteneur roule 2,91 marqueurs
+urbains par kilomètre contre 1,50 sur les boucles proposées. Non par goût —
+« parce que je ne connais pas les routes de contournement ». Ses sorties ne
+sont donc pas la cible à imiter mais la référence à battre, et c'est la
+validation la plus concrète de la règle de doctrine écrite le même jour.
 
 ### Sprint 6 — Dogfooding **[cap fixé par le mainteneur]**
 

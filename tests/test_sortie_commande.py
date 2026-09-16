@@ -1140,12 +1140,17 @@ def test_la_carte_se_parse_en_html_et_porte_le_nom_de_la_seance(
 ):
     page = carte_produite(tmp_path, monkeypatch)
     capsys.readouterr()
+    donnees = json.loads(re.search(r"^const D = (\{.*\});$", page, re.M).group(1))
     compteur = _Compteur()
     compteur.feed(page)
     assert compteur.desequilibres == []
     assert compteur.pile == []
     assert "4x8 fabriquée" in compteur.titre
-    assert compteur.balises.get("svg") == 1
+    # Lot L5.4 : la page du jour porte un profil d'altitude **par proposition**
+    # contrastée, chacun un vrai `<svg>` statique — un seul visible à la fois
+    # (`hidden` posé par `_page_jour`, pas absent du HTML), c'est ce qui permet
+    # de changer de proposition sans redemander de calcul au serveur.
+    assert compteur.balises.get("svg") == len(donnees["propositions"])
     assert compteur.balises.get("script") == 2  # Leaflet, puis le script de la page
 
 
@@ -1153,14 +1158,17 @@ def test_la_carte_porte_les_quatre_blocs_avec_leur_note(tmp_path: Path, monkeypa
     page = carte_produite(tmp_path, monkeypatch)
     capsys.readouterr()
     donnees = json.loads(re.search(r"^const D = (\{.*\});$", page, re.M).group(1))
-    assert len(donnees["blocs"]) == 4
-    for numero, bloc in enumerate(donnees["blocs"], start=1):
+    # Lot L5.4 : la page porte une liste `propositions`, chacune avec ses
+    # propres blocs — la première est celle que le tri a retenue.
+    premiere = donnees["propositions"][0]
+    assert len(premiere["blocs"]) == 4
+    for numero, bloc in enumerate(premiere["blocs"], start=1):
         assert bloc["couleur"] == COULEURS_BLOCS[numero - 1]
         assert bloc["etiquette"].startswith(f"{numero} ·")
         assert "Bloc" in bloc["infobulle"]
         assert len(bloc["pts"]) >= 2
     # Les liaisons (échauffement, récups, calme) sont là et ne portent pas de note.
-    assert donnees["liaisons"]
+    assert premiere["liaisons"]
 
 
 def test_la_carte_ne_contient_que_la_geometrie_du_trace(tmp_path: Path, monkeypatch, capsys):
@@ -1168,9 +1176,10 @@ def test_la_carte_ne_contient_que_la_geometrie_du_trace(tmp_path: Path, monkeypa
     page = carte_produite(tmp_path, monkeypatch)
     capsys.readouterr()
     donnees = json.loads(re.search(r"^const D = (\{.*\});$", page, re.M).group(1))
-    points = {tuple(p) for p in donnees["trace"]}
-    assert tuple(donnees["depart"]) in points
-    for bloc in donnees["blocs"]:
+    premiere = donnees["propositions"][0]
+    points = {tuple(p) for p in premiere["trace"]}
+    assert tuple(premiere["depart"]) in points
+    for bloc in premiere["blocs"]:
         # Les extrémités d'un bloc sont interpolées ; le reste vient du tracé.
         assert sum(1 for p in bloc["pts"] if tuple(p) in points) >= len(bloc["pts"]) - 2
     lat_max = max(abs(lat) for lat, _ in points)

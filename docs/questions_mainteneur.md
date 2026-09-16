@@ -669,3 +669,214 @@ Trois formes possibles, à trancher :
 
 Sans réponse, le cycliste arbitre sur les phrases et les chiffres, pas sur
 les tracés — c'est-à-dire pas tout à fait « en regardant ».
+
+## Q19 — `sortie` perd toute la météo au-delà de la portée d'AROME — **diagnostiquée le 16/09/2026, correction à écrire**
+
+Constaté en préparant les sorties réelles du mainteneur :
+
+```
+$ ourouler sortie --jour 2026-09-18
+ourouler : météo indisponible (Open-Meteo : point hors du domaine du modèle
+meteofrance_arome_france_hd, essayer un modèle global (par exemple
+--modele icon_seamless)) — tableau sans les colonnes météo et sans tenue
+```
+
+Même chose le 19/09. **C'est le cas d'usage le plus utile du produit** —
+préparer mercredi la sortie du club de samedi — et il rend une page sans
+pluie, sans vent et sans tenue.
+
+**Trois défauts distincts dans un seul message :**
+
+1. **Le message est faux.** Il parle du « domaine » du modèle, c'est-à-dire de
+   sa couverture géographique. Rennes est au centre du domaine d'AROME. La
+   cause est ailleurs, et le message envoie chercher au mauvais endroit.
+2. **Il conseille une option qui n'existe pas.** `ourouler sortie` n'accepte
+   pas `--modele` : ses options sont `--json --jour --distance --direction
+   --candidates --vent --velo --heure-depart`. Le conseil vient de la couche
+   Open-Meteo, qui ignore la commande appelante.
+3. **Il n'y a aucun repli sur le second modèle**, alors que la configuration
+   en déclare un (`second_avis = "icon_seamless"`, portée de 168 h contre 67 h
+   pour AROME) et que la commande `meteo` s'en sert déjà comme second avis. Au
+   lieu de basculer, on perd toute la météo.
+
+**Ce qui est vérifié et ce qui ne l'est pas.** Vérifié : `ourouler meteo`
+fonctionne le jour même ; une requête AROME directe pour le 18/09 de 08h à 12h
+rend `200` ; AROME publie jusqu'au 18/09 23h (55 heures connues). Donc ni la
+géographie ni l'horizon ne suffisent à expliquer l'échec du 18. **La cause
+exacte n'est pas trouvée** — à instruire.
+
+**Piste** : comparer la requête réellement émise par `sortie` à celle de
+`meteo` (nombre de points, `start_hour`/`end_hour`, modèles demandés). Le
+repli sur le second modèle est de toute façon à écrire, indépendamment de la
+cause : c'est la règle 5 du projet appliquée à la météo — deux modèles qui
+divergent s'affichent, mais un modèle muet ne doit pas emporter les deux.
+
+## Diagnostic, trouvé le 16/09/2026
+
+**Ce n'est pas « hors du domaine », c'est « hors de portée ».**
+
+`meteo/openmeteo.py::_hors_domaine` conclut « le point sort de la grille »
+sur deux signatures : un corps HTTP 200 contenant des littéraux `nan`, ou
+**un bloc entièrement à `null`**. La seconde est ambiguë : un bloc nul, c'est
+aussi ce qu'Open-Meteo rend quand on demande des heures **au-delà de la
+portée du modèle**. AROME publie jusqu'au 18/09 23 h ; la sortie du club est
+le 19 à 10 h. L'heuristique confond une limite d'espace et une limite de
+temps, et le message envoie chercher au mauvais endroit.
+
+**Vérifié en basculant le modèle principal sur `icon_seamless`** (portée
+168 h) : la sortie du 19/09 rend la pluie, le vent, la tenue — et **trois
+propositions au lieu de deux**, dont « vous rentrez avec le vent dans le
+dos ». Le vent redevient un axe vivant, et le lot L5.3 retrouve son objet.
+
+**Contournement immédiat** : dans la configuration locale, `[meteo] modele =
+"icon_seamless"` et `second_avis = "meteofrance_seamless"`. On perd la maille
+fine d'AROME sur le court terme, on gagne les jours 3 à 7.
+
+**Correction à écrire** — trois choses, dans cet ordre d'importance :
+
+1. **Le repli automatique.** Quand le modèle principal ne couvre pas la
+   fenêtre demandée, basculer sur le modèle global déjà configuré, et le dire
+   dans l'en-tête (« AROME ne va pas jusqu'à samedi, prévision ICON »). C'est
+   la règle 5 appliquée à la météo : deux modèles qui divergent s'affichent,
+   mais un modèle muet ne doit pas emporter les deux. À écrire même si le
+   diagnostic évolue.
+2. **Distinguer les deux causes.** Un bloc nul au-delà de la dernière heure
+   publiée par le modèle n'est pas un point hors grille. La portée se lit dans
+   la réponse elle-même (dernière heure non nulle) ou se demande une fois.
+3. **Le conseil `--modele` est faux** : `ourouler sortie` n'a pas cette
+   option. Un message de la couche connecteur ne doit pas nommer une option de
+   ligne de commande qu'il ne connaît pas.
+
+## Q20 — La page du jour n'applique pas la méthode Strava qu'elle voulait — **ouverte le 16/09/2026, à corriger**
+
+Constat du mainteneur devant la page du 19/09 : « la méthode Strava, c'est
+d'afficher les propositions en même temps mais de mettre en couleur forte la
+version sélectionnée. Là, la version sélectionnée est en pointillé faible et
+l'autre absente. »
+
+Il a raison sur le symptôme. **Les deux causes sont distinctes, et aucune des
+deux n'est un mauvais choix de style** — ce sont deux réglages qui s'annulent.
+
+**a) La sélectionnée est dessinée comme une liaison, pas comme un tracé.**
+La sortie du club est une Z2 **sans bloc** : zéro bloc à colorer, et tout le
+parcours tombe dans le calque « échauffement / récupérations / retour au
+calme » créé par L5.2 — bleu-gris `#9fb8cd`, en pointillé. Le style prévu pour
+l'échauffement a avalé la sortie entière. Vérifié dans les données de la page :
+`blocs: 0`, `liaisons: 1` sur les deux propositions.
+
+Ce n'est pas un cas de bord : **c'est le cas courant du mainteneur.** Son plan
+ne contient aucune séance à blocs en extérieur ; toutes ses sorties sont des
+endurances, donc toutes ses pages sont pâles.
+
+**b) La non-sélectionnée est dessinée, mais invisible.** Sa trace est bien
+dans la page (1 963 points) et peinte en `#c9c9c9` — un gris trop clair pour
+se détacher des tuiles OpenStreetMap. Le contrat §4.1 demandait « trait gris
+fin » ; il est fin et gris, et illisible.
+
+**Correction à écrire :**
+
+1. **Le tracé de la proposition sélectionnée est toujours en couleur forte et
+   en trait plein**, qu'elle porte des blocs ou non. Les blocs se surimposent
+   dessus quand il y en a ; ils ne le remplacent pas. Une séance sans bloc
+   n'est pas une séance sans parcours.
+2. **Assombrir la non-sélectionnée** jusqu'à ce qu'elle se lise sur les
+   tuiles — à régler à l'œil sur une vraie page, pas au jugé, et sur la zone
+   de Rennes où le fond est dense.
+3. Vérifier la même page sur une séance **à blocs** : la hiérarchie doit
+   rester lisible à trois niveaux — blocs en couleurs vives, reste du parcours
+   sélectionné en couleur franche, autres propositions en gris lisible.
+
+## Q21 — Les trois chiffres affichés sous une proposition sont illisibles ou alarmants à tort — **ouverte le 16/09/2026, à corriger**
+
+Relevé par le mainteneur sur la ligne de sa sortie du 19/09 :
+
+> `1:59 (⚠ séance amputée de 1 min), 1,3 feux/stops/passages au km, aucun
+> demi-tour, 57 % de grands axes, 93 % de routes connues`
+
+### a) « ⚠ séance amputée de 1 min » — le seuil existe déjà et n'est pas respecté
+
+Ses mots : « 1 min en plus ou en moins n'est pas un seuil important, faire une
+alerte quand on est à 5 % de différence de durée, pas moins ».
+
+**Sa règle des 5 % est déjà dans sa configuration** : `ParametresSeance.
+elasticite_calme_min = -0.05`, et `placement.py` s'en sert pour décider d'un
+« retour au calme raccourci ». Pourtant 1 h 59 pour 2 h prescrites — **0,8 %**
+— sort avec l'avertissement. Le paramètre est là, l'affichage ne le respecte
+pas. **Corriger en honorant la valeur existante, pas en ajoutant un second
+seuil** : le mainteneur a déjà répondu à cette question, dans son fichier.
+
+### b) « 1,3 feux/stops/passages au km » — la moyenne cache ce qui compte
+
+Ses mots : « pas simple à comprendre pour un béotien et ça paraît énorme. Ça
+veut dire un arrêt tous les km ou presque. Mais **la distribution de ça est
+plus importante** : si c'est ça tout du long c'est affreux, si y en a beaucoup
+en début et fin c'est pas pareil. »
+
+Deux défauts en un. Le chiffre est **illisible** (une densité par kilomètre
+n'est pas une grandeur de cycliste) et il est **faux comme résumé** : la même
+moyenne recouvre une sortie hachée de bout en bout et une sortie fluide
+encadrée de deux traversées d'agglomération — et la seconde, c'est presque
+toutes ses sorties, qui partent de Rennes et y reviennent.
+
+**C'est exactement l'intuition de Q17** — « ce qui sépare le village de la
+ville, c'est l'étendue, pas la densité » — appliquée cette fois à
+l'affichage. Les deux se corrigent ensemble : regrouper les marqueurs, puis
+dire la chose en langage de cycliste, par exemple « 6 km hachés au départ,
+puis rien pendant 40 km ».
+
+### c) « 57 % de grands axes » — l'étiquette fait peur pour rien
+
+Ses mots : « ça fait peur, ça veut dire quoi ? »
+
+Ça veut dire : 57 % des kilomètres sont sur des routes classées `primary`,
+`secondary` ou `trunk` dans OpenStreetMap (`boucle/couts.py::HIGHWAY_TRAFIC`).
+Autour de Rennes une `secondary` est une **départementale ordinaire**, pas une
+quatre-voies. L'étiquette « grands axes » évoque le danger là où la mesure ne
+décrit qu'une classe administrative.
+
+Et surtout : **il a déjà dit que ça ne le gêne pas.** « Une départementale
+rapide ne me gêne pas pour un bloc ; là, le souci, c'est que c'est en ville. »
+On l'alarme donc sur le critère dont il se moque, et on reste muet sur celui
+qui l'intéresse.
+
+À trancher avec lui : renommer (« routes départementales »), requalifier
+(distinguer `secondary` de `primary`/`trunk`, qui n'ont pas le même sens à
+vélo), ou retirer de la ligne de résumé et le garder au détail.
+
+### Complément du 16/09/2026, sur une séance **à blocs** cette fois
+
+Le mainteneur a rejoué une séance à blocs. Deux constats de plus, tous deux
+vérifiés dans le code.
+
+**d) Un trou dans la carte : la boucle de la sélection n'est pas dessinée.**
+Ses mots : « on n'a plus de tracé sur la carte sur une zone ».
+
+`carte.py:1095` construit la polyligne grise de la boucle complète pour
+**chaque** proposition, mais `:1102` ne l'ajoute que `si p.n !== actifN` —
+donc uniquement pour les **non sélectionnées**. La sélectionnée ne dessine que
+ses blocs et ses liaisons : la portion qu'elle ne parcourt pas, au-delà d'un
+demi-tour, n'est peinte par personne.
+
+Ce n'est pas un défaut de calcul — vérifié, les blocs et liaisons couvrent
+2 687 points pour une boucle de 2 269, demi-tours compris. C'est un calque
+manquant. Correction : la sélectionnée dessine **aussi** sa boucle en fond,
+sous ses blocs.
+
+**e) Les pointillés doivent changer de sens, et sa règle est meilleure que la
+nôtre.** Ses mots : « les pointillés sont très mal lisibles, il faut les
+réserver à la trace non sélectionnée ».
+
+Aujourd'hui le pointillé (`dashArray: '6 8'`, `carte.py:1070`) veut dire
+« cette portion n'est pas un bloc » — héritage de L5.2, où il distinguait
+l'échauffement et les récupérations du tracé non parcouru. Sur la page du
+jour, il entre en collision avec la hiérarchie qui compte : sélectionnée
+contre les autres.
+
+**Règle retenue : le pointillé veut dire « ce n'est pas la sélection », et
+rien d'autre.** Un seul sens au lieu de deux. La proposition sélectionnée est
+donc **pleine de bout en bout** — blocs en couleurs vives, reste du parcours
+en couleur franche, boucle non parcourue en fond — et les autres propositions
+sont en pointillé gris. Ça résout aussi (a) et (b) plus haut : le fort devient
+franchement fort, et le faible devient identifiable au trait plutôt qu'à une
+nuance de gris.
+
