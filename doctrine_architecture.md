@@ -258,15 +258,32 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 
 ### 10.2 Ce qu'on décide maintenant, pour construire plus tard
 
-- **Authentification : déléguée, jamais de mot de passe chez nous.** OpenID
-  Connect avec Google en premier fournisseur ; Apple (« Sign in with Apple »)
-  en second, avec ses contraintes propres — compte développeur Apple payant,
-  clé privée et identifiant de service, relais d'adresse e-mail privée,
+- **Authentification : jamais de mot de passe chez nous.** Le principe ne
+  bouge pas ; le chemin, si — **révisé le 16/09/2026 par le mainteneur**, au
+  moment d'ouvrir le cycle UX (`docs/ux/cycle_ux_contrat.md`).
+
+  **V1 : entrée modérée, par lien à usage unique.** Une demande d'accès, que
+  le mainteneur valide à la main, puis un e-mail d'invitation (Brevo)
+  portant un lien de connexion ; ensuite l'utilisateur peut poser une
+  **passkey** (WebAuthn) pour ne plus dépendre de sa boîte mail. Deux
+  raisons de préférer ça à ce qui était écrit ici avant : la **modération
+  est native** — le sprint 8 veut qu'on invite des copains, et par-dessus
+  une connexion Google il aurait fallu construire une liste d'attente — et
+  l'écran d'entrée nous appartient, au lieu d'être celui d'un tiers.
+
+  **V2 : Google, puis Apple, en plus et non à la place.** OpenID Connect
+  avec ses contraintes propres côté Apple — compte développeur payant, clé
+  privée et identifiant de service, relais d'adresse e-mail privée,
   obligation d'Apple si une app iOS propose d'autres connexions sociales.
-  L'identité interne est un identifiant opaque ; l'e-mail est une donnée du
-  profil, pas une clé primaire (un utilisateur peut changer de fournisseur).
   Bibliothèque au moment venu (Authlib ou équivalent), jamais une
   implémentation maison d'OAuth.
+
+  **Ce qui ne change pas dans les deux cas** : l'identité interne est un
+  identifiant opaque ; l'e-mail est une donnée du profil, pas une clé
+  primaire (un utilisateur peut changer de fournisseur, ou passer du lien
+  magique à Google) ; et **une passkey n'est jamais le seul moyen d'entrer**
+  — le lien à usage unique reste le filet, parce qu'une passkey se perd avec
+  l'appareil ou le trousseau qui la synchronise.
 - **Base de données hébergée : PostgreSQL, dès le premier jour de
   l'hébergé, jamais SQLite.** Même raison qu'ix-presenter : le coût d'un
   Postgres sur Coolify est quasi nul, le coût d'une migration SQLite →
