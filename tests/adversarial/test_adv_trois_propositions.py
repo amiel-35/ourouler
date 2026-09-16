@@ -58,7 +58,7 @@ Aucun cas n'a été retiré ni affaibli. Cinq corrections, toutes de mon côté 
   jamais à cinq candidates, et un test accusait le lot sur un vivier qui
   n'était pas celui qu'il décrivait.
 
-## Les constats retenus sont en `xfail(strict=True)`
+## Les constats retenus étaient en `xfail(strict=True)` — et ils sont levés
 
 Trois tests portent un constat que le mainteneur a retenu le 16/09/2026 et dont
 la correction est en cours : direction de vent non finie qui passe les gardes,
@@ -587,11 +587,6 @@ def _proposition_factice(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=f"{DEFAUT_RETENU} — axe « durée » : compare des durées brutes là où le "
-    "contrat §3.3.2 le définit comme l'écart à la séance",
-)
 def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     """**Défaut constaté sur `sprint-5` au 16/09/2026**, et le plus lourd des trois.
 
@@ -637,10 +632,21 @@ def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     }
     retenue_amputee = par_duree.get(2905.0)
     if retenue_amputee is None:
-        pytest.skip(
-            "la candidate amputée n'a pas été retenue sur ce vivier : l'axe durée ne peut pas "
-            "être observé ici"
+        # Depuis le correctif du 16/09/2026, la candidate amputée n'est plus
+        # retenue **du tout** : c'est plus fort que « pas distinguée sur la
+        # durée », et c'est le comportement voulu. Ce chemin était un `skip` —
+        # donc le test cessait de garder quoi que ce soit dès que le défaut
+        # était corrigé, ce qui est exactement la façon dont une preuve
+        # disparaît avec le défaut qu'elle prouvait.
+        #
+        # On exige donc la contrepartie : celle qui **tient** la séance doit,
+        # elle, être proposée. Sans cette ligne, « aucune candidate retenue »
+        # passerait pour un succès.
+        assert 7151.0 in par_duree, (
+            "ni la candidate amputée ni celle qui tient la séance ne sont retenues : "
+            "la sélection ne rend rien, ce qui n'est pas la correction attendue"
         )
+        return
     ecart_tient = abs(7151.0 - prescrite)
     ecart_ampute = abs(2905.0 - prescrite)
     assert retenue_amputee.axe_distinctif != "duree", (
@@ -790,11 +796,6 @@ def test_une_seance_sans_bloc_note_bien_zero_de_terrain_partout(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=f"{DEFAUT_RETENU} — symptôme de l'axe « durée » sur une EF : une seule "
-    "proposition rendue pour cinq candidates",
-)
 def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
     tmp_path: Path, monkeypatch, capsys
 ):
@@ -953,11 +954,6 @@ def test_les_deux_gardes_de_la_question_du_vent():
     f53.verifier_gardes_vent(_binder(_question_ou_skip()))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=f"{DEFAUT_RETENU} — direction de vent non finie : `interroger` filtre la "
-    "vitesse par `math.isfinite` mais la direction par le seul `is None`",
-)
 def test_une_direction_de_vent_non_finie_ne_doit_pas_poser_la_question():
     """**Défaut constaté sur `sprint-5` au 16/09/2026.**
 
