@@ -14,8 +14,9 @@ contraste, on explique — on ne replace pas ». Donc :
 * `terrain.evaluer_couloir` : inchangé, y compris ses deux réponses à
   « on ne sait pas » (tracé sans segments : `routes inconnues` ; tracé tagué
   sans marqueur : note nulle **mesurée**) ;
-* `BaseRoutes.part_connue` : inchangé, y compris sa promesse d'être
-  « informatif seulement » ;
+* `BaseRoutes.part_connue` : inchangé, **y compris sa promesse d'être
+  « informatif seulement »** — c'est la docstring que j'avais citée ici tout
+  en exigeant ailleurs le contraire, avant que la réconciliation ne tranche ;
 * `_comparer` et `_notes_egales` : inchangés, bornes comprises.
 
 Le lot ajoute un axe de contraste ; il ne renote rien. Un changement de l'une
@@ -429,9 +430,12 @@ def test_part_connue_ne_bouge_pas(tmp_path: Path):
 def test_part_connue_reste_bornee(tmp_path: Path):
     """Invariant : une part est dans [0, 1], et jamais un NaN.
 
-    Le lot L5.3 fait entrer `part_connue` dans le contraste (§3.3.2 :
-    « aujourd'hui absent du classement »). Une valeur hors bornes normaliserait
-    de travers tous les autres axes.
+    `part_connue` **n'entre pas** dans le contraste, et ne doit pas y entrer :
+    le tableau §3.3.2 l'a listée puis rayée le 16/09/2026, parce que les routes
+    déjà roulées sont un instrument de mesure et non un critère. Mais elle reste
+    affichée et sert à décrire une proposition retenue pour une autre raison :
+    une valeur hors bornes ou non finie s'imprimerait telle quelle dans la
+    colonne « connu % ».
     """
     base, longue, moitie = _base_et_traces(tmp_path)
     base.ajouter_trace(moitie, jour=date(2026, 1, 15), id_sortie="essai-1")

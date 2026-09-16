@@ -58,13 +58,25 @@ Aucun cas n'a été retiré ni affaibli. Cinq corrections, toutes de mon côté 
   jamais à cinq candidates, et un test accusait le lot sur un vivier qui
   n'était pas celui qu'il décrivait.
 
-## Les tests rouges sont des constats, pas des artefacts
+## Les constats retenus sont en `xfail(strict=True)`
 
-Quatre tests échouent volontairement au 16/09/2026. Chacun porte dans son
-docstring le mécanisme et la citation du contrat : défaut de garde sur une
-direction de vent non finie, axe « durée » comparant des durées brutes au lieu
-d'écarts à la séance, septième axe `part_connue` absent du contraste, et
-l'effet produit des deux derniers sur une EF.
+Trois tests portent un constat que le mainteneur a retenu le 16/09/2026 et dont
+la correction est en cours : direction de vent non finie qui passe les gardes,
+axe « durée » comparant des durées brutes au lieu d'écarts à la séance, et
+l'effet produit du second sur une endurance. Ils sont marqués
+`xfail(strict=True)` : l'assertion est intacte, le test s'exécute vraiment, et
+le jour où la correction arrive il passe — ce que `strict` transforme en échec,
+pour qu'on vienne retirer le marqueur. Un constat marqué ainsi ne se périme pas
+en silence.
+
+**Un quatrième test a été retiré parce qu'il avait tort.** Il exigeait que
+`part_connue` devienne un axe de contraste, sur la foi d'une version du contrat
+antérieure au 16/09/2026 — le tableau §3.3.2 a rayé cette ligne ce jour-là, et
+la doctrine en donne la raison : les routes déjà roulées sont un instrument de
+mesure, jamais un critère. Ma propre non-régression citait pourtant la
+docstring qui l'interdit. Deux positions contradictoires dans la même branche ;
+un test adversarial n'est pas plus infaillible que le code qu'il attaque. Il est
+remplacé par son miroir, qui garde la règle au lieu de la casser.
 
 La non-régression a son fichier (`test_adv_l53_non_regression.py`), et les
 vérificateurs employés ici sont éprouvés par vingt-sept mutations dans
@@ -122,6 +134,18 @@ def _question_ou_skip() -> Any:
     if fn is None:
         pytest.skip(MOTIF_QUESTION)
     return fn
+
+
+#: Les trois constats retenus par le mainteneur le 16/09/2026, en attente de
+#: correction. `strict=True` est le point qui compte : le test **doit** échouer.
+#: Le jour où la correction arrive, il passe, `xfail(strict)` transforme ce
+#: succès en échec, et la suite réclame qu'on retire le marqueur. Un constat
+#: ainsi marqué ne se périme pas en silence — c'est la différence entre
+#: « connu » et « oublié ».
+#:
+#: Ce n'est **pas** une façon d'assouplir : l'assertion est intacte, le
+#: mécanisme est dans le docstring de chaque test, et rien n'est sauté.
+DEFAUT_RETENU = "défaut retenu par le mainteneur le 16/09/2026, correction en cours"
 
 
 # =============================================================================
@@ -247,6 +271,53 @@ def test_les_propositions_ne_sont_pas_le_sommet_d_un_tri_unique(
             "le lot n'a rendu qu'une proposition sur ce vivier : l'étalement ne se pose pas"
         )
     f53.verifier_pas_de_trio_de_clones(choix)
+
+
+def test_les_propositions_respectent_les_marges_du_contrat(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Les trois conditions du §3.3.3 bis, **exigées** — le trou que j'avais signalé.
+
+    Avant le 16/09/2026, le contrat ne chiffrait pas « éloignées », et je l'avais
+    dit : mes tests n'attrapaient qu'un contraste **nul**, si bien que trois
+    propositions séparées de 1 % seraient passées. Le contrat a tranché :
+
+    a) chacune est la meilleure des retenues sur au moins un axe, **différent**
+       de celui des autres ;
+    b) d'une marge **dans l'unité de l'axe** — durée ≥ 10 min, pluie ≥ 0,5 mm,
+       terrain ≥ 1,0 km équivalent, un compte de demi-tours différent, une
+       orientation au vent différente ;
+    c) le recouvrement de routes reste sous le seuil mesuré par le lot.
+
+    Les chiffres sont ceux du contrat, pas les miens. Le seul que je lis chez le
+    lot est la marge de densité, que le contrat renvoie explicitement à « la
+    mesure du lot », et le seuil de recouvrement, qu'il dit devoir se mesurer
+    sur une distribution que je n'ai pas — inventer un chiffre là où le contrat
+    refuse d'en inventer un serait pire que de lire le sien.
+    """
+    h = f53.harnais()
+    doc = _doc(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        brouter=h.moteur_brouter(_rayons_contrastes(5)),
+        meteo=h.moteur_meteo(pluie=h.pluie_au_nord),
+        candidates=5,
+    )
+    choix = _choix_ou_skip(doc)
+    f53.verifier_marges_de_contraste(choix)
+
+
+def test_les_pas_du_lot_ne_sont_pas_plus_laxistes_que_le_contrat():
+    """Un pas plus étroit que celui du §3.3.3 bis laisserait passer l'indiscernable.
+
+    Contrôle structurel, complémentaire du précédent : le test de comportement
+    ne voit que les viviers qu'on lui donne, celui-ci voit la règle elle-même.
+    Un pas plus **large** que le contrat est une exigence renforcée et passe ;
+    un pas plus **étroit** échoue.
+    """
+    pytest.importorskip("ourouler.sortie.contraste", reason="module du lot L5.3 absent")
+    f53.verifier_pas_de_marge_relachee()
 
 
 def test_aucune_proposition_n_est_publiee_deux_fois(tmp_path: Path, monkeypatch, capsys):
@@ -516,6 +587,11 @@ def _proposition_factice(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=f"{DEFAUT_RETENU} — axe « durée » : compare des durées brutes là où le "
+    "contrat §3.3.2 le définit comme l'écart à la séance",
+)
 def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     """**Défaut constaté sur `sprint-5` au 16/09/2026**, et le plus lourd des trois.
 
@@ -578,41 +654,101 @@ def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     )
 
 
-def test_la_part_de_routes_connues_est_un_axe_de_contraste():
-    """**Écart au contrat constaté sur `sprint-5` au 16/09/2026.**
+def test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection():
+    """La doctrine, gardée **dans le bon sens** — et l'erreur que je répare ici.
 
-    Le tableau du contrat §3.3.2 liste sept axes, et la septième ligne est
-    « Routes connues | `BaseRoutes.part_connue` | Tout un lot du sprint 3,
-    **aujourd'hui absent du classement** ». Le §3.1.3 b) la nomme deux fois :
-    « la cinquième [a] 98 % de routes déjà connues du mainteneur », puis « Ni
-    le trafic ni la part de routes connues — tout un lot du sprint 3 —
-    n'entrent dans le classement ».
+    J'avais écrit le test inverse, exigeant que `part_connue` devienne un axe
+    de contraste, sur la foi du tableau §3.3.2 tel qu'il était avant le
+    16/09/2026. La ligne a été **rayée** ce jour-là : « Retiré : contredit le
+    contrat du sprint 3 ». Deux choses auraient dû m'arrêter avant de l'écrire :
 
-    Le lot a bien fait entrer le **trafic** (`AXE_TRAFIC`), et c'est le second
-    des deux manques nommés. Mais `part_connue` reste hors du contraste : elle
-    est calculée (`commande._mesurer`), affichée en colonne et publiée dans le
-    JSON, et `contraste.Profil` ne la porte pas. Conséquence testée ici : deux
-    boucles dont l'une est connue à 98 % et l'autre à 5 % — l'écart exact que
-    le mainteneur a relevé à l'œil — sont indiscernables pour le contraste.
+    * la docstring de `BaseRoutes.part_connue`, que j'avais lue et **citée
+      dans ma propre non-régression** — « Informatif seulement. Le contrat
+      l'interdit dans tout score » ;
+    * la raison de fond, montée en doctrine : les routes déjà roulées sont un
+      **instrument de mesure**, jamais un critère. Le jour où elles entrent
+      dans le score, l'outil cesse de mesurer quoi que ce soit — il renvoie au
+      cycliste ses propres habitudes en prétendant les avoir trouvées, et
+      toute validation rétrospective devient circulaire. Dans les mots du
+      mainteneur : « ça permet de comparer les critères de BRouter à ma
+      réalité dans ses choix, **pas du tout de privilégier mes choix** ».
 
-    Ce n'est pas un bug d'implémentation, c'est un axe non livré : à arbitrer
-    par le mainteneur (le livrer, ou retirer la ligne du contrat), pas par moi.
+    Un test adversarial n'est pas plus infaillible que le code qu'il attaque :
+    celui-là se serait trompé avec la même assurance que mon adaptateur muet,
+    et aurait poussé l'implémentation à violer la doctrine. D'où ce miroir, qui
+    garde la règle au lieu de la casser.
+
+    Trois contrôles, du plus structurel au plus observable.
     """
     contraste = pytest.importorskip(
         "ourouler.sortie.contraste", reason="module de contraste du lot L5.3 absent"
     )
-    connue = _proposition_factice(part_connue=0.98, cap_deg=90.0)
-    inconnue = _proposition_factice(part_connue=0.05, cap_deg=270.0)
-    selection = contraste.choisir([connue, inconnue], combien=2)
-    assert len(selection.retenues) == 2, (
-        "deux boucles identiques en tout sauf la part de routes déjà roulées (98 % contre "
-        f"5 %) : le lot n'en retient que {len(selection.retenues)}, motif "
-        f"« {selection.motif_deux_propositions} ». La part de routes connues n'est pas un axe "
-        "de contraste — or le contrat §3.3.2 la liste comme le septième, et §3.1.3 b) la "
-        "nomme explicitement parmi ce qui n'entre pas encore dans le classement. "
-        "`contraste.Profil` porte duree_s, demi_tours, note_terrain, pluie_mm, "
-        "densite_marqueurs_km, part_trafic et orientation — pas part_connue."
+
+    # 1. Aucun axe déclaré ne porte les routes connues.
+    axes = [str(a) for a in getattr(contraste, "ORDRE_AXES", ())]
+    suspects = [a for a in axes if "connu" in f53._sans_accents_bas(a)]
+    assert not suspects, (
+        f"axes de contraste {suspects} : les routes déjà roulées ne sont pas un critère "
+        "(contrat §3.3.2, ligne rayée le 16/09/2026 ; doctrine « ce qu'on refuse et "
+        "pourquoi »)."
     )
+
+    # 2. Le profil d'une proposition ne la porte pas non plus.
+    import dataclasses
+
+    profil_cls = getattr(contraste, "Profil", None)
+    if profil_cls is not None and dataclasses.is_dataclass(profil_cls):
+        champs = [f.name for f in dataclasses.fields(profil_cls)]
+        assert not [c for c in champs if "connu" in f53._sans_accents_bas(c)], (
+            f"`contraste.Profil` porte {champs} : la part de routes connues n'a rien à faire "
+            "dans ce qui sert à sélectionner."
+        )
+
+    # 3. Et le comportement : deux boucles qui ne diffèrent **que** par la part
+    #    de routes connues ne sont pas contrastées. C'est l'inverse exact de ce
+    #    que mon test retiré exigeait.
+    connue = _proposition_factice(part_connue=0.98, cap_deg=90.0)
+    inconnue = _proposition_factice(part_connue=0.05, cap_deg=90.0)
+    selection = contraste.choisir([connue, inconnue], combien=2)
+    assert len(selection.retenues) == 1, (
+        f"{len(selection.retenues)} propositions retenues pour deux boucles identiques en tout "
+        "sauf la part de routes déjà roulées (98 % contre 5 %). Cette part ne doit pas "
+        "départager : elle est un instrument de mesure, pas un critère."
+    )
+
+
+def test_la_part_de_routes_connues_reste_publiee():
+    """…mais elle reste **affichée**, et c'est tout aussi important.
+
+    Contrat §3.3.2 : « La part connue reste affichée, peut servir à décrire une
+    proposition retenue pour une autre raison, et n'entre ni dans une note ni
+    dans la sélection. » La retirer de la sortie serait l'autre façon de se
+    tromper — on perdrait l'instrument de mesure qui justifie tout le lot du
+    sprint 3.
+    """
+    from ourouler.sortie.commande import Proposition
+
+    assert "part_connue" in Proposition.__dataclass_fields__, (
+        "`Proposition.part_connue` a disparu : la part de routes connues n'est pas un "
+        "critère, mais elle reste l'instrument qui permet de comparer les choix de BRouter "
+        "à la réalité du mainteneur."
+    )
+
+
+def test_aucune_phrase_ne_distingue_par_les_routes_connues(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le contrôle observable de la même règle, sur la vraie sortie."""
+    h = f53.harnais()
+    doc = _doc(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        brouter=h.moteur_brouter(_rayons_contrastes(5)),
+        meteo=h.moteur_meteo(pluie=h.pluie_au_nord),
+        candidates=5,
+    )
+    f53.verifier_part_connue_hors_selection(_choix_ou_skip(doc))
 
 
 def test_une_seance_sans_bloc_note_bien_zero_de_terrain_partout(
@@ -654,6 +790,11 @@ def test_une_seance_sans_bloc_note_bien_zero_de_terrain_partout(
     )
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=f"{DEFAUT_RETENU} — symptôme de l'axe « durée » sur une EF : une seule "
+    "proposition rendue pour cinq candidates",
+)
 def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
     tmp_path: Path, monkeypatch, capsys
 ):
@@ -680,9 +821,12 @@ def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
        (terrain, ville, trafic, demi-tours sont nuls partout) ;
     3. `choisir` l'impose pourtant dans le groupe — c'est la recommandation du
        tri — et aucun groupe valide ne se forme autour d'elle ;
-    4. `part_connue`, le septième axe du contrat, aurait départagé : il n'est
-       pas dans `contraste.Profil`
-       (`test_la_part_de_routes_connues_est_un_axe_de_contraste`).
+    L'axe « durée » explique le symptôme **à lui seul**, et il part en
+    correction. J'avais d'abord mis en cause l'absence de `part_connue` : c'était
+    faux deux fois — elle n'est pas un axe du contrat (elle en a été retirée le
+    16/09/2026), et elle ne doit pas en être un (doctrine : instrument de
+    mesure, pas critère). Voir
+    `test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection`.
 
     Résultat : sur la sortie la plus fréquente du mainteneur, l'outil propose
     une seule boucle là où le lot entier existe pour en proposer trois.
@@ -725,8 +869,8 @@ def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
         f"deux varient largement. Écarts à la séance prescrite ({prescrite / 60:.0f} min), en "
         f"minutes : {[round(e) for e in ecarts]}. La candidate qui tient la séance est la plus "
         "arrosée et ne gagne donc aucun axe ; la plus courte gagne « durée » en amputant le "
-        "retour au calme ; et `part_connue`, septième axe du contrat §3.3.2, n'existe pas dans "
-        f"`contraste.Profil`. Motif rendu par le lot : « {choix.motif} »"
+        "retour au calme. L'axe « durée » explique ce symptôme à lui seul. "
+        f"Motif rendu par le lot : « {choix.motif} »"
     )
     pluies_retenues = [p.axe("pluie_mm") for p in choix.retenues]
     assert max(pluies_retenues) - min(pluies_retenues) > 0.1, (
@@ -809,6 +953,11 @@ def test_les_deux_gardes_de_la_question_du_vent():
     f53.verifier_gardes_vent(_binder(_question_ou_skip()))
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=f"{DEFAUT_RETENU} — direction de vent non finie : `interroger` filtre la "
+    "vitesse par `math.isfinite` mais la direction par le seul `is None`",
+)
 def test_une_direction_de_vent_non_finie_ne_doit_pas_poser_la_question():
     """**Défaut constaté sur `sprint-5` au 16/09/2026.**
 

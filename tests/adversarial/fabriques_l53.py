@@ -79,15 +79,34 @@ AXES: dict[str, str] = {
     "demi_tours": "min",
     "depassement_s": "min",
     "densite_marqueurs_km": "min",
-    "part_connue": "",
     "vent_dos_retour": "max",
     "vent_dos_depart": "max",
     "vent_travers": "max",
-    # Deux axes que le lot publie et que le contrat §3.3.2 nommait : la part
-    # de routes à trafic, et la note de terrain sous les blocs.
-    "part_trafic": "min",
     "note_terrain": "min",
+    # Pas dans le tableau du contrat §3.3.2, mais le lot l'implémente
+    # (`contraste.AXE_TRAFIC`) et §3.1.3 a) documente le manque qu'il comble.
+    # Perceptible sans discussion : rouler sur une départementale se sent.
+    "part_trafic": "min",
 }
+
+#: **`part_connue` n'est pas ici, et c'est le point le plus important du
+#: fichier.** Le tableau §3.3.2 l'a listée, puis rayée le 16/09/2026 :
+#: « Retiré : contredit le contrat du sprint 3 ». La règle vient de la
+#: docstring de `BaseRoutes.part_connue` — « **Informatif seulement.** Le
+#: contrat l'interdit dans tout score : les traces ne couvrent qu'une partie du
+#: territoire, et pénaliser l'inconnu condamnerait d'avance toute direction
+#: jamais explorée » — et la doctrine en donne la raison de fond : les routes
+#: déjà roulées sont un **instrument de mesure**, jamais un critère. Le jour où
+#: elles entrent dans le score, l'outil renvoie au cycliste ses propres
+#: habitudes en prétendant les avoir trouvées, et toute validation
+#: rétrospective devient circulaire.
+#:
+#: J'avais écrit l'inverse — un test exigeant qu'elle devienne un axe — sur la
+#: foi d'une version du contrat antérieure au retrait, alors que ma propre
+#: non-régression citait la docstring qui l'interdit. Deux positions
+#: contradictoires dans la même branche. Le test est retiré et remplacé par son
+#: miroir, `test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection`.
+AXE_INTERDIT = "part_connue"
 
 #: La note de placement, que le contrat §3.3.1 exclut explicitement du
 #: contraste (« Pas la note »). Elle reste ici pour le **tri primaire**, qui
@@ -115,6 +134,13 @@ class VueProposition:
     #: Les axes réellement lus dans le JSON. Vide = l'adaptateur n'a rien
     #: compris, et aucun verdict ne doit être rendu (`exiger_axes_lus`).
     axes_lus: frozenset = frozenset()
+    #: Le plus fort recouvrement de routes avec une autre proposition, publié
+    #: par le lot sous `recouvrement_max_avec`. Le contrat §3.3.2 en fait un
+    #: axe de plein droit, et le seul qui mesure la différence **entre** les
+    #: boucles plutôt que leurs attributs.
+    recouvrement_max: float | None = None
+    #: Lue pour être surveillée, jamais pour contraster — voir `AXE_INTERDIT`.
+    part_connue: float | None = None
 
     def axe(self, nom: str) -> float:
         valeur = self.axes.get(nom)
@@ -144,7 +170,6 @@ NEUTRE: dict[str, float] = {
     "demi_tours": 1,
     "depassement_s": 900.0,
     "densite_marqueurs_km": 4.0,
-    "part_connue": 0.5,
     "vent_dos_retour": 0.5,
     "vent_dos_depart": 0.5,
     "vent_travers": 0.5,
@@ -201,17 +226,17 @@ def vivier_contrastable() -> list[VueProposition]:
     """
     grappe = [
         vue(("tete", k), note=1.0 + 0.01 * k, pluie_mm=3.0, demi_tours=2,
-            depassement_s=1800.0, densite_marqueurs_km=8.0, part_connue=0.9,
+            depassement_s=1800.0, densite_marqueurs_km=8.0,
             vent_dos_retour=0.2)
         for k in range(3)
     ]
     seche = vue(
         "seche", note=3.0, pluie_mm=0.0, demi_tours=0, depassement_s=120.0,
-        densite_marqueurs_km=0.5, part_connue=0.1, vent_dos_retour=0.9,
+        densite_marqueurs_km=0.5, vent_dos_retour=0.9,
     )
     ventee = vue(
         "ventee", note=3.1, pluie_mm=9.0, demi_tours=0, depassement_s=2400.0,
-        densite_marqueurs_km=0.6, part_connue=0.2, vent_dos_retour=0.95,
+        densite_marqueurs_km=0.6, vent_dos_retour=0.95,
     )
     return [*grappe, seche, ventee]
 
@@ -239,8 +264,9 @@ def vivier_sans_bloc(n: int = 5) -> list[VueProposition]:
     notes = (0.00, 0.05, 0.08, 0.15, 0.29)[:n]
     densites = (9.0, 7.0, 5.0, 2.5, 0.8)[:n]
     connues = (0.30, 0.45, 0.55, 0.70, 0.98)[:n]
+    del connues  # la part de routes connues n'est pas un axe (voir `AXE_INTERDIT`)
     return [
-        vue(i, note=notes[i], densite_marqueurs_km=densites[i], part_connue=connues[i],
+        vue(i, note=notes[i], densite_marqueurs_km=densites[i],
             depassement_s=notes[i] * 3600.0)
         for i in range(min(n, 5))
     ]
@@ -351,8 +377,6 @@ TOURNURES: dict[tuple[str, str], str] = {
     ("depassement_s", "max"): "la plus longue",
     ("densite_marqueurs_km", "min"): "elle évite les villages",
     ("densite_marqueurs_km", "max"): "elle traverse les bourgs",
-    ("part_connue", "max"): "des routes que vous connaissez",
-    ("part_connue", "min"): "des routes nouvelles pour vous",
     ("vent_dos_retour", "max"): "vous rentrez avec le vent dans le dos",
     ("vent_dos_retour", "min"): "vous rentrez face au vent",
     ("vent_dos_depart", "max"): "vent dans le dos au départ",
@@ -383,8 +407,7 @@ def ecrire_phrases_reference(
             for sens in ("min", "max"):
                 if (nom, sens) in pris:
                     continue
-                if AXES[nom] and AXES[nom] != sens and nom != "part_connue":
-                    pass  # les deux sens restent dicibles ; `sens` n'est qu'une tournure
+                # Les deux sens restent dicibles ; `sens` n'est qu'une tournure.
                 mien = p.axe(nom)
                 leur = (
                     min(q.axe(nom) for q in autres)
@@ -470,10 +493,6 @@ AFFIRMATIONS: tuple[Affirmation, ...] = (
                 "part_trafic", "min"),
     Affirmation("terrain", ("les blocs tombent le mieux", "le mieux pour les blocs"),
                 "note_terrain", "min"),
-    Affirmation("connues", ("que vous connaissez", "routes connues", "déjà roulé", "deja roule"),
-                "part_connue", "max"),
-    Affirmation("nouvelles", ("routes nouvelles", "nouvelles pour vous", "que vous ne connaissez pas",
-                              "inédit", "inedit"), "part_connue", "min"),
 )
 
 #: Ce qui trahit le langage de note plutôt que le langage de cycliste. Le
@@ -692,6 +711,227 @@ def verifier_phrase_parle_du_bon_axe(choix: VueChoix, axe: str, extreme: str) ->
         "de `fabriques_l53.AFFIRMATIONS` — dans ce second cas, c'est le lexique qu'il faut "
         "étendre, et cela se décide avec le mainteneur, pas en silence."
     )
+
+
+# --- les marges de contraste du contrat §3.3.3 bis ----------------------------
+
+#: Les marges **dans l'unité de chaque axe**, telles que le contrat §3.3.3 bis
+#: les fixe le 16/09/2026 : « durée ≥ 10 min ; demi-tours : un compte
+#: différent ; pluie ≥ 0,5 mm ; vent : une catégorie relative dominante
+#: différente ; ville : un écart de densité chiffré par la mesure du lot ;
+#: terrain : au moins 1,0 km équivalent, soit le prix d'un feu ».
+#:
+#: Ce sont **les chiffres du contrat**, pas les miens : c'est tout l'intérêt.
+#: J'avais signalé que « éloignées » n'était pas chiffré et que c'était le plus
+#: large trou de ma couverture — une implémentation rendant trois propositions
+#: séparées de 1 % serait passée. Le contrat a tranché ; ces marges sont
+#: désormais **exigées**, et non plus seulement souhaitées.
+#:
+#: La densité de marqueurs est le seul axe que le contrat renvoie à « la mesure
+#: du lot ». On lit donc le pas du lot lui-même quand il est lisible, plutôt
+#: que d'inventer un chiffre que le contrat refuse d'inventer.
+MARGES_CONTRASTE: dict[str, float] = {
+    "depassement_s": 600.0,
+    "pluie_mm": 0.5,
+    "note_terrain": 1.0,
+    "densite_marqueurs_km": 0.5,
+}
+
+#: Les axes dont la marge n'est pas un nombre mais une **différence de
+#: catégorie** : un compte de demi-tours différent, une orientation au vent
+#: différente.
+AXES_CATEGORIELS = ("demi_tours", "orientation")
+
+
+def marges_du_lot() -> dict[str, float]:
+    """Les marges de `MARGES_CONTRASTE`, remplacées par celles du lot si lisibles.
+
+    Le contrat renvoie explicitement la marge de densité à « la mesure du
+    lot » : la lire chez lui n'est pas se rendre, c'est appliquer le contrat.
+    Les autres ne sont lues que pour signaler un écart, jamais pour s'y plier —
+    si le lot s'écartait d'un chiffre que le contrat fixe, c'est le lot qui a
+    tort, et `verifier_pas_de_marge_relachee` le dira.
+    """
+    marges = dict(MARGES_CONTRASTE)
+    try:
+        from ourouler.sortie import contraste
+    except ImportError:
+        return marges
+    pas = getattr(contraste, "PAS_MARQUEURS_KM", None)
+    if isinstance(pas, (int, float)) and math.isfinite(float(pas)) and pas > 0:
+        marges["densite_marqueurs_km"] = float(pas)
+    return marges
+
+
+def verifier_pas_de_marge_relachee(module: Any | None = None) -> None:
+    """Les pas du lot ne doivent pas être plus laxistes que ceux du contrat.
+
+    Un pas plus **large** que celui du contrat est une exigence renforcée et
+    reste acceptable ; un pas plus **étroit** laisse passer des propositions
+    que le contrat déclare indiscernables.
+
+    `module` existe pour que l'autocontrôle puisse lui présenter un cobaye aux
+    pas relâchés : sans ce paramètre, ce vérificateur n'était couvert par
+    aucune mutation, et le neutraliser ne faisait échouer aucun test — un
+    vérificateur creux, exactement ce que ce dossier traque ailleurs.
+    """
+    contraste = module
+    if contraste is None:
+        try:
+            from ourouler.sortie import contraste
+        except ImportError:  # pragma: no cover - le lot est fusionné
+            return
+    attendus = {
+        "PAS_DUREE_S": 600.0,
+        "PAS_PLUIE_MM": 0.5,
+        "PAS_TERRAIN_KM_EQ": 1.0,
+    }
+    for nom, plancher in attendus.items():
+        valeur = getattr(contraste, nom, None)
+        if valeur is None:
+            continue
+        assert float(valeur) >= plancher, (
+            f"{nom} = {valeur} alors que le contrat §3.3.3 bis fixe {plancher} dans l'unité "
+            "de l'axe. Un pas plus étroit laisse passer des propositions que le contrat "
+            "déclare indiscernables — « être meilleur de 1 % n'est pas une différence pour "
+            "un cycliste »."
+        )
+
+
+def _axes_gagnes(sujet: VueProposition, autres: Sequence[VueProposition],
+                 marges: dict[str, float]) -> set[str]:
+    """Les axes où `sujet` est meilleur que **tous** les autres, de la marge exigée."""
+    gagnes: set[str] = set()
+    for nom, marge in marges.items():
+        sens = AXES.get(nom, "min")
+        mien = sujet.axe(nom)
+        if sens == "min":
+            if all(mien <= q.axe(nom) - marge for q in autres):
+                gagnes.add(nom)
+        elif all(mien >= q.axe(nom) + marge for q in autres):
+            gagnes.add(nom)
+    # Demi-tours : « un compte différent », et en moins.
+    mien = sujet.axe("demi_tours")
+    if all(mien < q.axe("demi_tours") for q in autres):
+        gagnes.add("demi_tours")
+    # Vent : « une catégorie relative dominante différente ».
+    if sujet.orientation is not None and all(
+        q.orientation != sujet.orientation for q in autres
+    ):
+        gagnes.add("orientation")
+    return gagnes
+
+
+def _systeme_de_representants(possibles: dict[Any, set[str]]) -> dict[Any, str] | None:
+    """Une affectation d'un axe **distinct** à chaque proposition, ou `None`.
+
+    Recherche exhaustive : il y a au plus trois propositions et une poignée
+    d'axes. Le contrat §3.3.3 bis a) : « chacune est la meilleure des trois sur
+    au moins un axe, **et sur un axe différent** de celles des deux autres ».
+    """
+    cles = list(possibles)
+
+    def poser(i: int, pris: set[str], plan: dict[Any, str]) -> dict[Any, str] | None:
+        if i == len(cles):
+            return dict(plan)
+        for axe in sorted(possibles[cles[i]]):
+            if axe in pris:
+                continue
+            plan[cles[i]] = axe
+            resultat = poser(i + 1, pris | {axe}, plan)
+            if resultat is not None:
+                return resultat
+            del plan[cles[i]]
+        return None
+
+    return poser(0, set(), {})
+
+
+def verifier_marges_de_contraste(choix: VueChoix, *, seuil_recouvrement: float | None = None) -> None:
+    """Les trois conditions du contrat §3.3.3 bis, exigées et non plus souhaitées.
+
+    a) chacune est la meilleure des retenues sur **au moins un axe**, et sur un
+       axe différent de celles des autres ;
+    b) d'une marge exprimée **dans l'unité de l'axe** (`MARGES_CONTRASTE`) ;
+    c) le recouvrement de routes reste sous le seuil du lot.
+
+    C'est la réponse au trou que j'avais signalé moi-même : avant le
+    16/09/2026, mes tests n'attrapaient qu'un contraste **nul**, et trois
+    propositions séparées de 1 % seraient passées.
+    """
+    exiger_axes_lus(choix.retenues)
+    if len(choix.retenues) < 2:
+        return
+    marges = marges_du_lot()
+    possibles = {
+        p.cle: _axes_gagnes(p, [q for q in choix.retenues if q.cle != p.cle], marges)
+        for p in choix.retenues
+    }
+    muettes = [cle for cle, axes in possibles.items() if not axes]
+    assert not muettes, (
+        f"proposition(s) {muettes} meilleure(s) sur **aucun** axe d'une marge perceptible "
+        f"(marges du contrat §3.3.3 bis : {marges}, plus un compte de demi-tours différent "
+        "et une orientation au vent différente). Contrat : « Aucune n'est là pour faire "
+        f"nombre. » Axes gagnés par chacune : { {c: sorted(a) for c, a in possibles.items()} }"
+    )
+    plan = _systeme_de_representants(possibles)
+    assert plan is not None, (
+        "aucune affectation d'axes **distincts** n'existe : deux propositions se distinguent "
+        f"par la même chose. Axes gagnés : { {c: sorted(a) for c, a in possibles.items()} }. "
+        "Contrat §3.3.3 bis a) : « sur un axe différent de celles des deux autres »."
+    )
+
+    seuil = seuil_recouvrement if seuil_recouvrement is not None else seuil_recouvrement_du_lot()
+    if seuil is None:
+        return
+    trop = [
+        (p.cle, p.recouvrement_max)
+        for p in choix.retenues
+        if p.recouvrement_max is not None and p.recouvrement_max > seuil
+    ]
+    assert not trop, (
+        f"recouvrement de routes au-dessus du seuil {seuil} : {trop}. Contrat §3.3.2 : « deux "
+        "boucles peuvent avoir des notes très éloignées et emprunter les mêmes routes ; elles "
+        "se ressembleront sur la carte quoi qu'en disent les chiffres. »"
+    )
+
+
+def seuil_recouvrement_du_lot() -> float | None:
+    """Le seuil de recouvrement **mesuré par le lot**, ou `None` s'il est illisible.
+
+    Le contrat §3.3.2 dit que ce seuil « se **mesure** sur la distribution des
+    recouvrements deux à deux de candidates réellement générées, il ne s'invente
+    pas ». Je n'ai pas cette distribution ; je lis donc celui du lot plutôt que
+    d'en inventer un, et c'est la seule attitude honnête ici.
+    """
+    try:
+        from ourouler.sortie import contraste
+    except ImportError:
+        return None
+    valeur = getattr(contraste, "SEUIL_RECOUVREMENT", None)
+    if isinstance(valeur, (int, float)) and math.isfinite(float(valeur)):
+        return float(valeur)
+    return None
+
+
+def verifier_part_connue_hors_selection(choix: VueChoix) -> None:
+    """La part de routes connues ne doit **jamais** départager deux propositions.
+
+    Doctrine, reprise au contrat §3.3.2 le 16/09/2026 : les routes déjà roulées
+    sont un instrument de mesure, pas un critère. Le contrôle possible depuis
+    l'extérieur : aucune phrase ne doit s'appuyer dessus, et l'axe ne doit
+    exister dans aucune structure d'axes du lot.
+    """
+    for p in choix.retenues:
+        plat = _sans_accents_bas(p.phrase or "")
+        for tournure in ("que vous connaissez", "routes connues", "deja roule",
+                         "routes nouvelles", "que vous ne connaissez pas"):
+            assert _sans_accents_bas(tournure) not in plat, (
+                f"proposition {p.cle!r} : « {p.phrase} » distingue par les routes déjà "
+                "roulées. Doctrine et contrat §3.3.2 : « la part connue reste affichée, "
+                "peut servir à décrire une proposition retenue pour une autre raison, et "
+                "n'entre ni dans une note ni dans la sélection »."
+            )
 
 
 # --- densité de marqueurs -----------------------------------------------------
@@ -1296,7 +1536,8 @@ def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VuePropos
                 break
     poser("part_trafic", candidate.get("part_trafic"))
     poser("note_terrain", candidate.get("note_terrain", placement.get("note_terrain")))
-    poser("part_connue", candidate.get("part_connue"))
+    # `part_connue` est lue pour être **surveillée**, jamais pour contraster :
+    # voir `AXE_INTERDIT`. Elle est rangée à part, hors du dictionnaire d'axes.
 
     # Durée : le lot publie `duree_s` à plat, le sprint 4 `placement.duree_totale_s`.
     # On garde l'**écart à la séance** quand on la connaît — même ordre que la
@@ -1321,6 +1562,14 @@ def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VuePropos
     elif "part_vent_face" in meteo:
         poser("vent_travers", 1.0 - float(meteo["part_vent_face"]))
 
+    recouvrements = candidate.get("recouvrement_max_avec") or {}
+    valeurs_r = [
+        float(v)
+        for v in (recouvrements.values() if isinstance(recouvrements, dict) else [])
+        if isinstance(v, (int, float)) and math.isfinite(float(v))
+    ]
+    part_connue = candidate.get("part_connue")
+
     return VueProposition(
         cle=cle if cle is not None else candidate.get("numero", candidate.get("nom")),
         axes=axes,
@@ -1328,6 +1577,8 @@ def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VuePropos
         phrase=phrase_de(candidate),
         orientation=orientation if isinstance(orientation, str) else None,
         axes_lus=frozenset(lus),
+        recouvrement_max=max(valeurs_r) if valeurs_r else None,
+        part_connue=float(part_connue) if isinstance(part_connue, (int, float)) else None,
     )
 
 

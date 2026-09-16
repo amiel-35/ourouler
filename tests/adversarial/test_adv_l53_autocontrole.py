@@ -375,7 +375,6 @@ def test_mutation_phrase_generique_attrapee():
     ("depassement_s", "min"),
     ("densite_marqueurs_km", "min"),
     ("vent_dos_retour", "max"),
-    ("part_connue", "max"),
 ])
 def test_la_reference_nomme_le_bon_axe(axe, extreme):
     """Contrôle positif de `verifier_phrase_parle_du_bon_axe`, axe par axe.
@@ -589,6 +588,212 @@ def test_la_reference_refuse_une_direction_non_finie():
 
 
 # =============================================================================
+# 4 bis. Les marges de contraste du contrat §3.3.3 bis (5 mutations)
+# =============================================================================
+#
+# Ajoutées le 16/09/2026, quand le contrat a chiffré « éloignées ». C'est le
+# trou que j'avais signalé — « une implémentation rendant trois propositions
+# séparées de 1 % serait passée » — et il ne suffit pas d'écrire le
+# vérificateur : il faut prouver qu'il mord.
+
+AXES_LUS_TOUS = frozenset(f53.AXES) | {"orientation"}
+
+
+def _vue_mesuree(cle, *, orientation=None, recouvrement=None, **axes):
+    """Une `VueProposition` dont tous les axes comptent pour lus."""
+    base = f53.vue(cle, **axes)
+    return replace(
+        base,
+        orientation=orientation,
+        axes_lus=AXES_LUS_TOUS,
+        recouvrement_max=recouvrement,
+        phrase=base.phrase or "phrase de cobaye",
+    )
+
+
+def _choix(vues) -> f53.VueChoix:
+    return f53.VueChoix(retenues=list(vues), contraste_affirme=True, pool=list(vues))
+
+
+def test_trois_propositions_franchement_distinctes_passent_les_marges():
+    """Contrôle positif : sans lui, un vérificateur toujours-faux passerait aussi.
+
+    Trois propositions séparées bien au-delà des marges du contrat, chacune sur
+    un axe différent : la plus sèche, la plus courte, celle sans demi-tour.
+    """
+    choix = _choix([
+        _vue_mesuree("seche", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2),
+        _vue_mesuree("courte", pluie_mm=6.0, depassement_s=0.0, demi_tours=2),
+        _vue_mesuree("directe", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0),
+    ])
+    f53.verifier_marges_de_contraste(choix, seuil_recouvrement=0.25)
+
+
+def m28_marges_a_un_pourcent(_pool=None) -> f53.VueChoix:
+    """Trois propositions séparées de ~1 % : exactement ce que le contrat refuse."""
+    return _choix([
+        _vue_mesuree("a", pluie_mm=5.00, depassement_s=3000.0),
+        _vue_mesuree("b", pluie_mm=5.05, depassement_s=3030.0),
+        _vue_mesuree("c", pluie_mm=5.10, depassement_s=3060.0),
+    ])
+
+
+def m29_deux_fois_le_meme_axe(_pool=None) -> f53.VueChoix:
+    """Deux propositions se distinguent par la même chose : pas d'axes distincts.
+
+    La deuxième et la troisième gagnent toutes deux « pluie » face à la
+    première ; aucune affectation d'axes **différents** n'existe.
+    """
+    return _choix([
+        _vue_mesuree("arrosee", pluie_mm=9.0, depassement_s=3000.0, demi_tours=1),
+        _vue_mesuree("seche1", pluie_mm=0.0, depassement_s=3000.0, demi_tours=1),
+        _vue_mesuree("seche2", pluie_mm=0.1, depassement_s=3000.0, demi_tours=1),
+    ])
+
+
+def m30_une_proposition_pour_faire_nombre(_pool=None) -> f53.VueChoix:
+    """La troisième n'est la meilleure sur rien : « aucune n'est là pour faire nombre »."""
+    return _choix([
+        _vue_mesuree("seche", pluie_mm=0.0, depassement_s=3000.0, demi_tours=1),
+        _vue_mesuree("courte", pluie_mm=6.0, depassement_s=0.0, demi_tours=1),
+        _vue_mesuree("milieu", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1),
+    ])
+
+
+def m31_recouvrement_au_dessus_du_seuil(_pool=None) -> f53.VueChoix:
+    """Trois propositions bien distinctes sur le papier, mais les mêmes routes."""
+    return _choix([
+        _vue_mesuree("a", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2, recouvrement=0.90),
+        _vue_mesuree("b", pluie_mm=6.0, depassement_s=0.0, demi_tours=2, recouvrement=0.90),
+        _vue_mesuree("c", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0, recouvrement=0.85),
+    ])
+
+
+def m32_vent_de_la_meme_categorie(_pool=None) -> f53.VueChoix:
+    """Deux propositions annoncées « vent » avec la **même** orientation.
+
+    Le contrat §3.3.3 bis demande « une catégorie relative dominante
+    différente » : deux fois « retour-dos » ne distingue rien, même si les
+    phrases sont jolies.
+    """
+    return _choix([
+        _vue_mesuree("a", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0),
+        _vue_mesuree("b", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0),
+    ])
+
+
+MUTATIONS_MARGES = (
+    ("m28 : trois propositions séparées de 1 %", m28_marges_a_un_pourcent),
+    ("m29 : deux fois le même axe distinctif", m29_deux_fois_le_meme_axe),
+    ("m30 : une proposition pour faire nombre", m30_une_proposition_pour_faire_nombre),
+    ("m31 : recouvrement de routes au-dessus du seuil", m31_recouvrement_au_dessus_du_seuil),
+    ("m32 : deux fois la même catégorie de vent", m32_vent_de_la_meme_categorie),
+)
+
+
+@pytest.mark.parametrize(
+    ("quoi", "mutant"), MUTATIONS_MARGES, ids=[m[0].split(" :")[0] for m in MUTATIONS_MARGES]
+)
+def test_mutation_des_marges_attrapee(quoi, mutant):
+    _attrape(
+        lambda: f53.verifier_marges_de_contraste(mutant(), seuil_recouvrement=0.25), quoi=quoi
+    )
+
+
+@pytest.mark.parametrize(
+    ("nom", "valeur"),
+    [("PAS_DUREE_S", 300.0), ("PAS_PLUIE_MM", 0.1), ("PAS_TERRAIN_KM_EQ", 0.2)],
+)
+def test_mutation_pas_relache_attrapee(nom, valeur):
+    """m34 : un pas du lot plus étroit que celui du contrat §3.3.3 bis.
+
+    « Être meilleur de 1 % n'est pas une différence pour un cycliste » : un pas
+    de 5 min sur la durée, ou de 0,1 mm sur la pluie, rouvre exactement le trou
+    que le contrat vient de fermer.
+    """
+    from types import SimpleNamespace
+
+    cobaye = SimpleNamespace(PAS_DUREE_S=600.0, PAS_PLUIE_MM=0.5, PAS_TERRAIN_KM_EQ=1.0)
+    setattr(cobaye, nom, valeur)
+    _attrape(
+        lambda: f53.verifier_pas_de_marge_relachee(cobaye),
+        quoi=f"m34 : {nom} relâché à {valeur}",
+    )
+
+
+def test_des_pas_conformes_ou_plus_stricts_passent():
+    """Contrôle négatif : un pas **plus large** est une exigence renforcée."""
+    from types import SimpleNamespace
+
+    f53.verifier_pas_de_marge_relachee(
+        SimpleNamespace(PAS_DUREE_S=600.0, PAS_PLUIE_MM=0.5, PAS_TERRAIN_KM_EQ=1.0)
+    )
+    f53.verifier_pas_de_marge_relachee(
+        SimpleNamespace(PAS_DUREE_S=900.0, PAS_PLUIE_MM=1.0, PAS_TERRAIN_KM_EQ=2.0)
+    )
+
+
+def test_les_marges_du_contrat_sont_celles_du_contrat():
+    """Les chiffres de `MARGES_CONTRASTE` sont ceux que le §3.3.3 bis écrit.
+
+    Figés ici pour qu'une relecture distraite ne puisse pas les assouplir sans
+    que quelque chose crie : « durée ≥ 10 min ; pluie ≥ 0,5 mm ; terrain : au
+    moins 1,0 km équivalent ».
+    """
+    assert f53.MARGES_CONTRASTE["depassement_s"] == 600.0, "durée ≥ 10 min"
+    assert f53.MARGES_CONTRASTE["pluie_mm"] == 0.5, "pluie ≥ 0,5 mm"
+    assert f53.MARGES_CONTRASTE["note_terrain"] == 1.0, "terrain ≥ 1,0 km équivalent"
+
+
+# =============================================================================
+# 4 ter. Les routes connues, gardées dans le bon sens (1 mutation)
+# =============================================================================
+
+
+def m33_phrase_sur_les_routes_connues(_pool=None) -> f53.VueChoix:
+    """Une phrase qui distingue par les routes déjà roulées — ce que la doctrine refuse."""
+    return _choix([
+        replace(_vue_mesuree("a"), phrase="des routes que vous connaissez déjà"),
+        replace(_vue_mesuree("b"), phrase="la plus sèche"),
+    ])
+
+
+def test_mutation_phrase_sur_les_routes_connues_attrapee():
+    _attrape(
+        lambda: f53.verifier_part_connue_hors_selection(m33_phrase_sur_les_routes_connues()),
+        quoi="m33 : une phrase qui distingue par les routes connues",
+    )
+
+
+def test_une_phrase_ordinaire_passe_la_garde_des_routes_connues():
+    """Contrôle négatif : la garde ne doit pas crier sur une phrase quelconque."""
+    f53.verifier_part_connue_hors_selection(
+        _choix([
+            replace(_vue_mesuree("a"), phrase="la plus sèche"),
+            replace(_vue_mesuree("b"), phrase="aucun demi-tour"),
+        ])
+    )
+
+
+def test_part_connue_n_est_pas_un_axe_de_mes_fabriques():
+    """Mes propres axes ne doivent pas porter ce que la doctrine interdit.
+
+    Si `part_connue` restait dans `AXES`, mon détecteur de clones deviendrait
+    **trop indulgent** : deux propositions identiques sur tout ce que le
+    cycliste voit, ne différant que par la part de routes déjà roulées,
+    passeraient pour contrastées.
+    """
+    assert f53.AXE_INTERDIT not in f53.AXES, (
+        f"`{f53.AXE_INTERDIT}` est dans AXES : il n'est pas un axe de contraste "
+        "(contrat §3.3.2, ligne rayée le 16/09/2026)"
+    )
+    assert f53.AXE_INTERDIT not in f53.NEUTRE
+    assert not any(a.axe == f53.AXE_INTERDIT for a in f53.AFFIRMATIONS), (
+        "aucune affirmation ne doit engager la part de routes connues"
+    )
+
+
+# =============================================================================
 # 5. Le lexique des phrases lui-même
 # =============================================================================
 
@@ -626,7 +831,9 @@ def test_le_detecteur_de_langage_de_note(phrase, attendu):
         ("vent de travers", {"vent_travers"}),
         ("elle évite les villages", {"densite_marqueurs_km"}),
         ("20 minutes de moins, la plus courte", {"depassement_s"}),
-        ("des routes que vous connaissez", {"part_connue"}),
+        # Les routes déjà roulées ne sont **pas** un axe : la tournure ne doit
+        # donc rien engager. Voir `fabriques_l53.AXE_INTERDIT`.
+        ("des routes que vous connaissez", set()),
         ("une belle sortie", set()),
         ("retour au calme confortable", set()),
     ],
