@@ -57,6 +57,7 @@ from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.seance.modele import Seance
 from ourouler.seance.placement import Emplacement, Placement
+from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
 
 #: Version épinglée de Leaflet, servie par le CDN autorisé.
 LEAFLET_VERSION = "1.9.4"
@@ -97,14 +98,12 @@ POINTS_PROFIL_MAX = 800
 
 #: Vent moyen en dessous duquel aucune flèche n'est dessinée, en km/h.
 #:
-#: Raison, pas une valeur ronde choisie au hasard : 8 km/h est le haut de la
-#: force 1 de l'échelle de Beaufort (« très légère brise, à peine perceptible
-#: sur un visage ») et le bas de la force 2 (« légère brise, sentie sur le
-#: visage ») — le seuil météorologique usuel entre « rien à sentir » et « on
-#: sent quelque chose ». Le vent médian du mainteneur est de 14 km/h (bien
-#: au-dessus) mais descend à 2,5 km/h ; dessiner une flèche à ces vitesses-là
-#: serait du bruit qui apprend à ne plus regarder la carte (cadrage du lot).
-SEUIL_AFFICHAGE_VENT_KMH = 8.0
+#: **Remontée dans `seance.vent` au lot L5.3** sous le nom
+#: `SEUIL_VENT_SENSIBLE_KMH`, avec sa justification (échelle de Beaufort) :
+#: la question de l'orientation au vent se pose exactement quand les flèches
+#: se dessinent, et deux constantes égales par hasard auraient fini par
+#: diverger. Le nom local reste, c'est le même objet.
+SEUIL_AFFICHAGE_VENT_KMH = SEUIL_VENT_SENSIBLE_KMH
 
 #: Dimensions du dessin du profil, en unités du `viewBox`.
 PROFIL_LARGEUR = 1000.0

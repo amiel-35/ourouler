@@ -256,6 +256,56 @@ def _mailles_traversees(a: PointTrace, b: PointTrace, longueur: float) -> list[t
     return mailles
 
 
+def mailles_ponderees(trace: Trace) -> dict[tuple[int, int], float]:
+    """Les mailles traversées par un tracé, chacune avec les mètres qu'elle porte.
+
+    Extraite de `BaseRoutes.part_connue` au lot L5.3 pour être partagée avec
+    `recouvrement` : « quelle part de ce tracé connais-je ? » et « quelle part
+    de ce tracé est aussi dans celui-là ? » sont la même question posée à deux
+    ensembles de mailles différents, et il n'y a pas deux façons de découper
+    un tracé en mailles. La somme des valeurs est la longueur exploitable du
+    tracé, en mètres.
+    """
+    metres: dict[tuple[int, int], float] = {}
+    for i in range(len(trace.points) - 1):
+        a, b = trace.points[i], trace.points[i + 1]
+        longueur = distance_m(a, b)
+        if not math.isfinite(longueur) or longueur <= 0:
+            continue
+        mailles = _mailles_traversees(a, b, longueur)
+        part = longueur / len(mailles)
+        for cle in mailles:
+            metres[cle] = metres.get(cle, 0.0) + part
+    return metres
+
+
+def recouvrement(a: Trace, b: Trace) -> float:
+    """Part des kilomètres de `a` qui passent aussi par des mailles de `b`, dans [0, 1].
+
+    **Ce n'est pas symétrique**, et il ne faut pas faire semblant : une boucle
+    de 40 km entièrement incluse dans une boucle de 80 km recouvre la grande à
+    100 % et n'en est recouverte qu'à 50 %. `recouvrement_max` prend le plus
+    grand des deux sens, et c'est lui que la sélection des propositions
+    utilise — parce que la question posée est « ces deux-là se ressemblent-elles
+    sur une carte ? », et qu'une boucle incluse dans l'autre y répond oui.
+
+    Une maille fait ~30 m (`cle_maille`) : deux tracés qui empruntent la même
+    route se retrouvent dans les mêmes mailles, deux routes parallèles à 100 m
+    l'une de l'autre non. Un tracé vide rend 0,0.
+    """
+    metres_a = mailles_ponderees(a)
+    total = sum(metres_a.values())
+    if total <= 0:
+        return 0.0
+    mailles_b = set(mailles_ponderees(b))
+    return sum(m for cle, m in metres_a.items() if cle in mailles_b) / total
+
+
+def recouvrement_max(a: Trace, b: Trace) -> float:
+    """Le plus grand des deux recouvrements — voir `recouvrement` pour pourquoi."""
+    return max(recouvrement(a, b), recouvrement(b, a))
+
+
 def _par_intervalle(trace: Trace) -> list[tuple[dict[str, str], float | None]]:
     """Les tags et le coût du tronçon couvrant chaque **intervalle** `[i, i+1]`.
 
@@ -495,26 +545,20 @@ class BaseRoutes:
 
         **Informatif seulement.** Le contrat l'interdit dans tout score : les
         traces ne couvrent qu'une partie du territoire, et pénaliser l'inconnu
-        condamnerait d'avance toute direction jamais explorée.
+        condamnerait d'avance toute direction jamais explorée. Le lot L5.3 le
+        redit en toutes lettres : la part connue **ne sélectionne pas** les
+        trois propositions contrastées, elle les décrit, et seulement quand
+        elles ont été retenues pour une autre raison.
 
         Un tracé vide, ou de longueur nulle, rend 0,0 — pas une division par
         zéro, et pas 1,0 : on ne connaît rien de ce qu'on n'a pas mesuré.
         """
-        paires: list[tuple[tuple[int, int], float]] = []
-        for i in range(len(trace.points) - 1):
-            a, b = trace.points[i], trace.points[i + 1]
-            longueur = distance_m(a, b)
-            if not math.isfinite(longueur) or longueur <= 0:
-                continue
-            mailles = _mailles_traversees(a, b, longueur)
-            part = longueur / len(mailles)
-            paires.extend((cle, part) for cle in mailles)
-        total = sum(longueur for _, longueur in paires)
+        metres = mailles_ponderees(trace)
+        total = sum(metres.values())
         if total <= 0:
             return 0.0
-        connues = self._mailles_connues({cle for cle, _ in paires})
-        connu = sum(longueur for cle, longueur in paires if cle in connues)
-        return connu / total
+        connues = self._mailles_connues(set(metres))
+        return sum(m for cle, m in metres.items() if cle in connues) / total
 
     # --- interne --------------------------------------------------------------
 

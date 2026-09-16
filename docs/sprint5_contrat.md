@@ -617,6 +617,100 @@ Pas de page HTML (c'est L5.4), pas de correction du profil d'altitude ni des
 flèches au-delà d'un demi-tour (§3.1.4 b), pas de nouvelle règle de
 placement. On note, on contraste, on explique — on ne replace pas.
 
+#### 3.3.6 Résultat du lot, mesuré le 16/09/2026
+
+**a) La densité de marqueurs discrimine les candidates, mais elle ne prédit
+pas la préférence du mainteneur — et la mesure dit l'inverse de l'hypothèse.**
+
+`tests/validation/marqueurs_retrospectif.py`, 111 sorties d'entraînement
+réelles (≥ 40 km, partant de moins de 5 km du départ configuré, rejouées une
+par une dans BRouter) contre 143 boucles proposées par le moteur aux mêmes
+distances, dans 12 directions :
+
+| | n | min | q1 | médiane | q3 | max |
+|---|---|---|---|---|---|---|
+| **Sorties réelles** | 111 | 1,17 | 1,88 | **2,91** | 3,60 | 6,71 |
+| **Boucles proposées** | 143 | 0,69 | 1,21 | **1,50** | 2,01 | 3,94 |
+
+Rapport des médianes **1,94** (le seuil du lot était 0,70, dans le sens
+inverse). Rang apparié : médiane **0,92** — 77 sorties réelles sur 111 sont
+**au-dessus** de la médiane du lot proposé de leur longueur. L'écart est
+monotone en distance : les boucles proposées se dépeuplent quand elles
+s'allongent (1,98 à 60 km → 0,98 à 170 km), ses sorties réelles non (2,72 →
+3,03). Ce n'est donc pas un artefact du couloir de départ, qui se diluerait
+dans les deux populations de la même façon.
+
+**Ce que ça veut dire, et ce que ça ne veut pas dire.** La mesure ne dit pas
+que l'axe est inutile : sur une même journée, les cinq candidates vont de 1,25
+à 3,42 marqueurs au kilomètre — un facteur 2,7, soit 125 arrêts d'écart sur
+une boucle de 56 km. L'axe **sépare** très bien. Ce qu'il ne fait pas, c'est
+prédire lequel il choisirait : ses vraies sorties portent **deux fois plus**
+de feux, stops et passages piétons que ce que le moteur lui propose. Il roule
+de bourg en bourg, le moteur roule dans la campagne.
+
+**Conséquence appliquée** : la densité est un axe de **contraste et de
+description** (« elle évite les villages »), jamais un signal de qualité dans
+un score. **Question au mainteneur** : veut-il que « moins de marqueurs » reste
+le côté valorisé de l'axe (ce que le contrat supposait) ou la mesure
+doit-elle inverser la phrase ?
+
+Deux limites du protocole, à lire avec le chiffre : le comparateur est fait de
+boucles `fastbike`, un profil qui fuit déjà le trafic, donc le test est
+conservateur ; et `crossing` pèse deux marqueurs sur trois dans les deux
+populations, ce qui fait de la densité surtout une densité de passages
+piétons marqués.
+
+**b) Un axe manquait au tableau §3.3.2 : le trafic.** §3.1.3 le demandait
+pourtant en toutes lettres (« les axes de contraste doivent couvrir le
+trafic »). Il est ajouté, sous la forme d'une **part de la boucle** et non de
+kilomètres. Mesuré sur 35 boucles proposées à 40, 60 et 80 km : q1 34,8 %,
+médiane 41,1 %, q3 49,5 %, écart interquartile 14,7 points — d'où un pas de
+10 points (`contraste.PAS_TRAFIC_PART`).
+
+**c) Le recouvrement de routes n'a pas de plancher, et il suit la
+direction.** Recouvrements deux à deux de 12 boucles de 60 km réparties sur
+l'horizon : 28,2 % de médiane à 30° d'écart d'azimut, 14,4 % à 60°, 8,0 % à
+90°, **0,4 % à 180°**. Le couloir de départ ne fausse donc rien : tout
+recouvrement mesuré est de la route vraiment commune. Seuil retenu **25 %**
+(`contraste.SEUIL_RECOUVREMENT`), juste au-dessus de ce que produisent deux
+directions franchement différentes et juste en dessous de deux directions
+voisines ; en absolu, 15 km de route identique sur une boucle de 60.
+
+**d) Le coût : BRouter est trois fois moins cher que le contrat le supposait,
+et ce n'est plus lui qui borne.** Mesuré sur le serveur du mainteneur le
+16/09/2026, 5 candidates :
+
+| poste | EF 2 h du 12/09 | HIT étendue du 08/09 |
+|---|---|---|
+| question du vent (**nouveau**, 1 appel Open-Meteo) | 112 ms | 187 ms |
+| BRouter (5 boucles) | 3 623 ms | 4 982 ms |
+| placement sans vent | 60 ms | 479 ms |
+| replacement avec vent (Open-Meteo × 5) | 319 ms | 851 ms |
+| coûts + météo + routes connues (Open-Meteo × 5) | 259 ms | 530 ms |
+| contraste (**nouveau** : marqueurs + recouvrement) | 13 ms | 18 ms |
+| **total** | **4,4 s** | **7,0 s** |
+
+BRouter coûte **0,7 à 1,0 s par boucle**, pas 4,2 s. Le lot ajoute 3 % au
+total. **Mais le poste qui borne est Open-Meteo, pas BRouter** : la commande
+fait `1 + 2 × candidates` appels, et à 8 candidates (17 appels) l'API rend
+`HTTP 429 — Minutely API request limit exceeded`, ce qui fait disparaître la
+pluie, le vent et la tenue.
+
+**Conséquence : on n'augmente pas le nombre de candidates**, contrairement à
+ce que §3.3.3 envisageait. Vérifié sur l'EF du 12/09 : à 5 candidates, deux
+propositions contrastées en 4,8 s ; à 8, toujours deux, en 6,8 s et sans
+météo ; à 12, 9,4 s. Générer plus ne produit pas un troisième contraste ici —
+ça produit un 429. Réduire les appels Open-Meteo (un seul appel groupé pour
+toutes les candidates) est le vrai levier, et c'est un lot à part.
+
+**e) Trois propositions ne sont pas toujours possibles, et c'est mesuré.**
+Sur l'EF 2 h du 12/09 — le cas courant du mainteneur —, cinq candidates
+partagent la même pluie (0,0 mm), le même terrain (0,00, faute de bloc), le
+même nombre de demi-tours (0) et la même orientation au vent (aucune, 1 km/h
+au départ). Deux axes seulement portent du signal : la durée et le trafic.
+La commande rend donc **deux** propositions et écrit pourquoi. Sur les deux
+journées à blocs, elle en rend trois.
+
 ## 4. Lot L5.4 — La page du jour
 
 Page HTML autonome écrite sur le disque. GPX en téléchargement avec le type

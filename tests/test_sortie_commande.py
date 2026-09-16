@@ -1305,3 +1305,129 @@ def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):
         f"{km_chiffree} km pour la même durée entièrement chiffrée : les étapes "
         "libres comptent encore pour zéro"
     )
+
+
+# --- les propositions contrastées (lot L5.3) ----------------------------------
+
+
+def test_le_json_publie_les_propositions_avec_leur_phrase(tmp_path: Path, monkeypatch, capsys):
+    """Les clés que le contrat du lot fixe : `distinction`, `axe_distinctif`,
+    `densite_marqueurs_km`, `question_vent`."""
+    code = lancer(tmp_path, monkeypatch, candidates=3, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    propositions = charge["propositions"]
+    assert propositions, charge
+    assert propositions[0]["retenue"] is True
+    assert propositions[0]["numero"] == 1
+    for proposition in propositions:
+        for cle in (
+            "distinction",
+            "axe_distinctif",
+            "densite_marqueurs_km",
+            "part_trafic",
+            "orientation_vent",
+            "recouvrement_max_avec",
+        ):
+            assert cle in proposition, proposition
+    assert charge["question_vent"] is not None
+    assert "motif_deux_propositions" in charge
+
+
+def test_chaque_proposition_porte_une_phrase_et_un_axe_distinct(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le garde-fou du lot : pas de phrase, pas de proposition — et deux
+    propositions ne peuvent pas se réclamer du même axe."""
+    lancer(tmp_path, monkeypatch, candidates=3, json=True)
+    propositions = json.loads(capsys.readouterr().out)["propositions"]
+    if len(propositions) == 1:
+        return  # une seule : rien à distinguer, c'est un cas légitime
+    axes = [p["axe_distinctif"] for p in propositions]
+    assert all(p["distinction"] for p in propositions), propositions
+    assert all(axe for axe in axes), propositions
+    vents = [p["orientation_vent"] for p in propositions if p["axe_distinctif"] == "vent"]
+    assert len(set(vents)) == len(vents), "deux propositions du même vent"
+    non_vent = [a for a in axes if a != "vent"]
+    assert len(set(non_vent)) == len(non_vent), axes
+
+
+def test_moins_de_trois_propositions_dit_pourquoi(tmp_path: Path, monkeypatch, capsys):
+    """Avec une seule candidate, il n'y a rien à contraster — et c'est écrit."""
+    lancer(tmp_path, monkeypatch, candidates=1, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert len(charge["propositions"]) == 1
+    assert charge["motif_deux_propositions"]
+
+
+def test_les_propositions_sont_un_sous_ensemble_des_candidates(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """`candidates` reste la liste complète et inchangée : un script du sprint 4
+    qui la lisait continue de marcher."""
+    lancer(tmp_path, monkeypatch, candidates=3, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    numeros_candidates = {c["numero"] for c in charge["candidates"]}
+    numeros_propositions = {p["numero"] for p in charge["propositions"]}
+    assert numeros_propositions <= numeros_candidates
+    assert len(charge["candidates"]) >= len(charge["propositions"])
+
+
+def test_sous_le_seuil_de_vent_la_question_n_est_pas_posee(tmp_path: Path, monkeypatch, capsys):
+    lancer(tmp_path, monkeypatch, meteo=moteur_meteo(vent_kmh=1.0), candidates=2, json=True)
+    question = json.loads(capsys.readouterr().out)["question_vent"]
+    assert question["posee"] is False
+    assert question["motif"]
+    assert question["azimut_recherche_deg"] is None
+
+
+def test_au_dessus_du_seuil_la_question_est_posee_et_le_texte_la_montre(
+    tmp_path: Path, monkeypatch, capsys
+):
+    lancer(tmp_path, monkeypatch, meteo=moteur_meteo(vent_kmh=30.0), candidates=2)
+    sortie = capsys.readouterr().out
+    assert "Vent au départ" in sortie
+    assert "--vent retour-dos" in sortie
+
+
+def test_une_reponse_au_vent_dirige_la_recherche(tmp_path: Path, monkeypatch, capsys):
+    """Le vent bouchonné vient de 45° : pour rentrer avec, on part vers 45°."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        candidates=2,
+        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["question_vent"]["reponse"] == "retour-dos"
+    assert charge["question_vent"]["azimut_recherche_deg"] == pytest.approx(45.0)
+
+
+def test_une_direction_explicite_garde_la_main_sur_le_vent(tmp_path: Path, monkeypatch, capsys):
+    """« Au nord » veut dire au nord, même si le vent conseillait autre chose."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        direction="N",
+        candidates=2,
+        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["demande"]["azimut_deg"] == 0.0
+
+
+def test_une_reponse_au_vent_inconnue_est_refusee_avant_tout_appel(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    brouter, meteo, intervals = clients_interdits()
+    with pytest.raises(ErreurUtilisateur, match="--vent"):
+        executer(
+            args(vent="plein-nord"),
+            config_de_test(tmp_path / "cache"),
+            brouter,
+            meteo,
+            intervals,
+        )

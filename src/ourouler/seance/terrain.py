@@ -46,34 +46,25 @@ import statistics
 from dataclasses import dataclass, field
 
 from ourouler.boucle.couts import HIGHWAY_TRAFIC, tags_par_troncon, virages_detectes
+from ourouler.boucle.marqueurs import nature_du_noeud
 from ourouler.boucle.trace import PointTrace, Trace
 
 # --- ce qui fait un carrefour -------------------------------------------------
-
-#: `highway` d'un **nœud** qui impose un arrêt ou un ralentissement. Ils
-#: arrivent par `Segment.node_tags`, alimenté par la colonne `NodeTags` des
-#: messages BRouter.
-NOEUDS_CARREFOUR = frozenset(
-    {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
-)
-
-#: Un **ralentisseur** : dos d'âne, coussin, chicane, plateau. Il arrive par la
-#: clé `traffic_calming` des `NodeTags`, pas par `highway` — c'est pourquoi la
-#: première rédaction ne le voyait pas du tout, alors que BRouter en pose 30
-#: sur une seule boucle au nord de Rennes (mesuré le 16/09/2026).
-#:
-#: Le mainteneur les nomme lui-même parmi ce qui fait « la ville » : « des
-#: croisements, des voitures, des dos d'âne ou des chicanes, des feux ». Sous
-#: un bloc, un dos d'âne fait lever du selle : on le compte comme un carrefour.
-#: Sous une Z2 ou une récupération, on ne le compte pas — « en Z2 je m'en fous,
-#: c'est les blocs qui doivent limiter ça » — mais c'est déjà acquis, aucun
-#: terrain n'est évalué hors bloc.
-CLE_RALENTISSEUR = "traffic_calming"
-
-#: Valeurs de `traffic_calming` qui ne ralentissent pas un cycliste : une
-#: écluse ou un rétrécissement se franchit sans lever du selle quand on est
-#: seul. On les écarte plutôt que de gonfler la note pour rien.
-RALENTISSEURS_SANS_EFFET = frozenset({"choker", "island", "dip"})
+#
+# Le vocabulaire — `NOEUDS_CARREFOUR`, `CLE_RALENTISSEUR`,
+# `RALENTISSEURS_SANS_EFFET` — vit dans `boucle.marqueurs` depuis le lot L5.3
+# et n'est **pas** redéfini ici : le même module compte la densité de
+# marqueurs sur le tracé entier, et deux définitions de « ce qui fait lever le
+# pied » finiraient par diverger. Les noms restent lisibles comme
+# `boucle.marqueurs.nature_du_noeud`, la seule fonction qui décide si un nœud
+# fait lever le pied.
+#
+# Le mainteneur les nomme lui-même parmi ce qui fait « la ville » : « des
+# croisements, des voitures, des dos d'âne ou des chicanes, des feux ». Sous
+# un bloc, un dos d'âne fait lever du selle : on le compte comme un carrefour.
+# Sous une Z2 ou une récupération, on ne le compte pas — « en Z2 je m'en fous,
+# c'est les blocs qui doivent limiter ça » — mais c'est déjà acquis, aucun
+# terrain n'est évalué hors bloc.
 
 #: Changement de direction à partir duquel on compte un carrefour, même sans
 #: nœud tagué : à 60° on a tourné, donc on a ralenti. La détection elle-même
@@ -98,10 +89,14 @@ HIGHWAY_BATI = frozenset({"residential", "living_street", "service"})
 #: pratique la zone bâtie se réduit aujourd'hui à `HIGHWAY_BATI` : un bourg
 #: traversé sur une départementale n'est pas vu.
 #:
-#: La piste à instruire pour le corriger n'est pas `maxspeed` mais la
+#: La piste à instruire pour le corriger n'était pas `maxspeed` mais la
 #: **densité de marqueurs au kilomètre** — feux, passages piétons,
 #: ralentisseurs, cédez-le-passage — qui est ce qu'un cycliste perçoit
-#: réellement comme « la ville », et qui est désormais entièrement disponible.
+#: réellement comme « la ville ». Elle est écrite depuis le lot L5.3 :
+#: `boucle.marqueurs.compter`. Elle ne remplace pas ce code-ci, qui mesure
+#: des **kilomètres bâtis sous un bloc** et reste juste ; elle couvre le
+#: tracé entier, et c'est elle qui sert de contraste sur une séance sans
+#: bloc, où la note de terrain vaut zéro.
 MAXSPEED_BATI_KMH = 50.0
 
 # --- ce qui fait une pente ---------------------------------------------------
@@ -672,17 +667,14 @@ def _noeuds_tagues(trace: Trace, couloir: _Couloir) -> list[tuple[float, str]]:
     """
     natures = {}
     for segment in trace.segments:
-        nature = segment.node_tags.get("highway", "")
-        if nature in NOEUDS_CARREFOUR:
+        # `nature_du_noeud` porte toute la règle, y compris le ralentisseur
+        # qui n'est pas un `highway` et le feu posé sur un plateau surélevé
+        # qui ne doit compter qu'une fois. Elle est partagée avec la densité
+        # de marqueurs du tracé entier (`boucle.marqueurs.compter`) : les deux
+        # mesures doivent parler des mêmes objets.
+        nature = nature_du_noeud(segment.node_tags)
+        if nature is not None:
             natures[segment.fin_idx] = nature
-            continue
-        # Un ralentisseur n'est pas un `highway` : il vit sous sa propre clé, et
-        # se perdait donc entièrement. Il ne prend la place d'un carrefour que
-        # si le nœud n'en est pas déjà un — un feu sur un plateau surélevé
-        # reste un feu, et se compter deux fois serait pire que de se manquer.
-        calme = segment.node_tags.get(CLE_RALENTISSEUR, "")
-        if calme and calme not in RALENTISSEURS_SANS_EFFET:
-            natures[segment.fin_idx] = CLE_RALENTISSEUR
     if not natures:
         return []
     return [
