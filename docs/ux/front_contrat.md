@@ -40,7 +40,7 @@ Aucun ne se contourne, tous sont nommés dans `discovery_donnees.md`.
 | **Le géocodage d'une adresse** n'existe pas ; `--adresse-depart` est un nom réservé non livré — *comblé : F0.2 (connecteur BAN + Nominatim, `ourouler geocoder`) puis F0.7 (`--adresse-depart` sur `meteo`/`boucle`/`sortie`, le cœur reçoit un `Depart`)* | l'assistant, le départ ponctuel | dépendance externe à choisir |
 | **Le connecteur Intervals ne lit qu'un jour** à la fois | « Ma semaine » | faible |
 | **Les zones de puissance sont figées** dans `seance/modele.py`, jamais reliées à `Config` | l'écran de FTP et la décision 7 | moyen |
-| **Ni `.ZWO` ni `.MRC` ne sont lus** comme une prescription | l'import de séance | moyen, sans dépendance nouvelle |
+| **Ni `.ZWO` ni `.MRC` ne sont lus** comme une prescription — *comblé : F0.5 (les lecteurs) puis F1 (`--fichier-seance` sur `seance` et `sortie`, `seance/fichier.py`) ; F0.5 seul ne l'était qu'à moitié, voir C1 de `relecture_f0.md`* | l'import de séance | moyen, sans dépendance nouvelle |
 
 La décision 7 se construit ici : ce qu'on stocke est **la position dans la
 zone**, jamais la valeur. `puissance_endurance_pct` cesse d'être un réglage.

@@ -50,6 +50,11 @@ Ce module est la couche commande : c'est lui qui lit `calibration.json` et
 des objets au cœur. Les trois clients — BRouter, Open-Meteo, Intervals — sont
 injectables pour que les tests ne touchent jamais le réseau.
 
+**`--fichier-seance`** (F1) : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
+ligne de commande au lieu d'interroger Intervals.icu — `_seance` bascule
+dessus quand `demande.fichier` est renseigné, tout le reste de l'enchaînement
+est inchangé (comble C1 de `docs/ux/relecture_f0.md`).
+
 **Ce que la météo n'empêche pas.** Comme pour `boucle`, une panne d'Open-Meteo
 fait disparaître les colonnes météo et la tenue, avec un avertissement sur la
 sortie d'erreur : perdre la séance parce qu'il manque la pluie serait absurde.
@@ -142,6 +147,9 @@ class Demande:
     #: est le défaut **et une réponse valable** : elle retombe sur les
     #: propositions contrastées (contrat §3.3.4).
     vent: str = orientation.PEU_IMPORTE
+    #: `--fichier-seance` (F1) : un `.ZWO`/`.MRC` à la place d'Intervals.icu.
+    #: `None` — le cas courant — garde le comportement inchangé.
+    fichier: Path | None = None
 
 
 @dataclass
@@ -427,6 +435,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
 
     sortie = getattr(args, "sortie", None)
     carte = getattr(args, "carte", None)
+    fichier_seance = getattr(args, "fichier_seance", None)
     demande = Demande(
         jour=jour,
         distance_km=float(distance_km) if distance_km is not None else None,
@@ -440,6 +449,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         carte=Path(carte) if carte else None,
         ecraser=bool(getattr(args, "ecraser", False)),
         vent=vent,
+        fichier=Path(fichier_seance) if fichier_seance else None,
     )
     for chemin, demande_explicite in (
         (chemin_gpx_par_defaut(demande, config), demande.sortie is not None),
@@ -540,6 +550,16 @@ def _verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
 
 
 def _seance(demande: Demande, config: Config, client: ClientIntervals | None) -> Seance | None:
+    """La séance à placer : Intervals.icu, ou `demande.fichier` s'il est donné (F1, C1)."""
+    if demande.fichier is not None:
+        from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
+
+        return lire_fichier_seance(
+            demande.fichier,
+            ftp_w=config.cycliste.ftp_w,
+            seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
+            jour=demande.jour,
+        )
     if client is None:
         if not config.intervals.renseigne:
             raise ErreurUtilisateur(

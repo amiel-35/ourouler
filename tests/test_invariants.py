@@ -106,6 +106,41 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
             )
 
 
+#: C1 de `docs/ux/relecture_f0.md` : `zwo.py` et `mrc.py` (683 lignes, testées)
+#: n'avaient aucun appelant dans `src/` — un trou du cadrage compté comme
+#: comblé qui ne l'était qu'à moitié. F1 les branche via `seance/fichier.py`,
+#: lui-même appelé par `seance/commande.py` et `sortie/commande.py`.
+MODULES_SANS_APPELANT_HISTORIQUE = ("seance.zwo", "seance.mrc")
+
+
+def test_zwo_et_mrc_ont_desormais_un_appelant():
+    """Régression de C1 : si ce branchement disparaissait, ce test doit le dire
+    avant qu'un futur agent ne recompte le trou comme comblé.
+
+    Ne vérifie pas que ces lecteurs *marchent* (leurs propres tests le font),
+    seulement qu'au moins un module du cœur, en dehors d'eux-mêmes, les
+    importe — la preuve mécanique qu'un chemin d'exécution existe.
+    """
+    modules = modules_du_coeur()
+    for cible in MODULES_SANS_APPELANT_HISTORIQUE:
+        appelants = []
+        for module in modules:
+            if module.name in (cible.split(".")[-1] + ".py",):
+                continue  # le module ne compte pas comme son propre appelant
+            arbre = ast.parse(module.read_text(encoding="utf-8"))
+            for noeud in ast.walk(arbre):
+                depuis = None
+                if isinstance(noeud, ast.ImportFrom) and noeud.module:
+                    depuis = noeud.module
+                elif isinstance(noeud, ast.Import):
+                    depuis = " ".join(alias.name for alias in noeud.names)
+                if depuis and cible in depuis:
+                    appelants.append(module.relative_to(SOURCES))
+        assert appelants, (
+            f"ourouler.{cible} n'a plus aucun appelant dans src/ — régression de C1"
+        )
+
+
 def test_aucun_client_http_reel_n_est_cree_a_l_import():
     """Un connecteur ne doit ouvrir un client qu'à la demande, jamais au chargement."""
     intervals = (SOURCES / "connecteurs" / "intervals.py").read_text(encoding="utf-8")

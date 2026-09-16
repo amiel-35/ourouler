@@ -55,6 +55,7 @@ from ourouler.sortie.commande import (
     _ecrire_gpx,
     _ligne_modele_meteo,
     _notes_egales,
+    _seance,
     executer,
     lire_options,
     rendre_texte,
@@ -1732,3 +1733,76 @@ def test_le_repli_est_dit_et_nomme_les_deux_modeles():
     assert len(lignes) == 1
     assert "AROME" in lignes[0] and "ICON" in lignes[0]
     assert "ne couvre pas" in lignes[0]
+
+
+# --- --fichier-seance (F1, C1 de docs/ux/relecture_f0.md) ---------------------
+
+ZWO_SORTIE_FABRIQUE = (
+    "<?xml version='1.0'?>\n<workout_file>\n<name>Séance fichier fabriquée</name>\n"
+    '<workout><SteadyState Duration="1200" Power="1.0"/></workout>\n'
+    "</workout_file>\n"
+)
+
+
+def _ecrire_zwo_sortie(tmp_path: Path) -> Path:
+    chemin = tmp_path / "seance.zwo"
+    chemin.write_text(ZWO_SORTIE_FABRIQUE, encoding="utf-8")
+    return chemin
+
+
+def refus_intervals() -> ClientIntervals:
+    """Un client Intervals qui fait échouer le test dès qu'on le sollicite."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        raise AssertionError("Intervals.icu appelé alors qu'un fichier de séance était donné")
+
+    return ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+
+
+def test_lire_options_porte_le_fichier_de_la_demande(tmp_path: Path):
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    demande = lire_options(args(fichier_seance=str(chemin)), config_de_test(tmp_path / "cache"))
+    assert demande.fichier == chemin
+
+
+def test_sans_option_le_fichier_de_la_demande_est_absent(tmp_path: Path):
+    demande = lire_options(args(), config_de_test(tmp_path / "cache"))
+    assert demande.fichier is None
+
+
+def test_seance_avec_fichier_ne_touche_jamais_intervals(tmp_path: Path):
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(fichier_seance=str(chemin)), config)
+    seance = _seance(demande, config, refus_intervals())
+    assert seance is not None
+    assert seance.meta["source"] == "zwo"
+    assert seance.jour == demande.jour
+
+
+def test_seance_avec_fichier_marche_meme_sans_client_donne(tmp_path: Path):
+    """`client=None` construit normalement un `ClientIntervals` depuis la config —
+    avec un fichier, cette branche n'est jamais atteinte."""
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(fichier_seance=str(chemin)), config)
+    seance = _seance(demande, config, None)
+    assert seance is not None
+
+
+def test_seance_sans_fichier_utilise_toujours_intervals(tmp_path: Path):
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(), config)
+    seance = _seance(demande, config, client_intervals())
+    assert seance is not None
+    assert seance.nom == "4x8 fabriquée"
+
+
+def test_fichier_seance_bout_en_bout_remplace_intervals(tmp_path: Path, monkeypatch):
+    """Preuve de bout en bout via `executer` : la recherche de parcours tourne
+    sur une séance de fichier sans jamais appeler Intervals.icu."""
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    code = lancer(tmp_path, monkeypatch, fichier_seance=str(chemin), intervals=refus_intervals())
+    assert code == 0

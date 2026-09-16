@@ -25,7 +25,9 @@ capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex.
                            # Se mesure sur son propre historique :
                            #   uv run python tests/validation/facteur_compteur_retrospectif.py
                            # Absent, il est dérivé du modèle et de la masse — une
-                           # supposition, pas une mesure.
+                           # supposition, pas une mesure. `ourouler config` affiche
+                           # les deux (vitesse à plat, moyenne compteur) et dit
+                           # laquelle des deux situations est la vôtre.
 # periodes = [{ debut = 2024-01-01 }, { debut = 2025-03-01, fin = 2025-06-30 }]
 
 [meteo]
