@@ -1,0 +1,18 @@
+[
+  {
+    "place_id": 123456,
+    "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "osm_type": "way",
+    "osm_id": 987654,
+    "lat": "51.234567",
+    "lon": "-0.123456",
+    "class": "building",
+    "type": "house",
+    "place_rank": 30,
+    "importance": 0.42,
+    "addresstype": "building",
+    "name": "",
+    "display_name": "14, Elm Hollow Road, Rivermill, Testshire, ZZ9 9ZZ, Royaume-Uni",
+    "boundingbox": ["51.234", "51.235", "-0.124", "-0.123"]
+  }
+]

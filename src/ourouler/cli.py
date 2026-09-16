@@ -15,6 +15,7 @@ from pathlib import Path
 
 from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, charger
+from ourouler.connecteurs.geocodage import LIMITE_DEFAUT
 from ourouler.erreurs import ErreurUtilisateur
 
 # Module volontairement sans dépendance : la liste des réponses à `--vent`
@@ -46,6 +47,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_comparer(sous)
     ajouter_seance(sous)
     ajouter_sortie(sous)
+    ajouter_geocoder(sous)
     return p
 
 
@@ -479,6 +481,33 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
 
 def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
     from ourouler.sortie.commande import executer  # import paresseux (lot L4.4)
+
+    return executer(args, config)
+
+
+def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
+    """`ourouler geocoder ADRESSE` — le nom réservé `--adresse-depart` (Q15) n'est pas livré ici.
+
+    Cette commande livre le géocodage lui-même : une adresse tapée devient
+    des candidats notés. Elle ne tranche jamais toute seule entre plusieurs
+    candidats (une adresse ambiguë est la normale) — c'est un usage
+    ultérieur (`--adresse-depart` sur `meteo`/`boucle`/`sortie`, ou le front)
+    qui fera choisir l'utilisateur.
+    """
+    p = sous.add_parser(
+        "geocoder",
+        help="convertit une adresse tapée en coordonnées, plusieurs candidats notés",
+        parents=[parent_json()],
+    )
+    p.add_argument("adresse", help="adresse à chercher (entre guillemets si elle contient des espaces)")
+    p.add_argument(
+        "--max", type=int, metavar="N", help=f"nombre maximal de candidats (défaut : {LIMITE_DEFAUT})"
+    )
+    p.set_defaults(fonction=_commande_geocoder)
+
+
+def _commande_geocoder(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.geocodage.commande import executer  # import paresseux (lot F0.2)
 
     return executer(args, config)
 
