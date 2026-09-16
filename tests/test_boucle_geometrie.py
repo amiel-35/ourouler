@@ -104,10 +104,17 @@ def test_distance_au_segment_pour_un_point_en_arriere_du_depart():
     lointain passait pour confondu avec le tracé. Ce que Douglas-Peucker
     effaçait alors, ce sont les antennes et les demi-tours.
     """
-    a = PointTrace(48.10, -1.70, None, None)
-    b = PointTrace(48.10, -1.6960, None, None)  # ~300 m plein est
+    # Latitude moyenne pour que la convergence des méridiens joue vraiment,
+    # longitude choisie loin de toute ville française : l'invariant
+    # `test_aucune_coordonnee_francaise_dans_les_tests` garde la règle
+    # absolue 1, et il a attrapé une première version de ce test posée à 2 km
+    # de chez le mainteneur.
+    LAT, LON = 48.10, 120.00
+    metres_par_degre_lon = 111_320.0 * math.cos(math.radians(LAT))
+    a = PointTrace(LAT, LON, None, None)
+    b = PointTrace(LAT, LON + 300.0 / metres_par_degre_lon, None, None)  # ~300 m plein est
     for recul_m in (10.0, 100.0, 280.0, 400.0):
-        p = PointTrace(48.10, -1.70 - recul_m / 74000.0, None, None)
+        p = PointTrace(LAT, LON - recul_m / metres_par_degre_lon, None, None)
         attendu = distance_m(a, p)
         obtenu = _distance_segment_m(p, a, b)
         assert abs(obtenu - attendu) < 1.0, (
