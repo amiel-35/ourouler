@@ -21,7 +21,9 @@ from ourouler.physique.modele import (
     V_MAX_BISSECTION_MS,
     V_MAX_DESCENTE_KMH,
     Parametres,
+    facteur_compteur_defaut,
     masse_volumique_air,
+    moyenne_compteur_kmh,
     puissance_a_plat_w,
     puissance_requise,
     simuler,
@@ -351,3 +353,114 @@ def test_a_plat_une_vitesse_negative_est_refusee(mauvaise):
 def test_a_plat_une_vitesse_non_finie_est_refusee(mauvaise):
     with pytest.raises(ErreurUtilisateur, match="vitesse_kmh"):
         puissance_a_plat_w(mauvaise, P)
+
+
+# --- la moyenne du compteur (décision 8 : la troisième valeur) ----------------
+
+#: Deux cyclistes que seule la masse sépare. Chiffres synthétiques : ce ne sont
+#: ni la masse ni le vélo de qui que ce soit.
+LEGER = Parametres(masse_totale_kg=70.0, cda_m2=0.30, crr=0.004)
+LOURD = Parametres(masse_totale_kg=95.0, cda_m2=0.30, crr=0.004)
+
+#: Puissance d'essai, en watts. Un régime d'endurance plausible, rien de plus.
+PUISSANCE_ESSAI = 170.0
+
+
+def test_le_facteur_par_defaut_est_une_fraction_plausible():
+    """Entre la moitié et la totalité de la vitesse à plat : au-delà, le défaut
+    ne servirait plus à rien ; en deçà, ce ne serait plus du vélo."""
+    facteur = facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER)
+    assert 0.5 < facteur < 1.0
+
+
+def test_sans_relief_ni_arret_le_facteur_vaut_un():
+    """Le plat sans arrêt, c'est exactement la vitesse à plat : le seul cas où
+    la troisième valeur n'apprend rien."""
+    facteur = facteur_compteur_defaut(
+        PUISSANCE_ESSAI, LEGER, denivele_m_par_km=0.0, part_arret=0.0
+    )
+    assert facteur == pytest.approx(1.0, abs=1e-9)
+
+
+def test_les_arrets_sont_un_facteur_multiplicatif_exact():
+    """La part d'arrêt s'applique telle quelle sur le reste : c'est ce qui
+    permet de la lire comme une convention séparée du modèle physique."""
+    sans = facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, part_arret=0.0)
+    avec = facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, part_arret=0.20)
+    assert avec == pytest.approx(sans * 0.80, rel=1e-12)
+
+
+def test_le_relief_coute_toujours_quelque_chose():
+    """La convexité de puissance → vitesse : la côte coûte plus que la descente
+    ne rend, donc plus de dénivelé fait toujours tomber le facteur."""
+    precedent = 1.1
+    for denivele in (0.0, 5.0, 10.0, 20.0):
+        facteur = facteur_compteur_defaut(
+            PUISSANCE_ESSAI, LEGER, denivele_m_par_km=denivele, part_arret=0.0
+        )
+        assert facteur < precedent
+        precedent = facteur
+
+
+def test_le_facteur_depend_de_la_masse_et_c_est_tout_l_interet():
+    """Le point du lot : un facteur écrit en dur serait faux pour tout le monde
+    sauf son auteur. Vingt-cinq kilos de plus coûtent plusieurs points de
+    facteur sur le vallonné — et aucun sur le plat, où la masse ne joue que par
+    le roulement, qui ne dépend pas de la pente."""
+    assert facteur_compteur_defaut(PUISSANCE_ESSAI, LOURD) < facteur_compteur_defaut(
+        PUISSANCE_ESSAI, LEGER
+    )
+    a_plat = facteur_compteur_defaut(PUISSANCE_ESSAI, LOURD, denivele_m_par_km=0.0)
+    assert a_plat == pytest.approx(
+        facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, denivele_m_par_km=0.0), rel=1e-12
+    )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "motif"),
+    [
+        ({"denivele_m_par_km": -1.0}, "négatif"),
+        ({"part_arret": 1.0}, "part d'arrêt"),
+        ({"part_arret": -0.1}, "part d'arrêt"),
+        ({"denivele_m_par_km": float("nan")}, "denivele_m_par_km"),
+    ],
+)
+def test_le_defaut_refuse_une_reference_absurde(kwargs, motif):
+    with pytest.raises(ErreurUtilisateur, match=motif):
+        facteur_compteur_defaut(PUISSANCE_ESSAI, LEGER, **kwargs)
+
+
+@pytest.mark.parametrize("mauvaise", [0.0, -10.0])
+def test_le_defaut_refuse_une_puissance_nulle_ou_negative(mauvaise):
+    """Sans puissance il n'y a pas de vitesse à plat, donc pas de rapport."""
+    with pytest.raises(ErreurUtilisateur, match="puissance"):
+        facteur_compteur_defaut(mauvaise, LEGER)
+
+
+def test_la_moyenne_compteur_applique_le_facteur_mesure():
+    """Un facteur donné — celui que le cycliste a mesuré — prime sur le défaut."""
+    attendue = vitesse_a_plat_kmh(PUISSANCE_ESSAI, LEGER) * 0.85
+    assert moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER, 0.85) == pytest.approx(attendue)
+
+
+def test_la_moyenne_compteur_retombe_sur_le_defaut():
+    """Vélo neuf, aucun historique : le défaut dérivé prend le relais plutôt que
+    de laisser l'écran sans troisième valeur."""
+    attendue = vitesse_a_plat_kmh(PUISSANCE_ESSAI, LEGER) * facteur_compteur_defaut(
+        PUISSANCE_ESSAI, LEGER
+    )
+    assert moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER) == pytest.approx(attendue)
+
+
+def test_la_moyenne_compteur_est_sous_la_vitesse_a_plat():
+    """C'est toute la raison d'afficher la troisième valeur : elle doit être
+    visiblement plus basse que le champ « à plat » qu'on vient de remplir."""
+    assert moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER) < vitesse_a_plat_kmh(
+        PUISSANCE_ESSAI, LEGER
+    )
+
+
+@pytest.mark.parametrize("mauvais", [0.0, -0.5, float("nan")])
+def test_la_moyenne_compteur_refuse_un_facteur_absurde(mauvais):
+    with pytest.raises(ErreurUtilisateur):
+        moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER, mauvais)
