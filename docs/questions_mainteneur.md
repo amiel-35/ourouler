@@ -949,3 +949,92 @@ qu'une carte dont toutes les données sont présentes paraisse vide :
 
 Aucun des quatre n'est grave seul. Ensemble, ils annulent la carte.
 
+
+## Q24 — Son répertoire se resserre, et il ne décrit pas ses directions comme il les roule — **mesure du 16/09/2026, deux questions produit**
+
+Mesure exploratoire demandée dans ses mots : « si tu analyses mon historique
+encore une fois, tu dois pouvoir voir ce que je cherche à faire quand je
+roule ». Reproductible, sans réseau :
+
+    uv run python tests/validation/style_retrospectif.py
+
+161 sorties route extérieures depuis le 01/12/2023, dont **109 parties de la
+même base** — les seules que les mesures de direction regardent, un azimut
+n'ayant de sens que par rapport à un point fixe.
+
+**Le script a été écrit pour pouvoir ne rien trouver**, et il ne trouve pas
+tout ce qu'on lui a demandé de chercher : l'un des trois effets candidats est
+rendu au bruit par son propre contrôle. C'est la même discipline que la mesure
+d'orientation au vent, revenue nulle le 15/09.
+
+### a) Il roule un très petit terrain, et il le roule de plus en plus petit
+
+- 6 368 km roulés sur **~2 000 km de réseau distinct** : chaque kilomètre de
+  route a été parcouru 3,2 fois. Les 5 % de mailles les plus roulées portent
+  **45 %** des kilomètres ; une maille a été passée 79 fois.
+- **53 % des sorties** sont à plus de 85 % identiques à une sortie déjà faite
+  (recouvrement de mailles de 30 m, `apprentissage.routes`).
+- Contrôle qui aurait pu démentir : à 15-25 km de la base — là où les options
+  existent, contrairement aux trois premiers kilomètres — la part déjà vue
+  reste à **0,91** sur la seconde moitié de l'historique. Ce n'est donc pas
+  l'entonnoir du départ.
+- Et la diversité des directions d'une sortie **baisse** : 1,79 bit en 2023,
+  1,13 en 2024, 0,88 en 2025, 0,69 en 2026 (entropie sur 8 secteurs).
+  Spearman −0,365. Contrôle de longueur : l'effet survit à distance appariée
+  et sur le résidu d'une régression sur log(km), Spearman −0,348, p = 0,0005.
+  Il est **nul sur les sorties de 30-50 km**, qui n'ont pas le choix, et le
+  plus fort sur les **70-120 km**, qui l'ont (−0,616).
+
+**La question produit** : est-ce que ce resserrement lui convient, ou est-ce
+qu'il le subit ? C'est exactement la forme de Q17 — la mesure montre l'écart,
+lui seul en connaît la cause. Si c'est subi, l'outil a un rôle évident :
+proposer la boucle de la bonne durée qu'il n'a **pas** déjà faite, sans jamais
+faire de `part_connue` un critère (doctrine).
+
+### b) Il ne nomme pas le secteur où il roule le plus
+
+Ses mots du 16/09 : « peu au nord-ouest, un peu plus au nord-est, surtout sud
+et ouest ». Mesuré, en part des kilomètres au-delà de 3 km de la base :
+
+    SE 44 %  >  S 20 %  >  E 10 %  >  SO 7 %  >  NE 6 %  >  O 5 %  >  N 5 %  >  NO 2 %
+
+Deux de ses quatre repères tiennent (le nord-ouest est bien son secteur le
+plus rare, le sud est bien dans ses premiers). Deux ne tiennent pas : le
+**sud-est**, qu'il ne cite pas, porte à lui seul plus de kilomètres que les
+quatre secteurs qu'il nomme réunis ; et l'**ouest**, qu'il croit fréquent,
+arrive sixième sur huit.
+
+Réserve honnête : une rose des vents n'est pas une carte mentale, et il se
+peut qu'il appelle « sud » ce que la boussole appelle sud-est. Le décalage de
+vocabulaire expliquerait la moitié de l'écart — **pas l'ouest**.
+
+**La question produit** : quand la page du jour dit « au sud-ouest », parle-t-
+elle la même langue que lui ? Si non, toute la couronne météo et la phrase de
+direction visent à côté.
+
+### c) Ce qui ne tient pas, et qu'il ne faut pas lui raconter
+
+« Il refait de plus en plus ce qu'il a déjà fait » : **c'est du bruit**. La
+ressemblance médiane à une sortie précédente passe bien de 0,71 à 0,91 entre
+les deux moitiés de l'historique, mais mélanger l'ordre des sorties reproduit
+la même montée (p = 0,32). Une courbe d'accumulation monte quel que soit
+l'ordre. Le **niveau** est un fait, sa **pente** n'en est pas un.
+
+### d) Deux mesures de contexte, sans question attachée
+
+- **Forme** : distance parcourue ÷ distance maximale au départ = **3,20** de
+  médiane (2,00 = aller-retour pur, 3,14 = boucle circulaire). Il fait des
+  boucles, pas des allers-retours : 10 % seulement des sorties sont sous 2,4,
+  et 72 % finissent à moins d'un kilomètre du départ.
+- **Effort** : sa puissance monte de +19 W par point de pente, quand rouler à
+  vitesse constante en demanderait +78. Il parcourt **25 %** du chemin entre
+  « puissance constante » et « vitesse constante » — il lève le pied en côte
+  (199 W en montée contre 154 à plat) et ne se relance pas en descente
+  (107 W). Aucune des 96 sorties ne dépasse la moitié du contrefactuel.
+
+### Ce que la mesure ne peut pas trancher
+
+Rien ici ne sépare « il choisit ce secteur » de « le réseau ne lui laisse que
+celui-là ». Il faudrait comparer à ce qui est **routable** autour de sa base,
+ce qui demande le moteur de tracé et une notion d'offre par direction. C'est
+la suite naturelle, et elle est chiffrable.
