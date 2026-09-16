@@ -212,14 +212,25 @@ def plat_et_groupes() -> dict:
     )
 
 
-def evenement(doc: dict, *, nom: str, sport: str = "Ride", identifiant: int = 1) -> dict:
-    """Un événement de calendrier minimal autour d'un `workout_doc`."""
+def evenement(
+    doc: dict,
+    *,
+    nom: str,
+    sport: str = "Ride",
+    identifiant: int = 1,
+    jour: str = "2026-09-08",
+) -> dict:
+    """Un événement de calendrier minimal autour d'un `workout_doc`.
+
+    `jour` (AAAA-MM-JJ) fixe `start_date_local` — utile pour fabriquer des
+    événements répartis sur plusieurs jours (lecture d'une plage, F0.3).
+    """
     return {
         "id": identifiant,
         "name": nom,
         "type": sport,
         "category": "WORKOUT",
-        "start_date_local": "2026-09-08T00:00:00",
+        "start_date_local": f"{jour}T00:00:00",
         "workout_doc": doc,
     }
 

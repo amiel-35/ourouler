@@ -61,10 +61,11 @@ from __future__ import annotations
 import math
 import unicodedata
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from ourouler.activites.modele import est_sport_velo
 from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.erreurs import ErreurUtilisateur
 from ourouler.seance.modele import (
     PUISSANCE_ENDURANCE_PCT_DEFAUT,
     SEUIL_RECUPERATION_PCT_DEFAUT,
@@ -175,6 +176,110 @@ def seance_du_jour(
 ) -> Seance | None:
     """La séance **vélo** planifiée ce jour-là, ou `None` s'il n'y en a pas.
 
+    Un seul appel réseau, borné au jour demandé (`ClientIntervals.evenements`
+    avec `jusqua` implicite = `jour`). La sélection parmi les événements du
+    jour est celle de `_seance_retenue`, voir sa docstring.
+    """
+    evenements = client.evenements(jour)
+    return _seance_retenue(
+        evenements,
+        jour,
+        ftp_w=ftp_w,
+        zones_puissance=zones_puissance,
+        puissance_endurance_pct=puissance_endurance_pct,
+        seuil_recuperation_pct=seuil_recuperation_pct,
+    )
+
+
+def seances_periode(
+    client: ClientIntervals,
+    depuis: date,
+    jusqua: date,
+    *,
+    ftp_w: float | None,
+    zones_puissance: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT,
+    puissance_endurance_pct: float = PUISSANCE_ENDURANCE_PCT_DEFAUT,
+    seuil_recuperation_pct: float = SEUIL_RECUPERATION_PCT_DEFAUT,
+) -> dict[date, Seance | None]:
+    """La séance **vélo** de chaque jour de `depuis` à `jusqua` (bornes incluses).
+
+    **Un seul appel réseau** pour toute la plage (`ClientIntervals.
+    evenements(depuis, jusqua)`), jamais un appel par jour : boucler
+    multiplierait les pannes possibles par la largeur de la plage pour un
+    gain nul, l'API rendant déjà tout en une fois.
+
+    Chaque jour de la plage est une clé du dict rendu, avec `None` si aucune
+    séance vélo n'y est planifiée : un jour **vide** (clé présente, valeur
+    `None`) se distingue ainsi d'un jour qui n'a jamais été demandé (absent
+    du dict) — c'est ce que `seance/commande.py` sérialise ensuite en JSON.
+
+    **Plusieurs séances le même jour** : même règle que `seance_du_jour`,
+    appliquée jour par jour — on ne retient que la plus longue en durée, les
+    autres nommées dans `meta["seances_ignorees"]` de la séance retenue. Une
+    plage n'est qu'une succession de jours indépendants ; il n'y a pas de
+    raison de traiter la sélection intra-jour autrement à l'échelle de la
+    semaine qu'à l'échelle du jour.
+
+    Le regroupement par jour se fait sur `start_date_local` de chaque
+    événement — l'heure **locale** du cycliste, telle qu'Intervals la rend —
+    jamais convertie depuis un timestamp UTC : une plage de dates est une
+    notion locale (« lundi à dimanche » chez le cycliste), à la différence
+    d'un fichier FIT qui, lui, porte de l'UTC.
+    """
+    if jusqua < depuis:
+        raise ErreurUtilisateur(
+            f"séance : plage invalide (--depuis {depuis.isoformat()} postérieur "
+            f"à --jusqua {jusqua.isoformat()})"
+        )
+    evenements = client.evenements(depuis, jusqua)
+    par_jour: dict[date, list[dict]] = {}
+    for evenement in evenements:
+        jour_local = _jour_local(evenement)
+        if jour_local is not None and depuis <= jour_local <= jusqua:
+            par_jour.setdefault(jour_local, []).append(evenement)
+
+    resultat: dict[date, Seance | None] = {}
+    jour = depuis
+    while jour <= jusqua:
+        resultat[jour] = _seance_retenue(
+            par_jour.get(jour, []),
+            jour,
+            ftp_w=ftp_w,
+            zones_puissance=zones_puissance,
+            puissance_endurance_pct=puissance_endurance_pct,
+            seuil_recuperation_pct=seuil_recuperation_pct,
+        )
+        jour += timedelta(days=1)
+    return resultat
+
+
+def _jour_local(evenement: object) -> date | None:
+    """Le jour civil **local** d'un événement, ou `None` s'il ne se lit pas.
+
+    `start_date_local` est une date-heure sans fuseau (« 2026-09-08T06:00:00 »)
+    déjà exprimée dans le fuseau du cycliste — on ne prend que les dix premiers
+    caractères, jamais de reconversion UTC → local qui n'aurait pas de sens ici.
+    """
+    if not isinstance(evenement, dict):
+        return None
+    brut = str(evenement.get("start_date_local") or "")[:10]
+    try:
+        return date.fromisoformat(brut)
+    except ValueError:
+        return None
+
+
+def _seance_retenue(
+    evenements: list[dict],
+    jour: date,
+    *,
+    ftp_w: float | None,
+    zones_puissance: tuple[tuple[float, float], ...],
+    puissance_endurance_pct: float,
+    seuil_recuperation_pct: float,
+) -> Seance | None:
+    """Sélectionne, parmi les événements **déjà connus d'un seul jour**, la séance vélo.
+
     Le calendrier du mainteneur porte plusieurs événements par jour (une nage
     et un vélo le 08/09, par exemple) et des entrées qui ne sont pas des
     séances (notes, congés). Le filtre est donc triple : catégorie
@@ -190,7 +295,6 @@ def seance_du_jour(
     la journée — et les autres sont nommées dans `meta["seances_ignorees"]`.
     À durée égale, la première du calendrier l'emporte.
     """
-    evenements = client.evenements(jour)
     candidates = [e for e in evenements if _est_seance_velo(e)]
     if not candidates:
         return None
@@ -866,4 +970,5 @@ __all__ = [
     "REPS_MAX",
     "depuis_workout_doc",
     "seance_du_jour",
+    "seances_periode",
 ]

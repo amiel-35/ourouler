@@ -18,7 +18,7 @@ import httpx
 
 from ourouler.activites.cache import Cache
 from ourouler.activites.modele import est_sport_velo
-from ourouler.erreurs import ErreurConnecteur, ErreurLecture
+from ourouler.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
 
 BASE_URL = "https://intervals.icu"
 
@@ -165,12 +165,31 @@ class ClientIntervals:
             }
         return self._equipements
 
-    def evenements(self, jour: date) -> list[dict]:
-        """Séances planifiées d'un jour."""
+    def evenements(self, depuis: date, jusqua: date | None = None) -> list[dict]:
+        """Séances planifiées d'une plage de jours (bornes incluses), en **un seul appel**.
+
+        `jusqua` vaut `depuis` par défaut : un seul jour, exactement comme
+        avant l'élargissement — c'est ce dont `seance --jour` dépend. Comme
+        `_activites_fenetre` pour les activités passées, ce même endpoint
+        `events` accepte déjà une fenêtre `oldest`/`newest` : une plage se lit
+        donc en un seul appel, jamais en bouclant jour par jour (ce qui
+        multiplierait les pannes possibles par la largeur de la plage).
+
+        Les dates sont **locales** : `oldest`/`newest` sont des dates civiles
+        sans heure, celles du cycliste — une plage de dates n'a pas de sens en
+        UTC. Le tri par jour des événements rendus se fait ensuite sur leur
+        propre `start_date_local`, jamais reconverti.
+        """
+        jusqua = jusqua or depuis
+        if jusqua < depuis:
+            raise ErreurUtilisateur(
+                f"Intervals.icu events : plage invalide ({depuis.isoformat()} "
+                f"> {jusqua.isoformat()})"
+            )
         reponse = self._get(
             f"/api/v1/athlete/{self.athlete_id}/events",
             "athlete/{id}/events",
-            params={"oldest": jour.isoformat(), "newest": jour.isoformat()},
+            params={"oldest": depuis.isoformat(), "newest": jusqua.isoformat()},
         )
         return _liste_de_dicts(reponse, "athlete/{id}/events")
 
