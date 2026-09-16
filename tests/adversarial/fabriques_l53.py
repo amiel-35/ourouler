@@ -1,39 +1,48 @@
 """Fabriques du lot L5.3 — trois propositions contrastées (contrat sprint 5 §3.3).
 
-Écrit **en aveugle** de l'implémentation : ces fabriques ne connaissent du lot
-que ce que le contrat promet, et du code que ce qui existait sur `sprint-5`
-avant lui (`sortie/commande.py`, `boucle/candidates.py`, `seance/terrain.py`,
-`apprentissage/routes.py`).
+Écrit **en aveugle** de l'implémentation, puis **réconcilié le 16/09/2026**
+après sa fusion. Les vérificateurs n'ont pas changé de fond ; ce sont les
+adaptateurs qui ont appris à lire ce que le lot publie réellement.
 
 ## Pourquoi ce fichier est aussi gros
 
-Le contrat §3.3 ne nomme **aucune interface** : ni module, ni fonction, ni
-champ. Il décrit un comportement (« trois représentants éloignés », « une
+Le contrat §3.3 ne nommait **aucune interface** : ni module, ni fonction, ni
+champ. Il décrivait un comportement (« trois représentants éloignés », « une
 phrase par proposition », « deux gardes sur la question du vent », « une
 densité de marqueurs au kilomètre ») sans dire par quelle porte on y entre.
 Deux conséquences, et elles structurent tout le dossier.
 
 1. **Les vérificateurs sont écrits contre une vue générique**
-   (`VueProposition`, `VueChoix`), pas contre l'implémentation. Un adaptateur
-   (`decouvrir_*`) va chercher la vraie porte au moment du test et échoue avec
-   un message qui dit ce qu'il a cherché. Rien n'est deviné en silence.
+   (`VueProposition`, `VueChoix`), pas contre l'implémentation. Les
+   adaptateurs (`vue_depuis_json`, `decouvrir_callable`) vont chercher la
+   vraie porte au moment du test et disent ce qu'ils ont cherché quand ils
+   échouent. Rien n'est deviné en silence.
 2. **Une implémentation de référence** (`choisir_reference`,
    `densite_reference`, `question_vent_reference`) sert de cobaye : elle est
-   mutée dix-huit fois dans `test_adv_l53_autocontrole.py`, et chaque mutation
-   doit être attrapée par un vérificateur nommé. C'est la discipline du lot
-   L5.2, où deux tests s'étaient révélés aveugles à la mutation qu'ils
+   mutée vingt-sept fois dans `test_adv_l53_autocontrole.py`, et chaque
+   mutation doit être attrapée par un vérificateur nommé. C'est la discipline
+   du lot L5.2, où deux tests s'étaient révélés aveugles à la mutation qu'ils
    annonçaient. Elle ne remplace pas les tests sur le vrai code : elle prouve
-   que les vérificateurs ont des dents avant que le vrai code arrive.
+   que les vérificateurs ne sont pas creux.
+
+## Un adaptateur muet doit se dénoncer
+
+La leçon de la réconciliation, et elle vaut au-delà de ce lot. Mon
+`vue_depuis_json` était écrit pour la forme imbriquée de `candidates[]` ; le
+lot publie ses propositions à plat. L'adaptateur ne lisait donc **aucun** axe,
+rendait des vues toutes neutres — donc identiques — et le vérificateur de
+clones criait « trois propositions identiques » sur des propositions qui
+différaient très bien. `exiger_axes_lus` refuse désormais de conclure quand
+rien n'a été lu : mieux vaut échouer en disant « je ne sais pas lire » que
+rendre un verdict faux avec assurance.
 
 ## Ce que la référence n'est pas
 
 Ce n'est **pas** une proposition d'implémentation, et surtout pas une norme :
 le contrat ne fixe ni la distance entre deux propositions, ni le seuil à
-partir duquel elles sont « éloignées », ni le seuil de vent. La référence
-choisit la distance de Tchebychev et un seuil explicite parce qu'il faut bien
-un cobaye qui tourne ; **aucun test sur le vrai code n'exige ces choix-là**.
-Les tests du vrai code sont écrits pour être vrais quel que soit le seuil —
-voir `test_adv_trois_propositions.py`, section « sans seuil ».
+partir duquel elles sont « éloignées ». La référence choisit la distance de
+Tchebychev et un seuil explicite parce qu'il faut bien un cobaye qui tourne ;
+**aucun test sur le vrai code n'exige ces choix-là**.
 
 ## Aucune coordonnée réelle
 
@@ -74,6 +83,10 @@ AXES: dict[str, str] = {
     "vent_dos_retour": "max",
     "vent_dos_depart": "max",
     "vent_travers": "max",
+    # Deux axes que le lot publie et que le contrat §3.3.2 nommait : la part
+    # de routes à trafic, et la note de terrain sous les blocs.
+    "part_trafic": "min",
+    "note_terrain": "min",
 }
 
 #: La note de placement, que le contrat §3.3.1 exclut explicitement du
@@ -95,6 +108,13 @@ class VueProposition:
     axes: dict[str, float]
     note_totale: float = 0.0
     phrase: str | None = None
+    #: L'orientation au vent **nommée** par le lot ("retour-dos", "depart-dos",
+    #: "travers", "face"), ou `None`. Une phrase de vent est une affirmation
+    #: descriptive sur cette valeur, pas un superlatif sur un axe numérique.
+    orientation: str | None = None
+    #: Les axes réellement lus dans le JSON. Vide = l'adaptateur n'a rien
+    #: compris, et aucun verdict ne doit être rendu (`exiger_axes_lus`).
+    axes_lus: frozenset = frozenset()
 
     def axe(self, nom: str) -> float:
         valeur = self.axes.get(nom)
@@ -128,6 +148,8 @@ NEUTRE: dict[str, float] = {
     "vent_dos_retour": 0.5,
     "vent_dos_depart": 0.5,
     "vent_travers": 0.5,
+    "part_trafic": 0.3,
+    "note_terrain": 1.0,
 }
 
 
@@ -385,12 +407,26 @@ def ecrire_phrases_reference(
 
 @dataclass(frozen=True)
 class Affirmation:
-    """Une tournure reconnaissable, et l'axe sur lequel elle engage le lot."""
+    """Une tournure reconnaissable, et ce sur quoi elle engage le lot.
+
+    Deux natures d'affirmation, et les confondre affaiblit la vérification :
+
+    * **superlative** (`sens` vaut "min", "max" ou "zero") — « la plus sèche »
+      affirme être la meilleure des retenues sur la pluie ;
+    * **descriptive** (`orientation` renseignée) — « vous rentrez avec le vent
+      dans le dos » n'affirme rien sur les autres, elle décrit *cette*
+      proposition, et se vérifie contre l'orientation que le lot publie.
+
+    La seconde est plus forte quand elle est disponible : elle attrape une
+    phrase collée à la mauvaise proposition même quand les trois ont la même
+    valeur numérique.
+    """
 
     nom: str
     motifs: tuple[str, ...]
     axe: str
     sens: str  # "min", "max" ou "zero"
+    orientation: str | None = None
 
 
 #: Le lexique est délibérément celui du contrat §3.3.3, qui donne les phrases en
@@ -399,14 +435,27 @@ class Affirmation:
 #: L'ordre compte : la tournure la plus spécifique est reconnue d'abord.
 AFFIRMATIONS: tuple[Affirmation, ...] = (
     Affirmation("vent_dos_depart", ("vent dans le dos au départ", "vent dans le dos au depart",
-                                    "vous partez avec le vent"), "vent_dos_depart", "max"),
+                                    "vous partez avec le vent"), "vent_dos_depart", "max",
+                orientation="depart-dos"),
     Affirmation("vent_dos_retour", ("rentrez avec le vent dans le dos", "vent dans le dos au retour",
                                     "vent dans le dos à la fin", "vent dans le dos a la fin",
-                                    "vent dans le dos pour rentrer"), "vent_dos_retour", "max"),
+                                    "vent dans le dos pour rentrer"), "vent_dos_retour", "max",
+                orientation="retour-dos"),
     Affirmation("vent_travers", ("vent de travers", "vent latéral", "vent lateral"),
-                "vent_travers", "max"),
+                "vent_travers", "max", orientation="travers"),
+    # « du vent de face au départ comme au retour » : une phrase qui distingue
+    # par la négative, et que le lot écrit réellement. Ne pas la reconnaître
+    # ferait passer pour muette une proposition qui dit très bien ce qu'elle est.
+    Affirmation("vent_face", ("vent de face au départ comme au retour",
+                              "vent de face au depart comme au retour",
+                              "du vent de face"), "vent_dos_retour", "min",
+                orientation="face"),
     Affirmation("demi_tour", ("aucun demi-tour", "sans demi-tour", "pas de demi-tour"),
                 "demi_tours", "zero"),
+    # « un seul demi-tour » / « 2 demi-tours seulement » : le lot les écrit, et
+    # ce sont des superlatifs, pas des « zéro ».
+    Affirmation("demi_tour_moins", ("un seul demi-tour", "demi-tours seulement",
+                                    "demi-tour seulement"), "demi_tours", "min"),
     Affirmation("pluie", ("la plus sèche", "la plus seche", "au sec", "sans pluie", "moins de pluie"),
                 "pluie_mm", "min"),
     Affirmation("duree", ("minutes de moins", "la plus courte", "plus courte", "moins longue",
@@ -416,6 +465,11 @@ AFFIRMATIONS: tuple[Affirmation, ...] = (
                           "evite les bourgs", "évite la ville", "evite la ville",
                           "sans traverser", "moins de feux", "la plus calme"),
                 "densite_marqueurs_km", "min"),
+    Affirmation("trafic", ("évite les grands axes", "evite les grands axes",
+                           "évite les départementales", "evite les departementales"),
+                "part_trafic", "min"),
+    Affirmation("terrain", ("les blocs tombent le mieux", "le mieux pour les blocs"),
+                "note_terrain", "min"),
     Affirmation("connues", ("que vous connaissez", "routes connues", "déjà roulé", "deja roule"),
                 "part_connue", "max"),
     Affirmation("nouvelles", ("routes nouvelles", "nouvelles pour vous", "que vous ne connaissez pas",
@@ -586,6 +640,17 @@ def verifier_phrases_vraies(choix: VueChoix) -> None:
         if not autres:
             continue
         for a in affirmations_de(p.phrase or ""):
+            # Affirmation **descriptive** : elle se vérifie contre l'orientation
+            # que le lot publie, et c'est le contrôle le plus dur — il attrape
+            # une phrase de vent collée à la mauvaise proposition même quand les
+            # trois portent la même valeur numérique.
+            if a.orientation is not None and p.orientation is not None:
+                assert p.orientation == a.orientation, (
+                    f"proposition {p.cle!r} : « {p.phrase} » annonce un vent "
+                    f"« {a.orientation} », mais le lot publie « {p.orientation} ». "
+                    "Une phrase est une affirmation : elle doit être vraie."
+                )
+                continue
             mien = p.axe(a.axe)
             if a.sens == "zero":
                 assert abs(mien) <= MARGE, (
@@ -636,33 +701,51 @@ def verifier_phrase_parle_du_bon_axe(choix: VueChoix, axe: str, extreme: str) ->
 #: reconnaître. On réutilise ses constantes plutôt que d'en réécrire une
 #: seconde liste qui divergerait.
 def marqueurs_du_projet() -> tuple[frozenset[str], str, frozenset[str]]:
-    from ourouler.seance.terrain import (
-        CLE_RALENTISSEUR,
-        NOEUDS_CARREFOUR,
-        RALENTISSEURS_SANS_EFFET,
+    """Le vocabulaire des marqueurs, **où qu'il vive**.
+
+    Il était dans `seance.terrain` sur `sprint-5` ; le lot L5.3 l'a déplacé
+    dans `boucle.marqueurs`, que `seance.terrain` importe désormais, pour que
+    la note sous un bloc et la densité du tracé ne puissent pas diverger. Le
+    déplacement est un bon geste : ce sont les **valeurs** que la
+    non-régression fige, pas leur adresse. On cherche donc les deux, dans
+    l'ordre où elles vivent aujourd'hui.
+    """
+    for module in ("ourouler.boucle.marqueurs", "ourouler.seance.terrain"):
+        try:
+            mod = __import__(module, fromlist=["NOEUDS_CARREFOUR"])
+            return (
+                mod.NOEUDS_CARREFOUR,
+                mod.CLE_RALENTISSEUR,
+                mod.RALENTISSEURS_SANS_EFFET,
+            )
+        except (ImportError, AttributeError):
+            continue
+    raise AssertionError(
+        "vocabulaire des marqueurs introuvable : ni `ourouler.boucle.marqueurs` ni "
+        "`ourouler.seance.terrain` n'expose NOEUDS_CARREFOUR / CLE_RALENTISSEUR / "
+        "RALENTISSEURS_SANS_EFFET"
     )
 
-    return (NOEUDS_CARREFOUR, CLE_RALENTISSEUR, RALENTISSEURS_SANS_EFFET)
 
+def compter_marqueurs(trace: Trace) -> int:
+    """Le nombre de **nœuds** tagués du tracé entier.
 
-def compter_marqueurs(trace: Trace, debut_m: float, longueur_m: float) -> int:
-    """Le nombre de nœuds tagués dont la position tombe dans la portion."""
+    On compte par nœud de fin (`Segment.fin_idx`) et non par tronçon : deux
+    tronçons qui se terminent au même nœud ne font qu'un feu. C'est la règle
+    que `seance.terrain._noeuds_tagues` appliquait déjà, et la compter de
+    travers ferait sortir un facteur deux aux carrefours.
+    """
     carrefour, cle_calme, sans_effet = marqueurs_du_projet()
-    fin_m = debut_m + longueur_m
-    total = 0
+    natures: dict[int, str] = {}
     for segment in trace.segments:
-        if segment.fin_idx >= len(trace.points):
+        tags = segment.node_tags
+        if tags.get("highway", "") in carrefour:
+            natures[segment.fin_idx] = tags["highway"]
             continue
-        position = trace.points[segment.fin_idx].dist_m
-        if not (debut_m <= position <= fin_m):
-            continue
-        if segment.node_tags.get("highway", "") in carrefour:
-            total += 1
-            continue
-        calme = segment.node_tags.get(cle_calme, "")
+        calme = tags.get(cle_calme, "")
         if calme and calme not in sans_effet:
-            total += 1
-    return total
+            natures[segment.fin_idx] = cle_calme
+    return len(natures)
 
 
 @dataclass(frozen=True)
@@ -680,17 +763,50 @@ class Densite:
     motif: str = ""
 
 
-def densite_reference(trace: Trace, debut_m: float = 0.0, longueur_m: float | None = None) -> Densite:
-    """Le cobaye : nombre de marqueurs divisé par les kilomètres de la portion."""
-    if longueur_m is None:
-        longueur_m = trace.points[-1].dist_m if len(trace.points) >= 2 else 0.0
+def trace_pour_densite(
+    longueur_m: float,
+    n_marqueurs: int,
+    *,
+    sans_segments: bool = False,
+    node_tags: dict[int, dict[str, str]] | None = None,
+    distance_annoncee: float | None = None,
+    cap_deg: float = 90.0,
+) -> Trace:
+    """Une droite de `longueur_m` portant `n_marqueurs` feux régulièrement espacés.
+
+    `cap_deg` oriente la droite : deux tracés de caps différents ne se
+    recouvrent pas, ce qu'exige tout test qui passe par `contraste.choisir` —
+    deux droites de même cap partant du même point sont la **même route**, et
+    le lot a raison de refuser de les proposer toutes les deux.
+
+    `distance_annoncee` force `trace.distance_m` indépendamment de la
+    géométrie : c'est ainsi qu'on fabrique le tracé de longueur nulle ou de
+    longueur illisible sans fabriquer une géométrie absurde.
+    """
+    pas_m = 100.0
+    n = max(int(longueur_m // pas_m), 1)
+    coords = fabriques4.droite(n, pas_m=pas_m, cap_deg=cap_deg, pentes=0.0, alt0=50.0)
+    if node_tags is None:
+        ecart = max(1, n // max(n_marqueurs, 1))
+        node_tags = {i * ecart: {"highway": "traffic_signals"} for i in range(n_marqueurs)}
+    trace = fabriques4.trace_taguee(
+        coords, tags={"highway": "tertiary"}, node_tags=node_tags, sans_segments=sans_segments
+    )
+    if distance_annoncee is not None:
+        trace.distance_m = distance_annoncee
+    return trace
+
+
+def densite_reference(trace: Trace) -> Densite:
+    """Le cobaye : marqueurs du tracé entier divisés par ses kilomètres."""
     if not trace.segments:
         return Densite(0.0, connue=False, motif="routes inconnues")
+    longueur_m = trace.distance_m
+    if longueur_m is None or not math.isfinite(longueur_m) or longueur_m <= 0:
+        longueur_m = trace.points[-1].dist_m if len(trace.points) >= 2 else 0.0
     if not math.isfinite(longueur_m) or longueur_m <= 0:
-        return Densite(0.0, connue=False, motif="portion de longueur nulle")
-    if not math.isfinite(debut_m):
-        return Densite(0.0, connue=False, motif="position illisible")
-    return Densite(compter_marqueurs(trace, debut_m, longueur_m) / (longueur_m / 1000.0), True)
+        return Densite(0.0, connue=False, motif="tracé de longueur nulle")
+    return Densite(compter_marqueurs(trace) / (longueur_m / 1000.0), True)
 
 
 def verifier_densite(
@@ -698,62 +814,108 @@ def verifier_densite(
 ) -> None:
     """La batterie de la densité : le contrat §3.3.2 et l'invariant du sprint 3.
 
-    `fn(trace, debut_m, longueur_m)` rend n'importe quoi que `lire` sait
-    convertir en `Densite`. Six exigences, chacune dans son assertion.
+    `fn(trace)` rend n'importe quoi que `lire` sait convertir en `Densite`.
+
+    **La mesure porte sur le tracé entier**, pas sur un couloir : c'est le
+    choix du lot, et il est justifié — sur une endurance il n'y a aucun bloc
+    sous lequel découper un couloir, et c'est le cas courant du mainteneur.
+    La batterie a été réécrite pour cette signature ; les exigences, elles,
+    n'ont pas bougé.
     """
     lire = lire or (lambda v: v)
 
-    #: 10 marqueurs sur 5 km : la densité vaut 2 /km, pas 10, pas 0,002.
-    coords = fabriques4.droite(200, pas_m=100.0, cap_deg=90.0, pentes=0.0, alt0=50.0)
-    noeuds = {i: {"highway": "traffic_signals"} for i in range(20, 70, 5)}
-    trace = fabriques4.trace_taguee(coords, tags={"highway": "tertiary"}, node_tags=noeuds)
-    d = lire(fn(trace, 2000.0, 5000.0))
-    assert d.connue, "une portion dont les tronçons sont tagués est une portion connue"
-    assert d.par_km == pytest_approx(2.0), (
-        f"10 marqueurs sur 5 km font 2,0 /km, pas {d.par_km!r}. Un compte brut rendrait 10 ; "
-        "une division par les mètres rendrait 0,002."
+    # 10 marqueurs sur ~5 km : 2,0 /km. Ni 10 (le compte brut, « au kilomètre »
+    # oublié), ni 0,002 (divisé par les mètres).
+    #
+    # L'attendu se calcule sur la longueur **que le tracé annonce**, pas sur les
+    # 5 000 m nominaux : la géométrie sphérique des fabriques rend 4 994 m, et
+    # comparer à 2,0 pile testerait la fabrique au lieu de tester la division.
+    # C'est la leçon de L5.1, prise par l'autre bout — une marge est nécessaire,
+    # mais une marge qui masque l'écart à mesurer ne vaut rien : ici l'attendu
+    # est exact et c'est la référence qui est ajustée.
+    court = trace_pour_densite(5000.0, 10)
+    attendu = 10.0 / (court.distance_m / 1000.0)
+    d = lire(fn(court))
+    assert d.connue, "un tracé dont les tronçons sont tagués porte une densité connue"
+    assert d.par_km == pytest_approx(attendu, rel=1e-9), (
+        f"10 marqueurs sur {court.distance_m:.0f} m font {attendu:.4f} /km, pas {d.par_km!r}. "
+        "Un compte brut rendrait 10 ; une division par les mètres rendrait 0,002."
     )
 
-    #: Longueur nulle : pas de division par zéro, pas de NaN, pas d'infini.
-    d = lire(fn(trace, 2000.0, 0.0))
-    assert math.isfinite(d.par_km), f"longueur nulle : densité {d.par_km!r} (division par zéro ?)"
-    assert not d.connue, "une portion de longueur nulle ne porte aucune densité connue"
+    # La même densité doit sortir d'un tracé deux fois plus long portant deux
+    # fois plus de marqueurs : c'est ce qui distingue une densité d'un compte.
+    long_ = trace_pour_densite(10_000.0, 20)
+    d2 = lire(fn(long_))
+    assert d2.par_km == pytest_approx(20.0 / (long_.distance_m / 1000.0), rel=1e-9), (
+        f"20 marqueurs sur {long_.distance_m:.0f} m : {d2.par_km!r}"
+    )
+    assert abs(d2.par_km - d.par_km) < 0.02, (
+        f"deux fois plus de marqueurs sur deux fois plus de kilomètres donnent la même "
+        f"densité : {d.par_km!r} contre {d2.par_km!r}. Une densité ne dépend pas de la "
+        "longueur du tracé ; un compte, si — et l'écart serait alors de 10, pas de 0,02."
+    )
 
-    #: Longueur négative, et plus courte qu'un pas de 100 m.
-    for longueur in (-500.0, 1e-9, float("nan")):
-        d = lire(fn(trace, 2000.0, longueur))
-        assert math.isfinite(d.par_km), f"longueur {longueur!r} : densité {d.par_km!r}"
+    # Longueur nulle, négative, illisible : ni division par zéro, ni NaN.
+    for annoncee in (0.0, -500.0, float("nan"), float("inf")):
+        lue = lire(fn(trace_pour_densite(5000.0, 10, distance_annoncee=annoncee)))
+        assert math.isfinite(lue.par_km), (
+            f"distance annoncée {annoncee!r} : densité {lue.par_km!r} — division par zéro, "
+            "ou un non-fini qui traversera tout le contraste"
+        )
 
-    #: Tracé sans **aucun** segment : « on ne sait pas », jamais « la campagne ».
-    nu = fabriques4.trace_taguee(coords, tags={"highway": "tertiary"}, sans_segments=True)
-    d_nu = lire(fn(nu, 2000.0, 5000.0))
+    # Un tracé réellement vide : deux points confondus, aucun kilomètre.
+    vide_geometrique = trace_pour_densite(100.0, 0, distance_annoncee=0.0)
+    lue = lire(fn(vide_geometrique))
+    assert math.isfinite(lue.par_km), f"tracé de longueur nulle : densité {lue.par_km!r}"
+
+    # Tracé sans **aucun** segment : « on ne sait pas », jamais « la campagne ».
+    d_nu = lire(fn(trace_pour_densite(5000.0, 0, sans_segments=True)))
     assert not d_nu.connue, (
         "un tracé sans segments rend une densité de zéro **connue** : c'est « la campagne "
         "prouvée » là où il n'y a que « on ne sait pas ». Le contrat du sprint 3 interdit "
         "qu'une classe inconnue devienne un malus ; ici l'erreur est symétrique et pire, "
-        "elle en fait un bonus."
+        "elle en ferait un bonus — l'outil proposerait par préférence les tracés qu'il ne "
+        "sait pas lire."
     )
 
-    #: Segments présents mais aucun marqueur : là, zéro est une **mesure**.
-    vide = fabriques4.trace_taguee(coords, tags={"highway": "tertiary"}, node_tags={})
-    d_vide = lire(fn(vide, 2000.0, 5000.0))
+    # Segments présents mais aucun marqueur : là, zéro est une **mesure**.
+    d_vide = lire(fn(trace_pour_densite(5000.0, 0)))
     assert d_vide.connue and d_vide.par_km == pytest_approx(0.0), (
         f"des tronçons tagués sans marqueur, c'est une densité nulle **connue** : {d_vide!r}"
     )
 
-    #: Tous les nœuds au même endroit : rien ne doit exploser.
-    empiles = fabriques4.trace_taguee(
-        coords,
-        tags={"highway": "tertiary"},
-        node_tags={30: {"highway": "traffic_signals"}, 31: {"highway": "stop"}},
+    # Deux nœuds tagués côte à côte, et un nœud qui porte les deux tags.
+    empiles = lire(
+        fn(
+            trace_pour_densite(
+                5000.0,
+                0,
+                node_tags={
+                    30: {"highway": "traffic_signals"},
+                    31: {"highway": "stop"},
+                    32: {"highway": "traffic_signals", CLE_CALME: "bump"},
+                },
+            )
+        )
     )
-    d_emp = lire(fn(empiles, 2900.0, 400.0))
-    assert math.isfinite(d_emp.par_km) and d_emp.par_km >= 0, (
-        f"nœuds empilés sur un court couloir : densité {d_emp.par_km!r}"
+    assert math.isfinite(empiles.par_km) and empiles.par_km >= 0, (
+        f"nœuds empilés : densité {empiles.par_km!r}"
+    )
+    reference_empiles = trace_pour_densite(5000.0, 0)
+    assert empiles.par_km == pytest_approx(
+        3.0 / (reference_empiles.distance_m / 1000.0), rel=1e-9
+    ), (
+        f"trois nœuds marqués sur 5 km font 0,6 /km, pas {empiles.par_km!r}. Le nœud qui porte "
+        "un feu **et** un ralentisseur ne compte qu'une fois : « se compter deux fois serait "
+        "pire que de se manquer »."
     )
 
 
-def pytest_approx(valeur: float, *, rel: float = 1e-9, abs_: float = 1e-9):
+#: La clé des ralentisseurs, lue une fois pour les fabriques ci-dessus.
+CLE_CALME = "traffic_calming"
+
+
+def pytest_approx(valeur: float, *, rel: float = 1e-9, abs_: float = 1e-9):  # noqa: D417
     """`pytest.approx` sans importer pytest dans un module de fabriques."""
 
     class _Approx:
@@ -859,14 +1021,18 @@ def verifier_gardes_vent(poser: Callable[..., bool]) -> None:
             }
         )
     )
-    assert appel(jours_a_l_avance=0.0), "aujourd'hui : dans l'horizon"
-    assert appel(jours_a_l_avance=float(HORIZON_JOURS)), (
+    # L'horizon se balaye en **jours entiers** : l'entrée du lot est une date
+    # de séance et une date du jour, et une demi-journée d'avance n'existe pas
+    # dans ce domaine. Mon premier balayage passait 3,01 jours et criait à tort
+    # — une valeur qui ne peut pas se produire ne prouve rien.
+    assert appel(jours_a_l_avance=0), "aujourd'hui : dans l'horizon"
+    assert appel(jours_a_l_avance=HORIZON_JOURS), (
         f"{HORIZON_JOURS} jours pile : le contrat dit « on ne propose une orientation au vent "
         "que **jusqu'à** 3 jours » et chiffre ce jour-là (88 % de bon secteur). La borne est "
         "donc incluse — si l'implémentation l'a lue exclusive, c'est une lecture du contrat à "
         "trancher avec le mainteneur, pas à deviner."
     )
-    for au_dela in (HORIZON_JOURS + 0.01, 4.0, 5.0, 10.0):
+    for au_dela in (HORIZON_JOURS + 1, 5, 10, 60):
         assert not appel(jours_a_l_avance=au_dela), (
             f"{au_dela} jours : au-delà de 3 jours « l'outil dit qu'il ne sait pas » "
             "(contrat §3.3.4 et §3.1.2 — AROME s'arrête à 67 h)"
@@ -879,9 +1045,37 @@ def verifier_gardes_vent(poser: Callable[..., bool]) -> None:
         "dans le dos » sans savoir d'où il vient"
     )
     for absurde in (float("nan"), float("inf")):
-        assert not appel(vent_kmh=absurde), f"vent {absurde!r} : une valeur non finie n'est pas un vent"
-        assert not appel(direction_deg=absurde), f"direction {absurde!r} : idem"
-    assert not appel(jours_a_l_avance=float("nan")), "horizon illisible : pas de question"
+        assert not appel(vent_kmh=absurde), (
+            f"vent {absurde!r} : une valeur non finie n'est pas un vent"
+        )
+    # La direction non finie a son vérificateur à elle (`verifier_direction_non_finie`) :
+    # c'est un défaut réel du lot au 16/09/2026, et le garder ici ferait
+    # échouer toute la batterie pour un seul point, en masquant les autres.
+
+
+def verifier_direction_non_finie(poser: Callable[..., bool]) -> None:
+    """Une direction de vent non finie ne doit pas faire poser la question.
+
+    `interroger` vérifie `math.isfinite` sur la **vitesse** mais seulement
+    `is None` sur la **direction**. Un NaN ou un infini passe donc la garde, la
+    question est posée, et `QuestionVent.azimut_pour(...)` rend
+    `(nan + décalage) % 360`, c'est-à-dire `nan` — un azimut qui part ensuite
+    dans `boucle.candidates.generer` puis dans l'URL BRouter.
+
+    Le vent vient d'Open-Meteo, qui peut rendre `null` comme une valeur
+    aberrante : c'est exactement la famille d'entrées hostiles que la règle
+    absolue 5 demande de traiter, et le module `seance.vent` la traite déjà
+    (« Invariant dur : `vent_face_ms` ne rend **jamais** un NaN »).
+    """
+    for absurde in (float("nan"), float("inf"), float("-inf")):
+        pose = poser(vent_kmh=14.0, direction_deg=absurde, jours_a_l_avance=1)
+        assert not pose, (
+            f"direction du vent = {absurde!r} et la question est posée quand même. La vitesse "
+            "est filtrée par `math.isfinite`, la direction seulement par `is None` : l'azimut "
+            "de recherche vaut alors NaN et descend tel quel jusqu'à l'appel BRouter. "
+            "Une direction qu'on ne sait pas lire, c'est « je ne sais pas », comme une "
+            "direction absente."
+        )
 
 
 # --- géométries pour les tests sur le vrai code -------------------------------
@@ -1022,60 +1216,135 @@ def phrase_de(candidate: dict) -> str | None:
 
 
 def propositions_du_json(doc: dict) -> list[dict]:
-    """Les candidates **proposées au cycliste**, c'est-à-dire celles qui portent une phrase.
+    """Les propositions faites au cycliste, telles que le document les publie.
 
-    Sur `sprint-5`, `candidates` liste toutes les boucles évaluées et aucune ne
-    porte de phrase : la fonction rend alors une liste vide, et la sentinelle
-    échoue. Après le lot, elle rend les propositions contrastées, où qu'elles
-    soient publiées.
+    Deux règles, dans cet ordre :
+
+    1. un bloc nommé `propositions` **est** la liste des propositions, qu'il
+       porte des phrases ou non ;
+    2. à défaut, les entrées de `candidates` qui portent une phrase — la forme
+       qu'aurait prise le lot s'il avait enrichi le bloc existant.
+
+    La règle 1 a été ajoutée à la réconciliation, et l'erreur qu'elle corrige
+    vaut d'être écrite. Ma première version ne retenait que les entrées
+    **portant une phrase**. Or le lot, tout à fait correctement, laisse la
+    phrase vide quand il ne retient qu'**une** proposition : une phrase dit ce
+    qui distingue « des deux autres », et sans deux autres il n'y a rien à
+    dire. Mon filtre jetait donc cette proposition, rendait une liste vide, et
+    cinq tests — dont les deux qui portent le cœur du lot — se mettaient en
+    `skip` en annonçant « le lot n'est pas livré ». Le cas que j'avais le plus
+    travaillé était précisément celui que je ne regardais plus.
     """
-    listes: list[list] = []
-    for cle in ("propositions", "candidates"):
-        for valeur in _profond(doc, cle):
-            if isinstance(valeur, list) and all(isinstance(e, dict) for e in valeur):
-                listes.append(valeur)
-    for liste in listes:
-        avec_phrase = [c for c in liste if (phrase_de(c) or "").strip()]
-        if avec_phrase:
-            return avec_phrase
+    for valeur in _profond(doc, "proposition"):
+        if isinstance(valeur, list) and all(isinstance(e, dict) for e in valeur):
+            return valeur
+    for valeur in _profond(doc, "candidates"):
+        if isinstance(valeur, list) and all(isinstance(e, dict) for e in valeur):
+            avec_phrase = [c for c in valeur if (phrase_de(c) or "").strip()]
+            if avec_phrase:
+                return avec_phrase
     return []
 
 
 def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VueProposition:
-    """Une `VueProposition` bâtie sur ce que le JSON publie déjà.
+    """Une `VueProposition` bâtie sur ce que le JSON publie.
 
-    Les axes absents du JSON prennent leur valeur neutre : un axe que le lot ne
-    publie pas ne peut ni contraster ni mentir, et c'est un test à part qui
-    exige sa publication (`test_la_densite_de_marqueurs_est_publiee`).
+    Deux formes coexistent depuis le lot, et il faut savoir lire les deux :
+
+    * `candidates[]`, imbriquée, héritée du sprint 4 :
+      `placement.duree_totale_s`, `meteo.pluie_cumulee_mm`, `part_connue`… ;
+    * `propositions[]`, **plate**, écrite par le lot : `duree_s`, `pluie_mm`,
+      `demi_tours`, `densite_marqueurs_km`, `part_trafic`, `orientation_vent`,
+      `note_terrain`. C'est là que vivent les phrases.
+
+    **Un axe non lu prend sa valeur neutre, et `axes_lus` dit lesquels l'ont
+    été.** C'est le point qui m'a coûté un faux positif à la réconciliation :
+    l'adaptateur, écrit pour la forme imbriquée, ne lisait **aucun** axe d'une
+    proposition plate, rendait donc trois vues rigoureusement neutres, et le
+    vérificateur de clones criait « trois propositions identiques » sur des
+    propositions qui différaient très bien. Un adaptateur muet doit se
+    dénoncer, pas produire un verdict.
     """
     placement = candidate.get("placement") or {}
     meteo = candidate.get("meteo") or {}
     seance = doc.get("seance") or {}
     axes = dict(NEUTRE)
-    if "pluie_cumulee_mm" in meteo:
-        axes["pluie_mm"] = float(meteo["pluie_cumulee_mm"])
-    if "demi_tours" in placement:
-        axes["demi_tours"] = float(placement["demi_tours"])
-    if "duree_totale_s" in placement and "duree_s" in seance:
-        axes["depassement_s"] = abs(float(placement["duree_totale_s"]) - float(seance["duree_s"]))
-    if candidate.get("part_connue") is not None:
-        axes["part_connue"] = float(candidate["part_connue"])
-    if "part_vent_face" in meteo:
-        # Faute de mieux tant que le lot ne publie pas la part de vent par
-        # quart : la part de face globale, prise à l'envers, approche
-        # « le vent est-il porteur ». Sert au contraste, jamais à juger une
-        # phrase d'orientation — d'où l'absence de `vent_dos_retour` ici.
-        axes["vent_travers"] = 1.0 - float(meteo["part_vent_face"])
-    for nom in ("densite_marqueurs_km", "densite", "marqueurs_km", "marqueurs_par_km"):
-        valeurs = [v for v in _profond(candidate, nom) if isinstance(v, (int, float))]
-        if valeurs:
-            axes["densite_marqueurs_km"] = float(valeurs[0])
-            break
+    lus: set[str] = set()
+
+    def poser(nom: str, valeur: Any) -> None:
+        if isinstance(valeur, (int, float)) and not isinstance(valeur, bool):
+            if math.isfinite(float(valeur)):
+                axes[nom] = float(valeur)
+                lus.add(nom)
+
+    # pluie : plate ou imbriquée
+    poser("pluie_mm", candidate.get("pluie_mm", meteo.get("pluie_cumulee_mm")))
+    poser("demi_tours", candidate.get("demi_tours", placement.get("demi_tours")))
+    # Densité : la clé publiée par le lot d'abord, puis une recherche en
+    # profondeur — L5.4 réécrit `sortie/commande.py` en ce moment, et une
+    # densité qui déménagerait sous `placement` ne doit pas rendre l'axe muet.
+    poser("densite_marqueurs_km", candidate.get("densite_marqueurs_km"))
+    if "densite_marqueurs_km" not in lus:
+        for nom in ("densite", "marqueur"):
+            valeurs = [
+                v
+                for v in _profond(candidate, nom)
+                if isinstance(v, (int, float)) and not isinstance(v, bool)
+            ]
+            if valeurs:
+                poser("densite_marqueurs_km", valeurs[0])
+                break
+    poser("part_trafic", candidate.get("part_trafic"))
+    poser("note_terrain", candidate.get("note_terrain", placement.get("note_terrain")))
+    poser("part_connue", candidate.get("part_connue"))
+
+    # Durée : le lot publie `duree_s` à plat, le sprint 4 `placement.duree_totale_s`.
+    # On garde l'**écart à la séance** quand on la connaît — même ordre que la
+    # durée brute tant que les propositions dépassent toutes, et plus lisible
+    # dans un message d'échec.
+    duree = candidate.get("duree_s", placement.get("duree_totale_s"))
+    if isinstance(duree, (int, float)) and "duree_s" in seance:
+        poser("depassement_s", float(duree) - float(seance["duree_s"]))
+    else:
+        poser("depassement_s", duree)
+
+    orientation = candidate.get("orientation_vent") or candidate.get("orientation")
+    if isinstance(orientation, str) and orientation:
+        lus.add("orientation")
+        # Les trois axes de vent sont dérivés de l'orientation nommée : c'est
+        # elle que le lot publie, et elle est plus sûre qu'une part de face
+        # moyenne dont le signe se perd.
+        axes["vent_dos_retour"] = 1.0 if orientation == "retour-dos" else 0.0
+        axes["vent_dos_depart"] = 1.0 if orientation == "depart-dos" else 0.0
+        axes["vent_travers"] = 1.0 if orientation == "travers" else 0.0
+        lus |= {"vent_dos_retour", "vent_dos_depart", "vent_travers"}
+    elif "part_vent_face" in meteo:
+        poser("vent_travers", 1.0 - float(meteo["part_vent_face"]))
+
     return VueProposition(
         cle=cle if cle is not None else candidate.get("numero", candidate.get("nom")),
         axes=axes,
-        note_totale=float((placement or {}).get("note_totale", 0.0)),
+        note_totale=float(placement.get("note_totale", candidate.get("note_terrain", 0.0)) or 0.0),
         phrase=phrase_de(candidate),
+        orientation=orientation if isinstance(orientation, str) else None,
+        axes_lus=frozenset(lus),
+    )
+
+
+def exiger_axes_lus(vues: Sequence[VueProposition]) -> None:
+    """Refuse de conclure quand l'adaptateur n'a lu aucun axe.
+
+    Sans cette garde, un changement de forme du JSON transforme tous les
+    vérificateurs en générateurs de faux positifs : ils comparent des vues
+    neutres, donc identiques, et concluent « trois clones ». Mieux vaut
+    échouer en disant « je ne sais pas lire » que rendre un verdict faux.
+    """
+    muettes = [v.cle for v in vues if not v.axes_lus]
+    assert not muettes, (
+        f"aucun axe lu pour les propositions {muettes} : l'adaptateur JSON ne reconnaît plus "
+        "la forme publiée. Les vérificateurs compareraient des valeurs neutres, donc "
+        "identiques, et crieraient « trois clones » à tort. Corriger `vue_depuis_json` avant "
+        "de conclure quoi que ce soit."
     )
 
 
@@ -1122,31 +1391,59 @@ def modules_ourouler() -> list[Any]:
     return trouves
 
 
-def decouvrir_callable(motifs: Sequence[Sequence[str]], *, quoi: str) -> Any | None:
-    """Le premier appelable public dont le nom contient tous les mots d'un motif.
+def decouvrir_callable(
+    motifs: Sequence[Sequence[str]], *, quoi: str, fonctions_seules: bool = True
+) -> Any | None:
+    """Le premier appelable public dont **le nom ou celui de son module** correspond.
 
     `motifs` est une liste de conjonctions : `[("densite",), ("marqueur", "km")]`
-    accepte `densite_marqueurs` comme `marqueurs_par_km`. Rend `None` quand rien
-    ne correspond — c'est à l'appelant de décider s'il saute ou s'il échoue.
+    accepte `densite_marqueurs` comme `marqueurs_par_km`.
+
+    Deux corrections apportées à la réconciliation, et elles disent la même
+    chose : ma recherche était trop étroite d'un côté, trop large de l'autre.
+
+    * **Le module compte autant que la fonction.** Le lot a écrit
+      `boucle.marqueurs.compter` : un nom de fonction parfaitement clair *dans
+      son module*, que chercher « densite » ou « marqueur » dans le seul nom de
+      fonction ne trouvait pas. On concatène donc les deux.
+    * **Une dataclasse n'est pas un point d'entrée.** La recherche rendait
+      `QuestionVent`, la structure de résultat, au lieu de `interroger`, la
+      fonction qui décide — et l'inspection de signature partait sur les champs
+      de la structure. `fonctions_seules` écarte les classes.
     """
+    import dataclasses
+    import inspect
+
     for module in modules_ourouler():
+        court = module.__name__.rsplit(".", 1)[-1]
         for nom in sorted(vars(module)):
             if nom.startswith("_"):
                 continue
             objet = getattr(module, nom)
             if not callable(objet) or getattr(objet, "__module__", "") != module.__name__:
                 continue
-            plat = _sans_accents_bas(nom)
+            if fonctions_seules and (
+                inspect.isclass(objet) or dataclasses.is_dataclass(objet)
+            ):
+                continue
+            plat = _sans_accents_bas(f"{court} {nom}")
             if any(all(mot in plat for mot in motif) for motif in motifs):
                 return objet
     return None
 
 
-MOTIFS_DENSITE = (("densite", "marqueur"), ("densite", "km"), ("marqueur", "km"), ("densite",))
+MOTIFS_DENSITE = (
+    ("marqueur", "compter"),
+    ("densite", "marqueur"),
+    ("densite", "km"),
+    ("marqueur", "km"),
+    ("densite",),
+)
 MOTIFS_QUESTION_VENT = (
+    ("vent", "interroger"),
+    ("vent", "demande"),
     ("question", "vent"),
     ("orientation", "vent", "demand"),
     ("demander", "vent"),
     ("poser", "vent"),
-    ("vent", "pertinent"),
 )

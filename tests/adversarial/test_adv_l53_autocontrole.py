@@ -1,8 +1,9 @@
 """Autocontrôle du lot L5.3 : les vérificateurs ont-ils des dents ?
 
 **Ce fichier ne teste pas le lot.** Il teste `fabriques_l53`, c'est-à-dire les
-vérificateurs avec lesquels `test_adv_trois_propositions.py` jugera le lot. Il
-tourne donc vert dès aujourd'hui, avant que le lot existe, et c'est voulu.
+vérificateurs avec lesquels `test_adv_trois_propositions.py` jugera le lot. Il tournait
+vert avant que le lot existe, et il doit le rester après : il ne dépend
+d'aucune interface du lot, seulement de mes propres vérificateurs.
 
 ## Pourquoi il existe
 
@@ -11,7 +12,7 @@ qu'ils n'attrapaient pas ; on ne l'a su qu'en écrivant une implémentation de
 référence et en la mutant quatorze fois. La leçon est reprise ici et durcie :
 `fabriques_l53` porte un cobaye complet (`choisir_reference`,
 `densite_reference`, `question_vent_reference`), et ce fichier le mute
-**vingt-deux fois**. Chaque mutation est nommée, rattachée au vérificateur qui
+**vingt-sept fois**. Chaque mutation est nommée, rattachée au vérificateur qui
 doit la voir, et le test échoue si le vérificateur la laisse passer.
 
 Un test qui passe du premier coup sur du code non trivial est suspect. Celui-ci
@@ -394,38 +395,64 @@ def test_la_reference_nomme_le_bon_axe(axe, extreme):
 # =============================================================================
 
 
-def m17_compte_brut(trace: Trace, debut_m: float, longueur_m: float) -> f53.Densite:
+def _km(trace: Trace) -> float:
+    longueur = trace.distance_m
+    if longueur is None or not math.isfinite(longueur) or longueur <= 0:
+        longueur = trace.points[-1].dist_m if len(trace.points) >= 2 else 0.0
+    return longueur / 1000.0
+
+
+def m17_compte_brut(trace: Trace) -> f53.Densite:
     """Le nombre de marqueurs, pas leur densité : « au kilomètre » oublié."""
     if not trace.segments:
         return f53.Densite(0.0, connue=False)
-    if not math.isfinite(longueur_m) or longueur_m <= 0:
-        return f53.Densite(0.0, connue=False)
-    return f53.Densite(float(f53.compter_marqueurs(trace, debut_m, longueur_m)), True)
+    return f53.Densite(float(f53.compter_marqueurs(trace)), True)
 
 
-def m18_par_metre(trace: Trace, debut_m: float, longueur_m: float) -> f53.Densite:
+def m18_par_metre(trace: Trace) -> f53.Densite:
     """Division par les mètres au lieu des kilomètres : facteur 1 000."""
-    if not trace.segments or not math.isfinite(longueur_m) or longueur_m <= 0:
+    if not trace.segments or _km(trace) <= 0:
         return f53.Densite(0.0, connue=False)
-    return f53.Densite(f53.compter_marqueurs(trace, debut_m, longueur_m) / longueur_m, True)
+    return f53.Densite(f53.compter_marqueurs(trace) / (_km(trace) * 1000.0), True)
 
 
-def m19_inconnu_vaut_la_campagne(trace: Trace, debut_m: float, longueur_m: float) -> f53.Densite:
+def m19_inconnu_vaut_la_campagne(trace: Trace) -> f53.Densite:
     """Un tracé sans segments rend « zéro marqueur au km », **connu**."""
-    if not math.isfinite(longueur_m) or longueur_m <= 0:
+    km = _km(trace)
+    if not math.isfinite(km) or km <= 0:
         return f53.Densite(0.0, connue=False)
-    return f53.Densite(
-        f53.compter_marqueurs(trace, debut_m, longueur_m) / (longueur_m / 1000.0), True
-    )
+    return f53.Densite(f53.compter_marqueurs(trace) / km, True)
 
 
-def m20_division_sans_garde(trace: Trace, debut_m: float, longueur_m: float) -> f53.Densite:
-    """Aucune garde sur la longueur : division par zéro sur un couloir vide."""
+def m20_division_sans_garde(trace: Trace) -> f53.Densite:
+    """Aucune garde sur la longueur : division par zéro sur un tracé sans kilomètre."""
     if not trace.segments:
         return f53.Densite(0.0, connue=False)
-    return f53.Densite(
-        f53.compter_marqueurs(trace, debut_m, longueur_m) / (longueur_m / 1000.0), True
-    )
+    longueur = trace.distance_m
+    return f53.Densite(f53.compter_marqueurs(trace) / (longueur / 1000.0), True)
+
+
+def m27_noeud_compte_deux_fois(trace: Trace) -> f53.Densite:
+    """Compté par tronçon et par tag, pas par nœud : un feu sur un plateau vaut deux.
+
+    Mutation ajoutée à la réconciliation, après la fusion du lot : `boucle.marqueurs.nature_du_noeud`
+    fait explicitement ce choix (« se compter deux fois serait pire que de se
+    manquer »), et rien ne le surveillait.
+    """
+    if not trace.segments:
+        return f53.Densite(0.0, connue=False)
+    km = _km(trace)
+    if km <= 0:
+        return f53.Densite(0.0, connue=False)
+    carrefour, cle_calme, sans_effet = f53.marqueurs_du_projet()
+    total = 0
+    for segment in trace.segments:
+        if segment.node_tags.get("highway", "") in carrefour:
+            total += 1
+        calme = segment.node_tags.get(cle_calme, "")
+        if calme and calme not in sans_effet:
+            total += 1
+    return f53.Densite(total / km, True)
 
 
 MUTATIONS_DENSITE = (
@@ -433,6 +460,7 @@ MUTATIONS_DENSITE = (
     ("m18 : divisé par les mètres", m18_par_metre),
     ("m19 : l'inconnu devient la campagne", m19_inconnu_vaut_la_campagne),
     ("m20 : division par une longueur nulle", m20_division_sans_garde),
+    ("m27 : un nœud compté deux fois", m27_noeud_compte_deux_fois),
 )
 
 
@@ -463,7 +491,7 @@ def test_le_compteur_de_marqueurs_voit_feux_et_ralentisseurs():
             25: {"highway": "residential"},  # pas un nœud de carrefour
         },
     )
-    assert f53.compter_marqueurs(trace, 0.0, 6000.0) == 3, (
+    assert f53.compter_marqueurs(trace) == 3, (
         "deux nœuds `highway` de carrefour et un ralentisseur effectif : trois marqueurs. "
         "Un compteur qui ignorerait `traffic_calming` en verrait deux ; un compteur qui "
         "ignorerait `RALENTISSEURS_SANS_EFFET` en verrait quatre."
@@ -528,6 +556,36 @@ MUTATIONS_VENT = (
 )
 def test_mutation_de_la_question_vent_attrapee(quoi, mutant):
     _attrape(lambda: f53.verifier_gardes_vent(mutant), quoi=quoi)
+
+
+def m26_direction_non_finie_ignoree(**kw) -> bool:
+    """`is None` sur la direction, sans `math.isfinite` : le défaut réel du lot."""
+    kw.pop("seuil_kmh", None)
+    direction = kw.get("direction_deg")
+    if direction is not None and not math.isfinite(direction):
+        kw["direction_deg"] = 250.0  # la garde ne le voit pas
+    return f53.question_vent_reference(seuil_kmh=8.0, **kw)
+
+
+def test_mutation_direction_non_finie_attrapee():
+    """m26 : le vérificateur dédié doit voir passer un NaN de direction.
+
+    C'est la mutation qui reproduit le défaut constaté sur `sprint-5` le
+    16/09/2026. Elle est ici pour que le vérificateur qui l'attrape soit
+    lui-même prouvé non creux — sans quoi le test rouge du lot ne vaudrait
+    rien.
+    """
+    _attrape(
+        lambda: f53.verifier_direction_non_finie(m26_direction_non_finie_ignoree),
+        quoi="m26 : direction non finie acceptée",
+    )
+
+
+def test_la_reference_refuse_une_direction_non_finie():
+    """Contrôle positif du même vérificateur."""
+    f53.verifier_direction_non_finie(
+        lambda **kw: f53.question_vent_reference(seuil_kmh=8.0, **kw)
+    )
 
 
 # =============================================================================
