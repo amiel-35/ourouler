@@ -789,6 +789,84 @@ au départ). Deux axes seulement portent du signal : la durée et le trafic.
 La commande rend donc **deux** propositions et écrit pourquoi. Sur les deux
 journées à blocs, elle en rend trois.
 
+
+#### 3.3.7 Deux défauts trouvés par les tests adversariaux — corrigés le 17/09/2026
+
+Le croisement avec les 163 tests écrits en aveugle en a trouvé deux qui
+tenaient, et un faux positif qu'il faut nommer aussi.
+
+**a) L'axe « durée » comparait des durées nues, et faisait mentir une phrase.**
+
+Le contrat §3.3.2 écrit « durée tenue : écart entre `duree_totale_s` **et la
+séance** ». `Profil.duree_s` portait la durée brute et `profil()` ne recevait
+jamais la séance : la candidate la plus courte gagnait l'axe. Cas mesuré, sur
+une séance de 7 200 s :
+
+| distance | durée | ce que c'est |
+|---|---|---|
+| 54,2 km | 7 151 s | retour au calme entier |
+| 22,0 km | 2 905 s | retour au calme amputé de 60 % — **gagnait l'axe** |
+
+La phrase rendue était « **71 minutes de moins** », présentée comme un
+avantage. Elle voulait dire « vous ne roulez pas votre séance ». Une phrase
+est une affirmation et elle doit être vraie ; celle-là était fausse de la pire
+façon, parce que le mensonge était flatteur.
+
+**Corrigé.** `Profil` porte `depassement_s`, signé — positif on rentre plus
+tard (normal, le retour au calme est là pour ça), négatif la séance est
+amputée (pas normal). L'axe compare la **valeur absolue** : dépasser de 20 min
+et amputer de 20 min ratent la cible d'autant. Et **une séance amputée ne
+gagne jamais l'axe**, quelle que soit sa marge — l'amputation est déjà payée
+par `PENALITE_SEANCE_NON_TENUE`, la récompenser ici la paierait deux fois en
+sens inverse.
+
+Ce qui décide qu'une séance est amputée **n'est pas un seuil inventé dans
+`contraste`** : c'est le verdict que le placement rend déjà contre la fenêtre
+fixée par le mainteneur, nommé pour l'occasion
+`seance.placement.MOTIF_SEANCE_AMPUTEE`. Aucun seuil sur la durée totale ne
+séparerait honnêtement une sortie 49 s plus courte que la prescription — un
+arrondi — d'une sortie dont le retour au calme perd 60 % de sa durée.
+
+La phrase a deux branches, toutes deux vraies par construction : « X minutes
+de moins » **seulement** quand le gagnant tient sa séance *et* est le plus
+court du groupe ; « la plus proche de la durée prévue » quand une autre est
+plus courte, donc l'ampute. La ligne de détail affiche désormais l'écart
+signé : `2:29 (+29 min)`, et `⚠ séance amputée de N min` s'il y a lieu.
+
+**Effet mesuré sur `ourouler sortie --jour 2026-09-12`, le cas le plus
+fréquent du mainteneur** : **aucun changement de compte, toujours deux
+propositions.** Aucune des cinq candidates n'ampute ce jour-là (la plus courte
+tombe pile sur les 2 h prescrites), donc le défaut ne s'y manifestait pas. Ce
+qui change est l'affichage : n° 5 est maintenant annoncée `2:29 (+29 min)`.
+
+**b) Une direction de vent non finie passait les deux gardes.**
+`interroger` filtrait la vitesse par `math.isfinite` et la direction par le
+seul `is None`. Une direction `nan` ressortait de `azimut_pour` (`nan % 360`
+vaut `nan`), traversait `boucle.candidates.azimuts` et partait chez BRouter en
+`roundTripStartDirection=nan`. Corrigé des deux côtés par un `_fini` unique,
+aligné sur `seance.vent._utilisable` : un nombre non fini est une **ignorance**,
+jamais une mesure. `azimut_pour` se garde en plus lui-même, parce que
+`QuestionVent` est un objet public qu'un appelant peut construire à la main.
+
+**c) Ce qui n'est pas un défaut, malgré un test qui l'affirmait.** Un test
+adversarial demandait que `part_connue` soit un axe de contraste, en lisant la
+ligne du tableau §3.3.2 qui est **barrée** depuis le 16/09. La règle est en
+doctrine : *les routes déjà roulées sont un instrument de mesure, jamais un
+critère.* Dans les mots du mainteneur : « c'est pour du test, ça permet de
+comparer les critères de BRouter à ma réalité, pas du tout de privilégier mes
+choix. » `part_connue` reste affichée et n'entre dans aucune sélection.
+
+**d) Le message dit maintenant ce qui manquait.** Quand la commande rend deux
+propositions au lieu de trois, « aucune ne se distinguait » était vrai mais
+n'apprenait rien. Elle nomme désormais les axes **muets** — ceux où toutes les
+candidates valent la même chose à moins d'un pas près — et ceux qui restaient.
+Sur l'EF du 12/09 : « Ce jour-là, l'orientation au vent, les demi-tours, la
+pluie et le terrain sous les blocs valaient la même chose sur toutes les
+candidates : il ne restait que la durée, la ville et les grands axes pour les
+distinguer. » C'est la vraie raison des deux propositions, et elle est
+structurelle : une endurance sans bloc, par temps sec et sans vent, éteint
+quatre axes sur sept.
+
 ## 4. Lot L5.4 — La page du jour
 
 ### 4.1 La forme, tranchée le 16/09/2026 (Q18)

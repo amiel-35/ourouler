@@ -136,6 +136,19 @@ MAX_DECALAGES = 2000
 #: 22/04, une autre bascule sur 12 min au lieu de 40 (−69 %) et passe devant.
 PENALITE_SEANCE_NON_TENUE = 20.0
 
+#: Ce qu'un avertissement de placement dit quand la séance est **amputée** :
+#: une étape élastique est tombée **sous** sa fenêtre, celle que le mainteneur
+#: a fixée lui-même (`elasticite_calme_min`, −5 % par défaut). C'est le seul
+#: verdict exact sur « la séance est-elle roulée en entier ? », et il est rendu
+#: ici, au seul endroit qui connaît les fenêtres.
+#:
+#: Nommé au lot L5.3 pour que `sortie.contraste` le lise plutôt que de
+#: redériver l'amputation d'une comparaison de durées : une sortie 49 s plus
+#: courte que la prescription est un arrondi, une sortie dont le retour au
+#: calme perd 60 % est une séance non tenue, et aucun seuil sur la durée
+#: totale ne distingue les deux honnêtement.
+MOTIF_SEANCE_AMPUTEE = "la séance n'est pas roulée en entier"
+
 #: Ce que coûte une **heure** de retour au calme en plus de la prescription, en
 #: kilomètres équivalents. **Q14, close le 13/09/2026 par le mainteneur :** « le
 #: retour au calme en fait peut dépasser de plus, c'est souvent ce que je fais
@@ -1133,7 +1146,7 @@ def _fermer(
         if ecart < bas:
             avertissements.append(
                 f"retour au calme raccourci : {duree_txt} ({ecart:+.0%}) — "
-                "la séance n'est pas roulée en entier"
+                f"{MOTIF_SEANCE_AMPUTEE}"
             )
         elif ecart > haut:
             avertissements.append(

@@ -60,6 +60,7 @@ from itertools import combinations, permutations
 from ourouler.apprentissage.routes import mailles_ponderees
 from ourouler.boucle.marqueurs import compter
 from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.seance.placement import MOTIF_SEANCE_AMPUTEE
 from ourouler.seance.vent import (
     SEUIL_VENT_SENSIBLE_KMH,
     ChampVent,
@@ -110,12 +111,35 @@ ORDRE_AXES = (
 #
 # Chaque pas est dans l'unité de son axe. Aucun n'est un pourcentage de note.
 
-#: Écart de durée réellement roulée en dessous duquel deux propositions durent
-#: la même chose. **Un arbitrage, pas une mesure** — comme
-#: `sortie.commande.NOTE_BLOC_BIEN_PLACE`, et il faut le dire. Dix minutes,
-#: parce que c'est l'unité dans laquelle le mainteneur parle de ses sorties
-#: (« la retenue dépasse de 29 min ») et que sur une séance de 2 h c'est 8 %
-#: du temps, soit l'ordre de grandeur d'un retour au calme entier.
+#: Écart **à la durée prescrite** en dessous duquel deux propositions tiennent
+#: la séance aussi bien l'une que l'autre. **Un arbitrage, pas une mesure** —
+#: comme `sortie.commande.NOTE_BLOC_BIEN_PLACE`, et il faut le dire. Dix
+#: minutes, parce que c'est l'unité dans laquelle le mainteneur parle de ses
+#: sorties (« la retenue dépasse de 29 min ») et que sur une séance de 2 h
+#: c'est 8 % du temps, soit l'ordre de grandeur d'un retour au calme entier.
+#:
+#: **Ce que l'axe compare, et pourquoi ce n'est pas la durée nue.** Le contrat
+#: §3.3.2 écrit « durée tenue : écart entre `duree_totale_s` **et la séance** ».
+#: La première rédaction comparait les durées brutes, et la plus courte
+#: gagnait l'axe : une candidate dont le retour au calme était amputé de 60 %
+#: — 2 905 s pour une séance de 7 200 — recevait la phrase « 71 minutes de
+#: moins », présentée comme un avantage. Elle voulait dire « vous ne roulez
+#: pas votre séance ». Une phrase est une affirmation, et celle-là était
+#: fausse de la pire façon : le mensonge était flatteur.
+#:
+#: L'axe porte donc l'écart **en valeur absolue** — dépasser de 20 min et
+#: amputer de 20 min sont deux façons de rater la cible de 20 min — et
+#: **une séance amputée ne gagne jamais l'axe**, quelle que soit sa marge :
+#: elle ne « tient » pas sa durée, et l'amputation est déjà lourdement payée
+#: par `seance.placement.PENALITE_SEANCE_NON_TENUE`. La récompenser ici
+#: serait la payer deux fois, en sens inverse.
+#:
+#: **Ce qui décide qu'une séance est amputée n'est pas un seuil inventé ici**,
+#: c'est le verdict du placement lui-même
+#: (`seance.placement.MOTIF_SEANCE_AMPUTEE`), rendu contre la fenêtre que le
+#: mainteneur a fixée. Aucun seuil sur la durée totale ne séparerait
+#: honnêtement une sortie 49 s plus courte que la prescription — un arrondi —
+#: d'une sortie dont le retour au calme perd 60 % de sa durée.
 PAS_DUREE_S = 600.0
 
 #: Écart de pluie cumulée en dessous duquel deux propositions sont aussi
@@ -206,15 +230,38 @@ class Profil:
     duree_s: float
     demi_tours: int
     note_terrain: float
+    #: Durée roulée **moins** la durée prescrite, en secondes. Positif : on
+    #: rentre plus tard, ce qui est normal (le retour au calme absorbe).
+    #: Négatif : la séance est **amputée**, ce qui ne l'est pas. `None` quand
+    #: la durée de la séance n'a pas été fournie — l'axe est alors inconnu, il
+    #: ne distingue rien et ne pénalise personne.
+    depassement_s: float | None = None
+    #: Vrai quand le placement a dit que la séance **n'est pas roulée en
+    #: entier** — son verdict, pas une comparaison de durées faite ici.
+    seance_amputee: bool = False
     pluie_mm: float | None = None
     densite_marqueurs_km: float | None = None
     part_trafic: float | None = None
     orientation: str | None = None
 
+    @property
+    def ecart_duree_s(self) -> float | None:
+        """L'écart à la durée prescrite, en valeur absolue — la grandeur de l'axe."""
+        return None if self.depassement_s is None else abs(self.depassement_s)
+
+    @property
+    def seance_tenue(self) -> bool:
+        """Vrai si la séance est roulée en entier — le verdict du placement.
+
+        On peut rentrer plus tard sans rien perdre (le retour au calme est là
+        pour ça) ; on ne peut pas rouler moins que la séance.
+        """
+        return self.depassement_s is not None and not self.seance_amputee
+
     def valeur(self, axe: str):
         """La valeur de cet axe, ou `None` si elle est inconnue."""
         return {
-            AXE_DUREE: self.duree_s,
+            AXE_DUREE: self.ecart_duree_s,
             AXE_DEMI_TOURS: float(self.demi_tours),
             AXE_TERRAIN: self.note_terrain,
             AXE_PLUIE: self.pluie_mm,
@@ -224,23 +271,45 @@ class Profil:
         }.get(axe)
 
 
-def profil(proposition, meteo: MeteoTrace | None = None) -> Profil:
+def profil(
+    proposition, meteo: MeteoTrace | None = None, *, duree_seance_s: float | None = None
+) -> Profil:
     """Le profil d'une `sortie.commande.Proposition`.
 
     `meteo` est celle de la proposition ; elle n'est prise en argument à part
     que pour que les tests puissent en fournir une sans construire une
     `Proposition` entière.
+
+    `duree_seance_s` est la durée **prescrite** de la séance, celle dont on
+    mesure l'écart. Sans elle, l'axe de la durée est inconnu plutôt que faux :
+    on ne compare pas des durées nues, sans quoi la candidate qui ampute la
+    séance gagne l'axe (voir `PAS_DUREE_S`).
     """
     meteo = meteo if meteo is not None else getattr(proposition, "meteo", None)
     marqueurs = compter(proposition.trace)
+    duree_s = float(proposition.placement.duree_totale_s)
     return Profil(
-        duree_s=float(proposition.placement.duree_totale_s),
+        duree_s=duree_s,
+        depassement_s=(
+            None
+            if duree_seance_s is None or not math.isfinite(duree_seance_s)
+            else duree_s - float(duree_seance_s)
+        ),
+        seance_amputee=_seance_amputee(proposition.placement),
         demi_tours=int(proposition.demi_tours),
         note_terrain=float(proposition.placement.note_terrain),
         pluie_mm=(meteo.pluie_cumulee_mm if meteo is not None else None),
         densite_marqueurs_km=marqueurs.par_km,
         part_trafic=_part_trafic(proposition),
         orientation=orientation_au_vent(meteo),
+    )
+
+
+def _seance_amputee(placement) -> bool:
+    """Le placement a-t-il dit que la séance n'est pas roulée en entier ?"""
+    return any(
+        MOTIF_SEANCE_AMPUTEE in avertissement
+        for avertissement in getattr(placement, "avertissements", ())
     )
 
 
@@ -346,6 +415,7 @@ def choisir(
     *,
     combien: int = 3,
     seuil_recouvrement: float = SEUIL_RECOUVREMENT,
+    duree_seance_s: float | None = None,
 ) -> Selection:
     """Les `combien` propositions les mieux classées **qui diffèrent vraiment**.
 
@@ -364,10 +434,14 @@ def choisir(
 
     Si aucun groupe de `combien` ne tient, on redescend à `combien - 1`, et
     ainsi de suite — et `motif_deux_propositions` dit pourquoi.
+
+    `duree_seance_s` est la durée **prescrite** de la séance : sans elle,
+    l'axe de la durée ne distingue rien, parce qu'on ne compare pas des durées
+    nues (voir `PAS_DUREE_S`).
     """
     if not propositions:
         return Selection(motif_deux_propositions="aucune candidate à proposer")
-    profils = {id(p): profil(p) for p in propositions}
+    profils = {id(p): profil(p, duree_seance_s=duree_seance_s) for p in propositions}
     mesure = _Recouvrements()
     refus = _Refus()
 
@@ -387,7 +461,11 @@ def choisir(
     selection = Selection(retenues=retenues)
     if len(retenues) < combien:
         selection.motif_deux_propositions = _motif(
-            len(retenues), combien, len(propositions), refus
+            len(retenues),
+            combien,
+            len(propositions),
+            refus,
+            [profils[id(p)] for p in propositions],
         )
     for i in range(len(groupe)):
         for j in range(i + 1, len(groupe)):
@@ -474,25 +552,56 @@ class _Recouvrements:
         return self._mailles[cle], self._totaux[cle]
 
 
-#: Les axes tels qu'on les nomme dans un message, dans l'ordre de `ORDRE_AXES`.
+#: Les axes tels qu'on les nomme dans un message, **avec leur article** et
+#: dans l'ordre de `ORDRE_AXES` : ils s'enchaînent dans des phrases, pas dans
+#: une liste de colonnes.
 _NOMS_AXES = {
-    AXE_VENT: "orientation au vent",
-    AXE_DEMI_TOURS: "demi-tours",
-    AXE_DUREE: "durée",
-    AXE_VILLE: "ville",
-    AXE_TRAFIC: "grands axes",
-    AXE_PLUIE: "pluie",
-    AXE_TERRAIN: "terrain sous les blocs",
+    AXE_VENT: "l'orientation au vent",
+    AXE_DEMI_TOURS: "les demi-tours",
+    AXE_DUREE: "la durée",
+    AXE_VILLE: "la ville",
+    AXE_TRAFIC: "les grands axes",
+    AXE_PLUIE: "la pluie",
+    AXE_TERRAIN: "le terrain sous les blocs",
 }
 
 
-def _motif(retenues: int, voulu: int, candidates: int, refus: _Refus) -> str:
+def axes_muets(profils: list[Profil]) -> tuple[list[str], list[str]]:
+    """(axes qui ne distinguent rien, axes qui distinguent) sur ce lot de candidates.
+
+    Un axe est **muet** quand toutes les candidates y valent la même chose à
+    moins d'un pas près, ou quand la mesure y est inconnue partout. C'est ce
+    qui manquait au message quand la commande rend deux propositions au lieu
+    de trois : « aucune ne se distinguait » est vrai mais n'apprend rien,
+    alors que « la pluie, le terrain, les demi-tours et le vent étaient
+    identiques partout » dit au cycliste **ce qui manquait ce jour-là** — et
+    donc qu'il n'y avait rien à lui cacher.
+    """
+    muets, vivants = [], []
+    for axe in ORDRE_AXES:
+        (vivants if _distingue(axe, profils) else muets).append(axe)
+    return muets, vivants
+
+
+def _distingue(axe: str, profils: list[Profil]) -> bool:
+    """Cet axe sépare-t-il au moins deux candidates d'une marge perceptible ?"""
+    valeurs = [p.valeur(axe) for p in profils]
+    connues = [v for v in valeurs if v is not None]
+    if len(connues) < 2:
+        return False
+    if axe == AXE_VENT:
+        return len(set(connues)) > 1
+    return max(connues) - min(connues) >= _PAS[axe]
+
+
+def _motif(
+    retenues: int, voulu: int, candidates: int, refus: _Refus, profils: list[Profil]
+) -> str:
     if candidates <= retenues:
         return (
             f"{candidates} candidate(s) seulement portaient la séance : "
             f"il n'y a pas de quoi en contraster {voulu}"
         )
-    axes = ", ".join(_NOMS_AXES[axe] for axe in ORDRE_AXES)
     # Pas de décompte par motif : une même candidate est refusée dans certaines
     # combinaisons pour son recouvrement et dans d'autres faute d'axe, et
     # additionner les deux donnerait des chiffres qui ne s'additionnent pas.
@@ -505,15 +614,38 @@ def _motif(retenues: int, voulu: int, candidates: int, refus: _Refus) -> str:
         )
     if refus.axe:
         morceaux.append(
-            f"soit l'une des trois ne se distinguait des deux autres sur aucun axe "
-            f"d'une marge perceptible ({axes})"
+            "soit l'une des trois ne se distinguait des deux autres sur aucun axe "
+            "d'une marge perceptible"
         )
     detail = " ; ".join(morceaux) if morceaux else "aucune ne se distinguait"
     return (
         f"{retenues} proposition(s) au lieu de {voulu}. Toutes les combinaisons des "
-        f"{candidates} candidates ont été essayées : {detail}. Mieux vaut en proposer "
-        "moins et le dire que trois qui se ressemblent."
+        f"{candidates} candidates ont été essayées : {detail}. {_ce_qui_manquait(profils)} "
+        "Mieux vaut en proposer moins et le dire que trois qui se ressemblent."
     )
+
+
+def _ce_qui_manquait(profils: list[Profil]) -> str:
+    """La phrase qui dit au cycliste quels axes n'avaient rien à dire ce jour-là."""
+    muets, vivants = axes_muets(profils)
+    if not muets:
+        return "Tous les axes séparaient au moins deux candidates."
+    noms_muets = _et(_NOMS_AXES[axe] for axe in muets)
+    valaient = "valait" if len(muets) == 1 else "valaient"
+    if not vivants:
+        return f"Aucun axe ne les séparait : {noms_muets} {valaient} la même chose partout."
+    return (
+        f"Ce jour-là, {noms_muets} {valaient} la même chose sur toutes les candidates : "
+        f"il ne restait que {_et(_NOMS_AXES[axe] for axe in vivants)} pour les distinguer."
+    )
+
+
+def _et(noms) -> str:
+    """« a, b et c » — la conjonction française, pas une liste à virgules."""
+    noms = list(noms)
+    if len(noms) <= 1:
+        return noms[0] if noms else ""
+    return f"{', '.join(noms[:-1])} et {noms[-1]}"
 
 
 # --- attribution d'un axe à chaque proposition ----------------------------------
@@ -597,6 +729,12 @@ def _gagne(axe: str, sujet: Profil, autres: list[Profil]) -> bool:
         # c'est bien ce qui la distingue des deux autres, et c'est la marge
         # que le contrat demande pour un axe catégoriel.
         return all(autre.orientation != valeur for autre in autres)
+    if axe == AXE_DUREE and not sujet.seance_tenue:
+        # Une séance amputée ne « tient » pas sa durée : elle ne peut pas
+        # gagner l'axe, même en étant la moins amputée du lot. L'amputation
+        # est déjà payée par `PENALITE_SEANCE_NON_TENUE` ; la récompenser ici
+        # serait la payer deux fois, en sens inverse.
+        return False
     pas = _PAS[axe]
     for autre in autres:
         sienne = autre.valeur(axe)
@@ -640,8 +778,16 @@ def phrase(axe: str | None, sujet: Profil, autres: list[Profil]) -> str:
             return "un seul demi-tour"
         return f"{sujet.demi_tours} demi-tours seulement"
     if axe == AXE_DUREE:
-        ecart = min(a.duree_s for a in autres) - sujet.duree_s
-        return f"{ecart / 60:.0f} minutes de moins"
+        # Deux branches, et toutes deux vraies par construction. Le sujet
+        # tient sa séance (`_gagne` l'a vérifié) et il est le plus proche de
+        # la durée prescrite. Ou bien il est aussi le plus court du groupe, et
+        # « X minutes de moins » est un fait doublé d'un avantage ; ou bien
+        # une autre est plus courte que lui — elle ampute donc la séance —, et
+        # la seule chose vraie à dire est qu'il vise le mieux.
+        plus_courte = min(a.duree_s for a in autres)
+        if sujet.duree_s <= plus_courte:
+            return f"{(plus_courte - sujet.duree_s) / 60:.0f} minutes de moins"
+        return "la plus proche de la durée prévue"
     if axe == AXE_PLUIE:
         return "au sec" if (sujet.pluie_mm or 0.0) <= 0.0 else "la plus sèche"
     if axe == AXE_VILLE:

@@ -281,7 +281,7 @@ def executer(
     # Les trois propositions contrastées (lot L5.3). La première reste celle
     # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
     # recommande, on ajoute ce à quoi le comparer.
-    selection = contraste.choisir(propositions)
+    selection = contraste.choisir(propositions, duree_seance_s=seance.duree_s)
 
     meilleure = propositions[0]
     tenue = (
@@ -1096,10 +1096,26 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     return lignes
 
 
+def _ecart_seance(profil) -> str:
+    """« (+18 min) » ou « (séance amputée de 12 min) », ou rien si elle tombe juste.
+
+    Le signe compte et se dit : rentrer plus tard est normal — c'est le rôle
+    du retour au calme —, rouler moins que la séance ne l'est pas. Les deux
+    écarts sont du même côté de la valeur absolue dans l'axe de contraste, ils
+    ne doivent pas l'être à l'affichage.
+    """
+    depassement = getattr(profil, "depassement_s", None)
+    if depassement is None or abs(depassement) < 60:
+        return ""
+    if depassement > 0:
+        return f" (+{depassement / 60:.0f} min)"
+    return f" (⚠ séance amputée de {-depassement / 60:.0f} min)"
+
+
 def _details_proposition(retenue) -> str:
     """Les mesures qui portent la phrase, dans les unités du cycliste."""
     profil = retenue.profil
-    morceaux = [_duree_courte(profil.duree_s)]
+    morceaux = [_duree_courte(profil.duree_s) + _ecart_seance(profil)]
     if profil.densite_marqueurs_km is not None:
         morceaux.append(f"{_fr(profil.densite_marqueurs_km, 1)} feux/stops/passages au km")
     else:
@@ -1478,6 +1494,12 @@ def _propositions_json(contexte: _Contexte) -> list[dict]:
                     else None
                 ),
                 "duree_s": round(profil.duree_s),
+                # Signé : positif = on rentre plus tard (normal), négatif = la
+                # séance est amputée (pas normal). L'axe de contraste, lui,
+                # compare la valeur absolue — voir `contraste.PAS_DUREE_S`.
+                "depassement_seance_s": (
+                    None if profil.depassement_s is None else round(profil.depassement_s)
+                ),
                 "demi_tours": profil.demi_tours,
                 "pluie_mm": (None if profil.pluie_mm is None else round(profil.pluie_mm, 3)),
                 # `None` et jamais `0.0` : un tracé sans tag de nœud ne prouve
