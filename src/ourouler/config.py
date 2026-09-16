@@ -76,6 +76,26 @@ class Velo:
     capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
     periodes: tuple[Periode, ...] = ()
 
+    #: Rapport entre la moyenne d'une vraie sortie — distance divisée par le
+    #: **temps écoulé**, arrêts compris — et la vitesse à plat, sans vent,
+    #: lancé, que le modèle prédit à la même puissance. C'est la troisième
+    #: valeur de l'écran de FTP (décision 8 du cycle UX) : celle qui empêche
+    #: quelqu'un de saisir sa moyenne de compteur dans le champ « à plat » et
+    #: de décaler tout son escalier de zones.
+    #:
+    #: **Par vélo, et non par cycliste** : le chrono et la route n'ont ni la
+    #: même aérodynamique ni les mêmes parcours, et la mesure du 16/09/2026 les
+    #: sépare de trois points. **Réglage utilisateur, et non constante** : le
+    #: facteur dépend de la masse du cycliste autant que de ses routes, et un
+    #: chiffre écrit en dur serait celui d'un seul homme.
+    #:
+    #: `None` — le cas d'un vélo neuf ou d'un utilisateur sans historique —
+    #: fait tomber le cœur sur `physique.modele.facteur_compteur_defaut`, qui
+    #: le dérive du modèle et de la masse sur une sortie de référence. C'est
+    #: une supposition, pas une mesure, et l'écran doit le dire. La mesure se
+    #: fait avec `tests/validation/facteur_compteur_retrospectif.py`.
+    facteur_compteur: float | None = None
+
 
 @dataclass(frozen=True)
 class ParametresMeteo:
@@ -842,4 +862,13 @@ def _velo(v: Any, i: int) -> Velo:
         intervals_gear_id=str(v.get("intervals_gear_id", "") or ""),
         capteur_puissance=str(v.get("capteur_puissance", "") or ""),
         periodes=tuple(periodes),
+        # Bornes larges à dessein : 0,40 attrape le zéro et le pourcentage
+        # écrit en entier (« 87 » au lieu de « 0.87 »), 1,20 laisse passer le
+        # cycliste de plaine qui roule abrité en groupe et va plus vite que le
+        # modèle solo. Entre les deux, on ne juge pas de ses routes.
+        facteur_compteur=(
+            _flottant(v["facteur_compteur"], "facteur_compteur", section, mini=0.4, maxi=1.2)
+            if v.get("facteur_compteur") is not None
+            else None
+        ),
     )

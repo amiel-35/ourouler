@@ -602,3 +602,48 @@ def test_config_example_tient_la_promesse_de_sa_position():
     c = charger(Path(__file__).resolve().parents[1] / "config.example.toml", environ={})
     assert c.seance.zones_pct == ZONES_PUISSANCE_DEFAUT
     assert c.seance.puissance_endurance_pct == 0.60
+
+
+# --- facteur compteur par vélo (lot F0.6) ------------------------------------
+
+
+def test_velo_sans_facteur_compteur_le_laisse_absent():
+    """`None` et non un chiffre : c'est ce qui laisse le cœur dériver le défaut
+    du modèle et de la masse, et l'écran dire que ce n'est pas une mesure."""
+    assert depuis_dict(BASE).velo("Route").facteur_compteur is None
+
+
+def test_velo_facteur_compteur_lu_tel_quel():
+    c = depuis_dict({**BASE, "velos": [{"nom": "Route", "facteur_compteur": 0.83}]})
+    assert c.velo("Route").facteur_compteur == 0.83
+
+
+def test_facteur_compteur_est_par_velo_et_non_par_cycliste():
+    """Le chrono et la route n'ont ni la même aérodynamique ni les mêmes
+    parcours : deux vélos portent deux facteurs indépendants."""
+    c = depuis_dict(
+        {
+            **BASE,
+            "velos": [
+                {"nom": "Route", "facteur_compteur": 0.83},
+                {"nom": "Chrono", "usage": "clm", "facteur_compteur": 0.90},
+            ],
+        }
+    )
+    assert c.velo("Route").facteur_compteur == 0.83
+    assert c.velo("Chrono").facteur_compteur == 0.90
+
+
+@pytest.mark.parametrize("valeur", [0.0, 0.39, 1.21, 87])
+def test_facteur_compteur_hors_bornes(valeur):
+    """87 au lieu de 0,87 est la faute qu'on attend : elle doit nommer le champ
+    plutôt que de sortir une moyenne compteur dix fois trop haute."""
+    with pytest.raises(ErreurConfig) as e:
+        depuis_dict({**BASE, "velos": [{"nom": "Route", "facteur_compteur": valeur}]})
+    message = str(e.value)
+    assert "facteur_compteur" in message and "velos[0]" in message, message
+
+
+def test_facteur_compteur_de_type_inattendu():
+    with pytest.raises(ErreurConfig, match="facteur_compteur"):
+        depuis_dict({**BASE, "velos": [{"nom": "Route", "facteur_compteur": "rapide"}]})
