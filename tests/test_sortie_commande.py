@@ -50,6 +50,7 @@ from ourouler.sortie.commande import (
     Proposition,
     _comparer,
     _Contexte,
+    _distance,
     _ecrire_gpx,
     _notes_egales,
     executer,
@@ -1258,3 +1259,49 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
             )
         else:
             assert isinstance(emplacement["motifs"], list)
+
+
+def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):
+    """Une étape sans puissance prescrite n'est pas une étape de longueur nulle.
+
+    Faute trouvée le 16/09/2026 sur la séance de référence « 4x8 SV1 outdoor »
+    du 22/04 : 22 étapes, dont trois « libres » — échauffement 20 min,
+    récupération 12 min, retour au calme 40 min. `_distance` ne sommait que
+    les longueurs chiffrées, donc **63 min sur 135 seulement comptaient** :
+    le moteur demandait une boucle de 35 km pour une sortie de 67, puis
+    rattrapait en roulant la boucle presque deux fois avec des demi-tours
+    dont personne n'avait besoin.
+
+    Le test compare deux séances de même durée : l'une entièrement chiffrée,
+    l'autre dont la moitié est libre. Les distances demandées doivent rester
+    du même ordre — sans le repli à l'allure d'endurance, la seconde tombe à
+    la moitié de la première.
+    """
+    config = config_de_test(tmp_path)
+    parametres = PARAMETRES
+    chiffree = Seance(
+        nom="chiffrée",
+        jour=JOUR,
+        duree_s=3600.0,
+        etapes=[
+            Etape("echauffement", 1800.0, 150.0, 150.0, "Z2"),
+            Etape("bloc", 1800.0, 150.0, 150.0, "Z2"),
+        ],
+    )
+    moitie_libre = Seance(
+        nom="moitié libre",
+        jour=JOUR,
+        duree_s=3600.0,
+        etapes=[
+            Etape("echauffement", 1800.0, None, None, "libre"),
+            Etape("bloc", 1800.0, 150.0, 150.0, "Z2"),
+        ],
+    )
+    demande = types.SimpleNamespace(distance_km=None)
+    km_chiffree, _ = _distance(demande, chiffree, parametres, config)
+    km_libre, _ = _distance(demande, moitie_libre, parametres, config)
+    assert km_libre > km_chiffree * 0.7, (
+        f"une séance à moitié libre est dimensionnée à {km_libre} km contre "
+        f"{km_chiffree} km pour la même durée entièrement chiffrée : les étapes "
+        "libres comptent encore pour zéro"
+    )

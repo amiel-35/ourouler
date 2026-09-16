@@ -69,7 +69,7 @@ from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
-from ourouler.physique.modele import Parametres
+from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance.commande import longueurs
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
@@ -460,7 +460,26 @@ def _distance(
     if demande.distance_km is not None:
         return demande.distance_km, "demandée"
     mesures = longueurs(seance, parametres=parametres)
-    metres = sum(m.longueur_m for m in mesures if m.longueur_m is not None)
+    # Une étape « libre » — sans puissance prescrite — n'a pas de longueur
+    # chiffrée. La première rédaction la comptait pour **zéro kilomètre**, ce
+    # qui sous-dimensionnait la boucle à proportion. Mesuré le 16/09/2026 sur
+    # la séance de référence « 4x8 SV1 outdoor » du 22/04 : 22 étapes, dont
+    # trois libres (échauffement 20 min, récupération 12 min, retour au calme
+    # 40 min). 63 min chiffrées sur 135 — **plus de la moitié de la séance
+    # était invisible**, et le moteur demandait 35 km pour une sortie de 67.
+    # Il rattrapait ensuite en roulant la boucle presque deux fois, avec des
+    # demi-tours dont personne n'avait besoin.
+    #
+    # Une étape libre se roule à l'allure d'endurance : c'est l'hypothèse la
+    # plus plate qui soit, et infiniment meilleure que zéro.
+    connues = [m.longueur_m for m in mesures if m.longueur_m is not None]
+    libres_s = sum(
+        m.etape.duree_s for m in mesures if m.longueur_m is None and m.etape.duree_s > 0
+    )
+    metres = sum(connues)
+    if libres_s > 0:
+        puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
+        metres += vitesse_regime(puissance, 0.0, 0.0, parametres) * libres_s
     source = "estimée par le modèle sur le plat"
     if metres <= 0:
         # Aucune étape ne porte de puissance : on retombe sur la vitesse
