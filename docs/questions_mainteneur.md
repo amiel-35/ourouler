@@ -1038,3 +1038,64 @@ Rien ici ne sépare « il choisit ce secteur » de « le réseau ne lui laisse q
 celui-là ». Il faudrait comparer à ce qui est **routable** autour de sa base,
 ce qui demande le moteur de tracé et une notion d'offre par direction. C'est
 la suite naturelle, et elle est chiffrable.
+
+### Réponses du mainteneur, 16/09/2026 — et ce qu'elles donnent au projet
+
+**a) Répétition ou exploration ?** « Non, car ce n'est pas une volonté, c'est
+le manque d'outil et la facilité. Donc je fais ce que je connais, **surtout
+quand il y a des blocs**. »
+
+**b) Où va-t-il ?** « Oui, c'est un fait mesurable. » Et sur le sud-est :
+« c'est plus sud-est, je suis d'accord, c'est un raccourci, mon sud ». La
+réserve de méthode du script — sa boussole mentale contre la vraie — est donc
+levée par lui : l'écart sur l'ouest tient, celui sur le sud était de
+vocabulaire.
+
+**c) Régulier ou au terrain ?** « Ça dépend : si bloc, je cherche plutôt du
+plat. Mais ça dépend aussi du (a), je fais ce que je connais. »
+
+**d) Forme des sorties ?** « Boucle avec une portion aller-retour pour aller
+sur zone, parfois. »
+
+## Ce que ces réponses établissent, et c'est le cœur du produit
+
+**Trois fois de suite, l'historique enregistre une contrainte et non un
+goût** :
+
+| Observé | Ce que j'en avais déduit | Ce qu'il en dit |
+|---|---|---|
+| 2,91 marqueurs urbains/km | il ne fuit pas la ville | « je ne connais pas les contournements » |
+| 53 % des sorties déjà faites à 85 % | il aime ses routes | « pas une volonté, le manque d'outil » |
+| 44 % au sud-est | il préfère le sud-est | indécidable, mais « c'est un raccourci, mon sud » |
+
+**Conséquence produit, et c'est la formulation la plus nette qu'on ait eue :**
+la valeur de `ourouler` n'est pas de proposer un beau parcours — c'est de
+**laisser le cycliste sortir de son répertoire sans prendre de risque sur sa
+séance**.
+
+Le mécanisme est celui du (a) : sans outil, on ne peut pas savoir qu'une route
+inconnue portera un bloc de 8 minutes, donc on se rabat sur ce qui a déjà
+marché. C'est précisément ce que le sprint 4 sait faire — évaluer un couloir
+avant d'y aller. La mesure du sprint 5 donne l'ampleur de ce qu'il y a à
+gagner : il roule 6 368 km sur 2 000 km de réseau distinct, et l'effet de
+resserrement est **le plus fort sur les sorties de 70-120 km**, celles qui
+ont le choix.
+
+**Et ça reconfirme la doctrine du même jour** (« les routes déjà roulées sont
+un instrument de mesure, jamais un critère ») pour la troisième fois : un
+score qui apprendrait de ses habitudes apprendrait ses contraintes, et les
+lui rendrait en les appelant ses préférences.
+
+## Deux suites mesurables que ces réponses ouvrent
+
+1. **« Si bloc, je cherche plutôt du plat »** est vérifiable : ses séances à
+   blocs roulent-elles un terrain plus plat que ses autres sorties, à
+   distance comparable ? Si oui, c'est un critère à faire entrer dans le
+   placement, et il l'a formulé lui-même.
+2. **Le demi-tour est un moyen, pas un défaut.** « Boucle avec une portion
+   aller-retour pour aller sur zone » : il s'en sert pour **atteindre un bon
+   segment**. La page ne doit donc pas vendre « aucun demi-tour » comme un
+   avantage, mais dire à quoi sert celui qu'elle propose — « un aller-retour
+   pour attraper la ligne droite ». À reprendre dans Q20/Q21 quand les
+   phrases seront revues.
+
