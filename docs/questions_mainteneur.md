@@ -573,7 +573,7 @@ devient circulaire. La popularité d'**autres** cyclistes serait une donnée
 extérieure, donc un critère parfaitement légitime. Il se trouve seulement
 qu'aucune source libre n'existe.
 
-## Q17 — La densité de marqueurs : quel côté de l'axe est le bon ? — **ouverte le 16/09/2026**
+## Q17 — La densité de marqueurs : quel côté de l'axe est le bon ? — **close le 16/09/2026 par le mainteneur : moins de marqueurs est bien, et l'écart mesuré est la valeur à apporter**
 
 Le lot L5.3 a écrit la densité de marqueurs au kilomètre (feux, stops,
 passages piétons, cédez-le-passage, ralentisseurs) et l'a validée comme le
@@ -610,6 +610,42 @@ comme signal de qualité dans un score. Le retournement coûte une ligne
 (`contraste._gagne`) plus une phrase.
 
 Reproductible : `uv run python tests/validation/marqueurs_retrospectif.py`.
+
+## Réponse du mainteneur (16/09/2026) — et elle retourne la question
+
+Ses mots : « **plus village que ville, mais parce que je ne connais pas les
+routes de contournement je pense** ».
+
+**Il diagnostique son propre biais.** Il traverse les bourgs non par
+préférence mais par méconnaissance des contournements. C'est une lacune, pas
+un goût.
+
+Donc le signe de l'axe est tranché : **moins de marqueurs est bien**. Et
+l'écart mesuré — 2,91 marqueurs/km sur ses sorties contre 1,50 sur les
+boucles proposées — n'est pas une erreur du modèle à corriger, c'est
+**précisément la valeur que l'outil peut apporter**. Ses 162 sorties ne sont
+pas la cible à imiter, elles sont la référence à battre.
+
+**Cette réponse valide la règle de doctrine écrite le même jour** (« les
+routes connues sont un instrument de mesure, jamais un critère ») de la façon
+la plus concrète qui soit : si on avait mis ses routes connues dans le score,
+on aurait appris à le faire passer par les villages, en croyant apprendre sa
+préférence alors qu'on aurait figé sa méconnaissance du terrain.
+
+## Ce qui reste à faire, et qui est une piste technique précise
+
+La densité actuelle **mélange le village et la ville**, et `crossing` pèse
+deux marqueurs sur trois — or il y a des passages piétons dans le moindre
+bourg. Ce qui sépare les deux n'est pas la densité mais **l'étendue** : 300 m
+de traversée, c'est un village qu'on n'évite pas dans le bocage ; 3 km
+continus, c'est une agglomération qu'on contourne.
+
+Piste : regrouper les marqueurs le long du couloir et mesurer la **longueur
+de la portion dense**, pas seulement leur nombre au kilomètre. Un village
+traversé coûte alors peu, une ville coûte cher, et le contournement qu'il ne
+connaît pas devient proposable. À instruire au sprint 6, sur ses vraies
+sorties : une traversée de bourg et une traversée d'agglomération doivent se
+distinguer nettement, sinon la mesure ne vaut pas mieux que l'actuelle.
 
 ## Q18 — Une carte par proposition, ou une seule ? — **ouverte le 16/09/2026**
 
