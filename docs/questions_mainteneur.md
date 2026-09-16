@@ -539,3 +539,36 @@ tous ou aucun (`cli.ajouter_heure_depart`).
 pour un lieu : deux options dont les noms diffèrent d'une lettre pour deux
 sens sans rapport, sur la même commande. Personne d'autre que le mainteneur
 n'utilise la commande, le renommage était donc gratuit — il a été fait.
+
+## Q16 — Peut-on disposer d'un signal de popularité des routes chez les cyclistes ? — **close le 16/09/2026 : non, aucune source utilisable**
+
+Question du mainteneur : « BRouter a des infos sur la popularité des routes
+par les cyclistes ? C'est la force de Strava sur son générateur d'itinéraire. »
+
+**Trois réponses, vérifiées le 16/09/2026.**
+
+1. **BRouter n'en a pas.** Il calcule sur OpenStreetMap, qui ne contient
+   aucune donnée d'usage. Ce qui y ressemble dans les tags reçus —
+   `estimated_traffic_class`, `estimated_crossing_class` — sont ses propres
+   estimations à partir des tags, pas des cyclistes réels.
+2. **La heatmap de Strava n'est pas réplicable.** Elle agrège le GPS de
+   millions de sorties ; c'est propriétaire, l'API ne l'expose pas, et les
+   conditions d'usage interdisent d'en dériver un produit. Il n'existe pas
+   d'équivalent libre. C'est une force que ce projet n'aura pas, et le dire
+   vaut mieux que de chercher un ersatz.
+3. **Les itinéraires balisés sont un contre-signal, et c'est le mainteneur
+   qui tranche** : « pas bon signal, c'est des itinéraires rando souvent ».
+   BRouter renvoie bien `route_bicycle_lcn` (52 tronçons sur une boucle au
+   nord de Rennes) et `route_bicycle_ncn` (3), mais en France ces réseaux
+   sont des véloroutes et voies vertes — partagées avec les piétons, parfois
+   en revêtement souple. C'est du tourisme, pas de l'entraînement : un
+   balisage est même un contre-signal pour un bloc à 250 W. **Aucune mesure
+   n'est lancée** : la piste est écartée sur le fond, pas faute de données.
+
+**La distinction à retenir**, parce qu'elle n'est pas évidente et qu'elle
+survivra à cette question : la règle de doctrine « les routes connues ne sont
+jamais un critère » vise **les routes du cycliste lui-même** — les siennes
+dans le score, c'est l'outil qui lui renvoie son reflet, et toute validation
+devient circulaire. La popularité d'**autres** cyclistes serait une donnée
+extérieure, donc un critère parfaitement légitime. Il se trouve seulement
+qu'aucune source libre n'existe.
