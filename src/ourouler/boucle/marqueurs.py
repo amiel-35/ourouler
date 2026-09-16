@@ -47,6 +47,18 @@ NOEUDS_CARREFOUR = frozenset(
     {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
 )
 
+#: Ceux qui **arrêtent** vraiment, par opposition à ceux qui font lever le
+#: pied. Mesuré le 16/09/2026 sur une boucle réelle de 55 km : 457 marqueurs,
+#: dont **296 passages piétons (65 %)** et seulement **28 feux (6 %)**. Le
+#: composite était donc dominé par ce qui coûte le moins — un passage piéton
+#: sur une route de campagne se traverse sans lever le pied.
+#:
+#: Le mainteneur l'a dit autrement, et c'est la vraie raison de cette
+#: distinction : « quand je lis 1,7 feux par km, si je fais 100 km je me dis
+#: que je vais croiser 170 feux ». Une unité qui invite à multiplier, sur un
+#: composite qui mélange l'arrêt et le rien.
+NOEUDS_ARRET = frozenset({"traffic_signals", "stop"})
+
 #: Un **ralentisseur** : dos d'âne, coussin, chicane, plateau. Il arrive par la
 #: clé `traffic_calming` des `NodeTags`, pas par `highway` — c'est pourquoi la
 #: première rédaction de `seance.terrain` ne le voyait pas du tout, alors que
@@ -96,6 +108,29 @@ class Marqueurs:
     #: veut dire quelque chose. Faux pour un GPX importé.
     connue: bool
     par_nature: dict[str, int] = field(default_factory=dict)
+
+    @property
+    def arrets(self) -> int | None:
+        """Feux et stops seulement : ce qui pose le pied, pas ce qui ralentit.
+
+        `None` quand le tracé ne porte pas de tronçons — l'absence n'est alors
+        pas une mesure (règle absolue 5).
+        """
+        if not self.connue:
+            return None
+        return sum(self.par_nature.get(n, 0) for n in NOEUDS_ARRET)
+
+    @property
+    def arrets_par_km(self) -> float | None:
+        """Les arrêts au kilomètre — comparable entre boucles de longueurs différentes.
+
+        C'est cette grandeur qui sert d'axe de contraste ; l'affichage, lui,
+        montre des **nombres absolus**, qu'on ne peut pas multiplier de travers.
+        """
+        n = self.arrets
+        if n is None or self.distance_km <= 0:
+            return None
+        return n / self.distance_km
 
     @property
     def par_km(self) -> float | None:

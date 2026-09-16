@@ -1328,3 +1328,54 @@ reviendrait à calibrer sur sa répétition, donc à apprendre ses habitudes en
 croyant apprendre ses goûts — le piège que la doctrine interdit. **48 % est la
 cible honnête.** Les 11 points d'écart sont la mesure du corridor.
 
+## Q28 — « 1,7 feux/km » : l'unité invitait à multiplier, le composite mélangeait l'arrêt et le rien — **corrigé le 16/09/2026**
+
+Ses mots : « quand je lis 1,7 feux par km, si je fais 100 km je me dis que je
+vais croiser 170 feux ».
+
+**Deux défauts, et aucun n'était celui que j'annonçais.** J'avais renvoyé ce
+point au sprint 6 en croyant qu'il demandait la mesure par étendue. Faux :
+
+1. **L'unité invite à multiplier.** « au km » se lit « × la distance ». Un
+   nombre absolu sur la sortie ne peut pas se mal lire.
+2. **Le composite est dominé par ce qui coûte le moins.** Mesuré sur une
+   boucle réelle de 55 km : **457 marqueurs, dont 296 passages piétons (65 %)
+   et 28 feux (6 %)**. Ce qui arrête vraiment — feux et stops — fait 48 sur
+   55 km, pas 457. Additionner un feu et un passage piéton, c'est additionner
+   un péage et un panneau.
+
+**Corrigé** : l'affichage montre les **nombres absolus, séparés** — « 15 feux,
+1 stop » contre « 26 feux, 9 stops » sur la sortie du 19/09. Les passages
+piétons sortent du résumé ; ils restent dans la note de terrain, où ils pèsent
+peu et à juste titre. L'axe de contraste, lui, compare des **arrêts au
+kilomètre**, comparable entre boucles de longueurs différentes : deux besoins,
+deux formes de la même mesure.
+
+## Q29 — L'effet de concentration des feux, et le poids qui dépend de l'intensité — **à instruire au sprint 6**
+
+Sa remarque, dans le même message : « je pense qu'il y a un **effet de
+concentration** sur feux et stops. C'est ce qu'il faut réduire sur les blocs ;
+en Z2 ça a beaucoup moins d'importance. »
+
+C'est sa vieille idée d'**étendue** (Q17, Q21 b), appliquée cette fois au bon
+sous-ensemble. Ce n'est pas la densité de *tous* les marqueurs qui compte,
+c'est **un paquet de feux qui tombe dans un bloc**. Le même paquet sous une Z2
+ne coûte presque rien.
+
+**Ce que ça demande** : mesurer la concentration des seuls nœuds d'arrêt
+(`NOEUDS_ARRET`) le long du parcours — non pas leur nombre, mais leur
+regroupement — et faire dépendre leur coût de l'intensité de l'étape.
+
+**Et ça fait la troisième grandeur qui varie avec l'intensité**, ce qui
+commence à ressembler à un principe plutôt qu'à trois exceptions :
+
+| Grandeur | Établi |
+|---|---|
+| Coût d'une descente | sprint 4 (`FACTEURS_ZONE_DESCENTE`) |
+| Part de départementales | Q27 — 14,5 % en Z2, 4,9 % en blocs |
+| Concentration des feux | ici, à mesurer |
+
+À vérifier avant d'implémenter, avec la méthode des autres mesures : ses 20
+séances structurées portent-elles des paquets d'arrêts plus petits que ses
+sorties régulières, à distance de base appariée ?
+

@@ -1186,8 +1186,15 @@ def _details_proposition(retenue) -> str:
     """Les mesures qui portent la phrase, dans les unités du cycliste."""
     profil = retenue.profil
     morceaux = [_duree_courte(profil.duree_s) + _ecart_seance(profil)]
-    if profil.densite_marqueurs_km is not None:
-        morceaux.append(f"{_fr(profil.densite_marqueurs_km, 1)} feux/stops/passages au km")
+    if profil.feux is not None:
+        # Nombres absolus, et séparés : « 1,7 feux/stops/passages au km » se
+        # lisait « 170 sur 100 km » (mots du mainteneur) sur un composite dont
+        # les deux tiers étaient des passages piétons, qu'on traverse sans
+        # lever le pied. On ne montre plus que ce qui pose le pied.
+        arrets = [f"{profil.feux} feu{'x' if profil.feux > 1 else ''}"]
+        if profil.stops:
+            arrets.append(f"{profil.stops} stop{'s' if profil.stops > 1 else ''}")
+        morceaux.append(", ".join(arrets))
     else:
         morceaux.append("marqueurs inconnus")
     morceaux.append(

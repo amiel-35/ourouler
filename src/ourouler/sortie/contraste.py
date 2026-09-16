@@ -241,6 +241,12 @@ class Profil:
     seance_amputee: bool = False
     pluie_mm: float | None = None
     densite_marqueurs_km: float | None = None
+    #: Feux et stops du parcours, en nombre absolu. Affiché tel quel : « 28
+    #: feux, 20 stops ». Une densité au kilomètre invitait à multiplier —
+    #: « 1,7 au km, donc 170 sur 100 km » — sur un composite dont 65 % étaient
+    #: des passages piétons (mesuré le 16/09/2026).
+    feux: int | None = None
+    stops: int | None = None
     #: Part de la boucle en `highway=primary` seul (Q21 c) — plus le
     #: composite `boucle.couts.HIGHWAY_TRAFIC` (primary + secondary + trunk)
     #: d'avant ce correctif. Mesuré sur les vraies sorties du mainteneur :
@@ -274,6 +280,9 @@ class Profil:
             AXE_DEMI_TOURS: float(self.demi_tours),
             AXE_TERRAIN: self.note_terrain,
             AXE_PLUIE: self.pluie_mm,
+            # L'axe compare des **arrêts au kilomètre** — comparable entre
+            # boucles de longueurs différentes — là où l'affichage montre des
+            # nombres absolus. Deux besoins, deux formes de la même mesure.
             AXE_VILLE: self.densite_marqueurs_km,
             AXE_TRAFIC: self.part_trafic,
             AXE_VENT: self.orientation,
@@ -308,7 +317,9 @@ def profil(
         demi_tours=int(proposition.demi_tours),
         note_terrain=float(proposition.placement.note_terrain),
         pluie_mm=(meteo.pluie_cumulee_mm if meteo is not None else None),
-        densite_marqueurs_km=marqueurs.par_km,
+        densite_marqueurs_km=marqueurs.arrets_par_km,
+        feux=(None if not marqueurs.connue else marqueurs.par_nature.get("traffic_signals", 0)),
+        stops=(None if not marqueurs.connue else marqueurs.par_nature.get("stop", 0)),
         part_trafic=_part_trafic(proposition),
         orientation=orientation_au_vent(meteo),
     )
