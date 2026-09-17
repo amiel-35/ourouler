@@ -1804,7 +1804,7 @@ sans formulaire.
   `--coordonnees-depart LAT,LON` la débloquerait ; il n'a pas été ajouté parce
   que personne ne l'a demandé et que le front couvre le cas.
 
-## Q35 — Quelles sections du TOML du serveur sont communes, et lesquelles appartiennent au cycliste — **fuite fermée le 17/09/2026, arbitrage à rendre**
+## Q35 — Quelles sections du TOML sont communes, et lesquelles appartiennent au cycliste — **tranchée le 17/09/2026 : trois tiers, et jamais de profil incomplet**
 
 **Ce qui a été trouvé.** `api/depots.py` fusionnait la surcharge d'un
 propriétaire **par-dessus** le TOML du serveur. Tout ce qu'un propriétaire ne
@@ -1944,6 +1944,56 @@ la fuite.
 (`boucle`, `seance`, `tenue`). Un découpage à la **section** les forcera dans
 un tas ou dans l'autre ; un découpage au **champ** est plus juste mais plus
 long à écrire. C'est le vrai arbitrage, et il est produit, pas technique.
+
+#### Réponse du mainteneur (17/09/2026) — trois tiers, et le vide n'existe pas
+
+« Pour moi on a déjà répondu à ces questions : ce qui est serveur, ce qui est
+perso avec un défaut serveur, et ce qui est perso. Ce qui est perso c'est vide,
+et si pas rempli, ben on n'avance pas. C'est le but de l'assistant
+d'embarquement de remplir ce qui est vide. »
+
+Puis, plus fort : « **il ne peut pas y avoir de vide.** La première connexion ne
+permet pas de finaliser l'embarquement sans certaines valeurs obligatoires. »
+
+**Les trois tiers.**
+
+| tiers | sections | règle |
+|---|---|---|
+| **serveur** | `[brouter]`, `[cache]`, `[meteo]`, `[calibration]` | reste côté serveur, jamais servi à un cycliste |
+| **perso, défaut serveur** | `[tenue]`, `[boucle]`, `[seance]` | une valeur raisonnable est fournie, chacun la change |
+| **perso pur** | `[depart]`, `[cycliste]`, `[[velos]]`, `[intervals]` | jamais hérité, jamais deviné |
+
+**Ce que la seconde phrase change, et c'est beaucoup.** La règle n'est pas « le
+champ peut être vide et alors on refuse de calculer » : c'est **un profil
+incomplet n'existe jamais**. L'embarquement est une porte, pas un formulaire
+qu'on abandonne en route. Conséquence directe : **aucun code en aval n'a à
+traiter le cas « pas de point de départ »** — plus de branche défensive, plus de
+repli silencieux, donc plus de fuite possible par héritage. Le contrôle vit à un
+seul endroit, la fin de l'embarquement, au lieu d'être répété partout et oublié
+quelque part. C'est l'inverse exact du défaut qui a ouvert cette question.
+
+**Ce qui est obligatoire**, et le critère qui le décide — *est obligatoire ce
+qu'un humain peut répondre* : `[depart]`, `[cycliste]` (masse, FTP, prénom,
+nom), et au moins un vélo dans `[[velos]]`.
+
+**`[intervals]` n'est pas obligatoire**, et la réponse était déjà au dossier :
+[[Q38]] a tranché qu'un fichier déposé est une séance à faire
+(`--fichier-seance`, livré au lot F0.5), et [[Q48]] part précisément du constat
+que les API des plateformes se ferment et que le fichier reste. Exiger un compte
+Intervals aurait contredit le cap du sprint 8 — « inviter des copains », pas
+« inviter des copains qui utilisent Intervals ».
+
+**La quatrième catégorie, qui n'est dans aucun tiers.** La **calibration** — le
+résultat, pas les réglages — est profondément personnelle, mais personne ne sait
+la répondre : Paul ne connaît pas son CdA. Elle n'est donc ni saisie, ni
+héritée, ni obligatoire : elle est **estimée**, par la table de catégories de
+L8.5 et la règle du « +1 cran », et **dite comme estimée** (cap du sprint 8 :
+« le modèle doit tourner sur des paramètres génériques et le dire »). Elle se
+gagne ensuite en roulant.
+
+**Ce qui reste à écrire au lot L7.4** : la liste champ par champ pour les trois
+sections du tiers 2, et le refus de finaliser l'embarquement tant que le tiers 3
+n'est pas complet — avec un message qui nomme ce qui manque.
 
 ## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **close le 17/09/2026 : l'âge est retiré**
 
@@ -2689,6 +2739,13 @@ nationales alors qu'elles n'y roulent pas autant.
 
 « L'âge, si on s'en sert pas pour dériver une FC, on dégage. »
 
+**Déjà tranché la veille, et je l'avais manqué.** [[Q39]] — « L'âge ne sera pas
+demandé », 17/09/2026 — portait déjà cette décision, dans ses mots : « l'âge on
+s'en fout ». Elle notait même la conséquence pour cette question-ci. L'arbitrage
+ci-dessous a donc été redemandé au mainteneur alors qu'il l'avait déjà rendu ;
+il le confirme, avec une condition qui n'était pas dans [[Q39]] et qui vaut
+d'être vérifiée.
+
 **Vérifié avant d'appliquer, et la condition n'est pas remplie** : la méthode
 retenue en [[Q50]] pour le cycliste sans capteur **ne dérive aucune fréquence
 cardiaque maximale**. Elle refuse justement les formules du type « 220 − âge »,
@@ -2712,6 +2769,12 @@ clé d'apprentissage.
 
 **Si un jour l'âge revient**, ce sera parce qu'un lot en aura un usage mesuré —
 pas parce qu'un formulaire d'inscription trouve normal de le demander.
+
+**Et la question « cette étape existe-t-elle encore ? », posée par [[Q39]], se
+referme par [[Q35]]** : l'assistant existe pour remplir le **tiers 3**, et
+prénom et nom y sont obligatoires. L'étape identité survit donc — non pas parce
+qu'un calcul s'en sert, mais parce qu'un profil incomplet ne peut pas exister.
+Elle perd l'âge, elle garde le reste.
 
 ## Q46 — Ce que le service a le droit d'apprendre des sorties de chacun — **tranchée le 17/09/2026**
 
