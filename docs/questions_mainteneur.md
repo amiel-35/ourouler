@@ -1844,6 +1844,22 @@ monde. C'est un réglage de moteur, pas un goût.
   en fait déjà « un paramètre de configuration, pas une constante » — reste à
   dire de quelle configuration.
 
+### Les deux sections orphelines — tranchées le 17/09/2026
+
+> « personnel, avec config par défaut. »
+
+**`[evitements]` et `historique_depuis` appartiennent au cycliste**, avec des
+valeurs par défaut pour que personne ne parte d'une page blanche.
+
+Conséquence à traiter : `historique_depuis` vit aujourd'hui **sous `[cache]`**,
+donc côté serveur d'après ce découpage — alors qu'elle décrit l'histoire d'une
+personne. Le 1ᵉʳ décembre 2023 du mainteneur n'a aucun sens pour quelqu'un qui
+s'inscrit demain. Elle sort de `[cache]`, qui parle de stockage.
+
+Le découpage de Q35 est donc complet : **au cycliste** `depart`, `cycliste`,
+`velos`, `intervals`, `seance`, `calibration`, `tenue`, `evitements`,
+`historique_depuis` ; **au serveur** `boucle`, `meteo`, `brouter`, `cache`.
+
 ## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **bloquant levé provisoirement au lot F2**
 
 Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
@@ -2582,3 +2598,60 @@ que deux situations différentes sont vraies :
 
 Confondre les deux ferait affirmer que deux boucles roulent autant sur les
 nationales alors qu'elles n'y roulent pas autant.
+
+
+## Q46 — Ce que le service a le droit d'apprendre des sorties de chacun — **ouvert le 17/09/2026**
+
+> « au cycliste ses données, au serveur une partie qu'on veut utiliser pour
+> comprendre. »
+
+Phrase du mainteneur en marge de [[Q35]], et **elle ouvre un sujet qui vit
+déjà dans le code sans avoir été posé.**
+
+### Ce qui existe déjà et qui deviendra collectif
+
+`src/ourouler/apprentissage/routes.py` **apprend les poids des routes à partir
+de ce qui a été réellement roulé**. Aujourd'hui sur les seules sorties du
+mainteneur, dans son cache. Le jour où plusieurs cyclistes roulent, la
+question se pose d'elle-même : **ce que l'un a roulé améliore-t-il le parcours
+de l'autre ?**
+
+La réponse évidente est oui — c'est même ce qui fait la valeur d'un service
+partagé, et Komoot ne fait pas autre chose avec ses données de trajets
+anonymisées. Mais ça n'a jamais été décidé.
+
+### Ce que la doctrine promet déjà, et qui contraint
+
+§10.2 : *« RGPD par construction : export de toutes ses données et suppression
+du compte (profil, fichiers, calibrations, clés) disponibles dès la première
+version hébergée ; pas de suivi d'audience ; hébergement en Europe. »*
+
+**Supprimer un compte devient alors ambigu.** Les poids de routes qu'il a
+contribué à apprendre ne sont plus « ses données » — ils sont fondus dans un
+modèle partagé, et les en retirer demanderait de tout réapprendre sans lui.
+
+### Le spectre, du plus personnel au plus mutualisable
+
+| donnée | nature |
+|---|---|
+| calibration CdA/Crr | **strictement personnelle**, aucune valeur collective |
+| clé Intervals, départ, FTP | **strictement personnelle** |
+| poids de routes appris | **collectif par nature** — c'est la géographie, pas le cycliste |
+| cache météo par maille et par heure | **collectif par construction** ([[Q42]]) |
+| mesures d'usage (densité de marqueurs, classes de trafic, facteur terrain) | entre les deux — faites cette nuit sur l'historique du mainteneur |
+
+Les deux extrémités sont claires. **C'est la ligne du milieu qui demande une
+décision**, et elle en demande trois :
+
+1. **Qu'est-ce qui remonte** — la trace brute, ou seulement des agrégats par
+   tronçon de route ?
+2. **Qu'est-ce qu'on en dit au cycliste**, et le choix est-il explicite ? Un
+   service qui apprend de vous sans le dire n'est pas le même produit que
+   celui qui le demande.
+3. **Que devient la contribution à la suppression du compte ?** Les poids
+   appris survivent-ils, et si oui, est-ce compatible avec ce que §10.2
+   promet ?
+
+**Le mainteneur le pose comme « un sujet à part », et il a raison** : ça ne
+bloque aucun lot en cours, et ça décide de ce qu'est le produit une fois
+partagé.
