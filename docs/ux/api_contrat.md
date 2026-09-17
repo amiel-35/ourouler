@@ -80,6 +80,7 @@ change pas sans changer la version de l'API.
 | POST | `/api/v1/profil/zones/apercu` | recalcule les trois valeurs **sans rien stocker** |
 | GET | `/api/v1/geocodage?adresse=` | **tous** les candidats, notés, **avec leur commune** — l'API ne tranche jamais |
 | GET | `/api/v1/meteo` | pluie, vent, ressenti par direction et par heure |
+| GET | `/api/v1/vent-depart?jour=&heure_depart=` | d'où vient le vent au départ, et l'azimut — **ou les deux azimuts** — que chaque préférence d'orientation imposerait (Q44). Un point, une heure, un appel Open-Meteo : ~160 ms, contre ~2 s pour `/meteo` et sa couronne. L'écran de demande l'appelle **pendant** que le cycliste choisit |
 | GET | `/api/v1/seances?depuis=&jusqua=` | la semaine (défaut : 7 jours à partir d'aujourd'hui) |
 | GET | `/api/v1/seances/{jour}` | une séance, étape par étape |
 | POST | `/api/v1/seances/fichier` | dépôt d'un `.ZWO`/`.MRC`, rend la séance lue et un identifiant |
