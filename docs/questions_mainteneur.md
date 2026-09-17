@@ -3827,7 +3827,8 @@ dégradé de 3,7 à 4,4 min : on retirait au couple une part d'erreur qu'il
 portait légitimement, sans donner au CdA de quoi la reprendre. La remarque du
 mainteneur et la mesure disent la même chose par deux chemins.
 
-**Le test qu'il demande, et qui reste à faire.** Simuler ses vraies sorties avec
+**Le test qu'il demande — fait le 17/09 au soir, voir la section suivante.**
+Simuler ses vraies sorties avec
 les valeurs de littérature de sa catégorie, au lieu de sa calibration
 personnelle, et mesurer la dérive **en minutes sur 2 h**. C'est la question que
 le sprint 8 pose de toute façon pour l'invité sans historique : « sans
@@ -3918,7 +3919,202 @@ le détail par owner uniquement sur une fenêtre courte, et n'agréger qu'ensuit
 Rien n'est tranché ici : le schéma `id_owner` / `id_account` / correspondance
 est acté, la granularité de ce qu'on range sous `id_owner` ne l'est pas.
 
+**Contrôle de cohérence (relecture, 17/09).** La pente « 2,54 min par newton »
+est une régression sur les 81 points du balayage, pas une relation serrée :
+recalculée paire à paire sur les jeux du tableau, elle va de 1,25 à 3,08. Bon
+ordre de grandeur, précision à ne pas surinterpréter.
+
+Le contrôle fait en revanche apparaître un fait plus net, et plus contraignant
+pour le sprint 8 : **les deux vélos ne veulent pas la même valeur générique.**
+Sur le RCR, la durée s'améliore quand F@27 monte (18,04 → 18,30 N fait gagner
+0,8 min), donc son optimum est **au-dessus de 18,30 N**. Sur le BMC, elle se
+dégrade dès que F monte (15,90 → 18,36 N coûte 5,6 min), donc son optimum est
+**autour de 15,9 N**. Deux newtons et demi d'écart, sur le même cycliste, entre
+un vélo de route et un chrono.
+
+**Ce que ça corrige dans la conclusion ci-dessus.** La dérive est bien gouvernée
+par un seul nombre, mais **un par vélo, pas un par cycliste**. Une table de
+catégories qui ne regarderait que le cycliste placera forcément l'un de ses
+deux vélos à ~2,5 N de son optimum, soit ~6 min sur 2 h. La catégorie doit donc
+porter sur le **couple cycliste + vélo** — ce que le dépôt sait déjà faire,
+`[[velos]]` étant une liste et la calibration étant déjà par vélo.
+
+Et ça éclaire le résultat contre-intuitif : « CLM amateur » est le pire jeu sur
+son chrono non pas parce que la catégorie est mal nommée, mais parce qu'elle
+vise une résistance basse (13,4 N) alors que son chrono en demande 15,9 —
+c'est-à-dire qu'il ne roule pas son chrono en position de chrono, ou pas avec
+l'équipement que la catégorie suppose.
+
 ## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **tranchée le 17/09/2026 : au backlog**
+#### La mesure demandée (17/09/2026, soir) — la dérive tient à un seul nombre
+
+Le test que le mainteneur demandait est fait, sur ses vraies sorties, avec le
+protocole des deux campagnes précédentes : partage apprentissage/validation
+**par date**, la calibration personnelle ajustée sur l'apprentissage seul, les
+jeux de littérature appliqués tels quels aux **mêmes** sorties de test, et
+`Validation.mae × 120` pour lire l'écart en minutes sur une boucle de 2 h.
+Rien n'a été écrit dans le cœur : ce lot mesure, il n'implémente pas.
+
+**Les jeux de littérature, et d'où ils viennent.** Ce sont des **ordres de
+grandeur usuels**, pas des mesures — la règle absolue 5 interdit de les
+présenter autrement. Ils viennent de la vulgarisation cycliste courante
+(Best Bike Split sur le CdA et sur le roulement, Bicycle Rolling Resistance,
+Roadman Cycling), qui s'accorde sur : amateur aux cocottes 0,30 à 0,35 m²,
+amateur bien placé dans le creux du cintre 0,27 à 0,30, chrono compétitif 0,20
+à 0,24 ; Crr de bon pneu de route sur bitume réel 0,004 à 0,006, pneu bon
+marché ou VTT 0,008 à 0,012. Aucune de ces sources n'est une publication
+revue par les pairs, et aucune ne mesure **ce** cycliste.
+
+| jeu | CdA | Crr | d'où il sort |
+|---|---|---|---|
+| route amateur | 0,320 | 0,0050 | centre de la fourchette — et, exactement, les `CDA_DEFAUT`/`CRR_DEFAUT` du dépôt |
+| route amateur, haut de fourchette | 0,360 | 0,0060 | position redressée, pneus courants ; 0,36 est au bord haut de ce que les sources citent |
+| CLM amateur | 0,260 | 0,0045 | chrono d'amateur, au-dessus des 0,20-0,24 du compétiteur |
+
+Le premier jeu sert donc à la fois de **catégorie « route amateur »** et de
+**témoin** : le dépôt portait déjà, sans le dire, la valeur médiane de la
+littérature.
+
+##### RCR — 63 sorties d'apprentissage, 25 de validation (25/10/2025 → 19/07/2026)
+
+| jeu | CdA | Crr | F@27 km/h | MAE | min/2 h | dérive | biais | apparié |
+|---|---|---|---|---|---|---|---|---|
+| **sa calibration** | 0,2219 | 0,01062 | **18,04 N** | 4,23 % | **5,1** | référence | −2,5 % | référence |
+| route amateur | 0,320 | 0,0050 | 15,94 N | 6,96 % | 8,4 | **+3,3 min** | −7,0 % | 3↑/22↓ |
+| route amateur, haut | 0,360 | 0,0060 | 18,30 N | 3,60 % | 4,3 | **−0,8 min** | −2,0 % | 17↑/8↓ |
+| CLM amateur | 0,260 | 0,0045 | 13,38 N | 12,84 % | 15,4 | **+10,3 min** | −12,8 % | 0↑/25↓ |
+
+##### BMC — 26 sorties d'apprentissage, 9 de validation (21/06/2025 → 08/05/2026)
+
+| jeu | CdA | Crr | F@27 km/h | MAE | min/2 h | dérive | biais | apparié |
+|---|---|---|---|---|---|---|---|---|
+| **sa calibration** | 0,2204 | 0,00838 | **15,90 N** | 2,36 % | **2,8** | référence | +0,2 % | référence |
+| route amateur | 0,320 | 0,0050 | 15,99 N | 2,57 % | 3,1 | **+0,3 min** | +1,4 % | 4↑/5↓ |
+| route amateur, haut | 0,360 | 0,0060 | 18,36 N | 6,98 % | 8,4 | **+5,6 min** | +7,0 % | 1↑/8↓ |
+| CLM amateur | 0,260 | 0,0045 | 13,42 N | 5,28 % | 6,3 | **+3,5 min** | −5,3 % | 3↑/6↓ |
+
+**La catégorie qui porte le bon nom n'est pas celle qui marche.** « CLM
+amateur » est le pire jeu des trois **sur son chrono** (+3,5 min) comme sur sa
+route (+10,3 min) ; et c'est le jeu « route amateur » du dépôt qui décrit le
+mieux son **chrono** (+0,3 min). Nommer la catégorie d'après le vélo est donc
+mesuré faux ici.
+
+##### Ce qui gouverne la dérive : la résistance totale, et presque rien d'autre
+
+La colonne `F@27 km/h` explique toutes les lignes ci-dessus. Balayage de 81
+couples (CdA de 0,24 à 0,40, Crr de 0,0035 à 0,0080) sur les mêmes sorties de
+test :
+
+| vélo | relation ajustée | corrélation |
+|---|---|---|
+| RCR | min/2 h ≈ 2,9 + **2,54 × \|ΔF@27\|** | r = 0,947 |
+| BMC | min/2 h ≈ 1,7 + **2,54 × \|ΔF@27\|** | r = 0,965 |
+
+**La même pente sur les deux vélos : un newton d'erreur à 27 km/h coûte
+2,5 minutes sur une boucle de 2 h.** Et à résistance totale égale, le partage
+entre CdA et Crr ne compte quasiment plus :
+
+| vélo | F@27 | couples à ±0,1 N | étendue du CdA | étendue de la dérive |
+|---|---|---|---|---|
+| RCR | 15,94 N | 3 | 0,28 → 0,36 | **0,08 min** |
+| RCR | 15,25 N | 3 | 0,26 → 0,34 | 0,33 min |
+| RCR | 14,56 N | 3 | 0,24 → 0,32 | 0,61 min |
+| BMC | 15,88 N | 3 | 0,26 → 0,36 | 0,44 min |
+| BMC | 16,57 N | 3 | 0,28 → 0,38 | 0,33 min |
+
+Le CdA peut varier d'un tiers de sa valeur sans que la durée prédite bouge de
+plus d'une demi-minute, pourvu que la somme reste juste. C'est la
+**dégénérescence de [[Q9]] vue par le bon bout** : elle n'est plus un défaut
+d'identification à corriger, c'est ce qui rend une valeur générique
+utilisable. Et c'est la remarque du mainteneur — « CdA/Crr c'est aussi
+transmission, tenue, casque » — mesurée : son Crr effectif de route, 0,0106,
+est hors de toute table de pneu, et c'est pourtant ce couple-là qui prédit
+juste, parce que sa **somme** à 27 km/h est juste.
+
+##### Ce qu'un invité reçoit aujourd'hui, sortie par sortie
+
+L'erreur **signée** en minutes sur 2 h (négatif = le modèle annonce plus vite
+que la réalité, donc la boucle dure plus longtemps que promis) :
+
+| vélo, jeu | min | q25 | médiane | q75 | max | au-delà de 10 min |
+|---|---|---|---|---|---|---|
+| RCR, sa calibration | −16,9 | −6,1 | −2,8 | +0,9 | +6,3 | — |
+| RCR, **route amateur (le dépôt aujourd'hui)** | −21,8 | −11,5 | **−7,4** | −5,2 | **−1,3** | **9 sur 25** |
+| RCR, route amateur haut | −16,9 | −5,7 | −1,6 | +0,7 | +4,7 | 2 sur 25 |
+| BMC, sa calibration | −6,7 | −0,5 | −0,2 | +3,8 | +4,6 | — |
+| BMC, route amateur | −4,6 | −0,6 | +0,8 | +4,5 | +7,8 | 0 sur 9 |
+
+La ligne qui compte : avec les constantes du dépôt, sur le vélo qu'il roule le
+plus, **les 25 sorties de validation se trompent dans le même sens** — le
+maximum vaut −1,3 min, aucune n'est jamais annoncée trop lente. Une boucle
+vendue pour 2 h en dure 2 h 07 en médiane et jusqu'à 2 h 22.
+
+##### Deux points de comparaison, pour situer la dérive
+
+**Une calibration personnelle mais d'un autre vélo** coûte autant qu'un mauvais
+jeu de littérature : le RCR simulé avec la calibration du BMC dérive de
++4,5 min (3↑/22↓), le BMC avec celle du RCR de +4,9 min (2↑/7↓). Ce n'est donc
+pas « calibré contre générique » qui sépare, c'est « bonne résistance totale
+contre mauvaise ».
+
+**Un seul jeu générique pour les deux vélos** existe, autour de F@27 ≈ 17,2 N :
+
+| couple | F@27 | RCR | BMC | pire des deux |
+|---|---|---|---|---|
+| 0,40 / 0,0035 | 17,23 N | 5,4 | 5,6 | **5,6 min** |
+| 0,30 / 0,0070 | 17,21 N | 5,7 | 5,5 | 5,7 min |
+| 0,34 / 0,0055 | 17,12 N | 5,7 | 5,3 | 5,7 min |
+
+à comparer aux 5,1 min (RCR) et 2,8 min (BMC) de ses calibrations
+personnelles. **Ces trois couples sont choisis sur les sorties de validation :
+c'est une borne optimiste, pas un résultat validé**, et il ne faut pas les
+recopier dans le code au titre de cette mesure.
+
+##### Ce que ça répond, en deux phrases
+
+**Un invité sans calibration reçoit une durée utilisable si, et seulement si,
+le jeu générique pose la bonne résistance totale à l'allure de croisière** :
+bien placé, il coûte entre 0,5 et 3 minutes sur 2 h par rapport à une
+calibration personnelle ; mal placé, il coûte jusqu'à 10 minutes, toujours dans
+le même sens. Autrement dit la dérive n'est pas petite en général, mais elle
+est gouvernée par **un seul nombre** au lieu de deux — ce qui simplifie le
+sprint 8 plutôt que de le compliquer : une table de catégories n'a pas besoin
+d'être physiquement défendable couple par couple, elle a besoin de poser la
+bonne somme, et elle peut se vérifier sur un seul chiffre.
+
+**Ce que ça dit des lots — constat, pas proposition ; les lots du sprint 8
+sont figés et c'est au mainteneur de les bouger s'il le veut.** Rien dans la
+mesure n'oblige à calibrer un invité vite : passer d'un générique **bien
+placé** à une calibration personnelle vaut +0,3 min sur le RCR et +2,5 min sur
+le BMC, quand un générique **mal placé** vaut jusqu'à +10 min. Le risque
+mesuré n'est donc pas l'absence de calibration, c'est le mauvais générique —
+et c'est ce que le dépôt sert aujourd'hui sur un vélo de route. Pour L8.5,
+cela donne une acceptation qui tient en un chiffre (l'écart en minutes sur 2 h
+et son **sens**) plutôt qu'en une table à justifier. Pour L8.1 et L8.2, cela
+dit seulement ce qu'il faut réussir à obtenir d'un nouveau venu : de quoi
+placer une résistance totale, pas un CdA.
+
+##### Ce qui reste douteux, et qu'il ne faut pas sur-lire
+
+1. **n = 1 cycliste, 2 vélos, 34 sorties de validation.** Rien ici ne mesure
+   un autre gabarit, d'autres routes ou un autre capteur. Le mainteneur roule
+   à ~100 kg en ordre de marche ; chez un cycliste de 60 kg la part du
+   roulement et celle de l'aérodynamique ne se répartissent pas pareil, et la
+   pente de 2,54 min/N n'a pas été vérifiée ailleurs.
+2. **Les valeurs de littérature ne sont pas mesurées** — voir plus haut. Elles
+   suffisent à situer un ordre de grandeur, pas à fonder une table.
+3. **Le meilleur générique du balayage est ajusté sur la validation**, donc
+   optimiste. Il borne, il ne recommande pas.
+4. **Le BMC n'a que 9 sorties de test**, et la campagne de la nuit a déjà noté
+   qu'elles sont presque toutes estivales. Ses chiffres sont fragiles.
+5. **La masse reste celle de sa configuration** (100 et 101 kg). La mesure
+   isole bien CdA et Crr, mais un vrai invité se trompera aussi sur sa masse,
+   et cette erreur-là s'ajoute.
+6. **ρ** : les jeux de littérature tournent à `RHO_DEFAUT` (1,226), sa
+   calibration à son ρ moyen (1,222). Écart de 0,3 % sur le seul terme aéro,
+   négligeable devant tout ce qui précède, mais il est là.
+
+## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **ouverte le 17/09/2026**
 
 La repriorisation de fin des sprints 5 et 6 a figé les lots des sprints 7
 (l'hébergé) et 8 (prêt à inviter des copains). Trois questions n'y trouvent pas
