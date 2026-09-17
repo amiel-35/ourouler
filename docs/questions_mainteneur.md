@@ -2316,3 +2316,57 @@ Le **dénivelé** n'est pas un axe de distinction aujourd'hui. Or 358 m sur
 59,5 km et 700 m sur la même distance ne se ressemblent pas du tout à rouler.
 Il est déjà mesuré et déjà affiché — il lui manque seulement d'entrer dans ce
 qui distingue une proposition d'une autre.
+
+
+## Q44 — Deux réglages de direction qui se contredisent, et le vent qu'on ne montre pas — **17/09/2026**
+
+> « par contre, un truc sur la demande de direction avant le calcul : c'est
+> bien, et en même temps, sans connaître le sens du vent dominant, c'est un
+> choix arbitraire. »
+
+**Vérifié, et c'est pire que ce que le mainteneur décrit.** L'écran de demande
+(`front/src/ecrans/Demander.tsx`) pose **deux réglages qui veulent la même
+chose** :
+
+- « **Orientation au vent** » — rentrer avec, partir avec, de travers, peu
+  importe. C'est l'idée du mainteneur du sprint 5 : poser la question **avant**
+  la recherche plutôt que de contraster après coup, ce qui réduit aussi
+  l'espace de recherche.
+- « **Direction** » — N, NE, E, SE…
+
+Les deux fixent l'azimut de recherche. Et **l'écran ne dit nulle part d'où
+vient le vent**, alors que la maquette E16 le prévoyait explicitement — « Vent
+de sud-ouest à 22 km/h demain matin » sous le sélecteur.
+
+On demande donc une direction sans donner l'information qui permettrait de la
+choisir, pendant qu'un réglage voisin prétend s'en occuper. **Arbitraire deux
+fois.**
+
+**À trancher** : les deux réglages coexistent-ils (et alors lequel gagne quand
+ils se contredisent ?), ou l'orientation au vent remplace-t-elle la direction
+brute ? Dans les deux cas, le vent du jour doit s'afficher à côté.
+
+Note : la direction recommandée par la météo est déjà calculée et déjà
+affichée (`meilleure_direction`, avec son motif). Ce n'est pas la même chose
+que le vent — elle vise le sec, pas l'orientation.
+
+## Q45 — Quand rien ne distingue rien, le dire — **17/09/2026**
+
+> « ben, s'il n'y a pas de pluie et peu de vent et que tout est plat, à un
+> moment rien ne change. »
+
+Généralisation de [[Q43]] par le mainteneur, et elle vaut mieux que le
+correctif qu'on y proposait. Certains jours, **aucun axe ne peut distinguer
+quoi que ce soit** : pas de pluie, donc pas de plus sèche ; peu de vent, donc
+pas d'orientation qui compte ; terrain homogène, donc pas de plus roulante.
+
+Chercher une différence dans ces conditions revient à en fabriquer une.
+
+**Ce que le produit devrait faire** : le dire. « Aujourd'hui ces trois boucles
+se valent — choisissez où vous voulez aller. » C'est une information honnête,
+et c'est même une bonne nouvelle : rien ne contraint le choix.
+
+C'est le pendant exact de ce que le produit sait déjà faire quand il ne trouve
+qu'une proposition au lieu de trois — il le dit et explique pourquoi, au lieu
+de servir trois boucles qui se ressemblent. Ici il s'agit de dire l'inverse :
+**trois boucles différentes, et aucune raison de préférer l'une.**
