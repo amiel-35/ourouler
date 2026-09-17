@@ -138,20 +138,27 @@ const DIRECTIONS = [
 ];
 
 /**
- * Le titre d'une boucle libre — **sa direction, pas le nom du moteur**.
+ * Le titre d'une boucle libre — **son rang, et rien d'autre**.
  *
- * `candidate.nom` vaut « Boucle 340° 5.8 km », où « 5.8 km » est le **rayon**
- * demandé au traceur. Affiché en titre, trois centimètres au-dessus de la
- * longueur réelle — « 24,8 km » — ça donnait deux distances contradictoires,
- * et le titre est ce qu'on lit en premier : il mentait de 19 kilomètres
- * (relecture F2 · C6). Le nom du moteur est un identifiant de moteur.
+ * Trois versions successives, et c'est la troisième qui est juste.
  *
- * Reste la direction, qui est ce qui distingue vraiment deux boucles libres,
- * et que la demande a explicitement posée.
+ * Le moteur nommait `candidate.nom` « Boucle 340° 5.8 km », où « 5.8 km » est
+ * le **rayon** demandé au traceur : affiché trois centimètres au-dessus de la
+ * longueur réelle — « 24,8 km » — ça donnait deux distances contradictoires et
+ * un azimut que personne n'a demandé. Le mainteneur l'a vu en trois secondes.
+ *
+ * On a donc traduit l'azimut en direction — « Boucle au nord ». Mais les
+ * candidates d'une même recherche partent presque toutes dans le même secteur :
+ * les trois s'appelaient « Boucle au nord », et le titre ne distinguait plus
+ * rien.
+ *
+ * Réponse du mainteneur (17/09/2026) : « boucle 1, boucle 2, boucle 3 ». Le
+ * titre n'a pas à décrire le parcours — **la carte le fait**, et elle le fait
+ * mieux que n'importe quelle phrase (question ouverte Q43 : « le parcours
+ * lui-même est distinctif en soi »). Il n'a qu'à dire de laquelle on parle.
  */
-export function titreDeBoucle(azimutDeg: number | null, numero: number): string {
-  if (azimutDeg === null) return `Boucle ${numero}`;
-  return `Boucle ${DIRECTIONS[Math.round((((azimutDeg % 360) + 360) % 360) / 45) % 8]}`;
+export function titreDeBoucle(_azimutDeg: number | null, numero: number): string {
+  return `Boucle ${numero}`;
 }
 
 /**

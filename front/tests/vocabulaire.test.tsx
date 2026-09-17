@@ -22,16 +22,24 @@ import { PropositionDetail } from "../src/ecrans/Proposition";
 import { sortie } from "./fixtures";
 
 describe("le titre d'une boucle ne porte aucun paramètre du moteur", () => {
-  it("rend la direction, jamais l'azimut ni le rayon demandé au traceur", () => {
+  it("ne porte ni azimut ni rayon, quel que soit ce que le moteur envoie", () => {
     // `candidate.nom` valait « Boucle 115° 27.6 km » au-dessus d'une boucle
     // de 130,4 km : deux chiffres internes, dont un qui mentait de 100 km.
+    // C'est ça que ce test garde, et seulement ça.
     const titre = titreDeBoucle(115, 1);
-    expect(titre).toBe("Boucle au sud-est");
-    expect(titre).not.toMatch(/\d/);
     expect(titre).not.toMatch(/°/);
+    expect(titre).not.toMatch(/115/);
+    expect(titre).not.toMatch(/27/);
   });
 
-  it("retombe sur le numéro quand la direction est inconnue, sans inventer", () => {
+  it("dit de quelle boucle on parle, et rien de plus", () => {
+    // Version intermédiaire abandonnée : le titre traduisait l'azimut en
+    // direction (« Boucle au sud-est »). Les candidates d'une même recherche
+    // partant dans le même secteur, les trois s'appelaient pareil et le titre
+    // ne distinguait plus rien. Réponse du mainteneur : « boucle 1, boucle 2,
+    // boucle 3 » — la carte dit où elles vont, le titre dit laquelle.
+    expect(titreDeBoucle(115, 1)).toBe("Boucle 1");
+    expect(titreDeBoucle(340, 2)).toBe("Boucle 2");
     expect(titreDeBoucle(null, 3)).toBe("Boucle 3");
   });
 });
