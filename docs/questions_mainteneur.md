@@ -142,7 +142,7 @@ d'autre — pas de client Garmin, pas de bibliothèque non officielle, pas de
 compte à brancher. Les API constructeurs (Wahoo en tête, la seule vraie)
 restent au backlog du service hébergé, pas du besoin du mainteneur.
 
-## Q6 — Nom du projet — **nom validé le 13/09/2026 : ourouler** ; reste la purge avant publication
+## Q6 — Nom du projet et purge avant publication — **close le 17/09/2026**ation
 
 Nom validé : `ourouler` (paquet, commande, dépôt GitHub `amiel-35/ourouler`,
 renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessous ;
@@ -2757,3 +2757,33 @@ Le mode circuit attend. Il dépend de [[Q31]], qui attend les mêmes gens.
 apporte est le droit pour chacun de les déplacer. C'est exactement ce que
 [[Q35]] a tranché pour `[tenue]` : valeurs par défaut en V1, édition des
 seuils en V2. Q3 n'avait donc plus de question depuis ce matin.
+
+
+### Q6 — clôture du 17/09/2026
+
+L'identifiant d'athlète Intervals est retiré du dépôt (`docs/sprint1_relecture.md`),
+et il vit désormais côté profil de l'utilisateur, conformément à [[Q35]].
+
+**Ce que la vérification a établi, et qui change la gravité :**
+
+| | fichiers suivis | historique git |
+|---|---|---|
+| identifiant d'athlète (7 caractères) | 0 | **4 commits** |
+| clé d'API (25 caractères) | 0 | **0** |
+
+**La clé n'a jamais touché le dépôt**, à aucun moment de son histoire. La
+règle absolue 1 a tenu sur ce qui comptait.
+
+Et un identifiant d'athlète **n'est pas un secret** : il désigne un profil
+Intervals, il ne donne accès à rien. Sans la clé, on ne peut ni lire les
+sorties ni écrire quoi que ce soit — c'est de l'ordre d'un nom d'utilisateur.
+
+**Décision du mainteneur** : « ok, pas très grave ». L'historique n'est pas
+réécrit — le faire changerait tous les sha du dépôt pour retirer une donnée
+publique.
+
+**Ce qui reste, et qui n'est pas un secret non plus** : la masse, la FTP et
+« centre de Rennes » figurent dans cinq documents, dont `docs/cadrage.md`.
+Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
+purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
+ensemble, ils décrivent quelqu'un. Signalé, assumé.
