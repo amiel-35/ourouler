@@ -267,7 +267,47 @@ PAS_TERRAIN_KM_EQ = 1.0
 #: souvent moins de trois propositions, et `motif_deux_propositions` le dit.
 #: Faire autrement demanderait de changer les *azimuts ouverts* — décision de
 #: conception, pas de seuil, laissée au mainteneur en [[Q44]].
-SEUIL_RECOUVREMENT = 0.25
+#:
+#: **Relevé à 30 %, décision du mainteneur du 17/09/2026.** Une nouvelle
+#: mesure, faite le matin même, chiffre quatre candidates générées dans
+#: **chacune des huit directions** autour du départ du mainteneur, boucles de
+#: 59,5 km, vrai BRouter, `apprentissage.routes.recouvrement_max` :
+#:
+#: | direction | recouvrement médian |
+#: |---|---|
+#: | nord (0°) | 15,1 % |
+#: | sud-est (135°) | 17,3 % |
+#: | est (90°) | 19,3 % |
+#: | nord-ouest (315°) | 19,5 % |
+#: | nord-est (45°) | 20,0 % |
+#: | sud (180°) | 29,9 % |
+#: | sud-ouest (225°) | 31,8 % |
+#: | ouest (270°) | 32,7 % |
+#:
+#: **Ce que cette mesure a d'abord établi** : l'asymétrie de [[Q44]] entre
+#: « rentrer avec le vent » (33,2 %) et « partir avec » (8,6 %) ne vient pas
+#: de la préférence, elle vient du **terrain**. Les paires opposées ne se
+#: ressemblent pas — 15 % au nord contre 30 % au sud, 19 % à l'est contre
+#: 33 % à l'ouest : le sud et l'ouest de Rennes enferment, le nord et l'est
+#: ouvrent. Ce jour-là le vent venait du sud-ouest, donc « rentrer avec »
+#: tombait sur la deuxième pire direction — un hasard de météo, pas un défaut
+#: de la préférence.
+#:
+#: **Le compromis, écrit honnêtement.** Les 25 % d'origine tombaient juste
+#: entre 28 % (deux directions à 30° d'écart, qui vont au même endroit) et
+#: 14 % (à 60°, qui n'y vont pas) : ils séparaient « deux directions
+#: voisines » de « deux directions franchement différentes ». **Monter à
+#: 30 % revient à accepter que deux boucles à 30° d'écart comptent comme
+#: différentes** — cohérent avec [[Q43]] (« le parcours est distinctif en
+#: soi »), deux boucles à 30° vont bien à deux endroits distincts même en
+#: partageant un tiers de leurs routes, mais c'est un renversement de ce que
+#: la constante protégeait à l'origine, pas un ajustement fin.
+#:
+#: **Et ça ne règle pas tout.** Au sud (29,9 %) la médiane passe désormais
+#: sous le seuil ; à l'ouest (32,7 %) et au sud-ouest (31,8 %) elle reste
+#: au-dessus. Ces deux directions continueront de rendre souvent moins de
+#: trois propositions, et `motif_deux_propositions` continuera de le dire.
+SEUIL_RECOUVREMENT = 0.30
 
 # --- orientation au vent -------------------------------------------------------
 
