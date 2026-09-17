@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import math
 import random
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from ourouler.activites.lecture import lire, lire_fit, lire_gpx, lire_tcx
+from ourouler.activites.lecture import _sans_preambule_xml, lire, lire_fit, lire_gpx, lire_tcx
 from ourouler.activites.modele import Point, denivele_positif, puissance_normalisee
 from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
 
@@ -124,6 +125,90 @@ def test_horodatages_non_monotones_tolere_et_signale(activites: Path):
     horodatages = [p.t for p in a.points]
     assert horodatages == sorted(horodatages)
     assert a.duree_s > 0
+
+
+# --- L6.3 : préambule avant la déclaration XML ---------------------------------
+#
+# **Non vérifié sur les fichiers réels** : les neuf TCX Samsung Health
+# 2020-2021 qui ont motivé ce lot sont introuvables sur cette machine (Q46 —
+# import à venir). Ce qui suit teste une **cause plausible, reproduite sur
+# fixture synthétique**, pas un constat sur les fichiers eux-mêmes : le
+# critère « les neuf TCX refusés se lisent » reste ouvert.
+#
+# Un BOM UTF-8 **isolé**, immédiatement suivi de `<?xml ...?>`, se parse déjà
+# sans erreur avec `ET.fromstring` sur cet environnement : ce cas-là ne
+# distingue pas « corrigé » de « pas corrigé » et ne prouve donc rien. Les cas
+# qui portent réellement l'erreur du ticket (« XML or text declaration not at
+# start of entity ») sont un BOM suivi d'un saut de ligne, ou un simple espace
+# avant la déclaration — c'est ce que couvrent les tests ci-dessous, en boîte
+# blanche sur `_sans_preambule_xml` puis bout en bout, avec dans chaque cas un
+# `pytest.raises` qui prouve que les octets bruts échouaient avant correctif
+# (sans quoi le test resterait vert le jour où un parseur plus tolérant ne
+# mesurerait plus rien — même idiome que `test_invariants.py`).
+#
+# Piste pour le jour où les fichiers réels seront disponibles : expat rend le
+# même message pour **tout** `<?xml ...?>` qui n'est pas au tout premier
+# octet, pas seulement pour un BOM ou un blanc — par exemple deux fichiers
+# XML concaténés, ou du texte non blanc en tête. `_sans_preambule_xml` ne
+# couvre que la branche BOM + blancs ; si les neuf fichiers réels persistent
+# à échouer une fois relus, regarder d'abord ce qui précède leur premier `<`.
+
+
+def test_sans_preambule_xml_retire_bom_et_blancs():
+    """`_sans_preambule_xml` retire un préambule de BOM(s) et de blancs.
+
+    C'est la fonction qui corrige L6.3. Un BOM nu (sans rien d'autre) est
+    déjà accepté tel quel par `ET.fromstring` — ce n'est *pas* le bug. Le
+    bug, c'est un BOM suivi d'un blanc, ou un blanc seul : ça, `ET.fromstring`
+    le refuse avec « XML or text declaration not at start of entity ».
+    """
+    contenu = b'<?xml version="1.0" encoding="UTF-8"?><a/>'
+    assert _sans_preambule_xml(b"\xef\xbb\xbf\n" + contenu) == contenu, "BOM + saut de ligne"
+    assert _sans_preambule_xml(b" " + contenu) == contenu, "espace en tête"
+    assert _sans_preambule_xml(b"\xef\xbb\xbf\xef\xbb\xbf \t" + contenu) == contenu, "combinaison"
+    assert _sans_preambule_xml(contenu) == contenu, "rien à retirer : inchangé"
+    # Sans `<` derrière, on ne retire rien : un fichier de blancs reste tel
+    # quel, donc toujours détecté comme vide ou illisible en aval — pas
+    # « corrigé » en un fichier valide qui ne contiendrait aucun XML.
+    assert _sans_preambule_xml(b"   \n") == b"   \n"
+    assert _sans_preambule_xml(b"\xef\xbb\xbf") == b"\xef\xbb\xbf"
+    assert _sans_preambule_xml(b"") == b""
+
+
+def test_bom_saut_de_ligne_tcx_est_tolere(generateur, tmp_path: Path):
+    """Bout en bout : un TCX avec BOM + saut de ligne avant `<?xml` se lit.
+
+    Octets jetables dans `tmp_path`, pas dans le dossier partagé
+    `tests/fixtures/activites/` : une trace à un seul point y serait comptée
+    comme une vraie sortie par l'inventaire, alors que c'est le genre de cas
+    dégénéré catalogué « hostile » ailleurs (`fit_un_point.fit`).
+    """
+    xml = generateur.encoder_tcx(generateur.trajectoire(n=1)).encode("utf-8")
+    octets = b"\xef\xbb\xbf\n" + xml
+    with pytest.raises(ET.ParseError):
+        ET.fromstring(octets)  # sans le correctif, ces octets étaient refusés
+
+    chemin = tmp_path / "bom_saut_de_ligne.tcx"
+    chemin.write_bytes(octets)
+    a = lire(chemin)
+    assert a.source == "tcx"
+    assert a.points
+    assert a.debut is not None
+
+
+def test_espace_en_tete_gpx_est_tolere(generateur, tmp_path: Path):
+    """Bout en bout : un GPX avec un espace avant `<?xml` se lit (même mécanisme)."""
+    xml = generateur.encoder_gpx(generateur.trajectoire(n=1)).encode("utf-8")
+    octets = b" " + xml
+    with pytest.raises(ET.ParseError):
+        ET.fromstring(octets)  # sans le correctif, ces octets étaient refusés
+
+    chemin = tmp_path / "espace_en_tete.gpx"
+    chemin.write_bytes(octets)
+    a = lire(chemin)
+    assert a.source == "gpx"
+    assert a.points
+    assert a.debut is not None
 
 
 # --- cas d'erreur -------------------------------------------------------------
