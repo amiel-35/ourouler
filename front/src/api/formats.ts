@@ -169,8 +169,13 @@ export function titreDeBoucle(_azimutDeg: number | null, numero: number): string
  * « Boucle au sud-ouest » deux centimètres plus bas. Un azimut en degrés
  * passe aussi par ce champ ; on le rend alors à la boussole la plus proche
  * plutôt que d'afficher « 155° » à quelqu'un qui va rouler.
+ *
+ * `null` (Q47) : aucune direction n'a été demandée, le moteur a balayé tout
+ * l'horizon — ce n'est pas une valeur absente à cacher, c'est ce qui s'est
+ * passé, et l'écran le dit.
  */
-export function directionEnToutesLettres(direction: string): string {
+export function directionEnToutesLettres(direction: string | null): string {
+  if (direction === null) return "toutes directions";
   const code = direction.trim().toUpperCase();
   const index = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"].indexOf(code);
   if (index >= 0) return DIRECTIONS[index];

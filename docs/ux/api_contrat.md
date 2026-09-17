@@ -400,7 +400,7 @@ client, c'est une garde et pas une preuve.
   compte une ou deux, et `donnees.motif_deux_propositions` porte
   l'explication en toutes lettres. Vérifié sur les vraies données du
   mainteneur le 17/09/2026. Depuis [[Q43]] il n'y a plus qu'une raison à
-  ce cas : **deux boucles du groupe empruntaient plus de 25 % des mêmes
+  ce cas : **deux boucles du groupe empruntaient plus de 30 % des mêmes
   routes**, et le motif la dit sans « soit… soit… » ;
 - **« trois propositions qui se valent »** — les trois sont servies, aucune ne
   porte de phrase, et `donnees.motif_equivalence` dit pourquoi : « ces trois
@@ -413,6 +413,50 @@ client, c'est une garde et pas une preuve.
 Une **adresse introuvable** vaut aussi 200 (les services ont répondu), avec
 `donnees.candidats` vide **et** une phrase dans `avertissements` : un écran
 d'échec a besoin d'une phrase, pas d'une liste vide.
+
+## L'arbitrage : le sort de **toutes** les candidates (lot F2.4)
+
+Ajouté le 17/09/2026, à la demande du mainteneur : « est-il possible […] qu'il
+m'affiche tout avec le choix qu'il aurait fait — écarté ou bien accepté — car
+je veux visuellement voir le souci ».
+
+Jusque-là, `donnees.propositions` disait ce que le produit retenait et rien ne
+disait ce qu'il jetait. `donnees.ecartees` existait, mais ne couvrait que les
+refus **d'avant** le contraste, sans géométrie — or c'est au contraste que les
+candidates du mainteneur disparaissaient.
+
+`donnees.arbitrage` (`null` si le contraste n'a pas tourné) :
+
+| clé | ce que c'est |
+|---|---|
+| `seuil_recouvrement` | le seuil **de cet appel**, pas la constante du module |
+| `candidates[]` | `{numero, sort, recouvrement_max, contre_numero, motif}` — une entrée par candidate, retenues comprises |
+| `paires[]` | `{a, b, recouvrement, au_dessus_du_seuil}` — **toutes** les paires |
+| `essais` | `{taille, essayes, valides, refuses_par_une_paire}` |
+| `phrase` | ce que `essais` établit, en une phrase du cœur |
+
+`sort` vaut `retenue`, `trop_proche` ou `place_prise`, et **les deux derniers
+ne se confondent pas** : `place_prise` désigne une candidate qui allait bien
+ailleurs mais qui arrivait après que le groupe fût complet. La ranger avec les
+écartées ferait voir un défaut là où il n'y en a pas.
+
+`motif` porte la phrase **dans les termes qui décident** — « écartée : 55 %
+des mêmes routes que la n° 1, au-dessus du seuil de 30 % ». Elle est écrite
+par le cœur : aucun pourcentage de recouvrement ne se recalcule côté front
+(doctrine §10.2).
+
+`paires` porte la matrice complète parce que c'est elle qui rend visible le
+point de conception : **un groupe est disqualifié dès qu'une seule de ses
+paires dépasse le seuil**. La moyenne des recouvrements ne prédit rien —
+quatre candidates distinctes dans l'ensemble, une paire à 55 %, et le compte
+tombe à deux. `essais.refuses_par_une_paire` le **mesure** au lieu de
+l'affirmer.
+
+`donnees.ecartees[]` gagne deux clés : `etape` (`distance` — la boucle n'a
+jamais été construite dans cette direction — ou `placement` — elle existe,
+c'est la séance qui n'y tenait pas) et `trace`, la géométrie au format du lot
+F0.1. `trace` vaut `null` pour un refus sur la distance : un azimut et une
+distance ne se dessinent pas, et on n'invente pas un tracé vide.
 
 ## Les avertissements, et leurs codes
 

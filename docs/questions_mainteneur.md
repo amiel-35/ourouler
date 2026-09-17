@@ -142,7 +142,7 @@ d'autre — pas de client Garmin, pas de bibliothèque non officielle, pas de
 compte à brancher. Les API constructeurs (Wahoo en tête, la seule vraie)
 restent au backlog du service hébergé, pas du besoin du mainteneur.
 
-## Q6 — Nom du projet — **nom validé le 13/09/2026 : ourouler** ; reste la purge avant publication
+## Q6 — Nom du projet et purge avant publication — **close le 17/09/2026**ation
 
 Nom validé : `ourouler` (paquet, commande, dépôt GitHub `amiel-35/ourouler`,
 renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessous ;
@@ -1844,6 +1844,22 @@ monde. C'est un réglage de moteur, pas un goût.
   en fait déjà « un paramètre de configuration, pas une constante » — reste à
   dire de quelle configuration.
 
+### Les deux sections orphelines — tranchées le 17/09/2026
+
+> « personnel, avec config par défaut. »
+
+**`[evitements]` et `historique_depuis` appartiennent au cycliste**, avec des
+valeurs par défaut pour que personne ne parte d'une page blanche.
+
+Conséquence à traiter : `historique_depuis` vit aujourd'hui **sous `[cache]`**,
+donc côté serveur d'après ce découpage — alors qu'elle décrit l'histoire d'une
+personne. Le 1ᵉʳ décembre 2023 du mainteneur n'a aucun sens pour quelqu'un qui
+s'inscrit demain. Elle sort de `[cache]`, qui parle de stockage.
+
+Le découpage de Q35 est donc complet : **au cycliste** `depart`, `cycliste`,
+`velos`, `intervals`, `seance`, `calibration`, `tenue`, `evitements`,
+`historique_depuis` ; **au serveur** `boucle`, `meteo`, `brouter`, `cache`.
+
 ## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **bloquant levé provisoirement au lot F2**
 
 Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
@@ -2584,7 +2600,194 @@ Confondre les deux ferait affirmer que deux boucles roulent autant sur les
 nationales alors qu'elles n'y roulent pas autant.
 
 
-## Q46 — Importer son historique : par où, et ce qu'on en garde — **17/09/2026**
+## Q46 — Ce que le service a le droit d'apprendre des sorties de chacun — **ouvert le 17/09/2026**
+
+> « au cycliste ses données, au serveur une partie qu'on veut utiliser pour
+> comprendre. »
+
+Phrase du mainteneur en marge de [[Q35]], et **elle ouvre un sujet qui vit
+déjà dans le code sans avoir été posé.**
+
+### Ce qui existe déjà et qui deviendra collectif
+
+`src/ourouler/apprentissage/routes.py` **apprend les poids des routes à partir
+de ce qui a été réellement roulé**. Aujourd'hui sur les seules sorties du
+mainteneur, dans son cache. Le jour où plusieurs cyclistes roulent, la
+question se pose d'elle-même : **ce que l'un a roulé améliore-t-il le parcours
+de l'autre ?**
+
+La réponse évidente est oui — c'est même ce qui fait la valeur d'un service
+partagé, et Komoot ne fait pas autre chose avec ses données de trajets
+anonymisées. Mais ça n'a jamais été décidé.
+
+### Ce que la doctrine promet déjà, et qui contraint
+
+§10.2 : *« RGPD par construction : export de toutes ses données et suppression
+du compte (profil, fichiers, calibrations, clés) disponibles dès la première
+version hébergée ; pas de suivi d'audience ; hébergement en Europe. »*
+
+**Supprimer un compte devient alors ambigu.** Les poids de routes qu'il a
+contribué à apprendre ne sont plus « ses données » — ils sont fondus dans un
+modèle partagé, et les en retirer demanderait de tout réapprendre sans lui.
+
+### Le spectre, du plus personnel au plus mutualisable
+
+| donnée | nature |
+|---|---|
+| calibration CdA/Crr | **strictement personnelle**, aucune valeur collective |
+| clé Intervals, départ, FTP | **strictement personnelle** |
+| poids de routes appris | **collectif par nature** — c'est la géographie, pas le cycliste |
+| cache météo par maille et par heure | **collectif par construction** ([[Q42]]) |
+| mesures d'usage (densité de marqueurs, classes de trafic, facteur terrain) | entre les deux — faites cette nuit sur l'historique du mainteneur |
+
+Les deux extrémités sont claires. **C'est la ligne du milieu qui demande une
+décision**, et elle en demande trois :
+
+1. **Qu'est-ce qui remonte** — la trace brute, ou seulement des agrégats par
+   tronçon de route ?
+2. **Qu'est-ce qu'on en dit au cycliste**, et le choix est-il explicite ? Un
+   service qui apprend de vous sans le dire n'est pas le même produit que
+   celui qui le demande.
+3. **Que devient la contribution à la suppression du compte ?** Les poids
+   appris survivent-ils, et si oui, est-ce compatible avec ce que §10.2
+   promet ?
+
+**Le mainteneur le pose comme « un sujet à part », et il a raison** : ça ne
+bloque aucun lot en cours, et ça décide de ce qu'est le produit une fois
+partagé.
+
+
+### Réponse du mainteneur (17/09/2026) — la ligne passe entre la route et le lien
+
+> « en fait, c'est : qu'est-ce qu'on conserve du point de routes qui concerne
+> directement le cycliste ? »
+
+**Meilleure formulation que la question d'origine**, et elle sépare ce que la
+table mélange. `apprentissage/routes.py`, table `troncons` :
+
+| colonnes | de quoi ça parle |
+|---|---|
+| `cle_lat`, `cle_lon`, `highway`, `surface`, `maxspeed`, `cout_km` | **la route** — elle existe indépendamment de qui l'a roulée |
+| `passages`, `metres` | **le fait d'y être passé** |
+| `proprietaire`, et la table `sorties` (`id_sortie`, `jour`) | **le cycliste** |
+
+**Ce qui concerne la route se partage sans difficulté** : une petite route
+agréable l'est pour tout le monde, et ça n'appartient à personne. **Ce qui est
+personnel, c'est le lien** — que *cette personne* y est passée, *ce jour-là*,
+sur *cette sortie*.
+
+Et ça résout la tension avec la doctrine §10.2 sans compromis : si l'agrégat
+collectif ne porte jamais l'identité, **il n'y a rien de personnel à supprimer
+dedans**. Supprimer un compte retire ses sorties et son lien aux tronçons ; le
+savoir sur les routes reste, parce qu'il n'a jamais parlé de lui.
+
+### Le seuil de réidentification, et pourquoi il attend
+
+J'avais signalé qu'avec peu d'utilisateurs, **un tronçon parcouru une seule
+fois désigne une seule personne** : un compteur « 1 passage » sur une route de
+campagne se réattribue tout seul. L'anonymat par agrégation n'existe qu'à
+partir d'un certain nombre de contributeurs.
+
+> « tant que c'est des copains, que je ne vends pas le service, je
+> préciserais. »
+
+**Position retenue, et elle est cohérente** : ce n'est pas une machinerie
+d'anonymisation qui protège dans ce cas, c'est le fait que le mainteneur
+connaisse les gens et le leur dise. La transparence tient lieu de seuil tant
+que le cercle est petit et le service gratuit.
+
+**Ce qui fait revenir la question**, et il faut le savoir d'avance : le
+service vendu, ou des inconnus dedans. L'une des deux suffit. Le seuil de
+contributeurs distincts devra alors être **mesuré**, pas posé.
+
+Note d'une autre nature, indépendante de la vie privée : un tronçon roulé une
+seule fois n'est pas non plus une **preuve** qu'il est bon. Le seuil sert donc
+deux choses à la fois — et cette seconde raison-là vaut déjà aujourd'hui.
+
+
+## Q47 — Quatre arbitrages de clôture du 17/09/2026
+
+### Q37 (c) — résolu, et je l'avais mal lu
+
+> « actuellement l'IHM demande bien une durée, c'est vérifié. »
+
+**Exact.** `front/src/ecrans/Demander.tsx` envoie une **durée**, aucune
+distance ; `kmDepuisKm` n'est qu'un formateur d'affichage, et la conversion se
+fait côté serveur avec le modèle physique. Je listais cette question comme
+ouverte alors qu'elle était close depuis le lot F2.
+
+### Le frottement en Z2 — ce n'était pas un choix, c'est une incohérence
+
+> « comment, avec séance, permet de choisir un azimut ? »
+
+La question a levé ce que je m'apprêtais à faire arbitrer. **Deux chemins,
+deux règles :**
+
+- `sortie` (avec séance) : aucune direction nécessaire, le moteur **balaie les
+  huit directions** si rien n'est demandé.
+- `boucle` (sortie libre) : « `--direction N|NE|…|NO` ou un azimut en degrés
+  est **obligatoire** » (`boucle/commande.py:377`).
+
+Le bouton grisé en Z2 n'est donc pas une décision de conception mais une
+contrainte héritée d'une commande qui n'a jamais appris à balayer. **Rien à
+arbitrer : `boucle` doit se comporter comme `sortie`.**
+
+### Q31 — informatif, et ça attend des vrais Franciliens
+
+> « c'est informatif, donc pour l'instant on attend d'avoir des gens
+> d'Île-de-France, on traitera après. »
+
+La distance de dégagement urbain reste ouverte, sans travail engagé. Elle ne
+sert qu'à quelqu'un dont la ville ne se dégage pas — et il n'y en a pas
+encore. Même raison pour la question de la géographie, qui est la même prise
+par l'autre bout.
+
+### Q32 — après la V2
+
+> « on voit après V2. »
+
+Le mode circuit attend. Il dépend de [[Q31]], qui attend les mêmes gens.
+
+### Q3 — close : des seuils existent, la personnalisation est en V2
+
+> « on a déjà des seuils, non ? On n'a pas dit V2 pour permettre aux gens de
+> personnaliser ? »
+
+**Oui aux deux.** Les seuils de tenue existent et fonctionnent ; ce que la V2
+apporte est le droit pour chacun de les déplacer. C'est exactement ce que
+[[Q35]] a tranché pour `[tenue]` : valeurs par défaut en V1, édition des
+seuils en V2. Q3 n'avait donc plus de question depuis ce matin.
+
+
+### Q6 — clôture du 17/09/2026
+
+L'identifiant d'athlète Intervals est retiré du dépôt (`docs/sprint1_relecture.md`),
+et il vit désormais côté profil de l'utilisateur, conformément à [[Q35]].
+
+**Ce que la vérification a établi, et qui change la gravité :**
+
+| | fichiers suivis | historique git |
+|---|---|---|
+| identifiant d'athlète (7 caractères) | 0 | **4 commits** |
+| clé d'API (25 caractères) | 0 | **0** |
+
+**La clé n'a jamais touché le dépôt**, à aucun moment de son histoire. La
+règle absolue 1 a tenu sur ce qui comptait.
+
+Et un identifiant d'athlète **n'est pas un secret** : il désigne un profil
+Intervals, il ne donne accès à rien. Sans la clé, on ne peut ni lire les
+sorties ni écrire quoi que ce soit — c'est de l'ordre d'un nom d'utilisateur.
+
+**Décision du mainteneur** : « ok, pas très grave ». L'historique n'est pas
+réécrit — le faire changerait tous les sha du dépôt pour retirer une donnée
+publique.
+
+**Ce qui reste, et qui n'est pas un secret non plus** : la masse, la FTP et
+« centre de Rennes » figurent dans cinq documents, dont `docs/cadrage.md`.
+Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
+purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
+ensemble, ils décrivent quelqu'un. Signalé, assumé.
+## Q48 — Importer son historique : par où, et ce qu'on en garde — **17/09/2026**
 
 Point de départ : les API des plateformes se ferment. Strava a durci sa
 politique au 1ᵉʳ juin 2026 — cache de sept jours, interdiction du *bulk
@@ -2700,7 +2903,7 @@ ses fichiers à l'intérieur. `indexer_dossier` filtre sur l'extension et passer
   Les intitulés exacts des deux pages ne sont pas vérifiés d'ici : elles
   demandent une session connectée. À relever en capture au moment d'écrire le
   guide.
-- **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q47]].
+- **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q49]].
 
 ### Le parcours est générique — ce qui change la découpe
 
@@ -2735,7 +2938,7 @@ Où ça atterrit : sprint suivant, ou lot isolé. Un sprint figé ne s'élargit 
 en cours de route.
 
 
-## Q47 — Estimer la puissance sans capteur, et ce que ça vaut — **17/09/2026**
+## Q49 — Estimer la puissance sans capteur, et ce que ça vaut — **17/09/2026**
 
 > en fait si j'ai le terrain la vitesse le poids et la FC, une météo, je
 > commence à avoir pas mal d'info pour estimer vaguement une puissance pas trop
@@ -2809,7 +3012,7 @@ ne sont pas dans la configuration, dont l'historique démarre au 1ᵉʳ décembr
 analyse de sensibilité.
 
 
-## Q48 — Déduire une zone 2 de la fréquence cardiaque, pour les cyclistes sans capteur — **17/09/2026, lot séparé**
+## Q50 — Déduire une zone 2 de la fréquence cardiaque, pour les cyclistes sans capteur — **17/09/2026, lot séparé**
 
 > on va devoir gérer le cas sans capteur de puissance et vaguement en déduire
 > la Z2 des gens sur leur FC — c'est un sujet à part entière
@@ -2870,10 +3073,10 @@ levée.
   Le croisement devrait les faire ressortir seul, ce qui en fait un bon
   contrôle de cohérence de tout l'édifice.
 
-Lot séparé, après [[Q47]].
+Lot séparé, après [[Q49]].
 
 
-## Q49 — Ce que la mesure a trouvé sur [[Q47]] et [[Q48]] — **17/09/2026**
+## Q51 — Ce que la mesure a trouvé sur [[Q49]] et [[Q50]] — **17/09/2026**
 
 Campagne en aveugle sur les données réelles, deux gels horodatés en lecture
 seule, comparaison après coup. Les chiffres qui suivent sont mesurés, pas
@@ -2983,7 +3186,7 @@ maximal de ce mainteneur.** Le rapport produit/capacité sort stable (80,6 %,
 étendue 75-84 %) mais c'est une constante d'**habitude**, pas de physiologie :
 appliquée, elle déduit deux capacités au-dessus du meilleur 20 min de toujours.
 
-Ce qui confirme la conclusion de [[Q48]] : pour l'usage d'ourouler, la
+Ce qui confirme la conclusion de [[Q50]] : pour l'usage d'ourouler, la
 grandeur utile est la **puissance habituellement produite**, pas la capacité.
 
 ### Trois valeurs de seuil qui semblaient se contredire, démêlées
@@ -3012,7 +3215,7 @@ désaccord.
 3. **Neuf TCX refusés au chargement** : « XML or text declaration not at start
    of entity: line 1, column 10 », probable BOM en tête de fichier. Défaut réel
    de `activites/lecture.py`, et il touche directement le lot d'import de
-   [[Q46]].
+   [[Q48]].
 
 ### Deux réserves de méthode, déclarées
 
@@ -3081,9 +3284,9 @@ vélos**, usage explicitement mis hors périmètre par le mainteneur. L'usage
 dangereux est donc déjà interdit.
 
 
-## Q50 — Un seul réglage, deux visages, et le produit qui en découle — **17/09/2026**
+## Q52 — Un seul réglage, deux visages, et le produit qui en découle — **17/09/2026**
 
-Énoncé du mainteneur, qui referme [[Q47]], [[Q48]] et [[Q49]] :
+Énoncé du mainteneur, qui referme [[Q49]], [[Q50]] et [[Q51]] :
 
 > à partir de l'apprentissage, pouvoir dire à une personne « voici vaguement ta
 > zone 2, es-tu d'accord ? » et tu peux ajuster — tu touches la puissance ou la
@@ -3094,7 +3297,7 @@ dangereux est donc déjà interdit.
 
 ### Ce que ça résout
 
-**La question cardiaque disparaît.** [[Q49]] a mesuré que demander une plage de
+**La question cardiaque disparaît.** [[Q51]] a mesuré que demander une plage de
 Z2 cardiaque *dégrade* l'estimation, parce que la réponse rapporte des réglages
 et non une mesure. Ce design n'en demande aucune : il montre une vitesse et
 laisse corriger. La contradiction se dissout au lieu d'être arbitrée.
@@ -3106,7 +3309,7 @@ laisse corriger. La contradiction se dissout au lieu d'être arbitrée.
 de capteur touche des watts, celui qui n'en a pas touche des km/h, et le produit
 stocke une seule grandeur.
 
-Ce réglage unique est le facteur multiplicatif mesuré en [[Q49]] : hors
+Ce réglage unique est le facteur multiplicatif mesuré en [[Q51]] : hors
 échantillon, il ramène le biais de +12,5 W à +1,1 W et la MAE de 30 %, jusqu'au
 plancher de la physique. Il fixe le **niveau** de la courbe ; la physique rend
 le reste — vent, relief, saison.
@@ -3137,7 +3340,7 @@ les deux usages servis.
 
 1. **On le demande** — « sur une sortie tranquille au plat, tu tournes à combien
    de moyenne ? ». Un cycliste sait répondre ; il ne sait pas donner son CdA.
-2. **Il s'apprend seul** dès une dizaine de sorties importées ([[Q46]]).
+2. **Il s'apprend seul** dès une dizaine de sorties importées ([[Q48]]).
 3. **Il se corrige** quand la personne rectifie une durée proposée.
 
 Le troisième est le plus précieux : il transforme chaque désaccord de
@@ -3177,7 +3380,7 @@ correction. Montrer « votre FTP ne colle pas à votre courbe » à quelqu'un qu
 vient de faire ce travail serait du bruit.
 
 Ce qui reste du contrôle : il ne s'affiche pas comme un désaccord. Un écart
-persistant se règle par la boucle de correction de [[Q50]] — la personne
+persistant se règle par la boucle de correction de [[Q52]] — la personne
 rectifie une durée proposée, le facteur bouge — sans qu'on lui dise jamais que
 son seuil est faux.
 
@@ -3188,11 +3391,11 @@ puissance.
 *Les deux sous-cas n'ont pas la même force.* FC + puissance est solide : les
 zones se dérivent directement, et c'est en réalité « il a un capteur mais ne
 connaît pas ses zones ». FC seule, c'est la chaîne mesurée à 15,5 W en
-[[Q49]] — utilisable, mais elle porte toute l'incertitude.
+[[Q51]] — utilisable, mais elle porte toute l'incertitude.
 
 **Réserve commune, à lever avant de bâtir dessus** : si le compte Intervals
 d'une personne est alimenté **depuis Strava**, ces activités pourraient ne pas
-ressortir par l'API d'Intervals — c'est ce que Strava interdit ([[Q46]], §5.16,
+ressortir par l'API d'Intervals — c'est ce que Strava interdit ([[Q48]], §5.16,
 ré-exposition en cascade). Le mainteneur, alimenté par Garmin, ne verra jamais
 le problème ; un utilisateur Strava, si. À vérifier.
 
@@ -3207,14 +3410,14 @@ Argument du mainteneur, le 17/09, et il clôt le débat sur la précision :
 
 **C'est juste, et c'est mesurable.** Une transmission entretenue contre une
 transmission sale, un casque, un vêtement qui claque : chacun pèse autant ou
-plus que les 15,5 W de la chaîne complète sans capteur ([[Q49]]). Le cycliste
+plus que les 15,5 W de la chaîne complète sans capteur ([[Q51]]). Le cycliste
 promène tous les jours une incertitude matérielle qu'il ne connaît pas, et qui
 dépasse celle du modèle.
 
 **Conséquence pour tout agent qui travaillera sur ce sujet** : raffiner
 l'estimation sous une quinzaine de watts ne sert à rien. L'effort utile est
 ailleurs — d'abord la fenêtre glissante (9 min pour zéro code), puis le CdA
-saisonnier (5 min), puis rien. Et le facteur ajustable de [[Q50]] absorbe de
+saisonnier (5 min), puis rien. Et le facteur ajustable de [[Q52]] absorbe de
 toute façon ce qui reste, y compris la chaîne sale.
 ### Une frontière : on ne demande pas le matériel, et on n'évalue pas les vélos
 
@@ -3235,7 +3438,7 @@ Deux raisons, et la seconde est la plus importante :
 
 **À l'attention du prochain agent** : voir passer `cda_m2` et `crr` dans
 `physique/` n'autorise pas à proposer un comparateur de matériel. L'incertitude
-matérielle est absorbée par le facteur ajustable de [[Q50]], jamais interrogée.
+matérielle est absorbée par le facteur ajustable de [[Q52]], jamais interrogée.
 
 ### Le remède au défaut 2 : figer le roulement, n'ajuster que l'aéro
 
@@ -3275,9 +3478,9 @@ qu'il analyse une sortie passée. Ourouler ne propose que des boucles en solo :
 `detecter_groupe` **écarte** ces sorties de la calibration au lieu de les
 corriger, ce qui est le bon geste — on ne calibre pas sur des watts qu'on n'a
 pas produits. Mesuré : +32,8 W d'erreur de physique en Z2 sur les sorties club
-contre +2,8 W ailleurs ([[Q49]]).
+contre +2,8 W ailleurs ([[Q51]]).
 
-### Correction du 17/09 (soir) — la mesure réfute une partie de [[Q49]]
+### Correction du 17/09 (soir) — la mesure réfute une partie de [[Q51]]
 
 Le lot L6.1 s'est arrêté **sans écrire de code** et a mesuré ce qu'on lui
 demandait de corriger. Trois résultats, dont deux réfutent ce qui précède.
@@ -3301,11 +3504,11 @@ rien apporter à quelqu'un qui n'en a pas besoin. Écarts constatés (0,3 min,
 
 Le signe s'inverse même : les médianes les plus hautes sont en octobre-décembre.
 
-**Explication retenue** : le couple 168/147 **encadre** les 151 W que [[Q49]]
+**Explication retenue** : le couple 168/147 **encadre** les 151 W que [[Q51]]
 cite par ailleurs. Il vient donc très probablement de la chaîne **sans capteur**
 (FC → zone → physique), où un hiver plus lent — vêtements, routes mouillées — se
 lit comme une puissance plus basse. Chez un porteur de capteur, il n'y a rien à
-capter. **Les 9 minutes de [[Q49]] valent pour le monde sans capteur, pas pour
+capter. **Les 9 minutes de [[Q51]] valent pour le monde sans capteur, pas pour
 le monde mesuré.**
 
 **Un piège d'instrument, qui n'était pas nommé** : `simuler` est un modèle
@@ -3325,7 +3528,7 @@ sur la NP fait passer l'écart de 7,96 à **10,99 min/2 h**, franchement pire.
 **Et la dégénérescence est mesurée de face** : la résistance totale à 27 km/h
 reste entre **17,84 et 18,12 N** pendant que la masse parcourt 90 à 100 kg.
 L'ajustement glisse le long de la vallée en gardant le total juste. C'est la
-preuve directe que [[Q49]] demandait, et elle est nette.
+preuve directe que [[Q51]] demandait, et elle est nette.
 
 **La série de poids existe** : 295 jours mesurés sur 1052 (`get_wellness`), du
 03/11/2023 au 14/09/2026, 78,5 à 92,0 kg. Écart médian entre mesures 2 jours,

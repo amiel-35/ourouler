@@ -140,10 +140,17 @@ class DemandeSortie(Modele):
 
 
 class DemandeBoucle(Modele):
-    """Une boucle libre, sans séance — l'équivalent d'`ourouler boucle`."""
+    """Une boucle libre, sans séance — l'équivalent d'`ourouler boucle`.
+
+    Q47 : `direction` était obligatoire alors que `sortie` balaie déjà tout
+    l'horizon quand rien n'est demandé — une contrainte héritée, pas un choix
+    de conception. Elle est désormais facultative, comme côté `sortie`.
+    """
 
     distance_km: float = Field(gt=0, le=1000)
-    direction: TexteUtile = Field(description="N, NE, … NO ou un azimut en degrés")
+    direction: TexteUtile | None = Field(
+        default=None, description="N, NE, … NO ou un azimut en degrés (défaut : tout l'horizon)"
+    )
     heure_depart: TexteUtile | None = None
     candidates: int | None = Field(default=None, ge=1, le=24)
     profil: TexteUtile | None = None

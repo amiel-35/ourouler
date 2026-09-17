@@ -430,7 +430,7 @@ qui dit si le produit tient.
 
 #### Les lots de correction, cadrés le 17/09/2026
 
-La campagne de mesure du 17/09 ([[Q49]] dans `questions_mainteneur.md`) a
+La campagne de mesure du 17/09 ([[Q51]] dans `questions_mainteneur.md`) a
 produit la première moitié du livrable de ce sprint : **la liste d'écarts**,
 chiffrée sur les vraies données. Ce qui suit en est la seconde moitié, la
 correction. Ce n'est pas un élargissement du cap.
@@ -459,9 +459,9 @@ phrase du 16/09 de la docstring à reprendre. L6.3 quand ça arrange.
 durée prédite et durée réelle sur les vraies sorties du mainteneur, mesuré
 avant et après, en minutes. Pour L6.3, les neuf TCX refusés se lisent.
 
-**Ce qui reste hors de ce sprint.** L'import par lien ([[Q46]]), le réglage
-unique et sa boucle de correction ([[Q50]]), l'estimation sans capteur comme
-valeur initiale ([[Q47]], [[Q49]]) et la zone 2 ([[Q48]]) appartiennent au
+**Ce qui reste hors de ce sprint.** L'import par lien ([[Q48]]), le réglage
+unique et sa boucle de correction ([[Q52]]), l'estimation sans capteur comme
+valeur initiale ([[Q49]], [[Q51]]) et la zone 2 ([[Q50]]) appartiennent au
 **sprint 8**, dont le texte les avait anticipés sans les nommer : « valeurs par
 défaut qui marchent sans calibration (le nouveau n'a pas d'historique) […] sans
 calibration personnelle, le modèle doit tourner sur des paramètres génériques

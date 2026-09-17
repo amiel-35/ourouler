@@ -267,7 +267,9 @@ export interface DemandeSortie {
 
 export interface DemandeBoucle {
   distance_km: number;
-  direction: string;
+  // Q47 : facultative, comme côté `DemandeSortie` — sans direction, `/boucles`
+  // balaie tout l'horizon au lieu de refuser.
+  direction?: string;
   heure_depart?: string;
   candidates?: number;
   velo?: string;

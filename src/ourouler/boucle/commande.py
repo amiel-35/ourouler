@@ -49,7 +49,12 @@ from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import (
+    ErreurConfig,
+    ErreurConnecteur,
+    ErreurDistanceInatteignable,
+    ErreurUtilisateur,
+)
 from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, NOMS_DIRECTIONS_16, azimut_de
@@ -203,25 +208,7 @@ def executer(
             # le cœur ne connaît pas la configuration, il la reçoit.
             else ClientBrouter(config.brouter, evitements=config.evitements)
         )
-        trouvees = generer(
-            client_brouter,
-            config.depart,
-            distance_km=demande.distance_km,
-            azimut_deg=demande.azimut_deg,
-            nb=demande.nb_candidates,
-            tolerance=config.boucle.tolerance_distance,
-            profil=demande.profil,
-            # Le plafond d'appels suit le nombre de candidates demandées :
-            # sinon, cinq directions demandées face à un moteur qui n'arrive
-            # pas à la distance voulue en rendaient trois, sans rien en dire.
-            appels_max=appels_pour(demande.nb_candidates),
-        )
-        if not trouvees:
-            raise ErreurConnecteur(
-                f"boucle : aucune boucle bornée trouvée autour de {demande.direction} "
-                f"pour {demande.distance_km:g} km (profil {demande.profil}) — "
-                "essayer une autre direction, une autre distance ou un autre profil"
-            )
+        trouvees = _generer_candidates(client_brouter, config, demande)
         traces = [(c.trace, c.ecart_relatif, c) for c in trouvees]
 
     # Les trois fichiers appris ou calibrés (L3.2, L3.3) sont lus **ici** et
@@ -301,6 +288,66 @@ def executer(
     return 0
 
 
+def _generer_candidates(client: ClientBrouter, config: Config, demande: Demande) -> list:
+    """Les boucles candidates : la direction demandée, ou tout le tour de l'horizon.
+
+    Même logique que `sortie._candidates` (Q47) — reprise, pas refaite. Sans
+    `--direction`, `boucle` ne choisissait pas moins que `sortie`, elle
+    **refusait** : « --direction … est obligatoire ». C'était une contrainte
+    héritée d'une commande qui n'avait jamais appris à balayer, pas un choix
+    de conception (le mainteneur l'a relevé lui-même — Q47). Elle répartit
+    donc désormais les candidates sur les huit directions, **un appel à
+    `generer` par azimut** : c'est ce qui garantit que chaque direction
+    reçoit sa part plutôt que de laisser `generer` élargir un seul secteur
+    (`boucle.candidates.azimuts` balaie ±20°, ±40°… autour d'un azimut, il
+    n'en ouvre jamais un second).
+
+    Le plafond d'appels suit toujours la demande : `appels_pour(nb)` est le
+    même mécanisme que celui que `sortie` utilise déjà, pas un second inventé
+    ici pour l'occasion.
+
+    Le refus sur la distance (`ErreurDistanceInatteignable`, Q41 d) est donc
+    **par direction**, comme dans `sortie` : une direction où le terrain ne
+    sait pas faire la distance ne doit pas faire perdre les directions où il
+    sait. Il n'est relancé que si **aucune** direction n'a rien donné, et
+    c'est alors le refus le moins sévère qui remonte — celui qui dit le plus
+    justement de combien il aurait fallu élargir.
+    """
+    if demande.azimut_deg is not None:
+        repartition = [(demande.azimut_deg, demande.nb_candidates)]
+    else:
+        pas = 360.0 / demande.nb_candidates
+        repartition = [(i * pas, 1) for i in range(demande.nb_candidates)]
+
+    trouvees: list = []
+    refus: ErreurDistanceInatteignable | None = None
+    for azimut, nb in repartition:
+        try:
+            trouvees += generer(
+                client,
+                config.depart,
+                distance_km=demande.distance_km,
+                azimut_deg=azimut,
+                nb=nb,
+                tolerance=config.boucle.tolerance_distance,
+                profil=demande.profil,
+                appels_max=appels_pour(nb),
+            )
+        except ErreurDistanceInatteignable as e:
+            if refus is None or e.elargissement_requis < refus.elargissement_requis:
+                refus = e
+    if not trouvees and refus is not None:
+        raise refus
+    if not trouvees:
+        cible = demande.direction or "toutes directions"
+        raise ErreurConnecteur(
+            f"boucle : aucune boucle bornée trouvée autour de {cible} "
+            f"pour {demande.distance_km:g} km (profil {demande.profil}) — "
+            "essayer une autre direction, une autre distance ou un autre profil"
+        )
+    return trouvees
+
+
 def _base_routes(config: Config) -> BaseRoutes | None:
     """La base des routes connues si elle existe déjà, sinon `None`.
 
@@ -364,26 +411,22 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
 
     distance_km = getattr(args, "distance", None)
     direction = getattr(args, "direction", None)
-    azimut = None
-    libelle = ""
+    # Sans `--direction`, la recherche balaie tout l'horizon plutôt que de
+    # refuser (Q47) — même défaut que `sortie` : « peu importe » est une
+    # demande valable, pas une omission à corriger.
+    libelle, azimut = ("", None)
+    if direction is not None:
+        libelle, azimut = direction_en_azimut(direction)
 
     if chemin_gpx is None:
         if distance_km is None:
             raise ErreurUtilisateur(
                 "boucle : --distance KM est obligatoire (ou --gpx pour évaluer un fichier existant)"
             )
-        if direction is None:
-            raise ErreurUtilisateur(
-                "boucle : --direction N|NE|…|NO ou un azimut en degrés est obligatoire "
-                "(ou --gpx pour évaluer un fichier existant)"
-            )
         if not math.isfinite(distance_km) or distance_km <= 0:
             raise ErreurUtilisateur(
                 f"--distance {distance_km} : une distance en kilomètres strictement positive est attendue"
             )
-        libelle, azimut = direction_en_azimut(direction)
-    elif direction is not None:
-        libelle, azimut = direction_en_azimut(direction)
 
     nb = getattr(args, "candidates", None)
     nb = config.boucle.candidates if nb is None else nb
@@ -663,9 +706,14 @@ def _ecrire_meilleure(trace: Trace, demande: Demande) -> Path:
 
 
 def nom_par_defaut(demande: Demande) -> str:
-    """`boucle_<direction>_<distance>km_<AAAAMMJJ-HHMM>.gpx` (contrat §6)."""
+    """`boucle_<direction>_<distance>km_<AAAAMMJJ-HHMM>.gpx` (contrat §6).
+
+    Sans `--direction` (Q47 : la recherche balaie alors tout l'horizon), le
+    nom porte `toutes-directions` plutôt qu'un blanc illisible.
+    """
     distance = f"{demande.distance_km:g}" if demande.distance_km is not None else "0"
-    return f"boucle_{demande.direction}_{distance}km_{demande.depart:%Y%m%d-%H%M}.gpx"
+    direction = demande.direction or "toutes-directions"
+    return f"boucle_{direction}_{distance}km_{demande.depart:%Y%m%d-%H%M}.gpx"
 
 
 # --- rendu texte ---------------------------------------------------------------
@@ -898,9 +946,16 @@ def _entete(
     if demande.gpx is not None:
         lignes.append(f"Tracé importé : {demande.gpx}")
     else:
+        # Sans `--direction` (Q47), la recherche balaie tout l'horizon : il
+        # n'y a alors pas un azimut à afficher, mais huit.
+        direction = (
+            f"{demande.direction} ({demande.azimut_deg:.0f}°)"
+            if demande.azimut_deg is not None
+            else "toutes directions"
+        )
         lignes.append(
             f"Boucle depuis {config.depart.nom} — {demande.distance_km:g} km vers "
-            f"{demande.direction} ({demande.azimut_deg:.0f}°), profil {demande.profil}"
+            f"{direction}, profil {demande.profil}"
         )
     lignes.append(
         f"Départ {date_en_francais(demande.depart)} — {_vitesse_passage(config, evaluations)} "

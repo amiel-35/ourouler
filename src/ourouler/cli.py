@@ -464,7 +464,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
     )
     p.add_argument(
         "--direction",
-        help="N, NE, … NO ou un azimut en degrés (obligatoire sans --gpx)",
+        help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon)",
     )
     ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : maintenant)")
     ajouter_adresse_depart(p)

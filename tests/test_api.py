@@ -605,6 +605,24 @@ def test_une_boucle_libre_rend_sa_geometrie(tmp_path: Path):
     assert donnees["gpx"]["url"].startswith("/api/v1/fichiers/")
 
 
+def test_une_boucle_libre_sans_direction_balaie_l_horizon(tmp_path: Path):
+    """Q47 : `direction` est désormais facultative, comme côté `POST /sorties`.
+
+    Le bouton « Chercher » du front n'a plus de raison d'être grisé en
+    Endurance Z2 faute de direction choisie — c'est ce que cette route doit
+    permettre.
+    """
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo())
+    reponse = client.post("/api/v1/boucles", json={"distance_km": 30.0, "candidates": 3})
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["demande"]["direction"] is None
+    assert donnees["demande"]["azimut_deg"] is None
+    azimuts = sorted(c["azimut_deg"] for c in donnees["candidates"])
+    assert len(azimuts) == 3
+    assert azimuts == pytest.approx([0.0, 120.0, 240.0])
+
+
 def test_la_generation_part_du_point_que_le_front_a_choisi(tmp_path: Path):
     client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo())
     reponse = client.post(

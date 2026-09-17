@@ -200,9 +200,39 @@ def test_sans_distance_ni_gpx_erreur_utilisateur():
         lire_options(args(distance=None), config_de_test())
 
 
-def test_sans_direction_ni_gpx_erreur_utilisateur():
-    with pytest.raises(ErreurUtilisateur, match="--direction"):
-        lire_options(args(direction=None), config_de_test())
+def test_sans_direction_ni_gpx_la_demande_balaie_tout_l_horizon():
+    """Q47 : ce n'était pas un choix de conception, `boucle` n'avait jamais appris à balayer.
+
+    `sortie` (avec séance) balaie déjà les huit directions quand rien n'est
+    demandé ; `boucle` (sortie libre) refusait — « --direction … est
+    obligatoire » — alors que rien ne le justifiait. Sans direction, la
+    demande doit maintenant se construire comme `sortie` le fait : un
+    libellé vide, aucun azimut fixé, à charge pour la génération de
+    balayer.
+    """
+    demande = lire_options(args(direction=None), config_de_test())
+    assert demande.direction == ""
+    assert demande.azimut_deg is None
+
+
+def test_sans_direction_l_execution_bout_en_bout_balaie_les_azimuts(tmp_path, monkeypatch, capsys):
+    """Q47, vérifié en bout en bout : le refus disparaît, et les candidates
+    sont réparties sur l'horizon plutôt qu'entassées sur un seul azimut —
+    exactement le défaut que `boucle.candidates.azimuts` (±20°, ±40°…)
+    aurait produit avec un seul appel.
+    """
+    monkeypatch.chdir(tmp_path)
+    config = config_de_test(boucle={"vitesse_moyenne_kmh": 27.0, "sens": "horaire", "candidates": 3})
+    code = executer(args(direction=None, json=True), config, moteur_brouter(), moteur_meteo())
+    assert code == 0
+    charge = json.loads(capsys.readouterr().out)
+    azimuts = sorted(c["azimut_deg"] for c in charge["candidates"])
+    assert len(azimuts) == 3
+    # `pas = 360 / 3 = 120°` : les trois candidates doivent se répartir aux
+    # trois azimuts, pas s'entasser sur un seul.
+    assert azimuts == pytest.approx([0.0, 120.0, 240.0])
+    assert charge["demande"]["direction"] is None
+    assert charge["demande"]["azimut_deg"] is None
 
 
 @pytest.mark.parametrize("distance", [0.0, -10.0])

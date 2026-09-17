@@ -304,6 +304,134 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe(monke
     assert capture.value.elargissement_requis == pytest.approx(0.20)
 
 
+# --- le même garde-fou, côté `boucle` (Q47) ------------------------------------
+#
+# `boucle` refusait sans `--direction` au lieu de balayer comme `sortie` — une
+# contrainte héritée, pas un choix (le mainteneur l'a relevé lui-même, Q47).
+# `_generer_candidates` reprend exactement l'algorithme de `sortie._candidates`
+# pour le cas « pas de direction demandée », et ces deux tests sont la copie
+# conforme des deux ci-dessus, sur `boucle` cette fois.
+
+
+def test_une_direction_refusee_ne_condamne_pas_les_autres_dans_boucle(monkeypatch):
+    """Sans `--direction`, chaque azimut fait son propre appel à `generer` (Q47).
+
+    Même garde-fou que dans `sortie` : la première direction où le terrain ne
+    sait pas faire la distance ne doit pas faire tomber les directions où il
+    sait.
+    """
+    from ourouler.boucle import commande as boucle_commande
+
+    appels: list[float] = []
+
+    def faux_generer(_client, _depart, *, azimut_deg, **_reste):
+        appels.append(azimut_deg)
+        if azimut_deg < 180.0:
+            raise ErreurDistanceInatteignable(
+                "terrain impraticable dans cette direction",
+                distance_cible_km=60.0,
+                distance_obtenue_km=20.0,
+                ecart_relatif=-0.666,
+                tolerance=0.10,
+                elargissement_requis=0.60,
+                elargissement_max=0.10,
+            )
+        return [object()]
+
+    class _Demande:
+        azimut_deg = None
+        nb_candidates = 4
+        profil = None
+        direction = None
+        distance_km = 60.0
+
+    class _Boucle:
+        tolerance_distance = 0.10
+
+    class _Config:
+        depart = DEPART
+        boucle = _Boucle()
+
+    monkeypatch.setattr(boucle_commande, "generer", faux_generer)
+    trouvees = boucle_commande._generer_candidates(object(), _Config(), _Demande())
+    assert len(appels) == 4, "les quatre directions doivent être tentées"
+    assert len(trouvees) == 2, "les deux directions praticables doivent survivre"
+
+
+def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe_dans_boucle(
+    monkeypatch,
+):
+    """Quand rien ne marche nulle part, `boucle` continue de refuser (Q47).
+
+    Le lot sur l'écart de distance a introduit `ErreurDistanceInatteignable` :
+    ça n'a rien à voir avec l'absence de direction, et ça doit continuer à
+    refuser — avec le message le plus utile, celui du plus petit élargissement
+    requis.
+    """
+    from ourouler.boucle import commande as boucle_commande
+
+    def faux_generer(_client, _depart, *, azimut_deg, **_reste):
+        requis = 0.60 if azimut_deg < 180.0 else 0.20
+        raise ErreurDistanceInatteignable(
+            "terrain impraticable",
+            distance_cible_km=60.0,
+            distance_obtenue_km=20.0,
+            ecart_relatif=-0.666,
+            tolerance=0.10,
+            elargissement_requis=requis,
+            elargissement_max=0.10,
+        )
+
+    class _Demande:
+        azimut_deg = None
+        nb_candidates = 4
+        profil = None
+        direction = None
+        distance_km = 60.0
+
+    class _Boucle:
+        tolerance_distance = 0.10
+
+    class _Config:
+        depart = DEPART
+        boucle = _Boucle()
+
+    monkeypatch.setattr(boucle_commande, "generer", faux_generer)
+    with pytest.raises(ErreurDistanceInatteignable) as capture:
+        boucle_commande._generer_candidates(object(), _Config(), _Demande())
+    assert capture.value.elargissement_requis == pytest.approx(0.20)
+
+
+def test_avec_direction_un_seul_appel_est_fait_dans_boucle(monkeypatch):
+    """`--direction` reste prioritaire et n'ouvre qu'un seul appel (comportement inchangé)."""
+    from ourouler.boucle import commande as boucle_commande
+
+    appels: list[float] = []
+
+    def faux_generer(_client, _depart, *, azimut_deg, nb, **_reste):
+        appels.append(azimut_deg)
+        return [object()] * nb
+
+    class _Demande:
+        azimut_deg = 45.0
+        nb_candidates = 3
+        profil = None
+        direction = "NE"
+        distance_km = 60.0
+
+    class _Boucle:
+        tolerance_distance = 0.10
+
+    class _Config:
+        depart = DEPART
+        boucle = _Boucle()
+
+    monkeypatch.setattr(boucle_commande, "generer", faux_generer)
+    trouvees = boucle_commande._generer_candidates(object(), _Config(), _Demande())
+    assert appels == [45.0], "une direction demandée ne doit déclencher qu'un seul appel"
+    assert len(trouvees) == 3
+
+
 # --- ce que l'écran en dit ----------------------------------------------------
 
 

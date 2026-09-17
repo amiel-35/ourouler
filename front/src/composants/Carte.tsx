@@ -71,7 +71,36 @@ export interface TraceDessinee {
   points: [number, number][];
   /** Le tracé retenu est plein ; les autres sont en pointillé (maquette E19). */
   choisi: boolean;
+  /**
+   * `ecartee` : le produit l'a jetée, et le lot F2.4 la montre quand même —
+   * trait rouge fin et très pointillé, pour qu'elle se distingue d'une
+   * proposition non choisie sans jamais lui ressembler. La forme du trait
+   * change en même temps que la couleur, comme les flèches de vent : la carte
+   * doit rester lisible en noir et blanc et pour un daltonien.
+   */
+  sort?: "retenue" | "ecartee";
   titre?: string;
+}
+
+/** Comment un tracé se dessine, selon ce que le produit en a décidé. */
+function styleDe(trace: TraceDessinee): L.PolylineOptions {
+  if (trace.sort === "ecartee") {
+    // Pointillé **rond** et non tiret : la forme distingue une écartée d'une
+    // retenue non choisie sans dépendre de la couleur. 3 px et non 2 —
+    // vérifié à l'écran sur de vraies tuiles, où un trait plus fin
+    // disparaissait dans le fond de carte, ce qui vide la vue de son objet.
+    return {
+      color: "#c0392b",
+      weight: 3,
+      opacity: 0.9,
+      dashArray: "1 7",
+      lineCap: "round",
+    };
+  }
+  if (trace.choisi) {
+    return { color: "#12657f", weight: 4, opacity: 1, dashArray: undefined };
+  }
+  return { color: "#9aa5a2", weight: 2, opacity: 0.7, dashArray: "6 5" };
 }
 
 export interface SegmentDessine {
@@ -127,12 +156,7 @@ export function Carte({
       const couche = L.layerGroup().addTo(carte);
       for (const trace of traces) {
         if (trace.points.length < 2) continue;
-        L.polyline(trace.points, {
-          color: trace.choisi ? "#12657f" : "#9aa5a2",
-          weight: trace.choisi ? 4 : 2,
-          opacity: trace.choisi ? 1 : 0.7,
-          dashArray: trace.choisi ? undefined : "6 5",
-        })
+        L.polyline(trace.points, styleDe(trace))
           .bindTooltip(trace.titre ?? "")
           .addTo(couche);
       }

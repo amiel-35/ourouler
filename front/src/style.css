@@ -797,3 +797,152 @@ img {
 .saisie[aria-invalid="true"] {
   border-color: var(--alerte);
 }
+
+/* ---------- l'arbitrage (F2.4) ---------- */
+
+/* Replié par défaut : celui qui veut juste rouler voit une ligne, pas une
+   matrice. Le cadre sobre dit que c'est un outil de diagnostic, pas un
+   avertissement — rien n'est en panne quand une candidate est écartée. */
+.arbitrage {
+  border: 1px solid var(--trait);
+  border-radius: var(--r);
+  background: var(--carte);
+  padding: 0 12px;
+  margin: 14px 0;
+  min-width: 0;
+}
+.arbitrage > summary {
+  cursor: pointer;
+  padding: 11px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-fort);
+  list-style-position: inside;
+}
+.arbitrage[open] > summary {
+  border-bottom: 1px solid var(--trait);
+  margin-bottom: 10px;
+}
+.arbitrage > .mention {
+  margin-bottom: 10px;
+}
+.arbitrage h3 {
+  font-size: 13px;
+  margin: 14px 0 4px;
+}
+
+.verdicts {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.verdicts > li {
+  border-left: 3px solid var(--trait-fort);
+  padding: 6px 0 6px 10px;
+  margin-bottom: 8px;
+}
+/* La couleur double une étiquette en toutes lettres, jamais l'inverse : le
+   sort se lit sans distinguer le rouge du vert. */
+.verdicts > li.sort-retenue {
+  border-left-color: var(--accent);
+}
+.verdicts > li.sort-ecartee {
+  border-left-color: var(--alerte);
+}
+.verdicts > li.sort-place {
+  border-left-color: var(--trait-fort);
+}
+.verdict-tete {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  margin-bottom: 3px;
+}
+.etiquette {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.etiquette.sort-retenue {
+  background: var(--accent-doux);
+  color: var(--accent-fort);
+}
+.etiquette.sort-ecartee {
+  background: var(--alerte-fond);
+  color: var(--alerte);
+}
+.etiquette.sort-place {
+  background: var(--papier);
+  color: var(--muet);
+}
+.verdicts .motif {
+  margin-top: 3px;
+}
+
+/* La matrice déborde plutôt que de se comprimer : huit candidates font huit
+   colonnes, et un pourcentage illisible ne vaut pas mieux qu'aucun. */
+.matrice-cadre {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.matrice {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.matrice caption {
+  caption-side: top;
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--muet);
+  line-height: 1.45;
+  padding-bottom: 6px;
+}
+.matrice th,
+.matrice td {
+  border: 1px solid var(--trait);
+  padding: 4px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+.matrice th {
+  color: var(--muet);
+  font-weight: 600;
+}
+.case-diagonale {
+  background: var(--papier);
+  color: var(--trait-fort);
+}
+.case-sous {
+  color: var(--encre-2);
+}
+/* La case qui interdit un groupe. Le fond la fait voir d'un coup d'œil, et
+   c'est exactement le geste que le mainteneur demandait : trouver le défaut
+   en regardant, pas en lisant. */
+.case-au-dessus {
+  background: var(--alerte-fond);
+  color: var(--alerte);
+  font-weight: 600;
+}
+
+.phrase-essais {
+  margin-bottom: 12px;
+}
+.avant-contraste {
+  border-top: 1px solid var(--trait);
+  padding-top: 4px;
+}
+.invisible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -468,6 +468,71 @@ export interface QuestionVent {
   choix: string[];
 }
 
+/**
+ * Une candidate tombée **avant** le contraste, et où elle est tombée.
+ *
+ * `etape` vaut `"distance"` — la génération n'a pas su faire la distance dans
+ * cette direction, il n'y a donc aucun tracé — ou `"placement"` : la boucle
+ * existe, c'est la séance qui n'y tenait pas, et celle-là se dessine.
+ */
+export interface Ecartee {
+  azimut_deg: number | null;
+  distance_km: number;
+  motif: string;
+  etape: "distance" | "placement" | string;
+  trace: Trace | null;
+}
+
+/** Le sort d'**une** candidate au contraste, tel que le cœur l'a décidé. */
+export interface VerdictCandidate {
+  numero: number;
+  /**
+   * `retenue` · `trop_proche` (écartée : trop de routes communes avec une
+   * retenue) · `place_prise` (assez différente, mais le groupe était complet).
+   *
+   * Les deux derniers ne sont **pas** la même chose : confondre « écartée »
+   * et « pas de place » ferait voir un défaut là où il n'y en a pas.
+   */
+  sort: "retenue" | "trop_proche" | "place_prise" | string;
+  /** La part de routes communes la plus forte avec une retenue. */
+  recouvrement_max: number | null;
+  /** Le numéro de cette retenue-là. */
+  contre_numero: number | null;
+  /** La phrase du cœur : « 55 % des mêmes routes que la n° 1 ». */
+  motif: string;
+}
+
+/** Une paire de candidates et sa part de routes communes. */
+export interface PaireRecouvrement {
+  a: number;
+  b: number;
+  recouvrement: number;
+  au_dessus_du_seuil: boolean;
+}
+
+/**
+ * Ce que le contraste a décidé, et de quoi le refaire (lot F2.4).
+ *
+ * Rien ici ne se recalcule côté front : les pourcentages, les verdicts et la
+ * phrase viennent tous de `sortie/contraste.py`. `paires` porte **toutes**
+ * les paires, pas seulement celles des retenues — c'est cette matrice qui
+ * montre qu'une seule case au-dessus du seuil interdit tout groupe contenant
+ * ses deux boucles.
+ */
+export interface Arbitrage {
+  seuil_recouvrement: number;
+  candidates: VerdictCandidate[];
+  paires: PaireRecouvrement[];
+  essais: {
+    taille: number;
+    essayes: number;
+    valides: number;
+    /** Combien de groupes refusés ne tombent que sur **une seule** paire. */
+    refuses_par_une_paire: number;
+  } | null;
+  phrase: string | null;
+}
+
 export interface Sortie {
   jour: string;
   seance: { nom: string; duree_s: number; n_etapes: number; n_blocs: number } | null;
@@ -502,12 +567,17 @@ export interface Sortie {
    * rien ne contraint le choix. Peut coexister avec le champ précédent.
    */
   motif_equivalence: string | null;
+  /** Les candidates tombées avant le contraste. Absent d'une réponse ancienne. */
+  ecartees?: Ecartee[] | null;
+  /** Le sort de toutes les candidates au contraste. Absent d'une réponse ancienne. */
+  arbitrage?: Arbitrage | null;
   candidates: Candidate[];
 }
 
 export interface Boucle {
   depart: PointDepart & { heure: string };
-  demande: { distance_km: number; direction: string; candidates: number };
+  // Q47 : `null` sans direction demandée — le moteur a balayé tout l'horizon.
+  demande: { distance_km: number; direction: string | null; candidates: number };
   meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];

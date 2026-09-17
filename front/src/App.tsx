@@ -215,12 +215,18 @@ export function App() {
         );
         setVue({ genre: "propositions" });
       } else {
+        // Q47 : `boucle` balaie tout l'horizon sans direction, comme `sortie`
+        // — même règle que la branche `seance` ci-dessus, `modeDirection` est
+        // la seule source de vérité. `/boucles` n'a pas de champ `vent`
+        // (Q44, resté ouvert) : le mode « vent » retombe déjà sur « peu
+        // importe » en Z2 (voir l'effet dans `Demander.tsx`), donc seul
+        // « direction » envoie un azimut ici.
         const reponse = await api.boucle({
           distance_km: Math.max(
             1,
             ((zonesCourantes?.valeurs_liees?.moyenne_compteur_kmh ?? 0) * finale.duree_min) / 60,
           ),
-          direction: finale.direction,
+          direction: finale.modeDirection === "direction" ? finale.direction : undefined,
           heure_depart: `${finale.jour}T${finale.heure_depart}`,
           candidates: finale.candidates,
           depart: finale.depart ?? undefined,

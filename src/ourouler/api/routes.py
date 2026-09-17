@@ -802,7 +802,11 @@ def generer_boucle(
     from ourouler.boucle import commande as boucle_commande
 
     config = _config(ctx, qui)
-    gpx = ctx.fichiers.reserver(qui, f"boucle_{demande.direction}_{demande.distance_km:g}km.gpx")
+    # Q47 : sans direction, la recherche balaie tout l'horizon (comme
+    # `sortie`) plutôt que de refuser — le nom réservé le dit en clair plutôt
+    # que de porter un `None` littéral.
+    direction_nom = demande.direction or "toutes-directions"
+    gpx = ctx.fichiers.reserver(qui, f"boucle_{direction_nom}_{demande.distance_km:g}km.gpx")
     resultat = executer_commande(
         boucle_commande.executer,
         namespace(

@@ -11,6 +11,7 @@
  * savoir si aujourd'hui il préfère le sec ou le calme.
  */
 
+import { useState } from "react";
 import type { Candidate, Enveloppe, Proposition, Sortie } from "../api/types";
 import {
   compteArrets,
@@ -20,7 +21,8 @@ import {
   pourcentage,
   VENT_DECRIT,
 } from "../api/formats";
-import { Carte } from "../composants/Carte";
+import { Carte, type TraceDessinee } from "../composants/Carte";
+import { PanneauArbitrage } from "../composants/Arbitrage";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { BandeauElargissement } from "../composants/Elargissement";
 
@@ -104,13 +106,48 @@ export function Propositions({
 }: Props) {
   const sortie = reponse.donnees;
   const parNumero = new Map(sortie.candidates.map((c) => [c.numero, c]));
-  const traces = sortie.propositions.map((proposition) => ({
+  // L'inspection est **repliée par défaut** : celui qui veut juste rouler ne
+  // doit pas être noyé sous des tracés gris. Elle s'ouvre d'un clic, pas en
+  // éditant un fichier — et c'est l'ouverture qui pose les écartées sur la
+  // carte, parce qu'une décision qu'on ne voit pas sur le tracé n'apprend rien.
+  const [inspection, setInspection] = useState(false);
+  const arbitrage = sortie.arbitrage ?? null;
+  const ecarteesAvant = sortie.ecartees ?? [];
+  const retenus = new Set(sortie.propositions.map((p) => p.numero));
+
+  const traces: TraceDessinee[] = sortie.propositions.map((proposition) => ({
     points: parNumero.get(proposition.numero)?.trace?.points ?? [],
     choisi: proposition.numero === choisie,
+    sort: "retenue",
     titre: proposition.distinction || `Proposition ${proposition.numero}`,
   }));
+  if (inspection) {
+    // Les candidates que le contraste a jetées : le tracé existait déjà dans
+    // `candidates`, il n'était dessiné nulle part. Le titre porte la phrase du
+    // cœur — c'est elle qui dit le pourcentage et contre quelle boucle.
+    for (const verdict of arbitrage?.candidates ?? []) {
+      if (retenus.has(verdict.numero)) continue;
+      const points = parNumero.get(verdict.numero)?.trace?.points ?? [];
+      if (points.length < 2) continue;
+      traces.push({
+        points,
+        choisi: false,
+        sort: "ecartee",
+        titre: `n° ${verdict.numero} — ${verdict.motif}`,
+      });
+    }
+    // Et celles tombées avant le contraste, quand elles ont un tracé : un
+    // refus sur la distance n'en a aucun, et on n'en invente pas.
+    for (const ecartee of ecarteesAvant) {
+      const points = ecartee.trace?.points ?? [];
+      if (points.length < 2) continue;
+      traces.push({ points, choisi: false, sort: "ecartee", titre: ecartee.motif });
+    }
+  }
+
   const seule = sortie.propositions.length === 1;
   const manque = meteoManquante(reponse.avertissements);
+  const dessinees = traces.filter((t) => t.sort === "ecartee").length;
 
   return (
     <section>
@@ -167,7 +204,11 @@ export function Propositions({
         traces={traces}
         depart={sortie.demande.lieu_depart}
         haute
-        description={`${sortie.propositions.length} boucle(s) au départ de ${sortie.demande.lieu_depart.nom}, celle qui est choisie en trait plein`}
+        description={
+          dessinees === 0
+            ? `${sortie.propositions.length} boucle(s) au départ de ${sortie.demande.lieu_depart.nom}, celle qui est choisie en trait plein`
+            : `${sortie.propositions.length} boucle(s) proposée(s) et ${dessinees} écartée(s) au départ de ${sortie.demande.lieu_depart.nom} ; celle qui est choisie en trait plein, les écartées en rouge fin`
+        }
       />
 
       {sortie.propositions.map((proposition) => {
@@ -205,6 +246,22 @@ export function Propositions({
           </div>
         );
       })}
+
+      {/* Replié sous les propositions, et non derrière un mode qui change
+          toute la page : le mainteneur n'a pas tranché entre les deux, et
+          celui-ci ne gêne personne tout en se découvrant à la souris. Un mode
+          d'inspection global demanderait de décider ce que deviennent la
+          tenue, la séance et le bouton « Ouvrir » — ce qui est une autre
+          question que celle posée. */}
+      {arbitrage ? (
+        <PanneauArbitrage
+          arbitrage={arbitrage}
+          candidates={sortie.candidates}
+          ecartees={ecarteesAvant}
+          ouvert={inspection}
+          surBascule={setInspection}
+        />
+      ) : null}
 
       <button type="button" className="bouton" onClick={surOuvrir}>
         Ouvrir
