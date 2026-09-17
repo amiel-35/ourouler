@@ -142,7 +142,7 @@ d'autre — pas de client Garmin, pas de bibliothèque non officielle, pas de
 compte à brancher. Les API constructeurs (Wahoo en tête, la seule vraie)
 restent au backlog du service hébergé, pas du besoin du mainteneur.
 
-## Q6 — Nom du projet et purge avant publication — **close le 17/09/2026**ation
+## Q6 — Nom du projet et purge avant publication — **close le 17/09/2026**
 
 Nom validé : `ourouler` (paquet, commande, dépôt GitHub `amiel-35/ourouler`,
 renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessous ;
@@ -1404,7 +1404,7 @@ peu et à juste titre. L'axe de contraste, lui, compare des **arrêts au
 kilomètre**, comparable entre boucles de longueurs différentes : deux besoins,
 deux formes de la même mesure.
 
-## Q29 — L'effet de concentration des feux, et le poids qui dépend de l'intensité — **à instruire au sprint 7** (déplacée le 17/09/2026)
+## Q29 — L'effet de concentration des feux, et le poids qui dépend de l'intensité — **sans sprint attribué**, voir [[Q53]]
 
 Sa remarque, dans le même message : « je pense qu'il y a un **effet de
 concentration** sur feux et stops. C'est ce qu'il faut réduire sur les blocs ;
@@ -1500,7 +1500,7 @@ sont calibrés sur **un** terrain, et que la version hébergée devra le dire.
 
 Script : `tests/validation/arrets_bloc_recup.py`.
 
-## Q31 — La distance de dégagement urbain, et pourquoi elle se dit en kilomètres — **à écrire au sprint 7** (tranché le 17/09/2026)
+## Q31 — La distance de dégagement urbain, et pourquoi elle se dit en kilomètres — **sans sprint attribué**, voir [[Q53]]
 
 Demande du mainteneur : « une fonction qui fait une recherche à partir de
 l'adresse de départ sur la **distance minimum d'échauffement** avant de
@@ -1557,7 +1557,7 @@ mainteneur la donne lui-même : « aller à Longchamp, ou trouver d'autres
 segments boucle pour tourner en cercle ». C'est ce que font les cyclistes
 franciliens — un anneau court sans feux, répété. Voir Q32.
 
-## Q32 — Le mode circuit : tourner en rond quand il n'y a pas de couloir — **idée à instruire**
+## Q32 — Le mode circuit : tourner en rond quand il n'y a pas de couloir — **sans sprint attribué**, voir [[Q53]]
 
 Notre modèle produit propose **une boucle parcourue une fois**, blocs placés
 dessus. Un Francilien a besoin d'un **circuit court répété** : quatre tours de
