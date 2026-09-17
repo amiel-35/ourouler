@@ -2427,6 +2427,49 @@ trois boucles qui se ressemblent, « de travers » en ouvre deux opposés.
 À vérifier à l'implémentation : les candidates doivent alors se répartir entre
 les deux azimuts, pas s'entasser sur le premier.
 
+### Ce que l'implémentation a trouvé — **17/09/2026**
+
+**Le piège était réel, et le code portait déjà le commentaire qui l'écartait à
+tort.** `vent_demande` disait : « pour le travers, viser à 90° — un seul des
+deux côtés, le moteur explorera l'autre par ses azimuts voisins ». C'est faux.
+`boucle.candidates.azimuts` balaie ±20°, ±40°, ±60°… autour d'un azimut : il
+**élargit un secteur, il n'en ouvre jamais un second**, et n'atteint donc
+jamais 180° d'écart. Garder un seul azimut aurait entassé toutes les
+candidates d'un côté tout en annonçant deux directions.
+
+La génération fait maintenant **un appel par azimut**, les candidates réparties
+en parts aussi égales que possible. Vérifié contre le vrai BRouter et le vrai
+Open-Meteo, séance du 19/09, vent 15,8 km/h de 235°, quatre candidates :
+
+| | |
+|---|---|
+| azimuts ouverts | 325° et 145° (opposés à 180°) |
+| azimuts obtenus | 345°, 165°, 325°, 145° — **deux de chaque côté** |
+| recouvrement entre côtés | 0,4 %, 0,4 %, 0,6 %, 2,1 % |
+| recouvrement au sein d'un côté | 17,1 % et 26,3 % |
+
+La mesure du 16/09 se reproduit donc sur une génération réelle : deux azimuts
+opposés ne partagent quasiment rien, deux azimuts voisins de 20° partagent un
+quart de leurs routes.
+
+**Mais le gain n'arrive pas jusqu'au cycliste, et ce n'est pas le vent qui
+bloque.** Sur cette même génération, les quatre candidates — dont quatre
+paires à moins de 2,2 % de recouvrement — ont rendu **une seule proposition**.
+Le motif rendu le dit :
+
+> soit elles empruntaient plus de 25 % des mêmes routes qu'une autre du
+> groupe ; soit l'une des trois ne se distinguait des deux autres sur aucun
+> axe d'une marge perceptible. […] il ne restait que la durée pour les
+> distinguer.
+
+C'est **exactement l'exigence que [[Q43]] a retirée** le 17/09 (« le
+recouvrement devient le seul verrou »), et qui n'est pas encore retirée du
+code. Tant qu'elle y est, le travers produit bien deux familles de boucles
+franchement différentes, et la sélection les jette parce qu'on ne sait pas
+dire en une phrase ce qui les sépare. **La trouvaille de Q44 est donc livrée
+mais neutralisée en aval par Q43 non implémentée** — les deux lots se tiennent,
+et celui de Q43 conditionne le bénéfice visible de celui-ci.
+
 ## Q45 — Quand rien ne distingue rien, le dire — **17/09/2026**
 
 > « ben, s'il n'y a pas de pluie et peu de vent et que tout est plat, à un
