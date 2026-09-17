@@ -320,6 +320,26 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   magique à Google) ; et **une passkey n'est jamais le seul moyen d'entrer**
   — le lien à usage unique reste le filet, parce qu'une passkey se perd avec
   l'appareil ou le trousseau qui la synchronise.
+- **Compte et propriétaire sont deux choses, reliées par une table**
+  (décidé le 17/09/2026, [[Q46]]). Le `Proprietaire` de §10.1 devient la clé
+  **pseudonyme** sous laquelle vivent les poids de routes appris et les
+  valeurs d'apprentissage ; le **compte** porte l'identité et l'accès. Une
+  table de correspondance les relie, et c'est **elle** qu'on efface à la
+  suppression d'un compte : le profil, les fichiers et les clés partent, les
+  poids restent sous un propriétaire que plus rien ne rattache à quelqu'un.
+  Cette table se décide maintenant parce qu'elle ne se rattrape pas.
+
+  Ce qu'on range sous un propriétaire suit deux règles : **jamais de nom ni
+  d'adresse**, et **la granularité la plus grossière qui serve** — l'année de
+  naissance et non la date, si l'âge revient un jour. Une FTP ou une FCmax
+  sont des grandeurs qui ne désignent personne.
+
+  **Pseudonyme, pas anonyme** : les poids viennent de trajets réellement
+  roulés dont le départ est un domicile, donc ré-identifiables. Le choix
+  entre assumer la pseudonymisation, agréger entre propriétaires à
+  l'écriture, ou n'agréger qu'après une fenêtre courte, reste ouvert et se
+  tranchera au lot.
+
 - **Base de données hébergée : PostgreSQL, dès le premier jour de
   l'hébergé, jamais SQLite.** Même raison qu'ix-presenter : le coût d'un
   Postgres sur Coolify est quasi nul, le coût d'une migration SQLite →

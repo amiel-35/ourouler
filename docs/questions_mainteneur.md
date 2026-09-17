@@ -3812,6 +3812,57 @@ premier ami.
 la suppression : quand le lot arrivera, « les poids restent, le profil et les
 fichiers partent » est une réponse défendable et déjà décidée ici.
 
+#### Complément du mainteneur (17/09/2026) — le schéma : couper le lien, pas la donnée
+
+« Les poids ont un owner, `id_owner`, chez nous. Un compte a un `id_account`
+chez nous, et une table de mapping account ↔ owner. Si le compte part, l'owner
+reste : on n'a plus de référence, mais on peut relier les poids à un même
+cycliste, et à d'autres choses qu'on voudrait stocker pour l'apprentissage —
+l'owner avait telle FTP, ou je sais pas quoi. Pas d'adresse, pas de nom. Si un
+jour l'âge, c'est l'année de naissance, pas la date. Une FCmax si on veut,
+pareil : c'est comme une FTP, dire que le cycliste avait une FTP de 258, on
+s'en fout. Tant que le compte est là, il peut savoir ce qui est à lui ; s'il
+disparaît, on ne sait plus qui était l'owner. »
+
+**Ça s'emboîte dans ce qui existe déjà.** `id_owner`, c'est le `Proprietaire`
+de la doctrine §10.1, déjà présent dans le code : « le propriétaire entre au
+constructeur du dépôt, et nulle part ailleurs », et « l'unicité d'une activité
+devient `(propriétaire, source, id_externe|contenu)` ». Le seul objet neuf est
+le **compte** et sa table de correspondance. Rien à réécrire, une table à
+ajouter.
+
+**Ce que ça simplifie.** Le lot de suppression du sprint 9-10 devient petit :
+effacer une ligne de correspondance, le profil, les fichiers et les clés. Les
+poids et les valeurs d'apprentissage restent en place, rattachés à un `owner`
+que plus rien ne relie à une personne. C'est beaucoup plus simple que de
+démêler un modèle collectif après coup, et c'est pour ça que ça se décide
+maintenant : cette table-là, on ne la rattrape pas.
+
+**Les deux principes qui vont avec, et qui sont justes.** L'année de naissance
+plutôt que la date — un identifiant de moins, et aucun lot n'a besoin du jour.
+Et « une FCmax c'est comme une FTP » : ce sont des grandeurs qui ne désignent
+personne. 258 W ne dit rien de qui que ce soit sans le nom d'à côté.
+
+**La réserve, et elle est technique.** Couper la correspondance donne une
+**pseudonymisation**, pas une anonymisation — et dans ce produit précisément,
+l'écart compte. Les poids de routes viennent de là où la personne a
+**réellement roulé**, et son point de départ est son domicile. Un jeu de poids
+concentré autour d'une adresse identifie son auteur même sans nom : c'est le
+défaut connu des données de trajet. Tant que la ré-identification reste
+raisonnablement possible, la donnée reste personnelle au sens du RGPD, et
+l'effacement de la correspondance ne suffit pas à la faire sortir du champ.
+
+Trois issues, à instruire quand le lot arrivera, pas aujourd'hui :
+(a) assumer la pseudonymisation et le dire — le report de [[Q46]] tient quand
+même, mais sans prétendre que les poids sont anonymes ; (b) **agréger les poids
+entre owners à l'écriture**, de sorte qu'aucune trace spatiale par personne ne
+subsiste — c'est cohérent avec le fait que les poids sont voulus *collectifs*,
+mais ça coûte la possibilité de dire « cet owner avait telle FTP » ; (c) garder
+le détail par owner uniquement sur une fenêtre courte, et n'agréger qu'ensuite.
+
+Rien n'est tranché ici : le schéma `id_owner` / `id_account` / correspondance
+est acté, la granularité de ce qu'on range sous `id_owner` ne l'est pas.
+
 ## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **tranchée le 17/09/2026 : au backlog**
 
 La repriorisation de fin des sprints 5 et 6 a figé les lots des sprints 7
