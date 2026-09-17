@@ -224,7 +224,7 @@ part et **exclu de la calibration**. Ordre appliqué : intérieur → capteur �
 l'historique : apprentissage et test du modèle physique seulement ; l'usage
 quotidien (météo, boucle) ne s'en sert pas.
 
-## Q8 — À quelle puissance calculer la colonne « temps estimé » de `boucle` ?
+## Q8 — À quelle puissance calculer la colonne « temps estimé » de `boucle` — **close le 13/09/2026**
 
 Le contrat du sprint 3 demande que la colonne « temps estimé » vienne du
 modèle calibré, sans dire à quelle puissance. Un temps sans puissance n'a pas
@@ -422,7 +422,7 @@ voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
 règle est appliquée correctement ; c'est le placement (L4.3) qui devra
 décider s'il contraint le terrain sous un effort de 40 secondes.
 
-## Q13 — L'affichage de `sortie` ne montre que les blocs — **à corriger dans le sprint 5** (arbitré le 15/09/2026)
+## Q13 — L'affichage de `sortie` ne montre que les blocs — **corrigée par le lot L5.2** (arbitrée le 15/09/2026, livrée au sprint 5 ; statut constaté le 17/09/2026)
 
 Relevé par le mainteneur le 13/09/2026 en lisant la sortie du 08/02 :
 « t'as pas oublié l'échauffement ? ». Il n'était pas oublié — 28 min à
@@ -686,7 +686,7 @@ connaît pas devient proposable. À instruire au sprint 6, sur ses vraies
 sorties : une traversée de bourg et une traversée d'agglomération doivent se
 distinguer nettement, sinon la mesure ne vaut pas mieux que l'actuelle.
 
-## Q18 — Une carte par proposition, ou une seule ? — **ouverte le 16/09/2026**
+## Q18 — Une carte par proposition, ou une seule ? — **tranchée le 16/09/2026** (`sortie/carte.py:49`), clôture à confirmer
 
 Le contrat §3.1.1 décrit la bonne forme de l'arbitrage : « il arbitre **en
 regardant**, pas en réglant. Trois propositions, **une carte chacune**, une
@@ -709,7 +709,7 @@ Trois formes possibles, à trancher :
 Sans réponse, le cycliste arbitre sur les phrases et les chiffres, pas sur
 les tracés — c'est-à-dire pas tout à fait « en regardant ».
 
-## Q19 — `sortie` perd toute la météo au-delà de la portée d'AROME — **diagnostiquée le 16/09/2026, correction à écrire**
+## Q19 — `sortie` perd toute la météo au-delà de la portée d'AROME — **correction livrée** (repli de modèle, `boucle/meteo_trace.py:114`), clôture à confirmer
 
 Constaté en préparant les sorties réelles du mainteneur :
 
@@ -800,7 +800,7 @@ sans vent, sans ressenti ; il rend maintenant les trois, par `icon_seamless`,
 sous l'en-tête « meteofrance_arome_france_hd ne couvre pas cette fenêtre —
 bascule sur icon_seamless ».
 
-## Q20 — La page du jour n'applique pas la méthode Strava qu'elle voulait — **ouverte le 16/09/2026, à corriger**
+## Q20 — La page du jour n'applique pas la méthode Strava qu'elle voulait — **correction livrée le 16/09/2026** (`sortie/carte.py:53`), clôture à confirmer
 
 Constat du mainteneur devant la page du 19/09 : « la méthode Strava, c'est
 d'afficher les propositions en même temps mais de mettre en couleur forte la
@@ -839,7 +839,7 @@ fin » ; il est fin et gris, et illisible.
    rester lisible à trois niveaux — blocs en couleurs vives, reste du parcours
    sélectionné en couleur franche, autres propositions en gris lisible.
 
-## Q21 — Les trois chiffres affichés sous une proposition sont illisibles ou alarmants à tort — **ouverte le 16/09/2026, à corriger**
+## Q21 — Les trois chiffres affichés sous une proposition sont illisibles ou alarmants à tort — **corrections livrées** (a : `sortie/commande.py:1583` ; c : `sortie/contraste.py:438`), clôture à confirmer
 
 Relevé par le mainteneur sur la ligne de sa sortie du 19/09 :
 
@@ -963,7 +963,7 @@ Rien à corriger d'ici là. À garder en tête pour le dogfooding : le mainteneu
 jugera la **page** sur son Mac, mais le trajet réel vers le compteur restera
 manuel, et ce n'est donc pas ce que le sprint 6 mesure.
 
-## Q23 — Les fichiers produits atterrissent dans le dépôt — **ouverte le 16/09/2026, une ligne**
+## Q23 — Les fichiers produits atterrissent dans le dépôt — **corrigée** : destination par défaut sous `config.cache.dossier / sorties` (`sortie/commande.py:606`, constaté le 17/09/2026)
 
 `ourouler sortie` sans `--carte` ni `--sortie` écrit `sortie_AAAAMMJJ.gpx` et
 `sortie_AAAAMMJJ.html` **dans le répertoire courant**, c'est-à-dire le dépôt
@@ -1404,7 +1404,7 @@ peu et à juste titre. L'axe de contraste, lui, compare des **arrêts au
 kilomètre**, comparable entre boucles de longueurs différentes : deux besoins,
 deux formes de la même mesure.
 
-## Q29 — L'effet de concentration des feux, et le poids qui dépend de l'intensité — **à instruire au sprint 6**
+## Q29 — L'effet de concentration des feux, et le poids qui dépend de l'intensité — **à instruire au sprint 7** (déplacée le 17/09/2026)
 
 Sa remarque, dans le même message : « je pense qu'il y a un **effet de
 concentration** sur feux et stops. C'est ce qu'il faut réduire sur les blocs ;
@@ -1500,7 +1500,7 @@ sont calibrés sur **un** terrain, et que la version hébergée devra le dire.
 
 Script : `tests/validation/arrets_bloc_recup.py`.
 
-## Q31 — La distance de dégagement urbain, et pourquoi elle se dit en kilomètres — **à écrire, sprint 6 ou 7**
+## Q31 — La distance de dégagement urbain, et pourquoi elle se dit en kilomètres — **à écrire au sprint 7** (tranché le 17/09/2026)
 
 Demande du mainteneur : « une fonction qui fait une recherche à partir de
 l'adresse de départ sur la **distance minimum d'échauffement** avant de
