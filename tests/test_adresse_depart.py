@@ -212,8 +212,14 @@ def test_boucle_demande_ses_candidates_depuis_le_depart_recu(tmp_path: Path):
     config = config_de_test(cache={"dossier": str(tmp_path / "cache")})
     departs: list[tuple[float, float]] = []
     points_meteo: list[tuple[float, float]] = []
+    # 7,5 km demandés, et non 60 : c'est la longueur que le moteur bouchonné
+    # rend quel que soit le rayon. Depuis Q41 (d), une boucle trop loin de la
+    # distance demandée est refusée au lieu d'être servie en silence — demander
+    # 60 km à un moteur qui rend 7,5 km ne produit donc plus de candidate du
+    # tout, et le sujet du test (le départ transmis au moteur) ne serait plus
+    # atteignable. La distance n'a jamais été son sujet.
     args = argparse.Namespace(
-        distance=60.0, direction="NE", depart="2026-09-13T09:00", candidates=1,
+        distance=7.5, direction="NE", depart="2026-09-13T09:00", candidates=1,
         profil=None, sortie=None, ecraser=False, gpx=None, json=False, velo=None,
         puissance=None,
     )

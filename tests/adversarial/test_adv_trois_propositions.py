@@ -111,7 +111,21 @@ MOTIF_QUESTION = (
 # --- accès ------------------------------------------------------------------
 
 
+#: Longueur de l'anneau que le moteur bouchonné rend, quel que soit le rayon.
+#:
+#: Depuis Q41 (d), une boucle trop loin de la distance demandée est refusée au
+#: lieu d'être servie en silence : la bande acceptée vaut la tolérance (10 %)
+#: plus au plus un élargissement de même ampleur, soit ±20 %. Or certaines
+#: séances fabriquées ici visent 55 km, que cet anneau de 33,9 km ne peut pas
+#: approcher (−38 %) — la commande refuserait avant d'avoir rien à contraster,
+#: et le sujet de ces tests (le contraste entre propositions) ne serait plus
+#: atteignable. On fixe donc la distance au lieu de la subir : elle n'a jamais
+#: été leur sujet.
+DISTANCE_ANNEAU_KM = 34.0
+
+
 def _doc(tmp_path: Path, monkeypatch, capsys, **kw) -> dict:
+    kw.setdefault("distance", DISTANCE_ANNEAU_KM)
     return f53.lancer_json(tmp_path, monkeypatch, capsys, **kw)
 
 
@@ -361,7 +375,7 @@ def test_aucune_proposition_n_est_publiee_deux_fois(tmp_path: Path, monkeypatch,
 #: proposition — une seule peut être « la plus sèche » — et le test n'aurait
 #: rien à vérifier. Le cas est légitime et le lot le traite bien ; il n'est
 #: simplement pas celui que ces deux tests-là veulent éprouver.
-def _rayons_contrastes(nb: int) -> dict[float, dict]:
+def _rayons_contrastes(nb: int, base_deg: float = 0.0485) -> dict[float, dict]:
     """Un rayon différent par direction, **pour les azimuts réellement demandés**.
 
     Sans `--direction`, `commande._candidates` interroge le moteur sur
@@ -372,11 +386,47 @@ def _rayons_contrastes(nb: int) -> dict[float, dict]:
     en accusant le lot de ne pas contraster sur la durée, alors qu'aucune durée
     ne variait — le vivier n'était pas celui que le test décrivait.
     """
-    facteurs = (1.0, 1.6, 0.65, 1.25, 0.8, 1.45)
+    # Facteurs resserrés le 17/09/2026 (Q41 d). Ils allaient de 0,65 à 1,6,
+    # soit ±60 % autour de l'anneau de base : depuis que les boucles trop loin
+    # de la distance demandée sont refusées au lieu d'être servies en silence,
+    # ces extrêmes ne rentrent plus dans la bande acceptée (±20 % : la
+    # tolérance de 10 %, plus au plus un élargissement de même ampleur). Le
+    # vivier ne rendait plus qu'une candidate, et le contraste n'avait plus
+    # rien à contraster. Resserrés à ±18 %, ils tiennent tous dans la bande et
+    # le contraste de durée reste franc : 28,5 km contre 40 km, soit un bon
+    # quart d'heure d'écart. Certains demandent un palier d'élargissement,
+    # donc ce vivier éprouve aussi le marquage.
+    facteurs = (1.0, 1.18, 0.84, 1.12, 0.88, 1.06)
+    # Le relief prend le relais de ce que le rayon ne peut plus donner : il
+    # fait varier la durée et le terrain **sans toucher à la distance**, donc
+    # sans sortir de la bande acceptée. Sans lui, les propositions resserrées
+    # ne se distinguaient plus que par l'orientation au vent, et le contrat
+    # §3.3.3 bis a) — « sur un axe différent de celles des deux autres » —
+    # n'avait plus assez d'axes à distribuer.
+    reliefs = (1.0, 55.0, 8.0, 38.0, 15.0, 26.0)
     pas = 360.0 / nb
     return {
-        i * pas: {"rayon_deg": 0.0485 * facteurs[i % len(facteurs)]} for i in range(nb)
+        i * pas: {
+            "rayon_deg": base_deg * facteurs[i % len(facteurs)],
+            "amplitude_m": reliefs[i % len(reliefs)],
+        }
+        for i in range(nb)
     }
+
+
+#: Rayon de l'anneau bouchonné qui rend 33,9 km, et la distance correspondante.
+#:
+#: Les deux vont désormais ensemble : depuis Q41 (d), demander une distance
+#: que l'anneau ne sait pas approcher fait refuser la boucle au lieu de la
+#: servir en silence. Un vivier doit donc être **dimensionné pour la séance
+#: qu'on lui donne** — une EF de 2 h vise 55 km, pas 34.
+RAYON_BASE_DEG = 0.0485
+DISTANCE_BASE_KM = 33.9
+
+
+def _rayons_pour(nb: int, distance_km: float) -> dict[float, dict]:
+    """`_rayons_contrastes`, mis à l'échelle d'une distance visée."""
+    return _rayons_contrastes(nb, base_deg=RAYON_BASE_DEG * distance_km / DISTANCE_BASE_KM)
 
 
 # =============================================================================
@@ -847,10 +897,14 @@ def test_une_seance_sans_bloc_contraste_sur_autre_chose_que_le_terrain(
         tmp_path,
         monkeypatch,
         capsys,
-        brouter=h.moteur_brouter(_rayons_contrastes(5)),
+        # L'EF de 2 h vise 55 km : le vivier est mis à cette échelle, sinon
+        # ses anneaux de 34 km seraient refusés pour être trop loin de la
+        # distance demandée (Q41 d) et il n'y aurait plus rien à contraster.
+        brouter=h.moteur_brouter(_rayons_pour(5, 55.0)),
         intervals=h.client_intervals(_seance_endurance()),
         meteo=h.moteur_meteo(pluie=h.pluie_au_nord, vent_kmh=2.0),
         candidates=5,
+        distance=55.0,
     )
     candidates = doc.get("candidates") or []
     assert len(candidates) >= 3, f"{len(candidates)} candidates évaluées, au moins 3 attendues"

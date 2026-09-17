@@ -77,7 +77,7 @@ from pathlib import Path
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
-from ourouler.boucle.commande import direction_en_azimut
+from ourouler.boucle.commande import direction_en_azimut, lignes_elargissement
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
@@ -89,7 +89,11 @@ from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import (
+    ErreurConnecteur,
+    ErreurDistanceInatteignable,
+    ErreurUtilisateur,
+)
 from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -167,6 +171,11 @@ class Proposition:
     ecart_relatif: float | None
     part_connue: float | None
     vitesse_kmh: float
+    #: De combien la tolérance de distance a dû être élargie pour accepter
+    #: cette boucle, par paliers de 5 % (Q41 d). `0.0` : elle y tenait.
+    elargissement: float | None = None
+    #: La tolérance de distance en vigueur quand la boucle a été jugée.
+    tolerance_distance: float | None = None
 
     @property
     def pluie_mm(self) -> float:
@@ -374,9 +383,15 @@ def executer(
         if client_brouter is not None
         else ClientBrouter(config.brouter, evitements=config.evitements)
     )
-    candidates = _candidates(client_brouter, config, demande, distance_km, azimut_vent)
+    candidates, hors_bande = _candidates(client_brouter, config, demande, distance_km, azimut_vent)
 
     retenues, ecartees = _placer_toutes(candidates, seance, config, parametres)
+    # Les directions refusées sur la distance (Q41 d) rejoignent celles que le
+    # placement a refusées : deux motifs différents, un seul endroit où le
+    # cycliste les lit. Sans ça, demander cinq directions et en voir trois se
+    # passait en silence — c'est le défaut même que ce lot corrige, il n'a pas
+    # à revenir par la porte de derrière.
+    ecartees = hors_bande + ecartees
     if not retenues:
         raise ErreurUtilisateur(_motif_aucune(seance, ecartees, distance_km))
 
@@ -711,8 +726,12 @@ def _candidates(
     demande: Demande,
     distance_km: float,
     azimut_vent: float | None = None,
-) -> list:
-    """Les boucles candidates, dans la direction demandée ou tout autour.
+) -> tuple[list, list[Ecartee]]:
+    """Les boucles candidates, et les directions refusées sur la distance.
+
+    Le second élément n'est pas un détail d'implémentation : une direction
+    écartée sans qu'on le dise, c'est exactement le défaut que Q41 (d)
+    corrige. Il rejoint les `Ecartee` du placement chez l'appelant.
 
     Sans `--direction`, la commande ne choisit pas à la place du cycliste :
     elle réparti les candidates sur **tout le tour de l'horizon** et laisse le
@@ -727,6 +746,7 @@ def _candidates(
     cycliste qui écrit « au nord » veut aller au nord.
     """
     azimut = demande.azimut_deg if demande.azimut_deg is not None else azimut_vent
+    hors_bande: list[Ecartee] = []
     if azimut is not None:
         trouvees = generer(
             client,
@@ -740,18 +760,44 @@ def _candidates(
         )
     else:
         trouvees = []
+        # Sans `--direction`, chaque azimut fait son propre appel à `generer`.
+        # Le refus sur la distance (Q41 d) est donc **par direction**, et une
+        # direction où le terrain ne sait pas faire la distance ne doit pas
+        # emporter celles où il sait — c'est déjà la règle à l'intérieur de
+        # `generer`, elle vaut aussi ici. Le refus n'est relancé que si aucune
+        # direction n'a rien donné, comme le fait déjà `derniere_erreur`.
+        refus: ErreurDistanceInatteignable | None = None
         pas = 360.0 / demande.nb_candidates
         for i in range(demande.nb_candidates):
-            trouvees += generer(
-                client,
-                config.depart,
-                distance_km=distance_km,
-                azimut_deg=i * pas,
-                nb=1,
-                tolerance=config.boucle.tolerance_distance,
-                profil=demande.profil,
-                appels_max=appels_pour(1),
-            )
+            try:
+                trouvees += generer(
+                    client,
+                    config.depart,
+                    distance_km=distance_km,
+                    azimut_deg=i * pas,
+                    nb=1,
+                    tolerance=config.boucle.tolerance_distance,
+                    profil=demande.profil,
+                    appels_max=appels_pour(1),
+                )
+            except ErreurDistanceInatteignable as e:
+                hors_bande.append(
+                    Ecartee(
+                        azimut_deg=i * pas,
+                        distance_km=e.distance_obtenue_km,
+                        motif=(
+                            f"{e.ecart_relatif:+.0%} de la distance demandée — il aurait fallu "
+                            f"élargir de {e.elargissement_requis:.0%}, on s'arrête à "
+                            f"{e.elargissement_max:.0%}"
+                        ),
+                    )
+                )
+                # On garde le refus le moins sévère : c'est celui qui dit le
+                # plus justement de combien il aurait fallu élargir.
+                if refus is None or e.elargissement_requis < refus.elargissement_requis:
+                    refus = e
+        if not trouvees and refus is not None:
+            raise refus
     if not trouvees:
         cible = demande.direction or "toutes directions"
         raise ErreurConnecteur(
@@ -759,7 +805,7 @@ def _candidates(
             f"(profil {demande.profil}) — essayer une autre direction, une autre distance "
             "ou un autre profil"
         )
-    return trouvees
+    return trouvees, hors_bande
 
 
 def _placer_toutes(
@@ -981,6 +1027,8 @@ def _mesurer(
                 meteo=meteo,
                 azimut_deg=getattr(candidate, "azimut_deg", None),
                 ecart_relatif=getattr(candidate, "ecart_relatif", None),
+                elargissement=getattr(candidate, "elargissement", None),
+                tolerance_distance=getattr(candidate, "tolerance", None),
                 part_connue=base.part_connue(trace) if base is not None else None,
                 vitesse_kmh=vitesse,
             )
@@ -1249,6 +1297,10 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
         lignes.append(marque + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
 
     lignes += _notes_sous_tableau(propositions[0], presentes)
+    # L'élargissement de la tolérance de distance se dit ici, sous le tableau,
+    # et non dans la colonne « durée » : ce sont deux grandeurs différentes.
+    # Voir `SEUIL_ECART_DUREE` plus bas pour la cohabitation des deux.
+    lignes += lignes_elargissement(propositions, contexte.distance_km)
     lignes.append("")
     lignes += _propositions_contrastees(contexte)
     lignes += _seance_placee(propositions[0], contexte)
@@ -1337,6 +1389,25 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
 #: seuil important, faire une alerte quand on est à 5 % de différence de durée,
 #: pas moins ». Deux seuils, deux rôles : celui-ci décide si l'écart mérite
 #: d'être dit, `elasticite_calme_min` s'il mérite une alerte.
+#:
+#: **Et un troisième, à ne surtout pas confondre avec lui** : depuis Q41 (d),
+#: `boucle.candidates.elargissement_max` borne l'écart de **distance** entre
+#: la boucle servie et la boucle demandée. Les deux mesurent des grandeurs
+#: différentes sur des objets différents, et ne se recouvrent pas :
+#:
+#: - `SEUIL_ECART_DUREE` parle de la **durée d'une séance** — la séance
+#:   prescrite dure 2 h, le parcours placé en dure 2 h 04, faut-il le dire ?
+#:   Il ne refuse jamais rien : il décide si un écart déjà accepté s'affiche.
+#: - `elargissement_max` parle de la **distance d'une boucle** — 150 km
+#:   demandés, 176 rendus, sert-on cette boucle ? Il refuse, et quand il
+#:   accepte, il impose de dire de combien la tolérance a été élargie.
+#:
+#: Conséquence pratique : une boucle peut être servie en disant « tolérance
+#: élargie de 10 % » (fait de distance) et ne rien afficher sur la durée
+#: parce que la séance tombe à 2 % près (fait de durée). Ce n'est pas une
+#: incohérence, c'est la raison d'avoir deux seuils. Le premier reste une
+#: décision du mainteneur au sprint 5 — il avait trouvé l'affichage alarmant
+#: à tort — et Q41 (d) ne la défait pas.
 SEUIL_ECART_DUREE = 0.05
 
 
@@ -1535,9 +1606,12 @@ def _entete(
             f"Autre(s) séance(s) vélo ce jour-là, ignorée(s) au profit de la plus longue : {autres}."
         )
     if contexte.ecartees:
-        lignes.append(
-            f"{len(contexte.ecartees)} candidate(s) écartée(s) : la séance n'y tenait pas —"
-        )
+        # Deux motifs cohabitent ici depuis Q41 (d) : la séance qui ne tient
+        # pas sur le tracé, et la boucle trop loin de la distance demandée.
+        # Chaque ligne porte le sien ; l'en-tête ne préjuge plus duquel il
+        # s'agit, sous peine d'annoncer « la séance n'y tenait pas » pour une
+        # direction que le placement n'a jamais vue.
+        lignes.append(f"{len(contexte.ecartees)} candidate(s) écartée(s) —")
         for ecartee in contexte.ecartees:
             lignes.append(
                 f"    {_azimut(ecartee.azimut_deg)} {_fr(ecartee.distance_km, 1)} km : {ecartee.motif}"
@@ -1934,6 +2008,10 @@ def _candidate_json(proposition: Proposition) -> dict:
         "denivele_m": trace.denivele_m,
         "azimut_deg": proposition.azimut_deg,
         "ecart_relatif": proposition.ecart_relatif,
+        # L'écart à la distance demandée cesse d'être tu (Q41 d).
+        "hors_tolerance": bool(proposition.elargissement),
+        "elargissement": proposition.elargissement,
+        "tolerance_distance": proposition.tolerance_distance,
         "part_connue": proposition.part_connue,
         "vitesse_kmh": round(proposition.vitesse_kmh, 2),
         "placement": {

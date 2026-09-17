@@ -611,6 +611,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
           <div><div class="grand">2:00<small></small></div><p class="mention">retour vers 11 h 40</p></div>
         </div>
         <p class="mention">Les kilomètres suivent votre puissance, votre poids et le relief — moins dans le vent de face, plus dans le dos.</p>
+        <p class="mention">On cherchera entre <b>49 et 59 km</b> (±10 %). Si rien n'y tient, on élargira par paliers de 5 % et on vous dira de combien.</p>
       </div>
       <div class="champ"><label for="e16-duree">Durée</label>
         <div class="saisie-unite"><input class="saisie mono" id="e16-duree" value="2:00" readonly><span class="unite">h</span></div></div>
@@ -636,6 +637,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p>Cette contrainte se rembourse ailleurs : <strong>l'estimation vient du même modèle</strong> qui calcule le temps sur le vrai parcours — masse, puissance, pente, vent de face — pas d'une vitesse forfaitaire. Réserve, et elle compte : ce modèle <em>se calibre sur l'historique</em>. Pour quelqu'un qui vient d'arriver, il tourne sur ses valeurs par défaut, et l'écran ne le dit pas encore.</p>
       <p>La question du vent est posée <strong>avant</strong> la recherche, pas après. C'est l'idée du mainteneur, et elle réduit l'espace de recherche au lieu de le trier après coup. « Peu importe » reste une réponse valable, et c'est le défaut.</p>
       <p><strong>Le départ ponctuel passe par le même formulaire que l'installation</strong>, quatre champs et confirmation sur la carte (Q34, 17/09/2026). Il est replié par défaut : la plupart des sorties partent de chez soi, et déplier coûte un clic quand le formulaire ouvert coûterait un écran. Un départ ponctuel ne remplace jamais le départ habituel — l'écran le dit.</p>
+      <p><strong>La fourchette est annoncée avant la recherche, pas découverte après.</strong> « 54 km » seul laisse croire à une promesse ; « entre 49 et 59 km » dit ce que le moteur cherche vraiment, et rend lisible la phrase qui viendra si la fourchette ne suffit pas (Q41 d, 17/09/2026). Sans cette ligne, l'élargissement affiché plus tard se lirait comme un aveu ; avec elle, il se lit comme la suite annoncée.</p>
       <p>Enfin, « environ une minute » est là parce que le bouton ouvre <strong>la seule attente longue du produit</strong>. Annoncer l'ordre de grandeur coûte une ligne ; ne pas l'annoncer coûte un rechargement, et un rechargement coûte un second cycle complet d'appels.</p>
       <div class="pastilles"><span class="p ok">modèle physique</span><span class="p ok">question du vent existe</span><span class="p ok">géocodage du départ ponctuel</span><span class="p ok">même formulaire qu'à l'installation</span><span class="p ouvert">modèle non calibré pour un invité</span></div>
     </div>
@@ -818,7 +820,11 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
   <div class="paire">
     <div class="tel"><div class="barre-etat"><span>9:41</span><span>Recherche</span></div><div class="ecran">
       <div class="app-tete"><div><span class="quand">Demain matin · 2 h · Z2</span><h4>Aucune boucle</h4></div></div>
-      <div class="encart alerte"><b>On n'a rien trouvé qui tienne en 2 h depuis Pacé.</b> Les cinq essais sont revenus trop courts ou trop longs de plus de 10 %.</div>
+      <div class="encart alerte"><b>On n'a rien trouvé qui tienne en 2 h depuis Pacé.</b> Aucune boucle à ±10 % des 54 km visés.</div>
+      <div class="bloc doux">
+        <div class="bloc-tete"><h5>Ce qu'on a trouvé de plus proche</h5></div>
+        <p class="mention">34,7 km pour 54 km demandés (−36 %). Il aurait fallu élargir de 30 % ; on s'arrête à 10 %, au-delà on ne desserre plus votre contrainte, on en sert une autre.</p>
+      </div>
       <div class="bloc doux">
         <div class="bloc-tete"><h5>Ce qui peut aider</h5></div>
         <div class="etapes">
@@ -831,8 +837,11 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
     <div class="notes">
       <h3>Aucune boucle trouvée <span class="ref">E18 · échec</span></h3>
       <p>L'échec le plus fréquent, et le seul qui ne soit la faute de personne : le moteur n'a pas trouvé de boucle dans la tolérance de distance. <strong>Un message d'erreur seul serait une impasse</strong> — l'écran propose donc les deux leviers qui marchent réellement, avec leurs valeurs, pas un « réessayez ».</p>
+      <div class="citation"><b>Cette maquette décrivait un moteur qui refuse. Il ne refusait jamais.</b> Le mainteneur l'a trouvé en utilisant le produit (Q41 d, 17/09/2026) : « j'ai demandé 6 h et j'ai 3 boucles de 5 h ». <code>boucle/candidates.py</code> gardait la candidate la plus proche de la cible et la servait avec son écart, <strong>sans un mot</strong>. Mesuré le 17/09/2026 sur le serveur du mainteneur : 2 km demandés, 2,69 km servis, <strong>+34,7 % pour une tolérance de 10 %</strong>, muets.</div>
+      <p><strong>Le bloc du milieu est la correction</strong>, et il porte des nombres mesurés. En deçà, l'écart n'est plus tu : la boucle est servie et l'écran dit « aucune boucle à ±10 %, on a élargi de 10 %, soit ±20 % » — les mots du mainteneur, « on incrémente de 5 % en 5 %. Comme ça on explique ». <strong>Aucun seuil inventé</strong> : le chiffre cesse d'être une constante à défendre, il devient un résultat à montrer.</p>
+      <p>Et il faut bien s'arrêter, sinon on finit par servir n'importe quoi. <strong>Le plafond n'est pas un chiffre, c'est une unité</strong> : la bande acceptée peut au plus doubler, parce que la tolérance est la seule chose que le cycliste ait dite sur l'écart qu'il accepte. Il suit donc sa configuration — qui règle 5 % s'arrête à 10 %, qui règle 20 % s'arrête à 40 % —, ce qu'un seuil arbitraire ne fait pas : celui-là reste où on l'a posé.</p>
       <p>La dernière ligne existe parce que l'utilisateur ne sait pas ce qu'il consomme. Le dire une fois vaut mieux que de le laisser imaginer.</p>
-      <div class="pastilles"><span class="p ok">le moteur sait déjà dire qu'il n'a rien</span><span class="p ecrire">propositions de repli</span></div>
+      <div class="pastilles"><span class="p ok">le moteur refuse vraiment, désormais</span><span class="p ok">l'écart chiffré vient de l'API</span><span class="p ecrire">propositions de repli</span></div>
     </div>
   </div>
 

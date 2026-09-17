@@ -25,7 +25,7 @@ from outils import robuste
 
 from ourouler.boucle.trace import Trace
 from ourouler.config import Depart
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L2.3 absent (ourouler.boucle.candidates)"
 
@@ -203,18 +203,21 @@ def test_un_seul_candidat_demande_n_explore_qu_un_azimut():
 
 
 def test_un_moteur_qui_rend_toujours_la_meme_boucle_ne_tourne_pas_en_rond():
-    """Contrat §8 : « moteur qui renvoie toujours la même boucle »."""
+    """Contrat §8 : « moteur qui renvoie toujours la même boucle ».
+
+    Rendre 30 km pour une cible de 60 (écart de −50 %) en silence, quand la
+    tolérance vaut 10 %, est exactement le défaut corrigé le 17/09/2026:
+    aucun azimut ne peut tenir dans la tolérance même élargie au maximum
+    (40 % de manque contre 10 % de plafond), donc la demande refuse plutôt
+    que de servir une candidate hors sujet. Le plafond d'appels reste le
+    vrai sujet ici, vérifié sur le moteur bouchon.
+    """
     module = _module()
     moteur = MoteurFactice(30_000.0)  # 30 km quoi qu'on demande, cible 60 km
-    candidates = _generer(module, moteur, distance_km=60.0, nb=5, tolerance=0.10, appels_max=12)
+    with pytest.raises(ErreurDistanceInatteignable):
+        _generer(module, moteur, distance_km=60.0, nb=5, tolerance=0.10, appels_max=12)
 
     assert len(moteur.appels) <= 12, f"plafond d'appels dépassé : {len(moteur.appels)}"
-    _verifier_candidates(candidates, cible_km=60.0, quoi="moteur constant")
-    assert candidates, (
-        "aucune candidate n'est dans la tolérance, mais le contrat demande de rendre "
-        "les meilleures quand même"
-    )
-    assert len(candidates) <= 5, "pas plus de candidates que demandé"
 
 
 #: Ajustements de rayon consentis à un azimut, essai initial exclu. Le contrat
@@ -228,10 +231,17 @@ AJUSTEMENTS_CONSENTIS = 3
 
 
 def test_un_azimut_ne_coute_jamais_plus_de_trois_ajustements():
-    """Contrat §3, révisé par le superviseur le 13/09 : voir `AJUSTEMENTS_CONSENTIS`."""
+    """Contrat §3, révisé par le superviseur le 13/09 : voir `AJUSTEMENTS_CONSENTIS`.
+
+    Le moteur ne converge jamais vers 60 km (30 km quoi qu'on demande), donc
+    la tolérance de 1 % ne peut être tenue même élargie au maximum : la
+    demande refuse. Le sujet du test — le nombre d'ajustements consentis à
+    un seul azimut — se lit sur le moteur bouchon, refus ou pas.
+    """
     module = _module()
     moteur = MoteurFactice(30_000.0)  # ne converge jamais vers 60 km
-    _generer(module, moteur, nb=1, tolerance=0.01, appels_max=12)
+    with pytest.raises(ErreurDistanceInatteignable):
+        _generer(module, moteur, nb=1, tolerance=0.01, appels_max=12)
     assert len(moteur.appels) <= 1 + AJUSTEMENTS_CONSENTIS, (
         f"{len(moteur.appels)} appels pour un seul azimut : un essai initial et "
         f"{AJUSTEMENTS_CONSENTIS} ajustements au maximum, même quand le plafond global "
@@ -245,8 +255,12 @@ def test_les_candidates_sont_triees_par_ecart_absolu():
     cible = 60_000.0
     facteurs = {90.0: 1.30, 110.0: 0.95, 70.0: 1.02, 130.0: 0.80, 50.0: 1.15}
     moteur = MoteurFactice(par_azimut={a: cible * f for a, f in facteurs.items()})
+    # Tolérance à 0,30 (au lieu de 0,01) : le plus grand écart fabriqué ici
+    # est de 30 %, tout juste dans la tolérance — aucun azimut n'a besoin
+    # d'élargissement, ce qui laisse les cinq candidates en jeu pour vérifier
+    # le tri, qui est le vrai sujet du test.
     candidates = _generer(
-        module, moteur, distance_km=60.0, azimut_deg=90.0, nb=5, tolerance=0.01, appels_max=30
+        module, moteur, distance_km=60.0, azimut_deg=90.0, nb=5, tolerance=0.30, appels_max=30
     )
     _verifier_candidates(candidates, cible_km=60.0, quoi="tri")
     assert len(candidates) == 5, f"cinq azimuts, cinq candidates attendues, reçu {len(candidates)}"
@@ -258,10 +272,16 @@ def test_les_candidates_sont_triees_par_ecart_absolu():
 
 
 def test_le_plafond_d_appels_est_respecte_a_la_lettre():
+    # 30 km rendus quoi qu'on demande pour une cible de 60 (écart de −50 %) :
+    # aucun plafond ne suffit à faire tenir la tolérance par défaut (10 %,
+    # même élargie), la demande refuse systématiquement. Le plafond d'appels
+    # lui-même — le vrai sujet — se vérifie sur le moteur bouchon, refus ou
+    # pas.
     module = _module()
     for plafond in (1, 2, 3, 7):
         moteur = MoteurFactice(30_000.0)
-        _generer(module, moteur, appels_max=plafond, nb=5)
+        with pytest.raises(ErreurDistanceInatteignable):
+            _generer(module, moteur, appels_max=plafond, nb=5)
         assert len(moteur.appels) <= plafond, (
             f"appels_max={plafond} : {len(moteur.appels)} appels effectués"
         )

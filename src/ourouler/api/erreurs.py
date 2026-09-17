@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 from ourouler.erreurs import (
     ErreurConfig,
     ErreurConnecteur,
+    ErreurDistanceInatteignable,
     ErreurHorsDomaine,
     ErreurLecture,
     ErreurUtilisateur,
@@ -308,6 +309,27 @@ def classer(
     # parfaitement répondu — il n'a simplement rien rendu qui tienne dans la
     # tolérance. La classer comme une panne enverrait le front sur l'écran
     # « service indisponible » au lieu de l'écran dessiné pour ce cas-là.
+    # Le refus sur la distance se reconnaît **à son type**, pas à son préfixe :
+    # il porte ses mesures, et l'écran d'échec en a besoin pour dire de combien
+    # il aurait fallu élargir au lieu d'un « réessayez » (Q41 d). Même code
+    # `aucune_boucle` — c'est le même écran, E18 · échec — mais les `details`
+    # sont remplis.
+    if isinstance(exception, ErreurDistanceInatteignable):
+        return ErreurApi(
+            code="aucune_boucle",
+            message=message,
+            statut=422,
+            details={
+                "motif": "distance_inatteignable",
+                "distance_cible_km": round(exception.distance_cible_km, 3),
+                "distance_obtenue_km": round(exception.distance_obtenue_km, 3),
+                "ecart_relatif": round(exception.ecart_relatif, 4),
+                "tolerance_distance": exception.tolerance,
+                "elargissement_requis": exception.elargissement_requis,
+                "elargissement_max": exception.elargissement_max,
+            },
+        )
+
     if isinstance(exception, ErreurUtilisateur) and any(
         message.startswith(debut) for debut in DEBUTS_AUCUNE_BOUCLE
     ):

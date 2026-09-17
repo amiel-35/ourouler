@@ -13,13 +13,13 @@ Le client est injectable : ce module ne connaît ni l'URL ni les identifiants.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ourouler.boucle.antennes import detecter, elaguer
 from ourouler.boucle.trace import Trace
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
 
 #: Rapport de départ entre la longueur d'une boucle et le rayon demandé.
 #: Point d'entrée de l'ajustement, pas une constante de vérité.
@@ -50,6 +50,83 @@ FACTEUR_MIN, FACTEUR_MAX = 0.25, 4.0
 #: auto-hébergé un calcul qui n'a plus de sens pour une sortie à vélo.
 RAYON_MIN_M, RAYON_MAX_M = 500.0, 200_000.0
 
+#: Pas d'élargissement de la tolérance de distance, en écart relatif.
+#:
+#: Mots du mainteneur (Q41 d, 17/09/2026) : « le mieux c'est de dire au user :
+#: on n'a pas trouvé de boucle dans les contraintes, on a élargi de X %. Et on
+#: incrémente de 5 % en 5 %. Comme ça on explique. »
+#:
+#: Ce pas n'est pas un seuil : aucune boucle n'est acceptée ou refusée parce
+#: qu'il vaut 5 %. Il ne fait qu'arrondir le chiffre qu'on montre, pour que
+#: l'écran dise « élargi de 10 % » plutôt que « élargi de 7,3 % ».
+PAS_ELARGISSEMENT = 0.05
+
+
+def palier(ecart_relatif: float, tolerance: float) -> float:
+    """De combien il a fallu élargir `tolerance` pour accepter `ecart_relatif`.
+
+    Le plus petit multiple de `PAS_ELARGISSEMENT` qui, ajouté à `tolerance`,
+    contient l'écart mesuré — `0.0` si l'écart tenait déjà dans la tolérance.
+    Tolérance 10 %, écart −17 % : il manque 7 points, deux paliers de 5 %
+    suffisent, la réponse est `0.10` (bande atteinte : ±20 %).
+
+    **Un élargissement ne relance pas la recherche**, et c'est une mesure, pas
+    une opinion. Dans `generer`, `tolerance` ne sert qu'à décider quand
+    *arrêter* d'affiner le rayon (`if abs(ecart) <= tolerance: break`) : elle
+    ne filtre rien et n'oriente rien. Une tolérance plus large arrête donc
+    l'affinage **plus tôt**, et ne peut rendre qu'une boucle égale ou pire.
+    Élargir puis réessayer dépenserait des appels au serveur du mainteneur
+    pour un résultat qu'on a déjà en main. Le palier se **lit** sur la
+    candidate trouvée au réglage le plus serré ; il ne se cherche pas.
+    `test_elargir_la_tolerance_ne_rend_jamais_une_meilleure_boucle` le vérifie
+    sur un moteur qui ne converge pas.
+    """
+    manque = abs(ecart_relatif) - tolerance
+    if manque <= 0:
+        return 0.0
+    # Le `- 1e-9` évite qu'un 0,05 flottant (0,050000000000000003) réclame un
+    # palier de plus que celui qu'un humain compterait.
+    marches = math.ceil(manque / PAS_ELARGISSEMENT - 1e-9)
+    return round(marches * PAS_ELARGISSEMENT, 10)
+
+
+def elargissement_max(tolerance: float) -> float:
+    """Le plus grand élargissement qu'on s'autorise à servir : `tolerance` elle-même.
+
+    Il faut bien s'arrêter : servir 40 km à qui en demande 150 n'explique plus
+    rien, ça substitue une autre sortie à celle qui était demandée. Mais le
+    mainteneur a refusé qu'on invente un seuil pour le dire (Q41 d), et il a
+    raison — un seuil inventé est un chiffre qu'on passe sa vie à défendre.
+
+    **Le plafond retenu n'est donc pas un chiffre, c'est une unité** : la
+    bande acceptée peut au plus **doubler**. Tolérance de 10 % configurée,
+    20 % servis au maximum ; l'élargissement s'arrête quand il a consommé
+    autant que la contrainte d'origine.
+
+    Pourquoi ça se défend là où un chiffre rond ne se défendrait pas :
+    `tolerance_distance` est **la seule chose que l'utilisateur ait dite** sur
+    l'écart de distance qu'il accepte. Tant qu'on reste en deçà du double, on
+    desserre sa contrainte à lui, dans son unité à lui, et on lui dit de
+    combien ; au-delà, on ne desserre plus rien, on substitue une contrainte
+    prise ailleurs que chez lui. Et ce plafond **suit sa configuration** :
+    qui règle 5 % s'arrête à 10 %, qui règle 20 % s'arrête à 40 %. Un seuil
+    arbitraire ne fait pas ça — il reste où on l'a posé, quoi que dise la
+    configuration. C'est à ça qu'on les distingue.
+
+    Un plancher d'un palier, et lui non plus n'est pas un chiffre choisi :
+    `config` accepte des tolérances jusqu'à 1 %, et sous 5 % le double
+    resterait plus étroit que le pas d'élargissement lui-même — le mécanisme
+    que le mainteneur a demandé n'aurait jamais lieu d'être. **On ne refuse
+    personne sans lui avoir offert au moins un palier**, sinon l'escalier
+    n'a pas de première marche.
+
+    Conséquence voulue : il n'y a **aucune** valeur en dur ici, et le palier
+    ne peut pas monter indéfiniment. Il est lu sur un ensemble fini de
+    candidates déjà calculées, et borné par un réglage que l'utilisateur peut
+    lire et changer.
+    """
+    return max(tolerance, PAS_ELARGISSEMENT)
+
 
 @dataclass
 class Candidate:
@@ -57,6 +134,26 @@ class Candidate:
     azimut_deg: float
     rayon_m: float
     ecart_relatif: float  # (distance − cible) / cible
+    #: La tolérance de distance en vigueur quand cette candidate a été jugée.
+    tolerance: float = 0.0
+    #: De combien il a fallu élargir cette tolérance, en paliers de 5 %.
+    #: `0.0` quand la boucle tenait dans la tolérance — le cas normal.
+    elargissement: float = 0.0
+
+    @property
+    def hors_tolerance(self) -> bool:
+        """Vrai quand la boucle n'entre pas dans la tolérance demandée.
+
+        C'est ce que l'ancienne rédaction taisait : la meilleure candidate
+        était servie avec son écart, sans un mot, même à 17 % d'une tolérance
+        réglée à 10 %.
+        """
+        return self.elargissement > 0.0
+
+    @property
+    def tolerance_atteinte(self) -> float:
+        """La bande qu'il a fallu accepter : `tolerance + elargissement`."""
+        return self.tolerance + self.elargissement
 
 
 def appels_pour(nb: int) -> int:
@@ -113,11 +210,27 @@ def generer(
 
     Deux garde-fous, donc, et ils ne disent pas la même chose : `appels_max`
     borne le **nombre** d'appels au moteur, les bornes ci-dessus bornent leur
-    **coût**. Si aucune candidate n'entre dans la tolérance, les meilleures
-    sont rendues quand même — l'utilisateur juge mieux sur des chiffres que
-    sur du vide. Par défaut, `appels_max` vaut `appels_pour(nb)` : le plafond
+    **coût**. Par défaut, `appels_max` vaut `appels_pour(nb)` : le plafond
     suit la demande, pour que `nb = 5` rende bien cinq candidates même quand
     le moteur épuise ses ajustements sur chacune.
+
+    **Une candidate hors tolérance est servie, mais elle le dit** (Q41 d,
+    17/09/2026). Jusqu'à cette correction, `tolerance` ne servait qu'à
+    *arrêter* la recherche : la meilleure tentative était retenue quoi qu'il
+    arrive, avec son écart, **sans un mot**. Mesuré le 17/09/2026 sur le
+    serveur du mainteneur : 2 km demandés, 2,69 km servis, soit +34,7 % pour
+    une tolérance réglée à 10 %, et rien à l'écran ne le disait. Désormais
+    chaque candidate porte `tolerance`, `elargissement` (de combien il a
+    fallu élargir, par paliers de 5 %) et `hors_tolerance`.
+
+    **Et au-delà d'un élargissement, on refuse plutôt que de servir.** Le
+    plafond est `elargissement_max(tolerance)` — la tolérance elle-même,
+    jamais moins d'un palier ; sa justification est dans sa docstring. Quand
+    des boucles bornées ont été trouvées mais qu'aucune n'y tient, la
+    `ErreurDistanceInatteignable` levée **porte les mesures** du refus, pour
+    que l'écran d'échec dise de combien il aurait fallu élargir au lieu d'un
+    « réessayez ». Un azimut hors plafond ne condamne pas les autres : le
+    refus n'a lieu que si **aucune** candidate n'a tenu.
 
     Un azimut qui fait échouer le moteur (profil refusé sur une direction,
     panne passagère) ne fait pas perdre les autres : l'erreur est retenue et
@@ -147,7 +260,9 @@ def generer(
     appels_max = appels_max if appels_max is not None else appels_pour(nb)
     cible_m = distance_km * 1000.0
     appels = 0
+    plafond = elargissement_max(tolerance)
     candidates: list[Candidate] = []
+    trop_loin: list[Candidate] = []
     derniere_erreur: ErreurConnecteur | None = None
 
     for azimut in azimuts(azimut_deg, nb):
@@ -188,13 +303,50 @@ def generer(
                 break  # le rayon sortirait de la plage exploitable
             rayon = suivant
         if meilleure is not None:
-            candidates.append(meilleure)
+            # L'écart cesse d'être tu : il est jugé ici, une fois, et la
+            # candidate emporte son verdict. Avant ce correctif, `tolerance`
+            # ne servait qu'à arrêter l'affinage et la meilleure tentative
+            # était servie quoi qu'il arrive, sans un mot — 2 km demandés,
+            # 2,69 km servis (+34,7 %) sur le serveur du mainteneur, mesuré
+            # le 17/09/2026.
+            marche = palier(meilleure.ecart_relatif, tolerance)
+            meilleure = replace(meilleure, tolerance=tolerance, elargissement=marche)
+            if marche <= plafond:
+                candidates.append(meilleure)
+            else:
+                trop_loin.append(meilleure)
         if appels >= appels_max:
             break
 
     if not candidates and derniere_erreur is not None:
         raise derniere_erreur
+    if not candidates and trop_loin:
+        raise _trop_loin(trop_loin, distance_km=distance_km, tolerance=tolerance, plafond=plafond)
     return sorted(candidates, key=lambda c: abs(c.ecart_relatif))
+
+
+def _trop_loin(
+    ecartees: list[Candidate], *, distance_km: float, tolerance: float, plafond: float
+) -> ErreurDistanceInatteignable:
+    """Le refus, avec les chiffres qui le justifient — jamais un « réessayez ».
+
+    L'écran d'échec (E18 · échec) doit pouvoir dire de combien il aurait fallu
+    élargir : c'est ce qui transforme une impasse en levier chiffré.
+    """
+    meilleure = min(ecartees, key=lambda c: abs(c.ecart_relatif))
+    obtenue_km = meilleure.trace.distance_m / 1000.0
+    return ErreurDistanceInatteignable(
+        f"aucune boucle à moins de {tolerance:.0%} de {distance_km:g} km : la plus proche "
+        f"fait {obtenue_km:.1f} km ({meilleure.ecart_relatif:+.0%}), il aurait fallu élargir "
+        f"de {meilleure.elargissement:.0%} et on s'arrête à {plafond:.0%} — essayer une autre "
+        "distance, une autre direction ou un autre profil",
+        distance_cible_km=distance_km,
+        distance_obtenue_km=obtenue_km,
+        ecart_relatif=meilleure.ecart_relatif,
+        tolerance=tolerance,
+        elargissement_requis=meilleure.elargissement,
+        elargissement_max=plafond,
+    )
 
 
 def _borner(rayon_m: float) -> float:

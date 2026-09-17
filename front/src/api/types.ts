@@ -347,6 +347,14 @@ export interface Candidate {
   distance_km: number;
   denivele_m: number | null;
   azimut_deg: number | null;
+  /** (distance − cible) / cible. Négatif : la boucle est plus courte que demandé. */
+  ecart_relatif?: number | null;
+  /** Vrai quand la boucle n'entre pas dans la tolérance de distance demandée. */
+  hors_tolerance?: boolean;
+  /** De combien la tolérance a dû être élargie, par paliers de 5 % (Q41 d). */
+  elargissement?: number | null;
+  /** La tolérance de distance en vigueur, pour dire « ±10 % demandés, ±20 % servis ». */
+  tolerance_distance?: number | null;
   vitesse_kmh?: number | null;
   temps_estime_s?: number | null;
   couts: {

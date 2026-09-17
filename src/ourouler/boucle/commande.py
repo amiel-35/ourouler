@@ -135,6 +135,13 @@ class Evaluation:
     azimut_deg: float | None
     rayon_m: float | None
     total: float
+    #: De combien il a fallu élargir la tolérance de distance pour accepter
+    #: cette boucle, par paliers de 5 % (Q41 d). `0.0` : elle y tenait déjà.
+    #: `None` : la question ne se pose pas (GPX importé, pas de cible).
+    elargissement: float | None = None
+    #: La tolérance de distance en vigueur, pour que l'écran puisse dire
+    #: « ±10 % demandés, ±20 % servis » sans aller la relire ailleurs.
+    tolerance_distance: float | None = None
     #: Part des kilomètres déjà roulés, entre 0 et 1, ou `None` si aucune base
     #: de routes connues n'existe. **Informative** : elle n'entre dans aucun
     #: score (contrat du sprint 3 §2 — « inconnu » n'est jamais un malus).
@@ -610,6 +617,10 @@ def _classer(
                 azimut_deg=getattr(candidate, "azimut_deg", None),
                 rayon_m=getattr(candidate, "rayon_m", None),
                 total=couts.score + pluie * POIDS_PLUIE_TRI,
+                # `getattr` parce qu'un GPX importé n'a pas de candidate : la
+                # question de l'écart à une cible ne se pose alors pas.
+                elargissement=getattr(candidate, "elargissement", None),
+                tolerance_distance=getattr(candidate, "tolerance", None),
                 part_connue=base.part_connue(trace) if base is not None else None,
                 temps_s=_temps_modele(trace, meteo, modele),
                 vitesse_meteo_kmh=vitesse,
@@ -722,9 +733,41 @@ def rendre_texte(
             f"{ignores} tronçon(s) à la longueur inexploitable écartés du kilométrage : "
             "trafic et revêtement sont sous-estimés d'autant."
         )
+    lignes += lignes_elargissement(evaluations, demande.distance_km)
     if chemin is not None:
         lignes.append(f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}, écrite dans {chemin}")
     return "\n".join(lignes)
+
+
+def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
+    """« On n'a pas trouvé de boucle dans les contraintes, on a élargi de X %. »
+
+    Les mots sont ceux du mainteneur (Q41 d). Rien ne s'affiche quand toutes
+    les boucles tiennent dans la tolérance — c'est le cas normal, et une
+    ligne qui signale ce qui ne compte pas apprend à ne plus lire la ligne
+    (même raison que `SEUIL_ECART_DUREE` dans `sortie/commande.py`).
+
+    Partagée avec `sortie`, qui rend le même fait dans un autre tableau : le
+    cycliste n'a pas à apprendre deux formulations pour une seule notion.
+    """
+    elargies = [e for e in evaluations if e.elargissement]
+    if not elargies or distance_km is None:
+        return []
+    tolerance = next((e.tolerance_distance for e in elargies if e.tolerance_distance), None)
+    if tolerance is None:
+        return []
+    palier_max = max(e.elargissement or 0.0 for e in elargies)
+    numeros = ", ".join(f"n° {e.numero}" for e in elargies)
+    lignes = [
+        f"Aucune boucle à ±{tolerance:.0%} de {_fr(distance_km, 0)} km : la tolérance a été "
+        f"élargie de {palier_max:.0%}, soit ±{tolerance + palier_max:.0%} ({numeros})."
+    ]
+    for e in elargies:
+        lignes.append(
+            f"    n° {e.numero} : {_fr(e.trace.distance_m / 1000, 1)} km, "
+            f"{e.ecart_relatif:+.0%} de la distance demandée."
+        )
+    return lignes
 
 
 def _titres(
@@ -1078,6 +1121,12 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "azimut_deg": evaluation.azimut_deg,
         "rayon_m": evaluation.rayon_m,
         "ecart_relatif": evaluation.ecart_relatif,
+        # L'écart cesse d'être tu : trois champs, pas un commentaire. Un
+        # client qui n'affiche que `distance_km` continue de marcher, un
+        # client qui veut expliquer a de quoi le faire (Q41 d).
+        "hors_tolerance": bool(evaluation.elargissement),
+        "elargissement": evaluation.elargissement,
+        "tolerance_distance": evaluation.tolerance_distance,
         "total_tri": round(evaluation.total, 3),
         "couts_partiels": bool(trace.meta.get("couts_partiels")),
         "segments_ignores": int(trace.meta.get("segments_ignores") or 0),

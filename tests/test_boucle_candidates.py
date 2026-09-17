@@ -26,7 +26,7 @@ from ourouler.boucle.candidates import (
 )
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
 
 DEPART = Depart(nom="Point fictif", latitude=0.0, longitude=0.0)
 
@@ -113,16 +113,20 @@ def test_l_ajustement_s_arrete_apres_trois_corrections():
 
     Trois corrections depuis le 13/09/2026 : l'élagage des antennes fait
     osciller la distance mesurée, deux s'arrêtaient au milieu de l'oscillation.
-    Voir `AJUSTEMENTS_MAX`.
+    Voir `AJUSTEMENTS_MAX`. Le moteur ne converge jamais (50 km quel que soit
+    le rayon, écart de −17 %) : la tolérance de 5 % ne peut pas l'absorber
+    même élargie au maximum autorisé, donc la boucle refuse — c'est
+    `AJUSTEMENTS_MAX` qui a bien arrêté l'affinage, mesuré via le nombre
+    d'appels, pas via une candidate qui n'est plus servie.
     """
     # 50 km quel que soit le rayon : la correction reste bornée (facteur 1,2,
     # rayon sous `RAYON_MAX_M`), c'est donc bien `AJUSTEMENTS_MAX` qui arrête.
     client, appels = moteur(50_000)
-    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.05)
+    with pytest.raises(ErreurDistanceInatteignable) as exc:
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.05)
     assert AJUSTEMENTS_MAX == 3
     assert len(appels) == 1 + AJUSTEMENTS_MAX == 4
-    assert len(trouvees) == 1, "une candidate hors tolérance vaut mieux que rien"
-    assert trouvees[0].ecart_relatif == pytest.approx(-1 / 6)
+    assert exc.value.ecart_relatif == pytest.approx(-1 / 6)
 
 
 def test_cinq_demandees_cinq_rendues_meme_si_le_moteur_ne_converge_pas():
@@ -134,12 +138,16 @@ def test_cinq_demandees_cinq_rendues_meme_si_le_moteur_ne_converge_pas():
     troisième ajustement devait justement absorber. Rien ne le disait à
     l'utilisateur.
     """
-    # 50 km quel que soit le rayon : chaque azimut épuise ses ajustements.
+    # 50 km quel que soit le rayon : chaque azimut épuise ses ajustements, avec
+    # un écart de −17 % qu'une tolérance de 5 % ne peut pas absorber même
+    # élargie au maximum : les cinq azimuts sont bien tentés (appels_pour(5)
+    # appels), mais aucune candidate ne tient, donc la boucle refuse — le
+    # « cinq rendues » se vérifie maintenant sur le mouchard d'appels.
     client, appels = moteur(50_000)
-    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05)
-    assert len(trouvees) == 5
+    with pytest.raises(ErreurDistanceInatteignable):
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05)
     assert len(appels) == appels_pour(5) == 5 * (1 + AJUSTEMENTS_MAX)
-    assert len({round(c.azimut_deg) for c in trouvees}) == 5, "cinq directions distinctes"
+    assert len({round(a["azimut"]) for a in appels}) == 5, "cinq directions distinctes tentées"
 
 
 def test_une_candidate_dans_la_tolerance_suffit():
@@ -184,21 +192,21 @@ def test_les_candidates_sont_triees_par_ecart_absolu():
 
 
 def test_le_plafond_d_appels_est_respecte():
+    # 20 km quel que soit le rayon pour une cible de 60 : écart de −67 %,
+    # bien au-delà de ce qu'une tolérance de 5 % peut absorber même élargie.
+    # Le sujet du test est le plafond d'appels lui-même, qui se lit sur le
+    # mouchard d'appels, pas sur des candidates qui ne sont plus servies.
     client, appels = moteur(20_000)  # jamais dans la tolérance : 3 appels par azimut
-    trouvees = generer(
-        client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05, appels_max=7
-    )
+    with pytest.raises(ErreurDistanceInatteignable):
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05, appels_max=7)
     assert len(appels) == 7
-    assert len(trouvees) == 3, "les azimuts déjà tentés donnent quand même leur meilleure boucle"
 
 
 def test_un_plafond_d_un_seul_appel():
     client, appels = moteur(20_000)
-    trouvees = generer(
-        client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05, appels_max=1
-    )
+    with pytest.raises(ErreurDistanceInatteignable):
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=5, tolerance=0.05, appels_max=1)
     assert len(appels) == 1
-    assert len(trouvees) == 1
 
 
 def test_les_boucles_non_bornees_sont_ecartees():
@@ -209,10 +217,14 @@ def test_les_boucles_non_bornees_sont_ecartees():
 
 
 def test_une_distance_nulle_n_entraine_pas_de_correction_infinie():
+    # Servir 0 m pour 60 km demandés (écart de −100 %) sans un mot était
+    # exactement le défaut corrigé par `ErreurDistanceInatteignable` : ici,
+    # le refus est désormais l'issue attendue, pas une boucle de 0 m.
     client, appels = moteur(0)
-    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=2, tolerance=0.10)
+    with pytest.raises(ErreurDistanceInatteignable) as exc:
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=2, tolerance=0.10)
     assert len(appels) == 2, "un appel par azimut : rien à corriger proportionnellement"
-    assert all(c.ecart_relatif == pytest.approx(-1.0) for c in trouvees)
+    assert exc.value.ecart_relatif == pytest.approx(-1.0)
 
 
 @pytest.mark.parametrize("distance_km", [0, -10.0, float("nan"), float("inf")])
@@ -245,8 +257,14 @@ def test_un_moteur_qui_rend_toujours_100_m_ne_fait_pas_exploser_le_rayon():
     4 320 000 000 m — `roundTripDistance` à 4,3 millions de kilomètres.
     `appels_max` bornait le nombre d'appels, pas leur coût.
     """
+    # Une boucle de 100 m pour une cible de 60 km (écart de −99,8 %) n'entre
+    # plus dans la tolérance même élargie au maximum : les trois azimuts sont
+    # abandonnés faute de correction exploitable, et la demande refuse. Les
+    # bornes de rayon restent le vrai sujet du test, vérifiées sur le
+    # mouchard d'appels.
     client, appels = moteur(100.0)
-    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=3, tolerance=0.10)
+    with pytest.raises(ErreurDistanceInatteignable) as exc:
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=3, tolerance=0.10)
 
     rayons = [a["rayon"] for a in appels]
     assert rayons, "le premier essai de chaque azimut doit bien partir"
@@ -255,25 +273,38 @@ def test_un_moteur_qui_rend_toujours_100_m_ne_fait_pas_exploser_le_rayon():
     assert len(appels) == 3, (
         f"un essai par azimut attendu (la borne abandonne l'azimut), {len(appels)} faits : {rayons}"
     )
-    # L'azimut est abandonné, mais sa meilleure tentative reste proposée : une
-    # boucle de 100 m est une mauvaise réponse, pas une absence de réponse.
-    assert len(trouvees) == 3
-    assert all(c.trace.distance_m == pytest.approx(100.0) for c in trouvees)
+    # L'azimut est abandonné, mais sa meilleure tentative est bien celle
+    # jugée par le refus : une boucle de 100 m est une mauvaise réponse, pas
+    # une absence de réponse.
+    assert exc.value.distance_obtenue_km == pytest.approx(0.1)
 
 
 def test_un_moteur_qui_rend_une_boucle_bien_trop_longue_ne_reduit_pas_le_rayon_a_rien():
-    """Symétrique du précédent : le rayon ne descend pas sous la borne basse."""
+    """Symétrique du précédent : le rayon ne descend pas sous la borne basse.
+
+    6 000 km pour une cible de 60 (écart de +9 900 %) est hors de portée même
+    d'une tolérance élargie au maximum : la demande refuse, mais les bornes
+    de rayon restent vérifiables sur le mouchard d'appels.
+    """
     client, appels = moteur(6_000_000.0)  # 6 000 km pour une cible de 60
-    generer(client, DEPART, distance_km=60, azimut_deg=45, nb=2, tolerance=0.10)
+    with pytest.raises(ErreurDistanceInatteignable):
+        generer(client, DEPART, distance_km=60, azimut_deg=45, nb=2, tolerance=0.10)
     rayons = [a["rayon"] for a in appels]
     assert min(rayons) >= RAYON_MIN_M, f"rayon demandé hors plage : {min(rayons)} m"
     assert len(appels) == 2, f"un essai par azimut attendu, {len(appels)} faits : {rayons}"
 
 
 def test_le_rayon_initial_reste_dans_la_plage_exploitable():
-    """Une cible démesurée ne doit pas sortir de la plage dès le premier appel."""
+    """Une cible démesurée ne doit pas sortir de la plage dès le premier appel.
+
+    Avec un rapport réel de 5, une cible de 5 000 km clampe le rayon initial
+    à `RAYON_MAX_M`, ce qui rend une boucle bien plus courte que la cible
+    (écart de −80 %) : la demande refuse, mais le rayon demandé au moteur
+    reste le vrai sujet du test.
+    """
     client, appels = moteur(lambda rayon: rayon * 5.0)
-    generer(client, DEPART, distance_km=5000, azimut_deg=0, nb=1, tolerance=0.10)
+    with pytest.raises(ErreurDistanceInatteignable):
+        generer(client, DEPART, distance_km=5000, azimut_deg=0, nb=1, tolerance=0.10)
     assert appels[0]["rayon"] == pytest.approx(RAYON_MAX_M)
 
 
@@ -313,7 +344,11 @@ def test_la_meilleure_tentative_d_un_azimut_est_gardee():
         return httpx.Response(200, json=charge)
 
     client = ClientBrouter(PARAMS, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
-    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.01)
+    # Tolérance à 0,05 (au lieu de 0,01) : l'écart de +10 % de la meilleure
+    # tentative ne nécessite plus qu'un seul palier d'élargissement, dans le
+    # plafond autorisé — la tolérance plus serrée aurait refusé la demande
+    # entière, ce qui n'est pas le sujet ici (garder la meilleure tentative).
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.05)
     assert trouvees[0].trace.distance_m == 66_000
     assert trouvees[0].ecart_relatif == pytest.approx(0.1)
 
