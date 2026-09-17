@@ -2655,3 +2655,51 @@ décision**, et elle en demande trois :
 **Le mainteneur le pose comme « un sujet à part », et il a raison** : ça ne
 bloque aucun lot en cours, et ça décide de ce qu'est le produit une fois
 partagé.
+
+
+### Réponse du mainteneur (17/09/2026) — la ligne passe entre la route et le lien
+
+> « en fait, c'est : qu'est-ce qu'on conserve du point de routes qui concerne
+> directement le cycliste ? »
+
+**Meilleure formulation que la question d'origine**, et elle sépare ce que la
+table mélange. `apprentissage/routes.py`, table `troncons` :
+
+| colonnes | de quoi ça parle |
+|---|---|
+| `cle_lat`, `cle_lon`, `highway`, `surface`, `maxspeed`, `cout_km` | **la route** — elle existe indépendamment de qui l'a roulée |
+| `passages`, `metres` | **le fait d'y être passé** |
+| `proprietaire`, et la table `sorties` (`id_sortie`, `jour`) | **le cycliste** |
+
+**Ce qui concerne la route se partage sans difficulté** : une petite route
+agréable l'est pour tout le monde, et ça n'appartient à personne. **Ce qui est
+personnel, c'est le lien** — que *cette personne* y est passée, *ce jour-là*,
+sur *cette sortie*.
+
+Et ça résout la tension avec la doctrine §10.2 sans compromis : si l'agrégat
+collectif ne porte jamais l'identité, **il n'y a rien de personnel à supprimer
+dedans**. Supprimer un compte retire ses sorties et son lien aux tronçons ; le
+savoir sur les routes reste, parce qu'il n'a jamais parlé de lui.
+
+### Le seuil de réidentification, et pourquoi il attend
+
+J'avais signalé qu'avec peu d'utilisateurs, **un tronçon parcouru une seule
+fois désigne une seule personne** : un compteur « 1 passage » sur une route de
+campagne se réattribue tout seul. L'anonymat par agrégation n'existe qu'à
+partir d'un certain nombre de contributeurs.
+
+> « tant que c'est des copains, que je ne vends pas le service, je
+> préciserais. »
+
+**Position retenue, et elle est cohérente** : ce n'est pas une machinerie
+d'anonymisation qui protège dans ce cas, c'est le fait que le mainteneur
+connaisse les gens et le leur dise. La transparence tient lieu de seuil tant
+que le cercle est petit et le service gratuit.
+
+**Ce qui fait revenir la question**, et il faut le savoir d'avance : le
+service vendu, ou des inconnus dedans. L'une des deux suffit. Le seuil de
+contributeurs distincts devra alors être **mesuré**, pas posé.
+
+Note d'une autre nature, indépendante de la vie privée : un tronçon roulé une
+seule fois n'est pas non plus une **preuve** qu'il est bon. Le seuil sert donc
+deux choses à la fois — et cette seconde raison-là vaut déjà aujourd'hui.
