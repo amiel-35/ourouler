@@ -7,6 +7,7 @@ Le reste du cœur reçoit un objet `Config` déjà construit.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import tomllib
 from collections.abc import Mapping
@@ -16,6 +17,33 @@ from pathlib import Path
 from typing import Any
 
 from ourouler.erreurs import ErreurConfig
+from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
+from ourouler.seance.zones import (
+    POSITION_ENDURANCE_DEFAUT,
+    ZONE_ENDURANCE,
+    position_endurance,
+    puissance_endurance_pct,
+)
+
+#: Bornes de chargement de `[seance] position_zone` : au plus une largeur de
+#: bande au-dessous du bas de la zone, une au-dessus du haut. Ce n'est pas le
+#: domaine normal — l'écran de FTP tient l'utilisateur dans [0, 1] — c'est la
+#: marge que la décision 8 réclame pour qu'une saisie fautive **se voie** au
+#: lieu d'être corrigée en douce (0,508 × FTP se lit −0,274 dans la table par
+#: défaut, « à −27 % de la bande »).
+#:
+#: Ces deux nombres sont la **seule** borne du réglage : le chemin de
+#: migration depuis `puissance_endurance_pct` passe par eux comme le chemin
+#: direct (`_position_zone`), de sorte qu'aucune configuration ne puisse se
+#: charger une fois puis être refusée à la relecture.
+POSITION_ZONE_MINI = -1.0
+POSITION_ZONE_MAXI = 2.0
+
+#: Bornes de lecture de l'ancienne clé `puissance_endurance_pct`, en fraction
+#: de FTP. Inchangées depuis avant la décision 7 : on ne convertit pas plus
+#: largement qu'on n'acceptait.
+ENDURANCE_PCT_MINI = 0.40
+ENDURANCE_PCT_MAXI = 0.80
 
 CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
@@ -33,6 +61,22 @@ DIRECTIONS_ACCEPTEES = (8, 16)
 #: Horizon maximal accepté, en heures : au-delà, AROME HD n'a plus rien à dire.
 HORIZON_MAX_H = 48
 
+#: Jusqu'à combien de jours en avant on accepte de demander une météo pour un
+#: parcours (Q40 a). **Mesuré le 17/09/2026 sur le vrai service**, depuis un
+#: point français, avec les deux modèles par défaut : AROME HD rendait sa
+#: dernière valeur le 19/09 à 03 h (J+2), `icon_seamless` le 24/09 à 12 h
+#: (J+7). C'est donc le **modèle de repli** qui fixe la portée du produit.
+#:
+#: Réglable parce que la portée appartient au modèle et non au projet :
+#: quelqu'un qui configure un autre second avis a un autre horizon, et un
+#: chiffre en dur mentirait pour lui. Au-delà, le parcours est servi et la
+#: météo déclarée absente sans qu'Open-Meteo soit appelé (`meteo.portee`).
+HORIZON_JOURS_DEFAUT = 7
+
+#: Borne haute acceptée pour `[meteo] horizon_jours` : Open-Meteo ne publie
+#: pas de prévision au-delà de seize jours, quel que soit le modèle.
+HORIZON_JOURS_MAX = 16
+
 
 @dataclass(frozen=True)
 class Depart:
@@ -45,6 +89,32 @@ class Depart:
 class Cycliste:
     masse_kg: float
     ftp_w: float
+
+    #: Identité du compte. Décision du mainteneur (17/09/2026, Q36) : « nom
+    #: prénom obligatoire car c'est la base, voilà, point. » L'assistant de
+    #: configuration **est** la création du profil (Q36) — il n'y a pas
+    #: d'étape « identité » séparée des autres — et il refuse maintenant de
+    #: continuer sans les deux, au même titre que sans point de départ.
+    #:
+    #: **Optionnels ici, dans le cœur, et c'est volontaire.** L'obligation est
+    #: une règle de *parcours* (l'assistant), pas une règle de *chargement* :
+    #: une configuration écrite avant ce lot — celle du mainteneur comprise —
+    #: ne porte ni l'un ni l'autre, et doit continuer à se charger et à se
+    #: modifier (FTP, poids, vélos, tout le reste) sans qu'on lui invente un
+    #: nom. Même traitement que la migration `puissance_endurance_pct` →
+    #: `position_zone` (`_position_zone`, plus bas) et que la colonne
+    #: propriétaire des dépôts (`api/depots.py`) : ce qui existait déjà
+    #: continue de tourner, la nouvelle règle s'applique à ce qui s'écrit à
+    #: partir de maintenant. Une valeur absente reste une chaîne vide, jamais
+    #: un nom inventé — la règle absolue 1 l'interdirait de toute façon.
+    #:
+    #: **Aucun calcul du cœur ne s'en sert aujourd'hui** — ni le modèle
+    #: physique, ni les zones, ni la tenue (règle absolue 5 : on n'affirme pas
+    #: un usage qui n'existe pas). L'usage réel attend le lot F3 des comptes
+    #: multi-utilisateurs : l'e-mail d'invitation et l'affichage d'un compte
+    #: parmi plusieurs. Jusque-là, c'est une donnée de compte pure.
+    prenom: str = ""
+    nom: str = ""
 
 
 @dataclass(frozen=True)
@@ -70,6 +140,26 @@ class Velo:
     capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
     periodes: tuple[Periode, ...] = ()
 
+    #: Rapport entre la moyenne d'une vraie sortie — distance divisée par le
+    #: **temps écoulé**, arrêts compris — et la vitesse à plat, sans vent,
+    #: lancé, que le modèle prédit à la même puissance. C'est la troisième
+    #: valeur de l'écran de FTP (décision 8 du cycle UX) : celle qui empêche
+    #: quelqu'un de saisir sa moyenne de compteur dans le champ « à plat » et
+    #: de décaler tout son escalier de zones.
+    #:
+    #: **Par vélo, et non par cycliste** : le chrono et la route n'ont ni la
+    #: même aérodynamique ni les mêmes parcours, et la mesure du 16/09/2026 les
+    #: sépare de trois points. **Réglage utilisateur, et non constante** : le
+    #: facteur dépend de la masse du cycliste autant que de ses routes, et un
+    #: chiffre écrit en dur serait celui d'un seul homme.
+    #:
+    #: `None` — le cas d'un vélo neuf ou d'un utilisateur sans historique —
+    #: fait tomber le cœur sur `physique.modele.facteur_compteur_defaut`, qui
+    #: le dérive du modèle et de la masse sur une sortie de référence. C'est
+    #: une supposition, pas une mesure, et l'écran doit le dire. La mesure se
+    #: fait avec `tests/validation/facteur_compteur_retrospectif.py`.
+    facteur_compteur: float | None = None
+
 
 @dataclass(frozen=True)
 class ParametresMeteo:
@@ -78,6 +168,11 @@ class ParametresMeteo:
     modele: str = "meteofrance_arome_france_hd"
     second_avis: str = "icon_seamless"
     horizon_h: int = 6
+    #: Jusqu'à combien de jours en avant on accepte de demander une météo
+    #: (Q40 a). Au-delà, le parcours est servi et la météo déclarée absente,
+    #: **sans appeler Open-Meteo** — voir `meteo.portee`. La valeur par défaut
+    #: est celle du modèle de repli, mesurée sur le vrai service.
+    horizon_jours: int = HORIZON_JOURS_DEFAUT
 
 
 @dataclass(frozen=True, repr=False)
@@ -165,12 +260,47 @@ class ParametresSeance:
 
     demi_tour_penalite: float = 1.0  # coût d'un bloc qui reprend le segment précédent à l'envers
 
-    #: Puissance d'endurance du cycliste, en fraction de sa FTP. Elle sert de
-    #: cible aux étapes prescrites en **zone de fréquence cardiaque basse**
-    #: (Z1, Z2), dont la traduction par la table des zones de puissance donne
-    #: un résultat faux (Q11, close le 13/09/2026 : la médiane mesurée sur
-    #: 96 sorties extérieures de plus d'une heure est 60 % de FTP).
-    puissance_endurance_pct: float = 0.60
+    #: Les bornes des zones de **puissance**, en fraction de FTP, de Z1 à Z7.
+    #:
+    #: Éditable depuis la décision 7 du cycle UX : la table était jusque-là une
+    #: constante Python que rien ne reliait à `Config`, contrairement à tous
+    #: les autres réglages de séance. Le défaut est la table de Coggan
+    #: (`seance/modele.ZONES_PUISSANCE_DEFAUT`), celle que le compte
+    #: Intervals.icu du mainteneur renvoie au pourcent près.
+    zones_pct: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT
+
+    #: **La position du cycliste dans sa bande**, entre 0 (bas de la zone) et
+    #: 1 (haut). C'est la seule chose qu'on stocke, et c'est la décision 7 :
+    #: « on stocke la position dans la zone, pas la valeur — comme ça la FTP
+    #: change ou les zones décalent, on suit ». Elle se propage à toutes les
+    #: zones fermées : qui se met au milieu de sa Z2 prend le milieu de sa Z3.
+    #:
+    #: Le défaut n'est pas un chiffre choisi mais la position qu'occupe la
+    #: puissance d'endurance **mesurée** du mainteneur (0,60 de FTP, Q11) dans
+    #: la Z2 de la table par défaut — de sorte que la dérivation ne change
+    #: aucun comportement (règle absolue 5).
+    #:
+    #: Bornes de chargement : [`POSITION_ZONE_MINI`, `POSITION_ZONE_MAXI`],
+    #: soit au plus une largeur de bande au-dessous ou au-dessus. Une position
+    #: hors bande se voit et se dit ; elle ne se corrige pas à l'insu du
+    #: cycliste (décision 8). Le chemin de migration depuis
+    #: `puissance_endurance_pct` passe par **ces bornes-là** (`_position_zone`)
+    #: : ce qui se charge doit pouvoir se recharger.
+    position_zone: float = POSITION_ENDURANCE_DEFAUT
+
+    @property
+    def puissance_endurance_pct(self) -> float:
+        """Puissance d'endurance en fraction de FTP — **dérivée**, plus stockée.
+
+        Elle sert de cible aux étapes prescrites en **zone de fréquence
+        cardiaque basse** (Z1, Z2 de FC), dont la traduction par la table des
+        zones de puissance donne un résultat faux (Q11, close le 13/09/2026).
+        Depuis la décision 7 elle n'est plus un réglage : elle se lit dans la
+        Z2 de `zones_pct`, à `position_zone`. C'est une
+        propriété et non un champ — les appelants ne changent pas, et il n'y a
+        plus deux définitions de « la Z2 » qui puissent diverger.
+        """
+        return puissance_endurance_pct(self.position_zone, self.zones_pct)
 
     #: Sous cette part de FTP, une étape n'est pas un bloc : c'est de
     #: l'échauffement, de la récupération ou du retour au calme. Dernier
@@ -273,6 +403,42 @@ class Config:
 # --- chargement -------------------------------------------------------------
 
 
+#: Ce que `en_dict_public` écrit à la place d'un secret renseigné. Une chaîne
+#: fixe, jamais un compte de caractères : la longueur d'une clé est déjà une
+#: information.
+MASQUE = "***"
+
+
+def en_dict_public(config: Config) -> dict:
+    """La configuration en dictionnaire, **secrets masqués**, prête à publier.
+
+    Existe parce que `dataclasses.asdict` ne voit que les champs : il ignore
+    les `__repr__` qui masquent, et il ignore aussi les propriétés dérivées.
+    Le masquage vivait donc en deux lignes à l'intérieur de `cli.py`, après
+    l'`asdict` — et la relecture des tests de contrat de l'API l'a relevé :
+    **l'API n'avait rien à réutiliser**, elle aurait réécrit son propre
+    masquage, et un masquage qu'on réécrit est un masquage qu'on oublie.
+
+    Ce que cette fonction garantit, et qui se teste :
+
+    - la clé Intervals et le mot de passe BRouter ne sortent jamais en clair ;
+    - un secret absent rend une chaîne vide, pas `MASQUE` — pour qu'un écran
+      puisse distinguer « non renseigné » de « renseigné, caché » ;
+    - `puissance_endurance_pct`, devenue une **propriété** dérivée de la
+      position dans la zone (décision 7), reste présente : sans ça elle
+      disparaîtrait du contrat d'API sans que rien ne le signale.
+
+    Ce qui n'est **pas** un secret et sort en clair : l'URL du serveur BRouter
+    et l'identifiant d'athlète Intervals — une adresse et un identifiant, que
+    le mainteneur a déjà tranchés comme publiables (Q6).
+    """
+    d = dataclasses.asdict(config)
+    d["intervals"]["api_key"] = MASQUE if config.intervals.api_key else ""
+    d["brouter"]["mot_de_passe"] = MASQUE if config.brouter.mot_de_passe else ""
+    d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
+    return d
+
+
 def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = None) -> Config:
     """Lit un fichier TOML, le complète depuis l'environnement, et construit la `Config`.
 
@@ -301,8 +467,19 @@ def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = N
             brut = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
         raise ErreurConfig(f"{chemin} : TOML invalide ({e})") from e
-    brut = _survoler_environnement(brut, environ)
-    config = depuis_dict(brut)
+    return finaliser(brut, environ=environ)
+
+
+def finaliser(brut: dict[str, Any], *, environ: Mapping[str, str] | None = None) -> Config:
+    """La fin du chargement, à partir d'un dict TOML déjà lu.
+
+    Extraite de `charger` pour l'API (lot F1) : le profil d'un propriétaire
+    se superpose au TOML **entre** la lecture du fichier et la validation, et
+    `charger` ne laissait aucun point d'entrée à cet endroit-là. Aucun
+    changement de comportement : `charger` appelle cette fonction.
+    """
+    environ = os.environ if environ is None else environ
+    config = depuis_dict(_survoler_environnement(brut, environ))
     # Seul endroit où « ~ » est développé : le cœur reçoit un chemin absolu.
     return replace(config, cache=ParametresCache(config.cache.dossier.expanduser()))
 
@@ -367,6 +544,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
     boucle = d.get("boucle", {}) or {}
     calibration = d.get("calibration", {}) or {}
     seance_brut = d.get("seance", {}) or {}
+    zones_pct = _zones_pct(seance_brut.get("zones", ZONES_PUISSANCE_DEFAUT))
     tenue_brut = d.get("tenue", {}) or {}
     evitements = tuple(_evitement(e, i) for i, e in enumerate(d.get("evitements", []) or []))
     sens = str(boucle.get("sens", "horaire"))
@@ -381,6 +559,11 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         cycliste=Cycliste(
             masse_kg=_nombre(cycliste, "masse_kg", "cycliste", 20, 300),
             ftp_w=_nombre(cycliste, "ftp_w", "cycliste", 50, 1000),
+            # Absents dans toute configuration écrite avant ce lot : une
+            # chaîne vide, jamais un refus de chargement (voir la docstring
+            # de `Cycliste.prenom`).
+            prenom=str(cycliste.get("prenom", "") or ""),
+            nom=str(cycliste.get("nom", "") or ""),
         ),
         velos=velos,
         meteo=ParametresMeteo(
@@ -392,6 +575,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
             horizon_h=_entier(
                 meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H
+            ),
+            horizon_jours=_entier(
+                meteo.get("horizon_jours", HORIZON_JOURS_DEFAUT),
+                "horizon_jours",
+                "meteo",
+                mini=0,
+                maxi=HORIZON_JOURS_MAX,
             ),
         ),
         intervals=ParametresIntervals(
@@ -467,13 +657,8 @@ def depuis_dict(d: dict[str, Any]) -> Config:
                 mini=0.0,
                 maxi=20.0,
             ),
-            puissance_endurance_pct=_flottant(
-                seance_brut.get("puissance_endurance_pct", 0.60),
-                "puissance_endurance_pct",
-                "seance",
-                mini=0.40,
-                maxi=0.80,
-            ),
+            zones_pct=zones_pct,
+            position_zone=_position_zone(seance_brut, zones_pct),
             seuil_recuperation_pct=_flottant(
                 seance_brut.get("seuil_recuperation_pct", 0.75),
                 "seuil_recuperation_pct",
@@ -529,6 +714,138 @@ def _tenues(brut: Any) -> tuple[tuple[str, tuple[str, ...]], ...]:
             raise ErreurConfig(f"[tenue] tenues.{categorie} : liste de vêtements attendue, reçu {pieces!r}")
         couples.append((str(categorie), tuple(str(p) for p in pieces)))
     return tuple(couples)
+
+
+def _zones_pct(brut: Any) -> tuple[tuple[float, float], ...]:
+    """La table des zones de puissance, en fractions de FTP, ou `ErreurConfig`.
+
+    Elle s'écrit `zones = [[0.0, 0.55], [0.56, 0.75], …]` sous `[seance]`.
+    Contrairement à `seance.intervals._zones`, qui se rabat en silence sur la
+    table par défaut — là il s'agit de données venues d'une API, qu'on ne
+    contrôle pas — une table de configuration fautive est **refusée en nommant
+    le champ** : c'est le cycliste qui l'a écrite, il doit savoir qu'elle est
+    fausse plutôt que de rouler avec une autre.
+
+    Trois zones au minimum : la Z2 porte l'endurance et doit être fermée, donc
+    ni première ni dernière (`seance/zones.zone_ouverte`).
+    """
+    if isinstance(brut, str) or not isinstance(brut, (list, tuple)):
+        raise ErreurConfig(
+            "[seance] zones : liste de paires [bas, haut] en fraction de FTP attendue "
+            f"(ex. [[0.0, 0.55], [0.56, 0.75], …]), reçu {brut!r}"
+        )
+    if len(brut) < 3:
+        raise ErreurConfig(
+            f"[seance] zones : au moins trois zones attendues, reçu {len(brut)} — "
+            "la zone d'endurance (Z2) doit être fermée, donc ni la première ni la dernière"
+        )
+    table: list[tuple[float, float]] = []
+    for i, zone in enumerate(brut):
+        numero = i + 1
+        if isinstance(zone, str) or not isinstance(zone, (list, tuple)) or len(zone) != 2:
+            raise ErreurConfig(
+                f"[seance] zones : Z{numero} — paire [bas, haut] attendue, reçu {zone!r}"
+            )
+        bas = _flottant(zone[0], f"zones Z{numero} (bas)", "seance", mini=0.0, maxi=5.0)
+        haut = _flottant(zone[1], f"zones Z{numero} (haut)", "seance", mini=0.0, maxi=5.0)
+        if haut <= bas:
+            raise ErreurConfig(
+                f"[seance] zones : Z{numero} = [{bas}, {haut}] — le haut doit dépasser le bas "
+                "(une bande de largeur nulle n'a pas de position)"
+            )
+        if table and bas < table[-1][1]:
+            raise ErreurConfig(
+                f"[seance] zones : Z{numero} commence à {bas}, sous le haut de Z{numero - 1} "
+                f"({table[-1][1]}) — les zones montent et ne se chevauchent pas"
+            )
+        table.append((bas, haut))
+    return tuple(table)
+
+
+def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, float], ...]) -> float:
+    """La position du cycliste dans sa bande, 0 = bas de zone, 1 = haut.
+
+    **Compatibilité.** Une configuration écrite avant la décision 7 ne porte
+    pas `position_zone` mais `puissance_endurance_pct`, une valeur. On la lit
+    alors telle quelle et on la **convertit en position** dans la Z2 de
+    `zones_pct` : 0,60 de FTP avec la table par défaut donne 0,2105, et la
+    puissance d'endurance dérivée revient exactement à 0,60 (`DECIMALES_PCT`
+    garantit l'aller-retour). Rien ne bouge pour une configuration existante,
+    et c'est la seule réponse acceptable à la règle absolue 5.
+
+    Les bornes de lecture de l'ancienne clé sont inchangées
+    ([`ENDURANCE_PCT_MINI` ; `ENDURANCE_PCT_MAXI`]) : on ne convertit pas plus
+    largement qu'on n'acceptait.
+
+    **La conversion passe par la même borne que le chemin direct**
+    ([`POSITION_ZONE_MINI` ; `POSITION_ZONE_MAXI`]), et c'est l'invariant qui
+    compte : *tout ce qui se charge doit pouvoir se recharger*. Un profil
+    chargé est réécrit par le produit sous sa forme d'aujourd'hui — une
+    position — et la relecture de cette position ne doit jamais échouer.
+    Avant cette borne, `zones = [[0,0.55],[0.70,0.72],[0.73,0.90],[0.91,1.05]]`
+    avec `puissance_endurance_pct = 0.40` se chargeait en silence sur
+    `position_zone = −15,0`, valeur que le chargement suivant refusait.
+
+    **Ce qui est refusé, et pourquoi c'est un refus et non un écrêtage.** Une
+    table `zones` personnalisée dont la Z2 ne contient ni n'approche l'ancienne
+    valeur décrit un fichier qui dit deux choses contradictoires : « ma Z2 va
+    de 70 à 72 % de FTP » et « mon endurance est à 40 % ». Rien ne peut les
+    réconcilier sans en jeter une :
+
+    - écrêter à −1 ferait passer l'endurance de 0,40 à 0,68 × FTP — +70 %, en
+      silence, sur la valeur qui pilote les étapes prescrites en FC basse.
+      Règle absolue 5 : on n'aligne pas deux sources qui divergent, on montre
+      le désaccord ;
+    - convertir dans la table **par défaut** puis appliquer la position à la
+      table de l'utilisateur ferait passer 0,40 à 0,7042 × FTP — pire ;
+    - élargir les bornes garderait un chiffre (« −15 ») auquel ne correspond
+      aucune réalité : personne ne roule à quinze largeurs de bande sous sa Z2.
+
+    **Aucune configuration d'avant la décision 7 n'est bloquée par là**, et
+    c'est démontrable : `zones` n'existait pas encore quand l'ancienne clé
+    s'écrivait, donc une telle configuration est lue avec la table par défaut,
+    où [0,40 ; 0,80] se convertit dans [−0,842 ; 1,263] — à l'intérieur des
+    bornes. Le refus ne peut donc atteindre qu'un fichier qui porte les deux
+    générations de réglages à la fois.
+
+    **Si les deux clés sont présentes**, `position_zone` l'emporte et
+    l'ancienne est ignorée : c'est la nouvelle qui est stockée, et refuser le
+    chargement pour une clé oubliée dans un fichier serait la pire des
+    réponses.
+    """
+    if "position_zone" in seance_brut:
+        return _flottant(
+            seance_brut["position_zone"],
+            "position_zone",
+            "seance",
+            mini=POSITION_ZONE_MINI,
+            maxi=POSITION_ZONE_MAXI,
+        )
+    if "puissance_endurance_pct" in seance_brut:
+        ancienne = _flottant(
+            seance_brut["puissance_endurance_pct"],
+            "puissance_endurance_pct",
+            "seance",
+            mini=ENDURANCE_PCT_MINI,
+            maxi=ENDURANCE_PCT_MAXI,
+        )
+        position = position_endurance(ancienne, zones_pct)
+        if not POSITION_ZONE_MINI <= position <= POSITION_ZONE_MAXI:
+            bas, haut = zones_pct[ZONE_ENDURANCE - 1]
+            raise ErreurConfig(
+                f"[seance] puissance_endurance_pct = {ancienne} ne peut pas se convertir "
+                f"en position : la Z2 de votre table zones va de {bas} à {haut} de FTP, "
+                f"cette valeur s'y situe à {position:.1f}, hors de "
+                f"[{POSITION_ZONE_MINI}, {POSITION_ZONE_MAXI}]. Les deux réglages ne disent "
+                "pas la même chose. Écrivez position_zone (0 = bas de la Z2, 1 = haut) et "
+                "retirez puissance_endurance_pct, ou corrigez zones."
+            )
+        return position
+    # Ni l'une ni l'autre : le défaut du projet, qui est lui-même la position
+    # de la puissance d'endurance mesurée dans la table par défaut. Avec une
+    # table personnalisée, cette position désigne le même endroit *relatif* de
+    # la bande — c'est tout l'intérêt de stocker une position.
+    return POSITION_ENDURANCE_DEFAUT
 
 
 def _bornes(brut: Any, cle: str, section: str) -> tuple[float, ...]:
@@ -718,4 +1035,13 @@ def _velo(v: Any, i: int) -> Velo:
         intervals_gear_id=str(v.get("intervals_gear_id", "") or ""),
         capteur_puissance=str(v.get("capteur_puissance", "") or ""),
         periodes=tuple(periodes),
+        # Bornes larges à dessein : 0,40 attrape le zéro et le pourcentage
+        # écrit en entier (« 87 » au lieu de « 0.87 »), 1,20 laisse passer le
+        # cycliste de plaine qui roule abrité en groupe et va plus vite que le
+        # modèle solo. Entre les deux, on ne juge pas de ses routes.
+        facteur_compteur=(
+            _flottant(v["facteur_compteur"], "facteur_compteur", section, mini=0.4, maxi=1.2)
+            if v.get("facteur_compteur") is not None
+            else None
+        ),
     )

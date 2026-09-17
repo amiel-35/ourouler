@@ -615,7 +615,22 @@ le reste d'une sortie coûte 0,5 s. Le nombre de candidates est donc le seul
 poste qui compte. Mesure le temps total et rapporte-le ; si générer plus
 coûte trop, dis-le plutôt que de livrer une commande qui prend une minute.
 
-#### 3.3.3 bis — Ce que « éloignées » veut dire (tranché le 16/09/2026)
+#### 3.3.3 bis — Ce que « éloignées » veut dire (16/09/2026 ; a) et b) retirés le 17/09/2026 par [[Q43]])
+
+> **Amendement du 17/09/2026 — le recouvrement est le seul verrou.** Les
+> conditions a) et b) ci-dessous **ne décident plus** qui entre dans le trio.
+> Mots du mainteneur : *« oui, et en fait le parcours lui-même est distinctif
+> en soi »*. Elles visaient les descriptions, pas les tracés, et elles
+> jetaient des boucles franchement différentes — mesuré : quatre candidates à
+> **1,4 %** de recouvrement médian n'en donnaient qu'une seule proposition.
+>
+> Elles gardent un rôle, et un seul : **le droit d'écrire une phrase.** Une
+> proposition ne dit « la plus sèche » que si elle l'est de la marge écrite
+> ici. Une proposition sans phrase est désormais normale — son tracé la
+> distingue — et quand **aucune** n'en a, le produit le dit ([[Q45]],
+> `motif_equivalence`).
+>
+> Seule c) décide, et elle décide seule.
 
 Le testeur adversarial a relevé que la première rédaction ne le chiffrait
 pas, et que c'était **le plus large trou de sa couverture** : une
@@ -640,14 +655,21 @@ b) **Elle l'est d'une marge exprimée dans l'unité de l'axe**, jamais en
    équivalent, soit le prix d'un feu (`POIDS_CARREFOUR`).
 c) **Le recouvrement de routes reste sous le seuil mesuré** (§3.3.2).
 
-Et le garde-fou qui prime sur les trois : **si la phrase n'est pas écrivable
-et vraie, la proposition n'existe pas.** On en rend deux, et on le dit.
+~~Et le garde-fou qui prime sur les trois : **si la phrase n'est pas
+écrivable et vraie, la proposition n'existe pas.** On en rend deux, et on le
+dit.~~ **Retiré le 17/09/2026 ([[Q43]]).** Ce qui le remplace, et qui reste
+absolu : *si la phrase n'est pas vraie, on ne l'écrit pas* — mais la
+proposition, elle, existe toujours.
 
 #### 3.3.3 ter — Les noms publiés
 
 `--json` : la phrase sous `distinction`, l'axe qui la motive sous
 `axe_distinctif`, la densité sous `densite_marqueurs_km`, la question du vent
-sous `question_vent`, et `motif_deux_propositions` quand il n'y en a que deux.
+sous `question_vent`, `motif_deux_propositions` quand il n'y en a que deux, et
+**`motif_equivalence` quand aucune ne se détache des autres** ([[Q45]], ajouté
+le 17/09/2026). `distinction` et `axe_distinctif` valent `null` sur une
+proposition que rien ne distingue : c'est un état normal depuis [[Q43]], pas
+une donnée manquante.
 
 Deux conventions reprises d'ailleurs plutôt qu'inventées :
 
@@ -666,9 +688,14 @@ le bon secteur (§3.1.2), le jour 4 non.
 **Chaque proposition porte une phrase qui dit ce qui la distingue des deux
 autres**, en langage de cycliste et jamais en langage de note : « vous
 rentrez avec le vent dans le dos », « aucun demi-tour », « la plus sèche »,
-« 20 minutes de moins », « elle évite les villages ». Si aucune phrase n'est
-écrivable, c'est que les trois ne sont pas contrastées — et il vaut mieux
-n'en proposer que deux et le dire.
+« 20 minutes de moins », « elle évite les villages ». ~~Si aucune phrase
+n'est écrivable, c'est que les trois ne sont pas contrastées — et il vaut
+mieux n'en proposer que deux et le dire.~~
+
+**Amendé le 17/09/2026 ([[Q43]], [[Q45]]).** Une proposition sans phrase est
+une proposition dont le tracé parle seul, et la carte le montre. Quand aucune
+des trois n'en a, c'est le lot qui parle : « ces trois boucles se valent,
+choisissez où vous voulez aller », avec ce qui, mesuré, ne les sépare pas.
 
 #### 3.3.4 La question posée avant la recherche
 

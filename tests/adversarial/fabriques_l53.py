@@ -155,8 +155,14 @@ class VueChoix:
     retenues: list[VueProposition]
     #: Vrai si le lot **affirme** que les retenues sont contrastées. Le contrat
     #: autorise à en rendre deux « et le dire » : une implémentation qui rend
-    #: trois clones en les annonçant contrastées est le défaut central du lot.
+    #: trois clones en les annonçant contrastées **sans rien dire** est le
+    #: défaut central du lot.
     contraste_affirme: bool = True
+    #: Vrai si le lot dit que les retenues **se valent** — la phrase de Q45.
+    #: Depuis Q43, publier trois clones sur les axes est permis quand les
+    #: tracés, eux, vont ailleurs ; ce qui ne l'est pas, c'est de laisser
+    #: croire qu'une différence mesurée les sépare.
+    equivalence_dite: bool = False
     #: Ce que le lot dit quand il n'a pas pu en contraster trois.
     motif: str = ""
     pool: list[VueProposition] = field(default_factory=list)
@@ -558,14 +564,29 @@ def verifier_retenues_bien_formees(choix: VueChoix, *, nb_max: int = 3) -> None:
         )
 
 
-def verifier_pas_de_trio_de_clones(choix: VueChoix) -> None:
-    """Le cœur du lot : trois propositions indiscernables ne sont pas trois propositions.
+def verifier_pas_de_trio_de_clones(choix: VueChoix, *, seuil_recouvrement: float | None = None) -> None:
+    """Deux propositions indiscernables ne sont pas deux propositions — sauf à le dire.
 
-    Formulation **sans seuil** — le contrat ne chiffre pas « éloignées », donc
-    on n'exige rien de chiffré : deux retenues dont *tous* les axes perceptibles
-    sont égaux au bit près sont, par toute lecture du contrat, la même sortie
-    vue deux fois. Si le lot en rend deux pareilles, il n'a pas le droit
-    d'affirmer qu'elles sont contrastées.
+    Formulation **sans seuil** sur les axes — le contrat ne chiffre pas
+    « éloignées », donc on n'exige rien de chiffré : deux retenues dont *tous*
+    les axes perceptibles sont égaux au bit près sont, sur les axes, la même
+    sortie vue deux fois.
+
+    **Ce que Q43 a changé, le 17/09/2026.** Ce n'est plus disqualifiant en
+    soi : le mainteneur a tranché que « le parcours lui-même est distinctif en
+    soi », et deux boucles aux axes identiques peuvent parfaitement aller à
+    deux endroits opposés. Le lot a donc désormais **deux sorties honnêtes**,
+    et une seule faute :
+
+    - il n'affirme pas le contraste, et dit pourquoi — la voie d'avant, qui
+      reste ouverte ;
+    - ou il prouve que les tracés vont ailleurs (recouvrement sous le seuil)
+      **et** dit que les propositions se valent (la phrase de Q45) ;
+    - la faute : les publier comme contrastées en laissant croire qu'une
+      différence mesurée les sépare, alors qu'aucune ne les sépare.
+
+    Le recouvrement est exigé **lu**, pas supposé : une implémentation qui ne
+    le publie pas ne peut pas s'en prévaloir.
     """
     jumelles = []
     for i, a in enumerate(choix.retenues):
@@ -577,15 +598,32 @@ def verifier_pas_de_trio_de_clones(choix: VueChoix) -> None:
                 jumelles.append((a.cle, b.cle))
     if not jumelles:
         return
-    assert not choix.contraste_affirme, (
-        f"propositions identiques sur tous les axes perceptibles : {jumelles}, et le lot "
-        "les annonce contrastées. Contrat §3.3.1 : « deux propositions ne sont contrastées "
-        "que si elles diffèrent sur quelque chose que le cycliste voit ou sent ». "
-        "Contrat §3.3.3 : « il vaut mieux n'en proposer que deux et le dire »."
+    if not choix.contraste_affirme:
+        assert choix.motif.strip(), (
+            f"le lot rend des propositions jumelles ({jumelles}) sans affirmer le contraste, "
+            "mais sans rien dire non plus. Le contrat demande de **le dire**."
+        )
+        return
+    seuil = seuil_recouvrement if seuil_recouvrement is not None else seuil_recouvrement_du_lot()
+    inconnus = [p.cle for p in choix.retenues if p.recouvrement_max is None]
+    assert seuil is not None and not inconnus, (
+        f"propositions identiques sur tous les axes perceptibles : {jumelles}, annoncées "
+        f"contrastées, et le recouvrement de routes n'est pas lisible ({inconnus=}, "
+        f"{seuil=}). Depuis Q43 c'est le tracé qui les distingue : sans ce chiffre, rien "
+        "ne prouve qu'elles vont ailleurs."
     )
-    assert choix.motif.strip(), (
-        f"le lot rend des propositions jumelles ({jumelles}) sans affirmer le contraste, "
-        "mais sans rien dire non plus. Le contrat demande de **le dire**."
+    trop = [(p.cle, p.recouvrement_max) for p in choix.retenues if p.recouvrement_max > seuil]
+    assert not trop, (
+        f"propositions identiques sur tous les axes perceptibles : {jumelles}, et leurs "
+        f"tracés se recouvrent au-delà du seuil {seuil} : {trop}. Rien ne les distingue, "
+        "ni les chiffres ni la carte."
+    )
+    assert choix.equivalence_dite, (
+        f"propositions identiques sur tous les axes perceptibles : {jumelles}, publiées "
+        "comme contrastées sans dire qu'elles se valent. Q45, mots du mainteneur : « s'il "
+        "n'y a pas de pluie et peu de vent et que tout est plat, à un moment rien ne "
+        "change » — et le produit doit le dire, pas chercher une différence qui n'existe "
+        f"pas. Ce que le lot a écrit : {choix.motif.strip()!r}"
     )
 
 
@@ -622,25 +660,46 @@ def _ecart_minimal(groupe: Sequence[VueProposition], portees: dict[str, float]) 
 
 
 def verifier_phrases(choix: VueChoix) -> None:
-    """Une phrase par proposition : non vide, unique, en langage de cycliste."""
+    """Les phrases : jamais absentes du champ, jamais partagées, jamais en langage de note.
+
+    **Une phrase vide n'est plus un défaut, depuis Q43** (17/09/2026). La
+    rédaction d'avant l'interdisait — « si aucune phrase n'est écrivable, il
+    faut en rendre moins » — et c'était la règle retirée, vue depuis les
+    phrases : elle obligeait à jeter un tracé franchement différent quand on
+    ne savait pas le résumer. Une proposition sans phrase est désormais une
+    proposition dont le tracé parle seul, et la carte le montre.
+
+    Ce qui reste, et qui est ce qui comptait vraiment :
+
+    - le **champ** existe (`None` = le lot ne publie rien, et personne ne peut
+      lire ce qui distingue quoi) ;
+    - deux propositions ne partagent jamais une même phrase non vide — une
+      phrase qui dit ce qui distingue une proposition **des autres** ne peut
+      pas être portée par deux ;
+    - aucune n'est du langage de note ;
+    - **et si aucune n'a de phrase, le lot le dit** (Q45) : trois cartes sans
+      un mot laissent le cycliste chercher une différence que le produit sait
+      inexistante.
+    """
     if len(choix.retenues) < 2:
         return
     for p in choix.retenues:
         assert p.phrase is not None, f"candidate {p.cle!r} : aucune phrase (contrat §3.3.3)"
-        assert p.phrase.strip(), (
-            f"candidate {p.cle!r} : phrase vide. Le contrat : « chaque proposition porte une "
-            "phrase qui dit ce qui la distingue des deux autres » — et si aucune phrase n'est "
-            "écrivable, il faut en rendre moins, pas en rendre une vide."
-        )
         assert not phrase_est_en_langage_de_note(p.phrase), (
             f"candidate {p.cle!r} : « {p.phrase} » est du langage de note. Le contrat demande "
             "du langage de cycliste : « la plus sèche », « aucun demi-tour », « 20 minutes de "
             "moins » — jamais « note 1,93 »."
         )
-    phrases = [_sans_accents_bas(p.phrase or "").strip() for p in choix.retenues]
-    assert len(set(phrases)) == len(phrases), (
-        f"deux propositions reçoivent la même phrase : {phrases}. Une phrase qui dit ce qui "
+    dites = [_sans_accents_bas(p.phrase or "").strip() for p in choix.retenues]
+    dites = [d for d in dites if d]
+    assert len(set(dites)) == len(dites), (
+        f"deux propositions reçoivent la même phrase : {dites}. Une phrase qui dit ce qui "
         "distingue une proposition **des deux autres** ne peut pas être partagée."
+    )
+    assert dites or choix.equivalence_dite, (
+        f"{len(choix.retenues)} propositions et pas une phrase, sans dire pourquoi. Q45 : "
+        "« ces trois boucles se valent, choisissez où vous voulez aller » est une information "
+        f"honnête, et le silence n'en est pas une. Ce que le lot a écrit : {choix.motif.strip()!r}"
     )
 
 
@@ -822,65 +881,31 @@ def _axes_gagnes(sujet: VueProposition, autres: Sequence[VueProposition],
     return gagnes
 
 
-def _systeme_de_representants(possibles: dict[Any, set[str]]) -> dict[Any, str] | None:
-    """Une affectation d'un axe **distinct** à chaque proposition, ou `None`.
+def verifier_verrou_de_recouvrement(
+    choix: VueChoix, *, seuil_recouvrement: float | None = None
+) -> None:
+    """Le seul verrou qui reste depuis Q43 : les tracés vont-ils ailleurs ?
 
-    Recherche exhaustive : il y a au plus trois propositions et une poignée
-    d'axes. Le contrat §3.3.3 bis a) : « chacune est la meilleure des trois sur
-    au moins un axe, **et sur un axe différent** de celles des deux autres ».
-    """
-    cles = list(possibles)
+    Le contrat §3.3.3 bis en exigeait trois choses. Les deux premières — chaque
+    proposition meilleure sur un axe, et sur un axe différent des autres — sont
+    tombées le 17/09/2026 : *« le parcours lui-même est distinctif en soi »*.
+    Elles visaient les descriptions et finissaient par jeter des tracés
+    franchement différents faute de savoir les résumer en une phrase.
 
-    def poser(i: int, pris: set[str], plan: dict[Any, str]) -> dict[Any, str] | None:
-        if i == len(cles):
-            return dict(plan)
-        for axe in sorted(possibles[cles[i]]):
-            if axe in pris:
-                continue
-            plan[cles[i]] = axe
-            resultat = poser(i + 1, pris | {axe}, plan)
-            if resultat is not None:
-                return resultat
-            del plan[cles[i]]
-        return None
+    Reste la troisième, et elle porte désormais tout : **le recouvrement de
+    routes entre deux retenues reste sous le seuil du lot.** Contrat §3.3.2 :
+    « deux boucles peuvent avoir des notes très éloignées et emprunter les
+    mêmes routes ; elles se ressembleront sur la carte quoi qu'en disent les
+    chiffres. »
 
-    return poser(0, set(), {})
-
-
-def verifier_marges_de_contraste(choix: VueChoix, *, seuil_recouvrement: float | None = None) -> None:
-    """Les trois conditions du contrat §3.3.3 bis, exigées et non plus souhaitées.
-
-    a) chacune est la meilleure des retenues sur **au moins un axe**, et sur un
-       axe différent de celles des autres ;
-    b) d'une marge exprimée **dans l'unité de l'axe** (`MARGES_CONTRASTE`) ;
-    c) le recouvrement de routes reste sous le seuil du lot.
-
-    C'est la réponse au trou que j'avais signalé moi-même : avant le
-    16/09/2026, mes tests n'attrapaient qu'un contraste **nul**, et trois
-    propositions séparées de 1 % seraient passées.
+    Ce que le retrait ne dispense pas de vérifier est ailleurs, et y a gagné en
+    exigence : `verifier_phrases_meritees` (une phrase ne s'écrit que si elle
+    est méritée d'une marge du contrat) et `verifier_pas_de_trio_de_clones`
+    (des propositions qui se valent doivent le dire).
     """
     exiger_axes_lus(choix.retenues)
     if len(choix.retenues) < 2:
         return
-    marges = marges_du_lot()
-    possibles = {
-        p.cle: _axes_gagnes(p, [q for q in choix.retenues if q.cle != p.cle], marges)
-        for p in choix.retenues
-    }
-    muettes = [cle for cle, axes in possibles.items() if not axes]
-    assert not muettes, (
-        f"proposition(s) {muettes} meilleure(s) sur **aucun** axe d'une marge perceptible "
-        f"(marges du contrat §3.3.3 bis : {marges}, plus un compte de demi-tours différent "
-        "et une orientation au vent différente). Contrat : « Aucune n'est là pour faire "
-        f"nombre. » Axes gagnés par chacune : { {c: sorted(a) for c, a in possibles.items()} }"
-    )
-    plan = _systeme_de_representants(possibles)
-    assert plan is not None, (
-        "aucune affectation d'axes **distincts** n'existe : deux propositions se distinguent "
-        f"par la même chose. Axes gagnés : { {c: sorted(a) for c, a in possibles.items()} }. "
-        "Contrat §3.3.3 bis a) : « sur un axe différent de celles des deux autres »."
-    )
-
     seuil = seuil_recouvrement if seuil_recouvrement is not None else seuil_recouvrement_du_lot()
     if seuil is None:
         return
@@ -892,8 +917,51 @@ def verifier_marges_de_contraste(choix: VueChoix, *, seuil_recouvrement: float |
     assert not trop, (
         f"recouvrement de routes au-dessus du seuil {seuil} : {trop}. Contrat §3.3.2 : « deux "
         "boucles peuvent avoir des notes très éloignées et emprunter les mêmes routes ; elles "
-        "se ressembleront sur la carte quoi qu'en disent les chiffres. »"
+        "se ressembleront sur la carte quoi qu'en disent les chiffres. » Depuis Q43 c'est le "
+        "seul verrou : s'il ne mord pas, plus rien ne garantit que les propositions diffèrent."
     )
+
+
+def verifier_phrases_meritees(choix: VueChoix) -> None:
+    """Une phrase qui nomme un axe doit être gagnée **d'une marge du contrat**.
+
+    C'est ce que les marges du §3.3.3 bis gardent après Q43. Elles ne décident
+    plus qui entre dans le trio — le recouvrement s'en charge — mais elles
+    décident toujours **ce qu'on a le droit d'écrire**. « La plus sèche » avec
+    0,05 mm d'avance est une phrase vraie au sens strict et fausse au sens qui
+    compte : « être meilleur de 1 % n'est pas une différence pour un cycliste ».
+
+    Plus strict que `verifier_phrases_vraies`, qui vérifie le **sens** de
+    l'avantage à une marge de flottant près ; celui-ci en vérifie la
+    **grandeur**, dans l'unité de l'axe.
+
+    Une phrase dont aucune tournure n'est reconnue n'engage rien ici, et une
+    proposition **sans phrase** n'est plus un défaut : depuis Q43, son tracé la
+    distingue sans qu'on ait à la résumer.
+    """
+    marges = marges_du_lot()
+    for p in choix.retenues:
+        autres = [q for q in choix.retenues if q.cle != p.cle]
+        if not autres:
+            continue
+        gagnes = _axes_gagnes(p, autres, marges)
+        for a in affirmations_de(p.phrase or ""):
+            if a.orientation is not None:
+                assert "orientation" in gagnes, (
+                    f"proposition {p.cle!r} : « {p.phrase} » présente son vent comme ce qui la "
+                    f"distingue, mais elle n'est pas la seule de son orientation "
+                    f"({[q.orientation for q in autres]}). Deux propositions « vent dans le dos "
+                    "au retour » ne se distinguent pas par le vent."
+                )
+                continue
+            if a.sens == "zero":
+                continue  # « aucun demi-tour » est un fait absolu, pas un comparatif
+            assert a.axe in gagnes, (
+                f"proposition {p.cle!r} : « {p.phrase} » se présente comme la meilleure sur "
+                f"{a.axe}, mais pas de la marge que le contrat exige ({marges.get(a.axe)} dans "
+                f"l'unité de l'axe). Valeurs : moi {p.axe(a.axe)}, les autres "
+                f"{[q.axe(a.axe) for q in autres]}. Axes réellement gagnés : {sorted(gagnes)}."
+            )
 
 
 def seuil_recouvrement_du_lot() -> float | None:
@@ -1298,7 +1366,7 @@ def verifier_direction_non_finie(poser: Callable[..., bool]) -> None:
 
     `interroger` vérifie `math.isfinite` sur la **vitesse** mais seulement
     `is None` sur la **direction**. Un NaN ou un infini passe donc la garde, la
-    question est posée, et `QuestionVent.azimut_pour(...)` rend
+    question est posée, et `QuestionVent.azimuts_pour(...)` rend
     `(nan + décalage) % 360`, c'est-à-dire `nan` — un azimut qui part ensuite
     dans `boucle.candidates.generer` puis dans l'URL BRouter.
 
@@ -1607,6 +1675,10 @@ def choix_depuis_json(doc: dict) -> VueChoix:
     c'est affirmer qu'elles valent la peine d'être comparées. Le motif se
     cherche partout dans le document, sous n'importe quel nom — on ne devine
     pas la clé, on cherche le mot.
+
+    `equivalence_dite` cherche de la même façon l'aveu de Q45 : le lot annonce
+    que ses propositions **se valent**, et qu'aucune ne se détache. C'est le
+    contraire d'un aveu d'échec, mais ça se lit au même endroit.
     """
     proposees = propositions_du_json(doc)
     vues = [vue_depuis_json(c, doc, cle=i) for i, c in enumerate(proposees)]
@@ -1614,12 +1686,18 @@ def choix_depuis_json(doc: dict) -> VueChoix:
     for jeton in ("motif", "contraste", "avertissement", "note_de_lecture", "message"):
         motifs += [v for v in _profond(doc, jeton) if isinstance(v, str) and v.strip()]
     texte = " ".join(motifs)
+    plat = _sans_accents_bas(texte)
     aveu = any(
-        m in _sans_accents_bas(texte)
+        m in plat
         for m in ("se ressemblent", "pas contrast", "peu contrast", "non contrast", "indiscernab")
     )
+    equivalence = any(m in plat for m in ("se valent", "se valaient", "ne se detache"))
     return VueChoix(
-        retenues=vues, contraste_affirme=not aveu and len(vues) > 1, motif=texte, pool=vues
+        retenues=vues,
+        contraste_affirme=not aveu and len(vues) > 1,
+        equivalence_dite=equivalence,
+        motif=texte,
+        pool=vues,
     )
 
 

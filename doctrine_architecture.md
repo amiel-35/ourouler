@@ -72,6 +72,10 @@ La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus.
 
 - **Python ≥ 3.12**, `uv` + `pyproject.toml`, layout `src/`. Typage par
   annotations et `dataclasses` ; pas de Pydantic tant qu'il n'y a pas d'API.
+  L'API est arrivée (lot F1, 17/09/2026) : **FastAPI et Pydantic entrent, et
+  ne dépassent pas `src/ourouler/api/`**, où Pydantic ne décrit que les corps
+  de requête. Le cœur reste en dataclasses, et un `ourouler` installé sans
+  l'extra `api` n'en voit rien.
 - **CLI** : `argparse` (stdlib). Sortie texte lisible, `--json` quand un
   autre programme doit consommer.
 - **HTTP** : `httpx`. Chaque connecteur expose une fonction qui prend un
@@ -199,6 +203,35 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   à une requête SQL. Le schéma de l'index local est écrit avec une colonne
   « propriétaire » en tête, pour que la migration soit un déplacement, pas
   une réécriture.
+
+  **Fait le 17/09/2026**, après constat que la règle n'était appliquée qu'à
+  `routes_connues.sqlite`, et encore : la colonne y était sans qu'aucune
+  requête ne la filtre. Les trois dépôts locaux (`index.sqlite`,
+  `archive_meteo.sqlite`, `routes_connues.sqlite`) portent désormais la
+  colonne, elle entre dans **l'identité** (clé primaire ou index unique), et
+  chaque requête de lecture comme d'écriture porte la clause. Trois points
+  décidés à cette occasion :
+
+  - **Le propriétaire entre au constructeur du dépôt, et nulle part ailleurs**
+    (`Cache(dossier, proprietaire=…)`) : exactement la position du `Path`, que
+    la ligne de commande fournit déjà et que le cœur ignore. Aucune fonction
+    du cœur ne le prononce ; en hébergé, c'est la couche web qui construira le
+    dépôt avec l'identifiant de l'utilisateur authentifié.
+  - **L'unicité d'une activité devient `(propriétaire, source,
+    id_externe|contenu)`.** Sans le propriétaire, deux utilisateurs ayant la
+    même activité Intervals — sortie en groupe, compte partagé — ne se
+    seraient pas vu refuser l'écriture : le `ON CONFLICT DO UPDATE` aurait
+    écrasé la ligne du premier, en silence.
+  - **L'archive météo porte la colonne avec la valeur `partage`**, pas un
+    identifiant d'utilisateur : la mutualisation voulue plus bas dans ce
+    paragraphe est intacte, simplement **écrite** au lieu d'être déduite d'une
+    absence de colonne — et il n'y a pas de liste d'exceptions à tenir pour
+    l'invariant, or une liste d'exceptions se remplit toute seule.
+
+  Un invariant de `tests/test_invariants.py` reconstitue le SQL de chaque
+  appel `execute` du cœur et échoue si une requête neuve oublie la clause ;
+  seules les fonctions préfixées `_migrer` en sont dispensées, puisqu'elles
+  fabriquent la colonne.
 - **Les clés d'API externes sont des données du profil, secrètes.** Clé
   Intervals, plus tard GraphHopper, Garmin : jamais en clair dans un log,
   une erreur, un JSON de sortie (`ourouler config --json` les masque déjà).
@@ -258,15 +291,32 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 
 ### 10.2 Ce qu'on décide maintenant, pour construire plus tard
 
-- **Authentification : déléguée, jamais de mot de passe chez nous.** OpenID
-  Connect avec Google en premier fournisseur ; Apple (« Sign in with Apple »)
-  en second, avec ses contraintes propres — compte développeur Apple payant,
-  clé privée et identifiant de service, relais d'adresse e-mail privée,
+- **Authentification : jamais de mot de passe chez nous.** Le principe ne
+  bouge pas ; le chemin, si — **révisé le 16/09/2026 par le mainteneur**, au
+  moment d'ouvrir le cycle UX (`docs/ux/cycle_ux_contrat.md`).
+
+  **V1 : entrée modérée, par lien à usage unique.** Une demande d'accès, que
+  le mainteneur valide à la main, puis un e-mail d'invitation (Brevo)
+  portant un lien de connexion ; ensuite l'utilisateur peut poser une
+  **passkey** (WebAuthn) pour ne plus dépendre de sa boîte mail. Deux
+  raisons de préférer ça à ce qui était écrit ici avant : la **modération
+  est native** — le sprint 8 veut qu'on invite des copains, et par-dessus
+  une connexion Google il aurait fallu construire une liste d'attente — et
+  l'écran d'entrée nous appartient, au lieu d'être celui d'un tiers.
+
+  **V2 : Google, puis Apple, en plus et non à la place.** OpenID Connect
+  avec ses contraintes propres côté Apple — compte développeur payant, clé
+  privée et identifiant de service, relais d'adresse e-mail privée,
   obligation d'Apple si une app iOS propose d'autres connexions sociales.
-  L'identité interne est un identifiant opaque ; l'e-mail est une donnée du
-  profil, pas une clé primaire (un utilisateur peut changer de fournisseur).
   Bibliothèque au moment venu (Authlib ou équivalent), jamais une
   implémentation maison d'OAuth.
+
+  **Ce qui ne change pas dans les deux cas** : l'identité interne est un
+  identifiant opaque ; l'e-mail est une donnée du profil, pas une clé
+  primaire (un utilisateur peut changer de fournisseur, ou passer du lien
+  magique à Google) ; et **une passkey n'est jamais le seul moyen d'entrer**
+  — le lien à usage unique reste le filet, parce qu'une passkey se perd avec
+  l'appareil ou le trousseau qui la synchronise.
 - **Base de données hébergée : PostgreSQL, dès le premier jour de
   l'hébergé, jamais SQLite.** Même raison qu'ix-presenter : le coût d'un
   Postgres sur Coolify est quasi nul, le coût d'une migration SQLite →
@@ -287,9 +337,23 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 - **API avant front.** L'API expose ce que la CLI sait déjà rendre en
   JSON ; le front la consomme. Le front ne parle jamais directement au cœur.
 
-### 10.3 Ce qu'on ne décide pas encore
+### 10.3 Ce qui a été décidé depuis, et ce qui ne l'est toujours pas
 
-Le cadre web (FastAPI ou autre), le front (framework ou HTML autonome comme
-ix-presenter), l'hébergement exact (Coolify sur Hetzner est le candidat
-naturel), la tarification éventuelle. Ces choix se prendront au point de
-repriorisation qui ouvrira l'hébergé, avec une CLI qui marche sous les yeux.
+**Tranché le 16/09/2026** par le mainteneur, à l'ouverture du cycle UX
+(`docs/ux/front_contrat.md`) : le front sera **React**, l'API vient **avant**
+le front, et les comptes après. **Livré le 17/09/2026** (lot F1) : le cadre
+web est **FastAPI**, avec uvicorn pour le servir — c'est la seule dépendance
+lourde qu'ouvre l'API, et elle ouvre avec elle la porte que `§3` laissait
+entrebâillée (« pas de Pydantic tant qu'il n'y a pas d'API »). Le cœur, lui,
+reste en dataclasses : Pydantic ne sert qu'aux corps de requête.
+
+Ce que la livraison ajoute à ce chapitre, et qu'il faut lire avec lui : l'API
+n'implémente rien, elle appelle les mêmes fonctions que la ligne de commande
+et rend leur JSON ; l'isolation par propriétaire est écrite **dès maintenant**
+dans la forme des dépôts, avec un invariant qui la garde ; et l'attente d'une
+génération est semi-synchrone, avec une durée annoncée qui dit si elle est
+mesurée. Le contrat complet est dans `docs/ux/api_contrat.md`.
+
+**Toujours pas décidé** : l'hébergement exact (Coolify sur Hetzner reste le
+candidat naturel) et la tarification éventuelle. Ces choix se prendront au
+point de repriorisation qui ouvrira l'hébergé.

@@ -46,7 +46,9 @@ en est aussi le premier utilisateur : **son besoin passe en premier**.
 ## Stack et conventions
 
 - Python ≥ 3.12, `uv`, layout `src/`, `pyproject.toml` (hatchling).
-  Dataclasses et annotations ; pas de Pydantic, pas d'ORM.
+  Dataclasses et annotations ; pas d'ORM. **Pas de Pydantic tant qu'il n'y
+  a pas d'API** (doctrine §3) — l'API du front ouvre cette porte, pas le
+  cœur, qui reste en dataclasses.
 - CLI `argparse` (stdlib). Sous-commandes : `inventaire`, `meteo`, puis
   `boucle`, `sortie`, `garmin`. Texte lisible par défaut, `--json` en option.
 - HTTP `httpx`. FIT `fitdecode`, GPX `gpxpy`, TCX `xml.etree`. Cache : fichiers

@@ -52,6 +52,10 @@ from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
 
+#: Réexporté : la constante vit désormais dans `ourouler.proprietaire`, mais
+#: elle s'est toujours lue depuis ce module.
+from ourouler.proprietaire import PROPRIETAIRE_LOCAL
+
 #: Facteur de la maille : 1/3000 de degré ≈ 37 m en latitude, ~37 m en
 #: longitude à nos latitudes. « ~30 m » du contrat, au degré de précision près.
 MAILLE = 3000
@@ -106,25 +110,10 @@ PART_EXPOSITION_MIN = 0.02
 #: Version du schéma SQLite de la base de routes.
 #:
 #: Passée à 2 le 13/09/2026 : les deux tables gagnent une colonne
-#: `proprietaire`. Voir `PROPRIETAIRE_LOCAL` et `_migrer`.
-VERSION_SCHEMA = 2
-
-#: Propriétaire des lignes écrites par la ligne de commande.
-#:
-#: Doctrine §10.1 : « le schéma de l'index local est écrit avec une colonne
-#: *propriétaire* en tête, pour que la migration soit un déplacement, pas une
-#: réécriture ». Ce sont bien des données **par utilisateur** — les routes
-#: qu'*un* cycliste a roulées — et en hébergé deux utilisateurs de la même
-#: ville partageront des mailles sans devoir partager des passages. En local
-#: il n'y a qu'un propriétaire et la colonne ne sert à rien d'autre qu'à être
-#: là le jour venu : rien ne filtre dessus aujourd'hui, et la ligne de
-#: commande n'a aucun moyen d'écrire autre chose.
-#:
-#: `archive_meteo.sqlite`, lui, n'en a pas besoin et n'en aura pas : sa clé
-#: `(lat, lon, jour)` ne porte aucune donnée personnelle et se mutualise telle
-#: quelle entre utilisateurs (doctrine §10.1, « cache des prévisions par
-#: maille et par heure, partagé entre utilisateurs »).
-PROPRIETAIRE_LOCAL = "local"
+#: `proprietaire`. Passée à 3 le 17/09/2026 : cette colonne entre **en tête
+#: des deux clés primaires**, et toutes les requêtes la filtrent — une colonne
+#: que personne ne filtre ne protège rien. Voir `_migrer`.
+VERSION_SCHEMA = 3
 
 _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS troncons (
@@ -139,16 +128,18 @@ CREATE TABLE IF NOT EXISTS troncons (
     passages_semaine INTEGER NOT NULL DEFAULT 0,
     metres           REAL NOT NULL DEFAULT 0,
     metres_semaine   REAL NOT NULL DEFAULT 0,
-    PRIMARY KEY (cle_lat, cle_lon, highway, surface, maxspeed)
+    PRIMARY KEY (proprietaire, cle_lat, cle_lon, highway, surface, maxspeed)
 );
-CREATE INDEX IF NOT EXISTS idx_troncons_maille ON troncons(cle_lat, cle_lon);
+CREATE INDEX IF NOT EXISTS idx_troncons_maille
+    ON troncons(proprietaire, cle_lat, cle_lon);
 CREATE TABLE IF NOT EXISTS sorties (
     proprietaire TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}',
-    id_sortie    TEXT PRIMARY KEY,
+    id_sortie    TEXT NOT NULL,
     jour         TEXT,
     mailles      INTEGER NOT NULL DEFAULT 0,
     metres       REAL NOT NULL DEFAULT 0,
-    ajoutee_le   TEXT NOT NULL
+    ajoutee_le   TEXT NOT NULL,
+    PRIMARY KEY (proprietaire, id_sortie)
 );
 """
 
@@ -386,8 +377,9 @@ def _decouper(trace: Trace) -> list[_Morceau]:
 class BaseRoutes:
     """Les tronçons déjà roulés, dans un SQLite dont on reçoit le chemin."""
 
-    def __init__(self, chemin: Path):
+    def __init__(self, chemin: Path, proprietaire: str = PROPRIETAIRE_LOCAL):
         self.chemin = Path(chemin)
+        self.proprietaire = _proprietaire_valide(proprietaire)
         try:
             self.chemin.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
@@ -410,12 +402,18 @@ class BaseRoutes:
         aucune ligne recopiée, aucun passage perdu, aucune clé primaire
         touchée. La colonne se range en queue sur une base migrée et en tête
         sur une base neuve ; l'ordre physique n'a aucune conséquence, seul le
-        nom compte, et le jour où l'hébergé filtrera dessus les deux bases
-        répondront pareil.
+        nom compte.
+
+        Schéma 2 → 3 : cette colonne entre **en tête des deux clés primaires**.
+        SQLite ne sait pas modifier une clé primaire : là, il faut recopier.
+        La recopie est un déplacement — mêmes colonnes, mêmes valeurs, la
+        contrainte seule change — et les lignes existantes gardent le
+        propriétaire que le schéma 2 leur avait donné.
 
         `PRAGMA user_version` vaut 0 sur une base tout juste créée comme sur
-        une base antérieure au versionnement : c'est la présence de la colonne,
-        pas le numéro, qui dit s'il y a quelque chose à faire.
+        une base antérieure au versionnement : c'est la présence de la colonne
+        et la forme de la clé, jamais le numéro, qui disent s'il reste quelque
+        chose à faire. **Rouvrir une base déjà migrée ne la touche pas.**
         """
         version = cx.execute("PRAGMA user_version").fetchone()[0]
         if version > VERSION_SCHEMA:
@@ -432,6 +430,40 @@ class BaseRoutes:
                     f"ALTER TABLE {table} ADD COLUMN proprietaire "
                     f"TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}'"
                 )
+        self._migrer_cles_primaires(cx)
+
+    def _migrer_cles_primaires(self, cx: sqlite3.Connection) -> None:
+        """Schéma 2 → 3 : `proprietaire` entre dans les deux clés primaires.
+
+        Sans lui, deux utilisateurs ne pourraient pas avoir roulé la même
+        maille : le `ON CONFLICT` de `ajouter_trace` additionnerait leurs
+        passages sur une seule ligne, et le compteur de l'un dirait ce que
+        l'autre a fait.
+
+        La bascule se reconnaît à la clé elle-même (`PRAGMA table_info` donne
+        le rang de chaque colonne dans la clé primaire), pas au numéro de
+        version : une base déjà en schéma 3 n'est pas recopiée, et la
+        migration peut donc s'exécuter autant de fois qu'on veut.
+        """
+        for table in ("troncons", "sorties"):
+            if not _table_existe(cx, table) or _dans_la_cle(cx, table, "proprietaire"):
+                continue
+            colonnes = ", ".join(_colonnes_de(cx, table))
+            # Un `ALTER TABLE … RENAME` emmène les index avec la table : sans
+            # ce `DROP`, `CREATE INDEX IF NOT EXISTS` ne recréerait rien (le
+            # nom est pris) et le `DROP TABLE` final emporterait l'index. Le
+            # `_SCHEMA` que `__init__` exécute juste après les rétablit.
+            drops = "".join(f"DROP INDEX IF EXISTS {nom};\n" for nom in _index_de(cx, table))
+            cx.executescript(
+                f"""
+                {drops}
+                ALTER TABLE {table} RENAME TO {table}_schema2;
+                {_SCHEMA}
+                INSERT OR REPLACE INTO {table} ({colonnes})
+                    SELECT {colonnes} FROM {table}_schema2;
+                DROP TABLE {table}_schema2;
+                """
+            )
 
     # --- écriture -------------------------------------------------------------
 
@@ -457,10 +489,11 @@ class BaseRoutes:
         with self._connexion() as cx:
             for m in morceaux:
                 cx.execute(
-                    "INSERT INTO troncons (cle_lat, cle_lon, highway, surface, maxspeed, "
-                    "cout_km, passages, passages_semaine, metres, metres_semaine) "
-                    "VALUES (?,?,?,?,?,?,1,?,?,?) "
-                    "ON CONFLICT(cle_lat, cle_lon, highway, surface, maxspeed) DO UPDATE SET "
+                    "INSERT INTO troncons (proprietaire, cle_lat, cle_lon, highway, surface, "
+                    "maxspeed, cout_km, passages, passages_semaine, metres, metres_semaine) "
+                    "VALUES (?,?,?,?,?,?,?,1,?,?,?) "
+                    "ON CONFLICT(proprietaire, cle_lat, cle_lon, highway, surface, maxspeed) "
+                    "DO UPDATE SET "
                     # Moyenne du coût pondérée par les mètres : une valeur
                     # absente d'un côté laisse l'autre en place plutôt que de
                     # la remplacer par du vide.
@@ -474,6 +507,7 @@ class BaseRoutes:
                     "metres = troncons.metres + excluded.metres, "
                     "metres_semaine = troncons.metres_semaine + excluded.metres_semaine",
                     (
+                        self.proprietaire,
                         m.cle[0],
                         m.cle[1],
                         m.highway,
@@ -486,9 +520,10 @@ class BaseRoutes:
                     ),
                 )
             cx.execute(
-                "INSERT INTO sorties (id_sortie, jour, mailles, metres, ajoutee_le) "
-                "VALUES (?,?,?,?,?) ON CONFLICT(id_sortie) DO NOTHING",
+                "INSERT INTO sorties (proprietaire, id_sortie, jour, mailles, metres, ajoutee_le) "
+                "VALUES (?,?,?,?,?,?) ON CONFLICT(proprietaire, id_sortie) DO NOTHING",
                 (
+                    self.proprietaire,
                     id_sortie,
                     jour.isoformat(),
                     mailles,
@@ -502,13 +537,20 @@ class BaseRoutes:
 
     def sorties_apprises(self) -> set[str]:
         with self._connexion() as cx:
-            return {ligne[0] for ligne in cx.execute("SELECT id_sortie FROM sorties")}
+            return {
+                ligne[0]
+                for ligne in cx.execute(
+                    "SELECT id_sortie FROM sorties WHERE proprietaire = ?", (self.proprietaire,)
+                )
+            }
 
     def troncons(self) -> list[Troncon]:
         with self._connexion() as cx:
             lignes = cx.execute(
                 "SELECT cle_lat, cle_lon, highway, surface, maxspeed, cout_km, "
-                "passages, passages_semaine, metres, metres_semaine FROM troncons"
+                "passages, passages_semaine, metres, metres_semaine FROM troncons "
+                "WHERE proprietaire = ?",
+                (self.proprietaire,),
             ).fetchall()
         return [_troncon(ligne) for ligne in lignes]
 
@@ -516,12 +558,18 @@ class BaseRoutes:
         """Kilomètres roulés par `highway`, `maxspeed` et `surface`, et part semaine."""
         stats = Statistiques()
         with self._connexion() as cx:
-            stats.sorties = cx.execute("SELECT COUNT(*) FROM sorties").fetchone()[0]
+            stats.sorties = cx.execute(
+                "SELECT COUNT(*) FROM sorties WHERE proprietaire = ?", (self.proprietaire,)
+            ).fetchone()[0]
             stats.mailles = cx.execute(
-                "SELECT COUNT(*) FROM (SELECT DISTINCT cle_lat, cle_lon FROM troncons)"
+                "SELECT COUNT(*) FROM (SELECT DISTINCT cle_lat, cle_lon FROM troncons "
+                "WHERE proprietaire = ?)",
+                (self.proprietaire,),
             ).fetchone()[0]
             lignes = cx.execute(
-                "SELECT highway, surface, maxspeed, cout_km, metres, metres_semaine FROM troncons"
+                "SELECT highway, surface, maxspeed, cout_km, metres, metres_semaine "
+                "FROM troncons WHERE proprietaire = ?",
+                (self.proprietaire,),
             ).fetchall()
         cout_pondere = 0.0
         metres_avec_cout = 0.0
@@ -565,7 +613,8 @@ class BaseRoutes:
     def _mailles_de(self, id_sortie: str) -> int | None:
         with self._connexion() as cx:
             ligne = cx.execute(
-                "SELECT mailles FROM sorties WHERE id_sortie = ?", (id_sortie,)
+                "SELECT mailles FROM sorties WHERE proprietaire = ? AND id_sortie = ?",
+                (self.proprietaire, id_sortie),
             ).fetchone()
         return None if ligne is None else int(ligne[0])
 
@@ -584,8 +633,9 @@ class BaseRoutes:
             for paquet in _paquets(latitudes, 400):
                 marques = ",".join("?" * len(paquet))
                 lignes = cx.execute(
-                    f"SELECT DISTINCT cle_lat, cle_lon FROM troncons WHERE cle_lat IN ({marques})",
-                    paquet,
+                    "SELECT DISTINCT cle_lat, cle_lon FROM troncons "
+                    f"WHERE proprietaire = ? AND cle_lat IN ({marques})",
+                    [self.proprietaire, *paquet],
                 ).fetchall()
                 trouvees.update((int(a), int(b)) for a, b in lignes)
         return trouvees & cles
@@ -662,6 +712,41 @@ def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
 def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
     """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
     return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
+
+
+def _colonnes_de(cx: sqlite3.Connection, table: str) -> list[str]:
+    return [ligne[1] for ligne in cx.execute(f"PRAGMA table_info({table})")]
+
+
+def _dans_la_cle(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
+    """Vrai si `colonne` fait partie de la clé primaire de `table`.
+
+    La sixième colonne de `PRAGMA table_info` est le rang dans la clé primaire,
+    0 pour une colonne qui n'en fait pas partie.
+    """
+    return any(ligne[1] == colonne and ligne[5] for ligne in cx.execute(f"PRAGMA table_info({table})"))
+
+
+def _index_de(cx: sqlite3.Connection, table: str) -> list[str]:
+    """Les index **déclarés** de la table. `sql IS NULL` écarte ceux que SQLite
+    crée lui-même pour les contraintes, qu'on ne peut pas supprimer."""
+    return [
+        ligne[0]
+        for ligne in cx.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
+            (table,),
+        )
+    ]
+
+
+def _proprietaire_valide(valeur: str) -> str:
+    """Un propriétaire est une chaîne non vide — voir `activites.cache` pour le pourquoi."""
+    if not isinstance(valeur, str) or not valeur.strip():
+        raise ErreurUtilisateur(
+            f"routes : propriétaire {valeur!r} invalide — une chaîne non vide est attendue"
+        )
+    return valeur.strip()
 
 
 # --- apprentissage ------------------------------------------------------------

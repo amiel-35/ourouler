@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 
 from ourouler.config import Depart
 from ourouler.meteo.couronne import NOM_ICI, PointCouronne, ecart_angulaire
@@ -63,6 +63,15 @@ MOIS = (
 def date_en_francais(t: datetime) -> str:
     """« samedi 13 septembre 2026 à 08h00 », sans dépendre de la locale."""
     return f"{JOURS[t.weekday()]} {t.day} {MOIS[t.month - 1]} {t.year} à {t:%Hh%M}"
+
+
+def jour_en_francais(j: date) -> str:
+    """« 13 septembre 2026 » — la même table de mois, sans l'heure.
+
+    Un jour sans heure se dit sans heure : « le 17 septembre 2036 à 00h00 »
+    ferait croire à une précision que la phrase n'a pas.
+    """
+    return f"{j.day} {MOIS[j.month - 1]} {j.year}"
 
 
 @dataclass

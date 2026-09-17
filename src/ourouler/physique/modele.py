@@ -244,6 +244,177 @@ def vitesse_regime(puissance_w: float, pente: float, vent_face_ms: float, p: Par
     return (bas + haut) / 2
 
 
+# --- à plat, sans vent, lancé -------------------------------------------------
+#
+# Les trois fonctions qui suivent ne sont que `puissance_requise` et
+# `vitesse_regime` au cas particulier « pente nulle, vent nul », en km/h. Elles
+# existent parce que **c'est ce cas-là que l'écran de FTP montre** (décision 7
+# du cycle UX) : « la vitesse à plat, sans vent, lancé » est l'entrée de celui
+# qui ne pense pas en watts, et éditer l'une doit recalculer l'autre. Écrire
+# `vitesse_regime(p, 0.0, 0.0, params)` à chaque appel marchait, mais laissait
+# à chaque appelant le soin de se rappeler lequel des deux zéros est la pente.
+#
+# **Ce n'est pas la moyenne du compteur.** Mesuré le 16/09/2026 sur les sorties
+# extérieures du mainteneur (décision 8) : le compteur affiche 87 à 90 % de
+# cette vitesse-là selon le vélo, le relief et le vent coûtant plus cher que
+# les arrêts. Confondre les deux décale tout l'escalier des zones vers le bas.
+
+
+def vitesse_a_plat_ms(puissance_w: float, p: Parametres) -> float:
+    """Vitesse d'équilibre sur le plat, sans vent, en m/s."""
+    return vitesse_regime(puissance_w, 0.0, 0.0, p)
+
+
+def vitesse_a_plat_kmh(puissance_w: float, p: Parametres) -> float:
+    """Vitesse d'équilibre sur le plat, sans vent, en km/h."""
+    return vitesse_a_plat_ms(puissance_w, p) * 3.6
+
+
+def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
+    """Puissance à tenir pour rouler `vitesse_kmh` sur le plat, sans vent.
+
+    L'inverse exact de `vitesse_a_plat_kmh` : c'est `puissance_requise`, pas
+    une bissection, donc l'aller-retour ne coûte rien en précision. Une
+    vitesse négative est refusée — reculer n'est pas un régime.
+    """
+    _finis(vitesse_kmh=vitesse_kmh)
+    if vitesse_kmh < 0:
+        raise ErreurUtilisateur(
+            f"modèle physique : vitesse à plat négative ({vitesse_kmh} km/h)"
+        )
+    return puissance_requise(vitesse_kmh / 3.6, 0.0, 0.0, p)
+
+
+# --- la moyenne du compteur ---------------------------------------------------
+#
+# La **troisième valeur** de l'écran de FTP (décision 8 du cycle UX,
+# `docs/ux/cycle_ux_contrat.md`). Sans elle, quelqu'un tape dans le champ « à
+# plat » la moyenne qu'il lit sur son compteur, et tout l'escalier des zones se
+# décale vers le bas : la mesure du 16/09/2026 place alors le cycliste *sous*
+# sa Z2, et cette position fausse se propage à toutes les autres zones.
+#
+# **Le facteur est un réglage par vélo** (`config.Velo.facteur_compteur`), pas
+# une constante de module : il dépend de la masse du cycliste autant que de ses
+# routes. Le mesurer sur son propre historique est le travail de
+# `tests/validation/facteur_compteur_retrospectif.py` ; ce qui suit n'est que le
+# défaut de celui qui n'a pas encore d'historique.
+#
+# **Le temps retenu est le temps écoulé**, du premier au dernier point, arrêts
+# compris — pas le temps de mouvement. Les deux existent et ne donnent pas le
+# même facteur (quatre points d'écart, mesurés le 16/09/2026). Trois raisons :
+# le temps écoulé se lit sur n'importe quelle source, alors que le GPX et le TCX
+# ne portent aucun temps de mouvement (`Activite.duree_mouvement_s` y vaut
+# `None`) ; il ne dépend pas du réglage d'arrêt automatique du compteur, qui est
+# une propriété de l'appareil et non du cycliste ; et c'est celui que le
+# cycliste calcule de tête, « 70 km en 3 h ».
+
+#: Dénivelé du profil de référence qui sert à dériver un facteur par défaut, en
+#: mètres de montée par kilomètre parcouru. 10 m/km, c'est « 1 000 m pour
+#: 100 km » : la sortie vallonnée telle qu'on la nomme couramment.
+#:
+#: **Ce n'est pas une mesure**, et le défaut qu'il produit est faux pour à peu
+#: près tout le monde : trop sévère en plaine, très optimiste en montagne. Il
+#: n'existe que pour donner un chiffre plausible à un vélo neuf, et il est fait
+#: pour être remplacé par la mesure dès qu'il y a un historique.
+DENIVELE_REFERENCE_M_PAR_KM = 10.0
+
+#: Part du temps écoulé passée à l'arrêt sur la sortie de référence : 5 %, soit
+#: trois minutes par heure — feux, carrefours, un bidon.
+#:
+#: C'est le seul morceau du défaut qui ne se dérive pas : le modèle physique
+#: ignore les arrêts (docstring de `simuler`). Faux pour qui traverse une ville
+#: à chaque sortie comme pour qui roule sur route déserte.
+PART_ARRET_REFERENCE = 0.05
+
+
+def facteur_compteur_defaut(
+    puissance_w: float,
+    p: Parametres,
+    *,
+    denivele_m_par_km: float = DENIVELE_REFERENCE_M_PAR_KM,
+    part_arret: float = PART_ARRET_REFERENCE,
+) -> float:
+    """Le facteur d'un vélo dont personne n'a encore mesuré le sien.
+
+    Le profil de référence est une alternance symétrique : la moitié de la
+    distance en montée à `pente`, l'autre moitié en descente à `−pente`, avec
+    `pente = denivele_m_par_km / 500` (monter 10 m par kilomètre parcouru quand
+    la moitié seulement grimpe, c'est 2 %). À puissance constante, la vitesse
+    moyenne sur une telle alternance est la **moyenne harmonique** des deux
+    vitesses de régime — la moyenne se fait à distance égale, pas à temps égal.
+    Elle est plus basse que la vitesse à plat parce que la relation
+    puissance → vitesse est convexe : la côte coûte plus que la descente ne
+    rend. La descente est plafonnée à `V_MAX_DESCENTE_KMH` comme dans
+    `simuler` : le cycliste freine, le modèle ne le sait pas.
+
+    **C'est là que la masse entre**, et c'est la raison d'être de cette
+    dérivation. Un facteur écrit en dur serait celui d'un seul homme sur ses
+    seules routes ; ici, 25 kg de plus font tomber le facteur de plusieurs
+    points, parce qu'ils ne coûtent presque rien à plat et beaucoup en côte.
+
+    Les arrêts, eux, ne se dérivent pas : `part_arret` est une convention
+    (`PART_ARRET_REFERENCE`), pas une mesure. Le résultat entier est donc une
+    **supposition**, et tout écran qui l'affiche doit le dire.
+    """
+    _finis(
+        puissance_w=puissance_w,
+        denivele_m_par_km=denivele_m_par_km,
+        part_arret=part_arret,
+    )
+    if puissance_w <= 0:
+        raise ErreurUtilisateur(
+            f"modèle physique : puissance positive attendue, reçu {puissance_w!r} W"
+        )
+    if denivele_m_par_km < 0:
+        raise ErreurUtilisateur(
+            f"modèle physique : dénivelé de référence négatif ({denivele_m_par_km} m/km)"
+        )
+    if not 0.0 <= part_arret < 1.0:
+        raise ErreurUtilisateur(
+            f"modèle physique : part d'arrêt attendue dans [0, 1[, reçu {part_arret!r}"
+        )
+
+    v_plat = vitesse_a_plat_ms(puissance_w, p)
+    if v_plat <= 0:
+        raise ErreurUtilisateur(
+            "modèle physique : vitesse à plat nulle — paramètres de vélo inexploitables"
+        )
+    pente = denivele_m_par_km / 500.0
+    # Même plancher et même plafond que `simuler` : sous `V_MIN_MS` le cycliste
+    # met pied à terre, au-dessus de `V_MAX_DESCENTE_KMH` il freine.
+    v_montee = max(vitesse_regime(puissance_w, pente, 0.0, p), V_MIN_MS)
+    v_descente = min(
+        vitesse_regime(puissance_w, -pente, 0.0, p), V_MAX_DESCENTE_KMH / 3.6
+    )
+    v_mouvement = 2.0 / (1.0 / v_montee + 1.0 / v_descente)
+    return (v_mouvement / v_plat) * (1.0 - part_arret)
+
+
+def moyenne_compteur_kmh(
+    puissance_w: float, p: Parametres, facteur: float | None = None
+) -> float:
+    """La moyenne que le compteur affichera, en km/h — la troisième valeur.
+
+    `facteur` est le `facteur_compteur` du vélo, mesuré sur l'historique du
+    cycliste. À `None`, `facteur_compteur_defaut` prend le relais : le chiffre
+    rendu cesse alors d'être une mesure, et l'écran qui l'affiche doit le dire.
+
+    Le résultat est plus bas que `vitesse_a_plat_kmh` dès que le facteur l'est,
+    et c'est tout l'intérêt de l'afficher. Un facteur au-dessus de 1 n'est pas
+    refusé ici — rouler en groupe abrite du vent et fait mieux que le modèle
+    solo — il est simplement borné au chargement de la configuration.
+    """
+    if facteur is None:
+        facteur = facteur_compteur_defaut(puissance_w, p)
+    else:
+        _finis(facteur=facteur)
+        if facteur <= 0:
+            raise ErreurUtilisateur(
+                f"modèle physique : facteur compteur positif attendu, reçu {facteur!r}"
+            )
+    return vitesse_a_plat_kmh(puissance_w, p) * facteur
+
+
 # --- simulation d'un parcours -------------------------------------------------
 
 

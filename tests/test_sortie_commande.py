@@ -19,7 +19,7 @@ import json
 import math
 import re
 import types
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -33,7 +33,13 @@ from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
-from ourouler.config import Config, ParametresSeance, depuis_dict
+from ourouler.config import (
+    HORIZON_JOURS_DEFAUT,
+    Config,
+    Depart,
+    ParametresSeance,
+    depuis_dict,
+)
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
@@ -55,6 +61,7 @@ from ourouler.sortie.commande import (
     _ecrire_gpx,
     _ligne_modele_meteo,
     _notes_egales,
+    _seance,
     executer,
     lire_options,
     rendre_texte,
@@ -236,8 +243,8 @@ def reponse_anneau(points: list[tuple[float, float, float]], *, troncons: int = 
     }
 
 
-def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
-    """BRouter bouchonné : un anneau par azimut, réglable en relief et en rayon."""
+def _gestionnaire_brouter(reglages: dict[float, dict] | None = None):
+    """Un anneau par azimut, réglable en relief et en rayon."""
     reglages = reglages or {}
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -254,8 +261,30 @@ def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
             ),
         )
 
+    return gestionnaire
+
+
+def client_brouter(reglages: dict[float, dict] | None = None) -> httpx.Client:
+    """Le **client HTTP** bouchonné de `moteur_brouter`, sans le connecteur autour.
+
+    Extrait le 17/09/2026 : les tests de contrat de l'API injectent un
+    `httpx.Client` et laissent l'API l'habiller du connecteur, avec l'URL et
+    les identifiants du profil (`api/routes.FABRIQUES_CONNECTEUR`). Ils ont
+    donc besoin de ce bouchon-ci, pas d'un `ClientBrouter` déjà pointé
+    ailleurs — et refabriquer chez eux une géométrie de boucle crédible en
+    ferait une deuxième à tenir à jour.
+
+    `httpx.MockTransport` est écrit **ici**, à la construction du client, et
+    non caché derrière une fonction : l'invariant qui interdit un client HTTP
+    sans transport bouchonné lit le code, pas son intention.
+    """
+    return httpx.Client(transport=httpx.MockTransport(_gestionnaire_brouter(reglages)))
+
+
+def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
+    """BRouter bouchonné : un anneau par azimut, réglable en relief et en rayon."""
     params = depuis_dict(CONFIG_BRUTE).brouter
-    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    return ClientBrouter(params, http=client_brouter(reglages))
 
 
 # --- Open-Meteo bouchonné -----------------------------------------------------
@@ -278,15 +307,8 @@ def bloc_meteo(lat: float, lon: float, n: int, pluie: float, vent_kmh: float = 1
     }
 
 
-def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
-    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h.
-
-    `vent_kmh` : vitesse constante du vent bouchonné (14 km/h @ 45° par
-    défaut, comme avant L5.1 — les tests existants qui ne le précisent pas
-    ne changent donc pas de fixture). `0.0` fabrique une météo sans vent,
-    utile pour comparer un placement au vent à son équivalent sans vent
-    (`test_le_vent_change_ou_tombent_les_blocs`).
-    """
+def _gestionnaire_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0):
+    """Le bouchon Open-Meteo, sans le transport ni le connecteur autour."""
     pluie = pluie if pluie is not None else (lambda lat, lon: 0.0)
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -306,7 +328,26 @@ def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> 
             ],
         )
 
-    return ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    return gestionnaire
+
+
+def client_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> httpx.Client:
+    """Le **client HTTP** bouchonné de `moteur_meteo`. Même raison que `client_brouter`."""
+    return httpx.Client(
+        transport=httpx.MockTransport(_gestionnaire_meteo(pluie, en_panne, vent_kmh))
+    )
+
+
+def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
+    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h.
+
+    `vent_kmh` : vitesse constante du vent bouchonné (14 km/h @ 45° par
+    défaut, comme avant L5.1 — les tests existants qui ne le précisent pas
+    ne changent donc pas de fixture). `0.0` fabrique une météo sans vent,
+    utile pour comparer un placement au vent à son équivalent sans vent
+    (`test_le_vent_change_ou_tombent_les_blocs`).
+    """
+    return ClientOpenMeteo(http=client_meteo(pluie, en_panne, vent_kmh))
 
 
 def pluie_au_nord(lat: float, lon: float) -> float:
@@ -347,7 +388,9 @@ def clients_interdits():
     )
 
 
-def lancer(tmp_path: Path, monkeypatch, *, meteo=None, brouter=None, intervals=None, **champs):
+def lancer(
+    tmp_path: Path, monkeypatch, *, meteo=None, brouter=None, intervals=None, lieu_depart=None, **champs
+):
     """Exécute la commande dans `tmp_path`, clients bouchonnés, et rend le code."""
     monkeypatch.chdir(tmp_path)
     ecrire_calibration(tmp_path / "cache")
@@ -357,6 +400,7 @@ def lancer(tmp_path: Path, monkeypatch, *, meteo=None, brouter=None, intervals=N
         brouter if brouter is not None else moteur_brouter(),
         meteo if meteo is not None else moteur_meteo(),
         intervals if intervals is not None else client_intervals(),
+        lieu_depart=lieu_depart,
     )
 
 
@@ -748,7 +792,16 @@ def test_une_candidate_epouvantable_n_est_jamais_filtree(
 def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
     tmp_path: Path, monkeypatch, capsys
 ):
-    """Un anneau trop court porte la séance nulle part : il est écarté, et on dit pourquoi."""
+    """Un anneau trop court est écarté, et on dit pourquoi — jamais en silence.
+
+    **Le motif a changé le 17/09/2026 (Q41 d), pas l'exigence.** Un anneau six
+    fois trop petit ne va plus jusqu'au placement : il est refusé avant, parce
+    qu'il est trop loin de la distance demandée (−83 % pour une tolérance de
+    10 %, élargissement plafonné à 10 %). Les deux refus disent maintenant la
+    même chose au même endroit, et c'est tout l'objet de ce test : **une
+    direction écartée se dit**. Demander deux directions et n'en voir qu'une
+    sans explication serait le défaut même que ce lot corrige.
+    """
     reglages = {180.0: {"rayon_deg": RAYON_DEG / 6}}
     code = lancer(
         tmp_path, monkeypatch, brouter=moteur_brouter(reglages), candidates=2
@@ -756,7 +809,8 @@ def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
     sortie = capsys.readouterr().out
     assert code == 0
     assert "1 candidate(s) écartée(s)" in sortie
-    assert "ne tient pas sur ce tracé" in sortie
+    assert "de la distance demandée" in sortie, "le motif du refus doit être lisible"
+    assert "il aurait fallu élargir de" in sortie, "et dire de combien"
     assert len(lignes_du_tableau(sortie)) == 1
 
 
@@ -989,14 +1043,19 @@ COMMANDES_A_HEURE_DEPART = {
 }
 
 
+#: Les trois commandes qui partent d'un **lieu**, donc qui portent
+#: `--adresse-depart` (lot F0.7). `simuler` n'en est pas : elle part du GPX
+#: qu'on lui donne, pas d'un point.
+COMMANDES_A_ADRESSE_DEPART = ("meteo", "boucle", "sortie")
+
+
 def test_l_heure_de_depart_s_appelle_heure_depart_partout():
     """Q15, tranchée par le mainteneur le 13/09.
 
     L'heure de départ s'appelle `--heure-depart` ; le lieu de départ
-    s'appellera `--adresse-depart` (nom réservé, non livré). `--depart`, qui
-    disait « heure » alors que `--depuis`/`--adresse-depart` dira « lieu »,
-    et `--heure`, ajouté en attendant la décision, restent acceptés pour ne
-    rien casser.
+    s'appelle `--adresse-depart` (livré par F0.7). `--depart`, qui disait
+    « heure » alors que `--adresse-depart` dit « lieu », et `--heure`, ajouté
+    en attendant la décision, restent acceptés pour ne rien casser.
     """
     parseur = construire_parseur()
     for commande, arguments in COMMANDES_A_HEURE_DEPART.items():
@@ -1012,9 +1071,7 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
     """Acceptés, oui ; enseignés, non (Q15).
 
     L'aide ne doit plus proposer `--depart` ni `--heure` : les laisser dans
-    l'aide reviendrait à ne rien avoir tranché. Le nom réservé pour le lieu,
-    lui, n'existe pas encore comme option — il ne doit donc apparaître nulle
-    part dans l'aide non plus.
+    l'aide reviendrait à ne rien avoir tranché.
     """
     parseur = construire_parseur()
     sous = next(
@@ -1025,14 +1082,160 @@ def test_les_anciens_noms_de_l_heure_de_depart_ne_sont_plus_documentes():
     for commande in COMMANDES_A_HEURE_DEPART:
         aide = sous.choices[commande].format_help()
         assert "--heure-depart" in aide, f"{commande} : le nom canonique manque dans l'aide"
-        sans_canonique = aide.replace("--heure-depart", "")
+        # Les deux noms canoniques sont retirés avant de chercher les anciens :
+        # « --adresse-depart » est cité dans l'aide de `--heure-depart` et
+        # réciproquement, précisément pour qu'on ne les confonde pas.
+        sans_noms_canoniques = aide.replace("--heure-depart", "").replace("--adresse-depart", "")
         for ancien in ("--depart", "--heure"):
-            assert ancien not in sans_canonique, (
+            assert ancien not in sans_noms_canoniques, (
                 f"{commande} : l'aide documente encore {ancien}"
             )
-        assert "--adresse-depart" not in aide, (
-            f"{commande} : --adresse-depart est un nom réservé, pas une option livrée"
+
+
+def test_le_lieu_de_depart_s_appelle_adresse_depart_et_rien_d_autre():
+    """Ce que gardait le test du nom réservé, maintenant que le nom est livré (F0.7).
+
+    Le test écrit au sprint 4 vérifiait que `--adresse-depart` **n'existait
+    pas**, pour que le nom ne soit pas pris par autre chose avant qu'on le
+    livre. Ce qu'il protégeait vraiment, c'est le nom lui-même — pas son
+    absence : c'est ce qui est vérifié ici.
+
+    Aucun des noms écartés (`--depuis`, provisoire du plan du sprint 4,
+    `--lieu-depart`, `--depart-adresse`) ne doit apparaître à la place, et
+    l'option n'existe que là où partir d'ailleurs a un sens : `simuler` part
+    du GPX qu'on lui donne, pas d'un point.
+    """
+    parseur = construire_parseur()
+    sous = next(
+        action
+        for action in parseur._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    for commande in COMMANDES_A_HEURE_DEPART:
+        aide = sous.choices[commande].format_help()
+        attendu = commande in COMMANDES_A_ADRESSE_DEPART
+        assert ("--adresse-depart" in aide) is attendu, (
+            f"{commande} : --adresse-depart devrait "
+            f"{'figurer' if attendu else 'être absent'} de l'aide"
         )
+        for ecarte in ("--depuis", "--lieu-depart", "--depart-adresse"):
+            assert ecarte not in aide, (
+                f"{commande} : {ecarte} a été livré à la place du nom retenu"
+            )
+
+
+def test_l_adresse_de_depart_et_l_heure_de_depart_ne_se_confondent_pas():
+    """Les deux options sur la même ligne, chacune dans son `dest` (Q15).
+
+    C'est la confusion pour laquelle le lieu ne s'appelle pas `--depart` : un
+    `dest` partagé ferait qu'une heure deviendrait un lieu, ou l'inverse, sans
+    que rien ne le dise.
+    """
+    parseur = construire_parseur()
+    for commande in COMMANDES_A_ADRESSE_DEPART:
+        arguments = COMMANDES_A_HEURE_DEPART[commande]
+        lus = parseur.parse_args(
+            [commande, *arguments, "--heure-depart", "08:00", "--adresse-depart", "Place du Test"]
+        )
+        assert lus.depart == "08:00", f"{commande} : l'heure a été écrasée par le lieu"
+        assert lus.adresse_depart == "Place du Test", f"{commande} : le lieu n'est pas arrivé"
+
+        # L'ordre inverse, et l'ancien nom de l'heure, ne changent rien.
+        lus = parseur.parse_args(
+            [commande, *arguments, "--adresse-depart", "Place du Test", "--depart", "10:15"]
+        )
+        assert lus.depart == "10:15"
+        assert lus.adresse_depart == "Place du Test"
+
+        # Sans l'option, aucun lieu n'est demandé : la configuration décide.
+        lus = parseur.parse_args([commande, *arguments])
+        assert lus.adresse_depart is None
+
+
+#: Un départ « ailleurs », toujours fictif : à quelques centièmes de degré du
+#: point zéro de la configuration de test, donc mesurable sans nommer un lieu
+#: réel (règle absolue 1).
+AILLEURS = Depart(nom="Place inventée 44999 Vallombreuse", latitude=0.123456, longitude=0.234567)
+
+
+def test_sortie_part_du_lieu_recu_et_pas_de_celui_de_la_configuration(tmp_path: Path, monkeypatch):
+    """F0.7 : le cœur reçoit un `Depart`, il ne le lit pas.
+
+    Les deux services qui partent d'un point sont surveillés : la question
+    d'orientation au vent (premier appel Open-Meteo, sur le départ) et la
+    génération des candidates (BRouter). Un seul des deux resté sur la
+    configuration donnerait une sortie fausse — le vent de chez soi, ou la
+    boucle de chez soi.
+    """
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(tmp_path / "cache")
+
+    departs_brouter: list[tuple[float, float]] = []
+    points_meteo: list[tuple[float, float]] = []
+
+    def espion_brouter(requete: httpx.Request) -> httpx.Response:
+        lon, lat = requete.url.params["lonlats"].split(",")
+        departs_brouter.append((float(lat), float(lon)))
+        azimut = float(requete.url.params["roundTripStartDirection"])
+        return httpx.Response(200, json=reponse_anneau(anneau(azimut)))
+
+    def espion_meteo(requete: httpx.Request) -> httpx.Response:
+        p = requete.url.params
+        lats = [float(x) for x in p["latitude"].split(",")]
+        lons = [float(x) for x in p["longitude"].split(",")]
+        points_meteo.extend(zip(lats, lons, strict=True))
+        debut = datetime.fromisoformat(p["start_hour"])
+        fin = datetime.fromisoformat(p["end_hour"])
+        n = int((fin - debut).total_seconds() // 3600) + 1
+        return httpx.Response(
+            200, json=[bloc_meteo(a, o, n, 0.0) for a, o in zip(lats, lons, strict=True)]
+        )
+
+    brouter = ClientBrouter(
+        depuis_dict(CONFIG_BRUTE).brouter,
+        http=httpx.Client(transport=httpx.MockTransport(espion_brouter)),
+    )
+    meteo = ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(espion_meteo)))
+
+    code = executer(
+        args(json=True),
+        config_de_test(tmp_path / "cache"),
+        brouter,
+        meteo,
+        client_intervals(),
+        lieu_depart=AILLEURS,
+    )
+    assert code == 0
+
+    assert departs_brouter, "aucune candidate demandée au moteur"
+    for lat, lon in departs_brouter:
+        assert (lat, lon) == pytest.approx((AILLEURS.latitude, AILLEURS.longitude), abs=1e-6)
+
+    # Le tout premier appel météo est la question du vent, posée sur le départ.
+    # `abs=1e-3` : le client arrondit les coordonnées qu'il envoie.
+    assert points_meteo[0] == pytest.approx(
+        (AILLEURS.latitude, AILLEURS.longitude), abs=1e-3
+    ), "la question du vent est restée sur le départ configuré"
+
+
+def test_le_json_de_sortie_dit_de_quel_lieu_la_boucle_part(tmp_path: Path, monkeypatch, capsys):
+    """Sans cette clé, deux réponses identiques décriraient deux parcours différents.
+
+    C'est ce dont l'API aura besoin pour que le front sache d'où part ce
+    qu'il affiche : l'heure de départ était publiée, le lieu non.
+    """
+    lancer(tmp_path, monkeypatch, json=True, lieu_depart=AILLEURS)
+    charge = json.loads(capsys.readouterr().out)
+    lieu = charge["demande"]["lieu_depart"]
+    assert lieu["nom"] == AILLEURS.nom
+    assert lieu["latitude"] == pytest.approx(AILLEURS.latitude)
+    assert lieu["longitude"] == pytest.approx(AILLEURS.longitude)
+
+    lancer(tmp_path, monkeypatch, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["demande"]["lieu_depart"]["nom"] == "Point zéro", (
+        "sans lieu fourni, le JSON doit nommer le départ de la configuration"
+    )
 
 
 def test_le_tableau_distingue_la_boucle_du_parcours_reellement_roule(tmp_path: Path):
@@ -1343,6 +1546,16 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
             )
         else:
             assert isinstance(emplacement["motifs"], list)
+    # Lot L5.3 : `km_non_classe` manquait côté sortie alors qu'il existait déjà
+    # côté boucle libre — sans lui, un tracé partiellement classé s'annonce
+    # aussi calme qu'un tracé entièrement classé.
+    assert "km_non_classe" in candidate["couts"]
+    # Les flèches de vent (mêmes que la carte HTML) sont aussi dans ce JSON ;
+    # le vent bouchonné par défaut (14 km/h) dépasse le seuil sensible.
+    fleches = candidate["meteo"]["fleches_vent"]
+    assert fleches, "un vent bouchonné à 14 km/h doit produire des flèches"
+    for fleche in fleches:
+        assert set(fleche) == {"pt", "depuis_deg", "vent_kmh", "rafale_kmh", "relatif"}
 
 
 def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):
@@ -1462,7 +1675,7 @@ def test_sous_le_seuil_de_vent_la_question_n_est_pas_posee(tmp_path: Path, monke
     question = json.loads(capsys.readouterr().out)["question_vent"]
     assert question["posee"] is False
     assert question["motif"]
-    assert question["azimut_recherche_deg"] is None
+    assert question["azimuts_recherche_deg"] == []
 
 
 def test_au_dessus_du_seuil_la_question_est_posee_et_le_texte_la_montre(
@@ -1486,18 +1699,57 @@ def test_une_reponse_au_vent_dirige_la_recherche(tmp_path: Path, monkeypatch, ca
     )
     charge = json.loads(capsys.readouterr().out)
     assert charge["question_vent"]["reponse"] == "retour-dos"
-    assert charge["question_vent"]["azimut_recherche_deg"] == pytest.approx(45.0)
+    assert charge["question_vent"]["azimuts_recherche_deg"] == [pytest.approx(45.0)]
 
 
-def test_une_direction_explicite_garde_la_main_sur_le_vent(tmp_path: Path, monkeypatch, capsys):
-    """« Au nord » veut dire au nord, même si le vent conseillait autre chose."""
+def test_demander_une_direction_et_une_orientation_au_vent_est_refuse(
+    tmp_path: Path, monkeypatch
+):
+    """Q44 : les deux fixent le même azimut, et rien ne disait lequel gagnait.
+
+    `--direction` l'emportait en silence — le cycliste qui avait demandé de
+    rentrer avec le vent dans le dos partait au nord sans jamais l'apprendre.
+    On ne choisit plus un gagnant, on refuse la contradiction.
+    """
+    with pytest.raises(ErreurUtilisateur) as erreur:
+        lancer(
+            tmp_path,
+            monkeypatch,
+            meteo=moteur_meteo(vent_kmh=30.0),
+            direction="N",
+            candidates=2,
+            vent="retour-dos",
+            json=True,
+        )
+    message = str(erreur.value)
+    assert "--direction" in message and "--vent" in message
+
+
+def test_une_direction_seule_reste_acceptee(tmp_path: Path, monkeypatch, capsys):
+    """Le refus ne vise que la contradiction : « au nord » tout court marche."""
     lancer(
         tmp_path,
         monkeypatch,
         meteo=moteur_meteo(vent_kmh=30.0),
         direction="N",
         candidates=2,
-        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["demande"]["azimut_deg"] == 0.0
+
+
+def test_peu_importe_avec_une_direction_n_est_pas_une_contradiction(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """« Peu importe » est l'absence de demande, pas une demande concurrente."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        direction="N",
+        candidates=2,
+        vent="peu-importe",
         json=True,
     )
     charge = json.loads(capsys.readouterr().out)
@@ -1580,3 +1832,365 @@ def test_le_repli_est_dit_et_nomme_les_deux_modeles():
     assert len(lignes) == 1
     assert "AROME" in lignes[0] and "ICON" in lignes[0]
     assert "ne couvre pas" in lignes[0]
+
+
+# --- --fichier-seance (F1, C1 de docs/ux/relecture_f0.md) ---------------------
+
+ZWO_SORTIE_FABRIQUE = (
+    "<?xml version='1.0'?>\n<workout_file>\n<name>Séance fichier fabriquée</name>\n"
+    '<workout><SteadyState Duration="1200" Power="1.0"/></workout>\n'
+    "</workout_file>\n"
+)
+
+
+def _ecrire_zwo_sortie(tmp_path: Path) -> Path:
+    chemin = tmp_path / "seance.zwo"
+    chemin.write_text(ZWO_SORTIE_FABRIQUE, encoding="utf-8")
+    return chemin
+
+
+def refus_intervals() -> ClientIntervals:
+    """Un client Intervals qui fait échouer le test dès qu'on le sollicite."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        raise AssertionError("Intervals.icu appelé alors qu'un fichier de séance était donné")
+
+    return ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+
+
+def test_lire_options_porte_le_fichier_de_la_demande(tmp_path: Path):
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    demande = lire_options(args(fichier_seance=str(chemin)), config_de_test(tmp_path / "cache"))
+    assert demande.fichier == chemin
+
+
+def test_sans_option_le_fichier_de_la_demande_est_absent(tmp_path: Path):
+    demande = lire_options(args(), config_de_test(tmp_path / "cache"))
+    assert demande.fichier is None
+
+
+def test_seance_avec_fichier_ne_touche_jamais_intervals(tmp_path: Path):
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(fichier_seance=str(chemin)), config)
+    seance = _seance(demande, config, refus_intervals())
+    assert seance is not None
+    assert seance.meta["source"] == "zwo"
+    assert seance.jour == demande.jour
+
+
+def test_seance_avec_fichier_marche_meme_sans_client_donne(tmp_path: Path):
+    """`client=None` construit normalement un `ClientIntervals` depuis la config —
+    avec un fichier, cette branche n'est jamais atteinte."""
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(fichier_seance=str(chemin)), config)
+    seance = _seance(demande, config, None)
+    assert seance is not None
+
+
+def test_seance_sans_fichier_utilise_toujours_intervals(tmp_path: Path):
+    config = config_de_test(tmp_path / "cache")
+    demande = lire_options(args(), config)
+    seance = _seance(demande, config, client_intervals())
+    assert seance is not None
+    assert seance.nom == "4x8 fabriquée"
+
+
+def test_fichier_seance_bout_en_bout_remplace_intervals(tmp_path: Path, monkeypatch):
+    """Preuve de bout en bout via `executer` : la recherche de parcours tourne
+    sur une séance de fichier sans jamais appeler Intervals.icu."""
+    chemin = _ecrire_zwo_sortie(tmp_path)
+    # `distance=34.0` : la séance du .ZWO vaut environ 15 km, alors que l'anneau
+    # bouchonné en fait 33,9 quel que soit le rayon. Depuis Q41 (d), un tel
+    # écart (+126 %) est refusé au lieu d'être servi en silence — la boucle ne
+    # serait donc jamais construite, et le sujet du test (la séance vient d'un
+    # fichier, Intervals n'est jamais appelé) ne serait plus atteignable. La
+    # distance n'a jamais été son sujet ; on la fixe pour ne pas la subir.
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        fichier_seance=str(chemin),
+        intervals=refus_intervals(),
+        distance=34.0,
+    )
+    assert code == 0
+
+
+# --- Q40 (g) : aucun GPX à la génération, un GPX au choix ----------------------
+
+#: Deux azimuts au relief marqué : de quoi que `contraste.choisir` ait
+#: réellement trois propositions à distinguer. Avec des anneaux identiques il
+#: n'en reste qu'une, et un test sur « trois traces différentes » ne prouve
+#: plus rien.
+RELIEFS_CONTRASTES = {0.0: {"amplitude_m": 90.0}, 180.0: {"amplitude_m": 40.0}}
+
+
+def test_recueil_gpx_n_ecrit_aucun_fichier_et_rend_les_trois_traces(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Q40 (g) : « aucun GPX à la génération, et on le fait à la demande. »
+
+    Les trois propositions sont contrastées exprès ; n'écrire que celle du
+    classement, c'était envoyer la mauvaise trace au compteur à qui
+    choisissait « la plus sèche ». Écrire les trois, c'était en jeter deux.
+    """
+    recueillis: list = []
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(tmp_path / "cache")
+    code = executer(
+        args(json=True, candidates=4),
+        config_de_test(tmp_path / "cache"),
+        moteur_brouter(RELIEFS_CONTRASTES),
+        moteur_meteo(pluie=pluie_au_nord),
+        client_intervals(),
+        recueil_gpx=recueillis.extend,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert not list((tmp_path / "cache" / "sorties").glob("*.gpx")), (
+        "aucun GPX ne doit être écrit quand l'appelant les recueille"
+    )
+    assert charge["gpx"] is None, "le JSON ne doit pas annoncer un fichier qui n'existe pas"
+    assert len(recueillis) >= 2, (
+        "le bouchon ne contraste plus rien : sans deux propositions, ce test ne prouve rien"
+    )
+    numeros = [g.numero for g in recueillis]
+    assert numeros == [p["numero"] for p in charge["propositions"]]
+    assert len({g.texte for g in recueillis}) == len(recueillis), (
+        "deux propositions contrastées ne peuvent pas rendre le même GPX"
+    )
+    for gpx in recueillis:
+        assert gpx.nom_fichier.endswith(f"_n{gpx.numero}.gpx")
+        assert lire_gpx_trace(gpx.texte.encode("utf-8")).points
+
+
+def test_sans_recueil_la_ligne_de_commande_ecrit_toujours_son_gpx(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """La ligne de commande ne change pas : `--sortie` (ou le nom daté) est écrit."""
+    demande = tmp_path / "choisi.gpx"
+    code = lancer(tmp_path, monkeypatch, json=True, sortie=str(demande))
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert demande.is_file() and demande.read_text(encoding="utf-8").startswith("<?xml")
+    assert charge["gpx"] == str(demande)
+
+
+def test_la_carte_embarque_les_memes_gpx_que_le_recueil(tmp_path: Path, monkeypatch, capsys):
+    """Un seul calcul pour deux usages : la page du jour et l'appelant lisent la même trace."""
+    recueillis: list = []
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(tmp_path / "cache")
+    executer(
+        args(json=True, candidates=4),
+        config_de_test(tmp_path / "cache"),
+        moteur_brouter(RELIEFS_CONTRASTES),
+        moteur_meteo(pluie=pluie_au_nord),
+        client_intervals(),
+        recueil_gpx=recueillis.extend,
+    )
+    capsys.readouterr()
+    page = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(
+        encoding="utf-8"
+    )
+    for gpx in recueillis:
+        assert gpx.nom_fichier in page
+
+
+# --- Q40 (a) : une date lointaine est servie, sans météo -----------------------
+
+
+def test_une_date_lointaine_est_servie_sans_appeler_open_meteo(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Q40 (a) : « si on demande trop loin, ben pas de météo » — et direct.
+
+    Le client météo interdit fait échouer le test au premier appel : demander
+    ~150 prévisions pour récolter des blocs vides serait payer le service pour
+    apprendre ce que la date disait déjà.
+    """
+    _, meteo_interdite, _ = clients_interdits()
+    lointain = date.today() + timedelta(days=HORIZON_JOURS_DEFAUT + 30)
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=meteo_interdite,
+        jour=lointain.isoformat(),
+        json=True,
+    )
+    lu = capsys.readouterr()
+    charge = json.loads(lu.out)
+    assert code == 0, "le parcours est servi, la date n'est pas refusée"
+    assert charge["candidates"], "la boucle reste là : c'est la météo qui disparaît"
+    absente = charge["meteo_absente"]
+    assert absente["jour"] == lointain.isoformat()
+    assert absente["dernier_jour_couvert"] == (
+        date.today() + timedelta(days=HORIZON_JOURS_DEFAUT)
+    ).isoformat()
+    assert "pas de météo" in absente["message"]
+    assert "s'arrêtent" in absente["message"], "le message dit jusqu'où vont les prévisions"
+    assert "pas de météo" in lu.err
+
+
+def test_une_date_lointaine_ne_promet_ni_pluie_ni_vent_ni_tenue(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """E14 · dégradé : ce qui disparaît sont les affirmations qu'on ne soutient plus."""
+    _, meteo_interdite, _ = clients_interdits()
+    lointain = date.today() + timedelta(days=HORIZON_JOURS_DEFAUT + 30)
+    lancer(
+        tmp_path, monkeypatch, meteo=meteo_interdite, jour=lointain.isoformat(), json=True
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["tenue"] is None
+    assert charge["modele_meteo"] is None
+    assert all(c["meteo"] is None for c in charge["candidates"])
+    assert charge["question_vent"]["posee"] is False
+
+
+def test_une_meteo_en_panne_dans_l_horizon_ne_promet_pas_une_fin_de_previsions(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le même écran, l'autre cause — et la phrase ne dit toujours pas pourquoi."""
+    lancer(tmp_path, monkeypatch, meteo=moteur_meteo(en_panne=True), json=True)
+    charge = json.loads(capsys.readouterr().out)
+    absente = charge["meteo_absente"]
+    assert absente["jour"] == JOUR.isoformat()
+    assert "s'arrêtent" not in absente["message"], (
+        "les prévisions couvrent ce jour-là : elles n'ont rien rendu, ce n'est pas la même chose"
+    )
+
+
+def test_la_meteo_repond_dans_l_horizon(tmp_path: Path, monkeypatch, capsys):
+    """Contre-épreuve : tant qu'on est dans l'horizon, rien ne change."""
+    lancer(tmp_path, monkeypatch, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["meteo_absente"] is None
+    assert charge["candidates"][0]["meteo"] is not None
+
+
+# --- Q44 : le travers ouvre deux azimuts, et les candidates s'y répartissent ---
+#
+# Le point que le mainteneur demande explicitement de vérifier plutôt que de
+# supposer : « les candidates doivent alors se répartir entre les deux azimuts,
+# pas s'entasser sur le premier ».
+#
+# Le piège est réel et il est dans `boucle.candidates.azimuts` : un appel
+# `generer(azimut, nb)` explore `azimut`, puis ±20°, ±40°… — il **élargit un
+# secteur, il n'en ouvre jamais un second**. Un seul appel pour deux azimuts
+# opposés aurait donc rendu toutes les candidates du même côté, et le JSON
+# aurait quand même annoncé deux directions.
+
+
+def azimuts_demandes_a_brouter() -> tuple[httpx.Client, list[float]]:
+    """Un BRouter bouchonné qui note chaque `roundTripStartDirection` reçu."""
+    vus: list[float] = []
+    gestionnaire = _gestionnaire_brouter()
+
+    def espion(requete: httpx.Request) -> httpx.Response:
+        vus.append(float(requete.url.params["roundTripStartDirection"]))
+        return gestionnaire(requete)
+
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(espion))), vus
+
+
+def cote(azimut: float, reference: float) -> int:
+    """0 ou 1 : de quel côté de la paire d'opposés tombe `azimut`.
+
+    L'écart angulaire est ramené dans [0, 180] avant comparaison — sans quoi
+    350° et 10° passeraient pour éloignés de 340°.
+    """
+    ecart = abs((azimut - reference + 180.0) % 360.0 - 180.0)
+    return 0 if ecart <= 90.0 else 1
+
+
+def test_le_travers_repartit_les_candidates_entre_les_deux_azimuts(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Quatre candidates de travers : deux d'un côté, deux de l'autre."""
+    brouter, vus = azimuts_demandes_a_brouter()
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        brouter=brouter,
+        candidates=4,
+        vent="travers",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    azimuts = charge["question_vent"]["azimuts_recherche_deg"]
+    assert len(azimuts) == 2, azimuts
+
+    # Ce que BRouter a réellement été prié d'explorer, et non ce que le JSON
+    # annonce : c'est la différence entre la promesse et le fait.
+    cotes = [cote(a, azimuts[0]) for a in vus]
+    assert cotes.count(0) > 0 and cotes.count(1) > 0, vus
+    assert abs(cotes.count(0) - cotes.count(1)) <= 1, vus
+
+    # Et les candidates rendues, pas seulement les appels émis.
+    retenus = [cote(c["azimut_deg"], azimuts[0]) for c in charge["candidates"]]
+    assert retenus.count(0) > 0 and retenus.count(1) > 0, charge["candidates"]
+
+
+def test_le_travers_ne_demande_jamais_un_seul_cote(tmp_path: Path, monkeypatch, capsys):
+    """Le défaut qu'on corrige, pris à l'envers : trois candidates suffisent.
+
+    Trois se répartissent 2/1 — le reste va au premier azimut, assumé — mais
+    **jamais 3/0** : une part nulle voudrait dire que le second azimut n'a pas
+    été exploré du tout.
+    """
+    brouter, vus = azimuts_demandes_a_brouter()
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        brouter=brouter,
+        candidates=3,
+        vent="travers",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    premier = charge["question_vent"]["azimuts_recherche_deg"][0]
+    cotes = [cote(a, premier) for a in vus]
+    assert cotes.count(1) > 0, f"tout est parti du même côté : {vus}"
+
+
+def test_rentrer_avec_le_vent_n_explore_qu_un_secteur(tmp_path: Path, monkeypatch, capsys):
+    """Le pendant : « rentrer avec » contraint, et on le voit dans les appels.
+
+    C'est ce qui rend la mesure de Q44 lisible — la préférence qui contraint
+    le plus est celle qui produit les propositions les plus ressemblantes.
+    """
+    brouter, vus = azimuts_demandes_a_brouter()
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        brouter=brouter,
+        candidates=4,
+        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    (azimut,) = charge["question_vent"]["azimuts_recherche_deg"]
+    assert all(cote(a, azimut) == 0 for a in vus), vus
+
+
+def test_le_texte_nomme_les_deux_azimuts_du_travers(tmp_path: Path, monkeypatch, capsys):
+    """Annoncer « vers 315° » une recherche menée à 315° **et** 135° serait faux."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        candidates=4,
+        vent="travers",
+    )
+    sortie = capsys.readouterr().out
+    assert "directions imposées" in sortie
+    # Vent bouchonné de 45° : le travers ouvre 135° et 315°.
+    assert "135°" in sortie and "315°" in sortie

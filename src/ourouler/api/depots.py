@@ -1,0 +1,677 @@
+"""Où vivent les données, et à qui elles appartiennent.
+
+**Chaque méthode publique de ce module prend un `Proprietaire` en premier
+argument positionnel.** Ce n'est pas une convention d'écriture, c'est la
+clause de propriétaire de la doctrine §10.2 (« aucune requête sans clause de
+propriétaire ») posée pendant qu'elle est gratuite. Un invariant de
+`tests/test_invariants.py` le vérifie sur l'arbre syntaxique : le jour où ces
+dépôts parleront à PostgreSQL, la signature qui force le `WHERE` sera déjà là.
+
+Deux dépôts, deux natures de données :
+
+- `DepotProfils` — le profil : le **socle** servi par le serveur, plus ce que
+  **ce propriétaire-là** a modifié depuis l'interface. Le TOML du mainteneur
+  n'est jamais réécrit (voir `enregistrer`).
+- `DepotFichiers` — les fichiers produits (carte) et déposés (`.ZWO`,
+  `.MRC`), rangés sous un préfixe par propriétaire et servis par un
+  identifiant opaque, jamais par un chemin.
+- `DepotGenerations` — les GPX des propositions d'une génération, **en
+  mémoire et bornés**, servis à la demande quand le cycliste choisit (Q40 g).
+
+Aucun des deux ne lit l'environnement : ils reçoivent les chemins que
+`exploitation.py` a résolus, comme le cœur reçoit sa `Config`.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import uuid
+from collections import OrderedDict
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+
+from ourouler.api.erreurs import ErreurProfilAbsent
+from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
+from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
+from ourouler.config import Config
+from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+
+#: Ce qu'un propriétaire a le droit de modifier dans son profil, section par
+#: section. Liste blanche et non liste noire : un champ inconnu est refusé,
+#: pas ignoré — le front doit apprendre son erreur, pas la découvrir en
+#: constatant que rien n'a changé.
+#:
+#: Ce qui n'y est **pas**, et pourquoi : `cache` (exploitation, pas profil),
+#: `brouter` (le serveur du mainteneur, pas un réglage de cycliste), `meteo`
+#: et les seuils de placement (réglages fins, écran avancé de V2),
+#: `historique_depuis` (Q6, il se change en connaissance de cause).
+CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
+    "depart": ("nom", "latitude", "longitude"),
+    # « prenom » et « nom » : identité du compte, obligatoire pour tout
+    # profil créé par l'assistant depuis le 17/09/2026 (Q36) — mais un profil
+    # antérieur qui ne les porte pas se charge et se modifie normalement
+    # (`Cycliste.prenom`, `config.py`). Aucun calcul ne s'en sert aujourd'hui.
+    "cycliste": ("masse_kg", "ftp_w", "prenom", "nom"),
+    # La position dans la zone, et elle seule : la décision 7 interdit de
+    # stocker une valeur en watts à côté d'une table qui bouge.
+    "seance": ("position_zone",),
+    "intervals": ("athlete_id", "api_key"),
+}
+
+#: Les tables qui se remplacent en entier plutôt que champ par champ. Un vélo
+#: se supprime, se renomme et se réordonne : fusionner une liste par index
+#: donnerait des résultats que personne ne peut prévoir.
+LISTES_MODIFIABLES = ("velos",)
+
+def schema_des_modifications() -> dict:
+    """Ce que `PATCH /profil` accepte, en schéma publiable (ajouté le 17/09/2026).
+
+    **Engendré de `CHAMPS_MODIFIABLES`, qui reste la seule source.** Le corps
+    de cette route n'a pas de modèle Pydantic — le décrire une seconde fois
+    dupliquerait `Config` et la liste blanche ci-dessus, et les trois
+    divergeraient. Mais ne rien publier laissait la principale route
+    d'écriture du produit sans contrat : F2 devait lire `depots.py` pour
+    savoir qu'on enregistre `seance.position_zone` et **jamais** des watts
+    (décision 7 du cycle UX), ce qui est exactement ce que le schéma est censé
+    éviter.
+
+    Les champs sont publiés sans type : la liste blanche n'en porte pas, et
+    en inventer un ici serait une deuxième vérité. Ce que le schéma dit, et
+    c'est ce dont le front a besoin, c'est **quels champs existent**.
+    """
+    sections = {
+        section: {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {champ: {} for champ in champs},
+        }
+        for section, champs in CHAMPS_MODIFIABLES.items()
+    }
+    sections |= {nom: {"type": "array", "items": {"type": "object"}} for nom in LISTES_MODIFIABLES}
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": sections,
+        "description": "les sections à modifier ; tout champ absent de cette liste est refusé "
+        "et nommé, jamais ignoré en silence",
+    }
+
+
+#: Le nom du fichier de profil d'un propriétaire, dans son dossier.
+NOM_PROFIL = "profil.json"
+
+#: Le nom du journal des services d'un propriétaire, à côté de son profil.
+#: Voir `JournalServices` : il ne porte que des dates, jamais un secret.
+NOM_JOURNAL = "services.json"
+
+#: Les extensions de fichier que le dépôt accepte de garder, et leur type de
+#: contenu. Fermé : un dépôt de fichiers qui accepte tout est un hébergeur.
+EXTENSIONS = {
+    ".gpx": "application/gpx+xml",
+    ".html": "text/html; charset=utf-8",
+    ".zwo": "application/xml",
+    ".mrc": "text/plain; charset=utf-8",
+}
+
+#: Forme d'un identifiant de fichier : un UUID sans tirets. Vérifiée avant
+#: toute construction de chemin — c'est ce qui rend la traversée impossible.
+FORME_IDENTIFIANT = re.compile(r"^[0-9a-f]{32}$")
+
+#: Comment on donne un profil à une application qui n'en a pas. Les deux
+#: chemins, dans l'ordre où ils servent : l'un pour qui voulait un **service**
+#: et s'est trompé de fabrique, l'autre pour qui voulait bien cette fabrique-ci
+#: et doit maintenant la remplir.
+PHRASE_COMPLETER_PROFIL = (
+    "compléter le profil par « PATCH /api/v1/profil », ou lancer le serveur par la "
+    "fabrique de service — « ourouler api », c'est-à-dire "
+    "« ourouler.api.application:application », qui lit le fichier de configuration"
+)
+
+#: Ce que répond une application construite sans rien quand on lui demande des
+#: données. Elle ne dit pas ce qui manque à un fichier : elle dit **qu'elle
+#: n'a pas de profil**, et comment lui en donner un.
+MESSAGE_SANS_PROFIL = (
+    "cette application a été construite sans profil : elle publie son contrat "
+    "(/docs, /openapi.json) mais n'a ni point de départ, ni vélo, ni clé, et ne peut "
+    "donc rien calculer. Elle n'en invente pas — "
+    f"{PHRASE_COMPLETER_PROFIL}"
+)
+
+
+class SocleTOML:
+    """Le socle lu dans un fichier TOML, relu à chaque requête.
+
+    **Il appartient à quelqu'un.** Un fichier de configuration porte un point
+    de départ, une clé Intervals et un identifiant d'athlète : ce n'est pas
+    un réglage de serveur, c'est le profil d'une personne. `proprietaire` dit
+    de qui, et `DepotProfils` refuse de le servir à un autre — voir
+    `DepotProfils.config`.
+
+    `variables` est **reçu**, jamais lu ici : seul `exploitation.py` sait où
+    il tourne (règle absolue 2), et l'invariant adversarial refuse jusqu'au
+    nom `environ` dans le cœur. Vide par défaut, pour qu'une application
+    construite dans un test n'absorbe pas les variables de la machine.
+    """
+
+    modifiable = True
+
+    def __init__(
+        self,
+        chemin: Path,
+        *,
+        variables: Mapping[str, str] | None = None,
+        proprietaire: Proprietaire | None = PROPRIETAIRE_LOCAL,
+    ) -> None:
+        self.chemin = chemin
+        self.proprietaire = proprietaire
+        self._variables = dict(variables or {})
+
+    def config(self, surcharge: dict) -> Config:
+        return construire(fusionner(lire_toml(self.chemin), surcharge), environ=self._variables)
+
+
+class SocleVide:
+    """Aucun profil de départ : tout vient de la surcharge du propriétaire.
+
+    C'est le socle d'une application construite sans rien — `creer_application()`.
+    Elle publie son contrat (`/openapi.json`, `/docs`) et sert ses routes,
+    mais tant que personne n'a écrit de profil, les routes de données
+    refusent. C'est volontaire : inventer un point de départ par défaut
+    mettrait une coordonnée dans le code (règle absolue 1), et aller le
+    chercher sur le disque ferait lire l'environnement à la fabrique (règle
+    absolue 2).
+
+    **Ce qui a changé le 17/09/2026, c'est ce qu'elles répondent.** Le refus
+    était `configuration_invalide` avec, pour toute explication, « section
+    [depart] manquante » : la phrase décrit un fichier TOML que l'appelant n'a
+    jamais eu l'intention d'écrire, et laisse croire à une configuration
+    cassée là où il n'y en a aucune. Le mainteneur s'y est trompé lui-même en
+    lançant cette fabrique-ci pour servir son profil — l'application démarrait
+    et annonçait « configuration invalide » sur tout.
+    """
+
+    modifiable = True
+    proprietaire: Proprietaire | None = None
+
+    def config(self, surcharge: dict) -> Config:
+        if not surcharge:
+            raise ErreurProfilAbsent(MESSAGE_SANS_PROFIL)
+        try:
+            return construire(dict(surcharge), environ={})
+        except ErreurConfig as e:
+            # Un profil a été commencé mais ne tient pas encore : là, l'erreur
+            # de validation est la bonne information — elle nomme ce qui
+            # manque à ce que l'appelant a lui-même écrit. On la garde, en
+            # disant seulement d'où elle vient, parce qu'aucun fichier n'est
+            # en cause ici non plus.
+            raise ErreurProfilAbsent(
+                f"le profil de cette application est incomplet : {e} — "
+                f"{PHRASE_COMPLETER_PROFIL}"
+            ) from e
+
+
+class SocleFixe:
+    """Une `Config` déjà construite, injectée par l'appelant.
+
+    Le point d'injection de la règle absolue 3 : un test — et demain la
+    couche qui lira le profil dans PostgreSQL — donne une `Config` toute
+    faite, sans fichier ni environnement. Lecture seule : il n'y a pas de
+    dict TOML sous cette `Config` sur lequel fusionner une surcharge, et
+    fabriquer un dict à partir d'une dataclasse validée rendrait un socle qui
+    n'est plus celui qu'on a injecté. `enregistrer` refuse donc en le disant.
+    """
+
+    modifiable = False
+    proprietaire: Proprietaire | None = None
+
+    def __init__(self, config: Config) -> None:
+        self._config = config
+
+    def config(self, surcharge: dict) -> Config:
+        del surcharge  # aucune ne peut exister : `enregistrer` refuse d'en écrire
+        return self._config
+
+
+class DepotProfils:
+    """Le profil de chaque propriétaire, et la `Config` qui en sort.
+
+    Le **socle** porte ce qu'aucun cycliste n'édite (cache, serveur BRouter,
+    modèles météo). Le profil d'un propriétaire est une **surcharge** JSON,
+    rangée dans son dossier, appliquée par-dessus avant validation.
+
+    **Pourquoi ne pas réécrire le TOML.** Trois raisons, dans l'ordre : le
+    fichier du mainteneur porte ses commentaires et ses réglages fins, et un
+    service web qui le réécrit les perd ; il n'y a qu'un fichier pour tous
+    les propriétaires, donc y écrire ferait fuir le profil de l'un dans celui
+    de l'autre dès le lot F3 ; et la surcharge par propriétaire est
+    exactement la forme de la table PostgreSQL de demain (doctrine §10.1 :
+    « `Config` gagnera un identifiant d'utilisateur et sera chargée depuis la
+    base au lieu d'un TOML : le cœur ne le verra pas »).
+    """
+
+    def __init__(self, socle: SocleTOML | SocleVide | SocleFixe, dossier_donnees: Path) -> None:
+        self._socle = socle
+        self._dossier = dossier_donnees
+
+    def dossier(self, proprietaire: Proprietaire) -> Path:
+        """Le dossier de ce propriétaire, créé au besoin. La clause, en chemin."""
+        chemin = self._dossier / proprietaire.identifiant
+        chemin.mkdir(parents=True, exist_ok=True)
+        return chemin
+
+    def surcharge(self, proprietaire: Proprietaire) -> dict:
+        """Ce que ce propriétaire a modifié, ou un dict vide."""
+        chemin = self.dossier(proprietaire) / NOM_PROFIL
+        if not chemin.is_file():
+            return {}
+        try:
+            charge = json.loads(chemin.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise ErreurConfig(f"{chemin} : profil illisible ({e})") from e
+        if not isinstance(charge, dict):
+            raise ErreurConfig(f"{chemin} : profil attendu sous forme d'objet")
+        return charge
+
+    def config(self, proprietaire: Proprietaire) -> Config:
+        """La `Config` de ce propriétaire : le socle, sa surcharge, puis la validation.
+
+        **Un socle qui appartient à quelqu'un ne se sert qu'à lui.** Sans ce
+        contrôle, tout ce qu'un propriétaire ne surcharge pas, il en hérite —
+        y compris `[intervals] api_key`, `athlete_id` et `[depart]`, c'est-à-dire
+        la clé et le domicile du mainteneur. C'était le cas jusqu'au
+        17/09/2026, et c'était une fuite silencieuse : la surcharge par
+        propriétaire n'a jamais eu pour but de partager les secrets du socle,
+        seulement d'éviter de réécrire un TOML commenté.
+
+        Le refus est volontairement **total** plutôt que section par section :
+        décider quelles sections d'un TOML sont communes au serveur (cache,
+        BRouter, modèles météo) et lesquelles appartiennent au cycliste est un
+        arbitrage produit que le mainteneur n'a pas encore rendu — il est posé
+        dans `docs/questions_mainteneur.md`. Tant qu'il ne l'est pas, servir
+        un socle personnel à quelqu'un d'autre est ce qu'il ne faut pas faire,
+        et refuser est ce qui se fait de moins faux.
+        """
+        self.verifier_proprietaire(proprietaire)
+        return self._socle.config(self.surcharge(proprietaire))
+
+    def verifier_proprietaire(self, proprietaire: Proprietaire) -> None:
+        """Le seul contrôle de `config` qui vaille aussi **avant** une écriture.
+
+        Il était fait en appelant `config` — donc en validant au passage un
+        profil qu'on s'apprêtait justement à compléter. Sur une application au
+        socle vide, cela rendait `PATCH /profil` impossible : la seule façon de
+        donner un profil à cette application était refusée parce qu'elle n'en
+        avait pas encore. La documentation de `SocleVide` promettait pourtant
+        ce chemin-là depuis le début.
+        """
+        possesseur = self._socle.proprietaire
+        if possesseur is not None and possesseur != proprietaire:
+            raise ErreurConfig(
+                f"profil de « {proprietaire} » : le socle de ce serveur est le profil de "
+                f"« {possesseur} » (départ, clé Intervals) et ne se partage pas — ce serveur "
+                "n'a pas de configuration pour ce propriétaire"
+            )
+
+    def enregistrer(self, proprietaire: Proprietaire, modifications: dict) -> Config:
+        """Applique des modifications au profil, et rend la `Config` qui en résulte.
+
+        Rien n'est écrit tant que la `Config` résultante n'est pas valide :
+        une FTP négative ou un vélo sans nom laisse le profil précédent
+        intact, et le front reçoit le nom du champ fautif.
+        """
+        if not self._socle.modifiable:
+            raise ErreurUtilisateur(
+                "profil : cette application sert une configuration injectée, en lecture seule — "
+                "la construire depuis un fichier de configuration pour pouvoir la modifier"
+            )
+        self.verifier_proprietaire(proprietaire)  # même contrôle qu'en lecture
+        proposee = fusionner(self.surcharge(proprietaire), valider(modifications))
+        config = self._socle.config(proposee)  # lève ErreurConfig si invalide
+        ecrire_toml(
+            self.dossier(proprietaire) / NOM_PROFIL,
+            json.dumps(proposee, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        )
+        return config
+
+
+@dataclass(frozen=True)
+class Fichier:
+    """Un fichier du dépôt : son identifiant opaque, son nom et son chemin."""
+
+    identifiant: str
+    nom: str
+    chemin: Path
+    type_contenu: str
+
+    def json(self) -> dict:
+        """Ce que le front reçoit : jamais le chemin sur le disque du serveur."""
+        return {
+            "id": self.identifiant,
+            "nom": self.nom,
+            "url": f"/api/v1/fichiers/{self.identifiant}",
+        }
+
+
+class DepotFichiers:
+    """Les fichiers d'un propriétaire, adressés par un identifiant opaque.
+
+    Un chemin de disque ne sort jamais d'ici : il dit où le serveur est
+    installé, il ne sert à rien au front, et il invite à demander le fichier
+    du voisin. L'identifiant, lui, ne dit rien — et le dépôt vérifie qu'il
+    appartient bien au propriétaire qui le demande, **côté serveur**
+    (doctrine §10.2), en le cherchant dans son dossier et nulle part ailleurs.
+    """
+
+    def __init__(self, dossier_donnees: Path) -> None:
+        self._dossier = dossier_donnees
+
+    def dossier(self, proprietaire: Proprietaire) -> Path:
+        chemin = self._dossier / proprietaire.identifiant / "fichiers"
+        chemin.mkdir(parents=True, exist_ok=True)
+        return chemin
+
+    def reserver(self, proprietaire: Proprietaire, nom: str) -> Fichier:
+        """Un emplacement neuf pour un fichier que le cœur va écrire.
+
+        `nom` sert à nommer le téléchargement côté navigateur ; il ne sert
+        jamais à construire le chemin — c'est l'identifiant qui le fait — et
+        il est assaini avant d'être gardé (`nom_sur`).
+        """
+        extension = _extension(nom)
+        identifiant = uuid.uuid4().hex
+        return Fichier(
+            identifiant=identifiant,
+            nom=nom_sur(nom),
+            chemin=self.dossier(proprietaire) / f"{identifiant}{extension}",
+            type_contenu=EXTENSIONS[extension],
+        )
+
+    def deposer(self, proprietaire: Proprietaire, nom: str, contenu: bytes) -> Fichier:
+        """Range un fichier envoyé par le front (un `.ZWO`, un `.MRC`) et rend sa fiche."""
+        fichier = self.reserver(proprietaire, nom)
+        fichier.chemin.write_bytes(contenu)
+        _ecrire_nom(fichier)
+        return fichier
+
+    def enregistrer(self, proprietaire: Proprietaire, fichier: Fichier) -> Fichier:
+        """Note le nom d'affichage d'un fichier que le cœur vient d'écrire.
+
+        Vérifie que le fichier est bien dans le dossier de ce propriétaire :
+        la clause ne se contente pas d'être dans la signature, elle est
+        contrôlée — c'est ce que la doctrine appelle « vérifiée côté serveur ».
+        """
+        if fichier.chemin.parent != self.dossier(proprietaire):
+            raise ErreurUtilisateur(
+                f"fichier {fichier.identifiant} : n'appartient pas à ce propriétaire"
+            )
+        _ecrire_nom(fichier)
+        return fichier
+
+    def trouver(self, proprietaire: Proprietaire, identifiant: str) -> Fichier:
+        """Le fichier de **ce** propriétaire portant cet identifiant.
+
+        Lève `ErreurUtilisateur` si l'identifiant est mal formé ou si le
+        fichier n'est pas dans le dossier de ce propriétaire — les deux cas
+        se répondent de la même façon au front, qui n'a pas à apprendre si le
+        fichier existe ailleurs.
+        """
+        if not FORME_IDENTIFIANT.match(identifiant or ""):
+            raise ErreurUtilisateur(f"fichier {identifiant!r} : identifiant inconnu")
+        dossier = self.dossier(proprietaire)
+        for chemin in sorted(dossier.glob(f"{identifiant}.*")):
+            if chemin.suffix == ".nom":
+                continue
+            nom = _lire_nom(chemin) or chemin.name
+            return Fichier(
+                identifiant=identifiant,
+                nom=nom,
+                chemin=chemin,
+                type_contenu=EXTENSIONS.get(chemin.suffix, "application/octet-stream"),
+            )
+        raise ErreurUtilisateur(f"fichier {identifiant} : introuvable")
+
+
+#: Combien de générations de parcours on garde, par serveur. Chacune pèse ses
+#: deux ou trois GPX — 65 ko l'un, mesuré le 17/09/2026 — soit ~4 Mo au
+#: plafond. Court exprès : un cycliste choisit sa boucle dans la minute qui
+#: suit, pas le lendemain.
+GENERATIONS_GARDEES = 20
+
+
+class DepotGenerations:
+    """Les GPX des propositions d'une génération, gardés jusqu'au choix.
+
+    **Q40 (g), tranché le 17/09/2026** : « aucun GPX à la génération, et on le
+    fait à la demande quand l'user choisit son parcours ». Écrire les trois,
+    c'était en jeter deux à chaque fois ; n'écrire que celle du classement,
+    c'était envoyer la mauvaise trace au compteur à qui choisissait « la plus
+    sèche ». Ici **rien n'est écrit** : ni à la génération, ni au choix — la
+    route rend le contenu, elle ne range pas un fichier de plus à chaque clic.
+
+    **En mémoire, et borné.** Une génération qui n'y est plus — plafond
+    atteint, ou serveur redémarré — lève `ErreurUtilisateur`, et la route
+    répond 404 `generation_introuvable` : l'écran redemande une recherche,
+    ce qui est honnête et prend cinq secondes. La tenir sur le disque
+    coûterait exactement ce que la décision voulait éviter, puisque la
+    géométrie d'une trace pèse ce que pèse son GPX.
+
+    Les propositions reçues sont des `sortie.commande.GpxPropose`, mais le
+    dépôt n'en connaît que trois attributs (`numero`, `nom_fichier`, `texte`)
+    et n'importe pas le cœur : il range des couples, pas des objets du cœur.
+    """
+
+    def __init__(self, taille: int = GENERATIONS_GARDEES) -> None:
+        self._taille = max(int(taille), 1)
+        self._generations: OrderedDict[tuple[str, str], dict[int, tuple[str, str]]] = OrderedDict()
+
+    def retenir(self, proprietaire: Proprietaire, propositions: Iterable[object]) -> str:
+        """Range les GPX d'une génération et rend son identifiant opaque."""
+        par_numero = {
+            int(p.numero): (str(p.nom_fichier), str(p.texte))  # type: ignore[attr-defined]
+            for p in propositions
+        }
+        identifiant = uuid.uuid4().hex
+        self._generations[(proprietaire.identifiant, identifiant)] = par_numero
+        while len(self._generations) > self._taille:
+            self._generations.popitem(last=False)
+        return identifiant
+
+    def gpx(self, proprietaire: Proprietaire, identifiant: str, numero: int) -> tuple[str, str]:
+        """(nom de fichier, contenu GPX) de **cette** proposition, pour ce propriétaire.
+
+        La clé porte le propriétaire : l'identifiant d'un autre est
+        introuvable ici, sans que la réponse dise s'il existe ailleurs —
+        même règle que `DepotFichiers.trouver` (doctrine §10.2).
+        """
+        if not FORME_IDENTIFIANT.match(identifiant or ""):
+            raise ErreurUtilisateur(f"génération {identifiant!r} : identifiant inconnu")
+        generation = self._generations.get((proprietaire.identifiant, identifiant))
+        if generation is None:
+            raise ErreurUtilisateur(
+                f"génération {identifiant} : introuvable — elle n'est plus en mémoire "
+                "(serveur redémarré, ou trop de générations depuis) ; relancer la recherche"
+            )
+        gpx = generation.get(int(numero))
+        if gpx is None:
+            raise ErreurUtilisateur(
+                f"génération {identifiant} : aucune proposition n° {numero} "
+                f"(numéros servis : {', '.join(str(n) for n in sorted(generation))})"
+            )
+        return gpx
+
+
+#: Ce qu'un nom d'affichage a le droit de contenir. Tout le reste devient un
+#: tiret bas. Fermé parce que ce nom **ressort dans un en-tête HTTP**
+#: (`Content-Disposition`) : un guillemet y coupe l'en-tête, un retour chariot
+#: en ajoute un autre. Le nom vient du front, donc de n'importe où.
+CARACTERES_NOM = re.compile(r"[^A-Za-z0-9 ._-]")
+
+#: Longueur maximale d'un nom d'affichage.
+NOM_MAX = 120
+
+#: Quand il ne reste rien du nom proposé.
+NOM_PAR_DEFAUT = "fichier"
+
+
+def nom_sur(nom: str) -> str:
+    """Le nom d'affichage, réduit à son dernier segment et à des caractères sûrs."""
+    base = str(nom or "").replace("\\", "/").rsplit("/", 1)[-1]
+    propre = CARACTERES_NOM.sub("_", base).strip(" .")[:NOM_MAX]
+    return propre or NOM_PAR_DEFAUT
+
+
+def _extension(nom: str) -> str:
+    extension = Path(nom).suffix.lower()
+    if extension not in EXTENSIONS:
+        raise ErreurUtilisateur(
+            f"{nom} : extension {extension or 'absente'} refusée — attendu une de "
+            f"{', '.join(sorted(EXTENSIONS))}"
+        )
+    return extension
+
+
+def _fichier_nom(fichier: Fichier) -> Path:
+    return fichier.chemin.with_suffix(".nom")
+
+
+def _ecrire_nom(fichier: Fichier) -> None:
+    """Le nom d'affichage, à côté du fichier. Un index SQLite serait de trop ici."""
+    try:
+        _fichier_nom(fichier).write_text(fichier.nom, encoding="utf-8")
+    except OSError:  # pragma: no cover - le dossier vient d'être créé
+        pass
+
+
+def _lire_nom(chemin: Path) -> str | None:
+    try:
+        return chemin.with_suffix(".nom").read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def valider(modifications: dict) -> dict:
+    """Ne garde que ce qu'un propriétaire a le droit de modifier. Refuse le reste.
+
+    Refuser plutôt qu'ignorer : un champ tu, c'est un front qui croit avoir
+    enregistré quelque chose. Le message nomme le champ.
+    """
+    if not isinstance(modifications, dict):
+        raise ErreurUtilisateur("profil : objet attendu")
+    propre: dict = {}
+    for section, contenu in modifications.items():
+        if section in LISTES_MODIFIABLES:
+            if not isinstance(contenu, list):
+                raise ErreurUtilisateur(f"profil : « {section} » attendu sous forme de liste")
+            propre[section] = contenu
+            continue
+        if section not in CHAMPS_MODIFIABLES:
+            raise ErreurUtilisateur(
+                f"profil : « {section} » n'est pas modifiable depuis l'interface — "
+                f"modifiables : {', '.join(sorted([*CHAMPS_MODIFIABLES, *LISTES_MODIFIABLES]))}"
+            )
+        if not isinstance(contenu, dict):
+            raise ErreurUtilisateur(f"profil : « {section} » attendu sous forme d'objet")
+        autorises = CHAMPS_MODIFIABLES[section]
+        for champ in contenu:
+            if champ not in autorises:
+                raise ErreurUtilisateur(
+                    f"profil : « {section}.{champ} » n'est pas modifiable — "
+                    f"modifiables dans cette section : {', '.join(autorises)}"
+                )
+        propre[section] = dict(contenu)
+    return propre
+
+
+def fusionner(socle: dict, surcharge: dict) -> dict:
+    """Le socle, recouvert par la surcharge. Une section se complète, une liste se remplace.
+
+    Ne mute ni l'un ni l'autre : les deux peuvent être relus ailleurs.
+    """
+    resultat = dict(socle)
+    for cle, valeur in surcharge.items():
+        ancien = resultat.get(cle)
+        if isinstance(ancien, dict) and isinstance(valeur, dict):
+            resultat[cle] = fusionner(ancien, valeur)
+        else:
+            resultat[cle] = valeur
+    return resultat
+
+
+class JournalServices:
+    """Quand chaque service externe a **répondu pour de bon** à ce propriétaire.
+
+    Une seule chose à mémoriser, et E15 · échec dit pourquoi : « "Plus lues
+    depuis le 12 septembre" dit à quelqu'un ce qu'il a manqué ; "erreur de
+    connexion" ne dit rien. » Cette date-là n'est pas déductible côté front —
+    elle suppose qu'on ait retenu quand la clé marchait encore — et elle n'est
+    pas non plus déductible côté cœur, qui ne sait pas qu'il a un appelant
+    (règle absolue 2). Elle appartient donc à l'API, par propriétaire.
+
+    **Un fichier JSON à côté du profil, et c'est assez.** Ce n'est pas une
+    donnée qu'on perd gravement : au pire le front n'affiche pas de date la
+    première fois, ce qui est exactement l'état d'un compte neuf. Une écriture
+    qui échoue ne fait donc jamais échouer une requête — ce serait échanger un
+    écran un peu moins bon contre un écran cassé.
+    """
+
+    def __init__(self, dossier_donnees: Path) -> None:
+        self._dossier = dossier_donnees
+
+    def _chemin(self, proprietaire: Proprietaire) -> Path:
+        chemin = self._dossier / proprietaire.identifiant
+        chemin.mkdir(parents=True, exist_ok=True)
+        return chemin / NOM_JOURNAL
+
+    def _lire(self, proprietaire: Proprietaire) -> dict:
+        chemin = self._chemin(proprietaire)
+        if not chemin.is_file():
+            return {}
+        try:
+            charge = json.loads(chemin.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            # Un journal illisible se réécrit ; il ne fait pas tomber l'écran
+            # qu'il est censé enrichir.
+            return {}
+        return charge if isinstance(charge, dict) else {}
+
+    def noter_succes(self, proprietaire: Proprietaire, *services: str, quand: datetime | None = None
+                     ) -> None:
+        """Retient que ces services ont répondu, maintenant."""
+        if not services:
+            return
+        horodatage = (quand or datetime.now(UTC)).isoformat()
+        charge = self._lire(proprietaire) | {service: horodatage for service in services}
+        try:
+            self._chemin(proprietaire).write_text(
+                json.dumps(charge, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except OSError:
+            return
+
+    def dernier_succes(self, proprietaire: Proprietaire, service: str) -> str | None:
+        """La date du dernier succès de ce service, ou `None` s'il n'y en a jamais eu."""
+        valeur = self._lire(proprietaire).get(service)
+        return valeur if isinstance(valeur, str) else None
+
+
+__all__ = [
+    "CHAMPS_MODIFIABLES",
+    "EXTENSIONS",
+    "GENERATIONS_GARDEES",
+    "LISTES_MODIFIABLES",
+    "NOM_JOURNAL",
+    "DepotFichiers",
+    "DepotGenerations",
+    "DepotProfils",
+    "Fichier",
+    "JournalServices",
+    "SocleFixe",
+    "SocleTOML",
+    "SocleVide",
+    "fusionner",
+    "nom_sur",
+    "valider",
+]

@@ -73,7 +73,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.seance.modele import Seance
 from ourouler.seance.placement import Emplacement, Placement
@@ -315,46 +315,13 @@ def _liaisons(trace: Trace, placement: Placement, cumuls: Sequence[float]) -> li
 
 # --- flèches de vent -----------------------------------------------------------
 
-
-def _vent_fleches(meteo: MeteoTrace | None) -> list[dict]:
-    """Un point de flèche par échantillon météo assez venté.
-
-    `meteo.echantillons` couvre le tracé complet (comme le tracé gris), pas
-    seulement le parcours réellement roulé : un échantillon au-delà d'un
-    demi-tour, par exemple, peut donc porter une flèche. C'est le même choix
-    que pour le tracé gris — situer la météo sur le terrain — et pas une
-    inadvertance.
-
-    Écarté si le vent ou sa direction manque (`None` : `vent_face_ms` de
-    `seance.vent` traite pareillement ce cas comme « inconnu », jamais
-    « nul ») — sans direction connue, aucune rotation n'aurait de sens, et en
-    inventer une (par exemple 0°) affirmerait une direction sans preuve
-    (règle absolue 5). Écarté aussi sous `SEUIL_AFFICHAGE_VENT_KMH`.
-    """
-    if meteo is None:
-        return []
-    fleches = []
-    for e in meteo.echantillons:
-        if e.vent_kmh is None or e.vent_depuis_deg is None:
-            continue
-        if e.vent_kmh < SEUIL_AFFICHAGE_VENT_KMH:
-            continue
-        fleches.append(
-            {
-                "pt": [round(e.lat, 6), round(e.lon, 6)],
-                # Direction d'où vient le vent (convention météo, 0 = nord,
-                # sens horaire) : la flèche s'oriente dessus telle quelle,
-                # comme une girouette qui pointe vers d'où souffle le vent.
-                "depuis_deg": round(e.vent_depuis_deg, 1),
-                "vent_kmh": round(e.vent_kmh),
-                "rafale_kmh": round(e.rafales_kmh) if e.rafales_kmh is not None else None,
-                # « face »/« dos »/« travers », déjà tranché par
-                # `meteo.rapport.vent_relatif` au cap local — voir
-                # `boucle.meteo_trace.evaluer`. Jamais recalculé ici.
-                "relatif": e.vent_relatif,
-            }
-        )
-    return fleches
+#: La règle des flèches est **partie d'ici** : elle vit depuis le 17/09/2026
+#: dans `boucle.meteo_trace.fleches_vent`, avec son code et ses raisons, sans
+#: une virgule de changée. Elle a bougé parce que le JSON de `boucle.commande`
+#: et de `sortie.commande` doit servir les mêmes flèches au front, et que
+#: `boucle` ne peut pas importer `sortie`. Ce nom local reste pour ne pas
+#: casser les appelants ; les deux chemins dessinent le même vent.
+_vent_fleches = fleches_vent
 
 
 # --- géométrie ----------------------------------------------------------------
@@ -796,6 +763,7 @@ def construire_page_jour(
     *,
     titre: str = "",
     motif_deux_propositions: str | None = None,
+    motif_equivalence: str | None = None,
     maintenant: datetime | None = None,
 ) -> str:
     """La page du jour : les propositions contrastées, superposées sur une carte.
@@ -821,6 +789,10 @@ def construire_page_jour(
     (`motif_deux_propositions` porte alors pourquoi), une seule aussi
     (aucune comparaison n'a de sens, la page le montre sans sélecteur inutile
     à comparer).
+
+    `motif_equivalence` est la phrase de Q45 : trois tracés différents dont
+    aucun ne se détache sur un axe mesuré. Elle s'affiche au même endroit que
+    l'autre motif, et les deux peuvent tenir ensemble.
     """
     if not propositions:
         raise ValueError("construire_page_jour : au moins une proposition est attendue")
@@ -884,6 +856,7 @@ def construire_page_jour(
         propositions=propositions,
         panneaux=panneaux,
         motif_deux_propositions=motif_deux_propositions,
+        motif_equivalence=motif_equivalence,
     )
 
 
@@ -920,6 +893,7 @@ def _page_jour(
     propositions: Sequence[PropositionCarte],
     panneaux: Sequence[str],
     motif_deux_propositions: str | None,
+    motif_equivalence: str | None,
     horodatage: str,
 ) -> str:
     """Le HTML autonome de la page du jour. Les données partent en JSON, comme `_page`."""
@@ -939,7 +913,7 @@ def _page_jour(
      aria-pressed="{'true' if actif else 'false'}" data-prop="{prop.numero}">
 <div class="mini-carte" aria-hidden="true"></div>
 <p class="distinction"><span class="badge">n° {prop.numero}</span>{recommandee}
-{html.escape(prop.distinction or "la seule candidate")}</p>
+{html.escape(prop.distinction or ("la seule candidate" if n == 1 else ""))}</p>
 <p class="chiffres">{html.escape(prop.chiffres)}</p>
 <a class="gpx-dl" data-prop="{prop.numero}" download="{html.escape(prop.gpx_nom)}" href="#">
 Télécharger le GPX</a>
@@ -950,8 +924,13 @@ Télécharger le GPX</a>
         f"{panneau}</div>"
         for prop, panneau in zip(propositions, panneaux, strict=True)
     )
-    motif_html = (
-        f'<p class="note motif">{html.escape(motif_deux_propositions)}</p>' if motif_deux_propositions else ""
+    # Deux phrases possibles, au même endroit : « il n'y en a que deux, et
+    # voici pourquoi » et « elles se valent, choisissez ». Elles ne s'excluent
+    # pas — deux boucles qui vont ailleurs peuvent parfaitement se valoir.
+    motif_html = "".join(
+        f'<p class="note motif">{html.escape(texte)}</p>'
+        for texte in (motif_deux_propositions, motif_equivalence)
+        if texte
     )
     charge = _charge_json(donnees)
     return f"""<!doctype html>

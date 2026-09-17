@@ -42,17 +42,166 @@ def _generateur():
 #: Modules autorisés à lire l'environnement d'exécution.
 AUTORISES = {"cli.py", "config.py"}
 
+#: **La porte que l'API ouvre, et elle seule** (lot F1). L'API est une couche
+#: d'exploitation, comme `cli.py` : elle a le droit de lire la configuration
+#: et l'environnement. Ce droit est donné à **un chemin**, pas à un nom de
+#: fichier, et à un seul module du paquet — les routes, les dépôts et la
+#: traduction d'erreurs restent soumis à la règle absolue 2.
+CHEMINS_AUTORISES = {"api/exploitation.py"}
+
 #: Ce qu'un module du cœur ne doit jamais faire.
 INTERDITS = ("tomllib", "os.environ", "getenv", "Path.home()", ".expanduser(", "load_dotenv")
 
 
 def modules_du_coeur() -> list[Path]:
-    return sorted(p for p in SOURCES.rglob("*.py") if p.name not in AUTORISES)
+    return sorted(
+        p
+        for p in SOURCES.rglob("*.py")
+        if p.name not in AUTORISES and p.relative_to(SOURCES).as_posix() not in CHEMINS_AUTORISES
+    )
 
 
 def test_il_y_a_bien_des_modules_a_verifier():
     noms = {p.name for p in modules_du_coeur()}
     assert {"lecture.py", "cache.py", "inventaire.py", "intervals.py"} <= noms
+
+
+def test_l_api_est_couverte_sauf_son_unique_module_d_exploitation():
+    """F1 : l'API entre dans le périmètre de la règle absolue 2, à une porte près.
+
+    Sans ce test, ajouter `application.py` ou `routes.py` à `AUTORISES` pour
+    « débloquer » une lecture d'environnement passerait inaperçu : c'est
+    exactement ce qu'il ne faut pas faire, et il faut que ça se voie.
+    """
+    couverts = {p.relative_to(SOURCES).as_posix() for p in modules_du_coeur()}
+    api = {p.relative_to(SOURCES).as_posix() for p in (SOURCES / "api").rglob("*.py")}
+    assert api, "le paquet api/ doit exister"
+    assert api - couverts == CHEMINS_AUTORISES, (
+        "un module de l'API échappe à la règle absolue 2 sans que CHEMINS_AUTORISES le dise"
+    )
+
+
+def test_seul_le_module_d_exploitation_de_l_api_lit_l_environnement():
+    """La porte est ouverte quelque part : ce test vérifie qu'elle sert vraiment.
+
+    Un invariant qui passe parce que personne n'utilise la permission qu'il
+    encadre n'encadre rien.
+    """
+    source = (SOURCES / "api" / "exploitation.py").read_text(encoding="utf-8")
+    assert "os.environ" in source and "tomllib" in source
+
+
+#: Les accès aux données de l'API. Doctrine §10.2 : « aucune requête sans
+#: clause de propriétaire » — ici, aucune méthode publique de dépôt sans
+#: `proprietaire` en **premier argument positionnel**. C'est gratuit
+#: aujourd'hui (un seul propriétaire) et impossible à rattraper le jour où
+#: ces dépôts parleront à PostgreSQL.
+CLASSES_DEPOT = ("DepotProfils", "DepotFichiers", "DepotGenerations")
+
+
+def test_aucun_acces_aux_donnees_sans_clause_de_proprietaire():
+    arbre = ast.parse((SOURCES / "api" / "depots.py").read_text(encoding="utf-8"))
+    classes = {
+        noeud.name: noeud for noeud in ast.walk(arbre) if isinstance(noeud, ast.ClassDef)
+    }
+    for nom in CLASSES_DEPOT:
+        assert nom in classes, f"{nom} a disparu de api/depots.py"
+        methodes = [
+            m
+            for m in classes[nom].body
+            if isinstance(m, ast.FunctionDef) and not m.name.startswith("_")
+        ]
+        assert methodes, f"{nom} n'a plus aucune méthode publique"
+        for methode in methodes:
+            arguments = [a.arg for a in methode.args.args]
+            assert arguments[:2] == ["self", "proprietaire"], (
+                f"{nom}.{methode.name}{tuple(arguments)} : le propriétaire doit être le "
+                "premier argument — doctrine §10.2, aucune requête sans clause de propriétaire"
+            )
+
+
+def test_les_routes_ne_chargent_jamais_la_configuration_elles_memes():
+    """Une route demande sa `Config` au dépôt, pour un propriétaire donné.
+
+    Importer `config.charger` ici rendrait « la » configuration du serveur à
+    n'importe quel appelant, et ferait disparaître la clause de propriétaire
+    sans rien casser de visible — le genre de régression qui ne se voit qu'en
+    production, quand il y a deux utilisateurs.
+    """
+    arbre = ast.parse((SOURCES / "api" / "routes.py").read_text(encoding="utf-8"))
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").startswith("ourouler.config"):
+            importes = {alias.name for alias in noeud.names}
+            assert "charger" not in importes, (
+                "api/routes.py importe config.charger : la Config vient du dépôt, "
+                "pour un propriétaire"
+            )
+
+
+def test_les_prefixes_qui_classent_les_pannes_existent_vraiment():
+    """Le classement des erreurs lit le préfixe du message des connecteurs.
+
+    C'est une convention, donc une dette potentielle : si un connecteur
+    changeait son préfixe, le front recevrait `service_externe_indisponible`
+    au lieu du code attendu, et ses écrans d'échec se tromperaient d'écran.
+    Ce test attache la convention à son code.
+    """
+    from ourouler.api.erreurs import PREFIXES_SERVICE
+
+    sources = {
+        "BRouter": SOURCES / "connecteurs" / "brouter.py",
+        "Open-Meteo": SOURCES / "meteo" / "openmeteo.py",
+        "Intervals.icu": SOURCES / "connecteurs" / "intervals.py",
+        "BAN": SOURCES / "connecteurs" / "geocodage.py",
+        "Nominatim": SOURCES / "connecteurs" / "geocodage.py",
+    }
+    for prefixe, _service, _code in PREFIXES_SERVICE:
+        texte = sources[prefixe].read_text(encoding="utf-8")
+        assert f'"{prefixe} ' in texte or f"f\"{prefixe} " in texte, (
+            f"aucun message ne commence par « {prefixe} » dans {sources[prefixe].name} : "
+            "le classement des pannes de l'API ne reconnaîtra plus ce service"
+        )
+
+
+def test_les_fragments_qui_classent_les_avertissements_existent_vraiment():
+    """Chaque avertissement codé se rattache à la phrase qui le déclenche.
+
+    Même convention que `PREFIXES_SERVICE`, et pour la même raison. Avant le
+    17/09/2026, le front décidait du bandeau « Pas de météo » en cherchant
+    « météo » dans la phrase du cœur à l'expression régulière (relecture
+    F2 · B3) : une reformulation en « Open-Meteo injoignable » faisait
+    disparaître le bandeau **en silence**, et il restait un parcours servi
+    sans pluie, sans vent et sans la phrase qui dit pourquoi.
+
+    Le classement vit maintenant dans l'API, où ce test l'attache à son code.
+    Reformuler un de ces avertissements casse ce test avant d'effacer un
+    bandeau chez le cycliste — c'est tout ce qu'on lui demande.
+    """
+    from ourouler.api.erreurs import CODES_AVERTISSEMENT, MOTIFS_AVERTISSEMENT
+
+    for fragment, code, modules in MOTIFS_AVERTISSEMENT:
+        assert code in CODES_AVERTISSEMENT, (
+            f"« {fragment} » classe en {code}, qui n'est pas dans le catalogue publié"
+        )
+        assert modules, f"« {fragment} » ne dit pas quel module l'écrit"
+        for relatif in modules:
+            texte = (SOURCES / relatif).read_text(encoding="utf-8")
+            assert fragment in texte, (
+                f"« {fragment} » n'apparaît plus dans {relatif} : l'API classera cet "
+                f"avertissement en « autre » et l'écran dessiné pour {code} ne s'affichera plus"
+            )
+
+
+def test_le_catalogue_des_avertissements_a_un_cas_par_defaut():
+    """Un avertissement inconnu reste affichable, sans qu'on en déduise un état.
+
+    C'est la différence entre « je ne reconnais pas cette phrase » et « il n'y
+    a pas d'avertissement » : la première se montre, la seconde se tairait.
+    """
+    from ourouler.api.erreurs import CODES_AVERTISSEMENT, classer_avertissement
+
+    assert "autre" in CODES_AVERTISSEMENT
+    assert classer_avertissement("une phrase que personne n'a prévue") == "autre"
 
 
 @pytest.mark.parametrize("module", modules_du_coeur(), ids=lambda p: p.name)
@@ -76,6 +225,69 @@ def test_le_coeur_n_importe_pas_tomllib(module: Path):
             importes.add(noeud.module.split(".")[0])
     assert "tomllib" not in importes
     assert "os" not in importes
+
+
+#: Les trois paquets de commandes qui partent d'un point. Ils reçoivent un
+#: `Depart` déjà tranché ; ils ne doivent jamais résoudre une adresse eux-mêmes.
+PAQUETS_DE_COMMANDE = ("meteo", "boucle", "sortie")
+
+
+@pytest.mark.parametrize("paquet", PAQUETS_DE_COMMANDE)
+def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
+    """F0.7 : l'adresse devient un `Depart` dans `cli.py`, et nulle part ailleurs.
+
+    Le connecteur de géocodage sort sur le réseau et interprète une saisie
+    d'utilisateur : le cœur, qui ne sait pas où il tourne (règle absolue 2),
+    reçoit le point déjà choisi. Seuls `cli.py` et le paquet `geocodage`
+    (qui sert la sous-commande dédiée) ont le droit de l'importer.
+    """
+    for module in sorted((SOURCES / paquet).rglob("*.py")):
+        source = module.read_text(encoding="utf-8")
+        for noeud in ast.walk(ast.parse(source)):
+            depuis = None
+            if isinstance(noeud, ast.ImportFrom) and noeud.module:
+                depuis = noeud.module
+            elif isinstance(noeud, ast.Import):
+                depuis = " ".join(alias.name for alias in noeud.names)
+            assert depuis is None or "geocodage" not in depuis, (
+                f"{module.relative_to(SOURCES)} importe le géocodage : "
+                "seul cli.py résout une adresse, le cœur reçoit un Depart"
+            )
+
+
+#: C1 de `docs/ux/relecture_f0.md` : `zwo.py` et `mrc.py` (683 lignes, testées)
+#: n'avaient aucun appelant dans `src/` — un trou du cadrage compté comme
+#: comblé qui ne l'était qu'à moitié. F1 les branche via `seance/fichier.py`,
+#: lui-même appelé par `seance/commande.py` et `sortie/commande.py`.
+MODULES_SANS_APPELANT_HISTORIQUE = ("seance.zwo", "seance.mrc")
+
+
+def test_zwo_et_mrc_ont_desormais_un_appelant():
+    """Régression de C1 : si ce branchement disparaissait, ce test doit le dire
+    avant qu'un futur agent ne recompte le trou comme comblé.
+
+    Ne vérifie pas que ces lecteurs *marchent* (leurs propres tests le font),
+    seulement qu'au moins un module du cœur, en dehors d'eux-mêmes, les
+    importe — la preuve mécanique qu'un chemin d'exécution existe.
+    """
+    modules = modules_du_coeur()
+    for cible in MODULES_SANS_APPELANT_HISTORIQUE:
+        appelants = []
+        for module in modules:
+            if module.name in (cible.split(".")[-1] + ".py",):
+                continue  # le module ne compte pas comme son propre appelant
+            arbre = ast.parse(module.read_text(encoding="utf-8"))
+            for noeud in ast.walk(arbre):
+                depuis = None
+                if isinstance(noeud, ast.ImportFrom) and noeud.module:
+                    depuis = noeud.module
+                elif isinstance(noeud, ast.Import):
+                    depuis = " ".join(alias.name for alias in noeud.names)
+                if depuis and cible in depuis:
+                    appelants.append(module.relative_to(SOURCES))
+        assert appelants, (
+            f"ourouler.{cible} n'a plus aucun appelant dans src/ — régression de C1"
+        )
 
 
 def test_aucun_client_http_reel_n_est_cree_a_l_import():
@@ -407,3 +619,312 @@ def test_l_invariant_numpy_mesure_bien_quelque_chose():
     assert any("import numpy" in s for s in sources), (
         "aucun module n'importe numpy : l'invariant ci-dessus ne mesure rien"
     )
+
+
+# --- aucune requête SQL sans clause de propriétaire --------------------------
+#
+# Doctrine §10.2 : « Isolation des données : par utilisateur, vérifiée côté
+# serveur à chaque requête, jamais seulement côté front. **Aucune requête sans
+# clause de propriétaire.** »
+#
+# Une colonne que personne ne filtre ne protège rien : `apprentissage/routes.py`
+# a porté `proprietaire` pendant quatre jours sans qu'aucune de ses requêtes ne
+# la nomme. Cet invariant est écrit pour attraper la *prochaine* requête, celle
+# qu'un agent ajoutera dans six mois sans y penser — pas pour vérifier une à une
+# celles d'aujourd'hui.
+#
+# Ce qu'il fait : il reconstitue le texte SQL de chaque appel `.execute(…)` /
+# `.executescript(…)` du cœur, y compris quand ce texte est assemblé à partir de
+# constantes de module (`_COLONNES`, `_CONFLIT_IDENTITE`, `_SCHEMA`), et exige
+# que toute instruction touchant une table de données nomme `proprietaire`.
+
+#: Le mot que toute requête doit prononcer.
+CLAUSE = "proprietaire"
+
+#: Verbes SQL qui lisent ou écrivent des données. `CREATE`, `ALTER`, `DROP` et
+#: `PRAGMA` n'en sont pas : ils décrivent la structure.
+VERBES_DE_DONNEES = ("SELECT", "INSERT", "UPDATE", "DELETE")
+
+#: Tables qui ne portent pas de données d'utilisateur : le catalogue de SQLite.
+TABLES_TECHNIQUES = ("sqlite_master", "sqlite_temp_master")
+
+#: Les seules fonctions dispensées de la clause, et la raison. Une migration
+#: **fabrique** la colonne : lui demander de filtrer dessus serait circulaire.
+#: Le préfixe est volontairement étroit — `_migrer…`, pas « tout ce qui est
+#: privé » — pour qu'on ne puisse pas s'y glisser par accident.
+PREFIXE_EXEMPT = "_migrer"
+
+
+def _constantes_texte(arbre: ast.Module) -> dict[str, str]:
+    """Les constantes de module dont la valeur est une chaîne, résolues entre elles.
+
+    Deux passes : les chaînes littérales d'abord, puis les f-strings qui les
+    citent (`_SCHEMA` cite `PROPRIETAIRE_LOCAL`). Deux passes suffisent ici, et
+    une valeur non résolue reste sous sa forme `{nom}`, qui ne trompe personne.
+    """
+    connues: dict[str, str] = {}
+    for _ in range(2):
+        for noeud in arbre.body:
+            if not isinstance(noeud, ast.Assign) or len(noeud.targets) != 1:
+                continue
+            cible = noeud.targets[0]
+            if not isinstance(cible, ast.Name):
+                continue
+            texte = _texte_sql(noeud.value, connues)
+            if texte is not None:
+                connues[cible.id] = texte
+    return connues
+
+
+def _texte_sql(noeud: ast.AST, connues: dict[str, str]) -> str | None:
+    """Le texte d'une expression de chaîne, ou None si ce n'en est pas une.
+
+    Couvre ce que le projet écrit réellement : littéral, littéraux adjacents
+    (déjà fusionnés par le parseur), `+`, nom de constante, f-string.
+    """
+    if isinstance(noeud, ast.Constant):
+        return noeud.value if isinstance(noeud.value, str) else None
+    if isinstance(noeud, ast.Name):
+        return connues.get(noeud.id)
+    if isinstance(noeud, ast.BinOp) and isinstance(noeud.op, ast.Add):
+        gauche = _texte_sql(noeud.left, connues)
+        droite = _texte_sql(noeud.right, connues)
+        return None if gauche is None or droite is None else gauche + droite
+    if isinstance(noeud, ast.JoinedStr):
+        morceaux = []
+        for partie in noeud.values:
+            if isinstance(partie, ast.Constant) and isinstance(partie.value, str):
+                morceaux.append(partie.value)
+            elif isinstance(partie, ast.FormattedValue):
+                # La valeur interpolée quand on sait la résoudre ; sinon son
+                # code source, qui porte au moins le nom de ce qui y entre.
+                morceaux.append(
+                    _texte_sql(partie.value, connues) or f"{{{ast.unparse(partie.value)}}}"
+                )
+        return "".join(morceaux)
+    return None
+
+
+def _instructions(sql: str) -> list[str]:
+    """Le SQL découpé en instructions, chacune jugée séparément.
+
+    Un `executescript` en enchaîne plusieurs : sans découpage, un `CREATE
+    TABLE` portant la colonne blanchirait le `SELECT` qui le suit.
+    """
+    return [morceau for morceau in sql.split(";") if morceau.strip()]
+
+
+def _touche_des_donnees(instruction: str) -> bool:
+    haut = instruction.upper()
+    if not any(re.search(rf"\b{verbe}\b", haut) for verbe in VERBES_DE_DONNEES):
+        return False
+    return not any(table.upper() in haut for table in TABLES_TECHNIQUES)
+
+
+def _fonction_englobante(arbre: ast.Module) -> dict[int, str]:
+    """Nœud d'appel (par identité) → nom de la fonction qui le contient."""
+    par_appel: dict[int, str] = {}
+    for fonction in ast.walk(arbre):
+        if not isinstance(fonction, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        for interne in ast.walk(fonction):
+            if isinstance(interne, ast.Call):
+                par_appel.setdefault(id(interne), fonction.name)
+    return par_appel
+
+
+def requetes_du_module(chemin: Path) -> list[tuple[str, str]]:
+    """[(fonction, instruction SQL)] pour chaque instruction de données du module."""
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    connues = _constantes_texte(arbre)
+    englobante = _fonction_englobante(arbre)
+    trouvees = []
+    for noeud in ast.walk(arbre):
+        if not isinstance(noeud, ast.Call) or not isinstance(noeud.func, ast.Attribute):
+            continue
+        if noeud.func.attr not in ("execute", "executescript", "executemany"):
+            continue
+        if not noeud.args:
+            continue
+        sql = _texte_sql(noeud.args[0], connues)
+        if sql is None:
+            continue
+        nom = englobante.get(id(noeud), "<module>")
+        trouvees.extend(
+            (nom, instruction)
+            for instruction in _instructions(sql)
+            if _touche_des_donnees(instruction)
+        )
+    return trouvees
+
+
+def modules_avec_sql() -> list[Path]:
+    return sorted(p for p in SOURCES.rglob("*.py") if "execute" in p.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("module", modules_avec_sql(), ids=lambda p: str(p.relative_to(SOURCES)))
+def test_aucune_requete_sql_ne_lit_ni_n_ecrit_sans_clause_de_proprietaire(module: Path):
+    """Doctrine §10.2 : aucune requête sans clause de propriétaire.
+
+    L'échec nomme la fonction et l'instruction : ce qui manque est visible
+    sans ouvrir le fichier.
+    """
+    nues = [
+        f"{fonction}() : {' '.join(instruction.split())[:110]}…"
+        for fonction, instruction in requetes_du_module(module)
+        if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
+    ]
+    assert not nues, (
+        f"{module.relative_to(SOURCES)} — requêtes sans clause de propriétaire :\n  "
+        + "\n  ".join(nues)
+        + "\nDoctrine §10.2 : « aucune requête sans clause de propriétaire ». "
+        f"Seules les fonctions préfixées « {PREFIXE_EXEMPT} » en sont dispensées, "
+        "parce qu'elles fabriquent la colonne."
+    )
+
+
+def test_l_invariant_de_proprietaire_mesure_bien_quelque_chose():
+    """Un invariant vert parce qu'il ne trouve aucune requête serait creux.
+
+    On vérifie aussi qu'il voit les requêtes des **trois** dépôts, y compris
+    celles assemblées depuis des constantes de module : c'est précisément ce
+    qu'une lecture naïve du texte source raterait.
+    """
+    par_module = {
+        str(module.relative_to(SOURCES)): requetes_du_module(module)
+        for module in modules_avec_sql()
+    }
+    total = sum(len(v) for v in par_module.values())
+    assert total >= 15, f"seulement {total} requêtes analysées : {list(par_module)}"
+    for attendu in (
+        "activites/cache.py",
+        "apprentissage/routes.py",
+        "connecteurs/openmeteo_archive.py",
+    ):
+        assert par_module.get(attendu), f"aucune requête vue dans {attendu}"
+
+
+def test_l_invariant_de_proprietaire_attrape_bien_une_requete_nue(tmp_path: Path):
+    """Contre-épreuve : on lui donne le code fautif qu'on veut qu'il refuse.
+
+    Les trois formes que le projet écrit réellement — littéral, littéraux
+    adjacents, et SQL assemblé depuis une constante de module — plus une
+    migration, qui doit rester tolérée, et une requête correcte.
+    """
+    faute = tmp_path / "fautif.py"
+    faute.write_text(
+        '_COLS = "a, b"\n'
+        "def lister(cx):\n"
+        '    cx.execute("SELECT a FROM activites WHERE debut > ?", (1,))\n'
+        "def lister_en_morceaux(cx):\n"
+        '    cx.execute("SELECT a FROM activites "\n'
+        '               "WHERE debut > ?", (1,))\n'
+        "def lister_par_constante(cx):\n"
+        '    cx.execute(f"SELECT {_COLS} FROM activites")\n'
+        "def _migrer(cx):\n"
+        '    cx.execute("SELECT a FROM activites")\n'
+        "def correcte(cx):\n"
+        '    cx.execute("SELECT a FROM activites WHERE proprietaire = ?", ("x",))\n',
+        encoding="utf-8",
+    )
+    fautives = {
+        fonction
+        for fonction, instruction in requetes_du_module(faute)
+        if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
+    }
+    assert fautives == {"lister", "lister_en_morceaux", "lister_par_constante"}
+
+
+# --- le front (lot F2) ------------------------------------------------------
+#
+# Le front est du TypeScript, mais il vit dans le même dépôt, et la règle
+# absolue 1 ne s'arrête pas à la frontière des langages : une coordonnée
+# réelle dans une fixture de test JavaScript est une coordonnée réelle dans le
+# dépôt. L'invariant se lit donc ici, avec le même rayon interdit et les mêmes
+# villes que pour les fixtures d'activité.
+
+RACINE = Path(__file__).resolve().parents[1]
+FRONT = RACINE / "front"
+
+#: Une paire lat/lon en degrés décimaux, telle qu'un source TypeScript
+#: l'écrirait : `[47.0, -0.5]`, `latitude: 47.0`, `LAT = 47.0`.
+_DECIMAL = re.compile(r"-?\d{1,3}\.\d+")
+
+
+def sources_du_front() -> list[Path]:
+    """Tout ce qui est versionné sous `front/` : sources, tests, fixtures."""
+    if not FRONT.is_dir():
+        return []
+    return sorted(
+        p
+        for p in FRONT.rglob("*")
+        if p.is_file()
+        and p.suffix in (".ts", ".tsx", ".json", ".css", ".html")
+        and "node_modules" not in p.parts
+        and "dist" not in p.parts
+    )
+
+
+def points_plausibles(texte: str) -> list[tuple[float, float]]:
+    """Les couples de décimaux consécutifs qui pourraient être un point français.
+
+    Grossier exprès : on préfère examiner trop de couples que d'en manquer un.
+    Un couple n'est retenu que si le premier nombre tient dans les latitudes
+    métropolitaines et le second dans les longitudes.
+    """
+    nombres = [float(n) for n in _DECIMAL.findall(texte)]
+    points = []
+    for gauche, droite in zip(nombres, nombres[1:], strict=False):
+        if 41.0 <= gauche <= 52.0 and -6.0 <= droite <= 10.0:
+            points.append((gauche, droite))
+    return points
+
+
+def test_le_front_ne_porte_aucune_coordonnee_reelle():
+    """Les points inventés du front restent loin de toute vraie ville."""
+    sources = sources_du_front()
+    if not sources:
+        pytest.skip("pas de dossier front/ dans cette copie du dépôt")
+    fautes = []
+    for source in sources:
+        for lat, lon in points_plausibles(source.read_text(encoding="utf-8")):
+            proche = ville_trop_proche(lat, lon)
+            if proche is not None:
+                fautes.append(
+                    f"{source.relative_to(RACINE)} : ({lat}, {lon}) est à "
+                    f"{proche[1]:.1f} km de {proche[0]}"
+                )
+    assert not fautes, "coordonnées réelles dans le front :\n" + "\n".join(fautes)
+
+
+def test_l_invariant_du_front_saurait_reperer_une_vraie_ville():
+    """Sans ce contrôle, le test ci-dessus pourrait être vert en ne mesurant rien."""
+    lat, lon = VILLES_REELLES["Rennes"]
+    texte = f"export const DEPART = [{lat}, {lon}];"
+    points = points_plausibles(texte)
+    assert points, "le repérage de couples ne trouve rien là où il y a un point"
+    assert ville_trop_proche(*points[0]) is not None
+
+
+def test_le_front_examine_bien_des_fichiers():
+    """Un `rglob` qui ne trouve rien rendrait l'invariant précédent décoratif."""
+    if not FRONT.is_dir():
+        pytest.skip("pas de dossier front/ dans cette copie du dépôt")
+    sources = sources_du_front()
+    assert len(sources) >= 10, f"seulement {len(sources)} sources de front examinées"
+    assert any(p.name == "fixtures.ts" for p in sources), "les fixtures du front ne sont pas lues"
+
+
+def test_le_front_ne_porte_aucun_secret():
+    """Ni clé d'API, ni jeton, ni adresse e-mail réelle (règle absolue 1)."""
+    motifs = (
+        re.compile(r"api[_-]?key\s*[:=]\s*[\"'][A-Za-z0-9]{8,}[\"']", re.IGNORECASE),
+        re.compile(r"[A-Za-z0-9._%+-]+@(?!exemple\.)[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    )
+    fautes = []
+    for source in sources_du_front():
+        contenu = source.read_text(encoding="utf-8")
+        for motif in motifs:
+            for trouve in motif.findall(contenu):
+                fautes.append(f"{source.relative_to(RACINE)} : {trouve}")
+    assert not fautes, "secret ou adresse réelle dans le front :\n" + "\n".join(fautes)

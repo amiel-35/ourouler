@@ -1,3 +1,12 @@
+> **Purge du 17/09/2026 (Q6).** Ce document décrivait un défaut de la
+> règle absolue 1 en citant les valeurs fautives : il portait donc lui-même
+> l'identifiant d'athlète Intervals du mainteneur, sa masse, sa FTP et sa
+> ville. Les valeurs sont retirées, le constat reste — c'est le constat qui
+> a de la valeur, pas les chiffres qui l'illustraient.
+>
+> L'identifiant vit désormais du côté du profil de l'utilisateur, jamais
+> dans le dépôt ([[Q35]] : `[intervals]` appartient au cycliste).
+
 # Relecture du sprint 1 — lots L1.1 à L1.5
 
 Relu le 12/09/2026 par l'agent `relecteur` (Opus) sur la branche `sprint-1`,
@@ -41,7 +50,7 @@ sont exactement les valeurs réelles du mainteneur telles qu'écrites dans
 `docs/cadrage.md:12` (« FTP 258 W, 91 kg »). `config.example.toml:7-8` place
 le départ à (48.11, -1.68), soit le centre de Rennes, la ville où habite le
 mainteneur (`docs/cadrage.md:15`), et le commentaire la nomme.
-`config.example.toml:29` propose `# ex. i183365`, un identifiant d'athlète
+`config.example.toml:29` proposait un identifiant d'athlète
 d'apparence réelle. Le fichier affirme lui-même en `config.example.toml:2-3`
 « ne contient aucune donnée personnelle », et `README.md:48` affirme « rien
 de personnel n'entre dans ce dépôt » : la contradiction est dans le dépôt.
@@ -424,7 +433,7 @@ produire (le plus propre), ou garder les fichiers et réduire les traces à
 Par gravité décroissante.
 
 1. **`config.example.toml:7-12` et `:29` — données personnelles réelles dans
-   le dépôt** (masse 91 kg, FTP 258 W, centre de Rennes, `i183365`), en
+   le dépôt** (masse, FTP, ville et identifiant d'athlète réels), en
    violation de la règle absolue 1, dans un dépôt destiné à devenir public.
    Remplacer par des valeurs manifestement inventées et retirer « Rennes ».
    **Bloquant.**

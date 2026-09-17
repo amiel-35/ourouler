@@ -98,10 +98,31 @@ ourouler meteo --heure-depart 08:00 --horizon 6
 ourouler sortie --jour 2026-02-08 --heure-depart 09:30 --candidates 4
 ```
 
-Le **lieu** de départ s'appellera **`--adresse-depart`** — nom réservé,
-**pas encore livré** : pour l'instant le départ est toujours celui de la
-configuration. Deux noms explicites plutôt que deux noms qui se ressemblent,
+Le **lieu** de départ s'appelle **`--adresse-depart`**, sur `meteo`, `boucle`
+et `sortie`. Deux noms explicites plutôt que deux noms qui se ressemblent,
 décision du mainteneur (`docs/questions_mainteneur.md`, Q15).
+
+```
+ourouler meteo --adresse-depart "7 rue du If 44999 Vallombreuse" --horizon 6
+ourouler boucle --adresse-depart "gare de Vallombreuse" --distance 60 --direction S
+```
+
+(Les adresses de ces exemples sont **inventées**, comme partout dans ce dépôt :
+aucune adresse réelle n'y figure, pas même dans un exemple.)
+
+L'adresse est géocodée, la configuration n'est pas modifiée : c'est un départ
+**pour cette fois**. Une adresse ambiguë est la normale — « 12 rue de la
+Gare » existe dans des centaines de communes. La ligne de commande retient le
+candidat le mieux noté et **l'annonce en toutes lettres** avant de travailler,
+avec le nombre de candidats écartés ; `ourouler geocoder "<adresse>"` les
+montre tous. Une adresse introuvable est une erreur (code 2) et ne retombe
+**jamais** sur le départ configuré : une boucle autour de chez soi pour qui a
+demandé une autre ville serait une réponse fausse, pas une erreur.
+
+Deux réserves. Les **routes connues** et les poids appris ont été mesurés
+autour du départ configuré : loin de là, « connu % » tombe à zéro sans que le
+tracé soit inédit pour autant — la commande le dit. Et le choix entre
+candidats trop proches est une question ouverte (Q34).
 
 Les anciens noms `--depart` et `--heure` restent acceptés pour ne rien
 casser, mais l'aide ne les propose plus.
@@ -280,6 +301,37 @@ un conteneur qui produit la page du jour une fois par jour, un serveur
 statique qui la sert derrière une authentification basique — à essayer sur
 sa propre machine, rien n'est déployé (`deploiement/README.md`).
 
+## L'API (lot F1)
+
+Ce que le front React consommera. Elle n'implémente rien : chaque route
+appelle la **même** fonction que la sous-commande correspondante et rend son
+JSON — « l'API expose ce que la CLI sait déjà rendre en JSON »
+(`doctrine_architecture.md` §10.2).
+
+```bash
+uv sync --extra api
+uv run ourouler api --port 8000     # puis http://127.0.0.1:8000/docs
+```
+
+Les routes, la forme des réponses, les codes d'erreur, l'isolation par
+propriétaire et les durées mesurées sont dans `docs/ux/api_contrat.md`.
+FastAPI et son serveur sont un extra : la ligne de commande s'installe et
+tourne sans.
+
+## Le front (lot F2)
+
+L'interface du cycliste, dans `front/`. Elle **ne parle qu'à l'API**, jamais
+au cœur Python (doctrine §10.2), et n'affiche rien que l'API n'ait rendu.
+
+```bash
+uv run ourouler api --port 8000     # dans un terminal
+cd front && npm install && npm run dev   # dans un autre, puis http://localhost:5180
+```
+
+`npm run verifier` passe les types et les tests ; aucun test du front ne
+touche au réseau. Les écrans, les écarts assumés avec les maquettes et
+l'organisation du code sont dans `front/README.md`.
+
 ## Documentation
 
 - `docs/cadrage.md` — le besoin d'origine.
@@ -287,5 +339,9 @@ sa propre machine, rien n'est déployé (`deploiement/README.md`).
 - `docs/plan_sprints_agents.md` — sprints, critères d'acceptation, équipe d'agents.
 - `docs/questions_mainteneur.md` — ce qui attend une décision.
 - `docs/heberge_minimal_contrat.md` — le contrat de l'hébergé minimal.
+- `docs/ux/front_contrat.md` — les lots du front, dans l'ordre.
+- `docs/ux/api_contrat.md` — le contrat de l'API que le front consomme.
+- `docs/ux/maquettes_v1.html` — les vingt écrans, et le raisonnement de chacun.
+- `front/README.md` — la chaîne de construction du front et ses règles.
 
 Licence MIT.

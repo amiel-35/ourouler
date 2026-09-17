@@ -301,11 +301,13 @@ def base_v1(chemin: Path) -> tuple[int, float, int]:
 
 
 def test_une_base_v1_est_migree_sans_rien_perdre(tmp_path: Path):
-    """La colonne « propriétaire » de la doctrine §10.1 s'ajoute sans réécriture.
+    """La colonne « propriétaire » de la doctrine §10.1 s'ajoute sans rien perdre.
 
-    `ALTER TABLE … ADD COLUMN` avec un défaut constant : aucune ligne
-    recopiée, aucun passage perdu, aucune clé primaire touchée. Les lignes
-    déjà là deviennent celles du propriétaire local.
+    Deux marches : `ALTER TABLE … ADD COLUMN` avec un défaut constant pour la
+    colonne (schéma 2), puis une recopie pour la faire entrer dans les clés
+    primaires (schéma 3) — SQLite ne sait pas modifier une clé primaire. Les
+    lignes déjà là deviennent celles du propriétaire local, aucun passage
+    n'est perdu.
     """
     import sqlite3
 
@@ -321,10 +323,13 @@ def test_une_base_v1_est_migree_sans_rien_perdre(tmp_path: Path):
 
     cx = sqlite3.connect(chemin)
     try:
-        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA == 2
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA == 3
         for table in ("troncons", "sorties"):
-            colonnes = {ligne[1] for ligne in cx.execute(f"PRAGMA table_info({table})")}
-            assert "proprietaire" in colonnes, table
+            info = list(cx.execute(f"PRAGMA table_info({table})"))
+            assert "proprietaire" in {ligne[1] for ligne in info}, table
+            # Et elle est bien dans la clé primaire : sans cela, deux
+            # utilisateurs ne pourraient pas avoir roulé la même maille.
+            assert any(ligne[1] == "proprietaire" and ligne[5] for ligne in info), table
         proprietaires = {
             ligne[0] for ligne in cx.execute("SELECT DISTINCT proprietaire FROM troncons")
         }
@@ -359,26 +364,110 @@ def test_une_base_neuve_porte_la_colonne_proprietaire(tmp_path: Path):
         cx.close()
 
 
-def test_l_archive_meteo_n_a_pas_de_colonne_proprietaire(tmp_path: Path):
-    """Doctrine §10.1 : la météo par maille et par heure se mutualise telle quelle.
+def test_l_archive_meteo_porte_la_colonne_sans_perdre_la_mutualisation(tmp_path: Path):
+    """Renversement assumé du 17/09/2026 — et pourquoi il ne contredit pas la doctrine.
 
-    Sa clé `(lat, lon, jour)` ne porte aucune donnée personnelle ; lui coller
-    un propriétaire empêcherait précisément la mutualisation qu'on vise.
+    Ce test affirmait l'inverse : « l'archive météo n'a pas de colonne
+    propriétaire, lui en coller une empêcherait la mutualisation qu'on vise »
+    (doctrine §10.1, « cache des prévisions par maille et par heure, partagé
+    entre utilisateurs »). L'argument valait contre un propriétaire
+    *par utilisateur* ; il ne vaut pas contre `PROPRIETAIRE_PARTAGE`.
+
+    La colonne est là, chaque requête la filtre — §10.2, « aucune requête sans
+    clause de propriétaire » — et **toutes** les lignes portent la même valeur
+    partagée : la mutualisation est intacte, simplement écrite au lieu d'être
+    déduite d'une absence de colonne. Ce que le test mesure, c'est
+    exactement cela : la colonne existe, et aucune ligne ne porte un
+    identifiant d'utilisateur.
     """
     import sqlite3
 
     from ourouler.connecteurs.openmeteo_archive import ClientArchive
+    from ourouler.proprietaire import PROPRIETAIRE_PARTAGE
 
     chemin = tmp_path / "archive_meteo.sqlite"
-    ClientArchive(http=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200))),
-                  chemin_cache=chemin)
+    client = ClientArchive(
+        http=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200))),
+        chemin_cache=chemin,
+    )
+    assert client.proprietaire == PROPRIETAIRE_PARTAGE
     cx = sqlite3.connect(chemin)
     try:
         colonnes = {ligne[1] for ligne in cx.execute("PRAGMA table_info(archive)")}
+        valeurs = {ligne[0] for ligne in cx.execute("SELECT DISTINCT proprietaire FROM archive")}
     finally:
         cx.close()
-    assert "proprietaire" not in colonnes
+    assert "proprietaire" in colonnes
     assert {"lat", "lon", "jour"} <= colonnes
+    assert valeurs <= {PROPRIETAIRE_PARTAGE}
+
+
+def test_deux_proprietaires_ne_melangent_pas_leurs_passages(tmp_path: Path):
+    """Sans le propriétaire dans la clé primaire, le `ON CONFLICT` de
+    `ajouter_trace` additionnerait les passages des deux sur une seule ligne :
+    le compteur de l'un dirait ce que l'autre a roulé."""
+    chemin = tmp_path / "routes.sqlite"
+    a = BaseRoutes(chemin)
+    b = BaseRoutes(chemin, proprietaire="utilisateur-b")
+    a.ajouter_trace(droite(10), jour=LUNDI, id_sortie="s1")
+    b.ajouter_trace(droite(10), jour=LUNDI, id_sortie="s1")
+
+    assert a.sorties_apprises() == {"s1"}
+    assert b.sorties_apprises() == {"s1"}
+    assert a.statistiques().sorties == 1
+    for base in (a, b):
+        assert all(t.passages == 1 for t in base.troncons()), "passages mutualisés par erreur"
+
+
+def test_un_proprietaire_ne_voit_pas_les_routes_d_un_autre(tmp_path: Path):
+    chemin = tmp_path / "routes.sqlite"
+    a = BaseRoutes(chemin)
+    a.ajouter_trace(droite(10), jour=LUNDI, id_sortie="s1")
+    b = BaseRoutes(chemin, proprietaire="utilisateur-b")
+
+    assert b.sorties_apprises() == set()
+    assert b.troncons() == []
+    assert (b.statistiques().sorties, b.statistiques().mailles) == (0, 0)
+    assert b.part_connue(droite(10)) == 0.0, "les mailles de A ne sont pas connues de B"
+    assert a.part_connue(droite(10)) > 0.0, "et l'invariant ne doit pas être vert par hasard"
+
+
+@pytest.mark.parametrize("mauvais", ["", "   ", None, 12])
+def test_un_proprietaire_vide_ou_absurde_est_refuse(tmp_path: Path, mauvais):
+    with pytest.raises(ErreurUtilisateur):
+        BaseRoutes(tmp_path / "routes.sqlite", proprietaire=mauvais)
+
+
+def test_migrer_une_base_deja_migree_ne_la_touche_pas(tmp_path: Path):
+    """Idempotence : une base au schéma courant n'est pas recopiée.
+
+    Un trou est ménagé dans les `rowid` — une recopie par `INSERT … SELECT`
+    les renumérote, et le trou disparaîtrait.
+    """
+    import sqlite3
+
+    chemin = tmp_path / "routes.sqlite"
+    base = BaseRoutes(chemin)
+    base.ajouter_trace(droite(10), jour=LUNDI, id_sortie="s1")
+    base.ajouter_trace(droite(10), jour=LUNDI, id_sortie="s2")
+    with sqlite3.connect(chemin) as cx:
+        cx.execute("DELETE FROM sorties WHERE id_sortie = 's1'")
+
+    def empreinte():
+        cx = sqlite3.connect(chemin)
+        try:
+            return (
+                cx.execute("SELECT type, name, sql FROM sqlite_master ORDER BY name").fetchall(),
+                cx.execute("SELECT rowid, id_sortie FROM sorties ORDER BY rowid").fetchall(),
+            )
+        finally:
+            cx.close()
+
+    avant = empreinte()
+    assert avant[1] == [(2, "s2")], "le trou dans les rowid doit exister au départ"
+    BaseRoutes(chemin)
+    BaseRoutes(chemin, proprietaire="utilisateur-b")
+    assert empreinte() == avant
 
 
 def test_un_fichier_qui_n_est_pas_une_base_donne_une_erreur_utilisateur(tmp_path: Path):

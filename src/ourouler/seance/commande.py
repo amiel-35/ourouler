@@ -5,6 +5,11 @@ est) et appelle Intervals.icu ; le reste de `seance/` ne connaît ni fichier,
 ni réseau. Le client est injectable pour que les tests ne touchent jamais le
 réseau.
 
+**`--fichier-seance`** (F1) remplace Intervals.icu par un `.ZWO`/`.MRC` donné
+en ligne de commande, lu par `seance.fichier.lire_fichier_seance` — voir
+`_executer_fichier`. C'est le seul autre module qui touche un chemin ici, et
+seulement celui que `cli.py` lui passe déjà résolu (règle absolue 2).
+
 **Ce que « longueur de route nécessaire » veut dire.** Pour chaque étape, on
 demande au modèle physique la vitesse d'équilibre à la puissance cible, **sur
 le plat et sans vent** ; la longueur est cette vitesse multipliée par la
@@ -29,15 +34,15 @@ import argparse
 import json
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
-from ourouler.physique.modele import Parametres, vitesse_regime
-from ourouler.seance.intervals import seance_du_jour
+from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
+from ourouler.seance.intervals import seance_du_jour, seances_periode
 from ourouler.seance.modele import (
     ZONE_FC_BASSE_MAX,
-    ZONES_PUISSANCE_DEFAUT,
     Etape,
     Seance,
 )
@@ -98,7 +103,7 @@ def longueurs(
         cible = etape.puissance_cible_w
         if cible is None:
             return None
-        return vitesse_regime(cible, 0.0, 0.0, parametres)
+        return vitesse_a_plat_ms(cible, parametres)
 
     mesures: list[LongueurEtape] = []
     for indice, etape in enumerate(seance.etapes):
@@ -129,8 +134,28 @@ def longueurs(
 def executer(
     args: argparse.Namespace, config: Config, client: ClientIntervals | None = None
 ) -> int:
-    """Exécute `ourouler seance`. Sans séance ce jour-là : message clair, code 0."""
-    jour = _jour(getattr(args, "jour", None))
+    """Exécute `ourouler seance`. Sans séance ce jour-là : message clair, code 0.
+
+    Trois modes, exclusifs entre eux sauf `--jour` qui reste compatible avec
+    `--fichier-seance` (il y fixe alors le jour auquel la séance importée est
+    rattachée, aujourd'hui par défaut) :
+
+    - `--jour` seul : un jour chez Intervals.icu (inchangé depuis L4.1) ;
+    - `--depuis`/`--jusqua` ensemble : une plage chez Intervals.icu (F0.3,
+      voir `_executer_periode`) ;
+    - `--fichier-seance` : un `.ZWO`/`.MRC` donné en ligne de commande au lieu
+      d'Intervals.icu (F1, comble C1 de `docs/ux/relecture_f0.md` — voir
+      `_executer_fichier`).
+    """
+    jour_brut = getattr(args, "jour", None)
+    depuis_brut = getattr(args, "depuis", None)
+    jusqua_brut = getattr(args, "jusqua", None)
+    fichier_brut = getattr(args, "fichier_seance", None)
+    _valider_mode(jour_brut, depuis_brut, jusqua_brut, fichier_brut)
+
+    if fichier_brut:
+        return _executer_fichier(args, config, Path(fichier_brut), _jour(jour_brut))
+
     if client is None:
         if not config.intervals.renseigne:
             raise ErreurUtilisateur(
@@ -139,11 +164,15 @@ def executer(
             )
         client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
 
+    if depuis_brut or jusqua_brut:
+        return _executer_periode(args, config, client, _jour(depuis_brut), _jour(jusqua_brut))
+
+    jour = _jour(jour_brut)
     seance = seance_du_jour(
         client,
         jour,
         ftp_w=config.cycliste.ftp_w,
-        zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        zones_puissance=config.seance.zones_pct,
         puissance_endurance_pct=config.seance.puissance_endurance_pct,
         seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
     )
@@ -154,12 +183,86 @@ def executer(
             print(f"Aucune séance vélo planifiée le {jour.isoformat()} sur Intervals.icu.")
         return 0
 
+    return _rendre(args, config, seance)
+
+
+def _executer_fichier(
+    args: argparse.Namespace, config: Config, chemin: Path, jour: date
+) -> int:
+    """Séance lue depuis un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, C1).
+
+    Le reste de l'enchaînement — vitesses, longueurs, rendu — est celui de
+    `executer` : un fichier remplace seulement la source de la `Seance`.
+    `lire_fichier_seance` lève `ErreurLecture` (sous-classe d'`ErreurUtilisateur`)
+    pour un fichier absent, vide, mal formé ou d'extension inconnue ; `cli.py`
+    l'affiche en une ligne comme toute autre erreur utilisateur.
+    """
+    from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
+
+    seance = lire_fichier_seance(
+        chemin,
+        ftp_w=config.cycliste.ftp_w,
+        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
+        jour=jour,
+    )
+    return _rendre(args, config, seance)
+
+
+def _rendre(args: argparse.Namespace, config: Config, seance: Seance) -> int:
+    """La queue commune à `--jour` et `--fichier-seance` : vitesses, longueurs, rendu."""
     vitesses, source = _vitesses(config)
     mesures = longueurs(seance, **vitesses)
     if getattr(args, "json", False):
         print(json.dumps(rendre_json(seance, mesures, source), ensure_ascii=False, indent=2))
     else:
         print(rendre_texte(seance, mesures, source))
+    return 0
+
+
+def _valider_mode(
+    jour: str | None, depuis: str | None, jusqua: str | None, fichier: str | None = None
+) -> None:
+    if fichier and (depuis or jusqua):
+        raise ErreurUtilisateur(
+            "séance : --fichier-seance est exclusif de --depuis/--jusqua "
+            "— un fichier ne couvre qu'un seul jour"
+        )
+    if jour and (depuis or jusqua):
+        raise ErreurUtilisateur("séance : --jour et --depuis/--jusqua sont exclusifs")
+    if bool(depuis) != bool(jusqua):
+        raise ErreurUtilisateur("séance : --depuis et --jusqua se donnent ensemble")
+
+
+def _executer_periode(
+    args: argparse.Namespace, config: Config, client: ClientIntervals, depuis: date, jusqua: date
+) -> int:
+    """Le mode `--depuis`/`--jusqua` : une séance par jour de la plage, un seul appel réseau.
+
+    `seances_periode` porte déjà la garde `jusqua < depuis`. Chaque jour de la
+    plage figure dans le rendu, avec `seance: null` s'il n'y en a pas — un
+    jour vide s'y distingue donc d'un jour jamais demandé, qui n'apparaît
+    simplement pas.
+    """
+    resultats = seances_periode(
+        client,
+        depuis,
+        jusqua,
+        ftp_w=config.cycliste.ftp_w,
+        zones_puissance=config.seance.zones_pct,
+        puissance_endurance_pct=config.seance.puissance_endurance_pct,
+        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
+    )
+    vitesses, source = _vitesses(config)
+    if getattr(args, "json", False):
+        print(
+            json.dumps(
+                rendre_json_periode(depuis, jusqua, resultats, vitesses, source),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+    else:
+        print(rendre_texte_periode(depuis, jusqua, resultats, vitesses, source))
     return 0
 
 
@@ -243,6 +346,12 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
         + (f" (hors {inconnues} étape(s) sans puissance)" if inconnues else "")
     )
     lignes.append(source.resume)
+    if seance.meta.get("conversion"):
+        # Séance venue d'un fichier (`.ZWO`/`.MRC`, F1) : la conversion des
+        # pourcentages de FTP en watts doit être visible et dire qu'elle a eu
+        # lieu (docs/ux/maquettes_v1.html E17) — c'est ainsi que quelqu'un
+        # découvre que sa FTP est mal renseignée.
+        lignes.append(seance.meta["conversion"])
     if seance.meta.get("puissance_approximee"):
         lignes.extend(_approximation(seance))
     for message in _avertissements(seance):
@@ -395,6 +504,52 @@ def rendre_json(seance: Seance, mesures: list[LongueurEtape], source: SourceVite
     }
 
 
+def rendre_json_periode(
+    depuis: date,
+    jusqua: date,
+    resultats: dict[date, Seance | None],
+    vitesses: dict,
+    source: SourceVitesse,
+) -> dict:
+    """Une entrée par jour de `depuis` à `jusqua`, séance ou `null` — jamais d'absent.
+
+    L'objet `seance` de chaque jour a exactement la forme que rend
+    `rendre_json` pour `seance --jour` : un front qui sait déjà lire l'un sait
+    lire l'autre.
+    """
+    return {
+        "depuis": depuis.isoformat(),
+        "jusqua": jusqua.isoformat(),
+        "jours": [
+            {
+                "jour": jour.isoformat(),
+                "seance": None
+                if seance is None
+                else rendre_json(seance, longueurs(seance, **vitesses), source),
+            }
+            for jour, seance in sorted(resultats.items())
+        ],
+    }
+
+
+def rendre_texte_periode(
+    depuis: date,
+    jusqua: date,
+    resultats: dict[date, Seance | None],
+    vitesses: dict,
+    source: SourceVitesse,
+) -> str:
+    lignes = [f"Séances planifiées du {depuis.isoformat()} au {jusqua.isoformat()}", ""]
+    for jour, seance in sorted(resultats.items()):
+        if seance is None:
+            lignes.append(f"{jour.isoformat()} — aucune séance vélo planifiée.")
+            lignes.append("")
+            continue
+        lignes.append(rendre_texte(seance, longueurs(seance, **vitesses), source))
+        lignes.append("")
+    return "\n".join(lignes).rstrip("\n")
+
+
 # --- petits rendus ------------------------------------------------------------
 
 
@@ -444,4 +599,13 @@ def _duree_longue(secondes: float) -> str:
     return f"{minutes // 60} h {minutes % 60:02d}"
 
 
-__all__ = ["LongueurEtape", "SourceVitesse", "executer", "longueurs", "rendre_json", "rendre_texte"]
+__all__ = [
+    "LongueurEtape",
+    "SourceVitesse",
+    "executer",
+    "longueurs",
+    "rendre_json",
+    "rendre_json_periode",
+    "rendre_texte",
+    "rendre_texte_periode",
+]

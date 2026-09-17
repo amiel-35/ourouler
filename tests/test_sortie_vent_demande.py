@@ -121,7 +121,7 @@ def test_une_panne_meteo_ne_fait_pas_perdre_la_sortie():
     question, _ = demander(AUJOURDHUI, erreur=ErreurConnecteur("Open-Meteo : HTTP 429"))
     assert question.posee is False
     assert "429" in question.motif
-    assert question.azimut_pour(ORIENTATION_RETOUR_DOS) is None
+    assert question.azimuts_pour(ORIENTATION_RETOUR_DOS) == ()
 
 
 def test_un_vent_absent_de_la_prevision_est_une_ignorance_pas_un_zero():
@@ -147,21 +147,22 @@ def test_une_direction_absente_empeche_la_question_meme_avec_du_vent():
     ("reponse", "attendu"),
     [
         # Vent d'ouest (il vient de 270°). Pour rentrer avec, on part vers lui.
-        (ORIENTATION_RETOUR_DOS, 270.0),
-        (ORIENTATION_DEPART_DOS, 90.0),
-        (ORIENTATION_TRAVERS, 0.0),
-        (PEU_IMPORTE, None),
+        (ORIENTATION_RETOUR_DOS, (270.0,)),
+        (ORIENTATION_DEPART_DOS, (90.0,)),
+        # Q44 : le travers ouvre les **deux** flancs, 0° et 180°.
+        (ORIENTATION_TRAVERS, (0.0, 180.0)),
+        (PEU_IMPORTE, ()),
     ],
 )
 def test_chaque_reponse_dirige_la_recherche(reponse, attendu):
     question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=270.0)
-    assert question.azimut_pour(reponse) == attendu
+    assert question.azimuts_pour(reponse) == attendu
 
 
 def test_sans_question_posee_aucune_reponse_ne_dirige_la_recherche():
     """Sinon on chercherait dans une direction dictée par un vent qu'on ne sent pas."""
     question, _ = demander(AUJOURDHUI, vent_kmh=1.0, depuis_deg=270.0)
-    assert question.azimut_pour(ORIENTATION_RETOUR_DOS) is None
+    assert question.azimuts_pour(ORIENTATION_RETOUR_DOS) == ()
 
 
 # --- la validation de l'option ------------------------------------------------
@@ -190,7 +191,7 @@ def test_une_reponse_inconnue_nomme_les_reponses_possibles():
 #
 # Défaut relevé par les tests adversariaux du 17/09/2026 : la vitesse était
 # filtrée par `math.isfinite`, la direction par le seul `is None`. Une
-# direction `nan` passait les deux gardes, ressortait de `azimut_pour`
+# direction `nan` passait les deux gardes, ressortait de `azimuts_pour`
 # (`nan % 360` vaut `nan`) et partait chez BRouter en
 # `roundTripStartDirection=nan`.
 
@@ -200,7 +201,7 @@ def test_une_direction_de_vent_non_finie_ne_pose_pas_la_question(valeur):
     question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=valeur)
     assert question.posee is False
     assert question.vent_depuis_deg is None
-    assert question.azimut_pour(ORIENTATION_RETOUR_DOS) is None
+    assert question.azimuts_pour(ORIENTATION_RETOUR_DOS) == ()
 
 
 @pytest.mark.parametrize("valeur", [float("nan"), float("inf"), float("-inf")])
@@ -210,9 +211,51 @@ def test_une_vitesse_de_vent_non_finie_ne_pose_pas_la_question(valeur):
     assert question.vent_kmh is None
 
 
-def test_aucun_azimut_non_fini_ne_sort_jamais_d_azimut_pour():
+def test_aucun_azimut_non_fini_ne_sort_jamais_d_azimuts_pour():
     """`QuestionVent` est un objet public : la barrière tient même quand on le
     construit à la main, sans passer par `interroger`."""
     question = QuestionVent(vent_kmh=25.0, vent_depuis_deg=float("nan"), posee=True)
     for reponse in CHOIX:
-        assert question.azimut_pour(reponse) is None
+        assert question.azimuts_pour(reponse) == ()
+
+
+# --- Q44 : le travers ouvre deux azimuts opposés ------------------------------
+#
+# La trouvaille du mainteneur (17/09/2026) et la raison pour laquelle elle
+# compte : deux directions séparées de 180° ne partagent que 0,4 % de leurs
+# routes, contre 28 % à 30° d'écart. La préférence qui contraint le moins
+# l'azimut est celle qui produit les propositions les moins ressemblantes.
+
+
+@pytest.mark.parametrize("depuis_deg", [0.0, 45.0, 180.0, 270.0, 315.0])
+def test_le_travers_ouvre_deux_azimuts_opposes(depuis_deg):
+    question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=depuis_deg)
+    azimuts = question.azimuts_pour(ORIENTATION_TRAVERS)
+    assert len(azimuts) == 2
+    ecart = abs(azimuts[0] - azimuts[1]) % 360.0
+    assert ecart == pytest.approx(180.0), f"{azimuts} ne sont pas opposés"
+
+
+@pytest.mark.parametrize(
+    "reponse", [ORIENTATION_RETOUR_DOS, ORIENTATION_DEPART_DOS]
+)
+def test_dos_au_depart_et_dos_au_retour_n_en_fixent_qu_un(reponse):
+    """Une seule direction remplit la condition : on n'en invente pas une seconde."""
+    question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=270.0)
+    assert len(question.azimuts_pour(reponse)) == 1
+
+
+def test_dos_au_depart_et_dos_au_retour_sont_opposes_l_un_a_l_autre():
+    """Le tableau de Q44 : « un azimut » et « un azimut, l'opposé »."""
+    question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=123.0)
+    (retour,) = question.azimuts_pour(ORIENTATION_RETOUR_DOS)
+    (depart,) = question.azimuts_pour(ORIENTATION_DEPART_DOS)
+    assert abs(retour - depart) % 360.0 == pytest.approx(180.0)
+
+
+def test_tout_azimut_rendu_reste_dans_le_tour_de_l_horizon():
+    """`roundTripStartDirection` reçoit un azimut, pas 450°."""
+    question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=350.0)
+    for reponse in CHOIX:
+        for azimut in question.azimuts_pour(reponse):
+            assert 0.0 <= azimut < 360.0

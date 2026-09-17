@@ -4,10 +4,15 @@ Toutes les traces sont **fabriquées** autour de (0.0, 0.0), en pleine mer dans
 le golfe de Guinée : aucune coordonnée réelle, aucun réseau (règles absolues 1
 et 3).
 
-Ce que ces tests doivent attraper, et qui est le point dur du lot : une
-proposition qui entre dans le trio **sans avoir de phrase**, et deux
+Ce que ces tests doivent attraper, et qui est le point dur du lot : deux
 propositions qui se ressemblent sur la carte malgré des notes très
-différentes.
+différentes, et une phrase de distinction qui affirme quelque chose de faux.
+
+Depuis Q43 (17/09/2026), une proposition **sans phrase** n'est plus un
+défaut : le recouvrement est le seul verrou, et une boucle qui va ailleurs
+est servie même si l'on ne sait pas dire en un mot ce qui la sépare des
+autres. Q45 ajoute son pendant : quand aucune ne se détache, le produit le
+dit au lieu de fabriquer une différence.
 """
 
 from __future__ import annotations
@@ -154,17 +159,27 @@ def selection_de(profils: list[Profil], *, traces: list[Trace] | None = None):
 
 
 # --- la marge est dans l'unité de l'axe, jamais un pourcentage de note ---------
+#
+# Depuis Q43 (17/09/2026), un axe non gagné ne retire plus une proposition du
+# groupe : il la laisse sans phrase. Ces tests portent donc sur la **phrase**,
+# pas sur le compte de retenues — c'est le recouvrement qui décide du compte.
 
 
-def test_un_ecart_de_duree_sous_le_pas_ne_distingue_pas():
+def test_un_ecart_de_duree_sous_le_pas_ne_donne_pas_de_phrase():
+    """Sous le pas, personne ne gagne l'axe — mais les deux boucles restent servies.
+
+    Elles vont à des endroits différents (tracés disjoints), et depuis Q43
+    c'est tout ce qu'on leur demande.
+    """
     selection, _ = selection_de(
         [
             profil(duree_s=7200.0),
             profil(duree_s=7200.0 + PAS_DUREE_S - 1),
         ]
     )
-    assert len(selection.retenues) == 1
-    assert "une marge perceptible" in (selection.motif_deux_propositions or "")
+    assert len(selection.retenues) == 2
+    assert [r.axe_distinctif for r in selection.retenues] == ["", ""]
+    assert [r.distinction for r in selection.retenues] == ["", ""]
 
 
 def test_un_ecart_de_duree_au_pas_distingue_si_l_autre_gagne_un_axe():
@@ -189,14 +204,14 @@ def test_un_ecart_de_duree_au_pas_distingue_si_l_autre_gagne_un_axe():
     ],
 )
 def test_chaque_axe_numerique_a_sa_marge(champ, pas, axe):
-    """Juste sous le pas, rien ; au pas, l'axe est gagné."""
+    """Juste sous le pas, personne ne gagne l'axe ; au pas, il est gagné."""
     haut = {"densite_marqueurs_km": 3.0, "part_trafic": 0.5, "pluie_mm": 2.0, "note_terrain": 4.0}[
         champ
     ]
     trop_peu, _ = selection_de(
         [profil(**{champ: haut - pas + pas / 100}), profil(**{champ: haut}, duree_s=7200.0)]
     )
-    assert len(trop_peu.retenues) == 1
+    assert axe not in {r.axe_distinctif for r in trop_peu.retenues}
     assez, _ = selection_de(
         [
             profil(**{champ: haut - pas}, duree_s=7200.0 + PAS_DUREE_S),
@@ -206,11 +221,17 @@ def test_chaque_axe_numerique_a_sa_marge(champ, pas, axe):
     assert {r.axe_distinctif for r in assez.retenues} == {axe, AXE_DUREE}
 
 
-# --- condition a) : chacune la meilleure sur un axe, et un axe différent ------
+# --- Q43 : le tracé se distingue par lui-même, l'axe ne filtre plus -----------
 
 
-def test_une_candidate_sans_aucun_axe_gagne_n_entre_pas_dans_le_trio():
-    """Elle est dominée partout : elle n'a rien à dire, donc elle n'existe pas."""
+def test_une_candidate_sans_aucun_axe_gagne_entre_quand_meme_dans_le_trio():
+    """Q43 : dominée sur tous les axes, mais elle va ailleurs — donc elle existe.
+
+    C'est le renversement du 17/09/2026. Avant, elle était jetée parce qu'on
+    ne savait pas écrire une phrase sur elle, et deux routes franchement
+    différentes disparaissaient avec elle. Elle est servie **sans phrase**,
+    ce qui est exactement ce qu'on sait d'elle.
+    """
     selection, _ = selection_de(
         [
             profil(duree_s=6000.0, part_trafic=0.20),
@@ -219,15 +240,52 @@ def test_une_candidate_sans_aucun_axe_gagne_n_entre_pas_dans_le_trio():
         ]
     )
     numeros = [r.proposition.numero for r in selection.retenues]
-    assert 2 not in numeros
+    assert numeros == [1, 2, 3]
+    muette = next(r for r in selection.retenues if r.proposition.numero == 2)
+    assert muette.axe_distinctif == ""
+    assert muette.distinction == ""
+
+
+def test_trois_boucles_disjointes_sans_le_moindre_axe_font_trois_propositions():
+    """Le cas de Q44 en éprouvette : trois profils identiques, trois routes ailleurs.
+
+    Avant Q43, aucune ne gagnait d'axe et la sélection n'en rendait qu'une —
+    le gain mesuré (1,4 % de recouvrement médian) était absorbé en entier.
+    """
+    selection, _ = selection_de([profil(), profil(), profil()])
+    assert len(selection.retenues) == 3
+    assert selection.motif_deux_propositions is None
+    assert all(part <= SEUIL_RECOUVREMENT for part in selection.recouvrements.values())
 
 
 def test_deux_candidates_ne_peuvent_pas_gagner_le_meme_axe():
-    """Le meilleur d'un axe est unique : deux propositions ne s'y partagent pas."""
+    """Le meilleur d'un axe est unique : deux propositions ne s'y partagent pas.
+
+    C'est ce qui rend l'attribution des axes possible sans arbitrage — voir
+    `contraste._attribuer`. La dominée reste servie, mais sans la phrase.
+    """
     selection, _ = selection_de(
         [profil(duree_s=7200.0), profil(duree_s=7200.0 + 3 * PAS_DUREE_S)]
     )
-    assert len(selection.retenues) == 1
+    assert [r.axe_distinctif for r in selection.retenues] == [AXE_DUREE, ""]
+
+
+def test_les_axes_attribues_sont_toujours_distincts():
+    """L'invariant sur lequel repose l'attribution sans arbitrage.
+
+    Chaque profil prend son meilleur axe sans regarder ce que prennent les
+    autres ; si deux pouvaient gagner le même, deux propositions porteraient
+    la même phrase, et l'une des deux mentirait.
+    """
+    selection, _ = selection_de(
+        [
+            profil(duree_s=7200.0, part_trafic=0.20, pluie_mm=3.0),
+            profil(duree_s=7200.0 + 2 * PAS_DUREE_S, part_trafic=0.60, pluie_mm=0.0),
+            profil(duree_s=7200.0 + 4 * PAS_DUREE_S, part_trafic=0.90, pluie_mm=3.0),
+        ]
+    )
+    attribues = [r.axe_distinctif for r in selection.retenues if r.axe_distinctif]
+    assert len(attribues) == len(set(attribues)), attribues
 
 
 def test_la_premiere_du_tri_est_toujours_proposee():
@@ -284,10 +342,17 @@ def test_trois_orientations_differentes_font_trois_propositions():
 
 
 def test_deux_candidates_de_meme_orientation_ne_gagnent_pas_le_vent():
+    """Aucune n'est la seule de son orientation : le vent ne distingue ni l'une ni l'autre.
+
+    Les deux sont servies quand même — elles vont ailleurs — mais aucune ne
+    peut dire « vent de travers » comme si c'était ce qui la sépare de
+    l'autre.
+    """
     selection, _ = selection_de(
         [profil(orientation=ORIENTATION_TRAVERS), profil(orientation=ORIENTATION_TRAVERS)]
     )
-    assert len(selection.retenues) == 1
+    assert len(selection.retenues) == 2
+    assert [r.axe_distinctif for r in selection.retenues] == ["", ""]
 
 
 def test_un_vent_inconnu_ne_distingue_rien_et_ne_penalise_rien():
@@ -396,6 +461,79 @@ def test_un_vent_trop_faible_n_a_pas_d_orientation():
 def test_sans_meteo_l_orientation_est_inconnue():
     assert orientation_au_vent(None) is None
     assert orientation_au_vent(meteo_trace([])) is None
+
+
+# --- Q45 : quand rien ne distingue rien, le dire ------------------------------
+
+
+def test_trois_boucles_qui_se_valent_le_disent():
+    """Mots du mainteneur : « pas de pluie, peu de vent, tout est plat ».
+
+    Trois profils identiques : aucun axe ne peut rien dire. Le produit
+    l'annonce au lieu de chercher une différence qui n'existe pas.
+    """
+    selection, _ = selection_de([profil(), profil(), profil()])
+    motif = selection.motif_equivalence or ""
+    assert "Ces trois boucles se valent" in motif
+    assert "Choisissez où vous voulez aller." in motif
+
+
+def test_la_phrase_d_equivalence_nomme_les_axes_qui_ne_disaient_rien():
+    """Règle absolue 5 : « elles se valent » est une affirmation, elle se mesure.
+
+    Le cycliste doit lire **ce qui** valait la même chose, sinon on lui
+    demande de nous croire sur parole.
+    """
+    selection, _ = selection_de([profil(), profil()])
+    motif = selection.motif_equivalence or ""
+    assert "Ces deux boucles se valent" in motif
+    for nom in ("la pluie", "les demi-tours", "le terrain sous les blocs"):
+        assert nom in motif, motif
+
+
+def test_un_axe_qui_varie_trop_peu_se_dit_autrement_qu_un_axe_identique():
+    """« Trop petit pour se dire » n'est pas « identique » — et on ne confond pas.
+
+    Trois parts de trafic échelonnées de 15 points, pour un pas de 10 : l'axe
+    sépare bien les extrêmes, mais aucune des trois n'est meilleure que
+    **toutes** les autres d'un pas entier. Prétendre qu'elles roulent autant
+    sur les nationales serait faux ; leur y donner un vainqueur aussi.
+    """
+    selection, _ = selection_de(
+        [
+            profil(part_trafic=0.20),
+            profil(part_trafic=0.15),
+            profil(part_trafic=0.30),
+        ]
+    )
+    assert [r.axe_distinctif for r in selection.retenues] == ["", "", ""]
+    motif = selection.motif_equivalence or ""
+    assert "les nationales varient d'une boucle à l'autre" in motif
+    assert "aucune ne s'en détache d'une marge qui se dise" in motif
+    assert "la pluie" in motif and "valaient la même chose sur les trois" in motif
+
+
+def test_aucune_phrase_d_equivalence_des_qu_une_proposition_se_detache():
+    """Dire « elles se valent » alors que l'une se distingue serait un mensonge."""
+    selection, _ = selection_de(
+        [
+            profil(duree_s=7200.0, part_trafic=0.50),
+            profil(duree_s=7200.0 + PAS_DUREE_S, part_trafic=0.50 - PAS_TRAFIC_PART),
+        ]
+    )
+    assert selection.motif_equivalence is None
+
+
+def test_une_seule_proposition_n_est_pas_une_equivalence():
+    """Rien à comparer : `motif_deux_propositions` couvre déjà ce cas."""
+    commune = droite(50_000.0, lat=0.0)
+    selection, _ = selection_de(
+        [profil(), profil()],
+        traces=[commune, commune],
+    )
+    assert len(selection.retenues) == 1
+    assert selection.motif_equivalence is None
+    assert selection.motif_deux_propositions
 
 
 # --- cas dégénérés ------------------------------------------------------------

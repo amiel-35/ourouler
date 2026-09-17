@@ -17,9 +17,25 @@ dependencies = [
 ourouler = "ourouler.cli:main"
 
 [project.optional-dependencies]
+# L'API (lot F1) et son serveur. Extra séparé : `ourouler` reste une
+# bibliothèque et une ligne de commande installables sans cadre web.
+# `doctrine_architecture.md:74` autorisait Pydantic « tant qu'il n'y a pas
+# d'API » — l'API arrive, FastAPI l'apporte.
+api = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    # Le dépôt d'un .ZWO/.MRC passe par un formulaire multipart : FastAPI
+    # délègue son analyse à cette bibliothèque, qu'il ne tire pas tout seul.
+    "python-multipart>=0.0.9",
+]
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+    # L'extra `api` est repris ici pour que `uv run pytest` couvre
+    # réellement les tests de l'API plutôt que de les sauter.
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "python-multipart>=0.0.9",
 ]
 
 [build-system]

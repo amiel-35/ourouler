@@ -15,11 +15,13 @@ import pytest
 
 from ourouler.connecteurs.openmeteo_archive import (
     VARIABLES_HORAIRES,
+    VERSION_SCHEMA,
     ClientArchive,
     HeureArchive,
     arrondir,
 )
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.proprietaire import PROPRIETAIRE_PARTAGE
 
 JOUR = date(2026, 3, 15)
 AUJOURD_HUI = date(2026, 9, 13)
@@ -39,10 +41,14 @@ def charge_complete(n: int = 24) -> dict:
     }
 
 
-def client(gestionnaire, chemin_cache: Path | None = None) -> ClientArchive:
+def client(
+    gestionnaire, chemin_cache: Path | None = None, proprietaire: str | None = None
+) -> ClientArchive:
+    extra = {} if proprietaire is None else {"proprietaire": proprietaire}
     return ClientArchive(
         http=httpx.Client(transport=httpx.MockTransport(gestionnaire)),
         chemin_cache=chemin_cache,
+        **extra,
     )
 
 
@@ -386,3 +392,138 @@ def test_le_cache_est_bien_un_sqlite_lisible(tmp_path: Path):
     assert len(lignes) == 1
     assert lignes[0][:3] == (0.0, 0.0, "2026-03-15")
     assert len(json.loads(lignes[0][3])) == 24
+
+
+# --- propriétaire et migration (doctrine §10.1 et §10.2) ----------------------
+#
+# L'archive est le seul dépôt dont la donnée se mutualise honnêtement : le vent
+# du 15 mars en un point est le même pour tout le monde. La colonne est là quand
+# même, et vaut `PROPRIETAIRE_PARTAGE` — le partage écrit plutôt que déduit
+# d'une absence de colonne.
+
+#: Le schéma 1, tel qu'il était écrit : clé `(lat, lon, jour)`, pas de colonne
+#: `proprietaire`. Recopié ici pour que le test continue de décrire l'ancien
+#: cache même quand le module ne le connaîtra plus.
+_SCHEMA_V1 = """
+CREATE TABLE archive (
+    lat        REAL NOT NULL,
+    lon        REAL NOT NULL,
+    jour       TEXT NOT NULL,
+    heures     TEXT NOT NULL,
+    obtenue_le TEXT NOT NULL,
+    PRIMARY KEY (lat, lon, jour)
+);
+"""
+
+
+def _cache_v1(chemin: Path, heures: int = 24) -> None:
+    import sqlite3
+
+    charge = json.dumps(
+        [
+            {
+                "t": f"2026-03-15T{h:02d}:00:00+00:00",
+                "vent_kmh": 10.0 + h,
+                "vent_depuis_deg": 180.0,
+                "temp_c": 8.0,
+                "pression_hpa": 1010.0,
+            }
+            for h in range(heures)
+        ]
+    )
+    cx = sqlite3.connect(chemin)
+    try:
+        cx.executescript(_SCHEMA_V1)
+        cx.execute(
+            "INSERT INTO archive (lat, lon, jour, heures, obtenue_le) VALUES (?,?,?,?,?)",
+            (0.0, 0.0, "2026-03-15", charge, "2026-03-16T00:00:00"),
+        )
+        cx.execute("PRAGMA user_version = 1")
+        cx.commit()
+    finally:
+        cx.close()
+
+
+def jamais_appele(requete: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"le service ne devait pas être appelé : {requete.url}")
+
+
+def test_un_cache_au_schema_1_est_migre_sans_perdre_une_heure(tmp_path: Path):
+    """Les heures déjà mémoïsées survivent et restent lisibles sans rappeler le service."""
+    chemin = tmp_path / "a.sqlite"
+    _cache_v1(chemin)
+
+    c = client(jamais_appele, chemin)
+    heures = c.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
+
+    assert len(heures) == 24
+    assert heures[0].vent_kmh == 10.0
+    assert c.appels == 0, "la migration ne doit pas faire retélécharger l'archive"
+    assert _lignes_en_cache(chemin) == 1
+
+
+def test_les_lignes_migrees_sont_rattachees_au_proprietaire_partage(tmp_path: Path):
+    import sqlite3
+
+    chemin = tmp_path / "a.sqlite"
+    _cache_v1(chemin)
+    client(jamais_appele, chemin)
+    cx = sqlite3.connect(chemin)
+    try:
+        assert cx.execute("SELECT DISTINCT proprietaire FROM archive").fetchall() == [
+            (PROPRIETAIRE_PARTAGE,)
+        ]
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+    finally:
+        cx.close()
+
+
+def test_migrer_un_cache_deja_migre_ne_le_touche_pas(tmp_path: Path):
+    """Une migration idempotente : le second passage ne recopie rien."""
+    import sqlite3
+
+    chemin = tmp_path / "a.sqlite"
+    _cache_v1(chemin)
+    client(jamais_appele, chemin)
+
+    def empreinte():
+        cx = sqlite3.connect(chemin)
+        try:
+            return (
+                cx.execute("SELECT type, name, sql FROM sqlite_master ORDER BY name").fetchall(),
+                cx.execute("SELECT rowid, lat, lon, jour FROM archive ORDER BY rowid").fetchall(),
+            )
+        finally:
+            cx.close()
+
+    avant = empreinte()
+    client(jamais_appele, chemin)
+    client(jamais_appele, chemin)
+    assert empreinte() == avant
+
+
+def test_un_autre_proprietaire_ne_lit_pas_le_cache_partage(tmp_path: Path):
+    """La clause n'est pas décorative : elle filtre pour de bon.
+
+    Un client avec un autre propriétaire ne trouve rien et rappelle le service
+    — c'est la preuve que le `WHERE` mord, et que le jour où l'on voudra des
+    caches séparés il n'y aura rien à changer.
+    """
+    chemin = tmp_path / "a.sqlite"
+    client(reponse(charge_complete()), chemin).horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)
+
+    autre = client(reponse(charge_complete()), chemin, proprietaire="utilisateur-b")
+    assert len(autre.horaires(0.0, 0.0, JOUR, aujourd_hui=AUJOURD_HUI)) == 24
+    assert autre.appels == 1, "le cache d'un autre propriétaire ne doit pas être lu"
+    assert _lignes_en_cache(chemin) == 2
+
+
+@pytest.mark.parametrize("mauvais", ["", "   ", None, 12])
+def test_un_proprietaire_vide_ou_absurde_est_refuse(mauvais):
+    """Un `WHERE proprietaire = ''` ne rendrait jamais rien : on refuse à la
+    construction plutôt que de laisser un cache qui semble vide."""
+    with pytest.raises(ErreurUtilisateur):
+        ClientArchive(
+            http=httpx.Client(transport=httpx.MockTransport(jamais_appele)),
+            proprietaire=mauvais,
+        )

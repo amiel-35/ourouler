@@ -441,3 +441,198 @@ def test_le_seuil_de_la_configuration_est_utilise(tmp_path, capsys):
     # 80-85 % de FTP passe sous un seuil à 90 % : plus aucun bloc.
     assert charge["meta"]["seuil_recuperation_pct"] == 0.90
     assert charge["n_blocs"] == 0
+
+
+# --- plage --depuis/--jusqua (F0.3) --------------------------------------------
+
+
+def test_plage_json_couvre_chaque_jour_seance_ou_non(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    config = config_de_test(tmp_path)
+    evenements = [
+        W.evenement(W.groupes_watts(), nom="Lundi", identifiant=1, jour="2026-09-07"),
+        W.evenement(W.groupes_watts(), nom="Mercredi", identifiant=2, jour="2026-09-09"),
+    ]
+    code = executer(
+        args(jour=None, depuis="2026-09-07", jusqua="2026-09-09", json=True),
+        config,
+        client=client_bouchon(evenements),
+    )
+    assert code == 0
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["depuis"] == "2026-09-07"
+    assert charge["jusqua"] == "2026-09-09"
+    jours = {j["jour"]: j["seance"] for j in charge["jours"]}
+    assert list(jours) == ["2026-09-07", "2026-09-08", "2026-09-09"]
+    assert jours["2026-09-07"]["nom"] == "Lundi"
+    assert jours["2026-09-08"] is None  # jour demandé, sans séance : distinct d'un jour absent
+    assert jours["2026-09-09"]["nom"] == "Mercredi"
+    # La séance de la plage a la même forme que celle de `seance --jour`.
+    assert "etapes" in jours["2026-09-07"] and "distance_estimee_m" in jours["2026-09-07"]
+
+
+def test_plage_texte_dit_les_jours_vides(tmp_path, capsys):
+    config = config_de_test(tmp_path)
+    evenements = [W.evenement(W.groupes_watts(), nom="Mercredi", jour="2026-09-09")]
+    executer(
+        args(jour=None, depuis="2026-09-07", jusqua="2026-09-09"),
+        config,
+        client=client_bouchon(evenements),
+    )
+    sortie = capsys.readouterr().out
+    assert "2026-09-07 — aucune séance vélo planifiée." in sortie
+    assert "2026-09-08 — aucune séance vélo planifiée." in sortie
+    assert "Mercredi" in sortie
+
+
+def test_plage_un_seul_appel_reseau(tmp_path, capsys):
+    config = config_de_test(tmp_path)
+    urls: list[httpx.URL] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        urls.append(requete.url)
+        return httpx.Response(200, json=[])
+
+    client = ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    executer(args(jour=None, depuis="2026-09-07", jusqua="2026-09-13"), config, client=client)
+    assert len(urls) == 1
+    assert urls[0].params["oldest"] == "2026-09-07"
+    assert urls[0].params["newest"] == "2026-09-13"
+
+
+def test_jour_et_plage_ensemble_sont_refuses(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="exclusifs"):
+        executer(
+            args(depuis="2026-09-07", jusqua="2026-09-13"), config, client=client_bouchon([])
+        )
+
+
+def test_depuis_sans_jusqua_est_refuse(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="ensemble"):
+        executer(args(jour=None, depuis="2026-09-07"), config, client=client_bouchon([]))
+
+
+def test_plage_inversee_est_refusee(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur):
+        executer(
+            args(jour=None, depuis="2026-09-13", jusqua="2026-09-07"),
+            config,
+            client=client_bouchon([]),
+        )
+
+
+# --- --fichier-seance (F1, C1 de docs/ux/relecture_f0.md) ---------------------
+
+ZWO_FABRIQUE = (
+    "<?xml version='1.0'?>\n<workout_file>\n<name>4x8 fabriquée (fichier)</name>\n"
+    '<workout><SteadyState Duration="480" Power="0.9"/></workout>\n'
+    "</workout_file>\n"
+)
+
+
+def _ecrire_zwo(tmp_path: Path) -> Path:
+    chemin = tmp_path / "seance.zwo"
+    chemin.write_text(ZWO_FABRIQUE, encoding="utf-8")
+    return chemin
+
+
+def test_fichier_seance_ne_touche_jamais_intervals(tmp_path):
+    """Un `client` est donné mais ne doit jamais être sollicité : la preuve
+    qu'un fichier remplace vraiment Intervals.icu, pas seulement en apparence."""
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        raise AssertionError("Intervals.icu appelé alors qu'un fichier était donné")
+
+    client = ClientIntervals(
+        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    code = executer(args(jour=None, fichier_seance=str(chemin)), config, client=client)
+    assert code == 0
+
+
+def test_fichier_seance_affiche_la_seance_lue(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin)), config)
+    sortie = capsys.readouterr().out
+    assert "4x8 fabriquée (fichier)" in sortie
+    assert "8 min" in sortie or "8:00" in sortie
+
+
+def test_fichier_seance_dit_la_conversion_en_watts(tmp_path, capsys):
+    """C1 + E17 : la conversion pourcentage → watts est visible en texte."""
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin)), config)
+    sortie = capsys.readouterr().out
+    assert f"FTP de {FTP:g} W" in sortie
+
+
+def test_fichier_seance_json_porte_la_conversion_dans_meta(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, json=True, fichier_seance=str(chemin)), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["meta"]["source"] == "zwo"
+    assert "convertis en watts" in charge["meta"]["conversion"]
+
+
+def test_fichier_seance_utilise_le_jour_donne(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour="2026-01-05", fichier_seance=str(chemin), json=True), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["jour"] == "2026-01-05"
+
+
+def test_fichier_seance_sans_jour_vaut_aujourd_hui(tmp_path, capsys):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin), json=True), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["jour"] == date.today().isoformat()
+
+
+def test_fichier_seance_utilise_le_modele_calibre_comme_les_autres_modes(tmp_path, capsys):
+    ecrire_calibration_de_test(tmp_path)
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    executer(args(jour=None, fichier_seance=str(chemin), json=True), config)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["vitesses"]["provenance"] == "calibration"
+
+
+def test_fichier_seance_exclusif_de_depuis_jusqua(tmp_path):
+    chemin = _ecrire_zwo(tmp_path)
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="exclusif"):
+        executer(
+            args(
+                jour=None,
+                fichier_seance=str(chemin),
+                depuis="2026-09-07",
+                jusqua="2026-09-13",
+            ),
+            config,
+        )
+
+
+def test_fichier_seance_inexistant_est_une_erreur_utilisateur(tmp_path):
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur):
+        executer(args(jour=None, fichier_seance=str(tmp_path / "absent.zwo")), config)
+
+
+def test_fichier_seance_extension_inconnue_nomme_l_extension(tmp_path):
+    chemin = tmp_path / "seance.fit"
+    chemin.write_text("peu importe", encoding="utf-8")
+    config = config_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="inconnue"):
+        executer(args(jour=None, fichier_seance=str(chemin)), config)

@@ -33,8 +33,8 @@ import math
 import sys
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import date, datetime
 from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
@@ -42,13 +42,20 @@ from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
+from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
-from ourouler.config import Config
+from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import (
+    ErreurConfig,
+    ErreurConnecteur,
+    ErreurDistanceInatteignable,
+    ErreurUtilisateur,
+)
+from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, NOMS_DIRECTIONS_16, azimut_de
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -133,6 +140,13 @@ class Evaluation:
     azimut_deg: float | None
     rayon_m: float | None
     total: float
+    #: De combien il a fallu élargir la tolérance de distance pour accepter
+    #: cette boucle, par paliers de 5 % (Q41 d). `0.0` : elle y tenait déjà.
+    #: `None` : la question ne se pose pas (GPX importé, pas de cible).
+    elargissement: float | None = None
+    #: La tolérance de distance en vigueur, pour que l'écran puisse dire
+    #: « ±10 % demandés, ±20 % servis » sans aller la relire ailleurs.
+    tolerance_distance: float | None = None
     #: Part des kilomètres déjà roulés, entre 0 et 1, ou `None` si aucune base
     #: de routes connues n'existe. **Informative** : elle n'entre dans aucun
     #: score (contrat du sprint 3 §2 — « inconnu » n'est jamais un malus).
@@ -153,8 +167,35 @@ def executer(
     config: Config,
     client_brouter: ClientBrouter | None = None,
     client_meteo: ClientOpenMeteo | None = None,
+    *,
+    lieu_depart: Depart | None = None,
 ) -> int:
-    """Exécute `ourouler boucle`. Renvoie le code de sortie (0 = succès)."""
+    """Exécute `ourouler boucle`. Renvoie le code de sortie (0 = succès).
+
+    `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
+    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
+    requête d'API demain. Absent, c'est celui de la configuration. Le cœur ne
+    géocode rien, ne lit aucune adresse et ne sait pas d'où vient ce point
+    (règle absolue 2) — il reçoit un `Depart`.
+
+    À ne pas confondre avec `demande.depart`, qui porte une **heure**.
+
+    Ce qui ne suit pas le départ : les **routes connues** et les **poids
+    appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
+    autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
+    connue est informative et n'entre dans aucun score (contrat du sprint 3
+    §2) — mais elle tombera naturellement à zéro loin de chez soi. `cli.py`
+    le dit sur la sortie d'erreur plutôt que de laisser croire à un tracé
+    inédit.
+    """
+    if lieu_depart is not None:
+        # Substitué dans la `Config` plutôt que passé de fonction en fonction :
+        # la génération des candidates, les en-têtes de texte et le JSON lisent
+        # tous `config.depart`, et un seul de ces points oublié rendrait une
+        # réponse fausse — une boucle autour de la maison pour une adresse à
+        # 400 km. `Config` est un dataclass gelé : `replace` rend une copie, la
+        # configuration de l'appelant n'est pas touchée.
+        config = replace(config, depart=lieu_depart)
     demande = lire_options(args, config)
 
     if demande.gpx is not None:
@@ -167,25 +208,7 @@ def executer(
             # le cœur ne connaît pas la configuration, il la reçoit.
             else ClientBrouter(config.brouter, evitements=config.evitements)
         )
-        trouvees = generer(
-            client_brouter,
-            config.depart,
-            distance_km=demande.distance_km,
-            azimut_deg=demande.azimut_deg,
-            nb=demande.nb_candidates,
-            tolerance=config.boucle.tolerance_distance,
-            profil=demande.profil,
-            # Le plafond d'appels suit le nombre de candidates demandées :
-            # sinon, cinq directions demandées face à un moteur qui n'arrive
-            # pas à la distance voulue en rendaient trois, sans rien en dire.
-            appels_max=appels_pour(demande.nb_candidates),
-        )
-        if not trouvees:
-            raise ErreurConnecteur(
-                f"boucle : aucune boucle bornée trouvée autour de {demande.direction} "
-                f"pour {demande.distance_km:g} km (profil {demande.profil}) — "
-                "essayer une autre direction, une autre distance ou un autre profil"
-            )
+        trouvees = _generer_candidates(client_brouter, config, demande)
         traces = [(c.trace, c.ecart_relatif, c) for c in trouvees]
 
     # Les trois fichiers appris ou calibrés (L3.2, L3.3) sont lus **ici** et
@@ -201,10 +224,24 @@ def executer(
     base_routes = _base_routes(config)
     modele = _modele_temps(args, config)
 
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
-    meteos, panne, vitesses = _meteos(
-        [t for t, _, _ in traces], client_meteo, config, depart=demande.depart, modele=modele
+    # Q40 (a) : une heure de départ trop lointaine ne se refuse pas, elle se
+    # sert **sans météo** — et sans appeler Open-Meteo pour récolter des blocs
+    # vides. Même règle et même phrase que `ourouler sortie`.
+    dernier_jour = portee.dernier_jour_couvert(
+        config.meteo.horizon_jours, aujourdhui=date.today()
     )
+    jour_demande = demande.depart.date()
+    meteo_absente = (
+        portee.constater(jour_demande, dernier_jour) if jour_demande > dernier_jour else None
+    )
+    if meteo_absente is not None:
+        meteos, panne = [None] * len(traces), None
+        vitesses = [_vitesse_meteo(t, modele, config) for t, _, _ in traces]
+    else:
+        client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+        meteos, panne, vitesses = _meteos(
+            [t for t, _, _ in traces], client_meteo, config, depart=demande.depart, modele=modele
+        )
     evaluations = _classer(
         traces,
         meteos,
@@ -216,16 +253,32 @@ def executer(
     )
     chemin = _ecrire_meilleure(evaluations[0].trace, demande) if demande.gpx is None else None
 
+    if meteo_absente is None and panne is not None:
+        meteo_absente = portee.constater(jour_demande, dernier_jour)
     if panne is not None:
         print(
             f"ourouler : météo indisponible ({panne}) — tableau affiché sans les "
             "colonnes météo, la boucle reste valable",
             file=sys.stderr,
         )
+    elif meteo_absente is not None:
+        print(
+            f"ourouler : {meteo_absente.message} — tableau affiché sans les colonnes météo, "
+            "la boucle reste valable",
+            file=sys.stderr,
+        )
     if getattr(args, "json", False):
         print(
             json.dumps(
-                rendre_json(evaluations, demande, config, chemin, modele, poids=poids),
+                rendre_json(
+                    evaluations,
+                    demande,
+                    config,
+                    chemin,
+                    modele,
+                    poids=poids,
+                    meteo_absente=meteo_absente,
+                ),
                 ensure_ascii=False,
                 indent=2,
             )
@@ -233,6 +286,66 @@ def executer(
     else:
         print(rendre_texte(evaluations, demande, config, chemin, modele, poids=poids))
     return 0
+
+
+def _generer_candidates(client: ClientBrouter, config: Config, demande: Demande) -> list:
+    """Les boucles candidates : la direction demandée, ou tout le tour de l'horizon.
+
+    Même logique que `sortie._candidates` (Q47) — reprise, pas refaite. Sans
+    `--direction`, `boucle` ne choisissait pas moins que `sortie`, elle
+    **refusait** : « --direction … est obligatoire ». C'était une contrainte
+    héritée d'une commande qui n'avait jamais appris à balayer, pas un choix
+    de conception (le mainteneur l'a relevé lui-même — Q47). Elle répartit
+    donc désormais les candidates sur les huit directions, **un appel à
+    `generer` par azimut** : c'est ce qui garantit que chaque direction
+    reçoit sa part plutôt que de laisser `generer` élargir un seul secteur
+    (`boucle.candidates.azimuts` balaie ±20°, ±40°… autour d'un azimut, il
+    n'en ouvre jamais un second).
+
+    Le plafond d'appels suit toujours la demande : `appels_pour(nb)` est le
+    même mécanisme que celui que `sortie` utilise déjà, pas un second inventé
+    ici pour l'occasion.
+
+    Le refus sur la distance (`ErreurDistanceInatteignable`, Q41 d) est donc
+    **par direction**, comme dans `sortie` : une direction où le terrain ne
+    sait pas faire la distance ne doit pas faire perdre les directions où il
+    sait. Il n'est relancé que si **aucune** direction n'a rien donné, et
+    c'est alors le refus le moins sévère qui remonte — celui qui dit le plus
+    justement de combien il aurait fallu élargir.
+    """
+    if demande.azimut_deg is not None:
+        repartition = [(demande.azimut_deg, demande.nb_candidates)]
+    else:
+        pas = 360.0 / demande.nb_candidates
+        repartition = [(i * pas, 1) for i in range(demande.nb_candidates)]
+
+    trouvees: list = []
+    refus: ErreurDistanceInatteignable | None = None
+    for azimut, nb in repartition:
+        try:
+            trouvees += generer(
+                client,
+                config.depart,
+                distance_km=demande.distance_km,
+                azimut_deg=azimut,
+                nb=nb,
+                tolerance=config.boucle.tolerance_distance,
+                profil=demande.profil,
+                appels_max=appels_pour(nb),
+            )
+        except ErreurDistanceInatteignable as e:
+            if refus is None or e.elargissement_requis < refus.elargissement_requis:
+                refus = e
+    if not trouvees and refus is not None:
+        raise refus
+    if not trouvees:
+        cible = demande.direction or "toutes directions"
+        raise ErreurConnecteur(
+            f"boucle : aucune boucle bornée trouvée autour de {cible} "
+            f"pour {demande.distance_km:g} km (profil {demande.profil}) — "
+            "essayer une autre direction, une autre distance ou un autre profil"
+        )
+    return trouvees
 
 
 def _base_routes(config: Config) -> BaseRoutes | None:
@@ -298,26 +411,22 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
 
     distance_km = getattr(args, "distance", None)
     direction = getattr(args, "direction", None)
-    azimut = None
-    libelle = ""
+    # Sans `--direction`, la recherche balaie tout l'horizon plutôt que de
+    # refuser (Q47) — même défaut que `sortie` : « peu importe » est une
+    # demande valable, pas une omission à corriger.
+    libelle, azimut = ("", None)
+    if direction is not None:
+        libelle, azimut = direction_en_azimut(direction)
 
     if chemin_gpx is None:
         if distance_km is None:
             raise ErreurUtilisateur(
                 "boucle : --distance KM est obligatoire (ou --gpx pour évaluer un fichier existant)"
             )
-        if direction is None:
-            raise ErreurUtilisateur(
-                "boucle : --direction N|NE|…|NO ou un azimut en degrés est obligatoire "
-                "(ou --gpx pour évaluer un fichier existant)"
-            )
         if not math.isfinite(distance_km) or distance_km <= 0:
             raise ErreurUtilisateur(
                 f"--distance {distance_km} : une distance en kilomètres strictement positive est attendue"
             )
-        libelle, azimut = direction_en_azimut(direction)
-    elif direction is not None:
-        libelle, azimut = direction_en_azimut(direction)
 
     nb = getattr(args, "candidates", None)
     nb = config.boucle.candidates if nb is None else nb
@@ -471,6 +580,17 @@ def _meteos(
                     vitesse_kmh=vitesse,
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
+                    # Repli Q19, **le même que `ourouler sortie`**. Il y
+                    # manquait ici, et c'est exactement le piège que Q19
+                    # décrit : le modèle régional s'arrête en cours de J+2, et
+                    # une boucle demandée à J+3 perdait *toute* sa météo — pas
+                    # une colonne, toutes — avec un message qui parle du
+                    # « domaine » du modèle là où c'est sa portée temporelle
+                    # qui est en cause. Corrigé sur un chemin et pas sur
+                    # l'autre : les deux commandes appellent le même
+                    # `meteo_trace.evaluer`, elles lui passent maintenant le
+                    # même repli.
+                    modele_repli=config.meteo.second_avis,
                 )
             )
         except ErreurConnecteur as e:
@@ -540,6 +660,10 @@ def _classer(
                 azimut_deg=getattr(candidate, "azimut_deg", None),
                 rayon_m=getattr(candidate, "rayon_m", None),
                 total=couts.score + pluie * POIDS_PLUIE_TRI,
+                # `getattr` parce qu'un GPX importé n'a pas de candidate : la
+                # question de l'écart à une cible ne se pose alors pas.
+                elargissement=getattr(candidate, "elargissement", None),
+                tolerance_distance=getattr(candidate, "tolerance", None),
                 part_connue=base.part_connue(trace) if base is not None else None,
                 temps_s=_temps_modele(trace, meteo, modele),
                 vitesse_meteo_kmh=vitesse,
@@ -582,9 +706,14 @@ def _ecrire_meilleure(trace: Trace, demande: Demande) -> Path:
 
 
 def nom_par_defaut(demande: Demande) -> str:
-    """`boucle_<direction>_<distance>km_<AAAAMMJJ-HHMM>.gpx` (contrat §6)."""
+    """`boucle_<direction>_<distance>km_<AAAAMMJJ-HHMM>.gpx` (contrat §6).
+
+    Sans `--direction` (Q47 : la recherche balaie alors tout l'horizon), le
+    nom porte `toutes-directions` plutôt qu'un blanc illisible.
+    """
     distance = f"{demande.distance_km:g}" if demande.distance_km is not None else "0"
-    return f"boucle_{demande.direction}_{distance}km_{demande.depart:%Y%m%d-%H%M}.gpx"
+    direction = demande.direction or "toutes-directions"
+    return f"boucle_{direction}_{distance}km_{demande.depart:%Y%m%d-%H%M}.gpx"
 
 
 # --- rendu texte ---------------------------------------------------------------
@@ -652,9 +781,41 @@ def rendre_texte(
             f"{ignores} tronçon(s) à la longueur inexploitable écartés du kilométrage : "
             "trafic et revêtement sont sous-estimés d'autant."
         )
+    lignes += lignes_elargissement(evaluations, demande.distance_km)
     if chemin is not None:
         lignes.append(f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}, écrite dans {chemin}")
     return "\n".join(lignes)
+
+
+def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
+    """« On n'a pas trouvé de boucle dans les contraintes, on a élargi de X %. »
+
+    Les mots sont ceux du mainteneur (Q41 d). Rien ne s'affiche quand toutes
+    les boucles tiennent dans la tolérance — c'est le cas normal, et une
+    ligne qui signale ce qui ne compte pas apprend à ne plus lire la ligne
+    (même raison que `SEUIL_ECART_DUREE` dans `sortie/commande.py`).
+
+    Partagée avec `sortie`, qui rend le même fait dans un autre tableau : le
+    cycliste n'a pas à apprendre deux formulations pour une seule notion.
+    """
+    elargies = [e for e in evaluations if e.elargissement]
+    if not elargies or distance_km is None:
+        return []
+    tolerance = next((e.tolerance_distance for e in elargies if e.tolerance_distance), None)
+    if tolerance is None:
+        return []
+    palier_max = max(e.elargissement or 0.0 for e in elargies)
+    numeros = ", ".join(f"n° {e.numero}" for e in elargies)
+    lignes = [
+        f"Aucune boucle à ±{tolerance:.0%} de {_fr(distance_km, 0)} km : la tolérance a été "
+        f"élargie de {palier_max:.0%}, soit ±{tolerance + palier_max:.0%} ({numeros})."
+    ]
+    for e in elargies:
+        lignes.append(
+            f"    n° {e.numero} : {_fr(e.trace.distance_m / 1000, 1)} km, "
+            f"{e.ecart_relatif:+.0%} de la distance demandée."
+        )
+    return lignes
 
 
 def _titres(
@@ -737,6 +898,42 @@ def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
     return presentes
 
 
+def _meteo_rendue(evaluations: list[Evaluation]) -> MeteoTrace | None:
+    """La première météo réellement obtenue — celle qui sait quel modèle a répondu."""
+    return next((e.meteo for e in evaluations if e.meteo is not None), None)
+
+
+def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
+    """Nomme le modèle météo qui a **répondu**, et le dit haut quand c'est un repli.
+
+    Cette ligne annonçait le modèle *configuré* et son second avis. Depuis que
+    le repli de Q19 s'applique aussi à `boucle`, ce serait un mensonge une
+    fois sur deux : le tableau montrerait la pluie d'`icon_seamless` sous un
+    en-tête qui nomme AROME. Même phrase et même raison que
+    `sortie.commande._ligne_modele_meteo` — règle absolue 5 : quand un seul
+    des deux modèles a pu répondre, c'est encore une divergence à dire.
+    """
+    meteo = _meteo_rendue(evaluations)
+    if meteo is None or not meteo.modele_utilise:
+        return f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}"
+    if meteo.repli:
+        return (
+            f"Météo : {config.meteo.modele} ne couvre pas cette fenêtre — bascule sur "
+            f"{meteo.modele_utilise} (second avis, configuré en repli)."
+        )
+    return (
+        f"Météo {meteo.modele_utilise}, second avis {config.meteo.second_avis or 'aucun'}"
+    )
+
+
+def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
+    """L'équivalent JSON de `_ligne_modele_meteo` : même forme que `sortie`."""
+    meteo = _meteo_rendue(evaluations)
+    if meteo is None or not meteo.modele_utilise:
+        return None
+    return {"utilise": meteo.modele_utilise, "repli": meteo.repli}
+
+
 def _entete(
     demande: Demande,
     config: Config,
@@ -749,9 +946,16 @@ def _entete(
     if demande.gpx is not None:
         lignes.append(f"Tracé importé : {demande.gpx}")
     else:
+        # Sans `--direction` (Q47), la recherche balaie tout l'horizon : il
+        # n'y a alors pas un azimut à afficher, mais huit.
+        direction = (
+            f"{demande.direction} ({demande.azimut_deg:.0f}°)"
+            if demande.azimut_deg is not None
+            else "toutes directions"
+        )
         lignes.append(
             f"Boucle depuis {config.depart.nom} — {demande.distance_km:g} km vers "
-            f"{demande.direction} ({demande.azimut_deg:.0f}°), profil {demande.profil}"
+            f"{direction}, profil {demande.profil}"
         )
     lignes.append(
         f"Départ {date_en_francais(demande.depart)} — {_vitesse_passage(config, evaluations)} "
@@ -768,7 +972,7 @@ def _entete(
             "(lancer `ourouler calibrer`)"
         )
     if avec_meteo:
-        lignes.append(f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}")
+        lignes.append(_ligne_modele_meteo(evaluations or [], config))
     lignes.append("Tri : score (km équivalents) + pluie cumulée × 2 ; plus bas = mieux.")
     if poids:
         # D'où viennent les poids : sans cette ligne, deux exécutions
@@ -901,6 +1105,7 @@ def rendre_json(
     modele: ModeleTemps | None = None,
     *,
     poids: dict[str, float] | None = None,
+    meteo_absente: portee.MeteoAbsente | None = None,
 ) -> dict:
     """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
     return {
@@ -922,6 +1127,14 @@ def rendre_json(
         "sens_prefere": config.boucle.sens,
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
+        # Ce qui a **répondu**, à côté de ce qui est configuré. Même forme que
+        # `sortie` (`{utilise, repli}`), pour qu'un écran lise le repli de Q19
+        # de la même façon sur les deux routes de parcours. `null` quand
+        # aucune candidate n'a de météo.
+        "modele_meteo": _modele_meteo_json(evaluations),
+        # Q40 (a) : l'état « pas de météo », dit une fois. `null` quand la
+        # météo a répondu. Voir `meteo.portee`.
+        "meteo_absente": None if meteo_absente is None else meteo_absente.json(),
         "gpx": str(chemin) if chemin is not None else None,
         "poids_routes": dict(poids) if poids else None,
         "modele_physique": None
@@ -963,6 +1176,12 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "azimut_deg": evaluation.azimut_deg,
         "rayon_m": evaluation.rayon_m,
         "ecart_relatif": evaluation.ecart_relatif,
+        # L'écart cesse d'être tu : trois champs, pas un commentaire. Un
+        # client qui n'affiche que `distance_km` continue de marcher, un
+        # client qui veut expliquer a de quoi le faire (Q41 d).
+        "hors_tolerance": bool(evaluation.elargissement),
+        "elargissement": evaluation.elargissement,
+        "tolerance_distance": evaluation.tolerance_distance,
         "total_tri": round(evaluation.total, 3),
         "couts_partiels": bool(trace.meta.get("couts_partiels")),
         "segments_ignores": int(trace.meta.get("segments_ignores") or 0),
@@ -990,6 +1209,10 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         },
         "meteo": _meteo_json(meteo),
         "meta": trace.meta,
+        # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
+        # le GPX écrit sur disque (`docs/ux/discovery_donnees.md` §2). Voir
+        # `boucle.geometrie` pour la forme et la simplification appliquée.
+        "trace": geometrie_json(trace),
     }
 
 
@@ -1005,6 +1228,14 @@ def _meteo_json(meteo: MeteoTrace | None) -> dict | None:
         "n_echantillons": len(meteo.echantillons),
         "ressenti_min_c": meteo.ressenti_min_c,
         "confiance": meteo.confiance,
+        # Les flèches à dessiner le long du tracé, position comprise, déjà
+        # filtrées au seuil où le vent se sent (`meteo_trace.fleches_vent`).
+        # C'est **la règle du cœur, pas une liste brute** : un écran qui
+        # recevrait tous les échantillons devrait réappliquer le seuil de
+        # 8 km/h lui-même, donc le réinventer, donc pouvoir en diverger.
+        # Les `echantillons` ci-dessous restent tels quels, sans position :
+        # ils servent à autre chose, et les doubler serait du poids pour rien.
+        "fleches_vent": fleches_vent(meteo),
         "echantillons": [
             {
                 "dist_m": round(e.dist_m, 1),

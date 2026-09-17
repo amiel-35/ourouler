@@ -1,0 +1,50 @@
+{
+  "type": "FeatureCollection",
+  "version": "draft",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [0.234567, 0.123456]},
+      "properties": {
+        "label": "7 Rue du If 44999 Vallombreuse",
+        "score": 0.83,
+        "housenumber": "7",
+        "id": "44999_0123_00007",
+        "name": "Rue du If",
+        "postcode": "44999",
+        "citycode": "44999",
+        "x": 355123.4,
+        "y": 6689123.1,
+        "city": "Vallombreuse",
+        "context": "44, Loire-Atlantique, Pays de la Loire",
+        "type": "housenumber",
+        "importance": 0.65,
+        "street": "Rue du If"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [0.987654, 0.876543]},
+      "properties": {
+        "label": "7 Rue du If 62999 Hautbocage",
+        "score": 0.61,
+        "housenumber": "7",
+        "id": "62999_0045_00007",
+        "name": "Rue du If",
+        "postcode": "62999",
+        "citycode": "62999",
+        "x": 645123.7,
+        "y": 7045123.9,
+        "city": "Hautbocage",
+        "context": "62, Pas-de-Calais, Hauts-de-France",
+        "type": "housenumber",
+        "importance": 0.41,
+        "street": "Rue du If"
+      }
+    }
+  ],
+  "attribution": "BAN",
+  "licence": "ETALAB-2.0",
+  "query": "7 rue du if",
+  "limit": 5
+}

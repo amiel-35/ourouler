@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "version": "draft",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [0.345678, 0.234567]},
+      "properties": {
+        "label": "Lieu-dit du If",
+        "score": 0.72,
+        "id": "44999_xxxx",
+        "name": "Lieu-dit du If",
+        "x": 355123.4,
+        "y": 6689123.1,
+        "type": "locality",
+        "importance": 0.4
+      }
+    }
+  ],
+  "attribution": "BAN",
+  "licence": "ETALAB-2.0",
+  "query": "lieu-dit du if",
+  "limit": 5
+}

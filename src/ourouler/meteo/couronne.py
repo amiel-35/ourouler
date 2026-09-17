@@ -126,6 +126,25 @@ def azimut_de(nom: str, directions: int = 8) -> float:
     return noms.index(nom) * (360.0 / len(noms))
 
 
+def nom_de_azimut(azimut_deg: float, directions: int = 8) -> str:
+    """Le nom de direction le plus proche d'un azimut (225° → `"SO"`).
+
+    La réciproque d'`azimut_de`, au secteur près : un azimut quelconque tombe
+    rarement pile sur une des huit branches, on prend la plus proche. 246°
+    reste « SO », 250° devient « O ».
+
+    Elle existe pour que le **front n'ait pas à la refaire** : « vent de
+    sud-ouest » est une valeur affichée, et une valeur affichée ne se calcule
+    pas côté écran. Un azimut non fini n'a pas de nom — on rend `""` plutôt
+    qu'une direction inventée (règle absolue 5).
+    """
+    if not math.isfinite(azimut_deg):
+        return ""
+    noms = noms_directions(directions)
+    secteur = 360.0 / len(noms)
+    return noms[round((azimut_deg % 360.0) / secteur) % len(noms)]
+
+
 def ecart_angulaire(a_deg: float, b_deg: float) -> float:
     """Écart absolu entre deux azimuts, dans [0, 180]."""
     ecart = abs(a_deg - b_deg) % 360.0

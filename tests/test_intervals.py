@@ -408,6 +408,29 @@ def test_evenements_vides():
     assert c.evenements(date(2024, 3, 30)) == []
 
 
+def test_evenements_plage_un_seul_appel():
+    """Une plage se lit en un seul appel HTTP, jamais un par jour (F0.3)."""
+    seance = {"id": 9002, "name": "Seance inventee", "category": "WORKOUT"}
+    c, espion = client(json_fixe([seance]))
+    rendu = c.evenements(date(2024, 3, 25), date(2024, 3, 31))
+    assert rendu == [seance]
+    assert espion.chemins == [f"/api/v1/athlete/{ATHLETE}/events"]
+    assert espion.fenetres("events") == [("2024-03-25", "2024-03-31")]
+
+
+def test_evenements_jusqua_omis_vaut_un_seul_jour():
+    """`jusqua` omis retombe sur `depuis` : c'est le comportement mono-jour d'avant F0.3."""
+    c, espion = client(json_fixe([]))
+    c.evenements(date(2024, 3, 30))
+    assert espion.fenetres("events") == [("2024-03-30", "2024-03-30")]
+
+
+def test_evenements_plage_inversee_refusee():
+    c, _ = client(json_fixe([]))
+    with pytest.raises(ErreurUtilisateur):
+        c.evenements(date(2024, 3, 31), date(2024, 3, 25))
+
+
 # --- métadonnées --------------------------------------------------------------
 
 

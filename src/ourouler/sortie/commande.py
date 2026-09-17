@@ -50,6 +50,11 @@ Ce module est la couche commande : c'est lui qui lit `calibration.json` et
 des objets au cœur. Les trois clients — BRouter, Open-Meteo, Intervals — sont
 injectables pour que les tests ne touchent jamais le réseau.
 
+**`--fichier-seance`** (F1) : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
+ligne de commande au lieu d'interroger Intervals.icu — `_seance` bascule
+dessus quand `demande.fichier` est renseigné, tout le reste de l'enchaînement
+est inchangé (comble C1 de `docs/ux/relecture_f0.md`).
+
 **Ce que la météo n'empêche pas.** Comme pour `boucle`, une panne d'Open-Meteo
 fait disparaître les colonnes météo et la tenue, avec un avertissement sur la
 sortie d'erreur : perdre la séance parce qu'il manque la pluie serait absurde.
@@ -64,32 +69,40 @@ import json
 import math
 import sys
 import uuid
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
-from ourouler.boucle.commande import direction_en_azimut
+from ourouler.boucle.commande import direction_en_azimut, lignes_elargissement
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
+from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
-from ourouler.config import Config
+from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.erreurs import (
+    ErreurConnecteur,
+    ErreurDistanceInatteignable,
+    ErreurUtilisateur,
+)
+from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
+from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
-from ourouler.physique.modele import Parametres, vitesse_regime
+from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.intervals import seance_du_jour
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT, Seance
+from ourouler.seance.modele import Seance
 from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
@@ -141,6 +154,9 @@ class Demande:
     #: est le défaut **et une réponse valable** : elle retombe sur les
     #: propositions contrastées (contrat §3.3.4).
     vent: str = orientation.PEU_IMPORTE
+    #: `--fichier-seance` (F1) : un `.ZWO`/`.MRC` à la place d'Intervals.icu.
+    #: `None` — le cas courant — garde le comportement inchangé.
+    fichier: Path | None = None
 
 
 @dataclass
@@ -156,6 +172,11 @@ class Proposition:
     ecart_relatif: float | None
     part_connue: float | None
     vitesse_kmh: float
+    #: De combien la tolérance de distance a dû être élargie pour accepter
+    #: cette boucle, par paliers de 5 % (Q41 d). `0.0` : elle y tenait.
+    elargissement: float | None = None
+    #: La tolérance de distance en vigueur quand la boucle a été jugée.
+    tolerance_distance: float | None = None
 
     @property
     def pluie_mm(self) -> float:
@@ -208,13 +229,47 @@ class Proposition:
         return (self.placement.note_totale, self.pluie_mm * POIDS_PLUIE_TRI)
 
 
+#: Là où une candidate est tombée. `distance` : la génération n'a pas su faire
+#: la distance dans cette direction, il n'y a donc aucun tracé à montrer.
+#: `placement` : la boucle existe, c'est la séance qui n'y tenait pas — et
+#: celle-là se dessine.
+ETAPE_DISTANCE = "distance"
+ETAPE_PLACEMENT = "placement"
+
+
 @dataclass(frozen=True)
 class Ecartee:
-    """Une candidate que le placement a refusée, et le motif qu'il a rangé dans `meta`."""
+    """Une candidate que le placement a refusée, et le motif qu'il a rangé dans `meta`.
+
+    `trace` est la boucle elle-même quand elle existe (lot F2.4). Un azimut et
+    une distance ne se dessinent pas : sans la géométrie, « 8 candidates
+    écartées » restait une ligne de texte que le mainteneur ne pouvait pas
+    regarder. `None` pour un refus sur la distance — aucune boucle n'a été
+    construite dans cette direction, et inventer un tracé serait pire que de
+    n'en montrer aucun.
+    """
 
     azimut_deg: float | None
     distance_km: float
     motif: str
+    etape: str = ETAPE_PLACEMENT
+    trace: object | None = None
+
+
+@dataclass(frozen=True)
+class GpxPropose:
+    """Le GPX d'une proposition : son numéro, son nom de fichier, son contenu.
+
+    C'est le **parcours placé**, demi-tours compris — ce qu'on va rouler, pas
+    le tour de la boucle (voir `_ecrire_gpx`). Les trois textes existent de
+    toute façon en mémoire : la page du jour les embarque pour son
+    téléchargement `blob:`. `recueil_gpx` ne fait que les remettre à
+    l'appelant au lieu d'en écrire un sur le disque.
+    """
+
+    numero: int
+    nom_fichier: str
+    texte: str
 
 
 def executer(
@@ -223,8 +278,47 @@ def executer(
     client_brouter: ClientBrouter | None = None,
     client_meteo: ClientOpenMeteo | None = None,
     client_intervals: ClientIntervals | None = None,
+    *,
+    lieu_depart: Depart | None = None,
+    recueil_gpx: Callable[[list[GpxPropose]], None] | None = None,
 ) -> int:
-    """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »)."""
+    """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
+
+    `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
+    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
+    requête d'API demain. Absent, c'est celui de la configuration. Le cœur ne
+    géocode rien, ne lit aucune adresse et ne sait pas d'où vient ce point
+    (règle absolue 2) — il reçoit un `Depart`.
+
+    À ne pas confondre avec `demande.depart`, qui porte une **heure**.
+
+    `recueil_gpx` décide **à qui va le GPX** (Q40 g, tranché le 17/09/2026 :
+    « aucun GPX à la génération, et on le fait à la demande quand l'user
+    choisit son parcours »). Absent — le cas de la ligne de commande — le GPX
+    de la proposition retenue est écrit sur le disque, à `--sortie` ou au nom
+    daté par défaut, exactement comme avant. Présent, **aucun fichier n'est
+    écrit** : les trois GPX sont remis à l'appelant, qui n'en servira qu'un,
+    celui que le cycliste aura choisi. Les trois propositions sont
+    contrastées exprès ; n'écrire que celle du classement, c'était envoyer la
+    mauvaise trace au compteur à qui choisissait « la plus sèche ».
+
+    Ce qui ne suit pas le départ : les **routes connues** et les **poids
+    appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
+    autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
+    connue est informative et n'entre dans aucun score (contrat du sprint 3
+    §2) — mais elle tombera naturellement à zéro loin de chez soi. `cli.py`
+    le dit sur la sortie d'erreur plutôt que de laisser croire à un tracé
+    inédit.
+    """
+    if lieu_depart is not None:
+        # Substitué dans la `Config` plutôt que passé de fonction en fonction :
+        # la question du vent, la génération des candidates, les en-têtes de
+        # texte, la carte et le JSON lisent tous `config.depart`, et un seul de
+        # ces points oublié rendrait une réponse fausse — une boucle autour de
+        # la maison pour une adresse à 400 km. `Config` est un dataclass gelé :
+        # `replace` rend une copie, la configuration de l'appelant n'est pas
+        # touchée.
+        config = replace(config, depart=lieu_depart)
     demande = lire_options(args, config)
 
     seance = _seance(demande, config, client_intervals)
@@ -263,29 +357,60 @@ def executer(
     parametres, provenance = _parametres(config, demande.velo)
     distance_km, distance_source = _distance(demande, seance, parametres, config)
 
+    # Q40 (a) : une date lointaine ne se refuse pas, elle se sert **sans
+    # météo**. On le constate ici, avant le premier appel : demander une
+    # prévision pour dans dix ans coûterait ~150 appels Open-Meteo pour
+    # récolter trois blocs vides, puis un message sur ce qu'Open-Meteo ne
+    # couvre pas — là où le cycliste veut lire « pas de météo ce jour-là » et
+    # recevoir sa boucle.
+    dernier_jour = portee.dernier_jour_couvert(
+        config.meteo.horizon_jours, aujourdhui=date.today()
+    )
+    meteo_absente = (
+        portee.constater(demande.jour, dernier_jour) if demande.jour > dernier_jour else None
+    )
+
     # La question du vent se pose **avant** la recherche (contrat §3.3.4) :
     # c'est un appel Open-Meteo sur un point et une heure, donc le poste le
     # moins cher de la commande, et il tombe avant les appels BRouter, qui
     # sont le seul poste qui compte.
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
-    question = vent_demande.interroger(
-        client_meteo,
-        config.depart,
-        depart_heure=demande.depart,
-        jour=demande.jour,
-        modele=config.meteo.modele,
-        modele_repli=config.meteo.second_avis,
-    )
-    azimut_vent = question.azimut_pour(demande.vent)
+    if meteo_absente is not None:
+        # Aucun client météo au-delà de l'horizon : `None` traverse le reste
+        # de la commande et vaut « on ne demande rien », partout de la même
+        # façon, plutôt qu'un drapeau à ne pas oublier dans trois fonctions.
+        client_meteo = None
+        question = vent_demande.QuestionVent(
+            vent_kmh=None,
+            vent_depuis_deg=None,
+            posee=False,
+            motif=meteo_absente.message,
+        )
+    else:
+        client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+        question = vent_demande.interroger(
+            client_meteo,
+            config.depart,
+            depart_heure=demande.depart,
+            jour=demande.jour,
+            modele=config.meteo.modele,
+            modele_repli=config.meteo.second_avis,
+        )
+    azimuts_vent = question.azimuts_pour(demande.vent)
 
     client_brouter = (
         client_brouter
         if client_brouter is not None
         else ClientBrouter(config.brouter, evitements=config.evitements)
     )
-    candidates = _candidates(client_brouter, config, demande, distance_km, azimut_vent)
+    candidates, hors_bande = _candidates(client_brouter, config, demande, distance_km, azimuts_vent)
 
     retenues, ecartees = _placer_toutes(candidates, seance, config, parametres)
+    # Les directions refusées sur la distance (Q41 d) rejoignent celles que le
+    # placement a refusées : deux motifs différents, un seul endroit où le
+    # cycliste les lit. Sans ça, demander cinq directions et en voir trois se
+    # passait en silence — c'est le défaut même que ce lot corrige, il n'a pas
+    # à revenir par la porte de derrière.
+    ecartees = hors_bande + ecartees
     if not retenues:
         raise ErreurUtilisateur(_motif_aucune(seance, ecartees, distance_km))
 
@@ -304,13 +429,29 @@ def executer(
     tenue = (
         conseiller_tenue(meilleure.meteo, config.tenue) if meilleure.meteo is not None else None
     )
-    chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande, config)
-    chemin_carte = _ecrire_page_jour(seance, demande, config, selection)
+    gpx_propositions = _gpx_propositions(seance, demande, selection)
+    chemin_gpx = None
+    if recueil_gpx is None:
+        chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande, config)
+    else:
+        recueil_gpx(gpx_propositions)
+    chemin_carte = _ecrire_page_jour(seance, demande, config, selection, gpx_propositions)
 
+    # Une météo tombée dans l'horizon est le même état à l'écran qu'une date
+    # trop lointaine (E14 · dégradé) : la boucle reste servie, la pluie, le
+    # vent et la tenue disparaissent. La phrase, elle, ne dit pas pourquoi.
+    if meteo_absente is None and panne is not None:
+        meteo_absente = portee.constater(demande.jour, dernier_jour)
     if panne is not None:
         print(
             f"ourouler : météo indisponible ({panne}) — tableau sans les colonnes météo et "
             "sans tenue conseillée ; le placement, lui, reste valable",
+            file=sys.stderr,
+        )
+    elif meteo_absente is not None:
+        print(
+            f"ourouler : {meteo_absente.message} — tableau sans les colonnes météo et sans "
+            "tenue conseillée ; le placement, lui, reste valable",
             file=sys.stderr,
         )
     contexte = _Contexte(
@@ -326,6 +467,7 @@ def executer(
         carte=chemin_carte,
         selection=selection,
         question_vent=question,
+        meteo_absente=meteo_absente,
     )
     if getattr(args, "json", False):
         print(json.dumps(rendre_json(propositions, contexte), ensure_ascii=False, indent=2))
@@ -352,6 +494,9 @@ class _Contexte:
     selection: contraste.Selection | None = None
     #: Ce que le vent au départ permettait de demander, et pourquoi.
     question_vent: vent_demande.QuestionVent | None = None
+    #: L'état « pas de météo » quand il y en a un (Q40 a) — la phrase à
+    #: afficher et le dernier jour couvert. `None` quand la météo a répondu.
+    meteo_absente: portee.MeteoAbsente | None = None
 
 
 # --- options ------------------------------------------------------------------
@@ -395,9 +540,22 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         )
 
     vent = orientation.valider(getattr(args, "vent", None))
+    # Q44 : les deux réglages fixaient le même azimut, et rien ne disait lequel
+    # gagnait. `--direction` l'emportait en silence, ce qui laissait le
+    # cycliste croire que son orientation au vent avait été honorée. On ne
+    # choisit plus un gagnant : on refuse la contradiction, et le message dit
+    # les deux formulations possibles. « Peu importe » n'est pas une
+    # contradiction — c'est l'absence de demande.
+    if azimut is not None and vent != orientation.PEU_IMPORTE:
+        raise ErreurUtilisateur(
+            f"--direction {libelle} et --vent {vent} demandent tous deux une direction de "
+            "recherche, et rien ne dit laquelle devrait l'emporter : choisir sa direction "
+            "**ou** la laisser déduire du vent, pas les deux"
+        )
 
     sortie = getattr(args, "sortie", None)
     carte = getattr(args, "carte", None)
+    fichier_seance = getattr(args, "fichier_seance", None)
     demande = Demande(
         jour=jour,
         distance_km=float(distance_km) if distance_km is not None else None,
@@ -411,6 +569,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         carte=Path(carte) if carte else None,
         ecraser=bool(getattr(args, "ecraser", False)),
         vent=vent,
+        fichier=Path(fichier_seance) if fichier_seance else None,
     )
     for chemin, demande_explicite in (
         (chemin_gpx_par_defaut(demande, config), demande.sortie is not None),
@@ -511,6 +670,16 @@ def _verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
 
 
 def _seance(demande: Demande, config: Config, client: ClientIntervals | None) -> Seance | None:
+    """La séance à placer : Intervals.icu, ou `demande.fichier` s'il est donné (F1, C1)."""
+    if demande.fichier is not None:
+        from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
+
+        return lire_fichier_seance(
+            demande.fichier,
+            ftp_w=config.cycliste.ftp_w,
+            seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
+            jour=demande.jour,
+        )
     if client is None:
         if not config.intervals.renseigne:
             raise ErreurUtilisateur(
@@ -522,7 +691,7 @@ def _seance(demande: Demande, config: Config, client: ClientIntervals | None) ->
         client,
         demande.jour,
         ftp_w=config.cycliste.ftp_w,
-        zones_puissance=ZONES_PUISSANCE_DEFAUT,
+        zones_puissance=config.seance.zones_pct,
         puissance_endurance_pct=config.seance.puissance_endurance_pct,
         seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
     )
@@ -571,7 +740,7 @@ def _distance(
     metres = sum(connues)
     if libres_s > 0:
         puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
-        metres += vitesse_regime(puissance, 0.0, 0.0, parametres) * libres_s
+        metres += vitesse_a_plat_ms(puissance, parametres) * libres_s
     source = "estimée par le modèle sur le plat"
     if metres <= 0:
         # Aucune étape ne porte de puissance : on retombe sur la vitesse
@@ -582,14 +751,127 @@ def _distance(
     return float(arrondie), f"{source}, {metres / 1000:.1f} km arrondis au multiple de 5 supérieur"
 
 
+def executer_vent(
+    args: argparse.Namespace,
+    config: Config,
+    client_meteo: ClientOpenMeteo | None = None,
+    *,
+    lieu_depart: Depart | None = None,
+) -> int:
+    """Le vent au départ, **avant** de chercher quoi que ce soit (Q44).
+
+    Un seul appel Open-Meteo, un point, une heure : le poste le moins cher du
+    produit. Il existe parce que l'écran de demande doit montrer d'où vient le
+    vent *pendant* que le cycliste choisit sa direction — « Vent de sud-ouest à
+    22 km/h demain matin », ce que la maquette E16 prévoyait et que l'écran ne
+    faisait pas.
+
+    Le mainteneur posait un « soit / soit » : montrer le vent **ou** proposer
+    trois préférences. Les deux modes en ont besoin, et c'est pour ça que
+    `azimuts_par_choix` accompagne toujours le vent : celui qui choisit sa
+    direction doit savoir d'où il souffle, celui qui choisit selon le vent doit
+    pouvoir vérifier ce qu'on lui propose avant de lancer le calcul.
+
+    Aucun tracé, aucun appel BRouter, aucune séance : cette commande ne répond
+    qu'à « d'où vient le vent, et qu'est-ce que chaque préférence donnerait ».
+    """
+    jour = _jour(getattr(args, "jour", None))
+    depart_lieu = lieu_depart if lieu_depart is not None else config.depart
+    depart_heure = _heure_depart(getattr(args, "depart", None), jour)
+
+    dernier_jour = portee.dernier_jour_couvert(
+        config.meteo.horizon_jours, aujourdhui=date.today()
+    )
+    if jour > dernier_jour:
+        # Même règle que `executer` : au-delà de l'horizon on ne demande rien à
+        # Open-Meteo, on dit ce qu'on ne sait pas.
+        question = vent_demande.QuestionVent(
+            vent_kmh=None,
+            vent_depuis_deg=None,
+            posee=False,
+            motif=portee.constater(jour, dernier_jour).message,
+        )
+    else:
+        question = vent_demande.interroger(
+            client_meteo if client_meteo is not None else ClientOpenMeteo(),
+            depart_lieu,
+            depart_heure=depart_heure,
+            jour=jour,
+            modele=config.meteo.modele,
+            modele_repli=config.meteo.second_avis,
+        )
+    print(json.dumps(_vent_depart_json(question, jour, depart_heure), ensure_ascii=False, indent=2))
+    return 0
+
+
+def _vent_depart_json(
+    question: vent_demande.QuestionVent, jour: date, depart_heure: datetime
+) -> dict:
+    """Le vent au départ et ce que chaque préférence en ferait, en JSON.
+
+    `azimuts_par_choix` porte **des listes**, y compris pour les préférences
+    qui n'ouvrent qu'un azimut : un consommateur qui lit une liste ne peut pas
+    rater le second azimut du travers, là où un champ scalaire l'aurait
+    silencieusement tronqué (Q44).
+
+    Les noms de direction (`"SO"`) sont calculés **ici** et non côté écran : le
+    front n'a le droit d'afficher que ce que l'API lui donne.
+    """
+    return {
+        "jour": jour.isoformat(),
+        "depart": depart_heure.isoformat(),
+        "posee": question.posee,
+        "motif": question.motif or None,
+        "vent_kmh": question.vent_kmh,
+        "vent_depuis_deg": question.vent_depuis_deg,
+        "vent_depuis_nom": (
+            nom_de_azimut(question.vent_depuis_deg)
+            if question.vent_depuis_deg is not None
+            else None
+        ),
+        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
+        "choix": list(orientation.CHOIX),
+        "azimuts_par_choix": {
+            choix: [
+                {"azimut_deg": a, "nom": nom_de_azimut(a)}
+                for a in question.azimuts_pour(choix)
+            ]
+            for choix in orientation.CHOIX
+        },
+    }
+
+
+def _parts(total: int, combien: int) -> list[int]:
+    """`total` candidates réparties en `combien` parts aussi égales que possible.
+
+    3 en 2 donne [2, 1], 4 en 2 donne [2, 2], 1 en 2 donne [1, 0] — et une part
+    nulle n'est pas une anomalie : à une seule candidate demandée, il n'y a
+    rien à répartir, et le premier azimut la prend. `_candidates` écarte alors
+    cet azimut de sa répartition, parce qu'un `generer(nb=0)` ne rendrait rien
+    tout en coûtant un aller-retour.
+
+    Le reste va aux **premières** parts, donc au premier azimut. Sur un nombre
+    impair de candidates c'est un déséquilibre d'une unité, et il est assumé :
+    l'alternative serait de tirer au sort, ce qui rendrait deux exécutions
+    identiques différentes sans rien apprendre au cycliste.
+    """
+    base, reste = divmod(total, combien)
+    return [base + (1 if i < reste else 0) for i in range(combien)]
+
+
 def _candidates(
     client: ClientBrouter,
     config: Config,
     demande: Demande,
     distance_km: float,
-    azimut_vent: float | None = None,
-) -> list:
-    """Les boucles candidates, dans la direction demandée ou tout autour.
+    azimuts_vent: tuple[float, ...] = (),
+) -> tuple[list, list[Ecartee]]:
+    """Les boucles candidates, et les directions refusées sur la distance.
+
+    Le second élément n'est pas un détail d'implémentation : une direction
+    écartée sans qu'on le dise, c'est exactement le défaut que Q41 (d)
+    corrige. Il rejoint les `Ecartee` du placement chez l'appelant.
 
     Sans `--direction`, la commande ne choisit pas à la place du cycliste :
     elle réparti les candidates sur **tout le tour de l'horizon** et laisse le
@@ -597,38 +879,74 @@ def _candidates(
     C'est aussi ce qui rend `ourouler sortie --jour …` utilisable tel quel, ce
     que le contrat de sprint demande.
 
-    `azimut_vent` est l'azimut qu'impose une réponse à la question
-    d'orientation au vent (lot L5.3). Il **réduit l'espace de recherche** au
-    lieu de contraster après coup, ce qui est l'intérêt de poser la question
-    avant. `--direction`, explicitement demandée, reste prioritaire : le
-    cycliste qui écrit « au nord » veut aller au nord.
+    `azimuts_vent` sont les azimuts qu'impose une réponse à la question
+    d'orientation au vent (lot L5.3). Ils **réduisent l'espace de recherche**
+    au lieu de contraster après coup, ce qui est l'intérêt de poser la question
+    avant. Ils sont **un ou deux** : « de travers » en ouvre deux opposés
+    (Q44).
+
+    `--direction` et `--vent` ne se contredisent plus ici : `_lire` refuse
+    qu'on demande les deux (Q44). Quand `--direction` est là, elle est seule.
     """
-    azimut = demande.azimut_deg if demande.azimut_deg is not None else azimut_vent
-    if azimut is not None:
-        trouvees = generer(
-            client,
-            config.depart,
-            distance_km=distance_km,
-            azimut_deg=azimut,
-            nb=demande.nb_candidates,
-            tolerance=config.boucle.tolerance_distance,
-            profil=demande.profil,
-            appels_max=appels_pour(demande.nb_candidates),
-        )
+    if demande.azimut_deg is not None:
+        repartition = [(demande.azimut_deg, demande.nb_candidates)]
+    elif azimuts_vent:
+        parts = _parts(demande.nb_candidates, len(azimuts_vent))
+        # Une part nulle (une seule candidate pour deux azimuts) ne donne pas
+        # lieu à un appel : `generer(nb=0)` ne rendrait rien en coûtant un
+        # aller-retour.
+        repartition = [(a, n) for a, n in zip(azimuts_vent, parts, strict=True) if n > 0]
     else:
-        trouvees = []
+        # Sans direction demandée, tout le tour de l'horizon, une candidate par
+        # azimut.
         pas = 360.0 / demande.nb_candidates
-        for i in range(demande.nb_candidates):
+        repartition = [(i * pas, 1) for i in range(demande.nb_candidates)]
+
+    trouvees: list = []
+    hors_bande: list[Ecartee] = []
+    # **Un appel à `generer` par azimut**, et c'est ce qui garantit la
+    # répartition. `generer(azimut, nb)` explore `azimut`, puis ±20°, ±40°… —
+    # il élargit un secteur, il n'en ouvre jamais un second. Un seul appel pour
+    # deux azimuts opposés entasserait donc toutes les candidates du premier
+    # côté ; c'est exactement ce que Q44 demande de vérifier.
+    #
+    # Le refus sur la distance (Q41 d) est par azimut, et un azimut où le
+    # terrain ne sait pas faire la distance ne doit pas emporter ceux où il
+    # sait — c'est déjà la règle à l'intérieur de `generer`, elle vaut aussi
+    # ici. Le refus n'est relancé que si aucun azimut n'a rien donné, comme le
+    # fait déjà `derniere_erreur`.
+    refus: ErreurDistanceInatteignable | None = None
+    for azimut, nb in repartition:
+        try:
             trouvees += generer(
                 client,
                 config.depart,
                 distance_km=distance_km,
-                azimut_deg=i * pas,
-                nb=1,
+                azimut_deg=azimut,
+                nb=nb,
                 tolerance=config.boucle.tolerance_distance,
                 profil=demande.profil,
-                appels_max=appels_pour(1),
+                appels_max=appels_pour(nb),
             )
+        except ErreurDistanceInatteignable as e:
+            hors_bande.append(
+                Ecartee(
+                    azimut_deg=azimut,
+                    distance_km=e.distance_obtenue_km,
+                    motif=(
+                        f"{e.ecart_relatif:+.0%} de la distance demandée — il aurait fallu "
+                        f"élargir de {e.elargissement_requis:.0%}, on s'arrête à "
+                        f"{e.elargissement_max:.0%}"
+                    ),
+                    etape=ETAPE_DISTANCE,
+                )
+            )
+            # On garde le refus le moins sévère : c'est celui qui dit le
+            # plus justement de combien il aurait fallu élargir.
+            if refus is None or e.elargissement_requis < refus.elargissement_requis:
+                refus = e
+    if not trouvees and refus is not None:
+        raise refus
     if not trouvees:
         cible = demande.direction or "toutes directions"
         raise ErreurConnecteur(
@@ -636,7 +954,7 @@ def _candidates(
             f"(profil {demande.profil}) — essayer une autre direction, une autre distance "
             "ou un autre profil"
         )
-    return trouvees
+    return trouvees, hors_bande
 
 
 def _placer_toutes(
@@ -663,6 +981,8 @@ def _placer_toutes(
                     azimut_deg=getattr(candidate, "azimut_deg", None),
                     distance_km=trace.distance_m / 1000.0,
                     motif=str(trace.meta.get(CLE_MOTIF) or "motif non précisé"),
+                    etape=ETAPE_PLACEMENT,
+                    trace=trace,
                 )
             )
             continue
@@ -676,7 +996,7 @@ def _replacer_avec_vent(
     config: Config,
     parametres: Parametres,
     demande: Demande,
-    client_meteo: ClientOpenMeteo,
+    client_meteo: ClientOpenMeteo | None,
 ) -> list[tuple[object, Placement]]:
     """Rejoue le placement de chaque candidate retenue avec son champ de vent.
 
@@ -696,6 +1016,11 @@ def _replacer_avec_vent(
     propre météo juste après et dira la panne une fois, sur la sortie
     d'erreur ; ici on se tait, silencieusement correct.
     """
+    if client_meteo is None:
+        # Pas de météo demandée (Q40 a) : pas de champ de vent, donc pas de
+        # seconde passe. Le placement sans vent est ce qu'on sert, et il est
+        # valable — c'est le premier placement du contrat §1.6.
+        return retenues
     elasticite = (config.seance.elasticite_z2_min, config.seance.elasticite_z2_max)
     elasticite_calme = (config.seance.elasticite_calme_min, config.seance.elasticite_calme_max)
     resultat: list[tuple[object, Placement]] = []
@@ -806,7 +1131,7 @@ def _mesurer(
     retenues: list[tuple[object, Placement]],
     config: Config,
     demande: Demande,
-    client_meteo: ClientOpenMeteo,
+    client_meteo: ClientOpenMeteo | None,
 ) -> tuple[list[Proposition], str | None]:
     """Coûts, routes connues et météo des candidates retenues.
 
@@ -814,6 +1139,11 @@ def _mesurer(
     tracé** — distance placée divisée par durée placée — et non plus la
     vitesse moyenne de la configuration : c'est ce que la question Q8
     promettait au sprint 4.
+
+    `client_meteo` à `None` veut dire « on ne demande pas de météo » (Q40 a,
+    jour au-delà de l'horizon) : les coûts et le placement sont mesurés comme
+    d'habitude, la météo reste absente, et ce n'est **pas** une panne — il n'y
+    a rien à signaler qui ne soit déjà dit par `meteo_absente`.
     """
     poids = lire_poids(config.cache.dossier / NOM_POIDS)
     base = _base_routes(config)
@@ -823,7 +1153,7 @@ def _mesurer(
         trace = candidate.trace
         vitesse = _vitesse(placement, config)
         meteo: MeteoTrace | None = None
-        if panne is None:
+        if panne is None and client_meteo is not None:
             try:
                 meteo = evaluer_meteo(
                     trace,
@@ -848,6 +1178,8 @@ def _mesurer(
                 meteo=meteo,
                 azimut_deg=getattr(candidate, "azimut_deg", None),
                 ecart_relatif=getattr(candidate, "ecart_relatif", None),
+                elargissement=getattr(candidate, "elargissement", None),
+                tolerance_distance=getattr(candidate, "tolerance", None),
                 part_connue=base.part_connue(trace) if base is not None else None,
                 vitesse_kmh=vitesse,
             )
@@ -907,6 +1239,35 @@ def _ecrire_gpx(
     return chemin
 
 
+def _gpx_propositions(
+    seance: Seance, demande: Demande, selection: contraste.Selection
+) -> list[GpxPropose]:
+    """Le GPX de **chaque** proposition retenue, en mémoire, rien sur le disque.
+
+    Ces textes étaient déjà fabriqués, une fois, pour la page du jour, qui les
+    embarque en base64 pour son téléchargement `blob:`. Les nommer ici les
+    rend servables à qui appelle la commande (`recueil_gpx`) sans les calculer
+    deux fois — et c'est ce qui permet à l'API de ne rien écrire tant que le
+    cycliste n'a pas choisi (Q40 g).
+    """
+    proposees = []
+    for retenue in selection.retenues:
+        p = retenue.proposition
+        parcours = trace_parcourue(p.placement, p.trace)
+        proposees.append(
+            GpxPropose(
+                numero=p.numero,
+                nom_fichier=f"sortie_{demande.jour:%Y%m%d}_n{p.numero}.gpx",
+                texte=ecrire_gpx(
+                    parcours,
+                    f"{seance.nom} — {seance.jour.isoformat()}",
+                    desc=_description_parcours(parcours, p.placement),
+                ),
+            )
+        )
+    return proposees
+
+
 def _description_parcours(parcours: Trace, placement: Placement) -> str:
     """« 47,8 km · D+ 210 m (parcours placé) · 4 demi-tours » — ce que contient le fichier."""
     # `.blocs()` : la récupération d'un demi-tour porte aussi `demi_tour=True`
@@ -947,6 +1308,7 @@ def _ecrire_page_jour(
     demande: Demande,
     config: Config,
     selection: contraste.Selection,
+    gpx_propositions: list[GpxPropose],
 ) -> Path:
     """La page du jour (lot L5.4) : les propositions contrastées, superposées.
 
@@ -962,27 +1324,27 @@ def _ecrire_page_jour(
     fichier suit le choix du cycliste, pas le classement »).
     """
     chemin = chemin_carte_par_defaut(demande, config)
+    par_numero = {g.numero: g for g in gpx_propositions}
     cartes_props = []
     for retenue in selection.retenues:
         p = retenue.proposition
         tenue_p = conseiller_tenue(p.meteo, config.tenue) if p.meteo is not None else None
-        parcours = trace_parcourue(p.placement, p.trace)
+        gpx = par_numero[p.numero]
         cartes_props.append(
             PropositionCarte(
                 numero=p.numero,
                 trace=p.trace,
                 placement=p.placement,
                 meteo=p.meteo,
-                distinction=retenue.distinction or "la seule candidate",
+                # Vide plutôt que faux : `construire_page_jour` sait qu'une
+                # proposition sans phrase parle par son tracé, et n'écrit
+                # « la seule candidate » que quand elle l'est vraiment.
+                distinction=retenue.distinction,
                 chiffres=_details_proposition(retenue),
                 sous_titre=_sous_titre(p, demande, config),
                 notes=_notes_carte(p, seance, tenue_p),
-                gpx_nom=f"sortie_{demande.jour:%Y%m%d}_n{p.numero}.gpx",
-                gpx_texte=ecrire_gpx(
-                    parcours,
-                    f"{seance.nom} — {seance.jour.isoformat()}",
-                    desc=_description_parcours(parcours, p.placement),
-                ),
+                gpx_nom=gpx.nom_fichier,
+                gpx_texte=gpx.texte,
             )
         )
     page = construire_page_jour(
@@ -990,6 +1352,7 @@ def _ecrire_page_jour(
         cartes_props,
         titre=f"{seance.nom} — {date_en_francais(demande.depart)}",
         motif_deux_propositions=selection.motif_deux_propositions,
+        motif_equivalence=selection.motif_equivalence,
     )
     try:
         chemin.write_text(page, encoding="utf-8")
@@ -1089,6 +1452,10 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
         lignes.append(marque + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
 
     lignes += _notes_sous_tableau(propositions[0], presentes)
+    # L'élargissement de la tolérance de distance se dit ici, sous le tableau,
+    # et non dans la colonne « durée » : ce sont deux grandeurs différentes.
+    # Voir `SEUIL_ECART_DUREE` plus bas pour la cohabitation des deux.
+    lignes += lignes_elargissement(propositions, contexte.distance_km)
     lignes.append("")
     lignes += _propositions_contrastees(contexte)
     lignes += _seance_placee(propositions[0], contexte)
@@ -1115,10 +1482,8 @@ def _lignes_vent(contexte: _Contexte) -> list[str]:
         return [f"Orientation au vent : pas d'avis — {question.motif}."]
     vent = f"Vent au départ {question.vent_kmh:.0f} km/h de {_azimut(question.vent_depuis_deg)}"
     if demande.vent != orientation.PEU_IMPORTE:
-        azimut = question.azimut_pour(demande.vent)
-        ou = f" — recherche dirigée vers {_azimut(azimut)}" if azimut is not None else ""
-        if demande.azimut_deg is not None:
-            ou = " — mais --direction, demandée explicitement, garde la main"
+        azimuts = question.azimuts_pour(demande.vent)
+        ou = f" — recherche dirigée vers {_azimuts(azimuts)}" if azimuts else ""
         return [f"{vent}. Demandé : {_LIBELLES_VENT[demande.vent]}{ou}."]
     return [
         f"{vent}. Question : `--vent retour-dos` pour rentrer avec, `--vent depart-dos` "
@@ -1146,14 +1511,19 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     selection = contexte.selection
     if selection is None or not selection.retenues:
         return []
+    seule = len(selection.retenues) == 1
     lignes = [
-        f"{len(selection.retenues)} proposition(s) qui diffèrent vraiment "
+        f"{len(selection.retenues)} proposition(s) qui vont à des endroits différents "
         "(et non les trois premières du tri) :"
     ]
     for retenue in selection.retenues:
         numero = retenue.proposition.numero
-        phrase = retenue.distinction or "la seule candidate"
-        lignes.append(f"    n° {numero} — {phrase}")
+        # Depuis Q43, une retenue peut n'avoir aucune phrase : son tracé la
+        # distingue, pas un axe mesuré. « La seule candidate » ne vaut alors
+        # que si elle est vraiment seule — l'écrire sous l'une de trois
+        # propositions serait faux.
+        phrase = retenue.distinction or ("la seule candidate" if seule else "")
+        lignes.append(f"    n° {numero} — {phrase}" if phrase else f"    n° {numero}")
         lignes.append(f"           {_details_proposition(retenue)}")
     if selection.recouvrements:
         parts = ", ".join(
@@ -1168,6 +1538,8 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
         )
     if selection.motif_deux_propositions:
         lignes.append(f"    {selection.motif_deux_propositions}")
+    if selection.motif_equivalence:
+        lignes.append(f"    {selection.motif_equivalence}")
     lignes.append("")
     return lignes
 
@@ -1177,6 +1549,25 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
 #: seuil important, faire une alerte quand on est à 5 % de différence de durée,
 #: pas moins ». Deux seuils, deux rôles : celui-ci décide si l'écart mérite
 #: d'être dit, `elasticite_calme_min` s'il mérite une alerte.
+#:
+#: **Et un troisième, à ne surtout pas confondre avec lui** : depuis Q41 (d),
+#: `boucle.candidates.elargissement_max` borne l'écart de **distance** entre
+#: la boucle servie et la boucle demandée. Les deux mesurent des grandeurs
+#: différentes sur des objets différents, et ne se recouvrent pas :
+#:
+#: - `SEUIL_ECART_DUREE` parle de la **durée d'une séance** — la séance
+#:   prescrite dure 2 h, le parcours placé en dure 2 h 04, faut-il le dire ?
+#:   Il ne refuse jamais rien : il décide si un écart déjà accepté s'affiche.
+#: - `elargissement_max` parle de la **distance d'une boucle** — 150 km
+#:   demandés, 176 rendus, sert-on cette boucle ? Il refuse, et quand il
+#:   accepte, il impose de dire de combien la tolérance a été élargie.
+#:
+#: Conséquence pratique : une boucle peut être servie en disant « tolérance
+#: élargie de 10 % » (fait de distance) et ne rien afficher sur la durée
+#: parce que la séance tombe à 2 % près (fait de durée). Ce n'est pas une
+#: incohérence, c'est la raison d'avoir deux seuils. Le premier reste une
+#: décision du mainteneur au sprint 5 — il avait trouvé l'affichage alarmant
+#: à tort — et Q41 (d) ne la défait pas.
 SEUIL_ECART_DUREE = 0.05
 
 
@@ -1330,16 +1721,20 @@ def _entete(
     # Trois cas et non deux : depuis le lot L5.3, une réponse à la question
     # d'orientation au vent dirige la recherche elle aussi. Dire « dans toutes
     # les directions » alors qu'on a cherché au sud-ouest serait faux.
-    azimut_vent = (
-        contexte.question_vent.azimut_pour(demande.vent)
+    azimuts_vent = (
+        contexte.question_vent.azimuts_pour(demande.vent)
         if contexte.question_vent is not None
-        else None
+        else ()
     )
     if demande.azimut_deg is not None:
         direction = f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
-    elif azimut_vent is not None:
+    elif azimuts_vent:
+        # Au pluriel quand le travers en a ouvert deux : « vers 315° » sur une
+        # recherche qui a exploré 315° et 135° ferait chercher sur la carte une
+        # cohérence qui n'existe pas.
         direction = (
-            f"vers {_azimut(azimut_vent)} ({azimut_vent:.0f}°), direction imposée par "
+            f"vers {_azimuts(azimuts_vent)}, "
+            f"{'directions imposées' if len(azimuts_vent) > 1 else 'direction imposée'} par "
             f"--vent {demande.vent}"
         )
     else:
@@ -1375,9 +1770,12 @@ def _entete(
             f"Autre(s) séance(s) vélo ce jour-là, ignorée(s) au profit de la plus longue : {autres}."
         )
     if contexte.ecartees:
-        lignes.append(
-            f"{len(contexte.ecartees)} candidate(s) écartée(s) : la séance n'y tenait pas —"
-        )
+        # Deux motifs cohabitent ici depuis Q41 (d) : la séance qui ne tient
+        # pas sur le tracé, et la boucle trop loin de la distance demandée.
+        # Chaque ligne porte le sien ; l'en-tête ne préjuge plus duquel il
+        # s'agit, sous peine d'annoncer « la séance n'y tenait pas » pour une
+        # direction que le placement n'a jamais vue.
+        lignes.append(f"{len(contexte.ecartees)} candidate(s) écartée(s) —")
         for ecartee in contexte.ecartees:
             lignes.append(
                 f"    {_azimut(ecartee.azimut_deg)} {_fr(ecartee.distance_km, 1)} km : {ecartee.motif}"
@@ -1569,6 +1967,16 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
             "candidates": demande.nb_candidates,
             "profil": demande.profil,
             "depart": demande.depart.isoformat(),
+            # Le **lieu** d'où part cette sortie, en regard de l'heure
+            # ci-dessus. Il vaut celui de la configuration, sauf si l'appelant
+            # en a fourni un autre (`--adresse-depart`, demain une requête
+            # d'API) : sans cette clé, deux réponses JSON identiques
+            # décriraient deux parcours partant de deux endroits différents.
+            "lieu_depart": {
+                "nom": contexte.config.depart.nom,
+                "latitude": contexte.config.depart.latitude,
+                "longitude": contexte.config.depart.longitude,
+            },
             "velo": demande.velo,
         },
         "modele_physique": contexte.provenance_modele,
@@ -1576,6 +1984,15 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         # repli sur le second avis (le principal ne couvrait pas la
         # fenêtre) — `None` quand aucune candidate n'a de météo (panne).
         "modele_meteo": _modele_meteo_json(propositions),
+        # Q40 (a) : l'état « pas de météo », dit une fois et en toutes lettres,
+        # au lieu d'un 502 « service en panne » pour une demande simplement
+        # hors de portée. `null` quand la météo a répondu. La phrase dit quel
+        # est le dernier jour couvert, jamais pourquoi celui-ci ne l'est pas —
+        # Open-Meteo rend le même bloc vide dans les deux cas, et le cœur ne
+        # tranche pas (règle absolue 5).
+        "meteo_absente": (
+            None if contexte.meteo_absente is None else contexte.meteo_absente.json()
+        ),
         "seuil_bloc_bien_place": NOTE_BLOC_BIEN_PLACE,
         # Écart relatif de note en dessous duquel la pluie départage plutôt que
         # le vent (préférence du cycliste, `config.seance.tolerance_egalite`) :
@@ -1584,11 +2001,17 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         "tolerance_egalite": contexte.config.seance.tolerance_egalite,
         "gpx": str(contexte.gpx) if contexte.gpx is not None else None,
         "carte": str(contexte.carte) if contexte.carte is not None else None,
+        # Lot F2.4 : `etape` dit **où** la candidate est tombée, et `trace` la
+        # dessine quand elle existe. Un azimut et une distance ne se dessinent
+        # pas : c'est ce qui manquait pour que « 8 candidate(s) écartée(s) »
+        # soit autre chose qu'une ligne de texte.
         "ecartees": [
             {
                 "azimut_deg": e.azimut_deg,
                 "distance_km": round(e.distance_km, 3),
                 "motif": e.motif,
+                "etape": e.etape,
+                "trace": None if e.trace is None else geometrie_json(e.trace),
             }
             for e in contexte.ecartees
         ],
@@ -1611,7 +2034,70 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         "motif_deux_propositions": (
             contexte.selection.motif_deux_propositions if contexte.selection else None
         ),
+        # Le pendant de la clé précédente (Q45) : quand aucune proposition ne
+        # se détache, on le dit au lieu de fabriquer une différence. Les deux
+        # peuvent être remplies en même temps — deux boucles qui vont ailleurs
+        # et qui se valent.
+        "motif_equivalence": (
+            contexte.selection.motif_equivalence if contexte.selection else None
+        ),
+        # Lot F2.4 : ce que le contraste a décidé de **chaque** candidate, et
+        # par quelle paire. Le produit montrait ce qu'il retenait, jamais ce
+        # qu'il jetait ni pourquoi — et c'est au contraste que les candidates
+        # du mainteneur disparaissaient.
+        "arbitrage": _arbitrage_json(contexte),
         "candidates": [_candidate_json(p) for p in propositions],
+    }
+
+
+def _arbitrage_json(contexte: _Contexte) -> dict | None:
+    """Le sort de toutes les candidates au contraste, la matrice, et ce qu'elle mesure.
+
+    `paires` porte **toutes** les paires, pas seulement celles des retenues :
+    c'est la matrice complète qui montre qu'une seule case au-dessus du seuil
+    interdit tout groupe contenant ses deux boucles. Sans elle, un lecteur
+    verrait des verdicts sans pouvoir refaire le raisonnement.
+
+    Aucun pourcentage n'est laissé à calculer en aval : `motif` et `phrase`
+    sont écrits par `sortie.contraste`, dans les termes qui décident vraiment.
+    """
+    selection = contexte.selection
+    if selection is None:
+        return None
+    return {
+        "seuil_recouvrement": selection.seuil_recouvrement,
+        "candidates": [
+            {
+                "numero": v.numero,
+                "sort": v.sort,
+                "recouvrement_max": (
+                    None if v.recouvrement_max is None else round(v.recouvrement_max, 4)
+                ),
+                "contre_numero": v.contre_numero,
+                "motif": v.motif,
+            }
+            for v in selection.verdicts
+        ],
+        "paires": [
+            {
+                "a": i + 1,
+                "b": j + 1,
+                "recouvrement": round(part, 4),
+                "au_dessus_du_seuil": part > selection.seuil_recouvrement,
+            }
+            for (i, j), part in sorted(selection.recouvrements_candidates.items())
+        ],
+        "essais": (
+            None
+            if selection.essais is None
+            else {
+                "taille": selection.essais.taille,
+                "essayes": selection.essais.essayes,
+                "valides": selection.essais.valides,
+                "refuses_par_une_paire": selection.essais.refuses_par_une_paire,
+            }
+        ),
+        "phrase": selection.phrase_arbitrage,
     }
 
 
@@ -1660,6 +2146,17 @@ def _propositions_json(contexte: _Contexte) -> list[dict]:
                     if profil.densite_marqueurs_km is None
                     else round(profil.densite_marqueurs_km, 3)
                 ),
+                # **Les entiers, et pas seulement la densité** (ajouté le
+                # 17/09/2026). `contraste.Profil` les porte depuis le sprint 3
+                # — « affiché tel quel : 28 feux, 20 stops » — mais seule la
+                # densité sortait en JSON, si bien que le front les retrouvait
+                # en multipliant par la distance : exactement le geste que le
+                # commentaire de `contraste.py` nomme comme le piège à éviter.
+                # La densité est arrondie à trois décimales, donc ce produit
+                # s'efface au-delà de 100 km (relecture F2 · C1). Les rendre
+                # supprime la seule arithmétique du front.
+                "feux": profil.feux,
+                "stops": profil.stops,
                 "part_trafic": (
                     None if profil.part_trafic is None else round(profil.part_trafic, 4)
                 ),
@@ -1688,8 +2185,14 @@ def _question_vent_json(contexte: _Contexte) -> dict | None:
         "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
         "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
         "reponse": contexte.demande.vent,
-        "azimut_recherche_deg": question.azimut_pour(contexte.demande.vent),
+        # Pluriel depuis Q44 : « de travers » en ouvre deux, opposés. Le
+        # singulier `azimut_recherche_deg` disparaît plutôt que de coexister —
+        # un consommateur qui l'aurait lu aurait cru à un seul azimut exploré.
+        "azimuts_recherche_deg": list(question.azimuts_pour(contexte.demande.vent)),
         "choix": list(orientation.CHOIX),
+        "azimuts_par_choix": {
+            choix: list(question.azimuts_pour(choix)) for choix in orientation.CHOIX
+        },
     }
 
 
@@ -1744,6 +2247,10 @@ def _candidate_json(proposition: Proposition) -> dict:
         "denivele_m": trace.denivele_m,
         "azimut_deg": proposition.azimut_deg,
         "ecart_relatif": proposition.ecart_relatif,
+        # L'écart à la distance demandée cesse d'être tu (Q41 d).
+        "hors_tolerance": bool(proposition.elargissement),
+        "elargissement": proposition.elargissement,
+        "tolerance_distance": proposition.tolerance_distance,
         "part_connue": proposition.part_connue,
         "vitesse_kmh": round(proposition.vitesse_kmh, 2),
         "placement": {
@@ -1777,6 +2284,13 @@ def _candidate_json(proposition: Proposition) -> dict:
         "couts": {
             "km_trafic": round(proposition.couts.km_trafic, 3),
             "km_calme": round(proposition.couts.km_calme, 3),
+            # Sérialisé le 17/09/2026, comme il l'était déjà côté boucle
+            # libre. `km_trafic` et `km_calme` **ne font pas la distance** :
+            # le reste est sur des voies que le moteur ne sait pas classer, et
+            # sans ce chiffre un tracé à moitié sur des chemins s'annonce
+            # « 0,0 km de trafic » comme un tracé parfaitement calme (voir le
+            # commentaire du champ dans `boucle.couts.Couts`).
+            "km_non_classe": round(proposition.couts.km_non_classe, 3),
             "km_non_revetu": round(proposition.couts.km_non_revetu, 3),
             "score": round(proposition.couts.score, 3),
             "sens": proposition.couts.sens,
@@ -1790,9 +2304,19 @@ def _candidate_json(proposition: Proposition) -> dict:
             "ressenti_min_c": meteo.ressenti_min_c,
             "confiance": meteo.confiance,
             "n_echantillons": len(meteo.echantillons),
+            # Les mêmes flèches que la page HTML du sprint 5 dessine, filtrées
+            # au même seuil parce que c'est le même code — voir
+            # `boucle.meteo_trace.fleches_vent`.
+            "fleches_vent": fleches_vent(meteo),
             "modele_utilise": meteo.modele_utilise,
             "repli": meteo.repli,
         },
+        # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
+        # le GPX et le HTML Leaflet (`docs/ux/discovery_donnees.md` §2). Les
+        # `debut_m`/`longueur_m` des `emplacements` ci-dessus se raccordent à
+        # `trace.profil` par recherche dichotomique sur `dist_m` — voir la
+        # docstring de `boucle.geometrie`.
+        "trace": geometrie_json(trace),
     }
 
 
@@ -1810,6 +2334,19 @@ def _puissance(etape) -> str:
 
 def _azimut(azimut_deg: float | None) -> str:
     return f"{azimut_deg:.0f}°" if azimut_deg is not None else "direction inconnue"
+
+
+def _azimuts(azimuts_deg: Sequence[float]) -> str:
+    """Un azimut, ou deux joints par « et » — le travers en ouvre deux (Q44).
+
+    Écrire « 315° » quand la recherche a exploré 315° **et** 135° serait faux
+    au même titre que « dans toutes les directions » quand une seule a été
+    explorée : le lecteur doit pouvoir retrouver sur la carte ce qu'on lui dit
+    d'avoir cherché.
+    """
+    if not azimuts_deg:
+        return "direction inconnue"
+    return " et ".join(_azimut(a) for a in azimuts_deg)
 
 
 def _liste(elements) -> str:
@@ -1838,6 +2375,7 @@ __all__ = [
     "ARRONDI_DISTANCE_KM",
     "NOTE_BLOC_BIEN_PLACE",
     "Demande",
+    "GpxPropose",
     "Proposition",
     "executer",
     "lire_options",

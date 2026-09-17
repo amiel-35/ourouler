@@ -23,6 +23,7 @@ from pathlib import Path
 from ourouler.activites.lecture import EXTENSIONS, lecteur_pour
 from ourouler.activites.modele import Activite
 from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.proprietaire import PROPRIETAIRE_LOCAL
 
 NOM_INDEX = "index.sqlite"
 NOM_BRUT = "brut"
@@ -31,15 +32,17 @@ NOM_BRUT = "brut"
 #: deux activités distinctes partageant un même fichier d'origine (les deux
 #: segments d'un triathlon, natation et vélo dans le même FIT) n'avaient
 #: qu'une ligne. Schéma 2 : **une ligne par (source, id_externe)**, le
-#: fichier brut restant partagé. Voir `_migrer`.
-VERSION_SCHEMA = 2
+#: fichier brut restant partagé. Schéma 3 : la table gagne une colonne
+#: `proprietaire`, qui entre aussi dans l'identité. Voir `_migrer`.
+VERSION_SCHEMA = 3
 
 #: Nom de l'index qui porte l'identité d'une activité. Sa présence sert aussi
-#: à reconnaître un index déjà migré.
+#: à reconnaître un index déjà passé du schéma 1 au schéma 2.
 INDEX_IDENTITE = "idx_activites_identite"
 
 _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS activites (
+    proprietaire      TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}',
     identifiant       TEXT NOT NULL,
     source            TEXT NOT NULL,
     id_externe        TEXT,
@@ -54,17 +57,31 @@ CREATE TABLE IF NOT EXISTS activites (
     meta              TEXT NOT NULL DEFAULT '{{}}',
     ajoutee_le        TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_activites_debut ON activites(debut);
-CREATE INDEX IF NOT EXISTS idx_activites_identifiant ON activites(identifiant);
+CREATE INDEX IF NOT EXISTS idx_activites_debut ON activites(proprietaire, debut);
+CREATE INDEX IF NOT EXISTS idx_activites_identifiant
+    ON activites(proprietaire, identifiant);
 CREATE UNIQUE INDEX IF NOT EXISTS {INDEX_IDENTITE}
-    ON activites(source, COALESCE(id_externe, identifiant));
+    ON activites(proprietaire, source, COALESCE(id_externe, identifiant));
 """
 
 #: Cible du `ON CONFLICT` de `ajouter` : exactement les colonnes de
 #: `INDEX_IDENTITE`. Un `id_externe` absent retombe sur le contenu, qui était
 #: l'identité du schéma 1 — un même fichier réimporté deux fois sans nom
 #: extérieur ne fait toujours qu'une ligne.
-_CONFLIT_IDENTITE = "source, COALESCE(id_externe, identifiant)"
+#:
+#: **Pourquoi `proprietaire` est passé en tête de l'unicité (schéma 3).**
+#: `(source, id_externe)` seul supposait qu'un identifiant Intervals ne
+#: désigne qu'une activité au monde. C'est faux dès qu'il y a deux
+#: utilisateurs : une sortie en groupe, un même compte Intervals rattaché à
+#: deux profils, un ménage qui partage un Garmin. Sans le propriétaire dans
+#: l'index, le second import ne lèverait même pas d'erreur — le `ON CONFLICT
+#: DO UPDATE` ci-dessous **écraserait** la ligne du premier, en silence, avec
+#: le vélo et les métadonnées de l'autre. C'est la forme la plus discrète
+#: qu'une fuite de données puisse prendre. Avec le propriétaire en tête,
+#: chacun garde sa ligne, et la convergence de `--synchroniser` (réimporter
+#: la même activité met à jour au lieu d'ajouter) vaut désormais **par
+#: propriétaire**, ce qui est ce qu'on voulait dire depuis le début.
+_CONFLIT_IDENTITE = "proprietaire, source, COALESCE(id_externe, identifiant)"
 
 _COLONNES = (
     "identifiant, source, id_externe, extension, debut, duree_s, distance_m, "
@@ -98,8 +115,9 @@ class EntreeCache:
 class Cache:
     """Dossier de cache : `brut/<identifiant>.<extension>` + `index.sqlite`."""
 
-    def __init__(self, dossier: Path):
+    def __init__(self, dossier: Path, proprietaire: str = PROPRIETAIRE_LOCAL):
         self.dossier = Path(dossier)
+        self.proprietaire = _proprietaire_valide(proprietaire)
         self.brut = self.dossier / NOM_BRUT
         self.index = self.dossier / NOM_INDEX
         try:
@@ -122,7 +140,12 @@ class Cache:
 
         `PRAGMA user_version` vaut 0 sur une base tout juste créée comme sur
         un index antérieur au versionnement : c'est la présence de la table,
-        pas le numéro, qui dit s'il y a quelque chose à migrer.
+        de l'index ou de la colonne, jamais le numéro, qui dit s'il reste
+        quelque chose à migrer. **Une migration déjà faite ne se refait
+        donc pas**, et rouvrir dix fois un cache migré ne le touche pas.
+
+        L'escalier se monte marche par marche : un index du schéma 1 passe par
+        2 avant d'arriver à 3.
         """
         version = cx.execute("PRAGMA user_version").fetchone()[0]
         if version > VERSION_SCHEMA:
@@ -131,9 +154,12 @@ class Cache:
                 "— supprimer le fichier index.sqlite le reconstruira (les fichiers "
                 "bruts sont conservés)"
             )
-        if not _table_existe(cx, "activites") or _index_existe(cx, INDEX_IDENTITE):
-            return  # base neuve, ou index déjà au schéma 2
-        self._migrer_vers_identite(cx)
+        if not _table_existe(cx, "activites"):
+            return  # base neuve : `_SCHEMA` la crée directement au schéma courant
+        if not _index_existe(cx, INDEX_IDENTITE):
+            self._migrer_vers_identite(cx)  # 1 → 3, d'un coup : la table est recopiée
+        if not _colonne_existe(cx, "activites", "proprietaire"):
+            self._migrer_vers_proprietaire(cx)  # 2 → 3
 
     def _migrer_vers_identite(self, cx: sqlite3.Connection) -> None:
         """Schéma 1 → 2 : `identifiant` cesse d'être la clé, `(source, id_externe)` la devient.
@@ -141,6 +167,12 @@ class Cache:
         La table du schéma 1 déclare `identifiant TEXT PRIMARY KEY`, et SQLite
         ne sait pas retirer une clé primaire : on recopie dans une table
         neuve. Les colonnes sont les mêmes, seules les contraintes changent.
+
+        La table neuve est déjà celle du schéma 3 (`_SCHEMA` porte
+        `proprietaire`) : un index du schéma 1 arrive donc directement au
+        schéma courant, la colonne prenant sa valeur par défaut. C'est bien
+        un déplacement et pas une réécriture — aucune ligne n'est perdue,
+        aucun fichier brut n'est touché.
 
         Deux lignes du schéma 1 ne peuvent pas entrer en conflit sur
         `(source, id_externe)` par construction — mais un index bricolé à la
@@ -159,6 +191,37 @@ class Cache:
                     GROUP BY source, COALESCE(id_externe, identifiant)
                 );
             DROP TABLE activites_schema1;
+            """
+        )
+
+    def _migrer_vers_proprietaire(self, cx: sqlite3.Connection) -> None:
+        """Schéma 2 → 3 : la table gagne `proprietaire`, qui entre dans l'unicité.
+
+        Migration **douce** : un `ALTER TABLE … ADD COLUMN` avec un défaut
+        constant, donc aucune ligne recopiée, aucune activité perdue, aucun
+        fichier brut touché. Toutes les lignes déjà là appartiennent au seul
+        utilisateur qui existait, `PROPRIETAIRE_LOCAL`.
+
+        La colonne se range en queue sur un index migré et en tête sur un
+        index neuf ; l'ordre physique n'a aucune conséquence — toutes les
+        requêtes nomment leurs colonnes — et seul le nom compte.
+
+        Les trois index, eux, doivent être **refaits** : `CREATE INDEX IF NOT
+        EXISTS` ne redéfinit pas un index qui existe déjà sous le même nom, et
+        celui d'unicité porterait encore l'ancienne clé sans propriétaire. On
+        les supprime ici ; `_SCHEMA`, exécuté juste après par `__init__`, les
+        recrée à la bonne forme. Tout tient dans un seul script, donc dans une
+        seule transaction : il n'existe pas d'état intermédiaire où la colonne
+        serait là et l'unicité encore l'ancienne.
+        """
+        cx.executescript(
+            f"""
+            ALTER TABLE activites
+                ADD COLUMN proprietaire TEXT NOT NULL DEFAULT '{PROPRIETAIRE_LOCAL}';
+            DROP INDEX IF EXISTS idx_activites_debut;
+            DROP INDEX IF EXISTS idx_activites_identifiant;
+            DROP INDEX IF EXISTS {INDEX_IDENTITE};
+            {_SCHEMA}
             """
         )
 
@@ -200,15 +263,15 @@ class Cache:
         ligne = _ligne(identifiant, source, id_externe, extension, activite, meta or {})
         with self._connexion() as cx:
             cx.execute(
-                f"INSERT INTO activites ({_COLONNES}, ajoutee_le) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                f"INSERT INTO activites (proprietaire, {_COLONNES}, ajoutee_le) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
                 f"ON CONFLICT({_CONFLIT_IDENTITE}) DO UPDATE SET "
                 "identifiant=excluded.identifiant, extension=excluded.extension, "
                 "debut=excluded.debut, duree_s=excluded.duree_s, "
                 "distance_m=excluded.distance_m, puissance_moy_w=excluded.puissance_moy_w, "
                 "sport=excluded.sport, appareil=excluded.appareil, "
                 "equipement=excluded.equipement, meta=excluded.meta",
-                (*ligne, datetime.now(UTC).isoformat(timespec="seconds")),
+                (self.proprietaire, *ligne, datetime.now(UTC).isoformat(timespec="seconds")),
             )
         return identifiant
 
@@ -243,12 +306,13 @@ class Cache:
             curseur = cx.execute(
                 "UPDATE activites SET meta = ?, equipement = COALESCE(?, equipement), "
                 "sport = COALESCE(?, sport), appareil = COALESCE(?, appareil) "
-                "WHERE source = ? AND id_externe = ?",
+                "WHERE proprietaire = ? AND source = ? AND id_externe = ?",
                 (
                     charge,
                     equipement or None,
                     meta.get("sport") or None,
                     meta.get("appareil") or None,
+                    self.proprietaire,
                     str(source),
                     str(id_externe),
                 ),
@@ -306,15 +370,17 @@ class Cache:
     def contient(self, *, source: str, id_externe: str) -> bool:
         with self._connexion() as cx:
             trouve = cx.execute(
-                "SELECT 1 FROM activites WHERE source = ? AND id_externe = ? LIMIT 1",
-                (source, str(id_externe)),
+                "SELECT 1 FROM activites "
+                "WHERE proprietaire = ? AND source = ? AND id_externe = ? LIMIT 1",
+                (self.proprietaire, source, str(id_externe)),
             ).fetchone()
         return trouve is not None
 
     def contient_identifiant(self, identifiant: str) -> bool:
         with self._connexion() as cx:
             trouve = cx.execute(
-                "SELECT 1 FROM activites WHERE identifiant = ? LIMIT 1", (identifiant,)
+                "SELECT 1 FROM activites WHERE proprietaire = ? AND identifiant = ? LIMIT 1",
+                (self.proprietaire, identifiant),
             ).fetchone()
         return trouve is not None
 
@@ -327,26 +393,44 @@ class Cache:
         """
         depuis = _borne_en_date(depuis, "depuis")
         jusqua = _borne_en_date(jusqua, "jusqua")
-        conditions, parametres = [], []
+        # Les bornes de date sont facultatives et s'assemblent ; la clause de
+        # propriétaire, elle, est **écrite en toutes lettres dans le SQL**
+        # ci-dessous. Assemblée comme les autres, elle disparaîtrait du texte
+        # de la requête, et l'invariant de `tests/test_invariants.py` ne
+        # pourrait plus voir si elle est là — ce qui est exactement le cas
+        # qu'il existe pour attraper.
+        conditions, parametres = [], [self.proprietaire]
         if depuis is not None:
             conditions.append("substr(debut, 1, 10) >= ?")
             parametres.append(depuis.isoformat())
         if jusqua is not None:
             conditions.append("substr(debut, 1, 10) <= ?")
             parametres.append(jusqua.isoformat())
-        ou = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+        bornes = "".join(f" AND {condition}" for condition in conditions)
         with self._connexion() as cx:
             lignes = cx.execute(
-                f"SELECT {_COLONNES} FROM activites{ou} ORDER BY debut, identifiant, source, id_externe",
+                f"SELECT {_COLONNES} FROM activites WHERE proprietaire = ?{bornes} "
+                "ORDER BY debut, identifiant, source, id_externe",
                 parametres,
             ).fetchall()
         return [self._entree(ligne) for ligne in lignes]
 
     def chemin(self, identifiant: str) -> Path:
-        """Chemin du fichier brut. Lève `KeyError` si l'identifiant est inconnu."""
+        """Chemin du fichier brut. Lève `KeyError` si l'identifiant est inconnu.
+
+        Le fichier brut est rangé par **contenu** (`brut/<sha256>.<ext>`) :
+        deux propriétaires qui possèdent les mêmes octets ne les stockent pas
+        deux fois. Ce n'est pas une brèche tant que c'est **l'index** qui
+        donne le chemin, et que l'index filtre : un identifiant qui n'est pas
+        dans les lignes de ce propriétaire est inconnu, exactement comme s'il
+        n'existait pas. En hébergé, les fichiers bruts iront dans un stockage
+        d'objets avec un préfixe par utilisateur (doctrine §10.2) et la
+        mutualisation disparaîtra d'elle-même.
+        """
         with self._connexion() as cx:
             ligne = cx.execute(
-                "SELECT extension FROM activites WHERE identifiant = ?", (identifiant,)
+                "SELECT extension FROM activites WHERE proprietaire = ? AND identifiant = ?",
+                (self.proprietaire, identifiant),
             ).fetchone()
         if ligne is None:
             raise KeyError(identifiant)
@@ -426,6 +510,26 @@ def _index_existe(cx: sqlite3.Connection, nom: str) -> bool:
         ).fetchone()
         is not None
     )
+
+
+def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
+    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
+    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
+
+
+def _proprietaire_valide(valeur: str) -> str:
+    """Un propriétaire est une chaîne non vide. Rien d'autre n'est admis.
+
+    Un `None` ou une chaîne vide se glisserait dans le `WHERE` et n'y
+    sélectionnerait rien — une isolation qui « marche » en ne rendant jamais
+    de données est la panne la plus difficile à diagnostiquer. On refuse tout
+    de suite, à la construction du dépôt.
+    """
+    if not isinstance(valeur, str) or not valeur.strip():
+        raise ErreurUtilisateur(
+            f"cache : propriétaire {valeur!r} invalide — une chaîne non vide est attendue"
+        )
+    return valeur.strip()
 
 
 def _ligne(

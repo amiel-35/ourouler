@@ -142,7 +142,7 @@ d'autre — pas de client Garmin, pas de bibliothèque non officielle, pas de
 compte à brancher. Les API constructeurs (Wahoo en tête, la seule vraie)
 restent au backlog du service hébergé, pas du besoin du mainteneur.
 
-## Q6 — Nom du projet — **nom validé le 13/09/2026 : ourouler** ; reste la purge avant publication
+## Q6 — Nom du projet et purge avant publication — **close le 17/09/2026**ation
 
 Nom validé : `ourouler` (paquet, commande, dépôt GitHub `amiel-35/ourouler`,
 renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessous ;
@@ -516,12 +516,15 @@ choix proposés.**
 
 - **`--heure-depart`** est le nom canonique de l'**heure** de départ, sur
   `meteo`, `boucle`, `simuler` et `sortie`.
-- **`--adresse-depart`** est le nom **réservé** du **lieu** de départ — un
-  départ autre que la maison, annoncé au plan du sprint 4 sous le nom
-  provisoire `--depuis`. **Il n'est pas livré** : aucune commande ne le
-  porte aujourd'hui, et un test le vérifie pour qu'il ne soit pas pris par
-  autre chose entre-temps. Le nom est posé maintenant parce qu'après il
-  serait trop tard.
+- **`--adresse-depart`** est le nom du **lieu** de départ — un départ autre
+  que la maison, annoncé au plan du sprint 4 sous le nom provisoire
+  `--depuis`. Le nom a d'abord été **réservé** (gardé par un test, pour qu'il
+  ne soit pas pris par autre chose), puis **livré le 17/09/2026 par le lot
+  F0.7** sur `meteo`, `boucle` et `sortie` — pas sur `simuler`, qui part du
+  GPX qu'on lui donne et non d'un point. Ce que le test réservait est
+  désormais vérifié à l'endroit : le nom retenu existe, les noms écartés non,
+  et le lieu n'écrase pas l'heure. Ce que la commande fait d'une adresse
+  ambiguë est en Q34.
 
 Les deux noms disent ce qu'ils désignent et ne se ressemblent plus : c'était
 tout le problème.
@@ -746,6 +749,20 @@ fine d'AROME sur le court terme, on gagne les jours 3 à 7.
 3. **Le conseil `--modele` est faux** : `ourouler sortie` n'a pas cette
    option. Un message de la couche connecteur ne doit pas nommer une option de
    ligne de commande qu'il ne connaît pas.
+
+**Refermé sur les deux chemins — 17/09/2026.** Le repli (point 1) avait été
+écrit sur `sortie` et **pas** sur `boucle` : `boucle/commande._meteos`
+appelait `meteo_trace.evaluer` sans `modele_repli`, si bien qu'une boucle
+libre demandée à J+3 perdait les trois colonnes météo exactement comme la
+sortie du 19 septembre. `boucle` passe désormais le même repli, nomme dans son
+en-tête le modèle qui a **répondu** (et non celui qui est configuré, qui
+aurait menti une fois sur deux), et rend `modele_meteo = {utilise, repli}`
+dans son JSON, même forme que `sortie`.
+*Vérifié sur la configuration réelle* : `ourouler boucle --heure-depart
+<J+3>T10:00` rendait avant « météo indisponible » et un tableau sans pluie,
+sans vent, sans ressenti ; il rend maintenant les trois, par `icon_seamless`,
+sous l'en-tête « meteofrance_arome_france_hd ne couvre pas cette fenêtre —
+bascule sur icon_seamless ».
 
 ## Q20 — La page du jour n'applique pas la méthode Strava qu'elle voulait — **ouverte le 16/09/2026, à corriger**
 
@@ -1528,3 +1545,1245 @@ veut pas dire « le même outil pour tout le monde ». Un Rennais et un
 Francilien n'ont pas besoin du même produit. Découverte qui vaut mieux
 maintenant qu'au sprint 8.
 
+
+## Q33 — La cible de course, et la butée qui l'empêche — **V2, mesuré le 16/09/2026**
+
+Idée du mainteneur, née d'une digression sur le potentiel de son vélo de
+chrono : *« ça peut permettre de calculer une cible de course d'ailleurs avec
+le parcours et la météo à 3 jours de la course »*.
+
+**Ce qui existe déjà.** `ourouler simuler` prend le GPX d'un parcours, une
+puissance et le vélo calibré, va chercher **le vent prévu** si on lui donne
+une heure de départ, et rend le temps simulé — en texte comme en JSON. Les
+trois quarts du chemin sont faits.
+
+**Ce qui manque, par ordre de coût.**
+
+1. **L'inversion.** Aujourd'hui : puissance → temps. Il faudrait : temps visé
+   → puissance à tenir. C'est une bissection sur la même fonction, et le
+   module en fait déjà une dans `vitesse_regime`. Peu de code.
+2. **Le rappel de l'horizon.** Le vent se demande pour une heure de départ,
+   mais la fiabilité mesurée s'arrête à trois jours (`HORIZON_ORIENTATION_J`,
+   88 % de bon secteur à J+3). Une cible préparée à une semaine doit dire
+   qu'elle ne sait pas, pas deviner.
+3. **Le CdA du jour de course — et c'est le point bloquant.**
+
+**La butée, mesurée sur deux courses.** Ajustement CdA/Crr fait sur la seule
+partie vélo de deux triathlons, isolée par les points portant de la puissance,
+avec le vent d'archive du jour :
+
+| course | partie vélo | CdA | Crr | RMSE |
+|---|---|---|---|---|
+| Sables-d'Olonne, 22/06/2025 | 176,5 km en 5 h 32, 31,9 km/h | **0,1800** *(butée)* | 0,00583 | 81 W |
+| Châtelaillon, 11/05/2025 | 86,0 km en 2 h 38, 32,7 km/h | **0,1800** *(butée)* | 0,00883 | 83 W |
+
+`CDA_MIN = 0,18` (`physique/calibration.py:138`) est **un plancher trop haut
+pour une position de chrono tenue**. Les deux courses s'y collent : ce n'est
+pas un accident de l'une d'elles.
+
+**Conséquence sur la lecture, et elle est importante.** Quand le CdA est
+coincé à la butée, **le Crr n'est plus identifié** : il devient le résidu qui
+absorbe ce que le CdA n'a pas eu le droit d'expliquer. Les deux valeurs de Crr
+ci-dessus ne parlent donc pas des pneus — elles disent que la résistance
+totale inexpliquée diffère entre les deux courses.
+
+**Et l'écart de 62 W** que ce CdA donne contre le vélo de route à 32 km/h est
+donc **un minimum, pas une estimation**. Le mainteneur situe le gain de sa
+seule position à 25-30 W ; le reste vient des roues, des pneus, de la tenue,
+du casque et de l'asphalte neuf.
+
+**Pourquoi ça bloque la cible de course, et pas les sorties d'entraînement.**
+Pour une sortie ordinaire, le CdA moyen des positions réellement tenues est le
+bon chiffre — c'est la réserve écrite dans l'en-tête du module. Pour une cible
+de course, il faut le CdA du jour de course. Avec celui d'entraînement, la
+cible serait systématiquement pessimiste : une puissance plus haute que
+nécessaire pour tenir le temps visé. Sur cinq heures, c'est l'erreur qui coûte
+le marathon derrière.
+
+**Réserves de la mesure.** Une course porte des relances et des passages
+abrités, et le modèle n'a aucun terme d'aspiration — d'où un RMSE de plus de
+80 W. Une chute est visible à Châtelaillon (102 s sous 8 km/h au km 5,8) mais
+ne pollue pas l'ajustement : l'échantillonnage écarte déjà tout ce qui roule
+sous 8 km/h, et 236 tronçons sur 420 ont été retenus.
+
+**Décision du mainteneur** : noté pour la V2. Le cadrage du front passe avant.
+
+
+## Q34 — Une adresse sans commune donne cinq départs à égalité — **tranchée et livrée le 17/09/2026**
+
+Livré au lot F0.7, `--adresse-depart` retient le **premier candidat** rendu
+par le géocodeur et l'annonce sur la sortie d'erreur avant tout appel coûteux
+(le raisonnement complet est dans la docstring de `cli.lieu_depart`). La
+question est de savoir s'il faut, en plus, **refuser** quand les meilleurs
+candidats sont trop proches.
+
+**Ce qui a été mesuré**, en appelant la BAN pour de vrai le 17/09/2026. Les
+requêtes étaient des **lieux publics** — des gares, des mairies — et jamais une
+adresse du mainteneur ; elles ne sont pas recopiées ici, ce dépôt ne porte
+aucune adresse réelle, pas même dans une mesure. Seuls les chiffres comptent :
+
+| forme de la requête | score du 1ᵉʳ | score du 2ᵉ | les deux sont-ils au même endroit ? |
+|---|---|---|---|
+| une rue avec son numéro, son code postal et sa commune | 0,98 | 0,71 | oui, même commune |
+| une gare, désignée par sa grande ville | 0,55 | plus bas | oui |
+| une gare, désignée par une ville moyenne | 0,61 | 0,56 | **non** — le 2ᵉ est à 200 km, dans un autre département |
+| une rue avec son numéro, **sans commune** | 0,9774 | 0,9773 | **non** — cinq communes, jusqu'à 400 km d'écart |
+
+Deux enseignements. Une adresse **avec** sa commune ne pose pas de problème :
+l'écart de score est franc, le premier candidat est le bon. Une adresse
+**sans** commune donne des scores séparés par un dix-millième, dans des
+communes sans rapport : le premier candidat est alors **arbitraire**, et seule
+l'annonce du lieu retenu évite la réponse fausse.
+
+**Pourquoi rien n'a été ajouté.** Refuser « quand c'est trop serré » demande un
+seuil, et aucun seuil ne se déduit de ces quatre mesures : 0,0001 d'écart est
+clairement une égalité, 0,27 clairement pas, et la gare de ville moyenne (0,05) tombe
+entre les deux avec la bonne réponse en tête. Poser un chiffre maintenant
+serait un choix arbitraire présenté comme une mesure (règle absolue 5).
+
+**La question** : le mainteneur préfère-t-il (a) ce qui est livré — on retient
+le premier et on le dit ; (b) un refus quand l'écart entre les deux premiers
+est sous un seuil qu'il fixe, avec la liste affichée et le code de sortie 2 ;
+ou (c) un refus dès que les deux premiers sont dans des **communes
+différentes**, ce qui ne demande aucun seuil mais demande à `Candidat` de
+porter la commune, que la BAN rend déjà et que le connecteur jette aujourd'hui ?
+
+Côté API (F1), la question ne se pose pas : la route de géocodage rendra la
+liste complète au front, qui fera choisir, et les routes de parcours
+recevront des **coordonnées** déjà tranchées.
+
+### Réponse du mainteneur (17/09/2026) — on refuse, et on ne calibre rien
+
+> « ben simple : on refuse. Et on peut faire contrôler la position en
+> affichant un point, voire proposer la géoloc sur mobile. S'il faut, en V1,
+> on fait un formulaire à champs obligatoires. »
+
+**Ce que cette réponse fait de mieux que les trois options proposées** : elle
+retire la question au lieu d'y répondre. Aucun seuil n'est à inventer, parce
+qu'on n'accepte plus l'entrée qui crée l'ambiguïté.
+
+La mesure le soutient : dès que la commune est présente, l'écart de score
+passe à 0,98 contre 0,71, franc, et le premier candidat est le bon. **Les cinq
+départs à égalité n'existent que pour une adresse sans commune.** Rendre la
+commune obligatoire supprime le cas plutôt que de le gérer.
+
+**Ce que ça donne, par surface :**
+
+- **Le formulaire du front** : des champs séparés et obligatoires — numéro,
+  voie, code postal, commune — plutôt qu'une ligne de texte libre. Moins
+  élégant qu'un champ unique, mais c'est ce qui rend la réponse sûre.
+- **Le point sur la carte** : l'adresse géocodée se confirme à l'œil avant
+  d'être retenue. Un géocodage qui se trompe de commune est indétectable dans
+  un champ texte, visible en une seconde sur une carte.
+- **La géolocalisation sur mobile** : celui qui part de chez lui n'a rien à
+  taper. À noter pour l'implémentation : le navigateur ne la donne que sur
+  HTTPS (ou en local) et après autorisation explicite — donc jamais comme
+  seul chemin, toujours en plus du formulaire.
+- **La ligne de commande** : c'est là que « on refuse » a le plus de sens,
+  puisque personne ne peut confirmer un point. Une adresse ambiguë est
+  refusée avec ses candidats affichés, au lieu d'en retenir un au hasard.
+
+**Ce qui tombe** : l'option (b), un seuil fixé à la main, et l'option (c),
+refuser sur les communes différentes. Ni l'une ni l'autre n'est nécessaire si
+la commune est demandée.
+
+### Ce qui a été livré (17/09/2026), et la mesure qui l'a guidé
+
+**Quinze requêtes sur la vraie BAN, lieux publics uniquement** — mairies,
+gares, préfectures, jamais une adresse du mainteneur ; comme au premier tour,
+elles ne sont pas recopiées, seuls les chiffres comptent.
+
+| forme de la requête | n | écart de score 1ᵉʳ–2ᵉ | communes distinctes |
+|---|---|---|---|
+| neuf adresses complètes (n° + voie + CP + commune) | 1 à 5 | — | **1**, les neuf fois |
+| une voie + sa commune, sans numéro | 1 | — | 1 |
+| n° + voie + CP, sans nom de commune | 1 | — | 1 |
+| une rue, sans commune ni CP | 5 | 0,0024 | **5** |
+| « place de la mairie », sans commune | 5 | 0,0016 | **5** |
+| « place de la gare », sans commune | 5 | 0,0018 | **5** |
+| une gare désignée par sa grande ville | 5 | **0,0020** | **1** |
+
+**La dernière ligne ferme définitivement l'option (b).** Une requête dont la
+réponse est *juste* a le même écart de score (0,0020) qu'une requête dont la
+réponse est *arbitraire* (0,0016 à 0,0024). Les deux intervalles ne se touchent
+pas : ils se recouvrent. Aucun seuil ne peut les séparer, et il ne s'agissait
+pas de ne pas avoir assez mesuré — la grandeur ne porte pas l'information.
+
+**La commune, elle, sépare parfaitement sur les quinze.** D'où la règle, qui
+ne mesure rien : `geocodage.ambiguite()` refuse quand les candidats rendus ne
+désignent pas tous la même commune (nom normalisé + code postal, pour séparer
+deux homonymes), ou quand l'un d'eux n'a pas de commune du tout — on ne peut
+alors pas vérifier que la réponse est franche.
+
+**Une nuance par rapport à ce qui précède, et il faut la dire.** La réponse
+ci-dessus fait tomber l'option (c) « parce que la commune est demandée ». C'est
+vrai du front, qui a un formulaire pour la demander. La ligne de commande n'en
+a pas : `--adresse-depart` prend une ligne de texte. Le test sur les communes y
+est donc la façon d'**exiger** la commune, pas une option concurrente — il
+rend le refus quand elle manque, et laisse passer quand elle est là. Ce n'est
+pas l'option (c) qui revient, c'est la décision qui s'applique à une surface
+sans formulaire.
+
+**Par surface, ce qui tourne :**
+
+- **Le front** (`front/src/composants/FormulaireAdresse.tsx`) : quatre champs
+  séparés et obligatoires, une phrase qui dit pourquoi, la liste des candidats
+  avec leur commune, **un point sur la carte à confirmer** avant que quoi que
+  ce soit soit retenu, et « Utiliser ma position » en plus. Branché sur E10
+  (assistant), E16 (« partir d'ailleurs ») et les réglages. `ChoixAdresse.tsx`,
+  le champ de texte libre, a été retiré.
+- **La géolocalisation** : proposée seulement quand le navigateur sait la
+  donner **et** que la connexion est sécurisée ; sinon une phrase dit pourquoi.
+  Le refus d'autorisation affiche « c'est votre choix » et renvoie au
+  formulaire — ce n'est pas une panne. Le point obtenu est une coordonnée :
+  faute de géocodage inverse, il s'affiche en chiffres, sans nom de rue
+  inventé.
+- **La CLI** : `--adresse-depart` ambiguë → les candidats s'affichent avec leur
+  commune, puis `ErreurUtilisateur` et code 2. Rien ne retombe sur le départ
+  configuré, et l'erreur le dit.
+- **L'API** : chaque candidat porte `commune` et `code_postal` ; la charge
+  porte `ambigu` et `motif_ambiguite`. **La route ne refuse pas** — elle rend
+  tout et fait choisir, c'est le front qui a la carte. Les routes de parcours
+  ne prenaient déjà que des coordonnées : rien à y changer.
+
+### Ce qui reste ouvert
+
+- **Le numéro obligatoire.** Les quatre champs sont obligatoires, comme
+  demandé. Aucune mesure ne soutient l'obligation du **numéro** : seule la
+  commune a été mesurée, et « place du Capitole 31000 Toulouse », sans numéro,
+  rend un seul candidat dans une seule commune. Conséquence concrète : partir
+  d'une gare ou d'une place n'est pas exprimable sans inventer un numéro. Faut-
+  il délier le numéro (obligatoires : voie, CP, commune) ?
+- **Le géocodage inverse n'existe pas** et n'a pas été ajouté. La BAN a un
+  `/reverse` ; le connecteur ne l'expose pas. Conséquence : une position du
+  téléphone n'a pas de nom lisible. À ouvrir si le nom compte — il ne compte
+  pas pour tracer une boucle.
+- **La règle dépend du nombre de candidats demandé** à la BAN. À cinq (le
+  défaut, et ce que la CLI demande toujours), la séparation est nette sur les
+  quinze requêtes. À vingt, des communes lointaines et mal notées
+  apparaîtraient et feraient refuser plus souvent. Fixe côté CLI, libre côté
+  `geocoder --max` et côté API — qui ne refusent ni l'un ni l'autre.
+- **Pas d'échappatoire en coordonnées côté CLI.** Une adresse que la BAN ne
+  sait rattacher à aucune commune est inutilisable en ligne de commande. Un
+  `--coordonnees-depart LAT,LON` la débloquerait ; il n'a pas été ajouté parce
+  que personne ne l'a demandé et que le front couvre le cas.
+
+## Q35 — Quelles sections du TOML du serveur sont communes, et lesquelles appartiennent au cycliste — **fuite fermée le 17/09/2026, arbitrage à rendre**
+
+**Ce qui a été trouvé.** `api/depots.py` fusionnait la surcharge d'un
+propriétaire **par-dessus** le TOML du serveur. Tout ce qu'un propriétaire ne
+surchargeait pas, il en héritait : `DepotProfils.config(Proprietaire("autre-cycliste"))`
+rendait la clé Intervals, l'identifiant d'athlète et le point de départ du
+mainteneur. Les tests qui prétendaient couvrir le sujet ne regardaient que le
+champ surchargé (la FTP) et concluaient que « les profils ne se mélangent
+pas » ; la moitié héritée n'était vérifiée nulle part.
+
+**Ce qui a été fait, et pourquoi c'est volontairement peu.** Un socle sait
+désormais **à qui il appartient** (`SocleTOML(chemin, proprietaire=…)`). La
+fabrique de service déclare le TOML comme étant celui du mainteneur, et le
+dépôt refuse de le servir à un autre propriétaire au lieu de lui offrir ce
+qu'il n'a pas surchargé. Rien ne change pour le mainteneur, qui reste le seul
+propriétaire jusqu'à F3.
+
+**Ce qui n'a pas été tranché, parce que ce n'est pas à un agent de le faire.**
+Découper le TOML entre ce qui est **commun au serveur** (`cache`, `brouter`,
+`meteo`, seuils de placement) et ce qui est le **profil d'une personne**
+(`depart`, `cycliste`, `velos`, `intervals`, `seance`) est un choix produit.
+`CHAMPS_MODIFIABLES` en donne déjà une lecture — ce qu'un cycliste peut
+éditer — mais « modifiable par le cycliste » et « personnel » ne sont pas la
+même chose : le serveur BRouter n'est pas modifiable et n'est pas personnel,
+le point de départ est les deux.
+
+**La question**, à rendre avant F3 : (a) le socle reste personnel et chaque
+propriétaire part d'un profil vide qu'il remplit à l'inscription ; (b) le
+socle est découpé, les sections communes sont héritées par tous et les
+sections personnelles ne le sont jamais — auquel cas il faut la liste ; ou
+(c) le TOML du serveur devient un fichier d'exploitation sans aucune section
+personnelle, et le profil du mainteneur migre dans une surcharge comme celui
+de tout le monde.
+
+### Réponse du mainteneur (17/09/2026) — le découpage, section par section
+
+> « tenue oui cycliste, pas par défaut : on a des valeurs et on permet juste
+> de changer les seuils, pas d'en créer — V2 les modifications de seuil
+> d'ailleurs. Boucle serveur, météo serveur, BRouter serveur, cache serveur. »
+
+**Ce qui appartient au cycliste** — `[depart]`, `[cycliste]`, `[[velos]]`,
+`[intervals]`, `[seance]`, `[calibration]`, `[tenue]`.
+
+**Ce qui appartient au serveur** — `[boucle]`, `[meteo]`, `[brouter]`,
+`[cache]`.
+
+C'est donc l'option **(b)** de la question : le socle est découpé, les
+sections communes sont héritées par tous, les sections personnelles ne le
+sont jamais. Et voici la liste, qui était la condition pour que (b) soit
+tenable.
+
+**Deux précisions du mainteneur sur `[tenue]`**, et elles resserrent le
+périmètre plutôt que de l'ouvrir :
+
+1. **Les valeurs par défaut restent**, et chacun part d'elles. On ne demande
+   pas à un nouveau de décrire sa garde-robe pour commencer à rouler.
+2. **On ne change que des seuils, jamais la liste des vêtements** — et même
+   ça attend la V2. En V1, `[tenue]` appartient au cycliste dans le modèle de
+   données, mais son interface d'édition n'existe pas encore.
+
+**Pourquoi `[boucle]` est au serveur, alors qu'il ressemble à une préférence.**
+Il porte le nombre de candidates et la tolérance de distance : des réglages
+qui **coûtent des appels externes**. Ouvert à chacun, il laisse quelqu'un
+demander vingt candidates et faire déborder le quota Open-Meteo pour tout le
+monde. C'est un réglage de moteur, pas un goût.
+
+**Deux sections que le mainteneur n'a pas nommées, à trancher :**
+
+- **`[evitements]`** — les routes ou zones qu'un cycliste refuse. Rien de plus
+  personnel, mais la question n'a pas été posée explicitement.
+- **`historique_depuis`** — la date à partir de laquelle on lit ses activités.
+  Elle vit aujourd'hui sous `[cache]`, donc côté serveur d'après ce découpage,
+  alors qu'elle décrit l'histoire d'une personne. La règle absolue 6 du projet
+  en fait déjà « un paramètre de configuration, pas une constante » — reste à
+  dire de quelle configuration.
+
+### Les deux sections orphelines — tranchées le 17/09/2026
+
+> « personnel, avec config par défaut. »
+
+**`[evitements]` et `historique_depuis` appartiennent au cycliste**, avec des
+valeurs par défaut pour que personne ne parte d'une page blanche.
+
+Conséquence à traiter : `historique_depuis` vit aujourd'hui **sous `[cache]`**,
+donc côté serveur d'après ce découpage — alors qu'elle décrit l'histoire d'une
+personne. Le 1ᵉʳ décembre 2023 du mainteneur n'a aucun sens pour quelqu'un qui
+s'inscrit demain. Elle sort de `[cache]`, qui parle de stockage.
+
+Le découpage de Q35 est donc complet : **au cycliste** `depart`, `cycliste`,
+`velos`, `intervals`, `seance`, `calibration`, `tenue`, `evitements`,
+`historique_depuis` ; **au serveur** `boucle`, `meteo`, `brouter`, `cache`.
+
+## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **bloquant levé provisoirement au lot F2**
+
+Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
+Deux choses s'y opposaient, et aucune n'était un oubli du front.
+
+**Les maquettes ont écarté cet écran exprès.** `maquettes_v1.html` le dit en
+toutes lettres au pied de la page : « Les huit absents comprennent l'étape
+d'identité de l'assistant, qui n'est pas un oubli mais la question ouverte
+n° 4 ». Cette question n° 4 est « l'âge, et ce qu'on en fait » : le brief le
+demande, et rien dans le dépôt ne s'en sert — ni le modèle physique, ni les
+zones, ni la tenue.
+
+**Et l'API n'a nulle part où le ranger.** `CHAMPS_MODIFIABLES`
+(`src/ourouler/api/depots.py`) couvre `depart`, `cycliste.masse_kg`,
+`cycliste.ftp_w`, `seance.position_zone`, les vélos et la clé Intervals. Ni
+nom, ni prénom, ni âge, ni adresse e-mail. Un `PATCH` qui en porterait serait
+**refusé et nommé** — c'est le comportement voulu du dépôt. Écrire l'écran
+aurait donc demandé d'inventer d'abord un stockage, c'est-à-dire de trancher
+la question à votre place.
+
+**Ce que le lot F2 a fait à la place**, et qui se défait en dix minutes le
+jour où vous tranchez : la première étape de l'assistant annonce ce qui va
+être demandé, et dit pourquoi on ne demande ni nom ni âge — « on préfère ne
+pas garder ce dont on ne se sert pas ». Cinq étapes suivent : FTP et zones,
+départ, vélo, Intervals, récapitulatif.
+
+**La question**, en trois morceaux qui ne se répondent pas ensemble :
+
+1. **L'âge** sert-il à quelque chose qu'on veuille construire ? Le seul usage
+   plausible dans ce produit serait une fréquence cardiaque maximale estimée,
+   et rien n'utilise la fréquence cardiaque aujourd'hui. Sinon, il sort du
+   brief.
+2. **Le nom** : F3 apporte une adresse e-mail, qui suffit à identifier un
+   compte. Un nom d'affichage est-il autre chose qu'un confort — et si oui,
+   pour qui, puisqu'il n'y a pas d'écran partagé ?
+3. **Si l'un des deux reste**, il faut l'ajouter à `CHAMPS_MODIFIABLES` et
+   décider s'il appartient au profil du cycliste ou au compte (Q35 : ce n'est
+   pas la même table).
+
+### Réponse du mainteneur (17/09/2026) — il n'y a pas d'étape « identité » séparée
+
+> « pour moi nom prénom adresse FTP etc., ça fait partie de l'identité de la
+> création et édition de compte user, non ? »
+
+**Oui, et ça dissout la question plutôt que d'y répondre.** Il n'y a pas une
+étape « identité » d'un côté et des étapes techniques de l'autre :
+**l'assistant *est* la création du profil**, et tout ce qu'il demande — nom,
+prénom, adresse, FTP, vélo, clé Intervals — appartient au même objet.
+
+Ce qui reste à faire est donc du travail, pas un arbitrage : `Config` n'a
+aucun champ où ranger un nom ni un prénom, et `CHAMPS_MODIFIABLES` de l'API
+n'en connaît aucun — un `PATCH` serait refusé par construction. C'est pour ça
+que le front n'a pas livré l'écran, et il avait raison de ne pas inventer un
+champ.
+
+**Et l'âge n'y est plus** ([[Q39]]) : l'étape porte nom, prénom et poids, le
+poids étant le seul des trois dont le modèle physique se serve aujourd'hui.
+
+### Fait (17/09/2026) — obligatoires, avec compatibilité pour l'existant
+
+Le mainteneur a tranché la question laissée ouverte plus haut (« un nom
+d'affichage est-il autre chose qu'un confort ? ») : « nom prénom obligatoire
+car c'est la base, voilà, point. »
+
+`Cycliste` porte désormais `prenom` et `nom` ; `CHAMPS_MODIFIABLES` les
+accepte. L'obligation est une règle de **parcours** : l'assistant (première
+étape, ex-« identité ») refuse de continuer sans les deux, comme il refusait
+déjà sans point de départ. Ce n'est pas une règle de **chargement** — les
+deux champs restent optionnels dans `Cycliste` (chaîne vide par défaut), pour
+qu'une configuration écrite avant ce lot, la mienne comprise, continue à se
+charger et à se modifier sans qu'on lui invente un nom. Même traitement que
+la migration `puissance_endurance_pct` → `position_zone` et que la colonne
+propriétaire des dépôts.
+
+Aucun calcul ne s'en sert aujourd'hui. L'usage réel attend le lot F3 des
+comptes multi-utilisateurs (e-mail d'invitation, affichage) — écrit tel quel
+dans le code et l'écran, règle absolue 5.
+
+## Q37 — Les sept promesses des maquettes que l'API ne tient pas, et qui demandent chacune un arbitrage
+
+> **(a), (b) et (g) sont tranchées et appliquées** depuis le 17/09/2026 —
+> voir [[Q40]]. Le texte ci-dessous décrit l'état d'avant, gardé pour la trace.
+
+Contexte : les 105 tests de contrat écrits en aveugle du code de l'API ont été
+réconciliés le 17/09/2026. Trente-huit marques `xfail` dont le motif était
+devenu faux ont disparu — l'API les tenait, ou le test les vérifiait mal.
+**Sept survivent**, et aucune n'est un oubli d'implémentation : chacune
+demande une décision que je ne prends pas à ta place. Elles sont groupées ici
+parce qu'elles se répondent entre elles.
+
+**(a) Jusqu'où un parcours reste-t-il servi ?** L'API accepte aujourd'hui
+`jour = 2036-09-17` et ne s'en aperçoit qu'au moment où Open-Meteo ne rend
+rien — un 502 `meteo_hors_domaine`, c'est-à-dire « le service est en panne »
+là où c'est la demande qui est hors de portée. Poser la borne suppose un
+chiffre. Les seuls mesurés dans le dépôt sont la portée d'AROME (67 h) et
+l'horizon d'orientation au vent (3 jours, mesuré sur 2 064 heures) — et E15
+sert justement une séance à J+4, **sans** vent. Donc : à partir de quel jour
+l'API refuse-t-elle, et avec quelle phrase ?
+
+**(b) Distinguer « hors du domaine » de « hors de l'horizon ».** E14 · dégradé
+corrige explicitement ce défaut. Open-Meteo rend le **même** bloc nul dans les
+deux cas ; le cœur refuse de trancher, et il a raison (règle absolue 5). Pour
+séparer, l'API devrait connaître la portée publiée de chaque modèle — donc le
+même chiffre qu'en (a). La réponse dit aujourd'hui « hors du domaine, ou hors
+de sa portée temporelle » : honnête, et moins utile que ce que la maquette
+dessine.
+
+**(c) E16 fait saisir une durée, l'API prend une distance.** « Les kilomètres
+suivent votre puissance, votre poids et le relief. » Convertir demande le
+modèle physique et son état de calibration — et E16 note lui-même que ce
+modèle « tourne sur ses valeurs par défaut » pour un invité. Prendre une durée
+en entrée est un lot, pas un correctif. Tant qu'elle n'existe pas, la
+contradiction « durée **et** distance » n'est pas refusable : il n'y a qu'une
+des deux consignes.
+
+**(d) E18 · échec dessine deux leviers chiffrés** (« élargir la durée, 1 h 45 à
+2 h 15 », « laisser la direction libre »). L'API rend le code `aucune_boucle`
+et son message, rien de plus. De combien élargir, et quel levier proposer en
+premier, ne se déduit d'aucune mesure du dépôt : chiffrer ici serait affirmer
+sans mesurer.
+
+**(e) E19 · dégradé propose « Chercher plus loin (8 candidates) ».** L'API sait
+combien elle en a essayé ; combien en réessayer est le même genre de choix.
+Chercher plus large coûte plus cher et peut ne rien donner de plus.
+
+**(f) « 10 feux » n'existe qu'en texte.** Le JSON n'expose que
+`densite_marqueurs_km`. Laisser le front multiplier par la distance lui ferait
+refaire un calcul du cœur, avec l'arrondi en prime : c'est au cœur de compter
+et de publier. Petit lot, mais un lot.
+
+**(g) Un GPX par proposition.** `rendre_json` n'écrit que celui de la candidate
+retenue. Les trois propositions sont contrastées exprès ; choisir « la plus
+sèche » puis l'envoyer au compteur envoie aujourd'hui la mauvaise trace. La
+géométrie, elle, **est** en JSON (`candidates[].trace.points`) : un front peut
+déjà dessiner les trois, il ne peut pas en télécharger deux. Écrire trois
+traces au lieu d'une à chaque génération se décide en connaissance du coût.
+
+**Un huitième cas, de nature différente.** `seance --json` change de forme
+quand il n'y a pas de séance (`{jour, seance: null}` au lieu des huit champs
+nominaux), et l'API transmet ce piège au front. Le corriger veut dire poser
+une forme de réponse **de référence** pour la séance — donc décider ce qui
+vaut `null` et ce qui disparaît — et cette forme est aussi celle que la ligne
+de commande rend. Ce n'est pas un correctif d'API.
+
+
+## Q38 — Le fichier déposé est une séance à faire — **tranché le 17/09/2026**
+
+La question traînait depuis les maquettes : un `.ZWO` ou un `.MRC` déposé
+décrit-il **la séance qu'on va faire**, ou **la sortie qu'on vient de faire** ?
+
+**Réponse du mainteneur** : « le fichier déposé c'est une séance à faire ».
+
+C'est une prescription. Ce qui est déjà implémenté au lot F0.5 et branché en
+F0.7 (`--fichier-seance`) est donc juste, et rien n'est à reprendre.
+
+**Ce que cette réponse laisse entier**, et qu'il ne faut pas confondre avec
+elle : lire une sortie **déjà faite** pour la comparer à ce que l'outil avait
+annoncé. C'est la boucle de vérification, proposée au sprint 6 et jamais
+tranchée — elle passera par le FIT du retour, pas par un fichier déposé à la
+main, et elle reste ouverte.
+
+## Q39 — L'âge ne sera pas demandé — **tranché le 17/09/2026**
+
+Le brief du 16/09 demandait « nom, prénom, âge, poids » dans l'assistant de
+configuration. La discovery avait relevé que **rien dans le dépôt ne se sert
+de l'âge** : ni le modèle physique, ni les zones de puissance, ni la tenue.
+
+**Réponse du mainteneur** : « l'âge on s'en fout ».
+
+Il sort de l'assistant. Demander une donnée dont on ne fait rien est du
+formulaire pour du formulaire, et chaque champ de l'installation est un
+endroit où quelqu'un s'arrête.
+
+Une conséquence pour [[Q36]], qui portait sur l'étape « identité » : privée de
+l'âge, elle ne contient plus que le nom et le prénom — dont le dépôt n'a pas
+davantage l'usage aujourd'hui. La question de savoir si cette étape existe
+encore se pose donc avec plus de force, pas moins.
+
+
+## Q40 — Réponses du mainteneur aux sept promesses de [[Q37]] — **17/09/2026**
+
+**(a), (b) et (g) sont appliquées** (17/09/2026). Ce qui a été livré, et ce
+qui reste à trancher, est noté sous chaque réponse ci-dessous ; le contrat
+correspondant est dans `docs/ux/api_contrat.md`. (c), (d) et (e) restent
+ouvertes ; (f) attend la mesure de densité par tranche.
+
+### (a) et (b) — aucune limite de date, et la météo se tait d'elle-même
+
+> « pour le jusqu'à quand : aucune limite. Juste, si on demande trop loin, ben
+> pas de météo. Donc si la personne donne une date hors de portée de la météo,
+> lui dire direct "pas de météo" et hop. »
+
+**L'API ne refuse pas une date lointaine.** Elle sert le parcours et dit que
+la météo est absente — ce qui est exactement l'état dégradé que les maquettes
+dessinent (E14 · dégradé) : la boucle reste servie, ce qui disparaît sont les
+affirmations qu'on ne peut plus soutenir, la pluie, le vent et la tenue.
+
+Ça referme (b) du même geste. Aujourd'hui l'API répond « hors du domaine, ou
+hors de sa portée temporelle » parce qu'Open-Meteo rend le même bloc vide dans
+les deux cas. Avec cette réponse, **la distinction cesse d'être nécessaire du
+côté produit** : dans les deux cas l'utilisateur lit « pas de météo pour ce
+jour-là », et le parcours arrive quand même. Le message doit dire quel jour est
+le dernier couvert, pas pourquoi il l'est.
+
+**Livré le 17/09/2026.** `POST /sorties` et `POST /boucles` portent
+`meteo_absente = {jour, dernier_jour_couvert, message}`, `null` quand la météo
+a répondu ; `tenue`, `modele_meteo` et `candidates[].meteo` tombent à `null`,
+et plus aucun 502 `meteo_hors_domaine` ne sort d'une route de parcours. Le
+chiffre du message vient de `[meteo] horizon_jours` — **7 par défaut, mesuré
+le 17/09/2026 sur le vrai service** : AROME HD s'arrêtait à J+2, `icon_seamless`
+à J+7, et c'est le modèle de repli qui fixe la portée. Réglable, parce que la
+portée appartient au modèle et pas au projet. Au-delà de l'horizon, aucun appel
+n'est fait — ~150 prévisions pour des blocs vides.
+
+**Le repli de Q19 tient** : vérifié sur la configuration réelle, J+2 et J+3
+gardent leur météo par `icon_seamless` (`modele_meteo.repli = true`) et leur
+tenue conseillée.
+
+**Ce qui reste douteux.** L'horizon est celui qu'`icon_seamless` couvrait *ce
+jour-là* ; il bougera avec le modèle configuré et avec les publications
+d'Open-Meteo. Un chiffre trop grand ne coûte qu'un appel inutile (la réponse
+dégradée reste juste), un chiffre trop petit retirerait une météo réellement
+disponible. Le mesurer à l'exécution — une requête de sonde sur le point de
+départ — est possible et n'a pas été fait : ça ajoutait un appel réseau dans
+le cœur pour une phrase. À reprendre si la portée d'un modèle change souvent.
+
+### (f) — le compte de feux n'est pas l'information ; la concentration l'est
+
+> « pour moi l'info est secondaire si on n'a pas le comptage des feux qui
+> sépare le départ/arrivée du reste. C'est une aide au calcul, mais l'info
+> user c'est plutôt : aucune zone avec une densité de stop/feux de plus de X
+> par km durant les 30 premiers kilomètres. »
+
+**Cette réponse change la question plutôt que d'y répondre**, et elle a
+raison. Un total de 10 feux répartis sur 56 km ne gêne personne ; **10 feux
+groupés sur les 4 premiers kilomètres ruinent l'échauffement.** Le total est
+une aide au calcul ; ce que le cycliste veut savoir, c'est s'il existe une
+zone dense, et où.
+
+Ça rejoint ce que le mainteneur disait déjà en septembre : *« y a un effet de
+concentration sur feux et stops, c'est ce qu'il faut réduire »* (Q29), et la
+distance de dégagement urbain (Q31). Les trois sont la même idée, prise par
+trois bouts.
+
+**Ce que ça implique, et qui n'est pas petit** : il faut mesurer la densité
+**par tranche de parcours**, pas sur la boucle entière. Le « X par km » et la
+fenêtre « 30 premiers kilomètres » restent à fixer — et cette fois ils
+peuvent l'être par la mesure, sur l'historique, comme l'a été la distance de
+dégagement.
+
+### (g) — aucun GPX à la génération, un GPX au choix
+
+> « oui, j'ai vu, et c'est con. Pourquoi ? Si c'est le coût de stockage et de
+> création, je propose d'en faire aucun et de le faire à la demande quand
+> l'user choisit son parcours. »
+
+**Génération paresseuse.** Écrire trois traces dont deux seront jetées est un
+gaspillage ; n'en écrire qu'une et se tromper de laquelle est un défaut — la
+proposition retenue n'est pas forcément celle que le cycliste choisit. Écrire
+à la demande supprime les deux, et la question du stockage avec.
+
+La géométrie des trois est déjà en JSON (`candidates[].trace.points`), donc le
+front peut les dessiner sans rien écrire sur disque.
+
+**Livré le 17/09/2026.** Le cœur reçoit `recueil_gpx=` : absent (ligne de
+commande), il écrit le GPX de la proposition retenue comme avant ; présent
+(l'API), il n'écrit rien et remet les deux ou trois textes à l'appelant. Chaque
+proposition du JSON porte alors
+`gpx = {nom, url}` vers `GET /api/v1/sorties/{generation}/propositions/{n}/gpx`,
+qui rend le fichier lui-même — donc rien n'est écrit non plus au moment du
+choix. Vérifié sur la configuration réelle : aucun `.gpx` n'apparaît dans le
+cache, et les traces servies pour deux propositions diffèrent.
+
+**Ce qu'une génération oubliée devient.** Les GPX vivent en mémoire, bornés
+aux vingt dernières générations ; au-delà, ou après un redémarrage, la route
+rend `generation_introuvable` (404) et l'écran redemande une recherche. Les
+garder sur le disque coûterait exactement ce que la décision voulait éviter :
+la géométrie d'une trace pèse ce que pèse son GPX.
+
+### (c), (d) et (e) — pas tranchées, et pourquoi
+
+**(c)** Le mainteneur renvoie à la conversation du 17/09 sur la vitesse et les
+trois valeurs liées : *« c'est le sujet de nos discussions sur les prises
+d'infos sur la vitesse moyenne »*. Prendre une durée en entrée demande le
+modèle physique et son facteur compteur — le travail est commencé (décisions 7
+et 8), le lot ne l'est pas.
+
+**(d) et (e)** Le mainteneur demandait ce que ces écrans voulaient dire ; la
+réponse lui a été donnée, il n'a pas tranché. Elles restent ouvertes :
+de combien élargir une durée quand aucune boucle ne tombe dans la tolérance,
+et combien de candidates réessayer quand moins de trois se distinguent. Aucun
+chiffre ne se déduit du dépôt pour l'instant.
+
+
+## Q41 — Trois corrections du mainteneur sur [[Q40]] — **17/09/2026**
+
+### (d) — élargir par paliers de 5 %, et le dire
+
+> « les tests que j'ai faits ne disent pas ça : j'ai demandé 6 h et j'ai
+> 3 boucles de 5 h. Mais le mieux c'est de dire au user "on n'a pas trouvé de
+> boucle dans les contraintes, on a élargi de X %", et on incrémente de 5 %
+> en 5 %. Comme ça on explique. »
+
+**Deux choses dans cette réponse.** La première est une observation qui
+contredit ma description : demander 6 h rend trois boucles de 5 h, donc le
+moteur ne refuse pas — il sert hors tolérance sans le dire. **C'est un défaut
+plus grave que celui dont on parlait**, et il est à vérifier avant tout le
+reste.
+
+La seconde est la réponse à la question posée, et elle évite le seuil inventé
+que je cherchais : **on n'en fixe aucun**. On élargit par paliers de 5 %
+jusqu'à trouver, et **l'écran dit de combien il a fallu élargir**. Le chiffre
+n'est plus une constante à justifier, c'est un résultat à afficher.
+
+#### Fait le 17/09/2026
+
+**L'observation du mainteneur était juste, et le défaut est confirmé.**
+`boucle/candidates.py` gardait la candidate la plus proche de la cible et la
+servait avec son écart, sans un mot : `tolerance` ne servait qu'à arrêter
+l'affinage du rayon. Mesuré sur son serveur BRouter avant correction, sa
+tolérance étant réglée à 10 % : **2 km demandés, 2,69 km servis, +34,7 %**,
+muets.
+
+Ce qui a changé :
+
+1. Chaque candidate porte `tolerance`, `elargissement` et `hors_tolerance`,
+   rendus en JSON sur `boucle` comme sur `sortie`, et affichés en texte et à
+   l'écran. Rien ne s'affiche quand la boucle tient dans la tolérance.
+2. Le palier se **lit** sur l'écart mesuré, il ne se cherche pas : élargir la
+   tolérance ne peut rendre qu'une boucle égale ou pire, puisqu'elle arrête
+   l'affinage plus tôt. Un test le mesure plutôt que de l'affirmer (règle 5).
+3. **L'élargissement s'arrête**, et son plafond n'est pas un chiffre : c'est
+   `tolerance_distance` réemployée comme unité — la bande peut au plus
+   doubler, jamais moins d'un palier. Il suit la configuration (5 % réglés
+   s'arrêtent à 10 %, 20 % réglés à 40 %), ce qu'un seuil arbitraire ne fait
+   pas. Au-delà, le refus porte ses mesures au lieu d'un « réessayez ».
+
+Vérifié sur les vraies routes du mainteneur, où les trois régimes
+apparaissent dans l'ordre attendu : 3 km demandés sont servis dans la
+tolérance dans les huit directions ; 4 km vers le nord-ouest rendent 3,3 km,
+soit **−17 % — l'ordre de grandeur de son « 6 h demandées, 5 h servies »** —,
+désormais servis en disant « tolérance élargie de 10 %, soit ±20 % » ; 1,5 km
+sont refusés partout, le terrain ne sachant pas faire une boucle si courte.
+
+Reste ouvert, non traité ici : quand une partie seulement des directions est
+refusée, les candidates écartées disparaissent sans que rien ne le dise —
+`sortie` a `motif_deux_propositions` pour ce genre de silence, `boucle` n'a
+rien d'équivalent.
+
+### (e) — abaisser le recouvrement, et surtout demander la météo une seule fois
+
+> « pour la météo, vu que la zone est proche, on peut pas demander une météo
+> une fois de manière large ? »
+
+**Vérifié dans le code, et il a raison.** `sortie/commande.py:871-877` boucle
+sur les candidates retenues et appelle `evaluer_meteo(trace, …)` **à
+l'intérieur de la boucle** : chaque candidate paie sa propre interrogation.
+C'est ce qui explique les temps mesurés — 1,6 s à deux candidates, 2,9 s à
+trois, 6,9 s à cinq.
+
+Or toutes les boucles d'une même génération tiennent dans le même rayon
+autour du même point de départ. **Une seule grille couvrirait les huit.**
+Le coût de « chercher plus loin » retomberait alors sur BRouter seul, et la
+question (e) — combien de candidates réessayer — perdrait l'essentiel de son
+enjeu.
+
+À instruire : la maille d'Open-Meteo, l'interpolation des points de trace sur
+cette grille, et ce que ça change pour la précision — une prévision prise à
+la maille voisine n'est pas la même qu'une prévision prise au point.
+
+Seconde idée du mainteneur, indépendante : **abaisser le seuil de
+recouvrement** accepté entre propositions, de 25 % à 30 % de routes
+communes — « ça doit arriver sur les petits parcours ».
+
+### (f) — je m'étais trompé de sens, et il corrige
+
+> « alors, 10 feux sur les 4 premiers kilomètres ne me dit pas "ça ruine mon
+> échauffement" du tout. Ça me dit : je ne vais pas avoir de feu après, donc
+> je suis peinard. La traversée de ville au départ, pour les citadins, c'est
+> normal. C'est justement une info écran, pas une aide au calcul. »
+
+**J'avais écrit l'inverse**, et c'était faux : j'affirmais que des feux
+groupés au départ ruinaient l'échauffement. Pour quelqu'un qui habite en
+ville, traverser sa ville est le prix normal de la sortie — et **savoir
+qu'ils sont tous groupés au début est rassurant**, parce que ça dit que la
+suite est libre.
+
+Ce qui doit s'afficher n'est donc ni un total, ni une alerte : c'est **la
+répartition** — où sont les arrêts le long du parcours. Groupés au départ,
+c'est une bonne nouvelle ; semés tout du long, c'en est une mauvaise. Et le
+total redevient ce que le mainteneur en disait : une aide au calcul.
+
+Ça garde le lien avec [[Q29]] (la concentration) et [[Q31]] (la distance de
+dégagement), mais renverse le signe : la concentration au départ n'est pas le
+problème, c'est **l'absence de concentration** qui en est un.
+
+
+## Q42 — Le cache météo : mesuré à l'intérieur d'une génération, décisif seulement entre utilisateurs — **17/09/2026**
+
+Idée du mainteneur, née de [[Q41]] (e) : plutôt qu'une requête globale sur une
+zone, **garder entre les requêtes ce qu'on a déjà** — « la première route coûte
+cher, les suivantes un peu moins ».
+
+### Ce qui est mesuré
+
+La météo est échantillonnée **tous les 5 km le long du tracé**
+(`PAS_DEFAUT_M = 5000.0`, `boucle/meteo_trace.py`), et Open-Meteo décompte
+**un appel par coordonnée**. En arrondissant à la maille (~1,1 km au
+centième de degré, à comparer aux 1,3 km d'AROME France HD), sur de vraies
+candidates générées par le BRouter du mainteneur :
+
+| | points demandés | mailles distinctes | économie |
+|---|---|---|---|
+| 5 candidates de 55 km | 56 | 46 | **18 %** |
+| 8 candidates de 55 km | 89 | 68 | **24 %** |
+| 5 candidates de 170 km | 165 | 143 | **13 %** |
+
+**Deux enseignements.** L'économie **monte avec le nombre de candidates**
+(18 % à cinq, 24 % à huit) : le cache aide donc là où le mainteneur voulait
+qu'il aide, pour « chercher plus loin ». Mais elle **baisse avec la
+longueur** (13 % à 170 km) : les boucles divergent en s'éloignant, et c'est
+précisément là que le coût est le plus élevé.
+
+### Pourquoi ça ne vaut pas un lot aujourd'hui
+
+Économiser 18 % d'un coût qui n'est pas le goulot. Une génération prend 3 s,
+le quota tient à 10 000 appels par jour, et aucun utilisateur ne sentirait la
+différence.
+
+### Pourquoi ça en vaudra un à F3, et ce qui manque pour le dire
+
+> « oui, mais plusieurs users dans la même zone : si on se dit qu'une météo
+> d'une zone est valable X h, ça va devenir payant. »
+
+**C'est le paramètre qui manquait au calcul ci-dessus.** Une prévision pour
+une maille à une heure donnée est la même pour tout le monde. Mesurée à
+l'intérieur d'une seule génération, elle ne se partage qu'entre candidates ;
+**gardée X heures et partagée entre utilisateurs**, elle se paie une fois
+pour toute une région et toute une matinée.
+
+La doctrine §10.1 le prévoit déjà — quota compté **par adresse IP**, donc un
+service hébergé fait partager le même compteur à tous les invités.
+
+**Le chiffre de X ne s'invente pas** : AROME France HD est remis à jour toutes
+les trois heures. Une heure est sans risque, trois heures est défendable,
+au-delà on sert une donnée que le modèle a déjà remplacée.
+
+**Ce qui reste non mesuré, et qui décide du gain réel** : le recouvrement
+entre utilisateurs **différents**. Des copains rennais partageraient
+beaucoup ; un ami nantais, rien. Le gain dépend de la densité géographique
+des invités, pas du produit — et ne se mesurera qu'avec de vrais comptes.
+
+
+## Q43 — Le tracé se distingue par lui-même : l'exigence d'axe tombe — **17/09/2026**
+
+**Trouvé en utilisant le produit.** Le mainteneur demande une sortie de 2 h le
+samedi 19 et reçoit « pas de sortie trouvée » à cinq candidates, deux à huit.
+Reproduit en ligne de commande : la génération rend **5 candidates sur 5 et 8
+sur 8**, toutes entre −6 % et +9 % de la cible. Ce ne sont donc pas les boucles
+qui manquent.
+
+C'est le **contraste** qui les élimine, et le message le dit :
+
+> soit elles empruntaient plus de 25 % des mêmes routes, **soit** l'une des
+> trois ne se distinguait des deux autres sur aucun axe d'une marge
+> perceptible. Ce jour-là, l'orientation au vent, les demi-tours, la durée, la
+> ville, la pluie et le terrain sous les blocs valaient la même chose sur
+> toutes : il ne restait que les nationales.
+
+**Et chercher plus loin aggrave le résultat.** À cinq candidates, trois axes
+distinguaient encore (durée, ville, nationales) ; à huit, un seul (les
+nationales). Plus on génère, plus deux candidates finissent par se ressembler
+— et un seul doublon dans un trio le disqualifie entièrement.
+
+### La réponse du mainteneur
+
+> « oui, et en fait le parcours lui-même est distinctif en soi. »
+
+**Le recouvrement mesure déjà ça.** Deux boucles qui partagent moins de 25 %
+de leurs routes vont à des endroits différents, et la carte le montre en une
+seconde. L'exigence supplémentaire de se distinguer **sur un axe mesuré**
+visait les *descriptions*, pas les tracés — et elle empêche aujourd'hui de
+montrer trois routes franchement différentes sous prétexte qu'on ne sait pas
+dire en une phrase ce qui les sépare.
+
+**Décision : le recouvrement devient le seul verrou.** Trois boucles sous
+`SEUIL_RECOUVREMENT` sont trois propositions. Chacune dit ce qu'elle a de
+vrai, sans qu'on exige un écart minimal entre les phrases.
+
+### Ce que ce renversement coûte, assumé
+
+Au sprint 5, le mainteneur avait posé l'exigence inverse : *« trois
+propositions ne servent à rien si elles se ressemblent, et les trois
+premières d'un même classement se ressemblent souvent »*. C'est cette phrase
+qui avait fait naître l'axe de marge perceptible.
+
+Le risque accepté aujourd'hui : **parfois, trois propositions porteront
+presque la même phrase**. Le mainteneur juge que la carte parle d'elle-même,
+ce qu'elle ne faisait pas au sprint 5 — à l'époque, la page du jour n'avait
+pas encore la géométrie des trois tracés en JSON (lot F0.1).
+
+### Une piste qui ne coûte rien et qui manque
+
+Le **dénivelé** n'est pas un axe de distinction aujourd'hui. Or 358 m sur
+59,5 km et 700 m sur la même distance ne se ressemblent pas du tout à rouler.
+Il est déjà mesuré et déjà affiché — il lui manque seulement d'entrer dans ce
+qui distingue une proposition d'une autre.
+
+
+### Ce que l'implémentation a trouvé — **17/09/2026**
+
+**Livré.** `sortie.contraste` ne retient plus que le recouvrement. Vérifié sur
+le cas exact de [[Q44]] — séance du 19/09, préférence « de travers », quatre
+candidates, contre le vrai BRouter et le vrai Open-Meteo :
+
+| | avant | après |
+|---|---|---|
+| candidates générées | 4 | 4 |
+| recouvrement médian des candidates | 1,4 % | 1,4 % |
+| **propositions servies** | **2** | **3** |
+
+Les trois retenues se recouvrent de 0,55 %, 17,3 % et 2,1 % — toutes sous le
+seuil. Une seule porte une phrase (« vous rentrez avec le vent dans le dos ») ;
+les deux autres n'en portent aucune, et c'est le cas que le mainteneur a
+accepté.
+
+**Une chose à savoir sur ce que le seuil refuse maintenant qu'il est seul.**
+La mesure de [[Q44]] donne **33,2 %** de recouvrement médian à la préférence
+« rentrer avec le vent », cinq de ses six paires au-dessus de 25 %. Rien à
+corriger dans le seuil : cette préférence n'ouvre **qu'un azimut**, et
+`boucle.candidates.azimuts` élargit ce secteur sans jamais en ouvrir un
+second — les quatre candidates sont quatre variantes à 30° d'écart, la famille
+même que la mesure du 16/09 chiffre à 28 % et dont le mainteneur dit qu'elle
+va au même endroit. Le seuil fait son travail en les refusant.
+
+**Ce qui en découle, et qui n'est pas tranché** : sur « rentrer avec le vent »,
+le produit rendra souvent deux propositions au lieu de trois, en le disant.
+Si c'est gênant, le remède est du côté des **azimuts ouverts** — ouvrir un
+second secteur comme « de travers » le fait déjà — et c'est une décision de
+conception qui appartient au mainteneur, pas un réglage de seuil. Rien n'a été
+changé là.
+
+### Une piste toujours ouverte
+
+Le **dénivelé** n'est pas un axe de distinction, et ne l'est toujours pas :
+358 m sur 59,5 km et 700 m sur la même distance ne se ressemblent pas à
+rouler. Il est déjà mesuré et déjà affiché. Depuis que l'axe ne conditionne
+plus l'appartenance au trio, l'ajouter ne changerait plus le **nombre** de
+propositions — seulement la richesse des phrases. C'est un lot à part.
+
+
+## Q44 — Deux réglages de direction qui se contredisent, et le vent qu'on ne montre pas — **17/09/2026**
+
+> « par contre, un truc sur la demande de direction avant le calcul : c'est
+> bien, et en même temps, sans connaître le sens du vent dominant, c'est un
+> choix arbitraire. »
+
+**Vérifié, et c'est pire que ce que le mainteneur décrit.** L'écran de demande
+(`front/src/ecrans/Demander.tsx`) pose **deux réglages qui veulent la même
+chose** :
+
+- « **Orientation au vent** » — rentrer avec, partir avec, de travers, peu
+  importe. C'est l'idée du mainteneur du sprint 5 : poser la question **avant**
+  la recherche plutôt que de contraster après coup, ce qui réduit aussi
+  l'espace de recherche.
+- « **Direction** » — N, NE, E, SE…
+
+Les deux fixent l'azimut de recherche. Et **l'écran ne dit nulle part d'où
+vient le vent**, alors que la maquette E16 le prévoyait explicitement — « Vent
+de sud-ouest à 22 km/h demain matin » sous le sélecteur.
+
+On demande donc une direction sans donner l'information qui permettrait de la
+choisir, pendant qu'un réglage voisin prétend s'en occuper. **Arbitraire deux
+fois.**
+
+**À trancher** : les deux réglages coexistent-ils (et alors lequel gagne quand
+ils se contredisent ?), ou l'orientation au vent remplace-t-elle la direction
+brute ? Dans les deux cas, le vent du jour doit s'afficher à côté.
+
+Note : la direction recommandée par la météo est déjà calculée et déjà
+affichée (`meilleure_direction`, avec son motif). Ce n'est pas la même chose
+que le vent — elle vise le sec, pas l'orientation.
+
+### Réponse du mainteneur (17/09/2026) — deux modes, et le latéral ouvre deux directions
+
+> « c'est un choix UX. Soit on est capable de montrer au user le sens du vent,
+> soit on lui dit de choisir avec 3 propositions : vent dans le dos au départ,
+> vent dans le dos au retour, ou vent latéral majoritaire — et ça fait le job.
+> Et il peut choisir sa direction, ou en fonction du sens du vent ; s'il
+> choisit le sens du vent, on lui demande ses préférences. La préférence vent
+> latéral ouvre 2 directions opposées d'ailleurs. »
+
+**La forme retenue.** Un premier choix : *je choisis ma direction* ou *je
+choisis selon le vent*. Les deux réglages ne coexistent plus côte à côte —
+l'un remplace l'autre, et la contradiction disparaît.
+
+Si le cycliste choisit selon le vent, trois préférences :
+
+| préférence | ce que ça fixe |
+|---|---|
+| vent dans le dos **au départ** | un azimut |
+| vent dans le dos **au retour** | un azimut, l'opposé |
+| vent **latéral** | **deux azimuts opposés** |
+
+**Et montrer le vent n'est pas une alternative, c'est le complément.** Le
+mainteneur pose « soit / soit », mais les deux modes en ont besoin : celui qui
+choisit sa direction doit savoir d'où souffle le vent pour la choisir, et
+celui qui choisit selon le vent doit pouvoir vérifier ce qu'on lui propose.
+La maquette E16 le prévoyait — « Vent de sud-ouest à 22 km/h demain matin ».
+
+### La trouvaille : le latéral produit le contraste maximal
+
+**Deux azimuts opposés, c'est le recouvrement le plus faible possible.**
+Mesuré le 16/09 sur des boucles de 60 km depuis chez le mainteneur : deux
+directions séparées de 180° partagent **0,4 % de leurs routes** (médiane), contre
+28 % à 30° d'écart.
+
+Donc la préférence qui contraint le moins l'azimut est aussi celle qui produit
+les propositions les plus différentes. C'est une réponse **par la conception**
+à [[Q43]] et [[Q45]] : là où « rentrer avec le vent » impose un secteur et rend
+trois boucles qui se ressemblent, « de travers » en ouvre deux opposés.
+
+À vérifier à l'implémentation : les candidates doivent alors se répartir entre
+les deux azimuts, pas s'entasser sur le premier.
+
+### Ce que l'implémentation a trouvé — **17/09/2026**
+
+**Le piège était réel, et le code portait déjà le commentaire qui l'écartait à
+tort.** `vent_demande` disait : « pour le travers, viser à 90° — un seul des
+deux côtés, le moteur explorera l'autre par ses azimuts voisins ». C'est faux.
+`boucle.candidates.azimuts` balaie ±20°, ±40°, ±60°… autour d'un azimut : il
+**élargit un secteur, il n'en ouvre jamais un second**, et n'atteint donc
+jamais 180° d'écart. Garder un seul azimut aurait entassé toutes les
+candidates d'un côté tout en annonçant deux directions.
+
+La génération fait maintenant **un appel par azimut**, les candidates réparties
+en parts aussi égales que possible.
+
+**Vérifié contre le vrai BRouter et le vrai Open-Meteo**, séance du 19/09 à
+15 h, vent 15,8 km/h de 235°, quatre candidates par préférence. Recouvrement
+mesuré avec la métrique du produit (`recouvrement_max`, celle que borne
+`SEUIL_RECOUVREMENT`), sur les six paires :
+
+| préférence | azimuts ouverts | azimuts obtenus | médiane | min | max |
+|---|---|---|---|---|---|
+| rentrer avec (retour-dos) | 235° | 275, 235, 255, 215 | **33,2 %** | 13,9 % | 43,3 % |
+| partir avec (depart-dos) | 55° | 55, 75, 95, 35 | **8,6 %** | 3,8 % | 46,4 % |
+| de travers | 325° **et** 145° | 345, 165, 325, 145 | **1,4 %** | 0,4 % | 26,3 % |
+
+**La répartition tient : deux candidates de chaque côté.** Et le détail du
+travers reproduit exactement la mesure du 16/09 — les quatre paires qui
+enjambent les deux azimuts valent 0,4 %, 0,4 %, 0,6 % et 2,1 %, tandis que les
+deux paires restées du même côté (20° d'écart) valent 17,1 % et 26,3 %.
+
+La conclusion du mainteneur est donc confirmée sur une génération réelle : la
+préférence qui contraint le moins l'azimut produit les propositions les plus
+différentes, d'un facteur ~24 sur la médiane par rapport à « rentrer avec ».
+Et « rentrer avec » est bien le pire cas : cinq de ses six paires dépassent le
+seuil de 25 %.
+
+**Mais le gain n'arrive pas jusqu'au cycliste, et ce n'est pas le vent qui
+bloque.** Sur cette même génération, les quatre candidates — dont quatre
+paires à moins de 2,2 % de recouvrement — ont rendu **une seule proposition**.
+Le motif rendu le dit :
+
+> soit elles empruntaient plus de 25 % des mêmes routes qu'une autre du
+> groupe ; soit l'une des trois ne se distinguait des deux autres sur aucun
+> axe d'une marge perceptible. […] il ne restait que la durée pour les
+> distinguer.
+
+C'est **exactement l'exigence que [[Q43]] a retirée** le 17/09 (« le
+recouvrement devient le seul verrou »), et qui n'est pas encore retirée du
+code. Tant qu'elle y est, le travers produit bien deux familles de boucles
+franchement différentes, et la sélection les jette parce qu'on ne sait pas
+dire en une phrase ce qui les sépare. **La trouvaille de Q44 est donc livrée
+mais neutralisée en aval par Q43 non implémentée** — les deux lots se tiennent,
+et celui de Q43 conditionne le bénéfice visible de celui-ci.
+
+### Resté ouvert : la sortie libre n'a pas de question du vent
+
+Les deux moitiés de l'écran de demande ne tapent pas la même route. « Ma
+séance » va sur `POST /sorties`, qui accepte `vent` comme `direction`. «
+Endurance Z2 » va sur `POST /boucles`, dont `direction` est **obligatoire** et
+qui **n'a aucun champ `vent`** : `boucle/commande.py` ne pose pas la question
+du vent du tout.
+
+Le premier choix de Q44 est donc entier sur une séance, et amputé sur une
+sortie libre — « selon le vent » y est montré désactivé, avec sa raison, plutôt
+que caché. Le vent, lui, s'affiche dans les deux cas.
+
+**Question au mainteneur : faut-il porter la question du vent dans `boucle`
+aussi ?** C'est un lot à part — un `--vent` sur `ourouler boucle`, la question
+posée avant la génération, et `direction` qui devient facultative. Rien n'a été
+décidé ici, et rien n'a été fait dans `boucle` : Q44 parlait de l'écran de
+demande, pas de la commande `boucle`.
+
+## Q45 — Quand rien ne distingue rien, le dire — **17/09/2026**
+
+> « ben, s'il n'y a pas de pluie et peu de vent et que tout est plat, à un
+> moment rien ne change. »
+
+Généralisation de [[Q43]] par le mainteneur, et elle vaut mieux que le
+correctif qu'on y proposait. Certains jours, **aucun axe ne peut distinguer
+quoi que ce soit** : pas de pluie, donc pas de plus sèche ; peu de vent, donc
+pas d'orientation qui compte ; terrain homogène, donc pas de plus roulante.
+
+Chercher une différence dans ces conditions revient à en fabriquer une.
+
+**Ce que le produit devrait faire** : le dire. « Aujourd'hui ces trois boucles
+se valent — choisissez où vous voulez aller. » C'est une information honnête,
+et c'est même une bonne nouvelle : rien ne contraint le choix.
+
+C'est le pendant exact de ce que le produit sait déjà faire quand il ne trouve
+qu'une proposition au lieu de trois — il le dit et explique pourquoi, au lieu
+de servir trois boucles qui se ressemblent. Ici il s'agit de dire l'inverse :
+**trois boucles différentes, et aucune raison de préférer l'une.**
+
+### Livré le 17/09/2026, avec [[Q43]]
+
+`contraste.Selection.motif_equivalence`, publié en JSON sous `motif_equivalence`,
+affiché par la ligne de commande, par la page du jour et par l'écran des
+propositions (sous le titre « Au choix », et non sous un avertissement : c'est
+une bonne nouvelle).
+
+Il ne sort que si **aucune** proposition ne porte de phrase : dès qu'une seule
+se détache, dire « elles se valent » serait faux, et c'est sa phrase à elle qui
+parle.
+
+**Et il se mesure, comme le reste** (règle absolue 5). Deux formulations, parce
+que deux situations différentes sont vraies :
+
+- les axes sont **muets** — « la pluie, les demi-tours et le terrain sous les
+  blocs valaient la même chose sur les trois » ;
+- ils **varient sans vainqueur** — « les nationales varient un peu de l'une à
+  l'autre, mais d'un écart trop petit pour se dire ».
+
+Confondre les deux ferait affirmer que deux boucles roulent autant sur les
+nationales alors qu'elles n'y roulent pas autant.
+
+
+## Q46 — Ce que le service a le droit d'apprendre des sorties de chacun — **ouvert le 17/09/2026**
+
+> « au cycliste ses données, au serveur une partie qu'on veut utiliser pour
+> comprendre. »
+
+Phrase du mainteneur en marge de [[Q35]], et **elle ouvre un sujet qui vit
+déjà dans le code sans avoir été posé.**
+
+### Ce qui existe déjà et qui deviendra collectif
+
+`src/ourouler/apprentissage/routes.py` **apprend les poids des routes à partir
+de ce qui a été réellement roulé**. Aujourd'hui sur les seules sorties du
+mainteneur, dans son cache. Le jour où plusieurs cyclistes roulent, la
+question se pose d'elle-même : **ce que l'un a roulé améliore-t-il le parcours
+de l'autre ?**
+
+La réponse évidente est oui — c'est même ce qui fait la valeur d'un service
+partagé, et Komoot ne fait pas autre chose avec ses données de trajets
+anonymisées. Mais ça n'a jamais été décidé.
+
+### Ce que la doctrine promet déjà, et qui contraint
+
+§10.2 : *« RGPD par construction : export de toutes ses données et suppression
+du compte (profil, fichiers, calibrations, clés) disponibles dès la première
+version hébergée ; pas de suivi d'audience ; hébergement en Europe. »*
+
+**Supprimer un compte devient alors ambigu.** Les poids de routes qu'il a
+contribué à apprendre ne sont plus « ses données » — ils sont fondus dans un
+modèle partagé, et les en retirer demanderait de tout réapprendre sans lui.
+
+### Le spectre, du plus personnel au plus mutualisable
+
+| donnée | nature |
+|---|---|
+| calibration CdA/Crr | **strictement personnelle**, aucune valeur collective |
+| clé Intervals, départ, FTP | **strictement personnelle** |
+| poids de routes appris | **collectif par nature** — c'est la géographie, pas le cycliste |
+| cache météo par maille et par heure | **collectif par construction** ([[Q42]]) |
+| mesures d'usage (densité de marqueurs, classes de trafic, facteur terrain) | entre les deux — faites cette nuit sur l'historique du mainteneur |
+
+Les deux extrémités sont claires. **C'est la ligne du milieu qui demande une
+décision**, et elle en demande trois :
+
+1. **Qu'est-ce qui remonte** — la trace brute, ou seulement des agrégats par
+   tronçon de route ?
+2. **Qu'est-ce qu'on en dit au cycliste**, et le choix est-il explicite ? Un
+   service qui apprend de vous sans le dire n'est pas le même produit que
+   celui qui le demande.
+3. **Que devient la contribution à la suppression du compte ?** Les poids
+   appris survivent-ils, et si oui, est-ce compatible avec ce que §10.2
+   promet ?
+
+**Le mainteneur le pose comme « un sujet à part », et il a raison** : ça ne
+bloque aucun lot en cours, et ça décide de ce qu'est le produit une fois
+partagé.
+
+
+### Réponse du mainteneur (17/09/2026) — la ligne passe entre la route et le lien
+
+> « en fait, c'est : qu'est-ce qu'on conserve du point de routes qui concerne
+> directement le cycliste ? »
+
+**Meilleure formulation que la question d'origine**, et elle sépare ce que la
+table mélange. `apprentissage/routes.py`, table `troncons` :
+
+| colonnes | de quoi ça parle |
+|---|---|
+| `cle_lat`, `cle_lon`, `highway`, `surface`, `maxspeed`, `cout_km` | **la route** — elle existe indépendamment de qui l'a roulée |
+| `passages`, `metres` | **le fait d'y être passé** |
+| `proprietaire`, et la table `sorties` (`id_sortie`, `jour`) | **le cycliste** |
+
+**Ce qui concerne la route se partage sans difficulté** : une petite route
+agréable l'est pour tout le monde, et ça n'appartient à personne. **Ce qui est
+personnel, c'est le lien** — que *cette personne* y est passée, *ce jour-là*,
+sur *cette sortie*.
+
+Et ça résout la tension avec la doctrine §10.2 sans compromis : si l'agrégat
+collectif ne porte jamais l'identité, **il n'y a rien de personnel à supprimer
+dedans**. Supprimer un compte retire ses sorties et son lien aux tronçons ; le
+savoir sur les routes reste, parce qu'il n'a jamais parlé de lui.
+
+### Le seuil de réidentification, et pourquoi il attend
+
+J'avais signalé qu'avec peu d'utilisateurs, **un tronçon parcouru une seule
+fois désigne une seule personne** : un compteur « 1 passage » sur une route de
+campagne se réattribue tout seul. L'anonymat par agrégation n'existe qu'à
+partir d'un certain nombre de contributeurs.
+
+> « tant que c'est des copains, que je ne vends pas le service, je
+> préciserais. »
+
+**Position retenue, et elle est cohérente** : ce n'est pas une machinerie
+d'anonymisation qui protège dans ce cas, c'est le fait que le mainteneur
+connaisse les gens et le leur dise. La transparence tient lieu de seuil tant
+que le cercle est petit et le service gratuit.
+
+**Ce qui fait revenir la question**, et il faut le savoir d'avance : le
+service vendu, ou des inconnus dedans. L'une des deux suffit. Le seuil de
+contributeurs distincts devra alors être **mesuré**, pas posé.
+
+Note d'une autre nature, indépendante de la vie privée : un tronçon roulé une
+seule fois n'est pas non plus une **preuve** qu'il est bon. Le seuil sert donc
+deux choses à la fois — et cette seconde raison-là vaut déjà aujourd'hui.
+
+
+## Q47 — Quatre arbitrages de clôture du 17/09/2026
+
+### Q37 (c) — résolu, et je l'avais mal lu
+
+> « actuellement l'IHM demande bien une durée, c'est vérifié. »
+
+**Exact.** `front/src/ecrans/Demander.tsx` envoie une **durée**, aucune
+distance ; `kmDepuisKm` n'est qu'un formateur d'affichage, et la conversion se
+fait côté serveur avec le modèle physique. Je listais cette question comme
+ouverte alors qu'elle était close depuis le lot F2.
+
+### Le frottement en Z2 — ce n'était pas un choix, c'est une incohérence
+
+> « comment, avec séance, permet de choisir un azimut ? »
+
+La question a levé ce que je m'apprêtais à faire arbitrer. **Deux chemins,
+deux règles :**
+
+- `sortie` (avec séance) : aucune direction nécessaire, le moteur **balaie les
+  huit directions** si rien n'est demandé.
+- `boucle` (sortie libre) : « `--direction N|NE|…|NO` ou un azimut en degrés
+  est **obligatoire** » (`boucle/commande.py:377`).
+
+Le bouton grisé en Z2 n'est donc pas une décision de conception mais une
+contrainte héritée d'une commande qui n'a jamais appris à balayer. **Rien à
+arbitrer : `boucle` doit se comporter comme `sortie`.**
+
+### Q31 — informatif, et ça attend des vrais Franciliens
+
+> « c'est informatif, donc pour l'instant on attend d'avoir des gens
+> d'Île-de-France, on traitera après. »
+
+La distance de dégagement urbain reste ouverte, sans travail engagé. Elle ne
+sert qu'à quelqu'un dont la ville ne se dégage pas — et il n'y en a pas
+encore. Même raison pour la question de la géographie, qui est la même prise
+par l'autre bout.
+
+### Q32 — après la V2
+
+> « on voit après V2. »
+
+Le mode circuit attend. Il dépend de [[Q31]], qui attend les mêmes gens.
+
+### Q3 — close : des seuils existent, la personnalisation est en V2
+
+> « on a déjà des seuils, non ? On n'a pas dit V2 pour permettre aux gens de
+> personnaliser ? »
+
+**Oui aux deux.** Les seuils de tenue existent et fonctionnent ; ce que la V2
+apporte est le droit pour chacun de les déplacer. C'est exactement ce que
+[[Q35]] a tranché pour `[tenue]` : valeurs par défaut en V1, édition des
+seuils en V2. Q3 n'avait donc plus de question depuis ce matin.
+
+
+### Q6 — clôture du 17/09/2026
+
+L'identifiant d'athlète Intervals est retiré du dépôt (`docs/sprint1_relecture.md`),
+et il vit désormais côté profil de l'utilisateur, conformément à [[Q35]].
+
+**Ce que la vérification a établi, et qui change la gravité :**
+
+| | fichiers suivis | historique git |
+|---|---|---|
+| identifiant d'athlète (7 caractères) | 0 | **4 commits** |
+| clé d'API (25 caractères) | 0 | **0** |
+
+**La clé n'a jamais touché le dépôt**, à aucun moment de son histoire. La
+règle absolue 1 a tenu sur ce qui comptait.
+
+Et un identifiant d'athlète **n'est pas un secret** : il désigne un profil
+Intervals, il ne donne accès à rien. Sans la clé, on ne peut ni lire les
+sorties ni écrire quoi que ce soit — c'est de l'ordre d'un nom d'utilisateur.
+
+**Décision du mainteneur** : « ok, pas très grave ». L'historique n'est pas
+réécrit — le faire changerait tous les sha du dépôt pour retirer une donnée
+publique.
+
+**Ce qui reste, et qui n'est pas un secret non plus** : la masse, la FTP et
+« centre de Rennes » figurent dans cinq documents, dont `docs/cadrage.md`.
+Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
+purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
+ensemble, ils décrivent quelqu'un. Signalé, assumé.

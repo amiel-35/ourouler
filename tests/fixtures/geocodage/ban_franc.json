@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "version": "draft",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [0.234567, 0.123456]},
+      "properties": {
+        "label": "7 Rue du If 44999 Vallombreuse",
+        "score": 0.98,
+        "housenumber": "7",
+        "id": "44999_0123_00007",
+        "name": "7 Rue du If",
+        "postcode": "44999",
+        "citycode": "44999",
+        "x": 355123.4,
+        "y": 6689123.1,
+        "city": "Vallombreuse",
+        "context": "44, Loire-Atlantique, Pays de la Loire",
+        "type": "housenumber",
+        "importance": 0.65,
+        "street": "Rue du If"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [0.234599, 0.123499]},
+      "properties": {
+        "label": "Rue du If 44999 Vallombreuse",
+        "score": 0.71,
+        "id": "44999_0123",
+        "name": "Rue du If",
+        "postcode": "44999",
+        "citycode": "44999",
+        "x": 355129.9,
+        "y": 6689129.7,
+        "city": "Vallombreuse",
+        "context": "44, Loire-Atlantique, Pays de la Loire",
+        "type": "street",
+        "importance": 0.61,
+        "street": "Rue du If"
+      }
+    }
+  ],
+  "attribution": "BAN",
+  "licence": "ETALAB-2.0",
+  "query": "7 rue du if 44999 vallombreuse",
+  "limit": 5
+}

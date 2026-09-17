@@ -1,4 +1,4 @@
-"""Trois propositions qui diffèrent pour de vrai — et la phrase qui le dit.
+"""Trois propositions qui vont à des endroits différents — et ce qu'on en dit.
 
 Le point dur du lot L5.3, dans les mots du mainteneur : **trois propositions
 ne servent à rien si elles se ressemblent**, et les trois premières d'un même
@@ -9,36 +9,69 @@ Le risque, nommé d'abord
 
 Trois candidates peuvent noter 1,93 / 2,30 / 4,72 et **paraître identiques sur
 une carte**. Une note de placement n'est pas une différence perceptible. D'où
-la règle qui porte tout ce module : **deux propositions ne sont contrastées
-que si elles diffèrent sur quelque chose que le cycliste voit ou sent.**
+la règle qui porte ce module : **deux propositions ne sont contrastées que si
+elles diffèrent sur quelque chose que le cycliste voit.**
 
-Ce qu'on ne fait surtout pas
-----------------------------
+La seule condition : le recouvrement de routes
+----------------------------------------------
+
+**Ce que le cycliste voit, c'est le tracé.** Deux boucles qui partagent moins
+de `SEUIL_RECOUVREMENT` de leurs routes vont à des endroits différents, et la
+carte le montre en une seconde. C'est le seul verrou.
+
+Décision du mainteneur du 17/09/2026 ([[Q43]]), dans ses mots : *« oui, et en
+fait le parcours lui-même est distinctif en soi »*.
+
+Ce qui vient d'être retiré, et pourquoi
+---------------------------------------
+
+Jusqu'au 17/09/2026, il fallait **en plus** que chaque proposition soit la
+meilleure des trois sur un axe mesuré, d'une marge perceptible. Cette exigence
+visait les *descriptions*, pas les tracés, et elle finissait par interdire de
+montrer trois routes franchement différentes sous prétexte qu'on ne savait pas
+dire en une phrase ce qui les séparait.
+
+**Mesuré deux fois, pas supposé.** Le lot [[Q44]] a produit quatre candidates
+dont le recouvrement médian valait **1,4 %** — quasi disjointes, aussi
+différentes qu'il est possible de l'être. L'exigence d'axe a absorbé tout le
+gain : le produit n'en servait qu'une ou deux. Et la mesure de [[Q43]] disait
+la même chose autrement : plus on génère de candidates, moins un trio passe —
+à cinq candidates trois axes distinguaient encore, à huit un seul.
+
+**Ce que ça coûte, et qui est assumé** : parfois, trois propositions porteront
+presque la même phrase. Le mainteneur juge que la carte parle d'elle-même, ce
+qu'elle ne faisait pas au sprint 5 — à l'époque la page du jour n'avait pas
+encore la géométrie des trois tracés en JSON.
+
+Les axes restent, comme description
+-----------------------------------
 
 On ne normalise pas sept grandeurs hétérogènes — des minutes, des millimètres,
 un compte de demi-tours, des kilomètres équivalents — pour en tirer une
 « distance » entre propositions. Il faudrait des poids arbitraires, et un
 seuil sur cette distance serait infalsifiable. **Chaque axe se compare dans sa
-propre unité**, et un écart compte quand il dépasse le pas nommé de cet axe.
+propre unité**, et un écart compte quand il dépasse le pas nommé de cet axe
+(les `PAS_*` ci-dessous).
 
-Les trois conditions
---------------------
+Ce que les axes ne font plus, c'est **décider qui entre dans le trio**. Ils
+décident seulement **ce qu'on écrit sous chaque proposition** : une
+proposition qui est la meilleure du groupe sur un axe, d'un pas entier, porte
+la phrase qui le dit ; les autres n'en portent pas, et c'est honnête. Une
+phrase reste une affirmation : on n'en écrit jamais une qui soit fausse.
 
-Trois propositions sont contrastées quand les trois tiennent :
+Et quand rien ne les sépare, on le dit ([[Q45]])
+------------------------------------------------
 
-a) **chacune est la meilleure des trois sur au moins un axe**, et sur un axe
-   différent de celles des deux autres — c'est ce qui garantit qu'aucune n'est
-   là pour faire nombre ;
-b) **elle l'est d'une marge exprimée dans l'unité de l'axe** (les `PAS_*`
-   ci-dessous), jamais en pourcentage d'une note ;
-c) **le recouvrement de routes** entre deux propositions reste sous
-   `SEUIL_RECOUVREMENT` — critère du mainteneur : deux boucles peuvent avoir
-   des notes très différentes et emprunter les mêmes routes, elles se
-   ressembleront alors sur la carte quoi qu'en disent les chiffres.
+Mots du mainteneur : *« s'il n'y a pas de pluie et peu de vent et que tout est
+plat, à un moment rien ne change »*. Ces jours-là, aucun axe ne peut
+distinguer quoi que ce soit, et chercher une différence reviendrait à en
+fabriquer une. `Selection.motif_equivalence` porte alors la phrase qui le dit
+— « ces trois boucles se valent, choisissez où vous voulez aller ».
 
-Et le garde-fou qui prime sur tout : **si la phrase n'est pas écrivable et
-vraie, la proposition n'existe pas.** On en rend deux, et on dit pourquoi
-(`Selection.motif_deux_propositions`).
+C'est le pendant exact de `Selection.motif_deux_propositions`, qui explique
+depuis le sprint 5 pourquoi il n'y en a que deux. Deux silences à ne pas
+laisser : celui qui cache qu'il en manque une, et celui qui cache qu'elles se
+valent.
 
 Ce que ce module ne fait pas
 ----------------------------
@@ -55,7 +88,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from itertools import combinations, permutations
+from itertools import combinations
 
 from ourouler.apprentissage.routes import mailles_ponderees
 from ourouler.boucle.marqueurs import compter
@@ -206,7 +239,75 @@ PAS_TERRAIN_KM_EQ = 1.0
 #: franchement différentes, et juste en dessous de ce que produisent deux
 #: directions voisines. En absolu, sur une boucle de 60 km : 15 km de route
 #: identique.
-SEUIL_RECOUVREMENT = 0.25
+#:
+#: **Depuis [[Q43]], c'est le seul verrou** : plus aucune autre condition ne
+#: décide qui entre dans le trio. Ce seuil porte donc seul la promesse « trois
+#: propositions qui ne se ressemblent pas », et il faut savoir ce qu'il
+#: refuse.
+#:
+#: **Ce qu'il refuse, mesuré le 17/09/2026** ([[Q44]], contre le vrai BRouter
+#: et le vrai Open-Meteo, quatre candidates par préférence de vent) :
+#:
+#: | préférence | azimuts ouverts | recouvrement médian |
+#: |---|---|---|
+#: | rentrer avec le vent | 235° | **33,2 %** |
+#: | partir avec le vent | 55° | 8,6 % |
+#: | de travers | 325° **et** 145° | 1,4 % |
+#:
+#: « Rentrer avec le vent » passe **au-dessus du seuil**, et cinq de ses six
+#: paires le dépassent. Ce n'est pas un défaut du seuil, c'est son travail :
+#: cette préférence n'ouvre qu'un azimut, et `boucle.candidates.azimuts`
+#: élargit ce secteur de ±20° en ±20° sans jamais en ouvrir un second. Les
+#: quatre candidates sont donc quatre variantes à 30° d'écart — très
+#: exactement la famille que la mesure du 16/09 chiffre à 28 % de médiane, et
+#: dont le mainteneur dit qu'elle « va au même endroit ». Trois d'entre elles
+#: sur une carte seraient trois fois la même boucle.
+#:
+#: **La conséquence est donc voulue** : sur cette préférence, le produit rend
+#: souvent moins de trois propositions, et `motif_deux_propositions` le dit.
+#: Faire autrement demanderait de changer les *azimuts ouverts* — décision de
+#: conception, pas de seuil, laissée au mainteneur en [[Q44]].
+#:
+#: **Relevé à 30 %, décision du mainteneur du 17/09/2026.** Une nouvelle
+#: mesure, faite le matin même, chiffre quatre candidates générées dans
+#: **chacune des huit directions** autour du départ du mainteneur, boucles de
+#: 59,5 km, vrai BRouter, `apprentissage.routes.recouvrement_max` :
+#:
+#: | direction | recouvrement médian |
+#: |---|---|
+#: | nord (0°) | 15,1 % |
+#: | sud-est (135°) | 17,3 % |
+#: | est (90°) | 19,3 % |
+#: | nord-ouest (315°) | 19,5 % |
+#: | nord-est (45°) | 20,0 % |
+#: | sud (180°) | 29,9 % |
+#: | sud-ouest (225°) | 31,8 % |
+#: | ouest (270°) | 32,7 % |
+#:
+#: **Ce que cette mesure a d'abord établi** : l'asymétrie de [[Q44]] entre
+#: « rentrer avec le vent » (33,2 %) et « partir avec » (8,6 %) ne vient pas
+#: de la préférence, elle vient du **terrain**. Les paires opposées ne se
+#: ressemblent pas — 15 % au nord contre 30 % au sud, 19 % à l'est contre
+#: 33 % à l'ouest : le sud et l'ouest de Rennes enferment, le nord et l'est
+#: ouvrent. Ce jour-là le vent venait du sud-ouest, donc « rentrer avec »
+#: tombait sur la deuxième pire direction — un hasard de météo, pas un défaut
+#: de la préférence.
+#:
+#: **Le compromis, écrit honnêtement.** Les 25 % d'origine tombaient juste
+#: entre 28 % (deux directions à 30° d'écart, qui vont au même endroit) et
+#: 14 % (à 60°, qui n'y vont pas) : ils séparaient « deux directions
+#: voisines » de « deux directions franchement différentes ». **Monter à
+#: 30 % revient à accepter que deux boucles à 30° d'écart comptent comme
+#: différentes** — cohérent avec [[Q43]] (« le parcours est distinctif en
+#: soi »), deux boucles à 30° vont bien à deux endroits distincts même en
+#: partageant un tiers de leurs routes, mais c'est un renversement de ce que
+#: la constante protégeait à l'origine, pas un ajustement fin.
+#:
+#: **Et ça ne règle pas tout.** Au sud (29,9 %) la médiane passe désormais
+#: sous le seuil ; à l'ouest (32,7 %) et au sud-ouest (31,8 %) elle reste
+#: au-dessus. Ces deux directions continueront de rendre souvent moins de
+#: trois propositions, et `motif_deux_propositions` continuera de le dire.
+SEUIL_RECOUVREMENT = 0.30
 
 # --- orientation au vent -------------------------------------------------------
 
@@ -426,14 +527,96 @@ class Retenue:
     distinction: str
 
 
+#: Le sort d'une candidate au contraste — trois valeurs, et pas une de plus.
+#:
+#: `SORT_PLACE_PRISE` n'est **pas** un refus : cette candidate allait bien
+#: ailleurs, le trio était simplement complet avant elle. Les confondre avec
+#: les vraies écartées ferait croire à un défaut là où il n'y en a pas.
+SORT_RETENUE = "retenue"
+SORT_TROP_PROCHE = "trop_proche"
+SORT_PLACE_PRISE = "place_prise"
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """Ce que le contraste a décidé d'**une** candidate, et contre laquelle.
+
+    Le lot F2.4 existe parce que ce verdict était invisible : le produit
+    montrait ce qu'il retenait, jamais ce qu'il jetait ni pourquoi. Un motif
+    littéraire n'y suffit pas — ce qui décide est un **pourcentage de routes
+    communes avec une proposition nommée**, et c'est ce que cette structure
+    porte.
+
+    `rang` est la place de la candidate dans la liste passée à `choisir`, et
+    `numero` son numéro affiché : `sortie.commande` numérote les propositions
+    **avant** d'appeler, dans l'ordre du tri, donc `numero == rang + 1`. Les
+    deux sont rendus pour qu'un consommateur n'ait pas à le redécouvrir.
+    """
+
+    rang: int
+    numero: int
+    sort: str
+    #: Le recouvrement le plus fort avec une **retenue** (avec une *autre*
+    #: retenue, quand le sujet en est une lui-même), et le numéro de celle-ci.
+    #: `None` seulement quand il n'y a rien à comparer : une seule retenue, et
+    #: c'est elle.
+    recouvrement_max: float | None
+    contre_numero: int | None
+    #: La phrase du cœur, dans les termes qui décident vraiment. Écrite ici et
+    #: pas côté affichage : un pourcentage de recouvrement ne se recalcule pas
+    #: dans un navigateur (doctrine §10.2).
+    motif: str
+
+
+@dataclass(frozen=True)
+class Essais:
+    """Ce que la recherche exhaustive a essayé, et comment les groupes tombent.
+
+    **C'est le chiffre qui rend visible le point de conception** : un groupe
+    est disqualifié dès qu'**une seule** de ses paires dépasse le seuil. La
+    médiane des recouvrements ne prédit donc rien — quatre candidates bien
+    distinctes dans l'ensemble, une paire à 55 %, et le compte tombe à deux.
+    `refuses_par_une_paire` compte les groupes qui ne tombent que sur une
+    paire : c'est la mesure de cette phrase, pas son affirmation.
+    """
+
+    taille: int
+    essayes: int
+    valides: int
+    refuses_par_une_paire: int
+
+
 @dataclass
 class Selection:
-    """Les propositions retenues, et la raison quand il y en a moins de trois."""
+    """Les propositions retenues, et ce qu'il y a d'honnête à dire dessus."""
 
     retenues: list[Retenue] = field(default_factory=list)
+    #: Pourquoi il y en a moins de `combien`. `None` quand le compte y est.
     motif_deux_propositions: str | None = None
+    #: La phrase de [[Q45]] : **aucune retenue ne se détache des autres**, et
+    #: le dire vaut mieux que fabriquer une différence. `None` dès qu'au moins
+    #: une porte une phrase de distinction — il y a alors quelque chose à dire,
+    #: et c'est elle qui le dit.
+    motif_equivalence: str | None = None
     #: Recouvrements deux à deux des retenues, pour l'affichage et le JSON.
     recouvrements: dict[tuple[int, int], float] = field(default_factory=dict)
+    #: Le seuil effectivement appliqué — celui de l'appel, pas la constante :
+    #: un affichage qui relirait `SEUIL_RECOUVREMENT` mentirait dès qu'un
+    #: appelant en passe un autre.
+    seuil_recouvrement: float = SEUIL_RECOUVREMENT
+    #: Le sort de **toutes** les candidates, retenues comprises, dans l'ordre
+    #: du tri (lot F2.4).
+    verdicts: list[Verdict] = field(default_factory=list)
+    #: Les recouvrements deux à deux de **toutes** les candidates, par rang.
+    #: C'est la matrice que l'écran d'arbitrage dessine : une case au-dessus
+    #: du seuil suffit à interdire tout groupe qui contient ses deux boucles.
+    recouvrements_candidates: dict[tuple[int, int], float] = field(default_factory=dict)
+    #: Ce que la recherche a essayé à la taille demandée. `None` quand il n'y
+    #: avait pas assez de candidates pour former un seul groupe.
+    essais: Essais | None = None
+    #: La phrase mesurée qui dit ce que `essais` établit. `None` quand il n'y
+    #: a rien à dire — aucun groupe n'a pu être essayé.
+    phrase_arbitrage: str | None = None
 
 
 def choisir(
@@ -443,7 +626,11 @@ def choisir(
     seuil_recouvrement: float = SEUIL_RECOUVREMENT,
     duree_seance_s: float | None = None,
 ) -> Selection:
-    """Les `combien` propositions les mieux classées **qui diffèrent vraiment**.
+    """Les `combien` propositions les mieux classées **qui vont ailleurs**.
+
+    « Qui vont ailleurs » est tout le critère : leurs recouvrements deux à deux
+    restent sous `seuil_recouvrement`. Depuis [[Q43]], rien d'autre n'est
+    exigé — le tracé se distingue par lui-même, et la carte le montre.
 
     La première du tri — celle que l'outil recommande — fait toujours partie
     du groupe : on ne remet pas en cause ce qu'il recommande, on ajoute ce à
@@ -455,8 +642,11 @@ def choisir(
     dont les recouvrements sont déjà en cache : ça ne coûte rien.
 
     À égalité de validité, on préfère le groupe dont les candidates sont les
-    mieux classées (somme des rangs la plus basse) : « les meilleures qui
-    diffèrent », jamais « trois prises n'importe où ».
+    mieux classées (rangs les plus bas) : « les meilleures qui diffèrent »,
+    jamais « trois prises n'importe où ». **On ne départage pas sur le nombre
+    de phrases qu'un groupe permettrait d'écrire** : ce serait réintroduire par
+    la bande l'exigence que [[Q43]] a retirée, et préférer un groupe moins bien
+    classé parce qu'il se raconte mieux.
 
     Si aucun groupe de `combien` ne tient, on redescend à `combien - 1`, et
     ainsi de suite — et `motif_deux_propositions` dit pourquoi.
@@ -469,81 +659,211 @@ def choisir(
         return Selection(motif_deux_propositions="aucune candidate à proposer")
     profils = {id(p): profil(p, duree_seance_s=duree_seance_s) for p in propositions}
     mesure = _Recouvrements()
-    refus = _Refus()
 
-    groupe, attribution = _meilleur_groupe(
-        propositions, profils, mesure, refus, combien, seuil_recouvrement
-    )
+    groupe = _meilleur_groupe(propositions, mesure, combien, seuil_recouvrement)
+    attribution = _attribuer([profils[id(p)] for p in groupe])
 
     retenues = [
         Retenue(
             proposition=p,
             profil=profils[id(p)],
-            axe_distinctif=axe or "",
+            axe_distinctif=axe,
             distinction=phrase(axe, profils[id(p)], [profils[id(q)] for q in groupe if q is not p]),
         )
         for p, axe in zip(groupe, attribution, strict=True)
     ]
-    selection = Selection(retenues=retenues)
+    selection = Selection(retenues=retenues, seuil_recouvrement=seuil_recouvrement)
     if len(retenues) < combien:
-        selection.motif_deux_propositions = _motif(
-            len(retenues),
-            combien,
-            len(propositions),
-            refus,
-            [profils[id(p)] for p in propositions],
-        )
+        selection.motif_deux_propositions = _motif(len(retenues), combien, len(propositions))
+    selection.motif_equivalence = _motif_equivalence(retenues)
     for i in range(len(groupe)):
         for j in range(i + 1, len(groupe)):
             selection.recouvrements[(i, j)] = mesure.entre(groupe[i].trace, groupe[j].trace)
+
+    # L'arbitrage rendu visible (lot F2.4). Toutes les paires sont mesurées, y
+    # compris celles que `_meilleur_groupe` n'a pas eu besoin de regarder : la
+    # matrice complète est ce qui montre qu'une seule case rouge suffit à
+    # interdire un trio. Les mailles sont déjà en cache, ça ne coûte rien.
+    rang_de = {id(p): rang for rang, p in enumerate(propositions)}
+    selection.recouvrements_candidates = {
+        (i, j): mesure.entre(propositions[i].trace, propositions[j].trace)
+        for i in range(len(propositions))
+        for j in range(i + 1, len(propositions))
+    }
+    rangs_retenus = [rang_de[id(p)] for p in groupe]
+    selection.verdicts = _verdicts(
+        len(propositions),
+        rangs_retenus,
+        selection.recouvrements_candidates,
+        seuil_recouvrement,
+        combien,
+    )
+    selection.essais = _essais(
+        len(propositions), combien, selection.recouvrements_candidates, seuil_recouvrement
+    )
+    selection.phrase_arbitrage = _phrase_arbitrage(selection.essais, seuil_recouvrement)
     return selection
 
 
-@dataclass
-class _Refus:
-    """Pourquoi les autres candidates n'ont pas été retenues, pour le motif."""
+def _paire(recouvrements: dict[tuple[int, int], float], i: int, j: int) -> float:
+    """Le recouvrement de la paire {i, j}, rangée dans l'ordre croissant."""
+    return recouvrements[(i, j) if i < j else (j, i)]
 
-    recouvrement: set[int] = field(default_factory=set)
-    axe: set[int] = field(default_factory=set)
+
+def _verdicts(
+    combien_candidates: int,
+    rangs_retenus: list[int],
+    recouvrements: dict[tuple[int, int], float],
+    seuil: float,
+    combien: int,
+) -> list[Verdict]:
+    """Le sort de chaque candidate, et la phrase qui le dit.
+
+    Une candidate hors du groupe est comparée aux **retenues**, et à elles
+    seules : c'est contre le groupe servi qu'elle a perdu, pas contre une
+    combinaison qu'on n'a pas gardée. Son recouvrement le plus fort décide —
+    au-dessus du seuil elle est écartée par cette paire-là, en dessous elle
+    était acceptable et c'est la place qui manquait.
+    """
+    retenus = set(rangs_retenus)
+    verdicts = []
+    for rang in range(combien_candidates):
+        autres = [r for r in rangs_retenus if r != rang]
+        couples = [(_paire(recouvrements, rang, r), r) for r in autres]
+        pire, contre = max(couples) if couples else (None, None)
+        if rang in retenus:
+            sort = SORT_RETENUE
+        elif pire is not None and pire > seuil:
+            sort = SORT_TROP_PROCHE
+        else:
+            sort = SORT_PLACE_PRISE
+        verdicts.append(
+            Verdict(
+                rang=rang,
+                numero=rang + 1,
+                sort=sort,
+                recouvrement_max=pire,
+                contre_numero=None if contre is None else contre + 1,
+                motif=_motif_verdict(sort, pire, contre, seuil, combien),
+            )
+        )
+    return verdicts
+
+
+def _motif_verdict(
+    sort: str, pire: float | None, contre: int | None, seuil: float, combien: int
+) -> str:
+    """La phrase d'un verdict — un pourcentage et un numéro, jamais de la prose.
+
+    « 55 % des mêmes routes que la n° 1 » : c'est le critère qui a vraiment
+    décidé, dit dans ses propres termes. Le mainteneur a demandé à voir ça et
+    pas une paraphrase.
+    """
+    if pire is None or contre is None:
+        return "retenue — seule proposition, il n'y a rien à comparer"
+    part = f"{pire:.0%} des mêmes routes que la n° {contre + 1}"
+    if sort == SORT_TROP_PROCHE:
+        return f"écartée : {part}, au-dessus du seuil de {seuil:.0%}"
+    if sort == SORT_PLACE_PRISE:
+        return (
+            f"assez différente ({part}, sous le seuil de {seuil:.0%}), "
+            f"mais les {combien} places étaient prises par mieux classées"
+        )
+    return f"retenue — au plus {part}, sous le seuil de {seuil:.0%}"
+
+
+def _essais(
+    combien_candidates: int,
+    combien: int,
+    recouvrements: dict[tuple[int, int], float],
+    seuil: float,
+) -> Essais | None:
+    """Combien de groupes de `combien` ont été essayés, et comment ils tombent.
+
+    Les groupes essayés sont ceux qui contiennent la tête du tri : `choisir`
+    ne la remet jamais en cause, et compter des groupes sans elle donnerait un
+    dénominateur que la recherche n'a jamais regardé.
+    """
+    if combien_candidates < combien or combien < 2:
+        return None
+    valides = 0
+    par_une_paire = 0
+    essayes = 0
+    for indices in combinations(range(1, combien_candidates), combien - 1):
+        groupe = (0, *indices)
+        essayes += 1
+        au_dessus = sum(
+            1
+            for i in range(len(groupe))
+            for j in range(i + 1, len(groupe))
+            if _paire(recouvrements, groupe[i], groupe[j]) > seuil
+        )
+        if au_dessus == 0:
+            valides += 1
+        elif au_dessus == 1:
+            par_une_paire += 1
+    return Essais(
+        taille=combien, essayes=essayes, valides=valides, refuses_par_une_paire=par_une_paire
+    )
+
+
+def _phrase_arbitrage(essais: Essais | None, seuil: float) -> str | None:
+    """Ce que les essais **mesurent**, en une phrase — jamais ce qu'on en croit.
+
+    Le point que le mainteneur veut voir sans qu'on le lui explique : un
+    groupe tombe dès qu'**une** de ses paires dépasse le seuil. La phrase ne
+    l'affirme que quand le compte le montre, et dit autre chose sinon.
+    """
+    if essais is None or essais.essayes == 0:
+        return None
+    combien = _EN_LETTRES.get(essais.taille, str(essais.taille))
+    tiennent = (
+        "aucun ne tient"
+        if essais.valides == 0
+        else f"{essais.valides} tient" if essais.valides == 1 else f"{essais.valides} tiennent"
+    )
+    tete = (
+        f"{essais.essayes} groupe(s) de {combien} contenant la première du tri ont été "
+        f"essayés ; {tiennent} sous les {seuil:.0%} de routes communes"
+    )
+    if essais.refuses_par_une_paire == 0:
+        return f"{tete}."
+    tombent = "tombe" if essais.refuses_par_une_paire == 1 else "tombent"
+    return (
+        f"{tete}. {essais.refuses_par_une_paire} des refusés ne {tombent} que sur une "
+        "seule paire trop ressemblante : une paire suffit à disqualifier un groupe "
+        "entier, quelle que soit la moyenne des autres."
+    )
 
 
 def _meilleur_groupe(
     propositions: list,
-    profils: dict,
     mesure: _Recouvrements,
-    refus: _Refus,
     combien: int,
     seuil_recouvrement: float,
-) -> tuple[list, list[str]]:
-    """Le meilleur groupe valide de `combien` propositions, ou moins s'il n'y en a pas."""
+) -> list:
+    """Le meilleur groupe de `combien` propositions assez disjointes, ou moins.
+
+    Le seul refus possible est le recouvrement : il n'y a donc plus rien à
+    collecter pour expliquer un groupe écarté, la raison est toujours la même.
+    """
     tete, reste = propositions[0], propositions[1:]
     for taille in range(min(combien, len(propositions)), 1, -1):
-        meilleur: tuple[tuple[int, ...], list, list[str]] | None = None
         for indices in combinations(range(len(reste)), taille - 1):
             groupe = [tete, *(reste[i] for i in indices)]
-            if not _recouvrements_acceptables(groupe, mesure, seuil_recouvrement, refus, indices):
-                continue
-            attribution = _attribuer([profils[id(p)] for p in groupe])
-            if attribution is None:
-                refus.axe.update(indices)
-                continue
-            rang = tuple(indices)
-            if meilleur is None or rang < meilleur[0]:
-                meilleur = (rang, groupe, attribution)
-        if meilleur is not None:
-            return meilleur[1], meilleur[2]
-    return [tete], [""]
+            if _assez_disjointes(groupe, mesure, seuil_recouvrement):
+                # `combinations` énumère les indices dans l'ordre croissant :
+                # la première trouvée est déjà la mieux classée.
+                return groupe
+    return [tete]
 
 
-def _recouvrements_acceptables(
-    groupe: list, mesure: _Recouvrements, seuil: float, refus: _Refus, indices
-) -> bool:
-    for i in range(len(groupe)):
-        for j in range(i + 1, len(groupe)):
-            if mesure.entre(groupe[i].trace, groupe[j].trace) > seuil:
-                refus.recouvrement.update(indices)
-                return False
-    return True
+def _assez_disjointes(groupe: list, mesure: _Recouvrements, seuil: float) -> bool:
+    return all(
+        mesure.entre(groupe[i].trace, groupe[j].trace) <= seuil
+        for i in range(len(groupe))
+        for j in range(i + 1, len(groupe))
+    )
 
 
 class _Recouvrements:
@@ -591,17 +911,34 @@ _NOMS_AXES = {
     AXE_TERRAIN: "le terrain sous les blocs",
 }
 
+#: Les axes dont le nom ci-dessus est un **pluriel**. Le verbe s'accorde avec
+#: le nom, pas avec le nombre d'axes cités : « les nationales valaient » et non
+#: « les nationales valait », même quand cet axe est le seul de la liste.
+_NOMS_AXES_PLURIELS = frozenset({AXE_DEMI_TOURS, AXE_TRAFIC})
+
+
+def _accorder(axes: list[str], singulier: str, pluriel: str) -> str:
+    """Le verbe qui va avec « {les noms de ces axes} … ».
+
+    Plusieurs axes énumérés font un sujet pluriel. Un seul s'accorde avec
+    lui-même.
+    """
+    if len(axes) != 1:
+        return pluriel
+    return pluriel if axes[0] in _NOMS_AXES_PLURIELS else singulier
+
 
 def axes_muets(profils: list[Profil]) -> tuple[list[str], list[str]]:
-    """(axes qui ne distinguent rien, axes qui distinguent) sur ce lot de candidates.
+    """(axes qui ne distinguent rien, axes qui distinguent) sur ce lot de profils.
 
-    Un axe est **muet** quand toutes les candidates y valent la même chose à
-    moins d'un pas près, ou quand la mesure y est inconnue partout. C'est ce
-    qui manquait au message quand la commande rend deux propositions au lieu
-    de trois : « aucune ne se distinguait » est vrai mais n'apprend rien,
-    alors que « la pluie, le terrain, les demi-tours et le vent étaient
-    identiques partout » dit au cycliste **ce qui manquait ce jour-là** — et
-    donc qu'il n'y avait rien à lui cacher.
+    Un axe est **muet** quand tous les profils y valent la même chose à moins
+    d'un pas près, ou quand la mesure y est inconnue partout.
+
+    C'est ce qui donne sa substance à la phrase de [[Q45]] : « ces trois
+    boucles se valent » est vrai mais n'apprend rien, alors que « la pluie, le
+    terrain, les demi-tours et le vent valaient la même chose sur les trois »
+    dit au cycliste **ce qui manquait ce jour-là**, et donc qu'on ne lui cache
+    rien (règle absolue 5 : ne rien affirmer sans mesure).
     """
     muets, vivants = [], []
     for axe in ORDRE_AXES:
@@ -620,50 +957,81 @@ def _distingue(axe: str, profils: list[Profil]) -> bool:
     return max(connues) - min(connues) >= _PAS[axe]
 
 
-def _motif(
-    retenues: int, voulu: int, candidates: int, refus: _Refus, profils: list[Profil]
-) -> str:
+def _motif(retenues: int, voulu: int, candidates: int) -> str:
+    """Pourquoi il y en a moins de `voulu` — et depuis [[Q43]] il n'y a qu'une raison.
+
+    Le recouvrement est le seul verrou : si un groupe a été écarté, c'est que
+    deux de ses boucles allaient au même endroit. Plus besoin de dire « soit…
+    soit… » : il n'y a plus de second motif à distinguer du premier.
+    """
     if candidates <= retenues:
         return (
             f"{candidates} candidate(s) seulement portaient la séance : "
             f"il n'y a pas de quoi en contraster {voulu}"
         )
-    # Pas de décompte par motif : une même candidate est refusée dans certaines
-    # combinaisons pour son recouvrement et dans d'autres faute d'axe, et
-    # additionner les deux donnerait des chiffres qui ne s'additionnent pas.
-    # On dit ce qui a été essayé et pourquoi rien n'a tenu.
-    morceaux = []
-    if refus.recouvrement:
-        morceaux.append(
-            f"soit elles empruntaient plus de {SEUIL_RECOUVREMENT:.0%} des mêmes routes "
-            "qu'une autre du groupe"
-        )
-    if refus.axe:
-        morceaux.append(
-            "soit l'une des trois ne se distinguait des deux autres sur aucun axe "
-            "d'une marge perceptible"
-        )
-    detail = " ; ".join(morceaux) if morceaux else "aucune ne se distinguait"
     return (
         f"{retenues} proposition(s) au lieu de {voulu}. Toutes les combinaisons des "
-        f"{candidates} candidates ont été essayées : {detail}. {_ce_qui_manquait(profils)} "
-        "Mieux vaut en proposer moins et le dire que trois qui se ressemblent."
+        f"{candidates} candidates ont été essayées : dans chacune, deux boucles empruntaient "
+        f"plus de {SEUIL_RECOUVREMENT:.0%} des mêmes routes et seraient allées au même "
+        "endroit. Mieux vaut en proposer moins et le dire que trois qui se ressemblent."
     )
 
 
-def _ce_qui_manquait(profils: list[Profil]) -> str:
-    """La phrase qui dit au cycliste quels axes n'avaient rien à dire ce jour-là."""
-    muets, vivants = axes_muets(profils)
-    if not muets:
-        return "Tous les axes séparaient au moins deux candidates."
-    noms_muets = _et(_NOMS_AXES[axe] for axe in muets)
-    valaient = "valait" if len(muets) == 1 else "valaient"
-    if not vivants:
-        return f"Aucun axe ne les séparait : {noms_muets} {valaient} la même chose partout."
+#: « deux », « trois » — les comptes qu'une phrase de propositions peut porter.
+_EN_LETTRES = {2: "deux", 3: "trois"}
+
+
+def _motif_equivalence(retenues: list[Retenue]) -> str | None:
+    """La phrase de [[Q45]] : ces boucles se valent, et voici ce qui le dit.
+
+    Elle ne sort que si **aucune** retenue ne porte de phrase de distinction.
+    Dès qu'une seule se détache, quelque chose distingue le lot, et c'est sa
+    phrase à elle qui le dit : annoncer en même temps « elles se valent »
+    serait faux.
+
+    Avec une seule proposition, il n'y a rien à comparer et donc rien à dire :
+    `motif_deux_propositions` couvre déjà ce cas-là.
+    """
+    if len(retenues) < 2 or any(r.axe_distinctif for r in retenues):
+        return None
+    combien = _EN_LETTRES.get(len(retenues), str(len(retenues)))
     return (
-        f"Ce jour-là, {noms_muets} {valaient} la même chose sur toutes les candidates : "
-        f"il ne restait que {_et(_NOMS_AXES[axe] for axe in vivants)} pour les distinguer."
+        f"Ces {combien} boucles se valent : {_ce_qui_les_egale([r.profil for r in retenues])} "
+        "Choisissez où vous voulez aller."
     )
+
+
+def _ce_qui_les_egale(profils: list[Profil]) -> str:
+    """Ce qui, mesuré, ne sépare pas ces propositions — jamais une affirmation nue.
+
+    Deux cas, et la nuance entre les deux est vraie. Ou bien les axes sont
+    **muets** : les mesures valent la même chose partout. Ou bien certains
+    varient sans que personne y prenne l'avantage d'un pas entier sur **tous**
+    les autres — ce n'est pas « identique », c'est « personne ne s'en
+    détache », et on l'écrit comme ça.
+
+    La nuance n'est pas décorative. Sur une vraie sortie du 19/09/2026, les
+    parts de nationales valaient 17 %, 5 % et 8 % : l'écart total dépasse le
+    pas, mais les deux meilleures sont à trois points l'une de l'autre, et
+    aucune ne peut se dire celle qui évite les nationales. Écrire « elles y
+    roulent autant » serait faux ; écrire « l'une évite les nationales »
+    aussi.
+    """
+    muets, vivants = axes_muets(profils)
+    combien = _EN_LETTRES.get(len(profils), str(len(profils)))
+    identiques = (
+        f"{_et(_NOMS_AXES[axe] for axe in muets)} "
+        f"{_accorder(muets, 'valait', 'valaient')} la même chose sur les {combien}"
+    )
+    if not vivants:
+        return f"{identiques}."
+    debut = (
+        f"{_et(_NOMS_AXES[axe] for axe in vivants)} "
+        f"{_accorder(vivants, 'varie', 'varient')} d'une boucle à l'autre, mais "
+        # « aucune » désigne les boucles, pas les axes : rien à accorder ici.
+        "aucune ne s'en détache d'une marge qui se dise"
+    )
+    return f"{debut}." if not muets else f"{debut}, et {identiques}."
 
 
 def _et(noms) -> str:
@@ -677,15 +1045,27 @@ def _et(noms) -> str:
 # --- attribution d'un axe à chaque proposition ----------------------------------
 
 
-def _attribuer(profils: list[Profil]) -> list[str] | None:
-    """Un axe distinctif par profil, tous différents, ou `None` si impossible.
+def _attribuer(profils: list[Profil]) -> list[str]:
+    """L'axe sur lequel chaque profil se détache, ou `""` s'il ne se détache sur aucun.
 
-    Avec une seule proposition, il n'y a rien à distinguer : on rend une liste
-    d'un axe vide, ce qui est vrai — elle est seule, pas contrastée.
+    **Une attribution, plus un verdict.** Avant [[Q43]], cette fonction rendait
+    `None` dès qu'un profil ne gagnait aucun axe, et le groupe entier était
+    jeté. Elle ne juge plus : le recouvrement a tranché avant elle, et elle
+    répond seulement à « qu'y a-t-il de vrai à écrire sous chacune ». Un `""`
+    n'est plus un échec, c'est une proposition dont le tracé parle seul.
 
-    Le choix entre plusieurs attributions possibles suit `ORDRE_AXES`, du plus
-    au moins parlant pour le mainteneur. La recherche est exhaustive : au plus
-    trois profils et sept axes.
+    Avec une seule proposition, il n'y a rien à distinguer, et `""` est encore
+    ce qu'il y a de juste — elle est seule, pas contrastée.
+
+    Le choix entre plusieurs axes gagnés suit `ORDRE_AXES`, du plus au moins
+    parlant pour le mainteneur.
+
+    **Les axes se répartissent d'eux-mêmes, sans arbitrage.** Deux profils ne
+    peuvent pas gagner le même axe : sur un axe chiffré il faut être meilleur
+    que *tous* les autres d'un pas entier, ce que deux profils ne peuvent pas
+    être l'un envers l'autre ; et sur le vent il faut être le **seul** de son
+    orientation. Chacun prend donc son meilleur axe sans se soucier des
+    autres, et les axes attribués sont distincts par construction.
 
     **Le vent compte pour autant d'axes qu'il a d'orientations**, sous les
     clés `vent:retour-dos`, `vent:depart-dos`, `vent:travers`, `vent:face`.
@@ -693,22 +1073,17 @@ def _attribuer(profils: list[Profil]) -> list[str] | None:
     — « vous rentrez avec le vent dans le dos », « vent dans le dos au
     départ », « vent de travers » sont trois propositions qui ne diffèrent
     *que* par le vent, et c'est très exactement ce que le mainteneur a
-    demandé. La condition « un axe différent chacune » sert à garantir
-    qu'aucune n'est là pour faire nombre ; trois orientations distinctes la
-    remplissent, puisque chacune est la seule de la sienne.
+    demandé.
     """
     if len(profils) <= 1:
         return [""] * len(profils)
-    possibles = [_axes_gagnes(p, [q for q in profils if q is not p]) for p in profils]
-    if any(not axes for axes in possibles):
-        return None
-    meilleure: list[str] | None = None
-    meilleur_cout: tuple | None = None
-    for combinaison in _systemes(possibles):
-        cout = tuple(sorted(_priorite(axe) for axe in combinaison))
-        if meilleur_cout is None or cout < meilleur_cout:
-            meilleure, meilleur_cout = list(combinaison), cout
-    return meilleure
+    return [_meilleur_axe(p, [q for q in profils if q is not p]) for p in profils]
+
+
+def _meilleur_axe(sujet: Profil, autres: list[Profil]) -> str:
+    """Le premier axe de `ORDRE_AXES` que `sujet` gagne, ou `""`."""
+    gagnes = _axes_gagnes(sujet, autres)
+    return min(gagnes, key=_priorite) if gagnes else ""
 
 
 def axe_de_base(axe: str) -> str:
@@ -718,16 +1093,6 @@ def axe_de_base(axe: str) -> str:
 
 def _priorite(axe: str) -> int:
     return ORDRE_AXES.index(axe_de_base(axe))
-
-
-def _systemes(possibles: list[list[str]]):
-    """Toutes les attributions d'axes **tous distincts**, une par profil."""
-    union = sorted({axe for axes in possibles for axe in axes})
-    if len(union) < len(possibles):
-        return
-    for combinaison in permutations(union, len(possibles)):
-        if all(axe in axes for axe, axes in zip(combinaison, possibles, strict=True)):
-            yield combinaison
 
 
 def _axes_gagnes(sujet: Profil, autres: list[Profil]) -> list[str]:
