@@ -829,9 +829,9 @@ def _parts(total: int, combien: int) -> list[int]:
 
     3 en 2 donne [2, 1], 4 en 2 donne [2, 2], 1 en 2 donne [1, 0] — et une part
     nulle n'est pas une anomalie : à une seule candidate demandée, il n'y a
-    rien à répartir, et le premier azimut la prend. `generer` n'est pas appelé
-    pour une part nulle (`_candidates` boucle sur la répartition telle quelle,
-    et `nb=0` ne produirait rien tout en coûtant un appel).
+    rien à répartir, et le premier azimut la prend. `_candidates` écarte alors
+    cet azimut de sa répartition, parce qu'un `generer(nb=0)` ne rendrait rien
+    tout en coûtant un aller-retour.
 
     Le reste va aux **premières** parts, donc au premier azimut. Sur un nombre
     impair de candidates c'est un déséquilibre d'une unité, et il est assumé :

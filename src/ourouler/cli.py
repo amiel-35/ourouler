@@ -704,7 +704,8 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
     )
     p.add_argument(
         "--direction",
-        help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon)",
+        help="N, NE, … NO ou un azimut en degrés (défaut : candidates tout autour de l'horizon). "
+        "S'exclut de --vent : on choisit sa direction, ou on la laisse déduire du vent",
     )
     p.add_argument("--candidates", type=int, help="nombre de boucles proposées (défaut : config)")
     # La question d'orientation au vent, posée **avant** la recherche (lot
@@ -712,11 +713,16 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
     # retombe sur les propositions contrastées. Ce n'est donc pas un réglage
     # de plus qu'il faudrait toucher — c'est un choix qui se fait en
     # regardant, et dont l'absence de réponse est une réponse.
+    #
+    # Q44 : `--vent` et `--direction` fixaient tous deux l'azimut de recherche
+    # sans que rien ne dise lequel gagnait. Ils s'excluent désormais, et l'aide
+    # le dit des deux côtés plutôt que de laisser découvrir le refus.
     p.add_argument(
         "--vent",
         choices=list(CHOIX_VENT),
-        help="orientation au vent voulue : retour-dos (rentrer avec), depart-dos (partir avec), "
-        "travers, ou peu-importe (défaut — les propositions contrastées répondent)",
+        help="orientation au vent voulue, au lieu de --direction : retour-dos (rentrer avec), "
+        "depart-dos (partir avec), travers — qui ouvre les deux flancs, donc deux directions "
+        "opposées — ou peu-importe (défaut, les propositions contrastées répondent)",
     )
     p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
     ajouter_heure_depart(
