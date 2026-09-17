@@ -24,8 +24,10 @@ import {
   pourcentage,
   compteArrets,
   visibleEnKm,
+  jourEnLettres,
 } from "../api/formats";
 import { Carte, LegendeVent, type SegmentDessine } from "../composants/Carte";
+import { RetourEnTete } from "../composants/Retour";
 import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
@@ -127,6 +129,21 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
 
   return (
     <section>
+      {/* Le retour était en bas, après la carte, le profil, les étapes et le
+          bouton d'envoi au compteur : personne ne le trouvait. Son libellé
+          nomme la destination — combien de parcours, et pour quel jour — au
+          lieu de dire « Retour », qui ne dit pas où. */}
+      <RetourEnTete
+        vers={
+          // Le cœur ne rend pas toujours trois propositions, et « Les 1
+          // parcours du samedi 19 » se lisait comme une faute plutôt que
+          // comme un chiffre.
+          sortie.propositions.length === 1
+            ? `Le parcours du ${jourEnLettres(sortie.jour)}`
+            : `Les ${nombre(sortie.propositions.length)} parcours du ${jourEnLettres(sortie.jour)}`
+        }
+        surRetour={surRetour}
+      />
       <div className="app-tete">
         <div>
           <span className="quand">

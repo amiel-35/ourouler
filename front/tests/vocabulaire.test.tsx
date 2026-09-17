@@ -18,6 +18,8 @@ import {
 } from "../src/api/formats";
 import { LegendeVent } from "../src/composants/Carte";
 import type { FlecheVent } from "../src/api/types";
+import { PropositionDetail } from "../src/ecrans/Proposition";
+import { sortie } from "./fixtures";
 
 describe("le titre d'une boucle ne porte aucun paramètre du moteur", () => {
   it("rend la direction, jamais l'azimut ni le rayon demandé au traceur", () => {
@@ -113,5 +115,57 @@ describe("la légende du vent", () => {
     render(<LegendeVent vents={[]} />);
     expect(screen.getByText(/très faible/)).toBeDefined();
     expect(screen.queryByText(/km\/h/)).toBeNull();
+  });
+});
+
+describe("la sortie d'un écran de profondeur", () => {
+  it("est en tête du détail, avant la carte et tout ce qui la suit", () => {
+    // Le retour existait déjà, mais tout en bas : sous la carte, le profil,
+    // les étapes, les bandeaux et le bouton d'envoi au compteur. Le
+    // mainteneur ne l'a jamais vu, et sur un téléphone c'est équivalent à ne
+    // pas en avoir. Ce test garde sa **place**, pas seulement son existence.
+    const reponse = sortie();
+    const { container } = render(
+      <PropositionDetail reponse={reponse} numero={1} seance={null} surRetour={() => {}} />,
+    );
+    const premier = container.querySelector("section > *");
+    expect(premier?.className).toContain("retour");
+  });
+
+  it("nomme le jour d'où l'on vient, au lieu de dire « Retour »", () => {
+    // Revenir aux parcours du mercredi 16 n'est pas revenir à « Ma semaine ».
+    render(
+      <PropositionDetail reponse={sortie()} numero={1} seance={null} surRetour={() => {}} />,
+    );
+    expect(screen.getByText(/parcours du mercredi 16 septembre/)).toBeDefined();
+  });
+
+  it("accorde au singulier quand le cœur n'a rendu qu'un parcours", () => {
+    render(
+      <PropositionDetail
+        reponse={sortie({ propositions: 1 })}
+        numero={1}
+        seance={null}
+        surRetour={() => {}}
+      />,
+    );
+    expect(screen.getByText(/Le parcours du mercredi 16 septembre/)).toBeDefined();
+    expect(screen.queryByText(/Les 1 parcours/)).toBeNull();
+  });
+
+  it("ramène vraiment en arrière quand on la suit", () => {
+    let revenu = false;
+    render(
+      <PropositionDetail
+        reponse={sortie()}
+        numero={1}
+        seance={null}
+        surRetour={() => {
+          revenu = true;
+        }}
+      />,
+    );
+    screen.getByRole("button", { name: /parcours du mercredi 16/ }).click();
+    expect(revenu).toBe(true);
   });
 });

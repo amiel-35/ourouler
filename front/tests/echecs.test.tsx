@@ -145,7 +145,10 @@ describe("une seule proposition au lieu de trois", () => {
     expect(screen.getByRole("heading", { name: "Un seul parcours" })).toBeTruthy();
     expect(screen.getByText(/On en voulait trois, et on en propose moins/)).toBeTruthy();
     expect(screen.getByText(/empruntaient plus du quart des mêmes routes/)).toBeTruthy();
-    expect(screen.getByText("La seule candidate")).toBeTruthy();
+    // « La seule candidate » portait le mot du moteur — `candidates` est le
+    // nombre de boucles tracées avant tri, pas un parcours proposé. Le badge
+    // dit maintenant la même chose sans ce mot-là.
+    expect(screen.getByText("Le seul")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Chercher plus loin/ })).toBeTruthy();
     // Aucun mot d'erreur : ce n'est pas une panne.
     expect(screen.queryByText(/erreur/i)).toBeNull();

@@ -373,6 +373,29 @@ img {
   color: var(--accent);
   border: 1px solid var(--trait-fort);
 }
+
+/* Le retour en tête d'un écran de profondeur. Aligné à gauche et posé avant
+   le titre : c'est là qu'on cherche une sortie, et c'est la seule place qui
+   ne demande pas de faire défiler la page. La cible fait 44 px de haut, ce
+   qu'un pouce atteint sans viser. */
+.retour {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 11px 4px;
+  margin: 0 0 2px -4px;
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.retour:hover {
+  text-decoration: underline;
+}
 .bouton.fantome {
   background: transparent;
   color: var(--muet);

@@ -70,8 +70,10 @@ export function Boucles({ reponse, surRetour }: Props) {
             {boucle.candidates.length > 1 ? "s" : ""}
           </h1>
         </div>
+        {/* « Modifier » seul ne disait pas ce qu'on modifiait ni où l'on
+            atterrissait. C'est la sortie de cet écran : elle se nomme. */}
         <button type="button" className="lien" onClick={surRetour}>
-          Modifier
+          Modifier la demande
         </button>
       </div>
 
