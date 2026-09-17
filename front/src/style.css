@@ -1,0 +1,664 @@
+/* Les jetons de `docs/ux/maquettes_v1.html`, repris tels quels.
+   La retenue vient d'Apple (arbitrage 4) : peu de couleur, la hiérarchie
+   portée par la typographie, rien qui clignote. */
+
+:root {
+  --papier: #f7f8f7;
+  --carte: #ffffff;
+  --encre: #161c1a;
+  --encre-2: #41504c;
+  --muet: #6b7573;
+  --trait: #dce2e0;
+  --trait-fort: #c3ccc9;
+  --accent: #12657f;
+  --accent-doux: #e4eff3;
+  --accent-fort: #0b4b60;
+  --z1: #8a9794;
+  --z2: #5b8c7b;
+  --z3: #b08a1e;
+  --z4: #be6229;
+  --z5: #a03028;
+  --bien: #2f6b52;
+  --attention: #9a5416;
+  --alerte: #9b2f27;
+  --bien-fond: #e6f0ea;
+  --attention-fond: #f7ebdd;
+  --alerte-fond: #f7e4e2;
+  --info-fond: #e4eff3;
+  --ombre: 0 1px 2px rgba(22, 28, 26, 0.06), 0 8px 24px -12px rgba(22, 28, 26, 0.18);
+  --r: 10px;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier: #0e1413;
+    --carte: #171f1d;
+    --encre: #e8edeb;
+    --encre-2: #b4c0bc;
+    --muet: #8a9793;
+    --trait: #28332f;
+    --trait-fort: #3a4844;
+    --accent: #5ab3ce;
+    --accent-doux: #12292f;
+    --accent-fort: #8cd0e4;
+    --z1: #7c8a86;
+    --z2: #6fa891;
+    --z3: #cba63a;
+    --z4: #d97f45;
+    --z5: #c4534a;
+    --bien: #6fb894;
+    --attention: #d39a5a;
+    --alerte: #d7736a;
+    --bien-fond: #152620;
+    --attention-fond: #2a2013;
+    --alerte-fond: #2b1817;
+    --info-fond: #12292f;
+    --ombre: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--encre);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  margin: 0;
+  text-wrap: balance;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* ---------- coquille ---------- */
+
+.coquille {
+  max-width: 620px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 0 16px calc(84px + env(safe-area-inset-bottom, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.app-tete {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 0 14px;
+  border-bottom: 1px solid var(--trait);
+  margin-bottom: 16px;
+}
+
+.app-tete .quand {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muet);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.app-tete h1 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.marque {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+.marque span {
+  color: var(--accent);
+}
+
+/* ---------- barre d'onglets ---------- */
+
+.onglets {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 2px;
+  border-top: 1px solid var(--trait);
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--papier);
+  z-index: 20;
+}
+
+.onglets button {
+  flex: 1;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--muet);
+  padding: 6px 2px;
+  cursor: pointer;
+}
+
+.onglets button[aria-current="page"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- blocs ---------- */
+
+.bloc {
+  border: 1px solid var(--trait);
+  border-radius: var(--r);
+  padding: 13px 14px;
+  margin-bottom: 12px;
+  background: var(--carte);
+}
+.bloc.doux {
+  background: var(--papier);
+}
+.bloc.choisi {
+  border-color: var(--accent);
+  border-width: 2px;
+  padding: 12px 13px;
+}
+
+.bloc-tete {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.bloc-tete h2,
+.bloc-tete h3 {
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.bloc-tete .rang {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muet);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chiffres {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--encre-2);
+}
+.chiffres b {
+  color: var(--encre);
+  font-weight: 600;
+}
+
+.grand {
+  font-family: var(--mono);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.grand small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muet);
+  margin-left: 3px;
+}
+
+.mention {
+  font-size: 12px;
+  color: var(--muet);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.encart {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.encart.info {
+  background: var(--info-fond);
+  color: var(--accent-fort);
+}
+.encart.attention {
+  background: var(--attention-fond);
+  color: var(--attention);
+}
+.encart.alerte {
+  background: var(--alerte-fond);
+  color: var(--alerte);
+}
+.encart.bien {
+  background: var(--bien-fond);
+  color: var(--bien);
+}
+.encart b {
+  font-weight: 600;
+}
+
+/* ---------- saisies ---------- */
+
+.champ {
+  margin-bottom: 14px;
+}
+.champ label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--encre);
+  margin-bottom: 5px;
+}
+.champ .aide {
+  font-size: 12px;
+  color: var(--muet);
+  margin-top: 5px;
+  line-height: 1.45;
+}
+
+.saisie {
+  width: 100%;
+  border: 1px solid var(--trait-fort);
+  background: var(--papier);
+  border-radius: 8px;
+  padding: 10px 11px;
+  font-family: var(--sans);
+  font-size: 16px;
+  color: var(--encre);
+}
+.saisie.mono {
+  font-family: var(--mono);
+  font-size: 16px;
+}
+.saisie:disabled {
+  color: var(--muet);
+  background: var(--carte);
+}
+
+.saisie-unite {
+  display: flex;
+  align-items: stretch;
+}
+.saisie-unite .saisie {
+  border-radius: 8px 0 0 8px;
+  border-right: none;
+}
+.saisie-unite .unite {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muet);
+  border: 1px solid var(--trait-fort);
+  border-left: 1px solid var(--trait);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 11px;
+  background: var(--carte);
+  display: flex;
+  align-items: center;
+}
+
+.bouton {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 12px;
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+@media (prefers-color-scheme: dark) {
+  .bouton {
+    color: #08181e;
+  }
+}
+.bouton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.bouton.second {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--trait-fort);
+}
+.bouton.fantome {
+  background: transparent;
+  color: var(--muet);
+  border: none;
+  font-weight: 500;
+  font-size: 13.5px;
+  padding: 9px;
+}
+.boutons {
+  display: flex;
+  gap: 9px;
+  margin-top: 6px;
+}
+.boutons .bouton {
+  flex: 1;
+}
+
+.segments {
+  display: flex;
+  background: var(--papier);
+  border: 1px solid var(--trait);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+.segments button {
+  flex: 1;
+  text-align: center;
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 4px;
+  border-radius: 6px;
+  color: var(--muet);
+  font-weight: 500;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.segments button[aria-pressed="true"] {
+  background: var(--carte);
+  color: var(--encre);
+  font-weight: 600;
+  box-shadow: var(--ombre);
+}
+
+/* ---------- zones ---------- */
+
+.zones {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.zone-l {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.zone-l .n {
+  color: var(--muet);
+}
+.zone-l .jauge {
+  height: 9px;
+  border-radius: 2px;
+  min-width: 4px;
+}
+.zone-l .v {
+  color: var(--encre-2);
+  font-size: 11px;
+}
+.zone-l.endurance .n {
+  color: var(--encre);
+  font-weight: 600;
+}
+
+/* ---------- étapes ---------- */
+
+.etapes {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 14px;
+}
+.etape {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 11px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--trait);
+  font-size: 13px;
+}
+.etape:last-child {
+  border-bottom: none;
+}
+.etape .pt {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  justify-self: center;
+}
+.etape .km {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muet);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.etape .nom b {
+  font-weight: 600;
+}
+.etape .nom small {
+  display: block;
+  color: var(--muet);
+  font-size: 11.5px;
+}
+
+/* ---------- rangées de réglages ---------- */
+
+.rangee {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--trait);
+  font-size: 13.5px;
+}
+.rangee:last-child {
+  border-bottom: none;
+}
+.rangee .cle {
+  color: var(--muet);
+  font-size: 12.5px;
+}
+.rangee .val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.rangee .val.texte {
+  font-family: var(--sans);
+}
+
+.lien {
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: right;
+}
+
+/* ---------- jalons d'attente ---------- */
+
+.jalons {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 0 4px;
+}
+.jalon {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 11px;
+  align-items: center;
+  padding: 9px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--trait);
+}
+.jalon:last-child {
+  border-bottom: none;
+}
+.jalon .etat {
+  font-family: var(--mono);
+  font-size: 13px;
+  text-align: center;
+}
+.jalon.fait {
+  color: var(--encre-2);
+}
+.jalon.fait .etat {
+  color: var(--bien);
+}
+.jalon.cours {
+  color: var(--encre);
+  font-weight: 600;
+}
+.jalon.cours .etat {
+  color: var(--accent);
+}
+.jalon.suite {
+  color: var(--muet);
+}
+
+/* ---------- dépôt de fichier ---------- */
+
+.depot {
+  border: 1.5px dashed var(--trait-fort);
+  border-radius: var(--r);
+  padding: 26px 16px;
+  text-align: center;
+  background: var(--papier);
+  margin-bottom: 12px;
+}
+.depot.survole {
+  border-color: var(--accent);
+  background: var(--accent-doux);
+}
+.depot .grosse {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.depot .fmt {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muet);
+  letter-spacing: 0.05em;
+  margin-top: 8px;
+}
+
+/* ---------- carte et profil ---------- */
+
+.carte {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--trait);
+  background: var(--papier);
+  height: 230px;
+  margin-bottom: 10px;
+}
+.carte.haute {
+  height: 300px;
+}
+.carte .leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: var(--papier);
+}
+
+.profil-alt {
+  display: block;
+  width: 100%;
+  height: 74px;
+  margin-bottom: 10px;
+}
+
+/* ---------- divers ---------- */
+
+.pile > * + * {
+  margin-top: 10px;
+}
+
+.barre-avance {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--trait);
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+.barre-avance i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s linear;
+}
+
+.etapes-assistant {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muet);
+  padding-top: 16px;
+}
+
+.vide {
+  text-align: center;
+  padding: 34px 10px;
+  color: var(--muet);
+}
+
+.liste-candidats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.liste-candidats li {
+  border-bottom: 1px solid var(--trait);
+}
+.liste-candidats button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--encre);
+  padding: 11px 2px;
+  cursor: pointer;
+}

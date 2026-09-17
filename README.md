@@ -318,6 +318,20 @@ propriétaire et les durées mesurées sont dans `docs/ux/api_contrat.md`.
 FastAPI et son serveur sont un extra : la ligne de commande s'installe et
 tourne sans.
 
+## Le front (lot F2)
+
+L'interface du cycliste, dans `front/`. Elle **ne parle qu'à l'API**, jamais
+au cœur Python (doctrine §10.2), et n'affiche rien que l'API n'ait rendu.
+
+```bash
+uv run ourouler api --port 8000     # dans un terminal
+cd front && npm install && npm run dev   # dans un autre, puis http://localhost:5180
+```
+
+`npm run verifier` passe les types et les tests ; aucun test du front ne
+touche au réseau. Les écrans, les écarts assumés avec les maquettes et
+l'organisation du code sont dans `front/README.md`.
+
 ## Documentation
 
 - `docs/cadrage.md` — le besoin d'origine.
@@ -327,5 +341,7 @@ tourne sans.
 - `docs/heberge_minimal_contrat.md` — le contrat de l'hébergé minimal.
 - `docs/ux/front_contrat.md` — les lots du front, dans l'ordre.
 - `docs/ux/api_contrat.md` — le contrat de l'API que le front consomme.
+- `docs/ux/maquettes_v1.html` — les vingt écrans, et le raisonnement de chacun.
+- `front/README.md` — la chaîne de construction du front et ses règles.
 
 Licence MIT.

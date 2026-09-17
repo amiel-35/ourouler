@@ -1,0 +1,373 @@
+/** E21 · E22 — profil et réglages.
+ *
+ * Quatre groupes, dans l'ordre où on y revient : ce qui change souvent en
+ * haut — un poids bouge, une FTP progresse — et ce qui ne se touche qu'une
+ * fois en bas.
+ *
+ * Ce que le lot F2 ne peut pas porter le dit en toutes lettres au lieu
+ * d'afficher un bouton qui refuse : les clés d'accès, l'export et la
+ * suppression appartiennent aux comptes (lot F3). « Une ligne qui annonce
+ * est plus honnête qu'un bouton qui refuse. »
+ */
+
+import { useState } from "react";
+import { api, ErreurApi } from "../api/client";
+import type { Candidat, Profil, Zones } from "../api/types";
+import { nombre, pourcentage } from "../api/formats";
+import { EcranFtp } from "../composants/EcranFtp";
+import { ChoixAdresse } from "../composants/ChoixAdresse";
+
+type Volet = "ftp" | "poids" | "depart" | "velos" | "intervals" | null;
+
+interface Props {
+  profil: Profil;
+  zones: Zones;
+  surProfil: (profil: Profil) => void;
+  surZones: (zones: Zones) => void;
+  surRefaireInstallation: () => void;
+}
+
+export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstallation }: Props) {
+  const [volet, setVolet] = useState<Volet>(null);
+  const [poids, setPoids] = useState(String(profil.cycliste.masse_kg));
+  const [cle, setCle] = useState("");
+  const [panne, setPanne] = useState<string | null>(null);
+  const [dit, setDit] = useState<string | null>(null);
+
+  async function enregistrer(sections: Record<string, unknown>, phrase: string) {
+    setPanne(null);
+    setDit(null);
+    try {
+      const reponse = await api.modifierProfil(sections);
+      surProfil(reponse.donnees);
+      const fraiches = await api.zones();
+      surZones(fraiches.donnees);
+      setDit(phrase);
+    } catch (erreur) {
+      setPanne(erreur instanceof ErreurApi ? erreur.message : String(erreur));
+    }
+  }
+
+  function basculer(cible: Exclude<Volet, null>) {
+    setVolet(volet === cible ? null : cible);
+    setDit(null);
+    setPanne(null);
+  }
+
+  const liees = zones.valeurs_liees;
+
+  return (
+    <section>
+      <div className="app-tete">
+        <div>
+          <span className="quand">Votre profil</span>
+          <h1>Réglages</h1>
+        </div>
+      </div>
+
+      {dit ? <div className="encart bien">{dit}</div> : null}
+      {panne ? <div className="encart alerte">{panne}</div> : null}
+
+      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+        <div className="rangee">
+          <span className="cle">FTP</span>
+          <button type="button" className="val lien" onClick={() => basculer("ftp")}>
+            {nombre(zones.ftp_w)} W
+          </button>
+        </div>
+        <div className="rangee">
+          <span className="cle">Poids</span>
+          <button type="button" className="val lien" onClick={() => basculer("poids")}>
+            {nombre(profil.cycliste.masse_kg, 1)} kg
+          </button>
+        </div>
+        <div className="rangee">
+          <span className="cle">Allure d'endurance</span>
+          <span className="val">
+            {liees
+              ? `${nombre(liees.puissance_endurance_w)} W · ${pourcentage(liees.position_zone)} de la Z${zones.zone_endurance}`
+              : "aucun vélo"}
+          </span>
+        </div>
+      </div>
+
+      {volet === "ftp" ? (
+        <div className="bloc">
+          <EcranFtp
+            zones={zones}
+            surApercu={surZones}
+            surFtp={(ftp) => enregistrer({ cycliste: { ftp_w: ftp } }, "FTP enregistrée.")}
+          />
+          <button
+            type="button"
+            className="bouton"
+            onClick={() =>
+              enregistrer(
+                { seance: { position_zone: zones.position_zone } },
+                "Position dans la zone enregistrée — pas les watts : si votre FTP change, tout suit.",
+              )
+            }
+          >
+            Enregistrer cette allure
+          </button>
+        </div>
+      ) : null}
+
+      {volet === "poids" ? (
+        <div className="bloc">
+          <div className="champ">
+            <label htmlFor="poids">Votre poids, équipé</label>
+            <div className="saisie-unite">
+              <input
+                className="saisie mono"
+                id="poids"
+                inputMode="decimal"
+                value={poids}
+                onChange={(e) => setPoids(e.target.value)}
+              />
+              <span className="unite">kg</span>
+            </div>
+            <div className="aide">
+              Le poids total — vous, le vélo, ce que vous emportez — entre dans le calcul du
+              temps.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="bouton"
+            onClick={() =>
+              enregistrer(
+                { cycliste: { masse_kg: Number(poids.replace(",", ".")) } },
+                "Poids enregistré.",
+              )
+            }
+          >
+            Enregistrer
+          </button>
+        </div>
+      ) : null}
+
+      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+        <div className="rangee">
+          <span className="cle">Départ habituel</span>
+          <button type="button" className="val lien" onClick={() => basculer("depart")}>
+            {profil.depart.nom}
+          </button>
+        </div>
+        {profil.velos.map((velo) => (
+          <div className="rangee" key={velo.nom}>
+            <span className="cle">{velo.nom}</span>
+            <span className="val texte">
+              {velo.usage} · {nombre(velo.masse_kg, 1)} kg
+              {velo.facteur_compteur === null ? " · facteur supposé" : " · facteur mesuré"}
+            </span>
+          </div>
+        ))}
+        <div className="rangee">
+          <span className="cle">Vos vélos</span>
+          <button type="button" className="lien" onClick={() => basculer("velos")}>
+            Ajouter ou retirer
+          </button>
+        </div>
+      </div>
+
+      {volet === "depart" ? (
+        <div className="bloc">
+          <ChoixAdresse
+            valeurActuelle={profil.depart.nom}
+            surChoix={(candidat: Candidat) =>
+              enregistrer(
+                {
+                  depart: {
+                    nom: candidat.label,
+                    latitude: candidat.latitude,
+                    longitude: candidat.longitude,
+                  },
+                },
+                "Départ enregistré.",
+              )
+            }
+          />
+        </div>
+      ) : null}
+
+      {volet === "velos" ? (
+        <ListeVelos
+          profil={profil}
+          surListe={(velos) => enregistrer({ velos }, "Vélos enregistrés.")}
+        />
+      ) : null}
+
+      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+        <div className="rangee">
+          <span className="cle">intervals.icu</span>
+          <button type="button" className="val lien texte" onClick={() => basculer("intervals")}>
+            {profil.services.intervals.renseigne ? "Branché" : "Non branché"}
+          </button>
+        </div>
+        <div className="rangee">
+          <span className="cle">Traceur d'itinéraires</span>
+          <span className="val texte">
+            {profil.services.brouter.renseigne
+              ? `Branché · profil ${profil.services.brouter.profil}`
+              : "Non branché"}
+          </span>
+        </div>
+        <div className="rangee">
+          <span className="cle">Historique depuis</span>
+          <span className="val">{profil.historique_depuis}</span>
+        </div>
+      </div>
+
+      {volet === "intervals" ? (
+        <div className="bloc">
+          <div className="champ">
+            <label htmlFor="cle-intervals">Votre clé intervals.icu</label>
+            <input
+              className="saisie mono"
+              id="cle-intervals"
+              value={cle}
+              onChange={(e) => setCle(e.target.value)}
+              placeholder="collez la clé ici"
+            />
+            <div className="aide">
+              Réglages d'intervals.icu, tout en bas de la page, section « Developer Settings ».
+              La clé est affichée en clair : masquer un secret qu'on vient de coller empêche
+              de le relire pour vérifier.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="bouton"
+            onClick={() => enregistrer({ intervals: { api_key: cle } }, "Clé enregistrée.")}
+            disabled={cle.trim() === ""}
+          >
+            Enregistrer la clé
+          </button>
+        </div>
+      ) : null}
+
+      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+        <div className="rangee">
+          <span className="cle">Refaire l'installation</span>
+          <button type="button" className="lien" onClick={surRefaireInstallation}>
+            Reprendre
+          </button>
+        </div>
+        <div className="rangee">
+          <span className="cle">Clés d'accès, export, suppression</span>
+          <span className="val texte">Avec les comptes</span>
+        </div>
+      </div>
+      <p className="mention">
+        Cette version tourne sans comptes : il n'y a qu'un profil, servi localement. Les clés
+        d'accès, l'export de vos données et la suppression du compte arrivent avec eux.
+      </p>
+    </section>
+  );
+}
+
+function ListeVelos({
+  profil,
+  surListe,
+}: {
+  profil: Profil;
+  surListe: (velos: Record<string, unknown>[]) => void;
+}) {
+  // La liste des vélos se **remplace en entier** (`api/depots.py`). On repart
+  // donc du vélo tel que l'API l'a rendu et on ne remplace que les trois
+  // champs de l'écran : sinon un simple changement de nom effacerait le
+  // rattachement Intervals, le capteur et le facteur de compteur mesuré.
+  const [velos, setVelos] = useState(
+    profil.velos.map((v) => ({
+      origine: v as unknown as Record<string, unknown>,
+      nom: v.nom,
+      usage: v.usage,
+      masse_kg: String(v.masse_kg),
+    })),
+  );
+
+  function modifier(index: number, morceau: Partial<(typeof velos)[number]>) {
+    setVelos(velos.map((velo, i) => (i === index ? { ...velo, ...morceau } : velo)));
+  }
+
+  return (
+    <div className="bloc">
+      {velos.map((velo, index) => (
+        <div key={index} style={{ marginBottom: 14 }}>
+          <div className="champ">
+            <label htmlFor={`velo-nom-${index}`}>Nom</label>
+            <input
+              className="saisie"
+              id={`velo-nom-${index}`}
+              value={velo.nom}
+              onChange={(e) => modifier(index, { nom: e.target.value })}
+            />
+          </div>
+          <div className="champ">
+            <label htmlFor={`velo-usage-${index}`}>Usage</label>
+            <select
+              className="saisie"
+              id={`velo-usage-${index}`}
+              value={velo.usage}
+              onChange={(e) => modifier(index, { usage: e.target.value })}
+            >
+              <option value="route">route</option>
+              <option value="clm">chrono</option>
+            </select>
+          </div>
+          <div className="champ">
+            <label htmlFor={`velo-poids-${index}`}>Poids du vélo</label>
+            <div className="saisie-unite">
+              <input
+                className="saisie mono"
+                id={`velo-poids-${index}`}
+                inputMode="decimal"
+                value={velo.masse_kg}
+                onChange={(e) => modifier(index, { masse_kg: e.target.value })}
+              />
+              <span className="unite">kg</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="bouton fantome"
+            onClick={() => setVelos(velos.filter((_, i) => i !== index))}
+          >
+            Retirer {velo.nom}
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="bouton second"
+        onClick={() =>
+          setVelos([...velos, { origine: {}, nom: "", usage: "route", masse_kg: "8" }])
+        }
+      >
+        Ajouter un vélo
+      </button>
+      <button
+        type="button"
+        className="bouton"
+        style={{ marginTop: 9 }}
+        onClick={() =>
+          surListe(
+            velos.map((velo) => ({
+              ...velo.origine,
+              nom: velo.nom,
+              usage: velo.usage,
+              masse_kg: Number(velo.masse_kg.replace(",", ".")),
+            })),
+          )
+        }
+      >
+        Enregistrer les vélos
+      </button>
+      <p className="mention" style={{ marginTop: 8 }}>
+        Le type fixe votre position sur le vélo, donc la prise au vent : un chrono avance plus
+        vite à puissance égale, et souffre moins de face.
+      </p>
+    </div>
+  );
+}

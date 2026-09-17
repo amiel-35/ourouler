@@ -792,3 +792,98 @@ def test_l_invariant_de_proprietaire_attrape_bien_une_requete_nue(tmp_path: Path
         if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
     }
     assert fautives == {"lister", "lister_en_morceaux", "lister_par_constante"}
+
+
+# --- le front (lot F2) ------------------------------------------------------
+#
+# Le front est du TypeScript, mais il vit dans le même dépôt, et la règle
+# absolue 1 ne s'arrête pas à la frontière des langages : une coordonnée
+# réelle dans une fixture de test JavaScript est une coordonnée réelle dans le
+# dépôt. L'invariant se lit donc ici, avec le même rayon interdit et les mêmes
+# villes que pour les fixtures d'activité.
+
+RACINE = Path(__file__).resolve().parents[1]
+FRONT = RACINE / "front"
+
+#: Une paire lat/lon en degrés décimaux, telle qu'un source TypeScript
+#: l'écrirait : `[47.0, -0.5]`, `latitude: 47.0`, `LAT = 47.0`.
+_DECIMAL = re.compile(r"-?\d{1,3}\.\d+")
+
+
+def sources_du_front() -> list[Path]:
+    """Tout ce qui est versionné sous `front/` : sources, tests, fixtures."""
+    if not FRONT.is_dir():
+        return []
+    return sorted(
+        p
+        for p in FRONT.rglob("*")
+        if p.is_file()
+        and p.suffix in (".ts", ".tsx", ".json", ".css", ".html")
+        and "node_modules" not in p.parts
+        and "dist" not in p.parts
+    )
+
+
+def points_plausibles(texte: str) -> list[tuple[float, float]]:
+    """Les couples de décimaux consécutifs qui pourraient être un point français.
+
+    Grossier exprès : on préfère examiner trop de couples que d'en manquer un.
+    Un couple n'est retenu que si le premier nombre tient dans les latitudes
+    métropolitaines et le second dans les longitudes.
+    """
+    nombres = [float(n) for n in _DECIMAL.findall(texte)]
+    points = []
+    for gauche, droite in zip(nombres, nombres[1:], strict=False):
+        if 41.0 <= gauche <= 52.0 and -6.0 <= droite <= 10.0:
+            points.append((gauche, droite))
+    return points
+
+
+def test_le_front_ne_porte_aucune_coordonnee_reelle():
+    """Les points inventés du front restent loin de toute vraie ville."""
+    sources = sources_du_front()
+    if not sources:
+        pytest.skip("pas de dossier front/ dans cette copie du dépôt")
+    fautes = []
+    for source in sources:
+        for lat, lon in points_plausibles(source.read_text(encoding="utf-8")):
+            proche = ville_trop_proche(lat, lon)
+            if proche is not None:
+                fautes.append(
+                    f"{source.relative_to(RACINE)} : ({lat}, {lon}) est à "
+                    f"{proche[1]:.1f} km de {proche[0]}"
+                )
+    assert not fautes, "coordonnées réelles dans le front :\n" + "\n".join(fautes)
+
+
+def test_l_invariant_du_front_saurait_reperer_une_vraie_ville():
+    """Sans ce contrôle, le test ci-dessus pourrait être vert en ne mesurant rien."""
+    lat, lon = VILLES_REELLES["Rennes"]
+    texte = f"export const DEPART = [{lat}, {lon}];"
+    points = points_plausibles(texte)
+    assert points, "le repérage de couples ne trouve rien là où il y a un point"
+    assert ville_trop_proche(*points[0]) is not None
+
+
+def test_le_front_examine_bien_des_fichiers():
+    """Un `rglob` qui ne trouve rien rendrait l'invariant précédent décoratif."""
+    if not FRONT.is_dir():
+        pytest.skip("pas de dossier front/ dans cette copie du dépôt")
+    sources = sources_du_front()
+    assert len(sources) >= 10, f"seulement {len(sources)} sources de front examinées"
+    assert any(p.name == "fixtures.ts" for p in sources), "les fixtures du front ne sont pas lues"
+
+
+def test_le_front_ne_porte_aucun_secret():
+    """Ni clé d'API, ni jeton, ni adresse e-mail réelle (règle absolue 1)."""
+    motifs = (
+        re.compile(r"api[_-]?key\s*[:=]\s*[\"'][A-Za-z0-9]{8,}[\"']", re.IGNORECASE),
+        re.compile(r"[A-Za-z0-9._%+-]+@(?!exemple\.)[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+    )
+    fautes = []
+    for source in sources_du_front():
+        contenu = source.read_text(encoding="utf-8")
+        for motif in motifs:
+            for trouve in motif.findall(contenu):
+                fautes.append(f"{source.relative_to(RACINE)} : {trouve}")
+    assert not fautes, "secret ou adresse réelle dans le front :\n" + "\n".join(fautes)

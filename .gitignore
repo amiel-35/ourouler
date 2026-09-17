@@ -23,6 +23,8 @@ config.*.toml
 # ...sauf les maquettes du cycle UX, qui sont du travail de conception et
 # non une sortie de `ourouler sortie` (la raison de la règle ci-dessus).
 !docs/ux/*.html
+# ... ni la page d'entrée du front, qui est du code source (lot F2).
+!front/index.html
 !tests/fixtures/**
 # ... mais pas le bytecode que pytest y laisse en chargeant le generateur.
 tests/fixtures/**/__pycache__/
@@ -32,6 +34,10 @@ data/
 .env.*
 !.env.example
 !deploiement/.env.example
+
+# Front (lot F2) : les dépendances s'installent, elles ne se commitent pas.
+front/node_modules/
+front/dist/
 
 # Outillage local
 .claude/worktrees/

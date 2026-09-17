@@ -1,0 +1,33 @@
+{
+  "name": "ourouler-front",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "L'interface du cycliste — elle ne parle qu'à l'API d'ourouler.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "apercu": "vite preview",
+    "test": "vitest run",
+    "verifier": "tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/react": "16.0.1",
+    "@testing-library/user-event": "14.5.2",
+    "@types/leaflet": "1.9.12",
+    "@types/node": "^22.9.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.3",
+    "jsdom": "25.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.5"
+  }
+}

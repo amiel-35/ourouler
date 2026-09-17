@@ -65,13 +65,44 @@ Ce que la livraison a tranché, et qui n'était pas écrit ici :
 - **Ce qui écrit dans le cache et dure des minutes reste en ligne de
   commande** : `inventaire --synchroniser`, `routes apprendre`, `calibrer`.
 
-### F2 — Le front React
+### F2 — Le front React — *livré le 17/09/2026, dans `front/`*
 
 Les vingt écrans des maquettes, moins ceux des comptes. Ce qui est à tenir et
 que le prototype fixe déjà : la **méthode Strava** sur le générateur (réglages
 et résultat qui cohabitent, le résultat bouge quand on touche un réglage), les
 **états d'échec dessinés** pour chaque écran, et les **trois valeurs liées**
 de l'écran de FTP.
+
+Chaîne de construction : **Vite + React 18 + TypeScript**, tests **Vitest** et
+Testing Library, carte **Leaflet** sur les tuiles OpenStreetMap — les mêmes
+que `sortie/carte.py`, plutôt qu'un second moteur de carte dans le même
+produit. Détail dans `front/README.md`.
+
+Ce que la livraison a tranché, et qui n'était pas écrit ici :
+
+- **L'estimation du générateur est la moyenne compteur du modèle**, prise dans
+  `/profil/zones`, multipliée par la durée — et l'écran dit si le facteur de
+  cette moyenne est mesuré ou supposé. La maquette laissait cette réserve
+  ouverte (« pour quelqu'un qui vient d'arriver, le modèle tourne sur ses
+  valeurs par défaut, et l'écran ne le dit pas encore ») ; elle est refermée.
+- **Les jalons d'attente ne portent aucun résultat intermédiaire.** La
+  maquette en montrait un — « Le sud-est est au sec » — qu'il aurait fallu
+  inventer, puisque rien ne remonte du calcul avant sa fin. Les jalons nomment
+  les étapes, un compteur de secondes réelles prouve que ça avance, et
+  l'écran dit que l'avancement est indicatif.
+- **La page du jour n'a pas de parcours calculé la nuit**, parce qu'aucune
+  route ne le rend. Elle montre le dernier parcours réellement obtenu pour ce
+  jour, retenu par le navigateur, avec **l'heure à laquelle il l'a été**.
+- **Le nombre de feux et stops est retrouvé** en multipliant
+  `densite_marqueurs_km` par la distance de la candidate — le JSON n'expose
+  que la densité, et la maquette interdit de l'afficher telle quelle. Le
+  front ne l'affiche que si le produit retombe sur un entier.
+- **Un seul GPX est écrit par génération**, celui de la proposition retenue :
+  le bouton « Envoyer vers mon compteur » ne s'affiche donc que là, et les
+  autres propositions le disent au lieu d'envoyer le mauvais tracé.
+- **L'étape d'identité de l'assistant n'a pas été écrite** : les maquettes
+  l'écartent exprès (question ouverte n° 4) et l'API n'a aucun champ où la
+  ranger. Question posée en Q36 de `docs/questions_mainteneur.md`.
 
 ### F3 — Les comptes
 

@@ -1671,3 +1671,42 @@ sections personnelles ne le sont jamais — auquel cas il faut la liste ; ou
 (c) le TOML du serveur devient un fichier d'exploitation sans aucune section
 personnelle, et le profil du mainteneur migre dans une surcharge comme celui
 de tout le monde.
+
+## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **bloquant levé provisoirement au lot F2**
+
+Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
+Deux choses s'y opposaient, et aucune n'était un oubli du front.
+
+**Les maquettes ont écarté cet écran exprès.** `maquettes_v1.html` le dit en
+toutes lettres au pied de la page : « Les huit absents comprennent l'étape
+d'identité de l'assistant, qui n'est pas un oubli mais la question ouverte
+n° 4 ». Cette question n° 4 est « l'âge, et ce qu'on en fait » : le brief le
+demande, et rien dans le dépôt ne s'en sert — ni le modèle physique, ni les
+zones, ni la tenue.
+
+**Et l'API n'a nulle part où le ranger.** `CHAMPS_MODIFIABLES`
+(`src/ourouler/api/depots.py`) couvre `depart`, `cycliste.masse_kg`,
+`cycliste.ftp_w`, `seance.position_zone`, les vélos et la clé Intervals. Ni
+nom, ni prénom, ni âge, ni adresse e-mail. Un `PATCH` qui en porterait serait
+**refusé et nommé** — c'est le comportement voulu du dépôt. Écrire l'écran
+aurait donc demandé d'inventer d'abord un stockage, c'est-à-dire de trancher
+la question à votre place.
+
+**Ce que le lot F2 a fait à la place**, et qui se défait en dix minutes le
+jour où vous tranchez : la première étape de l'assistant annonce ce qui va
+être demandé, et dit pourquoi on ne demande ni nom ni âge — « on préfère ne
+pas garder ce dont on ne se sert pas ». Cinq étapes suivent : FTP et zones,
+départ, vélo, Intervals, récapitulatif.
+
+**La question**, en trois morceaux qui ne se répondent pas ensemble :
+
+1. **L'âge** sert-il à quelque chose qu'on veuille construire ? Le seul usage
+   plausible dans ce produit serait une fréquence cardiaque maximale estimée,
+   et rien n'utilise la fréquence cardiaque aujourd'hui. Sinon, il sort du
+   brief.
+2. **Le nom** : F3 apporte une adresse e-mail, qui suffit à identifier un
+   compte. Un nom d'affichage est-il autre chose qu'un confort — et si oui,
+   pour qui, puisqu'il n'y a pas d'écran partagé ?
+3. **Si l'un des deux reste**, il faut l'ajouter à `CHAMPS_MODIFIABLES` et
+   décider s'il appartient au profil du cycliste ou au compte (Q35 : ce n'est
+   pas la même table).
