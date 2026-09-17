@@ -2077,3 +2077,71 @@ réponse lui a été donnée, il n'a pas tranché. Elles restent ouvertes :
 de combien élargir une durée quand aucune boucle ne tombe dans la tolérance,
 et combien de candidates réessayer quand moins de trois se distinguent. Aucun
 chiffre ne se déduit du dépôt pour l'instant.
+
+
+## Q41 — Trois corrections du mainteneur sur [[Q40]] — **17/09/2026**
+
+### (d) — élargir par paliers de 5 %, et le dire
+
+> « les tests que j'ai faits ne disent pas ça : j'ai demandé 6 h et j'ai
+> 3 boucles de 5 h. Mais le mieux c'est de dire au user "on n'a pas trouvé de
+> boucle dans les contraintes, on a élargi de X %", et on incrémente de 5 %
+> en 5 %. Comme ça on explique. »
+
+**Deux choses dans cette réponse.** La première est une observation qui
+contredit ma description : demander 6 h rend trois boucles de 5 h, donc le
+moteur ne refuse pas — il sert hors tolérance sans le dire. **C'est un défaut
+plus grave que celui dont on parlait**, et il est à vérifier avant tout le
+reste.
+
+La seconde est la réponse à la question posée, et elle évite le seuil inventé
+que je cherchais : **on n'en fixe aucun**. On élargit par paliers de 5 %
+jusqu'à trouver, et **l'écran dit de combien il a fallu élargir**. Le chiffre
+n'est plus une constante à justifier, c'est un résultat à afficher.
+
+### (e) — abaisser le recouvrement, et surtout demander la météo une seule fois
+
+> « pour la météo, vu que la zone est proche, on peut pas demander une météo
+> une fois de manière large ? »
+
+**Vérifié dans le code, et il a raison.** `sortie/commande.py:871-877` boucle
+sur les candidates retenues et appelle `evaluer_meteo(trace, …)` **à
+l'intérieur de la boucle** : chaque candidate paie sa propre interrogation.
+C'est ce qui explique les temps mesurés — 1,6 s à deux candidates, 2,9 s à
+trois, 6,9 s à cinq.
+
+Or toutes les boucles d'une même génération tiennent dans le même rayon
+autour du même point de départ. **Une seule grille couvrirait les huit.**
+Le coût de « chercher plus loin » retomberait alors sur BRouter seul, et la
+question (e) — combien de candidates réessayer — perdrait l'essentiel de son
+enjeu.
+
+À instruire : la maille d'Open-Meteo, l'interpolation des points de trace sur
+cette grille, et ce que ça change pour la précision — une prévision prise à
+la maille voisine n'est pas la même qu'une prévision prise au point.
+
+Seconde idée du mainteneur, indépendante : **abaisser le seuil de
+recouvrement** accepté entre propositions, de 25 % à 30 % de routes
+communes — « ça doit arriver sur les petits parcours ».
+
+### (f) — je m'étais trompé de sens, et il corrige
+
+> « alors, 10 feux sur les 4 premiers kilomètres ne me dit pas "ça ruine mon
+> échauffement" du tout. Ça me dit : je ne vais pas avoir de feu après, donc
+> je suis peinard. La traversée de ville au départ, pour les citadins, c'est
+> normal. C'est justement une info écran, pas une aide au calcul. »
+
+**J'avais écrit l'inverse**, et c'était faux : j'affirmais que des feux
+groupés au départ ruinaient l'échauffement. Pour quelqu'un qui habite en
+ville, traverser sa ville est le prix normal de la sortie — et **savoir
+qu'ils sont tous groupés au début est rassurant**, parce que ça dit que la
+suite est libre.
+
+Ce qui doit s'afficher n'est donc ni un total, ni une alerte : c'est **la
+répartition** — où sont les arrêts le long du parcours. Groupés au départ,
+c'est une bonne nouvelle ; semés tout du long, c'en est une mauvaise. Et le
+total redevient ce que le mainteneur en disait : une aide au calcul.
+
+Ça garde le lien avec [[Q29]] (la concentration) et [[Q31]] (la distance de
+dégagement), mais renverse le signe : la concentration au départ n'est pas le
+problème, c'est **l'absence de concentration** qui en est un.
