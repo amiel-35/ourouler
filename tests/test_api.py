@@ -30,7 +30,7 @@ from test_sortie_commande import (
 
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.application import creer_application
-from ourouler.api.depots import DepotFichiers, DepotProfils
+from ourouler.api.depots import DepotFichiers, DepotProfils, nom_sur
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.routes import Clients
 from ourouler.config import depuis_dict
@@ -652,6 +652,36 @@ def test_un_corps_mal_forme_sort_dans_la_forme_d_erreur_du_projet(tmp_path: Path
 
 
 # --- fichiers et isolation ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("propose", "attendu"),
+    [
+        ('../../etc/"passwd".gpx', "_passwd_.gpx"),
+        ("seance\r\nX-Injecte: oui.zwo", "seance__X-Injecte_ oui.zwo"),
+        ("/tmp/secret.gpx", "secret.gpx"),
+        ("...gpx", "gpx"),
+    ],
+)
+def test_un_nom_de_fichier_ne_peut_pas_couper_un_entete(propose: str, attendu: str):
+    """Le nom d'affichage ressort dans `Content-Disposition` : il vient du front,
+    donc de n'importe où, et un guillemet ou un retour chariot y casserait
+    l'en-tête."""
+    assert nom_sur(propose) == attendu
+
+
+def test_un_nom_assaini_est_celui_que_le_telechargement_porte(tmp_path: Path):
+    client = serveur(tmp_path)
+    reponse = client.post(
+        "/api/v1/seances/fichier",
+        files={"fichier": ('../se"ance.zwo', ZWO, "application/xml")},
+        params={"jour": JOUR.isoformat()},
+    )
+    assert reponse.status_code == 200, reponse.text
+    identifiant = reponse.json()["fichier"]["id"]
+    entete = client.get(f"/api/v1/fichiers/{identifiant}").headers["content-disposition"]
+    assert '"' not in entete.replace('filename="', "").rstrip('"')
+    assert "\n" not in entete
 
 
 def test_le_fichier_d_un_autre_proprietaire_est_introuvable(tmp_path: Path):

@@ -176,13 +176,14 @@ class DepotFichiers:
         """Un emplacement neuf pour un fichier que le cœur va écrire.
 
         `nom` sert à nommer le téléchargement côté navigateur ; il ne sert
-        jamais à construire le chemin — c'est l'identifiant qui le fait.
+        jamais à construire le chemin — c'est l'identifiant qui le fait — et
+        il est assaini avant d'être gardé (`nom_sur`).
         """
         extension = _extension(nom)
         identifiant = uuid.uuid4().hex
         return Fichier(
             identifiant=identifiant,
-            nom=nom,
+            nom=nom_sur(nom),
             chemin=self.dossier(proprietaire) / f"{identifiant}{extension}",
             type_contenu=EXTENSIONS[extension],
         )
@@ -230,6 +231,26 @@ class DepotFichiers:
                 type_contenu=EXTENSIONS.get(chemin.suffix, "application/octet-stream"),
             )
         raise ErreurUtilisateur(f"fichier {identifiant} : introuvable")
+
+
+#: Ce qu'un nom d'affichage a le droit de contenir. Tout le reste devient un
+#: tiret bas. Fermé parce que ce nom **ressort dans un en-tête HTTP**
+#: (`Content-Disposition`) : un guillemet y coupe l'en-tête, un retour chariot
+#: en ajoute un autre. Le nom vient du front, donc de n'importe où.
+CARACTERES_NOM = re.compile(r"[^A-Za-z0-9 ._-]")
+
+#: Longueur maximale d'un nom d'affichage.
+NOM_MAX = 120
+
+#: Quand il ne reste rien du nom proposé.
+NOM_PAR_DEFAUT = "fichier"
+
+
+def nom_sur(nom: str) -> str:
+    """Le nom d'affichage, réduit à son dernier segment et à des caractères sûrs."""
+    base = str(nom or "").replace("\\", "/").rsplit("/", 1)[-1]
+    propre = CARACTERES_NOM.sub("_", base).strip(" .")[:NOM_MAX]
+    return propre or NOM_PAR_DEFAUT
 
 
 def _extension(nom: str) -> str:
@@ -317,5 +338,6 @@ __all__ = [
     "DepotProfils",
     "Fichier",
     "fusionner",
+    "nom_sur",
     "valider",
 ]
