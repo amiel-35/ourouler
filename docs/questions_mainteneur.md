@@ -3112,15 +3112,25 @@ un itinéraire. Le tableau est **ancré par un point**, pas par un test.
 **Chemin A — capteur, et zones connues.** On part de la FTP, on propose un
 découpage éditable (V2), depuis les données rapatriées d'Intervals.
 
-*Ce qui le menace* : une FTP déclarée est un **réglage**, pas une mesure — le
-piège même qui a coûté la proposition sur la Z2 cardiaque en [[Q49]]. Chez le
-mainteneur, trois nombres portaient la même étiquette, dont un saisi la veille
-de l'étude après deux mois d'arrêt et sans test.
+**On lui fait confiance.** Correction du mainteneur, le 17/09, contre ce que
+j'avais écrit ici — et il a raison.
 
-*Le contrôle gratuit que la Z2 n'avait pas* : avec ses sorties à puissance, on
-**confronte la valeur déclarée à sa courbe réelle**. Le chemin A n'est donc pas
-« on prend sa FTP » mais « on la prend, on la date, on la confronte, et on
-montre le désaccord s'il y en a ».
+J'avais lu ses trois valeurs (258 d'octobre 2025, 235 saisi la veille de
+l'étude, 207-211 lus sur la courbe) comme un réglage périmé à confronter. C'est
+l'inverse : *« j'ai mis 235 car j'ai recommencé le vélo et j'ai perdu de la
+forme. Si j'utilisais ourouler, j'aurais corrigé aussi et remis 235. »* La
+valeur déclarée n'est pas une donnée fragile, c'est **le jugement de la
+personne sur elle-même**, et il est plus frais que n'importe quel test.
+
+Ce n'est donc pas le piège de la Z2 cardiaque. Là-bas, la réponse recopiait un
+réglage que personne n'avait jamais vérifié ; ici, le réglage *est* la
+correction. Montrer « votre FTP ne colle pas à votre courbe » à quelqu'un qui
+vient de faire ce travail serait du bruit.
+
+Ce qui reste du contrôle : il ne s'affiche pas comme un désaccord. Un écart
+persistant se règle par la boucle de correction de [[Q50]] — la personne
+rectifie une durée proposée, le facteur bouge — sans qu'on lui dise jamais que
+son seuil est faux.
 
 **Chemin B — pas de capteur, ou notion vague des zones.** On apprend de ses
 sorties et on approche ses zones en regardant la FC, ou la FC **et** la
@@ -3136,3 +3146,24 @@ d'une personne est alimenté **depuis Strava**, ces activités pourraient ne pas
 ressortir par l'API d'Intervals — c'est ce que Strava interdit ([[Q46]], §5.16,
 ré-exposition en cascade). Le mainteneur, alimenté par Garmin, ne verra jamais
 le problème ; un utilisateur Strava, si. À vérifier.
+
+
+### Le plancher de bruit, qui recalibre toute l'ambition
+
+Argument du mainteneur, le 17/09, et il clôt le débat sur la précision :
+
+> 15 W sérieusement c'est invisible par rapport à un raté sur un vélo. Je change
+> de casque ou je mets une veste qui vole au vent, je perds plus. Graisser bien
+> sa chaîne c'est 10 W facile, entre wax et chaîne dégueulasse.
+
+**C'est juste, et c'est mesurable.** Une transmission entretenue contre une
+transmission sale, un casque, un vêtement qui claque : chacun pèse autant ou
+plus que les 15,5 W de la chaîne complète sans capteur ([[Q49]]). Le cycliste
+promène tous les jours une incertitude matérielle qu'il ne connaît pas, et qui
+dépasse celle du modèle.
+
+**Conséquence pour tout agent qui travaillera sur ce sujet** : raffiner
+l'estimation sous une quinzaine de watts ne sert à rien. L'effort utile est
+ailleurs — d'abord la fenêtre glissante (9 min pour zéro code), puis le CdA
+saisonnier (5 min), puis rien. Et le facteur ajustable de [[Q50]] absorbe de
+toute façon ce qui reste, y compris la chaîne sale.
