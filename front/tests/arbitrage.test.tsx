@@ -33,7 +33,7 @@ function afficher(options?: Parameters<typeof sortie>[0]) {
 }
 
 function ouvrir() {
-  const bascule = screen.getByText(/candidates écartées|ont toutes été retenues/);
+  const bascule = screen.getByText(/candidates? écartées?|ont toutes été retenues/);
   fireEvent.click(bascule);
   // jsdom n'ouvre pas un <details> sur le clic du <summary> : on pose l'état
   // et on laisse React recevoir l'événement `toggle`, comme le navigateur.
@@ -56,7 +56,7 @@ describe("l'écran nominal", () => {
     // l'arbitrage n'a pas eu lieu.
     expect(titreArbitrage(sortie().donnees.arbitrage!)).toMatch(/ont toutes été retenues/);
     expect(titreArbitrage(sortie({ ecarteeAuContraste: true }).donnees.arbitrage!)).toMatch(
-      /Voir les 1 candidates écartées/,
+      /Voir la candidate écartée/,
     );
   });
 });

@@ -817,14 +817,20 @@ def _phrase_arbitrage(essais: Essais | None, seuil: float) -> str | None:
     if essais is None or essais.essayes == 0:
         return None
     combien = _EN_LETTRES.get(essais.taille, str(essais.taille))
+    tiennent = (
+        "aucun ne tient"
+        if essais.valides == 0
+        else f"{essais.valides} tient" if essais.valides == 1 else f"{essais.valides} tiennent"
+    )
     tete = (
         f"{essais.essayes} groupe(s) de {combien} contenant la première du tri ont été "
-        f"essayés ; {essais.valides} tiennent sous les {seuil:.0%} de routes communes"
+        f"essayés ; {tiennent} sous les {seuil:.0%} de routes communes"
     )
     if essais.refuses_par_une_paire == 0:
         return f"{tete}."
+    tombent = "tombe" if essais.refuses_par_une_paire == 1 else "tombent"
     return (
-        f"{tete}. {essais.refuses_par_une_paire} des refusés ne tombent que sur une "
+        f"{tete}. {essais.refuses_par_une_paire} des refusés ne {tombent} que sur une "
         "seule paire trop ressemblante : une paire suffit à disqualifier un groupe "
         "entier, quelle que soit la moyenne des autres."
     )

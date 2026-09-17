@@ -85,7 +85,17 @@ export interface TraceDessinee {
 /** Comment un tracé se dessine, selon ce que le produit en a décidé. */
 function styleDe(trace: TraceDessinee): L.PolylineOptions {
   if (trace.sort === "ecartee") {
-    return { color: "#b5462f", weight: 2, opacity: 0.6, dashArray: "2 6" };
+    // Pointillé **rond** et non tiret : la forme distingue une écartée d'une
+    // retenue non choisie sans dépendre de la couleur. 3 px et non 2 —
+    // vérifié à l'écran sur de vraies tuiles, où un trait plus fin
+    // disparaissait dans le fond de carte, ce qui vide la vue de son objet.
+    return {
+      color: "#c0392b",
+      weight: 3,
+      opacity: 0.9,
+      dashArray: "1 7",
+      lineCap: "round",
+    };
   }
   if (trace.choisi) {
     return { color: "#12657f", weight: 4, opacity: 1, dashArray: undefined };

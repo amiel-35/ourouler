@@ -55,6 +55,10 @@ export function titreArbitrage(arbitrage: Arbitrage): string {
   if (jetees === 0) {
     return `Pourquoi ces parcours — les ${nombre(total)} candidates ont toutes été retenues`;
   }
+  // « 1 candidates écartées » se lisait à l'écran le 17/09/2026. Une vue de
+  // diagnostic qui écorche le français se lit moins bien, et rien n'oblige
+  // à écrire « candidate(s) » quand on connaît le nombre.
+  if (jetees === 1) return "Voir la candidate écartée, et pourquoi";
   return `Voir les ${nombre(jetees)} candidates écartées, et pourquoi`;
 }
 
@@ -68,12 +72,18 @@ function Matrice({ arbitrage }: { arbitrage: Arbitrage }) {
     ] as [string, (typeof arbitrage.paires)[number]][]),
   );
   return (
-    <div className="matrice-cadre">
+    <>
+      {/* Hors du tableau : un `<caption>` se comprime à la largeur des
+          colonnes, et la phrase s'y lisait sur six lignes de quatre mots. */}
+      <p className="mention">
+        Part de routes communes, deux à deux. Au-delà de{" "}
+        {pourcentage(arbitrage.seuil_recouvrement)}, les deux boucles vont au même endroit
+        et ne peuvent pas être proposées ensemble.
+      </p>
+      <div className="matrice-cadre">
       <table className="matrice">
-        <caption>
-          Part de routes communes, deux à deux. Au-delà de{" "}
-          {pourcentage(arbitrage.seuil_recouvrement)}, les deux boucles vont au même endroit
-          et ne peuvent pas être proposées ensemble.
+        <caption className="invisible">
+          Part de routes communes entre chaque paire de candidates
         </caption>
         <thead>
           <tr>
@@ -114,7 +124,8 @@ function Matrice({ arbitrage }: { arbitrage: Arbitrage }) {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   );
 }
 
