@@ -22,6 +22,7 @@ import type {
   Simple,
   Sortie,
   Systeme,
+  VentDepart,
   Zones,
 } from "../src/api/types";
 
@@ -113,6 +114,48 @@ export function zones(options?: { facteurMesure?: boolean; horsBande?: boolean }
         hors_bande: options?.horsBande ?? false,
       },
     },
+  };
+}
+
+/**
+ * D'où vient le vent au départ, et ce que chaque préférence imposerait
+ * (Q44). Les azimuts « depart-dos » et « retour-dos » sont bien opposés
+ * (45° / 225°), et le latéral en porte deux, opposés entre eux (315° / 135°)
+ * — exactement ce que Q44 demande de vérifier.
+ */
+export function ventDepart(options?: {
+  posee?: boolean;
+  motif?: string | null;
+}): Enveloppe<VentDepart> {
+  const posee = options?.posee ?? true;
+  return {
+    proprietaire: "essai",
+    donnees: {
+      jour: "2026-09-18",
+      depart: "2026-09-18T09:00:00",
+      posee,
+      motif: posee ? null : (options?.motif ?? "vent en dessous du seuil (motif inventé)"),
+      vent_kmh: posee ? 22.4 : null,
+      vent_depuis_deg: posee ? 225.0 : null,
+      vent_depuis_nom: posee ? "SO" : null,
+      seuil_kmh: 8.0,
+      horizon_jours: 3,
+      choix: ["peu-importe", "retour-dos", "depart-dos", "travers"],
+      azimuts_par_choix: posee
+        ? {
+            "peu-importe": [],
+            "retour-dos": [{ azimut_deg: 225.0, nom: "SO" }],
+            "depart-dos": [{ azimut_deg: 45.0, nom: "NE" }],
+            travers: [
+              { azimut_deg: 315.0, nom: "NO" },
+              { azimut_deg: 135.0, nom: "SE" },
+            ],
+          }
+        : { "peu-importe": [], "retour-dos": [], "depart-dos": [], travers: [] },
+    },
+    avertissements: [],
+    duree_ms: 89,
+    budget: budget("vent-depart"),
   };
 }
 
