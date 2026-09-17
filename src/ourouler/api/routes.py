@@ -426,8 +426,8 @@ async def deposer_seance(
     if nom.lower().endswith(".fit"):
         raise ErreurApi(
             code="format_non_lu",
-            message="le .FIT de séance n'est pas encore lu comme une prescription — "
-            "déposer un .ZWO ou un .MRC (décision 5 du cycle UX)",
+            message="les fichiers .FIT de séance ne sont pas encore lus — déposer un "
+            ".ZWO (Zwift) ou un .MRC, ou laisser la séance venir d'Intervals.icu",
             statut=422,
         )
     contenu = await fichier.read()
