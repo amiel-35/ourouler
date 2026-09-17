@@ -576,7 +576,8 @@ export interface Sortie {
 
 export interface Boucle {
   depart: PointDepart & { heure: string };
-  demande: { distance_km: number; direction: string; candidates: number };
+  // Q47 : `null` sans direction demandée — le moteur a balayé tout l'horizon.
+  demande: { distance_km: number; direction: string | null; candidates: number };
   meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];

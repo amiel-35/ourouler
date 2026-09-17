@@ -450,14 +450,6 @@ export function Demander({
         </div>
       ) : null}
 
-      {demande.mode === "z2" && demande.modeDirection === "peu-importe" ? (
-        <p className="mention">
-          La recherche libre (Endurance Z2) a encore besoin d'une direction précise —
-          « peu importe » n'a pas d'azimut à proposer au moteur de boucle. Choisissez
-          « Ma direction » pour lancer la recherche.
-        </p>
-      ) : null}
-
       <div className="champ">
         <label htmlFor="depart">Départ</label>
         <input
@@ -496,10 +488,10 @@ export function Demander({
         type="button"
         className="bouton"
         onClick={surChercher}
-        disabled={
-          (demande.mode === "seance" && dureeSeance_s === null) ||
-          (demande.mode === "z2" && demande.modeDirection !== "direction")
-        }
+        // Q47 : `boucle` balaie tout l'horizon sans direction, comme
+        // `sortie` — « peu importe » n'est plus un blocage en Endurance Z2,
+        // c'est une demande valable que le moteur sait désormais traiter.
+        disabled={demande.mode === "seance" && dureeSeance_s === null}
       >
         Chercher {nombre(demande.candidates)} parcours
       </button>

@@ -20,8 +20,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../src/App";
 import { Demander, demandeInitiale, type Demande } from "../src/ecrans/Demander";
+import { Boucles } from "../src/ecrans/Boucles";
 import { Serveur } from "./serveur";
-import { PROFIL, SEANCE, SEMAINE, SYSTEME, sortie, ventDepart, zones } from "./fixtures";
+import { PROFIL, SEANCE, SEMAINE, SYSTEME, boucle, sortie, ventDepart, zones } from "./fixtures";
 
 const ZONES = zones().donnees;
 
@@ -206,6 +207,7 @@ describe("l'envoi à POST /sorties ne porte jamais direction et un vent contraig
       "/api/v1/seances": { charge: SEMAINE },
       "/api/v1/vent-depart": { charge: ventDepart() },
       "/api/v1/sorties": { charge: sortie() },
+      "/api/v1/boucles": { charge: boucle() },
     });
     serveur.installer();
     return serveur;
@@ -279,5 +281,101 @@ describe("l'envoi à POST /sorties ne porte jamais direction et un vent contraig
     verifierJamaisLesDeux(corps);
     expect(corps.vent).toBe("travers");
     expect(corps.direction).toBeUndefined();
+  });
+});
+
+describe("Q47 — Endurance Z2 balaie l'horizon sans direction, comme « Ma séance »", () => {
+  const AUJOURDHUI = "2026-09-16";
+
+  function installer() {
+    const serveur = new Serveur({
+      "/api/v1/systeme": { charge: SYSTEME },
+      "/api/v1/profil/zones": { charge: zones() },
+      "/api/v1/profil": { charge: PROFIL },
+      "/api/v1/seances/": { charge: SEANCE },
+      "/api/v1/seances": { charge: SEMAINE },
+      "/api/v1/vent-depart": { charge: ventDepart() },
+      "/api/v1/boucles": { charge: boucle() },
+    });
+    serveur.installer();
+    return serveur;
+  }
+
+  function derniereRecherche(serveur: Serveur): Record<string, unknown> {
+    const envois = serveur.vers("/api/v1/boucles");
+    expect(envois.length, "aucune recherche n'a été envoyée").toBeGreaterThan(0);
+    return envois[envois.length - 1].corps as Record<string, unknown>;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(`${AUJOURDHUI}T09:00:00`));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("le bouton « Chercher » n'est plus grisé en Z2 sur « peu importe »", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Endurance Z2" }));
+
+    const bouton = (await screen.findByRole("button", {
+      name: /Chercher .* parcours/,
+    })) as HTMLButtonElement;
+    // Avant Q47, ce bouton restait grisé tant qu'aucune direction n'était
+    // choisie en Z2 — exactement l'incohérence que le mainteneur a relevée.
+    expect(bouton.disabled).toBe(false);
+
+    await utilisateur.click(bouton);
+    await waitFor(() => expect(serveur.vers("/api/v1/boucles").length).toBe(1));
+    const corps = derniereRecherche(serveur);
+    expect(corps.direction).toBeUndefined();
+  });
+
+  it("« Ma direction » en Z2 envoie toujours un azimut", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Endurance Z2" }));
+    await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
+    await utilisateur.click(screen.getByRole("button", { name: "NE" }));
+    await utilisateur.click(screen.getByRole("button", { name: /Chercher .* parcours/ }));
+
+    await waitFor(() => expect(serveur.vers("/api/v1/boucles").length).toBe(1));
+    const corps = derniereRecherche(serveur);
+    expect(corps.direction).toBe("NE");
+  });
+
+  it("« Selon le vent » reste grisé et indisponible en Z2 — /boucles n'a pas de champ vent", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Endurance Z2" }));
+
+    const selonLeVent = screen.getByRole("button", { name: "Selon le vent" }) as HTMLButtonElement;
+    expect(selonLeVent.disabled).toBe(true);
+    expect(screen.getByText(/pas encore disponible pour une sortie libre/)).toBeTruthy();
+    // Et ce blocage-là ne se contourne pas silencieusement : aucune
+    // recherche n'a été envoyée, et le serveur ne sert donc aucun /boucles.
+    expect(serveur.vers("/api/v1/boucles").length).toBe(0);
+  });
+
+  it("l'écran des résultats affiche « toutes directions » sans planter (direction: null)", () => {
+    // Trouvé en vérifiant contre les vrais services (Q47) : l'écran plantait
+    // avec « Cannot read properties of null (reading 'trim') »,
+    // `directionEnToutesLettres` supposant encore une direction toujours
+    // présente. `demande.direction` vaut `null` quand le moteur a balayé.
+    const reponse = boucle();
+    reponse.donnees.demande = { ...reponse.donnees.demande, direction: null };
+    render(<Boucles reponse={reponse} surRetour={() => undefined} />);
+    expect(screen.getByText(/toutes directions/)).toBeTruthy();
   });
 });
