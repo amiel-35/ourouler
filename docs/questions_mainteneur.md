@@ -1788,6 +1788,48 @@ sections personnelles ne le sont jamais — auquel cas il faut la liste ; ou
 personnelle, et le profil du mainteneur migre dans une surcharge comme celui
 de tout le monde.
 
+### Réponse du mainteneur (17/09/2026) — le découpage, section par section
+
+> « tenue oui cycliste, pas par défaut : on a des valeurs et on permet juste
+> de changer les seuils, pas d'en créer — V2 les modifications de seuil
+> d'ailleurs. Boucle serveur, météo serveur, BRouter serveur, cache serveur. »
+
+**Ce qui appartient au cycliste** — `[depart]`, `[cycliste]`, `[[velos]]`,
+`[intervals]`, `[seance]`, `[calibration]`, `[tenue]`.
+
+**Ce qui appartient au serveur** — `[boucle]`, `[meteo]`, `[brouter]`,
+`[cache]`.
+
+C'est donc l'option **(b)** de la question : le socle est découpé, les
+sections communes sont héritées par tous, les sections personnelles ne le
+sont jamais. Et voici la liste, qui était la condition pour que (b) soit
+tenable.
+
+**Deux précisions du mainteneur sur `[tenue]`**, et elles resserrent le
+périmètre plutôt que de l'ouvrir :
+
+1. **Les valeurs par défaut restent**, et chacun part d'elles. On ne demande
+   pas à un nouveau de décrire sa garde-robe pour commencer à rouler.
+2. **On ne change que des seuils, jamais la liste des vêtements** — et même
+   ça attend la V2. En V1, `[tenue]` appartient au cycliste dans le modèle de
+   données, mais son interface d'édition n'existe pas encore.
+
+**Pourquoi `[boucle]` est au serveur, alors qu'il ressemble à une préférence.**
+Il porte le nombre de candidates et la tolérance de distance : des réglages
+qui **coûtent des appels externes**. Ouvert à chacun, il laisse quelqu'un
+demander vingt candidates et faire déborder le quota Open-Meteo pour tout le
+monde. C'est un réglage de moteur, pas un goût.
+
+**Deux sections que le mainteneur n'a pas nommées, à trancher :**
+
+- **`[evitements]`** — les routes ou zones qu'un cycliste refuse. Rien de plus
+  personnel, mais la question n'a pas été posée explicitement.
+- **`historique_depuis`** — la date à partir de laquelle on lit ses activités.
+  Elle vit aujourd'hui sous `[cache]`, donc côté serveur d'après ce découpage,
+  alors qu'elle décrit l'histoire d'une personne. La règle absolue 6 du projet
+  en fait déjà « un paramètre de configuration, pas une constante » — reste à
+  dire de quelle configuration.
+
 ## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **bloquant levé provisoirement au lot F2**
 
 Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
