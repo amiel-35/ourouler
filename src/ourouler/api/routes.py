@@ -19,28 +19,104 @@ avant qu'elle ait des comptes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 from ourouler import __version__
 from ourouler.api import vues
 from ourouler.api.adaptateur import Budgets, executer_commande, namespace
-from ourouler.api.depots import DepotFichiers, DepotProfils, Fichier
+from ourouler.api.depots import (
+    DepotFichiers,
+    DepotProfils,
+    Fichier,
+    JournalServices,
+    schema_des_modifications,
+)
 from ourouler.api.erreurs import ErreurApi, classer, secrets_de
-from ourouler.api.modeles import ApercuZones, DemandeBoucle, DemandeSimulation, DemandeSortie, Point
+from ourouler.api.modeles import (
+    ApercuZones,
+    DemandeBoucle,
+    DemandeSimulation,
+    DemandeSortie,
+    Point,
+    ReponseErreur,
+    TexteUtile,
+)
 from ourouler.api.proprietaire import Proprietaire, resoudre
 from ourouler.config import Config, Depart
+from ourouler.connecteurs.brouter import ClientBrouter
+from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
+from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+from ourouler.meteo.openmeteo import ClientOpenMeteo
 
-routeur = APIRouter(prefix="/api/v1")
+#: Les pannes déclarées sur **toutes** les routes, et non route par route.
+#:
+#: Les quatre écrans d'échec des maquettes ne sont pas rattachés à une route
+#: mais à un code (`erreurs.CODES_PANNE`), et n'importe quelle route de calcul
+#: peut rendre n'importe lequel : une liste par route se périmerait sans
+#: bruit. Déclarer la forme une fois, avec l'énumération complète des codes,
+#: donne à F2 de quoi brancher ses écrans sans lire le code de F1.
+PANNES_DECLAREES: dict[int | str, dict] = {
+    code: {
+        "model": ReponseErreur,
+        "description": libelle,
+    }
+    for code, libelle in (
+        (400, "requête refusée — voir `erreur.code`"),
+        (404, "route ou fichier introuvable — voir `erreur.code`"),
+        (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
+        (413, "fichier trop gros (`fichier_trop_gros`)"),
+        (422, "requête ou fichier refusés — voir `erreur.code`"),
+        (500, "bug du serveur (`erreur_interne`) ou configuration invalide"),
+        (502, "un service externe a répondu mal ou pas du tout — voir `erreur.code`"),
+    )
+}
+
+routeur = APIRouter(prefix="/api/v1", responses=PANNES_DECLAREES)
 
 #: Taille maximale d'un fichier de séance déposé. Un `.ZWO` fait quelques
 #: kilo-octets ; au-delà d'un mégaoctet, ce n'est plus une séance.
 TAILLE_MAX_SEANCE = 1_000_000
+
+
+#: **La convention d'injection de l'API, tranchée le 17/09/2026.**
+#:
+#: Ce qu'on injecte est un **transport** — un `httpx.Client`, à transport
+#: bouchonné dans un test — et l'API l'habille du connecteur qui va avec, au
+#: moment de l'appel, avec l'URL et les identifiants du **profil du
+#: propriétaire de la requête**. Un connecteur déjà construit est accepté
+#: aussi, et pris tel quel.
+#:
+#: **Aucune exception par service.** La règle précédente en faisait deux, pour
+#: BRouter et Intervals, au motif que leur connecteur veut en plus une URL et
+#: une clé. Mais ces deux valeurs sont dans le profil : la *fabrique* ne le
+#: connaît pas (elle est appelée avant toute requête), la *route* si. Habiller
+#: ici et non là-bas supprime le cas particulier — `client_brouter=` veut dire
+#: exactement ce que veut dire `client_meteo=`, et un appelant n'a plus à
+#: savoir lequel des cinq connecteurs a besoin de quoi.
+#:
+#: Habiller au moment de l'appel a un second effet, voulu : le connecteur est
+#: construit **par propriétaire**, avec sa clé à lui. Une clé habillée une fois
+#: pour toutes dans la fabrique serait celle du premier venu servie à tous —
+#: la fuite que `depots.py` refuse déjà pour le socle.
+FABRIQUES_CONNECTEUR: dict[str, Callable[[Config, httpx.Client], object]] = {
+    "brouter": lambda config, http: ClientBrouter(
+        config.brouter, http=http, evitements=config.evitements
+    ),
+    "meteo": lambda config, http: ClientOpenMeteo(http=http),
+    "intervals": lambda config, http: ClientIntervals(
+        config.intervals.athlete_id, config.intervals.api_key, http=http
+    ),
+    "ban": lambda config, http: ClientBAN(http=http),
+    "nominatim": lambda config, http: ClientNominatim(http=http),
+}
 
 
 @dataclass
@@ -48,8 +124,12 @@ class Clients:
     """Les clients externes, injectables — c'est ce qui rend l'API testable.
 
     `None` partout en service : chaque commande du cœur fabrique alors le
-    sien, comme depuis la ligne de commande. Les tests passent des clients à
-    transport bouchonné, et aucun test ne touche le réseau (règle absolue 3).
+    sien, comme depuis la ligne de commande. Les tests passent un transport
+    bouchonné, et aucun test ne touche le réseau (règle absolue 3).
+
+    Chaque champ porte, au choix, un `httpx.Client` — habillé par
+    `connecteur()`, voir `FABRIQUES_CONNECTEUR` — ou un connecteur déjà
+    construit. C'est la **même** règle pour les cinq.
     """
 
     brouter: object | None = None
@@ -57,6 +137,18 @@ class Clients:
     intervals: object | None = None
     ban: object | None = None
     nominatim: object | None = None
+
+    def connecteur(self, service: str, config: Config) -> object | None:
+        """Le connecteur de ce service pour **ce** propriétaire, ou `None`.
+
+        `None` veut dire « la commande du cœur fabriquera le sien », ce qui est
+        le comportement de service. Un `httpx.Client` est habillé ici, avec le
+        profil du propriétaire de la requête.
+        """
+        donne = getattr(self, service)
+        if not isinstance(donne, httpx.Client):
+            return donne
+        return FABRIQUES_CONNECTEUR[service](config, donne)
 
 
 @dataclass
@@ -67,6 +159,7 @@ class Contexte:
     fichiers: DepotFichiers
     clients: Clients
     budgets: Budgets
+    journal: JournalServices
 
 
 def contexte(requete: Request) -> Contexte:
@@ -92,6 +185,44 @@ def _config(ctx: Contexte, qui: Proprietaire) -> Config:
         return ctx.profils.config(qui)
     except Exception as e:
         raise classer(e) from e
+
+
+def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
+    """Le connecteur d'un service pour cette requête (voir `Clients`).
+
+    Résolu service par service, et **à l'usage** : une route qui n'a pas
+    besoin de BRouter ne doit pas échouer parce que le profil n'a pas d'URL
+    de serveur BRouter.
+    """
+    try:
+        return ctx.clients.connecteur(nom, config)
+    except Exception as e:
+        raise classer(e) from e
+
+
+def _avec_journal(ctx: Contexte, qui: Proprietaire, services: tuple[str, ...], appel):
+    """Appelle une commande, retient ses succès, et rappelle la date au premier échec.
+
+    E15 · échec, deuxième ligne de l'encart : « "Plus lues depuis le
+    12 septembre" dit à quelqu'un ce qu'il a manqué ; "erreur de connexion" ne
+    dit rien. » Le front ne peut pas calculer cette date, le cœur ne sait pas
+    qu'il a un appelant : elle se tient ici, par propriétaire
+    (`depots.JournalServices`).
+
+    Les services sont **déclarés par la route** plutôt que devinés : une
+    réponse rendue prouve que ceux dont elle dépend ont répondu, et rien de
+    plus. Deviner à partir de l'erreur donnerait le contraire — on ne saurait
+    que celui qui a échoué.
+    """
+    try:
+        resultat = appel()
+    except ErreurApi as erreur:
+        if erreur.service is None:
+            raise
+        quand = ctx.journal.dernier_succes(qui, erreur.service)
+        raise replace(erreur, details={**erreur.details, "dernier_succes": quand}) from erreur
+    ctx.journal.noter_succes(qui, *services)
+    return resultat
 
 
 def _depart(point: Point | None) -> Depart | None:
@@ -160,7 +291,19 @@ def lire_profil(
     return {"proprietaire": str(qui), "donnees": vues.profil(_config(ctx, qui))}
 
 
-@routeur.patch("/profil")
+@routeur.patch(
+    "/profil",
+    # Le corps est lu à la main (`await requete.json()`) et validé par
+    # `depots.valider` : il n'a donc pas de modèle Pydantic, et FastAPI ne
+    # publierait rien. Ce qu'il accepte est engendré de la liste blanche
+    # elle-même — voir `depots.schema_des_modifications`.
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": schema_des_modifications()}},
+        }
+    },
+)
 async def modifier_profil(
     ctx: Ctx,
     qui: Qui,
@@ -262,7 +405,11 @@ def apercu_zones(
 def geocoder(
     ctx: Ctx,
     qui: Qui,
-    adresse: Annotated[str, Query(min_length=1, max_length=200)],
+    # `TexteUtile` et non `str` : une adresse d'espaces ou d'octets de
+    # contrôle passe `min_length` sans être une adresse. Elle partait alors
+    # chez la BAN, y consommait un appel et revenait en 502 — une panne de
+    # service affichée pour une saisie vide (E10).
+    adresse: Annotated[TexteUtile, Query(min_length=1, max_length=200)],
     max: Annotated[int | None, Query(ge=1, le=20)] = None,
 ) -> dict:
     """Tous les candidats d'une adresse, notés — **l'API ne tranche jamais**.
@@ -282,8 +429,8 @@ def geocoder(
         secrets=secrets_de(config),
         operation="geocodage",
         budgets=ctx.budgets,
-        ban=ctx.clients.ban,
-        nominatim=ctx.clients.nominatim,
+        ban=_service(ctx, config, "ban"),
+        nominatim=_service(ctx, config, "nominatim"),
     )
     charge = resultat.enveloppe(ctx.budgets.budget("geocodage"), qui)
     if not resultat.donnees.get("candidats"):
@@ -345,7 +492,7 @@ def meteo(
         secrets=secrets_de(config),
         operation="meteo",
         budgets=ctx.budgets,
-        client=ctx.clients.meteo,
+        client=_service(ctx, config, "meteo"),
         lieu_depart=lieu,
     )
     return resultat.enveloppe(ctx.budgets.budget("meteo"), qui)
@@ -371,14 +518,19 @@ def seances(
     config = _config(ctx, qui)
     debut = depuis or date.today()
     fin = jusqua or date.fromordinal(debut.toordinal() + 6)
-    resultat = executer_commande(
-        seance_commande.executer,
-        namespace(depuis=debut.isoformat(), jusqua=fin.isoformat()),
-        config,
-        secrets=secrets_de(config),
-        operation="seances",
-        budgets=ctx.budgets,
-        client=ctx.clients.intervals,
+    resultat = _avec_journal(
+        ctx,
+        qui,
+        ("intervals",),
+        lambda: executer_commande(
+            seance_commande.executer,
+            namespace(depuis=debut.isoformat(), jusqua=fin.isoformat()),
+            config,
+            secrets=secrets_de(config),
+            operation="seances",
+            budgets=ctx.budgets,
+            client=_service(ctx, config, "intervals"),
+        ),
     )
     return resultat.enveloppe(ctx.budgets.budget("seances"), qui)
 
@@ -397,14 +549,19 @@ def seance_du_jour(
     from ourouler.seance import commande as seance_commande
 
     config = _config(ctx, qui)
-    resultat = executer_commande(
-        seance_commande.executer,
-        namespace(jour=jour.isoformat()),
-        config,
-        secrets=secrets_de(config),
-        operation="seance",
-        budgets=ctx.budgets,
-        client=ctx.clients.intervals,
+    resultat = _avec_journal(
+        ctx,
+        qui,
+        ("intervals",),
+        lambda: executer_commande(
+            seance_commande.executer,
+            namespace(jour=jour.isoformat()),
+            config,
+            secrets=secrets_de(config),
+            operation="seance",
+            budgets=ctx.budgets,
+            client=_service(ctx, config, "intervals"),
+        ),
     )
     return resultat.enveloppe(ctx.budgets.budget("seance"), qui)
 
@@ -413,6 +570,7 @@ def seance_du_jour(
 async def deposer_seance(
     ctx: Ctx,
     qui: Qui,
+    requete: Request,
     fichier: Annotated[UploadFile, File(description=".ZWO ou .MRC")],
     jour: date | None = None,
 ) -> dict:
@@ -436,6 +594,7 @@ async def deposer_seance(
             ".ZWO (Zwift) ou un .MRC, ou laisser la séance venir d'Intervals.icu",
             statut=422,
         )
+    _refuser_sur_la_taille_annoncee(requete, nom)
     contenu = await fichier.read()
     if len(contenu) > TAILLE_MAX_SEANCE:
         raise ErreurApi(
@@ -456,9 +615,13 @@ async def deposer_seance(
         ),
         config,
         secrets=secrets_de(config),
+        # Le cœur cite le chemin qu'on lui donne (« … : fichier vide ») ; ce
+        # chemin est celui du serveur, et le nom que le cycliste reconnaît est
+        # celui de son fichier.
+        chemins={str(depose.chemin): nom},
         operation="seance",
         budgets=ctx.budgets,
-        client=ctx.clients.intervals,
+        client=_service(ctx, config, "intervals"),
     )
     charge = resultat.enveloppe(ctx.budgets.budget("seance"), qui)
     charge["fichier"] = depose.json()
@@ -490,30 +653,36 @@ def generer_sortie(
     gpx = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.gpx")
     carte = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.html")
     seance = _chemin_seance(ctx, qui, demande.fichier_seance)
-    resultat = executer_commande(
-        sortie_commande.executer,
-        namespace(
-            jour=demande.jour,
-            depart=demande.heure_depart,
-            distance=demande.distance_km,
-            direction=demande.direction,
-            candidates=demande.candidates,
-            vent=demande.vent,
-            velo=demande.velo,
-            profil=demande.profil,
-            fichier_seance=seance,
-            sortie=str(gpx.chemin),
-            carte=str(carte.chemin),
-            ecraser=True,
+    resultat = _avec_journal(
+        ctx,
+        qui,
+        ("brouter", "openmeteo", "intervals"),
+        lambda: executer_commande(
+            sortie_commande.executer,
+            namespace(
+                jour=demande.jour,
+                depart=demande.heure_depart,
+                distance=demande.distance_km,
+                direction=demande.direction,
+                candidates=demande.candidates,
+                vent=demande.vent,
+                velo=demande.velo,
+                profil=demande.profil,
+                fichier_seance=seance,
+                sortie=str(gpx.chemin),
+                carte=str(carte.chemin),
+                ecraser=True,
+            ),
+            config,
+            secrets=secrets_de(config),
+            chemins={str(gpx.chemin): gpx.nom, str(carte.chemin): carte.nom},
+            operation="sortie",
+            budgets=ctx.budgets,
+            client_brouter=_service(ctx, config, "brouter"),
+            client_meteo=_service(ctx, config, "meteo"),
+            client_intervals=_service(ctx, config, "intervals"),
+            lieu_depart=_depart(demande.depart),
         ),
-        config,
-        secrets=secrets_de(config),
-        operation="sortie",
-        budgets=ctx.budgets,
-        client_brouter=ctx.clients.brouter,
-        client_meteo=ctx.clients.meteo,
-        client_intervals=ctx.clients.intervals,
-        lieu_depart=_depart(demande.depart),
     )
     donnees = vues.avec_fichiers(
         resultat.donnees,
@@ -549,10 +718,11 @@ def generer_boucle(
         ),
         config,
         secrets=secrets_de(config),
+        chemins={str(gpx.chemin): gpx.nom},
         operation="boucle",
         budgets=ctx.budgets,
-        client_brouter=ctx.clients.brouter,
-        client_meteo=ctx.clients.meteo,
+        client_brouter=_service(ctx, config, "brouter"),
+        client_meteo=_service(ctx, config, "meteo"),
         lieu_depart=_depart(demande.depart),
     )
     donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
@@ -583,9 +753,10 @@ def simuler(
         ),
         config,
         secrets=secrets_de(config),
+        chemins={str(gpx.chemin): gpx.nom},
         operation="simulation",
         budgets=ctx.budgets,
-        client_meteo=ctx.clients.meteo,
+        client_meteo=_service(ctx, config, "meteo"),
     )
     return resultat.enveloppe(ctx.budgets.budget("simulation"), qui)
 
@@ -643,7 +814,7 @@ def routes_connues(
         secrets=secrets_de(config),
         operation="routes",
         budgets=ctx.budgets,
-        client_brouter=ctx.clients.brouter,
+        client_brouter=_service(ctx, config, "brouter"),
     )
     return resultat.enveloppe(ctx.budgets.budget("routes"), qui)
 
@@ -676,6 +847,28 @@ def servir_fichier(
 
 
 # --- petits services ----------------------------------------------------------
+
+
+def _refuser_sur_la_taille_annoncee(requete: Request, nom: str) -> None:
+    """Refuse un envoi trop gros **sur sa taille annoncée**, avant de le lire.
+
+    Un `.ZWO` fait quelques kilo-octets ; deux cents méga-octets sont un
+    dossier de photos déposé par erreur, ou un déni de service. Lire d'abord
+    et juger ensuite marche pour un dépôt et tombe au troisième simultané.
+
+    La borne reste vérifiée après lecture : `Content-Length` vient du client,
+    donc un client qui ment passe ici — c'est une garde, pas une preuve.
+    """
+    annoncee = requete.headers.get("content-length")
+    if annoncee is None or not annoncee.isdigit():
+        return
+    if int(annoncee) > TAILLE_MAX_SEANCE:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{nom} : {annoncee} octets annoncés — une séance n'en fait pas plus de "
+            f"{TAILLE_MAX_SEANCE}, le dépôt est refusé sans être lu",
+            statut=413,
+        )
 
 
 def _note(ctx: Contexte, qui: Proprietaire, fichier: Fichier) -> Fichier | None:

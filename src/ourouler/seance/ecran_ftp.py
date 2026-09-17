@@ -94,6 +94,14 @@ def valeurs_liees(
         # Décision 8 : mesuré sur l'historique du cycliste, ou dérivé d'une
         # sortie de référence supposée. L'écran doit le dire.
         "facteur_mesure": mesure,
+        # **Le même fait, en un mot** (ajouté le 17/09/2026). `facteur_mesure`
+        # est un booléen : un écran qui le lit sait quoi en faire, un écran qui
+        # l'ignore affiche une mesure et une supposition de la même façon —
+        # « un mensonge par mise en page », dit la maquette de E9. Le mot
+        # `provenance` est celui que `seance --json` emploie déjà pour les
+        # vitesses ; le reprendre ici évite au front d'apprendre deux
+        # vocabulaires pour la même question.
+        "facteur_provenance": "mesure" if mesure else "suppose",
         "hors_bande": not 0.0 <= ou <= 1.0,
     }
 

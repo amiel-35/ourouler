@@ -31,7 +31,7 @@ import io
 import json
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 from ourouler.api.erreurs import ErreurApi, assainir, classer
@@ -97,6 +97,7 @@ def executer_commande(
     config,
     *,
     secrets: Iterable[str] = (),
+    chemins: Mapping[str, str] | None = None,
     operation: str = "",
     budgets: Budgets | None = None,
     **clients,
@@ -105,6 +106,11 @@ def executer_commande(
 
     Toute exception du cœur est traduite en `ErreurApi` (voir `erreurs.py`) :
     une trace Python ne sort jamais d'ici.
+
+    `chemins` associe chaque chemin que l'API a fabriqué pour cet appel au nom
+    que le front connaît. Le cœur, qui ne sait pas d'où viennent les chemins
+    qu'on lui donne, les cite dans ses messages ; ils sont remplacés ici, dans
+    l'erreur **et** dans les avertissements — voir `erreurs.assainir`.
     """
     sortie, erreurs = io.StringIO(), io.StringIO()
     if not _VERROU.acquire(timeout=DELAI_ATTENTE_S):
@@ -122,7 +128,7 @@ def executer_commande(
         with contextlib.redirect_stdout(sortie), contextlib.redirect_stderr(erreurs):
             code = fonction(args, config, **clients)
     except Exception as e:  # traduit, jamais propagé tel quel
-        raise classer(e, secrets=secrets) from e
+        raise classer(e, secrets=secrets, chemins=chemins) from e
     finally:
         _VERROU.release()
     duree_ms = int((time.perf_counter() - debut) * 1000)
@@ -146,19 +152,21 @@ def executer_commande(
         budgets.noter(operation, duree_ms)
     return Resultat(
         donnees=donnees,
-        avertissements=avertissements_de(erreurs.getvalue(), secrets),
+        avertissements=avertissements_de(erreurs.getvalue(), secrets, chemins),
         duree_ms=duree_ms,
     )
 
 
-def avertissements_de(flux: str, secrets: Iterable[str] = ()) -> tuple[str, ...]:
+def avertissements_de(
+    flux: str, secrets: Iterable[str] = (), chemins: Mapping[str, str] | None = None
+) -> tuple[str, ...]:
     """Les lignes de la sortie d'erreur, nettoyées de leur préfixe et des secrets."""
     lignes = []
     for ligne in flux.splitlines():
         texte = ligne.strip()
         if not texte:
             continue
-        lignes.append(assainir(texte.removeprefix(PREFIXE_AVERTISSEMENT), secrets))
+        lignes.append(assainir(texte.removeprefix(PREFIXE_AVERTISSEMENT), secrets, chemins))
     return tuple(lignes)
 
 

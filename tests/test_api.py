@@ -38,7 +38,15 @@ from test_sortie_commande import (
 
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.application import creer_application
-from ourouler.api.depots import DepotFichiers, DepotProfils, SocleTOML, nom_sur
+from ourouler.api.depots import (
+    CHAMPS_MODIFIABLES,
+    LISTES_MODIFIABLES,
+    DepotFichiers,
+    DepotProfils,
+    SocleTOML,
+    nom_sur,
+)
+from ourouler.api.erreurs import CODES_PANNE
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.routes import Clients
 from ourouler.config import depuis_dict
@@ -834,3 +842,115 @@ def test_le_profil_qui_porte_une_cle_n_est_lisible_que_de_son_proprietaire(tmp_p
     depot.enregistrer(PROPRIETAIRE_LOCAL, {"intervals": {"api_key": "cle-inventee-9876"}})
     chemin = tmp_path / "cache" / "api" / PROPRIETAIRE_LOCAL.identifiant / "profil.json"
     assert chemin.stat().st_mode & 0o077 == 0
+
+
+# --- ce que la réconciliation des tests de contrat a ajouté (17/09/2026) -----
+
+
+def test_un_transport_injecte_est_habille_du_connecteur_du_proprietaire(tmp_path: Path):
+    """La convention d'injection : on donne un transport, la route habille.
+
+    C'était le point qui bloquait douze tests de contrat écrits en aveugle.
+    Le connecteur Intervals a besoin d'une clé, et cette clé est dans le
+    **profil** — que la fabrique ne connaît pas encore et que la route
+    connaît. Un `httpx.Client` suffit donc, pour les cinq services.
+    """
+    application = creer_application(
+        chemin_config=ecrire_config(tmp_path),
+        dossier_donnees=tmp_path / "cache" / "api",
+        client_intervals=httpx.Client(
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[]))
+        ),
+    )
+    reponse = TestClient(application, raise_server_exceptions=False).get("/api/v1/seances")
+    assert reponse.status_code == 200, reponse.text
+
+
+def test_un_connecteur_deja_construit_reste_accepte_tel_quel(tmp_path: Path):
+    """L'autre moitié de la même règle : ce qui n'est pas un transport est un connecteur."""
+    client = serveur(tmp_path, intervals=intervals_refuse())
+    assert client.get("/api/v1/seances").json()["erreur"]["code"] == "intervals_refuse"
+
+
+def test_le_schema_publie_le_catalogue_des_codes_de_panne(tmp_path: Path):
+    """Un front ne peut pas dessiner un état qu'il ne sait pas reconnaître.
+
+    Les deux cas qui manquaient sont ceux de E14 · dégradé et E15 · échec ;
+    on vérifie la table entière pour que le prochain ajout ne s'oublie pas.
+    """
+    schema = json.dumps(serveur(tmp_path).get("/openapi.json").json(), ensure_ascii=False)
+    for code in CODES_PANNE:
+        assert code in schema, f"le code {code!r} n'est nommé nulle part dans le schéma publié"
+
+
+def test_une_panne_de_service_rappelle_la_date_du_dernier_succes(tmp_path: Path):
+    """E15 : « La date compte plus que le message. »
+
+    Deux temps, parce qu'un seul ne prouverait rien : la clé marche, puis elle
+    est révoquée, et c'est la date du premier appel qui doit revenir. Les deux
+    serveurs partagent le dossier de données — c'est là que la mémoire vit.
+    """
+    assert serveur(tmp_path, intervals=client_intervals()).get("/api/v1/seances").status_code == 200
+    erreur = serveur(tmp_path, intervals=intervals_refuse()).get("/api/v1/seances").json()["erreur"]
+    assert erreur["code"] == "intervals_refuse"
+    assert erreur["details"]["dernier_succes"], "aucune date retenue du premier appel réussi"
+
+
+def test_un_compte_neuf_n_invente_pas_une_date_de_dernier_succes(tmp_path: Path):
+    """`null` et non une date : un compte neuf n'a rien manqué, et l'écran doit le voir."""
+    erreur = serveur(tmp_path, intervals=intervals_refuse()).get("/api/v1/seances").json()["erreur"]
+    assert erreur["details"]["dernier_succes"] is None
+
+
+@pytest.mark.parametrize("valeur", ["", "   ", "\x00\x01\x02"], ids=["vide", "espaces", "octets"])
+def test_une_chaine_vide_de_sens_est_refusee_au_bord(tmp_path: Path, valeur: str):
+    """`min_length=1` laissait passer deux des trois — et `jour=""` devenait « aujourd'hui »."""
+    client = serveur(tmp_path)
+    assert client.get("/api/v1/geocodage", params={"adresse": valeur}).status_code == 422
+    refus = client.post("/api/v1/sorties", json={"jour": valeur})
+    assert refus.status_code == 422, refus.text
+    assert refus.json()["erreur"]["code"] == "requete_invalide"
+
+
+def test_un_depot_trop_gros_est_refuse_sur_sa_taille_annoncee(tmp_path: Path):
+    reponse = serveur(tmp_path).post(
+        "/api/v1/seances/fichier",
+        files={"fichier": ("gros.zwo", b"0" * 2_000_000, "text/xml")},
+    )
+    assert reponse.status_code == 413
+    assert "annoncés" in reponse.json()["erreur"]["message"]
+
+
+def test_le_chemin_du_serveur_ne_sort_jamais_dans_un_refus_de_depot(tmp_path: Path):
+    """Le cœur cite le chemin qu'on lui donne ; c'est à l'API de le remplacer.
+
+    Ce que le cycliste reconnaît, c'est le nom de **son** fichier — pas
+    `/var/folders/…/fichiers/137a….zwo`, qui en prime décrit l'arborescence du
+    serveur (doctrine §10.2).
+    """
+    reponse = serveur(tmp_path).post(
+        "/api/v1/seances/fichier", files={"fichier": ("vide.zwo", b"", "application/xml")}
+    )
+    assert reponse.status_code == 422
+    message = reponse.json()["erreur"]["message"]
+    assert message.startswith("vide.zwo"), message
+    assert str(tmp_path) not in message
+
+
+def test_la_route_d_ecriture_du_profil_publie_ce_qu_elle_accepte(tmp_path: Path):
+    """Décision 7 : la position se stocke, la puissance d'endurance se déduit.
+
+    Le corps de `PATCH /profil` est lu à la main et validé par la liste
+    blanche : sans schéma publié, F2 devait lire `depots.py` pour l'apprendre.
+    """
+    schema = serveur(tmp_path).get("/openapi.json").json()
+    corps = schema["paths"]["/api/v1/profil"]["patch"]["requestBody"]
+    proprietes = corps["content"]["application/json"]["schema"]["properties"]
+    assert set(proprietes) == set(CHAMPS_MODIFIABLES) | set(LISTES_MODIFIABLES)
+    assert set(proprietes["seance"]["properties"]) == {"position_zone"}
+
+
+def test_le_facteur_compteur_dit_en_un_mot_s_il_est_mesure_ou_suppose(tmp_path: Path):
+    liees = serveur(tmp_path).get("/api/v1/profil/zones").json()["donnees"]["valeurs_liees"]
+    assert liees["facteur_provenance"] in {"mesure", "suppose"}
+    assert liees["facteur_provenance"] == ("mesure" if liees["facteur_mesure"] else "suppose")

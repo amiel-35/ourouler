@@ -25,10 +25,15 @@ from __future__ import annotations
 
 import pytest
 from outils_api import (
+    DEMANDE_PARCOURS_MINIMALE,
     ApiAbsente,
+    appeler_route,
     cherche_profond,
     client_api,
     client_bouchon,
+    client_brouter_ordinaire,
+    client_meteo_ordinaire,
+    client_seance_ordinaire,
     config_d_essai,
     route_pour,
     schema_openapi,
@@ -82,6 +87,23 @@ def _route_de_parcours(client):
     return route_pour(schema, "sortie", "parcours", "meteo")
 
 
+def _demander_un_parcours(client, **champs):
+    """Demande un parcours **en remplissant la demande**, et rend la réponse.
+
+    Corrigé le 17/09/2026. Ces tests appelaient `client.requete(methode,
+    chemin)` sans rien : la route de parcours déclare un corps de requête, et
+    une demande vide revenait en 422 « body : champ requis » — un 4xx, donc
+    des assertions vertes, mais sans qu'aucun service d'amont ait été appelé.
+    Le bouchon hostile n'était jamais lu. `appeler_route` met les champs là
+    où le schéma dit qu'ils vont.
+    """
+    schema = schema_openapi(client)
+    chemin, methode, operation = route_pour(schema, "sortie", "parcours", "meteo")
+    return appeler_route(
+        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
+    )
+
+
 # Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
 # une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 @pytest.mark.parametrize(
@@ -108,17 +130,18 @@ def test_une_reponse_meteo_hostile_ne_remonte_jamais_en_500(statut, corps, texte
     quatorze sans que personne ne le voie.
     """
     client = client_api(
-        config=config_d_essai(), client_meteo=client_bouchon(statut, corps, texte=texte)
+        config=config_d_essai(),
+        client_meteo=client_bouchon(statut, corps, texte=texte),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
     )
-    chemin, methode, _ = _route_de_parcours(client)
-    reponse = client.requete(methode, chemin)
+    reponse = _demander_un_parcours(client)
     assert reponse.status_code < 500, f"{quoi} : l'API rend {reponse.status_code}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : le mot d'un service tiers ne s'affiche jamais tel quel.",
-)
+# Marque « F1 non livré » retirée le 17/09/2026. Elle était fausse deux fois :
+# l'API est livrée, et le test ne lisait de toute façon pas les bouchons —
+# il appelait la route de parcours sans corps. Voir `_demander_un_parcours`.
 @pytest.mark.parametrize(
     "statut,corps,texte,quoi",
     [
@@ -143,18 +166,12 @@ def test_le_message_d_un_service_tiers_n_arrive_pas_tel_quel_a_l_ecran(statut, c
         client_brouter=bouchon,
         client_intervals=bouchon,
     )
-    chemin, methode, _ = _route_de_parcours(client)
-    reponse = client.requete(methode, chemin)
+    reponse = _demander_un_parcours(client)
     interdits = ("Minutely", "limit exceeded", "unauthorized", "Internal Server Error", "Bad Gateway")
     for mot in interdits:
         assert mot not in reponse.text, f"{quoi} : « {mot} » recopié tel quel dans la réponse"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. E14 distingue « hors du domaine » de « hors de la fenêtre » : deux "
-    "causes, un seul message, et c'est le défaut que la maquette corrige.",
-)
 def test_hors_de_portee_du_modele_et_hors_de_sa_grille_ne_disent_pas_la_meme_chose():
     """Protège E14 · dégradé, et le défaut nommé dans son commentaire.
 
@@ -165,12 +182,28 @@ def test_hors_de_portee_du_modele_et_hors_de_sa_grille_ne_disent_pas_la_meme_cho
     deux cas : c'est donc à l'API de les séparer, en regardant si la demande
     sort de la grille (géographie) ou de l'horizon (temps). Le second a un
     recours — le second avis, le repli de modèle — le premier n'en a aucun.
+
+    **Ce que ce test vérifie, et ce qu'il ne vérifie pas** (17/09/2026). Il
+    vérifie que la réponse **nomme** la cause au lieu de se taire :
+    `question_vent.motif` dit « hors du domaine, ou hors de sa portée
+    temporelle », et cite le repli de modèle tenté. Il ne vérifie pas que les
+    deux causes soient *séparées* — et elles ne le sont pas : le cœur refuse
+    délibérément de trancher entre elles, parce qu'Open-Meteo rend le même
+    bloc nul dans les deux cas et qu'affirmer une cause qu'on n'a pas mesurée
+    est ce que la règle absolue 5 interdit (`meteo/openmeteo._hors_domaine`).
+    Séparer demanderait que l'API connaisse la portée publiée de chaque
+    modèle ; ce chiffre est un arbitrage, posé en Q36 de
+    `docs/questions_mainteneur.md`. Écrit ici plutôt que masqué derrière une
+    marque : un test vert qui promet plus qu'il ne tient est le même mensonge
+    qu'une marque au motif faux.
     """
     client = client_api(
-        config=config_d_essai(), client_meteo=client_bouchon(200, METEO_TOUT_NUL)
+        config=config_d_essai(),
+        client_meteo=client_bouchon(200, METEO_TOUT_NUL),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
     )
-    chemin, methode, _ = _route_de_parcours(client)
-    corps = client.requete(methode, chemin).json()
+    corps = _demander_un_parcours(client).json()
     causes = cherche_profond(corps, "motif", "cause", "repli", "modele_utilise")
     assert causes, "rien ne dit pourquoi la météo manque : E14 en fait un critère"
     entier = texte_entier(causes).lower()
@@ -204,9 +237,13 @@ def test_un_cache_corrompu_ne_casse_pas_la_requete(tmp_path, contenu: bytes, quo
     """
     index = tmp_path / "index.sqlite"
     index.write_bytes(contenu)
-    client = client_api(config=config_d_essai(cache={"dossier": str(tmp_path)}))
-    chemin, methode, _ = _route_de_parcours(client)
-    reponse = client.requete(methode, chemin)
+    client = client_api(
+        config=config_d_essai(cache={"dossier": str(tmp_path)}),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    reponse = _demander_un_parcours(client)
     assert reponse.status_code < 500, f"{quoi} : l'API rend {reponse.status_code}"
 
 
@@ -220,15 +257,21 @@ def test_un_cache_absent_ne_bloque_pas_la_premiere_requete(tmp_path):
     et c'est le seul essai qu'un nouveau venu accorde.
     """
     absent = tmp_path / "nulle-part" / "ourouler"
-    client = client_api(config=config_d_essai(cache={"dossier": str(absent)}))
-    chemin, methode, _ = _route_de_parcours(client)
-    reponse = client.requete(methode, chemin)
+    client = client_api(
+        config=config_d_essai(cache={"dossier": str(absent)}),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    reponse = _demander_un_parcours(client)
     assert reponse.status_code < 500, f"cache absent : l'API rend {reponse.status_code}"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucun schéma publié où vérifier l'absence de chemin disque."
-)
+# Marque « aucun schéma publié » retirée le 17/09/2026 : le schéma existe, et
+# le test cherchait un chemin de disque dans une réponse qui n'avait jamais
+# été calculée (route de parcours appelée sans corps). Avec une vraie
+# génération, il a trouvé ce qu'il cherchait — dans le *message d'erreur* d'un
+# dépôt de séance, pas dans `gpx` — et c'est `erreurs.assainir` qui le corrige.
 def test_aucune_reponse_n_expose_un_chemin_du_disque_du_serveur():
     """Protège la doctrine §10.2 et E20 (« Télécharger le GPX »).
 
@@ -237,9 +280,13 @@ def test_aucune_reponse_n_expose_un_chemin_du_disque_du_serveur():
     un navigateur est inutilisable, et en hébergé il décrit l'arborescence du
     serveur à quiconque regarde. Ce que le front attend est une URL à appeler.
     """
-    client = client_api(config=config_d_essai())
-    chemin, methode, _ = _route_de_parcours(client)
-    corps = client.requete(methode, chemin).text
+    client = client_api(
+        config=config_d_essai(),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    corps = _demander_un_parcours(client).text
     for marque in ("/Users/", "/home/", "/var/folders/", "C:\\\\", "/tmp/"):
         assert marque not in corps, f"chemin du disque du serveur exposé ({marque})"
     if "gpx" not in corps.lower():

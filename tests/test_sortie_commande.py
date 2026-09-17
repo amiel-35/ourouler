@@ -237,8 +237,8 @@ def reponse_anneau(points: list[tuple[float, float, float]], *, troncons: int = 
     }
 
 
-def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
-    """BRouter bouchonné : un anneau par azimut, réglable en relief et en rayon."""
+def _gestionnaire_brouter(reglages: dict[float, dict] | None = None):
+    """Un anneau par azimut, réglable en relief et en rayon."""
     reglages = reglages or {}
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -255,8 +255,30 @@ def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
             ),
         )
 
+    return gestionnaire
+
+
+def client_brouter(reglages: dict[float, dict] | None = None) -> httpx.Client:
+    """Le **client HTTP** bouchonné de `moteur_brouter`, sans le connecteur autour.
+
+    Extrait le 17/09/2026 : les tests de contrat de l'API injectent un
+    `httpx.Client` et laissent l'API l'habiller du connecteur, avec l'URL et
+    les identifiants du profil (`api/routes.FABRIQUES_CONNECTEUR`). Ils ont
+    donc besoin de ce bouchon-ci, pas d'un `ClientBrouter` déjà pointé
+    ailleurs — et refabriquer chez eux une géométrie de boucle crédible en
+    ferait une deuxième à tenir à jour.
+
+    `httpx.MockTransport` est écrit **ici**, à la construction du client, et
+    non caché derrière une fonction : l'invariant qui interdit un client HTTP
+    sans transport bouchonné lit le code, pas son intention.
+    """
+    return httpx.Client(transport=httpx.MockTransport(_gestionnaire_brouter(reglages)))
+
+
+def moteur_brouter(reglages: dict[float, dict] | None = None) -> ClientBrouter:
+    """BRouter bouchonné : un anneau par azimut, réglable en relief et en rayon."""
     params = depuis_dict(CONFIG_BRUTE).brouter
-    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    return ClientBrouter(params, http=client_brouter(reglages))
 
 
 # --- Open-Meteo bouchonné -----------------------------------------------------
@@ -279,15 +301,8 @@ def bloc_meteo(lat: float, lon: float, n: int, pluie: float, vent_kmh: float = 1
     }
 
 
-def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
-    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h.
-
-    `vent_kmh` : vitesse constante du vent bouchonné (14 km/h @ 45° par
-    défaut, comme avant L5.1 — les tests existants qui ne le précisent pas
-    ne changent donc pas de fixture). `0.0` fabrique une météo sans vent,
-    utile pour comparer un placement au vent à son équivalent sans vent
-    (`test_le_vent_change_ou_tombent_les_blocs`).
-    """
+def _gestionnaire_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0):
+    """Le bouchon Open-Meteo, sans le transport ni le connecteur autour."""
     pluie = pluie if pluie is not None else (lambda lat, lon: 0.0)
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
@@ -307,7 +322,26 @@ def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> 
             ],
         )
 
-    return ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    return gestionnaire
+
+
+def client_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> httpx.Client:
+    """Le **client HTTP** bouchonné de `moteur_meteo`. Même raison que `client_brouter`."""
+    return httpx.Client(
+        transport=httpx.MockTransport(_gestionnaire_meteo(pluie, en_panne, vent_kmh))
+    )
+
+
+def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
+    """Open-Meteo bouchonné. `pluie` : une fonction (lat, lon) → mm/h.
+
+    `vent_kmh` : vitesse constante du vent bouchonné (14 km/h @ 45° par
+    défaut, comme avant L5.1 — les tests existants qui ne le précisent pas
+    ne changent donc pas de fixture). `0.0` fabrique une météo sans vent,
+    utile pour comparer un placement au vent à son équivalent sans vent
+    (`test_le_vent_change_ou_tombent_les_blocs`).
+    """
+    return ClientOpenMeteo(http=client_meteo(pluie, en_panne, vent_kmh))
 
 
 def pluie_au_nord(lat: float, lon: float) -> float:

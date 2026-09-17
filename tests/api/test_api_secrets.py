@@ -91,9 +91,10 @@ def test_la_route_de_configuration_dit_quand_meme_si_la_cle_est_renseignee():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : pas de route qui échoue sur un service authentifié."
-)
+# Marque « pas de route qui échoue sur un service authentifié » retirée le
+# 17/09/2026 : la route de la semaine échoue sur un Intervals bouchonné à 401
+# depuis que la fabrique sait habiller un transport injecté du connecteur qui
+# porte la clé (`api/routes.FABRIQUES_CONNECTEUR`).
 def test_aucun_secret_ne_fuit_dans_un_message_d_erreur():
     """Protège E15 · échec et E12, et la doctrine §10.1 (« jamais dans une erreur »).
 
@@ -129,9 +130,11 @@ def test_le_schema_publie_ne_porte_aucun_secret_en_exemple_ni_en_defaut():
         assert sentinelle not in entier, "un secret du profil s'est retrouvé dans le schéma publié"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : rien ne journalise encore, donc rien à surveiller."
-)
+# Marque « rien ne journalise encore » retirée le 17/09/2026 : elle était
+# fausse. `httpx` journalise chaque requête en INFO (« HTTP Request: GET
+# https://intervals.icu/… »), et `uvicorn` journalise chaque réponse : il y a
+# donc bien un journal, et c'est précisément celui où une URL authentifiée
+# ferait sortir la clé. Le test le surveille maintenant pour de bon.
 def test_aucun_secret_ne_fuit_dans_le_journal(caplog: pytest.LogCaptureFixture):
     """Protège la doctrine §10.1 (« jamais en clair dans un log »).
 
