@@ -20,9 +20,40 @@ config.*.toml
 # donc le point de départ du mainteneur. Elles sont écrites dans le dossier
 # courant, y compris quand on lance la commande à la racine du dépôt.
 *.html
-!tests/fixtures/**
-# ... mais pas le bytecode que pytest y laisse en chargeant le generateur.
-tests/fixtures/**/__pycache__/
+# Réintégration NOMMÉE, fichier par fichier (règle absolue 1). Surtout pas
+# `!tests/fixtures/**` : cette réintégration en bloc laissait passer sans la
+# moindre résistance un vrai `.fit` déposé dans `tests/fixtures/activites/`,
+# alors que la règle a justement été écrite pour que le filet se resserre nom
+# par nom. Elle dispensait aussi d'ignorer le bytecode que pytest laisse en
+# chargeant le générateur (`__pycache__/` plus haut suffit à nouveau).
+#
+# La liste ci-dessous est exactement la sortie de
+# `tests/fixtures/generer_activites.py` : lui seul décide de ce qui est
+# légitime ici, et `tests/test_gitignore.py` vérifie que les deux ne dérivent
+# pas l'un de l'autre. Les noms qu'aucune règle ci-dessus n'attrape
+# (`inconnu.dat`) n'ont rien à y faire.
+!tests/fixtures/activites/COURTE.GPX
+!tests/fixtures/activites/boucle.fit
+!tests/fixtures/activites/boucle.gpx
+!tests/fixtures/activites/boucle.tcx
+!tests/fixtures/activites/home_trainer.fit
+!tests/fixtures/activites/non_monotone.gpx
+!tests/fixtures/activites/sans_altitude.gpx
+!tests/fixtures/activites/sans_puissance.gpx
+!tests/fixtures/activites/tronque.fit
+!tests/fixtures/activites/tronque.gpx
+!tests/fixtures/activites/tronque.tcx
+!tests/fixtures/activites/vide.fit
+!tests/fixtures/activites/vide.gpx
+!tests/fixtures/activites/vide.tcx
+
+# Les fixtures hostiles, elles, ne sont jamais versionnées : le générateur les
+# matérialise dans un dossier temporaire (`tests/adversarial/conftest.py`).
+# Lancé à la main, il écrit dans `hostiles/` — et sa sortie porte des noms sans
+# extension (`activite_sans_extension`) qu'aucune règle ci-dessus n'attrape.
+hostiles/
+tests/adversarial/fixtures/*
+!tests/adversarial/fixtures/generer_hostiles.py
 cache/
 data/
 .env

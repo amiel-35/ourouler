@@ -172,6 +172,42 @@ identifiants d'équipement `b…`) et rien d'autre. Les chiffres
 d'entraînement — FTP, masse, kilométrages, nombres de sorties — peuvent
 rester : ils documentent les décisions et ne donnent accès à rien.
 
+**Audit de l'historique (17/09/2026), en resserrant `.gitignore`.** Les 1 358
+blobs de tous les commits de toutes les branches ont été relus : les textes en
+cherchant tout couple de décimales tombant dans la France métropolitaine, les
+9 blobs FIT en les repassant au lecteur du projet (un dixième blob binaire est
+un `.pyc`, commité par le trou que ce lot referme). Deux résultats, dont un
+seul est rassurant.
+
+**Aucun fichier d'activité réel n'a jamais été commité.** Les trois versions
+successives de `boucle.fit` tiennent toutes dans ±0,009° du point fictif
+(0, 0) ; `home_trainer.fit` n'a pas de GPS par construction ; `tronque.fit`
+est illisible par conception. Vérifié indépendamment par la relecture.
+
+**Mais le point de Rennes-centre est encore dans HEAD aujourd'hui**,
+hors de portée de tout invariant : `docs/sprint1_relecture.md:42`, où la
+relecture du sprint 1 cite le défaut qu'elle venait de trouver dans
+`config.example.toml`, coordonnée et commentaire compris, « soit le centre de
+Rennes, la ville où habite le mainteneur ». Le défaut d'origine a bien été
+corrigé, son procès-verbal non. Les deux détecteurs de coordonnées du dépôt
+(`tests/test_invariants.py`, `tests/adversarial/test_adv_invariants.py`) ne
+scannent que `src/ourouler/` et `tests/` : `docs/` n'a jamais été regardé.
+
+La même coordonnée a aussi vécu dans l'historique, retirée depuis de HEAD :
+`config.example.toml` (blob `53f8d50`, « Rennes centre en exemple »),
+`tests/test_invariants.py` (les villes en décimal avant leur écriture en
+centièmes entiers), `tests/test_boucle_geometrie.py`, et
+`tests/test_meteo_openmeteo.py` (au centième près, puis au dix-millième).
+
+**Deux décisions à prendre, aucune n'est prise ici** : (a) `docs/` est-il
+anonymisé avant publication — la précision du 13/09 range « coordonnées »
+parmi ce qui ne se publie pas, la réponse du même jour range « les chiffres »
+parmi ce qui peut rester, et un point de domicile n'est ni tout à fait l'un ni
+tout à fait l'autre ; (b) l'historique est-il réécrit pour autant. Rien n'a
+été touché : un centre-ville reste une coordonnée publique, et `docs/cadrage.md:15`
+dit déjà « j'habite près de Rennes » en toutes lettres — c'est le couple
+décimal accolé à la phrase qui mérite un arbitrage, pas une urgence.
+
 
 ## Q7 — Ordre des règles de rattachement vélo — **close le 13/09/2026**
 

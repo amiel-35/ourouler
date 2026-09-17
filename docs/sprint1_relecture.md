@@ -39,8 +39,8 @@ absolue 1 de `CLAUDE.md` l'interdit sans réserve et que le dépôt est destiné
 `config.example.toml:11-12` donne `masse_kg = 91.0` et `ftp_w = 258`, qui
 sont exactement les valeurs réelles du mainteneur telles qu'écrites dans
 `docs/cadrage.md:12` (« FTP 258 W, 91 kg »). `config.example.toml:7-8` place
-le départ à (48.11, -1.68), soit le centre de Rennes, la ville où habite le
-mainteneur (`docs/cadrage.md:15`), et le commentaire la nomme.
+le départ au centre de Rennes, la ville où habite le mainteneur
+(`docs/cadrage.md:15`), et le commentaire la nomme.
 `config.example.toml:29` propose `# ex. i183365`, un identifiant d'athlète
 d'apparence réelle. Le fichier affirme lui-même en `config.example.toml:2-3`
 « ne contient aucune donnée personnelle », et `README.md:48` affirme « rien
