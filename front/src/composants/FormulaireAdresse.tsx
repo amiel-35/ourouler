@@ -31,7 +31,7 @@
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Candidat } from "../api/types";
-import { nombre } from "../api/formats";
+import { nombre, sourceDAdresse } from "../api/formats";
 import { Carte } from "./Carte";
 
 /** Ce que ce formulaire rend une fois le point confirmé. */
@@ -283,8 +283,15 @@ export function FormulaireAdresse({
                 {candidat.label}
                 <span className="mention">
                   {" "}
-                  · {ouEst(candidat)} · {candidat.source} · confiance{" "}
-                  {nombre(candidat.score * 100)} / 100
+                  {/* « ban » était le nom du service, et le « score » était
+                      présenté comme une confiance sur 100 : le cœur écrit
+                      qu'il n'est comparable qu'entre candidats de la même
+                      source (`connecteurs/geocodage.py`), or les deux
+                      sources se mélangent dans cette liste. Une échelle
+                      commune sur deux grandeurs différentes fait choisir sur
+                      un chiffre qui ne veut rien dire ; la commune, elle,
+                      distingue vraiment. */}· {ouEst(candidat)} ·{" "}
+                  {sourceDAdresse(candidat.source)}
                 </span>
               </button>
             </li>

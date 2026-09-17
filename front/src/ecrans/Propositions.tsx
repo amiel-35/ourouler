@@ -124,8 +124,10 @@ export function Propositions({
               : `${nombre(sortie.propositions.length)} parcours`}
           </h1>
         </div>
+        {/* « Modifier » seul ne disait pas ce qu'on modifiait ni où l'on
+            atterrissait. C'est la sortie de cet écran : elle se nomme. */}
         <button type="button" className="lien" onClick={surRetour}>
-          Modifier
+          Modifier la demande
         </button>
       </div>
 
@@ -166,7 +168,7 @@ export function Propositions({
               <div className="bloc-tete">
                 <h2>{AXES[proposition.axe_distinctif ?? ""] ?? `Proposition ${proposition.numero}`}</h2>
                 <span className="rang">
-                  {seule ? "La seule candidate" : active ? "Choisie" : proposition.numero}
+                  {seule ? "Le seul" : active ? "Choisi" : proposition.numero}
                 </span>
               </div>
               {proposition.distinction ? (
@@ -185,7 +187,7 @@ export function Propositions({
       </button>
       {seule && surElargir ? (
         <button type="button" className="bouton fantome" onClick={surElargir}>
-          Chercher plus loin (8 candidates)
+          Chercher plus loin
         </button>
       ) : null}
       <p className="mention" style={{ textAlign: "center", marginTop: 10 }}>

@@ -12,8 +12,17 @@
 
 import { useState } from "react";
 import type { Boucle, Enveloppe } from "../api/types";
-import { duree, heure, kmDepuisKm, nombre, pourcentage, titreDeBoucle } from "../api/formats";
-import { Carte } from "../composants/Carte";
+import {
+  duree,
+  heure,
+  kmDepuisKm,
+  nombre,
+  pourcentage,
+  titreDeBoucle,
+  directionEnToutesLettres,
+  visibleEnKm,
+} from "../api/formats";
+import { Carte, LegendeVent } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 
@@ -39,7 +48,7 @@ export function Boucles({ reponse, surRetour }: Props) {
           </div>
         </div>
         <div className="encart alerte">
-          Le moteur a répondu, mais rien ne tenait dans la distance demandée.
+          La recherche a abouti, mais aucune boucle ne tenait dans la distance demandée.
         </div>
         <button type="button" className="bouton second" onClick={surRetour}>
           Modifier la demande
@@ -53,15 +62,18 @@ export function Boucles({ reponse, surRetour }: Props) {
       <div className="app-tete">
         <div>
           <span className="quand">
-            {boucle.depart.nom} · {heure(boucle.depart.heure)} · {boucle.demande.direction}
+            {boucle.depart.nom} · {heure(boucle.depart.heure)} ·{" "}
+            {directionEnToutesLettres(boucle.demande.direction)}
           </span>
           <h1>
             {nombre(boucle.candidates.length)} boucle
             {boucle.candidates.length > 1 ? "s" : ""}
           </h1>
         </div>
+        {/* « Modifier » seul ne disait pas ce qu'on modifiait ni où l'on
+            atterrissait. C'est la sortie de cet écran : elle se nomme. */}
         <button type="button" className="lien" onClick={surRetour}>
-          Modifier
+          Modifier la demande
         </button>
       </div>
 
@@ -71,12 +83,18 @@ export function Boucles({ reponse, surRetour }: Props) {
         traces={boucle.candidates.map((candidate) => ({
           points: candidate.trace?.points ?? [],
           choisi: candidate.numero === choisie,
-          titre: candidate.nom,
+          // Surtout pas `candidate.nom` : c'est « Boucle 115° 27.6 km », où
+          // « 27.6 km » est le **rayon** demandé au traceur. Le titre avait
+          // été nettoyé (relecture F2 · C6), l'infobulle de la carte gardait
+          // la même fuite et le même mensonge de dix-neuf kilomètres.
+          titre: titreDeBoucle(candidate.azimut_deg, candidate.numero),
         }))}
+        vents={active?.meteo?.fleches_vent ?? []}
         depart={boucle.depart}
         haute
         description={`${boucle.candidates.length} boucle(s) au départ de ${boucle.depart.nom}`}
       />
+      <LegendeVent vents={active?.meteo?.fleches_vent ?? []} />
 
       {active?.trace ? <ProfilAltitude profil={active.trace.profil} /> : null}
 
@@ -121,15 +139,39 @@ export function Boucles({ reponse, surRetour }: Props) {
                   <b>{pourcentage(candidate.meteo.part_vent_face)}</b> de vent de face
                 </span>
               ) : null}
+              {/* « 88,9 km au calme » ne disait ni ce qu'était le calme, ni
+                  qu'il manquait deux tiers de la distance. Les trois chiffres
+                  du cœur sont là, tous les trois : ensemble ils font la
+                  distance, et c'est ce qui permet de le vérifier à l'œil. Le
+                  troisième n'apparaît que lorsqu'il existe — ce qui n'existe
+                  pas ne se tait pas, il n'est simplement pas. */}
               {candidate.couts ? (
-                <span>
-                  <b>{nombre(candidate.couts.km_calme, 1)}</b> km au calme
-                </span>
+                <>
+                  <span>
+                    <b>{nombre(candidate.couts.km_calme, 1)}</b> km de petites routes
+                  </span>
+                  <span>
+                    <b>{nombre(candidate.couts.km_trafic, 1)}</b> km de routes passantes
+                  </span>
+                  {visibleEnKm(candidate.couts.km_non_classe) ? (
+                    <span>
+                      <b>{nombre(candidate.couts.km_non_classe, 1)}</b> km qu'on ne sait
+                      pas classer
+                    </span>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </button>
         </div>
       ))}
+
+      <p className="mention">
+        Petites routes et routes passantes : c'est le type de voie porté par la carte
+        qui les sépare, pas une mesure du trafic réel. Le reste — chemins, voies sans
+        type — est compté à part parce qu'on ne sait pas ce qui y passe, et le compter
+        comme calme ferait passer un tracé inconnu pour un tracé tranquille.
+      </p>
 
       {boucle.gpx && active?.retenue ? (
         <a
@@ -142,7 +184,7 @@ export function Boucles({ reponse, surRetour }: Props) {
         </a>
       ) : boucle.gpx ? (
         <p className="mention">
-          Le GPX écrit est celui de la boucle retenue par le moteur, pas de celle-ci.
+          Le GPX prêt est celui de la boucle retenue, pas de celle-ci.
         </p>
       ) : null}
 

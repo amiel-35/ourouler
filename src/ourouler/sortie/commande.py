@@ -83,7 +83,7 @@ from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
@@ -1967,6 +1967,13 @@ def _candidate_json(proposition: Proposition) -> dict:
         "couts": {
             "km_trafic": round(proposition.couts.km_trafic, 3),
             "km_calme": round(proposition.couts.km_calme, 3),
+            # Sérialisé le 17/09/2026, comme il l'était déjà côté boucle
+            # libre. `km_trafic` et `km_calme` **ne font pas la distance** :
+            # le reste est sur des voies que le moteur ne sait pas classer, et
+            # sans ce chiffre un tracé à moitié sur des chemins s'annonce
+            # « 0,0 km de trafic » comme un tracé parfaitement calme (voir le
+            # commentaire du champ dans `boucle.couts.Couts`).
+            "km_non_classe": round(proposition.couts.km_non_classe, 3),
             "km_non_revetu": round(proposition.couts.km_non_revetu, 3),
             "score": round(proposition.couts.score, 3),
             "sens": proposition.couts.sens,
@@ -1980,6 +1987,10 @@ def _candidate_json(proposition: Proposition) -> dict:
             "ressenti_min_c": meteo.ressenti_min_c,
             "confiance": meteo.confiance,
             "n_echantillons": len(meteo.echantillons),
+            # Les mêmes flèches que la page HTML du sprint 5 dessine, filtrées
+            # au même seuil parce que c'est le même code — voir
+            # `boucle.meteo_trace.fleches_vent`.
+            "fleches_vent": fleches_vent(meteo),
             "modele_utilise": meteo.modele_utilise,
             "repli": meteo.repli,
         },

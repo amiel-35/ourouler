@@ -23,6 +23,20 @@ export function kmDepuisKm(valeur: number): string {
   return `${nombre(valeur, 1)}${NBSP}km`;
 }
 
+/**
+ * Vrai quand un kilométrage vaut encore quelque chose **une fois arrondi**.
+ *
+ * Sert aux chiffres qui ne s'affichent que lorsqu'ils existent. Tester
+ * `> 0` ne suffisait pas : mesuré sur un vrai parcours, les kilomètres non
+ * classés valaient 0,04 et l'écran annonçait « 0,0 km qu'on ne sait pas
+ * classer » — un zéro, donc du bruit, à l'endroit précis où l'on voulait
+ * dire quelque chose. Ce n'est pas un seuil produit, c'est la même décimale
+ * que celle qu'on affiche.
+ */
+export function visibleEnKm(valeur: number): boolean {
+  return Math.round(valeur * 10) > 0;
+}
+
 /** `2232` → `37 min`, `7200` → `2 h`, `6300` → `1 h 45`. */
 export function duree(secondes: number): string {
   const total = Math.round(secondes / 60);
@@ -141,6 +155,29 @@ export function titreDeBoucle(azimutDeg: number | null, numero: number): string 
 }
 
 /**
+ * La direction demandée, en toutes lettres — « SE » est un code d'entrée.
+ *
+ * Le champ vaut ce que le front a envoyé au moteur : « N », « SO »… L'écran
+ * l'affichait tel quel en en-tête pendant que `titreDeBoucle` écrivait
+ * « Boucle au sud-ouest » deux centimètres plus bas. Un azimut en degrés
+ * passe aussi par ce champ ; on le rend alors à la boussole la plus proche
+ * plutôt que d'afficher « 155° » à quelqu'un qui va rouler.
+ */
+export function directionEnToutesLettres(direction: string): string {
+  const code = direction.trim().toUpperCase();
+  const index = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"].indexOf(code);
+  if (index >= 0) return DIRECTIONS[index];
+  const degres = Number(code.replace("°", ""));
+  if (Number.isFinite(degres)) {
+    return DIRECTIONS[Math.round((((degres % 360) + 360) % 360) / 45) % 8];
+  }
+  // Un libellé que le front ne reconnaît pas s'affiche tel quel plutôt que de
+  // disparaître : on préfère un mot brut à un silence (même parti pris que
+  // `modelePhysique`).
+  return direction;
+}
+
+/**
  * D'où viennent les paramètres physiques du vélo, **dit à un cycliste**.
  *
  * `modele_physique` vaut « calibration », « configuration » ou « défaut » :
@@ -162,6 +199,47 @@ export function modelePhysique(provenance: string | null): string | null {
   // Un mot que le cœur ajouterait sans qu'on le sache s'affiche tel quel
   // plutôt que de disparaître : on préfère un mot brut à un silence.
   return MODELE_PHYSIQUE_EN_TOUTES_LETTRES[provenance] ?? provenance;
+}
+
+/**
+ * L'usage d'un vélo, dit comme le cycliste l'a choisi.
+ *
+ * `usage` vaut « route », « clm », « gravel »… — les valeurs de la
+ * configuration. Les deux formulaires de l'application les traduisent déjà
+ * dans leurs listes déroulantes (« Chrono » pour `clm`) ; l'affichage en
+ * lecture seule, lui, montrait la valeur brute. Sur le récapitulatif de
+ * l'assistant, le cycliste venait de cliquer « Chrono » et lisait « clm »
+ * trois secondes plus tard.
+ */
+export const USAGE_VELO: Record<string, string> = {
+  route: "Route",
+  clm: "Chrono",
+  gravel: "Gravel",
+  vtt: "VTT",
+};
+
+export function usageDeVelo(usage: string): string {
+  return USAGE_VELO[usage] ?? usage;
+}
+
+/**
+ * D'où vient une adresse trouvée, **nommé plutôt que codé**.
+ *
+ * `source` vaut « ban » ou « nominatim » : les noms des deux services de
+ * géocodage. Affichés tels quels sous une adresse, ils ne disent rien à
+ * personne — et le score qui les suivait était présenté comme une
+ * « confiance sur 100 » alors que le cœur écrit noir sur blanc qu'il n'est
+ * comparable qu'entre candidats de la même source. Deux grandeurs
+ * différentes, une seule échelle affichée : on garde la provenance, qui
+ * distingue vraiment, et on laisse tomber le chiffre, qui trompe.
+ */
+export const SOURCE_ADRESSE: Record<string, string> = {
+  ban: "adresses officielles françaises",
+  nominatim: "OpenStreetMap",
+};
+
+export function sourceDAdresse(source: string): string {
+  return SOURCE_ADRESSE[source] ?? source;
 }
 
 /** Les quatre réponses possibles à la question du vent, telles qu'on les demande. */

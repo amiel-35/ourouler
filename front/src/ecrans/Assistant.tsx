@@ -24,7 +24,7 @@
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Profil, Zones } from "../api/types";
-import { nombre, pourcentage } from "../api/formats";
+import { nombre, pourcentage, usageDeVelo } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -408,7 +408,7 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
               <div className="rangee" key={velo.nom}>
                 <span className="cle">{velo.nom}</span>
                 <span className="val texte">
-                  {velo.usage} · {nombre(velo.masse_kg, 1)} kg
+                  {usageDeVelo(velo.usage)} · {nombre(velo.masse_kg, 1)} kg
                 </span>
               </div>
             ))}

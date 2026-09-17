@@ -19,7 +19,7 @@
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Profil, Zones } from "../api/types";
-import { jourEnLettres, nombre, pourcentage } from "../api/formats";
+import { jourEnLettres, nombre, pourcentage, usageDeVelo } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -218,8 +218,10 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
           <div className="rangee" key={velo.nom}>
             <span className="cle">{velo.nom}</span>
             <span className="val texte">
-              {velo.usage} · {nombre(velo.masse_kg, 1)} kg
-              {velo.facteur_compteur === null ? " · facteur supposé" : " · facteur mesuré"}
+              {usageDeVelo(velo.usage)} · {nombre(velo.masse_kg, 1)} kg
+              {velo.facteur_compteur === null
+                ? " · vitesse supposée"
+                : " · vitesse mesurée sur vos sorties"}
             </span>
           </div>
         ))}
@@ -261,9 +263,12 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         <div className="rangee">
           <span className="cle">Traceur d'itinéraires</span>
           <span className="val texte">
-            {profil.services.brouter.renseigne
-              ? `Branché · profil ${profil.services.brouter.profil}`
-              : "Non branché"}
+            {/* `profil` est le nom du fichier de profil du traceur
+                (`trekking`, `fastbike`…) : un identifiant de moteur de
+                routage, sur une ligne qui s'appelle « Traceur d'itinéraires »
+                en français. Il n'apprend rien à un cycliste, et le seul fait
+                utile ici est que le service répond. */}
+            {profil.services.brouter.renseigne ? "Branché" : "Non branché"}
           </span>
         </div>
         <div className="rangee">

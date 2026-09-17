@@ -1536,6 +1536,16 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
             )
         else:
             assert isinstance(emplacement["motifs"], list)
+    # Lot L5.3 : `km_non_classe` manquait côté sortie alors qu'il existait déjà
+    # côté boucle libre — sans lui, un tracé partiellement classé s'annonce
+    # aussi calme qu'un tracé entièrement classé.
+    assert "km_non_classe" in candidate["couts"]
+    # Les flèches de vent (mêmes que la carte HTML) sont aussi dans ce JSON ;
+    # le vent bouchonné par défaut (14 km/h) dépasse le seuil sensible.
+    fleches = candidate["meteo"]["fleches_vent"]
+    assert fleches, "un vent bouchonné à 14 km/h doit produire des flèches"
+    for fleche in fleches:
+        assert set(fleche) == {"pt", "depuis_deg", "vent_kmh", "rafale_kmh", "relatif"}
 
 
 def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):

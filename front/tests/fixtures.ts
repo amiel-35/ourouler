@@ -312,7 +312,14 @@ export function sortie(options?: {
         distance_km: distances[i],
         denivele_m: denivele[i],
         azimut_deg: 47 + i,
-        couts: { km_trafic: 3.1, km_calme: 36.2, km_non_revetu: 0, score: 19.4, sens: "horaire" },
+        couts: {
+          km_trafic: 3.1,
+          km_calme: 36.2,
+          km_non_classe: 0,
+          km_non_revetu: 0,
+          score: 19.4,
+          sens: "horaire",
+        },
         meteo: {
           pluie_cumulee_mm: i === 1 ? 0.4 : 0,
           minutes_pluie: 0,
@@ -413,7 +420,18 @@ export function boucle(): Enveloppe<Boucle> {
           denivele_m: 289,
           azimut_deg: 46,
           temps_estime_s: 5460,
-          couts: { km_trafic: 2.4, km_calme: 38.4, km_non_revetu: 0, score: 17.1, sens: "horaire" },
+          // 2,4 + 38,4 ne font pas les 40,8 km de la boucle : les 3,2 qui
+          // manquent sont sur des voies que la carte ne classe pas. C'est
+          // exactement le cas que l'écran taisait, et une fixture qui le
+          // mettrait à zéro ne testerait jamais rien.
+          couts: {
+            km_trafic: 2.4,
+            km_calme: 35.2,
+            km_non_classe: 3.2,
+            km_non_revetu: 0,
+            score: 17.1,
+            sens: "horaire",
+          },
           meteo: {
             pluie_cumulee_mm: 0,
             minutes_pluie: 0,
