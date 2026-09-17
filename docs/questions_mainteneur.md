@@ -750,6 +750,20 @@ fine d'AROME sur le court terme, on gagne les jours 3 à 7.
    option. Un message de la couche connecteur ne doit pas nommer une option de
    ligne de commande qu'il ne connaît pas.
 
+**Refermé sur les deux chemins — 17/09/2026.** Le repli (point 1) avait été
+écrit sur `sortie` et **pas** sur `boucle` : `boucle/commande._meteos`
+appelait `meteo_trace.evaluer` sans `modele_repli`, si bien qu'une boucle
+libre demandée à J+3 perdait les trois colonnes météo exactement comme la
+sortie du 19 septembre. `boucle` passe désormais le même repli, nomme dans son
+en-tête le modèle qui a **répondu** (et non celui qui est configuré, qui
+aurait menti une fois sur deux), et rend `modele_meteo = {utilise, repli}`
+dans son JSON, même forme que `sortie`.
+*Vérifié sur la configuration réelle* : `ourouler boucle --heure-depart
+<J+3>T10:00` rendait avant « météo indisponible » et un tableau sans pluie,
+sans vent, sans ressenti ; il rend maintenant les trois, par `icon_seamless`,
+sous l'en-tête « meteofrance_arome_france_hd ne couvre pas cette fenêtre —
+bascule sur icon_seamless ».
+
 ## Q20 — La page du jour n'applique pas la méthode Strava qu'elle voulait — **ouverte le 16/09/2026, à corriger**
 
 Constat du mainteneur devant la page du 19/09 : « la méthode Strava, c'est

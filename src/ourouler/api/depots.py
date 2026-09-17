@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ourouler.api.erreurs import ErreurProfilAbsent
 from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.config import Config
@@ -119,6 +120,26 @@ EXTENSIONS = {
 #: toute construction de chemin — c'est ce qui rend la traversée impossible.
 FORME_IDENTIFIANT = re.compile(r"^[0-9a-f]{32}$")
 
+#: Comment on donne un profil à une application qui n'en a pas. Les deux
+#: chemins, dans l'ordre où ils servent : l'un pour qui voulait un **service**
+#: et s'est trompé de fabrique, l'autre pour qui voulait bien cette fabrique-ci
+#: et doit maintenant la remplir.
+PHRASE_COMPLETER_PROFIL = (
+    "compléter le profil par « PATCH /api/v1/profil », ou lancer le serveur par la "
+    "fabrique de service — « ourouler api », c'est-à-dire "
+    "« ourouler.api.application:application », qui lit le fichier de configuration"
+)
+
+#: Ce que répond une application construite sans rien quand on lui demande des
+#: données. Elle ne dit pas ce qui manque à un fichier : elle dit **qu'elle
+#: n'a pas de profil**, et comment lui en donner un.
+MESSAGE_SANS_PROFIL = (
+    "cette application a été construite sans profil : elle publie son contrat "
+    "(/docs, /openapi.json) mais n'a ni point de départ, ni vélo, ni clé, et ne peut "
+    "donc rien calculer. Elle n'en invente pas — "
+    f"{PHRASE_COMPLETER_PROFIL}"
+)
+
 
 class SocleTOML:
     """Le socle lu dans un fichier TOML, relu à chaque requête.
@@ -157,19 +178,39 @@ class SocleVide:
 
     C'est le socle d'une application construite sans rien — `creer_application()`.
     Elle publie son contrat (`/openapi.json`, `/docs`) et sert ses routes,
-    mais tant que personne n'a écrit de profil, `depuis_dict` refuse la
-    configuration (« section [depart] manquante ») et les routes de données
-    répondent `configuration_invalide`. C'est volontaire : inventer un point
-    de départ par défaut mettrait une coordonnée dans le code (règle absolue 1),
-    et aller le chercher sur le disque ferait lire l'environnement à la
-    fabrique (règle absolue 2).
+    mais tant que personne n'a écrit de profil, les routes de données
+    refusent. C'est volontaire : inventer un point de départ par défaut
+    mettrait une coordonnée dans le code (règle absolue 1), et aller le
+    chercher sur le disque ferait lire l'environnement à la fabrique (règle
+    absolue 2).
+
+    **Ce qui a changé le 17/09/2026, c'est ce qu'elles répondent.** Le refus
+    était `configuration_invalide` avec, pour toute explication, « section
+    [depart] manquante » : la phrase décrit un fichier TOML que l'appelant n'a
+    jamais eu l'intention d'écrire, et laisse croire à une configuration
+    cassée là où il n'y en a aucune. Le mainteneur s'y est trompé lui-même en
+    lançant cette fabrique-ci pour servir son profil — l'application démarrait
+    et annonçait « configuration invalide » sur tout.
     """
 
     modifiable = True
     proprietaire: Proprietaire | None = None
 
     def config(self, surcharge: dict) -> Config:
-        return construire(dict(surcharge), environ={})
+        if not surcharge:
+            raise ErreurProfilAbsent(MESSAGE_SANS_PROFIL)
+        try:
+            return construire(dict(surcharge), environ={})
+        except ErreurConfig as e:
+            # Un profil a été commencé mais ne tient pas encore : là, l'erreur
+            # de validation est la bonne information — elle nomme ce qui
+            # manque à ce que l'appelant a lui-même écrit. On la garde, en
+            # disant seulement d'où elle vient, parce qu'aucun fichier n'est
+            # en cause ici non plus.
+            raise ErreurProfilAbsent(
+                f"le profil de cette application est incomplet : {e} — "
+                f"{PHRASE_COMPLETER_PROFIL}"
+            ) from e
 
 
 class SocleFixe:
@@ -253,6 +294,19 @@ class DepotProfils:
         un socle personnel à quelqu'un d'autre est ce qu'il ne faut pas faire,
         et refuser est ce qui se fait de moins faux.
         """
+        self.verifier_proprietaire(proprietaire)
+        return self._socle.config(self.surcharge(proprietaire))
+
+    def verifier_proprietaire(self, proprietaire: Proprietaire) -> None:
+        """Le seul contrôle de `config` qui vaille aussi **avant** une écriture.
+
+        Il était fait en appelant `config` — donc en validant au passage un
+        profil qu'on s'apprêtait justement à compléter. Sur une application au
+        socle vide, cela rendait `PATCH /profil` impossible : la seule façon de
+        donner un profil à cette application était refusée parce qu'elle n'en
+        avait pas encore. La documentation de `SocleVide` promettait pourtant
+        ce chemin-là depuis le début.
+        """
         possesseur = self._socle.proprietaire
         if possesseur is not None and possesseur != proprietaire:
             raise ErreurConfig(
@@ -260,7 +314,6 @@ class DepotProfils:
                 f"« {possesseur} » (départ, clé Intervals) et ne se partage pas — ce serveur "
                 "n'a pas de configuration pour ce propriétaire"
             )
-        return self._socle.config(self.surcharge(proprietaire))
 
     def enregistrer(self, proprietaire: Proprietaire, modifications: dict) -> Config:
         """Applique des modifications au profil, et rend la `Config` qui en résulte.
@@ -274,7 +327,7 @@ class DepotProfils:
                 "profil : cette application sert une configuration injectée, en lecture seule — "
                 "la construire depuis un fichier de configuration pour pouvoir la modifier"
             )
-        self.config(proprietaire)  # même contrôle de propriétaire qu'en lecture
+        self.verifier_proprietaire(proprietaire)  # même contrôle qu'en lecture
         proposee = fusionner(self.surcharge(proprietaire), valider(modifications))
         config = self._socle.config(proposee)  # lève ErreurConfig si invalide
         ecrire_toml(

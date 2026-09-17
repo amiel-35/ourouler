@@ -14,7 +14,17 @@ export interface Requete {
 
 export interface Reponse {
   statut?: number;
-  charge: unknown;
+  charge?: unknown;
+  /**
+   * Un corps **brut**, rendu tel quel au lieu de `charge` sérialisée.
+   *
+   * Sert à jouer ce que rend un intermédiaire qui n'est pas l'API : le proxy
+   * de développement de Vite, quand sa cible est éteinte, répond `500` en
+   * `text/plain` avec un corps vide. Le contrat, lui, promet du JSON pour
+   * toute réponse de l'API, pannes comprises — c'est cette différence-là que
+   * le client doit savoir lire.
+   */
+  texte?: string;
 }
 
 export type Table = Record<string, Reponse | ((requete: Requete) => Reponse)>;
@@ -56,7 +66,8 @@ export class Serveur {
       return {
         ok: statut >= 200 && statut < 300,
         status: statut,
-        text: async () => JSON.stringify(reponse.charge),
+        text: async () =>
+          reponse.texte !== undefined ? reponse.texte : JSON.stringify(reponse.charge),
       } as Response;
     }) as typeof fetch;
   }

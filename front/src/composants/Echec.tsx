@@ -11,7 +11,7 @@
  */
 
 import type { ReactNode } from "react";
-import { ErreurApi, reessayable } from "../api/client";
+import { CODE_DELAI, CODE_ILLISIBLE, ErreurApi, reessayable, serveurMuet } from "../api/client";
 import type { Avertissement } from "../api/types";
 import { jourEnLettres } from "../api/formats";
 
@@ -89,6 +89,51 @@ export function Echec({
   contexte,
   dernierSucces,
 }: Props) {
+  // --- le serveur n'a rien dit : ce n'est pas une panne de l'API, c'est son
+  // absence. Cet écran n'existait pas, et le cas le plus courant tombait dans
+  // le fourre-tout du bas avec « le serveur a répondu 500 sans rien
+  // expliquer » : ni cause, ni geste, ni bouton — parce qu'`erreur_interne`
+  // n'est pas réessayable. Or il n'y a **rien** à réparer côté demande, et
+  // réessayer est précisément le seul geste qui vaille.
+  if (serveurMuet(erreur)) {
+    const titre =
+      erreur.code === CODE_DELAI
+        ? "Le serveur ne rend pas la main"
+        : erreur.code === CODE_ILLISIBLE
+          ? "Ce n'est pas d'où rouler qui a répondu"
+          : "Le serveur ne répond pas";
+    return (
+      <Cadre contexte={contexte} titre={titre}>
+        <div className="encart alerte">
+          <b>Aucune réponse d'où rouler.</b> {erreur.message}
+        </div>
+        <div className="bloc doux">
+          <div className="bloc-tete">
+            <h2>Ce qui est sûr</h2>
+          </div>
+          <p className="mention">
+            Rien n'est perdu : votre profil, vos réglages et vos parcours sont sur le serveur,
+            pas dans cette page. Ce n'est pas non plus votre demande qui est en cause — elle
+            n'est jamais arrivée.
+          </p>
+        </div>
+        <ListeReplis replis={replis} />
+        {secours}
+        {reessayer ? (
+          <button type="button" className="bouton" onClick={reessayer}>
+            Réessayer
+          </button>
+        ) : null}
+        <p className="mention" style={{ marginTop: 10 }}>
+          Si vous faites tourner où rouler vous-même : l'interface appelle l'API sur la même
+          adresse qu'elle, et le serveur de développement la cherche sur le port 8000
+          (<code>uv run ourouler api --port 8000</code>, ou <code>OUROULER_API</code> pour la
+          chercher ailleurs). Code de la panne : {erreur.code}.
+        </p>
+      </Cadre>
+    );
+  }
+
   // --- E18 · échec : aucune boucle dans la tolérance de distance.
   if (erreur.code === "aucune_boucle") {
     return (
@@ -161,7 +206,10 @@ export function Echec({
     geocodage_indisponible: "L'annuaire d'adresses ne répond pas",
     intervals_indisponible: "intervals.icu est en panne",
     profil_invalide: "Ce réglage ne tient pas",
-    serveur_injoignable: "Le serveur ne répond pas",
+    // Le serveur tourne et **refuse** : la distinction avec « ne répond pas »
+    // se voit dès le titre, qui dit ce qui manque au serveur et non ce qui
+    // manquerait à la demande.
+    profil_absent: "Ce serveur n'a pas de profil",
   };
   return (
     <Cadre contexte={contexte} titre={titres[erreur.code] ?? "Ça n'a pas marché"}>

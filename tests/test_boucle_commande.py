@@ -636,6 +636,125 @@ def test_meteo_en_panne_le_json_dit_null(tmp_path: Path, monkeypatch, capsys):
     assert all(c["total_tri"] == pytest.approx(c["couts"]["score"]) for c in charge["candidates"])
 
 
+# --- le repli de modèle (Q19), sur `boucle` aussi -----------------------------
+#
+# Le piège de Q19 avait été refermé sur `ourouler sortie` et laissé ouvert sur
+# `ourouler boucle` : une boucle demandée à J+3 perdait *toute* sa météo —
+# pluie, vent, ressenti — alors que le second avis configuré couvre la
+# fenêtre. Les deux commandes appellent le même `meteo_trace.evaluer` ; ces
+# tests vérifient qu'elles lui passent le même repli.
+
+
+def moteur_meteo_hors_de_portee(pluie_du_repli: float = 2.0) -> tuple[ClientOpenMeteo, list[str]]:
+    """Open-Meteo bouchonné : le modèle principal rend un bloc nul, le repli répond.
+
+    Un bloc entièrement à `null` est exactement ce qu'Open-Meteo rend pour une
+    fenêtre au-delà de la portée d'un modèle régional (diagnostic de Q19). La
+    liste rendue nomme, dans l'ordre, les modèles réellement interrogés.
+    """
+    demandes: list[str] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        p = requete.url.params
+        modele = p["models"]
+        demandes.append(modele)
+        lats = p["latitude"].split(",")
+        lons = p["longitude"].split(",")
+        debut = datetime.fromisoformat(p["start_hour"])
+        fin = datetime.fromisoformat(p["end_hour"])
+        n = int((fin - debut).total_seconds() // 3600) + 1
+        if modele == CONFIG_BRUTE["meteo"]["modele"]:
+            blocs = [bloc_meteo_nul(float(a), float(o), n) for a, o in zip(lats, lons, strict=True)]
+        else:
+            blocs = [
+                bloc_meteo(float(a), float(o), n, pluie_du_repli)
+                for a, o in zip(lats, lons, strict=True)
+            ]
+        return httpx.Response(200, json=blocs)
+
+    return ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(gestionnaire))), demandes
+
+
+def bloc_meteo_nul(lat: float, lon: float, n: int) -> dict:
+    """Le bloc « hors de portée » : les heures sont là, les valeurs sont `null`."""
+    variables = (
+        "precipitation",
+        "rain",
+        "wind_speed_10m",
+        "wind_direction_10m",
+        "wind_gusts_10m",
+        "apparent_temperature",
+        "temperature_2m",
+    )
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "hourly": {
+            "time": [f"2026-09-13T{6 + i:02d}:00" for i in range(n)],
+            **{nom: [None] * n for nom in variables},
+        },
+    }
+
+
+def test_le_repli_garde_la_meteo_quand_le_modele_principal_ne_couvre_pas(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le défaut Q19 lui-même : sans repli, les trois colonnes météo disparaissaient."""
+    monkeypatch.chdir(tmp_path)
+    meteo, demandes = moteur_meteo_hors_de_portee()
+    code = executer(args(), config_de_test(), moteur_brouter(), meteo)
+    capture = capsys.readouterr()
+    assert code == 0
+    assert demandes[:2] == [
+        CONFIG_BRUTE["meteo"]["modele"],
+        CONFIG_BRUTE["meteo"]["second_avis"],
+    ], "le principal est demandé d'abord, puis le repli — jamais l'inverse"
+    titres = next(
+        ligne for ligne in capture.out.splitlines() if "n°" in ligne and "distance" in ligne
+    )
+    for colonne in ("pluie", "vent face", "ressenti min"):
+        assert colonne in titres, "le repli rend la météo, donc les colonnes"
+    assert "météo indisponible" not in capture.err
+
+
+def test_le_repli_est_nomme_dans_l_entete(tmp_path: Path, monkeypatch, capsys):
+    """Un repli silencieux afficherait la pluie d'un modèle sous le nom d'un autre."""
+    monkeypatch.chdir(tmp_path)
+    meteo, _ = moteur_meteo_hors_de_portee()
+    executer(args(), config_de_test(), moteur_brouter(), meteo)
+    sortie = capsys.readouterr().out
+    assert CONFIG_BRUTE["meteo"]["modele"] in sortie
+    assert "bascule sur modele_second_test" in sortie
+
+
+def test_sans_repli_l_entete_nomme_le_modele_qui_a_repondu(tmp_path: Path, monkeypatch, capsys):
+    """Le cas ordinaire ne change pas de forme : le modèle principal est nommé."""
+    monkeypatch.chdir(tmp_path)
+    executer(args(), config_de_test(), moteur_brouter(), moteur_meteo())
+    sortie = capsys.readouterr().out
+    assert "Météo modele_principal_test, second avis modele_second_test" in sortie
+    assert "bascule" not in sortie
+
+
+def test_le_json_dit_quel_modele_a_repondu_et_si_c_est_un_repli(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Même forme que `sortie` : un écran lit le repli de la même façon sur les deux routes."""
+    monkeypatch.chdir(tmp_path)
+    meteo, _ = moteur_meteo_hors_de_portee()
+    executer(args(json=True), config_de_test(), moteur_brouter(), meteo)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["modele_meteo"] == {"utilise": "modele_second_test", "repli": True}
+    assert charge["modele"] == "modele_principal_test", "la configuration reste dite telle quelle"
+
+
+def test_sans_meteo_du_tout_le_modele_utilise_vaut_null(tmp_path: Path, monkeypatch, capsys):
+    """Aucune candidate n'a de météo : on ne nomme aucun modèle plutôt qu'un modèle muet."""
+    monkeypatch.chdir(tmp_path)
+    executer(args(json=True), config_de_test(), moteur_brouter(), moteur_meteo(en_panne=True))
+    assert json.loads(capsys.readouterr().out)["modele_meteo"] is None
+
+
 # --- l'enregistrement dans la CLI ---------------------------------------------
 
 

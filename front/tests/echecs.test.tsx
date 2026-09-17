@@ -163,6 +163,64 @@ describe("le serveur ne répond pas du tout", () => {
     expect(screen.getByRole("heading", { name: "Le serveur ne répond pas" })).toBeTruthy();
     expect(screen.getByText(/Code de la panne : serveur_injoignable/)).toBeTruthy();
   });
+
+  it("dit ce qui est sûr et offre le geste, au lieu d'une phrase nue", () => {
+    const essais: string[] = [];
+    render(
+      <Echec
+        erreur={erreur("serveur_injoignable", "le serveur d'où rouler ne répond pas", 500)}
+        reessayer={() => essais.push("encore")}
+      />,
+    );
+    expect(screen.getByText(/Rien n'est perdu/)).toBeTruthy();
+    expect(screen.getByText(/n'est jamais arrivée/)).toBeTruthy();
+    const bouton = screen.getByRole("button", { name: "Réessayer" });
+    bouton.click();
+    expect(essais).toEqual(["encore"]);
+  });
+
+  it("distingue un serveur sans profil d'un serveur muet", () => {
+    render(
+      <Echec
+        erreur={erreur("profil_absent", "cette application a été construite sans profil", 503)}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Ce serveur n'a pas de profil" })).toBeTruthy();
+    expect(screen.queryByText(/Rien n'est perdu/)).toBeNull();
+  });
+
+  it("nomme autrement un délai dépassé et une réponse d'ailleurs", () => {
+    const { unmount } = render(
+      <Echec erreur={erreur("delai_depasse", "pas de réponse en 30 secondes", 0)} />,
+    );
+    expect(screen.getByRole("heading", { name: "Le serveur ne rend pas la main" })).toBeTruthy();
+    unmount();
+    render(<Echec erreur={erreur("reponse_illisible", "ce n'est pas l'API", 200)} />);
+    expect(
+      screen.getByRole("heading", { name: "Ce n'est pas d'où rouler qui a répondu" }),
+    ).toBeTruthy();
+  });
+
+  /**
+   * **Le défaut trouvé en faisant tourner le produit, le 17/09/2026.**
+   *
+   * Front lancé sans API derrière : le proxy de développement répond `500`
+   * en `text/plain`, corps vide. L'écran affichait « Ça n'a pas marché — le
+   * serveur a répondu 500 sans rien expliquer », code `erreur_interne`, sans
+   * bouton parce que ce code-là n'est pas réessayable. C'est l'écran muet que
+   * la section « Quand ça casse » des maquettes interdit, pour la panne la
+   * plus banale de toutes : personne au bout du fil.
+   */
+  it("reconnaît l'API absente derrière le proxy, au démarrage de l'application", async () => {
+    new Serveur({ "/api/v1/": { statut: 500, texte: "" } }).installer();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Le serveur ne répond pas" })).toBeTruthy();
+    expect(screen.queryByText(/sans rien expliquer/)).toBeNull();
+    expect(screen.queryByText("Connexion au serveur…")).toBeNull();
+    expect(screen.getByRole("button", { name: "Réessayer" })).toBeTruthy();
+    expect(screen.getByText(/ourouler api --port 8000/)).toBeTruthy();
+  });
 });
 
 describe("l'écran d'un jour sans séance", () => {

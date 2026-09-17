@@ -94,6 +94,10 @@ CODES_PANNE: dict[str, str] = {
     "geocodage_indisponible": "BAN ou Nominatim en erreur",
     "service_externe_indisponible": "un service externe non reconnu",
     "configuration_invalide": "le TOML du serveur ne charge pas",
+    "profil_absent": (
+        "cette application n'a aucun profil — elle a été construite sans "
+        "configuration, et rien n'a encore été écrit par PATCH /profil"
+    ),
     "erreur_interne": "un bug — le détail reste au journal, jamais dans la réponse",
 }
 
@@ -180,6 +184,22 @@ def table_des_avertissements() -> str:
     lignes = ["| code | quand |", "|---|---|"]
     lignes += [f"| `{code}` | {quand} |" for code, quand in CODES_AVERTISSEMENT.items()]
     return "\n".join(lignes)
+
+
+class ErreurProfilAbsent(ErreurConfig):
+    """L'application a été construite **sans profil**, et on lui demande des données.
+
+    Ce n'est pas « le TOML du serveur ne charge pas » : il n'y a pas de TOML,
+    et l'appelant n'a jamais eu l'intention d'en écrire un. L'application au
+    socle vide (`creer_application()` sans argument) est faite pour publier
+    son contrat et recevoir un profil, pas pour servir un départ inventé —
+    c'est la règle absolue 1, et `depots.SocleVide` l'explique.
+
+    Elle existe pour que ce cas porte **son** code (`profil_absent`) au lieu
+    de `configuration_invalide` : un message qui parle d'une « section
+    [depart] manquante » décrit un fichier que personne n'a écrit, et laisse
+    croire à une configuration cassée là où il n'y en a simplement aucune.
+    """
 
 
 @dataclass(frozen=True)
@@ -304,6 +324,11 @@ def classer(
         return _connecteur(message)
     if isinstance(exception, ErreurLecture):
         return ErreurApi(code="fichier_illisible", message=message, statut=422)
+    if isinstance(exception, ErreurProfilAbsent):
+        # **Avant `ErreurConfig`, dont elle hérite.** 503 et non 500 : rien
+        # n'est cassé, le service n'est simplement pas encore prêt à servir des
+        # données — et le message dit comment le rendre prêt.
+        return ErreurApi(code="profil_absent", message=message, statut=503)
     if isinstance(exception, ErreurConfig):
         # Une configuration invalide n'est pas une faute du cycliste quand
         # elle vient du fichier du serveur (500) ; elle en est une quand elle

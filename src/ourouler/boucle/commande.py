@@ -530,6 +530,17 @@ def _meteos(
                     vitesse_kmh=vitesse,
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
+                    # Repli Q19, **le même que `ourouler sortie`**. Il y
+                    # manquait ici, et c'est exactement le piège que Q19
+                    # décrit : le modèle régional s'arrête en cours de J+2, et
+                    # une boucle demandée à J+3 perdait *toute* sa météo — pas
+                    # une colonne, toutes — avec un message qui parle du
+                    # « domaine » du modèle là où c'est sa portée temporelle
+                    # qui est en cause. Corrigé sur un chemin et pas sur
+                    # l'autre : les deux commandes appellent le même
+                    # `meteo_trace.evaluer`, elles lui passent maintenant le
+                    # même repli.
+                    modele_repli=config.meteo.second_avis,
                 )
             )
         except ErreurConnecteur as e:
@@ -796,6 +807,42 @@ def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
     return presentes
 
 
+def _meteo_rendue(evaluations: list[Evaluation]) -> MeteoTrace | None:
+    """La première météo réellement obtenue — celle qui sait quel modèle a répondu."""
+    return next((e.meteo for e in evaluations if e.meteo is not None), None)
+
+
+def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
+    """Nomme le modèle météo qui a **répondu**, et le dit haut quand c'est un repli.
+
+    Cette ligne annonçait le modèle *configuré* et son second avis. Depuis que
+    le repli de Q19 s'applique aussi à `boucle`, ce serait un mensonge une
+    fois sur deux : le tableau montrerait la pluie d'`icon_seamless` sous un
+    en-tête qui nomme AROME. Même phrase et même raison que
+    `sortie.commande._ligne_modele_meteo` — règle absolue 5 : quand un seul
+    des deux modèles a pu répondre, c'est encore une divergence à dire.
+    """
+    meteo = _meteo_rendue(evaluations)
+    if meteo is None or not meteo.modele_utilise:
+        return f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}"
+    if meteo.repli:
+        return (
+            f"Météo : {config.meteo.modele} ne couvre pas cette fenêtre — bascule sur "
+            f"{meteo.modele_utilise} (second avis, configuré en repli)."
+        )
+    return (
+        f"Météo {meteo.modele_utilise}, second avis {config.meteo.second_avis or 'aucun'}"
+    )
+
+
+def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
+    """L'équivalent JSON de `_ligne_modele_meteo` : même forme que `sortie`."""
+    meteo = _meteo_rendue(evaluations)
+    if meteo is None or not meteo.modele_utilise:
+        return None
+    return {"utilise": meteo.modele_utilise, "repli": meteo.repli}
+
+
 def _entete(
     demande: Demande,
     config: Config,
@@ -827,7 +874,7 @@ def _entete(
             "(lancer `ourouler calibrer`)"
         )
     if avec_meteo:
-        lignes.append(f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}")
+        lignes.append(_ligne_modele_meteo(evaluations or [], config))
     lignes.append("Tri : score (km équivalents) + pluie cumulée × 2 ; plus bas = mieux.")
     if poids:
         # D'où viennent les poids : sans cette ligne, deux exécutions
@@ -982,6 +1029,11 @@ def rendre_json(
         "sens_prefere": config.boucle.sens,
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
+        # Ce qui a **répondu**, à côté de ce qui est configuré. Même forme que
+        # `sortie` (`{utilise, repli}`), pour qu'un écran lise le repli de Q19
+        # de la même façon sur les deux routes de parcours. `null` quand
+        # aucune candidate n'a de météo.
+        "modele_meteo": _modele_meteo_json(evaluations),
         # Q40 (a) : l'état « pas de météo », dit une fois. `null` quand la
         # météo a répondu. Voir `meteo.portee`.
         "meteo_absente": None if meteo_absente is None else meteo_absente.json(),
