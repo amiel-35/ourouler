@@ -180,7 +180,7 @@ def charge_ou_refuse(d: dict[str, Any]) -> Config | None:
 #: une clé factice, des chiffres inventés.
 COMPLETE = {
     "depart": {"nom": "Large", "latitude": 0.0, "longitude": 0.0},
-    "cycliste": {"masse_kg": 72.5, "ftp_w": 263},
+    "cycliste": {"masse_kg": 72.5, "ftp_w": 263, "prenom": "Camille", "nom": "Ruiz"},
     "velos": [
         {
             "nom": "Route",

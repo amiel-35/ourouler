@@ -27,6 +27,25 @@ def test_config_minimale():
     assert not c.intervals.renseigne
 
 
+def test_cycliste_prenom_nom_absents_se_chargent_vides():
+    """Une configuration écrite avant ce lot n'a ni prénom ni nom — elle continue de se charger.
+
+    C'est l'obligation qui est nouvelle (assistant), pas le chargement : voir
+    la docstring de `Cycliste.prenom`. Inventer un nom à la place violerait la
+    règle absolue 1 ; refuser le chargement casserait toute configuration
+    existante, y compris celle du mainteneur.
+    """
+    c = depuis_dict(BASE)
+    assert c.cycliste.prenom == ""
+    assert c.cycliste.nom == ""
+
+
+def test_cycliste_prenom_nom_fournis_se_chargent():
+    c = depuis_dict({**BASE, "cycliste": {**BASE["cycliste"], "prenom": "Camille", "nom": "Ruiz"}})
+    assert c.cycliste.prenom == "Camille"
+    assert c.cycliste.nom == "Ruiz"
+
+
 def test_velos_et_periodes():
     d = dict(BASE)
     d["velos"] = [

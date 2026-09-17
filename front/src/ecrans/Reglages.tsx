@@ -1,8 +1,14 @@
 /** E21 · E22 — profil et réglages.
  *
- * Quatre groupes, dans l'ordre où on y revient : ce qui change souvent en
- * haut — un poids bouge, une FTP progresse — et ce qui ne se touche qu'une
- * fois en bas.
+ * Cinq groupes, dans l'ordre où on y revient : l'identité, qui ne bouge
+ * presque jamais, puis ce qui change souvent — un poids bouge, une FTP
+ * progresse — et enfin ce qui ne se touche qu'une fois, en bas.
+ *
+ * **Identité (prénom, nom) reprend l'écran E8 de l'assistant** (Q36,
+ * 17/09/2026 : « nom prénom obligatoire car c'est la base »). Un profil créé
+ * avant ce lot peut arriver ici avec les deux champs vides — ce n'est pas une
+ * panne, `Cycliste.prenom`/`nom` restent optionnels au chargement pour cette
+ * raison précise — et ce panneau est l'endroit où le compléter.
  *
  * Ce que le lot F2 ne peut pas porter le dit en toutes lettres au lieu
  * d'afficher un bouton qui refuse : les clés d'accès, l'export et la
@@ -18,7 +24,7 @@ import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
-type Volet = "ftp" | "poids" | "depart" | "velos" | "intervals" | null;
+type Volet = "identite" | "ftp" | "poids" | "depart" | "velos" | "intervals" | null;
 
 interface Props {
   profil: Profil;
@@ -31,6 +37,8 @@ interface Props {
 export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstallation }: Props) {
   const [volet, setVolet] = useState<Volet>(null);
   const [poids, setPoids] = useState(String(profil.cycliste.masse_kg));
+  const [prenom, setPrenom] = useState(profil.cycliste.prenom ?? "");
+  const [nom, setNom] = useState(profil.cycliste.nom ?? "");
   const [cle, setCle] = useState("");
   const [panne, setPanne] = useState<string | null>(null);
   const [dit, setDit] = useState<string | null>(null);
@@ -68,6 +76,57 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
 
       {dit ? <div className="encart bien">{dit}</div> : null}
       {panne ? <div className="encart alerte">{panne}</div> : null}
+
+      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+        <div className="rangee">
+          <span className="cle">Identité</span>
+          <button type="button" className="val lien texte" onClick={() => basculer("identite")}>
+            {profil.cycliste.prenom || profil.cycliste.nom
+              ? `${profil.cycliste.prenom} ${profil.cycliste.nom}`.trim()
+              : "à renseigner"}
+          </button>
+        </div>
+      </div>
+
+      {volet === "identite" ? (
+        <div className="bloc">
+          <div className="champ">
+            <label htmlFor="reglages-prenom">Prénom</label>
+            <input
+              className="saisie"
+              id="reglages-prenom"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+            />
+          </div>
+          <div className="champ">
+            <label htmlFor="reglages-nom">Nom</label>
+            <input
+              className="saisie"
+              id="reglages-nom"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+            />
+            <div className="aide">
+              La base du compte (17/09/2026). Aucun calcul ne s'en sert aujourd'hui ; l'usage
+              prévu est le compte multi-utilisateurs du lot F3.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="bouton"
+            disabled={prenom.trim() === "" || nom.trim() === ""}
+            onClick={() =>
+              enregistrer(
+                { cycliste: { prenom: prenom.trim(), nom: nom.trim() } },
+                "Identité enregistrée.",
+              )
+            }
+          >
+            Enregistrer
+          </button>
+        </div>
+      ) : null}
 
       <div className="bloc doux" style={{ padding: "4px 14px" }}>
         <div className="rangee">

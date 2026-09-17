@@ -246,6 +246,30 @@ def test_le_profil_porte_les_trois_valeurs_de_l_ecran_de_ftp(tmp_path: Path):
     assert vitesse["facteur_mesure"] is False  # aucun facteur réglé dans la config de test
 
 
+def test_le_profil_expose_prenom_et_nom_vides_pour_une_config_anterieure(tmp_path: Path):
+    """`CONFIG_TOML` ne porte ni prénom ni nom (elle date d'avant le lot) : le
+    profil continue de se servir, avec des chaînes vides — pas une panne, pas
+    un champ manquant."""
+    profil = serveur(tmp_path).get("/api/v1/profil").json()["donnees"]
+    assert profil["cycliste"]["prenom"] == ""
+    assert profil["cycliste"]["nom"] == ""
+
+
+def test_modifier_le_profil_enregistre_prenom_et_nom(tmp_path: Path):
+    client = serveur(tmp_path)
+    reponse = client.patch("/api/v1/profil", json={"cycliste": {"prenom": "Camille", "nom": "Ruiz"}})
+    assert reponse.status_code == 200
+    assert reponse.json()["donnees"]["cycliste"]["prenom"] == "Camille"
+    assert reponse.json()["donnees"]["cycliste"]["nom"] == "Ruiz"
+    # Une modification indépendante (ex. la FTP) ne perd pas l'identité déjà
+    # enregistrée, et ne l'exige pas non plus : l'obligation est côté
+    # assistant, pas une contrainte de chaque écriture.
+    client.patch("/api/v1/profil", json={"cycliste": {"ftp_w": W.FTP_TEST + 5}})
+    profil = client.get("/api/v1/profil").json()["donnees"]
+    assert profil["cycliste"]["prenom"] == "Camille"
+    assert profil["cycliste"]["ftp_w"] == W.FTP_TEST + 5
+
+
 def test_modifier_le_profil_change_la_ftp_et_deplace_les_zones(tmp_path: Path):
     client = serveur(tmp_path)
     avant = client.get("/api/v1/profil/zones").json()["donnees"]

@@ -1,16 +1,24 @@
-/** E9 · E10 · E11 · E12 — s'installer. Cinq étapes, et un récapitulatif.
+/** E8 · E9 · E10 · E11 · E12 — s'installer. Six étapes, et un récapitulatif.
  *
- * L'ordre n'est pas administratif : il va du **bloquant** — sans départ et
- * sans FTP, rien ne tourne — vers le **reportable** : Intervals peut se
- * brancher un mois plus tard, et l'étape se saute.
+ * L'ordre n'est pas administratif : il va du **bloquant** — sans identité,
+ * sans départ et sans FTP, rien ne tourne — vers le **reportable** :
+ * Intervals peut se brancher un mois plus tard, et l'étape se saute.
  *
- * **L'étape d'identité n'existe pas, et c'est voulu.** Ce n'est pas un
- * oubli : c'est la question ouverte n° 4 des maquettes (« l'âge, et ce
- * qu'on en fait »), et l'API n'a aucun champ où ranger un nom ou un âge —
- * `CHAMPS_MODIFIABLES` couvre le départ, le poids, la FTP, la position dans
- * la zone, les vélos et la clé Intervals, rien d'autre. Fabriquer l'écran
- * aurait demandé d'inventer un stockage : la première étape dit donc ce que
- * l'assistant va demander, et ce qu'il ne demandera pas.
+ * **L'étape d'identité existe maintenant, et elle ouvre le parcours.**
+ * Décision du mainteneur (17/09/2026, Q36) : « nom prénom obligatoire car
+ * c'est la base, voilà, point. » Ça reste cohérent avec la réponse qui l'a
+ * précédée — l'assistant *est* la création du profil, il n'y a pas d'étape
+ * « identité » séparée du reste — celle-ci porte simplement les deux
+ * premiers champs de `cycliste`. `CHAMPS_MODIFIABLES` (`api/depots.py`)
+ * couvre désormais `cycliste.prenom` et `cycliste.nom`, au même titre que la
+ * FTP et le poids.
+ *
+ * Rien n'en dépend dans le calcul : ni le modèle physique, ni les zones, ni
+ * la tenue (règle absolue 5 — on ne prétend pas à un usage qui n'existe
+ * pas). L'usage réel attend le lot F3 des comptes multi-utilisateurs :
+ * e-mail d'invitation, affichage d'un compte parmi plusieurs. Jusque-là,
+ * c'est une donnée de compte pure, et l'écran le dit plutôt que de laisser
+ * croire à autre chose.
  */
 
 import { useState } from "react";
@@ -21,7 +29,7 @@ import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
-const ETAPES = ["Ce qu'on va vous demander", "Votre puissance", "Votre départ", "Votre vélo", "intervals.icu", "C'est prêt"];
+const ETAPES = ["Votre identité", "Votre puissance", "Votre départ", "Votre vélo", "intervals.icu", "C'est prêt"];
 
 interface Props {
   profil: Profil;
@@ -38,6 +46,8 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
   const [usageVelo, setUsageVelo] = useState(profil.velos[0]?.usage ?? "route");
   const [poidsVelo, setPoidsVelo] = useState(String(profil.velos[0]?.masse_kg ?? 8));
   const [poids, setPoids] = useState(String(profil.cycliste.masse_kg));
+  const [prenom, setPrenom] = useState(profil.cycliste.prenom ?? "");
+  const [nom, setNom] = useState(profil.cycliste.nom ?? "");
   const [cle, setCle] = useState("");
 
   async function enregistrer(sections: Record<string, unknown>) {
@@ -72,7 +82,7 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
           <h1>
             {
               [
-                "Quatre minutes, et c'est réglé",
+                "Comment vous appelez-vous ?",
                 "Quelle est votre FTP ?",
                 "D'où partez-vous ?",
                 "Avec quoi roulez-vous ?",
@@ -88,9 +98,31 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
 
       {etape === 0 ? (
         <>
+          <div className="champ">
+            <label htmlFor="cycliste-prenom">Prénom</label>
+            <input
+              className="saisie"
+              id="cycliste-prenom"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+            />
+          </div>
+          <div className="champ">
+            <label htmlFor="cycliste-nom">Nom</label>
+            <input
+              className="saisie"
+              id="cycliste-nom"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+            />
+            <div className="aide">
+              La base du compte. On ne vous demande pas votre âge : rien ne s'en sert
+              aujourd'hui, ni dans le calcul ni ailleurs.
+            </div>
+          </div>
           <div className="bloc doux">
             <div className="bloc-tete">
-              <h2>On va vous demander</h2>
+              <h2>Et ensuite, on va vous demander</h2>
             </div>
             <div className="etapes">
               <div className="etape">
@@ -127,13 +159,18 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
               </div>
             </div>
           </div>
-          <div className="encart info">
-            <b>On ne vous demande ni votre nom ni votre âge.</b> Ni l'un ni l'autre ne servent
-            à quoi que ce soit dans le calcul aujourd'hui, et on préfère ne pas garder ce
-            dont on ne se sert pas.
-          </div>
-          <button type="button" className="bouton" onClick={suivant}>
-            Commencer
+          <button
+            type="button"
+            className="bouton"
+            disabled={prenom.trim() === "" || nom.trim() === ""}
+            onClick={async () => {
+              const bon = await enregistrer({
+                cycliste: { prenom: prenom.trim(), nom: nom.trim() },
+              });
+              if (bon) suivant();
+            }}
+          >
+            Continuer
           </button>
         </>
       ) : null}
@@ -349,6 +386,12 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
       {etape === 5 ? (
         <>
           <div className="bloc doux" style={{ padding: "4px 14px" }}>
+            <div className="rangee">
+              <span className="cle">Identité</span>
+              <span className="val texte">
+                {profil.cycliste.prenom} {profil.cycliste.nom}
+              </span>
+            </div>
             <div className="rangee">
               <span className="cle">FTP</span>
               <span className="val">{nombre(zones.ftp_w)} W</span>

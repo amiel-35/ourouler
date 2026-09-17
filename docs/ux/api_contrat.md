@@ -73,7 +73,7 @@ change pas sans changer la version de l'API.
 | GET | `/api/v1/systeme` | version, capacités (Intervals, BRouter, vélos), budgets |
 | GET | `/api/v1/systeme/budgets` | combien de temps chaque opération prend **ici**, et d'où vient le chiffre |
 | GET | `/api/v1/profil` | le profil du cycliste, clé masquée |
-| PATCH | `/api/v1/profil` | modifie départ, poids, FTP, position dans la zone, vélos, clé Intervals — le schéma de ce qu'elle accepte est engendré de `depots.CHAMPS_MODIFIABLES` |
+| PATCH | `/api/v1/profil` | modifie identité (prénom, nom), départ, poids, FTP, position dans la zone, vélos, clé Intervals — le schéma de ce qu'elle accepte est engendré de `depots.CHAMPS_MODIFIABLES` |
 | GET | `/api/v1/profil/zones` | l'escalier des zones en watts + les trois valeurs liées |
 | POST | `/api/v1/profil/zones/apercu` | recalcule les trois valeurs **sans rien stocker** |
 | GET | `/api/v1/geocodage?adresse=` | **tous** les candidats, notés, **avec leur commune** — l'API ne tranche jamais |

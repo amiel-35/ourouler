@@ -46,7 +46,11 @@ from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 #: `historique_depuis` (Q6, il se change en connaissance de cause).
 CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
     "depart": ("nom", "latitude", "longitude"),
-    "cycliste": ("masse_kg", "ftp_w"),
+    # « prenom » et « nom » : identité du compte, obligatoire pour tout
+    # profil créé par l'assistant depuis le 17/09/2026 (Q36) — mais un profil
+    # antérieur qui ne les porte pas se charge et se modifie normalement
+    # (`Cycliste.prenom`, `config.py`). Aucun calcul ne s'en sert aujourd'hui.
+    "cycliste": ("masse_kg", "ftp_w", "prenom", "nom"),
     # La position dans la zone, et elle seule : la décision 7 interdit de
     # stocker une valeur en watts à côté d'une table qui bouge.
     "seance": ("position_zone",),
