@@ -1846,6 +1846,26 @@ champ.
 **Et l'âge n'y est plus** ([[Q39]]) : l'étape porte nom, prénom et poids, le
 poids étant le seul des trois dont le modèle physique se serve aujourd'hui.
 
+### Fait (17/09/2026) — obligatoires, avec compatibilité pour l'existant
+
+Le mainteneur a tranché la question laissée ouverte plus haut (« un nom
+d'affichage est-il autre chose qu'un confort ? ») : « nom prénom obligatoire
+car c'est la base, voilà, point. »
+
+`Cycliste` porte désormais `prenom` et `nom` ; `CHAMPS_MODIFIABLES` les
+accepte. L'obligation est une règle de **parcours** : l'assistant (première
+étape, ex-« identité ») refuse de continuer sans les deux, comme il refusait
+déjà sans point de départ. Ce n'est pas une règle de **chargement** — les
+deux champs restent optionnels dans `Cycliste` (chaîne vide par défaut), pour
+qu'une configuration écrite avant ce lot, la mienne comprise, continue à se
+charger et à se modifier sans qu'on lui invente un nom. Même traitement que
+la migration `puissance_endurance_pct` → `position_zone` et que la colonne
+propriétaire des dépôts.
+
+Aucun calcul ne s'en sert aujourd'hui. L'usage réel attend le lot F3 des
+comptes multi-utilisateurs (e-mail d'invitation, affichage) — écrit tel quel
+dans le code et l'écran, règle absolue 5.
+
 ## Q37 — Les sept promesses des maquettes que l'API ne tient pas, et qui demandent chacune un arbitrage
 
 Contexte : les 105 tests de contrat écrits en aveugle du code de l'API ont été

@@ -60,7 +60,7 @@ export const PROFIL: Simple<Profil> = {
   proprietaire: "essai",
   donnees: {
     depart: DEPART,
-    cycliste: { masse_kg: 63.4, ftp_w: 211 },
+    cycliste: { masse_kg: 63.4, ftp_w: 211, prenom: "Alix", nom: "Fictif" },
     velos: [
       {
         nom: "Le vert",

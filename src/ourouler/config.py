@@ -74,6 +74,32 @@ class Cycliste:
     masse_kg: float
     ftp_w: float
 
+    #: Identité du compte. Décision du mainteneur (17/09/2026, Q36) : « nom
+    #: prénom obligatoire car c'est la base, voilà, point. » L'assistant de
+    #: configuration **est** la création du profil (Q36) — il n'y a pas
+    #: d'étape « identité » séparée des autres — et il refuse maintenant de
+    #: continuer sans les deux, au même titre que sans point de départ.
+    #:
+    #: **Optionnels ici, dans le cœur, et c'est volontaire.** L'obligation est
+    #: une règle de *parcours* (l'assistant), pas une règle de *chargement* :
+    #: une configuration écrite avant ce lot — celle du mainteneur comprise —
+    #: ne porte ni l'un ni l'autre, et doit continuer à se charger et à se
+    #: modifier (FTP, poids, vélos, tout le reste) sans qu'on lui invente un
+    #: nom. Même traitement que la migration `puissance_endurance_pct` →
+    #: `position_zone` (`_position_zone`, plus bas) et que la colonne
+    #: propriétaire des dépôts (`api/depots.py`) : ce qui existait déjà
+    #: continue de tourner, la nouvelle règle s'applique à ce qui s'écrit à
+    #: partir de maintenant. Une valeur absente reste une chaîne vide, jamais
+    #: un nom inventé — la règle absolue 1 l'interdirait de toute façon.
+    #:
+    #: **Aucun calcul du cœur ne s'en sert aujourd'hui** — ni le modèle
+    #: physique, ni les zones, ni la tenue (règle absolue 5 : on n'affirme pas
+    #: un usage qui n'existe pas). L'usage réel attend le lot F3 des comptes
+    #: multi-utilisateurs : l'e-mail d'invitation et l'affichage d'un compte
+    #: parmi plusieurs. Jusque-là, c'est une donnée de compte pure.
+    prenom: str = ""
+    nom: str = ""
+
 
 @dataclass(frozen=True)
 class Periode:
@@ -512,6 +538,11 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         cycliste=Cycliste(
             masse_kg=_nombre(cycliste, "masse_kg", "cycliste", 20, 300),
             ftp_w=_nombre(cycliste, "ftp_w", "cycliste", 50, 1000),
+            # Absents dans toute configuration écrite avant ce lot : une
+            # chaîne vide, jamais un refus de chargement (voir la docstring
+            # de `Cycliste.prenom`).
+            prenom=str(cycliste.get("prenom", "") or ""),
+            nom=str(cycliste.get("nom", "") or ""),
         ),
         velos=velos,
         meteo=ParametresMeteo(

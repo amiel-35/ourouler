@@ -69,7 +69,11 @@ export interface VeloProfil {
 
 export interface Profil {
   depart: PointDepart;
-  cycliste: { masse_kg: number; ftp_w: number };
+  /** `prenom`/`nom` : identité du compte, obligatoire depuis l'assistant (Q36,
+   * 17/09/2026), mais peuvent revenir vides pour un profil créé avant ce lot —
+   * jamais absents. Aucun calcul ne s'en sert aujourd'hui ; l'usage prévu est
+   * le compte multi-utilisateurs du lot F3 (e-mail d'invitation, affichage). */
+  cycliste: { masse_kg: number; ftp_w: number; prenom: string; nom: string };
   velos: VeloProfil[];
   seance: {
     position_zone: number;

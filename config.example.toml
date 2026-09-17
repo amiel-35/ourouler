@@ -10,6 +10,14 @@ longitude = -0.5000   # (47.0, -1.0) tombait à 48 km de Nantes, sous le seuil d
 [cycliste]
 masse_kg = 75.0
 ftp_w = 250
+# Identité du compte, obligatoire pour tout profil créé par l'assistant
+# (décision du 17/09/2026) — mais un fichier plus ancien qui ne les porte
+# pas continue de se charger et de se modifier normalement. Aucun calcul ne
+# s'en sert aujourd'hui ; l'usage prévu est le compte multi-utilisateurs du
+# lot F3 (e-mail d'invitation, affichage). Champs vides ici à dessein :
+# inventer un nom mettrait une donnée personnelle dans un fichier versionné.
+prenom = ""
+nom = ""
 
 [[velos]]
 nom = "Route"
