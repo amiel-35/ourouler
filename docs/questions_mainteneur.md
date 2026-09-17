@@ -2246,3 +2246,59 @@ au-delà on sert une donnée que le modèle a déjà remplacée.
 entre utilisateurs **différents**. Des copains rennais partageraient
 beaucoup ; un ami nantais, rien. Le gain dépend de la densité géographique
 des invités, pas du produit — et ne se mesurera qu'avec de vrais comptes.
+
+
+## Q43 — Le tracé se distingue par lui-même : l'exigence d'axe tombe — **17/09/2026**
+
+**Trouvé en utilisant le produit.** Le mainteneur demande une sortie de 2 h le
+samedi 19 et reçoit « pas de sortie trouvée » à cinq candidates, deux à huit.
+Reproduit en ligne de commande : la génération rend **5 candidates sur 5 et 8
+sur 8**, toutes entre −6 % et +9 % de la cible. Ce ne sont donc pas les boucles
+qui manquent.
+
+C'est le **contraste** qui les élimine, et le message le dit :
+
+> soit elles empruntaient plus de 25 % des mêmes routes, **soit** l'une des
+> trois ne se distinguait des deux autres sur aucun axe d'une marge
+> perceptible. Ce jour-là, l'orientation au vent, les demi-tours, la durée, la
+> ville, la pluie et le terrain sous les blocs valaient la même chose sur
+> toutes : il ne restait que les nationales.
+
+**Et chercher plus loin aggrave le résultat.** À cinq candidates, trois axes
+distinguaient encore (durée, ville, nationales) ; à huit, un seul (les
+nationales). Plus on génère, plus deux candidates finissent par se ressembler
+— et un seul doublon dans un trio le disqualifie entièrement.
+
+### La réponse du mainteneur
+
+> « oui, et en fait le parcours lui-même est distinctif en soi. »
+
+**Le recouvrement mesure déjà ça.** Deux boucles qui partagent moins de 25 %
+de leurs routes vont à des endroits différents, et la carte le montre en une
+seconde. L'exigence supplémentaire de se distinguer **sur un axe mesuré**
+visait les *descriptions*, pas les tracés — et elle empêche aujourd'hui de
+montrer trois routes franchement différentes sous prétexte qu'on ne sait pas
+dire en une phrase ce qui les sépare.
+
+**Décision : le recouvrement devient le seul verrou.** Trois boucles sous
+`SEUIL_RECOUVREMENT` sont trois propositions. Chacune dit ce qu'elle a de
+vrai, sans qu'on exige un écart minimal entre les phrases.
+
+### Ce que ce renversement coûte, assumé
+
+Au sprint 5, le mainteneur avait posé l'exigence inverse : *« trois
+propositions ne servent à rien si elles se ressemblent, et les trois
+premières d'un même classement se ressemblent souvent »*. C'est cette phrase
+qui avait fait naître l'axe de marge perceptible.
+
+Le risque accepté aujourd'hui : **parfois, trois propositions porteront
+presque la même phrase**. Le mainteneur juge que la carte parle d'elle-même,
+ce qu'elle ne faisait pas au sprint 5 — à l'époque, la page du jour n'avait
+pas encore la géométrie des trois tracés en JSON (lot F0.1).
+
+### Une piste qui ne coûte rien et qui manque
+
+Le **dénivelé** n'est pas un axe de distinction aujourd'hui. Or 358 m sur
+59,5 km et 700 m sur la même distance ne se ressemblent pas du tout à rouler.
+Il est déjà mesuré et déjà affiché — il lui manque seulement d'entrer dans ce
+qui distingue une proposition d'une autre.
