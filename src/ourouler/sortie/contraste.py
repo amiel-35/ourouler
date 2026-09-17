@@ -527,6 +527,65 @@ class Retenue:
     distinction: str
 
 
+#: Le sort d'une candidate au contraste — trois valeurs, et pas une de plus.
+#:
+#: `SORT_PLACE_PRISE` n'est **pas** un refus : cette candidate allait bien
+#: ailleurs, le trio était simplement complet avant elle. Les confondre avec
+#: les vraies écartées ferait croire à un défaut là où il n'y en a pas.
+SORT_RETENUE = "retenue"
+SORT_TROP_PROCHE = "trop_proche"
+SORT_PLACE_PRISE = "place_prise"
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """Ce que le contraste a décidé d'**une** candidate, et contre laquelle.
+
+    Le lot F2.4 existe parce que ce verdict était invisible : le produit
+    montrait ce qu'il retenait, jamais ce qu'il jetait ni pourquoi. Un motif
+    littéraire n'y suffit pas — ce qui décide est un **pourcentage de routes
+    communes avec une proposition nommée**, et c'est ce que cette structure
+    porte.
+
+    `rang` est la place de la candidate dans la liste passée à `choisir`, et
+    `numero` son numéro affiché : `sortie.commande` numérote les propositions
+    **avant** d'appeler, dans l'ordre du tri, donc `numero == rang + 1`. Les
+    deux sont rendus pour qu'un consommateur n'ait pas à le redécouvrir.
+    """
+
+    rang: int
+    numero: int
+    sort: str
+    #: Le recouvrement le plus fort avec une **retenue** (avec une *autre*
+    #: retenue, quand le sujet en est une lui-même), et le numéro de celle-ci.
+    #: `None` seulement quand il n'y a rien à comparer : une seule retenue, et
+    #: c'est elle.
+    recouvrement_max: float | None
+    contre_numero: int | None
+    #: La phrase du cœur, dans les termes qui décident vraiment. Écrite ici et
+    #: pas côté affichage : un pourcentage de recouvrement ne se recalcule pas
+    #: dans un navigateur (doctrine §10.2).
+    motif: str
+
+
+@dataclass(frozen=True)
+class Essais:
+    """Ce que la recherche exhaustive a essayé, et comment les groupes tombent.
+
+    **C'est le chiffre qui rend visible le point de conception** : un groupe
+    est disqualifié dès qu'**une seule** de ses paires dépasse le seuil. La
+    médiane des recouvrements ne prédit donc rien — quatre candidates bien
+    distinctes dans l'ensemble, une paire à 55 %, et le compte tombe à deux.
+    `refuses_par_une_paire` compte les groupes qui ne tombent que sur une
+    paire : c'est la mesure de cette phrase, pas son affirmation.
+    """
+
+    taille: int
+    essayes: int
+    valides: int
+    refuses_par_une_paire: int
+
+
 @dataclass
 class Selection:
     """Les propositions retenues, et ce qu'il y a d'honnête à dire dessus."""
@@ -541,6 +600,23 @@ class Selection:
     motif_equivalence: str | None = None
     #: Recouvrements deux à deux des retenues, pour l'affichage et le JSON.
     recouvrements: dict[tuple[int, int], float] = field(default_factory=dict)
+    #: Le seuil effectivement appliqué — celui de l'appel, pas la constante :
+    #: un affichage qui relirait `SEUIL_RECOUVREMENT` mentirait dès qu'un
+    #: appelant en passe un autre.
+    seuil_recouvrement: float = SEUIL_RECOUVREMENT
+    #: Le sort de **toutes** les candidates, retenues comprises, dans l'ordre
+    #: du tri (lot F2.4).
+    verdicts: list[Verdict] = field(default_factory=list)
+    #: Les recouvrements deux à deux de **toutes** les candidates, par rang.
+    #: C'est la matrice que l'écran d'arbitrage dessine : une case au-dessus
+    #: du seuil suffit à interdire tout groupe qui contient ses deux boucles.
+    recouvrements_candidates: dict[tuple[int, int], float] = field(default_factory=dict)
+    #: Ce que la recherche a essayé à la taille demandée. `None` quand il n'y
+    #: avait pas assez de candidates pour former un seul groupe.
+    essais: Essais | None = None
+    #: La phrase mesurée qui dit ce que `essais` établit. `None` quand il n'y
+    #: a rien à dire — aucun groupe n'a pu être essayé.
+    phrase_arbitrage: str | None = None
 
 
 def choisir(
@@ -596,14 +672,162 @@ def choisir(
         )
         for p, axe in zip(groupe, attribution, strict=True)
     ]
-    selection = Selection(retenues=retenues)
+    selection = Selection(retenues=retenues, seuil_recouvrement=seuil_recouvrement)
     if len(retenues) < combien:
         selection.motif_deux_propositions = _motif(len(retenues), combien, len(propositions))
     selection.motif_equivalence = _motif_equivalence(retenues)
     for i in range(len(groupe)):
         for j in range(i + 1, len(groupe)):
             selection.recouvrements[(i, j)] = mesure.entre(groupe[i].trace, groupe[j].trace)
+
+    # L'arbitrage rendu visible (lot F2.4). Toutes les paires sont mesurées, y
+    # compris celles que `_meilleur_groupe` n'a pas eu besoin de regarder : la
+    # matrice complète est ce qui montre qu'une seule case rouge suffit à
+    # interdire un trio. Les mailles sont déjà en cache, ça ne coûte rien.
+    rang_de = {id(p): rang for rang, p in enumerate(propositions)}
+    selection.recouvrements_candidates = {
+        (i, j): mesure.entre(propositions[i].trace, propositions[j].trace)
+        for i in range(len(propositions))
+        for j in range(i + 1, len(propositions))
+    }
+    rangs_retenus = [rang_de[id(p)] for p in groupe]
+    selection.verdicts = _verdicts(
+        len(propositions),
+        rangs_retenus,
+        selection.recouvrements_candidates,
+        seuil_recouvrement,
+        combien,
+    )
+    selection.essais = _essais(
+        len(propositions), combien, selection.recouvrements_candidates, seuil_recouvrement
+    )
+    selection.phrase_arbitrage = _phrase_arbitrage(selection.essais, seuil_recouvrement)
     return selection
+
+
+def _paire(recouvrements: dict[tuple[int, int], float], i: int, j: int) -> float:
+    """Le recouvrement de la paire {i, j}, rangée dans l'ordre croissant."""
+    return recouvrements[(i, j) if i < j else (j, i)]
+
+
+def _verdicts(
+    combien_candidates: int,
+    rangs_retenus: list[int],
+    recouvrements: dict[tuple[int, int], float],
+    seuil: float,
+    combien: int,
+) -> list[Verdict]:
+    """Le sort de chaque candidate, et la phrase qui le dit.
+
+    Une candidate hors du groupe est comparée aux **retenues**, et à elles
+    seules : c'est contre le groupe servi qu'elle a perdu, pas contre une
+    combinaison qu'on n'a pas gardée. Son recouvrement le plus fort décide —
+    au-dessus du seuil elle est écartée par cette paire-là, en dessous elle
+    était acceptable et c'est la place qui manquait.
+    """
+    retenus = set(rangs_retenus)
+    verdicts = []
+    for rang in range(combien_candidates):
+        autres = [r for r in rangs_retenus if r != rang]
+        couples = [(_paire(recouvrements, rang, r), r) for r in autres]
+        pire, contre = max(couples) if couples else (None, None)
+        if rang in retenus:
+            sort = SORT_RETENUE
+        elif pire is not None and pire > seuil:
+            sort = SORT_TROP_PROCHE
+        else:
+            sort = SORT_PLACE_PRISE
+        verdicts.append(
+            Verdict(
+                rang=rang,
+                numero=rang + 1,
+                sort=sort,
+                recouvrement_max=pire,
+                contre_numero=None if contre is None else contre + 1,
+                motif=_motif_verdict(sort, pire, contre, seuil, combien),
+            )
+        )
+    return verdicts
+
+
+def _motif_verdict(
+    sort: str, pire: float | None, contre: int | None, seuil: float, combien: int
+) -> str:
+    """La phrase d'un verdict — un pourcentage et un numéro, jamais de la prose.
+
+    « 55 % des mêmes routes que la n° 1 » : c'est le critère qui a vraiment
+    décidé, dit dans ses propres termes. Le mainteneur a demandé à voir ça et
+    pas une paraphrase.
+    """
+    if pire is None or contre is None:
+        return "retenue — seule proposition, il n'y a rien à comparer"
+    part = f"{pire:.0%} des mêmes routes que la n° {contre + 1}"
+    if sort == SORT_TROP_PROCHE:
+        return f"écartée : {part}, au-dessus du seuil de {seuil:.0%}"
+    if sort == SORT_PLACE_PRISE:
+        return (
+            f"assez différente ({part}, sous le seuil de {seuil:.0%}), "
+            f"mais les {combien} places étaient prises par mieux classées"
+        )
+    return f"retenue — au plus {part}, sous le seuil de {seuil:.0%}"
+
+
+def _essais(
+    combien_candidates: int,
+    combien: int,
+    recouvrements: dict[tuple[int, int], float],
+    seuil: float,
+) -> Essais | None:
+    """Combien de groupes de `combien` ont été essayés, et comment ils tombent.
+
+    Les groupes essayés sont ceux qui contiennent la tête du tri : `choisir`
+    ne la remet jamais en cause, et compter des groupes sans elle donnerait un
+    dénominateur que la recherche n'a jamais regardé.
+    """
+    if combien_candidates < combien or combien < 2:
+        return None
+    valides = 0
+    par_une_paire = 0
+    essayes = 0
+    for indices in combinations(range(1, combien_candidates), combien - 1):
+        groupe = (0, *indices)
+        essayes += 1
+        au_dessus = sum(
+            1
+            for i in range(len(groupe))
+            for j in range(i + 1, len(groupe))
+            if _paire(recouvrements, groupe[i], groupe[j]) > seuil
+        )
+        if au_dessus == 0:
+            valides += 1
+        elif au_dessus == 1:
+            par_une_paire += 1
+    return Essais(
+        taille=combien, essayes=essayes, valides=valides, refuses_par_une_paire=par_une_paire
+    )
+
+
+def _phrase_arbitrage(essais: Essais | None, seuil: float) -> str | None:
+    """Ce que les essais **mesurent**, en une phrase — jamais ce qu'on en croit.
+
+    Le point que le mainteneur veut voir sans qu'on le lui explique : un
+    groupe tombe dès qu'**une** de ses paires dépasse le seuil. La phrase ne
+    l'affirme que quand le compte le montre, et dit autre chose sinon.
+    """
+    if essais is None or essais.essayes == 0:
+        return None
+    combien = _EN_LETTRES.get(essais.taille, str(essais.taille))
+    tete = (
+        f"{essais.essayes} groupe(s) de {combien} contenant la première du tri ont été "
+        f"essayés ; {essais.valides} tiennent sous les {seuil:.0%} de routes communes"
+    )
+    if essais.refuses_par_une_paire == 0:
+        return f"{tete}."
+    return (
+        f"{tete}. {essais.refuses_par_une_paire} des refusés ne tombent que sur une "
+        "seule paire trop ressemblante : une paire suffit à disqualifier un groupe "
+        "entier, quelle que soit la moyenne des autres."
+    )
 
 
 def _meilleur_groupe(

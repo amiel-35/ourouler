@@ -12,9 +12,11 @@
  */
 
 import type {
+  Arbitrage,
   Avertissement,
   Boucle,
   Budget,
+  Ecartee,
   Enveloppe,
   Profil,
   Seance,
@@ -260,6 +262,60 @@ export const SEMAINE: Enveloppe<Semaine> = {
 };
 
 /** Une sortie à trois propositions, toutes les valeurs inventées. */
+/**
+ * L'arbitrage tel que le cœur le rendrait, pour `combien` retenues.
+ *
+ * Avec `ecartee`, une quatrième candidate partage 55 % de ses routes avec la
+ * n° 1 : c'est le cas exact du sud du départ du mainteneur, celui où quatre
+ * candidates ne rendent que deux propositions. Les chiffres sont inventés
+ * mais **cohérents** — la seule paire au-dessus du seuil est bien celle qui
+ * porte le verdict.
+ */
+function arbitrageDe(combien: number, ecartee: boolean): Arbitrage {
+  const total = combien + (ecartee ? 1 : 0);
+  const paires = [];
+  for (let a = 1; a <= total; a += 1) {
+    for (let b = a + 1; b <= total; b += 1) {
+      const part = ecartee && a === 1 && b === total ? 0.55 : 0.02 + (a + b) / 100;
+      paires.push({ a, b, recouvrement: part, au_dessus_du_seuil: part > 0.3 });
+    }
+  }
+  const candidates = Array.from({ length: total }, (_, i) => {
+    const numero = i + 1;
+    if (ecartee && numero === total) {
+      return {
+        numero,
+        sort: "trop_proche",
+        recouvrement_max: 0.55,
+        contre_numero: 1,
+        motif: "écartée : 55% des mêmes routes que la n° 1, au-dessus du seuil de 30%",
+      };
+    }
+    return {
+      numero,
+      sort: "retenue",
+      recouvrement_max: 0.07,
+      contre_numero: numero === 1 ? 2 : 1,
+      motif: "retenue — au plus 7% des mêmes routes que la n° 1, sous le seuil de 30%",
+    };
+  });
+  return {
+    seuil_recouvrement: 0.3,
+    candidates,
+    paires,
+    essais: ecartee
+      ? { taille: 3, essayes: 3, valides: 0, refuses_par_une_paire: 2 }
+      : { taille: 3, essayes: 1, valides: 1, refuses_par_une_paire: 0 },
+    phrase: ecartee
+      ? "3 groupe(s) de trois contenant la première du tri ont été essayés ; 0 tiennent " +
+        "sous les 30% de routes communes. 2 des refusés ne tombent que sur une seule " +
+        "paire trop ressemblante : une paire suffit à disqualifier un groupe entier, " +
+        "quelle que soit la moyenne des autres."
+      : "1 groupe(s) de trois contenant la première du tri ont été essayés ; 1 tiennent " +
+        "sous les 30% de routes communes.",
+  };
+}
+
 export function sortie(options?: {
   propositions?: number;
   motif?: string | null;
@@ -275,6 +331,17 @@ export function sortie(options?: {
    * ne doit alors apparaître nulle part — ce que garde un test.
    */
   horsTolerance?: boolean;
+  /**
+   * Le cas qui a motivé le lot F2.4 : quatre candidates, **une** paire à
+   * 55 %, et deux propositions seulement. Ajoute une quatrième candidate
+   * écartée au contraste et l'arbitrage qui l'explique.
+   *
+   * Les pourcentages sont ceux que l'API rendrait ; aucun n'est recalculé par
+   * l'écran, et un test le garde.
+   */
+  ecarteeAuContraste?: boolean;
+  /** Une candidate tombée **avant** le contraste, avec ou sans tracé. */
+  ecarteesAvant?: Ecartee[];
 }): Enveloppe<Sortie> {
   const combien = options?.propositions ?? 3;
   const axes = ["ville", "pluie", "vent"];
@@ -367,14 +434,16 @@ export function sortie(options?: {
           url: `/api/v1/sorties/${"c".repeat(32)}/propositions/${i + 1}/gpx`,
         },
       })),
-      candidates: Array.from({ length: combien }, (_, i) => ({
+      ecartees: options?.ecarteesAvant ?? [],
+      arbitrage: arbitrageDe(combien, Boolean(options?.ecarteeAuContraste)),
+      candidates: Array.from({ length: combien + (options?.ecarteeAuContraste ? 1 : 0) }, (_, i) => ({
         numero: i + 1,
         retenue: i === 0,
         nom: `Boucle inventée ${i + 1}`,
-        distance_km: distances[i],
-        denivele_m: denivele[i],
+        distance_km: distances[i % distances.length],
+        denivele_m: denivele[i % denivele.length],
         azimut_deg: 47 + i,
-        ecart_relatif: (distances[i] - 41.3) / 41.3,
+        ecart_relatif: (distances[i % distances.length] - 41.3) / 41.3,
         hors_tolerance: Boolean(options?.horsTolerance),
         elargissement: options?.horsTolerance ? 0.1 : 0,
         tolerance_distance: 0.1,

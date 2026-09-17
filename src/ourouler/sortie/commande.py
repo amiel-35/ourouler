@@ -229,13 +229,31 @@ class Proposition:
         return (self.placement.note_totale, self.pluie_mm * POIDS_PLUIE_TRI)
 
 
+#: Là où une candidate est tombée. `distance` : la génération n'a pas su faire
+#: la distance dans cette direction, il n'y a donc aucun tracé à montrer.
+#: `placement` : la boucle existe, c'est la séance qui n'y tenait pas — et
+#: celle-là se dessine.
+ETAPE_DISTANCE = "distance"
+ETAPE_PLACEMENT = "placement"
+
+
 @dataclass(frozen=True)
 class Ecartee:
-    """Une candidate que le placement a refusée, et le motif qu'il a rangé dans `meta`."""
+    """Une candidate que le placement a refusée, et le motif qu'il a rangé dans `meta`.
+
+    `trace` est la boucle elle-même quand elle existe (lot F2.4). Un azimut et
+    une distance ne se dessinent pas : sans la géométrie, « 8 candidates
+    écartées » restait une ligne de texte que le mainteneur ne pouvait pas
+    regarder. `None` pour un refus sur la distance — aucune boucle n'a été
+    construite dans cette direction, et inventer un tracé serait pire que de
+    n'en montrer aucun.
+    """
 
     azimut_deg: float | None
     distance_km: float
     motif: str
+    etape: str = ETAPE_PLACEMENT
+    trace: object | None = None
 
 
 @dataclass(frozen=True)
@@ -920,6 +938,7 @@ def _candidates(
                         f"élargir de {e.elargissement_requis:.0%}, on s'arrête à "
                         f"{e.elargissement_max:.0%}"
                     ),
+                    etape=ETAPE_DISTANCE,
                 )
             )
             # On garde le refus le moins sévère : c'est celui qui dit le
@@ -962,6 +981,8 @@ def _placer_toutes(
                     azimut_deg=getattr(candidate, "azimut_deg", None),
                     distance_km=trace.distance_m / 1000.0,
                     motif=str(trace.meta.get(CLE_MOTIF) or "motif non précisé"),
+                    etape=ETAPE_PLACEMENT,
+                    trace=trace,
                 )
             )
             continue
@@ -1980,11 +2001,17 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         "tolerance_egalite": contexte.config.seance.tolerance_egalite,
         "gpx": str(contexte.gpx) if contexte.gpx is not None else None,
         "carte": str(contexte.carte) if contexte.carte is not None else None,
+        # Lot F2.4 : `etape` dit **où** la candidate est tombée, et `trace` la
+        # dessine quand elle existe. Un azimut et une distance ne se dessinent
+        # pas : c'est ce qui manquait pour que « 8 candidate(s) écartée(s) »
+        # soit autre chose qu'une ligne de texte.
         "ecartees": [
             {
                 "azimut_deg": e.azimut_deg,
                 "distance_km": round(e.distance_km, 3),
                 "motif": e.motif,
+                "etape": e.etape,
+                "trace": None if e.trace is None else geometrie_json(e.trace),
             }
             for e in contexte.ecartees
         ],
@@ -2014,7 +2041,63 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         "motif_equivalence": (
             contexte.selection.motif_equivalence if contexte.selection else None
         ),
+        # Lot F2.4 : ce que le contraste a décidé de **chaque** candidate, et
+        # par quelle paire. Le produit montrait ce qu'il retenait, jamais ce
+        # qu'il jetait ni pourquoi — et c'est au contraste que les candidates
+        # du mainteneur disparaissaient.
+        "arbitrage": _arbitrage_json(contexte),
         "candidates": [_candidate_json(p) for p in propositions],
+    }
+
+
+def _arbitrage_json(contexte: _Contexte) -> dict | None:
+    """Le sort de toutes les candidates au contraste, la matrice, et ce qu'elle mesure.
+
+    `paires` porte **toutes** les paires, pas seulement celles des retenues :
+    c'est la matrice complète qui montre qu'une seule case au-dessus du seuil
+    interdit tout groupe contenant ses deux boucles. Sans elle, un lecteur
+    verrait des verdicts sans pouvoir refaire le raisonnement.
+
+    Aucun pourcentage n'est laissé à calculer en aval : `motif` et `phrase`
+    sont écrits par `sortie.contraste`, dans les termes qui décident vraiment.
+    """
+    selection = contexte.selection
+    if selection is None:
+        return None
+    return {
+        "seuil_recouvrement": selection.seuil_recouvrement,
+        "candidates": [
+            {
+                "numero": v.numero,
+                "sort": v.sort,
+                "recouvrement_max": (
+                    None if v.recouvrement_max is None else round(v.recouvrement_max, 4)
+                ),
+                "contre_numero": v.contre_numero,
+                "motif": v.motif,
+            }
+            for v in selection.verdicts
+        ],
+        "paires": [
+            {
+                "a": i + 1,
+                "b": j + 1,
+                "recouvrement": round(part, 4),
+                "au_dessus_du_seuil": part > selection.seuil_recouvrement,
+            }
+            for (i, j), part in sorted(selection.recouvrements_candidates.items())
+        ],
+        "essais": (
+            None
+            if selection.essais is None
+            else {
+                "taille": selection.essais.taille,
+                "essayes": selection.essais.essayes,
+                "valides": selection.essais.valides,
+                "refuses_par_une_paire": selection.essais.refuses_par_une_paire,
+            }
+        ),
+        "phrase": selection.phrase_arbitrage,
     }
 
 
