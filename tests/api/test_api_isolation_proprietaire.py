@@ -165,19 +165,18 @@ def test_il_y_a_bien_des_tables_a_verifier():
     assert {"troncons", "sorties", "activites"} <= tables, tables
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Le cache d'activités et l'archive météo n'ont pas de colonne `proprietaire` ; seules "
-    "les tables de `apprentissage/routes.py` l'ont. Doctrine §10.1 les voulait toutes.",
-)
 def test_chaque_table_porte_une_colonne_proprietaire():
     """Protège la migration vers l'hébergé (doctrine §10.1).
 
     « Le schéma de l'index local est écrit avec une colonne "propriétaire" en
     tête, pour que la migration soit un déplacement, pas une réécriture. »
-    `apprentissage/routes.py` l'a fait, et a même dû écrire une migration 1→2
-    pour rattraper l'oubli — la preuve par l'exemple que le rattrapage coûte.
-    Les deux autres tables n'ont rien.
+
+    Ce test était en `xfail(strict)` : `apprentissage/routes.py` était seul à
+    porter la colonne — et avait dû écrire une migration 1→2 pour rattraper
+    l'oubli, la preuve par l'exemple que le rattrapage coûte. Le 17/09/2026,
+    `activites/cache.py` et `connecteurs/openmeteo_archive.py` l'ont à leur
+    tour ; le `xfail` a donc sauté. Ce qu'il vérifie est structurel et vaut
+    pour toute table future, y compris celles de F3.
     """
     sans = [
         f"{fichier.relative_to(SOURCES)}:{nom}"

@@ -13,6 +13,7 @@ import pytest
 
 from ourouler.activites.cache import NOM_BRUT, NOM_INDEX, VERSION_SCHEMA, Cache
 from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.proprietaire import PROPRIETAIRE_LOCAL
 
 
 @pytest.fixture
@@ -412,6 +413,223 @@ def test_un_index_au_schema_1_est_migre_sans_perdre_les_fichiers_bruts(
     cache.ajouter(contenu, source="intervals", id_externe="a222", extension="gpx", meta={})
     assert {e.id_externe for e in cache.lister()} == {"a111", "a222"}
     assert len(list((dossier / NOM_BRUT).iterdir())) == 1
+
+
+# --- isolation par propriétaire (doctrine §10.1 et §10.2) ---------------------
+#
+# Il n'y a pas encore de comptes : ces tests construisent deux `Cache` sur le
+# même dossier avec deux propriétaires, ce qui est exactement ce que fera la
+# couche web en F3 — un dépôt par utilisateur authentifié, le même stockage
+# derrière. Aucune donnée réelle : les identifiants sont inventés.
+
+AUTRE = "utilisateur-b"
+
+
+#: Le schéma 2, tel qu'il était écrit : pas de colonne `proprietaire`, unicité
+#: sur `(source, id_externe|identifiant)`. Recopié ici pour que le test
+#: continue de décrire l'ancien index même quand le module ne le connaîtra plus.
+_SCHEMA_V2 = """
+CREATE TABLE activites (
+    identifiant       TEXT NOT NULL,
+    source            TEXT NOT NULL,
+    id_externe        TEXT,
+    extension         TEXT NOT NULL,
+    debut             TEXT,
+    duree_s           REAL,
+    distance_m        REAL,
+    puissance_moy_w   REAL,
+    sport             TEXT,
+    appareil          TEXT,
+    equipement        TEXT,
+    meta              TEXT NOT NULL DEFAULT '{}',
+    ajoutee_le        TEXT NOT NULL
+);
+CREATE INDEX idx_activites_debut ON activites(debut);
+CREATE INDEX idx_activites_identifiant ON activites(identifiant);
+CREATE UNIQUE INDEX idx_activites_identite
+    ON activites(source, COALESCE(id_externe, identifiant));
+"""
+
+
+def _index_v2(dossier: Path, contenu: bytes, id_externe: str) -> str:
+    """Un index au schéma 2 portant une ligne, et son fichier brut."""
+    (dossier / NOM_BRUT).mkdir(parents=True, exist_ok=True)
+    identifiant = hashlib.sha256(contenu).hexdigest()
+    (dossier / NOM_BRUT / f"{identifiant}.gpx").write_bytes(contenu)
+    with sqlite3.connect(dossier / NOM_INDEX) as cx:
+        cx.executescript(_SCHEMA_V2)
+        cx.execute(
+            "INSERT INTO activites (identifiant, source, id_externe, extension, debut, "
+            "ajoutee_le) VALUES (?,?,?,?,?,?)",
+            (identifiant, "intervals", id_externe, "gpx", "2024-03-30T09:00:00+00:00", "2024-03-30"),
+        )
+        cx.execute("PRAGMA user_version = 2")
+    return identifiant
+
+
+def test_un_cache_neuf_range_ses_lignes_sous_le_proprietaire_local(cache: Cache, activites: Path):
+    cache.ajouter(
+        octets(activites, "boucle.gpx"),
+        source="intervals",
+        id_externe="a111",
+        extension="gpx",
+        meta={},
+    )
+    with sqlite3.connect(cache.index) as cx:
+        assert cx.execute("SELECT DISTINCT proprietaire FROM activites").fetchall() == [
+            (PROPRIETAIRE_LOCAL,)
+        ]
+
+
+def test_deux_proprietaires_peuvent_avoir_la_meme_activite_intervals(
+    tmp_path: Path, activites: Path
+):
+    """Le cœur du changement d'unicité.
+
+    Avant, `(source, id_externe)` seul faisait l'identité : le second import
+    n'aurait pas levé d'erreur, il aurait **écrasé** la ligne du premier via le
+    `ON CONFLICT DO UPDATE`. La fuite la plus discrète possible.
+    """
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    a = Cache(dossier)
+    b = Cache(dossier, proprietaire=AUTRE)
+    a.ajouter(contenu, source="intervals", id_externe="a111", extension="gpx", meta={"velo": "A"})
+    b.ajouter(contenu, source="intervals", id_externe="a111", extension="gpx", meta={"velo": "B"})
+
+    assert [e.meta.get("velo") for e in a.lister()] == ["A"]
+    assert [e.meta.get("velo") for e in b.lister()] == ["B"]
+    with sqlite3.connect(dossier / NOM_INDEX) as cx:
+        assert cx.execute("SELECT COUNT(*) FROM activites").fetchone()[0] == 2
+    # Un seul fichier brut : c'est le même contenu, et le partage ne fuite pas
+    # puisque c'est l'index filtré qui donne le chemin.
+    assert len(list((dossier / NOM_BRUT).iterdir())) == 1
+
+
+def test_reimporter_la_meme_activite_converge_toujours_par_proprietaire(
+    tmp_path: Path, activites: Path
+):
+    """`--synchroniser` ne doit pas cesser d'être idempotent pour autant."""
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    a = Cache(dossier)
+    a.ajouter(contenu, source="intervals", id_externe="a111", extension="gpx", meta={})
+    a.ajouter(contenu, source="intervals", id_externe="a111", extension="gpx", meta={})
+    assert len(a.lister()) == 1
+
+
+def test_un_proprietaire_ne_voit_rien_de_ce_qui_appartient_a_un_autre(
+    tmp_path: Path, activites: Path
+):
+    """Toutes les lectures, pas seulement `lister` : c'est l'oubli habituel."""
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    a = Cache(dossier)
+    identifiant = a.ajouter(
+        contenu, source="intervals", id_externe="a111", extension="gpx", meta={}
+    )
+    b = Cache(dossier, proprietaire=AUTRE)
+
+    assert b.lister() == []
+    assert not b.contient(source="intervals", id_externe="a111")
+    assert not b.contient_identifiant(identifiant)
+    with pytest.raises(KeyError):
+        b.chemin(identifiant)
+    assert not b.mettre_a_jour_meta(source="intervals", id_externe="a111", meta={"sport": "Run"})
+    # Et l'entrée de A n'a pas bougé sous le nez de B.
+    assert a.lister()[0].sport != "Run"
+
+
+@pytest.mark.parametrize("mauvais", ["", "   ", None, 12])
+def test_un_proprietaire_vide_ou_absurde_est_refuse(tmp_path: Path, mauvais):
+    """Une clause `WHERE proprietaire = ''` ne rendrait jamais rien : la panne
+    la plus difficile à diagnostiquer est celle qui ressemble à un cache vide."""
+    with pytest.raises(ErreurUtilisateur):
+        Cache(tmp_path / "cache", proprietaire=mauvais)
+
+
+def test_un_index_au_schema_2_est_migre_sans_perdre_de_ligne(tmp_path: Path, activites: Path):
+    """Migration 2 → 3 : la colonne s'ajoute, les lignes restent, rattachées au local."""
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    identifiant = _index_v2(dossier, contenu, "a111")
+
+    cache = Cache(dossier)
+
+    (entree,) = cache.lister()
+    assert (entree.identifiant, entree.id_externe) == (identifiant, "a111")
+    assert cache.chemin(identifiant).is_file(), "le fichier brut ne doit pas bouger"
+    with sqlite3.connect(cache.index) as cx:
+        assert cx.execute("PRAGMA user_version").fetchone()[0] == VERSION_SCHEMA
+        assert cx.execute("SELECT DISTINCT proprietaire FROM activites").fetchall() == [
+            (PROPRIETAIRE_LOCAL,)
+        ]
+        # L'unicité porte bien le propriétaire, sans quoi la colonne ne
+        # protégerait rien : l'index a été refait, pas seulement recréé.
+        (sql,) = cx.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'idx_activites_identite'"
+        ).fetchone()
+        assert "proprietaire" in sql
+
+
+def test_migrer_un_index_deja_migre_ne_le_touche_pas(tmp_path: Path, activites: Path):
+    """Piège classique : une migration qui s'exécute deux fois.
+
+    Comparer les octets du fichier ne dirait rien (SQLite incrémente son
+    compteur de modifications à chaque ouverture en écriture). On mesure donc
+    les deux choses qu'une recopie changerait : la structure déclarée, et les
+    `rowid`. Un **trou** est ménagé exprès dans les rowid — une table recopiée
+    par `INSERT … SELECT` les renumérote à partir de 1, et le trou disparaît.
+    """
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    _index_v2(dossier, contenu, "a111")
+
+    cache = Cache(dossier)  # migre
+    cache.ajouter(contenu, source="intervals", id_externe="a222", extension="gpx", meta={})
+    with sqlite3.connect(dossier / NOM_INDEX) as cx:
+        cx.execute("DELETE FROM activites WHERE id_externe = 'a111'")  # rowid 1 libéré
+    empreinte = _empreinte(dossier)
+    assert empreinte[1] == [(2, "a222")], "le trou dans les rowid doit exister au départ"
+
+    Cache(dossier)
+    Cache(dossier, proprietaire=AUTRE)
+    assert _empreinte(dossier) == empreinte
+
+
+def _empreinte(dossier: Path) -> tuple[list, list]:
+    """(structure déclarée, lignes avec leur rowid) — ce qu'une recopie changerait."""
+    with sqlite3.connect(dossier / NOM_INDEX) as cx:
+        structure = cx.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall()
+        lignes = cx.execute("SELECT rowid, id_externe FROM activites ORDER BY rowid").fetchall()
+    return structure, lignes
+
+
+def test_un_index_au_schema_1_arrive_directement_au_schema_courant(
+    tmp_path: Path, activites: Path
+):
+    """L'escalier se monte d'un coup quand la table est de toute façon recopiée."""
+    dossier = tmp_path / "cache"
+    (dossier / NOM_BRUT).mkdir(parents=True)
+    contenu = octets(activites, "boucle.gpx")
+    identifiant = hashlib.sha256(contenu).hexdigest()
+    (dossier / NOM_BRUT / f"{identifiant}.gpx").write_bytes(contenu)
+    with sqlite3.connect(dossier / NOM_INDEX) as cx:
+        cx.executescript(_SCHEMA_V1)
+        cx.execute(
+            "INSERT INTO activites (identifiant, source, id_externe, extension, debut, "
+            "ajoutee_le) VALUES (?,?,?,?,?,?)",
+            (identifiant, "intervals", "a111", "gpx", "2024-03-30T09:00:00+00:00", "2024-03-30"),
+        )
+        cx.execute("PRAGMA user_version = 1")
+
+    cache = Cache(dossier)
+    assert [e.id_externe for e in cache.lister()] == ["a111"]
+    with sqlite3.connect(cache.index) as cx:
+        colonnes = {ligne[1] for ligne in cx.execute("PRAGMA table_info(activites)")}
+    assert "proprietaire" in colonnes
 
 
 # --- mise à jour des métadonnées sur place (L2.7) ------------------------------
