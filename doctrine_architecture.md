@@ -182,9 +182,12 @@ leur sprint : pas de squelette vide « pour plus tard ».
 ## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
 
 Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
-avec **authentification déléguée** (Google d'abord, Apple ensuite — plus
-contraignant), et il faut y penser tôt parce que ça a des implications
+et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
+Le **chemin d'authentification** de cette phrase (« déléguée, Google
+d'abord ») a été révisé le 16/09 et reconfirmé le 17/09 : voir §10.2, qui
+fait foi — compte chez nous sans mot de passe d'abord, Google et Apple
+ensuite et en plus.
 Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
 mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
 

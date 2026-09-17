@@ -588,8 +588,13 @@ arrivé avec le cycle discovery/UX. Ce qui reste :
   sur le disque du Mac, télécharger le GPX ne met rien sur le compteur.
   *Acceptation* : le mainteneur ouvre la page depuis son téléphone et envoie
   le GPX à Garmin Connect par le partage système, sans passer par le Mac.
-- **L7.2 — comptes et isolation.** Authentification déléguée Google
-  (doctrine §10), isolation par utilisateur **vérifiée côté serveur**.
+- **L7.2 — comptes et isolation.** **Comptes chez nous, sans mot de passe**
+  (doctrine §10.2, révisée le 16/09 et reconfirmée par le mainteneur le
+  17/09) : demande d'accès modérée à la main, lien d'invitation à usage
+  unique, puis passkey WebAuthn pour ne plus dépendre de la boîte mail.
+  Google et Apple viennent en **V2, en plus et non à la place** — la
+  modération est native ici, et l'écran d'entrée nous appartient.
+  Isolation par utilisateur **vérifiée côté serveur**.
   *Acceptation* : `tests/api/test_api_isolation_proprietaire.py` existe déjà
   et passe contre le service réel, pas seulement contre un bouchon.
 - **L7.3 — Postgres, stockage d'objets, cache météo mutualisé.** Le quota

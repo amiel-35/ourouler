@@ -3721,6 +3721,45 @@ piste ne change pas le résultat ci-dessus : elle ferait varier le Crr imposé
 d'un tronçon à l'autre autour d'une valeur de bitume, et le balayage montre que
 **toute** valeur de bitume dégrade. Elle mérite d'être notée, pas budgétée.
 
+#### Réponse du mainteneur (17/09/2026) — la littérature plutôt que la précision
+
+« Je sais pas s'il faut se prendre la tête avec autant de précision. Comme sur
+le Crr : prendre des données de la littérature, *vélo de route amateur* et
+*CLM amateur*. En V2 on permet aux gens de choisir s'il y a des spécialistes.
+Test à faire sur mes données, voir si on dérive beaucoup en simulant. Mais on
+l'a vu, CdA/Crr c'est aussi transmission, tenue, casque, etc. »
+
+**Ce que ça tranche.** Les quatre questions ci-dessus **tombent** : il n'y aura
+pas de CdA saisonnier, donc pas de coupe de saison à placer, pas de second CdA
+dans `calibration.json`, pas de question du vélo où l'effet mesure zéro. Le
+gain d'une minute est abandonné volontairement, au profit d'un modèle plus
+simple à expliquer.
+
+**Ce que ça met à la place.** Des **valeurs de littérature par catégorie de
+cycliste** — « vélo de route amateur », « CLM amateur » — au lieu d'un
+ajustement par vélo. Le dépôt en a déjà l'amorce : `physique/commande.py:42`
+porte `CDA_DEFAUT = 0.32` et `CRR_DEFAUT = 0.005`, soit une seule catégorie
+implicite. Il s'agit d'en faire une table nommée et choisie, pas une constante.
+
+**La remarque qui explique la mesure de la nuit.** « CdA/Crr c'est aussi
+transmission, tenue, casque » : ces deux paramètres ne sont pas des grandeurs
+physiques pures, ce sont des **paramètres effectifs** qui absorbent tout ce que
+le modèle ne représente pas — rendement de transmission, vêtements, casque,
+position. C'est exactement pourquoi imposer un Crr de table de surface a
+dégradé de 3,7 à 4,4 min : on retirait au couple une part d'erreur qu'il
+portait légitimement, sans donner au CdA de quoi la reprendre. La remarque du
+mainteneur et la mesure disent la même chose par deux chemins.
+
+**Le test qu'il demande, et qui reste à faire.** Simuler ses vraies sorties avec
+les valeurs de littérature de sa catégorie, au lieu de sa calibration
+personnelle, et mesurer la dérive **en minutes sur 2 h**. C'est la question que
+le sprint 8 pose de toute façon pour l'invité sans historique : « sans
+calibration personnelle, le modèle doit tourner sur des paramètres génériques
+et le dire ». La mesure répond aux deux d'un coup. **Rattachée à L8.5.**
+
+**Reporté en V2** : laisser le cycliste choisir sa catégorie, pour les
+spécialistes. Pas avant d'avoir mesuré la dérive.
+
 ## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **ouverte le 17/09/2026**
 
 La repriorisation de fin des sprints 5 et 6 a figé les lots des sprints 7
