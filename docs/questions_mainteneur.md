@@ -2787,3 +2787,761 @@ publique.
 Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
 purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
 ensemble, ils décrivent quelqu'un. Signalé, assumé.
+## Q48 — Importer son historique : par où, et ce qu'on en garde — **17/09/2026**
+
+Point de départ : les API des plateformes se ferment. Strava a durci sa
+politique au 1ᵉʳ juin 2026 — cache de sept jours, interdiction du *bulk
+export*, interdiction d'entraîner un modèle, interdiction de facturer, et une
+clause qui vise nommément le consentement de l'utilisateur (« even if a user of
+your Developer Application consents »). Garmin a gelé les nouvelles
+candidatures à son programme développeur vers septembre 2026, quelques mois
+après que Strava l'a poursuivi. Suunto n'ouvre pas son API à l'usage personnel.
+COROS demande une base d'utilisateurs établie. Wahoo reste la seule ouverte en
+libre-service.
+
+**Ce qui ne se ferme pas, c'est le fichier.** L'archive d'export appartient à
+l'athlète (portabilité, RGPD article 20), et l'aveu est écrit noir sur blanc
+dans l'interface d'Intervals.icu : *« Ces données ne sont pas soumises aux
+conditions d'utilisation de l'API. »*
+
+### Décisions du mainteneur (17/09/2026)
+
+- **V1 couvre Strava et Garmin**, et rien d'autre : ce sont les deux qu'il peut
+  vérifier lui-même, captures et import réel à l'appui (règle absolue 4).
+- **Pas de ligne de commande pour les utilisateurs** — « les gens n'auront pas
+  de CLI ». Le dépôt se fait sur le serveur. La CLI reste néanmoins le moteur
+  qu'appelle la route, et le moyen de vérifier sur les vraies données.
+- **On jette le brut, on garde le dérivé.** Les mailles de ~30 m avec leurs
+  tags OSM et leurs kilomètres roulés, plus les coefficients de calibration,
+  tiennent dans quelques kilo-octets ; les traces, elles, sont des données de
+  localisation. Quand l'algorithme change, la personne redépose son archive.
+  Écarté explicitement : garder le brut pour lui permettre de revoir ses
+  sorties — *« mais on devient un Strava bis »*.
+
+### Ce que l'import apporte, et qui n'est pas ce qu'on croit
+
+Distinction du mainteneur, et elle découpe le travail :
+
+> l'import permet de comprendre les routes, la puissance permet de comprendre
+> le niveau — c'est 2 choses
+
+| | a besoin de | couvre |
+|---|---|---|
+| **Routes** | GPS seul | tout le monde |
+| **Niveau** | puissance | les porteurs de capteur |
+
+L'import a donc une valeur immédiate et **universelle** même sans capteur : un
+cycliste sans watts obtient déjà des itinéraires qui lui ressemblent.
+
+### Le lien plutôt que le téléversement
+
+Repris d'Intervals.icu : on ne fait pas traverser une archive de plusieurs
+centaines de mégaoctets à un navigateur. La personne colle **le lien** que la
+plateforme lui a envoyé par courriel, et le serveur va chercher l'archive.
+Le téléversement reste en secours, pour qui a déjà le fichier sur son disque.
+
+Trois conséquences qui se conçoivent dès le départ, pas après :
+
+1. **Le lien est un secret.** Une URL d'export est pré-signée : quiconque la
+   détient télécharge toute l'archive. Jamais journalisée, jamais en paramètre
+   d'URL, jamais conservée après usage. Et elle expire — sept jours côté Strava.
+2. **C'est une porte ouverte sur le serveur.** Une URL arbitraire que le serveur
+   va chercher, c'est le vecteur SSRF classique : `169.254.169.254` et le
+   conteneur récite ses identifiants d'hébergement. Liste blanche de domaines,
+   refus des plages privées après résolution DNS, aucune redirection hors
+   domaine, plafond de taille et de durée.
+3. **Garmin met plusieurs jours** là où Strava met des heures. Le parcours ne
+   tient donc pas en une session : état persistant, et notification au retour.
+
+### Le mode aperçu, déjà écrit
+
+L'interface d'Intervals dit : *« Si vous ne cochez pas l'une des cases, rien ne
+sera fait et vous pourrez revoir ce qui a été trouvé. »* On lit l'archive, on
+montre ce qu'elle contient, la personne décide ensuite.
+
+La sonde écrite le 17/09 est déjà cet écran : structure de l'archive, extensions
+rencontrées, part de fichiers gzippés, taux de lecture, et couverture réelle
+(GPS, puissance, cadence, FC, température, altitude). Il lui manque une interface,
+pas un moteur.
+
+### Ce qui existe déjà dans le dépôt, et qu'il ne faut pas réécrire
+
+- `activites/lecture.py` lit FIT, GPX et TCX, depuis un chemin **ou des octets**,
+  avec les pièges Garmin couverts : repli `enhanced_altitude`/`enhanced_speed`,
+  et sessions multiples cumulées avec avertissement. La richesse Garmin restante
+  (laps, événements, champs développeur Connect IQ) vit dans des messages que le
+  lecteur ignore sans s'y casser les dents.
+- `activites/cache.py` → `indexer_dossier()` : parcours récursif, déduplication
+  par `(source, id_externe)` et SHA-256, et **un fichier abîmé ne fait pas
+  échouer l'import**.
+
+**Le seul angle mort mesuré** : les archives sont des `.zip`, et Strava gzippe
+ses fichiers à l'intérieur. `indexer_dossier` filtre sur l'extension et passera
+à côté des `.gz`.
+
+### Découpe proposée
+
+- **L1 — le dépôt** : route serveur, lien ou téléversement, décompression
+  (`.gz` compris), aperçu, extraction vers le dérivé, brut jeté, isolation par
+  propriétaire. Critère : l'export Garmin réel du mainteneur monte, et le
+  rapport dit combien lues, combien échouées, quelle couverture.
+- **L2 — le guide** : `docs/`, Garmin et Strava seulement, avec les captures du
+  mainteneur. Où demander son archive :
+  - Strava — <https://www.strava.com/athlete/download_my_account>
+  - Garmin — <https://www.garmin.com/en-US/account/datamanagement/>
+  - Polar, pour mémoire — <https://support.polar.com/fr/how-to-download-all-your-data-from-polar-flow>
+
+  **Chez Strava il y a deux pages, et le guide doit envoyer sur la bonne.**
+  Précision du mainteneur, qui les a vues connecté : l'une propose le
+  téléchargement **et** la suppression du compte, l'autre ne propose que le
+  téléchargement. C'est la seconde qui est donnée ci-dessus, et c'est la seule
+  à mettre dans le guide — la première fait refermer l'onglet à qui croit être
+  sur le point de supprimer son compte. Intervals.icu doit d'ailleurs écrire
+  « Vous n'avez pas besoin de supprimer votre compte ! », signe que la confusion
+  arrive pour de bon.
+
+  Les intitulés exacts des deux pages ne sont pas vérifiés d'ici : elles
+  demandent une session connectée. À relever en capture au moment d'écrire le
+  guide.
+- **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q49]].
+
+### Le parcours est générique — ce qui change la découpe
+
+Constaté sur trois captures d'Intervals.icu (Strava, Garmin, Polar) : **le
+parcours est rigoureusement le même**. Demander ses données à la plateforme,
+attendre le courriel, clic droit sur le bouton, copier le lien, coller.
+
+Donc une **seule** route de dépôt, et par plateforme un simple descriptif :
+
+1. le **domaine autorisé** (la liste blanche du point 2 ci-dessus) ;
+2. la **durée de validité du lien** — sept jours chez Strava, **deux semaines**
+   chez Polar, inconnue chez Garmin — pour dire « ton lien a expiré, redemande
+   une archive » plutôt que de rendre une erreur réseau ;
+3. l'**agencement interne** de l'archive, seul point qui demande un adaptateur ;
+4. le lien vers la notice de la plateforme, pour le guide.
+
+**Conséquence** : « V1 = Strava et Garmin » est une limite de **vérification**
+(règle absolue 4 — le mainteneur n'atteste que ce qu'il a fait tourner), pas une
+limite d'architecture. Ajouter Polar, COROS ou Suunto ensuite ne coûte qu'un
+descriptif, à condition que le point 3 tienne.
+
+**Réserve à lever avant de le promettre** : la notice de Polar ne dit pas dans
+quels formats elle exporte, et elle précise exclure les données dérivées de ses
+algorithmes. Si l'archive Polar contient du JSON propriétaire plutôt que des
+FIT, GPX ou TCX, `activites/lecture.py` ne la couvre pas et Polar devient un lot
+à part entière, pas un descriptif. À mesurer sur une archive réelle, jamais à
+supposer.
+
+### Reste à trancher
+
+Où ça atterrit : sprint suivant, ou lot isolé. Un sprint figé ne s'élargit pas
+en cours de route.
+
+
+## Q49 — Estimer la puissance sans capteur, et ce que ça vaut — **17/09/2026**
+
+> en fait si j'ai le terrain la vitesse le poids et la FC, une météo, je
+> commence à avoir pas mal d'info pour estimer vaguement une puissance pas trop
+> dégueu
+
+Et la précision attendue, qui change tout :
+
+> nous la puissance on s'en sert pour dériver la vitesse sur les blocs, pas pour
+> calibrer une puissance parfaite
+
+On ne cherche donc pas un FTP exact, mais une estimation assez bonne pour
+dimensionner la durée d'un bloc.
+
+### Ce n'est pas un développement, c'est une mesure
+
+Tout l'outillage existe : `physique/modele.py` → `puissance_requise(v, pente,
+vent_face, Parametres)` est l'inversion exacte ; `physique/calibration.py` sait
+découper en tronçons de 200 m avec pente, vent d'archive et densité de l'air,
+ajuster CdA et Crr aux moindres carrés avec leurs incertitudes, repérer les
+sorties en groupe, et valider sur des sorties jamais vues.
+
+### Le piège, nommé avant de mesurer
+
+Avant son Van Rysel RCR (carbone, fin 2023), le mainteneur a roulé un
+Specialized qui est un **VTC** (lourd, peu roulant) et un **Van Rysel route en
+alu** (jantes fines, non aéro).
+
+Une estimation **aveugle au vélo** rendra mécaniquement une puissance basse sur
+le VTC, qui monte à chaque changement de vélo. C'est un **artefact**, pas un
+progrès du cycliste — d'autant que la mesure du 16/09 (docstring de
+`calibration.py`) montre que sur ses deux vélos actuels, tout l'écart part dans
+le Crr et non dans le CdA.
+
+L'hypothèse du mainteneur est précisément que « c'est le vélo qui a changé, pas
+le bonhomme ». Elle se lit dans les deux sens, et on ne tranche pas à sa place :
+la manip produit **deux séries**, aveugle au vélo et consciente du vélo, et
+c'est **l'écart entre les deux** qui est le résultat.
+
+### Méthode : le verrou d'abord, et en aveugle
+
+1. **Valider là où la vérité existe.** Sur des sorties **qui ont** la puissance,
+   estimer depuis la seule vitesse + pente + vent + masse, et comparer au
+   mesuré. Biais et dispersion, à l'échelle de la sortie et du tronçon de 200 m.
+   Si l'erreur est telle que l'estimation ne vaut rien, le dire et s'arrêter :
+   c'est une réponse valide (règles absolues 4 et 5).
+2. **La masse est datée**, pas constante : le poids varie sur plusieurs années
+   et entre linéairement dans les termes de roulement et de gravité. Intervals
+   tient cet historique, et l'import Garmin le propose en case séparée.
+3. **En aveugle du FTP connu** : l'estimation est figée dans un fichier horodaté
+   avant toute consultation des valeurs de référence.
+4. **La FC ne rentre pas dans le bilan de puissance**, qui est physique. Elle
+   peut servir à repérer les sorties où la physique se trompe — aspiration en
+   peloton, arrêts prolongés.
+
+### Le FTP, et son biais
+
+Sur des sorties d'endurance sans effort maximal, un FTP dérivé d'un
+meilleur-20-minutes **sous-estime**, et d'autant plus que la période contient
+moins d'efforts francs. La série ancienne est probablement dans ce cas : à lire
+comme une série avec sa bande d'incertitude, jamais comme un chiffre.
+
+### Lancé le 17/09/2026
+
+Agent en aveugle, worktree isolé, sur les données Intervals. En attente.
+
+### Ce qui manquera probablement
+
+La **masse** et la **période d'usage** du Specialized et du Van Rysel alu : ils
+ne sont pas dans la configuration, dont l'historique démarre au 1ᵉʳ décembre
+2023 (règle absolue 6). À défaut, le résultat sort en fourchettes, avec une
+analyse de sensibilité.
+
+
+## Q50 — Déduire une zone 2 de la fréquence cardiaque, pour les cyclistes sans capteur — **17/09/2026, lot séparé**
+
+> on va devoir gérer le cas sans capteur de puissance et vaguement en déduire
+> la Z2 des gens sur leur FC — c'est un sujet à part entière
+
+**Le piège** : les formules de zones cardiaques abondent, mais pour les gens
+sans capteur on n'a **aucune vérité terrain** pour vérifier qu'on ne raconte pas
+n'importe quoi — et la règle absolue 5 interdit d'affirmer sans mesure.
+
+**La sortie** est dans les données du mainteneur : ses sorties portent puissance
+**et** FC ensemble. La méthode se calibre sur les cyclistes qui ont les deux,
+son erreur se rapporte, et elle s'applique aux autres **en affichant cette
+erreur**. Ça fait du sujet un lot mesurable au lieu d'un vœu.
+
+### La FC n'entre pas dans la physique — elle étiquette la zone
+
+Distinction posée le 17/09, après une première formulation trop raide de ma
+part. Le bilan de puissance reste **purement physique** : vitesse, pente, vent,
+masse, densité de l'air. Rien de cardiaque dedans.
+
+La FC sert d'**étiquette** : la physique dit *combien de watts*, la FC dit *dans
+quelle zone la personne était*. Le croisement répond à la question qui compte
+vraiment pour un cycliste sans capteur — **quelle puissance produit-il quand il
+roule en Z2 ?** — et cette question-là n'a pas besoin d'une FTP pour être
+posée.
+
+### Trois façons d'obtenir la bande Z2, de la pire à la meilleure
+
+1. **220 − âge → FCmax → pourcentage.** Universelle et gratuite : c'est la seule
+   information disponible pour un inconnu. Et c'est le maillon faible de toute
+   la chaîne — l'écart de la formule est large. À **mesurer** sur le mainteneur
+   plutôt qu'à citer, puisqu'il a la FC et le capteur.
+2. **La demander à la personne.** Proposition du mainteneur : beaucoup de
+   cyclistes d'endurance connaissent leur plage cardiaque de Z2. Un champ de
+   deux nombres remplace le maillon le plus faible par une donnée directe.
+3. **La dériver de ses propres données**, ce qui suppose un capteur — donc
+   circulaire pour la population visée, et hors de portée ici.
+
+**Ce qui doit être mesuré avant de trancher** : laquelle des deux erreurs
+domine, celle de la physique ou celle de l'étiquetage. Si l'étiquetage par
+l'âge coûte plus cher que tout le modèle physique, raffiner la physique ne sert
+à rien tant que la zone est posée à la louche — et le champ à deux nombres
+devient le lot, pas le modèle.
+
+**Un quatrième point de comparaison existe**, et il est gratuit : l'écart entre
+la bande que le mainteneur **déclare** de mémoire et celle que ses propres
+données montrent. Il dit ce que vaut la source 2 en pratique. Sa valeur
+déclarée n'est pas consignée ici (règle absolue 1) et n'a pas été transmise à
+l'agent pendant sa campagne en aveugle — elle sert de vérité terrain à la
+levée.
+
+### Ce qui peut salir l'étiquette
+
+- **dérive cardiaque** : à puissance constante la FC monte au fil d'une longue
+  sortie, et la même intensité change de zone en seconde moitié ;
+- **chaleur** : une Z2 de juillet et une Z2 de février n'ont pas la même FC.
+  Mesuré par ailleurs — sur le même vélo, l'hiver coûte +16,6 W à 30 km/h ;
+- **sorties en groupe** : W/bpm mesuré à +19 % en club contre +3 % ailleurs.
+  Le croisement devrait les faire ressortir seul, ce qui en fait un bon
+  contrôle de cohérence de tout l'édifice.
+
+Lot séparé, après [[Q49]].
+
+
+## Q51 — Ce que la mesure a trouvé sur [[Q49]] et [[Q50]] — **17/09/2026**
+
+Campagne en aveugle sur les données réelles, deux gels horodatés en lecture
+seule, comparaison après coup. Les chiffres qui suivent sont mesurés, pas
+supposés.
+
+### Le recadrage du mainteneur, qui change le critère d'acceptation
+
+> on ne cherche pas une perfection […] on va s'en servir pour lui donner une
+> « vitesse ». Donc c'est refaire un étalonnage pour obtenir une échelle de
+> « vitesse ».
+
+La puissance n'est **jamais le livrable**. C'est un intermédiaire vers une
+vitesse, donc vers une durée de boucle. Tout le budget d'erreur se juge dans
+cette unité-là.
+
+### Le cube sauve le produit
+
+La chaîne complète — FC → zone → tronçons → physique → watts — tient à
+**15,5 W de MAE**, soit 10,3 % de la puissance. Convertie par
+`vitesse_regime` à l'allure d'endurance mesurée (151 W, 27,7 km/h) : **1,56
+km/h, soit 5,6 %**. Le terme aérodynamique divise l'erreur relative par près
+de trois, et d'autant mieux que l'allure monte.
+
+Sur douze vraies traces (50 km, ~116 min simulées, vent d'archive du jour) :
+
+| | minutes sur 2 h |
+|---|---|
+| chaîne complète sans capteur | **−6,8 / +8,3** |
+| après étalonnage (voir plus bas) | ≈ 5, sans biais |
+| **confondant de saison** | **14,1** |
+| **tolérance déjà encaissée et déjà reprochée au tri** | **29 à 43** |
+
+**L'absence de capteur coûte 16 à 28 % de ce que le produit absorbe déjà.**
+Le lot est nettement moins risqué qu'il n'en avait l'air.
+
+### La saison coûte le double, et les deux tiers sont gratuits
+
+14,1 min contre 7-8 : c'est **elle** le vrai sujet. Décomposée :
+
+- **9,3 min** parce que le cycliste appuie moins l'hiver (168 W l'été contre
+  147 W en Z2). Ce n'est pas une erreur de modèle, c'est un fait — une
+  **fenêtre glissante** sur la puissance d'endurance le capte sans une ligne
+  de code ;
+- **4,8 min** de vêtements (ΔCdA = 0,046 m²), qui demandent du code — un CdA
+  par saison ou par température, que la calibration sait déjà séparer.
+
+**Ordre de priorité qui en découle** : fenêtre glissante (gratuit, 9 min) →
+CdA saisonnier (du code, 5 min) → estimation sans capteur (7-8 min, déjà
+acceptable).
+
+### Demander la plage de Z2 cardiaque : mesuré, et ça dégrade
+
+Proposition du mainteneur, testée contre ses propres données :
+
+| étiquetage | MAE |
+|---|---|
+| `220 − âge`, **aucune question posée** | **15,5 W** |
+| ses réglages | 17,4 W |
+| **sa réponse donnée de mémoire** | **18,7 W** |
+
+Sa réponse de mémoire et ses réglages ne diffèrent que de 2,25 W : **la
+question ne rapporte pas une mesure, elle rapporte ses réglages** — lesquels
+décrivent une zone cardiaque qui ne coïncide pas avec sa zone de puissance
+(10 W d'écart).
+
+La recommandation « demander une borne de zone connue » est donc **retirée**.
+Prudence : n = 1. Ce qui reste solide n'est pas « ne jamais demander une
+zone », c'est **une plage de FC déclarée n'est pas une donnée fiable, et le
+produit n'a aucun moyen de savoir d'où elle sort**.
+
+Autre piège mesuré, contre-intuitif : `220 − âge` fait mieux que la **FCmax
+réellement observée** (11,5 contre 17,9 W). FCmax observée 185, formule 171,
+mais la Z2 réelle vaut 62-71 % de FCmax là où la convention dit 65-75 % — les
+deux erreurs s'annulent. Chez quelqu'un dont la FCmax est *sous* la formule,
+elles s'additionneraient. **Corriger la FCmax sans recalibrer la bande aggrave
+l'estimation.**
+
+### La question qui marche porte sur la vitesse, pas sur le cœur
+
+> **« Sur une sortie tranquille au plat, tu tournes à combien de moyenne ? »**
+
+Un facteur multiplicatif unique, étalonné sur les 41 sorties les plus
+anciennes et testé **hors échantillon** sur les 63 suivantes :
+
+| | biais | MAE | RMSE |
+|---|---|---|---|
+| sans étalonnage | +12,5 W | 16,5 W | 19,5 W |
+| **avec** | **+1,1 W** | **11,5 W** | **14,1 W** |
+
+Un seul nombre supprime le biais et réduit la MAE de 30 %, jusqu'au plancher
+de la physique seule. Il ne fixe que le **niveau** : la dispersion restante
+(σ 2,4 km/h) est le vent, le relief et la forme du jour — ce que la physique
+sait rendre et qu'une moyenne ne saurait pas.
+
+Et **le même réglage s'obtient de trois façons** : on le demande, il s'apprend
+seul dès une dizaine de sorties importées, ou il se corrige quand l'utilisateur
+rectifie une durée proposée. Un seul réglage, trois chemins — c'est exactement
+le « le user peut changer » du mainteneur.
+
+### L'angle mort structurel sur la capacité
+
+Aucune des 22 fenêtres glissantes ne contient d'effort maximal : intensité
+médiane 74, maximum 89 sur 139 sorties extérieures. Les quatre seuls efforts
+maximaux depuis novembre 2023 sont **tous au home-trainer**, et l'estimateur ne
+lit que l'extérieur. **Il ne peut structurellement jamais voir un effort
+maximal de ce mainteneur.** Le rapport produit/capacité sort stable (80,6 %,
+étendue 75-84 %) mais c'est une constante d'**habitude**, pas de physiologie :
+appliquée, elle déduit deux capacités au-dessus du meilleur 20 min de toujours.
+
+Ce qui confirme la conclusion de [[Q50]] : pour l'usage d'ourouler, la
+grandeur utile est la **puissance habituellement produite**, pas la capacité.
+
+### Trois valeurs de seuil qui semblaient se contredire, démêlées
+
+Par l'historique daté du réglage : **258 W** = test du 27/10/2025 réglé le
+06/11 ; **235 W** = réglé le **16/09/2026, la veille de l'étude**, à la reprise
+après deux mois d'arrêt et sans test en 2026 ; **207-211 W** = seuil estimé
+d'un trimestre sans effort maximal, donc un plancher. Trois grandeurs, pas un
+désaccord.
+
+### Deux défauts du dépôt trouvés en chemin, à instruire
+
+1. **`masse_totale_kg` rend 100 kg** alors que la masse réelle sur la fenêtre
+   de calibration était de 93-95 kg : 5 à 9 W d'erreur systématique, **qui
+   dérive** (le poids a varié de 13,5 kg sur la période). La constante de la
+   configuration est le poids d'aujourd'hui appliqué à hier. Le dépôt n'a aucun
+   code de poids corporel — attention, `ourouler routes poids` concerne les
+   **classes de routes**, pas le cycliste.
+2. **`calibration.json` annonce un CdA et un Crr sans `bornes_atteintes`** qui
+   sont physiquement impossibles à cette masse ; avec la masse datée,
+   l'ajustement part en butée. Si cela se confirme, la mesure du 16/09 citée
+   dans la docstring de `calibration.py` — « le même CdA à 0,7 % près sur les
+   deux vélos, tout l'écart dans le Crr » — décrit une **dégénérescence de
+   l'ajustement**, pas une propriété des vélos. **À vérifier avant de toucher à
+   la docstring** : c'est une mesure documentée qu'on contredirait.
+3. **Neuf TCX refusés au chargement** : « XML or text declaration not at start
+   of entity: line 1, column 10 », probable BOM en tête de fichier. Défaut réel
+   de `activites/lecture.py`, et il touche directement le lot d'import de
+   [[Q48]].
+
+### Deux réserves de méthode, déclarées
+
+- L'agent a interrogé les **archives personnelles du mainteneur** sans accord
+  explicite, et l'a signalé lui-même. Les seuls résultats exploités sont des
+  reçus d'achat de vélo, qui ont fourni la datation indépendante manquante.
+  Outil interdit depuis, en attente d'arbitrage.
+- Au second gel, l'agent avait **déjà lu** le seuil et la FCmax réglés à
+  l'étape précédente. L'atténuation est que l'estimateur n'utilise que
+  `220 − âge` et une bande fixée d'avance. À garder en tête en lisant les
+  11,5 W d'erreur d'étiquetage.
+
+### Reste à trancher
+
+- ~~L'usage d'`archives-perso` par un agent~~ — **autorisé** (17/09). Le
+  mainteneur ne voyait pas le problème ; l'alerte venait de ce qu'un agent
+  élargissait seul son périmètre de données, vers une source qui contient bien
+  plus que ce que la tâche demandait, et que l'outil lui-même pose
+  `inclure_perso` en garde-fou. Décision prise, et elle a payé : c'est de là
+  qu'est sortie la datation indépendante des vélos.
+- L'ordre de priorité ci-dessus vaut-il un lot, et lequel d'abord ?
+- Les deux défauts de calibration : lot de correction, ou instruction d'abord ?
+  (Explicités le 17/09 — voir ci-dessous.)
+
+### Les deux défauts, expliqués
+
+**1. La masse est celle d'aujourd'hui, appliquée à hier.** `masse_totale_kg`
+lit **une seule** valeur de poids dans la configuration, la même pour toutes les
+sorties quelle que soit leur date. Le poids du mainteneur a varié de 13,5 kg sur
+la période : estimer une sortie de 2021 avec le poids de 2026 lui ajoute treize
+kilos. La masse entrant linéairement dans le roulement et la gravité, l'erreur
+**grandit à mesure qu'on remonte le temps** (+2,7 à +9,3 W selon l'année).
+Correction simple : dater le poids, la série existe côté Intervals.
+
+**2. La calibration ne peut pas séparer ce qu'elle prétend séparer.** Deux
+résistances freinent : le roulement, force `Crr × masse × g`, à peu près
+constante ; l'aéro, `½ ρ CdA v²`, qui grandit comme le carré de la vitesse. Les
+distinguer demande des sorties à des vitesses **franchement différentes** —
+c'est l'écart entre les deux courbes qui les identifie. Or l'endurance vit dans
+une bande étroite (25-30 km/h), où les deux termes sont presque proportionnels :
+l'ajustement peut **échanger** l'un contre l'autre sans que l'erreur bouge.
+
+Les valeurs trouvées le disent : **CdA 0,222** est une valeur de contre-la-montre
+pour quelqu'un aux cocottes, **Crr 0,0106** une valeur de VTT sur chemin. Aucune
+n'est crédible seule ; ensemble elles reproduisent bien la résistance observée.
+L'ajustement a glissé le long d'une vallée au lieu de tomber dans un puits.
+
+**Les deux défauts se tiennent** : le roulement n'apparaît jamais que comme le
+**produit** `Crr × masse`. Une erreur de masse part donc mécaniquement dans le
+Crr — d'où l'ajustement qui file en butée dès qu'on corrige le poids.
+
+**Ce que ça compromet** : la phrase de la docstring de `calibration.py` (16/09)
+— « le même CdA à 0,7 % près sur les deux vélos, tout l'écart dans le Crr ».
+Lue comme un fait physique elle est troublante ; lue comme une dégénérescence,
+elle ne dit plus rien : quand l'ajustement peut échanger les deux, le CdA se
+pose où le bruit le laisse. **Test avant de toucher à la docstring** : refaire
+l'ajustement en fixant le CdA à plusieurs valeurs plausibles. Si l'erreur est
+plate sur une large plage, c'est dégénéré.
+
+**Ce que ça n'empêche pas.** Pour prédire une vitesse **dans la bande où la
+personne roule**, rien : c'est la résistance **totale** qui compte, et elle est
+juste — d'où les 12 W de la validation. Ça ne compte qu'à deux endroits : hors
+de la bande (descente rapide, bosse lente), où les deux termes se séparent enfin
+et où un mauvais partage donne une mauvaise vitesse ; et pour **comparer des
+vélos**, usage explicitement mis hors périmètre par le mainteneur. L'usage
+dangereux est donc déjà interdit.
+
+
+## Q52 — Un seul réglage, deux visages, et le produit qui en découle — **17/09/2026**
+
+Énoncé du mainteneur, qui referme [[Q49]], [[Q50]] et [[Q51]] :
+
+> à partir de l'apprentissage, pouvoir dire à une personne « voici vaguement ta
+> zone 2, es-tu d'accord ? » et tu peux ajuster — tu touches la puissance ou la
+> vitesse sur le plat, et pour t'aider à jauger il y a ta vitesse moyenne de
+> sortie. Les gens ajustent, et nous ça nous permet d'avoir un produit qui
+> stocke un modèle de puissance, donc une dérivée de vitesse, donc on peut faire
+> nos itinéraires avec ou sans bloc.
+
+### Ce que ça résout
+
+**La question cardiaque disparaît.** [[Q51]] a mesuré que demander une plage de
+Z2 cardiaque *dégrade* l'estimation, parce que la réponse rapporte des réglages
+et non une mesure. Ce design n'en demande aucune : il montre une vitesse et
+laisse corriger. La contradiction se dissout au lieu d'être arbitrée.
+
+### Les deux poignées existent déjà, et sont inverses
+
+`puissance_a_plat_w(vitesse_kmh, p)` et `vitesse_a_plat_kmh(puissance_w, p)`
+(`physique/modele.py`). C'est **le même nombre dans deux unités** : le porteur
+de capteur touche des watts, celui qui n'en a pas touche des km/h, et le produit
+stocke une seule grandeur.
+
+Ce réglage unique est le facteur multiplicatif mesuré en [[Q51]] : hors
+échantillon, il ramène le biais de +12,5 W à +1,1 W et la MAE de 30 %, jusqu'au
+plancher de la physique. Il fixe le **niveau** de la courbe ; la physique rend
+le reste — vent, relief, saison.
+
+### Le piège à ne pas laisser passer
+
+**La vitesse moyenne de sortie n'est pas la vitesse à plat en endurance.** La
+première contient les côtes, le vent, les arrêts, la ville ; la seconde est un
+régime. Les confondre ferait régler le modèle sur une grandeur plus basse que
+celle qu'on croit toucher.
+
+Mesuré chez le mainteneur : médiane en Z2 **27,0 km/h**, mais écart-type 2,4
+km/h et étendue **22,2 à 31,5 km/h** d'une sortie à l'autre — et cette
+dispersion est précisément ce que la physique explique.
+
+Donc, dans l'écran : la moyenne de sortie est une **aide à jauger**, affichée
+comme telle, jamais la valeur préremplie. Ce qu'on règle se nomme et s'affiche
+comme « à plat, sans vent, en endurance ».
+
+### Avec ou sans bloc, le même réglage suffit
+
+Un facteur multiplicatif **met la courbe entière à l'échelle**. Une sortie libre
+n'a besoin que du point d'endurance ; une séance à blocs a besoin de plusieurs
+intensités — mais toutes se déduisent du même facteur. Un seul nombre stocké,
+les deux usages servis.
+
+### Trois chemins vers le même nombre
+
+1. **On le demande** — « sur une sortie tranquille au plat, tu tournes à combien
+   de moyenne ? ». Un cycliste sait répondre ; il ne sait pas donner son CdA.
+2. **Il s'apprend seul** dès une dizaine de sorties importées ([[Q48]]).
+3. **Il se corrige** quand la personne rectifie une durée proposée.
+
+Le troisième est le plus précieux : il transforme chaque désaccord de
+l'utilisateur en donnée d'étalonnage, sans lui demander de comprendre ce qu'il
+règle.
+
+### Ce que ça implique pour le découpage
+
+L'estimation sans capteur cesse d'être un lot à part : elle devient la **valeur
+initiale** d'un réglage que l'utilisateur possède. Le lot n'est donc pas « bien
+estimer », c'est **« proposer, montrer, laisser corriger, et apprendre de la
+correction »**. La qualité de l'estimation initiale décide seulement de combien
+de personnes n'auront jamais besoin d'y toucher.
+
+### Les deux chemins vers le tableau, et ce qui les menace
+
+Objectif, dans les mots du mainteneur : **un tableau de puissance par zone,
+dont la physique dérive une vitesse par zone** — donc une durée de bloc, donc
+un itinéraire. Le tableau est **ancré par un point**, pas par un test.
+
+**Chemin A — capteur, et zones connues.** On part de la FTP, on propose un
+découpage éditable (V2), depuis les données rapatriées d'Intervals.
+
+**On lui fait confiance.** Correction du mainteneur, le 17/09, contre ce que
+j'avais écrit ici — et il a raison.
+
+J'avais lu ses trois valeurs (258 d'octobre 2025, 235 saisi la veille de
+l'étude, 207-211 lus sur la courbe) comme un réglage périmé à confronter. C'est
+l'inverse : *« j'ai mis 235 car j'ai recommencé le vélo et j'ai perdu de la
+forme. Si j'utilisais ourouler, j'aurais corrigé aussi et remis 235. »* La
+valeur déclarée n'est pas une donnée fragile, c'est **le jugement de la
+personne sur elle-même**, et il est plus frais que n'importe quel test.
+
+Ce n'est donc pas le piège de la Z2 cardiaque. Là-bas, la réponse recopiait un
+réglage que personne n'avait jamais vérifié ; ici, le réglage *est* la
+correction. Montrer « votre FTP ne colle pas à votre courbe » à quelqu'un qui
+vient de faire ce travail serait du bruit.
+
+Ce qui reste du contrôle : il ne s'affiche pas comme un désaccord. Un écart
+persistant se règle par la boucle de correction de [[Q52]] — la personne
+rectifie une durée proposée, le facteur bouge — sans qu'on lui dise jamais que
+son seuil est faux.
+
+**Chemin B — pas de capteur, ou notion vague des zones.** On apprend de ses
+sorties et on approche ses zones en regardant la FC, ou la FC **et** la
+puissance.
+
+*Les deux sous-cas n'ont pas la même force.* FC + puissance est solide : les
+zones se dérivent directement, et c'est en réalité « il a un capteur mais ne
+connaît pas ses zones ». FC seule, c'est la chaîne mesurée à 15,5 W en
+[[Q51]] — utilisable, mais elle porte toute l'incertitude.
+
+**Réserve commune, à lever avant de bâtir dessus** : si le compte Intervals
+d'une personne est alimenté **depuis Strava**, ces activités pourraient ne pas
+ressortir par l'API d'Intervals — c'est ce que Strava interdit ([[Q48]], §5.16,
+ré-exposition en cascade). Le mainteneur, alimenté par Garmin, ne verra jamais
+le problème ; un utilisateur Strava, si. À vérifier.
+
+
+### Le plancher de bruit, qui recalibre toute l'ambition
+
+Argument du mainteneur, le 17/09, et il clôt le débat sur la précision :
+
+> 15 W sérieusement c'est invisible par rapport à un raté sur un vélo. Je change
+> de casque ou je mets une veste qui vole au vent, je perds plus. Graisser bien
+> sa chaîne c'est 10 W facile, entre wax et chaîne dégueulasse.
+
+**C'est juste, et c'est mesurable.** Une transmission entretenue contre une
+transmission sale, un casque, un vêtement qui claque : chacun pèse autant ou
+plus que les 15,5 W de la chaîne complète sans capteur ([[Q51]]). Le cycliste
+promène tous les jours une incertitude matérielle qu'il ne connaît pas, et qui
+dépasse celle du modèle.
+
+**Conséquence pour tout agent qui travaillera sur ce sujet** : raffiner
+l'estimation sous une quinzaine de watts ne sert à rien. L'effort utile est
+ailleurs — d'abord la fenêtre glissante (9 min pour zéro code), puis le CdA
+saisonnier (5 min), puis rien. Et le facteur ajustable de [[Q52]] absorbe de
+toute façon ce qui reste, y compris la chaîne sale.
+### Une frontière : on ne demande pas le matériel, et on n'évalue pas les vélos
+
+Tranché par le mainteneur le 17/09, question fermée :
+
+> non ça vaut pas la peine, ça change tout le temps. Ça sert […] à regarder le
+> potentiel d'un vélo, c'est pas le but du produit.
+
+Deux raisons, et la seconde est la plus importante :
+
+1. **Ça change tout le temps.** Pneus, pression, propreté de la transmission,
+   casque, vêtement : un formulaire figerait ce qui varie d'une sortie à
+   l'autre, et personne ne le tiendrait à jour.
+2. **Ce n'est pas le produit.** Le CdA et le Crr existent dans ce dépôt pour
+   **dériver une vitesse**, pas pour évaluer un vélo. Comparer des roues,
+   chiffrer ce que rapporterait un cadre, mesurer le potentiel d'une machine :
+   tout cela est intéressant et étranger à « où rouler aujourd'hui ».
+
+**À l'attention du prochain agent** : voir passer `cda_m2` et `crr` dans
+`physique/` n'autorise pas à proposer un comparateur de matériel. L'incertitude
+matérielle est absorbée par le facteur ajustable de [[Q52]], jamais interrogée.
+
+### Le remède au défaut 2 : figer le roulement, n'ajuster que l'aéro
+
+Trouvé le 17/09 en regardant un calculateur de CdA du commerce, et le
+mainteneur le formule ainsi : *« un outil spécialisé dans le CdA en fait fige
+le roulement »*, et *« le Crr c'est une valeur moyenne, comme d'hab on ne
+cherche pas à tout faire parfaitement »*.
+
+**C'est la sortie de la dégénérescence, et elle est simple.** On ne peut pas
+identifier deux paramètres sur une bande de vitesse étroite : alors on en fige
+un. Le roulement se lit dans une table par type de pneu et de surface — piste
+0,003, route rapide 0,004, route standard 0,005, gravel ou mauvais revêtement
+0,008 — et le CdA sort seul, identifié, sans vallée où glisser.
+
+`calibrer` fait aujourd'hui l'inverse : il ajuste **les deux ensemble** aux
+moindres carrés. D'où les valeurs invraisemblables (un CdA de chrono avec un
+Crr de VTT), d'où l'ajustement qui part en butée dès qu'on corrige la masse, et
+d'où probablement la phrase du 16/09.
+
+**Et ourouler peut faire mieux qu'une table figée** : il connaît les **tags OSM
+des routes réellement parcourues** (`apprentissage/routes.py`). Le Crr peut
+venir de la surface effectivement roulée plutôt que d'un menu déroulant.
+
+**Le prix à payer, qu'il faut écrire.** En figeant le roulement, le CdA devient
+une **poubelle** : il absorbe tout ce qui n'est pas dans le Crr fixé — une masse
+fausse, un vent mal estimé, un abri involontaire. Ce n'est plus un CdA physique,
+c'est un CdA **effectif**. Sans importance pour prédire une vitesse (un
+paramètre effectif bien identifié prédit mieux qu'un couple indéterminé), et
+disqualifiant pour comparer des vélos — usage déjà hors périmètre.
+
+**Tout le reste du panneau existe déjà** : vecteur vent (`vent_au_cycliste`,
+`FACTEUR_VENT_HAUTEUR`), température et pression (`masse_volumique_air`), perte
+de transmission (`RENDEMENT_DEFAUT = 0,976` contre les 3 % du calculateur).
+
+**Sauf l'abri, et c'est volontaire.** Le calculateur en fait une entrée parce
+qu'il analyse une sortie passée. Ourouler ne propose que des boucles en solo :
+`detecter_groupe` **écarte** ces sorties de la calibration au lieu de les
+corriger, ce qui est le bon geste — on ne calibre pas sur des watts qu'on n'a
+pas produits. Mesuré : +32,8 W d'erreur de physique en Z2 sur les sorties club
+contre +2,8 W ailleurs ([[Q51]]).
+
+### Correction du 17/09 (soir) — la mesure réfute une partie de [[Q51]]
+
+Le lot L6.1 s'est arrêté **sans écrire de code** et a mesuré ce qu'on lui
+demandait de corriger. Trois résultats, dont deux réfutent ce qui précède.
+
+**La fenêtre glissante n'apporte rien au mainteneur.** Balayage de 14 à 365
+jours, strictement causal (au jour J, jamais la sortie J) : **aucune longueur ne
+bat la constante**. La constante vaut `puissance_endurance_pct × ftp_w`, soit
+154,8 W, et sa puissance réelle en mouvement vaut 153,1 W — il est déjà à
+l'optimum. La fenêtre sert quelqu'un dont la constante est fausse ; elle ne peut
+rien apporter à quelqu'un qui n'en a pas besoin. Écarts constatés (0,3 min,
+15,98 contre 16,16 W) **sous le plancher de bruit**.
+
+**L'écart de saison 168/147 ne se reproduit pas** sur la puissance **mesurée** :
+
+| découpage | instrument | été | hiver | écart |
+|---|---|---|---|---|
+| mois civils | NP de sortie | 175,4 | 177,8 | **−2,3 W** |
+| mois civils | moyenne en mouvement | 149,1 | 152,9 | **−3,8 W** |
+| mois civils | P à FC basse | 146,7 | 147,2 | **−0,5 W** |
+| quartiles de température | moyenne en mouvement | 148,9 (26,9 °C) | 155,6 (9,8 °C) | **+6,7 W pour le froid** |
+
+Le signe s'inverse même : les médianes les plus hautes sont en octobre-décembre.
+
+**Explication retenue** : le couple 168/147 **encadre** les 151 W que [[Q51]]
+cite par ailleurs. Il vient donc très probablement de la chaîne **sans capteur**
+(FC → zone → physique), où un hiver plus lent — vêtements, routes mouillées — se
+lit comme une puissance plus basse. Chez un porteur de capteur, il n'y a rien à
+capter. **Les 9 minutes de [[Q51]] valent pour le monde sans capteur, pas pour
+le monde mesuré.**
+
+**Un piège d'instrument, qui n'était pas nommé** : `simuler` est un modèle
+d'équilibre et veut une puissance **moyenne**. La NP médiane (177,8 W) est 24 W
+au-dessus de la moyenne en mouvement (153,1 W) : une fenêtre glissante calculée
+sur la NP fait passer l'écart de 7,96 à **10,99 min/2 h**, franchement pire.
+
+**La masse datée dégrade la validation tant que le Crr est écrêté** :
+
+| masse | CdA | Crr | F@27 km/h | MAE de validation | butée |
+|---|---|---|---|---|---|
+| 100,0 (config) | 0,2219 | 0,01062 | 18,04 N | **4,23 %** | — |
+| 94,0 | 0,2055 | 0,01200 | 18,12 N | 4,44 % | **Crr max** |
+| 93,0 (la vraie) | 0,2070 | 0,01200 | 18,06 N | **4,55 %** | **Crr max** |
+| 90,0 | 0,2109 | 0,01200 | 17,84 N | 4,97 % | **Crr max** |
+
+**Et la dégénérescence est mesurée de face** : la résistance totale à 27 km/h
+reste entre **17,84 et 18,12 N** pendant que la masse parcourt 90 à 100 kg.
+L'ajustement glisse le long de la vallée en gardant le total juste. C'est la
+preuve directe que [[Q51]] demandait, et elle est nette.
+
+**La série de poids existe** : 295 jours mesurés sur 1052 (`get_wellness`), du
+03/11/2023 au 14/09/2026, 78,5 à 92,0 kg. Écart médian entre mesures 2 jours,
+trois trous ≥ 30 jours qui demanderont une interpolation déclarée. La masse
+datée est **7,6 kg plus basse en moyenne** que les 100 kg appliqués partout.
+
+**Une erreur de ma part, consignée** : le brief de L6.1 citait « 12,1 W de MAE »
+comme critère de non-régression. `valider` ne rend pas des watts mais une
+**erreur de temps relative** (`Validation.mae`, en fraction). Les 12,1 W
+venaient de la campagne sans capteur et mesuraient autre chose. Un chiffre d'un
+monde collé sur l'instrument d'un autre.
+
+**Ce qui en découle pour le sprint 6** : L6.1 tombe dans ses deux moitiés,
+l'ordre s'inverse (figer le Crr est le **préalable** de la masse datée), et les
+« 5 min de CdA saisonnier » de L6.2 viennent de la même campagne que les 9 min
+réfutées — **à revérifier sur la puissance mesurée avant d'être budgétées**.

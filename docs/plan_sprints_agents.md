@@ -428,6 +428,51 @@ que l'Edge n'aime pas. Le livrable est une liste d'écarts entre ce que
 l'outil annonce et ce qui s'est passé, et leur correction. C'est ce sprint
 qui dit si le produit tient.
 
+#### Les lots de correction, cadrés le 17/09/2026
+
+La campagne de mesure du 17/09 ([[Q51]] dans `questions_mainteneur.md`) a
+produit la première moitié du livrable de ce sprint : **la liste d'écarts**,
+chiffrée sur les vraies données. Ce qui suit en est la seconde moitié, la
+correction. Ce n'est pas un élargissement du cap.
+
+**Les écarts se disent en minutes sur une boucle de 2 h**, pas en watts — c'est
+l'unité que le produit sert, et c'est celle des critères d'acceptation.
+
+| lot | gain mesuré | coût |
+|---|---|---|
+| **L6.1 — le modèle cesse d'être périmé** | | |
+| fenêtre glissante sur la puissance d'endurance | **9 min** | aucun modèle à changer |
+| masse datée par sortie | 5 à 9 W, **qui dérive** | la série existe côté Intervals |
+| **L6.2 — la calibration identifiable** | | |
+| Crr figé par surface, CdA seul ajusté | lève la dégénérescence | invalide `calibration.json`, revalidation |
+| CdA saisonnier (vêtements) | **5 min** | dépend du précédent |
+| **L6.3 — le bug de lecture TCX** | neuf fichiers illisibles | un après-midi, indépendant |
+
+**Ordre recommandé et pourquoi.** L6.1 d'abord, en un seul lot : ses deux
+corrections disent la même chose — le modèle tourne sur des valeurs figées
+alors que le cycliste change. Neuf minutes sur quatorze, sans toucher à la
+physique. L6.2 ensuite, et c'est un vrai lot : nouvelle signature de
+`calibrer`, ancien fichier de calibration jeté, les 12 W à revalider, et la
+phrase du 16/09 de la docstring à reprendre. L6.3 quand ça arrange.
+
+**Critères d'acceptation** (règle absolue 4) : pour L6.1 et L6.2, l'écart entre
+durée prédite et durée réelle sur les vraies sorties du mainteneur, mesuré
+avant et après, en minutes. Pour L6.3, les neuf TCX refusés se lisent.
+
+**Ce qui reste hors de ce sprint.** L'import par lien ([[Q48]]), le réglage
+unique et sa boucle de correction ([[Q52]]), l'estimation sans capteur comme
+valeur initiale ([[Q49]], [[Q51]]) et la zone 2 ([[Q50]]) appartiennent au
+**sprint 8**, dont le texte les avait anticipés sans les nommer : « valeurs par
+défaut qui marchent sans calibration (le nouveau n'a pas d'historique) […] sans
+calibration personnelle, le modèle doit tourner sur des paramètres génériques
+et le dire ». Rien de tout cela ne remonte ici.
+
+**Et ce que ce sprint réclame toujours.** Les écarts ci-dessus viennent d'un
+agent qui a rejoué l'historique, pas du mainteneur sur la route. C'est une
+mesure solide, mais ce n'est pas celle que le cap demande : un GPX que l'Edge
+refuse, un bloc mal placé constaté au retour, une boucle refusée sur le terrain
+ne se trouvent qu'en roulant, plusieurs semaines durant.
+
 ### Sprint 7 — L'hébergé **[esquissé — son premier étage est livré, voir sprint 5]**
 
 API au-dessus du même cœur, puis front web servi par elle, puis comptes
