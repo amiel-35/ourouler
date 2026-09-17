@@ -2686,6 +2686,33 @@ ses fichiers à l'intérieur. `indexer_dossier` filtre sur l'extension et passer
   mainteneur. Garmin passe par <https://www.garmin.com/en-US/account/datamanagement/>.
 - **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q47]].
 
+### Le parcours est générique — ce qui change la découpe
+
+Constaté sur trois captures d'Intervals.icu (Strava, Garmin, Polar) : **le
+parcours est rigoureusement le même**. Demander ses données à la plateforme,
+attendre le courriel, clic droit sur le bouton, copier le lien, coller.
+
+Donc une **seule** route de dépôt, et par plateforme un simple descriptif :
+
+1. le **domaine autorisé** (la liste blanche du point 2 ci-dessus) ;
+2. la **durée de validité du lien** — sept jours chez Strava, **deux semaines**
+   chez Polar, inconnue chez Garmin — pour dire « ton lien a expiré, redemande
+   une archive » plutôt que de rendre une erreur réseau ;
+3. l'**agencement interne** de l'archive, seul point qui demande un adaptateur ;
+4. le lien vers la notice de la plateforme, pour le guide.
+
+**Conséquence** : « V1 = Strava et Garmin » est une limite de **vérification**
+(règle absolue 4 — le mainteneur n'atteste que ce qu'il a fait tourner), pas une
+limite d'architecture. Ajouter Polar, COROS ou Suunto ensuite ne coûte qu'un
+descriptif, à condition que le point 3 tienne.
+
+**Réserve à lever avant de le promettre** : la notice de Polar ne dit pas dans
+quels formats elle exporte, et elle précise exclure les données dérivées de ses
+algorithmes. Si l'archive Polar contient du JSON propriétaire plutôt que des
+FIT, GPX ou TCX, `activites/lecture.py` ne la couvre pas et Polar devient un lot
+à part entière, pas un descriptif. À mesurer sur une archive réelle, jamais à
+supposer.
+
 ### Reste à trancher
 
 Où ça atterrit : sprint suivant, ou lot isolé. Un sprint figé ne s'élargit pas
