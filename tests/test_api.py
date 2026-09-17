@@ -1185,3 +1185,70 @@ def test_un_identifiant_mal_forme_ne_construit_aucune_cle():
 
     with pytest.raises(ErreurUtilisateur):
         DepotGenerations().gpx(PROPRIETAIRE_LOCAL, "../../etc/passwd", 1)
+
+
+# --- l'application au socle vide, et ce qu'elle a le droit de dire -----------
+#
+# **Il y a deux fabriques, et rien à l'écran ne disait laquelle prendre.**
+# `creer_application()` est la fabrique de bibliothèque : elle ne lit rien,
+# c'est le point d'injection de la règle absolue 3, et elle ne doit pas
+# changer. `ourouler.api.application:application` est la fabrique de service.
+# Le mainteneur a lancé la première en croyant lancer la seconde, et a eu une
+# application qui démarrait en annonçant « configuration invalide » sur tout —
+# avec, pour explication, « section [depart] manquante », c'est-à-dire le
+# reproche fait à un fichier qu'il n'avait jamais eu l'intention d'écrire.
+
+
+def test_la_fabrique_de_bibliotheque_se_construit_toujours_sans_rien():
+    """L'invariant à ne pas casser : sans argument, sans disque, sans réseau."""
+    client = TestClient(creer_application(), raise_server_exceptions=False)
+    assert client.get("/openapi.json").status_code == 200
+
+
+def test_une_application_sans_profil_dit_qu_elle_n_en_a_pas_et_comment_en_avoir_un():
+    client = TestClient(creer_application(), raise_server_exceptions=False)
+    reponse = client.get("/api/v1/systeme")
+    assert reponse.status_code == 503, "rien n'est cassé : le service n'est pas prêt"
+    erreur = reponse.json()["erreur"]
+    assert erreur["code"] == "profil_absent"
+    assert "sans profil" in erreur["message"]
+    assert "PATCH /api/v1/profil" in erreur["message"], "le geste, pas seulement le constat"
+    assert "ourouler api" in erreur["message"], "l'autre fabrique est nommée"
+    assert "[depart]" not in erreur["message"], (
+        "parler d'une section de TOML décrit un fichier que l'appelant n'a jamais écrit"
+    )
+
+
+def test_les_routes_de_donnees_repondent_toutes_la_meme_chose_sans_profil():
+    """Une seule phrase, partout : une liste d'exceptions se remplirait toute seule."""
+    client = TestClient(creer_application(), raise_server_exceptions=False)
+    for route in ("/api/v1/systeme", "/api/v1/profil", "/api/v1/profil/zones", "/api/v1/meteo"):
+        assert route and client.get(route).json()["erreur"]["code"] == "profil_absent", route
+
+
+def test_un_profil_ecrit_par_patch_rend_l_application_au_socle_vide_utilisable(tmp_path: Path):
+    """Le socle vide reste **modifiable** : c'est par là qu'on lui donne un profil."""
+    client = TestClient(
+        creer_application(dossier_donnees=tmp_path / "donnees"),
+        raise_server_exceptions=False,
+    )
+    reponse = client.patch(
+        "/api/v1/profil",
+        json={
+            "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
+            "cycliste": {"masse_kg": 80, "ftp_w": 250},
+        },
+    )
+    assert reponse.status_code == 200, reponse.text
+    assert client.get("/api/v1/profil").status_code == 200
+
+
+def test_un_profil_commence_mais_incomplet_nomme_ce_qui_manque():
+    """L'autre moitié : là, l'erreur de validation *est* l'information utile."""
+    from ourouler.api.depots import SocleVide
+    from ourouler.api.erreurs import ErreurProfilAbsent
+
+    with pytest.raises(ErreurProfilAbsent) as faute:
+        SocleVide().config({"cycliste": {"masse_kg": 80, "ftp_w": 250}})
+    assert "incomplet" in str(faute.value)
+    assert "PATCH /api/v1/profil" in str(faute.value)

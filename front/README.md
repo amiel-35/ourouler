@@ -12,19 +12,32 @@ Les écrans viennent de `docs/ux/maquettes_v1.html`, les arbitrages de
 ```sh
 # dans un terminal : l'API, sur la configuration de la ligne de commande
 uv sync --all-extras
-uv run ourouler api --port 8000
+uv run ourouler api --port 8000        # 8000 : ce que le proxy ci-dessous attend
 
 # dans un autre : le front, qui lui renvoie /api
 cd front
 npm install
-npm run dev            # http://localhost:5180
+npm run dev            # http://localhost:5180, /api → http://127.0.0.1:8000
 ```
 
-`OUROULER_API` change la cible du proxy de développement (défaut :
-`http://127.0.0.1:8000`). C'est le **seul** réglage d'environnement du front,
-et il ne sert qu'au serveur de développement : le code, lui, n'appelle que des
-chemins relatifs sous `/api/v1`, si bien qu'en production l'API et le front se
-servent depuis la même origine.
+**Le port 8000 est celui des deux côtés**, et c'est la seule chose à ne pas
+rater : le proxy de développement cherche l'API sur `http://127.0.0.1:8000`
+(`vite.config.ts`), `ourouler api` écoute sur 8000 par défaut. Servir l'API
+ailleurs sans le dire au proxy donne l'écran « Le serveur ne répond pas » —
+correct, mais évitable ; `OUROULER_API` change la cible.
+
+`OUROULER_API` est le **seul** réglage d'environnement du front, et il ne sert
+qu'au serveur de développement : le code, lui, n'appelle que des chemins
+relatifs sous `/api/v1`, si bien qu'en production l'API et le front se servent
+depuis la même origine.
+
+**Il y a deux fabriques d'API, et une seule sert un profil.** `ourouler api`
+lance `ourouler.api.application:application`, qui lit le fichier de
+configuration. `creer_application` est la fabrique de bibliothèque : elle ne
+lit rien, et une application construite ainsi répond `profil_absent` (503) sur
+toutes les routes de données tant que personne ne lui a donné de profil. Un
+serveur qui démarre normalement et refuse tout est presque toujours ce
+cas-là ; le détail est dans `docs/ux/api_contrat.md`, « Les deux fabriques ».
 
 ```sh
 npm run verifier       # types + tests
@@ -68,6 +81,16 @@ une coordonnée affichée en chiffres.
 **code** de la panne et jamais sur son message. `Barriere` attrape en dernier
 recours ce qu'aucun écran n'avait prévu : une page blanche est le pire des
 états d'échec.
+
+**« Le serveur ne répond pas » n'est pas « le serveur a refusé »** (ajouté le
+17/09/2026). Trois codes sont fabriqués par `src/api/client.ts`, pas reçus :
+`serveur_injoignable`, `delai_depasse` et `reponse_illisible` — ils ont leur
+écran, qui dit que la demande n'est jamais arrivée et que rien n'est perdu.
+Le critère qui les reconnaît est le contrat, jamais le statut : l'API promet
+du JSON pour toute réponse, pannes comprises, donc une réponse qui n'en porte
+pas ne vient pas d'elle. Sans ça, le cas le plus banal — front lancé sans API
+derrière, proxy qui rend un `500 text/plain` vide — s'affichait « le serveur a
+répondu 500 sans rien expliquer », sans cause, sans geste et sans bouton.
 
 **Les avertissements aussi portent un code** (`{code, message}` depuis le
 17/09/2026). Le bandeau « Pas de météo » se décidait auparavant en cherchant

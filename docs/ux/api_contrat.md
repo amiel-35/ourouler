@@ -216,6 +216,19 @@ séance à J+4 **avec** sa météo et **sans** son orientation au vent : l'horiz
 du vent (`HORIZON_ORIENTATION_J`, 3 jours) est un autre horizon, plus court,
 et il ne concerne que la direction.
 
+**Le repli vaut maintenant pour `POST /boucles` aussi — 17/09/2026.** Il avait
+été écrit sur le chemin de `sortie` et laissé ouvert sur celui de `boucle` :
+une boucle libre demandée à J+3 perdait *toute* sa météo — pluie, vent,
+ressenti, les trois colonnes — avec le message trompeur de Q19, celui qui
+parle du « domaine » du modèle là où c'est sa portée temporelle qui manque.
+Les deux commandes appellent le même `meteo_trace.evaluer` ; elles lui passent
+désormais le même repli. `POST /boucles` porte donc `modele_meteo`
+(`{utilise, repli}` ou `null`), la **même** forme que `POST /sorties` — les
+champs `modele` et `second_avis` disent la configuration, `modele_meteo` dit
+ce qui a répondu. Vérifié le 17/09/2026 sur la configuration réelle : une
+boucle à J+3 rend sa pluie, son vent et son ressenti par `icon_seamless`, et
+l'en-tête texte nomme la bascule.
+
 ## Le propriétaire, dès maintenant
 
 Les comptes sont F3. Ce qui s'écrit ici est la **forme** : la dépendance
@@ -302,6 +315,7 @@ c'est dit.
 | `intervals_indisponible` | 502 | panne côté Intervals.icu |
 | `geocodage_indisponible` | 502 | BAN ou Nominatim en erreur |
 | `service_externe_indisponible` | 502 | un service externe non reconnu |
+| `profil_absent` | 503 | l'application a été construite **sans profil** — voir « Les deux fabriques » |
 | `configuration_invalide` | 500 | le TOML du serveur ne charge pas |
 | `erreur_interne` | 500 | un bug — le détail reste au journal, jamais dans la réponse |
 
@@ -328,6 +342,33 @@ distinguer d'une clé qui vient de tomber.
 « Open-Meteo : … »). C'est une convention du cœur, et un invariant la rattache
 à son code : si un connecteur changeait son préfixe, le test le dirait avant
 que le front se trompe d'écran.
+
+### Ce que le front nomme quand l'API n'a rien dit — 17/09/2026
+
+Trois codes de plus, qui ne viennent **pas** du serveur et n'apparaissent
+jamais dans une réponse : le front les fabrique quand il n'a rien reçu qui
+soit du contrat. Ils sont ici parce qu'un écran les teste comme les autres
+(`front/src/api/client.ts`).
+
+| code | quand | statut porté |
+|---|---|---|
+| `serveur_injoignable` | rien n'a répondu (`fetch` jette), **ou** une réponse d'erreur sans l'enveloppe `{erreur}` — un intermédiaire a répondu à la place de l'API | 0, ou celui de l'intermédiaire |
+| `delai_depasse` | la requête est partie, rien n'est revenu (30 s pour une lecture, 180 s pour `POST /sorties` et `POST /boucles`) | 0 |
+| `reponse_illisible` | une réponse **acceptée** qui ne porte pas de JSON : le front servi sous `/api`, un portail qui intercepte | celui reçu |
+
+**Le critère est le contrat, jamais le statut.** `api_contrat.md` promet du
+JSON pour *toute* réponse de l'API, pannes comprises : une réponse qui ne le
+porte pas ne vient donc pas de l'API. C'est ce qui permet de distinguer « le
+serveur ne répond pas » de « le serveur a refusé » — un 500 de l'API porte son
+enveloppe, celui du proxy de développement non.
+
+**Ce que ça corrige.** Front lancé sans API derrière, ou avec l'API sur un
+autre port : le proxy de Vite rend un `500 text/plain` au corps **vide**. Le
+`fetch` réussit, l'écran affichait « le serveur a répondu 500 sans rien
+expliquer » avec le code `erreur_interne` — donc sans bouton, puisque ce
+code-là n'est pas réessayable. C'est le même motif que le bloquant 2 de la
+relecture F2, appliqué non plus à une réponse de l'API mais à **l'absence de
+réponse**.
 
 **Aucun chemin du serveur ne sort dans un message** (corrigé le 17/09/2026).
 L'API donne au cœur des chemins qu'elle a fabriqués — le `.ZWO` qu'elle vient
@@ -458,17 +499,49 @@ uv run ourouler api --port 8000            # configuration : celle de la CLI
 uv run uvicorn --factory ourouler.api.application:application   # variante service
 ```
 
+**Le port 8000 n'est pas décoratif** : c'est celui que `ourouler api` prend
+par défaut, et c'est celui que le proxy de développement du front va chercher
+(`front/vite.config.ts`, `http://127.0.0.1:8000`, `OUROULER_API` pour en
+changer). Servir l'API ailleurs sans le dire au front donne un écran « Le
+serveur ne répond pas » — correct, mais évitable.
+
 La fabrique de service lit `OUROULER_CONFIG` (défaut : le chemin de
 `config.py`). Rien d'autre n'est lu de l'environnement, et un seul module de
 l'API a le droit de le faire — `api/exploitation.py`, vérifié par invariant.
 
-**La fabrique de bibliothèque, elle, ne lit rien** (revu le 17/09/2026).
+### Les deux fabriques, et laquelle lancer — 17/09/2026
+
+**`ourouler.api.application:application` sert un profil. `creer_application`
+n'en sert aucun.** Les deux construisent une application complète, et rien à
+l'écran ne le disait : le mainteneur a lancé la seconde en croyant lancer la
+première, et a obtenu un serveur qui démarrait normalement puis répondait
+« configuration invalide — section [depart] manquante » sur toutes les routes
+de données. La phrase reprochait à un fichier de ne pas exister alors que
+personne n'avait eu l'intention d'en écrire un.
+
+| fabrique | lit | pour qui |
+|---|---|---|
+| `ourouler.api.application:application` | le fichier de configuration, via `OUROULER_CONFIG` | **le service** — c'est ce que `ourouler api` lance |
+| `creer_application(...)` | rien du tout | la bibliothèque et les tests : point d'injection de la règle absolue 3 |
+
+**La fabrique de bibliothèque ne change pas**, et ne doit pas changer :
 `creer_application()` s'appelle **sans aucun argument** et rend une
-application complète, qui publie son contrat sans ouvrir ni fichier ni
-socket : c'est ce que la règle absolue 3 exige d'un point d'injection. Le
-profil vient, au choix, d'une `Config` déjà construite (`config=`), d'un
-fichier (`chemin_config=`), d'un socle (`socle=`) ou de rien — auquel cas il
-se remplit par `PATCH /profil`.
+application qui publie son contrat sans ouvrir ni fichier ni socket. Le profil
+vient, au choix, d'une `Config` déjà construite (`config=`), d'un fichier
+(`chemin_config=`), d'un socle (`socle=`) ou de rien.
+
+**Ce qui change est ce qu'elle répond quand elle n'a rien.** Les routes de
+données rendent `profil_absent` (503, et non 500 : rien n'est cassé, le
+service n'est pas prêt), avec une phrase qui dit qu'il n'y a **pas de
+profil** — ni départ, ni vélo, ni clé — et les deux façons d'en donner un :
+`PATCH /api/v1/profil`, ou lancer le serveur par la fabrique de service.
+`/docs` et `/openapi.json`, eux, répondent 200 dans tous les cas.
+
+**Et `PATCH /profil` marche enfin sur cette application-là.** Le contrôle de
+propriétaire posé avant l'écriture validait le profil au passage : donner son
+premier profil à une application au socle vide était refusé parce qu'elle n'en
+avait pas encore. Le chemin que la documentation promettait depuis le début
+n'avait jamais fonctionné.
 
 ## La convention d'injection — tranchée le 17/09/2026
 
