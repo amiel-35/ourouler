@@ -263,6 +263,10 @@ export const SEMAINE: Enveloppe<Semaine> = {
 export function sortie(options?: {
   propositions?: number;
   motif?: string | null;
+  /** La phrase de Q45 : aucune proposition ne se détache des autres. */
+  equivalence?: string | null;
+  /** Trois propositions sans la moindre phrase — le jour où rien ne change. */
+  muettes?: boolean;
   avertissements?: Avertissement[];
   /** Fait servir des boucles hors de la tolérance de distance (Q41 d).
    *
@@ -339,11 +343,14 @@ export function sortie(options?: {
         choix: ["peu-importe", "retour-dos", "depart-dos", "travers"],
       },
       motif_deux_propositions: options?.motif ?? null,
+      motif_equivalence: options?.equivalence ?? null,
       propositions: Array.from({ length: combien }, (_, i) => ({
         numero: i + 1,
         retenue: i === 0,
-        distinction: distinctions[i],
-        axe_distinctif: axes[i],
+        // Depuis Q43, une proposition peut n'avoir aucune phrase : son tracé
+        // la distingue, pas un axe mesuré. `muettes` fabrique ce jour-là.
+        distinction: options?.muettes ? null : distinctions[i],
+        axe_distinctif: options?.muettes ? null : axes[i],
         duree_s: 4512 + i * 97,
         depassement_seance_s: 132,
         demi_tours: 0,

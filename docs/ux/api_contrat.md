@@ -399,7 +399,16 @@ client, c'est une garde et pas une preuve.
 - **« une seule proposition au lieu de trois »** — `donnees.propositions` en
   compte une ou deux, et `donnees.motif_deux_propositions` porte
   l'explication en toutes lettres. Vérifié sur les vraies données du
-  mainteneur le 17/09/2026.
+  mainteneur le 17/09/2026. Depuis [[Q43]] il n'y a plus qu'une raison à
+  ce cas : **deux boucles du groupe empruntaient plus de 25 % des mêmes
+  routes**, et le motif la dit sans « soit… soit… » ;
+- **« trois propositions qui se valent »** — les trois sont servies, aucune ne
+  porte de phrase, et `donnees.motif_equivalence` dit pourquoi : « ces trois
+  boucles se valent, choisissez où vous voulez aller », avec ce qui, mesuré,
+  ne les sépare pas ([[Q45]], ajouté le 17/09/2026). `distinction` et
+  `axe_distinctif` valent alors `null` sur chaque proposition, et c'est un
+  état normal — pas une donnée manquante. Les deux champs peuvent être
+  remplis en même temps : deux boucles qui vont ailleurs peuvent se valoir.
 
 Une **adresse introuvable** vaut aussi 200 (les services ont répondu), avec
 `donnees.candidats` vide **et** une phrase dans `avertissements` : un écran

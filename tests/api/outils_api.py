@@ -565,6 +565,31 @@ def client_brouter_sans_boucle() -> httpx.Client:
     return httpx.Client(transport=httpx.MockTransport(repondre))
 
 
+def client_brouter_toujours_la_meme_boucle() -> httpx.Client:
+    """Un BRouter qui rend **le même anneau quel que soit l'azimut** : le cas de E19.
+
+    Toutes les candidates empruntent alors exactement les mêmes routes, et le
+    cœur n'en retient qu'une — « soit elles empruntaient plus de 25 % des mêmes
+    routes qu'une autre du groupe ». C'est le texte que E19 · dégradé affiche,
+    et c'est de là qu'il vient.
+
+    **Écrit le 17/09/2026**, quand Q43 a retiré l'exigence de se distinguer sur
+    un axe mesuré. Le bouchon d'avant reproduisait E19 par cette exigence-là :
+    des anneaux dans des directions différentes, qui ne se ressemblaient que
+    sur leurs chiffres. Il ne le reproduit plus, et le test le disait
+    lui-même — « le relire plutôt que le supprimer ». Le recouvrement de routes
+    étant devenu le seul verrou, c'est par lui qu'il faut passer, et une seule
+    boucle servie quatre fois est la façon la plus nette de le faire.
+    """
+    module = transports_du_depot()
+    anneau = module.anneau(0.0)
+
+    def repondre(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=module.reponse_anneau(anneau), request=requete)
+
+    return httpx.Client(transport=httpx.MockTransport(repondre))
+
+
 def client_seance_ordinaire(*, ce_jour_la: bool = False) -> httpx.Client:
     """Intervals.icu qui rend une séance planifiée, prêt à être injecté.
 

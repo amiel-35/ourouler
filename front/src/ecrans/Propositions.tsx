@@ -151,6 +151,18 @@ export function Propositions({
         </div>
       ) : null}
 
+      {/* Q45, et c'est le pendant exact du bandeau précédent : là il manquait
+          une proposition, ici il manque une raison de préférer l'une des
+          trois. Les deux se disent, parce que dans les deux cas le silence
+          laisserait chercher quelque chose qui n'est pas là. Celui-ci est une
+          bonne nouvelle — rien ne contraint le choix — et le mot qui le dit
+          est « au choix », pas un avertissement. */}
+      {sortie.motif_equivalence ? (
+        <div className="encart info">
+          <b>Au choix.</b> {sortie.motif_equivalence}
+        </div>
+      ) : null}
+
       <Carte
         traces={traces}
         depart={sortie.demande.lieu_depart}
@@ -175,6 +187,9 @@ export function Propositions({
               aria-pressed={active}
             >
               <div className="bloc-tete">
+                {/* Sans axe distinctif — le cas normal depuis Q43 — le titre
+                    est le numéro de la proposition, et rien d'autre : nommer
+                    un axe qui ne la distingue pas serait une invention. */}
                 <h2>{AXES[proposition.axe_distinctif ?? ""] ?? `Proposition ${proposition.numero}`}</h2>
                 <span className="rang">
                   {seule ? "Le seul" : active ? "Choisi" : proposition.numero}
