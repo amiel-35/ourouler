@@ -42,7 +42,7 @@ from ourouler.api.depots import (
     SocleTOML,
     SocleVide,
 )
-from ourouler.api.erreurs import ErreurApi, table_des_codes
+from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
 from ourouler.config import Config
 
@@ -73,6 +73,16 @@ texte du message, qui vient du cœur et peut être reformulé.
 Deux cas qui n'en sont pas, et qui valent 200 : « aucune séance ce jour-là »
 (`donnees.seance` vaut `null`) et « une seule proposition au lieu de trois »
 (`donnees.motif_deux_propositions` porte l'explication).
+
+## Les avertissements, et le code qui les nomme aussi
+
+Un avertissement n'est pas une panne : la réponse vaut 200, le parcours est
+servi, mais une affirmation manque. Chaque entrée de `avertissements` vaut
+`{{code, message}}` — **le code se teste, le message s'affiche**. Un
+avertissement que ce catalogue ne nomme pas encore porte le code `autre` :
+il se montre, il ne se lit pas.
+
+{table_des_avertissements()}
 """
 
 

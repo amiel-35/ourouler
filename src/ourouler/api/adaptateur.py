@@ -34,7 +34,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
-from ourouler.api.erreurs import ErreurApi, assainir, classer
+from ourouler.api.erreurs import ErreurApi, assainir, classer, classer_avertissement
 
 #: Un seul calcul du cœur à la fois par processus (voir le module).
 _VERROU = threading.Lock()
@@ -52,11 +52,29 @@ PREFIXE_AVERTISSEMENT = "ourouler : "
 
 
 @dataclass(frozen=True)
+class Avertissement:
+    """Une phrase du cœur, **et le code qui dit de quoi elle parle**.
+
+    Ajouté le 17/09/2026 (relecture F2 · B3). Sans code, le front n'avait
+    qu'une prose française pour décider d'un état d'écran, et il la lisait à
+    l'expression régulière : le bandeau « Pas de météo » tenait au mot
+    « météo » dans une phrase que `docs/ux/api_contrat.md` déclare
+    reformulable. Le code prime sur le message ici comme pour les pannes.
+    """
+
+    code: str
+    message: str
+
+    def charge(self) -> dict:
+        return {"code": self.code, "message": self.message}
+
+
+@dataclass(frozen=True)
 class Resultat:
     """Ce qu'une commande a rendu, plus ce qu'elle a marmonné en chemin."""
 
     donnees: dict
-    avertissements: tuple[str, ...] = ()
+    avertissements: tuple[Avertissement, ...] = ()
     duree_ms: int = 0
 
     def enveloppe(self, budget: dict | None = None, proprietaire: object | None = None) -> dict:
@@ -73,7 +91,7 @@ class Resultat:
         if proprietaire is not None:
             charge["proprietaire"] = str(proprietaire)
         charge["donnees"] = self.donnees
-        charge["avertissements"] = list(self.avertissements)
+        charge["avertissements"] = [a.charge() for a in self.avertissements]
         charge["duree_ms"] = self.duree_ms
         if budget is not None:
             charge["budget"] = budget
@@ -159,14 +177,20 @@ def executer_commande(
 
 def avertissements_de(
     flux: str, secrets: Iterable[str] = (), chemins: Mapping[str, str] | None = None
-) -> tuple[str, ...]:
-    """Les lignes de la sortie d'erreur, nettoyées de leur préfixe et des secrets."""
+) -> tuple[Avertissement, ...]:
+    """Les lignes de la sortie d'erreur : préfixe retiré, secrets masqués, **codées**.
+
+    Le code est lu ici, une fois, sur la phrase du cœur — et pas chez
+    l'appelant sur une phrase qui a traversé le réseau (voir
+    `erreurs.classer_avertissement`).
+    """
     lignes = []
     for ligne in flux.splitlines():
         texte = ligne.strip()
         if not texte:
             continue
-        lignes.append(assainir(texte.removeprefix(PREFIXE_AVERTISSEMENT), secrets, chemins))
+        message = assainir(texte.removeprefix(PREFIXE_AVERTISSEMENT), secrets, chemins)
+        lignes.append(Avertissement(code=classer_avertissement(message), message=message))
     return tuple(lignes)
 
 
@@ -241,6 +265,7 @@ class Budgets:
 __all__ = [
     "BUDGETS_DEFAUT_MS",
     "DELAI_ATTENTE_S",
+    "Avertissement",
     "Budgets",
     "Resultat",
     "avertissements_de",

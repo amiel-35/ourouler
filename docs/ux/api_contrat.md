@@ -28,7 +28,8 @@ et c'est ce qui rend la durée annoncée au front honnête.
 **Ce que l'API ajoute.** Les avertissements du cœur (« météo indisponible —
 le placement reste valable », « second avis indisponible ») partent sur la
 sortie d'erreur : un humain les lit, un front ne les voit jamais. Ils sont
-capturés et rendus dans `avertissements`.
+capturés et rendus dans `avertissements`, **chacun avec son code** (voir
+« Les avertissements » plus bas).
 
 ## Les deux formes de réponse
 
@@ -38,7 +39,8 @@ Une route qui calcule :
 {
   "proprietaire": "local",
   "donnees": { … le JSON exact de la commande … },
-  "avertissements": ["météo indisponible (…) — le placement reste valable"],
+  "avertissements": [{"code": "meteo_indisponible",
+                      "message": "météo indisponible (…) — le placement reste valable"}],
   "duree_ms": 6851,
   "budget": {"operation": "sortie", "attendu_ms": 6851, "source": "mesure",
              "n": 3, "median_ms": 6781}
@@ -266,6 +268,60 @@ client, c'est une garde et pas une preuve.
 Une **adresse introuvable** vaut aussi 200 (les services ont répondu), avec
 `donnees.candidats` vide **et** une phrase dans `avertissements` : un écran
 d'échec a besoin d'une phrase, pas d'une liste vide.
+
+## Les avertissements, et leurs codes
+
+Ajouté le 17/09/2026, à la suite de la relecture du lot F2.
+
+Chaque entrée de `avertissements` vaut `{code, message}`. **Le code se teste,
+le message s'affiche** — exactement la règle des pannes, pour exactement la
+même raison.
+
+| code | quand |
+|---|---|
+| `meteo_indisponible` | Open-Meteo n'a rien rendu ; le parcours reste servi, sans pluie ni vent, et la tenue se tait (E14 · dégradé) |
+| `second_avis_indisponible` | le second modèle météo n'a pas répondu — confiance « inconnu » partout |
+| `adresse_introuvable` | aucun candidat pour cette adresse (E16) |
+| `autre` | un avertissement que le catalogue ne nomme pas encore — à afficher tel quel, **jamais à lire pour en déduire un état** |
+
+**Pourquoi ça n'était pas là, et ce que ça coûtait.** `avertissements` était
+une liste de chaînes. Le front, qui devait dessiner le bandeau E14 « Pas de
+météo », n'avait pas d'autre levier que de chercher `/m[ée]t[ée]o/i` dans la
+prose du cœur — c'est-à-dire de décider d'un **état d'écran** sur un message
+que ce document déclare deux sections plus haut reformulable sans préavis. Le
+jour où quelqu'un écrivait « Open-Meteo injoignable », le bandeau disparaissait
+en silence, et il restait un parcours servi sans pluie, sans vent **et sans la
+phrase qui dit pourquoi** : pire qu'un bloc vide, que E14 interdit déjà.
+
+Ce n'était pas une faute d'écriture du front, c'était un trou de ce contrat que
+le front avait bouché comme il pouvait — **sans le dire**, ce qui est le vrai
+défaut.
+
+**Le classement lit un fragment du message du cœur**, comme celui des pannes
+lit le préfixe des connecteurs, et avec le même garde-fou : un invariant de
+`tests/test_invariants.py` vérifie que chaque fragment de
+`erreurs.MOTIFS_AVERTISSEMENT` existe encore dans le module qui l'écrit. Une
+reformulation casse un test du dépôt **avant** d'effacer un bandeau chez le
+cycliste. La table est engendrée de `erreurs.CODES_AVERTISSEMENT`, sa seule
+source, vers la description que publie l'application.
+
+## Feux et stops sortent en nombre absolu
+
+Ajouté le 17/09/2026, relecture F2 · C1. `POST /sorties` rend, sur chaque
+proposition, `feux` et `stops` en **entiers**, à côté de
+`densite_marqueurs_km` qui reste l'axe de contraste.
+
+`sortie/contraste.Profil` les portait depuis le sprint 3 — « affiché tel
+quel : 28 feux, 20 stops » — sans jamais être sérialisés. Le front les
+retrouvait donc en multipliant la densité par la distance : le calcul était
+juste, et c'était le geste que le commentaire de ce champ-là nomme comme le
+piège à éviter (« une densité au kilomètre invitait à multiplier — 1,7 au km,
+donc 170 sur 100 km »). Il avait en prime un défaut silencieux : la densité
+étant arrondie à trois décimales, le produit sortait de sa tolérance au-delà
+d'environ 100 km et **le chiffre s'effaçait sans explication**, précisément
+pour qui prépare une sortie longue.
+
+Deux lignes de JSON ont supprimé la seule arithmétique du front.
 
 ## Deux écarts avec le JSON de la ligne de commande
 

@@ -63,7 +63,7 @@ export function chiffresDe(proposition: Proposition, candidate: Candidate | null
       valeur: VENT_DECRIT[proposition.orientation_vent] ?? proposition.orientation_vent,
     });
   }
-  const arrets = compteArrets(proposition.densite_marqueurs_km, candidate?.distance_km ?? null);
+  const arrets = compteArrets(proposition.feux, proposition.stops);
   if (axe === "ville" && arrets !== null) {
     chiffres.push({ cle: "feux et stops", valeur: nombre(arrets) });
   }

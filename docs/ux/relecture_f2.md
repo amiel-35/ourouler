@@ -418,3 +418,65 @@ les deux seuls points où l'interface échoue à l'endroit exact où le maintene
 placé son besoin — un téléphone, dehors, trois minutes avant de partir.
 
 Le reste peut suivre.
+
+---
+
+## Ce qui a été corrigé — 17/09/2026
+
+Les trois bloquants et neuf des douze. Vérifié en cliquant, contre l'API et la
+configuration réelles du mainteneur (deux vélos, Intervals et BRouter branchés),
+sur téléphone émulé — aucun `PATCH` envoyé, le profil est intact.
+
+**B1.** L'invariant tenu est *une séance déposée ne part qu'avec une recherche
+pour son propre jour*, et non « le fichier est remis à `null` » : remettre à
+`null` aurait cassé la seconde recherche du même jour, qui est légitime. Q38
+dit que le fichier est une prescription et `POST /seances/fichier` prend déjà un
+jour — le front ne l'honorait pas. Un bandeau dit maintenant qu'un fichier est
+en usage, pour quel jour, et le retire.
+*Vérifié en direct* : un `.ZWO` synthétique déposé pour le 17, puis génération
+du 19 depuis « Ma semaine » → le bandeau annonce « la recherche en cours porte
+sur un autre jour, et ne s'en servira pas », et le parcours rendu fait 2 h 03
+pour 57,8 km, soit la séance Intervals du 19, pas les 54 minutes déposées. Le
+même fichier déposé pour le 19 donne 59 min sur 28,0 km : il sert pour son jour.
+
+**Un défaut trouvé en cliquant, que la relecture n'avait pas vu.** `Importer`
+recevait `demande.jour`, que `chercher` réécrit à chaque génération : après
+avoir généré le parcours du 19, « Déposer une séance » depuis l'écran
+**d'aujourd'hui** rattachait le fichier au 19. La garde de B1 tenait, mais elle
+gardait le mauvais jour — le même défaut déplacé d'un cran. Le jour voyage
+maintenant avec la vue, et l'écran de dépôt l'annonce.
+
+**B2.** `zones.erreur` est traité comme `systeme.erreur` et `profil.erreur`.
+*Établi par test, pas exercé en direct* : produire une panne de `/profil/zones`
+seule contre le serveur réel demanderait de le trafiquer.
+
+**B3.** Corrigé côté API, comme le relecteur le pressentait. `avertissements`
+vaut `{code, message}`, avec un catalogue publié (`erreurs.CODES_AVERTISSEMENT`)
+et un invariant qui rattache chaque fragment de phrase au module qui l'écrit —
+même convention que `PREFIXES_SERVICE`, et même garde-fou : une reformulation
+casse un test du dépôt avant d'effacer un bandeau chez le cycliste.
+*Vérifié en direct* sur le chemin du géocodage, qui produit un vrai
+avertissement codé sans qu'il faille faire tomber un service :
+`{"code": "adresse_introuvable", "message": "aucune adresse trouvée pour …"}`.
+
+**C1.** `sortie/commande.rendre_json` sérialise `feux` et `stops`. Un `xfail`
+strict de `tests/api/test_api_promesses_maquettes.py` décrivait exactement ce
+trou, et disait déjà comment le combler — il est levé.
+*Vérifié en direct* : 14 feux + 2 stops = 16 affichés, là où l'ancien produit
+donnait 16,005. Le chiffre ne dépend plus de la distance.
+
+**C2, C3, C4, C5, C6, C7, C8, C10, C11** traités — dates en toutes lettres (et
+le test qui gravait la forme ISO dit maintenant ce qu'il gravait), durée
+annoncée sous le bouton, cibles à 44 px, contraste des phrases d'honnêteté porté
+de 4,5:1 à 7,5:1 et bouton désactivé à 6,5:1, titre de boucle libre qui nomme sa
+direction, « modèle calibration » traduit, plus de poids de vélo inventé, un
+parcours retenu pour son jour et rouvert pour le bon.
+
+**Laissés.** **C9** — les deux façons d'enregistrer dans le volet FTP : la
+correction juste est un arbitrage produit (tout au `onBlur`, ou un bouton pour
+les deux), et la trancher seul aurait été décider à la place du mainteneur.
+**C12** — le score de géocodage renommé « confiance » : un agent travaille en
+parallèle sur Q34, dont l'adresse est le périmètre.
+Les remarques du jugement séparé sur le générateur (réglages qui ne déplacent
+rien, rose des vents en Z2, boucle d'un kilomètre sans vélo enregistré) ne sont
+pas traitées non plus : ce sont des questions produit, pas des défauts.

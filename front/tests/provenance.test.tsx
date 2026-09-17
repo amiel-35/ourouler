@@ -175,6 +175,11 @@ describe("un champ absent", () => {
     const creuse = sortie();
     for (const proposition of creuse.donnees.propositions) {
       proposition.densite_marqueurs_km = null;
+      // Le compte de feux et stops vient de ces deux entiers depuis le
+      // 17/09/2026, plus d'un produit avec la distance (C1) : c'est eux
+      // qu'il faut vider pour vérifier que l'écran se tait.
+      proposition.feux = null;
+      proposition.stops = null;
       proposition.part_trafic = null;
       proposition.pluie_mm = null;
       proposition.distinction = null;

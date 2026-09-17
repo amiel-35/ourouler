@@ -94,10 +94,87 @@ CODES_PANNE: dict[str, str] = {
 }
 
 
+#: **Le catalogue des avertissements, publié lui aussi** (ajouté le 17/09/2026).
+#:
+#: Un avertissement n'est pas une panne : le parcours est servi, mais une
+#: affirmation manque — la pluie, le vent, la tenue. Les maquettes en font un
+#: bandeau (E14 · dégradé), donc un **état** de l'écran ; et un état se
+#: reconnaît à un code, jamais à une phrase.
+#:
+#: Tant que `avertissements` était une liste de chaînes, le front n'avait pas
+#: le choix : il cherchait « météo » dans la prose du cœur
+#: (`front/src/composants/Echec.tsx`, relecture F2 · B3). Le jour où
+#: quelqu'un reformulait l'avertissement en « Open-Meteo injoignable », le
+#: bandeau disparaissait en silence et il restait un parcours servi sans
+#: pluie, sans vent et **sans la phrase qui dit pourquoi**. C'est le trou du
+#: contrat que cette table bouche.
+#:
+#: Le classement lit un fragment du message du cœur — même convention que
+#: `PREFIXES_SERVICE`, et même garde-fou : un invariant de
+#: `tests/test_invariants.py` vérifie que chaque fragment existe encore dans
+#: le module qui l'écrit. Une reformulation casse un test du dépôt **avant**
+#: d'effacer un bandeau chez le cycliste.
+CODES_AVERTISSEMENT: dict[str, str] = {
+    "meteo_indisponible": (
+        "Open-Meteo n'a rien rendu — le parcours reste servi, sans pluie ni "
+        "vent, et la tenue se tait (E14 · dégradé)"
+    ),
+    "second_avis_indisponible": (
+        "le second modèle météo n'a pas répondu — la confiance vaut "
+        "« inconnu » sur toutes les cellules"
+    ),
+    "adresse_introuvable": "aucun candidat pour cette adresse (E16)",
+    "autre": (
+        "un avertissement que ce catalogue ne nomme pas encore — à afficher "
+        "tel quel, jamais à lire pour en déduire un état"
+    ),
+}
+
+#: Le fragment de message qui reconnaît chaque avertissement, et les modules
+#: qui l'écrivent. L'ordre compte : le premier fragment trouvé gagne, et
+#: « second avis » passe avant « météo indisponible » parce que la phrase du
+#: second avis parle elle aussi de météo. Les chemins servent à l'invariant,
+#: pas au classement.
+MOTIFS_AVERTISSEMENT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    # (fragment cherché, code, modules qui écrivent la phrase)
+    ("second avis", "second_avis_indisponible", ("meteo/commande.py",)),
+    (
+        "météo indisponible",
+        "meteo_indisponible",
+        ("sortie/commande.py", "boucle/commande.py", "physique/commande.py"),
+    ),
+    # Écrit par l'API elle-même (`routes.geocodage`), pas par le cœur : zéro
+    # candidat n'est pas une panne, mais E16 a besoin d'une phrase.
+    ("aucune adresse trouvée", "adresse_introuvable", ("api/routes.py",)),
+)
+
+
+def classer_avertissement(message: str) -> str:
+    """Le code d'un avertissement, lu au fragment que son émetteur écrit.
+
+    Rend `"autre"` pour ce que le catalogue ne nomme pas encore : l'écran
+    affiche alors la phrase sans en déduire d'état, ce qui est le
+    comportement sûr — c'est exactement ce que le front ne pouvait pas faire
+    tant qu'un avertissement n'était qu'une chaîne.
+    """
+    minuscules = message.lower()
+    for fragment, code, _modules in MOTIFS_AVERTISSEMENT:
+        if fragment in minuscules:
+            return code
+    return "autre"
+
+
 def table_des_codes() -> str:
     """`CODES_PANNE` en Markdown, pour la description que publie l'application."""
     lignes = ["| code | quand |", "|---|---|"]
     lignes += [f"| `{code}` | {quand} |" for code, quand in CODES_PANNE.items()]
+    return "\n".join(lignes)
+
+
+def table_des_avertissements() -> str:
+    """`CODES_AVERTISSEMENT` en Markdown, publié à côté de celle des pannes."""
+    lignes = ["| code | quand |", "|---|---|"]
+    lignes += [f"| `{code}` | {quand} |" for code, quand in CODES_AVERTISSEMENT.items()]
     return "\n".join(lignes)
 
 
@@ -270,14 +347,18 @@ def secrets_de(config) -> tuple[str, ...]:
 
 
 __all__ = [
+    "CODES_AVERTISSEMENT",
     "CODES_PANNE",
     "DEBUTS_AUCUNE_BOUCLE",
     "INDICE_CLE_REFUSEE",
     "MASQUE",
+    "MOTIFS_AVERTISSEMENT",
     "PREFIXES_SERVICE",
     "ErreurApi",
     "assainir",
     "classer",
+    "classer_avertissement",
     "secrets_de",
+    "table_des_avertissements",
     "table_des_codes",
 ]

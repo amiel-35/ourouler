@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import type { Boucle, Enveloppe } from "../api/types";
-import { duree, heure, kmDepuisKm, nombre, pourcentage } from "../api/formats";
+import { duree, heure, kmDepuisKm, nombre, pourcentage, titreDeBoucle } from "../api/formats";
 import { Carte } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
@@ -92,7 +92,7 @@ export function Boucles({ reponse, surRetour }: Props) {
             style={{ all: "unset", display: "block", width: "100%", cursor: "pointer" }}
           >
             <div className="bloc-tete">
-              <h2>{candidate.nom}</h2>
+              <h2>{titreDeBoucle(candidate.azimut_deg, candidate.numero)}</h2>
               <span className="rang">{candidate.retenue ? "Retenue" : candidate.numero}</span>
             </div>
             <div className="chiffres">

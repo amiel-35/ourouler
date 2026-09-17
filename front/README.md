@@ -39,10 +39,13 @@ distingue « zéro » de « on ne sait pas », l'interface aussi. Trois tests
 gardent cette règle (`tests/provenance.test.tsx`), dont un qui rend le même
 écran avec deux jeux de données disjoints et refuse la moindre valeur commune.
 
-**La seule fonction qui calcule** est `compteArrets` (`src/api/formats.ts`) :
-le JSON n'expose que des arrêts *au kilomètre*, l'affichage doit montrer un
-nombre absolu. Elle retrouve l'entier d'origine, et **se tait** quand le
-produit ne retombe pas juste.
+**Le front ne calcule rien**, et depuis le 17/09/2026 c'est vrai sans réserve.
+`compteArrets` (`src/api/formats.ts`) multipliait la densité d'arrêts au
+kilomètre par la distance pour retrouver le nombre absolu de feux et stops ;
+l'API sérialise maintenant ces entiers (`feux`, `stops`) et il ne reste qu'une
+somme. Le seul autre chiffre non rendu par l'API était un poids de vélo par
+défaut de 8 kg à la création d'un vélo : le champ est vide, et demande une
+réponse au lieu de faire passer un défaut pour une saisie.
 
 **Les trois valeurs liées** (`src/composants/EcranFtp.tsx`) se recalculent par
 l'API, jamais côté front — le modèle physique reste dans le cœur. Ce qui est
@@ -65,6 +68,19 @@ une coordonnée affichée en chiffres.
 **code** de la panne et jamais sur son message. `Barriere` attrape en dernier
 recours ce qu'aucun écran n'avait prévu : une page blanche est le pire des
 états d'échec.
+
+**Les avertissements aussi portent un code** (`{code, message}` depuis le
+17/09/2026). Le bandeau « Pas de météo » se décidait auparavant en cherchant
+`/m[ée]t[ée]o/i` dans la phrase du cœur — cette page affirmait le contraire,
+et le contrat déclare ces phrases reformulables. Le front n'avait alors aucun
+autre levier : c'était un trou du contrat F1, bouché côté API
+(`api/erreurs.CODES_AVERTISSEMENT`) plutôt que contourné ici. **Aucun écran ne
+lit une phrase pour en déduire un état.**
+
+**Un fichier de séance déposé vaut pour un jour**, celui pour lequel il a été
+déposé (Q38 : « le fichier déposé c'est une séance à faire »). Il ne part
+jamais avec la recherche d'un autre jour, un bandeau dit qu'il est en usage, et
+il se retire. `tests/seance_deposee.test.tsx` garde l'invariant.
 
 **L'attente est semi-synchrone** (`src/composants/Attente.tsx`). Le budget
 annoncé vient de `/systeme/budgets` et dit d'où il vient ; l'avancement des

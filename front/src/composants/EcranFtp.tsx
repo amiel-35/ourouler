@@ -21,7 +21,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Zones } from "../api/types";
-import { nombre, pourcentage } from "../api/formats";
+import { modelePhysique, nombre, pourcentage } from "../api/formats";
 
 interface Props {
   zones: Zones;
@@ -225,7 +225,7 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
           ) : null}
 
           <p className="mention" style={{ marginTop: 8 }}>
-            Modèle physique : {liees.modele_physique}.
+            Modèle physique : {modelePhysique(liees.modele_physique)}.
           </p>
         </div>
       )}

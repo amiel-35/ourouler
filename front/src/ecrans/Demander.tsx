@@ -19,8 +19,15 @@
 
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Profil, Zones } from "../api/types";
-import { duree, heureDeRetour, kmDepuisKm, nombre, VENT_EN_TOUTES_LETTRES } from "../api/formats";
+import type { Budget, Profil, Zones } from "../api/types";
+import { phraseBudget } from "../composants/Attente";
+import {
+  duree,
+  heureDeRetour,
+  modelePhysique,
+  nombre,
+  VENT_EN_TOUTES_LETTRES,
+} from "../api/formats";
 import { aujourdhui } from "../etat/ressource";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -76,6 +83,15 @@ interface Props {
   dureeSeance_s: number | null;
   nomSeance: string | null;
   demande: Demande;
+  /**
+   * Ce que la recherche va coûter en attente, **avant de la lancer** (C3).
+   *
+   * Décision 6 du cycle UX : « semi-synchrone, en précisant que ça prend X
+   * secondes », et « X doit être mesuré, pas inventé ». Le budget était déjà
+   * chargé au démarrage, mais il n'apparaissait qu'une fois l'attente
+   * commencée : le cycliste apprenait le prix au moment où il le payait.
+   */
+  budget: Budget | null;
   surDemande: (demande: Demande) => void;
   surChercher: () => void;
 }
@@ -86,6 +102,7 @@ export function Demander({
   dureeSeance_s,
   nomSeance,
   demande,
+  budget,
   surDemande,
   surChercher,
 }: Props) {
@@ -171,8 +188,9 @@ export function Demander({
             Estimé avec votre moyenne compteur de {nombre(liees.moyenne_compteur_kmh, 1)} km/h,
             que le modèle physique tire de votre puissance, de votre poids et de votre vélo.
             Facteur de compteur{" "}
-            {liees.facteur_mesure ? "mesuré sur vos sorties" : "supposé, faute de mesure"} —
-            modèle {liees.modele_physique}. Le tracé, lui, attend le bouton.
+            {liees.facteur_mesure ? "mesuré sur vos sorties" : "supposé, faute de mesure"} ;
+            modèle physique {modelePhysique(liees.modele_physique)}. Le tracé, lui, attend le
+            bouton.
           </p>
         ) : null}
       </div>
@@ -337,8 +355,7 @@ export function Demander({
         Chercher {nombre(demande.candidates)} parcours
       </button>
       <p className="mention" style={{ textAlign: "center", marginTop: 10 }}>
-        Départ estimé depuis {demande.depart?.nom ?? profil.depart.nom}
-        {distanceEstimee === null ? "" : ` · environ ${kmDepuisKm(distanceEstimee)}`}.
+        {phraseBudget(budget)}
       </p>
     </section>
   );

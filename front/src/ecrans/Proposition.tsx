@@ -118,7 +118,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
           }))
       : [];
 
-  const arrets = compteArrets(proposition.densite_marqueurs_km, candidate.distance_km);
+  const arrets = compteArrets(proposition.feux, proposition.stops);
   const retour = heureDeRetour(sortie.demande.depart, proposition.duree_s);
 
   return (

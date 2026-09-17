@@ -178,7 +178,10 @@ export function FormulaireAdresse({
       const reponse = await api.geocodage(requete(champs));
       setCandidats(reponse.donnees.candidats);
       if (reponse.donnees.candidats.length === 0) {
-        setPhrase(reponse.avertissements[0] ?? "Aucune adresse trouvée.");
+        // `avertissements` porte `{code, message}` depuis la correction du
+        // troisième bloquant de la relecture F2 : le front ne lit plus une
+        // phrase française pour décider d'un état.
+        setPhrase(reponse.avertissements[0]?.message ?? "Aucune adresse trouvée.");
       } else if (reponse.donnees.candidats.length === 1) {
         // Un seul candidat : il reste à confirmer sur la carte, mais on évite
         // une liste d'un seul élément.

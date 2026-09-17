@@ -7,7 +7,13 @@
   --carte: #ffffff;
   --encre: #161c1a;
   --encre-2: #41504c;
-  --muet: #6b7573;
+  /* **7,5:1 au lieu de 4,5:1** (17/09/2026, relecture F2 · C5). `--muet`
+     porte les phrases d'honnêteté — « facteur de compteur supposé, faute de
+     mesure », « l'avancement affiché est indicatif », la phrase qui distingue
+     chaque proposition. Elles étaient au ras du seuil AA, en 12 px, donc les
+     premières que le soleil efface : ce sont précisément celles dont
+     l'illisibilité annule la raison d'être. */
+  --muet: #4a5350;
   --trait: #dce2e0;
   --trait-fort: #c3ccc9;
   --accent: #12657f;
@@ -38,7 +44,8 @@
     --carte: #171f1d;
     --encre: #e8edeb;
     --encre-2: #b4c0bc;
-    --muet: #8a9793;
+    /* 7,5:1 sur le papier sombre, même raison qu'en clair. */
+    --muet: #9aa8a4;
     --trait: #28332f;
     --trait-fort: #3a4844;
     --accent: #5ab3ce;
@@ -148,14 +155,19 @@ img {
   z-index: 20;
 }
 
+/* **44 px de haut** (C4). Les onglets faisaient 26 px : c'est la navigation
+   principale, utilisée debout, dehors, une main sur le guidon, parfois avec
+   des gants longs. Un geste raté ici est un geste raté sur le seul moyen
+   d'aller ailleurs. */
 .onglets button {
   flex: 1;
   background: none;
   border: none;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muet);
-  padding: 6px 2px;
+  padding: 12px 2px;
+  min-height: 44px;
   cursor: pointer;
 }
 
@@ -233,7 +245,8 @@ img {
 }
 
 .mention {
-  font-size: 12px;
+  /* 13 px : ces phrases se lisent dehors, en plein jour, avant de partir. */
+  font-size: 13px;
   color: var(--muet);
   line-height: 1.45;
   margin: 0;
@@ -344,8 +357,15 @@ img {
     color: #08181e;
   }
 }
+/* **Désactivé ≠ délavé** (C5). `opacity: .5` donnait du blanc à 50 % sur du
+   bleu à 50 % : très en dessous de 3:1, et illisible en plein jour. Or le cas
+   le plus fréquent — aucune séance ce jour-là — désactive précisément le
+   bouton principal. Le cycliste appuyait sur un bouton qu'il déchiffrait mal,
+   il ne se passait rien, et l'explication était six défilements plus haut. */
 .bouton:disabled {
-  opacity: 0.5;
+  background: var(--trait);
+  color: var(--encre-2);
+  border-color: var(--trait-fort);
   cursor: default;
 }
 .bouton.second {
@@ -502,15 +522,21 @@ img {
   font-family: var(--sans);
 }
 
+/* **Une cible, pas une ligne de texte** (C4). `padding: 0` en 12,5 px donnait
+   15 px de haut à « Modifier » — le seul retour vers les réglages depuis un
+   résultat — et 18 px à « Essayer » sur les écrans d'échec, qui est le seul
+   chemin de secours du produit. Manquer cette cible-là, c'est ne pas partir
+   rouler. */
 .lien {
   color: var(--accent);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   background: none;
   border: none;
   font-family: inherit;
   cursor: pointer;
-  padding: 0;
+  padding: 11px 8px;
+  min-height: 44px;
   text-align: right;
 }
 

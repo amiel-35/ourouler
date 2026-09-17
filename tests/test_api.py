@@ -423,7 +423,10 @@ def test_une_adresse_introuvable_rend_une_phrase_et_non_une_liste_vide(tmp_path:
     client = serveur(tmp_path, ban=geocodeur([]), nominatim=nominatim_vide())
     charge = client.get("/api/v1/geocodage", params={"adresse": "zzz"}).json()
     assert charge["donnees"]["candidats"] == []
-    assert any("aucune adresse trouvée" in a for a in charge["avertissements"])
+    # La phrase reste — un écran d'échec en a besoin — mais c'est le **code**
+    # qui dit de quoi il s'agit (relecture F2 · B3).
+    assert any(a["code"] == "adresse_introuvable" for a in charge["avertissements"])
+    assert any("aucune adresse trouvée" in a["message"] for a in charge["avertissements"])
 
 
 def test_un_parametre_hors_bornes_est_nomme_en_francais(tmp_path: Path):
@@ -673,8 +676,31 @@ def test_une_meteo_tombee_ne_fait_pas_tomber_la_boucle(tmp_path: Path):
     assert reponse.status_code == 200, reponse.text
     charge = reponse.json()
     assert charge["donnees"]["candidates"][0]["meteo"] is None
-    assert any("météo indisponible" in a for a in charge["avertissements"])
-    assert not any(a.startswith("ourouler : ") for a in charge["avertissements"])
+    # **Le code, pas la phrase.** Le front dessine son bandeau « Pas de météo »
+    # là-dessus : tant que l'avertissement n'était qu'une chaîne, il le
+    # décidait à l'expression régulière, et une reformulation l'effaçait en
+    # silence (relecture F2 · B3).
+    assert any(a["code"] == "meteo_indisponible" for a in charge["avertissements"])
+    assert any("météo indisponible" in a["message"] for a in charge["avertissements"])
+    assert not any(a["message"].startswith("ourouler : ") for a in charge["avertissements"])
+
+
+def test_un_avertissement_porte_toujours_un_code_et_un_message(tmp_path: Path):
+    """La forme de `avertissements` est un contrat, comme celle de `erreur`.
+
+    Un front qui reçoit une liste hétérogène — des chaînes ici, des objets
+    là — retombe sur le reniflage de type, puis sur le reniflage de phrase.
+    Toute route de calcul rend donc la même forme, y compris quand il n'y a
+    rien à dire (liste vide).
+    """
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(en_panne=True))
+    reponse = client.post("/api/v1/boucles", json={"distance_km": 30.0, "direction": "N"})
+    avertissements = reponse.json()["avertissements"]
+    assert avertissements, "la météo est tombée : il devrait y avoir un avertissement"
+    for a in avertissements:
+        assert set(a) == {"code", "message"}, a
+        assert isinstance(a["code"], str) and a["code"]
+        assert isinstance(a["message"], str) and a["message"]
 
 
 def test_une_direction_illisible_est_une_faute_de_requete(tmp_path: Path):

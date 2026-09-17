@@ -19,7 +19,7 @@
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Profil, Zones } from "../api/types";
-import { nombre, pourcentage } from "../api/formats";
+import { jourEnLettres, nombre, pourcentage } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -268,7 +268,9 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
         <div className="rangee">
           <span className="cle">Historique depuis</span>
-          <span className="val">{profil.historique_depuis}</span>
+          {/* C2, même défaut qu'à l'écran d'échec : une date ISO est une date
+              de machine. */}
+          <span className="val texte">{jourEnLettres(profil.historique_depuis)}</span>
         </div>
       </div>
 
@@ -394,8 +396,15 @@ function ListeVelos({
       <button
         type="button"
         className="bouton second"
+        // **Champ vide, pas un poids inventé** (C8). Un vélo neuf arrivait
+        // avec « 8 » kg, qui ne vient d'aucune API et que personne n'a saisi ;
+        // qui ne corrigeait pas le champ voyait toutes ses estimations de
+        // distance calculées là-dessus, sans que rien le signale — alors même
+        // que le facteur de compteur, lui, dit qu'il est supposé. Un champ
+        // vide demande une réponse ; un champ prérempli fait passer un défaut
+        // pour une saisie (règle absolue 5).
         onClick={() =>
-          setVelos([...velos, { origine: {}, nom: "", usage: "route", masse_kg: "8" }])
+          setVelos([...velos, { origine: {}, nom: "", usage: "route", masse_kg: "" }])
         }
       >
         Ajouter un vélo

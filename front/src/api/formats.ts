@@ -86,20 +86,82 @@ export function cardinal(degres: number): string {
 }
 
 /**
- * Le **nombre** de feux et stops, retrouvé depuis la densité au kilomètre.
+ * Le **nombre** de feux et stops d'un parcours — lu, jamais calculé.
  *
- * Le JSON n'expose que `densite_marqueurs_km`, qui est un compte divisé par
- * une distance (`boucle/marqueurs.py`) ; l'affichage, lui, doit montrer un
- * nombre absolu — « sur 100 km, personne ne croise 170 feux » (maquette E14).
- * La multiplication rend donc l'entier d'origine, et **on ne l'affiche que
- * si elle retombe juste** : un arrondi qui dérive est une valeur inventée,
- * et on préfère ne rien dire (règle absolue 5).
+ * Cette fonction multipliait `densite_marqueurs_km` par la distance pour
+ * retrouver l'entier d'origine. Le résultat était juste, et c'était quand
+ * même la mauvaise méthode (relecture F2 · C1) :
+ *
+ * - le cœur portait déjà l'entier, sur le même objet que la densité
+ *   (`sortie/contraste.py`), simplement non sérialisé — il l'est depuis le
+ *   17/09/2026 ;
+ * - le commentaire de ce champ-là désigne nommément ce geste comme celui à ne
+ *   pas faire : « une densité au kilomètre invitait à multiplier — 1,7 au km,
+ *   donc 170 sur 100 km » ;
+ * - la densité est arrondie à trois décimales, donc le produit sortait de sa
+ *   tolérance au-delà d'environ 100 km et **le chiffre disparaissait sans
+ *   explication** — précisément pour qui prépare une sortie longue.
+ *
+ * Il ne reste ici qu'une somme de deux entiers que l'API rend. `null` quand le
+ * tracé ne porte pas de tag de nœud : le cœur les met à `null` ensemble, et
+ * l'ignorance ne s'affiche pas comme un zéro (règle absolue 5).
  */
-export function compteArrets(densiteParKm: number | null, distanceKm: number | null): number | null {
-  if (densiteParKm === null || distanceKm === null || distanceKm <= 0) return null;
-  const brut = densiteParKm * distanceKm;
-  const entier = Math.round(brut);
-  return Math.abs(brut - entier) <= 0.05 ? entier : null;
+export function compteArrets(feux: number | null, stops: number | null): number | null {
+  if (feux === null || stops === null) return null;
+  return feux + stops;
+}
+
+/** Les huit directions en toutes lettres, avec la préposition qui va avec. */
+const DIRECTIONS = [
+  "au nord",
+  "au nord-est",
+  "à l'est",
+  "au sud-est",
+  "au sud",
+  "au sud-ouest",
+  "à l'ouest",
+  "au nord-ouest",
+];
+
+/**
+ * Le titre d'une boucle libre — **sa direction, pas le nom du moteur**.
+ *
+ * `candidate.nom` vaut « Boucle 340° 5.8 km », où « 5.8 km » est le **rayon**
+ * demandé au traceur. Affiché en titre, trois centimètres au-dessus de la
+ * longueur réelle — « 24,8 km » — ça donnait deux distances contradictoires,
+ * et le titre est ce qu'on lit en premier : il mentait de 19 kilomètres
+ * (relecture F2 · C6). Le nom du moteur est un identifiant de moteur.
+ *
+ * Reste la direction, qui est ce qui distingue vraiment deux boucles libres,
+ * et que la demande a explicitement posée.
+ */
+export function titreDeBoucle(azimutDeg: number | null, numero: number): string {
+  if (azimutDeg === null) return `Boucle ${numero}`;
+  return `Boucle ${DIRECTIONS[Math.round((((azimutDeg % 360) + 360) % 360) / 45) % 8]}`;
+}
+
+/**
+ * D'où viennent les paramètres physiques du vélo, **dit à un cycliste**.
+ *
+ * `modele_physique` vaut « calibration », « configuration » ou « défaut » :
+ * c'est le vocabulaire du cœur (`physique/commande.parametres_du_velo`), et
+ * il s'affichait tel quel au bout d'une phrase écrite pour quelqu'un qui va
+ * rouler — « … — modèle calibration » (relecture F2 · C7).
+ *
+ * La traduction garde ce que ces mots distinguent, qui est le seul point
+ * qui compte : une mesure n'est pas une supposition (règle absolue 5).
+ */
+export const MODELE_PHYSIQUE_EN_TOUTES_LETTRES: Record<string, string> = {
+  calibration: "mesuré sur vos sorties",
+  configuration: "d'après les caractéristiques que vous avez saisies",
+  défaut: "valeurs par défaut, faute de mesure",
+};
+
+export function modelePhysique(provenance: string | null): string | null {
+  if (provenance === null) return null;
+  // Un mot que le cœur ajouterait sans qu'on le sache s'affiche tel quel
+  // plutôt que de disparaître : on préfère un mot brut à un silence.
+  return MODELE_PHYSIQUE_EN_TOUTES_LETTRES[provenance] ?? provenance;
 }
 
 /** Les quatre réponses possibles à la question du vent, telles qu'on les demande. */

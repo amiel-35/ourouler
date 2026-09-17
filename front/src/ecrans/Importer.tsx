@@ -15,7 +15,7 @@
 import { useRef, useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Seance } from "../api/types";
-import { duree, nombre } from "../api/formats";
+import { duree, jourEnLettres, nombre } from "../api/formats";
 import { Etapes } from "../composants/Etapes";
 import { Echec } from "../composants/Echec";
 
@@ -58,7 +58,9 @@ export function Importer({ jour, surSeanceLue, surChercher }: Props) {
     <section>
       <div className="app-tete">
         <div>
-          <span className="quand">Sans Intervals</span>
+          {/* **Pour quel jour** — le dépôt en prend un, et le placement ne
+              vaudra que pour lui : autant que l'écran le dise avant. */}
+          <span className="quand">Sans Intervals · {jourEnLettres(jour)}</span>
           <h1>Déposer une séance</h1>
         </div>
       </div>

@@ -37,7 +37,13 @@ function enveloppe(candidats: Candidat[], ambigu = false) {
     charge: {
       proprietaire: "cycliste-test",
       donnees: { adresse: "…", candidats, ambigu, motif_ambiguite: null },
-      avertissements: candidats.length === 0 ? ["aucune adresse trouvée pour « … »"] : [],
+      // `{code, message}` depuis la correction du troisième bloquant de la
+      // relecture F2 : un avertissement porte un code, le front ne lit plus
+      // une phrase française pour décider d'un état.
+      avertissements:
+        candidats.length === 0
+          ? [{ code: "adresse_introuvable", message: "aucune adresse trouvée pour « … »" }]
+          : [],
       budget: null,
       duree_ms: 12,
     },
