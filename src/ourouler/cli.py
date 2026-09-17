@@ -271,18 +271,10 @@ def profil_json(config: Config) -> dict:
     que l'API sert au front (lot F1) : une seule fonction, un seul contrat,
     et le masquage des secrets fait au même endroit pour les deux.
     """
-    import dataclasses
-
-    d = dataclasses.asdict(config)
-    # `asdict` ignore les `__repr__` qui masquent : sans ces deux lignes,
-    # `ourouler config --json` publie la clé et le mot de passe en clair.
-    d["intervals"]["api_key"] = "***" if config.intervals.api_key else ""
-    d["brouter"]["mot_de_passe"] = "***" if config.brouter.mot_de_passe else ""
-    # `asdict` ne voit que les champs : la puissance d'endurance est une
-    # **propriété** dérivée de la position depuis la décision 7, et le
-    # front la lit dans ce JSON. Sans cette ligne, elle disparaîtrait du
-    # contrat d'API sans que rien ne le signale.
-    d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
+    # Masquage des secrets et propriétés dérivées : `config.en_dict_public`,
+    # partagée avec l'API plutôt que recopiée ici. Un masquage qu'on réécrit
+    # est un masquage qu'on oublie.
+    d = en_dict_public(config)
     # Troisième valeur de l'écran de FTP (F1, comble C2 de
     # docs/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
     d["seance"]["vitesse_compteur"] = _info_vitesse_compteur(config)
@@ -346,45 +338,36 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
 
 
 def _info_vitesse_compteur(config: Config) -> dict | None:
-    """La troisième valeur de l'écran de FTP (F1, comble C2 de `docs/ux/relecture_f0.md`).
+    """La troisième valeur de l'écran de FTP — **déléguée**, jamais recalculée.
 
-    À la puissance d'endurance de la configuration : la vitesse à plat que
-    prédit le modèle physique du premier vélo route, et la moyenne compteur
-    qu'elle en déduit — celle qui empêche de saisir sa moyenne de compteur
-    dans un champ « à plat » (`config.py`, `Velo.facteur_compteur`).
+    Relecture de F1, point 8 : ces trois valeurs avaient deux implémentations,
+    celle-ci et `seance.ecran_ftp.valeurs_liees`, servies par deux routes
+    différentes de la même API. Elles s'accordaient, avec des noms de champs
+    différents — une dette accidentelle, pas assumée. Il n'en reste qu'une.
+
+    Ce qui est conservé ici : le **sous-ensemble** de champs que
+    `ourouler config --json` publiait déjà, pour ne pas élargir son contrat
+    au passage. `GET /profil/zones` sert la forme complète.
 
     `None` si la configuration ne porte aucun vélo : rien à calculer, et
     `ourouler config` doit rester utilisable sans vélo déclaré.
-
-    **`facteur_mesure` distingue un facteur réglé par l'utilisateur** (mesuré
-    sur son propre historique, `tests/validation/facteur_compteur_retrospectif.py`)
-    **d'un facteur dérivé par défaut** d'une sortie de référence supposée — 10 m
-    de dénivelé par kilomètre, 5 % d'arrêts (`physique.modele.facteur_compteur_defaut`).
-    Ce n'est alors pas une mesure, et c'est le seul chiffre de F0.6 qui n'en
-    soit pas une : tout écran qui l'affiche doit le dire, donc ce champ existe.
     """
-    if not config.velos:
-        return None
-    from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
-    from ourouler.physique.modele import (
-        facteur_compteur_defaut,
-        moyenne_compteur_kmh,
-        vitesse_a_plat_kmh,
-    )
+    from ourouler.seance.ecran_ftp import valeurs_liees
 
-    velo = velo_demande(config, None)
-    parametres, _provenance_modele = parametres_du_velo(config, velo, chemin_calibration(config))
-    puissance_w = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
-    mesure = velo.facteur_compteur is not None
-    facteur = velo.facteur_compteur if mesure else facteur_compteur_defaut(puissance_w, parametres)
-    return {
-        "velo": velo.nom,
-        "puissance_endurance_w": round(puissance_w, 1),
-        "vitesse_a_plat_kmh": round(vitesse_a_plat_kmh(puissance_w, parametres), 1),
-        "moyenne_compteur_kmh": round(moyenne_compteur_kmh(puissance_w, parametres, facteur), 1),
-        "facteur_compteur": round(facteur, 3),
-        "facteur_mesure": mesure,
-    }
+    completes = valeurs_liees(config)
+    if completes is None:
+        return None
+    gardes = (
+        "velo",
+        "puissance_endurance_w",
+        "vitesse_a_plat_kmh",
+        "moyenne_compteur_kmh",
+        "facteur_compteur",
+        # Décision 8 : mesuré sur l'historique, ou dérivé d'une sortie de
+        # référence supposée. Tout écran qui l'affiche doit le dire.
+        "facteur_mesure",
+    )
+    return {cle: completes[cle] for cle in gardes}
 
 
 def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
