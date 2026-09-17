@@ -3236,3 +3236,43 @@ Deux raisons, et la seconde est la plus importante :
 **À l'attention du prochain agent** : voir passer `cda_m2` et `crr` dans
 `physique/` n'autorise pas à proposer un comparateur de matériel. L'incertitude
 matérielle est absorbée par le facteur ajustable de [[Q50]], jamais interrogée.
+
+### Le remède au défaut 2 : figer le roulement, n'ajuster que l'aéro
+
+Trouvé le 17/09 en regardant un calculateur de CdA du commerce, et le
+mainteneur le formule ainsi : *« un outil spécialisé dans le CdA en fait fige
+le roulement »*, et *« le Crr c'est une valeur moyenne, comme d'hab on ne
+cherche pas à tout faire parfaitement »*.
+
+**C'est la sortie de la dégénérescence, et elle est simple.** On ne peut pas
+identifier deux paramètres sur une bande de vitesse étroite : alors on en fige
+un. Le roulement se lit dans une table par type de pneu et de surface — piste
+0,003, route rapide 0,004, route standard 0,005, gravel ou mauvais revêtement
+0,008 — et le CdA sort seul, identifié, sans vallée où glisser.
+
+`calibrer` fait aujourd'hui l'inverse : il ajuste **les deux ensemble** aux
+moindres carrés. D'où les valeurs invraisemblables (un CdA de chrono avec un
+Crr de VTT), d'où l'ajustement qui part en butée dès qu'on corrige la masse, et
+d'où probablement la phrase du 16/09.
+
+**Et ourouler peut faire mieux qu'une table figée** : il connaît les **tags OSM
+des routes réellement parcourues** (`apprentissage/routes.py`). Le Crr peut
+venir de la surface effectivement roulée plutôt que d'un menu déroulant.
+
+**Le prix à payer, qu'il faut écrire.** En figeant le roulement, le CdA devient
+une **poubelle** : il absorbe tout ce qui n'est pas dans le Crr fixé — une masse
+fausse, un vent mal estimé, un abri involontaire. Ce n'est plus un CdA physique,
+c'est un CdA **effectif**. Sans importance pour prédire une vitesse (un
+paramètre effectif bien identifié prédit mieux qu'un couple indéterminé), et
+disqualifiant pour comparer des vélos — usage déjà hors périmètre.
+
+**Tout le reste du panneau existe déjà** : vecteur vent (`vent_au_cycliste`,
+`FACTEUR_VENT_HAUTEUR`), température et pression (`masse_volumique_air`), perte
+de transmission (`RENDEMENT_DEFAUT = 0,976` contre les 3 % du calculateur).
+
+**Sauf l'abri, et c'est volontaire.** Le calculateur en fait une entrée parce
+qu'il analyse une sortie passée. Ourouler ne propose que des boucles en solo :
+`detecter_groupe` **écarte** ces sorties de la calibration au lieu de les
+corriger, ce qui est le bon geste — on ne calibre pas sur des watts qu'on n'a
+pas produits. Mesuré : +32,8 W d'erreur de physique en Z2 sur les sorties club
+contre +2,8 W ailleurs ([[Q49]]).
