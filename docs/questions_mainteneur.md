@@ -1896,6 +1896,55 @@ Le découpage de Q35 est donc complet : **au cycliste** `depart`, `cycliste`,
 `velos`, `intervals`, `seance`, `calibration`, `tenue`, `evitements`,
 `historique_depuis` ; **au serveur** `boucle`, `meteo`, `brouter`, `cache`.
 
+#### Proposition instruite le 17/09/2026 — les onze sections ne tombent pas en deux tas
+
+Relecture de `config.example.toml`, section par section. **Le découpage en deux
+ne marche pas**, et c'est pour ça que la liste de l'issue (b) était difficile à
+écrire : il y a trois tas, pas deux, et le critère qui les sépare n'est pas
+« à qui c'est » mais **« que se passe-t-il si quelqu'un d'autre le lit ? »**.
+
+**1. Secret du serveur — jamais servi à personne, même en lecture.**
+`[brouter]` porte `url`, `utilisateur` et `mot_de_passe` : c'est un accès à
+notre infrastructure. Ce n'est pas « commun », c'est **confidentiel côté
+serveur**. Un cycliste n'a aucune raison de le lire, et la fuite refermée
+plus haut le servait.
+
+**2. Réglages de méthode — communs, identiques pour tous, non surchargeables.**
+`[cache]` (un dossier), `[meteo]` (modèle, second avis, horizons) et
+`[calibration]` (`mots_groupe`, `part_validation`, `vitesse_min_kmh`) décrivent
+**comment le service calcule**, pas qui est le cycliste. À noter :
+`[calibration]` trompe par son nom — le résultat de la calibration vit dans
+`calibration.json`, pas ici ; cette section ne contient que des réglages de
+méthode. Elle est donc **commune**, alors qu'on la rangerait spontanément
+du côté personnel.
+
+**3. Personnel — jamais hérité, jamais servi à un autre.**
+`[depart]` (son domicile, le plus sensible du fichier), `[cycliste]`
+(masse, FTP, prénom, nom), `[[velos]]`, `[intervals]` (clé d'API et
+identifiant d'athlète — un secret, mais **le sien**, à l'opposé de `[brouter]`).
+
+**Et le tas qui casse le découpage en deux : défaut commun, surchargeable.**
+`[tenue]` (`bornes_c = [3, 9, 15, 22, 30]`) est de la **frilosité** : une
+valeur par défaut raisonnable que chacun voudra régler. `[boucle]` mélange
+les deux — `sens` dépend du pays (« horaire en France, antihoraire au
+Royaume-Uni »), `historique_depuis` est propre à chacun (règle absolue 6), mais
+`candidates` et `tolerance_distance` sont des réglages de service. `[seance]`
+pareil : `position_zone` est **déjà** dans `CHAMPS_MODIFIABLES`, les autres
+sont des seuils de placement.
+
+**Ce que ça suggère — une issue (d), qui ne se substitue pas aux trois autres.**
+Trois niveaux plutôt que deux : *secret serveur* (jamais servi), *défaut commun*
+(servi à tous, surchargeable champ par champ), *personnel* (jamais hérité). La
+mécanique existe déjà à moitié : `CHAMPS_MODIFIABLES` est la liste blanche de ce
+qu'un cycliste peut écrire, il manque la liste de ce qu'il peut **lire**. Ce
+sont deux listes distinctes, et les confondre est exactement ce qui a produit
+la fuite.
+
+**Le piège à ne pas retomber dedans** : trois sections sur onze sont à cheval
+(`boucle`, `seance`, `tenue`). Un découpage à la **section** les forcera dans
+un tas ou dans l'autre ; un découpage au **champ** est plus juste mais plus
+long à écrire. C'est le vrai arbitrage, et il est produit, pas technique.
+
 ## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **close le 17/09/2026 : l'âge est retiré**
 
 Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
@@ -2648,12 +2697,18 @@ départager ; elle se calibre sur les cyclistes qui portent puissance **et** FC,
 et rapporte son erreur. Le code confirme : ni `age`, ni `fc_max`, ni cette
 formule nulle part sous `src/ourouler/`.
 
-**Conséquences.** Pas de champ âge, donc pas de stockage à inventer, donc
-**l'étape « identité » disparaît de l'assistant** — les maquettes l'avaient
-écartée exprès, elles avaient raison. `CHAMPS_MODIFIABLES` reste tel quel.
-L'identité qui subsiste, l'adresse e-mail, vient du **compte** de L7.2 (lien
-d'invitation, puis passkey) et non du profil : c'est cohérent avec le découpage
-que [[Q35]] doit trancher, où l'e-mail appartient au compte, pas au TOML.
+**Conséquences, corrigées le 17/09 après relecture du code.** Seul l'âge
+part. L'étape « identité » **ne disparaît pas** : `CHAMPS_MODIFIABLES`
+(`api/depots.py:57`) porte déjà `prenom` et `nom` pour `cycliste`, ajoutés le
+17/09 au titre de cette question et « obligatoires pour tout profil créé par
+l'assistant », même si aucun calcul ne s'en sert. L'écran garde donc prénom et
+nom, et perd l'âge — ce qui était le seul champ sans usage ni stockage.
+
+L'adresse e-mail, elle, vient du **compte** de L7.2 (lien d'invitation, puis
+passkey) et non du profil. Et le complément de [[Q46]] range prénom et nom du
+même côté : « pas d'adresse, pas de nom » vaut pour ce qu'on stocke sous un
+`id_owner`, pas pour le compte. L'identité vit sur le compte, jamais sous la
+clé d'apprentissage.
 
 **Si un jour l'âge revient**, ce sera parce qu'un lot en aura un usage mesuré —
 pas parce qu'un formulaire d'inscription trouve normal de le demander.
