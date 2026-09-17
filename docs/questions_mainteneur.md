@@ -3102,3 +3102,37 @@ initiale** d'un réglage que l'utilisateur possède. Le lot n'est donc pas « bi
 estimer », c'est **« proposer, montrer, laisser corriger, et apprendre de la
 correction »**. La qualité de l'estimation initiale décide seulement de combien
 de personnes n'auront jamais besoin d'y toucher.
+
+### Les deux chemins vers le tableau, et ce qui les menace
+
+Objectif, dans les mots du mainteneur : **un tableau de puissance par zone,
+dont la physique dérive une vitesse par zone** — donc une durée de bloc, donc
+un itinéraire. Le tableau est **ancré par un point**, pas par un test.
+
+**Chemin A — capteur, et zones connues.** On part de la FTP, on propose un
+découpage éditable (V2), depuis les données rapatriées d'Intervals.
+
+*Ce qui le menace* : une FTP déclarée est un **réglage**, pas une mesure — le
+piège même qui a coûté la proposition sur la Z2 cardiaque en [[Q49]]. Chez le
+mainteneur, trois nombres portaient la même étiquette, dont un saisi la veille
+de l'étude après deux mois d'arrêt et sans test.
+
+*Le contrôle gratuit que la Z2 n'avait pas* : avec ses sorties à puissance, on
+**confronte la valeur déclarée à sa courbe réelle**. Le chemin A n'est donc pas
+« on prend sa FTP » mais « on la prend, on la date, on la confronte, et on
+montre le désaccord s'il y en a ».
+
+**Chemin B — pas de capteur, ou notion vague des zones.** On apprend de ses
+sorties et on approche ses zones en regardant la FC, ou la FC **et** la
+puissance.
+
+*Les deux sous-cas n'ont pas la même force.* FC + puissance est solide : les
+zones se dérivent directement, et c'est en réalité « il a un capteur mais ne
+connaît pas ses zones ». FC seule, c'est la chaîne mesurée à 15,5 W en
+[[Q49]] — utilisable, mais elle porte toute l'incertitude.
+
+**Réserve commune, à lever avant de bâtir dessus** : si le compte Intervals
+d'une personne est alimenté **depuis Strava**, ces activités pourraient ne pas
+ressortir par l'API d'Intervals — c'est ce que Strava interdit ([[Q46]], §5.16,
+ré-exposition en cascade). Le mainteneur, alimenté par Garmin, ne verra jamais
+le problème ; un utilisateur Strava, si. À vérifier.
