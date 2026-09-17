@@ -1984,3 +1984,76 @@ Une conséquence pour [[Q36]], qui portait sur l'étape « identité » : privé
 l'âge, elle ne contient plus que le nom et le prénom — dont le dépôt n'a pas
 davantage l'usage aujourd'hui. La question de savoir si cette étape existe
 encore se pose donc avec plus de force, pas moins.
+
+
+## Q40 — Réponses du mainteneur aux sept promesses de [[Q37]] — **17/09/2026**
+
+### (a) et (b) — aucune limite de date, et la météo se tait d'elle-même
+
+> « pour le jusqu'à quand : aucune limite. Juste, si on demande trop loin, ben
+> pas de météo. Donc si la personne donne une date hors de portée de la météo,
+> lui dire direct "pas de météo" et hop. »
+
+**L'API ne refuse pas une date lointaine.** Elle sert le parcours et dit que
+la météo est absente — ce qui est exactement l'état dégradé que les maquettes
+dessinent (E14 · dégradé) : la boucle reste servie, ce qui disparaît sont les
+affirmations qu'on ne peut plus soutenir, la pluie, le vent et la tenue.
+
+Ça referme (b) du même geste. Aujourd'hui l'API répond « hors du domaine, ou
+hors de sa portée temporelle » parce qu'Open-Meteo rend le même bloc vide dans
+les deux cas. Avec cette réponse, **la distinction cesse d'être nécessaire du
+côté produit** : dans les deux cas l'utilisateur lit « pas de météo pour ce
+jour-là », et le parcours arrive quand même. Le message doit dire quel jour est
+le dernier couvert, pas pourquoi il l'est.
+
+### (f) — le compte de feux n'est pas l'information ; la concentration l'est
+
+> « pour moi l'info est secondaire si on n'a pas le comptage des feux qui
+> sépare le départ/arrivée du reste. C'est une aide au calcul, mais l'info
+> user c'est plutôt : aucune zone avec une densité de stop/feux de plus de X
+> par km durant les 30 premiers kilomètres. »
+
+**Cette réponse change la question plutôt que d'y répondre**, et elle a
+raison. Un total de 10 feux répartis sur 56 km ne gêne personne ; **10 feux
+groupés sur les 4 premiers kilomètres ruinent l'échauffement.** Le total est
+une aide au calcul ; ce que le cycliste veut savoir, c'est s'il existe une
+zone dense, et où.
+
+Ça rejoint ce que le mainteneur disait déjà en septembre : *« y a un effet de
+concentration sur feux et stops, c'est ce qu'il faut réduire »* (Q29), et la
+distance de dégagement urbain (Q31). Les trois sont la même idée, prise par
+trois bouts.
+
+**Ce que ça implique, et qui n'est pas petit** : il faut mesurer la densité
+**par tranche de parcours**, pas sur la boucle entière. Le « X par km » et la
+fenêtre « 30 premiers kilomètres » restent à fixer — et cette fois ils
+peuvent l'être par la mesure, sur l'historique, comme l'a été la distance de
+dégagement.
+
+### (g) — aucun GPX à la génération, un GPX au choix
+
+> « oui, j'ai vu, et c'est con. Pourquoi ? Si c'est le coût de stockage et de
+> création, je propose d'en faire aucun et de le faire à la demande quand
+> l'user choisit son parcours. »
+
+**Génération paresseuse.** Écrire trois traces dont deux seront jetées est un
+gaspillage ; n'en écrire qu'une et se tromper de laquelle est un défaut — la
+proposition retenue n'est pas forcément celle que le cycliste choisit. Écrire
+à la demande supprime les deux, et la question du stockage avec.
+
+La géométrie des trois est déjà en JSON (`candidates[].trace.points`), donc le
+front peut les dessiner sans rien écrire sur disque.
+
+### (c), (d) et (e) — pas tranchées, et pourquoi
+
+**(c)** Le mainteneur renvoie à la conversation du 17/09 sur la vitesse et les
+trois valeurs liées : *« c'est le sujet de nos discussions sur les prises
+d'infos sur la vitesse moyenne »*. Prendre une durée en entrée demande le
+modèle physique et son facteur compteur — le travail est commencé (décisions 7
+et 8), le lot ne l'est pas.
+
+**(d) et (e)** Le mainteneur demandait ce que ces écrans voulaient dire ; la
+réponse lui a été donnée, il n'a pas tranché. Elles restent ouvertes :
+de combien élargir une durée quand aucune boucle ne tombe dans la tolérance,
+et combien de candidates réessayer quand moins de trois se distinguent. Aucun
+chiffre ne se déduit du dépôt pour l'instant.
