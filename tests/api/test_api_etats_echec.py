@@ -20,13 +20,17 @@ from __future__ import annotations
 
 import pytest
 from outils_api import (
+    DEMANDE_PARCOURS_MINIMALE,
+    appeler_route,
     cherche_profond,
     client_api,
     client_bouchon,
+    client_brouter_ordinaire,
+    client_brouter_sans_boucle,
+    client_meteo_ordinaire,
+    client_seance_ordinaire,
     config_d_essai,
     corps_json,
-    noms_de_parametres,
-    parametre_nomme,
     route_pour,
     schema_openapi,
     texte_entier,
@@ -45,41 +49,40 @@ pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-
 #: Les quatre états, chacun avec les mots qui doivent apparaître quelque part
 #: dans le contrat publié. Un état d'échec qui n'est nommé nulle part dans le
 #: schéma n'a pas été modélisé : il sera découvert en production.
-#: **Mis à jour le 17/09/2026.** La marque portait sur le test entier et
-#: disait « F1 non livré : aucun schéma OpenAPI ». Le schéma existe depuis, et
-#: deux des quatre états y sont nommés (E18 et E19) pendant que deux autres
-#: n'y sont pas : garder une marque unique la rendait fausse pour la moitié
-#: des cas, et `strict` faisait échouer la suite pour le dire. Elle descend
-#: donc au cas, avec le trou réellement constaté.
-_PAS_AU_SCHEMA = "état dessiné qu'aucune description du schéma ne nomme encore (F1 livré)"
-
+#:
+#: **Historique.** La marque portait d'abord sur le test entier (« F1 non
+#: livré : aucun schéma OpenAPI »), puis, le schéma livré, sur les deux seuls
+#: cas qui manquaient : `meteo_indisponible` (E14) et la clé Intervals
+#: révoquée (E15) étaient dessinés dans les maquettes et nommés nulle part.
+#: Le trou est comblé le 17/09/2026 — `erreurs.CODES_PANNE` est publié dans la
+#: description de l'application et dans l'énumération du champ `code` — et les
+#: quatre cas tiennent de nouveau dans un seul paramétrage, sans marque.
 ETATS_DESSINES = (
     ("aucune boucle trouvée (E18)", ("aucune_boucle", "aucune boucle", "sans_boucle", "introuvable")),
-    pytest.param(
-        "météo indisponible (E14)",
-        ("meteo_indisponible", "météo indisponible", "sans_meteo"),
-        marks=pytest.mark.xfail(strict=True, reason=_PAS_AU_SCHEMA),
-    ),
+    ("météo indisponible (E14)", ("meteo_indisponible", "météo indisponible", "sans_meteo")),
     ("une seule proposition (E19)", ("une_seule", "seule_proposition", "motif_deux_propositions")),
-    pytest.param(
-        "clé Intervals révoquée (E15)",
-        ("revoqu", "cle_invalide", "intervals_indisponible"),
-        marks=pytest.mark.xfail(strict=True, reason=_PAS_AU_SCHEMA),
-    ),
+    ("clé Intervals révoquée (E15)", ("revoqu", "cle_invalide", "intervals_indisponible")),
 )
 
 
-#: Les identifiants lisibles, que `ETATS_DESSINES` ne donne plus directement
-#: depuis que deux de ses entrées sont des `pytest.param`.
-_IDS_ETATS = [
-    "aucune boucle trouvée (E18)",
-    "météo indisponible (E14)",
-    "une seule proposition (E19)",
-    "clé Intervals révoquée (E15)",
-]
+def _demander_un_parcours(client, **champs):
+    """Demande un parcours **en remplissant la demande**, et rend la réponse.
+
+    Corrigé le 17/09/2026. Ces tests appelaient la route de parcours sans
+    corps, ou avec des `params=` qu'elle ne déclare pas : la réponse était un
+    422 « body : champ requis ». C'est bien un 4xx avec un code et un message
+    français, donc les assertions passaient — sans qu'aucune boucle ait été
+    cherchée ni aucun service appelé. `appeler_route` met les champs là où le
+    schéma dit qu'ils vont.
+    """
+    schema = schema_openapi(client)
+    chemin, methode, operation = route_pour(schema, "sortie", "boucle", "parcours")
+    return appeler_route(
+        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
+    )
 
 
-@pytest.mark.parametrize("etat,mots", ETATS_DESSINES, ids=_IDS_ETATS)
+@pytest.mark.parametrize("etat,mots", ETATS_DESSINES, ids=[e for e, _ in ETATS_DESSINES])
 def test_le_contrat_publie_nomme_chacun_des_quatre_etats(etat: str, mots: tuple[str, ...]):
     """Protège les quatre écrans de la section « Quand ça casse ».
 
@@ -100,29 +103,40 @@ def test_le_contrat_publie_nomme_chacun_des_quatre_etats(etat: str, mots: tuple[
 # --- E18 · échec : aucune boucle trouvée -------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : pas de route de parcours à qui demander l'impossible."
-)
 def test_aucune_boucle_trouvee_rend_un_refus_exploitable():
     """Protège E18 · échec (« Aucune boucle »).
 
     Le moteur sait déjà dire qu'il n'a rien trouvé. Ce qui se perd en chemin
     vers un front, c'est la *forme* : une exception qui remonte devient un 500
     nu, et l'écran dessiné devient une page blanche.
+
+    **Ce que la version précédente ne vérifiait pas.** Elle exigeait un
+    paramètre de durée ou de distance déclaré, puis appelait la route avec
+    `params={duree: 2}` : la route de parcours attend un corps, le 422 rendu
+    était « body : champ requis », et le refus vérifié n'était pas celui d'une
+    boucle introuvable. Le BRouter bouchonné à `{}` n'était même pas appelé.
     """
-    client = client_api(config=config_d_essai(), client_brouter=client_bouchon(200, {}))
-    schema = schema_openapi(client)
-    chemin, methode, operation = route_pour(schema, "sortie", "boucle", "parcours")
-    noms = noms_de_parametres(schema, operation)
-    duree = parametre_nomme(noms, "duree", "distance")
-    assert duree, f"aucun paramètre de durée ni de distance sur {methode} {chemin} : {sorted(noms)}"
-    reponse = client.requete(methode, chemin, params={duree: 2})
-    verifier_refus_exploitable(reponse, "aucune boucle trouvée")
+    client = client_api(
+        config=config_d_essai(),
+        client_brouter=client_brouter_sans_boucle(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    corps = verifier_refus_exploitable(_demander_un_parcours(client), "aucune boucle trouvée")
+    assert corps["code"] == "aucune_boucle", (
+        f"code {corps['code']!r} : E18 est un état nommé, pas un refus générique. "
+        "Un front qui branche son écran sur `requete_invalide` dessinerait « corrigez votre "
+        "saisie » là où il n'y a rien à corriger."
+    )
 
 
 @pytest.mark.xfail(
     strict=True,
-    reason="F1 non livré, et E18 exige en plus des pistes de repli chiffrées, pas un 'réessayez'.",
+    reason="E18 exige des pistes de repli chiffrées (« élargir la durée, 1 h 45 à 2 h 15 ») et "
+    "l'API ne rend que le code `aucune_boucle` et son message : de combien élargir, et sur "
+    "quel levier en premier, est un arbitrage produit non rendu — Q36 de "
+    "docs/questions_mainteneur.md. Chiffrer un élargissement ici serait une affirmation sans "
+    "mesure (règle absolue 5).",
 )
 def test_aucune_boucle_trouvee_propose_les_deux_leviers_avec_leurs_valeurs():
     """Protège E18 · échec, deuxième moitié : « Ce qui peut aider ».
@@ -133,11 +147,13 @@ def test_aucune_boucle_trouvee_propose_les_deux_leviers_avec_leurs_valeurs():
     la tolérance de distance ni le nombre d'essais déjà faits. Elles viennent
     donc de l'API, ou l'écran ment.
     """
-    client = client_api(config=config_d_essai(), client_brouter=client_bouchon(200, {}))
-    schema = schema_openapi(client)
-    chemin, methode, operation = route_pour(schema, "sortie", "boucle", "parcours")
-    duree = parametre_nomme(noms_de_parametres(schema, operation), "duree", "distance") or "duree"
-    corps = corps_json(client.requete(methode, chemin, params={duree: 2}))
+    client = client_api(
+        config=config_d_essai(),
+        client_brouter=client_brouter_sans_boucle(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    corps = corps_json(_demander_un_parcours(client))
     pistes = cherche_profond(corps, "piste", "repli", "recours", "suggestion", "elargir")
     assert pistes, (
         f"aucune piste de repli dans la réponse ({sorted(corps) if isinstance(corps, dict) else corps}). "
@@ -152,10 +168,6 @@ def test_aucune_boucle_trouvee_propose_les_deux_leviers_avec_leurs_valeurs():
 # --- E14 · dégradé : météo indisponible --------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : météo en panne = succès amputé, jamais un échec global.",
-)
 def test_meteo_indisponible_sert_quand_meme_le_parcours():
     """Protège E14 · dégradé (« Pas de météo ce matin »).
 
@@ -167,20 +179,19 @@ def test_meteo_indisponible_sert_quand_meme_le_parcours():
     client = client_api(
         config=config_d_essai(),
         client_meteo=client_bouchon(503, texte="service unavailable"),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
     )
-    schema = schema_openapi(client)
-    chemin, methode, _ = route_pour(schema, "sortie", "parcours")
-    reponse = client.requete(methode, chemin)
+    reponse = _demander_un_parcours(client)
     assert reponse.status_code == 200, (
         f"statut {reponse.status_code} alors qu'Open-Meteo seul est tombé. "
         "E14 sert le parcours sans la météo : « une boucle sans météo vaut mieux que pas de boucle »."
     )
+    assert corps_json(reponse)["donnees"].get("propositions"), (
+        "200 rendu, mais aucune proposition : « une boucle sans météo » suppose une boucle."
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : la tenue se tait *et dit pourquoi* quand la météo manque.",
-)
 def test_meteo_indisponible_tait_la_tenue_et_dit_pourquoi():
     """Protège E14 · dégradé, bloc « La tenue ».
 
@@ -192,11 +203,16 @@ def test_meteo_indisponible_tait_la_tenue_et_dit_pourquoi():
     client = client_api(
         config=config_d_essai(),
         client_meteo=client_bouchon(503, texte="service unavailable"),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
     )
-    schema = schema_openapi(client)
-    chemin, methode, _ = route_pour(schema, "sortie", "parcours")
-    corps = corps_json(client.requete(methode, chemin))
-    tenues = dict(cherche_profond(corps, "tenue"))
+    corps = corps_json(_demander_un_parcours(client))
+    # `cherche_profond` cherche une sous-chaîne : « tenue » attrape aussi
+    # `retenue`, le drapeau de la proposition mise en avant, dont la valeur
+    # booléenne ferait échouer l'assertion suivante pour une raison qui n'a
+    # rien à voir avec la tenue. On ne garde que le champ qui s'appelle
+    # vraiment `tenue`.
+    tenues = {cle: valeur for cle, valeur in cherche_profond(corps, "tenue") if cle.lower() == "tenue"}
     assert tenues, "aucun champ `tenue` dans la réponse : E14 en dessine un, même muet"
     assert all(valeur in (None, {}, []) for valeur in tenues.values()), (
         f"une tenue est conseillée sans température : {tenues!r} (règle absolue 5)"
@@ -211,10 +227,6 @@ def test_meteo_indisponible_tait_la_tenue_et_dit_pourquoi():
 # --- E19 · dégradé : une seule proposition — le piège ------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Piège à ne pas manquer : « une seule » est un succès, pas une panne.",
-)
 def test_une_seule_proposition_est_un_succes_explique_et_pas_une_erreur():
     """Protège E19 · dégradé (« Un seul parcours »).
 
@@ -228,20 +240,24 @@ def test_une_seule_proposition_est_un_succes_explique_et_pas_une_erreur():
     avec un statut 200 — pas le convertir en 404 « pas assez de résultats »,
     ni en 422, ni en 500.
     """
-    client = client_api(config=config_d_essai(), client_brouter=client_bouchon(200, {}))
-    schema = schema_openapi(client)
-    chemin, methode, operation = route_pour(schema, "sortie", "parcours")
-    noms = noms_de_parametres(schema, operation)
-    candidates = parametre_nomme(noms, "candidate")
-    params = {candidates: 5} if candidates else {}
-    reponse = client.requete(methode, chemin, params=params)
+    client = client_api(
+        config=config_d_essai(),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    reponse = _demander_un_parcours(client, candidates=5)
     assert reponse.status_code == 200, (
         f"statut {reponse.status_code} : servir moins de trois propositions est un résultat, "
         "pas une panne. Tout statut hors 200 fait dessiner l'écran d'erreur à la place de E19."
     )
     corps = corps_json(reponse)
-    motifs = cherche_profond(corps, "motif", "distinction", "explication")
-    assert motifs, (
+    propositions = corps["donnees"].get("propositions") or []
+    assert len(propositions) < 3, (
+        f"{len(propositions)} propositions servies : le bouchon ne reproduit plus le cas de E19, "
+        "et ce test ne protège plus rien. Le relire plutôt que le supprimer."
+    )
+    assert corps["donnees"].get("motif_deux_propositions"), (
         "propositions servies sans dire pourquoi elles sont moins de trois. "
         "E19 affiche « toutes empruntaient plus de 25 % des mêmes routes » : ce texte vient d'ici."
     )
@@ -249,8 +265,10 @@ def test_une_seule_proposition_est_un_succes_explique_et_pas_une_erreur():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="F1 non livré. E19 · dégradé propose « Chercher plus loin (8 candidates) » : le nombre "
-    "vient de l'API, le front ne peut pas l'inventer.",
+    reason="E19 · dégradé propose « Chercher plus loin (8 candidates) » et l'API ne rend que le "
+    "nombre de candidates essayées : combien en réessayer est un arbitrage produit non rendu — "
+    "Q36 de docs/questions_mainteneur.md. Chercher plus large coûte plus cher et peut ne rien "
+    "donner de plus ; poser le chiffre ici serait le décider à la place du mainteneur.",
 )
 def test_une_seule_proposition_porte_le_recours_chiffre():
     """Protège E19 · dégradé, bouton du bas.
@@ -260,10 +278,13 @@ def test_une_seule_proposition_porte_le_recours_chiffre():
     d'office. » Le « (8 candidates) » est une valeur : combien on a essayé,
     combien on essaierait. Seule l'API les connaît.
     """
-    client = client_api(config=config_d_essai(), client_brouter=client_bouchon(200, {}))
-    schema = schema_openapi(client)
-    chemin, methode, _ = route_pour(schema, "sortie", "parcours")
-    corps = corps_json(client.requete(methode, chemin))
+    client = client_api(
+        config=config_d_essai(),
+        client_brouter=client_brouter_ordinaire(),
+        client_intervals=client_seance_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
+    )
+    corps = corps_json(_demander_un_parcours(client, candidates=5))
     recours = cherche_profond(corps, "recours", "relance", "candidates_suggerees", "elargir")
     assert recours, (
         f"pas de recours chiffré dans {sorted(corps) if isinstance(corps, dict) else corps}. "
@@ -274,10 +295,6 @@ def test_une_seule_proposition_porte_le_recours_chiffre():
 # --- E15 · échec : clé Intervals révoquée ------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Le 401 d'Intervals doit devenir un état nommé, pas une liste vide.",
-)
 def test_cle_intervals_revoquee_ne_se_confond_pas_avec_une_semaine_vide():
     """Protège E15 · échec (« intervals.icu ne nous répond plus »).
 
@@ -299,37 +316,54 @@ def test_cle_intervals_revoquee_ne_se_confond_pas_avec_une_semaine_vide():
         f"statut {reponse.status_code}, corps {corps!r} : rien ne distingue « clé révoquée » de "
         "« aucune séance cette semaine ». C'est exactement la confusion que E15 corrige."
     )
+    assert corps["erreur"]["code"] == "intervals_refuse", (
+        f"code {corps['erreur']['code']!r} : une clé refusée n'est pas une panne du service. "
+        "E15 renvoie vers l'écran de la clé, pas vers « réessayer plus tard »."
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. E15 exige la date du dernier succès : « La date compte plus que le message ».",
-)
-def test_cle_intervals_revoquee_donne_la_date_du_dernier_succes():
+def test_cle_intervals_revoquee_donne_la_date_du_dernier_succes(tmp_path):
     """Protège E15 · échec, deuxième ligne de l'encart.
 
     « "Plus lues depuis le 12 septembre" dit à quelqu'un ce qu'il a manqué ;
     "erreur de connexion" ne dit rien. » Cette date n'est pas déductible côté
     front : elle suppose qu'on ait mémorisé quand la clé marchait encore.
+
+    **Le test joue les deux temps**, parce qu'un seul ne prouverait rien : une
+    API qui rendrait toujours `dernier_succes: null` passerait un test qui se
+    contente de trouver le champ. Ici, la clé marche, puis elle est révoquée,
+    et c'est la date du premier appel qui doit revenir. Les deux applications
+    partagent le même dossier de données : c'est là que la mémoire vit.
     """
-    client = client_api(
+    donnees = tmp_path / "donnees"
+    qui_marche = client_api(
         config=config_d_essai(),
+        dossier_donnees=donnees,
+        client_intervals=client_seance_ordinaire(),
+    )
+    schema = schema_openapi(qui_marche)
+    chemin, methode, _ = route_pour(schema, "semaine", "seance")
+    assert qui_marche.requete(methode, chemin).status_code == 200, (
+        "le premier appel devait réussir : sans succès, il n'y a pas de date à retenir"
+    )
+
+    revoquee = client_api(
+        config=config_d_essai(),
+        dossier_donnees=donnees,
         client_intervals=client_bouchon(401, {"error": "unauthorized"}),
     )
-    schema = schema_openapi(client)
-    chemin, methode, _ = route_pour(schema, "semaine", "seance")
-    corps = corps_json(client.requete(methode, chemin))
+    corps = corps_json(revoquee.requete(methode, chemin))
     dates = cherche_profond(corps, "dernier_succes", "derniere_lecture", "depuis", "lu_le")
     assert dates, (
         "aucune date de dernier succès. Sans elle, l'écran retombe sur « erreur de connexion », "
         "qui est précisément ce que E15 refuse."
     )
+    assert any(isinstance(valeur, str) and valeur for _, valeur in dates), (
+        f"le champ existe mais reste vide : {dates!r}. Un champ toujours nul ne dit rien de "
+        "plus qu'un champ absent."
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Le reste du produit doit rester servi quand Intervals tombe.",
-)
 def test_intervals_en_panne_ne_casse_pas_le_reste_du_produit():
     """Protège E15 · échec, bloc « En attendant ».
 
@@ -341,11 +375,22 @@ def test_intervals_en_panne_ne_casse_pas_le_reste_du_produit():
     client = client_api(
         config=config_d_essai(),
         client_intervals=client_bouchon(401, {"error": "unauthorized"}),
+        client_brouter=client_brouter_ordinaire(),
+        client_meteo=client_meteo_ordinaire(),
     )
     schema = schema_openapi(client)
-    chemin, methode, _ = route_pour(schema, "sortie", "boucle", "parcours")
-    reponse = client.requete(methode, chemin)
-    assert reponse.status_code != 401, (
-        "la demande manuelle renvoie 401 parce qu'Intervals est fâché. "
-        "E15 promet l'inverse : « Tout le reste fonctionne. »"
+    # **Corrigé le 17/09/2026** : la version précédente visait la route de
+    # *sortie*, qui pose la séance du jour sur une boucle et a donc besoin
+    # d'Intervals — la voir échouer ne prouvait rien. « Le reste », dans E15,
+    # c'est la boucle libre : demander un parcours sans séance.
+    chemin, methode, operation = route_pour(schema, "boucle")
+    reponse = appeler_route(
+        client, schema, chemin, methode, operation, dict(DEMANDE_PARCOURS_MINIMALE)
+    )
+    assert reponse.status_code == 200, (
+        f"statut {reponse.status_code} : la boucle libre ne demande rien à Intervals et tombe "
+        "quand même. E15 promet l'inverse : « Tout le reste fonctionne. »"
+    )
+    assert corps_json(reponse)["donnees"].get("candidates"), (
+        "200 rendu, mais aucune candidate : « le reste marche » suppose un parcours."
     )

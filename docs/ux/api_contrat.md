@@ -73,7 +73,7 @@ change pas sans changer la version de l'API.
 | GET | `/api/v1/systeme` | version, capacités (Intervals, BRouter, vélos), budgets |
 | GET | `/api/v1/systeme/budgets` | combien de temps chaque opération prend **ici**, et d'où vient le chiffre |
 | GET | `/api/v1/profil` | le profil du cycliste, clé masquée |
-| PATCH | `/api/v1/profil` | modifie départ, poids, FTP, position dans la zone, vélos, clé Intervals |
+| PATCH | `/api/v1/profil` | modifie départ, poids, FTP, position dans la zone, vélos, clé Intervals — le schéma de ce qu'elle accepte est engendré de `depots.CHAMPS_MODIFIABLES` |
 | GET | `/api/v1/profil/zones` | l'escalier des zones en watts + les trois valeurs liées |
 | POST | `/api/v1/profil/zones/apercu` | recalcule les trois valeurs **sans rien stocker** |
 | GET | `/api/v1/geocodage?adresse=` | **tous** les candidats, notés — l'API ne tranche jamais |
@@ -184,10 +184,50 @@ c'est dit.
 | `configuration_invalide` | 500 | le TOML du serveur ne charge pas |
 | `erreur_interne` | 500 | un bug — le détail reste au journal, jamais dans la réponse |
 
+**Cette table est publiée** (ajouté le 17/09/2026). Elle est engendrée de
+`api/erreurs.CODES_PANNE` — sa seule source — vers la description de
+l'application et vers l'énumération du champ `erreur.code` du schéma. Un front
+ne peut pas dessiner un état qu'il ne sait pas reconnaître, et deux des quatre
+écrans d'échec des maquettes (« pas de météo ce matin » →
+`meteo_indisponible`, « intervals.icu ne nous répond plus » →
+`intervals_refuse`) n'étaient nommés nulle part dans le contrat publié : F2
+devait lire le code de F1 pour les trouver.
+
+**Une panne de service rappelle la date de son dernier succès** (ajouté le
+17/09/2026), dans `erreur.details.dernier_succes`. E15 · échec en fait le cœur
+de son encart : « "Plus lues depuis le 12 septembre" dit à quelqu'un ce qu'il
+a manqué ; "erreur de connexion" ne dit rien. » Cette date n'est pas
+déductible côté front, et le cœur ne sait pas qu'il a un appelant (règle
+absolue 2) : elle est tenue par l'API, par propriétaire, dans
+`<cache>/api/<propriétaire>/services.json`. Elle vaut `null` tant qu'aucun
+succès n'a été enregistré — le cas d'un compte neuf, que l'écran doit savoir
+distinguer d'une clé qui vient de tomber.
+
 **Le classement lit le préfixe du message des connecteurs** (« BRouter : … »,
 « Open-Meteo : … »). C'est une convention du cœur, et un invariant la rattache
 à son code : si un connecteur changeait son préfixe, le test le dirait avant
 que le front se trompe d'écran.
+
+**Aucun chemin du serveur ne sort dans un message** (corrigé le 17/09/2026).
+L'API donne au cœur des chemins qu'elle a fabriqués — le `.ZWO` qu'elle vient
+de ranger, le GPX qu'elle a réservé — et le cœur, qui ne sait pas d'où ils
+viennent, les cite : « /var/folders/…/local/fichiers/137a….zwo : fichier
+vide ». Ce n'est ni le nom que le cycliste a déposé, ni quelque chose
+d'utilisable dans un navigateur, et en hébergé c'est l'arborescence du serveur
+décrite à qui regarde. `erreurs.assainir` les remplace par le nom du fichier,
+dans l'erreur **et** dans les avertissements.
+
+**Une chaîne vide de sens est refusée au bord.** Les champs texte des corps de
+requête et l'adresse de `/geocodage` exigent au moins une lettre ou un chiffre
+(`modeles.TexteUtile`). `min_length=1` ne suffisait pas : un `jour=""`
+devenait « aujourd'hui » parce qu'une chaîne vide est fausse en Python, et une
+adresse d'espaces partait chez la BAN, y consommait un appel et revenait en
+502 avec une phrase en anglais. Un champ à moitié effacé dans un formulaire
+produit exactement ça, et E16 prévient qu'il en enverra.
+
+**Un dépôt trop gros est refusé sur sa taille annoncée**, avant d'être lu
+(`Content-Length`). La borne reste vérifiée après lecture : l'en-tête vient du
+client, c'est une garde et pas une preuve.
 
 **Deux cas qui n'en sont pas.** Ils valent 200 :
 
@@ -220,6 +260,10 @@ Tout le reste est transmis tel quel.
 1. `GET /profil/zones` — l'escalier en watts, les trois valeurs liées, et
    `facteur_mesure` qui dit si la moyenne compteur repose sur une **mesure**
    de l'historique ou sur une **supposition** du modèle (décision 8).
+   `facteur_provenance` dit la même chose en un mot (`"mesure"` ou
+   `"suppose"`) : un booléen se lit quand on sait qu'il est là, un mot se lit
+   quand on parcourt la réponse — et afficher une mesure et une supposition de
+   la même façon est « un mensonge par mise en page » (E9).
 2. `POST /profil/zones/apercu` avec **une** des trois entrées —
    `position_zone`, `puissance_w` ou `vitesse_a_plat_kmh`. La moyenne
    compteur n'est pas éditable : elle n'a pas de champ. La réponse porte la
@@ -247,12 +291,40 @@ application complète, qui publie son contrat sans ouvrir ni fichier ni
 socket : c'est ce que la règle absolue 3 exige d'un point d'injection. Le
 profil vient, au choix, d'une `Config` déjà construite (`config=`), d'un
 fichier (`chemin_config=`), d'un socle (`socle=`) ou de rien — auquel cas il
-se remplit par `PATCH /profil`. Les clients externes s'injectent un par un
-(`client_meteo=`, `client_ban=`, `client_geocodage=`…) ; un `httpx.Client` à
-transport bouchonné suffit pour la météo et le géocodage, la fabrique
-l'habille du connecteur. BRouter et Intervals s'injectent entiers, parce que
-leur connecteur a besoin d'une URL et d'identifiants que la fabrique ne
-connaît pas.
+se remplit par `PATCH /profil`.
+
+## La convention d'injection — tranchée le 17/09/2026
+
+**Ce qu'on injecte est un transport, jamais un connecteur.** Pour les cinq
+services, `client_brouter=`, `client_meteo=`, `client_intervals=`,
+`client_ban=` et `client_nominatim=` prennent un `httpx.Client` — à transport
+bouchonné dans un test. La **route** l'habille du connecteur qui va avec, au
+moment de l'appel, avec l'URL et les identifiants du **profil du propriétaire
+de la requête**. `client_geocodage=` sert la BAN et Nominatim d'un coup, parce
+que le géocodage est un service pour qui appelle et deux connecteurs ici.
+
+**Il n'y a aucune exception par service**, et c'est le point. La règle
+précédente en faisait deux : BRouter et Intervals devaient s'injecter
+entiers, « parce que leur connecteur a besoin d'une URL et d'identifiants que
+la fabrique ne connaît pas ». C'est exact de la *fabrique* — elle est appelée
+avant toute requête — et faux de la *route*, qui a le profil sous la main.
+Déplacer l'habillage de l'une à l'autre supprime le cas particulier : douze
+tests de contrat échouaient sur ce seul nom d'argument, et le motif de leur
+marque disait « F1 non livré » alors que F1 était livré.
+
+Habiller à l'appel a un second effet, voulu : le connecteur est construit
+**par propriétaire**, avec sa clé à lui. Une clé habillée une fois pour toutes
+dans la fabrique serait celle du premier venu, servie à tous — exactement la
+fuite que `depots.py` refuse déjà pour le socle (Q35).
+
+**Un connecteur déjà construit reste accepté**, et pris tel quel : c'est ce
+que fait le serveur réel quand il n'injecte rien, et ce que font les tests qui
+veulent un connecteur pointé quelque part de précis. La règle se lit donc :
+« un `httpx.Client` est un transport à habiller, tout le reste est déjà un
+connecteur ». Elle vit en un seul endroit, `api/routes.FABRIQUES_CONNECTEUR`.
+
+Le corollaire, pour qui écrit un test : **pour changer l'URL ou la clé d'un
+service, on change le profil**, pas l'objet injecté.
 
 ## Mesuré le 17/09/2026, sur la configuration réelle du mainteneur
 

@@ -33,7 +33,7 @@ en plus des bretelles, et elle est testée.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from ourouler.erreurs import (
@@ -51,6 +51,54 @@ MASQUE = "***"
 #: masquage ferait plus de dégâts que de bien (une clé vide vaut "", et
 #: remplacer "" dans une chaîne la détruit).
 LONGUEUR_SECRET_MINI = 6
+
+#: **Le catalogue des pannes, publié dans le schéma** (ajouté le 17/09/2026).
+#:
+#: Un front ne peut pas dessiner un état qu'il ne sait pas reconnaître. Tant
+#: que ces codes ne vivaient que dans le code de l'API et dans un tableau de
+#: `docs/ux/api_contrat.md`, F2 devait lire l'implémentation ou deviner :
+#: `meteo_indisponible` (E14 · dégradé) et `intervals_refuse` (E15 · échec)
+#: étaient dessinés dans les maquettes et **nommés nulle part** dans le
+#: contrat publié. Ils le sont maintenant, avec les autres, et sans liste
+#: d'exceptions (doctrine §10.1).
+#:
+#: Cette table est la **seule** source : la description de l'application et
+#: l'énumération du champ `code` du schéma en sont engendrées, et un invariant
+#: vérifie qu'aucun code levé par l'API n'en est absent.
+CODES_PANNE: dict[str, str] = {
+    "requete_invalide": "option fautive, corps mal formé, champ de profil non modifiable",
+    "profil_invalide": "ce que le cycliste vient d'écrire ne fait pas une configuration valide",
+    "aucune_boucle": "le moteur a répondu, mais aucune boucle ne convient (E18 · échec)",
+    "fichier_illisible": ".ZWO/.MRC vide, tronqué ou mal formé",
+    "format_non_lu": "un .FIT de séance — décision 5, la V1 lit .ZWO et .MRC",
+    "fichier_trop_gros": "plus d'un mégaoctet déposé",
+    "fichier_introuvable": "identifiant inconnu, ou appartenant à quelqu'un d'autre",
+    "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
+    "methode_refusee": "la route existe, pas avec cette méthode",
+    "calcul_en_cours": "un calcul occupe déjà le serveur",
+    "brouter_indisponible": "BRouter injoignable ou en erreur",
+    "meteo_indisponible": (
+        "Open-Meteo injoignable ou en erreur — le parcours reste servi sans "
+        "météo, la tenue se tait (E14 · dégradé)"
+    ),
+    "meteo_hors_domaine": "Open-Meteo ne couvre pas ce point ou cette fenêtre (Q19)",
+    "intervals_refuse": (
+        "clé Intervals.icu révoquée ou refusée — renvoyer vers l'écran de la "
+        "clé, pas vers « réessayer » (E15 · échec)"
+    ),
+    "intervals_indisponible": "panne côté Intervals.icu",
+    "geocodage_indisponible": "BAN ou Nominatim en erreur",
+    "service_externe_indisponible": "un service externe non reconnu",
+    "configuration_invalide": "le TOML du serveur ne charge pas",
+    "erreur_interne": "un bug — le détail reste au journal, jamais dans la réponse",
+}
+
+
+def table_des_codes() -> str:
+    """`CODES_PANNE` en Markdown, pour la description que publie l'application."""
+    lignes = ["| code | quand |", "|---|---|"]
+    lignes += [f"| `{code}` | {quand} |" for code, quand in CODES_PANNE.items()]
+    return "\n".join(lignes)
 
 
 @dataclass(frozen=True)
@@ -111,26 +159,48 @@ DEBUTS_AUCUNE_BOUCLE = (
 )
 
 
-def assainir(message: str, secrets: Iterable[str] = ()) -> str:
-    """Le message, privé de toute occurrence littérale d'un secret connu."""
+def assainir(message: str, secrets: Iterable[str] = (), chemins: Mapping[str, str] | None = None) -> str:
+    """Le message, privé des secrets connus et des chemins du serveur.
+
+    **Les chemins** (ajouté le 17/09/2026). L'API donne au cœur des chemins
+    qu'elle a fabriqués — le `.ZWO` qu'elle vient de ranger, le GPX qu'elle a
+    réservé — et le cœur, qui ne sait pas d'où ils viennent, les cite dans ses
+    messages : « /var/folders/…/local/fichiers/137a….zwo : fichier vide ».
+    Trois défauts d'un coup pour un écran : ce n'est pas le nom que le
+    cycliste a déposé, c'est inutilisable dans un navigateur, et en hébergé
+    ça décrit l'arborescence du serveur à quiconque regarde
+    (`docs/ux/api_contrat.md`, « un fichier est un identifiant, pas un
+    chemin »). Le chemin est donc remplacé par ce nom-là, au moment où le
+    message sort.
+    """
     propre = str(message)
     for secret in secrets:
         if isinstance(secret, str) and len(secret) >= LONGUEUR_SECRET_MINI:
             propre = propre.replace(secret, MASQUE)
+    for chemin, nom in (chemins or {}).items():
+        propre = propre.replace(str(chemin), nom)
     return propre
 
 
-def classer(exception: Exception, *, secrets: Iterable[str] = ()) -> ErreurApi:
+def classer(
+    exception: Exception,
+    *,
+    secrets: Iterable[str] = (),
+    chemins: Mapping[str, str] | None = None,
+) -> ErreurApi:
     """Traduit une exception du cœur en panne d'API.
 
     Tout ce qui n'est pas une `ErreurUtilisateur` est un bug (contrat de
     `ourouler/erreurs.py`) : le front reçoit `erreur_interne` et un message
     sans détail, la trace reste dans le journal du serveur.
+
+    `chemins` associe un chemin que l'API a fabriqué au nom que le front
+    connaît — voir `assainir`.
     """
     if isinstance(exception, ErreurApi):
         return exception
 
-    message = assainir(str(exception), secrets)
+    message = assainir(str(exception), secrets, chemins)
 
     # **Avant tout classement par service** : « aucune boucle bornée trouvée »
     # est une `ErreurConnecteur` dans `boucle/commande.py` alors que BRouter a
@@ -200,6 +270,7 @@ def secrets_de(config) -> tuple[str, ...]:
 
 
 __all__ = [
+    "CODES_PANNE",
     "DEBUTS_AUCUNE_BOUCLE",
     "INDICE_CLE_REFUSEE",
     "MASQUE",
@@ -208,4 +279,5 @@ __all__ = [
     "assainir",
     "classer",
     "secrets_de",
+    "table_des_codes",
 ]

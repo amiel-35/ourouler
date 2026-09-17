@@ -27,7 +27,6 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -35,23 +34,45 @@ from starlette.exceptions import HTTPException as ExceptionHTTP
 
 from ourouler import __version__
 from ourouler.api.adaptateur import Budgets
-from ourouler.api.depots import DepotFichiers, DepotProfils, SocleFixe, SocleTOML, SocleVide
-from ourouler.api.erreurs import ErreurApi
+from ourouler.api.depots import (
+    DepotFichiers,
+    DepotProfils,
+    JournalServices,
+    SocleFixe,
+    SocleTOML,
+    SocleVide,
+)
+from ourouler.api.erreurs import ErreurApi, table_des_codes
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
 from ourouler.config import Config
-from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
-from ourouler.meteo.openmeteo import ClientOpenMeteo
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"
 
-DESCRIPTION = """
+#: La description publiée par `/openapi.json` et par `/docs`.
+#:
+#: Elle porte **le catalogue des pannes en toutes lettres** : un front ne peut
+#: pas dessiner un état qu'il ne sait pas reconnaître, et deux des quatre
+#: écrans d'échec des maquettes (« pas de météo ce matin », « intervals.icu ne
+#: nous répond plus ») n'étaient nommés nulle part dans le contrat publié.
+DESCRIPTION = f"""
 L'API d'ourouler. Elle expose ce que la ligne de commande rend déjà en JSON
 (doctrine §10.2) ; le front la consomme, et ne parle jamais au cœur.
 
-Les routes qui calculent rendent `{donnees, avertissements, duree_ms,
-budget}` ; les pannes rendent `{erreur: {code, message, service, details}}`.
+Les routes qui calculent rendent `{{donnees, avertissements, duree_ms,
+budget}}` ; les pannes rendent `{{erreur: {{code, message, service, details}}}}`.
 Le contrat complet est dans `docs/ux/api_contrat.md`.
+
+## Les états d'échec, et le code qui les nomme
+
+Le **code** est la valeur du contrat : c'est lui qu'un écran teste, jamais le
+texte du message, qui vient du cœur et peut être reformulé.
+
+{table_des_codes()}
+
+Deux cas qui n'en sont pas, et qui valent 200 : « aucune séance ce jour-là »
+(`donnees.seance` vaut `null`) et « une seule proposition au lieu de trois »
+(`donnees.motif_deux_propositions` porte l'explication).
 """
 
 
@@ -89,6 +110,13 @@ def creer_application(
     commande du cœur au moment de l'appel, exactement comme en ligne de
     commande — ce qui veut dire qu'il sortira sur le réseau : un test qui
     touche une route de service injecte le sien.
+
+    **Ce qu'on injecte, pour les cinq services, est un `httpx.Client`** — un
+    transport, bouchonné dans un test — que la route habille du connecteur qui
+    va avec, avec l'URL et les identifiants du profil du propriétaire. Un
+    connecteur déjà construit est accepté aussi, et pris tel quel. La règle et
+    ses raisons sont sur `routes.FABRIQUES_CONNECTEUR` ; il n'y a **pas** de
+    service qui s'injecte autrement que les autres.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -117,19 +145,18 @@ def creer_application(
     app.state.ourouler = Contexte(
         profils=DepotProfils(socle, dossier_donnees),
         fichiers=DepotFichiers(dossier_donnees),
+        journal=JournalServices(dossier_donnees),
         clients=clients
         or Clients(
-            brouter=_connecteur(client_brouter, None, "brouter"),
-            meteo=_connecteur(client_meteo, ClientOpenMeteo, "meteo"),
-            intervals=_connecteur(client_intervals, None, "intervals"),
+            brouter=client_brouter,
+            meteo=client_meteo,
+            intervals=client_intervals,
             # Le géocodage est **un** service pour qui appelle, deux connecteurs
             # ici : la BAN, et Nominatim en recours. `client_geocodage` sert les
             # deux d'un coup, pour qu'un appelant qui veut seulement couper le
             # réseau n'ait pas à connaître ce détail.
-            ban=_connecteur(client_ban or client_geocodage, ClientBAN, "ban"),
-            nominatim=_connecteur(
-                client_nominatim or client_geocodage, ClientNominatim, "nominatim"
-            ),
+            ban=client_ban or client_geocodage,
+            nominatim=client_nominatim or client_geocodage,
         ),
         budgets=budgets or Budgets(),
     )
@@ -217,32 +244,6 @@ def creer_application(
         )
 
     return app
-
-
-def _connecteur(donne: object | None, classe: type | None, service: str) -> object | None:
-    """Le connecteur à donner au cœur, à partir de ce que l'appelant a injecté.
-
-    Le cœur reçoit des **connecteurs** (`ClientBAN`, `ClientOpenMeteo`…), dont
-    le client HTTP est lui-même injectable — c'est la couture de la règle
-    absolue 3. Un appelant qui veut seulement couper le réseau n'a pourtant
-    pas à connaître cette hiérarchie : s'il donne un `httpx.Client` (à
-    transport bouchonné, typiquement), la fabrique l'habille du connecteur qui
-    va avec. C'est le rôle d'un point de composition.
-
-    **Sauf pour BRouter et Intervals**, dont le connecteur se construit aussi
-    avec une URL, des identifiants ou une clé : les fabriquer ici à partir du
-    seul client HTTP donnerait un connecteur qui pointe ailleurs que ce que
-    dit le profil. Ces deux-là s'injectent donc entiers, et le disent.
-    """
-    if donne is None or not isinstance(donne, httpx.Client):
-        return donne
-    if classe is None:
-        raise ValueError(
-            f"creer_application : client_{service} reçu sous forme de httpx.Client — ce "
-            f"connecteur a besoin de l'URL et des identifiants du profil, l'injecter entier "
-            f"(clients=Clients({service}=…))"
-        )
-    return classe(http=donne)
 
 
 def application() -> FastAPI:

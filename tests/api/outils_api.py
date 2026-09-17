@@ -326,10 +326,20 @@ TRACES_PYTHON = (
 
 #: Quelques mots qui n'existent qu'en français. Un message d'erreur qui n'en
 #: porte aucun est très probablement resté en anglais.
+#:
+#: **Élargi le 17/09/2026, et pourquoi ce n'est pas un affaiblissement.** La
+#: liste manquait des messages entièrement français : « fichier.zwo : fichier
+#: vide », « fichier.zwo : ZWO illisible (…) », « … octets annoncés ». Aucun
+#: de ces mots n'y figurait, et le test déclarait anglais un message qui ne
+#: l'est pas — un faux négatif rend un test bruyant, puis on le désarme, et
+#: c'est ainsi qu'on perd une garde qui servait. Les mots ajoutés n'existent
+#: qu'en français ; le test refuse toujours un message qui n'en porte aucun.
 MOTS_FRANCAIS = re.compile(
     r"\b(aucun|aucune|pas de|n'a|n'est|le|la|les|une|un|des|du|vous|votre|nous|"
     r"trop|manque|manquant|invalide|impossible|introuvable|doit|peut|sans|avec|pour|"
-    r"trouvé|trouvée|indisponible|inconnue|inconnu|attendu|attendue|erreur|essai)\b",
+    r"trouvé|trouvée|indisponible|inconnue|inconnu|attendu|attendue|erreur|essai|"
+    r"vide|illisible|lisible|fichier|séance|seance|octets|taille|refusé|refusée|"
+    r"tronqué|tronquée|déposé|déposée|jour|heure|départ|adresse|valeur|champ)\b",
     re.IGNORECASE,
 )
 
@@ -509,6 +519,106 @@ def transport_constant(
 def client_bouchon(statut: int, corps: Any = None, *, texte: str | None = None) -> httpx.Client:
     """Un `httpx.Client` prêt à être injecté, sans jamais sortir de la machine."""
     return httpx.Client(transport=transport_constant(statut, corps, texte=texte))
+
+
+def transports_du_depot() -> Any:
+    """Le module de fixtures de `ourouler sortie`, chargé à l'exécution.
+
+    **Le testeur est aveugle du code de l'API, pas des fixtures du dépôt.**
+    Un BRouter qui rend une vraie boucle, c'est une géométrie d'anneau, des
+    tronçons, des tags et un profil d'altitude ; la refabriquer ici en ferait
+    une deuxième à tenir à jour, et un bouchon qui dérive rend les tests qui
+    s'en servent muets sans prévenir. On emprunte donc celle de
+    `tests/test_sortie_commande.py`, qui est déjà la référence du dépôt.
+
+    Import différé : ce module est chargé au niveau du module de test, et
+    `tests/` n'est sur `sys.path` qu'une fois la collecte faite.
+    """
+    return import_module("test_sortie_commande")
+
+
+def client_brouter_ordinaire(reglages: dict[float, dict] | None = None) -> httpx.Client:
+    """Un BRouter qui rend de vraies boucles, prêt à être injecté."""
+    return transports_du_depot().client_brouter(reglages)
+
+
+def client_meteo_ordinaire(**options: Any) -> httpx.Client:
+    """Open-Meteo qui répond normalement, prêt à être injecté."""
+    return transports_du_depot().client_meteo(**options)
+
+
+def client_brouter_sans_boucle() -> httpx.Client:
+    """Un BRouter qui **répond bien** mais ne rend aucune boucle : le cas de E18.
+
+    Une ligne droite qui ne revient pas au départ. À ne pas confondre avec un
+    BRouter en panne ou un corps vide : ceux-là sont des pannes de service
+    (`brouter_indisponible`), et l'écran dessiné pour « aucune boucle » n'est
+    pas celui de « BRouter ne répond plus ». C'est exactement la distinction
+    que E18 protège.
+    """
+    module = transports_du_depot()
+    droite = [(0.0 + 0.001 * i, 0.0, 40.0) for i in range(120)]
+
+    def repondre(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=module.reponse_anneau(droite), request=requete)
+
+    return httpx.Client(transport=httpx.MockTransport(repondre))
+
+
+def client_seance_ordinaire(*, ce_jour_la: bool = False) -> httpx.Client:
+    """Intervals.icu qui rend une séance planifiée, prêt à être injecté.
+
+    Par défaut la séance est rendue **quel que soit le jour demandé** : les
+    tests de parcours veulent une séance à poser sur une boucle, pas un
+    calendrier.
+
+    `ce_jour_la=True` fait respecter la fenêtre demandée (`oldest`/`newest`),
+    et c'est nécessaire dès qu'un test compare « un jour avec séance » à « un
+    jour sans » : sinon les deux appels rendent la même chose et la
+    comparaison passe sans rien vérifier.
+    """
+    module = transports_du_depot()
+    charge = [module.W.evenement(module.W.groupes_watts(), nom="4x8 fabriquée")]
+    jour = module.JOUR.isoformat()
+
+    def repondre(requete: httpx.Request) -> httpx.Response:
+        debut, fin = requete.url.params.get("oldest"), requete.url.params.get("newest")
+        dedans = not ce_jour_la or debut is None or fin is None or debut <= jour <= fin
+        return httpx.Response(200, json=charge if dedans else [], request=requete)
+
+    return httpx.Client(transport=httpx.MockTransport(repondre))
+
+
+#: Ce qu'une demande de parcours porte au minimum pour être *acceptée* — pas
+#: pour réussir. Les tests qui cherchent un refus en donnent un champ fautif
+#: en plus ; ceux qui cherchent un succès s'en tiennent là.
+DEMANDE_PARCOURS_MINIMALE: dict[str, Any] = {"distance_km": 30, "direction": "N"}
+
+
+def appeler_route(
+    client: ClientApi,
+    schema: dict[str, Any],
+    chemin: str,
+    methode: str,
+    operation: dict[str, Any],
+    champs: dict[str, Any],
+) -> httpx.Response:
+    """Appelle une route en mettant chaque champ **là où elle l'attend**.
+
+    Une route qui déclare un corps de requête le reçoit en JSON ; une route
+    qui ne déclare que des paramètres de requête les reçoit en query. C'est le
+    schéma qui tranche, pas le testeur : poser des `params=` sur un `POST`
+    qui attend un corps rend un 422 « body: Field required » — un refus, donc
+    un test vert, mais qui n'a rien testé de ce qu'il croit protéger.
+
+    Les champs que la route ne déclare pas sont envoyés quand même : plusieurs
+    tests vérifient précisément qu'une valeur inconnue ou hors bornes est
+    refusée.
+    """
+    if (operation.get("requestBody") or {}).get("content"):
+        return client.requete(methode, chemin, json=champs)
+    del schema
+    return client.requete(methode, chemin, params=champs)
 
 
 def cherche_profond(valeur: Any, *motifs: str, profondeur: int = 0) -> list[tuple[str, Any]]:

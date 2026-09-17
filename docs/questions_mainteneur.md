@@ -1745,3 +1745,100 @@ départ, vélo, Intervals, récapitulatif.
 3. **Si l'un des deux reste**, il faut l'ajouter à `CHAMPS_MODIFIABLES` et
    décider s'il appartient au profil du cycliste ou au compte (Q35 : ce n'est
    pas la même table).
+
+## Q37 — Les sept promesses des maquettes que l'API ne tient pas, et qui demandent chacune un arbitrage
+
+Contexte : les 105 tests de contrat écrits en aveugle du code de l'API ont été
+réconciliés le 17/09/2026. Trente-huit marques `xfail` dont le motif était
+devenu faux ont disparu — l'API les tenait, ou le test les vérifiait mal.
+**Sept survivent**, et aucune n'est un oubli d'implémentation : chacune
+demande une décision que je ne prends pas à ta place. Elles sont groupées ici
+parce qu'elles se répondent entre elles.
+
+**(a) Jusqu'où un parcours reste-t-il servi ?** L'API accepte aujourd'hui
+`jour = 2036-09-17` et ne s'en aperçoit qu'au moment où Open-Meteo ne rend
+rien — un 502 `meteo_hors_domaine`, c'est-à-dire « le service est en panne »
+là où c'est la demande qui est hors de portée. Poser la borne suppose un
+chiffre. Les seuls mesurés dans le dépôt sont la portée d'AROME (67 h) et
+l'horizon d'orientation au vent (3 jours, mesuré sur 2 064 heures) — et E15
+sert justement une séance à J+4, **sans** vent. Donc : à partir de quel jour
+l'API refuse-t-elle, et avec quelle phrase ?
+
+**(b) Distinguer « hors du domaine » de « hors de l'horizon ».** E14 · dégradé
+corrige explicitement ce défaut. Open-Meteo rend le **même** bloc nul dans les
+deux cas ; le cœur refuse de trancher, et il a raison (règle absolue 5). Pour
+séparer, l'API devrait connaître la portée publiée de chaque modèle — donc le
+même chiffre qu'en (a). La réponse dit aujourd'hui « hors du domaine, ou hors
+de sa portée temporelle » : honnête, et moins utile que ce que la maquette
+dessine.
+
+**(c) E16 fait saisir une durée, l'API prend une distance.** « Les kilomètres
+suivent votre puissance, votre poids et le relief. » Convertir demande le
+modèle physique et son état de calibration — et E16 note lui-même que ce
+modèle « tourne sur ses valeurs par défaut » pour un invité. Prendre une durée
+en entrée est un lot, pas un correctif. Tant qu'elle n'existe pas, la
+contradiction « durée **et** distance » n'est pas refusable : il n'y a qu'une
+des deux consignes.
+
+**(d) E18 · échec dessine deux leviers chiffrés** (« élargir la durée, 1 h 45 à
+2 h 15 », « laisser la direction libre »). L'API rend le code `aucune_boucle`
+et son message, rien de plus. De combien élargir, et quel levier proposer en
+premier, ne se déduit d'aucune mesure du dépôt : chiffrer ici serait affirmer
+sans mesurer.
+
+**(e) E19 · dégradé propose « Chercher plus loin (8 candidates) ».** L'API sait
+combien elle en a essayé ; combien en réessayer est le même genre de choix.
+Chercher plus large coûte plus cher et peut ne rien donner de plus.
+
+**(f) « 10 feux » n'existe qu'en texte.** Le JSON n'expose que
+`densite_marqueurs_km`. Laisser le front multiplier par la distance lui ferait
+refaire un calcul du cœur, avec l'arrondi en prime : c'est au cœur de compter
+et de publier. Petit lot, mais un lot.
+
+**(g) Un GPX par proposition.** `rendre_json` n'écrit que celui de la candidate
+retenue. Les trois propositions sont contrastées exprès ; choisir « la plus
+sèche » puis l'envoyer au compteur envoie aujourd'hui la mauvaise trace. La
+géométrie, elle, **est** en JSON (`candidates[].trace.points`) : un front peut
+déjà dessiner les trois, il ne peut pas en télécharger deux. Écrire trois
+traces au lieu d'une à chaque génération se décide en connaissance du coût.
+
+**Un huitième cas, de nature différente.** `seance --json` change de forme
+quand il n'y a pas de séance (`{jour, seance: null}` au lieu des huit champs
+nominaux), et l'API transmet ce piège au front. Le corriger veut dire poser
+une forme de réponse **de référence** pour la séance — donc décider ce qui
+vaut `null` et ce qui disparaît — et cette forme est aussi celle que la ligne
+de commande rend. Ce n'est pas un correctif d'API.
+
+
+## Q38 — Le fichier déposé est une séance à faire — **tranché le 17/09/2026**
+
+La question traînait depuis les maquettes : un `.ZWO` ou un `.MRC` déposé
+décrit-il **la séance qu'on va faire**, ou **la sortie qu'on vient de faire** ?
+
+**Réponse du mainteneur** : « le fichier déposé c'est une séance à faire ».
+
+C'est une prescription. Ce qui est déjà implémenté au lot F0.5 et branché en
+F0.7 (`--fichier-seance`) est donc juste, et rien n'est à reprendre.
+
+**Ce que cette réponse laisse entier**, et qu'il ne faut pas confondre avec
+elle : lire une sortie **déjà faite** pour la comparer à ce que l'outil avait
+annoncé. C'est la boucle de vérification, proposée au sprint 6 et jamais
+tranchée — elle passera par le FIT du retour, pas par un fichier déposé à la
+main, et elle reste ouverte.
+
+## Q39 — L'âge ne sera pas demandé — **tranché le 17/09/2026**
+
+Le brief du 16/09 demandait « nom, prénom, âge, poids » dans l'assistant de
+configuration. La discovery avait relevé que **rien dans le dépôt ne se sert
+de l'âge** : ni le modèle physique, ni les zones de puissance, ni la tenue.
+
+**Réponse du mainteneur** : « l'âge on s'en fout ».
+
+Il sort de l'assistant. Demander une donnée dont on ne fait rien est du
+formulaire pour du formulaire, et chaque champ de l'installation est un
+endroit où quelqu'un s'arrête.
+
+Une conséquence pour [[Q36]], qui portait sur l'étape « identité » : privée de
+l'âge, elle ne contient plus que le nom et le prénom — dont le dépôt n'a pas
+davantage l'usage aujourd'hui. La question de savoir si cette étape existe
+encore se pose donc avec plus de force, pas moins.

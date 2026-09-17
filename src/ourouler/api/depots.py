@@ -27,6 +27,7 @@ import re
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
@@ -57,8 +58,46 @@ CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
 #: donnerait des résultats que personne ne peut prévoir.
 LISTES_MODIFIABLES = ("velos",)
 
+def schema_des_modifications() -> dict:
+    """Ce que `PATCH /profil` accepte, en schéma publiable (ajouté le 17/09/2026).
+
+    **Engendré de `CHAMPS_MODIFIABLES`, qui reste la seule source.** Le corps
+    de cette route n'a pas de modèle Pydantic — le décrire une seconde fois
+    dupliquerait `Config` et la liste blanche ci-dessus, et les trois
+    divergeraient. Mais ne rien publier laissait la principale route
+    d'écriture du produit sans contrat : F2 devait lire `depots.py` pour
+    savoir qu'on enregistre `seance.position_zone` et **jamais** des watts
+    (décision 7 du cycle UX), ce qui est exactement ce que le schéma est censé
+    éviter.
+
+    Les champs sont publiés sans type : la liste blanche n'en porte pas, et
+    en inventer un ici serait une deuxième vérité. Ce que le schéma dit, et
+    c'est ce dont le front a besoin, c'est **quels champs existent**.
+    """
+    sections = {
+        section: {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {champ: {} for champ in champs},
+        }
+        for section, champs in CHAMPS_MODIFIABLES.items()
+    }
+    sections |= {nom: {"type": "array", "items": {"type": "object"}} for nom in LISTES_MODIFIABLES}
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": sections,
+        "description": "les sections à modifier ; tout champ absent de cette liste est refusé "
+        "et nommé, jamais ignoré en silence",
+    }
+
+
 #: Le nom du fichier de profil d'un propriétaire, dans son dossier.
 NOM_PROFIL = "profil.json"
+
+#: Le nom du journal des services d'un propriétaire, à côté de son profil.
+#: Voir `JournalServices` : il ne porte que des dates, jamais un secret.
+NOM_JOURNAL = "services.json"
 
 #: Les extensions de fichier que le dépôt accepte de garder, et leur type de
 #: contenu. Fermé : un dépôt de fichiers qui accepte tout est un hébergeur.
@@ -432,13 +471,72 @@ def fusionner(socle: dict, surcharge: dict) -> dict:
     return resultat
 
 
+class JournalServices:
+    """Quand chaque service externe a **répondu pour de bon** à ce propriétaire.
+
+    Une seule chose à mémoriser, et E15 · échec dit pourquoi : « "Plus lues
+    depuis le 12 septembre" dit à quelqu'un ce qu'il a manqué ; "erreur de
+    connexion" ne dit rien. » Cette date-là n'est pas déductible côté front —
+    elle suppose qu'on ait retenu quand la clé marchait encore — et elle n'est
+    pas non plus déductible côté cœur, qui ne sait pas qu'il a un appelant
+    (règle absolue 2). Elle appartient donc à l'API, par propriétaire.
+
+    **Un fichier JSON à côté du profil, et c'est assez.** Ce n'est pas une
+    donnée qu'on perd gravement : au pire le front n'affiche pas de date la
+    première fois, ce qui est exactement l'état d'un compte neuf. Une écriture
+    qui échoue ne fait donc jamais échouer une requête — ce serait échanger un
+    écran un peu moins bon contre un écran cassé.
+    """
+
+    def __init__(self, dossier_donnees: Path) -> None:
+        self._dossier = dossier_donnees
+
+    def _chemin(self, proprietaire: Proprietaire) -> Path:
+        chemin = self._dossier / proprietaire.identifiant
+        chemin.mkdir(parents=True, exist_ok=True)
+        return chemin / NOM_JOURNAL
+
+    def _lire(self, proprietaire: Proprietaire) -> dict:
+        chemin = self._chemin(proprietaire)
+        if not chemin.is_file():
+            return {}
+        try:
+            charge = json.loads(chemin.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            # Un journal illisible se réécrit ; il ne fait pas tomber l'écran
+            # qu'il est censé enrichir.
+            return {}
+        return charge if isinstance(charge, dict) else {}
+
+    def noter_succes(self, proprietaire: Proprietaire, *services: str, quand: datetime | None = None
+                     ) -> None:
+        """Retient que ces services ont répondu, maintenant."""
+        if not services:
+            return
+        horodatage = (quand or datetime.now(UTC)).isoformat()
+        charge = self._lire(proprietaire) | {service: horodatage for service in services}
+        try:
+            self._chemin(proprietaire).write_text(
+                json.dumps(charge, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except OSError:
+            return
+
+    def dernier_succes(self, proprietaire: Proprietaire, service: str) -> str | None:
+        """La date du dernier succès de ce service, ou `None` s'il n'y en a jamais eu."""
+        valeur = self._lire(proprietaire).get(service)
+        return valeur if isinstance(valeur, str) else None
+
+
 __all__ = [
     "CHAMPS_MODIFIABLES",
     "EXTENSIONS",
     "LISTES_MODIFIABLES",
+    "NOM_JOURNAL",
     "DepotFichiers",
     "DepotProfils",
     "Fichier",
+    "JournalServices",
     "SocleFixe",
     "SocleTOML",
     "SocleVide",
