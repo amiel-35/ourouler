@@ -22,6 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App, fichierPourLaRecherche } from "../src/App";
+import { jourEnLettres } from "../src/api/formats";
 import { Serveur } from "./serveur";
 import { PROFIL, SEANCE, SEMAINE, SYSTEME, sortie, zones } from "./fixtures";
 
@@ -132,6 +133,39 @@ describe("le fichier déposé et les recherches suivantes", () => {
       "la séance déposée pour aujourd'hui s'est replacée sur un autre jour : " +
         "le cycliste partirait faire les mauvais blocs",
     ).toBeUndefined();
+  });
+
+  /**
+   * **Trouvé en cliquant, pas en relisant** (17/09/2026).
+   *
+   * `Importer` recevait `demande.jour`, que `chercher` réécrit à chaque
+   * génération. Après avoir généré le parcours d'un autre jour depuis « Ma
+   * semaine », « Déposer une séance » depuis l'écran **d'aujourd'hui**
+   * rattachait le fichier à cet autre jour : la garde de B1 tenait toujours,
+   * mais elle gardait le mauvais jour, ce qui revient au même pour le
+   * cycliste. Le jour voyage maintenant avec la vue.
+   */
+  it("se rattache au jour de l'écran d'où on l'a déposé, même après une autre génération", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    // Une première génération pour un autre jour : c'est elle qui faisait
+    // dériver le jour de la demande.
+    await utilisateur.click(await screen.findByRole("button", { name: "Ma semaine" }));
+    const blocs = await screen.findAllByRole("button", { name: "Générer le parcours" });
+    await utilisateur.click(blocs[blocs.length - 1]);
+    await waitFor(() => expect(serveur.vers("/api/v1/sorties").length).toBe(1));
+
+    // Puis un dépôt depuis « Aujourd'hui ».
+    await utilisateur.click(screen.getByRole("button", { name: "Aujourd'hui" }));
+    await deposerPourAujourdhui(utilisateur);
+
+    const depots = serveur.vers("/api/v1/seances/fichier");
+    expect(depots[depots.length - 1].chemin).toContain(`jour=${AUJOURDHUI}`);
+    // Le jour se lit à deux endroits, et c'est voulu : l'en-tête du dépôt
+    // l'annonce avant, le bandeau le rappelle après.
+    expect(await screen.findAllByText(new RegExp(jourEnLettres(AUJOURDHUI)))).not.toHaveLength(0);
   });
 
   it("se voit à l'écran tant qu'il est en usage, et se retire", async () => {

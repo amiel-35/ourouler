@@ -37,7 +37,16 @@ type Onglet = "aujourdhui" | "semaine" | "demander" | "reglages";
 type Vue =
   | { genre: "onglet" }
   | { genre: "assistant" }
-  | { genre: "importer" }
+  /**
+   * **Le dépôt porte son jour** (trouvé en cliquant, le 17/09/2026).
+   *
+   * `Importer` recevait `demande.jour`, qui dérive : `chercher` le réécrit à
+   * chaque génération. Après avoir généré le parcours de samedi depuis « Ma
+   * semaine », « Déposer une séance » depuis l'écran **d'aujourd'hui**
+   * déposait le fichier pour samedi. Le rattachement au jour étant devenu la
+   * garde de B1, un rattachement au mauvais jour est le même défaut déplacé.
+   */
+  | { genre: "importer"; jour: string }
   | { genre: "propositions" }
   | { genre: "detail"; numero: number }
   | { genre: "boucles" };
@@ -321,7 +330,9 @@ export function App() {
                 className="bouton second"
                 onClick={() => {
                   setErreurCalcul(null);
-                  setVue({ genre: "importer" });
+                  // La recherche qui vient d'échouer portait sur ce jour-là :
+                  // c'est pour lui qu'on dépose.
+                  setVue({ genre: "importer", jour: demande.jour });
                 }}
               >
                 Déposer une séance
@@ -361,11 +372,11 @@ export function App() {
   } else if (vue.genre === "importer") {
     contenu = (
       <Importer
-        jour={demande.jour}
+        jour={vue.jour}
         surSeanceLue={(seance, identifiant) =>
-          setFichierSeance({ identifiant, jour: demande.jour, nom: seance.nom })
+          setFichierSeance({ identifiant, jour: vue.jour, nom: seance.nom })
         }
-        surChercher={() => chercher({ mode: "seance" })}
+        surChercher={() => chercher({ mode: "seance", jour: vue.jour })}
       />
     );
   } else if (vue.genre === "propositions" && resultat?.sortie) {
@@ -430,7 +441,7 @@ export function App() {
               <button
                 type="button"
                 className="bouton second"
-                onClick={() => setVue({ genre: "importer" })}
+                onClick={() => setVue({ genre: "importer", jour })}
               >
                 Déposer
               </button>
@@ -458,7 +469,7 @@ export function App() {
           }
         }}
         surDemander={() => setOnglet("demander")}
-        surDeposer={() => setVue({ genre: "importer" })}
+        surDeposer={() => setVue({ genre: "importer", jour })}
       />
     );
   } else if (onglet === "semaine") {
@@ -488,7 +499,7 @@ export function App() {
               <button
                 type="button"
                 className="bouton second"
-                onClick={() => setVue({ genre: "importer" })}
+                onClick={() => setVue({ genre: "importer", jour })}
               >
                 Déposer
               </button>
@@ -522,7 +533,7 @@ export function App() {
           });
           setVue({ genre: "propositions" });
         }}
-        surDeposer={() => setVue({ genre: "importer" })}
+        surDeposer={() => setVue({ genre: "importer", jour })}
       />
     );
   } else if (onglet === "demander") {
