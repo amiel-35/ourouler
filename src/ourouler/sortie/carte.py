@@ -763,6 +763,7 @@ def construire_page_jour(
     *,
     titre: str = "",
     motif_deux_propositions: str | None = None,
+    motif_equivalence: str | None = None,
     maintenant: datetime | None = None,
 ) -> str:
     """La page du jour : les propositions contrastées, superposées sur une carte.
@@ -788,6 +789,10 @@ def construire_page_jour(
     (`motif_deux_propositions` porte alors pourquoi), une seule aussi
     (aucune comparaison n'a de sens, la page le montre sans sélecteur inutile
     à comparer).
+
+    `motif_equivalence` est la phrase de Q45 : trois tracés différents dont
+    aucun ne se détache sur un axe mesuré. Elle s'affiche au même endroit que
+    l'autre motif, et les deux peuvent tenir ensemble.
     """
     if not propositions:
         raise ValueError("construire_page_jour : au moins une proposition est attendue")
@@ -851,6 +856,7 @@ def construire_page_jour(
         propositions=propositions,
         panneaux=panneaux,
         motif_deux_propositions=motif_deux_propositions,
+        motif_equivalence=motif_equivalence,
     )
 
 
@@ -887,6 +893,7 @@ def _page_jour(
     propositions: Sequence[PropositionCarte],
     panneaux: Sequence[str],
     motif_deux_propositions: str | None,
+    motif_equivalence: str | None,
     horodatage: str,
 ) -> str:
     """Le HTML autonome de la page du jour. Les données partent en JSON, comme `_page`."""
@@ -906,7 +913,7 @@ def _page_jour(
      aria-pressed="{'true' if actif else 'false'}" data-prop="{prop.numero}">
 <div class="mini-carte" aria-hidden="true"></div>
 <p class="distinction"><span class="badge">n° {prop.numero}</span>{recommandee}
-{html.escape(prop.distinction or "la seule candidate")}</p>
+{html.escape(prop.distinction or ("la seule candidate" if n == 1 else ""))}</p>
 <p class="chiffres">{html.escape(prop.chiffres)}</p>
 <a class="gpx-dl" data-prop="{prop.numero}" download="{html.escape(prop.gpx_nom)}" href="#">
 Télécharger le GPX</a>
@@ -917,8 +924,13 @@ Télécharger le GPX</a>
         f"{panneau}</div>"
         for prop, panneau in zip(propositions, panneaux, strict=True)
     )
-    motif_html = (
-        f'<p class="note motif">{html.escape(motif_deux_propositions)}</p>' if motif_deux_propositions else ""
+    # Deux phrases possibles, au même endroit : « il n'y en a que deux, et
+    # voici pourquoi » et « elles se valent, choisissez ». Elles ne s'excluent
+    # pas — deux boucles qui vont ailleurs peuvent parfaitement se valoir.
+    motif_html = "".join(
+        f'<p class="note motif">{html.escape(texte)}</p>'
+        for texte in (motif_deux_propositions, motif_equivalence)
+        if texte
     )
     charge = _charge_json(donnees)
     return f"""<!doctype html>

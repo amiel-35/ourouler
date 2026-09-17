@@ -27,6 +27,7 @@ from outils_api import (
     client_bouchon,
     client_brouter_ordinaire,
     client_brouter_sans_boucle,
+    client_brouter_toujours_la_meme_boucle,
     client_meteo_ordinaire,
     client_seance_ordinaire,
     config_d_essai,
@@ -239,10 +240,17 @@ def test_une_seule_proposition_est_un_succes_explique_et_pas_une_erreur():
     `sortie --json` (`discovery_donnees.md` §2). L'API doit le transmettre,
     avec un statut 200 — pas le convertir en 404 « pas assez de résultats »,
     ni en 422, ni en 500.
+
+    **Bouchon changé le 17/09/2026**, comme ce test demandait qu'on le fasse
+    plutôt que de le supprimer. Q43 a retiré l'exigence de se distinguer sur un
+    axe mesuré, qui était ce par quoi le bouchon d'avant produisait E19 ; il
+    reste le recouvrement de routes, et un BRouter qui rend toujours la même
+    boucle l'atteint franchement. Le cas protégé n'a pas changé — « une seule
+    proposition est un succès expliqué » — seul le chemin pour y arriver.
     """
     client = client_api(
         config=config_d_essai(),
-        client_brouter=client_brouter_ordinaire(),
+        client_brouter=client_brouter_toujours_la_meme_boucle(),
         client_intervals=client_seance_ordinaire(),
         client_meteo=client_meteo_ordinaire(),
     )

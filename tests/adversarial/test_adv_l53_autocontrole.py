@@ -269,9 +269,20 @@ def test_mutation_du_choix_attrapee(quoi, mutant, vivier, verificateur):
 # =============================================================================
 
 
-def m11_phrase_vide(pool) -> f53.VueChoix:
+def m11_toutes_muettes_sans_le_dire(pool) -> f53.VueChoix:
+    """Q45 : plusieurs propositions, pas une phrase, et pas un mot d'explication.
+
+    Remplace « une phrase vide », qui gardait la règle retirée le 17/09/2026 :
+    depuis Q43, une proposition sans phrase est une proposition dont le tracé
+    parle seul, et c'est légitime. Ce qui ne l'est pas, c'est de les servir
+    toutes muettes en laissant le cycliste chercher la différence.
+    """
     choix = f53.choisir_reference(pool)
-    return replace(choix, retenues=[replace(choix.retenues[0], phrase=""), *choix.retenues[1:]])
+    return replace(
+        choix,
+        retenues=[replace(p, phrase="") for p in choix.retenues],
+        equivalence_dite=False,
+    )
 
 
 def m12_phrases_identiques(pool) -> f53.VueChoix:
@@ -330,7 +341,8 @@ def m16_phrases_generiques(pool) -> f53.VueChoix:
 
 
 MUTATIONS_PHRASES: tuple[tuple[str, Callable, Any, Callable], ...] = (
-    ("m11 : une phrase vide", m11_phrase_vide, f53.vivier_contrastable(), f53.verifier_phrases),
+    ("m11 : toutes muettes, sans dire qu'elles se valent", m11_toutes_muettes_sans_le_dire,
+     f53.vivier_contrastable(), f53.verifier_phrases),
     ("m12 : la même phrase pour toutes", m12_phrases_identiques,
      f53.vivier_contrastable(), f53.verifier_phrases),
     ("m13 : « note 1,93 » au lieu du langage de cycliste", m13_phrase_en_langage_de_note,
@@ -588,18 +600,31 @@ def test_la_reference_refuse_une_direction_non_finie():
 
 
 # =============================================================================
-# 4 bis. Les marges de contraste du contrat §3.3.3 bis (5 mutations)
+# 4 bis. Ce qui reste des marges après Q43 (5 mutations)
 # =============================================================================
 #
-# Ajoutées le 16/09/2026, quand le contrat a chiffré « éloignées ». C'est le
+# Écrit le 16/09/2026, quand le contrat a chiffré « éloignées » : c'était le
 # trou que j'avais signalé — « une implémentation rendant trois propositions
-# séparées de 1 % serait passée » — et il ne suffit pas d'écrire le
-# vérificateur : il faut prouver qu'il mord.
+# séparées de 1 % serait passée ».
+#
+# **Refondu le 17/09/2026, après Q43.** Les marges ne décident plus qui entre
+# dans le trio : le mainteneur a tranché que « le parcours lui-même est
+# distinctif en soi », et le recouvrement de routes est devenu le seul verrou.
+# Trois des cinq mutations d'alors gardaient très exactement cette règle
+# retirée (m28 séparées de 1 %, m29 deux fois le même axe, m30 une proposition
+# pour faire nombre) ; les garder aurait fait crier mon oracle sur un
+# comportement que le produit doit maintenant avoir.
+#
+# Elles sont réécrites sur ce qui reste vrai, et qui n'est pas moins exigeant :
+#
+# - les marges gardent le **droit d'écrire une phrase** (m28, m29, m32) ;
+# - le recouvrement porte seul le verrou, donc il doit mordre (m31) ;
+# - et des propositions qui se valent doivent **le dire** (m30, Q45).
 
 AXES_LUS_TOUS = frozenset(f53.AXES) | {"orientation"}
 
 
-def _vue_mesuree(cle, *, orientation=None, recouvrement=None, **axes):
+def _vue_mesuree(cle, *, orientation=None, recouvrement=None, phrase=None, **axes):
     """Une `VueProposition` dont tous les axes comptent pour lus."""
     base = f53.vue(cle, **axes)
     return replace(
@@ -607,61 +632,87 @@ def _vue_mesuree(cle, *, orientation=None, recouvrement=None, **axes):
         orientation=orientation,
         axes_lus=AXES_LUS_TOUS,
         recouvrement_max=recouvrement,
-        phrase=base.phrase or "phrase de cobaye",
+        phrase=phrase if phrase is not None else (base.phrase or ""),
     )
 
 
-def _choix(vues) -> f53.VueChoix:
-    return f53.VueChoix(retenues=list(vues), contraste_affirme=True, pool=list(vues))
+def _choix(vues, *, equivalence_dite=False) -> f53.VueChoix:
+    return f53.VueChoix(
+        retenues=list(vues),
+        contraste_affirme=True,
+        equivalence_dite=equivalence_dite,
+        pool=list(vues),
+    )
 
 
-def test_trois_propositions_franchement_distinctes_passent_les_marges():
+def test_trois_propositions_franchement_distinctes_passent_les_verrous():
     """Contrôle positif : sans lui, un vérificateur toujours-faux passerait aussi.
 
-    Trois propositions séparées bien au-delà des marges du contrat, chacune sur
-    un axe différent : la plus sèche, la plus courte, celle sans demi-tour.
+    Trois propositions séparées bien au-delà des marges du contrat, chacune
+    avec la phrase qu'elle mérite : la plus sèche, la plus courte, celle sans
+    demi-tour. Leurs tracés ne se recouvrent pas.
     """
     choix = _choix([
-        _vue_mesuree("seche", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2),
-        _vue_mesuree("courte", pluie_mm=6.0, depassement_s=0.0, demi_tours=2),
-        _vue_mesuree("directe", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0),
+        _vue_mesuree("seche", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2,
+                     recouvrement=0.05, phrase="la plus sèche"),
+        _vue_mesuree("courte", pluie_mm=6.0, depassement_s=0.0, demi_tours=2,
+                     recouvrement=0.05, phrase="20 minutes de moins"),
+        _vue_mesuree("directe", pluie_mm=6.0, depassement_s=3000.0, demi_tours=0,
+                     recouvrement=0.05, phrase="aucun demi-tour"),
     ])
-    f53.verifier_marges_de_contraste(choix, seuil_recouvrement=0.25)
+    f53.verifier_verrou_de_recouvrement(choix, seuil_recouvrement=0.25)
+    f53.verifier_phrases_meritees(choix)
+    f53.verifier_phrases(choix)
+    f53.verifier_pas_de_trio_de_clones(choix, seuil_recouvrement=0.25)
 
 
-def m28_marges_a_un_pourcent(_pool=None) -> f53.VueChoix:
-    """Trois propositions séparées de ~1 % : exactement ce que le contrat refuse."""
-    return _choix([
-        _vue_mesuree("a", pluie_mm=5.00, depassement_s=3000.0),
-        _vue_mesuree("b", pluie_mm=5.05, depassement_s=3030.0),
-        _vue_mesuree("c", pluie_mm=5.10, depassement_s=3060.0),
-    ])
+def m28_phrase_gagnee_a_un_pourcent(_pool=None) -> f53.VueChoix:
+    """« La plus sèche » pour 0,05 mm d'avance : exactement ce que le contrat refuse.
 
-
-def m29_deux_fois_le_meme_axe(_pool=None) -> f53.VueChoix:
-    """Deux propositions se distinguent par la même chose : pas d'axes distincts.
-
-    La deuxième et la troisième gagnent toutes deux « pluie » face à la
-    première ; aucune affectation d'axes **différents** n'existe.
+    La mutation d'avant ne portait aucune phrase et testait l'appartenance au
+    trio ; celle-ci teste le droit d'écrire, qui est ce que les marges gardent.
     """
     return _choix([
-        _vue_mesuree("arrosee", pluie_mm=9.0, depassement_s=3000.0, demi_tours=1),
-        _vue_mesuree("seche1", pluie_mm=0.0, depassement_s=3000.0, demi_tours=1),
-        _vue_mesuree("seche2", pluie_mm=0.1, depassement_s=3000.0, demi_tours=1),
+        _vue_mesuree("a", pluie_mm=5.00, depassement_s=3000.0, recouvrement=0.05,
+                     phrase="la plus sèche"),
+        _vue_mesuree("b", pluie_mm=5.05, depassement_s=3030.0, recouvrement=0.05, phrase=""),
+        _vue_mesuree("c", pluie_mm=5.10, depassement_s=3060.0, recouvrement=0.05, phrase=""),
     ])
 
 
-def m30_une_proposition_pour_faire_nombre(_pool=None) -> f53.VueChoix:
-    """La troisième n'est la meilleure sur rien : « aucune n'est là pour faire nombre »."""
+def m29_deux_fois_la_phrase_de_la_pluie(_pool=None) -> f53.VueChoix:
+    """Deux propositions se disent la plus sèche : au moins une des deux ment."""
     return _choix([
-        _vue_mesuree("seche", pluie_mm=0.0, depassement_s=3000.0, demi_tours=1),
-        _vue_mesuree("courte", pluie_mm=6.0, depassement_s=0.0, demi_tours=1),
-        _vue_mesuree("milieu", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1),
+        _vue_mesuree("arrosee", pluie_mm=9.0, depassement_s=3000.0, demi_tours=1,
+                     recouvrement=0.05, phrase=""),
+        _vue_mesuree("seche1", pluie_mm=0.0, depassement_s=3000.0, demi_tours=1,
+                     recouvrement=0.05, phrase="la plus sèche"),
+        _vue_mesuree("seche2", pluie_mm=0.1, depassement_s=3000.0, demi_tours=1,
+                     recouvrement=0.05, phrase="la plus sèche, elle aussi"),
+    ])
+
+
+def m30_des_clones_annonces_contrastes(_pool=None) -> f53.VueChoix:
+    """Q45 : trois boucles égales sur tous les axes, servies comme si elles différaient.
+
+    C'est le défaut que Q43 rend possible et que Q45 interdit : les tracés vont
+    bien ailleurs (recouvrement 5 %), donc les publier est légitime — mais les
+    publier **sans dire qu'elles se valent** laisse chercher une différence que
+    le produit sait inexistante.
+    """
+    return _choix([
+        _vue_mesuree("a", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
+        _vue_mesuree("b", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
+        _vue_mesuree("c", pluie_mm=3.0, depassement_s=1500.0, demi_tours=1, recouvrement=0.05),
     ])
 
 
 def m31_recouvrement_au_dessus_du_seuil(_pool=None) -> f53.VueChoix:
-    """Trois propositions bien distinctes sur le papier, mais les mêmes routes."""
+    """Trois propositions bien distinctes sur le papier, mais les mêmes routes.
+
+    Inchangée depuis le 16/09/2026, et c'est la seule des cinq dans ce cas :
+    depuis Q43 elle garde le **seul** verrou du lot.
+    """
     return _choix([
         _vue_mesuree("a", pluie_mm=0.0, depassement_s=3000.0, demi_tours=2, recouvrement=0.90),
         _vue_mesuree("b", pluie_mm=6.0, depassement_s=0.0, demi_tours=2, recouvrement=0.90),
@@ -672,31 +723,74 @@ def m31_recouvrement_au_dessus_du_seuil(_pool=None) -> f53.VueChoix:
 def m32_vent_de_la_meme_categorie(_pool=None) -> f53.VueChoix:
     """Deux propositions annoncées « vent » avec la **même** orientation.
 
-    Le contrat §3.3.3 bis demande « une catégorie relative dominante
-    différente » : deux fois « retour-dos » ne distingue rien, même si les
-    phrases sont jolies.
+    Deux fois « retour-dos » ne distingue rien, même si les phrases sont
+    jolies : celle qui l'écrit affirme que le vent la sépare de l'autre, et
+    c'est faux.
     """
     return _choix([
-        _vue_mesuree("a", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0),
-        _vue_mesuree("b", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0),
+        _vue_mesuree("a", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0,
+                     recouvrement=0.05, phrase="vous rentrez avec le vent dans le dos"),
+        _vue_mesuree("b", orientation="retour-dos", pluie_mm=3.0, depassement_s=1500.0,
+                     recouvrement=0.05, phrase=""),
     ])
 
 
+#: Le seuil de recouvrement se passe explicitement : ces vues sont fabriquées,
+#: elles ne viennent pas d'une lecture du lot.
+def _clones(choix):
+    return f53.verifier_pas_de_trio_de_clones(choix, seuil_recouvrement=0.25)
+
+
+def _recouvrement(choix):
+    return f53.verifier_verrou_de_recouvrement(choix, seuil_recouvrement=0.25)
+
+
 MUTATIONS_MARGES = (
-    ("m28 : trois propositions séparées de 1 %", m28_marges_a_un_pourcent),
-    ("m29 : deux fois le même axe distinctif", m29_deux_fois_le_meme_axe),
-    ("m30 : une proposition pour faire nombre", m30_une_proposition_pour_faire_nombre),
-    ("m31 : recouvrement de routes au-dessus du seuil", m31_recouvrement_au_dessus_du_seuil),
-    ("m32 : deux fois la même catégorie de vent", m32_vent_de_la_meme_categorie),
+    ("m28 : « la plus sèche » pour 0,05 mm d'avance", m28_phrase_gagnee_a_un_pourcent,
+     f53.verifier_phrases_meritees),
+    ("m29 : deux propositions se disent la plus sèche", m29_deux_fois_la_phrase_de_la_pluie,
+     f53.verifier_phrases_meritees),
+    ("m30 : des clones annoncés contrastés sans dire qu'ils se valent",
+     m30_des_clones_annonces_contrastes, _clones),
+    ("m31 : recouvrement de routes au-dessus du seuil", m31_recouvrement_au_dessus_du_seuil,
+     _recouvrement),
+    ("m32 : une phrase de vent sur deux propositions de même orientation",
+     m32_vent_de_la_meme_categorie, f53.verifier_phrases_meritees),
 )
 
 
 @pytest.mark.parametrize(
-    ("quoi", "mutant"), MUTATIONS_MARGES, ids=[m[0].split(" :")[0] for m in MUTATIONS_MARGES]
+    ("quoi", "mutant", "verificateur"),
+    MUTATIONS_MARGES,
+    ids=[m[0].split(" :")[0] for m in MUTATIONS_MARGES],
 )
-def test_mutation_des_marges_attrapee(quoi, mutant):
+def test_mutation_des_marges_attrapee(quoi, mutant, verificateur):
+    _attrape(lambda: verificateur(mutant()), quoi=quoi)
+
+
+def test_des_clones_qui_disent_se_valoir_passent():
+    """Contrôle négatif de m30 : le dire suffit, et c'est tout ce que Q45 demande."""
+    f53.verifier_pas_de_trio_de_clones(
+        replace(m30_des_clones_annonces_contrastes(), equivalence_dite=True),
+        seuil_recouvrement=0.25,
+    )
+
+
+def test_des_clones_qui_partagent_leurs_routes_ne_passent_pas_meme_en_le_disant():
+    """Le dire ne rachète pas tout : sans tracé distinct, rien ne les sépare.
+
+    C'est la garde qui empêche Q45 de devenir un passe-droit — « elles se
+    valent » resterait vrai, mais servir trois fois la même boucle n'est pas ce
+    que le mainteneur a accepté.
+    """
+    clones = [
+        replace(p, recouvrement_max=0.90) for p in m30_des_clones_annonces_contrastes().retenues
+    ]
     _attrape(
-        lambda: f53.verifier_marges_de_contraste(mutant(), seuil_recouvrement=0.25), quoi=quoi
+        lambda: f53.verifier_pas_de_trio_de_clones(
+            _choix(clones, equivalence_dite=True), seuil_recouvrement=0.25
+        ),
+        quoi="m30 bis : des clones sur les mêmes routes, annoncés équivalents",
     )
 
 

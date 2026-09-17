@@ -706,6 +706,10 @@ def generer_sortie(
 
     **Deux propositions au lieu de trois n'est pas une panne** :
     `motif_deux_propositions` porte l'explication, et la réponse reste un 200.
+
+    **Trois propositions qui se valent n'en est pas une non plus** (Q45) :
+    `motif_equivalence` porte alors « ces trois boucles se valent, choisissez
+    où vous voulez aller », avec ce qui, mesuré, ne les sépare pas.
     """
     from ourouler.sortie import commande as sortie_commande
 

@@ -155,6 +155,54 @@ describe("une seule proposition au lieu de trois", () => {
   });
 });
 
+describe("trois propositions qui se valent (Q45)", () => {
+  it("le dit au lieu de laisser chercher une différence, et n'a pas l'air d'une panne", () => {
+    const reponse = sortie({
+      muettes: true,
+      equivalence:
+        "Ces trois boucles se valent : la pluie, les demi-tours et le terrain sous les blocs " +
+        "valaient la même chose sur les trois. Choisissez où vous voulez aller.",
+    });
+    render(
+      <Propositions
+        reponse={reponse}
+        choisie={1}
+        surChoix={() => undefined}
+        surOuvrir={() => undefined}
+        surElargir={() => undefined}
+        surRetour={() => undefined}
+      />,
+    );
+    // Les trois sont bien là : c'est tout l'intérêt de Q43, on ne les jette
+    // plus faute de savoir les résumer.
+    expect(screen.getByRole("heading", { name: "3 parcours" })).toBeTruthy();
+    expect(screen.getByText(/Au choix/)).toBeTruthy();
+    expect(screen.getByText(/Ces trois boucles se valent/)).toBeTruthy();
+    expect(screen.getByText(/Choisissez où vous voulez aller/)).toBeTruthy();
+    // Sans axe distinctif, le titre reste le numéro : nommer « Le vent » ou
+    // « La pluie » sur une proposition que rien ne distingue serait inventer.
+    expect(screen.getByRole("heading", { name: "Proposition 2" })).toBeTruthy();
+    // Ce n'est pas une panne, et ce n'est pas non plus le cas « moins de trois ».
+    expect(screen.queryByText(/On en voulait trois/)).toBeNull();
+    expect(screen.queryByText(/erreur/i)).toBeNull();
+  });
+
+  it("se tait quand une proposition se détache — la phrase serait fausse", () => {
+    render(
+      <Propositions
+        reponse={sortie()}
+        choisie={1}
+        surChoix={() => undefined}
+        surOuvrir={() => undefined}
+        surElargir={() => undefined}
+        surRetour={() => undefined}
+      />,
+    );
+    expect(screen.queryByText(/se valent/)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Le vent" })).toBeTruthy();
+  });
+});
+
 describe("le serveur ne répond pas du tout", () => {
   it("se distingue d'une panne de l'API et nomme le code", () => {
     render(

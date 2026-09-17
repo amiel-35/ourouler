@@ -384,7 +384,14 @@ export interface Candidate {
 export interface Proposition {
   numero: number;
   retenue: boolean;
-  /** Ce qui la distingue des autres, en une phrase du cœur. */
+  /**
+   * Ce qui la distingue des autres, en une phrase du cœur.
+   *
+   * **Vide ou `null` est normal depuis Q43** (17/09/2026) : le tracé se
+   * distingue par lui-même, et le cœur n'écrit une phrase que quand elle est
+   * vraie. Ne jamais la remplacer par un texte de remplissage — quand aucune
+   * n'en a, `motif_equivalence` dit pourquoi.
+   */
   distinction: string | null;
   axe_distinctif: string | null;
   duree_s: number;
@@ -458,6 +465,14 @@ export interface Sortie {
   question_vent: QuestionVent | null;
   /** Rempli quand le cœur n'a pas pu en rendre trois. Ce n'est pas une panne. */
   motif_deux_propositions: string | null;
+  /**
+   * Rempli quand **aucune proposition ne se détache** des autres (Q45).
+   *
+   * « Ces trois boucles se valent, choisissez où vous voulez aller », avec ce
+   * qui, mesuré, ne les sépare pas. C'est une bonne nouvelle, pas un défaut :
+   * rien ne contraint le choix. Peut coexister avec le champ précédent.
+   */
+  motif_equivalence: string | null;
   candidates: Candidate[];
 }
 

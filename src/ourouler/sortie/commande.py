@@ -1315,7 +1315,10 @@ def _ecrire_page_jour(
                 trace=p.trace,
                 placement=p.placement,
                 meteo=p.meteo,
-                distinction=retenue.distinction or "la seule candidate",
+                # Vide plutôt que faux : `construire_page_jour` sait qu'une
+                # proposition sans phrase parle par son tracé, et n'écrit
+                # « la seule candidate » que quand elle l'est vraiment.
+                distinction=retenue.distinction,
                 chiffres=_details_proposition(retenue),
                 sous_titre=_sous_titre(p, demande, config),
                 notes=_notes_carte(p, seance, tenue_p),
@@ -1328,6 +1331,7 @@ def _ecrire_page_jour(
         cartes_props,
         titre=f"{seance.nom} — {date_en_francais(demande.depart)}",
         motif_deux_propositions=selection.motif_deux_propositions,
+        motif_equivalence=selection.motif_equivalence,
     )
     try:
         chemin.write_text(page, encoding="utf-8")
@@ -1486,14 +1490,19 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     selection = contexte.selection
     if selection is None or not selection.retenues:
         return []
+    seule = len(selection.retenues) == 1
     lignes = [
-        f"{len(selection.retenues)} proposition(s) qui diffèrent vraiment "
+        f"{len(selection.retenues)} proposition(s) qui vont à des endroits différents "
         "(et non les trois premières du tri) :"
     ]
     for retenue in selection.retenues:
         numero = retenue.proposition.numero
-        phrase = retenue.distinction or "la seule candidate"
-        lignes.append(f"    n° {numero} — {phrase}")
+        # Depuis Q43, une retenue peut n'avoir aucune phrase : son tracé la
+        # distingue, pas un axe mesuré. « La seule candidate » ne vaut alors
+        # que si elle est vraiment seule — l'écrire sous l'une de trois
+        # propositions serait faux.
+        phrase = retenue.distinction or ("la seule candidate" if seule else "")
+        lignes.append(f"    n° {numero} — {phrase}" if phrase else f"    n° {numero}")
         lignes.append(f"           {_details_proposition(retenue)}")
     if selection.recouvrements:
         parts = ", ".join(
@@ -1508,6 +1517,8 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
         )
     if selection.motif_deux_propositions:
         lignes.append(f"    {selection.motif_deux_propositions}")
+    if selection.motif_equivalence:
+        lignes.append(f"    {selection.motif_equivalence}")
     lignes.append("")
     return lignes
 
@@ -1995,6 +2006,13 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         "question_vent": _question_vent_json(contexte),
         "motif_deux_propositions": (
             contexte.selection.motif_deux_propositions if contexte.selection else None
+        ),
+        # Le pendant de la clé précédente (Q45) : quand aucune proposition ne
+        # se détache, on le dit au lieu de fabriquer une différence. Les deux
+        # peuvent être remplies en même temps — deux boucles qui vont ailleurs
+        # et qui se valent.
+        "motif_equivalence": (
+            contexte.selection.motif_equivalence if contexte.selection else None
         ),
         "candidates": [_candidate_json(p) for p in propositions],
     }

@@ -287,27 +287,26 @@ def test_les_propositions_ne_sont_pas_le_sommet_d_un_tri_unique(
     f53.verifier_pas_de_trio_de_clones(choix)
 
 
-def test_les_propositions_respectent_les_marges_du_contrat(
+def test_les_propositions_respectent_le_verrou_de_recouvrement(
     tmp_path: Path, monkeypatch, capsys
 ):
-    """Les trois conditions du §3.3.3 bis, **exigées** — le trou que j'avais signalé.
+    """La condition qui reste du §3.3.3 bis, et qui porte désormais tout.
 
-    Avant le 16/09/2026, le contrat ne chiffrait pas « éloignées », et je l'avais
-    dit : mes tests n'attrapaient qu'un contraste **nul**, si bien que trois
-    propositions séparées de 1 % seraient passées. Le contrat a tranché :
+    **Ce test gardait la règle retirée le 17/09/2026** (Q43) : il exigeait
+    a) que chacune soit la meilleure des retenues sur au moins un axe, et
+    b) sur un axe différent des autres. Le mainteneur a tranché l'inverse —
+    *« le parcours lui-même est distinctif en soi »* —, et cette exigence
+    jetait des tracés à 1,4 % de recouvrement faute de savoir les résumer.
 
-    a) chacune est la meilleure des retenues sur au moins un axe, **différent**
-       de celui des autres ;
-    b) d'une marge **dans l'unité de l'axe** — durée ≥ 10 min, pluie ≥ 0,5 mm,
-       terrain ≥ 1,0 km équivalent, un compte de demi-tours différent, une
-       orientation au vent différente ;
-    c) le recouvrement de routes reste sous le seuil mesuré par le lot.
+    Reste c), le recouvrement de routes, et il est maintenant seul : si lui ne
+    mord pas, plus rien ne garantit que les propositions diffèrent. Ce qui
+    restait vrai des marges est vérifié ailleurs, sur les **phrases** —
+    `test_aucune_phrase_ne_se_donne_un_avantage_qu_elle_n_a_pas`.
 
-    Les chiffres sont ceux du contrat, pas les miens. Le seul que je lis chez le
-    lot est la marge de densité, que le contrat renvoie explicitement à « la
-    mesure du lot », et le seuil de recouvrement, qu'il dit devoir se mesurer
-    sur une distribution que je n'ai pas — inventer un chiffre là où le contrat
-    refuse d'en inventer un serait pire que de lire le sien.
+    Les chiffres sont ceux du contrat, pas les miens : le seuil de recouvrement
+    se lit chez le lot, que le contrat renvoie explicitement à « la mesure du
+    lot » — inventer un chiffre là où le contrat refuse d'en inventer un serait
+    pire que de lire le sien.
     """
     h = f53.harnais()
     doc = _doc(
@@ -319,7 +318,37 @@ def test_les_propositions_respectent_les_marges_du_contrat(
         candidates=5,
     )
     choix = _choix_ou_skip(doc)
-    f53.verifier_marges_de_contraste(choix)
+    f53.verifier_verrou_de_recouvrement(choix)
+
+
+def test_aucune_phrase_ne_se_donne_un_avantage_qu_elle_n_a_pas(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Ce que les marges du §3.3.3 bis gardent après Q43 : le droit d'écrire.
+
+    Elles ne décident plus qui entre dans le trio. Elles décident toujours ce
+    qu'on a le droit d'affirmer : « la plus sèche » avec 0,05 mm d'avance est
+    la phrase exacte que le contrat refuse — « être meilleur de 1 % n'est pas
+    une différence pour un cycliste ».
+    """
+    h = f53.harnais()
+    doc = _doc(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        brouter=h.moteur_brouter(_rayons_contrastes(5)),
+        meteo=h.moteur_meteo(pluie=h.pluie_au_nord),
+        candidates=5,
+    )
+    choix = _choix_ou_skip(doc)
+    # Sans phrase, ce vérificateur n'a rien à vérifier et le test serait muet.
+    # Le vivier doit donc en produire au moins une — c'est ce qui rend le
+    # contrôle non vide, et ça se constate au lieu de s'espérer.
+    assert any((p.phrase or "").strip() for p in choix.retenues), (
+        "aucune proposition ne porte de phrase sur ce vivier : le contrôle des marges "
+        f"n'éprouve rien. Relire `_rayons_contrastes`. Retenues : {choix.retenues}"
+    )
+    f53.verifier_phrases_meritees(choix)
 
 
 def test_les_pas_du_lot_ne_sont_pas_plus_laxistes_que_le_contrat():
@@ -371,10 +400,14 @@ def test_aucune_proposition_n_est_publiee_deux_fois(tmp_path: Path, monkeypatch,
 #: Des anneaux de rayons franchement différents : les durées s'écartent de bien
 #: plus que le pas de dix minutes du lot, si bien qu'une proposition peut se
 #: distinguer par la durée pendant qu'une autre se distingue par la pluie.
-#: Sans cela, un vivier où **seule** la pluie varie ne peut donner qu'une seule
-#: proposition — une seule peut être « la plus sèche » — et le test n'aurait
-#: rien à vérifier. Le cas est légitime et le lot le traite bien ; il n'est
-#: simplement pas celui que ces deux tests-là veulent éprouver.
+#:
+#: **À quoi cet étalement sert depuis Q43** (17/09/2026). Avant, il servait à
+#: ce que le lot puisse rendre trois propositions du tout : un vivier où seule
+#: la pluie varie n'en donnait qu'une, puisqu'une seule peut être « la plus
+#: sèche ». Cette exigence est retirée, et un tel vivier rend maintenant trois
+#: propositions muettes. L'étalement sert donc à autre chose, et le test le
+#: constate au lieu de l'espérer : il faut des **phrases** pour que le contrôle
+#: des marges éprouve quelque chose.
 def _rayons_contrastes(nb: int, base_deg: float = 0.0485) -> dict[float, dict]:
     """Un rayon différent par direction, **pour les azimuts réellement demandés**.
 
@@ -386,7 +419,14 @@ def _rayons_contrastes(nb: int, base_deg: float = 0.0485) -> dict[float, dict]:
     en accusant le lot de ne pas contraster sur la durée, alors qu'aucune durée
     ne variait — le vivier n'était pas celui que le test décrivait.
     """
-    # Facteurs resserrés le 17/09/2026 (Q41 d). Ils allaient de 0,65 à 1,6,
+    # Facteurs resserrés le 17/09/2026 (Q41 d), **relus le 17/09/2026 au soir**
+    # à la demande du mainteneur (« un vivier réglé pour que le test passe ne
+    # teste plus que le réglage »). Verdict : le resserrement est justifié par
+    # un changement produit indépendant, pas par le test. Les chiffres tiennent
+    # — l'anneau de base fait 33,885 km, donc 0,84 → 28,5 km et 1,18 → 40,0 km,
+    # tous deux dans la bande ±20 % — et l'étalement de durée reste franc. Ce
+    # qui a changé, c'est ce que l'étalement sert à éprouver (voir ci-dessus).
+    # Ils allaient de 0,65 à 1,6,
     # soit ±60 % autour de l'anneau de base : depuis que les boucles trop loin
     # de la distance demandée sont refusées au lieu d'être servies en silence,
     # ces extrêmes ne rentrent plus dans la bande acceptée (±20 % : la
