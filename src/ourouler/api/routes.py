@@ -121,6 +121,7 @@ def systeme(
     """
     config = _config(ctx, qui)
     return {
+        "proprietaire": str(qui),
         "version": __version__,
         "capacites": {
             "intervals": bool(config.intervals.renseigne),
@@ -132,14 +133,19 @@ def systeme(
 
 
 @routeur.get("/systeme/budgets")
-def budgets(ctx: Ctx) -> dict:
+def budgets(ctx: Ctx, qui: Qui) -> dict:
     """Combien de temps chaque opération prend **sur ce serveur**, et d'où vient le chiffre.
 
     Décision 6 du cycle UX : le front annonce une durée, et cette durée doit
     être mesurée. `source` vaut `defaut` tant que ce serveur n'a rien mesuré,
     `mesure` ensuite — un écran ne doit jamais présenter l'une pour l'autre.
+
+    Les budgets sont ceux du **serveur**, pas d'un cycliste : cette route
+    résout quand même son propriétaire et le nomme. Dispenser la seule route
+    qui n'en a pas besoin ouvrirait une liste d'exceptions, et une liste
+    d'exceptions se remplit toute seule (doctrine §10.1).
     """
-    return {"budgets": ctx.budgets.tous()}
+    return {"proprietaire": str(qui), "budgets": ctx.budgets.tous()}
 
 
 # --- profil -------------------------------------------------------------------
@@ -151,7 +157,7 @@ def lire_profil(
     qui: Qui,
 ) -> dict:
     """Le profil du cycliste : départ, poids, FTP, position dans la zone, vélos, services."""
-    return {"donnees": vues.profil(_config(ctx, qui))}
+    return {"proprietaire": str(qui), "donnees": vues.profil(_config(ctx, qui))}
 
 
 @routeur.patch("/profil")
@@ -181,7 +187,7 @@ async def modifier_profil(
         raise ErreurApi(code="profil_invalide", message=str(e), statut=422) from e
     except Exception as e:
         raise classer(e) from e
-    return {"donnees": vues.profil(config)}
+    return {"proprietaire": str(qui), "donnees": vues.profil(config)}
 
 
 @routeur.get("/profil/zones")
@@ -201,7 +207,7 @@ def lire_zones(
 
     config = _config(ctx, qui)
     try:
-        return {"donnees": ecran_ftp.rendu(config, velo, position=position)}
+        return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config, velo, position=position)}
     except Exception as e:
         raise classer(e) from e
 
@@ -244,7 +250,7 @@ def apercu_zones(
                 puissance_w=demande.puissance_w,
                 vitesse_kmh=demande.vitesse_a_plat_kmh,
             )
-        return {"donnees": ecran_ftp.rendu(config, demande.velo, position=position)}
+        return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config, demande.velo, position=position)}
     except Exception as e:
         raise classer(e) from e
 
@@ -279,7 +285,7 @@ def geocoder(
         ban=ctx.clients.ban,
         nominatim=ctx.clients.nominatim,
     )
-    charge = resultat.enveloppe(ctx.budgets.budget("geocodage"))
+    charge = resultat.enveloppe(ctx.budgets.budget("geocodage"), qui)
     if not resultat.donnees.get("candidats"):
         # Zéro candidat **n'est pas une panne** — les services ont répondu —
         # mais l'écran d'échec « adresse introuvable » a besoin d'une phrase,
@@ -342,7 +348,7 @@ def meteo(
         client=ctx.clients.meteo,
         lieu_depart=lieu,
     )
-    return resultat.enveloppe(ctx.budgets.budget("meteo"))
+    return resultat.enveloppe(ctx.budgets.budget("meteo"), qui)
 
 
 # --- séances ------------------------------------------------------------------
@@ -374,7 +380,7 @@ def seances(
         budgets=ctx.budgets,
         client=ctx.clients.intervals,
     )
-    return resultat.enveloppe(ctx.budgets.budget("seances"))
+    return resultat.enveloppe(ctx.budgets.budget("seances"), qui)
 
 
 @routeur.get("/seances/{jour}")
@@ -400,7 +406,7 @@ def seance_du_jour(
         budgets=ctx.budgets,
         client=ctx.clients.intervals,
     )
-    return resultat.enveloppe(ctx.budgets.budget("seance"))
+    return resultat.enveloppe(ctx.budgets.budget("seance"), qui)
 
 
 @routeur.post("/seances/fichier")
@@ -454,7 +460,7 @@ async def deposer_seance(
         budgets=ctx.budgets,
         client=ctx.clients.intervals,
     )
-    charge = resultat.enveloppe(ctx.budgets.budget("seance"))
+    charge = resultat.enveloppe(ctx.budgets.budget("seance"), qui)
     charge["fichier"] = depose.json()
     return charge
 
@@ -514,7 +520,7 @@ def generer_sortie(
         gpx=_note(ctx, qui, gpx),
         carte=_note(ctx, qui, carte),
     )
-    return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("sortie"))
+    return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("sortie"), qui)
 
 
 @routeur.post("/boucles")
@@ -550,7 +556,7 @@ def generer_boucle(
         lieu_depart=_depart(demande.depart),
     )
     donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
-    return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"))
+    return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)
 
 
 @routeur.post("/simulations")
@@ -581,7 +587,7 @@ def simuler(
         budgets=ctx.budgets,
         client_meteo=ctx.clients.meteo,
     )
-    return resultat.enveloppe(ctx.budgets.budget("simulation"))
+    return resultat.enveloppe(ctx.budgets.budget("simulation"), qui)
 
 
 # --- inventaire et routes connues ---------------------------------------------
@@ -610,7 +616,7 @@ def inventaire(
         operation="inventaire",
         budgets=ctx.budgets,
     )
-    return resultat.enveloppe(ctx.budgets.budget("inventaire"))
+    return resultat.enveloppe(ctx.budgets.budget("inventaire"), qui)
 
 
 @routeur.get("/routes/{action}")
@@ -639,7 +645,7 @@ def routes_connues(
         budgets=ctx.budgets,
         client_brouter=ctx.clients.brouter,
     )
-    return resultat.enveloppe(ctx.budgets.budget("routes"))
+    return resultat.enveloppe(ctx.budgets.budget("routes"), qui)
 
 
 # --- fichiers -----------------------------------------------------------------
@@ -689,9 +695,9 @@ def _chemin_seance(ctx: Contexte, qui: Proprietaire, identifiant: str | None) ->
         raise ErreurApi(code="fichier_introuvable", message=str(e), statut=404) from e
 
 
-def _enveloppe_retouchee(resultat, donnees: dict, budget: dict) -> dict:
+def _enveloppe_retouchee(resultat, donnees: dict, budget: dict, qui: Proprietaire) -> dict:
     """L'enveloppe d'un résultat dont les données ont été retouchées (fichiers)."""
-    charge = resultat.enveloppe(budget)
+    charge = resultat.enveloppe(budget, qui)
     charge["donnees"] = donnees
     return charge
 

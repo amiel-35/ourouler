@@ -12,6 +12,14 @@ import threading
 from pathlib import Path
 
 import pytest
+
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, l'import ci-dessous levait une
+#: erreur de collecte, et le contributeur voyait la suite échouer au lieu de
+#: voir des tests ignorés. `uv sync --all-extras` les rend.
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
+
 from test_api import moteur_meteo, serveur
 from test_seance_intervals import CLE
 

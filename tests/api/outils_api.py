@@ -386,16 +386,29 @@ def verifier_refus_exploitable(reponse: httpx.Response, quoi: str) -> dict[str, 
     distinguer, un corps JSON, un `code` stable qu'on peut brancher sur un
     écran, un `message` en français lisible par un cycliste, et **aucune**
     trace Python.
+
+    **Corrigé le 17/09/2026 — le code se cherche où le contrat le range, pas
+    où le testeur l'attendait.** Cette fonction exigeait `{"code", "message"}`
+    à la racine du corps. `docs/ux/api_contrat.md` range les pannes sous
+    `{"erreur": {"code", "message", "service", "details"}}`, pour qu'une
+    réponse porte `donnees` **ou** `erreur` et jamais les deux à la fois. Les
+    deux formes portent le même contrat — un code stable et un message
+    humain — et la nidification est celle que le front code déjà. Exiger la
+    forme plate revenait à imposer un goût contre une décision documentée et
+    livrée : `_panne` accepte donc les deux, et toutes les assertions qui
+    suivent (statut, code présent, message français, aucune trace, aucun
+    secret) sont conservées telles quelles.
     """
     assert 400 <= reponse.status_code < 500, (
         f"{quoi} : statut {reponse.status_code}. Un refus prévu par les maquettes est un 4xx "
         "exploitable, jamais un 500 nu ni un 200 qui ment."
     )
-    corps = corps_json(reponse)
-    assert isinstance(corps, dict), f"{quoi} : le corps d'erreur doit être un objet, pas {type(corps)}"
+    brut = corps_json(reponse)
+    assert isinstance(brut, dict), f"{quoi} : le corps d'erreur doit être un objet, pas {type(brut)}"
+    corps = _panne(brut)
     assert corps.get("code"), (
         f"{quoi} : pas de champ `code`. Le front branche un écran sur un code stable, "
-        f"jamais sur le texte d'un message. Reçu : {sorted(corps)}"
+        f"jamais sur le texte d'un message. Reçu : {sorted(brut)}"
     )
     message = corps.get("message") or corps.get("detail") or ""
     assert isinstance(message, str) and message.strip(), f"{quoi} : pas de `message` lisible"
@@ -403,12 +416,20 @@ def verifier_refus_exploitable(reponse: httpx.Response, quoi: str) -> dict[str, 
         f"{quoi} : le message ne paraît pas français — {message!r}. "
         "CLAUDE.md : français dans la doc et les messages."
     )
-    entier = texte_entier(corps)
+    # Sur le corps **entier** et non sur la seule panne : une trace ou un
+    # secret glissé à côté de `erreur` fuirait tout autant.
+    entier = texte_entier(brut)
     for trace in TRACES_PYTHON:
         assert trace not in entier, f"{quoi} : trace Python dans la réponse ({trace!r})"
     for sentinelle in SENTINELLES:
         assert sentinelle not in entier, f"{quoi} : un secret a fui dans le message d'erreur"
     return corps
+
+
+def _panne(corps: dict[str, Any]) -> dict[str, Any]:
+    """La panne, qu'elle soit à la racine du corps ou rangée sous `erreur`."""
+    sous = corps.get("erreur")
+    return sous if isinstance(sous, dict) else corps
 
 
 def fichiers_python_de_l_api() -> list[Path]:

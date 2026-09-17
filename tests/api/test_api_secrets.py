@@ -40,10 +40,18 @@ from outils_api import (
     texte_entier,
 )
 
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
+#: levait une erreur au lieu de laisser des tests ignorés.
+#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
+#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucune route de configuration à interroger."
-)
+
+
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_la_route_de_configuration_masque_les_deux_secrets():
     """Protège E21 (« Réglages ») et E12 (« Brancher Intervals »).
 
@@ -63,10 +71,8 @@ def test_la_route_de_configuration_masque_les_deux_secrets():
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Masquer ne suffit pas : E12 et E21 doivent savoir si la clé est posée.",
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_la_route_de_configuration_dit_quand_meme_si_la_cle_est_renseignee():
     """Protège E21, ligne « intervals.icu · Branché ».
 
@@ -108,9 +114,8 @@ def test_aucun_secret_ne_fuit_dans_un_message_d_erreur():
         assert sentinelle not in entier, f"secret dans la réponse d'erreur de {methode} {chemin}"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucun schéma publié où chercher un exemple malheureux."
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_le_schema_publie_ne_porte_aucun_secret_en_exemple_ni_en_defaut():
     """Protège le dépôt lui-même (règle absolue 1).
 
@@ -148,9 +153,8 @@ def test_aucun_secret_ne_fuit_dans_le_journal(caplog: pytest.LogCaptureFixture):
         assert sentinelle not in journal, f"secret journalisé pendant {methode} {chemin}"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : pas de route d'écriture du profil (E12 « Votre clé »)."
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_l_ecriture_d_une_cle_ne_la_renvoie_pas_en_echo():
     """Protège E12 (« Brancher intervals.icu »).
 

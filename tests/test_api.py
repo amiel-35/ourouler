@@ -15,8 +15,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import httpx
 import pytest
+
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, l'import ci-dessous levait une
+#: erreur de collecte, et le contributeur voyait la suite échouer au lieu de
+#: voir des tests ignorés. `uv sync --all-extras` les rend.
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
+
+import httpx
 from fastapi.testclient import TestClient
 from test_seance_intervals import ATHLETE, CLE, W
 from test_sortie_commande import (
@@ -30,13 +38,14 @@ from test_sortie_commande import (
 
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.application import creer_application
-from ourouler.api.depots import DepotFichiers, DepotProfils, nom_sur
+from ourouler.api.depots import DepotFichiers, DepotProfils, SocleTOML, nom_sur
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.routes import Clients
 from ourouler.config import depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.erreurs import ErreurConfig
 
 #: La configuration servie par le serveur de test. Point fictif en pleine mer,
 #: clé inventée, serveur BRouter qui n'existe pas (tous les appels sont
@@ -768,15 +777,51 @@ def test_une_traversee_de_chemin_ne_sert_jamais_de_fichier(tmp_path: Path, chemi
     assert "api_key" not in reponse.text
 
 
+def _socle_partage(tmp_path: Path) -> SocleTOML:
+    """Un socle déclaré **impersonnel** : un TOML qui n'est le profil de personne.
+
+    C'est ce qui permet à deux propriétaires de le partager. Le service, lui,
+    déclare le TOML du mainteneur comme étant le sien (`proprietaire=
+    PROPRIETAIRE_LOCAL`), et le dépôt refuse alors de le servir à un autre —
+    voir le test de la fuite ci-dessous.
+    """
+    return SocleTOML(ecrire_config(tmp_path), proprietaire=None)
+
+
 def test_les_profils_de_deux_proprietaires_ne_se_melangent_pas(tmp_path: Path):
-    depot = DepotProfils(ecrire_config(tmp_path), tmp_path / "cache" / "api")
+    depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
     depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
     assert depot.config(AUTRE).cycliste.ftp_w == 999
     assert depot.config(PROPRIETAIRE_LOCAL).cycliste.ftp_w == W.FTP_TEST
 
 
+def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Path):
+    """La fuite trouvée en relecture de F1, fermée le 17/09/2026.
+
+    Le test précédent vérifiait que le champ **surchargé** diffère d'un
+    propriétaire à l'autre, et en concluait que les profils ne se mélangent
+    pas. Il manquait la moitié de la question : tout ce qu'un propriétaire ne
+    surcharge **pas**, il l'héritait du socle — donc `[intervals] api_key`,
+    `athlete_id` et `[depart]`, c'est-à-dire la clé et le domicile du
+    mainteneur. Le socle du service est désormais déclaré comme étant le sien,
+    et le dépôt refuse de le servir à quelqu'un d'autre plutôt que de décider
+    tout seul quelles sections sont communes — cet arbitrage est au mainteneur
+    (`docs/questions_mainteneur.md`).
+    """
+    depot = DepotProfils(
+        SocleTOML(ecrire_config(tmp_path), proprietaire=PROPRIETAIRE_LOCAL),
+        tmp_path / "cache" / "api",
+    )
+    assert depot.config(PROPRIETAIRE_LOCAL).intervals.renseigne, "le mainteneur n'est plus servi"
+    with pytest.raises(ErreurConfig) as refus:
+        depot.config(AUTRE)
+    assert "ne se partage pas" in str(refus.value)
+    with pytest.raises(ErreurConfig):
+        depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
+
+
 def test_chaque_profil_est_ecrit_pour_son_seul_proprietaire(tmp_path: Path):
-    depot = DepotProfils(ecrire_config(tmp_path), tmp_path / "cache" / "api")
+    depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
     depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
     ecrit = json.loads((tmp_path / "cache" / "api" / AUTRE.identifiant / "profil.json").read_text())
     assert ecrit == {"cycliste": {"ftp_w": 999}}
@@ -785,7 +830,7 @@ def test_chaque_profil_est_ecrit_pour_son_seul_proprietaire(tmp_path: Path):
 
 def test_le_profil_qui_porte_une_cle_n_est_lisible_que_de_son_proprietaire(tmp_path: Path):
     """Pas de chiffrement au repos avant F3 ; les droits du fichier, eux, se posent."""
-    depot = DepotProfils(ecrire_config(tmp_path), tmp_path / "cache" / "api")
+    depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
     depot.enregistrer(PROPRIETAIRE_LOCAL, {"intervals": {"api_key": "cle-inventee-9876"}})
     chemin = tmp_path / "cache" / "api" / PROPRIETAIRE_LOCAL.identifiant / "profil.json"
     assert chemin.stat().st_mode & 0o077 == 0

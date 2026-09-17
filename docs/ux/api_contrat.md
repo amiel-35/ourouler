@@ -36,6 +36,7 @@ Une route qui calcule :
 
 ```json
 {
+  "proprietaire": "local",
   "donnees": { … le JSON exact de la commande … },
   "avertissements": ["météo indisponible (…) — le placement reste valable"],
   "duree_ms": 6851,
@@ -52,6 +53,14 @@ Une panne :
             "service": "brouter",
             "details": {}}}
 ```
+
+**Toute réponse nomme le propriétaire qu'elle a servi** (ajouté le
+17/09/2026). Tant qu'il n'y a qu'une identité, la rattacher implicitement
+« marche » ; le jour où il y en a deux, ce défaut devient une fuite répartie
+dans toutes les routes. Une réponse qui dit pour qui elle a été calculée rend
+l'oubli visible, et donne au front de quoi refuser d'afficher les données de
+quelqu'un d'autre. Aucune route n'en est dispensée, `/systeme/budgets`
+compris : une liste d'exceptions se remplit toute seule (doctrine §10.1).
 
 **Le code prime sur le message.** Le message vient du cœur, il est écrit pour
 un humain et peut être reformulé ; le code est une valeur du contrat et ne
@@ -100,11 +109,18 @@ syntaxique.
 Concrètement, aujourd'hui :
 
 - le profil d'un propriétaire est une **surcharge** JSON rangée sous
-  `<cache>/api/<propriétaire>/profil.json`, appliquée par-dessus le TOML du
+  `<cache>/api/<propriétaire>/profil.json`, appliquée par-dessus le socle du
   serveur avant validation. **Le TOML du mainteneur n'est jamais réécrit** :
-  il porte ses commentaires et ses réglages fins, il est unique pour tous, et
-  la surcharge par propriétaire est exactement la forme de la table de
-  demain ;
+  il porte ses commentaires et ses réglages fins, et la surcharge par
+  propriétaire est exactement la forme de la table de demain ;
+- **le socle appartient à quelqu'un, et ne se sert qu'à lui** (corrigé le
+  17/09/2026). La fusion décrite ci-dessus donnait à tout propriétaire ce
+  qu'il ne surchargeait pas — donc `[intervals] api_key`, `athlete_id` et
+  `[depart]` : la clé et le domicile du mainteneur. Le socle du service est
+  désormais déclaré comme étant le sien, et le dépôt **refuse** de le servir à
+  un autre plutôt que de décider seul quelles sections sont communes. Ce
+  découpage est un arbitrage produit, posé en Q35 de
+  `docs/questions_mainteneur.md` et à rendre avant F3 ;
 - les fichiers produits ou déposés vivent sous `<cache>/api/<propriétaire>/`
   et sont servis par un identifiant opaque. L'identifiant d'un autre
   propriétaire est **introuvable**, sans que la réponse dise s'il existe ;
@@ -155,6 +171,8 @@ c'est dit.
 | `format_non_lu` | 422 | un `.FIT` de séance — décision 5, V1 lit `.ZWO` et `.MRC` |
 | `fichier_trop_gros` | 413 | plus d'un mégaoctet |
 | `fichier_introuvable` | 404 | identifiant inconnu, ou appartenant à quelqu'un d'autre |
+| `route_inconnue` | 404 | aucune route à ce chemin — la liste est dans `/openapi.json` |
+| `methode_refusee` | 405 | la route existe, pas avec cette méthode |
 | `calcul_en_cours` | 409 | un calcul occupe déjà le serveur |
 | `brouter_indisponible` | 502 | BRouter injoignable ou en erreur |
 | `meteo_indisponible` | 502 | Open-Meteo injoignable ou en erreur |
@@ -222,6 +240,19 @@ uv run uvicorn --factory ourouler.api.application:application   # variante servi
 La fabrique de service lit `OUROULER_CONFIG` (défaut : le chemin de
 `config.py`). Rien d'autre n'est lu de l'environnement, et un seul module de
 l'API a le droit de le faire — `api/exploitation.py`, vérifié par invariant.
+
+**La fabrique de bibliothèque, elle, ne lit rien** (revu le 17/09/2026).
+`creer_application()` s'appelle **sans aucun argument** et rend une
+application complète, qui publie son contrat sans ouvrir ni fichier ni
+socket : c'est ce que la règle absolue 3 exige d'un point d'injection. Le
+profil vient, au choix, d'une `Config` déjà construite (`config=`), d'un
+fichier (`chemin_config=`), d'un socle (`socle=`) ou de rien — auquel cas il
+se remplit par `PATCH /profil`. Les clients externes s'injectent un par un
+(`client_meteo=`, `client_ban=`, `client_geocodage=`…) ; un `httpx.Client` à
+transport bouchonné suffit pour la météo et le géocodage, la fabrique
+l'habille du connecteur. BRouter et Intervals s'injectent entiers, parce que
+leur connecteur a besoin d'une URL et d'identifiants que la fabrique ne
+connaît pas.
 
 ## Mesuré le 17/09/2026, sur la configuration réelle du mainteneur
 

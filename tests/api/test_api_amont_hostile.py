@@ -35,6 +35,15 @@ from outils_api import (
     texte_entier,
 )
 
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
+#: levait une erreur au lieu de laisser des tests ignorés.
+#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
+#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
+
+
 #: Un bloc horaire entièrement nul : ce qu'Open-Meteo rend au-delà de la portée
 #: du modèle régional, et aussi hors de sa grille.
 METEO_TOUT_NUL = {
@@ -73,9 +82,8 @@ def _route_de_parcours(client):
     return route_pour(schema, "sortie", "parcours", "meteo")
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucune route où injecter une météo hostile."
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 @pytest.mark.parametrize(
     "statut,corps,texte,quoi",
     [
@@ -174,10 +182,8 @@ def test_hors_de_portee_du_modele_et_hors_de_sa_grille_ne_disent_pas_la_meme_cho
 # --- le cache : corrompu, absent, en lecture seule ---------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : un cache illisible se contourne, il ne casse pas la requête.",
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 @pytest.mark.parametrize(
     "contenu,quoi",
     [
@@ -204,11 +210,8 @@ def test_un_cache_corrompu_ne_casse_pas_la_requete(tmp_path, contenu: bytes, quo
     assert reponse.status_code < 500, f"{quoi} : l'API rend {reponse.status_code}"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Le dossier de cache est un chemin utilisateur : seule la bordure "
-    "le connaît, et l'API doit pouvoir s'en passer.",
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_un_cache_absent_ne_bloque_pas_la_premiere_requete(tmp_path):
     """Protège le premier usage d'un compte neuf (E14, premier jour).
 

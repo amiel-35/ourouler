@@ -33,21 +33,53 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
+#: levait une erreur au lieu de laisser des tests ignorés.
+#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
+#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
+
+
 #: Les quatre états, chacun avec les mots qui doivent apparaître quelque part
 #: dans le contrat publié. Un état d'échec qui n'est nommé nulle part dans le
 #: schéma n'a pas été modélisé : il sera découvert en production.
+#: **Mis à jour le 17/09/2026.** La marque portait sur le test entier et
+#: disait « F1 non livré : aucun schéma OpenAPI ». Le schéma existe depuis, et
+#: deux des quatre états y sont nommés (E18 et E19) pendant que deux autres
+#: n'y sont pas : garder une marque unique la rendait fausse pour la moitié
+#: des cas, et `strict` faisait échouer la suite pour le dire. Elle descend
+#: donc au cas, avec le trou réellement constaté.
+_PAS_AU_SCHEMA = "état dessiné qu'aucune description du schéma ne nomme encore (F1 livré)"
+
 ETATS_DESSINES = (
     ("aucune boucle trouvée (E18)", ("aucune_boucle", "aucune boucle", "sans_boucle", "introuvable")),
-    ("météo indisponible (E14)", ("meteo_indisponible", "météo indisponible", "sans_meteo")),
+    pytest.param(
+        "météo indisponible (E14)",
+        ("meteo_indisponible", "météo indisponible", "sans_meteo"),
+        marks=pytest.mark.xfail(strict=True, reason=_PAS_AU_SCHEMA),
+    ),
     ("une seule proposition (E19)", ("une_seule", "seule_proposition", "motif_deux_propositions")),
-    ("clé Intervals révoquée (E15)", ("revoqu", "cle_invalide", "intervals_indisponible")),
+    pytest.param(
+        "clé Intervals révoquée (E15)",
+        ("revoqu", "cle_invalide", "intervals_indisponible"),
+        marks=pytest.mark.xfail(strict=True, reason=_PAS_AU_SCHEMA),
+    ),
 )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucun schéma OpenAPI, donc aucun vocabulaire d'erreur."
-)
-@pytest.mark.parametrize("etat,mots", ETATS_DESSINES, ids=[e for e, _ in ETATS_DESSINES])
+#: Les identifiants lisibles, que `ETATS_DESSINES` ne donne plus directement
+#: depuis que deux de ses entrées sont des `pytest.param`.
+_IDS_ETATS = [
+    "aucune boucle trouvée (E18)",
+    "météo indisponible (E14)",
+    "une seule proposition (E19)",
+    "clé Intervals révoquée (E15)",
+]
+
+
+@pytest.mark.parametrize("etat,mots", ETATS_DESSINES, ids=_IDS_ETATS)
 def test_le_contrat_publie_nomme_chacun_des_quatre_etats(etat: str, mots: tuple[str, ...]):
     """Protège les quatre écrans de la section « Quand ça casse ».
 

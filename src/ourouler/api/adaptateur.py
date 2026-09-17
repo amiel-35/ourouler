@@ -59,13 +59,22 @@ class Resultat:
     avertissements: tuple[str, ...] = ()
     duree_ms: int = 0
 
-    def enveloppe(self, budget: dict | None = None) -> dict:
-        """La forme que toute route de calcul rend au front."""
-        charge = {
-            "donnees": self.donnees,
-            "avertissements": list(self.avertissements),
-            "duree_ms": self.duree_ms,
-        }
+    def enveloppe(self, budget: dict | None = None, proprietaire: object | None = None) -> dict:
+        """La forme que toute route de calcul rend au front.
+
+        `proprietaire` **nomme qui a été servi**. Tant qu'il n'y a qu'une
+        identité, la rattacher implicitement « marche » ; le jour où il y en a
+        deux, ce défaut devient une fuite, et il est réparti dans toutes les
+        routes. Une réponse qui dit pour qui elle a été calculée rend l'oubli
+        visible au lieu de le rendre confortable, et donne au front de quoi
+        refuser d'afficher les données de quelqu'un d'autre (doctrine §10.2).
+        """
+        charge: dict = {}
+        if proprietaire is not None:
+            charge["proprietaire"] = str(proprietaire)
+        charge["donnees"] = self.donnees
+        charge["avertissements"] = list(self.avertissements)
+        charge["duree_ms"] = self.duree_ms
         if budget is not None:
             charge["budget"] = budget
         return charge

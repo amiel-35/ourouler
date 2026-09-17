@@ -28,6 +28,14 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
+#: levait une erreur au lieu de laisser des tests ignorés.
+#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
+#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
+
 #: Le passage à l'heure d'été 2027 en France : 02:30 n'existe pas ce jour-là.
 HEURE_QUI_N_EXISTE_PAS = "2027-03-28T02:30:00"
 #: Le retour à l'heure d'hiver 2026 : 02:30 existe deux fois ce jour-là.
@@ -53,7 +61,8 @@ def _parametre(schema, operation, *motifs: str) -> str:
 # --- durées ------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason="F1 non livré : pas de route de parcours à maltraiter.")
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 @pytest.mark.parametrize(
     "valeur,quoi",
     [
@@ -64,6 +73,7 @@ def _parametre(schema, operation, *motifs: str) -> str:
     ],
     ids=["negative", "nulle", "enorme", "texte"],
 )
+
 def test_une_duree_absurde_est_refusee_proprement(valeur, quoi: str):
     """Protège E16 (« Demander un parcours », champ Durée).
 
@@ -104,7 +114,8 @@ def test_une_date_a_dix_ans_est_refusee_plutot_que_devinee():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="F1 non livré : pas de route à qui donner une date tordue.")
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 @pytest.mark.parametrize(
     "valeur,quoi",
     [
@@ -129,10 +140,8 @@ def test_une_date_illisible_est_refusee_proprement(valeur: str, quoi: str):
     verifier_refus_exploitable(client.requete(methode, chemin, params={jour: valeur}), quoi)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : l'heure d'été se tranche explicitement, jamais par hasard.",
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 @pytest.mark.parametrize(
     "heure,quoi",
     [
@@ -197,16 +206,35 @@ def test_une_coordonnee_hors_du_globe_est_refusee_proprement(latitude, longitude
     verifier_refus_exploitable(reponse, quoi)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : pas de route de géocodage à qui donner une adresse absurde."
+# **Marque descendue au cas le 17/09/2026.** Elle portait sur le test entier
+# et disait « F1 non livré : pas de route de géocodage ». La route existe, et
+# les bornes de longueur déclarées dans le schéma refusent bien les deux
+# premiers cas en 422. Les deux derniers passent ces bornes — une adresse
+# d'espaces et une d'octets de contrôle font toutes deux plus d'un caractère —
+# et partent jusqu'au connecteur : l'un revient en 502, l'autre sort sur le
+# réseau. C'est un trou réel, et il est nommé ici plutôt que masqué par une
+# marque unique que `strict` faisait de toute façon échouer.
+_PASSE_LES_BORNES = (
+    "adresse non vide pour le schéma mais vide de sens : elle atteint le connecteur au lieu "
+    "d'être refusée en 4xx (F1 livré)"
 )
+
+
 @pytest.mark.parametrize(
     "adresse,quoi",
     [
         ("A" * 10000, "adresse de dix mille caractères"),
         ("", "adresse vide"),
-        ("   ", "adresse en espaces"),
-        ("\x00\x01\x02", "adresse en octets de contrôle"),
+        pytest.param(
+            "   ",
+            "adresse en espaces",
+            marks=pytest.mark.xfail(strict=True, reason=_PASSE_LES_BORNES),
+        ),
+        pytest.param(
+            "\x00\x01\x02",
+            "adresse en octets de contrôle",
+            marks=pytest.mark.xfail(strict=True, reason=_PASSE_LES_BORNES),
+        ),
     ],
     ids=["dix_mille", "vide", "espaces", "octets"],
 )
@@ -343,9 +371,8 @@ def test_des_parametres_contradictoires_sont_refuses_plutot_qu_arbitres_en_silen
     verifier_refus_exploitable(reponse, "durée et distance imposées ensemble")
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucune route où envoyer un corps JSON malformé."
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_un_corps_json_malforme_ne_remonte_pas_en_trace():
     """Protège tous les écrans qui écrivent (E9 à E12, E16, E21).
 

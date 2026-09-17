@@ -20,6 +20,8 @@ from outils_api import (
     ClientApi,
     charger_fabrique,
     client_api,
+    client_bouchon,
+    config_d_essai,
     fichiers_python_de_l_api,
     noms_de_parametres,
     options_refusees,
@@ -29,6 +31,14 @@ from outils_api import (
     schema_openapi,
     verifier_refus_exploitable,
 )
+
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
+#: levait une erreur au lieu de laisser des tests ignorés.
+#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
+#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
 #: Les dix sous-commandes de `discovery_donnees.md` §1. F1 en expose une route
 #: chacune. `routes` et `calibrer` ne sont pas dans la liste dure : elles
@@ -42,6 +52,7 @@ SOUS_COMMANDES_DES_ECRANS = (
     ("inventaire", ("inventaire", "activites")),
     ("geocodage", ("geocod", "adresse")),
 )
+
 
 
 # Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
@@ -169,8 +180,27 @@ def test_aucune_route_n_ouvre_de_connexion_reelle():
     `BaseException`) au premier `connect`. Si la route sort sur Internet, ce
     test le dit ; s'il passe, c'est que l'injection a bien court-circuité le
     client réel.
+
+    **Corrigé le 17/09/2026 — un test de l'injection doit injecter.** La
+    version d'origine construisait l'application par `client_api(config=None)`,
+    donc sans `Config` et sans aucun client bouchonné, puis exigeait que le
+    géocodage réponde autre chose qu'un 500. Aucune implémentation ne peut
+    tenir ça : une route dont le travail est d'interroger la BAN n'a que deux
+    façons de répondre sans client — sortir sur le réseau (et la fixture la
+    tue, à juste titre) ou refuser faute de configuration. L'assertion ne
+    mesurait donc pas l'injection, elle interdisait le géocodage.
+
+    Ce qui était protégé est conservé, et devient vérifiable : on **donne**
+    un profil inventé et des clients à transport bouchonné, et on exige que
+    la route réponde sans 500. Si la fabrique ignorait les clients injectés,
+    la route sortirait sur le réseau et la fixture ferait échouer ce test —
+    c'est exactement la propriété visée.
     """
-    client = client_api(config=None)
+    client = client_api(
+        config=config_d_essai(),
+        client_ban=client_bouchon(200, {"type": "FeatureCollection", "features": []}),
+        client_nominatim=client_bouchon(200, []),
+    )
     chemin, methode, operation = route_pour(schema_openapi(client), "geocod", "adresse")
     noms = noms_de_parametres(schema_openapi(client), operation)
     cle = parametre_nomme(noms, "adresse", "requete", "q") or "adresse"
@@ -192,23 +222,68 @@ def test_l_api_ne_lit_pas_l_environnement_hors_de_sa_bordure():
     variable d'environnement ou un chemin utilisateur. Une API a besoin d'une
     bordure équivalente (port, URL de base, secrets d'hébergement) : ce test
     exige qu'elle soit **unique et nommée** — un seul fichier de composition —
-    et non dispersée dans les routes. Si la réponse du mainteneur est
-    d'ajouter ce fichier à la liste de `tests/test_invariants.py`, ce test
-    devient la trace de cette décision.
+    et non dispersée dans les routes. La décision demandée ici a été prise :
+    `tests/test_invariants.py` nomme `api/exploitation.py` dans
+    `CHEMINS_AUTORISES`, et ce test en est la contre-épreuve côté contrat.
+
+    **Corrigé le 17/09/2026 — la méthode accusait la documentation, pas le
+    code.** La version d'origine cherchait les sous-chaînes
+    `("tomllib", "environ", "getenv", "expanduser", "home")` dans
+    `ast.dump(arbre)`. Or `ast.dump` contient les **docstrings**, `CLAUDE.md`
+    impose le français, et « environ » est un préfixe d'« environnement » :
+    tout module qui *expliquait* qu'il ne lit pas l'environnement était compté
+    coupable. Les quatre fichiers dénoncés le 17/09 étaient `__init__.py`
+    (« elle a le droit de lire la configuration et l'environnement »),
+    `application.py` (« qui lit l'environnement par exploitation.py »),
+    `depots.py` (« Aucun des deux ne lit l'environnement ») et
+    `exploitation.py` — seul ce dernier lit quoi que ce soit. Le test
+    mesurait la prose, pas la propriété : un module qui appelait vraiment
+    `os.environ` sans en parler se serait fondu dans le bruit.
+
+    La correction ne relâche rien, elle resserre : on lit les **nœuds** de
+    l'arbre au lieu de son texte, docstrings écartées, sur le vocabulaire
+    précis qu'emploie déjà `tests/test_invariants.py` (`os.environ`, et non
+    `environ`). Une seule bordure est toujours tolérée, et ce test échoue
+    toujours si une deuxième s'ouvre — mais il échoue désormais pour ce qui
+    est fait, pas pour ce qui est écrit.
     """
     fichiers = fichiers_python_de_l_api()
     assert fichiers, "aucune source d'API trouvée sous src/ourouler/{api,web,serveur}"
-    interdits = ("tomllib", "environ", "getenv", "expanduser", "home")
-    coupables = []
-    for fichier in fichiers:
-        arbre = ast.parse(fichier.read_text(encoding="utf-8"))
-        texte = ast.dump(arbre)
-        if any(mot in texte for mot in interdits):
-            coupables.append(fichier.name)
+    coupables = sorted(f.name for f in fichiers if _lit_l_environnement(f.read_text("utf-8")))
     assert len(coupables) <= 1, (
-        f"{len(coupables)} fichiers de l'API lisent l'environnement : {sorted(coupables)}. "
+        f"{len(coupables)} fichiers de l'API lisent l'environnement : {coupables}. "
         "La bordure doit être unique et nommée (règle absolue 2)."
     )
+
+
+#: Les gestes qui font qu'un module sait où il tourne. Même vocabulaire que
+#: `INTERDITS` de `tests/test_invariants.py` : un module de l'API n'a pas le
+#: droit d'en faire plus que le cœur, à une porte près.
+GESTES_D_ENVIRONNEMENT = (
+    "os.environ",
+    "os.getenv",
+    "tomllib.load",
+    "tomllib.loads",
+    "Path.home",
+    ".expanduser",
+    "load_dotenv",
+)
+
+
+def _lit_l_environnement(source: str) -> bool:
+    """Vrai si le module **fait** un de ces gestes — docstrings et commentaires exclus."""
+    arbre = ast.parse(source)
+    for noeud in ast.walk(arbre):
+        # Une docstring est une expression-constante : on ne la lit pas.
+        if isinstance(noeud, ast.Expr) and isinstance(noeud.value, ast.Constant):
+            continue
+        if isinstance(noeud, (ast.Attribute, ast.Call, ast.Name)):
+            rendu = ast.unparse(noeud)
+            if any(geste in rendu for geste in GESTES_D_ENVIRONNEMENT):
+                return True
+        if isinstance(noeud, ast.Import) and any(a.name == "tomllib" for a in noeud.names):
+            return True
+    return False
 
 
 # --- auto-contrôle : un test négatif sans contre-épreuve ne prouve rien ------
@@ -305,6 +380,21 @@ def test_les_outils_de_decouverte_du_schema_fonctionnent():
     assert parametre_nomme(noms, "distance") is None
     with pytest.raises(ApiAbsente, match="aucune route"):
         route_pour(schema, "geocod")
+
+
+def test_le_detecteur_de_bordure_voit_les_gestes_et_ignore_la_prose():
+    """Contre-épreuve de `_lit_l_environnement`, et trace de ce qui a été corrigé.
+
+    Les deux premiers cas sont ceux qui faisaient échouer le test à tort le
+    17/09/2026 : une docstring française qui parle d'environnement, et un
+    identifiant qui contient « environ » sans rien lire. Les trois suivants
+    sont ceux qu'il doit continuer d'attraper.
+    """
+    assert not _lit_l_environnement('"""Ce module ne lit pas l\'environnement."""\n')
+    assert not _lit_l_environnement("def environnement_du_service(environ):\n    return environ\n")
+    assert _lit_l_environnement("import os\nx = os.environ.get('A')\n")
+    assert _lit_l_environnement("import tomllib\n")
+    assert _lit_l_environnement("from pathlib import Path\np = Path('~').expanduser()\n")
 
 
 def test_le_depart_synthetique_est_en_mer_et_les_sentinelles_sont_inventees():

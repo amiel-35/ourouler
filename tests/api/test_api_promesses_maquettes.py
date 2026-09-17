@@ -27,6 +27,14 @@ from outils_api import (
     transport_constant,
 )
 
+#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
+#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
+#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
+#: levait une erreur au lieu de laisser des tests ignorés.
+#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
+#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
+
 #: Décision 2 du contrat UX : « L'horizon du vent reste à trois jours. » Mesuré
 #: sur 2 064 heures : 93 %, 92 %, 88 % à un, deux et trois jours.
 HORIZON_ORIENTATION_J = 3
@@ -35,9 +43,8 @@ HORIZON_ORIENTATION_J = 3
 # --- E9 · la troisième valeur, et ce qu'elle vaut ----------------------------
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : pas de route de profil où lire les trois valeurs liées."
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_l_ecran_de_ftp_recoit_bien_ses_trois_valeurs_liees():
     """Protège E9 (« Quelle est votre FTP ? ») et la décision 7 du contrat UX.
 
@@ -69,6 +76,7 @@ def test_l_ecran_de_ftp_recoit_bien_ses_trois_valeurs_liees():
     reason="F1 non livré. Exigence la plus facile à oublier : dire si le facteur compteur est "
     "mesuré sur l'historique ou seulement supposé.",
 )
+
 def test_la_moyenne_compteur_dit_si_son_facteur_est_mesure_ou_suppose():
     """Protège E9, et la question ouverte n° 1 (« l'invité sans historique »).
 
@@ -131,9 +139,8 @@ def test_le_profil_stocke_une_position_dans_la_zone_et_pas_des_watts():
 # --- E10 · le géocodage ne choisit pas -----------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : pas de route de géocodage à interroger."
-)
+# Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
+# une Config et des clients injectés, et ce test passe. `strict` l'a signalé.
 def test_le_geocodage_rend_tous_les_candidats_et_n_en_choisit_aucun():
     """Protège E10 (« D'où partez-vous ? »).
 

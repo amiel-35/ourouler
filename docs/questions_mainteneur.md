@@ -1637,3 +1637,37 @@ porter la commune, que la BAN rend déjà et que le connecteur jette aujourd'hui
 Côté API (F1), la question ne se pose pas : la route de géocodage rendra la
 liste complète au front, qui fera choisir, et les routes de parcours
 recevront des **coordonnées** déjà tranchées.
+
+## Q35 — Quelles sections du TOML du serveur sont communes, et lesquelles appartiennent au cycliste — **fuite fermée le 17/09/2026, arbitrage à rendre**
+
+**Ce qui a été trouvé.** `api/depots.py` fusionnait la surcharge d'un
+propriétaire **par-dessus** le TOML du serveur. Tout ce qu'un propriétaire ne
+surchargeait pas, il en héritait : `DepotProfils.config(Proprietaire("autre-cycliste"))`
+rendait la clé Intervals, l'identifiant d'athlète et le point de départ du
+mainteneur. Les tests qui prétendaient couvrir le sujet ne regardaient que le
+champ surchargé (la FTP) et concluaient que « les profils ne se mélangent
+pas » ; la moitié héritée n'était vérifiée nulle part.
+
+**Ce qui a été fait, et pourquoi c'est volontairement peu.** Un socle sait
+désormais **à qui il appartient** (`SocleTOML(chemin, proprietaire=…)`). La
+fabrique de service déclare le TOML comme étant celui du mainteneur, et le
+dépôt refuse de le servir à un autre propriétaire au lieu de lui offrir ce
+qu'il n'a pas surchargé. Rien ne change pour le mainteneur, qui reste le seul
+propriétaire jusqu'à F3.
+
+**Ce qui n'a pas été tranché, parce que ce n'est pas à un agent de le faire.**
+Découper le TOML entre ce qui est **commun au serveur** (`cache`, `brouter`,
+`meteo`, seuils de placement) et ce qui est le **profil d'une personne**
+(`depart`, `cycliste`, `velos`, `intervals`, `seance`) est un choix produit.
+`CHAMPS_MODIFIABLES` en donne déjà une lecture — ce qu'un cycliste peut
+éditer — mais « modifiable par le cycliste » et « personnel » ne sont pas la
+même chose : le serveur BRouter n'est pas modifiable et n'est pas personnel,
+le point de départ est les deux.
+
+**La question**, à rendre avant F3 : (a) le socle reste personnel et chaque
+propriétaire part d'un profil vide qu'il remplit à l'inscription ; (b) le
+socle est découpé, les sections communes sont héritées par tous et les
+sections personnelles ne le sont jamais — auquel cas il faut la liste ; ou
+(c) le TOML du serveur devient un fichier d'exploitation sans aucune section
+personnelle, et le profil du mainteneur migre dans une surcharge comme celui
+de tout le monde.

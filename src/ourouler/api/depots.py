@@ -9,9 +9,9 @@ dépôts parleront à PostgreSQL, la signature qui force le `WHERE` sera déjà 
 
 Deux dépôts, deux natures de données :
 
-- `DepotProfils` — le profil : la configuration servie par le serveur, plus
-  ce que **ce propriétaire-là** a modifié depuis l'interface. Le TOML du
-  mainteneur n'est jamais réécrit (voir `enregistrer`).
+- `DepotProfils` — le profil : le **socle** servi par le serveur, plus ce que
+  **ce propriétaire-là** a modifié depuis l'interface. Le TOML du mainteneur
+  n'est jamais réécrit (voir `enregistrer`).
 - `DepotFichiers` — les fichiers produits (GPX, carte) et déposés (`.ZWO`,
   `.MRC`), rangés sous un préfixe par propriétaire et servis par un
   identifiant opaque, jamais par un chemin.
@@ -25,11 +25,12 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
-from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.config import Config
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 
@@ -73,13 +74,86 @@ EXTENSIONS = {
 FORME_IDENTIFIANT = re.compile(r"^[0-9a-f]{32}$")
 
 
+class SocleTOML:
+    """Le socle lu dans un fichier TOML, relu à chaque requête.
+
+    **Il appartient à quelqu'un.** Un fichier de configuration porte un point
+    de départ, une clé Intervals et un identifiant d'athlète : ce n'est pas
+    un réglage de serveur, c'est le profil d'une personne. `proprietaire` dit
+    de qui, et `DepotProfils` refuse de le servir à un autre — voir
+    `DepotProfils.config`.
+
+    `variables` est **reçu**, jamais lu ici : seul `exploitation.py` sait où
+    il tourne (règle absolue 2), et l'invariant adversarial refuse jusqu'au
+    nom `environ` dans le cœur. Vide par défaut, pour qu'une application
+    construite dans un test n'absorbe pas les variables de la machine.
+    """
+
+    modifiable = True
+
+    def __init__(
+        self,
+        chemin: Path,
+        *,
+        variables: Mapping[str, str] | None = None,
+        proprietaire: Proprietaire | None = PROPRIETAIRE_LOCAL,
+    ) -> None:
+        self.chemin = chemin
+        self.proprietaire = proprietaire
+        self._variables = dict(variables or {})
+
+    def config(self, surcharge: dict) -> Config:
+        return construire(fusionner(lire_toml(self.chemin), surcharge), environ=self._variables)
+
+
+class SocleVide:
+    """Aucun profil de départ : tout vient de la surcharge du propriétaire.
+
+    C'est le socle d'une application construite sans rien — `creer_application()`.
+    Elle publie son contrat (`/openapi.json`, `/docs`) et sert ses routes,
+    mais tant que personne n'a écrit de profil, `depuis_dict` refuse la
+    configuration (« section [depart] manquante ») et les routes de données
+    répondent `configuration_invalide`. C'est volontaire : inventer un point
+    de départ par défaut mettrait une coordonnée dans le code (règle absolue 1),
+    et aller le chercher sur le disque ferait lire l'environnement à la
+    fabrique (règle absolue 2).
+    """
+
+    modifiable = True
+    proprietaire: Proprietaire | None = None
+
+    def config(self, surcharge: dict) -> Config:
+        return construire(dict(surcharge), environ={})
+
+
+class SocleFixe:
+    """Une `Config` déjà construite, injectée par l'appelant.
+
+    Le point d'injection de la règle absolue 3 : un test — et demain la
+    couche qui lira le profil dans PostgreSQL — donne une `Config` toute
+    faite, sans fichier ni environnement. Lecture seule : il n'y a pas de
+    dict TOML sous cette `Config` sur lequel fusionner une surcharge, et
+    fabriquer un dict à partir d'une dataclasse validée rendrait un socle qui
+    n'est plus celui qu'on a injecté. `enregistrer` refuse donc en le disant.
+    """
+
+    modifiable = False
+    proprietaire: Proprietaire | None = None
+
+    def __init__(self, config: Config) -> None:
+        self._config = config
+
+    def config(self, surcharge: dict) -> Config:
+        del surcharge  # aucune ne peut exister : `enregistrer` refuse d'en écrire
+        return self._config
+
+
 class DepotProfils:
     """Le profil de chaque propriétaire, et la `Config` qui en sort.
 
-    Le fichier de configuration du serveur est le **socle** : il porte ce
-    qu'aucun cycliste n'édite (cache, serveur BRouter, modèles météo). Le
-    profil d'un propriétaire est une **surcharge** JSON, rangée dans son
-    dossier, appliquée par-dessus avant validation.
+    Le **socle** porte ce qu'aucun cycliste n'édite (cache, serveur BRouter,
+    modèles météo). Le profil d'un propriétaire est une **surcharge** JSON,
+    rangée dans son dossier, appliquée par-dessus avant validation.
 
     **Pourquoi ne pas réécrire le TOML.** Trois raisons, dans l'ordre : le
     fichier du mainteneur porte ses commentaires et ses réglages fins, et un
@@ -91,8 +165,8 @@ class DepotProfils:
     base au lieu d'un TOML : le cœur ne le verra pas »).
     """
 
-    def __init__(self, chemin_config: Path, dossier_donnees: Path) -> None:
-        self._chemin_config = chemin_config
+    def __init__(self, socle: SocleTOML | SocleVide | SocleFixe, dossier_donnees: Path) -> None:
+        self._socle = socle
         self._dossier = dossier_donnees
 
     def dossier(self, proprietaire: Proprietaire) -> Path:
@@ -115,9 +189,32 @@ class DepotProfils:
         return charge
 
     def config(self, proprietaire: Proprietaire) -> Config:
-        """La `Config` de ce propriétaire : le socle, sa surcharge, puis la validation."""
-        socle = lire_toml(self._chemin_config)
-        return construire(fusionner(socle, self.surcharge(proprietaire)))
+        """La `Config` de ce propriétaire : le socle, sa surcharge, puis la validation.
+
+        **Un socle qui appartient à quelqu'un ne se sert qu'à lui.** Sans ce
+        contrôle, tout ce qu'un propriétaire ne surcharge pas, il en hérite —
+        y compris `[intervals] api_key`, `athlete_id` et `[depart]`, c'est-à-dire
+        la clé et le domicile du mainteneur. C'était le cas jusqu'au
+        17/09/2026, et c'était une fuite silencieuse : la surcharge par
+        propriétaire n'a jamais eu pour but de partager les secrets du socle,
+        seulement d'éviter de réécrire un TOML commenté.
+
+        Le refus est volontairement **total** plutôt que section par section :
+        décider quelles sections d'un TOML sont communes au serveur (cache,
+        BRouter, modèles météo) et lesquelles appartiennent au cycliste est un
+        arbitrage produit que le mainteneur n'a pas encore rendu — il est posé
+        dans `docs/questions_mainteneur.md`. Tant qu'il ne l'est pas, servir
+        un socle personnel à quelqu'un d'autre est ce qu'il ne faut pas faire,
+        et refuser est ce qui se fait de moins faux.
+        """
+        possesseur = self._socle.proprietaire
+        if possesseur is not None and possesseur != proprietaire:
+            raise ErreurConfig(
+                f"profil de « {proprietaire} » : le socle de ce serveur est le profil de "
+                f"« {possesseur} » (départ, clé Intervals) et ne se partage pas — ce serveur "
+                "n'a pas de configuration pour ce propriétaire"
+            )
+        return self._socle.config(self.surcharge(proprietaire))
 
     def enregistrer(self, proprietaire: Proprietaire, modifications: dict) -> Config:
         """Applique des modifications au profil, et rend la `Config` qui en résulte.
@@ -126,9 +223,14 @@ class DepotProfils:
         une FTP négative ou un vélo sans nom laisse le profil précédent
         intact, et le front reçoit le nom du champ fautif.
         """
+        if not self._socle.modifiable:
+            raise ErreurUtilisateur(
+                "profil : cette application sert une configuration injectée, en lecture seule — "
+                "la construire depuis un fichier de configuration pour pouvoir la modifier"
+            )
+        self.config(proprietaire)  # même contrôle de propriétaire qu'en lecture
         proposee = fusionner(self.surcharge(proprietaire), valider(modifications))
-        socle = lire_toml(self._chemin_config)
-        config = construire(fusionner(socle, proposee))  # lève ErreurConfig si invalide
+        config = self._socle.config(proposee)  # lève ErreurConfig si invalide
         ecrire_toml(
             self.dossier(proprietaire) / NOM_PROFIL,
             json.dumps(proposee, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -337,6 +439,9 @@ __all__ = [
     "DepotFichiers",
     "DepotProfils",
     "Fichier",
+    "SocleFixe",
+    "SocleTOML",
+    "SocleVide",
     "fusionner",
     "nom_sur",
     "valider",
