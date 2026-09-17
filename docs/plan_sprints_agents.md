@@ -448,12 +448,36 @@ l'unité que le produit sert, et c'est celle des critères d'acceptation.
 | CdA saisonnier (vêtements) | **5 min** | dépend du précédent |
 | **L6.3 — le bug de lecture TCX** | neuf fichiers illisibles | un après-midi, indépendant |
 
-**Ordre recommandé et pourquoi.** L6.1 d'abord, en un seul lot : ses deux
-corrections disent la même chose — le modèle tourne sur des valeurs figées
-alors que le cycliste change. Neuf minutes sur quatorze, sans toucher à la
-physique. L6.2 ensuite, et c'est un vrai lot : nouvelle signature de
-`calibrer`, ancien fichier de calibration jeté, les 12 W à revalider, et la
-phrase du 16/09 de la docstring à reprendre. L6.3 quand ça arrange.
+**Ordre recommandé et pourquoi — périmé, voir la correction ci-dessous.**
+L6.1 d'abord, en un seul lot : ses deux corrections disent la même chose — le
+modèle tourne sur des valeurs figées alors que le cycliste change. Neuf
+minutes sur quatorze, sans toucher à la physique. L6.2 ensuite, et c'est un
+vrai lot : nouvelle signature de `calibrer`, ancien fichier de calibration
+jeté, les 12 W à revalider, et la phrase du 16/09 de la docstring à reprendre.
+L6.3 quand ça arrange.
+
+**Correction du 17/09 (soir), avant tout code écrit.** Le tableau ci-dessus
+vient de la campagne sans capteur ; rejouée sur la puissance **mesurée** du
+mainteneur (« Correction du 17/09 (soir) — la mesure réfute une partie de
+[[Q51]] » dans `questions_mainteneur.md`), elle ne tient plus :
+
+- la **fenêtre glissante** n'apporte rien au mainteneur — la constante
+  actuelle (`puissance_endurance_pct × ftp_w`) est déjà à l'optimum, l'écart
+  mesuré est sous le plancher de bruit ; les neuf minutes valent pour le monde
+  sans capteur, pas pour le monde mesuré du mainteneur ;
+- la **masse datée par sortie**, seule, **dégrade** la validation : dès que
+  la masse globale est corrigée, l'ajustement de Crr part en butée (la
+  dégénérescence de L6.2) et absorbe l'erreur autrement. La masse datée a
+  besoin du Crr figé de L6.2 comme **préalable**, pas comme suite.
+
+**L'ordre s'inverse donc : L6.2 avant L6.1.** Aucune ligne de code n'a été
+écrite pour L6.1 sur cette base — l'écrire aurait livré soit un lot neutre
+(fenêtre glissante), soit une régression mesurée (masse datée seule), ce que
+la règle absolue 4 interdit de présenter comme un gain. Décision de
+séquencement à reprendre avec le mainteneur avant de rouvrir L6.1. Les
+« 5 minutes » de CdA saisonnier de L6.2 viennent de la même campagne
+sans-capteur et demandent la même revérification sur la puissance mesurée
+avant d'être budgétées.
 
 **Critères d'acceptation** (règle absolue 4) : pour L6.1 et L6.2, l'écart entre
 durée prédite et durée réelle sur les vraies sorties du mainteneur, mesuré
