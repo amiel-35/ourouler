@@ -2385,6 +2385,48 @@ Note : la direction recommandée par la météo est déjà calculée et déjà
 affichée (`meilleure_direction`, avec son motif). Ce n'est pas la même chose
 que le vent — elle vise le sec, pas l'orientation.
 
+### Réponse du mainteneur (17/09/2026) — deux modes, et le latéral ouvre deux directions
+
+> « c'est un choix UX. Soit on est capable de montrer au user le sens du vent,
+> soit on lui dit de choisir avec 3 propositions : vent dans le dos au départ,
+> vent dans le dos au retour, ou vent latéral majoritaire — et ça fait le job.
+> Et il peut choisir sa direction, ou en fonction du sens du vent ; s'il
+> choisit le sens du vent, on lui demande ses préférences. La préférence vent
+> latéral ouvre 2 directions opposées d'ailleurs. »
+
+**La forme retenue.** Un premier choix : *je choisis ma direction* ou *je
+choisis selon le vent*. Les deux réglages ne coexistent plus côte à côte —
+l'un remplace l'autre, et la contradiction disparaît.
+
+Si le cycliste choisit selon le vent, trois préférences :
+
+| préférence | ce que ça fixe |
+|---|---|
+| vent dans le dos **au départ** | un azimut |
+| vent dans le dos **au retour** | un azimut, l'opposé |
+| vent **latéral** | **deux azimuts opposés** |
+
+**Et montrer le vent n'est pas une alternative, c'est le complément.** Le
+mainteneur pose « soit / soit », mais les deux modes en ont besoin : celui qui
+choisit sa direction doit savoir d'où souffle le vent pour la choisir, et
+celui qui choisit selon le vent doit pouvoir vérifier ce qu'on lui propose.
+La maquette E16 le prévoyait — « Vent de sud-ouest à 22 km/h demain matin ».
+
+### La trouvaille : le latéral produit le contraste maximal
+
+**Deux azimuts opposés, c'est le recouvrement le plus faible possible.**
+Mesuré le 16/09 sur des boucles de 60 km depuis chez le mainteneur : deux
+directions séparées de 180° partagent **0,4 % de leurs routes** (médiane), contre
+28 % à 30° d'écart.
+
+Donc la préférence qui contraint le moins l'azimut est aussi celle qui produit
+les propositions les plus différentes. C'est une réponse **par la conception**
+à [[Q43]] et [[Q45]] : là où « rentrer avec le vent » impose un secteur et rend
+trois boucles qui se ressemblent, « de travers » en ouvre deux opposés.
+
+À vérifier à l'implémentation : les candidates doivent alors se répartir entre
+les deux azimuts, pas s'entasser sur le premier.
+
 ## Q45 — Quand rien ne distingue rien, le dire — **17/09/2026**
 
 > « ben, s'il n'y a pas de pluie et peu de vent et que tout est plat, à un
