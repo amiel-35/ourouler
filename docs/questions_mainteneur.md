@@ -2145,3 +2145,59 @@ total redevient ce que le mainteneur en disait : une aide au calcul.
 Ça garde le lien avec [[Q29]] (la concentration) et [[Q31]] (la distance de
 dégagement), mais renverse le signe : la concentration au départ n'est pas le
 problème, c'est **l'absence de concentration** qui en est un.
+
+
+## Q42 — Le cache météo : mesuré à l'intérieur d'une génération, décisif seulement entre utilisateurs — **17/09/2026**
+
+Idée du mainteneur, née de [[Q41]] (e) : plutôt qu'une requête globale sur une
+zone, **garder entre les requêtes ce qu'on a déjà** — « la première route coûte
+cher, les suivantes un peu moins ».
+
+### Ce qui est mesuré
+
+La météo est échantillonnée **tous les 5 km le long du tracé**
+(`PAS_DEFAUT_M = 5000.0`, `boucle/meteo_trace.py`), et Open-Meteo décompte
+**un appel par coordonnée**. En arrondissant à la maille (~1,1 km au
+centième de degré, à comparer aux 1,3 km d'AROME France HD), sur de vraies
+candidates générées par le BRouter du mainteneur :
+
+| | points demandés | mailles distinctes | économie |
+|---|---|---|---|
+| 5 candidates de 55 km | 56 | 46 | **18 %** |
+| 8 candidates de 55 km | 89 | 68 | **24 %** |
+| 5 candidates de 170 km | 165 | 143 | **13 %** |
+
+**Deux enseignements.** L'économie **monte avec le nombre de candidates**
+(18 % à cinq, 24 % à huit) : le cache aide donc là où le mainteneur voulait
+qu'il aide, pour « chercher plus loin ». Mais elle **baisse avec la
+longueur** (13 % à 170 km) : les boucles divergent en s'éloignant, et c'est
+précisément là que le coût est le plus élevé.
+
+### Pourquoi ça ne vaut pas un lot aujourd'hui
+
+Économiser 18 % d'un coût qui n'est pas le goulot. Une génération prend 3 s,
+le quota tient à 10 000 appels par jour, et aucun utilisateur ne sentirait la
+différence.
+
+### Pourquoi ça en vaudra un à F3, et ce qui manque pour le dire
+
+> « oui, mais plusieurs users dans la même zone : si on se dit qu'une météo
+> d'une zone est valable X h, ça va devenir payant. »
+
+**C'est le paramètre qui manquait au calcul ci-dessus.** Une prévision pour
+une maille à une heure donnée est la même pour tout le monde. Mesurée à
+l'intérieur d'une seule génération, elle ne se partage qu'entre candidates ;
+**gardée X heures et partagée entre utilisateurs**, elle se paie une fois
+pour toute une région et toute une matinée.
+
+La doctrine §10.1 le prévoit déjà — quota compté **par adresse IP**, donc un
+service hébergé fait partager le même compteur à tous les invités.
+
+**Le chiffre de X ne s'invente pas** : AROME France HD est remis à jour toutes
+les trois heures. Une heure est sans risque, trois heures est défendable,
+au-delà on sert une donnée que le modèle a déjà remplacée.
+
+**Ce qui reste non mesuré, et qui décide du gain réel** : le recouvrement
+entre utilisateurs **différents**. Des copains rennais partageraient
+beaucoup ; un ami nantais, rien. Le gain dépend de la densité géographique
+des invités, pas du produit — et ne se mesurera qu'avec de vrais comptes.
