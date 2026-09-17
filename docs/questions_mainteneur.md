@@ -3945,7 +3945,7 @@ vise une résistance basse (13,4 N) alors que son chrono en demande 15,9 —
 c'est-à-dire qu'il ne roule pas son chrono en position de chrono, ou pas avec
 l'équipement que la catégorie suppose.
 
-#### La règle du « +1 cran » — **empirique, mécanisme NON VÉRIFIÉ au 17/09 (nuit)**
+#### La règle du « +1 cran » — **empirique ; le mécanisme proposé a été mesuré et réfuté**
 
 En rapportant chaque vélo non pas à « route amateur » mais à **sa propre
 catégorie nominale**, les deux écarts se ressemblent :
@@ -3985,6 +3985,74 @@ relances.
 empirique** : on constate le décalage, on n'en connaît pas la cause, et on ne
 peut donc rien promettre sur les cyclistes dont le profil de sortie diffère du
 sien. n = 1 cycliste, 2 vélos, 34 sorties de validation.
+
+#### La mesure du « +1 cran » (17/09, nuit) — **l'explication est réfutée, la règle reste**
+
+Méthode du mainteneur, appliquée telle qu'il l'a proposée : plutôt que corriger
+le relief par la statistique, l'éliminer par la sélection. Les sorties sont
+pavées en fenêtres de temps consécutives (180/300/600 s), la stationnarité se
+lit en `NP / P` sur les points bruts, et la résistance est réajustée **avec
+l'estimateur du dépôt** sur les seuls tronçons retenus, lue en `F@27` — donc
+comparable aux 135 / 119 W mesurés plus haut. IC95 par bootstrap **par sortie**.
+
+**Sur le RCR** (99 sorties, 2 350 fenêtres de 300 s) :
+
+| NP / P | fenêtres | sorties | F@27 | IC95 |
+|---|---|---|---|---|
+| 1,00–1,02 (le plus régulier) | 94 | 47 | **139,3 W** | 130,0–147,0 |
+| 1,02–1,05 | 292 | 77 | 136,7 W | 132,5–140,5 |
+| 1,05–1,10 | 574 | 94 | 136,8 W | 132,9–140,3 |
+| 1,10–1,20 | 677 | 97 | 134,5 W | 129,6–138,5 |
+| > 1,20 (le plus haché) | 692 | 92 | **127,9 W** | 121,8–134,5 |
+
+Nominal « route amateur » = **119,6 W**, hors de tous les intervalles.
+
+**Sur le BMC** : 116,7 W au plus régulier contre 124,5 W au plus haché, nominal
+« CLM amateur » = 100,7 W, hors de l'intervalle. Signe conforme à l'hypothèse
+ici, mais **7,8 W** d'amplitude sur toute l'étendue du rapport, pas 19.
+
+**L'hypothèse ne tient pas.** Au mieux 3 à 4 W des 16 à 20 W d'écart
+s'expliquent par l'irrégularité — et sur le vélo de route le **signe est
+inversé** : ce sont les fenêtres les plus hachées qui donnent la résistance la
+plus basse. Les deux vélos donnent des pentes de signes opposés, à intervalles
+largement recouvrants. Aucun mécanisme cohérent.
+
+Test direct sans aucun ajustement, à la vitesse, la pente et le vent observés :
+sur les fenêtres RCR les plus stationnaires (29,8 km/h, 172 W médians), le jeu
+de littérature prédit **7,8 W de moins** que ce qu'il a réellement produit,
+contre +0,6 W pour sa calibration. Même à leur propre vitesse, la littérature
+est courte.
+
+**Pourquoi il n'y avait presque rien à trouver, et c'est le résultat le plus
+utile.** La calibration **écartait déjà** les relances et les arrêts, ce que ses
+propres commentaires disent : `SEUIL_ARRET_MS` (`calibration.py:93`) jette tout
+tronçon contenant un point à l'arrêt, `vitesse_min_kmh` en jette les lents, et
+`DELTA_V_MAX_MS` (`calibration.py:120`) « ne sert plus qu'à écarter les
+freinages et relances brutaux » — à eux trois, **48 à 62 % de la distance est
+éliminée dans toutes les tranches**. Les 135 W étaient donc déjà mesurés sur des
+tronçons de 200 m quasi stationnaires. Il ne restait pas de place pour que
+l'irrégularité les gonfle, et elle ne les gonfle pas.
+
+**Ce que ça laisse.** La règle du « +1 cran » **reste valable comme
+constatation** — le décalage est mesuré, stable sur les deux vélos, et le
+nominal est hors des intervalles de confiance. Mais elle reste **empirique** :
+sa cause n'est pas connue. Que le décalage vienne de l'équipement, de la masse,
+du rendement de transmission ou de la position habituelle est une hypothèse que
+**rien ici ne teste**. On peut s'en servir pour placer une table de catégories ;
+on ne peut pas promettre qu'elle vaudra pour un cycliste au profil différent.
+
+**Une limite du dépôt relevée au passage** : les blocs planifiés n'ont pas pu
+servir d'étiquette. `seance/placement.py` place une séance **prévue** sur un
+tracé **futur** ; rien ne sait rapprocher un FIT d'hier de la séance planifiée
+de ce jour-là. Les fenêtres stationnaires **retrouvent** les blocs (173 W
+médians dans la tranche la plus stationnaire contre 132 W dans la moins), mais
+retrouver n'est pas étiqueter. À noter pour qui voudra analyser le passé
+séance par séance.
+
+**Réserves** : n = 1 cycliste, 2 vélos ; ajustement en échantillon dans chaque
+tranche (c'est une description, pas une prédiction) ; BMC mince (58 fenêtres
+stationnaires, 1,9 h) ; et une anomalie non expliquée sur le RCR — pourquoi les
+fenêtres les plus irrégulières donnent-elles la résistance la plus basse ?
 
 ## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **tranchée le 17/09/2026 : au backlog**
 #### La mesure demandée (17/09/2026, soir) — la dérive tient à un seul nombre
