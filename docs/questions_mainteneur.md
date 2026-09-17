@@ -3027,9 +3027,58 @@ désaccord.
 
 ### Reste à trancher
 
-- L'usage d'`archives-perso` par un agent : autorisé, interdit, ou sur demande ?
+- ~~L'usage d'`archives-perso` par un agent~~ — **autorisé** (17/09). Le
+  mainteneur ne voyait pas le problème ; l'alerte venait de ce qu'un agent
+  élargissait seul son périmètre de données, vers une source qui contient bien
+  plus que ce que la tâche demandait, et que l'outil lui-même pose
+  `inclure_perso` en garde-fou. Décision prise, et elle a payé : c'est de là
+  qu'est sortie la datation indépendante des vélos.
 - L'ordre de priorité ci-dessus vaut-il un lot, et lequel d'abord ?
 - Les deux défauts de calibration : lot de correction, ou instruction d'abord ?
+  (Explicités le 17/09 — voir ci-dessous.)
+
+### Les deux défauts, expliqués
+
+**1. La masse est celle d'aujourd'hui, appliquée à hier.** `masse_totale_kg`
+lit **une seule** valeur de poids dans la configuration, la même pour toutes les
+sorties quelle que soit leur date. Le poids du mainteneur a varié de 13,5 kg sur
+la période : estimer une sortie de 2021 avec le poids de 2026 lui ajoute treize
+kilos. La masse entrant linéairement dans le roulement et la gravité, l'erreur
+**grandit à mesure qu'on remonte le temps** (+2,7 à +9,3 W selon l'année).
+Correction simple : dater le poids, la série existe côté Intervals.
+
+**2. La calibration ne peut pas séparer ce qu'elle prétend séparer.** Deux
+résistances freinent : le roulement, force `Crr × masse × g`, à peu près
+constante ; l'aéro, `½ ρ CdA v²`, qui grandit comme le carré de la vitesse. Les
+distinguer demande des sorties à des vitesses **franchement différentes** —
+c'est l'écart entre les deux courbes qui les identifie. Or l'endurance vit dans
+une bande étroite (25-30 km/h), où les deux termes sont presque proportionnels :
+l'ajustement peut **échanger** l'un contre l'autre sans que l'erreur bouge.
+
+Les valeurs trouvées le disent : **CdA 0,222** est une valeur de contre-la-montre
+pour quelqu'un aux cocottes, **Crr 0,0106** une valeur de VTT sur chemin. Aucune
+n'est crédible seule ; ensemble elles reproduisent bien la résistance observée.
+L'ajustement a glissé le long d'une vallée au lieu de tomber dans un puits.
+
+**Les deux défauts se tiennent** : le roulement n'apparaît jamais que comme le
+**produit** `Crr × masse`. Une erreur de masse part donc mécaniquement dans le
+Crr — d'où l'ajustement qui file en butée dès qu'on corrige le poids.
+
+**Ce que ça compromet** : la phrase de la docstring de `calibration.py` (16/09)
+— « le même CdA à 0,7 % près sur les deux vélos, tout l'écart dans le Crr ».
+Lue comme un fait physique elle est troublante ; lue comme une dégénérescence,
+elle ne dit plus rien : quand l'ajustement peut échanger les deux, le CdA se
+pose où le bruit le laisse. **Test avant de toucher à la docstring** : refaire
+l'ajustement en fixant le CdA à plusieurs valeurs plausibles. Si l'erreur est
+plate sur une large plage, c'est dégénéré.
+
+**Ce que ça n'empêche pas.** Pour prédire une vitesse **dans la bande où la
+personne roule**, rien : c'est la résistance **totale** qui compte, et elle est
+juste — d'où les 12 W de la validation. Ça ne compte qu'à deux endroits : hors
+de la bande (descente rapide, bosse lente), où les deux termes se séparent enfin
+et où un mauvais partage donne une mauvaise vitesse ; et pour **comparer des
+vélos**, usage explicitement mis hors périmètre par le mainteneur. L'usage
+dangereux est donc déjà interdit.
 
 
 ## Q50 — Un seul réglage, deux visages, et le produit qui en découle — **17/09/2026**
