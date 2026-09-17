@@ -651,6 +651,63 @@ def test_un_corps_mal_forme_sort_dans_la_forme_d_erreur_du_projet(tmp_path: Path
     assert erreur["details"]["champs"][0]["champ"].endswith("distance_km")
 
 
+# --- les routes de lecture qui restent, une par sous-commande ------------------
+
+
+def test_l_inventaire_repond_sur_un_cache_vide(tmp_path: Path):
+    """Aucune sortie indexée n'est une réponse, pas une panne — et
+    `--synchroniser` n'est pas exposé : il écrit dans le cache du serveur."""
+    charge = serveur(tmp_path).get("/api/v1/inventaire").json()
+    assert charge["donnees"]["total"] == 0
+    assert charge["donnees"]["par_velo"] == []
+
+
+def test_les_statistiques_de_routes_se_lisent(tmp_path: Path):
+    reponse = serveur(tmp_path, brouter=moteur_brouter()).get("/api/v1/routes/stats")
+    assert reponse.status_code == 200, reponse.text
+    assert isinstance(reponse.json()["donnees"], dict)
+
+
+def test_les_poids_sans_rien_d_appris_le_disent_en_francais(tmp_path: Path):
+    """Un serveur neuf n'a rien appris : ce n'est pas une panne, c'est une
+    consigne — et elle sort dans la forme d'erreur du projet."""
+    reponse = serveur(tmp_path, brouter=moteur_brouter()).get("/api/v1/routes/poids")
+    assert reponse.status_code == 400
+    erreur = reponse.json()["erreur"]
+    assert erreur["code"] == "requete_invalide"
+    assert "aucune route apprise" in erreur["message"]
+
+
+def test_apprendre_n_est_pas_exposee(tmp_path: Path):
+    """Elle rejoue des mois de sorties dans BRouter : c'est une commande
+    d'administration, pas un bouton."""
+    reponse = serveur(tmp_path).get("/api/v1/routes/apprendre")
+    assert reponse.status_code == 404
+    assert reponse.json()["erreur"]["code"] == "requete_invalide"
+
+
+def test_une_simulation_part_d_un_gpx_du_depot(tmp_path: Path):
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo())
+    boucle = client.post("/api/v1/boucles", json={"distance_km": 30.0, "direction": "N"})
+    identifiant = boucle.json()["donnees"]["gpx"]["id"]
+    reponse = client.post(
+        "/api/v1/simulations", json={"gpx": identifiant, "puissance_w": 150.0}
+    )
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["temps_mouvement_s"] > 0
+    assert donnees["vitesse_moy_kmh"] > 0
+
+
+def test_une_simulation_sur_le_gpx_d_un_autre_est_introuvable(tmp_path: Path):
+    a_lui = DepotFichiers(tmp_path / "cache" / "api").deposer(AUTRE, "a-lui.gpx", b"<gpx/>")
+    reponse = serveur(tmp_path).post(
+        "/api/v1/simulations", json={"gpx": a_lui.identifiant, "puissance_w": 150.0}
+    )
+    assert reponse.status_code == 404
+    assert reponse.json()["erreur"]["code"] == "fichier_introuvable"
+
+
 # --- fichiers et isolation ----------------------------------------------------
 
 
