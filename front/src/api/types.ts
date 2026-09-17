@@ -421,6 +421,35 @@ export interface Tenue {
   motifs: string[];
 }
 
+/** Un azimut qu'une préférence de vent imposerait — **jamais recalculé côté front** (Q44). */
+export interface AzimutVent {
+  azimut_deg: number;
+  nom: string;
+}
+
+/**
+ * Ce que `GET /vent-depart` rend : d'où souffle le vent, et l'azimut (ou les
+ * deux, pour le latéral) que chaque préférence imposerait (Q44).
+ *
+ * `posee: false` veut dire qu'on ne pose pas la question — vent sous le
+ * seuil, séance trop loin dans l'horizon, ou météo indisponible — et
+ * `azimuts_par_choix` est alors vide partout. `motif` dit pourquoi, en
+ * clair ; l'écran l'affiche au lieu d'inventer un vent.
+ */
+export interface VentDepart {
+  jour: string;
+  depart: string;
+  posee: boolean;
+  motif: string | null;
+  vent_kmh: number | null;
+  vent_depuis_deg: number | null;
+  vent_depuis_nom: string | null;
+  seuil_kmh: number;
+  horizon_jours: number;
+  choix: string[];
+  azimuts_par_choix: Record<string, AzimutVent[]>;
+}
+
 export interface QuestionVent {
   posee: boolean;
   motif: string | null;

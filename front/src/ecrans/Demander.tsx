@@ -17,16 +17,17 @@
  * dit pas encore »), ici elle est refermée.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Budget, Profil, Zones } from "../api/types";
+import type { AzimutVent, Budget, Enveloppe, Profil, VentDepart, Zones } from "../api/types";
 import { phraseBudget } from "../composants/Attente";
 import {
   duree,
   heureDeRetour,
   modelePhysique,
   nombre,
-  VENT_EN_TOUTES_LETTRES,
+  VENT_PREFERENCE_EN_TOUTES_LETTRES,
+  ventDepuisEnToutesLettres,
 } from "../api/formats";
 import { aujourdhui } from "../etat/ressource";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
@@ -34,11 +35,20 @@ import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
 const CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
 
+/** Les trois préférences de « selon le vent », dans l'ordre où Q44 les pose. */
+const PREFERENCES_VENT = ["depart-dos", "retour-dos", "travers"];
+
 export interface Demande {
   mode: "seance" | "z2";
   jour: string;
   heure_depart: string;
   duree_min: number;
+  /**
+   * Le **premier choix** de Q44 : indépendant de `mode`, il décide lequel
+   * des deux sélecteurs suivants s'affiche — jamais les deux à la fois, pour
+   * que la contradiction entre eux disparaisse par la forme.
+   */
+  modeDirection: "peu-importe" | "direction" | "vent";
   vent: string;
   direction: string;
   depart: { latitude: number; longitude: number; nom: string } | null;
@@ -51,6 +61,7 @@ export function demandeInitiale(): Demande {
     jour: aujourdhui(),
     heure_depart: "09:00",
     duree_min: 120,
+    modeDirection: "peu-importe",
     vent: "peu-importe",
     direction: "N",
     depart: null,
@@ -115,6 +126,10 @@ export function Demander({
   // d'adresse : le mélanger ferait apparaître une phrase sur la météo sous le
   // champ « partir d'ailleurs ».
   const [motifDirection, setMotifDirection] = useState<string | null>(null);
+  // D'où vient le vent au départ (Q44) — chargé pendant que le cycliste
+  // choisit, affiché dans les deux modes, jamais recalculé ici.
+  const [vent, setVent] = useState<Enveloppe<VentDepart> | null>(null);
+  const [erreurVent, setErreurVent] = useState<string | null>(null);
 
   const liees = zones.valeurs_liees;
   const minutes =
@@ -144,6 +159,69 @@ export function Demander({
     } catch (erreur) {
       setMotifDirection(erreur instanceof ErreurApi ? erreur.message : String(erreur));
     }
+  }
+
+  // Rechargé quand le jour ou l'heure de départ changent — c'est ce qui
+  // décide de l'azimut, pas le mode ni le reste de la demande.
+  useEffect(() => {
+    let annule = false;
+    setVent(null);
+    setErreurVent(null);
+    api
+      .ventDepart({ jour: demande.jour, heure_depart: `${demande.jour}T${demande.heure_depart}:00` })
+      .then((reponse) => {
+        if (!annule) setVent(reponse);
+      })
+      .catch((erreur) => {
+        if (!annule) setErreurVent(erreur instanceof ErreurApi ? erreur.message : String(erreur));
+      });
+    return () => {
+      annule = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demande.jour, demande.heure_depart]);
+
+  // Le vent qu'on ne sait pas prévoir ne se propose pas comme orientation :
+  // si le mode « selon le vent » était choisi et que la question cesse
+  // d'être posée (jour changé, météo indisponible…), on revient à « peu
+  // importe » plutôt que de laisser un mode actif sans azimut à proposer.
+  useEffect(() => {
+    if (vent !== null && !vent.donnees.posee && demande.modeDirection === "vent") {
+      changer({ modeDirection: "peu-importe" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vent]);
+
+  // « Selon le vent » n'existe pas pour la boucle libre (Endurance Z2) —
+  // `POST /boucles` n'a pas de champ `vent` (voir `chercher` dans `App.tsx`).
+  // Un mode qui bascule en z2 pendant qu'il était actif retombe sur « peu
+  // importe » plutôt que de laisser un choix qui n'aboutira jamais.
+  useEffect(() => {
+    if (demande.mode === "z2" && demande.modeDirection === "vent") {
+      changer({ modeDirection: "peu-importe" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demande.mode]);
+
+  /** La phrase du vent, ou pourquoi il n'y en a pas — jamais un vent inventé. */
+  function phraseVent(): string {
+    if (erreurVent !== null) return erreurVent;
+    if (vent === null) return "Vent : en cours…";
+    const donnees = vent.donnees;
+    if (!donnees.posee) return donnees.motif ?? "Le vent n'est pas connu pour ce départ.";
+    if (donnees.vent_depuis_nom === null || donnees.vent_kmh === null) {
+      return "Le vent n'est pas connu pour ce départ.";
+    }
+    return `Vent de ${ventDepuisEnToutesLettres(donnees.vent_depuis_nom)} à ${nombre(
+      donnees.vent_kmh,
+      0,
+    )} km/h`;
+  }
+
+  /** L'azimut (ou les deux, pour le latéral) qu'une préférence imposerait. */
+  function azimutsTexte(items: AzimutVent[]): string {
+    if (items.length === 0) return "azimut non communiqué";
+    return items.map((a) => `${a.nom} (${nombre(a.azimut_deg, 0)}°)`).join(" et ");
   }
 
   const jours = [0, 1, 2].map((decalage) => {
@@ -268,26 +346,51 @@ export function Demander({
         </div>
       </div>
 
-      {demande.mode === "seance" ? (
-        <div className="champ">
-          <label htmlFor="vent">Orientation au vent</label>
-          <div className="segments" id="vent" style={{ marginBottom: 0 }}>
-            {Object.keys(VENT_EN_TOUTES_LETTRES).map((choix) => (
-              <button
-                type="button"
-                key={choix}
-                aria-pressed={demande.vent === choix}
-                onClick={() => changer({ vent: choix })}
-              >
-                {VENT_EN_TOUTES_LETTRES[choix]}
-              </button>
-            ))}
-          </div>
-          <div className="aide">
-            Posée avant la recherche, elle réduit l'espace exploré au lieu de trier après coup.
-          </div>
+      {/* Le premier choix de Q44, indépendant de `mode` : un seul des deux
+          sélecteurs suivants s'affiche, la contradiction disparaît par la
+          forme. Et le vent s'affiche dans les deux modes — ce n'est pas une
+          alternative à ce choix, c'est son complément (Q44). */}
+      <div className="champ">
+        <label htmlFor="mode-direction">Direction</label>
+        <div className="segments" id="mode-direction" style={{ marginBottom: 0 }}>
+          <button
+            type="button"
+            aria-pressed={demande.modeDirection === "peu-importe"}
+            onClick={() => changer({ modeDirection: "peu-importe" })}
+          >
+            Peu importe
+          </button>
+          <button
+            type="button"
+            aria-pressed={demande.modeDirection === "direction"}
+            onClick={() => changer({ modeDirection: "direction" })}
+          >
+            Ma direction
+          </button>
+          <button
+            type="button"
+            aria-pressed={demande.modeDirection === "vent"}
+            disabled={demande.mode === "z2" || (vent !== null && !vent.donnees.posee)}
+            onClick={() =>
+              changer({
+                modeDirection: "vent",
+                vent: demande.vent === "peu-importe" ? "depart-dos" : demande.vent,
+              })
+            }
+          >
+            Selon le vent
+          </button>
         </div>
-      ) : (
+        {demande.mode === "z2" ? (
+          <div className="aide">
+            L'orientation au vent n'est pas encore disponible pour une sortie libre (Endurance
+            Z2) — le moteur de boucle libre ne pose pas encore cette question.
+          </div>
+        ) : null}
+        <div className="aide">{phraseVent()}</div>
+      </div>
+
+      {demande.modeDirection === "direction" ? (
         <div className="champ">
           <label htmlFor="direction">Direction</label>
           <div className="segments" id="direction" style={{ marginBottom: 0, flexWrap: "wrap" }}>
@@ -310,7 +413,50 @@ export function Demander({
           </div>
           {motifDirection ? <p className="mention">{motifDirection}</p> : null}
         </div>
-      )}
+      ) : null}
+
+      {demande.modeDirection === "vent" ? (
+        <div className="champ">
+          <label htmlFor="vent-preference">Selon le vent</label>
+          <div
+            className="segments"
+            id="vent-preference"
+            style={{ marginBottom: 0, flexWrap: "wrap" }}
+          >
+            {PREFERENCES_VENT.map((choix) => (
+              <button
+                type="button"
+                key={choix}
+                aria-pressed={demande.vent === choix}
+                onClick={() => changer({ vent: choix })}
+              >
+                {VENT_PREFERENCE_EN_TOUTES_LETTRES[choix]}
+              </button>
+            ))}
+          </div>
+          <div className="aide">
+            Posée avant la recherche, elle réduit l'espace exploré au lieu de trier après coup.
+          </div>
+          {vent && vent.donnees.posee ? (
+            <div>
+              {PREFERENCES_VENT.map((choix) => (
+                <p className="mention" key={choix}>
+                  {VENT_PREFERENCE_EN_TOUTES_LETTRES[choix]} :{" "}
+                  {azimutsTexte(vent.donnees.azimuts_par_choix[choix] ?? [])}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {demande.mode === "z2" && demande.modeDirection === "peu-importe" ? (
+        <p className="mention">
+          La recherche libre (Endurance Z2) a encore besoin d'une direction précise —
+          « peu importe » n'a pas d'azimut à proposer au moteur de boucle. Choisissez
+          « Ma direction » pour lancer la recherche.
+        </p>
+      ) : null}
 
       <div className="champ">
         <label htmlFor="depart">Départ</label>
@@ -350,7 +496,10 @@ export function Demander({
         type="button"
         className="bouton"
         onClick={surChercher}
-        disabled={demande.mode === "seance" && dureeSeance_s === null}
+        disabled={
+          (demande.mode === "seance" && dureeSeance_s === null) ||
+          (demande.mode === "z2" && demande.modeDirection !== "direction")
+        }
       >
         Chercher {nombre(demande.candidates)} parcours
       </button>

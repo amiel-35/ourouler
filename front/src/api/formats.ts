@@ -257,6 +257,38 @@ export const VENT_EN_TOUTES_LETTRES: Record<string, string> = {
   travers: "De travers",
 };
 
+/**
+ * Les trois préférences du mode « selon le vent » (Q44), telles que le
+ * mainteneur les a posées le 17/09/2026 — distinctes de `VENT_EN_TOUTES_LETTRES`,
+ * qui garde son quatrième choix (« peu importe ») pour l'ancien réglage.
+ */
+export const VENT_PREFERENCE_EN_TOUTES_LETTRES: Record<string, string> = {
+  "depart-dos": "Vent dans le dos au départ",
+  "retour-dos": "Vent dans le dos au retour",
+  travers: "Vent latéral",
+};
+
+/**
+ * Les huit points cardinaux **d'où vient** le vent, sans préposition — pour
+ * écrire « Vent de sud-ouest à 22 km/h » plutôt que « au sud-ouest ». Une
+ * table de libellés, comme les autres de ce module : aucun calcul, le code
+ * (« SO ») vient tel quel de l'API.
+ */
+export const VENT_DEPUIS_EN_TOUTES_LETTRES: Record<string, string> = {
+  N: "nord",
+  NE: "nord-est",
+  E: "est",
+  SE: "sud-est",
+  S: "sud",
+  SO: "sud-ouest",
+  O: "ouest",
+  NO: "nord-ouest",
+};
+
+export function ventDepuisEnToutesLettres(nom: string): string {
+  return VENT_DEPUIS_EN_TOUTES_LETTRES[nom] ?? nom;
+}
+
 /** Les mêmes, telles qu'on les **constate** sur un parcours déjà tracé. */
 export const VENT_DECRIT: Record<string, string> = {
   "peu-importe": "vent quelconque",

@@ -178,11 +178,22 @@ export function App() {
     setEnCalcul(budgetDe(operation) ?? null);
     try {
       if (finale.mode === "seance") {
+        // **Un seul des deux champs part** (Q44) : l'API refuse `direction`
+        // et un `vent` contraignant envoyés ensemble. `modeDirection` est la
+        // seule source de vérité ici — jamais les deux champs à la fois,
+        // quoi que porte encore `demande.direction`/`demande.vent` d'un
+        // mode qu'on a quitté.
+        const orientation: { direction?: string; vent?: string } =
+          finale.modeDirection === "direction"
+            ? { direction: finale.direction, vent: "peu-importe" }
+            : finale.modeDirection === "vent"
+              ? { vent: finale.vent }
+              : { vent: "peu-importe" };
         const reponse = await api.sortie({
           jour: finale.jour,
           heure_depart: `${finale.jour}T${finale.heure_depart}`,
           candidates: finale.candidates,
-          vent: finale.vent,
+          ...orientation,
           depart: finale.depart ?? undefined,
           // **Le jour doit correspondre** (B1) — voir `fichierPourLaRecherche`.
           fichier_seance: fichierPourLaRecherche(fichierSeance, finale.jour),
@@ -291,11 +302,11 @@ export function App() {
           action: () => chercher({ duree_min: Math.round(demande.duree_min * 1.1) }),
         });
       }
-      if (demande.vent !== "peu-importe") {
+      if (demande.modeDirection === "vent" && demande.vent !== "peu-importe") {
         replis.push({
           titre: "Laisser le vent libre",
           detail: "« Peu importe » au lieu d'imposer une orientation",
-          action: () => chercher({ vent: "peu-importe" }),
+          action: () => chercher({ vent: "peu-importe", modeDirection: "peu-importe" }),
         });
       }
       replis.push({

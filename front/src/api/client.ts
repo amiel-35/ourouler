@@ -21,6 +21,7 @@ import type {
   Simple,
   Sortie,
   Systeme,
+  VentDepart,
   Zones,
 } from "./types";
 
@@ -319,6 +320,13 @@ export const api = {
 
   meteo: (parametres?: { heure_depart?: string; latitude?: number; longitude?: number }) =>
     appeler<Enveloppe<Meteo>>(url("/meteo", parametres)),
+
+  /**
+   * D'où vient le vent au départ, et ce que chaque préférence imposerait
+   * (Q44) — appelée **pendant** que le cycliste choisit, pas après.
+   */
+  ventDepart: (parametres?: { jour?: string; heure_depart?: string }) =>
+    appeler<Enveloppe<VentDepart>>(url("/vent-depart", parametres)),
 
   semaine: (depuis?: string, jusqua?: string) =>
     appeler<Enveloppe<Semaine>>(url("/seances", { depuis, jusqua })),
