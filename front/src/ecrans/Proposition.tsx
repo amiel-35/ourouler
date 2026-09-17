@@ -232,35 +232,30 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             </div>
           ))}
 
-          {/* Le cœur n'écrit **qu'un** GPX par génération, celui de la
-              proposition retenue (`sortie/commande.py`). Proposer le bouton
-              sur une autre enverrait le mauvais tracé au compteur. */}
-          {sortie.gpx && proposition.retenue ? (
+          {/* Q40 (g) : chaque proposition porte **sa** trace, fabriquée au
+              moment où on la demande. Auparavant un seul GPX existait, celui
+              de la proposition retenue : emporter « la plus sèche » envoyait
+              la trace de « la plus calme » au compteur. */}
+          {proposition.gpx ? (
             <>
               <button
                 type="button"
                 className="bouton"
-                onClick={partager(sortie.gpx.url, sortie.gpx.nom)}
+                onClick={partager(proposition.gpx.url, proposition.gpx.nom)}
               >
                 Envoyer vers mon compteur
               </button>
               <a
                 className="bouton fantome"
-                href={sortie.gpx.url}
-                download={sortie.gpx.nom}
+                href={proposition.gpx.url}
+                download={proposition.gpx.nom}
                 style={{ display: "block", textDecoration: "none" }}
               >
                 Télécharger le GPX
               </a>
             </>
-          ) : sortie.gpx ? (
-            <p className="mention">
-              Le fichier écrit est celui de la proposition retenue par le moteur, pas de
-              celle-ci. Pour emporter ce tracé-là, il faudra relancer une recherche — le cœur
-              n'écrit qu'un GPX par génération.
-            </p>
           ) : (
-            <p className="mention">Aucun GPX n'a été écrit pour ce parcours.</p>
+            <p className="mention">Aucun GPX n'est disponible pour ce parcours.</p>
           )}
         </>
       ) : sortie.tenue ? (

@@ -10,10 +10,12 @@ navigateur, et c'est l'arborescence d'un serveur. L'API rend le profil du
 **cycliste**, et remplace l'exploitation par ce que le front a réellement
 besoin de savoir : le service est-il renseigné, oui ou non.
 
-**2. Un fichier est un identifiant, pas un chemin.** `gpx` et `carte`
-portent, en ligne de commande, un chemin sur le disque. Le front reçoit
-`{"id", "nom", "url"}`, et c'est la route des fichiers — qui vérifie le
-propriétaire — qui sert le contenu.
+**2. Un fichier est un identifiant, pas un chemin.** `carte` porte, en ligne
+de commande, un chemin sur le disque. Le front reçoit `{"id", "nom", "url"}`,
+et c'est la route des fichiers — qui vérifie le propriétaire — qui sert le
+contenu. Le GPX, lui, n'est plus un fichier du tout : chaque proposition
+porte l'adresse de sa propre trace, fabriquée à l'appel (Q40 g, voir
+`avec_gpx_par_proposition`).
 """
 
 from __future__ import annotations
@@ -71,4 +73,45 @@ def avec_fichiers(donnees: dict, **fichiers: Fichier | None) -> dict:
     return sortie
 
 
-__all__ = ["SECTIONS_EXPLOITATION", "avec_fichiers", "profil"]
+def avec_gpx_par_proposition(
+    donnees: dict, *, generation: str, noms: dict[int, str], prefixe: str
+) -> dict:
+    """Donne à **chaque** proposition l'adresse de son propre GPX (Q40 g).
+
+    Les trois propositions sont contrastées exprès : celle qu'on emporte
+    n'est pas forcément la première. Tant qu'un seul GPX était exposé,
+    choisir « la plus sèche » puis l'envoyer au compteur envoyait la mauvaise
+    trace, et l'erreur ne se voyait qu'une fois dehors (E19, E20).
+
+    Rien n'est écrit sur le disque : `url` désigne une route qui fabrique le
+    fichier à l'appel. La génération est nommée au premier niveau
+    (`generation`) pour qu'un écran puisse la garder sans relire les
+    propositions.
+    """
+    propositions = donnees.get("propositions")
+    if not isinstance(propositions, list):
+        return donnees
+    sortie = dict(donnees)
+    sortie["generation"] = generation
+    sortie["propositions"] = [
+        {
+            **proposition,
+            "gpx": {
+                "nom": noms.get(proposition.get("numero"), ""),
+                "url": f"{prefixe}/sorties/{generation}/propositions/"
+                f"{proposition.get('numero')}/gpx",
+            },
+        }
+        if isinstance(proposition, dict)
+        else proposition
+        for proposition in propositions
+    ]
+    return sortie
+
+
+__all__ = [
+    "SECTIONS_EXPLOITATION",
+    "avec_fichiers",
+    "avec_gpx_par_proposition",
+    "profil",
+]

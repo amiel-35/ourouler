@@ -218,6 +218,27 @@ export interface FicheFichier {
   url: string;
 }
 
+/**
+ * Le GPX d'une proposition (Q40 g). Pas d'`id` : ce n'est pas un fichier
+ * rangé quelque part, c'est une adresse qui le fabrique à l'appel — rien
+ * n'est écrit tant que le cycliste n'a pas choisi.
+ */
+export interface FicheGpx {
+  nom: string;
+  url: string;
+}
+
+/**
+ * « Pas de météo pour ce jour-là. » Le message dit le dernier jour couvert,
+ * jamais pourquoi celui-ci ne l'est pas : Open-Meteo rend le même bloc vide
+ * pour un point hors domaine et pour une date hors de portée.
+ */
+export interface MeteoAbsente {
+  jour: string;
+  dernier_jour_couvert: string;
+  message: string;
+}
+
 // --- météo --------------------------------------------------------------
 
 export interface Cellule {
@@ -344,6 +365,8 @@ export interface Proposition {
   orientation_vent: string | null;
   note_terrain: number | null;
   recouvrement_max_avec: Record<string, number> | null;
+  /** Où demander **cette** trace-ci. `null` sur une réponse d'avant Q40 (g). */
+  gpx: FicheGpx | null;
 }
 
 export interface Tenue {
@@ -380,6 +403,11 @@ export interface Sortie {
   };
   modele_physique: string | null;
   modele_meteo: { utilise: string; repli: boolean } | null;
+  /** Déclarée absente plutôt que rendue en panne (Q40 a). */
+  meteo_absente: MeteoAbsente | null;
+  /** L'identifiant de cette génération, à qui appartiennent les GPX. */
+  generation: string | null;
+  /** Toujours `null` depuis Q40 (g) : aucun GPX n'est écrit à la génération. */
   gpx: FicheFichier | null;
   carte: FicheFichier | null;
   tenue: Tenue | null;
@@ -393,6 +421,7 @@ export interface Sortie {
 export interface Boucle {
   depart: PointDepart & { heure: string };
   demande: { distance_km: number; direction: string; candidates: number };
+  meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];
 }

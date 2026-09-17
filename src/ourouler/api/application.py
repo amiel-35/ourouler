@@ -36,6 +36,7 @@ from ourouler import __version__
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.depots import (
     DepotFichiers,
+    DepotGenerations,
     DepotProfils,
     JournalServices,
     SocleFixe,
@@ -155,6 +156,9 @@ def creer_application(
     app.state.ourouler = Contexte(
         profils=DepotProfils(socle, dossier_donnees),
         fichiers=DepotFichiers(dossier_donnees),
+        # Aucun dossier : les GPX des propositions ne touchent pas le disque
+        # (Q40 g). Ils vivent dans ce processus, bornés, jusqu'au choix.
+        generations=DepotGenerations(),
         journal=JournalServices(dossier_donnees),
         clients=clients
         or Clients(

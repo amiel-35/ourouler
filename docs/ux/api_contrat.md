@@ -88,7 +88,8 @@ change pas sans changer la version de l'API.
 | POST | `/api/v1/simulations` | le temps d'un GPX du dépôt à puissance constante |
 | GET | `/api/v1/inventaire` | les sorties par vélo et par mois (sans synchroniser) |
 | GET | `/api/v1/routes/{stats\|poids}` | ce que les sorties passées ont appris |
-| GET | `/api/v1/fichiers/{id}` | le GPX ou la carte d'une génération |
+| GET | `/api/v1/sorties/{generation}/propositions/{n}/gpx` | le GPX **de cette proposition-là**, fabriqué à l'appel |
+| GET | `/api/v1/fichiers/{id}` | la carte d'une génération, ou un fichier déposé |
 
 `/docs` sert la documentation interactive engendrée par FastAPI.
 
@@ -122,6 +123,98 @@ sur une carte.
 (`nom`, `latitude`, `longitude`), tranché par le front. Rien n'y géocode au vol,
 et rien n'y était à changer : la décision Q34 confirme cette forme au lieu de
 la modifier.
+
+## Le GPX : aucun à la génération, un au choix — Q40 (g), 17/09/2026
+
+> « oui, j'ai vu, et c'est con. Pourquoi ? Si c'est le coût de stockage et de
+> création, je propose d'en faire aucun et de le faire à la demande quand
+> l'user choisit son parcours. »
+
+`POST /sorties` **n'écrit plus aucun GPX**. `donnees.gpx` vaut donc toujours
+`null`, et **chaque proposition** porte à la place :
+
+```json
+{"numero": 2, "distinction": "passe au large de l'averse de 11 h",
+ "gpx": {"nom": "sortie_20260918_n2.gpx",
+         "url": "/api/v1/sorties/<generation>/propositions/2/gpx"}}
+```
+
+`donnees.generation` nomme la génération au premier niveau, pour qu'un écran
+la garde sans relire les propositions.
+
+**Pourquoi ni une ni trois.** Une seule était un **défaut** : les trois
+propositions sont contrastées exprès, et choisir « la plus sèche » puis
+l'envoyer au compteur envoyait la trace de « la plus calme » — l'erreur ne se
+voyait qu'une fois dehors. Trois était du **gaspillage** : deux jetées à
+chaque génération.
+
+**Ce que la route rend est le fichier lui-même** (`application/gpx+xml`, avec
+son `Content-Disposition`), pas une fiche à re-télécharger : rien n'est écrit
+sur le disque, même au moment du choix. Vérifié le 17/09/2026 sur la
+configuration réelle du mainteneur — aucun `.gpx` n'apparaît dans le cache,
+ni après la génération, ni après les téléchargements.
+
+**Une génération oubliée est un 404 nommé.** Les GPX vivent dans la mémoire du
+processus, bornée aux vingt dernières générations (`depots.GENERATIONS_GARDEES`,
+~4 Mo au plafond). Au-delà, ou après un redémarrage, la route rend
+`generation_introuvable` : l'écran redemande une recherche, ce qui prend cinq
+secondes. Les tenir sur le disque coûterait exactement ce que la décision
+voulait éviter, puisque la géométrie d'une trace pèse ce que pèse son GPX.
+
+**La ligne de commande ne change pas.** `ourouler sortie` écrit toujours le
+GPX de la proposition retenue, à `--sortie` ou au nom daté par défaut : c'est
+l'appelant qui décide, par `recueil_gpx=`, si le cœur écrit un fichier ou lui
+remet les trois textes (voir `sortie/commande.executer`).
+
+## Une date lointaine ne se refuse pas — Q40 (a) et (b), 17/09/2026
+
+> « pour le jusqu'à quand : aucune limite. Juste, si on demande trop loin, ben
+> pas de météo. »
+
+Avant, une date hors de portée partait jusqu'à Open-Meteo, qui rendait un bloc
+vide, et l'API répondait **502 `meteo_hors_domaine`** — « le service est en
+panne » là où c'est la demande qui est hors de portée.
+
+Désormais **le parcours est servi**, et la météo est déclarée absente. Les
+routes de parcours portent, à côté de `modele_meteo` :
+
+```json
+"meteo_absente": {
+  "jour": "2026-12-16",
+  "dernier_jour_couvert": "2026-09-24",
+  "message": "pas de météo pour le 16 décembre 2026 — les prévisions s'arrêtent au 24 septembre 2026"
+}
+```
+
+`null` quand la météo a répondu. C'est l'état dégradé que dessine E14 ·
+dégradé : la boucle reste là, et ce qui disparaît sont les affirmations qu'on
+ne peut plus soutenir — `tenue`, `modele_meteo` et `candidates[].meteo`
+valent `null`, et `question_vent.posee` est `false`.
+
+**Le message dit le dernier jour couvert, jamais pourquoi.** Ça referme (b) du
+même geste : Open-Meteo rend le même bloc vide pour un point hors du domaine
+d'un modèle et pour une fenêtre hors de sa portée, le cœur refuse de trancher
+(règle absolue 5), et côté produit la distinction ne sert à rien. Quand le
+jour demandé est **dans** l'horizon et que la météo a quand même manqué
+(panne), la phrase s'arrête à « pas de météo pour le … » : dire « les
+prévisions s'arrêtent au … » serait faux, elles couvrent ce jour-là.
+
+**D'où vient le chiffre.** `[meteo] horizon_jours`, 7 par défaut,
+**mesuré le 17/09/2026 sur le vrai service** depuis un point français : AROME
+HD rendait sa dernière valeur à J+2 (le 19/09 à 03 h), `icon_seamless` à J+7
+(le 24/09 à 12 h). C'est le **modèle de repli** qui fixe la portée du produit,
+d'où un réglage et non une constante — un autre `second_avis` donne un autre
+horizon. Au-delà, **aucun appel n'est fait** : demander ~150 prévisions pour
+récolter des blocs vides serait payer le service pour apprendre ce que la date
+disait déjà.
+
+**Le repli de Q19 n'est pas touché.** L'horizon est celui du repli précisément
+pour que J+2 et J+3 gardent leur météo — vérifié le 17/09/2026 sur la
+configuration réelle : `modele_meteo = {"utilise": "icon_seamless", "repli":
+true}` aux deux échéances, avec tenue conseillée. E15 sert d'ailleurs une
+séance à J+4 **avec** sa météo et **sans** son orientation au vent : l'horizon
+du vent (`HORIZON_ORIENTATION_J`, 3 jours) est un autre horizon, plus court,
+et il ne concerne que la direction.
 
 ## Le propriétaire, dès maintenant
 
@@ -198,12 +291,13 @@ c'est dit.
 | `format_non_lu` | 422 | un `.FIT` de séance — décision 5, V1 lit `.ZWO` et `.MRC` |
 | `fichier_trop_gros` | 413 | plus d'un mégaoctet |
 | `fichier_introuvable` | 404 | identifiant inconnu, ou appartenant à quelqu'un d'autre |
+| `generation_introuvable` | 404 | cette génération n'est plus en mémoire — relancer la recherche |
 | `route_inconnue` | 404 | aucune route à ce chemin — la liste est dans `/openapi.json` |
 | `methode_refusee` | 405 | la route existe, pas avec cette méthode |
 | `calcul_en_cours` | 409 | un calcul occupe déjà le serveur |
 | `brouter_indisponible` | 502 | BRouter injoignable ou en erreur |
 | `meteo_indisponible` | 502 | Open-Meteo injoignable ou en erreur |
-| `meteo_hors_domaine` | 502 | Open-Meteo ne couvre pas ce point ou cette fenêtre (Q19) |
+| `meteo_hors_domaine` | 502 | Open-Meteo ne couvre pas ce point ou cette fenêtre (Q19) — **plus jamais rendu par une route de parcours** depuis Q40 (a) |
 | `intervals_refuse` | 502 | clé révoquée ou refusée — renvoyer vers l'écran de la clé, pas vers « réessayer » |
 | `intervals_indisponible` | 502 | panne côté Intervals.icu |
 | `geocodage_indisponible` | 502 | BAN ou Nominatim en erreur |
@@ -332,9 +426,11 @@ Tout le reste est transmis tel quel.
    utile dans un terminal, inutile dans un navigateur, et c'est
    l'arborescence d'un serveur. L'API rend le profil du **cycliste**, plus
    une section `services` qui dit seulement si chaque service est renseigné.
-2. **Un fichier est un identifiant, pas un chemin.** `gpx` et `carte` valent
+2. **Un fichier est un identifiant, pas un chemin.** `carte` vaut
    `{"id", "nom", "url"}`, et c'est la route des fichiers — qui vérifie le
-   propriétaire — qui sert le contenu.
+   propriétaire — qui sert le contenu. `gpx`, au premier niveau, vaut
+   désormais **toujours `null`** : plus aucun GPX n'est écrit à la génération
+   (voir ci-dessous).
 
 ## L'écran de FTP, bout à bout
 

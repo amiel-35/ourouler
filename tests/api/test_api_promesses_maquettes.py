@@ -422,17 +422,6 @@ def test_le_compte_de_feux_est_un_nombre_absolu_et_pas_une_densite():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Vérifié le 17/09/2026 sur une génération complète : une proposition porte son "
-    "numéro, sa distinction et ses chiffres, jamais de GPX — `rendre_json` n'écrit que celui "
-    "de la candidate retenue (`discovery_donnees.md` §3). L'API pourrait réserver un fichier "
-    "par proposition, mais c'est le **cœur** qui écrit les GPX, et écrire trois traces au lieu "
-    "d'une à chaque génération se décide en connaissance du coût. Q36 de "
-    "docs/questions_mainteneur.md. La géométrie, elle, est bien là "
-    "(`candidates[].trace.points`) : un front peut déjà tracer les trois, il ne peut pas "
-    "encore en télécharger deux.",
-)
 def test_chaque_proposition_porte_son_propre_gpx():
     """Protège E19 et E20 (« Télécharger le GPX », « Envoyer vers mon compteur »).
 
@@ -440,6 +429,12 @@ def test_chaque_proposition_porte_son_propre_gpx():
     pas forcément la première. Si seul le GPX de la retenue est exposé,
     choisir « la plus sèche » puis l'envoyer au compteur envoie la mauvaise
     trace — et l'erreur ne se voit qu'une fois dehors.
+
+    **La marque `xfail` est tombée le 17/09/2026**, avec la réponse du
+    mainteneur en Q40 (g) : « aucun GPX à la génération, et on le fait à la
+    demande quand l'user choisit son parcours ». Chaque proposition porte
+    désormais l'adresse de sa propre trace, et rien n'est écrit tant que
+    personne n'a choisi.
     """
     client = _client_de_parcours()
 

@@ -73,6 +73,10 @@ CODES_PANNE: dict[str, str] = {
     "format_non_lu": "un .FIT de séance — décision 5, la V1 lit .ZWO et .MRC",
     "fichier_trop_gros": "plus d'un mégaoctet déposé",
     "fichier_introuvable": "identifiant inconnu, ou appartenant à quelqu'un d'autre",
+    "generation_introuvable": (
+        "cette génération n'est plus en mémoire — ses GPX ne sont pas écrits sur "
+        "le disque (Q40 g) ; relancer la recherche"
+    ),
     "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
     "methode_refusee": "la route existe, pas avec cette méthode",
     "calcul_en_cours": "un calcul occupe déjà le serveur",

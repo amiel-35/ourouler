@@ -33,6 +33,7 @@ from test_sortie_commande import (
     ecrire_calibration,
     moteur_brouter,
     moteur_meteo,
+    pluie_au_nord,
     reponse_anneau,
 )
 
@@ -53,7 +54,7 @@ from ourouler.config import depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurConfig
+from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 
 #: La configuration servie par le serveur de test. Point fictif en pleine mer,
 #: clé inventée, serveur BRouter qui n'existe pas (tous les appels sont
@@ -562,15 +563,22 @@ def test_une_generation_rend_les_propositions_leur_geometrie_et_leur_gpx(tmp_pat
     assert donnees["propositions"], "au moins une proposition contrastée"
     assert donnees["candidates"][0]["trace"]["points"], "la géométrie est dans le JSON (F0.1)"
     assert donnees["candidates"][0]["placement"]["emplacements"]
-    # Un fichier est un identifiant, jamais un chemin de disque.
-    assert set(donnees["gpx"]) == {"id", "nom", "url"}
+    # Q40 (g) : aucun GPX n'est écrit à la génération — le champ du cœur reste
+    # nul — et **chaque** proposition porte l'adresse de sa propre trace.
+    assert donnees["gpx"] is None, "aucun GPX écrit à la génération"
+    assert donnees["generation"], "la génération est nommée, pour demander ses GPX ensuite"
     assert str(tmp_path) not in reponse.text
     assert charge["duree_ms"] > 0
     assert charge["budget"]["operation"] == "sortie"
 
-    gpx = client.get(donnees["gpx"]["url"])
-    assert gpx.status_code == 200
-    assert gpx.text.lstrip().startswith("<?xml")
+    # Une carte, elle, reste un fichier : un identifiant, jamais un chemin.
+    assert set(donnees["carte"]) == {"id", "nom", "url"}
+
+    for proposition in donnees["propositions"]:
+        gpx = client.get(proposition["gpx"]["url"])
+        assert gpx.status_code == 200, proposition["gpx"]["url"]
+        assert gpx.text.lstrip().startswith("<?xml")
+        assert proposition["gpx"]["nom"].endswith(f"_n{proposition['numero']}.gpx")
 
 
 def test_la_duree_mesuree_nourrit_le_budget_annonce(tmp_path: Path):
@@ -1004,3 +1012,176 @@ def test_le_facteur_compteur_dit_en_un_mot_s_il_est_mesure_ou_suppose(tmp_path: 
     liees = serveur(tmp_path).get("/api/v1/profil/zones").json()["donnees"]["valeurs_liees"]
     assert liees["facteur_provenance"] in {"mesure", "suppose"}
     assert liees["facteur_provenance"] == ("mesure" if liees["facteur_mesure"] else "suppose")
+
+
+# --- Q40 (g) : le GPX d'une proposition, fabriqué à l'appel --------------------
+
+#: Deux azimuts au relief marqué : sans quoi les anneaux bouchonnés se
+#: ressemblent tous et `contraste.choisir` ne garde qu'une proposition — un
+#: test sur « trois traces différentes » ne prouverait alors rien.
+RELIEFS_CONTRASTES = {0.0: {"amplitude_m": 90.0}, 180.0: {"amplitude_m": 40.0}}
+
+
+def test_chaque_proposition_rend_une_trace_differente(tmp_path: Path):
+    """Le défaut que la génération paresseuse corrige.
+
+    Tant qu'un seul GPX était exposé, choisir « la plus sèche » puis l'envoyer
+    au compteur envoyait la trace de « la plus calme ». Deux propositions
+    contrastées doivent donc rendre deux fichiers différents.
+    """
+    client = serveur(
+        tmp_path,
+        brouter=moteur_brouter(RELIEFS_CONTRASTES),
+        meteo=moteur_meteo(pluie=pluie_au_nord),
+        intervals=client_intervals(),
+    )
+    donnees = client.post(
+        "/api/v1/sorties",
+        json={"jour": JOUR.isoformat(), "candidates": 4, "heure_depart": "09:00"},
+    ).json()["donnees"]
+    traces = [client.get(p["gpx"]["url"]).text for p in donnees["propositions"]]
+    assert len(traces) >= 2, "sans deux propositions, ce test ne prouve rien"
+    assert len(set(traces)) == len(traces), "deux propositions rendent la même trace"
+
+
+def test_aucun_gpx_n_est_ecrit_sur_le_disque(tmp_path: Path):
+    """Q40 (g) : ni à la génération (deux jetées), ni au choix (la réponse *est* le fichier)."""
+    client = serveur(
+        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
+    )
+    donnees = client.post(
+        "/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}
+    ).json()["donnees"]
+    for proposition in donnees["propositions"]:
+        assert client.get(proposition["gpx"]["url"]).status_code == 200
+    assert not list((tmp_path / "cache" / "api").rglob("*.gpx"))
+    assert not list((tmp_path / "cache" / "sorties").glob("*.gpx"))
+
+
+def test_le_gpx_est_servi_avec_son_nom_de_telechargement(tmp_path: Path):
+    client = serveur(
+        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
+    )
+    donnees = client.post(
+        "/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}
+    ).json()["donnees"]
+    proposition = donnees["propositions"][-1]
+    reponse = client.get(proposition["gpx"]["url"])
+    assert reponse.headers["content-type"].startswith("application/gpx+xml")
+    assert proposition["gpx"]["nom"] in reponse.headers["content-disposition"]
+
+
+def test_une_generation_oubliee_est_un_404_nomme(tmp_path: Path):
+    """Le prix assumé de ne rien écrire : l'écran redemande une recherche.
+
+    Un 500 laisserait une page blanche ; `generation_introuvable` dit au front
+    quoi proposer.
+    """
+    client = serveur(tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo())
+    reponse = client.get("/api/v1/sorties/" + "0" * 32 + "/propositions/1/gpx")
+    assert reponse.status_code == 404
+    assert reponse.json()["erreur"]["code"] == "generation_introuvable"
+    assert reponse.json()["erreur"]["code"] in CODES_PANNE
+
+
+def test_une_proposition_inconnue_de_la_generation_est_refusee(tmp_path: Path):
+    client = serveur(
+        tmp_path, brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
+    )
+    donnees = client.post(
+        "/api/v1/sorties", json={"jour": JOUR.isoformat(), "candidates": 2}
+    ).json()["donnees"]
+    reponse = client.get(f"/api/v1/sorties/{donnees['generation']}/propositions/99/gpx")
+    assert reponse.status_code == 404
+    assert reponse.json()["erreur"]["code"] == "generation_introuvable"
+
+
+# --- Q40 (a) : une date lointaine arrive avec sa météo déclarée absente --------
+
+
+def _jour_lointain() -> str:
+    from datetime import date as _date
+    from datetime import timedelta as _timedelta
+
+    from ourouler.config import HORIZON_JOURS_DEFAUT
+
+    return (_date.today() + _timedelta(days=HORIZON_JOURS_DEFAUT + 30)).isoformat()
+
+
+def test_une_date_lointaine_est_servie_sans_502(tmp_path: Path):
+    """Q40 (a) : « le service est en panne » n'est pas la même chose que « trop loin ».
+
+    Aucun client météo n'est injecté, et aucun n'est appelé : s'il l'était, la
+    commande sortirait sur le réseau, ce que la règle absolue 3 interdit.
+    """
+    client = serveur(tmp_path, brouter=moteur_brouter(), intervals=client_intervals())
+    lointain = _jour_lointain()
+    reponse = client.post("/api/v1/sorties", json={"jour": lointain, "candidates": 2})
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["candidates"], "le parcours est servi"
+    assert donnees["meteo_absente"]["jour"] == lointain
+    assert donnees["tenue"] is None
+    assert "pas de météo" in donnees["meteo_absente"]["message"]
+
+
+def test_une_boucle_libre_lointaine_est_servie_sans_502(tmp_path: Path):
+    client = serveur(tmp_path, brouter=moteur_brouter())
+    reponse = client.post(
+        "/api/v1/boucles",
+        json={
+            "distance_km": 30.0,
+            "direction": "N",
+            "heure_depart": f"{_jour_lointain()}T09:00",
+        },
+    )
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    assert donnees["candidates"]
+    assert "pas de météo" in donnees["meteo_absente"]["message"]
+
+
+# --- le dépôt des générations, vu de près --------------------------------------
+
+
+class _GpxFactice:
+    """Ce que le cœur remet au dépôt : un numéro, un nom, un texte."""
+
+    def __init__(self, numero: int) -> None:
+        self.numero = numero
+        self.nom_fichier = f"sortie_20260908_n{numero}.gpx"
+        self.texte = f"<gpx n={numero}/>"
+
+
+def test_une_generation_n_est_pas_lisible_par_un_autre_proprietaire():
+    """L'identifiant est opaque, mais l'opacité n'est pas l'isolation.
+
+    La clé porte le propriétaire : demander la génération de A en étant B est
+    introuvable, sans que la réponse dise qu'elle existe ailleurs.
+    """
+    from ourouler.api.depots import DepotGenerations
+
+    depot = DepotGenerations()
+    identifiant = depot.retenir(PROPRIETAIRE_LOCAL, [_GpxFactice(1)])
+    assert depot.gpx(PROPRIETAIRE_LOCAL, identifiant, 1)[0].endswith("_n1.gpx")
+    with pytest.raises(ErreurUtilisateur):
+        depot.gpx(AUTRE, identifiant, 1)
+
+
+def test_les_generations_les_plus_vieilles_sont_oubliees_d_abord():
+    """Borné exprès : la mémoire d'un serveur n'est pas un dossier de fichiers."""
+    from ourouler.api.depots import DepotGenerations
+
+    depot = DepotGenerations(taille=2)
+    vieille = depot.retenir(PROPRIETAIRE_LOCAL, [_GpxFactice(1)])
+    for _ in range(2):
+        depot.retenir(PROPRIETAIRE_LOCAL, [_GpxFactice(1)])
+    with pytest.raises(ErreurUtilisateur, match="relancer la recherche"):
+        depot.gpx(PROPRIETAIRE_LOCAL, vieille, 1)
+
+
+def test_un_identifiant_mal_forme_ne_construit_aucune_cle():
+    from ourouler.api.depots import DepotGenerations
+
+    with pytest.raises(ErreurUtilisateur):
+        DepotGenerations().gpx(PROPRIETAIRE_LOCAL, "../../etc/passwd", 1)

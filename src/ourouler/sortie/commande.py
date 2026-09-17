@@ -69,6 +69,7 @@ import json
 import math
 import sys
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
@@ -89,6 +90,7 @@ from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
@@ -226,6 +228,22 @@ class Ecartee:
     motif: str
 
 
+@dataclass(frozen=True)
+class GpxPropose:
+    """Le GPX d'une proposition : son numéro, son nom de fichier, son contenu.
+
+    C'est le **parcours placé**, demi-tours compris — ce qu'on va rouler, pas
+    le tour de la boucle (voir `_ecrire_gpx`). Les trois textes existent de
+    toute façon en mémoire : la page du jour les embarque pour son
+    téléchargement `blob:`. `recueil_gpx` ne fait que les remettre à
+    l'appelant au lieu d'en écrire un sur le disque.
+    """
+
+    numero: int
+    nom_fichier: str
+    texte: str
+
+
 def executer(
     args: argparse.Namespace,
     config: Config,
@@ -234,6 +252,7 @@ def executer(
     client_intervals: ClientIntervals | None = None,
     *,
     lieu_depart: Depart | None = None,
+    recueil_gpx: Callable[[list[GpxPropose]], None] | None = None,
 ) -> int:
     """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
 
@@ -244,6 +263,16 @@ def executer(
     (règle absolue 2) — il reçoit un `Depart`.
 
     À ne pas confondre avec `demande.depart`, qui porte une **heure**.
+
+    `recueil_gpx` décide **à qui va le GPX** (Q40 g, tranché le 17/09/2026 :
+    « aucun GPX à la génération, et on le fait à la demande quand l'user
+    choisit son parcours »). Absent — le cas de la ligne de commande — le GPX
+    de la proposition retenue est écrit sur le disque, à `--sortie` ou au nom
+    daté par défaut, exactement comme avant. Présent, **aucun fichier n'est
+    écrit** : les trois GPX sont remis à l'appelant, qui n'en servira qu'un,
+    celui que le cycliste aura choisi. Les trois propositions sont
+    contrastées exprès ; n'écrire que celle du classement, c'était envoyer la
+    mauvaise trace au compteur à qui choisissait « la plus sèche ».
 
     Ce qui ne suit pas le départ : les **routes connues** et les **poids
     appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
@@ -300,19 +329,44 @@ def executer(
     parametres, provenance = _parametres(config, demande.velo)
     distance_km, distance_source = _distance(demande, seance, parametres, config)
 
+    # Q40 (a) : une date lointaine ne se refuse pas, elle se sert **sans
+    # météo**. On le constate ici, avant le premier appel : demander une
+    # prévision pour dans dix ans coûterait ~150 appels Open-Meteo pour
+    # récolter trois blocs vides, puis un message sur ce qu'Open-Meteo ne
+    # couvre pas — là où le cycliste veut lire « pas de météo ce jour-là » et
+    # recevoir sa boucle.
+    dernier_jour = portee.dernier_jour_couvert(
+        config.meteo.horizon_jours, aujourdhui=date.today()
+    )
+    meteo_absente = (
+        portee.constater(demande.jour, dernier_jour) if demande.jour > dernier_jour else None
+    )
+
     # La question du vent se pose **avant** la recherche (contrat §3.3.4) :
     # c'est un appel Open-Meteo sur un point et une heure, donc le poste le
     # moins cher de la commande, et il tombe avant les appels BRouter, qui
     # sont le seul poste qui compte.
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
-    question = vent_demande.interroger(
-        client_meteo,
-        config.depart,
-        depart_heure=demande.depart,
-        jour=demande.jour,
-        modele=config.meteo.modele,
-        modele_repli=config.meteo.second_avis,
-    )
+    if meteo_absente is not None:
+        # Aucun client météo au-delà de l'horizon : `None` traverse le reste
+        # de la commande et vaut « on ne demande rien », partout de la même
+        # façon, plutôt qu'un drapeau à ne pas oublier dans trois fonctions.
+        client_meteo = None
+        question = vent_demande.QuestionVent(
+            vent_kmh=None,
+            vent_depuis_deg=None,
+            posee=False,
+            motif=meteo_absente.message,
+        )
+    else:
+        client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+        question = vent_demande.interroger(
+            client_meteo,
+            config.depart,
+            depart_heure=demande.depart,
+            jour=demande.jour,
+            modele=config.meteo.modele,
+            modele_repli=config.meteo.second_avis,
+        )
     azimut_vent = question.azimut_pour(demande.vent)
 
     client_brouter = (
@@ -341,13 +395,29 @@ def executer(
     tenue = (
         conseiller_tenue(meilleure.meteo, config.tenue) if meilleure.meteo is not None else None
     )
-    chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande, config)
-    chemin_carte = _ecrire_page_jour(seance, demande, config, selection)
+    gpx_propositions = _gpx_propositions(seance, demande, selection)
+    chemin_gpx = None
+    if recueil_gpx is None:
+        chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande, config)
+    else:
+        recueil_gpx(gpx_propositions)
+    chemin_carte = _ecrire_page_jour(seance, demande, config, selection, gpx_propositions)
 
+    # Une météo tombée dans l'horizon est le même état à l'écran qu'une date
+    # trop lointaine (E14 · dégradé) : la boucle reste servie, la pluie, le
+    # vent et la tenue disparaissent. La phrase, elle, ne dit pas pourquoi.
+    if meteo_absente is None and panne is not None:
+        meteo_absente = portee.constater(demande.jour, dernier_jour)
     if panne is not None:
         print(
             f"ourouler : météo indisponible ({panne}) — tableau sans les colonnes météo et "
             "sans tenue conseillée ; le placement, lui, reste valable",
+            file=sys.stderr,
+        )
+    elif meteo_absente is not None:
+        print(
+            f"ourouler : {meteo_absente.message} — tableau sans les colonnes météo et sans "
+            "tenue conseillée ; le placement, lui, reste valable",
             file=sys.stderr,
         )
     contexte = _Contexte(
@@ -363,6 +433,7 @@ def executer(
         carte=chemin_carte,
         selection=selection,
         question_vent=question,
+        meteo_absente=meteo_absente,
     )
     if getattr(args, "json", False):
         print(json.dumps(rendre_json(propositions, contexte), ensure_ascii=False, indent=2))
@@ -389,6 +460,9 @@ class _Contexte:
     selection: contraste.Selection | None = None
     #: Ce que le vent au départ permettait de demander, et pourquoi.
     question_vent: vent_demande.QuestionVent | None = None
+    #: L'état « pas de météo » quand il y en a un (Q40 a) — la phrase à
+    #: afficher et le dernier jour couvert. `None` quand la météo a répondu.
+    meteo_absente: portee.MeteoAbsente | None = None
 
 
 # --- options ------------------------------------------------------------------
@@ -725,7 +799,7 @@ def _replacer_avec_vent(
     config: Config,
     parametres: Parametres,
     demande: Demande,
-    client_meteo: ClientOpenMeteo,
+    client_meteo: ClientOpenMeteo | None,
 ) -> list[tuple[object, Placement]]:
     """Rejoue le placement de chaque candidate retenue avec son champ de vent.
 
@@ -745,6 +819,11 @@ def _replacer_avec_vent(
     propre météo juste après et dira la panne une fois, sur la sortie
     d'erreur ; ici on se tait, silencieusement correct.
     """
+    if client_meteo is None:
+        # Pas de météo demandée (Q40 a) : pas de champ de vent, donc pas de
+        # seconde passe. Le placement sans vent est ce qu'on sert, et il est
+        # valable — c'est le premier placement du contrat §1.6.
+        return retenues
     elasticite = (config.seance.elasticite_z2_min, config.seance.elasticite_z2_max)
     elasticite_calme = (config.seance.elasticite_calme_min, config.seance.elasticite_calme_max)
     resultat: list[tuple[object, Placement]] = []
@@ -855,7 +934,7 @@ def _mesurer(
     retenues: list[tuple[object, Placement]],
     config: Config,
     demande: Demande,
-    client_meteo: ClientOpenMeteo,
+    client_meteo: ClientOpenMeteo | None,
 ) -> tuple[list[Proposition], str | None]:
     """Coûts, routes connues et météo des candidates retenues.
 
@@ -863,6 +942,11 @@ def _mesurer(
     tracé** — distance placée divisée par durée placée — et non plus la
     vitesse moyenne de la configuration : c'est ce que la question Q8
     promettait au sprint 4.
+
+    `client_meteo` à `None` veut dire « on ne demande pas de météo » (Q40 a,
+    jour au-delà de l'horizon) : les coûts et le placement sont mesurés comme
+    d'habitude, la météo reste absente, et ce n'est **pas** une panne — il n'y
+    a rien à signaler qui ne soit déjà dit par `meteo_absente`.
     """
     poids = lire_poids(config.cache.dossier / NOM_POIDS)
     base = _base_routes(config)
@@ -872,7 +956,7 @@ def _mesurer(
         trace = candidate.trace
         vitesse = _vitesse(placement, config)
         meteo: MeteoTrace | None = None
-        if panne is None:
+        if panne is None and client_meteo is not None:
             try:
                 meteo = evaluer_meteo(
                     trace,
@@ -956,6 +1040,35 @@ def _ecrire_gpx(
     return chemin
 
 
+def _gpx_propositions(
+    seance: Seance, demande: Demande, selection: contraste.Selection
+) -> list[GpxPropose]:
+    """Le GPX de **chaque** proposition retenue, en mémoire, rien sur le disque.
+
+    Ces textes étaient déjà fabriqués, une fois, pour la page du jour, qui les
+    embarque en base64 pour son téléchargement `blob:`. Les nommer ici les
+    rend servables à qui appelle la commande (`recueil_gpx`) sans les calculer
+    deux fois — et c'est ce qui permet à l'API de ne rien écrire tant que le
+    cycliste n'a pas choisi (Q40 g).
+    """
+    proposees = []
+    for retenue in selection.retenues:
+        p = retenue.proposition
+        parcours = trace_parcourue(p.placement, p.trace)
+        proposees.append(
+            GpxPropose(
+                numero=p.numero,
+                nom_fichier=f"sortie_{demande.jour:%Y%m%d}_n{p.numero}.gpx",
+                texte=ecrire_gpx(
+                    parcours,
+                    f"{seance.nom} — {seance.jour.isoformat()}",
+                    desc=_description_parcours(parcours, p.placement),
+                ),
+            )
+        )
+    return proposees
+
+
 def _description_parcours(parcours: Trace, placement: Placement) -> str:
     """« 47,8 km · D+ 210 m (parcours placé) · 4 demi-tours » — ce que contient le fichier."""
     # `.blocs()` : la récupération d'un demi-tour porte aussi `demi_tour=True`
@@ -996,6 +1109,7 @@ def _ecrire_page_jour(
     demande: Demande,
     config: Config,
     selection: contraste.Selection,
+    gpx_propositions: list[GpxPropose],
 ) -> Path:
     """La page du jour (lot L5.4) : les propositions contrastées, superposées.
 
@@ -1011,11 +1125,12 @@ def _ecrire_page_jour(
     fichier suit le choix du cycliste, pas le classement »).
     """
     chemin = chemin_carte_par_defaut(demande, config)
+    par_numero = {g.numero: g for g in gpx_propositions}
     cartes_props = []
     for retenue in selection.retenues:
         p = retenue.proposition
         tenue_p = conseiller_tenue(p.meteo, config.tenue) if p.meteo is not None else None
-        parcours = trace_parcourue(p.placement, p.trace)
+        gpx = par_numero[p.numero]
         cartes_props.append(
             PropositionCarte(
                 numero=p.numero,
@@ -1026,12 +1141,8 @@ def _ecrire_page_jour(
                 chiffres=_details_proposition(retenue),
                 sous_titre=_sous_titre(p, demande, config),
                 notes=_notes_carte(p, seance, tenue_p),
-                gpx_nom=f"sortie_{demande.jour:%Y%m%d}_n{p.numero}.gpx",
-                gpx_texte=ecrire_gpx(
-                    parcours,
-                    f"{seance.nom} — {seance.jour.isoformat()}",
-                    desc=_description_parcours(parcours, p.placement),
-                ),
+                gpx_nom=gpx.nom_fichier,
+                gpx_texte=gpx.texte,
             )
         )
     page = construire_page_jour(
@@ -1635,6 +1746,15 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         # repli sur le second avis (le principal ne couvrait pas la
         # fenêtre) — `None` quand aucune candidate n'a de météo (panne).
         "modele_meteo": _modele_meteo_json(propositions),
+        # Q40 (a) : l'état « pas de météo », dit une fois et en toutes lettres,
+        # au lieu d'un 502 « service en panne » pour une demande simplement
+        # hors de portée. `null` quand la météo a répondu. La phrase dit quel
+        # est le dernier jour couvert, jamais pourquoi celui-ci ne l'est pas —
+        # Open-Meteo rend le même bloc vide dans les deux cas, et le cœur ne
+        # tranche pas (règle absolue 5).
+        "meteo_absente": (
+            None if contexte.meteo_absente is None else contexte.meteo_absente.json()
+        ),
         "seuil_bloc_bien_place": NOTE_BLOC_BIEN_PLACE,
         # Écart relatif de note en dessous duquel la pluie départage plutôt que
         # le vent (préférence du cycliste, `config.seance.tolerance_egalite`) :
@@ -1914,6 +2034,7 @@ __all__ = [
     "ARRONDI_DISTANCE_KM",
     "NOTE_BLOC_BIEN_PLACE",
     "Demande",
+    "GpxPropose",
     "Proposition",
     "executer",
     "lire_options",

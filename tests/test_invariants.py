@@ -96,7 +96,7 @@ def test_seul_le_module_d_exploitation_de_l_api_lit_l_environnement():
 #: `proprietaire` en **premier argument positionnel**. C'est gratuit
 #: aujourd'hui (un seul propriétaire) et impossible à rattraper le jour où
 #: ces dépôts parleront à PostgreSQL.
-CLASSES_DEPOT = ("DepotProfils", "DepotFichiers")
+CLASSES_DEPOT = ("DepotProfils", "DepotFichiers", "DepotGenerations")
 
 
 def test_aucun_acces_aux_donnees_sans_clause_de_proprietaire():

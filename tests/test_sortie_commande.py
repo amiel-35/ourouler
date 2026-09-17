@@ -19,7 +19,7 @@ import json
 import math
 import re
 import types
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -33,7 +33,13 @@ from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
-from ourouler.config import Config, Depart, ParametresSeance, depuis_dict
+from ourouler.config import (
+    HORIZON_JOURS_DEFAUT,
+    Config,
+    Depart,
+    ParametresSeance,
+    depuis_dict,
+)
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
@@ -1840,3 +1846,156 @@ def test_fichier_seance_bout_en_bout_remplace_intervals(tmp_path: Path, monkeypa
     chemin = _ecrire_zwo_sortie(tmp_path)
     code = lancer(tmp_path, monkeypatch, fichier_seance=str(chemin), intervals=refus_intervals())
     assert code == 0
+
+
+# --- Q40 (g) : aucun GPX à la génération, un GPX au choix ----------------------
+
+#: Deux azimuts au relief marqué : de quoi que `contraste.choisir` ait
+#: réellement trois propositions à distinguer. Avec des anneaux identiques il
+#: n'en reste qu'une, et un test sur « trois traces différentes » ne prouve
+#: plus rien.
+RELIEFS_CONTRASTES = {0.0: {"amplitude_m": 90.0}, 180.0: {"amplitude_m": 40.0}}
+
+
+def test_recueil_gpx_n_ecrit_aucun_fichier_et_rend_les_trois_traces(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Q40 (g) : « aucun GPX à la génération, et on le fait à la demande. »
+
+    Les trois propositions sont contrastées exprès ; n'écrire que celle du
+    classement, c'était envoyer la mauvaise trace au compteur à qui
+    choisissait « la plus sèche ». Écrire les trois, c'était en jeter deux.
+    """
+    recueillis: list = []
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(tmp_path / "cache")
+    code = executer(
+        args(json=True, candidates=4),
+        config_de_test(tmp_path / "cache"),
+        moteur_brouter(RELIEFS_CONTRASTES),
+        moteur_meteo(pluie=pluie_au_nord),
+        client_intervals(),
+        recueil_gpx=recueillis.extend,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert not list((tmp_path / "cache" / "sorties").glob("*.gpx")), (
+        "aucun GPX ne doit être écrit quand l'appelant les recueille"
+    )
+    assert charge["gpx"] is None, "le JSON ne doit pas annoncer un fichier qui n'existe pas"
+    assert len(recueillis) >= 2, (
+        "le bouchon ne contraste plus rien : sans deux propositions, ce test ne prouve rien"
+    )
+    numeros = [g.numero for g in recueillis]
+    assert numeros == [p["numero"] for p in charge["propositions"]]
+    assert len({g.texte for g in recueillis}) == len(recueillis), (
+        "deux propositions contrastées ne peuvent pas rendre le même GPX"
+    )
+    for gpx in recueillis:
+        assert gpx.nom_fichier.endswith(f"_n{gpx.numero}.gpx")
+        assert lire_gpx_trace(gpx.texte.encode("utf-8")).points
+
+
+def test_sans_recueil_la_ligne_de_commande_ecrit_toujours_son_gpx(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """La ligne de commande ne change pas : `--sortie` (ou le nom daté) est écrit."""
+    demande = tmp_path / "choisi.gpx"
+    code = lancer(tmp_path, monkeypatch, json=True, sortie=str(demande))
+    charge = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert demande.is_file() and demande.read_text(encoding="utf-8").startswith("<?xml")
+    assert charge["gpx"] == str(demande)
+
+
+def test_la_carte_embarque_les_memes_gpx_que_le_recueil(tmp_path: Path, monkeypatch, capsys):
+    """Un seul calcul pour deux usages : la page du jour et l'appelant lisent la même trace."""
+    recueillis: list = []
+    monkeypatch.chdir(tmp_path)
+    ecrire_calibration(tmp_path / "cache")
+    executer(
+        args(json=True, candidates=4),
+        config_de_test(tmp_path / "cache"),
+        moteur_brouter(RELIEFS_CONTRASTES),
+        moteur_meteo(pluie=pluie_au_nord),
+        client_intervals(),
+        recueil_gpx=recueillis.extend,
+    )
+    capsys.readouterr()
+    page = (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(
+        encoding="utf-8"
+    )
+    for gpx in recueillis:
+        assert gpx.nom_fichier in page
+
+
+# --- Q40 (a) : une date lointaine est servie, sans météo -----------------------
+
+
+def test_une_date_lointaine_est_servie_sans_appeler_open_meteo(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Q40 (a) : « si on demande trop loin, ben pas de météo » — et direct.
+
+    Le client météo interdit fait échouer le test au premier appel : demander
+    ~150 prévisions pour récolter des blocs vides serait payer le service pour
+    apprendre ce que la date disait déjà.
+    """
+    _, meteo_interdite, _ = clients_interdits()
+    lointain = date.today() + timedelta(days=HORIZON_JOURS_DEFAUT + 30)
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=meteo_interdite,
+        jour=lointain.isoformat(),
+        json=True,
+    )
+    lu = capsys.readouterr()
+    charge = json.loads(lu.out)
+    assert code == 0, "le parcours est servi, la date n'est pas refusée"
+    assert charge["candidates"], "la boucle reste là : c'est la météo qui disparaît"
+    absente = charge["meteo_absente"]
+    assert absente["jour"] == lointain.isoformat()
+    assert absente["dernier_jour_couvert"] == (
+        date.today() + timedelta(days=HORIZON_JOURS_DEFAUT)
+    ).isoformat()
+    assert "pas de météo" in absente["message"]
+    assert "s'arrêtent" in absente["message"], "le message dit jusqu'où vont les prévisions"
+    assert "pas de météo" in lu.err
+
+
+def test_une_date_lointaine_ne_promet_ni_pluie_ni_vent_ni_tenue(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """E14 · dégradé : ce qui disparaît sont les affirmations qu'on ne soutient plus."""
+    _, meteo_interdite, _ = clients_interdits()
+    lointain = date.today() + timedelta(days=HORIZON_JOURS_DEFAUT + 30)
+    lancer(
+        tmp_path, monkeypatch, meteo=meteo_interdite, jour=lointain.isoformat(), json=True
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["tenue"] is None
+    assert charge["modele_meteo"] is None
+    assert all(c["meteo"] is None for c in charge["candidates"])
+    assert charge["question_vent"]["posee"] is False
+
+
+def test_une_meteo_en_panne_dans_l_horizon_ne_promet_pas_une_fin_de_previsions(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le même écran, l'autre cause — et la phrase ne dit toujours pas pourquoi."""
+    lancer(tmp_path, monkeypatch, meteo=moteur_meteo(en_panne=True), json=True)
+    charge = json.loads(capsys.readouterr().out)
+    absente = charge["meteo_absente"]
+    assert absente["jour"] == JOUR.isoformat()
+    assert "s'arrêtent" not in absente["message"], (
+        "les prévisions couvrent ce jour-là : elles n'ont rien rendu, ce n'est pas la même chose"
+    )
+
+
+def test_la_meteo_repond_dans_l_horizon(tmp_path: Path, monkeypatch, capsys):
+    """Contre-épreuve : tant qu'on est dans l'horizon, rien ne change."""
+    lancer(tmp_path, monkeypatch, json=True)
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["meteo_absente"] is None
+    assert charge["candidates"][0]["meteo"] is not None
