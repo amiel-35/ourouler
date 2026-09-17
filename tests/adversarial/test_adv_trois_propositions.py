@@ -1023,7 +1023,7 @@ def test_une_direction_de_vent_non_finie_ne_doit_pas_poser_la_question():
 
     `vent_demande.interroger` filtre la vitesse par `math.isfinite` mais la
     direction par le seul `is None`. Une direction NaN ou infinie passe donc
-    les deux gardes, `posee` vaut `True`, et `QuestionVent.azimut_pour(...)`
+    les deux gardes, `posee` vaut `True`, et `QuestionVent.azimuts_pour(...)`
     rend `(nan + décalage) % 360 = nan`. Cet azimut descend ensuite dans
     `boucle.candidates.generer` — qui le passe à `azimuts()`, où `nan % 360`
     reste `nan` — puis dans le paramètre `roundTripStartDirection` de l'appel

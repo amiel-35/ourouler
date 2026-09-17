@@ -1298,7 +1298,7 @@ def verifier_direction_non_finie(poser: Callable[..., bool]) -> None:
 
     `interroger` vérifie `math.isfinite` sur la **vitesse** mais seulement
     `is None` sur la **direction**. Un NaN ou un infini passe donc la garde, la
-    question est posée, et `QuestionVent.azimut_pour(...)` rend
+    question est posée, et `QuestionVent.azimuts_pour(...)` rend
     `(nan + décalage) % 360`, c'est-à-dire `nan` — un azimut qui part ensuite
     dans `boucle.candidates.generer` puis dans l'URL BRouter.
 

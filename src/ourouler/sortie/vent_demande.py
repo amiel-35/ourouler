@@ -192,7 +192,7 @@ def interroger(
     vitesse = heure.vent_kmh if heure is not None else None
     direction = heure.vent_depuis_deg if heure is not None else None
     # `_fini` des deux côtés, et pas seulement de la vitesse : une direction
-    # `nan` passait les deux gardes, ressortait en `azimut_pour` (`nan % 360`
+    # `nan` passait les deux gardes, ressortait en `azimuts_pour` (`nan % 360`
     # vaut `nan`), traversait `boucle.candidates.azimuts` et partait chez
     # BRouter en `roundTripStartDirection=nan`. Un nombre non fini est une
     # **ignorance**, exactement comme une valeur absente — c'est déjà la règle
