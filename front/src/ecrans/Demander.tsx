@@ -27,7 +27,7 @@ import {
   modelePhysique,
   nombre,
   VENT_PREFERENCE_EN_TOUTES_LETTRES,
-  ventDepuisEnToutesLettres,
+  ventDepuisAvecPreposition,
 } from "../api/formats";
 import { aujourdhui } from "../etat/ressource";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
@@ -212,7 +212,7 @@ export function Demander({
     if (donnees.vent_depuis_nom === null || donnees.vent_kmh === null) {
       return "Le vent n'est pas connu pour ce départ.";
     }
-    return `Vent de ${ventDepuisEnToutesLettres(donnees.vent_depuis_nom)} à ${nombre(
+    return `Vent ${ventDepuisAvecPreposition(donnees.vent_depuis_nom)} à ${nombre(
       donnees.vent_kmh,
       0,
     )} km/h`;

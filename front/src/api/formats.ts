@@ -289,6 +289,19 @@ export function ventDepuisEnToutesLettres(nom: string): string {
   return VENT_DEPUIS_EN_TOUTES_LETTRES[nom] ?? nom;
 }
 
+/**
+ * « de sud-ouest », mais « **d'**est » et « **d'**ouest » — l'élision.
+ *
+ * Deux des huit secteurs commencent par une voyelle, et « vent de est » se
+ * voit tout de suite. Le français fait partie du produit (CLAUDE.md), pas
+ * seulement des commentaires : la phrase est lue à chaque ouverture de
+ * l'écran de demande.
+ */
+export function ventDepuisAvecPreposition(nom: string): string {
+  const mot = ventDepuisEnToutesLettres(nom);
+  return /^[aeiouyâàéèêîôû]/i.test(mot) ? `d'${mot}` : `de ${mot}`;
+}
+
 /** Les mêmes, telles qu'on les **constate** sur un parcours déjà tracé. */
 export const VENT_DECRIT: Record<string, string> = {
   "peu-importe": "vent quelconque",

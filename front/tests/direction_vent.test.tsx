@@ -1,225 +1,283 @@
-/** Q44 — un seul réglage de direction à la fois, et le vent toujours montré.
+/** Q44 — un seul choix de direction, jamais deux réglages qui se contredisent.
  *
- * Deux défauts sont protégés ici, et ils ne se ressemblent pas.
+ * Ce que ces tests protègent :
  *
- * 1. **Deux sélecteurs fixaient le même azimut** sans que rien ne dise lequel
- *    gagnait. Ils s'excluent maintenant par la forme, et l'API refuse la
- *    contradiction : le test qui compte est celui qui regarde **ce qui part
- *    sur le réseau**, parce qu'un reste d'un mode qu'on a quitté suffirait à
- *    déclencher un 400 sans que l'écran ait l'air faux.
- *
- * 2. **L'écran ne disait pas d'où vient le vent**, alors qu'il demandait une
- *    direction. Il le dit dans les deux modes — et pour le vent latéral, il
- *    montre **les deux azimuts opposés**, pas un seul. C'est la moitié de Q44
- *    qu'un champ scalaire, ou un front pressé, aurait silencieusement réduite.
+ * - « Ma direction » et « Selon le vent » n'affichent jamais leur
+ *   sélecteur en même temps — la contradiction disparaît par la forme,
+ *   elle ne se contrôle pas au moment de l'envoi ;
+ * - l'appel à `POST /sorties` ne porte jamais `direction` **et** un `vent`
+ *   contraignant à la fois — c'est le point qui casse en vrai (l'API refuse
+ *   avec un 400) si on le rate ;
+ * - le vent s'affiche dans les deux modes (« Ma séance » et « Endurance
+ *   Z2 »), jamais recalculé côté front ;
+ * - le latéral montre ses **deux** azimuts opposés, pas un seul ;
+ * - `posee: false` affiche le motif de l'API, jamais un vent inventé.
  */
 
-import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { useState } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Demander, demandeInitiale } from "../src/ecrans/Demander";
-import type { Demande } from "../src/ecrans/Demander";
-import type { Enveloppe, VentDepart } from "../src/api/types";
-import { PROFIL, zones } from "./fixtures";
+import { App } from "../src/App";
+import { Demander, demandeInitiale, type Demande } from "../src/ecrans/Demander";
 import { Serveur } from "./serveur";
+import { PROFIL, SEANCE, SEMAINE, SYSTEME, sortie, ventDepart, zones } from "./fixtures";
 
-/** Le vent au départ tel que l'API le rend — vent de sud-ouest, donc de 225°. */
-function ventDepart(surcharge?: Partial<VentDepart>): Enveloppe<VentDepart> {
-  return {
-    proprietaire: "essai",
-    donnees: {
-      jour: "2026-09-19",
-      depart: "2026-09-19T15:00:00+02:00",
-      posee: true,
-      motif: null,
-      vent_kmh: 22,
-      vent_depuis_deg: 225,
-      vent_depuis_nom: "SO",
-      seuil_kmh: 8,
-      horizon_jours: 3,
-      choix: ["peu-importe", "retour-dos", "depart-dos", "travers"],
-      azimuts_par_choix: {
-        "peu-importe": [],
-        "retour-dos": [{ azimut_deg: 225, nom: "SO" }],
-        "depart-dos": [{ azimut_deg: 45, nom: "NE" }],
-        // Les deux flancs, opposés à 180° — le cœur de Q44.
-        travers: [
-          { azimut_deg: 315, nom: "NO" },
-          { azimut_deg: 135, nom: "SE" },
-        ],
-      },
-      ...surcharge,
-    },
-  } as Enveloppe<VentDepart>;
+const ZONES = zones().donnees;
+
+/** `Demander` est entièrement pilotée depuis l'extérieur : ce conteneur lui
+ * donne l'état local qu'`App` lui donne d'habitude. */
+function ConteneurDemander({ demande: demandeDepart }: { demande: Demande }) {
+  const [demande, setDemande] = useState(demandeDepart);
+  return (
+    <Demander
+      profil={PROFIL.donnees}
+      zones={ZONES}
+      dureeSeance_s={SEANCE.donnees.duree_s}
+      nomSeance={SEANCE.donnees.nom}
+      demande={demande}
+      budget={null}
+      surDemande={setDemande}
+      surChercher={() => undefined}
+    />
+  );
 }
 
-/** Rend l'écran de demande, serveur factice installé, et suit la demande. */
-function poser(options?: { vent?: Enveloppe<VentDepart>; demande?: Partial<Demande> }) {
-  const serveur = new Serveur({
-    "/api/v1/vent-depart": { charge: options?.vent ?? ventDepart() },
-  });
-  serveur.installer();
-  let demande: Demande = { ...demandeInitiale(), ...options?.demande };
-
-  /** L'écran est piloté par son parent : on rejoue ce que fait `App`.
-   *
-   * `rerender` et non un second `render` — celui-ci **ajouterait** un écran à
-   * côté du premier, et les deux sélecteurs paraîtraient coexister alors que
-   * c'est le test qui les aurait dupliqués.
-   */
-  function ecran() {
-    return (
-      <Demander
-        profil={PROFIL.donnees}
-        zones={zones().donnees}
-        dureeSeance_s={7200}
-        nomSeance="Sortie fabriquée"
-        demande={demande}
-        budget={null}
-        surDemande={(suivante) => {
-          demande = suivante;
-          rejouer(ecran());
-        }}
-        surChercher={() => undefined}
-      />
-    );
-  }
-  const { rerender } = render(ecran());
-  function rejouer(noeud: ReactElement) {
-    rerender(noeud);
-  }
-  return {
-    serveur,
-    lire: () => demande,
-  };
+function demandeEssai(morceau?: Partial<Demande>): Demande {
+  return { ...demandeInitiale(), jour: "2026-09-18", ...morceau };
 }
 
-const utilisateur = userEvent.setup();
+describe("un seul sélecteur affiché à la fois", () => {
+  it("« Ma direction » puis « Selon le vent » ne laissent jamais les deux sélecteurs visibles", async () => {
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    serveur.installer();
+    const utilisateur = userEvent.setup();
+    render(<ConteneurDemander demande={demandeEssai()} />);
 
-describe("le premier choix de Q44", () => {
-  it("n'affiche jamais les deux sélecteurs de direction en même temps", async () => {
-    poser();
-    // Au départ, « peu importe » : ni cardinaux, ni préférences de vent.
-    expect(screen.queryByRole("button", { name: "NE" })).toBeNull();
-    expect(screen.queryByText("Vent latéral")).toBeNull();
+    await waitFor(() => expect(serveur.vers("/api/v1/vent-depart").length).toBe(1));
+
+    // Au départ (« peu importe ») : ni l'un ni l'autre.
+    expect(screen.queryByText("Là où il fait sec")).toBeNull();
+    expect(screen.queryByText("Vent dans le dos au départ")).toBeNull();
 
     await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
-    expect(screen.getByRole("button", { name: "NE" })).toBeTruthy();
+    expect(screen.getByText("Là où il fait sec")).toBeTruthy();
+    expect(screen.queryByText("Vent dans le dos au départ")).toBeNull();
+    expect(screen.queryByText("Vent dans le dos au retour")).toBeNull();
     expect(screen.queryByText("Vent latéral")).toBeNull();
 
     await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
-    expect(screen.queryByRole("button", { name: "NE" })).toBeNull();
+    expect(screen.queryByText("Là où il fait sec")).toBeNull();
+    expect(screen.getByText("Vent dans le dos au départ")).toBeTruthy();
+    expect(screen.getByText("Vent dans le dos au retour")).toBeTruthy();
     expect(screen.getByText("Vent latéral")).toBeTruthy();
-  });
 
-  it("propose les trois préférences que le mainteneur a nommées, et rien d'autre", async () => {
-    poser();
-    await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
-    expect(screen.getByRole("button", { name: "Vent dans le dos au départ" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Vent dans le dos au retour" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Vent latéral" })).toBeTruthy();
-    // « Peu importe » vit au premier choix, pas parmi les préférences : il n'y
-    // est pas une quatrième façon de s'orienter, c'est l'absence de demande.
-    expect(screen.queryByRole("button", { name: "Peu importe (vent)" })).toBeNull();
-  });
-
-  it("ne laisse jamais coexister une direction et une orientation contraignante", async () => {
-    // Le test qui protège du 400 : l'état interne peut porter les deux champs
-    // (on a changé d'avis), ce qui part sur le réseau ne le doit pas.
-    const { lire } = poser({ demande: { direction: "N", vent: "retour-dos" } });
-
-    await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
-    expect(lire().modeDirection).toBe("direction");
-
-    await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
-    const finale = lire();
-    expect(finale.modeDirection).toBe("vent");
-    // `modeDirection` fait seule foi : c'est elle que `App.chercher` lit pour
-    // n'envoyer qu'un seul des deux champs.
-    expect(["depart-dos", "retour-dos", "travers"]).toContain(finale.vent);
+    await utilisateur.click(screen.getByRole("button", { name: "Peu importe" }));
+    expect(screen.queryByText("Là où il fait sec")).toBeNull();
+    expect(screen.queryByText("Vent dans le dos au départ")).toBeNull();
   });
 });
 
-describe("le vent au départ", () => {
-  it("s'affiche alors qu'aucune direction n'est encore choisie", async () => {
-    poser();
-    await waitFor(() => expect(screen.getByText(/Vent de sud-ouest/)).toBeTruthy());
-    expect(screen.getByText(/22 km\/h/)).toBeTruthy();
+describe("le vent s'affiche dans les deux modes", () => {
+  it("affiche « Vent de sud-ouest à 22 km/h » en mode « Ma séance »", async () => {
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai({ mode: "seance" })} />);
+    expect(await screen.findByText("Vent de sud-ouest à 22 km/h")).toBeTruthy();
   });
 
-  it("s'affiche aussi quand le cycliste choisit sa direction lui-même", async () => {
-    poser();
-    await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
-    await waitFor(() => expect(screen.getByText(/Vent de sud-ouest/)).toBeTruthy());
+  it("affiche « Vent de sud-ouest à 22 km/h » en mode « Endurance Z2 »", async () => {
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai({ mode: "z2" })} />);
+    expect(await screen.findByText("Vent de sud-ouest à 22 km/h")).toBeTruthy();
   });
 
-  it("vient de l'API et n'est jamais recalculé ici", async () => {
-    // Un vent d'est : si l'écran déduisait quoi que ce soit, il resterait au
-    // sud-ouest de la fixture précédente ou inventerait un nom.
-    poser({
-      vent: ventDepart({
-        vent_depuis_deg: 90,
-        vent_depuis_nom: "E",
-        vent_kmh: 31,
-        azimuts_par_choix: {
-          "peu-importe": [],
-          "retour-dos": [{ azimut_deg: 90, nom: "E" }],
-          "depart-dos": [{ azimut_deg: 270, nom: "O" }],
-          travers: [
-            { azimut_deg: 180, nom: "S" },
-            { azimut_deg: 0, nom: "N" },
-          ],
-        },
-      }),
+  it("griser le mode « Selon le vent » en Endurance Z2, sans le faire disparaître", async () => {
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai({ mode: "z2" })} />);
+    await screen.findByText("Vent de sud-ouest à 22 km/h");
+
+    const selonLeVent = screen.getByRole("button", { name: "Selon le vent" }) as HTMLButtonElement;
+    expect(selonLeVent.disabled).toBe(true);
+    expect(screen.getByText(/pas encore disponible pour une sortie libre/)).toBeTruthy();
+  });
+});
+
+describe("le latéral ouvre deux azimuts opposés", () => {
+  it("montre les deux azimuts, pas un seul, pour « Vent latéral »", async () => {
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    serveur.installer();
+    const utilisateur = userEvent.setup();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+    await waitFor(() => expect(serveur.vers("/api/v1/vent-depart").length).toBe(1));
+
+    await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
+
+    // Les deux azimuts opposés du latéral, tels que rend `azimuts_par_choix.travers`
+    // dans la fixture — jamais un seul, jamais recalculés.
+    expect(screen.getByText("Vent latéral : NO (315°) et SE (135°)")).toBeTruthy();
+    // Et les deux préférences à un seul azimut, pour vérifier qu'on ne les confond pas.
+    expect(screen.getByText("Vent dans le dos au départ : NE (45°)")).toBeTruthy();
+    expect(screen.getByText("Vent dans le dos au retour : SO (225°)")).toBeTruthy();
+  });
+});
+
+describe("posee: false n'invente aucun vent", () => {
+  it("affiche le motif de l'API et grise « Selon le vent »", async () => {
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": {
+        charge: ventDepart({ posee: false, motif: "vent sous le seuil (motif inventé)" }),
+      },
     });
-    await waitFor(() => expect(screen.getByText(/Vent d'est|Vent de est/)).toBeTruthy());
-    expect(screen.getByText(/31 km\/h/)).toBeTruthy();
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+
+    expect(await screen.findByText("vent sous le seuil (motif inventé)")).toBeTruthy();
+    // Aucun vent inventé : ni la phrase « Vent de … », ni un chiffre de vent.
+    expect(screen.queryByText(/^Vent de /)).toBeNull();
+    const selonLeVent = screen.getByRole("button", { name: "Selon le vent" }) as HTMLButtonElement;
+    expect(selonLeVent.disabled).toBe(true);
+  });
+
+  it("n'affirme aucun vent quand la question n'est pas posée, même en mode « selon le vent »", async () => {
+    // Le cas qui se produit vraiment : le cycliste avait choisi « selon le
+    // vent » hier, il revient un jour sans vent. On ne garde pas une
+    // préférence qui ne dirige plus rien en faisant croire qu'elle agit.
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": { charge: ventDepart({ posee: false }) },
+    });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai({ modeDirection: "vent", vent: "travers" })} />);
+    await waitFor(() => expect(serveur.vers("/api/v1/vent-depart").length).toBe(1));
+
+    // Aucun azimut annoncé sous les préférences : `azimuts_par_choix` est vide
+    // partout, et l'écran ne comble pas le vide.
+    expect(screen.queryByText(/Vent latéral\s*:/)).toBeNull();
+    expect(screen.queryByText(/315|135/)).toBeNull();
+    expect(screen.queryByText(/^Vent de /)).toBeNull();
+  });
+});
+
+describe("les valeurs du vent viennent de l'API, jamais d'un calcul local", () => {
+  it("suit la fixture quand elle change de vent, au lieu de rester au sud-ouest", async () => {
+    // Le défaut le plus silencieux d'un front : un secteur déduit sur place
+    // (ou pire, recopié de la maquette) passe toutes les relectures. Ici tout
+    // vient d'`azimuts_par_choix`, donc changer la fixture doit tout changer.
+    const est = ventDepart();
+    est.donnees.vent_kmh = 31;
+    est.donnees.vent_depuis_deg = 90;
+    est.donnees.vent_depuis_nom = "E";
+    est.donnees.azimuts_par_choix = {
+      "peu-importe": [],
+      "retour-dos": [{ azimut_deg: 90, nom: "E" }],
+      "depart-dos": [{ azimut_deg: 270, nom: "O" }],
+      travers: [
+        { azimut_deg: 180, nom: "S" },
+        { azimut_deg: 0, nom: "N" },
+      ],
+    };
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: est } });
+    serveur.installer();
+    const utilisateur = userEvent.setup();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+    await waitFor(() => expect(serveur.vers("/api/v1/vent-depart").length).toBe(1));
+
+    expect(screen.getByText("Vent d'est à 31 km/h")).toBeTruthy();
     expect(screen.queryByText(/sud-ouest/)).toBeNull();
+
+    await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
+    // Le latéral d'un vent d'est : plein sud et plein nord, toujours deux.
+    expect(screen.getByText("Vent latéral : S (180°) et N (0°)")).toBeTruthy();
+    expect(screen.queryByText(/315|135/)).toBeNull();
   });
 });
 
-describe("le vent latéral ouvre deux azimuts", () => {
-  it("les montre tous les deux, pas seulement le premier", async () => {
-    poser();
-    await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
-    // 315° et 135°, les deux flancs d'un vent de 225°.
-    const ligne = await screen.findByText(/Vent latéral\s*:/);
-    expect(ligne.textContent).toContain("NO");
-    expect(ligne.textContent).toContain("315");
-    expect(ligne.textContent).toContain("SE");
-    expect(ligne.textContent).toContain("135");
-  });
+describe("l'envoi à POST /sorties ne porte jamais direction et un vent contraignant ensemble", () => {
+  const AUJOURDHUI = "2026-09-16";
 
-  it("n'en montre qu'un pour les deux préférences qui n'en fixent qu'un", async () => {
-    poser();
-    await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
-    const retour = await screen.findByText(/Vent dans le dos au retour\s*:/);
-    expect(retour.textContent).toContain("225");
-    expect(retour.textContent).not.toContain(" et ");
-  });
-});
-
-describe("quand la question du vent ne se pose pas", () => {
-  it("affiche le motif au lieu d'inventer un vent, et ferme le mode", async () => {
-    poser({
-      vent: ventDepart({
-        posee: false,
-        motif:
-          "2 km/h au départ, sous les 8 km/h à partir desquels on sent le vent sur le visage",
-        vent_kmh: 2,
-        azimuts_par_choix: {
-          "peu-importe": [],
-          "retour-dos": [],
-          "depart-dos": [],
-          travers: [],
-        },
-      }),
+  function installer() {
+    const serveur = new Serveur({
+      "/api/v1/systeme": { charge: SYSTEME },
+      "/api/v1/profil/zones": { charge: zones() },
+      "/api/v1/profil": { charge: PROFIL },
+      "/api/v1/seances/": { charge: SEANCE },
+      "/api/v1/seances": { charge: SEMAINE },
+      "/api/v1/vent-depart": { charge: ventDepart() },
+      "/api/v1/sorties": { charge: sortie() },
     });
-    await waitFor(() => expect(screen.getByText(/sous les 8 km\/h/)).toBeTruthy());
-    // Aucun vent affirmé, et « selon le vent » n'est pas proposable.
-    expect(screen.queryByText(/Vent de sud-ouest/)).toBeNull();
-    const selonLeVent = screen.getByRole("button", { name: "Selon le vent" });
-    expect((selonLeVent as HTMLButtonElement).disabled).toBe(true);
+    serveur.installer();
+    return serveur;
+  }
+
+  function derniereRecherche(serveur: Serveur): Record<string, unknown> {
+    const envois = serveur.vers("/api/v1/sorties");
+    expect(envois.length, "aucune recherche n'a été envoyée").toBeGreaterThan(0);
+    return envois[envois.length - 1].corps as Record<string, unknown>;
+  }
+
+  /** L'invariant que l'API fait respecter côté serveur (400 sinon) : jamais
+   * les deux à la fois, et jamais un `vent` contraignant avec `direction`. */
+  function verifierJamaisLesDeux(corps: Record<string, unknown>) {
+    const contraint = corps.direction !== undefined;
+    const ventContraignant = corps.vent !== undefined && corps.vent !== "peu-importe";
+    expect(contraint && ventContraignant, JSON.stringify(corps)).toBe(false);
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(`${AUJOURDHUI}T09:00:00`));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("« peu importe » : envoie vent=peu-importe, jamais de direction", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Chercher 3 parcours" }));
+
+    await waitFor(() => expect(serveur.vers("/api/v1/sorties").length).toBe(1));
+    const corps = derniereRecherche(serveur);
+    verifierJamaisLesDeux(corps);
+    expect(corps.vent).toBe("peu-importe");
+    expect(corps.direction).toBeUndefined();
+  });
+
+  it("« ma direction » : envoie direction=<cardinal>, jamais un vent contraignant", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Ma direction" }));
+    await utilisateur.click(screen.getByRole("button", { name: "NE" }));
+    await utilisateur.click(screen.getByRole("button", { name: "Chercher 3 parcours" }));
+
+    await waitFor(() => expect(serveur.vers("/api/v1/sorties").length).toBe(1));
+    const corps = derniereRecherche(serveur);
+    verifierJamaisLesDeux(corps);
+    expect(corps.direction).toBe("NE");
+  });
+
+  it("« selon le vent » : envoie vent=<préférence>, jamais de direction", async () => {
+    const serveur = installer();
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Selon le vent" }));
+    await utilisateur.click(screen.getByRole("button", { name: "Vent latéral" }));
+    await utilisateur.click(screen.getByRole("button", { name: "Chercher 3 parcours" }));
+
+    await waitFor(() => expect(serveur.vers("/api/v1/sorties").length).toBe(1));
+    const corps = derniereRecherche(serveur);
+    verifierJamaisLesDeux(corps);
+    expect(corps.vent).toBe("travers");
+    expect(corps.direction).toBeUndefined();
   });
 });
