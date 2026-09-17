@@ -2823,4 +2823,51 @@ n'importe quoi — et la règle absolue 5 interdit d'affirmer sans mesure.
 son erreur se rapporte, et elle s'applique aux autres **en affichant cette
 erreur**. Ça fait du sujet un lot mesurable au lieu d'un vœu.
 
+### La FC n'entre pas dans la physique — elle étiquette la zone
+
+Distinction posée le 17/09, après une première formulation trop raide de ma
+part. Le bilan de puissance reste **purement physique** : vitesse, pente, vent,
+masse, densité de l'air. Rien de cardiaque dedans.
+
+La FC sert d'**étiquette** : la physique dit *combien de watts*, la FC dit *dans
+quelle zone la personne était*. Le croisement répond à la question qui compte
+vraiment pour un cycliste sans capteur — **quelle puissance produit-il quand il
+roule en Z2 ?** — et cette question-là n'a pas besoin d'une FTP pour être
+posée.
+
+### Trois façons d'obtenir la bande Z2, de la pire à la meilleure
+
+1. **220 − âge → FCmax → pourcentage.** Universelle et gratuite : c'est la seule
+   information disponible pour un inconnu. Et c'est le maillon faible de toute
+   la chaîne — l'écart de la formule est large. À **mesurer** sur le mainteneur
+   plutôt qu'à citer, puisqu'il a la FC et le capteur.
+2. **La demander à la personne.** Proposition du mainteneur : beaucoup de
+   cyclistes d'endurance connaissent leur plage cardiaque de Z2. Un champ de
+   deux nombres remplace le maillon le plus faible par une donnée directe.
+3. **La dériver de ses propres données**, ce qui suppose un capteur — donc
+   circulaire pour la population visée, et hors de portée ici.
+
+**Ce qui doit être mesuré avant de trancher** : laquelle des deux erreurs
+domine, celle de la physique ou celle de l'étiquetage. Si l'étiquetage par
+l'âge coûte plus cher que tout le modèle physique, raffiner la physique ne sert
+à rien tant que la zone est posée à la louche — et le champ à deux nombres
+devient le lot, pas le modèle.
+
+**Un quatrième point de comparaison existe**, et il est gratuit : l'écart entre
+la bande que le mainteneur **déclare** de mémoire et celle que ses propres
+données montrent. Il dit ce que vaut la source 2 en pratique. Sa valeur
+déclarée n'est pas consignée ici (règle absolue 1) et n'a pas été transmise à
+l'agent pendant sa campagne en aveugle — elle sert de vérité terrain à la
+levée.
+
+### Ce qui peut salir l'étiquette
+
+- **dérive cardiaque** : à puissance constante la FC monte au fil d'une longue
+  sortie, et la même intensité change de zone en seconde moitié ;
+- **chaleur** : une Z2 de juillet et une Z2 de février n'ont pas la même FC.
+  Mesuré par ailleurs — sur le même vélo, l'hiver coûte +16,6 W à 30 km/h ;
+- **sorties en groupe** : W/bpm mesuré à +19 % en club contre +3 % ailleurs.
+  Le croisement devrait les faire ressortir seul, ce qui en fait un bon
+  contrôle de cohérence de tout l'édifice.
+
 Lot séparé, après [[Q47]].
