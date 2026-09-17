@@ -529,6 +529,47 @@ mesure solide, mais ce n'est pas celle que le cap demande : un GPX que l'Edge
 refuse, un bloc mal placé constaté au retour, une boucle refusée sur le terrain
 ne se trouvent qu'en roulant, plusieurs semaines durant.
 
+#### Clôture du sprint 6 — 17/09/2026
+
+**Ce que ce sprint a livré n'est pas ce qu'il avait annoncé, et c'est son
+résultat.** Sur les quatorze minutes de gain de la table ci-dessus, aucune
+n'a survécu à la mesure sur les vraies sorties du mainteneur. Trois lots se
+sont arrêtés **avant d'écrire du code**, chacun parce que la mesure exigée
+par la règle absolue 4 réfutait sa propre prémisse :
+
+| correction | annoncé | mesuré | verdict |
+|---|---|---|---|
+| fenêtre glissante (L6.1) | 9 min | écart sous le bruit | **réfutée** |
+| masse datée (L6.1) | 5 à 9 W | dégrade seule | **suspendue** |
+| Crr figé par surface (L6.2) | lève la dégénérescence | −3,7 à −4,4 min | **réfutée** |
+| CdA saisonnier (L6.2) | 5 min | ≈ 1 min, un seul vélo | **redimensionnée** |
+| lecture TCX (L6.3) | 9 fichiers illisibles | 9 fichiers lus | **livrée** |
+
+**La cause commune** : les chiffres venaient d'une campagne menée sur la
+chaîne *sans capteur* (FC → zone → physique), appliqués à un cycliste qui
+porte un capteur. Ce qui se corrige chez quelqu'un dont la constante est
+fausse ne peut rien apporter à quelqu'un dont elle est déjà juste.
+
+**Le livrable réel du sprint 6**, et il tient : une liste d'écarts chiffrée
+sur 162 sorties, trois réfutations mesurées et documentées, le correctif de
+lecture TCX, et un registre de questions remis en phase avec le code. Les
+mesures sont dans `questions_mainteneur.md` (« Correction du 17/09 (soir) »
+et « Correction du 17/09 (nuit) ») ; elles valent pour la suite, puisque le
+monde sans capteur du sprint 8 est justement celui où ces gains existent.
+
+**Ce que le cap réclame toujours** : le dogfooding sur la route, plusieurs
+semaines. Il est acté comme **exigence permanente hors sprint** plutôt que
+comme condition de clôture — un GPX que l'Edge refuse ou un bloc mal placé
+constaté au retour ne se trouvent qu'en roulant.
+
+**Reporté, avec son porteur** : le CdA saisonnier (≈ 1 min) attend quatre
+arbitrages produit listés en fin de `questions_mainteneur.md`. La fenêtre
+glissante, elle, n'est pas abandonnée : elle **change de destinataire** et
+rejoint le sprint 8, où le cycliste sans capteur a bien une constante fausse
+à corriger.
+
+---
+
 ### Sprint 7 — L'hébergé **[esquissé — son premier étage est livré, voir sprint 5]**
 
 API au-dessus du même cœur, puis front web servi par elle, puis comptes
@@ -536,6 +577,32 @@ avec authentification déléguée Google (doctrine §10). Postgres, stockage
 d'objets pour les fichiers, isolation par utilisateur vérifiée côté
 serveur, cache météo mutualisé (le quota Open-Meteo devient un sujet ici,
 pas avant).
+
+#### Lots figés le 17/09/2026 (repriorisation de fin des sprints 5 et 6)
+
+Le cap ne bouge pas : l'hébergé. Son premier étage — l'API et le front — est
+arrivé avec le cycle discovery/UX. Ce qui reste :
+
+- **L7.1 — la page du jour servie, plus écrite sur le disque.** C'est la
+  condition que [[Q22]] posait sans pouvoir la lever : tant que la page vit
+  sur le disque du Mac, télécharger le GPX ne met rien sur le compteur.
+  *Acceptation* : le mainteneur ouvre la page depuis son téléphone et envoie
+  le GPX à Garmin Connect par le partage système, sans passer par le Mac.
+- **L7.2 — comptes et isolation.** Authentification déléguée Google
+  (doctrine §10), isolation par utilisateur **vérifiée côté serveur**.
+  *Acceptation* : `tests/api/test_api_isolation_proprietaire.py` existe déjà
+  et passe contre le service réel, pas seulement contre un bouchon.
+- **L7.3 — Postgres, stockage d'objets, cache météo mutualisé.** Le quota
+  Open-Meteo devient un sujet ici, pas avant.
+- **L7.4 — le TOML du serveur.** [[Q35]] (quelles sections sont communes au
+  service et lesquelles appartiennent au cycliste) et [[Q36]] (l'étape
+  « identité » de l'assistant) sont à trancher avant d'écrire ce lot.
+
+**Les sept promesses des maquettes** ([[Q37]], réponses en [[Q40]] et [[Q41]])
+se répartissent entre L7.1 et L7.2 selon qu'elles tiennent à l'affichage ou au
+compte. Aucune n'est un lot à elle seule.
+
+---
 
 ### Sprint 8 — Prêt à inviter des copains **[cap fixé par le mainteneur]**
 
@@ -548,6 +615,37 @@ n'a pas d'historique), messages d'erreur compréhensibles par quelqu'un qui
 n'a pas écrit le code, export et suppression de compte (RGPD), et un coût
 maîtrisé par utilisateur. Sans calibration personnelle, le modèle doit
 tourner sur des paramètres génériques et le dire.
+
+#### Lots figés le 17/09/2026 (repriorisation de fin des sprints 5 et 6)
+
+Le cap ne bouge pas. Ce sprint hérite du bloc **sans capteur** instruit le
+17/09, et c'est ici que les gains réfutés au sprint 6 retrouvent leur sens :
+le cycliste invité n'a ni capteur, ni historique, ni calibration.
+
+- **L8.1 — importer son historique** ([[Q48]]). Trois plateformes, un seul
+  parcours ; le fichier reste quand les API se ferment.
+- **L8.2 — estimer la puissance sans capteur** ([[Q49]], [[Q51]]), **avec la
+  fenêtre glissante** que le sprint 6 a écartée. Elle ne vaut rien chez un
+  porteur de capteur dont la constante est déjà juste ; elle vaut ses neuf
+  minutes chez quelqu'un dont elle est fausse. *Acceptation* : l'écart entre
+  durée prédite et durée réelle, en minutes sur 2 h, sur des sorties sans
+  capteur que le modèle n'a pas vues.
+- **L8.3 — la zone 2 déduite de la fréquence cardiaque** ([[Q50]]). La FC
+  étiquette la zone, elle n'entre pas dans la physique.
+- **L8.4 — un seul réglage, deux visages** ([[Q52]]) et sa boucle de
+  correction.
+- **L8.5 — le parcours d'accueil** : valeurs par défaut génériques **qui se
+  disent comme telles**, messages d'erreur lisibles par quelqu'un qui n'a pas
+  écrit le code, export et suppression de compte (RGPD), coût maîtrisé par
+  utilisateur. [[Q46]] — ce que le service a le droit d'apprendre des sorties
+  de chacun — se tranche avant ce lot, pas pendant.
+
+---
+
+**Ce que cette repriorisation ne range nulle part.** Trois fonctions de
+qualité du tracé — [[Q29]], [[Q31]], [[Q32]] — n'entrent ni dans l'hébergé ni
+dans l'accueil d'un nouveau venu. Elles sont posées en [[Q53]] avec trois
+issues possibles ; aucune n'est tranchée, et elles n'ont pas de sprint.
 
 ### Après — dépôt public
 

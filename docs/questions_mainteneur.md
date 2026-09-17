@@ -3720,3 +3720,31 @@ sait déjà rejouer une sortie dans BRouter pour en obtenir les tags. Mais cette
 piste ne change pas le résultat ci-dessus : elle ferait varier le Crr imposé
 d'un tronçon à l'autre autour d'une valeur de bitume, et le balayage montre que
 **toute** valeur de bitume dégrade. Elle mérite d'être notée, pas budgétée.
+
+## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **ouverte le 17/09/2026**
+
+La repriorisation de fin des sprints 5 et 6 a figé les lots des sprints 7
+(l'hébergé) et 8 (prêt à inviter des copains). Trois questions n'y trouvent pas
+leur place, et ce n'est pas un oubli : ce sont des fonctions de **qualité du
+tracé**, alors que les deux caps restants portent l'un sur l'infrastructure,
+l'autre sur l'accueil d'un nouveau venu.
+
+- [[Q29]] — l'effet de concentration des feux, et le poids qui dépend de
+  l'intensité du bloc.
+- [[Q31]] — la distance de dégagement urbain avant la zone roulante.
+- [[Q32]] — le mode circuit, tourner en rond quand il n'y a pas de couloir.
+
+**Mon erreur de cadrage, dite en toutes lettres.** J'ai fait déplacer Q29 et
+Q31 vers le sprint 7 le 17/09 en proposant ce choix au mainteneur **sans avoir
+lu le cap du sprint 7**, qui est l'hébergé et rien d'autre. Le déplacement a
+donc été validé sur une prémisse fausse. Elles sont ici en attente, pas au
+sprint 7.
+
+**Trois issues, et c'est un arbitrage de produit.** (a) Un sprint 9 « qualité du
+tracé » qui les rassemble, après l'ouverture aux copains. (b) Les glisser dans
+le sprint 8 au motif qu'un invité jugera d'abord la qualité des boucles qu'on
+lui propose. (c) Les laisser au backlog sans sprint, et les prendre au fil du
+dogfooding quand la route en désignera une comme urgente.
+
+Rien n'est tranché : elles restent dans le registre, sans sprint attribué.
+
