@@ -470,3 +470,217 @@ def test_l_invariant_numpy_mesure_bien_quelque_chose():
     assert any("import numpy" in s for s in sources), (
         "aucun module n'importe numpy : l'invariant ci-dessus ne mesure rien"
     )
+
+
+# --- aucune requête SQL sans clause de propriétaire --------------------------
+#
+# Doctrine §10.2 : « Isolation des données : par utilisateur, vérifiée côté
+# serveur à chaque requête, jamais seulement côté front. **Aucune requête sans
+# clause de propriétaire.** »
+#
+# Une colonne que personne ne filtre ne protège rien : `apprentissage/routes.py`
+# a porté `proprietaire` pendant quatre jours sans qu'aucune de ses requêtes ne
+# la nomme. Cet invariant est écrit pour attraper la *prochaine* requête, celle
+# qu'un agent ajoutera dans six mois sans y penser — pas pour vérifier une à une
+# celles d'aujourd'hui.
+#
+# Ce qu'il fait : il reconstitue le texte SQL de chaque appel `.execute(…)` /
+# `.executescript(…)` du cœur, y compris quand ce texte est assemblé à partir de
+# constantes de module (`_COLONNES`, `_CONFLIT_IDENTITE`, `_SCHEMA`), et exige
+# que toute instruction touchant une table de données nomme `proprietaire`.
+
+#: Le mot que toute requête doit prononcer.
+CLAUSE = "proprietaire"
+
+#: Verbes SQL qui lisent ou écrivent des données. `CREATE`, `ALTER`, `DROP` et
+#: `PRAGMA` n'en sont pas : ils décrivent la structure.
+VERBES_DE_DONNEES = ("SELECT", "INSERT", "UPDATE", "DELETE")
+
+#: Tables qui ne portent pas de données d'utilisateur : le catalogue de SQLite.
+TABLES_TECHNIQUES = ("sqlite_master", "sqlite_temp_master")
+
+#: Les seules fonctions dispensées de la clause, et la raison. Une migration
+#: **fabrique** la colonne : lui demander de filtrer dessus serait circulaire.
+#: Le préfixe est volontairement étroit — `_migrer…`, pas « tout ce qui est
+#: privé » — pour qu'on ne puisse pas s'y glisser par accident.
+PREFIXE_EXEMPT = "_migrer"
+
+
+def _constantes_texte(arbre: ast.Module) -> dict[str, str]:
+    """Les constantes de module dont la valeur est une chaîne, résolues entre elles.
+
+    Deux passes : les chaînes littérales d'abord, puis les f-strings qui les
+    citent (`_SCHEMA` cite `PROPRIETAIRE_LOCAL`). Deux passes suffisent ici, et
+    une valeur non résolue reste sous sa forme `{nom}`, qui ne trompe personne.
+    """
+    connues: dict[str, str] = {}
+    for _ in range(2):
+        for noeud in arbre.body:
+            if not isinstance(noeud, ast.Assign) or len(noeud.targets) != 1:
+                continue
+            cible = noeud.targets[0]
+            if not isinstance(cible, ast.Name):
+                continue
+            texte = _texte_sql(noeud.value, connues)
+            if texte is not None:
+                connues[cible.id] = texte
+    return connues
+
+
+def _texte_sql(noeud: ast.AST, connues: dict[str, str]) -> str | None:
+    """Le texte d'une expression de chaîne, ou None si ce n'en est pas une.
+
+    Couvre ce que le projet écrit réellement : littéral, littéraux adjacents
+    (déjà fusionnés par le parseur), `+`, nom de constante, f-string.
+    """
+    if isinstance(noeud, ast.Constant):
+        return noeud.value if isinstance(noeud.value, str) else None
+    if isinstance(noeud, ast.Name):
+        return connues.get(noeud.id)
+    if isinstance(noeud, ast.BinOp) and isinstance(noeud.op, ast.Add):
+        gauche = _texte_sql(noeud.left, connues)
+        droite = _texte_sql(noeud.right, connues)
+        return None if gauche is None or droite is None else gauche + droite
+    if isinstance(noeud, ast.JoinedStr):
+        morceaux = []
+        for partie in noeud.values:
+            if isinstance(partie, ast.Constant) and isinstance(partie.value, str):
+                morceaux.append(partie.value)
+            elif isinstance(partie, ast.FormattedValue):
+                # La valeur interpolée quand on sait la résoudre ; sinon son
+                # code source, qui porte au moins le nom de ce qui y entre.
+                morceaux.append(
+                    _texte_sql(partie.value, connues) or f"{{{ast.unparse(partie.value)}}}"
+                )
+        return "".join(morceaux)
+    return None
+
+
+def _instructions(sql: str) -> list[str]:
+    """Le SQL découpé en instructions, chacune jugée séparément.
+
+    Un `executescript` en enchaîne plusieurs : sans découpage, un `CREATE
+    TABLE` portant la colonne blanchirait le `SELECT` qui le suit.
+    """
+    return [morceau for morceau in sql.split(";") if morceau.strip()]
+
+
+def _touche_des_donnees(instruction: str) -> bool:
+    haut = instruction.upper()
+    if not any(re.search(rf"\b{verbe}\b", haut) for verbe in VERBES_DE_DONNEES):
+        return False
+    return not any(table.upper() in haut for table in TABLES_TECHNIQUES)
+
+
+def _fonction_englobante(arbre: ast.Module) -> dict[int, str]:
+    """Nœud d'appel (par identité) → nom de la fonction qui le contient."""
+    par_appel: dict[int, str] = {}
+    for fonction in ast.walk(arbre):
+        if not isinstance(fonction, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        for interne in ast.walk(fonction):
+            if isinstance(interne, ast.Call):
+                par_appel.setdefault(id(interne), fonction.name)
+    return par_appel
+
+
+def requetes_du_module(chemin: Path) -> list[tuple[str, str]]:
+    """[(fonction, instruction SQL)] pour chaque instruction de données du module."""
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    connues = _constantes_texte(arbre)
+    englobante = _fonction_englobante(arbre)
+    trouvees = []
+    for noeud in ast.walk(arbre):
+        if not isinstance(noeud, ast.Call) or not isinstance(noeud.func, ast.Attribute):
+            continue
+        if noeud.func.attr not in ("execute", "executescript", "executemany"):
+            continue
+        if not noeud.args:
+            continue
+        sql = _texte_sql(noeud.args[0], connues)
+        if sql is None:
+            continue
+        nom = englobante.get(id(noeud), "<module>")
+        trouvees.extend(
+            (nom, instruction)
+            for instruction in _instructions(sql)
+            if _touche_des_donnees(instruction)
+        )
+    return trouvees
+
+
+def modules_avec_sql() -> list[Path]:
+    return sorted(p for p in SOURCES.rglob("*.py") if "execute" in p.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("module", modules_avec_sql(), ids=lambda p: str(p.relative_to(SOURCES)))
+def test_aucune_requete_sql_ne_lit_ni_n_ecrit_sans_clause_de_proprietaire(module: Path):
+    """Doctrine §10.2 : aucune requête sans clause de propriétaire.
+
+    L'échec nomme la fonction et l'instruction : ce qui manque est visible
+    sans ouvrir le fichier.
+    """
+    nues = [
+        f"{fonction}() : {' '.join(instruction.split())[:110]}…"
+        for fonction, instruction in requetes_du_module(module)
+        if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
+    ]
+    assert not nues, (
+        f"{module.relative_to(SOURCES)} — requêtes sans clause de propriétaire :\n  "
+        + "\n  ".join(nues)
+        + "\nDoctrine §10.2 : « aucune requête sans clause de propriétaire ». "
+        f"Seules les fonctions préfixées « {PREFIXE_EXEMPT} » en sont dispensées, "
+        "parce qu'elles fabriquent la colonne."
+    )
+
+
+def test_l_invariant_de_proprietaire_mesure_bien_quelque_chose():
+    """Un invariant vert parce qu'il ne trouve aucune requête serait creux.
+
+    On vérifie aussi qu'il voit les requêtes des **trois** dépôts, y compris
+    celles assemblées depuis des constantes de module : c'est précisément ce
+    qu'une lecture naïve du texte source raterait.
+    """
+    par_module = {
+        str(module.relative_to(SOURCES)): requetes_du_module(module)
+        for module in modules_avec_sql()
+    }
+    total = sum(len(v) for v in par_module.values())
+    assert total >= 15, f"seulement {total} requêtes analysées : {list(par_module)}"
+    for attendu in (
+        "activites/cache.py",
+        "apprentissage/routes.py",
+        "connecteurs/openmeteo_archive.py",
+    ):
+        assert par_module.get(attendu), f"aucune requête vue dans {attendu}"
+
+
+def test_l_invariant_de_proprietaire_attrape_bien_une_requete_nue(tmp_path: Path):
+    """Contre-épreuve : on lui donne le code fautif qu'on veut qu'il refuse.
+
+    Les trois formes que le projet écrit réellement — littéral, littéraux
+    adjacents, et SQL assemblé depuis une constante de module — plus une
+    migration, qui doit rester tolérée, et une requête correcte.
+    """
+    faute = tmp_path / "fautif.py"
+    faute.write_text(
+        '_COLS = "a, b"\n'
+        "def lister(cx):\n"
+        '    cx.execute("SELECT a FROM activites WHERE debut > ?", (1,))\n'
+        "def lister_en_morceaux(cx):\n"
+        '    cx.execute("SELECT a FROM activites "\n'
+        '               "WHERE debut > ?", (1,))\n'
+        "def lister_par_constante(cx):\n"
+        '    cx.execute(f"SELECT {_COLS} FROM activites")\n'
+        "def _migrer(cx):\n"
+        '    cx.execute("SELECT a FROM activites")\n'
+        "def correcte(cx):\n"
+        '    cx.execute("SELECT a FROM activites WHERE proprietaire = ?", ("x",))\n',
+        encoding="utf-8",
+    )
+    fautives = {
+        fonction
+        for fonction, instruction in requetes_du_module(faute)
+        if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
+    }
+    assert fautives == {"lister", "lister_en_morceaux", "lister_par_constante"}

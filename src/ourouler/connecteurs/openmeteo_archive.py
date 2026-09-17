@@ -37,6 +37,7 @@ from typing import Any
 import httpx
 
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.proprietaire import PROPRIETAIRE_PARTAGE
 
 BASE_URL_DEFAUT = "https://archive-api.open-meteo.com"
 CHEMIN_ARCHIVE = "/v1/archive"
@@ -55,16 +56,19 @@ VARIABLES_HORAIRES = (
 
 DELAI_S = 60.0
 
-VERSION_SCHEMA = 1
+#: Schéma 1 : clé `(lat, lon, jour)`. Schéma 2 : la table gagne une colonne
+#: `proprietaire`, qui entre en tête de la clé primaire. Voir `_migrer`.
+VERSION_SCHEMA = 2
 
-_SCHEMA = """
+_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS archive (
-    lat        REAL NOT NULL,
-    lon        REAL NOT NULL,
-    jour       TEXT NOT NULL,
-    heures     TEXT NOT NULL,
-    obtenue_le TEXT NOT NULL,
-    PRIMARY KEY (lat, lon, jour)
+    proprietaire TEXT NOT NULL DEFAULT '{PROPRIETAIRE_PARTAGE}',
+    lat          REAL NOT NULL,
+    lon          REAL NOT NULL,
+    jour         TEXT NOT NULL,
+    heures       TEXT NOT NULL,
+    obtenue_le   TEXT NOT NULL,
+    PRIMARY KEY (proprietaire, lat, lon, jour)
 );
 """
 
@@ -98,6 +102,17 @@ class ClientArchive:
     mémorise quand même ce qu'il a demandé, mais seulement le temps du
     processus : c'est le fichier qui fait durer l'économie d'une exécution à
     la suivante.
+
+    **Le propriétaire est `PROPRIETAIRE_PARTAGE` par défaut, et c'est voulu.**
+    Le vent qu'il faisait le 12 mars à un point donné est le même pour tout le
+    monde : cette table est le seul dépôt du projet dont la donnée se mutualise
+    honnêtement entre utilisateurs (doctrine §10.1, « cache des prévisions par
+    maille et par heure, partagé entre utilisateurs »). La colonne et la clause
+    y sont quand même, pour deux raisons : elles rendent le partage **explicite**
+    au lieu de le laisser implicite dans une absence de colonne, et elles
+    évitent d'avoir à tenir une liste d'exceptions à l'invariant — une liste
+    d'exceptions se remplit toute seule. Un appelant qui voudrait un cache
+    privé passe un autre propriétaire ; rien d'autre ne change.
     """
 
     def __init__(
@@ -105,10 +120,12 @@ class ClientArchive:
         http: httpx.Client | None = None,
         base_url: str = BASE_URL_DEFAUT,
         chemin_cache: Path | None = None,
+        proprietaire: str = PROPRIETAIRE_PARTAGE,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.http = http if http is not None else httpx.Client(timeout=DELAI_S)
         self.chemin_cache = Path(chemin_cache) if chemin_cache is not None else None
+        self.proprietaire = _proprietaire_valide(proprietaire)
         self._memoire: dict[tuple[float, float, str], list[HeureArchive]] = {}
         """Mémoïsation en mémoire, doublant celle sur disque. Sans elle, une
         calibration sans fichier de cache redemandait le même jour au même
@@ -222,6 +239,7 @@ class ClientArchive:
         try:
             self.chemin_cache.parent.mkdir(parents=True, exist_ok=True)
             with self._connexion() as cx:
+                self._migrer(cx)
                 cx.executescript(_SCHEMA)
                 cx.execute(f"PRAGMA user_version = {VERSION_SCHEMA}")
         except (OSError, sqlite3.Error, ErreurUtilisateur) as e:
@@ -231,6 +249,38 @@ class ClientArchive:
                 file=sys.stderr,
             )
             self.chemin_cache = None
+
+    def _migrer(self, cx: sqlite3.Connection) -> None:
+        """Schéma 1 → 2 : la table gagne `proprietaire`, en tête de sa clé primaire.
+
+        SQLite ne sait pas modifier une clé primaire : on recopie dans une
+        table neuve, ce qui est de toute façon instantané ici (quelques
+        centaines de lignes de JSON). Les heures déjà mémoïsées sont
+        conservées telles quelles et rattachées à `PROPRIETAIRE_PARTAGE`,
+        puisque c'est bien ce qu'elles sont : des mesures publiques.
+
+        **Idempotente** : c'est la présence de la colonne qui décide, pas le
+        numéro de version (`PRAGMA user_version` vaut 0 sur un cache neuf
+        comme sur un cache antérieur au versionnement). Un cache déjà migré
+        n'est pas touché, quel que soit le nombre d'ouvertures.
+
+        Un cache plus récent que le code n'est pas une erreur ici : ce
+        fichier est une commodité, jamais une source de vérité, et
+        `_preparer_cache` sait déjà s'en passer bruyamment. On laisse donc
+        l'incompatibilité se manifester à la lecture, qui rend `None` et
+        rappelle le service.
+        """
+        if not _table_existe(cx, "archive") or _colonne_existe(cx, "archive", "proprietaire"):
+            return
+        cx.executescript(
+            f"""
+            ALTER TABLE archive RENAME TO archive_schema1;
+            {_SCHEMA}
+            INSERT OR REPLACE INTO archive (lat, lon, jour, heures, obtenue_le)
+                SELECT lat, lon, jour, heures, obtenue_le FROM archive_schema1;
+            DROP TABLE archive_schema1;
+            """
+        )
 
     @contextmanager
     def _connexion(self) -> Iterator[sqlite3.Connection]:
@@ -258,8 +308,9 @@ class ClientArchive:
         try:
             with self._connexion() as cx:
                 ligne = cx.execute(
-                    "SELECT heures FROM archive WHERE lat = ? AND lon = ? AND jour = ?",
-                    (lat, lon, jour.isoformat()),
+                    "SELECT heures FROM archive "
+                    "WHERE proprietaire = ? AND lat = ? AND lon = ? AND jour = ?",
+                    (self.proprietaire, lat, lon, jour.isoformat()),
                 ).fetchone()
         except sqlite3.Error:
             # Cache abîmé : on rappelle le service plutôt que d'échouer. Le
@@ -282,9 +333,11 @@ class ClientArchive:
         try:
             with self._connexion() as cx:
                 cx.execute(
-                    "INSERT OR REPLACE INTO archive (lat, lon, jour, heures, obtenue_le) "
-                    "VALUES (?,?,?,?,?)",
+                    "INSERT OR REPLACE INTO archive "
+                    "(proprietaire, lat, lon, jour, heures, obtenue_le) "
+                    "VALUES (?,?,?,?,?,?)",
                     (
+                        self.proprietaire,
                         lat,
                         lon,
                         jour.isoformat(),
@@ -294,6 +347,32 @@ class ClientArchive:
                 )
         except sqlite3.Error:
             return  # même raison : le cache ne doit jamais faire échouer un appel réussi
+
+
+# --- structure du cache -------------------------------------------------------
+
+
+def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
+    return (
+        cx.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
+        ).fetchone()
+        is not None
+    )
+
+
+def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
+    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
+    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
+
+
+def _proprietaire_valide(valeur: str) -> str:
+    """Un propriétaire est une chaîne non vide — voir `activites.cache` pour le pourquoi."""
+    if not isinstance(valeur, str) or not valeur.strip():
+        raise ErreurUtilisateur(
+            f"archive : propriétaire {valeur!r} invalide — une chaîne non vide est attendue"
+        )
+    return valeur.strip()
 
 
 # --- lecture de la charge JSON ------------------------------------------------

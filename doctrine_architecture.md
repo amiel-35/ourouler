@@ -199,6 +199,35 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   à une requête SQL. Le schéma de l'index local est écrit avec une colonne
   « propriétaire » en tête, pour que la migration soit un déplacement, pas
   une réécriture.
+
+  **Fait le 17/09/2026**, après constat que la règle n'était appliquée qu'à
+  `routes_connues.sqlite`, et encore : la colonne y était sans qu'aucune
+  requête ne la filtre. Les trois dépôts locaux (`index.sqlite`,
+  `archive_meteo.sqlite`, `routes_connues.sqlite`) portent désormais la
+  colonne, elle entre dans **l'identité** (clé primaire ou index unique), et
+  chaque requête de lecture comme d'écriture porte la clause. Trois points
+  décidés à cette occasion :
+
+  - **Le propriétaire entre au constructeur du dépôt, et nulle part ailleurs**
+    (`Cache(dossier, proprietaire=…)`) : exactement la position du `Path`, que
+    la ligne de commande fournit déjà et que le cœur ignore. Aucune fonction
+    du cœur ne le prononce ; en hébergé, c'est la couche web qui construira le
+    dépôt avec l'identifiant de l'utilisateur authentifié.
+  - **L'unicité d'une activité devient `(propriétaire, source,
+    id_externe|contenu)`.** Sans le propriétaire, deux utilisateurs ayant la
+    même activité Intervals — sortie en groupe, compte partagé — ne se
+    seraient pas vu refuser l'écriture : le `ON CONFLICT DO UPDATE` aurait
+    écrasé la ligne du premier, en silence.
+  - **L'archive météo porte la colonne avec la valeur `partage`**, pas un
+    identifiant d'utilisateur : la mutualisation voulue plus bas dans ce
+    paragraphe est intacte, simplement **écrite** au lieu d'être déduite d'une
+    absence de colonne — et il n'y a pas de liste d'exceptions à tenir pour
+    l'invariant, or une liste d'exceptions se remplit toute seule.
+
+  Un invariant de `tests/test_invariants.py` reconstitue le SQL de chaque
+  appel `execute` du cœur et échoue si une requête neuve oublie la clause ;
+  seules les fonctions préfixées `_migrer` en sont dispensées, puisqu'elles
+  fabriquent la colonne.
 - **Les clés d'API externes sont des données du profil, secrètes.** Clé
   Intervals, plus tard GraphHopper, Garmin : jamais en clair dans un log,
   une erreur, un JSON de sortie (`ourouler config --json` les masque déjà).
