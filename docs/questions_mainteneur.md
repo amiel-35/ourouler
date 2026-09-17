@@ -2703,3 +2703,57 @@ contributeurs distincts devra alors être **mesuré**, pas posé.
 Note d'une autre nature, indépendante de la vie privée : un tronçon roulé une
 seule fois n'est pas non plus une **preuve** qu'il est bon. Le seuil sert donc
 deux choses à la fois — et cette seconde raison-là vaut déjà aujourd'hui.
+
+
+## Q47 — Quatre arbitrages de clôture du 17/09/2026
+
+### Q37 (c) — résolu, et je l'avais mal lu
+
+> « actuellement l'IHM demande bien une durée, c'est vérifié. »
+
+**Exact.** `front/src/ecrans/Demander.tsx` envoie une **durée**, aucune
+distance ; `kmDepuisKm` n'est qu'un formateur d'affichage, et la conversion se
+fait côté serveur avec le modèle physique. Je listais cette question comme
+ouverte alors qu'elle était close depuis le lot F2.
+
+### Le frottement en Z2 — ce n'était pas un choix, c'est une incohérence
+
+> « comment, avec séance, permet de choisir un azimut ? »
+
+La question a levé ce que je m'apprêtais à faire arbitrer. **Deux chemins,
+deux règles :**
+
+- `sortie` (avec séance) : aucune direction nécessaire, le moteur **balaie les
+  huit directions** si rien n'est demandé.
+- `boucle` (sortie libre) : « `--direction N|NE|…|NO` ou un azimut en degrés
+  est **obligatoire** » (`boucle/commande.py:377`).
+
+Le bouton grisé en Z2 n'est donc pas une décision de conception mais une
+contrainte héritée d'une commande qui n'a jamais appris à balayer. **Rien à
+arbitrer : `boucle` doit se comporter comme `sortie`.**
+
+### Q31 — informatif, et ça attend des vrais Franciliens
+
+> « c'est informatif, donc pour l'instant on attend d'avoir des gens
+> d'Île-de-France, on traitera après. »
+
+La distance de dégagement urbain reste ouverte, sans travail engagé. Elle ne
+sert qu'à quelqu'un dont la ville ne se dégage pas — et il n'y en a pas
+encore. Même raison pour la question de la géographie, qui est la même prise
+par l'autre bout.
+
+### Q32 — après la V2
+
+> « on voit après V2. »
+
+Le mode circuit attend. Il dépend de [[Q31]], qui attend les mêmes gens.
+
+### Q3 — close : des seuils existent, la personnalisation est en V2
+
+> « on a déjà des seuils, non ? On n'a pas dit V2 pour permettre aux gens de
+> personnaliser ? »
+
+**Oui aux deux.** Les seuils de tenue existent et fonctionnent ; ce que la V2
+apporte est le droit pour chacun de les déplacer. C'est exactement ce que
+[[Q35]] a tranché pour `[tenue]` : valeurs par défaut en V1, édition des
+seuils en V2. Q3 n'avait donc plus de question depuis ce matin.
