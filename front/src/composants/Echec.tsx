@@ -13,7 +13,35 @@
 import type { ReactNode } from "react";
 import { ErreurApi, reessayable } from "../api/client";
 import type { Avertissement } from "../api/types";
-import { jourEnLettres } from "../api/formats";
+import { jourEnLettres, pourcentage } from "../api/formats";
+import { signe } from "./Elargissement";
+
+/** Les mesures du refus sur la distance, quand l'API les a jointes.
+ *
+ * `details` est un `Record<string, unknown>` : il faut donc vérifier, pas
+ * supposer. Une version de l'API qui ne les envoie pas doit laisser l'écran
+ * correct — d'où le `null` plutôt qu'un affichage à trous.
+ */
+export function mesuresDistance(erreur: ErreurApi): {
+  cible: number;
+  obtenue: number;
+  ecart: number;
+  requis: number;
+  plafond: number;
+} | null {
+  const details = erreur.details as Record<string, unknown> | undefined;
+  if (!details || details.motif !== "distance_inatteignable") return null;
+  const nombres = [
+    details.distance_cible_km,
+    details.distance_obtenue_km,
+    details.ecart_relatif,
+    details.elargissement_requis,
+    details.elargissement_max,
+  ];
+  if (!nombres.every((v) => typeof v === "number" && Number.isFinite(v))) return null;
+  const [cible, obtenue, ecart, requis, plafond] = nombres as number[];
+  return { cible, obtenue, ecart, requis, plafond };
+}
 
 export interface Repli {
   titre: string;
@@ -91,11 +119,28 @@ export function Echec({
 }: Props) {
   // --- E18 · échec : aucune boucle dans la tolérance de distance.
   if (erreur.code === "aucune_boucle") {
+    const mesures = mesuresDistance(erreur);
     return (
       <Cadre contexte={contexte} titre="Aucune boucle">
         <div className="encart alerte">
           <b>On n'a rien trouvé qui tienne.</b> {erreur.message}
         </div>
+        {/* Les leviers de repli étaient dessinés avec des valeurs que rien ne
+            soutenait. Ils ont maintenant leur chiffre : celui de
+            l'élargissement qu'il aurait fallu, mesuré, pas supposé (Q41 d). */}
+        {mesures ? (
+          <div className="bloc doux">
+            <div className="bloc-tete">
+              <h5>Ce qu'on a trouvé de plus proche</h5>
+            </div>
+            <p className="mention">
+              {mesures.obtenue.toFixed(1)} km pour {Math.round(mesures.cible)} km demandés
+              ({signe(mesures.ecart)}). Il aurait fallu élargir de{" "}
+              {pourcentage(mesures.requis)} ; on s'arrête à {pourcentage(mesures.plafond)},
+              au-delà on ne desserre plus votre contrainte, on en sert une autre.
+            </p>
+          </div>
+        ) : null}
         <ListeReplis replis={replis} />
         <p className="mention">
           Rien n'a été décompté de votre côté : un essai qui ne rend rien ne coûte rien.

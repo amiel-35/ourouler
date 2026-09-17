@@ -22,6 +22,7 @@ import {
 } from "../api/formats";
 import { Carte } from "../composants/Carte";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
+import { BandeauElargissement } from "../composants/Elargissement";
 
 /** Le nom de l'axe sur lequel le cœur a distingué cette proposition. */
 const AXES: Record<string, string> = {
@@ -130,6 +131,14 @@ export function Propositions({
       </div>
 
       {manque ? <BandeauMeteoAbsente phrase={manque} /> : null}
+
+      {/* L'écart à la distance demandée, quand il y en a un. Au-dessus des
+          propositions et non dans chaque carte : c'est un fait sur la
+          recherche entière, pas une propriété d'un parcours. */}
+      <BandeauElargissement
+        candidates={sortie.candidates}
+        distanceVisee={sortie.demande.distance_km}
+      />
 
       {/* Ce n'est pas une panne, et tout l'enjeu est que l'écran n'en ait pas
           l'air. Le motif vient du cœur en toutes lettres, et il porte déjà le

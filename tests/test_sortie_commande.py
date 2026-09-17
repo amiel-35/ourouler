@@ -786,7 +786,16 @@ def test_une_candidate_epouvantable_n_est_jamais_filtree(
 def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
     tmp_path: Path, monkeypatch, capsys
 ):
-    """Un anneau trop court porte la séance nulle part : il est écarté, et on dit pourquoi."""
+    """Un anneau trop court est écarté, et on dit pourquoi — jamais en silence.
+
+    **Le motif a changé le 17/09/2026 (Q41 d), pas l'exigence.** Un anneau six
+    fois trop petit ne va plus jusqu'au placement : il est refusé avant, parce
+    qu'il est trop loin de la distance demandée (−83 % pour une tolérance de
+    10 %, élargissement plafonné à 10 %). Les deux refus disent maintenant la
+    même chose au même endroit, et c'est tout l'objet de ce test : **une
+    direction écartée se dit**. Demander deux directions et n'en voir qu'une
+    sans explication serait le défaut même que ce lot corrige.
+    """
     reglages = {180.0: {"rayon_deg": RAYON_DEG / 6}}
     code = lancer(
         tmp_path, monkeypatch, brouter=moteur_brouter(reglages), candidates=2
@@ -794,7 +803,8 @@ def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
     sortie = capsys.readouterr().out
     assert code == 0
     assert "1 candidate(s) écartée(s)" in sortie
-    assert "ne tient pas sur ce tracé" in sortie
+    assert "de la distance demandée" in sortie, "le motif du refus doit être lisible"
+    assert "il aurait fallu élargir de" in sortie, "et dire de combien"
     assert len(lignes_du_tableau(sortie)) == 1
 
 
@@ -1838,5 +1848,17 @@ def test_fichier_seance_bout_en_bout_remplace_intervals(tmp_path: Path, monkeypa
     """Preuve de bout en bout via `executer` : la recherche de parcours tourne
     sur une séance de fichier sans jamais appeler Intervals.icu."""
     chemin = _ecrire_zwo_sortie(tmp_path)
-    code = lancer(tmp_path, monkeypatch, fichier_seance=str(chemin), intervals=refus_intervals())
+    # `distance=34.0` : la séance du .ZWO vaut environ 15 km, alors que l'anneau
+    # bouchonné en fait 33,9 quel que soit le rayon. Depuis Q41 (d), un tel
+    # écart (+126 %) est refusé au lieu d'être servi en silence — la boucle ne
+    # serait donc jamais construite, et le sujet du test (la séance vient d'un
+    # fichier, Intervals n'est jamais appelé) ne serait plus atteignable. La
+    # distance n'a jamais été son sujet ; on la fixe pour ne pas la subir.
+    code = lancer(
+        tmp_path,
+        monkeypatch,
+        fichier_seance=str(chemin),
+        intervals=refus_intervals(),
+        distance=34.0,
+    )
     assert code == 0

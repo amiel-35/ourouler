@@ -323,6 +323,57 @@ pour qui prépare une sortie longue.
 
 Deux lignes de JSON ont supprimé la seule arithmétique du front.
 
+## L'écart à la distance demandée est servi, et il se dit
+
+Ajouté le 17/09/2026, [[Q41]] (d). Le défaut est venu de l'usage : « j'ai
+demandé 6 h et j'ai 3 boucles de 5 h ». Le moteur **ne refusait jamais** —
+`boucle/candidates.generer` gardait la candidate la plus proche de la cible
+et la servait avec son écart, sans un mot, même à 17 % d'une tolérance réglée
+à 10 %. Mesuré sur le serveur du mainteneur le 17/09/2026 : 2 km demandés,
+2,69 km servis, soit +34,7 %, muets.
+
+Chaque entrée de `candidates[]` porte désormais trois champs de plus, sur
+`POST /sorties` comme sur `POST /boucles` :
+
+| champ | type | sens |
+|---|---|---|
+| `hors_tolerance` | booléen | la boucle n'entre pas dans la tolérance de distance demandée |
+| `elargissement` | nombre ou `null` | de combien la tolérance a dû être élargie, **par paliers de 5 %** |
+| `tolerance_distance` | nombre ou `null` | la tolérance en vigueur, pour dire « ±10 % demandés, ±20 % servis » |
+
+`ecart_relatif` existait déjà et ne change pas. `elargissement` vaut `0`
+quand la boucle tenait dans la tolérance — le cas normal, où **l'écran ne
+doit rien afficher**.
+
+**Le palier s'arrête**, sinon on finirait par servir n'importe quoi. Le
+plafond n'est pas un chiffre : c'est `tolerance_distance` réemployée comme
+unité — la bande acceptée peut au plus doubler, jamais moins d'un palier. Il
+**suit la configuration** (5 % réglés s'arrêtent à 10 %, 20 % réglés à 40 %),
+ce qu'un seuil arbitraire ne ferait pas. Justification complète dans la
+docstring de `boucle.candidates.elargissement_max`.
+
+Au-delà, l'API répond `aucune_boucle` (422) — le même code, donc le même
+écran E18 · échec — mais avec `details` rempli, pour que l'écran dise de
+combien il aurait fallu élargir au lieu d'un « réessayez » :
+
+```json
+{"erreur": {"code": "aucune_boucle", "message": "…", "service": null, "details": {
+  "motif": "distance_inatteignable",
+  "distance_cible_km": 150.0, "distance_obtenue_km": 96.4,
+  "ecart_relatif": -0.3573, "tolerance_distance": 0.1,
+  "elargissement_requis": 0.3, "elargissement_max": 0.1}}}
+```
+
+`details` peut être vide sur les autres causes d'`aucune_boucle` (aucune
+boucle bornée, séance qui n'entre sur aucune) : un client vérifie `motif`
+avant de lire les nombres.
+
+**À ne pas confondre avec `SEUIL_ECART_DUREE`** (`sortie/commande.py`), qui
+décide si l'écart de **durée d'une séance** mérite d'être affiché. Les deux
+mesurent des grandeurs différentes sur des objets différents, et une boucle
+peut très bien annoncer « tolérance élargie de 10 % » tout en ne disant rien
+sur la durée, parce que la séance tombe à 2 % près.
+
 ## Deux écarts avec le JSON de la ligne de commande
 
 Tout le reste est transmis tel quel.

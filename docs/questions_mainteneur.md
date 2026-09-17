@@ -2099,6 +2099,41 @@ que je cherchais : **on n'en fixe aucun**. On élargit par paliers de 5 %
 jusqu'à trouver, et **l'écran dit de combien il a fallu élargir**. Le chiffre
 n'est plus une constante à justifier, c'est un résultat à afficher.
 
+#### Fait le 17/09/2026
+
+**L'observation du mainteneur était juste, et le défaut est confirmé.**
+`boucle/candidates.py` gardait la candidate la plus proche de la cible et la
+servait avec son écart, sans un mot : `tolerance` ne servait qu'à arrêter
+l'affinage du rayon. Mesuré sur son serveur BRouter avant correction, sa
+tolérance étant réglée à 10 % : **2 km demandés, 2,69 km servis, +34,7 %**,
+muets.
+
+Ce qui a changé :
+
+1. Chaque candidate porte `tolerance`, `elargissement` et `hors_tolerance`,
+   rendus en JSON sur `boucle` comme sur `sortie`, et affichés en texte et à
+   l'écran. Rien ne s'affiche quand la boucle tient dans la tolérance.
+2. Le palier se **lit** sur l'écart mesuré, il ne se cherche pas : élargir la
+   tolérance ne peut rendre qu'une boucle égale ou pire, puisqu'elle arrête
+   l'affinage plus tôt. Un test le mesure plutôt que de l'affirmer (règle 5).
+3. **L'élargissement s'arrête**, et son plafond n'est pas un chiffre : c'est
+   `tolerance_distance` réemployée comme unité — la bande peut au plus
+   doubler, jamais moins d'un palier. Il suit la configuration (5 % réglés
+   s'arrêtent à 10 %, 20 % réglés à 40 %), ce qu'un seuil arbitraire ne fait
+   pas. Au-delà, le refus porte ses mesures au lieu d'un « réessayez ».
+
+Vérifié sur les vraies routes du mainteneur, où les trois régimes
+apparaissent dans l'ordre attendu : 3 km demandés sont servis dans la
+tolérance dans les huit directions ; 4 km vers le nord-ouest rendent 3,3 km,
+soit **−17 % — l'ordre de grandeur de son « 6 h demandées, 5 h servies »** —,
+désormais servis en disant « tolérance élargie de 10 %, soit ±20 % » ; 1,5 km
+sont refusés partout, le terrain ne sachant pas faire une boucle si courte.
+
+Reste ouvert, non traité ici : quand une partie seulement des directions est
+refusée, les candidates écartées disparaissent sans que rien ne le dise —
+`sortie` a `motif_deux_propositions` pour ce genre de silence, `boucle` n'a
+rien d'équivalent.
+
 ### (e) — abaisser le recouvrement, et surtout demander la météo une seule fois
 
 > « pour la météo, vu que la zone est proche, on peut pas demander une météo

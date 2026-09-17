@@ -33,6 +33,14 @@ export class ErreurApi extends Error {
   readonly code: string;
   readonly statut: number;
   readonly service: string | null;
+  /** Les mesures que la panne porte, quand elle en porte.
+   *
+   * L'API les remplit depuis le 17/09/2026 pour le refus sur la distance
+   * (Q41 d) : sans elles, E18 · échec ne pouvait dire que « réessayez ». Le
+   * type reste volontairement ouvert — c'est le `code` qui est le contrat,
+   * pas la forme des détails, et chaque écran vérifie ce qu'il lit.
+   */
+  readonly details: Record<string, unknown>;
 
   constructor(panne: Panne, statut: number) {
     super(panne.message);
@@ -40,6 +48,7 @@ export class ErreurApi extends Error {
     this.code = panne.code;
     this.statut = statut;
     this.service = panne.service;
+    this.details = panne.details ?? {};
   }
 }
 

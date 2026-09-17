@@ -221,6 +221,13 @@ export function sortie(options?: {
   propositions?: number;
   motif?: string | null;
   avertissements?: Avertissement[];
+  /** Fait servir des boucles hors de la tolérance de distance (Q41 d).
+   *
+   * Par défaut les candidates tiennent dans les 10 % : 41,3 km visés, 42,7 /
+   * 44,1 / 39,6 km rendus. C'est le cas normal, et le bandeau d'élargissement
+   * ne doit alors apparaître nulle part — ce que garde un test.
+   */
+  horsTolerance?: boolean;
 }): Enveloppe<Sortie> {
   const combien = options?.propositions ?? 3;
   const axes = ["ville", "pluie", "vent"];
@@ -229,7 +236,12 @@ export function sortie(options?: {
     "passe au large de l'averse du milieu de matinée",
     "rentre avec le vent dans le dos sur la fin",
   ];
-  const distances = [42.7, 44.1, 39.6];
+  // 41,3 km visés. Sans `horsTolerance`, les trois tiennent dans les 10 %.
+  // Avec, elles sont franchement plus courtes : 34,0 km, soit −17,7 %, qui
+  // est l'ordre de grandeur mesuré chez le mainteneur (6 h demandées, 5 h
+  // servies). Un palier de 10 % suffit à les accepter, la tolérance atteinte
+  // vaut alors ±20 %.
+  const distances = options?.horsTolerance ? [34.0, 34.9, 33.2] : [42.7, 44.1, 39.6];
   const denivele = [317, 268, 401];
   const densites = [0.234, 0.703, 0.126];
   // Les entiers que l'API sérialise depuis le 17/09/2026 (C1). Ils ne sont
@@ -304,6 +316,10 @@ export function sortie(options?: {
         distance_km: distances[i],
         denivele_m: denivele[i],
         azimut_deg: 47 + i,
+        ecart_relatif: (distances[i] - 41.3) / 41.3,
+        hors_tolerance: Boolean(options?.horsTolerance),
+        elargissement: options?.horsTolerance ? 0.1 : 0,
+        tolerance_distance: 0.1,
         couts: { km_trafic: 3.1, km_calme: 36.2, km_non_revetu: 0, score: 19.4, sens: "horaire" },
         meteo: {
           pluie_cumulee_mm: i === 1 ? 0.4 : 0,
