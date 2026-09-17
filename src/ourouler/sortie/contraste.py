@@ -736,9 +736,16 @@ def _ce_qui_les_egale(profils: list[Profil]) -> str:
 
     Deux cas, et la nuance entre les deux est vraie. Ou bien les axes sont
     **muets** : les mesures valent la même chose partout. Ou bien certains
-    varient un peu sans que personne y prenne l'avantage d'un pas entier — ce
-    n'est pas « identique », c'est « trop peu pour se dire », et on l'écrit
-    comme ça.
+    varient sans que personne y prenne l'avantage d'un pas entier sur **tous**
+    les autres — ce n'est pas « identique », c'est « personne ne s'en
+    détache », et on l'écrit comme ça.
+
+    La nuance n'est pas décorative. Sur une vraie sortie du 19/09/2026, les
+    parts de nationales valaient 17 %, 5 % et 8 % : l'écart total dépasse le
+    pas, mais les deux meilleures sont à trois points l'une de l'autre, et
+    aucune ne peut se dire celle qui évite les nationales. Écrire « elles y
+    roulent autant » serait faux ; écrire « l'une évite les nationales »
+    aussi.
     """
     muets, vivants = axes_muets(profils)
     combien = _EN_LETTRES.get(len(profils), str(len(profils)))
@@ -750,8 +757,9 @@ def _ce_qui_les_egale(profils: list[Profil]) -> str:
         return f"{identiques}."
     debut = (
         f"{_et(_NOMS_AXES[axe] for axe in vivants)} "
-        f"{_accorder(vivants, 'varie', 'varient')} un peu de l'une à l'autre, "
-        "mais d'un écart trop petit pour se dire"
+        f"{_accorder(vivants, 'varie', 'varient')} d'une boucle à l'autre, mais "
+        # « aucune » désigne les boucles, pas les axes : rien à accorder ici.
+        "aucune ne s'en détache d'une marge qui se dise"
     )
     return f"{debut}." if not muets else f"{debut}, et {identiques}."
 

@@ -2353,6 +2353,48 @@ Il est déjà mesuré et déjà affiché — il lui manque seulement d'entrer da
 qui distingue une proposition d'une autre.
 
 
+### Ce que l'implémentation a trouvé — **17/09/2026**
+
+**Livré.** `sortie.contraste` ne retient plus que le recouvrement. Vérifié sur
+le cas exact de [[Q44]] — séance du 19/09, préférence « de travers », quatre
+candidates, contre le vrai BRouter et le vrai Open-Meteo :
+
+| | avant | après |
+|---|---|---|
+| candidates générées | 4 | 4 |
+| recouvrement médian des candidates | 1,4 % | 1,4 % |
+| **propositions servies** | **2** | **3** |
+
+Les trois retenues se recouvrent de 0,55 %, 17,3 % et 2,1 % — toutes sous le
+seuil. Une seule porte une phrase (« vous rentrez avec le vent dans le dos ») ;
+les deux autres n'en portent aucune, et c'est le cas que le mainteneur a
+accepté.
+
+**Une chose à savoir sur ce que le seuil refuse maintenant qu'il est seul.**
+La mesure de [[Q44]] donne **33,2 %** de recouvrement médian à la préférence
+« rentrer avec le vent », cinq de ses six paires au-dessus de 25 %. Rien à
+corriger dans le seuil : cette préférence n'ouvre **qu'un azimut**, et
+`boucle.candidates.azimuts` élargit ce secteur sans jamais en ouvrir un
+second — les quatre candidates sont quatre variantes à 30° d'écart, la famille
+même que la mesure du 16/09 chiffre à 28 % et dont le mainteneur dit qu'elle
+va au même endroit. Le seuil fait son travail en les refusant.
+
+**Ce qui en découle, et qui n'est pas tranché** : sur « rentrer avec le vent »,
+le produit rendra souvent deux propositions au lieu de trois, en le disant.
+Si c'est gênant, le remède est du côté des **azimuts ouverts** — ouvrir un
+second secteur comme « de travers » le fait déjà — et c'est une décision de
+conception qui appartient au mainteneur, pas un réglage de seuil. Rien n'a été
+changé là.
+
+### Une piste toujours ouverte
+
+Le **dénivelé** n'est pas un axe de distinction, et ne l'est toujours pas :
+358 m sur 59,5 km et 700 m sur la même distance ne se ressemblent pas à
+rouler. Il est déjà mesuré et déjà affiché. Depuis que l'axe ne conditionne
+plus l'appartenance au trio, l'ajouter ne changerait plus le **nombre** de
+propositions — seulement la richesse des phrases. C'est un lot à part.
+
+
 ## Q44 — Deux réglages de direction qui se contredisent, et le vent qu'on ne montre pas — **17/09/2026**
 
 > « par contre, un truc sur la demande de direction avant le calcul : c'est
@@ -2518,3 +2560,25 @@ C'est le pendant exact de ce que le produit sait déjà faire quand il ne trouve
 qu'une proposition au lieu de trois — il le dit et explique pourquoi, au lieu
 de servir trois boucles qui se ressemblent. Ici il s'agit de dire l'inverse :
 **trois boucles différentes, et aucune raison de préférer l'une.**
+
+### Livré le 17/09/2026, avec [[Q43]]
+
+`contraste.Selection.motif_equivalence`, publié en JSON sous `motif_equivalence`,
+affiché par la ligne de commande, par la page du jour et par l'écran des
+propositions (sous le titre « Au choix », et non sous un avertissement : c'est
+une bonne nouvelle).
+
+Il ne sort que si **aucune** proposition ne porte de phrase : dès qu'une seule
+se détache, dire « elles se valent » serait faux, et c'est sa phrase à elle qui
+parle.
+
+**Et il se mesure, comme le reste** (règle absolue 5). Deux formulations, parce
+que deux situations différentes sont vraies :
+
+- les axes sont **muets** — « la pluie, les demi-tours et le terrain sous les
+  blocs valaient la même chose sur les trois » ;
+- ils **varient sans vainqueur** — « les nationales varient un peu de l'une à
+  l'autre, mais d'un écart trop petit pour se dire ».
+
+Confondre les deux ferait affirmer que deux boucles roulent autant sur les
+nationales alors qu'elles n'y roulent pas autant.

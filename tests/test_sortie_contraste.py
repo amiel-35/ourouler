@@ -508,8 +508,8 @@ def test_un_axe_qui_varie_trop_peu_se_dit_autrement_qu_un_axe_identique():
     )
     assert [r.axe_distinctif for r in selection.retenues] == ["", "", ""]
     motif = selection.motif_equivalence or ""
-    assert "les nationales varient un peu de l'une à l'autre" in motif
-    assert "trop petit pour se dire" in motif
+    assert "les nationales varient d'une boucle à l'autre" in motif
+    assert "aucune ne s'en détache d'une marge qui se dise" in motif
     assert "la pluie" in motif and "valaient la même chose sur les trois" in motif
 
 
