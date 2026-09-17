@@ -196,11 +196,11 @@ def test_asdict_d_une_config_expose_les_secrets_en_clair():
     assert MDP_BROUTER_SENTINELLE in a_plat
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Le masquage est aujourd'hui deux lignes inline dans cli.py:133-134. L'API est une "
-    "seconde sortie JSON de la même Config : sans fonction partagée, elle le refera ou l'oubliera.",
-)
+# Écrit en `xfail(strict=True)` par le testeur en aveugle, le masquage étant
+# alors deux lignes recopiées dans `cli.py`. La marque est tombée le
+# 17/09/2026 avec l'extraction de `config.en_dict_public` — et c'est `strict`
+# qui l'a signalé : le test s'est mis à passer, et la suite a échoué pour le
+# dire au lieu de laisser une marque périmée derrière elle.
 def test_le_masquage_des_secrets_est_une_fonction_partagee():
     """Protège E21, E12 et toute sortie JSON future (doctrine §10.1).
 

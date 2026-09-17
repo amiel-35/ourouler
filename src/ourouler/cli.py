@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from ourouler import __version__
-from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger
+from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger, en_dict_public
 from ourouler.connecteurs.geocodage import (
     LIMITE_DEFAUT,
     ClientBAN,
@@ -266,22 +266,15 @@ def ajouter_config(sous: argparse._SubParsersAction) -> None:
 def _commande_config(args: argparse.Namespace, config: Config) -> int:
     info_vitesse = _info_vitesse_compteur(config)
     if args.json:
-        import dataclasses
         import json
 
         def defaut(o):  # dates, Path
             return str(o)
 
-        d = dataclasses.asdict(config)
-        # `asdict` ignore les `__repr__` qui masquent : sans ces deux lignes,
-        # `ourouler config --json` publie la clé et le mot de passe en clair.
-        d["intervals"]["api_key"] = "***" if config.intervals.api_key else ""
-        d["brouter"]["mot_de_passe"] = "***" if config.brouter.mot_de_passe else ""
-        # `asdict` ne voit que les champs : la puissance d'endurance est une
-        # **propriété** dérivée de la position depuis la décision 7, et le
-        # front la lit dans ce JSON. Sans cette ligne, elle disparaîtrait du
-        # contrat d'API sans que rien ne le signale.
-        d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
+        # Masquage et propriétés dérivées : voir `config.en_dict_public`. Le
+        # code vivait ici ; il est passé dans `config.py` pour que l'API le
+        # partage au lieu de le réécrire.
+        d = en_dict_public(config)
         # Troisième valeur de l'écran de FTP (F1, comble C2 de
         # docs/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
         d["seance"]["vitesse_compteur"] = info_vitesse
