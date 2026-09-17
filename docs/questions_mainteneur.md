@@ -3581,3 +3581,142 @@ monde collé sur l'instrument d'un autre.
 l'ordre s'inverse (figer le Crr est le **préalable** de la masse datée), et les
 « 5 min de CdA saisonnier » de L6.2 viennent de la même campagne que les 9 min
 réfutées — **à revérifier sur la puissance mesurée avant d'être budgétées**.
+
+### Correction du 17/09 (nuit) — le remède de [[Q9]] est mesuré, et il dégrade
+
+Le lot L6.2 s'est arrêté à son tour **sans écrire de code de calibration** : la
+mesure demandée avant de livrer réfute la première de ses deux corrections et
+redimensionne la seconde. Campagne sur les vraies sorties du mainteneur, 99 RCR
+et 35 BMC, partage apprentissage/validation **par date** comme en production,
+les sorties les plus récentes jamais vues par l'ajustement.
+
+**Ce qui est mesuré, et comment.** Pour chaque variante : le pipeline complet de
+`calibrer_en_deux_passes` (échantillonnage, passe 1, détection de groupe, passe
+2), puis `valider` sur les sorties de test. L'unité servie est celle du sprint :
+`Validation.mae` est une erreur de temps **relative**, l'écart en minutes sur une
+boucle de 2 h vaut donc `mae × 120`.
+
+#### Correction 1 — Crr figé, CdA seul ajusté : **réfutée**
+
+RCR, masse 100 kg, Crr imposé et CdA seul ajusté :
+
+| Crr imposé | CdA trouvé | F@27 km/h | MAE de validation | min/2 h | biais | apparié |
+|---|---|---|---|---|---|---|
+| 0,0040 | 0,3345 | 15,42 N | 7,94 % | 9,5 | −7,94 % | 3↑/22↓ |
+| 0,0050 | 0,3165 | 15,78 N | 7,32 % | 8,8 | −7,32 % | 3↑/22↓ |
+| 0,0060 | 0,2993 | 16,17 N | 6,60 % | 7,9 | −6,60 % | 3↑/22↓ |
+| 0,0080 | 0,2694 | 17,11 N | 5,03 % | 6,0 | −4,65 % | 6↑/19↓ |
+| 0,0100 | 0,2333 | 17,82 N | 4,33 % | 5,2 | −3,04 % | 8↑/17↓ |
+| 0,0120 (borne) | 0,1976 | 18,57 N | 4,07 % | 4,9 | −1,16 % | 14↑/11↓ |
+| **libre (aujourd'hui)** | **0,2219** | **18,04 N** | **4,23 %** | **5,1** | −2,52 % | référence |
+
+**La courbe est monotone : il n'y a pas d'optimum intérieur.** Le meilleur Crr
+imposé est le plus haut que les bornes autorisent, 0,012 — c'est-à-dire
+exactement le Crr de VTT que le remède devait faire disparaître. Un Crr de
+table de surface pour du bitume (0,004 à 0,005) coûte **+3,1 à +3,7 points de
+MAE, soit +3,7 à +4,4 min sur 2 h**, et dégrade **22 sorties de validation sur
+25** (médiane −3,95 pp à 0,005).
+
+**Pourquoi le CdA n'absorbe pas, contrairement à ce qu'annonçait le commit
+`2741984`.** La colonne `F@27 km/h` le montre de face : à Crr imposé 0,005 la
+résistance totale à l'allure courante tombe à 15,78 N contre 18,04 N pour
+l'ajustement libre. Le CdA effectif ne peut pas compenser parce que les deux
+termes n'ont pas la même dépendance en vitesse — et [[Q9]] avait déjà noté que
+la puissance mesurée croît **presque linéairement** avec la vitesse sur le
+plat, ce qu'un terme en v³ ne sait pas imiter. Le biais part à −7,3 % : le
+modèle devient systématiquement **trop rapide**. En figeant le Crr on échange
+un couple indéterminé mais **juste en résistance totale** contre un couple
+identifiable et **faux** — or la résistance totale est précisément la seule
+grandeur que [[Q9]] déclarait bien mesurée.
+
+Sur le BMC la courbe n'est pas monotone (optimum vers 0,008, soit la valeur
+libre 0,00838), mais un Crr de bitume à 0,005 y coûte encore +1,0 point de MAE
+(+1,3 min/2 h), 3↑/6↓.
+
+**Et la masse datée n'y change rien** : rejoué à 93 kg de cycliste (la vraie
+masse médiane) au lieu de 100, le classement est identique et le Crr de bitume
+coûte toujours +2,7 points de MAE. Figer le Crr n'est donc **pas** le préalable
+qui débloque la masse datée de L6.1 ; c'est une régression à toutes les masses
+essayées.
+
+#### Correction 2 — CdA saisonnier : **réel, mais 1 min et non 5, et pas sur les deux vélos**
+
+Testé **sans** la correction 1, sur le schéma d'aujourd'hui (Crr libre et
+partagé, un CdA par saison, trois inconnues) — la dépendance annoncée entre les
+deux corrections n'existe pas.
+
+RCR, découpage par mois civils (avril-septembre = été) :
+
+| part de validation | n | fenêtre | CdA été | CdA hiver | écart | MAE réf. | MAE saison | gain | apparié |
+|---|---|---|---|---|---|---|---|---|---|
+| 0,25 | 25 | 10/2025 → 07/2026 | 0,2132 | 0,2358 | +10,6 % | 4,23 % | 3,66 % | +0,7 min | 17↑/8↓ |
+| 0,35 | 35 | 08/2025 → 07/2026 | 0,2162 | 0,2391 | +10,6 % | 3,99 % | 3,53 % | +0,6 min | 20↑/15↓ |
+| 0,45 | 45 | 06/2025 → 07/2026 | 0,2209 | 0,2430 | +10,0 % | 3,48 % | 3,20 % | +0,3 min | 25↑/20↓ |
+
+**Ce qui tient** : le paramètre lui-même, remarquablement stable — le CdA
+d'hiver est **10 % plus haut** que celui d'été aux trois partages, et le signe
+est le bon (des vêtements d'hiver traînent davantage). Le test apparié est
+favorable aux trois partages, et le gain **médian** par sortie vaut +0,8 pp,
+stable lui aussi, soit environ **1 min sur une boucle de 2 h**.
+
+**Ce qui ne tient pas** : les **5 minutes** annoncées. Le gain **moyen** vaut
++0,3 à +0,7 min selon le partage, et il rétrécit quand la validation s'allonge
+— signe que la moyenne est tirée par quelques sorties très fausses que la
+saison ne corrige pas. Comme les 9 minutes de la fenêtre glissante, les 5
+minutes venaient de la campagne **sans capteur**.
+
+**Et il n'y a rien à prendre sur le BMC** : +0,2 % d'écart saisonnier, gain nul
+(2,36 % → 2,37 %). Le chrono se roule l'été ; à `part_validation` 0,25 ses 9
+sorties de test sont **toutes estivales**, donc l'effet y est non seulement nul
+mais **non mesurable**. Un CdA saisonnier appliqué aux deux vélos serait, sur
+celui-là, une décoration.
+
+**Le découpage compte, et ce n'est pas la température.** Découper au
+thermomètre du tronçon plutôt qu'au calendrier donne un écart plus petit (+5 à
++8 %) et un gain plus petit (+0,1 à +0,5 min) à tous les partages. C'est
+cohérent avec l'explication « vêtements » : on s'habille par habitude et par
+saison, pas au degré près — et la densité de l'air, elle, est déjà modélisée
+par `masse_volumique_air`.
+
+#### Ce qui en découle, et ce qui se demande au mainteneur
+
+Aucune ligne de code de calibration n'a été écrite : livrer la correction 1
+aurait livré une **régression mesurée** de 3,7 à 4,4 min sur 2 h, ce que les
+règles absolues 4 et 5 interdisent de présenter comme un gain.
+
+La correction 2 survit, mais son cadrage tombe avec la correction 1 — elle n'en
+dépend pas, elle vaut 1 min et non 5, et elle ne vaut que sur un vélo. La
+réécrire seule est une **repriorisation**, pas l'exécution du lot cadré : elle
+appartient au mainteneur. Quatre questions la bloquent, et aucune n'est
+technique :
+
+1. **Où coupe la saison ?** Avril-septembre est le découpage qui mesure le
+   mieux, mais c'est un choix de produit — et une coupe franche fait sauter la
+   durée prédite d'environ une minute entre le 30 septembre et le 1ᵉʳ octobre.
+   Une transition douce, ou la tenue réellement déclarée, changeraient le
+   modèle de données.
+2. **Quel CdA sert à prédire ?** Celui de la saison de la sortie **prévue**,
+   vraisemblablement — mais c'est une notion nouvelle dans `calibration.json`.
+3. **Deux CdA par vélo dans `calibration.json`** : changement de format et de
+   version, sur un fichier que la correction 1 devait de toute façon invalider
+   et qui, la correction 1 abandonnée, reste valide tel quel.
+4. **Applique-t-on le saisonnier à un vélo où il mesure zéro ?** Sur le BMC
+   l'effet est nul et invérifiable faute de sorties d'hiver en validation.
+
+**Ce que [[Q9]] devient.** Elle reste close, et la mesure la renforce plutôt
+qu'elle ne la rouvre : la dégénérescence est réelle, mais le remède du commit
+`2741984` — figer le roulement par surface — est mesuré **plus coûteux que le
+mal** pour l'usage du produit, qui est de prédire une durée. La phrase du
+16/09 de la docstring de `physique/calibration.py` n'a donc pas à être reprise :
+elle dit que tout l'écart entre les deux vélos est passé dans le Crr, ce qui
+reste vrai, et la mesure ci-dessus ajoute seulement qu'on ne peut pas le lui
+retirer sans perdre la résistance totale.
+
+**Ce qui n'a pas été essayé, et qui reste ouvert.** Le Crr par **surface OSM
+réellement roulée**, que le commit `2741984` appelait de ses vœux : les
+`WayTags` de notre serveur BRouter portent bien `surface` et `smoothness`
+(mesuré le 16/09, voir `seance/terrain.py`), et `apprentissage/routes.py`
+sait déjà rejouer une sortie dans BRouter pour en obtenir les tags. Mais cette
+piste ne change pas le résultat ci-dessus : elle ferait varier le Crr imposé
+d'un tronçon à l'autre autour d'une valeur de bitume, et le balayage montre que
+**toute** valeur de bitume dégrade. Elle mérite d'être notée, pas budgétée.

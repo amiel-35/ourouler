@@ -444,8 +444,8 @@ l'unité que le produit sert, et c'est celle des critères d'acceptation.
 | fenêtre glissante sur la puissance d'endurance | **9 min** | aucun modèle à changer |
 | masse datée par sortie | 5 à 9 W, **qui dérive** | la série existe côté Intervals |
 | **L6.2 — la calibration identifiable** | | |
-| Crr figé par surface, CdA seul ajusté | lève la dégénérescence | invalide `calibration.json`, revalidation |
-| CdA saisonnier (vêtements) | **5 min** | dépend du précédent |
+| Crr figé par surface, CdA seul ajusté | ~~lève la dégénérescence~~ **réfuté (nuit du 17/09)** | invalide `calibration.json`, revalidation |
+| CdA saisonnier (vêtements) | ~~**5 min**~~ **≈ 1 min, un seul vélo** | ~~dépend du précédent~~ **indépendant** |
 | **L6.3 — le bug de lecture TCX** | neuf fichiers illisibles | un après-midi, indépendant |
 
 **Ordre recommandé et pourquoi — périmé, voir la correction ci-dessous.**
@@ -478,6 +478,38 @@ séquencement à reprendre avec le mainteneur avant de rouvrir L6.1. Les
 « 5 minutes » de CdA saisonnier de L6.2 viennent de la même campagne
 sans-capteur et demandent la même revérification sur la puissance mesurée
 avant d'être budgétées.
+
+**Correction du 17/09 (nuit), avant tout code écrit — L6.2 tombe à son tour.**
+La revérification demandée ci-dessus a été faite sur la puissance **mesurée**
+(« Correction du 17/09 (nuit) — le remède de [[Q9]] est mesuré, et il dégrade »
+dans `questions_mainteneur.md`, 99 sorties RCR et 35 BMC, validation par date).
+Elle réfute la première correction du lot et redimensionne la seconde :
+
+- **Crr figé par surface, CdA seul ajusté : régression mesurée.** Le balayage
+  du Crr imposé est **monotone**, sans optimum intérieur : le meilleur Crr
+  imposé est la borne haute 0,012, le Crr de VTT que le remède devait faire
+  disparaître. Un Crr de bitume (0,004 à 0,005) coûte **+3,7 à +4,4 min sur
+  2 h** et dégrade 22 sorties de validation sur 25. Le CdA effectif
+  **n'absorbe pas** le Crr figé, contrairement à ce qu'annonçait le commit
+  `2741984` : la résistance totale à 27 km/h tombe de 18,04 à 15,78 N et le
+  modèle devient systématiquement trop rapide. Rejoué à 93 kg, même classement
+  — figer le Crr n'est donc pas non plus le préalable de la masse datée.
+- **CdA saisonnier : réel, mais 1 min et non 5, et sur un seul vélo.** Le
+  paramètre est stable et bien signé (CdA d'hiver +10 % aux trois partages de
+  validation), le test apparié favorable (17↑/8↓), le gain médian +0,8 pp, soit
+  **≈ 1 min sur 2 h** — pas 5. Sur le BMC l'effet est nul (+0,2 %) et
+  **non mesurable** (ses sorties de validation sont toutes estivales). Et il
+  **ne dépend pas** de la correction précédente : il se mesure sur le schéma
+  d'aujourd'hui, Crr libre et partagé.
+
+**Les deux lots du sprint sont donc à recadrer, pas à exécuter.** Aucune ligne
+de code de calibration n'a été écrite pour L6.2 : livrer sa première correction
+aurait livré une régression mesurée. Sa seconde correction survit seule, avec un
+gain sept fois plus petit qu'annoncé et un périmètre d'un seul vélo — la réécrire
+seule est une repriorisation, pas l'exécution du lot cadré, et quatre questions
+de produit la bloquent (découpage de la saison, CdA servi à la prédiction,
+format de `calibration.json`, vélo où l'effet est nul). Elles sont posées en fin
+de `questions_mainteneur.md`.
 
 **Critères d'acceptation** (règle absolue 4) : pour L6.1 et L6.2, l'écart entre
 durée prédite et durée réelle sur les vraies sorties du mainteneur, mesuré
