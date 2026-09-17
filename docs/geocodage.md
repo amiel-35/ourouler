@@ -93,10 +93,13 @@ sans être avalée.
 
 - **Le connecteur** est `src/ourouler/connecteurs/geocodage.py` :
   `ClientBAN`, `ClientNominatim`, la fonction d'orchestration
-  `chercher_adresse()`, et le type `Candidat` (`label`, `latitude`,
-  `longitude`, `score`, `source`). Les deux clients HTTP sont injectables ;
-  aucun test n'appelle le réseau (réponses fabriquées, adresses inventées,
-  dans `tests/fixtures/geocodage/`).
+  `chercher_adresse()`, le type `Candidat` (`label`, `latitude`,
+  `longitude`, `score`, `source`, `commune`, `code_postal`) et la fonction
+  `ambiguite()`. Les deux clients HTTP sont injectables ; aucun test
+  n'appelle le réseau (réponses fabriquées, adresses inventées, dans
+  `tests/fixtures/geocodage/`). `ClientNominatim` demande
+  `addressdetails=1` : sans lui Nominatim ne rend pas la commune, et
+  `ambiguite()` refuserait alors tout résultat de repli.
 - **La commande** `ourouler geocoder "<adresse>" [--max N] [--json]`
   (`src/ourouler/geocodage/commande.py`) expose le connecteur sans jamais
   trancher entre les candidats — exactement la forme qu'une future route
@@ -104,20 +107,35 @@ sans être avalée.
 - **`--adresse-depart` était réservé à la fin de ce lot ; il a été livré par
   le lot F0.7** (17/09/2026) sur `meteo`, `boucle` et `sortie` : `cli.py`
   résout l'adresse en un `Depart` et le passe au cœur, qui ne géocode
-  toujours rien. La CLI retient le premier candidat et l'annonce ; la
-  justification et ce que l'API devra faire à la place sont dans la docstring
-  de `cli.lieu_depart`, et la question du seuil de refus dans Q34.
+  toujours rien.
+- **Une adresse ambiguë est refusée depuis le 17/09/2026** (réponse du
+  mainteneur à Q34 : « on refuse »). Ce qui est ambigu ne se mesure **pas**
+  par un écart de score : `ambiguite()` refuse quand les candidats rendus ne
+  désignent pas tous la même commune, ou quand le géocodeur ne rattache pas
+  la réponse à une commune. La CLI affiche alors les candidats, avec leur
+  commune, et sort en code 2. Le raisonnement est dans la docstring
+  d'`ambiguite()`, la décision et sa mesure dans Q34.
 
 ## Ce qui reste ouvert
 
 - **Non vérifié sur les vraies données du mainteneur** : ce lot n'a pas
   d'adresse personnelle à tester (règle absolue 1 — aucune coordonnée
   réelle dans le dépôt, y compris comme entrée d'un test manuel dont la
-  trace resterait dans l'historique). Les deux services ont été appelés une
-  fois chacun, en direct, avec des adresses génériques (« 8 bd du port »,
-  « Mairie de Rennes ») pour vérifier le format réel de réponse — jamais
-  avec une adresse du mainteneur. Une vérification avec sa vraie adresse
-  reste à faire par lui, localement, hors du dépôt.
+  trace resterait dans l'historique). Les services ont été appelés en direct
+  avec des **lieux publics** (mairies, gares, préfectures), jamais avec une
+  adresse du mainteneur, et seuls les chiffres sont reportés. Une
+  vérification avec sa vraie adresse reste à faire par lui, localement, hors
+  du dépôt.
+- **Le géocodage inverse n'existe pas.** La BAN a bien un `/reverse`, le
+  connecteur ne l'expose pas. Conséquence visible dans le front : une
+  position relevée par le navigateur reste une coordonnée affichée en
+  chiffres, sans nom de rue. À ouvrir si le nom lisible devient nécessaire —
+  il ne l'est pas pour tracer une boucle.
+- **`ambiguite()` dépend du nombre de candidats demandé.** Demander vingt
+  candidats au lieu de cinq fait apparaître des communes lointaines et mal
+  notées, donc refuse plus souvent. `cli.lieu_depart` demande toujours
+  `LIMITE_DEFAUT` ; `ourouler geocoder --max` et la route d'API laissent le
+  choix, et c'est assumé — ni l'un ni l'autre ne refuse quoi que ce soit.
 - **La migration `api-adresse.data.gouv.fr` → `data.geopf.fr`** n'a pas de
   date de bascule ferme trouvée dans la documentation consultée ; le
   connecteur pointe déjà sur la nouvelle URL, donc n'est pas concerné si

@@ -241,18 +241,66 @@ def test_sans_l_option_le_depart_est_celui_de_la_configuration():
     assert cli.lieu_depart(args_geocodage(None), config) is config.depart
 
 
-def test_une_adresse_ambigue_retient_le_premier_candidat_et_le_dit():
-    """Le cas **normal** : plusieurs communes portent la même rue.
+def test_une_adresse_dans_deux_communes_est_refusee_avec_ses_candidats(capsys):
+    """La décision Q34 : « on refuse ». Deux communes, donc aucun départ retenu.
 
-    La CLI tranche — une ligne de commande doit bien partir de quelque part —
-    mais elle l'annonce avant tout travail, avec le nombre de candidats
-    écartés et de quoi les voir.
+    Ce qui était livré avant : le premier candidat, annoncé. Le mainteneur a
+    tranché le 17/09/2026 — un premier candidat arbitraire n'est pas une
+    réponse, c'est une réponse fausse en puissance. La liste s'affiche pour que
+    l'utilisateur précise, et rien ne part.
+    """
+    flux = io.StringIO()
+    config = config_de_test()
+    with pytest.raises(ErreurUtilisateur) as echec:
+        cli.lieu_depart(
+            args_geocodage("7 rue du if"),
+            config,
+            ban=ban_repondant(_charge("ban_ambigu.json")),
+            flux=flux,
+        )
+
+    message = str(echec.value)
+    assert "ambigu\u00eb" in message
+    assert "commune" in message, "l'erreur doit dire ce qu'il faut ajouter"
+    assert config.depart.nom in message and "n'a pas servi" in message, (
+        "l'erreur doit dire que le départ configuré n'a pas remplacé l'adresse"
+    )
+
+    affiche = flux.getvalue()
+    assert "Vallombreuse" in affiche and "Hautbocage" in affiche, (
+        "les deux candidats doivent être montrés, c'est ce qui permet de préciser"
+    )
+    assert "2 communes possibles" in affiche
+
+
+def test_une_adresse_sans_commune_du_tout_est_refusee():
+    """Un seul candidat ne suffit pas : encore faut-il savoir dans quelle commune il est.
+
+    La BAN rend parfois un lieu-dit sans `city`. On ne peut alors pas vérifier
+    que la commune est franche — donc on refuse, plutôt que de retenir un
+    point qu'aucune commune ne situe.
+    """
+    with pytest.raises(ErreurUtilisateur, match="ambigu"):
+        cli.lieu_depart(
+            args_geocodage("lieu-dit du if"),
+            config_de_test(),
+            ban=ban_repondant(_charge("ban_sans_commune.json")),
+            flux=io.StringIO(),
+        )
+
+
+def test_une_adresse_franche_passe_et_le_lieu_retenu_est_annonce():
+    """L'envers du refus : une adresse complète doit **passer**, sans dialogue.
+
+    Deux candidats dans la même commune (le numéro, puis la rue) : ce n'est pas
+    une ambiguïté, deux numéros voisins ne changent pas où l'on part à vélo.
+    Le premier est retenu et annoncé avant tout appel coûteux.
     """
     flux = io.StringIO()
     retenu = cli.lieu_depart(
-        args_geocodage("7 rue du if"),
+        args_geocodage("7 rue du if 44999 vallombreuse"),
         config_de_test(),
-        ban=ban_repondant(_charge("ban_ambigu.json")),
+        ban=ban_repondant(_charge("ban_franc.json")),
         flux=flux,
     )
     assert retenu.nom == "7 Rue du If 44999 Vallombreuse"
@@ -263,8 +311,6 @@ def test_une_adresse_ambigue_retient_le_premier_candidat_et_le_dit():
     assert "7 Rue du If 44999 Vallombreuse" in message, "le lieu retenu n'est pas annoncé"
     assert "1 autre" in message, "le candidat écarté n'est pas signalé"
     assert "ourouler geocoder" in message, "rien ne dit où voir la liste complète"
-    # Le second candidat n'a pas été retenu en silence.
-    assert "Hautbocage" not in message.split("ourouler geocoder")[0]
 
 
 def test_un_resultat_nominatim_porte_l_attribution_openstreetmap():
@@ -385,9 +431,9 @@ def test_la_mise_en_garde_sur_les_routes_connues_suit_l_existence_du_cache(tmp_p
 
     flux = io.StringIO()
     cli.lieu_depart(
-        args_geocodage("7 rue du if"),
+        args_geocodage("7 rue du if 44999 vallombreuse"),
         config,
-        ban=ban_repondant(_charge("ban_ambigu.json")),
+        ban=ban_repondant(_charge("ban_franc.json")),
         avertir_routes=True,
         flux=flux,
     )
@@ -396,9 +442,9 @@ def test_la_mise_en_garde_sur_les_routes_connues_suit_l_existence_du_cache(tmp_p
     (dossier / NOM_BASE).write_bytes(b"")
     flux = io.StringIO()
     cli.lieu_depart(
-        args_geocodage("7 rue du if"),
+        args_geocodage("7 rue du if 44999 vallombreuse"),
         config,
-        ban=ban_repondant(_charge("ban_ambigu.json")),
+        ban=ban_repondant(_charge("ban_franc.json")),
         avertir_routes=True,
         flux=flux,
     )
@@ -410,9 +456,9 @@ def test_meteo_ne_previent_pas_des_routes_connues():
     """`meteo` n'affiche aucune part de kilomètres connus : l'avertissement y serait du bruit."""
     flux = io.StringIO()
     cli.lieu_depart(
-        args_geocodage("7 rue du if"),
+        args_geocodage("7 rue du if 44999 vallombreuse"),
         config_de_test(),
-        ban=ban_repondant(_charge("ban_ambigu.json")),
+        ban=ban_repondant(_charge("ban_franc.json")),
         flux=flux,
     )
     assert "routes connues" not in flux.getvalue()

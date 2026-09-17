@@ -76,7 +76,7 @@ change pas sans changer la version de l'API.
 | PATCH | `/api/v1/profil` | modifie départ, poids, FTP, position dans la zone, vélos, clé Intervals |
 | GET | `/api/v1/profil/zones` | l'escalier des zones en watts + les trois valeurs liées |
 | POST | `/api/v1/profil/zones/apercu` | recalcule les trois valeurs **sans rien stocker** |
-| GET | `/api/v1/geocodage?adresse=` | **tous** les candidats, notés — l'API ne tranche jamais |
+| GET | `/api/v1/geocodage?adresse=` | **tous** les candidats, notés, **avec leur commune** — l'API ne tranche jamais |
 | GET | `/api/v1/meteo` | pluie, vent, ressenti par direction et par heure |
 | GET | `/api/v1/seances?depuis=&jusqua=` | la semaine (défaut : 7 jours à partir d'aujourd'hui) |
 | GET | `/api/v1/seances/{jour}` | une séance, étape par étape |
@@ -95,6 +95,31 @@ change pas sans changer la version de l'API.
 serveur et durent des minutes. Ce sont des gestes d'administration ; aucun
 écran ne les demande, et les exposer ferait de l'API une console
 d'administration avant qu'elle ait des comptes.
+
+## Le géocodage : la commune, et pourquoi l'API ne refuse pas
+
+`GET /geocodage?adresse=` rend chaque candidat avec `label`, `latitude`,
+`longitude`, `score`, `source`, **`commune`** et **`code_postal`**, plus deux
+champs au niveau des données : `ambigu` (booléen) et `motif_ambiguite`
+(`communes_differentes`, `commune_absente`, ou `null`).
+
+**La commune n'est pas un ornement.** Sans elle, deux candidats se distinguent
+par un `label` qui peut être identique et par un score séparé de deux
+millièmes : le front n'a alors rien à montrer qui permette de choisir. Mesuré
+le 17/09/2026 sur la vraie BAN — une adresse sans commune rend cinq candidats
+dans cinq communes distinctes, jusqu'à 400 km d'écart.
+
+**`ambigu` n'est pas un arbitrage.** Les candidats sont rendus quand même,
+toujours, et l'API ne retire rien. C'est une information pour l'écran : redire
+la commune, ou insister sur la confirmation à l'œil. C'est l'inverse de la
+ligne de commande, qui refuse (Q34) — parce que personne n'y confirme un point
+sur une carte.
+
+**Les routes de parcours ne prennent pas d'adresse, et c'est déjà le cas.**
+`POST /sorties` et `POST /boucles` reçoivent un `depart` en **coordonnées**
+(`nom`, `latitude`, `longitude`), tranché par le front. Rien n'y géocode au vol,
+et rien n'y était à changer : la décision Q34 confirme cette forme au lieu de
+la modifier.
 
 ## Le propriétaire, dès maintenant
 

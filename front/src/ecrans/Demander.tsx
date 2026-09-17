@@ -19,9 +19,11 @@
 
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Candidat, Profil, Zones } from "../api/types";
+import type { Profil, Zones } from "../api/types";
 import { duree, heureDeRetour, kmDepuisKm, nombre, VENT_EN_TOUTES_LETTRES } from "../api/formats";
 import { aujourdhui } from "../etat/ressource";
+import { FormulaireAdresse } from "../composants/FormulaireAdresse";
+import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
 const CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
 
@@ -88,10 +90,10 @@ export function Demander({
   surChercher,
 }: Props) {
   const [texte, setTexte] = useState(texteDuree(demande.duree_min));
-  const [adresse, setAdresse] = useState("");
-  const [candidats, setCandidats] = useState<Candidat[] | null>(null);
-  const [rechercheEnCours, setRechercheEnCours] = useState(false);
-  const [pannePlace, setPannePlace] = useState<string | null>(null);
+  // « Partir d'ailleurs » est replié par défaut : le formulaire à quatre champs
+  // et sa carte prennent de la place, et la plupart des sorties partent du
+  // départ habituel.
+  const [ailleurs, setAilleurs] = useState(false);
   // Le motif de la direction recommandée n'a rien à voir avec une recherche
   // d'adresse : le mélanger ferait apparaître une phrase sur la météo sous le
   // champ « partir d'ailleurs ».
@@ -109,23 +111,6 @@ export function Demander({
 
   function changer(morceau: Partial<Demande>) {
     surDemande({ ...demande, ...morceau });
-  }
-
-  async function chercherAdresse() {
-    if (adresse.trim() === "") return;
-    setRechercheEnCours(true);
-    setPannePlace(null);
-    try {
-      const reponse = await api.geocodage(adresse);
-      setCandidats(reponse.donnees.candidats);
-      if (reponse.donnees.candidats.length === 0 && reponse.avertissements.length > 0) {
-        setPannePlace(reponse.avertissements[0]);
-      }
-    } catch (erreur) {
-      setPannePlace(erreur instanceof ErreurApi ? erreur.message : String(erreur));
-    } finally {
-      setRechercheEnCours(false);
-    }
   }
 
   async function auSec() {
@@ -317,61 +302,31 @@ export function Demander({
           value={demande.depart?.nom ?? profil.depart.nom}
           readOnly
         />
-        <div className="aide">
-          <input
-            className="saisie"
-            aria-label="Partir d'ailleurs cette fois"
-            placeholder="Partir d'ailleurs cette fois : tapez une adresse"
-            value={adresse}
-            onChange={(e) => setAdresse(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") chercherAdresse();
-            }}
-            style={{ marginTop: 6 }}
-          />
-          <button
-            type="button"
-            className="lien"
-            onClick={chercherAdresse}
-            disabled={rechercheEnCours}
-          >
-            {rechercheEnCours ? "Recherche…" : "Chercher cette adresse"}
+        {demande.depart ? (
+          <button type="button" className="lien" onClick={() => changer({ depart: null })}>
+            Revenir à mon départ habituel
           </button>
-          {demande.depart ? (
-            <button type="button" className="lien" onClick={() => changer({ depart: null })}>
-              · Revenir à mon départ habituel
-            </button>
-          ) : null}
-        </div>
-        {pannePlace ? <p className="mention">{pannePlace}</p> : null}
-        {candidats && candidats.length > 0 ? (
-          <ul className="liste-candidats">
-            {candidats.map((candidat) => (
-              <li key={`${candidat.latitude},${candidat.longitude}`}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    changer({
-                      depart: {
-                        latitude: candidat.latitude,
-                        longitude: candidat.longitude,
-                        nom: candidat.label,
-                      },
-                    });
-                    setCandidats(null);
-                    setAdresse("");
-                  }}
-                >
-                  {candidat.label}{" "}
-                  <span className="mention">
-                    · {candidat.source} · confiance {nombre(candidat.score * 100)} / 100
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
         ) : null}
+        <button
+          type="button"
+          className="lien"
+          aria-expanded={ailleurs}
+          onClick={() => setAilleurs(!ailleurs)}
+        >
+          {ailleurs ? "· Annuler" : "· Partir d'ailleurs cette fois"}
+        </button>
       </div>
+
+      {ailleurs ? (
+        <FormulaireAdresse
+          libelleConfirmation="Partir d'ici cette fois"
+          aide="Ce départ ne vaut que pour cette sortie — votre départ habituel ne bouge pas."
+          surChoix={(depart: DepartChoisi) => {
+            changer({ depart });
+            setAilleurs(false);
+          }}
+        />
+      ) : null}
 
       <button
         type="button"

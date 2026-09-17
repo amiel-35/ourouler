@@ -70,13 +70,110 @@ DELAI_S = 10.0
 
 @dataclass(frozen=True)
 class Candidat:
-    """Un candidat de géocodage. `score` n'est comparable qu'entre candidats de la même `source`."""
+    """Un candidat de géocodage. `score` n'est comparable qu'entre candidats de la même `source`.
+
+    `commune` et `code_postal` sont ce qui distingue deux candidats que le
+    `label` seul confond, et ce sur quoi repose `ambiguite()` ci-dessous. Ils
+    valent `None` quand le service ne les rend pas — un candidat sans commune
+    n'est pas une erreur, c'est une information : le géocodeur n'a pas su
+    rattacher sa réponse à une commune, et `ambiguite()` en tient compte.
+    """
 
     label: str
     latitude: float
     longitude: float
     score: float
     source: str  # "ban" ou "nominatim"
+    commune: str | None = None
+    code_postal: str | None = None
+
+
+@dataclass(frozen=True)
+class Ambiguite:
+    """Pourquoi une liste de candidats ne désigne pas un lieu, et lesquels s'opposent.
+
+    `motif` vaut `"communes_differentes"` ou `"commune_absente"` ; `communes`
+    porte les communes en présence, dans l'ordre des candidats, pour que
+    l'appelant puisse les nommer sans refaire le tri.
+    """
+
+    motif: str
+    communes: tuple[str, ...]
+
+    @property
+    def phrase(self) -> str:
+        """Une phrase courte, en français, prête à être affichée."""
+        if self.motif == "commune_absente":
+            return "le géocodeur ne rattache pas cette adresse à une commune"
+        return f"{len(self.communes)} communes possibles : {', '.join(self.communes)}"
+
+
+def _clef_commune(candidat: Candidat) -> str | None:
+    """Ce qui fait qu'un candidat est « dans la même commune » qu'un autre.
+
+    Le code postal entre dans la clef parce que deux communes homonymes
+    existent (la BAN en rend plusieurs pour un même nom) ; la casse et les
+    espaces n'y entrent pas, parce que « SAINT-…" et « Saint-… » sont la même
+    commune. Rien d'autre : ni le numéro, ni la voie — deux numéros voisins de
+    la même rue ne sont pas une ambiguïté, c'est la commune qui décide.
+    """
+    if not candidat.commune:
+        return None
+    nom = " ".join(candidat.commune.split()).casefold()
+    return f"{nom}|{(candidat.code_postal or '').strip()}"
+
+
+def ambiguite(candidats: list[Candidat]) -> Ambiguite | None:
+    """Ces candidats désignent-ils un seul lieu ? `None` si oui, un `Ambiguite` sinon.
+
+    **Aucun seuil de score n'est utilisé, et c'est le fond de la décision du
+    mainteneur sur Q34** (« on refuse », 17/09/2026). La mesure du 17/09/2026,
+    quinze requêtes sur la vraie BAN avec des lieux publics, dit pourquoi
+    aucun seuil n'est possible : l'écart de score entre les deux premiers
+    candidats vaut 0,0016 à 0,0024 quand la réponse est arbitraire (cinq
+    communes distinctes, jusqu'à 400 km d'écart) et 0,0020 quand elle est
+    juste (cinq candidats, une seule commune). Les deux intervalles se
+    recouvrent : un seuil qui refuserait le premier cas refuserait aussi le
+    second.
+
+    La commune, elle, sépare parfaitement sur ces quinze requêtes : les neuf
+    adresses complètes rendent toutes une seule commune, les six adresses sans
+    commune en rendent cinq à chaque fois. D'où la règle, qui ne mesure rien :
+
+    - **aucun candidat** : ce n'est pas une ambiguïté mais une absence, et
+      l'appelant a déjà son message (« adresse introuvable ») — `None` ;
+    - **un candidat ou plus dont la commune manque** : le géocodeur n'a pas su
+      rattacher sa réponse à une commune, on ne peut donc pas vérifier qu'elle
+      est franche — ambigu ;
+    - **des candidats dans des communes différentes** : le premier est
+      arbitraire — ambigu ;
+    - **tous dans la même commune** : sûr, l'appelant peut retenir le
+      premier ; deux numéros voisins d'une même rue ne changent pas où l'on
+      part à vélo.
+
+    **Ce dont cette règle dépend, et qui doit être dit** : du nombre de
+    candidats demandés au service. Demander vingt candidats au lieu de cinq
+    fait apparaître des communes lointaines et mal notées, donc refuse plus
+    souvent. L'appelant qui tranche (`cli.lieu_depart`) demande toujours
+    `LIMITE_DEFAUT`, c'est ce qui rend la règle reproductible.
+    """
+    if not candidats:
+        return None
+    clefs = [_clef_commune(c) for c in candidats]
+    if any(clef is None for clef in clefs):
+        return Ambiguite(
+            motif="commune_absente",
+            communes=tuple(c.commune for c in candidats if c.commune),
+        )
+    # Une commune par clef, dans l'ordre des candidats : c'est l'ordre du
+    # service, donc celui dans lequel l'appelant les affichera.
+    vues: dict[str, str] = {}
+    for candidat, clef in zip(candidats, clefs, strict=True):
+        assert clef is not None and candidat.commune is not None  # garanti ci-dessus
+        vues.setdefault(clef, candidat.commune)
+    if len(vues) <= 1:
+        return None
+    return Ambiguite(motif="communes_differentes", communes=tuple(vues.values()))
 
 
 class ClientBAN:
@@ -127,7 +224,10 @@ class ClientNominatim:
         adresse = adresse.strip()
         if not adresse:
             raise ErreurConnecteur("Nominatim : adresse vide")
-        params = {"q": adresse, "format": "jsonv2", "limit": limite}
+        # `addressdetails=1` : sans lui, Nominatim ne rend pas la commune, et
+        # `ambiguite()` refuserait alors *tout* résultat de repli faute de
+        # pouvoir vérifier qu'une seule commune est en jeu (Q34).
+        params = {"q": adresse, "format": "jsonv2", "limit": limite, "addressdetails": 1}
         # Le User-Agent est passé par requête, pas seulement à la construction
         # du client HTTP : un client injecté par un test (ou un futur
         # appelant) l'obtient quand même, la politique d'usage l'exige.
@@ -188,6 +288,8 @@ def _candidats_ban(charge: Any, url: str) -> list[Candidat]:
                     longitude=float(lon),
                     score=float(proprietes.get("score", 0.0)),
                     source="ban",
+                    commune=_texte_ou_none(proprietes.get("city")),
+                    code_postal=_texte_ou_none(proprietes.get("postcode")),
                 )
             )
         except (KeyError, TypeError, ValueError) as e:
@@ -201,6 +303,8 @@ def _candidats_nominatim(charge: Any, url: str) -> list[Candidat]:
     candidats = []
     for item in charge:
         try:
+            adresse = item.get("address")
+            adresse = adresse if isinstance(adresse, dict) else {}
             candidats.append(
                 Candidat(
                     label=str(item["display_name"]),
@@ -208,8 +312,42 @@ def _candidats_nominatim(charge: Any, url: str) -> list[Candidat]:
                     longitude=float(item["lon"]),
                     score=float(item.get("importance", 0.0)),
                     source="nominatim",
+                    commune=_commune_nominatim(adresse),
+                    code_postal=_texte_ou_none(adresse.get("postcode")),
                 )
             )
         except (KeyError, TypeError, ValueError) as e:
             raise ErreurConnecteur(f"Nominatim : candidat illisible sur {url} ({e})") from e
     return candidats
+
+
+def _texte_ou_none(valeur: Any) -> str | None:
+    """Une chaîne non vide, ou `None`. Un champ absent et un champ vide se valent ici."""
+    if valeur is None:
+        return None
+    texte = str(valeur).strip()
+    return texte or None
+
+
+#: Les clefs sous lesquelles Nominatim range ce que la BAN appelle `city`.
+#: L'ordre compte : une adresse porte souvent plusieurs de ces niveaux, et
+#: c'est le plus fin qui désigne la commune française.
+CLEFS_COMMUNE_NOMINATIM = ("city", "town", "village", "municipality")
+
+
+def _commune_nominatim(adresse: Any) -> str | None:
+    """La commune d'un résultat Nominatim, ou `None` si aucun niveau ne la donne.
+
+    Nominatim ne rend ce bloc que si la requête porte `addressdetails=1` (ce
+    que `ClientNominatim` fait, justement pour ça). Hors de France, ou en
+    pleine campagne, aucun de ces niveaux n'existe : la commune vaut alors
+    `None`, et `ambiguite()` refuse plutôt que de deviner à partir du
+    `display_name`, dont le découpage varie d'un pays à l'autre.
+    """
+    if not isinstance(adresse, dict):
+        return None
+    for clef in CLEFS_COMMUNE_NOMINATIM:
+        commune = _texte_ou_none(adresse.get(clef))
+        if commune is not None:
+            return commune
+    return None

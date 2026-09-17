@@ -13,6 +13,15 @@
     "addresstype": "building",
     "name": "",
     "display_name": "14, Elm Hollow Road, Rivermill, Testshire, ZZ9 9ZZ, Royaume-Uni",
+    "address": {
+      "house_number": "14",
+      "road": "Elm Hollow Road",
+      "town": "Rivermill",
+      "county": "Testshire",
+      "postcode": "ZZ9 9ZZ",
+      "country": "Royaume-Uni",
+      "country_code": "zz"
+    },
     "boundingbox": ["51.234", "51.235", "-0.124", "-0.123"]
   }
 ]

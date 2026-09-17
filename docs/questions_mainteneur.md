@@ -1595,7 +1595,7 @@ sous 8 km/h, et 236 tronçons sur 420 ont été retenus.
 **Décision du mainteneur** : noté pour la V2. Le cadrage du front passe avant.
 
 
-## Q34 — Une adresse sans commune donne cinq départs à égalité — **mesuré le 17/09/2026, une question**
+## Q34 — Une adresse sans commune donne cinq départs à égalité — **tranchée et livrée le 17/09/2026**
 
 Livré au lot F0.7, `--adresse-depart` retient le **premier candidat** rendu
 par le géocodeur et l'annonce sur la sortie d'erreur avant tout appel coûteux
@@ -1672,6 +1672,87 @@ commune obligatoire supprime le cas plutôt que de le gérer.
 **Ce qui tombe** : l'option (b), un seuil fixé à la main, et l'option (c),
 refuser sur les communes différentes. Ni l'une ni l'autre n'est nécessaire si
 la commune est demandée.
+
+### Ce qui a été livré (17/09/2026), et la mesure qui l'a guidé
+
+**Quinze requêtes sur la vraie BAN, lieux publics uniquement** — mairies,
+gares, préfectures, jamais une adresse du mainteneur ; comme au premier tour,
+elles ne sont pas recopiées, seuls les chiffres comptent.
+
+| forme de la requête | n | écart de score 1ᵉʳ–2ᵉ | communes distinctes |
+|---|---|---|---|
+| neuf adresses complètes (n° + voie + CP + commune) | 1 à 5 | — | **1**, les neuf fois |
+| une voie + sa commune, sans numéro | 1 | — | 1 |
+| n° + voie + CP, sans nom de commune | 1 | — | 1 |
+| une rue, sans commune ni CP | 5 | 0,0024 | **5** |
+| « place de la mairie », sans commune | 5 | 0,0016 | **5** |
+| « place de la gare », sans commune | 5 | 0,0018 | **5** |
+| une gare désignée par sa grande ville | 5 | **0,0020** | **1** |
+
+**La dernière ligne ferme définitivement l'option (b).** Une requête dont la
+réponse est *juste* a le même écart de score (0,0020) qu'une requête dont la
+réponse est *arbitraire* (0,0016 à 0,0024). Les deux intervalles ne se touchent
+pas : ils se recouvrent. Aucun seuil ne peut les séparer, et il ne s'agissait
+pas de ne pas avoir assez mesuré — la grandeur ne porte pas l'information.
+
+**La commune, elle, sépare parfaitement sur les quinze.** D'où la règle, qui
+ne mesure rien : `geocodage.ambiguite()` refuse quand les candidats rendus ne
+désignent pas tous la même commune (nom normalisé + code postal, pour séparer
+deux homonymes), ou quand l'un d'eux n'a pas de commune du tout — on ne peut
+alors pas vérifier que la réponse est franche.
+
+**Une nuance par rapport à ce qui précède, et il faut la dire.** La réponse
+ci-dessus fait tomber l'option (c) « parce que la commune est demandée ». C'est
+vrai du front, qui a un formulaire pour la demander. La ligne de commande n'en
+a pas : `--adresse-depart` prend une ligne de texte. Le test sur les communes y
+est donc la façon d'**exiger** la commune, pas une option concurrente — il
+rend le refus quand elle manque, et laisse passer quand elle est là. Ce n'est
+pas l'option (c) qui revient, c'est la décision qui s'applique à une surface
+sans formulaire.
+
+**Par surface, ce qui tourne :**
+
+- **Le front** (`front/src/composants/FormulaireAdresse.tsx`) : quatre champs
+  séparés et obligatoires, une phrase qui dit pourquoi, la liste des candidats
+  avec leur commune, **un point sur la carte à confirmer** avant que quoi que
+  ce soit soit retenu, et « Utiliser ma position » en plus. Branché sur E10
+  (assistant), E16 (« partir d'ailleurs ») et les réglages. `ChoixAdresse.tsx`,
+  le champ de texte libre, a été retiré.
+- **La géolocalisation** : proposée seulement quand le navigateur sait la
+  donner **et** que la connexion est sécurisée ; sinon une phrase dit pourquoi.
+  Le refus d'autorisation affiche « c'est votre choix » et renvoie au
+  formulaire — ce n'est pas une panne. Le point obtenu est une coordonnée :
+  faute de géocodage inverse, il s'affiche en chiffres, sans nom de rue
+  inventé.
+- **La CLI** : `--adresse-depart` ambiguë → les candidats s'affichent avec leur
+  commune, puis `ErreurUtilisateur` et code 2. Rien ne retombe sur le départ
+  configuré, et l'erreur le dit.
+- **L'API** : chaque candidat porte `commune` et `code_postal` ; la charge
+  porte `ambigu` et `motif_ambiguite`. **La route ne refuse pas** — elle rend
+  tout et fait choisir, c'est le front qui a la carte. Les routes de parcours
+  ne prenaient déjà que des coordonnées : rien à y changer.
+
+### Ce qui reste ouvert
+
+- **Le numéro obligatoire.** Les quatre champs sont obligatoires, comme
+  demandé. Aucune mesure ne soutient l'obligation du **numéro** : seule la
+  commune a été mesurée, et « place du Capitole 31000 Toulouse », sans numéro,
+  rend un seul candidat dans une seule commune. Conséquence concrète : partir
+  d'une gare ou d'une place n'est pas exprimable sans inventer un numéro. Faut-
+  il délier le numéro (obligatoires : voie, CP, commune) ?
+- **Le géocodage inverse n'existe pas** et n'a pas été ajouté. La BAN a un
+  `/reverse` ; le connecteur ne l'expose pas. Conséquence : une position du
+  téléphone n'a pas de nom lisible. À ouvrir si le nom compte — il ne compte
+  pas pour tracer une boucle.
+- **La règle dépend du nombre de candidats demandé** à la BAN. À cinq (le
+  défaut, et ce que la CLI demande toujours), la séparation est nette sur les
+  quinze requêtes. À vingt, des communes lointaines et mal notées
+  apparaîtraient et feraient refuser plus souvent. Fixe côté CLI, libre côté
+  `geocoder --max` et côté API — qui ne refusent ni l'un ni l'autre.
+- **Pas d'échappatoire en coordonnées côté CLI.** Une adresse que la BAN ne
+  sait rattacher à aucune commune est inutilisable en ligne de commande. Un
+  `--coordonnees-depart LAT,LON` la débloquerait ; il n'a pas été ajouté parce
+  que personne ne l'a demandé et que le front couvre le cas.
 
 ## Q35 — Quelles sections du TOML du serveur sont communes, et lesquelles appartiennent au cycliste — **fuite fermée le 17/09/2026, arbitrage à rendre**
 

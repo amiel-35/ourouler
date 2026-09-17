@@ -18,6 +18,7 @@ from ourouler.connecteurs.geocodage import (
     Candidat,
     ClientBAN,
     ClientNominatim,
+    ambiguite,
     chercher_adresse,
 )
 
@@ -43,6 +44,7 @@ def executer(
 
 
 def rendre_json(adresse: str, candidats: list[Candidat]) -> dict:
+    trouble = ambiguite(candidats)
     return {
         "adresse": adresse,
         "candidats": [
@@ -52,19 +54,41 @@ def rendre_json(adresse: str, candidats: list[Candidat]) -> dict:
                 "longitude": c.longitude,
                 "score": c.score,
                 "source": c.source,
+                "commune": c.commune,
+                "code_postal": c.code_postal,
             }
             for c in candidats
         ],
+        # Ce que le front doit savoir pour décider s'il fait confirmer sur la
+        # carte ou s'il redemande la commune. **Ce n'est pas un arbitrage** :
+        # les candidats sont rendus quand même, l'API ne tranche jamais (Q34).
+        "ambigu": trouble is not None,
+        "motif_ambiguite": None if trouble is None else trouble.motif,
     }
 
 
 def rendre_texte(adresse: str, candidats: list[Candidat]) -> str:
+    """La liste des candidats. **Cette commande ne refuse jamais** : elle est là pour montrer.
+
+    C'est `--adresse-depart` qui refuse une adresse ambiguë (Q34) ; `ourouler
+    geocoder` est précisément l'outil qu'on lance ensuite pour voir ce qui
+    s'oppose. Elle le dit en une ligne, elle ne le sanctionne pas.
+    """
     if not candidats:
         return f"aucune adresse trouvée pour « {adresse} »"
     lignes = [f"{len(candidats)} candidat(s) pour « {adresse} » :"]
     for i, c in enumerate(candidats, start=1):
+        ou = c.commune or "commune inconnue"
+        if c.code_postal:
+            ou += f" {c.code_postal}"
         lignes.append(
-            f"  {i}. {c.label} — {c.latitude:.5f}, {c.longitude:.5f} "
-            f"(score {c.score:.2f}, {c.source})"
+            f"  {i}. {c.label} — {ou} — {c.latitude:.5f}, {c.longitude:.5f} "
+            f"(score {c.score:.4f}, {c.source})"
+        )
+    trouble = ambiguite(candidats)
+    if trouble is not None:
+        lignes.append(
+            f"adresse ambiguë — {trouble.phrase} ; "
+            "--adresse-depart la refuserait, réécrire avec la commune et le code postal"
         )
     return "\n".join(lignes)

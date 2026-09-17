@@ -37,7 +37,12 @@ def client_ban_avec(candidats: list[Candidat]) -> ClientBAN:
         "features": [
             {
                 "geometry": {"coordinates": [c.longitude, c.latitude]},
-                "properties": {"label": c.label, "score": c.score},
+                "properties": {
+                    "label": c.label,
+                    "score": c.score,
+                    "city": c.commune,
+                    "postcode": c.code_postal,
+                },
             }
             for c in candidats
         ]
@@ -103,7 +108,13 @@ def test_executer_texte_adresse_introuvable_message_clair(capsys):
 
 
 def test_executer_json(capsys):
-    ban = client_ban_avec([Candidat("7 Rue du If 44999 Vallombreuse", 0.1, 0.2, 0.83, "ban")])
+    ban = client_ban_avec(
+        [
+            Candidat(
+                "7 Rue du If 44999 Vallombreuse", 0.1, 0.2, 0.83, "ban", "Vallombreuse", "44999"
+            )
+        ]
+    )
     code = executer(args(adresse="7 rue du if", json=True), config_de_test(), ban=ban)
     assert code == 0
     charge = json.loads(capsys.readouterr().out)
@@ -116,8 +127,12 @@ def test_executer_json(capsys):
                 "longitude": 0.2,
                 "score": 0.83,
                 "source": "ban",
+                "commune": "Vallombreuse",
+                "code_postal": "44999",
             }
         ],
+        "ambigu": False,
+        "motif_ambiguite": None,
     }
 
 
@@ -142,7 +157,12 @@ def test_rendre_texte_liste_vide():
 
 
 def test_rendre_json_liste_vide():
-    assert rendre_json("adresse fantôme", []) == {"adresse": "adresse fantôme", "candidats": []}
+    assert rendre_json("adresse fantôme", []) == {
+        "adresse": "adresse fantôme",
+        "candidats": [],
+        "ambigu": False,
+        "motif_ambiguite": None,
+    }
 
 
 @pytest.mark.parametrize("json_actif", [True, False])
