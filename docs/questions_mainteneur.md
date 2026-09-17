@@ -2438,19 +2438,29 @@ jamais 180° d'écart. Garder un seul azimut aurait entassé toutes les
 candidates d'un côté tout en annonçant deux directions.
 
 La génération fait maintenant **un appel par azimut**, les candidates réparties
-en parts aussi égales que possible. Vérifié contre le vrai BRouter et le vrai
-Open-Meteo, séance du 19/09, vent 15,8 km/h de 235°, quatre candidates :
+en parts aussi égales que possible.
 
-| | |
-|---|---|
-| azimuts ouverts | 325° et 145° (opposés à 180°) |
-| azimuts obtenus | 345°, 165°, 325°, 145° — **deux de chaque côté** |
-| recouvrement entre côtés | 0,4 %, 0,4 %, 0,6 %, 2,1 % |
-| recouvrement au sein d'un côté | 17,1 % et 26,3 % |
+**Vérifié contre le vrai BRouter et le vrai Open-Meteo**, séance du 19/09 à
+15 h, vent 15,8 km/h de 235°, quatre candidates par préférence. Recouvrement
+mesuré avec la métrique du produit (`recouvrement_max`, celle que borne
+`SEUIL_RECOUVREMENT`), sur les six paires :
 
-La mesure du 16/09 se reproduit donc sur une génération réelle : deux azimuts
-opposés ne partagent quasiment rien, deux azimuts voisins de 20° partagent un
-quart de leurs routes.
+| préférence | azimuts ouverts | azimuts obtenus | médiane | min | max |
+|---|---|---|---|---|---|
+| rentrer avec (retour-dos) | 235° | 275, 235, 255, 215 | **33,2 %** | 13,9 % | 43,3 % |
+| partir avec (depart-dos) | 55° | 55, 75, 95, 35 | **8,6 %** | 3,8 % | 46,4 % |
+| de travers | 325° **et** 145° | 345, 165, 325, 145 | **1,4 %** | 0,4 % | 26,3 % |
+
+**La répartition tient : deux candidates de chaque côté.** Et le détail du
+travers reproduit exactement la mesure du 16/09 — les quatre paires qui
+enjambent les deux azimuts valent 0,4 %, 0,4 %, 0,6 % et 2,1 %, tandis que les
+deux paires restées du même côté (20° d'écart) valent 17,1 % et 26,3 %.
+
+La conclusion du mainteneur est donc confirmée sur une génération réelle : la
+préférence qui contraint le moins l'azimut produit les propositions les plus
+différentes, d'un facteur ~24 sur la médiane par rapport à « rentrer avec ».
+Et « rentrer avec » est bien le pire cas : cinq de ses six paires dépassent le
+seuil de 25 %.
 
 **Mais le gain n'arrive pas jusqu'au cycliste, et ce n'est pas le vent qui
 bloque.** Sur cette même génération, les quatre candidates — dont quatre
