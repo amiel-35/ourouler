@@ -3167,3 +3167,23 @@ l'estimation sous une quinzaine de watts ne sert à rien. L'effort utile est
 ailleurs — d'abord la fenêtre glissante (9 min pour zéro code), puis le CdA
 saisonnier (5 min), puis rien. Et le facteur ajustable de [[Q50]] absorbe de
 toute façon ce qui reste, y compris la chaîne sale.
+### Une frontière : on ne demande pas le matériel, et on n'évalue pas les vélos
+
+Tranché par le mainteneur le 17/09, question fermée :
+
+> non ça vaut pas la peine, ça change tout le temps. Ça sert […] à regarder le
+> potentiel d'un vélo, c'est pas le but du produit.
+
+Deux raisons, et la seconde est la plus importante :
+
+1. **Ça change tout le temps.** Pneus, pression, propreté de la transmission,
+   casque, vêtement : un formulaire figerait ce qui varie d'une sortie à
+   l'autre, et personne ne le tiendrait à jour.
+2. **Ce n'est pas le produit.** Le CdA et le Crr existent dans ce dépôt pour
+   **dériver une vitesse**, pas pour évaluer un vélo. Comparer des roues,
+   chiffrer ce que rapporterait un cadre, mesurer le potentiel d'une machine :
+   tout cela est intéressant et étranger à « où rouler aujourd'hui ».
+
+**À l'attention du prochain agent** : voir passer `cda_m2` et `crr` dans
+`physique/` n'autorise pas à proposer un comparateur de matériel. L'incertitude
+matérielle est absorbée par le facteur ajustable de [[Q50]], jamais interrogée.
