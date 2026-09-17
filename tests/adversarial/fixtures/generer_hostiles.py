@@ -6,7 +6,8 @@ manifestement inventé au milieu du Pacifique (0.0, 179.9). Aucun nom, aucune
 clé, aucun identifiant appartenant au mainteneur.
 
 Les fichiers ne sont **pas** versionnés en binaire : `.gitignore` ignore tout
-`*.fit`/`*.gpx`/`*.tcx` et ne réintègre que `tests/fixtures/**`. C'est donc ce
+`*.fit`/`*.gpx`/`*.tcx` et ne réintègre nommément que les quelques fixtures de
+`tests/fixtures/activites/`, jamais ce dossier-ci. C'est donc ce
 script qui est versionné, et les tests le déroulent dans un `tmp_path` de
 session (voir `tests/adversarial/conftest.py`). Avantage secondaire : pas de
 fixture binaire qui se périme en silence.

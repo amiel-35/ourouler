@@ -306,7 +306,7 @@ def test_le_detecteur_de_coordonnees_fonctionne():
 
 
 def test_aucun_fichier_d_activite_hors_des_fixtures():
-    """`.gitignore` ne réintègre que `tests/fixtures/**` : ailleurs, rien de binaire.
+    """`.gitignore` ne réintègre nommément que quelques fixtures : ailleurs, rien de binaire.
 
     Les fichiers hostiles de ce dossier sont générés dans un `tmp_path`, jamais
     déposés à côté des tests.
