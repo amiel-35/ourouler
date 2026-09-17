@@ -1827,6 +1827,25 @@ départ, vélo, Intervals, récapitulatif.
    décider s'il appartient au profil du cycliste ou au compte (Q35 : ce n'est
    pas la même table).
 
+### Réponse du mainteneur (17/09/2026) — il n'y a pas d'étape « identité » séparée
+
+> « pour moi nom prénom adresse FTP etc., ça fait partie de l'identité de la
+> création et édition de compte user, non ? »
+
+**Oui, et ça dissout la question plutôt que d'y répondre.** Il n'y a pas une
+étape « identité » d'un côté et des étapes techniques de l'autre :
+**l'assistant *est* la création du profil**, et tout ce qu'il demande — nom,
+prénom, adresse, FTP, vélo, clé Intervals — appartient au même objet.
+
+Ce qui reste à faire est donc du travail, pas un arbitrage : `Config` n'a
+aucun champ où ranger un nom ni un prénom, et `CHAMPS_MODIFIABLES` de l'API
+n'en connaît aucun — un `PATCH` serait refusé par construction. C'est pour ça
+que le front n'a pas livré l'écran, et il avait raison de ne pas inventer un
+champ.
+
+**Et l'âge n'y est plus** ([[Q39]]) : l'étape porte nom, prénom et poids, le
+poids étant le seul des trois dont le modèle physique se serve aujourd'hui.
+
 ## Q37 — Les sept promesses des maquettes que l'API ne tient pas, et qui demandent chacune un arbitrage
 
 Contexte : les 105 tests de contrat écrits en aveugle du code de l'API ont été
