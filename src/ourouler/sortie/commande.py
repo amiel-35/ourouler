@@ -1719,6 +1719,17 @@ def _propositions_json(contexte: _Contexte) -> list[dict]:
                     if profil.densite_marqueurs_km is None
                     else round(profil.densite_marqueurs_km, 3)
                 ),
+                # **Les entiers, et pas seulement la densité** (ajouté le
+                # 17/09/2026). `contraste.Profil` les porte depuis le sprint 3
+                # — « affiché tel quel : 28 feux, 20 stops » — mais seule la
+                # densité sortait en JSON, si bien que le front les retrouvait
+                # en multipliant par la distance : exactement le geste que le
+                # commentaire de `contraste.py` nomme comme le piège à éviter.
+                # La densité est arrondie à trois décimales, donc ce produit
+                # s'efface au-delà de 100 km (relecture F2 · C1). Les rendre
+                # supprime la seule arithmétique du front.
+                "feux": profil.feux,
+                "stops": profil.stops,
                 "part_trafic": (
                     None if profil.part_trafic is None else round(profil.part_trafic, 4)
                 ),

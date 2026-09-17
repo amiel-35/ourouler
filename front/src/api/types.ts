@@ -9,11 +9,29 @@
  * « on ne sait pas », et l'interface doit pouvoir le distinguer aussi.
  */
 
+/**
+ * Un avertissement de l'API : **un code qu'on teste, un message qu'on affiche**.
+ *
+ * Le code vient de `api/erreurs.CODES_AVERTISSEMENT`, publié dans
+ * `/openapi.json`. Il n'a pas toujours existé : jusqu'au 17/09/2026,
+ * `avertissements` était une liste de chaînes, et le bandeau « Pas de météo »
+ * se décidait en cherchant le mot « météo » dans une prose que
+ * `docs/ux/api_contrat.md` déclare reformulable. Aucun écran ne lit plus une
+ * phrase pour en déduire un état.
+ *
+ * `code` vaut `"autre"` pour ce que le catalogue ne nomme pas encore : on
+ * affiche alors le message sans rien en conclure.
+ */
+export interface Avertissement {
+  code: string;
+  message: string;
+}
+
 /** L'enveloppe de toute route qui calcule. */
 export interface Enveloppe<T> {
   proprietaire: string;
   donnees: T;
-  avertissements: string[];
+  avertissements: Avertissement[];
   duree_ms: number;
   budget: Budget;
 }
@@ -289,8 +307,19 @@ export interface Proposition {
   depassement_seance_s: number | null;
   demi_tours: number;
   pluie_mm: number | null;
-  /** Arrêts au kilomètre. Le compte absolu s'en retrouve, voir `formats.ts`. */
+  /** Arrêts au kilomètre — l'axe de contraste « ville », pas un affichage. */
   densite_marqueurs_km: number | null;
+  /**
+   * Feux et stops en **nombre absolu**, tels que le cœur les compte.
+   *
+   * Sérialisés depuis le 17/09/2026. Avant, le front les retrouvait en
+   * multipliant `densite_marqueurs_km` par la distance — le geste exact que
+   * `sortie/contraste.py` nomme comme le piège à éviter, et qui effaçait le
+   * chiffre au-delà de 100 km parce que la densité est arrondie à trois
+   * décimales.
+   */
+  feux: number | null;
+  stops: number | null;
   part_trafic: number | null;
   orientation_vent: string | null;
   note_terrain: number | null;

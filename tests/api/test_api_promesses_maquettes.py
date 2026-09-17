@@ -393,15 +393,6 @@ def test_une_proposition_porte_la_geometrie_de_son_trace():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Vérifié le 17/09/2026 sur une génération complète : le JSON n'expose que "
-    "`densite_marqueurs_km`, jamais un compte absolu. Les maquettes le signalent elles-mêmes "
-    "sous E14 (« le compte de feux existe en texte ; le JSON n'expose qu'une densité »), et "
-    "combler le trou veut dire que le **cœur** compte et publie — pas que l'API multiplie une "
-    "densité par une distance, ce qui referait un calcul du cœur avec l'arrondi en prime. "
-    "Q36 de docs/questions_mainteneur.md.",
-)
 def test_le_compte_de_feux_est_un_nombre_absolu_et_pas_une_densite():
     """Protège E14 et E19, où « 10 feux » est l'un des quatre chiffres retenus.
 
@@ -411,6 +402,13 @@ def test_le_compte_de_feux_est_un_nombre_absolu_et_pas_une_densite():
     kilomètre" : sur 100 km, personne ne croise 170 feux. » Laisser le front
     multiplier la densité par la distance lui ferait refaire un calcul du
     cœur, avec l'arrondi en prime.
+
+    **`xfail` levé le 17/09/2026.** Ce test décrivait un trou, et il disait
+    déjà comment le combler : « le **cœur** compte et publie — pas l'API qui
+    multiplie une densité par une distance ». C'est ce qui a été fait :
+    `contraste.Profil` portait `feux` et `stops` depuis le sprint 3 sans
+    jamais les sérialiser, `sortie/commande.rendre_json` les rend maintenant.
+    Le front, lui, a cessé de multiplier (relecture F2 · C1).
     """
     client = _client_de_parcours()
 

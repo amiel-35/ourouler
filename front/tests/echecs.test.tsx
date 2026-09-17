@@ -7,11 +7,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ErreurApi } from "../src/api/client";
-import { Echec } from "../src/composants/Echec";
+import { Echec, meteoManquante } from "../src/composants/Echec";
 import { Barriere } from "../src/composants/Barriere";
 import { Propositions } from "../src/ecrans/Propositions";
 import { Aujourdhui } from "../src/ecrans/Aujourdhui";
-import { sortie } from "./fixtures";
+import { App } from "../src/App";
+import { Serveur, panne } from "./serveur";
+import { PROFIL, SEMAINE, SYSTEME, sortie } from "./fixtures";
 
 function erreur(code: string, message: string, statut = 502) {
   return new ErreurApi({ code, message, service: null, details: {} }, statut);
@@ -40,7 +42,20 @@ describe("aucune boucle trouvée", () => {
 });
 
 describe("clé Intervals révoquée", () => {
-  it("dit la date du dernier succès et ce qui marche encore", () => {
+  /**
+   * **Ce test gravait un défaut d'affichage** (corrigé le 17/09/2026).
+   *
+   * Il attendait `/plus lues depuis le 2026-09-12/`, c'est-à-dire la date ISO
+   * telle qu'elle sort de l'API, affichée telle quelle au cycliste. La
+   * maquette E15 fait pourtant de cette phrase le point de l'écran : « la date
+   * compte plus que le message — “plus lues depuis le 12 septembre” dit à
+   * quelqu'un ce qu'il a manqué ». Le test ne gardait pas l'exigence, il
+   * figeait l'écart avec elle (relecture F2 · C2).
+   *
+   * Il attend maintenant la date en toutes lettres, et refuse explicitement la
+   * forme ISO — sans quoi rien n'empêcherait d'y revenir.
+   */
+  it("dit la date du dernier succès en toutes lettres, et ce qui marche encore", () => {
     render(
       <Echec
         erreur={erreur("intervals_refuse", "Intervals.icu : HTTP 403")}
@@ -49,8 +64,21 @@ describe("clé Intervals révoquée", () => {
       />,
     );
     expect(screen.getByText(/ne nous répond plus/)).toBeTruthy();
-    expect(screen.getByText(/plus lues depuis le 2026-09-12/)).toBeTruthy();
+    expect(screen.getByText(/plus lues depuis le samedi 12 septembre/)).toBeTruthy();
+    expect(screen.queryByText(/2026-09-12/)).toBeNull();
     expect(screen.getByText(/demander un parcours à la main/)).toBeTruthy();
+  });
+
+  /** C11 : le cadre titrait « Cette semaine » même sous l'onglet du jour. */
+  it("se titre d'après l'écran où la panne est arrivée", () => {
+    render(
+      <Echec
+        erreur={erreur("intervals_refuse", "Intervals.icu : HTTP 403")}
+        contexte="Aujourd'hui"
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Aujourd'hui" })).toBeTruthy();
+    expect(screen.queryByText("Cette semaine")).toBeNull();
   });
 
   it("n'invente aucune date quand le navigateur n'en a pas", () => {
@@ -73,7 +101,12 @@ describe("météo indisponible", () => {
 
   it("dégradé : le parcours reste servi, la météo est signalée absente", () => {
     const reponse = sortie({
-      avertissements: ["météo indisponible (Open-Meteo : HTTP 502) — le placement reste valable"],
+      avertissements: [
+        {
+          code: "meteo_indisponible",
+          message: "météo indisponible (Open-Meteo : HTTP 502) — le placement reste valable",
+        },
+      ],
     });
     render(
       <Aujourdhui
@@ -178,5 +211,93 @@ describe("la barrière de dernier recours", () => {
     );
     expect(screen.getByText("tout va bien")).toBeTruthy();
     expect(screen.queryByText(/n'a pas su s'afficher/)).toBeNull();
+  });
+});
+
+describe("une panne au démarrage ne fige pas l'application", () => {
+  /**
+   * B2 : `zones.erreur` n'était consulté nulle part, alors que l'affichage
+   * est interdit tant que les zones ne sont pas chargées. Une panne de
+   * `/profil/zones` laissait donc « Connexion au serveur… » **pour
+   * toujours** : pas de code, pas de bouton, pas de barre d'onglets. C'est
+   * l'écran muet que la section « Quand ça casse » des maquettes interdit,
+   * dans sa forme la plus nue — rien n'y distingue un serveur en panne d'une
+   * application cassée, et le seul geste restant était le rechargement, que
+   * l'écran d'attente prend soin de déconseiller.
+   */
+  it("nomme la panne de /profil/zones au lieu d'attendre indéfiniment", async () => {
+    const serveur = new Serveur({
+      "/api/v1/systeme": { charge: SYSTEME },
+      "/api/v1/profil/zones": panne("erreur_interne", "zones : la table est vide", 500),
+      "/api/v1/profil": { charge: PROFIL },
+      "/api/v1/seances": { charge: SEMAINE },
+    });
+    serveur.installer();
+    render(<App />);
+
+    expect(await screen.findByText(/zones : la table est vide/)).toBeTruthy();
+    expect(screen.getByText(/Code de la panne : erreur_interne/)).toBeTruthy();
+    expect(screen.queryByText("Connexion au serveur…")).toBeNull();
+  });
+
+  /**
+   * Le bouton n'apparaît que pour une panne dont on peut espérer qu'elle
+   * passe : proposer « Réessayer » sur un bug du serveur serait promettre au
+   * cycliste que le geste sert à quelque chose. `reessayable` en tient la
+   * liste ; ce test vérifie que la panne rattrapable, elle, l'offre bien.
+   */
+  it("offre le geste suivant quand la panne est de celles qui passent", async () => {
+    const serveur = new Serveur({
+      "/api/v1/systeme": { charge: SYSTEME },
+      "/api/v1/profil/zones": panne(
+        "service_externe_indisponible",
+        "le service des zones ne répond pas",
+        502,
+      ),
+      "/api/v1/profil": { charge: PROFIL },
+      "/api/v1/seances": { charge: SEMAINE },
+    });
+    serveur.installer();
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: "Réessayer" })).toBeTruthy();
+    expect(screen.queryByText("Connexion au serveur…")).toBeNull();
+  });
+});
+
+describe("le bandeau météo se décide sur le code, jamais sur la phrase", () => {
+  /**
+   * L'invariant de B3, et la raison d'être du code dans `avertissements`.
+   *
+   * Avant le 17/09/2026, `meteoManquante` testait `/m[ée]t[ée]o/i` sur le
+   * message. Le jour où quelqu'un reformulait l'avertissement du cœur en
+   * « Open-Meteo injoignable » — ce que `docs/ux/api_contrat.md` autorise
+   * explicitement — le bandeau disparaissait en silence, et il restait un
+   * parcours servi sans pluie, sans vent et sans la phrase qui dit pourquoi.
+   *
+   * Les trois cas ci-dessous sont exactement ceux que l'ancienne expression
+   * régulière ratait, dans un sens ou dans l'autre.
+   */
+  it("reconnaît un avertissement reformulé, sans le mot « météo »", () => {
+    expect(
+      meteoManquante([{ code: "meteo_indisponible", message: "Open-Meteo injoignable" }]),
+    ).toBe("Open-Meteo injoignable");
+  });
+
+  it("ne déclenche rien sur un avertissement qui parle de météo sans en être un", () => {
+    expect(
+      meteoManquante([
+        {
+          code: "second_avis_indisponible",
+          message: "second avis « icon » indisponible — confiance « inconnu » partout",
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("ignore un avertissement que le catalogue ne nomme pas encore", () => {
+    expect(
+      meteoManquante([{ code: "autre", message: "une phrase imprévue au sujet de la météo" }]),
+    ).toBeNull();
   });
 });

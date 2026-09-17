@@ -12,6 +12,7 @@
  */
 
 import type {
+  Avertissement,
   Boucle,
   Budget,
   Enveloppe,
@@ -219,7 +220,7 @@ export const SEMAINE: Enveloppe<Semaine> = {
 export function sortie(options?: {
   propositions?: number;
   motif?: string | null;
-  avertissements?: string[];
+  avertissements?: Avertissement[];
 }): Enveloppe<Sortie> {
   const combien = options?.propositions ?? 3;
   const axes = ["ville", "pluie", "vent"];
@@ -231,6 +232,12 @@ export function sortie(options?: {
   const distances = [42.7, 44.1, 39.6];
   const denivele = [317, 268, 401];
   const densites = [0.234, 0.703, 0.126];
+  // Les entiers que l'API sérialise depuis le 17/09/2026 (C1). Ils ne sont
+  // volontairement **pas** le produit `densité × distance` : le front ne doit
+  // plus retrouver ce chiffre par un calcul, et une fixture cohérente avec
+  // l'ancien produit laisserait passer un retour en arrière sans le voir.
+  const feux = [11, 34, 6];
+  const stops = [7, 19, 3];
   return {
     proprietaire: "essai",
     donnees: {
@@ -283,6 +290,8 @@ export function sortie(options?: {
         demi_tours: 0,
         pluie_mm: i === 1 ? 0.4 : 0,
         densite_marqueurs_km: densites[i],
+        feux: feux[i],
+        stops: stops[i],
         part_trafic: 0.0713 + i / 100,
         orientation_vent: ["travers", "depart-dos", "retour-dos"][i],
         note_terrain: 0,

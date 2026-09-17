@@ -30,7 +30,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from ourouler import __version__
 from ourouler.api import vues
-from ourouler.api.adaptateur import Budgets, executer_commande, namespace
+from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
 from ourouler.api.depots import (
     DepotFichiers,
     DepotProfils,
@@ -38,7 +38,7 @@ from ourouler.api.depots import (
     JournalServices,
     schema_des_modifications,
 )
-from ourouler.api.erreurs import ErreurApi, classer, secrets_de
+from ourouler.api.erreurs import ErreurApi, classer, classer_avertissement, secrets_de
 from ourouler.api.modeles import (
     ApercuZones,
     DemandeBoucle,
@@ -437,9 +437,12 @@ def geocoder(
         # Zéro candidat **n'est pas une panne** — les services ont répondu —
         # mais l'écran d'échec « adresse introuvable » a besoin d'une phrase,
         # et une liste vide n'en est pas une.
+        phrase = (
+            f"aucune adresse trouvée pour « {adresse} » — préciser la commune ou le code postal"
+        )
         charge["avertissements"] = [
             *charge["avertissements"],
-            f"aucune adresse trouvée pour « {adresse} » — préciser la commune ou le code postal",
+            Avertissement(code=classer_avertissement(phrase), message=phrase).charge(),
         ]
     return charge
 

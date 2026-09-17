@@ -113,7 +113,7 @@ export function Aujourdhui({
               </span>
             ) : null}
             {(() => {
-              const arrets = compteArrets(retenue.densite_marqueurs_km, candidate.distance_km);
+              const arrets = compteArrets(retenue.feux, retenue.stops);
               return arrets === null ? null : (
                 <span>
                   <b>{nombre(arrets)}</b> feux et stops

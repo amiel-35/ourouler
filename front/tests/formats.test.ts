@@ -1,9 +1,10 @@
 /** Les mises en forme, et surtout celle qui pourrait mentir.
  *
- * `compteArrets` est la seule fonction du front qui calcule au lieu de
- * transcrire : le JSON n'expose qu'une densité au kilomètre, l'affichage doit
- * montrer un nombre absolu. Le test vérifie qu'elle rend bien l'entier
- * d'origine, et qu'elle **se tait** quand le compte ne retombe pas juste.
+ * **Le front ne calcule plus rien** (17/09/2026). `compteArrets` était la
+ * seule fonction qui calculait au lieu de transcrire : elle multipliait la
+ * densité au kilomètre par la distance pour retrouver le nombre absolu de
+ * feux et stops. L'API sérialise maintenant ces entiers, et il ne reste
+ * qu'une somme — voir la description du groupe ci-dessous.
  */
 
 import { describe, expect, it } from "vitest";
@@ -13,28 +14,40 @@ import { minutesDe, texteDuree } from "../src/ecrans/Demander";
 import { phraseBudget } from "../src/composants/Attente";
 import { budget } from "./fixtures";
 
+/**
+ * **Ces tests gardaient une multiplication qui n'a plus lieu d'être** (C1).
+ *
+ * Ils vérifiaient que `compteArrets(densité, distance)` retrouvait l'entier
+ * que le cœur avait divisé, et qu'elle se taisait quand le produit ne
+ * retombait pas juste. Le calcul était correct — mais l'entier existait déjà
+ * dans le cœur, non sérialisé, et le commentaire de `sortie/contraste.py`
+ * nommait cette multiplication comme le piège à éviter. Elle avait en prime
+ * un défaut que ces tests ne montraient pas : la densité étant arrondie à
+ * trois décimales, la tolérance était dépassée au-delà d'environ 100 km et
+ * **le chiffre disparaissait** pour qui prépare une sortie longue.
+ *
+ * L'API rend maintenant `feux` et `stops`. Il ne reste qu'une somme, et ce
+ * qu'il faut garder est le silence sur l'inconnu, pas la justesse d'un
+ * produit.
+ */
 describe("compteArrets", () => {
-  it("retrouve l'entier que le cœur avait divisé", () => {
-    for (const [compte, distance] of [
-      [12, 16.4477],
-      [4, 56.231],
-      [0, 42.7],
-      [170, 100.0],
-    ] as [number, number][]) {
-      const densite = Number((compte / distance).toFixed(3));
-      expect(compteArrets(densite, distance)).toBe(compte);
-    }
+  it("additionne les deux entiers que l'API rend", () => {
+    expect(compteArrets(11, 7)).toBe(18);
+    expect(compteArrets(0, 0)).toBe(0);
   });
 
-  it("se tait quand la densité manque, ou quand la distance est nulle", () => {
-    expect(compteArrets(null, 40)).toBeNull();
-    expect(compteArrets(0.5, null)).toBeNull();
-    expect(compteArrets(0.5, 0)).toBeNull();
+  it("ne fait plus dépendre le chiffre de la distance", () => {
+    // Le cas qui effaçait le compte au-delà de 100 km : il n'existe plus,
+    // parce que la distance n'entre plus dans le calcul.
+    expect(compteArrets(170, 0)).toBe(170);
   });
 
-  it("se tait quand le produit ne retombe pas sur un entier", () => {
-    // Une densité qui ne vient pas d'un compte divisé par cette distance-là.
-    expect(compteArrets(0.73, 999.5)).toBeNull();
+  it("se tait quand le tracé ne porte pas de tag de nœud", () => {
+    // Le cœur met les deux à `null` ensemble : l'ignorance ne s'affiche pas
+    // comme un zéro (règle absolue 5).
+    expect(compteArrets(null, null)).toBeNull();
+    expect(compteArrets(null, 7)).toBeNull();
+    expect(compteArrets(11, null)).toBeNull();
   });
 });
 

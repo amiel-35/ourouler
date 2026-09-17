@@ -34,7 +34,9 @@ export function ChoixAdresse({ valeurActuelle, surChoix }: Props) {
       const reponse = await api.geocodage(adresse);
       setCandidats(reponse.donnees.candidats);
       if (reponse.donnees.candidats.length === 0) {
-        setPhrase(reponse.avertissements[0] ?? "Aucune adresse trouvée.");
+        // `avertissements` porte maintenant `{code, message}` (B3) : seule la
+        // lecture change ici, l'écran est le même.
+        setPhrase(reponse.avertissements[0]?.message ?? "Aucune adresse trouvée.");
       }
     } catch (erreur) {
       setCandidats(null);

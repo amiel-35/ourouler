@@ -163,6 +163,47 @@ def test_les_prefixes_qui_classent_les_pannes_existent_vraiment():
         )
 
 
+def test_les_fragments_qui_classent_les_avertissements_existent_vraiment():
+    """Chaque avertissement codé se rattache à la phrase qui le déclenche.
+
+    Même convention que `PREFIXES_SERVICE`, et pour la même raison. Avant le
+    17/09/2026, le front décidait du bandeau « Pas de météo » en cherchant
+    « météo » dans la phrase du cœur à l'expression régulière (relecture
+    F2 · B3) : une reformulation en « Open-Meteo injoignable » faisait
+    disparaître le bandeau **en silence**, et il restait un parcours servi
+    sans pluie, sans vent et sans la phrase qui dit pourquoi.
+
+    Le classement vit maintenant dans l'API, où ce test l'attache à son code.
+    Reformuler un de ces avertissements casse ce test avant d'effacer un
+    bandeau chez le cycliste — c'est tout ce qu'on lui demande.
+    """
+    from ourouler.api.erreurs import CODES_AVERTISSEMENT, MOTIFS_AVERTISSEMENT
+
+    for fragment, code, modules in MOTIFS_AVERTISSEMENT:
+        assert code in CODES_AVERTISSEMENT, (
+            f"« {fragment} » classe en {code}, qui n'est pas dans le catalogue publié"
+        )
+        assert modules, f"« {fragment} » ne dit pas quel module l'écrit"
+        for relatif in modules:
+            texte = (SOURCES / relatif).read_text(encoding="utf-8")
+            assert fragment in texte, (
+                f"« {fragment} » n'apparaît plus dans {relatif} : l'API classera cet "
+                f"avertissement en « autre » et l'écran dessiné pour {code} ne s'affichera plus"
+            )
+
+
+def test_le_catalogue_des_avertissements_a_un_cas_par_defaut():
+    """Un avertissement inconnu reste affichable, sans qu'on en déduise un état.
+
+    C'est la différence entre « je ne reconnais pas cette phrase » et « il n'y
+    a pas d'avertissement » : la première se montre, la seconde se tairait.
+    """
+    from ourouler.api.erreurs import CODES_AVERTISSEMENT, classer_avertissement
+
+    assert "autre" in CODES_AVERTISSEMENT
+    assert classer_avertissement("une phrase que personne n'a prévue") == "autre"
+
+
 @pytest.mark.parametrize("module", modules_du_coeur(), ids=lambda p: p.name)
 def test_le_coeur_ne_lit_pas_son_environnement(module: Path):
     source = module.read_text(encoding="utf-8")

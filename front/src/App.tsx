@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ErreurApi } from "./api/client";
 import type { Boucle, Budget, Enveloppe, Profil, Seance, Sortie, Zones } from "./api/types";
 import { aujourdhui, useRessource } from "./etat/ressource";
+import { jourEnLettres } from "./api/formats";
 import {
   derniereLectureSeances,
   retenirLectureSeances,
@@ -48,6 +49,47 @@ interface Resultat {
   jour: string;
 }
 
+/**
+ * Un fichier de séance déposé — **et le jour pour lequel il l'a été**.
+ *
+ * Q38 : « le fichier déposé c'est une séance à faire ». C'est une
+ * prescription, et une prescription vaut pour un jour. `POST /seances/fichier`
+ * prend d'ailleurs ce jour ; le front ne l'honorait pas.
+ *
+ * Avant le 17/09/2026, seul l'identifiant était retenu, et **rien ne le
+ * remettait à `null`** : ni le changement de jour, ni le changement d'onglet,
+ * ni une séance Intervals retrouvée, ni la fin de la génération. Un `.ZWO`
+ * déposé mardi se replaçait silencieusement sur toutes les recherches
+ * suivantes — le cycliste partait faire les blocs de mardi le mercredi, sur
+ * des données qu'il ne pourrait pas refaire, et l'interface avait l'air
+ * d'accord avec lui (relecture F2 · B1).
+ *
+ * L'invariant tenu maintenant, et testé : **une séance déposée ne part qu'avec
+ * une recherche pour son propre jour**, et elle est visible tant qu'elle est
+ * en usage.
+ */
+export interface SeanceDeposee {
+  identifiant: string;
+  jour: string;
+  nom: string;
+}
+
+/**
+ * L'identifiant à joindre à une recherche — **ou rien**.
+ *
+ * La règle de B1, nommée plutôt que laissée en ligne dans l'appel : une
+ * prescription déposée pour mardi ne part pas avec la recherche de mercredi.
+ * C'est la seule chose qui sépare « le cycliste fait la séance du jour » de
+ * « le cycliste part faire les blocs d'hier sans le savoir ».
+ */
+export function fichierPourLaRecherche(
+  deposee: SeanceDeposee | null,
+  jourDemande: string,
+): string | undefined {
+  if (deposee === null) return undefined;
+  return deposee.jour === jourDemande ? deposee.identifiant : undefined;
+}
+
 const ONGLETS: { cle: Onglet; nom: string }[] = [
   { cle: "aujourdhui", nom: "Aujourd'hui" },
   { cle: "semaine", nom: "Ma semaine" },
@@ -63,8 +105,18 @@ export function App() {
   const [resultat, setResultat] = useState<Resultat | null>(null);
   const [enCalcul, setEnCalcul] = useState<Budget | null>(null);
   const [erreurCalcul, setErreurCalcul] = useState<ErreurApi | null>(null);
-  const [fichierSeance, setFichierSeance] = useState<string | null>(null);
+  const [fichierSeance, setFichierSeance] = useState<SeanceDeposee | null>(null);
   const [memoire, setMemoire] = useState<SortieMemorisee | null>(() => sortieRetenue(jour));
+  /**
+   * Les jours pour lesquels ce navigateur a déjà un parcours (C10).
+   *
+   * `etat/memoire` range chaque sortie sous sa propre clé depuis le début ;
+   * c'est l'application qui ne retenait que celle du jour. Générer le parcours
+   * de demain depuis « Ma semaine » ne laissait donc aucune trace : le bouton
+   * restait « Générer le parcours », et le calcul — trois à sept secondes
+   * contre BRouter et Open-Meteo — était à refaire.
+   */
+  const [joursMemorises, setJoursMemorises] = useState<string[]>([]);
   const [profilCourant, setProfilCourant] = useState<Profil | null>(null);
   const [zonesCourantes, setZonesCourantes] = useState<Zones | null>(null);
 
@@ -94,6 +146,13 @@ export function App() {
     if (semaine.valeur) retenirLectureSeances(jour);
   }, [semaine.valeur, jour]);
 
+  // Au retour sur l'application, les parcours déjà calculés de la semaine
+  // sont dans le stockage : on les y relit plutôt que de les oublier (C10).
+  useEffect(() => {
+    const jours = semaine.valeur?.donnees.jours ?? [];
+    setJoursMemorises(jours.map((j) => j.jour).filter((j) => sortieRetenue(j) !== null));
+  }, [semaine.valeur]);
+
   const seanceDemandee = useMemo(() => {
     if (demande.jour === jour) return seanceDuJour.valeur?.donnees ?? null;
     const trouve = semaine.valeur?.donnees.jours.find((j) => j.jour === demande.jour);
@@ -116,7 +175,8 @@ export function App() {
           candidates: finale.candidates,
           vent: finale.vent,
           depart: finale.depart ?? undefined,
-          fichier_seance: fichierSeance ?? undefined,
+          // **Le jour doit correspondre** (B1) — voir `fichierPourLaRecherche`.
+          fichier_seance: fichierPourLaRecherche(fichierSeance, finale.jour),
         });
         // La séance placée porte les emplacements, pas les étapes : celles-ci
         // viennent de la route des séances, ou du dépôt de fichier.
@@ -127,7 +187,12 @@ export function App() {
           seance = null;
         }
         setResultat({ sortie: reponse, boucle: null, seance, jour: finale.jour });
-        if (finale.jour === jour) setMemoire(retenirSortie(jour, reponse));
+        // Retenu pour **son** jour, quel qu'il soit (C10).
+        const memorisee = retenirSortie(finale.jour, reponse);
+        if (finale.jour === jour) setMemoire(memorisee);
+        setJoursMemorises((connus) =>
+          connus.includes(finale.jour) ? connus : [...connus, finale.jour],
+        );
         setVue({ genre: "propositions" });
       } else {
         const reponse = await api.boucle({
@@ -159,11 +224,18 @@ export function App() {
 
   // --- l'amorçage --------------------------------------------------------
 
-  if (systeme.erreur || profil.erreur) {
+  // **`zones.erreur` compte comme les deux autres** (corrigé le 17/09/2026).
+  // Il n'était consulté nulle part, alors que l'affichage est interdit tant
+  // que `zonesCourantes` est `null` : une panne de `/profil/zones` laissait
+  // donc « Connexion au serveur… » pour toujours — sans code, sans bouton,
+  // sans barre d'onglets. C'est exactement l'écran muet que la section
+  // « Quand ça casse » des maquettes interdit, et le seul geste possible
+  // était le rechargement, que l'écran d'attente déconseille (B2).
+  if (systeme.erreur || profil.erreur || zones.erreur) {
     return (
       <div className="coquille">
         <Echec
-          erreur={(systeme.erreur ?? profil.erreur)!}
+          erreur={(systeme.erreur ?? profil.erreur ?? zones.erreur)!}
           contexte="Démarrage"
           reessayer={() => {
             systeme.recharger();
@@ -290,7 +362,9 @@ export function App() {
     contenu = (
       <Importer
         jour={demande.jour}
-        surSeanceLue={(_seance, identifiant) => setFichierSeance(identifiant)}
+        surSeanceLue={(seance, identifiant) =>
+          setFichierSeance({ identifiant, jour: demande.jour, nom: seance.nom })
+        }
         surChercher={() => chercher({ mode: "seance" })}
       />
     );
@@ -428,18 +502,25 @@ export function App() {
       <MaSemaine
         semaine={semaine.valeur!.donnees}
         aujourdhui={jour}
-        joursAvecParcours={memoire ? [memoire.jour] : []}
+        joursAvecParcours={joursMemorises}
         surGenerer={(quand) => chercher({ mode: "seance", jour: quand })}
-        surVoir={() => {
-          if (memoire) {
-            setResultat({
-              sortie: memoire.reponse,
-              boucle: null,
-              seance: seanceDuJour.valeur?.donnees ?? null,
-              jour,
-            });
-            setVue({ genre: "propositions" });
-          }
+        // **Le jour qu'on nous passe** (C10). `surVoir` l'ignorait et rouvrait
+        // toujours la sortie d'aujourd'hui — un corollaire mort tant qu'un
+        // seul jour pouvait être mémorisé, un faux parcours dès que deux le
+        // sont.
+        surVoir={(quand) => {
+          const memorisee = quand === jour ? memoire : sortieRetenue(quand);
+          if (!memorisee) return;
+          setResultat({
+            sortie: memorisee.reponse,
+            boucle: null,
+            // Les étapes de la séance ne sont sous la main que pour
+            // aujourd'hui : ailleurs, l'écran s'en passe plutôt que de
+            // montrer celles d'un autre jour.
+            seance: quand === jour ? (seanceDuJour.valeur?.donnees ?? null) : null,
+            jour: quand,
+          });
+          setVue({ genre: "propositions" });
         }}
         surDeposer={() => setVue({ genre: "importer" })}
       />
@@ -452,6 +533,8 @@ export function App() {
         dureeSeance_s={seanceDemandee?.duree_s ?? null}
         nomSeance={seanceDemandee?.nom ?? null}
         demande={demande}
+        // Le même budget que celui contre lequel l'attente s'animera (C3).
+        budget={budgetDe(demande.mode === "seance" ? "sortie" : "boucle")}
         surDemande={setDemande}
         surChercher={() => chercher()}
       />
@@ -470,6 +553,13 @@ export function App() {
 
   return (
     <div className="coquille">
+      {fichierSeance ? (
+        <BandeauSeanceDeposee
+          deposee={fichierSeance}
+          jourDemande={demande.jour}
+          surRetirer={() => setFichierSeance(null)}
+        />
+      ) : null}
       {contenu}
       <BarreOnglets
         onglet={onglet}
@@ -478,6 +568,38 @@ export function App() {
           setVue({ genre: "onglet" });
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * « Un fichier est en usage » — dit à l'écran, pas seulement dans l'état React.
+ *
+ * Le second défaut de B1 : même corrigé, un fichier qui se replace tout seul
+ * sur une recherche est invisible. Le bandeau dit lequel, pour quel jour, et
+ * **s'il va servir à la recherche en cours** — parce que « déposé » et
+ * « appliqué » ne sont plus la même chose depuis qu'il est rattaché à un jour.
+ */
+function BandeauSeanceDeposee({
+  deposee,
+  jourDemande,
+  surRetirer,
+}: {
+  deposee: SeanceDeposee;
+  jourDemande: string;
+  surRetirer: () => void;
+}) {
+  const actif = deposee.jour === jourDemande;
+  return (
+    <div className={actif ? "encart attention" : "encart"}>
+      <b>Séance déposée : {deposee.nom}.</b>{" "}
+      {actif
+        ? `Elle sera placée sur le parcours du ${jourEnLettres(deposee.jour)}.`
+        : `Elle vaut pour le ${jourEnLettres(deposee.jour)} — la recherche en cours porte sur
+           un autre jour, et ne s'en servira pas.`}{" "}
+      <button type="button" className="lien" onClick={surRetirer}>
+        Retirer ce fichier
+      </button>
     </div>
   );
 }

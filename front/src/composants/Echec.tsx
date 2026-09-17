@@ -12,6 +12,8 @@
 
 import type { ReactNode } from "react";
 import { ErreurApi, reessayable } from "../api/client";
+import type { Avertissement } from "../api/types";
+import { jourEnLettres } from "../api/formats";
 
 export interface Repli {
   titre: string;
@@ -104,12 +106,20 @@ export function Echec({
 
   // --- E15 · échec : la clé marchait, et elle a cessé.
   if (erreur.code === "intervals_refuse") {
+    // C11 : le titre annonçait « Cette semaine » même quand la panne venait
+    // de l'onglet « Aujourd'hui ». L'écran se nomme donc d'après l'endroit
+    // où le cycliste se trouve — et le contexte ne se répète pas au-dessus.
     return (
-      <Cadre contexte={contexte} titre="Cette semaine">
+      <Cadre titre={contexte ?? "Vos séances"}>
         <div className="encart alerte">
           <b>intervals.icu ne nous répond plus.</b> Votre clé a sans doute été changée ou
           retirée.
-          {dernierSucces ? ` Vos séances ne sont plus lues depuis le ${dernierSucces}.` : ""}
+          {/* C2 : « depuis le 2026-09-12 » est une date de machine. E15 fait
+              de cette phrase le point de l'écran — « plus lues depuis le
+              12 septembre » dit à quelqu'un ce qu'il a manqué. */}
+          {dernierSucces
+            ? ` Vos séances ne sont plus lues depuis le ${jourEnLettres(dernierSucces)}.`
+            : ""}
         </div>
         {secours}
       </Cadre>
@@ -176,10 +186,22 @@ export function Echec({
  * Le cœur prévient sur sa sortie d'erreur, l'API capture dans
  * `avertissements`. On ne retire alors que les affirmations qu'on ne peut
  * plus soutenir — la pluie, le vent, la tenue —, jamais le parcours.
+ *
+ * **Sur le code, jamais sur la phrase** (corrigé le 17/09/2026). Cette
+ * fonction cherchait `/m[ée]t[ée]o/i` dans le message, alors que
+ * `docs/ux/api_contrat.md` pose l'inverse en toutes lettres : « le code prime
+ * sur le message […] qui peut être reformulé ». Le jour où quelqu'un écrivait
+ * « Open-Meteo injoignable », le bandeau disparaissait sans bruit et il
+ * restait un parcours servi sans pluie, sans vent, **et sans la phrase qui
+ * dit pourquoi** — pire qu'un bloc vide, que E14 interdit déjà.
+ *
+ * Le front n'avait alors aucun autre levier : `avertissements` ne portait pas
+ * de code. C'était un trou du contrat F1, il a été bouché côté API
+ * (`api/erreurs.CODES_AVERTISSEMENT`) plutôt que contourné ici.
  */
-export function meteoManquante(avertissements: string[]): string | null {
-  const trouve = avertissements.find((phrase) => /m[ée]t[ée]o/i.test(phrase));
-  return trouve ?? null;
+export function meteoManquante(avertissements: Avertissement[]): string | null {
+  const trouve = avertissements.find((a) => a.code === "meteo_indisponible");
+  return trouve?.message ?? null;
 }
 
 export function BandeauMeteoAbsente({ phrase }: { phrase: string }) {
