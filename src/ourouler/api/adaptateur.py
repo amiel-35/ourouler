@@ -204,6 +204,9 @@ BUDGETS_DEFAUT_MS = {
     "sortie": 6000,
     "boucle": 5000,
     "meteo": 2000,
+    # Un point, une heure, un appel Open-Meteo — le poste le moins cher du
+    # produit, et il tombe pendant que le cycliste lit son écran de demande.
+    "vent-depart": 600,
     "seances": 1500,
     "seance": 1500,
     "geocodage": 800,

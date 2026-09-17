@@ -69,7 +69,7 @@ import json
 import math
 import sys
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
@@ -96,6 +96,7 @@ from ourouler.erreurs import (
 )
 from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
+from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
@@ -376,14 +377,14 @@ def executer(
             modele=config.meteo.modele,
             modele_repli=config.meteo.second_avis,
         )
-    azimut_vent = question.azimut_pour(demande.vent)
+    azimuts_vent = question.azimuts_pour(demande.vent)
 
     client_brouter = (
         client_brouter
         if client_brouter is not None
         else ClientBrouter(config.brouter, evitements=config.evitements)
     )
-    candidates, hors_bande = _candidates(client_brouter, config, demande, distance_km, azimut_vent)
+    candidates, hors_bande = _candidates(client_brouter, config, demande, distance_km, azimuts_vent)
 
     retenues, ecartees = _placer_toutes(candidates, seance, config, parametres)
     # Les directions refusées sur la distance (Q41 d) rejoignent celles que le
@@ -521,6 +522,18 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         )
 
     vent = orientation.valider(getattr(args, "vent", None))
+    # Q44 : les deux réglages fixaient le même azimut, et rien ne disait lequel
+    # gagnait. `--direction` l'emportait en silence, ce qui laissait le
+    # cycliste croire que son orientation au vent avait été honorée. On ne
+    # choisit plus un gagnant : on refuse la contradiction, et le message dit
+    # les deux formulations possibles. « Peu importe » n'est pas une
+    # contradiction — c'est l'absence de demande.
+    if azimut is not None and vent != orientation.PEU_IMPORTE:
+        raise ErreurUtilisateur(
+            f"--direction {libelle} et --vent {vent} demandent tous deux une direction de "
+            "recherche, et rien ne dit laquelle devrait l'emporter : choisir sa direction "
+            "**ou** la laisser déduire du vent, pas les deux"
+        )
 
     sortie = getattr(args, "sortie", None)
     carte = getattr(args, "carte", None)
@@ -720,12 +733,121 @@ def _distance(
     return float(arrondie), f"{source}, {metres / 1000:.1f} km arrondis au multiple de 5 supérieur"
 
 
+def executer_vent(
+    args: argparse.Namespace,
+    config: Config,
+    client_meteo: ClientOpenMeteo | None = None,
+    *,
+    lieu_depart: Depart | None = None,
+) -> int:
+    """Le vent au départ, **avant** de chercher quoi que ce soit (Q44).
+
+    Un seul appel Open-Meteo, un point, une heure : le poste le moins cher du
+    produit. Il existe parce que l'écran de demande doit montrer d'où vient le
+    vent *pendant* que le cycliste choisit sa direction — « Vent de sud-ouest à
+    22 km/h demain matin », ce que la maquette E16 prévoyait et que l'écran ne
+    faisait pas.
+
+    Le mainteneur posait un « soit / soit » : montrer le vent **ou** proposer
+    trois préférences. Les deux modes en ont besoin, et c'est pour ça que
+    `azimuts_par_choix` accompagne toujours le vent : celui qui choisit sa
+    direction doit savoir d'où il souffle, celui qui choisit selon le vent doit
+    pouvoir vérifier ce qu'on lui propose avant de lancer le calcul.
+
+    Aucun tracé, aucun appel BRouter, aucune séance : cette commande ne répond
+    qu'à « d'où vient le vent, et qu'est-ce que chaque préférence donnerait ».
+    """
+    jour = _jour(getattr(args, "jour", None))
+    depart_lieu = lieu_depart if lieu_depart is not None else config.depart
+    depart_heure = _heure_depart(getattr(args, "depart", None), jour)
+
+    dernier_jour = portee.dernier_jour_couvert(
+        config.meteo.horizon_jours, aujourdhui=date.today()
+    )
+    if jour > dernier_jour:
+        # Même règle que `executer` : au-delà de l'horizon on ne demande rien à
+        # Open-Meteo, on dit ce qu'on ne sait pas.
+        question = vent_demande.QuestionVent(
+            vent_kmh=None,
+            vent_depuis_deg=None,
+            posee=False,
+            motif=portee.constater(jour, dernier_jour).message,
+        )
+    else:
+        question = vent_demande.interroger(
+            client_meteo if client_meteo is not None else ClientOpenMeteo(),
+            depart_lieu,
+            depart_heure=depart_heure,
+            jour=jour,
+            modele=config.meteo.modele,
+            modele_repli=config.meteo.second_avis,
+        )
+    print(json.dumps(_vent_depart_json(question, jour, depart_heure), ensure_ascii=False, indent=2))
+    return 0
+
+
+def _vent_depart_json(
+    question: vent_demande.QuestionVent, jour: date, depart_heure: datetime
+) -> dict:
+    """Le vent au départ et ce que chaque préférence en ferait, en JSON.
+
+    `azimuts_par_choix` porte **des listes**, y compris pour les préférences
+    qui n'ouvrent qu'un azimut : un consommateur qui lit une liste ne peut pas
+    rater le second azimut du travers, là où un champ scalaire l'aurait
+    silencieusement tronqué (Q44).
+
+    Les noms de direction (`"SO"`) sont calculés **ici** et non côté écran : le
+    front n'a le droit d'afficher que ce que l'API lui donne.
+    """
+    return {
+        "jour": jour.isoformat(),
+        "depart": depart_heure.isoformat(),
+        "posee": question.posee,
+        "motif": question.motif or None,
+        "vent_kmh": question.vent_kmh,
+        "vent_depuis_deg": question.vent_depuis_deg,
+        "vent_depuis_nom": (
+            nom_de_azimut(question.vent_depuis_deg)
+            if question.vent_depuis_deg is not None
+            else None
+        ),
+        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
+        "choix": list(orientation.CHOIX),
+        "azimuts_par_choix": {
+            choix: [
+                {"azimut_deg": a, "nom": nom_de_azimut(a)}
+                for a in question.azimuts_pour(choix)
+            ]
+            for choix in orientation.CHOIX
+        },
+    }
+
+
+def _parts(total: int, combien: int) -> list[int]:
+    """`total` candidates réparties en `combien` parts aussi égales que possible.
+
+    3 en 2 donne [2, 1], 4 en 2 donne [2, 2], 1 en 2 donne [1, 0] — et une part
+    nulle n'est pas une anomalie : à une seule candidate demandée, il n'y a
+    rien à répartir, et le premier azimut la prend. `generer` n'est pas appelé
+    pour une part nulle (`_candidates` boucle sur la répartition telle quelle,
+    et `nb=0` ne produirait rien tout en coûtant un appel).
+
+    Le reste va aux **premières** parts, donc au premier azimut. Sur un nombre
+    impair de candidates c'est un déséquilibre d'une unité, et il est assumé :
+    l'alternative serait de tirer au sort, ce qui rendrait deux exécutions
+    identiques différentes sans rien apprendre au cycliste.
+    """
+    base, reste = divmod(total, combien)
+    return [base + (1 if i < reste else 0) for i in range(combien)]
+
+
 def _candidates(
     client: ClientBrouter,
     config: Config,
     demande: Demande,
     distance_km: float,
-    azimut_vent: float | None = None,
+    azimuts_vent: tuple[float, ...] = (),
 ) -> tuple[list, list[Ecartee]]:
     """Les boucles candidates, et les directions refusées sur la distance.
 
@@ -739,65 +861,73 @@ def _candidates(
     C'est aussi ce qui rend `ourouler sortie --jour …` utilisable tel quel, ce
     que le contrat de sprint demande.
 
-    `azimut_vent` est l'azimut qu'impose une réponse à la question
-    d'orientation au vent (lot L5.3). Il **réduit l'espace de recherche** au
-    lieu de contraster après coup, ce qui est l'intérêt de poser la question
-    avant. `--direction`, explicitement demandée, reste prioritaire : le
-    cycliste qui écrit « au nord » veut aller au nord.
+    `azimuts_vent` sont les azimuts qu'impose une réponse à la question
+    d'orientation au vent (lot L5.3). Ils **réduisent l'espace de recherche**
+    au lieu de contraster après coup, ce qui est l'intérêt de poser la question
+    avant. Ils sont **un ou deux** : « de travers » en ouvre deux opposés
+    (Q44).
+
+    `--direction` et `--vent` ne se contredisent plus ici : `_lire` refuse
+    qu'on demande les deux (Q44). Quand `--direction` est là, elle est seule.
     """
-    azimut = demande.azimut_deg if demande.azimut_deg is not None else azimut_vent
-    hors_bande: list[Ecartee] = []
-    if azimut is not None:
-        trouvees = generer(
-            client,
-            config.depart,
-            distance_km=distance_km,
-            azimut_deg=azimut,
-            nb=demande.nb_candidates,
-            tolerance=config.boucle.tolerance_distance,
-            profil=demande.profil,
-            appels_max=appels_pour(demande.nb_candidates),
-        )
+    if demande.azimut_deg is not None:
+        repartition = [(demande.azimut_deg, demande.nb_candidates)]
+    elif azimuts_vent:
+        parts = _parts(demande.nb_candidates, len(azimuts_vent))
+        # Une part nulle (une seule candidate pour deux azimuts) ne donne pas
+        # lieu à un appel : `generer(nb=0)` ne rendrait rien en coûtant un
+        # aller-retour.
+        repartition = [(a, n) for a, n in zip(azimuts_vent, parts, strict=True) if n > 0]
     else:
-        trouvees = []
-        # Sans `--direction`, chaque azimut fait son propre appel à `generer`.
-        # Le refus sur la distance (Q41 d) est donc **par direction**, et une
-        # direction où le terrain ne sait pas faire la distance ne doit pas
-        # emporter celles où il sait — c'est déjà la règle à l'intérieur de
-        # `generer`, elle vaut aussi ici. Le refus n'est relancé que si aucune
-        # direction n'a rien donné, comme le fait déjà `derniere_erreur`.
-        refus: ErreurDistanceInatteignable | None = None
+        # Sans direction demandée, tout le tour de l'horizon, une candidate par
+        # azimut.
         pas = 360.0 / demande.nb_candidates
-        for i in range(demande.nb_candidates):
-            try:
-                trouvees += generer(
-                    client,
-                    config.depart,
-                    distance_km=distance_km,
-                    azimut_deg=i * pas,
-                    nb=1,
-                    tolerance=config.boucle.tolerance_distance,
-                    profil=demande.profil,
-                    appels_max=appels_pour(1),
+        repartition = [(i * pas, 1) for i in range(demande.nb_candidates)]
+
+    trouvees: list = []
+    hors_bande: list[Ecartee] = []
+    # **Un appel à `generer` par azimut**, et c'est ce qui garantit la
+    # répartition. `generer(azimut, nb)` explore `azimut`, puis ±20°, ±40°… —
+    # il élargit un secteur, il n'en ouvre jamais un second. Un seul appel pour
+    # deux azimuts opposés entasserait donc toutes les candidates du premier
+    # côté ; c'est exactement ce que Q44 demande de vérifier.
+    #
+    # Le refus sur la distance (Q41 d) est par azimut, et un azimut où le
+    # terrain ne sait pas faire la distance ne doit pas emporter ceux où il
+    # sait — c'est déjà la règle à l'intérieur de `generer`, elle vaut aussi
+    # ici. Le refus n'est relancé que si aucun azimut n'a rien donné, comme le
+    # fait déjà `derniere_erreur`.
+    refus: ErreurDistanceInatteignable | None = None
+    for azimut, nb in repartition:
+        try:
+            trouvees += generer(
+                client,
+                config.depart,
+                distance_km=distance_km,
+                azimut_deg=azimut,
+                nb=nb,
+                tolerance=config.boucle.tolerance_distance,
+                profil=demande.profil,
+                appels_max=appels_pour(nb),
+            )
+        except ErreurDistanceInatteignable as e:
+            hors_bande.append(
+                Ecartee(
+                    azimut_deg=azimut,
+                    distance_km=e.distance_obtenue_km,
+                    motif=(
+                        f"{e.ecart_relatif:+.0%} de la distance demandée — il aurait fallu "
+                        f"élargir de {e.elargissement_requis:.0%}, on s'arrête à "
+                        f"{e.elargissement_max:.0%}"
+                    ),
                 )
-            except ErreurDistanceInatteignable as e:
-                hors_bande.append(
-                    Ecartee(
-                        azimut_deg=i * pas,
-                        distance_km=e.distance_obtenue_km,
-                        motif=(
-                            f"{e.ecart_relatif:+.0%} de la distance demandée — il aurait fallu "
-                            f"élargir de {e.elargissement_requis:.0%}, on s'arrête à "
-                            f"{e.elargissement_max:.0%}"
-                        ),
-                    )
-                )
-                # On garde le refus le moins sévère : c'est celui qui dit le
-                # plus justement de combien il aurait fallu élargir.
-                if refus is None or e.elargissement_requis < refus.elargissement_requis:
-                    refus = e
-        if not trouvees and refus is not None:
-            raise refus
+            )
+            # On garde le refus le moins sévère : c'est celui qui dit le
+            # plus justement de combien il aurait fallu élargir.
+            if refus is None or e.elargissement_requis < refus.elargissement_requis:
+                refus = e
+    if not trouvees and refus is not None:
+        raise refus
     if not trouvees:
         cible = demande.direction or "toutes directions"
         raise ErreurConnecteur(
@@ -1327,10 +1457,8 @@ def _lignes_vent(contexte: _Contexte) -> list[str]:
         return [f"Orientation au vent : pas d'avis — {question.motif}."]
     vent = f"Vent au départ {question.vent_kmh:.0f} km/h de {_azimut(question.vent_depuis_deg)}"
     if demande.vent != orientation.PEU_IMPORTE:
-        azimut = question.azimut_pour(demande.vent)
-        ou = f" — recherche dirigée vers {_azimut(azimut)}" if azimut is not None else ""
-        if demande.azimut_deg is not None:
-            ou = " — mais --direction, demandée explicitement, garde la main"
+        azimuts = question.azimuts_pour(demande.vent)
+        ou = f" — recherche dirigée vers {_azimuts(azimuts)}" if azimuts else ""
         return [f"{vent}. Demandé : {_LIBELLES_VENT[demande.vent]}{ou}."]
     return [
         f"{vent}. Question : `--vent retour-dos` pour rentrer avec, `--vent depart-dos` "
@@ -1561,16 +1689,20 @@ def _entete(
     # Trois cas et non deux : depuis le lot L5.3, une réponse à la question
     # d'orientation au vent dirige la recherche elle aussi. Dire « dans toutes
     # les directions » alors qu'on a cherché au sud-ouest serait faux.
-    azimut_vent = (
-        contexte.question_vent.azimut_pour(demande.vent)
+    azimuts_vent = (
+        contexte.question_vent.azimuts_pour(demande.vent)
         if contexte.question_vent is not None
-        else None
+        else ()
     )
     if demande.azimut_deg is not None:
         direction = f"vers {demande.direction} ({demande.azimut_deg:.0f}°)"
-    elif azimut_vent is not None:
+    elif azimuts_vent:
+        # Au pluriel quand le travers en a ouvert deux : « vers 315° » sur une
+        # recherche qui a exploré 315° et 135° ferait chercher sur la carte une
+        # cohérence qui n'existe pas.
         direction = (
-            f"vers {_azimut(azimut_vent)} ({azimut_vent:.0f}°), direction imposée par "
+            f"vers {_azimuts(azimuts_vent)}, "
+            f"{'directions imposées' if len(azimuts_vent) > 1 else 'direction imposée'} par "
             f"--vent {demande.vent}"
         )
     else:
@@ -1952,8 +2084,14 @@ def _question_vent_json(contexte: _Contexte) -> dict | None:
         "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
         "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
         "reponse": contexte.demande.vent,
-        "azimut_recherche_deg": question.azimut_pour(contexte.demande.vent),
+        # Pluriel depuis Q44 : « de travers » en ouvre deux, opposés. Le
+        # singulier `azimut_recherche_deg` disparaît plutôt que de coexister —
+        # un consommateur qui l'aurait lu aurait cru à un seul azimut exploré.
+        "azimuts_recherche_deg": list(question.azimuts_pour(contexte.demande.vent)),
         "choix": list(orientation.CHOIX),
+        "azimuts_par_choix": {
+            choix: list(question.azimuts_pour(choix)) for choix in orientation.CHOIX
+        },
     }
 
 
@@ -2095,6 +2233,19 @@ def _puissance(etape) -> str:
 
 def _azimut(azimut_deg: float | None) -> str:
     return f"{azimut_deg:.0f}°" if azimut_deg is not None else "direction inconnue"
+
+
+def _azimuts(azimuts_deg: Sequence[float]) -> str:
+    """Un azimut, ou deux joints par « et » — le travers en ouvre deux (Q44).
+
+    Écrire « 315° » quand la recherche a exploré 315° **et** 135° serait faux
+    au même titre que « dans toutes les directions » quand une seule a été
+    explorée : le lecteur doit pouvoir retrouver sur la carte ce qu'on lui dit
+    d'avoir cherché.
+    """
+    if not azimuts_deg:
+        return "direction inconnue"
+    return " et ".join(_azimut(a) for a in azimuts_deg)
 
 
 def _liste(elements) -> str:

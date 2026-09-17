@@ -51,17 +51,31 @@ from ourouler.sortie.orientation import (
 HORIZON_ORIENTATION_J = 3
 
 #: Ce que chaque réponse fait de l'azimut de recherche, en degrés **ajoutés à
-#: la direction d'où vient le vent**.
+#: la direction d'où vient le vent**. Une réponse rend **un ou deux** azimuts.
 #:
 #: Une boucle part et revient au même endroit : pour rentrer avec le vent dans
 #: le dos, il faut **partir vers lui**, c'est-à-dire viser la direction d'où il
-#: vient (décalage 0). Pour partir avec, viser l'opposé (180). Pour le
-#: travers, viser à 90° — un seul des deux côtés, le moteur explorera l'autre
-#: par ses azimuts voisins (`boucle.candidates.azimuts` balaie ±20°, ±40°…).
-DECALAGE_AZIMUT_DEG = {
-    ORIENTATION_RETOUR_DOS: 0.0,
-    ORIENTATION_DEPART_DOS: 180.0,
-    ORIENTATION_TRAVERS: 90.0,
+#: vient (décalage 0). Pour partir avec, viser l'opposé (180).
+#:
+#: **Le travers en ouvre deux, opposés** (Q44, 17/09/2026). Le vent latéral ne
+#: nomme pas un côté : à 90° comme à 270° de la direction d'où souffle le vent,
+#: il vient du flanc, et les deux sont également valables. Jusqu'ici on n'en
+#: gardait qu'un, en comptant sur les azimuts voisins de
+#: `boucle.candidates.azimuts` (±20°, ±40°…) pour explorer l'autre — or ils
+#: n'atteignent jamais 180° d'écart : ils élargissent un secteur, ils n'en
+#: ouvrent pas un second.
+#:
+#: Et c'est la préférence la plus intéressante pour qui veut trois propositions
+#: différentes : deux directions séparées de 180° ne partagent que **0,4 %** de
+#: leurs routes (médiane, boucles de 60 km, mesure du 16/09/2026 documentée
+#: sous `contraste.SEUIL_RECOUVREMENT`), contre 28 % à 30° d'écart. La
+#: préférence qui contraint le moins l'azimut est celle qui produit les
+#: propositions les moins ressemblantes — réponse par la conception à Q43 et
+#: Q45.
+DECALAGE_AZIMUT_DEG: dict[str, tuple[float, ...]] = {
+    ORIENTATION_RETOUR_DOS: (0.0,),
+    ORIENTATION_DEPART_DOS: (180.0,),
+    ORIENTATION_TRAVERS: (90.0, 270.0),
 }
 
 
@@ -78,19 +92,34 @@ class QuestionVent:
     #: Pourquoi on ne la pose pas, en clair. Vide quand elle est posée.
     motif: str = ""
 
-    def azimut_pour(self, reponse: str) -> float | None:
-        """L'azimut de recherche qu'impose `reponse`, ou `None` si aucune contrainte."""
+    def azimuts_pour(self, reponse: str) -> tuple[float, ...]:
+        """Les azimuts de recherche qu'impose `reponse`. Vide si aucune contrainte.
+
+        **Un ou deux**, jamais plus : « rentrer avec » et « partir avec » en
+        fixent un, « de travers » en ouvre deux opposés (Q44). Le tuple vide
+        veut dire « cherchez partout » — c'est ce que rend « peu importe », et
+        aussi ce que rend une question non posée, vent trop faible ou trop
+        lointain : on ne dirige pas une recherche sur un vent qu'on ne sait pas
+        prévoir (règle absolue 5).
+
+        Il n'existe **pas** de variante qui n'en rendrait qu'un : un appelant
+        qui prendrait le premier et jetterait le second entasserait toutes les
+        candidates du travers sur un seul côté, ce qui est précisément le
+        défaut que Q44 demande d'éviter.
+        """
         if not self.posee or self.vent_depuis_deg is None:
-            return None
-        decalage = DECALAGE_AZIMUT_DEG.get(reponse)
-        if decalage is None:
-            return None
-        azimut = (self.vent_depuis_deg + decalage) % 360.0
+            return ()
+        decalages = DECALAGE_AZIMUT_DEG.get(reponse)
+        if decalages is None:
+            return ()
+        azimuts = tuple((self.vent_depuis_deg + d) % 360.0 for d in decalages)
         # Dernière barrière avant BRouter : `interroger` refuse déjà une
         # direction non finie, mais `QuestionVent` est un objet public qu'un
         # appelant peut construire lui-même, et `nan % 360` vaut `nan`. Un
         # azimut non fini partirait tel quel dans `roundTripStartDirection`.
-        return azimut if math.isfinite(azimut) else None
+        # Un seul azimut non fini disqualifie toute la réponse : rendre la
+        # moitié d'un couple d'opposés serait pire que de ne rien rendre.
+        return azimuts if all(math.isfinite(a) for a in azimuts) else ()
 
 
 def interroger(

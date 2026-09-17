@@ -453,6 +453,60 @@ def geocoder(
 # --- météo --------------------------------------------------------------------
 
 
+@routeur.get("/vent-depart")
+def vent_depart(
+    ctx: Ctx,
+    qui: Qui,
+    jour: str | None = None,
+    heure_depart: str | None = None,
+    latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    nom: str = "Départ",
+) -> dict:
+    """D'où vient le vent au départ, et ce que chaque préférence donnerait (Q44).
+
+    L'écran de demande appelle cette route **pendant** que le cycliste choisit,
+    pas après : on ne demande pas une direction sans donner l'information qui
+    permet de la choisir. Un point, une heure, un appel Open-Meteo — sans
+    commune mesure avec `/meteo`, qui interroge toute une couronne.
+
+    `azimuts_par_choix` porte des listes : « de travers » en rend **deux**,
+    opposés. Un front qui n'en afficherait qu'un mentirait sur ce qui sera
+    exploré.
+
+    `latitude`/`longitude` remplacent le départ du profil pour cette requête
+    seulement — toutes deux ou aucune, comme pour `/meteo`.
+    """
+    from ourouler.sortie import commande as sortie_commande
+
+    config = _config(ctx, qui)
+    if (latitude is None) != (longitude is None):
+        raise ErreurApi(
+            code="requete_invalide",
+            message="vent au départ : latitude et longitude se donnent ensemble",
+            statut=400,
+        )
+    lieu = (
+        None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
+    )
+    resultat = _avec_journal(
+        ctx,
+        qui,
+        ("openmeteo",),
+        lambda: executer_commande(
+            sortie_commande.executer_vent,
+            namespace(jour=jour, depart=heure_depart),
+            config,
+            secrets=secrets_de(config),
+            operation="vent-depart",
+            budgets=ctx.budgets,
+            client_meteo=_service(ctx, config, "meteo"),
+            lieu_depart=lieu,
+        ),
+    )
+    return resultat.enveloppe(ctx.budgets.budget("vent-depart"), qui)
+
+
 @routeur.get("/meteo")
 def meteo(
     ctx: Ctx,

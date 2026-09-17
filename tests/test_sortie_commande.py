@@ -1675,7 +1675,7 @@ def test_sous_le_seuil_de_vent_la_question_n_est_pas_posee(tmp_path: Path, monke
     question = json.loads(capsys.readouterr().out)["question_vent"]
     assert question["posee"] is False
     assert question["motif"]
-    assert question["azimut_recherche_deg"] is None
+    assert question["azimuts_recherche_deg"] == []
 
 
 def test_au_dessus_du_seuil_la_question_est_posee_et_le_texte_la_montre(
@@ -1699,18 +1699,57 @@ def test_une_reponse_au_vent_dirige_la_recherche(tmp_path: Path, monkeypatch, ca
     )
     charge = json.loads(capsys.readouterr().out)
     assert charge["question_vent"]["reponse"] == "retour-dos"
-    assert charge["question_vent"]["azimut_recherche_deg"] == pytest.approx(45.0)
+    assert charge["question_vent"]["azimuts_recherche_deg"] == [pytest.approx(45.0)]
 
 
-def test_une_direction_explicite_garde_la_main_sur_le_vent(tmp_path: Path, monkeypatch, capsys):
-    """« Au nord » veut dire au nord, même si le vent conseillait autre chose."""
+def test_demander_une_direction_et_une_orientation_au_vent_est_refuse(
+    tmp_path: Path, monkeypatch
+):
+    """Q44 : les deux fixent le même azimut, et rien ne disait lequel gagnait.
+
+    `--direction` l'emportait en silence — le cycliste qui avait demandé de
+    rentrer avec le vent dans le dos partait au nord sans jamais l'apprendre.
+    On ne choisit plus un gagnant, on refuse la contradiction.
+    """
+    with pytest.raises(ErreurUtilisateur) as erreur:
+        lancer(
+            tmp_path,
+            monkeypatch,
+            meteo=moteur_meteo(vent_kmh=30.0),
+            direction="N",
+            candidates=2,
+            vent="retour-dos",
+            json=True,
+        )
+    message = str(erreur.value)
+    assert "--direction" in message and "--vent" in message
+
+
+def test_une_direction_seule_reste_acceptee(tmp_path: Path, monkeypatch, capsys):
+    """Le refus ne vise que la contradiction : « au nord » tout court marche."""
     lancer(
         tmp_path,
         monkeypatch,
         meteo=moteur_meteo(vent_kmh=30.0),
         direction="N",
         candidates=2,
-        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["demande"]["azimut_deg"] == 0.0
+
+
+def test_peu_importe_avec_une_direction_n_est_pas_une_contradiction(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """« Peu importe » est l'absence de demande, pas une demande concurrente."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        direction="N",
+        candidates=2,
+        vent="peu-importe",
         json=True,
     )
     charge = json.loads(capsys.readouterr().out)
@@ -2031,3 +2070,127 @@ def test_la_meteo_repond_dans_l_horizon(tmp_path: Path, monkeypatch, capsys):
     charge = json.loads(capsys.readouterr().out)
     assert charge["meteo_absente"] is None
     assert charge["candidates"][0]["meteo"] is not None
+
+
+# --- Q44 : le travers ouvre deux azimuts, et les candidates s'y répartissent ---
+#
+# Le point que le mainteneur demande explicitement de vérifier plutôt que de
+# supposer : « les candidates doivent alors se répartir entre les deux azimuts,
+# pas s'entasser sur le premier ».
+#
+# Le piège est réel et il est dans `boucle.candidates.azimuts` : un appel
+# `generer(azimut, nb)` explore `azimut`, puis ±20°, ±40°… — il **élargit un
+# secteur, il n'en ouvre jamais un second**. Un seul appel pour deux azimuts
+# opposés aurait donc rendu toutes les candidates du même côté, et le JSON
+# aurait quand même annoncé deux directions.
+
+
+def azimuts_demandes_a_brouter() -> tuple[httpx.Client, list[float]]:
+    """Un BRouter bouchonné qui note chaque `roundTripStartDirection` reçu."""
+    vus: list[float] = []
+    gestionnaire = _gestionnaire_brouter()
+
+    def espion(requete: httpx.Request) -> httpx.Response:
+        vus.append(float(requete.url.params["roundTripStartDirection"]))
+        return gestionnaire(requete)
+
+    params = depuis_dict(CONFIG_BRUTE).brouter
+    return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(espion))), vus
+
+
+def cote(azimut: float, reference: float) -> int:
+    """0 ou 1 : de quel côté de la paire d'opposés tombe `azimut`.
+
+    L'écart angulaire est ramené dans [0, 180] avant comparaison — sans quoi
+    350° et 10° passeraient pour éloignés de 340°.
+    """
+    ecart = abs((azimut - reference + 180.0) % 360.0 - 180.0)
+    return 0 if ecart <= 90.0 else 1
+
+
+def test_le_travers_repartit_les_candidates_entre_les_deux_azimuts(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Quatre candidates de travers : deux d'un côté, deux de l'autre."""
+    brouter, vus = azimuts_demandes_a_brouter()
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        brouter=brouter,
+        candidates=4,
+        vent="travers",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    azimuts = charge["question_vent"]["azimuts_recherche_deg"]
+    assert len(azimuts) == 2, azimuts
+
+    # Ce que BRouter a réellement été prié d'explorer, et non ce que le JSON
+    # annonce : c'est la différence entre la promesse et le fait.
+    cotes = [cote(a, azimuts[0]) for a in vus]
+    assert cotes.count(0) > 0 and cotes.count(1) > 0, vus
+    assert abs(cotes.count(0) - cotes.count(1)) <= 1, vus
+
+    # Et les candidates rendues, pas seulement les appels émis.
+    retenus = [cote(c["azimut_deg"], azimuts[0]) for c in charge["candidates"]]
+    assert retenus.count(0) > 0 and retenus.count(1) > 0, charge["candidates"]
+
+
+def test_le_travers_ne_demande_jamais_un_seul_cote(tmp_path: Path, monkeypatch, capsys):
+    """Le défaut qu'on corrige, pris à l'envers : trois candidates suffisent.
+
+    Trois se répartissent 2/1 — le reste va au premier azimut, assumé — mais
+    **jamais 3/0** : une part nulle voudrait dire que le second azimut n'a pas
+    été exploré du tout.
+    """
+    brouter, vus = azimuts_demandes_a_brouter()
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        brouter=brouter,
+        candidates=3,
+        vent="travers",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    premier = charge["question_vent"]["azimuts_recherche_deg"][0]
+    cotes = [cote(a, premier) for a in vus]
+    assert cotes.count(1) > 0, f"tout est parti du même côté : {vus}"
+
+
+def test_rentrer_avec_le_vent_n_explore_qu_un_secteur(tmp_path: Path, monkeypatch, capsys):
+    """Le pendant : « rentrer avec » contraint, et on le voit dans les appels.
+
+    C'est ce qui rend la mesure de Q44 lisible — la préférence qui contraint
+    le plus est celle qui produit les propositions les plus ressemblantes.
+    """
+    brouter, vus = azimuts_demandes_a_brouter()
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        brouter=brouter,
+        candidates=4,
+        vent="retour-dos",
+        json=True,
+    )
+    charge = json.loads(capsys.readouterr().out)
+    (azimut,) = charge["question_vent"]["azimuts_recherche_deg"]
+    assert all(cote(a, azimut) == 0 for a in vus), vus
+
+
+def test_le_texte_nomme_les_deux_azimuts_du_travers(tmp_path: Path, monkeypatch, capsys):
+    """Annoncer « vers 315° » une recherche menée à 315° **et** 135° serait faux."""
+    lancer(
+        tmp_path,
+        monkeypatch,
+        meteo=moteur_meteo(vent_kmh=30.0),
+        candidates=4,
+        vent="travers",
+    )
+    sortie = capsys.readouterr().out
+    assert "directions imposées" in sortie
+    # Vent bouchonné de 45° : le travers ouvre 135° et 315°.
+    assert "135°" in sortie and "315°" in sortie
