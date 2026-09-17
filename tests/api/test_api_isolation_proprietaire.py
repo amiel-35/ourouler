@@ -56,9 +56,10 @@ def _porte_la_clause(schema, chemin: str, operation: dict) -> bool:
     return bool(operation.get("security"))
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucune route déclarée, donc aucune clause à vérifier."
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_chaque_route_de_donnees_declare_une_clause_de_proprietaire():
     """Protège tous les écrans de F3, écrits pendant F1 parce que c'est gratuit maintenant.
 
@@ -80,10 +81,10 @@ def test_chaque_route_de_donnees_declare_une_clause_de_proprietaire():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : le propriétaire implicite doit être nommé, pas supposé.",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_une_requete_sans_proprietaire_ne_sert_pas_silencieusement_le_mainteneur():
     """Protège F3 contre la dette la plus chère du lot.
 
@@ -111,10 +112,10 @@ def test_une_requete_sans_proprietaire_ne_sert_pas_silencieusement_le_mainteneur
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré. Exigence : une ressource d'un propriétaire n'est pas lisible par un autre.",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_une_ressource_d_un_proprietaire_n_est_pas_lisible_par_un_autre():
     """Protège E20 (« Télécharger le GPX ») et E21 (« Mes données »).
 
@@ -186,9 +187,10 @@ def test_chaque_table_porte_une_colonne_proprietaire():
     assert not sans, "tables sans colonne propriétaire :\n  " + "\n  ".join(sorted(sans))
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : src/ourouler/api/ n'existe pas, aucun SQL à analyser."
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_aucune_requete_sql_de_l_api_ne_lit_sans_filtrer_par_proprietaire():
     """Protège F3 (doctrine §10.2, « vérifiée côté serveur à chaque requête »).
 

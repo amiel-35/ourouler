@@ -44,10 +44,10 @@ SOUS_COMMANDES_DES_ECRANS = (
 )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré : aucune fabrique `creer_application(...)` sous src/ourouler/api/.",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_l_application_se_construit_par_une_fabrique():
     """Protège la règle absolue 3 : sans fabrique, pas de test sans réseau.
 
@@ -61,10 +61,10 @@ def test_l_application_se_construit_par_une_fabrique():
     assert callable(fabrique)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré : la fabrique doit accepter une Config et des clients HTTP injectables.",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_la_fabrique_accepte_une_config_et_des_clients_injectables():
     """Protège la règle absolue 3 et la doctrine §10.1 (« les dépôts sont des interfaces »).
 
@@ -88,7 +88,10 @@ def test_la_fabrique_accepte_une_config_et_des_clients_injectables():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="F1 non livré : aucune application ASGI à interroger.")
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_l_application_publie_son_schema_openapi():
     """Protège F2 tout entier : le front se code contre le schéma, pas contre le code.
 
@@ -100,7 +103,10 @@ def test_l_application_publie_son_schema_openapi():
     assert routes(schema), "schéma publié mais sans aucune route"
 
 
-@pytest.mark.xfail(strict=True, reason="F1 non livré : aucune route déclarée.")
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 @pytest.mark.parametrize(
     "commande,motifs", SOUS_COMMANDES_DES_ECRANS, ids=[c for c, _ in SOUS_COMMANDES_DES_ECRANS]
 )
@@ -115,10 +121,10 @@ def test_chaque_sous_commande_des_ecrans_a_sa_route(commande: str, motifs: tuple
     assert chemin and methode, commande
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré : pas de route de profil, donc pas d'écriture de FTP (E9, E21).",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_le_profil_s_ecrit_et_pas_seulement_se_lit():
     """Protège E9 (assistant : FTP, poids) et E21 (réglages : FTP, poids, départ, vélo).
 
@@ -138,9 +144,10 @@ def test_le_profil_s_ecrit_et_pas_seulement_se_lit():
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="F1 non livré : aucune route à interroger avec un chemin inconnu."
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_une_route_inconnue_rend_du_json_et_pas_du_html():
     """Protège tous les écrans : un front ne sait lire qu'une seule forme d'erreur.
 
@@ -151,10 +158,10 @@ def test_une_route_inconnue_rend_du_json_et_pas_du_html():
     verifier_refus_exploitable(reponse, "route inconnue")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré : pas de route de géocodage à appeler sans transport bouchonné.",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_aucune_route_n_ouvre_de_connexion_reelle():
     """Protège la règle absolue 3, mesurée plutôt que promise.
 
@@ -174,10 +181,10 @@ def test_aucune_route_n_ouvre_de_connexion_reelle():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F1 non livré : src/ourouler/api/ n'existe pas, il n'y a rien à analyser.",
-)
+# Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
+# n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
+# signalé : le test s'est mis à passer et la suite a échoué pour le dire,
+# au lieu de laisser une marque périmée affirmer que rien ne marche.
 def test_l_api_ne_lit_pas_l_environnement_hors_de_sa_bordure():
     """Protège la règle absolue 2 : « le cœur ne sait pas où il tourne ».
 
