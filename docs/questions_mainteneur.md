@@ -2582,3 +2582,202 @@ que deux situations différentes sont vraies :
 
 Confondre les deux ferait affirmer que deux boucles roulent autant sur les
 nationales alors qu'elles n'y roulent pas autant.
+
+
+## Q46 — Importer son historique : par où, et ce qu'on en garde — **17/09/2026**
+
+Point de départ : les API des plateformes se ferment. Strava a durci sa
+politique au 1ᵉʳ juin 2026 — cache de sept jours, interdiction du *bulk
+export*, interdiction d'entraîner un modèle, interdiction de facturer, et une
+clause qui vise nommément le consentement de l'utilisateur (« even if a user of
+your Developer Application consents »). Garmin a gelé les nouvelles
+candidatures à son programme développeur vers septembre 2026, quelques mois
+après que Strava l'a poursuivi. Suunto n'ouvre pas son API à l'usage personnel.
+COROS demande une base d'utilisateurs établie. Wahoo reste la seule ouverte en
+libre-service.
+
+**Ce qui ne se ferme pas, c'est le fichier.** L'archive d'export appartient à
+l'athlète (portabilité, RGPD article 20), et l'aveu est écrit noir sur blanc
+dans l'interface d'Intervals.icu : *« Ces données ne sont pas soumises aux
+conditions d'utilisation de l'API. »*
+
+### Décisions du mainteneur (17/09/2026)
+
+- **V1 couvre Strava et Garmin**, et rien d'autre : ce sont les deux qu'il peut
+  vérifier lui-même, captures et import réel à l'appui (règle absolue 4).
+- **Pas de ligne de commande pour les utilisateurs** — « les gens n'auront pas
+  de CLI ». Le dépôt se fait sur le serveur. La CLI reste néanmoins le moteur
+  qu'appelle la route, et le moyen de vérifier sur les vraies données.
+- **On jette le brut, on garde le dérivé.** Les mailles de ~30 m avec leurs
+  tags OSM et leurs kilomètres roulés, plus les coefficients de calibration,
+  tiennent dans quelques kilo-octets ; les traces, elles, sont des données de
+  localisation. Quand l'algorithme change, la personne redépose son archive.
+  Écarté explicitement : garder le brut pour lui permettre de revoir ses
+  sorties — *« mais on devient un Strava bis »*.
+
+### Ce que l'import apporte, et qui n'est pas ce qu'on croit
+
+Distinction du mainteneur, et elle découpe le travail :
+
+> l'import permet de comprendre les routes, la puissance permet de comprendre
+> le niveau — c'est 2 choses
+
+| | a besoin de | couvre |
+|---|---|---|
+| **Routes** | GPS seul | tout le monde |
+| **Niveau** | puissance | les porteurs de capteur |
+
+L'import a donc une valeur immédiate et **universelle** même sans capteur : un
+cycliste sans watts obtient déjà des itinéraires qui lui ressemblent.
+
+### Le lien plutôt que le téléversement
+
+Repris d'Intervals.icu : on ne fait pas traverser une archive de plusieurs
+centaines de mégaoctets à un navigateur. La personne colle **le lien** que la
+plateforme lui a envoyé par courriel, et le serveur va chercher l'archive.
+Le téléversement reste en secours, pour qui a déjà le fichier sur son disque.
+
+Trois conséquences qui se conçoivent dès le départ, pas après :
+
+1. **Le lien est un secret.** Une URL d'export est pré-signée : quiconque la
+   détient télécharge toute l'archive. Jamais journalisée, jamais en paramètre
+   d'URL, jamais conservée après usage. Et elle expire — sept jours côté Strava.
+2. **C'est une porte ouverte sur le serveur.** Une URL arbitraire que le serveur
+   va chercher, c'est le vecteur SSRF classique : `169.254.169.254` et le
+   conteneur récite ses identifiants d'hébergement. Liste blanche de domaines,
+   refus des plages privées après résolution DNS, aucune redirection hors
+   domaine, plafond de taille et de durée.
+3. **Garmin met plusieurs jours** là où Strava met des heures. Le parcours ne
+   tient donc pas en une session : état persistant, et notification au retour.
+
+### Le mode aperçu, déjà écrit
+
+L'interface d'Intervals dit : *« Si vous ne cochez pas l'une des cases, rien ne
+sera fait et vous pourrez revoir ce qui a été trouvé. »* On lit l'archive, on
+montre ce qu'elle contient, la personne décide ensuite.
+
+La sonde écrite le 17/09 est déjà cet écran : structure de l'archive, extensions
+rencontrées, part de fichiers gzippés, taux de lecture, et couverture réelle
+(GPS, puissance, cadence, FC, température, altitude). Il lui manque une interface,
+pas un moteur.
+
+### Ce qui existe déjà dans le dépôt, et qu'il ne faut pas réécrire
+
+- `activites/lecture.py` lit FIT, GPX et TCX, depuis un chemin **ou des octets**,
+  avec les pièges Garmin couverts : repli `enhanced_altitude`/`enhanced_speed`,
+  et sessions multiples cumulées avec avertissement. La richesse Garmin restante
+  (laps, événements, champs développeur Connect IQ) vit dans des messages que le
+  lecteur ignore sans s'y casser les dents.
+- `activites/cache.py` → `indexer_dossier()` : parcours récursif, déduplication
+  par `(source, id_externe)` et SHA-256, et **un fichier abîmé ne fait pas
+  échouer l'import**.
+
+**Le seul angle mort mesuré** : les archives sont des `.zip`, et Strava gzippe
+ses fichiers à l'intérieur. `indexer_dossier` filtre sur l'extension et passera
+à côté des `.gz`.
+
+### Découpe proposée
+
+- **L1 — le dépôt** : route serveur, lien ou téléversement, décompression
+  (`.gz` compris), aperçu, extraction vers le dérivé, brut jeté, isolation par
+  propriétaire. Critère : l'export Garmin réel du mainteneur monte, et le
+  rapport dit combien lues, combien échouées, quelle couverture.
+- **L2 — le guide** : `docs/`, Garmin et Strava seulement, avec les captures du
+  mainteneur. Garmin passe par <https://www.garmin.com/en-US/account/datamanagement/>.
+- **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q47]].
+
+### Reste à trancher
+
+Où ça atterrit : sprint suivant, ou lot isolé. Un sprint figé ne s'élargit pas
+en cours de route.
+
+
+## Q47 — Estimer la puissance sans capteur, et ce que ça vaut — **17/09/2026**
+
+> en fait si j'ai le terrain la vitesse le poids et la FC, une météo, je
+> commence à avoir pas mal d'info pour estimer vaguement une puissance pas trop
+> dégueu
+
+Et la précision attendue, qui change tout :
+
+> nous la puissance on s'en sert pour dériver la vitesse sur les blocs, pas pour
+> calibrer une puissance parfaite
+
+On ne cherche donc pas un FTP exact, mais une estimation assez bonne pour
+dimensionner la durée d'un bloc.
+
+### Ce n'est pas un développement, c'est une mesure
+
+Tout l'outillage existe : `physique/modele.py` → `puissance_requise(v, pente,
+vent_face, Parametres)` est l'inversion exacte ; `physique/calibration.py` sait
+découper en tronçons de 200 m avec pente, vent d'archive et densité de l'air,
+ajuster CdA et Crr aux moindres carrés avec leurs incertitudes, repérer les
+sorties en groupe, et valider sur des sorties jamais vues.
+
+### Le piège, nommé avant de mesurer
+
+Avant son Van Rysel RCR (carbone, fin 2023), le mainteneur a roulé un
+Specialized qui est un **VTC** (lourd, peu roulant) et un **Van Rysel route en
+alu** (jantes fines, non aéro).
+
+Une estimation **aveugle au vélo** rendra mécaniquement une puissance basse sur
+le VTC, qui monte à chaque changement de vélo. C'est un **artefact**, pas un
+progrès du cycliste — d'autant que la mesure du 16/09 (docstring de
+`calibration.py`) montre que sur ses deux vélos actuels, tout l'écart part dans
+le Crr et non dans le CdA.
+
+L'hypothèse du mainteneur est précisément que « c'est le vélo qui a changé, pas
+le bonhomme ». Elle se lit dans les deux sens, et on ne tranche pas à sa place :
+la manip produit **deux séries**, aveugle au vélo et consciente du vélo, et
+c'est **l'écart entre les deux** qui est le résultat.
+
+### Méthode : le verrou d'abord, et en aveugle
+
+1. **Valider là où la vérité existe.** Sur des sorties **qui ont** la puissance,
+   estimer depuis la seule vitesse + pente + vent + masse, et comparer au
+   mesuré. Biais et dispersion, à l'échelle de la sortie et du tronçon de 200 m.
+   Si l'erreur est telle que l'estimation ne vaut rien, le dire et s'arrêter :
+   c'est une réponse valide (règles absolues 4 et 5).
+2. **La masse est datée**, pas constante : le poids varie sur plusieurs années
+   et entre linéairement dans les termes de roulement et de gravité. Intervals
+   tient cet historique, et l'import Garmin le propose en case séparée.
+3. **En aveugle du FTP connu** : l'estimation est figée dans un fichier horodaté
+   avant toute consultation des valeurs de référence.
+4. **La FC ne rentre pas dans le bilan de puissance**, qui est physique. Elle
+   peut servir à repérer les sorties où la physique se trompe — aspiration en
+   peloton, arrêts prolongés.
+
+### Le FTP, et son biais
+
+Sur des sorties d'endurance sans effort maximal, un FTP dérivé d'un
+meilleur-20-minutes **sous-estime**, et d'autant plus que la période contient
+moins d'efforts francs. La série ancienne est probablement dans ce cas : à lire
+comme une série avec sa bande d'incertitude, jamais comme un chiffre.
+
+### Lancé le 17/09/2026
+
+Agent en aveugle, worktree isolé, sur les données Intervals. En attente.
+
+### Ce qui manquera probablement
+
+La **masse** et la **période d'usage** du Specialized et du Van Rysel alu : ils
+ne sont pas dans la configuration, dont l'historique démarre au 1ᵉʳ décembre
+2023 (règle absolue 6). À défaut, le résultat sort en fourchettes, avec une
+analyse de sensibilité.
+
+
+## Q48 — Déduire une zone 2 de la fréquence cardiaque, pour les cyclistes sans capteur — **17/09/2026, lot séparé**
+
+> on va devoir gérer le cas sans capteur de puissance et vaguement en déduire
+> la Z2 des gens sur leur FC — c'est un sujet à part entière
+
+**Le piège** : les formules de zones cardiaques abondent, mais pour les gens
+sans capteur on n'a **aucune vérité terrain** pour vérifier qu'on ne raconte pas
+n'importe quoi — et la règle absolue 5 interdit d'affirmer sans mesure.
+
+**La sortie** est dans les données du mainteneur : ses sorties portent puissance
+**et** FC ensemble. La méthode se calibre sur les cyclistes qui ont les deux,
+son erreur se rapporte, et elle s'applique aux autres **en affichant cette
+erreur**. Ça fait du sujet un lot mesurable au lieu d'un vœu.
+
+Lot séparé, après [[Q47]].
