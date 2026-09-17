@@ -15,6 +15,7 @@ import pytest
 from test_api import moteur_meteo, serveur
 from test_seance_intervals import CLE
 
+from ourouler.api import adaptateur
 from ourouler.api.erreurs import ErreurApi, assainir, classer
 from ourouler.erreurs import (
     ErreurConnecteur,
@@ -107,6 +108,27 @@ def test_un_secret_trop_court_ne_massacre_pas_le_message():
 def test_une_erreur_deja_traduite_n_est_pas_reclassee():
     deja = ErreurApi(code="calcul_en_cours", message="occupé", statut=409)
     assert classer(deja) is deja
+
+
+def test_un_serveur_deja_occupe_le_dit_au_lieu_de_faire_attendre(tmp_path: Path, monkeypatch):
+    """Le front a un écran pour ça ; une requête qui pend n'en a pas."""
+    monkeypatch.setattr(adaptateur, "DELAI_ATTENTE_S", 0.05)
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    with adaptateur._VERROU:  # un calcul est en cours, tenu par un autre fil
+        reponse = client.get("/api/v1/meteo")
+    assert reponse.status_code == 409
+    erreur = reponse.json()["erreur"]
+    assert erreur["code"] == "calcul_en_cours"
+    assert "secondes" in erreur["message"]
+    # Et le verrou est bien rendu : la requête suivante passe.
+    assert client.get("/api/v1/meteo").status_code == 200
+
+
+def test_une_panne_pendant_le_calcul_rend_le_verrou(tmp_path: Path):
+    """Un verrou qui fuit sur exception gèlerait le serveur jusqu'au redémarrage."""
+    client = serveur(tmp_path, meteo=moteur_meteo(en_panne=True))
+    assert client.get("/api/v1/meteo").status_code == 502
+    assert not adaptateur._VERROU.locked()
 
 
 def test_deux_requetes_simultanees_ne_melangent_pas_leurs_reponses(tmp_path: Path):
