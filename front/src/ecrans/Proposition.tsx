@@ -23,8 +23,9 @@ import {
   nombre,
   pourcentage,
   compteArrets,
+  visibleEnKm,
 } from "../api/formats";
-import { Carte, type SegmentDessine } from "../composants/Carte";
+import { Carte, LegendeVent, type SegmentDessine } from "../composants/Carte";
 import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
@@ -118,6 +119,9 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
           }))
       : [];
 
+  // Déjà filtrées par le cœur au seuil où le vent se sent : le front les pose
+  // sur la carte sans en écarter aucune et sans en ajouter.
+  const vents = candidate.meteo?.fleches_vent ?? [];
   const arrets = compteArrets(proposition.feux, proposition.stops);
   const retour = heureDeRetour(sortie.demande.depart, proposition.duree_s);
 
@@ -165,14 +169,17 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               <Carte
                 traces={[{ points: trace.points, choisi: true }]}
                 segments={segments}
+                vents={vents}
                 depart={sortie.demande.lieu_depart}
-                description={`Boucle de ${nombre(candidate.distance_km, 1)} kilomètres, blocs de la séance en surbrillance`}
+                description={`Boucle de ${nombre(candidate.distance_km, 1)} kilomètres, blocs de la séance en surbrillance${vents.length > 0 ? `, ${vents.length} flèches de vent le long du tracé` : ""}`}
               />
+              <LegendeVent vents={vents} seuilKmh={sortie.question_vent?.seuil_kmh ?? null} />
               <ProfilAltitude profil={trace.profil} blocs={blocsProfil} />
             </>
           ) : (
             <div className="encart attention">
-              <b>Pas de tracé.</b> Le moteur a rendu des chiffres mais aucune géométrie.
+              <b>Pas de tracé.</b> Les chiffres du parcours sont là, mais pas son dessin : rien à
+              montrer sur la carte, et rien à envoyer au compteur.
             </div>
           )}
 
@@ -192,7 +199,17 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             ) : null}
             {proposition.part_trafic !== null ? (
               <span>
-                <b>{pourcentage(proposition.part_trafic)}</b> de trafic
+                <b>{pourcentage(proposition.part_trafic)}</b> sur routes passantes
+              </span>
+            ) : null}
+            {/* Le même piège qu'à l'écran des boucles : « 5 % sur routes
+                passantes » se lit « 95 % de tranquillité », alors qu'une part
+                de la distance est sur des voies que la carte ne classe pas.
+                Elle n'apparaît que lorsqu'elle existe, jamais en zéro. */}
+            {candidate.couts && visibleEnKm(candidate.couts.km_non_classe) ? (
+              <span>
+                <b>{kmDepuisKm(candidate.couts.km_non_classe)}</b> qu'on ne sait pas
+                classer
               </span>
             ) : null}
             <span>

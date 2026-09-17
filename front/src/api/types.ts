@@ -285,12 +285,36 @@ export interface Placement {
   emplacements: Emplacement[];
 }
 
+/**
+ * Une flèche de vent à poser sur le tracé — **déjà triée par le cœur**.
+ *
+ * Le front ne décide ni où elle va, ni si elle mérite d'être dessinée : la
+ * liste qu'il reçoit est celle que `boucle.meteo_trace.fleches_vent` a
+ * filtrée au seuil où le vent se sent (8 km/h, le haut de la force 1 de
+ * Beaufort). C'est la même liste, produite par le même code, que celle que
+ * dessine la page HTML autonome du sprint 5 : deux écrans qui montreraient
+ * deux vents différents pour le même parcours seraient un défaut, pas une
+ * variante.
+ */
+export interface FlecheVent {
+  /** `[latitude, longitude]`, comme les points du tracé. */
+  pt: [number, number];
+  /** D'où **vient** le vent, en degrés (0 = nord). La flèche pointe dessus. */
+  depuis_deg: number;
+  vent_kmh: number;
+  /** `null` quand la prévision ne donne pas de rafale : jamais un zéro. */
+  rafale_kmh: number | null;
+  /** « face », « dos » ou « travers » **au cap suivi à cet endroit**. */
+  relatif: string | null;
+}
+
 export interface MeteoCandidate {
   pluie_cumulee_mm: number | null;
   minutes_pluie: number | null;
   part_vent_face: number | null;
   ressenti_min_c: number | null;
   confiance: string | null;
+  fleches_vent?: FlecheVent[];
   modele_utilise?: string;
   repli?: boolean;
 }
@@ -307,6 +331,17 @@ export interface Candidate {
   couts: {
     km_trafic: number;
     km_calme: number;
+    /**
+     * Les kilomètres que le moteur **ne sait pas classer** : `highway`
+     * absent, ou d'une valeur qu'il ne connaît pas. Ni trafic, ni calme.
+     *
+     * Il n'était pas typé ici, donc pas affiché, et l'écran présentait deux
+     * catégories pour une distance qui en compte trois — un tracé à moitié
+     * sur des chemins non classés s'annonçait « 0,0 km de trafic » comme un
+     * tracé parfaitement calme. C'est le commentaire de `boucle.couts.Couts`
+     * qui nomme ce piège, et l'écran tombait dedans.
+     */
+    km_non_classe: number;
     km_non_revetu: number;
     score: number;
     sens: string;

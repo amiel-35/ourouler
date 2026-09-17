@@ -41,25 +41,22 @@ import bisect
 import math
 from collections.abc import Sequence
 
-from ourouler.boucle.meteo_trace import Echantillon, interpoler_angle
+from ourouler.boucle.meteo_trace import (
+    SEUIL_VENT_SENSIBLE_KMH,
+    Echantillon,
+    interpoler_angle,
+)
 from ourouler.physique.modele import FACTEUR_VENT_HAUTEUR
 
-#: Vent moyen (à 10 m, en km/h) en dessous duquel on considère qu'il n'y a
-#: rien à sentir, donc rien à montrer ni à demander.
-#:
-#: Raison, pas une valeur ronde choisie au hasard : 8 km/h est le haut de la
-#: force 1 de l'échelle de Beaufort (« très légère brise, à peine perceptible
-#: sur un visage ») et le bas de la force 2 (« légère brise, sentie sur le
-#: visage ») — le seuil météorologique usuel entre « rien à sentir » et « on
-#: sent quelque chose ». Le vent médian du mainteneur est de 14 km/h (bien
-#: au-dessus) mais descend à 2,5 km/h.
-#:
-#: **Une seule constante pour deux usages**, et c'est voulu (lot L5.3) : les
-#: flèches de la carte (`sortie.carte`) se dessinent exactement quand la
-#: question de l'orientation au vent se pose (`sortie.commande`). Si le vent
-#: ne mérite pas d'être montré, il ne mérite pas qu'on demande son
-#: orientation.
-SEUIL_VENT_SENSIBLE_KMH = 8.0
+#: Réexporté de `boucle.meteo_trace`, où la constante vit depuis le
+#: 17/09/2026 avec sa justification (échelle de Beaufort) et la règle qui
+#: s'en sert, `fleches_vent`. Elle était ici ; `boucle` en a eu besoin pour
+#: sérialiser les flèches de vent du JSON, et `boucle` ne peut pas importer
+#: `seance` — c'est `seance` qui importe `boucle`, partout. La déplacer d'un
+#: cran plus bas garde **une seule constante pour tous ses usages**, qui est
+#: exactement ce que le lot L5.3 voulait ; la dupliquer pour préserver
+#: l'emplacement aurait trahi la règle en respectant la ligne.
+__all__ = ["SEUIL_VENT_SENSIBLE_KMH", "ChampVent", "seuil_vent_sensible_ms"]
 
 
 def seuil_vent_sensible_ms() -> float:

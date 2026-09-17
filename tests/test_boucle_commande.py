@@ -611,6 +611,12 @@ def test_json_valide_avec_toutes_les_mesures(tmp_path: Path, monkeypatch, capsys
     }
     assert candidate["meteo"]["pluie_cumulee_mm"] > 0
     assert candidate["meteo"]["echantillons"], "les échantillons de L2.5 doivent être publiés"
+    # Lot L5.3 : les flèches de vent (mêmes que la carte HTML) sont dans le
+    # JSON de la boucle libre. Le vent bouchonné (14 km/h) dépasse le seuil.
+    fleches = candidate["meteo"]["fleches_vent"]
+    assert fleches, "un vent bouchonné à 14 km/h doit produire des flèches"
+    for fleche in fleches:
+        assert set(fleche) == {"pt", "depuis_deg", "vent_kmh", "rafale_kmh", "relatif"}
 
 
 # --- la météo en panne ne fait pas perdre la boucle ----------------------------

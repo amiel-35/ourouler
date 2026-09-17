@@ -627,6 +627,68 @@ img {
   background: var(--papier);
 }
 
+/* Flèches de vent : une forme distincte par vent relatif, pas seulement une
+   teinte. Reprises de `src/ourouler/sortie/carte.py`, qui avait déjà tranché
+   ce point — pleine (face), creuse (dos), en pointillé (travers) — pour que
+   la carte reste lisible en noir et blanc et pour un daltonien. Les trois
+   couleurs sont les siennes, aux mêmes valeurs. */
+.vent-marqueur {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.vent-fleche {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+.vent-face .fleche-forme {
+  fill: #c1440e;
+  stroke: #c1440e;
+  stroke-width: 1;
+}
+.vent-dos .fleche-forme {
+  fill: none;
+  stroke: #1b6ca8;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+.vent-travers .fleche-forme {
+  fill: none;
+  stroke: #6b6b6b;
+  stroke-width: 1.8;
+  stroke-dasharray: 3 2;
+}
+/* Repli défensif : `relatif` ne devrait jamais manquer ici, un vent sans
+   direction n'ayant pas de flèche. Si le cœur en rend un quand même, il se
+   voit comme une incertitude plutôt que de se déguiser en vent de travers. */
+.vent-inconnu .fleche-forme {
+  fill: none;
+  stroke: #999;
+  stroke-width: 1.2;
+  stroke-dasharray: 1 3;
+}
+.vent-etiquette {
+  margin-top: 1px;
+  font: 700 10px/1 system-ui, sans-serif;
+  background: var(--papier);
+  padding: 1px 3px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.legende-vent .vent-swatch {
+  font-weight: 700;
+}
+.legende-vent .vent-face {
+  color: #c1440e;
+}
+.legende-vent .vent-dos {
+  color: #1b6ca8;
+}
+.legende-vent .vent-travers {
+  color: #6b6b6b;
+}
+
 .profil-alt {
   display: block;
   width: 100%;

@@ -39,6 +39,28 @@ from ourouler.meteo.rapport import (
 #: Au-delà, on compte l'échantillon comme « sous la pluie » (seuil du contrat).
 SEUIL_PLUIE_MM_H = 0.2
 
+#: Vent moyen (à 10 m, en km/h) en dessous duquel on considère qu'il n'y a
+#: rien à sentir, donc rien à montrer ni à demander.
+#:
+#: Raison, pas une valeur ronde choisie au hasard : 8 km/h est le haut de la
+#: force 1 de l'échelle de Beaufort (« très légère brise, à peine perceptible
+#: sur un visage ») et le bas de la force 2 (« légère brise, sentie sur le
+#: visage ») — le seuil météorologique usuel entre « rien à sentir » et « on
+#: sent quelque chose ». Le vent médian du mainteneur est de 14 km/h (bien
+#: au-dessus) mais descend à 2,5 km/h.
+#:
+#: **Une seule constante pour trois usages**, et c'est voulu (lot L5.3) : les
+#: flèches de la carte (`fleches_vent` ci-dessous, que dessinent la page HTML
+#: du sprint 5 et le front) se dessinent exactement quand la question de
+#: l'orientation au vent se pose (`sortie.vent_demande`). Si le vent ne mérite
+#: pas d'être montré, il ne mérite pas qu'on demande son orientation.
+#:
+#: Elle vivait dans `seance.vent`, qui la réexporte pour ses appelants
+#: historiques. Elle est descendue ici le 17/09/2026 parce que `boucle` en a
+#: besoin pour sérialiser les flèches, et que `boucle` ne peut pas importer
+#: `seance` : partout ailleurs, c'est `seance` qui importe `boucle`.
+SEUIL_VENT_SENSIBLE_KMH = 8.0
+
 #: Marge demandée après l'heure d'arrivée : la dernière heure encadrante doit
 #: exister, sinon le dernier échantillon ne serait pas interpolable.
 MARGE_APRES_ARRIVEE_H = 1
@@ -231,6 +253,59 @@ def _previsions_avec_repli(
             coordonnees, modele=modele_repli, debut=debut_heure, horizon_h=horizon_h
         )
         return previsions, modele_repli, True
+
+
+# --- ce qu'on montre du vent -------------------------------------------------
+
+
+def fleches_vent(meteo: MeteoTrace | None) -> list[dict]:
+    """Un point de flèche par échantillon assez venté, prêt à dessiner.
+
+    **La règle est celle de la page HTML du sprint 5** (`sortie.carte`), qui
+    l'appliquait la première et qui appelle maintenant cette fonction : rien
+    n'est réinventé ici, le code a seulement été remonté d'un cran pour que le
+    JSON puisse le servir au front. Un écran qui dessine le vent et une page
+    qui le dessine doivent le dessiner au même seuil, sans quoi le même
+    parcours montre deux vents différents selon la porte par laquelle on le
+    regarde.
+
+    `meteo.echantillons` couvre le tracé complet (comme le tracé gris), pas
+    seulement le parcours réellement roulé : un échantillon au-delà d'un
+    demi-tour, par exemple, peut donc porter une flèche. C'est le même choix
+    que pour le tracé — situer la météo sur le terrain — et pas une
+    inadvertance.
+
+    Écarté si le vent ou sa direction manque (`None` : `vent_face_ms` de
+    `seance.vent` traite pareillement ce cas comme « inconnu », jamais
+    « nul ») — sans direction connue, aucune rotation n'aurait de sens, et en
+    inventer une (par exemple 0°) affirmerait une direction sans preuve
+    (règle absolue 5). Écarté aussi sous `SEUIL_VENT_SENSIBLE_KMH` : ce
+    vent-là ne se sent pas sur le visage, et le dessiner serait du bruit.
+    """
+    if meteo is None:
+        return []
+    fleches = []
+    for e in meteo.echantillons:
+        if e.vent_kmh is None or e.vent_depuis_deg is None:
+            continue
+        if e.vent_kmh < SEUIL_VENT_SENSIBLE_KMH:
+            continue
+        fleches.append(
+            {
+                "pt": [round(e.lat, 6), round(e.lon, 6)],
+                # Direction d'où vient le vent (convention météo, 0 = nord,
+                # sens horaire) : la flèche s'oriente dessus telle quelle,
+                # comme une girouette qui pointe vers d'où souffle le vent.
+                "depuis_deg": round(e.vent_depuis_deg, 1),
+                "vent_kmh": round(e.vent_kmh),
+                "rafale_kmh": round(e.rafales_kmh) if e.rafales_kmh is not None else None,
+                # « face »/« dos »/« travers », déjà tranché par
+                # `meteo.rapport.vent_relatif` au cap local, dans `evaluer`
+                # ci-dessus. Jamais recalculé ici.
+                "relatif": e.vent_relatif,
+            }
+        )
+    return fleches
 
 
 # --- échantillonnage ---------------------------------------------------------

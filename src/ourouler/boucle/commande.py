@@ -44,7 +44,7 @@ from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
@@ -1037,6 +1037,14 @@ def _meteo_json(meteo: MeteoTrace | None) -> dict | None:
         "n_echantillons": len(meteo.echantillons),
         "ressenti_min_c": meteo.ressenti_min_c,
         "confiance": meteo.confiance,
+        # Les flèches à dessiner le long du tracé, position comprise, déjà
+        # filtrées au seuil où le vent se sent (`meteo_trace.fleches_vent`).
+        # C'est **la règle du cœur, pas une liste brute** : un écran qui
+        # recevrait tous les échantillons devrait réappliquer le seuil de
+        # 8 km/h lui-même, donc le réinventer, donc pouvoir en diverger.
+        # Les `echantillons` ci-dessous restent tels quels, sans position :
+        # ils servent à autre chose, et les doubler serait du poids pour rien.
+        "fleches_vent": fleches_vent(meteo),
         "echantillons": [
             {
                 "dist_m": round(e.dist_m, 1),
