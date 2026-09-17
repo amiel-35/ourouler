@@ -3945,6 +3945,47 @@ vise une résistance basse (13,4 N) alors que son chrono en demande 15,9 —
 c'est-à-dire qu'il ne roule pas son chrono en position de chrono, ou pas avec
 l'équipement que la catégorie suppose.
 
+#### La règle du « +1 cran » — **empirique, mécanisme NON VÉRIFIÉ au 17/09 (nuit)**
+
+En rapportant chaque vélo non pas à « route amateur » mais à **sa propre
+catégorie nominale**, les deux écarts se ressemblent :
+
+| vélo | catégorie nominale | théorique | mesuré | écart |
+|---|---|---|---|---|
+| RCR (route) | route amateur | 120 W | 135 W | **+16 W** |
+| BMC (chrono) | CLM amateur | 101 W | 119 W | **+19 W** |
+
+La marche entre deux catégories vaut 19 W. **Chaque vélo est donc à environ une
+catégorie au-dessus de la sienne** : en sortie, le chrono se comporte comme un
+vélo de route théorique, et le vélo de route comme un cran au-dessus encore.
+
+**D'où la règle candidate** : prendre la catégorie de littérature et la décaler
+d'un cran vers le haut. L'écartement des catégories est bon — 19 W théoriques
+contre 16 W réellement mesurés entre ses deux vélos — seul le niveau est à
+monter.
+
+**Ce que ça résout au passage.** Le mainteneur n'avait pas dit lequel de ses
+vélos était le chrono, et la mesure le déduit : sous l'hypothèse *BMC = chrono*
+les écarts valent +19 et +16 W, cohérents ; sous l'hypothèse inverse, +35 et
+−1 W, incohérents. Une seule des deux lectures tient.
+
+**L'explication du mainteneur, et ce qu'elle vaut aujourd'hui.** « Sur aucun des
+vélos on ne tient la position tout le temps, avec les relances et autres ; et on
+n'est pas en course. En course, ma NP et ma moyenne sont plus proches qu'en
+sortie. » L'explication est plausible et elle porte sa propre mesure — mais
+**elle n'est pas vérifiée**. Elle a été confirmée en conversation, ce qui n'est
+pas la même chose, et le mainteneur a lui-même relevé la différence.
+
+Une campagne est lancée pour la trancher : la résistance effective baisse-t-elle
+quand le rapport NP / moyenne en mouvement se rapproche de 1 ? Confondant connu
+et à traiter : ce rapport monte aussi avec le **relief**, pas seulement avec les
+relances.
+
+**Tant que cette mesure n'est pas rentrée, la règle du « +1 cran » est
+empirique** : on constate le décalage, on n'en connaît pas la cause, et on ne
+peut donc rien promettre sur les cyclistes dont le profil de sortie diffère du
+sien. n = 1 cycliste, 2 vélos, 34 sorties de validation.
+
 ## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **tranchée le 17/09/2026 : au backlog**
 #### La mesure demandée (17/09/2026, soir) — la dérive tient à un seul nombre
 
