@@ -2688,12 +2688,18 @@ ses fichiers à l'intérieur. `indexer_dossier` filtre sur l'extension et passer
   - Garmin — <https://www.garmin.com/en-US/account/datamanagement/>
   - Polar, pour mémoire — <https://support.polar.com/fr/how-to-download-all-your-data-from-polar-flow>
 
-  **La première phrase du guide doit désamorcer le nom de la page Strava.**
-  L'adresse dit `download_my_account` et l'écran s'intitule « Download or Delete
-  Your Account » : on croit être sur le point de supprimer son compte, et on
-  referme l'onglet. Intervals.icu prend explicitement la peine d'écrire « Vous
-  n'avez pas besoin de supprimer votre compte ! » — ce n'est pas du zèle, c'est
-  le premier obstacle réel du parcours.
+  **Chez Strava il y a deux pages, et le guide doit envoyer sur la bonne.**
+  Précision du mainteneur, qui les a vues connecté : l'une propose le
+  téléchargement **et** la suppression du compte, l'autre ne propose que le
+  téléchargement. C'est la seconde qui est donnée ci-dessus, et c'est la seule
+  à mettre dans le guide — la première fait refermer l'onglet à qui croit être
+  sur le point de supprimer son compte. Intervals.icu doit d'ailleurs écrire
+  « Vous n'avez pas besoin de supprimer votre compte ! », signe que la confusion
+  arrive pour de bon.
+
+  Les intitulés exacts des deux pages ne sont pas vérifiés d'ici : elles
+  demandent une session connectée. À relever en capture au moment d'écrire le
+  guide.
 - **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q47]].
 
 ### Le parcours est générique — ce qui change la découpe
