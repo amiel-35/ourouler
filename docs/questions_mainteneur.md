@@ -3030,3 +3030,75 @@ désaccord.
 - L'usage d'`archives-perso` par un agent : autorisé, interdit, ou sur demande ?
 - L'ordre de priorité ci-dessus vaut-il un lot, et lequel d'abord ?
 - Les deux défauts de calibration : lot de correction, ou instruction d'abord ?
+
+
+## Q50 — Un seul réglage, deux visages, et le produit qui en découle — **17/09/2026**
+
+Énoncé du mainteneur, qui referme [[Q47]], [[Q48]] et [[Q49]] :
+
+> à partir de l'apprentissage, pouvoir dire à une personne « voici vaguement ta
+> zone 2, es-tu d'accord ? » et tu peux ajuster — tu touches la puissance ou la
+> vitesse sur le plat, et pour t'aider à jauger il y a ta vitesse moyenne de
+> sortie. Les gens ajustent, et nous ça nous permet d'avoir un produit qui
+> stocke un modèle de puissance, donc une dérivée de vitesse, donc on peut faire
+> nos itinéraires avec ou sans bloc.
+
+### Ce que ça résout
+
+**La question cardiaque disparaît.** [[Q49]] a mesuré que demander une plage de
+Z2 cardiaque *dégrade* l'estimation, parce que la réponse rapporte des réglages
+et non une mesure. Ce design n'en demande aucune : il montre une vitesse et
+laisse corriger. La contradiction se dissout au lieu d'être arbitrée.
+
+### Les deux poignées existent déjà, et sont inverses
+
+`puissance_a_plat_w(vitesse_kmh, p)` et `vitesse_a_plat_kmh(puissance_w, p)`
+(`physique/modele.py`). C'est **le même nombre dans deux unités** : le porteur
+de capteur touche des watts, celui qui n'en a pas touche des km/h, et le produit
+stocke une seule grandeur.
+
+Ce réglage unique est le facteur multiplicatif mesuré en [[Q49]] : hors
+échantillon, il ramène le biais de +12,5 W à +1,1 W et la MAE de 30 %, jusqu'au
+plancher de la physique. Il fixe le **niveau** de la courbe ; la physique rend
+le reste — vent, relief, saison.
+
+### Le piège à ne pas laisser passer
+
+**La vitesse moyenne de sortie n'est pas la vitesse à plat en endurance.** La
+première contient les côtes, le vent, les arrêts, la ville ; la seconde est un
+régime. Les confondre ferait régler le modèle sur une grandeur plus basse que
+celle qu'on croit toucher.
+
+Mesuré chez le mainteneur : médiane en Z2 **27,0 km/h**, mais écart-type 2,4
+km/h et étendue **22,2 à 31,5 km/h** d'une sortie à l'autre — et cette
+dispersion est précisément ce que la physique explique.
+
+Donc, dans l'écran : la moyenne de sortie est une **aide à jauger**, affichée
+comme telle, jamais la valeur préremplie. Ce qu'on règle se nomme et s'affiche
+comme « à plat, sans vent, en endurance ».
+
+### Avec ou sans bloc, le même réglage suffit
+
+Un facteur multiplicatif **met la courbe entière à l'échelle**. Une sortie libre
+n'a besoin que du point d'endurance ; une séance à blocs a besoin de plusieurs
+intensités — mais toutes se déduisent du même facteur. Un seul nombre stocké,
+les deux usages servis.
+
+### Trois chemins vers le même nombre
+
+1. **On le demande** — « sur une sortie tranquille au plat, tu tournes à combien
+   de moyenne ? ». Un cycliste sait répondre ; il ne sait pas donner son CdA.
+2. **Il s'apprend seul** dès une dizaine de sorties importées ([[Q46]]).
+3. **Il se corrige** quand la personne rectifie une durée proposée.
+
+Le troisième est le plus précieux : il transforme chaque désaccord de
+l'utilisateur en donnée d'étalonnage, sans lui demander de comprendre ce qu'il
+règle.
+
+### Ce que ça implique pour le découpage
+
+L'estimation sans capteur cesse d'être un lot à part : elle devient la **valeur
+initiale** d'un réglage que l'utilisateur possède. Le lot n'est donc pas « bien
+estimer », c'est **« proposer, montrer, laisser corriger, et apprendre de la
+correction »**. La qualité de l'estimation initiale décide seulement de combien
+de personnes n'auront jamais besoin d'y toucher.
