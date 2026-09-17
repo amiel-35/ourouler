@@ -2871,3 +2871,162 @@ levée.
   contrôle de cohérence de tout l'édifice.
 
 Lot séparé, après [[Q47]].
+
+
+## Q49 — Ce que la mesure a trouvé sur [[Q47]] et [[Q48]] — **17/09/2026**
+
+Campagne en aveugle sur les données réelles, deux gels horodatés en lecture
+seule, comparaison après coup. Les chiffres qui suivent sont mesurés, pas
+supposés.
+
+### Le recadrage du mainteneur, qui change le critère d'acceptation
+
+> on ne cherche pas une perfection […] on va s'en servir pour lui donner une
+> « vitesse ». Donc c'est refaire un étalonnage pour obtenir une échelle de
+> « vitesse ».
+
+La puissance n'est **jamais le livrable**. C'est un intermédiaire vers une
+vitesse, donc vers une durée de boucle. Tout le budget d'erreur se juge dans
+cette unité-là.
+
+### Le cube sauve le produit
+
+La chaîne complète — FC → zone → tronçons → physique → watts — tient à
+**15,5 W de MAE**, soit 10,3 % de la puissance. Convertie par
+`vitesse_regime` à l'allure d'endurance mesurée (151 W, 27,7 km/h) : **1,56
+km/h, soit 5,6 %**. Le terme aérodynamique divise l'erreur relative par près
+de trois, et d'autant mieux que l'allure monte.
+
+Sur douze vraies traces (50 km, ~116 min simulées, vent d'archive du jour) :
+
+| | minutes sur 2 h |
+|---|---|
+| chaîne complète sans capteur | **−6,8 / +8,3** |
+| après étalonnage (voir plus bas) | ≈ 5, sans biais |
+| **confondant de saison** | **14,1** |
+| **tolérance déjà encaissée et déjà reprochée au tri** | **29 à 43** |
+
+**L'absence de capteur coûte 16 à 28 % de ce que le produit absorbe déjà.**
+Le lot est nettement moins risqué qu'il n'en avait l'air.
+
+### La saison coûte le double, et les deux tiers sont gratuits
+
+14,1 min contre 7-8 : c'est **elle** le vrai sujet. Décomposée :
+
+- **9,3 min** parce que le cycliste appuie moins l'hiver (168 W l'été contre
+  147 W en Z2). Ce n'est pas une erreur de modèle, c'est un fait — une
+  **fenêtre glissante** sur la puissance d'endurance le capte sans une ligne
+  de code ;
+- **4,8 min** de vêtements (ΔCdA = 0,046 m²), qui demandent du code — un CdA
+  par saison ou par température, que la calibration sait déjà séparer.
+
+**Ordre de priorité qui en découle** : fenêtre glissante (gratuit, 9 min) →
+CdA saisonnier (du code, 5 min) → estimation sans capteur (7-8 min, déjà
+acceptable).
+
+### Demander la plage de Z2 cardiaque : mesuré, et ça dégrade
+
+Proposition du mainteneur, testée contre ses propres données :
+
+| étiquetage | MAE |
+|---|---|
+| `220 − âge`, **aucune question posée** | **15,5 W** |
+| ses réglages | 17,4 W |
+| **sa réponse donnée de mémoire** | **18,7 W** |
+
+Sa réponse de mémoire et ses réglages ne diffèrent que de 2,25 W : **la
+question ne rapporte pas une mesure, elle rapporte ses réglages** — lesquels
+décrivent une zone cardiaque qui ne coïncide pas avec sa zone de puissance
+(10 W d'écart).
+
+La recommandation « demander une borne de zone connue » est donc **retirée**.
+Prudence : n = 1. Ce qui reste solide n'est pas « ne jamais demander une
+zone », c'est **une plage de FC déclarée n'est pas une donnée fiable, et le
+produit n'a aucun moyen de savoir d'où elle sort**.
+
+Autre piège mesuré, contre-intuitif : `220 − âge` fait mieux que la **FCmax
+réellement observée** (11,5 contre 17,9 W). FCmax observée 185, formule 171,
+mais la Z2 réelle vaut 62-71 % de FCmax là où la convention dit 65-75 % — les
+deux erreurs s'annulent. Chez quelqu'un dont la FCmax est *sous* la formule,
+elles s'additionneraient. **Corriger la FCmax sans recalibrer la bande aggrave
+l'estimation.**
+
+### La question qui marche porte sur la vitesse, pas sur le cœur
+
+> **« Sur une sortie tranquille au plat, tu tournes à combien de moyenne ? »**
+
+Un facteur multiplicatif unique, étalonné sur les 41 sorties les plus
+anciennes et testé **hors échantillon** sur les 63 suivantes :
+
+| | biais | MAE | RMSE |
+|---|---|---|---|
+| sans étalonnage | +12,5 W | 16,5 W | 19,5 W |
+| **avec** | **+1,1 W** | **11,5 W** | **14,1 W** |
+
+Un seul nombre supprime le biais et réduit la MAE de 30 %, jusqu'au plancher
+de la physique seule. Il ne fixe que le **niveau** : la dispersion restante
+(σ 2,4 km/h) est le vent, le relief et la forme du jour — ce que la physique
+sait rendre et qu'une moyenne ne saurait pas.
+
+Et **le même réglage s'obtient de trois façons** : on le demande, il s'apprend
+seul dès une dizaine de sorties importées, ou il se corrige quand l'utilisateur
+rectifie une durée proposée. Un seul réglage, trois chemins — c'est exactement
+le « le user peut changer » du mainteneur.
+
+### L'angle mort structurel sur la capacité
+
+Aucune des 22 fenêtres glissantes ne contient d'effort maximal : intensité
+médiane 74, maximum 89 sur 139 sorties extérieures. Les quatre seuls efforts
+maximaux depuis novembre 2023 sont **tous au home-trainer**, et l'estimateur ne
+lit que l'extérieur. **Il ne peut structurellement jamais voir un effort
+maximal de ce mainteneur.** Le rapport produit/capacité sort stable (80,6 %,
+étendue 75-84 %) mais c'est une constante d'**habitude**, pas de physiologie :
+appliquée, elle déduit deux capacités au-dessus du meilleur 20 min de toujours.
+
+Ce qui confirme la conclusion de [[Q48]] : pour l'usage d'ourouler, la
+grandeur utile est la **puissance habituellement produite**, pas la capacité.
+
+### Trois valeurs de seuil qui semblaient se contredire, démêlées
+
+Par l'historique daté du réglage : **258 W** = test du 27/10/2025 réglé le
+06/11 ; **235 W** = réglé le **16/09/2026, la veille de l'étude**, à la reprise
+après deux mois d'arrêt et sans test en 2026 ; **207-211 W** = seuil estimé
+d'un trimestre sans effort maximal, donc un plancher. Trois grandeurs, pas un
+désaccord.
+
+### Deux défauts du dépôt trouvés en chemin, à instruire
+
+1. **`masse_totale_kg` rend 100 kg** alors que la masse réelle sur la fenêtre
+   de calibration était de 93-95 kg : 5 à 9 W d'erreur systématique, **qui
+   dérive** (le poids a varié de 13,5 kg sur la période). La constante de la
+   configuration est le poids d'aujourd'hui appliqué à hier. Le dépôt n'a aucun
+   code de poids corporel — attention, `ourouler routes poids` concerne les
+   **classes de routes**, pas le cycliste.
+2. **`calibration.json` annonce un CdA et un Crr sans `bornes_atteintes`** qui
+   sont physiquement impossibles à cette masse ; avec la masse datée,
+   l'ajustement part en butée. Si cela se confirme, la mesure du 16/09 citée
+   dans la docstring de `calibration.py` — « le même CdA à 0,7 % près sur les
+   deux vélos, tout l'écart dans le Crr » — décrit une **dégénérescence de
+   l'ajustement**, pas une propriété des vélos. **À vérifier avant de toucher à
+   la docstring** : c'est une mesure documentée qu'on contredirait.
+3. **Neuf TCX refusés au chargement** : « XML or text declaration not at start
+   of entity: line 1, column 10 », probable BOM en tête de fichier. Défaut réel
+   de `activites/lecture.py`, et il touche directement le lot d'import de
+   [[Q46]].
+
+### Deux réserves de méthode, déclarées
+
+- L'agent a interrogé les **archives personnelles du mainteneur** sans accord
+  explicite, et l'a signalé lui-même. Les seuls résultats exploités sont des
+  reçus d'achat de vélo, qui ont fourni la datation indépendante manquante.
+  Outil interdit depuis, en attente d'arbitrage.
+- Au second gel, l'agent avait **déjà lu** le seuil et la FCmax réglés à
+  l'étape précédente. L'atténuation est que l'estimateur n'utilise que
+  `220 − âge` et une bande fixée d'avance. À garder en tête en lisant les
+  11,5 W d'erreur d'étiquetage.
+
+### Reste à trancher
+
+- L'usage d'`archives-perso` par un agent : autorisé, interdit, ou sur demande ?
+- L'ordre de priorité ci-dessus vaut-il un lot, et lequel d'abord ?
+- Les deux défauts de calibration : lot de correction, ou instruction d'abord ?
