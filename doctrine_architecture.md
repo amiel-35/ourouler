@@ -334,9 +334,25 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   chaque requête, jamais seulement côté front. Aucune requête sans clause
   de propriétaire.
 - **RGPD par construction** : export de toutes ses données et suppression
-  du compte (profil, fichiers, calibrations, clés) disponibles dès la
-  première version hébergée ; pas de suivi d'audience ; hébergement en
-  Europe.
+  du compte (profil, fichiers, calibrations, clés) ; pas de suivi
+  d'audience ; hébergement en Europe.
+
+  **Calendrier révisé le 17/09/2026 par le mainteneur** ([[Q46]] dans
+  `docs/questions_mainteneur.md`) : l'export et la suppression étaient
+  promis « dès la première version hébergée » ; ils passent au **sprint 9
+  ou 10**. Motif : « je suis pas un service, c'est des potes ». Le principe
+  ne bouge pas, seul le moment change.
+
+  **Ce que ce report engage.** Le cercle restreint ne suspend pas le droit à
+  l'effacement : l'exemption « activité strictement personnelle ou
+  domestique » est étroite et ne couvre pas un service ouvert sur Internet.
+  Le jalon à ne pas franchir sans ces deux fonctions est donc **la première
+  invitation hors du cercle des proches**, pas la première invitation.
+
+  **Et une chose est déjà tranchée** : les **poids de routes appris restent
+  collectifs**. Ils sont fondus dans un modèle commun dès l'apprentissage et
+  ne repartent pas avec un compte supprimé — c'est ce qui fait la valeur d'un
+  service partagé, et c'est assumé.
 - **API avant front.** L'API expose ce que la CLI sait déjà rendre en
   JSON ; le front la consomme. Le front ne parle jamais directement au cœur.
 

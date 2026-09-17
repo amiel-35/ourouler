@@ -1896,7 +1896,7 @@ Le découpage de Q35 est donc complet : **au cycliste** `depart`, `cycliste`,
 `velos`, `intervals`, `seance`, `calibration`, `tenue`, `evitements`,
 `historique_depuis` ; **au serveur** `boucle`, `meteo`, `brouter`, `cache`.
 
-## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **bloquant levé provisoirement au lot F2**
+## Q36 — L'étape « identité » de l'assistant : à quoi elle sert, et où elle se range — **close le 17/09/2026 : l'âge est retiré**
 
 Le cadrage du lot F2 demandait un assistant en six étapes, dont **identité**.
 Deux choses s'y opposaient, et aucune n'était un oubli du front.
@@ -2636,7 +2636,29 @@ Confondre les deux ferait affirmer que deux boucles roulent autant sur les
 nationales alors qu'elles n'y roulent pas autant.
 
 
-## Q46 — Ce que le service a le droit d'apprendre des sorties de chacun — **ouvert le 17/09/2026**
+#### Réponse du mainteneur (17/09/2026) — **l'âge dégage**
+
+« L'âge, si on s'en sert pas pour dériver une FC, on dégage. »
+
+**Vérifié avant d'appliquer, et la condition n'est pas remplie** : la méthode
+retenue en [[Q50]] pour le cycliste sans capteur **ne dérive aucune fréquence
+cardiaque maximale**. Elle refuse justement les formules du type « 220 − âge »,
+au motif qu'elles abondent et qu'aucune vérité terrain ne permet de les
+départager ; elle se calibre sur les cyclistes qui portent puissance **et** FC,
+et rapporte son erreur. Le code confirme : ni `age`, ni `fc_max`, ni cette
+formule nulle part sous `src/ourouler/`.
+
+**Conséquences.** Pas de champ âge, donc pas de stockage à inventer, donc
+**l'étape « identité » disparaît de l'assistant** — les maquettes l'avaient
+écartée exprès, elles avaient raison. `CHAMPS_MODIFIABLES` reste tel quel.
+L'identité qui subsiste, l'adresse e-mail, vient du **compte** de L7.2 (lien
+d'invitation, puis passkey) et non du profil : c'est cohérent avec le découpage
+que [[Q35]] doit trancher, où l'e-mail appartient au compte, pas au TOML.
+
+**Si un jour l'âge revient**, ce sera parce qu'un lot en aura un usage mesuré —
+pas parce qu'un formulaire d'inscription trouve normal de le demander.
+
+## Q46 — Ce que le service a le droit d'apprendre des sorties de chacun — **tranchée le 17/09/2026**
 
 > « au cycliste ses données, au serveur une partie qu'on veut utiliser pour
 > comprendre. »
@@ -3760,7 +3782,37 @@ et le dire ». La mesure répond aux deux d'un coup. **Rattachée à L8.5.**
 **Reporté en V2** : laisser le cycliste choisir sa catégorie, pour les
 spécialistes. Pas avant d'avoir mesuré la dérive.
 
-## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **ouverte le 17/09/2026**
+#### Réponse du mainteneur (17/09/2026) — **on garde les poids, la suppression attend**
+
+« On garde les poids, et on peut attendre 9-10 avant la suppression des
+données. Je suis pas un service, c'est des potes. »
+
+**Ce que ça tranche.** Les poids de routes appris restent **collectifs** : ce
+qu'un cycliste a roulé améliore le parcours d'un autre, et c'est assumé comme
+la valeur d'un service partagé. L'ambiguïté que la question soulevait — un
+compte supprimé laisse-t-il ses poids derrière lui ? — se dissout : les poids
+ne sont pas traités comme des données personnelles récupérables, ils sont fondus
+dans un modèle commun dès leur apprentissage.
+
+**Ce que ça décale.** L'export et la suppression de compte passent au **sprint
+9 ou 10**, alors que la doctrine §10.2 les promettait « dès la première version
+hébergée ». La doctrine est modifiée en conséquence dans cette même PR, comme le
+veut `CLAUDE.md` — une décision qui la contredit ne reste pas un écart tacite.
+
+**Réserve, dite une fois et non répétée.** Le cercle restreint ne change pas le
+droit : dès que le service est ouvert à d'autres personnes sur Internet, le
+droit à l'effacement s'applique, et l'exemption « activité strictement
+personnelle ou domestique » du RGPD est étroite. Différer la **mise en œuvre**
+est un choix que le mainteneur assume en connaissance de cause ; ce n'est pas
+la même chose que de décider que l'obligation n'existe pas. Le jalon réaliste
+est **avant d'inviter quelqu'un hors du cercle des proches**, pas avant le
+premier ami.
+
+**Ce qui reste libre.** Rien n'oblige à trancher aujourd'hui le sort des poids à
+la suppression : quand le lot arrivera, « les poids restent, le profil et les
+fichiers partent » est une réponse défendable et déjà décidée ici.
+
+## Q53 — Trois fonctions de tracé n'entrent dans aucun sprint — **tranchée le 17/09/2026 : au backlog**
 
 La repriorisation de fin des sprints 5 et 6 a figé les lots des sprints 7
 (l'hébergé) et 8 (prêt à inviter des copains). Trois questions n'y trouvent pas
@@ -3786,4 +3838,20 @@ lui propose. (c) Les laisser au backlog sans sprint, et les prendre au fil du
 dogfooding quand la route en désignera une comme urgente.
 
 Rien n'est tranché : elles restent dans le registre, sans sprint attribué.
+
+#### Réponse du mainteneur (17/09/2026) — **backlog**
+
+Issue (c) retenue : [[Q29]], [[Q31]] et [[Q32]] restent au backlog, **sans
+sprint attribué**, et seront prises au fil du dogfooding quand la route en
+désignera une comme urgente.
+
+C'est cohérent avec la clôture du sprint 6, qui fait du dogfooting une exigence
+permanente hors sprint plutôt qu'une condition de clôture : c'est en roulant
+qu'on saura si la concentration des feux gêne vraiment un bloc, si le
+dégagement urbain manque, ou si le mode circuit sert à quelque chose. Aucune
+des trois ne mérite d'être budgétée sur une intuition.
+
+**Ce que ça veut dire concrètement** : les sprints 7 et 8 sont complets tels
+qu'ils sont figés, et aucun sprint 9 « qualité du tracé » n'est ouvert
+aujourd'hui.
 
