@@ -3276,3 +3276,69 @@ qu'il analyse une sortie passée. Ourouler ne propose que des boucles en solo :
 corriger, ce qui est le bon geste — on ne calibre pas sur des watts qu'on n'a
 pas produits. Mesuré : +32,8 W d'erreur de physique en Z2 sur les sorties club
 contre +2,8 W ailleurs ([[Q49]]).
+
+### Correction du 17/09 (soir) — la mesure réfute une partie de [[Q49]]
+
+Le lot L6.1 s'est arrêté **sans écrire de code** et a mesuré ce qu'on lui
+demandait de corriger. Trois résultats, dont deux réfutent ce qui précède.
+
+**La fenêtre glissante n'apporte rien au mainteneur.** Balayage de 14 à 365
+jours, strictement causal (au jour J, jamais la sortie J) : **aucune longueur ne
+bat la constante**. La constante vaut `puissance_endurance_pct × ftp_w`, soit
+154,8 W, et sa puissance réelle en mouvement vaut 153,1 W — il est déjà à
+l'optimum. La fenêtre sert quelqu'un dont la constante est fausse ; elle ne peut
+rien apporter à quelqu'un qui n'en a pas besoin. Écarts constatés (0,3 min,
+15,98 contre 16,16 W) **sous le plancher de bruit**.
+
+**L'écart de saison 168/147 ne se reproduit pas** sur la puissance **mesurée** :
+
+| découpage | instrument | été | hiver | écart |
+|---|---|---|---|---|
+| mois civils | NP de sortie | 175,4 | 177,8 | **−2,3 W** |
+| mois civils | moyenne en mouvement | 149,1 | 152,9 | **−3,8 W** |
+| mois civils | P à FC basse | 146,7 | 147,2 | **−0,5 W** |
+| quartiles de température | moyenne en mouvement | 148,9 (26,9 °C) | 155,6 (9,8 °C) | **+6,7 W pour le froid** |
+
+Le signe s'inverse même : les médianes les plus hautes sont en octobre-décembre.
+
+**Explication retenue** : le couple 168/147 **encadre** les 151 W que [[Q49]]
+cite par ailleurs. Il vient donc très probablement de la chaîne **sans capteur**
+(FC → zone → physique), où un hiver plus lent — vêtements, routes mouillées — se
+lit comme une puissance plus basse. Chez un porteur de capteur, il n'y a rien à
+capter. **Les 9 minutes de [[Q49]] valent pour le monde sans capteur, pas pour
+le monde mesuré.**
+
+**Un piège d'instrument, qui n'était pas nommé** : `simuler` est un modèle
+d'équilibre et veut une puissance **moyenne**. La NP médiane (177,8 W) est 24 W
+au-dessus de la moyenne en mouvement (153,1 W) : une fenêtre glissante calculée
+sur la NP fait passer l'écart de 7,96 à **10,99 min/2 h**, franchement pire.
+
+**La masse datée dégrade la validation tant que le Crr est écrêté** :
+
+| masse | CdA | Crr | F@27 km/h | MAE de validation | butée |
+|---|---|---|---|---|---|
+| 100,0 (config) | 0,2219 | 0,01062 | 18,04 N | **4,23 %** | — |
+| 94,0 | 0,2055 | 0,01200 | 18,12 N | 4,44 % | **Crr max** |
+| 93,0 (la vraie) | 0,2070 | 0,01200 | 18,06 N | **4,55 %** | **Crr max** |
+| 90,0 | 0,2109 | 0,01200 | 17,84 N | 4,97 % | **Crr max** |
+
+**Et la dégénérescence est mesurée de face** : la résistance totale à 27 km/h
+reste entre **17,84 et 18,12 N** pendant que la masse parcourt 90 à 100 kg.
+L'ajustement glisse le long de la vallée en gardant le total juste. C'est la
+preuve directe que [[Q49]] demandait, et elle est nette.
+
+**La série de poids existe** : 295 jours mesurés sur 1052 (`get_wellness`), du
+03/11/2023 au 14/09/2026, 78,5 à 92,0 kg. Écart médian entre mesures 2 jours,
+trois trous ≥ 30 jours qui demanderont une interpolation déclarée. La masse
+datée est **7,6 kg plus basse en moyenne** que les 100 kg appliqués partout.
+
+**Une erreur de ma part, consignée** : le brief de L6.1 citait « 12,1 W de MAE »
+comme critère de non-régression. `valider` ne rend pas des watts mais une
+**erreur de temps relative** (`Validation.mae`, en fraction). Les 12,1 W
+venaient de la campagne sans capteur et mesuraient autre chose. Un chiffre d'un
+monde collé sur l'instrument d'un autre.
+
+**Ce qui en découle pour le sprint 6** : L6.1 tombe dans ses deux moitiés,
+l'ordre s'inverse (figer le Crr est le **préalable** de la masse datée), et les
+« 5 min de CdA saisonnier » de L6.2 viennent de la même campagne que les 9 min
+réfutées — **à revérifier sur la puissance mesurée avant d'être budgétées**.
