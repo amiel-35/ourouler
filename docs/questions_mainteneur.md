@@ -1638,6 +1638,41 @@ Côté API (F1), la question ne se pose pas : la route de géocodage rendra la
 liste complète au front, qui fera choisir, et les routes de parcours
 recevront des **coordonnées** déjà tranchées.
 
+### Réponse du mainteneur (17/09/2026) — on refuse, et on ne calibre rien
+
+> « ben simple : on refuse. Et on peut faire contrôler la position en
+> affichant un point, voire proposer la géoloc sur mobile. S'il faut, en V1,
+> on fait un formulaire à champs obligatoires. »
+
+**Ce que cette réponse fait de mieux que les trois options proposées** : elle
+retire la question au lieu d'y répondre. Aucun seuil n'est à inventer, parce
+qu'on n'accepte plus l'entrée qui crée l'ambiguïté.
+
+La mesure le soutient : dès que la commune est présente, l'écart de score
+passe à 0,98 contre 0,71, franc, et le premier candidat est le bon. **Les cinq
+départs à égalité n'existent que pour une adresse sans commune.** Rendre la
+commune obligatoire supprime le cas plutôt que de le gérer.
+
+**Ce que ça donne, par surface :**
+
+- **Le formulaire du front** : des champs séparés et obligatoires — numéro,
+  voie, code postal, commune — plutôt qu'une ligne de texte libre. Moins
+  élégant qu'un champ unique, mais c'est ce qui rend la réponse sûre.
+- **Le point sur la carte** : l'adresse géocodée se confirme à l'œil avant
+  d'être retenue. Un géocodage qui se trompe de commune est indétectable dans
+  un champ texte, visible en une seconde sur une carte.
+- **La géolocalisation sur mobile** : celui qui part de chez lui n'a rien à
+  taper. À noter pour l'implémentation : le navigateur ne la donne que sur
+  HTTPS (ou en local) et après autorisation explicite — donc jamais comme
+  seul chemin, toujours en plus du formulaire.
+- **La ligne de commande** : c'est là que « on refuse » a le plus de sens,
+  puisque personne ne peut confirmer un point. Une adresse ambiguë est
+  refusée avec ses candidats affichés, au lieu d'en retenir un au hasard.
+
+**Ce qui tombe** : l'option (b), un seuil fixé à la main, et l'option (c),
+refuser sur les communes différentes. Ni l'une ni l'autre n'est nécessaire si
+la commune est demandée.
+
 ## Q35 — Quelles sections du TOML du serveur sont communes, et lesquelles appartiennent au cycliste — **fuite fermée le 17/09/2026, arbitrage à rendre**
 
 **Ce qui a été trouvé.** `api/depots.py` fusionnait la surcharge d'un
