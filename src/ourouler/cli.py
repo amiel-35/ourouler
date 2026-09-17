@@ -53,6 +53,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_seance(sous)
     ajouter_sortie(sous)
     ajouter_geocoder(sous)
+    ajouter_api(sous)
     return p
 
 
@@ -263,6 +264,31 @@ def ajouter_config(sous: argparse._SubParsersAction) -> None:
     p.set_defaults(fonction=_commande_config)
 
 
+def profil_json(config: Config) -> dict:
+    """La configuration en JSON, **clé et mot de passe masqués**.
+
+    C'est la forme que rend `ourouler config --json`, et c'est donc le profil
+    que l'API sert au front (lot F1) : une seule fonction, un seul contrat,
+    et le masquage des secrets fait au même endroit pour les deux.
+    """
+    import dataclasses
+
+    d = dataclasses.asdict(config)
+    # `asdict` ignore les `__repr__` qui masquent : sans ces deux lignes,
+    # `ourouler config --json` publie la clé et le mot de passe en clair.
+    d["intervals"]["api_key"] = "***" if config.intervals.api_key else ""
+    d["brouter"]["mot_de_passe"] = "***" if config.brouter.mot_de_passe else ""
+    # `asdict` ne voit que les champs : la puissance d'endurance est une
+    # **propriété** dérivée de la position depuis la décision 7, et le
+    # front la lit dans ce JSON. Sans cette ligne, elle disparaîtrait du
+    # contrat d'API sans que rien ne le signale.
+    d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
+    # Troisième valeur de l'écran de FTP (F1, comble C2 de
+    # docs/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
+    d["seance"]["vitesse_compteur"] = _info_vitesse_compteur(config)
+    return d
+
+
 def _commande_config(args: argparse.Namespace, config: Config) -> int:
     info_vitesse = _info_vitesse_compteur(config)
     if args.json:
@@ -271,14 +297,7 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         def defaut(o):  # dates, Path
             return str(o)
 
-        # Masquage et propriétés dérivées : voir `config.en_dict_public`. Le
-        # code vivait ici ; il est passé dans `config.py` pour que l'API le
-        # partage au lieu de le réécrire.
-        d = en_dict_public(config)
-        # Troisième valeur de l'écran de FTP (F1, comble C2 de
-        # docs/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
-        d["seance"]["vitesse_compteur"] = info_vitesse
-        print(json.dumps(d, default=defaut, ensure_ascii=False, indent=2))
+        print(json.dumps(profil_json(config), default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
     print(f"Cycliste : {config.cycliste.masse_kg:.1f} kg, FTP {config.cycliste.ftp_w:.0f} W")
@@ -732,6 +751,45 @@ def _commande_geocoder(args: argparse.Namespace, config: Config) -> int:
     from ourouler.geocodage.commande import executer  # import paresseux (lot F0.2)
 
     return executer(args, config)
+
+
+def ajouter_api(sous: argparse._SubParsersAction) -> None:
+    """`ourouler api` — sert l'API que le front consomme (lot F1).
+
+    Le cadre web est un extra (`uv sync --extra api`) : la sous-commande le
+    dit en une ligne s'il manque, plutôt que de lever une trace d'import.
+    """
+    p = sous.add_parser(
+        "api",
+        help="sert l'API HTTP que le front consomme (nécessite `uv sync --extra api`)",
+    )
+    p.add_argument("--hote", default="127.0.0.1", help="adresse d'écoute (défaut : 127.0.0.1)")
+    p.add_argument("--port", type=int, default=8000, help="port d'écoute (défaut : 8000)")
+    p.set_defaults(fonction=_commande_api)
+
+
+def _commande_api(args: argparse.Namespace, config: Config) -> int:
+    try:
+        import uvicorn
+
+        from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application
+    except ImportError as e:
+        raise ErreurUtilisateur(
+            "api : FastAPI et uvicorn ne sont pas installés — `uv sync --extra api` "
+            f"({e})"
+        ) from e
+
+    application = creer_application(
+        chemin_config=(args.config or CHEMIN_CONFIG_DEFAUT).expanduser(),
+        dossier_donnees=config.cache.dossier / NOM_DOSSIER_DONNEES,
+    )
+    print(
+        f"ourouler : API sur http://{args.hote}:{args.port}/api/v1 "
+        f"(documentation interactive sur /docs)",
+        file=sys.stderr,
+    )
+    uvicorn.run(application, host=args.hote, port=args.port, log_level="info")
+    return 0
 
 
 # --- point d'entrée -----------------------------------------------------------

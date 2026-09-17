@@ -45,12 +45,25 @@ Aucun ne se contourne, tous sont nommés dans `discovery_donnees.md`.
 La décision 7 se construit ici : ce qu'on stocke est **la position dans la
 zone**, jamais la valeur. `puissance_endurance_pct` cesse d'être un réglage.
 
-### F1 — L'API
+### F1 — L'API — *livrée le 17/09/2026, contrat dans `api_contrat.md`*
 
 Elle expose ce que la CLI rend déjà, une route par sous-commande, plus les
 écritures du profil. Isolation par propriétaire **dès maintenant** dans la
 forme des requêtes, même sans comptes : c'est gratuit à écrire et impossible
 à rattraper après.
+
+Ce que la livraison a tranché, et qui n'était pas écrit ici :
+
+- **L'API n'implémente rien** : chaque route appelle la même fonction
+  `executer` que la sous-commande, avec `json=True`, et rend son JSON. Le
+  prix est un verrou — la sortie standard appartient au processus — et une
+  réponse `calcul_en_cours` quand deux calculs se croisent.
+- **L'attente reste sur la requête** (3 à 7 s mesurées), avec un budget
+  annoncé qui dit s'il vient d'une mesure de ce serveur ou d'un défaut.
+- **Le TOML du mainteneur n'est jamais réécrit** : un profil modifié est une
+  surcharge par propriétaire, qui préfigure la table de F3.
+- **Ce qui écrit dans le cache et dure des minutes reste en ligne de
+  commande** : `inventaire --synchroniser`, `routes apprendre`, `calibrer`.
 
 ### F2 — Le front React
 

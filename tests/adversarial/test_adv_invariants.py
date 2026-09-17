@@ -39,6 +39,14 @@ TESTS = RACINE / "tests"
 #: Seuls modules autorisés à connaître la machine hôte (CLAUDE.md règle 2).
 FICHIERS_AUTORISES = {"cli.py", "config.py"}
 
+#: **L'unique porte du paquet `api/`** (lot F1). L'API est une couche
+#: d'exploitation comme `cli.py` ; ce droit est donné à un **chemin**, et à un
+#: seul module — les routes, les dépôts et la traduction d'erreurs restent
+#: soumis à la règle absolue 2. Le jumeau de cet invariant,
+#: `tests/test_invariants.py`, vérifie en plus que le reste du paquet est bien
+#: couvert et que cette porte-là sert vraiment.
+CHEMINS_AUTORISES = {"api/exploitation.py"}
+
 #: Attributs qui trahissent une lecture de l'environnement ou du foyer.
 ATTRIBUTS_INTERDITS = {"environ", "getenv", "getenvb", "home", "expanduser", "expandvars"}
 
@@ -88,7 +96,10 @@ def test_src_existe():
 def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     fautes: list[str] = []
     for chemin in _fichiers_python(SRC):
-        autorise = chemin.name in FICHIERS_AUTORISES
+        autorise = (
+            chemin.name in FICHIERS_AUTORISES
+            or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
+        )
         interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
         relatif = chemin.relative_to(RACINE)
         for noeud in ast.walk(_arbre(chemin)):

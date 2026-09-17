@@ -420,8 +420,19 @@ def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = N
             brut = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
         raise ErreurConfig(f"{chemin} : TOML invalide ({e})") from e
-    brut = _survoler_environnement(brut, environ)
-    config = depuis_dict(brut)
+    return finaliser(brut, environ=environ)
+
+
+def finaliser(brut: dict[str, Any], *, environ: Mapping[str, str] | None = None) -> Config:
+    """La fin du chargement, à partir d'un dict TOML déjà lu.
+
+    Extraite de `charger` pour l'API (lot F1) : le profil d'un propriétaire
+    se superpose au TOML **entre** la lecture du fichier et la validation, et
+    `charger` ne laissait aucun point d'entrée à cet endroit-là. Aucun
+    changement de comportement : `charger` appelle cette fonction.
+    """
+    environ = os.environ if environ is None else environ
+    config = depuis_dict(_survoler_environnement(brut, environ))
     # Seul endroit où « ~ » est développé : le cœur reçoit un chemin absolu.
     return replace(config, cache=ParametresCache(config.cache.dossier.expanduser()))
 

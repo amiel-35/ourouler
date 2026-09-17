@@ -72,6 +72,10 @@ La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus.
 
 - **Python ≥ 3.12**, `uv` + `pyproject.toml`, layout `src/`. Typage par
   annotations et `dataclasses` ; pas de Pydantic tant qu'il n'y a pas d'API.
+  L'API est arrivée (lot F1, 17/09/2026) : **FastAPI et Pydantic entrent, et
+  ne dépassent pas `src/ourouler/api/`**, où Pydantic ne décrit que les corps
+  de requête. Le cœur reste en dataclasses, et un `ourouler` installé sans
+  l'extra `api` n'en voit rien.
 - **CLI** : `argparse` (stdlib). Sortie texte lisible, `--json` quand un
   autre programme doit consommer.
 - **HTTP** : `httpx`. Chaque connecteur expose une fonction qui prend un
@@ -304,9 +308,23 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 - **API avant front.** L'API expose ce que la CLI sait déjà rendre en
   JSON ; le front la consomme. Le front ne parle jamais directement au cœur.
 
-### 10.3 Ce qu'on ne décide pas encore
+### 10.3 Ce qui a été décidé depuis, et ce qui ne l'est toujours pas
 
-Le cadre web (FastAPI ou autre), le front (framework ou HTML autonome comme
-ix-presenter), l'hébergement exact (Coolify sur Hetzner est le candidat
-naturel), la tarification éventuelle. Ces choix se prendront au point de
-repriorisation qui ouvrira l'hébergé, avec une CLI qui marche sous les yeux.
+**Tranché le 16/09/2026** par le mainteneur, à l'ouverture du cycle UX
+(`docs/ux/front_contrat.md`) : le front sera **React**, l'API vient **avant**
+le front, et les comptes après. **Livré le 17/09/2026** (lot F1) : le cadre
+web est **FastAPI**, avec uvicorn pour le servir — c'est la seule dépendance
+lourde qu'ouvre l'API, et elle ouvre avec elle la porte que `§3` laissait
+entrebâillée (« pas de Pydantic tant qu'il n'y a pas d'API »). Le cœur, lui,
+reste en dataclasses : Pydantic ne sert qu'aux corps de requête.
+
+Ce que la livraison ajoute à ce chapitre, et qu'il faut lire avec lui : l'API
+n'implémente rien, elle appelle les mêmes fonctions que la ligne de commande
+et rend leur JSON ; l'isolation par propriétaire est écrite **dès maintenant**
+dans la forme des dépôts, avec un invariant qui la garde ; et l'attente d'une
+génération est semi-synchrone, avec une durée annoncée qui dit si elle est
+mesurée. Le contrat complet est dans `docs/ux/api_contrat.md`.
+
+**Toujours pas décidé** : l'hébergement exact (Coolify sur Hetzner reste le
+candidat naturel) et la tarification éventuelle. Ces choix se prendront au
+point de repriorisation qui ouvrira l'hébergé.

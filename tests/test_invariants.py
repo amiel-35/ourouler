@@ -42,17 +42,125 @@ def _generateur():
 #: Modules autorisés à lire l'environnement d'exécution.
 AUTORISES = {"cli.py", "config.py"}
 
+#: **La porte que l'API ouvre, et elle seule** (lot F1). L'API est une couche
+#: d'exploitation, comme `cli.py` : elle a le droit de lire la configuration
+#: et l'environnement. Ce droit est donné à **un chemin**, pas à un nom de
+#: fichier, et à un seul module du paquet — les routes, les dépôts et la
+#: traduction d'erreurs restent soumis à la règle absolue 2.
+CHEMINS_AUTORISES = {"api/exploitation.py"}
+
 #: Ce qu'un module du cœur ne doit jamais faire.
 INTERDITS = ("tomllib", "os.environ", "getenv", "Path.home()", ".expanduser(", "load_dotenv")
 
 
 def modules_du_coeur() -> list[Path]:
-    return sorted(p for p in SOURCES.rglob("*.py") if p.name not in AUTORISES)
+    return sorted(
+        p
+        for p in SOURCES.rglob("*.py")
+        if p.name not in AUTORISES and p.relative_to(SOURCES).as_posix() not in CHEMINS_AUTORISES
+    )
 
 
 def test_il_y_a_bien_des_modules_a_verifier():
     noms = {p.name for p in modules_du_coeur()}
     assert {"lecture.py", "cache.py", "inventaire.py", "intervals.py"} <= noms
+
+
+def test_l_api_est_couverte_sauf_son_unique_module_d_exploitation():
+    """F1 : l'API entre dans le périmètre de la règle absolue 2, à une porte près.
+
+    Sans ce test, ajouter `application.py` ou `routes.py` à `AUTORISES` pour
+    « débloquer » une lecture d'environnement passerait inaperçu : c'est
+    exactement ce qu'il ne faut pas faire, et il faut que ça se voie.
+    """
+    couverts = {p.relative_to(SOURCES).as_posix() for p in modules_du_coeur()}
+    api = {p.relative_to(SOURCES).as_posix() for p in (SOURCES / "api").rglob("*.py")}
+    assert api, "le paquet api/ doit exister"
+    assert api - couverts == CHEMINS_AUTORISES, (
+        "un module de l'API échappe à la règle absolue 2 sans que CHEMINS_AUTORISES le dise"
+    )
+
+
+def test_seul_le_module_d_exploitation_de_l_api_lit_l_environnement():
+    """La porte est ouverte quelque part : ce test vérifie qu'elle sert vraiment.
+
+    Un invariant qui passe parce que personne n'utilise la permission qu'il
+    encadre n'encadre rien.
+    """
+    source = (SOURCES / "api" / "exploitation.py").read_text(encoding="utf-8")
+    assert "os.environ" in source and "tomllib" in source
+
+
+#: Les accès aux données de l'API. Doctrine §10.2 : « aucune requête sans
+#: clause de propriétaire » — ici, aucune méthode publique de dépôt sans
+#: `proprietaire` en **premier argument positionnel**. C'est gratuit
+#: aujourd'hui (un seul propriétaire) et impossible à rattraper le jour où
+#: ces dépôts parleront à PostgreSQL.
+CLASSES_DEPOT = ("DepotProfils", "DepotFichiers")
+
+
+def test_aucun_acces_aux_donnees_sans_clause_de_proprietaire():
+    arbre = ast.parse((SOURCES / "api" / "depots.py").read_text(encoding="utf-8"))
+    classes = {
+        noeud.name: noeud for noeud in ast.walk(arbre) if isinstance(noeud, ast.ClassDef)
+    }
+    for nom in CLASSES_DEPOT:
+        assert nom in classes, f"{nom} a disparu de api/depots.py"
+        methodes = [
+            m
+            for m in classes[nom].body
+            if isinstance(m, ast.FunctionDef) and not m.name.startswith("_")
+        ]
+        assert methodes, f"{nom} n'a plus aucune méthode publique"
+        for methode in methodes:
+            arguments = [a.arg for a in methode.args.args]
+            assert arguments[:2] == ["self", "proprietaire"], (
+                f"{nom}.{methode.name}{tuple(arguments)} : le propriétaire doit être le "
+                "premier argument — doctrine §10.2, aucune requête sans clause de propriétaire"
+            )
+
+
+def test_les_routes_ne_chargent_jamais_la_configuration_elles_memes():
+    """Une route demande sa `Config` au dépôt, pour un propriétaire donné.
+
+    Importer `config.charger` ici rendrait « la » configuration du serveur à
+    n'importe quel appelant, et ferait disparaître la clause de propriétaire
+    sans rien casser de visible — le genre de régression qui ne se voit qu'en
+    production, quand il y a deux utilisateurs.
+    """
+    arbre = ast.parse((SOURCES / "api" / "routes.py").read_text(encoding="utf-8"))
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").startswith("ourouler.config"):
+            importes = {alias.name for alias in noeud.names}
+            assert "charger" not in importes, (
+                "api/routes.py importe config.charger : la Config vient du dépôt, "
+                "pour un propriétaire"
+            )
+
+
+def test_les_prefixes_qui_classent_les_pannes_existent_vraiment():
+    """Le classement des erreurs lit le préfixe du message des connecteurs.
+
+    C'est une convention, donc une dette potentielle : si un connecteur
+    changeait son préfixe, le front recevrait `service_externe_indisponible`
+    au lieu du code attendu, et ses écrans d'échec se tromperaient d'écran.
+    Ce test attache la convention à son code.
+    """
+    from ourouler.api.erreurs import PREFIXES_SERVICE
+
+    sources = {
+        "BRouter": SOURCES / "connecteurs" / "brouter.py",
+        "Open-Meteo": SOURCES / "meteo" / "openmeteo.py",
+        "Intervals.icu": SOURCES / "connecteurs" / "intervals.py",
+        "BAN": SOURCES / "connecteurs" / "geocodage.py",
+        "Nominatim": SOURCES / "connecteurs" / "geocodage.py",
+    }
+    for prefixe, _service, _code in PREFIXES_SERVICE:
+        texte = sources[prefixe].read_text(encoding="utf-8")
+        assert f'"{prefixe} ' in texte or f"f\"{prefixe} " in texte, (
+            f"aucun message ne commence par « {prefixe} » dans {sources[prefixe].name} : "
+            "le classement des pannes de l'API ne reconnaîtra plus ce service"
+        )
 
 
 @pytest.mark.parametrize("module", modules_du_coeur(), ids=lambda p: p.name)

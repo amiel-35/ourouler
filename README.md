@@ -301,6 +301,23 @@ un conteneur qui produit la page du jour une fois par jour, un serveur
 statique qui la sert derrière une authentification basique — à essayer sur
 sa propre machine, rien n'est déployé (`deploiement/README.md`).
 
+## L'API (lot F1)
+
+Ce que le front React consommera. Elle n'implémente rien : chaque route
+appelle la **même** fonction que la sous-commande correspondante et rend son
+JSON — « l'API expose ce que la CLI sait déjà rendre en JSON »
+(`doctrine_architecture.md` §10.2).
+
+```bash
+uv sync --extra api
+uv run ourouler api --port 8000     # puis http://127.0.0.1:8000/docs
+```
+
+Les routes, la forme des réponses, les codes d'erreur, l'isolation par
+propriétaire et les durées mesurées sont dans `docs/ux/api_contrat.md`.
+FastAPI et son serveur sont un extra : la ligne de commande s'installe et
+tourne sans.
+
 ## Documentation
 
 - `docs/cadrage.md` — le besoin d'origine.
@@ -308,5 +325,7 @@ sa propre machine, rien n'est déployé (`deploiement/README.md`).
 - `docs/plan_sprints_agents.md` — sprints, critères d'acceptation, équipe d'agents.
 - `docs/questions_mainteneur.md` — ce qui attend une décision.
 - `docs/heberge_minimal_contrat.md` — le contrat de l'hébergé minimal.
+- `docs/ux/front_contrat.md` — les lots du front, dans l'ordre.
+- `docs/ux/api_contrat.md` — le contrat de l'API que le front consomme.
 
 Licence MIT.
