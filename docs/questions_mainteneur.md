@@ -2683,7 +2683,17 @@ ses fichiers à l'intérieur. `indexer_dossier` filtre sur l'extension et passer
   propriétaire. Critère : l'export Garmin réel du mainteneur monte, et le
   rapport dit combien lues, combien échouées, quelle couverture.
 - **L2 — le guide** : `docs/`, Garmin et Strava seulement, avec les captures du
-  mainteneur. Garmin passe par <https://www.garmin.com/en-US/account/datamanagement/>.
+  mainteneur. Où demander son archive :
+  - Strava — <https://www.strava.com/athlete/download_my_account>
+  - Garmin — <https://www.garmin.com/en-US/account/datamanagement/>
+  - Polar, pour mémoire — <https://support.polar.com/fr/how-to-download-all-your-data-from-polar-flow>
+
+  **La première phrase du guide doit désamorcer le nom de la page Strava.**
+  L'adresse dit `download_my_account` et l'écran s'intitule « Download or Delete
+  Your Account » : on croit être sur le point de supprimer son compte, et on
+  referme l'onglet. Intervals.icu prend explicitement la peine d'écrire « Vous
+  n'avez pas besoin de supprimer votre compte ! » — ce n'est pas du zèle, c'est
+  le premier obstacle réel du parcours.
 - **L3 — l'estimation de puissance sans capteur** : lot séparé, voir [[Q47]].
 
 ### Le parcours est générique — ce qui change la découpe
