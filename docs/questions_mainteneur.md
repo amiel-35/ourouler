@@ -2480,6 +2480,24 @@ dire en une phrase ce qui les sépare. **La trouvaille de Q44 est donc livrée
 mais neutralisée en aval par Q43 non implémentée** — les deux lots se tiennent,
 et celui de Q43 conditionne le bénéfice visible de celui-ci.
 
+### Resté ouvert : la sortie libre n'a pas de question du vent
+
+Les deux moitiés de l'écran de demande ne tapent pas la même route. « Ma
+séance » va sur `POST /sorties`, qui accepte `vent` comme `direction`. «
+Endurance Z2 » va sur `POST /boucles`, dont `direction` est **obligatoire** et
+qui **n'a aucun champ `vent`** : `boucle/commande.py` ne pose pas la question
+du vent du tout.
+
+Le premier choix de Q44 est donc entier sur une séance, et amputé sur une
+sortie libre — « selon le vent » y est montré désactivé, avec sa raison, plutôt
+que caché. Le vent, lui, s'affiche dans les deux cas.
+
+**Question au mainteneur : faut-il porter la question du vent dans `boucle`
+aussi ?** C'est un lot à part — un `--vent` sur `ourouler boucle`, la question
+posée avant la génération, et `direction` qui devient facultative. Rien n'a été
+décidé ici, et rien n'a été fait dans `boucle` : Q44 parlait de l'écran de
+demande, pas de la commande `boucle`.
+
 ## Q45 — Quand rien ne distingue rien, le dire — **17/09/2026**
 
 > « ben, s'il n'y a pas de pluie et peu de vent et que tout est plat, à un
