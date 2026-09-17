@@ -43,7 +43,12 @@ directions = 8                 # 8 ou 16
 distances_km = [15, 25, 40]
 modele = "meteofrance_arome_france_hd"
 second_avis = "icon_seamless"  # désaccord entre modèles = indice de confiance
-horizon_h = 6
+horizon_h = 6                  # couronne `ourouler meteo` : heures affichées
+horizon_jours = 7              # au-delà, le parcours est servi et la météo
+                               # déclarée absente, sans appeler Open-Meteo.
+                               # 7 = portée mesurée d'icon_seamless le
+                               # 17/09/2026 (AROME HD s'arrête à J+2, d'où le
+                               # repli). Un autre second_avis = un autre chiffre.
 
 [intervals]
 athlete_id = ""   # ex. i123456 (Intervals.icu → Settings)

@@ -1910,6 +1910,9 @@ dans le code et l'écran, règle absolue 5.
 
 ## Q37 — Les sept promesses des maquettes que l'API ne tient pas, et qui demandent chacune un arbitrage
 
+> **(a), (b) et (g) sont tranchées et appliquées** depuis le 17/09/2026 —
+> voir [[Q40]]. Le texte ci-dessous décrit l'état d'avant, gardé pour la trace.
+
 Contexte : les 105 tests de contrat écrits en aveugle du code de l'API ont été
 réconciliés le 17/09/2026. Trente-huit marques `xfail` dont le motif était
 devenu faux ont disparu — l'API les tenait, ou le test les vérifiait mal.
@@ -2008,6 +2011,11 @@ encore se pose donc avec plus de force, pas moins.
 
 ## Q40 — Réponses du mainteneur aux sept promesses de [[Q37]] — **17/09/2026**
 
+**(a), (b) et (g) sont appliquées** (17/09/2026). Ce qui a été livré, et ce
+qui reste à trancher, est noté sous chaque réponse ci-dessous ; le contrat
+correspondant est dans `docs/ux/api_contrat.md`. (c), (d) et (e) restent
+ouvertes ; (f) attend la mesure de densité par tranche.
+
 ### (a) et (b) — aucune limite de date, et la météo se tait d'elle-même
 
 > « pour le jusqu'à quand : aucune limite. Juste, si on demande trop loin, ben
@@ -2025,6 +2033,28 @@ les deux cas. Avec cette réponse, **la distinction cesse d'être nécessaire du
 côté produit** : dans les deux cas l'utilisateur lit « pas de météo pour ce
 jour-là », et le parcours arrive quand même. Le message doit dire quel jour est
 le dernier couvert, pas pourquoi il l'est.
+
+**Livré le 17/09/2026.** `POST /sorties` et `POST /boucles` portent
+`meteo_absente = {jour, dernier_jour_couvert, message}`, `null` quand la météo
+a répondu ; `tenue`, `modele_meteo` et `candidates[].meteo` tombent à `null`,
+et plus aucun 502 `meteo_hors_domaine` ne sort d'une route de parcours. Le
+chiffre du message vient de `[meteo] horizon_jours` — **7 par défaut, mesuré
+le 17/09/2026 sur le vrai service** : AROME HD s'arrêtait à J+2, `icon_seamless`
+à J+7, et c'est le modèle de repli qui fixe la portée. Réglable, parce que la
+portée appartient au modèle et pas au projet. Au-delà de l'horizon, aucun appel
+n'est fait — ~150 prévisions pour des blocs vides.
+
+**Le repli de Q19 tient** : vérifié sur la configuration réelle, J+2 et J+3
+gardent leur météo par `icon_seamless` (`modele_meteo.repli = true`) et leur
+tenue conseillée.
+
+**Ce qui reste douteux.** L'horizon est celui qu'`icon_seamless` couvrait *ce
+jour-là* ; il bougera avec le modèle configuré et avec les publications
+d'Open-Meteo. Un chiffre trop grand ne coûte qu'un appel inutile (la réponse
+dégradée reste juste), un chiffre trop petit retirerait une météo réellement
+disponible. Le mesurer à l'exécution — une requête de sonde sur le point de
+départ — est possible et n'a pas été fait : ça ajoutait un appel réseau dans
+le cœur pour une phrase. À reprendre si la portée d'un modèle change souvent.
 
 ### (f) — le compte de feux n'est pas l'information ; la concentration l'est
 
@@ -2063,6 +2093,21 @@ proposition retenue n'est pas forcément celle que le cycliste choisit. Écrire
 
 La géométrie des trois est déjà en JSON (`candidates[].trace.points`), donc le
 front peut les dessiner sans rien écrire sur disque.
+
+**Livré le 17/09/2026.** Le cœur reçoit `recueil_gpx=` : absent (ligne de
+commande), il écrit le GPX de la proposition retenue comme avant ; présent
+(l'API), il n'écrit rien et remet les deux ou trois textes à l'appelant. Chaque
+proposition du JSON porte alors
+`gpx = {nom, url}` vers `GET /api/v1/sorties/{generation}/propositions/{n}/gpx`,
+qui rend le fichier lui-même — donc rien n'est écrit non plus au moment du
+choix. Vérifié sur la configuration réelle : aucun `.gpx` n'apparaît dans le
+cache, et les traces servies pour deux propositions diffèrent.
+
+**Ce qu'une génération oubliée devient.** Les GPX vivent en mémoire, bornés
+aux vingt dernières générations ; au-delà, ou après un redémarrage, la route
+rend `generation_introuvable` (404) et l'écran redemande une recherche. Les
+garder sur le disque coûterait exactement ce que la décision voulait éviter :
+la géométrie d'une trace pèse ce que pèse son GPX.
 
 ### (c), (d) et (e) — pas tranchées, et pourquoi
 

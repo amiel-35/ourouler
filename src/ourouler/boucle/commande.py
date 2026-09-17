@@ -34,7 +34,7 @@ import sys
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
@@ -50,6 +50,7 @@ from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
+from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, NOMS_DIRECTIONS_16, azimut_de
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -229,10 +230,24 @@ def executer(
     base_routes = _base_routes(config)
     modele = _modele_temps(args, config)
 
-    client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
-    meteos, panne, vitesses = _meteos(
-        [t for t, _, _ in traces], client_meteo, config, depart=demande.depart, modele=modele
+    # Q40 (a) : une heure de départ trop lointaine ne se refuse pas, elle se
+    # sert **sans météo** — et sans appeler Open-Meteo pour récolter des blocs
+    # vides. Même règle et même phrase que `ourouler sortie`.
+    dernier_jour = portee.dernier_jour_couvert(
+        config.meteo.horizon_jours, aujourdhui=date.today()
     )
+    jour_demande = demande.depart.date()
+    meteo_absente = (
+        portee.constater(jour_demande, dernier_jour) if jour_demande > dernier_jour else None
+    )
+    if meteo_absente is not None:
+        meteos, panne = [None] * len(traces), None
+        vitesses = [_vitesse_meteo(t, modele, config) for t, _, _ in traces]
+    else:
+        client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
+        meteos, panne, vitesses = _meteos(
+            [t for t, _, _ in traces], client_meteo, config, depart=demande.depart, modele=modele
+        )
     evaluations = _classer(
         traces,
         meteos,
@@ -244,16 +259,32 @@ def executer(
     )
     chemin = _ecrire_meilleure(evaluations[0].trace, demande) if demande.gpx is None else None
 
+    if meteo_absente is None and panne is not None:
+        meteo_absente = portee.constater(jour_demande, dernier_jour)
     if panne is not None:
         print(
             f"ourouler : météo indisponible ({panne}) — tableau affiché sans les "
             "colonnes météo, la boucle reste valable",
             file=sys.stderr,
         )
+    elif meteo_absente is not None:
+        print(
+            f"ourouler : {meteo_absente.message} — tableau affiché sans les colonnes météo, "
+            "la boucle reste valable",
+            file=sys.stderr,
+        )
     if getattr(args, "json", False):
         print(
             json.dumps(
-                rendre_json(evaluations, demande, config, chemin, modele, poids=poids),
+                rendre_json(
+                    evaluations,
+                    demande,
+                    config,
+                    chemin,
+                    modele,
+                    poids=poids,
+                    meteo_absente=meteo_absente,
+                ),
                 ensure_ascii=False,
                 indent=2,
             )
@@ -929,6 +960,7 @@ def rendre_json(
     modele: ModeleTemps | None = None,
     *,
     poids: dict[str, float] | None = None,
+    meteo_absente: portee.MeteoAbsente | None = None,
 ) -> dict:
     """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
     return {
@@ -950,6 +982,9 @@ def rendre_json(
         "sens_prefere": config.boucle.sens,
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
+        # Q40 (a) : l'état « pas de météo », dit une fois. `null` quand la
+        # météo a répondu. Voir `meteo.portee`.
+        "meteo_absente": None if meteo_absente is None else meteo_absente.json(),
         "gpx": str(chemin) if chemin is not None else None,
         "poids_routes": dict(poids) if poids else None,
         "modele_physique": None

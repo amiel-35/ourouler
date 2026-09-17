@@ -252,7 +252,11 @@ export function sortie(options?: {
       },
       modele_physique: "modele-invente (Le vert)",
       modele_meteo: { utilise: "modele-meteo-invente", repli: false },
-      gpx: { id: "a".repeat(32), nom: "essai.gpx", url: "/api/v1/fichiers/" + "a".repeat(32) },
+      meteo_absente: null,
+      generation: "c".repeat(32),
+      // Q40 (g) : aucun GPX n'est écrit à la génération — la clé du cœur
+      // reste nulle, et chaque proposition porte la sienne.
+      gpx: null,
       carte: null,
       tenue: {
         categorie_temp: "frais-invente",
@@ -287,6 +291,10 @@ export function sortie(options?: {
         orientation_vent: ["travers", "depart-dos", "retour-dos"][i],
         note_terrain: 0,
         recouvrement_max_avec: null,
+        gpx: {
+          nom: `sortie_20260916_n${i + 1}.gpx`,
+          url: `/api/v1/sorties/${"c".repeat(32)}/propositions/${i + 1}/gpx`,
+        },
       })),
       candidates: Array.from({ length: combien }, (_, i) => ({
         numero: i + 1,
@@ -385,6 +393,7 @@ export function boucle(): Enveloppe<Boucle> {
     donnees: {
       depart: { ...DEPART, heure: "2026-09-16T08:15:00+02:00" },
       demande: { distance_km: 41.3, direction: "NE", candidates: 2 },
+      meteo_absente: null,
       gpx: { id: "b".repeat(32), nom: "boucle.gpx", url: "/api/v1/fichiers/" + "b".repeat(32) },
       candidates: [
         {

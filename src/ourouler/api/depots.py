@@ -12,9 +12,11 @@ Deux dépôts, deux natures de données :
 - `DepotProfils` — le profil : le **socle** servi par le serveur, plus ce que
   **ce propriétaire-là** a modifié depuis l'interface. Le TOML du mainteneur
   n'est jamais réécrit (voir `enregistrer`).
-- `DepotFichiers` — les fichiers produits (GPX, carte) et déposés (`.ZWO`,
+- `DepotFichiers` — les fichiers produits (carte) et déposés (`.ZWO`,
   `.MRC`), rangés sous un préfixe par propriétaire et servis par un
   identifiant opaque, jamais par un chemin.
+- `DepotGenerations` — les GPX des propositions d'une génération, **en
+  mémoire et bornés**, servis à la demande quand le cycliste choisit (Q40 g).
 
 Aucun des deux ne lit l'environnement : ils reçoivent les chemins que
 `exploitation.py` a résolus, comme le cœur reçoit sa `Config`.
@@ -25,7 +27,8 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from collections.abc import Mapping
+from collections import OrderedDict
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -378,6 +381,75 @@ class DepotFichiers:
         raise ErreurUtilisateur(f"fichier {identifiant} : introuvable")
 
 
+#: Combien de générations de parcours on garde, par serveur. Chacune pèse ses
+#: deux ou trois GPX — 65 ko l'un, mesuré le 17/09/2026 — soit ~4 Mo au
+#: plafond. Court exprès : un cycliste choisit sa boucle dans la minute qui
+#: suit, pas le lendemain.
+GENERATIONS_GARDEES = 20
+
+
+class DepotGenerations:
+    """Les GPX des propositions d'une génération, gardés jusqu'au choix.
+
+    **Q40 (g), tranché le 17/09/2026** : « aucun GPX à la génération, et on le
+    fait à la demande quand l'user choisit son parcours ». Écrire les trois,
+    c'était en jeter deux à chaque fois ; n'écrire que celle du classement,
+    c'était envoyer la mauvaise trace au compteur à qui choisissait « la plus
+    sèche ». Ici **rien n'est écrit** : ni à la génération, ni au choix — la
+    route rend le contenu, elle ne range pas un fichier de plus à chaque clic.
+
+    **En mémoire, et borné.** Une génération qui n'y est plus — plafond
+    atteint, ou serveur redémarré — lève `ErreurUtilisateur`, et la route
+    répond 404 `generation_introuvable` : l'écran redemande une recherche,
+    ce qui est honnête et prend cinq secondes. La tenir sur le disque
+    coûterait exactement ce que la décision voulait éviter, puisque la
+    géométrie d'une trace pèse ce que pèse son GPX.
+
+    Les propositions reçues sont des `sortie.commande.GpxPropose`, mais le
+    dépôt n'en connaît que trois attributs (`numero`, `nom_fichier`, `texte`)
+    et n'importe pas le cœur : il range des couples, pas des objets du cœur.
+    """
+
+    def __init__(self, taille: int = GENERATIONS_GARDEES) -> None:
+        self._taille = max(int(taille), 1)
+        self._generations: OrderedDict[tuple[str, str], dict[int, tuple[str, str]]] = OrderedDict()
+
+    def retenir(self, proprietaire: Proprietaire, propositions: Iterable[object]) -> str:
+        """Range les GPX d'une génération et rend son identifiant opaque."""
+        par_numero = {
+            int(p.numero): (str(p.nom_fichier), str(p.texte))  # type: ignore[attr-defined]
+            for p in propositions
+        }
+        identifiant = uuid.uuid4().hex
+        self._generations[(proprietaire.identifiant, identifiant)] = par_numero
+        while len(self._generations) > self._taille:
+            self._generations.popitem(last=False)
+        return identifiant
+
+    def gpx(self, proprietaire: Proprietaire, identifiant: str, numero: int) -> tuple[str, str]:
+        """(nom de fichier, contenu GPX) de **cette** proposition, pour ce propriétaire.
+
+        La clé porte le propriétaire : l'identifiant d'un autre est
+        introuvable ici, sans que la réponse dise s'il existe ailleurs —
+        même règle que `DepotFichiers.trouver` (doctrine §10.2).
+        """
+        if not FORME_IDENTIFIANT.match(identifiant or ""):
+            raise ErreurUtilisateur(f"génération {identifiant!r} : identifiant inconnu")
+        generation = self._generations.get((proprietaire.identifiant, identifiant))
+        if generation is None:
+            raise ErreurUtilisateur(
+                f"génération {identifiant} : introuvable — elle n'est plus en mémoire "
+                "(serveur redémarré, ou trop de générations depuis) ; relancer la recherche"
+            )
+        gpx = generation.get(int(numero))
+        if gpx is None:
+            raise ErreurUtilisateur(
+                f"génération {identifiant} : aucune proposition n° {numero} "
+                f"(numéros servis : {', '.join(str(n) for n in sorted(generation))})"
+            )
+        return gpx
+
+
 #: Ce qu'un nom d'affichage a le droit de contenir. Tout le reste devient un
 #: tiret bas. Fermé parce que ce nom **ressort dans un en-tête HTTP**
 #: (`Content-Disposition`) : un guillemet y coupe l'en-tête, un retour chariot
@@ -535,9 +607,11 @@ class JournalServices:
 __all__ = [
     "CHAMPS_MODIFIABLES",
     "EXTENSIONS",
+    "GENERATIONS_GARDEES",
     "LISTES_MODIFIABLES",
     "NOM_JOURNAL",
     "DepotFichiers",
+    "DepotGenerations",
     "DepotProfils",
     "Fichier",
     "JournalServices",

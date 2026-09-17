@@ -61,6 +61,22 @@ DIRECTIONS_ACCEPTEES = (8, 16)
 #: Horizon maximal accepté, en heures : au-delà, AROME HD n'a plus rien à dire.
 HORIZON_MAX_H = 48
 
+#: Jusqu'à combien de jours en avant on accepte de demander une météo pour un
+#: parcours (Q40 a). **Mesuré le 17/09/2026 sur le vrai service**, depuis un
+#: point français, avec les deux modèles par défaut : AROME HD rendait sa
+#: dernière valeur le 19/09 à 03 h (J+2), `icon_seamless` le 24/09 à 12 h
+#: (J+7). C'est donc le **modèle de repli** qui fixe la portée du produit.
+#:
+#: Réglable parce que la portée appartient au modèle et non au projet :
+#: quelqu'un qui configure un autre second avis a un autre horizon, et un
+#: chiffre en dur mentirait pour lui. Au-delà, le parcours est servi et la
+#: météo déclarée absente sans qu'Open-Meteo soit appelé (`meteo.portee`).
+HORIZON_JOURS_DEFAUT = 7
+
+#: Borne haute acceptée pour `[meteo] horizon_jours` : Open-Meteo ne publie
+#: pas de prévision au-delà de seize jours, quel que soit le modèle.
+HORIZON_JOURS_MAX = 16
+
 
 @dataclass(frozen=True)
 class Depart:
@@ -152,6 +168,11 @@ class ParametresMeteo:
     modele: str = "meteofrance_arome_france_hd"
     second_avis: str = "icon_seamless"
     horizon_h: int = 6
+    #: Jusqu'à combien de jours en avant on accepte de demander une météo
+    #: (Q40 a). Au-delà, le parcours est servi et la météo déclarée absente,
+    #: **sans appeler Open-Meteo** — voir `meteo.portee`. La valeur par défaut
+    #: est celle du modèle de repli, mesurée sur le vrai service.
+    horizon_jours: int = HORIZON_JOURS_DEFAUT
 
 
 @dataclass(frozen=True, repr=False)
@@ -554,6 +575,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
             horizon_h=_entier(
                 meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H
+            ),
+            horizon_jours=_entier(
+                meteo.get("horizon_jours", HORIZON_JOURS_DEFAUT),
+                "horizon_jours",
+                "meteo",
+                mini=0,
+                maxi=HORIZON_JOURS_MAX,
             ),
         ),
         intervals=ParametresIntervals(

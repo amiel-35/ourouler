@@ -26,13 +26,14 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from ourouler import __version__
 from ourouler.api import vues
 from ourouler.api.adaptateur import Budgets, executer_commande, namespace
 from ourouler.api.depots import (
     DepotFichiers,
+    DepotGenerations,
     DepotProfils,
     Fichier,
     JournalServices,
@@ -157,6 +158,8 @@ class Contexte:
 
     profils: DepotProfils
     fichiers: DepotFichiers
+    #: Les GPX des propositions d'une génération, en mémoire (Q40 g).
+    generations: DepotGenerations
     clients: Clients
     budgets: Budgets
     journal: JournalServices
@@ -650,9 +653,13 @@ def generer_sortie(
     from ourouler.sortie import commande as sortie_commande
 
     config = _config(ctx, qui)
-    gpx = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.gpx")
     carte = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.html")
     seance = _chemin_seance(ctx, qui, demande.fichier_seance)
+    # Q40 (g) : **aucun GPX n'est écrit ici**. Le cœur remet les trois textes
+    # à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc aucun fichier),
+    # et c'est la route `…/propositions/{n}/gpx` qui en servira un — celui que
+    # le cycliste aura choisi, et pas celui du classement.
+    recueillis: list[object] = []
     resultat = _avec_journal(
         ctx,
         qui,
@@ -669,27 +676,59 @@ def generer_sortie(
                 velo=demande.velo,
                 profil=demande.profil,
                 fichier_seance=seance,
-                sortie=str(gpx.chemin),
                 carte=str(carte.chemin),
                 ecraser=True,
             ),
             config,
             secrets=secrets_de(config),
-            chemins={str(gpx.chemin): gpx.nom, str(carte.chemin): carte.nom},
+            chemins={str(carte.chemin): carte.nom},
             operation="sortie",
             budgets=ctx.budgets,
             client_brouter=_service(ctx, config, "brouter"),
             client_meteo=_service(ctx, config, "meteo"),
             client_intervals=_service(ctx, config, "intervals"),
             lieu_depart=_depart(demande.depart),
+            recueil_gpx=recueillis.extend,
         ),
     )
-    donnees = vues.avec_fichiers(
-        resultat.donnees,
-        gpx=_note(ctx, qui, gpx),
-        carte=_note(ctx, qui, carte),
-    )
+    donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
+    if recueillis:
+        donnees = vues.avec_gpx_par_proposition(
+            donnees,
+            generation=ctx.generations.retenir(qui, recueillis),
+            noms={int(g.numero): str(g.nom_fichier) for g in recueillis},  # type: ignore[attr-defined]
+            prefixe=routeur.prefix,
+        )
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("sortie"), qui)
+
+
+@routeur.get("/sorties/{generation}/propositions/{numero}/gpx")
+def gpx_de_proposition(
+    ctx: Ctx,
+    qui: Qui,
+    generation: str,
+    numero: int,
+):
+    """Le GPX **de cette proposition-là**, fabriqué au moment où on le demande.
+
+    Q40 (g) : rien n'est écrit à la génération — deux des trois traces
+    seraient jetées — et rien n'est écrit ici non plus : la réponse *est* le
+    fichier. Le nom proposé au navigateur est celui que le cœur a donné
+    (`sortie_20260918_n2.gpx`), pour qu'un dossier de téléchargements dise
+    laquelle des trois a été emportée.
+
+    Une génération qui n'est plus en mémoire rend 404 `generation_introuvable`
+    et non 500 : l'écran redemande une recherche.
+    """
+    try:
+        nom, texte = ctx.generations.gpx(qui, generation, numero)
+    except ErreurUtilisateur as e:
+        raise ErreurApi(code="generation_introuvable", message=str(e), statut=404) from e
+    return Response(
+        content=texte,
+        media_type="application/gpx+xml",
+        headers={"Content-Disposition": f'attachment; filename="{nom}"'},
+    )
 
 
 @routeur.post("/boucles")
