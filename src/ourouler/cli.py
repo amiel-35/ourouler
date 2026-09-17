@@ -17,8 +17,10 @@ from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger, en_dict_public
 from ourouler.connecteurs.geocodage import (
     LIMITE_DEFAUT,
+    Candidat,
     ClientBAN,
     ClientNominatim,
+    ambiguite,
     chercher_adresse,
 )
 from ourouler.erreurs import ErreurUtilisateur
@@ -162,31 +164,39 @@ def lieu_depart(
     commande, elle, doit bien partir de quelque part — elle ne peut pas rendre
     une liste à qui a tapé `ourouler boucle --adresse-depart "…"`.
 
-    **Décision : le premier candidat, le mieux noté, est retenu, et il est
-    annoncé en toutes lettres sur la sortie d'erreur avant tout appel
-    coûteux.** Trois raisons :
+    **Décision du mainteneur sur Q34, le 17/09/2026 : « on refuse ».** Une
+    adresse ambiguë n'est plus tranchée au hasard, elle est **refusée**, avec
+    ses candidats affichés pour que l'utilisateur précise et relance. C'est en
+    ligne de commande que ce refus a le plus de sens : personne n'y confirme un
+    point sur une carte, et le seul échec qui coûte cher est de rouler depuis
+    un point qu'on croyait être un autre.
 
-    1. Refuser dès qu'il y a plusieurs candidats rendrait l'option
-       inutilisable : la BAN en rend presque toujours plusieurs, même pour une
-       adresse parfaitement précise (le numéro voisin, la rue sans numéro…).
-    2. Faire choisir au clavier ferait de chaque commande un dialogue et
-       interdirait l'usage en script ou en tâche planifiée — un usage déjà
-       livré (`--carte-sans-seance`).
-    3. Le seul échec qui coûte cher est de rouler depuis un point qu'on
-       croyait être un autre. Il est donc traité par l'affichage et non par le
-       silence : le lieu retenu est imprimé **avant** le travail, le nombre de
-       candidats écartés aussi, et `ourouler geocoder` montre la liste
-       complète. Le lieu retenu figure ensuite dans le rendu de chaque
-       commande, en texte comme en JSON.
+    **Ce qu'« ambigu » veut dire ici, et ce qu'il ne veut pas dire.** Pas un
+    écart de score : la mesure du 17/09/2026 sur la vraie BAN montre que
+    l'écart entre les deux premiers candidats vaut 0,0020 quand la réponse est
+    juste et 0,0016 à 0,0024 quand elle est arbitraire — aucun seuil ne les
+    sépare. C'est `geocodage.ambiguite()` qui décide, sur la **commune** :
+    plusieurs communes en présence, ou pas de commune du tout, et l'on refuse.
+    Le raisonnement complet et les quinze requêtes qui le fondent sont dans sa
+    docstring.
 
-    **Ce que l'API devra faire, et qui est l'inverse.** Une requête d'API n'a
+    Ce qui n'est **pas** ambigu, et reste donc tranché sans un mot de plus :
+    plusieurs candidats dans la même commune. La BAN en rend presque toujours
+    plusieurs (le numéro voisin, la rue sans numéro), et deux numéros de la
+    même rue ne changent pas où l'on part à vélo. Le premier est retenu et
+    annoncé en toutes lettres sur la sortie d'erreur avant tout appel coûteux ;
+    `ourouler geocoder` montre la liste complète.
+
+    **Ce que l'API fait, et qui est l'inverse.** Une requête d'API n'a
     pas de sortie d'erreur que quelqu'un lise, et le front, lui, *peut*
-    montrer une liste. L'API expose donc le géocodage comme une route à part
-    (la forme de `ourouler geocoder --json`, écrite pour ça), rend **tous**
-    les candidats au front avec leur score et leur source, et les routes de
+    montrer une liste, et une carte, et demander la commune dans un champ à
+    part. L'API expose donc le géocodage comme une route à part (la forme de
+    `ourouler geocoder --json`, écrite pour ça), rend **tous** les candidats au
+    front avec leur score, leur source **et leur commune**, et les routes de
     parcours reçoivent ensuite des **coordonnées déjà tranchées** — jamais une
-    adresse à géocoder au vol. Là où la CLI choisit et le dit, l'API ne
-    choisit pas et fait choisir.
+    adresse à géocoder au vol. Là où la CLI refuse, l'API ne refuse pas et fait
+    choisir sur une carte : deux façons de tenir la même décision, chacune avec
+    ce que sa surface permet.
 
     Une adresse introuvable lève `ErreurUtilisateur` — affichée en une ligne,
     code de sortie 2, aucune trace Python. Elle ne retombe **jamais** sur le
@@ -219,8 +229,25 @@ def lieu_depart(
             f"Le départ de la configuration ({config.depart.nom}) n'a pas servi à la place."
         )
 
-    retenu = candidats[0]
     flux = flux if flux is not None else sys.stderr
+
+    trouble = ambiguite(candidats)
+    if trouble is not None:
+        # Les candidats d'abord, l'erreur ensuite : c'est la liste qui permet
+        # de préciser, et `ErreurUtilisateur` s'affiche en une seule ligne.
+        print(
+            f"ourouler : candidats pour « {adresse} » — {trouble.phrase} :",
+            file=flux,
+        )
+        for i, c in enumerate(candidats, start=1):
+            print(f"  {i}. {_ligne_candidat(c)}", file=flux)
+        raise ErreurUtilisateur(
+            f"--adresse-depart {adresse!r} : adresse ambiguë, rien n'est retenu — "
+            "réécrire l'adresse avec sa commune et son code postal, puis relancer. "
+            f"Le départ de la configuration ({config.depart.nom}) n'a pas servi à la place."
+        )
+
+    retenu = candidats[0]
     ligne = (
         f"ourouler : départ « {retenu.label} » ({retenu.latitude:.5f}, {retenu.longitude:.5f}), "
         f"source {retenu.source}, score {retenu.score:.2f}"
@@ -243,6 +270,17 @@ def lieu_depart(
         )
 
     return Depart(nom=retenu.label, latitude=retenu.latitude, longitude=retenu.longitude)
+
+
+def _ligne_candidat(candidat: Candidat) -> str:
+    """Un candidat sur une ligne, commune en évidence — c'est elle qui les distingue."""
+    ou = candidat.commune or "commune inconnue"
+    if candidat.code_postal:
+        ou += f" {candidat.code_postal}"
+    return (
+        f"{candidat.label} — {ou} — {candidat.latitude:.5f}, {candidat.longitude:.5f} "
+        f"(score {candidat.score:.4f}, {candidat.source})"
+    )
 
 
 def _routes_connues_existent(config: Config) -> bool:

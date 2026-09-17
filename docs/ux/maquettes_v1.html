@@ -394,9 +394,16 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
   <div class="paire">
     <div class="tel"><div class="barre-etat"><span>9:41</span><span>Étape 3 sur 5</span></div><div class="ecran">
       <div class="app-tete"><div><span class="quand">Votre départ</span><h4>D'où partez-vous ?</h4></div></div>
-      <div class="champ"><label for="e10-adr">Adresse habituelle</label>
-        <input class="saisie" id="e10-adr" value="12 rue des Ajoncs, 35740 Pacé" readonly>
-        <div class="aide">Vous pourrez partir d'ailleurs à chaque sortie. Celle-ci n'est que le défaut.</div></div>
+      <button class="bouton second" style="margin-bottom:12px">Utiliser ma position</button>
+      <div class="champ"><label for="e10-num">Numéro</label>
+        <input class="saisie mono" id="e10-num" value="12" readonly></div>
+      <div class="champ"><label for="e10-voie">Voie</label>
+        <input class="saisie" id="e10-voie" value="rue des Ajoncs" readonly></div>
+      <div class="champ"><label for="e10-cp">Code postal</label>
+        <input class="saisie mono" id="e10-cp" value="35740" readonly></div>
+      <div class="champ"><label for="e10-com">Commune</label>
+        <input class="saisie" id="e10-com" value="Pacé" readonly>
+        <div class="aide">Quatre champs plutôt qu'une ligne : sans la commune, la même rue existe dans des dizaines de communes et rien ne permet de choisir la bonne. Vous pourrez partir d'ailleurs à chaque sortie ; celle-ci n'est que le défaut.</div></div>
       <div class="carte-mini" style="margin-bottom:12px" role="img" aria-label="Carte schématique du point de départ et de son voisinage">
         <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg">
           <rect width="320" height="200" fill="var(--papier)"/>
@@ -413,15 +420,19 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
           <text x="146" y="150" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muet)">Pacé</text>
         </svg>
       </div>
+      <p class="mention">Vérifiez le point avant d'enregistrer : Pacé (35740).</p>
       <div class="encart bien"><b>Bonne nouvelle pour vous.</b> La ville se dégage vite autour de chez vous — vos blocs pourront tomber en dehors du trafic.</div>
-      <button class="bouton">Continuer</button>
+      <button class="bouton">C'est bien là, enregistrer ce départ</button>
+      <button class="bouton fantome">Ce n'est pas là</button>
     </div></div>
     <div class="notes">
       <h3>Départ habituel <span class="ref">E10</span></h3>
       <p>Le seul champ <strong>strictement bloquant</strong> du parcours : rien ne tourne sans point de départ. Il est donc seul sur son écran, et la carte confirme qu'on a compris l'adresse — un géocodage qui se trompe de commune est indétectable dans un champ texte.</p>
       <p>L'encart vert est le passage le plus discutable de toute la maquette, et je le propose exprès. La mesure radiale sur quatre villes a montré que <strong>le produit ne rend pas le même service partout</strong> : à Pacé la ville se dégage en 4 km, aux Lilas la densité de feux ne retombe jamais avant 30 km. Dire au nouveau ce que sa géographie lui promet, c'est de la franchise ; le dire ici, alors qu'il vient de s'installer, c'est peut-être aussi le décourager avant d'avoir essayé.</p>
       <div class="citation"><b>À trancher :</b> on le dit à l'installation, on le dit à la première génération ratée, ou on ne le dit jamais.</div>
-      <div class="pastilles"><span class="p ecrire">géocodage absent du dépôt</span><span class="p ecrire">aucune fonction de dégagement</span><span class="p ouvert">dire ou non la géographie</span></div>
+      <p><strong>Quatre champs, et non un.</strong> Décision du mainteneur sur Q34, le 17/09/2026 : « on refuse ». Mesuré le même jour sur la vraie BAN — une adresse sans commune rend cinq candidats séparés de deux millièmes de score, dans cinq communes distinctes jusqu'à 400 km d'écart ; les neuf adresses complètes essayées rendent toutes une seule commune. La commune n'est donc pas un champ de confort, c'est ce qui sépare une réponse d'un tirage au sort. Moins élégant qu'un champ unique, et c'est ce qui rend la réponse sûre — l'écran le dit plutôt que de le faire deviner.</p>
+      <p><strong>« Utiliser ma position » est en plus, jamais à la place.</strong> Le navigateur ne la donne que sur HTTPS ou en local, après une autorisation explicite qui peut être refusée, et l'appel peut échouer ou traîner. Un refus n'est pas une erreur : c'est un choix, et le formulaire fait la même chose. Le point obtenu est une <em>coordonnée</em> : ourouler ne fait pas de géocodage inverse, il l'affiche donc en chiffres et ne lui invente pas un nom de rue.</p>
+      <div class="pastilles"><span class="p ok">géocodage livré (BAN + Nominatim)</span><span class="p ok">quatre champs obligatoires</span><span class="p ok">confirmation à l'œil sur la carte</span><span class="p ecrire">aucune fonction de dégagement</span><span class="p ecrire">géocodage inverse inexistant</span><span class="p ouvert">dire ou non la géographie</span></div>
     </div>
   </div>
 
@@ -613,7 +624,7 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
         <div class="aide">Vent de sud-ouest à 22 km/h demain matin.</div></div>
       <div class="champ"><label for="e16-ou">Départ</label>
         <input class="saisie" id="e16-ou" value="12 rue des Ajoncs, Pacé" readonly>
-        <div class="aide"><span class="lien">Partir d'ailleurs cette fois</span></div></div>
+        <div class="aide"><span class="lien">· Partir d'ailleurs cette fois</span> — déplie les quatre champs et la position, comme à l'installation.</div></div>
       <button class="bouton">Chercher trois parcours</button>
       <p class="mention" style="text-align:center;margin-top:10px">Environ cinq secondes.</p>
       <div class="onglets"><span>Aujourd'hui</span><span>Ma semaine</span><span class="actif">Demander</span><span>Réglages</span></div>
@@ -624,8 +635,9 @@ footer.fin h2{font-family:var(--titre);font-size:26px;font-weight:700;letter-spa
       <p>Une différence assumée avec Strava : <strong>chez eux le tracé lui-même se redessine en direct, ici il ne peut pas.</strong> Une boucle coûte environ 150 appels météo et plusieurs appels de calcul — ça ne se recalcule pas à chaque frappe. Ce qui bouge en direct, c'est donc l'<em>estimation</em> : la distance, l'heure de retour. Le tracé, lui, attend le bouton.</p>
       <p>Cette contrainte se rembourse ailleurs : <strong>l'estimation vient du même modèle</strong> qui calcule le temps sur le vrai parcours — masse, puissance, pente, vent de face — pas d'une vitesse forfaitaire. Réserve, et elle compte : ce modèle <em>se calibre sur l'historique</em>. Pour quelqu'un qui vient d'arriver, il tourne sur ses valeurs par défaut, et l'écran ne le dit pas encore.</p>
       <p>La question du vent est posée <strong>avant</strong> la recherche, pas après. C'est l'idée du mainteneur, et elle réduit l'espace de recherche au lieu de le trier après coup. « Peu importe » reste une réponse valable, et c'est le défaut.</p>
+      <p><strong>Le départ ponctuel passe par le même formulaire que l'installation</strong>, quatre champs et confirmation sur la carte (Q34, 17/09/2026). Il est replié par défaut : la plupart des sorties partent de chez soi, et déplier coûte un clic quand le formulaire ouvert coûterait un écran. Un départ ponctuel ne remplace jamais le départ habituel — l'écran le dit.</p>
       <p>Enfin, « environ une minute » est là parce que le bouton ouvre <strong>la seule attente longue du produit</strong>. Annoncer l'ordre de grandeur coûte une ligne ; ne pas l'annoncer coûte un rechargement, et un rechargement coûte un second cycle complet d'appels.</p>
-      <div class="pastilles"><span class="p ok">modèle physique</span><span class="p ok">question du vent existe</span><span class="p ecrire">géocodage du départ ponctuel</span><span class="p ouvert">modèle non calibré pour un invité</span><span class="p ouvert">une adresse ponctuelle, ou une liste</span></div>
+      <div class="pastilles"><span class="p ok">modèle physique</span><span class="p ok">question du vent existe</span><span class="p ok">géocodage du départ ponctuel</span><span class="p ok">même formulaire qu'à l'installation</span><span class="p ouvert">modèle non calibré pour un invité</span></div>
     </div>
   </div>
 </section>

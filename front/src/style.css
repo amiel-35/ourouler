@@ -662,3 +662,27 @@ img {
   padding: 11px 2px;
   cursor: pointer;
 }
+
+/* Le formulaire d'adresse — quatre champs, parce que la commune ne doit pas
+   pouvoir s'oublier (Q34). Le cadre n'est pas décoratif : il dit que les
+   champs vont ensemble et qu'aucun n'est facultatif. */
+.champs-adresse {
+  border: 1px solid var(--trait);
+  border-radius: 8px;
+  padding: 12px 12px 4px;
+  margin: 10px 0;
+  min-width: 0;
+}
+.champs-adresse legend {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--encre-2);
+  padding: 0 6px;
+}
+.champs-adresse .champ {
+  margin-bottom: 10px;
+}
+.saisie[aria-invalid="true"] {
+  border-color: var(--alerte);
+}

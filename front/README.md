@@ -50,6 +50,17 @@ enregistré est la **position dans la zone**, jamais les watts (décision 7), et
 la moyenne compteur dit toujours si son facteur est mesuré ou supposé
 (décision 8).
 
+**Le départ se saisit en quatre champs** (`src/composants/FormulaireAdresse.tsx`),
+pas en une ligne de texte : numéro, voie, code postal, commune, tous
+obligatoires. Décision du mainteneur sur Q34, le 17/09/2026 — une adresse sans
+commune rend cinq candidats dans cinq communes distinctes, séparés de deux
+millièmes de score, et le premier est arbitraire. Le point géocodé se
+**confirme à l'œil sur la carte** avant d'être retenu. « Utiliser ma position »
+est proposé **en plus**, jamais à la place : le navigateur ne la donne que sur
+HTTPS, après une autorisation qui peut être refusée — et un refus n'est pas une
+erreur, c'est un choix. Faute de géocodage inverse, la position relevée reste
+une coordonnée affichée en chiffres.
+
 **Les échecs sont des écrans** (`src/composants/Echec.tsx`), choisis sur le
 **code** de la panne et jamais sur son message. `Barriere` attrape en dernier
 recours ce qu'aucun écran n'avait prévu : une page blanche est le pire des

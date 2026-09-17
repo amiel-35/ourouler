@@ -34,12 +34,18 @@ interface Props {
   /** Les blocs de la séance, posés sur le tracé retenu (maquette E20). */
   segments?: SegmentDessine[];
   depart?: { latitude: number; longitude: number; nom?: string } | null;
+  /**
+   * Le zoom quand il n'y a qu'un point et aucun tracé. 12 montre la commune ;
+   * 16 montre la rue, ce que demande une confirmation d'adresse (Q34) — on ne
+   * vérifie pas qu'un géocodage a trouvé la bonne rue depuis 20 km d'altitude.
+   */
+  zoomPoint?: number;
   haute?: boolean;
   /** Ce que la carte montre, pour qui ne la voit pas. */
   description: string;
 }
 
-export function Carte({ traces, segments = [], depart, haute, description }: Props) {
+export function Carte({ traces, segments = [], depart, zoomPoint = 12, haute, description }: Props) {
   const conteneur = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -88,7 +94,7 @@ export function Carte({ traces, segments = [], depart, haute, description }: Pro
       if (tous.length > 0) {
         carte.fitBounds(L.latLngBounds(tous), { padding: [14, 14] });
       } else if (depart) {
-        carte.setView([depart.latitude, depart.longitude], 12);
+        carte.setView([depart.latitude, depart.longitude], zoomPoint);
       } else {
         carte.setView([0, 0], 2);
       }
@@ -105,7 +111,7 @@ export function Carte({ traces, segments = [], depart, haute, description }: Pro
         /* rien à nettoyer */
       }
     };
-  }, [traces, segments, depart]);
+  }, [traces, segments, depart, zoomPoint]);
 
   return (
     <div

@@ -12,10 +12,11 @@
 
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Candidat, Profil, Zones } from "../api/types";
+import type { Profil, Zones } from "../api/types";
 import { nombre, pourcentage } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
-import { ChoixAdresse } from "../composants/ChoixAdresse";
+import { FormulaireAdresse } from "../composants/FormulaireAdresse";
+import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
 type Volet = "ftp" | "poids" | "depart" | "velos" | "intervals" | null;
 
@@ -173,19 +174,12 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
 
       {volet === "depart" ? (
         <div className="bloc">
-          <ChoixAdresse
+          <FormulaireAdresse
             valeurActuelle={profil.depart.nom}
-            surChoix={(candidat: Candidat) =>
-              enregistrer(
-                {
-                  depart: {
-                    nom: candidat.label,
-                    latitude: candidat.latitude,
-                    longitude: candidat.longitude,
-                  },
-                },
-                "Départ enregistré.",
-              )
+            libelleConfirmation="C'est bien là, enregistrer ce départ"
+            aide="Vous pourrez partir d'ailleurs à chaque sortie. Celui-ci n'est que le défaut."
+            surChoix={(depart: DepartChoisi) =>
+              enregistrer({ depart }, "Départ enregistré.")
             }
           />
         </div>

@@ -126,11 +126,27 @@ export interface Candidat {
   longitude: number;
   score: number;
   source: string;
+  /**
+   * La commune, seule chose qui distingue vraiment deux candidats — un même
+   * `label` de rue existe dans des centaines de communes (Q34). `null` quand
+   * le géocodeur ne la rend pas : ce n'est pas une erreur, c'est un candidat
+   * qu'on ne sait pas situer.
+   */
+  commune: string | null;
+  code_postal: string | null;
 }
 
 export interface Geocodage {
   adresse: string;
   candidats: Candidat[];
+  /**
+   * Les candidats ne désignent pas un seul lieu (communes différentes, ou pas
+   * de commune du tout). **Ce n'est pas un arbitrage** : l'API rend les
+   * candidats quand même et ne tranche jamais — c'est une information pour
+   * décider quoi afficher.
+   */
+  ambigu: boolean;
+  motif_ambiguite: string | null;
 }
 
 // --- séances ------------------------------------------------------------

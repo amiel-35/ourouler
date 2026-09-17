@@ -15,10 +15,11 @@
 
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Candidat, Profil, Zones } from "../api/types";
+import type { Profil, Zones } from "../api/types";
 import { nombre, pourcentage } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
-import { ChoixAdresse } from "../composants/ChoixAdresse";
+import { FormulaireAdresse } from "../composants/FormulaireAdresse";
+import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
 const ETAPES = ["Ce qu'on va vous demander", "Votre puissance", "Votre départ", "Votre vélo", "intervals.icu", "C'est prêt"];
 
@@ -180,20 +181,15 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
 
       {etape === 2 ? (
         <>
-          <ChoixAdresse
+          <FormulaireAdresse
             valeurActuelle={profil.depart.nom}
-            surChoix={async (candidat: Candidat) => {
-              const bon = await enregistrer({
-                depart: {
-                  nom: candidat.label,
-                  latitude: candidat.latitude,
-                  longitude: candidat.longitude,
-                },
-              });
+            libelleConfirmation="C'est bien là, enregistrer ce départ"
+            aide="Vous pourrez partir d'ailleurs à chaque sortie. Celui-ci n'est que le défaut."
+            surChoix={async (depart: DepartChoisi) => {
+              const bon = await enregistrer({ depart });
               if (bon) suivant();
             }}
           />
-          <p className="mention">Départ actuel : {profil.depart.nom}.</p>
           <button type="button" className="bouton second" onClick={suivant}>
             Garder ce départ
           </button>
