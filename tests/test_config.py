@@ -162,6 +162,25 @@ def test_environnement_present_ecrase_le_toml(tmp_path: Path):
     assert c.depart.latitude == 1.0, "non touché : seule la variable posée l'emporte"
 
 
+def test_variable_vide_vaut_variable_absente(tmp_path: Path):
+    """Le piège du compose : l'hébergeur transmet toutes les variables déclarées,
+    vides comprises. Une chaîne vide ne doit pas écraser un TOML valide —
+    sinon le conteneur meurt au démarrage sur sa propre configuration."""
+    f = _toml_minimal(tmp_path, '[intervals]\napi_key="depuis-toml"\n')
+    c = charger(
+        f,
+        environ={
+            "OUROULER_DEPART_NOM": "",
+            "OUROULER_DEPART_LATITUDE": "",
+            "OUROULER_DEPART_LONGITUDE": "",
+            "OUROULER_INTERVALS_API_KEY": "",
+            "OUROULER_BROUTER_URL": "",
+        },
+    )
+    assert (c.depart.nom, c.depart.latitude, c.depart.longitude) == ("Test", 1.0, 2.0)
+    assert c.intervals.api_key == "depuis-toml"
+
+
 def test_environnement_peut_construire_depart_sans_section_toml(tmp_path: Path):
     """Cas du conteneur : aucune coordonnée dans le fichier, tout vient de l'environnement."""
     f = tmp_path / "c.toml"

@@ -532,9 +532,25 @@ def _survoler_environnement(brut: dict[str, Any], environ: Mapping[str, str]) ->
 
 
 def _reporter(section: dict[str, Any], champ: str, environ: Mapping[str, str], suffixe: str) -> None:
-    """Pose `section[champ]` depuis `{PREFIXE_ENV}<suffixe>`, si la variable est présente."""
+    """Pose `section[champ]` depuis `{PREFIXE_ENV}<suffixe>`, si la variable **porte
+    une valeur**.
+
+    Vide vaut absente, et ce n'est pas du confort : un fichier compose écrit
+    `OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE}` pour laisser
+    l'hébergeur poser la variable, et l'hébergeur qui ne la pose pas la
+    transmet quand même au conteneur, vide. Avec `valeur is not None` seul,
+    cette chaîne vide écrasait la latitude du TOML et le démarrage échouait
+    sur « [depart] latitude : nombre attendu, reçu '' » — un fichier de
+    configuration valide rendu invalide par une variable que personne n'a
+    remplie (constaté le 18/09/2026 sur le premier déploiement Coolify de
+    l'API : boucle de redémarrage, 503 derrière le proxy).
+
+    Effacer une valeur du TOML par l'environnement n'est donc pas possible,
+    et n'a jamais été demandé : ces variables servent à **fournir** ce que le
+    fichier n'a pas, pas à retirer ce qu'il a.
+    """
     valeur = environ.get(f"{PREFIXE_ENV}{suffixe}")
-    if valeur is not None:
+    if valeur:
         section[champ] = valeur
 
 
