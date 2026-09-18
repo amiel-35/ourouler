@@ -83,6 +83,7 @@ from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
+from ourouler.boucle.horaire import construire_horaire
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
@@ -1032,8 +1033,7 @@ def _replacer_avec_vent(
             meteo_vent = evaluer_meteo(
                 trace,
                 client_meteo,
-                depart=demande.depart,
-                vitesse_kmh=vitesse,
+                horaire=construire_horaire(demande.depart, vitesse),
                 modele=config.meteo.modele,
                 # Pas de `second_avis` : lui seul sert au second modèle de
                 # pluie, et ce premier appel ne sert qu'au vent du modèle
@@ -1159,8 +1159,7 @@ def _mesurer(
                 meteo = evaluer_meteo(
                     trace,
                     client_meteo,
-                    depart=demande.depart,
-                    vitesse_kmh=vitesse,
+                    horaire=construire_horaire(demande.depart, vitesse),
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
                     # Repli Q19 : sans lui, une fenêtre hors de portée

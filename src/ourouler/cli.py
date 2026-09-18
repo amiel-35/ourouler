@@ -494,6 +494,14 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         help="au lieu de --puissance, pour qui ne connaît pas la sienne : la vitesse tenue "
         "à plat, sans vent, lancé — le modèle en déduit les watts",
     )
+    p.add_argument(
+        "--pause",
+        action="append",
+        metavar="KM:DUREE",
+        help="un arrêt déclaré, répétable — par exemple 180:0h45 (45 min au km 180) ; "
+        "la durée accepte 4h30, 45min ou 1:30 — décale l'heure de passage météo des "
+        "échantillons suivants, jamais le temps en mouvement",
+    )
     p.set_defaults(fonction=_commande_boucle)
 
 
@@ -609,6 +617,14 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
     )
     p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
     ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
+    p.add_argument(
+        "--pause",
+        action="append",
+        metavar="KM:DUREE",
+        help="un arrêt déclaré, répétable — par exemple 180:0h45 (45 min au km 180) ; "
+        "la durée accepte 4h30, 45min ou 1:30 — décale l'heure de passage météo des "
+        "échantillons suivants, jamais le temps en mouvement simulé",
+    )
     p.set_defaults(fonction=_commande_simuler)
 
 

@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
+from ourouler.boucle.horaire import Pause, construire_horaire
 from ourouler.boucle.meteo_trace import SEUIL_PLUIE_MM_H, Echantillon, evaluer
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.erreurs import ErreurHorsDomaine, ErreurUtilisateur
@@ -116,7 +117,7 @@ def test_un_seul_appel_http_pour_tous_les_echantillons():
     vues: list[httpx.Request] = []
     client = client_simple(horaire(4), vues)
     resultat = evaluer(
-        trace_droite(), client, depart=DEBUT, vitesse_kmh=20.0, modele=MODELE, pas_m=5000.0
+        trace_droite(), client, horaire=construire_horaire(DEBUT, 20.0), modele=MODELE, pas_m=5000.0
     )
     assert len(vues) == 1
     assert [e.dist_m for e in resultat.echantillons] == [0.0, 5000.0, 10_000.0, 15_000.0, 20_000.0]
@@ -126,16 +127,43 @@ def test_un_seul_appel_http_pour_tous_les_echantillons():
 def test_heures_de_passage():
     """20 km à 20 km/h : une heure, donc un échantillon tous les quarts d'heure."""
     resultat = evaluer(
-        trace_droite(), client_simple(horaire(4)), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert heures_de(resultat) == ["08:00", "08:15", "08:30", "08:45", "09:00"]
 
 
+def test_heures_de_passage_sans_pause_egale_le_calcul_manuel_depart_plus_distance_sur_vitesse():
+    """Non-régression : sans pause, `evaluer(horaire=...)` rend exactement le calcul d'avant ce lot."""
+    resultat = evaluer(
+        trace_droite(), client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
+        modele=MODELE, pas_m=5000.0,
+    )
+    for e in resultat.echantillons:
+        attendu = DEBUT + timedelta(hours=e.dist_m / 1000.0 / 20.0)
+        assert e.t == attendu
+
+
+def test_une_pause_decale_les_echantillons_qui_la_suivent():
+    """« À 10 km je m'arrête 30 minutes » : les échantillons après 10 km arrivent 30 min plus tard."""
+    pauses = [Pause(dist_m=10_000.0, duree_s=30 * 60.0)]
+    resultat = evaluer(
+        trace_droite(), client_simple(horaire(4)),
+        horaire=construire_horaire(DEBUT, 20.0, pauses),
+        modele=MODELE, pas_m=5000.0,
+    )
+    heures = {e.dist_m: e.t for e in resultat.echantillons}
+    assert heures[0.0] == DEBUT
+    assert heures[5000.0] == DEBUT + timedelta(minutes=15), "avant la pause : pas touché"
+    assert heures[10_000.0] == DEBUT + timedelta(minutes=30), "au kilomètre de la pause : pas encore prise"
+    assert heures[15_000.0] == DEBUT + timedelta(minutes=45 + 30), "après la pause : décalé de 30 min"
+    assert heures[20_000.0] == DEBUT + timedelta(hours=1, minutes=30)
+
+
 def test_le_dernier_point_est_toujours_echantillonne():
     """12 km au pas de 5 km : 0, 5, 10 **et** 12."""
     resultat = evaluer(
-        trace_droite(12_000.0), client_simple(horaire(4)), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(12_000.0), client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert [e.dist_m for e in resultat.echantillons] == [0.0, 5000.0, 10_000.0, 12_000.0]
@@ -146,7 +174,7 @@ def test_la_fenetre_demandee_va_du_depart_a_l_arrivee_plus_une_heure():
     vues: list[httpx.Request] = []
     client = client_simple(horaire(4), vues)
     evaluer(
-        trace_droite(), client, depart=DEBUT + timedelta(minutes=30), vitesse_kmh=20.0,
+        trace_droite(), client, horaire=construire_horaire(DEBUT + timedelta(minutes=30), 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert vues[0].url.params["start_hour"] == "2026-09-13T08:00"
@@ -155,8 +183,11 @@ def test_la_fenetre_demandee_va_du_depart_a_l_arrivee_plus_une_heure():
 
 def test_un_depart_sans_fuseau_est_lu_comme_utc():
     resultat = evaluer(
-        trace_droite(), client_simple(horaire(4)), depart=DEBUT.replace(tzinfo=None),
-        vitesse_kmh=20.0, modele=MODELE, pas_m=5000.0,
+        trace_droite(),
+        client_simple(horaire(4)),
+        horaire=construire_horaire(DEBUT.replace(tzinfo=None), 20.0),
+        modele=MODELE,
+        pas_m=5000.0,
     )
     assert heures_de(resultat) == ["08:00", "08:15", "08:30", "08:45", "09:00"]
 
@@ -167,7 +198,7 @@ def test_un_depart_sans_fuseau_est_lu_comme_utc():
 def test_interpolation_lineaire_entre_les_deux_heures_encadrantes():
     serie = horaire(2, precipitation=[0.0, 2.0], apparent_temperature=[10.0, 14.0])
     resultat = evaluer(
-        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     pluies = [e.pluie_mm for e in resultat.echantillons]
@@ -182,7 +213,7 @@ def test_la_rafale_est_interpolee_lineairement():
     """
     serie = horaire(2, wind_gusts_10m=[10.0, 30.0])
     resultat = evaluer(
-        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     rafales = [e.rafales_kmh for e in resultat.echantillons]
@@ -192,7 +223,7 @@ def test_la_rafale_est_interpolee_lineairement():
 def test_une_rafale_absente_reste_absente_jamais_zero():
     serie = horaire(4, wind_gusts_10m=[None] * 4)
     resultat = evaluer(
-        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert all(e.rafales_kmh is None for e in resultat.echantillons)
@@ -202,7 +233,7 @@ def test_l_heure_pile_prend_sa_valeur_meme_si_l_heure_precedente_manque():
     """Une valeur absente à 08 h ne doit pas effacer celle de 09 h."""
     serie = horaire(2, precipitation=[None, 1.0])
     resultat = evaluer(
-        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     pluies = [e.pluie_mm for e in resultat.echantillons]
@@ -218,7 +249,7 @@ def test_la_direction_du_vent_est_interpolee_angulairement():
     """
     serie = horaire(2, wind_direction_10m=[350.0, 10.0])
     resultat = evaluer(
-        trace_droite(cap=0.0), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(cap=0.0), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert [e.vent_relatif for e in resultat.echantillons] == ["face"] * 5
@@ -234,7 +265,7 @@ def test_la_direction_du_vent_est_interpolee_angulairement():
 def test_vent_relatif_au_cap_local(cap: float, attendu: str):
     """Vent venant de l'est (90°) : de face si l'on va vers l'est."""
     resultat = evaluer(
-        trace_droite(cap=cap), client_simple(horaire(4)), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(cap=cap), client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert {e.vent_relatif for e in resultat.echantillons} == {attendu}
@@ -243,7 +274,7 @@ def test_vent_relatif_au_cap_local(cap: float, attendu: str):
 
 def test_parts_de_vent_face_et_dos():
     resultat = evaluer(
-        trace_droite(cap=90.0), client_simple(horaire(4)), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(cap=90.0), client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert resultat.part_vent_face == pytest.approx(1.0)
@@ -254,7 +285,7 @@ def test_parts_de_vent_face_et_dos():
 def test_un_vent_de_direction_inconnue_ne_compte_pour_aucune_part():
     serie = horaire(4, wind_direction_10m=[None] * 4)
     resultat = evaluer(
-        trace_droite(cap=90.0), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(cap=90.0), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert all(e.vent_relatif is None for e in resultat.echantillons)
@@ -272,7 +303,7 @@ def test_le_denominateur_des_parts_de_vent_est_expose():
     """
     serie = horaire(4, wind_direction_10m=[90.0, None, None, None])
     resultat = evaluer(
-        trace_droite(cap=90.0), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(cap=90.0), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     connus = [e for e in resultat.echantillons if e.vent_relatif is not None]
@@ -294,7 +325,7 @@ def test_pluie_cumulee_et_minutes_de_pluie():
     """
     serie = horaire(2, precipitation=[0.0, 1.0])
     resultat = evaluer(
-        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     sous_la_pluie = [e for e in resultat.echantillons if (e.pluie_mm or 0) >= SEUIL_PLUIE_MM_H]
@@ -305,7 +336,7 @@ def test_pluie_cumulee_et_minutes_de_pluie():
 
 def test_un_trace_sec_ne_compte_aucune_minute_de_pluie():
     resultat = evaluer(
-        trace_droite(), client_simple(horaire(4)), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert resultat.pluie_cumulee_mm == 0.0
@@ -315,7 +346,7 @@ def test_un_trace_sec_ne_compte_aucune_minute_de_pluie():
 def test_une_pluie_absente_n_est_pas_comptee_comme_zero():
     serie = horaire(4, precipitation=[None] * 4)
     resultat = evaluer(
-        trace_droite(), client_simple(serie), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_simple(serie), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert all(e.pluie_mm is None for e in resultat.echantillons)
@@ -331,7 +362,7 @@ def test_trace_plus_longue_que_l_horizon_du_modele():
     vues: list[httpx.Request] = []
     client = client_bouchonne(lambda _m: horaire(2, precipitation=[1.0, 1.0]), vues)
     resultat = evaluer(
-        trace_droite(60_000.0), client, depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(60_000.0), client, horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, second_avis=SECOND, pas_m=5000.0,
     )
     assert len(vues) == 2  # un appel par modèle, pas un par échantillon
@@ -348,7 +379,7 @@ def test_tout_le_trace_hors_horizon_donne_une_confiance_inconnue():
     client = client_bouchonne(lambda _m: horaire(2, precipitation=[1.0, 1.0]))
     tardif = DEBUT + timedelta(hours=5)
     resultat = evaluer(
-        trace_droite(), client, depart=tardif, vitesse_kmh=20.0,
+        trace_droite(), client, horaire=construire_horaire(tardif, 20.0),
         modele=MODELE, second_avis=SECOND, pas_m=5000.0,
     )
     assert all(_tout_absent(e) for e in resultat.echantillons)
@@ -367,7 +398,7 @@ def test_echantillon_unique():
         nom="point", points=[PointTrace(0.0, 0.0, None, 0.0)], segments=[],
         distance_m=0.0, denivele_m=None, temps_moteur_s=None,
     )
-    resultat = evaluer(un_point, client, depart=DEBUT, vitesse_kmh=20.0, modele=MODELE)
+    resultat = evaluer(un_point, client, horaire=construire_horaire(DEBUT, 20.0), modele=MODELE)
     assert len(vues) == 1
     assert len(resultat.echantillons) == 1
     unique = resultat.echantillons[0]
@@ -388,7 +419,7 @@ def test_trace_sans_point():
         nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
     )
     with pytest.raises(ErreurUtilisateur, match="sans point"):
-        evaluer(vide, client_simple(horaire(2)), depart=DEBUT, vitesse_kmh=20.0, modele=MODELE)
+        evaluer(vide, client_simple(horaire(2)), horaire=construire_horaire(DEBUT, 20.0), modele=MODELE)
 
 
 @pytest.mark.parametrize(
@@ -406,8 +437,11 @@ def test_vitesse_ou_pas_non_positifs(vitesse: float, pas: float):
     """Le message nomme le paramètre fautif : c'est ce que l'utilisateur doit corriger."""
     with pytest.raises(ErreurUtilisateur, match=r"vitesse_kmh|pas_m"):
         evaluer(
-            trace_droite(), client_simple(horaire(4)), depart=DEBUT,
-            vitesse_kmh=vitesse, modele=MODELE, pas_m=pas,
+            trace_droite(),
+            client_simple(horaire(4)),
+            horaire=construire_horaire(DEBUT, vitesse),
+            modele=MODELE,
+            pas_m=pas,
         )
 
 
@@ -420,7 +454,7 @@ def test_les_distances_sont_recalculees_si_le_trace_ne_les_porte_pas():
         segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None,
     )
     resultat = evaluer(
-        sans_distances, client_simple(horaire(4)), depart=DEBUT, vitesse_kmh=20.0,
+        sans_distances, client_simple(horaire(4)), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, pas_m=5000.0,
     )
     assert len(resultat.echantillons) == 5
@@ -433,8 +467,11 @@ def test_les_distances_sont_recalculees_si_le_trace_ne_les_porte_pas():
 def test_sans_second_avis_la_confiance_est_inconnue():
     vues: list[httpx.Request] = []
     resultat = evaluer(
-        trace_droite(), client_simple(horaire(4, precipitation=[1.0] * 4), vues), depart=DEBUT,
-        vitesse_kmh=20.0, modele=MODELE, pas_m=5000.0,
+        trace_droite(),
+        client_simple(horaire(4, precipitation=[1.0] * 4), vues),
+        horaire=construire_horaire(DEBUT, 20.0),
+        modele=MODELE,
+        pas_m=5000.0,
     )
     assert len(vues) == 1
     assert resultat.confiance == "inconnu"
@@ -446,7 +483,7 @@ def test_second_avis_en_accord():
 
     vues: list[httpx.Request] = []
     resultat = evaluer(
-        trace_droite(), client_bouchonne(par_modele, vues), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_bouchonne(par_modele, vues), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, second_avis=SECOND, pas_m=5000.0,
     )
     assert [r.url.params["models"] for r in vues] == [MODELE, SECOND]
@@ -459,7 +496,7 @@ def test_second_avis_en_desaccord():
         return horaire(4, precipitation=[2.0] * 4 if modele == MODELE else [0.0] * 4)
 
     resultat = evaluer(
-        trace_droite(), client_bouchonne(par_modele), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_bouchonne(par_modele), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, second_avis=SECOND, pas_m=5000.0,
     )
     assert resultat.confiance == "desaccord"
@@ -473,7 +510,7 @@ def test_un_seul_echantillon_en_desaccord_suffit():
         return horaire(2, precipitation=[0.0, 0.0])
 
     resultat = evaluer(
-        trace_droite(), client_bouchonne(par_modele), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_bouchonne(par_modele), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, second_avis=SECOND, pas_m=5000.0,
     )
     assert resultat.confiance == "desaccord"
@@ -485,7 +522,7 @@ def test_un_second_avis_indisponible_ne_fait_pas_echouer_l_evaluation():
         return horaire(4, precipitation=[1.0] * 4) if modele == MODELE else 500
 
     resultat = evaluer(
-        trace_droite(), client_bouchonne(par_modele), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_bouchonne(par_modele), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, second_avis=SECOND, pas_m=5000.0,
     )
     assert resultat.confiance == "inconnu"
@@ -509,8 +546,11 @@ def horaire_vide(n_heures: int) -> dict:
 def test_sans_defaut_le_modele_demande_est_nomme():
     """Même sans repli, `modele_utilise` est renseigné : la ligne d'affichage en dépend."""
     resultat = evaluer(
-        trace_droite(), client_simple(horaire(4, precipitation=[1.0] * 4)), depart=DEBUT,
-        vitesse_kmh=20.0, modele=MODELE, pas_m=5000.0,
+        trace_droite(),
+        client_simple(horaire(4, precipitation=[1.0] * 4)),
+        horaire=construire_horaire(DEBUT, 20.0),
+        modele=MODELE,
+        pas_m=5000.0,
     )
     assert resultat.modele_utilise == MODELE
     assert resultat.repli is False
@@ -523,7 +563,7 @@ def test_le_repli_prend_le_relais_quand_le_principal_est_hors_de_portee():
 
     vues: list[httpx.Request] = []
     resultat = evaluer(
-        trace_droite(), client_bouchonne(par_modele, vues), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_bouchonne(par_modele, vues), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, modele_repli=SECOND, pas_m=5000.0,
     )
     assert [r.url.params["models"] for r in vues] == [MODELE, SECOND]
@@ -536,7 +576,7 @@ def test_sans_modele_de_repli_l_echec_remonte_tel_quel():
     """Le comportement d'avant Q19 est inchangé quand personne ne fournit de repli."""
     with pytest.raises(ErreurHorsDomaine):
         evaluer(
-            trace_droite(), client_simple(horaire_vide(4)), depart=DEBUT, vitesse_kmh=20.0,
+            trace_droite(), client_simple(horaire_vide(4)), horaire=construire_horaire(DEBUT, 20.0),
             modele=MODELE, pas_m=5000.0,
         )
 
@@ -545,7 +585,7 @@ def test_le_repli_egal_au_principal_n_est_pas_retente():
     """Un `modele_repli` égal au principal ne changerait rien : on ne boucle pas dessus."""
     with pytest.raises(ErreurHorsDomaine):
         evaluer(
-            trace_droite(), client_simple(horaire_vide(4)), depart=DEBUT, vitesse_kmh=20.0,
+            trace_droite(), client_simple(horaire_vide(4)), horaire=construire_horaire(DEBUT, 20.0),
             modele=MODELE, modele_repli=MODELE, pas_m=5000.0,
         )
 
@@ -557,10 +597,103 @@ def test_le_repli_n_interroge_pas_deux_fois_le_meme_modele_pour_le_second_avis()
 
     vues: list[httpx.Request] = []
     resultat = evaluer(
-        trace_droite(), client_bouchonne(par_modele, vues), depart=DEBUT, vitesse_kmh=20.0,
+        trace_droite(), client_bouchonne(par_modele, vues), horaire=construire_horaire(DEBUT, 20.0),
         modele=MODELE, second_avis=SECOND, modele_repli=SECOND, pas_m=5000.0,
     )
     assert [r.url.params["models"] for r in vues] == [MODELE, SECOND], (
         "un troisième appel demanderait le second avis en plus du repli, pour rien"
     )
     assert resultat.confiance == "inconnu", "comparer un modèle à lui-même n'est pas un second avis"
+
+
+# --- repli partiel : la moitié du tracé peut déborder l'horizon du principal --
+#
+# Un 600 km avec une nuit de sommeil déborde parfois l'horizon horaire du
+# modèle principal en cours de route, sans que le **départ** en soit hors
+# domaine : Open-Meteo rend alors une série valide qui s'arrête, pas un bloc
+# entièrement nul (ce dernier cas est le repli *total*, ci-dessus). Avant ce
+# lot, les échantillons au-delà restaient silencieusement absents, même avec
+# un `modele_repli` configuré — ces tests couvrent le rattrapage.
+
+
+def horaire_partiel(n_valides: int, n_total: int, valeur: float = 1.0) -> dict:
+    """Une série valide sur les `n_valides` premières heures, puis **tout** absent au-delà.
+
+    « Tout », pas seulement la pluie : c'est ce qui distingue une fenêtre qui
+    dépasse la portée horaire du modèle (aucune variable ne répond plus,
+    au-delà d'un moment) d'une simple valeur ponctuellement manquante.
+    """
+    return horaire(
+        n_total,
+        **{
+            nom: [valeur if nom in ("precipitation", "rain") else DEFAUTS[nom]] * n_valides
+            + [None] * (n_total - n_valides)
+            for nom in VARIABLES_HORAIRES
+        },
+    )
+
+
+def test_repli_partiel_bascule_seulement_les_echantillons_non_couverts():
+    """Le principal répond pour le début du tracé, le repli prend le relais pour la fin."""
+
+    def par_modele(modele: str):
+        if modele == MODELE:
+            # Valide à 08:00 et 09:00, puis une série qui s'arrête (10:00,
+            # 11:00 à `None`, **toutes** les variables) — la signature
+            # mesurée d'une fenêtre trop longue, pas d'un point hors domaine
+            # (voir docstring du module).
+            return horaire_partiel(2, 4, valeur=1.0)
+        return horaire(4, precipitation=[9.0] * 4)
+
+    vues: list[httpx.Request] = []
+    resultat = evaluer(
+        trace_droite(40_000.0),
+        client_bouchonne(par_modele, vues),
+        horaire=construire_horaire(DEBUT, 20.0),
+        modele=MODELE,
+        modele_repli=SECOND,
+        pas_m=10_000.0,
+    )
+    assert [r.url.params["models"] for r in vues] == [MODELE, SECOND], (
+        "le repli n'est tenté qu'une fois, mémoïsé, pas un appel par échantillon absent"
+    )
+    assert [e.modele for e in resultat.echantillons] == [MODELE, MODELE, MODELE, SECOND, SECOND]
+    assert [e.pluie_mm for e in resultat.echantillons] == pytest.approx([1.0, 1.0, 1.0, 9.0, 9.0])
+    assert resultat.bascule_dist_m == pytest.approx(30_000.0)
+    assert resultat.repli is True
+    assert resultat.modele_utilise == MODELE, "le principal reste nommé : il a répondu pour l'essentiel"
+
+
+def test_sans_repli_partiel_configure_les_echantillons_non_couverts_restent_absents():
+    """Sans `modele_repli`, le comportement d'avant ce lot est inchangé : rien n'est inventé."""
+    resultat = evaluer(
+        trace_droite(40_000.0),
+        client_simple(horaire_partiel(2, 4)),
+        horaire=construire_horaire(DEBUT, 20.0),
+        modele=MODELE,
+        pas_m=10_000.0,
+    )
+    assert [e.modele for e in resultat.echantillons] == [MODELE, MODELE, MODELE, None, None]
+    assert resultat.bascule_dist_m is None
+    assert resultat.repli is False
+
+
+def test_un_repli_partiel_indisponible_laisse_les_echantillons_absents_sans_echouer():
+    """Le repli tombe en panne : les échantillons qu'il aurait couverts restent absents."""
+
+    def par_modele(modele: str):
+        if modele == MODELE:
+            return horaire_partiel(2, 4)
+        return 503
+
+    resultat = evaluer(
+        trace_droite(40_000.0),
+        client_bouchonne(par_modele),
+        horaire=construire_horaire(DEBUT, 20.0),
+        modele=MODELE,
+        modele_repli=SECOND,
+        pas_m=10_000.0,
+    )
+    assert [e.modele for e in resultat.echantillons] == [MODELE, MODELE, MODELE, None, None]
+    assert resultat.bascule_dist_m is None
+    assert resultat.repli is False

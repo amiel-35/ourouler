@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -23,6 +23,7 @@ from ourouler.cli import main
 from ourouler.config import Config, Velo, depuis_dict
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurUtilisateur
+from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique import litterature
 from ourouler.physique.commande import (
     CDA_DEFAUT,
@@ -373,6 +374,121 @@ def test_simuler_sans_gpx(tmp_path: Path):
     config = config_de_test(tmp_path / "cache")
     with pytest.raises(ErreurUtilisateur, match="--gpx"):
         executer_simuler(args_simuler(), config)
+
+
+# --- --pause sur `simuler` -----------------------------------------------------
+
+
+def client_meteo_bouchonne(pluie: float = 0.0) -> ClientOpenMeteo:
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        p = requete.url.params
+        lats = p["latitude"].split(",")
+        lons = p["longitude"].split(",")
+        debut = datetime.fromisoformat(p["start_hour"])
+        fin = datetime.fromisoformat(p["end_hour"])
+        n = int((fin - debut).total_seconds() // 3600) + 1
+        blocs = [
+            {
+                "latitude": float(a),
+                "longitude": float(o),
+                "hourly": {
+                    "time": [(debut + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M") for i in range(n)],
+                    "precipitation": [pluie] * n,
+                    "rain": [pluie] * n,
+                    "wind_speed_10m": [10.0] * n,
+                    "wind_direction_10m": [90.0] * n,
+                    "wind_gusts_10m": [15.0] * n,
+                    "apparent_temperature": [12.0] * n,
+                    "temperature_2m": [14.0] * n,
+                },
+            }
+            for a, o in zip(lats, lons, strict=True)
+        ]
+        return httpx.Response(200, json=blocs)
+
+    return ClientOpenMeteo(http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+
+
+def test_simuler_avec_pause_est_repetable_et_lue(tmp_path: Path, capsys):
+    config = config_de_test(tmp_path / "cache")
+    gpx = gpx_plat(tmp_path / "boucle.gpx", longueur_m=20_000.0)
+    code = executer_simuler(
+        args_simuler(
+            gpx=str(gpx),
+            depart="2026-05-16T05:00",
+            pause=["5:0h30", "15:0h15"],
+            json=True,
+        ),
+        config,
+        client_meteo=client_meteo_bouchonne(),
+    )
+    assert code == 0
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["pauses"] == [
+        {"km": 5.0, "duree_s": 1800},
+        {"km": 15.0, "duree_s": 900},
+    ]
+    assert charge["heure_arrivee"] is not None
+
+
+def test_simuler_l_arrivee_porte_le_total_des_pauses(tmp_path: Path, capsys):
+    """Comparaison directe : la seule différence entre les deux arrivées est la pause."""
+    config = config_de_test(tmp_path / "cache")
+    gpx = gpx_plat(tmp_path / "boucle.gpx", longueur_m=20_000.0)
+
+    executer_simuler(
+        args_simuler(gpx=str(gpx), depart="2026-05-16T05:00", json=True),
+        config,
+        client_meteo=client_meteo_bouchonne(),
+    )
+    sans_pause = json.loads(capsys.readouterr().out)
+
+    executer_simuler(
+        args_simuler(
+            gpx=str(gpx), depart="2026-05-16T05:00", pause=["5:0h30"], json=True
+        ),
+        config,
+        client_meteo=client_meteo_bouchonne(),
+    )
+    avec_pause = json.loads(capsys.readouterr().out)
+
+    t_sans = datetime.fromisoformat(sans_pause["heure_arrivee"])
+    t_avec = datetime.fromisoformat(avec_pause["heure_arrivee"])
+    assert (t_avec - t_sans) == timedelta(minutes=30)
+    # Le temps en mouvement, lui, ne bouge pas : une pause n'est pas un modèle
+    # de fatigue, la vitesse reste constante.
+    assert avec_pause["temps_mouvement_s"] == sans_pause["temps_mouvement_s"]
+
+
+def test_simuler_sans_heure_depart_une_pause_ne_change_rien_et_le_dit(tmp_path: Path, capsys):
+    config = config_de_test(tmp_path / "cache")
+    gpx = gpx_plat(tmp_path / "boucle.gpx", longueur_m=20_000.0)
+    code = executer_simuler(args_simuler(gpx=str(gpx), pause=["5:0h30"]), config)
+    assert code == 0
+    capture = capsys.readouterr()
+    assert "n'a aucun effet" in capture.err
+
+
+@pytest.mark.parametrize(
+    ("pause", "motif"),
+    [
+        ("-5:0h30", "kilomètre"),
+        ("5:0h0", "durée"),
+        ("500:0h30", "au-delà"),
+    ],
+)
+def test_simuler_refuse_une_pause_invalide(tmp_path: Path, pause: str, motif: str):
+    config = config_de_test(tmp_path / "cache")
+    gpx = gpx_plat(tmp_path / "boucle.gpx", longueur_m=20_000.0)
+    with pytest.raises(ErreurUtilisateur, match=motif):
+        executer_simuler(args_simuler(gpx=str(gpx), pause=[pause]), config)
+
+
+def test_simuler_refuse_deux_pauses_au_meme_kilometre(tmp_path: Path):
+    config = config_de_test(tmp_path / "cache")
+    gpx = gpx_plat(tmp_path / "boucle.gpx", longueur_m=20_000.0)
+    with pytest.raises(ErreurUtilisateur, match="même kilomètre"):
+        executer_simuler(args_simuler(gpx=str(gpx), pause=["5:0h30", "5:0h15"]), config)
 
 
 def test_les_sous_commandes_sont_dans_la_cli(tmp_path: Path, capsys):

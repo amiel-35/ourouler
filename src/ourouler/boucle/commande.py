@@ -34,7 +34,7 @@ import sys
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
@@ -44,6 +44,7 @@ from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
+from ourouler.boucle.horaire import Pause, analyser_pause, construire_horaire, valider_pauses
 from ourouler.boucle.marqueurs import Marqueurs
 from ourouler.boucle.marqueurs import compter as compter_marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
@@ -136,6 +137,12 @@ class Demande:
     depart: datetime
     sortie: Path | None
     ecraser: bool = False
+    pauses: tuple[Pause, ...] = ()
+    """Les arrêts déclarés (`--pause KM:DUREE`, répétable) — départ, sortie
+    d'antenne exclue, décalent l'heure de passage météo de chaque échantillon
+    situé après eux (`boucle.horaire.construire_horaire`). Jamais sur
+    `sortie` : cette commande pose une séance structurée sur une boucle, les
+    pauses n'y ont pas de sens."""
 
 
 @dataclass(frozen=True)
@@ -235,6 +242,11 @@ def executer(
         trace_gpx = lire_gpx_trace(demande.gpx)
         _greffer_tags_sur_gpx(trace_gpx, config, client_brouter)
         traces = [(trace_gpx, None, None)]
+        # Longueur réelle enfin connue (`lire_options` ne l'avait, sans
+        # `--gpx`, que via `--distance` — la demande, pas le tracé importé) :
+        # une pause au-delà de ce GPX-là est encore une erreur d'entrée,
+        # revalidée avant tout appel météo.
+        valider_pauses(demande.pauses, distance_m=trace_gpx.distance_m)
     else:
         client_brouter = (
             client_brouter
@@ -285,7 +297,12 @@ def executer(
     else:
         client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
         meteos, panne, vitesses = _meteos(
-            [t for t, _, _ in traces], client_meteo, config, depart=demande.depart, modele=modele
+            [t for t, _, _ in traces],
+            client_meteo,
+            config,
+            depart=demande.depart,
+            modele=modele,
+            pauses=demande.pauses,
         )
     evaluations = _classer(
         traces,
@@ -570,6 +587,15 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
             "y mettre l'adresse du serveur BRouter, ou passer --gpx pour évaluer un fichier"
         )
 
+    pauses = tuple(analyser_pause(p) for p in getattr(args, "pause", None) or [])
+    # Sans `--gpx`, `distance_km` (la distance **demandée**) est la seule
+    # longueur connue avant tout appel BRouter — les candidates réellement
+    # générées peuvent différer dans la tolérance du contrat, mais une pause
+    # au-delà de ce qui a été demandé est déjà une erreur d'entrée. Avec
+    # `--gpx`, la longueur réelle du tracé n'est connue qu'après lecture du
+    # fichier : `executer` revalide alors contre elle (voir plus bas).
+    valider_pauses(pauses, distance_m=distance_km * 1000.0 if distance_km is not None else None)
+
     sortie = getattr(args, "sortie", None)
     demande = Demande(
         gpx=chemin_gpx,
@@ -581,6 +607,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
         depart=heure_depart(getattr(args, "depart", None)),
         sortie=Path(sortie) if sortie else None,
         ecraser=bool(getattr(args, "ecraser", False)),
+        pauses=pauses,
     )
     if demande.gpx is None:
         _verifier_sortie(demande)
@@ -680,6 +707,7 @@ def _meteos(
     *,
     depart: datetime,
     modele: ModeleTemps | None = None,
+    pauses: tuple[Pause, ...] = (),
 ) -> tuple[list[MeteoTrace | None], str | None, list[float]]:
     """La météo de chaque tracé, le motif de panne s'il y en a un, et les vitesses retenues.
 
@@ -687,10 +715,12 @@ def _meteos(
     injoignable pour la première candidate, il l'est pour les quatre autres,
     et attendre cinq timeouts ne rend service à personne.
 
-    L'heure de passage en un point vaut `départ + distance / vitesse`. Cette
-    vitesse était celle de la configuration (27 km/h), la même pour un
-    plat-pays que pour une boucle à 900 m de D+ ; quand le vélo est calibré,
-    c'est **le modèle** qui la donne, tracé par tracé.
+    L'heure de passage en un point vaut `départ + distance / vitesse + pauses
+    situées avant`. Cette vitesse était celle de la configuration (27 km/h),
+    la même pour un plat-pays que pour une boucle à 900 m de D+ ; quand le
+    vélo est calibré, c'est **le modèle** qui la donne, tracé par tracé. Les
+    pauses, elles, sont les mêmes pour toutes les candidates — déclarées en
+    kilomètres du parcours, pas en fonction de l'une d'elles.
     """
     resultats: list[MeteoTrace | None] = []
     vitesses: list[float] = []
@@ -706,8 +736,7 @@ def _meteos(
                 evaluer_meteo(
                     trace,
                     client,
-                    depart=depart,
-                    vitesse_kmh=vitesse,
+                    horaire=construire_horaire(depart, vitesse, pauses),
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
                     # Repli Q19, **le même que `ourouler sortie`**. Il y
@@ -884,7 +913,9 @@ def rendre_texte(
 ) -> str:
     """Le tableau des candidates, la ligne retenue marquée d'une flèche."""
     presentes = _mesures_presentes(evaluations)
-    lignes = _entete(demande, config, "meteo" in presentes, poids, evaluations, modele)
+    lignes = _entete(
+        demande, config, "meteo" in presentes, poids, evaluations, modele, compteur_info
+    )
 
     titres = _titres(presentes, elaguees=demande.gpx is None, config=config, modele=modele)
     cellules = [_cellules(e, config, presentes, compteur_info) for e in evaluations]
@@ -1097,6 +1128,17 @@ def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
     meteo = _meteo_rendue(evaluations)
     if meteo is None or not meteo.modele_utilise:
         return f"Météo {config.meteo.modele}, second avis {config.meteo.second_avis or 'aucun'}"
+    if meteo.repli and meteo.bascule_dist_m is not None:
+        # Repli **partiel** : le principal a répondu pour le début du
+        # parcours, sa portée horaire s'arrête avant la fin (une nuit de
+        # sommeil, par exemple) — les deux moitiés ne portent pas la même
+        # qualité de prévision, et rien ne doit les confondre (règle
+        # absolue 5).
+        return (
+            f"Météo {meteo.modele_utilise} jusqu'au kilomètre "
+            f"{meteo.bascule_dist_m / 1000.0:g} — au-delà, {config.meteo.second_avis} "
+            "(modèle de repli, hors de portée du principal)."
+        )
     if meteo.repli:
         return (
             f"Météo : {config.meteo.modele} ne couvre pas cette fenêtre — bascule sur "
@@ -1108,11 +1150,22 @@ def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
 
 
 def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
-    """L'équivalent JSON de `_ligne_modele_meteo` : même forme que `sortie`."""
+    """L'équivalent JSON de `_ligne_modele_meteo` — `bascule_km` en plus, absent de `sortie`.
+
+    `bascule_km` : `None` sans repli, ou avec un repli total dès le départ
+    (`repli` seul le dit déjà) ; sinon le premier kilomètre où le repli a
+    pris le relais du modèle principal (repli partiel).
+    """
     meteo = _meteo_rendue(evaluations)
     if meteo is None or not meteo.modele_utilise:
         return None
-    return {"utilise": meteo.modele_utilise, "repli": meteo.repli}
+    return {
+        "utilise": meteo.modele_utilise,
+        "repli": meteo.repli,
+        "bascule_km": (
+            round(meteo.bascule_dist_m / 1000.0, 3) if meteo.bascule_dist_m is not None else None
+        ),
+    }
 
 
 def _litterature_json(modele: ModeleTemps) -> dict | None:
@@ -1142,6 +1195,7 @@ def _entete(
     poids: dict[str, float] | None = None,
     evaluations: list[Evaluation] | None = None,
     modele: ModeleTemps | None = None,
+    compteur_info: dict | None = None,
 ) -> list[str]:
     lignes = []
     if demande.gpx is not None:
@@ -1183,6 +1237,9 @@ def _entete(
         )
     if avec_meteo:
         lignes.append(_ligne_modele_meteo(evaluations or [], config))
+    ligne_pauses = _ligne_pauses(demande, evaluations or [], config, compteur_info)
+    if ligne_pauses is not None:
+        lignes.append(ligne_pauses)
     lignes.append("Tri : score (km équivalents) + pluie cumulée × 2 ; plus bas = mieux.")
     if poids:
         # D'où viennent les poids : sans cette ligne, deux exécutions
@@ -1305,6 +1362,82 @@ def _temps_mouvement_s(evaluation: Evaluation, config: Config) -> float | None:
     return evaluation.trace.distance_m / 1000 / vitesse * 3600
 
 
+def _temps_ecoule_s(
+    evaluation: Evaluation, config: Config, compteur_info: dict | None
+) -> float | None:
+    """Le temps écoulé porte à porte, en secondes — **sans les pauses déclarées**.
+
+    Celui du compteur (feux, micro-arrêts) quand un vélo permet de le
+    réconcilier ; à défaut, le temps en mouvement tel quel. `None` si même
+    celui-ci manque. Les pauses s'ajoutent par-dessus, ailleurs
+    (`_duree_pauses_s` + ce résultat) : ce facteur-ci ne les connaît pas, et
+    ne doit pas les connaître — les compter ici *et* les ajouter ensuite les
+    compterait deux fois.
+    """
+    mouvement_s = _temps_mouvement_s(evaluation, config)
+    if mouvement_s is None:
+        return None
+    if compteur_info is None:
+        return mouvement_s
+    from ourouler.physique.modele import temps_ecoule
+
+    ecoule_s, _source = temps_ecoule(
+        evaluation.trace.distance_m / 1000.0, mouvement_s, compteur_info["moyenne_compteur_kmh"]
+    )
+    return ecoule_s
+
+
+def _duree_pauses_s(pauses: Sequence[Pause]) -> float:
+    return sum(p.duree_s for p in pauses)
+
+
+def _heure_arrivee(
+    evaluation: Evaluation, demande: Demande, config: Config, compteur_info: dict | None
+) -> datetime | None:
+    """`depart + temps écoulé porte à porte + pauses déclarées` — l'heure de la pendule.
+
+    `None` si aucun temps de base n'est calculable (pas de vitesse moyenne
+    configurée et pas de modèle physique) : pas d'heure à annoncer plutôt
+    qu'une heure fausse.
+    """
+    ecoule_s = _temps_ecoule_s(evaluation, config, compteur_info)
+    if ecoule_s is None:
+        return None
+    return demande.depart + timedelta(seconds=ecoule_s + _duree_pauses_s(demande.pauses))
+
+
+def _ligne_pauses(
+    demande: Demande,
+    evaluations: list[Evaluation],
+    config: Config,
+    compteur_info: dict | None,
+) -> str | None:
+    """« Pauses : 2 déclarée(s), 1:15 au total — arrivée estimée … (n° 1). »
+
+    `None` sans pause déclarée : pas de ligne pour ne rien dire. L'arrivée
+    est celle de la candidate retenue (`evaluations[0]`, la même que celle
+    qu'annonce déjà `_ecrire_meilleure`) — chaque candidate a son propre
+    temps de base, une seule ligne d'en-tête ne peut pas toutes les dire.
+    """
+    if not demande.pauses:
+        return None
+    retenue = evaluations[0]
+    total_texte = _duree_texte(_duree_pauses_s(demande.pauses))
+    n = len(demande.pauses)
+    arrivee = _heure_arrivee(retenue, demande, config, compteur_info)
+    if arrivee is None:
+        return (
+            f"Pauses : {n} déclarée(s), {total_texte} au total — s'ajoutent par-dessus le "
+            "temps écoulé porte à porte, jamais confondues avec lui (arrivée non estimable "
+            "sans temps de base)."
+        )
+    return (
+        f"Pauses : {n} déclarée(s), {total_texte} au total — s'ajoutent par-dessus le temps "
+        f"écoulé porte à porte, jamais confondues avec lui. Arrivée estimée : "
+        f"{date_en_francais(arrivee)} (n° {retenue.numero})."
+    )
+
+
 def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = None) -> str:
     """« 2:14 » seul, ou « 2:36 / 2:14 » — écoulé porte à porte / mouvement —
     dès qu'un vélo permet de réconcilier les deux (voir `ligne_temps_ecoule`).
@@ -1320,11 +1453,8 @@ def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = 
         return ABSENT
     if compteur_info is None:
         return _duree_texte(mouvement_s)
-    from ourouler.physique.modele import temps_ecoule
-
-    ecoule_s, _source = temps_ecoule(
-        evaluation.trace.distance_m / 1000.0, mouvement_s, compteur_info["moyenne_compteur_kmh"]
-    )
+    ecoule_s = _temps_ecoule_s(evaluation, config, compteur_info)
+    assert ecoule_s is not None  # mouvement_s est déjà connu, donc l'écoulé aussi
     return f"{_duree_texte(ecoule_s)} / {_duree_texte(mouvement_s)}"
 
 
@@ -1339,6 +1469,12 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     **Publique et non préfixée** : `sortie.commande` l'appelle telle quelle
     plutôt que de réécrire la même phrase pour son propre tableau — même
     raison que `lignes_elargissement` juste au-dessus.
+
+    Ce temps écoulé ne connaît pas les pauses déclarées (`--pause`) : elles
+    couvrent un arrêt volontaire (repas, nuit), le facteur compteur couvre
+    déjà les feux et les micro-arrêts. Une pause déclarée s'ajoute
+    **par-dessus** ce chiffre, voir `_ligne_pauses` — les compter ici
+    reviendrait à les compter deux fois.
     """
     return (
         "Temps affiché : écoulé porte à porte (arrêts compris) / sans un seul arrêt — "
@@ -1388,6 +1524,15 @@ def rendre_json(
             "candidates": demande.nb_candidates,
             "gpx_importe": str(demande.gpx) if demande.gpx is not None else None,
         },
+        # Les pauses **telles que déclarées** (`--pause`, répétable) : jamais
+        # celles réellement appliquées par candidate (une pause au-delà d'une
+        # candidate plus courte que la cible n'y a simplement aucun effet,
+        # voir `boucle.horaire`) — ce que l'utilisateur a demandé, pas une
+        # réinterprétation par tracé.
+        "pauses": [
+            {"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)}
+            for p in demande.pauses
+        ],
         # La troisième valeur de l'écran de FTP (`ecran_ftp.info_compteur`),
         # publiée ici pour que `temps_ecoule_s` de chaque candidate se
         # vérifie de tête : `null` sans vélo dans la configuration — pas de
@@ -1422,12 +1567,18 @@ def rendre_json(
             "mesure": modele.calibre,
             "litterature": _litterature_json(modele),
         },
-        "candidates": [_candidate_json(e, config, chemin, compteur_info) for e in evaluations],
+        "candidates": [
+            _candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations
+        ],
     }
 
 
 def _candidate_json(
-    evaluation: Evaluation, config: Config, chemin: Path | None, compteur_info: dict | None = None
+    evaluation: Evaluation,
+    demande: Demande,
+    config: Config,
+    chemin: Path | None,
+    compteur_info: dict | None = None,
 ) -> dict:
     couts, meteo = evaluation.couts, evaluation.meteo
     trace = evaluation.trace
@@ -1442,11 +1593,22 @@ def _candidate_json(
         else distance_km / config.boucle.vitesse_moyenne_kmh * 3600
     )
     temps_ecoule_s = temps_ecoule_source = None
+    ecoule_base_s = mouvement_s  # non arrondi : sert à `heure_arrivee`, voir plus bas
     if compteur_info is not None:
         from ourouler.physique.modele import temps_ecoule
 
         ecoule, source = temps_ecoule(distance_km, mouvement_s, compteur_info["moyenne_compteur_kmh"])
         temps_ecoule_s, temps_ecoule_source = round(ecoule), source
+        ecoule_base_s = ecoule
+    # L'heure de la pendule : temps écoulé porte à porte (ou, à défaut, le
+    # temps en mouvement) **plus** les pauses déclarées — jamais confondues
+    # avec le facteur compteur, qui couvre déjà feux et micro-arrêts (voir
+    # `_ligne_pauses`). `ecoule_base_s` **non arrondi** : arrondir à la
+    # seconde avant d'ajouter les pauses (`temps_ecoule_s`, arrondi pour
+    # l'affichage de cette seule valeur) décalait l'heure affichée d'une
+    # minute entière une fois sur deux, une fois formatée à la minute près.
+    pauses_s = _duree_pauses_s(demande.pauses)
+    heure_arrivee = demande.depart + timedelta(seconds=ecoule_base_s + pauses_s)
     return {
         "numero": evaluation.numero,
         "retenue": evaluation.numero == 1 and chemin is not None,
@@ -1462,6 +1624,9 @@ def _candidate_json(
         # moyenne compteur à laquelle réconcilier une distance.
         "temps_ecoule_s": temps_ecoule_s,
         "temps_ecoule_source": temps_ecoule_source,
+        # L'heure d'arrivée annoncée, pauses comprises — voir le commentaire
+        # au-dessus du calcul de `heure_arrivee`.
+        "heure_arrivee": heure_arrivee.isoformat(),
         "vitesse_meteo_kmh": (
             None
             if evaluation.vitesse_meteo_kmh is None
@@ -1558,6 +1723,10 @@ def _meteo_json(meteo: MeteoTrace | None) -> dict | None:
                 "vent_kmh": e.vent_kmh,
                 "vent_relatif": e.vent_relatif,
                 "ressenti_c": e.ressenti_c,
+                # Le modèle qui a renseigné **cet** échantillon précisément —
+                # `null` si ni le principal ni le repli ne le couvrent. Voir
+                # `_modele_meteo_json` pour le premier kilomètre où ça change.
+                "modele": e.modele,
             }
             for e in meteo.echantillons
         ],

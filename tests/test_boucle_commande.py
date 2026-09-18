@@ -15,7 +15,7 @@ import argparse
 import dataclasses
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +30,8 @@ from ourouler.boucle.commande import (
     Demande,
     Evaluation,
     _info_compteur,
+    _ligne_modele_meteo,
+    _modele_meteo_json,
     direction_en_azimut,
     executer,
     lire_options,
@@ -38,6 +40,7 @@ from ourouler.boucle.commande import (
 )
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
+from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.cli import construire_parseur, main
 from ourouler.config import Config, depuis_dict
@@ -261,6 +264,64 @@ def test_brouter_non_renseigne_est_refuse_avant_tout_appel():
     config = depuis_dict({k: v for k, v in CONFIG_BRUTE.items() if k != "brouter"})
     with pytest.raises(ErreurUtilisateur, match="brouter"):
         lire_options(args(), config)
+
+
+# --- --pause : lu, validé avant tout appel réseau -----------------------------
+
+
+def test_une_pause_valide_est_portee_par_la_demande():
+    demande = lire_options(args(pause=["10:0h45"]), config_de_test())
+    assert len(demande.pauses) == 1
+    assert demande.pauses[0].dist_m == pytest.approx(10_000.0)
+    assert demande.pauses[0].duree_s == pytest.approx(45 * 60.0)
+
+
+def test_pause_est_repetable():
+    demande = lire_options(args(pause=["10:0h45", "40:4h30"]), config_de_test())
+    assert [p.dist_m for p in demande.pauses] == pytest.approx([10_000.0, 40_000.0])
+
+
+def test_sans_pause_la_demande_en_porte_aucune():
+    assert lire_options(args(), config_de_test()).pauses == ()
+
+
+def test_une_pause_a_kilometre_negatif_est_refusee():
+    with pytest.raises(ErreurUtilisateur, match="kilomètre"):
+        lire_options(args(pause=["-5:0h45"]), config_de_test())
+
+
+def test_une_pause_a_duree_nulle_est_refusee():
+    with pytest.raises(ErreurUtilisateur, match="durée"):
+        lire_options(args(pause=["10:0h0"]), config_de_test())
+
+
+def test_deux_pauses_au_meme_kilometre_sont_refusees():
+    with pytest.raises(ErreurUtilisateur, match="même kilomètre"):
+        lire_options(args(pause=["10:0h45", "10:1h00"]), config_de_test())
+
+
+def test_une_pause_au_dela_de_la_distance_demandee_est_refusee():
+    """`--distance 60` : une pause à 70 km est une erreur d'entrée, pas un no-op silencieux."""
+    with pytest.raises(ErreurUtilisateur, match="au-delà"):
+        lire_options(args(distance=60.0, pause=["70:0h45"]), config_de_test())
+
+
+def test_une_pause_dans_la_distance_demandee_est_acceptee():
+    demande = lire_options(args(distance=60.0, pause=["59:0h45"]), config_de_test())
+    assert len(demande.pauses) == 1
+
+
+def test_une_pause_au_dela_du_gpx_importe_est_refusee(tmp_path: Path, monkeypatch):
+    """Sans `--distance` (mode `--gpx`), le refus attend la lecture du tracé importé."""
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="au-delà"):
+        executer(
+            args(gpx=str(chemin), pause=["1000:0h45"]),
+            config_de_test(),
+            moteur_brouter(),
+            moteur_meteo(),
+        )
 
 
 def test_un_gpx_introuvable_est_refuse(tmp_path: Path):
@@ -737,6 +798,71 @@ def test_json_valide_avec_toutes_les_mesures(tmp_path: Path, monkeypatch, capsys
         assert set(fleche) == {"pt", "depuis_deg", "vent_kmh", "rafale_kmh", "relatif"}
 
 
+# --- --pause : l'écran, le JSON --------------------------------------------------
+
+
+def test_sans_pause_l_entete_ne_dit_rien_des_pauses(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(args(), config_de_test(), moteur_brouter(), moteur_meteo())
+    assert "Pauses" not in capsys.readouterr().out
+
+
+def test_l_entete_annonce_le_total_des_pauses_et_l_arrivee(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(pause=["10:0h45", "40:4h30"]),
+        config_de_test(),
+        moteur_brouter(),
+        moteur_meteo(),
+    )
+    sortie = capsys.readouterr().out
+    ligne = next(ligne for ligne in sortie.splitlines() if ligne.startswith("Pauses"))
+    assert "2 déclarée(s)" in ligne
+    assert "5:15 au total" in ligne, ligne  # 45 min + 4h30 = 5h15
+    assert "Arrivée estimée" in ligne
+    assert "par-dessus le temps écoulé porte à porte" in ligne
+
+
+def test_le_json_porte_les_pauses_declarees_et_l_heure_d_arrivee(
+    tmp_path: Path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(json=True, pause=["10:0h45"]),
+        config_de_test(),
+        moteur_brouter(),
+        moteur_meteo(),
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["pauses"] == [{"km": 10.0, "duree_s": 2700}]
+    candidate = charge["candidates"][0]
+    assert "heure_arrivee" in candidate
+    depart = datetime.fromisoformat(charge["depart"]["heure"])
+    arrivee = datetime.fromisoformat(candidate["heure_arrivee"])
+    assert arrivee > depart + timedelta(minutes=45), (
+        "l'arrivée doit au moins porter la pause déclarée, en plus du temps de route"
+    )
+
+
+def test_une_pause_avance_l_heure_d_arrivee_de_sa_duree(tmp_path: Path, monkeypatch, capsys):
+    """Comparaison directe : seule la pause doit expliquer l'écart entre les deux arrivées."""
+    monkeypatch.chdir(tmp_path)
+    executer(args(json=True, candidates=1), config_de_test(), moteur_brouter(), moteur_meteo())
+    sans_pause = json.loads(capsys.readouterr().out)
+
+    executer(
+        args(json=True, candidates=1, pause=["10:0h45"]),
+        config_de_test(),
+        moteur_brouter(),
+        moteur_meteo(),
+    )
+    avec_pause = json.loads(capsys.readouterr().out)
+
+    t_sans = datetime.fromisoformat(sans_pause["candidates"][0]["heure_arrivee"])
+    t_avec = datetime.fromisoformat(avec_pause["candidates"][0]["heure_arrivee"])
+    assert (t_avec - t_sans) == timedelta(minutes=45)
+
+
 # --- la météo en panne ne fait pas perdre la boucle ----------------------------
 
 
@@ -851,6 +977,77 @@ def test_le_repli_est_nomme_dans_l_entete(tmp_path: Path, monkeypatch, capsys):
     assert "bascule sur modele_second_test" in sortie
 
 
+# --- repli partiel : un tracé qui déborde l'horizon du principal en route -----
+#
+# La mécanique elle-même (quels échantillons basculent, un seul appel de
+# repli mémoïsé…) est couverte de bout en bout dans `test_meteo_trace.py`,
+# avec des tracés fabriqués où chaque distance est exacte. Ici, seul le
+# **rendu** — la phrase d'écran, le JSON — est testé, sur une `MeteoTrace`
+# construite directement : la longueur réelle d'un tracé BRouter fabriqué
+# (`test_brouter.reponse_fabriquee`) ne se laisse pas fixer au kilomètre
+# près, et ce n'est pas ce que ces tests-ci cherchent à vérifier.
+
+
+def _meteo_repli_partiel(bascule_dist_m: float | None) -> MeteoTrace:
+    """Une `MeteoTrace` construite directement, pour tester le rendu sans passer par BRouter.
+
+    `_ligne_modele_meteo`/`_modele_meteo_json` ne lisent que `modele_utilise`,
+    `.repli` et `.bascule_dist_m` — les construire à la main isole le test du
+    rendu de la mécanique du repli lui-même (déjà couverte dans
+    `test_meteo_trace.py`) et des longueurs réelles que fabrique BRouter.
+    """
+    return MeteoTrace(
+        echantillons=[
+            Echantillon(
+                dist_m=0.0, t=datetime(2026, 9, 13, 9, 0), lat=0.0, lon=0.0, cap_deg=0.0,
+                pluie_mm=0.0, vent_kmh=None, vent_relatif=None, ressenti_c=None,
+            )
+        ],
+        pluie_cumulee_mm=0.0,
+        minutes_pluie=0.0,
+        part_vent_face=0.0,
+        part_vent_dos=0.0,
+        ressenti_min_c=None,
+        confiance="inconnu",
+        modele_utilise=CONFIG_BRUTE["meteo"]["modele"],
+        repli=bascule_dist_m is not None,
+        bascule_dist_m=bascule_dist_m,
+    )
+
+
+def test_repli_partiel_dit_a_partir_de_quel_kilometre_en_json():
+    evaluation = _evaluation_de_test(temps_s=None)
+    evaluation.meteo = _meteo_repli_partiel(30_000.0)
+    resultat = _modele_meteo_json([evaluation])
+    assert resultat == {
+        "utilise": CONFIG_BRUTE["meteo"]["modele"],
+        "repli": True,
+        "bascule_km": pytest.approx(30.0),
+    }
+
+
+def test_repli_partiel_la_phrase_ecran_nomme_le_kilometre_de_bascule():
+    evaluation = _evaluation_de_test(temps_s=None)
+    evaluation.meteo = _meteo_repli_partiel(30_000.0)
+    ligne = _ligne_modele_meteo([evaluation], config_de_test())
+    assert CONFIG_BRUTE["meteo"]["modele"] in ligne
+    assert "kilomètre 30" in ligne, ligne
+    assert CONFIG_BRUTE["meteo"]["second_avis"] in ligne
+
+
+def test_repli_total_ne_dit_pas_de_kilometre_de_bascule():
+    """Le repli total (tout le tracé) garde son ancienne phrase, sans kilomètre."""
+    evaluation = _evaluation_de_test(temps_s=None)
+    meteo = _meteo_repli_partiel(None)
+    meteo.modele_utilise = CONFIG_BRUTE["meteo"]["second_avis"]
+    meteo.repli = True
+    evaluation.meteo = meteo
+    ligne = _ligne_modele_meteo([evaluation], config_de_test())
+    assert "bascule sur" in ligne
+    assert "kilomètre" not in ligne, ligne
+    assert _modele_meteo_json([evaluation])["bascule_km"] is None
+
+
 def test_sans_repli_l_entete_nomme_le_modele_qui_a_repondu(tmp_path: Path, monkeypatch, capsys):
     """Le cas ordinaire ne change pas de forme : le modèle principal est nommé."""
     monkeypatch.chdir(tmp_path)
@@ -868,7 +1065,11 @@ def test_le_json_dit_quel_modele_a_repondu_et_si_c_est_un_repli(
     meteo, _ = moteur_meteo_hors_de_portee()
     executer(args(json=True), config_de_test(), moteur_brouter(), meteo)
     charge = json.loads(capsys.readouterr().out)
-    assert charge["modele_meteo"] == {"utilise": "modele_second_test", "repli": True}
+    assert charge["modele_meteo"] == {
+        "utilise": "modele_second_test",
+        "repli": True,
+        "bascule_km": None,
+    }
     assert charge["modele"] == "modele_principal_test", "la configuration reste dite telle quelle"
 
 
@@ -892,6 +1093,17 @@ def test_la_sous_commande_est_enregistree_et_accepte_json_apres():
 
 def test_json_global_avant_la_sous_commande_boucle():
     assert construire_parseur().parse_args(["--json", "boucle"]).json is True
+
+
+def test_pause_est_enregistree_et_repetable_dans_le_parseur():
+    args_ = construire_parseur().parse_args(
+        ["boucle", "--distance", "60", "--pause", "10:0h45", "--pause", "40:4h30"]
+    )
+    assert args_.pause == ["10:0h45", "40:4h30"]
+
+
+def test_pause_absente_vaut_none_dans_le_parseur():
+    assert construire_parseur().parse_args(["boucle", "--distance", "60"]).pause is None
 
 
 # --- colonne des antennes (L3.1) ----------------------------------------------
