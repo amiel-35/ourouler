@@ -83,11 +83,18 @@ supposait 0,803, soit 8 % de vitesse qui n'existaient pas.
 réelle a du relief, du vent et des carrefours. Et 60 % est conservateur : la
 mesure en puissance normalisée sur les sorties du mainteneur donne **0,689**.
 
-## Ce que la table ne remplace pas
+## Calibrer n'est pas l'objectif
 
-Elle donne un ordre de grandeur pour démarrer, pas une prévision. Dès qu'il
-existe un historique avec capteur de puissance, `ourouler calibrer` ajuste CdA
-et Crr sur les sorties réelles et le modèle cesse de supposer.
+**Les valeurs standard par type de vélo sont le régime normal du produit**, pas
+un pis-aller en attendant mieux : c'est l'arbitrage du mainteneur du
+17/09/2026, « la littérature plutôt que la précision ». Elles dérivent de 0,3
+minute sur une boucle de deux heures, et elles ne demandent ni capteur de
+puissance, ni historique, ni patience.
+
+La calibration personnelle existe et reste la référence pour qui a de quoi la
+faire. Mais elle ne paie qu'à partir d'un certain volume, et en dessous **elle
+est pire que la valeur standard** — ce qui n'est pas une intuition mais une
+mesure.
 
 Mesuré le 18/09/2026 sur l'historique du mainteneur, en calibrant sur les N
 sorties les plus récentes :
