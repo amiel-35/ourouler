@@ -182,9 +182,12 @@ export function Echec({
   if (erreur.code === "session_absente") {
     return (
       <Cadre contexte={contexte} titre="Ce serveur ne sait pas encore qui vous êtes">
-        <div className="encart alerte">
-          <b>Aucune session ouverte.</b> {erreur.message}
-        </div>
+        {/* Le message du serveur commence lui-même par « aucune session
+            ouverte » : le redire en gras faisait bégayer l'écran — constaté
+            dans le navigateur le 18/09/2026. On garde le message du serveur,
+            qui porte en plus la marche à suivre pour un usage local, et le
+            titre du cadre dit déjà l'essentiel. */}
+        <div className="encart alerte">{erreur.message}</div>
         <div className="bloc doux">
           <div className="bloc-tete">
             <h2>Ce qui manque</h2>
