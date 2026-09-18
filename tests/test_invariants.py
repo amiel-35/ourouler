@@ -20,7 +20,8 @@ from ourouler.activites.lecture import lire_fit
 from ourouler.erreurs import ErreurLecture
 from ourouler.meteo.couronne import distance_haversine_km
 
-SOURCES = Path(__file__).resolve().parents[1] / "src" / "ourouler"
+RACINE = Path(__file__).resolve().parents[1]
+SOURCES = RACINE / "src" / "ourouler"
 TESTS = Path(__file__).resolve().parent
 
 
@@ -358,7 +359,7 @@ RAYON_INTERDIT_KM = 50.0
 FIXTURES_ACTIVITES = TESTS / "fixtures" / "activites"
 CONFIGS_A_VERIFIER = (
     TESTS / "fixtures" / "config_test.toml",
-    Path(__file__).resolve().parents[1] / "config.example.toml",
+    RACINE / "config.example.toml",
 )
 
 
@@ -529,6 +530,95 @@ def test_aucun_fichier_de_configuration_du_depot_ne_porte_de_point_reel(config: 
             f"{config.name} : le point de départ ({lat}, {lon}) est à "
             f"{proche[1]:.1f} km de {proche[0]}"
         )
+
+
+# --- et les documents, angle mort jusqu'au 17/09/2026 ------------------------
+#
+# Les deux détecteurs de coordonnées du dépôt lisaient les fixtures et les
+# fichiers de configuration ; aucun ne regardait `docs/`. L'audit de
+# l'historique mené en resserrant `.gitignore` y a trouvé le point de départ du
+# mainteneur en clair depuis le sprint 1 : `docs/sprint1_relecture.md` citait
+# le défaut qu'elle venait de faire corriger ailleurs, coordonnée comprise. Un
+# procès-verbal de relecture est un document comme un autre.
+
+#: Un nombre décimal signé, tel qu'on écrit une latitude ou une longitude.
+DECIMAL = re.compile(r"-?\d{1,3}\.\d+")
+
+#: Dossiers sans texte rédigé, écartés du balayage. `worktrees` en fait partie :
+#: `.claude/worktrees/` héberge les copies de travail des agents, et ce fichier
+#: tourne parfois depuis l'une d'elles — d'où le filtrage sur le chemin
+#: **relatif** à la racine, le chemin absolu portant lui-même ces noms.
+DOSSIERS_IGNORES = {
+    ".venv", ".git", ".pytest_cache", ".ruff_cache", "node_modules", "worktrees",
+}  # fmt: skip
+
+
+def documents_a_verifier() -> list[Path]:
+    """Tout le texte rédigé du dépôt : le Markdown et les fichiers de configuration.
+
+    Volontairement **pas** `uv.lock` ni les sources : les URL de paquets y
+    alignent des empreintes hexadécimales dont deux tranches finissent par
+    ressembler à un couple de coordonnées (deux faux positifs mesurés, à
+    23 et 40 km de Saint-Malo). On cherche ici ce qu'un humain a écrit, pas ce
+    qu'un outil a engendré ; les sources, elles, ont déjà leurs invariants.
+    """
+    markdown = [
+        p for p in RACINE.rglob("*.md") if not DOSSIERS_IGNORES & set(p.relative_to(RACINE).parts)
+    ]
+    return sorted(markdown) + sorted(CONFIGS_A_VERIFIER)
+
+
+def couples_de_coordonnees(texte: str) -> list[tuple[int, float, float]]:
+    """Les couples de décimales voisines d'une même ligne, dans les deux ordres.
+
+    Un couple écrit en toutes lettres se lit lat/lon, un tableau GeoJSON se lit
+    lon/lat : on essaie les deux plutôt que de parier sur une convention.
+    Aucun exemple chiffré ici — ce fichier est scanné par le détecteur jumeau
+    de `tests/adversarial/test_adv_invariants.py`, qui vient précisément de
+    dénoncer la version où l'exemple était un vrai point français.
+    """
+    trouves = []
+    for numero, ligne in enumerate(texte.splitlines(), 1):
+        valeurs = [float(m) for m in DECIMAL.findall(ligne)]
+        for gauche, droite in zip(valeurs, valeurs[1:], strict=False):
+            for lat, lon in ((gauche, droite), (droite, gauche)):
+                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                    trouves.append((numero, lat, lon))
+    return trouves
+
+
+def test_le_detecteur_de_texte_voit_une_coordonnee_plantee():
+    """Sinon l'invariant suivant serait vert en ne sachant rien lire.
+
+    La coordonnée de contrôle est **calculée** depuis `VILLES_CENTIEMES`, comme
+    partout dans ce fichier : l'écrire en décimal ici dénoncerait ce test.
+    """
+    lat, lon = VILLES_REELLES["Rennes"]
+    texte = f"le départ à ({lat}, {lon}), soit le centre-ville"
+    trouves = couples_de_coordonnees(texte)
+    assert trouves, "le détecteur ne voit pas un couple pourtant écrit noir sur blanc"
+    assert any(ville_trop_proche(a, o) for _, a, o in trouves)
+    assert not couples_de_coordonnees("un texte sans le moindre nombre")
+
+
+@pytest.mark.parametrize(
+    "document", documents_a_verifier(), ids=lambda p: str(p.relative_to(RACINE))
+)
+def test_aucun_document_ne_porte_de_coordonnee_reelle(document: Path):
+    """`docs/` comprise : c'est là que le point du mainteneur a dormi le plus longtemps."""
+    for numero, lat, lon in couples_de_coordonnees(document.read_text(encoding="utf-8")):
+        proche = ville_trop_proche(lat, lon)
+        assert proche is None, (
+            f"{document.relative_to(RACINE)}:{numero} : ({lat}, {lon}) est à "
+            f"{proche[1]:.1f} km de {proche[0]}. Nommer le lieu en toutes lettres suffit "
+            "presque toujours ; le couple décimal, lui, se copie-colle dans une carte."
+        )
+
+
+def test_il_y_a_bien_des_documents_a_verifier():
+    """Vert parce que le balayage ne trouve aucun document serait un invariant creux."""
+    noms = {p.name for p in documents_a_verifier()}
+    assert {"cadrage.md", "sprint1_relecture.md", "config.example.toml"} <= noms
 
 
 def test_aucune_cle_dans_la_configuration_de_test():

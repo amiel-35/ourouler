@@ -182,9 +182,12 @@ leur sprint : pas de squelette vide « pour plus tard ».
 ## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
 
 Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
-avec **authentification déléguée** (Google d'abord, Apple ensuite — plus
-contraignant), et il faut y penser tôt parce que ça a des implications
+et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
+Le **chemin d'authentification** de cette phrase (« déléguée, Google
+d'abord ») a été révisé le 16/09 et reconfirmé le 17/09 : voir §10.2, qui
+fait foi — compte chez nous sans mot de passe d'abord, Google et Apple
+ensuite et en plus.
 Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
 mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
 
@@ -317,6 +320,26 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   magique à Google) ; et **une passkey n'est jamais le seul moyen d'entrer**
   — le lien à usage unique reste le filet, parce qu'une passkey se perd avec
   l'appareil ou le trousseau qui la synchronise.
+- **Compte et propriétaire sont deux choses, reliées par une table**
+  (décidé le 17/09/2026, [[Q46]]). Le `Proprietaire` de §10.1 devient la clé
+  **pseudonyme** sous laquelle vivent les poids de routes appris et les
+  valeurs d'apprentissage ; le **compte** porte l'identité et l'accès. Une
+  table de correspondance les relie, et c'est **elle** qu'on efface à la
+  suppression d'un compte : le profil, les fichiers et les clés partent, les
+  poids restent sous un propriétaire que plus rien ne rattache à quelqu'un.
+  Cette table se décide maintenant parce qu'elle ne se rattrape pas.
+
+  Ce qu'on range sous un propriétaire suit deux règles : **jamais de nom ni
+  d'adresse**, et **la granularité la plus grossière qui serve** — l'année de
+  naissance et non la date, si l'âge revient un jour. Une FTP ou une FCmax
+  sont des grandeurs qui ne désignent personne.
+
+  **Pseudonyme, pas anonyme** : les poids viennent de trajets réellement
+  roulés dont le départ est un domicile, donc ré-identifiables. Le choix
+  entre assumer la pseudonymisation, agréger entre propriétaires à
+  l'écriture, ou n'agréger qu'après une fenêtre courte, reste ouvert et se
+  tranchera au lot.
+
 - **Base de données hébergée : PostgreSQL, dès le premier jour de
   l'hébergé, jamais SQLite.** Même raison qu'ix-presenter : le coût d'un
   Postgres sur Coolify est quasi nul, le coût d'une migration SQLite →
@@ -331,9 +354,25 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   chaque requête, jamais seulement côté front. Aucune requête sans clause
   de propriétaire.
 - **RGPD par construction** : export de toutes ses données et suppression
-  du compte (profil, fichiers, calibrations, clés) disponibles dès la
-  première version hébergée ; pas de suivi d'audience ; hébergement en
-  Europe.
+  du compte (profil, fichiers, calibrations, clés) ; pas de suivi
+  d'audience ; hébergement en Europe.
+
+  **Calendrier révisé le 17/09/2026 par le mainteneur** ([[Q46]] dans
+  `docs/questions_mainteneur.md`) : l'export et la suppression étaient
+  promis « dès la première version hébergée » ; ils passent au **sprint 9
+  ou 10**. Motif : « je suis pas un service, c'est des potes ». Le principe
+  ne bouge pas, seul le moment change.
+
+  **Ce que ce report engage.** Le cercle restreint ne suspend pas le droit à
+  l'effacement : l'exemption « activité strictement personnelle ou
+  domestique » est étroite et ne couvre pas un service ouvert sur Internet.
+  Le jalon à ne pas franchir sans ces deux fonctions est donc **la première
+  invitation hors du cercle des proches**, pas la première invitation.
+
+  **Et une chose est déjà tranchée** : les **poids de routes appris restent
+  collectifs**. Ils sont fondus dans un modèle commun dès l'apprentissage et
+  ne repartent pas avec un compte supprimé — c'est ce qui fait la valeur d'un
+  service partagé, et c'est assumé.
 - **API avant front.** L'API expose ce que la CLI sait déjà rendre en
   JSON ; le front la consomme. Le front ne parle jamais directement au cœur.
 

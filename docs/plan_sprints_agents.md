@@ -428,6 +428,148 @@ que l'Edge n'aime pas. Le livrable est une liste d'écarts entre ce que
 l'outil annonce et ce qui s'est passé, et leur correction. C'est ce sprint
 qui dit si le produit tient.
 
+#### Les lots de correction, cadrés le 17/09/2026
+
+La campagne de mesure du 17/09 ([[Q51]] dans `questions_mainteneur.md`) a
+produit la première moitié du livrable de ce sprint : **la liste d'écarts**,
+chiffrée sur les vraies données. Ce qui suit en est la seconde moitié, la
+correction. Ce n'est pas un élargissement du cap.
+
+**Les écarts se disent en minutes sur une boucle de 2 h**, pas en watts — c'est
+l'unité que le produit sert, et c'est celle des critères d'acceptation.
+
+| lot | gain mesuré | coût |
+|---|---|---|
+| **L6.1 — le modèle cesse d'être périmé** | | |
+| fenêtre glissante sur la puissance d'endurance | **9 min** | aucun modèle à changer |
+| masse datée par sortie | 5 à 9 W, **qui dérive** | la série existe côté Intervals |
+| **L6.2 — la calibration identifiable** | | |
+| Crr figé par surface, CdA seul ajusté | ~~lève la dégénérescence~~ **réfuté (nuit du 17/09)** | invalide `calibration.json`, revalidation |
+| CdA saisonnier (vêtements) | ~~**5 min**~~ **≈ 1 min, un seul vélo** | ~~dépend du précédent~~ **indépendant** |
+| **L6.3 — le bug de lecture TCX** | neuf fichiers illisibles | un après-midi, indépendant |
+
+**Ordre recommandé et pourquoi — périmé, voir la correction ci-dessous.**
+L6.1 d'abord, en un seul lot : ses deux corrections disent la même chose — le
+modèle tourne sur des valeurs figées alors que le cycliste change. Neuf
+minutes sur quatorze, sans toucher à la physique. L6.2 ensuite, et c'est un
+vrai lot : nouvelle signature de `calibrer`, ancien fichier de calibration
+jeté, les 12 W à revalider, et la phrase du 16/09 de la docstring à reprendre.
+L6.3 quand ça arrange.
+
+**Correction du 17/09 (soir), avant tout code écrit.** Le tableau ci-dessus
+vient de la campagne sans capteur ; rejouée sur la puissance **mesurée** du
+mainteneur (« Correction du 17/09 (soir) — la mesure réfute une partie de
+[[Q51]] » dans `questions_mainteneur.md`), elle ne tient plus :
+
+- la **fenêtre glissante** n'apporte rien au mainteneur — la constante
+  actuelle (`puissance_endurance_pct × ftp_w`) est déjà à l'optimum, l'écart
+  mesuré est sous le plancher de bruit ; les neuf minutes valent pour le monde
+  sans capteur, pas pour le monde mesuré du mainteneur ;
+- la **masse datée par sortie**, seule, **dégrade** la validation : dès que
+  la masse globale est corrigée, l'ajustement de Crr part en butée (la
+  dégénérescence de L6.2) et absorbe l'erreur autrement. La masse datée a
+  besoin du Crr figé de L6.2 comme **préalable**, pas comme suite.
+
+**L'ordre s'inverse donc : L6.2 avant L6.1.** Aucune ligne de code n'a été
+écrite pour L6.1 sur cette base — l'écrire aurait livré soit un lot neutre
+(fenêtre glissante), soit une régression mesurée (masse datée seule), ce que
+la règle absolue 4 interdit de présenter comme un gain. Décision de
+séquencement à reprendre avec le mainteneur avant de rouvrir L6.1. Les
+« 5 minutes » de CdA saisonnier de L6.2 viennent de la même campagne
+sans-capteur et demandent la même revérification sur la puissance mesurée
+avant d'être budgétées.
+
+**Correction du 17/09 (nuit), avant tout code écrit — L6.2 tombe à son tour.**
+La revérification demandée ci-dessus a été faite sur la puissance **mesurée**
+(« Correction du 17/09 (nuit) — le remède de [[Q9]] est mesuré, et il dégrade »
+dans `questions_mainteneur.md`, 99 sorties RCR et 35 BMC, validation par date).
+Elle réfute la première correction du lot et redimensionne la seconde :
+
+- **Crr figé par surface, CdA seul ajusté : régression mesurée.** Le balayage
+  du Crr imposé est **monotone**, sans optimum intérieur : le meilleur Crr
+  imposé est la borne haute 0,012, le Crr de VTT que le remède devait faire
+  disparaître. Un Crr de bitume (0,004 à 0,005) coûte **+3,7 à +4,4 min sur
+  2 h** et dégrade 22 sorties de validation sur 25. Le CdA effectif
+  **n'absorbe pas** le Crr figé, contrairement à ce qu'annonçait le commit
+  `2741984` : la résistance totale à 27 km/h tombe de 18,04 à 15,78 N et le
+  modèle devient systématiquement trop rapide. Rejoué à 93 kg, même classement
+  — figer le Crr n'est donc pas non plus le préalable de la masse datée.
+- **CdA saisonnier : réel, mais 1 min et non 5, et sur un seul vélo.** Le
+  paramètre est stable et bien signé (CdA d'hiver +10 % aux trois partages de
+  validation), le test apparié favorable (17↑/8↓), le gain médian +0,8 pp, soit
+  **≈ 1 min sur 2 h** — pas 5. Sur le BMC l'effet est nul (+0,2 %) et
+  **non mesurable** (ses sorties de validation sont toutes estivales). Et il
+  **ne dépend pas** de la correction précédente : il se mesure sur le schéma
+  d'aujourd'hui, Crr libre et partagé.
+
+**Les deux lots du sprint sont donc à recadrer, pas à exécuter.** Aucune ligne
+de code de calibration n'a été écrite pour L6.2 : livrer sa première correction
+aurait livré une régression mesurée. Sa seconde correction survit seule, avec un
+gain sept fois plus petit qu'annoncé et un périmètre d'un seul vélo — la réécrire
+seule est une repriorisation, pas l'exécution du lot cadré, et quatre questions
+de produit la bloquent (découpage de la saison, CdA servi à la prédiction,
+format de `calibration.json`, vélo où l'effet est nul). Elles sont posées en fin
+de `questions_mainteneur.md`.
+
+**Critères d'acceptation** (règle absolue 4) : pour L6.1 et L6.2, l'écart entre
+durée prédite et durée réelle sur les vraies sorties du mainteneur, mesuré
+avant et après, en minutes. Pour L6.3, les neuf TCX refusés se lisent.
+
+**Ce qui reste hors de ce sprint.** L'import par lien ([[Q48]]), le réglage
+unique et sa boucle de correction ([[Q52]]), l'estimation sans capteur comme
+valeur initiale ([[Q49]], [[Q51]]) et la zone 2 ([[Q50]]) appartiennent au
+**sprint 8**, dont le texte les avait anticipés sans les nommer : « valeurs par
+défaut qui marchent sans calibration (le nouveau n'a pas d'historique) […] sans
+calibration personnelle, le modèle doit tourner sur des paramètres génériques
+et le dire ». Rien de tout cela ne remonte ici.
+
+**Et ce que ce sprint réclame toujours.** Les écarts ci-dessus viennent d'un
+agent qui a rejoué l'historique, pas du mainteneur sur la route. C'est une
+mesure solide, mais ce n'est pas celle que le cap demande : un GPX que l'Edge
+refuse, un bloc mal placé constaté au retour, une boucle refusée sur le terrain
+ne se trouvent qu'en roulant, plusieurs semaines durant.
+
+#### Clôture du sprint 6 — 17/09/2026
+
+**Ce que ce sprint a livré n'est pas ce qu'il avait annoncé, et c'est son
+résultat.** Sur les quatorze minutes de gain de la table ci-dessus, aucune
+n'a survécu à la mesure sur les vraies sorties du mainteneur. Trois lots se
+sont arrêtés **avant d'écrire du code**, chacun parce que la mesure exigée
+par la règle absolue 4 réfutait sa propre prémisse :
+
+| correction | annoncé | mesuré | verdict |
+|---|---|---|---|
+| fenêtre glissante (L6.1) | 9 min | écart sous le bruit | **réfutée** |
+| masse datée (L6.1) | 5 à 9 W | dégrade seule | **suspendue** |
+| Crr figé par surface (L6.2) | lève la dégénérescence | −3,7 à −4,4 min | **réfutée** |
+| CdA saisonnier (L6.2) | 5 min | ≈ 1 min, un seul vélo | **redimensionnée** |
+| lecture TCX (L6.3) | 9 fichiers illisibles | 9 fichiers lus | **livrée** |
+
+**La cause commune** : les chiffres venaient d'une campagne menée sur la
+chaîne *sans capteur* (FC → zone → physique), appliqués à un cycliste qui
+porte un capteur. Ce qui se corrige chez quelqu'un dont la constante est
+fausse ne peut rien apporter à quelqu'un dont elle est déjà juste.
+
+**Le livrable réel du sprint 6**, et il tient : une liste d'écarts chiffrée
+sur 162 sorties, trois réfutations mesurées et documentées, le correctif de
+lecture TCX, et un registre de questions remis en phase avec le code. Les
+mesures sont dans `questions_mainteneur.md` (« Correction du 17/09 (soir) »
+et « Correction du 17/09 (nuit) ») ; elles valent pour la suite, puisque le
+monde sans capteur du sprint 8 est justement celui où ces gains existent.
+
+**Ce que le cap réclame toujours** : le dogfooding sur la route, plusieurs
+semaines. Il est acté comme **exigence permanente hors sprint** plutôt que
+comme condition de clôture — un GPX que l'Edge refuse ou un bloc mal placé
+constaté au retour ne se trouvent qu'en roulant.
+
+**Reporté, avec son porteur** : le CdA saisonnier (≈ 1 min) attend quatre
+arbitrages produit listés en fin de `questions_mainteneur.md`. La fenêtre
+glissante, elle, n'est pas abandonnée : elle **change de destinataire** et
+rejoint le sprint 8, où le cycliste sans capteur a bien une constante fausse
+à corriger.
+
+---
+
 ### Sprint 7 — L'hébergé **[esquissé — son premier étage est livré, voir sprint 5]**
 
 API au-dessus du même cœur, puis front web servi par elle, puis comptes
@@ -435,6 +577,37 @@ avec authentification déléguée Google (doctrine §10). Postgres, stockage
 d'objets pour les fichiers, isolation par utilisateur vérifiée côté
 serveur, cache météo mutualisé (le quota Open-Meteo devient un sujet ici,
 pas avant).
+
+#### Lots figés le 17/09/2026 (repriorisation de fin des sprints 5 et 6)
+
+Le cap ne bouge pas : l'hébergé. Son premier étage — l'API et le front — est
+arrivé avec le cycle discovery/UX. Ce qui reste :
+
+- **L7.1 — la page du jour servie, plus écrite sur le disque.** C'est la
+  condition que [[Q22]] posait sans pouvoir la lever : tant que la page vit
+  sur le disque du Mac, télécharger le GPX ne met rien sur le compteur.
+  *Acceptation* : le mainteneur ouvre la page depuis son téléphone et envoie
+  le GPX à Garmin Connect par le partage système, sans passer par le Mac.
+- **L7.2 — comptes et isolation.** **Comptes chez nous, sans mot de passe**
+  (doctrine §10.2, révisée le 16/09 et reconfirmée par le mainteneur le
+  17/09) : demande d'accès modérée à la main, lien d'invitation à usage
+  unique, puis passkey WebAuthn pour ne plus dépendre de la boîte mail.
+  Google et Apple viennent en **V2, en plus et non à la place** — la
+  modération est native ici, et l'écran d'entrée nous appartient.
+  Isolation par utilisateur **vérifiée côté serveur**.
+  *Acceptation* : `tests/api/test_api_isolation_proprietaire.py` existe déjà
+  et passe contre le service réel, pas seulement contre un bouchon.
+- **L7.3 — Postgres, stockage d'objets, cache météo mutualisé.** Le quota
+  Open-Meteo devient un sujet ici, pas avant.
+- **L7.4 — le TOML du serveur.** [[Q35]] (quelles sections sont communes au
+  service et lesquelles appartiennent au cycliste) et [[Q36]] (l'étape
+  « identité » de l'assistant) sont à trancher avant d'écrire ce lot.
+
+**Les sept promesses des maquettes** ([[Q37]], réponses en [[Q40]] et [[Q41]])
+se répartissent entre L7.1 et L7.2 selon qu'elles tiennent à l'affichage ou au
+compte. Aucune n'est un lot à elle seule.
+
+---
 
 ### Sprint 8 — Prêt à inviter des copains **[cap fixé par le mainteneur]**
 
@@ -447,6 +620,37 @@ n'a pas d'historique), messages d'erreur compréhensibles par quelqu'un qui
 n'a pas écrit le code, export et suppression de compte (RGPD), et un coût
 maîtrisé par utilisateur. Sans calibration personnelle, le modèle doit
 tourner sur des paramètres génériques et le dire.
+
+#### Lots figés le 17/09/2026 (repriorisation de fin des sprints 5 et 6)
+
+Le cap ne bouge pas. Ce sprint hérite du bloc **sans capteur** instruit le
+17/09, et c'est ici que les gains réfutés au sprint 6 retrouvent leur sens :
+le cycliste invité n'a ni capteur, ni historique, ni calibration.
+
+- **L8.1 — importer son historique** ([[Q48]]). Trois plateformes, un seul
+  parcours ; le fichier reste quand les API se ferment.
+- **L8.2 — estimer la puissance sans capteur** ([[Q49]], [[Q51]]), **avec la
+  fenêtre glissante** que le sprint 6 a écartée. Elle ne vaut rien chez un
+  porteur de capteur dont la constante est déjà juste ; elle vaut ses neuf
+  minutes chez quelqu'un dont elle est fausse. *Acceptation* : l'écart entre
+  durée prédite et durée réelle, en minutes sur 2 h, sur des sorties sans
+  capteur que le modèle n'a pas vues.
+- **L8.3 — la zone 2 déduite de la fréquence cardiaque** ([[Q50]]). La FC
+  étiquette la zone, elle n'entre pas dans la physique.
+- **L8.4 — un seul réglage, deux visages** ([[Q52]]) et sa boucle de
+  correction.
+- **L8.5 — le parcours d'accueil** : valeurs par défaut génériques **qui se
+  disent comme telles**, messages d'erreur lisibles par quelqu'un qui n'a pas
+  écrit le code, export et suppression de compte (RGPD), coût maîtrisé par
+  utilisateur. [[Q46]] — ce que le service a le droit d'apprendre des sorties
+  de chacun — se tranche avant ce lot, pas pendant.
+
+---
+
+**Ce que cette repriorisation ne range nulle part.** Trois fonctions de
+qualité du tracé — [[Q29]], [[Q31]], [[Q32]] — n'entrent ni dans l'hébergé ni
+dans l'accueil d'un nouveau venu. Elles sont posées en [[Q53]] avec trois
+issues possibles ; aucune n'est tranchée, et elles n'ont pas de sprint.
 
 ### Après — dépôt public
 

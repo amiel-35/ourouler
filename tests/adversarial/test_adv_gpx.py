@@ -6,8 +6,8 @@ doit refuser proprement (`ErreurLecture`) ce qui n'est pas lisible, et ne
 jamais laisser remonter une exception « bug » : la CLI l'afficherait en trace.
 
 Les fichiers écrits vivent dans `tmp_path` : rien de binaire ni de traçable
-n'est déposé à côté des tests (règle absolue 1, `.gitignore` ne réintègre que
-`tests/fixtures/**`).
+n'est déposé à côté des tests (règle absolue 1, `.gitignore` ne réintègre
+nommément que les fixtures de `tests/fixtures/activites/`).
 """
 
 from __future__ import annotations

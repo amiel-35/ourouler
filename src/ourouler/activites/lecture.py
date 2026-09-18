@@ -35,7 +35,37 @@ EXTENSIONS = ("fit", "gpx", "tcx")
 #: Conversion des semicercles FIT en degrés.
 _DEGRES_PAR_SEMICERCLE = 180.0 / 2**31
 
+#: Marque d'ordre des octets (BOM) UTF-8, parfois écrite en tête d'un export
+#: GPX ou TCX, parfois accompagnée d'espaces ou d'un saut de ligne avant la
+#: déclaration XML. C'est une **cause plausible, reproduite sur fixture
+#: synthétique** (L6.3 — non vérifié sur des fichiers réels, introuvables sur
+#: la machine au moment du correctif) de l'erreur qu'ElementTree rend pour
+#: tout `<?xml ...?>` qui n'est pas au tout premier octet : « XML or text
+#: declaration not at start of entity ». Cette même erreur couvre aussi
+#: d'autres préambules — deux fichiers XML concaténés, du texte non blanc en
+#: tête — que cette fonction ne traite pas : seule la branche BOM + blancs.
+_BOM_UTF8 = b"\xef\xbb\xbf"
+_BLANCS = (b" ", b"\t", b"\r", b"\n")
+
 Entree = Path | str | bytes | bytearray
+
+
+def _sans_preambule_xml(contenu: bytes) -> bytes:
+    """Retire un préambule de BOM(s) et de blancs avant le premier `<`.
+
+    Ne retire le préambule que s'il est bien suivi d'un `<` : un fichier qui
+    ne contient que des blancs ou un BOM, sans le moindre XML derrière, reste
+    tel quel — donc toujours détecté comme vide ou illisible en aval.
+    """
+    i, n = 0, len(contenu)
+    while i < n:
+        if contenu[i : i + 3] == _BOM_UTF8:
+            i += 3
+        elif contenu[i : i + 1] in _BLANCS:
+            i += 1
+        else:
+            break
+    return contenu[i:] if i and contenu[i : i + 1] == b"<" else contenu
 
 
 def lire(chemin: Path | str) -> Activite:
@@ -203,6 +233,7 @@ _EXTENSIONS_GPX = {
 
 def lire_gpx(source: Entree) -> Activite:
     contenu, fichier = _octets(source)
+    contenu = _sans_preambule_xml(contenu)
     try:
         gpx = gpxpy.parse(contenu.decode("utf-8", errors="replace"))
     except Exception as e:  # gpxpy lève GPXException, mais aussi des erreurs XML brutes
@@ -275,6 +306,7 @@ _NS_TCX = "{http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2}"
 
 def lire_tcx(source: Entree) -> Activite:
     contenu, fichier = _octets(source)
+    contenu = _sans_preambule_xml(contenu)
     if not contenu.strip():
         raise ErreurLecture(f"{fichier or '<octets>'} : fichier vide")
     try:
