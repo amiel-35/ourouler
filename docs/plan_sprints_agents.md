@@ -763,7 +763,10 @@ structurée en même temps : la séance vient déjà d'Intervals.icu.
   Fable sur la physique ; trois passes de corrections. État : 2 364 tests,
   ruff vert. **Vérifié sur vraies données** : antennes (jusqu'à 6,6 km de
   culs-de-sac retirés par boucle, fenêtre 3 km décidée sur mesure ;
-  `profile:correct_misplaced_via_points` est ignoré par le serveur) ;
+  `profile:correct_misplaced_via_points` est ignoré par le serveur
+  — **corrigé le 18/09/2026 : c'était le mauvais nom de paramètre envoyé en
+  snake_case, jamais reçu par le serveur qui attend le camelCase
+  `correctMisplacedViaPoints`, voir `connecteurs/brouter.py`**) ;
   routes connues (154 sorties rejouées, tertiary 58 % / secondary 20 % /
   unclassified 13 %, poids appris secondary 3,0 → 0,44, colonne « connu % »
   cohérente avec la pratique : S 86-89 %, O 51 %) ; calibration RCR MAE

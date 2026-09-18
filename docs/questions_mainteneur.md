@@ -4410,3 +4410,63 @@ Trois pistes, à trancher :
 
 En attendant, la surcouche a été écartée (renommée, pas supprimée) pour que
 le socle redevienne la seule source, et les deux chemins s'accordent.
+
+
+## Q56 — `roundTripPoints` comme seconde molette de convergence, en plus du rayon — **ouverte le 18/09/2026**
+
+Le lot qui corrige le biais de distance des boucles (candidates trop souvent
+plus courtes que la cible, médiane autour de −5 % sur 60/100/125 km ×
+8 azimuts) ne touche qu'un seul levier : `roundTripDistance` (le rayon),
+ajusté par proportion. `roundTripPoints`, lui, reste figé à 5 — non pas dans
+`boucle/candidates.py`, qui ne le prononce jamais, mais dans
+`connecteurs/brouter.py` (`nb_points: int = 5`, corrigé le 18/09/2026 après
+relecture) — alors que `docs/services_externes.md` documente
+depuis le 18/09/2026 que **ce n'est pas un réglage de forme mais un second
+levier de distance**, mesuré à rayon identique : 3 points → 72,8 km,
+5 → 98,0 km, 7 → 108,3 km, 9 → 117,2 km, 12 → 124,1 km.
+
+**Ce n'est qu'une piste, pas une consigne exécutée.** Le lot distance s'est
+tenu au rayon seul, conformément à la demande, et `roundTripPoints` n'a pas
+été mesuré comme second axe de convergence combiné (par exemple : corriger
+d'abord par les points quand le rayon sature une borne, ou converger sur les
+deux à la fois). Rien ne dit aujourd'hui si ça ferait mieux que le rayon
+seul, ni à quel coût en appels — seulement que le levier existe et qu'il
+n'est pas utilisé.
+
+**Une troisième option, que cette question omettait et qui est peut-être la
+bonne** (ajoutée le 18/09/2026 après relecture). Le biais a une **origine
+arithmétique** que personne n'avait vue : `candidates.RAPPORT_RAYON_DEFAUT`
+vaut 5,0 et sert à deviner le rayon du premier essai (`cible / 5`). Or le
+rapport réellement mesuré entre la distance rendue et le rayon demandé, une
+fois les antennes retirées, vaut **≈ 4,67** (93,5 km pour 20 km de rayon).
+Un premier essai à `cible / 5` vise donc mécaniquement
+
+    4,67 / 5 − 1 = **−6,6 %**
+
+ce qui est très exactement l'ordre de grandeur du biais médian observé
+(−5 %). La constante est calibrée sur un rapport qui n'est plus le bon depuis
+que le moteur retire lui-même ses culs-de-sac.
+
+**Recentrer cette constante coûte zéro appel supplémentaire** et ferait
+tomber la plupart des essais « plus long » que le lot vient d'ajouter — dont
+le coût réel est mesuré à 1,67-2,38 appels par azimut contre un seul
+auparavant. Ce n'est **pas** un remplacement de la règle « viser plus long » :
+recentrer n'est pas biaiser vers le haut, et le mainteneur a demandé un biais
+vers le haut. Les deux se cumulent, et recentrer rend le second moins
+coûteux.
+
+Ce qui reste à mesurer avant de toucher à la constante : le rapport 4,67
+vient d'un seul rayon (20 km) et d'un seul profil. À 8 km il vaut autre chose
+— les mesures du lot A donnent 39,6 km pour 8 km de rayon, soit 4,95 — donc
+**le rapport dépend du rayon**, et une constante unique sera fausse quelque
+part. C'est peut-être là que `roundTripPoints` reprend sa place : un rapport
+qui dérive avec le rayon est exactement ce qu'un second levier corrige.
+
+Deux options, si le sujet est repris :
+
+1. **Le laisser en l'état.** Un seul levier de convergence est plus simple à
+   raisonner, et le biais de distance est déjà traité par ailleurs (viser
+   plus long quand la candidate est sous la cible et dans la tolérance).
+2. **Le mesurer.** Comparer, sur les mêmes cibles et azimuts, la convergence
+   à rayon seul contre une combinaison rayon + points, avec le même budget
+   d'appels — et ne le coder que si la mesure montre un gain net.
