@@ -1,0 +1,49 @@
+# Secrets du *service*, pas du cycliste — exemple, à copier hors du dépôt.
+#
+# Le vrai fichier vit dans `~/.config/ourouler/service.toml`, en 0600, et
+# **n'entre jamais dans le dépôt** (règle absolue 1). Celui-ci est son modèle,
+# vide, et c'est le seul des deux qui est commité.
+#
+# ## Pourquoi un second fichier
+#
+# `config.example.toml` décrit le profil d'**un cycliste** : son départ, sa
+# masse, sa FTP, ses vélos, sa clé Intervals. Celui-ci décrit ce qui appartient
+# au **serveur** : ce qui sert à tous les utilisateurs et à aucun en
+# particulier. Les deux ne se remplissent pas par la même personne et ne se
+# déploient pas de la même façon.
+#
+# La frontière exacte entre les deux est [[Q35]], encore ouverte. Ce fichier
+# n'anticipe pas sa réponse : il accueille ce dont on est sûr qu'il est au
+# service, et rien d'autre.
+#
+# ## Ce qui le lit
+#
+# Rien, pour l'instant. Le lot des comptes (L7.2) n'est pas écrit. Ce fichier
+# existe pour que la clé ait un endroit où attendre, plutôt que de traîner dans
+# une note ou un message.
+
+[brevo]
+# Courriels d'invitation — doctrine §10.2, V1 : demande d'accès modérée à la
+# main, puis lien à usage unique par courriel, puis passkey pour ne plus
+# dépendre de la boîte mail.
+#
+# **Envoi par SMTP, pas par l'API REST** (décidé le 18/09/2026). C'est du
+# protocole standard : aucune bibliothèque du fournisseur, et on change de
+# prestataire en éditant trois lignes. L'API REST n'apporterait qu'un suivi
+# d'ouverture dont ce produit n'a que faire.
+#
+# Attention, Brevo distribue **deux sortes de clés** et elles ne servent pas au
+# même protocole : « xkeysib- » pour l'API v3, « xsmtpsib- » pour le relais
+# SMTP. C'est la seconde qu'il faut ici, et elle sert de mot de passe.
+# L'identifiant de connexion, lui, n'est pas la clé : c'est une adresse en
+# `@smtp-brevo.com`, affichée à côté d'elle sur la même page.
+serveur = "smtp-relay.brevo.com"
+port = 587
+utilisateur = ""
+mot_de_passe = ""
+
+# L'adresse expéditrice doit être **vérifiée chez Brevo** (Expéditeurs,
+# domaines & IP), sinon le relais accepte la connexion et refuse le message —
+# l'erreur n'arrive qu'au premier envoi.
+expediteur = ""
+nom_expediteur = "où rouler"
