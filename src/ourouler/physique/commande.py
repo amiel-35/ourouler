@@ -28,7 +28,14 @@ from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique import calibration as calib
-from ourouler.physique.modele import Parametres, Simulation, simuler, vent_au_cycliste
+from ourouler.physique import litterature
+from ourouler.physique.modele import (
+    Parametres,
+    Simulation,
+    puissance_a_plat_w,
+    simuler,
+    vent_au_cycliste,
+)
 
 #: Nom du fichier où la calibration est écrite, dans le dossier de cache.
 NOM_CALIBRATION = "calibration.json"
@@ -37,13 +44,26 @@ NOM_CALIBRATION = "calibration.json"
 #: plutôt que relu de travers.
 VERSION_CALIBRATION = 1
 
-#: CdA et Crr par défaut d'un vélo de route jamais calibré. Ils ne sont **pas**
-#: une mesure : toute commande qui s'en sert le dit.
+#: CdA et Crr de dernier recours, pour un vélo dont l'usage n'est **pas** dans
+#: la table de `physique.litterature` (aucun aujourd'hui, `config.USAGES_VELO`
+#: ne portant que « route » et « clm » — mais le jour où un gravel s'y
+#: ajoutera, mieux vaut un défaut muet qu'un jeu emprunté à une autre
+#: catégorie). Ils ne sont **pas** une mesure : toute commande qui s'en sert le
+#: dit, et `boucle` refuse d'en faire un temps « modèle ».
 CDA_DEFAUT = 0.32
 CRR_DEFAUT = 0.005
 
-#: Mention affichée à côté d'un temps, selon d'où il vient.
+#: Borne haute d'une vitesse à plat saisie à la main, en km/h. Au-delà, ce
+#: n'est plus un cycliste lancé sur le plat sans vent, c'est une faute de
+#: frappe — et la puissance déduite serait délirante.
+VITESSE_A_PLAT_MAXI_KMH = 80.0
+
+#: Mention affichée à côté d'un temps, selon d'où il vient. La seconde vaut
+#: pour un modèle qui tourne sur des valeurs de `physique.litterature` : le
+#: temps est calculé, mais sur des CdA et Crr jamais mesurés sur ce vélo
+#: (règle absolue 5). Mêmes mots que `boucle.commande`.
 MENTION_MODELE = "(modèle)"
+MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 
 
 #: Nom du fichier de mémoïsation des archives météo, dans le dossier de cache (lu par la CLI seule).
@@ -146,11 +166,23 @@ def ecrire_calibration(chemin: Path, velo: str, contenu: dict) -> None:
 
 
 def parametres_du_velo(config: Config, velo: Velo, chemin: Path) -> tuple[Parametres, str]:
-    """(paramètres, provenance) : la calibration si elle existe, sinon la configuration.
+    """(paramètres, provenance) : la calibration, sinon la configuration, sinon la littérature.
 
-    Provenance vaut « calibration », « configuration » ou « défaut ». Elle est
-    affichée telle quelle : un CdA par défaut n'est pas une mesure, et la
-    commande ne doit jamais laisser croire le contraire.
+    Provenance vaut « calibration », « configuration », « littérature » ou
+    « défaut ». Elle est affichée telle quelle : un CdA de littérature n'est
+    pas une mesure, et la commande ne doit jamais laisser croire le contraire
+    (règle absolue 5).
+
+    **L'ordre ne change pas** : une calibration mesurée prime toujours sur ce
+    que la table générique propose. La littérature ne sert qu'à celui qui n'a
+    encore rien mesuré — et c'est tout l'objet de l'arbitrage du 17/09/2026,
+    « la littérature plutôt que la précision ».
+
+    Comme avant, une valeur donnée en configuration est **gardée** même quand
+    l'autre manque : la provenance nomme alors d'où vient la moitié complétée.
+    Un tel couple mi-configuré, mi-générique n'est pas un des couples dont
+    `physique.litterature` a mesuré la dérive — ce qui s'y mesure est une
+    somme, pas un CdA isolé.
     """
     calibree = lire_calibration(chemin, velo.nom)
     if calibree is not None:
@@ -158,6 +190,16 @@ def parametres_du_velo(config: Config, velo: Velo, chemin: Path) -> tuple[Parame
     masse = calib.masse_totale_kg(config, velo)
     if velo.cda_m2 is not None and velo.crr is not None:
         return (Parametres(masse, velo.cda_m2, velo.crr), "configuration")
+    choix = litterature.pour_usage(velo.usage)
+    if choix is not None:
+        return (
+            Parametres(
+                masse,
+                velo.cda_m2 if velo.cda_m2 is not None else choix.jeu.cda_m2,
+                velo.crr if velo.crr is not None else choix.jeu.crr,
+            ),
+            "littérature",
+        )
     return (
         Parametres(
             masse,
@@ -166,6 +208,42 @@ def parametres_du_velo(config: Config, velo: Velo, chemin: Path) -> tuple[Parame
         ),
         "défaut",
     )
+
+
+def puissance_voulue(args: argparse.Namespace, parametres: Parametres) -> float | None:
+    """La puissance demandée : `--puissance`, ou celle que `--vitesse-a-plat` exige.
+
+    `None` si aucune des deux options n'est donnée — c'est à l'appelant de
+    décider ce qu'il en fait (`boucle` retombe sur une part de la FTP,
+    `simuler` refuse).
+
+    **Les deux options disent la même chose de deux façons et sont exclusives.**
+    Le mainteneur, le 18/09/2026 : « et s'il n'a pas de FTP ? » Pour chronométrer
+    un parcours, le produit n'a pas besoin d'une FTP mais d'une puissance ; la
+    vitesse à plat, sans vent, lancé, en est l'autre chemin — c'est la
+    décision 7 du cycle UX, et l'inversion est celle qu'emploie déjà l'écran de
+    FTP (`physique.modele.puissance_a_plat_w`), pas une seconde.
+
+    La conversion dépend des `parametres` du vélo : la même vitesse ne demande
+    pas la même puissance à un cycliste calibré et à un vélo servi par la
+    littérature. C'est pourquoi cette fonction les reçoit au lieu de les lire.
+    """
+    puissance = getattr(args, "puissance", None)
+    vitesse = getattr(args, "vitesse_a_plat", None)
+    if puissance is not None and vitesse is not None:
+        raise ErreurUtilisateur(
+            "--puissance et --vitesse-a-plat disent la même chose de deux façons "
+            "(la seconde se convertit en watts par le modèle du vélo) : n'en donner qu'une."
+        )
+    if vitesse is None:
+        return None if puissance is None else float(puissance)
+    if not math.isfinite(float(vitesse)) or not (0 < float(vitesse) <= VITESSE_A_PLAT_MAXI_KMH):
+        raise ErreurUtilisateur(
+            f"--vitesse-a-plat {vitesse} : une vitesse à plat en km/h entre 0 et "
+            f"{VITESSE_A_PLAT_MAXI_KMH:g} est attendue (sans vent, lancé — pas une "
+            "moyenne de compteur)"
+        )
+    return puissance_a_plat_w(float(vitesse), parametres)
 
 
 def velo_demande(config: Config, nom: str | None) -> Velo:
@@ -525,14 +603,27 @@ def executer_simuler(
     chemin_gpx = Path(chemin_gpx)
     if not chemin_gpx.is_file():
         raise ErreurUtilisateur(f"--gpx {chemin_gpx} : fichier introuvable")
-    puissance = getattr(args, "puissance", None)
-    if puissance is None or not (0 < float(puissance) <= 2000):
+
+    # Les paramètres du vélo sont résolus **avant** la puissance : une vitesse
+    # à plat ne se convertit en watts qu'avec eux (L8.5, lot C).
+    velo = velo_demande(config, getattr(args, "velo", None))
+    parametres, provenance = parametres_du_velo(config, velo, chemin_calibration(config))
+    puissance = puissance_voulue(args, parametres)
+    if puissance is None:
+        raise ErreurUtilisateur(
+            "simuler : donner --puissance W, ou --vitesse-a-plat KMH pour qui ne connaît "
+            "pas sa puissance"
+        )
+    if not (0 < float(puissance) <= 2000):
+        vitesse = getattr(args, "vitesse_a_plat", None)
+        if vitesse is not None:
+            raise ErreurUtilisateur(
+                f"--vitesse-a-plat {vitesse} : il faudrait {puissance:.0f} W pour la tenir "
+                f"à plat sur le {velo.nom}, au-delà des 2000 W que le modèle accepte"
+            )
         raise ErreurUtilisateur(
             f"--puissance {puissance} : une puissance en watts entre 1 et 2000 est attendue"
         )
-
-    velo = velo_demande(config, getattr(args, "velo", None))
-    parametres, provenance = parametres_du_velo(config, velo, chemin_calibration(config))
     trace = lire_gpx_trace(chemin_gpx)
 
     vent = None
@@ -644,9 +735,10 @@ def rendre_texte_simulation(
             f"({meteo.n_vent_connu}/{len(meteo.echantillons)} connus)"
         )
     lignes.append("")
+    mention = MENTION_MODELE_LITTERATURE if provenance == "littérature" else MENTION_MODELE
     lignes.append(
         f"Temps en mouvement : {_duree(simulation.temps_s)} "
-        f"({_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {MENTION_MODELE}"
+        f"({_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
     if simulation.pas_plafonnes:
         lignes.append(
@@ -665,7 +757,49 @@ def rendre_texte_simulation(
             f"CdA et Crr viennent de la {provenance} et n'ont pas été mesurés : "
             f"lancer `ourouler calibrer --velo {velo.nom}`."
         )
+        lignes.extend(lignes_litterature(provenance, velo.usage))
     return "\n".join(lignes)
+
+
+def lignes_litterature(provenance: str, usage: str) -> list[str]:
+    """Ce que vaut le jeu générique servi, en clair. Vide si rien de générique.
+
+    Règle absolue 5 : un temps calculé sur des valeurs jamais mesurées le dit,
+    et dit **de combien il dérive** là où la dérive a pu être mesurée. Le
+    chiffre vient de `physique.litterature`, qui le tient de la campagne du
+    17/09/2026 sur les 34 sorties de validation du mainteneur — un cycliste,
+    deux vélos.
+    """
+    if provenance != "littérature":
+        return []
+    choix = litterature.pour_usage(usage)
+    if choix is None:  # pragma: no cover - la provenance vient justement de la table
+        return []
+    return [f"Catégorie {choix.resume}"]
+
+
+def litterature_json(provenance: str, usage: str) -> dict | None:
+    """Le bloc « littérature » du JSON, ou `None` si le modèle n'en vient pas.
+
+    Même contenu que `lignes_litterature`, pour un appelant qui met en forme
+    lui-même : le front doit pouvoir écrire sa propre phrase sans réapprendre
+    d'où sortent les chiffres.
+    """
+    if provenance != "littérature":
+        return None
+    choix = litterature.pour_usage(usage)
+    if choix is None:  # pragma: no cover - la provenance vient justement de la table
+        return None
+    return {
+        "usage": choix.usage,
+        "jeu": choix.jeu.nom,
+        "source": choix.jeu.source,
+        "mesure_sur": choix.mesure_sur,
+        "derive_min_2h": choix.derive_min_2h,
+        "f27_jeu_n": choix.f27_jeu_n,
+        "f27_reference_n": choix.f27_reference_n,
+        "mesuree": False,
+    }
 
 
 def rendre_json_simulation(
@@ -689,6 +823,7 @@ def rendre_json_simulation(
             "rendement": parametres.rendement,
             "rho": parametres.rho,
             "provenance": provenance,
+            "litterature": litterature_json(provenance, velo.usage),
         },
         "puissance_w": puissance_w,
         "temps_mouvement_s": round(simulation.temps_s),
@@ -747,8 +882,11 @@ __all__ = [
     "ecrire_calibration",
     "executer_calibrer",
     "executer_simuler",
+    "lignes_litterature",
     "lire_calibration",
+    "litterature_json",
     "parametres_du_velo",
+    "puissance_voulue",
     "velo_demande",
     "vent_depuis_meteo",
 ]

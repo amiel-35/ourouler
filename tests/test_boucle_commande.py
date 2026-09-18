@@ -362,16 +362,32 @@ def test_le_tri_suit_bien_le_total_annonce(tmp_path: Path, monkeypatch, capsys):
     assert totaux == sorted(totaux)
     for candidate in charge["candidates"]:
         attendu = candidate["couts"]["score"] + candidate["meteo"]["pluie_cumulee_mm"] * 2
-        assert candidate["total_tri"] == pytest.approx(attendu, abs=1e-3)
+        # Les trois nombres sont arrondis au millième **chacun** dans le JSON,
+        # et la pluie est ensuite doublée : recomposer la somme à partir d'eux
+        # laisse jusqu'à 2,5 millièmes d'écart. La tolérance d'origine, 1e-3,
+        # tenait par chance sur les valeurs d'alors.
+        assert candidate["total_tri"] == pytest.approx(attendu, abs=3e-3)
 
 
-def test_le_temps_estime_suit_la_vitesse_de_la_configuration(tmp_path: Path, monkeypatch, capsys):
+def test_le_temps_estime_vient_du_modele_meme_sans_calibration(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le défaut du 18/09/2026, à l'envers : une configuration nue donne un modèle.
+
+    Avant ce lot, une configuration sans `calibration.json` retombait sur
+    `vitesse_moyenne_kmh` — 27 km/h, une constante que ni la FTP ni le vélo ne
+    déplaçaient. Elle reçoit maintenant les paramètres de littérature de sa
+    catégorie, et le temps dépend donc du terrain et de la puissance.
+    """
     monkeypatch.chdir(tmp_path)
     executer(args(json=True), config_de_test(), moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
     candidate = charge["candidates"][0]
-    attendu = candidate["distance_km"] / 27.0 * 3600
-    assert candidate["temps_estime_s"] == pytest.approx(attendu, abs=1)
+    a_27 = candidate["distance_km"] / 27.0 * 3600
+    assert candidate["temps_source"] == "modele"
+    assert candidate["temps_estime_s"] != pytest.approx(a_27, abs=1)
+    assert charge["modele_physique"]["provenance"] == "littérature"
+    assert charge["modele_physique"]["mesure"] is False
 
 
 # --- le GPX écrit --------------------------------------------------------------
@@ -1151,15 +1167,26 @@ def config_avec_velo_calibrable(dossier: Path, **sections: Any) -> Config:
     )
 
 
-def test_sans_calibration_la_colonne_dit_la_vitesse_moyenne(
+def test_sans_calibration_l_ecran_dit_que_le_modele_vient_de_la_litterature(
     tmp_path: Path, monkeypatch, capsys
 ):
+    """Un temps calculé sur des valeurs jamais mesurées le dit — règle absolue 5.
+
+    Le titre de colonne et l'entête doivent porter la même mention : c'est ce
+    que fait déjà le facteur compteur avec son « supposé ».
+    """
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
     texte = capsys.readouterr().out
-    assert "temps (27 km/h)" in texte
-    assert "aucun vélo calibré" in texte
+    assert "temps (modèle, littérature)" in texte
+    assert "sur des valeurs de littérature" in texte
+    assert "modèle calibré" not in texte
+    # La catégorie servie et ce qu'elle vaut, mesuré : sans ce chiffre, la
+    # mention ne dit pas de combien on se trompe.
+    assert "route amateur, haut de fourchette" in texte
+    assert "min sur 2 h" in texte
+    assert "ourouler calibrer --velo RCR" in texte
 
 
 def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, monkeypatch, capsys):
@@ -1211,6 +1238,34 @@ def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
+    modele = charge["modele_physique"]
+    assert modele["provenance"] == "littérature"
+    assert modele["mesure"] is False
+    assert modele["cda_m2"] == 0.360  # « route amateur, haut de fourchette »
+    assert modele["litterature"]["mesuree"] is False
+    assert modele["litterature"]["derive_min_2h"] == -0.8
+    assert all(c["temps_source"] == "modele" for c in charge["candidates"])
+
+
+def test_sans_modele_du_tout_la_colonne_revient_a_la_vitesse_moyenne(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Un usage hors des catégories connues garde le chemin « aucun modèle ».
+
+    `config.USAGES_VELO` n'en accepte que deux aujourd'hui, tous deux dans la
+    table : la configuration est donc construite à la main pour éprouver le
+    jour où un gravel s'ajoutera. Un temps calculé sur des défauts muets
+    vaudrait moins que la vitesse moyenne assumée.
+    """
+    from dataclasses import replace
+
+    from ourouler.config import Velo
+
+    config = config_avec_velo_calibrable(tmp_path)
+    config = replace(config, velos=(Velo(nom="Le gravel", usage="gravel"),))
+    monkeypatch.chdir(tmp_path)
+    executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
     assert charge["modele_physique"] is None
     assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])
 
@@ -1218,10 +1273,15 @@ def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
 # --- heure de passage météo à la vitesse du modèle (point 5 de la relecture) --
 
 
-def test_sans_calibration_les_heures_de_passage_restent_a_la_vitesse_de_config(
+def test_sans_modele_les_heures_de_passage_restent_a_la_vitesse_de_config(
     tmp_path: Path, monkeypatch, capsys
 ):
+    from dataclasses import replace
+
+    from ourouler.config import Velo
+
     config = config_avec_velo_calibrable(tmp_path)
+    config = replace(config, velos=(Velo(nom="Le gravel", usage="gravel"),))
     monkeypatch.chdir(tmp_path)
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
@@ -1229,6 +1289,29 @@ def test_sans_calibration_les_heures_de_passage_restent_a_la_vitesse_de_config(
         c["vitesse_meteo_kmh"] == pytest.approx(config.boucle.vitesse_moyenne_kmh)
         for c in charge["candidates"]
     )
+
+
+def test_sans_calibration_les_heures_de_passage_suivent_la_ftp(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le défaut que ce lot corrige, énoncé comme le mainteneur l'a trouvé.
+
+    « Faire varier sa FTP de 150 à 300 W ne déplace ni les heures de passage
+    météo ni le temps de mouvement. » Ce test échoue sur le code d'avant.
+    """
+    from dataclasses import replace
+
+    vitesses = []
+    for ftp in (150, 300):
+        config = config_avec_velo_calibrable(tmp_path)
+        config = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp))
+        monkeypatch.chdir(tmp_path)
+        executer(
+            args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo()
+        )
+        charge = json.loads(capsys.readouterr().out)
+        vitesses.append(charge["candidates"][0]["vitesse_meteo_kmh"])
+    assert vitesses[0] < vitesses[1]
 
 
 def test_avec_calibration_les_heures_de_passage_suivent_le_modele(

@@ -2313,3 +2313,25 @@ def test_le_texte_nomme_les_deux_azimuts_du_travers(tmp_path: Path, monkeypatch,
     assert "directions imposées" in sortie
     # Vent bouchonné de 45° : le travers ouvre 135° et 315°.
     assert "135°" in sortie and "315°" in sortie
+
+
+def test_sortie_avertit_aussi_quand_le_modele_vient_de_la_litterature(tmp_path: Path):
+    """L'avertissement ne tenait qu'au mot « défaut » (corrigé le 18/09/2026).
+
+    Depuis que les vélos non calibrés reçoivent les valeurs de
+    `physique.litterature`, la provenance ne commence plus par « défaut » : le
+    ⚠ disparaissait exactement dans le cas où il sert — des blocs placés sur
+    des vitesses jamais mesurées sur ce cycliste (règle absolue 5).
+    """
+    seance = _seance_fabriquee()
+    contexte = dataclasses.replace(
+        _contexte_minimal(tmp_path, seance), provenance_modele="littérature (Route)"
+    )
+    texte = rendre_texte([_proposition_avec_demi_tour()], contexte)
+    assert "aucun vélo calibré" in texte
+    assert "viennent de la littérature" in texte
+
+    calibre = dataclasses.replace(
+        _contexte_minimal(tmp_path, seance), provenance_modele="calibration (Route)"
+    )
+    assert "aucun vélo calibré" not in rendre_texte([_proposition_avec_demi_tour()], calibre)

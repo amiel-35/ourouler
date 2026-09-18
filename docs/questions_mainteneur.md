@@ -4470,3 +4470,59 @@ Deux options, si le sujet est repris :
 2. **Le mesurer.** Comparer, sur les mêmes cibles et azimuts, la convergence
    à rayon seul contre une combinaison rayon + points, avec le même budget
    d'appels — et ne le coder que si la mesure montre un gain net.
+
+## Q57 — Entre deux jeux de littérature d'une même catégorie, lequel ? — **ouverte le 18/09/2026**
+
+Le lot L8.5 a posé la table de `physique.litterature` : un vélo jamais calibré
+reçoit des CdA et Crr de catégorie, et tout écran qui s'en sert le dit. La
+table tient, la **règle de choix à l'intérieur d'une catégorie** ne tient pas.
+
+**Ce qui est mesuré et ne se discute pas.** La dérive d'un jeu générique est
+gouvernée par un seul nombre, la résistance totale à 27 km/h (`F@27`), et
+l'écart entre « route amateur » (15,94 N sur son vélo de route) et le haut de
+la même fourchette (18,30 N) vaut **2,4 N, soit ~5 minutes sur une boucle de
+2 h**. Le premier dérive de +3,3 min sur son vélo de route, le second de
+−0,8 min. Ce n'est pas un détail de troisième décimale : c'est l'écart entre
+un temps utilisable et un temps faux.
+
+**Ce qui n'est pas résolu.** Rien dans ce que l'utilisateur saisit aujourd'hui
+— type de vélo, masse du vélo, masse du cycliste — ne dit lequel des deux lui
+va. Ce qui les sépare, c'est la **position sur le vélo**, les pneus, la tenue
+et la transmission ; la masse, elle, déplace les deux jeux ensemble et ne
+tranche donc rien. Faute de règle défendable, chaque catégorie porte le jeu
+dont le `F@27` tombe le plus près de la référence **mesurée sur le vélo
+correspondant du mainteneur**, et c'est écrit tel quel dans le module. Une
+règle inventée aurait été pire qu'un défaut assumé.
+
+**Ce que ce défaut assumé implique, en clair.** La table est aujourd'hui
+ajustée sur **un cycliste, deux vélos, 34 sorties**, à ~100 kg en ordre de
+marche. Elle est juste pour lui par construction. Pour un invité, elle pose un
+`F@27` plausible et rien de plus : chez un cycliste de 60 kg, la part du
+roulement et celle de l'aérodynamique ne se répartissent pas de la même façon,
+et rien ne dit que le haut de la fourchette reste le bon choix. C'est le
+risque que ce lot **assume et affiche**, pas un risque qu'il élimine.
+
+**La conséquence la plus visible, et la plus étrange.** La catégorie `clm`
+porte le jeu nommé « route amateur ». Ce n'est pas une inattention : « CLM
+amateur » est le **pire** des trois jeux sur le chrono du mainteneur
+(+3,5 min) et « route amateur » le meilleur (+0,3 min), parce qu'il ne roule
+pas son chrono en position de chrono. Un test grave ce résultat pour que
+personne ne le « corrige » de bonne foi.
+
+**Trois chemins, si le sujet est repris.**
+
+1. **Une question de plus à l'assistant**, la seule qui porte vraiment le
+   partage : « sur quoi roulez-vous, mains en haut du cintre / aux cocottes /
+   dans le creux / en position de chrono ? ». Trois ou quatre réponses, un
+   `F@27` par réponse. C'est une question que tout le monde sait répondre, et
+   elle sépare exactement ce que la masse ne sépare pas.
+2. **Inverser une vitesse connue.** Le lot C vient d'ajouter `--vitesse-a-plat`,
+   qui convertit une vitesse en puissance par le modèle. Le même mécanisme, pris
+   dans l'autre sens — « à quelle vitesse roulez-vous à plat, sans vent, pour
+   telle puissance ? » — donne directement la `F@27` du couple cycliste + vélo,
+   sans aucun fichier d'activité. Ce serait une **calibration à une question**,
+   et la mesure du 17/09 dit qu'un seul nombre suffit. Ce chemin n'a pas été
+   emprunté ici parce qu'il touche à la calibration, hors du lot.
+3. **Ne rien changer** et attendre qu'un deuxième cycliste utilise le produit :
+   la table est honnête sur ce qu'elle vaut, et une règle bâtie sur n = 1 ne
+   deviendra pas plus vraie en étant plus compliquée.

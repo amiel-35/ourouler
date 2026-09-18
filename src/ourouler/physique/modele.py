@@ -270,6 +270,24 @@ def vitesse_a_plat_kmh(puissance_w: float, p: Parametres) -> float:
     return vitesse_a_plat_ms(puissance_w, p) * 3.6
 
 
+def force_a_plat_n(vitesse_kmh: float, p: Parametres) -> float:
+    """La résistance totale à vaincre sur le plat, sans vent, en newtons.
+
+    Roulement plus traînée, **sans** le rendement de transmission : c'est une
+    force subie par le vélo, pas ce que le cycliste dépense pour la vaincre.
+
+    Ce nombre est celui qui gouverne la durée prédite d'une boucle quand les
+    paramètres ne sont pas mesurés (campagne du 17/09/2026, commit `b6114b2`) :
+    à résistance totale égale à l'allure de croisière, le partage entre CdA et
+    Crr ne déplace pas la durée d'une demi-minute sur 2 h, alors qu'un newton
+    d'erreur en coûte de l'ordre de deux et demie. `physique.litterature` s'en
+    sert pour choisir et pour justifier ses jeux génériques.
+    """
+    _finis(vitesse_kmh=vitesse_kmh)
+    v = vitesse_kmh / 3.6
+    return p.crr * p.masse_totale_kg * G + 0.5 * p.rho * p.cda_m2 * v * v
+
+
 def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
     """Puissance à tenir pour rouler `vitesse_kmh` sur le plat, sans vent.
 

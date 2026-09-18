@@ -74,6 +74,13 @@ MARQUE_RETENUE = "→"
 #: Mention accolée au titre de la colonne « temps » quand il vient du modèle.
 MENTION_MODELE = "(modèle)"
 
+#: La même, quand CdA et Crr n'ont pas été mesurés sur ce vélo mais viennent de
+#: la table de `physique.litterature`. Deux mots de plus, et ils comptent : le
+#: temps est calculé, pas supposé constant, mais il repose sur des valeurs de
+#: catégorie (règle absolue 5, même geste que le « supposé » du facteur
+#: compteur).
+MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
+
 #: Part de kilomètres non classés au-delà de laquelle le tableau le dit. En
 #: dessous, c'est le bruit habituel des tronçons de raccordement ; au-delà,
 #: « 0,0 km de trafic » ne veut plus dire « tracé calme ».
@@ -138,7 +145,16 @@ class ModeleTemps:
     parametres: object  # ourouler.physique.modele.Parametres (import paresseux)
     puissance_w: float
     velo: str
-    provenance: str  # « calibration », « configuration » ou « défaut »
+    provenance: str  # « calibration », « configuration » ou « littérature »
+    #: L'usage du vélo (`config.Velo.usage`), pour retrouver la catégorie de
+    #: `physique.litterature` quand la provenance en vient — sans rouvrir la
+    #: configuration depuis un rendu.
+    usage: str = ""
+
+    @property
+    def calibre(self) -> bool:
+        """Vrai si CdA et Crr ont été **mesurés** sur ce vélo, faux sinon."""
+        return self.provenance == "calibration"
 
 
 @dataclass
@@ -445,17 +461,32 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
 
     C'est **ici**, dans la couche commande, que `calibration.json` est lu : le
     cœur reçoit des `Parametres` déjà construits (règle absolue 2, même
-    partage que pour `poids_routes.json`). Sans calibration mesurée, on
-    retombe sur la vitesse moyenne de la configuration plutôt que d'afficher
-    un temps « modèle » calculé avec un CdA inventé.
+    partage que pour `poids_routes.json`).
+
+    **Une calibration mesurée n'est plus exigée** (18/09/2026) : quelqu'un qui
+    remplit honnêtement sa configuration — FTP, type de vélo, masse — obtenait
+    jusqu'ici la constante `vitesse_moyenne_kmh`, et faire varier sa FTP de
+    150 à 300 W ne déplaçait ni les heures de passage météo ni le temps de
+    mouvement. Le modèle se construit maintenant sur les meilleurs paramètres
+    disponibles, quelle qu'en soit la provenance, et **la provenance voyage
+    avec lui** jusqu'à l'écran (règle absolue 5).
+
+    Reste le cas « aucun modèle » : un vélo dont l'usage n'est dans aucune
+    catégorie de `physique.litterature` n'a que des défauts muets, et un temps
+    calculé là-dessus vaudrait moins que la vitesse moyenne assumée.
     """
-    from ourouler.physique.commande import chemin_calibration, lire_calibration, velo_demande
+    from ourouler.physique.commande import (
+        chemin_calibration,
+        parametres_du_velo,
+        puissance_voulue,
+        velo_demande,
+    )
 
     velo = velo_demande(config, getattr(args, "velo", None))
-    calibree = lire_calibration(chemin_calibration(config), velo.nom)
-    if calibree is None:
+    parametres, provenance = parametres_du_velo(config, velo, chemin_calibration(config))
+    if provenance == "défaut":
         return None
-    puissance = getattr(args, "puissance", None)
+    puissance = puissance_voulue(args, parametres)
     if puissance is None:
         puissance = config.cycliste.ftp_w * PART_FTP_DEFAUT
     if not math.isfinite(puissance) or puissance <= 0:
@@ -463,10 +494,11 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
             f"--puissance {puissance} : une puissance en watts strictement positive est attendue"
         )
     return ModeleTemps(
-        parametres=calibree.parametres,
+        parametres=parametres,
         puissance_w=float(puissance),
         velo=velo.nom,
-        provenance="calibration",
+        provenance=provenance,
+        usage=velo.usage,
     )
 
 
@@ -495,6 +527,17 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
     chemin_gpx = Path(gpx) if gpx else None
     if chemin_gpx is not None and not chemin_gpx.is_file():
         raise ErreurUtilisateur(f"--gpx {gpx} : fichier introuvable")
+
+    # `--puissance` et `--vitesse-a-plat` sont exclusives : le refus se dit
+    # ici, avant tout appel à BRouter ou à Open-Meteo (contrat §6). La
+    # conversion, elle, a besoin du vélo et attend `_modele_temps`.
+    if getattr(args, "puissance", None) is not None and (
+        getattr(args, "vitesse_a_plat", None) is not None
+    ):
+        raise ErreurUtilisateur(
+            "--puissance et --vitesse-a-plat disent la même chose de deux façons "
+            "(la seconde se convertit en watts par le modèle du vélo) : n'en donner qu'une."
+        )
 
     distance_km = getattr(args, "distance", None)
     direction = getattr(args, "direction", None)
@@ -924,13 +967,13 @@ def _titres(
 
     Antennes : « retirées » sur une candidate générée (elle est élaguée),
     « détectées » sur un GPX importé (il ne l'est pas). Temps : `(modèle)`
-    quand la calibration du vélo existe, `(27 km/h)` — la vitesse moyenne de
-    la configuration — sinon. Sans ces mentions, deux exécutions du même
-    ordre donnaient deux chiffres différents sans rien dire.
+    quand la calibration du vélo existe, `(modèle, littérature)` quand le
+    modèle tourne sur des valeurs de catégorie jamais mesurées sur ce vélo,
+    `(27 km/h)` — la vitesse moyenne de la configuration — quand il n'y a pas
+    de modèle du tout. Sans ces mentions, deux exécutions du même ordre
+    donnaient deux chiffres différents sans rien dire.
     """
-    mention = (
-        MENTION_MODELE if modele is not None else f"({config.boucle.vitesse_moyenne_kmh:g} km/h)"
-    )
+    mention = mention_temps(modele, config)
     titres = [
         f"temps {mention}" if titre == "temps" else titre
         for titre, mesure in COLONNES
@@ -941,7 +984,24 @@ def _titres(
     return titres
 
 
-def _vitesse_passage(config: Config, evaluations: list[Evaluation] | None) -> str:
+def mention_temps(modele: ModeleTemps | None, config: Config) -> str:
+    """D'où sort le temps affiché, en trois mots — la source unique de la mention.
+
+    Le titre de la colonne et la vitesse de l'entête la partagent : les voir
+    diverger (« (modèle) » au-dessus d'un chiffre de littérature) serait
+    exactement le « mensonge par mise en page » que la décision 8 du cycle UX
+    interdit.
+    """
+    if modele is None:
+        return f"({config.boucle.vitesse_moyenne_kmh:g} km/h)"
+    return MENTION_MODELE if modele.calibre else MENTION_MODELE_LITTERATURE
+
+
+def _vitesse_passage(
+    config: Config,
+    evaluations: list[Evaluation] | None,
+    modele: ModeleTemps | None = None,
+) -> str:
     """« 27 km/h » ou « 29,4 km/h (modèle) » — la vitesse qui a daté la météo.
 
     Les candidates n'ont pas toutes la même : une boucle vallonnée se parcourt
@@ -959,7 +1019,8 @@ def _vitesse_passage(config: Config, evaluations: list[Evaluation] | None) -> st
     etendue = ""
     if max(connues) - min(connues) >= 0.1:
         etendue = f" de {min(connues):.1f} à {max(connues):.1f}".replace(".", ",")
-    return f"{moyenne:.1f} km/h {MENTION_MODELE}{etendue}".replace(".", ",", 1)
+    mention = MENTION_MODELE if modele is None or modele.calibre else MENTION_MODELE_LITTERATURE
+    return f"{moyenne:.1f} km/h {mention}{etendue}".replace(".", ",", 1)
 
 
 def _ligne_rapprochement_tags(evaluations: list[Evaluation]) -> str | None:
@@ -1054,6 +1115,26 @@ def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
     return {"utilise": meteo.modele_utilise, "repli": meteo.repli}
 
 
+def _litterature_json(modele: ModeleTemps) -> dict | None:
+    """L'équivalent JSON de `_lignes_litterature` — délégué à `physique.commande`."""
+    from ourouler.physique.commande import litterature_json
+
+    return litterature_json(modele.provenance, modele.usage)
+
+
+def _lignes_litterature(modele: ModeleTemps) -> list[str]:
+    """La catégorie servie et sa dérive mesurée, ou rien. Délégué, jamais recalculé ici."""
+    from ourouler.physique import litterature
+
+    choix = litterature.pour_usage(modele.usage) if modele.provenance == "littérature" else None
+    if choix is None:
+        return []
+    return [
+        f"Catégorie {choix.resume}",
+        f"Pour un temps mesuré sur vous : `ourouler calibrer --velo {modele.velo}`.",
+    ]
+
+
 def _entete(
     demande: Demande,
     config: Config,
@@ -1078,18 +1159,27 @@ def _entete(
             f"{direction}, profil {demande.profil}"
         )
     lignes.append(
-        f"Départ {date_en_francais(demande.depart)} — {_vitesse_passage(config, evaluations)} "
+        f"Départ {date_en_francais(demande.depart)} — "
+        f"{_vitesse_passage(config, evaluations, modele)} "
         f"(heures de passage météo), sens préféré {config.boucle.sens}"
     )
-    if modele is not None:
+    if modele is not None and modele.calibre:
         lignes.append(
             f"Temps estimé par le modèle calibré du {modele.velo} à {modele.puissance_w:.0f} W "
             "— temps en mouvement, arrêts non modélisés"
         )
+    elif modele is not None:
+        # Le modèle tourne, mais sur des CdA et Crr de catégorie : il le dit
+        # ici comme le facteur compteur dit « supposé » (règle absolue 5).
+        lignes.append(
+            f"Temps estimé par le modèle du {modele.velo} à {modele.puissance_w:.0f} W, "
+            f"sur des valeurs de {modele.provenance} — temps en mouvement, arrêts non modélisés"
+        )
+        lignes.extend(_lignes_litterature(modele))
     else:
         lignes.append(
-            f"Temps estimé à {config.boucle.vitesse_moyenne_kmh:g} km/h : aucun vélo calibré "
-            "(lancer `ourouler calibrer`)"
+            f"Temps estimé à {config.boucle.vitesse_moyenne_kmh:g} km/h : aucun modèle "
+            "physique pour ce vélo (usage hors des catégories connues)"
         )
     if avec_meteo:
         lignes.append(_ligne_modele_meteo(evaluations or [], config))
@@ -1326,6 +1416,11 @@ def rendre_json(
             "cda_m2": modele.parametres.cda_m2,
             "crr": modele.parametres.crr,
             "masse_totale_kg": modele.parametres.masse_totale_kg,
+            # Le même fait qu'en texte, en un booléen et un bloc : un client
+            # qui ne lit que `provenance` afficherait un temps de littérature
+            # comme un temps mesuré (règle absolue 5).
+            "mesure": modele.calibre,
+            "litterature": _litterature_json(modele),
         },
         "candidates": [_candidate_json(e, config, chemin, compteur_info) for e in evaluations],
     }

@@ -20,9 +20,10 @@ from ourouler.activites.cache import Cache
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.cli import main
-from ourouler.config import Config, depuis_dict
+from ourouler.config import Config, Velo, depuis_dict
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurUtilisateur
+from ourouler.physique import litterature
 from ourouler.physique.commande import (
     CDA_DEFAUT,
     VERSION_CALIBRATION,
@@ -129,10 +130,18 @@ def test_parametres_du_velo_par_provenance(tmp_path: Path):
     chemin = chemin_calibration(config)
     velo = config.velo("RCR")
 
+    # Rien de mesuré, rien de configuré : la table de littérature de l'usage,
+    # et non plus les constantes muettes du module (18/09/2026).
     parametres, provenance = parametres_du_velo(config, velo, chemin)
+    assert provenance == "littérature"
+    assert parametres.cda_m2 == litterature.ROUTE_AMATEUR_HAUT.cda_m2
+    assert parametres.masse_totale_kg == 91.0 + 9.0  # vélo sans masse déclarée
+
+    # Le dernier recours reste, pour un usage qu'aucune catégorie ne couvre.
+    hors_table = Velo(nom="Le gravel", usage="gravel")
+    parametres, provenance = parametres_du_velo(config, hors_table, chemin)
     assert provenance == "défaut"
     assert parametres.cda_m2 == CDA_DEFAUT
-    assert parametres.masse_totale_kg == 91.0 + 9.0  # vélo sans masse déclarée
 
     configure = config_de_test(
         tmp_path,
@@ -302,7 +311,14 @@ def gpx_plat(chemin: Path, longueur_m: float = 20_000.0) -> Path:
 
 
 def args_simuler(**champs) -> argparse.Namespace:
-    defauts = {"gpx": None, "puissance": 200.0, "velo": None, "depart": None, "json": False}
+    defauts = {
+        "gpx": None,
+        "puissance": 200.0,
+        "vitesse_a_plat": None,
+        "velo": None,
+        "depart": None,
+        "json": False,
+    }
     return argparse.Namespace(**{**defauts, **champs})
 
 
@@ -311,8 +327,11 @@ def test_simuler_sans_calibration_le_dit(tmp_path: Path, capsys):
     gpx = gpx_plat(tmp_path / "boucle.gpx")
     assert executer_simuler(args_simuler(gpx=str(gpx)), config) == 0
     texte = capsys.readouterr().out
-    assert "(défaut)" in texte
+    assert "(littérature)" in texte
     assert "n'ont pas été mesurés" in texte
+    # Ce que vaut la catégorie servie, mesuré — pas seulement son nom.
+    assert "route amateur, haut de fourchette" in texte
+    assert "Dérive mesurée" in texte
     assert "Temps en mouvement" in texte
 
 
