@@ -38,14 +38,17 @@ from datetime import date, datetime
 from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
-from ourouler.apprentissage.routes import BaseRoutes, lire_poids
+from ourouler.apprentissage.routes import BaseRoutes, lire_poids, points_de_passage_depuis_coordonnees
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import ecrire_gpx, lire_gpx_trace
+from ourouler.boucle.marqueurs import Marqueurs
+from ourouler.boucle.marqueurs import compter as compter_marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
+from ourouler.boucle.tags_importes import greffer
 from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -101,6 +104,16 @@ PART_FTP_DEFAUT = 0.65
 #: GPX importé ne dit rien des routes empruntées, ce n'est pas « 0 km de
 #: trafic »).
 ABSENT = "—"
+
+#: `trace.meta["tags_provenance"]` : d'où viennent les tags OSM d'un tracé
+#: (règle absolue 5 — un tag mesuré directement par le moteur et un tag
+#: deviné par rapprochement ne se présentent pas de la même façon). Une
+#: candidate générée par BRouter porte `MESURE` ; un GPX importé dont le
+#: greffage (`boucle.tags_importes`) a réussi porte `RAPPROCHEMENT` ; un GPX
+#: dont le greffage a échoué ou n'a rien trouvé ne porte rien du tout — la
+#: clé est absente, comme aujourd'hui.
+TAGS_PROVENANCE_MESURE = "mesuree"
+TAGS_PROVENANCE_RAPPROCHEMENT = "rapprochement"
 
 
 @dataclass(frozen=True)
@@ -160,6 +173,10 @@ class Evaluation:
     du modèle quand il existe, de la configuration sinon ; l'entête la dit,
     sans quoi deux exécutions interrogeraient la prévision à deux heures
     différentes sans que rien ne l'explique."""
+    marqueurs: Marqueurs | None = None
+    """Feux, stops et compagnie sur le tracé entier (`boucle.marqueurs`).
+    `None` seulement si le calcul n'a pas eu lieu ; `marqueurs.connue` dit si
+    le tracé porte des `segments` — sinon zéro ne veut pas dire aucun feu."""
 
 
 def executer(
@@ -199,7 +216,9 @@ def executer(
     demande = lire_options(args, config)
 
     if demande.gpx is not None:
-        traces = [(lire_gpx_trace(demande.gpx), None, None)]
+        trace_gpx = lire_gpx_trace(demande.gpx)
+        _greffer_tags_sur_gpx(trace_gpx, config, client_brouter)
+        traces = [(trace_gpx, None, None)]
     else:
         client_brouter = (
             client_brouter
@@ -210,6 +229,8 @@ def executer(
         )
         trouvees = _generer_candidates(client_brouter, config, demande)
         traces = [(c.trace, c.ecart_relatif, c) for c in trouvees]
+        for trace, _, _ in traces:
+            trace.meta.setdefault("tags_provenance", TAGS_PROVENANCE_MESURE)
 
     # Les trois fichiers appris ou calibrés (L3.2, L3.3) sont lus **ici** et
     # passés au cœur en objets : `couts.evaluer` ne connaît pas de chemin,
@@ -359,6 +380,48 @@ def _generer_candidates(client: ClientBrouter, config: Config, demande: Demande)
             "essayer une autre direction, une autre distance ou un autre profil"
         )
     return trouvees
+
+
+def _greffer_tags_sur_gpx(
+    trace_gpx: Trace, config: Config, client_brouter: ClientBrouter | None
+) -> None:
+    """Tente de greffer des tags OSM sur un GPX importé, en le modifiant sur place.
+
+    Le principe (voir `boucle.tags_importes`) : rejouer le GPX dans BRouter
+    avec des points de passage espacés, puis attribuer à chaque point du GPX
+    les tags du tronçon rerouté le plus proche, sans jamais remplacer la
+    géométrie d'origine.
+
+    **Chemin dégradé, volontairement large.** BRouter absent de la
+    configuration, serveur injoignable, itinéraire refusé, ou rapprochement
+    qui ne trouve rien d'exploitable (`Greffage.exploitable` faux) :
+    `trace_gpx` n'est alors pas touchée, elle garde exactement le
+    `couts_partiels: True` que `lire_gpx_trace` lui a posé. Aucune exception
+    ne doit remonter d'ici — un GPX s'évalue toujours, tags ou pas.
+    """
+    try:
+        client = (
+            client_brouter
+            if client_brouter is not None
+            else ClientBrouter(config.brouter, evitements=config.evitements)
+        )
+        passages = points_de_passage_depuis_coordonnees(
+            [(p.lat, p.lon) for p in trace_gpx.points]
+        )
+        if len(passages) < 2:
+            return
+        trace_reroutee = client.itineraire(passages)
+        greffage = greffer(trace_gpx, trace_reroutee)
+        if not greffage.exploitable:
+            return
+    except ErreurConnecteur:
+        return
+
+    trace_gpx.segments = greffage.segments
+    trace_gpx.meta["couts_partiels"] = False
+    trace_gpx.meta["tags_provenance"] = TAGS_PROVENANCE_RAPPROCHEMENT
+    trace_gpx.meta["tags_seuil_m"] = greffage.seuil_m
+    trace_gpx.meta["tags_km_sans_tag"] = round(greffage.km_sans_tag, 3)
 
 
 def _base_routes(config: Config) -> BaseRoutes | None:
@@ -691,6 +754,7 @@ def _classer(
                 part_connue=base.part_connue(trace) if base is not None else None,
                 temps_s=_temps_modele(trace, meteo, modele),
                 vitesse_meteo_kmh=vitesse,
+                marqueurs=compter_marqueurs(trace),
             )
         )
     evaluations.sort(key=lambda e: e.total)
@@ -758,6 +822,7 @@ COLONNES = (
     ("sens", None),
     ("connu %", "connu"),
     (TITRE_ANTENNES_RETIREES, None),  # remplacé par `_titres` pour un GPX importé
+    ("feux", "feux"),
     ("pluie", "meteo"),
     ("vent face", "meteo"),
     ("ressenti min", "meteo"),
@@ -796,6 +861,9 @@ def rendre_texte(
         lignes.append(
             f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus."
         )
+    ligne_rapprochement = _ligne_rapprochement_tags(evaluations)
+    if ligne_rapprochement is not None:
+        lignes.append(ligne_rapprochement)
     non_classes = _non_classes_signales(evaluations)
     if non_classes:
         lignes.append(
@@ -894,6 +962,29 @@ def _vitesse_passage(config: Config, evaluations: list[Evaluation] | None) -> st
     return f"{moyenne:.1f} km/h {MENTION_MODELE}{etendue}".replace(".", ",", 1)
 
 
+def _ligne_rapprochement_tags(evaluations: list[Evaluation]) -> str | None:
+    """« Tags de route rapprochés... » — d'où viennent les tags d'un GPX greffé.
+
+    Règle absolue 5 : un tag **mesuré** par le moteur (une candidate générée)
+    et un tag **deviné** par rapprochement (un GPX importé, `boucle.
+    tags_importes`) ne sont pas la même chose, et l'écran doit le dire —
+    avec le seuil retenu et la part de kilomètres qui n'a rien trouvé.
+    `None` sans tracé greffé : rien à ajouter.
+    """
+    greffees = [
+        e for e in evaluations if e.trace.meta.get("tags_provenance") == TAGS_PROVENANCE_RAPPROCHEMENT
+    ]
+    if not greffees:
+        return None
+    seuil = next((e.trace.meta.get("tags_seuil_m") for e in greffees), None)
+    km_sans_tag = sum(float(e.trace.meta.get("tags_km_sans_tag") or 0.0) for e in greffees)
+    return (
+        f"Tags de route rapprochés du tracé rerouté par BRouter (seuil {seuil:g} m) : "
+        f"{_fr(km_sans_tag, 1)} km n'ont trouvé aucun tronçon assez proche, comptés en "
+        "routes non classées."
+    )
+
+
 def _non_classes_signales(evaluations: list[Evaluation]) -> float:
     """Le plus gros kilométrage non classé à signaler, ou 0 s'il n'y a rien à dire.
 
@@ -922,6 +1013,8 @@ def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
         presentes.add("cout")
     if any(e.part_connue is not None for e in evaluations):
         presentes.add("connu")
+    if any(e.marqueurs is not None and e.marqueurs.connue for e in evaluations):
+        presentes.add("feux")
     return presentes
 
 
@@ -1066,6 +1159,13 @@ def _cellules(
             f"{evaluation.part_connue * 100:.0f} %" if evaluation.part_connue is not None else ABSENT
         )
     cellules.append(f"{couts.antennes_m:.0f} m")
+    if "feux" in presentes:
+        marqueurs = evaluation.marqueurs
+        cellules.append(
+            str(marqueurs.par_nature.get("traffic_signals", 0))
+            if marqueurs is not None and marqueurs.connue
+            else ABSENT
+        )
     if "meteo" in presentes:
         cellules += [
             f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
@@ -1293,6 +1393,7 @@ def _candidate_json(
         # lui-même, et la part de kilomètres déjà roulés.
         "cout_km_moyen": couts.cout_km_moyen,
         "part_connue": evaluation.part_connue,
+        "marqueurs": _marqueurs_json(evaluation.marqueurs),
         "km_par_highway": {k: round(v, 3) for k, v in couts.km_par_highway.items()},
         "couts": {
             "km_trafic": round(couts.km_trafic, 3),
@@ -1312,6 +1413,24 @@ def _candidate_json(
         # le GPX écrit sur disque (`docs/ux/discovery_donnees.md` §2). Voir
         # `boucle.geometrie` pour la forme et la simplification appliquée.
         "trace": geometrie_json(trace),
+    }
+
+
+def _marqueurs_json(marqueurs: Marqueurs | None) -> dict | None:
+    """Feux, stops et densité de marqueurs — même vocabulaire que `sortie.contraste`.
+
+    `connue` faux (ou `marqueurs` absent) : le tracé ne porte pas de
+    `segments`, `feux`/`stops` valent alors `None`, jamais 0 — un GPX qui n'a
+    pas pu être rapproché ne dit pas « aucun feu », il dit « je ne sais pas ».
+    """
+    if marqueurs is None or not marqueurs.connue:
+        return {"connue": False, "feux": None, "stops": None, "nombre": None, "par_km": None}
+    return {
+        "connue": True,
+        "feux": marqueurs.par_nature.get("traffic_signals", 0),
+        "stops": marqueurs.par_nature.get("stop", 0),
+        "nombre": marqueurs.nombre,
+        "par_km": round(marqueurs.par_km, 3) if marqueurs.par_km is not None else None,
     }
 
 
