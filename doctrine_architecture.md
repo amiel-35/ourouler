@@ -151,8 +151,11 @@ leur sprint : pas de squelette vide « pour plus tard ».
 - **Une base serveur, un compte, une API web** tant que la CLI ne couvre pas
   le besoin du mainteneur. On garde la porte ouverte (principe « le cœur ne
   sait pas où il tourne », chapitre 10), on ne la franchit pas.
-- **Un mot de passe stocké chez nous, un jour.** L'authentification sera
-  déléguée (Google, Apple) ; voir chapitre 10.
+- **Un mot de passe stocké en clair.** L'authentification reste par
+  invitation puis mot de passe (§10.2, révisé le 18/09/2026) ; le mot de
+  passe, lui, ne touche jamais le disque autrement que haché (scrypt, sel
+  par compte). Ce qu'on refuse n'est plus « tout mot de passe », mais
+  « un mot de passe en clair, où que ce soit — base, journal, `repr` ».
 - **Copier une clé ou un jeton dans le dépôt, un test ou une fixture.** Sans
   exception.
 - **Une moyenne de modèles météo.** Le désaccord est une information, on
@@ -189,9 +192,9 @@ Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
 et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
 Le **chemin d'authentification** de cette phrase (« déléguée, Google
-d'abord ») a été révisé le 16/09 et reconfirmé le 17/09 : voir §10.2, qui
-fait foi — compte chez nous sans mot de passe d'abord, Google et Apple
-ensuite et en plus.
+d'abord ») a été révisé le 16/09, précisé le 17 et le 18/09 : voir §10.2,
+qui fait foi — compte chez nous par invitation puis mot de passe haché
+d'abord, Google et Apple ensuite et en plus.
 Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
 mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
 
@@ -298,18 +301,28 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 
 ### 10.2 Ce qu'on décide maintenant, pour construire plus tard
 
-- **Authentification : jamais de mot de passe chez nous.** Le principe ne
-  bouge pas ; le chemin, si — **révisé le 16/09/2026 par le mainteneur**, au
-  moment d'ouvrir le cycle UX (`docs/ux/cycle_ux_contrat.md`).
+- **Authentification : par invitation, puis mot de passe.** Le principe
+  d'un chemin propriétaire (pas de délégation à un tiers en entrée) ne
+  bouge pas ; ce qu'il embarque, si — **révisé le 16/09/2026** puis encore
+  le **18/09/2026** par le mainteneur (« c'est pas une banque » ; « je
+  trouve que tu compliques les choses, on va revenir au basique »).
+  **« Jamais de mot de passe chez nous » était la version du 16/09 ; elle ne
+  tient plus.** Un mot de passe est posé à l'activation du compte, et il est
+  **toujours haché** (scrypt, sel par compte, comparaison en temps
+  constant) — ce que la doctrine refuse n'est pas le mot de passe, c'est le
+  mot de passe **en clair**, où que ce soit (base, journal, `repr`). Détail
+  d'implémentation et raison du choix : `src/ourouler/api/comptes.py`.
 
   **V1 : entrée modérée, par lien à usage unique.** Une demande d'accès, que
   le mainteneur valide à la main, puis un e-mail d'invitation (Brevo)
-  portant un lien de connexion ; ensuite l'utilisateur peut poser une
-  **passkey** (WebAuthn) pour ne plus dépendre de sa boîte mail. Deux
-  raisons de préférer ça à ce qui était écrit ici avant : la **modération
-  est native** — le sprint 8 veut qu'on invite des copains, et par-dessus
-  une connexion Google il aurait fallu construire une liste d'attente — et
-  l'écran d'entrée nous appartient, au lieu d'être celui d'un tiers.
+  portant un lien qui fait poser un mot de passe ; une **passkey** (WebAuthn)
+  pourra s'ajouter plus tard pour ne plus dépendre de sa boîte mail — non
+  écrite aujourd'hui, voir plus bas la petite indirection qui lui laisse la
+  place. Deux raisons de préférer ce chemin à ce qui était écrit ici avant :
+  la **modération est native** — le sprint 8 veut qu'on invite des copains,
+  et par-dessus une connexion Google il aurait fallu construire une liste
+  d'attente — et l'écran d'entrée nous appartient, au lieu d'être celui d'un
+  tiers.
 
   **Précisé le 18/09/2026 par le mainteneur, à l'ouverture du lot L7.2-A, et
   ce n'est pas un détail de V1 : l'entrée est sur invitation *uniquement*, et
@@ -329,16 +342,41 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
     contrôle sinon catastrophe ; mais oui on a un id-account avec un id à
     nous qui est la clé. »** Toute unicité est une **contrainte de base de
     données**, jamais une vérification préalable dans le code : un `SELECT`
-    puis `INSERT` se fait doubler par deux requêtes concurrentes. On insère,
-    et on traduit la violation de contrainte en message lisible. De même, une
-    invitation se consomme par un unique `UPDATE … WHERE … AND consomme_le IS
-    NULL … RETURNING`.
-  - **Un jeton d'invitation n'est jamais stocké en clair** : seul son
-    condensé (SHA-256) va en base. Un jeton en base est un jeton qu'une fuite
-    de sauvegarde rend utilisable.
+    puis `INSERT` se fait doubler par deux requêtes concurrentes. On insère
+    (`ON CONFLICT … DO NOTHING`, jamais un `SELECT` puis un `INSERT`). De
+    même, une invitation se consomme par un unique `UPDATE … WHERE … AND
+    consomme_le IS NULL … RETURNING`.
+  - **Le jeton d'invitation, lui, est en clair — révisé le 18/09/2026.**
+    La version du 17/09 ne stockait que son condensé (SHA-256) ; le
+    mainteneur est revenu dessus explicitement : il veut pouvoir relire un
+    jeton émis et le renvoyer par le canal de son choix, ce qu'un condensé
+    interdit. Le risque est repris par deux bornes plutôt que par
+    l'irréversibilité du condensé : une durée de vie courte — **trois jours**
+    au lieu de sept — et le fait qu'un lien n'ouvre jamais qu'un compte
+    **vide** (aucun moyen de s'authentifier n'y est posé avant l'activation).
+    Ce qui ne change pas : le jeton ne doit **jamais partir dans un
+    journal** — c'est une règle de code (les `__repr__` d'`Invitation` et
+    `InvitationEmise` le masquent), pas une règle de schéma.
 
-  « Pas d'interface ne veut pas dire pas de contrôle » : inviter deux fois la
-  même adresse répond « il a déjà un compte », jamais un doublon.
+  **Le cycle complet, décidé le 18/09/2026 ([[Q59]], close) :** inviter une
+  adresse crée un compte inactif et une invitation ; ouvrir le lien ne
+  consomme rien ; poser un mot de passe active le compte **et** consomme
+  l'invitation, les trois dans une seule transaction — un compte actif sans
+  secret, ou un secret posé sur une invitation déjà consommée, sont des
+  états que la base elle-même refuse. Réinviter passe par la **même**
+  commande, qui lit l'état : un compte déjà actif est refusé (« il a déjà un
+  compte », jamais un doublon — « pas d'interface ne veut pas dire pas de
+  contrôle ») ; un compte inactif dont l'invitation court encore se voit
+  rendre **le même jeton**, ce que le jeton en clair permet enfin ; une
+  invitation périmée est remplacée par une neuve. Il n'y a pas de geste
+  séparé « relancer » : une seule commande suffit.
+
+  **Le secret est rangé derrière une petite indirection** (une colonne qui
+  nomme la méthode d'authentification, une qui porte le secret) plutôt que
+  dans une colonne « mot de passe » directe — parce que le mot de passe ne
+  restera pas le seul moyen (une passkey, plus tard — voir le paragraphe V1
+  ci-dessus). L'abstraction s'arrête à ces deux colonnes : il n'y a pas de
+  passkey aujourd'hui, et le code n'en écrit pas l'ombre.
 
   **V2 : Google, puis Apple, en plus et non à la place.** OpenID Connect
   avec ses contraintes propres côté Apple — compte développeur payant, clé

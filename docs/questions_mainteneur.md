@@ -4672,7 +4672,7 @@ principale.
 
 ---
 
-## Q59 — Une invitation « déjà en cours » ne peut pas être relancée telle quelle — **ouverte le 18/09/2026**
+## Q59 — Une invitation « déjà en cours » ne peut pas être relancée telle quelle — **close le 18/09/2026**
 
 Sortie du lot L7.2-A (le socle des comptes). Deux consignes du mainteneur se
 tiennent séparément et se contredisent une fois assemblées.
@@ -4709,3 +4709,37 @@ mainteneur quand l'invité dit « je n'ai rien reçu » ?
 
 Ce n'est pas au code de trancher : (b) invalide un lien que quelqu'un a
 peut-être sous les yeux, ce qui est un choix de produit.
+
+### Réponse du mainteneur (18/09/2026)
+
+**« C'est pas une banque »** — et donc ni (a), ni (b), ni (c) tels que posés :
+la contrainte qui les rendait tous les trois insatisfaisants était la
+consigne « le jeton n'est jamais stocké en clair ». Le mainteneur l'a levée,
+explicitement, pour ce jeton précis : il **veut** pouvoir le relire et le
+renvoyer par le canal qu'il choisit. Une fois ça acté, la question elle-même
+disparaît — **une seule commande qui lit l'état** :
+
+- l'adresse n'a pas de compte → un compte inactif est créé, un jeton neuf
+  est rendu ;
+- elle en a un actif → refus, « il a déjà un compte » ;
+- elle en a un inactif avec une invitation qui court → **le même jeton** est
+  rendu, en clair, prêt à être renvoyé tel quel — ce qui répond directement à
+  « je n'ai rien reçu » sans geste séparé ;
+- elle en a un inactif dont l'invitation a expiré → une neuve la remplace.
+
+**Pas de `--relancer`.** Un geste qui *remplacerait* le jeton en cours (option
+(b) de la question) resterait possible plus tard si le besoin apparaît — par
+exemple un jeton qu'on soupçonne compromis — mais ce n'est pas un besoin
+d'aujourd'hui, et l'ajouter maintenant serait de la cérémonie sans usage.
+
+**Le risque que le condensé bornait autrement est repris par la durée** :
+`DUREE_INVITATION` passe de sept à **trois jours**. Le lien qu'on renvoie
+n'ouvre jamais qu'un compte vide (aucun moyen de s'authentifier n'y est posé
+tant qu'il n'est pas activé), donc l'exposition d'un jeton relu à plusieurs
+reprises reste bornée à « quelqu'un d'autre active le compte à ma place dans
+les trois jours qui suivent l'invitation » — un incident visible et sans
+levier au-delà.
+
+Mis en œuvre dans `src/ourouler/api/comptes.py` (`DepotComptes.inviter`) et
+`src/ourouler/api/migrations/0001_comptes.sql`. `doctrine_architecture.md`
+§7 et §10.2 sont mis à jour en conséquence.

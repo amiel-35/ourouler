@@ -3,9 +3,9 @@
 Leçon de [[Q58]] sur ce dépôt : un test d'isolation y est resté vert pendant
 des jours sur une fuite totale, parce qu'il mesurait la mauvaise chose. Les
 tests d'ici interrogent donc la **base** — deux connexions réelles, des
-transactions réellement concurrentes, un `SELECT` qui va chercher le jeton
-dans toutes les colonnes de texte — plutôt que de relire le code qui les
-accompagne.
+transactions réellement concurrentes, un `SELECT` qui va chercher le mot de
+passe dans toutes les colonnes de texte — plutôt que de relire le code qui
+les accompagne.
 
 Les adresses de test sont **toutes** en `.invalid` — le seul domaine, avec
 `.example` et `.test`, que la RFC 2606 réserve et qui n'existera donc jamais.
@@ -35,12 +35,17 @@ from ourouler.api.comptes import (
     ErreurCompte,
     ErreurCompteExistant,
     ErreurInvitationRefusee,
-    condenser,
+    hacher_mot_de_passe,
     normaliser_email,
     nouvel_identifiant,
+    verifier_mot_de_passe,
 )
 from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
 from ourouler.api.proprietaire import FORME_IDENTIFIANT
+
+#: Un mot de passe qui n'est ni trivial ni un vrai mot de passe de quelqu'un —
+#: quatre mots au hasard, dans le goût « diceware », suffisent pour les tests.
+MOT_DE_PASSE = "pigeon-vaisselle-quartz-ficelle"
 
 # --- ce qui se vérifie sans base -------------------------------------------
 #
@@ -91,30 +96,33 @@ def test_une_adresse_se_normalise_avant_d_entrer():
     ],
 )
 def test_une_adresse_qui_porte_un_blanc_ou_un_controle_est_refusee(hostile: str):
-    """Le vecteur d'injection d'en-tête, refusé ici et pas plus loin.
-
-    `btrim` côté base ne coupe que l'espace ASCII : « a\\n@… » passait la
-    contrainte `comptes_email_normalise` sans broncher, et le lot qui
-    branchera l'envoi de courriel aurait mis cette chaîne dans un en-tête.
-    Le refus est mesuré sur ce qui compte : saut de ligne, retour chariot,
-    tabulation, octet nul, espace insécable, et l'espace simple interne.
-    """
+    """Le vecteur d'injection d'en-tête, refusé ici et pas plus loin."""
     with pytest.raises(ErreurCompte) as refus:
         normaliser_email(hostile)
     assert "caractère de contrôle ou une espace" in str(refus.value)
 
 
 def test_le_sous_adressage_par_plus_fait_bien_deux_adresses():
-    """Choix assumé et écrit : on ne présume pas la politique du fournisseur.
-
-    Si ce test tombe un jour, c'est que quelqu'un a décidé de replier
-    « cycliste+velo@… » sur « cycliste@… ». Ce n'est pas interdit — c'est une
-    décision de produit, et elle doit se voir passer ici.
-    """
+    """Choix assumé et écrit : on ne présume pas la politique du fournisseur."""
     assert normaliser_email("Cycliste+Velo@Exemple.INVALID") == "cycliste+velo@exemple.invalid"
     assert normaliser_email("cycliste+velo@exemple.invalid") != normaliser_email(
         "cycliste@exemple.invalid"
     )
+
+
+def test_un_mot_de_passe_hache_se_verifie_et_un_autre_est_refuse():
+    secret = hacher_mot_de_passe(MOT_DE_PASSE)
+    assert verifier_mot_de_passe(MOT_DE_PASSE, secret)
+    assert not verifier_mot_de_passe("un-autre-mot-de-passe-tout-a-fait", secret)
+
+
+def test_deux_hachages_du_meme_mot_de_passe_different_par_le_sel():
+    """Un sel par compte : deux comptes au même mot de passe n'ont pas la même ligne."""
+    a = hacher_mot_de_passe(MOT_DE_PASSE)
+    b = hacher_mot_de_passe(MOT_DE_PASSE)
+    assert a != b
+    assert verifier_mot_de_passe(MOT_DE_PASSE, a)
+    assert verifier_mot_de_passe(MOT_DE_PASSE, b)
 
 
 def test_le_repr_d_une_invitation_emise_ne_montre_pas_le_jeton():
@@ -122,20 +130,20 @@ def test_le_repr_d_une_invitation_emise_ne_montre_pas_le_jeton():
     from ourouler.api.comptes import Invitation, InvitationEmise
 
     maintenant = datetime(2026, 9, 18, tzinfo=UTC)
+    jeton = "jeton-qui-ne-doit-pas-fuiter"
     emise = InvitationEmise(
-        invitation=Invitation("a" * 64, "compte", maintenant, maintenant, None),
-        jeton="jeton-qui-ne-doit-pas-fuiter",
+        invitation=Invitation(jeton, "compte", maintenant, maintenant, None),
+        jeton=jeton,
         deja_en_cours=False,
     )
-    assert "jeton-qui-ne-doit-pas-fuiter" not in repr(emise)
-    assert "jeton=<présent>" in repr(emise)
+    assert jeton not in repr(emise)
+    assert jeton not in repr(emise.invitation)
+    assert "jeton=<masqué>" in repr(emise)
 
 
 def test_le_repr_d_un_compte_et_d_un_acces_ne_montre_pas_l_adresse():
     """La même règle que pour le jeton, pour la même raison.
 
-    Une relecture a vu l'adresse s'imprimer en clair dans la sortie d'un échec
-    de pytest : le `repr` par défaut d'une dataclass montre tous ses champs.
     `Acces` est vérifié **par l'effet** et non par la lecture : il n'a pas de
     `__repr__` à lui, et c'est celui de son `Compte` qui le protège — ce test
     est ce qui le dira si un champ s'ajoute.
@@ -146,6 +154,7 @@ def test_le_repr_d_un_compte_et_d_un_acces_ne_montre_pas_l_adresse():
     compte = Compte(
         identifiant="a" * 32,
         email="cycliste@exemple.invalid",
+        actif=True,
         cree_le=datetime(2026, 9, 18, tzinfo=UTC),
     )
     acces = Acces(compte=compte, proprietaire=Proprietaire("b" * 32))
@@ -169,15 +178,7 @@ def test_il_y_a_bien_des_migrations_a_appliquer():
 
 
 def test_les_migrations_partent_bien_dans_le_paquet():
-    """Un `.sql` absent de la roue ferait planter le service au démarrage.
-
-    Hatchling embarque tout ce qui vit sous `packages`, donc les `.sql` — et
-    c'est vérifié à la main sur la roue construite le 18/09/2026. Ce qui
-    casserait cette propriété sans bruit, c'est une clause `include` ou
-    `only-include` ajoutée plus tard pour « ne prendre que le Python » : la
-    suite resterait verte en développement (installation éditable) et le
-    déploiement échouerait à la première migration.
-    """
+    """Un `.sql` absent de la roue ferait planter le service au démarrage."""
     import tomllib
     from pathlib import Path
 
@@ -197,18 +198,13 @@ def test_les_migrations_partent_bien_dans_le_paquet():
 
 
 def test_les_migrations_rejouees_deux_fois_ne_cassent_rien(url_base: str):
-    """La fixture les a déjà appliquées : un second passage ne doit rien faire.
-
-    Et un troisième non plus, après écriture — c'est le cas qui compte, parce
-    que le service applique ses migrations à chaque démarrage, sur une base
-    qui contient déjà des comptes.
-    """
+    """La fixture les a déjà appliquées : un second passage ne doit rien faire."""
     with ouvrir(url_base) as cx:
         assert appliquer_migrations(cx) == []
-        compte = DepotComptes(cx).creer_compte("rejoue@exemple.invalid")
+        emise = DepotComptes(cx).inviter("rejoue@exemple.invalid")
         assert appliquer_migrations(cx) == []
         restant = cx.execute(
-            "SELECT count(*) FROM comptes WHERE id = %s", (compte.identifiant,)
+            "SELECT count(*) FROM comptes WHERE id = %s", (emise.invitation.compte,)
         ).fetchone()[0]
         assert restant == 1
 
@@ -222,24 +218,16 @@ def test_les_migrations_sont_notees_une_seule_fois(url_base: str):
     assert len({numero for numero, _ in lignes}) == len(lignes)
 
 
-# --- les comptes -----------------------------------------------------------
+# --- inviter -----------------------------------------------------------------
 
 
 def attendre_un_fil_bloque(cx, delai_s: float = 20.0) -> None:
     """Attend qu'un **autre** fil soit réellement bloqué sur un verrou, ou échoue.
 
-    Remplace un `time.sleep(0.5)` posé « le temps que le second atteigne
-    l'INSERT » (relecture du 18/09/2026). La différence n'est pas le confort :
-    sur une machine chargée, le second fil peut n'avoir jamais atteint son
-    `INSERT` quand le dormeur se réveille — le premier valide alors avant que
-    la course ait lieu, et **le test reste vert sans avoir mesuré la
-    sérialisation**. Un test qui verdit en ne testant rien est le pire des
-    deux échecs possibles ([[Q58]]).
-
-    On interroge donc PostgreSQL lui-même : `pg_stat_activity` dit quel
-    processus attend un verrou. Tant qu'aucun n'attend, la course n'a pas
-    commencé et il n'y a rien à valider. Si personne n'attend au bout du
-    délai, le test **échoue** au lieu de continuer.
+    On interroge PostgreSQL lui-même (`pg_stat_activity`) plutôt qu'un
+    `time.sleep` posé au jugé : un test qui verdit sans avoir mesuré la
+    course qu'il prétend tester est le pire des deux échecs possibles
+    ([[Q58]]).
     """
     limite = time.monotonic() + delai_s
     while time.monotonic() < limite:
@@ -258,147 +246,97 @@ def attendre_un_fil_bloque(cx, delai_s: float = 20.0) -> None:
     )
 
 
-def test_un_compte_naît_avec_un_propriétaire_distinct(depot: DepotComptes):
-    """[[Q46]] : deux identifiants, pas un.
+def test_un_compte_naît_inactif_avec_un_proprietaire_distinct(depot: DepotComptes, connexion):
+    """[[Q46]] : deux identifiants, pas un. Et un compte invité ne s'utilise pas encore.
 
-    Les confondre serait tentant et invisible — jusqu'au jour de la
-    suppression d'un compte, où il n'y aurait plus rien à délier.
+    Vérifié en base et non en relisant le code : un compte fraîchement
+    invité ne porte aucun moyen de s'authentifier.
     """
-    compte = depot.creer_compte("premier@exemple.invalid")
-    proprietaire = depot.proprietaire_du_compte(compte.identifiant)
-    assert proprietaire.identifiant != compte.identifiant
-    assert FORME_IDENTIFIANT.match(compte.identifiant)
-    assert compte.email == "premier@exemple.invalid"
-    assert compte.identifiant not in compte.email
+    emise = depot.inviter("premier@exemple.invalid")
+    compte_id = emise.invitation.compte
+    proprietaire = depot.proprietaire_du_compte(compte_id)
+    assert proprietaire.identifiant != compte_id
+    assert FORME_IDENTIFIANT.match(compte_id)
 
-
-def test_inviter_deux_fois_la_meme_adresse_dit_non(depot: DepotComptes):
-    """« Pas d'interface ne veut pas dire pas de contrôle. »"""
-    depot.creer_compte("deux.fois@exemple.invalid")
-    with pytest.raises(ErreurCompteExistant) as refus:
-        depot.creer_compte("deux.fois@exemple.invalid")
-    message = str(refus.value)
-    assert "déjà un compte" in message
-    assert datetime.now(UTC).strftime("%d/%m/%Y") in message, "le refus doit dire depuis quand"
-    assert "Traceback" not in message
+    actif, methode, secret = connexion.execute(
+        "SELECT actif, methode_authentification, secret FROM comptes WHERE id = %s",
+        (compte_id,),
+    ).fetchone()
+    assert actif is False
+    assert methode is None and secret is None, "un compte invité ne doit porter aucun secret"
 
 
 def test_la_casse_et_les_espaces_ne_font_pas_deux_comptes(depot: DepotComptes, connexion):
     """« Cycliste@Exemple.INVALID » et « cycliste@exemple.invalid » : une personne."""
-    depot.creer_compte("  Cycliste@Exemple.INVALID ")
-    with pytest.raises(ErreurCompteExistant):
-        depot.creer_compte("cycliste@exemple.invalid")
-    with pytest.raises(ErreurCompteExistant):
-        depot.creer_compte("CYCLISTE@EXEMPLE.INVALID")
+    depot.inviter("  Cycliste@Exemple.INVALID ")
+    depot.inviter("cycliste@exemple.invalid")
+    depot.inviter("CYCLISTE@EXEMPLE.INVALID")
     total = connexion.execute(
         "SELECT count(*) FROM comptes WHERE lower(email) = %s", ("cycliste@exemple.invalid",)
     ).fetchone()[0]
     assert total == 1
 
 
-def test_deux_creations_concurrentes_ne_font_qu_un_compte(url_base: str):
-    """Le cas que seul un `SELECT` puis `INSERT` laisserait passer.
+def test_un_compte_actif_ne_peut_pas_etre_reinvite(depot: DepotComptes):
+    """Le refus qui reste : réinviter quelqu'un qui a déjà un compte utilisable."""
+    emise = depot.inviter("actif@exemple.invalid")
+    depot.activer(emise.jeton, MOT_DE_PASSE)
 
-    Le premier fil écrit **sans valider** et tient sa transaction ouverte ; le
-    second se bloque sur l'index unique, puis reçoit le refus lisible dès que
-    le premier valide. C'est la sérialisation par la base qu'on mesure, pas la
-    chance d'un ordonnancement.
-    """
-    adresse = "course@exemple.invalid"
-    resultat: dict[str, object] = {}
-    with ouvrir(url_base) as cx_a, ouvrir(url_base) as cx_b:
-        depot_a, depot_b = DepotComptes(cx_a), DepotComptes(cx_b)
-
-        def second_fil() -> None:
-            try:
-                resultat["b"] = depot_b.creer_compte(adresse)
-            except BaseException as e:  # noqa: BLE001 - on veut l'exception telle quelle
-                resultat["b"] = e
-
-        fil = threading.Thread(target=second_fil)
-        with cx_a.transaction():
-            depot_a.creer_compte(adresse)
-            fil.start()
-            # Mesuré, pas supposé : on attend que le second fil soit
-            # effectivement bloqué sur le verrou avant de valider.
-            attendre_un_fil_bloque(cx_a)
-        fil.join(timeout=20)
-        assert not fil.is_alive(), "le second fil ne s'est jamais débloqué"
-        total = cx_a.execute(
-            "SELECT count(*) FROM comptes WHERE lower(email) = %s", (adresse,)
-        ).fetchone()[0]
-
-    assert isinstance(resultat["b"], ErreurCompteExistant), resultat["b"]
-    assert total == 1
-
-
-def test_six_creations_simultanees_n_en_laissent_passer_qu_une(url_base: str):
-    """La même chose en vrac : six fils, une barrière, un seul gagnant."""
-    adresse = "melee@exemple.invalid"
-    nombre = 6
-    barriere = threading.Barrier(nombre)
-    resultats: list[object] = [None] * nombre
-
-    def tenter(rang: int) -> None:
-        with ouvrir(url_base) as cx:
-            depot = DepotComptes(cx)
-            barriere.wait(timeout=20)
-            try:
-                resultats[rang] = depot.creer_compte(adresse)
-            except BaseException as e:  # noqa: BLE001
-                resultats[rang] = e
-
-    fils = [threading.Thread(target=tenter, args=(rang,)) for rang in range(nombre)]
-    for fil in fils:
-        fil.start()
-    for fil in fils:
-        fil.join(timeout=30)
-
-    gagnants = [r for r in resultats if not isinstance(r, BaseException)]
-    refus = [r for r in resultats if isinstance(r, ErreurCompteExistant)]
-    assert len(gagnants) == 1, resultats
-    assert len(refus) == nombre - 1, resultats
-    with ouvrir(url_base) as cx:
-        total = cx.execute(
-            "SELECT count(*) FROM comptes WHERE lower(email) = %s", (adresse,)
-        ).fetchone()[0]
-    assert total == 1
-
-
-# --- les invitations -------------------------------------------------------
-
-
-def test_inviter_un_compte_inexistant_dit_lequel_sans_trace_de_pilote(depot: DepotComptes):
-    """Une erreur d'utilisateur, pas une exception de pilote.
-
-    `creer_compte` traduisait déjà sa violation d'unicité ; `creer_invitation`
-    laissait remonter une `ForeignKeyViolation` brute de psycopg (relecture du
-    18/09/2026). `ourouler inviter` aurait affiché une trace de pilote à qui
-    avait seulement tapé un identifiant de travers.
-    """
-    with pytest.raises(ErreurCompte) as refus:
-        depot.creer_invitation("ffffffffffffffffffffffffffffffff")
+    with pytest.raises(ErreurCompteExistant) as refus:
+        depot.inviter("actif@exemple.invalid")
     message = str(refus.value)
-    assert "aucun compte" in message and "ffffffffffffffffffffffffffffffff" in message
-    assert "psycopg" not in message and "DETAIL" not in message
-    # Et le dépôt reste utilisable : la transaction a bien été annulée.
-    compte = depot.creer_compte("apres.le.refus@exemple.invalid")
-    assert depot.creer_invitation(compte.identifiant).jeton
+    assert "déjà un compte" in message
+    assert datetime.now(UTC).strftime("%d/%m/%Y") in message
+    assert "Traceback" not in message
 
 
-def test_deux_invitations_simultanees_ne_font_qu_un_lien(url_base: str):
-    """La troisième course du lot, celle qu'il ne prouvait pas.
+def test_reinviter_un_compte_inactif_dont_l_invitation_court_rend_le_meme_jeton(
+    depot: DepotComptes, connexion
+):
+    """Choix du mainteneur : « le cas réel c'est qu'il ne l'a pas vue » — et
+    maintenant qu'il est en clair, le jeton peut être relu et renvoyé.
+    """
+    premiere = depot.inviter("relance@exemple.invalid")
+    seconde = depot.inviter("relance@exemple.invalid")
 
-    Les deux autres — deux créations de compte, deux consommations — étaient
-    mesurées ; celle-ci ne l'était pas, alors que c'est exactement le geste que
-    le mainteneur répétera : cliquer deux fois sur « inviter ». L'index partiel
-    `invitations_en_cours_unique` et le `ON CONFLICT … DO NOTHING` doivent
-    donner **un seul jeton** et dire aux autres qu'une invitation est déjà en
-    cours — jamais deux liens valides pour le même compte.
+    assert seconde.deja_en_cours
+    assert seconde.jeton == premiere.jeton
+    assert seconde.invitation.compte == premiere.invitation.compte
+    total = connexion.execute(
+        "SELECT count(*) FROM invitations WHERE compte = %s", (premiere.invitation.compte,)
+    ).fetchone()[0]
+    assert total == 1
+    # Le lien sert toujours : on n'a rien invalidé en le relisant.
+    acces = depot.activer(premiere.jeton, MOT_DE_PASSE)
+    assert acces.compte.identifiant == premiere.invitation.compte
+
+
+def test_une_invitation_expiree_se_remplace(depot: DepotComptes, connexion):
+    depart = datetime(2026, 9, 1, 12, tzinfo=UTC)
+    ancienne = depot.inviter("perimee@exemple.invalid", duree=timedelta(days=3), maintenant=depart)
+    neuve = depot.inviter("perimee@exemple.invalid", maintenant=depart + timedelta(days=10))
+
+    assert not neuve.deja_en_cours
+    assert neuve.jeton != ancienne.jeton
+    total = connexion.execute(
+        "SELECT count(*) FROM invitations WHERE compte = %s", (ancienne.invitation.compte,)
+    ).fetchone()[0]
+    assert total == 1, "l'expirée a été retirée, pas empilée"
+    assert depot.activer(neuve.jeton, MOT_DE_PASSE, maintenant=depart + timedelta(days=11))
+
+
+def test_deux_invitations_simultanees_sur_une_adresse_neuve_ne_font_qu_un_compte(
+    url_base: str,
+):
+    """La course que le socle précédent ne prouvait pas : cliquer deux fois « inviter ».
+
+    Sous l'ancien schéma, la seconde recevait une erreur. Sous celui-ci, une
+    adresse neuve sollicitée deux fois en même temps ne doit fabriquer
+    qu'un seul compte et qu'une seule invitation — **et aucune erreur**,
+    puisqu'un compte inactif ne bloque jamais une invitation.
     """
     nombre = 4
-    with ouvrir(url_base) as cx:
-        compte = DepotComptes(cx).creer_compte("ruee@exemple.invalid")
+    adresse = "ruee@exemple.invalid"
     barriere = threading.Barrier(nombre)
     resultats: list[object] = [None] * nombre
 
@@ -407,7 +345,7 @@ def test_deux_invitations_simultanees_ne_font_qu_un_lien(url_base: str):
             depot = DepotComptes(cx_fil)
             barriere.wait(timeout=20)
             try:
-                resultats[rang] = depot.creer_invitation(compte.identifiant)
+                resultats[rang] = depot.inviter(adresse)
             except BaseException as e:  # noqa: BLE001 - on veut l'exception telle quelle
                 resultats[rang] = e
 
@@ -420,149 +358,169 @@ def test_deux_invitations_simultanees_ne_font_qu_un_lien(url_base: str):
 
     incidents = [r for r in resultats if isinstance(r, BaseException)]
     assert not incidents, incidents
-    avec_jeton = [r for r in resultats if r.jeton is not None]
-    sans_jeton = [r for r in resultats if r.jeton is None]
-    assert len(avec_jeton) == 1, resultats
-    assert all(r.deja_en_cours for r in sans_jeton), resultats
-    assert {r.invitation.condense for r in resultats} == {
-        avec_jeton[0].invitation.condense
-    }, "les perdants doivent décrire l'invitation du gagnant, pas une autre"
+    jetons = {r.jeton for r in resultats}
+    comptes = {r.invitation.compte for r in resultats}
+    assert len(jetons) == 1, "un seul jeton valide pour une adresse neuve sollicitée en rafale"
+    assert len(comptes) == 1
 
     with ouvrir(url_base) as cx:
-        total = cx.execute(
-            "SELECT count(*) FROM invitations WHERE compte = %s", (compte.identifiant,)
+        total_comptes = cx.execute(
+            "SELECT count(*) FROM comptes WHERE lower(email) = %s", (adresse,)
         ).fetchone()[0]
-        assert total == 1, "deux liens valides pour un compte"
-        # Et le seul jeton rendu ouvre bien l'accès : la course n'a pas
-        # fabriqué un gagnant qui ne sert à rien.
-        acces = DepotComptes(cx).consommer(avec_jeton[0].jeton)
-        assert acces.compte.identifiant == compte.identifiant
+        total_invitations = cx.execute(
+            "SELECT count(*) FROM invitations WHERE compte = %s", (comptes.pop(),)
+        ).fetchone()[0]
+    assert total_comptes == 1
+    assert total_invitations == 1
 
 
-def test_une_invitation_s_emet_puis_se_consomme_une_fois(depot: DepotComptes):
-    compte = depot.creer_compte("invite@exemple.invalid")
-    emise = depot.creer_invitation(compte.identifiant)
+# --- activer -----------------------------------------------------------------
+
+
+def test_une_invitation_s_emet_puis_s_active_une_fois(depot: DepotComptes):
+    emise = depot.inviter("invite@exemple.invalid")
     assert emise.jeton and not emise.deja_en_cours
 
-    acces = depot.consommer(emise.jeton)
-    assert acces.compte.identifiant == compte.identifiant
-    assert acces.proprietaire == depot.proprietaire_du_compte(compte.identifiant)
+    acces = depot.activer(emise.jeton, MOT_DE_PASSE)
+    assert acces.compte.identifiant == emise.invitation.compte
+    assert acces.compte.actif is True
+    assert acces.proprietaire == depot.proprietaire_du_compte(emise.invitation.compte)
 
     with pytest.raises(ErreurInvitationRefusee) as refus:
-        depot.consommer(emise.jeton)
+        depot.activer(emise.jeton, "un-autre-mot-de-passe-tout-aussi-correct")
     assert "déjà servi" in str(refus.value)
     assert emise.jeton not in str(refus.value), "le refus ne répète jamais le jeton"
 
 
 def test_un_jeton_expire_est_refuse(depot: DepotComptes):
-    compte = depot.creer_compte("expire@exemple.invalid")
     depart = datetime(2026, 9, 1, 12, tzinfo=UTC)
-    emise = depot.creer_invitation(
-        compte.identifiant, duree=timedelta(days=7), maintenant=depart
-    )
+    emise = depot.inviter("expire@exemple.invalid", duree=timedelta(days=3), maintenant=depart)
     with pytest.raises(ErreurInvitationRefusee) as refus:
-        depot.consommer(emise.jeton, maintenant=depart + timedelta(days=8))
+        depot.activer(emise.jeton, MOT_DE_PASSE, maintenant=depart + timedelta(days=4))
     assert "expiré" in str(refus.value)
     assert emise.jeton not in str(refus.value)
     # Et il reste refusé pour de bon : l'expiration n'est pas un retard.
     with pytest.raises(ErreurInvitationRefusee):
-        depot.consommer(emise.jeton, maintenant=depart + timedelta(days=9))
+        depot.activer(emise.jeton, MOT_DE_PASSE, maintenant=depart + timedelta(days=5))
 
 
 def test_un_jeton_inconnu_est_refuse_sans_rien_reveler(depot: DepotComptes):
     with pytest.raises(ErreurInvitationRefusee) as refus:
-        depot.consommer("jeton-completement-invente")
+        depot.activer("jeton-completement-invente", MOT_DE_PASSE)
     assert "n'existe pas" in str(refus.value)
     assert "jeton-completement-invente" not in str(refus.value)
 
 
-def test_une_invitation_deja_en_cours_ne_produit_pas_un_second_jeton(
-    depot: DepotComptes, connexion
-):
-    """Choix du mainteneur : « le cas réel c'est qu'il ne l'a pas vue. »"""
-    compte = depot.creer_compte("relance@exemple.invalid")
-    premiere = depot.creer_invitation(compte.identifiant)
-    seconde = depot.creer_invitation(compte.identifiant)
-
-    assert seconde.deja_en_cours
-    assert seconde.jeton is None, "un second jeton ferait deux liens valides"
-    assert seconde.invitation.condense == premiere.invitation.condense
-    total = connexion.execute(
-        "SELECT count(*) FROM invitations WHERE compte = %s", (compte.identifiant,)
-    ).fetchone()[0]
-    assert total == 1
-    # Le premier lien marche toujours : on n'a rien invalidé en chemin.
-    assert depot.consommer(premiere.jeton).compte.identifiant == compte.identifiant
-
-
-def test_une_invitation_expiree_se_remplace(depot: DepotComptes, connexion):
-    compte = depot.creer_compte("perimee@exemple.invalid")
-    depart = datetime(2026, 9, 1, 12, tzinfo=UTC)
-    ancienne = depot.creer_invitation(
-        compte.identifiant, duree=timedelta(days=7), maintenant=depart
-    )
-    neuve = depot.creer_invitation(compte.identifiant, maintenant=depart + timedelta(days=30))
-
-    assert not neuve.deja_en_cours and neuve.jeton
-    assert neuve.invitation.condense != ancienne.invitation.condense
-    total = connexion.execute(
-        "SELECT count(*) FROM invitations WHERE compte = %s", (compte.identifiant,)
-    ).fetchone()[0]
-    assert total == 1, "l'expirée a été retirée, pas empilée"
-    assert depot.consommer(neuve.jeton, maintenant=depart + timedelta(days=31))
-
-
-def test_deux_consommations_concurrentes_n_en_laissent_passer_qu_une(url_base: str):
+def test_deux_activations_concurrentes_du_meme_jeton_une_seule_reussit(url_base: str):
     """`UPDATE … WHERE consomme_le IS NULL … RETURNING`, en une seule instruction.
 
-    Le premier fil consomme sans valider ; le second se bloque sur la ligne,
+    Le premier fil active sans valider ; le second se bloque sur la ligne,
     puis constate que la condition n'est plus vraie. Un `SELECT` suivi d'un
     `UPDATE` aurait ouvert l'accès deux fois.
     """
     resultat: dict[str, object] = {}
     with ouvrir(url_base) as cx_a, ouvrir(url_base) as cx_b:
         depot_a, depot_b = DepotComptes(cx_a), DepotComptes(cx_b)
-        compte = depot_a.creer_compte("duel@exemple.invalid")
-        jeton = depot_a.creer_invitation(compte.identifiant).jeton
+        emise = depot_a.inviter("duel@exemple.invalid")
 
         def second_fil() -> None:
             try:
-                resultat["b"] = depot_b.consommer(jeton)
+                resultat["b"] = depot_b.activer(emise.jeton, "mot-de-passe-du-second-fil")
             except BaseException as e:  # noqa: BLE001
                 resultat["b"] = e
 
         fil = threading.Thread(target=second_fil)
         with cx_a.transaction():
-            acces_a = depot_a.consommer(jeton)
+            acces_a = depot_a.activer(emise.jeton, MOT_DE_PASSE)
             fil.start()
             attendre_un_fil_bloque(cx_a)
         fil.join(timeout=20)
         assert not fil.is_alive(), "le second fil ne s'est jamais débloqué"
         consommations = cx_a.execute(
             "SELECT count(*) FROM invitations WHERE compte = %s AND consomme_le IS NOT NULL",
-            (compte.identifiant,),
+            (emise.invitation.compte,),
+        ).fetchone()[0]
+        comptes_actifs = cx_a.execute(
+            "SELECT count(*) FROM comptes WHERE id = %s AND actif", (emise.invitation.compte,)
         ).fetchone()[0]
 
-    assert acces_a.compte.identifiant == compte.identifiant
+    assert acces_a.compte.identifiant == emise.invitation.compte
     assert isinstance(resultat["b"], ErreurInvitationRefusee), resultat["b"]
     assert consommations == 1
+    assert comptes_actifs == 1
 
 
-# --- ce que la base n'a pas le droit de contenir ---------------------------
+def test_l_activation_est_atomique_si_la_pose_du_secret_echoue(
+    depot: DepotComptes, connexion, monkeypatch
+):
+    """« Casser le code exprès » : simuler une panne pendant le hachage.
+
+    Si `hacher_mot_de_passe` explose au milieu de la transaction
+    d'activation, ni le compte ne doit passer actif, ni l'invitation ne doit
+    se trouver consommée — sans ça, un incident de passage laisserait un
+    compte actif sans secret, exactement l'état que la contrainte
+    `comptes_actif_a_un_secret` interdit en base.
+    """
+    emise = depot.inviter("atomique@exemple.invalid")
+
+    def hachage_qui_explose(mot_de_passe: str) -> str:
+        raise RuntimeError("panne simulée pendant la pose du secret")
+
+    monkeypatch.setattr("ourouler.api.comptes.hacher_mot_de_passe", hachage_qui_explose)
+
+    with pytest.raises(RuntimeError):
+        depot.activer(emise.jeton, MOT_DE_PASSE)
+
+    actif = connexion.execute(
+        "SELECT actif FROM comptes WHERE id = %s", (emise.invitation.compte,)
+    ).fetchone()[0]
+    assert actif is False, "le compte ne doit pas passer actif si le secret n'a pas pu être posé"
+
+    consomme_le = connexion.execute(
+        "SELECT consomme_le FROM invitations WHERE jeton = %s", (emise.jeton,)
+    ).fetchone()[0]
+    assert consomme_le is None, "le jeton ne doit pas être consommé si l'activation a échoué"
+
+    # Et le jeton reste utilisable : l'échec n'a rien brûlé qu'il ne fallait.
+    monkeypatch.undo()
+    acces = depot.activer(emise.jeton, MOT_DE_PASSE)
+    assert acces.compte.actif is True
 
 
-def test_le_jeton_en_clair_n_est_nulle_part_en_base(depot: DepotComptes, connexion):
+def test_supprimer_un_compte_efface_le_lien_vers_le_proprietaire(depot, connexion):
+    """[[Q46]] : c'est **cette** table qu'on efface, et les poids restent.
+
+    Le lot de suppression est un lot ultérieur ; ce qui se vérifie ici est
+    seulement que le schéma le permet.
+    """
+    emise = depot.inviter("efface@exemple.invalid")
+    compte_id = emise.invitation.compte
+    proprietaire = depot.proprietaire_du_compte(compte_id)
+
+    connexion.execute("DELETE FROM comptes WHERE id = %s", (compte_id,))
+
+    restants = connexion.execute(
+        "SELECT count(*) FROM comptes_proprietaires WHERE proprietaire = %s",
+        (proprietaire.identifiant,),
+    ).fetchone()[0]
+    invitations = connexion.execute(
+        "SELECT count(*) FROM invitations WHERE compte = %s", (compte_id,)
+    ).fetchone()[0]
+    assert restants == 0 and invitations == 0
+
+
+# --- ce que la base n'a pas le droit de contenir, ou d'accepter -------------
+
+
+def test_le_mot_de_passe_en_clair_n_est_nulle_part_en_base(depot: DepotComptes, connexion):
     """Vérifié **en interrogeant la base**, colonne de texte par colonne de texte.
 
-    Relire le code aurait prouvé que le code d'aujourd'hui est correct ; ceci
-    prouve que la base d'aujourd'hui l'est, ce qui reste vrai après une
-    migration qu'on aurait écrite sans y penser. Le condensé, lui, doit bien
-    s'y trouver — sinon le test chercherait au mauvais endroit et passerait
-    pour de mauvaises raisons ([[Q58]]).
+    Le jeton, lui, est en clair en base par décision du mainteneur — ce
+    n'est plus ce qu'on vérifie ici. Ce qui doit rester introuvable, c'est le
+    mot de passe : lui reste haché, toujours.
     """
-    compte = depot.creer_compte("secret@exemple.invalid")
-    emise = depot.creer_invitation(compte.identifiant)
-    jeton = emise.jeton
+    emise = depot.inviter("secret@exemple.invalid")
+    acces = depot.activer(emise.jeton, MOT_DE_PASSE)
 
     colonnes = connexion.execute(
         "SELECT table_name, column_name FROM information_schema.columns "
@@ -570,17 +528,17 @@ def test_le_jeton_en_clair_n_est_nulle_part_en_base(depot: DepotComptes, connexi
     ).fetchall()
     assert colonnes, "aucune colonne de texte trouvée : le test ne mesure rien"
 
-    portant_le_jeton = []
-    portant_le_condense = []
+    portant_le_mot_de_passe = []
     for table, colonne in colonnes:
         requete = f'SELECT count(*) FROM "{table}" WHERE position(%s in "{colonne}") > 0'
-        if connexion.execute(requete, (jeton,)).fetchone()[0]:
-            portant_le_jeton.append(f"{table}.{colonne}")
-        if connexion.execute(requete, (condenser(jeton),)).fetchone()[0]:
-            portant_le_condense.append(f"{table}.{colonne}")
+        if connexion.execute(requete, (MOT_DE_PASSE,)).fetchone()[0]:
+            portant_le_mot_de_passe.append(f"{table}.{colonne}")
+    assert not portant_le_mot_de_passe, (
+        f"le mot de passe en clair est en base : {portant_le_mot_de_passe}"
+    )
 
-    assert not portant_le_jeton, f"le jeton en clair est en base : {portant_le_jeton}"
-    assert portant_le_condense == ["invitations.condense"], portant_le_condense
+    for texte in (repr(acces), repr(acces.compte), repr(emise), str([acces])):
+        assert MOT_DE_PASSE not in texte, texte
 
 
 def test_la_base_refuse_une_adresse_non_normalisee(connexion):
@@ -608,25 +566,18 @@ def test_la_base_refuse_un_identifiant_hors_forme(connexion):
                 )
 
 
-def test_supprimer_un_compte_efface_le_lien_vers_le_proprietaire(depot, connexion):
-    """[[Q46]] : c'est **cette** table qu'on efface, et les poids restent.
+def test_la_base_refuse_un_compte_actif_sans_secret(connexion):
+    """L'invariant du produit, tenu par la base : `comptes_actif_a_un_secret`.
 
-    Le lot de suppression est le sprint 9 ou 10 ; ce qui se vérifie ici est
-    seulement que le schéma le permet — la cascade existe, et un compte
-    supprimé ne laisse pas une correspondance orpheline qui rattacherait
-    encore quelqu'un à ses données.
+    Même si le code de ce module ne l'écrirait jamais ainsi, une écriture
+    directe qui tenterait cet état doit être refusée — c'est ce qui rend la
+    garantie vraie même le jour où quelqu'un écrira du SQL à la main.
     """
-    compte = depot.creer_compte("efface@exemple.invalid")
-    proprietaire = depot.proprietaire_du_compte(compte.identifiant)
-    depot.creer_invitation(compte.identifiant)
+    import psycopg
 
-    connexion.execute("DELETE FROM comptes WHERE id = %s", (compte.identifiant,))
-
-    restants = connexion.execute(
-        "SELECT count(*) FROM comptes_proprietaires WHERE proprietaire = %s",
-        (proprietaire.identifiant,),
-    ).fetchone()[0]
-    invitations = connexion.execute(
-        "SELECT count(*) FROM invitations WHERE compte = %s", (compte.identifiant,)
-    ).fetchone()[0]
-    assert restants == 0 and invitations == 0
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with connexion.transaction():
+            connexion.execute(
+                "INSERT INTO comptes (id, email, actif) VALUES (%s, %s, true)",
+                (nouvel_identifiant(), "sans.secret@exemple.invalid"),
+            )
