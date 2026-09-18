@@ -77,3 +77,7 @@ front/dist/
 # Outillage local
 .claude/worktrees/
 .DS_Store
+
+# Le fichier de service réel — secrets du serveur, jamais dans le dépôt.
+# Son modèle vide, `service.example.toml`, est commité (règle absolue 1).
+service.toml
