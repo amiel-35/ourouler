@@ -16,7 +16,7 @@
  * est plus honnête qu'un bouton qui refuse. »
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Profil, Zones } from "../api/types";
 import { jourEnLettres, nombre, pourcentage, usageDeVelo } from "../api/formats";
@@ -335,7 +335,7 @@ function ListeVelos({
   surListe: (velos: Record<string, unknown>[]) => void;
 }) {
   // La liste des vélos se **remplace en entier** (`api/depots.py`). On repart
-  // donc du vélo tel que l'API l'a rendu et on ne remplace que les trois
+  // donc du vélo tel que l'API l'a rendu et on ne remplace que les quatre
   // champs de l'écran : sinon un simple changement de nom effacerait le
   // rattachement Intervals, le capteur et le facteur de compteur mesuré.
   const [velos, setVelos] = useState(
@@ -344,8 +344,45 @@ function ListeVelos({
       nom: v.nom,
       usage: v.usage,
       masse_kg: String(v.masse_kg),
+      // Vide quand `null` : « rien saisi » n'est pas la même chose que
+      // « zéro », et c'est le défaut serveur qui s'applique dans ce cas
+      // (voir `defauts` ci-dessous).
+      facteurCompteur: v.facteur_compteur === null ? "" : String(v.facteur_compteur),
     })),
   );
+
+  // Le défaut que le serveur appliquerait à un champ vide, par vélo
+  // d'origine (`origine.nom`, jamais le nom en cours de saisie qui peut
+  // changer sous nos pieds). `GET /profil/zones` ne le rend que pour un
+  // vélo dont `facteur_compteur` vaut déjà `null` côté serveur — pour les
+  // autres, le champ vide n'a pas encore de défaut à montrer tant que
+  // l'enregistrement n'a pas eu lieu, et on le dit plutôt que d'inventer un
+  // chiffre.
+  const [defauts, setDefauts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let annule = false;
+    const aRecuperer = profil.velos.filter((v) => v.facteur_compteur === null);
+    Promise.all(
+      aRecuperer.map((v) =>
+        api
+          .zones(v.nom)
+          .then(
+            (reponse) => [v.nom, reponse.donnees.valeurs_liees?.facteur_compteur ?? null] as const,
+          )
+          .catch(() => [v.nom, null] as const),
+      ),
+    ).then((paires) => {
+      if (annule) return;
+      const table: Record<string, number> = {};
+      for (const [nom, valeur] of paires) if (valeur !== null) table[nom] = valeur;
+      setDefauts(table);
+    });
+    return () => {
+      annule = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function modifier(index: number, morceau: Partial<(typeof velos)[number]>) {
     setVelos(velos.map((velo, i) => (i === index ? { ...velo, ...morceau } : velo)));
@@ -389,6 +426,44 @@ function ListeVelos({
               <span className="unite">kg</span>
             </div>
           </div>
+          {(() => {
+            const nomOrigine = typeof velo.origine.nom === "string" ? velo.origine.nom : null;
+            const defaut = nomOrigine ? defauts[nomOrigine] : undefined;
+            const vide = velo.facteurCompteur.trim() === "";
+            return (
+              <div className="champ">
+                <label htmlFor={`velo-facteur-${index}`}>Facteur compteur</label>
+                <input
+                  className="saisie mono"
+                  id={`velo-facteur-${index}`}
+                  inputMode="decimal"
+                  value={velo.facteurCompteur}
+                  onChange={(e) => modifier(index, { facteurCompteur: e.target.value })}
+                  placeholder={defaut !== undefined ? nombre(defaut, 3) : undefined}
+                />
+                {vide ? (
+                  <div className="aide">
+                    {defaut !== undefined ? (
+                      <>
+                        Vide : {nombre(defaut, 3)} s'applique —{" "}
+                        <b>supposé — il n'a pas été mesuré sur vos sorties</b>.
+                      </>
+                    ) : (
+                      "Vide : le défaut du serveur s'applique."
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="lien"
+                    onClick={() => modifier(index, { facteurCompteur: "" })}
+                  >
+                    Revenir au défaut
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           <button
             type="button"
             className="bouton fantome"
@@ -398,6 +473,12 @@ function ListeVelos({
           </button>
         </div>
       ))}
+      <p className="mention">
+        Le facteur compteur est le rapport entre la vitesse à plat que prédit le modèle et
+        votre moyenne compteur réelle, arrêts compris. C'est lui qui convertit « je veux rouler
+        5 h » en kilomètres à chercher, et qui donne la durée porte à porte des boucles
+        proposées.
+      </p>
       <button
         type="button"
         className="bouton second"
@@ -409,7 +490,10 @@ function ListeVelos({
         // vide demande une réponse ; un champ prérempli fait passer un défaut
         // pour une saisie (règle absolue 5).
         onClick={() =>
-          setVelos([...velos, { origine: {}, nom: "", usage: "route", masse_kg: "" }])
+          setVelos([
+            ...velos,
+            { origine: {}, nom: "", usage: "route", masse_kg: "", facteurCompteur: "" },
+          ])
         }
       >
         Ajouter un vélo
@@ -425,6 +509,10 @@ function ListeVelos({
               nom: velo.nom,
               usage: velo.usage,
               masse_kg: Number(velo.masse_kg.replace(",", ".")),
+              facteur_compteur:
+                velo.facteurCompteur.trim() === ""
+                  ? null
+                  : Number(velo.facteurCompteur.replace(",", ".")),
             })),
           )
         }

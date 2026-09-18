@@ -2787,3 +2787,44 @@ publique.
 Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
 purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
 ensemble, ils décrivent quelqu'un. Signalé, assumé.
+
+
+## Q48 — Mesurer le facteur compteur depuis l'écran, ou seulement le saisir ? — **ouverte le 18/09/2026**
+
+Le lot qui rend `facteur_compteur` éditable par vélo dans les réglages
+(`front/src/ecrans/Reglages.tsx`) laisse quelqu'un **taper** un nombre, ou
+**revenir au défaut supposé** (le modèle physique, sur un profil de référence
+inventé — 10 m de dénivelé par km, 5 % d'arrêts). Ce qu'il ne propose pas :
+un bouton « mesurer sur mon historique ».
+
+Ce chiffre existe déjà, en ligne de commande :
+`tests/validation/facteur_compteur_retrospectif.py` le calcule sur les
+vraies sorties d'un vélo. C'est cette même famille de mesure qui a produit
+les 91 % (en mouvement) et 87 % (au compteur) rapportés pour RCR dans
+`docs/ux/cycle_ux_contrat.md` (décision 8, 69 sorties extérieures d'au moins
+une heure) — **à ne pas confondre** avec le 0,803 que l'écran affiche
+aujourd'hui en indication sur un champ vide : celui-là est le défaut
+*supposé*, dérivé d'un profil générique (10 m de dénivelé par km, 5 %
+d'arrêts), pas une mesure sur l'historique du mainteneur. Le script est
+**un outil de développement**, pas un parcours utilisateur : il lit le cache
+local directement, sans passer par l'API, sans propriétaire, et sans rien
+enregistrer — il affiche, et s'arrête là.
+
+**La question n'est pas de le construire maintenant** — la consigne du lot
+était explicite là-dessus, et rien n'a été ajouté en ce sens — **mais de
+savoir si ça vaut la peine, et pour quand.** Trois éléments à trancher s'il y
+a une suite :
+
+1. **Le geste** : un bouton dans les réglages qui déclenche le calcul et
+   propose d'écrire le résultat, ou seulement une lecture (« voici ce que
+   dirait votre historique ») que le cycliste recopie lui-même ?
+2. **Le calcul dure** : c'est une lecture du cache local, pas un appel
+   réseau, mais sur combien de sorties, et avec quel seuil minimal en dessous
+   duquel le chiffre ne veut rien dire (le script écarte déjà les sorties de
+   moins d'une heure) ?
+3. **Ça devient une route d'API** : `api/routes.py` ne l'a pas — cohérent
+   avec ce que dit `docs/ux/front_contrat.md` sur F1, qui n'expose que ce que
+   les maquettes demandent déjà.
+
+Sans réponse, l'écran reste ce qu'il est : saisir à la main, ou laisser le
+défaut supposé s'appliquer.
