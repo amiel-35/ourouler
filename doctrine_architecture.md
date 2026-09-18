@@ -151,11 +151,12 @@ leur sprint : pas de squelette vide « pour plus tard ».
 - **Une base serveur, un compte, une API web** tant que la CLI ne couvre pas
   le besoin du mainteneur. On garde la porte ouverte (principe « le cœur ne
   sait pas où il tourne », chapitre 10), on ne la franchit pas.
-- **Un mot de passe stocké en clair.** L'authentification reste par
-  invitation puis mot de passe (§10.2, révisé le 18/09/2026) ; le mot de
-  passe, lui, ne touche jamais le disque autrement que haché (scrypt, sel
-  par compte). Ce qu'on refuse n'est plus « tout mot de passe », mais
-  « un mot de passe en clair, où que ce soit — base, journal, `repr` ».
+- **Un secret d'authentification stocké en clair.** L'entrée se fait par
+  invitation, puis le compte porte **un moyen de s'authentifier dont la
+  forme est ouverte** — mot de passe, passkey, autre (§10.2, révisé le
+  18/09/2026). Ce qu'on refuse n'est pas une forme en particulier, c'est
+  **le secret en clair, quelle que soit sa forme et où que ce soit** : base,
+  journal, `repr`, message d'erreur.
 - **Copier une clé ou un jeton dans le dépôt, un test ou une fixture.** Sans
   exception.
 - **Une moyenne de modèles météo.** Le désaccord est une information, on
@@ -193,8 +194,9 @@ et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
 Le **chemin d'authentification** de cette phrase (« déléguée, Google
 d'abord ») a été révisé le 16/09, précisé le 17 et le 18/09 : voir §10.2,
-qui fait foi — compte chez nous par invitation puis mot de passe haché
-d'abord, Google et Apple ensuite et en plus.
+qui fait foi — compte chez nous par invitation, puis un moyen
+d'authentification dont la forme est ouverte et le secret jamais en clair ;
+Google et Apple ensuite et en plus.
 Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
 mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
 
@@ -301,24 +303,36 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 
 ### 10.2 Ce qu'on décide maintenant, pour construire plus tard
 
-- **Authentification : par invitation, puis mot de passe.** Le principe
-  d'un chemin propriétaire (pas de délégation à un tiers en entrée) ne
-  bouge pas ; ce qu'il embarque, si — **révisé le 16/09/2026** puis encore
-  le **18/09/2026** par le mainteneur (« c'est pas une banque » ; « je
-  trouve que tu compliques les choses, on va revenir au basique »).
+- **Authentification : par invitation, puis un moyen dont la forme est
+  ouverte.** Le principe d'un chemin propriétaire (pas de délégation à un
+  tiers en entrée) ne bouge pas ; ce qu'il embarque, si — **révisé le
+  16/09/2026** puis encore le **18/09/2026** par le mainteneur (« c'est pas
+  une banque » ; « je trouve que tu compliques les choses, on va revenir au
+  basique »).
+
   **« Jamais de mot de passe chez nous » était la version du 16/09 ; elle ne
-  tient plus.** Un mot de passe est posé à l'activation du compte, et il est
-  **toujours haché** (scrypt, sel par compte, comparaison en temps
-  constant) — ce que la doctrine refuse n'est pas le mot de passe, c'est le
-  mot de passe **en clair**, où que ce soit (base, journal, `repr`). Détail
-  d'implémentation et raison du choix : `src/ourouler/api/comptes.py`.
+  tient plus** — mais ce qui la remplace n'est pas « mot de passe » non plus.
+  Le mainteneur l'a posé comme un principe, pas comme un choix de technique :
+  *« un compte dans la vie c'est un login et un mot de passe »*, puis
+  aussitôt *« après on peut changer le mot de passe par plein de trucs,
+  passkey, lien, empreinte »*. Le compte porte donc **un moyen de
+  s'authentifier**, et la forme de ce moyen est ouverte.
+
+  Ce que la doctrine fixe, et qui ne dépend pas de la forme : **le secret
+  n'est jamais en clair**, où que ce soit (base, journal, `repr`, message
+  d'erreur), et il se vérifie en temps constant. Aujourd'hui c'est un mot de
+  passe haché au scrypt avec un sel par compte, parce que c'est le plus
+  simple à écrire ; une passkey s'ajoutera **sans changer le schéma** — le
+  compte range une méthode et un secret, et rien d'autre du produit ne sait
+  lequel des deux il porte. Détail d'implémentation :
+  `src/ourouler/api/comptes.py`.
 
   **V1 : entrée modérée, par lien à usage unique.** Une demande d'accès, que
   le mainteneur valide à la main, puis un e-mail d'invitation (Brevo)
-  portant un lien qui fait poser un mot de passe ; une **passkey** (WebAuthn)
-  pourra s'ajouter plus tard pour ne plus dépendre de sa boîte mail — non
-  écrite aujourd'hui, voir plus bas la petite indirection qui lui laisse la
-  place. Deux raisons de préférer ce chemin à ce qui était écrit ici avant :
+  portant un lien qui fait poser son moyen d'authentification ; une
+  **passkey** (WebAuthn) pourra s'ajouter plus tard pour ne plus dépendre de
+  sa boîte mail — non écrite aujourd'hui, voir plus bas la petite
+  indirection qui lui laisse la place. Deux raisons de préférer ce chemin à ce qui était écrit ici avant :
   la **modération est native** — le sprint 8 veut qu'on invite des copains,
   et par-dessus une connexion Google il aurait fallu construire une liste
   d'attente — et l'écran d'entrée nous appartient, au lieu d'être celui d'un
