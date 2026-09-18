@@ -232,6 +232,33 @@ def test_un_echec_du_moteur_au_second_essai_ne_perd_pas_la_premiere_candidate():
     assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
 
 
+def test_l_essai_plus_long_qui_depasse_davantage_ne_gagne_pas():
+    """**L'arbitrage du mainteneur du 18/09/2026**, sur ses propres chiffres.
+
+    125 km demandés, tolérance 10 % : un premier essai à 120 km (−4 %) et un
+    second à 137 km (+9,9 %) tiennent tous deux dans la bande. La première
+    écriture du lot servait 137 — on s'éloignait de douze kilomètres de la
+    demande en ayant cinq en main. Le mainteneur a tranché : la plus proche
+    de la cible.
+    """
+    reponses = iter([4.8, 5.2608])  # −4 %, puis +9,6 % : dans la bande, mais plus loin
+    client, appels = moteur(lambda rayon: rayon * next(reponses))
+    trouvees = generer(client, DEPART, distance_km=125, azimut_deg=45, nb=1, tolerance=0.10)
+    assert len(appels) == 2
+    assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
+
+
+def test_a_ecart_egal_la_plus_longue_l_emporte():
+    """C'est là, et seulement là, que la préférence du mainteneur s'exprime :
+    entre −4 % et +4 %, on part sur le +4 %. Ça ne coûte rien, et c'est ce
+    qu'il a demandé — « c'est pas dur de faire 10 bornes de plus »."""
+    reponses = iter([4.8, 4.992])  # −4 %, puis exactement +4 %
+    client, appels = moteur(lambda rayon: rayon * next(reponses))
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    assert len(appels) == 2
+    assert trouvees[0].ecart_relatif == pytest.approx(0.04, abs=1e-4)
+
+
 def test_l_essai_plus_long_ne_se_declenche_pas_sans_budget_disponible():
     """Le biais ne dépense jamais plus que ce qu'`appels_max` autorise déjà."""
     client, appels = moteur(lambda rayon: rayon * 4.8)  # −4 %, dans la tolérance, sous la cible

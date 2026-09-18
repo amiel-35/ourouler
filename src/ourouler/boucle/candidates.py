@@ -180,6 +180,28 @@ def azimuts(azimut_deg: float, nb: int) -> list[float]:
     return sortie
 
 
+def _plus_proche(
+    courte: Candidate, longue: Candidate | None, tolerance: float
+) -> Candidate:
+    """Des deux essais d'un azimut, celle qui répond le mieux à la demande.
+
+    `courte` tient déjà dans la bande, sous la cible ; `longue` est ce qu'a
+    rendu l'essai supplémentaire, et peut être `None` (tracé non borné) ou
+    hors bande. La règle : **le plus petit écart absolu l'emporte, et à écart
+    égal, la plus longue** — c'est l'arbitrage du mainteneur (18/09/2026),
+    et c'est la même règle que le tri final entre azimuts, pour qu'un étage
+    ne défasse pas ce que l'autre a choisi.
+    """
+    if longue is None or abs(longue.ecart_relatif) > tolerance:
+        return courte
+    if abs(longue.ecart_relatif) < abs(courte.ecart_relatif):
+        return longue
+    if abs(longue.ecart_relatif) > abs(courte.ecart_relatif):
+        return courte
+    # Écart égal : la préférence du mainteneur s'exprime ici, et ne coûte rien.
+    return longue if longue.ecart_relatif > courte.ecart_relatif else courte
+
+
 def generer(
     client: ClientBrouter,
     depart: Depart,
@@ -323,21 +345,29 @@ def generer(
                     meilleure = candidate
 
             if candidate_courte is not None:
-                # La correction demandée après `candidate_courte` visait plus
-                # loin (facteur > 1, cible_m / distance_m avec distance_m sous
-                # la cible) : si le résultat tient dans la bande et est
-                # réellement plus long, il l'emporte ; sinon on revient à la
-                # première candidate. Un seul essai de plus, jamais une
-                # relance : `palier`/`elargissement_max` jugent ensuite le
-                # verdict final, pas l'aller-retour qui l'a produit.
-                if (
-                    candidate is not None
-                    and abs(ecart) <= tolerance
-                    and candidate.ecart_relatif > candidate_courte.ecart_relatif
-                ):
-                    meilleure = candidate
-                else:
-                    meilleure = candidate_courte
+                # **Arbitrage du mainteneur du 18/09/2026, et il a changé.**
+                # La première écriture gardait toujours la plus longue des
+                # deux dès qu'elle tenait dans la bande. Conséquence, montrée
+                # avec ses chiffres : sur 125 km demandés, un premier essai à
+                # 120 km (−4 %) et un second à 137 km (+9,9 %) faisaient
+                # servir 137 — on s'éloignait de douze kilomètres de la
+                # demande alors qu'on en avait cinq en main. Et la règle
+                # contredisait le tri final entre azimuts, qui classe par
+                # écart absolu : une candidate retenue *parce qu'*elle était
+                # longue finissait dernière au classement, punie de ce qui
+                # l'avait fait choisir.
+                #
+                # La règle retenue est donc **la plus proche de la cible, le
+                # plus long départageant à écart égal**. Elle dit la
+                # préférence du mainteneur là où elle ne coûte rien — un
+                # choix entre −5 % et +5 % va vers le haut — et elle ne la
+                # dit plus là où elle coûterait cher. Surtout, c'est la même
+                # règle aux deux étages : plus de contradiction.
+                #
+                # Un seul essai de plus, jamais une relance : `palier` et
+                # `elargissement_max` jugent ensuite le verdict final, pas
+                # l'aller-retour qui l'a produit.
+                meilleure = _plus_proche(candidate_courte, candidate, tolerance)
                 break
 
             if abs(ecart) <= tolerance:
