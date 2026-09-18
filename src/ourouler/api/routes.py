@@ -29,7 +29,7 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from ourouler import __version__
-from ourouler.api import vues
+from ourouler.api import vie_privee, vues
 from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
 from ourouler.api.depots import (
     DepotFichiers,
@@ -49,7 +49,12 @@ from ourouler.api.modeles import (
     ReponseErreur,
     TexteUtile,
 )
-from ourouler.api.proprietaire import Proprietaire, resoudre
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import (
+    CODE_SANS_SESSION,
+    MESSAGE_SANS_SESSION,
+    FournisseurSession,
+)
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
@@ -71,6 +76,7 @@ PANNES_DECLAREES: dict[int | str, dict] = {
     }
     for code, libelle in (
         (400, "requête refusée — voir `erreur.code`"),
+        (401, "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"),
         (404, "route ou fichier introuvable — voir `erreur.code`"),
         (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
@@ -163,15 +169,46 @@ class Contexte:
     clients: Clients
     budgets: Budgets
     journal: JournalServices
+    #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
+    #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
+    session: FournisseurSession
 
 
 def contexte(requete: Request) -> Contexte:
     return requete.app.state.ourouler
 
 
-def proprietaire() -> Proprietaire:
-    """Le propriétaire de la requête. F3 remplacera `resoudre` par la session."""
-    return resoudre()
+def proprietaire(requete: Request) -> Proprietaire:
+    """Le propriétaire de la requête — ou un refus, jamais un défaut.
+
+    **Le point du lot L7.A.** Cette fonction rendait `PROPRIETAIRE_LOCAL` quoi
+    qu'il arrive : une requête anonyme obtenait les données du mainteneur, et
+    le commentaire annonçait qu'« F3 remplacera `resoudre` par la session ».
+    C'est fait. Ce qui la remplace n'est pas une méthode d'authentification —
+    aucune n'est choisie, ce serait un arbitrage du mainteneur — mais
+    l'**interface** derrière laquelle elle se branchera : le fournisseur de
+    session, injecté dans le contexte.
+
+    Deux issues, et deux seulement :
+
+    - une session est ouverte → son propriétaire, et les dépôts sont servis
+      pour lui ;
+    - aucune session → **401**. Jamais un profil par défaut, jamais le
+      propriétaire local en silence. Le refus est la seule réponse qui ne
+      fabrique pas de fuite quand on ignore qui parle.
+
+    Rien de ce que le client envoie ne désigne le propriétaire : c'est le
+    fournisseur qui tranche, et `tests/api/test_api_isolation_proprietaire.py`
+    vérifie qu'aucune route n'offre le contraire dans son contrat publié.
+    """
+    qui = contexte(requete).session.ouvrir(requete)
+    if qui is None:
+        raise ErreurApi(
+            code=CODE_SANS_SESSION,
+            message=MESSAGE_SANS_SESSION,
+            statut=401,
+        )
+    return qui
 
 
 #: Les deux dépendances que **toute** route reçoit : ce que le serveur sait
@@ -948,6 +985,63 @@ def servir_fichier(
         media_type=fichier.type_contenu,
         filename=fichier.nom,
     )
+
+
+# --- vie privée : export et suppression ----------------------------------------
+#
+# Lot L7.B (`docs/sprint7_contrat.md`) : un propriétaire récupère ce qui le
+# concerne, et peut en demander l'effacement. La frontière — le tracé est
+# collectif, le lien est personnel — et ce qui en découle sont expliqués dans
+# `api/vie_privee.py`, qui fait le travail ; ces deux routes ne font que
+# résoudre le propriétaire et sa `Config`, comme toutes les autres.
+
+
+@routeur.get("/moi/export")
+def exporter_mes_donnees(ctx: Ctx, qui: Qui):
+    """Toutes les données personnelles de ce propriétaire, dans une archive ZIP.
+
+    Un fichier `LISEZ-MOI.txt` à la racine dit ce qu'est chaque entrée — un
+    export que seul le code sait lire ne remplit pas son office (contrat
+    sprint 7 §L7.B). L'archive n'est **pas compressée** : voir
+    `api/vie_privee.py` pour pourquoi (c'est ce qui garde le balayage
+    d'isolation capable de la couvrir).
+    """
+    config = _config(ctx, qui)
+    try:
+        archive = vie_privee.construire_export(
+            qui, profils=ctx.profils, fichiers=ctx.fichiers, journal=ctx.journal, config=config
+        )
+    except Exception as e:
+        raise classer(e) from e
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="export_ourouler_{qui}.zip"'},
+    )
+
+
+@routeur.delete("/moi")
+def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
+    """Efface les données personnelles de ce propriétaire.
+
+    Idempotent : appeler cette route sur un propriétaire qui n'a rien laissé
+    rend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —
+    les routes apprises, collectives par décision du mainteneur — est nommé
+    dans `donnees.conserve`, jamais tu.
+    """
+    config = _config(ctx, qui)
+    try:
+        donnees = vie_privee.effacer_donnees(
+            qui,
+            profils=ctx.profils,
+            fichiers=ctx.fichiers,
+            journal=ctx.journal,
+            generations=ctx.generations,
+            config=config,
+        )
+    except Exception as e:
+        raise classer(e) from e
+    return {"proprietaire": str(qui), "donnees": donnees}
 
 
 # --- petits services ----------------------------------------------------------

@@ -320,8 +320,15 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
       </div>
       <p className="mention">
-        Cette version tourne sans comptes : il n'y a qu'un profil, servi localement. Les clés
-        d'accès, l'export de vos données et la suppression du compte arrivent avec eux.
+        {/* La phrase disait « cette version tourne sans comptes : il n'y a
+            qu'un profil, servi localement » — vrai pour un usage personnel,
+            faux pour un service exposé (L7.A, 18/09/2026) : là, la session
+            existe déjà comme notion, seule la méthode de connexion manque
+            encore. L'API ne dit nulle part dans quel mode elle tourne — le
+            front n'a donc pas le droit d'affirmer l'un ou l'autre, et se
+            limite à ce qui est vrai dans les deux cas. */}
+        Les comptes ne sont pas encore branchés sur ce serveur. Les clés d'accès, l'export de
+        vos données et la suppression du compte arrivent avec eux.
       </p>
     </section>
   );

@@ -392,7 +392,11 @@ export function Demander({
 
       {demande.modeDirection === "direction" ? (
         <div className="champ">
-          <label htmlFor="direction">Direction</label>
+          {/* « Direction » se lisait deux fois : une fois pour le choix du
+              mode (ci-dessus), une fois pour l'azimut qui en dépend —
+              signalé le 18/09/2026. Ce champ-ci choisit un point cardinal,
+              pas une seconde fois « la » direction. */}
+          <label htmlFor="direction">Point cardinal</label>
           <div className="segments" id="direction" style={{ marginBottom: 0, flexWrap: "wrap" }}>
             {CARDINAUX.map((point) => (
               <button

@@ -50,7 +50,7 @@ from ourouler.boucle.marqueurs import compter as compter_marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.tags_importes import greffer
-from ourouler.boucle.trace import Trace
+from ourouler.boucle.trace import DENIVELE_REROUTE, Trace, denivele_filtre
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import (
@@ -429,19 +429,30 @@ def _generer_candidates(client: ClientBrouter, config: Config, demande: Demande)
 def _greffer_tags_sur_gpx(
     trace_gpx: Trace, config: Config, client_brouter: ClientBrouter | None
 ) -> None:
-    """Tente de greffer des tags OSM sur un GPX importé, en le modifiant sur place.
+    """Tente de greffer des tags OSM — et un D+ — sur un GPX importé, en le modifiant sur place.
 
     Le principe (voir `boucle.tags_importes`) : rejouer le GPX dans BRouter
     avec des points de passage espacés, puis attribuer à chaque point du GPX
     les tags du tronçon rerouté le plus proche, sans jamais remplacer la
-    géométrie d'origine.
+    géométrie d'origine. Le même appel sert aussi le D+ (L7.C) : l'altitude
+    d'un GPX importé n'est pas meilleure que celle d'un appareil (même bruit
+    de baromètre pour un export Garmin/Strava), alors que la réponse de
+    BRouter porte déjà, point par point, une altitude tirée de la carte de
+    terrain — `boucle.trace.denivele_filtre` appliqué à `trace_reroutee.points`
+    au lieu des altitudes du GPX. C'est cette même réponse qu'on jetait avant
+    (contrat sprint 7 §L7.C).
 
     **Chemin dégradé, volontairement large.** BRouter absent de la
     configuration, serveur injoignable, itinéraire refusé, ou rapprochement
     qui ne trouve rien d'exploitable (`Greffage.exploitable` faux) :
     `trace_gpx` n'est alors pas touchée, elle garde exactement le
-    `couts_partiels: True` que `lire_gpx_trace` lui a posé. Aucune exception
-    ne doit remonter d'ici — un GPX s'évalue toujours, tags ou pas.
+    `couts_partiels: True` et le D+ recalculé sur ses propres altitudes que
+    `lire_gpx_trace` lui a posés. Aucune exception ne doit remonter d'ici —
+    un GPX s'évalue toujours, tags ou pas. Le D+ reroutee suit la même
+    condition que les tags (`greffage.exploitable`) plutôt que sa propre
+    condition : un rapprochement qui ne trouve aucun tronçon assez proche dit
+    que le tracé rerouté a pris une route différente du GPX, et son profil
+    d'altitude n'a alors pas plus de raison d'être bon que ses tags.
     """
     try:
         client = (
@@ -466,6 +477,11 @@ def _greffer_tags_sur_gpx(
     trace_gpx.meta["tags_provenance"] = TAGS_PROVENANCE_RAPPROCHEMENT
     trace_gpx.meta["tags_seuil_m"] = greffage.seuil_m
     trace_gpx.meta["tags_km_sans_tag"] = round(greffage.km_sans_tag, 3)
+
+    denivele = denivele_filtre(trace_reroutee.points)
+    if denivele is not None:
+        trace_gpx.denivele_m = denivele
+        trace_gpx.meta["denivele_source"] = DENIVELE_REROUTE
 
 
 def _base_routes(config: Config) -> BaseRoutes | None:

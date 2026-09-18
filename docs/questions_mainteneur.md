@@ -4526,3 +4526,48 @@ personne ne le « corrige » de bonne foi.
 3. **Ne rien changer** et attendre qu'un deuxième cycliste utilise le produit :
    la table est honnête sur ce qu'elle vaut, et une règle bâtie sur n = 1 ne
    deviendra pas plus vraie en étant plus compliquée.
+
+
+## Q58 — Deux routes portent la clause de propriétaire sans l'honorer — **ouverte le 18/09/2026**
+
+Trouvé par l'agent de L7.B en fin de sprint 7, hors de son périmètre.
+
+`GET /api/v1/inventaire` et `GET /api/v1/routes/{action}` reçoivent bien `qui:
+Qui` — donc le balayage d'isolation les voit conformes — mais elles appellent
+`activites.commande.executer` et `apprentissage.commande.executer`, **qui ne
+prennent pas de propriétaire**. Ces fonctions construisent
+`Cache(config.cache.dossier)` et `BaseRoutes(...)` avec le défaut
+`PROPRIETAIRE_LOCAL`. Quel que soit le demandeur, elles servent les données du
+propriétaire local.
+
+**Ça ne mord pas aujourd'hui** : en mode hébergé aucune session ne s'ouvre,
+donc ces routes répondent 401 comme les autres, et en mode personnel il n'y a
+qu'un seul cycliste. **Ça mordra le jour où l'authentification arrive**, et ce
+jour-là ce sera une fuite silencieuse : la route a l'air correcte, le test
+d'isolation la déclare conforme, et elle sert les données de quelqu'un
+d'autre.
+
+**Le balayage d'isolation vérifie que la clause est présente, pas qu'elle est
+honorée jusqu'au bout.** C'est sa limite, et elle est exactement de la même
+famille que le piège trouvé dans ce même sprint : le premier test d'isolation
+de L7.A passait au vert sur une fuite totale. Un test qui vérifie une forme
+plutôt qu'un effet finit toujours par couvrir ce qu'il prétend interdire.
+
+**Ce qu'il y a à trancher**, et c'est pour ça que c'est une question et pas un
+simple correctif : ces deux fonctions sont des **commandes de ligne de
+commande**, écrites pour un seul cycliste chez lui. Leur faire prendre un
+propriétaire, c'est faire entrer une notion de service dans le cœur — ou bien
+il faut que l'API cesse de les appeler et parle directement aux dépôts.
+
+Trois chemins :
+
+1. **Les commandes prennent un propriétaire optionnel**, par défaut local. Le
+   plus court, mais la notion remonte dans le cœur.
+2. **L'API n'appelle plus les commandes** pour ces deux routes et s'adresse
+   aux dépôts, comme elle le fait déjà ailleurs. Plus propre, plus de code.
+3. **Le balayage d'isolation cesse de se contenter de la forme** : il vérifie
+   qu'une donnée posée chez A n'apparaît jamais chez B, route par route, ce
+   qui aurait attrapé celle-ci. À faire dans tous les cas — c'est le filet, et
+   il a un trou.
+
+Le troisième n'est pas exclusif des deux autres : il les découvre.

@@ -336,6 +336,22 @@ class DepotProfils:
         )
         return config
 
+    def supprimer_profil(self, proprietaire: Proprietaire) -> bool:
+        """Efface la surcharge de ce propriétaire. Rend vrai si elle existait.
+
+        **Le socle n'est jamais touché** — ni celui du serveur, ni celui d'un
+        autre propriétaire : ce n'est la donnée de personne qui demande son
+        effacement (lot L7.B, contrat sprint 7 §L7.B). Pas de vérification de
+        propriétaire ici, contrairement à `config`/`enregistrer` : le chemin
+        est déjà borné au dossier de **ce** propriétaire (`dossier`), il n'y a
+        rien à protéger de plus qu'une écriture normale ne protège déjà.
+        """
+        chemin = self.dossier(proprietaire) / NOM_PROFIL
+        existait = chemin.is_file()
+        if existait:
+            chemin.unlink()
+        return existait
+
 
 @dataclass(frozen=True)
 class Fichier:
@@ -433,6 +449,45 @@ class DepotFichiers:
             )
         raise ErreurUtilisateur(f"fichier {identifiant} : introuvable")
 
+    def lister(self, proprietaire: Proprietaire) -> list[Fichier]:
+        """Tous les fichiers de ce propriétaire — pour l'export (lot L7.B).
+
+        Même filtrage que `trouver` (l'extension, le sidecar `.nom` écarté) :
+        c'est la même notion de « fichier de ce propriétaire », lue en une
+        fois plutôt qu'identifiant par identifiant.
+        """
+        fichiers = []
+        for chemin in sorted(self.dossier(proprietaire).glob("*")):
+            if not chemin.is_file() or chemin.suffix == ".nom" or chemin.suffix not in EXTENSIONS:
+                continue
+            fichiers.append(
+                Fichier(
+                    identifiant=chemin.stem,
+                    nom=_lire_nom(chemin) or chemin.name,
+                    chemin=chemin,
+                    type_contenu=EXTENSIONS.get(chemin.suffix, "application/octet-stream"),
+                )
+            )
+        return fichiers
+
+    def supprimer_tout(self, proprietaire: Proprietaire) -> int:
+        """Efface tous les fichiers de ce propriétaire (et leur nom d'affichage).
+
+        Rend le nombre de fichiers effacés. Le dossier lui-même disparaît
+        s'il est vide ensuite ; s'il ne l'est pas (un dépôt concurrent y a
+        écrit entre-temps), il reste — ce n'est pas une erreur.
+        """
+        dossier = self.dossier(proprietaire)
+        fichiers = self.lister(proprietaire)
+        for fichier in fichiers:
+            fichier.chemin.unlink(missing_ok=True)
+            _fichier_nom(fichier).unlink(missing_ok=True)
+        try:
+            dossier.rmdir()
+        except OSError:
+            pass
+        return len(fichiers)
+
 
 #: Combien de générations de parcours on garde, par serveur. Chacune pèse ses
 #: deux ou trois GPX — 65 ko l'un, mesuré le 17/09/2026 — soit ~4 Mo au
@@ -501,6 +556,19 @@ class DepotGenerations:
                 f"(numéros servis : {', '.join(str(n) for n in sorted(generation))})"
             )
         return gpx
+
+    def supprimer(self, proprietaire: Proprietaire) -> int:
+        """Purge les générations en mémoire de ce propriétaire (lot L7.B).
+
+        Rien n'est écrit sur le disque (Q40 g) : il n'y a donc qu'un dict à
+        vider, mais la suppression n'est complète que si on le fait — sans
+        ça, `.../propositions/{n}/gpx` continuerait de servir un GPX à
+        quelqu'un dont on vient d'effacer le reste.
+        """
+        cles = [cle for cle in self._generations if cle[0] == proprietaire.identifiant]
+        for cle in cles:
+            del self._generations[cle]
+        return len(cles)
 
 
 #: Ce qu'un nom d'affichage a le droit de contenir. Tout le reste devient un
@@ -655,6 +723,18 @@ class JournalServices:
         """La date du dernier succès de ce service, ou `None` s'il n'y en a jamais eu."""
         valeur = self._lire(proprietaire).get(service)
         return valeur if isinstance(valeur, str) else None
+
+    def tout(self, proprietaire: Proprietaire) -> dict:
+        """Le journal complet de ce propriétaire — un instantané, pour l'export (L7.B)."""
+        return dict(self._lire(proprietaire))
+
+    def supprimer(self, proprietaire: Proprietaire) -> bool:
+        """Efface le journal de ce propriétaire. Rend vrai s'il existait (lot L7.B)."""
+        chemin = self._chemin(proprietaire)
+        existait = chemin.is_file()
+        if existait:
+            chemin.unlink()
+        return existait
 
 
 __all__ = [

@@ -12,11 +12,18 @@ n'aura le droit d'omettre le jour où la base sera un PostgreSQL. Un invariant
 de `tests/test_invariants.py` le vérifie sur l'arbre syntaxique : un dépôt
 qui prendrait un raccourci casse la suite.
 
-Aujourd'hui l'identité est **unique et fixe** (`PROPRIETAIRE_LOCAL`) : un seul
-cycliste, celui dont le fichier de configuration est chargé. Demain
-`resoudre` lira la session ouverte par le lien à usage unique ou la passkey
-(décision 1 du cycle UX) et rendra un identifiant opaque par utilisateur.
-Rien d'autre ne bougera : ni les routes, ni les dépôts, ni le cœur.
+**Ce module dit à qui appartient une ligne ; il ne dit pas qui parle.** Le
+rattachement d'une requête à quelqu'un est le travail d'`api/session.py`,
+séparé le 18/09/2026 (lot L7.A). Ce fichier portait jusque-là un `resoudre()`
+qui rendait `PROPRIETAIRE_LOCAL` quoi qu'il arrive : une requête anonyme
+obtenait les données du mainteneur. Il a été **retiré** plutôt que déprécié —
+une fonction nommée « résoudre le propriétaire » qui rend toujours le même
+est précisément ce qu'on rappelle sans y penser.
+
+L'identité d'aujourd'hui reste unique et fixe en mode personnel
+(`PROPRIETAIRE_LOCAL`, un cycliste sur sa machine) ; en mode hébergé, elle
+vient du fournisseur de session, et son absence vaut 401. Aucune méthode
+d'authentification n'est encore choisie : voir `api/session.py`.
 """
 
 from __future__ import annotations
@@ -31,7 +38,8 @@ from dataclasses import dataclass
 #: cette forme (hexadécimal ou base32), pas une adresse e-mail.
 FORME_IDENTIFIANT = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
-#: L'unique propriétaire tant qu'il n'y a pas de comptes (lot F3).
+#: Le propriétaire servi en **mode personnel** : un cycliste, sa machine.
+#: En mode hébergé il ne désigne personne — la session tranche (`session.py`).
 IDENTIFIANT_LOCAL = "local"
 
 
@@ -56,23 +64,8 @@ class Proprietaire:
         return self.identifiant
 
 
-#: L'instance unique d'aujourd'hui.
+#: Le propriétaire que `SessionPersonnelle` rend, toujours le même.
 PROPRIETAIRE_LOCAL = Proprietaire(IDENTIFIANT_LOCAL)
-
-
-def resoudre() -> Proprietaire:
-    """Le propriétaire de la requête en cours.
-
-    **Un seul, fixe, aujourd'hui.** C'est ici, et nulle part ailleurs, que F3
-    branchera la session : les routes ne connaissent que cette fonction, et
-    les dépôts ne connaissent que son résultat.
-
-    Volontairement sans argument : rien dans la requête HTTP ne doit pouvoir
-    désigner un autre propriétaire tant que rien n'authentifie personne. Un
-    en-tête qui ferait ce travail serait une porte ouverte, pas une
-    préfiguration.
-    """
-    return PROPRIETAIRE_LOCAL
 
 
 __all__ = [
@@ -81,5 +74,4 @@ __all__ = [
     "PROPRIETAIRE_LOCAL",
     "ErreurProprietaire",
     "Proprietaire",
-    "resoudre",
 ]

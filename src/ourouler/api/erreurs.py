@@ -78,6 +78,11 @@ CODES_PANNE: dict[str, str] = {
         "cette génération n'est plus en mémoire — ses GPX ne sont pas écrits sur "
         "le disque (Q40 g) ; relancer la recherche"
     ),
+    "session_absente": (
+        "aucune session ouverte — la route sert des données personnelles et le "
+        "serveur ne sait pas à qui elles appartiennent (401). Le front montre "
+        "l'écran de connexion ; il ne réessaie pas"
+    ),
     "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
     "methode_refusee": "la route existe, pas avec cette méthode",
     "calcul_en_cours": "un calcul occupe déjà le serveur",

@@ -833,6 +833,7 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
         import uvicorn
 
         from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application
+        from ourouler.api.session import SessionPersonnelle
     except ImportError as e:
         raise ErreurUtilisateur(
             "api : FastAPI et uvicorn ne sont pas installés — `uv sync --extra api` "
@@ -842,6 +843,12 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
     application = creer_application(
         chemin_config=(args.config or CHEMIN_CONFIG_DEFAUT).expanduser(),
         dossier_donnees=config.cache.dossier / NOM_DOSSIER_DONNEES,
+        # **Le mode personnel, dit et non deviné** (lot L7.A). `ourouler api`
+        # tourne sur la machine de son utilisateur : il n'y a qu'un cycliste,
+        # la machine est la frontière, et le propriétaire est toujours le
+        # même. C'est un service exposé — `application()`, la fabrique lue par
+        # uvicorn — qui refuse par défaut, pas celui-ci.
+        session=SessionPersonnelle(),
     )
     print(
         f"ourouler : API sur http://{args.hote}:{args.port}/api/v1 "

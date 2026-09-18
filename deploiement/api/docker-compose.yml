@@ -1,0 +1,43 @@
+# Orchestration LOCALE du conteneur API+front (lot L7.E). Sert à vérifier le
+# lot chez le mainteneur, sur sa machine — ce n'est PAS un artefact de
+# déploiement sur son Coolify (règle absolue 7 de CLAUDE.md : aucune
+# installation sur un serveur sans son accord explicite, soumis
+# séparément) : voir `docker-compose.api.coolify.yml`, à la racine du dépôt,
+# pour ce que Coolify demande en plus.
+#
+# Lancer depuis la racine du dépôt :
+#   docker compose -f deploiement/api/docker-compose.yml --env-file deploiement/api/.env up --build
+#
+# Toutes les valeurs sensibles viennent de `deploiement/api/.env` (copié
+# depuis `.env.example`, jamais commité) : ce fichier ne contient aucune
+# valeur, seulement des références `${...}`.
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: deploiement/api/Dockerfile
+    environment:
+      OUROULER_MODE: ${OUROULER_MODE:-heberge}
+      OUROULER_CONFIG: /config/config.toml
+      OUROULER_PORT: "8000"
+      OUROULER_INTERVALS_API_KEY: ${OUROULER_INTERVALS_API_KEY:-}
+      OUROULER_INTERVALS_ATHLETE_ID: ${OUROULER_INTERVALS_ATHLETE_ID:-}
+      OUROULER_DEPART_NOM: ${OUROULER_DEPART_NOM:-}
+      OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE:-}
+      OUROULER_DEPART_LONGITUDE: ${OUROULER_DEPART_LONGITUDE:-}
+      OUROULER_BROUTER_URL: ${OUROULER_BROUTER_URL:-}
+      OUROULER_BROUTER_UTILISATEUR: ${OUROULER_BROUTER_UTILISATEUR:-}
+      OUROULER_BROUTER_MOT_DE_PASSE: ${OUROULER_BROUTER_MOT_DE_PASSE:-}
+    volumes:
+      - donnees:/data/cache
+      # Fichier TOML non-secrets (cycliste, vélos, météo, séance, tenue...) :
+      # depart/intervals/brouter sont volontairement absents de ce fichier et
+      # viennent des variables ci-dessus — voir deploiement/api/README.md.
+      - ${OUROULER_CONFIG_HOTE:?définir dans deploiement/api/.env}:/config/config.toml:ro
+    ports:
+      - "${OUROULER_PORT_HOTE:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  donnees:
