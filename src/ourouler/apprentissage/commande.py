@@ -131,7 +131,9 @@ def _apprentissage_texte(rapport: RapportApprentissage, depuis: date, base: Base
         f"Apprentissage des routes depuis le {depuis.isoformat()} — "
         f"{rapport.sorties_vues} sortie(s) extérieure(s) en cache",
         f"  apprises ce coup-ci : {rapport.sorties_apprises} "
-        f"({_fr(rapport.km, 0)} km rejoués, {rapport.mailles} mailles)",
+        f"({_fr(rapport.km, 0)} km rejoués, {rapport.mailles} mailles, "
+        f"D+ {_fr(rapport.denivele_m, 0) if rapport.denivele_m is not None else ABSENT} m "
+        "tracé rerouté)",
         f"  déjà connues        : {rapport.sorties_deja_connues}",
         f"  échecs              : {rapport.echecs}",
     ]
@@ -155,6 +157,8 @@ def _apprentissage_json(rapport: RapportApprentissage, depuis: date) -> dict:
         "echecs": rapport.echecs,
         "km": round(rapport.km, 1),
         "mailles": rapport.mailles,
+        "denivele_m": round(rapport.denivele_m, 1) if rapport.denivele_m is not None else None,
+        "denivele_source": "tracé rerouté" if rapport.denivele_m is not None else None,
         "messages": list(rapport.messages),
     }
 

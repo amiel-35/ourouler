@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import random
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -41,7 +42,7 @@ from ourouler.boucle.commande import (
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
-from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.boucle.trace import PointTrace, Segment, Trace
 from ourouler.cli import construire_parseur, main
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -698,6 +699,12 @@ def test_la_colonne_d_plus_dit_d_ou_vient_le_chiffre(tmp_path: Path, monkeypatch
     Les deux divergent de 10 à 32 % sur les tracés mesurés, dans les deux
     sens. Sans la provenance, `--gpx` sur le fichier qu'on vient d'écrire
     affiche un autre chiffre que celui inscrit dedans, sans explication.
+
+    Depuis L7.C, un greffage de tags réussi (le cas ici : `moteur_brouter()`
+    répond aussi à l'itinéraire) recalcule aussi le D+ sur l'altitude du
+    tracé rerouté — la provenance devient « tracé rerouté », plus « gpx
+    relu » (voir `test_gpx_sans_greffage_garde_le_denivele_du_fichier` pour
+    le chemin dégradé).
     """
     monkeypatch.chdir(tmp_path)
     executer(args(candidates=1), config_de_test(), moteur_brouter(), moteur_meteo())
@@ -707,7 +714,7 @@ def test_la_colonne_d_plus_dit_d_ou_vient_le_chiffre(tmp_path: Path, monkeypatch
     chemin = gpx_de_test(tmp_path)
     executer(args(gpx=str(chemin)), config_de_test(), moteur_brouter(), moteur_meteo())
     (ligne,) = lignes_du_tableau(capsys.readouterr().out)
-    assert "m (gpx relu)" in ligne, ligne
+    assert "m (tracé rerouté)" in ligne, ligne
 
 
 def test_la_provenance_du_denivele_est_dans_le_json(tmp_path: Path, monkeypatch, capsys):
@@ -721,7 +728,94 @@ def test_la_provenance_du_denivele_est_dans_le_json(tmp_path: Path, monkeypatch,
         args(gpx=str(chemin), json=True), config_de_test(), moteur_brouter(), moteur_meteo()
     )
     charge = json.loads(capsys.readouterr().out)
+    assert charge["candidates"][0]["denivele_source"] == "tracé rerouté"
+
+
+def test_gpx_sans_greffage_garde_le_denivele_du_fichier(tmp_path: Path, monkeypatch, capsys):
+    """Chemin dégradé de L7.C : BRouter injoignable, le D+ reste celui du GPX relu.
+
+    Même serveur en panne que `test_gpx_importe_sans_brouter_disponible_garde_les_couts_partiels`
+    (503) : ni les tags ni le D+ ne doivent bouger, le comportement
+    d'avant L7.C est inchangé à l'identique.
+    """
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+
+    def en_panne(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"erreur": "maintenance"})
+
+    client = ClientBrouter(
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(en_panne))
+    )
+    executer(args(gpx=str(chemin), json=True), config_de_test(), client, moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
     assert charge["candidates"][0]["denivele_source"] == "gpx relu"
+
+
+class _ClientBrouterFactice:
+    """Un faux client BRouter : rend un `Trace` tout fait, sans réseau ni JSON.
+
+    `_greffer_tags_sur_gpx` n'appelle qu'`itineraire()` sur le client reçu —
+    le duck typing suffit, pas besoin de fabriquer une réponse GeoJSON pour
+    tester la seule chose qui nous intéresse ici : ce que la commande fait de
+    l'altitude du tracé rerouté.
+    """
+
+    def __init__(self, trace: Trace):
+        self._trace = trace
+
+    def itineraire(self, points, *, profil: str | None = None) -> Trace:
+        return self._trace
+
+
+def test_gpx_altitude_bruitee_remplacee_par_celle_du_trace_reroute(tmp_path: Path, monkeypatch, capsys):
+    """L7.C : une altitude bruitée façon baromètre cède la place à celle du tracé rerouté.
+
+    Le GPX porte une altitude à ±2,5 m de bruit sur un terrain plat — le même
+    phénomène que `boucle.trace.denivele_filtre` documente lui-même (« plat,
+    bruit ±2,5 m » gonfle le D+ de plusieurs centaines de mètres, seuil ou
+    pas : au-delà du seuil, il ne protège plus). Le tracé rerouté, lui, est
+    parfaitement plat : c'est son D+ qui doit gagner, proche de 0.
+    """
+    monkeypatch.chdir(tmp_path)
+
+    def profil(n: int, amplitude: float) -> list[PointTrace]:
+        alea = random.Random(12)
+        return [
+            PointTrace(
+                lat=0.0, lon=i * 1e-4, alt_m=50.0 + alea.uniform(-amplitude, amplitude), dist_m=i * 11.0
+            )
+            for i in range(n)
+        ]
+
+    bruitee = profil(200, 2.5)
+    trace_bruitee = Trace(
+        nom="bruitee",
+        points=bruitee,
+        segments=[],
+        distance_m=bruitee[-1].dist_m,
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+    chemin = tmp_path / "bruitee.gpx"
+    chemin.write_text(ecrire_gpx(trace_bruitee, "bruitee"), encoding="utf-8")
+
+    plate = [PointTrace(lat=0.0, lon=i * 1e-4, alt_m=50.0, dist_m=i * 11.0) for i in range(200)]
+    trace_reroutee = Trace(
+        nom="reroutee",
+        points=plate,
+        segments=[Segment(0, len(plate) - 1, plate[-1].dist_m, tags={"highway": "tertiary"})],
+        distance_m=plate[-1].dist_m,
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+    client = _ClientBrouterFactice(trace_reroutee)
+
+    code = executer(args(gpx=str(chemin), json=True), config_de_test(), client, moteur_meteo())
+    assert code == 0
+    candidate = json.loads(capsys.readouterr().out)["candidates"][0]
+    assert candidate["denivele_source"] == "tracé rerouté"
+    assert candidate["denivele_m"] < 5.0, "le tracé rerouté est plat, le bruit du GPX ne doit plus paraître"
 
 
 def test_gpx_importe_appelle_brouter_pour_greffer_les_tags(tmp_path: Path, monkeypatch):
