@@ -344,4 +344,4 @@ l'organisation du code sont dans `front/README.md`.
 - `docs/ux/maquettes_v1.html` — les vingt écrans, et le raisonnement de chacun.
 - `front/README.md` — la chaîne de construction du front et ses règles.
 
-Licence MIT.
+Licence AGPL-3.0-or-later — voir `LICENSE`.

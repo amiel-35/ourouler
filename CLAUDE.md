@@ -11,7 +11,7 @@ Bibliothèque Python + ligne de commande pour un cycliste avec capteur de
 puissance : « je vais rouler ; au nord, au sud ou à l'est, où va-t-il
 pleuvoir ? », puis un parcours de la bonne durée dans la bonne direction,
 cohérent avec la séance du jour, avec la tenue, poussé sur le Garmin. Open
-source (MIT), autonome, sans Home Assistant. Un seul mainteneur (Amiel), qui
+source (AGPL-3.0-or-later), autonome, sans Home Assistant. Un seul mainteneur (Amiel), qui
 en est aussi le premier utilisateur : **son besoin passe en premier**.
 
 ## Règles absolues

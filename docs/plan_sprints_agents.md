@@ -654,7 +654,8 @@ issues possibles ; aucune n'est tranchée, et elles n'ont pas de sprint.
 
 ### Après — dépôt public
 
-MIT, anonymisation des documents de cadrage (Q6). Le dépôt peut s'ouvrir
+AGPL-3.0-or-later (le fichier `LICENSE` est posé), anonymisation des documents
+de cadrage (Q6). Le dépôt peut s'ouvrir
 avant le sprint 8 : la publication du code et l'invitation de personnes
 sont deux décisions distinctes.
 

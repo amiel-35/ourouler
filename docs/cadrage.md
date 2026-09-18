@@ -74,7 +74,7 @@ Les données et les clés d'API restent chez l'utilisateur.
   tourner sur un Mac ou un petit serveur Linux.
 - Configuration par fichier (point de départ, vélos avec masse/CdA de
   départ, règles de tenue, clés d'API) ; jamais de donnée personnelle
-  dans le dépôt ; licence MIT.
+  dans le dépôt ; licence AGPL-3.0-or-later.
 - Ne rien affirmer sans mesure : le modèle physique est validé sur des
   sorties qu'il n'a pas vues (erreur de temps par sortie), et la météo
   est comparée au réel après coup pour mesurer la fiabilité par modèle.
