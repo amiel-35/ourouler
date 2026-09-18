@@ -25,6 +25,7 @@ import { Carte, type TraceDessinee } from "../composants/Carte";
 import { PanneauArbitrage } from "../composants/Arbitrage";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { BandeauElargissement } from "../composants/Elargissement";
+import { TempsEcoule } from "../composants/TempsEcoule";
 
 /** Le nom de l'axe sur lequel le cœur a distingué cette proposition. */
 const AXES: Record<string, string> = {
@@ -46,7 +47,10 @@ export interface Chiffre {
 export function chiffresDe(proposition: Proposition, candidate: Candidate | null): Chiffre[] {
   const chiffres: Chiffre[] = [];
   if (candidate) chiffres.push({ cle: "km", valeur: nombre(candidate.distance_km, 1) });
-  chiffres.push({ cle: "", valeur: duree(proposition.duree_s) });
+  // « en roulant » : sans le mot, ce chiffre se lisait comme une durée
+  // totale. C'est le temps de mouvement du modèle physique de cette
+  // boucle-ci ; le second chiffre, sous les cartes, dit le reste.
+  chiffres.push({ cle: "en roulant", valeur: duree(proposition.duree_s) });
   if (candidate?.denivele_m !== null && candidate?.denivele_m !== undefined) {
     chiffres.push({ cle: "m D+", valeur: nombre(candidate.denivele_m) });
   }
@@ -243,6 +247,10 @@ export function Propositions({
               ) : null}
               <Chiffres chiffres={chiffresDe(proposition, candidate)} />
             </button>
+            {/* Hors du bouton exprès : un `<details>` dans un `<button>` est
+                un contrôle interactif imbriqué dans un autre, invalide en
+                HTML. */}
+            {candidate ? <TempsEcoule candidate={candidate} compteur={sortie.compteur} /> : null}
           </div>
         );
       })}

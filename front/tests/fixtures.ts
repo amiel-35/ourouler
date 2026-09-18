@@ -16,6 +16,7 @@ import type {
   Avertissement,
   Boucle,
   Budget,
+  Compteur,
   Ecartee,
   Enveloppe,
   Profil,
@@ -116,6 +117,21 @@ export function zones(options?: { facteurMesure?: boolean; horsBande?: boolean }
         hors_bande: options?.horsBande ?? false,
       },
     },
+  };
+}
+
+/**
+ * Le second temps de sortie et son facteur (18/09/2026, décision « les 2
+ * valeurs et une explication »). `provenance` inventée et distinctive :
+ * 0,872 ne se retrouve nulle part ailleurs dans ces fixtures.
+ */
+export function compteur(options?: { provenance?: "mesure" | "suppose" }): Compteur {
+  return {
+    velo: "Le vert",
+    moyenne_compteur_kmh: 24.6,
+    facteur_compteur: 0.872,
+    facteur_provenance: options?.provenance ?? "mesure",
+    part_arret_plancher: 0.045,
   };
 }
 
@@ -342,6 +358,15 @@ export function sortie(options?: {
   ecarteeAuContraste?: boolean;
   /** Une candidate tombée **avant** le contraste, avec ou sans tracé. */
   ecarteesAvant?: Ecartee[];
+  /**
+   * Le second temps de sortie (18/09/2026). `null` : la configuration ne
+   * porte aucun vélo — aucun écran ne doit alors montrer de second chiffre,
+   * pas même un tiret. Par défaut, un facteur mesuré.
+   */
+  compteur?: "mesure" | "suppose" | null;
+  /** La première candidate est trop vallonnée pour la moyenne compteur : son
+   * second temps vient du plancher d'arrêts, pas de la moyenne habituelle. */
+  arretsPlancher?: boolean;
 }): Enveloppe<Sortie> {
   const combien = options?.propositions ?? 3;
   const axes = ["ville", "pluie", "vent"];
@@ -383,6 +408,7 @@ export function sortie(options?: {
         lieu_depart: DEPART,
         velo: "Le vert",
       },
+      compteur: options?.compteur === null ? null : compteur({ provenance: options?.compteur ?? "mesure" }),
       modele_physique: "modele-invente (Le vert)",
       modele_meteo: { utilise: "modele-meteo-invente", repli: false },
       meteo_absente: null,
@@ -447,6 +473,23 @@ export function sortie(options?: {
         hors_tolerance: Boolean(options?.horsTolerance),
         elargissement: options?.horsTolerance ? 0.1 : 0,
         tolerance_distance: 0.1,
+        // Le second temps (18/09/2026) : `temps_estime_s` est le temps de
+        // mouvement — la même valeur que `duree_s` de la proposition et que
+        // `placement.duree_totale_s` ci-dessous, ce sont trois vues du même
+        // chiffre. `temps_ecoule_s` y ajoute les arrêts ; `null` quand
+        // `compteur` (sur la réponse) l'est aussi.
+        temps_estime_s: 4512 + i * 97,
+        temps_source: "modele" as const,
+        temps_ecoule_s:
+          options?.compteur === null
+            ? null
+            : 4512 + i * 97 + (options?.arretsPlancher && i === 0 ? 380 : 420),
+        temps_ecoule_source:
+          options?.compteur === null
+            ? null
+            : options?.arretsPlancher && i === 0
+              ? ("plancher_arrets" as const)
+              : ("compteur" as const),
         // `km_non_classe` : la troisième catégorie de trafic, ajoutée en même
         // temps que l'élargissement de tolérance par un autre agent. Les deux
         // sont vrais, la fixture porte les deux.
@@ -541,12 +584,20 @@ export function sortie(options?: {
   };
 }
 
-export function boucle(): Enveloppe<Boucle> {
+export function boucle(options?: {
+  /** Le second temps (18/09/2026). `null` : pas de vélo enregistré — pas de
+   * second chiffre à l'écran, pas même un tiret. Par défaut, un facteur
+   * mesuré. */
+  compteur?: "mesure" | "suppose" | null;
+  /** La boucle est trop vallonnée pour la moyenne compteur habituelle. */
+  arretsPlancher?: boolean;
+}): Enveloppe<Boucle> {
   return {
     proprietaire: "essai",
     donnees: {
       depart: { ...DEPART, heure: "2026-09-16T08:15:00+02:00" },
       demande: { distance_km: 41.3, direction: "NE", candidates: 2 },
+      compteur: options?.compteur === null ? null : compteur({ provenance: options?.compteur ?? "mesure" }),
       meteo_absente: null,
       gpx: { id: "b".repeat(32), nom: "boucle.gpx", url: "/api/v1/fichiers/" + "b".repeat(32) },
       candidates: [
@@ -558,6 +609,11 @@ export function boucle(): Enveloppe<Boucle> {
           denivele_m: 289,
           azimut_deg: 46,
           temps_estime_s: 5460,
+          temps_source: "modele",
+          temps_ecoule_s:
+            options?.compteur === null ? null : 5460 + (options?.arretsPlancher ? 420 : 780),
+          temps_ecoule_source:
+            options?.compteur === null ? null : options?.arretsPlancher ? "plancher_arrets" : "compteur",
           // 2,4 + 38,4 ne font pas les 40,8 km de la boucle : les 3,2 qui
           // manquent sont sur des voies que la carte ne classe pas. C'est
           // exactement le cas que l'écran taisait, et une fixture qui le

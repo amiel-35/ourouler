@@ -356,7 +356,24 @@ export interface Candidate {
   /** La tolérance de distance en vigueur, pour dire « ±10 % demandés, ±20 % servis ». */
   tolerance_distance?: number | null;
   vitesse_kmh?: number | null;
+  /** Le temps de **mouvement**, modèle physique de cette boucle-ci — INCHANGÉ. */
   temps_estime_s?: number | null;
+  /** D'où vient `temps_estime_s`. Absent d'une réponse d'avant le 18/09/2026. */
+  temps_source?: "modele" | "vitesse_moyenne";
+  /**
+   * Porte à porte, arrêts compris — NOUVEAU (18/09/2026). `null` quand
+   * `compteur` (sur la réponse) l'est aussi : sans vélo enregistré, il n'y a
+   * ni modèle ni facteur pour le calculer. Absent d'une réponse plus
+   * ancienne, qui ne le rendait pas du tout.
+   */
+  temps_ecoule_s?: number | null;
+  /**
+   * `"compteur"` : la moyenne compteur habituelle appliquée à la distance.
+   * `"plancher_arrets"` : la boucle est trop vallonnée pour que cette
+   * moyenne s'applique encore, et le chiffre redevient le temps de
+   * mouvement plus une part d'arrêts.
+   */
+  temps_ecoule_source?: "compteur" | "plancher_arrets" | null;
   couts: {
     km_trafic: number;
     km_calme: number;
@@ -533,6 +550,26 @@ export interface Arbitrage {
   phrase: string | null;
 }
 
+/**
+ * D'où vient la distance visée, et le facteur du second temps de sortie
+ * (« porte à porte ») — 18/09/2026.
+ *
+ * `null` quand la configuration ne porte aucun vélo : il n'y a alors ni
+ * modèle ni facteur, `temps_ecoule_s` vaut `null` sur chaque candidate, et
+ * aucun écran n'affiche de second chiffre — pas même un tiret. Absent d'une
+ * réponse d'avant ce lot, ce qui revient au même côté lecture.
+ */
+export interface Compteur {
+  velo: string;
+  moyenne_compteur_kmh: number;
+  facteur_compteur: number;
+  /** Mesuré sur l'historique, ou supposé par le modèle — à dire à l'écran
+   * (décision 8 du cycle UX, règle absolue 5) chaque fois que la valeur
+   * s'affiche. */
+  facteur_provenance: "mesure" | "suppose";
+  part_arret_plancher: number;
+}
+
 export interface Sortie {
   jour: string;
   seance: { nom: string; duree_s: number; n_etapes: number; n_blocs: number } | null;
@@ -545,6 +582,8 @@ export interface Sortie {
     lieu_depart: PointDepart;
     velo: string | null;
   };
+  /** Absent d'une réponse d'avant le 18/09/2026 : à lire comme `null`. */
+  compteur?: Compteur | null;
   modele_physique: string | null;
   modele_meteo: { utilise: string; repli: boolean } | null;
   /** Déclarée absente plutôt que rendue en panne (Q40 a). */
@@ -578,6 +617,8 @@ export interface Boucle {
   depart: PointDepart & { heure: string };
   // Q47 : `null` sans direction demandée — le moteur a balayé tout l'horizon.
   demande: { distance_km: number; direction: string | null; candidates: number };
+  /** Absent d'une réponse d'avant le 18/09/2026 : à lire comme `null`. */
+  compteur?: Compteur | null;
   meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];
