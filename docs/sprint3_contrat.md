@@ -45,7 +45,10 @@ sur une longueur totale ≤ `fenetre_m`). `elaguer` retire l'aller-retour et
 raccorde. `candidates.generer` : (a) passe à BRouter
 `profile:correct_misplaced_via_points=1` et
 `profile:correct_misplaced_via_points_distance=40` (paramètres d'URL,
-vérifiés dans PR #759 — à confirmer sur le serveur réel) ; (b) après
+vérifiés dans PR #759 — à confirmer sur le serveur réel) [confirmé le
+18/09/2026, en partie : le serveur attend le camelCase
+`correctMisplacedViaPoints`, pas ce snake_case, et le seuil qui agit
+vraiment est 0, pas 40 — voir `connecteurs/brouter.py`] ; (b) après
 génération, détecte et élague les antennes, note `meta["antennes"]`
 (nombre, mètres retirés). `couts.Couts` gagne `antennes_m` (mètres
 d'antennes **avant** élagage, pour information) et la CLI une colonne.

@@ -70,17 +70,33 @@ DEGRES, MICRODEGRES = 1.0, 1e-6
 #: de passage tombés à côté de la route — la cause des crochets en mode boucle,
 #: où c'est le moteur qui place ces points (contrat du sprint 3 §1).
 #:
-#: **Mesuré sur le serveur du mainteneur le 13/09/2026 : acceptés, et sans
-#: effet.** La réponse est identique octet pour octet avec et sans eux, et il
-#: en va de même de *tout* paramètre `profile:…`, y compris `avoid_unsafe` qui
-#: existe pourtant dans `fastbike` — alors que `profile`, `alternativeidx` et
-#: `roundTripPoints`, eux, changent bien le tracé. Ce serveur ignore donc le
-#: mécanisme entier. On les envoie quand même : ils ne coûtent rien et un
-#: serveur plus récent les honorera. La correction des crochets, elle, repose
-#: sur `boucle/antennes.py`.
+#: **La mesure du 13/09/2026 (« accepté, sans effet, ce serveur ignore le
+#: mécanisme entier ») était fausse, et pour deux raisons empilées.**
+#:
+#: 1. Mauvais nom. BRouter attend le camelCase `correctMisplacedViaPoints` et
+#:    `correctMisplacedViaPointsDistance` (PR abrensch/brouter#759, fusionnée
+#:    le 31/03/2025, livrée en 1.7.8) ; le code envoyait le snake_case
+#:    `profile:correct_misplaced_via_points…`, qu'un paramètre inconnu est
+#:    silencieusement jeté par le serveur — d'où une réponse identique avec ou
+#:    sans lui, prise à tort pour « le mécanisme ne fait rien ».
+#: 2. Même corrigé, le seuil de 40 m envoyé ne déclenche jamais rien : mesuré
+#:    le 18/09/2026 sur le serveur du mainteneur, 8 azimuts × 2 rayons
+#:    (8 km et 20 km), la réponse à seuil 40 est identique à celle sans
+#:    correction. Le seuil doit descendre à **0** (« pas de vérification de
+#:    distance », dit la PR elle-même) pour que le recalage agisse : au
+#:    rayon 20 km, 0 antenne sur 8 boucles contre 5 270 m médians aux seuils
+#:    40-200 ; au rayon 8 km, le nombre d'antennes baisse aux seuils
+#:    croissants (2 827 m médians à 40-200, 321 m à 1000) mais **ne tombe pas
+#:    à zéro même à seuil 0** (283 m médians, 4 boucles sur 7 encore
+#:    porteuses d'une antenne) — signe que ces crochets-là ne sont plus des
+#:    points de passage mal placés mais de vrais culs-de-sac du réseau routier
+#:    à ce rayon, qu'aucun seuil ne peut recaler. 0 reste le meilleur réglage
+#:    mesuré (jamais pire, souvent strictement mieux qu'un seuil plus grand),
+#:    mais **ne garantit pas** l'absence d'antenne : `boucle/antennes.py`
+#:    reste nécessaire en filet, voir son docstring de module.
 CORRECTION_POINTS_DE_PASSAGE: dict[str, Any] = {
-    "profile:correct_misplaced_via_points": 1,
-    "profile:correct_misplaced_via_points_distance": 40,
+    "profile:correctMisplacedViaPoints": 1,
+    "profile:correctMisplacedViaPointsDistance": 0,
 }
 
 
@@ -161,8 +177,10 @@ class ClientBrouter:
         longueur de la boucle : mesuré sur le serveur réel, la boucle obtenue
         vaut environ cinq fois ce rayon. C'est `boucle.candidates` qui ajuste.
 
-        `CORRECTION_POINTS_DE_PASSAGE` est joint à la demande — sans effet sur
-        le serveur du mainteneur, voir la constante.
+        `CORRECTION_POINTS_DE_PASSAGE` est joint à la demande, avec le nom
+        camelCase et le seuil de distance que le serveur honore réellement —
+        voir la constante. Il réduit les antennes mais ne les garantit pas
+        nulles : `boucle/antennes.py` reste le filet.
         """
         if rayon_m <= 0:
             raise ErreurConnecteur(f"BRouter : rayon de boucle de {rayon_m} m, un rayon positif attendu")

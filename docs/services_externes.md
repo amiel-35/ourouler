@@ -73,7 +73,16 @@ serveur réel :
 - Les paramètres `profile:…` fonctionnent, **à condition d'employer le nom de
   BRouter** : `correctMisplacedViaPoints` en camelCase, et non le snake_case
   qu'envoyait le code jusqu'ici. Avec le bon nom **et** un seuil de distance à
-  0, les culs-de-sac disparaissent entièrement (0 antenne sur 8 boucles).
+  0, les culs-de-sac disparaissent entièrement au rayon de 20 km mesuré (0
+  antenne sur 8 boucles) — mais **pas** au rayon de 8 km, sweep du
+  18/09/2026 à l'appui (seuils 40/100/200/500/1000/0, 8 azimuts × 2 rayons) :
+  4 boucles sur 7 y gardent encore une antenne même à seuil 0, plus courte
+  qu'à tout seuil plus grand (283 m médians contre 2 827 m). Ces crochets-là
+  ne sont plus des points de passage mal placés mais de vrais culs-de-sac du
+  réseau routier à ce rayon, qu'aucun seuil ne recale — d'où
+  `boucle/antennes.py`, qui reste un filet après coup plutôt que devenir
+  inutile. Détail et table complète dans `connecteurs/brouter.py`
+  (`CORRECTION_POINTS_DE_PASSAGE`).
 
 ## Intervals.icu — l'historique et les séances
 
