@@ -487,6 +487,13 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
         metavar="W",
         help="puissance tenue pour le temps estimé par le modèle (défaut : part de la FTP)",
     )
+    p.add_argument(
+        "--vitesse-a-plat",
+        type=float,
+        metavar="KMH",
+        help="au lieu de --puissance, pour qui ne connaît pas la sienne : la vitesse tenue "
+        "à plat, sans vent, lancé — le modèle en déduit les watts",
+    )
     p.set_defaults(fonction=_commande_boucle)
 
 
@@ -589,7 +596,17 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
         parents=[parent_json()],
     )
     p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à simuler")
-    p.add_argument("--puissance", type=float, metavar="W", required=True, help="puissance tenue")
+    # Plus `required` : `--vitesse-a-plat` en est l'autre chemin, et argparse
+    # ne sait pas dire « l'une ou l'autre » sans confondre les deux. Le refus,
+    # quand aucune n'est donnée, est celui d'`executer_simuler`.
+    p.add_argument("--puissance", type=float, metavar="W", help="puissance tenue")
+    p.add_argument(
+        "--vitesse-a-plat",
+        type=float,
+        metavar="KMH",
+        help="au lieu de --puissance : la vitesse tenue à plat, sans vent, lancé — "
+        "le modèle en déduit les watts",
+    )
     p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
     ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (pour le vent prévu)")
     p.set_defaults(fonction=_commande_simuler)

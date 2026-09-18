@@ -23,7 +23,12 @@ nom = ""
 nom = "Route"
 usage = "route"        # route | clm
 masse_kg = 9.0         # vélo équipé (bidons, GPS…)
-cda_m2 = 0.32          # point de départ, recalibré sur l'historique
+# Laisser cda_m2 et crr commentés est le cas normal : sans eux, le vélo reçoit
+# les valeurs de littérature de sa catégorie (`usage`), et chaque écran dit
+# d'où elles viennent et de combien elles ont dérivé sur les sorties de
+# validation du mainteneur. Les renseigner n'a de sens que pour qui sait ce
+# qu'il fait ; `ourouler calibrer` les mesure et prime sur tout le reste.
+# cda_m2 = 0.32        # traînée aérodynamique, mesurée par `ourouler calibrer`
 # crr = 0.005          # roulement, estimé par `ourouler calibrer`
 intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
 intervals_gear_id = "" # identifiant Intervals du vélo (ex. b1234567), plus fiable que le nom

@@ -1757,10 +1757,16 @@ def _entete(
         f"Distance : {contexte.distance_source}",
         f"Modèle physique : {contexte.provenance_modele}",
     ]
-    if contexte.provenance_modele.startswith("défaut"):
+    # Le test portait sur « défaut » seul. Depuis que les vélos non calibrés
+    # reçoivent les valeurs de `physique.litterature` (18/09/2026), cette
+    # provenance-là ne dit plus « défaut » — et l'avertissement disparaissait
+    # justement dans le cas où il sert le plus (règle absolue 5). Ce qui
+    # compte, c'est « mesuré sur ce vélo ou non ».
+    if not contexte.provenance_modele.startswith("calibration"):
         lignes.append(
             "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un "
-            "CdA et un Crr par défaut (`ourouler calibrer`)."
+            f"CdA et un Crr qui viennent de la {contexte.provenance_modele.split(' (')[0]} "
+            "et n'ont pas été mesurés sur vous (`ourouler calibrer`)."
         )
     lignes += _ligne_modele_meteo(propositions, config)
     lignes += _lignes_vent(contexte)
