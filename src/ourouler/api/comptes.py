@@ -86,6 +86,19 @@ class ErreurCompteExistant(ErreurCompte):
 
     « Pas d'interface ne veut pas dire pas de contrôle » : inviter deux fois
     la même personne répond « il a déjà un compte », jamais un doublon.
+
+    **La limite, écrite avant qu'elle morde.** Le message porte l'adresse et
+    la date d'ouverture du compte, et c'est ce qu'il faut : aujourd'hui, la
+    seule façon d'atteindre cette erreur est que **le mainteneur** invite
+    quelqu'un depuis sa propre ligne de commande, et lui cacher ce qu'il vient
+    de taper n'aurait aucun sens. Le jour où cette erreur devient une
+    **réponse HTTP** — un formulaire, une route d'invitation ouverte à
+    d'autres que lui — elle devient un oracle : elle répond « oui » ou « non »
+    à la question « est-ce que cette adresse a un compte chez vous ? », posée
+    par n'importe qui, autant de fois qu'on veut. Ce jour-là, la réponse doit
+    devenir indistinguable du succès côté appelant, et le détail rester dans
+    le journal du serveur. Ce n'est pas un changement à faire maintenant —
+    c'en est un à ne pas découvrir après coup.
     """
 
 
@@ -95,11 +108,26 @@ class ErreurInvitationRefusee(ErreurCompte):
 
 @dataclass(frozen=True)
 class Compte:
-    """L'identité et l'accès : un identifiant opaque, une adresse, une date."""
+    """L'identité et l'accès : un identifiant opaque, une adresse, une date.
+
+    Le `repr` **masque l'adresse**, pour la même raison que celui de
+    `InvitationEmise` masque son jeton : un `repr` finit dans un journal, dans
+    un `print` de mise au point, dans la sortie d'un échec de test — et une
+    relecture l'y a effectivement vue apparaître en clair le 18/09/2026.
+    L'identifiant, lui, reste visible : il est opaque, il ne désigne personne
+    hors de la base, et c'est lui qu'on cherche quand on lit une trace.
+    """
 
     identifiant: str
     email: str
     cree_le: datetime
+
+    def __repr__(self) -> str:
+        """Masque l'adresse : un `repr` finit dans un journal ou une trace."""
+        return (
+            f"Compte(identifiant={self.identifiant!r}, email=<masqué>, "
+            f"cree_le={self.cree_le.isoformat()})"
+        )
 
 
 @dataclass(frozen=True)
@@ -145,6 +173,11 @@ class Acces:
     Les deux voyagent ensemble et restent distincts : c'est toute la décision
     de [[Q46]], et les fondre en un seul objet serait la défaire au premier
     appel.
+
+    Le `repr` reste celui de la dataclass : il n'a pas de champ sensible à
+    lui, et l'adresse qu'il montrerait est celle de son `Compte`, dont le
+    `repr` la masque déjà. Un test le vérifie par l'effet plutôt que par la
+    lecture — c'est ce qui restera vrai si un champ s'ajoute ici.
     """
 
     compte: Compte
@@ -152,14 +185,55 @@ class Acces:
 
 
 def normaliser_email(brut: str) -> str:
-    """La forme canonique d'une adresse : espaces coupés, minuscules.
+    """La forme canonique d'une adresse : espaces de bord coupés, minuscules.
 
-    **Avant l'insertion, et non à la lecture.** Sans ça, « Amiel@X.com » et
-    « amiel@x.com » sont deux lignes que plus aucune contrainte ne rapproche.
-    La base répète l'exigence (`comptes_email_normalise`) pour qu'un appelant
-    distrait se fasse refuser au lieu d'être cru.
+    **Avant l'insertion, et non à la lecture.** Sans ça, « Cycliste@Exemple.INVALID »
+    et « cycliste@exemple.invalid » sont deux lignes que plus aucune contrainte
+    ne rapproche. La base répète l'exigence (`comptes_email_normalise`) pour
+    qu'un appelant distrait se fasse refuser au lieu d'être cru.
+
+    ## Pourquoi les caractères de contrôle et les espaces internes sont refusés
+
+    Une relecture du 18/09/2026 l'a mesuré contre un vrai PostgreSQL :
+    « a\\n@exemple.invalid » passait ici **et** passait la contrainte
+    `CHECK (email = lower(btrim(email)))`, parce que `btrim` ne coupe que
+    l'espace ASCII et laisse le saut de ligne. Or cette chaîne va finir dans
+    un envoi de courriel : **une adresse porteuse d'un saut de ligne est un
+    vecteur d'injection d'en-tête**, et le lot qui branchera l'envoi n'aurait
+    aucune raison de s'en méfier — la fonction s'appelle « normaliser », donc
+    ce qui en sort est censé être propre. C'est ici que ça se règle, une fois.
+    Le refus couvre tout caractère de contrôle et tout blanc interne, pas
+    seulement `\\n` : `\\r`, la tabulation et l'espace simple séparent ou
+    poursuivent une ligne d'en-tête aussi bien l'un que l'autre.
+
+    ## Ce que cette fonction n'est pas
+
+    **Ce n'est pas un validateur d'adresse.** Elle vérifie une forme minimale
+    — un arobase qui n'est ni au début ni à la fin — et rien de plus : une
+    adresse n'est réellement valide que si un courriel y arrive, ce que seul
+    l'envoi dira. « a<script>@exemple.invalid » sort donc d'ici tel quel ; ce
+    qui protège l'affichage, c'est l'échappement au moment d'afficher, pas une
+    liste de caractères interdits ici.
+
+    ## Le `+` : deux comptes, et c'est délibéré
+
+    « cycliste+velo@exemple.invalid » et « cycliste@exemple.invalid » font
+    **deux comptes distincts**. Le sous-adressage par `+` est une convention
+    de *certains* fournisseurs, pas une règle du courriel : chez d'autres, le
+    `+` est un caractère ordinaire du nom de boîte, et deux adresses qui n'en
+    diffèrent que par là appartiennent à deux personnes. Replier l'une sur
+    l'autre reviendrait à présumer la politique du fournisseur du
+    destinataire, et le jour où l'on se trompe, on donne à quelqu'un le compte
+    de quelqu'un d'autre. On préfère l'inverse : deux comptes là où il n'en
+    fallait peut-être qu'un se répare en supprimant l'un des deux.
     """
     normalise = brut.strip().lower()
+    interdit = next((c for c in normalise if c.isspace() or c < " " or c == "\x7f"), None)
+    if interdit is not None:
+        raise ErreurCompte(
+            f"adresse e-mail invalide : {brut!r} contient {interdit!r}, "
+            "un caractère de contrôle ou une espace — une adresse n'en porte pas"
+        )
     if not normalise or "@" not in normalise[1:-1]:
         raise ErreurCompte(f"adresse e-mail invalide : {brut!r}")
     return normalise
@@ -274,33 +348,60 @@ class DepotComptes:
 
         Une invitation **expirée** ne bloque pas : elle est retirée et
         remplacée dans la même transaction.
+
+        **Ce que le `DELETE` efface, et pourquoi c'est assumé.** Une invitation
+        expirée est *supprimée*, pas archivée : on ne saura donc jamais qu'un
+        lien avait été émis le 3 et jamais ouvert. C'est une information qu'on
+        aimerait avoir — « il ne l'a pas vue » est justement le cas réel que
+        ce code décrit — et on choisit quand même de ne pas la garder, pour
+        deux raisons. D'abord parce que la place est tenue par un index
+        **partiel** sur `(compte) WHERE consomme_le IS NULL` : garder la ligne
+        expirée demanderait un autre schéma (une colonne « remplacée le », ou
+        une table d'historique), c'est-à-dire une décision de produit, pas un
+        détail d'implémentation. Ensuite parce qu'une invitation périmée porte
+        le condensé d'un jeton mort et la date à laquelle on a écrit à
+        quelqu'un : c'est de la donnée personnelle qui ne sert plus à rien, et
+        la garder « au cas où » est exactement ce que la doctrine refuse
+        ailleurs. Si le mainteneur veut un jour compter les invitations non
+        vues, ça se décidera comme un besoin, avec la table qui va avec.
         """
         maintenant = _instant(maintenant)
         jeton = secrets.token_urlsafe(OCTETS_JETON)
-        with self.cx.transaction():
-            # La place est occupée par l'index partiel `invitations_en_cours_unique`
-            # tant que la ligne n'est pas consommée, expirée ou non. On libère
-            # ce qui a expiré, puis on tente ; si quelqu'un d'autre a gagné la
-            # course entre les deux, `DO NOTHING` nous le dit sans rien casser.
-            self.cx.execute(
-                "DELETE FROM invitations "
-                "WHERE compte = %s AND consomme_le IS NULL AND expire_le <= %s",
-                (identifiant_compte, maintenant),
-            )
-            ligne = self.cx.execute(
-                "INSERT INTO invitations (condense, compte, cree_le, expire_le) "
-                "VALUES (%s, %s, %s, %s) "
-                "ON CONFLICT (compte) WHERE consomme_le IS NULL DO NOTHING "
-                "RETURNING condense, compte, cree_le, expire_le, consomme_le",
-                (condenser(jeton), identifiant_compte, maintenant, maintenant + duree),
-            ).fetchone()
-            if ligne is not None:
-                return InvitationEmise(_invitation(ligne), jeton=jeton, deja_en_cours=False)
-            en_cours = self.cx.execute(
-                "SELECT condense, compte, cree_le, expire_le, consomme_le FROM invitations "
-                "WHERE compte = %s AND consomme_le IS NULL",
-                (identifiant_compte,),
-            ).fetchone()
+        try:
+            with self.cx.transaction():
+                # La place est occupée par l'index partiel `invitations_en_cours_unique`
+                # tant que la ligne n'est pas consommée, expirée ou non. On libère
+                # ce qui a expiré, puis on tente ; si quelqu'un d'autre a gagné la
+                # course entre les deux, `DO NOTHING` nous le dit sans rien casser.
+                self.cx.execute(
+                    "DELETE FROM invitations "
+                    "WHERE compte = %s AND consomme_le IS NULL AND expire_le <= %s",
+                    (identifiant_compte, maintenant),
+                )
+                ligne = self.cx.execute(
+                    "INSERT INTO invitations (condense, compte, cree_le, expire_le) "
+                    "VALUES (%s, %s, %s, %s) "
+                    "ON CONFLICT (compte) WHERE consomme_le IS NULL DO NOTHING "
+                    "RETURNING condense, compte, cree_le, expire_le, consomme_le",
+                    (condenser(jeton), identifiant_compte, maintenant, maintenant + duree),
+                ).fetchone()
+                if ligne is not None:
+                    return InvitationEmise(_invitation(ligne), jeton=jeton, deja_en_cours=False)
+                en_cours = self.cx.execute(
+                    "SELECT condense, compte, cree_le, expire_le, consomme_le FROM invitations "
+                    "WHERE compte = %s AND consomme_le IS NULL",
+                    (identifiant_compte,),
+                ).fetchone()
+        except erreurs_psycopg.ForeignKeyViolation as e:
+            # La clé étrangère vers `comptes` : le compte n'existe pas (ou
+            # vient d'être supprimé). `creer_compte` traduit déjà sa violation
+            # d'unicité ; ne pas traduire celle-ci laissait `ourouler inviter`
+            # afficher une trace de pilote psycopg à qui a seulement tapé un
+            # identifiant de travers.
+            raise ErreurCompte(
+                f"aucun compte ne porte l'identifiant {identifiant_compte!r} — "
+                "rien n'a été invité"
+            ) from e
         if en_cours is None:  # pragma: no cover - la ligne a disparu entre-temps
             raise ErreurCompte(
                 "impossible de poser une invitation pour le compte "

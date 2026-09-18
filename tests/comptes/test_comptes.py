@@ -7,8 +7,12 @@ transactions réellement concurrentes, un `SELECT` qui va chercher le jeton
 dans toutes les colonnes de texte — plutôt que de relire le code qui les
 accompagne.
 
-Les adresses de test sont en `.invalid` (RFC 2606 : un domaine qui n'existera
-jamais) ou en `exemple.fr`. Aucune n'est celle de quelqu'un.
+Les adresses de test sont **toutes** en `.invalid` — le seul domaine, avec
+`.example` et `.test`, que la RFC 2606 réserve et qui n'existera donc jamais.
+`exemple.fr`, qu'on trouvait ici le 18/09/2026 au matin, est un domaine
+réellement enregistré : écrire une adresse de test dessus, c'est écrire
+l'adresse de quelqu'un (règle absolue 1), et c'est aussi ce qui envoie un
+courriel au premier lot qui en enverra pour de vrai.
 """
 
 from __future__ import annotations
@@ -66,10 +70,51 @@ def test_un_identifiant_neuf_respecte_la_forme_et_ne_se_repete_pas():
 
 
 def test_une_adresse_se_normalise_avant_d_entrer():
-    assert normaliser_email("  Amiel@Exemple.FR ") == "amiel@exemple.fr"
-    for mauvaise in ("", "   ", "sans-arobase", "@exemple.fr", "amiel@"):
+    assert normaliser_email("  Cycliste@Exemple.INVALID ") == "cycliste@exemple.invalid"
+    for mauvaise in ("", "   ", "sans-arobase", "@exemple.invalid", "cycliste@"):
         with pytest.raises(ErreurCompte):
             normaliser_email(mauvaise)
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "a\n@exemple.invalid",
+        "a\r\n@exemple.invalid",
+        "a@exemple.invalid\nbcc: ailleurs@exemple.invalid",
+        "a\t@exemple.invalid",
+        "a b@exemple.invalid",
+        "a@exemple .invalid",
+        "a\x00@exemple.invalid",
+        "a\x7f@exemple.invalid",
+        "a\xa0b@exemple.invalid",
+    ],
+)
+def test_une_adresse_qui_porte_un_blanc_ou_un_controle_est_refusee(hostile: str):
+    """Le vecteur d'injection d'en-tête, refusé ici et pas plus loin.
+
+    `btrim` côté base ne coupe que l'espace ASCII : « a\\n@… » passait la
+    contrainte `comptes_email_normalise` sans broncher, et le lot qui
+    branchera l'envoi de courriel aurait mis cette chaîne dans un en-tête.
+    Le refus est mesuré sur ce qui compte : saut de ligne, retour chariot,
+    tabulation, octet nul, espace insécable, et l'espace simple interne.
+    """
+    with pytest.raises(ErreurCompte) as refus:
+        normaliser_email(hostile)
+    assert "caractère de contrôle ou une espace" in str(refus.value)
+
+
+def test_le_sous_adressage_par_plus_fait_bien_deux_adresses():
+    """Choix assumé et écrit : on ne présume pas la politique du fournisseur.
+
+    Si ce test tombe un jour, c'est que quelqu'un a décidé de replier
+    « cycliste+velo@… » sur « cycliste@… ». Ce n'est pas interdit — c'est une
+    décision de produit, et elle doit se voir passer ici.
+    """
+    assert normaliser_email("Cycliste+Velo@Exemple.INVALID") == "cycliste+velo@exemple.invalid"
+    assert normaliser_email("cycliste+velo@exemple.invalid") != normaliser_email(
+        "cycliste@exemple.invalid"
+    )
 
 
 def test_le_repr_d_une_invitation_emise_ne_montre_pas_le_jeton():
@@ -84,6 +129,30 @@ def test_le_repr_d_une_invitation_emise_ne_montre_pas_le_jeton():
     )
     assert "jeton-qui-ne-doit-pas-fuiter" not in repr(emise)
     assert "jeton=<présent>" in repr(emise)
+
+
+def test_le_repr_d_un_compte_et_d_un_acces_ne_montre_pas_l_adresse():
+    """La même règle que pour le jeton, pour la même raison.
+
+    Une relecture a vu l'adresse s'imprimer en clair dans la sortie d'un échec
+    de pytest : le `repr` par défaut d'une dataclass montre tous ses champs.
+    `Acces` est vérifié **par l'effet** et non par la lecture : il n'a pas de
+    `__repr__` à lui, et c'est celui de son `Compte` qui le protège — ce test
+    est ce qui le dira si un champ s'ajoute.
+    """
+    from ourouler.api.comptes import Acces, Compte
+    from ourouler.api.proprietaire import Proprietaire
+
+    compte = Compte(
+        identifiant="a" * 32,
+        email="cycliste@exemple.invalid",
+        cree_le=datetime(2026, 9, 18, tzinfo=UTC),
+    )
+    acces = Acces(compte=compte, proprietaire=Proprietaire("b" * 32))
+    for texte in (repr(compte), repr(acces), f"{acces}", str([acces])):
+        assert "cycliste@exemple.invalid" not in texte, texte
+    assert "a" * 32 in repr(compte), "l'identifiant opaque, lui, doit rester lisible"
+    assert "email=<masqué>" in repr(compte)
 
 
 def test_l_url_de_la_base_ne_se_lit_qu_a_la_porte():
@@ -156,6 +225,39 @@ def test_les_migrations_sont_notees_une_seule_fois(url_base: str):
 # --- les comptes -----------------------------------------------------------
 
 
+def attendre_un_fil_bloque(cx, delai_s: float = 20.0) -> None:
+    """Attend qu'un **autre** fil soit réellement bloqué sur un verrou, ou échoue.
+
+    Remplace un `time.sleep(0.5)` posé « le temps que le second atteigne
+    l'INSERT » (relecture du 18/09/2026). La différence n'est pas le confort :
+    sur une machine chargée, le second fil peut n'avoir jamais atteint son
+    `INSERT` quand le dormeur se réveille — le premier valide alors avant que
+    la course ait lieu, et **le test reste vert sans avoir mesuré la
+    sérialisation**. Un test qui verdit en ne testant rien est le pire des
+    deux échecs possibles ([[Q58]]).
+
+    On interroge donc PostgreSQL lui-même : `pg_stat_activity` dit quel
+    processus attend un verrou. Tant qu'aucun n'attend, la course n'a pas
+    commencé et il n'y a rien à valider. Si personne n'attend au bout du
+    délai, le test **échoue** au lieu de continuer.
+    """
+    limite = time.monotonic() + delai_s
+    while time.monotonic() < limite:
+        bloques = cx.execute(
+            "SELECT count(*) FROM pg_stat_activity "
+            "WHERE datname = current_database() "
+            "  AND wait_event_type = 'Lock' "
+            "  AND pid <> pg_backend_pid()"
+        ).fetchone()[0]
+        if bloques:
+            return
+        time.sleep(0.02)
+    raise AssertionError(
+        f"aucun fil n'attendait un verrou après {delai_s:.0f} s : la course n'a pas eu "
+        "lieu, et ce qui suit ne mesurerait donc pas la sérialisation"
+    )
+
+
 def test_un_compte_naît_avec_un_propriétaire_distinct(depot: DepotComptes):
     """[[Q46]] : deux identifiants, pas un.
 
@@ -182,14 +284,14 @@ def test_inviter_deux_fois_la_meme_adresse_dit_non(depot: DepotComptes):
 
 
 def test_la_casse_et_les_espaces_ne_font_pas_deux_comptes(depot: DepotComptes, connexion):
-    """« Amiel@X.com » et « amiel@x.com » sont la même personne."""
-    depot.creer_compte("  Amiel@Exemple.INVALID ")
+    """« Cycliste@Exemple.INVALID » et « cycliste@exemple.invalid » : une personne."""
+    depot.creer_compte("  Cycliste@Exemple.INVALID ")
     with pytest.raises(ErreurCompteExistant):
-        depot.creer_compte("amiel@exemple.invalid")
+        depot.creer_compte("cycliste@exemple.invalid")
     with pytest.raises(ErreurCompteExistant):
-        depot.creer_compte("AMIEL@EXEMPLE.INVALID")
+        depot.creer_compte("CYCLISTE@EXEMPLE.INVALID")
     total = connexion.execute(
-        "SELECT count(*) FROM comptes WHERE lower(email) = %s", ("amiel@exemple.invalid",)
+        "SELECT count(*) FROM comptes WHERE lower(email) = %s", ("cycliste@exemple.invalid",)
     ).fetchone()[0]
     assert total == 1
 
@@ -217,7 +319,9 @@ def test_deux_creations_concurrentes_ne_font_qu_un_compte(url_base: str):
         with cx_a.transaction():
             depot_a.creer_compte(adresse)
             fil.start()
-            time.sleep(0.5)  # le temps que le second atteigne l'INSERT et s'y bloque
+            # Mesuré, pas supposé : on attend que le second fil soit
+            # effectivement bloqué sur le verrou avant de valider.
+            attendre_un_fil_bloque(cx_a)
         fil.join(timeout=20)
         assert not fil.is_alive(), "le second fil ne s'est jamais débloqué"
         total = cx_a.execute(
@@ -262,6 +366,77 @@ def test_six_creations_simultanees_n_en_laissent_passer_qu_une(url_base: str):
 
 
 # --- les invitations -------------------------------------------------------
+
+
+def test_inviter_un_compte_inexistant_dit_lequel_sans_trace_de_pilote(depot: DepotComptes):
+    """Une erreur d'utilisateur, pas une exception de pilote.
+
+    `creer_compte` traduisait déjà sa violation d'unicité ; `creer_invitation`
+    laissait remonter une `ForeignKeyViolation` brute de psycopg (relecture du
+    18/09/2026). `ourouler inviter` aurait affiché une trace de pilote à qui
+    avait seulement tapé un identifiant de travers.
+    """
+    with pytest.raises(ErreurCompte) as refus:
+        depot.creer_invitation("ffffffffffffffffffffffffffffffff")
+    message = str(refus.value)
+    assert "aucun compte" in message and "ffffffffffffffffffffffffffffffff" in message
+    assert "psycopg" not in message and "DETAIL" not in message
+    # Et le dépôt reste utilisable : la transaction a bien été annulée.
+    compte = depot.creer_compte("apres.le.refus@exemple.invalid")
+    assert depot.creer_invitation(compte.identifiant).jeton
+
+
+def test_deux_invitations_simultanees_ne_font_qu_un_lien(url_base: str):
+    """La troisième course du lot, celle qu'il ne prouvait pas.
+
+    Les deux autres — deux créations de compte, deux consommations — étaient
+    mesurées ; celle-ci ne l'était pas, alors que c'est exactement le geste que
+    le mainteneur répétera : cliquer deux fois sur « inviter ». L'index partiel
+    `invitations_en_cours_unique` et le `ON CONFLICT … DO NOTHING` doivent
+    donner **un seul jeton** et dire aux autres qu'une invitation est déjà en
+    cours — jamais deux liens valides pour le même compte.
+    """
+    nombre = 4
+    with ouvrir(url_base) as cx:
+        compte = DepotComptes(cx).creer_compte("ruee@exemple.invalid")
+    barriere = threading.Barrier(nombre)
+    resultats: list[object] = [None] * nombre
+
+    def tenter(rang: int) -> None:
+        with ouvrir(url_base) as cx_fil:
+            depot = DepotComptes(cx_fil)
+            barriere.wait(timeout=20)
+            try:
+                resultats[rang] = depot.creer_invitation(compte.identifiant)
+            except BaseException as e:  # noqa: BLE001 - on veut l'exception telle quelle
+                resultats[rang] = e
+
+    fils = [threading.Thread(target=tenter, args=(rang,)) for rang in range(nombre)]
+    for fil in fils:
+        fil.start()
+    for fil in fils:
+        fil.join(timeout=30)
+    assert not any(fil.is_alive() for fil in fils), "un fil ne s'est jamais débloqué"
+
+    incidents = [r for r in resultats if isinstance(r, BaseException)]
+    assert not incidents, incidents
+    avec_jeton = [r for r in resultats if r.jeton is not None]
+    sans_jeton = [r for r in resultats if r.jeton is None]
+    assert len(avec_jeton) == 1, resultats
+    assert all(r.deja_en_cours for r in sans_jeton), resultats
+    assert {r.invitation.condense for r in resultats} == {
+        avec_jeton[0].invitation.condense
+    }, "les perdants doivent décrire l'invitation du gagnant, pas une autre"
+
+    with ouvrir(url_base) as cx:
+        total = cx.execute(
+            "SELECT count(*) FROM invitations WHERE compte = %s", (compte.identifiant,)
+        ).fetchone()[0]
+        assert total == 1, "deux liens valides pour un compte"
+        # Et le seul jeton rendu ouvre bien l'accès : la course n'a pas
+        # fabriqué un gagnant qui ne sert à rien.
+        acces = DepotComptes(cx).consommer(avec_jeton[0].jeton)
+        assert acces.compte.identifiant == compte.identifiant
 
 
 def test_une_invitation_s_emet_puis_se_consomme_une_fois(depot: DepotComptes):
@@ -360,7 +535,7 @@ def test_deux_consommations_concurrentes_n_en_laissent_passer_qu_une(url_base: s
         with cx_a.transaction():
             acces_a = depot_a.consommer(jeton)
             fil.start()
-            time.sleep(0.5)
+            attendre_un_fil_bloque(cx_a)
         fil.join(timeout=20)
         assert not fil.is_alive(), "le second fil ne s'est jamais débloqué"
         consommations = cx_a.execute(

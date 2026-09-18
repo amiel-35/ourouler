@@ -27,10 +27,15 @@ CREATE TABLE IF NOT EXISTS comptes (
     -- L'adresse est une **donnée du profil**, pas la clé (doctrine §10.2 :
     -- « un utilisateur peut changer de fournisseur »). Elle est rangée sous
     -- sa forme normalisée — minuscules, sans espaces de bord — et la
-    -- contrainte l'exige : sans elle, « Amiel@X.com » et « amiel@x.com »
-    -- seraient deux lignes que l'index unique ci-dessous ne rapprocherait
-    -- jamais, parce qu'il faut bien que quelqu'un décide de la forme
-    -- canonique et que ce quelqu'un ne peut pas être l'appelant.
+    -- contrainte l'exige : sans elle, « Cycliste@Exemple.INVALID » et
+    -- « cycliste@exemple.invalid » seraient deux lignes que l'index unique
+    -- ci-dessous ne rapprocherait jamais, parce qu'il faut bien que quelqu'un
+    -- décide de la forme canonique et que ce quelqu'un ne peut pas être
+    -- l'appelant.
+    --
+    -- `btrim` ne coupe que l'espace ASCII : cette contrainte laisse donc
+    -- passer « a\n@… ». C'est `normaliser_email` qui refuse les caractères de
+    -- contrôle, et la note de cette fonction dit pourquoi ça compte.
     email    TEXT NOT NULL
              CONSTRAINT comptes_email_normalise CHECK (email = lower(btrim(email)))
              CONSTRAINT comptes_email_non_vide CHECK (length(email) > 0),
