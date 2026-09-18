@@ -44,8 +44,14 @@ services:
     build:
       context: .
       dockerfile: deploiement/api/Dockerfile
+    # Tout en dictionnaire : mélanger la forme liste (`- CLE`) et la forme
+    # dictionnaire (`CLE: valeur`) dans le même bloc est un YAML invalide, et
+    # le déploiement échoue sur « did not find expected '-' indicator » sans
+    # dire lequel des deux blocs est fautif (constaté le 18/09/2026, avant le
+    # premier déploiement). `SERVICE_FQDN_API_8000` sans valeur est repris de
+    # l'environnement, ce que la forme dictionnaire écrit avec une valeur vide.
     environment:
-      - SERVICE_FQDN_API_8000
+      SERVICE_FQDN_API_8000: ${SERVICE_FQDN_API_8000:-}
       OUROULER_MODE: ${OUROULER_MODE}
       OUROULER_CONFIG: /config/config.toml
       OUROULER_CONFIG_TOML_B64: ${OUROULER_CONFIG_TOML_B64}
