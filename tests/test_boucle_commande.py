@@ -1703,6 +1703,103 @@ def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
     assert compteur["moyenne_compteur_kmh"] > 0
 
 
+def test_info_compteur_suit_la_puissance_demandee(tmp_path: Path):
+    """Le défaut du 18/09/2026 : `--puissance`/`--vitesse-a-plat` ne
+    déplaçaient pas la moyenne compteur, dérivée de la puissance d'endurance
+    **de la configuration** quelle que soit la puissance demandée pour cette
+    boucle-ci. Deux puissances doivent maintenant rendre deux moyennes
+    différentes, et dire à quelle puissance chacune a été calculée."""
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    info_150 = _info_compteur(config, None, puissance_w=150.0)
+    info_300 = _info_compteur(config, None, puissance_w=300.0)
+    assert info_150["puissance_w"] == pytest.approx(150.0, abs=0.1)
+    assert info_300["puissance_w"] == pytest.approx(300.0, abs=0.1)
+    assert info_150["moyenne_compteur_kmh"] != info_300["moyenne_compteur_kmh"]
+    assert info_300["moyenne_compteur_kmh"] > info_150["moyenne_compteur_kmh"]
+
+
+def test_info_compteur_facteur_mesure_n_est_pas_recalcule(tmp_path: Path):
+    """Un facteur **mesuré** (`velo.facteur_compteur`) est une constante du
+    vélo : seule la vitesse à laquelle il s'applique bouge avec la puissance
+    demandée, jamais le facteur lui-même."""
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    info_150 = _info_compteur(config, None, puissance_w=150.0)
+    info_300 = _info_compteur(config, None, puissance_w=300.0)
+    info_defaut = _info_compteur(config, None)
+    assert info_150["facteur_compteur"] == pytest.approx(0.85)
+    assert info_300["facteur_compteur"] == pytest.approx(0.85)
+    assert info_defaut["facteur_compteur"] == pytest.approx(0.85)
+    assert info_150["facteur_provenance"] == info_300["facteur_provenance"] == "mesure"
+
+
+def test_ecran_ftp_valeurs_liees_sans_puissance_ne_bouge_pas(tmp_path: Path):
+    """Non-régression sur l'écran de FTP (décision 7) : `valeurs_liees`, sans
+    puissance demandée, continue de rendre exactement ce qu'elle rendait —
+    la position **de la configuration**, jamais celle d'un parcours chronométré."""
+    from ourouler.seance.ecran_ftp import valeurs_liees
+
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    avant = {
+        "velo": "RCR",
+        "position_zone": round(config.seance.position_zone, 6),
+        "puissance_endurance_pct": pytest.approx(
+            config.seance.puissance_endurance_pct, abs=1e-6
+        ),
+    }
+    apres = valeurs_liees(config)
+    assert apres["velo"] == avant["velo"]
+    assert apres["position_zone"] == avant["position_zone"]
+    assert apres["puissance_endurance_pct"] == avant["puissance_endurance_pct"]
+    # Même résultat qu'un appel explicite à `position=None` : la position de
+    # la configuration reste la seule qui alimente l'écran de FTP.
+    assert apres == valeurs_liees(config, position=None)
+
+
+def test_temps_ecoule_suit_la_puissance_demandee(tmp_path: Path):
+    """Le porte à porte d'une candidate doit suivre `--puissance` : deux
+    puissances, deux temps écoulés différents, et l'écart entre mouvement et
+    écoulé qui reste celui qu'impose le facteur mesuré (~1/0,85, soit environ
+    18 %) dans les deux cas — pas cinquante minutes d'arrêts imaginaires,
+    comme avant ce correctif (150 W et 300 W rendaient alors le même écoulé)."""
+    from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
+    from ourouler.physique.modele import vitesse_a_plat_kmh
+
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    velo = velo_demande(config, None)
+    parametres, _provenance = parametres_du_velo(config, velo, chemin_calibration(config))
+    distance_km = 100.0
+
+    candidates = {}
+    for puissance in (150.0, 300.0):
+        vitesse_plat = vitesse_a_plat_kmh(puissance, parametres)
+        mouvement_s = distance_km / vitesse_plat * 3600
+        compteur_info = _info_compteur(config, None, puissance_w=puissance)
+        evaluation = _evaluation_de_test(temps_s=mouvement_s, distance_m=distance_km * 1000)
+        charge = rendre_json(
+            [evaluation],
+            _demande_de_test(distance_km),
+            config,
+            chemin=None,
+            compteur_info=compteur_info,
+        )
+        candidates[puissance] = charge["candidates"][0]
+
+    ecoule_150 = candidates[150.0]["temps_ecoule_s"]
+    ecoule_300 = candidates[300.0]["temps_ecoule_s"]
+    mouvement_150 = candidates[150.0]["temps_estime_s"]
+    mouvement_300 = candidates[300.0]["temps_estime_s"]
+
+    # Le défaut corrigé : les deux écoulés n'étaient pas seulement proches,
+    # ils étaient identiques quelle que soit la puissance.
+    assert mouvement_150 != mouvement_300
+    assert ecoule_150 != ecoule_300
+
+    for ecoule, mouvement in ((ecoule_150, mouvement_150), (ecoule_300, mouvement_300)):
+        assert ecoule >= mouvement  # le plancher, jamais un porte à porte plus rapide
+        ratio = ecoule / mouvement
+        assert 1.0 < ratio < 1.3  # ~1/0,85, pas un écart de cinquante minutes
+
+
 def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
     """Pas une deuxième formule : ce que `rendre_json` publie doit être
     exactement `physique.modele.temps_ecoule` appliqué à la distance de la

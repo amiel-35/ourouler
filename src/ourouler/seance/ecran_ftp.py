@@ -107,7 +107,13 @@ def valeurs_liees(
     }
 
 
-def info_compteur(config: Config, nom_velo: str | None = None) -> dict | None:
+def info_compteur(
+    config: Config,
+    nom_velo: str | None = None,
+    *,
+    puissance_w: float | None = None,
+    vitesse_a_plat_kmh: float | None = None,
+) -> dict | None:
     """Le bloc « compteur » que `boucle` et `sortie` publient à côté de `demande`.
 
     Réconcilier le temps en mouvement d'une candidate (`temps_estime_s`) et
@@ -118,15 +124,46 @@ def info_compteur(config: Config, nom_velo: str | None = None) -> dict | None:
     de la configuration, seulement un sous-ensemble mis en forme pour ce
     contrat-là, comme `cli._info_vitesse_compteur` l'est pour `ourouler config`.
 
+    **`puissance_w` / `vitesse_a_plat_kmh` (exclusifs entre eux, comme pour
+    `position_pour`) : la puissance effectivement demandée pour CE parcours-ci**
+    — `--puissance`, ou ce qu'exige `--vitesse-a-plat`, sur `ourouler boucle`.
+    Corrige un défaut trouvé le 18/09/2026 : sans ce paramètre, la moyenne
+    compteur restait celle de la puissance d'endurance **de la configuration**
+    quelle que soit la puissance demandée, et le temps écoulé porte à porte
+    n'en suivait donc pas les variations — 150 W et 300 W rendaient le même
+    porte à porte alors que le temps en mouvement, lui, changeait bien.
+
+    **Ce que ça ne change pas** : l'écran de FTP lui-même (décision 7 du cycle
+    UX) continue de montrer les trois valeurs liées à la position **de la
+    configuration** — c'est `valeurs_liees`/`rendu`, appelés sans ces
+    paramètres, qui le servent. Seule la moyenne compteur **utilisée pour
+    chronométrer un parcours** doit suivre la puissance demandée ; les deux
+    usages divergent donc ici plutôt que l'un ne se fasse passer pour l'autre.
+
+    Sans aucun des deux (défaut, et le seul cas pour `sortie`, qui n'a pas
+    cette option) : la position de la configuration, comme avant.
+
+    **Le facteur compteur mesuré (`velo.facteur_compteur`) n'est jamais
+    recalculé ici** — `valeurs_liees` le garde tel quel dès qu'il est mesuré ;
+    seule la vitesse à laquelle il s'applique bouge avec la position.
+
     `None` si la configuration ne porte aucun vélo : pas de modèle physique,
     pas de facteur, rien à réconcilier — et `temps_ecoule_s` doit alors valoir
     `None` chez l'appelant.
     """
-    liees = valeurs_liees(config, nom_velo)
+    position = None
+    if puissance_w is not None or vitesse_a_plat_kmh is not None:
+        position = position_pour(
+            config, nom_velo, puissance_w=puissance_w, vitesse_kmh=vitesse_a_plat_kmh
+        )
+    liees = valeurs_liees(config, nom_velo, position=position)
     if liees is None:
         return None
     return {
         "velo": liees["velo"],
+        # La puissance à laquelle `moyenne_compteur_kmh` a été calculée — sans
+        # elle, un client ne peut pas savoir ce qu'il lit (règle absolue 5).
+        "puissance_w": liees["puissance_endurance_w"],
         "moyenne_compteur_kmh": liees["moyenne_compteur_kmh"],
         "facteur_compteur": liees["facteur_compteur"],
         "facteur_provenance": liees["facteur_provenance"],
