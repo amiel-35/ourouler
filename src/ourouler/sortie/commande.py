@@ -2279,18 +2279,24 @@ def _candidate_json(proposition: Proposition, compteur_info: dict | None = None)
         "tolerance_distance": proposition.tolerance_distance,
         "part_connue": proposition.part_connue,
         "vitesse_kmh": round(proposition.vitesse_kmh, 2),
+        # Le porte à porte, arrêts compris. **Au niveau de la candidate, et
+        # non dans `placement`** (déplacé le 18/09/2026) : le voisinage de
+        # `duree_totale_s`, son analogue en mouvement, était tentant, mais le
+        # temps écoulé est une propriété du *parcours*, pas du placement de
+        # la séance dessus — et `boucle` le publie déjà à ce niveau-là. Un
+        # même chiffre à deux adresses selon la route obligeait le front à
+        # connaître deux chemins pour un seul composant, et le second était
+        # tombé silencieusement : aucune erreur, juste un chiffre manquant.
+        # `null` avec `compteur` : sans vélo, pas de moyenne compteur à
+        # laquelle réconcilier une distance (`physique.modele.temps_ecoule`).
+        "temps_ecoule_s": temps_ecoule_s,
+        "temps_ecoule_source": temps_ecoule_source,
         "placement": {
             "note_totale": round(placement.note_totale, 4),
             "note_terrain": round(placement.note_terrain, 4),
             "penalite_seance": round(placement.penalite_seance, 4),
             "decalage_z2_s": round(placement.decalage_z2_s),
             "duree_totale_s": round(placement.duree_totale_s),
-            # Le porte à porte, arrêts compris — à côté de `duree_totale_s`
-            # (le temps en mouvement du placement), jamais à sa place. `null`
-            # avec `compteur` : sans vélo, pas de moyenne compteur à
-            # laquelle réconcilier une distance (`physique.modele.temps_ecoule`).
-            "temps_ecoule_s": temps_ecoule_s,
-            "temps_ecoule_source": temps_ecoule_source,
             "distance_totale_m": round(placement.distance_totale_m, 1),
             # Le D+ du **parcours placé**, recalculé par `denivele_filtre`, à côté
             # du `denivele_m` de la boucle annoncé par le moteur : deux méthodes

@@ -1049,7 +1049,7 @@ def _contexte_avec(seance: Seance, config: Config) -> Any:
 # Même défaut, même correction que `boucle` : la colonne « temps » montrait le
 # temps *en mouvement* du placement (`placement.duree_totale_s`) comme s'il
 # s'agissait du temps écoulé de la sortie. Ici, `compteur` et
-# `placement.temps_ecoule_s`, câblés dans `rendre_json`/`rendre_texte` via
+# `candidate.temps_ecoule_s`, câblés dans `rendre_json`/`rendre_texte` via
 # `ecran_ftp.info_compteur` et `physique.modele.temps_ecoule` — la même
 # formule que `boucle`, testée à part dans `tests/test_physique_modele.py`.
 
@@ -1064,11 +1064,13 @@ def test_compteur_et_temps_ecoule_sont_nuls_sans_velo(tmp_path: Path):
     config = dataclasses.replace(config_de_test(tmp_path / "cache"), velos=())
     charge = rendre_json([_proposition_avec_demi_tour()], _contexte_avec(seance, config))
     assert charge["compteur"] is None
-    place = charge["candidates"][0]["placement"]
-    assert place["temps_ecoule_s"] is None
-    assert place["temps_ecoule_source"] is None
+    candidate = charge["candidates"][0]
+    assert candidate["temps_ecoule_s"] is None
+    assert candidate["temps_ecoule_source"] is None
     # Le temps de mouvement du placement, lui, reste renseigné.
-    assert place["duree_totale_s"] == round(_proposition_avec_demi_tour().placement.duree_totale_s)
+    assert candidate["placement"]["duree_totale_s"] == round(
+        _proposition_avec_demi_tour().placement.duree_totale_s
+    )
 
 
 def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
@@ -1084,7 +1086,7 @@ def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
 
 
 def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
-    """Pas une deuxième formule : `placement.temps_ecoule_s` doit être
+    """Pas une deuxième formule : `candidate.temps_ecoule_s` doit être
     exactement `physique.modele.temps_ecoule` appliqué à
     `placement.distance_totale_m` (le parcours réellement roulé, demi-tours
     compris — pas la boucle), `placement.duree_totale_s`, et la moyenne
@@ -1094,16 +1096,16 @@ def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
     proposition = _proposition_avec_demi_tour()
     charge = rendre_json([proposition], _contexte_avec(seance, config))
     compteur = charge["compteur"]
-    place = charge["candidates"][0]["placement"]
+    candidate = charge["candidates"][0]
     attendu_s, attendue_source = temps_ecoule(
         proposition.placement.distance_totale_m / 1000.0,
         proposition.placement.duree_totale_s,
         compteur["moyenne_compteur_kmh"],
     )
-    assert place["temps_ecoule_s"] == round(attendu_s)
-    assert place["temps_ecoule_source"] == attendue_source
+    assert candidate["temps_ecoule_s"] == round(attendu_s)
+    assert candidate["temps_ecoule_source"] == attendue_source
     # Jamais sous le temps de mouvement du placement (le point du plancher) :
-    assert place["temps_ecoule_s"] >= place["duree_totale_s"]
+    assert candidate["temps_ecoule_s"] >= candidate["placement"]["duree_totale_s"]
 
 
 def test_texte_sortie_affiche_mouvement_et_ecoule(tmp_path: Path):
