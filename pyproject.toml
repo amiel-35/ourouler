@@ -3,7 +3,7 @@ name = "ourouler"
 version = "0.0.1"
 description = "Où rouler ? Météo par direction, tracé et séance pour cyclistes — CLI et bibliothèque."
 readme = "README.md"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 authors = [{ name = "Amiel Lavon" }]
 dependencies = [

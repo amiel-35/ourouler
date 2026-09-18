@@ -89,7 +89,11 @@ La CLI (`ourouler <sous-commande>`) n'est qu'un adaptateur au-dessus.
   seulement ; `config.example.toml` versionné, le vrai fichier ignoré.
 - **Tests** : `pytest`, fixtures synthétiques ou anonymisées dans
   `tests/fixtures/`. Réseau interdit dans les tests. **Lint** : `ruff`.
-- **Licence** : MIT.
+- **Licence** : AGPL-3.0-or-later. Choisie le 18/09/2026 en remplacement de
+  MIT, sur délégation du mainteneur (« GPL ou AGPL, m'en fous »). Raison : le
+  cap est un service hébergé. La GPL ne couvre pas le logiciel qu'on expose en
+  ligne sans jamais le distribuer ; l'AGPL si. MIT laisserait n'importe qui en
+  faire un service fermé.
 
 ## 4. Repo et structure
 
