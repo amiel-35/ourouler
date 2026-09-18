@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from ourouler.config import Depart, Periode, charger, depuis_dict
+from ourouler.config import (
+    CACHE_DEFAUT,
+    Depart,
+    ParametresCache,
+    Periode,
+    charger,
+    depuis_dict,
+)
 from ourouler.erreurs import ErreurConfig
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 from ourouler.seance.zones import POSITION_ENDURANCE_DEFAUT
@@ -666,3 +673,34 @@ def test_facteur_compteur_hors_bornes(valeur):
 def test_facteur_compteur_de_type_inattendu():
     with pytest.raises(ErreurConfig, match="facteur_compteur"):
         depuis_dict({**BASE, "velos": [{"nom": "Route", "facteur_compteur": "rapide"}]})
+
+
+def test_le_cache_par_defaut_est_un_chemin_absolu():
+    """Le `~` se développe dans `config.py`, et nulle part ailleurs.
+
+    Il était écrit `Path("~/.cache/ourouler")` et n'était jamais résolu : tout
+    appelant qui oubliait `.expanduser()` créait un dossier **littéral** nommé
+    `~` dans le répertoire courant. La suite de tests en fabriquait un à la
+    racine du dépôt à chaque exécution, et personne ne le voyait.
+
+    La règle absolue 2 fait de `config.py` le seul endroit du cœur autorisé à
+    résoudre un chemin utilisateur : ce test tient cette frontière.
+    """
+    assert CACHE_DEFAUT.is_absolute()
+    assert "~" not in str(CACHE_DEFAUT)
+    assert ParametresCache().dossier == CACHE_DEFAUT
+
+
+def test_un_tilde_ecrit_a_la_main_dans_le_toml_est_developpe(tmp_path: Path):
+    """Un TOML écrit à la main porte presque toujours un `~`."""
+    chemin = tmp_path / "c.toml"
+    chemin.write_text(
+        '[depart]\nnom = "Ailleurs"\nlatitude = 0.0\nlongitude = 0.0\n'
+        '[cycliste]\nmasse_kg = 70\nftp_w = 200\n'
+        '[cache]\ndossier = "~/ailleurs/cache"\n',
+        encoding="utf-8",
+    )
+    config = charger(chemin)
+    assert config.cache.dossier.is_absolute()
+    assert "~" not in str(config.cache.dossier)
+    assert config.cache.dossier == Path("~/ailleurs/cache").expanduser()

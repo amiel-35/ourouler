@@ -196,9 +196,23 @@ class ParametresIntervals:
         return f"ParametresIntervals(athlete_id={self.athlete_id!r}, api_key={etat!r})"
 
 
+#: Emplacement du cache quand la configuration n'en nomme pas.
+#:
+#: **Développé ici, et pas ailleurs** (corrigé le 18/09/2026). Le chemin était
+#: écrit `Path("~/.cache/ourouler")` et le `~` n'était jamais résolu : tout
+#: appelant qui oubliait `.expanduser()` — et la moitié du dépôt l'oubliait —
+#: créait un dossier **littéral** nommé `~` dans le répertoire courant. La
+#: suite de tests en fabriquait un à la racine du dépôt à chaque exécution.
+#:
+#: La règle absolue 2 désigne `config.py` comme le seul endroit du cœur
+#: autorisé à résoudre un chemin utilisateur : c'est donc ici que le `~` se
+#: développe, une fois, pour que plus personne n'ait à y penser.
+CACHE_DEFAUT = Path("~/.cache/ourouler").expanduser()
+
+
 @dataclass(frozen=True)
 class ParametresCache:
-    dossier: Path = Path("~/.cache/ourouler")
+    dossier: Path = CACHE_DEFAUT
 
 
 SENS_BOUCLE = ("horaire", "antihoraire")
@@ -588,7 +602,11 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             athlete_id=str(intervals.get("athlete_id", "") or ""),
             api_key=str(intervals.get("api_key", "") or ""),
         ),
-        cache=ParametresCache(dossier=Path(str(cache.get("dossier", "~/.cache/ourouler")))),
+        # `.expanduser()` : un TOML écrit à la main porte presque toujours un
+        # `~`, et le cœur qui reçoit ce chemin n'a pas le droit de le résoudre.
+        cache=ParametresCache(
+            dossier=Path(str(cache.get("dossier") or CACHE_DEFAUT)).expanduser()
+        ),
         brouter=ParametresBrouter(
             url=str(brouter.get("url", "") or "").rstrip("/"),
             utilisateur=str(brouter.get("utilisateur", "") or ""),
