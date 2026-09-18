@@ -4369,3 +4369,44 @@ a une suite :
 
 Sans réponse, l'écran reste ce qu'il est : saisir à la main, ou laisser le
 défaut supposé s'appliquer.
+
+
+## Q55 — Un `PATCH /profil` sur `velos` gèle la liste et masque le TOML — **ouverte le 18/09/2026**
+
+Constaté en écrivant les facteurs compteur mesurés (0,87 sur le RCR, 0,89 sur
+le BMC) dans le fichier de configuration du mainteneur : **la CLI les voyait,
+l'API non.** `ourouler` rendait `facteur 0.870, mesure` ; `GET
+/api/v1/profil/zones` rendait `0.803, suppose`, sur la même machine et la même
+seconde.
+
+La cause n'est pas un cache. `velos` est dans `depots.LISTES_MODIFIABLES` :
+une liste **se remplace en entier**, pour de bonnes raisons — fusionner par
+index donnerait des résultats que personne ne peut prévoir. Mais la
+conséquence n'avait pas été tirée : dès qu'un `PATCH /profil` a touché
+`velos` une seule fois, la liste entière est recopiée dans le `profil.json`
+du propriétaire, et **toute modification ultérieure du TOML est ignorée en
+silence** pour ce champ. Ici, la copie datait d'un essai d'aller-retour fait
+le matin même, qui avait « restauré » les valeurs d'origine en écrivant
+`facteur_compteur: null` explicitement plutôt qu'en retirant la surcouche.
+
+Rien ne le signale : les deux sources répondent, chacune avec aplomb, et
+seule une comparaison côte à côte montre le désaccord. C'est exactement le
+genre de divergence que la règle absolue 5 demande d'afficher.
+
+Trois pistes, à trancher :
+
+1. **Le dire.** `GET /profil` porterait, par section, d'où vient la valeur —
+   socle TOML ou surcouche — comme `seance --json` le fait déjà pour la
+   provenance des vitesses. Le moins invasif, et ça rend le désaccord visible
+   au lieu de le laisser muet.
+2. **Le rendre réversible.** Un champ remis à sa valeur du socle disparaîtrait
+   de la surcouche au lieu d'y être écrit à `null` — « revenir au défaut »
+   voudrait alors dire « revenir au TOML », ce que le bouton des réglages
+   laisse déjà croire.
+3. **Assumer que le TOML est un amorçage.** Une fois le profil créé, il ne
+   sert plus qu'au premier démarrage, et tout passe par l'API. Cohérent avec
+   la direction du service hébergé, mais ça fait du fichier de configuration
+   un piège pour le mainteneur, qui l'édite encore à la main.
+
+En attendant, la surcouche a été écartée (renommée, pas supprimée) pour que
+le socle redevienne la seule source, et les deux chemins s'accordent.
