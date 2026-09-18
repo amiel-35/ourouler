@@ -17,12 +17,14 @@ import argparse
 import json
 import math
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.boucle.gpx import lire_gpx_trace
+from ourouler.boucle.horaire import Pause, analyser_pause, construire_horaire, valider_pauses
 from ourouler.config import Config, Velo
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
@@ -535,28 +537,48 @@ def executer_simuler(
     parametres, provenance = parametres_du_velo(config, velo, chemin_calibration(config))
     trace = lire_gpx_trace(chemin_gpx)
 
+    pauses = tuple(analyser_pause(p) for p in getattr(args, "pause", None) or [])
+    valider_pauses(pauses, distance_m=trace.distance_m)
+
     vent = None
     panne = None
-    depart = getattr(args, "depart", None)
-    if depart:
+    depart_brut = getattr(args, "depart", None)
+    depart_dt: datetime | None = None
+    if depart_brut:
         from ourouler.meteo.commande import heure_depart
 
+        depart_dt = heure_depart(depart_brut)
         client = client_meteo if client_meteo is not None else ClientOpenMeteo()
         try:
-            vent, resume = vent_prevu(trace, client, config, heure_depart(depart))
+            vent, resume = vent_prevu(trace, client, config, depart_dt, pauses=pauses)
         except ErreurConnecteur as e:
             panne, resume = str(e), None
     else:
         resume = None
+        if pauses:
+            # Une pause décale l'heure de passage météo ; sans départ, il n'y
+            # a pas d'heure à décaler — le signaler plutôt que de laisser
+            # croire que `--pause` a joué un rôle.
+            print(
+                "ourouler : --pause sans --heure-depart n'a aucun effet "
+                "(rien à dater sans heure de départ)",
+                file=sys.stderr,
+            )
 
     simulation = simuler(trace, float(puissance), parametres, vent=vent)
+    arrivee = (
+        depart_dt + timedelta(seconds=simulation.temps_s + _duree_pauses_s(pauses))
+        if depart_dt is not None
+        else None
+    )
     if panne is not None:
         print(f"ourouler : météo indisponible ({panne}) — simulation à vent nul", file=sys.stderr)
     if getattr(args, "json", False):
         print(
             json.dumps(
                 rendre_json_simulation(
-                    simulation, trace, velo, parametres, provenance, float(puissance), resume
+                    simulation, trace, velo, parametres, provenance, float(puissance), resume,
+                    pauses, arrivee,
                 ),
                 ensure_ascii=False,
                 indent=2,
@@ -565,26 +587,34 @@ def executer_simuler(
     else:
         print(
             rendre_texte_simulation(
-                simulation, trace, velo, parametres, provenance, float(puissance), resume
+                simulation, trace, velo, parametres, provenance, float(puissance), resume,
+                pauses, arrivee,
             )
         )
     return 0
 
 
-def vent_prevu(trace, client: ClientOpenMeteo, config: Config, depart: datetime):
+def _duree_pauses_s(pauses: Sequence[Pause]) -> float:
+    return sum(p.duree_s for p in pauses)
+
+
+def vent_prevu(
+    trace, client: ClientOpenMeteo, config: Config, depart: datetime, *, pauses: Sequence[Pause] = ()
+):
     """(fonction de vent pour `simuler`, résumé lisible) à partir de la prévision.
 
     Le vent vient de `boucle.meteo_trace`, échantillonné le long du tracé : le
     modèle a besoin de la composante de face en m/s, que la direction
-    interpolée et le cap local donnent.
+    interpolée et le cap local donnent. `pauses` décale l'heure de passage de
+    chaque échantillon situé après elles (`boucle.horaire`), jamais le temps
+    en mouvement que `simuler` calcule par ailleurs.
     """
     from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 
     meteo = evaluer_meteo(
         trace,
         client,
-        depart=depart,
-        vitesse_kmh=config.boucle.vitesse_moyenne_kmh,
+        horaire=construire_horaire(depart, config.boucle.vitesse_moyenne_kmh, pauses),
         modele=config.meteo.modele,
         second_avis=None,
     )
@@ -630,6 +660,8 @@ def rendre_texte_simulation(
     provenance: str,
     puissance_w: float,
     meteo,
+    pauses: Sequence[Pause] = (),
+    arrivee: datetime | None = None,
 ) -> str:
     lignes = [
         f"Simulation de « {trace.nom} » — {_fr(simulation.distance_m / 1000, 1)} km"
@@ -660,6 +692,16 @@ def rendre_texte_simulation(
     lignes.append(
         "Les arrêts ne sont pas modélisés : feux, stops et ravitaillements s'ajoutent à ce temps."
     )
+    if pauses:
+        total = _duree_pauses_s(pauses)
+        lignes.append(
+            f"Pauses déclarées : {len(pauses)}, {_duree(total)} au total — s'ajoutent "
+            "par-dessus le temps en mouvement, pas confondues avec les arrêts ci-dessus."
+        )
+        if arrivee is not None:
+            from ourouler.meteo.rapport import date_en_francais
+
+            lignes.append(f"Arrivée estimée : {date_en_francais(arrivee)}.")
     if provenance != "calibration":
         lignes.append(
             f"CdA et Crr viennent de la {provenance} et n'ont pas été mesurés : "
@@ -676,6 +718,8 @@ def rendre_json_simulation(
     provenance: str,
     puissance_w: float,
     meteo,
+    pauses: Sequence[Pause] = (),
+    arrivee: datetime | None = None,
 ) -> dict:
     return {
         "trace": trace.nom,
@@ -703,6 +747,12 @@ def rendre_json_simulation(
             "n_echantillons": len(meteo.echantillons),
         },
         "arrets_modelises": False,
+        # Les pauses telles que déclarées (`--pause`), et l'heure d'arrivée
+        # qui en tient compte — `null` sans `--heure-depart` (rien à dater).
+        "pauses": [
+            {"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in pauses
+        ],
+        "heure_arrivee": arrivee.isoformat() if arrivee is not None else None,
     }
 
 
