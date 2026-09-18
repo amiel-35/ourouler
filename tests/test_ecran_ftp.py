@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
+
 from ourouler.config import depuis_dict
 from ourouler.physique.modele import PART_ARRET_REFERENCE
 from ourouler.seance.ecran_ftp import info_compteur, valeurs_liees
@@ -41,18 +43,42 @@ def test_info_compteur_rend_none_sans_le_moindre_velo():
 
 
 def test_info_compteur_reprend_exactement_valeurs_liees():
-    """Pas une deuxième implémentation : les quatre champs viennent tels quels
-    de `valeurs_liees`, plus `part_arret_plancher`."""
+    """Pas une deuxième implémentation : les champs viennent tels quels de
+    `valeurs_liees`, plus `part_arret_plancher` — et `puissance_w` dit à
+    quelle puissance `moyenne_compteur_kmh` a été calculée (règle absolue 5)."""
     config = depuis_dict(CONFIG_VELO_MESURE)
     liees = valeurs_liees(config)
     info = info_compteur(config)
     assert info == {
         "velo": liees["velo"],
+        "puissance_w": liees["puissance_endurance_w"],
         "moyenne_compteur_kmh": liees["moyenne_compteur_kmh"],
         "facteur_compteur": liees["facteur_compteur"],
         "facteur_provenance": liees["facteur_provenance"],
         "part_arret_plancher": PART_ARRET_REFERENCE,
     }
+
+
+def test_info_compteur_sans_puissance_demandee_reprend_la_position_de_la_config():
+    """Non-régression : sans `puissance_w`/`vitesse_a_plat_kmh`, `info_compteur`
+    continue d'utiliser la position de la configuration, comme avant le
+    correctif du 18/09/2026 (le défaut où le porte à porte ne suivait pas
+    `--puissance`)."""
+    config = depuis_dict(CONFIG_VELO_MESURE)
+    assert info_compteur(config) == info_compteur(config, puissance_w=None, vitesse_a_plat_kmh=None)
+
+
+def test_info_compteur_suit_la_puissance_demandee():
+    """Le cœur du correctif : deux puissances demandées rendent deux moyennes
+    compteur différentes, chacune datée par le champ `puissance_w`."""
+    config = depuis_dict(CONFIG_VELO_MESURE)
+    info_150 = info_compteur(config, puissance_w=150.0)
+    info_300 = info_compteur(config, puissance_w=300.0)
+    assert info_150["puissance_w"] == pytest.approx(150.0, abs=0.1)
+    assert info_300["puissance_w"] == pytest.approx(300.0, abs=0.1)
+    assert info_300["moyenne_compteur_kmh"] > info_150["moyenne_compteur_kmh"]
+    # Le facteur mesuré ne bouge pas avec la puissance demandée :
+    assert info_150["facteur_compteur"] == info_300["facteur_compteur"] == 0.85
 
 
 def test_info_compteur_dit_le_facteur_mesure():

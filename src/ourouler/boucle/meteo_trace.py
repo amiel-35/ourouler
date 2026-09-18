@@ -7,9 +7,18 @@ averse qui traverse la région à 10 h ne concerne que les kilomètres 25 à 35.
 
 Un **seul** appel Open-Meteo pour tous les échantillons (le service accepte
 plusieurs coordonnées par requête) ; un second appel seulement si un second
-avis est demandé. Les valeurs horaires sont interpolées linéairement entre
-les deux heures encadrantes — angulairement pour la direction du vent, sans
-quoi 350° et 10° donneraient 180°, c'est-à-dire le sud au lieu du nord.
+avis est demandé, un troisième seulement si le modèle principal ne couvre
+pas toute la fenêtre et qu'un modèle de repli existe (Q19, prolongé au repli
+**partiel** — voir `evaluer`). Les valeurs horaires sont interpolées
+linéairement entre les deux heures encadrantes — angulairement pour la
+direction du vent, sans quoi 350° et 10° donneraient 180°, c'est-à-dire le
+sud au lieu du nord.
+
+L'heure de passage de chaque échantillon vient d'un `Horaire`
+(`boucle.horaire.construire_horaire`) : `depart + distance / vitesse`, plus
+la somme des pauses déclarées avant ce point du tracé — un brevet ou une
+sortie avec un arrêt déjeuner ne se roule pas à vitesse constante d'une
+traite.
 
 La règle du vent relatif (secteur de ±45°) n'est pas réécrite ici : c'est
 `ourouler.meteo.rapport.vent_relatif`, appliquée au **cap local du tracé**
@@ -23,6 +32,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from ourouler.boucle.horaire import Horaire
 from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
 from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo, PrevisionHeure, PrevisionPoint
@@ -91,6 +101,17 @@ class Echantillon:
     vitesse, pas une direction : l'interpoler angulairement n'aurait pas de
     sens. Portée jusqu'ici pour l'affichage (flèches de vent de la carte) ;
     le modèle physique ne s'en sert pas, seul `vent_kmh` l'alimente."""
+    modele: str | None = None
+    """Le modèle qui a renseigné **cet** échantillon : `None` si ni le
+    modèle principal ni son repli (Q19) ne couvrent l'heure de passage ici.
+
+    Une sortie longue dépasse parfois l'horizon du modèle principal en
+    cours de route (une nuit de sommeil, par exemple) sans que la fenêtre
+    entière soit hors domaine : les premiers échantillons ont une vraie
+    réponse d'AROME, les derniers basculent sur le repli. Avant ce champ,
+    `MeteoTrace.modele_utilise` ne portait qu'un seul nom pour tout le
+    tracé — un mensonge par mise en page pour la moitié qui n'avait pas
+    cette réponse-là (règle absolue 5)."""
 
 
 @dataclass
@@ -115,18 +136,26 @@ class MeteoTrace:
     quand la météo a pu être évaluée, pour que l'affichage nomme le modèle
     plutôt que de se taire dessus."""
     repli: bool = False
-    """Vrai quand `modele_utilise` n'est pas le modèle demandé : le modèle
-    principal ne couvrait pas cette fenêtre et `evaluer` a basculé sur
-    `modele_repli`. Deux modèles qui divergent s'affichent (règle absolue
-    5) ; ici un seul a répondu, et c'est encore une divergence à dire."""
+    """Vrai dès qu'au moins un échantillon n'est pas renseigné par
+    `modele_utilise` : soit que le modèle principal ne couvrait pas la
+    fenêtre du tout (`bascule_dist_m` reste `None`, tout le tracé est sur
+    le repli), soit qu'il ne la couvrait qu'en partie (`bascule_dist_m`
+    donne alors le premier kilomètre concerné). Deux modèles qui divergent
+    s'affichent (règle absolue 5) ; ici un seul répond par échantillon, et
+    c'est encore une divergence à dire."""
+    bascule_dist_m: float | None = None
+    """Le premier kilomètre (en mètres) où un échantillon bascule sur le
+    modèle de repli plutôt que `modele_utilise` — `None` sauf **repli
+    partiel** : sans repli du tout, ou avec un repli total dès le départ
+    (`repli` seul le dit déjà dans ce cas), il reste `None`. Sert la phrase
+    d'écran « au-delà du kilomètre X, la prévision vient de … »."""
 
 
 def evaluer(
     trace: Trace,
     client: ClientOpenMeteo,
     *,
-    depart: datetime,
-    vitesse_kmh: float,
+    horaire: Horaire,
     modele: str,
     second_avis: str | None = None,
     modele_repli: str | None = None,
@@ -134,44 +163,51 @@ def evaluer(
 ) -> MeteoTrace:
     """La météo le long de `trace`, échantillonnée tous les `pas_m`.
 
-    `depart` sans fuseau est lu comme UTC, comme dans le client Open-Meteo.
-    `vitesse_kmh` sert à dater chaque échantillon : heure de passage =
-    `depart + distance / vitesse`. Elle vient de la configuration, jamais
-    d'une lecture faite ici (règle absolue 2).
+    `horaire` répond « à quelle heure suis-je au kilomètre X » — construit
+    par l'appelant (`boucle.horaire.construire_horaire`, dans `cli.py` ou
+    `boucle.commande`), jamais lu ici (règle absolue 2). Sans pause déclarée,
+    c'est exactement `depart + distance / vitesse`, le calcul d'avant ce lot.
+    `horaire(0.0)` sert de départ pour la fenêtre demandée à Open-Meteo :
+    aucune pause ne peut être strictement avant le kilomètre zéro, donc il
+    vaut toujours le départ tel quel.
 
     `modele_repli` est le **repli** (Q19) : quand `modele` ne couvre pas la
-    fenêtre demandée (`ErreurHorsDomaine` — AROME publie à 67 h, une sortie
-    à J+3 en demande davantage), on retente une fois avec `modele_repli`
-    comme modèle **principal** de remplacement, pas comme second avis. Sans
-    lui (`None`, le défaut), le comportement est inchangé : l'échec remonte
-    tel quel. `MeteoTrace.modele_utilise` et `.repli` disent ce qui a
-    répondu, pour que l'affichage le nomme plutôt que de se taire dessus. Le
-    second avis (`second_avis`) n'est pas redemandé si le repli l'a déjà
-    utilisé comme principal : le comparer à lui-même n'apprendrait rien
-    (règle absolue 5 — on ne moyenne ni ne compare un modèle avec lui-même).
+    fenêtre demandée du tout (`ErreurHorsDomaine` — AROME publie à 67 h, une
+    sortie à J+3 en demande davantage), on retente une fois avec
+    `modele_repli` comme modèle **principal** de remplacement, pas comme
+    second avis. Sans lui (`None`, le défaut), le comportement est inchangé :
+    l'échec remonte tel quel.
+
+    **Repli partiel.** Un tracé dont la fin déborde la portée horaire du
+    modèle principal sans que le départ en soit hors domaine (une nuit de
+    sommeil, par exemple) ne fait pas échouer l'appel : Open-Meteo rend une
+    série qui s'arrête en route, et les échantillons au-delà restent absents
+    — sauf si `modele_repli` est fourni, auquel cas il est tenté une seule
+    fois (mémoïsé), et sert les seuls échantillons que le principal n'a pas
+    couverts. `Echantillon.modele` dit, échantillon par échantillon, lequel a
+    répondu ; `MeteoTrace.bascule_dist_m` donne le premier kilomètre
+    concerné — pour que l'affichage le nomme plutôt que de se taire dessus
+    (règle absolue 5, deux qualités de prévision ne s'affichent jamais de la
+    même façon). Le second avis (`second_avis`) n'est jamais redemandé au
+    modèle qui sert déjà de repli : le comparer à lui-même n'apprendrait rien.
     """
-    # Ces trois refus tombent **avant** le premier appel à Open-Meteo : une
+    # Ces deux refus tombent **avant** le premier appel à Open-Meteo : une
     # entrée absurde ne consomme pas de quota et ne fait pas attendre.
     if not trace.points:
         raise ErreurUtilisateur("tracé sans point : il n'y a rien à évaluer le long du parcours")
-    if not _strictement_positif(vitesse_kmh):
-        raise ErreurUtilisateur(
-            f"vitesse_kmh = {vitesse_kmh} : une vitesse strictement positive est attendue "
-            "(l'heure de passage vaut départ + distance / vitesse)"
-        )
     if not _strictement_positif(pas_m):
         raise ErreurUtilisateur(
             f"pas_m = {pas_m} : un pas d'échantillonnage strictement positif est attendu"
         )
 
-    depart_tz = depart if depart.tzinfo else depart.replace(tzinfo=UTC)
+    depart_tz = horaire(0.0)
     distances = _distances_cumulees(trace.points)
     indices = _indices_echantillons(distances, pas_m)
 
     bases = [
         (
             distances[i],
-            depart_tz + timedelta(hours=distances[i] / 1000.0 / vitesse_kmh),
+            horaire(distances[i]),
             trace.points[i],
             _cap_local(trace.points, i),
         )
@@ -180,13 +216,35 @@ def evaluer(
     coordonnees = [(p.lat, p.lon) for _, _, p, _ in bases]
 
     debut_heure, horizon_h = _fenetre(depart_tz, bases[-1][1])
-    previsions, modele_utilise, repli = _previsions_avec_repli(
+    previsions, modele_principal, repli_total = _previsions_avec_repli(
         client, coordonnees, modele, modele_repli, debut_heure, horizon_h
     )
 
+    previsions_repli: list[PrevisionPoint] | None = None
+    bascule_dist_m: float | None = None
     echantillons = []
-    for (dist, t, point, cap), prevision in zip(bases, previsions, strict=True):
+    for i, ((dist, t, point, cap), prevision) in enumerate(zip(bases, previsions, strict=True)):
         valeurs = _interpoler(prevision.heures, t)
+        modele_echantillon: str | None = None if _valeurs_vides(valeurs) else modele_principal
+        if (
+            modele_echantillon is None
+            and not repli_total
+            and modele_repli
+            and modele_repli != modele_principal
+        ):
+            # Tenté une seule fois pour tout l'appel, la première fois qu'un
+            # échantillon en a besoin — pas un appel par échantillon absent.
+            if previsions_repli is None:
+                previsions_repli = _tenter_repli_partiel(
+                    client, coordonnees, modele_repli, debut_heure, horizon_h
+                )
+            if previsions_repli is not None:
+                valeurs_repli = _interpoler(previsions_repli[i].heures, t)
+                if not _valeurs_vides(valeurs_repli):
+                    valeurs = valeurs_repli
+                    modele_echantillon = modele_repli
+                    if bascule_dist_m is None:
+                        bascule_dist_m = dist
         echantillons.append(
             Echantillon(
                 dist_m=dist,
@@ -205,13 +263,16 @@ def evaluer(
                 ressenti_c=valeurs.ressenti_c,
                 vent_depuis_deg=valeurs.vent_depuis_deg,
                 rafales_kmh=valeurs.rafales_kmh,
+                modele=modele_echantillon,
             )
         )
 
-    # Pas de comparaison d'un modèle avec lui-même : si le repli a déjà pris
-    # la place du principal, redemander `second_avis` quand il lui est égal
-    # ne comparerait rien à rien, seulement le coût d'un appel de plus.
-    avis_pour_comparaison = second_avis if second_avis != modele_utilise else None
+    # Pas de comparaison d'un modèle avec lui-même : si le repli total a déjà
+    # pris la place du principal, redemander `second_avis` quand il lui est
+    # égal ne comparerait rien à rien, seulement le coût d'un appel de plus.
+    # (Le repli partiel ne change rien ici : `modele_principal` reste le
+    # modèle demandé, indépendant de ce qui a servi tel ou tel échantillon.)
+    avis_pour_comparaison = second_avis if second_avis != modele_principal else None
     pluies_second_avis = _second_avis(
         client,
         coordonnees,
@@ -221,8 +282,9 @@ def evaluer(
         avis_pour_comparaison,
     )
     resultat = _resumer(echantillons, pluies_second_avis)
-    resultat.modele_utilise = modele_utilise
-    resultat.repli = repli
+    resultat.modele_utilise = modele_principal
+    resultat.repli = repli_total or bascule_dist_m is not None
+    resultat.bascule_dist_m = bascule_dist_m
     return resultat
 
 
@@ -253,6 +315,29 @@ def _previsions_avec_repli(
             coordonnees, modele=modele_repli, debut=debut_heure, horizon_h=horizon_h
         )
         return previsions, modele_repli, True
+
+
+def _tenter_repli_partiel(
+    client: ClientOpenMeteo,
+    coordonnees: Sequence[tuple[float, float]],
+    modele_repli: str,
+    debut_heure: datetime,
+    horizon_h: int,
+) -> list[PrevisionPoint] | None:
+    """Le repli sur toute la fenêtre, pour les échantillons que le principal n'a pas couverts.
+
+    Contrairement à `_previsions_avec_repli` (bascule **totale**, sur
+    `ErreurHorsDomaine`), celle-ci sert un repli **partiel** : le principal a
+    répondu, seule la fin de la fenêtre lui échappe. Tolérante à l'échec —
+    même raison que `_second_avis` : un repli indisponible ne fait perdre que
+    les échantillons qui en avaient besoin, pas toute l'évaluation.
+    """
+    try:
+        return client.previsions(
+            coordonnees, modele=modele_repli, debut=debut_heure, horizon_h=horizon_h
+        )
+    except ErreurConnecteur:
+        return None
 
 
 # --- ce qu'on montre du vent -------------------------------------------------
@@ -393,6 +478,18 @@ class _Valeurs:
     vent_depuis_deg: float | None = None
     ressenti_c: float | None = None
     rafales_kmh: float | None = None
+
+
+def _valeurs_vides(v: _Valeurs) -> bool:
+    """Vrai quand rien n'a été trouvé pour cet échantillon — pas juste un champ isolé.
+
+    Sert à décider si le repli partiel doit être tenté : une pluie manquante
+    seule (`precipitation` absente à cette heure précise) n'est pas un signe
+    que le modèle ne couvre plus la fenêtre, c'est le comportement normal
+    d'une variable ponctuellement absente. Rien du tout, en revanche — ni
+    pluie, ni vent, ni ressenti — c'est `_encadrantes` qui n'a trouvé aucune
+    heure du tout pour `t` (hors de la série rendue par le modèle)."""
+    return v == _Valeurs()
 
 
 def _interpoler(heures: Sequence[PrevisionHeure], t: datetime) -> _Valeurs:

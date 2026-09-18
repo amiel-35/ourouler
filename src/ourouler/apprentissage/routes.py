@@ -765,31 +765,51 @@ def points_de_passage(
     appel. Au-delà de `maximum`, on ré-échantillonne régulièrement plutôt que
     de tronquer — tronquer rendrait un itinéraire qui s'arrête au milieu, donc
     des tags faux sur la fin de la sortie.
+
+    La règle elle-même vit dans `points_de_passage_depuis_coordonnees` — ici
+    on ne fait qu'extraire les positions géolocalisées d'une `Activite`.
     """
-    geolocalises = [p for p in activite.points if p.lat is not None and p.lon is not None]
-    if len(geolocalises) < 2:
+    geolocalises = [(p.lat, p.lon) for p in activite.points if p.lat is not None and p.lon is not None]
+    return points_de_passage_depuis_coordonnees(geolocalises, espacement_m=espacement_m, maximum=maximum)
+
+
+def points_de_passage_depuis_coordonnees(
+    coordonnees: Sequence[tuple[float, float]],
+    *,
+    espacement_m: float = ESPACEMENT_PASSAGE_M,
+    maximum: int = PASSAGES_MAX,
+) -> list[tuple[float, float]]:
+    """Sœur mince de `points_de_passage`, à partir de coordonnées déjà résolues.
+
+    Même règle d'espacement, même plafond, même appelant (BRouter) — une
+    seule implémentation, pour que `points_de_passage` (une `Activite`
+    rejouée par `apprendre`) et `boucle.tags_importes` (les points d'un
+    `Trace` importé, greffés depuis un tracé rerouté) ne dérivent jamais l'une
+    de l'autre par deux constantes recopiées.
+    """
+    if len(coordonnees) < 2:
         return []
-    retenus = [geolocalises[0]]
+    retenus = [coordonnees[0]]
     cumul = 0.0
-    for a, b in zip(geolocalises[:-1], geolocalises[1:], strict=True):
+    for (lat_a, lon_a), (lat_b, lon_b) in zip(coordonnees[:-1], coordonnees[1:], strict=True):
         cumul += distance_m(
-            PointTrace(a.lat, a.lon, None, 0.0), PointTrace(b.lat, b.lon, None, 0.0)
+            PointTrace(lat_a, lon_a, None, 0.0), PointTrace(lat_b, lon_b, None, 0.0)
         )
         if cumul >= espacement_m:
-            retenus.append(b)
+            retenus.append((lat_b, lon_b))
             cumul = 0.0
-    if retenus[-1] is not geolocalises[-1]:
-        retenus.append(geolocalises[-1])
+    if retenus[-1] != coordonnees[-1]:
+        retenus.append(coordonnees[-1])
     if len(retenus) > maximum:
         # `max(1, …)` : à `maximum = 1`, le dénominateur valait 0. Aucun
         # appelant ne passe autre chose que `PASSAGES_MAX`, mais une borne qui
         # divise par zéro à sa valeur la plus basse n'est pas une borne.
         pas = math.ceil(len(retenus) / max(1, maximum - 1))
         allege = retenus[::pas]
-        if allege[-1] is not retenus[-1]:
+        if allege[-1] != retenus[-1]:
             allege.append(retenus[-1])
         retenus = allege
-    return [(float(p.lat), float(p.lon)) for p in retenus]
+    return [(float(lat), float(lon)) for lat, lon in retenus]
 
 
 def sorties_a_apprendre(cache: Cache, config: Config, *, depuis: date) -> list[EntreeCache]:

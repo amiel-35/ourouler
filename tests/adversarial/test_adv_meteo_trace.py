@@ -27,6 +27,7 @@ import pytest
 from fabriques import EspionHttp
 from outils import robuste
 
+from ourouler.boucle.horaire import construire_horaire
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo import rapport
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -94,9 +95,18 @@ def _trace(km: float = 12.0, *, cap_deg: float = 0.0, pas_m: float = 50.0):
 
 
 def _evaluer(module, trace, client, **surcharges):
+    """Appelle `module.evaluer`, en traduisant `depart`/`vitesse_kmh` en `horaire`.
+
+    Le contrat testé ici appelait `evaluer` avec `depart`/`vitesse_kmh` ; le
+    lot des pauses lui a substitué un `horaire` (`boucle.horaire`,
+    « à quelle heure suis-je au kilomètre X »). Les surcharges historiques
+    des tests de ce fichier restent lisibles telles quelles — c'est cette
+    fonction qui construit l'horaire, pas chaque test.
+    """
+    depart = surcharges.pop("depart", DEPART_T)
+    vitesse_kmh = surcharges.pop("vitesse_kmh", 20.0)
     arguments: dict[str, Any] = {
-        "depart": DEPART_T,
-        "vitesse_kmh": 20.0,
+        "horaire": construire_horaire(depart, vitesse_kmh),
         "modele": MODELE,
         "pas_m": 5000.0,
     }

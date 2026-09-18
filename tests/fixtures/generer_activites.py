@@ -206,7 +206,11 @@ def encoder_fit(echantillons: list[Echantillon], *, sport: int = 2, sous_sport: 
 
 
 def encoder_fit_multisession(
-    troncons: list[list[Echantillon]], *, sport: int = 2, sous_sport: int = 0
+    troncons: list[list[Echantillon]],
+    *,
+    sport: int = 2,
+    sous_sport: int = 0,
+    sports: list[tuple[int, int]] | None = None,
 ) -> bytes:
     """Un FIT portant **une trame `session` par tronçon**.
 
@@ -216,7 +220,14 @@ def encoder_fit_multisession(
     début ; chaque `session` porte la distance et la durée **de son
     tronçon**, si bien que le total est la somme des sessions — et pas la
     valeur de la dernière.
+
+    `sports` donne un `(sport, sous_sport)` **par tronçon** : c'est ce qui
+    distingue un vrai fichier multisport — nage, puis vélo, puis course — d'une
+    sortie simplement coupée en deux, où toutes les sessions portent le même
+    sport. Sans lui, `sport` et `sous_sport` s'appliquent à toutes.
     """
+    if sports is not None and len(sports) != len(troncons):
+        raise ValueError(f"{len(sports)} sports pour {len(troncons)} tronçons")
     assert troncons and all(troncons), "chaque tronçon doit porter au moins un échantillon"
     tous = [e for troncon in troncons for e in troncon]
     gps = tous[0].lat is not None
@@ -245,8 +256,9 @@ def encoder_fit_multisession(
         corps += message_donnees(1, champs_record, valeurs)
 
     corps += message_definition(2, 18, CHAMPS_SESSION)
-    for troncon in troncons:
-        corps += _donnees_session(troncon, sport=sport, sous_sport=sous_sport)
+    for i, troncon in enumerate(troncons):
+        propre = sports[i] if sports is not None else (sport, sous_sport)
+        corps += _donnees_session(troncon, sport=propre[0], sous_sport=propre[1])
     return fichier_fit(bytes(corps))
 
 

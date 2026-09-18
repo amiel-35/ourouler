@@ -83,6 +83,7 @@ from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
+from ourouler.boucle.horaire import construire_horaire
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
@@ -1032,8 +1033,7 @@ def _replacer_avec_vent(
             meteo_vent = evaluer_meteo(
                 trace,
                 client_meteo,
-                depart=demande.depart,
-                vitesse_kmh=vitesse,
+                horaire=construire_horaire(demande.depart, vitesse),
                 modele=config.meteo.modele,
                 # Pas de `second_avis` : lui seul sert au second modèle de
                 # pluie, et ce premier appel ne sert qu'au vent du modèle
@@ -1159,8 +1159,7 @@ def _mesurer(
                 meteo = evaluer_meteo(
                     trace,
                     client_meteo,
-                    depart=demande.depart,
-                    vitesse_kmh=vitesse,
+                    horaire=construire_horaire(demande.depart, vitesse),
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
                     # Repli Q19 : sans lui, une fenêtre hors de portée
@@ -1757,10 +1756,16 @@ def _entete(
         f"Distance : {contexte.distance_source}",
         f"Modèle physique : {contexte.provenance_modele}",
     ]
-    if contexte.provenance_modele.startswith("défaut"):
+    # Le test portait sur « défaut » seul. Depuis que les vélos non calibrés
+    # reçoivent les valeurs de `physique.litterature` (18/09/2026), cette
+    # provenance-là ne dit plus « défaut » — et l'avertissement disparaissait
+    # justement dans le cas où il sert le plus (règle absolue 5). Ce qui
+    # compte, c'est « mesuré sur ce vélo ou non ».
+    if not contexte.provenance_modele.startswith("calibration"):
         lignes.append(
             "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un "
-            "CdA et un Crr par défaut (`ourouler calibrer`)."
+            f"CdA et un Crr qui viennent de la {contexte.provenance_modele.split(' (')[0]} "
+            "et n'ont pas été mesurés sur vous (`ourouler calibrer`)."
         )
     lignes += _ligne_modele_meteo(propositions, config)
     lignes += _lignes_vent(contexte)

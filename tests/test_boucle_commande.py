@@ -15,7 +15,7 @@ import argparse
 import dataclasses
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +30,8 @@ from ourouler.boucle.commande import (
     Demande,
     Evaluation,
     _info_compteur,
+    _ligne_modele_meteo,
+    _modele_meteo_json,
     direction_en_azimut,
     executer,
     lire_options,
@@ -38,6 +40,7 @@ from ourouler.boucle.commande import (
 )
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
+from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
 from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.cli import construire_parseur, main
 from ourouler.config import Config, depuis_dict
@@ -103,14 +106,21 @@ def args(**champs) -> argparse.Namespace:
 
 
 def moteur_brouter(longueur_par_azimut: dict[float, float] | None = None) -> ClientBrouter:
-    """BRouter bouchonné : une boucle fabriquée dont la longueur dépend de l'azimut."""
+    """BRouter bouchonné : une boucle fabriquée dont la longueur dépend de l'azimut.
+
+    Répond aussi à un appel `itineraire` (sans `roundTripStartDirection`) : le
+    greffage de tags sur un GPX importé (`boucle.tags_importes`) en fait un,
+    et ce même client sert souvent à générer *et* à réévaluer un GPX dans le
+    même test.
+    """
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
-        azimut = float(requete.url.params["roundTripStartDirection"])
+        azimut_brut = requete.url.params.get("roundTripStartDirection")
         charge = reponse_fabriquee()
-        entite = charge["features"][0]
-        longueur = (longueur_par_azimut or {}).get(azimut, 60_000.0)
-        entite["properties"]["track-length"] = str(round(longueur))
+        if azimut_brut is not None:
+            entite = charge["features"][0]
+            longueur = (longueur_par_azimut or {}).get(float(azimut_brut), 60_000.0)
+            entite["properties"]["track-length"] = str(round(longueur))
         return httpx.Response(200, json=charge)
 
     params = config_de_test().brouter
@@ -256,6 +266,64 @@ def test_brouter_non_renseigne_est_refuse_avant_tout_appel():
         lire_options(args(), config)
 
 
+# --- --pause : lu, validé avant tout appel réseau -----------------------------
+
+
+def test_une_pause_valide_est_portee_par_la_demande():
+    demande = lire_options(args(pause=["10:0h45"]), config_de_test())
+    assert len(demande.pauses) == 1
+    assert demande.pauses[0].dist_m == pytest.approx(10_000.0)
+    assert demande.pauses[0].duree_s == pytest.approx(45 * 60.0)
+
+
+def test_pause_est_repetable():
+    demande = lire_options(args(pause=["10:0h45", "40:4h30"]), config_de_test())
+    assert [p.dist_m for p in demande.pauses] == pytest.approx([10_000.0, 40_000.0])
+
+
+def test_sans_pause_la_demande_en_porte_aucune():
+    assert lire_options(args(), config_de_test()).pauses == ()
+
+
+def test_une_pause_a_kilometre_negatif_est_refusee():
+    with pytest.raises(ErreurUtilisateur, match="kilomètre"):
+        lire_options(args(pause=["-5:0h45"]), config_de_test())
+
+
+def test_une_pause_a_duree_nulle_est_refusee():
+    with pytest.raises(ErreurUtilisateur, match="durée"):
+        lire_options(args(pause=["10:0h0"]), config_de_test())
+
+
+def test_deux_pauses_au_meme_kilometre_sont_refusees():
+    with pytest.raises(ErreurUtilisateur, match="même kilomètre"):
+        lire_options(args(pause=["10:0h45", "10:1h00"]), config_de_test())
+
+
+def test_une_pause_au_dela_de_la_distance_demandee_est_refusee():
+    """`--distance 60` : une pause à 70 km est une erreur d'entrée, pas un no-op silencieux."""
+    with pytest.raises(ErreurUtilisateur, match="au-delà"):
+        lire_options(args(distance=60.0, pause=["70:0h45"]), config_de_test())
+
+
+def test_une_pause_dans_la_distance_demandee_est_acceptee():
+    demande = lire_options(args(distance=60.0, pause=["59:0h45"]), config_de_test())
+    assert len(demande.pauses) == 1
+
+
+def test_une_pause_au_dela_du_gpx_importe_est_refusee(tmp_path: Path, monkeypatch):
+    """Sans `--distance` (mode `--gpx`), le refus attend la lecture du tracé importé."""
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+    with pytest.raises(ErreurUtilisateur, match="au-delà"):
+        executer(
+            args(gpx=str(chemin), pause=["1000:0h45"]),
+            config_de_test(),
+            moteur_brouter(),
+            moteur_meteo(),
+        )
+
+
 def test_un_gpx_introuvable_est_refuse(tmp_path: Path):
     with pytest.raises(ErreurUtilisateur, match="introuvable"):
         lire_options(args(gpx=str(tmp_path / "absent.gpx")), config_de_test())
@@ -355,16 +423,32 @@ def test_le_tri_suit_bien_le_total_annonce(tmp_path: Path, monkeypatch, capsys):
     assert totaux == sorted(totaux)
     for candidate in charge["candidates"]:
         attendu = candidate["couts"]["score"] + candidate["meteo"]["pluie_cumulee_mm"] * 2
-        assert candidate["total_tri"] == pytest.approx(attendu, abs=1e-3)
+        # Les trois nombres sont arrondis au millième **chacun** dans le JSON,
+        # et la pluie est ensuite doublée : recomposer la somme à partir d'eux
+        # laisse jusqu'à 2,5 millièmes d'écart. La tolérance d'origine, 1e-3,
+        # tenait par chance sur les valeurs d'alors.
+        assert candidate["total_tri"] == pytest.approx(attendu, abs=3e-3)
 
 
-def test_le_temps_estime_suit_la_vitesse_de_la_configuration(tmp_path: Path, monkeypatch, capsys):
+def test_le_temps_estime_vient_du_modele_meme_sans_calibration(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le défaut du 18/09/2026, à l'envers : une configuration nue donne un modèle.
+
+    Avant ce lot, une configuration sans `calibration.json` retombait sur
+    `vitesse_moyenne_kmh` — 27 km/h, une constante que ni la FTP ni le vélo ne
+    déplaçaient. Elle reçoit maintenant les paramètres de littérature de sa
+    catégorie, et le temps dépend donc du terrain et de la puissance.
+    """
     monkeypatch.chdir(tmp_path)
     executer(args(json=True), config_de_test(), moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
     candidate = charge["candidates"][0]
-    attendu = candidate["distance_km"] / 27.0 * 3600
-    assert candidate["temps_estime_s"] == pytest.approx(attendu, abs=1)
+    a_27 = candidate["distance_km"] / 27.0 * 3600
+    assert candidate["temps_source"] == "modele"
+    assert candidate["temps_estime_s"] != pytest.approx(a_27, abs=1)
+    assert charge["modele_physique"]["provenance"] == "littérature"
+    assert charge["modele_physique"]["mesure"] is False
 
 
 # --- le GPX écrit --------------------------------------------------------------
@@ -567,15 +651,45 @@ def test_gpx_importe_evalue_seul_sans_rien_ecrire(tmp_path: Path, monkeypatch, c
     assert len(lignes_du_tableau(sortie)) == 1
 
 
-def test_gpx_importe_affiche_des_couts_partiels(tmp_path: Path, monkeypatch, capsys):
+def test_gpx_importe_avec_greffage_reussi_sort_des_couts_partiels(tmp_path: Path, monkeypatch, capsys):
+    """Le greffage (`boucle.tags_importes`) réussit : les coûts cessent d'être partiels.
+
+    Avant le lot de greffage, un GPX importé restait `couts_partiels: True`
+    pour toujours — le trafic, le revêtement, les feux étaient inconnus. Un
+    BRouter disponible et un rapprochement exploitable changent ce fait :
+    c'est tout l'objet du lot.
+    """
     monkeypatch.chdir(tmp_path)
     chemin = gpx_de_test(tmp_path)
     executer(args(gpx=str(chemin), json=True), config_de_test(), moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
     assert charge["gpx"] is None
     assert len(charge["candidates"]) == 1
-    assert charge["candidates"][0]["couts_partiels"] is True
-    assert charge["candidates"][0]["meteo"] is not None
+    candidate = charge["candidates"][0]
+    assert candidate["couts_partiels"] is False
+    assert candidate["meteo"] is not None
+    assert candidate["meta"]["tags_provenance"] == "rapprochement"
+    assert candidate["meta"]["tags_seuil_m"] > 0
+    assert candidate["meta"]["tags_km_sans_tag"] >= 0.0
+
+
+def test_gpx_importe_sans_brouter_disponible_garde_les_couts_partiels(tmp_path: Path, monkeypatch, capsys):
+    """Chemin dégradé : BRouter injoignable pour le greffage, comportement d'avant inchangé."""
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+
+    def en_panne(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"erreur": "maintenance"})
+
+    client = ClientBrouter(
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(en_panne))
+    )
+    code = executer(args(gpx=str(chemin), json=True), config_de_test(), client, moteur_meteo())
+    assert code == 0
+    charge = json.loads(capsys.readouterr().out)
+    candidate = charge["candidates"][0]
+    assert candidate["couts_partiels"] is True
+    assert "tags_provenance" not in candidate["meta"]
 
 
 def test_la_colonne_d_plus_dit_d_ou_vient_le_chiffre(tmp_path: Path, monkeypatch, capsys):
@@ -610,17 +724,43 @@ def test_la_provenance_du_denivele_est_dans_le_json(tmp_path: Path, monkeypatch,
     assert charge["candidates"][0]["denivele_source"] == "gpx relu"
 
 
-def test_gpx_importe_n_appelle_pas_brouter(tmp_path: Path, monkeypatch):
+def test_gpx_importe_appelle_brouter_pour_greffer_les_tags(tmp_path: Path, monkeypatch):
+    """Depuis le greffage de tags, `--gpx` appelle bien BRouter — pour reroutier, pas pour tracer.
+
+    Avant ce lot, `--gpx` n'appelait jamais BRouter : la trace importée restait
+    sans tags. Le greffage (`boucle.tags_importes`) a besoin d'un tracé
+    rerouté pour trouver des tags à emprunter, d'où cet appel — un seul, pas
+    un par candidate (`--gpx` n'en évalue qu'une).
+    """
     monkeypatch.chdir(tmp_path)
     chemin = gpx_de_test(tmp_path)
+    appels = []
 
-    def interdit(requete: httpx.Request) -> httpx.Response:
-        raise AssertionError("BRouter ne doit pas être appelé avec --gpx")
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        appels.append(requete)
+        return httpx.Response(200, json=reponse_fabriquee())
 
     client = ClientBrouter(
-        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(interdit))
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
     )
     assert executer(args(gpx=str(chemin)), config_de_test(), client, moteur_meteo()) == 0
+    assert len(appels) == 1
+    assert "roundTripStartDirection" not in appels[0].url.params, "un itinéraire, pas une boucle"
+
+
+def test_gpx_importe_sans_client_brouter_injecte_en_construit_un(tmp_path: Path, monkeypatch):
+    """`client_brouter=None` : la commande construit le sien, comme pour une boucle générée.
+
+    Même détail que la branche sans `--gpx` : `evitements=config.evitements`
+    est passé au client construit. On le vérifie ici en configurant une URL
+    de serveur invalide (`brouter` non renseigné) et en s'assurant que la
+    commande dégrade proprement plutôt que de planter.
+    """
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+    config_sans_brouter = depuis_dict({k: v for k, v in CONFIG_BRUTE.items() if k != "brouter"})
+    code = executer(args(gpx=str(chemin)), config_sans_brouter, None, moteur_meteo())
+    assert code == 0  # dégradé : couts_partiels, pas d'exception
 
 
 # --- la sortie JSON ------------------------------------------------------------
@@ -656,6 +796,71 @@ def test_json_valide_avec_toutes_les_mesures(tmp_path: Path, monkeypatch, capsys
     assert fleches, "un vent bouchonné à 14 km/h doit produire des flèches"
     for fleche in fleches:
         assert set(fleche) == {"pt", "depuis_deg", "vent_kmh", "rafale_kmh", "relatif"}
+
+
+# --- --pause : l'écran, le JSON --------------------------------------------------
+
+
+def test_sans_pause_l_entete_ne_dit_rien_des_pauses(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(args(), config_de_test(), moteur_brouter(), moteur_meteo())
+    assert "Pauses" not in capsys.readouterr().out
+
+
+def test_l_entete_annonce_le_total_des_pauses_et_l_arrivee(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(pause=["10:0h45", "40:4h30"]),
+        config_de_test(),
+        moteur_brouter(),
+        moteur_meteo(),
+    )
+    sortie = capsys.readouterr().out
+    ligne = next(ligne for ligne in sortie.splitlines() if ligne.startswith("Pauses"))
+    assert "2 déclarée(s)" in ligne
+    assert "5:15 au total" in ligne, ligne  # 45 min + 4h30 = 5h15
+    assert "Arrivée estimée" in ligne
+    assert "par-dessus le temps écoulé porte à porte" in ligne
+
+
+def test_le_json_porte_les_pauses_declarees_et_l_heure_d_arrivee(
+    tmp_path: Path, monkeypatch, capsys
+):
+    monkeypatch.chdir(tmp_path)
+    executer(
+        args(json=True, pause=["10:0h45"]),
+        config_de_test(),
+        moteur_brouter(),
+        moteur_meteo(),
+    )
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["pauses"] == [{"km": 10.0, "duree_s": 2700}]
+    candidate = charge["candidates"][0]
+    assert "heure_arrivee" in candidate
+    depart = datetime.fromisoformat(charge["depart"]["heure"])
+    arrivee = datetime.fromisoformat(candidate["heure_arrivee"])
+    assert arrivee > depart + timedelta(minutes=45), (
+        "l'arrivée doit au moins porter la pause déclarée, en plus du temps de route"
+    )
+
+
+def test_une_pause_avance_l_heure_d_arrivee_de_sa_duree(tmp_path: Path, monkeypatch, capsys):
+    """Comparaison directe : seule la pause doit expliquer l'écart entre les deux arrivées."""
+    monkeypatch.chdir(tmp_path)
+    executer(args(json=True, candidates=1), config_de_test(), moteur_brouter(), moteur_meteo())
+    sans_pause = json.loads(capsys.readouterr().out)
+
+    executer(
+        args(json=True, candidates=1, pause=["10:0h45"]),
+        config_de_test(),
+        moteur_brouter(),
+        moteur_meteo(),
+    )
+    avec_pause = json.loads(capsys.readouterr().out)
+
+    t_sans = datetime.fromisoformat(sans_pause["candidates"][0]["heure_arrivee"])
+    t_avec = datetime.fromisoformat(avec_pause["candidates"][0]["heure_arrivee"])
+    assert (t_avec - t_sans) == timedelta(minutes=45)
 
 
 # --- la météo en panne ne fait pas perdre la boucle ----------------------------
@@ -772,6 +977,77 @@ def test_le_repli_est_nomme_dans_l_entete(tmp_path: Path, monkeypatch, capsys):
     assert "bascule sur modele_second_test" in sortie
 
 
+# --- repli partiel : un tracé qui déborde l'horizon du principal en route -----
+#
+# La mécanique elle-même (quels échantillons basculent, un seul appel de
+# repli mémoïsé…) est couverte de bout en bout dans `test_meteo_trace.py`,
+# avec des tracés fabriqués où chaque distance est exacte. Ici, seul le
+# **rendu** — la phrase d'écran, le JSON — est testé, sur une `MeteoTrace`
+# construite directement : la longueur réelle d'un tracé BRouter fabriqué
+# (`test_brouter.reponse_fabriquee`) ne se laisse pas fixer au kilomètre
+# près, et ce n'est pas ce que ces tests-ci cherchent à vérifier.
+
+
+def _meteo_repli_partiel(bascule_dist_m: float | None) -> MeteoTrace:
+    """Une `MeteoTrace` construite directement, pour tester le rendu sans passer par BRouter.
+
+    `_ligne_modele_meteo`/`_modele_meteo_json` ne lisent que `modele_utilise`,
+    `.repli` et `.bascule_dist_m` — les construire à la main isole le test du
+    rendu de la mécanique du repli lui-même (déjà couverte dans
+    `test_meteo_trace.py`) et des longueurs réelles que fabrique BRouter.
+    """
+    return MeteoTrace(
+        echantillons=[
+            Echantillon(
+                dist_m=0.0, t=datetime(2026, 9, 13, 9, 0), lat=0.0, lon=0.0, cap_deg=0.0,
+                pluie_mm=0.0, vent_kmh=None, vent_relatif=None, ressenti_c=None,
+            )
+        ],
+        pluie_cumulee_mm=0.0,
+        minutes_pluie=0.0,
+        part_vent_face=0.0,
+        part_vent_dos=0.0,
+        ressenti_min_c=None,
+        confiance="inconnu",
+        modele_utilise=CONFIG_BRUTE["meteo"]["modele"],
+        repli=bascule_dist_m is not None,
+        bascule_dist_m=bascule_dist_m,
+    )
+
+
+def test_repli_partiel_dit_a_partir_de_quel_kilometre_en_json():
+    evaluation = _evaluation_de_test(temps_s=None)
+    evaluation.meteo = _meteo_repli_partiel(30_000.0)
+    resultat = _modele_meteo_json([evaluation])
+    assert resultat == {
+        "utilise": CONFIG_BRUTE["meteo"]["modele"],
+        "repli": True,
+        "bascule_km": pytest.approx(30.0),
+    }
+
+
+def test_repli_partiel_la_phrase_ecran_nomme_le_kilometre_de_bascule():
+    evaluation = _evaluation_de_test(temps_s=None)
+    evaluation.meteo = _meteo_repli_partiel(30_000.0)
+    ligne = _ligne_modele_meteo([evaluation], config_de_test())
+    assert CONFIG_BRUTE["meteo"]["modele"] in ligne
+    assert "kilomètre 30" in ligne, ligne
+    assert CONFIG_BRUTE["meteo"]["second_avis"] in ligne
+
+
+def test_repli_total_ne_dit_pas_de_kilometre_de_bascule():
+    """Le repli total (tout le tracé) garde son ancienne phrase, sans kilomètre."""
+    evaluation = _evaluation_de_test(temps_s=None)
+    meteo = _meteo_repli_partiel(None)
+    meteo.modele_utilise = CONFIG_BRUTE["meteo"]["second_avis"]
+    meteo.repli = True
+    evaluation.meteo = meteo
+    ligne = _ligne_modele_meteo([evaluation], config_de_test())
+    assert "bascule sur" in ligne
+    assert "kilomètre" not in ligne, ligne
+    assert _modele_meteo_json([evaluation])["bascule_km"] is None
+
+
 def test_sans_repli_l_entete_nomme_le_modele_qui_a_repondu(tmp_path: Path, monkeypatch, capsys):
     """Le cas ordinaire ne change pas de forme : le modèle principal est nommé."""
     monkeypatch.chdir(tmp_path)
@@ -789,7 +1065,11 @@ def test_le_json_dit_quel_modele_a_repondu_et_si_c_est_un_repli(
     meteo, _ = moteur_meteo_hors_de_portee()
     executer(args(json=True), config_de_test(), moteur_brouter(), meteo)
     charge = json.loads(capsys.readouterr().out)
-    assert charge["modele_meteo"] == {"utilise": "modele_second_test", "repli": True}
+    assert charge["modele_meteo"] == {
+        "utilise": "modele_second_test",
+        "repli": True,
+        "bascule_km": None,
+    }
     assert charge["modele"] == "modele_principal_test", "la configuration reste dite telle quelle"
 
 
@@ -813,6 +1093,17 @@ def test_la_sous_commande_est_enregistree_et_accepte_json_apres():
 
 def test_json_global_avant_la_sous_commande_boucle():
     assert construire_parseur().parse_args(["--json", "boucle"]).json is True
+
+
+def test_pause_est_enregistree_et_repetable_dans_le_parseur():
+    args_ = construire_parseur().parse_args(
+        ["boucle", "--distance", "60", "--pause", "10:0h45", "--pause", "40:4h30"]
+    )
+    assert args_.pause == ["10:0h45", "40:4h30"]
+
+
+def test_pause_absente_vaut_none_dans_le_parseur():
+    assert construire_parseur().parse_args(["boucle", "--distance", "60"]).pause is None
 
 
 # --- colonne des antennes (L3.1) ----------------------------------------------
@@ -898,7 +1189,9 @@ def test_un_gpx_importe_dit_antennes_detectees_et_non_retirees(
     gpx = next(tmp_path.glob("*.gpx"))
     capsys.readouterr()
 
-    executer(args(gpx=str(gpx), distance=None), config_de_test(), None, moteur_meteo())
+    executer(
+        args(gpx=str(gpx), distance=None), config_de_test(), moteur_brouter_avec_antenne(), moteur_meteo()
+    )
     lignes = capsys.readouterr().out.splitlines()
     entete = next(ligne for ligne in lignes if TITRE_ANTENNES_DETECTEES in ligne)
     assert TITRE_ANTENNES_RETIREES not in entete
@@ -920,7 +1213,10 @@ def test_le_json_nomme_la_provenance_des_metres_d_antennes(
 
     gpx = next(tmp_path.glob("*.gpx"))
     executer(
-        args(gpx=str(gpx), distance=None, json=True), config_de_test(), None, moteur_meteo()
+        args(gpx=str(gpx), distance=None, json=True),
+        config_de_test(),
+        moteur_brouter_avec_antenne(),
+        moteur_meteo(),
     )
     candidate = json.loads(capsys.readouterr().out)["candidates"][0]
     assert candidate["antennes_source"] == "detectees"
@@ -1083,15 +1379,26 @@ def config_avec_velo_calibrable(dossier: Path, **sections: Any) -> Config:
     )
 
 
-def test_sans_calibration_la_colonne_dit_la_vitesse_moyenne(
+def test_sans_calibration_l_ecran_dit_que_le_modele_vient_de_la_litterature(
     tmp_path: Path, monkeypatch, capsys
 ):
+    """Un temps calculé sur des valeurs jamais mesurées le dit — règle absolue 5.
+
+    Le titre de colonne et l'entête doivent porter la même mention : c'est ce
+    que fait déjà le facteur compteur avec son « supposé ».
+    """
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
     texte = capsys.readouterr().out
-    assert "temps (27 km/h)" in texte
-    assert "aucun vélo calibré" in texte
+    assert "temps (modèle, littérature)" in texte
+    assert "sur des valeurs de littérature" in texte
+    assert "modèle calibré" not in texte
+    # La catégorie servie et ce qu'elle vaut, mesuré : sans ce chiffre, la
+    # mention ne dit pas de combien on se trompe.
+    assert "route amateur, haut de fourchette" in texte
+    assert "min sur 2 h" in texte
+    assert "ourouler calibrer --velo RCR" in texte
 
 
 def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, monkeypatch, capsys):
@@ -1143,6 +1450,34 @@ def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
+    modele = charge["modele_physique"]
+    assert modele["provenance"] == "littérature"
+    assert modele["mesure"] is False
+    assert modele["cda_m2"] == 0.360  # « route amateur, haut de fourchette »
+    assert modele["litterature"]["mesuree"] is False
+    assert modele["litterature"]["derive_min_2h"] == -0.8
+    assert all(c["temps_source"] == "modele" for c in charge["candidates"])
+
+
+def test_sans_modele_du_tout_la_colonne_revient_a_la_vitesse_moyenne(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Un usage hors des catégories connues garde le chemin « aucun modèle ».
+
+    `config.USAGES_VELO` n'en accepte que deux aujourd'hui, tous deux dans la
+    table : la configuration est donc construite à la main pour éprouver le
+    jour où un gravel s'ajoutera. Un temps calculé sur des défauts muets
+    vaudrait moins que la vitesse moyenne assumée.
+    """
+    from dataclasses import replace
+
+    from ourouler.config import Velo
+
+    config = config_avec_velo_calibrable(tmp_path)
+    config = replace(config, velos=(Velo(nom="Le gravel", usage="gravel"),))
+    monkeypatch.chdir(tmp_path)
+    executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
     assert charge["modele_physique"] is None
     assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])
 
@@ -1150,10 +1485,15 @@ def test_sans_calibration_le_json_dit_d_ou_vient_le_temps(
 # --- heure de passage météo à la vitesse du modèle (point 5 de la relecture) --
 
 
-def test_sans_calibration_les_heures_de_passage_restent_a_la_vitesse_de_config(
+def test_sans_modele_les_heures_de_passage_restent_a_la_vitesse_de_config(
     tmp_path: Path, monkeypatch, capsys
 ):
+    from dataclasses import replace
+
+    from ourouler.config import Velo
+
     config = config_avec_velo_calibrable(tmp_path)
+    config = replace(config, velos=(Velo(nom="Le gravel", usage="gravel"),))
     monkeypatch.chdir(tmp_path)
     executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
@@ -1161,6 +1501,29 @@ def test_sans_calibration_les_heures_de_passage_restent_a_la_vitesse_de_config(
         c["vitesse_meteo_kmh"] == pytest.approx(config.boucle.vitesse_moyenne_kmh)
         for c in charge["candidates"]
     )
+
+
+def test_sans_calibration_les_heures_de_passage_suivent_la_ftp(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Le défaut que ce lot corrige, énoncé comme le mainteneur l'a trouvé.
+
+    « Faire varier sa FTP de 150 à 300 W ne déplace ni les heures de passage
+    météo ni le temps de mouvement. » Ce test échoue sur le code d'avant.
+    """
+    from dataclasses import replace
+
+    vitesses = []
+    for ftp in (150, 300):
+        config = config_avec_velo_calibrable(tmp_path)
+        config = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp))
+        monkeypatch.chdir(tmp_path)
+        executer(
+            args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo()
+        )
+        charge = json.loads(capsys.readouterr().out)
+        vitesses.append(charge["candidates"][0]["vitesse_meteo_kmh"])
+    assert vitesses[0] < vitesses[1]
 
 
 def test_avec_calibration_les_heures_de_passage_suivent_le_modele(
@@ -1338,6 +1701,103 @@ def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
     assert compteur["facteur_provenance"] == "mesure"
     assert compteur["part_arret_plancher"] == PART_ARRET_REFERENCE
     assert compteur["moyenne_compteur_kmh"] > 0
+
+
+def test_info_compteur_suit_la_puissance_demandee(tmp_path: Path):
+    """Le défaut du 18/09/2026 : `--puissance`/`--vitesse-a-plat` ne
+    déplaçaient pas la moyenne compteur, dérivée de la puissance d'endurance
+    **de la configuration** quelle que soit la puissance demandée pour cette
+    boucle-ci. Deux puissances doivent maintenant rendre deux moyennes
+    différentes, et dire à quelle puissance chacune a été calculée."""
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    info_150 = _info_compteur(config, None, puissance_w=150.0)
+    info_300 = _info_compteur(config, None, puissance_w=300.0)
+    assert info_150["puissance_w"] == pytest.approx(150.0, abs=0.1)
+    assert info_300["puissance_w"] == pytest.approx(300.0, abs=0.1)
+    assert info_150["moyenne_compteur_kmh"] != info_300["moyenne_compteur_kmh"]
+    assert info_300["moyenne_compteur_kmh"] > info_150["moyenne_compteur_kmh"]
+
+
+def test_info_compteur_facteur_mesure_n_est_pas_recalcule(tmp_path: Path):
+    """Un facteur **mesuré** (`velo.facteur_compteur`) est une constante du
+    vélo : seule la vitesse à laquelle il s'applique bouge avec la puissance
+    demandée, jamais le facteur lui-même."""
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    info_150 = _info_compteur(config, None, puissance_w=150.0)
+    info_300 = _info_compteur(config, None, puissance_w=300.0)
+    info_defaut = _info_compteur(config, None)
+    assert info_150["facteur_compteur"] == pytest.approx(0.85)
+    assert info_300["facteur_compteur"] == pytest.approx(0.85)
+    assert info_defaut["facteur_compteur"] == pytest.approx(0.85)
+    assert info_150["facteur_provenance"] == info_300["facteur_provenance"] == "mesure"
+
+
+def test_ecran_ftp_valeurs_liees_sans_puissance_ne_bouge_pas(tmp_path: Path):
+    """Non-régression sur l'écran de FTP (décision 7) : `valeurs_liees`, sans
+    puissance demandée, continue de rendre exactement ce qu'elle rendait —
+    la position **de la configuration**, jamais celle d'un parcours chronométré."""
+    from ourouler.seance.ecran_ftp import valeurs_liees
+
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    avant = {
+        "velo": "RCR",
+        "position_zone": round(config.seance.position_zone, 6),
+        "puissance_endurance_pct": pytest.approx(
+            config.seance.puissance_endurance_pct, abs=1e-6
+        ),
+    }
+    apres = valeurs_liees(config)
+    assert apres["velo"] == avant["velo"]
+    assert apres["position_zone"] == avant["position_zone"]
+    assert apres["puissance_endurance_pct"] == avant["puissance_endurance_pct"]
+    # Même résultat qu'un appel explicite à `position=None` : la position de
+    # la configuration reste la seule qui alimente l'écran de FTP.
+    assert apres == valeurs_liees(config, position=None)
+
+
+def test_temps_ecoule_suit_la_puissance_demandee(tmp_path: Path):
+    """Le porte à porte d'une candidate doit suivre `--puissance` : deux
+    puissances, deux temps écoulés différents, et l'écart entre mouvement et
+    écoulé qui reste celui qu'impose le facteur mesuré (~1/0,85, soit environ
+    18 %) dans les deux cas — pas cinquante minutes d'arrêts imaginaires,
+    comme avant ce correctif (150 W et 300 W rendaient alors le même écoulé)."""
+    from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
+    from ourouler.physique.modele import vitesse_a_plat_kmh
+
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    velo = velo_demande(config, None)
+    parametres, _provenance = parametres_du_velo(config, velo, chemin_calibration(config))
+    distance_km = 100.0
+
+    candidates = {}
+    for puissance in (150.0, 300.0):
+        vitesse_plat = vitesse_a_plat_kmh(puissance, parametres)
+        mouvement_s = distance_km / vitesse_plat * 3600
+        compteur_info = _info_compteur(config, None, puissance_w=puissance)
+        evaluation = _evaluation_de_test(temps_s=mouvement_s, distance_m=distance_km * 1000)
+        charge = rendre_json(
+            [evaluation],
+            _demande_de_test(distance_km),
+            config,
+            chemin=None,
+            compteur_info=compteur_info,
+        )
+        candidates[puissance] = charge["candidates"][0]
+
+    ecoule_150 = candidates[150.0]["temps_ecoule_s"]
+    ecoule_300 = candidates[300.0]["temps_ecoule_s"]
+    mouvement_150 = candidates[150.0]["temps_estime_s"]
+    mouvement_300 = candidates[300.0]["temps_estime_s"]
+
+    # Le défaut corrigé : les deux écoulés n'étaient pas seulement proches,
+    # ils étaient identiques quelle que soit la puissance.
+    assert mouvement_150 != mouvement_300
+    assert ecoule_150 != ecoule_300
+
+    for ecoule, mouvement in ((ecoule_150, mouvement_150), (ecoule_300, mouvement_300)):
+        assert ecoule >= mouvement  # le plancher, jamais un porte à porte plus rapide
+        ratio = ecoule / mouvement
+        assert 1.0 < ratio < 1.3  # ~1/0,85, pas un écart de cinquante minutes
 
 
 def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
