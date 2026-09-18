@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import get_args, get_type_hints
 
@@ -71,6 +72,7 @@ from outils_api import (
 #: sens que si le paquet est installable.
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
+from ourouler.activites.cache import Cache  # noqa: E402
 from ourouler.api.depots import SocleTOML  # noqa: E402
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: E402
 
@@ -87,6 +89,9 @@ from ourouler.api.session import (  # noqa: E402
     SessionHebergee,
     SessionPersonnelle,
 )
+from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
+from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
+from ourouler.boucle.trace import PointTrace, Segment, Trace  # noqa: E402
 
 #: Les noms acceptables pour la clause de propriétaire. On n'impose pas le mot :
 #: on impose qu'il y en ait un, et qu'il soit déclaré dans le contrat.
@@ -431,6 +436,19 @@ MARQUE_A = "sentinelle-a-7k2"
 #: La même chez B, pour que la contre-épreuve soit symétrique.
 MARQUE_B = "sentinelle-b-3v9"
 
+#: La sentinelle du **propriétaire local** : ce qu'un serveur hébergé trouve
+#: déjà dans son cache, c'est-à-dire les sorties du mainteneur. Aucune session
+#: ne doit jamais en voir la moindre trace (Q58).
+#:
+#: Inventée comme les deux autres (règle absolue 1) : ni nom réel, ni adresse,
+#: ni coordonnée française.
+MARQUE_LOCALE = "sentinelle-locale-8p5"
+
+#: Le jour des semis locaux. Postérieur à `historique_depuis` par défaut
+#: (1ᵉʳ décembre 2023, règle 6 de CLAUDE.md), sans quoi l'inventaire les
+#: écarterait et le balayage ne mesurerait rien. Un mercredi quelconque.
+JOUR_LOCAL = date(2024, 6, 5)
+
 
 @dataclass(frozen=True)
 class SessionDEssai:
@@ -573,13 +591,24 @@ def _service_pour_deux(tmp_path: Path) -> ClientApi:
     c'est justement ce refus-là que le test précédent a rencontré, ce qui
     montre qu'il fonctionne.
     """
+    return _monter(tmp_path, SessionDEssai())
+
+
+def _monter(tmp_path: Path, session: object) -> ClientApi:
+    """Le service réel, sur le socle et le cache de `tmp_path`, avec ce fournisseur.
+
+    Extrait de `_service_pour_deux` le 18/09/2026 (lot Q58) pour que la
+    contre-épreuve du balayage des données locales puisse monter **le même
+    service** en mode personnel : sans cela, elle aurait vérifié la visibilité
+    des sentinelles sur autre chose que ce qu'elle éprouve.
+    """
     chemin = tmp_path / "config.toml"
     chemin.write_text(_toml_d_essai(tmp_path), encoding="utf-8")
     return ClientApi(
         charger_application(
             socle=SocleTOML(chemin, proprietaire=None),
             dossier_donnees=tmp_path / "donnees",
-            session=SessionDEssai(),
+            session=session,
             client_brouter=client_brouter_ordinaire(),
             client_meteo=client_meteo_ordinaire(),
             client_intervals=client_seance_ordinaire(),
@@ -600,6 +629,195 @@ def _zwo(nom: str) -> bytes:
         '<workout><SteadyState Duration="600" Power="0.7"/></workout>\n'
         "</workout_file>\n"
     ).encode()
+
+
+def _gpx(marque: str) -> bytes:
+    """Un GPX minimal et horodaté, au large du golfe de Guinée (règle absolue 1)."""
+    points = "\n".join(
+        f'<trkpt lat="{0.0009 + i * 0.0009:.4f}" lon="0.0004">'
+        f"<time>{JOUR_LOCAL.isoformat()}T08:{i:02d}:00Z</time></trkpt>"
+        for i in range(6)
+    )
+    return (
+        "<?xml version='1.0'?>\n"
+        '<gpx version="1.1" creator="essai">\n'
+        f"<trk><name>{marque}</name><trkseg>\n{points}\n</trkseg></trk>\n</gpx>\n"
+    ).encode()
+
+
+def _trace_taguee(classe: str) -> Trace:
+    """Un quadrillage autour du départ d'essai, dont la classe de route est `classe`.
+
+    Deux effets recherchés, d'un seul semis :
+
+    * la classe ressort **telle quelle** dans `par_highway[].classe` de
+      `GET /routes/stats` — c'est une chaîne choisie par celui qui a roulé,
+      donc une sentinelle lisible dans la réponse ;
+    * le quadrillage couvre les mailles que les boucles du BRouter bouchonné
+      traversent, donc la part « déjà connue » d'une boucle y est non nulle.
+      Sans cela, la fuite de `part_connue` — que les sentinelles textuelles ne
+      peuvent pas voir, puisque c'est un nombre — resterait invisible.
+
+    ±0,054° ≈ ±6 km autour de (0, 0), soit largement de quoi contenir une
+    boucle de 30 km ; aucune coordonnée française (règle absolue 1).
+    """
+    pas = 0.0009  # ~100 m
+    points = [
+        PointTrace(lat=i * pas, lon=j * pas, alt_m=None, dist_m=100.0 * (abs(i) + abs(j)))
+        for i in range(-60, 60)
+        for j in range(-6, 6)
+    ]
+    segments = [Segment(k, k + 1, 100.0, {"highway": classe}) for k in range(len(points) - 1)]
+    return Trace(
+        nom=classe,
+        points=points,
+        segments=segments,
+        distance_m=100.0 * (len(points) - 1),
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+
+
+def _semer_chez_le_proprietaire_local(dossier_cache: Path) -> None:
+    """Plante les sentinelles du mainteneur **dans ses dépôts**, sous la peau.
+
+    C'est le seul semis du fichier qui ne passe pas par l'API, et c'est faute
+    de route : l'index des activités se remplit par `ourouler inventaire
+    --importer/--synchroniser` et la base des routes par `ourouler routes
+    apprendre`, trois gestes de ligne de commande que l'API n'expose
+    délibérément pas (voir `api/routes.py`). Exiger un semis « par le
+    produit » reviendrait donc à ne jamais éprouver ces deux lectures-là —
+    et c'est exactement par elles que Q58 est entrée.
+
+    **Le propriétaire n'est pas nommé, et c'est le sujet** : les deux dépôts
+    sont construits avec leur défaut, `PROPRIETAIRE_LOCAL`. C'est ce qu'un
+    serveur hébergé trouve dans son cache dès que le mainteneur a roulé sur la
+    même machine — et ce que `GET /inventaire` et `GET /routes/{action}`
+    servaient à tout le monde jusqu'au 18/09/2026.
+    """
+    cache = Cache(dossier_cache)
+    cache.ajouter(
+        _gpx(MARQUE_LOCALE),
+        source="fichier",
+        id_externe=f"{MARQUE_LOCALE}.gpx",
+        extension="gpx",
+        # `power_meter` ressort tel quel dans `par_velo[].capteurs` de
+        # l'inventaire : le nom que le cycliste a donné à son capteur.
+        meta={"sport": "Ride", "power_meter": MARQUE_LOCALE},
+    )
+    BaseRoutes(dossier_cache / NOM_BASE).ajouter_trace(
+        _trace_taguee(MARQUE_LOCALE), jour=JOUR_LOCAL, id_sortie=MARQUE_LOCALE
+    )
+
+
+#: Les deux routes que le semis local rend observables, et par lesquelles la
+#: contre-épreuve passe. Elles ne sont pas une liste d'exceptions : le balayage
+#: ci-dessous, lui, porte sur **toutes** les routes de `_appels`.
+ROUTES_DU_SEMIS_LOCAL = (f"{PREFIXE_API}/inventaire", f"{PREFIXE_API}/routes/stats")
+
+
+def test_aucune_session_ne_voit_les_donnees_du_proprietaire_local(tmp_path):
+    """**Q58 : le balayage vérifiait une forme, il vérifie ici un effet.**
+
+    `GET /inventaire` et `GET /routes/{action}` recevaient bien `qui: Qui` —
+    donc le détecteur de clause les déclarait conformes — mais appelaient des
+    commandes de ligne de commande qui construisent leurs dépôts avec le
+    défaut `PROPRIETAIRE_LOCAL`. Quel que soit le demandeur, elles servaient
+    les données du mainteneur.
+
+    Ce que les sentinelles de A et de B ne pouvaient pas voir : elles sont
+    plantées **par l'API**, donc sous l'identité de A ou de B, et ces deux
+    routes ne lisaient ni l'une ni l'autre — elles lisaient une troisième
+    identité que personne n'incarnait. D'où cette sentinelle-ci, plantée chez
+    le propriétaire local, qui est précisément celle qui fuyait.
+
+    Le balayage porte sur **toutes** les routes, pas sur les deux connues :
+    une route qui retomberait demain sur le propriétaire local par un autre
+    chemin serait attrapée ici sans que personne y pense.
+    """
+    dossier_cache = tmp_path / "cache"
+    client = _service_pour_deux(tmp_path)
+    _semer_chez_le_proprietaire_local(dossier_cache)
+
+    # **Contre-épreuve d'abord**, et sur le même service : les sentinelles
+    # sont bien lisibles par le propriétaire local, par les routes mêmes qu'on
+    # va éprouver. Sans elle, un semis qui n'aurait pas pris rendrait tout ce
+    # qui suit vert sans rien mesurer — le mode d'échec ordinaire de ce genre
+    # de balayage, et celui qui a déjà frappé ce fichier le 18/09/2026.
+    local = _monter(tmp_path, SessionPersonnelle())
+    muettes = sorted(
+        chemin for chemin in ROUTES_DU_SEMIS_LOCAL if MARQUE_LOCALE not in local.get(chemin).text
+    )
+    assert not muettes, (
+        f"le propriétaire local ne voit pas ses propres données sur {muettes} : le semis "
+        "n'a pas pris, ou ces routes ont cessé de servir le mainteneur sur sa machine — "
+        "dans les deux cas le balayage ci-dessous ne prouverait rien."
+    )
+
+    # Et maintenant deux sessions, dont aucune n'est le propriétaire local.
+    # Les identifiants sont inventés : ces routes-là répondront 404, ce qui
+    # n'empêche pas de lire leur réponse — on ne cherche qu'une chaîne.
+    ids = {"generation": "inexistante", "gpx": "inexistant", "fichier": "inexistant"}
+    fuites = [
+        f"{route} montre les données du propriétaire local à « {qui} »"
+        for qui in (PROPRIETAIRE_A, PROPRIETAIRE_B)
+        for route, texte in _balayer(client, qui, ids).items()
+        if MARQUE_LOCALE in texte
+    ]
+    assert not fuites, (
+        "fuites du propriétaire local vers une session :\n  "
+        + "\n  ".join(sorted(fuites))
+        + "\nCes routes portent la clause de propriétaire sans l'honorer jusqu'au dépôt "
+        "(Q58). Doctrine §10.1 : « le propriétaire entre au constructeur du dépôt, et "
+        "nulle part ailleurs »."
+    )
+
+
+def test_une_boucle_n_est_jamais_deja_connue_pour_qui_n_a_rien_roule(tmp_path):
+    """La même fuite, sous une forme que le balayage textuel ne peut pas voir.
+
+    `POST /boucles` et `POST /sorties` rendent `part_connue` — la part du
+    tracé que le cycliste a déjà roulée — et la calculaient contre la base du
+    **propriétaire local**. Ce n'est pas une chaîne, c'est un nombre : aucune
+    sentinelle ne pouvait l'attraper, et c'est pour ça que ce test-ci existe à
+    côté du balayage plutôt que dedans.
+
+    Ce que le nombre disait : « 2,7 % de cette boucle, vous la connaissez
+    déjà » à quelqu'un qui n'a jamais rien enregistré — donc quelque chose des
+    endroits où le mainteneur roule. Mesuré le 18/09/2026 avant correction.
+
+    La contre-épreuve est le premier volet : sur le même service, le
+    propriétaire local voit bien une part non nulle. Sans elle, une base mal
+    semée rendrait le second volet vert en ne mesurant rien.
+    """
+    client = _service_pour_deux(tmp_path)
+    _semer_chez_le_proprietaire_local(tmp_path / "cache")
+    demande = {"json": {"distance_km": 30.0, "candidates": 1}}
+
+    local = _monter(tmp_path, SessionPersonnelle())
+    part_locale = _part_connue(local.post(f"{PREFIXE_API}/boucles", **demande))
+    assert part_locale, (
+        f"le propriétaire local ne reconnaît rien de sa propre boucle (part_connue = "
+        f"{part_locale}) : le quadrillage semé ne recouvre pas les tracés du BRouter "
+        "bouchonné, et le volet suivant ne prouverait rien."
+    )
+
+    reponse = client.post(
+        f"{PREFIXE_API}/boucles", headers={"x-essai-proprietaire": PROPRIETAIRE_A}, **demande
+    )
+    assert _part_connue(reponse) == 0.0, (
+        f"une boucle est annoncée connue à {_part_connue(reponse):.1%} à un cycliste qui "
+        "n'a jamais rien enregistré : la colonne « connu % » est calculée contre les "
+        "routes du propriétaire local, donc contre les endroits où quelqu'un d'autre roule."
+    )
+
+
+def _part_connue(reponse) -> float:
+    """La part « déjà connue » de la première candidate d'une réponse `/boucles`."""
+    assert reponse.status_code == 200, reponse.text[:300]
+    candidates = reponse.json()["donnees"]["candidates"]
+    assert candidates, "aucune candidate : la boucle n'a pas été générée"
+    return candidates[0]["part_connue"] or 0.0
 
 
 def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
