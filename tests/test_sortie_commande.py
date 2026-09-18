@@ -15,6 +15,7 @@ trier, la pluie ne départageant qu'à égalité.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
 import re
@@ -28,6 +29,7 @@ import httpx
 import pytest
 from test_seance_intervals import ATHLETE, CLE, W
 
+from ourouler.boucle.commande import ligne_temps_ecoule
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.boucle.trace import PointTrace, Trace
@@ -45,7 +47,7 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique.commande import VERSION_CALIBRATION
-from ourouler.physique.modele import Parametres
+from ourouler.physique.modele import PART_ARRET_REFERENCE, Parametres, temps_ecoule
 from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
@@ -64,6 +66,7 @@ from ourouler.sortie.commande import (
     _seance,
     executer,
     lire_options,
+    rendre_json,
     rendre_texte,
 )
 
@@ -107,6 +110,24 @@ CONFIG_BRUTE: dict[str, Any] = {
 def config_de_test(dossier: Path, **sections: Any) -> Config:
     brute = {**CONFIG_BRUTE, "cache": {"dossier": str(dossier)}, **sections}
     return depuis_dict(brute)
+
+
+def config_avec_facteur_mesure(dossier: Path, facteur: float = 0.85) -> Config:
+    """Comme `config_de_test`, avec un facteur compteur **mesuré** plutôt que
+    dérivé : `moyenne_compteur_kmh` devient un nombre connu d'avance, pour
+    des tests de `temps_ecoule_s` calculables à la main."""
+    return config_de_test(
+        dossier,
+        velos=[
+            {
+                "nom": "Route",
+                "usage": "route",
+                "cda_m2": 0.32,
+                "crr": 0.005,
+                "facteur_compteur": facteur,
+            }
+        ],
+    )
 
 
 def args(**champs) -> argparse.Namespace:
@@ -1003,6 +1024,12 @@ def _seance_fabriquee() -> Seance:
 
 def _contexte_minimal(tmp_path: Path, seance: Seance) -> Any:
     config = config_de_test(tmp_path / "cache")
+    return _contexte_avec(seance, config)
+
+
+def _contexte_avec(seance: Seance, config: Config) -> Any:
+    """Comme `_contexte_minimal`, mais avec une configuration donnée — pour
+    tester le bloc `compteur` à facteur mesuré, ou sans vélo du tout."""
     return _Contexte(
         seance=seance,
         demande=lire_options(args(), config),
@@ -1015,6 +1042,95 @@ def _contexte_minimal(tmp_path: Path, seance: Seance) -> Any:
         gpx=None,
         carte=None,
     )
+
+
+# --- temps écoulé porte à porte, et le bloc « compteur » (18/09/2026) --------
+#
+# Même défaut, même correction que `boucle` : la colonne « temps » montrait le
+# temps *en mouvement* du placement (`placement.duree_totale_s`) comme s'il
+# s'agissait du temps écoulé de la sortie. Ici, `compteur` et
+# `placement.temps_ecoule_s`, câblés dans `rendre_json`/`rendre_texte` via
+# `ecran_ftp.info_compteur` et `physique.modele.temps_ecoule` — la même
+# formule que `boucle`, testée à part dans `tests/test_physique_modele.py`.
+
+
+def test_compteur_et_temps_ecoule_sont_nuls_sans_velo(tmp_path: Path):
+    """Le test explicite du DoD : `compteur` et `temps_ecoule_s` de chaque
+    candidate valent `null` sur une configuration sans vélo — même si, en
+    pratique, `sortie` a toujours besoin d'un vélo pour placer une séance
+    (`_parametres` lève sinon) : ce cas ne s'obtient qu'en le retirant après
+    coup, comme pour `boucle`."""
+    seance = _seance_fabriquee()
+    config = dataclasses.replace(config_de_test(tmp_path / "cache"), velos=())
+    charge = rendre_json([_proposition_avec_demi_tour()], _contexte_avec(seance, config))
+    assert charge["compteur"] is None
+    place = charge["candidates"][0]["placement"]
+    assert place["temps_ecoule_s"] is None
+    assert place["temps_ecoule_source"] is None
+    # Le temps de mouvement du placement, lui, reste renseigné.
+    assert place["duree_totale_s"] == round(_proposition_avec_demi_tour().placement.duree_totale_s)
+
+
+def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
+    seance = _seance_fabriquee()
+    config = config_avec_facteur_mesure(tmp_path / "cache", facteur=0.85)
+    charge = rendre_json([_proposition_avec_demi_tour()], _contexte_avec(seance, config))
+    compteur = charge["compteur"]
+    assert compteur["velo"] == "Route"
+    assert compteur["facteur_compteur"] == pytest.approx(0.85)
+    assert compteur["facteur_provenance"] == "mesure"
+    assert compteur["part_arret_plancher"] == PART_ARRET_REFERENCE
+    assert compteur["moyenne_compteur_kmh"] > 0
+
+
+def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
+    """Pas une deuxième formule : `placement.temps_ecoule_s` doit être
+    exactement `physique.modele.temps_ecoule` appliqué à
+    `placement.distance_totale_m` (le parcours réellement roulé, demi-tours
+    compris — pas la boucle), `placement.duree_totale_s`, et la moyenne
+    compteur du bloc `compteur`."""
+    seance = _seance_fabriquee()
+    config = config_avec_facteur_mesure(tmp_path / "cache", facteur=0.85)
+    proposition = _proposition_avec_demi_tour()
+    charge = rendre_json([proposition], _contexte_avec(seance, config))
+    compteur = charge["compteur"]
+    place = charge["candidates"][0]["placement"]
+    attendu_s, attendue_source = temps_ecoule(
+        proposition.placement.distance_totale_m / 1000.0,
+        proposition.placement.duree_totale_s,
+        compteur["moyenne_compteur_kmh"],
+    )
+    assert place["temps_ecoule_s"] == round(attendu_s)
+    assert place["temps_ecoule_source"] == attendue_source
+    # Jamais sous le temps de mouvement du placement (le point du plancher) :
+    assert place["temps_ecoule_s"] >= place["duree_totale_s"]
+
+
+def test_texte_sortie_affiche_mouvement_et_ecoule(tmp_path: Path):
+    """CLI et front disent la même chose : une cellule combinée dans la
+    colonne « temps », et la légende partagée avec `boucle` sous le tableau."""
+    seance = _seance_fabriquee()
+    config = config_avec_facteur_mesure(tmp_path / "cache", facteur=0.85)
+    contexte = _contexte_avec(seance, config)
+    proposition = _proposition_avec_demi_tour()
+    texte = rendre_texte([proposition], contexte)
+
+    from ourouler.seance.ecran_ftp import info_compteur
+
+    compteur = info_compteur(config, contexte.demande.velo)
+    ecoule_s, _ = temps_ecoule(
+        proposition.placement.distance_totale_m / 1000.0,
+        proposition.placement.duree_totale_s,
+        compteur["moyenne_compteur_kmh"],
+    )
+    minutes_mouvement = round(proposition.placement.duree_totale_s / 60)
+    minutes_ecoule = round(ecoule_s / 60)
+    attendu = (
+        f"{minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
+        f" / {minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
+    )
+    assert attendu in texte
+    assert ligne_temps_ecoule(compteur) in texte
 
 
 def test_sortie_dit_qu_une_autre_seance_du_jour_a_ete_ignoree(tmp_path: Path):

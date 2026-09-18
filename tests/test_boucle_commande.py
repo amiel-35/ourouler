@@ -12,6 +12,7 @@ les réponses Open-Meteo sont fabriquées ici, au format relevé au sprint 1.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import re
 from datetime import datetime
@@ -26,16 +27,24 @@ from ourouler.boucle.commande import (
     MARQUE_RETENUE,
     TITRE_ANTENNES_DETECTEES,
     TITRE_ANTENNES_RETIREES,
+    Demande,
+    Evaluation,
+    _info_compteur,
     direction_en_azimut,
     executer,
     lire_options,
+    rendre_json,
+    rendre_texte,
 )
+from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
+from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.cli import construire_parseur, main
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.physique.modele import PART_ARRET_REFERENCE, temps_ecoule
 
 CONFIG_BRUTE = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
@@ -1204,3 +1213,179 @@ def test_l_entete_dit_que_la_vitesse_de_passage_vient_du_modele(
     assert "heures de passage météo" in entete
     assert "(modèle)" in entete
     assert "27 km/h" not in entete
+
+
+# --- temps écoulé porte à porte, et le bloc « compteur » (18/09/2026) --------
+#
+# Le défaut corrigé : la carte affichait le temps *en mouvement* du modèle
+# comme si c'était la durée de la sortie. Ici, `compteur` et `temps_ecoule_s`
+# de chaque candidate, câblés dans `rendre_json`/`rendre_texte` via
+# `_info_compteur` (délégué à `ecran_ftp.info_compteur`) et
+# `physique.modele.temps_ecoule` (dont la formule est testée à part dans
+# `tests/test_physique_modele.py`).
+
+
+def config_avec_facteur_mesure(dossier: Path, facteur: float = 0.85) -> Config:
+    """Un vélo dont le facteur compteur est **mesuré**, pas dérivé — pour que
+    `moyenne_compteur_kmh` soit un nombre connu d'avance, calculable à la
+    main dans les tests ci-dessous."""
+    return config_de_test(
+        cache={"dossier": str(dossier)},
+        velos=[
+            {
+                "nom": "RCR",
+                "usage": "route",
+                "masse_kg": 9.0,
+                "cda_m2": 0.30,
+                "crr": 0.005,
+                "facteur_compteur": facteur,
+            }
+        ],
+    )
+
+
+def _trace_de_test(distance_m: float = 100_000.0) -> Trace:
+    points = [
+        PointTrace(lat=0.0, lon=0.0, alt_m=0.0, dist_m=0.0),
+        PointTrace(lat=0.5, lon=0.0, alt_m=0.0, dist_m=distance_m),
+    ]
+    return Trace(
+        nom="boucle-test",
+        points=points,
+        segments=[],
+        distance_m=distance_m,
+        denivele_m=None,
+        temps_moteur_s=None,
+    )
+
+
+def _couts_de_test() -> Couts:
+    return Couts(
+        km_trafic=0.0,
+        km_calme=0.0,
+        km_non_classe=0.0,
+        km_non_revetu=0.0,
+        antennes_m=0.0,
+        virages_gauche=0,
+        virages_gauche_trafic=0,
+        virages_droite=0,
+        sens="horaire",
+        score=0.0,
+    )
+
+
+def _evaluation_de_test(temps_s: float | None, distance_m: float = 100_000.0) -> Evaluation:
+    return Evaluation(
+        numero=1,
+        trace=_trace_de_test(distance_m),
+        couts=_couts_de_test(),
+        meteo=None,
+        ecart_relatif=None,
+        azimut_deg=None,
+        rayon_m=None,
+        total=0.0,
+        temps_s=temps_s,
+    )
+
+
+def _demande_de_test(distance_km: float = 100.0) -> Demande:
+    return Demande(
+        gpx=None,
+        distance_km=distance_km,
+        direction="NE",
+        azimut_deg=45.0,
+        nb_candidates=1,
+        profil="fastbike",
+        depart=datetime(2026, 9, 18, 9, 0),
+        sortie=None,
+    )
+
+
+def test_info_compteur_boucle_rend_none_sans_le_moindre_velo(tmp_path: Path):
+    config = dataclasses.replace(config_avec_facteur_mesure(tmp_path), velos=())
+    assert _info_compteur(config, None) is None
+
+
+def test_compteur_et_temps_ecoule_sont_nuls_sans_velo(tmp_path: Path):
+    """Le test explicite du DoD : `compteur` et `temps_ecoule_s` de chaque
+    candidate valent `null` sur une configuration sans vélo."""
+    config = dataclasses.replace(config_avec_facteur_mesure(tmp_path), velos=())
+    compteur_info = _info_compteur(config, None)
+    evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
+    charge = rendre_json(
+        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
+    )
+    assert charge["compteur"] is None
+    candidate = charge["candidates"][0]
+    assert candidate["temps_ecoule_s"] is None
+    assert candidate["temps_ecoule_source"] is None
+    # `temps_estime_s`/`temps_source`, eux, restent renseignés : la panne du
+    # compteur n'efface pas le temps de mouvement.
+    assert candidate["temps_estime_s"] == 5_000
+    assert candidate["temps_source"] == "modele"
+
+
+def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    compteur_info = _info_compteur(config, None)
+    evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
+    charge = rendre_json(
+        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
+    )
+    compteur = charge["compteur"]
+    assert compteur["velo"] == "RCR"
+    assert compteur["facteur_compteur"] == pytest.approx(0.85)
+    assert compteur["facteur_provenance"] == "mesure"
+    assert compteur["part_arret_plancher"] == PART_ARRET_REFERENCE
+    assert compteur["moyenne_compteur_kmh"] > 0
+
+
+def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
+    """Pas une deuxième formule : ce que `rendre_json` publie doit être
+    exactement `physique.modele.temps_ecoule` appliqué à la distance de la
+    candidate, son `temps_estime_s`, et la moyenne compteur du bloc `compteur`."""
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    compteur_info = _info_compteur(config, None)
+    evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
+    charge = rendre_json(
+        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
+    )
+    candidate = charge["candidates"][0]
+    attendu_s, attendue_source = temps_ecoule(
+        50.0, 5_000.0, compteur_info["moyenne_compteur_kmh"]
+    )
+    assert candidate["temps_ecoule_s"] == round(attendu_s)
+    assert candidate["temps_ecoule_source"] == attendue_source
+    # Jamais sous le temps de mouvement (le point du plancher) :
+    assert candidate["temps_ecoule_s"] >= candidate["temps_estime_s"]
+
+
+def test_texte_boucle_affiche_mouvement_et_ecoule(tmp_path: Path):
+    """CLI et front disent la même chose : une seule cellule, « m:ss / m:ss »,
+    et une légende sous le tableau plutôt qu'une colonne de plus."""
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    compteur_info = _info_compteur(config, None)
+    evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
+    texte = rendre_texte(
+        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
+    )
+    ecoule_s, _ = temps_ecoule(50.0, 5_000.0, compteur_info["moyenne_compteur_kmh"])
+    minutes_mouvement = round(5_000.0 / 60)
+    minutes_ecoule = round(ecoule_s / 60)
+    attendu = (
+        f"{minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
+        f" / {minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
+    )
+    assert attendu in texte
+    assert "mouvement / écoulé porte à porte" in texte
+    assert "RCR" in texte
+
+
+def test_texte_boucle_sans_compteur_n_affiche_pas_la_legende(tmp_path: Path):
+    config = dataclasses.replace(config_avec_facteur_mesure(tmp_path), velos=())
+    evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
+    texte = rendre_texte(
+        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=None
+    )
+    assert "écoulé porte à porte" not in texte
+    assert " / " not in texte.splitlines()[3]  # la ligne de la candidate n° 1
