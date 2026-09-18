@@ -1116,24 +1116,30 @@ def _temps_mouvement_s(evaluation: Evaluation, config: Config) -> float | None:
 
 
 def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = None) -> str:
-    """« 2:14 » seul, ou « 2:14 / 2:36 » — mouvement / écoulé porte à porte —
-    dès qu'un vélo permet de réconcilier les deux (voir `ligne_temps_ecoule`)."""
+    """« 2:14 » seul, ou « 2:36 / 2:14 » — écoulé porte à porte / mouvement —
+    dès qu'un vélo permet de réconcilier les deux (voir `ligne_temps_ecoule`).
+
+    **L'écoulé vient en premier** (18/09/2026). Le mainteneur l'a tranché
+    pour l'écran, et la CLI ne dit pas l'inverse : « je demande 5 h, je veux
+    5 h, pas 4 h et un truc plus loin qui me dit en fait c'est 5 h ». Le
+    premier chiffre est donc celui qui répond à la durée demandée ; le
+    second dit ce que ça donnerait sans un seul arrêt.
+    """
     mouvement_s = _temps_mouvement_s(evaluation, config)
     if mouvement_s is None:
         return ABSENT
-    texte = _duree_texte(mouvement_s)
-    if compteur_info is not None:
-        from ourouler.physique.modele import temps_ecoule
+    if compteur_info is None:
+        return _duree_texte(mouvement_s)
+    from ourouler.physique.modele import temps_ecoule
 
-        ecoule_s, _source = temps_ecoule(
-            evaluation.trace.distance_m / 1000.0, mouvement_s, compteur_info["moyenne_compteur_kmh"]
-        )
-        texte += f" / {_duree_texte(ecoule_s)}"
-    return texte
+    ecoule_s, _source = temps_ecoule(
+        evaluation.trace.distance_m / 1000.0, mouvement_s, compteur_info["moyenne_compteur_kmh"]
+    )
+    return f"{_duree_texte(ecoule_s)} / {_duree_texte(mouvement_s)}"
 
 
 def ligne_temps_ecoule(compteur_info: dict) -> str:
-    """La légende sous le tableau : ce que veut dire « 2:14 / 2:36 » en colonne « temps ».
+    """La légende sous le tableau : ce que veut dire « 2:36 / 2:14 » en colonne « temps ».
 
     Choix d'affichage (18/09/2026) : une cellule combinée plutôt qu'une
     colonne de plus — le tableau en a déjà treize, une quatorzième pour un
@@ -1145,8 +1151,8 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     raison que `lignes_elargissement` juste au-dessus.
     """
     return (
-        "Temps affiché : mouvement / écoulé porte à porte (arrêts compris) — l'écoulé "
-        f"réconcilie avec la moyenne compteur du {compteur_info['velo']}, "
+        "Temps affiché : écoulé porte à porte (arrêts compris) / sans un seul arrêt — "
+        f"l'écoulé réconcilie avec la moyenne compteur du {compteur_info['velo']}, "
         f"{compteur_info['moyenne_compteur_kmh']:g} km/h (facteur "
         f"{compteur_info['facteur_compteur']:.3f}, {compteur_info['facteur_provenance']})."
     )

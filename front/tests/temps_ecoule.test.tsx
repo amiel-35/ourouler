@@ -32,11 +32,11 @@ function texte(vue: RenderResult): string {
 }
 
 describe("les boucles libres (Boucles.tsx)", () => {
-  it("montrent le temps de mouvement, marqué, et le porte à porte en second", () => {
+  it("montrent le porte à porte en majeur, et le temps sans arrêt en second", () => {
     const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
     // Le majeur : le temps du modèle (temps_estime_s = 5460 s), avec le mot
     // qui dit quelle horloge c'est — il ne peut plus rester nu.
-    expect(texte(vue)).toMatch(/1\s*h\s*31\s*en roulant/);
+    expect(texte(vue)).toMatch(/1\s*h\s*31\s*sans un seul arrêt/);
     // Le second, arrondi à 5 minutes et introduit par « ≈ » : ce n'est pas
     // une mesure à la minute.
     expect(texte(vue)).toMatch(/≈\s*1\s*h\s*45\s*porte à porte/);
@@ -45,8 +45,10 @@ describe("les boucles libres (Boucles.tsx)", () => {
   it("explique les deux chiffres dans un dépliant, sans rien affirmer au hasard", () => {
     const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
     expect(screen.getByText("D'où viennent ces deux chiffres")).toBeTruthy();
-    // La simulation de cette boucle-ci, sans arrêt.
-    expect(texte(vue)).toMatch(/simulation de cette boucle-ci/);
+    // La simulation de ce tracé-ci, sans arrêt — et le fait, dit en toutes
+    // lettres, que c'est le seul des deux qui tienne compte du relief.
+    expect(texte(vue)).toMatch(/simulation de ce tracé-ci/);
+    expect(texte(vue)).toMatch(/seul des deux qui tienne compte du relief/);
     // La moyenne compteur habituelle, avec sa valeur.
     expect(texte(vue)).toMatch(/24,6\s*km\/h/);
     // Le fait qui referme la boucle : la même moyenne a choisi la distance.
@@ -58,8 +60,8 @@ describe("les boucles libres (Boucles.tsx)", () => {
     expect(screen.queryByText(/porte à porte/)).toBeNull();
     expect(screen.queryByText("D'où viennent ces deux chiffres")).toBeNull();
     expect(vue.container.querySelector(".temps-ecoule")).toBeNull();
-    // Le majeur reste là, seul : c'est la configuration qui manque, pas le
-    // temps de mouvement.
+    // Le temps de mouvement reste là, seul, et reprend son nom : c'est la
+    // configuration qui manque, pas le chiffre.
     expect(texte(vue)).toMatch(/1\s*h\s*31\s*en roulant/);
   });
 
@@ -98,7 +100,7 @@ describe("la liste des propositions (Propositions.tsx)", () => {
 
   it("portent les deux chiffres sur chaque carte", () => {
     const vue = afficher();
-    expect(texte(vue)).toMatch(/1\s*h\s*15\s*en roulant/);
+    expect(texte(vue)).toMatch(/1\s*h\s*15\s*sans un seul arrêt/);
     expect(texte(vue)).toMatch(/≈\s*1\s*h\s*20\s*porte à porte/);
   });
 
@@ -106,7 +108,7 @@ describe("la liste des propositions (Propositions.tsx)", () => {
     const vue = afficher({ compteur: null });
     expect(screen.queryByText(/porte à porte/)).toBeNull();
     expect(vue.container.querySelector(".temps-ecoule")).toBeNull();
-    // Le majeur, lui, reste affiché.
+    // Le temps de mouvement reste affiché, et reprend son nom.
     expect(texte(vue)).toMatch(/1\s*h\s*15\s*en roulant/);
   });
 
@@ -130,9 +132,9 @@ describe("le détail d'une proposition (Proposition.tsx)", () => {
     );
   }
 
-  it("porte les deux chiffres, le majeur marqué et le second expliqué", () => {
+  it("porte le porte à porte en majeur, et le temps sans arrêt en second", () => {
     const vue = afficher();
-    expect(texte(vue)).toMatch(/1\s*h\s*15\s*en roulant/);
+    expect(texte(vue)).toMatch(/1\s*h\s*15\s*sans un seul arrêt/);
     expect(texte(vue)).toMatch(/≈\s*1\s*h\s*20\s*porte à porte/);
     expect(screen.getByText("D'où viennent ces deux chiffres")).toBeTruthy();
   });

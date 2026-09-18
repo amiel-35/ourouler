@@ -1361,8 +1361,10 @@ def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
 
 
 def test_texte_boucle_affiche_mouvement_et_ecoule(tmp_path: Path):
-    """CLI et front disent la même chose : une seule cellule, « m:ss / m:ss »,
-    et une légende sous le tableau plutôt qu'une colonne de plus."""
+    """CLI et front disent la même chose, **dans le même ordre** : l'écoulé
+    porte à porte d'abord, le temps sans arrêt ensuite, une seule cellule
+    « h:mm / h:mm », et une légende sous le tableau plutôt qu'une colonne de
+    plus (ordre fixé par le mainteneur le 18/09/2026)."""
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
@@ -1373,11 +1375,11 @@ def test_texte_boucle_affiche_mouvement_et_ecoule(tmp_path: Path):
     minutes_mouvement = round(5_000.0 / 60)
     minutes_ecoule = round(ecoule_s / 60)
     attendu = (
-        f"{minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
-        f" / {minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
+        f"{minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
+        f" / {minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
     )
     assert attendu in texte
-    assert "mouvement / écoulé porte à porte" in texte
+    assert "écoulé porte à porte (arrêts compris) / sans un seul arrêt" in texte
     assert "RCR" in texte
 
 

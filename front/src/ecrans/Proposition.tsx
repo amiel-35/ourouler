@@ -31,7 +31,7 @@ import { RetourEnTete } from "../composants/Retour";
 import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
-import { TempsEcoule } from "../composants/TempsEcoule";
+import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
 
 /**
  * La portion de tracé entre deux distances, en mètres.
@@ -230,12 +230,12 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
                 classer
               </span>
             ) : null}
-            {/* « 3 h 57 » nu se lisait comme une durée totale. C'est le
-                temps de mouvement du modèle physique — le mot le dit, et
-                `TempsEcoule` ci-dessous dit le reste. */}
-            <span>
-              <b>{duree(proposition.duree_s)}</b> en roulant
-            </span>
+            {/* Le porte à porte en majeur, le temps sans arrêt juste à
+                côté : « je demande 5 h, je veux 5 h » (18/09/2026). */}
+            <DureesDeSortie
+              mouvementS={proposition.duree_s}
+              ecouleS={candidate.temps_ecoule_s}
+            />
           </div>
 
           <TempsEcoule candidate={candidate} compteur={sortie.compteur} />

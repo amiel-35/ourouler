@@ -1109,8 +1109,9 @@ def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
 
 
 def test_texte_sortie_affiche_mouvement_et_ecoule(tmp_path: Path):
-    """CLI et front disent la même chose : une cellule combinée dans la
-    colonne « temps », et la légende partagée avec `boucle` sous le tableau."""
+    """CLI et front disent la même chose, **dans le même ordre** : l'écoulé
+    porte à porte d'abord, le temps sans arrêt ensuite, dans une cellule
+    combinée, et la légende partagée avec `boucle` sous le tableau."""
     seance = _seance_fabriquee()
     config = config_avec_facteur_mesure(tmp_path / "cache", facteur=0.85)
     contexte = _contexte_avec(seance, config)
@@ -1128,8 +1129,8 @@ def test_texte_sortie_affiche_mouvement_et_ecoule(tmp_path: Path):
     minutes_mouvement = round(proposition.placement.duree_totale_s / 60)
     minutes_ecoule = round(ecoule_s / 60)
     attendu = (
-        f"{minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
-        f" / {minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
+        f"{minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
+        f" / {minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
     )
     assert attendu in texte
     assert ligne_temps_ecoule(compteur) in texte

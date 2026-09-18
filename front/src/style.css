@@ -979,3 +979,12 @@ img {
 .temps-ecoule > details > .mention {
   margin-bottom: 8px;
 }
+
+/* Le temps sans arrêt, juste à côté du porte à porte : présent, mais second.
+   Sans ce retrait visuel, deux durées côte à côte se lisent comme deux
+   grandeurs de même rang, et on ne sait plus laquelle répond à la question
+   posée (« je demande 5 h »). */
+.chiffres > .second-chiffre {
+  color: var(--muet);
+  font-weight: 400;
+}

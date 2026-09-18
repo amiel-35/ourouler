@@ -2401,25 +2401,25 @@ def _duree_courte(secondes: float) -> str:
 
 
 def _temps_texte(proposition: Proposition, compteur_info: dict | None) -> str:
-    """« 2:14 » seul, ou « 2:14 / 2:36 » — mouvement / écoulé porte à porte.
+    """« 2:14 » seul, ou « 2:36 / 2:14 » — écoulé porte à porte / sans arrêt.
 
-    Même choix d'affichage et même légende (`ligne_temps_ecoule`) que
-    `boucle` : une cellule combinée, pas une colonne de plus. La distance qui
+    Même ordre, même choix d'affichage et même légende (`ligne_temps_ecoule`)
+    que `boucle` : l'écoulé d'abord, parce que c'est lui qui répond à la durée
+    demandée, et une cellule combinée plutôt qu'une colonne de plus. La distance qui
     sert au terme « compteur » de `temps_ecoule` est celle du **parcours
     réellement roulé** (`distance_totale_m`, demi-tours compris), pas celle
     de la boucle : c'est déjà la règle de la colonne « temps » elle-même
     (voir `_notes_sous_tableau`).
     """
     placement = proposition.placement
-    texte = _duree_courte(placement.duree_totale_s)
-    if compteur_info is not None:
-        ecoule_s, _source = temps_ecoule(
-            placement.distance_totale_m / 1000.0,
-            placement.duree_totale_s,
-            compteur_info["moyenne_compteur_kmh"],
-        )
-        texte += f" / {_duree_courte(ecoule_s)}"
-    return texte
+    if compteur_info is None:
+        return _duree_courte(placement.duree_totale_s)
+    ecoule_s, _source = temps_ecoule(
+        placement.distance_totale_m / 1000.0,
+        placement.duree_totale_s,
+        compteur_info["moyenne_compteur_kmh"],
+    )
+    return f"{_duree_courte(ecoule_s)} / {_duree_courte(placement.duree_totale_s)}"
 
 
 def _duree_longue(secondes: float) -> str:
