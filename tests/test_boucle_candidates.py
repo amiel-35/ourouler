@@ -185,6 +185,53 @@ def test_l_essai_plus_long_qui_sort_de_la_tolerance_retombe_sur_le_premier():
     assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
 
 
+def test_l_essai_plus_long_mais_plus_court_ne_remplace_pas_le_premier():
+    """**La règle du lot, et le seul test qui la prouve** (ajouté le 18/09/2026).
+
+    Relecture : retirer la clause « et réellement plus long » de `generer`
+    laissait les trente-quatre autres tests verts. Ce cas-ci est le seul qui
+    la tienne, et il n'est pas théorique — le docstring d'`AJUSTEMENTS_MAX`
+    note que la distance rendue **oscille** d'une itération à l'autre
+    (53,6 km puis 65,4 km pour 60 km demandés).
+
+    Premier essai à −4 %, second à −8 % : tous deux dans la bande, mais le
+    second est plus court. Servir le second serait exactement le sous-tir que
+    ce lot existe pour tuer.
+    """
+    reponses = iter([4.8, 4.416])  # −4 %, puis −8 % : dans la bande, mais plus court
+    client, appels = moteur(lambda rayon: rayon * next(reponses))
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    assert len(appels) == 2
+    assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
+
+
+def test_un_echec_du_moteur_au_second_essai_ne_perd_pas_la_premiere_candidate():
+    """Le bug que la relecture cherchait en premier : il n'y est pas, et maintenant c'est tenu.
+
+    Une candidate acceptable est déjà en main quand l'essai « plus long »
+    échoue. Elle doit être servie, et l'échec ne doit pas remonter : il ne
+    remonte que si **rien** n'a été trouvé.
+    """
+    etat = {"premier": True}
+
+    def gestionnaire(requete):
+        p = requete.url.params
+        appels_vus.append(float(p["roundTripDistance"]))
+        if not etat["premier"]:
+            return httpx.Response(500, content=b"")
+        etat["premier"] = False
+        charge = reponse_fabriquee()
+        charge["features"][0]["properties"]["track-length"] = str(round(12_000.0 * 4.8))
+        return httpx.Response(200, json=charge)
+
+    appels_vus: list[float] = []
+    client = ClientBrouter(PARAMS, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    assert len(appels_vus) == 2
+    assert len(trouvees) == 1
+    assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
+
+
 def test_l_essai_plus_long_ne_se_declenche_pas_sans_budget_disponible():
     """Le biais ne dépense jamais plus que ce qu'`appels_max` autorise déjà."""
     client, appels = moteur(lambda rayon: rayon * 4.8)  # −4 %, dans la tolérance, sous la cible

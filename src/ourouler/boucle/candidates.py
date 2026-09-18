@@ -235,8 +235,14 @@ def generer(
     normale vise déjà plus long, puisque `cible_m / trace.distance_m > 1`
     sous la cible), et la plus longue des deux l'emporte **si elle tient
     elle aussi dans la bande** — sinon on revient à la première. Un seul essai
-    de plus par azimut, jamais une relance : le budget d'appels ne change pas
-    (`appels_pour` le permettait déjà), il est simplement mieux dépensé. Une
+    de plus par azimut, jamais une relance. **Le plafond ne change pas**
+    (`appels_pour` l'autorisait déjà), mais **le coût réel, lui, double à peu
+    près** : le premier essai tombait court 20 fois sur 24, donc l'essai
+    supplémentaire se déclenche presque toujours. Mesuré le 18/09/2026 sur le
+    serveur du mainteneur, cibles 60/100/125 km : **1,67 à 2,38 appels par
+    azimut** contre un seul auparavant, pour un plafond de 4 jamais approché.
+    Dire « mieux dépensé » sans ce chiffre masquerait le coût (règle
+    absolue 5). Une
     candidate déjà au-dessus de la cible, elle, n'est jamais retouchée : le
     biais ne joue que dans un sens.
 

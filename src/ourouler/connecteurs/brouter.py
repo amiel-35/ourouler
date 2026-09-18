@@ -88,12 +88,25 @@ DEGRES, MICRODEGRES = 1.0, 1e-6
 #:    40-200 ; au rayon 8 km, le nombre d'antennes baisse aux seuils
 #:    croissants (2 827 m médians à 40-200, 321 m à 1000) mais **ne tombe pas
 #:    à zéro même à seuil 0** (283 m médians, 4 boucles sur 7 encore
-#:    porteuses d'une antenne) — signe que ces crochets-là ne sont plus des
-#:    points de passage mal placés mais de vrais culs-de-sac du réseau routier
-#:    à ce rayon, qu'aucun seuil ne peut recaler. 0 reste le meilleur réglage
+#:    porteuses d'une antenne). **Pourquoi, on ne le sait pas** (relecture du
+#:    18/09/2026) : ce peut être de vrais culs-de-sac du réseau routier à ce
+#:    rayon, qu'aucun réglage ne recale ; ce peut être aussi que le moteur
+#:    renonce, `snapPathConnection` bornant sa remontée à `MAX_STEPS_CHECK`
+#:    nœuds et abandonnant sur plusieurs conditions sans rapport avec la
+#:    voirie. Les deux explications sont ouvertes, aucune n'est départagée.
+#:    0 reste le meilleur réglage
 #:    mesuré (jamais pire, souvent strictement mieux qu'un seuil plus grand),
 #:    mais **ne garantit pas** l'absence d'antenne : `boucle/antennes.py`
 #:    reste nécessaire en filet, voir son docstring de module.
+#: **Ce que ce mécanisme fait, et qu'il faut lire avant de toucher au seuil**
+#: (ajouté le 18/09/2026, après qu'une relecture a dû aller lire la source de
+#: BRouter pour le savoir) : il ne **déplace** aucun point de passage et ne
+#: recolle rien sur la route la plus proche. `snapPathConnection` remonte le
+#: tracé déjà calculé, repère les nœuds parcourus deux fois — à l'aller puis
+#: au retour — et **les retire du tracé**. Le seuil n'est donc pas un rayon
+#: d'accrochage : c'est la **longueur maximale d'aller-retour** qu'on
+#: s'autorise à couper. À 0, aucune limite. Le cercle des points de passage
+#: est identique dans tous les cas, et l'azimut demandé ne peut pas dériver.
 CORRECTION_POINTS_DE_PASSAGE: dict[str, Any] = {
     "profile:correctMisplacedViaPoints": 1,
     "profile:correctMisplacedViaPointsDistance": 0,
