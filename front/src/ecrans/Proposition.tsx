@@ -15,6 +15,7 @@
 
 import { useState } from "react";
 import type { Candidate, Enveloppe, Seance, Sortie, Trace } from "../api/types";
+import { CODE_INJOIGNABLE, panneDeReponseGpx } from "../api/client";
 import {
   duree,
   heure,
@@ -56,11 +57,60 @@ interface Props {
   surRetour: () => void;
 }
 
-function partager(url: string, nom: string) {
+/** Ce qu'une panne du partage GPX affiche — jamais un code technique nu. */
+export interface PanneGpx {
+  code: string;
+  message: string;
+}
+
+/**
+ * Récupère le GPX, et distingue **trois échecs qui n'appellent pas le même
+ * mot** :
+ *
+ * 1. le réseau ne répond pas du tout (`fetch` jette un `TypeError` — hors
+ *    ligne, serveur éteint) : ce cas n'a pas de JSON à lire, donc pas de
+ *    message français à en tirer — on reprend le même code et la même
+ *    phrase que `client.appeler` pour ce cas-là (`CODE_INJOIGNABLE`), plutôt
+ *    que de laisser fuir le texte technique de l'exception du navigateur
+ *    (trouvé en relecture le 18/09/2026 : « Failed to fetch » s'affichait
+ *    tel quel, exactement le « code technique nu » que L7.D interdit) ;
+ * 2. le serveur a répondu et refusé — une panne nommée, comme
+ *    `generation_introuvable` quand la recherche est sortie de la mémoire
+ *    (`docs/ux/api_contrat.md`) ;
+ * 3. le fichier est bien là, et c'est le partage du navigateur qui ne marche
+ *    pas — ce cas-là ne jette jamais ici, il se gère dans `partager`.
+ */
+async function recupererGpx(url: string): Promise<Blob> {
+  let reponse: Response;
+  try {
+    reponse = await fetch(url);
+  } catch {
+    throw {
+      code: CODE_INJOIGNABLE,
+      message: "le serveur d'où rouler ne répond pas — vérifiez qu'il tourne",
+    } satisfies PanneGpx;
+  }
+  if (!reponse.ok) throw await panneDeReponseGpx(reponse);
+  return reponse.blob();
+}
+
+function partager(url: string, nom: string, surEchec: (panne: PanneGpx | null) => void) {
   return async () => {
+    // Un nouvel essai efface la panne du précédent : sinon le message reste
+    // affiché même quand l'essai suivant réussit.
+    surEchec(null);
+    let contenu: Blob;
     try {
-      const reponse = await fetch(url);
-      const contenu = await reponse.blob();
+      contenu = await recupererGpx(url);
+    } catch (panne) {
+      // Le serveur a refusé, ou le réseau ne répond pas : ni l'un ni l'autre
+      // n'est une affaire de navigateur, et dire « ce navigateur ne sait pas
+      // partager » serait faux ici — c'est exactement le défaut trouvé le
+      // 18/09/2026.
+      surEchec(panne as PanneGpx);
+      return;
+    }
+    try {
       const fichier = new File([contenu], nom, { type: "application/gpx+xml" });
       const partage = navigator as Navigator & {
         canShare?: (donnees: { files: File[] }) => boolean;
@@ -82,6 +132,10 @@ function partager(url: string, nom: string) {
 
 export function PropositionDetail({ reponse, numero, seance, surRetour }: Props) {
   const [onglet, setOnglet] = useState<"parcours" | "tenue">("parcours");
+  // La panne du partage GPX, quand c'est le serveur (ou le réseau) qui a
+  // refusé plutôt que le navigateur : un écran ne peut pas rester muet sur
+  // ce cas (18/09/2026).
+  const [erreurGpx, setErreurGpx] = useState<PanneGpx | null>(null);
   const sortie = reponse.donnees;
   const proposition = sortie.propositions.find((p) => p.numero === numero) ?? null;
   const candidate: Candidate | null = sortie.candidates.find((c) => c.numero === numero) ?? null;
@@ -210,6 +264,17 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
                 <b>{nombre(candidate.denivele_m)}</b> m D+
               </span>
             ) : null}
+            {/* Le porte à porte en majeur, le temps sans arrêt juste à côté
+                (18/09/2026) : « je demande 5 h, je veux 5 h ». Les deux
+                chiffres restaient corrects mais éloignés — le porte à porte
+                arrivait après le D+, les feux, le trafic et les routes non
+                classées, si loin que l'œil ne les rapprochait plus l'un de
+                l'autre. Ils suivent maintenant tout de suite le D+, comme sur
+                `Boucles.tsx` et `Propositions.tsx`. */}
+            <DureesDeSortie
+              mouvementS={proposition.duree_s}
+              ecouleS={candidate.temps_ecoule_s}
+            />
             {arrets !== null ? (
               <span>
                 <b>{nombre(arrets)}</b> feux et stops
@@ -230,12 +295,6 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
                 classer
               </span>
             ) : null}
-            {/* Le porte à porte en majeur, le temps sans arrêt juste à
-                côté : « je demande 5 h, je veux 5 h » (18/09/2026). */}
-            <DureesDeSortie
-              mouvementS={proposition.duree_s}
-              ecouleS={candidate.temps_ecoule_s}
-            />
           </div>
 
           <TempsEcoule candidate={candidate} compteur={sortie.compteur} />
@@ -278,10 +337,18 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               la trace de « la plus calme » au compteur. */}
           {proposition.gpx ? (
             <>
+              {erreurGpx ? (
+                <div className="encart alerte">
+                  <b>L'envoi vers votre compteur a échoué.</b> {erreurGpx.message}
+                  <p className="mention" style={{ marginTop: 6, marginBottom: 0 }}>
+                    Code de la panne : {erreurGpx.code}.
+                  </p>
+                </div>
+              ) : null}
               <button
                 type="button"
                 className="bouton"
-                onClick={partager(proposition.gpx.url, proposition.gpx.nom)}
+                onClick={partager(proposition.gpx.url, proposition.gpx.nom, setErreurGpx)}
               >
                 Envoyer vers mon compteur
               </button>

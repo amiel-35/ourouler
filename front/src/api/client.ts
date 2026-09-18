@@ -111,6 +111,40 @@ export function reessayable(erreur: ErreurApi): boolean {
   ].includes(erreur.code);
 }
 
+/**
+ * La panne d'une réponse en échec, pour le partage du GPX (`Proposition.tsx`,
+ * bouton « Envoyer vers mon compteur »).
+ *
+ * Cette requête doit rester un `fetch` brut — le navigateur a besoin d'un
+ * fichier, pas d'un JSON désérialisé, pour le passer à `navigator.share` —
+ * mais une réponse en échec porte la même enveloppe `{erreur}` que partout
+ * ailleurs, et la lire ici évite d'inventer une seconde façon de reconnaître
+ * une panne de l'API. Trouvé le 18/09/2026 : `partager` avalait toute
+ * réponse en échec (un GPX de génération oubliée, par exemple —
+ * `generation_introuvable`) sous « ce navigateur ne sait pas partager de
+ * fichier », qui n'est vrai que la moitié du temps et jamais quand c'est le
+ * serveur qui a refusé.
+ *
+ * Le bouton « Télécharger le GPX », lui, reste un `<a href download>` natif
+ * (`tests/gpx_proposition.test.tsx` vérifie son `href`/`download` exacts) :
+ * cette fonction ne le concerne pas.
+ */
+export async function panneDeReponseGpx(reponse: Response): Promise<{ code: string; message: string }> {
+  const texte = await reponse.text();
+  try {
+    const charge = texte ? JSON.parse(texte) : null;
+    const panne = (charge as { erreur?: Panne } | null)?.erreur;
+    if (panne?.code && panne.message) return { code: panne.code, message: panne.message };
+  } catch {
+    // Pas du JSON : ce n'est pas l'API qui a répondu (proxy, passerelle…),
+    // le code générique et le statut suffisent.
+  }
+  return {
+    code: CODE_ILLISIBLE,
+    message: `la réponse reçue n'est pas celle d'où rouler (HTTP ${reponse.status})`,
+  };
+}
+
 function url(chemin: string, parametres?: Record<string, string | number | undefined>): string {
   const requete = new URLSearchParams();
   for (const [cle, valeur] of Object.entries(parametres ?? {})) {

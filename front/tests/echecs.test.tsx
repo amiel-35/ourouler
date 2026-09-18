@@ -372,6 +372,38 @@ describe("une panne au démarrage ne fige pas l'application", () => {
     expect(await screen.findByRole("button", { name: "Réessayer" })).toBeTruthy();
     expect(screen.queryByText("Connexion au serveur…")).toBeNull();
   });
+
+  /**
+   * `session_absente` (lot L7.A, mergé pendant ce lot-ci) : un service exposé
+   * sans méthode de connexion branchée refuse **`/systeme`**, le tout premier
+   * appel de l'application — avant même le profil et les zones. C'est le cas
+   * le plus probable en usage réel, pas un cas rare, et exactement le défaut
+   * muet du 17/09 si l'écran ne le nomme pas.
+   */
+  it("nomme l'absence de session dès /systeme, sans promettre un écran de connexion", async () => {
+    const serveur = new Serveur({
+      "/api/v1/systeme": panne(
+        "session_absente",
+        "aucune session ouverte — cette route sert des données personnelles, et ce " +
+          "serveur ne sait pas encore à qui elles appartiennent",
+        401,
+      ),
+    });
+    serveur.installer();
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Ce serveur ne sait pas encore qui vous êtes" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/ne sait pas encore à qui elles appartiennent/)).toBeTruthy();
+    expect(screen.queryByText("Connexion au serveur…")).toBeNull();
+    // Aucune méthode d'authentification n'est choisie (hors périmètre du
+    // sprint) : ni bouton « se connecter », ni « Réessayer » — se reconnecter
+    // n'a aucune chance d'aboutir tant que rien n'existe pour le faire.
+    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /connecter/i })).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });
 
 describe("le bandeau météo se décide sur le code, jamais sur la phrase", () => {

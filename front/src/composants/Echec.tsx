@@ -162,6 +162,45 @@ export function Echec({
     );
   }
 
+  // --- Le serveur a répondu, et il refuse : il ne sait pas encore qui parle.
+  //
+  // Trouvé le 18/09/2026 (lot L7.A, mergé pendant ce lot-ci) : un service
+  // exposé (`OUROULER_MODE=heberge`, ou l'absence de la variable) répond
+  // 401 `session_absente` à **toute** route de données, y compris `/systeme`
+  // — le tout premier appel de l'application, avant même l'écran vide de
+  // démarrage. Sans ce cas, l'écran serait resté sur « Connexion au
+  // serveur… » pour toujours : exactement le défaut muet du 17/09 que ce
+  // lot existe pour tuer, et le cas le plus probable en usage réel plutôt
+  // qu'un cas rare.
+  //
+  // **Pas d'écran de connexion.** Aucune méthode d'authentification n'est
+  // choisie — c'est hors périmètre du sprint (`docs/sprint7_contrat.md`,
+  // « hors périmètre »). Un formulaire ou un bouton « se connecter » qui ne
+  // mènerait nulle part serait une fausse promesse ; l'écran se contente de
+  // dire ce qui manque, sans `reessayer` — se reconnecter n'a aucune chance
+  // d'aboutir tant que rien n'existe pour le faire.
+  if (erreur.code === "session_absente") {
+    return (
+      <Cadre contexte={contexte} titre="Ce serveur ne sait pas encore qui vous êtes">
+        <div className="encart alerte">
+          <b>Aucune session ouverte.</b> {erreur.message}
+        </div>
+        <div className="bloc doux">
+          <div className="bloc-tete">
+            <h2>Ce qui manque</h2>
+          </div>
+          <p className="mention">
+            Ce service peut servir plusieurs cyclistes, et aucune méthode de connexion n'est
+            encore branchée ici — ni compte, ni lien, ni mot de passe. Ce n'est pas une panne :
+            ce serveur ne peut simplement montrer les données de personne tant que ça
+            n'existe pas. Il n'y a rien à faire ici pour l'instant.
+          </p>
+        </div>
+        {secours}
+      </Cadre>
+    );
+  }
+
   // --- E18 · échec : aucune boucle dans la tolérance de distance.
   if (erreur.code === "aucune_boucle") {
     const mesures = mesuresDistance(erreur);
@@ -242,19 +281,50 @@ export function Echec({
   }
 
   // --- tout le reste : une panne qu'on nomme, et ce qui marche encore.
+  //
+  // **Inventaire complet du 18/09/2026** (L7.D). Avant ce lot, 13 des 21
+  // codes d'`api/erreurs.CODES_PANNE` avaient un écran — 9 par une entrée de
+  // ce tableau, 4 par un écran dédié (`aucune_boucle`, `meteo_indisponible`,
+  // `meteo_hors_domaine`, `intervals_refuse`, tous traités plus haut). Les 8
+  // restants (`requete_invalide`, `fichier_introuvable`,
+  // `generation_introuvable`, `route_inconnue`, `methode_refusee`,
+  // `service_externe_indisponible`, `configuration_invalide`,
+  // `erreur_interne`) tombaient dans « Ça n'a pas marché » — pas un écran
+  // muet (le message et le code restaient affichés), mais pas non plus le
+  // titre qui dit ce qui s'est passé. `tests/inventaire_erreurs.test.tsx`
+  // relit `CODES_PANNE` dans les sources Python pour qu'un code qu'on y
+  // ajoute sans le nommer ici casse un test, plutôt que de retomber en
+  // silence dans le générique — c'est ainsi que `session_absente` (L7.A,
+  // mergé pendant ce lot) a été trouvé, et il a son propre écran plus haut.
   const titres: Record<string, string> = {
-    brouter_indisponible: "Le traceur ne répond pas",
-    calcul_en_cours: "Un calcul occupe déjà le serveur",
+    requete_invalide: "Cette demande n'est pas valide",
+    profil_invalide: "Ce réglage ne tient pas",
     fichier_illisible: "Ce fichier n'a pas été compris",
     format_non_lu: "Ce format n'est pas encore lu",
     fichier_trop_gros: "Ce fichier est trop gros",
-    geocodage_indisponible: "L'annuaire d'adresses ne répond pas",
+    fichier_introuvable: "Ce fichier n'est plus accessible",
+    // Le GPX d'une génération oubliée : l'API le dit dans son message
+    // (« relancer la recherche »), mais un titre qui reprend le mot
+    // « introuvable » sans le nommer laisserait croire à un bug plutôt qu'à
+    // une mémoire qui a fait sa place (`docs/ux/api_contrat.md`).
+    generation_introuvable: "Cette recherche n'est plus disponible",
+    // Pas « adresse » : ce mot désigne déjà l'adresse postale du départ
+    // ailleurs dans l'écran (`FormulaireAdresse`, E16) — l'ambigüité aurait
+    // fait croire à une adresse mal saisie plutôt qu'à un chemin d'API
+    // inconnu.
+    route_inconnue: "Cette route de l'API n'existe pas",
+    methode_refusee: "Cette route n'accepte pas cette méthode",
+    calcul_en_cours: "Un calcul occupe déjà le serveur",
+    brouter_indisponible: "Le traceur ne répond pas",
     intervals_indisponible: "intervals.icu est en panne",
-    profil_invalide: "Ce réglage ne tient pas",
+    geocodage_indisponible: "L'annuaire d'adresses ne répond pas",
+    service_externe_indisponible: "Un service externe ne répond pas",
     // Le serveur tourne et **refuse** : la distinction avec « ne répond pas »
     // se voit dès le titre, qui dit ce qui manque au serveur et non ce qui
     // manquerait à la demande.
     profil_absent: "Ce serveur n'a pas de profil",
+    configuration_invalide: "La configuration du serveur ne tient pas",
+    erreur_interne: "Quelque chose a cassé côté serveur",
   };
   return (
     <Cadre contexte={contexte} titre={titres[erreur.code] ?? "Ça n'a pas marché"}>

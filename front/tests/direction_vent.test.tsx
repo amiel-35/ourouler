@@ -48,6 +48,26 @@ function demandeEssai(morceau?: Partial<Demande>): Demande {
   return { ...demandeInitiale(), jour: "2026-09-18", ...morceau };
 }
 
+describe("le libellé « Direction » ne se répète plus (signalé le 18/09/2026)", () => {
+  it("distingue le choix du mode de celui du point cardinal", async () => {
+    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    serveur.installer();
+    const utilisateur = userEvent.setup();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+    await waitFor(() => expect(serveur.vers("/api/v1/vent-depart").length).toBe(1));
+
+    // Avant « Ma direction » : un seul champ porte « Direction », celui du mode.
+    expect(screen.getAllByText("Direction")).toHaveLength(1);
+    expect(screen.queryByText("Point cardinal")).toBeNull();
+
+    await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
+
+    // Le sélecteur d'azimut apparaît, et il ne recopie plus le même mot.
+    expect(screen.getAllByText("Direction")).toHaveLength(1);
+    expect(screen.getByText("Point cardinal")).toBeTruthy();
+  });
+});
+
 describe("un seul sélecteur affiché à la fois", () => {
   it("« Ma direction » puis « Selon le vent » ne laissent jamais les deux sélecteurs visibles", async () => {
     const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
