@@ -311,6 +311,35 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   une connexion Google il aurait fallu construire une liste d'attente — et
   l'écran d'entrée nous appartient, au lieu d'être celui d'un tiers.
 
+  **Précisé le 18/09/2026 par le mainteneur, à l'ouverture du lot L7.2-A, et
+  ce n'est pas un détail de V1 : l'entrée est sur invitation *uniquement*, et
+  définitivement — y compris pour la version publique.** Il n'y a jamais de
+  création de compte à la demande : pas de formulaire d'inscription, pas de
+  demande d'accès, pas de liste d'attente. Le seul chemin vers un compte est
+  un lien envoyé par le mainteneur, et **son propre compte passe par ce
+  chemin-là**, sans exception ni trappe d'amorçage. La phrase « une demande
+  d'accès, que le mainteneur valide à la main » ci-dessus décrivait un
+  guichet qui n'existera pas ; ce qui reste vrai d'elle, c'est que rien
+  n'entre sans un geste du mainteneur.
+
+  Deux conséquences techniques, écrites au même moment parce qu'elles ne se
+  rattrapent pas :
+
+  - **« En base l'email est UNIQ, c'est pas le code qui porte ce genre de
+    contrôle sinon catastrophe ; mais oui on a un id-account avec un id à
+    nous qui est la clé. »** Toute unicité est une **contrainte de base de
+    données**, jamais une vérification préalable dans le code : un `SELECT`
+    puis `INSERT` se fait doubler par deux requêtes concurrentes. On insère,
+    et on traduit la violation de contrainte en message lisible. De même, une
+    invitation se consomme par un unique `UPDATE … WHERE … AND consomme_le IS
+    NULL … RETURNING`.
+  - **Un jeton d'invitation n'est jamais stocké en clair** : seul son
+    condensé (SHA-256) va en base. Un jeton en base est un jeton qu'une fuite
+    de sauvegarde rend utilisable.
+
+  « Pas d'interface ne veut pas dire pas de contrôle » : inviter deux fois la
+  même adresse répond « il a déjà un compte », jamais un doublon.
+
   **V2 : Google, puis Apple, en plus et non à la place.** OpenID Connect
   avec ses contraintes propres côté Apple — compte développeur payant, clé
   privée et identifiant de service, relais d'adresse e-mail privée,

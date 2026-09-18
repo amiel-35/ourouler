@@ -4668,3 +4668,44 @@ reconnaissable, la chercher là où elle ne doit pas apparaître, et **vérifier
 d'abord que le semis a pris**. Les trois tests de ce fichier qui font ça
 portent chacun leur contre-épreuve dans le même corps, avant l'assertion
 principale.
+
+
+---
+
+## Q59 — Une invitation « déjà en cours » ne peut pas être relancée telle quelle — **ouverte le 18/09/2026**
+
+Sortie du lot L7.2-A (le socle des comptes). Deux consignes du mainteneur se
+tiennent séparément et se contredisent une fois assemblées.
+
+**La première.** « Quand une invitation est déjà en cours et non consommée, ne
+crée pas un second jeton, rends la même invitation et laisse l'appelant dire
+qu'elle est relancée. Le cas réel c'est qu'il ne l'a pas vue. »
+
+**La seconde.** « Le jeton n'est jamais stocké en clair : seul son condensé va
+en base. »
+
+**Pourquoi les deux ensemble ne marchent pas.** Un condensé ne se remonte pas.
+Si l'invitation en cours est rendue telle quelle, on sait *qu'elle existe* et
+*jusqu'à quand elle vaut*, mais on n'a plus le lien à mettre dans le mail.
+« Relancer » au sens de « renvoyer le même message » est donc impossible — et
+c'est bien la deuxième consigne qui doit gagner, parce qu'un jeton en base est
+un jeton qu'une fuite de sauvegarde rend utilisable.
+
+**Ce que le socle fait en attendant**, sans rien inventer : `creer_invitation`
+rend `deja_en_cours=True` et `jeton=None`. L'appelant peut dire « une
+invitation est déjà en cours, émise le X, valable jusqu'au Y », il ne peut pas
+la renvoyer. Une invitation **expirée**, elle, se remplace normalement.
+
+**La question, pour le lot de la commande `ourouler inviter`.** Que veut le
+mainteneur quand l'invité dit « je n'ai rien reçu » ?
+
+- **(a) Rien de plus** : la commande affiche l'état, et on attend l'expiration
+  (sept jours aujourd'hui). Le plus simple, et frustrant le jour où ça arrive.
+- **(b) Un geste explicite qui remplace** — `ourouler inviter --relancer` :
+  l'invitation en cours est retirée, une neuve est émise, **l'ancien lien
+  cesse de valoir**. Ce n'est pas la même promesse que « rends la même
+  invitation » : c'est un lien de plus, et un de moins.
+- **(c) Raccourcir la durée par défaut** pour que (a) fasse moins mal.
+
+Ce n'est pas au code de trancher : (b) invalide un lien que quelqu'un a
+peut-être sous les yeux, ce qui est un choix de produit.
