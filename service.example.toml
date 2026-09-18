@@ -27,11 +27,23 @@
 # main, puis lien à usage unique par courriel, puis passkey pour ne plus
 # dépendre de la boîte mail.
 #
-# Une clé v3 commence par « xkeysib- ». Prendre une clé dédiée plutôt qu'une
-# clé existante : elle se révoque sans rien casser d'autre.
-api_key = ""
+# **Envoi par SMTP, pas par l'API REST** (décidé le 18/09/2026). C'est du
+# protocole standard : aucune bibliothèque du fournisseur, et on change de
+# prestataire en éditant trois lignes. L'API REST n'apporterait qu'un suivi
+# d'ouverture dont ce produit n'a que faire.
+#
+# Attention, Brevo distribue **deux sortes de clés** et elles ne servent pas au
+# même protocole : « xkeysib- » pour l'API v3, « xsmtpsib- » pour le relais
+# SMTP. C'est la seconde qu'il faut ici, et elle sert de mot de passe.
+# L'identifiant de connexion, lui, n'est pas la clé : c'est une adresse en
+# `@smtp-brevo.com`, affichée à côté d'elle sur la même page.
+serveur = "smtp-relay.brevo.com"
+port = 587
+utilisateur = ""
+mot_de_passe = ""
 
-# L'adresse expéditrice doit être vérifiée chez Brevo, sinon les courriels
-# partent en spam ou sont refusés.
+# L'adresse expéditrice doit être **vérifiée chez Brevo** (Expéditeurs,
+# domaines & IP), sinon le relais accepte la connexion et refuse le message —
+# l'erreur n'arrive qu'au premier envoi.
 expediteur = ""
-nom_expediteur = "ourouler"
+nom_expediteur = "où rouler"
