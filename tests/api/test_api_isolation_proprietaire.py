@@ -33,7 +33,6 @@ ne peut se périmer en silence.
 
 from __future__ import annotations
 
-import ast
 import importlib.util
 import re
 import sys
@@ -373,13 +372,53 @@ TABLES_IDENTITE = ("comptes", "invitations", "migrations")
 
 #: Le motif qui repère une instruction SQL de données dans un texte.
 #:
-#: Deux exclusions, chacune payée par un faux positif rencontré :
-#: `(?!\()` écarte `@routeur.delete("/moi")`, un appel Python (lot L7.B) ;
-#: `(?<!ON )` écarte `REFERENCES comptes (id) ON DELETE CASCADE`, qui décrit
-#: ce qu'une clé étrangère fait et n'efface rien par elle-même (lot L7.2-A).
+#: Une seule exclusion ici, payée par un faux positif rencontré : `(?!\()`
+#: écarte `@routeur.delete("/moi")`, un appel Python (lot L7.B). Une vraie
+#: instruction SQL a toujours une espace après son verbe.
 MOTIF_SQL = re.compile(
-    r"\b(?<!ON )(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\Z)", re.IGNORECASE | re.DOTALL
+    r"\b(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\Z)", re.IGNORECASE | re.DOTALL
 )
+
+#: Ce qu'une clé étrangère promet quand la ligne visée bouge. Ce n'est **pas**
+#: une instruction : `REFERENCES comptes (id) ON DELETE CASCADE` décrit ce que
+#: la base fera, elle n'efface rien par elle-même. Ces phrases sont retirées du
+#: texte avant de le lire.
+#:
+#: Écrit en toutes lettres depuis le 18/09/2026 : le motif disait auparavant
+#: `(?<!ON )` devant le verbe, ce qui aurait aussi bien silencé un vrai
+#: `DELETE` précédé de n'importe quel « ON » — la fin d'un `JOIN … ON`, par
+#: exemple. Une exclusion doit nommer ce qu'elle exclut.
+ACTION_REFERENTIELLE = re.compile(
+    r"\bON\s+(?:DELETE|UPDATE)\s+"
+    r"(?:CASCADE|RESTRICT|SET\s+NULL|SET\s+DEFAULT|NO\s+ACTION)\b",
+    re.IGNORECASE,
+)
+
+
+def _texte_a_lire(texte: str) -> str:
+    """Le texte débarrassé de ce qui n'est pas une instruction.
+
+    Deux retraits, et l'ordre compte peu : les **commentaires SQL** (`--`,
+    `/* */`), parce qu'un commentaire est de la prose et qu'un
+    « `SELECT * FROM activites -- pose avec les migrations` » se dispensait de
+    la clause par le seul mot posé après le tiret ; et les **actions
+    référentielles**, qui décrivent au lieu d'agir.
+    """
+    return ACTION_REFERENTIELLE.sub(" ", _invariants_du_depot().sans_commentaires_sql(texte))
+
+
+def _dispensee(verbe: str, corps: str) -> bool:
+    """Vrai si cette instruction n'adresse que des tables d'identité.
+
+    **Par table réellement adressée, jamais par mention du mot** (corrigé le
+    18/09/2026 sur relecture adverse). Écrite par mention, la dispense
+    blanchissait `SELECT a.trace FROM activites a JOIN comptes c …` : une
+    jointure qui lit bel et bien une table de données, et que la première
+    branche des comptes sur les données écrira naturellement. Le détail de la
+    lecture des tables, et de son échec du bon côté, est dans
+    `tests/test_invariants.py` (`dispensee_par_ses_tables`).
+    """
+    return _invariants_du_depot().dispensee_par_ses_tables(f"{verbe} {corps}", TABLES_IDENTITE)
 
 
 def _tables_declarees() -> list[tuple[Path, str, str]]:
@@ -403,10 +442,23 @@ def _tables_declarees() -> list[tuple[Path, str, str]]:
         for nom, corps in motif.findall(texte):
             trouvees.append((fichier, nom, corps))
     for fichier in sorted(SOURCES.rglob("*.sql")):
+        texte = fichier.read_text(encoding="utf-8")
+        # **Le découpage est naïf, et il l'assume à voix haute.** Un `;` posé
+        # dans un littéral, ou un corps de fonction `$$ … $$`, couperait une
+        # instruction en morceaux dont aucun ne ressemblerait plus à un
+        # `CREATE TABLE` — et ce test deviendrait aveugle *sans bruit*, ce qui
+        # est la pire façon pour un invariant de cesser de garder. Tant qu'il
+        # n'y a pas de raison d'écrire un vrai analyseur, on refuse d'avance le
+        # seul cas qui se voit : le jour où une migration porte un `$$`, ce
+        # test échoue et demande qu'on choisisse.
+        assert "$$" not in texte, (
+            f"{fichier.name} porte « $$ » : le découpage sur « ; » ci-dessous ne sait pas "
+            "le lire, et ce test cesserait de voir les tables sans le dire"
+        )
         # Découpé instruction par instruction : sans ça, le `.*?` non gourmand
         # s'arrête à la première parenthèse fermante d'une contrainte et le
         # corps de la table est tronqué.
-        for instruction in fichier.read_text(encoding="utf-8").split(";"):
+        for instruction in texte.split(";"):
             for nom, corps in motif.findall(instruction + ";"):
                 trouvees.append((fichier, nom, corps))
     return trouvees
@@ -503,16 +555,20 @@ def test_aucune_requete_sql_de_l_api_ne_lit_sans_filtrer_par_proprietaire():
        docstrings exclues, et le contenu des `.sql` ;
     2. les tables d'identité sont dispensées, nommément (`TABLES_IDENTITE`),
        pour la raison écrite avec la constante.
+
+    **Troisième correction, le soir même, sur relecture adverse** : cette
+    dispense était écrite « par mention du mot » et blanchissait donc une
+    requête qui touche **à la fois** une table d'identité et une table de
+    données. Elle porte désormais sur les tables réellement adressées
+    (`_dispensee`), et les commentaires SQL partent avant la lecture
+    (`_texte_a_lire`).
     """
     fichiers = fichiers_python_de_l_api()
     assert fichiers, "aucune source d'API trouvée sous src/ourouler/{api,web,serveur}"
-    motif = MOTIF_SQL
     nues = []
     for origine, texte in _sql_execute_par_l_api(fichiers):
-        for verbe, corps in motif.findall(texte):
-            if "proprietaire" in corps.lower():
-                continue
-            if any(re.search(rf"\b{table}\b", corps, re.IGNORECASE) for table in TABLES_IDENTITE):
+        for verbe, corps in MOTIF_SQL.findall(_texte_a_lire(texte)):
+            if "proprietaire" in corps.lower() or _dispensee(verbe, corps):
                 continue
             nues.append(f"{origine}: {verbe} {corps.strip()[:60]}…")
     assert not nues, "requêtes SQL sans clause de propriétaire :\n  " + "\n  ".join(nues)
@@ -528,23 +584,15 @@ def _sql_execute_par_l_api(
     `execute` » — le procédé reste grossier, et c'est sa force : une requête
     assemblée par un détour tortueux reste vue. Ce qu'il ne voit plus, c'est la
     prose.
+
+    Le découpage lui-même est **emprunté** à `tests/test_invariants.py`
+    (`chaines_de_code`) depuis le 18/09/2026 : il y en avait ici une copie mot
+    pour mot, et deux copies finissent toujours par diverger.
     """
-    morceaux: list[tuple[str, str]] = []
-    for fichier in fichiers:
-        arbre = ast.parse(fichier.read_text(encoding="utf-8"))
-        docstrings = set()
-        for noeud in ast.walk(arbre):
-            if isinstance(noeud, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
-                premier = noeud.body[0] if noeud.body else None
-                if isinstance(premier, ast.Expr) and isinstance(premier.value, ast.Constant):
-                    docstrings.add(id(premier.value))
-        morceaux += [
-            (fichier.name, noeud.value)
-            for noeud in ast.walk(arbre)
-            if isinstance(noeud, ast.Constant)
-            and isinstance(noeud.value, str)
-            and id(noeud) not in docstrings
-        ]
+    chaines_de_code = _invariants_du_depot().chaines_de_code
+    morceaux: list[tuple[str, str]] = [
+        (fichier.name, chaine) for fichier in fichiers for chaine in chaines_de_code(fichier)
+    ]
     if migrations is None:
         migrations = sorted(SOURCES.rglob("*.sql"))
     morceaux += [(fichier.name, fichier.read_text(encoding="utf-8")) for fichier in migrations]
@@ -554,10 +602,25 @@ def _sql_execute_par_l_api(
 def test_l_invariant_sql_de_l_api_voit_encore_une_requete_nue(tmp_path: Path):
     """Contre-épreuve des corrections ci-dessus : il ne doit pas être devenu aveugle.
 
-    On lui donne les cinq cas qui comptent : la prose (tolérée), une requête
-    sur une table d'identité (tolérée), une clé étrangère `ON DELETE CASCADE`
-    (tolérée : elle décrit, elle n'efface pas), une requête correcte
-    (tolérée), et une lecture nue d'une table de données (refusée).
+    On lui donne les cas qui comptent : la prose (tolérée), une requête sur une
+    table d'identité (tolérée), une clé étrangère `ON DELETE CASCADE`
+    (tolérée : elle décrit, elle n'efface pas), une requête correcte (tolérée),
+    une jointure correctement filtrée (tolérée) — et, **refusées**, une lecture
+    nue d'une table de données ainsi que les trois formes que la relecture
+    adverse du 18/09/2026 a trouvées silencieusement dispensées :
+
+    - `jointure` : une table de données jointe à une table d'identité ;
+    - `sous_requete` : un `DELETE` sur une table de données dont seule la
+      sous-requête touche une table d'identité ;
+    - `commentaire` : un `SELECT` nu suivi d'un commentaire qui prononce le mot
+      « migrations ».
+
+    Et, dans l'autre sens, une **migration dont la prose parle de SQL** : elle
+    ne doit rien produire du tout, sinon la seule façon de faire taire
+    l'invariant serait d'effacer l'explication.
+
+    Une contre-épreuve qui ne teste que les cas auxquels l'auteur a pensé ne
+    prouve rien : c'est la leçon que ce dépôt a déjà payée ([[Q58]]).
     """
     faute = tmp_path / "essai.py"
     faute.write_text(
@@ -568,19 +631,42 @@ def test_l_invariant_sql_de_l_api_voit_encore_une_requete_nue(tmp_path: Path):
         '    cx.execute("CREATE TABLE t (c TEXT REFERENCES autre (id) ON DELETE CASCADE)")\n'
         "def correcte(cx):\n"
         '    cx.execute("SELECT a FROM activites WHERE proprietaire = %s", ("a",))\n'
+        "def jointure_correcte(cx):\n"
+        '    cx.execute("SELECT a.trace FROM activites a JOIN comptes c ON c.id = a.compte "\n'
+        '               "WHERE a.proprietaire = %s", ("a",))\n'
         "def nue(cx):\n"
-        '    cx.execute("SELECT a FROM activites WHERE debut > %s", (1,))\n',
+        '    cx.execute("SELECT a FROM activites WHERE debut > %s", (1,))\n'
+        "def jointure(cx):\n"
+        '    cx.execute("SELECT a.trace FROM activites a JOIN comptes c ON c.id = a.compte")\n'
+        "def sous_requete(cx):\n"
+        '    cx.execute("DELETE FROM routes_connues WHERE compte IN (SELECT id FROM comptes)")\n'
+        "def commentaire(cx):\n"
+        '    cx.execute("SELECT * FROM activites -- pose avec les migrations")\n',
         encoding="utf-8",
     )
-    motif = MOTIF_SQL
+    # Et une migration dont la **prose** parle de SQL, comme le fait
+    # `0001_comptes.sql`. Elle ne doit produire aucune ligne : un commentaire
+    # n'est pas une requête. Sans le retrait des commentaires, ce fichier-ci
+    # ferait apparaître une faute qui n'existe pas — et l'invariant se ferait
+    # désarmer par la première personne pressée d'effacer l'explication.
+    migration = tmp_path / "0001_essai.sql"
+    migration.write_text(
+        "-- On n'écrit jamais un SELECT a FROM activites sans clause.\n"
+        "CREATE TABLE t (c TEXT REFERENCES autre (id) ON DELETE CASCADE);\n",
+        encoding="utf-8",
+    )
     vues = [
-        corps.strip()
-        for _, texte in _sql_execute_par_l_api([faute], migrations=[])
-        for _verbe, corps in motif.findall(texte)
-        if "proprietaire" not in corps.lower()
-        and not any(re.search(rf"\b{t}\b", corps, re.IGNORECASE) for t in TABLES_IDENTITE)
+        " ".join(corps.split())
+        for _, texte in _sql_execute_par_l_api([faute], migrations=[migration])
+        for verbe, corps in MOTIF_SQL.findall(_texte_a_lire(texte))
+        if "proprietaire" not in corps.lower() and not _dispensee(verbe, corps)
     ]
-    assert vues == ["a FROM activites WHERE debut > %s"], vues
+    assert vues == [
+        "a FROM activites WHERE debut > %s",
+        "a.trace FROM activites a JOIN comptes c ON c.id = a.compte",
+        "FROM routes_connues WHERE compte IN (SELECT id FROM comptes)",
+        "* FROM activites",
+    ], vues
 
 
 # =============================================================================
