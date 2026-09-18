@@ -887,6 +887,59 @@ def test_apprendre_rejoue_chaque_sortie_une_fois(tmp_path: Path, cache_garni: Ca
     assert base.statistiques().sorties == rapport.sorties_apprises
 
 
+def reponse_brouter_avec_relief(montee_m: float = 30.0) -> dict:
+    """Comme `reponse_brouter`, altitude en rampe régulière plutôt que plate.
+
+    Sert à vérifier que `apprendre` recalcule un D+ sur cette altitude
+    (contrat sprint 7 §L7.C) plutôt que de la jeter comme avant.
+    """
+    charge = reponse_brouter()
+    coordonnees = charge["features"][0]["geometry"]["coordinates"]
+    n = len(coordonnees)
+    charge["features"][0]["geometry"]["coordinates"] = [
+        [lon, lat, montee_m * i / (n - 1)] for i, (lon, lat, _) in enumerate(coordonnees)
+    ]
+    return charge
+
+
+def test_apprendre_cumule_le_denivele_du_trace_reroute(tmp_path: Path, cache_garni: Cache):
+    """L7.C : `apprendre` recalcule le D+ sur l'altitude du tracé rerouté, sans appel de plus.
+
+    Avant ce lot, la réponse BRouter ne servait qu'aux tags ; son altitude
+    était lue par le connecteur puis jetée. `rapport.denivele_m` doit
+    maintenant refléter une vraie rampe (30 m par sortie rejouée), pas rester
+    `None` ni un chiffre inventé.
+    """
+    base = BaseRoutes(tmp_path / "routes.sqlite")
+    vues: list[httpx.Request] = []
+
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        vues.append(requete)
+        return httpx.Response(200, json=reponse_brouter_avec_relief(30.0))
+
+    client = ClientBrouter(
+        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
+    )
+    rapport = apprendre(cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    assert rapport.sorties_apprises > 0
+    assert rapport.denivele_m is not None
+    assert rapport.denivele_m == pytest.approx(30.0 * rapport.sorties_apprises, abs=1.0)
+
+
+def test_apprendre_sans_sortie_apprise_laisse_le_denivele_absent(tmp_path: Path):
+    """Aucune sortie apprise (cache vide) : `denivele_m` reste `None`, pas 0.0.
+
+    0,0 voudrait dire « mesuré plat » ; `None` dit « rien mesuré » — la
+    distinction que la règle absolue 5 demande déjà ailleurs dans ce module.
+    """
+    base = BaseRoutes(tmp_path / "routes.sqlite")
+    cache = Cache(tmp_path / "cache_vide")
+    client, _ = client_bouchonne()
+    rapport = apprendre(cache, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    assert rapport.sorties_apprises == 0
+    assert rapport.denivele_m is None
+
+
 def test_relancer_apprendre_ne_refait_aucun_appel(tmp_path: Path, cache_garni: Cache):
     """Idempotence : la deuxième passe ne coûte rien et ne fausse rien."""
     base = BaseRoutes(tmp_path / "routes.sqlite")

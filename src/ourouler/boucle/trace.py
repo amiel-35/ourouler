@@ -27,6 +27,22 @@ DENIVELE_GPX_RELU = "gpx relu"
 #: du tracé d'origine, puisqu'un aller-retour monte deux fois la même côte.
 DENIVELE_PARCOURS = "parcours placé"
 
+#: Dénivelé recalculé sur l'altitude du **tracé rerouté** par BRouter, pour une
+#: trace dont l'altitude d'origine vient d'un appareil (baromètre) ou d'un
+#: fichier importé. Les deux sources accumulent du bruit qu'aucun seuil ne
+#: rattrape correctement : mesuré le 18/09/2026 sur une sortie de 86 km,
+#: un altimètre barométrique fabrique 20 cm de bruit par point, soit 1 563 m
+#: de fausse montée sur une amplitude d'altitude réelle de 41 m. La carte
+#: d'altitude que BRouter connaît du terrain n'a pas ce défaut — c'est la
+#: même idée que Strava recalculant le D+ sur sa propre carte plutôt que sur
+#: celle de l'appareil.
+#:
+#: **Ce n'est pas le dénivelé du parcours réellement roulé.** La géométrie
+#: reroutée s'écarte du tracé réel de 2 m en médiane (mesuré sur trois
+#: sorties du mainteneur, 18/09/2026) : c'est le profil de la route que
+#: BRouter a choisie, pas exactement celle roulée.
+DENIVELE_REROUTE = "tracé rerouté"
+
 #: Montées inférieures à ce seuil : du bruit d'altimètre, pas du dénivelé.
 #: BRouter appelle cela « filtered ascend » ; on fait pareil, plus simplement.
 SEUIL_DENIVELE_M = 2.0

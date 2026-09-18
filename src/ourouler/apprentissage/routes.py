@@ -47,7 +47,7 @@ from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
 from ourouler.activites.modele import Activite, est_sport_velo
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT, POIDS_HIGHWAY_INCONNU
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.boucle.trace import PointTrace, Trace, denivele_filtre, distance_m
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
@@ -213,6 +213,15 @@ class RapportApprentissage:
     echecs: int = 0
     km: float = 0.0
     mailles: int = 0
+    #: Somme des D+ recalculés sur l'altitude du **tracé rerouté** par
+    #: BRouter (`boucle.trace.denivele_filtre` appliqué aux points que
+    #: `client.itineraire` a déjà renvoyés pour les tags, sans appel
+    #: supplémentaire — contrat sprint 7 §L7.C), pour les sorties apprises
+    #: **ce coup-ci** seulement. Ce n'est **pas** le D+ de l'appareil : un
+    #: altimètre barométrique accumule du bruit qu'aucun seuil ne rattrape
+    #: (règle absolue 5 — la provenance se dit). `None` tant qu'aucune sortie
+    #: apprise n'a rendu d'altitude exploitable.
+    denivele_m: float | None = None
     messages: list[str] = field(default_factory=list)
 
 
@@ -845,6 +854,11 @@ def apprendre(
     la base sont comptées `sorties_deja_connues` et sautées sans appel, donc
     relancer la commande ne coûte rien et ne fausse rien.
 
+    Le même appel sert aussi à recalculer le D+ (`rapport.denivele_m`,
+    contrat sprint 7 §L7.C) sur l'altitude du tracé rerouté plutôt que sur
+    celle de l'appareil : `client.itineraire` répond déjà pour les tags, on
+    ne fait qu'en lire une seconde grandeur, sans appel de plus.
+
     Une sortie qu'on ne sait pas relire, ou que le moteur refuse, est comptée
     dans `echecs` avec son motif : elle ne fait pas échouer la passe, et elle
     ne disparaît pas non plus en silence (règle absolue 5).
@@ -899,6 +913,15 @@ def apprendre(
         rapport.mailles += base.ajouter_trace(trace, jour=jour, id_sortie=entree.identifiant)
         rapport.sorties_apprises += 1
         rapport.km += trace.distance_m / 1000.0
+        # Le D+ recalculé sur l'altitude du tracé rerouté (contrat sprint 7
+        # §L7.C) : `trace` sert déjà au greffage de tags ci-dessus, aucun
+        # appel supplémentaire. `denivele_filtre` rend `None` sans altitude
+        # exploitable (serveur sans données d'élévation) — on n'ajoute alors
+        # rien, plutôt que de fausser la somme avec un zéro qui voudrait dire
+        # « sortie plate ».
+        denivele = denivele_filtre(trace.points)
+        if denivele is not None:
+            rapport.denivele_m = (rapport.denivele_m or 0.0) + denivele
     return rapport
 
 
