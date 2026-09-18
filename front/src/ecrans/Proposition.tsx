@@ -31,6 +31,7 @@ import { RetourEnTete } from "../composants/Retour";
 import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
+import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
 
 /**
  * La portion de tracé entre deux distances, en mètres.
@@ -229,10 +230,15 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
                 classer
               </span>
             ) : null}
-            <span>
-              <b>{duree(proposition.duree_s)}</b>
-            </span>
+            {/* Le porte à porte en majeur, le temps sans arrêt juste à
+                côté : « je demande 5 h, je veux 5 h » (18/09/2026). */}
+            <DureesDeSortie
+              mouvementS={proposition.duree_s}
+              ecouleS={candidate.temps_ecoule_s}
+            />
           </div>
+
+          <TempsEcoule candidate={candidate} compteur={sortie.compteur} />
 
           {seance && seance.etapes.length > 0 ? (
             <Etapes etapes={seance.etapes} emplacements={placement?.emplacements} />

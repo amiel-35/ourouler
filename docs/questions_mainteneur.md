@@ -4329,3 +4329,84 @@ des trois ne mérite d'être budgétée sur une intuition.
 qu'ils sont figés, et aucun sprint 9 « qualité du tracé » n'est ouvert
 aujourd'hui.
 
+
+## Q54 — Mesurer le facteur compteur depuis l'écran, ou seulement le saisir ? — **ouverte le 18/09/2026**
+
+Le lot qui rend `facteur_compteur` éditable par vélo dans les réglages
+(`front/src/ecrans/Reglages.tsx`) laisse quelqu'un **taper** un nombre, ou
+**revenir au défaut supposé** (le modèle physique, sur un profil de référence
+inventé — 10 m de dénivelé par km, 5 % d'arrêts). Ce qu'il ne propose pas :
+un bouton « mesurer sur mon historique ».
+
+Ce chiffre existe déjà, en ligne de commande :
+`tests/validation/facteur_compteur_retrospectif.py` le calcule sur les
+vraies sorties d'un vélo. C'est cette même famille de mesure qui a produit
+les 91 % (en mouvement) et 87 % (au compteur) rapportés pour RCR dans
+`docs/ux/cycle_ux_contrat.md` (décision 8, 69 sorties extérieures d'au moins
+une heure) — **à ne pas confondre** avec le 0,803 que l'écran affiche
+aujourd'hui en indication sur un champ vide : celui-là est le défaut
+*supposé*, dérivé d'un profil générique (10 m de dénivelé par km, 5 %
+d'arrêts), pas une mesure sur l'historique du mainteneur. Le script est
+**un outil de développement**, pas un parcours utilisateur : il lit le cache
+local directement, sans passer par l'API, sans propriétaire, et sans rien
+enregistrer — il affiche, et s'arrête là.
+
+**La question n'est pas de le construire maintenant** — la consigne du lot
+était explicite là-dessus, et rien n'a été ajouté en ce sens — **mais de
+savoir si ça vaut la peine, et pour quand.** Trois éléments à trancher s'il y
+a une suite :
+
+1. **Le geste** : un bouton dans les réglages qui déclenche le calcul et
+   propose d'écrire le résultat, ou seulement une lecture (« voici ce que
+   dirait votre historique ») que le cycliste recopie lui-même ?
+2. **Le calcul dure** : c'est une lecture du cache local, pas un appel
+   réseau, mais sur combien de sorties, et avec quel seuil minimal en dessous
+   duquel le chiffre ne veut rien dire (le script écarte déjà les sorties de
+   moins d'une heure) ?
+3. **Ça devient une route d'API** : `api/routes.py` ne l'a pas — cohérent
+   avec ce que dit `docs/ux/front_contrat.md` sur F1, qui n'expose que ce que
+   les maquettes demandent déjà.
+
+Sans réponse, l'écran reste ce qu'il est : saisir à la main, ou laisser le
+défaut supposé s'appliquer.
+
+
+## Q55 — Un `PATCH /profil` sur `velos` gèle la liste et masque le TOML — **ouverte le 18/09/2026**
+
+Constaté en écrivant les facteurs compteur mesurés (0,87 sur le RCR, 0,89 sur
+le BMC) dans le fichier de configuration du mainteneur : **la CLI les voyait,
+l'API non.** `ourouler` rendait `facteur 0.870, mesure` ; `GET
+/api/v1/profil/zones` rendait `0.803, suppose`, sur la même machine et la même
+seconde.
+
+La cause n'est pas un cache. `velos` est dans `depots.LISTES_MODIFIABLES` :
+une liste **se remplace en entier**, pour de bonnes raisons — fusionner par
+index donnerait des résultats que personne ne peut prévoir. Mais la
+conséquence n'avait pas été tirée : dès qu'un `PATCH /profil` a touché
+`velos` une seule fois, la liste entière est recopiée dans le `profil.json`
+du propriétaire, et **toute modification ultérieure du TOML est ignorée en
+silence** pour ce champ. Ici, la copie datait d'un essai d'aller-retour fait
+le matin même, qui avait « restauré » les valeurs d'origine en écrivant
+`facteur_compteur: null` explicitement plutôt qu'en retirant la surcouche.
+
+Rien ne le signale : les deux sources répondent, chacune avec aplomb, et
+seule une comparaison côte à côte montre le désaccord. C'est exactement le
+genre de divergence que la règle absolue 5 demande d'afficher.
+
+Trois pistes, à trancher :
+
+1. **Le dire.** `GET /profil` porterait, par section, d'où vient la valeur —
+   socle TOML ou surcouche — comme `seance --json` le fait déjà pour la
+   provenance des vitesses. Le moins invasif, et ça rend le désaccord visible
+   au lieu de le laisser muet.
+2. **Le rendre réversible.** Un champ remis à sa valeur du socle disparaîtrait
+   de la surcouche au lieu d'y être écrit à `null` — « revenir au défaut »
+   voudrait alors dire « revenir au TOML », ce que le bouton des réglages
+   laisse déjà croire.
+3. **Assumer que le TOML est un amorçage.** Une fois le profil créé, il ne
+   sert plus qu'au premier démarrage, et tout passe par l'API. Cohérent avec
+   la direction du service hébergé, mais ça fait du fichier de configuration
+   un piège pour le mainteneur, qui l'édite encore à la main.
+
+En attendant, la surcouche a été écartée (renommée, pas supprimée) pour que
+le socle redevienne la seule source, et les deux chemins s'accordent.

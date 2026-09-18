@@ -35,6 +35,7 @@ from ourouler.config import Config, Velo
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
 from ourouler.physique.modele import (
+    PART_ARRET_REFERENCE,
     Parametres,
     facteur_compteur_defaut,
     moyenne_compteur_kmh,
@@ -103,6 +104,33 @@ def valeurs_liees(
         # vocabulaires pour la même question.
         "facteur_provenance": "mesure" if mesure else "suppose",
         "hors_bande": not 0.0 <= ou <= 1.0,
+    }
+
+
+def info_compteur(config: Config, nom_velo: str | None = None) -> dict | None:
+    """Le bloc « compteur » que `boucle` et `sortie` publient à côté de `demande`.
+
+    Réconcilier le temps en mouvement d'une candidate (`temps_estime_s`) et
+    son temps écoulé porte à porte (`physique.modele.temps_ecoule`) demande
+    trois des valeurs de cet écran — `moyenne_compteur_kmh`, `facteur_compteur`,
+    `facteur_provenance` — plus le nom du vélo. Ce module en est la source
+    unique (voir la docstring du module) : ceci n'est pas une deuxième lecture
+    de la configuration, seulement un sous-ensemble mis en forme pour ce
+    contrat-là, comme `cli._info_vitesse_compteur` l'est pour `ourouler config`.
+
+    `None` si la configuration ne porte aucun vélo : pas de modèle physique,
+    pas de facteur, rien à réconcilier — et `temps_ecoule_s` doit alors valoir
+    `None` chez l'appelant.
+    """
+    liees = valeurs_liees(config, nom_velo)
+    if liees is None:
+        return None
+    return {
+        "velo": liees["velo"],
+        "moyenne_compteur_kmh": liees["moyenne_compteur_kmh"],
+        "facteur_compteur": liees["facteur_compteur"],
+        "facteur_provenance": liees["facteur_provenance"],
+        "part_arret_plancher": PART_ARRET_REFERENCE,
     }
 
 
@@ -179,6 +207,7 @@ def rendu(config: Config, nom_velo: str | None = None, *, position: float | None
 
 __all__ = [
     "contexte",
+    "info_compteur",
     "position_pour",
     "rendu",
     "valeurs_liees",

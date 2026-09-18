@@ -16,6 +16,7 @@ import type { Candidate, Enveloppe, Proposition, Sortie } from "../api/types";
 import {
   compteArrets,
   duree,
+  dureeApprox,
   kmDepuisKm,
   nombre,
   pourcentage,
@@ -25,6 +26,7 @@ import { Carte, type TraceDessinee } from "../composants/Carte";
 import { PanneauArbitrage } from "../composants/Arbitrage";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { BandeauElargissement } from "../composants/Elargissement";
+import { TempsEcoule } from "../composants/TempsEcoule";
 
 /** Le nom de l'axe sur lequel le cœur a distingué cette proposition. */
 const AXES: Record<string, string> = {
@@ -40,13 +42,30 @@ const AXES: Record<string, string> = {
 export interface Chiffre {
   cle: string;
   valeur: string;
+  /** Second rang : présent, mais pas la réponse à la question posée. */
+  second?: boolean;
 }
 
 /** Les chiffres qui comptent **pour cette proposition-là**. */
 export function chiffresDe(proposition: Proposition, candidate: Candidate | null): Chiffre[] {
   const chiffres: Chiffre[] = [];
   if (candidate) chiffres.push({ cle: "km", valeur: nombre(candidate.distance_km, 1) });
-  chiffres.push({ cle: "", valeur: duree(proposition.duree_s) });
+  // Le porte à porte en majeur, le temps sans arrêt juste après
+  // (18/09/2026) : « je demande 5 h, je veux 5 h, pas 4 h et un truc plus
+  // loin qui me dit en fait c'est 5 h ». Sans porte à porte — aucun vélo,
+  // donc aucune moyenne compteur — le temps de mouvement reste seul, mais
+  // garde son nom.
+  const ecoule = candidate?.temps_ecoule_s;
+  if (ecoule === null || ecoule === undefined) {
+    chiffres.push({ cle: "en roulant", valeur: duree(proposition.duree_s) });
+  } else {
+    chiffres.push({ cle: "porte à porte", valeur: `≈ ${dureeApprox(ecoule)}` });
+    chiffres.push({
+      cle: "sans un seul arrêt",
+      valeur: duree(proposition.duree_s),
+      second: true,
+    });
+  }
   if (candidate?.denivele_m !== null && candidate?.denivele_m !== undefined) {
     chiffres.push({ cle: "m D+", valeur: nombre(candidate.denivele_m) });
   }
@@ -79,8 +98,8 @@ export function Chiffres({ chiffres }: { chiffres: Chiffre[] }) {
       {/* La clé peut être vide — « 1 h 05 » n'a pas d'unité à répéter — donc
           deux chiffres peuvent la partager : l'index sert de clé React. */}
       {chiffres.map((chiffre, rang) => (
-        <span key={`${rang}-${chiffre.cle}`}>
-          <b>{chiffre.valeur}</b> {chiffre.cle}
+        <span key={`${rang}-${chiffre.cle}`} className={chiffre.second ? "second-chiffre" : undefined}>
+          {chiffre.second ? chiffre.valeur : <b>{chiffre.valeur}</b>} {chiffre.cle}
         </span>
       ))}
     </div>
@@ -243,6 +262,10 @@ export function Propositions({
               ) : null}
               <Chiffres chiffres={chiffresDe(proposition, candidate)} />
             </button>
+            {/* Hors du bouton exprès : un `<details>` dans un `<button>` est
+                un contrôle interactif imbriqué dans un autre, invalide en
+                HTML. */}
+            {candidate ? <TempsEcoule candidate={candidate} compteur={sortie.compteur} /> : null}
           </div>
         );
       })}

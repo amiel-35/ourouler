@@ -223,6 +223,14 @@ def executer(
     poids = lire_poids(config.cache.dossier / NOM_POIDS)
     base_routes = _base_routes(config)
     modele = _modele_temps(args, config)
+    # Le bloc « compteur » (18/09/2026) : la troisième valeur de l'écran de
+    # FTP, déléguée à `ecran_ftp.info_compteur` — jamais recalculée ici. Il
+    # sert à réconcilier `temps_estime_s` (mouvement) et `temps_ecoule_s`
+    # (porte à porte) dans `rendre_json`/`rendre_texte`. Indépendant de
+    # `modele` : une calibration absente n'empêche pas la réconciliation, elle
+    # empêche seulement le temps de mouvement d'être celui du modèle plutôt
+    # que la vitesse moyenne (voir `_candidate_json`).
+    compteur_info = _info_compteur(config, getattr(args, "velo", None))
 
     # Q40 (a) : une heure de départ trop lointaine ne se refuse pas, elle se
     # sert **sans météo** — et sans appeler Open-Meteo pour récolter des blocs
@@ -278,13 +286,18 @@ def executer(
                     modele,
                     poids=poids,
                     meteo_absente=meteo_absente,
+                    compteur_info=compteur_info,
                 ),
                 ensure_ascii=False,
                 indent=2,
             )
         )
     else:
-        print(rendre_texte(evaluations, demande, config, chemin, modele, poids=poids))
+        print(
+            rendre_texte(
+                evaluations, demande, config, chemin, modele, poids=poids, compteur_info=compteur_info
+            )
+        )
     return 0
 
 
@@ -392,6 +405,17 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
         velo=velo.nom,
         provenance="calibration",
     )
+
+
+def _info_compteur(config: Config, nom_velo: str | None) -> dict | None:
+    """Le bloc « compteur » de la réponse — délégué, voir `ecran_ftp.info_compteur`.
+
+    `None` sans vélo dans la configuration : `rendre_json`/`rendre_texte` en
+    déduisent alors qu'il n'y a pas de `temps_ecoule_s` à calculer non plus.
+    """
+    from ourouler.seance.ecran_ftp import info_compteur
+
+    return info_compteur(config, nom_velo)
 
 
 # --- options ------------------------------------------------------------------
@@ -748,13 +772,14 @@ def rendre_texte(
     modele: ModeleTemps | None = None,
     *,
     poids: dict[str, float] | None = None,
+    compteur_info: dict | None = None,
 ) -> str:
     """Le tableau des candidates, la ligne retenue marquée d'une flèche."""
     presentes = _mesures_presentes(evaluations)
     lignes = _entete(demande, config, "meteo" in presentes, poids, evaluations, modele)
 
     titres = _titres(presentes, elaguees=demande.gpx is None, config=config, modele=modele)
-    cellules = [_cellules(e, config, presentes) for e in evaluations]
+    cellules = [_cellules(e, config, presentes, compteur_info) for e in evaluations]
     largeurs = [
         max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
     ]
@@ -765,6 +790,8 @@ def rendre_texte(
         marque = f"{MARQUE_RETENUE} " if retenue else marge
         lignes.append(marque + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
 
+    if compteur_info is not None:
+        lignes.append(ligne_temps_ecoule(compteur_info))
     if any(e.trace.meta.get("couts_partiels") for e in evaluations):
         lignes.append(
             f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus."
@@ -1013,14 +1040,16 @@ def _classes_citees(
     return ", ".join(f"{classe} {_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
 
 
-def _cellules(evaluation: Evaluation, config: Config, presentes: set[str]) -> list[str]:
+def _cellules(
+    evaluation: Evaluation, config: Config, presentes: set[str], compteur_info: dict | None = None
+) -> list[str]:
     couts, meteo = evaluation.couts, evaluation.meteo
     partiels = bool(evaluation.trace.meta.get("couts_partiels"))
     cellules = [
         str(evaluation.numero),
         f"{_fr(evaluation.trace.distance_m / 1000, 1)} km",
         _denivele(evaluation.trace),
-        _temps(evaluation, config),
+        _temps(evaluation, config, compteur_info),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
         ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
     ]
@@ -1074,14 +1103,59 @@ def _vent_face(meteo: MeteoTrace | None) -> str:
     return f"{meteo.part_vent_face * 100:.0f} % ({meteo.n_vent_connu}/{len(meteo.echantillons)})"
 
 
-def _temps(evaluation: Evaluation, config: Config) -> str:
-    """« 2:14 » — le temps du modèle s'il y en a un, sinon celui de la vitesse moyenne."""
+def _temps_mouvement_s(evaluation: Evaluation, config: Config) -> float | None:
+    """Le temps en mouvement, en secondes — celui du modèle s'il y en a un, sinon
+    celui de la vitesse moyenne de la configuration. `None` si ni l'un ni
+    l'autre n'est disponible (vitesse moyenne nulle ou non configurée)."""
     if evaluation.temps_s is not None:
-        return _duree_texte(evaluation.temps_s)
+        return evaluation.temps_s
     vitesse = config.boucle.vitesse_moyenne_kmh
     if vitesse <= 0:
+        return None
+    return evaluation.trace.distance_m / 1000 / vitesse * 3600
+
+
+def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = None) -> str:
+    """« 2:14 » seul, ou « 2:36 / 2:14 » — écoulé porte à porte / mouvement —
+    dès qu'un vélo permet de réconcilier les deux (voir `ligne_temps_ecoule`).
+
+    **L'écoulé vient en premier** (18/09/2026). Le mainteneur l'a tranché
+    pour l'écran, et la CLI ne dit pas l'inverse : « je demande 5 h, je veux
+    5 h, pas 4 h et un truc plus loin qui me dit en fait c'est 5 h ». Le
+    premier chiffre est donc celui qui répond à la durée demandée ; le
+    second dit ce que ça donnerait sans un seul arrêt.
+    """
+    mouvement_s = _temps_mouvement_s(evaluation, config)
+    if mouvement_s is None:
         return ABSENT
-    return _duree_texte(evaluation.trace.distance_m / 1000 / vitesse * 3600)
+    if compteur_info is None:
+        return _duree_texte(mouvement_s)
+    from ourouler.physique.modele import temps_ecoule
+
+    ecoule_s, _source = temps_ecoule(
+        evaluation.trace.distance_m / 1000.0, mouvement_s, compteur_info["moyenne_compteur_kmh"]
+    )
+    return f"{_duree_texte(ecoule_s)} / {_duree_texte(mouvement_s)}"
+
+
+def ligne_temps_ecoule(compteur_info: dict) -> str:
+    """La légende sous le tableau : ce que veut dire « 2:36 / 2:14 » en colonne « temps ».
+
+    Choix d'affichage (18/09/2026) : une cellule combinée plutôt qu'une
+    colonne de plus — le tableau en a déjà treize, une quatorzième pour un
+    seul chiffre de plus n'aurait pas tenu en largeur de terminal. La CLI et
+    le JSON disent la même chose : `temps_estime_s`/`temps_ecoule_s`.
+
+    **Publique et non préfixée** : `sortie.commande` l'appelle telle quelle
+    plutôt que de réécrire la même phrase pour son propre tableau — même
+    raison que `lignes_elargissement` juste au-dessus.
+    """
+    return (
+        "Temps affiché : écoulé porte à porte (arrêts compris) / sans un seul arrêt — "
+        f"l'écoulé réconcilie avec la moyenne compteur du {compteur_info['velo']}, "
+        f"{compteur_info['moyenne_compteur_kmh']:g} km/h (facteur "
+        f"{compteur_info['facteur_compteur']:.3f}, {compteur_info['facteur_provenance']})."
+    )
 
 
 def _duree_texte(secondes: float) -> str:
@@ -1106,6 +1180,7 @@ def rendre_json(
     *,
     poids: dict[str, float] | None = None,
     meteo_absente: portee.MeteoAbsente | None = None,
+    compteur_info: dict | None = None,
 ) -> dict:
     """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
     return {
@@ -1123,6 +1198,11 @@ def rendre_json(
             "candidates": demande.nb_candidates,
             "gpx_importe": str(demande.gpx) if demande.gpx is not None else None,
         },
+        # La troisième valeur de l'écran de FTP (`ecran_ftp.info_compteur`),
+        # publiée ici pour que `temps_ecoule_s` de chaque candidate se
+        # vérifie de tête : `null` sans vélo dans la configuration — pas de
+        # modèle physique, pas de facteur, rien à réconcilier.
+        "compteur": compteur_info,
         "vitesse_moyenne_kmh": config.boucle.vitesse_moyenne_kmh,
         "sens_prefere": config.boucle.sens,
         "modele": config.meteo.modele,
@@ -1147,14 +1227,31 @@ def rendre_json(
             "crr": modele.parametres.crr,
             "masse_totale_kg": modele.parametres.masse_totale_kg,
         },
-        "candidates": [_candidate_json(e, config, chemin) for e in evaluations],
+        "candidates": [_candidate_json(e, config, chemin, compteur_info) for e in evaluations],
     }
 
 
-def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None) -> dict:
+def _candidate_json(
+    evaluation: Evaluation, config: Config, chemin: Path | None, compteur_info: dict | None = None
+) -> dict:
     couts, meteo = evaluation.couts, evaluation.meteo
     trace = evaluation.trace
     distance_km = trace.distance_m / 1000.0
+    # Identique à l'ancien calcul de `temps_estime_s` (INCHANGÉ) : pas de
+    # garde-fou sur `vitesse_moyenne_kmh` ici, `config` la valide déjà
+    # strictement positive au chargement. `_temps_mouvement_s`, elle, protège
+    # le rendu texte d'une configuration construite à la main (tests).
+    mouvement_s = (
+        evaluation.temps_s
+        if evaluation.temps_s is not None
+        else distance_km / config.boucle.vitesse_moyenne_kmh * 3600
+    )
+    temps_ecoule_s = temps_ecoule_source = None
+    if compteur_info is not None:
+        from ourouler.physique.modele import temps_ecoule
+
+        ecoule, source = temps_ecoule(distance_km, mouvement_s, compteur_info["moyenne_compteur_kmh"])
+        temps_ecoule_s, temps_ecoule_source = round(ecoule), source
     return {
         "numero": evaluation.numero,
         "retenue": evaluation.numero == 1 and chemin is not None,
@@ -1162,12 +1259,14 @@ def _candidate_json(evaluation: Evaluation, config: Config, chemin: Path | None)
         "distance_km": round(distance_km, 3),
         "denivele_m": trace.denivele_m,
         "denivele_source": trace.meta.get("denivele_source"),
-        "temps_estime_s": (
-            round(evaluation.temps_s)
-            if evaluation.temps_s is not None
-            else round(distance_km / config.boucle.vitesse_moyenne_kmh * 3600)
-        ),
+        "temps_estime_s": round(mouvement_s),
         "temps_source": "modele" if evaluation.temps_s is not None else "vitesse_moyenne",
+        # Le porte à porte, arrêts compris (`physique.modele.temps_ecoule`) —
+        # jamais à la place de `temps_estime_s`, à côté (décision du
+        # mainteneur, 18/09/2026). `null` avec `compteur` : sans vélo, pas de
+        # moyenne compteur à laquelle réconcilier une distance.
+        "temps_ecoule_s": temps_ecoule_s,
+        "temps_ecoule_source": temps_ecoule_source,
         "vitesse_meteo_kmh": (
             None
             if evaluation.vitesse_meteo_kmh is None

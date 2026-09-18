@@ -13,7 +13,6 @@
 import { useState } from "react";
 import type { Boucle, Enveloppe } from "../api/types";
 import {
-  duree,
   heure,
   kmDepuisKm,
   nombre,
@@ -25,6 +24,7 @@ import {
 import { Carte, LegendeVent } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
+import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
 
 interface Props {
   reponse: Enveloppe<Boucle>;
@@ -122,11 +122,12 @@ export function Boucles({ reponse, surRetour }: Props) {
                   <b>{nombre(candidate.denivele_m)}</b> m D+
                 </span>
               ) : null}
-              {candidate.temps_estime_s ? (
-                <span>
-                  <b>{duree(candidate.temps_estime_s)}</b>
-                </span>
-              ) : null}
+              {/* Le porte à porte en majeur, le temps sans arrêt juste à
+                  côté : « je demande 5 h, je veux 5 h » (18/09/2026). */}
+              <DureesDeSortie
+                mouvementS={candidate.temps_estime_s}
+                ecouleS={candidate.temps_ecoule_s}
+              />
               {candidate.meteo?.pluie_cumulee_mm !== null &&
               candidate.meteo?.pluie_cumulee_mm !== undefined ? (
                 <span>
@@ -163,6 +164,10 @@ export function Boucles({ reponse, surRetour }: Props) {
               ) : null}
             </div>
           </button>
+          {/* Hors du bouton exprès : un `<details>` dans un `<button>` est
+              un contrôle interactif imbriqué dans un autre, invalide en
+              HTML. */}
+          <TempsEcoule candidate={candidate} compteur={boucle.compteur} />
         </div>
       ))}
 

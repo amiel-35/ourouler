@@ -47,6 +47,24 @@ export function duree(secondes: number): string {
   return `${heures}${NBSP}h${NBSP}${String(minutes).padStart(2, "0")}`;
 }
 
+/**
+ * `2232` → `37 min`, arrondi aux 5 minutes : `duree` mais **honnête sur sa
+ * précision**.
+ *
+ * Sert au temps porte à porte, qui n'est pas mesuré à la minute — c'est une
+ * moyenne compteur appliquée à une distance, pas un chronomètre. L'écran le
+ * dit aussi en le faisant précéder de « ≈ » ; cette fonction ne pose que
+ * l'arrondi.
+ */
+export function dureeApprox(secondes: number): string {
+  const total = Math.round(secondes / 60 / 5) * 5;
+  const heures = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (heures === 0) return `${minutes}${NBSP}min`;
+  if (minutes === 0) return `${heures}${NBSP}h`;
+  return `${heures}${NBSP}h${NBSP}${String(minutes).padStart(2, "0")}`;
+}
+
 /** `0.0162` → `2 %`. Un pourcentage se lit entier, sinon il ne se lit pas. */
 export function pourcentage(part: number): string {
   return `${nombre(part * 100, 0)}${NBSP}%`;

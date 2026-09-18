@@ -16,6 +16,7 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import (
     FACTEUR_VENT_HAUTEUR,
     FENETRE_ALTITUDE,
+    PART_ARRET_REFERENCE,
     PAS_M,
     RHO_DEFAUT,
     V_MAX_BISSECTION_MS,
@@ -27,6 +28,7 @@ from ourouler.physique.modele import (
     puissance_a_plat_w,
     puissance_requise,
     simuler,
+    temps_ecoule,
     vent_au_cycliste,
     vitesse_a_plat_kmh,
     vitesse_a_plat_ms,
@@ -464,3 +466,102 @@ def test_la_moyenne_compteur_est_sous_la_vitesse_a_plat():
 def test_la_moyenne_compteur_refuse_un_facteur_absurde(mauvais):
     with pytest.raises(ErreurUtilisateur):
         moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER, mauvais)
+
+
+# --- temps_ecoule ---------------------------------------------------------
+
+
+def test_temps_ecoule_la_moyenne_compteur_l_emporte():
+    """La formule à la main : 100 km à 20 km/h de moyenne compteur, c'est 5 h
+    pile — et c'est plus que le plancher d'arrêts sur les 2 h de mouvement."""
+    ecoule_s, source = temps_ecoule(
+        distance_km=100.0, temps_estime_s=2 * 3600.0, moyenne_compteur_kmh=20.0
+    )
+    assert source == "compteur"
+    assert ecoule_s == pytest.approx(100.0 / 20.0 * 3600.0)  # 18 000 s = 5 h
+
+
+def test_temps_ecoule_le_plancher_d_arrets_l_emporte():
+    """Même calcul, mais la moyenne compteur est cette fois plus rapide que ce
+    que le mouvement a réellement tenu (30 km en 1 h) : le plancher, temps de
+    mouvement étiré de la part d'arrêt de référence, l'emporte sur la
+    distance divisée par la moyenne compteur."""
+    ecoule_s, source = temps_ecoule(
+        distance_km=30.0, temps_estime_s=3600.0, moyenne_compteur_kmh=35.0
+    )
+    assert source == "plancher_arrets"
+    assert ecoule_s == pytest.approx(3600.0 / (1.0 - PART_ARRET_REFERENCE))  # ≈ 3 789,5 s
+
+
+def test_temps_ecoule_le_plancher_utilise_la_part_donnee():
+    """`part_arret` n'est pas figée à la référence : le plancher suit celle
+    qu'on lui donne."""
+    ecoule_s, source = temps_ecoule(
+        distance_km=30.0, temps_estime_s=3600.0, moyenne_compteur_kmh=35.0, part_arret=0.20
+    )
+    assert source == "plancher_arrets"
+    assert ecoule_s == pytest.approx(3600.0 / 0.80)
+
+
+@pytest.mark.parametrize(
+    ("distance_km", "temps_estime_s", "moyenne_compteur_kmh"),
+    [
+        # Une boucle vallonnée : le modèle tient moins que la moyenne compteur
+        # attend (ici 20 km/h de moyenne réelle contre 24 km/h « compteur »).
+        (25.0, 4500.0, 24.0),
+        (60.0, 3 * 3600.0, 27.0),
+        (10.0, 1800.0, 22.0),
+    ],
+)
+def test_temps_ecoule_ne_descend_jamais_sous_le_temps_de_mouvement(
+    distance_km, temps_estime_s, moyenne_compteur_kmh
+):
+    """Le point du plancher (règle absolue 5) : sans lui, une boucle assez
+    vallonnée pour que le modèle descende sous la moyenne compteur afficherait
+    un temps écoulé **inférieur** à son propre temps de mouvement — un
+    porte-à-porte plus rapide que le temps en selle, impossible en réalité.
+
+    Les trois jeux de valeurs ci-dessus vérifient d'abord que le terme naïf
+    (distance / moyenne compteur) serait bien tombé sous `temps_estime_s` —
+    sans quoi le test ne prouverait rien — puis que la fonction, elle, ne le
+    laisse jamais faire.
+    """
+    naif_s = distance_km / moyenne_compteur_kmh * 3600.0
+    assert naif_s < temps_estime_s  # le cas que le plancher doit rattraper
+
+    ecoule_s, source = temps_ecoule(distance_km, temps_estime_s, moyenne_compteur_kmh)
+    assert source == "plancher_arrets"
+    assert ecoule_s >= temps_estime_s
+
+
+def test_temps_ecoule_a_egalite_choisit_compteur():
+    """Les deux termes égaux : la source reste `"compteur"` — un choix
+    arbitraire mais déterministe, documenté dans la docstring."""
+    # part_arret nul : le plancher vaut exactement temps_estime_s. En prenant
+    # une moyenne compteur telle que distance / moyenne * 3600 == temps_estime_s,
+    # les deux termes s'égalent pile.
+    ecoule_s, source = temps_ecoule(
+        distance_km=50.0, temps_estime_s=3600.0, moyenne_compteur_kmh=50.0, part_arret=0.0
+    )
+    assert source == "compteur"
+    assert ecoule_s == pytest.approx(3600.0)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "motif"),
+    [
+        ({"distance_km": -1.0}, "distance"),
+        ({"temps_estime_s": -1.0}, "mouvement"),
+        ({"moyenne_compteur_kmh": 0.0}, "moyenne compteur"),
+        ({"moyenne_compteur_kmh": -5.0}, "moyenne compteur"),
+        ({"part_arret": 1.0}, "part d'arrêt"),
+        ({"part_arret": -0.1}, "part d'arrêt"),
+        ({"distance_km": float("nan")}, "distance_km"),
+        ({"moyenne_compteur_kmh": float("inf")}, "moyenne_compteur_kmh"),
+    ],
+)
+def test_temps_ecoule_refuse_des_valeurs_absurdes(kwargs, motif):
+    base = {"distance_km": 100.0, "temps_estime_s": 3600.0, "moyenne_compteur_kmh": 25.0}
+    base.update(kwargs)
+    with pytest.raises(ErreurUtilisateur, match=motif):
+        temps_ecoule(**base)

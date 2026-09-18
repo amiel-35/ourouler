@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { compteArrets, duree, ecartEnJours, pourcentage } from "../src/api/formats";
+import { compteArrets, duree, dureeApprox, ecartEnJours, pourcentage } from "../src/api/formats";
 import { portion } from "../src/ecrans/Proposition";
 import { minutesDe, texteDuree } from "../src/ecrans/Demander";
 import { phraseBudget } from "../src/composants/Attente";
@@ -65,6 +65,16 @@ describe("durées", () => {
     expect(minutesDe("2h30")).toBe(150);
     expect(minutesDe("n'importe quoi")).toBeNull();
     expect(texteDuree(105)).toBe("1:45");
+  });
+});
+
+describe("le second temps, arrondi à 5 minutes", () => {
+  it("arrondit au lieu de prétendre à la minute", () => {
+    // Le cas mesuré chez le mainteneur : 4 h 39 porte à porte s'arrondit à
+    // 4 h 40, un arrondi honnête plutôt qu'une fausse précision.
+    expect(dureeApprox(4 * 3600 + 39 * 60)).toBe("4 h 40");
+    expect(dureeApprox(2100)).toBe("35 min");
+    expect(dureeApprox(7200)).toBe("2 h");
   });
 });
 
