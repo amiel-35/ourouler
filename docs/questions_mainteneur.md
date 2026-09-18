@@ -4410,3 +4410,32 @@ Trois pistes, à trancher :
 
 En attendant, la surcouche a été écartée (renommée, pas supprimée) pour que
 le socle redevienne la seule source, et les deux chemins s'accordent.
+
+
+## Q56 — `roundTripPoints` comme seconde molette de convergence, en plus du rayon — **ouverte le 18/09/2026**
+
+Le lot qui corrige le biais de distance des boucles (candidates trop souvent
+plus courtes que la cible, médiane autour de −5 % sur 60/100/125 km ×
+8 azimuts) ne touche qu'un seul levier : `roundTripDistance` (le rayon),
+ajusté par proportion. `roundTripPoints`, lui, reste figé à 5 dans
+`boucle/candidates.py`, alors que `docs/services_externes.md` documente
+depuis le 18/09/2026 que **ce n'est pas un réglage de forme mais un second
+levier de distance**, mesuré à rayon identique : 3 points → 72,8 km,
+5 → 98,0 km, 7 → 108,3 km, 9 → 117,2 km, 12 → 124,1 km.
+
+**Ce n'est qu'une piste, pas une consigne exécutée.** Le lot distance s'est
+tenu au rayon seul, conformément à la demande, et `roundTripPoints` n'a pas
+été mesuré comme second axe de convergence combiné (par exemple : corriger
+d'abord par les points quand le rayon sature une borne, ou converger sur les
+deux à la fois). Rien ne dit aujourd'hui si ça ferait mieux que le rayon
+seul, ni à quel coût en appels — seulement que le levier existe et qu'il
+n'est pas utilisé.
+
+Deux options, si le sujet est repris :
+
+1. **Le laisser en l'état.** Un seul levier de convergence est plus simple à
+   raisonner, et le biais de distance est déjà traité par ailleurs (viser
+   plus long quand la candidate est sous la cible et dans la tolérance).
+2. **Le mesurer.** Comparer, sur les mêmes cibles et azimuts, la convergence
+   à rayon seul contre une combinaison rayon + points, avec le même budget
+   d'appels — et ne le coder que si la mesure montre un gain net.

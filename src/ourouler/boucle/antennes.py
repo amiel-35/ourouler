@@ -8,9 +8,23 @@ traversées de bourg, elles, sont acceptées.
 
 Ces crochets viennent des points de passage que BRouter place lui-même en
 mode boucle : quand l'un d'eux tombe à côté de la route, le moteur va le
-chercher et revient. Les paramètres `correct_misplaced_via_points` du moteur
-sont censés l'éviter — mesuré sans effet sur le serveur du mainteneur, voir
-`connecteurs/brouter.py`. On corrige donc le tracé après coup.
+chercher et revient. **Ce module n'est plus la seule ligne de défense.**
+Jusqu'au 18/09/2026, on croyait le mécanisme de recalage du moteur
+(`correctMisplacedViaPoints`) sans effet sur le serveur du mainteneur — une
+mesure du 13/09/2026 concluait à tort en ce sens, pour deux raisons
+empilées : le mauvais nom de paramètre (snake_case envoyé, camelCase
+attendu, voir `connecteurs/brouter.py`), puis un seuil de distance qui ne
+déclenchait rien. Corrigé et mesuré à nouveau le 18/09/2026 : au bon nom et
+au bon seuil (0, « pas de vérification de distance »), le moteur élimine
+l'essentiel des antennes lui-même — mais pas toutes : au rayon de boucle le
+plus petit mesuré (8 km), 4 boucles sur 7 gardaient encore une antenne
+même à seuil 0, signe que certains crochets ne sont pas des points de
+passage mal placés mais de vrais culs-de-sac du réseau à ce rayon, que le
+moteur ne peut pas recaler. `boucle/antennes.py` passe donc de correctif
+principal à **filet** : un serveur qui régresse sur ce paramètre, un GPX
+importé sans être passé par BRouter, ou un rayon assez petit pour buter sur
+un vrai cul-de-sac continuent d'y trouver une protection. On garde le tracé
+propre après coup, dans tous les cas.
 
 Comment on les reconnaît
 ------------------------

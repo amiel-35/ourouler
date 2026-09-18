@@ -223,6 +223,23 @@ def generer(
     chaque candidate porte `tolerance`, `elargissement` (de combien il a
     fallu élargir, par paliers de 5 %) et `hors_tolerance`.
 
+    **À tolérance égale, on préfère dépasser la cible que rester en dessous**
+    (mots du mainteneur, 18/09/2026 : « c'est con car c'est pas dur de faire
+    10 bornes de plus »). Mesuré sur le serveur du mainteneur avant ce
+    correctif : sur trois cibles (60, 100, 125 km) × 8 azimuts, 20 candidates
+    sur 24 rendaient une boucle plus courte que la cible, médiane autour de
+    −5 %, alors que la tolérance acceptait tout aussi bien un dépassement.
+    Désormais, une candidate trouvée sous la cible mais déjà dans la
+    tolérance ne fait pas sortir l'azimut tout de suite : une des corrections
+    restantes est dépensée pour viser plus loin (la correction proportionnelle
+    normale vise déjà plus long, puisque `cible_m / trace.distance_m > 1`
+    sous la cible), et la plus longue des deux l'emporte **si elle tient
+    elle aussi dans la bande** — sinon on revient à la première. Un seul essai
+    de plus par azimut, jamais une relance : le budget d'appels ne change pas
+    (`appels_pour` le permettait déjà), il est simplement mieux dépensé. Une
+    candidate déjà au-dessus de la cible, elle, n'est jamais retouchée : le
+    biais ne joue que dans un sens.
+
     **Et au-delà d'un élargissement, on refuse plutôt que de servir.** Le
     plafond est `elargissement_max(tolerance)` — la tolérance elle-même,
     jamais moins d'un palier ; sa justification est dans sa docstring. Quand
@@ -268,6 +285,12 @@ def generer(
     for azimut in azimuts(azimut_deg, nb):
         rayon = _borner(cible_m / RAPPORT_RAYON_DEFAUT)
         meilleure: Candidate | None = None
+        # Dès qu'une candidate tient dans la tolérance mais reste sous la
+        # cible, elle est retenue ici et l'affinage n'est pas arrêté tout de
+        # suite : une correction de plus (déjà prévue par la boucle, déjà
+        # payée par `appels_pour`) vise plus loin, et seule celle-ci décide
+        # entre les deux — voir le commentaire après la boucle.
+        candidate_courte: Candidate | None = None
         for _ in range(1 + AJUSTEMENTS_MAX):
             if appels >= appels_max:
                 break
@@ -285,12 +308,45 @@ def generer(
             appels += 1
             trace = elaguer(trace, detecter(trace))
             ecart = (trace.distance_m - cible_m) / cible_m
-            if trace.bornee() and (meilleure is None or abs(ecart) < abs(meilleure.ecart_relatif)):
-                meilleure = Candidate(
+            candidate = None
+            if trace.bornee():
+                candidate = Candidate(
                     trace=trace, azimut_deg=azimut, rayon_m=rayon, ecart_relatif=ecart
                 )
-            if abs(ecart) <= tolerance:
+                if meilleure is None or abs(ecart) < abs(meilleure.ecart_relatif):
+                    meilleure = candidate
+
+            if candidate_courte is not None:
+                # La correction demandée après `candidate_courte` visait plus
+                # loin (facteur > 1, cible_m / distance_m avec distance_m sous
+                # la cible) : si le résultat tient dans la bande et est
+                # réellement plus long, il l'emporte ; sinon on revient à la
+                # première candidate. Un seul essai de plus, jamais une
+                # relance : `palier`/`elargissement_max` jugent ensuite le
+                # verdict final, pas l'aller-retour qui l'a produit.
+                if (
+                    candidate is not None
+                    and abs(ecart) <= tolerance
+                    and candidate.ecart_relatif > candidate_courte.ecart_relatif
+                ):
+                    meilleure = candidate
+                else:
+                    meilleure = candidate_courte
                 break
+
+            if abs(ecart) <= tolerance:
+                if ecart < 0 and candidate is not None and appels < appels_max:
+                    # Mots du mainteneur (18/09/2026) : « c'est con car c'est
+                    # pas dur de faire 10 bornes de plus » — à tolérance
+                    # égale, il préfère dépasser la cible que rester en
+                    # dessous. On ne sert donc pas la première candidate sous
+                    # la cible sans avoir essayé plus long : le facteur
+                    # ci-dessous vaut déjà > 1 puisque `trace.distance_m` est
+                    # sous `cible_m`, la correction naturelle vise donc plus
+                    # loin sans code séparé.
+                    candidate_courte = candidate
+                else:
+                    break
             if trace.distance_m <= 0:
                 # Rien à corriger proportionnellement : insister coûterait des
                 # appels pour le même résultat.

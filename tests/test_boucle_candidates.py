@@ -150,11 +150,49 @@ def test_cinq_demandees_cinq_rendues_meme_si_le_moteur_ne_converge_pas():
     assert len({round(a["azimut"]) for a in appels}) == 5, "cinq directions distinctes tentées"
 
 
-def test_une_candidate_dans_la_tolerance_suffit():
-    client, appels = moteur(lambda rayon: rayon * 4.8)  # écart de −4 %, sous la tolérance
+def test_une_candidate_au_dessus_de_la_cible_dans_la_tolerance_suffit():
+    """Déjà au-dessus de la cible et dans la tolérance : pas d'essai de plus."""
+    client, appels = moteur(lambda rayon: rayon * 5.2)  # +4 %, dans la tolérance
     trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=2, tolerance=0.10)
-    assert len(appels) == 2
+    assert len(appels) == 2  # un appel par azimut
     assert all(abs(c.ecart_relatif) <= 0.10 for c in trouvees)
+
+
+def test_sous_la_cible_dans_la_tolerance_tente_une_correction_vers_plus_long():
+    """Mots du mainteneur (18/09/2026) : il préfère dépasser la cible que rester en dessous.
+
+    À rayon initial, le moteur rend −4 % (dans la tolérance, sous la cible) :
+    ce n'est pas servi tout de suite. La correction proportionnelle vise
+    naturellement plus long (`cible_m / distance_m > 1` sous la cible) et
+    tombe ici pile sur la cible — c'est elle qui est retenue.
+    """
+    client, appels = moteur(lambda rayon: rayon * 4.8)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    assert len(appels) == 2  # le premier essai, puis l'essai « plus long »
+    assert trouvees[0].ecart_relatif == pytest.approx(0.0, abs=1e-9)
+
+
+def test_l_essai_plus_long_qui_sort_de_la_tolerance_retombe_sur_le_premier():
+    """Si viser plus long sort de la bande, on ne le sert pas : la première candidate reprend la main."""
+    reponses = iter([4.8, 6.0])  # −4 % puis une sur-correction à +25 %, hors tolérance
+
+    def longueur(rayon: float) -> float:
+        return rayon * next(reponses)
+
+    client, appels = moteur(longueur)
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10)
+    assert len(appels) == 2  # un seul essai de plus, jamais une relance
+    assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
+
+
+def test_l_essai_plus_long_ne_se_declenche_pas_sans_budget_disponible():
+    """Le biais ne dépense jamais plus que ce qu'`appels_max` autorise déjà."""
+    client, appels = moteur(lambda rayon: rayon * 4.8)  # −4 %, dans la tolérance, sous la cible
+    trouvees = generer(
+        client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10, appels_max=1
+    )
+    assert len(appels) == 1  # le plafond d'appels prime sur l'essai « plus long »
+    assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
 
 
 def test_le_profil_est_transmis_au_moteur():
