@@ -279,7 +279,18 @@ def executer(
     # `modele` : une calibration absente n'empêche pas la réconciliation, elle
     # empêche seulement le temps de mouvement d'être celui du modèle plutôt
     # que la vitesse moyenne (voir `_candidate_json`).
-    compteur_info = _info_compteur(config, getattr(args, "velo", None))
+    #
+    # `--puissance`/`--vitesse-a-plat`, déjà validées exclusives par
+    # `lire_options`, voyagent jusqu'ici : sans elles, la moyenne compteur qui
+    # chronomètre le porte à porte restait celle de la puissance d'endurance
+    # de la configuration quelle que soit la puissance demandée pour CETTE
+    # boucle-ci (corrigé le 18/09/2026).
+    compteur_info = _info_compteur(
+        config,
+        getattr(args, "velo", None),
+        puissance_w=getattr(args, "puissance", None),
+        vitesse_a_plat_kmh=getattr(args, "vitesse_a_plat", None),
+    )
 
     # Q40 (a) : une heure de départ trop lointaine ne se refuse pas, elle se
     # sert **sans météo** — et sans appeler Open-Meteo pour récolter des blocs
@@ -519,15 +530,31 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
     )
 
 
-def _info_compteur(config: Config, nom_velo: str | None) -> dict | None:
+def _info_compteur(
+    config: Config,
+    nom_velo: str | None,
+    *,
+    puissance_w: float | None = None,
+    vitesse_a_plat_kmh: float | None = None,
+) -> dict | None:
     """Le bloc « compteur » de la réponse — délégué, voir `ecran_ftp.info_compteur`.
+
+    `puissance_w`/`vitesse_a_plat_kmh` : `--puissance`/`--vitesse-a-plat`
+    telles que `lire_options` les a déjà validées (exclusives) — la puissance
+    demandée pour CE parcours-ci, transmise telle quelle pour que la moyenne
+    compteur qui chronomètre le porte à porte la suive (voir le bug du
+    18/09/2026 : sans ça, 150 W et 300 W rendaient le même temps écoulé).
+    `None`, `None` (l'appel par défaut) garde le comportement d'avant :
+    la puissance d'endurance de la configuration.
 
     `None` sans vélo dans la configuration : `rendre_json`/`rendre_texte` en
     déduisent alors qu'il n'y a pas de `temps_ecoule_s` à calculer non plus.
     """
     from ourouler.seance.ecran_ftp import info_compteur
 
-    return info_compteur(config, nom_velo)
+    return info_compteur(
+        config, nom_velo, puissance_w=puissance_w, vitesse_a_plat_kmh=vitesse_a_plat_kmh
+    )
 
 
 # --- options ------------------------------------------------------------------
