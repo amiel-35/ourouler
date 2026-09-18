@@ -49,7 +49,12 @@ from ourouler.api.modeles import (
     ReponseErreur,
     TexteUtile,
 )
-from ourouler.api.proprietaire import Proprietaire, resoudre
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import (
+    CODE_SANS_SESSION,
+    MESSAGE_SANS_SESSION,
+    FournisseurSession,
+)
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
@@ -71,6 +76,7 @@ PANNES_DECLAREES: dict[int | str, dict] = {
     }
     for code, libelle in (
         (400, "requête refusée — voir `erreur.code`"),
+        (401, "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"),
         (404, "route ou fichier introuvable — voir `erreur.code`"),
         (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
@@ -163,15 +169,46 @@ class Contexte:
     clients: Clients
     budgets: Budgets
     journal: JournalServices
+    #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
+    #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
+    session: FournisseurSession
 
 
 def contexte(requete: Request) -> Contexte:
     return requete.app.state.ourouler
 
 
-def proprietaire() -> Proprietaire:
-    """Le propriétaire de la requête. F3 remplacera `resoudre` par la session."""
-    return resoudre()
+def proprietaire(requete: Request) -> Proprietaire:
+    """Le propriétaire de la requête — ou un refus, jamais un défaut.
+
+    **Le point du lot L7.A.** Cette fonction rendait `PROPRIETAIRE_LOCAL` quoi
+    qu'il arrive : une requête anonyme obtenait les données du mainteneur, et
+    le commentaire annonçait qu'« F3 remplacera `resoudre` par la session ».
+    C'est fait. Ce qui la remplace n'est pas une méthode d'authentification —
+    aucune n'est choisie, ce serait un arbitrage du mainteneur — mais
+    l'**interface** derrière laquelle elle se branchera : le fournisseur de
+    session, injecté dans le contexte.
+
+    Deux issues, et deux seulement :
+
+    - une session est ouverte → son propriétaire, et les dépôts sont servis
+      pour lui ;
+    - aucune session → **401**. Jamais un profil par défaut, jamais le
+      propriétaire local en silence. Le refus est la seule réponse qui ne
+      fabrique pas de fuite quand on ignore qui parle.
+
+    Rien de ce que le client envoie ne désigne le propriétaire : c'est le
+    fournisseur qui tranche, et `tests/api/test_api_isolation_proprietaire.py`
+    vérifie qu'aucune route n'offre le contraire dans son contrat publié.
+    """
+    qui = contexte(requete).session.ouvrir(requete)
+    if qui is None:
+        raise ErreurApi(
+            code=CODE_SANS_SESSION,
+            message=MESSAGE_SANS_SESSION,
+            statut=401,
+        )
+    return qui
 
 
 #: Les deux dépendances que **toute** route reçoit : ce que le serveur sait

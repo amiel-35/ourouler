@@ -45,6 +45,7 @@ from ourouler.api.depots import (
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
+from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import Config
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
@@ -101,6 +102,7 @@ def creer_application(
     client_geocodage: object | None = None,
     clients: Clients | None = None,
     budgets: Budgets | None = None,
+    session: FournisseurSession | None = None,
 ) -> FastAPI:
     """L'application, avec ses dépôts et ses clients — rien n'est lu de l'environnement ici.
 
@@ -128,6 +130,16 @@ def creer_application(
     connecteur déjà construit est accepté aussi, et pris tel quel. La règle et
     ses raisons sont sur `routes.FABRIQUES_CONNECTEUR` ; il n'y a **pas** de
     service qui s'injecte autrement que les autres.
+
+    **`session` dit comment l'application sait qui parle** (`api/session.py`).
+    Le défaut est `SessionPersonnelle()` : cette fabrique-ci sert **un**
+    cycliste — c'est ce que font `ourouler api` et tous les tests, qui
+    construisent une application entière pour un seul profil. Ce n'est pas le
+    « défaut implicite d'un service exposé » que le lot L7.A supprime : un
+    service, lui, passe par `application()`, qui lit `OUROULER_MODE` et
+    **refuse** en son absence. La distinction est la seule qui compte, et
+    elle est là — le défaut d'une fabrique qu'on appelle en nommant ses
+    arguments n'est pas le défaut d'un processus qu'on expose.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -173,6 +185,7 @@ def creer_application(
             nominatim=client_nominatim or client_geocodage,
         ),
         budgets=budgets or Budgets(),
+        session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
 
@@ -268,6 +281,12 @@ def application() -> FastAPI:
     `exploitation.py`, la seule porte du paquet (règle absolue 2). Le TOML du
     serveur est le profil du mainteneur : le socle le dit, et `DepotProfils`
     refuse de le servir à un autre propriétaire.
+
+    **Et c'est ici que le produit se décide** : `OUROULER_MODE=personnel` sert
+    un cycliste, tout le reste — y compris l'absence de variable — sert
+    `SessionHebergee`, qui n'ouvre aucune session et fait répondre 401 à
+    chaque route de données. Un processus exposé sans qu'on ait dit qui il
+    sert ne sert personne ; c'est le sens du lot L7.A.
     """
     from ourouler.api import exploitation
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
@@ -280,6 +299,7 @@ def application() -> FastAPI:
     return creer_application(
         socle=socle,
         dossier_donnees=socle.config({}).cache.dossier / NOM_DOSSIER_DONNEES,
+        session=exploitation.fournisseur_session(),
     )
 
 

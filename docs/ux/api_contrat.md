@@ -261,8 +261,38 @@ Concrètement, aujourd'hui :
 - le fichier de profil, qui porte la clé Intervals, est écrit en 0600. Le
   chiffrement au repos est F3 (doctrine §10.2).
 
-Quand F3 arrivera, seule `proprietaire.resoudre()` changera : ni les routes,
-ni les dépôts, ni le cœur.
+### La session, et les deux produits (L7.A, 18/09/2026)
+
+Ce qui précède décrivait la forme ; ce paragraphe décrit ce qui est branché
+dedans. `proprietaire.resoudre()` **n'existe plus** : il rendait
+`PROPRIETAIRE_LOCAL` quoi qu'il arrive, c'est-à-dire qu'une requête anonyme
+obtenait les données du mainteneur. La dépendance `proprietaire` lit
+maintenant une **session**, derrière l'interface `api/session.py`.
+
+**Aucune méthode d'authentification n'est choisie** — elle demande la clé
+Brevo et la politique de modération, qui sont des arbitrages du mainteneur.
+Ce qui existe est l'interface et ses deux implémentations, qui correspondent à
+**deux produits distincts** :
+
+| mode | qui est servi | sans session |
+|---|---|---|
+| `personnel` | un cycliste, sur sa machine (`ourouler api`) | sans objet : la session est toujours ouverte |
+| `heberge` | plusieurs cyclistes, service exposé | **401 `session_absente`** sur toute route de données |
+
+Le mode se déclare par `OUROULER_MODE`, lu par `api/exploitation.py` et par
+lui seul (règle absolue 2). **En son absence, le mode est `heberge`, donc le
+refus** : un processus exposé sans qu'on ait dit qui il sert ne sert
+personne. `ourouler api` pose le mode personnel explicitement et n'a rien à
+changer ; `uvicorn --factory ourouler.api.application:application` demande
+désormais `OUROULER_MODE=personnel` pour retrouver son comportement d'avant.
+
+Le front reçoit `401` avec le code `session_absente` : il montre l'écran de
+connexion, il ne réessaie pas.
+
+Quand la méthode d'authentification sera tranchée, elle s'écrira comme une
+troisième classe de `api/session.py` et prendra la place de `SessionHebergee`
+dans `exploitation.fournisseur_session`. Ni les routes, ni les dépôts, ni le
+cœur ne bougeront.
 
 ## L'attente : semi-synchrone, avec une durée mesurée
 
