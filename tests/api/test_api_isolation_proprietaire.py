@@ -33,7 +33,10 @@ ne peut se périmer en silence.
 
 from __future__ import annotations
 
+import ast
+import importlib.util
 import re
+import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -345,8 +348,50 @@ def test_une_ressource_d_un_proprietaire_n_est_pas_lisible_par_un_autre(tmp_path
 # --- la forme du stockage, vérifiable dès aujourd'hui ------------------------
 
 
+def _invariants_du_depot():
+    """`tests/test_invariants.py`, chargé par chemin (trois conftest.py coexistent)."""
+    if "test_invariants" in sys.modules:
+        return sys.modules["test_invariants"]
+    chemin = Path(__file__).resolve().parents[1] / "test_invariants.py"
+    spec = importlib.util.spec_from_file_location("test_invariants", chemin)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["test_invariants"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+#: Les tables d'identité et d'accès, qui **précèdent** le propriétaire au lieu
+#: de lui appartenir (doctrine §10.2, [[Q46]], lot L7.2-A). Un compte se crée
+#: avant que son propriétaire existe : lui demander une colonne `proprietaire`
+#: reviendrait à dire que l'identité appartient à la clé pseudonyme dont elle
+#: est justement séparée.
+#:
+#: La même liste vit dans `tests/test_invariants.py`, et un test ci-dessous
+#: échoue si les deux divergent : une exception qui n'existe qu'à un endroit
+#: est une exception qu'on oublie de justifier au second.
+TABLES_IDENTITE = ("comptes", "invitations", "migrations")
+
+#: Le motif qui repère une instruction SQL de données dans un texte.
+#:
+#: Deux exclusions, chacune payée par un faux positif rencontré :
+#: `(?!\()` écarte `@routeur.delete("/moi")`, un appel Python (lot L7.B) ;
+#: `(?<!ON )` écarte `REFERENCES comptes (id) ON DELETE CASCADE`, qui décrit
+#: ce qu'une clé étrangère fait et n'efface rien par elle-même (lot L7.2-A).
+MOTIF_SQL = re.compile(
+    r"\b(?<!ON )(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\Z)", re.IGNORECASE | re.DOTALL
+)
+
+
 def _tables_declarees() -> list[tuple[Path, str, str]]:
-    """[(fichier, nom de table, corps du CREATE TABLE)] dans tout `src/ourouler/`."""
+    """[(fichier, nom de table, corps du CREATE TABLE)] dans tout `src/ourouler/`.
+
+    **Les fichiers `.sql` comptent autant que les `.py`** (ajouté le
+    18/09/2026, lot L7.2-A). Avant, ce test ne regardait que les sources
+    Python : sortir le schéma dans `api/migrations/*.sql` — ce que la doctrine
+    §10.2 demande pour l'hébergé — l'aurait fait passer sur une base dont il
+    n'aurait plus vu une seule table. Un invariant qu'un changement de format
+    de fichier désarme ne garde rien.
+    """
     motif = re.compile(
         r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\((.*?)\)\s*;", re.IGNORECASE | re.DOTALL
     )
@@ -357,7 +402,44 @@ def _tables_declarees() -> list[tuple[Path, str, str]]:
         texte = fichier.read_text(encoding="utf-8")
         for nom, corps in motif.findall(texte):
             trouvees.append((fichier, nom, corps))
+    for fichier in sorted(SOURCES.rglob("*.sql")):
+        # Découpé instruction par instruction : sans ça, le `.*?` non gourmand
+        # s'arrête à la première parenthèse fermante d'une contrainte et le
+        # corps de la table est tronqué.
+        for instruction in fichier.read_text(encoding="utf-8").split(";"):
+            for nom, corps in motif.findall(instruction + ";"):
+                trouvees.append((fichier, nom, corps))
     return trouvees
+
+
+def test_les_migrations_sql_entrent_bien_dans_le_champ_du_controle():
+    """Contre-épreuve du point ci-dessus : les tables du `.sql` sont bien vues.
+
+    Sans elle, l'extension de `_tables_declarees` aux `.sql` pourrait être
+    silencieusement fausse (mauvaise expression régulière, mauvais motif de
+    fichiers) et le test suivant continuerait de passer sur les seules tables
+    Python, sans que rien ne le dise.
+    """
+    par_table = {nom: fichier.suffix for fichier, nom, _ in _tables_declarees()}
+    for attendue in ("comptes", "invitations", "comptes_proprietaires"):
+        assert par_table.get(attendue) == ".sql", par_table
+
+
+def test_les_deux_listes_de_tables_d_identite_ne_divergent_pas():
+    """La même exception, écrite deux fois, doit dire la même chose.
+
+    `tests/test_invariants.py` dispense `comptes` et `invitations` de la
+    **clause** SQL ; ce fichier-ci les dispense de la **colonne**. `migrations`
+    n'apparaît pas là-bas parce que l'exemption `_migrer`, plus ancienne, la
+    couvre déjà — d'où une comparaison qui exige l'inclusion dans un sens et
+    nomme l'unique écart toléré dans l'autre.
+    """
+    ailleurs = set(_invariants_du_depot().TABLES_IDENTITE)
+    ici = set(TABLES_IDENTITE)
+    assert ailleurs <= ici, f"exemptée dans test_invariants.py mais pas ici : {ailleurs - ici}"
+    assert ici - ailleurs == {"migrations"}, (
+        f"une table est exemptée ici sans l'être dans test_invariants.py : {ici - ailleurs}"
+    )
 
 
 def test_il_y_a_bien_des_tables_a_verifier():
@@ -378,11 +460,16 @@ def test_chaque_table_porte_une_colonne_proprietaire():
     `activites/cache.py` et `connecteurs/openmeteo_archive.py` l'ont à leur
     tour ; le `xfail` a donc sauté. Ce qu'il vérifie est structurel et vaut
     pour toute table future, y compris celles de F3.
+
+    **Les tables d'identité en sont dispensées** depuis le 18/09/2026, et
+    nommément : voir `TABLES_IDENTITE`. Un compte n'appartient pas à un
+    propriétaire, il en **désigne** un ; `comptes_proprietaires`, qui fait le
+    lien, porte la colonne comme les autres et n'est pas dispensée.
     """
     sans = [
         f"{fichier.relative_to(SOURCES)}:{nom}"
         for fichier, nom, corps in _tables_declarees()
-        if "proprietaire" not in corps.lower()
+        if "proprietaire" not in corps.lower() and nom.lower() not in TABLES_IDENTITE
     ]
     assert not sans, "tables sans colonne propriétaire :\n  " + "\n  ".join(sorted(sans))
 
@@ -402,18 +489,98 @@ def test_aucune_requete_sql_de_l_api_ne_lit_sans_filtrer_par_proprietaire():
     un appel Python, `DELETE` immédiatement suivi d'une parenthèse — se lisait
     comme une requête SQL nue. Une vraie instruction SQL a toujours un espace
     après son verbe (`DELETE FROM …`), jamais une parenthèse ouvrante.
+
+    **Deux corrections du 18/09/2026 (lot L7.2-A), quand l'API a eu son
+    premier vrai SQL.** Jusque-là elle n'en avait aucun, et la grossièreté du
+    procédé ne coûtait rien :
+
+    1. le motif était appliqué au **texte brut** du fichier, donc aux
+       docstrings : la phrase « un `UPDATE … WHERE … AND consomme_le IS NULL`,
+       jamais un `SELECT` suivi d'un `UPDATE` » — qui explique précisément
+       comment on évite la faute — était comptée comme la faute. Un invariant
+       qui punit sa propre documentation se fait désarmer par la première
+       personne pressée. Il ne lit désormais que les chaînes **exécutées**,
+       docstrings exclues, et le contenu des `.sql` ;
+    2. les tables d'identité sont dispensées, nommément (`TABLES_IDENTITE`),
+       pour la raison écrite avec la constante.
     """
     fichiers = fichiers_python_de_l_api()
     assert fichiers, "aucune source d'API trouvée sous src/ourouler/{api,web,serveur}"
-    motif = re.compile(
-        r"\b(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\"\"\"|'''|\Z)", re.IGNORECASE | re.DOTALL
-    )
+    motif = MOTIF_SQL
     nues = []
-    for fichier in fichiers:
-        for verbe, corps in motif.findall(fichier.read_text(encoding="utf-8")):
-            if "proprietaire" not in corps.lower():
-                nues.append(f"{fichier.name}: {verbe} {corps.strip()[:60]}…")
+    for origine, texte in _sql_execute_par_l_api(fichiers):
+        for verbe, corps in motif.findall(texte):
+            if "proprietaire" in corps.lower():
+                continue
+            if any(re.search(rf"\b{table}\b", corps, re.IGNORECASE) for table in TABLES_IDENTITE):
+                continue
+            nues.append(f"{origine}: {verbe} {corps.strip()[:60]}…")
     assert not nues, "requêtes SQL sans clause de propriétaire :\n  " + "\n  ".join(nues)
+
+
+def _sql_execute_par_l_api(
+    fichiers: list[Path], migrations: list[Path] | None = None
+) -> list[tuple[str, str]]:
+    """[(origine, texte)] : les chaînes de code de l'API, et ses migrations `.sql`.
+
+    « Chaîne de code » veut dire : littéral de chaîne qui n'est pas une
+    docstring. C'est volontairement plus large que « ce qui arrive dans un
+    `execute` » — le procédé reste grossier, et c'est sa force : une requête
+    assemblée par un détour tortueux reste vue. Ce qu'il ne voit plus, c'est la
+    prose.
+    """
+    morceaux: list[tuple[str, str]] = []
+    for fichier in fichiers:
+        arbre = ast.parse(fichier.read_text(encoding="utf-8"))
+        docstrings = set()
+        for noeud in ast.walk(arbre):
+            if isinstance(noeud, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+                premier = noeud.body[0] if noeud.body else None
+                if isinstance(premier, ast.Expr) and isinstance(premier.value, ast.Constant):
+                    docstrings.add(id(premier.value))
+        morceaux += [
+            (fichier.name, noeud.value)
+            for noeud in ast.walk(arbre)
+            if isinstance(noeud, ast.Constant)
+            and isinstance(noeud.value, str)
+            and id(noeud) not in docstrings
+        ]
+    if migrations is None:
+        migrations = sorted(SOURCES.rglob("*.sql"))
+    morceaux += [(fichier.name, fichier.read_text(encoding="utf-8")) for fichier in migrations]
+    return morceaux
+
+
+def test_l_invariant_sql_de_l_api_voit_encore_une_requete_nue(tmp_path: Path):
+    """Contre-épreuve des corrections ci-dessus : il ne doit pas être devenu aveugle.
+
+    On lui donne les cinq cas qui comptent : la prose (tolérée), une requête
+    sur une table d'identité (tolérée), une clé étrangère `ON DELETE CASCADE`
+    (tolérée : elle décrit, elle n'efface pas), une requête correcte
+    (tolérée), et une lecture nue d'une table de données (refusée).
+    """
+    faute = tmp_path / "essai.py"
+    faute.write_text(
+        '"""On évite un SELECT nu sur activites en nommant la clause."""\n'
+        "def identite(cx):\n"
+        '    cx.execute("SELECT id FROM comptes WHERE lower(email) = %s", ("a",))\n'
+        "def schema(cx):\n"
+        '    cx.execute("CREATE TABLE t (c TEXT REFERENCES autre (id) ON DELETE CASCADE)")\n'
+        "def correcte(cx):\n"
+        '    cx.execute("SELECT a FROM activites WHERE proprietaire = %s", ("a",))\n'
+        "def nue(cx):\n"
+        '    cx.execute("SELECT a FROM activites WHERE debut > %s", (1,))\n',
+        encoding="utf-8",
+    )
+    motif = MOTIF_SQL
+    vues = [
+        corps.strip()
+        for _, texte in _sql_execute_par_l_api([faute], migrations=[])
+        for _verbe, corps in motif.findall(texte)
+        if "proprietaire" not in corps.lower()
+        and not any(re.search(rf"\b{t}\b", corps, re.IGNORECASE) for t in TABLES_IDENTITE)
+    ]
+    assert vues == ["a FROM activites WHERE debut > %s"], vues
 
 
 # =============================================================================
