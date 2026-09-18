@@ -414,7 +414,12 @@ export function App() {
     );
   } else if (vue.genre === "detail" && resultat?.sortie) {
     contenu = (
+      // `key` force un démontage à chaque changement de proposition : sans
+      // lui, l'état local de l'écran (la panne du partage GPX, par exemple)
+      // survivrait au passage de la proposition N à la M — relevé en
+      // relecture le 18/09/2026.
       <PropositionDetail
+        key={vue.numero}
         reponse={resultat.sortie}
         numero={vue.numero}
         seance={resultat.seance}

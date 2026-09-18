@@ -31,6 +31,33 @@ function texte(vue: RenderResult): string {
   return vue.container.textContent ?? "";
 }
 
+/**
+ * L'index, parmi les enfants directs de `.chiffres`, du premier dont le
+ * texte correspond à `motif` — ou -1.
+ *
+ * **Pourquoi pas la distance entre les deux chiffres de durée eux-mêmes**
+ * (version précédente de ce test, retirée en relecture le 18/09/2026) :
+ * `DureesDeSortie` (`composants/TempsEcoule.tsx`) rend son majeur et son
+ * second chiffre dans un même fragment JSX. Ses deux `<span>` sont donc
+ * toujours frères immédiats l'un de l'autre **quel que soit l'endroit où le
+ * composant est placé** dans la ligne — mesurer leur écart mesure une
+ * constante du composant, pas la position du bloc dans l'écran. La preuve
+ * en relecture : ce test passait encore sur `Proposition.tsx` avec
+ * `<DureesDeSortie>` remis à sa position fautive du 17/09 (après le D+, les
+ * feux, le trafic et les routes non classées).
+ *
+ * Ce qui doit vraiment être mesuré est la position du **bloc de durées**
+ * par rapport aux autres chiffres — c'est ce que fait `indexChiffre`, appelé
+ * une fois pour le bloc de durées et une fois pour ce qui l'entourait avant
+ * le correctif.
+ */
+function indexChiffre(conteneur: HTMLElement, motif: RegExp): number {
+  const enfants = [...conteneur.querySelectorAll(".chiffres > *")];
+  return enfants.findIndex((n) => motif.test(n.textContent ?? ""));
+}
+
+const DUREE = /porte à porte|en roulant/;
+
 describe("les boucles libres (Boucles.tsx)", () => {
   it("montrent le porte à porte en majeur, et le temps sans arrêt en second", () => {
     const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
@@ -40,6 +67,24 @@ describe("les boucles libres (Boucles.tsx)", () => {
     // Le second, arrondi à 5 minutes et introduit par « ≈ » : ce n'est pas
     // une mesure à la minute.
     expect(texte(vue)).toMatch(/≈\s*1\s*h\s*45\s*porte à porte/);
+  });
+
+  it("place le bloc de durées juste après le D+, avant la météo et les routes", () => {
+    // Défaut signalé le 18/09/2026 : « 3 h 57 en roulant » ouvrait la ligne,
+    // « ≈ 4 h 40 porte à porte » arrivait après le D+, la pluie, le vent et
+    // les trois lignes de types de routes — l'œil ne les rapprochait plus.
+    const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
+    const iDPlus = indexChiffre(vue.container, /m D\+/);
+    const iDuree = indexChiffre(vue.container, DUREE);
+    const iPluie = indexChiffre(vue.container, /mm de pluie/);
+    const iCalme = indexChiffre(vue.container, /km de petites routes/);
+    expect(iDPlus).toBeGreaterThanOrEqual(0);
+    expect(iPluie).toBeGreaterThan(iDPlus);
+    expect(iCalme).toBeGreaterThan(iDPlus);
+    // Immédiatement après le D+ — pas seulement quelque part avant la météo.
+    expect(iDuree).toBe(iDPlus + 1);
+    expect(iDuree).toBeLessThan(iPluie);
+    expect(iDuree).toBeLessThan(iCalme);
   });
 
   it("explique les deux chiffres dans un dépliant, sans rien affirmer au hasard", () => {
@@ -104,6 +149,21 @@ describe("la liste des propositions (Propositions.tsx)", () => {
     expect(texte(vue)).toMatch(/≈\s*1\s*h\s*20\s*porte à porte/);
   });
 
+  it("place le bloc de durées juste après le kilométrage, avant le D+", () => {
+    // Construction différente des deux autres écrans : `chiffresDe` pousse
+    // les deux chiffres de durée juste après le kilométrage, dans le même
+    // tableau que le D+ — ici l'adjacence est garantie par l'ordre des
+    // `push`, pas par un fragment JSX, donc un chiffre qui s'intercalerait
+    // ferait vraiment échouer ce test.
+    const vue = afficher();
+    const iKm = indexChiffre(vue.container, /^\d[\d,]*\s*km$/);
+    const iDuree = indexChiffre(vue.container, DUREE);
+    const iDPlus = indexChiffre(vue.container, /m D\+/);
+    expect(iKm).toBeGreaterThanOrEqual(0);
+    expect(iDuree).toBe(iKm + 1);
+    expect(iDPlus).toBeGreaterThan(iDuree);
+  });
+
   it("n'affichent aucun second chiffre sans vélo enregistré", () => {
     const vue = afficher({ compteur: null });
     expect(screen.queryByText(/porte à porte/)).toBeNull();
@@ -137,6 +197,24 @@ describe("le détail d'une proposition (Proposition.tsx)", () => {
     expect(texte(vue)).toMatch(/1\s*h\s*15\s*sans un seul arrêt/);
     expect(texte(vue)).toMatch(/≈\s*1\s*h\s*20\s*porte à porte/);
     expect(screen.getByText("D'où viennent ces deux chiffres")).toBeTruthy();
+  });
+
+  it("place le bloc de durées juste après le D+, avant feux, trafic et routes non classées", () => {
+    // C'était ici, sur le détail d'une proposition, que le D+, les feux et
+    // stops, le trafic et les routes non classées s'intercalaient entre les
+    // deux chiffres : `Boucles.tsx` et `Propositions.tsx` avaient déjà été
+    // corrigés le même jour, pas cet écran-ci.
+    const vue = afficher();
+    const iDPlus = indexChiffre(vue.container, /m D\+/);
+    const iDuree = indexChiffre(vue.container, DUREE);
+    const iFeux = indexChiffre(vue.container, /feux et stops/);
+    const iTrafic = indexChiffre(vue.container, /sur routes passantes/);
+    expect(iDPlus).toBeGreaterThanOrEqual(0);
+    expect(iFeux).toBeGreaterThan(iDPlus);
+    expect(iTrafic).toBeGreaterThan(iDPlus);
+    expect(iDuree).toBe(iDPlus + 1);
+    expect(iDuree).toBeLessThan(iFeux);
+    expect(iDuree).toBeLessThan(iTrafic);
   });
 
   it("n'affiche aucun second chiffre sans vélo enregistré", () => {
