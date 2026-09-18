@@ -68,6 +68,7 @@ data/
 .env.*
 !.env.example
 !deploiement/.env.example
+!deploiement/api/.env.example
 
 # Front (lot F2) : les dépendances s'installent, elles ne se commitent pas.
 front/node_modules/

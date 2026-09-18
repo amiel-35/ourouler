@@ -30,6 +30,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as ExceptionHTTP
 
 from ourouler import __version__
@@ -103,6 +104,7 @@ def creer_application(
     clients: Clients | None = None,
     budgets: Budgets | None = None,
     session: FournisseurSession | None = None,
+    dossier_front: Path | None = None,
 ) -> FastAPI:
     """L'application, avec ses dépôts et ses clients — rien n'est lu de l'environnement ici.
 
@@ -140,6 +142,16 @@ def creer_application(
     **refuse** en son absence. La distinction est la seule qui compte, et
     elle est là — le défaut d'une fabrique qu'on appelle en nommant ses
     arguments n'est pas le défaut d'un processus qu'on expose.
+
+    **`dossier_front` sert le front construit (`npm run build`) depuis la
+    même origine que l'API** (lot L7.E). Facultatif : sans lui, l'application
+    ne sert que `/api/v1` — c'est ce que font tous les tests, et ce que fait
+    `ourouler api` avant que quelqu'un ait construit `front/dist`. Donné, il
+    monte ce dossier à la racine (`/`), **après** les routes de l'API : un
+    gabarit `/api/v1/...` reste prioritaire sur le mieux qu'un fichier statique
+    pourrait rendre. C'est pour ça que le front n'a jamais d'URL absolue dans
+    son code (`front/README.md`) — la même origine sert les deux, en
+    développement par le proxy Vite, en production par ce montage.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -188,6 +200,25 @@ def creer_application(
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
+
+    @app.get("/sante", include_in_schema=False)
+    def _sonde_sante() -> dict:
+        """La sonde de santé (lot L7.E) : jamais de session, jamais de donnée.
+
+        Hors `/api/v1` et hors du schéma publié, à dessein : toute route sous
+        `/api/v1` sert par construction les données d'un cycliste
+        (`tests/api/test_api_isolation_proprietaire.py`,
+        `test_la_liste_des_routes_hors_donnees_ne_ment_pas`), et `/systeme`
+        en est déjà une — elle répond 401 sans session, exactement comme il se
+        doit. Un orchestrateur (Coolify, `docker compose --wait`, un
+        `HEALTHCHECK`) qui interrogerait `/systeme` croirait le service mort
+        sur un déploiement sans authentification branchée. Cette sonde ne
+        prouve que ce qu'un orchestrateur a besoin de savoir : le processus
+        répond. Elle ne dit rien du profil ni du mode — un `mode` ici serait
+        déjà une information de configuration, hors du contrat que `/systeme`
+        porte pour un cycliste authentifié.
+        """
+        return {"etat": "ok", "version": __version__}
 
     @app.exception_handler(ErreurApi)
     async def _erreur_api(requete: Request, erreur: ErreurApi) -> JSONResponse:
@@ -270,6 +301,17 @@ def creer_application(
             )
         )
 
+    if dossier_front is not None:
+        # **Monté en dernier.** Starlette essaie ses routes dans l'ordre
+        # d'enregistrement et s'arrête à la première qui correspond : un
+        # montage sur `/` enregistré avant `/api/v1/...` intercepterait tout,
+        # `/sante` compris. Ici, il n'est atteint que pour ce qu'aucune route
+        # ci-dessus n'a servi. `html=True` : `/` rend `index.html`, comme le
+        # ferait un serveur de fichiers statiques ordinaire ; il n'y a pas de
+        # route côté client à retomber dessus (`front/src/App.tsx` : quatre
+        # onglets d'état, aucun routeur d'URL) donc pas de repli à écrire.
+        app.mount("/", StaticFiles(directory=dossier_front, html=True), name="front")
+
     return app
 
 
@@ -287,6 +329,12 @@ def application() -> FastAPI:
     `SessionHebergee`, qui n'ouvre aucune session et fait répondre 401 à
     chaque route de données. Un processus exposé sans qu'on ait dit qui il
     sert ne sert personne ; c'est le sens du lot L7.A.
+
+    **`dossier_front` vient de `OUROULER_FRONT_DIST`** (lot L7.E), absente par
+    défaut : `ourouler api` sur la machine du mainteneur n'a pas construit
+    `front/dist` et n'a pas à le faire pour servir l'API. C'est le paquetage
+    (`deploiement/api/Dockerfile`) qui pose cette variable, vers le dossier où
+    il a copié `npm run build`.
     """
     from ourouler.api import exploitation
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
@@ -300,6 +348,7 @@ def application() -> FastAPI:
         socle=socle,
         dossier_donnees=socle.config({}).cache.dossier / NOM_DOSSIER_DONNEES,
         session=exploitation.fournisseur_session(),
+        dossier_front=exploitation.dossier_front(),
     )
 
 
