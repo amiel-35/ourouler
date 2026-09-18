@@ -544,6 +544,40 @@ class BaseRoutes:
 
     # --- lecture --------------------------------------------------------------
 
+    def sorties(self) -> list[dict]:
+        """Les sorties apprises de **ce** propriétaire — id, jour, mailles, mètres.
+
+        Écrit pour l'export du lot L7.B (`docs/sprint7_contrat.md`, §L7.B) :
+        c'est « le lien » au sens de [[Q46]] (`docs/questions_mainteneur.md`)
+        — que ce cycliste est passé là, ce jour-là, sur cette sortie.
+
+        **Lecture seule, volontairement : il n'y a pas de méthode de
+        suppression symétrique dans cette classe.** La doctrine (§10.2) est
+        tranchée : « les poids de routes appris restent collectifs […] et ne
+        repartent pas avec un compte supprimé ». Le lot L7.B n'invente pas la
+        table de correspondance compte/propriétaire qui permettrait un
+        effacement fin (doctrine §10.2) ; en son absence, la suppression d'un
+        propriétaire laisse `troncons` et `sorties` intacts, et le dit dans
+        l'archive d'export plutôt que de supprimer en silence ou d'inventer
+        un défaut.
+        """
+        with self._connexion() as cx:
+            lignes = cx.execute(
+                "SELECT id_sortie, jour, mailles, metres, ajoutee_le FROM sorties "
+                "WHERE proprietaire = ? ORDER BY jour, id_sortie",
+                (self.proprietaire,),
+            ).fetchall()
+        return [
+            {
+                "id_sortie": id_sortie,
+                "jour": jour,
+                "mailles": int(mailles),
+                "metres": float(metres or 0.0),
+                "ajoutee_le": ajoutee_le,
+            }
+            for id_sortie, jour, mailles, metres, ajoutee_le in lignes
+        ]
+
     def sorties_apprises(self) -> set[str]:
         with self._connexion() as cx:
             return {
