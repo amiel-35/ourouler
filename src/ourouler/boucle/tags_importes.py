@@ -236,7 +236,19 @@ def _construire(
     idx_segment: int | None,
     segments_reroutes: list[Segment],
 ) -> Segment:
-    longueur = sum(distance_m(points[i], points[i + 1]) for i in range(debut, fin))
+    """Construit le `Segment` de sortie couvrant `[debut, fin]`, longueur haversine incluse.
+
+    La longueur couvre aussi l'arête qui **quitte** `fin` vers le premier
+    point du groupe suivant : sans elle, cette arête n'appartenait à aucun
+    groupe (ni le précédent, dont l'intervalle s'arrêtait juste avant, ni le
+    suivant, qui ne commence qu'après elle), et la somme des longueurs de
+    sortie était inférieure à la distance réelle du GPX — silencieusement,
+    d'une arête à chaque frontière entre deux tronçons. `min(…, len(points) -
+    2)` protège le dernier groupe : le dernier point du tracé n'a pas
+    d'arête sortante.
+    """
+    derniere_arete = min(fin, len(points) - 2)
+    longueur = sum(distance_m(points[i], points[i + 1]) for i in range(debut, derniere_arete + 1))
     if idx_segment is None:
         return Segment(debut_idx=debut, fin_idx=fin, longueur_m=longueur, tags={})
     origine = segments_reroutes[idx_segment]

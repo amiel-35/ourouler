@@ -103,14 +103,21 @@ def args(**champs) -> argparse.Namespace:
 
 
 def moteur_brouter(longueur_par_azimut: dict[float, float] | None = None) -> ClientBrouter:
-    """BRouter bouchonné : une boucle fabriquée dont la longueur dépend de l'azimut."""
+    """BRouter bouchonné : une boucle fabriquée dont la longueur dépend de l'azimut.
+
+    Répond aussi à un appel `itineraire` (sans `roundTripStartDirection`) : le
+    greffage de tags sur un GPX importé (`boucle.tags_importes`) en fait un,
+    et ce même client sert souvent à générer *et* à réévaluer un GPX dans le
+    même test.
+    """
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
-        azimut = float(requete.url.params["roundTripStartDirection"])
+        azimut_brut = requete.url.params.get("roundTripStartDirection")
         charge = reponse_fabriquee()
-        entite = charge["features"][0]
-        longueur = (longueur_par_azimut or {}).get(azimut, 60_000.0)
-        entite["properties"]["track-length"] = str(round(longueur))
+        if azimut_brut is not None:
+            entite = charge["features"][0]
+            longueur = (longueur_par_azimut or {}).get(float(azimut_brut), 60_000.0)
+            entite["properties"]["track-length"] = str(round(longueur))
         return httpx.Response(200, json=charge)
 
     params = config_de_test().brouter
@@ -567,15 +574,45 @@ def test_gpx_importe_evalue_seul_sans_rien_ecrire(tmp_path: Path, monkeypatch, c
     assert len(lignes_du_tableau(sortie)) == 1
 
 
-def test_gpx_importe_affiche_des_couts_partiels(tmp_path: Path, monkeypatch, capsys):
+def test_gpx_importe_avec_greffage_reussi_sort_des_couts_partiels(tmp_path: Path, monkeypatch, capsys):
+    """Le greffage (`boucle.tags_importes`) réussit : les coûts cessent d'être partiels.
+
+    Avant le lot de greffage, un GPX importé restait `couts_partiels: True`
+    pour toujours — le trafic, le revêtement, les feux étaient inconnus. Un
+    BRouter disponible et un rapprochement exploitable changent ce fait :
+    c'est tout l'objet du lot.
+    """
     monkeypatch.chdir(tmp_path)
     chemin = gpx_de_test(tmp_path)
     executer(args(gpx=str(chemin), json=True), config_de_test(), moteur_brouter(), moteur_meteo())
     charge = json.loads(capsys.readouterr().out)
     assert charge["gpx"] is None
     assert len(charge["candidates"]) == 1
-    assert charge["candidates"][0]["couts_partiels"] is True
-    assert charge["candidates"][0]["meteo"] is not None
+    candidate = charge["candidates"][0]
+    assert candidate["couts_partiels"] is False
+    assert candidate["meteo"] is not None
+    assert candidate["meta"]["tags_provenance"] == "rapprochement"
+    assert candidate["meta"]["tags_seuil_m"] > 0
+    assert candidate["meta"]["tags_km_sans_tag"] >= 0.0
+
+
+def test_gpx_importe_sans_brouter_disponible_garde_les_couts_partiels(tmp_path: Path, monkeypatch, capsys):
+    """Chemin dégradé : BRouter injoignable pour le greffage, comportement d'avant inchangé."""
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+
+    def en_panne(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"erreur": "maintenance"})
+
+    client = ClientBrouter(
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(en_panne))
+    )
+    code = executer(args(gpx=str(chemin), json=True), config_de_test(), client, moteur_meteo())
+    assert code == 0
+    charge = json.loads(capsys.readouterr().out)
+    candidate = charge["candidates"][0]
+    assert candidate["couts_partiels"] is True
+    assert "tags_provenance" not in candidate["meta"]
 
 
 def test_la_colonne_d_plus_dit_d_ou_vient_le_chiffre(tmp_path: Path, monkeypatch, capsys):
@@ -610,17 +647,43 @@ def test_la_provenance_du_denivele_est_dans_le_json(tmp_path: Path, monkeypatch,
     assert charge["candidates"][0]["denivele_source"] == "gpx relu"
 
 
-def test_gpx_importe_n_appelle_pas_brouter(tmp_path: Path, monkeypatch):
+def test_gpx_importe_appelle_brouter_pour_greffer_les_tags(tmp_path: Path, monkeypatch):
+    """Depuis le greffage de tags, `--gpx` appelle bien BRouter — pour reroutier, pas pour tracer.
+
+    Avant ce lot, `--gpx` n'appelait jamais BRouter : la trace importée restait
+    sans tags. Le greffage (`boucle.tags_importes`) a besoin d'un tracé
+    rerouté pour trouver des tags à emprunter, d'où cet appel — un seul, pas
+    un par candidate (`--gpx` n'en évalue qu'une).
+    """
     monkeypatch.chdir(tmp_path)
     chemin = gpx_de_test(tmp_path)
+    appels = []
 
-    def interdit(requete: httpx.Request) -> httpx.Response:
-        raise AssertionError("BRouter ne doit pas être appelé avec --gpx")
+    def gestionnaire(requete: httpx.Request) -> httpx.Response:
+        appels.append(requete)
+        return httpx.Response(200, json=reponse_fabriquee())
 
     client = ClientBrouter(
-        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(interdit))
+        config_de_test().brouter, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
     )
     assert executer(args(gpx=str(chemin)), config_de_test(), client, moteur_meteo()) == 0
+    assert len(appels) == 1
+    assert "roundTripStartDirection" not in appels[0].url.params, "un itinéraire, pas une boucle"
+
+
+def test_gpx_importe_sans_client_brouter_injecte_en_construit_un(tmp_path: Path, monkeypatch):
+    """`client_brouter=None` : la commande construit le sien, comme pour une boucle générée.
+
+    Même détail que la branche sans `--gpx` : `evitements=config.evitements`
+    est passé au client construit. On le vérifie ici en configurant une URL
+    de serveur invalide (`brouter` non renseigné) et en s'assurant que la
+    commande dégrade proprement plutôt que de planter.
+    """
+    monkeypatch.chdir(tmp_path)
+    chemin = gpx_de_test(tmp_path)
+    config_sans_brouter = depuis_dict({k: v for k, v in CONFIG_BRUTE.items() if k != "brouter"})
+    code = executer(args(gpx=str(chemin)), config_sans_brouter, None, moteur_meteo())
+    assert code == 0  # dégradé : couts_partiels, pas d'exception
 
 
 # --- la sortie JSON ------------------------------------------------------------
@@ -898,7 +961,9 @@ def test_un_gpx_importe_dit_antennes_detectees_et_non_retirees(
     gpx = next(tmp_path.glob("*.gpx"))
     capsys.readouterr()
 
-    executer(args(gpx=str(gpx), distance=None), config_de_test(), None, moteur_meteo())
+    executer(
+        args(gpx=str(gpx), distance=None), config_de_test(), moteur_brouter_avec_antenne(), moteur_meteo()
+    )
     lignes = capsys.readouterr().out.splitlines()
     entete = next(ligne for ligne in lignes if TITRE_ANTENNES_DETECTEES in ligne)
     assert TITRE_ANTENNES_RETIREES not in entete
@@ -920,7 +985,10 @@ def test_le_json_nomme_la_provenance_des_metres_d_antennes(
 
     gpx = next(tmp_path.glob("*.gpx"))
     executer(
-        args(gpx=str(gpx), distance=None, json=True), config_de_test(), None, moteur_meteo()
+        args(gpx=str(gpx), distance=None, json=True),
+        config_de_test(),
+        moteur_brouter_avec_antenne(),
+        moteur_meteo(),
     )
     candidate = json.loads(capsys.readouterr().out)["candidates"][0]
     assert candidate["antennes_source"] == "detectees"

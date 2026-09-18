@@ -31,7 +31,9 @@ def _point(lat: float, lon: float, dist_m: float = 0.0) -> PointTrace:
     return PointTrace(lat=lat, lon=lon, alt_m=None, dist_m=dist_m)
 
 
-def _trace(points: list[PointTrace], *, segments: list[Segment] | None = None, meta: dict | None = None) -> Trace:
+def _trace(
+    points: list[PointTrace], *, segments: list[Segment] | None = None, meta: dict | None = None
+) -> Trace:
     return Trace(
         nom="t",
         points=points,
@@ -128,7 +130,13 @@ def test_deux_troncons_voisins_de_meme_highway_restent_deux_segments():
     reroutee = _trace(
         points,
         segments=[
-            Segment(0, 5, 5 * 0.0005 * METRES_PAR_DEGRE, tags={"highway": "tertiary"}, node_tags={"highway": "traffic_signals"}),
+            Segment(
+                0,
+                5,
+                5 * 0.0005 * METRES_PAR_DEGRE,
+                tags={"highway": "tertiary"},
+                node_tags={"highway": "traffic_signals"},
+            ),
             Segment(5, 10, 5 * 0.0005 * METRES_PAR_DEGRE, tags={"highway": "tertiary"}),
         ],
     )
@@ -230,7 +238,12 @@ def test_le_plus_proche_avec_grille_donne_le_meme_resultat_que_le_calcul_naif():
     random.seed(20260918)
     points_reroutee = [_point(0.0, i * 0.0007, i * 0.0007 * METRES_PAR_DEGRE) for i in range(40)]
     segments = [
-        Segment(i, i + 1, points_reroutee[i + 1].dist_m - points_reroutee[i].dist_m, tags={"highway": f"h{i % 5}"})
+        Segment(
+            i,
+            i + 1,
+            points_reroutee[i + 1].dist_m - points_reroutee[i].dist_m,
+            tags={"highway": f"h{i % 5}"},
+        )
         for i in range(39)
     ]
     reroutee = _trace(points_reroutee, segments=segments)
