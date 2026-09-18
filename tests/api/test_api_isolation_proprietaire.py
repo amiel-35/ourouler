@@ -12,11 +12,29 @@ C'est le seul thème de ce dossier où le coût d'attendre n'est pas linéaire.
 Une route écrite aujourd'hui sans paramètre de propriétaire devra, en F3,
 être retrouvée une par une — et celle qu'on oubliera servira les données d'un
 autre. Ces tests posent la forme pendant qu'elle ne coûte rien.
+
+**Mis à jour le 18/09/2026 (lot L7.A).** Le fichier vérifiait la *forme* —
+chaque route reçoit la dépendance, aucune ne laisse le client se nommer — et
+c'était vrai pendant que `proprietaire()` rendait le mainteneur à n'importe
+quel visiteur. Il vérifie maintenant aussi le *comportement*, et **route par
+route** plutôt que par échantillon :
+
+- sans session, chaque route de données répond 401 (`SessionHebergee`) ;
+- deux cyclistes distincts ne voient jamais rien l'un de l'autre, contre le
+  service réel, sur toutes les routes ;
+- une route ajoutée sans clause de propriétaire, ou ajoutée sans entrer dans
+  le balayage, fait échouer la suite — vérifié en le faisant.
+
+Les trois listes qui pilotent tout cela sont `ROUTES_HORS_DONNEES` (les
+dispenses, exactes et justifiées) et `_appels` (comment appeler chaque route
+pour de vrai). Elles sont comparées à ce que l'application déclare : aucune
+ne peut se périmer en silence.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import get_args, get_type_hints
 
@@ -25,8 +43,13 @@ from outils_api import (
     PROPRIETAIRE_A,
     PROPRIETAIRE_B,
     SOURCES,
+    ClientApi,
     charger_application,
     client_api,
+    client_bouchon,
+    client_brouter_ordinaire,
+    client_meteo_ordinaire,
+    client_seance_ordinaire,
     config_d_essai,
     fichiers_python_de_l_api,
     noms_de_parametres,
@@ -34,6 +57,8 @@ from outils_api import (
     route_pour,
     routes,
     schema_openapi,
+    texte_entier,
+    transports_du_depot,
 )
 
 #: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
@@ -42,17 +67,60 @@ from outils_api import (
 #: levait une erreur au lieu de laisser des tests ignorés.
 #: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
 #: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
+#: Elle est **avant** les imports d'`ourouler.api` ci-dessous, qui n'ont de
+#: sens que si le paquet est installable.
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
+from ourouler.api.depots import SocleTOML  # noqa: E402
+from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: E402
+
+#: Importés **au niveau du module**, et pas dans les tests qui s'en servent :
+#: `get_type_hints` résout les annotations dans les globales du module où la
+#: fonction est définie. Les routes de contre-épreuve de
+#: `test_une_route_sans_clause_de_proprietaire_est_bien_detectee` sont définies
+#: ici ; avec un import local, `Ctx` et `Qui` seraient irrésolubles et le
+#: détecteur déclarerait « sans clause » une route qui en a une.
+from ourouler.api.routes import Ctx, Qui  # noqa: E402
+from ourouler.api.session import (  # noqa: E402
+    MODE_HEBERGE,
+    MODE_PERSONNEL,
+    SessionHebergee,
+    SessionPersonnelle,
+)
 
 #: Les noms acceptables pour la clause de propriétaire. On n'impose pas le mot :
 #: on impose qu'il y en ait un, et qu'il soit déclaré dans le contrat.
 MOTS_PROPRIETAIRE = ("proprietaire", "utilisateur", "profil_id", "compte", "owner")
 
-#: Routes qui n'ont légitimement pas de propriétaire : elles ne lisent aucune
-#: donnée de profil. La liste est courte exprès — toute route qui n'y est pas
-#: doit porter la clause.
-CHEMINS_SANS_PROPRIETAIRE = ("/openapi", "/docs", "/redoc", "/sante", "/health", "/version")
+#: Les routes qui n'ont légitimement pas de propriétaire, **nommées une par
+#: une avec leur raison** (lot L7.A, 18/09/2026).
+#:
+#: C'était auparavant un tuple de fragments (`"/openapi"`, `"/docs"`,
+#: `"/sante"`, `"/version"`…) comparés par `in` : un motif large, qui
+#: dispensait d'avance des routes qui n'existent pas et qui aurait dispensé
+#: `/api/v1/sante-du-cycliste` le jour où quelqu'un l'aurait écrite. Une liste
+#: d'exceptions se remplit toute seule (doctrine §10.1) ; celle-ci est donc
+#: **exacte**, courte, justifiée, et `test_la_liste_des_routes_hors_donnees_ne_ment_pas`
+#: vérifie qu'elle ne contient rien d'inventé ni rien sous `/api/v1`.
+#:
+#: **`/systeme` et `/systeme/budgets` n'y sont pas**, alors que le contrat du
+#: sprint les cite comme exemples plausibles. Ils résolvent un propriétaire
+#: aujourd'hui et doivent continuer : `/systeme` rend les capacités **du
+#: profil** (« Intervals est-il renseigné ? », la liste des vélos), qui sont
+#: des données de cycliste ; et `budgets` le dit déjà en toutes lettres —
+#: « dispenser la seule route qui n'en a pas besoin ouvrirait une liste
+#: d'exceptions ». Les dispenser serait un recul, pas une simplification.
+ROUTES_HORS_DONNEES: dict[str, str] = {
+    "/openapi.json": "le contrat publié — une description de l'API, aucune donnée de cycliste",
+    "/docs": "la page de documentation interactive de FastAPI, statique",
+    "/docs/oauth2-redirect": "une page statique de FastAPI, servie avec /docs",
+    "/redoc": "l'autre lecteur du même contrat, page statique",
+}
+
+
+def _est_une_route_de_donnees(chemin: str) -> bool:
+    """Vrai si cette route doit porter la clause. Correspondance **exacte**."""
+    return chemin not in ROUTES_HORS_DONNEES
 
 
 def _porte_la_clause(schema, chemin: str, operation: dict) -> bool:
@@ -89,9 +157,10 @@ def test_chaque_route_de_donnees_resout_un_proprietaire_cote_serveur():
     remplit. Un `?proprietaire=` dans le contrat publié serait le contraire de
     ce qu'on veut : tant que rien n'authentifie personne, un paramètre que
     n'importe qui peut écrire est une référence directe à l'objet d'autrui —
-    la faille même que ce fichier prétend fermer. `api/proprietaire.resoudre()`
-    le dit dans les mêmes termes : « rien dans la requête HTTP ne doit pouvoir
-    désigner un autre propriétaire ».
+    la faille même que ce fichier prétend fermer. `api/routes.proprietaire()`
+    le dit dans les mêmes termes : rien dans la requête HTTP ne doit pouvoir
+    désigner un autre propriétaire — c'est le fournisseur de session qui
+    tranche, jamais le client.
 
     Ce que le test vérifie donc maintenant, et qui est plus fort : **toute**
     route résout un propriétaire côté serveur — sa fonction reçoit la
@@ -102,7 +171,7 @@ def test_chaque_route_de_donnees_resout_un_proprietaire_cote_serveur():
     """
     resolues, nues = [], []
     for chemin, fonction in _routes_servies(charger_application(config=config_d_essai())):
-        if any(exclu in chemin.lower() for exclu in CHEMINS_SANS_PROPRIETAIRE):
+        if not _est_une_route_de_donnees(chemin):
             continue
         (resolues if _resout_un_proprietaire(fonction) else nues).append(chemin)
     assert resolues, "aucune route de données trouvée : le test ne mesure rien"
@@ -132,7 +201,7 @@ def test_aucune_route_ne_laisse_le_client_choisir_son_proprietaire():
         "le client peut désigner un propriétaire :\n  "
         + "\n  ".join(sorted(offertes))
         + "\nTant que rien n'authentifie personne, ce paramètre sert les données d'autrui à "
-        "qui le devine. L'identité se résout côté serveur (api/proprietaire.resoudre)."
+        "qui le devine. L'identité se résout côté serveur (api/session.py)."
     )
 
 
@@ -195,9 +264,7 @@ def test_une_requete_sans_proprietaire_ne_sert_pas_silencieusement_le_mainteneur
     client = client_api(config=config_d_essai())
     schema = schema_openapi(client)
     chemin, methode, operation = next(
-        (c, m, o)
-        for c, m, o in routes(schema)
-        if not any(exclu in c.lower() for exclu in CHEMINS_SANS_PROPRIETAIRE)
+        (c, m, o) for c, m, o in routes(schema) if _est_une_route_de_donnees(c)
     )
     reponse = client.requete(methode, chemin)
     if reponse.status_code in (401, 403, 422):
@@ -329,3 +396,688 @@ def test_aucune_requete_sql_de_l_api_ne_lit_sans_filtrer_par_proprietaire():
             if "proprietaire" not in corps.lower():
                 nues.append(f"{fichier.name}: {verbe} {corps.strip()[:60]}…")
     assert not nues, "requêtes SQL sans clause de propriétaire :\n  " + "\n  ".join(nues)
+
+
+# =============================================================================
+# L7.A — la session, et l'isolation prouvée route par route
+# =============================================================================
+#
+# Ce qui précède vérifie la **forme** : chaque route reçoit la dépendance, et
+# aucune ne laisse le client nommer son propriétaire. C'était déjà vrai le
+# 17/09 et ça ne suffisait pas : `proprietaire()` rendait le mainteneur à
+# n'importe qui. Ce qui suit vérifie le **comportement**, contre le service
+# réel — sans session, 401 ; avec deux sessions, aucune fuite — et le fait
+# **route par route**, pas par échantillon.
+
+
+#: La sentinelle plantée chez A. Un jeton inventé, reconnaissable dans
+#: n'importe quelle réponse, et qui n'est la donnée personnelle de personne
+#: (règle absolue 1) : ni nom réel, ni adresse, ni coordonnée française.
+MARQUE_A = "sentinelle-a-7k2"
+
+#: La même chez B, pour que la contre-épreuve soit symétrique.
+MARQUE_B = "sentinelle-b-3v9"
+
+
+@dataclass(frozen=True)
+class SessionDEssai:
+    """Un fournisseur de session **de test**, injecté par le seul chemin prévu.
+
+    **Pourquoi ceci ne rouvre pas la porte que ce fichier ferme.** Un en-tête
+    qui désigne le propriétaire serait une usurpation en un mot — c'est
+    exactement ce que `test_aucune_route_ne_laisse_le_client_choisir_son_proprietaire`
+    interdit. La différence n'est pas de degré :
+
+    - ce fournisseur n'existe **que dans les tests** ; aucun module de
+      `src/ourouler/` ne le nomme, et `exploitation.fournisseur_session` ne
+      sait en construire que deux, `SessionPersonnelle` et `SessionHebergee` ;
+    - l'en-tête n'apparaît **pas dans le schéma publié**, parce qu'il n'est
+      lu par aucune route : il est lu par le fournisseur, en amont. Le test
+      du contrat publié reste donc entier et continue de mordre.
+
+    C'est précisément ce à quoi sert l'interface : pouvoir présenter deux
+    cyclistes distincts au **vrai** service, sans que le vrai service apprenne
+    à en distinguer deux tout seul avant que le mainteneur ait tranché la
+    méthode d'authentification.
+    """
+
+    entete: str = "x-essai-proprietaire"
+    mode = MODE_HEBERGE
+
+    def ouvrir(self, requete: object) -> Proprietaire | None:
+        valeur = requete.headers.get(self.entete)
+        return Proprietaire(valeur) if valeur else None
+
+
+def _routes_de_donnees(application: object) -> set[tuple[str, str]]:
+    """{(méthode, gabarit)} de toutes les routes qui doivent porter la clause.
+
+    `HEAD` et `OPTIONS` sont écartés : ils sont ajoutés par le cadre web à
+    côté du `GET` qu'on teste déjà, et les compter doublerait le tableau
+    d'appels sans rien prouver de plus.
+    """
+    trouvees: set[tuple[str, str]] = set()
+    for route in _toutes_les_routes(application):
+        chemin = str(getattr(route, "path", ""))
+        if not _est_une_route_de_donnees(chemin):
+            continue
+        for methode in sorted(getattr(route, "methods", None) or ()):
+            if methode in ("HEAD", "OPTIONS"):
+                continue
+            trouvees.add((methode, chemin))
+    return trouvees
+
+
+def _toutes_les_routes(objet: object, profondeur: int = 0) -> list[object]:
+    """Les objets de route eux-mêmes — même descente que `_routes_servies`."""
+    trouvees: list[object] = []
+    if profondeur > 4:
+        return trouvees
+    for route in getattr(objet, "routes", []) or []:
+        if getattr(route, "endpoint", None) is not None:
+            trouvees.append(route)
+            continue
+        trouvees += _toutes_les_routes(route, profondeur + 1)
+        interne = getattr(route, "original_router", None)
+        if interne is not None:
+            trouvees += _toutes_les_routes(interne, profondeur + 1)
+    return trouvees
+
+
+#: Le préfixe sous lequel vit tout ce qui sert un cycliste.
+PREFIXE_API = "/api/v1"
+
+
+def _concret(gabarit: str) -> str:
+    """Un gabarit (`/fichiers/{identifiant}`) devient une URL appelable.
+
+    La valeur mise à la place n'a pas à exister : pour le balayage des 401,
+    ce qui compte est que la requête **atteigne** la route, pas qu'elle
+    trouve quelque chose.
+    """
+    return re.sub(r"\{[^}]+\}", "1", gabarit)
+
+
+def _corps(reponse) -> dict:
+    """Le JSON d'une réponse, ou `{}` quand ce n'en est pas (un GPX, une page)."""
+    try:
+        charge = reponse.json()
+    except ValueError:
+        return {}
+    return charge if isinstance(charge, dict) else {}
+
+
+def _toml_d_essai(tmp_path: Path) -> str:
+    """Un fichier de configuration entièrement inventé (règle absolue 1).
+
+    Départ au large du golfe de Guinée, à quelques centaines de mètres du
+    point (0, 0) : aucune coordonnée française, aucun lieu réel, et rien qui
+    ressemble au départ du mainteneur.
+    """
+    return (
+        "[depart]\n"
+        f'nom = "{DEPART_D_ESSAI["nom"]}"\n'
+        f'latitude = {DEPART_D_ESSAI["latitude"]}\n'
+        f'longitude = {DEPART_D_ESSAI["longitude"]}\n'
+        "\n[cycliste]\nmasse_kg = 70.0\nftp_w = 200\n"
+        '\n[[velos]]\nnom = "Essai"\nusage = "route"\nmasse_kg = 9.0\ncda_m2 = 0.3\n'
+        # Le moteur de tracé et la vitesse de la boucle sont de
+        # l'infrastructure : ils appartiennent au service, pas à un cycliste,
+        # et c'est bien le fond commun qu'un socle sans propriétaire
+        # représente. Le serveur n'existe pas (`.invalid`) et tous les appels
+        # sont bouchonnés — aucun réseau (règle absolue 3).
+        '\n[brouter]\nurl = "http://brouter.essai.invalid"\nprofil = "fastbike"\ntimeout_s = 5.0\n'
+        "\n[boucle]\nvitesse_moyenne_kmh = 27.0\ncandidates = 2\n"
+        f'\n[cache]\ndossier = "{tmp_path / "cache"}"\n'
+    )
+
+
+#: Le départ synthétique, repris tel quel du socle de test.
+DEPART_D_ESSAI = {"nom": "Départ d'essai", "latitude": 0.0009, "longitude": 0.0004}
+
+
+def _service_pour_deux(tmp_path: Path) -> ClientApi:
+    """Le **vrai** service, monté une fois, capable de distinguer deux cyclistes.
+
+    Les cinq connecteurs sont les bouchons ordinaires du dépôt (règle
+    absolue 3, aucun réseau) ; tout le reste — routes, dépôts, cœur — est le
+    code de production. C'est le point de la formule « contre le service réel
+    et pas un bouchon » : ce qu'on remplace est ce qui sortirait de la
+    machine, pas ce qu'on prétend tester.
+
+    Le socle vient d'un **fichier** et non d'une `Config` injectée : une
+    configuration injectée est servie en lecture seule (`SocleFixe`), et
+    `PATCH /profil` — la principale écriture du produit, donc la principale
+    occasion de fuite — serait hors de l'épreuve.
+
+    Et ce socle **n'appartient à personne** (`proprietaire=None`), ce qui est
+    la forme hébergée : un fond commun — la vitesse de la boucle, l'URL du
+    moteur de tracé — sur lequel chaque cycliste pose son profil. Le défaut,
+    `PROPRIETAIRE_LOCAL`, est l'inverse et c'est voulu : un TOML de serveur
+    porte d'ordinaire le départ et la clé Intervals de quelqu'un, et
+    `DepotProfils` refuse alors de le servir à un autre. Le TOML écrit ici ne
+    porte ni clé ni lieu réel (règle absolue 1), donc rien à protéger — et
+    c'est justement ce refus-là que le test précédent a rencontré, ce qui
+    montre qu'il fonctionne.
+    """
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_toml_d_essai(tmp_path), encoding="utf-8")
+    return ClientApi(
+        charger_application(
+            socle=SocleTOML(chemin, proprietaire=None),
+            dossier_donnees=tmp_path / "donnees",
+            session=SessionDEssai(),
+            client_brouter=client_brouter_ordinaire(),
+            client_meteo=client_meteo_ordinaire(),
+            client_intervals=client_seance_ordinaire(),
+            # La BAN et Nominatim d'un coup : un géocodeur qui **répond** et
+            # ne trouve rien. Sans lui, `/geocodage` sortait sur le réseau et
+            # la garde de `conftest.py` l'a refusé — règle absolue 3, et la
+            # preuve au passage qu'elle sert.
+            client_geocodage=client_bouchon(200, {"features": []}),
+        )
+    )
+
+
+def _zwo(nom: str) -> bytes:
+    """Un `.ZWO` minimal et valide, dont le nom porte la sentinelle."""
+    return (
+        "<?xml version='1.0'?>\n<workout_file>\n"
+        f"<name>{nom}</name>\n<description>Fabriquée pour les tests</description>\n"
+        '<workout><SteadyState Duration="600" Power="0.7"/></workout>\n'
+        "</workout_file>\n"
+    ).encode()
+
+
+def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
+    """Plante les sentinelles de `qui` **par l'API**, et rend ses identifiants.
+
+    On n'écrit pas dans les dépôts en passant par-dessous : ce que le
+    balayage doit prouver est qu'un cycliste ne voit pas ce qu'un autre a
+    déposé **en se servant du produit**. Écrire sous la route reviendrait à
+    tester le dépôt, ce que `test_une_ressource_d_un_proprietaire_n_est_pas_lisible_par_un_autre`
+    fait déjà, et à laisser la route hors de l'épreuve.
+    """
+    entetes = {"x-essai-proprietaire": qui}
+    profil = client.requete(
+        "PATCH",
+        f"{PREFIXE_API}/profil",
+        headers=entetes,
+        json={
+            "depart": {"nom": f"depart-{marque}"},
+            "velos": [
+                {"nom": f"velo-{marque}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}
+            ],
+            # La clé porte elle aussi la sentinelle : c'est le secret du
+            # profil, et une fuite de clé d'un cycliste vers un autre serait la
+            # pire de toutes. Inventée, comme le reste (règle absolue 1).
+            "intervals": {"athlete_id": "i000000", "api_key": f"cle-{marque}"},
+        },
+    )
+    assert profil.status_code == 200, f"{qui} n'a pas pu écrire son profil : {profil.text[:300]}"
+
+    depot = client.post(
+        f"{PREFIXE_API}/seances/fichier",
+        headers=entetes,
+        files={"fichier": (f"seance-{marque}.zwo", _zwo(f"seance-{marque}"), "application/xml")},
+    )
+    assert depot.status_code == 200, f"{qui} n'a pas pu déposer sa séance : {depot.text[:300]}"
+
+    sortie = client.post(
+        f"{PREFIXE_API}/sorties",
+        headers=entetes,
+        json={"jour": _jour(), "candidates": 2},
+    )
+    assert sortie.status_code == 200, f"{qui} n'a pas pu générer sa sortie : {sortie.text[:300]}"
+
+    # `POST /sorties` laisse ses GPX en mémoire tant que le cycliste n'a pas
+    # choisi (Q40 g) : c'est `POST /boucles` qui en écrit un dans le dépôt, et
+    # c'est de celui-là que `POST /simulations` a besoin.
+    boucle = client.post(
+        f"{PREFIXE_API}/boucles",
+        headers=entetes,
+        json={"distance_km": 30.0, "candidates": 1},
+    )
+    assert boucle.status_code == 200, f"{qui} n'a pas pu générer sa boucle : {boucle.text[:300]}"
+
+    return {
+        "fichier": _corps(depot)["fichier"]["id"],
+        "generation": sortie.json()["donnees"]["generation"],
+        "gpx": boucle.json()["donnees"]["gpx"]["id"],
+    }
+
+
+def _jour() -> str:
+    """Le jour que les bouchons de séance connaissent."""
+    return transports_du_depot().JOUR.isoformat()
+
+
+def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
+    """**Comment appeler chaque route de données pour de vrai.**
+
+    Clé : `(méthode, gabarit déclaré)`, exactement ce que
+    `_routes_de_donnees` énumère — et
+    `test_le_balayage_couvre_toutes_les_routes_de_donnees` vérifie que les
+    deux ensembles coïncident. C'est là que le filet mord : une route ajoutée
+    demain **doit** entrer dans ce tableau, donc quelqu'un doit se demander ce
+    qu'elle sert et à qui.
+
+    Les identifiants passés sont ceux de **A** : chaque appel est rejoué tel
+    quel sous l'identité de B, et c'est précisément ce qu'on veut voir échouer.
+    """
+    jour = _jour()
+    velo = {"nom": "Essai", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}
+    return {
+        ("GET", f"{PREFIXE_API}/systeme"): {},
+        ("GET", f"{PREFIXE_API}/systeme/budgets"): {},
+        ("GET", f"{PREFIXE_API}/profil"): {},
+        ("PATCH", f"{PREFIXE_API}/profil"): {"json": {"cycliste": {"masse_kg": 71.0}}},
+        ("GET", f"{PREFIXE_API}/profil/zones"): {},
+        ("POST", f"{PREFIXE_API}/profil/zones/apercu"): {"json": {"position_zone": 0.5}},
+        ("GET", f"{PREFIXE_API}/geocodage"): {"params": {"adresse": "rue d'essai"}},
+        ("GET", f"{PREFIXE_API}/vent-depart"): {"params": {"jour": jour}},
+        ("GET", f"{PREFIXE_API}/meteo"): {},
+        ("GET", f"{PREFIXE_API}/seances"): {},
+        ("GET", f"{PREFIXE_API}/seances/{{jour}}"): {"chemin": f"{PREFIXE_API}/seances/{jour}"},
+        ("POST", f"{PREFIXE_API}/seances/fichier"): {
+            "files": {"fichier": ("visiteur.zwo", _zwo("visiteur"), "application/xml")}
+        },
+        ("POST", f"{PREFIXE_API}/sorties"): {"json": {"jour": jour, "candidates": 2}},
+        ("GET", f"{PREFIXE_API}/sorties/{{generation}}/propositions/{{numero}}/gpx"): {
+            "chemin": f"{PREFIXE_API}/sorties/{ids['generation']}/propositions/1/gpx"
+        },
+        ("POST", f"{PREFIXE_API}/boucles"): {"json": {"distance_km": 30.0, "candidates": 2}},
+        ("POST", f"{PREFIXE_API}/simulations"): {
+            "json": {"gpx": ids["gpx"], "puissance_w": 180.0}
+        },
+        ("GET", f"{PREFIXE_API}/inventaire"): {},
+        ("GET", f"{PREFIXE_API}/routes/{{action}}"): {"chemin": f"{PREFIXE_API}/routes/stats"},
+        ("GET", f"{PREFIXE_API}/fichiers/{{identifiant}}"): {
+            "chemin": f"{PREFIXE_API}/fichiers/{ids['fichier']}",
+            # Sert aussi de rappel : le vélo d'essai existe chez les deux, et
+            # ce n'est donc pas lui qui distingue A de B.
+            "note": velo,
+        },
+    }
+
+
+def test_le_balayage_de_bout_en_bout_couvre_toutes_les_routes_de_donnees():
+    """**Le filet du lot L7.A : une route nouvelle ne peut pas passer inaperçue.**
+
+    Le tableau `_appels` est comparé à ce que l'application déclare vraiment.
+    Ajouter une route sans l'y inscrire fait échouer ce test ; l'y inscrire
+    la fait entrer d'office dans le balayage des 401 **et** dans celui des
+    deux propriétaires. Il n'y a pas de chemin qui mène à une route de
+    données non éprouvée — c'est ce que « prouvée, pas échantillonnée »
+    veut dire.
+    """
+    declarees = _routes_de_donnees(charger_application(config=config_d_essai()))
+    couvertes = set(_appels({"generation": "x", "gpx": "x", "fichier": "x"}))
+    oubliees = sorted(declarees - couvertes)
+    assert not oubliees, (
+        "routes de données absentes du balayage d'isolation :\n  "
+        + "\n  ".join(f"{m} {c}" for m, c in oubliees)
+        + "\nAjouter une entrée dans `_appels` : une route qu'aucun test n'appelle sous "
+        "deux identités est une route dont personne ne sait si elle isole."
+    )
+    fantomes = sorted(couvertes - declarees)
+    assert not fantomes, (
+        "le balayage appelle des routes qui n'existent plus :\n  "
+        + "\n  ".join(f"{m} {c}" for m, c in fantomes)
+        + "\nUn balayage qui vise des routes mortes se croit exhaustif sans l'être."
+    )
+
+
+def test_deux_proprietaires_ne_voient_jamais_rien_l_un_de_l_autre(tmp_path):
+    """**L'isolation prouvée route par route, contre le service réel.**
+
+    A plante trois sentinelles par l'API — un nom de départ, un nom de vélo,
+    un fichier de séance — puis B rejoue **chaque** route de données, y
+    compris avec les identifiants de A dans l'URL. Aucune réponse servie à B
+    ne doit porter la moindre sentinelle de A, et aucune ne doit se dire
+    servie au nom de A.
+
+    La contre-épreuve est dans le même test, et elle est indispensable : on
+    vérifie que les sentinelles de A sont bel et bien **visibles par A**. Sans
+    elle, un plantage silencieux du semis rendrait le test vert en ne
+    mesurant rien — le mode d'échec le plus courant de ce genre de balayage.
+    """
+    client = _service_pour_deux(tmp_path)
+    ids = _planter(client, PROPRIETAIRE_A, MARQUE_A)
+
+    # **Premier temps, et le plus important : B arrive et n'a rien écrit.**
+    # C'est l'ordre qui fait la preuve. Balayer seulement *après* que B se
+    # soit installé laisserait passer un stockage entièrement mis en commun :
+    # l'écriture de B écraserait celle de A, et la sentinelle de A aurait
+    # disparu au lieu d'être visible — un test vert sur une fuite totale.
+    # Vérifié le 18/09/2026 en mettant `DepotProfils.dossier` en commun : sans
+    # ce premier temps, la suite restait verte.
+    fuites = [
+        f"{route} montre {MARQUE_A} à un cycliste qui vient d'arriver"
+        for route, texte in _balayer(client, PROPRIETAIRE_B, ids).items()
+        if MARQUE_A in texte
+    ]
+
+    # **Second temps : B s'installe, et rejoue tout avec les identifiants de A.**
+    _planter(client, PROPRIETAIRE_B, MARQUE_B)
+    vues_de_a = _balayer(client, PROPRIETAIRE_A, ids)
+    vues_de_b = _balayer(client, PROPRIETAIRE_B, ids)
+
+    fuites += [
+        f"{route} porte {MARQUE_A}" for route, texte in vues_de_b.items() if MARQUE_A in texte
+    ]
+    fuites += [
+        f"{route} se dit servie au nom de « {PROPRIETAIRE_A} »"
+        for route, texte in vues_de_b.items()
+        if f'"proprietaire": "{PROPRIETAIRE_A}"' in texte or f"'{PROPRIETAIRE_A}'" in texte
+    ]
+    assert not fuites, (
+        "fuites d'un propriétaire vers l'autre :\n  "
+        + "\n  ".join(sorted(fuites))
+        + "\nDoctrine §10.2 : l'isolation est vérifiée côté serveur, à chaque requête."
+    )
+
+    # Contre-épreuve, en deux volets. Sans elle, un semis qui n'aurait pas
+    # pris rendrait tout ce qui précède vert sans rien mesurer — le mode
+    # d'échec le plus courant de ce genre de balayage.
+    for marque, vues, qui in ((MARQUE_A, vues_de_a, "A"), (MARQUE_B, vues_de_b, "B")):
+        porteuses = sorted(route for route, texte in vues.items() if marque in texte)
+        assert porteuses, (
+            f"aucune route ne montre la sentinelle de {qui} à {qui} lui-même : le semis "
+            "n'a pas pris, et le balayage ne prouverait rien."
+        )
+    # Et le profil de A a **survécu** à l'arrivée de B : l'isolation n'est pas
+    # obtenue en écrasant l'un par l'autre.
+    profil_de_a = vues_de_a[f"GET {PREFIXE_API}/profil"]
+    assert MARQUE_A in profil_de_a and MARQUE_B not in profil_de_a, (
+        "le profil de A ne porte plus sa propre sentinelle, ou porte celle de B : "
+        "les deux profils partagent le même stockage."
+    )
+
+
+def _balayer(client: ClientApi, qui: str, ids: dict[str, str]) -> dict[str, str]:
+    """{`MÉTHODE chemin`: tout le texte de la réponse} pour une identité donnée."""
+    vues: dict[str, str] = {}
+    for (methode, gabarit), appel in sorted(_appels(ids).items()):
+        options = {cle: valeur for cle, valeur in appel.items() if cle not in ("chemin", "note")}
+        reponse = client.requete(
+            methode,
+            appel.get("chemin", gabarit),
+            headers={"x-essai-proprietaire": qui},
+            **options,
+        )
+        corps = _corps(reponse)
+        vues[f"{methode} {gabarit}"] = texte_entier(corps) if corps else reponse.text
+    return vues
+
+
+# --- la preuve que le filet mord ---------------------------------------------
+
+
+def test_une_route_sans_clause_de_proprietaire_est_bien_detectee():
+    """**La contre-épreuve du détecteur lui-même.**
+
+    Le 18/09/2026, la manœuvre a d'abord été faite à la main : une route
+    `GET /api/v1/essai-sans-clause` ajoutée dans `routes.py` sans `qui: Qui`,
+    la suite échoue, la route retirée. Une vérification manuelle ne se rejoue
+    pas ; celle-ci, si.
+
+    On fabrique ici une route de données sans clause et on vérifie que le
+    détecteur la refuse — et, symétriquement, qu'il accepte la même route
+    munie de sa clause. Sans ce second volet, un détecteur qui refuserait
+    *tout* passerait pour vigilant.
+    """
+    from fastapi import APIRouter
+
+    routeur_fautif = APIRouter(prefix=PREFIXE_API)
+
+    @routeur_fautif.get("/essai-sans-clause")
+    def _sans_clause(ctx: Ctx) -> dict:  # pragma: no cover — jamais appelée
+        del ctx
+        return {}
+
+    @routeur_fautif.get("/essai-avec-clause")
+    def _avec_clause(ctx: Ctx, qui: Qui) -> dict:  # pragma: no cover — jamais appelée
+        del ctx, qui
+        return {}
+
+    application = charger_application(config=config_d_essai())
+    application.include_router(routeur_fautif)
+
+    nues = [
+        chemin
+        for chemin, fonction in _routes_servies(application)
+        if _est_une_route_de_donnees(chemin) and not _resout_un_proprietaire(fonction)
+    ]
+    assert nues == [f"{PREFIXE_API}/essai-sans-clause"], (
+        f"le détecteur n'a pas vu la route sans clause (il a vu {nues}) : la suite "
+        "resterait verte pendant qu'une route sert les données de n'importe qui."
+    )
+
+
+def test_une_route_ajoutee_hors_du_balayage_fait_echouer_la_suite():
+    """L'autre moitié du filet : exister ne suffit pas, il faut être éprouvée.
+
+    Une route peut porter sa clause **et** n'être appelée par aucun test sous
+    deux identités. `test_le_balayage_de_bout_en_bout_couvre_toutes_les_routes_de_donnees`
+    ferme ce trou ; on vérifie ici qu'il le ferme vraiment.
+    """
+    from fastapi import APIRouter
+
+    routeur_neuf = APIRouter(prefix=PREFIXE_API)
+
+    @routeur_neuf.get("/essai-hors-balayage")
+    def _neuve(ctx: Ctx, qui: Qui) -> dict:  # pragma: no cover — jamais appelée
+        del ctx, qui
+        return {}
+
+    application = charger_application(config=config_d_essai())
+    application.include_router(routeur_neuf)
+
+    declarees = _routes_de_donnees(application)
+    couvertes = set(_appels({"generation": "x", "gpx": "x", "fichier": "x"}))
+    assert declarees - couvertes == {("GET", f"{PREFIXE_API}/essai-hors-balayage")}, (
+        "une route neuve n'est pas signalée comme absente du balayage : le filet ne "
+        "mord pas, et la prochaine route ajoutée ne sera éprouvée par personne."
+    )
+
+
+def test_la_liste_des_routes_hors_donnees_ne_ment_pas():
+    """Une liste d'exceptions qui nomme des routes inexistantes ne protège rien.
+
+    Deux façons de se tromper, toutes deux fermées ici : inscrire un chemin
+    qui n'existe pas (l'exception devient une incantation), et inscrire un
+    chemin de l'API (la dispense devient une fuite). Une route de `/api/v1`
+    sert par construction les données d'un cycliste ; aucune n'a sa place
+    dans cette liste.
+    """
+    servies = {
+        str(getattr(r, "path", ""))
+        for r in _toutes_les_routes(charger_application(config=config_d_essai()))
+    }
+    inventees = sorted(set(ROUTES_HORS_DONNEES) - servies)
+    assert not inventees, (
+        f"routes dispensées qui n'existent pas : {inventees}. Une exception qui ne "
+        "correspond à rien ne fait que masquer la suivante."
+    )
+    de_l_api = sorted(c for c in ROUTES_HORS_DONNEES if c.startswith(PREFIXE_API))
+    assert not de_l_api, (
+        f"routes de l'API dispensées de clause de propriétaire : {de_l_api}. "
+        "Sous /api/v1, tout sert les données de quelqu'un."
+    )
+
+
+# --- sans session, rien ------------------------------------------------------
+
+
+def test_sans_session_chaque_route_de_donnees_repond_401():
+    """Le point du lot, et la régression la plus chère s'il saute.
+
+    Avant le 18/09/2026, `proprietaire()` rendait `PROPRIETAIRE_LOCAL` sans
+    rien demander : **une requête anonyme obtenait les données du
+    mainteneur**. Le service ci-dessous est monté en mode hébergé, c'est-à-dire
+    avec un fournisseur qui n'ouvre aucune session, et chaque route de données
+    doit refuser.
+
+    Le balayage est exhaustif par construction : il part des routes que
+    l'application déclare, pas d'une liste écrite à la main. Une route ajoutée
+    demain y entre toute seule.
+
+    On n'envoie **ni corps valide ni paramètre requis** : le refus doit
+    précéder la validation. Une route qui répondrait 422 « champ manquant »
+    avant de refuser dirait à un inconnu quels champs elle attend, et
+    surtout prouverait que la clause n'est pas la première chose vérifiée.
+    """
+    client = ClientApi(charger_application(config=config_d_essai(), session=SessionHebergee()))
+    servies = _routes_de_donnees(client.application)
+    assert servies, "aucune route de données trouvée : le test ne mesure rien"
+
+    fautives = []
+    for methode, gabarit in sorted(servies):
+        reponse = client.requete(methode, _concret(gabarit))
+        code = (_corps(reponse).get("erreur") or {}).get("code")
+        if reponse.status_code != 401 or code != "session_absente":
+            fautives.append(f"{methode} {gabarit} → {reponse.status_code} ({code})")
+    assert not fautives, (
+        "routes servies sans session ouverte :\n  "
+        + "\n  ".join(fautives)
+        + "\nSans session, une route de données répond 401 — jamais un profil par "
+        "défaut, jamais le propriétaire local en silence."
+    )
+
+
+def test_le_refus_sans_session_ne_nomme_aucun_proprietaire():
+    """Un 401 qui dit « local » apprend à l'inconnu le nom du compte à viser."""
+    client = ClientApi(charger_application(config=config_d_essai(), session=SessionHebergee()))
+    corps = client.get(f"{PREFIXE_API}/profil").text.lower()
+    assert "session" in corps, "le refus ne dit pas ce qui manque"
+    assert str(PROPRIETAIRE_LOCAL) not in re.findall(r"[a-z0-9_-]+", corps), (
+        "le refus nomme le propriétaire local : il renseigne au lieu de refuser"
+    )
+
+
+# --- le mode personnel, qui ne meurt pas -------------------------------------
+
+
+def test_le_mode_personnel_explicite_rend_toujours_le_meme_proprietaire():
+    """`ourouler api` sur la machine du cycliste : un seul, et toujours le même.
+
+    Ce qui disparaît avec L7.A est le **défaut implicite** d'un service
+    exposé, pas l'usage d'origine du projet. Un fournisseur personnel
+    explicitement configuré rend le même propriétaire à chaque requête, quoi
+    que le client raconte — y compris s'il tente de se nommer lui-même.
+    """
+    client = ClientApi(charger_application(config=config_d_essai(), session=SessionPersonnelle()))
+    vus = {
+        client.get(
+            f"{PREFIXE_API}/systeme",
+            headers={"x-essai-proprietaire": PROPRIETAIRE_B},
+        ).json()["proprietaire"]
+        for _ in range(3)
+    }
+    assert vus == {str(PROPRIETAIRE_LOCAL)}, (
+        f"le mode personnel a rendu {vus} : il doit rendre un seul propriétaire, "
+        "toujours le même, et ignorer ce que le client envoie"
+    )
+
+
+def test_ourouler_api_sert_toujours_le_mainteneur(tmp_path, monkeypatch):
+    """La sous-commande de la ligne de commande n'a pas changé de comportement.
+
+    Vérifié **sur la vraie commande**, pas sur une intention : `uvicorn.run`
+    est intercepté, l'application qu'il aurait servie est récupérée telle
+    quelle, et on l'interroge. Sans cela, on croirait tester `ourouler api` en
+    ne testant que `creer_application`.
+    """
+    uvicorn = pytest.importorskip("uvicorn", reason="extra « api » absent")
+
+    from ourouler.cli import main
+
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_toml_d_essai(tmp_path), encoding="utf-8")
+    servies: list[object] = []
+    monkeypatch.setattr(uvicorn, "run", lambda app, **_: servies.append(app))
+
+    assert main(["--config", str(chemin), "api"]) == 0
+    assert servies, "ourouler api n'a servi aucune application"
+
+    reponse = ClientApi(servies[0]).get(f"{PREFIXE_API}/systeme")
+    assert reponse.status_code == 200, (
+        f"ourouler api répond {reponse.status_code} sur sa propre machine : le mode "
+        "personnel a été perdu en route"
+    )
+    assert reponse.json()["proprietaire"] == str(PROPRIETAIRE_LOCAL)
+
+
+# --- d'où vient le choix du fournisseur --------------------------------------
+
+
+def test_le_mode_se_lit_dans_l_environnement_et_refuse_par_defaut():
+    """La seule frontière d'environnement nommée du projet (règle absolue 2).
+
+    Le défaut est le point : un processus lancé sans qu'on ait dit qui il sert
+    **refuse**. Servir le mainteneur « en attendant » est exactement la fuite
+    que ce lot ferme, et un défaut permissif est celle qu'on n'aurait jamais
+    vue passer.
+    """
+    from ourouler.api import exploitation
+    from ourouler.erreurs import ErreurConfig
+
+    assert exploitation.fournisseur_session({}).mode == MODE_HEBERGE
+    assert exploitation.fournisseur_session({"OUROULER_MODE": ""}).mode == MODE_HEBERGE
+    assert exploitation.fournisseur_session({"OUROULER_MODE": "personnel"}).mode == MODE_PERSONNEL
+    with pytest.raises(ErreurConfig) as refus:
+        exploitation.fournisseur_session({"OUROULER_MODE": "ouvert"})
+    assert "ouvert" in str(refus.value), "le refus ne dit pas quelle valeur a été lue"
+
+
+def test_aucun_autre_module_de_l_api_ne_choisit_le_fournisseur():
+    """Le choix se lit à **un** endroit, sans quoi la frontière n'en est plus une.
+
+    `exploitation.py` est la seule porte d'environnement du paquet, et le
+    produit servi — une personne, ou plusieurs — en fait partie au même titre
+    que le chemin du fichier de configuration. Un second module qui lirait
+    `OUROULER_MODE` rendrait la question « ce déploiement sert-il plusieurs
+    cyclistes ? » impossible à répondre en lisant un fichier.
+    """
+    coupables = [
+        fichier.name
+        for fichier in fichiers_python_de_l_api()
+        if fichier.name != "exploitation.py" and _nomme_la_variable(fichier, "OUROULER_MODE")
+    ]
+    assert not coupables, f"modules qui lisent OUROULER_MODE hors de la porte : {coupables}"
+    assert _nomme_la_variable(SOURCES / "api" / "exploitation.py", "OUROULER_MODE"), (
+        "exploitation.py ne nomme plus OUROULER_MODE : la porte est là, mais elle ne "
+        "sert plus — un invariant qui encadre une permission que personne n'utilise "
+        "n'encadre rien."
+    )
+
+
+def _nomme_la_variable(fichier: Path, nom: str) -> bool:
+    """Vrai si le **code** de ce fichier cite `nom` — les docstrings ne comptent pas.
+
+    On lit l'arbre syntaxique et non le texte : `application.py` et
+    `session.py` *expliquent* ce que `OUROULER_MODE` fait, en prose, et c'est
+    exactement ce qu'on veut qu'ils fassent. Une recherche textuelle les
+    accuserait de lire l'environnement pour l'avoir documenté, et la seule
+    façon de faire taire un tel test serait d'effacer l'explication.
+
+    Les commentaires n'apparaissent pas dans l'arbre, et les docstrings y
+    apparaissent comme des `Expr` de constante : les deux sont donc écartés,
+    et il ne reste que les chaînes dont le code se sert vraiment.
+    """
+    import ast
+
+    arbre = ast.parse(fichier.read_text(encoding="utf-8"))
+    prose = {
+        id(noeud.value)
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Expr) and isinstance(noeud.value, ast.Constant)
+    }
+    return any(
+        isinstance(noeud, ast.Constant)
+        and isinstance(noeud.value, str)
+        and nom in noeud.value
+        and id(noeud) not in prose
+        for noeud in ast.walk(arbre)
+    )
