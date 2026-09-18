@@ -115,6 +115,12 @@ ROUTES_HORS_DONNEES: dict[str, str] = {
     "/docs": "la page de documentation interactive de FastAPI, statique",
     "/docs/oauth2-redirect": "une page statique de FastAPI, servie avec /docs",
     "/redoc": "l'autre lecteur du même contrat, page statique",
+    "/sante": (
+        "la sonde de santé du paquetage (lot L7.E) — un orchestrateur qui "
+        "l'interroge sans session ne doit pas croire le service mort ; "
+        "hors /api/v1 précisément pour ne jamais entrer dans cette liste-ci "
+        "sous ce préfixe, voir /systeme qui, lui, reste une route de données"
+    ),
 }
 
 
