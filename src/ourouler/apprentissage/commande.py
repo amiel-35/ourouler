@@ -71,15 +71,26 @@ def executer(
     args: argparse.Namespace,
     config: Config,
     client_brouter: ClientBrouter | None = None,
+    base: BaseRoutes | None = None,
 ) -> int:
-    """Exécute `ourouler routes <action>`. Renvoie le code de sortie (0 = succès)."""
+    """Exécute `ourouler routes <action>`. Renvoie le code de sortie (0 = succès).
+
+    **`base` s'injecte, comme `client_brouter` juste au-dessus.** Absente — le
+    cas de la ligne de commande — la commande la construit comme avant, sur
+    `config.cache.dossier` et avec le propriétaire par défaut.
+
+    C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
+    cœur : la commande reçoit un dépôt déjà fait et ne prononce jamais le mot
+    « propriétaire ». Voir `activites/commande.executer` pour le raisonnement
+    complet et la phrase de doctrine §10.1 qui le porte.
+    """
     action = getattr(args, "action", None)
     if action not in ACTIONS:
         raise ErreurUtilisateur(
             f"routes : préciser une action — {', '.join(ACTIONS)} "
             "(`ourouler routes apprendre` rejoue vos sorties dans BRouter)"
         )
-    base = BaseRoutes(config.cache.dossier / NOM_BASE)
+    base = base if base is not None else BaseRoutes(config.cache.dossier / NOM_BASE)
     if action == "apprendre":
         return _apprendre(args, config, base, client_brouter)
     if action == "stats":
@@ -108,6 +119,11 @@ def _apprendre(
     client_brouter: ClientBrouter | None,
 ) -> int:
     depuis = _depuis(getattr(args, "depuis", None), config)
+    # Pas de dépôt injecté ici, contrairement à `base` : `apprendre` est une
+    # action d'administration que l'API n'expose pas (`api/routes.py` n'accepte
+    # que `stats` et `poids`), donc ce `Cache` n'est jamais construit pour le
+    # compte d'un demandeur. Le jour où une route l'exposerait, c'est ce
+    # constructeur-là qu'il faudrait injecter — [[Q58]].
     cache = Cache(config.cache.dossier)
     client = _client(config, client_brouter)
     rapport = apprendre(

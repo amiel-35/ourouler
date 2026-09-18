@@ -16,9 +16,27 @@ from ourouler.config import Config
 from ourouler.erreurs import ErreurUtilisateur
 
 
-def executer(args: argparse.Namespace, config: Config) -> int:
+def executer(args: argparse.Namespace, config: Config, cache: Cache | None = None) -> int:
+    """Exécute `ourouler inventaire`. Renvoie le code de sortie (0 = succès).
+
+    **`cache` s'injecte, exactement comme un client HTTP** (règle 3 de
+    CLAUDE.md, et c'est déjà la forme de `client_brouter` dans
+    `apprentissage/commande.py`). Absent — le cas de la ligne de commande —
+    la commande le construit comme avant, sur `config.cache.dossier` et avec
+    le propriétaire par défaut.
+
+    C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
+    cœur : la commande reçoit un dépôt déjà fait et ne prononce jamais le mot
+    « propriétaire ». Le seul endroit qui le prononce est l'appelant — pour
+    l'API, `api/routes.py`, qui construit
+    `Cache(config.cache.dossier, proprietaire=str(qui))`, exactement comme
+    `api/vie_privee.py` le fait déjà. Doctrine §10.1 : « le propriétaire entre
+    au constructeur du dépôt, et nulle part ailleurs […] en hébergé, c'est la
+    couche web qui construira le dépôt avec l'identifiant de l'utilisateur
+    authentifié ».
+    """
     depuis = _depuis(getattr(args, "depuis", None), config)
-    cache = Cache(config.cache.dossier)
+    cache = cache if cache is not None else Cache(config.cache.dossier)
     journal: list[str] = []
 
     if getattr(args, "importer", None):

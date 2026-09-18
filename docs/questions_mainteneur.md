@@ -4528,7 +4528,7 @@ personne ne le « corrige » de bonne foi.
    deviendra pas plus vraie en étant plus compliquée.
 
 
-## Q58 — Deux routes portent la clause de propriétaire sans l'honorer — **ouverte le 18/09/2026**
+## Q58 — Deux routes portent la clause de propriétaire sans l'honorer — **traitée le 18/09/2026, une question de produit reste ouverte**
 
 Trouvé par l'agent de L7.B en fin de sprint 7, hors de son périmètre.
 
@@ -4571,3 +4571,100 @@ Trois chemins :
    il a un trou.
 
 Le troisième n'est pas exclusif des deux autres : il les découvre.
+
+### Ce qui a été fait le 18/09/2026
+
+**Le chemin 3 d'abord, et il a bien découvert le reste.** Le balayage
+d'isolation ne pouvait pas voir cette fuite avec ses sentinelles existantes :
+elles sont plantées **par l'API**, donc sous l'identité de A ou de B, et ces
+deux routes-là ne lisaient ni l'une ni l'autre — elles lisaient une troisième
+identité que personne n'incarnait. D'où une sentinelle de plus,
+`MARQUE_LOCALE`, plantée dans les dépôts **sous le propriétaire local** :
+c'est-à-dire ce qu'un serveur hébergé trouve dans son cache dès que le
+mainteneur a roulé sur la même machine, et précisément ce qui fuyait. Le
+balayage porte sur toutes les routes de `_appels`, pas sur les deux connues.
+Il échouait sur exactement `GET /inventaire` et `GET /routes/{action}`, sous
+les deux identités, et passe depuis.
+
+Ce semis-là est le seul du fichier qui ne passe pas par l'API, et c'est faute
+de route : l'index des activités se remplit par `ourouler inventaire
+--importer/--synchroniser`, la base des routes par `ourouler routes
+apprendre`, trois gestes de ligne de commande que l'API n'expose pas.
+
+**Chemin retenu pour les deux routes : ni 1 ni 2 tout à fait — le dépôt
+s'injecte.** Les commandes gagnent un paramètre optionnel `cache=` / `base=`
+(et `base_routes=` pour `boucle` et `sortie`), **exactement la position et la
+forme qu'ont déjà `client_brouter`, `client_meteo` et `client_intervals`**.
+Absent, c'est-à-dire en ligne de commande, la commande construit son dépôt
+comme avant : `ourouler inventaire` et `ourouler routes stats` sont inchangés,
+à l'octet près (vérifié, voir plus bas).
+
+Pourquoi pas le chemin 1 tel qu'il était écrit : un `proprietaire=` sur une
+commande ferait entrer le mot dans le cœur, et la doctrine §10.1 dit « le
+propriétaire entre au constructeur du dépôt, et **nulle part ailleurs** ». Un
+dépôt injecté respecte cette phrase à la lettre — le cœur reçoit un objet
+déjà fait et ne prononce rien.
+
+Pourquoi pas le chemin 2 : `api/adaptateur.py` s'ouvre sur « doctrine §10.2 :
+*l'API expose ce que la CLI sait déjà rendre en JSON*. Prise au mot, cette
+phrase interdit une deuxième implémentation. » Faire parler ces deux routes
+aux dépôts, c'est réécrire `rendre_json` de l'inventaire et `_stats_json` des
+routes une seconde fois, et accepter qu'elles divergent un jour. Le mot
+« comme elle le fait déjà ailleurs » de la question désignait `/profil`,
+`/fichiers` et `/moi/export` — trois choses que la CLI ne sait justement
+**pas** faire, donc sans jumeau à faire diverger.
+
+Le seul endroit qui prononce le mot est donc la couche web : `_cache()` et
+`_base_routes()` dans `api/routes.py`, à côté de ce que `api/vie_privee.py`
+faisait déjà (`Cache(config.cache.dossier, proprietaire=str(qui))`). C'est mot
+pour mot ce que la doctrine annonce : « en hébergé, c'est la couche web qui
+construira le dépôt avec l'identifiant de l'utilisateur authentifié ».
+
+**Ce que le balayage a trouvé d'autre, et qui n'était pas dans la question.**
+Une troisième fuite, du même défaut mais d'une autre forme : `POST /boucles`
+et `POST /sorties` rendent `part_connue` — « quelle part de ce tracé
+connaissez-vous déjà ? » — et la calculaient contre la base du propriétaire
+local (`boucle/commande._base_routes`, et son jumeau dans `sortie/commande`).
+**Mesuré avant correction : 2,7 % sur une boucle de 30 km servie à un
+cycliste qui n'a jamais rien enregistré** — donc quelque chose des endroits
+où le mainteneur roule. Ce n'est pas une chaîne mais un nombre : aucune
+sentinelle textuelle ne pouvait l'attraper, elle a son test à elle
+(`test_une_boucle_n_est_jamais_deja_connue_pour_qui_n_a_rien_roule`), rouge
+avant, vert après. Corrigée de la même façon.
+
+### Ce qui reste, et la seule vraie question
+
+1. **Que veut dire « connu % » sur un service partagé ?** Ce lot a tranché par
+   défaut, dans le sens de l'isolation (§10.2, « aucune requête sans clause de
+   propriétaire ») : chacun voit ce que **lui** a roulé, et un nouvel arrivant
+   voit 0 %. L'autre réponse est défendable et elle est même dans la doctrine
+   §10.2 — « les poids de routes appris restent collectifs, fondus dans un
+   modèle commun » — mais elle porte sur les **poids**, pas sur cette colonne,
+   et le modèle commun n'existe pas encore. Si « connu % » doit vouloir dire
+   « connu de la communauté », c'est une décision produit et elle change le
+   sens de la colonne pour le mainteneur aussi. **À trancher.**
+2. **`apprentissage/commande._apprendre` construit encore son `Cache` avec le
+   défaut.** Sans conséquence aujourd'hui : `api/routes.py` n'accepte que
+   `stats` et `poids`, `apprendre` reste une action d'administration. Un
+   commentaire le dit sur place. Le jour où une route l'exposerait, c'est ce
+   constructeur-là qu'il faudrait injecter.
+3. **`lire_poids(config.cache.dossier / NOM_POIDS)` reste un fichier unique**
+   partagé par tous les propriétaires, lu par `boucle`, `sortie` et
+   `/routes/stats`. C'est **conforme** à la doctrine §10.2 (« les poids
+   appris restent collectifs ») et laissé tel quel — noté ici pour qu'on ne
+   le redécouvre pas comme un oubli.
+4. **`physique/commande.executer_calibrer` construit son `Cache` avec le
+   défaut** lui aussi. Hors d'atteinte de l'API : aucune route ne calibre.
+
+### La leçon, qui n'est pas un détail de mise en œuvre
+
+Trois fois en un jour dans ce dépôt, un test vert a couvert exactement ce
+qu'il prétendait interdire : le premier test d'isolation de L7.A passait sur
+une fuite totale, le test des deux horloges comparait deux chiffres issus du
+même fragment, et le balayage déclarait sûres deux routes qui ne l'étaient
+pas. Le point commun est toujours le même — **le test vérifiait une forme, et
+la forme était juste**. La parade appliquée ici : planter une donnée
+reconnaissable, la chercher là où elle ne doit pas apparaître, et **vérifier
+d'abord que le semis a pris**. Les trois tests de ce fichier qui font ça
+portent chacun leur contre-épreuve dans le même corps, avant l'assertion
+principale.

@@ -227,6 +227,43 @@ def _config(ctx: Contexte, qui: Proprietaire) -> Config:
         raise classer(e) from e
 
 
+def _base_routes(config: Config, qui: Proprietaire):
+    """La base des routes apprises **de ce propriétaire** ([[Q58]], 18/09/2026).
+
+    Le seul endroit du service qui prononce le mot, avec `_cache` juste en
+    dessous et `api/vie_privee.py` : doctrine §10.1, « le propriétaire entre
+    au constructeur du dépôt, et nulle part ailleurs […] en hébergé, c'est la
+    couche web qui construira le dépôt avec l'identifiant de l'utilisateur
+    authentifié ».
+
+    **Le fichier est ouvert même s'il n'existe pas encore**, contrairement à
+    ce que font `boucle/commande._base_routes` et son jumeau de `sortie` —
+    eux s'abstiennent pour ne pas fabriquer un SQLite vide dans le cache d'un
+    cycliste qui n'a rien appris. Ici il le faut : passer `None` ferait
+    retomber la commande sur son propre constructeur, donc sur le
+    propriétaire local, et rouvrirait exactement la fuite qu'on ferme.
+    `GET /routes/{action}` l'ouvrait déjà sans condition, le fichier n'est
+    donc pas une nouveauté de ce service.
+    """
+    from ourouler.apprentissage.commande import NOM_BASE
+    from ourouler.apprentissage.routes import BaseRoutes
+
+    try:
+        return BaseRoutes(config.cache.dossier / NOM_BASE, proprietaire=str(qui))
+    except Exception as e:
+        raise classer(e) from e
+
+
+def _cache(config: Config, qui: Proprietaire):
+    """Le cache d'activités **de ce propriétaire**. Même règle que `_base_routes`."""
+    from ourouler.activites.cache import Cache
+
+    try:
+        return Cache(config.cache.dossier, proprietaire=str(qui))
+    except Exception as e:
+        raise classer(e) from e
+
+
 def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
     """Le connecteur d'un service pour cette requête (voir `Clients`).
 
@@ -787,6 +824,8 @@ def generer_sortie(
             client_intervals=_service(ctx, config, "intervals"),
             lieu_depart=_depart(demande.depart),
             recueil_gpx=recueillis.extend,
+            # Q58, même raison que `POST /boucles`.
+            base_routes=_base_routes(config, qui),
         ),
     )
     donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
@@ -865,6 +904,9 @@ def generer_boucle(
         client_brouter=_service(ctx, config, "brouter"),
         client_meteo=_service(ctx, config, "meteo"),
         lieu_depart=_depart(demande.depart),
+        # Q58 : la colonne « connu % » est calculée contre les routes que
+        # **ce** cycliste a roulées, pas contre celles du propriétaire local.
+        base_routes=_base_routes(config, qui),
     )
     donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)
@@ -916,6 +958,13 @@ def inventaire(
     La synchronisation avec Intervals.icu et l'import d'un dossier restent des
     gestes de ligne de commande : ils écrivent dans le cache du serveur et
     durent des minutes.
+
+    **Le cache est construit ici, avec le propriétaire de la session** (Q58,
+    18/09/2026). Jusque-là cette route recevait bien `qui` — le balayage
+    d'isolation la voyait donc conforme — mais la commande construisait son
+    `Cache` toute seule, avec le défaut `PROPRIETAIRE_LOCAL` : quel que soit
+    le demandeur, elle servait l'inventaire du mainteneur. C'est la couche web
+    qui nomme le propriétaire, et elle seule (doctrine §10.1).
     """
     from ourouler.activites import commande as activites
 
@@ -927,6 +976,7 @@ def inventaire(
         secrets=secrets_de(config),
         operation="inventaire",
         budgets=ctx.budgets,
+        cache=_cache(config, qui),
     )
     return resultat.enveloppe(ctx.budgets.budget("inventaire"), qui)
 
@@ -937,7 +987,12 @@ def routes_connues(
     qui: Qui,
     action: str,
 ) -> dict:
-    """Ce que les sorties passées ont appris : `stats` ou `poids` (en lecture seule)."""
+    """Ce que les sorties passées ont appris : `stats` ou `poids` (en lecture seule).
+
+    **La base est construite ici, avec le propriétaire de la session** (Q58,
+    18/09/2026) — même correctif et même raison que `GET /inventaire`
+    juste au-dessus.
+    """
     from ourouler.apprentissage import commande as apprentissage
 
     if action not in ("stats", "poids"):
@@ -956,6 +1011,7 @@ def routes_connues(
         operation="routes",
         budgets=ctx.budgets,
         client_brouter=_service(ctx, config, "brouter"),
+        base=_base_routes(config, qui),
     )
     return resultat.enveloppe(ctx.budgets.budget("routes"), qui)
 
