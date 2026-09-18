@@ -25,6 +25,7 @@ import {
 import { Carte, LegendeVent } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
+import { TempsEcoule } from "../composants/TempsEcoule";
 
 interface Props {
   reponse: Enveloppe<Boucle>;
@@ -123,8 +124,11 @@ export function Boucles({ reponse, surRetour }: Props) {
                 </span>
               ) : null}
               {candidate.temps_estime_s ? (
+                // « 3 h 57 » nu se lisait comme une durée totale. C'est le
+                // temps de mouvement du modèle physique — le mot le dit, le
+                // second chiffre (sous le bloc) dit le reste.
                 <span>
-                  <b>{duree(candidate.temps_estime_s)}</b>
+                  <b>{duree(candidate.temps_estime_s)}</b> en roulant
                 </span>
               ) : null}
               {candidate.meteo?.pluie_cumulee_mm !== null &&
@@ -163,6 +167,10 @@ export function Boucles({ reponse, surRetour }: Props) {
               ) : null}
             </div>
           </button>
+          {/* Hors du bouton exprès : un `<details>` dans un `<button>` est
+              un contrôle interactif imbriqué dans un autre, invalide en
+              HTML. */}
+          <TempsEcoule candidate={candidate} compteur={boucle.compteur} />
         </div>
       ))}
 
