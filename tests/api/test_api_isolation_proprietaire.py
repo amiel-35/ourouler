@@ -392,10 +392,17 @@ def test_aucune_requete_sql_de_l_api_ne_lit_sans_filtrer_par_proprietaire():
     Une clause de propriétaire dans l'URL qui ne redescend pas dans le `WHERE`
     est une isolation de façade. Ce test lit le SQL des sources de l'API : tout
     SELECT/UPDATE/DELETE doit nommer `proprietaire` dans la même instruction.
+
+    **`(?!\\()` après le verbe (L7.B)** : sans lui, `@routeur.delete("/moi")` —
+    un appel Python, `DELETE` immédiatement suivi d'une parenthèse — se lisait
+    comme une requête SQL nue. Une vraie instruction SQL a toujours un espace
+    après son verbe (`DELETE FROM …`), jamais une parenthèse ouvrante.
     """
     fichiers = fichiers_python_de_l_api()
     assert fichiers, "aucune source d'API trouvée sous src/ourouler/{api,web,serveur}"
-    motif = re.compile(r"\b(SELECT|UPDATE|DELETE)\b(.{0,400}?)(?:;|\"\"\"|'''|\Z)", re.IGNORECASE | re.DOTALL)
+    motif = re.compile(
+        r"\b(SELECT|UPDATE|DELETE)\b(?!\()(.{0,400}?)(?:;|\"\"\"|'''|\Z)", re.IGNORECASE | re.DOTALL
+    )
     nues = []
     for fichier in fichiers:
         for verbe, corps in motif.findall(fichier.read_text(encoding="utf-8")):
@@ -704,6 +711,12 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
             # ce n'est donc pas lui qui distingue A de B.
             "note": velo,
         },
+        # L7.B : export et suppression des données personnelles. `DELETE`
+        # efface le compte de qui l'appelle — `_balayer` le passe en dernier
+        # (voir sa docstring) pour que les routes de lecture de la même
+        # identité aient déjà été éprouvées quand il s'exécute.
+        ("GET", f"{PREFIXE_API}/moi/export"): {},
+        ("DELETE", f"{PREFIXE_API}/moi"): {},
     }
 
 
@@ -801,10 +814,25 @@ def test_deux_proprietaires_ne_voient_jamais_rien_l_un_de_l_autre(tmp_path):
     )
 
 
+def _ordre_de_balayage(item: tuple[tuple[str, str], dict]) -> tuple[bool, tuple[str, str]]:
+    """Trie `_appels` en gardant les `DELETE` pour la fin. Voir `_balayer`."""
+    (methode, gabarit), _appel = item
+    return (methode == "DELETE", (methode, gabarit))
+
+
 def _balayer(client: ClientApi, qui: str, ids: dict[str, str]) -> dict[str, str]:
-    """{`MÉTHODE chemin`: tout le texte de la réponse} pour une identité donnée."""
+    """{`MÉTHODE chemin`: tout le texte de la réponse} pour une identité donnée.
+
+    **Les `DELETE` sont rejoués en dernier.** `_appels` couvre maintenant
+    `DELETE /api/v1/moi` (L7.B), qui efface le compte de `qui` l'appelle : trié
+    alphabétiquement, il serait passé *avant* les `GET` (« D » < « G »/« P »)
+    et aurait effacé l'identité en cours de route avant que ses propres
+    routes de lecture n'aient été éprouvées. Trier les `DELETE` après tout le
+    reste garde chaque appel de lecture intact au moment où il s'exécute ; la
+    suppression, elle, n'a plus rien après elle dans ce balayage.
+    """
     vues: dict[str, str] = {}
-    for (methode, gabarit), appel in sorted(_appels(ids).items()):
+    for (methode, gabarit), appel in sorted(_appels(ids).items(), key=_ordre_de_balayage):
         options = {cle: valeur for cle, valeur in appel.items() if cle not in ("chemin", "note")}
         reponse = client.requete(
             methode,

@@ -365,6 +365,45 @@ class Cache:
             ajoutes += 1
         return ajoutes
 
+    def supprimer_tout(self) -> int:
+        """Efface toutes les entrées de **ce** propriétaire. Rend le nombre effacé.
+
+        Écrit pour le lot L7.B (export et suppression des données
+        personnelles, `docs/sprint7_contrat.md`). Un fichier brut est rangé
+        par **contenu** (`chemin`, cf. `Cache.chemin`) : deux propriétaires
+        aux octets identiques le partagent. On ne le supprime donc qu'une
+        fois qu'**aucune** ligne, d'aucun propriétaire, ne le cite plus après
+        l'effacement des lignes de celui-ci — sinon l'autre perdrait sa
+        propre activité pour une coïncidence de contenu.
+        """
+        with self._connexion() as cx:
+            lignes = cx.execute(
+                "SELECT identifiant, extension FROM activites WHERE proprietaire = ?",
+                (self.proprietaire,),
+            ).fetchall()
+            cx.execute("DELETE FROM activites WHERE proprietaire = ?", (self.proprietaire,))
+            # « Reste-t-il une ligne d'un **autre** propriétaire sur cet
+            # identifiant ? » — posée après la suppression ci-dessus, dans la
+            # même transaction : un identifiant que ce propriétaire partageait
+            # avec lui-même deux fois (schéma 1, contenu identique) ne compte
+            # plus, et un identifiant qu'un autre propriétaire référence
+            # encore protège son fichier brut. `proprietaire != ?` est un
+            # filtre sans effet ici (les lignes de ce propriétaire viennent
+            # d'être effacées) mais il dit ce que la requête vérifie vraiment,
+            # au lieu d'une lecture non filtrée sur toute la table.
+            orphelins = [
+                (identifiant, extension)
+                for identifiant, extension in lignes
+                if cx.execute(
+                    "SELECT 1 FROM activites WHERE identifiant = ? AND proprietaire != ? LIMIT 1",
+                    (identifiant, self.proprietaire),
+                ).fetchone()
+                is None
+            ]
+        for identifiant, extension in orphelins:
+            (self.brut / f"{identifiant}.{extension}").unlink(missing_ok=True)
+        return len(lignes)
+
     # --- lecture --------------------------------------------------------------
 
     def contient(self, *, source: str, id_externe: str) -> bool:

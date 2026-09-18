@@ -29,7 +29,7 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from ourouler import __version__
-from ourouler.api import vues
+from ourouler.api import vie_privee, vues
 from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
 from ourouler.api.depots import (
     DepotFichiers,
@@ -985,6 +985,63 @@ def servir_fichier(
         media_type=fichier.type_contenu,
         filename=fichier.nom,
     )
+
+
+# --- vie privée : export et suppression ----------------------------------------
+#
+# Lot L7.B (`docs/sprint7_contrat.md`) : un propriétaire récupère ce qui le
+# concerne, et peut en demander l'effacement. La frontière — le tracé est
+# collectif, le lien est personnel — et ce qui en découle sont expliqués dans
+# `api/vie_privee.py`, qui fait le travail ; ces deux routes ne font que
+# résoudre le propriétaire et sa `Config`, comme toutes les autres.
+
+
+@routeur.get("/moi/export")
+def exporter_mes_donnees(ctx: Ctx, qui: Qui):
+    """Toutes les données personnelles de ce propriétaire, dans une archive ZIP.
+
+    Un fichier `LISEZ-MOI.txt` à la racine dit ce qu'est chaque entrée — un
+    export que seul le code sait lire ne remplit pas son office (contrat
+    sprint 7 §L7.B). L'archive n'est **pas compressée** : voir
+    `api/vie_privee.py` pour pourquoi (c'est ce qui garde le balayage
+    d'isolation capable de la couvrir).
+    """
+    config = _config(ctx, qui)
+    try:
+        archive = vie_privee.construire_export(
+            qui, profils=ctx.profils, fichiers=ctx.fichiers, journal=ctx.journal, config=config
+        )
+    except Exception as e:
+        raise classer(e) from e
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="export_ourouler_{qui}.zip"'},
+    )
+
+
+@routeur.delete("/moi")
+def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
+    """Efface les données personnelles de ce propriétaire.
+
+    Idempotent : appeler cette route sur un propriétaire qui n'a rien laissé
+    rend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —
+    les routes apprises, collectives par décision du mainteneur — est nommé
+    dans `donnees.conserve`, jamais tu.
+    """
+    config = _config(ctx, qui)
+    try:
+        donnees = vie_privee.effacer_donnees(
+            qui,
+            profils=ctx.profils,
+            fichiers=ctx.fichiers,
+            journal=ctx.journal,
+            generations=ctx.generations,
+            config=config,
+        )
+    except Exception as e:
+        raise classer(e) from e
+    return {"proprietaire": str(qui), "donnees": donnees}
 
 
 # --- petits services ----------------------------------------------------------
