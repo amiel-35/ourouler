@@ -77,7 +77,7 @@ from pathlib import Path
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
-from ourouler.boucle.commande import direction_en_azimut, lignes_elargissement
+from ourouler.boucle.commande import direction_en_azimut, ligne_temps_ecoule, lignes_elargissement
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
@@ -99,8 +99,9 @@ from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
-from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
+from ourouler.physique.modele import Parametres, temps_ecoule, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
+from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.modele import Seance
 from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer, trace_parcourue
@@ -1439,9 +1440,13 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
     """L'en-tête, le tableau des candidates, la séance placée, la tenue, les fichiers."""
     presentes = _mesures_presentes(propositions)
     lignes = _entete(propositions, contexte, presentes)
+    # La troisième valeur de l'écran de FTP (18/09/2026) : `sortie` a toujours
+    # un vélo (`_parametres` lève sinon, voir sa docstring), donc `compteur_info`
+    # n'est `None` qu'en test avec une configuration construite à la main.
+    compteur_info = info_compteur(contexte.config, contexte.demande.velo)
 
     titres = [t for t, mesure in COLONNES if mesure is None or mesure in presentes]
-    cellules = [_cellules(p, presentes) for p in propositions]
+    cellules = [_cellules(p, presentes, compteur_info) for p in propositions]
     largeurs = [
         max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
     ]
@@ -1451,6 +1456,8 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
         marque = f"{MARQUE_RETENUE} " if proposition is propositions[0] else marge
         lignes.append(marque + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
 
+    if compteur_info is not None:
+        lignes.append(ligne_temps_ecoule(compteur_info))
     lignes += _notes_sous_tableau(propositions[0], presentes)
     # L'élargissement de la tolérance de distance se dit ici, sous le tableau,
     # et non dans la colonne « durée » : ce sont deux grandeurs différentes.
@@ -1813,7 +1820,9 @@ def _mesures_presentes(propositions: list[Proposition]) -> set[str]:
     return presentes
 
 
-def _cellules(proposition: Proposition, presentes: set[str]) -> list[str]:
+def _cellules(
+    proposition: Proposition, presentes: set[str], compteur_info: dict | None = None
+) -> list[str]:
     trace, couts, meteo = proposition.trace, proposition.couts, proposition.meteo
     partiels = bool(trace.meta.get("couts_partiels"))
     cellules = [
@@ -1824,7 +1833,7 @@ def _cellules(proposition: Proposition, presentes: set[str]) -> list[str]:
     if "parcours" in presentes:
         cellules.append(f"{_fr(proposition.distance_parcours_m / 1000, 1)} km")
     cellules += [
-        _duree_courte(proposition.placement.duree_totale_s),
+        _temps_texte(proposition, compteur_info),
         ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
     ]
     if "connu" in presentes:
@@ -1950,6 +1959,10 @@ def _tenue_courte(tenue: Tenue) -> str:
 
 def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
     seance, demande = contexte.seance, contexte.demande
+    # La troisième valeur de l'écran de FTP (18/09/2026), même délégation et
+    # même bloc que `boucle.rendre_json` — voir `_candidate_json` pour son
+    # usage dans `temps_ecoule_s`.
+    compteur_info = info_compteur(contexte.config, demande.velo)
     return {
         "jour": seance.jour.isoformat(),
         "seance": {
@@ -1979,6 +1992,11 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
             },
             "velo": demande.velo,
         },
+        # `null` si la configuration ne porte aucun vélo — en pratique cela
+        # n'arrive pas pour `sortie` (`_parametres` lève avant), sauf appel
+        # direct de `rendre_json` en test avec une `Config` construite à la
+        # main.
+        "compteur": compteur_info,
         "modele_physique": contexte.provenance_modele,
         # Q19 : le modèle météo qui a effectivement répondu, et si c'est un
         # repli sur le second avis (le principal ne couvrait pas la
@@ -2046,7 +2064,7 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         # qu'il jetait ni pourquoi — et c'est au contraste que les candidates
         # du mainteneur disparaissaient.
         "arbitrage": _arbitrage_json(contexte),
-        "candidates": [_candidate_json(p) for p in propositions],
+        "candidates": [_candidate_json(p, compteur_info) for p in propositions],
     }
 
 
@@ -2237,8 +2255,16 @@ def _emplacement_json(e: Emplacement) -> dict:
     }
 
 
-def _candidate_json(proposition: Proposition) -> dict:
+def _candidate_json(proposition: Proposition, compteur_info: dict | None = None) -> dict:
     trace, placement, meteo = proposition.trace, proposition.placement, proposition.meteo
+    temps_ecoule_s = temps_ecoule_source = None
+    if compteur_info is not None:
+        ecoule, source = temps_ecoule(
+            placement.distance_totale_m / 1000.0,
+            placement.duree_totale_s,
+            compteur_info["moyenne_compteur_kmh"],
+        )
+        temps_ecoule_s, temps_ecoule_source = round(ecoule), source
     return {
         "numero": proposition.numero,
         "retenue": proposition.numero == 1,
@@ -2259,6 +2285,12 @@ def _candidate_json(proposition: Proposition) -> dict:
             "penalite_seance": round(placement.penalite_seance, 4),
             "decalage_z2_s": round(placement.decalage_z2_s),
             "duree_totale_s": round(placement.duree_totale_s),
+            # Le porte à porte, arrêts compris — à côté de `duree_totale_s`
+            # (le temps en mouvement du placement), jamais à sa place. `null`
+            # avec `compteur` : sans vélo, pas de moyenne compteur à
+            # laquelle réconcilier une distance (`physique.modele.temps_ecoule`).
+            "temps_ecoule_s": temps_ecoule_s,
+            "temps_ecoule_source": temps_ecoule_source,
             "distance_totale_m": round(placement.distance_totale_m, 1),
             # Le D+ du **parcours placé**, recalculé par `denivele_filtre`, à côté
             # du `denivele_m` de la boucle annoncé par le moteur : deux méthodes
@@ -2360,6 +2392,28 @@ def _minutes(secondes: float) -> str:
 def _duree_courte(secondes: float) -> str:
     minutes = round(secondes / 60)
     return f"{minutes // 60}:{minutes % 60:02d}"
+
+
+def _temps_texte(proposition: Proposition, compteur_info: dict | None) -> str:
+    """« 2:14 » seul, ou « 2:14 / 2:36 » — mouvement / écoulé porte à porte.
+
+    Même choix d'affichage et même légende (`ligne_temps_ecoule`) que
+    `boucle` : une cellule combinée, pas une colonne de plus. La distance qui
+    sert au terme « compteur » de `temps_ecoule` est celle du **parcours
+    réellement roulé** (`distance_totale_m`, demi-tours compris), pas celle
+    de la boucle : c'est déjà la règle de la colonne « temps » elle-même
+    (voir `_notes_sous_tableau`).
+    """
+    placement = proposition.placement
+    texte = _duree_courte(placement.duree_totale_s)
+    if compteur_info is not None:
+        ecoule_s, _source = temps_ecoule(
+            placement.distance_totale_m / 1000.0,
+            placement.duree_totale_s,
+            compteur_info["moyenne_compteur_kmh"],
+        )
+        texte += f" / {_duree_courte(ecoule_s)}"
+    return texte
 
 
 def _duree_longue(secondes: float) -> str:

@@ -415,6 +415,91 @@ def moyenne_compteur_kmh(
     return vitesse_a_plat_kmh(puissance_w, p) * facteur
 
 
+# --- temps écoulé, porte à porte -----------------------------------------------
+#
+# `simuler` rend un temps **en mouvement** (docstring plus bas) ; c'est ce que
+# `boucle` et `sortie` affichaient jusqu'ici comme « temps estimé », en
+# oubliant que le cycliste, lui, mesure sa sortie porte à porte. `temps_ecoule`
+# rend ce second temps, à côté du premier — jamais à sa place (décision du
+# mainteneur, 18/09/2026) : les deux se lisent, l'écart entre eux est lui-même
+# une information.
+
+
+def temps_ecoule(
+    distance_km: float,
+    temps_estime_s: float,
+    moyenne_compteur_kmh: float,
+    *,
+    part_arret: float = PART_ARRET_REFERENCE,
+) -> tuple[float, str]:
+    """Le temps porte à porte, arrêts compris — pas le temps en mouvement de `simuler`.
+
+        ecoule_s = max(
+            distance_km / moyenne_compteur_kmh * 3600,
+            temps_estime_s / (1 - part_arret),
+        )
+
+    `temps_estime_s` est le temps **en mouvement** d'une candidate (celui que
+    `simuler` rend, ou son repli à vitesse moyenne) ; `moyenne_compteur_kmh`
+    est la troisième valeur de l'écran de FTP (`seance.ecran_ftp.valeurs_liees`),
+    mesurée sur l'historique du cycliste ou dérivée par `facteur_compteur_defaut`.
+
+    **Le facteur ne s'applique pas au temps du modèle** — ce serait le geste
+    naturel, et il est faux ici. Le facteur compteur (mesuré ou par défaut) est
+    dérivé d'un profil de référence à `DENIVELE_REFERENCE_M_PAR_KM` : il porte
+    déjà une pénalité de relief *moyenne*. Le temps du modèle, lui, porte le
+    relief **réel** de la boucle évaluée. Diviser l'un par l'autre compterait
+    ce relief deux fois. En appliquant plutôt la moyenne compteur à la
+    distance, on referme exactement la boucle de raisonnement du front, qui a
+    dimensionné la demande avec cette même moyenne (« 5 h à 23 km/h » →
+    115 km) : le cycliste peut vérifier l'arithmétique de tête.
+
+    **Le second terme est un plancher, pas une précaution de style.** Sans
+    lui, une boucle assez vallonnée pour que le modèle descende sous
+    `moyenne_compteur_kmh` afficherait un temps écoulé **inférieur** à son
+    propre temps en mouvement — un porte-à-porte plus rapide que le temps en
+    selle, ce qui ne peut pas arriver. `part_arret` (par défaut
+    `PART_ARRET_REFERENCE`, la même convention que `facteur_compteur_defaut`)
+    fixe ce plancher à « au moins le temps en mouvement, plus 5 % d'arrêts ».
+
+    **Limite assumée, à dire en toutes lettres (règle absolue 5) : ce temps
+    écoulé n'utilise jamais le relief propre de la boucle évaluée.** Le
+    premier terme porte le relief *moyen* déjà contenu dans
+    `moyenne_compteur_kmh` ; le second ne fait qu'étirer le temps en
+    mouvement réel d'une part d'arrêt conventionnelle. Contrairement à
+    `temps_estime_s`, rien ici ne redescend à la pente de cette boucle-ci.
+
+    Rend `(temps_ecoule_s, source)` : `source` vaut `"compteur"` si le premier
+    terme l'emporte (ou à égalité), `"plancher_arrets"` si c'est le plancher
+    qui a dû relever le temps.
+    """
+    _finis(
+        distance_km=distance_km,
+        temps_estime_s=temps_estime_s,
+        moyenne_compteur_kmh=moyenne_compteur_kmh,
+        part_arret=part_arret,
+    )
+    if distance_km < 0:
+        raise ErreurUtilisateur(f"temps écoulé : distance négative ({distance_km} km)")
+    if temps_estime_s < 0:
+        raise ErreurUtilisateur(
+            f"temps écoulé : temps en mouvement négatif ({temps_estime_s} s)"
+        )
+    if moyenne_compteur_kmh <= 0:
+        raise ErreurUtilisateur(
+            f"temps écoulé : moyenne compteur positive attendue, reçu {moyenne_compteur_kmh!r} km/h"
+        )
+    if not 0.0 <= part_arret < 1.0:
+        raise ErreurUtilisateur(
+            f"temps écoulé : part d'arrêt attendue dans [0, 1[, reçu {part_arret!r}"
+        )
+    par_compteur = distance_km / moyenne_compteur_kmh * 3600.0
+    plancher = temps_estime_s / (1.0 - part_arret)
+    if par_compteur >= plancher:
+        return par_compteur, "compteur"
+    return plancher, "plancher_arrets"
+
+
 # --- simulation d'un parcours -------------------------------------------------
 
 
