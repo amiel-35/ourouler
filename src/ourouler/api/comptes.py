@@ -53,6 +53,29 @@ possible ; une invitation périmée est remplacée par une neuve. Il n'y a donc
 qu'une seule commande, qui lit l'état et agit en conséquence — pas de geste
 séparé « relancer » ([[Q59]], close le 18/09/2026).
 
+## Les sessions (lot L7.2-C, 19/09/2026)
+
+`activer` ouvre l'accès ; encore fallait-il un moyen de **rester** connecté,
+et d'y **revenir**. La table `sessions` (`migrations/0002_sessions.sql`) porte
+un jeton opaque de plus, avec la même logique que celui de l'invitation : pas
+de cookie signé, pas de clé de serveur à gérer, un jeton aléatoire en base qui
+se révoque en effaçant sa ligne (`fermer_session`). Trois méthodes, la même
+frontière que le reste du module — elles précèdent ou entourent l'existence
+d'une session, elles ne servent pas de données à un propriétaire :
+
+- `ouvrir_session(compte)` — après `activer` ou `authentifier`, jamais avant ;
+- `proprietaire_de_la_session(jeton)` — `None` si le jeton est inconnu ou la
+  session expirée, jamais une exception : c'est `api/session.py` qui traduit
+  cette absence en 401 ;
+- `fermer_session(jeton)` — idempotente, pour que se déconnecter marche même
+  deux fois.
+
+`authentifier(email, mot_de_passe)` est le pendant de `activer` pour revenir
+sans jeton d'invitation : **une adresse sans compte actif et un mot de passe
+faux rendent la même chose, dans le même temps** — sans quoi la route qui
+l'appelle deviendrait un oracle pour qui cherche des adresses valides
+(`_SECRET_BOUCHE_TROU` égalise le temps de calcul, pas seulement le message).
+
 ## Pourquoi ce dépôt n'est pas dans `api/depots.py`
 
 `api/depots.py` s'ouvre sur une phrase qu'un invariant fait respecter :
@@ -122,6 +145,19 @@ SCRYPT_TAILLE_CLE = 32
 
 #: Taille du sel, propre à chaque compte, tiré à chaque hachage.
 SEL_OCTETS = 16
+
+#: Combien de temps une session reste valable après sa création. Pas de
+#: renouvellement glissant (voir la note de `0002_sessions.sql`) : l'échéance
+#: est posée une fois, à l'ouverture, et l'usage ne la repousse pas. Trente
+#: jours — choix du mainteneur faute de mieux tranché : ourouler sert un
+#: cycliste et quelques proches sur leur propre navigateur, pas un guichet
+#: public, et il n'y a pas encore de récupération de secret pour rattraper
+#: une session perdue trop tôt.
+DUREE_SESSION = timedelta(days=30)
+
+#: Longueur, en octets d'entropie, du jeton de session — même choix que
+#: `OCTETS_JETON` pour l'invitation, et pour la même raison.
+OCTETS_JETON_SESSION = 32
 
 
 class ErreurCompte(ErreurUtilisateur):
@@ -265,6 +301,20 @@ class Acces:
     proprietaire: Proprietaire
 
 
+@dataclass(frozen=True)
+class InvitationOuverte:
+    """L'état d'un jeton d'invitation encore valable — sans le consommer.
+
+    Rendu par `DepotComptes.invitation_ouverte`, pour l'écran qui affiche
+    « vous avez été invité·e » avant de poser un mot de passe. Un jeton
+    inconnu, périmé ou déjà consommé ne produit **pas** cet objet : les trois
+    rendent `None`, indistinguablement — voir la méthode.
+    """
+
+    email: str
+    expire_le: datetime
+
+
 def normaliser_email(brut: str) -> str:
     """La forme canonique d'une adresse : espaces de bord coupés, minuscules.
 
@@ -358,6 +408,17 @@ def verifier_mot_de_passe(mot_de_passe: str, secret: str) -> bool:
         dklen=SCRYPT_TAILLE_CLE,
     )
     return hmac.compare_digest(calcul, bytes.fromhex(empreinte_hex))
+
+
+#: Un hachage bouche-trou : ni un mot de passe réel, ni celui de personne —
+#: calculé une seule fois, au chargement du module, pour que `authentifier`
+#: ait **quelque chose** à comparer quand l'adresse n'a pas de compte actif.
+#: Sans lui, une adresse inconnue répondrait aussitôt (aucun hachage à
+#: calculer) et une adresse connue répondrait après le coût de scrypt : le
+#: temps de réponse dirait alors, à lui seul, si l'adresse a un compte.
+#: Comparer contre ce bouche-trou fait tourner le même calcul dans les deux
+#: cas.
+_SECRET_BOUCHE_TROU = hacher_mot_de_passe(secrets.token_urlsafe(16))
 
 
 class DepotComptes:
@@ -578,6 +639,114 @@ class DepotComptes:
             InvitationAvecAdresse(jeton=jeton, email=email, cree_le=cree_le, expire_le=expire_le)
             for jeton, email, cree_le, expire_le in lignes
         ]
+    # -- l'état d'un jeton, sans le consommer ------------------------------------
+
+    def invitation_ouverte(
+        self, jeton: str, *, maintenant: datetime | None = None
+    ) -> InvitationOuverte | None:
+        """L'adresse et l'échéance d'un jeton encore valable — ou `None`.
+
+        **Indistinguable par construction** (lot L7.2-C) : un jeton inconnu,
+        un jeton expiré et un jeton déjà consommé rendent tous les trois
+        `None`, par la même requête — une seule ligne ne remonte que si les
+        trois conditions (`jeton = …`, `consomme_le IS NULL`,
+        `expire_le > maintenant`) sont réunies à la fois. Il n'y a donc rien à
+        choisir entre trois messages : il n'y a que deux réponses possibles,
+        et c'est voulu — un inconnu qui essaie des jetons au hasard ne doit
+        pas apprendre lequel de ces trois états il a rencontré.
+        """
+        maintenant = _instant(maintenant)
+        ligne = self.cx.execute(
+            "SELECT c.email, i.expire_le FROM invitations i JOIN comptes c ON c.id = i.compte "
+            "WHERE i.jeton = %s AND i.consomme_le IS NULL AND i.expire_le > %s",
+            (jeton, maintenant),
+        ).fetchone()
+        if ligne is None:
+            return None
+        return InvitationOuverte(email=ligne[0], expire_le=ligne[1])
+
+    # -- authentifier, pour revenir sans jeton d'invitation ----------------------
+
+    def authentifier(self, email: str, mot_de_passe: str) -> Compte | None:
+        """Le compte si l'adresse a un compte actif et que le mot de passe convient.
+
+        **Une adresse sans compte actif et un mot de passe faux rendent la
+        même chose, dans le même temps** — choix du mainteneur (lot L7.2-C) :
+        une différence de comportement entre « cette adresse n'a pas de
+        compte » et « ce mot de passe est faux » est un oracle offert à qui
+        cherche des adresses valides. Le hachage tourne même quand l'adresse
+        n'existe pas ou que le compte n'est pas actif, comparé au bouche-trou
+        (`_SECRET_BOUCHE_TROU`) : c'est ce qui égalise le temps de réponse,
+        pas seulement le message rendu à l'appelant.
+        """
+        normalise = normaliser_email(email)
+        ligne = self.cx.execute(
+            "SELECT id, email, actif, cree_le, secret FROM comptes WHERE lower(email) = %s",
+            (normalise,),
+        ).fetchone()
+        if ligne is None or not ligne[2]:
+            verifier_mot_de_passe(mot_de_passe, _SECRET_BOUCHE_TROU)
+            return None
+        identifiant, email_bd, actif, cree_le, secret = ligne
+        if not verifier_mot_de_passe(mot_de_passe, secret):
+            return None
+        return Compte(identifiant=identifiant, email=email_bd, actif=actif, cree_le=cree_le)
+
+    # -- sessions : ouvrir, retrouver, fermer ------------------------------------
+
+    def ouvrir_session(
+        self,
+        compte: str,
+        *,
+        duree: timedelta = DUREE_SESSION,
+        maintenant: datetime | None = None,
+    ) -> str:
+        """Une session neuve pour ce compte, et rend son jeton en clair.
+
+        Appelée après une activation (`POST /entrer`) ou une authentification
+        réussie (`POST /connexion`) — jamais avant : ce dépôt ne revérifie pas
+        ici que le compte est actif, c'est à l'appelant de n'appeler ceci
+        qu'après `activer` ou `authentifier`.
+        """
+        maintenant = _instant(maintenant)
+        jeton = secrets.token_urlsafe(OCTETS_JETON_SESSION)
+        with self.cx.transaction():
+            self.cx.execute(
+                "INSERT INTO sessions (jeton, compte, cree_le, expire_le) "
+                "VALUES (%s, %s, %s, %s)",
+                (jeton, compte, maintenant, maintenant + duree),
+            )
+        return jeton
+
+    def proprietaire_de_la_session(
+        self, jeton: str, *, maintenant: datetime | None = None
+    ) -> Proprietaire | None:
+        """Le propriétaire derrière ce jeton — ou `None` si la session est absente ou expirée.
+
+        `None` n'est pas une panne (voir `api/session.py`) : un jeton
+        inconnu, une session expirée et une session fermée par
+        `fermer_session` rendent tous les trois `None`, et l'appelant
+        (`SessionParCookie`) le traduit en 401.
+        """
+        maintenant = _instant(maintenant)
+        ligne = self.cx.execute(
+            "SELECT compte FROM sessions WHERE jeton = %s AND expire_le > %s",
+            (jeton, maintenant),
+        ).fetchone()
+        if ligne is None:
+            return None
+        return self.proprietaire_du_compte(ligne[0])
+
+    def fermer_session(self, jeton: str) -> None:
+        """Révoque cette session — silencieusement si elle n'existait déjà plus.
+
+        Idempotente à dessein : `POST /sortir` doit rendre le cookie
+        inutilisable que la session ait déjà expiré, ait déjà été fermée
+        ailleurs, ou soit toujours vivante. « Ça n'existait déjà plus » n'est
+        pas un échec pour qui veut simplement ne plus être connecté.
+        """
+        with self.cx.transaction():
+            self.cx.execute("DELETE FROM sessions WHERE jeton = %s", (jeton,))
 
     def _invitation_refusee(self, jeton: str) -> ErreurInvitationRefusee:
         """Dire *pourquoi* le jeton est refusé, sans jamais répéter le jeton."""
@@ -625,8 +794,10 @@ def _invitation(ligne: tuple) -> Invitation:
 
 __all__ = [
     "DUREE_INVITATION",
+    "DUREE_SESSION",
     "METHODE_MOT_DE_PASSE",
     "OCTETS_JETON",
+    "OCTETS_JETON_SESSION",
     "Acces",
     "Compte",
     "DepotComptes",
@@ -636,6 +807,7 @@ __all__ = [
     "Invitation",
     "InvitationAvecAdresse",
     "InvitationEmise",
+    "InvitationOuverte",
     "hacher_mot_de_passe",
     "normaliser_email",
     "nouvel_identifiant",

@@ -83,6 +83,18 @@ CODES_PANNE: dict[str, str] = {
         "serveur ne sait pas à qui elles appartiennent (401). Le front montre "
         "l'écran de connexion ; il ne réessaie pas"
     ),
+    "invitation_invalide": (
+        "ce jeton d'invitation est inconnu, expiré ou déjà consommé (404) — les "
+        "trois rendent la même réponse, pour ne renseigner personne sur lequel"
+    ),
+    "identifiants_refuses": (
+        "adresse sans compte actif ou mot de passe faux (401) — les deux rendent "
+        "la même réponse, dans le même temps, pour ne renseigner personne"
+    ),
+    "comptes_indisponibles": (
+        "ce déploiement ne gère pas de comptes — pas de base de données de "
+        "comptes configurée (mode personnel, ou hébergé sans base)"
+    ),
     "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
     "methode_refusee": "la route existe, pas avec cette méthode",
     "calcul_en_cours": "un calcul occupe déjà le serveur",

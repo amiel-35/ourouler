@@ -130,10 +130,40 @@ ROUTES_HORS_DONNEES: dict[str, str] = {
     ),
 }
 
+#: **Les quatre routes qui précèdent l'existence d'une session** (lot
+#: L7.2-C, 19/09/2026) : `test_la_liste_des_routes_hors_donnees_ne_ment_pas`
+#: interdit à raison toute route de `/api/v1` dans `ROUTES_HORS_DONNEES` —
+#: « sous /api/v1, tout sert les données de quelqu'un » était vrai le
+#: 18/09/2026, avant que ce lot n'ajoute des routes qui *fabriquent* ou
+#: *détruisent* la session dont dépend cette phrase, au lieu de servir la
+#: donnée d'un cycliste déjà identifié. Leur demander la clause de
+#: `Qui` serait circulaire, exactement comme `TABLES_IDENTITE` l'est déjà pour
+#: `comptes` et `invitations` côté SQL (même lot, même frontière).
+#:
+#: **Ce n'est PAS un blanc-seing « aucune fuite possible ».** La contre-épreuve
+#: n'est pas ici mais par l'effet, à trois endroits :
+#: `tests/comptes/test_comptes.py` (deux `entrer` concurrents sur le même
+#: jeton n'ouvrent qu'une session, un jeton inconnu/expiré/consommé rend une
+#: réponse indistinguable, un secret faux et un compte inexistant aussi, une
+#: session détruite ou expirée rend `None`), `tests/comptes/test_routes_session.py`
+#: (les mêmes propriétés rejouées contre le **service réel**, par HTTP), et
+#: `test_les_routes_avant_session_ne_servent_jamais_les_donnees_d_un_proprietaire`
+#: ci-dessous, qui vérifie qu'aucune des quatre ne peut recevoir `Qui` — donc
+#: qu'aucune ne pourrait, même par erreur, se mettre à rendre le profil de
+#: quelqu'un.
+ROUTES_AVANT_SESSION: dict[str, str] = {
+    "/api/v1/invitation": "l'état d'un jeton d'invitation, avant qu'aucun compte ne soit actif",
+    "/api/v1/entrer": "active un compte et ouvre sa première session — aucun propriétaire "
+    "n'est résolu avant cet appel, c'est lui qui le produit",
+    "/api/v1/connexion": "ouvre une session sur un compte existant — le propriétaire n'est "
+    "pas encore résolu au moment de l'appel, c'est lui qui le produit",
+    "/api/v1/sortir": "détruit la session en cours — efface un cookie, ne lit aucune donnée",
+}
+
 
 def _est_une_route_de_donnees(chemin: str) -> bool:
     """Vrai si cette route doit porter la clause. Correspondance **exacte**."""
-    return chemin not in ROUTES_HORS_DONNEES
+    return chemin not in ROUTES_HORS_DONNEES and chemin not in ROUTES_AVANT_SESSION
 
 
 def _porte_la_clause(schema, chemin: str, operation: dict) -> bool:
@@ -363,12 +393,14 @@ def _invariants_du_depot():
 #: de lui appartenir (doctrine §10.2, [[Q46]], lot L7.2-A). Un compte se crée
 #: avant que son propriétaire existe : lui demander une colonne `proprietaire`
 #: reviendrait à dire que l'identité appartient à la clé pseudonyme dont elle
-#: est justement séparée.
+#: est justement séparée. **`sessions` les rejoint le 19/09/2026 (lot L7.2-C)**,
+#: même raison : une session est retrouvée pour produire un propriétaire, elle
+#: n'en appartient à aucun.
 #:
 #: La même liste vit dans `tests/test_invariants.py`, et un test ci-dessous
 #: échoue si les deux divergent : une exception qui n'existe qu'à un endroit
 #: est une exception qu'on oublie de justifier au second.
-TABLES_IDENTITE = ("comptes", "invitations", "migrations")
+TABLES_IDENTITE = ("comptes", "invitations", "sessions", "migrations")
 
 #: Le motif qui repère une instruction SQL de données dans un texte.
 #:
@@ -1409,6 +1441,48 @@ def test_la_liste_des_routes_hors_donnees_ne_ment_pas():
     assert not de_l_api, (
         f"routes de l'API dispensées de clause de propriétaire : {de_l_api}. "
         "Sous /api/v1, tout sert les données de quelqu'un."
+    )
+
+
+def test_la_liste_des_routes_avant_session_ne_ment_pas():
+    """Le même garde-fou que ci-dessus, pour `ROUTES_AVANT_SESSION` (lot L7.2-C).
+
+    Trois façons de se tromper, fermées ici : inscrire un chemin qui n'existe
+    pas (l'exception devient une incantation) ; en oublier une, servie mais
+    non dispensée, qui échouerait alors sur `_resout_un_proprietaire` pour la
+    mauvaise raison ; ou dispenser une route qui **peut** recevoir `Qui` — ce
+    qui prouverait que l'exemption couvre une route de données ordinaire et
+    pas seulement les quatre qui précèdent la session. Ce troisième point est
+    la contre-épreuve que le brief demande : une exemption qui dispenserait
+    une route capable de résoudre un propriétaire serait la fuite que
+    `test_une_route_sans_clause_de_proprietaire_est_bien_detectee` existe pour
+    attraper ailleurs — elle ne doit pas pouvoir se glisser ici à l'abri de ce
+    détecteur-là.
+    """
+    servies = {
+        str(getattr(r, "path", ""))
+        for r in _toutes_les_routes(charger_application(config=config_d_essai()))
+    }
+    inventees = sorted(set(ROUTES_AVANT_SESSION) - servies)
+    assert not inventees, (
+        f"routes dispensées qui n'existent pas : {inventees}. Une exception qui ne "
+        "correspond à rien ne fait que masquer la suivante."
+    )
+
+    par_chemin = {
+        chemin: fonction
+        for chemin, fonction in _routes_servies(charger_application(config=config_d_essai()))
+    }
+    capables = sorted(
+        chemin
+        for chemin in ROUTES_AVANT_SESSION
+        if chemin in par_chemin and _resout_un_proprietaire(par_chemin[chemin])
+    )
+    assert not capables, (
+        f"routes dispensées de la clause qui pourraient pourtant la porter : {capables}. "
+        "Une route qui reçoit `Qui` n'a pas sa place dans ROUTES_AVANT_SESSION — elle "
+        "sert (ou pourrait servir) les données d'un propriétaire déjà résolu, ce n'est "
+        "pas ce que cette dispense couvre."
     )
 
 
