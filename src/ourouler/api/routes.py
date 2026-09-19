@@ -31,7 +31,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from ourouler import __version__
 from ourouler.api import base_de_donnees, vie_privee, vues
 from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
-from ourouler.api.comptes import DepotComptes
+from ourouler.api.comptes import DepotComptes, ErreurInvitationRefusee
 from ourouler.api.depots import (
     DepotFichiers,
     DepotGenerations,
@@ -391,12 +391,23 @@ def etat_invitation(ctx: Ctx, jeton: Annotated[TexteUtile, Query(min_length=1, m
     with base_de_donnees.ouvrir(url) as cx:
         etat = DepotComptes(cx).invitation_ouverte(jeton)
     if etat is None:
-        raise ErreurApi(
-            code="invitation_invalide",
-            message="ce lien d'invitation n'est plus valable — inconnu, expiré ou déjà utilisé",
-            statut=404,
-        )
+        raise ErreurApi(code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=404)
     return {"donnees": {"email": etat.email, "expire_le": etat.expire_le.isoformat()}}
+
+
+#: Ce que les deux routes du jeton d'invitation répondent quand il ne vaut
+#: rien — **le même texte, quel que soit le motif**. Distinguer « n'existe
+#: pas », « a expiré le 02/09 » et « a déjà servi » renseigne qui tient un
+#: jeton périmé sur le fait qu'il a bel et bien été émis, et sur sa date
+#: exacte. `GET /invitation` avait été écrite ainsi ; `POST /entrer` laissait
+#: passer le message détaillé de `comptes._invitation_refusee`, et rouvrait
+#: donc la porte qu'on venait de fermer (relecture du 19/09/2026).
+#:
+#: Les messages détaillés ne disparaissent pas pour autant : ils restent ce
+#: que `DepotComptes` lève, et ce que la ligne de commande affiche au
+#: mainteneur — qui a le droit de savoir *pourquoi*, puisque c'est lui qui a
+#: émis le lien.
+MESSAGE_INVITATION_REFUSEE = "ce lien d'invitation n'est plus valable — inconnu, expiré ou déjà utilisé"
 
 
 @routeur.post("/entrer")
@@ -416,6 +427,11 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
         depot = DepotComptes(cx)
         try:
             acces = depot.activer(corps.jeton, corps.secret)
+        except ErreurInvitationRefusee as e:
+            # Le motif est perdu **exprès** : voir MESSAGE_INVITATION_REFUSEE.
+            raise ErreurApi(
+                code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
+            ) from e
         except Exception as e:
             raise classer(e) from e
         jeton_session = depot.ouvrir_session(acces.compte.identifiant)

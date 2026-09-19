@@ -172,6 +172,63 @@ def test_entrer_avec_un_jeton_invente_est_refuse_proprement(url_base, tmp_path):
     assert "jeton-completement-invente" not in reponse.text
 
 
+def test_entrer_rend_la_meme_reponse_pour_inconnu_expire_ou_consomme(url_base, tmp_path):
+    """Le miroir du test de `GET /invitation`, et il manquait.
+
+    Fermer la fuite sur une route et la laisser ouverte sur l'autre ne ferme
+    rien : qui tient un jeton périmé n'a qu'à basculer sur `POST /entrer` pour
+    apprendre qu'il a bien été émis, et sa date exacte d'expiration. Relevé en
+    relecture le 19/09/2026, sur du code dont les trois cas étaient déjà
+    couverts côté `GET` — c'est la **couverture** qui était trouée, autant que
+    le code.
+    """
+    with ouvrir(url_base) as cx:
+        depot = DepotComptes(cx)
+        expiree = depot.inviter(
+            "expiree-entrer@exemple.invalid",
+            duree=timedelta(days=1),
+            maintenant=datetime(2026, 9, 1, tzinfo=UTC),
+        )
+        consommee = depot.inviter("consommee-entrer@exemple.invalid")
+        depot.activer(consommee.jeton, MOT_DE_PASSE)
+
+    app = _app(url_base, tmp_path)
+    reponses = {
+        "inconnu": requete(
+            app, "POST", f"{PREFIXE}/entrer", json={"jeton": "jeton-invente", "secret": MOT_DE_PASSE}
+        ),
+        "expire": requete(
+            app, "POST", f"{PREFIXE}/entrer", json={"jeton": expiree.jeton, "secret": MOT_DE_PASSE}
+        ),
+        "consomme": requete(
+            app, "POST", f"{PREFIXE}/entrer", json={"jeton": consommee.jeton, "secret": MOT_DE_PASSE}
+        ),
+    }
+    for nom, reponse in reponses.items():
+        assert 400 <= reponse.status_code < 500, f"{nom} : {reponse.status_code} {reponse.text}"
+
+    distinctifs = {
+        (r.status_code, r.json()["erreur"]["code"], r.json()["erreur"]["message"])
+        for r in reponses.values()
+    }
+    assert len(distinctifs) == 1, f"les trois cas se distinguent : {distinctifs}"
+
+    # Et aucune date ne doit fuir par la bande.
+    for nom, reponse in reponses.items():
+        assert "2026" not in reponse.text, f"{nom} laisse passer une date : {reponse.text}"
+
+
+def test_entrer_et_get_invitation_disent_exactement_la_meme_chose(url_base, tmp_path):
+    """Deux routes, un seul message — sinon la comparaison des deux renseigne."""
+    app = _app(url_base, tmp_path)
+    par_get = requete(app, "GET", f"{PREFIXE}/invitation", params={"jeton": "jeton-invente"})
+    par_post = requete(
+        app, "POST", f"{PREFIXE}/entrer", json={"jeton": "jeton-invente", "secret": MOT_DE_PASSE}
+    )
+    assert par_get.json()["erreur"]["message"] == par_post.json()["erreur"]["message"]
+    assert par_get.json()["erreur"]["code"] == par_post.json()["erreur"]["code"]
+
+
 # --- POST /connexion : indistinguable ------------------------------------------
 
 
