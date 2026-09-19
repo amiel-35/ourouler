@@ -86,6 +86,7 @@ describe("les réglages — panneau identité", () => {
         surProfil={() => undefined}
         surZones={() => undefined}
         surRefaireInstallation={() => undefined}
+      surDeconnexion={() => undefined}
       />,
     );
     return { serveur };

@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, ErreurApi } from "./api/client";
+import { api, ErreurApi, surSessionAbsente } from "./api/client";
 import type { Boucle, Budget, Enveloppe, Profil, Seance, Sortie, Zones } from "./api/types";
 import { aujourdhui, useRessource } from "./etat/ressource";
 import { jourEnLettres } from "./api/formats";
@@ -32,6 +32,37 @@ import { PropositionDetail } from "./ecrans/Proposition";
 import { Boucles } from "./ecrans/Boucles";
 import { Reglages } from "./ecrans/Reglages";
 import { Assistant } from "./ecrans/Assistant";
+import { Connexion } from "./ecrans/Connexion";
+import { Entrer } from "./ecrans/Entrer";
+
+/**
+ * Sur quelle page ce chargement de l'application s'est ouvert — lu **une
+ * fois**, au démarrage, jamais réévalué (lot L7.2-D).
+ *
+ * Pas de routeur : le reste de l'application navigue par état React
+ * (`Onglet`, `Vue` ci-dessous), comme avant ce lot. Seuls ces deux chemins
+ * sont distingués, parce qu'ils doivent fonctionner **avant** qu'aucune
+ * session n'existe — l'un des deux, justement, sert à en ouvrir une.
+ */
+type Pagina =
+  | { genre: "application" }
+  | { genre: "entrer"; jeton: string }
+  | { genre: "connexion" };
+
+function paginaDepuisUrl(): Pagina {
+  const chemin = window.location.pathname;
+  if (chemin === "/entrer") {
+    const jeton = new URLSearchParams(window.location.search).get("jeton") ?? "";
+    // Le jeton n'a rien à faire dans l'historique du navigateur ni dans un
+    // en-tête `Referer` une fois lu : une ligne, faite ici et nulle part
+    // ailleurs, pour que ni le rechargement de l'écran ni un lien partagé
+    // depuis cette page ne le fassent fuiter une seconde fois.
+    window.history.replaceState(null, "", "/entrer");
+    return { genre: "entrer", jeton };
+  }
+  if (chemin === "/connexion") return { genre: "connexion" };
+  return { genre: "application" };
+}
 
 type Onglet = "aujourdhui" | "semaine" | "demander" | "reglages";
 type Vue =
@@ -106,7 +137,30 @@ const ONGLETS: { cle: Onglet; nom: string }[] = [
   { cle: "reglages", nom: "Réglages" },
 ];
 
+/**
+ * Le point d'entrée : décide une fois pour toutes sur quelle page on est
+ * (lot L7.2-D), et rend `ApplicationPrincipale` — les quatre onglets
+ * d'aujourd'hui, inchangés — pour tout le reste.
+ *
+ * `Entrer` et `Connexion` naviguent en repartant à la racine
+ * (`window.location.assign`) plutôt qu'en gardant un état de page ici : une
+ * fois la session ouverte, il n'y a rien à préserver d'un écran qui n'a
+ * montré qu'un formulaire, et repartir à zéro relance
+ * `ApplicationPrincipale` sur une base propre, cookie posé.
+ */
 export function App() {
+  const [pagina] = useState<Pagina>(() => paginaDepuisUrl());
+
+  if (pagina.genre === "entrer") {
+    return <Entrer jeton={pagina.jeton} surEntre={() => window.location.assign("/")} />;
+  }
+  if (pagina.genre === "connexion") {
+    return <Connexion surConnecte={() => window.location.assign("/")} />;
+  }
+  return <ApplicationPrincipale />;
+}
+
+function ApplicationPrincipale() {
   const jour = aujourdhui();
   const [onglet, setOnglet] = useState<Onglet>("aujourdhui");
   const [vue, setVue] = useState<Vue>({ genre: "onglet" });
@@ -128,6 +182,16 @@ export function App() {
   const [joursMemorises, setJoursMemorises] = useState<string[]>([]);
   const [profilCourant, setProfilCourant] = useState<Profil | null>(null);
   const [zonesCourantes, setZonesCourantes] = useState<Zones | null>(null);
+  /**
+   * Vrai dès qu'une route quelconque a répondu 401 `session_absente` (lot
+   * L7.2-D) — la session a expiré, ou n'a jamais existé. `api.client`
+   * prévient au moment même où **n'importe quel** appel reçoit ce code, pas
+   * seulement les trois ressources de démarrage ci-dessous : une séance qui
+   * expire pendant que le cycliste choisit une proposition doit amener le
+   * même écran de connexion, pas l'erreur technique nue que `session_absente`
+   * produisait avant ce lot.
+   */
+  const [sessionPerdue, setSessionPerdue] = useState(false);
 
   const systeme = useRessource(() => api.systeme(), []);
   const profil = useRessource(() => api.profil(), []);
@@ -167,6 +231,15 @@ export function App() {
     const trouve = semaine.valeur?.donnees.jours.find((j) => j.jour === demande.jour);
     return trouve?.seance ?? null;
   }, [demande.jour, jour, seanceDuJour.valeur, semaine.valeur]);
+
+  useEffect(() => {
+    surSessionAbsente(() => setSessionPerdue(true));
+    // Un seul abonné à la fois (`api/client.ts`) : se désabonner au
+    // démontage, sinon une seconde instance (peu probable, mais le mode
+    // strict de React en monte deux au développement) écraserait la
+    // première sans le dire.
+    return () => surSessionAbsente(null);
+  }, []);
 
   // --- le calcul ---------------------------------------------------------
 
@@ -249,6 +322,27 @@ export function App() {
   }
 
   // --- l'amorçage --------------------------------------------------------
+
+  // **Avant même `zones.erreur`** (lot L7.2-D) : une session perdue amène
+  // l'écran de connexion, pas un écran d'échec. `surConnecte` ne perd rien
+  // de ce que le cycliste faisait — `onglet`, `vue`, `demande` restent tels
+  // quels, seules les ressources qui ont échoué sont relues.
+  if (sessionPerdue) {
+    return (
+      <div className="coquille">
+        <Connexion
+          surConnecte={() => {
+            setSessionPerdue(false);
+            systeme.recharger();
+            profil.recharger();
+            zones.recharger();
+            semaine.recharger();
+            seanceDuJour.recharger();
+          }}
+        />
+      </div>
+    );
+  }
 
   // **`zones.erreur` compte comme les deux autres** (corrigé le 17/09/2026).
   // Il n'était consulté nulle part, alors que l'affichage est interdit tant
@@ -580,6 +674,10 @@ export function App() {
         surProfil={setProfilCourant}
         surZones={setZonesCourantes}
         surRefaireInstallation={() => setVue({ genre: "assistant" })}
+        // Repart à `/connexion` plutôt que de tenter de remettre l'état de
+        // cette instance à zéro : après une déconnexion volontaire, rien de
+        // ce que le cycliste faisait n'a de raison de survivre.
+        surDeconnexion={() => window.location.assign("/connexion")}
       />
     );
   }

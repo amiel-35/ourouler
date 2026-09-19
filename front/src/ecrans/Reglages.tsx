@@ -32,9 +32,18 @@ interface Props {
   surProfil: (profil: Profil) => void;
   surZones: (zones: Zones) => void;
   surRefaireInstallation: () => void;
+  /** Appelée une fois `POST /sortir` fait — l'écran de connexion, rien de plus (lot L7.2-D). */
+  surDeconnexion: () => void;
 }
 
-export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstallation }: Props) {
+export function Reglages({
+  profil,
+  zones,
+  surProfil,
+  surZones,
+  surRefaireInstallation,
+  surDeconnexion,
+}: Props) {
   const [volet, setVolet] = useState<Volet>(null);
   const [poids, setPoids] = useState(String(profil.cycliste.masse_kg));
   const [prenom, setPrenom] = useState(profil.cycliste.prenom ?? "");
@@ -316,19 +325,30 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
         <div className="rangee">
           <span className="cle">Clés d'accès, export, suppression</span>
-          <span className="val texte">Avec les comptes</span>
+          <span className="val texte">Pas encore ici</span>
+        </div>
+        {/* Se déconnecter (lot L7.2-D) : les comptes sont désormais branchés
+            — ce que la phrase ci-dessous affirmait le contraire jusqu'ici.
+            `POST /sortir` révoque la session et efface le cookie, toujours
+            200 (idempotent) : rien à vérifier avant d'appeler
+            `surDeconnexion`, qui ramène à l'écran de connexion. */}
+        <div className="rangee">
+          <span className="cle">Session</span>
+          <button
+            type="button"
+            className="lien"
+            onClick={async () => {
+              await api.sortir().catch(() => undefined);
+              surDeconnexion();
+            }}
+          >
+            Se déconnecter
+          </button>
         </div>
       </div>
       <p className="mention">
-        {/* La phrase disait « cette version tourne sans comptes : il n'y a
-            qu'un profil, servi localement » — vrai pour un usage personnel,
-            faux pour un service exposé (L7.A, 18/09/2026) : là, la session
-            existe déjà comme notion, seule la méthode de connexion manque
-            encore. L'API ne dit nulle part dans quel mode elle tourne — le
-            front n'a donc pas le droit d'affirmer l'un ou l'autre, et se
-            limite à ce qui est vrai dans les deux cas. */}
-        Les comptes ne sont pas encore branchés sur ce serveur. Les clés d'accès, l'export de
-        vos données et la suppression du compte arrivent avec eux.
+        Les comptes sont branchés sur ce serveur (connexion, déconnexion) ; les clés d'accès,
+        l'export de vos données et la suppression du compte ne sont pas encore proposés ici.
       </p>
     </section>
   );

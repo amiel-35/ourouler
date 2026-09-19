@@ -51,7 +51,10 @@ const TITRES_HORS_TABLEAU: Record<string, string> = {
   // `intervals_refuse` n'a pas de titre fixe : sans `contexte`, `Echec` retombe
   // sur « Vos séances » (l'écran où cette panne arrive dans l'app réelle).
   intervals_refuse: "Vos séances",
-  session_absente: "Ce serveur ne sait pas encore qui vous êtes",
+  // `session_absente` n'a plus d'écran dédié depuis le lot L7.2-D
+  // (19/09/2026) : `App.tsx` intercepte ce code avant `Echec` et montre
+  // l'écran de connexion. Il reste couvert par le tableau générique de
+  // `Echec.tsx`, donc absent d'ici — voir le commentaire sur ce tableau.
 };
 
 function erreur(code: string, statut = 502): ErreurApi {
