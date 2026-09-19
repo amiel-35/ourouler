@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ErreurApi } from "../src/api/client";
 import { Echec, meteoManquante } from "../src/composants/Echec";
@@ -388,6 +388,67 @@ describe("une panne au démarrage ne fige pas l'application", () => {
    * l'application reprend **sans y reboucler** — la session étant ouverte,
    * `/systeme` etc. répondent, et « Se connecter » disparaît pour de bon.
    */
+  /**
+   * Le cas que le précédent ne couvrait pas, et qui arrivait quand même.
+   *
+   * Le test au-dessus rebranche tout le serveur d'un coup : aucune requête ne
+   * reste en vol par-dessus la reconnexion. La vraie vie, si — le cookie
+   * expire pendant qu'une recherche de sortie tourne, le cycliste se
+   * reconnecte, puis la vieille requête revient avec son 401 et le ramène à
+   * l'écran de connexion sans qu'il comprenne pourquoi.
+   *
+   * Trouvé en relecture le 19/09/2026, sur du code dont le premier test
+   * passait déjà.
+   */
+  it("un 401 en retard, arrivé après la reconnexion, ne rouvre pas l'écran", async () => {
+    let connecte = false;
+    let repondreEnRetard: (() => void) | null = null;
+    const serveur = new Serveur({
+      "/api/v1/systeme": () =>
+        connecte ? { charge: SYSTEME } : panne("session_absente", "aucune session ouverte", 401),
+      "/api/v1/profil/zones": () =>
+        connecte ? { charge: zones() } : panne("session_absente", "aucune session ouverte", 401),
+      // Celle-ci ne répond **jamais** tout de suite : elle reste en vol, et
+      // on la fait revenir à la main, après la reconnexion.
+      "/api/v1/profil": () =>
+        connecte
+          ? { charge: PROFIL }
+          : new Promise<ReturnType<typeof panne>>((resoudre) => {
+              repondreEnRetard = () =>
+                resoudre(panne("session_absente", "aucune session ouverte", 401));
+            }),
+      "/api/v1/connexion": () => {
+        connecte = true;
+        return { charge: { donnees: { proprietaire: "essai" } } };
+      },
+    });
+    serveur.installer();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Se connecter" })).toBeTruthy();
+
+    const utilisateur = userEvent.setup();
+    await utilisateur.type(screen.getByLabelText("Adresse"), "cycliste@exemple.invalid");
+    await utilisateur.type(screen.getByLabelText("Mot de passe"), "un-secret-de-test");
+    await utilisateur.click(screen.getByRole("button", { name: "Se connecter" }));
+
+    expect(await screen.findByRole("navigation", { name: "Navigation principale" })).toBeTruthy();
+
+    // Et maintenant, la requête d'avant revient — trop tard.
+    expect(repondreEnRetard).not.toBeNull();
+    await act(async () => {
+      repondreEnRetard!();
+      // Deux tours de boucle : le `await` du corps de la réponse, puis celui
+      // du client. Un seul laissait le 401 en chemin, et le test verdissait
+      // sans avoir rien mesuré.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("heading", { name: "Se connecter" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Navigation principale" })).toBeTruthy();
+  });
+
   it("un 401 session_absente amène l'écran de connexion, et n'y reboucle pas après connexion", async () => {
     let connecte = false;
     const serveur = new Serveur({

@@ -149,6 +149,44 @@ def test_un_chemin_d_api_inconnu_ne_bascule_jamais_sur_index_html(tmp_path: Path
     assert "front construit" not in reponse.text
 
 
+def test_api_sans_barre_finale_ne_bascule_pas_non_plus(tmp_path: Path):
+    """`/api` tout court passait la garde, parce que `"/api".startswith("/api/")` est faux.
+
+    Une base d'URL mal construite ou une sonde générique interrogeait donc la
+    racine du préfixe et recevait `index.html` en 200, là où elle attendait une
+    erreur. Trouvé en relecture le 19/09/2026 ; le préfixe gardé est désormais
+    `"/api"`, qui couvre les deux.
+    """
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/api")
+    assert reponse.status_code == 404, reponse.text
+    assert "front construit" not in reponse.text
+
+
+def test_un_fichier_absent_ne_recoit_pas_index_html(tmp_path: Path):
+    """Un actif manquant doit valoir 404, pas `index.html` déguisé en JavaScript.
+
+    Le cas n'est pas théorique : `vite` change l'empreinte des fichiers à
+    chaque construction, et un onglet resté ouvert sur l'ancien `index.html`
+    redemande un `assets/index-<ancienne empreinte>.js` qui n'existe plus.
+    Avec le repli trop large, il recevait du HTML servi en 200 — une erreur de
+    syntaxe muette dans la console plutôt qu'un 404 que le navigateur nomme.
+    """
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/assets/index-ancienne-empreinte.js")
+    assert reponse.status_code == 404, reponse.text
+    assert "front construit" not in reponse.text
+
+
+def test_une_page_du_front_sans_extension_recoit_toujours_index_html(tmp_path: Path):
+    """La contre-épreuve du test ci-dessus : resserrer ne doit pas tout fermer."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    for chemin in ("/entrer", "/connexion", "/reglages"):
+        reponse = client.get(chemin)
+        assert reponse.status_code == 200, f"{chemin} : {reponse.status_code}"
+        assert "front construit" in reponse.text, chemin
+
+
 def test_sans_dossier_front_la_racine_ne_sert_rien():
     """L'absence de `dossier_front` (le défaut, `ourouler api` compris) ne monte rien.
 

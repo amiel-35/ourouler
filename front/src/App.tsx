@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, ErreurApi, surSessionAbsente } from "./api/client";
+import { api, ErreurApi, sessionRouverte, surSessionAbsente } from "./api/client";
 import type { Boucle, Budget, Enveloppe, Profil, Seance, Sortie, Zones } from "./api/types";
 import { aujourdhui, useRessource } from "./etat/ressource";
 import { jourEnLettres } from "./api/formats";
@@ -332,6 +332,10 @@ function ApplicationPrincipale() {
       <div className="coquille">
         <Connexion
           surConnecte={() => {
+            // **Avant de recharger.** Une requête partie sous l'ancienne
+            // session peut encore revenir avec son 401 ; sans ce repère, elle
+            // rouvrirait cet écran alors qu'on vient d'en sortir.
+            sessionRouverte();
             setSessionPerdue(false);
             systeme.recharger();
             profil.recharger();

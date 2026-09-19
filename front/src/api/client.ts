@@ -62,6 +62,30 @@ type EcouteurSessionAbsente = () => void;
 let ecouteurSessionAbsente: EcouteurSessionAbsente | null = null;
 
 /**
+ * Quelle session est en cours. Un simple compteur, incrémenté à chaque
+ * réouverture.
+ *
+ * **Pourquoi il faut ça.** Une requête partie avant l'expiration du cookie
+ * peut revenir *après* que le cycliste s'est reconnecté — le temps d'une
+ * recherche de sortie, c'est courant. Sans repère, son `session_absente`
+ * tardif rouvrait l'écran de connexion alors que la session venait d'être
+ * ouverte avec succès : il retapait son mot de passe sans comprendre
+ * pourquoi (trouvé en relecture le 19/09/2026, prouvé en laissant une requête
+ * en vol pendant la reconnexion).
+ *
+ * Chaque appel retient la génération sous laquelle il est parti, et ne
+ * prévient l'application que si elle n'a pas changé entre-temps. Une réponse
+ * qui parle d'une session révolue est ignorée, ce qui est exactement ce
+ * qu'elle mérite.
+ */
+let generationSession = 0;
+
+/** À appeler quand une session vient d'être ouverte : ce qui précède est périmé. */
+export function sessionRouverte(): void {
+  generationSession += 1;
+}
+
+/**
  * S'abonne au moment où **n'importe quel** appel à l'API répond
  * `session_absente` — un seul écouteur à la fois, c'est l'application elle-
  * même (`App.tsx`) qui s'y abonne au montage pour afficher l'écran de
@@ -236,6 +260,9 @@ async function appeler<T>(
   delai_ms: number = DELAI_MS,
 ): Promise<T> {
   const horloge = minuterie(delai_ms, options.signal ?? undefined);
+  // Retenu **avant** de partir : c'est ce qui permettra, au retour, de savoir
+  // si la réponse parle encore de la session en cours (voir `generationSession`).
+  const generation = generationSession;
   let reponse: Response;
   try {
     // **`credentials: "same-origin"`, explicite** (lot L7.2-D). Le cookie de
@@ -291,7 +318,9 @@ async function appeler<T>(
       // Prévenir l'application avant de jeter : le code sort de **cette**
       // fonction pour toute route, et c'est le seul endroit qui les voit
       // toutes passer.
-      if (panne.code === CODE_SESSION_ABSENTE) ecouteurSessionAbsente?.();
+      if (panne.code === CODE_SESSION_ABSENTE && generation === generationSession) {
+        ecouteurSessionAbsente?.();
+      }
       throw new ErreurApi(panne, reponse.status);
     }
     // Sinon, quelque chose a répondu à la place de l'API : proxy de

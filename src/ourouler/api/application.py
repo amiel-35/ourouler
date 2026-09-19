@@ -57,7 +57,13 @@ NOM_DOSSIER_DONNEES = "api"
 #: schéma publié. Large exprès sur `/api/` plutôt que le seul `/api/v1/` du
 #: routeur actuel — un `/api/v2` futur doit rester du JSON sans qu'on ait à y
 #: repenser.
-PREFIXES_HORS_FRONT = ("/api/", "/sante", "/openapi.json", "/docs", "/redoc")
+#:
+#: `"/api"` y figure **en plus** de `"/api/"`, et ce n'est pas un doublon :
+#: `"/api".startswith("/api/")` est faux, donc le chemin `/api` tout court
+#: passait la garde et rendait `index.html` en 200. Une base d'URL mal
+#: construite ou une sonde générique recevait du HTML là où elle attendait une
+#: erreur (relecture du 19/09/2026).
+PREFIXES_HORS_FRONT = ("/api", "/sante", "/openapi.json", "/docs", "/redoc")
 
 #: La description publiée par `/openapi.json` et par `/docs`.
 #:
@@ -94,6 +100,24 @@ il se montre, il ne se lit pas.
 
 {table_des_avertissements()}
 """
+
+
+def _ressemble_a_un_fichier(chemin: str) -> bool:
+    """Ce chemin demande-t-il un **fichier**, plutôt qu'une page du front ?
+
+    Une extension dans le dernier segment (`/assets/index-a1b2c3.js`) : c'est
+    un fichier. Pas d'extension (`/entrer`, `/connexion`, `/reglages`) : c'est
+    une page, que le front dessine lui-même une fois `index.html` chargé.
+
+    Sans cette distinction, un fichier absent recevait `index.html` en 200
+    (relecture du 19/09/2026). Le cas n'est pas théorique : après un
+    déploiement, `vite` change les empreintes des fichiers, et un onglet resté
+    ouvert sur l'ancien `index.html` redemande un `assets/index-<ancienne
+    empreinte>.js` qui n'existe plus. Il recevait alors du HTML étiqueté
+    JavaScript — une erreur de syntaxe muette dans la console, au lieu d'un
+    404 que le navigateur sait nommer.
+    """
+    return "." in chemin.rsplit("/", 1)[-1]
 
 
 def creer_application(
@@ -292,6 +316,7 @@ def creer_application(
             erreur.status_code == 404
             and dossier_front is not None
             and not requete.url.path.startswith(PREFIXES_HORS_FRONT)
+            and not _ressemble_a_un_fichier(requete.url.path)
         ):
             return FileResponse(dossier_front / "index.html", media_type="text/html")
         connus = {
