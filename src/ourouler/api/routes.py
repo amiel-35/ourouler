@@ -545,10 +545,7 @@ def lire_profil(
     `PATCH /profil` fait passer ce booléen à faux — pas un drapeau à part à
     tenir à jour, juste la conséquence de ce qui est déjà écrit sur le disque.
     """
-    config = _config(ctx, qui)
-    donnees = vues.profil(config)
-    donnees["assistant_recommande"] = not bool(ctx.profils.surcharge(qui))
-    return {"proprietaire": str(qui), "donnees": donnees}
+    return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, _config(ctx, qui))}
 
 
 @routeur.patch(
@@ -590,7 +587,21 @@ async def modifier_profil(
         raise ErreurApi(code="profil_invalide", message=str(e), statut=422) from e
     except Exception as e:
         raise classer(e) from e
-    return {"proprietaire": str(qui), "donnees": vues.profil(config)}
+    return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, config)}
+
+
+def _profil_avec_flags(ctx: Contexte, qui: Proprietaire, config: Config) -> dict:
+    """Le profil rendu par `vues.profil`, plus `assistant_recommande` (voir `lire_profil`).
+
+    Factorisé pour que `GET /profil` et `PATCH /profil` rendent exactement le
+    même calcul : sans ça, le front qui met à jour son état local depuis la
+    réponse d'un `PATCH` (`Assistant.tsx`, `enregistrer()`) verrait le
+    drapeau se figer jusqu'au prochain `GET`, alors qu'un premier `PATCH`
+    est précisément ce qui doit le faire tomber.
+    """
+    donnees = vues.profil(config)
+    donnees["assistant_recommande"] = not bool(ctx.profils.surcharge(qui))
+    return donnees
 
 
 @routeur.get("/profil/zones")
