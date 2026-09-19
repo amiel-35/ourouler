@@ -162,3 +162,24 @@ def test_apercu_ftp_vitesse_incoherente_avec_le_terrain_est_un_refus_nomme():
     )
     assert reponse.status_code == 400
     assert reponse.json()["erreur"]["code"] == "requete_invalide"
+
+
+# --- GET /profil/ftp/generique (T5, le fond du tunnel) --------------------------
+
+
+def test_ftp_generique_ne_stocke_rien_et_ne_peut_pas_echouer():
+    client = client_api(config=config_d_essai())
+    reponse = client.get("/api/v1/profil/ftp/generique")
+    assert reponse.status_code == 200
+    donnees = reponse.json()["donnees"]
+    assert donnees["ftp_w"] is not None and donnees["ftp_w"] > 0
+    assert client.get("/api/v1/profil").json()["donnees"]["assistant_recommande"] is True
+
+
+def test_ftp_generique_marche_meme_sans_le_moindre_velo():
+    """« Jamais rien » — le filet de littérature ne demande qu'un poids."""
+    config = dataclasses.replace(config_d_essai(), velos=())
+    client = client_api(config=config)
+    reponse = client.get("/api/v1/profil/ftp/generique")
+    assert reponse.status_code == 200
+    assert reponse.json()["donnees"]["ftp_w"] is not None

@@ -1199,6 +1199,7 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("POST", f"{PREFIXE_API}/profil/ftp/apercu"): {
             "json": {"vitesse_kmh": 24.0, "denivele_m_par_km": 10.0}
         },
+        ("GET", f"{PREFIXE_API}/profil/ftp/generique"): {},
         ("GET", f"{PREFIXE_API}/geocodage"): {"params": {"adresse": "rue d'essai"}},
         ("GET", f"{PREFIXE_API}/vent-depart"): {"params": {"jour": jour}},
         ("GET", f"{PREFIXE_API}/meteo"): {},

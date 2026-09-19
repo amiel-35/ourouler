@@ -735,6 +735,29 @@ def apercu_ftp_depuis_terrain(
         raise classer(e) from e
 
 
+@routeur.get("/profil/ftp/generique")
+def ftp_generique(ctx: Ctx, qui: Qui, velo: str | None = None) -> dict:
+    """T5 de l'accueil, le fond du tunnel : une FTP à partir du seul poids, **sans rien stocker**.
+
+    Ne peut pas échouer — `physique.litterature.ftp_defaut` ne demande que
+    `cycliste.masse_kg`, qui n'est jamais facultative. C'est la garantie que
+    l'entonnoir de `docs/ux/parcours_accueil.md` promet à l'étage T5 : « rien
+    à demander, jamais rien [en échec] ». Même geste que les deux routes
+    d'aperçu voisines : le front affiche, et envoie `cycliste.ftp_w` à
+    `PATCH /profil` si la personne continue.
+    """
+    from ourouler.physique.litterature import ftp_defaut
+    from ourouler.seance import ecran_ftp
+
+    config = _config(ctx, qui)
+    try:
+        ftp_w = ftp_defaut(config.cycliste.masse_kg)
+        config_avec_ftp = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp_w))
+        return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config_avec_ftp, velo)}
+    except Exception as e:
+        raise classer(e) from e
+
+
 # --- géocodage ----------------------------------------------------------------
 
 
