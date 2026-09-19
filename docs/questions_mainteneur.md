@@ -4743,3 +4743,307 @@ levier au-delà.
 Mis en œuvre dans `src/ourouler/api/comptes.py` (`DepotComptes.inviter`) et
 `src/ourouler/api/migrations/0001_comptes.sql`. `doctrine_architecture.md`
 §7 et §10.2 sont mis à jour en conséquence.
+
+---
+
+## Q60 — Les bornes des tranches de vitesse de la question « rien du tout » — **tranchée le 19/09/2026 : 2 km/h**
+
+### La réponse, et elle est mesurée
+
+**Les tranches font 2 km/h, pas 3.** Calculé sur la calibration réelle du
+mainteneur (`~/.cache/ourouler/calibration.json`, RCR 63 sorties, BMC 26),
+autour de 25 km/h :
+
+| largeur de tranche | ce qu'elle couvre | erreur depuis le milieu |
+|---|---|---|
+| 3 km/h | 26 W | ±13 W |
+| 2 km/h | 17 W | ±9 W |
+
+Le plancher de bruit de la méthode est de **15 W** ([[Q51]]). Des tranches de
+3 km/h ajoutent donc **autant d'erreur que la méthode en contient déjà** —
+elles doublent le bruit pour rien. Des tranches de 2 le ramènent nettement en
+dessous, et c'est ce qui décide.
+
+### Comment on l'a su, et pourquoi c'est un bon test de la question
+
+Le mainteneur s'est posé la question à lui-même, sur ses deux vélos. D'abord
+en choisissant dans des tranches de 3 km/h (22-25 sur le RCR, 25-28 sur le
+BMC), puis en donnant son estimation réelle : **25 et 27**.
+
+Les deux lectures ne disent pas la même chose :
+
+- par les **tranches**, milieu à milieu : 23,5 et 26,5, soit 108 W et 118 W —
+  10 W d'écart entre ses deux vélos, ce qui ferait croire qu'il produit plus
+  de puissance sur l'un que sur l'autre ;
+- par son **estimation réelle** : 25 et 27, soit 121 W et 122 W — **1,6 W
+  d'écart**. Il produit la même puissance sur les deux, et toute la différence
+  de vitesse vient du matériel, ce qui est exactement ce qu'on attend.
+
+L'écart de 10 W était donc un artefact de la largeur des tranches, pas une
+erreur de jugement du cycliste. C'est la mesure de ce que la quantification
+coûte, et elle a été obtenue en se posant la question plutôt qu'en la
+relisant.
+
+### Et une validation de la méthode, au passage
+
+À 121 W, la calibration mesurée dit que le mainteneur ferait **26,8 km/h** sur
+son BMC. Il a répondu **27**, de mémoire. L'écart est de 0,2 km/h.
+
+Ça ne prouve rien sur les autres cyclistes — n = 1, et c'est celui qui connaît
+le mieux ses propres données. Mais ça dit que la question est **répondable**
+par quelqu'un qui roule, ce qui était le doute principal sur tout le bas de
+l'entonnoir.
+
+### Ce qui reste ouvert
+
+Les bornes elles-mêmes (où commence la première tranche, où finit la
+dernière), et le traitement des deux tranches ouvertes (« moins de X »,
+« plus de Y »), qui n'ont pas de milieu. La largeur, elle, est tranchée.
+
+---
+
+## Q60 (énoncé d'origine) — Les bornes des tranches de vitesse de la question « rien du tout » — **posée le 19/09/2026**
+
+Posée en écrivant `docs/ux/parcours_accueil.md`, l'arbre du parcours
+d'accueil. Le dernier étage de l'entonnoir avant le filet générique (T5)
+pose la question validée par [[Q52]] — « sur tes sorties solo, à plat,
+sans vent et sans forcer, tu es à peu près à quelle moyenne ? » — sous
+forme de choix plutôt que de champ libre (règle posée pour tout l'arbre :
+des choix partout où c'est possible).
+
+Les tranches proposées dans le document — moins de 22 km/h, 22 à 26, 26 à
+30, plus de 30, « je ne sais pas trop » — sont **illustratives, pas
+mesurées**. [[Q51]] a validé une réponse continue, pas un découpage en
+paliers de 3 à 4 km/h ; l'argument qui rend ce découpage acceptable
+(le plancher de bruit mesuré en [[Q51]], « 15 W c'est invisible ») est
+solide mais ne dit pas où placer les bornes.
+
+*Options* : (a) garder ces bornes telles quelles ; (b) les caler sur une
+distribution réelle si le mainteneur a une idée de la répartition des
+niveaux chez les personnes qu'il compte inviter ; (c) plus ou moins de
+paliers que quatre.
+
+
+## Q61 — La taille de la fenêtre récente que le constat synchrone de l'étape Intervals doit lire — **ouverte le 19/09/2026**
+
+Même document. L'étage T1 de l'entonnoir (compte intervals.icu) doit
+rendre un **constat synchrone** — y a-t-il de la puissance, de la FC, dans
+les sorties récentes — sans attendre la synchronisation complète de
+l'historique, qui part en tâche de fond. Ce constat lit une fenêtre
+récente plutôt que tout l'historique depuis le 1ᵉʳ décembre 2023 (règle
+absolue 6).
+
+Ni le nombre de sorties ni la fenêtre de jours à lire pour ce constat ne
+sont mesurés. Trop court, le constat risque de conclure à une absence de
+capteur sur un échantillon qui n'en portait simplement pas cette
+semaine-là (la question du seuil « absence structurelle » que [[Q52]]
+pose déjà pour un historique complet, ici resserrée sur un aperçu rapide).
+Trop long, le constat cesse d'être synchrone.
+
+*Options* : (a) un nombre fixe de sorties (ex. les dix dernières,
+cohérent avec le seuil déjà retenu ailleurs) ; (b) une fenêtre de jours
+(ex. les 60 derniers jours) ; (c) le minimum des deux, ce qui vient en
+premier.
+
+
+## Q62 — Un export volumineux peut arriver en plusieurs archives — **ouverte le 19/09/2026**
+
+Le mainteneur a lu, le 19/09/2026, un vrai courriel d'export Garmin sans
+suivre le lien. Le fichier proposé au téléchargement se nomme
+`<uuid>_1.zip` — le suffixe `_1` laisse penser qu'un historique volumineux
+peut être scindé en plusieurs archives successives, chacune avec son
+propre lien.
+
+Rien dans [[Q48]] n'envisage ce cas. Si un cycliste ne colle que le
+premier lien reçu, l'import serait partiel sans que rien ne le signale —
+ni à lui, ni à nous. `docs/ux/parcours_accueil.md` §4 pose la question
+sans la trancher : l'écran de dépôt du lien (AC6-2b) doit-il accepter
+plusieurs liens à la suite, avertir explicitement qu'un seul a été traité,
+ou autre chose ?
+
+*Options* : (a) l'écran accepte un lien, en propose un second
+« si vous en avez reçu plusieurs » sans imposer de le remplir ; (b) le
+constat après traitement (couverture temporelle trouvée face à
+l'ancienneté du compte) détecte lui-même un historique tronqué et le dit ;
+(c) attendre de voir, sur une vraie archive volumineuse, si `_1` a
+vraiment un `_2` — ce qui n'est pas vérifié à ce jour, seule une archive
+d'un jour a été lue, sans suivre le lien.
+
+*Ce qui bascule* : la forme de l'écran AC6-2b, et si la question se pose
+même — le mainteneur a une archive réelle sous la main (lien valide trois
+jours à partir du 19/09/2026) qui pourrait trancher (c) directement.
+
+---
+
+## Q63 — L'étage « fréquence cardiaque » vaut moins qu'espéré, et sa place dans l'entonnoir s'en ressent — **19/09/2026**
+
+### Ce qui a été essayé, et pourquoi
+
+En relisant l'arbre de l'accueil, le mainteneur a proposé d'appliquer
+l'entonnoir **à l'intérieur** de l'étage cardiaque : demander la FCmax à qui
+la connaît, retomber sur `220 − âge` sinon. Puis, devant la mesure
+contre-intuitive de [[Q51]] (`220 − âge` fait **mieux** que la FCmax observée,
+11,5 contre 17,9 W), il a proposé la **réserve** — `(FC − FCrepos) /
+(FCmax − FCrepos)`, qui enlève le plancher du cœur au repos et corrige en
+principe exactement le décalage constaté.
+
+C'était le bon raisonnement. Il ne marche pas.
+
+### Ce que ça donne, sur ses données
+
+Fréquence de repos relevée sur un mois (intervals.icu, 20/08 au 19/09) :
+**39 à 49, médiane 45**. FCmax observée 185. Sa Z2 réelle vaut 62-71 % de
+FCmax ([[Q51]]).
+
+| échelle | sa Z2 réelle | la convention |
+|---|---|---|
+| % de FCmax | 62-71 % | 65-75 % |
+| **% de réserve** | **50-62 %** | 60-70 % |
+
+Sa Z2 reste **sous** la convention dans les deux systèmes, et l'écart
+**s'aggrave** en passant à la réserve : 3 points en dessous devient 10.
+
+### Ce qu'il faut en retenir
+
+Ni son repos ni son maximum ne sont atypiques. C'est **le rapport entre son
+cœur et sa puissance** qui lui est propre, et aucune formule universelle ne
+peut le deviner — ce qui est précisément le cas de quelqu'un qui arrive sans
+données. La réserve est la même erreur que la FCmax observée sous un autre
+habit : on affine un côté de l'équation sans toucher à l'autre, et [[Q51]]
+avait déjà écrit que « corriger la FCmax sans recalibrer la bande aggrave
+l'estimation ».
+
+**Portée** : n = 1, et c'est un calcul de position de bande, **pas** une
+mesure d'erreur de prédiction en watts. Le protocole de Q51 reste disponible
+et donnerait un MAE comparable aux 11,5 et 17,9 W déjà obtenus. Il n'a pas été
+lancé : les deux échelles plaçant le mainteneur hors convention, le gain
+attendu est faible. **À relancer si quelqu'un veut trancher pour de bon.**
+
+### La conséquence pour l'arbre d'accueil
+
+L'étage cardiaque est placé **au-dessus** de la question de vitesse dans
+`docs/ux/parcours_accueil.md`, donc présenté comme plus précis qu'elle.
+Rien ne le soutient : la seule mesure disponible donne 11,5 W pour la méthode
+cardiaque contre un facteur de vitesse dont Q51 a mesuré qu'il fait aussi bien
+sans poser de question sur le cœur. Deux suites possibles, à trancher :
+
+1. **descendre l'étage cardiaque sous la question de vitesse**, ou le retirer
+   de l'entonnoir et le garder comme un affinage ultérieur ;
+2. **le garder à sa place** et le justifier par une mesure qui n'existe pas
+   encore.
+
+Et l'arbitrage sur l'âge ([[Q39]], rouvert par l'arbre) dépend de ce choix :
+si l'étage descend ou disparaît, la question de l'âge disparaît avec lui.
+
+**Tranché le 19/09/2026, en écrivant `docs/ux/parcours_accueil.md` (révision) :**
+option 1, sortie complète de l'entonnoir plutôt que simple descente sous la
+question de vitesse. Aucune mesure ne soutient une place précise « juste en
+dessous » non plus — la garder dans l'entonnoir à quelque rang que ce soit
+aurait continué à présenter comme un étage ordinaire une méthode dont la
+seule mesure disponible dit qu'elle ne corrige pas ce qu'elle prétend
+corriger. L'étage devient un lot séparé (L8.3), annoncé « pas encore » à
+l'écran plutôt que construit sur une base qui ne tient pas. La question de
+l'âge disparaît avec lui, comme prévu.
+
+---
+
+## Q64 — Intervals donne le profil de l'athlète, et notre connecteur ne le lit pas — **19/09/2026**
+
+### Le constat, vérifié sur le compte du mainteneur
+
+`GET /api/v1/athlete/{id}` d'Intervals.icu rend, pour qui a rempli son profil,
+tout ce que le parcours d'accueil s'apprêtait à demander :
+
+| champ | valeur relevée |
+|---|---|
+| FTP vélo | 235 W |
+| FCmax vélo | 177 |
+| LTHR | 161 |
+| zones de puissance | 50 / 70 / 90 / 103 / 120 / 150 % |
+| zones cardiaques | 113 / 132 / 138 / 156 / 165 / 173 |
+| poids | 90,7 kg |
+| FC de repos | 48 |
+| date de naissance | renseignée |
+
+**`src/ourouler/connecteurs/intervals.py` n'appelle jamais cette route.** Il
+lit `activities`, `gear`, `events` et le fichier d'une activité — les sorties,
+jamais le réglage. C'est ce qui explique qu'un compte branché sur Intervals
+garde malgré tout la FTP du fichier serveur.
+
+### Ce que ça change pour l'accueil
+
+Ce n'est plus « poser la question à tout le monde », c'est **lire puis faire
+confirmer** :
+
+> On a trouvé dans ton profil Intervals : FTP 235 W, FCmax 177, poids 90,7 kg.
+> C'est toujours d'actualité ? ○ oui ○ je corrige
+
+La personne garde le dernier mot — ce que [[Q52]] demande, la valeur déclarée
+étant « le jugement de la personne sur elle-même » — sans avoir à taper ce
+qu'on sait déjà. Et ça fait tomber d'un coup le poids, la FCmax, l'âge : une
+grande partie du socle et tout l'étage cardiaque, pour qui a Intervals.
+
+**Note à la relecture (19/09/2026) : la FCmax et les zones cardiaques ne
+sont finalement pas confirmées à l'écran** ([[Q63]]) — l'étage cardiaque
+sort de l'entonnoir, et une valeur qu'on ne va pas utiliser ne mérite pas
+une ligne de confirmation de plus. Seules la FTP et le poids le sont.
+
+### Mais ça ne concerne que peu de monde, et c'est le vrai enseignement
+
+Observation du mainteneur : **peu de gens ont Intervals.** C'est l'outil d'un
+cycliste qui regarde ses données ; l'entourage sera sur Strava ou Garmin
+Connect. L'étage du haut est donc le meilleur **et le plus rare**, et celui du
+bas le plus grossier **et le plus fréquenté**.
+
+C'est l'inverse de la façon dont un entonnoir se construit d'habitude — on
+soigne le haut, on bâcle le bas. Ici, **les deux questions à choix (terrain et
+moyenne compteur) sont le produit**, pas le filet. Elles méritent le plus de
+soin, pas le moins.
+
+### À vérifier, et c'est peut-être ce qui rattrape le terrain
+
+**Une archive Garmin contient-elle aussi le profil** — poids, FCmax, zones,
+date de naissance ? Si oui, l'étage export récupère gratuitement ce que la
+route Intervals donne, et il sert bien plus de monde. Ça décide aussi de ce
+qu'on met dans la liste blanche d'entrées.
+
+Vérifiable sur l'archive réelle du mainteneur (lien Garmin reçu le 19/09,
+valable jusqu'au 22). Non fait à ce jour.
+
+### Une précision que ça apporte à [[Q51]]
+
+La FCmax **déclarée** du mainteneur dans Intervals est **177**. La FCmax
+**observée** dans ses sorties était **185**. Deux nombres pour la même notion.
+La mesure de Q51 qui donnait 17,9 W portait sur l'**observée** — elle ne dit
+donc rien sur ce que vaudrait une FCmax déclarée d'un vrai test. Ça ne change
+pas sa conclusion (voir [[Q63]]), ça précise sa portée.
+
+---
+
+## Q65 — Le chiffre de FTP par défaut du filet de littérature (T5) — **ouverte le 19/09/2026**
+
+Posée en écrivant la révision de `docs/ux/parcours_accueil.md`. Le dernier
+étage de l'entonnoir (T5, « littérature seule ») doit rendre un chiffre de
+FTP plausible à partir du seul poids du cycliste et du type de vélo, pour ne
+jamais échouer. `physique/litterature.py` n'a, à ce jour, que des valeurs
+aérodynamiques (CdA, Crr) : rien n'y donne une puissance seuil.
+
+Un chiffre s'impose donc — un W/kg générique appliqué à `masse_kg` — mais
+aucune mesure du dépôt ne le soutient, contrairement aux jeux aérodynamiques
+de `litterature.py` qui sortent d'une campagne de 34 sorties. Implémenté
+comme une convention unique, non distinguée par usage (route/clm), faute de
+toute mesure qui justifierait un écart entre les deux — inventer une
+distinction non mesurée serait pire que de n'en poser aucune.
+
+*Options* : (a) garder une seule valeur générique, prudente (autour de
+2,0 à 2,5 W/kg, plage habituellement citée pour un cycliste amateur non
+entraîné spécifiquement) ; (b) la distinguer par usage si une mesure future
+le justifie, sur le modèle de [[Q57]] ; (c) une méthode plus fine (âge,
+fréquence de pratique déclarée) — écartée pour l'instant, elle demanderait
+de redemander des informations que l'entonnoir a précisément pour but de ne
+pas réclamer.
+
+*Ce qui bascule* : uniquement la précision du filet de dernier recours — la
+mention « générique, à partir de votre poids et de votre vélo seuls » reste
+affichée quel que soit le chiffre retenu, donc aucun écran ne ment tant que
+la convention n'est pas présentée comme une mesure.
