@@ -151,8 +151,12 @@ leur sprint : pas de squelette vide « pour plus tard ».
 - **Une base serveur, un compte, une API web** tant que la CLI ne couvre pas
   le besoin du mainteneur. On garde la porte ouverte (principe « le cœur ne
   sait pas où il tourne », chapitre 10), on ne la franchit pas.
-- **Un mot de passe stocké chez nous, un jour.** L'authentification sera
-  déléguée (Google, Apple) ; voir chapitre 10.
+- **Un secret d'authentification stocké en clair.** L'entrée se fait par
+  invitation, puis le compte porte **un moyen de s'authentifier dont la
+  forme est ouverte** — mot de passe, passkey, autre (§10.2, révisé le
+  18/09/2026). Ce qu'on refuse n'est pas une forme en particulier, c'est
+  **le secret en clair, quelle que soit sa forme et où que ce soit** : base,
+  journal, `repr`, message d'erreur.
 - **Copier une clé ou un jeton dans le dépôt, un test ou une fixture.** Sans
   exception.
 - **Une moyenne de modèles météo.** Le désaccord est une information, on
@@ -189,9 +193,10 @@ Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
 et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.
 Le **chemin d'authentification** de cette phrase (« déléguée, Google
-d'abord ») a été révisé le 16/09 et reconfirmé le 17/09 : voir §10.2, qui
-fait foi — compte chez nous sans mot de passe d'abord, Google et Apple
-ensuite et en plus.
+d'abord ») a été révisé le 16/09, précisé le 17 et le 18/09 : voir §10.2,
+qui fait foi — compte chez nous par invitation, puis un moyen
+d'authentification dont la forme est ouverte et le secret jamais en clair ;
+Google et Apple ensuite et en plus.
 Rien de ce chapitre ne se construit avant que la CLI couvre le besoin du
 mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœur.
 
@@ -298,18 +303,94 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 
 ### 10.2 Ce qu'on décide maintenant, pour construire plus tard
 
-- **Authentification : jamais de mot de passe chez nous.** Le principe ne
-  bouge pas ; le chemin, si — **révisé le 16/09/2026 par le mainteneur**, au
-  moment d'ouvrir le cycle UX (`docs/ux/cycle_ux_contrat.md`).
+- **Authentification : par invitation, puis un moyen dont la forme est
+  ouverte.** Le principe d'un chemin propriétaire (pas de délégation à un
+  tiers en entrée) ne bouge pas ; ce qu'il embarque, si — **révisé le
+  16/09/2026** puis encore le **18/09/2026** par le mainteneur (« c'est pas
+  une banque » ; « je trouve que tu compliques les choses, on va revenir au
+  basique »).
+
+  **« Jamais de mot de passe chez nous » était la version du 16/09 ; elle ne
+  tient plus** — mais ce qui la remplace n'est pas « mot de passe » non plus.
+  Le mainteneur l'a posé comme un principe, pas comme un choix de technique :
+  *« un compte dans la vie c'est un login et un mot de passe »*, puis
+  aussitôt *« après on peut changer le mot de passe par plein de trucs,
+  passkey, lien, empreinte »*. Le compte porte donc **un moyen de
+  s'authentifier**, et la forme de ce moyen est ouverte.
+
+  Ce que la doctrine fixe, et qui ne dépend pas de la forme : **le secret
+  n'est jamais en clair**, où que ce soit (base, journal, `repr`, message
+  d'erreur), et il se vérifie en temps constant. Aujourd'hui c'est un mot de
+  passe haché au scrypt avec un sel par compte, parce que c'est le plus
+  simple à écrire ; une passkey s'ajoutera **sans changer le schéma** — le
+  compte range une méthode et un secret, et rien d'autre du produit ne sait
+  lequel des deux il porte. Détail d'implémentation :
+  `src/ourouler/api/comptes.py`.
 
   **V1 : entrée modérée, par lien à usage unique.** Une demande d'accès, que
   le mainteneur valide à la main, puis un e-mail d'invitation (Brevo)
-  portant un lien de connexion ; ensuite l'utilisateur peut poser une
-  **passkey** (WebAuthn) pour ne plus dépendre de sa boîte mail. Deux
-  raisons de préférer ça à ce qui était écrit ici avant : la **modération
-  est native** — le sprint 8 veut qu'on invite des copains, et par-dessus
-  une connexion Google il aurait fallu construire une liste d'attente — et
-  l'écran d'entrée nous appartient, au lieu d'être celui d'un tiers.
+  portant un lien qui fait poser son moyen d'authentification ; une
+  **passkey** (WebAuthn) pourra s'ajouter plus tard pour ne plus dépendre de
+  sa boîte mail — non écrite aujourd'hui, voir plus bas la petite
+  indirection qui lui laisse la place. Deux raisons de préférer ce chemin à ce qui était écrit ici avant :
+  la **modération est native** — le sprint 8 veut qu'on invite des copains,
+  et par-dessus une connexion Google il aurait fallu construire une liste
+  d'attente — et l'écran d'entrée nous appartient, au lieu d'être celui d'un
+  tiers.
+
+  **Précisé le 18/09/2026 par le mainteneur, à l'ouverture du lot L7.2-A, et
+  ce n'est pas un détail de V1 : l'entrée est sur invitation *uniquement*, et
+  définitivement — y compris pour la version publique.** Il n'y a jamais de
+  création de compte à la demande : pas de formulaire d'inscription, pas de
+  demande d'accès, pas de liste d'attente. Le seul chemin vers un compte est
+  un lien envoyé par le mainteneur, et **son propre compte passe par ce
+  chemin-là**, sans exception ni trappe d'amorçage. La phrase « une demande
+  d'accès, que le mainteneur valide à la main » ci-dessus décrivait un
+  guichet qui n'existera pas ; ce qui reste vrai d'elle, c'est que rien
+  n'entre sans un geste du mainteneur.
+
+  Deux conséquences techniques, écrites au même moment parce qu'elles ne se
+  rattrapent pas :
+
+  - **« En base l'email est UNIQ, c'est pas le code qui porte ce genre de
+    contrôle sinon catastrophe ; mais oui on a un id-account avec un id à
+    nous qui est la clé. »** Toute unicité est une **contrainte de base de
+    données**, jamais une vérification préalable dans le code : un `SELECT`
+    puis `INSERT` se fait doubler par deux requêtes concurrentes. On insère
+    (`ON CONFLICT … DO NOTHING`, jamais un `SELECT` puis un `INSERT`). De
+    même, une invitation se consomme par un unique `UPDATE … WHERE … AND
+    consomme_le IS NULL … RETURNING`.
+  - **Le jeton d'invitation, lui, est en clair — révisé le 18/09/2026.**
+    La version du 17/09 ne stockait que son condensé (SHA-256) ; le
+    mainteneur est revenu dessus explicitement : il veut pouvoir relire un
+    jeton émis et le renvoyer par le canal de son choix, ce qu'un condensé
+    interdit. Le risque est repris par deux bornes plutôt que par
+    l'irréversibilité du condensé : une durée de vie courte — **trois jours**
+    au lieu de sept — et le fait qu'un lien n'ouvre jamais qu'un compte
+    **vide** (aucun moyen de s'authentifier n'y est posé avant l'activation).
+    Ce qui ne change pas : le jeton ne doit **jamais partir dans un
+    journal** — c'est une règle de code (les `__repr__` d'`Invitation` et
+    `InvitationEmise` le masquent), pas une règle de schéma.
+
+  **Le cycle complet, décidé le 18/09/2026 ([[Q59]], close) :** inviter une
+  adresse crée un compte inactif et une invitation ; ouvrir le lien ne
+  consomme rien ; poser un mot de passe active le compte **et** consomme
+  l'invitation, les trois dans une seule transaction — un compte actif sans
+  secret, ou un secret posé sur une invitation déjà consommée, sont des
+  états que la base elle-même refuse. Réinviter passe par la **même**
+  commande, qui lit l'état : un compte déjà actif est refusé (« il a déjà un
+  compte », jamais un doublon — « pas d'interface ne veut pas dire pas de
+  contrôle ») ; un compte inactif dont l'invitation court encore se voit
+  rendre **le même jeton**, ce que le jeton en clair permet enfin ; une
+  invitation périmée est remplacée par une neuve. Il n'y a pas de geste
+  séparé « relancer » : une seule commande suffit.
+
+  **Le secret est rangé derrière une petite indirection** (une colonne qui
+  nomme la méthode d'authentification, une qui porte le secret) plutôt que
+  dans une colonne « mot de passe » directe — parce que le mot de passe ne
+  restera pas le seul moyen (une passkey, plus tard — voir le paragraphe V1
+  ci-dessus). L'abstraction s'arrête à ces deux colonnes : il n'y a pas de
+  passkey aujourd'hui, et le code n'en écrit pas l'ombre.
 
   **V2 : Google, puis Apple, en plus et non à la place.** OpenID Connect
   avec ses contraintes propres côté Apple — compte développeur payant, clé
