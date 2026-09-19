@@ -374,6 +374,50 @@ def test_deux_invitations_simultanees_sur_une_adresse_neuve_ne_font_qu_un_compte
     assert total_invitations == 1
 
 
+# --- invitations_en_cours (lot L7.2-B) ---------------------------------------
+
+
+def test_invitations_en_cours_rend_l_adresse_et_le_jeton(depot: DepotComptes):
+    emise = depot.inviter("attendue@exemple.invalid")
+    en_cours = depot.invitations_en_cours()
+    assert len(en_cours) == 1
+    assert en_cours[0].jeton == emise.jeton
+    assert en_cours[0].email == "attendue@exemple.invalid"
+    assert en_cours[0].expire_le == emise.invitation.expire_le
+
+
+def test_invitations_en_cours_exclut_les_invitations_consommees(depot: DepotComptes):
+    emise = depot.inviter("consommee@exemple.invalid")
+    depot.activer(emise.jeton, MOT_DE_PASSE)
+    assert depot.invitations_en_cours() == []
+
+
+def test_invitations_en_cours_exclut_les_invitations_expirees(depot: DepotComptes):
+    depart = datetime(2026, 9, 1, 12, tzinfo=UTC)
+    depot.inviter("expiree@exemple.invalid", duree=timedelta(days=3), maintenant=depart)
+    en_cours = depot.invitations_en_cours(maintenant=depart + timedelta(days=10))
+    assert en_cours == []
+    # Et elle redevient visible si on regarde avant son échéance.
+    en_cours_avant = depot.invitations_en_cours(maintenant=depart + timedelta(days=1))
+    assert len(en_cours_avant) == 1
+
+
+def test_invitations_en_cours_triees_par_creation(depot: DepotComptes):
+    depart = datetime(2026, 9, 1, 12, tzinfo=UTC)
+    depot.inviter("premiere@exemple.invalid", maintenant=depart)
+    depot.inviter("seconde@exemple.invalid", maintenant=depart + timedelta(hours=1))
+    en_cours = depot.invitations_en_cours(maintenant=depart + timedelta(hours=2))
+    assert [i.email for i in en_cours] == ["premiere@exemple.invalid", "seconde@exemple.invalid"]
+
+
+def test_le_repr_d_une_invitation_avec_adresse_ne_montre_ni_jeton_ni_adresse(depot: DepotComptes):
+    depot.inviter("masquee@exemple.invalid")
+    en_cours = depot.invitations_en_cours()[0]
+    assert "masquee@exemple.invalid" not in repr(en_cours)
+    assert en_cours.jeton not in repr(en_cours)
+    assert "jeton=<masqué>" in repr(en_cours) and "email=<masqué>" in repr(en_cours)
+
+
 # --- activer -----------------------------------------------------------------
 
 
