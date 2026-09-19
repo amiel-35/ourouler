@@ -1237,6 +1237,34 @@ def test_une_application_sans_profil_dit_qu_elle_n_en_a_pas_et_comment_en_avoir_
     )
 
 
+def test_intervals_jamais_relie_n_est_pas_une_demande_invalide():
+    """« Cette demande n'est pas valide » pour une source qu'on n'a pas branchée.
+
+    Le premier compte invité (19/09/2026) est arrivé sur l'écran d'aujourd'hui
+    et a lu ça, suivi de « compléter [intervals] athlete_id et api_key dans la
+    configuration » — le vocabulaire d'un fichier TOML que personne d'autre
+    que le mainteneur ne verra jamais. Ce n'est ni une faute de l'appelant, ni
+    une panne : c'est une source de données que ce cycliste n'a pas encore
+    reliée, et elle a désormais son code à elle.
+
+    Le texte reste celui du cœur, où il est juste pour la ligne de commande ;
+    c'est le **type** de l'exception qui permet à l'API de le classer, et au
+    front de le remplacer par une phrase et un bouton vers les réglages.
+    """
+    from ourouler.api.erreurs import classer
+    from ourouler.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
+
+    panne = classer(ErreurIntervalsAbsent("séance : Intervals.icu n'est pas renseigné"))
+    assert panne.code == "intervals_absent"
+    assert panne.statut == 409, "ni 4xx de forme, ni 5xx : l'état du compte n'est pas prêt"
+
+    # La contre-épreuve : une `ErreurUtilisateur` ordinaire reste, elle, une
+    # demande invalide. Sans ça, « ne pas dire requete_invalide » s'obtiendrait
+    # en ne le disant plus jamais.
+    ordinaire = classer(ErreurUtilisateur("jour : format attendu AAAA-MM-JJ"))
+    assert ordinaire.code == "requete_invalide"
+
+
 def test_les_routes_de_donnees_repondent_toutes_la_meme_chose_sans_profil():
     """Une seule phrase, partout : une liste d'exceptions se remplirait toute seule."""
     client = TestClient(creer_application(), raise_server_exceptions=False)

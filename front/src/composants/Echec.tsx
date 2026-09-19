@@ -208,6 +208,31 @@ export function Echec({
     );
   }
 
+  // --- Intervals jamais relié : ni une panne, ni une faute.
+  //
+  // À distinguer de `intervals_refuse` juste en dessous, qui dit « votre clé
+  // a cessé de marcher » : celui-ci s'adresse à quelqu'un qui n'en a jamais
+  // eu. L'API rendait `requete_invalide` pour les deux, donc le premier
+  // compte invité lisait « Cette demande n'est pas valide » et se voyait
+  // renvoyé vers une section `[intervals]` d'un fichier TOML qu'il ne verra
+  // jamais (constaté le 19/09/2026, sur le premier parcours complet).
+  if (erreur.code === "intervals_absent") {
+    return (
+      <Cadre titre={contexte ?? "Vos séances"}>
+        <div className="encart">
+          <b>Votre compte intervals.icu n'est pas encore relié.</b> C'est lui qui donne la
+          séance du jour et l'historique dont le modèle apprend.
+        </div>
+        <p>
+          <a className="bouton" href="/?onglet=reglages">
+            Le relier dans les réglages
+          </a>
+        </p>
+        {secours}
+      </Cadre>
+    );
+  }
+
   // --- E15 · échec : la clé marchait, et elle a cessé.
   if (erreur.code === "intervals_refuse") {
     // C11 : le titre annonçait « Cette semaine » même quand la panne venait

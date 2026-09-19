@@ -93,6 +93,7 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import (
     ErreurConnecteur,
     ErreurDistanceInatteignable,
+    ErreurIntervalsAbsent,
     ErreurUtilisateur,
 )
 from ourouler.meteo import portee
@@ -691,7 +692,7 @@ def _seance(demande: Demande, config: Config, client: ClientIntervals | None) ->
         )
     if client is None:
         if not config.intervals.renseigne:
-            raise ErreurUtilisateur(
+            raise ErreurIntervalsAbsent(
                 "sortie : Intervals.icu n'est pas renseigné — compléter [intervals] "
                 "athlete_id et api_key dans la configuration"
             )

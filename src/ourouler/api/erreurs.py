@@ -41,6 +41,7 @@ from ourouler.erreurs import (
     ErreurConnecteur,
     ErreurDistanceInatteignable,
     ErreurHorsDomaine,
+    ErreurIntervalsAbsent,
     ErreurLecture,
     ErreurUtilisateur,
 )
@@ -109,6 +110,11 @@ CODES_PANNE: dict[str, str] = {
         "clé, pas vers « réessayer » (E15 · échec)"
     ),
     "intervals_indisponible": "panne côté Intervals.icu",
+    # Ni une panne ni une faute : ce cycliste n'a simplement pas encore relié
+    # son compte Intervals. Distingué de `requete_invalide` le 19/09/2026, sur
+    # le premier compte invité — l'écran lui disait que sa demande n'était pas
+    # valide et l'envoyait éditer un fichier TOML qu'il ne verra jamais.
+    "intervals_absent": "Intervals.icu n'est pas relié à ce compte",
     "geocodage_indisponible": "BAN ou Nominatim en erreur",
     "service_externe_indisponible": "un service externe non reconnu",
     "configuration_invalide": "le TOML du serveur ne charge pas",
@@ -361,6 +367,10 @@ def classer(
         )
     if isinstance(exception, ErreurConnecteur):
         return _connecteur(message)
+    # **Avant** `ErreurUtilisateur` et son `requete_invalide` : une source de
+    # données qu'on n'a pas encore reliée n'est pas une demande invalide.
+    if isinstance(exception, ErreurIntervalsAbsent):
+        return ErreurApi(code="intervals_absent", message=message, statut=409)
     if isinstance(exception, ErreurLecture):
         return ErreurApi(code="fichier_illisible", message=message, statut=422)
     if isinstance(exception, ErreurProfilAbsent):

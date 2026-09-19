@@ -14,6 +14,23 @@ class ErreurConfig(ErreurUtilisateur, ValueError):
     """Configuration absente, incomplète ou invalide. Le message nomme le champ."""
 
 
+class ErreurIntervalsAbsent(ErreurUtilisateur):
+    """Intervals.icu n'est pas branché, et la commande demandée en a besoin.
+
+    Ce n'est pas une demande invalide, et ce n'est pas une panne : c'est une
+    source de données que ce cycliste n'a pas encore reliée. La distinction ne
+    servait à rien tant que seule la ligne de commande appelait — le
+    mainteneur éditait son TOML et recommençait. Elle compte dès qu'une
+    interface le lit : le front rendait « Cette demande n'est pas valide » et
+    renvoyait éditer une section `[intervals]` que personne d'autre que le
+    mainteneur ne verra jamais (constaté le 19/09/2026, sur le premier compte
+    invité).
+
+    Le texte porté par l'exception reste celui de la ligne de commande, où il
+    est juste. C'est le **type** qui permet à l'API de le traduire.
+    """
+
+
 class ErreurLecture(ErreurUtilisateur):
     """Fichier d'activité illisible (vide, tronqué, format inconnu)."""
 
