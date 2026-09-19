@@ -67,6 +67,29 @@ export interface Panne {
   details: Record<string, unknown>;
 }
 
+/**
+ * Les quatre routes de session (lot L7.2-D, `api/routes.py` : « comptes et
+ * sessions »). Elles précèdent tout propriétaire, donc rendent seulement
+ * `donnees` — jamais l'enveloppe complète (`Enveloppe`) ni la forme courte
+ * des routes de profil (`Simple`, qui porte un `proprietaire` que ces
+ * quatre-là n'ont pas encore).
+ */
+export interface DonneesSeules<T> {
+  donnees: T;
+}
+
+/** `GET /invitation` : l'état d'un jeton, sans le consommer. */
+export interface Invitation {
+  email: string;
+  /** ISO 8601, avec l'heure — pas seulement une date (`comptes.DUREE_INVITATION`). */
+  expire_le: string;
+}
+
+/** `POST /entrer` et `POST /connexion` : la session vient de s'ouvrir. */
+export interface AccesOuvert {
+  proprietaire: string;
+}
+
 // --- profil -------------------------------------------------------------
 
 export interface PointDepart {

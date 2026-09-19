@@ -5,7 +5,8 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ErreurApi } from "../src/api/client";
 import { Echec, meteoManquante } from "../src/composants/Echec";
 import { Barriere } from "../src/composants/Barriere";
@@ -13,7 +14,7 @@ import { Propositions } from "../src/ecrans/Propositions";
 import { Aujourdhui } from "../src/ecrans/Aujourdhui";
 import { App } from "../src/App";
 import { Serveur, panne } from "./serveur";
-import { PROFIL, SEMAINE, SYSTEME, sortie } from "./fixtures";
+import { PROFIL, SEMAINE, SYSTEME, sortie, zones } from "./fixtures";
 
 function erreur(code: string, message: string, statut = 502) {
   return new ErreurApi({ code, message, service: null, details: {} }, statut);
@@ -374,35 +375,122 @@ describe("une panne au démarrage ne fige pas l'application", () => {
   });
 
   /**
-   * `session_absente` (lot L7.A, mergé pendant ce lot-ci) : un service exposé
-   * sans méthode de connexion branchée refuse **`/systeme`**, le tout premier
-   * appel de l'application — avant même le profil et les zones. C'est le cas
-   * le plus probable en usage réel, pas un cas rare, et exactement le défaut
-   * muet du 17/09 si l'écran ne le nomme pas.
+   * `session_absente` a un écran de connexion depuis le lot L7.2-D
+   * (19/09/2026) — avant, aucune méthode d'authentification n'existait, et
+   * ce test vérifiait explicitement l'inverse : ni formulaire, ni bouton
+   * « se connecter ». Maintenant qu'un compte et un mot de passe existent
+   * (`/entrer`, `/connexion`), laisser l'ancienne affirmation aurait figé un
+   * refus qui n'a plus lieu d'être — la même erreur que la relecture du
+   * 17/09/2026 mettait en garde contre, ailleurs dans ce fichier.
+   *
+   * Ce test couvre les deux moitiés de l'exigence : l'écran de connexion
+   * s'affiche sur le 401 (pas l'ancien écran muet), et une fois connecté
+   * l'application reprend **sans y reboucler** — la session étant ouverte,
+   * `/systeme` etc. répondent, et « Se connecter » disparaît pour de bon.
    */
-  it("nomme l'absence de session dès /systeme, sans promettre un écran de connexion", async () => {
+  /**
+   * Le cas que le précédent ne couvrait pas, et qui arrivait quand même.
+   *
+   * Le test au-dessus rebranche tout le serveur d'un coup : aucune requête ne
+   * reste en vol par-dessus la reconnexion. La vraie vie, si — le cookie
+   * expire pendant qu'une recherche de sortie tourne, le cycliste se
+   * reconnecte, puis la vieille requête revient avec son 401 et le ramène à
+   * l'écran de connexion sans qu'il comprenne pourquoi.
+   *
+   * Trouvé en relecture le 19/09/2026, sur du code dont le premier test
+   * passait déjà.
+   */
+  it("un 401 en retard, arrivé après la reconnexion, ne rouvre pas l'écran", async () => {
+    let connecte = false;
+    let repondreEnRetard: (() => void) | null = null;
     const serveur = new Serveur({
-      "/api/v1/systeme": panne(
-        "session_absente",
-        "aucune session ouverte — cette route sert des données personnelles, et ce " +
-          "serveur ne sait pas encore à qui elles appartiennent",
-        401,
-      ),
+      "/api/v1/systeme": () =>
+        connecte ? { charge: SYSTEME } : panne("session_absente", "aucune session ouverte", 401),
+      "/api/v1/profil/zones": () =>
+        connecte ? { charge: zones() } : panne("session_absente", "aucune session ouverte", 401),
+      // Celle-ci ne répond **jamais** tout de suite : elle reste en vol, et
+      // on la fait revenir à la main, après la reconnexion.
+      "/api/v1/profil": () =>
+        connecte
+          ? { charge: PROFIL }
+          : new Promise<ReturnType<typeof panne>>((resoudre) => {
+              repondreEnRetard = () =>
+                resoudre(panne("session_absente", "aucune session ouverte", 401));
+            }),
+      "/api/v1/connexion": () => {
+        connecte = true;
+        return { charge: { donnees: { proprietaire: "essai" } } };
+      },
     });
     serveur.installer();
     render(<App />);
 
-    expect(
-      await screen.findByRole("heading", { name: "Ce serveur ne sait pas encore qui vous êtes" }),
-    ).toBeTruthy();
-    expect(screen.getByText(/ne sait pas encore à qui elles appartiennent/)).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Se connecter" })).toBeTruthy();
+
+    const utilisateur = userEvent.setup();
+    await utilisateur.type(screen.getByLabelText("Adresse"), "cycliste@exemple.invalid");
+    await utilisateur.type(screen.getByLabelText("Mot de passe"), "un-secret-de-test");
+    await utilisateur.click(screen.getByRole("button", { name: "Se connecter" }));
+
+    expect(await screen.findByRole("navigation", { name: "Navigation principale" })).toBeTruthy();
+
+    // Et maintenant, la requête d'avant revient — trop tard.
+    expect(repondreEnRetard).not.toBeNull();
+    await act(async () => {
+      repondreEnRetard!();
+      // Deux tours de boucle : le `await` du corps de la réponse, puis celui
+      // du client. Un seul laissait le 401 en chemin, et le test verdissait
+      // sans avoir rien mesuré.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("heading", { name: "Se connecter" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Navigation principale" })).toBeTruthy();
+  });
+
+  it("un 401 session_absente amène l'écran de connexion, et n'y reboucle pas après connexion", async () => {
+    let connecte = false;
+    const serveur = new Serveur({
+      "/api/v1/systeme": () =>
+        connecte ? { charge: SYSTEME } : panne("session_absente", "aucune session ouverte", 401),
+      "/api/v1/profil/zones": () =>
+        connecte
+          ? { charge: zones() }
+          : panne("session_absente", "aucune session ouverte", 401),
+      "/api/v1/profil": () =>
+        connecte ? { charge: PROFIL } : panne("session_absente", "aucune session ouverte", 401),
+      "/api/v1/connexion": () => {
+        connecte = true;
+        return { charge: { donnees: { proprietaire: "essai" } } };
+      },
+    });
+    serveur.installer();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Se connecter" })).toBeTruthy();
     expect(screen.queryByText("Connexion au serveur…")).toBeNull();
-    // Aucune méthode d'authentification n'est choisie (hors périmètre du
-    // sprint) : ni bouton « se connecter », ni « Réessayer » — se reconnecter
-    // n'a aucune chance d'aboutir tant que rien n'existe pour le faire.
-    expect(screen.queryByRole("button", { name: "Réessayer" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /connecter/i })).toBeNull();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    // L'ancien écran (fixe, sans geste possible) ne doit plus jamais apparaître ici.
+    expect(
+      screen.queryByRole("heading", { name: "Ce serveur ne sait pas encore qui vous êtes" }),
+    ).toBeNull();
+
+    const utilisateur = userEvent.setup();
+    await utilisateur.type(screen.getByLabelText("Adresse"), "cycliste@exemple.invalid");
+    await utilisateur.type(screen.getByLabelText("Mot de passe"), "un-secret-de-test");
+    await utilisateur.click(screen.getByRole("button", { name: "Se connecter" }));
+
+    // La session est ouverte : l'application reprend, et ne rouvre pas
+    // l'écran de connexion derrière elle.
+    expect(await screen.findByRole("navigation", { name: "Navigation principale" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Se connecter" })).toBeNull();
+
+    const requetesConnexion = serveur.vers("/api/v1/connexion");
+    expect(requetesConnexion).toHaveLength(1);
+    expect(requetesConnexion[0].corps).toEqual({
+      email: "cycliste@exemple.invalid",
+      secret: "un-secret-de-test",
+    });
   });
 });
 

@@ -162,47 +162,19 @@ export function Echec({
     );
   }
 
-  // --- Le serveur a répondu, et il refuse : il ne sait pas encore qui parle.
+  // --- Le serveur a répondu, et il refuse : il ne sait pas qui parle.
   //
-  // Trouvé le 18/09/2026 (lot L7.A, mergé pendant ce lot-ci) : un service
-  // exposé (`OUROULER_MODE=heberge`, ou l'absence de la variable) répond
-  // 401 `session_absente` à **toute** route de données, y compris `/systeme`
-  // — le tout premier appel de l'application, avant même l'écran vide de
-  // démarrage. Sans ce cas, l'écran serait resté sur « Connexion au
-  // serveur… » pour toujours : exactement le défaut muet du 17/09 que ce
-  // lot existe pour tuer, et le cas le plus probable en usage réel plutôt
-  // qu'un cas rare.
-  //
-  // **Pas d'écran de connexion.** Aucune méthode d'authentification n'est
-  // choisie — c'est hors périmètre du sprint (`docs/sprint7_contrat.md`,
-  // « hors périmètre »). Un formulaire ou un bouton « se connecter » qui ne
-  // mènerait nulle part serait une fausse promesse ; l'écran se contente de
-  // dire ce qui manque, sans `reessayer` — se reconnecter n'a aucune chance
-  // d'aboutir tant que rien n'existe pour le faire.
-  if (erreur.code === "session_absente") {
-    return (
-      <Cadre contexte={contexte} titre="Ce serveur ne sait pas encore qui vous êtes">
-        {/* Le message du serveur commence lui-même par « aucune session
-            ouverte » : le redire en gras faisait bégayer l'écran — constaté
-            dans le navigateur le 18/09/2026. On garde le message du serveur,
-            qui porte en plus la marche à suivre pour un usage local, et le
-            titre du cadre dit déjà l'essentiel. */}
-        <div className="encart alerte">{erreur.message}</div>
-        <div className="bloc doux">
-          <div className="bloc-tete">
-            <h2>Ce qui manque</h2>
-          </div>
-          <p className="mention">
-            Ce service peut servir plusieurs cyclistes, et aucune méthode de connexion n'est
-            encore branchée ici — ni compte, ni lien, ni mot de passe. Ce n'est pas une panne :
-            ce serveur ne peut simplement montrer les données de personne tant que ça
-            n'existe pas. Il n'y a rien à faire ici pour l'instant.
-          </p>
-        </div>
-        {secours}
-      </Cadre>
-    );
-  }
+  // Trouvé le 18/09/2026 (lot L7.A) : un service exposé répond 401
+  // `session_absente` à **toute** route de données, y compris `/systeme` —
+  // le tout premier appel de l'application. `session_absente` n'a plus
+  // d'écran dédié ici depuis le lot L7.2-D (19/09/2026) : `App.tsx`
+  // intercepte ce code **avant** qu'`Echec` ne soit atteint, et affiche
+  // l'écran de connexion à la place (`écrans/Connexion.tsx`) — se
+  // reconnecter est redevenu un geste qui aboutit, maintenant qu'il existe
+  // un compte et un mot de passe. Le code garde tout de même son entrée
+  // dans le tableau générique ci-dessous, en filet : si un appel échappait
+  // un jour à cette interception, mieux vaut un titre nommé que le
+  // générique.
 
   // --- E18 · échec : aucune boucle dans la tolérance de distance.
   if (erreur.code === "aucune_boucle") {
@@ -300,6 +272,15 @@ export function Echec({
   // silence dans le générique — c'est ainsi que `session_absente` (L7.A,
   // mergé pendant ce lot) a été trouvé, et il a son propre écran plus haut.
   const titres: Record<string, string> = {
+    // Sans écran dédié : `App.tsx` intercepte ces quatre codes avant qu'ils
+    // n'atteignent `Echec` (lot L7.2-D — l'écran de connexion, ou celui
+    // d'activation d'une invitation, les traite lui-même). Un titre nommé
+    // reste ici en filet, pour le jour où l'un d'eux échapperait à cette
+    // interception.
+    session_absente: "Vous n'êtes plus connecté",
+    invitation_invalide: "Ce lien d'invitation n'est plus valable",
+    identifiants_refuses: "Adresse ou mot de passe refusés",
+    comptes_indisponibles: "Ce serveur ne gère pas de comptes",
     requete_invalide: "Cette demande n'est pas valide",
     profil_invalide: "Ce réglage ne tient pas",
     fichier_illisible: "Ce fichier n'a pas été compris",

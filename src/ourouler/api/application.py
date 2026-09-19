@@ -29,7 +29,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as ExceptionHTTP
 
@@ -51,6 +51,19 @@ from ourouler.config import Config
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"
+
+#: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` (lot
+#: L7.2-D) : toute route de l'API, la sonde de santé, et les deux chemins du
+#: schéma publié. Large exprès sur `/api/` plutôt que le seul `/api/v1/` du
+#: routeur actuel — un `/api/v2` futur doit rester du JSON sans qu'on ait à y
+#: repenser.
+#:
+#: `"/api"` y figure **en plus** de `"/api/"`, et ce n'est pas un doublon :
+#: `"/api".startswith("/api/")` est faux, donc le chemin `/api` tout court
+#: passait la garde et rendait `index.html` en 200. Une base d'URL mal
+#: construite ou une sonde générique recevait du HTML là où elle attendait une
+#: erreur (relecture du 19/09/2026).
+PREFIXES_HORS_FRONT = ("/api", "/sante", "/openapi.json", "/docs", "/redoc")
 
 #: La description publiée par `/openapi.json` et par `/docs`.
 #:
@@ -87,6 +100,24 @@ il se montre, il ne se lit pas.
 
 {table_des_avertissements()}
 """
+
+
+def _ressemble_a_un_fichier(chemin: str) -> bool:
+    """Ce chemin demande-t-il un **fichier**, plutôt qu'une page du front ?
+
+    Une extension dans le dernier segment (`/assets/index-a1b2c3.js`) : c'est
+    un fichier. Pas d'extension (`/entrer`, `/connexion`, `/reglages`) : c'est
+    une page, que le front dessine lui-même une fois `index.html` chargé.
+
+    Sans cette distinction, un fichier absent recevait `index.html` en 200
+    (relecture du 19/09/2026). Le cas n'est pas théorique : après un
+    déploiement, `vite` change les empreintes des fichiers, et un onglet resté
+    ouvert sur l'ancien `index.html` redemande un `assets/index-<ancienne
+    empreinte>.js` qui n'existe plus. Il recevait alors du HTML étiqueté
+    JavaScript — une erreur de syntaxe muette dans la console, au lieu d'un
+    404 que le navigateur sait nommer.
+    """
+    return "." in chemin.rsplit("/", 1)[-1]
 
 
 def creer_application(
@@ -257,7 +288,7 @@ def creer_application(
         )
 
     @app.exception_handler(ExceptionHTTP)
-    async def _erreur_du_cadre(requete: Request, erreur: ExceptionHTTP) -> JSONResponse:
+    async def _erreur_du_cadre(requete: Request, erreur: ExceptionHTTP) -> Response:
         """Les refus que le cadre web prononce lui-même sortent dans la forme du projet.
 
         Une route inconnue vaut `{"detail": "Not Found"}` chez FastAPI :
@@ -268,8 +299,26 @@ def creer_application(
         **Le chemin demandé n'est pas répété dans le message** : il vient du
         client, et un front qui l'afficherait tel quel rendrait une chaîne
         choisie par qui a formé la requête.
+
+        **Sauf pour un chemin du front** (lot L7.2-D, panne constatée en vrai
+        le 19/09/2026 : `/entrer` rendait ce 404 JSON, et le lien
+        d'invitation n'ouvrait jamais l'écran d'activation). `StaticFiles`
+        lève ce même 404 pour tout chemin où elle ne trouve pas de fichier —
+        c'est aussi ce qui arrive à `/entrer` ou `/connexion`, que le front
+        gère lui-même une fois `index.html` chargé (`front/src/App.tsx`, pas
+        de routeur : `window.location.pathname` lu au démarrage). La garde
+        est étroite et nommée : seul un 404, seulement quand `dossier_front`
+        est monté, et seulement pour un chemin qui **n'est pas** sous
+        `/api/`, `/sante`, `/openapi.json`, `/docs` ou `/redoc` — sans quoi
+        `/api/v1/inconnu` se mettrait, lui aussi, à rendre du HTML.
         """
-        del requete
+        if (
+            erreur.status_code == 404
+            and dossier_front is not None
+            and not requete.url.path.startswith(PREFIXES_HORS_FRONT)
+            and not _ressemble_a_un_fichier(requete.url.path)
+        ):
+            return FileResponse(dossier_front / "index.html", media_type="text/html")
         connus = {
             404: (
                 "route_inconnue",

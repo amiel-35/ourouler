@@ -27,7 +27,10 @@ export interface Reponse {
   texte?: string;
 }
 
-export type Table = Record<string, Reponse | ((requete: Requete) => Reponse)>;
+export type Table = Record<
+  string,
+  Reponse | ((requete: Requete) => Reponse | Promise<Reponse>)
+>;
 
 export class Serveur {
   readonly requetes: Requete[] = [];
@@ -61,7 +64,13 @@ export class Serveur {
         throw new Error(`le serveur factice ne connaît pas ${methode} ${chemin}`);
       }
       const entreeTable = this.table[cle];
-      const reponse = typeof entreeTable === "function" ? entreeTable(requete) : entreeTable;
+      // `await` : une entrée peut rendre une **promesse** de réponse, donc
+      // rester en vol aussi longtemps que le test le veut. C'est ce qui permet
+      // d'écrire le seul cas qui compte pour la session — une requête partie
+      // avant l'expiration et revenue après la reconnexion. Sans lui, une
+      // promesse était traitée comme une réponse, `statut` valait `undefined`,
+      // et le test mesurait un 200 vide au lieu du 401 qu'il croyait poser.
+      const reponse = await (typeof entreeTable === "function" ? entreeTable(requete) : entreeTable);
       const statut = reponse.statut ?? 200;
       return {
         ok: statut >= 200 && statut < 300,

@@ -10,9 +10,12 @@
  */
 
 import type {
+  AccesOuvert,
   Boucle,
+  DonneesSeules,
   Enveloppe,
   Geocodage,
+  Invitation,
   Meteo,
   Panne,
   Profil,
@@ -44,6 +47,59 @@ export const RACINE = "/api/v1";
 export const CODE_INJOIGNABLE = "serveur_injoignable";
 export const CODE_DELAI = "delai_depasse";
 export const CODE_ILLISIBLE = "reponse_illisible";
+
+/**
+ * Le code que le **serveur** rend, lui, quand aucune session n'est ouverte
+ * (`api/session.py:CODE_SANS_SESSION`, lot L7.2-D). Nommé ici, à côté des
+ * trois codes que le front fabrique, parce que c'est à cette même frontière
+ * qu'il déclenche `surSessionAbsente` ci-dessous — un seul endroit qui
+ * reconnaît ce code, plutôt qu'une chaîne « session_absente » recopiée dans
+ * chaque écran qui pourrait le recevoir.
+ */
+export const CODE_SESSION_ABSENTE = "session_absente";
+
+type EcouteurSessionAbsente = () => void;
+let ecouteurSessionAbsente: EcouteurSessionAbsente | null = null;
+
+/**
+ * Quelle session est en cours. Un simple compteur, incrémenté à chaque
+ * réouverture.
+ *
+ * **Pourquoi il faut ça.** Une requête partie avant l'expiration du cookie
+ * peut revenir *après* que le cycliste s'est reconnecté — le temps d'une
+ * recherche de sortie, c'est courant. Sans repère, son `session_absente`
+ * tardif rouvrait l'écran de connexion alors que la session venait d'être
+ * ouverte avec succès : il retapait son mot de passe sans comprendre
+ * pourquoi (trouvé en relecture le 19/09/2026, prouvé en laissant une requête
+ * en vol pendant la reconnexion).
+ *
+ * Chaque appel retient la génération sous laquelle il est parti, et ne
+ * prévient l'application que si elle n'a pas changé entre-temps. Une réponse
+ * qui parle d'une session révolue est ignorée, ce qui est exactement ce
+ * qu'elle mérite.
+ */
+let generationSession = 0;
+
+/** À appeler quand une session vient d'être ouverte : ce qui précède est périmé. */
+export function sessionRouverte(): void {
+  generationSession += 1;
+}
+
+/**
+ * S'abonne au moment où **n'importe quel** appel à l'API répond
+ * `session_absente` — un seul écouteur à la fois, c'est l'application elle-
+ * même (`App.tsx`) qui s'y abonne au montage pour afficher l'écran de
+ * connexion à la place de ce qu'elle montrait.
+ *
+ * Centralisé ici plutôt que vérifié route par route : `session_absente` peut
+ * sortir de **toute** route de données (`api/routes.py`, dépendance
+ * `proprietaire`), pas seulement des trois appels de démarrage — une séance
+ * qui expire pendant que le cycliste choisit une proposition doit amener le
+ * même écran, pas une erreur technique nue.
+ */
+export function surSessionAbsente(ecouteur: EcouteurSessionAbsente | null): void {
+  ecouteurSessionAbsente = ecouteur;
+}
 
 /**
  * Au bout de combien de temps on cesse d'attendre.
@@ -204,9 +260,19 @@ async function appeler<T>(
   delai_ms: number = DELAI_MS,
 ): Promise<T> {
   const horloge = minuterie(delai_ms, options.signal ?? undefined);
+  // Retenu **avant** de partir : c'est ce qui permettra, au retour, de savoir
+  // si la réponse parle encore de la session en cours (voir `generationSession`).
+  const generation = generationSession;
   let reponse: Response;
   try {
-    reponse = await fetch(chemin, { ...options, signal: horloge.signal });
+    // **`credentials: "same-origin"`, explicite** (lot L7.2-D). Le cookie de
+    // session est `HttpOnly` : ce module ne le lit ni ne l'écrit jamais, mais
+    // il doit accompagner chaque requête pour que le serveur sache qui parle.
+    // Le défaut du navigateur est déjà `same-origin` — et le front n'appelle
+    // que des chemins relatifs sous `/api/v1` (`front/README.md`), donc
+    // toujours la même origine que la page — mais un défaut silencieux n'est
+    // pas quelque chose sur quoi une session tout entière devrait reposer.
+    reponse = await fetch(chemin, { ...options, credentials: "same-origin", signal: horloge.signal });
   } catch (cause) {
     if (horloge.expiree()) {
       throw new ErreurApi(
@@ -248,7 +314,15 @@ async function appeler<T>(
   if (!reponse.ok) {
     const panne = (charge as { erreur?: Panne } | null)?.erreur;
     // **L'enveloppe, et elle seule, prouve que c'est l'API qui a refusé.**
-    if (panne?.code) throw new ErreurApi(panne, reponse.status);
+    if (panne?.code) {
+      // Prévenir l'application avant de jeter : le code sort de **cette**
+      // fonction pour toute route, et c'est le seul endroit qui les voit
+      // toutes passer.
+      if (panne.code === CODE_SESSION_ABSENTE && generation === generationSession) {
+        ecouteurSessionAbsente?.();
+      }
+      throw new ErreurApi(panne, reponse.status);
+    }
     // Sinon, quelque chose a répondu à la place de l'API : proxy de
     // développement dont la cible est éteinte, passerelle sans amont. Le
     // statut ne sert pas à le reconnaître — Vite rend 500, une passerelle
@@ -330,6 +404,23 @@ function poster<T>(
 }
 
 export const api = {
+  // --- comptes et sessions (lot L7.2-D) — précèdent tout propriétaire ------
+
+  /** `GET /invitation` : l'état d'un jeton, sans le consommer. */
+  invitation: (jeton: string) =>
+    appeler<DonneesSeules<Invitation>>(url("/invitation", { jeton })),
+
+  /** `POST /entrer` : active l'invitation, pose le secret choisi, ouvre la session. */
+  entrer: (jeton: string, secret: string) =>
+    poster<DonneesSeules<AccesOuvert>>("/entrer", { jeton, secret }),
+
+  /** `POST /connexion` : revient sur un compte déjà actif, sans jeton. */
+  connexion: (email: string, secret: string) =>
+    poster<DonneesSeules<AccesOuvert>>("/connexion", { email, secret }),
+
+  /** `POST /sortir` : révoque la session en cours. Toujours 200, même sans cookie. */
+  sortir: () => poster<DonneesSeules<Record<string, never>>>("/sortir", {}),
+
   systeme: () => appeler<Systeme>(url("/systeme")),
 
   profil: () => appeler<Simple<Profil>>(url("/profil")),

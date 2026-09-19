@@ -109,6 +109,84 @@ def test_le_montage_du_front_ne_masque_aucune_route_de_l_api(tmp_path: Path):
     assert "/api/v1/systeme" in schema.json()["paths"]
 
 
+def test_un_chemin_du_front_inconnu_de_staticfiles_rend_index_html(tmp_path: Path):
+    """La panne constatée en vrai le 19/09/2026 (lot L7.2-D) : `/entrer` sur un 404.
+
+    `/entrer` (l'écran d'activation d'une invitation) et `/connexion` ne
+    correspondent à aucun fichier du front construit : avant ce lot,
+    `StaticFiles` les faisait tomber sur le même 404 JSON qu'une route
+    d'API inconnue, et le lien d'invitation n'ouvrait jamais l'écran attendu
+    — la page blanche que la doctrine interdit. Le front n'a pas de routeur
+    (`front/src/App.tsx` décide sur `window.location.pathname`, une fois
+    chargé) : il lui faut `index.html`, pas un refus.
+    """
+    dist = _construire_front(tmp_path)
+    client = client_api(dossier_front=dist)
+
+    reponse = client.get("/entrer")
+    assert reponse.status_code == 200
+    assert "text/html" in reponse.headers.get("content-type", "")
+    assert "front construit" in reponse.text
+
+    reponse = client.get("/connexion")
+    assert reponse.status_code == 200
+    assert "front construit" in reponse.text
+
+
+def test_un_chemin_d_api_inconnu_ne_bascule_jamais_sur_index_html(tmp_path: Path):
+    """Le repli ne doit **jamais** avaler une route d'API — l'autre sens du test ci-dessus.
+
+    Sans cette garde, `/api/v1/inconnu` répondrait 200 en HTML au lieu du 404
+    JSON `route_inconnue` que le front sait reconnaître (`api/client.ts`,
+    `reponse_illisible`) — la panne la plus déroutante qui soit, un serveur
+    qui a l'air de répondre normalement à une route qui n'existe pas.
+    """
+    dist = _construire_front(tmp_path)
+    client = client_api(dossier_front=dist)
+    reponse = client.get("/api/v1/inconnu")
+    assert reponse.status_code == 404
+    assert reponse.json()["erreur"]["code"] == "route_inconnue"
+    assert "front construit" not in reponse.text
+
+
+def test_api_sans_barre_finale_ne_bascule_pas_non_plus(tmp_path: Path):
+    """`/api` tout court passait la garde, parce que `"/api".startswith("/api/")` est faux.
+
+    Une base d'URL mal construite ou une sonde générique interrogeait donc la
+    racine du préfixe et recevait `index.html` en 200, là où elle attendait une
+    erreur. Trouvé en relecture le 19/09/2026 ; le préfixe gardé est désormais
+    `"/api"`, qui couvre les deux.
+    """
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/api")
+    assert reponse.status_code == 404, reponse.text
+    assert "front construit" not in reponse.text
+
+
+def test_un_fichier_absent_ne_recoit_pas_index_html(tmp_path: Path):
+    """Un actif manquant doit valoir 404, pas `index.html` déguisé en JavaScript.
+
+    Le cas n'est pas théorique : `vite` change l'empreinte des fichiers à
+    chaque construction, et un onglet resté ouvert sur l'ancien `index.html`
+    redemande un `assets/index-<ancienne empreinte>.js` qui n'existe plus.
+    Avec le repli trop large, il recevait du HTML servi en 200 — une erreur de
+    syntaxe muette dans la console plutôt qu'un 404 que le navigateur nomme.
+    """
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/assets/index-ancienne-empreinte.js")
+    assert reponse.status_code == 404, reponse.text
+    assert "front construit" not in reponse.text
+
+
+def test_une_page_du_front_sans_extension_recoit_toujours_index_html(tmp_path: Path):
+    """La contre-épreuve du test ci-dessus : resserrer ne doit pas tout fermer."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    for chemin in ("/entrer", "/connexion", "/reglages"):
+        reponse = client.get(chemin)
+        assert reponse.status_code == 200, f"{chemin} : {reponse.status_code}"
+        assert "front construit" in reponse.text, chemin
+
+
 def test_sans_dossier_front_la_racine_ne_sert_rien():
     """L'absence de `dossier_front` (le défaut, `ourouler api` compris) ne monte rien.
 

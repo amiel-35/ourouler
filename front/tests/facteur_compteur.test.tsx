@@ -40,6 +40,7 @@ function rendre(profil = PROFIL.donnees, table: ConstructorParameters<typeof Ser
       surProfil={() => undefined}
       surZones={() => undefined}
       surRefaireInstallation={() => undefined}
+      surDeconnexion={() => undefined}
     />,
   );
   return { serveur };
