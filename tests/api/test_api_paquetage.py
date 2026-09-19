@@ -206,7 +206,10 @@ def test_sans_dossier_front_la_racine_ne_sert_rien():
 def _toml_de_serveur(tmp_path: Path, extra: str = "") -> Path:
     fichier = tmp_path / "serveur.toml"
     fichier.write_text(
-        '[depart]\nnom="Rennes"\nlatitude=48.1113\nlongitude=-1.68\n'
+        # Coordonnées volontairement nulle part : `tests/adversarial` refuse
+        # une coordonnée proche d'une ville française, parce qu'une valeur
+        # « plausible » finit par être un domicile (règle absolue 1).
+        '[depart]\nnom="Nulle part"\nlatitude=1.0\nlongitude=2.0\n'
         "[cycliste]\nmasse_kg=75\nftp_w=250\n" + extra,
         encoding="utf-8",
     )
