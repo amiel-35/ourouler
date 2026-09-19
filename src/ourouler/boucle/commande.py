@@ -525,7 +525,10 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
 
     Reste le cas « aucun modèle » : un vélo dont l'usage n'est dans aucune
     catégorie de `physique.litterature` n'a que des défauts muets, et un temps
-    calculé là-dessus vaudrait moins que la vitesse moyenne assumée.
+    calculé là-dessus vaudrait moins que la vitesse moyenne assumée. Même
+    repli si `--puissance` n'est pas donné et que la FTP n'est pas renseignée
+    dans la configuration : rien pour construire une puissance par défaut,
+    donc pas de colonne « temps » plutôt qu'un calcul sur une valeur inventée.
     """
     from ourouler.physique.commande import (
         chemin_calibration,
@@ -540,6 +543,8 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
         return None
     puissance = puissance_voulue(args, parametres)
     if puissance is None:
+        if config.cycliste.ftp_w is None:
+            return None
         puissance = config.cycliste.ftp_w * PART_FTP_DEFAUT
     if not math.isfinite(puissance) or puissance <= 0:
         raise ErreurUtilisateur(

@@ -82,6 +82,10 @@ export const PROFIL: Simple<Profil> = {
       vitesse_compteur: null,
     },
     historique_depuis: "2024-02-29",
+    // Ce profil-ci est complet : l'assistant n'a plus rien à recommander.
+    // Le champ existe depuis que le compte neuf a été trouvé bloqué sur
+    // l'écran du jour (19/09/2026) — c'est lui qui l'y envoie.
+    assistant_recommande: false,
     services: {
       intervals: { renseigne: true, athlete_id: "iFICTIF" },
       brouter: { renseigne: true, profil: "essai-profil" },

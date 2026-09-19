@@ -748,10 +748,28 @@ def _distance(
         m.etape.duree_s for m in mesures if m.longueur_m is None and m.etape.duree_s > 0
     )
     metres = sum(connues)
+    libres_sans_ftp = False
     if libres_s > 0:
-        puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
-        metres += vitesse_a_plat_ms(puissance, parametres) * libres_s
+        if config.cycliste.ftp_w is None:
+            # Sans FTP, les étapes en pourcentage n'ont déjà plus de
+            # puissance-cible chiffrée en amont (seance/zwo.py,
+            # seance/intervals.py, seance/fichier.py) : elles tombent ici
+            # dans les étapes « libres ». On ne peut alors pas non plus
+            # demander au modèle physique une vitesse pour ces minutes —
+            # repli sur la vitesse moyenne assumée de la configuration,
+            # comme le fait déjà le cas « aucune étape chiffrée du tout »
+            # ci-dessous.
+            metres += config.boucle.vitesse_moyenne_kmh / 3.6 * libres_s
+            libres_sans_ftp = True
+        else:
+            puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
+            metres += vitesse_a_plat_ms(puissance, parametres) * libres_s
     source = "estimée par le modèle sur le plat"
+    if libres_sans_ftp and connues:
+        source = (
+            f"estimée par le modèle sur le plat, minutes libres à "
+            f"{config.boucle.vitesse_moyenne_kmh:g} km/h faute de FTP renseignée"
+        )
     if metres <= 0:
         # Aucune étape ne porte de puissance : on retombe sur la vitesse
         # moyenne de la configuration plutôt que de demander une boucle nulle.

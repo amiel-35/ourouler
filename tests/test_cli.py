@@ -118,6 +118,25 @@ def test_le_mot_de_passe_brouter_n_est_jamais_affiche(tmp_path: Path, capsys):
     assert MOT_DE_PASSE_CLI not in capsys.readouterr().out
 
 
+# --- `ourouler config` sans FTP renseignée (T5, entonnoir d'accueil) --------
+
+CONFIG_SANS_FTP = '[depart]\nnom="Test"\nlatitude=0.0\nlongitude=0.0\n[cycliste]\nmasse_kg=80\n'
+
+
+def test_config_sans_ftp_n_affiche_pas_de_watts_pour_le_cycliste(tmp_path: Path, capsys):
+    """Point 1 : `format(None, '.0f')` levait `TypeError` — repli textuel."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_SANS_FTP)), "config"]) == 0
+    assert "FTP non renseignée" in capsys.readouterr().out
+
+
+def test_config_sans_ftp_n_affiche_pas_de_watts_pour_les_zones(tmp_path: Path, capsys):
+    """Point 2 : la ligne « Zones » calculait `pct * ftp_w`, même défaut."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_SANS_FTP)), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "Zones" in out
+    assert "pas de watts (FTP non renseignée)" in out
+
+
 def test_le_mot_de_passe_brouter_est_masque_en_json(tmp_path: Path, capsys):
     """`dataclasses.asdict` ignore le `repr` masquant : il faut masquer ici aussi."""
     assert main(["--config", str(_config(tmp_path, CONFIG_BROUTER)), "config", "--json"]) == 0

@@ -394,7 +394,12 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
             </div>
             <div className="rangee">
               <span className="cle">FTP</span>
-              <span className="val">{nombre(zones.ftp_w)} W</span>
+              {/* La FTP est facultative depuis ce lot : quelqu'un qui est
+                  descendu au bas de l'entonnoir n'en a pas, et il ne faut pas
+                  lui en inventer une. On le dit plutôt que d'afficher « null W ». */}
+              <span className="val">
+                {zones.ftp_w === null ? "non renseignée" : `${nombre(zones.ftp_w)} W`}
+              </span>
             </div>
             <div className="rangee">
               <span className="cle">Poids</span>
