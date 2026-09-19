@@ -27,7 +27,7 @@ from ourouler.cli import VARIABLE_URL_PUBLIQUE, main
 
 CONFIG = (
     '[depart]\nnom="Test"\nlatitude=48.0\nlongitude=2.0\n'
-    '[cycliste]\nmasse_kg=75\nftp_w=250\nprenom="Amiel"\nnom="Test"\n'
+    '[cycliste]\nmasse_kg=75\nftp_w=250\nprenom="Cycliste"\nnom="Essai"\n'
 )
 
 MOT_DE_PASSE = "pigeon-vaisselle-quartz-ficelle"
@@ -50,6 +50,57 @@ def environnement_hebergement(monkeypatch: pytest.MonkeyPatch, url_base: str) ->
     """
     monkeypatch.setenv(VARIABLE_DATABASE_URL, url_base)
     monkeypatch.setenv(VARIABLE_URL_PUBLIQUE, URL_PUBLIQUE)
+
+
+def test_inviter_applique_les_migrations_sur_une_base_vierge(
+    config_toml: Path, capsys, url_base_vierge: str, monkeypatch: pytest.MonkeyPatch
+):
+    """Le test qui manquait, et que 4753 tests verts n'avaient pas remplacé.
+
+    Tous les autres partent d'`url_base`, que le `conftest` a déjà migrée. La
+    vraie vie part d'une base vide — et le premier vrai lancement, le
+    19/09/2026, est mort sur `relation "comptes" does not exist`. C'est
+    exactement le trou que la règle absolue 4 existe pour trouver : une suite
+    qui ne rencontre jamais l'état initial ne prouve rien sur lui.
+    """
+    monkeypatch.setenv(VARIABLE_DATABASE_URL, url_base_vierge)
+
+    code = main(
+        ["--config", str(config_toml), "inviter", "vierge@exemple.invalid", "--sans-courriel"]
+    )
+
+    capture = capsys.readouterr()
+    assert code == 0, capture.err
+    assert f"{URL_PUBLIQUE}/entrer?jeton=" in capture.out
+    assert "migration" in capture.err, "les migrations posées doivent se dire, pas passer en silence"
+
+    # Et la seconde fois, il n'y a plus rien à poser.
+    main(["--config", str(config_toml), "invitations"])
+    seconde = capsys.readouterr()
+    assert "migration" not in seconde.err, "les migrations ne doivent se reposer qu'une fois"
+    assert "vierge@exemple.invalid" in seconde.out
+
+
+def test_une_base_injoignable_donne_une_phrase_pas_une_pile(
+    config_toml: Path, capsys, monkeypatch: pytest.MonkeyPatch
+):
+    """Une base absente doit se dire, pas se dérouler.
+
+    Avant le 19/09/2026, une URL qui ne mène nulle part sortait une pile
+    `psycopg` complète, curseur SQL compris. Ce n'est pas une erreur du
+    cycliste — c'est une erreur d'exploitation, et elle se lit.
+    """
+    monkeypatch.setenv(VARIABLE_DATABASE_URL, "postgres://absent:absent@127.0.0.1:1/absente")
+
+    code = main(
+        ["--config", str(config_toml), "inviter", "injoignable@exemple.invalid", "--sans-courriel"]
+    )
+
+    capture = capsys.readouterr()
+    assert code != 0
+    assert "base des comptes injoignable" in capture.err
+    assert VARIABLE_DATABASE_URL in capture.err
+    assert "Traceback" not in capture.err and "psycopg" not in capture.err
 
 
 def test_inviter_affiche_le_lien_et_l_echeance_meme_sans_courriel(config_toml: Path, capsys):

@@ -12,8 +12,10 @@ import argparse
 import os
 import sys
 import tomllib
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger, en_dict_public
@@ -906,25 +908,17 @@ def ajouter_inviter(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_inviter(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.api.base_de_donnees import ouvrir
     from ourouler.api.comptes import DepotComptes
     from ourouler.api.courriel import parametres_brevo_depuis_dict
-    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
     from ourouler.api.invitation_commande import executer_inviter
 
-    url_db = url_base_de_donnees()
-    if url_db is None:
-        raise ErreurUtilisateur(
-            f"inviter : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
-            "la base des comptes de l'hébergé"
-        )
     url_pub = _url_publique()
 
     parametres_brevo = None
     if not getattr(args, "sans_courriel", False):
         parametres_brevo = parametres_brevo_depuis_dict(_charger_service())
 
-    with ouvrir(url_db) as connexion:
+    with _base_des_comptes("inviter") as connexion:
         depot = DepotComptes(connexion)
         return executer_inviter(
             args, config, depot=depot, url_publique=url_pub, parametres_brevo=parametres_brevo
@@ -941,22 +935,69 @@ def ajouter_invitations(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.api.base_de_donnees import ouvrir
     from ourouler.api.comptes import DepotComptes
-    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
     from ourouler.api.invitation_commande import executer_invitations
+
+    url_pub = _url_publique()
+
+    with _base_des_comptes("invitations") as connexion:
+        depot = DepotComptes(connexion)
+        return executer_invitations(args, config, depot=depot, url_publique=url_pub)
+
+
+@contextmanager
+def _base_des_comptes(commande: str) -> Iterator[Any]:
+    """Une connexion à la base des comptes, **déjà migrée**, ou un refus lisible.
+
+    Trois choses qu'aucun test n'avait attrapées, et qu'un premier vrai
+    lancement a trouvées en trois secondes (19/09/2026, règle absolue 4) :
+
+    1. **Personne n'appliquait les migrations.** Les tests partent d'une base
+       que leur `conftest` a migrée ; la vraie vie part d'une base vide, et la
+       commande mourait sur `relation "comptes" does not exist`. Les
+       migrations sont idempotentes (`appliquer_migrations` rend la liste de
+       ce qu'elle a fait, vide quand il n'y avait rien à faire) : les poser
+       ici coûte quelques millisecondes et supprime une étape à retenir.
+    2. **La trace du pilote remontait jusqu'au mainteneur.** Une base
+       injoignable, un mot de passe faux ou un serveur arrêté donnaient une
+       pile `psycopg`, pas une phrase.
+    3. Et le nom de la commande manquait aux messages, alors qu'il était déjà
+       là dans le refus de la variable d'environnement.
+
+    Ce qui est appliqué est **dit** : une migration qui passe en silence est
+    une migration dont on découvre l'existence le jour où elle a mal tourné.
+    """
+    from ourouler.api.base_de_donnees import appliquer_migrations, ouvrir
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
 
     url_db = url_base_de_donnees()
     if url_db is None:
         raise ErreurUtilisateur(
-            f"invitations : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
+            f"{commande} : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
             "la base des comptes de l'hébergé"
         )
-    url_pub = _url_publique()
+    try:
+        connexion = ouvrir(url_db)
+    except Exception as e:  # noqa: BLE001 - psycopg lève une famille entière, toutes traitées pareil
+        raise ErreurUtilisateur(
+            f"{commande} : base des comptes injoignable ({_premiere_ligne(e)}) — vérifier "
+            f"{VARIABLE_DATABASE_URL}, et que le serveur PostgreSQL est démarré"
+        ) from e
+    try:
+        with connexion:
+            posees = appliquer_migrations(connexion)
+            if posees:
+                print(f"base des comptes : {len(posees)} migration(s) appliquée(s)", file=sys.stderr)
+            yield connexion
+    except ErreurUtilisateur:
+        raise
+    except Exception as e:  # noqa: BLE001 - idem : une phrase plutôt qu'une pile
+        raise ErreurUtilisateur(f"{commande} : {_premiere_ligne(e)}") from e
 
-    with ouvrir(url_db) as connexion:
-        depot = DepotComptes(connexion)
-        return executer_invitations(args, config, depot=depot, url_publique=url_pub)
+
+def _premiere_ligne(e: Exception) -> str:
+    """Le message d'une exception de pilote, sans sa pile ni son curseur SQL."""
+    return str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
 
 
 def _url_publique(environ: Mapping[str, str] | None = None) -> str:

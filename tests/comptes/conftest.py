@@ -146,6 +146,30 @@ def url_base(postgres_jetable: str) -> Iterator[str]:
 
 
 @pytest.fixture
+def url_base_vierge(postgres_jetable: str) -> Iterator[str]:
+    """Une base neuve **et non migrée** — celle que la vraie vie présente.
+
+    `url_base` migre avant de rendre la main, ce qui est ce que veulent les
+    tests du dépôt. Mais ça cachait un trou : personne n'appliquait les
+    migrations en dehors des tests, et `ourouler inviter` mourait sur
+    `relation "comptes" does not exist` au premier vrai lancement
+    (19/09/2026). Une base vierge est la seule façon d'écrire un test qui
+    aurait attrapé ça.
+    """
+    import psycopg
+
+    assert "@127.0.0.1:" in postgres_jetable, "le Postgres de test doit être local"
+    nom = f"vierge_{secrets.token_hex(6)}"
+    with psycopg.connect(postgres_jetable, autocommit=True) as admin:
+        admin.execute(f'CREATE DATABASE "{nom}"')
+    try:
+        yield postgres_jetable.rsplit("/", 1)[0] + "/" + nom
+    finally:
+        with psycopg.connect(postgres_jetable, autocommit=True) as admin:
+            admin.execute(f'DROP DATABASE IF EXISTS "{nom}" WITH (FORCE)')
+
+
+@pytest.fixture
 def connexion(url_base: str) -> Iterator:
     """Une connexion ouverte sur la base du test."""
     from ourouler.api.base_de_donnees import ouvrir
