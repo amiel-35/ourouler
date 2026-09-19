@@ -141,7 +141,9 @@ export function Reglages({
         <div className="rangee">
           <span className="cle">FTP</span>
           <button type="button" className="val lien" onClick={() => basculer("ftp")}>
-            {nombre(zones.ftp_w)} W
+            {/* Facultative depuis ce lot. Le bouton reste — c'est par lui qu'on
+                la renseigne — mais il n'annonce pas une valeur qui n'existe pas. */}
+            {zones.ftp_w === null ? "à renseigner" : `${nombre(zones.ftp_w)} W`}
           </button>
         </div>
         <div className="rangee">

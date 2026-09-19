@@ -268,6 +268,11 @@ def executer_calibrer(
 ) -> int:
     """Calibre un vélo sur les sorties réelles du cache. Code de sortie 0 si ça a marché."""
     velo = velo_demande(config, getattr(args, "velo", None))
+    if config.cycliste.ftp_w is None:
+        raise ErreurUtilisateur(
+            "calibration : FTP non renseignée dans la configuration — cette commande a "
+            "besoin d'une FTP de référence pour repérer les sorties calibrables"
+        )
     depuis = _date_option(getattr(args, "depuis", None), config.historique_depuis)
     cache = Cache(config.cache.dossier)
 

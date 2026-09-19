@@ -1597,6 +1597,26 @@ def test_sans_modele_les_heures_de_passage_restent_a_la_vitesse_de_config(
     )
 
 
+def test_sans_ftp_ni_puissance_la_colonne_temps_retombe_sur_la_vitesse_de_config(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Point 3 (T5) : `ftp_w * PART_FTP_DEFAUT` sur `ftp_w=None` levait `TypeError`.
+
+    Le vélo « RCR » est en catégorie littérature (`provenance != "défaut"`),
+    donc `_modele_temps` dépasse le premier repli — c'est bien le second,
+    celui qui manque de FTP par défaut faute de `--puissance`, qui est ici
+    éprouvé. Repli silencieux vers la vitesse moyenne de la configuration,
+    même comportement observable que « aucun modèle disponible » ci-dessus.
+    """
+    config = config_avec_velo_calibrable(tmp_path, cycliste={"masse_kg": 80})
+    assert config.cycliste.ftp_w is None
+    monkeypatch.chdir(tmp_path)
+    executer(args(velo="RCR", puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["modele_physique"] is None
+    assert all(c["temps_source"] == "vitesse_moyenne" for c in charge["candidates"])
+
+
 def test_sans_calibration_les_heures_de_passage_suivent_la_ftp(
     tmp_path: Path, monkeypatch, capsys
 ):

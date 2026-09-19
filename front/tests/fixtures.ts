@@ -82,6 +82,10 @@ export const PROFIL: Simple<Profil> = {
       vitesse_compteur: null,
     },
     historique_depuis: "2024-02-29",
+    // Ce profil-ci est complet : l'assistant n'a plus rien à recommander.
+    // Le champ existe depuis que le compte neuf a été trouvé bloqué sur
+    // l'écran du jour (19/09/2026) — c'est lui qui l'y envoie.
+    assistant_recommande: false,
     services: {
       intervals: { renseigne: true, athlete_id: "iFICTIF" },
       brouter: { renseigne: true, profil: "essai-profil" },
@@ -118,6 +122,33 @@ export function zones(options?: { facteurMesure?: boolean; horsBande?: boolean }
       },
     },
   };
+}
+
+/**
+ * T1 : ce que `GET /profil/intervals` rendrait pour un profil Intervals
+ * rempli — jamais un jeton ni un compte réel, une FTP et un poids inventés.
+ */
+export function profilIntervals(options?: {
+  ftp_w?: number | null;
+  masse_kg?: number | null;
+}): Simple<{ ftp_w: number | null; masse_kg: number | null }> {
+  return {
+    proprietaire: "essai",
+    donnees: {
+      ftp_w: options?.ftp_w === undefined ? 235 : options.ftp_w,
+      masse_kg: options?.masse_kg === undefined ? 71.4 : options.masse_kg,
+    },
+  };
+}
+
+/**
+ * T4/T5 : ce que `POST /profil/ftp/apercu` ou `GET /profil/ftp/generique`
+ * rendraient — même forme que `zones()`, avec une FTP distinctive pour
+ * vérifier qu'elle se propage bien jusqu'au récapitulatif.
+ */
+export function apercuFtp(ftp_w: number): Simple<Zones> {
+  const base = zones();
+  return { ...base, donnees: { ...base.donnees, ftp_w } };
 }
 
 /**

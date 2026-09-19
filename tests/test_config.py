@@ -53,6 +53,32 @@ def test_cycliste_prenom_nom_fournis_se_chargent():
     assert c.cycliste.nom == "Ruiz"
 
 
+def test_cycliste_ftp_w_absente_se_charge_a_none():
+    """Facultative depuis le 19/09/2026 — un profil qui n'a pas encore franchi
+    T3/T4 de l'accueil, pas une configuration fautive."""
+    sans_ftp = {**BASE, "cycliste": {"masse_kg": BASE["cycliste"]["masse_kg"]}}
+    c = depuis_dict(sans_ftp)
+    assert c.cycliste.ftp_w is None
+    assert c.cycliste.masse_kg == 80
+
+
+def test_cycliste_ftp_w_chaine_vide_se_charge_a_none():
+    """Ce qu'un profil JSON écrit pour « je corrige, sans avoir encore tapé de
+    chiffre » (`api/depots.py`) — traité comme une absence, pas comme `0`."""
+    c = depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": ""}})
+    assert c.cycliste.ftp_w is None
+
+
+def test_cycliste_ftp_w_fournie_reste_bornee():
+    """L'absence devient possible, mais une valeur donnée garde ses bornes d'avant."""
+    with pytest.raises(ErreurConfig, match="ftp_w"):
+        depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": 10}})
+    with pytest.raises(ErreurConfig, match="ftp_w"):
+        depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": 2000}})
+    c = depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": 250}})
+    assert c.cycliste.ftp_w == 250
+
+
 def test_velos_et_periodes():
     d = dict(BASE)
     d["velos"] = [

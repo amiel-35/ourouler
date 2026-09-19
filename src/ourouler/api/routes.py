@@ -48,6 +48,7 @@ from ourouler.api.modeles import (
     DemandeEntree,
     DemandeSimulation,
     DemandeSortie,
+    DemandeVitesseCompteur,
     Point,
     ReponseErreur,
     TexteUtile,
@@ -533,8 +534,18 @@ def lire_profil(
     ctx: Ctx,
     qui: Qui,
 ) -> dict:
-    """Le profil du cycliste : départ, poids, FTP, position dans la zone, vélos, services."""
-    return {"proprietaire": str(qui), "donnees": vues.profil(_config(ctx, qui))}
+    """Le profil du cycliste : départ, poids, FTP, position dans la zone, vélos, services.
+
+    `donnees.assistant_recommande` dit si ce propriétaire n'a **jamais**
+    enregistré de surcharge (`DepotProfils.surcharge` vide) — un compte
+    activé mais jamais passé par l'assistant, quel qu'ait été le socle qu'il
+    a lu au démarrage. Corrige le défaut constaté en vrai le 19/09/2026 : un
+    compte neuf atterrissait sur l'écran du jour, qui réclame Intervals et
+    échoue, au lieu de l'assistant qui construit le profil. Le premier
+    `PATCH /profil` fait passer ce booléen à faux — pas un drapeau à part à
+    tenir à jour, juste la conséquence de ce qui est déjà écrit sur le disque.
+    """
+    return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, _config(ctx, qui))}
 
 
 @routeur.patch(
@@ -576,7 +587,21 @@ async def modifier_profil(
         raise ErreurApi(code="profil_invalide", message=str(e), statut=422) from e
     except Exception as e:
         raise classer(e) from e
-    return {"proprietaire": str(qui), "donnees": vues.profil(config)}
+    return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, config)}
+
+
+def _profil_avec_flags(ctx: Contexte, qui: Proprietaire, config: Config) -> dict:
+    """Le profil rendu par `vues.profil`, plus `assistant_recommande` (voir `lire_profil`).
+
+    Factorisé pour que `GET /profil` et `PATCH /profil` rendent exactement le
+    même calcul : sans ça, le front qui met à jour son état local depuis la
+    réponse d'un `PATCH` (`Assistant.tsx`, `enregistrer()`) verrait le
+    drapeau se figer jusqu'au prochain `GET`, alors qu'un premier `PATCH`
+    est précisément ce qui doit le faire tomber.
+    """
+    donnees = vues.profil(config)
+    donnees["assistant_recommande"] = not bool(ctx.profils.surcharge(qui))
+    return donnees
 
 
 @routeur.get("/profil/zones")
@@ -640,6 +665,95 @@ def apercu_zones(
                 vitesse_kmh=demande.vitesse_a_plat_kmh,
             )
         return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config, demande.velo, position=position)}
+    except Exception as e:
+        raise classer(e) from e
+
+
+@routeur.get("/profil/intervals")
+def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
+    """Ce qu'Intervals.icu sait de l'athlète — FTP, poids — **pour confirmation, sans rien écrire**.
+
+    L'étage T1 de l'accueil (`docs/ux/parcours_accueil.md` §4), une fois la
+    clé Intervals posée : « on a trouvé ceci, c'est toujours d'actualité ? »
+    plutôt que remplacer en silence ou reposer une question dont Intervals
+    connaît déjà la réponse ([[Q64]]). Le front confirme ou corrige, puis
+    envoie la valeur retenue à `PATCH /profil` comme n'importe quelle FTP ou
+    masse déclarée — cette route ne fait que lire.
+
+    401 nommé `intervals_absent` si la clé n'est pas encore posée : ce n'est
+    ni une panne ni une faute, c'est un compte qui n'en est pas encore là.
+    """
+    from ourouler.connecteurs.intervals import ClientIntervals
+    from ourouler.erreurs import ErreurIntervalsAbsent
+
+    config = _config(ctx, qui)
+    try:
+        if not config.intervals.renseigne:
+            raise ErreurIntervalsAbsent(
+                "profil Intervals : la clé n'est pas encore renseignée pour ce compte"
+            )
+        client = _service(ctx, config, "intervals")
+        if client is None:
+            client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
+        donnees = client.profil_athlete()
+    except Exception as e:
+        raise classer(e, secrets=secrets_de(config)) from e
+    return {"proprietaire": str(qui), "donnees": donnees}
+
+
+@routeur.post("/profil/ftp/apercu")
+def apercu_ftp_depuis_terrain(
+    ctx: Ctx,
+    qui: Qui,
+    demande: DemandeVitesseCompteur,
+) -> dict:
+    """T4 de l'accueil : une FTP à partir d'une vitesse au compteur et d'un terrain, **sans rien stocker**.
+
+    Même geste que `POST /profil/zones/apercu` : la FTP rendue est un aperçu,
+    le front l'affiche et l'envoie à `PATCH /profil` (`cycliste.ftp_w`) si le
+    cycliste confirme. Elle est calculée à la `position_zone` déjà en
+    vigueur dans la configuration — c'est établir une FTP là où il n'y en
+    avait pas, pas déplacer une position (`seance.ecran_ftp.
+    ftp_pour_vitesse_compteur`).
+    """
+    from ourouler.seance import ecran_ftp
+
+    config = _config(ctx, qui)
+    try:
+        ftp_w = ecran_ftp.ftp_pour_vitesse_compteur(
+            config,
+            demande.velo,
+            vitesse_compteur_kmh=demande.vitesse_kmh,
+            denivele_m_par_km=demande.denivele_m_par_km,
+        )
+        config_avec_ftp = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp_w))
+        return {
+            "proprietaire": str(qui),
+            "donnees": ecran_ftp.rendu(config_avec_ftp, demande.velo),
+        }
+    except Exception as e:
+        raise classer(e) from e
+
+
+@routeur.get("/profil/ftp/generique")
+def ftp_generique(ctx: Ctx, qui: Qui, velo: str | None = None) -> dict:
+    """T5 de l'accueil, le fond du tunnel : une FTP à partir du seul poids, **sans rien stocker**.
+
+    Ne peut pas échouer — `physique.litterature.ftp_defaut` ne demande que
+    `cycliste.masse_kg`, qui n'est jamais facultative. C'est la garantie que
+    l'entonnoir de `docs/ux/parcours_accueil.md` promet à l'étage T5 : « rien
+    à demander, jamais rien [en échec] ». Même geste que les deux routes
+    d'aperçu voisines : le front affiche, et envoie `cycliste.ftp_w` à
+    `PATCH /profil` si la personne continue.
+    """
+    from ourouler.physique.litterature import ftp_defaut
+    from ourouler.seance import ecran_ftp
+
+    config = _config(ctx, qui)
+    try:
+        ftp_w = ftp_defaut(config.cycliste.masse_kg)
+        config_avec_ftp = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp_w))
+        return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config_avec_ftp, velo)}
     except Exception as e:
         raise classer(e) from e
 

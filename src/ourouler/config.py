@@ -88,7 +88,18 @@ class Depart:
 @dataclass(frozen=True)
 class Cycliste:
     masse_kg: float
-    ftp_w: float
+    #: La puissance seuil, en watts. **Facultative depuis le 19/09/2026**
+    #: (`docs/ux/parcours_accueil.md`) : ce que quelqu'un donne à l'accueil —
+    #: « je roule à 25 de moyenne » — est sa puissance d'**endurance**, pas
+    #: son seuil, et rien n'oblige plus à en connaître un pour avoir un
+    #: profil qui tourne. `None` veut dire « pas encore établie » : les zones
+    #: en watts ne se calculent pas (`seance.ecran_ftp`), mais le reste du
+    #: cœur (terrain, lecture de séance ZWO/MRC) sait déjà fonctionner sans
+    #: (`seance/terrain.py`, `seance/zwo.py`, conçus pour ça avant même ce
+    #: changement). Quand elle est donnée, la borne [50, 1000] W reste celle
+    #: d'avant — une FTP hors de cette plage est toujours une faute de
+    #: frappe, pas une valeur rare.
+    ftp_w: float | None = None
 
     #: Identité du compte. Décision du mainteneur (17/09/2026, Q36) : « nom
     #: prénom obligatoire car c'est la base, voilà, point. » L'assistant de
@@ -588,7 +599,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         ),
         cycliste=Cycliste(
             masse_kg=_nombre(cycliste, "masse_kg", "cycliste", 20, 300),
-            ftp_w=_nombre(cycliste, "ftp_w", "cycliste", 50, 1000),
+            ftp_w=_nombre_optionnel(cycliste, "ftp_w", "cycliste", 50, 1000),
             # Absents dans toute configuration écrite avant ce lot : une
             # chaîne vide, jamais un refus de chargement (voir la docstring
             # de `Cycliste.prenom`).
@@ -921,6 +932,25 @@ def _champ(section: str, cle: str) -> str:
 def _nombre(s: dict[str, Any], cle: str, section: str, mini: float, maxi: float) -> float:
     if cle not in s:
         raise ErreurConfig(f"[{section}] {cle} manquant")
+    return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
+
+
+def _nombre_optionnel(
+    s: dict[str, Any], cle: str, section: str, mini: float, maxi: float
+) -> float | None:
+    """Comme `_nombre`, mais une clé absente ou vide rend `None` plutôt que de refuser.
+
+    Écrit pour `cycliste.ftp_w` (facultative depuis le 19/09/2026,
+    `docs/ux/parcours_accueil.md`) : l'absence n'est plus une configuration
+    fautive, c'est un profil qui n'a pas encore d'étage T3 franchi. Une
+    valeur **présente** reste soumise aux mêmes bornes qu'avant — ce n'est
+    pas parce que le champ est facultatif qu'une FTP de 4 W devient plausible.
+    `""` (chaîne vide) compte comme absente : c'est ce qu'un profil JSON de
+    l'API écrit pour « je corrige, mais je n'ai encore rien tapé » plutôt que
+    d'omettre la clé.
+    """
+    if cle not in s or s[cle] is None or s[cle] == "":
+        return None
     return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
 
 

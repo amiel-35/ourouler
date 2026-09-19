@@ -475,6 +475,11 @@ def executer_comparer(args: argparse.Namespace, config: Config) -> int:
             f"comparer : {noms[0]} et {noms[1]} sont le même vélo — il n'y a rien à comparer"
         )
     velos = [config.velo(nom) for nom in noms]
+    if config.cycliste.ftp_w is None:
+        raise ErreurUtilisateur(
+            "comparer : FTP non renseignée dans la configuration — cette commande compare "
+            "des sorties par zone de puissance relative à la FTP, il en faut une"
+        )
     zone_ftp = _zone(getattr(args, "zone", None))
     pente_max = _pente_max(getattr(args, "pente_max", None))
     cap_max = _cap_max(getattr(args, "cap_max", None))

@@ -1190,6 +1190,16 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("PATCH", f"{PREFIXE_API}/profil"): {"json": {"cycliste": {"masse_kg": 71.0}}},
         ("GET", f"{PREFIXE_API}/profil/zones"): {},
         ("POST", f"{PREFIXE_API}/profil/zones/apercu"): {"json": {"position_zone": 0.5}},
+        # Sans clé Intervals renseignée pour A comme pour B, cette route
+        # répond `intervals_absent` (409) dans les deux cas — générique,
+        # sans rien de l'un ni de l'autre : c'est un balayage de couverture,
+        # pas un test du connecteur (voir tests/test_ecran_ftp.py et
+        # tests/connecteurs/test_intervals.py pour ça).
+        ("GET", f"{PREFIXE_API}/profil/intervals"): {},
+        ("POST", f"{PREFIXE_API}/profil/ftp/apercu"): {
+            "json": {"vitesse_kmh": 24.0, "denivele_m_par_km": 10.0}
+        },
+        ("GET", f"{PREFIXE_API}/profil/ftp/generique"): {},
         ("GET", f"{PREFIXE_API}/geocodage"): {"params": {"adresse": "rue d'essai"}},
         ("GET", f"{PREFIXE_API}/vent-depart"): {"params": {"jour": jour}},
         ("GET", f"{PREFIXE_API}/meteo"): {},

@@ -336,7 +336,10 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         print(json.dumps(profil_json(config), default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
-    print(f"Cycliste : {config.cycliste.masse_kg:.1f} kg, FTP {config.cycliste.ftp_w:.0f} W")
+    ftp_texte = (
+        f"{config.cycliste.ftp_w:.0f} W" if config.cycliste.ftp_w is not None else "non renseignée"
+    )
+    print(f"Cycliste : {config.cycliste.masse_kg:.1f} kg, FTP {ftp_texte}")
     print(f"Vélos    : {', '.join(v.nom + ' (' + v.usage + ')' for v in config.velos)}")
     print(
         f"Météo    : {config.meteo.directions} directions × {list(config.meteo.distances_km)} km, "
@@ -357,11 +360,14 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         f"{config.boucle.vitesse_moyenne_kmh:.0f} km/h, tolérance "
         f"{config.boucle.tolerance_distance:.0%}"
     )
+    if config.cycliste.ftp_w is not None:
+        watts_endurance = f"soit {config.seance.puissance_endurance_pct * config.cycliste.ftp_w:.0f} W"
+    else:
+        watts_endurance = "pas de watts (FTP non renseignée)"
     print(
         f"Zones    : position {config.seance.position_zone:.3f} dans la bande "
         f"({len(config.seance.zones_pct)} zones) → endurance "
-        f"{config.seance.puissance_endurance_pct:.0%} de FTP, soit "
-        f"{config.seance.puissance_endurance_pct * config.cycliste.ftp_w:.0f} W"
+        f"{config.seance.puissance_endurance_pct:.0%} de FTP, {watts_endurance}"
     )
     if info_vitesse is not None:
         mention = (

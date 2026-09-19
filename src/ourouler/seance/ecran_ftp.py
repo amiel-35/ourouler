@@ -31,6 +31,8 @@ résolu — comme le reste du cœur (règle absolue 2).
 
 from __future__ import annotations
 
+import math
+
 from ourouler.config import Config, Velo
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
@@ -67,11 +69,15 @@ def valeurs_liees(
 ) -> dict | None:
     """Les trois valeurs, à la position donnée (défaut : celle de la configuration).
 
-    `None` si la configuration ne porte aucun vélo : il n'y a alors ni modèle
-    physique ni facteur de compteur, donc rien à réconcilier.
+    `None` si la configuration ne porte aucun vélo, **ou si elle ne porte
+    aucune FTP** (facultative depuis le 19/09/2026, `docs/ux/
+    parcours_accueil.md`) : sans l'une ou l'autre, il n'y a ni modèle
+    physique complet ni référence de puissance, donc rien à réconcilier. Un
+    profil qui n'a pas encore franchi l'étage T3/T4 de l'accueil est dans ce
+    cas — c'est un état normal, pas une panne.
     """
     trouve = contexte(config, nom_velo)
-    if trouve is None:
+    if trouve is None or config.cycliste.ftp_w is None:
         return None
     velo, parametres, provenance = trouve
     ou = config.seance.position_zone if position is None else position
@@ -201,6 +207,12 @@ def position_pour(
             )
         _velo, parametres, _provenance = trouve
         puissance_w = puissance_a_plat_w(vitesse_kmh, parametres)
+    if config.cycliste.ftp_w is None:
+        raise ErreurUtilisateur(
+            "écran de FTP : aucune FTP renseignée — il n'y a pas encore d'échelle de "
+            "zones dans laquelle situer une position (T3 de l'accueil : donner une FTP, "
+            "ou T4 : partir d'une vitesse au compteur avec `ftp_pour_vitesse_compteur`)"
+        )
     if config.cycliste.ftp_w <= 0:  # pragma: no cover - refusé au chargement
         raise ErreurUtilisateur("écran de FTP : FTP positive attendue")
     position = position_dans_zone(
@@ -218,8 +230,25 @@ def rendu(config: Config, nom_velo: str | None = None, *, position: float | None
     liées, et la position. Une FTP qui bouge de 12 W déplace l'escalier
     entier sans qu'aucun réglage ne change — c'est le point de la décision 7,
     et c'est pourquoi rien ici n'est stocké en watts.
+
+    **Sans FTP** (facultative depuis le 19/09/2026) : il n'y a pas d'échelle
+    en watts à calculer — `echelle` l'exige, à raison, une bande de zones
+    sans référence ne veut rien dire. `zones` et `valeurs_liees` rendent
+    alors respectivement une liste vide et `None`, `ftp_w` reste `None`, et
+    la position elle-même reste rendue : elle ne dépend pas de la FTP, et
+    c'est ce qui permet à un front de continuer à afficher où la personne se
+    place dans sa bande, même avant l'étage qui lui donne des watts.
     """
     ou = config.seance.position_zone if position is None else position
+    if config.cycliste.ftp_w is None:
+        return {
+            "ftp_w": None,
+            "position_zone": round(ou, 6),
+            "zone_endurance": ZONE_ENDURANCE,
+            "hors_bande": not 0.0 <= ou <= 1.0,
+            "zones": [],
+            "valeurs_liees": None,
+        }
     paliers = echelle(ou, config.cycliste.ftp_w, config.seance.zones_pct)
     return {
         "ftp_w": config.cycliste.ftp_w,
@@ -242,8 +271,135 @@ def rendu(config: Config, nom_velo: str | None = None, *, position: float | None
     }
 
 
+# --- T4 de l'accueil : vitesse au compteur + terrain → une FTP ---------------
+#
+# Décision du 19/09/2026 (`docs/ux/parcours_accueil.md` §5.2-6) : on ne
+# demande plus « à quelle vitesse roulez-vous à plat, sans vent » — personne
+# ne sait répondre à une question sur des conditions qui n'arrivent jamais —
+# mais la moyenne réellement lue sur le compteur, une vraie expérience, plus
+# un terrain déclaré. La conversion retenue réutilise `facteur_compteur_defaut`
+# tel quel, en lui donnant le dénivelé du terrain choisi au lieu du seul
+# défaut plat qu'il servait jusqu'ici (`DENIVELE_REFERENCE_M_PAR_KM`) — un
+# levier qui existait déjà dans le modèle physique sans qu'aucun écran ne
+# s'en serve.
+
+#: Bornes de la bissection qui retrouve la puissance depuis une vitesse
+#: compteur. 1 W en bas : `facteur_compteur_defaut` refuse une puissance
+#: nulle ou négative. 2000 W en haut : la même borne que `ApercuZones.
+#: puissance_w` côté API — au-delà, ce n'est plus un chiffre qu'une sortie
+#: solo peut produire.
+PUISSANCE_MINI_BISSECTION_W = 1.0
+PUISSANCE_MAXI_BISSECTION_W = 2000.0
+
+#: Tolérance de la bissection, en watts — largement sous le dixième affiché.
+TOLERANCE_PUISSANCE_W = 0.01
+
+#: Garde-fou d'itérations — jamais atteint sur la plage utile ci-dessus
+#: (log2(2000/0,01) ≈ 18), posé pour ne jamais boucler indéfiniment.
+MAX_ITERATIONS_BISSECTION = 100
+
+
+def ftp_pour_vitesse_compteur(
+    config: Config,
+    nom_velo: str | None,
+    *,
+    vitesse_compteur_kmh: float,
+    denivele_m_par_km: float,
+) -> float:
+    """La FTP que désigne une vitesse au compteur et un terrain déclarés (T4).
+
+    La vitesse au compteur représente une sortie d'endurance ordinaire — la
+    même hypothèse que portait l'ancienne question « à plat, sans vent »
+    (décision 8 du cycle UX). Elle est donc traitée comme la **puissance
+    d'endurance** du cycliste : on en déduit la puissance (par bissection sur
+    `physique.modele.moyenne_compteur_kmh`, avec le facteur par défaut au
+    dénivelé du terrain déclaré, `facteur_compteur_defaut`), puis on remonte à
+    la FTP en la rapportant à `position_zone` — **la position déjà en
+    vigueur dans la configuration**, jamais recalculée ici : cette fonction
+    établit une FTP là où il n'y en avait pas, elle ne repositionne rien
+    d'autre. C'est symétrique de `valeurs_liees`, qui fait le calcul inverse
+    (`puissance_w = pct * ftp_w`).
+
+    Ni le facteur compteur ni le terrain ne sont mesurés sur ce cycliste :
+    c'est une **supposition**, du même ordre que `facteur_compteur_defaut`
+    l'est déjà pour tout vélo neuf — voir `docs/ux/parcours_accueil.md` §6
+    pour ce que chaque terrain vaut en `denivele_m_par_km`, et pourquoi la
+    case « Montagne » y est signalée moins fiable que les trois autres.
+
+    Ne stocke rien : l'appelant récupère la FTP rendue et l'envoie à
+    `PATCH /profil` (`cycliste.ftp_w`) comme n'importe quelle FTP déclarée.
+    """
+    if not math.isfinite(vitesse_compteur_kmh) or vitesse_compteur_kmh <= 0:
+        raise ErreurUtilisateur("écran de FTP : vitesse au compteur positive attendue")
+    if not math.isfinite(denivele_m_par_km) or denivele_m_par_km < 0:
+        raise ErreurUtilisateur("écran de FTP : dénivelé de terrain positif attendu")
+    trouve = contexte(config, nom_velo)
+    if trouve is None:
+        raise ErreurUtilisateur(
+            "écran de FTP : une vitesse au compteur ne se convertit en FTP qu'avec un "
+            "vélo — aucun [[velos]] dans la configuration"
+        )
+    _velo, parametres, _provenance = trouve
+    puissance_endurance_w = _puissance_pour_moyenne_compteur(
+        vitesse_compteur_kmh, parametres, denivele_m_par_km=denivele_m_par_km
+    )
+    pct = puissance_pct_ftp(config.seance.position_zone, ZONE_ENDURANCE, config.seance.zones_pct)
+    if pct is None or pct <= 0:  # pragma: no cover - table sans Z2 fermée, refusée au chargement
+        raise ErreurUtilisateur(
+            "zones : la table n'a pas de Z2 fermée, ou sa borne basse est nulle — "
+            "impossible d'en déduire une FTP"
+        )
+    return puissance_endurance_w / pct
+
+
+def _puissance_pour_moyenne_compteur(
+    vitesse_compteur_kmh: float, parametres: Parametres, *, denivele_m_par_km: float
+) -> float:
+    """La puissance dont `moyenne_compteur_kmh` (facteur par défaut, à ce dénivelé) vaut
+    `vitesse_compteur_kmh` — l'inverse de `physique.modele.moyenne_compteur_kmh`
+    composé avec `facteur_compteur_defaut`, par bissection : il n'y a pas de forme
+    fermée, `facteur_compteur_defaut` fait lui-même deux bissections.
+
+    Croissante en puissance sur toute la plage utile — une puissance plus
+    grande ne peut pas rendre une moyenne plus basse dans ce modèle — donc la
+    racine, si elle existe dans la plage bornée, est unique.
+    """
+
+    def ecart(p_w: float) -> float:
+        facteur = facteur_compteur_defaut(p_w, parametres, denivele_m_par_km=denivele_m_par_km)
+        return moyenne_compteur_kmh(p_w, parametres, facteur) - vitesse_compteur_kmh
+
+    bas, haut = PUISSANCE_MINI_BISSECTION_W, PUISSANCE_MAXI_BISSECTION_W
+    if ecart(haut) < 0:
+        # Même une puissance de sprint ne suffit pas à expliquer la vitesse
+        # déclarée à ce dénivelé — une saisie incohérente (montagne à 45 km/h
+        # de moyenne compteur, par exemple), pas un cas que le modèle doit
+        # deviner.
+        raise ErreurUtilisateur(
+            f"écran de FTP : {vitesse_compteur_kmh:g} km/h de moyenne compteur ne "
+            "correspond à aucune puissance plausible pour ce terrain — vérifier la "
+            "vitesse ou le terrain déclarés"
+        )
+    if ecart(bas) > 0:
+        return bas
+    for _ in range(MAX_ITERATIONS_BISSECTION):
+        if haut - bas <= TOLERANCE_PUISSANCE_W:
+            break
+        milieu = (bas + haut) / 2
+        if ecart(milieu) > 0:
+            haut = milieu
+        else:
+            bas = milieu
+    return (bas + haut) / 2
+
+
 __all__ = [
+    "MAX_ITERATIONS_BISSECTION",
+    "PUISSANCE_MAXI_BISSECTION_W",
+    "PUISSANCE_MINI_BISSECTION_W",
+    "TOLERANCE_PUISSANCE_W",
     "contexte",
+    "ftp_pour_vitesse_compteur",
     "info_compteur",
     "position_pour",
     "rendu",

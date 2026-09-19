@@ -36,13 +36,16 @@ type Champ = "puissance" | "vitesse" | null;
 
 export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
   const liees = zones.valeurs_liees;
-  const [ftp, setFtp] = useState(String(zones.ftp_w));
+  // `zones.ftp_w` peut valoir `null` (FTP facultative depuis le 19/09/2026,
+  // `docs/ux/parcours_accueil.md`) : un profil qui n'a pas encore franchi
+  // l'étage T3/T4 de l'accueil. Un champ vide, jamais le texte « null ».
+  const [ftp, setFtp] = useState(zones.ftp_w === null ? "" : String(zones.ftp_w));
   const [enEdition, setEnEdition] = useState<Champ>(null);
   const [brouillon, setBrouillon] = useState("");
   const [panne, setPanne] = useState<string | null>(null);
   const minuteur = useRef<number | undefined>(undefined);
 
-  useEffect(() => setFtp(String(zones.ftp_w)), [zones.ftp_w]);
+  useEffect(() => setFtp(zones.ftp_w === null ? "" : String(zones.ftp_w)), [zones.ftp_w]);
   useEffect(() => () => window.clearTimeout(minuteur.current), []);
 
   function demanderApercu(champ: Exclude<Champ, null>, texte: string) {
@@ -81,7 +84,7 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
     }
   }
 
-  const hautDeLEchelle = Math.max(...zones.zones.map((z) => z.haut_w), zones.ftp_w);
+  const hautDeLEchelle = Math.max(...zones.zones.map((z) => z.haut_w), zones.ftp_w ?? 0);
 
   return (
     <div>
@@ -105,6 +108,12 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
         </div>
       </div>
 
+      {zones.ftp_w === null ? (
+        <div className="encart attention">
+          <b>Pas encore de FTP renseignée.</b> Tapez un chiffre ci-dessus pour voir vos zones,
+          ou continuez sans — l'assistant sait s'en passer.
+        </div>
+      ) : (
       <div className="bloc doux">
         <div className="bloc-tete">
           <h2>Vos zones</h2>
@@ -133,13 +142,16 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
           ))}
         </div>
       </div>
+      )}
 
-      {liees === null ? (
+      {liees === null && zones.ftp_w !== null ? (
+        // `zones.ftp_w !== null` : sans FTP, l'encart au-dessus l'a déjà dit,
+        // pas la peine d'en afficher un second qui parlerait du vélo à tort.
         <div className="encart attention">
           <b>Pas de vélo enregistré.</b> Sans vélo, il n'y a ni modèle physique ni facteur de
           compteur — les trois valeurs liées n'ont rien à réconcilier.
         </div>
-      ) : (
+      ) : liees !== null ? (
         <div className="bloc">
           <div className="bloc-tete">
             <h2>Votre allure d'endurance</h2>
@@ -228,7 +240,7 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
             Modèle physique : {modelePhysique(liees.modele_physique)}.
           </p>
         </div>
-      )}
+      ) : null}
 
       {panne ? <div className="encart alerte">{panne}</div> : null}
     </div>

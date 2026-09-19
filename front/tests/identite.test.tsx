@@ -30,6 +30,9 @@ describe("l'assistant — étape d'identité", () => {
         surFin={() => undefined}
       />,
     );
+    // L'assistant ouvre maintenant sur AC1 Bienvenue (`docs/ux/
+    // parcours_accueil.md` §1) : l'identité n'apparaît qu'après.
+    await userEvent.click(screen.getByRole("button", { name: "Commencer" }));
     const continuer = screen.getByRole("button", { name: "Continuer" }) as HTMLButtonElement;
     expect(continuer.disabled).toBe(true);
 
@@ -55,6 +58,7 @@ describe("l'assistant — étape d'identité", () => {
         surFin={() => undefined}
       />,
     );
+    await userEvent.click(screen.getByRole("button", { name: "Commencer" }));
     await userEvent.type(screen.getByLabelText("Prénom"), "Camille");
     await userEvent.type(screen.getByLabelText("Nom"), "Ruiz");
     await userEvent.click(screen.getByRole("button", { name: "Continuer" }));
@@ -64,8 +68,10 @@ describe("l'assistant — étape d'identité", () => {
     const corps = patch.corps as { cycliste?: Record<string, unknown> };
     expect(corps.cycliste).toEqual({ prenom: "Camille", nom: "Ruiz" });
 
-    // L'écran suivant est bien celui de la FTP : l'étape a avancé.
-    await waitFor(() => expect(screen.getByText("Quelle est votre FTP ?")).toBeTruthy());
+    // L'écran suivant est bien celui du départ (AC5, juste après l'identité
+    // dans le nouvel arbre — `docs/ux/parcours_accueil.md` §5.1) : l'étape a
+    // avancé, et ce n'est plus la FTP qui ouvrait l'ancien parcours.
+    await waitFor(() => expect(screen.getByText("D'où partez-vous ?")).toBeTruthy());
   });
 });
 

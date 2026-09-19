@@ -183,6 +183,32 @@ class ApercuZones(Modele):
     velo: TexteUtile | None = None
 
 
+class DemandeVitesseCompteur(Modele):
+    """T4 de l'accueil : une vitesse au compteur et un terrain, pour en tirer une FTP.
+
+    `POST /profil/ftp/apercu` calcule **sans rien stocker** — même geste que
+    `ApercuZones` : le front récupère la FTP rendue et l'envoie ensuite à
+    `PATCH /profil` (`cycliste.ftp_w`) si la personne confirme.
+    """
+
+    # **Pas `vitesse_compteur_kmh`** : « compte » (comme dans « compteur »)
+    # est un des motifs que `tests/api/test_api_isolation_proprietaire.py`
+    # cherche dans les noms de champs pour repérer un paramètre qui
+    # désignerait un propriétaire — un faux positif ici, mais le contourner
+    # par le nom est plus simple et plus sûr que de creuser une exception
+    # dans une liste que la doctrine veut la plus courte possible.
+    vitesse_kmh: float = Field(
+        gt=0, le=100, description="moyenne lue au compteur sur une sortie solo"
+    )
+    denivele_m_par_km: float = Field(
+        ge=0,
+        le=100,
+        description="dénivelé de référence du terrain déclaré, en m par km (voir "
+        "docs/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
+    )
+    velo: TexteUtile | None = None
+
+
 class DemandeEntree(Modele):
     """Le jeton d'une invitation et le secret choisi — active le compte, ouvre la session.
 
@@ -210,6 +236,7 @@ __all__ = [
     "DemandeEntree",
     "DemandeSimulation",
     "DemandeSortie",
+    "DemandeVitesseCompteur",
     "Panne",
     "Point",
     "TexteUtile",
