@@ -71,6 +71,12 @@ services:
       - 'OUROULER_MODE=${OUROULER_MODE}'
       - OUROULER_CONFIG=/config/config.toml
       - 'OUROULER_CONFIG_TOML_B64=${OUROULER_CONFIG_TOML_B64}'
+      # Sans elle, `api/exploitation.fournisseur_session` rend `SessionHebergee`
+      # — qui n'ouvre jamais rien — et les quatre routes de comptes répondent
+      # « ce déploiement ne gère pas de comptes ». C'est le bon défaut : un
+      # service exposé sans base ne doit pas faire semblant d'avoir des
+      # comptes. La poser est donc le geste qui **allume** la fonction.
+      - 'OUROULER_DATABASE_URL=${OUROULER_DATABASE_URL}'
       - OUROULER_PORT=8000
       - 'OUROULER_INTERVALS_API_KEY=${OUROULER_INTERVALS_API_KEY}'
       - 'OUROULER_INTERVALS_ATHLETE_ID=${OUROULER_INTERVALS_ATHLETE_ID}'
