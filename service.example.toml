@@ -18,9 +18,11 @@
 #
 # ## Ce qui le lit
 #
-# Rien, pour l'instant. Le lot des comptes (L7.2) n'est pas écrit. Ce fichier
-# existe pour que la clé ait un endroit où attendre, plutôt que de traîner dans
-# une note ou un message.
+# `ourouler inviter` (lot L7.2-B), et lui seul : `cli.py` l'ouvre, valide la
+# section [brevo] et passe le résultat à `api/courriel.py`, qui ne lit ni
+# fichier ni variable lui-même (règle absolue 2 — `tests/test_invariants.py`
+# le vérifie). Sans `--sans-courriel`, la commande refuse de démarrer avec un
+# message lisible si ce fichier manque ou si [brevo] est incomplète.
 
 [brevo]
 # Courriels d'invitation — doctrine §10.2, V1 : demande d'accès modérée à la

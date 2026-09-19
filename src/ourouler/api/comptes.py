@@ -224,6 +224,31 @@ class InvitationEmise:
 
 
 @dataclass(frozen=True)
+class InvitationAvecAdresse:
+    """Une invitation en cours, avec l'adresse qu'elle vise — ce qu'`ourouler invitations` affiche.
+
+    Distincte d'`Invitation` : celle-ci ne porte pas l'adresse (elle vit dans `comptes`,
+    pas `invitations`), et cette jointure n'a de sens que pour cet affichage précis — la
+    faire à chaque lecture d'`Invitation` serait une donnée que personne d'autre ne demande.
+
+    Jeton et adresse restent masqués dans le `repr`, comme partout ailleurs dans ce
+    module : c'est ce qu'`ourouler invitations` montre à l'écran, pas ce qui doit finir
+    dans un journal ou une trace.
+    """
+
+    jeton: str
+    email: str
+    cree_le: datetime
+    expire_le: datetime
+
+    def __repr__(self) -> str:
+        return (
+            f"InvitationAvecAdresse(jeton=<masqué>, email=<masqué>, "
+            f"cree_le={self.cree_le.isoformat()}, expire_le={self.expire_le.isoformat()})"
+        )
+
+
+@dataclass(frozen=True)
 class Acces:
     """Ce qu'une activation ouvre : un compte, et son propriétaire.
 
@@ -532,6 +557,28 @@ class DepotComptes:
             )
         return Proprietaire(ligne[0])
 
+    def invitations_en_cours(self, *, maintenant: datetime | None = None) -> list[InvitationAvecAdresse]:
+        """Les invitations non consommées et non expirées, adresse et jeton compris.
+
+        C'est ce qui rend le jeton **retrouvable** sans fouiller un historique de
+        terminal ou de messagerie — demande nommée du mainteneur pour `ourouler
+        invitations` (lot L7.2-B). Triée par `cree_le` : les plus anciennes, donc les
+        plus urgentes à relancer ou à relire, en tête.
+        """
+        maintenant = _instant(maintenant)
+        lignes = self.cx.execute(
+            "SELECT invitations.jeton, comptes.email, invitations.cree_le, invitations.expire_le "
+            "FROM invitations "
+            "JOIN comptes ON comptes.id = invitations.compte "
+            "WHERE invitations.consomme_le IS NULL AND invitations.expire_le > %s "
+            "ORDER BY invitations.cree_le",
+            (maintenant,),
+        ).fetchall()
+        return [
+            InvitationAvecAdresse(jeton=jeton, email=email, cree_le=cree_le, expire_le=expire_le)
+            for jeton, email, cree_le, expire_le in lignes
+        ]
+
     def _invitation_refusee(self, jeton: str) -> ErreurInvitationRefusee:
         """Dire *pourquoi* le jeton est refusé, sans jamais répéter le jeton."""
         ligne = self.cx.execute(
@@ -587,6 +634,7 @@ __all__ = [
     "ErreurCompteExistant",
     "ErreurInvitationRefusee",
     "Invitation",
+    "InvitationAvecAdresse",
     "InvitationEmise",
     "hacher_mot_de_passe",
     "normaliser_email",

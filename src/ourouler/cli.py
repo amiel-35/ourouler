@@ -9,8 +9,10 @@ doit pas empêcher les autres de tourner.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
-from collections.abc import Sequence
+import tomllib
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from ourouler import __version__
@@ -56,6 +58,8 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_sortie(sous)
     ajouter_geocoder(sous)
     ajouter_api(sous)
+    ajouter_inviter(sous)
+    ajouter_invitations(sous)
     return p
 
 
@@ -857,6 +861,139 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
     )
     uvicorn.run(application, host=args.hote, port=args.port, log_level="info")
     return 0
+
+
+# --- inviter (lot L7.2-B) -----------------------------------------------------
+#
+# « C'est pas une banque » : cette commande fait tourner le socle des comptes
+# (lot L7.2-A, `api/comptes.py`) depuis la ligne de commande du mainteneur —
+# c'est lui, et lui seul aujourd'hui, qui invite. Elle a besoin de trois
+# choses que seul `cli.py` a le droit de lire (règle absolue 2) : l'URL de la
+# base PostgreSQL de l'hébergé, l'URL publique devant laquelle le lien
+# s'ouvre, et — sauf `--sans-courriel` — les secrets du relais SMTP. Le reste
+# (composer et envoyer le courriel, afficher le résultat) est délégué à
+# `api/invitation_commande.py` et `api/courriel.py`, qui ne lisent rien
+# eux-mêmes : `tests/test_invariants.py` le vérifie.
+
+#: Où vivent les secrets du *service* (Brevo…), distincts du profil cycliste
+#: de `config.toml` — voir `service.example.toml`. Même statut que
+#: `CHEMIN_CONFIG_DEFAUT` : un défaut, réglable par test.
+CHEMIN_SERVICE_DEFAUT = Path("~/.config/ourouler/service.toml")
+
+#: L'URL publique du front hébergé, devant laquelle `/entrer?jeton=...`
+#: s'ouvre — une donnée de déploiement, au même titre que celles que
+#: `api/exploitation.py` lit pour le processus de l'API (`OUROULER_DATABASE_URL`,
+#: `OUROULER_MODE`…). Celle-ci n'appartient pas au processus serveur : c'est le
+#: mainteneur, depuis sa propre ligne de commande, qui la pose dans son
+#: environnement le temps d'inviter quelqu'un.
+VARIABLE_URL_PUBLIQUE = "OUROULER_URL_PUBLIQUE"
+
+
+def ajouter_inviter(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "inviter",
+        help="invite une adresse à rejoindre où rouler (compte hébergé + courriel)",
+        parents=[parent_json()],
+    )
+    p.add_argument("adresse", help="adresse e-mail à inviter")
+    p.add_argument(
+        "--sans-courriel",
+        dest="sans_courriel",
+        action="store_true",
+        help="n'envoie pas le courriel d'invitation, affiche seulement le lien",
+    )
+    p.set_defaults(fonction=_commande_inviter)
+
+
+def _commande_inviter(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.api.base_de_donnees import ouvrir
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.courriel import parametres_brevo_depuis_dict
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
+    from ourouler.api.invitation_commande import executer_inviter
+
+    url_db = url_base_de_donnees()
+    if url_db is None:
+        raise ErreurUtilisateur(
+            f"inviter : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
+            "la base des comptes de l'hébergé"
+        )
+    url_pub = _url_publique()
+
+    parametres_brevo = None
+    if not getattr(args, "sans_courriel", False):
+        parametres_brevo = parametres_brevo_depuis_dict(_charger_service())
+
+    with ouvrir(url_db) as connexion:
+        depot = DepotComptes(connexion)
+        return executer_inviter(
+            args, config, depot=depot, url_publique=url_pub, parametres_brevo=parametres_brevo
+        )
+
+
+def ajouter_invitations(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "invitations",
+        help="liste les invitations en cours : adresse, lien, échéance",
+        parents=[parent_json()],
+    )
+    p.set_defaults(fonction=_commande_invitations)
+
+
+def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.api.base_de_donnees import ouvrir
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
+    from ourouler.api.invitation_commande import executer_invitations
+
+    url_db = url_base_de_donnees()
+    if url_db is None:
+        raise ErreurUtilisateur(
+            f"invitations : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
+            "la base des comptes de l'hébergé"
+        )
+    url_pub = _url_publique()
+
+    with ouvrir(url_db) as connexion:
+        depot = DepotComptes(connexion)
+        return executer_invitations(args, config, depot=depot, url_publique=url_pub)
+
+
+def _url_publique(environ: Mapping[str, str] | None = None) -> str:
+    """L'URL publique du front hébergé, ou `ErreurUtilisateur` si elle n'est pas posée.
+
+    Même forme que les lecteurs de variable d'`api/exploitation.py` : une variable,
+    dépouillée, ou un refus qui nomme la variable plutôt qu'un lien vide silencieusement
+    construit (`https:///entrer?jeton=...` ne mènerait nulle part).
+    """
+    environ = os.environ if environ is None else environ
+    brut = (environ.get(VARIABLE_URL_PUBLIQUE) or "").strip()
+    if not brut:
+        raise ErreurUtilisateur(
+            f"inviter : {VARIABLE_URL_PUBLIQUE} n'est pas défini — c'est l'URL publique du "
+            "front hébergé, devant laquelle /entrer?jeton=... s'ouvre"
+        )
+    return brut
+
+
+def _charger_service(chemin: Path | None = None) -> dict:
+    """Le contenu de `service.toml`, lu ici et nulle part ailleurs (règle absolue 2).
+
+    `chemin` est injectable pour les tests — jamais un vrai `service.toml` n'est lu ou
+    montré par ce lot (le brief l'interdit explicitement) : les tests lui passent un
+    fichier à eux, en `.invalid`, jamais celui du mainteneur.
+    """
+    chemin = (chemin or CHEMIN_SERVICE_DEFAUT).expanduser()
+    if not chemin.is_file():
+        raise ErreurUtilisateur(
+            f"inviter : fichier de service introuvable : {chemin} — copier "
+            "service.example.toml et le renseigner"
+        )
+    try:
+        with chemin.open("rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise ErreurUtilisateur(f"{chemin} : TOML invalide ({e})") from e
 
 
 # --- point d'entrée -----------------------------------------------------------
