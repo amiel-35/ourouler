@@ -129,9 +129,46 @@ leur sprint : pas de squelette vide « pour plus tard ».
   physiques (masse, CdA, roulement) sont estimés par vélo, et une période peut
   être scindée si la validation le demande.
 - **Le dénominateur commun est le fichier.** Quelle que soit la source
-  (Intervals, Garmin, Strava, Wahoo), on stocke le FIT/GPX/TCX brut et on le
-  relit avec le même lecteur. Un connecteur ne fait que rapatrier des
-  fichiers et des métadonnées.
+  (Intervals, Garmin, Strava, Wahoo), le FIT/GPX/TCX brut est ce qui se lit,
+  avec le même lecteur. Un connecteur ne fait que rapatrier des fichiers et
+  des métadonnées.
+
+  **Mais on ne le conserve pas — précisé le 19/09/2026 par le mainteneur**,
+  parce que ce chapitre disait « on stocke le brut » là où [[Q48]] (17/09)
+  avait décidé « on jette le brut, on garde le dérivé », et que les deux
+  tournaient en même temps sans que personne l'ait voulu.
+
+  La règle est : **on ne garde jamais ce qu'on peut redemander.**
+
+  - **Intervals reste branché** : on relit quand on veut, donc rien à
+    conserver. Le cache local (`~/.cache/ourouler`) garde bien les fichiers
+    bruts, et c'est légitime — **c'est un cache, pas une archive** : il se
+    remplit tout seul depuis la source, et se jette sans rien perdre.
+  - **Un export déposé est un instantané** qu'on ne peut pas re-télécharger.
+    On en extrait le dérivé — les mailles avec leurs tags et leurs kilomètres,
+    les coefficients de calibration, quelques kilo-octets — et le brut part.
+    Quand l'algorithme change vraiment, ou quand la personne a progressé, **on
+    lui redemande une archive**. C'est le prix, et il est assumé : garder les
+    traces pour lui permettre de revoir ses sorties ferait « un Strava bis »,
+    explicitement écarté en [[Q48]].
+
+  **Deux conséquences qui se voient dans le produit**, et qui ne sont pas des
+  détails d'implémentation :
+
+  1. **Le dérivé a un âge, et il se dit.** Quelqu'un qui a déposé un export en
+     mars et qui a progressé depuis roule sur un modèle périmé. Le produit doit
+     le montrer plutôt que de laisser croire qu'il est à jour — règle absolue 5.
+  2. **Ça donne sa raison d'être au branchement d'Intervals**, formulée comme
+     un gain et non comme une préférence : avec Intervals le modèle se met à
+     jour seul, avec un export il faut revenir.
+
+  Le motif n'est pas réglementaire. Le mainteneur est formellement soumis au
+  RGPD dès que le service sert quelqu'un d'autre que lui (§10.2), mais à cette
+  échelle le risque d'action est nul et ce n'est pas ce qui décide. Ce qui
+  décide : des traces GPS sont des données de localisation, elles portent le
+  domicile de chacun au départ de chaque sortie, et **celui à qui ça se
+  reprocherait est l'ami qui les a confiées**, pas un régulateur. Jeter ce
+  qu'on n'a pas besoin de garder est la seule façon sûre de ne pas le perdre.
 
 ## 6. Sources externes et leurs limites, telles que connues au cadrage
 
