@@ -146,6 +146,49 @@ class ClientIntervals:
             )
         return [element for element in charge if isinstance(element, dict)]
 
+    def profil_athlete(self) -> dict:
+        """Ce qu'Intervals.icu sait de l'athlète lui-même — FTP, poids, zones.
+
+        `GET /api/v1/athlete/{id}` — jamais appelée avant le 19/09/2026
+        ([[Q64]] : « le connecteur ne lit pas le profil, seulement les
+        sorties »), ce qui laissait un compte branché sur Intervals repartir
+        sans jamais lire la FTP que la personne y a pourtant déjà renseignée.
+
+        **Les noms de champs ci-dessous ne sont pas vérifiés sur un vrai
+        compte dans ce lot** (règle absolue 4 : ce qui n'est pas vérifié se
+        dit). La forme relevée par le mainteneur le 19/09/2026 ([[Q64]]) donne
+        les *valeurs* attendues (FTP vélo, FCmax, LTHR, zones, poids, FC de
+        repos, date de naissance), pas les clés JSON exactes qui les portent.
+        La documentation publique d'Intervals.icu place le seuil et les zones
+        d'un sport sous une liste `sportSettings` (un élément par sport,
+        identifié par son ou ses `types` — « Ride », « VirtualRide »…) plutôt
+        qu'à la racine ; cette lecture essaie donc plusieurs noms plausibles
+        par champ, sans jamais deviner une valeur absente. `_champ_vélo`
+        documente cette prudence.
+
+        Rend un dictionnaire minimal, prêt à afficher pour confirmation —
+        jamais les zones ou la FC (l'étage cardiaque est hors de l'entonnoir
+        d'accueil, [[Q63]]) :
+
+            {"ftp_w": 235.0 | None, "masse_kg": 90.7 | None}
+
+        `None` sur un champ veut dire « le profil Intervals ne le porte pas »
+        — ni erreur, ni valeur à zéro.
+        """
+        reponse = self._get(f"/api/v1/athlete/{self.athlete_id}", "athlete/{id}")
+        try:
+            charge = reponse.json()
+        except ValueError as e:
+            raise ErreurConnecteur("Intervals.icu athlete/{id} : réponse JSON illisible") from e
+        if not isinstance(charge, dict):
+            raise ErreurConnecteur(
+                f"Intervals.icu athlete/{{id}} : objet attendu, reçu {type(charge).__name__}"
+            )
+        return {
+            "ftp_w": _champ_velo(charge, ("ftp", "icu_ftp")),
+            "masse_kg": _nombre_positif(charge.get("weight") or charge.get("icu_weight")),
+        }
+
     def equipements(self) -> dict[str, str]:
         """Équipements de l'athlète : identifiant → nom. Un seul appel par client.
 
@@ -234,6 +277,55 @@ def sans_contenu(activite: dict) -> bool:
     """Vrai pour une entrée creuse : ni type, ni nom, ni durée. Rien à télécharger."""
     cles = ("type", "name", "moving_time", "elapsed_time", "distance", "icu_training_load")
     return not any(activite.get(cle) for cle in cles)
+
+
+#: Les sports vélo tels qu'Intervals.icu les nomme dans `sportSettings[].types`
+#: (mêmes valeurs que `activites.modele.est_sport_velo` couvre par ailleurs).
+#: Cherché pour prendre le seuil du **vélo**, jamais celui d'un autre sport
+#: qu'un même compte peut porter (course à pied, natation).
+_TYPES_VELO = ("ride", "virtualride", "mountainbikeride", "gravelride", "ebikeride")
+
+
+def _champ_velo(charge: dict, noms: tuple[str, ...]) -> float | None:
+    """Un champ numérique du sport vélo, cherché sous plusieurs noms plausibles.
+
+    Cherche d'abord dans `sportSettings` (la forme documentée par
+    Intervals.icu pour un seuil par sport), sous le premier élément dont
+    `types` porte un sport vélo ; puis, en repli, à la racine du document —
+    au cas où ce compte n'a pas de réglage par sport et où Intervals rend un
+    seuil global. Rend `None` si rien n'est trouvé ou si la valeur trouvée
+    n'est pas positive : un « 0 » de champ vide n'est pas une FTP.
+    """
+    parametres = charge.get("sportSettings")
+    if isinstance(parametres, list):
+        for entree in parametres:
+            if not isinstance(entree, dict):
+                continue
+            types = entree.get("types")
+            types_normalises = {
+                str(t).strip().casefold() for t in types
+            } if isinstance(types, list) else set()
+            if types_normalises & set(_TYPES_VELO):
+                for nom in noms:
+                    valeur = _nombre_positif(entree.get(nom))
+                    if valeur is not None:
+                        return valeur
+    for nom in noms:
+        valeur = _nombre_positif(charge.get(nom))
+        if valeur is not None:
+            return valeur
+    return None
+
+
+def _nombre_positif(valeur: object) -> float | None:
+    """Un nombre strictement positif, ou `None` — jamais un zéro pris pour une mesure."""
+    if isinstance(valeur, bool) or valeur is None:
+        return None
+    try:
+        nombre = float(valeur)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return nombre if nombre > 0 else None
 
 
 def _liste_de_dicts(reponse: httpx.Response, libelle: str) -> list[dict]:

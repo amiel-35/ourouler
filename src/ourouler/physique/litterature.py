@@ -215,13 +215,64 @@ def pour_usage(usage: str) -> Choix | None:
     return PAR_USAGE.get(str(usage).strip().casefold())
 
 
+# --- une FTP plausible, pour qui n'en a aucune (T5 de l'accueil) --------------
+#
+# Décision du 19/09/2026 (`docs/ux/parcours_accueil.md` §5.3, [[Q65]] encore
+# ouverte) : le fond du tunnel de l'entonnoir d'accueil ne peut jamais
+# échouer, même sans vitesse déclarée, sans compte Intervals et sans FTP
+# connue. Jusqu'ici cette table ne donnait que des paramètres aérodynamiques
+# (CdA, Crr) : rien n'y produisait une puissance seuil, alors que le reste du
+# produit (les zones, `seance.ecran_ftp`) ne sait raisonner qu'en watts.
+#
+# **Ce chiffre est une convention, pas une mesure**, et il le reste tant que
+# [[Q65]] n'est pas tranchée — exactement le même statut que les jeux
+# aérodynamiques ci-dessus au moment de leur écriture, avant la campagne du
+# 17/09/2026. La différence, assumée : aucune campagne équivalente n'existe
+# ici. Une seule valeur, non distinguée par usage (route/clm) — [[Q57]] a
+# montré qu'une distinction non mesurée peut se tromper de sens (le jeu
+# « CLM amateur » n'est pas le meilleur pour un usage clm sur les données du
+# mainteneur) ; inventer un second chiffre sans donnée serait le même risque
+# une fois de plus.
+
+#: Watts par kilogramme de cycliste, pour une FTP jamais mesurée ni déclarée.
+#: Ordre de grandeur usuel pour un cycliste amateur non spécifiquement
+#: entraîné (sources de vulgarisation citées en tête de module) : ni un
+#: débutant complet, ni un compétiteur. **Non mesuré** — voir [[Q65]].
+FTP_W_PAR_KG_DEFAUT = 2.2
+
+#: Bornes de plausibilité de la FTP rendue : mêmes bornes que
+#: `config.py` (`_nombre_optionnel(..., 50, 1000)`) pour qu'un poids extrême
+#: ne produise jamais une FTP que la configuration refuserait de recharger.
+FTP_W_MINI = 50.0
+FTP_W_MAXI = 1000.0
+
+
+def ftp_defaut(masse_kg: float) -> float:
+    """Une FTP plausible à partir du seul poids du cycliste — le filet, T5.
+
+    `masse_kg × FTP_W_PAR_KG_DEFAUT`, borné à `[FTP_W_MINI, FTP_W_MAXI]`.
+    C'est délibérément le calcul le plus simple possible : il n'y a, à ce
+    jour, aucune mesure qui justifierait d'y mêler le type de vélo, l'âge ou
+    quoi que ce soit d'autre — en ajouter un serait donner à ce chiffre une
+    précision qu'il n'a pas. Tout écran qui l'affiche doit le dire
+    « générique, à partir de votre poids et de votre vélo seuls » (le vélo
+    entrant par ailleurs, via son type, dans le reste du modèle physique).
+    """
+    brut = masse_kg * FTP_W_PAR_KG_DEFAUT
+    return min(max(brut, FTP_W_MINI), FTP_W_MAXI)
+
+
 __all__ = [
     "CLM_AMATEUR",
+    "FTP_W_MAXI",
+    "FTP_W_MINI",
+    "FTP_W_PAR_KG_DEFAUT",
     "PAR_USAGE",
     "ROUTE_AMATEUR",
     "ROUTE_AMATEUR_HAUT",
     "VITESSE_REFERENCE_KMH",
     "Choix",
     "Jeu",
+    "ftp_defaut",
     "pour_usage",
 ]

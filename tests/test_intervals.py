@@ -819,3 +819,86 @@ def test_intervalles_http_en_erreur_remonte():
     c, _ = client(json_fixe({}, code=404))
     with pytest.raises(ErreurConnecteur, match="404"):
         c.intervalles("a111")
+
+
+# --- profil_athlete (T1 de l'accueil, [[Q64]]) --------------------------------
+#
+# Les noms de champs ci-dessous sont **inventés**, sur le modèle plausible
+# documenté dans `docs/questions_mainteneur.md` Q64 — jamais une réponse
+# relue sur un vrai compte (règle absolue 4 : ce lot n'est pas vérifié sur les
+# vraies données d'Intervals.icu, et cli/docs le disent).
+
+
+def test_profil_athlete_appelle_le_bon_endpoint():
+    c, espion = client(json_fixe({}))
+    c.profil_athlete()
+    assert espion.chemins == [f"/api/v1/athlete/{ATHLETE}"]
+
+
+def test_profil_athlete_lit_ftp_et_poids_dans_sport_settings():
+    """La forme documentée par Intervals.icu : un seuil par sport, sous `sportSettings`."""
+    c, _ = client(
+        json_fixe(
+            {
+                "id": ATHLETE,
+                "weight": 68.4,
+                "sportSettings": [
+                    {"types": ["Ride", "VirtualRide"], "ftp": 231},
+                    {"types": ["Run"], "ftp": 999},  # un autre sport : jamais pris
+                ],
+            }
+        )
+    )
+    assert c.profil_athlete() == {"ftp_w": 231.0, "masse_kg": 68.4}
+
+
+def test_profil_athlete_lit_ftp_a_la_racine_en_repli():
+    """Un compte sans réglage par sport : repli sur un champ de racine plausible."""
+    c, _ = client(json_fixe({"icu_ftp": 205, "icu_weight": 71.0}))
+    assert c.profil_athlete() == {"ftp_w": 205.0, "masse_kg": 71.0}
+
+
+def test_profil_athlete_ignore_un_sport_qui_n_est_pas_le_velo():
+    """`sportSettings` sans aucun sport vélo : aucune FTP prise dans ce bloc-là."""
+    c, _ = client(
+        json_fixe(
+            {
+                "sportSettings": [{"types": ["Run"], "ftp": 300}],
+                "icu_ftp": 190,  # repli de racine, lui, s'applique
+            }
+        )
+    )
+    assert c.profil_athlete()["ftp_w"] == 190.0
+
+
+def test_profil_athlete_sans_ftp_ni_poids_rend_deux_none():
+    c, _ = client(json_fixe({"id": ATHLETE}))
+    assert c.profil_athlete() == {"ftp_w": None, "masse_kg": None}
+
+
+def test_profil_athlete_ignore_un_zero_comme_une_absence():
+    """`{"weight": 0}` n'est pas un poids de zéro kilo — c'est un champ vide."""
+    c, _ = client(json_fixe({"weight": 0, "sportSettings": [{"types": ["Ride"], "ftp": 0}]}))
+    assert c.profil_athlete() == {"ftp_w": None, "masse_kg": None}
+
+
+def test_profil_athlete_reponse_qui_n_est_pas_un_objet():
+    c, _ = client(json_fixe(["pas", "un", "objet"]))
+    with pytest.raises(ErreurConnecteur, match="objet"):
+        c.profil_athlete()
+
+
+def test_profil_athlete_json_illisible():
+    def reponses(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"pas du json")
+
+    c, _ = client(reponses)
+    with pytest.raises(ErreurConnecteur, match="JSON"):
+        c.profil_athlete()
+
+
+def test_profil_athlete_erreur_http_ne_laisse_pas_fuir_la_cle():
+    c, _ = client(json_fixe({}, code=401))
+    with pytest.raises(ErreurConnecteur) as e:
+        c.profil_athlete()
+    assert CLE not in str(e.value)
