@@ -324,6 +324,25 @@ def test_invitations_sans_database_url_echoue_avec_un_message_lisible(tmp_path, 
 # mainteneur : ni ouvert, ni approché.
 
 
+def test_charger_service_suit_la_variable_d_environnement(tmp_path, monkeypatch):
+    """`OUROULER_SERVICE` déplace le fichier, pour un conteneur sans « chez soi ».
+
+    Le 19/09/2026, envoyer le premier courriel réel depuis le conteneur a
+    demandé un `docker cp` du fichier suivi d'un `rm` : le défaut
+    `~/.config/ourouler/service.toml` ne veut rien dire là où il n'y a pas
+    d'utilisateur. `deploiement/api/entrypoint.py` écrit désormais le fichier
+    depuis l'environnement et pose cette variable pour dire où il l'a mis.
+    """
+    from ourouler.cli import VARIABLE_SERVICE, _charger_service
+
+    ailleurs = tmp_path / "ailleurs" / "service.toml"
+    ailleurs.parent.mkdir()
+    ailleurs.write_text('[brevo]\nserveur = "relais.exemple.invalid"\n', encoding="utf-8")
+    monkeypatch.setenv(VARIABLE_SERVICE, str(ailleurs))
+
+    assert _charger_service()["brevo"]["serveur"] == "relais.exemple.invalid"
+
+
 def test_charger_service_refuse_un_fichier_absent(tmp_path):
     from ourouler.cli import _charger_service
     from ourouler.erreurs import ErreurUtilisateur

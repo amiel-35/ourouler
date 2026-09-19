@@ -882,6 +882,12 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
 #: `CHEMIN_CONFIG_DEFAUT` : un défaut, réglable par test.
 CHEMIN_SERVICE_DEFAUT = Path("~/.config/ourouler/service.toml")
 
+#: La variable qui déplace ce fichier, pour un déploiement où « chez soi »
+#: n'existe pas. Le conteneur n'a pas de `~` qui veuille dire quelque chose :
+#: `deploiement/api/entrypoint.py` y écrit le fichier depuis
+#: `OUROULER_SERVICE_TOML_B64` et pose cette variable-ci pour dire où.
+VARIABLE_SERVICE = "OUROULER_SERVICE"
+
 #: L'URL publique du front hébergé, devant laquelle `/entrer?jeton=...`
 #: s'ouvre — une donnée de déploiement, au même titre que celles que
 #: `api/exploitation.py` lit pour le processus de l'API (`OUROULER_DATABASE_URL`,
@@ -1038,7 +1044,7 @@ def _charger_service(chemin: Path | None = None) -> dict:
     montré par ce lot (le brief l'interdit explicitement) : les tests lui passent un
     fichier à eux, en `.invalid`, jamais celui du mainteneur.
     """
-    chemin = (chemin or CHEMIN_SERVICE_DEFAUT).expanduser()
+    chemin = (chemin or Path(os.environ.get(VARIABLE_SERVICE) or CHEMIN_SERVICE_DEFAUT)).expanduser()
     if not chemin.is_file():
         raise ErreurUtilisateur(
             f"inviter : fichier de service introuvable : {chemin} — copier "
