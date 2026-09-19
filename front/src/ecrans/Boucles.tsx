@@ -105,9 +105,9 @@ export function Boucles({ reponse, surRetour }: Props) {
         >
           <button
             type="button"
+            className="carte-bouton"
             onClick={() => setChoisie(candidate.numero)}
             aria-pressed={candidate.numero === choisie}
-            style={{ all: "unset", display: "block", width: "100%", cursor: "pointer" }}
           >
             <div className="bloc-tete">
               <h2>{titreDeBoucle(candidate.azimut_deg, candidate.numero)}</h2>
@@ -179,12 +179,7 @@ export function Boucles({ reponse, surRetour }: Props) {
       </p>
 
       {boucle.gpx && active?.retenue ? (
-        <a
-          className="bouton"
-          href={boucle.gpx.url}
-          download={boucle.gpx.nom}
-          style={{ display: "block", textDecoration: "none" }}
-        >
+        <a className="bouton" href={boucle.gpx.url} download={boucle.gpx.nom}>
           Télécharger le GPX
         </a>
       ) : boucle.gpx ? (
@@ -193,9 +188,7 @@ export function Boucles({ reponse, surRetour }: Props) {
         </p>
       ) : null}
 
-      <p className="mention" style={{ textAlign: "center", marginTop: 10 }}>
-        Calculé en {nombre(reponse.duree_ms / 1000, 1)} s.
-      </p>
+      <p className="mention centre">Calculé en {nombre(reponse.duree_ms / 1000, 1)} s.</p>
     </section>
   );
 }

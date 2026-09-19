@@ -1,6 +1,49 @@
-/* Les jetons de `docs/ux/maquettes_v1.html`, repris tels quels.
-   La retenue vient d'Apple (arbitrage 4) : peu de couleur, la hiérarchie
-   portée par la typographie, rien qui clignote. */
+/** La direction visuelle d'où rouler — écrite le 19/09/2026.
+ *
+ * Point de départ : « c'est moche, pas très graphique, les écrans sont denses
+ * et pas au niveau » (le mainteneur, en regardant son propre service). Le
+ * diagnostic n'était pas la palette — elle était déjà sobre et mesurée pour
+ * la lisibilité au soleil (voir plus bas) — c'était l'absence de **hiérarchie**
+ * et de **respiration** : chaque écran montre tout ce que l'API lui donne, au
+ * même poids visuel, dans le même bloc bordé que son voisin. Ce fichier pose
+ * un système pour corriger ça, en variables, pour que les écrans construits
+ * par un autre agent (`ecrans/Assistant.tsx`, l'accueil) en héritent sans
+ * qu'on y touche.
+ *
+ * **Ce qui ne bouge pas**, parce que c'était déjà juste et mesuré :
+ * - Une seule couleur d'accent (le bleu-vert `--accent`), le reste en encre
+ *   et en gris. « Peu de couleur, la hiérarchie portée par la typographie »
+ *   reste la règle — la hiérarchie qui manquait ne se répare pas en ajoutant
+ *   des couleurs, elle se répare en creusant l'écart entre ce qui compte et
+ *   le reste.
+ * - Les contrastes de `--muet` (7,5:1) : ce produit se lit dehors, en plein
+ *   jour, avant de partir rouler — parfois à 6 h du matin. Aucune valeur de
+ *   ce fichier ne descend sous ce que la relecture F2 avait déjà validé.
+ * - Les cibles de 44 px sur la navigation et les boutons d'action : une
+ *   cible manquée dehors, une main sur le guidon, c'est un geste raté sur le
+ *   seul moyen d'avancer.
+ *
+ * **Ce qui change** :
+ * 1. **Une échelle d'espacement** (`--sp-1` à `--sp-7`) remplace les valeurs
+ *    approximatives (9px, 11px, 13px, 14px, 16px, 18px…) semées au hasard des
+ *    blocs. Le rythme vertical devient prévisible, et plus généreux qu'avant.
+ * 2. **Un écart de poids réel entre les titres et le reste.** `h1` passait de
+ *    15 px (le corps) à 19 px : quatre pixels ne font pas une hiérarchie. Il
+ *    grandit, prend du poids, et `.grand` — les chiffres qui *sont* la
+ *    réponse à la question posée (distance, durée, estimation) — grandit
+ *    encore plus, pour qu'un chiffre-clé se voie avant qu'on le lise.
+ * 3. **Des états.** Aucun bouton, aucun champ, aucun lien n'avait de survol,
+ *    de pression ni de focus clavier visible — un vrai trou d'accessibilité,
+ *    pas seulement un manque de finition. Tout élément interactif en a un
+ *    maintenant, sur la même bague de focus partout.
+ * 4. **Moins de boîtes dans des boîtes.** `.bloc.doux` perd sa bordure : le
+ *    fond suffit à le distinguer du papier, et un écran qui empile cinq
+ *    cadres identiques (réglages, arbitrage, tenue…) respire davantage quand
+ *    un seul type de bordure reste réservé à ce qui est vraiment sélectionné
+ *    ou actionnable.
+ * 5. **Une échelle de rayons** un cran plus généreuse (10 → 14 px pour les
+ *    blocs), pour un rendu moins anguleux sans quitter la sobriété.
+ */
 
 :root {
   --papier: #f7f8f7;
@@ -31,10 +74,43 @@
   --attention-fond: #f7ebdd;
   --alerte-fond: #f7e4e2;
   --info-fond: #e4eff3;
+  --ombre-sm: 0 1px 2px rgba(22, 28, 26, 0.05);
   --ombre: 0 1px 2px rgba(22, 28, 26, 0.06), 0 8px 24px -12px rgba(22, 28, 26, 0.18);
-  --r: 10px;
+  --ombre-lg: 0 4px 10px rgba(22, 28, 26, 0.07), 0 16px 36px -14px rgba(22, 28, 26, 0.22);
+
+  /* Échelle d'espacement — un seul rythme, du plus serré (`--sp-1`, l'écart
+     entre une étiquette et son contenu) au plus large (`--sp-7`, l'écart
+     entre deux sections d'écran). Toute marge ou tout `gap` de ce fichier
+     vient d'ici : c'est ce qui rend le rythme vertical prévisible d'un écran
+     à l'autre plutôt qu'inventé bloc par bloc. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* Échelle de rayons — trois crans, du champ de saisie (le plus petit) au
+     bloc mis en avant (le plus grand). `--r` reste l'alias historique de
+     `--rayon-md`, parce qu'il est encore référencé tel quel à plusieurs
+     endroits de ce fichier. */
+  --rayon-sm: 8px;
+  --rayon-md: 14px;
+  --rayon-lg: 20px;
+  --r: var(--rayon-md);
+
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Une seule bague de focus, sur tout ce qui se pilote au clavier — aucun
+     élément interactif de ce produit n'en avait avant ce lot (règle absolue
+     d'accessibilité du mandat : « un écran élégant qu'on ne peut pas utiliser
+     au clavier n'est pas fini »). */
+  --bague-focus: 0 0 0 3px var(--accent-doux), 0 0 0 1.5px var(--accent);
+  --duree: 0.15s;
+  --easing: ease;
+
   color-scheme: light dark;
 }
 
@@ -63,7 +139,10 @@
     --attention-fond: #2a2013;
     --alerte-fond: #2b1817;
     --info-fond: #12292f;
+    --ombre-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --ombre: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+    --ombre-lg: 0 4px 12px rgba(0, 0, 0, 0.45), 0 18px 40px -16px rgba(0, 0, 0, 0.7);
+    --bague-focus: 0 0 0 3px var(--accent-doux), 0 0 0 1.5px var(--accent);
   }
 }
 
@@ -94,6 +173,26 @@ img {
   max-width: 100%;
 }
 
+/* Une seule bague de focus clavier, sur tout ce qui reçoit le focus.
+   `:focus-visible` ne se déclenche pas sur un clic souris/tactile — le focus
+   au clic reste discret, il redevient visible dès qu'on navigue au clavier. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--bague-focus);
+  border-radius: var(--rayon-sm);
+}
+
+::selection {
+  background: var(--accent-doux);
+  color: var(--accent-fort);
+}
+
 /* ---------- coquille ---------- */
 
 .coquille {
@@ -108,10 +207,10 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px 0 14px;
+  gap: var(--sp-3);
+  padding: var(--sp-5) 0 var(--sp-4);
   border-bottom: 1px solid var(--trait);
-  margin-bottom: 16px;
+  margin-bottom: var(--sp-5);
 }
 
 .app-tete .quand {
@@ -121,14 +220,19 @@ img {
   letter-spacing: 0.1em;
   color: var(--muet);
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
 }
 
+/* **L'écart de poids qui manquait.** `h1` valait 19 px, quatre de plus que le
+   corps de texte (15 px) : ce n'est pas ce qui fait qu'on lit un titre avant
+   le reste. Il grandit, et prend le poids fort — c'est la seule ligne de
+   chaque écran qui doit se lire du premier coup d'œil, bras tendu. */
+h1,
 .app-tete h1 {
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .marque {
@@ -138,6 +242,10 @@ img {
 }
 .marque span {
   color: var(--accent);
+}
+
+.a-droite {
+  text-align: right;
 }
 
 /* ---------- barre d'onglets ---------- */
@@ -150,7 +258,7 @@ img {
   display: flex;
   gap: 2px;
   border-top: 1px solid var(--trait);
-  padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: var(--sp-2) 10px calc(10px + env(safe-area-inset-bottom, 0px));
   background: var(--papier);
   z-index: 20;
 }
@@ -163,17 +271,29 @@ img {
   flex: 1;
   background: none;
   border: none;
+  border-radius: var(--rayon-sm);
   font-family: inherit;
   font-size: 12px;
+  font-weight: 500;
   color: var(--muet);
   padding: 12px 2px;
   min-height: 44px;
   cursor: pointer;
+  transition: background-color var(--duree) var(--easing), color var(--duree) var(--easing);
+}
+
+.onglets button:hover {
+  color: var(--encre-2);
+  background: var(--trait);
 }
 
 .onglets button[aria-current="page"] {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
+  background: var(--accent-doux);
+}
+.onglets button[aria-current="page"]:hover {
+  background: var(--accent-doux);
 }
 
 /* ---------- blocs ---------- */
@@ -181,29 +301,51 @@ img {
 .bloc {
   border: 1px solid var(--trait);
   border-radius: var(--r);
-  padding: 13px 14px;
-  margin-bottom: 12px;
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
   background: var(--carte);
 }
+/* **Moins de boîtes dans des boîtes.** `.bloc.doux` portait la même bordure
+   que `.bloc` : un écran de réglages ou d'échec empile alors cinq cadres
+   identiques, et rien ne dit lequel est un simple regroupement (`doux`) et
+   lequel demande une décision. Le fond seul suffit à distinguer un
+   regroupement du papier — la bordure ne reste que là où il y a vraiment un
+   choix à faire ou une carte à sélectionner. */
 .bloc.doux {
-  background: var(--papier);
+  background: var(--carte);
+  border-color: transparent;
+  box-shadow: var(--ombre-sm);
 }
+/* Le bloc choisi ou mis en avant : plus de matière, pas seulement un trait.
+   Un fond légèrement teinté fait qu'on le voit avant de lire son contour. */
 .bloc.choisi {
   border-color: var(--accent);
-  border-width: 2px;
-  padding: 12px 13px;
+  border-width: 1.5px;
+  background: var(--accent-doux);
+  padding: calc(var(--sp-4) - 0.5px);
+  box-shadow: var(--ombre);
+}
+
+/* Une carte sur laquelle on choisit (proposition, boucle, jour de la
+   semaine) : elle réagit au survol comme le reste de l'interface, pas
+   seulement le bouton qu'elle contient. */
+.bloc:has(> .carte-bouton:hover) {
+  border-color: var(--trait-fort);
+}
+.bloc.choisi:has(> .carte-bouton:hover) {
+  border-color: var(--accent);
 }
 
 .bloc-tete {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
 }
 .bloc-tete h2,
 .bloc-tete h3 {
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -217,7 +359,7 @@ img {
 
 .chiffres {
   display: flex;
-  gap: 16px;
+  gap: var(--sp-4);
   flex-wrap: wrap;
   font-family: var(--mono);
   font-size: 12.5px;
@@ -228,52 +370,106 @@ img {
   color: var(--encre);
   font-weight: 600;
 }
+.chiffres.espace {
+  margin-bottom: var(--sp-3);
+}
 
+/* Une liste simple dans un bloc (la tenue, par exemple) : la puce reste,
+   l'indentation par défaut du navigateur ne s'accorde pas avec le rythme du
+   reste de l'écran. */
+.liste-simple {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* **Le point de fuite de l'écran.** C'est le chiffre qui répond à la
+   question posée — la distance, la durée, l'estimation — et il doit se voir
+   avant qu'on le lise. Il grandit nettement (27 → 36 px) : sur un écran qui
+   montre par ailleurs beaucoup de texte de second rang, l'écart doit être
+   sans ambiguïté. */
 .grand {
   font-family: var(--mono);
-  font-size: 27px;
-  font-weight: 600;
+  font-size: 36px;
+  font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 .grand small {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--muet);
   margin-left: 3px;
+}
+/* Un chiffre-clé de second rang — l'heure de l'écran d'attente, la distance
+   dans l'en-tête d'un détail déjà annoncée ailleurs : présent, mais pas
+   *le* point de fuite de l'écran. */
+.grand.secondaire {
+  font-size: 22px;
+}
+
+/* Le duo de chiffres-clés de l'estimation (E16, « Ce que ça donnera ») :
+   c'est le point de fuite de l'écran « Demander », il a droit à son propre
+   espacement, plus large que le reste. */
+.estimation-duo {
+  display: flex;
+  gap: var(--sp-6);
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-bottom: var(--sp-2);
+}
+/* Le bloc qui porte ce duo : un cran d'écart de plus que les autres blocs
+   choisis, pour qu'il se détache nettement du formulaire qui le suit. */
+.bloc.choisi.hero {
+  margin-bottom: var(--sp-6);
 }
 
 .mention {
   /* 13 px : ces phrases se lisent dehors, en plein jour, avant de partir. */
   font-size: 13px;
   color: var(--muet);
-  line-height: 1.45;
+  line-height: 1.5;
   margin: 0;
+}
+.mention.centre {
+  text-align: center;
+  margin-top: var(--sp-3);
+}
+/* La phrase qui distingue une proposition (« passe au large de l'averse… ») :
+   c'est elle qui répond à « pourquoi celle-ci plutôt qu'une autre », elle
+   mérite un cran de plus que le reste du texte de second rang. */
+.mention.forte {
+  color: var(--encre-2);
+  margin-bottom: var(--sp-2);
 }
 
 .encart {
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: var(--rayon-sm);
+  border-left: 3px solid transparent;
+  padding: var(--sp-3) var(--sp-3);
   font-size: 12.5px;
   line-height: 1.5;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 .encart.info {
   background: var(--info-fond);
   color: var(--accent-fort);
+  border-left-color: var(--accent);
 }
 .encart.attention {
   background: var(--attention-fond);
   color: var(--attention);
+  border-left-color: var(--attention);
 }
 .encart.alerte {
   background: var(--alerte-fond);
   color: var(--alerte);
+  border-left-color: var(--alerte);
 }
 .encart.bien {
   background: var(--bien-fond);
   color: var(--bien);
+  border-left-color: var(--bien);
 }
 .encart b {
   font-weight: 600;
@@ -282,31 +478,38 @@ img {
 /* ---------- saisies ---------- */
 
 .champ {
-  margin-bottom: 14px;
+  margin-bottom: var(--sp-5);
 }
 .champ label {
   display: block;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--encre);
-  margin-bottom: 5px;
+  margin-bottom: var(--sp-2);
 }
 .champ .aide {
   font-size: 12px;
   color: var(--muet);
-  margin-top: 5px;
-  line-height: 1.45;
+  margin-top: var(--sp-2);
+  line-height: 1.5;
 }
 
 .saisie {
   width: 100%;
-  border: 1px solid var(--trait-fort);
-  background: var(--papier);
-  border-radius: 8px;
-  padding: 10px 11px;
+  border: 1.5px solid var(--trait-fort);
+  background: var(--carte);
+  border-radius: var(--rayon-sm);
+  padding: 11px 12px;
   font-family: var(--sans);
   font-size: 16px;
   color: var(--encre);
+  transition: border-color var(--duree) var(--easing), box-shadow var(--duree) var(--easing);
+}
+.saisie:hover:not(:disabled) {
+  border-color: var(--muet);
+}
+.saisie:focus-visible {
+  border-color: var(--accent);
 }
 .saisie.mono {
   font-family: var(--mono);
@@ -314,7 +517,10 @@ img {
 }
 .saisie:disabled {
   color: var(--muet);
-  background: var(--carte);
+  background: var(--papier);
+}
+.saisie[aria-invalid="true"] {
+  border-color: var(--alerte);
 }
 
 .saisie-unite {
@@ -322,18 +528,18 @@ img {
   align-items: stretch;
 }
 .saisie-unite .saisie {
-  border-radius: 8px 0 0 8px;
+  border-radius: var(--rayon-sm) 0 0 var(--rayon-sm);
   border-right: none;
 }
 .saisie-unite .unite {
   font-family: var(--mono);
   font-size: 12.5px;
   color: var(--muet);
-  border: 1px solid var(--trait-fort);
+  border: 1.5px solid var(--trait-fort);
   border-left: 1px solid var(--trait);
-  border-radius: 0 8px 8px 0;
-  padding: 10px 11px;
-  background: var(--carte);
+  border-radius: 0 var(--rayon-sm) var(--rayon-sm) 0;
+  padding: 11px 12px;
+  background: var(--papier);
   display: flex;
   align-items: center;
 }
@@ -342,20 +548,29 @@ img {
   display: block;
   width: 100%;
   text-align: center;
+  text-decoration: none;
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 9px;
-  padding: 12px;
+  border-radius: var(--rayon-sm);
+  padding: 13px;
   font-family: var(--sans);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  transition: background-color var(--duree) var(--easing), transform var(--duree) var(--easing),
+    box-shadow var(--duree) var(--easing);
 }
 @media (prefers-color-scheme: dark) {
   .bouton {
     color: #08181e;
   }
+}
+.bouton:hover:not(:disabled) {
+  background: var(--accent-fort);
+}
+.bouton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 /* **Désactivé ≠ délavé** (C5). `opacity: .5` donnait du blanc à 50 % sur du
    bleu à 50 % : très en dessous de 3:1, et illisible en plein jour. Or le cas
@@ -371,7 +586,11 @@ img {
 .bouton.second {
   background: transparent;
   color: var(--accent);
-  border: 1px solid var(--trait-fort);
+  border: 1.5px solid var(--trait-fort);
+}
+.bouton.second:hover:not(:disabled) {
+  background: var(--accent-doux);
+  border-color: var(--accent);
 }
 
 /* Le retour en tête d'un écran de profondeur. Aligné à gauche et posé avant
@@ -381,59 +600,93 @@ img {
 .retour {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   background: none;
   border: none;
-  padding: 11px 4px;
-  margin: 0 0 2px -4px;
+  border-radius: var(--rayon-sm);
+  padding: 11px 8px;
+  margin: 0 0 var(--sp-1) -8px;
   color: var(--accent);
   font-family: var(--sans);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
+  transition: background-color var(--duree) var(--easing);
 }
 .retour:hover {
+  background: var(--accent-doux);
   text-decoration: underline;
 }
 .bouton.fantome {
   background: transparent;
   color: var(--muet);
   border: none;
+  border-radius: var(--rayon-sm);
   font-weight: 500;
   font-size: 13.5px;
-  padding: 9px;
+  padding: 10px;
+  transition: background-color var(--duree) var(--easing), color var(--duree) var(--easing);
+}
+.bouton.fantome:hover:not(:disabled) {
+  background: var(--trait);
+  color: var(--encre-2);
 }
 .boutons {
   display: flex;
-  gap: 9px;
-  margin-top: 6px;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
 }
 .boutons .bouton {
   flex: 1;
+}
+
+/* Le bouton qui enveloppe une carte sélectionnable (une proposition, une
+   boucle, un jour). `all: unset` — utilisé directement dans les écrans
+   avant ce lot — effaçait aussi le contour de focus clavier par défaut du
+   navigateur, sans en remettre un : cette classe fait le même travail visuel
+   (bouton sans apparence, pleine largeur) sans effacer l'accessibilité. */
+.carte-bouton {
+  all: unset;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  border-radius: var(--rayon-sm);
 }
 
 .segments {
   display: flex;
   background: var(--papier);
   border: 1px solid var(--trait);
-  border-radius: 8px;
+  border-radius: var(--rayon-sm);
   padding: 2px;
   gap: 2px;
-  margin-bottom: 14px;
+  margin-bottom: var(--sp-5);
+}
+.segments.colle {
+  margin-bottom: var(--sp-1);
+}
+.segments.enveloppe {
+  flex-wrap: wrap;
 }
 .segments button {
   flex: 1;
   text-align: center;
   font-family: inherit;
   font-size: 12.5px;
-  padding: 7px 4px;
+  padding: 9px 4px;
+  min-height: 38px;
   border-radius: 6px;
   color: var(--muet);
   font-weight: 500;
   border: none;
   background: none;
   cursor: pointer;
+  transition: background-color var(--duree) var(--easing), color var(--duree) var(--easing);
+}
+.segments button:hover {
+  color: var(--encre);
 }
 .segments button[aria-pressed="true"] {
   background: var(--carte);
@@ -441,19 +694,22 @@ img {
   font-weight: 600;
   box-shadow: var(--ombre);
 }
+.segments button[aria-pressed="true"]:hover {
+  color: var(--encre);
+}
 
 /* ---------- zones ---------- */
 
 .zones {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
 }
 .zone-l {
   display: grid;
   grid-template-columns: 26px 1fr auto;
-  gap: 9px;
+  gap: var(--sp-2);
   align-items: center;
   font-family: var(--mono);
   font-size: 11.5px;
@@ -481,14 +737,14 @@ img {
 .etapes {
   display: flex;
   flex-direction: column;
-  margin: 2px 0 14px;
+  margin: var(--sp-1) 0 var(--sp-5);
 }
 .etape {
   display: grid;
   grid-template-columns: 18px 1fr auto;
-  gap: 11px;
+  gap: var(--sp-3);
   align-items: center;
-  padding: 8px 0;
+  padding: var(--sp-2) 0;
   border-bottom: 1px solid var(--trait);
   font-size: 13px;
 }
@@ -523,8 +779,8 @@ img {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 11px 0;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
   border-bottom: 1px solid var(--trait);
   font-size: 13.5px;
 }
@@ -545,6 +801,20 @@ img {
   font-family: var(--sans);
 }
 
+/* Le regroupement de rangées (réglages, résumé de profil) : le même geste
+   que `.bloc.doux`, avec un padding pensé pour que la première et la
+   dernière rangée respirent autant que les autres — sans lui, chaque écran
+   qui empile ce motif réinventait le même padding en ligne. */
+.bloc.liste {
+  padding: var(--sp-1) var(--sp-4);
+}
+
+/* Un vélo dans la liste éditable des réglages : le même écart que le reste
+   de l'échelle entre deux vélos qui se suivent. */
+.velo-ligne {
+  margin-bottom: var(--sp-5);
+}
+
 /* **Une cible, pas une ligne de texte** (C4). `padding: 0` en 12,5 px donnait
    15 px de haut à « Modifier » — le seul retour vers les réglages depuis un
    résultat — et 18 px à « Essayer » sur les écrans d'échec, qui est le seul
@@ -556,11 +826,20 @@ img {
   font-weight: 500;
   background: none;
   border: none;
+  border-radius: var(--rayon-sm);
   font-family: inherit;
   cursor: pointer;
   padding: 11px 8px;
   min-height: 44px;
   text-align: right;
+  transition: background-color var(--duree) var(--easing);
+}
+.rangee .lien {
+  margin: -11px -8px;
+}
+.lien:hover {
+  background: var(--accent-doux);
+  text-decoration: underline;
 }
 
 /* ---------- jalons d'attente ---------- */
@@ -568,14 +847,14 @@ img {
 .jalons {
   display: flex;
   flex-direction: column;
-  margin: 8px 0 4px;
+  margin: var(--sp-2) 0 var(--sp-1);
 }
 .jalon {
   display: grid;
   grid-template-columns: 20px 1fr auto;
-  gap: 11px;
+  gap: var(--sp-3);
   align-items: center;
-  padding: 9px 0;
+  padding: var(--sp-2) 0;
   font-size: 13.5px;
   border-bottom: 1px solid var(--trait);
 }
@@ -609,37 +888,41 @@ img {
 .depot {
   border: 1.5px dashed var(--trait-fort);
   border-radius: var(--r);
-  padding: 26px 16px;
+  padding: var(--sp-6) var(--sp-4);
   text-align: center;
-  background: var(--papier);
-  margin-bottom: 12px;
+  background: var(--carte);
+  margin-bottom: var(--sp-3);
+  transition: border-color var(--duree) var(--easing), background-color var(--duree) var(--easing);
 }
 .depot.survole {
   border-color: var(--accent);
   background: var(--accent-doux);
 }
 .depot .grosse {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin-bottom: var(--sp-1);
+}
+.depot .mt-depot {
+  margin-top: var(--sp-3);
 }
 .depot .fmt {
   font-family: var(--mono);
   font-size: 11.5px;
   color: var(--muet);
   letter-spacing: 0.05em;
-  margin-top: 8px;
+  margin-top: var(--sp-3);
 }
 
 /* ---------- carte et profil ---------- */
 
 .carte {
-  border-radius: 8px;
+  border-radius: var(--rayon-sm);
   overflow: hidden;
   border: 1px solid var(--trait);
   background: var(--papier);
   height: 230px;
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
 }
 .carte.haute {
   height: 300px;
@@ -716,13 +999,13 @@ img {
   display: block;
   width: 100%;
   height: 74px;
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
 }
 
 /* ---------- divers ---------- */
 
 .pile > * + * {
-  margin-top: 10px;
+  margin-top: var(--sp-3);
 }
 
 .barre-avance {
@@ -730,7 +1013,7 @@ img {
   border-radius: 2px;
   background: var(--trait);
   overflow: hidden;
-  margin: 12px 0 6px;
+  margin: var(--sp-4) 0 var(--sp-2);
 }
 .barre-avance i {
   display: block;
@@ -745,12 +1028,12 @@ img {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muet);
-  padding-top: 16px;
+  padding-top: var(--sp-4);
 }
 
 .vide {
   text-align: center;
-  padding: 34px 10px;
+  padding: var(--sp-7) var(--sp-2);
   color: var(--muet);
 }
 
@@ -767,11 +1050,17 @@ img {
   text-align: left;
   background: none;
   border: none;
+  border-radius: var(--rayon-sm);
   font-family: inherit;
   font-size: 13.5px;
   color: var(--encre);
-  padding: 11px 2px;
+  padding: 11px 8px;
+  margin: 0 -8px;
   cursor: pointer;
+  transition: background-color var(--duree) var(--easing);
+}
+.liste-candidats button:hover {
+  background: var(--papier);
 }
 
 /* Le formulaire d'adresse — quatre champs, parce que la commune ne doit pas
@@ -779,9 +1068,9 @@ img {
    champs vont ensemble et qu'aucun n'est facultatif. */
 .champs-adresse {
   border: 1px solid var(--trait);
-  border-radius: 8px;
-  padding: 12px 12px 4px;
-  margin: 10px 0;
+  border-radius: var(--rayon-sm);
+  padding: var(--sp-3) var(--sp-3) var(--sp-1);
+  margin: var(--sp-3) 0;
   min-width: 0;
 }
 .champs-adresse legend {
@@ -792,10 +1081,7 @@ img {
   padding: 0 6px;
 }
 .champs-adresse .champ {
-  margin-bottom: 10px;
-}
-.saisie[aria-invalid="true"] {
-  border-color: var(--alerte);
+  margin-bottom: var(--sp-3);
 }
 
 /* ---------- l'arbitrage (F2.4) ---------- */
@@ -807,39 +1093,40 @@ img {
   border: 1px solid var(--trait);
   border-radius: var(--r);
   background: var(--carte);
-  padding: 0 12px;
-  margin: 14px 0;
+  padding: 0 var(--sp-3);
+  margin: var(--sp-4) 0;
   min-width: 0;
 }
 .arbitrage > summary {
   cursor: pointer;
-  padding: 11px 0;
+  padding: var(--sp-3) 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--accent-fort);
   list-style-position: inside;
+  border-radius: var(--rayon-sm);
 }
 .arbitrage[open] > summary {
   border-bottom: 1px solid var(--trait);
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-2);
 }
 .arbitrage > .mention {
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-2);
 }
 .arbitrage h3 {
   font-size: 13px;
-  margin: 14px 0 4px;
+  margin: var(--sp-4) 0 var(--sp-1);
 }
 
 .verdicts {
   list-style: none;
-  margin: 0 0 12px;
+  margin: 0 0 var(--sp-3);
   padding: 0;
 }
 .verdicts > li {
   border-left: 3px solid var(--trait-fort);
-  padding: 6px 0 6px 10px;
-  margin-bottom: 8px;
+  padding: var(--sp-2) 0 var(--sp-2) var(--sp-2);
+  margin-bottom: var(--sp-2);
 }
 /* La couleur double une étiquette en toutes lettres, jamais l'inverse : le
    sort se lit sans distinguer le rouge du vert. */
@@ -855,7 +1142,7 @@ img {
 .verdict-tete {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--sp-2);
   font-family: var(--mono);
   font-size: 12.5px;
   margin-bottom: 3px;
@@ -887,7 +1174,7 @@ img {
    colonnes, et un pourcentage illisible ne vaut pas mieux qu'aucun. */
 .matrice-cadre {
   overflow-x: auto;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 .matrice {
   border-collapse: collapse;
@@ -902,7 +1189,7 @@ img {
   font-size: 13px;
   color: var(--muet);
   line-height: 1.45;
-  padding-bottom: 6px;
+  padding-bottom: var(--sp-2);
 }
 .matrice th,
 .matrice td {
@@ -932,11 +1219,11 @@ img {
 }
 
 .phrase-essais {
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 .avant-contraste {
   border-top: 1px solid var(--trait);
-  padding-top: 4px;
+  padding-top: var(--sp-1);
 }
 .invisible {
   position: absolute;
@@ -953,31 +1240,32 @@ img {
    repris tel quel : c'est la même idée, dire ce qui est caché plutôt que de
    le taire, appliquée à un autre chiffre. */
 .temps-ecoule {
-  margin: 6px 0 10px;
+  margin: var(--sp-2) 0 var(--sp-3);
 }
 .temps-ecoule > .mention {
-  margin: 0 0 6px;
+  margin: 0 0 var(--sp-2);
 }
 .temps-ecoule > details {
   border: 1px solid var(--trait);
   border-radius: var(--r);
   background: var(--carte);
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
 }
 .temps-ecoule > details > summary {
   cursor: pointer;
-  padding: 8px 0;
+  padding: var(--sp-2) 0;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--accent-fort);
   list-style-position: inside;
+  border-radius: var(--rayon-sm);
 }
 .temps-ecoule > details[open] > summary {
   border-bottom: 1px solid var(--trait);
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
 }
 .temps-ecoule > details > .mention {
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
 }
 
 /* Le temps sans arrêt, juste à côté du porte à porte : présent, mais second.

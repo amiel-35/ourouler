@@ -71,8 +71,8 @@ export function Attente({ titre = "On cherche", contexte, budget, annuler }: Pro
           {contexte ? <span className="quand">{contexte}</span> : null}
           <h1>{titre}</h1>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div className="grand" style={{ fontSize: 22 }} aria-label="temps écoulé">
+        <div className="a-droite">
+          <div className="grand secondaire" aria-label="temps écoulé">
             {nombre(millisecondes / 1000, 0)}
             <small>s</small>
           </div>
@@ -98,7 +98,7 @@ export function Attente({ titre = "On cherche", contexte, budget, annuler }: Pro
         })}
       </div>
 
-      <div className="encart info" style={{ marginTop: 18 }}>
+      <div className="encart info" style={{ marginTop: "var(--sp-4)" }}>
         <b>{phraseBudget(budget)}</b>
       </div>
       <p className="mention">
@@ -106,7 +106,7 @@ export function Attente({ titre = "On cherche", contexte, budget, annuler }: Pro
         les secondes écoulées sont réelles.
       </p>
       {depasse ? (
-        <p className="mention" style={{ marginTop: 8 }}>
+        <p className="mention" style={{ marginTop: "var(--sp-2)" }}>
           Ça dure plus longtemps que prévu. Le calcul tourne toujours — ne rechargez pas, une
           page rechargée relance tout depuis le début.
         </p>

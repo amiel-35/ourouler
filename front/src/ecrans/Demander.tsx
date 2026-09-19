@@ -239,12 +239,12 @@ export function Demander({
         </div>
       </div>
 
-      <div className="bloc choisi" style={{ marginBottom: 16 }}>
+      <div className="bloc choisi hero">
         <div className="bloc-tete">
           <h2>Ce que ça donnera</h2>
           <span className="rang">Estimation</span>
         </div>
-        <div style={{ display: "flex", gap: 22, alignItems: "baseline", marginBottom: 6 }}>
+        <div className="estimation-duo">
           <div>
             <div className="grand">
               {distanceEstimee === null ? "—" : nombre(distanceEstimee, 0)}
@@ -275,7 +275,7 @@ export function Demander({
 
       <div className="champ">
         <label htmlFor="quoi">Ce que vous faites</label>
-        <div className="segments" id="quoi" style={{ marginBottom: 0 }}>
+        <div className="segments colle" id="quoi">
           <button
             type="button"
             aria-pressed={demande.mode === "seance"}
@@ -322,7 +322,7 @@ export function Demander({
 
       <div className="champ">
         <label htmlFor="quand">Quand</label>
-        <div className="segments" id="quand" style={{ marginBottom: 0 }}>
+        <div className="segments colle" id="quand">
           {jours.map((jour, index) => (
             <button
               type="button"
@@ -352,7 +352,7 @@ export function Demander({
           alternative à ce choix, c'est son complément (Q44). */}
       <div className="champ">
         <label htmlFor="mode-direction">Direction</label>
-        <div className="segments" id="mode-direction" style={{ marginBottom: 0 }}>
+        <div className="segments colle" id="mode-direction">
           <button
             type="button"
             aria-pressed={demande.modeDirection === "peu-importe"}
@@ -397,7 +397,7 @@ export function Demander({
               signalé le 18/09/2026. Ce champ-ci choisit un point cardinal,
               pas une seconde fois « la » direction. */}
           <label htmlFor="direction">Point cardinal</label>
-          <div className="segments" id="direction" style={{ marginBottom: 0, flexWrap: "wrap" }}>
+          <div className="segments colle enveloppe" id="direction">
             {CARDINAUX.map((point) => (
               <button
                 type="button"
@@ -422,11 +422,7 @@ export function Demander({
       {demande.modeDirection === "vent" ? (
         <div className="champ">
           <label htmlFor="vent-preference">Selon le vent</label>
-          <div
-            className="segments"
-            id="vent-preference"
-            style={{ marginBottom: 0, flexWrap: "wrap" }}
-          >
+          <div className="segments colle enveloppe" id="vent-preference">
             {PREFERENCES_VENT.map((choix) => (
               <button
                 type="button"
@@ -499,9 +495,7 @@ export function Demander({
       >
         Chercher {nombre(demande.candidates)} parcours
       </button>
-      <p className="mention" style={{ textAlign: "center", marginTop: 10 }}>
-        {phraseBudget(budget)}
-      </p>
+      <p className="mention centre">{phraseBudget(budget)}</p>
     </section>
   );
 }
