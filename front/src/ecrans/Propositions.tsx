@@ -237,13 +237,8 @@ export function Propositions({
           <div className={active ? "bloc choisi" : "bloc"} key={proposition.numero}>
             <button
               type="button"
+              className="carte-bouton"
               onClick={() => surChoix(proposition.numero)}
-              style={{
-                all: "unset",
-                display: "block",
-                width: "100%",
-                cursor: "pointer",
-              }}
               aria-pressed={active}
             >
               <div className="bloc-tete">
@@ -256,7 +251,7 @@ export function Propositions({
                 </span>
               </div>
               {proposition.distinction ? (
-                <p className="mention" style={{ marginBottom: 8, color: "var(--encre-2)" }}>
+                <p className="mention forte">
                   {proposition.distinction}
                 </p>
               ) : null}
@@ -294,9 +289,7 @@ export function Propositions({
           Chercher plus loin
         </button>
       ) : null}
-      <p className="mention" style={{ textAlign: "center", marginTop: 10 }}>
-        Calculé en {nombre(reponse.duree_ms / 1000, 1)} s.
-      </p>
+      <p className="mention centre">Calculé en {nombre(reponse.duree_ms / 1000, 1)} s.</p>
     </section>
   );
 }

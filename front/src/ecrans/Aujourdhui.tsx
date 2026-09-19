@@ -49,10 +49,8 @@ export function Aujourdhui({
           <h1>{seance ? seance.nom : "Rien de prévu"}</h1>
         </div>
         {seance ? (
-          <div style={{ textAlign: "right" }}>
-            <div className="grand" style={{ fontSize: 22 }}>
-              {duree(seance.duree_s)}
-            </div>
+          <div className="a-droite">
+            <div className="grand secondaire">{duree(seance.duree_s)}</div>
           </div>
         ) : null}
       </div>
@@ -126,11 +124,7 @@ export function Aujourdhui({
               </span>
             ) : null}
           </div>
-          {retenue.distinction ? (
-            <p className="mention" style={{ marginTop: 7 }}>
-              {retenue.distinction}
-            </p>
-          ) : null}
+          {retenue.distinction ? <p className="mention forte">{retenue.distinction}</p> : null}
           <div className="boutons">
             <button type="button" className="bouton second" onClick={surGenerer}>
               Autre parcours
@@ -145,7 +139,7 @@ export function Aujourdhui({
           <button type="button" className="bouton" onClick={surGenerer}>
             Chercher le parcours du jour
           </button>
-          <p className="mention" style={{ textAlign: "center", marginTop: 10 }}>
+          <p className="mention centre">
             Rien n'est calculé à l'avance : le parcours se cherche quand vous le demandez.
           </p>
         </>

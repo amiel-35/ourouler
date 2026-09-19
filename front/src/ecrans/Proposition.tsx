@@ -211,8 +211,8 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
           <h1>{proposition.distinction || `Proposition ${proposition.numero}`}</h1>
           {sortie.seance ? <p className="mention">{sortie.seance.nom}</p> : null}
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div className="grand" style={{ fontSize: 21 }}>
+        <div className="a-droite">
+          <div className="grand secondaire">
             {nombre(candidate.distance_km, 1)}
             <small>km</small>
           </div>
@@ -255,7 +255,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             </div>
           )}
 
-          <div className="chiffres" style={{ marginBottom: 12 }}>
+          <div className="chiffres espace">
             <span>
               <b>{kmDepuisKm(candidate.distance_km)}</b>
             </span>
@@ -302,7 +302,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
           {seance && seance.etapes.length > 0 ? (
             <Etapes etapes={seance.etapes} emplacements={placement?.emplacements} />
           ) : (
-            <p className="mention" style={{ marginBottom: 12 }}>
+            <p className="mention" style={{ marginBottom: "var(--sp-3)" }}>
               Pas de séance sur ce parcours : c'est une boucle d'endurance, à tenir à
               l'allure de votre Z2.
             </p>
@@ -340,7 +340,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               {erreurGpx ? (
                 <div className="encart alerte">
                   <b>L'envoi vers votre compteur a échoué.</b> {erreurGpx.message}
-                  <p className="mention" style={{ marginTop: 6, marginBottom: 0 }}>
+                  <p className="mention" style={{ marginTop: "var(--sp-2)", marginBottom: 0 }}>
                     Code de la panne : {erreurGpx.code}.
                   </p>
                 </div>
@@ -352,12 +352,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               >
                 Envoyer vers mon compteur
               </button>
-              <a
-                className="bouton fantome"
-                href={proposition.gpx.url}
-                download={proposition.gpx.nom}
-                style={{ display: "block", textDecoration: "none" }}
-              >
+              <a className="bouton fantome" href={proposition.gpx.url} download={proposition.gpx.nom}>
                 Télécharger le GPX
               </a>
             </>
@@ -374,7 +369,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
                 {sortie.tenue.categorie_temp} · {sortie.tenue.categorie_humidite}
               </span>
             </div>
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
+            <ul className="liste-simple">
               {sortie.tenue.base.map((piece) => (
                 <li key={piece}>{piece}</li>
               ))}
@@ -385,7 +380,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               <div className="bloc-tete">
                 <h2>À emporter</h2>
               </div>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <ul className="liste-simple">
                 {sortie.tenue.a_emporter.map((piece) => (
                   <li key={piece}>{piece}</li>
                 ))}
@@ -397,7 +392,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               <div className="bloc-tete">
                 <h2>À enlever en route</h2>
               </div>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <ul className="liste-simple">
                 {sortie.tenue.a_enlever.map((piece) => (
                   <li key={piece}>{piece}</li>
                 ))}

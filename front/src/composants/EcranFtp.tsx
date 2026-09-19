@@ -217,14 +217,14 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
           </p>
 
           {liees.hors_bande ? (
-            <div className="encart attention" style={{ marginTop: 10 }}>
+            <div className="encart attention" style={{ marginTop: "var(--sp-3)" }}>
               <b>Vous êtes sorti de votre Z{zones.zone_endurance}.</b> C'est ce qui arrive
               quand on saisit sa moyenne compteur dans le champ « à plat ». On vous le montre
               plutôt que de le corriger en silence.
             </div>
           ) : null}
 
-          <p className="mention" style={{ marginTop: 8 }}>
+          <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
             Modèle physique : {modelePhysique(liees.modele_physique)}.
           </p>
         </div>

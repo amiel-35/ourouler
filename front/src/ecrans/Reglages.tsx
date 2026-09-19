@@ -86,7 +86,7 @@ export function Reglages({
       {dit ? <div className="encart bien">{dit}</div> : null}
       {panne ? <div className="encart alerte">{panne}</div> : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Identité</span>
           <button type="button" className="val lien texte" onClick={() => basculer("identite")}>
@@ -137,7 +137,7 @@ export function Reglages({
         </div>
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">FTP</span>
           <button type="button" className="val lien" onClick={() => basculer("ftp")}>
@@ -216,7 +216,7 @@ export function Reglages({
         </div>
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Départ habituel</span>
           <button type="button" className="val lien" onClick={() => basculer("depart")}>
@@ -262,7 +262,7 @@ export function Reglages({
         />
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">intervals.icu</span>
           <button type="button" className="val lien texte" onClick={() => basculer("intervals")}>
@@ -316,7 +316,7 @@ export function Reglages({
         </div>
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Refaire l'installation</span>
           <button type="button" className="lien" onClick={surRefaireInstallation}>
@@ -418,7 +418,7 @@ function ListeVelos({
   return (
     <div className="bloc">
       {velos.map((velo, index) => (
-        <div key={index} style={{ marginBottom: 14 }}>
+        <div key={index} className="velo-ligne">
           <div className="champ">
             <label htmlFor={`velo-nom-${index}`}>Nom</label>
             <input
@@ -528,7 +528,6 @@ function ListeVelos({
       <button
         type="button"
         className="bouton"
-        style={{ marginTop: 9 }}
         onClick={() =>
           surListe(
             velos.map((velo) => ({
@@ -546,7 +545,7 @@ function ListeVelos({
       >
         Enregistrer les vélos
       </button>
-      <p className="mention" style={{ marginTop: 8 }}>
+      <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
         Le type fixe votre position sur le vélo, donc la prise au vent : un chrono avance plus
         vite à puissance égale, et souffre moins de face.
       </p>

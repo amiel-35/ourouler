@@ -94,15 +94,14 @@ export function Importer({ jour, surSeanceLue, surChercher }: Props) {
         />
         <button
           type="button"
-          className="bouton second"
-          style={{ marginTop: 10 }}
+          className="bouton second mt-depot"
           onClick={() => champ.current?.click()}
           disabled={enCours}
         >
           {enCours ? "Lecture…" : "Choisir un fichier"}
         </button>
         <div className="fmt">.ZWO · .MRC</div>
-        <p className="mention" style={{ marginTop: 9 }}>
+        <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
           Le <b>.FIT</b> viendra plus tard — c'est le seul des trois qui soit un format
           binaire.
         </p>
