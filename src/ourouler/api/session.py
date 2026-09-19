@@ -9,14 +9,12 @@ clause de propriétaire.** »
 les deux étaient confondus : `resoudre()` rendait le propriétaire local, donc
 une requête anonyme obtenait les données du mainteneur. La couture est ici.
 
-**Aucune méthode d'authentification n'est choisie dans ce fichier**, et c'est
-délibéré (lot L7.A du sprint 7) : ni mot de passe, ni jeton d'un fournisseur
-particulier, ni courriel, ni lien à usage unique. Ce choix demande la clé
-Brevo et la politique de modération, qui sont des arbitrages du mainteneur.
-Ce qui s'écrit maintenant est la **forme** : une interface que le service
-configure et que les tests injectent. Le jour où la méthode sera tranchée,
-elle s'écrira comme une troisième classe de ce module et rien d'autre ne
-bougera.
+**La méthode d'authentification a été tranchée le 19/09/2026** (lot L7.2-C) :
+un compte, un mot de passe, une session par jeton opaque en base
+(`api/comptes.py`, `migrations/0002_sessions.sql`). Ce fichier s'écrit alors
+exactement comme la note ci-dessous l'annonçait — **une troisième classe, et
+rien d'autre ne bouge** : `SessionParCookie` s'ajoute à côté de
+`SessionPersonnelle` et `SessionHebergee`, qui restent inchangées.
 
 ## Deux produits, pas deux réglages
 
@@ -27,20 +25,28 @@ Un service qui sert **une** personne chez elle et un service qui en sert
   qu'un utilisateur, la machine est la frontière de sécurité, et le
   propriétaire est toujours le même. C'est l'usage d'origine du projet et il
   ne meurt pas.
-- `SessionHebergee` — un service exposé, plusieurs cyclistes. Tant qu'aucune
-  méthode d'authentification n'est branchée, il n'ouvre **aucune** session :
-  toute route de données répond 401. C'est le bon comportement, pas une
-  régression — servir le profil du mainteneur à un inconnu serait pire qu'un
-  refus.
+- `SessionHebergee` — un service exposé, mais sans base de comptes
+  configurée (`OUROULER_DATABASE_URL` absente). Il n'ouvre **aucune**
+  session : toute route de données répond 401. C'est le bon comportement, pas
+  une régression — servir le profil du mainteneur à un inconnu serait pire
+  qu'un refus.
+- `SessionParCookie` — un service exposé, avec une base de comptes
+  configurée. Un cookie porte un jeton opaque, retrouvé en base
+  (`DepotComptes.proprietaire_de_la_session`) ; absent, inconnu ou expiré, il
+  vaut `None` comme les deux autres cas où personne ne parle.
 
-Ce qui devait disparaître, et qui disparaît : que le mode personnel soit le
-**défaut implicite** d'un service exposé. Le mode se déclare
+Ce qui a disparu avec le lot L7.A et ne revient pas : que le mode personnel
+soit le **défaut implicite** d'un service exposé. Le mode se déclare
 (`OUROULER_MODE`, lu par `api/exploitation.py` et par lui seul) ; en son
 absence, le service refuse au lieu de deviner.
 
-**Ce module ne connaît pas FastAPI.** La requête est reçue en `object` : la
-ligne de commande doit pouvoir importer ce fichier sans l'extra `api`, et un
-fournisseur n'a pas besoin du cadre web pour dire qui il sert.
+**Ce module ne connaît pas FastAPI**, mais la requête que `SessionParCookie`
+reçoit en porte un (`starlette.requests.Request`, injecté par les routes) :
+on y lit `requete.cookies`, un attribut que Starlette expose indépendamment
+du reste du cadre. La ligne de commande continue d'importer ce fichier sans
+l'extra `api` — `SessionPersonnelle` et `SessionHebergee` n'en ont toujours
+pas besoin, et `SessionParCookie` ne construit sa connexion qu'à l'appel de
+`ouvrir`, jamais à l'import du module.
 """
 
 from __future__ import annotations
@@ -131,14 +137,74 @@ class SessionHebergee:
         return None
 
 
+#: Le nom du cookie qui porte le jeton de session. `HttpOnly` (un script du
+#: front ne le lit jamais), `Secure` (jamais envoyé en clair), `SameSite=Lax`
+#: (un lien externe peut encore ouvrir une page authentifiée ; un site tiers
+#: ne peut pas déclencher, depuis chez lui, une requête qui s'en sert) — les
+#: trois posés par `api/routes.py` au moment d'écrire le cookie, pas ici : ce
+#: module ne connaît pas la forme d'une réponse HTTP.
+NOM_COOKIE = "ourouler_session"
+
+
+@dataclass(frozen=True)
+class SessionParCookie:
+    """Plusieurs cyclistes, une session par jeton opaque en base (lot L7.2-C).
+
+    **La méthode d'authentification que la note de module annonçait.** Le
+    cookie porte un jeton ; ce module le lit (`requete.cookies`, l'attribut
+    que Starlette expose) et demande au dépôt des comptes à qui il
+    appartient. `DepotComptes.proprietaire_de_la_session` rend `None` pour un
+    jeton absent, inconnu ou expiré — les trois cas où « personne » est la
+    seule réponse honnête, et `proprietaire()` (`api/routes.py`) les traduit
+    tous en 401 de la même façon.
+
+    **Une connexion par appel, pas de réserve tenue ouverte.** Chaque
+    `ouvrir()` se connecte à la base, pose sa question, referme. C'est le
+    choix le plus simple pour un service qui n'a encore qu'une poignée de
+    cyclistes ([[CLAUDE.md]] : « 50 lignes évidentes valent mieux que 20
+    lignes malignes ») ; un bassin de connexions est un problème à résoudre
+    quand le trafic le demandera, pas avant.
+    """
+
+    #: L'URL du PostgreSQL des comptes — lue une fois par `api/exploitation.py`
+    #: (règle absolue 2) et portée ici telle quelle. Ce module ne la relit
+    #: jamais dans l'environnement.
+    url: str
+
+    #: Sans annotation, comme pour les deux autres classes : une constante de
+    #: classe, pas un champ de la dataclass.
+    mode = MODE_HEBERGE
+
+    def ouvrir(self, requete: object) -> Proprietaire | None:
+        jeton = getattr(requete, "cookies", {}).get(NOM_COOKIE)
+        if not jeton:
+            return None
+        # Importés ici, et non en tête de module : `comptes.py` importe
+        # `psycopg`, et rien n'oblige la ligne de commande à le tirer pour
+        # construire une `SessionPersonnelle` ou une `SessionHebergee`.
+        from ourouler.api import base_de_donnees
+        from ourouler.api.comptes import DepotComptes
+
+        with base_de_donnees.ouvrir(self.url) as connexion:
+            return DepotComptes(connexion).proprietaire_de_la_session(jeton)
+
+
 #: La phrase rendue au cycliste quand aucune session n'est ouverte. Elle dit
 #: ce qui s'est passé **et** ce qu'on peut faire (L7.D) : « 401 » tout seul
 #: n'a jamais renseigné personne.
+#:
+#: **Reformulée le 19/09/2026 (lot L7.2-C).** Elle disait « la méthode de
+#: connexion n'est pas branchée sur ce déploiement », vrai tant que
+#: `SessionHebergee` était la seule issue d'un service exposé. Ce n'est plus
+#: toujours vrai : un cookie absent, inconnu ou expiré vaut aussi `None` chez
+#: `SessionParCookie`, sur un déploiement où la connexion, elle, est bien
+#: branchée. La phrase ne présume donc plus de la raison et donne les deux
+#: gestes possibles.
 MESSAGE_SANS_SESSION = (
     "aucune session ouverte — cette route sert des données personnelles, et ce "
-    "serveur ne sait pas encore à qui elles appartiennent. La méthode de "
-    "connexion n'est pas branchée sur ce déploiement ; pour servir un seul "
-    "cycliste sur sa propre machine, lancer « ourouler api »."
+    "serveur ne sait pas encore à qui elles appartiennent. Se connecter "
+    "(POST /api/v1/connexion) ou activer son invitation (POST /api/v1/entrer) ; "
+    "pour servir un seul cycliste sur sa propre machine, lancer « ourouler api »."
 )
 
 #: Le code que le front teste, et qui est publié dans `erreurs.CODES_PANNE`.
@@ -151,7 +217,9 @@ __all__ = [
     "MODES",
     "MODE_HEBERGE",
     "MODE_PERSONNEL",
+    "NOM_COOKIE",
     "FournisseurSession",
     "SessionHebergee",
+    "SessionParCookie",
     "SessionPersonnelle",
 ]

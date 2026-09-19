@@ -861,7 +861,11 @@ TABLES_TECHNIQUES = ("sqlite_master", "sqlite_temp_master")
 #: une requête mixte, sont bien refusées. Ajouter une ligne ici demande la même
 #: justification que celle-ci : « cette table précède le propriétaire », pas
 #: « cette table me pose un problème ».
-TABLES_IDENTITE = ("comptes", "invitations")
+#:
+#: `sessions` (lot L7.2-C, 19/09/2026) : une session est retrouvée pour
+#: produire un `Proprietaire`, elle n'en appartient à aucun — même
+#: raisonnement que `comptes` et `invitations`.
+TABLES_IDENTITE = ("comptes", "invitations", "sessions")
 
 #: Les seules fonctions dispensées de la clause, et la raison. Une migration
 #: **fabrique** la colonne : lui demander de filtrer dessus serait circulaire.

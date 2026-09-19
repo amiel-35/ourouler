@@ -183,9 +183,31 @@ class ApercuZones(Modele):
     velo: TexteUtile | None = None
 
 
+class DemandeEntree(Modele):
+    """Le jeton d'une invitation et le secret choisi — active le compte, ouvre la session.
+
+    `jeton` et `secret` restent des `TexteUtile` ordinaires : ce module ne
+    connaît pas la forme du jeton (elle vit en base et dans `comptes.py`), et
+    aucune politique de mot de passe n'a été tranchée — inventer une longueur
+    minimale ici serait décider une règle produit à la place du mainteneur.
+    """
+
+    jeton: TexteUtile = Field(description="le jeton reçu par le lien d'invitation")
+    secret: TexteUtile = Field(description="le mot de passe choisi pour ce compte")
+
+
+class DemandeConnexion(Modele):
+    """L'adresse et le secret d'un compte déjà actif — pour revenir sans jeton."""
+
+    email: TexteUtile = Field(description="l'adresse du compte")
+    secret: TexteUtile = Field(description="le mot de passe du compte")
+
+
 __all__ = [
     "ApercuZones",
     "DemandeBoucle",
+    "DemandeConnexion",
+    "DemandeEntree",
     "DemandeSimulation",
     "DemandeSortie",
     "Panne",
