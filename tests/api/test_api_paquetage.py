@@ -21,7 +21,9 @@ from pathlib import Path
 import pytest
 from outils_api import client_api
 
+from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.session import SessionHebergee
+from ourouler.erreurs import ErreurConfig
 
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
@@ -197,3 +199,67 @@ def test_sans_dossier_front_la_racine_ne_sert_rien():
     reponse = client.get("/")
     assert reponse.status_code == 404
     assert reponse.json()["erreur"]["code"] == "route_inconnue"
+
+# --- à qui appartient le TOML du serveur (lot L7.2, corrigé le 19/09/2026) ----
+
+
+def _toml_de_serveur(tmp_path: Path, extra: str = "") -> Path:
+    fichier = tmp_path / "serveur.toml"
+    fichier.write_text(
+        '[depart]\nnom="Rennes"\nlatitude=48.1113\nlongitude=-1.68\n'
+        "[cycliste]\nmasse_kg=75\nftp_w=250\n" + extra,
+        encoding="utf-8",
+    )
+    return fichier
+
+
+def test_en_heberge_le_socle_n_appartient_a_personne(tmp_path: Path, monkeypatch):
+    """Un compte tout juste activé doit voir quelque chose.
+
+    Avant le 19/09/2026, `application()` marquait le TOML du serveur comme le
+    profil de « local » quel que soit le mode. Le premier cycliste invité
+    entrait — session ouverte, cookie posé — et recevait sur tous les écrans
+    « le socle de ce serveur est le profil de "local" et ne se partage pas ».
+    Constaté en vrai, sur la première activation.
+    """
+    monkeypatch.setenv("OUROULER_MODE", "heberge")
+    monkeypatch.setenv("OUROULER_CONFIG", str(_toml_de_serveur(tmp_path)))
+    monkeypatch.setenv("OUROULER_DATABASE_URL", "postgres://personne@127.0.0.1:1/absente")
+    from ourouler.api.application import application
+
+    depot = application().state.ourouler.profils
+    depot.verifier_proprietaire(Proprietaire("aba9e195930e70f7f4c9be54a5337075"))
+
+
+def test_en_personnel_le_socle_reste_celui_du_mainteneur(tmp_path: Path, monkeypatch):
+    """La contre-épreuve : sur sa propre machine, le fichier reste le sien.
+
+    Sans elle, « le socle n'appartient à personne » pourrait être obtenu en le
+    retirant partout, ce qui rouvrirait la fuite que le lot L7.A a fermée.
+    """
+    monkeypatch.setenv("OUROULER_MODE", "personnel")
+    monkeypatch.setenv("OUROULER_CONFIG", str(_toml_de_serveur(tmp_path)))
+    from ourouler.api.application import application
+
+    depot = application().state.ourouler.profils
+    depot.verifier_proprietaire(PROPRIETAIRE_LOCAL)
+    with pytest.raises(ErreurConfig, match="ne se partage pas"):
+        depot.verifier_proprietaire(Proprietaire("quelqu-un-d-autre"))
+
+
+def test_en_heberge_une_cle_intervals_dans_le_socle_refuse_le_demarrage(tmp_path: Path, monkeypatch):
+    """Une base commune est servie à **tout le monde** : une clé qui y traîne est distribuée.
+
+    Refus au démarrage et non à la requête — un déploiement mal configuré doit
+    échouer là où quelqu'un regarde.
+    """
+    monkeypatch.setenv("OUROULER_MODE", "heberge")
+    monkeypatch.setenv(
+        "OUROULER_CONFIG",
+        str(_toml_de_serveur(tmp_path, '[intervals]\napi_key="cle-factice-de-test"\n')),
+    )
+    monkeypatch.setenv("OUROULER_DATABASE_URL", "postgres://personne@127.0.0.1:1/absente")
+    from ourouler.api.application import application
+
+    with pytest.raises(ErreurConfig, match="clé Intervals"):
+        application()

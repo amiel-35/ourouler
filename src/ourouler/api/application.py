@@ -48,6 +48,7 @@ from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import Config
+from ourouler.erreurs import ErreurConfig
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"
@@ -357,8 +358,8 @@ def creer_application(
         # `/sante` compris. Ici, il n'est atteint que pour ce qu'aucune route
         # ci-dessus n'a servi. `html=True` : `/` rend `index.html`, comme le
         # ferait un serveur de fichiers statiques ordinaire ; il n'y a pas de
-        # route côté client à retomber dessus (`front/src/App.tsx` : quatre
-        # onglets d'état, aucun routeur d'URL) donc pas de repli à écrire.
+        # Le repli des chemins du front (`/entrer`, `/connexion`) est dans
+        # `_erreur_du_cadre` : `StaticFiles` ne sert que ce qu'elle trouve.
         app.mount("/", StaticFiles(directory=dossier_front, html=True), name="front")
 
     return app
@@ -387,18 +388,65 @@ def application() -> FastAPI:
     """
     from ourouler.api import exploitation
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
+    from ourouler.api.session import MODE_PERSONNEL
 
+    session = exploitation.fournisseur_session()
+
+    # **À qui appartient le TOML de ce serveur**, et c'est le mode qui le dit.
+    #
+    # En personnel, c'est le profil du mainteneur : le socle le porte, et
+    # `DepotProfils` refuse de le servir à un autre. En hébergé, il n'est le
+    # profil de personne — c'est la **base commune** sur laquelle chacun pose
+    # la sienne. Sans ça, un compte tout juste activé se heurtait à « le socle
+    # de ce serveur est le profil de "local" et ne se partage pas » : il
+    # entrait, et ne voyait rien (constaté en vrai le 19/09/2026, sur la
+    # première activation).
+    #
+    # Ce n'est pas la réponse à [[Q35]] — quelles sections sont communes et
+    # lesquelles appartiennent au cycliste reste à trancher. C'est la réponse
+    # à une question plus étroite : un serveur qui sert plusieurs personnes
+    # n'a pas le droit d'avoir un fichier qui soit le profil de l'une d'elles.
+    partage = session.mode != MODE_PERSONNEL
     socle = SocleTOML(
         exploitation.chemin_config(),
         variables=exploitation.variables(),
-        proprietaire=PROPRIETAIRE_LOCAL,
+        proprietaire=None if partage else PROPRIETAIRE_LOCAL,
     )
+    base = socle.config({})
+    if partage:
+        _refuser_une_base_personnelle(base)
     return creer_application(
         socle=socle,
-        dossier_donnees=socle.config({}).cache.dossier / NOM_DOSSIER_DONNEES,
-        session=exploitation.fournisseur_session(),
+        dossier_donnees=base.cache.dossier / NOM_DOSSIER_DONNEES,
+        session=session,
         dossier_front=exploitation.dossier_front(),
     )
+
+
+def _refuser_une_base_personnelle(base: Config) -> None:
+    """Un serveur partagé ne démarre pas sur le fichier personnel de quelqu'un.
+
+    Le garde-fou qui accompagne la décision du dessus. Servir une base commune
+    veut dire que **tout le monde** la reçoit : une clé Intervals qui y traîne
+    est la clé d'un compte tiers remise à chaque personne invitée, ce qu'aucun
+    message d'erreur ne rattrape après coup.
+
+    On refuse au démarrage plutôt qu'à la requête : un déploiement mal
+    configuré doit échouer là où quelqu'un regarde, pas servir la moitié de
+    ses routes. C'est le même choix que pour `OUROULER_MODE` inconnu.
+
+    Le point de départ, lui, n'est pas contrôlé ici : il en faut un pour que
+    le modèle tourne, et une commune est un défaut, pas une identité. Qu'il
+    soit générique relève du déploiement — `deploiement/api/config.example.toml`
+    l'explique — et de [[Q35]].
+    """
+    if base.intervals.api_key:
+        raise ErreurConfig(
+            "ce serveur est en mode hébergé et son fichier de configuration porte une clé "
+            "Intervals : elle serait servie à chaque personne invitée. Retirer "
+            "[intervals] du TOML du serveur — chaque cycliste branche le sien depuis "
+            "l'assistant."
+        )
 
 
 __all__ = ["DESCRIPTION", "NOM_DOSSIER_DONNEES", "application", "creer_application"]
