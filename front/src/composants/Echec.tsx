@@ -308,18 +308,6 @@ export function Echec({
     // manquerait à la demande.
     profil_absent: "Ce serveur n'a pas de profil",
     configuration_invalide: "La configuration du serveur ne tient pas",
-    // Les trois codes arrivés avec les comptes (L7.2-C). Ils ont un écran à
-    // eux dans le parcours normal — `Entrer`, `Connexion` — et n'atterrissent
-    // ici qu'en filet, quand l'un d'eux sort d'un chemin qu'on n'avait pas
-    // prévu. Le titre reste donc celui que lirait quelqu'un qui n'a pas écrit
-    // le code : jamais « jeton », jamais « 401 ».
-    //
-    // Sans eux, `tests/inventaire_erreurs.test.tsx` tombe — et il est tombé
-    // pendant trois lots, parce que la vérification du front n'avait pas été
-    // relancée en intégrant les routes.
-    invitation_invalide: "Ce lien d'invitation ne marche plus",
-    identifiants_refuses: "Cette adresse et ce mot de passe ne vont pas ensemble",
-    comptes_indisponibles: "Ce serveur ne gère pas de comptes",
     erreur_interne: "Quelque chose a cassé côté serveur",
   };
   return (
