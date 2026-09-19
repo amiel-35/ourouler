@@ -912,13 +912,14 @@ def _commande_inviter(args: argparse.Namespace, config: Config) -> int:
     from ourouler.api.courriel import parametres_brevo_depuis_dict
     from ourouler.api.invitation_commande import executer_inviter
 
+    url_db = _url_des_comptes("inviter")
     url_pub = _url_publique()
 
     parametres_brevo = None
     if not getattr(args, "sans_courriel", False):
         parametres_brevo = parametres_brevo_depuis_dict(_charger_service())
 
-    with _base_des_comptes("inviter") as connexion:
+    with _base_des_comptes("inviter", url_db) as connexion:
         depot = DepotComptes(connexion)
         return executer_inviter(
             args, config, depot=depot, url_publique=url_pub, parametres_brevo=parametres_brevo
@@ -938,15 +939,34 @@ def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
     from ourouler.api.comptes import DepotComptes
     from ourouler.api.invitation_commande import executer_invitations
 
+    url_db = _url_des_comptes("invitations")
     url_pub = _url_publique()
 
-    with _base_des_comptes("invitations") as connexion:
+    with _base_des_comptes("invitations", url_db) as connexion:
         depot = DepotComptes(connexion)
         return executer_invitations(args, config, depot=depot, url_publique=url_pub)
 
 
+def _url_des_comptes(commande: str) -> str:
+    """L'URL de la base des comptes, ou un refus qui nomme la variable.
+
+    Séparée de `_base_des_comptes` pour que l'ordre des refus reste celui du
+    besoin : sans base, rien ne se fait — c'est ce qui se dit en premier,
+    avant l'URL publique, qui ne sert qu'à fabriquer un lien.
+    """
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
+
+    url = url_base_de_donnees()
+    if url is None:
+        raise ErreurUtilisateur(
+            f"{commande} : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
+            "la base des comptes de l'hébergé"
+        )
+    return url
+
+
 @contextmanager
-def _base_des_comptes(commande: str) -> Iterator[Any]:
+def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
     """Une connexion à la base des comptes, **déjà migrée**, ou un refus lisible.
 
     Trois choses qu'aucun test n'avait attrapées, et qu'un premier vrai
@@ -968,14 +988,8 @@ def _base_des_comptes(commande: str) -> Iterator[Any]:
     une migration dont on découvre l'existence le jour où elle a mal tourné.
     """
     from ourouler.api.base_de_donnees import appliquer_migrations, ouvrir
-    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL
 
-    url_db = url_base_de_donnees()
-    if url_db is None:
-        raise ErreurUtilisateur(
-            f"{commande} : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
-            "la base des comptes de l'hébergé"
-        )
     try:
         connexion = ouvrir(url_db)
     except Exception as e:  # noqa: BLE001 - psycopg lève une famille entière, toutes traitées pareil
