@@ -443,6 +443,28 @@ export const api = {
     velo?: string;
   }) => poster<Simple<Zones>>("/profil/zones/apercu", entree),
 
+  /**
+   * T1 de l'accueil : lit le profil de l'athlète sur Intervals.icu pour
+   * confirmation, **n'écrit rien**. Répond 409 `intervals_absent` si la clé
+   * n'est pas encore posée pour ce compte — un état normal à gérer, pas une
+   * panne (`docs/ux/parcours_accueil.md` §4).
+   */
+  profilIntervals: () =>
+    appeler<Simple<{ ftp_w: number | null; masse_kg: number | null }>>(url("/profil/intervals")),
+
+  /**
+   * T4 de l'accueil : une FTP à partir d'une vitesse au compteur et d'un
+   * terrain déclarés, **n'écrit rien**.
+   */
+  apercuFtpDepuisTerrain: (entree: { vitesse_kmh: number; denivele_m_par_km: number; velo?: string }) =>
+    poster<Simple<Zones>>("/profil/ftp/apercu", entree),
+
+  /**
+   * T5 de l'accueil, le fond du tunnel : une FTP à partir du seul poids déjà
+   * enregistré, **n'écrit rien**. Ne peut jamais échouer côté serveur.
+   */
+  ftpGenerique: (velo?: string) => appeler<Simple<Zones>>(url("/profil/ftp/generique", { velo })),
+
   geocodage: (adresse: string) => appeler<Enveloppe<Geocodage>>(url("/geocodage", { adresse })),
 
   meteo: (parametres?: { heure_depart?: string; latitude?: number; longitude?: number }) =>

@@ -9,7 +9,7 @@
  * réponse dit ce que ça a réellement pris.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ErreurApi, sessionRouverte, surSessionAbsente } from "./api/client";
 import type { Boucle, Budget, Enveloppe, Profil, Seance, Sortie, Zones } from "./api/types";
 import { aujourdhui, useRessource } from "./etat/ressource";
@@ -203,6 +203,23 @@ function ApplicationPrincipale() {
   useEffect(() => {
     if (zones.valeur) setZonesCourantes(zones.valeur.donnees);
   }, [zones.valeur]);
+
+  /**
+   * Un compte neuf atterrit dans l'assistant, pas sur l'écran du jour
+   * (défaut constaté en vrai le 19/09/2026 : « Aujourd'hui » réclame
+   * Intervals et échoue). Ne force qu'**une seule fois** — dès que la
+   * personne a fini l'assistant ou l'a quitté volontairement, plus rien ne
+   * doit l'y ramener, y compris quand `profil.valeur` se recharge ensuite
+   * (reconnexion, `recharger()`).
+   */
+  const assistantDejaImpose = useRef(false);
+  useEffect(() => {
+    if (!profil.valeur || assistantDejaImpose.current) return;
+    assistantDejaImpose.current = true;
+    if (profil.valeur.donnees.assistant_recommande) {
+      setVue({ genre: "assistant" });
+    }
+  }, [profil.valeur]);
 
   const budgetDe = useCallback(
     (operation: string): Budget | null =>

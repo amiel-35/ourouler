@@ -125,6 +125,33 @@ export function zones(options?: { facteurMesure?: boolean; horsBande?: boolean }
 }
 
 /**
+ * T1 : ce que `GET /profil/intervals` rendrait pour un profil Intervals
+ * rempli — jamais un jeton ni un compte réel, une FTP et un poids inventés.
+ */
+export function profilIntervals(options?: {
+  ftp_w?: number | null;
+  masse_kg?: number | null;
+}): Simple<{ ftp_w: number | null; masse_kg: number | null }> {
+  return {
+    proprietaire: "essai",
+    donnees: {
+      ftp_w: options?.ftp_w === undefined ? 235 : options.ftp_w,
+      masse_kg: options?.masse_kg === undefined ? 71.4 : options.masse_kg,
+    },
+  };
+}
+
+/**
+ * T4/T5 : ce que `POST /profil/ftp/apercu` ou `GET /profil/ftp/generique`
+ * rendraient — même forme que `zones()`, avec une FTP distinctive pour
+ * vérifier qu'elle se propage bien jusqu'au récapitulatif.
+ */
+export function apercuFtp(ftp_w: number): Simple<Zones> {
+  const base = zones();
+  return { ...base, donnees: { ...base.donnees, ftp_w } };
+}
+
+/**
  * Le second temps de sortie et son facteur (18/09/2026, décision « les 2
  * valeurs et une explication »). `provenance` inventée et distinctive :
  * 0,872 ne se retrouve nulle part ailleurs dans ces fixtures.
