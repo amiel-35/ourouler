@@ -95,9 +95,25 @@ export function Entrer({ jeton, surEntre }: Props) {
         <div className="encart alerte">
           Ce lien d'invitation n'est plus valable — inconnu, expiré ou déjà utilisé.
         </div>
+        {/*
+          Deux suites, et la première est de loin la plus frequente : un lien
+          d'invitation ne vaut qu'une fois, donc celui qui reclique sur le sien
+          est quelqu'un qui a **deja** un compte. Lui dire de redemander une
+          invitation etait la seule reponse offerte, et c'etait la mauvaise
+          (constate le 19/09/2026, sur le premier lien reclique).
+
+          Proposer la connexion ne dit rien de l'etat du jeton : la meme page
+          s'affiche pour un lien inconnu, expire ou consomme, et ce bouton y
+          est toujours. Le silence du serveur reste entier.
+        */}
+        <p>
+          <a className="bouton" href="/connexion">
+            Se connecter
+          </a>
+        </p>
         <p className="mention">
-          La seule suite utile : redemander une invitation au mainteneur, lui seul peut en
-          émettre une nouvelle.
+          Si vous n'avez pas encore de compte, il faut une nouvelle invitation : le
+          mainteneur seul peut en émettre une.
         </p>
       </section>
     );

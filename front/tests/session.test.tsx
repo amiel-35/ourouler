@@ -64,7 +64,14 @@ describe("Entrer — activation d'une invitation", () => {
     // Aucun mot de passe à saisir sur un jeton refusé — il n'y a rien à activer.
     expect(screen.queryByLabelText("Mot de passe")).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByText(/redemander une invitation au mainteneur/)).toBeTruthy();
+
+    // **Mais un chemin, et le plus frequent.** Un lien d'invitation ne vaut
+    // qu'une fois : celui qui reclique sur le sien a deja un compte. Sans ce
+    // lien, on lui disait de redemander une invitation dont il n'a aucun
+    // besoin (constate le 19/09/2026, sur le premier lien reclique).
+    const versConnexion = screen.getByRole("link", { name: "Se connecter" });
+    expect(versConnexion.getAttribute("href")).toBe("/connexion");
+    expect(screen.getByText(/une nouvelle invitation/)).toBeTruthy();
   });
 
   it("active le compte : envoie le jeton et le secret, puis prévient l'appelant", async () => {
