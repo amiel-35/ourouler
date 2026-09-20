@@ -129,7 +129,7 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
               <span
                 className="jauge"
                 style={{
-                  background: `var(--z${Math.min(palier.numero, 5)})`,
+                  background: `var(--couleur-effort-${Math.min(palier.numero, 5)})`,
                   width: `${Math.round((palier.haut_w / hautDeLEchelle) * 100)}%`,
                 }}
               />
@@ -229,14 +229,14 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
           </p>
 
           {liees.hors_bande ? (
-            <div className="encart attention" style={{ marginTop: "var(--sp-3)" }}>
+            <div className="encart attention" style={{ marginTop: "var(--espace-champ)" }}>
               <b>Vous êtes sorti de votre Z{zones.zone_endurance}.</b> C'est ce qui arrive
               quand on saisit sa moyenne compteur dans le champ « à plat ». On vous le montre
               plutôt que de le corriger en silence.
             </div>
           ) : null}
 
-          <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
+          <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
             Modèle physique : {modelePhysique(liees.modele_physique)}.
           </p>
         </div>

@@ -96,7 +96,7 @@ export function MaSemaine({
               </button>
             )}
             {joursDEcart > HORIZON_VENT_JOURS ? (
-              <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
+              <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
                 Sans le vent : à {joursDEcart} jours, on ne sait pas encore d'où il soufflera.
               </p>
             ) : null}

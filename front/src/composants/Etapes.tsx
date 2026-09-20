@@ -9,12 +9,21 @@
 import type { Emplacement, Etape } from "../api/types";
 import { duree, nombre } from "../api/formats";
 
-/** La couleur d'un type d'étape : les quatre du cœur, et rien d'autre. */
+/**
+ * La couleur d'un type d'étape : les quatre du cœur, et rien d'autre.
+ *
+ * Sur l'échelle d'effort à cinq crans (`--couleur-effort-1..5`, direction
+ * « suisse vivante », `docs/ux/doctrine_design_system.md`) : échauffement et
+ * retour au calme sont légers (effort-1), la récupération un cran au-dessus
+ * (effort-2), et le bloc — l'intervalle qui compte — au rang le plus
+ * soutenu (effort-5). C'est la correspondance proposée par le système
+ * lui-même (`front/src/style.css`, section ÉTAPES), reprise ici.
+ */
 export const COULEUR_TYPE: Record<string, string> = {
-  echauffement: "var(--z1)",
-  bloc: "var(--z4)",
-  recuperation: "var(--z2)",
-  calme: "var(--z1)",
+  echauffement: "var(--couleur-effort-1)",
+  bloc: "var(--couleur-effort-5)",
+  recuperation: "var(--couleur-effort-2)",
+  calme: "var(--couleur-effort-1)",
 };
 
 export const NOM_TYPE: Record<string, string> = {
@@ -52,7 +61,7 @@ export function Etapes({ etapes, emplacements }: Props) {
           <div className="etape" key={etape.indice}>
             <span
               className="pt"
-              style={{ background: COULEUR_TYPE[etape.type] ?? "var(--muet)" }}
+              style={{ background: COULEUR_TYPE[etape.type] ?? "var(--texte-attenue)" }}
               aria-hidden="true"
             />
             <span className="nom">

@@ -101,7 +101,7 @@ export function Importer({ jour, surSeanceLue, surChercher }: Props) {
           {enCours ? "Lecture…" : "Choisir un fichier"}
         </button>
         <div className="fmt">.ZWO · .MRC</div>
-        <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
+        <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
           Le <b>.FIT</b> viendra plus tard — c'est le seul des trois qui soit un format
           binaire.
         </p>

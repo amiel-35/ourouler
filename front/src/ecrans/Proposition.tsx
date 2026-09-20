@@ -302,7 +302,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
           {seance && seance.etapes.length > 0 ? (
             <Etapes etapes={seance.etapes} emplacements={placement?.emplacements} />
           ) : (
-            <p className="mention" style={{ marginBottom: "var(--sp-3)" }}>
+            <p className="mention" style={{ marginBottom: "var(--espace-champ)" }}>
               Pas de séance sur ce parcours : c'est une boucle d'endurance, à tenir à
               l'allure de votre Z2.
             </p>
@@ -340,7 +340,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               {erreurGpx ? (
                 <div className="encart alerte">
                   <b>L'envoi vers votre compteur a échoué.</b> {erreurGpx.message}
-                  <p className="mention" style={{ marginTop: "var(--sp-2)", marginBottom: 0 }}>
+                  <p className="mention" style={{ marginTop: "var(--espace-interne)", marginBottom: 0 }}>
                     Code de la panne : {erreurGpx.code}.
                   </p>
                 </div>

@@ -152,7 +152,7 @@ export function Echec({
             Réessayer
           </button>
         ) : null}
-        <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
+        <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
           Si vous faites tourner où rouler vous-même : l'interface appelle l'API sur la même
           adresse qu'elle, et le serveur de développement la cherche sur le port 8000
           (<code>uv run ourouler api --port 8000</code>, ou <code>OUROULER_API</code> pour la
@@ -345,7 +345,7 @@ export function Echec({
           Réessayer
         </button>
       ) : null}
-      <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
+      <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
         Code de la panne : {erreur.code}
       </p>
     </Cadre>
