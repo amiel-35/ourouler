@@ -368,6 +368,21 @@ export interface FlecheVent {
   relatif: string | null;
 }
 
+/**
+ * Le vent à une position du tracé entier — **sans filtre de sensibilité**,
+ * contrairement à `FlecheVent` (`boucle.meteo_trace.vent_par_position`).
+ *
+ * Sert à colorer le tracé lui-même, pas à poser un marqueur : `dist_m` se
+ * raccorde à `trace.profil` (même convention que les `emplacements` de
+ * `Placement`), le front n'a donc pas besoin d'un second `[lat, lon]`.
+ */
+export interface VentPosition {
+  /** Distance cumulée depuis le départ, en mètres — se raccorde à `trace.profil`. */
+  dist_m: number;
+  /** « face », « dos », « travers », ou `null` si le cœur n'a pas pu trancher. */
+  relatif: string | null;
+}
+
 export interface MeteoCandidate {
   pluie_cumulee_mm: number | null;
   minutes_pluie: number | null;
@@ -375,6 +390,7 @@ export interface MeteoCandidate {
   ressenti_min_c: number | null;
   confiance: string | null;
   fleches_vent?: FlecheVent[];
+  vent_par_position?: VentPosition[];
   modele_utilise?: string;
   repli?: boolean;
 }

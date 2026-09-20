@@ -14,7 +14,7 @@
  */
 
 import { useState } from "react";
-import type { Candidate, Enveloppe, Seance, Sortie, Trace } from "../api/types";
+import type { Candidate, Enveloppe, Seance, Sortie, Trace, VentPosition } from "../api/types";
 import { CODE_INJOIGNABLE, panneDeReponseGpx } from "../api/client";
 import {
   duree,
@@ -27,7 +27,7 @@ import {
   visibleEnKm,
   jourEnLettres,
 } from "../api/formats";
-import { Carte, LegendeVent, type SegmentDessine } from "../composants/Carte";
+import { Carte, LegendeVent, type SegmentDessine, type SegmentVent } from "../composants/Carte";
 import { RetourEnTete } from "../composants/Retour";
 import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
@@ -48,6 +48,40 @@ export function portion(trace: Trace, debutM: number, finM: number): [number, nu
     if (distance >= a && distance <= b) points.push(trace.points[i]);
   }
   return points;
+}
+
+/**
+ * Colore le tracé lui-même par ce que le vent y coûte (point 5 du lot
+ * d'affordance, 20/09/2026) — pas seulement les huit flèches.
+ *
+ * `positions` couvre le tracé entier, échantillon par échantillon, sans
+ * filtre de sensibilité (`vent_par_position`, voir sa docstring côté cœur) :
+ * on fusionne les échantillons consécutifs de même catégorie en une seule
+ * portion, pour ne pas redessiner un segment par échantillon. Le travers et
+ * l'inconnu ne produisent aucune portion — le tracé noir de base reste
+ * visible en dessous, exactement comme la direction le demande pour ces
+ * deux cas (règle absolue 5, et « le vent traversier n'a délibérément
+ * aucune teinte »).
+ */
+export function segmentsVent(trace: Trace, positions: VentPosition[]): SegmentVent[] {
+  const segments: SegmentVent[] = [];
+  let i = 0;
+  while (i < positions.length) {
+    const categorie = positions[i].relatif;
+    if (categorie !== "face" && categorie !== "dos") {
+      i += 1;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < positions.length && positions[j + 1].relatif === categorie) j += 1;
+    segments.push({
+      points: portion(trace, positions[i].dist_m, positions[j].dist_m),
+      categorie,
+      titre: categorie === "face" ? "Vent de face" : "Vent dans le dos",
+    });
+    i = j + 1;
+  }
+  return segments;
 }
 
 interface Props {
@@ -179,6 +213,12 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
   // Déjà filtrées par le cœur au seuil où le vent se sent : le front les pose
   // sur la carte sans en écarter aucune et sans en ajouter.
   const vents = candidate.meteo?.fleches_vent ?? [];
+  // Le tracé entier, coloré par le vent (point 5) — pas de filtre de
+  // sensibilité ici, voir `segmentsVent`.
+  const traceVent =
+    trace && candidate.meteo?.vent_par_position
+      ? segmentsVent(trace, candidate.meteo.vent_par_position)
+      : [];
   const arrets = compteArrets(proposition.feux, proposition.stops);
   const retour = heureDeRetour(sortie.demande.depart, proposition.duree_s);
 
@@ -241,11 +281,16 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
               <Carte
                 traces={[{ points: trace.points, choisi: true }]}
                 segments={segments}
+                traceVent={traceVent}
                 vents={vents}
                 depart={sortie.demande.lieu_depart}
                 description={`Boucle de ${nombre(candidate.distance_km, 1)} kilomètres, blocs de la séance en surbrillance${vents.length > 0 ? `, ${vents.length} flèches de vent le long du tracé` : ""}`}
               />
-              <LegendeVent vents={vents} seuilKmh={sortie.question_vent?.seuil_kmh ?? null} />
+              <LegendeVent
+                vents={vents}
+                seuilKmh={sortie.question_vent?.seuil_kmh ?? null}
+                traceColoree={traceVent.length > 0}
+              />
               <ProfilAltitude profil={trace.profil} blocs={blocsProfil} />
             </>
           ) : (
