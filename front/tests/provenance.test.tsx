@@ -66,7 +66,15 @@ function nombresAffiches(noeud: HTMLElement): Set<string> {
  *   heure de départ, un nom de boucle : `decaler` ne touche pas au texte, et
  *   ces nombres viennent quand même de l'API ;
  * - **zéro**, que `decaler` laisse tel quel exprès : « 0 mm de pluie » est
- *   une mesure, pas une absence.
+ *   une mesure, pas une absence ;
+ * - **le pourcentage de pente lu sur `profil`** (`ProfilAltitude`, lot
+ *   d'affordance du 20/09/2026) : c'est un RATIO entre deux nombres bruts du
+ *   même tableau (dénivelé / distance), et `decaler` multiplie tout nombre
+ *   par le même facteur avant d'y ajouter une constante qui s'annule dans
+ *   toute soustraction — la pente calculée est donc mathématiquement
+ *   invariante sous ce décalage précis, quelles que soient les données. Ce
+ *   n'est pas un chiffre figé dans le code : la preuve, dans la mécanique
+ *   même de `decaler`, pas une exception de confort.
  */
 function tolerees(valeur: unknown, cle?: string, vues = new Set<string>()): Set<string> {
   vues.add("0");
@@ -79,6 +87,22 @@ function tolerees(valeur: unknown, cle?: string, vues = new Set<string>()): Set<
     for (const morceau of valeur.match(/\d+/g) ?? []) {
       vues.add(morceau);
       vues.add(String(Number(morceau)));
+    }
+    return vues;
+  }
+  if (
+    cle === "profil" &&
+    Array.isArray(valeur) &&
+    valeur.every((p) => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === "number"))
+  ) {
+    const points = valeur as [number, number][];
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const [d, a] = points[i];
+      const [dSuivant, aSuivant] = points[i + 1];
+      const distanceSegment = dSuivant - d;
+      if (distanceSegment <= 0) continue;
+      const pente = Math.abs(((aSuivant - a) / distanceSegment) * 100);
+      vues.add(String(Math.round(pente)));
     }
     return vues;
   }

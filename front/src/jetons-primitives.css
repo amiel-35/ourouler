@@ -201,6 +201,44 @@
   --sv-effort-4: #71430f;
   --sv-effort-5: #54300b;
 
+  /* ---------- la pente (ProfilAltitude) : un sixième métier ----------
+     Ajoutée le 20/09/2026 (lot d'application) : la pente est **une mesure**
+     (règle 1), pas une décision, et le profil d'altitude était resté en
+     encre par erreur — un agent avait pris un profil pour de l'interface.
+     Quatre crans, pas trois ni cinq : c'est le standard du domaine que le
+     mainteneur a demandé mot pour mot, vert jusqu'à 3 %, jaune de 3 à 6,
+     orange de 6 à 9, rouge au-delà — tout cycliste le lit sans légende,
+     contrairement aux quatre familles météo/route dont le rôle se lit dans
+     un jeton nommé, pas dans une convention universelle. Comme l'effort,
+     chaque cran est un aplat contre le papier (l'aire sous la courbe),
+     jamais un fond de texte, et tient ≥ 3:1 contre le papier de son thème en
+     clair (seuil AA objet graphique) — la même rigueur que l'effort, parce
+     que la même contrainte s'applique : lisible en plein soleil.
+
+     Tension assumée, signalée plutôt que cachée : le vert et l'orange
+     voisinent par la teinte ceux de `vent-dos`/`vent-face`, et le jaune
+     voisine `effort`. Les familles ne partagent aucune valeur (aucun nom ne
+     réutilise un autre : « une teinte, une catégorie » tient à la lettre),
+     mais la ressemblance de voisinage existe quand `Carte` (vent) et
+     `ProfilAltitude` (pente) apparaissent sur le même écran (`Proposition`).
+     Le canal non coloré de la règle d'accessibilité absolue fait le travail
+     dans ce cas précis : ce sont deux diagrammes distincts (une carte, un
+     profil), jamais le même tracé, et `ProfilAltitude` porte en plus
+     l'épaisseur du trait et le pourcentage écrit au point le plus raide —
+     voir `composants/ProfilAltitude.tsx`. Décision du mainteneur, prise
+     mot pour mot ; à confirmer à l'usage réel, pas seulement en revue.
+
+     CONTRASTES VÉRIFIÉS PAR LE CALCUL (WCAG 2.1, luminance relative,
+     méthode identique à l'en-tête de ce fichier) :
+       clair — pente-1 3.29:1 · pente-2 3.28:1 · pente-3 3.31:1 ·
+               pente-4 3.29:1 (vs papier #ffffff)
+       sombre — pente-1 7.99:1 · pente-2 8.01:1 · pente-3 7.99:1 ·
+                pente-4 8.01:1 (vs papier #0b0d10) */
+  --sv-pente-1: #5c9e3c; /* douce, < 3 % */
+  --sv-pente-2: #9b902d; /* modérée, 3–6 % */
+  --sv-pente-3: #d07642; /* forte, 6–9 % */
+  --sv-pente-4: #d4716a; /* sévère, > 9 % */
+
   color-scheme: light dark;
 }
 
@@ -240,6 +278,11 @@
     --sv-effort-3: #e8b04a;
     --sv-effort-4: #eec97a;
     --sv-effort-5: #f3dca3;
+
+    --sv-pente-1: #6cb946;
+    --sv-pente-2: #b5a835;
+    --sv-pente-3: #db966f;
+    --sv-pente-4: #de938d;
   }
 }
 
@@ -276,4 +319,9 @@
   --sv-effort-3: #e8b04a;
   --sv-effort-4: #eec97a;
   --sv-effort-5: #f3dca3;
+
+  --sv-pente-1: #6cb946;
+  --sv-pente-2: #b5a835;
+  --sv-pente-3: #db966f;
+  --sv-pente-4: #de938d;
 }

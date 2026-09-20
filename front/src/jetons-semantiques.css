@@ -121,6 +121,16 @@
   --couleur-effort-4: var(--sv-effort-4);
   --couleur-effort-5: var(--sv-effort-5);
 
+  /* ---------- la pente (ProfilAltitude) : quatre crans, standard du domaine ----------
+     1 = douce (< 3 %), 2 = modérée (3–6 %), 3 = forte (6–9 %), 4 = sévère
+     (> 9 %) — voir `jetons-primitives.css` pour les seuils et les contrastes
+     vérifiés. C'est une mesure (règle 1), jamais un fond de texte : un aplat
+     sous la courbe, comme l'effort est un aplat de jauge. */
+  --couleur-pente-1: var(--sv-pente-1);
+  --couleur-pente-2: var(--sv-pente-2);
+  --couleur-pente-3: var(--sv-pente-3);
+  --couleur-pente-4: var(--sv-pente-4);
+
   /* ---------- désaccord entre modèles ----------
      Pas une sixième couleur (la direction le dit en toutes lettres) : un
      motif, superposé à la teinte de la mesure qu'il qualifie. Le motif
