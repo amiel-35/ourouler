@@ -34,6 +34,7 @@ import { Reglages } from "./ecrans/Reglages";
 import { Assistant } from "./ecrans/Assistant";
 import { Connexion } from "./ecrans/Connexion";
 import { Entrer } from "./ecrans/Entrer";
+import { IconeAujourdhui, IconeSemaine, IconeDemander, IconeReglages } from "./composants/Pictogrammes";
 
 /**
  * Sur quelle page ce chargement de l'application s'est ouvert — lu **une
@@ -765,6 +766,13 @@ function BandeauSeanceDeposee({
   );
 }
 
+const PICTOGRAMMES: Record<Onglet, (props: { className?: string }) => JSX.Element> = {
+  aujourdhui: IconeAujourdhui,
+  semaine: IconeSemaine,
+  demander: IconeDemander,
+  reglages: IconeReglages,
+};
+
 function BarreOnglets({
   onglet,
   surOnglet,
@@ -774,16 +782,20 @@ function BarreOnglets({
 }) {
   return (
     <nav className="onglets" aria-label="Navigation principale">
-      {ONGLETS.map((entree) => (
-        <button
-          type="button"
-          key={entree.cle}
-          aria-current={onglet === entree.cle ? "page" : undefined}
-          onClick={() => surOnglet(entree.cle)}
-        >
-          {entree.nom}
-        </button>
-      ))}
+      {ONGLETS.map((entree) => {
+        const Pictogramme = PICTOGRAMMES[entree.cle];
+        return (
+          <button
+            type="button"
+            key={entree.cle}
+            aria-current={onglet === entree.cle ? "page" : undefined}
+            onClick={() => surOnglet(entree.cle)}
+          >
+            <Pictogramme className="onglet-icone" />
+            <span className="onglet-libelle">{entree.nom}</span>
+          </button>
+        );
+      })}
     </nav>
   );
 }

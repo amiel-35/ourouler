@@ -161,6 +161,11 @@ h1,
 
 .onglets button {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   background: none;
   border: none;
   border-radius: var(--rayon);
@@ -168,9 +173,19 @@ h1,
   font-size: var(--texte-petit);
   font-weight: var(--graisse-emphase);
   color: var(--texte-attenue);
-  padding: 12px 2px;
+  padding: 8px 2px;
   min-height: 44px;
   cursor: pointer;
+}
+/* Le pictogramme reprend l'encre du bouton (`currentColor`, posé dans
+   `Pictogrammes.tsx`) : repos atténué, survol et actif en encre pleine,
+   sans qu'aucune règle de couleur ne soit à écrire ici. Un texte l'accompagne
+   toujours — l'icône ne porte jamais seule le sens (contrainte du lot). */
+.onglet-icone {
+  display: block;
+}
+.onglet-libelle {
+  line-height: 1;
 }
 
 /* repos → survol : un lavis neutre, jamais une teinte. */
