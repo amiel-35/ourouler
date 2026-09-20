@@ -675,6 +675,44 @@ ou import de fichier. Le GPX partagé depuis le mobile couvre Garmin et
 COROS sans rien demander à personne. L'Edge sait charger un parcours et une séance
 structurée en même temps : la séance vient déjà d'Intervals.icu.
 
+Backlog « relief demandé » (note du mainteneur, 20/09/2026, aucun sprint
+attribué) : pouvoir demander, en plus de la durée et de la direction, le
+relief voulu — **plat, vallonné, qui grimpe, montagne** — et que le produit
+réponde honnêtement dans deux cas : (1) **introuvable à portée** : pas de
+montagne en Bretagne, on le dit au lieu de servir la moins plate des boucles
+sous ce nom ; (2) **en désaccord avec les blocs de la séance** : on ne tient
+pas une vraie Z2 sur un col à 15 %, un bloc de force à 60 rpm ne se place pas
+sur du plat qui descend, etc. Ce désaccord doit s'afficher comme une alerte
+qui nomme le bloc et la pente, pas se résoudre en silence par le placement
+(sprint 4) ni par un relief « à peu près ». À rattacher au score de placement
+et au profil coloré par la pente déjà livrés ; à cadrer avec [[Q53]] (qualité
+du tracé, au backlog) quand le dogfooding le rendra urgent. Le vocabulaire des
+quatre reliefs et leurs seuils (dénivelé par km, pente maximale) sont une
+question produit à poser au mainteneur avant tout code.
+
+Backlog « le modèle arbitre trop » (note du mainteneur, 20/09/2026, aucun
+sprint attribué) : en demandant trois parcours pour une séance, l'appli n'en
+retient souvent qu'un — mesuré le 20/09 à Rennes comme à La Rochelle, les
+deux autres candidates étant écartées à 31 % de recouvrement pour un seuil
+de 30 % (`seuil_recouvrement`, non réglable dans la configuration). Le
+mainteneur veut **plusieurs solutions pour choisir lui-même** ; « c'est
+chiant quand le modèle arbitre trop ». Pistes à cadrer, pas tranchées :
+seuil réglable ou relevé, plus de candidates par défaut quand la
+déduplication en mange, ou « Chercher plus loin » lancé d'office jusqu'à
+trois retenues (mesuré : cinq candidates en donnent trois).
+
+Backlog « la phrase sur la vitesse » (note du mainteneur, 20/09/2026) : sous
+« Ce que ça donnera » (`front/src/ecrans/Demander.tsx`), le paragraphe
+« Estimé avec votre moyenne compteur de … km/h, que le modèle physique tire
+de votre puissance … Facteur de compteur supposé, faute de mesure ; modèle
+physique littérature » est jugé incompréhensible (« c'est débile, faut faire
+plus simple »). Deux formulations proposées le 20/09, en attente du choix du
+mainteneur : A « Estimation d'après votre profil et votre vélo. Le tracé
+vient avec le bouton. » ; B « Estimation d'après votre profil. Votre vitesse
+réelle n'est pas encore mesurée : elle le sera sur vos sorties. » La règle de
+provenance (doctrine : chaque écran dit d'où vient la valeur) reste ; c'est
+la longueur et le jargon qui partent.
+
 ## Historique des sprints
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
