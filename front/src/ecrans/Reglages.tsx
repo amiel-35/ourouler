@@ -547,7 +547,7 @@ function ListeVelos({
       >
         Enregistrer les vélos
       </button>
-      <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
+      <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
         Le type fixe votre position sur le vélo, donc la prise au vent : un chrono avance plus
         vite à puissance égale, et souffre moins de face.
       </p>

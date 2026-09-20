@@ -39,7 +39,14 @@ export function ProfilAltitude({ profil, blocs = [] }: Props) {
       role="img"
       aria-label={`Profil du parcours, de ${nombre(bas, 0)} à ${nombre(haut, 0)} mètres d'altitude`}
     >
-      <polygon points={aire} fill="var(--accent-doux)" />
+      {/* L'aire et la ligne du profil ne sont ni une mesure météo, ni une
+          décision, ni l'effort d'une étape : elles ne rentrent dans aucune
+          des familles colorées du système (règle 1 — « si c'est coloré,
+          c'est une mesure »), donc elles restent en encre, comme le reste
+          de la structure. Les rectangles de `blocs`, eux, portent la teinte
+          d'effort de leur étape (`couleur`, fournie par l'écran) : c'est
+          une vraie mesure. */}
+      <polygon points={aire} fill="var(--trait)" />
       {blocs.map((bloc) => (
         <rect
           key={`${bloc.debut_m}-${bloc.fin_m}`}
@@ -51,11 +58,11 @@ export function ProfilAltitude({ profil, blocs = [] }: Props) {
           opacity="0.18"
         />
       ))}
-      <polyline points={ligne} fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-      <text x="2" y={HAUTEUR - 2} fontSize="9" fill="var(--muet)">
+      <polyline points={ligne} fill="none" stroke="var(--texte)" strokeWidth="1.5" />
+      <text x="2" y={HAUTEUR - 2} fontSize="9" fill="var(--texte-attenue)">
         {nombre(bas, 0)} m
       </text>
-      <text x={LARGEUR - 2} y="9" fontSize="9" fill="var(--muet)" textAnchor="end">
+      <text x={LARGEUR - 2} y="9" fontSize="9" fill="var(--texte-attenue)" textAnchor="end">
         {nombre(haut, 0)} m
       </text>
     </svg>

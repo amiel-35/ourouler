@@ -53,7 +53,7 @@ export class Barriere extends Component<Props, Etat> {
           <div className="bloc-tete">
             <h2>Ce qui aide à le corriger</h2>
           </div>
-          <p className="mention" style={{ fontFamily: "var(--mono)" }}>
+          <p className="mention" style={{ fontFamily: "var(--police-chiffres)" }}>
             {this.state.panne.message}
           </p>
         </div>

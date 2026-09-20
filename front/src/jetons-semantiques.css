@@ -1,0 +1,124 @@
+/**
+ * LES JETONS SÉMANTIQUES — « suisse vivante », appliquée.
+ *
+ * Couche 2 des deux couches de la doctrine (`docs/ux/doctrine_design_system.md`,
+ * §1) : chaque jeton porte un rôle — « la couleur de la pluie forte »
+ * (`--couleur-pluie-trait`), « l'espace entre deux blocs » (`--espace-bloc`)
+ * — jamais une apparence. **C'est la seule couche qu'un écran ou un
+ * composant a le droit de lire** ; `style.css` (les composants) n'importe
+ * que ce fichier, jamais `jetons-primitives.css` directement.
+ *
+ * Chaque jeton ci-dessous est un alias vers une primitive de
+ * `jetons-primitives.css` ; aucun n'invente une valeur qui n'y existe pas
+ * déjà. Convention de nommage complète : `docs/ux/doctrine_design_system.md`
+ * §2.
+ */
+
+@import url("./jetons-primitives.css");
+
+:root {
+  /* ---------- texte et surfaces ---------- */
+  --papier: var(--sv-papier);
+  --texte: var(--sv-encre);
+  /* notes, phrases d'honnêteté, légendes — lues dehors, en plein soleil,
+     avant de partir rouler. Contraste tenu à 7,6:1 en clair (9,0:1 en
+     sombre) : voir la note de `jetons-primitives.css` sur `--sv-encre-att`. */
+  --texte-attenue: var(--sv-encre-att);
+  --texte-faible: var(
+    --sv-encre-faible
+  ); /* rail décoratif seulement (numéros de colonne) — jamais du texte fin, cf. jetons-primitives.css */
+  --trait: var(--sv-filet);
+  --trait-fort: var(--sv-filet-fort);
+
+  /* ---------- espacement : sept rangs, un rôle chacun ----------
+     Les rôles reprennent, presque mot pour mot, les commentaires déjà
+     écrits dans l'ancien `front/src/style.css` pour `--sp-1..7` — c'est une
+     mesure qui survit au changement de direction, pas une esthétique. */
+  --espace-etiquette: var(--sv-taille-1); /* étiquette → son contenu */
+  --espace-interne: var(--sv-taille-2); /* gap serré : icône-texte, ligne compacte */
+  --espace-champ: var(--sv-taille-3); /* entre deux champs, ou padding interne d'un composant */
+  --espace-bloc: var(--sv-taille-4); /* padding standard d'un bloc, gap standard */
+  --espace-section: var(--sv-taille-5); /* entre deux regroupements dans un même bloc */
+  --espace-groupe: var(--sv-taille-6); /* entre deux sections d'écran */
+  --espace-ecran: var(--sv-taille-7); /* le plus large : marge extérieure, écart hero */
+
+  /* ---------- typographie ---------- */
+  --police: var(--sv-police);
+  --police-chiffres: var(--sv-police-mono); /* tout nombre mesuré : tabulaire, jamais la police texte */
+
+  --texte-oeil: var(--sv-taille-oeil); /* œilleton capitales : contexte, provenance */
+  --texte-petit: var(--sv-taille-petite); /* notes, mentions, texte secondaire */
+  --texte-corps: var(--sv-taille-corps); /* texte courant */
+  --texte-sous-titre: var(--sv-taille-titre-3); /* libellé de composant, sous-titre de bloc */
+  --texte-titre: var(--sv-taille-titre-2); /* titre de section */
+  --texte-titre-ecran: var(--sv-taille-titre-1); /* h1, titre d'écran */
+  --texte-chiffre-cle: var(--sv-taille-geante); /* le chiffre qui répond à la question posée */
+
+  --interligne-serre: var(--sv-interligne-serre);
+  --interligne-titre: var(--sv-interligne-titre);
+  --interligne: var(--sv-interligne);
+
+  --graisse-texte: var(--sv-graisse-normale);
+  --graisse-emphase: var(--sv-graisse-medium);
+  --graisse-forte: var(--sv-graisse-gras);
+
+  /* ---------- traits, forme, mouvement ---------- */
+  --epaisseur-trait: var(--sv-epaisseur-1);
+  --epaisseur-trait-fort: var(--sv-epaisseur-2);
+  --epaisseur-decision: var(--sv-epaisseur-3); /* le cerclage d'encre d'une recommandation — règle 3 */
+  --rayon: var(--sv-rayon); /* 0px partout, explicite : rien n'est arrondi */
+  --transition-duree: var(--sv-duree);
+  --focus: var(--sv-focus);
+  --focus-decalage: var(--sv-focus-decalage);
+
+  /* ---------- états interactifs ----------
+     Pas de couleur d'accent dans ce système (règle 1 : l'interface est en
+     noir et blanc). Un état se distingue par le remplissage encre/papier ou
+     par un filet, jamais par une teinte : plein encre = sélectionné ou
+     pressé, filet neutre = survolé, encre atténuée = désactivé. */
+  --interactif-survol-fond: var(--trait);
+  --interactif-actif-fond: var(--texte);
+  --interactif-actif-texte: var(--papier);
+  --interactif-desactive-texte: var(--texte-faible);
+  --interactif-desactive-trait: var(--trait);
+
+  /* ---------- couleurs de données : quatre métiers, trois usages fixes ---------- */
+  --couleur-pluie-fond: var(--sv-pluie-100);
+  --couleur-pluie-remplissage: var(--sv-pluie-300);
+  --couleur-pluie-trait: var(--sv-pluie-600);
+
+  --couleur-vent-dos-fond: var(--sv-dos-100);
+  --couleur-vent-dos-remplissage: var(--sv-dos-300);
+  --couleur-vent-dos-trait: var(--sv-dos-600);
+
+  --couleur-vent-face-fond: var(--sv-face-100);
+  --couleur-vent-face-remplissage: var(--sv-face-300);
+  --couleur-vent-face-trait: var(--sv-face-600);
+
+  --couleur-trafic-fond: var(--sv-trafic-100);
+  --couleur-trafic-remplissage: var(--sv-trafic-300);
+  --couleur-trafic-trait: var(--sv-trafic-600);
+
+  /* Vent de travers ET vent inconnu (repli défensif de `Carte.tsx`, la
+     flèche pointillée grise quand `relatif` manque) restent tous deux en
+     encre atténuée — sans teinte, par choix pour le premier (la direction
+     le dit : « ni gênant ni favorable »), et parce qu'une incertitude n'a
+     pas à emprunter une couleur de mesure pour le second (règle absolue 5 :
+     l'ignorance ne se montre pas comme une valeur). Les deux se distinguent
+     par le trait, pas par la couleur : plein pour le travers connu, très
+     pointillé et plus fin pour l'inconnu — voir `style.css`. */
+  --couleur-vent-neutre: var(--texte-attenue);
+
+  /* ---------- intensité d'effort (Z1–Z5) ---------- */
+  --couleur-effort-1: var(--sv-effort-1);
+  --couleur-effort-2: var(--sv-effort-2);
+  --couleur-effort-3: var(--sv-effort-3);
+  --couleur-effort-4: var(--sv-effort-4);
+  --couleur-effort-5: var(--sv-effort-5);
+
+  /* ---------- désaccord entre modèles ----------
+     Pas une sixième couleur (la direction le dit en toutes lettres) : un
+     motif, superposé à la teinte de la mesure qu'il qualifie. Le motif
+     lui-même n'a pas de jeton de couleur propre — il se dessine avec
+     `--texte`, à l'encre, quelle que soit la donnée qu'il recouvre. */
+}
