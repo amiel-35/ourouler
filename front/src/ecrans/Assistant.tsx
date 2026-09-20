@@ -22,7 +22,7 @@ import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Profil, Zones } from "../api/types";
 import { nombre, pourcentage, usageDeVelo } from "../api/formats";
-import { EcranFtp } from "../composants/EcranFtp";
+import { EcranFtp, ftpAffichee } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 import { RetourEnTete } from "../composants/Retour";
@@ -182,7 +182,7 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
           return;
         }
         setIntervalsTrouve({ ftp_w: reponse.donnees.ftp_w, masse_kg: reponse.donnees.masse_kg });
-        setFtpCorrigee(String(reponse.donnees.ftp_w));
+        setFtpCorrigee(ftpAffichee(reponse.donnees.ftp_w));
         setMasseCorrigee(reponse.donnees.masse_kg === null ? "" : String(reponse.donnees.masse_kg));
         setCorrectionIntervals(false);
         aller("t1_confirmation");
@@ -272,7 +272,10 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
           du 19/09/2026) — seulement un pas en arrière dans l'arbre
           (`revenir`, plus bas), jamais une sortie complète. */}
       <RetourEnTete vers={vers} surRetour={surRetour} />
-      <div className="etapes-assistant">{rubrique}</div>
+      {/* La rubrique ne s'affiche qu'une fois. Elle l'était deux : ici et dans
+          `app-tete` juste dessous — reste du compteur « Étape X sur Y »,
+          retiré quand l'assistant est devenu un arbre qui branche, sans que
+          son emplacement le soit. Constaté à l'écran le 20/09/2026. */}
       <div className="app-tete">
         <div>
           <span className="quand">{rubrique}</span>
@@ -619,22 +622,28 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
       ) : null}
 
       {etape === "t3" ? (
-        <>
-          <EcranFtp
-            zones={zones}
-            surApercu={surZones}
-            surFtp={async (ftp) => {
-              const bon = await enregistrer({ cycliste: { ftp_w: ftp } });
-              if (bon) {
-                setEtage("ftp_declare");
-                aller("recap");
-              }
-            }}
-          />
-          <button type="button" className="bouton second" onClick={() => aller("t4_vitesse")}>
-            Je ne sais pas
-          </button>
-        </>
+        /* « Connaissez-vous votre FTP ? » se répond par oui ou par non, et les
+           deux réponses tiennent dans le même regard. « Je ne sais pas » était
+           tout en bas, après les zones et l'allure d'endurance — c'est-à-dire
+           après deux écrans de conséquences d'une FTP, servies à celui qui
+           vient de dire qu'il n'en a pas. Constaté par le mainteneur le
+           20/09/2026. Il passe donc sous le champ, par `echappatoire`. */
+        <EcranFtp
+          zones={zones}
+          surApercu={surZones}
+          surFtp={async (ftp) => {
+            const bon = await enregistrer({ cycliste: { ftp_w: ftp } });
+            if (bon) {
+              setEtage("ftp_declare");
+              aller("recap");
+            }
+          }}
+          echappatoire={
+            <button type="button" className="bouton second" onClick={() => aller("t4_vitesse")}>
+              Je ne sais pas
+            </button>
+          }
+        />
       ) : null}
 
       {etape === "t4_vitesse" ? (

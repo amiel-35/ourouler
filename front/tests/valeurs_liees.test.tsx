@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { EcranFtp } from "../src/composants/EcranFtp";
+import { EcranFtp, ftpAffichee } from "../src/composants/EcranFtp";
 import { Reglages } from "../src/ecrans/Reglages";
 import { Serveur } from "./serveur";
 import { PROFIL, zones } from "./fixtures";
@@ -61,6 +61,77 @@ describe("les trois valeurs", () => {
     rendre({ facteurMesure: true });
     expect(screen.getByText("mesuré sur vos sorties")).toBeTruthy();
     expect(screen.queryByText(/supposé/)).toBeNull();
+  });
+});
+
+describe("la FTP dans son champ", () => {
+  it("s'affiche en watts entiers, pas avec les décimales de l'inversion", () => {
+    // Une FTP qui sort de l'entonnoir T4 est le résultat d'une inversion du
+    // modèle physique, donc un flottant : le champ affichait
+    // « 250.97864468892416 » (constaté le 20/09/2026). Le dernier watt n'est
+    // déjà pas mesurable, la quatorzième décimale encore moins.
+    expect(ftpAffichee(250.97864468892416)).toBe("251");
+    expect(ftpAffichee(211)).toBe("211");
+    // Sans FTP, un champ vide — jamais le texte « null ».
+    expect(ftpAffichee(null)).toBe("");
+  });
+
+  it("ne se réécrit pas toute seule quand on ne fait qu'entrer et sortir du champ", async () => {
+    // L'arrondi d'affichage ne doit pas passer pour une modification : sans
+    // cette tolérance, cliquer dans le champ puis en sortir enregistrerait
+    // 251 W à la place de 250,978, sans que personne n'ait rien tapé.
+    const utilisateur = userEvent.setup();
+    const depart = zones().donnees;
+    const avec = { ...depart, ftp_w: 250.97864468892416 };
+    const enregistrees: number[] = [];
+    render(
+      <EcranFtp
+        zones={avec}
+        surApercu={() => {}}
+        surFtp={async (ftp) => {
+          enregistrees.push(ftp);
+        }}
+      />,
+    );
+    const champ = screen.getByLabelText("Puissance seuil (FTP)") as HTMLInputElement;
+    expect(champ.value).toBe("251");
+
+    await utilisateur.click(champ);
+    await utilisateur.tab();
+    expect(enregistrees).toEqual([]);
+
+    // Une vraie saisie, elle, part bien.
+    await utilisateur.clear(champ);
+    await utilisateur.type(champ, "260");
+    await utilisateur.tab();
+    expect(enregistrees).toEqual([260]);
+  });
+
+  it("place l'échappatoire sous le champ, avant les conséquences d'une FTP", () => {
+    // « Connaissez-vous votre FTP ? » se répond par oui ou par non : les deux
+    // réponses tiennent dans le même regard. « Je ne sais pas » était après
+    // les zones et l'allure d'endurance, c'est-à-dire après deux écrans de
+    // conséquences servies à qui vient de dire qu'il n'en a pas.
+    const { container } = render(
+      <EcranFtp
+        zones={zones().donnees}
+        surApercu={() => {}}
+        echappatoire={<button type="button">Je ne sais pas</button>}
+      />,
+    );
+    const ordre = [...container.querySelectorAll("*")];
+    const echappatoire = screen.getByRole("button", { name: "Je ne sais pas" });
+    const zonesTitre = screen.getByText("Vos zones");
+    expect(ordre.indexOf(echappatoire)).toBeGreaterThan(
+      ordre.indexOf(screen.getByLabelText("Puissance seuil (FTP)")),
+    );
+    expect(ordre.indexOf(echappatoire)).toBeLessThan(ordre.indexOf(zonesTitre));
+  });
+
+  it("n'en met aucune quand l'écran ne pose pas de question", () => {
+    // Les réglages n'offrent pas d'échappatoire : il n'y a rien à esquiver.
+    render(<EcranFtp zones={zones().donnees} surApercu={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Je ne sais pas" })).toBeNull();
   });
 });
 
