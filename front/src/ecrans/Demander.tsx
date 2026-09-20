@@ -19,8 +19,10 @@
 
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { AzimutVent, Budget, Enveloppe, Profil, VentDepart, Zones } from "../api/types";
+import type { AzimutVent, Budget, Enveloppe, Meteo, Profil, VentDepart, Zones } from "../api/types";
 import { phraseBudget } from "../composants/Attente";
+import { directionsDepuisCellules } from "../api/meteoRose";
+import { RoseDirections, LegendeRose } from "../composants/RoseDirections";
 import {
   duree,
   heureDeRetour,
@@ -32,8 +34,6 @@ import {
 import { aujourdhui } from "../etat/ressource";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
-
-const CARDINAUX = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
 
 /** Les trois préférences de « selon le vent », dans l'ordre où Q44 les pose. */
 const PREFERENCES_VENT = ["depart-dos", "retour-dos", "travers"];
@@ -122,14 +122,15 @@ export function Demander({
   // et sa carte prennent de la place, et la plupart des sorties partent du
   // départ habituel.
   const [ailleurs, setAilleurs] = useState(false);
-  // Le motif de la direction recommandée n'a rien à voir avec une recherche
-  // d'adresse : le mélanger ferait apparaître une phrase sur la météo sous le
-  // champ « partir d'ailleurs ».
-  const [motifDirection, setMotifDirection] = useState<string | null>(null);
   // D'où vient le vent au départ (Q44) — chargé pendant que le cycliste
   // choisit, affiché dans les deux modes, jamais recalculé ici.
   const [vent, setVent] = useState<Enveloppe<VentDepart> | null>(null);
   const [erreurVent, setErreurVent] = useState<string | null>(null);
+  // La rose des huit directions (pluie cumulée, vent, désaccord entre
+  // modèles) : remplace « Là où il fait sec », qui ne faisait qu'un seul de
+  // ces trois appels à `/meteo` pour ne montrer que le nom d'une direction.
+  const [meteo, setMeteo] = useState<Enveloppe<Meteo> | null>(null);
+  const [erreurMeteo, setErreurMeteo] = useState<string | null>(null);
 
   const liees = zones.valeurs_liees;
   const minutes =
@@ -145,22 +146,6 @@ export function Demander({
     surDemande({ ...demande, ...morceau });
   }
 
-  async function auSec() {
-    setMotifDirection("On demande à la météo…");
-    try {
-      const reponse = await api.meteo({ heure_depart: departIso });
-      const meilleure = reponse.donnees.meilleure_direction;
-      if (meilleure === null) {
-        setMotifDirection("La météo n'a recommandé aucune direction.");
-        return;
-      }
-      changer({ direction: meilleure.nom });
-      setMotifDirection(meilleure.motif);
-    } catch (erreur) {
-      setMotifDirection(erreur instanceof ErreurApi ? erreur.message : String(erreur));
-    }
-  }
-
   // Rechargé quand le jour ou l'heure de départ changent — c'est ce qui
   // décide de l'azimut, pas le mode ni le reste de la demande.
   useEffect(() => {
@@ -174,6 +159,28 @@ export function Demander({
       })
       .catch((erreur) => {
         if (!annule) setErreurVent(erreur instanceof ErreurApi ? erreur.message : String(erreur));
+      });
+    return () => {
+      annule = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demande.jour, demande.heure_depart]);
+
+  // La rose : même déclenchement que le vent au départ ci-dessus (jour et
+  // heure de départ décident de la fenêtre interrogée), chargée qu'on soit
+  // ou non sur « Ma direction » — pour qu'elle soit déjà prête au premier
+  // clic sur ce mode, sans reflash.
+  useEffect(() => {
+    let annule = false;
+    setMeteo(null);
+    setErreurMeteo(null);
+    api
+      .meteo({ heure_depart: departIso })
+      .then((reponse) => {
+        if (!annule) setMeteo(reponse);
+      })
+      .catch((erreur) => {
+        if (!annule) setErreurMeteo(erreur instanceof ErreurApi ? erreur.message : String(erreur));
       });
     return () => {
       annule = true;
@@ -229,6 +236,13 @@ export function Demander({
     quand.setDate(quand.getDate() + decalage);
     return quand.toISOString().slice(0, 10);
   });
+
+  // La rose : une ligne par direction, agrégée depuis les cellules brutes de
+  // `/meteo` (`meteoRose.directionsDepuisCellules`, documenté là-bas —
+  // jamais un second calcul ici).
+  const directionsMeteo = meteo ? directionsDepuisCellules(meteo.donnees.cellules) : [];
+  const directionRecommandee = meteo?.donnees.meilleure_direction?.nom ?? null;
+  const motifRecommandation = meteo?.donnees.meilleure_direction?.motif ?? null;
 
   return (
     <section>
@@ -395,27 +409,34 @@ export function Demander({
           {/* « Direction » se lisait deux fois : une fois pour le choix du
               mode (ci-dessus), une fois pour l'azimut qui en dépend —
               signalé le 18/09/2026. Ce champ-ci choisit un point cardinal,
-              pas une seconde fois « la » direction. */}
-          <label htmlFor="direction">Point cardinal</label>
-          <div className="segments colle enveloppe" id="direction">
-            {CARDINAUX.map((point) => (
-              <button
-                type="button"
-                key={point}
-                aria-pressed={demande.direction === point}
-                onClick={() => changer({ direction: point })}
-              >
-                {point}
-              </button>
-            ))}
-          </div>
-          <div className="aide">
-            <button type="button" className="lien" onClick={auSec}>
-              Là où il fait sec
-            </button>{" "}
-            demande à la météo quelle direction elle recommande.
-          </div>
-          {motifDirection ? <p className="mention">{motifDirection}</p> : null}
+              pas une seconde fois « la » direction.
+
+              Choisir à l'aveugle était la question ouverte que ce lot ferme
+              (20/09/2026) : huit boutons de texte devenaient huit secteurs
+              qui montrent la pluie cumulée, le vent et le désaccord entre
+              modèles — ce que le produit savait déjà sans jamais le
+              montrer avant de cliquer. `RoseDirections` reste un vrai
+              contrôle clavier (Tab, puis Entrée ou Espace) : au moins
+              aussi accessible que les huit boutons qu'elle remplace. */}
+          <label>Point cardinal</label>
+          {erreurMeteo !== null ? (
+            <p className="mention">{erreurMeteo}</p>
+          ) : meteo === null ? (
+            <p className="mention">Météo des huit directions : en cours…</p>
+          ) : (
+            <>
+              <div className="rose-conteneur">
+                <RoseDirections
+                  directions={directionsMeteo}
+                  recommandee={directionRecommandee}
+                  choisie={demande.direction}
+                  onChoisir={(nom) => changer({ direction: nom })}
+                />
+              </div>
+              <LegendeRose />
+              {motifRecommandation ? <p className="mention">{motifRecommandation}</p> : null}
+            </>
+          )}
         </div>
       ) : null}
 

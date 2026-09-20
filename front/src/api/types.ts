@@ -288,6 +288,17 @@ export interface Cellule {
   pluie_second_avis_mm: number | null;
   vent_kmh: number;
   vent_depuis_deg: number;
+  /**
+   * « face », « dos » ou « travers » **pour qui partirait dans cette
+   * direction-là** — déjà tranché par `meteo.rapport.vent_relatif` (secteur
+   * de ±45°) et sérialisé par `rendre_json`, au même titre que `confiance`.
+   * `null` sur le point « ici » (exclu du contrat, voir `meteo/rapport.py`)
+   * ou quand le vent manque à cette heure-là. Champ ajouté au type le
+   * 20/09/2026 : l'API le rendait déjà, ce type ne le portait pas encore —
+   * jamais recalculé côté front (même discipline que `azimuts_par_choix`,
+   * `direction_vent.test.tsx`).
+   */
+  vent_relatif: string | null;
   ressenti_c: number;
   confiance: string;
 }

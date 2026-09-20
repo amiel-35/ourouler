@@ -311,6 +311,22 @@ h1,
   font-weight: var(--graisse-texte);
 }
 
+/* La jauge de pluie (`composants/JaugePluie.tsx`), dans le même `<span>` du
+   rang de `.chiffres`. `.jauge-pluie` reste un flux de texte normal (pas de
+   flex) : une phrase longue — « (35 min sous la pluie) » — doit s'enrouler
+   comme n'importe quel texte, pas comme une rangée flex qui isolerait le
+   chiffre. Seule `.jauge-pluie-valeur` (le dessin et son chiffre) est un
+   petit `inline-flex` insécable. */
+.jauge-pluie-valeur {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espace-etiquette);
+  white-space: nowrap;
+}
+.jauge-pluie-valeur svg {
+  flex-shrink: 0;
+}
+
 .liste-simple {
   margin: 0;
   padding-left: 18px;
@@ -1058,6 +1074,118 @@ h1,
 }
 
 /* ================================================================
+   ROSE DES DIRECTIONS — remplace les huit boutons de texte de `Demander`,
+   ajoutée le 20/09/2026. `composants/RoseDirections.tsx` pose ses couleurs
+   en ligne (`fill="var(--couleur-pluie-…)"`), le même geste que la pente de
+   `ProfilAltitude` juste au-dessus : le jeton dépend d'un palier calculé,
+   pas d'une classe fixe. Cette section ne porte donc que la mise en page,
+   le focus clavier et le curseur — jamais une couleur en dur.
+   ================================================================ */
+
+.rose-conteneur {
+  display: flex;
+  justify-content: center;
+  margin: var(--espace-champ) 0;
+}
+.rose-directions {
+  max-width: 100%;
+  height: auto;
+}
+/* Chaque secteur est un vrai contrôle (mode interactif de `Demander`), mais
+   pas un élément HTML natif : un `<button>` sait tout seul limiter sa bague
+   de focus au clavier (`:focus-visible`), un `<g role="button">` ne le sait
+   pas — trouvé à l'écran le 20/09/2026, où un clic souris laissait la bague
+   par défaut du navigateur (dorée, pas `--focus`) au lieu de rien du tout.
+   On répète donc ici, explicitement, la seule règle que `[tabindex]:
+   focus-visible` du socle ne suffit pas à couvrir. */
+.rose-secteur {
+  cursor: pointer;
+}
+.rose-secteur:focus {
+  outline: none;
+}
+.rose-secteur:focus-visible {
+  outline: var(--focus);
+  outline-offset: var(--focus-decalage);
+}
+.rose-secteur path {
+  transition: opacity var(--transition-duree);
+}
+.rose-secteur:hover path:first-child {
+  opacity: 0.82;
+}
+/* Sur un écran tactile, il n'y a pas de survol : le canal qui compte reste
+   le cerclage d'encre (recommandée) ou le pointillé (choisie), jamais cette
+   seule opacité — cohérent avec la doctrine de l'affordance (§8). */
+
+.legende-rose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-champ);
+  margin-bottom: var(--espace-champ);
+}
+.legende-rose .groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-etiquette);
+}
+.legende-rose .titre-groupe {
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  font-weight: var(--graisse-emphase);
+  text-transform: uppercase;
+  letter-spacing: var(--sv-suivi-oeil);
+  color: var(--texte-attenue);
+}
+.legende-rose .puce {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-interne);
+  font-size: var(--texte-oeil);
+  color: var(--texte-attenue);
+}
+.pluie-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: var(--epaisseur-trait) solid var(--trait);
+  flex-shrink: 0;
+}
+.pluie-swatch[data-niveau="sec"] {
+  background: var(--papier);
+}
+.pluie-swatch[data-niveau="faible"] {
+  background: var(--couleur-pluie-fond);
+  border-color: var(--couleur-pluie-fond);
+}
+.pluie-swatch[data-niveau="modere"] {
+  background: var(--couleur-pluie-remplissage);
+  border-color: var(--couleur-pluie-remplissage);
+}
+.pluie-swatch[data-niveau="fort"] {
+  background: var(--couleur-pluie-trait);
+  border-color: var(--couleur-pluie-trait);
+}
+.pluie-swatch[data-niveau="desaccord"] {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--texte) 0,
+    var(--texte) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  background-color: var(--couleur-pluie-fond);
+}
+
+/* Le résumé de `Aujourdhui` (`compact`) : une seule ligne sous la rose,
+   plutôt que la légende complète — l'écran du jour se lit en trois
+   secondes, pas en dépliant une légende. */
+.rose-resume {
+  text-align: center;
+  margin-bottom: var(--espace-champ);
+}
+
+/* ================================================================
    FORMULAIRE D'ADRESSE
    ================================================================ */
 
@@ -1328,4 +1456,14 @@ h1,
   text-align: center;
   padding: var(--espace-ecran) var(--espace-interne);
   color: var(--texte-attenue);
+}
+
+/* L'aperçu de la semaine (`ecrans/MaSemaine.tsx`, `ApercuSemaine`) — sept
+   colonnes, en encre seule (voir le commentaire d'en-tête du composant :
+   la durée n'est pas une des familles de données mesurées du système). */
+.apercu-semaine-conteneur {
+  margin-bottom: var(--espace-groupe);
+}
+.apercu-semaine {
+  display: block;
 }

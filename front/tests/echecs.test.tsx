@@ -14,7 +14,7 @@ import { Propositions } from "../src/ecrans/Propositions";
 import { Aujourdhui } from "../src/ecrans/Aujourdhui";
 import { App } from "../src/App";
 import { Serveur, panne } from "./serveur";
-import { PROFIL, SEMAINE, SYSTEME, sortie, zones } from "./fixtures";
+import { PROFIL, SEMAINE, SYSTEME, meteo, sortie, zones } from "./fixtures";
 
 function erreur(code: string, message: string, statut = 502) {
   return new ErreurApi({ code, message, service: null, details: {} }, statut);
@@ -276,7 +276,12 @@ describe("le serveur ne répond pas du tout", () => {
 });
 
 describe("l'écran d'un jour sans séance", () => {
-  it("dit « jour de repos » plutôt que de rester vide", () => {
+  it("dit « jour de repos » plutôt que de rester vide", async () => {
+    // Sans parcours (`parcours={null}`), l'écran charge la rose des huit
+    // directions (« où rouler » sans avoir rien demandé) — il lui faut donc
+    // un serveur factice pour `/api/v1/meteo`, même si ce test ne regarde
+    // pas la rose elle-même.
+    new Serveur({ "/api/v1/meteo": { charge: meteo() } }).installer();
     render(
       <Aujourdhui
         jour="2026-09-17"
@@ -291,6 +296,9 @@ describe("l'écran d'un jour sans séance", () => {
     expect(screen.getByRole("heading", { name: "Rien de prévu" })).toBeTruthy();
     expect(screen.getByText(/ce n'est pas une panne, c'est un jour de repos/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Demander un parcours" })).toBeTruthy();
+    // Laisse la rose s'installer avant la fin du test, pour ne pas laisser
+    // une mise à jour d'état retomber hors de tout `act(...)`.
+    expect(await screen.findByRole("img", { name: /Où rouler/ })).toBeTruthy();
   });
 });
 
