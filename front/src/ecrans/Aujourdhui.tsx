@@ -9,12 +9,25 @@
  * afficher une heure fausse. L'écran montre donc le **dernier parcours
  * réellement obtenu pour ce jour**, avec l'heure à laquelle il l'a été, et
  * un bouton quand il n'y en a pas encore.
+ *
+ * **La rose des huit directions se lit sans avoir rien demandé** (lot du
+ * 20/09/2026) : tant qu'aucun parcours n'a encore été cherché aujourd'hui,
+ * un résumé compact — la direction recommandée, sa pluie, son vent — répond
+ * à « où rouler » avant même le bouton « Chercher ». Une fois un parcours
+ * obtenu, la carte et son tracé coloré par le vent répondent déjà à cette
+ * question pour *ce* parcours-là : répéter la rose ferait deux réponses à
+ * la même question, potentiellement contradictoires si le parcours n'est
+ * pas parti dans la direction recommandée.
  */
 
-import type { Enveloppe, Seance, Sortie } from "../api/types";
+import { useEffect, useState } from "react";
+import type { Enveloppe, Meteo, Seance, Sortie } from "../api/types";
 import { duree, heure, jourEnLettres, kmDepuisKm, nombre, pourcentage, compteArrets } from "../api/formats";
+import { api, ErreurApi } from "../api/client";
+import { directionsDepuisCellules } from "../api/meteoRose";
 import { Etapes } from "../composants/Etapes";
 import { Carte } from "../composants/Carte";
+import { RoseDirections, resumeDirection } from "../composants/RoseDirections";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 
 interface Props {
@@ -41,6 +54,37 @@ export function Aujourdhui({
   const candidate = retenue ? sortie?.candidates.find((c) => c.numero === retenue.numero) : null;
   const manque = parcours ? meteoManquante(parcours.reponse.avertissements) : null;
 
+  // Le résumé de la rose, chargé une fois — cet écran ne pose ni jour ni
+  // heure de départ (c'est `Demander` qui les négocie) : « maintenant »
+  // suffit pour la lecture en trois secondes, l'écran n'attend pas de
+  // réponse plus précise qu'un coup d'œil.
+  //
+  // **Chargée seulement tant qu'aucun parcours n'existe déjà** (`!sortie`) :
+  // une fois un parcours obtenu, la rose ne s'affiche plus (voir plus bas),
+  // et lui faire quand même payer un appel à `/meteo` serait un appel pour
+  // rien — huit directions et leurs couronnes, pour un résultat qu'on ne
+  // montre jamais.
+  const [meteo, setMeteo] = useState<Enveloppe<Meteo> | null>(null);
+  const [erreurMeteo, setErreurMeteo] = useState<string | null>(null);
+  useEffect(() => {
+    if (sortie) return;
+    let annule = false;
+    api
+      .meteo()
+      .then((reponse) => {
+        if (!annule) setMeteo(reponse);
+      })
+      .catch((erreur) => {
+        if (!annule) setErreurMeteo(erreur instanceof ErreurApi ? erreur.message : String(erreur));
+      });
+    return () => {
+      annule = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortie]);
+  const directionsMeteo = meteo ? directionsDepuisCellules(meteo.donnees.cellules) : [];
+  const directionRecommandee = meteo?.donnees.meilleure_direction?.nom ?? null;
+
   return (
     <section>
       <div className="app-tete">
@@ -56,6 +100,39 @@ export function Aujourdhui({
       </div>
 
       {manque ? <BandeauMeteoAbsente phrase={manque} /> : null}
+
+      {/* La réponse à « où rouler » se lit sans avoir rien demandé — tant
+          qu'aucun parcours n'existe déjà pour aujourd'hui. Une fois un
+          parcours obtenu, la carte plus bas (tracé coloré par le vent)
+          répond déjà à cette question pour *ce* parcours-là. */}
+      {!sortie ? (
+        <div className="bloc doux">
+          <div className="bloc-tete">
+            <h2>Où rouler</h2>
+          </div>
+          {erreurMeteo !== null ? (
+            <p className="mention">{erreurMeteo}</p>
+          ) : meteo === null ? (
+            <p className="mention">Météo des huit directions : en cours…</p>
+          ) : (
+            <>
+              <div className="rose-conteneur">
+                <RoseDirections directions={directionsMeteo} recommandee={directionRecommandee} compact />
+              </div>
+              {(() => {
+                const direction = directionsMeteo.find((d) => d.nom === directionRecommandee);
+                return direction ? (
+                  <p className="mention rose-resume">→ {resumeDirection(direction)}</p>
+                ) : (
+                  <p className="mention rose-resume">
+                    {meteo.donnees.meilleure_direction?.motif ?? "Aucune direction ne se distingue."}
+                  </p>
+                );
+              })()}
+            </>
+          )}
+        </div>
+      ) : null}
 
       {seance === null ? (
         <>

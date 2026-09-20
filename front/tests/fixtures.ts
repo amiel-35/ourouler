@@ -16,9 +16,11 @@ import type {
   Avertissement,
   Boucle,
   Budget,
+  Cellule,
   Compteur,
   Ecartee,
   Enveloppe,
+  Meteo,
   Profil,
   Seance,
   Semaine,
@@ -205,6 +207,113 @@ export function ventDepart(options?: {
     avertissements: [],
     duree_ms: 89,
     budget: budget("vent-depart"),
+  };
+}
+
+/**
+ * `GET /meteo` : huit directions, deux couronnes chacune (15 et 25 km),
+ * plus le point « ici » — que le cœur inclut toujours et que
+ * `meteoRose.directionsDepuisCellules` doit ignorer, jamais une neuvième
+ * direction.
+ *
+ * Les chiffres reprennent **ceux de la proposition retenue** le 19/09/2026
+ * (`front/directions/suisse-vivante.html`, la table accessible de la rose) :
+ * pas une coïncidence, la continuité entre la maquette qui a fait choisir
+ * cette direction et la fixture qui la teste. Toute la pluie est posée sur
+ * la couronne des 15 km ; celle des 25 km reste sèche et en accord partout
+ * — c'est ce qui permet à un test de vérifier le **cumul** (`niveauPluie`
+ * lit la somme des deux couronnes, pas une seule) sans calcul caché.
+ *
+ * `vent_relatif` est posé **à la main**, cohérent avec `vent_depuis_deg` et
+ * l'azimut de chaque direction (vérifiable avec la règle des ±45° de
+ * `meteo.rapport.vent_relatif`) — mais rien n'oblige un test à le garder
+ * cohérent : c'est le point exact de `tests/rose_directions.test.tsx`, qui
+ * pose une valeur volontairement incohérente pour prouver que le front lit
+ * ce champ, jamais ne le recalcule.
+ */
+export function meteo(options?: {
+  /** Remplace entièrement les cellules par défaut — pour un cas dégradé
+   * (une direction absente, un vent inconnu…) sans reconstruire la table. */
+  cellules?: Cellule[];
+  meilleureDirection?: { nom: string; motif: string } | null;
+}): Enveloppe<Meteo> {
+  const parDirection: Record<
+    string,
+    { pluie: number; secondAvis: number; confiance: string; ventKmh: number; ventDepuisDeg: number; relatif: string }
+  > = {
+    N: { pluie: 0.0, secondAvis: 0.0, confiance: "accord", ventKmh: 14, ventDepuisDeg: 90, relatif: "travers" },
+    NE: { pluie: 0.2, secondAvis: 0.2, confiance: "accord", ventKmh: 11, ventDepuisDeg: 315, relatif: "travers" },
+    // Le seul désaccord de la fixture : AROME annonce 1,4 mm, le second avis
+    // n'en voit pas — exactement le cas que la légende de la rose illustre.
+    E: { pluie: 1.4, secondAvis: 0.0, confiance: "desaccord", ventKmh: 9, ventDepuisDeg: 180, relatif: "travers" },
+    SE: { pluie: 3.8, secondAvis: 3.6, confiance: "accord", ventKmh: 13, ventDepuisDeg: 135, relatif: "face" },
+    S: { pluie: 2.1, secondAvis: 2.0, confiance: "accord", ventKmh: 18, ventDepuisDeg: 200, relatif: "face" },
+    SO: { pluie: 0.6, secondAvis: 0.5, confiance: "accord", ventKmh: 22, ventDepuisDeg: 225, relatif: "face" },
+    O: { pluie: 0.0, secondAvis: 0.0, confiance: "accord", ventKmh: 16, ventDepuisDeg: 270, relatif: "face" },
+    // La direction recommandée : sèche sur tout l'horizon, vent de dos.
+    NO: { pluie: 0.0, secondAvis: 0.0, confiance: "accord", ventKmh: 12, ventDepuisDeg: 135, relatif: "dos" },
+  };
+  const cellules: Cellule[] =
+    options?.cellules ??
+    [
+      // Le point de départ : jamais une direction, doit être ignoré par
+      // `directionsDepuisCellules`.
+      {
+        direction: "ici",
+        distance_km: 0,
+        t: "2026-09-18T07:00:00Z",
+        pluie_mm: 0,
+        pluie_second_avis_mm: 0,
+        vent_kmh: 12,
+        vent_depuis_deg: 135,
+        vent_relatif: null,
+        ressenti_c: 14,
+        confiance: "accord",
+      },
+      ...Object.entries(parDirection).flatMap(([direction, valeurs]) => [
+        {
+          direction,
+          distance_km: 15,
+          t: "2026-09-18T07:00:00Z",
+          pluie_mm: valeurs.pluie,
+          pluie_second_avis_mm: valeurs.secondAvis,
+          vent_kmh: valeurs.ventKmh,
+          vent_depuis_deg: valeurs.ventDepuisDeg,
+          vent_relatif: valeurs.relatif,
+          ressenti_c: 14,
+          confiance: valeurs.confiance,
+        },
+        {
+          direction,
+          distance_km: 25,
+          t: "2026-09-18T08:00:00Z",
+          pluie_mm: 0,
+          pluie_second_avis_mm: 0,
+          vent_kmh: valeurs.ventKmh - 2,
+          vent_depuis_deg: valeurs.ventDepuisDeg,
+          vent_relatif: valeurs.relatif,
+          ressenti_c: 13,
+          confiance: "accord",
+        },
+      ]),
+    ];
+  return {
+    proprietaire: "essai",
+    donnees: {
+      depart: DEPART,
+      debut: "2026-09-18T07:00:00Z",
+      horizon_h: 3,
+      modele: "modele-invente",
+      second_avis: "second-avis-invente",
+      meilleure_direction:
+        options?.meilleureDirection !== undefined
+          ? options.meilleureDirection
+          : { nom: "NO", motif: "sec sur tout l'horizon, vent de dos à l'aller (motif inventé)" },
+      cellules,
+    },
+    avertissements: [],
+    duree_ms: 184,
+    budget: budget("meteo"),
   };
 }
 

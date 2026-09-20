@@ -22,7 +22,7 @@ import { App } from "../src/App";
 import { Demander, demandeInitiale, type Demande } from "../src/ecrans/Demander";
 import { Boucles } from "../src/ecrans/Boucles";
 import { Serveur } from "./serveur";
-import { PROFIL, SEANCE, SEMAINE, SYSTEME, boucle, sortie, ventDepart, zones } from "./fixtures";
+import { PROFIL, SEANCE, SEMAINE, SYSTEME, boucle, meteo, sortie, ventDepart, zones } from "./fixtures";
 
 const ZONES = zones().donnees;
 
@@ -69,8 +69,16 @@ describe("le libellé « Direction » ne se répète plus (signalé le 18/09/202
 });
 
 describe("un seul sélecteur affiché à la fois", () => {
+  // « Là où il fait sec » a disparu le 20/09/2026 : la rose des directions
+  // (`RoseDirections`, mode « Ma direction ») montre déjà la direction
+  // recommandée, cerclée, sans qu'il faille cliquer un bouton à part pour
+  // la demander. Ce test vérifie donc la présence de la rose (un groupe
+  // accessible nommé) plutôt que ce lien disparu.
   it("« Ma direction » puis « Selon le vent » ne laissent jamais les deux sélecteurs visibles", async () => {
-    const serveur = new Serveur({ "/api/v1/vent-depart": { charge: ventDepart() } });
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": { charge: ventDepart() },
+      "/api/v1/meteo": { charge: meteo() },
+    });
     serveur.installer();
     const utilisateur = userEvent.setup();
     render(<ConteneurDemander demande={demandeEssai()} />);
@@ -78,23 +86,24 @@ describe("un seul sélecteur affiché à la fois", () => {
     await waitFor(() => expect(serveur.vers("/api/v1/vent-depart").length).toBe(1));
 
     // Au départ (« peu importe ») : ni l'un ni l'autre.
-    expect(screen.queryByText("Là où il fait sec")).toBeNull();
+    expect(screen.queryByRole("group", { name: /Choisir une direction/ })).toBeNull();
     expect(screen.queryByText("Vent dans le dos au départ")).toBeNull();
 
     await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
-    expect(screen.getByText("Là où il fait sec")).toBeTruthy();
+    await waitFor(() => expect(serveur.vers("/api/v1/meteo").length).toBeGreaterThan(0));
+    expect(await screen.findByRole("group", { name: /Choisir une direction/ })).toBeTruthy();
     expect(screen.queryByText("Vent dans le dos au départ")).toBeNull();
     expect(screen.queryByText("Vent dans le dos au retour")).toBeNull();
     expect(screen.queryByText("Vent latéral")).toBeNull();
 
     await utilisateur.click(screen.getByRole("button", { name: "Selon le vent" }));
-    expect(screen.queryByText("Là où il fait sec")).toBeNull();
+    expect(screen.queryByRole("group", { name: /Choisir une direction/ })).toBeNull();
     expect(screen.getByText("Vent dans le dos au départ")).toBeTruthy();
     expect(screen.getByText("Vent dans le dos au retour")).toBeTruthy();
     expect(screen.getByText("Vent latéral")).toBeTruthy();
 
     await utilisateur.click(screen.getByRole("button", { name: "Peu importe" }));
-    expect(screen.queryByText("Là où il fait sec")).toBeNull();
+    expect(screen.queryByRole("group", { name: /Choisir une direction/ })).toBeNull();
     expect(screen.queryByText("Vent dans le dos au départ")).toBeNull();
   });
 });
@@ -226,6 +235,7 @@ describe("l'envoi à POST /sorties ne porte jamais direction et un vent contraig
       "/api/v1/seances/": { charge: SEANCE },
       "/api/v1/seances": { charge: SEMAINE },
       "/api/v1/vent-depart": { charge: ventDepart() },
+      "/api/v1/meteo": { charge: meteo() },
       "/api/v1/sorties": { charge: sortie() },
       "/api/v1/boucles": { charge: boucle() },
     });
@@ -277,7 +287,10 @@ describe("l'envoi à POST /sorties ne porte jamais direction et un vent contraig
 
     await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
     await utilisateur.click(await screen.findByRole("button", { name: "Ma direction" }));
-    await utilisateur.click(screen.getByRole("button", { name: "NE" }));
+    // Le secteur nord-est de la rose (`RoseDirections`), pas un bouton « NE »
+    // — remplacé le 20/09/2026. Le nom accessible commence par « nord-est »,
+    // suivi de ce que la rose sait (pluie, vent) : voir `libelleSecteur`.
+    await utilisateur.click(await screen.findByRole("button", { name: /^nord-est/i }));
     await utilisateur.click(screen.getByRole("button", { name: "Chercher 3 parcours" }));
 
     await waitFor(() => expect(serveur.vers("/api/v1/sorties").length).toBe(1));
@@ -315,6 +328,7 @@ describe("Q47 — Endurance Z2 balaie l'horizon sans direction, comme « Ma séa
       "/api/v1/seances/": { charge: SEANCE },
       "/api/v1/seances": { charge: SEMAINE },
       "/api/v1/vent-depart": { charge: ventDepart() },
+      "/api/v1/meteo": { charge: meteo() },
       "/api/v1/boucles": { charge: boucle() },
     });
     serveur.installer();
@@ -364,7 +378,7 @@ describe("Q47 — Endurance Z2 balaie l'horizon sans direction, comme « Ma séa
     await utilisateur.click(await screen.findByRole("button", { name: "Demander" }));
     await utilisateur.click(await screen.findByRole("button", { name: "Endurance Z2" }));
     await utilisateur.click(screen.getByRole("button", { name: "Ma direction" }));
-    await utilisateur.click(screen.getByRole("button", { name: "NE" }));
+    await utilisateur.click(await screen.findByRole("button", { name: /^nord-est/i }));
     await utilisateur.click(screen.getByRole("button", { name: /Chercher .* parcours/ }));
 
     await waitFor(() => expect(serveur.vers("/api/v1/boucles").length).toBe(1));
