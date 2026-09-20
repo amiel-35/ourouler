@@ -15,6 +15,7 @@ import {
   ErreurApi,
   reessayable,
   serveurMuet,
+  surSessionAbsente,
 } from "../src/api/client";
 import { panne, Serveur } from "./serveur";
 import { SEANCE } from "./fixtures";
@@ -184,5 +185,103 @@ describe("l'aperçu des zones", () => {
     await api.apercuZones({ vitesse_a_plat_kmh: 27.4 });
     const corps = serveur.requetes[0].corps as Record<string, unknown>;
     expect(corps).toEqual({ vitesse_a_plat_kmh: 27.4 });
+  });
+});
+
+describe("les identifiants de session (lot L7.2-D)", () => {
+  it("accompagnent chaque requête — le cookie HttpOnly, le navigateur seul le pose", async () => {
+    let vus: RequestInit | undefined;
+    globalThis.fetch = (async (_entree: RequestInfo | URL, options?: RequestInit) => {
+      vus = options;
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ proprietaire: "essai", donnees: {} }),
+      } as Response;
+    }) as typeof fetch;
+    await api.profil();
+    expect(vus?.credentials).toBe("same-origin");
+  });
+});
+
+describe("le signal de session absente (lot L7.2-D)", () => {
+  it("prévient l'écouteur quand n'importe quelle route répond 401 session_absente", async () => {
+    const appels: number[] = [];
+    surSessionAbsente(() => appels.push(1));
+    new Serveur({
+      "/api/v1/profil": panne("session_absente", "aucune session ouverte", 401),
+    }).installer();
+    await api.profil().catch(() => undefined);
+    expect(appels).toEqual([1]);
+    surSessionAbsente(null);
+  });
+
+  it("ne se déclenche pas pour une autre panne, même à 401", async () => {
+    const appels: number[] = [];
+    surSessionAbsente(() => appels.push(1));
+    new Serveur({
+      "/api/v1/profil": panne("identifiants_refuses", "adresse ou mot de passe refusés", 401),
+    }).installer();
+    await api.profil().catch(() => undefined);
+    expect(appels).toEqual([]);
+    surSessionAbsente(null);
+  });
+
+  it("se désabonne quand on repasse null", async () => {
+    const appels: number[] = [];
+    surSessionAbsente(() => appels.push(1));
+    surSessionAbsente(null);
+    new Serveur({
+      "/api/v1/profil": panne("session_absente", "aucune session ouverte", 401),
+    }).installer();
+    await api.profil().catch(() => undefined);
+    expect(appels).toEqual([]);
+  });
+});
+
+describe("les quatre routes de session (lot L7.2-D)", () => {
+  it("lit l'état d'une invitation sans la consommer — GET, pas POST", async () => {
+    const serveur = new Serveur({
+      "/api/v1/invitation": {
+        charge: {
+          donnees: { email: "cycliste@exemple.invalid", expire_le: "2026-09-26T10:00:00+02:00" },
+        },
+      },
+    });
+    serveur.installer();
+    const reponse = await api.invitation("un-jeton");
+    expect(reponse.donnees.email).toBe("cycliste@exemple.invalid");
+    expect(serveur.requetes[0].methode).toBe("GET");
+    expect(serveur.requetes[0].chemin).toContain("jeton=un-jeton");
+  });
+
+  it("active un compte en n'envoyant que le jeton et le secret", async () => {
+    const serveur = new Serveur({
+      "/api/v1/entrer": { charge: { donnees: { proprietaire: "abc123" } } },
+    });
+    serveur.installer();
+    const reponse = await api.entrer("un-jeton", "un-secret");
+    expect(reponse.donnees.proprietaire).toBe("abc123");
+    expect(serveur.requetes[0].corps).toEqual({ jeton: "un-jeton", secret: "un-secret" });
+  });
+
+  it("se connecte avec une adresse et un secret, rien de plus", async () => {
+    const serveur = new Serveur({
+      "/api/v1/connexion": { charge: { donnees: { proprietaire: "abc123" } } },
+    });
+    serveur.installer();
+    await api.connexion("cycliste@exemple.invalid", "un-secret");
+    expect(serveur.requetes[0].corps).toEqual({
+      email: "cycliste@exemple.invalid",
+      secret: "un-secret",
+    });
+  });
+
+  it("se déconnecte sans rien envoyer de plus qu'un POST", async () => {
+    const serveur = new Serveur({ "/api/v1/sortir": { charge: { donnees: {} } } });
+    serveur.installer();
+    await api.sortir();
+    expect(serveur.requetes[0].methode).toBe("POST");
+    expect(serveur.requetes[0].corps).toEqual({});
   });
 });

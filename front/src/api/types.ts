@@ -67,6 +67,29 @@ export interface Panne {
   details: Record<string, unknown>;
 }
 
+/**
+ * Les quatre routes de session (lot L7.2-D, `api/routes.py` : « comptes et
+ * sessions »). Elles précèdent tout propriétaire, donc rendent seulement
+ * `donnees` — jamais l'enveloppe complète (`Enveloppe`) ni la forme courte
+ * des routes de profil (`Simple`, qui porte un `proprietaire` que ces
+ * quatre-là n'ont pas encore).
+ */
+export interface DonneesSeules<T> {
+  donnees: T;
+}
+
+/** `GET /invitation` : l'état d'un jeton, sans le consommer. */
+export interface Invitation {
+  email: string;
+  /** ISO 8601, avec l'heure — pas seulement une date (`comptes.DUREE_INVITATION`). */
+  expire_le: string;
+}
+
+/** `POST /entrer` et `POST /connexion` : la session vient de s'ouvrir. */
+export interface AccesOuvert {
+  proprietaire: string;
+}
+
 // --- profil -------------------------------------------------------------
 
 export interface PointDepart {
@@ -90,8 +113,11 @@ export interface Profil {
   /** `prenom`/`nom` : identité du compte, obligatoire depuis l'assistant (Q36,
    * 17/09/2026), mais peuvent revenir vides pour un profil créé avant ce lot —
    * jamais absents. Aucun calcul ne s'en sert aujourd'hui ; l'usage prévu est
-   * le compte multi-utilisateurs du lot F3 (e-mail d'invitation, affichage). */
-  cycliste: { masse_kg: number; ftp_w: number; prenom: string; nom: string };
+   * le compte multi-utilisateurs du lot F3 (e-mail d'invitation, affichage).
+   * `ftp_w` est **facultative depuis le 19/09/2026** (`docs/ux/
+   * parcours_accueil.md`) : `null` tant que l'entonnoir de l'accueil n'a pas
+   * établi de FTP, quelle qu'en soit la voie (T1 à T5). */
+  cycliste: { masse_kg: number; ftp_w: number | null; prenom: string; nom: string };
   velos: VeloProfil[];
   seance: {
     position_zone: number;
@@ -103,6 +129,16 @@ export interface Profil {
     intervals: { renseigne: boolean; athlete_id: string };
     brouter: { renseigne: boolean; profil: string | null };
   };
+  /**
+   * Vrai tant que ce compte n'a **jamais** écrit de `PATCH /profil` — un
+   * compte activé mais jamais passé par l'assistant, quel qu'ait été le
+   * socle lu au démarrage. Corrige le défaut constaté en vrai le
+   * 19/09/2026 : un compte neuf atterrissait sur l'écran du jour, qui
+   * réclame Intervals et échoue. Le premier `PATCH /profil` le fait tomber
+   * à `false` — dans **sa propre réponse** déjà, pas seulement au prochain
+   * `GET` (`api/routes.py::_profil_avec_flags`).
+   */
+  assistant_recommande: boolean;
 }
 
 /** Les trois valeurs liées de l'écran de FTP (décisions 7 et 8). */
@@ -132,7 +168,10 @@ export interface Palier {
 }
 
 export interface Zones {
-  ftp_w: number;
+  /** `null` sans FTP encore établie — `zones` vaut alors `[]` et
+   * `valeurs_liees` vaut `null` (`seance.ecran_ftp.rendu`, 19/09/2026). La
+   * position, elle, reste rendue : elle ne dépend pas de la FTP. */
+  ftp_w: number | null;
   position_zone: number;
   zone_endurance: number;
   hors_bande: boolean;

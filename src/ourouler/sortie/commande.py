@@ -93,6 +93,7 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import (
     ErreurConnecteur,
     ErreurDistanceInatteignable,
+    ErreurIntervalsAbsent,
     ErreurUtilisateur,
 )
 from ourouler.meteo import portee
@@ -283,8 +284,15 @@ def executer(
     *,
     lieu_depart: Depart | None = None,
     recueil_gpx: Callable[[list[GpxPropose]], None] | None = None,
+    base_routes: BaseRoutes | None = None,
 ) -> int:
     """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
+
+    `base_routes` s'injecte comme les clients, pour la même raison et de la
+    même façon que dans `boucle/commande.executer` ([[Q58]]) : absente, la
+    base est ouverte sur `config.cache.dossier` avec le propriétaire par
+    défaut, ce qui est le bon comportement en ligne de commande et le mauvais
+    dans un service qui sert plusieurs cyclistes.
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
     par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
@@ -417,7 +425,7 @@ def executer(
         raise ErreurUtilisateur(_motif_aucune(seance, ecartees, distance_km))
 
     retenues = _replacer_avec_vent(retenues, seance, config, parametres, demande, client_meteo)
-    propositions, panne = _mesurer(retenues, config, demande, client_meteo)
+    propositions, panne = _mesurer(retenues, config, demande, client_meteo, base_routes)
     propositions.sort(key=functools.cmp_to_key(_comparer(config.seance.tolerance_egalite)))
     for numero, proposition in enumerate(propositions, start=1):
         proposition.numero = numero
@@ -684,7 +692,7 @@ def _seance(demande: Demande, config: Config, client: ClientIntervals | None) ->
         )
     if client is None:
         if not config.intervals.renseigne:
-            raise ErreurUtilisateur(
+            raise ErreurIntervalsAbsent(
                 "sortie : Intervals.icu n'est pas renseigné — compléter [intervals] "
                 "athlete_id et api_key dans la configuration"
             )
@@ -740,10 +748,28 @@ def _distance(
         m.etape.duree_s for m in mesures if m.longueur_m is None and m.etape.duree_s > 0
     )
     metres = sum(connues)
+    libres_sans_ftp = False
     if libres_s > 0:
-        puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
-        metres += vitesse_a_plat_ms(puissance, parametres) * libres_s
+        if config.cycliste.ftp_w is None:
+            # Sans FTP, les étapes en pourcentage n'ont déjà plus de
+            # puissance-cible chiffrée en amont (seance/zwo.py,
+            # seance/intervals.py, seance/fichier.py) : elles tombent ici
+            # dans les étapes « libres ». On ne peut alors pas non plus
+            # demander au modèle physique une vitesse pour ces minutes —
+            # repli sur la vitesse moyenne assumée de la configuration,
+            # comme le fait déjà le cas « aucune étape chiffrée du tout »
+            # ci-dessous.
+            metres += config.boucle.vitesse_moyenne_kmh / 3.6 * libres_s
+            libres_sans_ftp = True
+        else:
+            puissance = config.seance.puissance_endurance_pct * config.cycliste.ftp_w
+            metres += vitesse_a_plat_ms(puissance, parametres) * libres_s
     source = "estimée par le modèle sur le plat"
+    if libres_sans_ftp and connues:
+        source = (
+            f"estimée par le modèle sur le plat, minutes libres à "
+            f"{config.boucle.vitesse_moyenne_kmh:g} km/h faute de FTP renseignée"
+        )
     if metres <= 0:
         # Aucune étape ne porte de puissance : on retombe sur la vitesse
         # moyenne de la configuration plutôt que de demander une boucle nulle.
@@ -1133,6 +1159,7 @@ def _mesurer(
     config: Config,
     demande: Demande,
     client_meteo: ClientOpenMeteo | None,
+    base_routes: BaseRoutes | None = None,
 ) -> tuple[list[Proposition], str | None]:
     """Coûts, routes connues et météo des candidates retenues.
 
@@ -1147,7 +1174,7 @@ def _mesurer(
     a rien à signaler qui ne soit déjà dit par `meteo_absente`.
     """
     poids = lire_poids(config.cache.dossier / NOM_POIDS)
-    base = _base_routes(config)
+    base = base_routes if base_routes is not None else _base_routes(config)
     propositions: list[Proposition] = []
     panne: str | None = None
     for candidate, placement in retenues:

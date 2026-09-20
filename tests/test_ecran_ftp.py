@@ -11,8 +11,9 @@ import dataclasses
 import pytest
 
 from ourouler.config import depuis_dict
+from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import PART_ARRET_REFERENCE
-from ourouler.seance.ecran_ftp import info_compteur, valeurs_liees
+from ourouler.seance.ecran_ftp import ftp_pour_vitesse_compteur, info_compteur, rendu, valeurs_liees
 
 CONFIG_SANS_VELO = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
@@ -101,3 +102,90 @@ def test_info_compteur_dit_le_facteur_suppose_sans_reglage():
     )
     info = info_compteur(config)
     assert info["facteur_provenance"] == "suppose"
+
+
+# --- sans FTP (facultative depuis le 19/09/2026) ------------------------------
+
+CONFIG_VELO_SANS_FTP = {
+    "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
+    "cycliste": {"masse_kg": 80},  # pas de ftp_w
+    "velos": [{"nom": "RCR", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.30, "crr": 0.005}],
+}
+
+
+def test_valeurs_liees_none_sans_ftp_meme_avec_un_velo():
+    config = depuis_dict(CONFIG_VELO_SANS_FTP)
+    assert config.cycliste.ftp_w is None
+    assert valeurs_liees(config) is None
+
+
+def test_rendu_sans_ftp_rend_un_etat_explicite_plutot_que_de_planter():
+    config = depuis_dict(CONFIG_VELO_SANS_FTP)
+    r = rendu(config)
+    assert r["ftp_w"] is None
+    assert r["zones"] == []
+    assert r["valeurs_liees"] is None
+    # La position, elle, ne dépend pas de la FTP et reste rendue.
+    assert r["position_zone"] == pytest.approx(config.seance.position_zone, abs=1e-5)
+
+
+def test_info_compteur_none_sans_ftp():
+    config = depuis_dict(CONFIG_VELO_SANS_FTP)
+    assert info_compteur(config) is None
+
+
+# --- T4 de l'accueil : ftp_pour_vitesse_compteur ------------------------------
+
+
+def test_ftp_pour_vitesse_compteur_sans_velo_leve_une_erreur_nommee():
+    """`depuis_dict` pose toujours un vélo « Route » par défaut (F0.6) : le cas
+    « aucun vélo » ne s'obtient qu'en le retirant après coup."""
+    config = dataclasses.replace(depuis_dict(CONFIG_SANS_VELO), velos=())
+    with pytest.raises(ErreurUtilisateur, match="vélo"):
+        ftp_pour_vitesse_compteur(
+            config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=10.0
+        )
+
+
+def test_ftp_pour_vitesse_compteur_est_l_inverse_de_moyenne_compteur_kmh():
+    """Aller-retour : une FTP connue donne une moyenne compteur (`valeurs_liees`),
+    et cette moyenne, reposée en entrée, doit rendre à peu près la même FTP —
+    à `position_zone` égale, puisque c'est cette position que la fonction
+    suppose (elle établit une FTP, elle n'en déplace pas une)."""
+    config_avec_ftp = depuis_dict({**CONFIG_VELO_SANS_FTP, "cycliste": {"masse_kg": 80, "ftp_w": 220}})
+    liees = valeurs_liees(config_avec_ftp)
+    config_sans_ftp = depuis_dict(CONFIG_VELO_SANS_FTP)
+    retrouvee = ftp_pour_vitesse_compteur(
+        config_sans_ftp,
+        None,
+        vitesse_compteur_kmh=liees["moyenne_compteur_kmh"],
+        denivele_m_par_km=10.0,  # le défaut du dépôt (DENIVELE_REFERENCE_M_PAR_KM)
+    )
+    assert retrouvee == pytest.approx(220, abs=1.0)
+
+
+def test_ftp_pour_vitesse_compteur_terrain_plus_raide_donne_une_ftp_plus_haute():
+    """Le levier du §6 de `docs/ux/parcours_accueil.md` : à vitesse compteur
+    égale, un terrain plus dur implique une puissance plus haute."""
+    config = depuis_dict(CONFIG_VELO_SANS_FTP)
+    plat = ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=3.0)
+    montagne = ftp_pour_vitesse_compteur(
+        config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=30.0
+    )
+    assert montagne > plat
+
+
+def test_ftp_pour_vitesse_compteur_incoherente_leve_une_erreur_nommee():
+    """Aucune puissance plausible n'expliquerait 95 km/h de moyenne compteur
+    en montagne — ce n'est pas au modèle de deviner une saisie fautive."""
+    config = depuis_dict(CONFIG_VELO_SANS_FTP)
+    with pytest.raises(ErreurUtilisateur, match="plausible"):
+        ftp_pour_vitesse_compteur(
+            config, None, vitesse_compteur_kmh=95.0, denivele_m_par_km=30.0
+        )
+
+
+def test_ftp_pour_vitesse_compteur_rejette_une_vitesse_negative_ou_nulle():
+    config = depuis_dict(CONFIG_VELO_SANS_FTP)
+    with pytest.raises(ErreurUtilisateur):
+        ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=0.0, denivele_m_par_km=10.0)

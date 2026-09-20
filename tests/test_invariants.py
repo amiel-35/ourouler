@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import re
 import tomllib
+from collections.abc import Iterable
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -92,6 +93,79 @@ def test_seul_le_module_d_exploitation_de_l_api_lit_l_environnement():
     assert "os.environ" in source and "tomllib" in source
 
 
+def chaines_de_code(chemin: Path) -> list[str]:
+    """Les chaînes littérales **exécutées** d'un module, docstrings exclues.
+
+    La distinction compte : `api/session.py` a le droit d'expliquer en prose
+    ce que `OUROULER_MODE` veut dire — c'est de la documentation, et
+    l'interdire reviendrait à interdire d'écrire pourquoi la règle existe. Ce
+    qu'on refuse, c'est qu'un module **manipule** ce nom.
+
+    **Publique exprès** : `tests/api/test_api_isolation_proprietaire.py` en
+    avait une copie mot pour mot, et deux copies d'un même découpage finissent
+    par ne plus dire la même chose. Il emprunte celle-ci par chemin, comme il
+    emprunte déjà le reste de ce module.
+    """
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    docstrings = set()
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            premier = noeud.body[0] if noeud.body else None
+            if isinstance(premier, ast.Expr) and isinstance(premier.value, ast.Constant):
+                docstrings.add(id(premier.value))
+    return [
+        noeud.value
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Constant)
+        and isinstance(noeud.value, str)
+        and id(noeud) not in docstrings
+    ]
+
+
+def test_les_variables_d_environnement_de_l_api_ne_se_nomment_qu_au_seul_endroit_autorise():
+    """Aucune variable `OUROULER_*` de l'API manipulée hors du module d'exploitation.
+
+    L'invariant voisin interdit `os.environ` hors de ce module ; celui-ci
+    interdit d'en **écrire le nom dans du code**, ce qui est le premier pas
+    vers l'autre porte — un module qui porte le nom finit par vouloir la
+    valeur, et le détour par un `dict` passé en argument ne se verrait pas.
+    Ajouté avec `OUROULER_DATABASE_URL` le 18/09/2026 (lot L7.2-A), il couvre
+    du même coup `OUROULER_CONFIG`, `OUROULER_MODE` et `OUROULER_FRONT_DIST`.
+    """
+    from ourouler.api import exploitation
+
+    noms = {
+        valeur
+        for cle, valeur in vars(exploitation).items()
+        if cle.startswith("VARIABLE_") and isinstance(valeur, str)
+    }
+    assert "OUROULER_DATABASE_URL" in noms, "la variable de base de données a disparu"
+    coupables: list[str] = []
+    for module in SOURCES.rglob("*.py"):
+        if module.relative_to(SOURCES).as_posix() in CHEMINS_AUTORISES:
+            continue
+        for chaine in chaines_de_code(module):
+            coupables += [
+                f"{module.relative_to(SOURCES)} porte {nom} dans son code"
+                for nom in noms
+                if nom in chaine
+            ]
+    assert not coupables, (
+        "règle absolue 2 : seul api/exploitation.py nomme les variables de l'API — "
+        + " ; ".join(coupables)
+    )
+
+
+def test_l_invariant_des_variables_saurait_voir_une_fuite(tmp_path: Path):
+    """Contre-épreuve : la prose passe, le code ne passe pas."""
+    prose = tmp_path / "prose.py"
+    prose.write_text('"""Ce module explique OUROULER_MODE."""\nX = 1\n', encoding="utf-8")
+    fuite = tmp_path / "fuite.py"
+    fuite.write_text('def lire(env):\n    return env["OUROULER_MODE"]\n', encoding="utf-8")
+    assert not any("OUROULER_MODE" in c for c in chaines_de_code(prose))
+    assert any("OUROULER_MODE" in c for c in chaines_de_code(fuite))
+
+
 #: Les accès aux données de l'API. Doctrine §10.2 : « aucune requête sans
 #: clause de propriétaire » — ici, aucune méthode publique de dépôt sans
 #: `proprietaire` en **premier argument positionnel**. C'est gratuit
@@ -119,6 +193,33 @@ def test_aucun_acces_aux_donnees_sans_clause_de_proprietaire():
                 f"{nom}.{methode.name}{tuple(arguments)} : le propriétaire doit être le "
                 "premier argument — doctrine §10.2, aucune requête sans clause de propriétaire"
             )
+
+
+def test_aucun_depot_ne_s_ajoute_a_depots_py_sans_etre_nomme():
+    """`CLASSES_DEPOT` doit couvrir **toutes** les classes `Depot*` du module.
+
+    Ajouté le 18/09/2026 (lot L7.2-A). Avant, `CLASSES_DEPOT` était une liste
+    écrite à la main : un quatrième dépôt posé dans `api/depots.py` sans y
+    être ajouté n'aurait jamais vu la clause de propriétaire, et rien n'aurait
+    échoué. Un invariant qu'on contourne en **n'y pensant pas** ne garde rien.
+
+    C'est aussi ce qui rend honnête la décision d'`api/comptes.py` : le dépôt
+    des comptes ne prend pas de `Proprietaire` (un compte précède son
+    propriétaire), et il vit donc **hors** de ce module plutôt que dedans en
+    silence.
+    """
+    arbre = ast.parse((SOURCES / "api" / "depots.py").read_text(encoding="utf-8"))
+    presentes = {
+        noeud.name
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.ClassDef) and noeud.name.startswith("Depot")
+    }
+    assert presentes == set(CLASSES_DEPOT), (
+        "api/depots.py porte des dépôts que CLASSES_DEPOT ne nomme pas : "
+        f"{sorted(presentes - set(CLASSES_DEPOT))}. Un dépôt de ce module prend un "
+        "Proprietaire en premier argument ; s'il ne le peut pas, il n'a rien à y faire "
+        "(voir api/comptes.py)."
+    )
 
 
 def test_les_routes_ne_chargent_jamais_la_configuration_elles_memes():
@@ -728,8 +829,13 @@ def test_l_invariant_numpy_mesure_bien_quelque_chose():
 # constantes de module (`_COLONNES`, `_CONFLIT_IDENTITE`, `_SCHEMA`), et exige
 # que toute instruction touchant une table de données nomme `proprietaire`.
 
-#: Le mot que toute requête doit prononcer.
+#: Le mot que toute requête doit prononcer — **entier**. Les bornes de mot ont
+#: été ajoutées le 18/09/2026 (lot L7.2-A) : sans elles, le seul nom de la
+#: table `comptes_proprietaires` contient « proprietaire » et suffisait à
+#: blanchir une requête qui ne filtre rien du tout. Un invariant qu'un nom de
+#: table satisfait par accident ne garde plus rien.
 CLAUSE = "proprietaire"
+MOTIF_CLAUSE = re.compile(rf"\b{CLAUSE}\b")
 
 #: Verbes SQL qui lisent ou écrivent des données. `CREATE`, `ALTER`, `DROP` et
 #: `PRAGMA` n'en sont pas : ils décrivent la structure.
@@ -738,11 +844,115 @@ VERBES_DE_DONNEES = ("SELECT", "INSERT", "UPDATE", "DELETE")
 #: Tables qui ne portent pas de données d'utilisateur : le catalogue de SQLite.
 TABLES_TECHNIQUES = ("sqlite_master", "sqlite_temp_master")
 
+#: **Les tables d'identité et d'accès** (lot L7.2-A, 18/09/2026). Elles ne
+#: sont pas dispensées par commodité : un compte se crée **avant** que son
+#: propriétaire existe, et une invitation se consomme alors que personne n'est
+#: encore connecté. Leur demander une clause de propriétaire serait circulaire,
+#: exactement comme pour les fonctions `_migrer` qui fabriquent la colonne.
+#: C'est la frontière de [[Q46]] : le compte porte l'identité et l'accès, le
+#: `Proprietaire` est la clé pseudonyme sous laquelle vivent les données.
+#:
+#: **Ce n'est pas une liste où l'on range ce qui gêne**, et trois garde-fous le
+#: disent : la dispense porte sur les tables **réellement adressées** et non
+#: sur la présence du mot (voir `tables_adressees`), donc
+#: `comptes_proprietaires` — la table qui relie les deux — n'est pas exemptée
+#: par le préfixe `comptes` et une jointure `activites × comptes` ne l'est pas
+#: non plus ; et des contre-tests vérifient qu'une requête nue sur elle, comme
+#: une requête mixte, sont bien refusées. Ajouter une ligne ici demande la même
+#: justification que celle-ci : « cette table précède le propriétaire », pas
+#: « cette table me pose un problème ».
+#:
+#: `sessions` (lot L7.2-C, 19/09/2026) : une session est retrouvée pour
+#: produire un `Proprietaire`, elle n'en appartient à aucun — même
+#: raisonnement que `comptes` et `invitations`.
+TABLES_IDENTITE = ("comptes", "invitations", "sessions")
+
 #: Les seules fonctions dispensées de la clause, et la raison. Une migration
 #: **fabrique** la colonne : lui demander de filtrer dessus serait circulaire.
 #: Le préfixe est volontairement étroit — `_migrer…`, pas « tout ce qui est
 #: privé » — pour qu'on ne puisse pas s'y glisser par accident.
 PREFIXE_EXEMPT = "_migrer"
+
+#: Les commentaires SQL, `-- jusqu'au bout de la ligne` et `/* en bloc */`.
+#: Ils sont retirés **avant** toute analyse : sans ça, le commentaire
+#: « -- pose avec les migrations » collé au bout d'un `SELECT` nu suffisait à
+#: le faire sortir du champ de l'invariant. Un invariant qu'une phrase de
+#: prose désarme ne garde rien ([[Q58]]).
+_COMMENTAIRE_SQL = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
+
+#: Les mots après lesquels une instruction SQL nomme une table. `FROM` couvre
+#: `SELECT … FROM` et `DELETE FROM`, `INTO` couvre `INSERT INTO`, et `JOIN` et
+#: `UPDATE` se nomment eux-mêmes. Le motif est cherché **partout** dans
+#: l'instruction, ce qui fait entrer les sous-requêtes sans effort : le
+#: `FROM comptes` d'un `WHERE … IN (SELECT id FROM comptes)` est vu comme
+#: n'importe quel autre.
+_AVANT_UNE_TABLE = re.compile(r"\b(?:FROM|INTO|JOIN|UPDATE)\s+", re.IGNORECASE)
+
+#: Ce qui **clôt** une liste de tables : le mot-clé de la clause suivante, ou
+#: une parenthèse. Sans cette borne, `FROM activites a JOIN comptes c` rendrait
+#: une seule « table » nommée « activites a JOIN comptes c ».
+_FIN_DE_LISTE_DE_TABLES = re.compile(
+    r"\b(?:WHERE|SET|VALUES|ON|USING|GROUP|ORDER|HAVING|LIMIT|OFFSET|RETURNING"
+    r"|UNION|INTERSECT|EXCEPT|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|FULL|NATURAL"
+    r"|SELECT|INSERT|UPDATE|DELETE|WINDOW|FETCH|FOR|DO|AS)\b|[()]",
+    re.IGNORECASE,
+)
+
+#: Un nom de table tel qu'il s'écrit ici : identifiant nu, éventuellement
+#: qualifié par un schéma (`information_schema.columns`) ou entre guillemets.
+_NOM_DE_TABLE = re.compile(r'^"?([\w.]+)"?')
+
+
+def sans_commentaires_sql(texte: str) -> str:
+    """Le même texte, ses commentaires SQL remplacés par une espace.
+
+    Une espace et non rien : `activites--commentaire` ne doit pas devenir
+    `activites` collé à ce qui suit la ligne suivante.
+    """
+    return _COMMENTAIRE_SQL.sub(" ", texte)
+
+
+def tables_adressees(instruction: str) -> set[str]:
+    """Les tables qu'une instruction SQL lit ou écrit, en minuscules.
+
+    **Ce n'est pas un analyseur SQL**, et ça n'a pas à l'être : c'est la
+    lecture des quatre mots après lesquels ce dépôt nomme une table (`FROM`,
+    `INTO`, `JOIN`, `UPDATE`), sous-requêtes comprises puisque le motif est
+    cherché partout. Les alias sont jetés (`FROM activites a` → `activites`),
+    les listes séparées par des virgules sont toutes rendues.
+
+    **Elle échoue du bon côté.** Quand elle ne reconnaît rien, elle rend un
+    ensemble vide — et l'appelant refuse alors la dispense au lieu de
+    l'accorder : un cas indécidable est dénoncé, jamais blanchi.
+    """
+    trouvees: set[str] = set()
+    texte = sans_commentaires_sql(instruction)
+    for mot in _AVANT_UNE_TABLE.finditer(texte):
+        suite = texte[mot.end() :]
+        fin = _FIN_DE_LISTE_DE_TABLES.search(suite)
+        liste = suite[: fin.start()] if fin is not None else suite
+        for morceau in liste.split(","):
+            nom = _NOM_DE_TABLE.match(morceau.strip())
+            if nom is not None:
+                trouvees.add(nom.group(1).lower())
+    return trouvees
+
+
+def dispensee_par_ses_tables(instruction: str, dispensees: Iterable[str]) -> bool:
+    """Vrai si **toutes** les tables adressées sont dispensées, et qu'il y en a.
+
+    Les deux conditions comptent, et chacune ferme une brèche mesurée :
+
+    - « toutes » : `SELECT … FROM activites JOIN comptes …` touche une table
+      de données *et* une table d'identité. Elle n'est pas dispensée — sans
+      quoi la première jointure du premier lot qui branche les comptes sur les
+      données passerait sans clause de propriétaire ;
+    - « et qu'il y en a » : une instruction dont on n'a su lire aucune table
+      n'est pas dispensée non plus. On préfère dénoncer un cas qu'on ne sait
+      pas lire plutôt que de le blanchir.
+    """
+    tables = tables_adressees(instruction)
+    return bool(tables) and tables <= {nom.lower() for nom in dispensees}
 
 
 def _constantes_texte(arbre: ast.Module) -> dict[str, str]:
@@ -800,15 +1010,27 @@ def _instructions(sql: str) -> list[str]:
 
     Un `executescript` en enchaîne plusieurs : sans découpage, un `CREATE
     TABLE` portant la colonne blanchirait le `SELECT` qui le suit.
+
+    Les commentaires partent **avant** le découpage : un `;` posé dans un
+    commentaire couperait une instruction en deux morceaux dont aucun ne
+    ressemblerait plus à ce qu'elle fait.
     """
-    return [morceau for morceau in sql.split(";") if morceau.strip()]
+    return [morceau for morceau in sans_commentaires_sql(sql).split(";") if morceau.strip()]
 
 
 def _touche_des_donnees(instruction: str) -> bool:
-    haut = instruction.upper()
-    if not any(re.search(rf"\b{verbe}\b", haut) for verbe in VERBES_DE_DONNEES):
+    """Vrai si cette instruction lit ou écrit des données d'utilisateur.
+
+    La dispense porte sur les **tables adressées** (`FROM`, `INTO`, `JOIN`,
+    `UPDATE`, sous-requêtes comprises), jamais sur la présence d'un mot dans
+    le texte. C'est la correction du 18/09/2026 : écrite par mention, elle
+    dispensait `SELECT … FROM activites JOIN comptes …` — une requête qui lit
+    bel et bien une table de données — parce que le mot « comptes » y figurait.
+    """
+    verbes = (re.search(rf"\b{verbe}\b", instruction, re.IGNORECASE) for verbe in VERBES_DE_DONNEES)
+    if not any(verbes):
         return False
-    return not any(table.upper() in haut for table in TABLES_TECHNIQUES)
+    return not dispensee_par_ses_tables(instruction, TABLES_TECHNIQUES + TABLES_IDENTITE)
 
 
 def _fonction_englobante(arbre: ast.Module) -> dict[int, str]:
@@ -862,7 +1084,8 @@ def test_aucune_requete_sql_ne_lit_ni_n_ecrit_sans_clause_de_proprietaire(module
     nues = [
         f"{fonction}() : {' '.join(instruction.split())[:110]}…"
         for fonction, instruction in requetes_du_module(module)
-        if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
+        if not MOTIF_CLAUSE.search(instruction.lower())
+        and not fonction.startswith(PREFIXE_EXEMPT)
     ]
     assert not nues, (
         f"{module.relative_to(SOURCES)} — requêtes sans clause de propriétaire :\n  "
@@ -920,9 +1143,64 @@ def test_l_invariant_de_proprietaire_attrape_bien_une_requete_nue(tmp_path: Path
     fautives = {
         fonction
         for fonction, instruction in requetes_du_module(faute)
-        if CLAUSE not in instruction.lower() and not fonction.startswith(PREFIXE_EXEMPT)
+        if not MOTIF_CLAUSE.search(instruction.lower())
+        and not fonction.startswith(PREFIXE_EXEMPT)
     }
     assert fautives == {"lister", "lister_en_morceaux", "lister_par_constante"}
+
+
+def test_l_exemption_d_identite_ne_couvre_pas_la_table_de_correspondance(tmp_path: Path):
+    """`TABLES_IDENTITE` dispense `comptes` et `invitations`, jamais le lien.
+
+    Contre-épreuve du garde-fou décrit avec la constante (lot L7.2-A) :
+
+    - une requête sur `comptes` ou `invitations` passe — un compte précède son
+      propriétaire, lui demander de filtrer dessus serait circulaire ;
+    - une requête sur `comptes_proprietaires` qui ne nomme pas la colonne est
+      **refusée**, alors même que le nom de la table contient le mot. C'est
+      précisément ce que les bornes de mot ajoutées ce jour-là empêchent.
+
+    **Élargie le 18/09/2026 après une relecture adverse**, qui a montré que la
+    dispense écrite « par mention du mot » blanchissait trois formes qu'elle
+    dénonçait la veille — et que la contre-épreuve d'alors ne couvrait pas,
+    parce qu'elle ne testait que les cas auxquels l'auteur avait pensé :
+
+    - `jointure` : `activites JOIN comptes` lit bel et bien une table de
+      données. C'est la requête que le premier lot qui branche les comptes sur
+      les données écrira naturellement ;
+    - `sous_requete` : le `IN (SELECT id FROM comptes)` d'un `DELETE` sur une
+      table de données ne dispense pas ce `DELETE` ;
+    - `commentaire` : un `-- …migrations…` collé au bout d'un `SELECT` nu est
+      de la prose, pas une table adressée.
+    """
+    faute = tmp_path / "identite.py"
+    faute.write_text(
+        "def creer_compte(cx):\n"
+        '    cx.execute("INSERT INTO comptes (id, email) VALUES (%s, %s)", ("a", "b"))\n'
+        "def consommer(cx):\n"
+        '    cx.execute("UPDATE invitations SET consomme_le = %s WHERE condense = %s", (1, 2))\n'
+        "def lien_nu(cx):\n"
+        '    cx.execute("SELECT compte FROM comptes_proprietaires")\n'
+        "def lien_correct(cx):\n"
+        '    cx.execute("SELECT proprietaire FROM comptes_proprietaires WHERE compte = %s", ("a",))\n'
+        "def jointure(cx):\n"
+        '    cx.execute("SELECT a.trace FROM activites a JOIN comptes c ON c.id = a.compte")\n'
+        "def sous_requete(cx):\n"
+        '    cx.execute("DELETE FROM routes_connues WHERE compte IN (SELECT id FROM comptes)")\n'
+        "def commentaire(cx):\n"
+        '    cx.execute("SELECT * FROM activites -- pose avec les migrations")\n'
+        "def jointure_correcte(cx):\n"
+        '    cx.execute("SELECT a.trace FROM activites a JOIN comptes c ON c.id = a.compte "\n'
+        '               "WHERE a.proprietaire = %s", ("x",))\n',
+        encoding="utf-8",
+    )
+    fautives = {
+        fonction
+        for fonction, instruction in requetes_du_module(faute)
+        if not MOTIF_CLAUSE.search(instruction.lower())
+        and not fonction.startswith(PREFIXE_EXEMPT)
+    }
+    assert fautives == {"lien_nu", "jointure", "sous_requete", "commentaire"}
 
 
 # --- le front (lot F2) ------------------------------------------------------

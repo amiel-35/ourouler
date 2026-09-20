@@ -29,7 +29,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as ExceptionHTTP
 
@@ -48,9 +48,23 @@ from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import Config
+from ourouler.erreurs import ErreurConfig
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"
+
+#: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` (lot
+#: L7.2-D) : toute route de l'API, la sonde de santé, et les deux chemins du
+#: schéma publié. Large exprès sur `/api/` plutôt que le seul `/api/v1/` du
+#: routeur actuel — un `/api/v2` futur doit rester du JSON sans qu'on ait à y
+#: repenser.
+#:
+#: `"/api"` y figure **en plus** de `"/api/"`, et ce n'est pas un doublon :
+#: `"/api".startswith("/api/")` est faux, donc le chemin `/api` tout court
+#: passait la garde et rendait `index.html` en 200. Une base d'URL mal
+#: construite ou une sonde générique recevait du HTML là où elle attendait une
+#: erreur (relecture du 19/09/2026).
+PREFIXES_HORS_FRONT = ("/api", "/sante", "/openapi.json", "/docs", "/redoc")
 
 #: La description publiée par `/openapi.json` et par `/docs`.
 #:
@@ -87,6 +101,24 @@ il se montre, il ne se lit pas.
 
 {table_des_avertissements()}
 """
+
+
+def _ressemble_a_un_fichier(chemin: str) -> bool:
+    """Ce chemin demande-t-il un **fichier**, plutôt qu'une page du front ?
+
+    Une extension dans le dernier segment (`/assets/index-a1b2c3.js`) : c'est
+    un fichier. Pas d'extension (`/entrer`, `/connexion`, `/reglages`) : c'est
+    une page, que le front dessine lui-même une fois `index.html` chargé.
+
+    Sans cette distinction, un fichier absent recevait `index.html` en 200
+    (relecture du 19/09/2026). Le cas n'est pas théorique : après un
+    déploiement, `vite` change les empreintes des fichiers, et un onglet resté
+    ouvert sur l'ancien `index.html` redemande un `assets/index-<ancienne
+    empreinte>.js` qui n'existe plus. Il recevait alors du HTML étiqueté
+    JavaScript — une erreur de syntaxe muette dans la console, au lieu d'un
+    404 que le navigateur sait nommer.
+    """
+    return "." in chemin.rsplit("/", 1)[-1]
 
 
 def creer_application(
@@ -257,7 +289,7 @@ def creer_application(
         )
 
     @app.exception_handler(ExceptionHTTP)
-    async def _erreur_du_cadre(requete: Request, erreur: ExceptionHTTP) -> JSONResponse:
+    async def _erreur_du_cadre(requete: Request, erreur: ExceptionHTTP) -> Response:
         """Les refus que le cadre web prononce lui-même sortent dans la forme du projet.
 
         Une route inconnue vaut `{"detail": "Not Found"}` chez FastAPI :
@@ -268,8 +300,26 @@ def creer_application(
         **Le chemin demandé n'est pas répété dans le message** : il vient du
         client, et un front qui l'afficherait tel quel rendrait une chaîne
         choisie par qui a formé la requête.
+
+        **Sauf pour un chemin du front** (lot L7.2-D, panne constatée en vrai
+        le 19/09/2026 : `/entrer` rendait ce 404 JSON, et le lien
+        d'invitation n'ouvrait jamais l'écran d'activation). `StaticFiles`
+        lève ce même 404 pour tout chemin où elle ne trouve pas de fichier —
+        c'est aussi ce qui arrive à `/entrer` ou `/connexion`, que le front
+        gère lui-même une fois `index.html` chargé (`front/src/App.tsx`, pas
+        de routeur : `window.location.pathname` lu au démarrage). La garde
+        est étroite et nommée : seul un 404, seulement quand `dossier_front`
+        est monté, et seulement pour un chemin qui **n'est pas** sous
+        `/api/`, `/sante`, `/openapi.json`, `/docs` ou `/redoc` — sans quoi
+        `/api/v1/inconnu` se mettrait, lui aussi, à rendre du HTML.
         """
-        del requete
+        if (
+            erreur.status_code == 404
+            and dossier_front is not None
+            and not requete.url.path.startswith(PREFIXES_HORS_FRONT)
+            and not _ressemble_a_un_fichier(requete.url.path)
+        ):
+            return FileResponse(dossier_front / "index.html", media_type="text/html")
         connus = {
             404: (
                 "route_inconnue",
@@ -308,8 +358,8 @@ def creer_application(
         # `/sante` compris. Ici, il n'est atteint que pour ce qu'aucune route
         # ci-dessus n'a servi. `html=True` : `/` rend `index.html`, comme le
         # ferait un serveur de fichiers statiques ordinaire ; il n'y a pas de
-        # route côté client à retomber dessus (`front/src/App.tsx` : quatre
-        # onglets d'état, aucun routeur d'URL) donc pas de repli à écrire.
+        # Le repli des chemins du front (`/entrer`, `/connexion`) est dans
+        # `_erreur_du_cadre` : `StaticFiles` ne sert que ce qu'elle trouve.
         app.mount("/", StaticFiles(directory=dossier_front, html=True), name="front")
 
     return app
@@ -338,18 +388,65 @@ def application() -> FastAPI:
     """
     from ourouler.api import exploitation
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
+    from ourouler.api.session import MODE_PERSONNEL
 
+    session = exploitation.fournisseur_session()
+
+    # **À qui appartient le TOML de ce serveur**, et c'est le mode qui le dit.
+    #
+    # En personnel, c'est le profil du mainteneur : le socle le porte, et
+    # `DepotProfils` refuse de le servir à un autre. En hébergé, il n'est le
+    # profil de personne — c'est la **base commune** sur laquelle chacun pose
+    # la sienne. Sans ça, un compte tout juste activé se heurtait à « le socle
+    # de ce serveur est le profil de "local" et ne se partage pas » : il
+    # entrait, et ne voyait rien (constaté en vrai le 19/09/2026, sur la
+    # première activation).
+    #
+    # Ce n'est pas la réponse à [[Q35]] — quelles sections sont communes et
+    # lesquelles appartiennent au cycliste reste à trancher. C'est la réponse
+    # à une question plus étroite : un serveur qui sert plusieurs personnes
+    # n'a pas le droit d'avoir un fichier qui soit le profil de l'une d'elles.
+    partage = session.mode != MODE_PERSONNEL
     socle = SocleTOML(
         exploitation.chemin_config(),
         variables=exploitation.variables(),
-        proprietaire=PROPRIETAIRE_LOCAL,
+        proprietaire=None if partage else PROPRIETAIRE_LOCAL,
     )
+    base = socle.config({})
+    if partage:
+        _refuser_une_base_personnelle(base)
     return creer_application(
         socle=socle,
-        dossier_donnees=socle.config({}).cache.dossier / NOM_DOSSIER_DONNEES,
-        session=exploitation.fournisseur_session(),
+        dossier_donnees=base.cache.dossier / NOM_DOSSIER_DONNEES,
+        session=session,
         dossier_front=exploitation.dossier_front(),
     )
+
+
+def _refuser_une_base_personnelle(base: Config) -> None:
+    """Un serveur partagé ne démarre pas sur le fichier personnel de quelqu'un.
+
+    Le garde-fou qui accompagne la décision du dessus. Servir une base commune
+    veut dire que **tout le monde** la reçoit : une clé Intervals qui y traîne
+    est la clé d'un compte tiers remise à chaque personne invitée, ce qu'aucun
+    message d'erreur ne rattrape après coup.
+
+    On refuse au démarrage plutôt qu'à la requête : un déploiement mal
+    configuré doit échouer là où quelqu'un regarde, pas servir la moitié de
+    ses routes. C'est le même choix que pour `OUROULER_MODE` inconnu.
+
+    Le point de départ, lui, n'est pas contrôlé ici : il en faut un pour que
+    le modèle tourne, et une commune est un défaut, pas une identité. Qu'il
+    soit générique relève du déploiement — `deploiement/api/config.example.toml`
+    l'explique — et de [[Q35]].
+    """
+    if base.intervals.api_key:
+        raise ErreurConfig(
+            "ce serveur est en mode hébergé et son fichier de configuration porte une clé "
+            "Intervals : elle serait servie à chaque personne invitée. Retirer "
+            "[intervals] du TOML du serveur — chaque cycliste branche le sien depuis "
+            "l'assistant."
+        )
 
 
 __all__ = ["DESCRIPTION", "NOM_DOSSIER_DONNEES", "application", "creer_application"]

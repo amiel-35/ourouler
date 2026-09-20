@@ -36,6 +36,17 @@ CHEMIN_CONFIG = os.environ.get("OUROULER_CONFIG", "/config/config.toml")
 #: Contenu du fichier TOML, encodé en base64 — voir la docstring de module.
 CONFIG_TOML_B64 = os.environ.get("OUROULER_CONFIG_TOML_B64", "")
 
+#: Le fichier des secrets **du service** — aujourd'hui le relais SMTP qui
+#: porte les invitations. Distinct de `config.toml`, qui est le profil d'un
+#: cycliste : celui-ci appartient au serveur et ne concerne personne en
+#: particulier. Même chemin que celui que `cli.py` cherche par défaut, pour
+#: que `ourouler inviter` le trouve sans rien lui dire.
+CHEMIN_SERVICE = os.environ.get("OUROULER_SERVICE", "/config/service.toml")
+
+#: Son contenu, encodé en base64, pour la même raison que le TOML de
+#: configuration : Coolify ne propose aucun chemin d'hôte à monter.
+SERVICE_TOML_B64 = os.environ.get("OUROULER_SERVICE_TOML_B64", "")
+
 #: Adresse et port d'écoute du serveur, à l'intérieur du conteneur.
 HOTE = os.environ.get("OUROULER_HOTE", "0.0.0.0")  # noqa: S104 — le conteneur, pas la machine hôte
 PORT = int(os.environ.get("OUROULER_PORT", "8000"))
@@ -67,8 +78,40 @@ def _ecrire_config_depuis_environnement() -> None:
     print(f"config écrite depuis l'environnement : {CHEMIN_CONFIG}", flush=True)
 
 
+def _ecrire_service_depuis_environnement() -> None:
+    """Matérialiser le `service.toml` porté par `OUROULER_SERVICE_TOML_B64`.
+
+    Le jumeau de la fonction du dessus, et pour un fichier plus sensible
+    encore : il porte la clé SMTP du relais. Écrit en 0600, comme l'autre, et
+    seulement quand la variable est là — un déploiement qui n'envoie pas de
+    courriel n'a aucune raison de la poser, et `ourouler inviter` dira alors
+    franchement que le fichier manque plutôt que de partir sans identifiants.
+
+    **Pourquoi une variable plutôt qu'un fichier copié à la main.** Le
+    19/09/2026, l'essai du relais a été fait en copiant le fichier dans le
+    conteneur avec `docker cp`, puis en l'effaçant. Ça marche une fois ; ça ne
+    survit pas à un déploiement, et ça ne se raconte pas à quelqu'un d'autre.
+    """
+    if not SERVICE_TOML_B64:
+        return
+    try:
+        contenu = base64.b64decode(SERVICE_TOML_B64, validate=True)
+    except Exception as e:  # noqa: BLE001 - toute erreur de décodage se traite pareil
+        raise SystemExit(
+            f"OUROULER_SERVICE_TOML_B64 n'est pas du base64 valide ({e}) : "
+            "encoder le fichier avec `base64 -i service.toml`"
+        ) from e
+    os.makedirs(os.path.dirname(CHEMIN_SERVICE) or ".", exist_ok=True)
+    fd = os.open(CHEMIN_SERVICE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as f:
+        f.write(contenu)
+    # Le chemin, jamais le contenu : ce fichier porte une clé SMTP.
+    print(f"secrets du service écrits depuis l'environnement : {CHEMIN_SERVICE}", flush=True)
+
+
 def main() -> None:
     _ecrire_config_depuis_environnement()
+    _ecrire_service_depuis_environnement()
 
     try:
         import uvicorn

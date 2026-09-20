@@ -32,9 +32,18 @@ interface Props {
   surProfil: (profil: Profil) => void;
   surZones: (zones: Zones) => void;
   surRefaireInstallation: () => void;
+  /** Appelée une fois `POST /sortir` fait — l'écran de connexion, rien de plus (lot L7.2-D). */
+  surDeconnexion: () => void;
 }
 
-export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstallation }: Props) {
+export function Reglages({
+  profil,
+  zones,
+  surProfil,
+  surZones,
+  surRefaireInstallation,
+  surDeconnexion,
+}: Props) {
   const [volet, setVolet] = useState<Volet>(null);
   const [poids, setPoids] = useState(String(profil.cycliste.masse_kg));
   const [prenom, setPrenom] = useState(profil.cycliste.prenom ?? "");
@@ -77,7 +86,7 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
       {dit ? <div className="encart bien">{dit}</div> : null}
       {panne ? <div className="encart alerte">{panne}</div> : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Identité</span>
           <button type="button" className="val lien texte" onClick={() => basculer("identite")}>
@@ -128,11 +137,13 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">FTP</span>
           <button type="button" className="val lien" onClick={() => basculer("ftp")}>
-            {nombre(zones.ftp_w)} W
+            {/* Facultative depuis ce lot. Le bouton reste — c'est par lui qu'on
+                la renseigne — mais il n'annonce pas une valeur qui n'existe pas. */}
+            {zones.ftp_w === null ? "à renseigner" : `${nombre(zones.ftp_w)} W`}
           </button>
         </div>
         <div className="rangee">
@@ -207,7 +218,7 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Départ habituel</span>
           <button type="button" className="val lien" onClick={() => basculer("depart")}>
@@ -253,7 +264,7 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         />
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">intervals.icu</span>
           <button type="button" className="val lien texte" onClick={() => basculer("intervals")}>
@@ -307,7 +318,7 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
       ) : null}
 
-      <div className="bloc doux" style={{ padding: "4px 14px" }}>
+      <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Refaire l'installation</span>
           <button type="button" className="lien" onClick={surRefaireInstallation}>
@@ -316,19 +327,30 @@ export function Reglages({ profil, zones, surProfil, surZones, surRefaireInstall
         </div>
         <div className="rangee">
           <span className="cle">Clés d'accès, export, suppression</span>
-          <span className="val texte">Avec les comptes</span>
+          <span className="val texte">Pas encore ici</span>
+        </div>
+        {/* Se déconnecter (lot L7.2-D) : les comptes sont désormais branchés
+            — ce que la phrase ci-dessous affirmait le contraire jusqu'ici.
+            `POST /sortir` révoque la session et efface le cookie, toujours
+            200 (idempotent) : rien à vérifier avant d'appeler
+            `surDeconnexion`, qui ramène à l'écran de connexion. */}
+        <div className="rangee">
+          <span className="cle">Session</span>
+          <button
+            type="button"
+            className="lien"
+            onClick={async () => {
+              await api.sortir().catch(() => undefined);
+              surDeconnexion();
+            }}
+          >
+            Se déconnecter
+          </button>
         </div>
       </div>
       <p className="mention">
-        {/* La phrase disait « cette version tourne sans comptes : il n'y a
-            qu'un profil, servi localement » — vrai pour un usage personnel,
-            faux pour un service exposé (L7.A, 18/09/2026) : là, la session
-            existe déjà comme notion, seule la méthode de connexion manque
-            encore. L'API ne dit nulle part dans quel mode elle tourne — le
-            front n'a donc pas le droit d'affirmer l'un ou l'autre, et se
-            limite à ce qui est vrai dans les deux cas. */}
-        Les comptes ne sont pas encore branchés sur ce serveur. Les clés d'accès, l'export de
-        vos données et la suppression du compte arrivent avec eux.
+        Les comptes sont branchés sur ce serveur (connexion, déconnexion) ; les clés d'accès,
+        l'export de vos données et la suppression du compte ne sont pas encore proposés ici.
       </p>
     </section>
   );
@@ -398,7 +420,7 @@ function ListeVelos({
   return (
     <div className="bloc">
       {velos.map((velo, index) => (
-        <div key={index} style={{ marginBottom: 14 }}>
+        <div key={index} className="velo-ligne">
           <div className="champ">
             <label htmlFor={`velo-nom-${index}`}>Nom</label>
             <input
@@ -508,7 +530,6 @@ function ListeVelos({
       <button
         type="button"
         className="bouton"
-        style={{ marginTop: 9 }}
         onClick={() =>
           surListe(
             velos.map((velo) => ({
@@ -526,7 +547,7 @@ function ListeVelos({
       >
         Enregistrer les vélos
       </button>
-      <p className="mention" style={{ marginTop: 8 }}>
+      <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
         Le type fixe votre position sur le vélo, donc la prise au vent : un chrono avance plus
         vite à puissance égale, et souffre moins de face.
       </p>

@@ -9,9 +9,13 @@ doit pas empêcher les autres de tourner.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
-from collections.abc import Sequence
+import tomllib
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger, en_dict_public
@@ -56,6 +60,8 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_sortie(sous)
     ajouter_geocoder(sous)
     ajouter_api(sous)
+    ajouter_inviter(sous)
+    ajouter_invitations(sous)
     return p
 
 
@@ -330,7 +336,10 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         print(json.dumps(profil_json(config), default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
-    print(f"Cycliste : {config.cycliste.masse_kg:.1f} kg, FTP {config.cycliste.ftp_w:.0f} W")
+    ftp_texte = (
+        f"{config.cycliste.ftp_w:.0f} W" if config.cycliste.ftp_w is not None else "non renseignée"
+    )
+    print(f"Cycliste : {config.cycliste.masse_kg:.1f} kg, FTP {ftp_texte}")
     print(f"Vélos    : {', '.join(v.nom + ' (' + v.usage + ')' for v in config.velos)}")
     print(
         f"Météo    : {config.meteo.directions} directions × {list(config.meteo.distances_km)} km, "
@@ -351,11 +360,14 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         f"{config.boucle.vitesse_moyenne_kmh:.0f} km/h, tolérance "
         f"{config.boucle.tolerance_distance:.0%}"
     )
+    if config.cycliste.ftp_w is not None:
+        watts_endurance = f"soit {config.seance.puissance_endurance_pct * config.cycliste.ftp_w:.0f} W"
+    else:
+        watts_endurance = "pas de watts (FTP non renseignée)"
     print(
         f"Zones    : position {config.seance.position_zone:.3f} dans la bande "
         f"({len(config.seance.zones_pct)} zones) → endurance "
-        f"{config.seance.puissance_endurance_pct:.0%} de FTP, soit "
-        f"{config.seance.puissance_endurance_pct * config.cycliste.ftp_w:.0f} W"
+        f"{config.seance.puissance_endurance_pct:.0%} de FTP, {watts_endurance}"
     )
     if info_vitesse is not None:
         mention = (
@@ -857,6 +869,198 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
     )
     uvicorn.run(application, host=args.hote, port=args.port, log_level="info")
     return 0
+
+
+# --- inviter (lot L7.2-B) -----------------------------------------------------
+#
+# « C'est pas une banque » : cette commande fait tourner le socle des comptes
+# (lot L7.2-A, `api/comptes.py`) depuis la ligne de commande du mainteneur —
+# c'est lui, et lui seul aujourd'hui, qui invite. Elle a besoin de trois
+# choses que seul `cli.py` a le droit de lire (règle absolue 2) : l'URL de la
+# base PostgreSQL de l'hébergé, l'URL publique devant laquelle le lien
+# s'ouvre, et — sauf `--sans-courriel` — les secrets du relais SMTP. Le reste
+# (composer et envoyer le courriel, afficher le résultat) est délégué à
+# `api/invitation_commande.py` et `api/courriel.py`, qui ne lisent rien
+# eux-mêmes : `tests/test_invariants.py` le vérifie.
+
+#: Où vivent les secrets du *service* (Brevo…), distincts du profil cycliste
+#: de `config.toml` — voir `service.example.toml`. Même statut que
+#: `CHEMIN_CONFIG_DEFAUT` : un défaut, réglable par test.
+CHEMIN_SERVICE_DEFAUT = Path("~/.config/ourouler/service.toml")
+
+#: La variable qui déplace ce fichier, pour un déploiement où « chez soi »
+#: n'existe pas. Le conteneur n'a pas de `~` qui veuille dire quelque chose :
+#: `deploiement/api/entrypoint.py` y écrit le fichier depuis
+#: `OUROULER_SERVICE_TOML_B64` et pose cette variable-ci pour dire où.
+VARIABLE_SERVICE = "OUROULER_SERVICE"
+
+#: L'URL publique du front hébergé, devant laquelle `/entrer?jeton=...`
+#: s'ouvre — une donnée de déploiement, au même titre que celles que
+#: `api/exploitation.py` lit pour le processus de l'API (`OUROULER_DATABASE_URL`,
+#: `OUROULER_MODE`…). Celle-ci n'appartient pas au processus serveur : c'est le
+#: mainteneur, depuis sa propre ligne de commande, qui la pose dans son
+#: environnement le temps d'inviter quelqu'un.
+VARIABLE_URL_PUBLIQUE = "OUROULER_URL_PUBLIQUE"
+
+
+def ajouter_inviter(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "inviter",
+        help="invite une adresse à rejoindre où rouler (compte hébergé + courriel)",
+        parents=[parent_json()],
+    )
+    p.add_argument("adresse", help="adresse e-mail à inviter")
+    p.add_argument(
+        "--sans-courriel",
+        dest="sans_courriel",
+        action="store_true",
+        help="n'envoie pas le courriel d'invitation, affiche seulement le lien",
+    )
+    p.set_defaults(fonction=_commande_inviter)
+
+
+def _commande_inviter(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.courriel import parametres_brevo_depuis_dict
+    from ourouler.api.invitation_commande import executer_inviter
+
+    url_db = _url_des_comptes("inviter")
+    url_pub = _url_publique()
+
+    parametres_brevo = None
+    if not getattr(args, "sans_courriel", False):
+        parametres_brevo = parametres_brevo_depuis_dict(_charger_service())
+
+    with _base_des_comptes("inviter", url_db) as connexion:
+        depot = DepotComptes(connexion)
+        return executer_inviter(
+            args, config, depot=depot, url_publique=url_pub, parametres_brevo=parametres_brevo
+        )
+
+
+def ajouter_invitations(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "invitations",
+        help="liste les invitations en cours : adresse, lien, échéance",
+        parents=[parent_json()],
+    )
+    p.set_defaults(fonction=_commande_invitations)
+
+
+def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.invitation_commande import executer_invitations
+
+    url_db = _url_des_comptes("invitations")
+    url_pub = _url_publique()
+
+    with _base_des_comptes("invitations", url_db) as connexion:
+        depot = DepotComptes(connexion)
+        return executer_invitations(args, config, depot=depot, url_publique=url_pub)
+
+
+def _url_des_comptes(commande: str) -> str:
+    """L'URL de la base des comptes, ou un refus qui nomme la variable.
+
+    Séparée de `_base_des_comptes` pour que l'ordre des refus reste celui du
+    besoin : sans base, rien ne se fait — c'est ce qui se dit en premier,
+    avant l'URL publique, qui ne sert qu'à fabriquer un lien.
+    """
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL, url_base_de_donnees
+
+    url = url_base_de_donnees()
+    if url is None:
+        raise ErreurUtilisateur(
+            f"{commande} : {VARIABLE_DATABASE_URL} n'est pas défini — impossible de joindre "
+            "la base des comptes de l'hébergé"
+        )
+    return url
+
+
+@contextmanager
+def _base_des_comptes(commande: str, url_db: str) -> Iterator[Any]:
+    """Une connexion à la base des comptes, **déjà migrée**, ou un refus lisible.
+
+    Trois choses qu'aucun test n'avait attrapées, et qu'un premier vrai
+    lancement a trouvées en trois secondes (19/09/2026, règle absolue 4) :
+
+    1. **Personne n'appliquait les migrations.** Les tests partent d'une base
+       que leur `conftest` a migrée ; la vraie vie part d'une base vide, et la
+       commande mourait sur `relation "comptes" does not exist`. Les
+       migrations sont idempotentes (`appliquer_migrations` rend la liste de
+       ce qu'elle a fait, vide quand il n'y avait rien à faire) : les poser
+       ici coûte quelques millisecondes et supprime une étape à retenir.
+    2. **La trace du pilote remontait jusqu'au mainteneur.** Une base
+       injoignable, un mot de passe faux ou un serveur arrêté donnaient une
+       pile `psycopg`, pas une phrase.
+    3. Et le nom de la commande manquait aux messages, alors qu'il était déjà
+       là dans le refus de la variable d'environnement.
+
+    Ce qui est appliqué est **dit** : une migration qui passe en silence est
+    une migration dont on découvre l'existence le jour où elle a mal tourné.
+    """
+    from ourouler.api.base_de_donnees import appliquer_migrations, ouvrir
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL
+
+    try:
+        connexion = ouvrir(url_db)
+    except Exception as e:  # noqa: BLE001 - psycopg lève une famille entière, toutes traitées pareil
+        raise ErreurUtilisateur(
+            f"{commande} : base des comptes injoignable ({_premiere_ligne(e)}) — vérifier "
+            f"{VARIABLE_DATABASE_URL}, et que le serveur PostgreSQL est démarré"
+        ) from e
+    try:
+        with connexion:
+            posees = appliquer_migrations(connexion)
+            if posees:
+                print(f"base des comptes : {len(posees)} migration(s) appliquée(s)", file=sys.stderr)
+            yield connexion
+    except ErreurUtilisateur:
+        raise
+    except Exception as e:  # noqa: BLE001 - idem : une phrase plutôt qu'une pile
+        raise ErreurUtilisateur(f"{commande} : {_premiere_ligne(e)}") from e
+
+
+def _premiere_ligne(e: Exception) -> str:
+    """Le message d'une exception de pilote, sans sa pile ni son curseur SQL."""
+    return str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+
+
+def _url_publique(environ: Mapping[str, str] | None = None) -> str:
+    """L'URL publique du front hébergé, ou `ErreurUtilisateur` si elle n'est pas posée.
+
+    Même forme que les lecteurs de variable d'`api/exploitation.py` : une variable,
+    dépouillée, ou un refus qui nomme la variable plutôt qu'un lien vide silencieusement
+    construit (`https:///entrer?jeton=...` ne mènerait nulle part).
+    """
+    environ = os.environ if environ is None else environ
+    brut = (environ.get(VARIABLE_URL_PUBLIQUE) or "").strip()
+    if not brut:
+        raise ErreurUtilisateur(
+            f"inviter : {VARIABLE_URL_PUBLIQUE} n'est pas défini — c'est l'URL publique du "
+            "front hébergé, devant laquelle /entrer?jeton=... s'ouvre"
+        )
+    return brut
+
+
+def _charger_service(chemin: Path | None = None) -> dict:
+    """Le contenu de `service.toml`, lu ici et nulle part ailleurs (règle absolue 2).
+
+    `chemin` est injectable pour les tests — jamais un vrai `service.toml` n'est lu ou
+    montré par ce lot (le brief l'interdit explicitement) : les tests lui passent un
+    fichier à eux, en `.invalid`, jamais celui du mainteneur.
+    """
+    chemin = (chemin or Path(os.environ.get(VARIABLE_SERVICE) or CHEMIN_SERVICE_DEFAUT)).expanduser()
+    if not chemin.is_file():
+        raise ErreurUtilisateur(
+            f"inviter : fichier de service introuvable : {chemin} — copier "
+            "service.example.toml et le renseigner"
+        )
+    try:
+        with chemin.open("rb") as f:
+            return tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise ErreurUtilisateur(f"{chemin} : TOML invalide ({e})") from e
 
 
 # --- point d'entrée -----------------------------------------------------------

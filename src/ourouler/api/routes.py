@@ -29,8 +29,9 @@ from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from ourouler import __version__
-from ourouler.api import vie_privee, vues
+from ourouler.api import base_de_donnees, vie_privee, vues
 from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
+from ourouler.api.comptes import DepotComptes, ErreurInvitationRefusee
 from ourouler.api.depots import (
     DepotFichiers,
     DepotGenerations,
@@ -43,8 +44,11 @@ from ourouler.api.erreurs import ErreurApi, classer, classer_avertissement, secr
 from ourouler.api.modeles import (
     ApercuZones,
     DemandeBoucle,
+    DemandeConnexion,
+    DemandeEntree,
     DemandeSimulation,
     DemandeSortie,
+    DemandeVitesseCompteur,
     Point,
     ReponseErreur,
     TexteUtile,
@@ -53,7 +57,9 @@ from ourouler.api.proprietaire import Proprietaire
 from ourouler.api.session import (
     CODE_SANS_SESSION,
     MESSAGE_SANS_SESSION,
+    NOM_COOKIE,
     FournisseurSession,
+    SessionParCookie,
 )
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -227,6 +233,43 @@ def _config(ctx: Contexte, qui: Proprietaire) -> Config:
         raise classer(e) from e
 
 
+def _base_routes(config: Config, qui: Proprietaire):
+    """La base des routes apprises **de ce propriétaire** ([[Q58]], 18/09/2026).
+
+    Le seul endroit du service qui prononce le mot, avec `_cache` juste en
+    dessous et `api/vie_privee.py` : doctrine §10.1, « le propriétaire entre
+    au constructeur du dépôt, et nulle part ailleurs […] en hébergé, c'est la
+    couche web qui construira le dépôt avec l'identifiant de l'utilisateur
+    authentifié ».
+
+    **Le fichier est ouvert même s'il n'existe pas encore**, contrairement à
+    ce que font `boucle/commande._base_routes` et son jumeau de `sortie` —
+    eux s'abstiennent pour ne pas fabriquer un SQLite vide dans le cache d'un
+    cycliste qui n'a rien appris. Ici il le faut : passer `None` ferait
+    retomber la commande sur son propre constructeur, donc sur le
+    propriétaire local, et rouvrirait exactement la fuite qu'on ferme.
+    `GET /routes/{action}` l'ouvrait déjà sans condition, le fichier n'est
+    donc pas une nouveauté de ce service.
+    """
+    from ourouler.apprentissage.commande import NOM_BASE
+    from ourouler.apprentissage.routes import BaseRoutes
+
+    try:
+        return BaseRoutes(config.cache.dossier / NOM_BASE, proprietaire=str(qui))
+    except Exception as e:
+        raise classer(e) from e
+
+
+def _cache(config: Config, qui: Proprietaire):
+    """Le cache d'activités **de ce propriétaire**. Même règle que `_base_routes`."""
+    from ourouler.activites.cache import Cache
+
+    try:
+        return Cache(config.cache.dossier, proprietaire=str(qui))
+    except Exception as e:
+        raise classer(e) from e
+
+
 def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
     """Le connecteur d'un service pour cette requête (voir `Clients`).
 
@@ -274,6 +317,170 @@ def _depart(point: Point | None) -> Depart | None:
     if point is None:
         return None
     return Depart(nom=point.nom, latitude=point.latitude, longitude=point.longitude)
+
+
+# --- comptes et sessions (lot L7.2-C) ------------------------------------------
+#
+# Quatre routes qui **précèdent** l'existence d'une session : on ne peut pas
+# leur demander la clause de propriétaire que `Qui` porte, puisque c'est
+# justement ce qu'elles fabriquent (`/entrer`, `/connexion`) ou détruisent
+# (`/sortir`) — ou qu'elles regardent sans rien ouvrir (`/invitation`). C'est
+# la même frontière que `api/comptes.py` trace pour son dépôt : voir
+# `tests/api/test_api_isolation_proprietaire.py` (`ROUTES_AVANT_SESSION`) pour
+# l'exemption du balayage d'isolation, étroite, nommée, et sa contre-épreuve.
+#
+# Chacune ouvre sa **propre** connexion à la base des comptes, au lieu de
+# passer par `ctx.session.ouvrir(requete)` : ce dernier *lit* une session déjà
+# ouverte, il ne sait pas en fabriquer une. Ces routes n'existent donc que
+# quand `ctx.session` est une `SessionParCookie` (mode hébergé, base
+# configurée) — ailleurs, `_url_comptes` refuse proprement plutôt que de
+# tenter une connexion à une base absente.
+
+
+def _url_comptes(ctx: Contexte) -> str:
+    """L'URL de la base des comptes de ce déploiement — ou un refus nommé.
+
+    Ces quatre routes ne servent que sur un déploiement hébergé avec une base
+    de comptes configurée (`SessionParCookie`). Ailleurs — mode personnel,
+    hébergé sans base — il n'y a ni compte ni session à créer, et la bonne
+    réponse est un refus explicite plutôt qu'une tentative de connexion à une
+    base qui n'existe pas.
+    """
+    session = ctx.session
+    if not isinstance(session, SessionParCookie):
+        raise ErreurApi(
+            code="comptes_indisponibles",
+            message="ce déploiement ne gère pas de comptes — rien à activer, rien où se "
+            "connecter, personne à qui dire au revoir",
+            statut=404,
+        )
+    return session.url
+
+
+def _poser_cookie(reponse: Response, jeton_session: str) -> None:
+    """Pose le cookie de session — `HttpOnly`, `Secure`, `SameSite=Lax` (`api/session.py`).
+
+    `max_age` reprend la durée de la session en base (`comptes.DUREE_SESSION`) :
+    un cookie qui vivrait plus longtemps que la ligne qu'il désigne ne
+    changerait rien à la sécurité (la session introuvable en base rend déjà
+    401), un cookie plus court forcerait une reconnexion avant l'échéance
+    réelle sans raison.
+    """
+    from ourouler.api.comptes import DUREE_SESSION
+
+    reponse.set_cookie(
+        NOM_COOKIE,
+        jeton_session,
+        max_age=int(DUREE_SESSION.total_seconds()),
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
+
+
+@routeur.get("/invitation")
+def etat_invitation(ctx: Ctx, jeton: Annotated[TexteUtile, Query(min_length=1, max_length=255)]) -> dict:
+    """L'état d'un jeton d'invitation, sans le consommer.
+
+    Un jeton inconnu, périmé ou déjà consommé rendent la **même** réponse
+    (404, `invitation_invalide`) : on ne dit pas à un inconnu lequel des
+    trois il a rencontré — voir `DepotComptes.invitation_ouverte`, qui rend
+    `None` dans les trois cas par la même requête.
+    """
+    url = _url_comptes(ctx)
+    with base_de_donnees.ouvrir(url) as cx:
+        etat = DepotComptes(cx).invitation_ouverte(jeton)
+    if etat is None:
+        raise ErreurApi(code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=404)
+    return {"donnees": {"email": etat.email, "expire_le": etat.expire_le.isoformat()}}
+
+
+#: Ce que les deux routes du jeton d'invitation répondent quand il ne vaut
+#: rien — **le même texte, quel que soit le motif**. Distinguer « n'existe
+#: pas », « a expiré le 02/09 » et « a déjà servi » renseigne qui tient un
+#: jeton périmé sur le fait qu'il a bel et bien été émis, et sur sa date
+#: exacte. `GET /invitation` avait été écrite ainsi ; `POST /entrer` laissait
+#: passer le message détaillé de `comptes._invitation_refusee`, et rouvrait
+#: donc la porte qu'on venait de fermer (relecture du 19/09/2026).
+#:
+#: Les messages détaillés ne disparaissent pas pour autant : ils restent ce
+#: que `DepotComptes` lève, et ce que la ligne de commande affiche au
+#: mainteneur — qui a le droit de savoir *pourquoi*, puisque c'est lui qui a
+#: émis le lien.
+MESSAGE_INVITATION_REFUSEE = "ce lien d'invitation n'est plus valable — inconnu, expiré ou déjà utilisé"
+
+
+@routeur.post("/entrer")
+def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
+    """Active le compte invité, ouvre sa première session, pose le cookie.
+
+    `DepotComptes.activer` pose le secret, active le compte et consomme
+    l'invitation dans une seule transaction (`api/comptes.py`) ; le
+    propriétaire qu'elle rend est celui que `inviter` a déjà rattaché au
+    compte, dans `comptes_proprietaires` ([[Q46]]) — cette route n'a donc
+    rien de plus à créer, elle ouvre la session qui en découle. Deux appels
+    concurrents avec le même jeton : un seul passe l'activation (transaction
+    atomique de `activer`), donc une seule session s'ouvre.
+    """
+    url = _url_comptes(ctx)
+    with base_de_donnees.ouvrir(url) as cx:
+        depot = DepotComptes(cx)
+        try:
+            acces = depot.activer(corps.jeton, corps.secret)
+        except ErreurInvitationRefusee as e:
+            # Le motif est perdu **exprès** : voir MESSAGE_INVITATION_REFUSEE.
+            raise ErreurApi(
+                code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
+            ) from e
+        except Exception as e:
+            raise classer(e) from e
+        jeton_session = depot.ouvrir_session(acces.compte.identifiant)
+    _poser_cookie(reponse, jeton_session)
+    return {"donnees": {"proprietaire": str(acces.proprietaire)}}
+
+
+@routeur.post("/connexion")
+def connexion(ctx: Ctx, corps: DemandeConnexion, reponse: Response) -> dict:
+    """Revient sur un compte actif : vérifie le secret, ouvre une session.
+
+    Une adresse sans compte actif et un mot de passe faux rendent la **même**
+    réponse (401, `identifiants_refuses`), dans le même temps —
+    `DepotComptes.authentifier` égalise aussi le calcul, pas seulement le
+    message.
+    """
+    url = _url_comptes(ctx)
+    with base_de_donnees.ouvrir(url) as cx:
+        depot = DepotComptes(cx)
+        compte = depot.authentifier(corps.email, corps.secret)
+        if compte is None:
+            raise ErreurApi(
+                code="identifiants_refuses",
+                message="adresse ou mot de passe refusés",
+                statut=401,
+            )
+        jeton_session = depot.ouvrir_session(compte.identifiant)
+        proprietaire = depot.proprietaire_du_compte(compte.identifiant)
+    _poser_cookie(reponse, jeton_session)
+    return {"donnees": {"proprietaire": str(proprietaire)}}
+
+
+@routeur.post("/sortir")
+def sortir(ctx: Ctx, requete: Request, reponse: Response) -> dict:
+    """Détruit la session en cours et efface le cookie.
+
+    Idempotente : appeler cette route sans cookie, ou avec un cookie déjà
+    périmé ou déjà fermé, réussit tout autant
+    (`DepotComptes.fermer_session`) — se déconnecter deux fois n'est pas un
+    échec.
+    """
+    jeton_session = requete.cookies.get(NOM_COOKIE)
+    if jeton_session:
+        url = _url_comptes(ctx)
+        with base_de_donnees.ouvrir(url) as cx:
+            DepotComptes(cx).fermer_session(jeton_session)
+    reponse.delete_cookie(NOM_COOKIE, path="/")
+    return {"donnees": {}}
 
 
 # --- système ------------------------------------------------------------------
@@ -327,8 +534,18 @@ def lire_profil(
     ctx: Ctx,
     qui: Qui,
 ) -> dict:
-    """Le profil du cycliste : départ, poids, FTP, position dans la zone, vélos, services."""
-    return {"proprietaire": str(qui), "donnees": vues.profil(_config(ctx, qui))}
+    """Le profil du cycliste : départ, poids, FTP, position dans la zone, vélos, services.
+
+    `donnees.assistant_recommande` dit si ce propriétaire n'a **jamais**
+    enregistré de surcharge (`DepotProfils.surcharge` vide) — un compte
+    activé mais jamais passé par l'assistant, quel qu'ait été le socle qu'il
+    a lu au démarrage. Corrige le défaut constaté en vrai le 19/09/2026 : un
+    compte neuf atterrissait sur l'écran du jour, qui réclame Intervals et
+    échoue, au lieu de l'assistant qui construit le profil. Le premier
+    `PATCH /profil` fait passer ce booléen à faux — pas un drapeau à part à
+    tenir à jour, juste la conséquence de ce qui est déjà écrit sur le disque.
+    """
+    return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, _config(ctx, qui))}
 
 
 @routeur.patch(
@@ -370,7 +587,21 @@ async def modifier_profil(
         raise ErreurApi(code="profil_invalide", message=str(e), statut=422) from e
     except Exception as e:
         raise classer(e) from e
-    return {"proprietaire": str(qui), "donnees": vues.profil(config)}
+    return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, config)}
+
+
+def _profil_avec_flags(ctx: Contexte, qui: Proprietaire, config: Config) -> dict:
+    """Le profil rendu par `vues.profil`, plus `assistant_recommande` (voir `lire_profil`).
+
+    Factorisé pour que `GET /profil` et `PATCH /profil` rendent exactement le
+    même calcul : sans ça, le front qui met à jour son état local depuis la
+    réponse d'un `PATCH` (`Assistant.tsx`, `enregistrer()`) verrait le
+    drapeau se figer jusqu'au prochain `GET`, alors qu'un premier `PATCH`
+    est précisément ce qui doit le faire tomber.
+    """
+    donnees = vues.profil(config)
+    donnees["assistant_recommande"] = not bool(ctx.profils.surcharge(qui))
+    return donnees
 
 
 @routeur.get("/profil/zones")
@@ -434,6 +665,95 @@ def apercu_zones(
                 vitesse_kmh=demande.vitesse_a_plat_kmh,
             )
         return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config, demande.velo, position=position)}
+    except Exception as e:
+        raise classer(e) from e
+
+
+@routeur.get("/profil/intervals")
+def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
+    """Ce qu'Intervals.icu sait de l'athlète — FTP, poids — **pour confirmation, sans rien écrire**.
+
+    L'étage T1 de l'accueil (`docs/ux/parcours_accueil.md` §4), une fois la
+    clé Intervals posée : « on a trouvé ceci, c'est toujours d'actualité ? »
+    plutôt que remplacer en silence ou reposer une question dont Intervals
+    connaît déjà la réponse ([[Q64]]). Le front confirme ou corrige, puis
+    envoie la valeur retenue à `PATCH /profil` comme n'importe quelle FTP ou
+    masse déclarée — cette route ne fait que lire.
+
+    401 nommé `intervals_absent` si la clé n'est pas encore posée : ce n'est
+    ni une panne ni une faute, c'est un compte qui n'en est pas encore là.
+    """
+    from ourouler.connecteurs.intervals import ClientIntervals
+    from ourouler.erreurs import ErreurIntervalsAbsent
+
+    config = _config(ctx, qui)
+    try:
+        if not config.intervals.renseigne:
+            raise ErreurIntervalsAbsent(
+                "profil Intervals : la clé n'est pas encore renseignée pour ce compte"
+            )
+        client = _service(ctx, config, "intervals")
+        if client is None:
+            client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
+        donnees = client.profil_athlete()
+    except Exception as e:
+        raise classer(e, secrets=secrets_de(config)) from e
+    return {"proprietaire": str(qui), "donnees": donnees}
+
+
+@routeur.post("/profil/ftp/apercu")
+def apercu_ftp_depuis_terrain(
+    ctx: Ctx,
+    qui: Qui,
+    demande: DemandeVitesseCompteur,
+) -> dict:
+    """T4 de l'accueil : une FTP à partir d'une vitesse au compteur et d'un terrain, **sans rien stocker**.
+
+    Même geste que `POST /profil/zones/apercu` : la FTP rendue est un aperçu,
+    le front l'affiche et l'envoie à `PATCH /profil` (`cycliste.ftp_w`) si le
+    cycliste confirme. Elle est calculée à la `position_zone` déjà en
+    vigueur dans la configuration — c'est établir une FTP là où il n'y en
+    avait pas, pas déplacer une position (`seance.ecran_ftp.
+    ftp_pour_vitesse_compteur`).
+    """
+    from ourouler.seance import ecran_ftp
+
+    config = _config(ctx, qui)
+    try:
+        ftp_w = ecran_ftp.ftp_pour_vitesse_compteur(
+            config,
+            demande.velo,
+            vitesse_compteur_kmh=demande.vitesse_kmh,
+            denivele_m_par_km=demande.denivele_m_par_km,
+        )
+        config_avec_ftp = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp_w))
+        return {
+            "proprietaire": str(qui),
+            "donnees": ecran_ftp.rendu(config_avec_ftp, demande.velo),
+        }
+    except Exception as e:
+        raise classer(e) from e
+
+
+@routeur.get("/profil/ftp/generique")
+def ftp_generique(ctx: Ctx, qui: Qui, velo: str | None = None) -> dict:
+    """T5 de l'accueil, le fond du tunnel : une FTP à partir du seul poids, **sans rien stocker**.
+
+    Ne peut pas échouer — `physique.litterature.ftp_defaut` ne demande que
+    `cycliste.masse_kg`, qui n'est jamais facultative. C'est la garantie que
+    l'entonnoir de `docs/ux/parcours_accueil.md` promet à l'étage T5 : « rien
+    à demander, jamais rien [en échec] ». Même geste que les deux routes
+    d'aperçu voisines : le front affiche, et envoie `cycliste.ftp_w` à
+    `PATCH /profil` si la personne continue.
+    """
+    from ourouler.physique.litterature import ftp_defaut
+    from ourouler.seance import ecran_ftp
+
+    config = _config(ctx, qui)
+    try:
+        ftp_w = ftp_defaut(config.cycliste.masse_kg)
+        config_avec_ftp = replace(config, cycliste=replace(config.cycliste, ftp_w=ftp_w))
+        return {"proprietaire": str(qui), "donnees": ecran_ftp.rendu(config_avec_ftp, velo)}
     except Exception as e:
         raise classer(e) from e
 
@@ -787,6 +1107,8 @@ def generer_sortie(
             client_intervals=_service(ctx, config, "intervals"),
             lieu_depart=_depart(demande.depart),
             recueil_gpx=recueillis.extend,
+            # Q58, même raison que `POST /boucles`.
+            base_routes=_base_routes(config, qui),
         ),
     )
     donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
@@ -865,6 +1187,9 @@ def generer_boucle(
         client_brouter=_service(ctx, config, "brouter"),
         client_meteo=_service(ctx, config, "meteo"),
         lieu_depart=_depart(demande.depart),
+        # Q58 : la colonne « connu % » est calculée contre les routes que
+        # **ce** cycliste a roulées, pas contre celles du propriétaire local.
+        base_routes=_base_routes(config, qui),
     )
     donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)
@@ -916,6 +1241,13 @@ def inventaire(
     La synchronisation avec Intervals.icu et l'import d'un dossier restent des
     gestes de ligne de commande : ils écrivent dans le cache du serveur et
     durent des minutes.
+
+    **Le cache est construit ici, avec le propriétaire de la session** (Q58,
+    18/09/2026). Jusque-là cette route recevait bien `qui` — le balayage
+    d'isolation la voyait donc conforme — mais la commande construisait son
+    `Cache` toute seule, avec le défaut `PROPRIETAIRE_LOCAL` : quel que soit
+    le demandeur, elle servait l'inventaire du mainteneur. C'est la couche web
+    qui nomme le propriétaire, et elle seule (doctrine §10.1).
     """
     from ourouler.activites import commande as activites
 
@@ -927,6 +1259,7 @@ def inventaire(
         secrets=secrets_de(config),
         operation="inventaire",
         budgets=ctx.budgets,
+        cache=_cache(config, qui),
     )
     return resultat.enveloppe(ctx.budgets.budget("inventaire"), qui)
 
@@ -937,7 +1270,12 @@ def routes_connues(
     qui: Qui,
     action: str,
 ) -> dict:
-    """Ce que les sorties passées ont appris : `stats` ou `poids` (en lecture seule)."""
+    """Ce que les sorties passées ont appris : `stats` ou `poids` (en lecture seule).
+
+    **La base est construite ici, avec le propriétaire de la session** (Q58,
+    18/09/2026) — même correctif et même raison que `GET /inventaire`
+    juste au-dessus.
+    """
     from ourouler.apprentissage import commande as apprentissage
 
     if action not in ("stats", "poids"):
@@ -956,6 +1294,7 @@ def routes_connues(
         operation="routes",
         budgets=ctx.budgets,
         client_brouter=_service(ctx, config, "brouter"),
+        base=_base_routes(config, qui),
     )
     return resultat.enveloppe(ctx.budgets.budget("routes"), qui)
 

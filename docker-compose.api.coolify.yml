@@ -44,20 +44,54 @@ services:
     build:
       context: .
       dockerfile: deploiement/api/Dockerfile
+    # Tout en dictionnaire : mélanger la forme liste (`- CLE`) et la forme
+    # dictionnaire (`CLE: valeur`) dans le même bloc est un YAML invalide, et
+    # le déploiement échoue sur « did not find expected '-' indicator » sans
+    # dire lequel des deux blocs est fautif (constaté le 18/09/2026, avant le
+    # premier déploiement). `SERVICE_FQDN_API_8000` sans valeur est repris de
+    # l'environnement, ce que la forme dictionnaire écrit avec une valeur vide.
+    # Tout en liste, et pas en dictionnaire — deux pièges successifs, tous
+    # deux mesurés sur ce fichier le 18/09/2026 :
+    #
+    # 1. Mélanger les deux formes (`- CLE` et `CLE: valeur`) dans le même bloc
+    #    est un YAML invalide : le déploiement échoue sur « did not find
+    #    expected '-' indicator », sans dire lequel des deux blocs est fautif.
+    # 2. Tout passer en dictionnaire répare le YAML mais casse la variable
+    #    magique : `SERVICE_FQDN_API_8000: ${SERVICE_FQDN_API_8000:-}` est une
+    #    variable ordinaire pour Coolify, qui ne pose alors pas les étiquettes
+    #    Traefik du service. Résultat : conteneur `running:healthy`, et 503
+    #    « no available server » sur le domaine. La forme reconnue est la
+    #    **déclaration nue**, `- SERVICE_FQDN_API_8000`, sans valeur — c'est
+    #    celle qu'utilise `docker-compose.coolify.yml` (page du jour), qui
+    #    lui est en ligne et répond.
+    #
+    # Donc : liste partout, et la déclaration nue en premier.
     environment:
       - SERVICE_FQDN_API_8000
-      OUROULER_MODE: ${OUROULER_MODE}
-      OUROULER_CONFIG: /config/config.toml
-      OUROULER_CONFIG_TOML_B64: ${OUROULER_CONFIG_TOML_B64}
-      OUROULER_PORT: "8000"
-      OUROULER_INTERVALS_API_KEY: ${OUROULER_INTERVALS_API_KEY}
-      OUROULER_INTERVALS_ATHLETE_ID: ${OUROULER_INTERVALS_ATHLETE_ID}
-      OUROULER_DEPART_NOM: ${OUROULER_DEPART_NOM}
-      OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE}
-      OUROULER_DEPART_LONGITUDE: ${OUROULER_DEPART_LONGITUDE}
-      OUROULER_BROUTER_URL: ${OUROULER_BROUTER_URL}
-      OUROULER_BROUTER_UTILISATEUR: ${OUROULER_BROUTER_UTILISATEUR:-}
-      OUROULER_BROUTER_MOT_DE_PASSE: ${OUROULER_BROUTER_MOT_DE_PASSE:-}
+      - 'OUROULER_MODE=${OUROULER_MODE}'
+      - OUROULER_CONFIG=/config/config.toml
+      - 'OUROULER_CONFIG_TOML_B64=${OUROULER_CONFIG_TOML_B64}'
+      # Sans elle, `api/exploitation.fournisseur_session` rend `SessionHebergee`
+      # — qui n'ouvre jamais rien — et les quatre routes de comptes répondent
+      # « ce déploiement ne gère pas de comptes ». C'est le bon défaut : un
+      # service exposé sans base ne doit pas faire semblant d'avoir des
+      # comptes. La poser est donc le geste qui **allume** la fonction.
+      - 'OUROULER_DATABASE_URL=${OUROULER_DATABASE_URL}'
+      # Les secrets du **service** — le relais SMTP qui porte les invitations.
+      # Distincts du TOML ci-dessus, qui est le profil d'un cycliste. Sans
+      # eux, `ourouler inviter` dans ce conteneur dit franchement que le
+      # fichier manque, au lieu de partir sans identifiants.
+      - OUROULER_SERVICE=/config/service.toml
+      - 'OUROULER_SERVICE_TOML_B64=${OUROULER_SERVICE_TOML_B64:-}'
+      - OUROULER_PORT=8000
+      - 'OUROULER_INTERVALS_API_KEY=${OUROULER_INTERVALS_API_KEY}'
+      - 'OUROULER_INTERVALS_ATHLETE_ID=${OUROULER_INTERVALS_ATHLETE_ID}'
+      - 'OUROULER_DEPART_NOM=${OUROULER_DEPART_NOM}'
+      - 'OUROULER_DEPART_LATITUDE=${OUROULER_DEPART_LATITUDE}'
+      - 'OUROULER_DEPART_LONGITUDE=${OUROULER_DEPART_LONGITUDE}'
+      - 'OUROULER_BROUTER_URL=${OUROULER_BROUTER_URL}'
+      - 'OUROULER_BROUTER_UTILISATEUR=${OUROULER_BROUTER_UTILISATEUR:-}'
+      - 'OUROULER_BROUTER_MOT_DE_PASSE=${OUROULER_BROUTER_MOT_DE_PASSE:-}'
     volumes:
       - donnees:/data/cache
     expose:

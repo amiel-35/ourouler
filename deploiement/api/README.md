@@ -102,7 +102,7 @@ volontairement hors de `/api/v1` et hors du schéma publié
 question posée par l'infrastructure. Le `Dockerfile` la pose en
 `HEALTHCHECK` ; Coolify peut l'utiliser de la même façon.
 
-## Les deux pièges Coolify (déjà mesurés sur le générateur de la page du jour)
+## Les pièges Coolify (deux hérités du générateur, deux mesurés ici)
 
 Les deux s'appliquent ici à l'identique — voir `docker-compose.coolify.yml`
 (racine du dépôt) pour la mesure d'origine, et
@@ -120,6 +120,31 @@ Les deux s'appliquent ici à l'identique — voir `docker-compose.coolify.yml`
    plutôt que de fabriquer une valeur fausse — `config.charger` (pour le
    TOML) ou `api/exploitation.fournisseur_session` (pour `OUROULER_MODE`)
    échouent ou refusent alors franchement au démarrage.
+
+Et deux de plus, mesurés le 18/09/2026 sur le premier déploiement réel de
+ce paquetage-ci — tous deux dans le **même bloc `environment:`**, et tous
+deux invisibles en local :
+
+3. **Les deux formes d'`environment:` ne se mélangent pas.** Une liste
+   (`- CLE=valeur`) et un dictionnaire (`CLE: valeur`) dans le même bloc
+   font un YAML invalide, et le déploiement échoue sur « did not find
+   expected `'-'` indicator » sans nommer le bloc fautif.
+4. **La variable magique ne se reconnaît qu'en déclaration nue.** Écrite
+   `SERVICE_FQDN_API_8000: ${SERVICE_FQDN_API_8000:-}` — c'est-à-dire en
+   dictionnaire, avec une valeur — elle devient une variable ordinaire :
+   Coolify ne pose pas les étiquettes Traefik du service. Le conteneur
+   démarre, la sonde le déclare sain, `docker ps` ne montre rien d'anormal,
+   et le domaine répond `503 no available server`. La forme reconnue est
+   `- SERVICE_FQDN_API_8000`, **sans valeur**. Comme le piège 3 interdit de
+   mélanger, tout le bloc est donc en liste.
+
+Ce que Coolify a par ailleurs montré au passage : **il transmet au conteneur
+toutes les variables déclarées, vides comprises.** `OUROULER_DEPART_LATITUDE`
+non renseignée arrive dans le conteneur comme chaîne vide, pas comme
+variable absente. C'est ce qui a fait échouer le premier démarrage
+(`[depart] latitude : nombre attendu, reçu ''`), et ce que
+`config.py:_reporter` traite désormais : **vide vaut absente**, une variable
+que personne n'a remplie n'écrase plus le TOML.
 
 ## Ce que ce lot ne fait pas
 
@@ -149,3 +174,14 @@ son propre `Dockerfile`, son propre compose, sa propre variable
    Coolify reste au mainteneur.
 5. Lancer le déploiement depuis l'interface Coolify, puis vérifier
    `https://<le domaine attribué>/sante` avant toute chose.
+
+**Fait le 18/09/2026** : l'application s'appelle `ourouler-api` sur le
+Coolify du mainteneur, elle suit la branche d'intégration du sprint en
+cours, et elle répond sur **https://app-ourouler.inflexion.me** — `/sante`
+donne `{"etat":"ok"}`, `/` sert le front, `/api/v1/...` refuse tout en 401
+`session_absente` puisque `OUROULER_MODE=heberge` et qu'aucune méthode de
+connexion n'est branchée (lot L7.2). Le TOML déployé est
+`config.example.toml` tel quel et le point de départ est le centre de
+Rennes : **aucune donnée personnelle du mainteneur n'est sur ce serveur**,
+ni clé Intervals, ni identifiants BRouter. C'est un déploiement qui prouve
+la chaîne, pas un déploiement qui sert.

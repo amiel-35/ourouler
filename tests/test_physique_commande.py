@@ -269,6 +269,17 @@ def test_calibrer_sans_sortie(tmp_path: Path):
         executer_calibrer(args(velo="RCR"), config, client_archive=archive_bouchonnee())
 
 
+def test_calibrer_refuse_sans_ftp(tmp_path: Path):
+    """Point 5 (T5) : `calibrer_en_deux_passes` garde `ftp_w: float = 250.0` non
+    optionnel — ce n'est pas son rôle de deviner. Le refus se fait en amont,
+    avant même de lire le cache, avec un message qui nomme la FTP plutôt que
+    de laisser filer un `TypeError` sur `zone_w` ou l'appel de calibration."""
+    config = config_de_test(tmp_path / "cache", cycliste={"masse_kg": 91})
+    assert config.cycliste.ftp_w is None
+    with pytest.raises(ErreurUtilisateur, match="FTP"):
+        executer_calibrer(args(velo="RCR"), config, client_archive=archive_bouchonnee())
+
+
 def test_calibrer_survit_a_une_archive_en_panne(tmp_path: Path, capsys):
     """L'archive muette ne doit pas empêcher de calibrer : on le dit, on continue."""
 

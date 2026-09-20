@@ -71,7 +71,7 @@ export function MaSemaine({
               </h2>
               <span className="rang">{ecart ?? jour}</span>
             </div>
-            <div className="chiffres" style={{ marginBottom: 9 }}>
+            <div className="chiffres espace">
               <span>
                 <b>{duree(seance!.duree_s)}</b>
               </span>
@@ -96,7 +96,7 @@ export function MaSemaine({
               </button>
             )}
             {joursDEcart > HORIZON_VENT_JOURS ? (
-              <p className="mention" style={{ marginTop: 9 }}>
+              <p className="mention" style={{ marginTop: "var(--sp-3)" }}>
                 Sans le vent : à {joursDEcart} jours, on ne sait pas encore d'où il soufflera.
               </p>
             ) : null}

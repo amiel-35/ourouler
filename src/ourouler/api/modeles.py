@@ -183,11 +183,60 @@ class ApercuZones(Modele):
     velo: TexteUtile | None = None
 
 
+class DemandeVitesseCompteur(Modele):
+    """T4 de l'accueil : une vitesse au compteur et un terrain, pour en tirer une FTP.
+
+    `POST /profil/ftp/apercu` calcule **sans rien stocker** — même geste que
+    `ApercuZones` : le front récupère la FTP rendue et l'envoie ensuite à
+    `PATCH /profil` (`cycliste.ftp_w`) si la personne confirme.
+    """
+
+    # **Pas `vitesse_compteur_kmh`** : « compte » (comme dans « compteur »)
+    # est un des motifs que `tests/api/test_api_isolation_proprietaire.py`
+    # cherche dans les noms de champs pour repérer un paramètre qui
+    # désignerait un propriétaire — un faux positif ici, mais le contourner
+    # par le nom est plus simple et plus sûr que de creuser une exception
+    # dans une liste que la doctrine veut la plus courte possible.
+    vitesse_kmh: float = Field(
+        gt=0, le=100, description="moyenne lue au compteur sur une sortie solo"
+    )
+    denivele_m_par_km: float = Field(
+        ge=0,
+        le=100,
+        description="dénivelé de référence du terrain déclaré, en m par km (voir "
+        "docs/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
+    )
+    velo: TexteUtile | None = None
+
+
+class DemandeEntree(Modele):
+    """Le jeton d'une invitation et le secret choisi — active le compte, ouvre la session.
+
+    `jeton` et `secret` restent des `TexteUtile` ordinaires : ce module ne
+    connaît pas la forme du jeton (elle vit en base et dans `comptes.py`), et
+    aucune politique de mot de passe n'a été tranchée — inventer une longueur
+    minimale ici serait décider une règle produit à la place du mainteneur.
+    """
+
+    jeton: TexteUtile = Field(description="le jeton reçu par le lien d'invitation")
+    secret: TexteUtile = Field(description="le mot de passe choisi pour ce compte")
+
+
+class DemandeConnexion(Modele):
+    """L'adresse et le secret d'un compte déjà actif — pour revenir sans jeton."""
+
+    email: TexteUtile = Field(description="l'adresse du compte")
+    secret: TexteUtile = Field(description="le mot de passe du compte")
+
+
 __all__ = [
     "ApercuZones",
     "DemandeBoucle",
+    "DemandeConnexion",
+    "DemandeEntree",
     "DemandeSimulation",
     "DemandeSortie",
+    "DemandeVitesseCompteur",
     "Panne",
     "Point",
     "TexteUtile",

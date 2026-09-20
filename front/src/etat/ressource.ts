@@ -53,7 +53,20 @@ export function useRessource<T>(charger: () => Promise<T>, dependances: unknown[
     };
   }, [memorise, essai]);
 
-  return { valeur, erreur, chargement, recharger: () => setEssai((n) => n + 1) };
+  return {
+    valeur,
+    erreur,
+    chargement,
+    recharger: () => {
+      // La panne précédente ne doit pas rester affichée pendant qu'une
+      // nouvelle tentative est en vol — sinon un écran de connexion réussi
+      // rouvre, une fraction de seconde, l'écran d'échec qu'il vient de
+      // fermer (lot L7.2-D : c'est exactement ce que fait `recharger` après
+      // une reconnexion, dans `App.tsx`).
+      setErreur(null);
+      setEssai((n) => n + 1);
+    },
+  };
 }
 
 /** La date d'aujourd'hui en AAAA-MM-JJ, dans le fuseau du navigateur. */

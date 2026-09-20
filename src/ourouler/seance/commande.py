@@ -38,7 +38,7 @@ from pathlib import Path
 
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.intervals import seance_du_jour, seances_periode
 from ourouler.seance.modele import (
@@ -158,7 +158,7 @@ def executer(
 
     if client is None:
         if not config.intervals.renseigne:
-            raise ErreurUtilisateur(
+            raise ErreurIntervalsAbsent(
                 "séance : Intervals.icu n'est pas renseigné — compléter [intervals] "
                 "athlete_id et api_key dans la configuration"
             )

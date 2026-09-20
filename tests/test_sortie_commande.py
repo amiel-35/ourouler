@@ -1723,6 +1723,32 @@ def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):
     )
 
 
+def test_une_etape_libre_sans_ftp_retombe_sur_la_vitesse_moyenne(tmp_path: Path):
+    """Point 4 (T5) : `pct * ftp_w` avec `ftp_w=None` levait `TypeError`.
+
+    Sans FTP renseignée, les minutes des étapes libres ne peuvent plus être
+    converties en distance par le modèle physique — repli silencieux sur
+    `config.boucle.vitesse_moyenne_kmh`, la même vitesse assumée que le repli
+    « aucune étape chiffrée du tout » déjà présent dans `_distance`.
+    """
+    config = config_de_test(tmp_path, cycliste={"masse_kg": 76.5})
+    assert config.cycliste.ftp_w is None
+    parametres = PARAMETRES
+    moitie_libre = Seance(
+        nom="moitié libre",
+        jour=JOUR,
+        duree_s=3600.0,
+        etapes=[
+            Etape("echauffement", 1800.0, None, None, "libre"),
+            Etape("bloc", 1800.0, 150.0, 150.0, "Z2"),
+        ],
+    )
+    demande = types.SimpleNamespace(distance_km=None)
+    km, source = _distance(demande, moitie_libre, parametres, config)
+    assert km > 0
+    assert "faute de FTP renseignée" in source
+
+
 # --- les propositions contrastées (lot L5.3) ----------------------------------
 
 

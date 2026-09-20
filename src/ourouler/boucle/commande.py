@@ -209,8 +209,16 @@ def executer(
     client_meteo: ClientOpenMeteo | None = None,
     *,
     lieu_depart: Depart | None = None,
+    base_routes: BaseRoutes | None = None,
 ) -> int:
     """Exécute `ourouler boucle`. Renvoie le code de sortie (0 = succès).
+
+    `base_routes` s'injecte comme les clients : absente — le cas de la ligne
+    de commande — la base des routes apprises est ouverte sur
+    `config.cache.dossier`, avec le propriétaire par défaut. Une couche web
+    qui sert plusieurs cyclistes en construit une par propriétaire et la passe
+    ici ; sans quoi la colonne « connu % » dirait à l'un ce que l'autre a
+    roulé ([[Q58]], voir `activites/commande.executer`).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
     par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
@@ -270,7 +278,7 @@ def executer(
     # Le modèle est construit **avant** la météo : c'est lui qui dit à quelle
     # vitesse le cycliste passera, donc à quelle heure interroger la prévision.
     poids = lire_poids(config.cache.dossier / NOM_POIDS)
-    base_routes = _base_routes(config)
+    base_routes = base_routes if base_routes is not None else _base_routes(config)
     modele = _modele_temps(args, config)
     # Le bloc « compteur » (18/09/2026) : la troisième valeur de l'écran de
     # FTP, déléguée à `ecran_ftp.info_compteur` — jamais recalculée ici. Il
@@ -517,7 +525,10 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
 
     Reste le cas « aucun modèle » : un vélo dont l'usage n'est dans aucune
     catégorie de `physique.litterature` n'a que des défauts muets, et un temps
-    calculé là-dessus vaudrait moins que la vitesse moyenne assumée.
+    calculé là-dessus vaudrait moins que la vitesse moyenne assumée. Même
+    repli si `--puissance` n'est pas donné et que la FTP n'est pas renseignée
+    dans la configuration : rien pour construire une puissance par défaut,
+    donc pas de colonne « temps » plutôt qu'un calcul sur une valeur inventée.
     """
     from ourouler.physique.commande import (
         chemin_calibration,
@@ -532,6 +543,8 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
         return None
     puissance = puissance_voulue(args, parametres)
     if puissance is None:
+        if config.cycliste.ftp_w is None:
+            return None
         puissance = config.cycliste.ftp_w * PART_FTP_DEFAUT
     if not math.isfinite(puissance) or puissance <= 0:
         raise ErreurUtilisateur(

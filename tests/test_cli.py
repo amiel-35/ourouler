@@ -118,6 +118,25 @@ def test_le_mot_de_passe_brouter_n_est_jamais_affiche(tmp_path: Path, capsys):
     assert MOT_DE_PASSE_CLI not in capsys.readouterr().out
 
 
+# --- `ourouler config` sans FTP renseignée (T5, entonnoir d'accueil) --------
+
+CONFIG_SANS_FTP = '[depart]\nnom="Test"\nlatitude=0.0\nlongitude=0.0\n[cycliste]\nmasse_kg=80\n'
+
+
+def test_config_sans_ftp_n_affiche_pas_de_watts_pour_le_cycliste(tmp_path: Path, capsys):
+    """Point 1 : `format(None, '.0f')` levait `TypeError` — repli textuel."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_SANS_FTP)), "config"]) == 0
+    assert "FTP non renseignée" in capsys.readouterr().out
+
+
+def test_config_sans_ftp_n_affiche_pas_de_watts_pour_les_zones(tmp_path: Path, capsys):
+    """Point 2 : la ligne « Zones » calculait `pct * ftp_w`, même défaut."""
+    assert main(["--config", str(_config(tmp_path, CONFIG_SANS_FTP)), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "Zones" in out
+    assert "pas de watts (FTP non renseignée)" in out
+
+
 def test_le_mot_de_passe_brouter_est_masque_en_json(tmp_path: Path, capsys):
     """`dataclasses.asdict` ignore le `repr` masquant : il faut masquer ici aussi."""
     assert main(["--config", str(_config(tmp_path, CONFIG_BROUTER)), "config", "--json"]) == 0
@@ -263,3 +282,136 @@ def test_config_json_vitesse_compteur_present_avec_le_velo_par_defaut(tmp_path, 
     info = json.loads(capsys.readouterr().out)["seance"]["vitesse_compteur"]
     assert info is not None
     assert info["facteur_mesure"] is False
+
+
+# --- inviter / invitations : ce qui se vérifie sans base (lot L7.2-B) --------
+#
+# Le câblage complet (vraie base PostgreSQL, envoi via un double SMTP) vit
+# dans tests/comptes/test_cli_inviter.py, qui a besoin de Docker. Ici, les
+# deux refus qui doivent se voir **avant** toute tentative de connexion à la
+# base : `_url_publique()` est appelée avant `ouvrir(url_db)` dans
+# `_commande_inviter`, donc une URL de base bidon (jamais composée) suffit à
+# atteindre le second refus sans jamais toucher au réseau.
+
+
+def test_inviter_sans_database_url_echoue_avec_un_message_lisible(tmp_path, capsys, monkeypatch):
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL
+
+    monkeypatch.delenv(VARIABLE_DATABASE_URL, raising=False)
+    code = main(
+        ["--config", str(_config(tmp_path, CONFIG)), "inviter", "x@exemple.invalid", "--sans-courriel"]
+    )
+    assert code == 2
+    erreur = capsys.readouterr().err
+    assert VARIABLE_DATABASE_URL in erreur
+    assert "Traceback" not in erreur
+
+
+def test_inviter_sans_url_publique_echoue_avec_un_message_lisible(tmp_path, capsys, monkeypatch):
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL
+    from ourouler.cli import VARIABLE_URL_PUBLIQUE
+
+    # Une valeur bidon suffit : le refus sur l'URL publique tombe avant toute
+    # tentative de connexion (voir la note ci-dessus).
+    monkeypatch.setenv(VARIABLE_DATABASE_URL, "postgresql://jamais-compose/invalid")
+    monkeypatch.delenv(VARIABLE_URL_PUBLIQUE, raising=False)
+    code = main(
+        ["--config", str(_config(tmp_path, CONFIG)), "inviter", "x@exemple.invalid", "--sans-courriel"]
+    )
+    assert code == 2
+    erreur = capsys.readouterr().err
+    assert VARIABLE_URL_PUBLIQUE in erreur
+    assert "Traceback" not in erreur
+
+
+def test_invitations_sans_database_url_echoue_avec_un_message_lisible(tmp_path, capsys, monkeypatch):
+    from ourouler.api.exploitation import VARIABLE_DATABASE_URL
+
+    monkeypatch.delenv(VARIABLE_DATABASE_URL, raising=False)
+    code = main(["--config", str(_config(tmp_path, CONFIG)), "invitations"])
+    assert code == 2
+    erreur = capsys.readouterr().err
+    assert VARIABLE_DATABASE_URL in erreur
+    assert "Traceback" not in erreur
+
+
+# --- _charger_service / _url_publique : les deux lecteurs propres à ce lot --
+#
+# Seul `cli.py` a le droit de lire `service.toml` ou la variable qui porte
+# l'URL publique (règle absolue 2) — ces deux fonctions sont donc testées ici,
+# directement, avec un fichier à nous. Jamais le vrai `service.toml` du
+# mainteneur : ni ouvert, ni approché.
+
+
+def test_charger_service_suit_la_variable_d_environnement(tmp_path, monkeypatch):
+    """`OUROULER_SERVICE` déplace le fichier, pour un conteneur sans « chez soi ».
+
+    Le 19/09/2026, envoyer le premier courriel réel depuis le conteneur a
+    demandé un `docker cp` du fichier suivi d'un `rm` : le défaut
+    `~/.config/ourouler/service.toml` ne veut rien dire là où il n'y a pas
+    d'utilisateur. `deploiement/api/entrypoint.py` écrit désormais le fichier
+    depuis l'environnement et pose cette variable pour dire où il l'a mis.
+    """
+    from ourouler.cli import VARIABLE_SERVICE, _charger_service
+
+    ailleurs = tmp_path / "ailleurs" / "service.toml"
+    ailleurs.parent.mkdir()
+    ailleurs.write_text('[brevo]\nserveur = "relais.exemple.invalid"\n', encoding="utf-8")
+    monkeypatch.setenv(VARIABLE_SERVICE, str(ailleurs))
+
+    assert _charger_service()["brevo"]["serveur"] == "relais.exemple.invalid"
+
+
+def test_charger_service_refuse_un_fichier_absent(tmp_path):
+    from ourouler.cli import _charger_service
+    from ourouler.erreurs import ErreurUtilisateur
+
+    with pytest.raises(ErreurUtilisateur) as refus:
+        _charger_service(tmp_path / "absent.toml")
+    assert "introuvable" in str(refus.value)
+    assert "service.example.toml" in str(refus.value)
+
+
+def test_charger_service_refuse_un_toml_invalide(tmp_path):
+    from ourouler.cli import _charger_service
+    from ourouler.erreurs import ErreurUtilisateur
+
+    fichier = tmp_path / "service.toml"
+    fichier.write_text("ceci n'est pas du TOML valide [[[", encoding="utf-8")
+    with pytest.raises(ErreurUtilisateur) as refus:
+        _charger_service(fichier)
+    assert "TOML invalide" in str(refus.value)
+
+
+def test_charger_service_lit_un_fichier_de_test(tmp_path):
+    """« Écris le code qui le lit, teste-le avec un fichier de test à toi » — jamais le
+    vrai service.toml du mainteneur."""
+    from ourouler.cli import _charger_service
+
+    fichier = tmp_path / "service.toml"
+    fichier.write_text(
+        '[brevo]\nserveur="smtp-relay.exemple.invalid"\nport=587\n'
+        'utilisateur="compte@exemple.invalid"\nmot_de_passe="xsmtpsib-test"\n'
+        'expediteur="ourouler@exemple.invalid"\nnom_expediteur="où rouler"\n',
+        encoding="utf-8",
+    )
+    brut = _charger_service(fichier)
+    assert brut["brevo"]["serveur"] == "smtp-relay.exemple.invalid"
+
+
+def test_url_publique_refuse_une_variable_absente_ou_vide():
+    from ourouler.cli import _url_publique
+    from ourouler.erreurs import ErreurUtilisateur
+
+    with pytest.raises(ErreurUtilisateur):
+        _url_publique({})
+    with pytest.raises(ErreurUtilisateur):
+        _url_publique({"OUROULER_URL_PUBLIQUE": "   "})
+
+
+def test_url_publique_rend_la_valeur_depouillee():
+    from ourouler.cli import _url_publique
+
+    assert _url_publique({"OUROULER_URL_PUBLIQUE": "  https://ourouler.exemple.invalid  "}) == (
+        "https://ourouler.exemple.invalid"
+    )

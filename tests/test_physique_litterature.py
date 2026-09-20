@@ -304,3 +304,23 @@ def test_simuler_distingue_le_modele_calibre_du_modele_de_litterature(tmp_path: 
     texte = capsys.readouterr().out
     assert "de moyenne) (modèle)" in texte
     assert "littérature" not in texte
+
+
+# --- ftp_defaut : le filet T5 de l'accueil (19/09/2026, [[Q65]] ouverte) -----
+
+
+def test_ftp_defaut_proportionnelle_au_poids():
+    from ourouler.physique.litterature import FTP_W_PAR_KG_DEFAUT, ftp_defaut
+
+    assert ftp_defaut(80.0) == pytest.approx(80.0 * FTP_W_PAR_KG_DEFAUT)
+    assert ftp_defaut(60.0) < ftp_defaut(90.0)
+
+
+def test_ftp_defaut_ne_sort_jamais_des_bornes_de_config():
+    """Les mêmes bornes que `config._nombre_optionnel(..., 50, 1000)` pour
+    `cycliste.ftp_w` : un poids extrême ne doit jamais produire un chiffre
+    que le chargement refuserait de reprendre."""
+    from ourouler.physique.litterature import FTP_W_MAXI, FTP_W_MINI, ftp_defaut
+
+    assert ftp_defaut(1.0) == FTP_W_MINI
+    assert ftp_defaut(1000.0) == FTP_W_MAXI

@@ -118,6 +118,7 @@ describe("ce qui est enregistré", () => {
         surProfil={() => undefined}
         surZones={() => undefined}
         surRefaireInstallation={() => undefined}
+      surDeconnexion={() => undefined}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /211/ }));

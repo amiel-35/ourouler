@@ -88,7 +88,18 @@ class Depart:
 @dataclass(frozen=True)
 class Cycliste:
     masse_kg: float
-    ftp_w: float
+    #: La puissance seuil, en watts. **Facultative depuis le 19/09/2026**
+    #: (`docs/ux/parcours_accueil.md`) : ce que quelqu'un donne à l'accueil —
+    #: « je roule à 25 de moyenne » — est sa puissance d'**endurance**, pas
+    #: son seuil, et rien n'oblige plus à en connaître un pour avoir un
+    #: profil qui tourne. `None` veut dire « pas encore établie » : les zones
+    #: en watts ne se calculent pas (`seance.ecran_ftp`), mais le reste du
+    #: cœur (terrain, lecture de séance ZWO/MRC) sait déjà fonctionner sans
+    #: (`seance/terrain.py`, `seance/zwo.py`, conçus pour ça avant même ce
+    #: changement). Quand elle est donnée, la borne [50, 1000] W reste celle
+    #: d'avant — une FTP hors de cette plage est toujours une faute de
+    #: frappe, pas une valeur rare.
+    ftp_w: float | None = None
 
     #: Identité du compte. Décision du mainteneur (17/09/2026, Q36) : « nom
     #: prénom obligatoire car c'est la base, voilà, point. » L'assistant de
@@ -196,9 +207,23 @@ class ParametresIntervals:
         return f"ParametresIntervals(athlete_id={self.athlete_id!r}, api_key={etat!r})"
 
 
+#: Emplacement du cache quand la configuration n'en nomme pas.
+#:
+#: **Développé ici, et pas ailleurs** (corrigé le 18/09/2026). Le chemin était
+#: écrit `Path("~/.cache/ourouler")` et le `~` n'était jamais résolu : tout
+#: appelant qui oubliait `.expanduser()` — et la moitié du dépôt l'oubliait —
+#: créait un dossier **littéral** nommé `~` dans le répertoire courant. La
+#: suite de tests en fabriquait un à la racine du dépôt à chaque exécution.
+#:
+#: La règle absolue 2 désigne `config.py` comme le seul endroit du cœur
+#: autorisé à résoudre un chemin utilisateur : c'est donc ici que le `~` se
+#: développe, une fois, pour que plus personne n'ait à y penser.
+CACHE_DEFAUT = Path("~/.cache/ourouler").expanduser()
+
+
 @dataclass(frozen=True)
 class ParametresCache:
-    dossier: Path = Path("~/.cache/ourouler")
+    dossier: Path = CACHE_DEFAUT
 
 
 SENS_BOUCLE = ("horaire", "antihoraire")
@@ -518,9 +543,25 @@ def _survoler_environnement(brut: dict[str, Any], environ: Mapping[str, str]) ->
 
 
 def _reporter(section: dict[str, Any], champ: str, environ: Mapping[str, str], suffixe: str) -> None:
-    """Pose `section[champ]` depuis `{PREFIXE_ENV}<suffixe>`, si la variable est présente."""
+    """Pose `section[champ]` depuis `{PREFIXE_ENV}<suffixe>`, si la variable **porte
+    une valeur**.
+
+    Vide vaut absente, et ce n'est pas du confort : un fichier compose écrit
+    `OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE}` pour laisser
+    l'hébergeur poser la variable, et l'hébergeur qui ne la pose pas la
+    transmet quand même au conteneur, vide. Avec `valeur is not None` seul,
+    cette chaîne vide écrasait la latitude du TOML et le démarrage échouait
+    sur « [depart] latitude : nombre attendu, reçu '' » — un fichier de
+    configuration valide rendu invalide par une variable que personne n'a
+    remplie (constaté le 18/09/2026 sur le premier déploiement Coolify de
+    l'API : boucle de redémarrage, 503 derrière le proxy).
+
+    Effacer une valeur du TOML par l'environnement n'est donc pas possible,
+    et n'a jamais été demandé : ces variables servent à **fournir** ce que le
+    fichier n'a pas, pas à retirer ce qu'il a.
+    """
     valeur = environ.get(f"{PREFIXE_ENV}{suffixe}")
-    if valeur is not None:
+    if valeur:
         section[champ] = valeur
 
 
@@ -558,7 +599,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         ),
         cycliste=Cycliste(
             masse_kg=_nombre(cycliste, "masse_kg", "cycliste", 20, 300),
-            ftp_w=_nombre(cycliste, "ftp_w", "cycliste", 50, 1000),
+            ftp_w=_nombre_optionnel(cycliste, "ftp_w", "cycliste", 50, 1000),
             # Absents dans toute configuration écrite avant ce lot : une
             # chaîne vide, jamais un refus de chargement (voir la docstring
             # de `Cycliste.prenom`).
@@ -588,7 +629,11 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             athlete_id=str(intervals.get("athlete_id", "") or ""),
             api_key=str(intervals.get("api_key", "") or ""),
         ),
-        cache=ParametresCache(dossier=Path(str(cache.get("dossier", "~/.cache/ourouler")))),
+        # `.expanduser()` : un TOML écrit à la main porte presque toujours un
+        # `~`, et le cœur qui reçoit ce chemin n'a pas le droit de le résoudre.
+        cache=ParametresCache(
+            dossier=Path(str(cache.get("dossier") or CACHE_DEFAUT)).expanduser()
+        ),
         brouter=ParametresBrouter(
             url=str(brouter.get("url", "") or "").rstrip("/"),
             utilisateur=str(brouter.get("utilisateur", "") or ""),
@@ -887,6 +932,25 @@ def _champ(section: str, cle: str) -> str:
 def _nombre(s: dict[str, Any], cle: str, section: str, mini: float, maxi: float) -> float:
     if cle not in s:
         raise ErreurConfig(f"[{section}] {cle} manquant")
+    return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
+
+
+def _nombre_optionnel(
+    s: dict[str, Any], cle: str, section: str, mini: float, maxi: float
+) -> float | None:
+    """Comme `_nombre`, mais une clé absente ou vide rend `None` plutôt que de refuser.
+
+    Écrit pour `cycliste.ftp_w` (facultative depuis le 19/09/2026,
+    `docs/ux/parcours_accueil.md`) : l'absence n'est plus une configuration
+    fautive, c'est un profil qui n'a pas encore d'étage T3 franchi. Une
+    valeur **présente** reste soumise aux mêmes bornes qu'avant — ce n'est
+    pas parce que le champ est facultatif qu'une FTP de 4 W devient plausible.
+    `""` (chaîne vide) compte comme absente : c'est ce qu'un profil JSON de
+    l'API écrit pour « je corrige, mais je n'ai encore rien tapé » plutôt que
+    d'omettre la clé.
+    """
+    if cle not in s or s[cle] is None or s[cle] == "":
+        return None
     return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
 
 

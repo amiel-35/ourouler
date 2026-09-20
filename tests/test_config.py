@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from ourouler.config import Depart, Periode, charger, depuis_dict
+from ourouler.config import (
+    CACHE_DEFAUT,
+    Depart,
+    ParametresCache,
+    Periode,
+    charger,
+    depuis_dict,
+)
 from ourouler.erreurs import ErreurConfig
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 from ourouler.seance.zones import POSITION_ENDURANCE_DEFAUT
@@ -44,6 +51,32 @@ def test_cycliste_prenom_nom_fournis_se_chargent():
     c = depuis_dict({**BASE, "cycliste": {**BASE["cycliste"], "prenom": "Camille", "nom": "Ruiz"}})
     assert c.cycliste.prenom == "Camille"
     assert c.cycliste.nom == "Ruiz"
+
+
+def test_cycliste_ftp_w_absente_se_charge_a_none():
+    """Facultative depuis le 19/09/2026 — un profil qui n'a pas encore franchi
+    T3/T4 de l'accueil, pas une configuration fautive."""
+    sans_ftp = {**BASE, "cycliste": {"masse_kg": BASE["cycliste"]["masse_kg"]}}
+    c = depuis_dict(sans_ftp)
+    assert c.cycliste.ftp_w is None
+    assert c.cycliste.masse_kg == 80
+
+
+def test_cycliste_ftp_w_chaine_vide_se_charge_a_none():
+    """Ce qu'un profil JSON écrit pour « je corrige, sans avoir encore tapé de
+    chiffre » (`api/depots.py`) — traité comme une absence, pas comme `0`."""
+    c = depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": ""}})
+    assert c.cycliste.ftp_w is None
+
+
+def test_cycliste_ftp_w_fournie_reste_bornee():
+    """L'absence devient possible, mais une valeur donnée garde ses bornes d'avant."""
+    with pytest.raises(ErreurConfig, match="ftp_w"):
+        depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": 10}})
+    with pytest.raises(ErreurConfig, match="ftp_w"):
+        depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": 2000}})
+    c = depuis_dict({**BASE, "cycliste": {"masse_kg": 80, "ftp_w": 250}})
+    assert c.cycliste.ftp_w == 250
 
 
 def test_velos_et_periodes():
@@ -153,6 +186,25 @@ def test_environnement_present_ecrase_le_toml(tmp_path: Path):
     c = charger(f, environ={"OUROULER_INTERVALS_API_KEY": "depuis-env"})
     assert c.intervals.api_key == "depuis-env"
     assert c.depart.latitude == 1.0, "non touché : seule la variable posée l'emporte"
+
+
+def test_variable_vide_vaut_variable_absente(tmp_path: Path):
+    """Le piège du compose : l'hébergeur transmet toutes les variables déclarées,
+    vides comprises. Une chaîne vide ne doit pas écraser un TOML valide —
+    sinon le conteneur meurt au démarrage sur sa propre configuration."""
+    f = _toml_minimal(tmp_path, '[intervals]\napi_key="depuis-toml"\n')
+    c = charger(
+        f,
+        environ={
+            "OUROULER_DEPART_NOM": "",
+            "OUROULER_DEPART_LATITUDE": "",
+            "OUROULER_DEPART_LONGITUDE": "",
+            "OUROULER_INTERVALS_API_KEY": "",
+            "OUROULER_BROUTER_URL": "",
+        },
+    )
+    assert (c.depart.nom, c.depart.latitude, c.depart.longitude) == ("Test", 1.0, 2.0)
+    assert c.intervals.api_key == "depuis-toml"
 
 
 def test_environnement_peut_construire_depart_sans_section_toml(tmp_path: Path):
@@ -666,3 +718,34 @@ def test_facteur_compteur_hors_bornes(valeur):
 def test_facteur_compteur_de_type_inattendu():
     with pytest.raises(ErreurConfig, match="facteur_compteur"):
         depuis_dict({**BASE, "velos": [{"nom": "Route", "facteur_compteur": "rapide"}]})
+
+
+def test_le_cache_par_defaut_est_un_chemin_absolu():
+    """Le `~` se développe dans `config.py`, et nulle part ailleurs.
+
+    Il était écrit `Path("~/.cache/ourouler")` et n'était jamais résolu : tout
+    appelant qui oubliait `.expanduser()` créait un dossier **littéral** nommé
+    `~` dans le répertoire courant. La suite de tests en fabriquait un à la
+    racine du dépôt à chaque exécution, et personne ne le voyait.
+
+    La règle absolue 2 fait de `config.py` le seul endroit du cœur autorisé à
+    résoudre un chemin utilisateur : ce test tient cette frontière.
+    """
+    assert CACHE_DEFAUT.is_absolute()
+    assert "~" not in str(CACHE_DEFAUT)
+    assert ParametresCache().dossier == CACHE_DEFAUT
+
+
+def test_un_tilde_ecrit_a_la_main_dans_le_toml_est_developpe(tmp_path: Path):
+    """Un TOML écrit à la main porte presque toujours un `~`."""
+    chemin = tmp_path / "c.toml"
+    chemin.write_text(
+        '[depart]\nnom = "Ailleurs"\nlatitude = 0.0\nlongitude = 0.0\n'
+        '[cycliste]\nmasse_kg = 70\nftp_w = 200\n'
+        '[cache]\ndossier = "~/ailleurs/cache"\n',
+        encoding="utf-8",
+    )
+    config = charger(chemin)
+    assert config.cache.dossier.is_absolute()
+    assert "~" not in str(config.cache.dossier)
+    assert config.cache.dossier == Path("~/ailleurs/cache").expanduser()

@@ -440,6 +440,18 @@ def test_comparer_sans_sortie(tmp_path: Path):
         executer_comparer(args(), config)
 
 
+def test_comparer_refuse_sans_ftp(tmp_path: Path):
+    """Point 5 (T5) : `zone_w` se construit en multipliant `zone_ftp * ftp_w` —
+    `series_droites` garde `ftp_w: float = 250.0` non optionnel, ce n'est pas
+    à elle de deviner. Le refus se fait en amont, avec un message qui nomme
+    la FTP plutôt qu'un `TypeError` sur la multiplication par `None`."""
+    Cache(tmp_path / "cache")
+    config = config_de_test(tmp_path / "cache", cycliste={"masse_kg": 91})
+    assert config.cycliste.ftp_w is None
+    with pytest.raises(ErreurUtilisateur, match="FTP"):
+        executer_comparer(args(), config)
+
+
 @pytest.mark.parametrize(
     ("champs", "message"),
     [

@@ -41,6 +41,7 @@ from ourouler.erreurs import (
     ErreurConnecteur,
     ErreurDistanceInatteignable,
     ErreurHorsDomaine,
+    ErreurIntervalsAbsent,
     ErreurLecture,
     ErreurUtilisateur,
 )
@@ -83,6 +84,18 @@ CODES_PANNE: dict[str, str] = {
         "serveur ne sait pas à qui elles appartiennent (401). Le front montre "
         "l'écran de connexion ; il ne réessaie pas"
     ),
+    "invitation_invalide": (
+        "ce jeton d'invitation est inconnu, expiré ou déjà consommé (404) — les "
+        "trois rendent la même réponse, pour ne renseigner personne sur lequel"
+    ),
+    "identifiants_refuses": (
+        "adresse sans compte actif ou mot de passe faux (401) — les deux rendent "
+        "la même réponse, dans le même temps, pour ne renseigner personne"
+    ),
+    "comptes_indisponibles": (
+        "ce déploiement ne gère pas de comptes — pas de base de données de "
+        "comptes configurée (mode personnel, ou hébergé sans base)"
+    ),
     "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
     "methode_refusee": "la route existe, pas avec cette méthode",
     "calcul_en_cours": "un calcul occupe déjà le serveur",
@@ -97,6 +110,11 @@ CODES_PANNE: dict[str, str] = {
         "clé, pas vers « réessayer » (E15 · échec)"
     ),
     "intervals_indisponible": "panne côté Intervals.icu",
+    # Ni une panne ni une faute : ce cycliste n'a simplement pas encore relié
+    # son compte Intervals. Distingué de `requete_invalide` le 19/09/2026, sur
+    # le premier compte invité — l'écran lui disait que sa demande n'était pas
+    # valide et l'envoyait éditer un fichier TOML qu'il ne verra jamais.
+    "intervals_absent": "Intervals.icu n'est pas relié à ce compte",
     "geocodage_indisponible": "BAN ou Nominatim en erreur",
     "service_externe_indisponible": "un service externe non reconnu",
     "configuration_invalide": "le TOML du serveur ne charge pas",
@@ -349,6 +367,10 @@ def classer(
         )
     if isinstance(exception, ErreurConnecteur):
         return _connecteur(message)
+    # **Avant** `ErreurUtilisateur` et son `requete_invalide` : une source de
+    # données qu'on n'a pas encore reliée n'est pas une demande invalide.
+    if isinstance(exception, ErreurIntervalsAbsent):
+        return ErreurApi(code="intervals_absent", message=message, statut=409)
     if isinstance(exception, ErreurLecture):
         return ErreurApi(code="fichier_illisible", message=message, statut=422)
     if isinstance(exception, ErreurProfilAbsent):

@@ -51,7 +51,14 @@ const TITRES_HORS_TABLEAU: Record<string, string> = {
   // `intervals_refuse` n'a pas de titre fixe : sans `contexte`, `Echec` retombe
   // sur « Vos séances » (l'écran où cette panne arrive dans l'app réelle).
   intervals_refuse: "Vos séances",
-  session_absente: "Ce serveur ne sait pas encore qui vous êtes",
+  // `intervals_absent` a le même titre de repli, et pour la même raison : les
+  // deux parlent des séances, l'un à qui n'a jamais relié son compte, l'autre
+  // à qui l'avait relié et dont la clé a cessé.
+  intervals_absent: "Vos séances",
+  // `session_absente` n'a plus d'écran dédié depuis le lot L7.2-D
+  // (19/09/2026) : `App.tsx` intercepte ce code avant `Echec` et montre
+  // l'écran de connexion. Il reste couvert par le tableau générique de
+  // `Echec.tsx`, donc absent d'ici — voir le commentaire sur ce tableau.
 };
 
 function erreur(code: string, statut = 502): ErreurApi {
@@ -75,7 +82,12 @@ describe("chaque code de CODES_PANNE produit un titre reconnaissable", () => {
       // d'`intervals_refuse` : lui remplace le message brut par une phrase
       // fixe qui renvoie vers l'écran de la clé (E15), pas vers
       // « réessayez » — c'est la décision documentée dans `erreurs.py`.
-      if (code !== "intervals_refuse") {
+      // Même exception pour `intervals_absent` : son écran remplace le message
+      // du cœur — « compléter [intervals] athlete_id et api_key dans la
+      // configuration » — par une phrase et un bouton vers les réglages. Ce
+      // message-là décrit un fichier TOML que personne d'autre que le
+      // mainteneur ne verra jamais.
+      if (code !== "intervals_refuse" && code !== "intervals_absent") {
         expect(screen.getByText(new RegExp(`message d'essai pour ${code}`))).toBeTruthy();
       }
       vue.unmount();

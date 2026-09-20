@@ -1,0 +1,1489 @@
+<!doctype html>
+<!--
+  « où rouler » — synthèse de sprint 8. Pas une neuvième proposition : une
+  composition de ce que le mainteneur a gardé des quatre qui comptaient.
+
+  Base : la suisse éditoriale (grille, typographie, filets, une seule
+  discipline de mise en page) — jugée juste mais « trop tableau, ça manque
+  de visuel ». Ajout : les données dessinées qui lui manquaient — la rose
+  des directions, le tracé d'une boucle coloré par ce qu'il coûte, le
+  profil d'altitude — en reprenant du sportif et de l'asiatique la façon
+  de traiter cette rose (un disque des huit directions, lisible d'un coup),
+  mais jamais leur couleur qui type : pas le roux de marque du sportif, pas
+  la palette vive et la rondeur de l'asiatique. De l'asiatique : la
+  discipline « une teinte, une seule catégorie ».
+
+  Le pari nommé par le mainteneur : des couleurs ultra légères, qui
+  fonctionnent PARCE QUE tout le reste de l'écran est en noir et blanc.
+  Règle tenue partout dans ce fichier : l'interface (grille, boutons,
+  filets, la marque « recommandée ») reste en encre ; seules les données
+  mesurées (pluie, vent, trafic) portent une des quatre teintes pâles.
+  Chaque teinte a un canal non coloré en renfort (motif, mot écrit,
+  épaisseur de trait) — voir le journal de bord en fin de page pour le
+  détail des vérifications.
+
+  Page HTML autonome : aucune dépendance, aucun service distant, aucune
+  police distante, ouvrable d'un double-clic. Elle ne touche à rien de
+  `front/src/` — c'est une pièce à montrer, pas un écran branché sur l'API.
+
+  Toutes les valeurs de cette page sont inventées pour la démonstration :
+  aucune adresse, aucune coordonnée, aucun nom de lieu réel, aucune ville.
+-->
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>où rouler — synthèse suisse vivante</title>
+    <meta
+      name="description"
+      content="Synthèse des directions de sprint 8 pour ourouler : la rigueur suisse, habitée par les données dessinées — rose des directions, tracé coloré, profil d'altitude — en couleurs ultra légères."
+    />
+    <link rel="stylesheet" href="jetons-suisse-vivante.css" />
+    <style>
+      /* ================================================================
+         Mise en page de la démonstration. Les jetons viennent tous de
+         jetons-suisse-vivante.css ; rien ici ne redéfinit une couleur ou
+         une taille en dur.
+         ================================================================ */
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--sv-papier);
+        color: var(--sv-encre);
+        font-family: var(--sv-police);
+        font-size: var(--sv-taille-corps);
+        line-height: var(--sv-interligne);
+        -webkit-font-smoothing: antialiased;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        body,
+        .theme button,
+        .onglet button {
+          transition: background-color var(--sv-duree) ease, color var(--sv-duree) ease,
+            border-color var(--sv-duree) ease;
+        }
+      }
+      h1,
+      h2,
+      h3,
+      p,
+      dl,
+      dd,
+      dt,
+      figure,
+      table {
+        margin: 0;
+      }
+
+      /* ---------- accès clavier ---------- */
+
+      .sauter {
+        position: absolute;
+        left: -999px;
+        top: 0;
+        background: var(--sv-encre);
+        color: var(--sv-papier);
+        padding: 12px 16px;
+        z-index: 100;
+      }
+      .sauter:focus {
+        left: var(--sv-marge);
+      }
+      :focus-visible {
+        outline: var(--sv-focus);
+        outline-offset: var(--sv-focus-decalage);
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* ---------- grille générale ---------- */
+
+      .grille {
+        display: grid;
+        grid-template-columns: repeat(var(--sv-colonnes), 1fr);
+        column-gap: var(--sv-gouttiere);
+        max-width: 1180px;
+        margin-inline: auto;
+        padding-inline: var(--sv-marge);
+      }
+      .col-principale {
+        grid-column: 1 / -1;
+      }
+      .col-marge {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--sv-filet);
+        margin-top: 20px;
+        padding-top: 14px;
+      }
+      @media (min-width: 920px) {
+        .col-principale {
+          grid-column: 1 / span 8;
+        }
+        .col-marge {
+          grid-column: 9 / span 4;
+          border-top: none;
+          border-left: 1px solid var(--sv-filet);
+          margin-top: 0;
+          padding-top: 0;
+          padding-left: var(--sv-gouttiere);
+        }
+      }
+
+      /* ---------- en-tête ---------- */
+
+      .entete {
+        border-bottom: 2px solid var(--sv-filet-fort);
+        padding-block: 18px;
+      }
+      .entete .grille {
+        align-items: center;
+        row-gap: 12px;
+      }
+      .entete-marque {
+        grid-column: 1 / -1;
+        font-size: var(--sv-taille-titre-3);
+        font-weight: var(--sv-graisse-gras);
+        letter-spacing: -0.01em;
+      }
+      .entete-droite {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      @media (min-width: 640px) {
+        .entete-marque {
+          grid-column: 1 / span 5;
+        }
+        .entete-droite {
+          grid-column: 6 / -1;
+        }
+      }
+      .entete-date {
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-petite);
+        color: var(--sv-encre-att);
+        text-transform: uppercase;
+        letter-spacing: var(--sv-suivi-oeil);
+      }
+
+      .theme {
+        display: inline-flex;
+        border: 1px solid var(--sv-filet-fort);
+      }
+      .theme button {
+        font: inherit;
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        background: none;
+        border: none;
+        color: var(--sv-encre-att);
+        padding: 11px 12px;
+        min-height: 44px;
+        min-width: 44px;
+        cursor: pointer;
+        border-left: 1px solid var(--sv-filet-fort);
+      }
+      .theme button:first-child {
+        border-left: none;
+      }
+      .theme button[aria-pressed="true"] {
+        background: var(--sv-encre);
+        color: var(--sv-papier);
+      }
+
+      /* ---------- filets et rythme ---------- */
+
+      hr {
+        border: none;
+        margin: 0;
+      }
+      .filet-fort {
+        border-top: 2px solid var(--sv-filet-fort);
+      }
+      main {
+        padding-block: 4px 64px;
+      }
+      section.bloc {
+        padding-block: 34px;
+        border-top: 1px solid var(--sv-filet);
+      }
+      section.bloc:first-of-type {
+        border-top: none;
+      }
+      .oeil {
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+      }
+      .note {
+        font-size: var(--sv-taille-petite);
+        color: var(--sv-encre-att);
+        line-height: var(--sv-interligne);
+        max-width: 62ch;
+      }
+      .note + .note {
+        margin-top: 8px;
+      }
+      .titre-section {
+        font-size: var(--sv-taille-titre-2);
+        font-weight: var(--sv-graisse-gras);
+        letter-spacing: -0.01em;
+        margin-top: 4px;
+        margin-bottom: 4px;
+      }
+      .chapeau-section {
+        color: var(--sv-encre-att);
+        font-size: var(--sv-taille-petite);
+        max-width: 56ch;
+        margin-bottom: 18px;
+      }
+
+      /* ---------- écran principal : séance du jour ---------- */
+
+      .ligne-tete {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .ligne-tete h1 {
+        font-size: var(--sv-taille-titre-1);
+        font-weight: var(--sv-graisse-gras);
+        line-height: var(--sv-interligne-titre);
+        letter-spacing: -0.015em;
+        max-width: 20ch;
+      }
+      .sous-titre {
+        margin-top: 6px;
+        color: var(--sv-encre-att);
+        font-size: var(--sv-taille-petite);
+      }
+      .tete-duree {
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .tete-duree-chiffre {
+        display: block;
+        font-family: var(--sv-police-mono);
+        font-size: clamp(1.75rem, 5vw, 2.5rem);
+        font-weight: var(--sv-graisse-medium);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .tete-duree-legende {
+        display: block;
+        margin-top: 4px;
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+      }
+
+      /* ---------- la rose des directions ---------- */
+
+      .rose-bandeau {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 22px;
+      }
+      .rose-conteneur {
+        display: flex;
+        justify-content: center;
+        margin-top: 22px;
+      }
+      .rose-svg {
+        width: 100%;
+        max-width: 420px;
+        height: auto;
+      }
+      .secteur {
+        stroke: var(--sv-papier);
+        stroke-width: 2;
+      }
+      .secteur[data-pluie="sec"] {
+        fill: var(--sv-papier);
+      }
+      .secteur[data-pluie="faible"] {
+        fill: var(--sv-pluie-100);
+      }
+      .secteur[data-pluie="modere"] {
+        fill: var(--sv-pluie-300);
+      }
+      .secteur[data-pluie="fort"] {
+        fill: var(--sv-pluie-600);
+      }
+      .recommandee-contour {
+        fill: none;
+        stroke: var(--sv-encre);
+        stroke-width: 2.5;
+      }
+      /* Désaccord entre les deux modèles : jamais une couleur de plus — un
+         motif superposé à la teinte de pluie, qui reste seule porteuse de
+         la catégorie. Ce second tracé partage exactement la forme du
+         secteur qu'il recouvre. */
+      .secteur-desaccord {
+        fill: url(#motif-desaccord);
+        stroke: none;
+        pointer-events: none;
+      }
+      .rose-rayon {
+        stroke: var(--sv-filet);
+        stroke-width: 1;
+      }
+      .rose-libelle-direction {
+        font-family: var(--sv-police-mono);
+        font-weight: var(--sv-graisse-medium);
+        font-size: 13px;
+        fill: var(--sv-encre);
+        text-anchor: middle;
+      }
+      .rose-libelle-mm {
+        font-family: var(--sv-police-mono);
+        font-size: 11px;
+        fill: var(--sv-encre);
+        text-anchor: middle;
+        font-variant-numeric: tabular-nums;
+      }
+      .rose-fleche {
+        fill: none;
+        stroke: var(--sv-encre);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .rose-fleche[data-vent="dos"] {
+        stroke: var(--sv-dos-600);
+      }
+      .rose-fleche[data-vent="face"] {
+        stroke: var(--sv-face-600);
+      }
+      .rose-fleche[data-vent="travers"] {
+        stroke: var(--sv-encre-att);
+      }
+      .rose-centre-cercle {
+        fill: var(--sv-papier);
+        stroke: var(--sv-filet-fort);
+        stroke-width: 1.5;
+      }
+      .rose-centre-texte {
+        font-family: var(--sv-police-mono);
+        fill: var(--sv-encre);
+        text-anchor: middle;
+      }
+
+      /* légende de la rose */
+      .legende-rose {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 14px 20px;
+      }
+      .legende-groupe-titre {
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+        margin-bottom: 8px;
+      }
+      .puce {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--sv-taille-petite);
+        margin-top: 6px;
+      }
+      .puce:first-child {
+        margin-top: 0;
+      }
+      .puce-carre {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        border: 1px solid var(--sv-filet-fort);
+      }
+      .puce-carre[data-pluie="sec"] {
+        background: var(--sv-papier);
+      }
+      .puce-carre[data-pluie="faible"] {
+        background: var(--sv-pluie-100);
+      }
+      .puce-carre[data-pluie="modere"] {
+        background: var(--sv-pluie-300);
+      }
+      .puce-carre[data-pluie="fort"] {
+        background: var(--sv-pluie-600);
+        border-color: var(--sv-pluie-600);
+      }
+      .puce-carre[data-pluie="desaccord"] {
+        background: url(#motif-desaccord-legende);
+      }
+      .puce-fleche {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+      .puce-fleche svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      .recommandation-ligne {
+        margin-top: 20px;
+        padding: 14px 16px;
+        border: 1.5px solid var(--sv-encre);
+        font-size: var(--sv-taille-petite);
+      }
+      .recommandation-ligne strong {
+        font-weight: var(--sv-graisse-gras);
+      }
+
+      /* ---------- écran de boucle ---------- */
+
+      .boucle-tete {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 6px;
+      }
+      .boucle-distance {
+        font-size: var(--sv-taille-titre-2);
+        font-weight: var(--sv-graisse-gras);
+      }
+      .boucle-durees {
+        display: flex;
+        gap: 28px;
+        margin-top: 22px;
+        flex-wrap: wrap;
+      }
+      .boucle-duree-chiffre {
+        font-family: var(--sv-police-mono);
+        font-size: clamp(1.75rem, 5vw, 2.5rem);
+        font-weight: var(--sv-graisse-medium);
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+      }
+      .boucle-duree-legende {
+        margin-top: 4px;
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+      }
+
+      .trace-conteneur {
+        margin-top: 26px;
+      }
+      .trace-svg {
+        width: 100%;
+        height: auto;
+        max-width: 560px;
+        display: block;
+        margin-inline: auto;
+      }
+      .trace-segment {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .trace-segment[data-cout="calme"] {
+        stroke: var(--sv-encre-faible);
+        stroke-width: 3;
+      }
+      .trace-segment[data-cout="face"] {
+        stroke: var(--sv-face-600);
+        stroke-width: 5;
+      }
+      .trace-segment[data-cout="trafic"] {
+        stroke: var(--sv-trafic-600);
+        stroke-width: 4;
+        stroke-dasharray: 3 6;
+      }
+      .trace-segment[data-cout="dos"] {
+        stroke: var(--sv-dos-600);
+        stroke-width: 5;
+      }
+      .trace-repere {
+        fill: var(--sv-papier);
+        stroke: var(--sv-encre);
+        stroke-width: 2;
+      }
+      .trace-coche {
+        stroke-width: 2;
+        stroke-linecap: round;
+      }
+      .trace-coche[data-cout="face"] {
+        stroke: var(--sv-face-600);
+      }
+      .trace-coche[data-cout="dos"] {
+        stroke: var(--sv-dos-600);
+      }
+      .trace-coche[data-cout="trafic"] {
+        fill: var(--sv-trafic-600);
+        stroke: none;
+      }
+      .trace-libelle {
+        font-family: var(--sv-police-mono);
+        font-size: 11px;
+        fill: var(--sv-encre-att);
+      }
+
+      .legende-trace {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px 20px;
+      }
+      .puce-trait {
+        width: 22px;
+        height: 3px;
+        flex-shrink: 0;
+      }
+      .puce-trait[data-cout="calme"] {
+        background: var(--sv-encre-faible);
+      }
+      .puce-trait[data-cout="face"] {
+        background: var(--sv-face-600);
+        height: 4px;
+      }
+      .puce-trait[data-cout="trafic"] {
+        background: repeating-linear-gradient(
+          to right,
+          var(--sv-trafic-600) 0 4px,
+          transparent 4px 8px
+        );
+        height: 4px;
+      }
+      .puce-trait[data-cout="dos"] {
+        background: var(--sv-dos-600);
+        height: 4px;
+      }
+
+      .profil-conteneur {
+        margin-top: 30px;
+      }
+      .profil-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .profil-ligne {
+        fill: none;
+        stroke: var(--sv-encre);
+        stroke-width: 1.5;
+      }
+      .profil-aire[data-cout="calme"] {
+        fill: var(--sv-filet);
+      }
+      .profil-aire[data-cout="face"] {
+        fill: var(--sv-face-300);
+      }
+      .profil-aire[data-cout="trafic"] {
+        fill: var(--sv-trafic-300);
+      }
+      .profil-aire[data-cout="dos"] {
+        fill: var(--sv-dos-300);
+      }
+      .profil-axe {
+        stroke: var(--sv-filet-fort);
+        stroke-width: 1;
+      }
+      .profil-texte {
+        font-family: var(--sv-police-mono);
+        font-size: 11px;
+        fill: var(--sv-encre-att);
+      }
+
+      .tenue-liste {
+        margin-top: 10px;
+        list-style: none;
+        padding: 0;
+      }
+      .tenue-liste li {
+        padding-block: 8px;
+        border-top: 1px solid var(--sv-filet);
+        font-size: var(--sv-taille-petite);
+      }
+      .tenue-liste li:first-child {
+        border-top: none;
+      }
+
+      /* ---------- statistiques compactes ---------- */
+
+      .stats-ligne {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 14px;
+        margin-top: 22px;
+        padding-top: 14px;
+        border-top: 1px solid var(--sv-filet);
+      }
+      .stat dt {
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+      }
+      .stat dd {
+        margin-top: 4px;
+        font-size: var(--sv-taille-titre-3);
+        font-weight: var(--sv-graisse-medium);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ---------- système : grille, échelle, couleur, composants ---------- */
+
+      .demo-grille {
+        display: grid;
+        grid-template-columns: repeat(var(--sv-colonnes), 1fr);
+        gap: var(--sv-gouttiere);
+        margin-top: 18px;
+      }
+      .demo-grille-col {
+        background: var(--sv-filet);
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--sv-police-mono);
+        font-size: 10px;
+        color: var(--sv-encre-att);
+      }
+
+      .echelle-ligne {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+        padding-block: 12px;
+        border-top: 1px solid var(--sv-filet);
+        flex-wrap: wrap;
+      }
+      .echelle-ligne:first-child {
+        border-top: none;
+      }
+      .echelle-etiquette {
+        width: 140px;
+        flex-shrink: 0;
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+      }
+
+      .palette-groupe {
+        margin-top: 22px;
+      }
+      .palette-metier {
+        font-size: var(--sv-taille-petite);
+        color: var(--sv-encre-att);
+        margin-bottom: 10px;
+        max-width: 60ch;
+      }
+      .palette-rangee {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .palette-echantillon {
+        border: 1px solid var(--sv-filet-fort);
+        padding: 12px 10px;
+        min-height: 76px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .palette-echantillon-nom {
+        font-family: var(--sv-police-mono);
+        font-size: 11px;
+      }
+      .palette-echantillon-contraste {
+        font-family: var(--sv-police-mono);
+        font-size: 11px;
+        opacity: 0.8;
+      }
+      /* Le palier 600 ne porte jamais de texte par-dessus (règle du système :
+         voir jetons-suisse-vivante.css) — y compris ici, dans sa propre
+         démonstration. Le nom et le contraste s'écrivent donc en encre sur
+         papier, sous un bloc de couleur pure et muet. */
+      .palette-echantillon-600 {
+        background: var(--sv-papier) !important;
+        color: var(--sv-encre) !important;
+      }
+      .palette-echantillon-couleur {
+        display: block;
+        height: 34px;
+        margin-bottom: 10px;
+      }
+
+      .composants-grille {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        margin-top: 18px;
+      }
+      .composant-cadre {
+        border: 1px solid var(--sv-filet);
+        padding: 16px;
+      }
+      .composant-titre {
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-oeil);
+        letter-spacing: var(--sv-suivi-oeil);
+        text-transform: uppercase;
+        color: var(--sv-encre-att);
+        margin-bottom: 12px;
+      }
+
+      .jauge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .jauge-piste {
+        flex: 1;
+        height: 8px;
+        background: var(--sv-filet);
+        position: relative;
+      }
+      .jauge-remplissage {
+        position: absolute;
+        inset: 0;
+        width: 62%;
+        background: var(--sv-pluie-600);
+      }
+      .jauge-valeur {
+        font-family: var(--sv-police-mono);
+        font-size: var(--sv-taille-petite);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .carnet dt {
+        font-weight: var(--sv-graisse-gras);
+        margin-top: 16px;
+      }
+      .carnet dt:first-child {
+        margin-top: 0;
+      }
+      .carnet dd {
+        margin-top: 4px;
+        color: var(--sv-encre-att);
+        font-size: var(--sv-taille-petite);
+        max-width: 64ch;
+      }
+
+      footer {
+        border-top: 2px solid var(--sv-filet-fort);
+        padding-block: 20px;
+      }
+      footer .grille {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: var(--sv-taille-oeil);
+        color: var(--sv-encre-att);
+        letter-spacing: 0.02em;
+      }
+      @media (min-width: 720px) {
+        footer .grille {
+          flex-direction: row;
+          justify-content: space-between;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="sauter" href="#contenu">Aller au contenu</a>
+
+    <header class="entete">
+      <div class="grille">
+        <div class="entete-marque">où rouler</div>
+        <div class="entete-droite">
+          <span class="entete-date">Samedi 19 septembre</span>
+          <div class="theme" role="group" aria-label="Thème d'affichage">
+            <button type="button" data-theme-choix="auto" aria-pressed="true">Auto</button>
+            <button type="button" data-theme-choix="light" aria-pressed="false">Clair</button>
+            <button type="button" data-theme-choix="dark" aria-pressed="false">Sombre</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="contenu">
+      <!-- ============================================================
+           ÉCRAN 1 — l'écran principal : la séance, puis la rose des
+           huit directions.
+           ============================================================ -->
+      <section class="bloc" aria-labelledby="titre-ecran-1">
+        <div class="grille">
+          <div class="col-principale">
+            <span class="oeil">L'écran d'arrivée · aujourd'hui</span>
+            <div class="ligne-tete" style="margin-top: 8px">
+              <h1 id="titre-ecran-1">Endurance — 2 h 00, Z2</h1>
+              <div class="tete-duree">
+                <span class="tete-duree-chiffre">2 h 00</span>
+                <span class="tete-duree-legende">Séance prévue</span>
+              </div>
+            </div>
+            <p class="sous-titre">Une sortie stable, aucun bloc à négocier.</p>
+
+            <div class="rose-bandeau">
+              <h2 class="titre-section" style="margin: 0">Où rouler</h2>
+              <span class="oeil">Départ 7 h 30 · huit directions, 3 h d'horizon</span>
+            </div>
+            <p class="chapeau-section" style="margin-top: 6px">
+              Chaque secteur interroge Open-Meteo à trois distances dans sa direction —
+              AROME et un second avis. La teinte ne fait qu'un métier : le bleu, c'est la
+              pluie annoncée, jamais autre chose.
+            </p>
+
+            <div class="rose-conteneur">
+              <svg
+                class="rose-svg"
+                viewBox="0 0 440 440"
+                role="img"
+                aria-labelledby="rose-titre rose-desc"
+              >
+                <title id="rose-titre">Rose des huit directions</title>
+                <desc id="rose-desc">
+                  Huit secteurs représentant les points cardinaux. La teinte bleue indique
+                  la pluie annoncée sur trois heures ; une flèche au centre du secteur
+                  indique si le vent pousse (vert), freine (orange) ou traverse (gris) sur
+                  cette direction. Le détail chiffré est repris dans le tableau qui suit
+                  l'illustration.
+                </desc>
+                <defs>
+                  <pattern
+                    id="motif-desaccord"
+                    patternUnits="userSpaceOnUse"
+                    width="6"
+                    height="6"
+                    patternTransform="rotate(45)"
+                  >
+                    <rect width="6" height="6" fill="transparent"></rect>
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="var(--sv-encre)" stroke-width="1.4"></line>
+                  </pattern>
+                  <pattern
+                    id="motif-desaccord-legende"
+                    patternUnits="userSpaceOnUse"
+                    width="6"
+                    height="6"
+                    patternTransform="rotate(45)"
+                  >
+                    <rect width="6" height="6" fill="var(--sv-pluie-100)"></rect>
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="var(--sv-encre)" stroke-width="1.2"></line>
+                  </pattern>
+                </defs>
+
+                <!-- huit secteurs, N en haut, sens horaire -->
+                <g>
+                  <path class="secteur" data-pluie="sec" d="M 158.64 59.32 A 172 172 0 0 1 281.36 59.32 L 255.67 126.58 A 100 100 0 0 0 184.33 126.58 Z"></path>
+                  <path class="secteur" data-pluie="faible" d="M 290.23 62.99 A 172 172 0 0 1 377.01 149.77 L 311.28 179.17 A 100 100 0 0 0 260.83 128.72 Z"></path>
+                  <path class="secteur" data-pluie="modere" d="M 380.68 158.64 A 172 172 0 0 1 380.68 281.36 L 313.42 255.67 A 100 100 0 0 0 313.42 184.33 Z"></path>
+                  <path class="secteur-desaccord" d="M 380.68 158.64 A 172 172 0 0 1 380.68 281.36 L 313.42 255.67 A 100 100 0 0 0 313.42 184.33 Z"></path>
+                  <path class="secteur" data-pluie="fort" d="M 377.01 290.23 A 172 172 0 0 1 290.23 377.01 L 260.83 311.28 A 100 100 0 0 0 311.28 260.83 Z"></path>
+                  <path class="secteur" data-pluie="modere" d="M 281.36 380.68 A 172 172 0 0 1 158.64 380.68 L 184.33 313.42 A 100 100 0 0 0 255.67 313.42 Z"></path>
+                  <path class="secteur" data-pluie="faible" d="M 149.77 377.01 A 172 172 0 0 1 62.99 290.23 L 128.72 260.83 A 100 100 0 0 0 179.17 311.28 Z"></path>
+                  <path class="secteur" data-pluie="sec" d="M 59.32 281.36 A 172 172 0 0 1 59.32 158.64 L 126.58 184.33 A 100 100 0 0 0 126.58 255.67 Z"></path>
+                  <path
+                    class="secteur"
+                    data-pluie="sec"
+                    data-recommandee="vrai"
+                    d="M 62.99 149.77 A 172 172 0 0 1 149.77 62.99 L 179.17 128.72 A 100 100 0 0 0 128.72 179.17 Z"
+                  ></path>
+                </g>
+
+                <!-- contour renforcé du secteur recommandé (NO) : jamais une
+                     couleur, un trait épais en encre, comme le veut la règle
+                     « la décision reste en noir et blanc ». -->
+                <path
+                  class="recommandee-contour"
+                  d="M 62.99 149.77 A 172 172 0 0 1 149.77 62.99 L 179.17 128.72 A 100 100 0 0 0 128.72 179.17 Z"
+                ></path>
+
+                <!-- rayons de séparation -->
+                <g class="rose-rayon">
+                  <line x1="220" y1="220" x2="220" y2="48"></line>
+                  <line x1="220" y1="220" x2="356" y2="84"></line>
+                  <line x1="220" y1="220" x2="392" y2="220"></line>
+                  <line x1="220" y1="220" x2="356" y2="356"></line>
+                  <line x1="220" y1="220" x2="220" y2="392"></line>
+                  <line x1="220" y1="220" x2="84" y2="356"></line>
+                  <line x1="220" y1="220" x2="48" y2="220"></line>
+                  <line x1="220" y1="220" x2="84" y2="84"></line>
+                </g>
+
+                <!-- flèches de vent : vers le centre = face, vers l'extérieur
+                     = dos, tangente = travers. Toujours doublées du mot en
+                     toutes lettres dans le tableau qui suit. -->
+                <g>
+                  <!-- N : travers -->
+                  <path class="rose-fleche" data-vent="travers" d="M 236 84 L 204 84" transform="rotate(0 220 84)"></path>
+                  <!-- NE : travers -->
+                  <path class="rose-fleche" data-vent="travers" d="M 331 108 L 302 140" ></path>
+                  <!-- E : travers -->
+                  <path class="rose-fleche" data-vent="travers" d="M 356 236 L 356 204"></path>
+                  <!-- SE : face (pointe vers le centre) -->
+                  <path class="rose-fleche" data-vent="face" d="M 340 340 L 308 308 M 308 308 L 316 310 M 308 308 L 310 316"></path>
+                  <!-- S : face -->
+                  <path class="rose-fleche" data-vent="face" d="M 220 340 L 220 306 M 220 306 L 213 315 M 220 306 L 227 315"></path>
+                  <!-- SO : face -->
+                  <path class="rose-fleche" data-vent="face" d="M 108 340 L 140 308 M 140 308 L 132 310 M 140 308 L 138 317"></path>
+                  <!-- O : face -->
+                  <path class="rose-fleche" data-vent="face" d="M 84 220 L 118 220 M 118 220 L 110 214 M 118 220 L 110 227"></path>
+                  <!-- NO : dos (pointe vers l'extérieur, recommandée) -->
+                  <path class="rose-fleche" data-vent="dos" d="M 108 108 L 136 136 M 136 136 L 126 133 M 136 136 L 133 126"></path>
+                </g>
+
+                <!-- libellés direction + mm -->
+                <g>
+                  <text class="rose-libelle-direction" x="220" y="40">N</text>
+                  <text class="rose-libelle-mm" x="220" y="65">0,0</text>
+
+                  <text class="rose-libelle-direction" x="368" y="80">NE</text>
+                  <text class="rose-libelle-mm" x="368" y="98">0,2</text>
+
+                  <text class="rose-libelle-direction" x="408" y="216">E</text>
+                  <text class="rose-libelle-mm" x="408" y="234">1,4*</text>
+
+                  <text class="rose-libelle-direction" x="368" y="368">SE</text>
+                  <text class="rose-libelle-mm" x="368" y="386">3,8</text>
+
+                  <text class="rose-libelle-direction" x="220" y="410">S</text>
+                  <text class="rose-libelle-mm" x="220" y="392" fill="var(--sv-encre-att)" font-size="10">2,1 mm</text>
+
+                  <text class="rose-libelle-direction" x="72" y="368">SO</text>
+                  <text class="rose-libelle-mm" x="72" y="386">0,6</text>
+
+                  <text class="rose-libelle-direction" x="30" y="216">O</text>
+                  <text class="rose-libelle-mm" x="30" y="234">0,0</text>
+
+                  <text class="rose-libelle-direction" x="72" y="72" font-weight="700">NO</text>
+                  <text class="rose-libelle-mm" x="72" y="90">0,0</text>
+                </g>
+
+                <!-- centre : point de départ -->
+                <circle class="rose-centre-cercle" cx="220" cy="220" r="46"></circle>
+                <text class="rose-centre-texte" x="220" y="216" font-size="20" font-weight="600">7 h 30</text>
+                <text class="rose-centre-texte" x="220" y="234" font-size="10" letter-spacing="0.08em" fill="var(--sv-encre-att)">DÉPART</text>
+              </svg>
+            </div>
+
+            <div class="legende-rose">
+              <div>
+                <div class="legende-groupe-titre">Pluie (3 h)</div>
+                <div class="puce"><span class="puce-carre" data-pluie="sec"></span> Sec — 0,0 mm</div>
+                <div class="puce"><span class="puce-carre" data-pluie="faible"></span> Faible — 0,1 à 1,0 mm</div>
+                <div class="puce"><span class="puce-carre" data-pluie="modere"></span> Modérée — 1,1 à 3,0 mm</div>
+                <div class="puce"><span class="puce-carre" data-pluie="fort"></span> Forte — plus de 3,0 mm</div>
+                <div class="puce">
+                  <span class="puce-carre" data-pluie="desaccord"></span>
+                  Modèles en désaccord — affiché tel quel, jamais moyenné
+                </div>
+              </div>
+              <div>
+                <div class="legende-groupe-titre">Vent, à l'aller</div>
+                <div class="puce">
+                  <span class="puce-fleche">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h13m0 0-5-5m5 5-5 5" fill="none" stroke="var(--sv-dos-600)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </span>
+                  Dos — pousse, favorable
+                </div>
+                <div class="puce">
+                  <span class="puce-fleche">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H7m0 0 5-5m-5 5 5 5" fill="none" stroke="var(--sv-face-600)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                  </span>
+                  Face — freine, défavorable
+                </div>
+                <div class="puce">
+                  <span class="puce-fleche">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" fill="none" stroke="var(--sv-encre-att)" stroke-width="2.4" stroke-linecap="round"></path></svg>
+                  </span>
+                  Travers — ni l'un ni l'autre, pas de teinte
+                </div>
+              </div>
+            </div>
+
+            <!-- table accessible : les mêmes huit lignes, en texte, pour un
+                 lecteur d'écran ou une lecture rapide sans la forme. -->
+            <div class="sr-only">
+              <table>
+                <caption>Huit directions, départ 7 h 30, horizon 3 h</caption>
+                <thead>
+                  <tr><th>Direction</th><th>Pluie</th><th>Vent</th><th>Confiance</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Nord, 0°</td><td>0,0 mm, sec</td><td>14 km/h, travers</td><td>haute</td></tr>
+                  <tr><td>Nord-est, 45°</td><td>0,2 mm, faible</td><td>11 km/h, travers</td><td>haute</td></tr>
+                  <tr><td>Est, 90°</td><td>1,4 mm, modérée — désaccord entre modèles</td><td>9 km/h, travers</td><td>moyenne</td></tr>
+                  <tr><td>Sud-est, 135°</td><td>3,8 mm, forte</td><td>13 km/h, face</td><td>haute</td></tr>
+                  <tr><td>Sud, 180°</td><td>2,1 mm, modérée</td><td>18 km/h, face</td><td>moyenne</td></tr>
+                  <tr><td>Sud-ouest, 225°</td><td>0,6 mm, faible</td><td>22 km/h, face</td><td>haute</td></tr>
+                  <tr><td>Ouest, 270°</td><td>0,0 mm, sec</td><td>16 km/h, face</td><td>haute</td></tr>
+                  <tr><td>Nord-ouest, 315°, recommandée</td><td>0,0 mm, sec</td><td>12 km/h, dos</td><td>haute</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="recommandation-ligne">
+              → <strong>Nord-ouest, recommandée</strong> — sec sur tout l'horizon, vent de
+              dos à l'aller.
+            </div>
+
+            <p class="note" style="margin-top: 14px">
+              * Est : AROME annonce 1,4 mm vers 10 h, le second avis n'en voit pas. Les
+              deux modèles ne s'accordent pas — affiché tel quel, jamais moyenné : le
+              secteur porte le motif hachuré, pas une troisième couleur.
+            </p>
+          </div>
+          <div class="col-marge">
+            <p class="note">
+              <strong>Méthode.</strong> Chaque secteur interroge Open-Meteo à trois
+              distances dans sa direction. Le désaccord entre modèles n'est jamais
+              moyenné — il s'affiche, comme ici sur l'est.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           ÉCRAN 2 — la boucle retenue : tracé coloré par coût, profil
+           d'altitude, tenue.
+           ============================================================ -->
+      <section class="bloc" aria-labelledby="titre-ecran-2">
+        <div class="grille">
+          <div class="col-principale">
+            <span class="oeil">Le parcours prêt · obtenu à 7 h 41</span>
+            <div class="boucle-tete">
+              <h2 id="titre-ecran-2" class="boucle-distance">42,3 km, vers le nord-ouest</h2>
+            </div>
+
+            <div class="boucle-durees">
+              <div>
+                <span class="boucle-duree-chiffre">1 h 48</span>
+                <span class="boucle-duree-legende">Porte à porte — feux et relances compris</span>
+              </div>
+              <div>
+                <span class="boucle-duree-chiffre">1 h 37</span>
+                <span class="boucle-duree-legende">Sans un seul arrêt</span>
+              </div>
+            </div>
+
+            <div class="trace-conteneur">
+              <svg class="trace-svg" viewBox="0 0 600 420" role="img" aria-labelledby="trace-titre trace-desc">
+                <title id="trace-titre">Tracé de la boucle, coloré par ce qu'il coûte</title>
+                <desc id="trace-desc">
+                  Boucle fermée en quatre tronçons : un départ calme sans couleur, une
+                  montée face au vent en orange, un passage sur une route qui compte en
+                  violet pointillé, puis un long retour vent dans le dos en vert.
+                </desc>
+
+                <!-- tronçon calme : pas de coût, pas de teinte -->
+                <path class="trace-segment" data-cout="calme" d="M 300 380 L 232 338 L 178 270 L 150 190"></path>
+                <!-- tronçon face : effort, orange, coches vers l'intérieur -->
+                <path class="trace-segment" data-cout="face" d="M 150 190 L 152 110 L 210 55"></path>
+                <!-- tronçon route passante : violet pointillé -->
+                <path class="trace-segment" data-cout="trafic" d="M 210 55 L 320 45 L 420 70"></path>
+                <!-- tronçon dos : favorable, vert, coches vers l'extérieur -->
+                <path class="trace-segment" data-cout="dos" d="M 420 70 L 470 150 L 455 260 L 380 345 L 300 380"></path>
+
+                <!-- coches non colorées : chaque tronçon coloré porte aussi
+                     une marque de forme différente, lisible sans teinte. -->
+                <g>
+                  <line class="trace-coche" data-cout="face" x1="170" y1="150" x2="185" y2="140"></line>
+                  <line class="trace-coche" data-cout="face" x1="160" y1="130" x2="175" y2="120"></line>
+                  <line class="trace-coche" data-cout="face" x1="172" y1="90" x2="188" y2="82"></line>
+
+                  <rect class="trace-coche" data-cout="trafic" x="255" y="45" width="5" height="5"></rect>
+                  <rect class="trace-coche" data-cout="trafic" x="330" y="42" width="5" height="5"></rect>
+                  <rect class="trace-coche" data-cout="trafic" x="390" y="58" width="5" height="5"></rect>
+
+                  <line class="trace-coche" data-cout="dos" x1="452" y1="110" x2="470" y2="118"></line>
+                  <line class="trace-coche" data-cout="dos" x1="466" y1="200" x2="486" y2="204"></line>
+                  <line class="trace-coche" data-cout="dos" x1="425" y1="305" x2="443" y2="315"></line>
+                </g>
+
+                <!-- repère départ / arrivée -->
+                <circle class="trace-repere" cx="300" cy="380" r="7"></circle>
+                <text class="trace-libelle" x="314" y="384">Départ / arrivée</text>
+
+                <text class="trace-libelle" x="60" y="250">Calme</text>
+                <text class="trace-libelle" x="60" y="130" fill="var(--sv-face-600)">Face, montée</text>
+                <text class="trace-libelle" x="230" y="30" fill="var(--sv-trafic-600)">Route qui compte</text>
+                <text class="trace-libelle" x="490" y="200" text-anchor="end" fill="var(--sv-dos-600)">Dos, descente</text>
+              </svg>
+            </div>
+
+            <div class="legende-trace">
+              <div class="puce"><span class="puce-trait" data-cout="calme"></span> Calme — aucun coût particulier</div>
+              <div class="puce"><span class="puce-trait" data-cout="face"></span> Face au vent — trait épais, coches vers l'intérieur</div>
+              <div class="puce"><span class="puce-trait" data-cout="trafic"></span> Route passante — pointillé, petits carrés</div>
+              <div class="puce"><span class="puce-trait" data-cout="dos"></span> Vent dans le dos — trait épais, coches vers l'extérieur</div>
+            </div>
+
+            <div class="profil-conteneur">
+              <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3)">Profil d'altitude</h3>
+              <svg class="profil-svg" viewBox="0 0 600 170" role="img" aria-labelledby="profil-titre profil-desc">
+                <title id="profil-titre">Profil d'altitude de la boucle</title>
+                <desc id="profil-desc">
+                  Altitude de 35 à 230 mètres sur 42,3 km. Une montée continue coïncide
+                  avec le tronçon face au vent, un plateau avec le passage sur route
+                  passante, puis une longue descente avec le retour vent dans le dos.
+                </desc>
+                <defs>
+                  <pattern id="hachure-face" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+                    <rect width="6" height="6" fill="var(--sv-face-300)"></rect>
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="var(--sv-face-600)" stroke-width="1"></line>
+                  </pattern>
+                  <pattern id="hachure-trafic" patternUnits="userSpaceOnUse" width="6" height="6">
+                    <rect width="6" height="6" fill="var(--sv-trafic-300)"></rect>
+                    <line x1="0" y1="0" x2="6" y2="0" stroke="var(--sv-trafic-600)" stroke-width="1"></line>
+                    <line x1="0" y1="0" x2="0" y2="6" stroke="var(--sv-trafic-600)" stroke-width="1"></line>
+                  </pattern>
+                </defs>
+
+                <path class="profil-aire" data-cout="calme" d="M 0 127.2 L 60 131.7 L 150 124.0 L 150 160 L 0 160 Z"></path>
+                <path fill="url(#hachure-face)" d="M 150 124.0 L 210 79.1 L 300 18.2 L 300 160 L 150 160 Z"></path>
+                <path fill="url(#hachure-trafic)" d="M 300 18.2 L 340 24.6 L 390 40.6 L 390 160 L 300 160 Z"></path>
+                <path class="profil-aire" data-cout="dos" d="M 390 40.6 L 470 91.9 L 540 127.2 L 600 136.8 L 600 160 L 390 160 Z"></path>
+
+                <path class="profil-ligne" d="M 0 127.2 L 60 131.7 L 150 124.0 L 210 79.1 L 300 18.2 L 340 24.6 L 390 40.6 L 470 91.9 L 540 127.2 L 600 136.8"></path>
+
+                <line class="profil-axe" x1="0" y1="160" x2="600" y2="160"></line>
+                <text class="profil-texte" x="4" y="14">230 m</text>
+                <text class="profil-texte" x="4" y="155">35 m</text>
+                <text class="profil-texte" x="296" y="14" text-anchor="middle" font-weight="600">Sommet</text>
+                <text class="profil-texte" x="600" y="150" text-anchor="end">D+ 312 m au total</text>
+              </svg>
+              <p class="note" style="margin-top: 10px">
+                Le tronçon face au vent porte une hachure diagonale, le passage sur route
+                passante un quadrillage — la même règle qu'ailleurs sur cette page : la
+                couleur ne porte jamais seule le sens.
+              </p>
+            </div>
+
+            <div class="stats-ligne">
+              <dl class="stat"><dt>Dénivelé</dt><dd>312 m</dd></dl>
+              <dl class="stat"><dt>Feux et stops</dt><dd>9</dd></dl>
+              <dl class="stat"><dt>Part de trafic</dt><dd>6 %</dd></dl>
+              <dl class="stat"><dt>Moyenne mesurée</dt><dd>32,6 km/h</dd></dl>
+            </div>
+            <p class="note" style="margin-top: 10px">
+              <strong>Mesuré, pas supposé.</strong> La moyenne compteur (32,6 km/h) vient
+              de vos 41 dernières sorties sur ce vélo. Un profil sans historique
+              afficherait « — supposé, faute de mesure » au même endroit — jamais
+              silencieusement la même apparence pour les deux.
+            </p>
+
+            <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3); margin-top: 26px">Tenue</h3>
+            <ul class="tenue-liste">
+              <li>Cuissard léger, maillot manches courtes.</li>
+              <li>Coupe-vent en poche — à enlever après l'échauffement.</li>
+            </ul>
+          </div>
+          <div class="col-marge">
+            <p class="note">
+              <strong>Trois teintes, trois coûts, un seul tracé.</strong> La même règle
+              que la rose : chaque couleur du tracé ne porte qu'un seul métier, jamais
+              deux. Le calme n'a pas de teinte — il n'y a rien à signaler.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SYSTÈME — le système, à découvert
+           ============================================================ -->
+      <section class="bloc" aria-labelledby="titre-systeme">
+        <div class="grille">
+          <div class="col-principale">
+            <span class="oeil">À l'appui</span>
+            <h2 id="titre-systeme" class="titre-section">Le système, à découvert</h2>
+            <p class="chapeau-section">
+              Douze colonnes, quatre tailles de gris, quatre teintes de données — chacune
+              à un seul métier, jamais deux. Tout ce qui précède est construit avec ce
+              qui suit, rien de plus.
+            </p>
+
+            <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3)">La grille — 12 colonnes</h3>
+            <div class="demo-grille" aria-hidden="true">
+              <div class="demo-grille-col">1</div>
+              <div class="demo-grille-col">2</div>
+              <div class="demo-grille-col">3</div>
+              <div class="demo-grille-col">4</div>
+              <div class="demo-grille-col">5</div>
+              <div class="demo-grille-col">6</div>
+              <div class="demo-grille-col">7</div>
+              <div class="demo-grille-col">8</div>
+              <div class="demo-grille-col">9</div>
+              <div class="demo-grille-col">10</div>
+              <div class="demo-grille-col">11</div>
+              <div class="demo-grille-col">12</div>
+            </div>
+
+            <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3); margin-top: 30px">L'échelle typographique</h3>
+            <div>
+              <div class="echelle-ligne">
+                <span class="echelle-etiquette">géante · mono</span>
+                <span style="font-family: var(--sv-police-mono); font-size: var(--sv-taille-geante); font-variant-numeric: tabular-nums">1 h 48</span>
+              </div>
+              <div class="echelle-ligne">
+                <span class="echelle-etiquette">titre-1 · gras</span>
+                <span style="font-size: var(--sv-taille-titre-1); font-weight: 700">Où rouler</span>
+              </div>
+              <div class="echelle-ligne">
+                <span class="echelle-etiquette">titre-2 · gras</span>
+                <span style="font-size: var(--sv-taille-titre-2); font-weight: 700">Le système, à découvert</span>
+              </div>
+              <div class="echelle-ligne">
+                <span class="echelle-etiquette">corps</span>
+                <span style="font-size: var(--sv-taille-corps)">La rose attend le départ.</span>
+              </div>
+              <div class="echelle-ligne">
+                <span class="echelle-etiquette">petite</span>
+                <span style="font-size: var(--sv-taille-petite); color: var(--sv-encre-att)">Part de trafic, 6 %.</span>
+              </div>
+              <div class="echelle-ligne">
+                <span class="echelle-etiquette">œil · mono</span>
+                <span class="oeil">Aujourd'hui</span>
+              </div>
+            </div>
+
+            <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3); margin-top: 30px">La couleur — quatre teintes, un métier chacune</h3>
+            <p class="chapeau-section">
+              Chaque teinte ci-dessous existe en trois paliers : 100 (fond de texte), 300
+              (remplissage d'un tracé), 600 (trait, jamais de texte dessus). Les
+              contrastes affichés sont calculés (WCAG, luminance relative), pas estimés.
+            </p>
+
+            <div class="palette-groupe">
+              <div class="palette-metier">Pluie — bleu. Ce qui tombe, et seulement ça.</div>
+              <div class="palette-rangee">
+                <div class="palette-echantillon" style="background: var(--sv-pluie-100); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">pluie-100</span>
+                  <span class="palette-echantillon-contraste">encre : 14,7:1</span>
+                </div>
+                <div class="palette-echantillon" style="background: var(--sv-pluie-300); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">pluie-300</span>
+                  <span class="palette-echantillon-contraste">encre : 10,8:1</span>
+                </div>
+                <div class="palette-echantillon palette-echantillon-600">
+                  <span class="palette-echantillon-couleur" style="background: var(--sv-pluie-600)" aria-hidden="true"></span>
+                  <span class="palette-echantillon-nom">pluie-600</span>
+                  <span class="palette-echantillon-contraste">vs papier : 3,8:1 — trait/icône seulement, jamais de texte dessus</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="palette-groupe">
+              <div class="palette-metier">Vent dans le dos — vert. Ce qui pousse, et seulement ça.</div>
+              <div class="palette-rangee">
+                <div class="palette-echantillon" style="background: var(--sv-dos-100); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">dos-100</span>
+                  <span class="palette-echantillon-contraste">encre : 15,0:1</span>
+                </div>
+                <div class="palette-echantillon" style="background: var(--sv-dos-300); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">dos-300</span>
+                  <span class="palette-echantillon-contraste">encre : 11,4:1</span>
+                </div>
+                <div class="palette-echantillon palette-echantillon-600">
+                  <span class="palette-echantillon-couleur" style="background: var(--sv-dos-600)" aria-hidden="true"></span>
+                  <span class="palette-echantillon-nom">dos-600</span>
+                  <span class="palette-echantillon-contraste">vs papier : 4,0:1 — trait/icône seulement, jamais de texte dessus</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="palette-groupe">
+              <div class="palette-metier">Vent de face — orange. Ce qui freine, et seulement ça.</div>
+              <div class="palette-rangee">
+                <div class="palette-echantillon" style="background: var(--sv-face-100); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">face-100</span>
+                  <span class="palette-echantillon-contraste">encre : 14,8:1</span>
+                </div>
+                <div class="palette-echantillon" style="background: var(--sv-face-300); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">face-300</span>
+                  <span class="palette-echantillon-contraste">encre : 10,2:1</span>
+                </div>
+                <div class="palette-echantillon palette-echantillon-600">
+                  <span class="palette-echantillon-couleur" style="background: var(--sv-face-600)" aria-hidden="true"></span>
+                  <span class="palette-echantillon-nom">face-600</span>
+                  <span class="palette-echantillon-contraste">vs papier : 3,5:1 — trait/icône seulement, jamais de texte dessus</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="palette-groupe">
+              <div class="palette-metier">Route passante — violet. La circulation, et seulement ça.</div>
+              <div class="palette-rangee">
+                <div class="palette-echantillon" style="background: var(--sv-trafic-100); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">trafic-100</span>
+                  <span class="palette-echantillon-contraste">encre : 14,5:1</span>
+                </div>
+                <div class="palette-echantillon" style="background: var(--sv-trafic-300); color: var(--sv-encre)">
+                  <span class="palette-echantillon-nom">trafic-300</span>
+                  <span class="palette-echantillon-contraste">encre : 9,5:1</span>
+                </div>
+                <div class="palette-echantillon palette-echantillon-600">
+                  <span class="palette-echantillon-couleur" style="background: var(--sv-trafic-600)" aria-hidden="true"></span>
+                  <span class="palette-echantillon-nom">trafic-600</span>
+                  <span class="palette-echantillon-contraste">vs papier : 5,0:1 — trait/icône seulement, jamais de texte dessus</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="note" style="margin-top: 14px">
+              Le vent traversier n'a pas de teinte : ni gênant ni favorable, il reste en
+              encre. Une cinquième couleur pour un cas qui ne coûte rien aurait dilué la
+              règle plutôt que de servir le lecteur.
+            </p>
+
+            <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3); margin-top: 30px">Composants</h3>
+            <div class="composants-grille">
+              <div class="composant-cadre">
+                <div class="composant-titre">Sélecteur à trois états</div>
+                <div class="theme" role="group" aria-label="Exemple">
+                  <button type="button" aria-pressed="true">Auto</button>
+                  <button type="button" aria-pressed="false">Clair</button>
+                  <button type="button" aria-pressed="false">Sombre</button>
+                </div>
+              </div>
+              <div class="composant-cadre">
+                <div class="composant-titre">Jauge — remplissage en 600, piste en filet</div>
+                <div class="jauge">
+                  <div class="jauge-piste"><div class="jauge-remplissage"></div></div>
+                  <span class="jauge-valeur">2,1 mm</span>
+                </div>
+              </div>
+              <div class="composant-cadre">
+                <div class="composant-titre">Ligne de recommandation</div>
+                <div class="recommandation-ligne" style="margin-top: 0">
+                  → <strong>Exemple</strong> — jamais une couleur, un trait épais en encre.
+                </div>
+              </div>
+              <div class="composant-cadre">
+                <div class="composant-titre">Puce de légende</div>
+                <div class="puce"><span class="puce-carre" data-pluie="modere"></span> Modérée — 1,1 à 3,0 mm</div>
+              </div>
+            </div>
+
+            <h3 class="titre-section" style="font-size: var(--sv-taille-titre-3); margin-top: 30px">Carnet de composition</h3>
+            <dl class="carnet">
+              <dt>Ce qui vient de la suisse éditoriale</dt>
+              <dd>
+                La grille à 12 colonnes, les filets horizontaux plutôt que des cartes, les
+                quatre tailles de gris, aucune ombre, aucun arrondi, une hiérarchie
+                typographique stricte. C'est la structure entière de cette page.
+              </dd>
+              <dt>Ce qui manquait, et qu'on ajoute</dt>
+              <dd>
+                Trois données dessinées : la rose des directions, le tracé coloré par
+                coût, le profil d'altitude. Une grille suisse peut porter un dessin — la
+                tradition des horaires de train le fait déjà.
+              </dd>
+              <dt>Ce qui vient du sportif, sans son roux de marque</dt>
+              <dd>
+                Le disque des huit directions et les grands chiffres lisibles d'un geste.
+                Pas sa grammaire de cartes empilées, pas sa couleur qui type l'appli.
+              </dd>
+              <dt>Ce qui vient de l'asiatique, sans sa rondeur ni sa palette vive</dt>
+              <dd>
+                La discipline « une teinte, une seule catégorie » — jamais la pluie et le
+                vent dans la même couleur. Pas ses formes rondes, pas ses sept couleurs.
+              </dd>
+              <dt>Où le générique guettait, et comment on s'en écarte</dt>
+              <dd>
+                Les couleurs ultra légères sont exactement le terrain où l'on glisse vers
+                le beige poli : un fond crème, un gris chaud, une police IBM Plex, et
+                c'était fait. La parade tenue ici : papier blanc pur (jamais crème), une
+                pile système plutôt qu'une police de type IA, des teintes basses en
+                clarté mais hautes en saturation — un bleu qui reste un bleu — et des
+                structures dures (traits nets, alignements stricts) qui ne se relâchent
+                jamais, même là où la couleur, elle, chuchote.
+              </dd>
+              <dt>Ce qu'on refuse</dt>
+              <dd>
+                Une couleur pour la décision : la recommandation reste en encre, jamais
+                teintée, parce qu'une décision n'est pas une donnée mesurée. Une teinte de
+                plus pour le vent traversier, qui ne coûte rien. Le blanc sur une teinte
+                600 : jamais assez de contraste pour du texte, alors ce palier ne porte
+                jamais de mot.
+              </dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="grille">
+        <span>Jetons dans <code>jetons-suisse-vivante.css</code>, non appliqués aux écrans existants.</span>
+        <span>Focus visible au clavier · cibles ≥ 44 px · contrastes vérifiés en clair et en sombre.</span>
+      </div>
+    </footer>
+
+    <script>
+      // Bascule de thème — trois états explicites (auto / clair / sombre),
+      // sans dépendance. « Auto » retire l'attribut et laisse
+      // prefers-color-scheme décider ; les deux autres le fixent. Aucune
+      // donnée n'est envoyée nulle part : juste un attribut sur <html>,
+      // retenu le temps de la page.
+      (function () {
+        var racine = document.documentElement;
+        var boutons = document.querySelectorAll(".theme button");
+
+        function appliquer(choix) {
+          if (choix === "auto") {
+            racine.removeAttribute("data-theme");
+          } else {
+            racine.setAttribute("data-theme", choix);
+          }
+          boutons.forEach(function (bouton) {
+            if (!bouton.hasAttribute("data-theme-choix")) return;
+            bouton.setAttribute(
+              "aria-pressed",
+              String(bouton.getAttribute("data-theme-choix") === choix)
+            );
+          });
+        }
+
+        boutons.forEach(function (bouton) {
+          if (!bouton.hasAttribute("data-theme-choix")) return;
+          bouton.addEventListener("click", function () {
+            appliquer(bouton.getAttribute("data-theme-choix"));
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
