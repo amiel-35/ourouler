@@ -73,34 +73,44 @@ export interface TraceDessinee {
   choisi: boolean;
   /**
    * `ecartee` : le produit l'a jetée, et le lot F2.4 la montre quand même —
-   * trait rouge fin et très pointillé, pour qu'elle se distingue d'une
-   * proposition non choisie sans jamais lui ressembler. La forme du trait
-   * change en même temps que la couleur, comme les flèches de vent : la carte
-   * doit rester lisible en noir et blanc et pour un daltonien.
+   * trait fin et très pointillé (encre, comme une retenue, mais plus fin et
+   * sans dérouler tout le tracé), pour qu'elle se distingue d'une
+   * proposition non choisie sans jamais lui ressembler. Écarter une
+   * candidate est une décision de l'algorithme, pas une mesure (règle 3,
+   * direction « suisse vivante ») — elle n'a donc plus de rouge depuis
+   * l'application de cette direction : c'est la FORME du trait qui la
+   * distingue, jamais une couleur, cohérent avec les flèches de vent et la
+   * matrice d'`Arbitrage`.
    */
   sort?: "retenue" | "ecartee";
   titre?: string;
 }
 
-/** Comment un tracé se dessine, selon ce que le produit en a décidé. */
+/**
+ * Comment un tracé se dessine, selon ce que le produit en a décidé.
+ *
+ * Aucune couleur en dur ici : le sort d'un tracé (retenu / non choisi /
+ * écarté) est une décision, pas une mesure (règle 3, direction « suisse
+ * vivante ») — elle reste en encre, jamais en couleur, y compris pour une
+ * candidate écartée (qui portait un rouge avant ce lot). `className` porte
+ * le style jusqu'à `front/src/style.css` (`.trace-retenue`, `.trace-non-
+ * choisie`, `.trace-ecartee`), la seule source de vérité pour `stroke`/
+ * `stroke-width`/`stroke-dasharray` : une règle CSS de classe l'emporte
+ * toujours sur les attributs de présentation SVG que pose Leaflet par
+ * défaut, donc rien à dupliquer ici. Le tracé reste distingué par sa FORME
+ * (poids, pointillé), jamais par sa seule couleur — lisible en noir et
+ * blanc et pour un daltonien.
+ */
 function styleDe(trace: TraceDessinee): L.PolylineOptions {
   if (trace.sort === "ecartee") {
     // Pointillé **rond** et non tiret : la forme distingue une écartée d'une
-    // retenue non choisie sans dépendre de la couleur. 3 px et non 2 —
-    // vérifié à l'écran sur de vraies tuiles, où un trait plus fin
-    // disparaissait dans le fond de carte, ce qui vide la vue de son objet.
-    return {
-      color: "#c0392b",
-      weight: 3,
-      opacity: 0.9,
-      dashArray: "1 7",
-      lineCap: "round",
-    };
+    // retenue non choisie sans dépendre de la couleur.
+    return { className: "trace-ecartee", opacity: 0.9, lineCap: "round" };
   }
   if (trace.choisi) {
-    return { color: "#12657f", weight: 4, opacity: 1, dashArray: undefined };
+    return { className: "trace-retenue", opacity: 1 };
   }
-  return { color: "#9aa5a2", weight: 2, opacity: 0.7, dashArray: "6 5" };
+  return { className: "trace-non-choisie", opacity: 0.7 };
 }
 
 export interface SegmentDessine {
@@ -180,10 +190,12 @@ export function Carte({
           .addTo(couche);
       }
       if (depart) {
+        // Même logique que `styleDe()` : `className` porte la couleur
+        // jusqu'à `.trace-depart` dans `front/src/style.css`, jamais une
+        // valeur hexadécimale recopiée ici.
         L.circleMarker([depart.latitude, depart.longitude], {
           radius: 6,
-          color: "#12657f",
-          fillColor: "#12657f",
+          className: "trace-depart",
           fillOpacity: 1,
         })
           .bindTooltip(depart.nom ?? "Départ")
