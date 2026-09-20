@@ -27,6 +27,7 @@ import { PanneauArbitrage } from "../composants/Arbitrage";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { BandeauElargissement } from "../composants/Elargissement";
 import { TempsEcoule } from "../composants/TempsEcoule";
+import { JaugePluie } from "../composants/JaugePluie";
 
 /** Le nom de l'axe sur lequel le cœur a distingué cette proposition. */
 const AXES: Record<string, string> = {
@@ -70,9 +71,9 @@ export function chiffresDe(proposition: Proposition, candidate: Candidate | null
     chiffres.push({ cle: "m D+", valeur: nombre(candidate.denivele_m) });
   }
   const axe = proposition.axe_distinctif ?? "";
-  if (axe === "pluie" && proposition.pluie_mm !== null) {
-    chiffres.push({ cle: "mm de pluie", valeur: nombre(proposition.pluie_mm, 1) });
-  }
+  // La pluie se dessine désormais (`JaugePluie`, rendue à côté de ces
+  // chiffres dans `Propositions.tsx`) plutôt que de s'écrire ici en texte —
+  // ni doublon, ni régression : la même valeur, en jauge.
   if (axe === "trafic" && proposition.part_trafic !== null) {
     chiffres.push({ cle: "de trafic", valeur: pourcentage(proposition.part_trafic) });
   }
@@ -256,6 +257,9 @@ export function Propositions({
                 </p>
               ) : null}
               <Chiffres chiffres={chiffresDe(proposition, candidate)} />
+              {proposition.axe_distinctif === "pluie" && proposition.pluie_mm !== null ? (
+                <JaugePluie mm={proposition.pluie_mm} minutesPluie={candidate?.meteo?.minutes_pluie} />
+              ) : null}
             </button>
             {/* Hors du bouton exprès : un `<details>` dans un `<button>` est
                 un contrôle interactif imbriqué dans un autre, invalide en
