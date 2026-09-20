@@ -42,6 +42,8 @@ function rendre(table: ConstructorParameters<typeof Serveur>[0]) {
       surProfil={() => undefined}
       surZones={() => undefined}
       surFin={() => undefined}
+      vers="Aujourd'hui"
+      surRetour={() => undefined}
     />,
   );
   return { serveur, utilisateur: userEvent.setup() };

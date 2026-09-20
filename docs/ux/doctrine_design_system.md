@@ -208,6 +208,66 @@ s'applique et repris ici pour mémoire :
    boîte — y compris là où l'ancien système utilisait un fond (`.bloc.doux`)
    pour distinguer un regroupement.
 
+## 8. L'affordance : trois signes, jamais confondus
+
+Écrit le 20/09/2026, à l'usage réel du mainteneur sur l'écran `Reglages` une
+fois la direction appliquée : `251 W` (modifiable), `90,0 kg` (modifiable),
+`Rennes` (modifiable), `Ajouter ou retirer` (ouvre un volet) et
+`Se déconnecter` (agit) se lisaient **exactement comme** `151 W · 21 % de la
+Z2`, qui ne fait rien — même alignement, même graisse, même encre. En
+retirant cadres, fonds et ombres, la direction avait retiré ce qui disait
+« ceci est un contrôle » : l'austérité avait mangé l'affordance. **C'est un
+défaut de système, pas d'écran** : corriger un seul endroit n'aurait rien
+réglé ; la règle se pose ici, une fois, et s'applique à `style.css` en
+entier.
+
+**Consigne du mainteneur, mot pour mot : « il ne faut pas être trop timide,
+car on va passer à côté. »** Une distinction qu'on doit chercher n'existe
+pas. D'où trois signes, un par état, et surtout : **un signe ne sert jamais
+à deux états** — si un état gagne un signe, l'état voisin doit visiblement
+ne pas le porter.
+
+1. **Un champ qu'on remplit** se voit comme une zone de saisie par les DEUX
+   moyens à la fois, pas un seul : un cadre net (`--epaisseur-trait-fort`,
+   déjà en place) ET un fond légèrement distinct du papier
+   (`--fond-champ`, nouveau jeton — voir plus bas). Aucun des deux n'est une
+   couleur de donnée : c'est un gris neutre, un signe de structure comme un
+   filet, pas une mesure (règle 1 de la direction visuelle inchangée).
+2. **Une ligne qui agit ou qui ouvre** porte un signe constant, le même
+   partout : un soulignement **présent au repos**, pas seulement au survol
+   — un survol ne se voit pas au doigt sur un écran tactile, et c'est
+   exactement le geste qu'on fait debout, une main sur le guidon. Un
+   soulignement fait un lien depuis toujours et ne coûte aucune couleur.
+   Quand la ligne **bascule un panneau sur place** plutôt que d'ouvrir un
+   écran entier, elle porte en plus un chevron qui pivote avec
+   `aria-expanded` — le même distinguo que l'accessibilité porte déjà,
+   rendu visible à l'œil. Ce lot n'avait besoin de ce second signe que dans
+   `Reglages` (tous les `.lien` qui bascule un volet) : aucun `.lien` du
+   reste de l'application n'ouvre un écran entier depuis une simple ligne de
+   texte à ce jour — quand ce sera le cas, le même chevron s'applique, sans
+   inventer un second signe.
+3. **Une valeur calculée, qu'on ne touche pas** cesse de ressembler aux deux
+   autres : encre atténuée (`--texte-attenue`), aucun soulignement, aucun
+   poids ajouté. **L'absence de signe est elle-même le signe** — l'inverse
+   compte autant que les deux signes positifs ci-dessus.
+
+**Application dans `style.css`** : `.rangee .val` (la base, sans `.lien`)
+passe en encre atténuée — c'était en encre pleine, indiscernable d'un
+`.lien` ; `.rangee .val.lien` (plus généralement tout `.lien`) reprend
+l'encre pleine et gagne le soulignement permanent. Les deux règles se
+répondent : aucune ne peut dériver sans casser l'autre visuellement, ce qui
+est le but.
+
+**Le nouveau jeton** : `--fond-champ` (couche sémantique) alias
+`var(--sv-filet)` — **aucune nouvelle primitive** : c'est la même valeur que
+`--trait` (la ligne de séparation la plus neutre du système), sous un nom de
+rôle distinct, exactement comme `--trait-fort` est déjà un alias de
+`--sv-encre` sous un autre rôle (§1, §3 : la règle d'admission interdit une
+nouvelle **valeur**, pas un second **rôle** pour une valeur qui existe déjà).
+Contraste texte/fond inchangé par construction : `--fond-champ` ne fait que
+remplacer `--papier` sous un `.saisie`, et l'encre du texte reste posée sur
+un gris à peine plus soutenu que le papier, donc au moins aussi lisible.
+
 ## Voir aussi
 
 - `docs/ux/direction_visuelle.md` — la direction elle-même, ses trois règles

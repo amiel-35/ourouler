@@ -28,6 +28,8 @@ describe("l'assistant — étape d'identité", () => {
         surProfil={() => undefined}
         surZones={() => undefined}
         surFin={() => undefined}
+        vers="Aujourd'hui"
+        surRetour={() => undefined}
       />,
     );
     // L'assistant ouvre maintenant sur AC1 Bienvenue (`docs/ux/
@@ -56,6 +58,8 @@ describe("l'assistant — étape d'identité", () => {
         surProfil={() => undefined}
         surZones={() => undefined}
         surFin={() => undefined}
+        vers="Aujourd'hui"
+        surRetour={() => undefined}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Commencer" }));

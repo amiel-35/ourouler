@@ -29,6 +29,11 @@
   ); /* rail décoratif seulement (numéros de colonne) — jamais du texte fin, cf. jetons-primitives.css */
   --trait: var(--sv-filet);
   --trait-fort: var(--sv-filet-fort);
+  /* Le fond d'un champ de saisie — même valeur que `--trait` (la ligne la
+     plus neutre du système), sous un rôle distinct : un signe de structure
+     pour qu'un champ se voie comme un champ (doctrine §8), jamais une
+     couleur de donnée. Alias, pas une nouvelle primitive — voir §8. */
+  --fond-champ: var(--sv-filet);
 
   /* ---------- espacement : sept rangs, un rôle chacun ----------
      Les rôles reprennent, presque mot pour mot, les commentaires déjà

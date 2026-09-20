@@ -488,6 +488,11 @@ function ApplicationPrincipale() {
 
   let contenu: JSX.Element;
 
+  // Le nom de l'onglet courant — l'assistant et l'importateur n'en changent
+  // pas eux-mêmes, donc c'est là qu'on revient en en sortant. « Aujourd'hui »
+  // par défaut : c'est aussi le seul onglet possible avant tout profil.
+  const versOnglet = ONGLETS.find((o) => o.cle === onglet)?.nom ?? "Aujourd'hui";
+
   if (vue.genre === "assistant") {
     contenu = (
       <Assistant
@@ -499,6 +504,8 @@ function ApplicationPrincipale() {
           setVue({ genre: "onglet" });
           setOnglet("aujourdhui");
         }}
+        vers={versOnglet}
+        surRetour={() => setVue({ genre: "onglet" })}
       />
     );
   } else if (vue.genre === "importer") {
@@ -509,6 +516,8 @@ function ApplicationPrincipale() {
           setFichierSeance({ identifiant, jour: vue.jour, nom: seance.nom })
         }
         surChercher={() => chercher({ mode: "seance", jour: vue.jour })}
+        vers={versOnglet}
+        surRetour={() => setVue({ genre: "onglet" })}
       />
     );
   } else if (vue.genre === "propositions" && resultat?.sortie) {
