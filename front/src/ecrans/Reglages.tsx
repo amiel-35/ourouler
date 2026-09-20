@@ -89,7 +89,12 @@ export function Reglages({
       <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Identité</span>
-          <button type="button" className="val lien texte" onClick={() => basculer("identite")}>
+          <button
+            type="button"
+            className="val lien texte"
+            onClick={() => basculer("identite")}
+            aria-expanded={volet === "identite"}
+          >
             {profil.cycliste.prenom || profil.cycliste.nom
               ? `${profil.cycliste.prenom} ${profil.cycliste.nom}`.trim()
               : "à renseigner"}
@@ -140,7 +145,12 @@ export function Reglages({
       <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">FTP</span>
-          <button type="button" className="val lien" onClick={() => basculer("ftp")}>
+          <button
+            type="button"
+            className="val lien"
+            onClick={() => basculer("ftp")}
+            aria-expanded={volet === "ftp"}
+          >
             {/* Facultative depuis ce lot. Le bouton reste — c'est par lui qu'on
                 la renseigne — mais il n'annonce pas une valeur qui n'existe pas. */}
             {zones.ftp_w === null ? "à renseigner" : `${nombre(zones.ftp_w)} W`}
@@ -148,7 +158,12 @@ export function Reglages({
         </div>
         <div className="rangee">
           <span className="cle">Poids</span>
-          <button type="button" className="val lien" onClick={() => basculer("poids")}>
+          <button
+            type="button"
+            className="val lien"
+            onClick={() => basculer("poids")}
+            aria-expanded={volet === "poids"}
+          >
             {nombre(profil.cycliste.masse_kg, 1)} kg
           </button>
         </div>
@@ -221,7 +236,12 @@ export function Reglages({
       <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">Départ habituel</span>
-          <button type="button" className="val lien" onClick={() => basculer("depart")}>
+          <button
+            type="button"
+            className="val lien"
+            onClick={() => basculer("depart")}
+            aria-expanded={volet === "depart"}
+          >
             {profil.depart.nom}
           </button>
         </div>
@@ -238,7 +258,12 @@ export function Reglages({
         ))}
         <div className="rangee">
           <span className="cle">Vos vélos</span>
-          <button type="button" className="lien" onClick={() => basculer("velos")}>
+          <button
+            type="button"
+            className="lien"
+            onClick={() => basculer("velos")}
+            aria-expanded={volet === "velos"}
+          >
             Ajouter ou retirer
           </button>
         </div>
@@ -267,7 +292,12 @@ export function Reglages({
       <div className="bloc doux liste">
         <div className="rangee">
           <span className="cle">intervals.icu</span>
-          <button type="button" className="val lien texte" onClick={() => basculer("intervals")}>
+          <button
+            type="button"
+            className="val lien texte"
+            onClick={() => basculer("intervals")}
+            aria-expanded={volet === "intervals"}
+          >
             {profil.services.intervals.renseigne ? "Branché" : "Non branché"}
           </button>
         </div>

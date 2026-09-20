@@ -161,6 +161,11 @@ h1,
 
 .onglets button {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   background: none;
   border: none;
   border-radius: var(--rayon);
@@ -168,9 +173,19 @@ h1,
   font-size: var(--texte-petit);
   font-weight: var(--graisse-emphase);
   color: var(--texte-attenue);
-  padding: 12px 2px;
+  padding: 8px 2px;
   min-height: 44px;
   cursor: pointer;
+}
+/* Le pictogramme reprend l'encre du bouton (`currentColor`, posé dans
+   `Pictogrammes.tsx`) : repos atténué, survol et actif en encre pleine,
+   sans qu'aucune règle de couleur ne soit à écrire ici. Un texte l'accompagne
+   toujours — l'icône ne porte jamais seule le sens (contrainte du lot). */
+.onglet-icone {
+  display: block;
+}
+.onglet-libelle {
+  line-height: 1;
 }
 
 /* repos → survol : un lavis neutre, jamais une teinte. */
@@ -413,11 +428,14 @@ h1,
   line-height: var(--interligne);
 }
 
-/* ÉTATS : repos, survol, focus, désactivé, invalide. */
+/* ÉTATS : repos, survol, focus, désactivé, invalide.
+   Cadre ET fond légèrement distinct du papier (doctrine §8, point 1) : les
+   deux signes ensemble, pas un seul — c'est ce qui manquait pour qu'un champ
+   se voie comme un champ, indépendamment de tout ce qui l'entoure. */
 .saisie {
   width: 100%;
   border: var(--epaisseur-trait-fort) solid var(--trait-fort);
-  background: var(--papier);
+  background: var(--fond-champ);
   border-radius: var(--rayon);
   padding: 11px 12px;
   font-family: var(--police);
@@ -453,6 +471,12 @@ h1,
 .saisie-unite .saisie {
   border-right: none;
 }
+/* Fond papier, pas `--fond-champ` : ce n'est pas un champ qu'on remplit,
+   juste l'unité collée à l'input (relecture du lot, 20/09/2026) — avec
+   `--texte-attenue`, `--fond-champ` ferait tomber le contraste à 5,99:1
+   (6,63:1 en sombre), sous le seuil de 7,5:1 que le mainteneur a fixé pour
+   ce texte précisément (voir `jetons-primitives.css`, note sur
+   `--sv-encre-att`). Le cadre suffit à dire « ceci fait partie du champ ». */
 .saisie-unite .unite {
   font-family: var(--police-chiffres);
   font-size: var(--texte-petit);
@@ -534,7 +558,9 @@ h1,
 }
 
 /* Le retour en tête d'écran — jamais « Retour » seul, toujours nommé
-   (`Retour.tsx`). Cible ≥ 44 px conservée. ÉTATS : repos, survol, focus. */
+   (`Retour.tsx`). Cible ≥ 44 px conservée. ÉTATS : repos, survol, focus.
+   Souligné au repos (doctrine §8, point 2) : une ligne qui agit porte un
+   signe constant, pas seulement au survol qu'un doigt ne voit jamais. */
 .retour {
   display: inline-flex;
   align-items: center;
@@ -549,12 +575,13 @@ h1,
   font-family: var(--police);
   font-size: var(--texte-petit);
   font-weight: var(--graisse-emphase);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   cursor: pointer;
   text-align: left;
 }
 .retour:hover {
   background: var(--interactif-survol-fond);
-  text-decoration: underline;
 }
 
 /* Le bouton qui enveloppe une carte sélectionnable, sans apparence propre —
@@ -612,11 +639,16 @@ h1,
   color: var(--interactif-actif-texte);
 }
 
-/* Lien de rangée (« Modifier », « Essayer ») : cible ≥ 44 px conservée. */
+/* Lien de rangée (« Modifier », « Essayer ») : cible ≥ 44 px conservée.
+   Souligné au repos (doctrine §8, point 2) : c'est le signe constant d'une
+   ligne qui agit ou qui ouvre — présent avant tout survol, pour qu'il se
+   voie aussi au doigt. */
 .lien {
   color: var(--texte);
   font-size: var(--texte-petit);
   font-weight: var(--graisse-emphase);
+  text-decoration: underline;
+  text-underline-offset: 2px;
   background: none;
   border: none;
   border-radius: var(--rayon);
@@ -631,7 +663,25 @@ h1,
 }
 .lien:hover {
   background: var(--interactif-survol-fond);
-  text-decoration: underline;
+}
+
+/* Un `.lien` qui bascule un panneau sur place (`aria-expanded`, jamais posé
+   sur celui qui agit tout de suite ou qui quitte l'écran) gagne un chevron
+   qui pivote — le second signe du point 2, doctrine §8 : « ça bascule ici »,
+   distingué sans une seule couleur. Triangle dessiné en bordure CSS, pas un
+   glyphe de police : il reste net à 16 px comme à 32. */
+.lien[aria-expanded]::after {
+  content: "";
+  display: inline-block;
+  margin-left: var(--espace-interne);
+  border-style: solid;
+  border-width: 4px 3px 0 3px;
+  border-color: currentColor transparent transparent transparent;
+  vertical-align: middle;
+  transition: transform var(--transition-duree) ease;
+}
+.lien[aria-expanded="true"]::after {
+  transform: rotate(180deg);
 }
 
 /* ================================================================
@@ -762,14 +812,26 @@ h1,
   color: var(--texte-attenue);
   font-size: var(--texte-oeil);
 }
+/* Une valeur calculée, qu'on ne touche pas (doctrine §8, point 3) : encre
+   atténuée par défaut, sans poids ni soulignement — l'absence de signe est
+   le signe. C'était en encre pleine, indiscernable d'un `.lien` juste
+   à côté (le constat qui a ouvert ce lot, sur `151 W · 21 % de la Z2`). */
 .rangee .val {
   font-family: var(--police-chiffres);
   font-size: var(--texte-petit);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  color: var(--texte-attenue);
 }
 .rangee .val.texte {
   font-family: var(--police);
+}
+/* Le contrepoint : une valeur de rangée qui EST un `.lien` (bouton, pas
+   span) reprend l'encre pleine et le soulignement — la spécificité de trois
+   classes l'emporte volontairement sur `.rangee .val` ci-dessus, jamais
+   l'inverse. */
+.rangee .val.lien {
+  color: var(--texte);
 }
 
 .velo-ligne {

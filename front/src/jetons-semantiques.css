@@ -29,6 +29,11 @@
   ); /* rail décoratif seulement (numéros de colonne) — jamais du texte fin, cf. jetons-primitives.css */
   --trait: var(--sv-filet);
   --trait-fort: var(--sv-filet-fort);
+  /* Le fond d'un champ de saisie — même valeur que `--trait` (la ligne la
+     plus neutre du système), sous un rôle distinct : un signe de structure
+     pour qu'un champ se voie comme un champ (doctrine §8), jamais une
+     couleur de donnée. Alias, pas une nouvelle primitive — voir §8. */
+  --fond-champ: var(--sv-filet);
 
   /* ---------- espacement : sept rangs, un rôle chacun ----------
      Les rôles reprennent, presque mot pour mot, les commentaires déjà
@@ -115,6 +120,16 @@
   --couleur-effort-3: var(--sv-effort-3);
   --couleur-effort-4: var(--sv-effort-4);
   --couleur-effort-5: var(--sv-effort-5);
+
+  /* ---------- la pente (ProfilAltitude) : quatre crans, standard du domaine ----------
+     1 = douce (< 3 %), 2 = modérée (3–6 %), 3 = forte (6–9 %), 4 = sévère
+     (> 9 %) — voir `jetons-primitives.css` pour les seuils et les contrastes
+     vérifiés. C'est une mesure (règle 1), jamais un fond de texte : un aplat
+     sous la courbe, comme l'effort est un aplat de jauge. */
+  --couleur-pente-1: var(--sv-pente-1);
+  --couleur-pente-2: var(--sv-pente-2);
+  --couleur-pente-3: var(--sv-pente-3);
+  --couleur-pente-4: var(--sv-pente-4);
 
   /* ---------- désaccord entre modèles ----------
      Pas une sixième couleur (la direction le dit en toutes lettres) : un

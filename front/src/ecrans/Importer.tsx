@@ -18,14 +18,18 @@ import type { Seance } from "../api/types";
 import { duree, jourEnLettres, nombre } from "../api/formats";
 import { Etapes } from "../composants/Etapes";
 import { Echec } from "../composants/Echec";
+import { RetourEnTete } from "../composants/Retour";
 
 interface Props {
   jour: string;
   surSeanceLue: (seance: Seance, identifiant: string) => void;
   surChercher: () => void;
+  /** D'où l'écran a été ouvert (Aujourd'hui, Ma semaine…) — jamais « Retour » seul. */
+  vers: string;
+  surRetour: () => void;
 }
 
-export function Importer({ jour, surSeanceLue, surChercher }: Props) {
+export function Importer({ jour, surSeanceLue, surChercher, vers, surRetour }: Props) {
   const [seance, setSeance] = useState<Seance | null>(null);
   const [erreur, setErreur] = useState<ErreurApi | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -56,6 +60,11 @@ export function Importer({ jour, surSeanceLue, surChercher }: Props) {
 
   return (
     <section>
+      {/* Cet écran n'avait aucun moyen d'en sortir (constat du 19/09/2026) :
+          arrivé ici, le retour arrière du navigateur restait la seule
+          issue. Même geste que `Proposition` : le composant existant, en
+          tête, nommé. */}
+      <RetourEnTete vers={vers} surRetour={surRetour} />
       <div className="app-tete">
         <div>
           {/* **Pour quel jour** — le dépôt en prend un, et le placement ne

@@ -84,7 +84,7 @@ from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.gpx import description as description_gpx
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.horaire import construire_horaire
-from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
+from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent, vent_par_position
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
@@ -2378,6 +2378,9 @@ def _candidate_json(proposition: Proposition, compteur_info: dict | None = None)
             # au même seuil parce que c'est le même code — voir
             # `boucle.meteo_trace.fleches_vent`.
             "fleches_vent": fleches_vent(meteo),
+            # Le tracé entier, pour le colorer (lot d'affordance, 20/09/2026) :
+            # aucun filtre de sensibilité, voir `boucle.meteo_trace.vent_par_position`.
+            "vent_par_position": vent_par_position(meteo),
             "modele_utilise": meteo.modele_utilise,
             "repli": meteo.repli,
         },
