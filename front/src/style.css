@@ -471,6 +471,12 @@ h1,
 .saisie-unite .saisie {
   border-right: none;
 }
+/* Fond papier, pas `--fond-champ` : ce n'est pas un champ qu'on remplit,
+   juste l'unité collée à l'input (relecture du lot, 20/09/2026) — avec
+   `--texte-attenue`, `--fond-champ` ferait tomber le contraste à 5,99:1
+   (6,63:1 en sombre), sous le seuil de 7,5:1 que le mainteneur a fixé pour
+   ce texte précisément (voir `jetons-primitives.css`, note sur
+   `--sv-encre-att`). Le cadre suffit à dire « ceci fait partie du champ ». */
 .saisie-unite .unite {
   font-family: var(--police-chiffres);
   font-size: var(--texte-petit);
@@ -478,7 +484,7 @@ h1,
   border: var(--epaisseur-trait-fort) solid var(--trait-fort);
   border-left: var(--epaisseur-trait) solid var(--trait);
   padding: 11px 12px;
-  background: var(--fond-champ);
+  background: var(--papier);
   display: flex;
   align-items: center;
 }

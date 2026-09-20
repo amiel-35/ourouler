@@ -69,12 +69,31 @@ describe("segmentsVent", () => {
     const segments = segmentsVent(trace, positions);
     expect(segments).toHaveLength(2);
     expect(segments[0].categorie).toBe("dos");
-    expect(segments[0].points).toEqual(portion(trace, 0, 2000));
+    // La portion « dos » va jusqu'au DÉBUT de la portion suivante (3000, pas
+    // 2000) : chaque segment porte la catégorie de l'échantillon qui l'ouvre
+    // (relecture du 20/09/2026, voir la docstring de `segmentsVent`) — sans
+    // ça, l'intervalle [2000, 3000] ne serait couvert par aucune des deux
+    // portions, un trou à chaque changement de catégorie.
+    expect(segments[0].points).toEqual(portion(trace, 0, 3000));
     expect(segments[1].categorie).toBe("face");
     expect(segments[1].points).toEqual(portion(trace, 3000, 4000));
   });
 
-  it("saute le travers au milieu — deux portions dos, pas une fusionnée à tort", () => {
+  it("aucun trou à un changement de catégorie : la fin d'une portion est le début de la suivante", () => {
+    const trace = traceRectiligne(5);
+    const positions = [
+      position(0, "dos"),
+      position(2000, "face"),
+      position(4000, "face"),
+    ];
+    const segments = segmentsVent(trace, positions);
+    expect(segments).toHaveLength(2);
+    const finDos = segments[0].points[segments[0].points.length - 1];
+    const debutFace = segments[1].points[0];
+    expect(finDos).toEqual(debutFace);
+  });
+
+  it("saute le travers au milieu — deux portions dos, pas une fusionnée à tort, et rien sur le travers", () => {
     const trace = traceRectiligne(6);
     const positions = [
       position(0, "dos"),
@@ -86,19 +105,42 @@ describe("segmentsVent", () => {
     const segments = segmentsVent(trace, positions);
     expect(segments).toHaveLength(2);
     expect(segments.every((s) => s.categorie === "dos")).toBe(true);
+    // Le segment [2000, 3000], ouvert par l'échantillon « travers », ne doit
+    // apparaître dans aucune des deux portions dos.
+    expect(segments[0].points).toEqual(portion(trace, 0, 2000));
+    expect(segments[1].points).toEqual(portion(trace, 3000, 4000));
   });
 
   it("n'écarte aucun échantillon sous un seuil de sensibilité — il n'y en a pas ici", () => {
     // Contrairement à `fleches_vent`, `vent_par_position` (et donc
-    // `segmentsVent`) ne connaît aucun seuil de vitesse : un seul
-    // échantillon suffit à produire une portion.
+    // `segmentsVent`) ne connaît aucun seuil de vitesse : deux échantillons
+    // suffisent à produire une portion (il en faut au moins deux : le
+    // dernier échantillon d'une liste n'ouvre jamais de segment, voir la
+    // docstring).
     const trace = traceRectiligne(2);
     const segments = segmentsVent(trace, [position(0, "face"), position(1000, "face")]);
     expect(segments).toHaveLength(1);
   });
 
+  it("une portion sans point réel du tracé est écartée, jamais poussée vide", () => {
+    // Deux échantillons à 500 m d'écart, sur un tracé dont les points sont
+    // espacés de 1000 m (comme `trace.profil` peut l'être une fois
+    // simplifié, Douglas-Peucker, cf. `boucle.geometrie`) : aucun point réel
+    // ne tombe dans l'intervalle. Une portion vide mentirait à l'écran
+    // (`traceColoree`) sans jamais rien dessiner (`Carte` l'aurait de toute
+    // façon écartée, mais après coup).
+    const trace = traceRectiligne(5);
+    const segments = segmentsVent(trace, [position(500, "dos"), position(900, "dos")]);
+    expect(segments).toEqual([]);
+  });
+
   it("liste vide → aucune portion", () => {
     const trace = traceRectiligne(2);
     expect(segmentsVent(trace, [])).toEqual([]);
+  });
+
+  it("un seul échantillon → aucune portion (il n'ouvre aucun segment, rien à fusionner avec lui-même)", () => {
+    const trace = traceRectiligne(2);
+    expect(segmentsVent(trace, [position(0, "face")])).toEqual([]);
   });
 });

@@ -68,13 +68,22 @@ function nombresAffiches(noeud: HTMLElement): Set<string> {
  * - **zéro**, que `decaler` laisse tel quel exprès : « 0 mm de pluie » est
  *   une mesure, pas une absence ;
  * - **le pourcentage de pente lu sur `profil`** (`ProfilAltitude`, lot
- *   d'affordance du 20/09/2026) : c'est un RATIO entre deux nombres bruts du
- *   même tableau (dénivelé / distance), et `decaler` multiplie tout nombre
- *   par le même facteur avant d'y ajouter une constante qui s'annule dans
- *   toute soustraction — la pente calculée est donc mathématiquement
- *   invariante sous ce décalage précis, quelles que soient les données. Ce
- *   n'est pas un chiffre figé dans le code : la preuve, dans la mécanique
- *   même de `decaler`, pas une exception de confort.
+ *   d'affordance du 20/09/2026, une seule étiquette : le point le plus
+ *   raide — voir `tolerees` plus bas pour la sélection exacte, reproduite
+ *   depuis le composant plutôt que tolérée en bloc) : c'est un RATIO entre
+ *   deux nombres bruts du même tableau (dénivelé / distance), et `decaler`
+ *   multiplie tout nombre par le même facteur avant d'y ajouter une
+ *   constante qui s'annule dans toute soustraction — SAUF pour une distance
+ *   qui vaut exactement `0` (le premier point d'un profil, presque
+ *   toujours) : `decaler` la laisse à `0` sans lui ajouter la constante
+ *   (règle dédiée pour ne pas transformer une absence en presque-absence),
+ *   ce qui rouvre un écart entre la pente originale et la pente décalée sur
+ *   le tout premier segment. Négligeable en pratique — la constante vaut
+ *   sept dix-millièmes de mètre, rien à côté d'une distance réelle en
+ *   centaines de mètres, un écart qu'aucun arrondi à l'entier ne voit
+ *   jamais — mais ce n'est pas une invariance exacte pour tout profil
+ *   imaginable, seulement pour tout profil dont les distances ne sont pas
+ *   à l'échelle du millimètre. Le sujet réel d'ourouler.
  */
 function tolerees(valeur: unknown, cle?: string, vues = new Set<string>()): Set<string> {
   vues.add("0");
@@ -95,15 +104,30 @@ function tolerees(valeur: unknown, cle?: string, vues = new Set<string>()): Set<
     Array.isArray(valeur) &&
     valeur.every((p) => Array.isArray(p) && p.length === 2 && p.every((n) => typeof n === "number"))
   ) {
+    // `ProfilAltitude` n'affiche pas la pente de chaque segment : une seule
+    // étiquette, celle du point le plus raide (le cran le plus élevé, à
+    // égalité la plus grande valeur absolue — même sélection que
+    // `composants/ProfilAltitude.tsx`, reproduite ici à dessein plutôt que
+    // de tolérer toutes les pentes du tableau, ce qui aurait avalé une plage
+    // entière de valeurs et affaibli le test pour un profil plus riche.
     const points = valeur as [number, number][];
+    let bandeMax = -1;
+    let pentePctMax = 0;
     for (let i = 0; i < points.length - 1; i += 1) {
       const [d, a] = points[i];
       const [dSuivant, aSuivant] = points[i + 1];
       const distanceSegment = dSuivant - d;
       if (distanceSegment <= 0) continue;
-      const pente = Math.abs(((aSuivant - a) / distanceSegment) * 100);
-      vues.add(String(Math.round(pente)));
+      const pentePct = ((aSuivant - a) / distanceSegment) * 100;
+      const abs = Math.abs(pentePct);
+      const bande = abs < 3 ? 0 : abs < 6 ? 1 : abs < 9 ? 2 : 3;
+      if (bande > bandeMax || (bande === bandeMax && abs > Math.abs(pentePctMax))) {
+        bandeMax = bande;
+        pentePctMax = pentePct;
+      }
     }
+    // `montreLabel` : l'étiquette n'apparaît qu'à partir du cran 1 (≥ 3 %).
+    if (bandeMax >= 1) vues.add(String(Math.round(Math.abs(pentePctMax))));
     return vues;
   }
   if (Array.isArray(valeur)) {

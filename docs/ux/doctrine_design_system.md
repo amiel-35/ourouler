@@ -241,11 +241,16 @@ ne pas le porter.
    Quand la ligne **bascule un panneau sur place** plutôt que d'ouvrir un
    écran entier, elle porte en plus un chevron qui pivote avec
    `aria-expanded` — le même distinguo que l'accessibilité porte déjà,
-   rendu visible à l'œil. Ce lot n'avait besoin de ce second signe que dans
-   `Reglages` (tous les `.lien` qui bascule un volet) : aucun `.lien` du
-   reste de l'application n'ouvre un écran entier depuis une simple ligne de
-   texte à ce jour — quand ce sera le cas, le même chevron s'applique, sans
-   inventer un second signe.
+   rendu visible à l'œil. La règle CSS s'accroche à l'attribut
+   (`.lien[aria-expanded]`), pas à un écran : elle s'applique donc à
+   `Reglages` (six boutons qui basculent un volet, ajoutés par ce lot) et
+   s'est aussi appliquée d'elle-même à `Demander.tsx` (le bouton « Partir
+   d'ailleurs cette fois », qui portait déjà `aria-expanded` avant ce lot) —
+   un ancien texte de ce paragraphe affirmait à tort que seul `Reglages`
+   était concerné, corrigé à la relecture du 20/09/2026. C'est le
+   comportement voulu : un signe systémique se propage tout seul partout où
+   le motif `aria-expanded` existe déjà, sans qu'on ait à le poser écran par
+   écran.
 3. **Une valeur calculée, qu'on ne touche pas** cesse de ressembler aux deux
    autres : encre atténuée (`--texte-attenue`), aucun soulignement, aucun
    poids ajouté. **L'absence de signe est elle-même le signe** — l'inverse
@@ -264,9 +269,17 @@ est le but.
 rôle distinct, exactement comme `--trait-fort` est déjà un alias de
 `--sv-encre` sous un autre rôle (§1, §3 : la règle d'admission interdit une
 nouvelle **valeur**, pas un second **rôle** pour une valeur qui existe déjà).
-Contraste texte/fond inchangé par construction : `--fond-champ` ne fait que
-remplacer `--papier` sous un `.saisie`, et l'encre du texte reste posée sur
-un gris à peine plus soutenu que le papier, donc au moins aussi lisible.
+**Contraste vérifié par le calcul, pas affirmé « par construction »** (§4 —
+une relecture du 20/09/2026 a corrigé cette phrase, initialement fausse) :
+`--texte` sur `--fond-champ` tient 14,1:1 en clair, 12,7:1 en sombre — très
+au-dessus du seuil, `.saisie` peut s'en servir sans réserve. `--texte-attenue`
+sur `--fond-champ`, en revanche, tombe à 5,99:1 en clair et 6,63:1 en sombre —
+**sous le seuil de 7,5:1** que le mainteneur a fixé précisément pour ce
+texte-là (note sur `--sv-encre-att`, `jetons-primitives.css`). C'est pour
+cette raison que `.saisie-unite .unite` (l'unité collée à un champ, en
+`--texte-attenue`) garde `--papier` et non `--fond-champ` : ce n'est de toute
+façon pas un champ qu'on remplit, le cadre suffit à dire qu'il en fait
+partie.
 
 ## Voir aussi
 
