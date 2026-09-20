@@ -314,11 +314,18 @@ export function LegendeVent({
   traceColoree?: boolean;
 }) {
   if (vents.length === 0) {
+    // Un vent trop faible pour mériter une flèche (< `seuilKmh`) reste
+    // classé face/dos/travers — direction connue, vitesse négligeable — donc
+    // le tracé peut se colorer même sans la moindre flèche : les deux ne
+    // dépendent pas du même seuil (`vent_par_position` n'en a aucun).
     return (
       <p className="mention legende-vent">
         Pas de flèche de vent sur ce parcours : le vent y reste
         {seuilKmh ? ` sous les ${seuilKmh} km/h` : " très faible"}, sous ce qui se sent
         sur le visage.
+        {traceColoree
+          ? " Le tracé se colore quand même par endroits, en continu : vert là où il pousse, orange tireté là où il freine — plus fin qu'une flèche, mais réel."
+          : ""}
       </p>
     );
   }
