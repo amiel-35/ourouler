@@ -1,150 +1,47 @@
-/** La direction visuelle d'où rouler — écrite le 19/09/2026.
+/**
+ * La feuille de style de l'application — direction « suisse vivante »,
+ * appliquée le 20/09/2026 (lot d'application, après le choix de direction du
+ * 19/09 et le système de jetons du 20/09).
  *
- * Point de départ : « c'est moche, pas très graphique, les écrans sont denses
- * et pas au niveau » (le mainteneur, en regardant son propre service). Le
- * diagnostic n'était pas la palette — elle était déjà sobre et mesurée pour
- * la lisibilité au soleil (voir plus bas) — c'était l'absence de **hiérarchie**
- * et de **respiration** : chaque écran montre tout ce que l'API lui donne, au
- * même poids visuel, dans le même bloc bordé que son voisin. Ce fichier pose
- * un système pour corriger ça, en variables, pour que les écrans construits
- * par un autre agent (`ecrans/Assistant.tsx`, l'accueil) en héritent sans
- * qu'on y touche.
+ * Ce fichier ne référence QUE des jetons sémantiques (`jetons-semantiques.css`)
+ * — jamais une primitive `--sv-*`, jamais une valeur brute. Si un composant a
+ * besoin de quelque chose que le système n'a pas, c'est le système qu'on
+ * complète (`jetons-primitives.css` puis `jetons-semantiques.css`), pas ce
+ * fichier qui invente une valeur en local (règle d'admission,
+ * `docs/ux/doctrine_design_system.md` §3).
  *
- * **Ce qui ne bouge pas**, parce que c'était déjà juste et mesuré :
- * - Une seule couleur d'accent (le bleu-vert `--accent`), le reste en encre
- *   et en gris. « Peu de couleur, la hiérarchie portée par la typographie »
- *   reste la règle — la hiérarchie qui manquait ne se répare pas en ajoutant
- *   des couleurs, elle se répare en creusant l'écart entre ce qui compte et
- *   le reste.
- * - Les contrastes de `--muet` (7,5:1) : ce produit se lit dehors, en plein
- *   jour, avant de partir rouler — parfois à 6 h du matin. Aucune valeur de
- *   ce fichier ne descend sous ce que la relecture F2 avait déjà validé.
- * - Les cibles de 44 px sur la navigation et les boutons d'action : une
- *   cible manquée dehors, une main sur le guidon, c'est un geste raté sur le
- *   seul moyen d'avancer.
+ * Les noms de classe sont ceux qu'utilisaient déjà les onze écrans sous
+ * `front/src/ecrans/` et les composants sous `front/src/composants/` — ce
+ * lot est une substitution de feuille de style, pas une réécriture des
+ * `.tsx` (voir `docs/ux/inventaire_systeme_visuel.md` pour le contrat des
+ * 98 classes couvertes). Les seules retouches `.tsx` de ce lot renomment un
+ * jeton lu en ligne (`style={{ ... "var(--sp-3)" }}` → `"var(--espace-champ)"`,
+ * etc.) ou remplacent une couleur hexadécimale par une classe CSS
+ * (`composants/Carte.tsx`, voir plus bas) — jamais un texte, un calcul ou un
+ * comportement.
  *
- * **Ce qui change** :
- * 1. **Une échelle d'espacement** (`--sp-1` à `--sp-7`) remplace les valeurs
- *    approximatives (9px, 11px, 13px, 14px, 16px, 18px…) semées au hasard des
- *    blocs. Le rythme vertical devient prévisible, et plus généreux qu'avant.
- * 2. **Un écart de poids réel entre les titres et le reste.** `h1` passait de
- *    15 px (le corps) à 19 px : quatre pixels ne font pas une hiérarchie. Il
- *    grandit, prend du poids, et `.grand` — les chiffres qui *sont* la
- *    réponse à la question posée (distance, durée, estimation) — grandit
- *    encore plus, pour qu'un chiffre-clé se voie avant qu'on le lise.
- * 3. **Des états.** Aucun bouton, aucun champ, aucun lien n'avait de survol,
- *    de pression ni de focus clavier visible — un vrai trou d'accessibilité,
- *    pas seulement un manque de finition. Tout élément interactif en a un
- *    maintenant, sur la même bague de focus partout.
- * 4. **Moins de boîtes dans des boîtes.** `.bloc.doux` perd sa bordure : le
- *    fond suffit à le distinguer du papier, et un écran qui empile cinq
- *    cadres identiques (réglages, arbitrage, tenue…) respire davantage quand
- *    un seul type de bordure reste réservé à ce qui est vraiment sélectionné
- *    ou actionnable.
- * 5. **Une échelle de rayons** un cran plus généreuse (10 → 14 px pour les
- *    blocs), pour un rendu moins anguleux sans quitter la sobriété.
+ * Décisions structurelles qui découlent de la direction, posées une fois ici
+ * plutôt que répétées à chaque section :
+ *
+ * 1. **Pas de carte.** La direction retire les cartes empilées : un `.bloc`
+ *    n'a ni fond ni bordure pleine, il est délimité par un filet horizontal
+ *    et du padding — jamais une boîte dans une boîte.
+ * 2. **Pas d'accent.** Aucune couleur n'existe pour la décoration ou la
+ *    marque : un état interactif se distingue par un remplissage encre/
+ *    papier ou par un filet, jamais par une teinte (règle 1).
+ * 3. **Une décision n'est jamais coloriée** (règle 3) : `.bloc.choisi`, les
+ *    verdicts de `Arbitrage`, la case qui disqualifie dans la matrice — tous
+ *    des décisions, pas des mesures — se distinguent par le poids de l'encre
+ *    (gras, trait épais, cerclage), jamais par une couleur.
+ * 4. **Seule une mesure porte une teinte** (règle 1) — et chaque teinte porte
+ *    aussi un canal non coloré (motif, mot écrit, épaisseur), jamais seule.
  */
 
-:root {
-  --papier: #f7f8f7;
-  --carte: #ffffff;
-  --encre: #161c1a;
-  --encre-2: #41504c;
-  /* **7,5:1 au lieu de 4,5:1** (17/09/2026, relecture F2 · C5). `--muet`
-     porte les phrases d'honnêteté — « facteur de compteur supposé, faute de
-     mesure », « l'avancement affiché est indicatif », la phrase qui distingue
-     chaque proposition. Elles étaient au ras du seuil AA, en 12 px, donc les
-     premières que le soleil efface : ce sont précisément celles dont
-     l'illisibilité annule la raison d'être. */
-  --muet: #4a5350;
-  --trait: #dce2e0;
-  --trait-fort: #c3ccc9;
-  --accent: #12657f;
-  --accent-doux: #e4eff3;
-  --accent-fort: #0b4b60;
-  --z1: #8a9794;
-  --z2: #5b8c7b;
-  --z3: #b08a1e;
-  --z4: #be6229;
-  --z5: #a03028;
-  --bien: #2f6b52;
-  --attention: #9a5416;
-  --alerte: #9b2f27;
-  --bien-fond: #e6f0ea;
-  --attention-fond: #f7ebdd;
-  --alerte-fond: #f7e4e2;
-  --info-fond: #e4eff3;
-  --ombre-sm: 0 1px 2px rgba(22, 28, 26, 0.05);
-  --ombre: 0 1px 2px rgba(22, 28, 26, 0.06), 0 8px 24px -12px rgba(22, 28, 26, 0.18);
-  --ombre-lg: 0 4px 10px rgba(22, 28, 26, 0.07), 0 16px 36px -14px rgba(22, 28, 26, 0.22);
+@import url("./jetons-semantiques.css");
 
-  /* Échelle d'espacement — un seul rythme, du plus serré (`--sp-1`, l'écart
-     entre une étiquette et son contenu) au plus large (`--sp-7`, l'écart
-     entre deux sections d'écran). Toute marge ou tout `gap` de ce fichier
-     vient d'ici : c'est ce qui rend le rythme vertical prévisible d'un écran
-     à l'autre plutôt qu'inventé bloc par bloc. */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 24px;
-  --sp-6: 32px;
-  --sp-7: 48px;
-
-  /* Échelle de rayons — trois crans, du champ de saisie (le plus petit) au
-     bloc mis en avant (le plus grand). `--r` reste l'alias historique de
-     `--rayon-md`, parce qu'il est encore référencé tel quel à plusieurs
-     endroits de ce fichier. */
-  --rayon-sm: 8px;
-  --rayon-md: 14px;
-  --rayon-lg: 20px;
-  --r: var(--rayon-md);
-
-  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
-
-  /* Une seule bague de focus, sur tout ce qui se pilote au clavier — aucun
-     élément interactif de ce produit n'en avait avant ce lot (règle absolue
-     d'accessibilité du mandat : « un écran élégant qu'on ne peut pas utiliser
-     au clavier n'est pas fini »). */
-  --bague-focus: 0 0 0 3px var(--accent-doux), 0 0 0 1.5px var(--accent);
-  --duree: 0.15s;
-  --easing: ease;
-
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --papier: #0e1413;
-    --carte: #171f1d;
-    --encre: #e8edeb;
-    --encre-2: #b4c0bc;
-    /* 7,5:1 sur le papier sombre, même raison qu'en clair. */
-    --muet: #9aa8a4;
-    --trait: #28332f;
-    --trait-fort: #3a4844;
-    --accent: #5ab3ce;
-    --accent-doux: #12292f;
-    --accent-fort: #8cd0e4;
-    --z1: #7c8a86;
-    --z2: #6fa891;
-    --z3: #cba63a;
-    --z4: #d97f45;
-    --z5: #c4534a;
-    --bien: #6fb894;
-    --attention: #d39a5a;
-    --alerte: #d7736a;
-    --bien-fond: #152620;
-    --attention-fond: #2a2013;
-    --alerte-fond: #2b1817;
-    --info-fond: #12292f;
-    --ombre-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --ombre: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
-    --ombre-lg: 0 4px 12px rgba(0, 0, 0, 0.45), 0 18px 40px -16px rgba(0, 0, 0, 0.7);
-    --bague-focus: 0 0 0 3px var(--accent-doux), 0 0 0 1.5px var(--accent);
-  }
-}
+/* ================================================================
+   RÉINITIALISATION ET SOCLE
+   ================================================================ */
 
 * {
   box-sizing: border-box;
@@ -153,10 +50,10 @@
 body {
   margin: 0;
   background: var(--papier);
-  color: var(--encre);
-  font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.55;
+  color: var(--texte);
+  font-family: var(--police);
+  font-size: var(--texte-corps);
+  line-height: var(--interligne);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -173,9 +70,9 @@ img {
   max-width: 100%;
 }
 
-/* Une seule bague de focus clavier, sur tout ce qui reçoit le focus.
-   `:focus-visible` ne se déclenche pas sur un clic souris/tactile — le focus
-   au clic reste discret, il redevient visible dès qu'on navigue au clavier. */
+/* Une seule bague de focus clavier, sur tout ce qui reçoit le focus — un
+   `outline`, pas une ombre : ce système n'a pas d'ombre. `:focus-visible` ne
+   se déclenche pas sur un clic souris/tactile. ÉTAT : focus. */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -183,23 +80,32 @@ select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible,
 summary:focus-visible {
-  outline: none;
-  box-shadow: var(--bague-focus);
-  border-radius: var(--rayon-sm);
+  outline: var(--focus);
+  outline-offset: var(--focus-decalage);
 }
 
-::selection {
-  background: var(--accent-doux);
-  color: var(--accent-fort);
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a,
+  input,
+  .saisie,
+  .depot {
+    transition:
+      background-color var(--transition-duree) ease,
+      color var(--transition-duree) ease,
+      border-color var(--transition-duree) ease;
+  }
 }
 
-/* ---------- coquille ---------- */
+/* ================================================================
+   COQUILLE, EN-TÊTE, ONGLETS
+   ================================================================ */
 
 .coquille {
   max-width: 620px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 0 16px calc(84px + env(safe-area-inset-bottom, 0px));
+  padding: 0 var(--espace-bloc) calc(84px + env(safe-area-inset-bottom, 0px));
   padding-top: env(safe-area-inset-top, 0px);
 }
 
@@ -207,49 +113,39 @@ summary:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: var(--sp-3);
-  padding: var(--sp-5) 0 var(--sp-4);
-  border-bottom: 1px solid var(--trait);
-  margin-bottom: var(--sp-5);
+  gap: var(--espace-champ);
+  padding: var(--espace-section) 0 var(--espace-bloc);
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
+  margin-bottom: var(--espace-section);
 }
 
 .app-tete .quand {
-  font-family: var(--mono);
-  font-size: 10.5px;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  font-weight: var(--graisse-emphase);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muet);
+  letter-spacing: var(--sv-suivi-oeil);
+  color: var(--texte-attenue);
   display: block;
-  margin-bottom: var(--sp-1);
+  margin-bottom: var(--espace-etiquette);
 }
 
-/* **L'écart de poids qui manquait.** `h1` valait 19 px, quatre de plus que le
-   corps de texte (15 px) : ce n'est pas ce qui fait qu'on lit un titre avant
-   le reste. Il grandit, et prend le poids fort — c'est la seule ligne de
-   chaque écran qui doit se lire du premier coup d'œil, bras tendu. */
 h1,
 .app-tete h1 {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.marque {
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-}
-.marque span {
-  color: var(--accent);
+  font-size: var(--texte-titre-ecran);
+  font-weight: var(--graisse-forte);
+  letter-spacing: -0.015em;
+  line-height: var(--interligne-titre);
 }
 
 .a-droite {
   text-align: right;
 }
 
-/* ---------- barre d'onglets ---------- */
-
+/* La barre d'onglets — navigation principale, utilisée debout, dehors, une
+   main sur le guidon : cible ≥ 44 px conservée (décision mesurée C4,
+   héritée de l'ancien `front/src/style.css`). ÉTATS : repos, survol, actif
+   (aria-current). */
 .onglets {
   position: fixed;
   left: 0;
@@ -257,270 +153,331 @@ h1,
   bottom: 0;
   display: flex;
   gap: 2px;
-  border-top: 1px solid var(--trait);
-  padding: var(--sp-2) 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top: var(--epaisseur-trait) solid var(--trait);
+  padding: var(--espace-interne) 10px calc(10px + env(safe-area-inset-bottom, 0px));
   background: var(--papier);
   z-index: 20;
 }
 
-/* **44 px de haut** (C4). Les onglets faisaient 26 px : c'est la navigation
-   principale, utilisée debout, dehors, une main sur le guidon, parfois avec
-   des gants longs. Un geste raté ici est un geste raté sur le seul moyen
-   d'aller ailleurs. */
 .onglets button {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   background: none;
   border: none;
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon);
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muet);
-  padding: 12px 2px;
+  font-size: var(--texte-petit);
+  font-weight: var(--graisse-emphase);
+  color: var(--texte-attenue);
+  padding: 8px 2px;
   min-height: 44px;
   cursor: pointer;
-  transition: background-color var(--duree) var(--easing), color var(--duree) var(--easing);
+}
+/* Le pictogramme reprend l'encre du bouton (`currentColor`, posé dans
+   `Pictogrammes.tsx`) : repos atténué, survol et actif en encre pleine,
+   sans qu'aucune règle de couleur ne soit à écrire ici. Un texte l'accompagne
+   toujours — l'icône ne porte jamais seule le sens (contrainte du lot). */
+.onglet-icone {
+  display: block;
+}
+.onglet-libelle {
+  line-height: 1;
 }
 
+/* repos → survol : un lavis neutre, jamais une teinte. */
 .onglets button:hover {
-  color: var(--encre-2);
-  background: var(--trait);
+  color: var(--texte);
+  background: var(--interactif-survol-fond);
 }
 
+/* actif (destination courante) : plein encre, comme tout élément « pressé »
+   de ce système. */
 .onglets button[aria-current="page"] {
-  color: var(--accent);
-  font-weight: 700;
-  background: var(--accent-doux);
+  color: var(--interactif-actif-texte);
+  font-weight: var(--graisse-forte);
+  background: var(--interactif-actif-fond);
 }
 .onglets button[aria-current="page"]:hover {
-  background: var(--accent-doux);
+  background: var(--interactif-actif-fond);
 }
 
-/* ---------- blocs ---------- */
+/* ================================================================
+   BLOCS — délimités par un filet, jamais par une boîte
+   ================================================================ */
 
 .bloc {
-  border: 1px solid var(--trait);
-  border-radius: var(--r);
-  padding: var(--sp-4);
-  margin-bottom: var(--sp-3);
-  background: var(--carte);
+  border: none;
+  border-top: var(--epaisseur-trait) solid var(--trait);
+  border-radius: var(--rayon);
+  padding: var(--espace-bloc) 0;
+  margin-bottom: 0;
 }
-/* **Moins de boîtes dans des boîtes.** `.bloc.doux` portait la même bordure
-   que `.bloc` : un écran de réglages ou d'échec empile alors cinq cadres
-   identiques, et rien ne dit lequel est un simple regroupement (`doux`) et
-   lequel demande une décision. Le fond seul suffit à distinguer un
-   regroupement du papier — la bordure ne reste que là où il y a vraiment un
-   choix à faire ou une carte à sélectionner. */
-.bloc.doux {
-  background: var(--carte);
-  border-color: transparent;
-  box-shadow: var(--ombre-sm);
-}
-/* Le bloc choisi ou mis en avant : plus de matière, pas seulement un trait.
-   Un fond légèrement teinté fait qu'on le voit avant de lire son contour. */
-.bloc.choisi {
-  border-color: var(--accent);
-  border-width: 1.5px;
-  background: var(--accent-doux);
-  padding: calc(var(--sp-4) - 0.5px);
-  box-shadow: var(--ombre);
+.bloc:first-child {
+  border-top: none;
+  padding-top: 0;
 }
 
-/* Une carte sur laquelle on choisit (proposition, boucle, jour de la
-   semaine) : elle réagit au survol comme le reste de l'interface, pas
-   seulement le bouton qu'elle contient. */
+/* Un simple regroupement (réglages, résumé de profil) : pas de filet propre,
+   juste un resserrement de l'espacement interne — la distinction avec
+   `.bloc` nu tient à l'espacement, pas à une bordure ou un fond. */
+.bloc.doux {
+  border: none;
+  padding: var(--espace-champ) 0;
+}
+
+/* **Le bloc choisi ou mis en avant est une décision, pas une mesure**
+   (règle 3) : il se cercle d'un trait d'encre épais, jamais d'une couleur —
+   c'est la traduction directe, en composant, de la « recommandation
+   cerclée » de la rose des directions. ÉTAT : sélectionné. */
+.bloc.choisi {
+  border: var(--epaisseur-decision) solid var(--texte);
+  border-top: var(--epaisseur-decision) solid var(--texte);
+  padding: calc(var(--espace-bloc) - var(--epaisseur-decision)) var(--espace-champ);
+}
+
+/* La carte sur laquelle on choisit (proposition, boucle, jour) réagit au
+   survol de son bouton interne — ÉTAT : survol, avant décision. */
 .bloc:has(> .carte-bouton:hover) {
   border-color: var(--trait-fort);
 }
 .bloc.choisi:has(> .carte-bouton:hover) {
-  border-color: var(--accent);
+  border-color: var(--texte);
 }
 
 .bloc-tete {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-2);
+  gap: var(--espace-champ);
+  margin-bottom: var(--espace-interne);
 }
 .bloc-tete h2,
 .bloc-tete h3 {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--texte-sous-titre);
+  font-weight: var(--graisse-forte);
   letter-spacing: -0.01em;
 }
 .bloc-tete .rang {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--muet);
-  letter-spacing: 0.08em;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  color: var(--texte-attenue);
+  letter-spacing: var(--sv-suivi-oeil);
   text-transform: uppercase;
 }
 
-.chiffres {
-  display: flex;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
-  font-family: var(--mono);
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--encre-2);
-}
-.chiffres b {
-  color: var(--encre);
-  font-weight: 600;
-}
-.chiffres.espace {
-  margin-bottom: var(--sp-3);
+/* Le bloc hero de l'estimation (Demander) : un cran d'espace de plus pour
+   qu'il se détache du formulaire qui le suit. */
+.bloc.choisi.hero {
+  margin-bottom: var(--espace-groupe);
 }
 
-/* Une liste simple dans un bloc (la tenue, par exemple) : la puce reste,
-   l'indentation par défaut du navigateur ne s'accorde pas avec le rythme du
-   reste de l'écran. */
+/* Le regroupement de rangées (réglages, zones) : padding pensé pour que la
+   première et la dernière rangée respirent autant que les autres. */
+.bloc.liste {
+  padding: var(--espace-etiquette) 0;
+}
+
+/* ================================================================
+   CHIFFRES, TITRES, MENTIONS
+   ================================================================ */
+
+/* Tout nombre mesuré est tabulaire, en police à chasse fixe — jamais la
+   police texte : c'est la règle du produit (« il en affiche partout »),
+   tenue par construction plutôt que rappelée composant par composant. */
+.chiffres {
+  display: flex;
+  gap: var(--espace-bloc);
+  flex-wrap: wrap;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-petit);
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-attenue);
+}
+.chiffres b {
+  color: var(--texte);
+  font-weight: var(--graisse-emphase);
+}
+.chiffres.espace {
+  margin-bottom: var(--espace-champ);
+}
+/* Le second chiffre (temps de mouvement, à côté du porte à porte) : présent,
+   mais second — poids et couleur de retrait, jamais supprimé. */
+.chiffres > .second-chiffre {
+  color: var(--texte-attenue);
+  font-weight: var(--graisse-texte);
+}
+
+/* La jauge de pluie (`composants/JaugePluie.tsx`), dans le même `<span>` du
+   rang de `.chiffres`. `.jauge-pluie` reste un flux de texte normal (pas de
+   flex) : une phrase longue — « (35 min sous la pluie) » — doit s'enrouler
+   comme n'importe quel texte, pas comme une rangée flex qui isolerait le
+   chiffre. Seule `.jauge-pluie-valeur` (le dessin et son chiffre) est un
+   petit `inline-flex` insécable. */
+.jauge-pluie-valeur {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espace-etiquette);
+  white-space: nowrap;
+}
+.jauge-pluie-valeur svg {
+  flex-shrink: 0;
+}
+
 .liste-simple {
   margin: 0;
   padding-left: 18px;
 }
 
-/* **Le point de fuite de l'écran.** C'est le chiffre qui répond à la
-   question posée — la distance, la durée, l'estimation — et il doit se voir
-   avant qu'on le lise. Il grandit nettement (27 → 36 px) : sur un écran qui
-   montre par ailleurs beaucoup de texte de second rang, l'écart doit être
-   sans ambiguïté. */
+/* **Le point de fuite de l'écran** : le chiffre qui répond à la question
+   posée. Taille géante de l'échelle, tabulaire, gras. */
 .grand {
-  font-family: var(--mono);
-  font-size: 36px;
-  font-weight: 700;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-chiffre-cle);
+  font-weight: var(--graisse-forte);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
+  line-height: var(--interligne-serre);
 }
 .grand small {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--muet);
+  font-size: var(--texte-petit);
+  font-weight: var(--graisse-texte);
+  color: var(--texte-attenue);
   margin-left: 3px;
 }
-/* Un chiffre-clé de second rang — l'heure de l'écran d'attente, la distance
-   dans l'en-tête d'un détail déjà annoncée ailleurs : présent, mais pas
-   *le* point de fuite de l'écran. */
 .grand.secondaire {
-  font-size: 22px;
+  font-size: var(--texte-titre);
 }
 
-/* Le duo de chiffres-clés de l'estimation (E16, « Ce que ça donnera ») :
-   c'est le point de fuite de l'écran « Demander », il a droit à son propre
-   espacement, plus large que le reste. */
 .estimation-duo {
   display: flex;
-  gap: var(--sp-6);
+  gap: var(--espace-groupe);
   flex-wrap: wrap;
   align-items: baseline;
-  margin-bottom: var(--sp-2);
-}
-/* Le bloc qui porte ce duo : un cran d'écart de plus que les autres blocs
-   choisis, pour qu'il se détache nettement du formulaire qui le suit. */
-.bloc.choisi.hero {
-  margin-bottom: var(--sp-6);
+  margin-bottom: var(--espace-interne);
 }
 
 .mention {
-  /* 13 px : ces phrases se lisent dehors, en plein jour, avant de partir. */
-  font-size: 13px;
-  color: var(--muet);
-  line-height: 1.5;
+  font-size: var(--texte-petit);
+  color: var(--texte-attenue);
+  line-height: var(--interligne);
   margin: 0;
 }
 .mention.centre {
   text-align: center;
-  margin-top: var(--sp-3);
+  margin-top: var(--espace-champ);
 }
-/* La phrase qui distingue une proposition (« passe au large de l'averse… ») :
-   c'est elle qui répond à « pourquoi celle-ci plutôt qu'une autre », elle
-   mérite un cran de plus que le reste du texte de second rang. */
 .mention.forte {
-  color: var(--encre-2);
-  margin-bottom: var(--sp-2);
+  color: var(--texte);
+  margin-bottom: var(--espace-interne);
 }
 
+/* ---------- encarts : jamais une couleur, un poids et un mot ----------
+   Les quatre variantes de l'ancien système (info/attention/alerte/bien)
+   étaient chacune une teinte de fond. Sous la règle 1 (« si c'est coloré,
+   c'est une mesure »), un message système n'a pas droit à une teinte : il
+   n'en a jamais été une, sémantiquement. La sévérité se lit désormais au
+   poids du filet gauche et à une amorce en capitales — jamais à une
+   couleur. */
 .encart {
-  border-radius: var(--rayon-sm);
-  border-left: 3px solid transparent;
-  padding: var(--sp-3) var(--sp-3);
-  font-size: 12.5px;
-  line-height: 1.5;
-  margin-bottom: var(--sp-3);
+  border-left: var(--epaisseur-trait) solid var(--trait-fort);
+  padding: var(--espace-champ);
+  font-size: var(--texte-petit);
+  line-height: var(--interligne);
+  margin-bottom: var(--espace-champ);
+  color: var(--texte);
 }
-.encart.info {
-  background: var(--info-fond);
-  color: var(--accent-fort);
-  border-left-color: var(--accent);
+.encart::before {
+  display: block;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  font-weight: var(--graisse-emphase);
+  letter-spacing: var(--sv-suivi-oeil);
+  text-transform: uppercase;
+  color: var(--texte-attenue);
+  margin-bottom: var(--espace-etiquette);
+}
+.encart.info::before {
+  content: "Repère";
+}
+.encart.bien::before {
+  content: "Confirmé";
 }
 .encart.attention {
-  background: var(--attention-fond);
-  color: var(--attention);
-  border-left-color: var(--attention);
+  border-left-width: var(--epaisseur-trait-fort);
+}
+.encart.attention::before {
+  content: "Attention";
 }
 .encart.alerte {
-  background: var(--alerte-fond);
-  color: var(--alerte);
-  border-left-color: var(--alerte);
+  border-left-width: var(--epaisseur-decision);
+  border-left-color: var(--texte);
 }
-.encart.bien {
-  background: var(--bien-fond);
-  color: var(--bien);
-  border-left-color: var(--bien);
+.encart.alerte::before {
+  content: "Ça n'a pas marché";
 }
 .encart b {
-  font-weight: 600;
+  font-weight: var(--graisse-emphase);
 }
 
-/* ---------- saisies ---------- */
+/* ================================================================
+   SAISIES ET BOUTONS
+   ================================================================ */
 
 .champ {
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--espace-section);
 }
 .champ label {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--encre);
-  margin-bottom: var(--sp-2);
+  font-size: var(--texte-petit);
+  font-weight: var(--graisse-emphase);
+  color: var(--texte);
+  margin-bottom: var(--espace-interne);
 }
 .champ .aide {
-  font-size: 12px;
-  color: var(--muet);
-  margin-top: var(--sp-2);
-  line-height: 1.5;
+  font-size: var(--texte-oeil);
+  color: var(--texte-attenue);
+  margin-top: var(--espace-interne);
+  line-height: var(--interligne);
 }
 
+/* ÉTATS : repos, survol, focus, désactivé, invalide.
+   Cadre ET fond légèrement distinct du papier (doctrine §8, point 1) : les
+   deux signes ensemble, pas un seul — c'est ce qui manquait pour qu'un champ
+   se voie comme un champ, indépendamment de tout ce qui l'entoure. */
 .saisie {
   width: 100%;
-  border: 1.5px solid var(--trait-fort);
-  background: var(--carte);
-  border-radius: var(--rayon-sm);
+  border: var(--epaisseur-trait-fort) solid var(--trait-fort);
+  background: var(--fond-champ);
+  border-radius: var(--rayon);
   padding: 11px 12px;
-  font-family: var(--sans);
-  font-size: 16px;
-  color: var(--encre);
-  transition: border-color var(--duree) var(--easing), box-shadow var(--duree) var(--easing);
+  font-family: var(--police);
+  font-size: var(--texte-corps);
+  color: var(--texte);
 }
 .saisie:hover:not(:disabled) {
-  border-color: var(--muet);
+  border-color: var(--texte-attenue);
 }
 .saisie:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--texte);
 }
 .saisie.mono {
-  font-family: var(--mono);
-  font-size: 16px;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-corps);
 }
 .saisie:disabled {
-  color: var(--muet);
-  background: var(--papier);
+  color: var(--interactif-desactive-texte);
+  border-color: var(--interactif-desactive-trait);
 }
+/* Invalide : jamais une couleur (règle 1) — le trait double d'épaisseur et
+   la mention d'erreur porte le mot, comme partout ailleurs dans ce
+   système. */
 .saisie[aria-invalid="true"] {
-  border-color: var(--alerte);
+  border-width: var(--epaisseur-decision);
+  border-color: var(--texte);
 }
 
 .saisie-unite {
@@ -528,225 +485,298 @@ h1,
   align-items: stretch;
 }
 .saisie-unite .saisie {
-  border-radius: var(--rayon-sm) 0 0 var(--rayon-sm);
   border-right: none;
 }
+/* Fond papier, pas `--fond-champ` : ce n'est pas un champ qu'on remplit,
+   juste l'unité collée à l'input (relecture du lot, 20/09/2026) — avec
+   `--texte-attenue`, `--fond-champ` ferait tomber le contraste à 5,99:1
+   (6,63:1 en sombre), sous le seuil de 7,5:1 que le mainteneur a fixé pour
+   ce texte précisément (voir `jetons-primitives.css`, note sur
+   `--sv-encre-att`). Le cadre suffit à dire « ceci fait partie du champ ». */
 .saisie-unite .unite {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--muet);
-  border: 1.5px solid var(--trait-fort);
-  border-left: 1px solid var(--trait);
-  border-radius: 0 var(--rayon-sm) var(--rayon-sm) 0;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-petit);
+  color: var(--texte-attenue);
+  border: var(--epaisseur-trait-fort) solid var(--trait-fort);
+  border-left: var(--epaisseur-trait) solid var(--trait);
   padding: 11px 12px;
   background: var(--papier);
   display: flex;
   align-items: center;
 }
 
+/* Le bouton principal : plein encre, texte papier — même geste que tout
+   élément « actif » du système (onglet courant, segment pressé). ÉTATS :
+   repos, survol, actif (pression), désactivé. Cible ≥ 44 px conservée. */
 .bouton {
   display: block;
   width: 100%;
+  min-height: 44px;
   text-align: center;
   text-decoration: none;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--rayon-sm);
+  background: var(--interactif-actif-fond);
+  color: var(--interactif-actif-texte);
+  border: var(--epaisseur-trait) solid var(--texte);
+  border-radius: var(--rayon);
   padding: 13px;
-  font-family: var(--sans);
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--police);
+  font-size: var(--texte-corps);
+  font-weight: var(--graisse-emphase);
   cursor: pointer;
-  transition: background-color var(--duree) var(--easing), transform var(--duree) var(--easing),
-    box-shadow var(--duree) var(--easing);
-}
-@media (prefers-color-scheme: dark) {
-  .bouton {
-    color: #08181e;
-  }
 }
 .bouton:hover:not(:disabled) {
-  background: var(--accent-fort);
+  background: var(--texte-attenue);
+  border-color: var(--texte-attenue);
 }
 .bouton:active:not(:disabled) {
   transform: translateY(1px);
 }
-/* **Désactivé ≠ délavé** (C5). `opacity: .5` donnait du blanc à 50 % sur du
-   bleu à 50 % : très en dessous de 3:1, et illisible en plein jour. Or le cas
-   le plus fréquent — aucune séance ce jour-là — désactive précisément le
-   bouton principal. Le cycliste appuyait sur un bouton qu'il déchiffrait mal,
-   il ne se passait rien, et l'explication était six défilements plus haut. */
+/* **Désactivé ≠ délavé** (décision mesurée conservée à l'identique) : jamais
+   une opacité réduite sur un fond plein — un bouton principal désactivé
+   redevient un contour, texte et trait en encre atténuée, pour rester
+   lisible au lieu de se fondre dans le fond en plein soleil. */
 .bouton:disabled {
-  background: var(--trait);
-  color: var(--encre-2);
-  border-color: var(--trait-fort);
+  background: transparent;
+  color: var(--interactif-desactive-texte);
+  border-color: var(--interactif-desactive-trait);
   cursor: default;
 }
 .bouton.second {
   background: transparent;
-  color: var(--accent);
-  border: 1.5px solid var(--trait-fort);
+  color: var(--texte);
+  border: var(--epaisseur-trait-fort) solid var(--trait-fort);
 }
 .bouton.second:hover:not(:disabled) {
-  background: var(--accent-doux);
-  border-color: var(--accent);
-}
-
-/* Le retour en tête d'un écran de profondeur. Aligné à gauche et posé avant
-   le titre : c'est là qu'on cherche une sortie, et c'est la seule place qui
-   ne demande pas de faire défiler la page. La cible fait 44 px de haut, ce
-   qu'un pouce atteint sans viser. */
-.retour {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  background: none;
-  border: none;
-  border-radius: var(--rayon-sm);
-  padding: 11px 8px;
-  margin: 0 0 var(--sp-1) -8px;
-  color: var(--accent);
-  font-family: var(--sans);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color var(--duree) var(--easing);
-}
-.retour:hover {
-  background: var(--accent-doux);
-  text-decoration: underline;
+  background: var(--interactif-survol-fond);
+  border-color: var(--texte);
 }
 .bouton.fantome {
   background: transparent;
-  color: var(--muet);
+  color: var(--texte-attenue);
   border: none;
-  border-radius: var(--rayon-sm);
-  font-weight: 500;
-  font-size: 13.5px;
+  min-height: 44px;
+  font-weight: var(--graisse-emphase);
+  font-size: var(--texte-petit);
   padding: 10px;
-  transition: background-color var(--duree) var(--easing), color var(--duree) var(--easing);
 }
 .bouton.fantome:hover:not(:disabled) {
-  background: var(--trait);
-  color: var(--encre-2);
+  background: var(--interactif-survol-fond);
+  color: var(--texte);
 }
+
 .boutons {
   display: flex;
-  gap: var(--sp-3);
-  margin-top: var(--sp-2);
+  gap: var(--espace-champ);
+  margin-top: var(--espace-interne);
 }
 .boutons .bouton {
   flex: 1;
 }
 
-/* Le bouton qui enveloppe une carte sélectionnable (une proposition, une
-   boucle, un jour). `all: unset` — utilisé directement dans les écrans
-   avant ce lot — effaçait aussi le contour de focus clavier par défaut du
-   navigateur, sans en remettre un : cette classe fait le même travail visuel
-   (bouton sans apparence, pleine largeur) sans effacer l'accessibilité. */
+/* Le retour en tête d'écran — jamais « Retour » seul, toujours nommé
+   (`Retour.tsx`). Cible ≥ 44 px conservée. ÉTATS : repos, survol, focus.
+   Souligné au repos (doctrine §8, point 2) : une ligne qui agit porte un
+   signe constant, pas seulement au survol qu'un doigt ne voit jamais. */
+.retour {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espace-interne);
+  min-height: 44px;
+  background: none;
+  border: none;
+  border-radius: var(--rayon);
+  padding: 11px 8px;
+  margin: 0 0 var(--espace-etiquette) -8px;
+  color: var(--texte);
+  font-family: var(--police);
+  font-size: var(--texte-petit);
+  font-weight: var(--graisse-emphase);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  text-align: left;
+}
+.retour:hover {
+  background: var(--interactif-survol-fond);
+}
+
+/* Le bouton qui enveloppe une carte sélectionnable, sans apparence propre —
+   il ne fait que porter le focus clavier et le clic, `.bloc` et
+   `.bloc.choisi` portent l'apparence. */
 .carte-bouton {
   all: unset;
   display: block;
   width: 100%;
   box-sizing: border-box;
   cursor: pointer;
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon);
 }
 
+/* Contrôle segmenté : pressé = plein encre. ÉTATS : repos, survol, pressé
+   (aria-pressed). */
 .segments {
   display: flex;
   background: var(--papier);
-  border: 1px solid var(--trait);
-  border-radius: var(--rayon-sm);
+  border: var(--epaisseur-trait) solid var(--trait);
+  border-radius: var(--rayon);
   padding: 2px;
   gap: 2px;
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--espace-section);
 }
 .segments.colle {
-  margin-bottom: var(--sp-1);
+  margin-bottom: var(--espace-etiquette);
 }
 .segments.enveloppe {
   flex-wrap: wrap;
 }
 .segments button {
   flex: 1;
+  min-height: 38px;
   text-align: center;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--texte-petit);
   padding: 9px 4px;
-  min-height: 38px;
-  border-radius: 6px;
-  color: var(--muet);
-  font-weight: 500;
+  border-radius: var(--rayon);
+  color: var(--texte-attenue);
+  font-weight: var(--graisse-emphase);
   border: none;
   background: none;
   cursor: pointer;
-  transition: background-color var(--duree) var(--easing), color var(--duree) var(--easing);
 }
 .segments button:hover {
-  color: var(--encre);
+  color: var(--texte);
 }
 .segments button[aria-pressed="true"] {
-  background: var(--carte);
-  color: var(--encre);
-  font-weight: 600;
-  box-shadow: var(--ombre);
+  background: var(--interactif-actif-fond);
+  color: var(--interactif-actif-texte);
+  font-weight: var(--graisse-forte);
 }
 .segments button[aria-pressed="true"]:hover {
-  color: var(--encre);
+  color: var(--interactif-actif-texte);
 }
 
-/* ---------- zones ---------- */
+/* Lien de rangée (« Modifier », « Essayer ») : cible ≥ 44 px conservée.
+   Souligné au repos (doctrine §8, point 2) : c'est le signe constant d'une
+   ligne qui agit ou qui ouvre — présent avant tout survol, pour qu'il se
+   voie aussi au doigt. */
+.lien {
+  color: var(--texte);
+  font-size: var(--texte-petit);
+  font-weight: var(--graisse-emphase);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  background: none;
+  border: none;
+  border-radius: var(--rayon);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 11px 8px;
+  min-height: 44px;
+  text-align: right;
+}
+.rangee .lien {
+  margin: -11px -8px;
+}
+.lien:hover {
+  background: var(--interactif-survol-fond);
+}
+
+/* Un `.lien` qui bascule un panneau sur place (`aria-expanded`, jamais posé
+   sur celui qui agit tout de suite ou qui quitte l'écran) gagne un chevron
+   qui pivote — le second signe du point 2, doctrine §8 : « ça bascule ici »,
+   distingué sans une seule couleur. Triangle dessiné en bordure CSS, pas un
+   glyphe de police : il reste net à 16 px comme à 32. */
+.lien[aria-expanded]::after {
+  content: "";
+  display: inline-block;
+  margin-left: var(--espace-interne);
+  border-style: solid;
+  border-width: 4px 3px 0 3px;
+  border-color: currentColor transparent transparent transparent;
+  vertical-align: middle;
+  transition: transform var(--transition-duree) ease;
+}
+.lien[aria-expanded="true"]::after {
+  transform: rotate(180deg);
+}
+
+/* ================================================================
+   ZONES DE PUISSANCE — l'échelle d'effort, une vraie mesure
+   ================================================================ */
 
 .zones {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
-  margin-top: var(--sp-1);
+  gap: var(--espace-etiquette);
+  margin-top: var(--espace-etiquette);
 }
 .zone-l {
   display: grid;
   grid-template-columns: 26px 1fr auto;
-  gap: var(--sp-2);
+  gap: var(--espace-interne);
   align-items: center;
-  font-family: var(--mono);
-  font-size: 11.5px;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
   font-variant-numeric: tabular-nums;
 }
 .zone-l .n {
-  color: var(--muet);
+  color: var(--texte-attenue);
 }
 .zone-l .jauge {
   height: 9px;
-  border-radius: 2px;
+  border-radius: var(--rayon);
   min-width: 4px;
 }
 .zone-l .v {
-  color: var(--encre-2);
-  font-size: 11px;
+  color: var(--texte-attenue);
+  font-size: var(--texte-oeil);
 }
 .zone-l.endurance .n {
-  color: var(--encre);
-  font-weight: 600;
+  color: var(--texte);
+  font-weight: var(--graisse-forte);
+}
+/* La jauge de chaque zone porte la teinte d'effort correspondante — c'est
+   une mesure (la puissance visée), donc elle a droit à sa couleur. Le
+   numéro de zone écrit en toutes lettres (`.n`) reste le canal non coloré :
+   un daltonien lit « Z4 », il ne devine pas un rang dans un dégradé. La
+   couleur elle-même vient de `EcranFtp.tsx`, en ligne
+   (`var(--couleur-effort-N)`) parce qu'elle dépend du numéro de la zone,
+   pas d'une classe fixe — les règles `:nth-child` ci-dessous ne servent
+   qu'à documenter la même échelle pour tout usage futur sans style en
+   ligne. */
+.zone-l:nth-child(1) .jauge {
+  background: var(--couleur-effort-1);
+}
+.zone-l:nth-child(2) .jauge {
+  background: var(--couleur-effort-2);
+}
+.zone-l:nth-child(3) .jauge {
+  background: var(--couleur-effort-3);
+}
+.zone-l:nth-child(4) .jauge {
+  background: var(--couleur-effort-4);
+}
+.zone-l:nth-child(5) .jauge {
+  background: var(--couleur-effort-5);
 }
 
-/* ---------- étapes ---------- */
+/* ================================================================
+   ÉTAPES DE LA SÉANCE
+   ================================================================ */
 
 .etapes {
   display: flex;
   flex-direction: column;
-  margin: var(--sp-1) 0 var(--sp-5);
+  margin: var(--espace-etiquette) 0 var(--espace-section);
 }
 .etape {
   display: grid;
   grid-template-columns: 18px 1fr auto;
-  gap: var(--sp-3);
+  gap: var(--espace-champ);
   align-items: center;
-  padding: var(--sp-2) 0;
-  border-bottom: 1px solid var(--trait);
-  font-size: 13px;
+  padding: var(--espace-interne) 0;
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
+  font-size: var(--texte-petit);
 }
 .etape:last-child {
   border-bottom: none;
@@ -756,173 +786,176 @@ h1,
   height: 9px;
   border-radius: 50%;
   justify-self: center;
+  /* Valeur de repli si jamais posé sans style en ligne — la couleur réelle
+     vient de `COULEUR_TYPE` (`composants/Etapes.tsx`), en `--couleur-effort-N`,
+     posée par type d'étape (échauffement/calme en effort-1, récupération en
+     effort-2, le bloc — l'intervalle qui compte — en effort-5). */
+  background: var(--couleur-effort-2);
 }
 .etape .km {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--muet);
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  color: var(--texte-attenue);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .etape .nom b {
-  font-weight: 600;
+  font-weight: var(--graisse-emphase);
 }
 .etape .nom small {
   display: block;
-  color: var(--muet);
-  font-size: 11.5px;
+  color: var(--texte-attenue);
+  font-size: var(--texte-oeil);
 }
 
-/* ---------- rangées de réglages ---------- */
+/* ================================================================
+   RANGÉES DE RÉGLAGES
+   ================================================================ */
 
 .rangee {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-3) 0;
-  border-bottom: 1px solid var(--trait);
-  font-size: 13.5px;
+  gap: var(--espace-champ);
+  padding: var(--espace-champ) 0;
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
+  font-size: var(--texte-petit);
 }
 .rangee:last-child {
   border-bottom: none;
 }
 .rangee .cle {
-  color: var(--muet);
-  font-size: 12.5px;
+  color: var(--texte-attenue);
+  font-size: var(--texte-oeil);
 }
+/* Une valeur calculée, qu'on ne touche pas (doctrine §8, point 3) : encre
+   atténuée par défaut, sans poids ni soulignement — l'absence de signe est
+   le signe. C'était en encre pleine, indiscernable d'un `.lien` juste
+   à côté (le constat qui a ouvert ce lot, sur `151 W · 21 % de la Z2`). */
 .rangee .val {
-  font-family: var(--mono);
-  font-size: 13px;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-petit);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  color: var(--texte-attenue);
 }
 .rangee .val.texte {
-  font-family: var(--sans);
+  font-family: var(--police);
+}
+/* Le contrepoint : une valeur de rangée qui EST un `.lien` (bouton, pas
+   span) reprend l'encre pleine et le soulignement — la spécificité de trois
+   classes l'emporte volontairement sur `.rangee .val` ci-dessus, jamais
+   l'inverse. */
+.rangee .val.lien {
+  color: var(--texte);
 }
 
-/* Le regroupement de rangées (réglages, résumé de profil) : le même geste
-   que `.bloc.doux`, avec un padding pensé pour que la première et la
-   dernière rangée respirent autant que les autres — sans lui, chaque écran
-   qui empile ce motif réinventait le même padding en ligne. */
-.bloc.liste {
-  padding: var(--sp-1) var(--sp-4);
-}
-
-/* Un vélo dans la liste éditable des réglages : le même écart que le reste
-   de l'échelle entre deux vélos qui se suivent. */
 .velo-ligne {
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--espace-section);
 }
 
-/* **Une cible, pas une ligne de texte** (C4). `padding: 0` en 12,5 px donnait
-   15 px de haut à « Modifier » — le seul retour vers les réglages depuis un
-   résultat — et 18 px à « Essayer » sur les écrans d'échec, qui est le seul
-   chemin de secours du produit. Manquer cette cible-là, c'est ne pas partir
-   rouler. */
-.lien {
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 500;
-  background: none;
-  border: none;
-  border-radius: var(--rayon-sm);
-  font-family: inherit;
-  cursor: pointer;
-  padding: 11px 8px;
-  min-height: 44px;
-  text-align: right;
-  transition: background-color var(--duree) var(--easing);
-}
-.rangee .lien {
-  margin: -11px -8px;
-}
-.lien:hover {
-  background: var(--accent-doux);
-  text-decoration: underline;
-}
+/* ================================================================
+   ATTENTE — jalons et barre d'avancement
+   ================================================================ */
 
-/* ---------- jalons d'attente ---------- */
+.barre-avance {
+  height: 4px;
+  border-radius: var(--rayon);
+  background: var(--trait);
+  overflow: hidden;
+  margin: var(--espace-bloc) 0 var(--espace-interne);
+}
+/* L'avancement est indicatif (le cœur ne rend pas compte de ses étapes) :
+   l'intérieur de la barre reste en encre, jamais en couleur — ce n'est pas
+   une mesure, c'est une estimation de temps. ÉTAT : en cours de chargement,
+   permanent tant que l'écran est monté. */
+.barre-avance i {
+  display: block;
+  height: 100%;
+  background: var(--texte);
+}
 
 .jalons {
   display: flex;
   flex-direction: column;
-  margin: var(--sp-2) 0 var(--sp-1);
+  margin: var(--espace-interne) 0 var(--espace-etiquette);
 }
 .jalon {
   display: grid;
   grid-template-columns: 20px 1fr auto;
-  gap: var(--sp-3);
+  gap: var(--espace-champ);
   align-items: center;
-  padding: var(--sp-2) 0;
-  font-size: 13.5px;
-  border-bottom: 1px solid var(--trait);
+  padding: var(--espace-interne) 0;
+  font-size: var(--texte-petit);
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
 }
 .jalon:last-child {
   border-bottom: none;
 }
 .jalon .etat {
-  font-family: var(--mono);
-  font-size: 13px;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-petit);
   text-align: center;
 }
+/* Trois états d'un jalon : fait, en cours, à suivre — le poids du texte les
+   distingue, jamais une couleur (aucun des trois n'est une mesure). */
 .jalon.fait {
-  color: var(--encre-2);
-}
-.jalon.fait .etat {
-  color: var(--bien);
+  color: var(--texte-attenue);
 }
 .jalon.cours {
-  color: var(--encre);
-  font-weight: 600;
-}
-.jalon.cours .etat {
-  color: var(--accent);
+  color: var(--texte);
+  font-weight: var(--graisse-forte);
 }
 .jalon.suite {
-  color: var(--muet);
+  color: var(--texte-faible);
 }
 
-/* ---------- dépôt de fichier ---------- */
+/* ================================================================
+   DÉPÔT DE FICHIER (Importer)
+   ================================================================ */
 
+/* ÉTATS : repos, survolé par un fichier glissé (`.survole`), focus (sur le
+   bouton qu'il contient). Aucune couleur : le trait en pointillé devient
+   plein et passe en encre, exactement le geste du reste du système pour
+   « quelque chose devient actif ». */
 .depot {
-  border: 1.5px dashed var(--trait-fort);
-  border-radius: var(--r);
-  padding: var(--sp-6) var(--sp-4);
+  border: var(--epaisseur-trait-fort) dashed var(--trait-fort);
+  border-radius: var(--rayon);
+  padding: var(--espace-groupe) var(--espace-bloc);
   text-align: center;
-  background: var(--carte);
-  margin-bottom: var(--sp-3);
-  transition: border-color var(--duree) var(--easing), background-color var(--duree) var(--easing);
+  margin-bottom: var(--espace-champ);
 }
 .depot.survole {
-  border-color: var(--accent);
-  background: var(--accent-doux);
+  border-style: solid;
+  border-color: var(--texte);
 }
 .depot .grosse {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: var(--sp-1);
+  font-size: var(--texte-corps);
+  font-weight: var(--graisse-emphase);
+  margin-bottom: var(--espace-etiquette);
 }
 .depot .mt-depot {
-  margin-top: var(--sp-3);
+  margin-top: var(--espace-champ);
 }
 .depot .fmt {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--muet);
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  color: var(--texte-attenue);
   letter-spacing: 0.05em;
-  margin-top: var(--sp-3);
+  margin-top: var(--espace-champ);
 }
 
-/* ---------- carte et profil ---------- */
+/* ================================================================
+   CARTE ET VENT
+   ================================================================ */
 
 .carte {
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon);
   overflow: hidden;
-  border: 1px solid var(--trait);
+  border: var(--epaisseur-trait) solid var(--trait);
   background: var(--papier);
   height: 230px;
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--espace-champ);
 }
 .carte.haute {
   height: 300px;
@@ -933,11 +966,46 @@ h1,
   background: var(--papier);
 }
 
-/* Flèches de vent : une forme distincte par vent relatif, pas seulement une
-   teinte. Reprises de `src/ourouler/sortie/carte.py`, qui avait déjà tranché
-   ce point — pleine (face), creuse (dos), en pointillé (travers) — pour que
-   la carte reste lisible en noir et blanc et pour un daltonien. Les trois
-   couleurs sont les siennes, aux mêmes valeurs. */
+/* Traces d'une boucle candidate : retenue (choisie), non choisie, écartée
+   par le contraste — trois formes distinctes, comme dans l'ancien système,
+   parce qu'une carte doit rester lisible en noir et blanc et pour un
+   daltonien. Aucune n'est une donnée mesurée au sens des quatre familles :
+   c'est une décision (retenue/écartée) ou une absence de décision (non
+   choisie) — donc en encre, jamais en couleur, cohérent avec la matrice de
+   `Arbitrage` plus bas.
+
+   `composants/Carte.tsx` passe ces noms en `className` aux options
+   `L.PolylineOptions`/`L.CircleMarker` de Leaflet plutôt que de dupliquer une
+   couleur hexadécimale en chaîne JS : Leaflet pose ses propres `stroke`/
+   `stroke-width` comme attributs de présentation SVG, qu'une règle CSS de
+   classe — même la plus simple — l'emporte toujours sur eux dans la cascade
+   (priorité la plus basse par construction, avant toute feuille d'auteur) ;
+   `stroke`/`stroke-width`/`stroke-dasharray` ci-dessous sont donc la seule
+   source de vérité, jamais une valeur recopiée côté JS. Vérifié à l'écran
+   sur les écrans `Boucles` et `Proposition` (carte réelle, tuiles
+   OpenStreetMap). */
+.trace-retenue {
+  stroke: var(--texte);
+  stroke-width: 4;
+}
+.trace-non-choisie {
+  stroke: var(--texte-attenue);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+.trace-ecartee {
+  stroke: var(--texte);
+  stroke-width: 3;
+  stroke-dasharray: 1 7;
+}
+.trace-depart {
+  fill: var(--texte);
+  stroke: var(--texte);
+}
+
+/* Flèches de vent sur la carte — une mesure, donc une teinte, avec un canal
+   non coloré : la FORME (pleine/creuse/pointillée) distingue face/dos/
+   travers indépendamment de la couleur. */
 .vent-marqueur {
   display: flex;
   flex-direction: column;
@@ -949,92 +1017,194 @@ h1,
   display: block;
 }
 .vent-face .fleche-forme {
-  fill: #c1440e;
-  stroke: #c1440e;
+  fill: var(--couleur-vent-face-trait);
+  stroke: var(--couleur-vent-face-trait);
   stroke-width: 1;
 }
 .vent-dos .fleche-forme {
   fill: none;
-  stroke: #1b6ca8;
+  stroke: var(--couleur-vent-dos-trait);
   stroke-width: 2.6;
   stroke-linejoin: round;
 }
 .vent-travers .fleche-forme {
   fill: none;
-  stroke: #6b6b6b;
+  stroke: var(--couleur-vent-neutre);
   stroke-width: 1.8;
   stroke-dasharray: 3 2;
 }
-/* Repli défensif : `relatif` ne devrait jamais manquer ici, un vent sans
-   direction n'ayant pas de flèche. Si le cœur en rend un quand même, il se
-   voit comme une incertitude plutôt que de se déguiser en vent de travers. */
+/* Vent inconnu (repli défensif, `relatif` manquant côté cœur) : même encre
+   atténuée que le travers, mais un pointillé plus fin et plus lâche — il ne
+   doit jamais se confondre avec un travers connu, l'un est une mesure,
+   l'autre son absence (règle absolue 5). */
 .vent-inconnu .fleche-forme {
   fill: none;
-  stroke: #999;
+  stroke: var(--texte-faible);
   stroke-width: 1.2;
   stroke-dasharray: 1 3;
 }
 .vent-etiquette {
   margin-top: 1px;
-  font: 700 10px/1 system-ui, sans-serif;
+  font-family: var(--police-chiffres);
+  font-size: 10px;
+  font-weight: var(--graisse-forte);
   background: var(--papier);
   padding: 1px 3px;
-  border-radius: 3px;
+  border-radius: var(--rayon);
   white-space: nowrap;
 }
 .legende-vent .vent-swatch {
-  font-weight: 700;
+  font-weight: var(--graisse-forte);
 }
 .legende-vent .vent-face {
-  color: #c1440e;
+  color: var(--couleur-vent-face-trait);
 }
 .legende-vent .vent-dos {
-  color: #1b6ca8;
+  color: var(--couleur-vent-dos-trait);
 }
 .legende-vent .vent-travers {
-  color: #6b6b6b;
+  color: var(--couleur-vent-neutre);
 }
 
 .profil-alt {
   display: block;
   width: 100%;
   height: 74px;
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--espace-champ);
 }
 
-/* ---------- divers ---------- */
+/* ================================================================
+   ROSE DES DIRECTIONS — remplace les huit boutons de texte de `Demander`,
+   ajoutée le 20/09/2026. `composants/RoseDirections.tsx` pose ses couleurs
+   en ligne (`fill="var(--couleur-pluie-…)"`), le même geste que la pente de
+   `ProfilAltitude` juste au-dessus : le jeton dépend d'un palier calculé,
+   pas d'une classe fixe. Cette section ne porte donc que la mise en page,
+   le focus clavier et le curseur — jamais une couleur en dur.
+   ================================================================ */
 
-.pile > * + * {
-  margin-top: var(--sp-3);
+.rose-conteneur {
+  display: flex;
+  justify-content: center;
+  margin: var(--espace-champ) 0;
 }
+.rose-directions {
+  max-width: 100%;
+  height: auto;
+}
+/* Chaque secteur est un vrai contrôle (mode interactif de `Demander`), mais
+   pas un élément HTML natif : un `<button>` sait tout seul limiter sa bague
+   de focus au clavier (`:focus-visible`), un `<g role="button">` ne le sait
+   pas — trouvé à l'écran le 20/09/2026, où un clic souris laissait la bague
+   par défaut du navigateur (dorée, pas `--focus`) au lieu de rien du tout.
+   On répète donc ici, explicitement, la seule règle que `[tabindex]:
+   focus-visible` du socle ne suffit pas à couvrir. */
+.rose-secteur {
+  cursor: pointer;
+}
+.rose-secteur:focus {
+  outline: none;
+}
+.rose-secteur:focus-visible {
+  outline: var(--focus);
+  outline-offset: var(--focus-decalage);
+}
+.rose-secteur path {
+  transition: opacity var(--transition-duree);
+}
+.rose-secteur:hover path:first-child {
+  opacity: 0.82;
+}
+/* Sur un écran tactile, il n'y a pas de survol : le canal qui compte reste
+   le cerclage d'encre (recommandée) ou le pointillé (choisie), jamais cette
+   seule opacité — cohérent avec la doctrine de l'affordance (§8). */
 
-.barre-avance {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--trait);
-  overflow: hidden;
-  margin: var(--sp-4) 0 var(--sp-2);
+.legende-rose {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espace-champ);
+  margin-bottom: var(--espace-champ);
 }
-.barre-avance i {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.4s linear;
+.legende-rose .groupe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espace-etiquette);
 }
-
-.etapes-assistant {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
+.legende-rose .titre-groupe {
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  font-weight: var(--graisse-emphase);
   text-transform: uppercase;
-  color: var(--muet);
-  padding-top: var(--sp-4);
+  letter-spacing: var(--sv-suivi-oeil);
+  color: var(--texte-attenue);
+}
+.legende-rose .puce {
+  display: flex;
+  align-items: center;
+  gap: var(--espace-interne);
+  font-size: var(--texte-oeil);
+  color: var(--texte-attenue);
+}
+.pluie-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: var(--epaisseur-trait) solid var(--trait);
+  flex-shrink: 0;
+}
+.pluie-swatch[data-niveau="sec"] {
+  background: var(--papier);
+}
+.pluie-swatch[data-niveau="faible"] {
+  background: var(--couleur-pluie-fond);
+  border-color: var(--couleur-pluie-fond);
+}
+.pluie-swatch[data-niveau="modere"] {
+  background: var(--couleur-pluie-remplissage);
+  border-color: var(--couleur-pluie-remplissage);
+}
+.pluie-swatch[data-niveau="fort"] {
+  background: var(--couleur-pluie-trait);
+  border-color: var(--couleur-pluie-trait);
+}
+.pluie-swatch[data-niveau="desaccord"] {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--texte) 0,
+    var(--texte) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  background-color: var(--couleur-pluie-fond);
 }
 
-.vide {
+/* Le résumé de `Aujourdhui` (`compact`) : une seule ligne sous la rose,
+   plutôt que la légende complète — l'écran du jour se lit en trois
+   secondes, pas en dépliant une légende. */
+.rose-resume {
   text-align: center;
-  padding: var(--sp-7) var(--sp-2);
-  color: var(--muet);
+  margin-bottom: var(--espace-champ);
+}
+
+/* ================================================================
+   FORMULAIRE D'ADRESSE
+   ================================================================ */
+
+.champs-adresse {
+  border: var(--epaisseur-trait) solid var(--trait);
+  border-radius: var(--rayon);
+  padding: var(--espace-champ) var(--espace-champ) var(--espace-etiquette);
+  margin: var(--espace-champ) 0;
+  min-width: 0;
+}
+.champs-adresse legend {
+  font-size: var(--texte-oeil);
+  letter-spacing: var(--sv-suivi-oeil);
+  text-transform: uppercase;
+  color: var(--texte-attenue);
+  padding: 0 6px;
+}
+.champs-adresse .champ {
+  margin-bottom: var(--espace-champ);
 }
 
 .liste-candidats {
@@ -1043,98 +1213,80 @@ h1,
   padding: 0;
 }
 .liste-candidats li {
-  border-bottom: 1px solid var(--trait);
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
 }
 .liste-candidats button {
   width: 100%;
   text-align: left;
   background: none;
   border: none;
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon);
   font-family: inherit;
-  font-size: 13.5px;
-  color: var(--encre);
+  font-size: var(--texte-petit);
+  color: var(--texte);
   padding: 11px 8px;
   margin: 0 -8px;
   cursor: pointer;
-  transition: background-color var(--duree) var(--easing);
 }
 .liste-candidats button:hover {
-  background: var(--papier);
+  background: var(--interactif-survol-fond);
 }
 
-/* Le formulaire d'adresse — quatre champs, parce que la commune ne doit pas
-   pouvoir s'oublier (Q34). Le cadre n'est pas décoratif : il dit que les
-   champs vont ensemble et qu'aucun n'est facultatif. */
-.champs-adresse {
-  border: 1px solid var(--trait);
-  border-radius: var(--rayon-sm);
-  padding: var(--sp-3) var(--sp-3) var(--sp-1);
-  margin: var(--sp-3) 0;
-  min-width: 0;
-}
-.champs-adresse legend {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--encre-2);
-  padding: 0 6px;
-}
-.champs-adresse .champ {
-  margin-bottom: var(--sp-3);
-}
+/* ================================================================
+   ARBITRAGE — un diagnostic, entièrement en encre
+   ================================================================ */
 
-/* ---------- l'arbitrage (F2.4) ---------- */
-
-/* Replié par défaut : celui qui veut juste rouler voit une ligne, pas une
-   matrice. Le cadre sobre dit que c'est un outil de diagnostic, pas un
-   avertissement — rien n'est en panne quand une candidate est écartée. */
+/* Repliable par défaut. Le cadre est un simple filet : c'est un outil de
+   diagnostic, pas un avertissement — rien n'est en panne quand une
+   candidate est écartée. */
 .arbitrage {
-  border: 1px solid var(--trait);
-  border-radius: var(--r);
-  background: var(--carte);
-  padding: 0 var(--sp-3);
-  margin: var(--sp-4) 0;
+  border: var(--epaisseur-trait) solid var(--trait);
+  border-radius: var(--rayon);
+  padding: 0 var(--espace-champ);
+  margin: var(--espace-bloc) 0;
   min-width: 0;
 }
 .arbitrage > summary {
   cursor: pointer;
-  padding: var(--sp-3) 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent-fort);
+  padding: var(--espace-champ) 0;
+  font-size: var(--texte-petit);
+  font-weight: var(--graisse-forte);
+  color: var(--texte);
   list-style-position: inside;
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon);
 }
 .arbitrage[open] > summary {
-  border-bottom: 1px solid var(--trait);
-  margin-bottom: var(--sp-2);
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
+  margin-bottom: var(--espace-interne);
 }
 .arbitrage > .mention {
-  margin-bottom: var(--sp-2);
+  margin-bottom: var(--espace-interne);
 }
 .arbitrage h3 {
-  font-size: 13px;
-  margin: var(--sp-4) 0 var(--sp-1);
+  font-size: var(--texte-petit);
+  margin: var(--espace-bloc) 0 var(--espace-etiquette);
 }
 
 .verdicts {
   list-style: none;
-  margin: 0 0 var(--sp-3);
+  margin: 0 0 var(--espace-champ);
   padding: 0;
 }
 .verdicts > li {
-  border-left: 3px solid var(--trait-fort);
-  padding: var(--sp-2) 0 var(--sp-2) var(--sp-2);
-  margin-bottom: var(--sp-2);
+  border-left: var(--epaisseur-trait-fort) solid var(--trait-fort);
+  padding: var(--espace-interne) 0 var(--espace-interne) var(--espace-interne);
+  margin-bottom: var(--espace-interne);
 }
-/* La couleur double une étiquette en toutes lettres, jamais l'inverse : le
-   sort se lit sans distinguer le rouge du vert. */
+/* Le sort d'une candidate est une décision de l'algorithme, pas une mesure
+   (règle 3) : poids du filet gauche et de l'étiquette, jamais une couleur —
+   le mot en toutes lettres (`.etiquette`) reste la seule source de vérité,
+   avant et après cette règle. */
 .verdicts > li.sort-retenue {
-  border-left-color: var(--accent);
+  border-left-width: var(--epaisseur-decision);
+  border-left-color: var(--texte);
 }
 .verdicts > li.sort-ecartee {
-  border-left-color: var(--alerte);
+  border-left-color: var(--texte-attenue);
 }
 .verdicts > li.sort-place {
   border-left-color: var(--trait-fort);
@@ -1142,88 +1294,86 @@ h1,
 .verdict-tete {
   display: flex;
   align-items: baseline;
-  gap: var(--sp-2);
-  font-family: var(--mono);
-  font-size: 12.5px;
+  gap: var(--espace-interne);
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-petit);
   margin-bottom: 3px;
 }
 .etiquette {
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
+  font-size: var(--texte-oeil);
+  letter-spacing: var(--sv-suivi-oeil);
   text-transform: uppercase;
-  border-radius: 4px;
+  border-radius: var(--rayon);
   padding: 1px 6px;
+  border: var(--epaisseur-trait) solid var(--trait-fort);
 }
 .etiquette.sort-retenue {
-  background: var(--accent-doux);
-  color: var(--accent-fort);
+  border-color: var(--texte);
+  color: var(--texte);
+  font-weight: var(--graisse-forte);
 }
 .etiquette.sort-ecartee {
-  background: var(--alerte-fond);
-  color: var(--alerte);
+  color: var(--texte-attenue);
 }
 .etiquette.sort-place {
-  background: var(--papier);
-  color: var(--muet);
+  color: var(--texte-faible);
 }
 .verdicts .motif {
   margin-top: 3px;
 }
 
-/* La matrice déborde plutôt que de se comprimer : huit candidates font huit
-   colonnes, et un pourcentage illisible ne vaut pas mieux qu'aucun. */
 .matrice-cadre {
   overflow-x: auto;
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--espace-champ);
 }
 .matrice {
   border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 12px;
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
   font-variant-numeric: tabular-nums;
 }
 .matrice caption {
   caption-side: top;
   text-align: left;
-  font-family: var(--sans);
-  font-size: 13px;
-  color: var(--muet);
-  line-height: 1.45;
-  padding-bottom: var(--sp-2);
+  font-family: var(--police);
+  font-size: var(--texte-petit);
+  color: var(--texte-attenue);
+  line-height: var(--interligne);
+  padding-bottom: var(--espace-interne);
 }
 .matrice th,
 .matrice td {
-  border: 1px solid var(--trait);
+  border: var(--epaisseur-trait) solid var(--trait);
   padding: 4px 8px;
   text-align: right;
   white-space: nowrap;
 }
 .matrice th {
-  color: var(--muet);
-  font-weight: 600;
+  color: var(--texte-attenue);
+  font-weight: var(--graisse-emphase);
 }
 .case-diagonale {
   background: var(--papier);
-  color: var(--trait-fort);
+  color: var(--texte-faible);
 }
 .case-sous {
-  color: var(--encre-2);
+  color: var(--texte-attenue);
 }
-/* La case qui interdit un groupe. Le fond la fait voir d'un coup d'œil, et
-   c'est exactement le geste que le mainteneur demandait : trouver le défaut
-   en regardant, pas en lisant. */
+/* La case qui disqualifie un groupe : c'est le fait le plus important du
+   panneau, et c'est une décision (« ce groupe est éliminé »), pas la mesure
+   elle-même (le pourcentage, lui, reste affiché en chiffres). Gras et
+   cerclé, jamais rouge. */
 .case-au-dessus {
-  background: var(--alerte-fond);
-  color: var(--alerte);
-  font-weight: 600;
+  font-weight: var(--graisse-forte);
+  box-shadow: inset 0 0 0 var(--epaisseur-decision) var(--texte);
 }
 
 .phrase-essais {
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--espace-champ);
 }
 .avant-contraste {
-  border-top: 1px solid var(--trait);
-  padding-top: var(--sp-1);
+  border-top: var(--epaisseur-trait) solid var(--trait);
+  padding-top: var(--espace-etiquette);
 }
 .invisible {
   position: absolute;
@@ -1234,45 +1384,86 @@ h1,
   white-space: nowrap;
 }
 
-/* ---------- le second temps, porte à porte (18/09/2026) ---------- */
+/* ================================================================
+   BARRIÈRE — le dernier filet
+   ================================================================ */
 
-/* Même geste que `.arbitrage` — un dépliant sobre, replié par défaut —
-   repris tel quel : c'est la même idée, dire ce qui est caché plutôt que de
-   le taire, appliquée à un autre chiffre. */
+/* Pas d'état à documenter au sens interactif : ce composant n'a qu'un seul
+   affichage, déclenché par une erreur de rendu React imprévue. Reprend les
+   classes `.coquille`, `.app-tete`, `.encart.alerte`, `.bloc.doux`,
+   `.bouton` déjà définies ci-dessus — aucune règle propre. */
+
+/* ================================================================
+   ÉLARGISSEMENT — bandeau informatif, encart déjà couvert
+   ================================================================ */
+
+/* `BandeauElargissement` réutilise `.encart.info` et sa liste `.mention` —
+   aucune règle propre non plus. */
+
+/* ================================================================
+   TEMPS ÉCOULÉ — le dépliant « d'où viennent ces deux chiffres »
+   ================================================================ */
+
 .temps-ecoule {
-  margin: var(--sp-2) 0 var(--sp-3);
+  margin: var(--espace-interne) 0 var(--espace-champ);
 }
 .temps-ecoule > .mention {
-  margin: 0 0 var(--sp-2);
+  margin: 0 0 var(--espace-interne);
 }
 .temps-ecoule > details {
-  border: 1px solid var(--trait);
-  border-radius: var(--r);
-  background: var(--carte);
-  padding: 0 var(--sp-3);
+  border: var(--epaisseur-trait) solid var(--trait);
+  border-radius: var(--rayon);
+  padding: 0 var(--espace-champ);
 }
 .temps-ecoule > details > summary {
   cursor: pointer;
-  padding: var(--sp-2) 0;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--accent-fort);
+  padding: var(--espace-interne) 0;
+  font-size: var(--texte-oeil);
+  font-weight: var(--graisse-forte);
+  color: var(--texte);
   list-style-position: inside;
-  border-radius: var(--rayon-sm);
+  border-radius: var(--rayon);
 }
 .temps-ecoule > details[open] > summary {
-  border-bottom: 1px solid var(--trait);
-  margin-bottom: var(--sp-2);
+  border-bottom: var(--epaisseur-trait) solid var(--trait);
+  margin-bottom: var(--espace-interne);
 }
 .temps-ecoule > details > .mention {
-  margin-bottom: var(--sp-2);
+  margin-bottom: var(--espace-interne);
 }
 
-/* Le temps sans arrêt, juste à côté du porte à porte : présent, mais second.
-   Sans ce retrait visuel, deux durées côte à côte se lisent comme deux
-   grandeurs de même rang, et on ne sait plus laquelle répond à la question
-   posée (« je demande 5 h »). */
-.chiffres > .second-chiffre {
-  color: var(--muet);
-  font-weight: 400;
+/* ================================================================
+   ÉCRAN FTP — pas de règle propre au-delà de `.zones`/`.zone-l` ci-dessus,
+   `.champ`/`.saisie`/`.saisie-unite`/`.encart` déjà couverts.
+   ================================================================ */
+
+/* ================================================================
+   DIVERS — classes hors des douze composants nommés au brief du système
+   ================================================================ */
+
+.etapes-assistant {
+  font-family: var(--police-chiffres);
+  font-size: var(--texte-oeil);
+  letter-spacing: var(--sv-suivi-oeil);
+  text-transform: uppercase;
+  color: var(--texte-attenue);
+  padding-top: var(--espace-bloc);
+}
+
+/* ÉTAT : vide. Un écran vide se lit « rien de prévu » — jamais silencieux,
+   toujours un mot. */
+.vide {
+  text-align: center;
+  padding: var(--espace-ecran) var(--espace-interne);
+  color: var(--texte-attenue);
+}
+
+/* L'aperçu de la semaine (`ecrans/MaSemaine.tsx`, `ApercuSemaine`) — sept
+   colonnes, en encre seule (voir le commentaire d'en-tête du composant :
+   la durée n'est pas une des familles de données mesurées du système). */
+.apercu-semaine-conteneur {
+  margin-bottom: var(--espace-groupe);
+}
+.apercu-semaine {
+  display: block;
 }

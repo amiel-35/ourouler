@@ -393,6 +393,35 @@ def fleches_vent(meteo: MeteoTrace | None) -> list[dict]:
     return fleches
 
 
+def vent_par_position(meteo: MeteoTrace | None) -> list[dict]:
+    """Le vent le long du **tracé entier**, pour colorer le tracé lui-même.
+
+    `ChampVent` (`seance.vent`) le dit déjà dans sa docstring : le vent est
+    « interrogeable à n'importe quelle position ». `fleches_vent` ci-dessus
+    n'en montre qu'une fraction — filtrée au seuil où le vent se sent, pour
+    ne pas encombrer la carte de flèches. Colorer le tracé demande l'inverse :
+    savoir, à CHAQUE portion, si elle se fait de face, dans le dos, de
+    travers ou sans direction connue — même sous le seuil, faute de quoi la
+    coloration laisserait des trous muets aux portions de vent faible. C'est
+    exactement le calcul déjà fait pour `part_vent_face`/`part_vent_dos`
+    (`_resumer` ci-dessous) : aucun filtre de sensibilité là non plus, sur le
+    même argument (« un échantillon sans vent ne doit pas compter pour du
+    travers », mais un vent faible de face reste de face). Ce n'est donc pas
+    un second seuil inventé pour l'occasion.
+
+    Rend une position par échantillon (`dist_m` suffit : le front a déjà la
+    géométrie complète du tracé dans `trace.profil`, `dist_m` cumulée comme
+    ici, et sait y découper une portion — voir `Proposition.portion` côté
+    front). `relatif` vaut `None` quand `meteo.rapport.vent_relatif` n'a pas
+    pu trancher (direction ou cap local absents) : le front garde alors cette
+    portion en encre, jamais en couleur (règle absolue 5 — l'ignorance ne se
+    montre pas comme une valeur).
+    """
+    if meteo is None:
+        return []
+    return [{"dist_m": round(e.dist_m), "relatif": e.vent_relatif} for e in meteo.echantillons]
+
+
 # --- échantillonnage ---------------------------------------------------------
 
 

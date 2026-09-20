@@ -25,6 +25,7 @@ import { nombre, pourcentage, usageDeVelo } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
+import { RetourEnTete } from "../composants/Retour";
 
 type Etape =
   | "bienvenue"
@@ -100,9 +101,15 @@ interface Props {
   surProfil: (profil: Profil) => void;
   surZones: (zones: Zones) => void;
   surFin: () => void;
+  /** D'où l'assistant a été ouvert (Aujourd'hui, à la première connexion ;
+   * Réglages, via « Refaire l'installation ») — jamais « Retour » seul. */
+  vers: string;
+  /** Quitter l'assistant sans le terminer — il ne force jamais qu'une
+   * seule fois (`App.tsx`), la personne doit pouvoir sortir volontairement. */
+  surRetour: () => void;
 }
 
-export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props) {
+export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, surRetour }: Props) {
   const [etape, setEtapeSeule] = useState<Etape>("bienvenue");
   const [historique, setHistorique] = useState<Etape[]>([]);
   const [panne, setPanne] = useState<string | null>(null);
@@ -261,6 +268,10 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin }: Props)
 
   return (
     <section>
+      {/* L'assistant n'avait aucun moyen d'en sortir avant la fin (constat
+          du 19/09/2026) — seulement un pas en arrière dans l'arbre
+          (`revenir`, plus bas), jamais une sortie complète. */}
+      <RetourEnTete vers={vers} surRetour={surRetour} />
       <div className="etapes-assistant">{rubrique}</div>
       <div className="app-tete">
         <div>

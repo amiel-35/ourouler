@@ -98,7 +98,7 @@ export function Attente({ titre = "On cherche", contexte, budget, annuler }: Pro
         })}
       </div>
 
-      <div className="encart info" style={{ marginTop: "var(--sp-4)" }}>
+      <div className="encart info" style={{ marginTop: "var(--espace-bloc)" }}>
         <b>{phraseBudget(budget)}</b>
       </div>
       <p className="mention">
@@ -106,7 +106,7 @@ export function Attente({ titre = "On cherche", contexte, budget, annuler }: Pro
         les secondes écoulées sont réelles.
       </p>
       {depasse ? (
-        <p className="mention" style={{ marginTop: "var(--sp-2)" }}>
+        <p className="mention" style={{ marginTop: "var(--espace-interne)" }}>
           Ça dure plus longtemps que prévu. Le calcul tourne toujours — ne rechargez pas, une
           page rechargée relance tout depuis le début.
         </p>

@@ -1675,6 +1675,13 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
     assert fleches, "un vent bouchonné à 14 km/h doit produire des flèches"
     for fleche in fleches:
         assert set(fleche) == {"pt", "depuis_deg", "vent_kmh", "rafale_kmh", "relatif"}
+    # Le tracé entier, pour le colorer (lot d'affordance, 20/09/2026) : une
+    # position par échantillon, sans le filtre de sensibilité de `fleches_vent`
+    # — donc au moins autant de positions que de flèches.
+    positions = candidate["meteo"]["vent_par_position"]
+    assert len(positions) >= len(fleches)
+    for position in positions:
+        assert set(position) == {"dist_m", "relatif"}
 
 
 def test_une_etape_libre_compte_dans_le_dimensionnement(tmp_path: Path):

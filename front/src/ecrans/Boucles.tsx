@@ -25,6 +25,7 @@ import { Carte, LegendeVent } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
+import { JaugePluie } from "../composants/JaugePluie";
 
 interface Props {
   reponse: Enveloppe<Boucle>;
@@ -130,9 +131,10 @@ export function Boucles({ reponse, surRetour }: Props) {
               />
               {candidate.meteo?.pluie_cumulee_mm !== null &&
               candidate.meteo?.pluie_cumulee_mm !== undefined ? (
-                <span>
-                  <b>{nombre(candidate.meteo.pluie_cumulee_mm, 1)}</b> mm de pluie
-                </span>
+                <JaugePluie
+                  mm={candidate.meteo.pluie_cumulee_mm}
+                  minutesPluie={candidate.meteo.minutes_pluie}
+                />
               ) : null}
               {candidate.meteo?.part_vent_face !== null &&
               candidate.meteo?.part_vent_face !== undefined ? (

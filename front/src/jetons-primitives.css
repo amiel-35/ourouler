@@ -1,0 +1,327 @@
+/**
+ * LES PRIMITIVES — « suisse vivante », appliquée.
+ *
+ * Couche 1 des deux couches de la doctrine (`docs/ux/doctrine_design_system.md`,
+ * §1) : une valeur brute à un rang (une teinte à un palier, une taille à un
+ * rang, une durée). **Une primitive ne dit jamais à quoi elle sert** — c'est
+ * `jetons-semantiques.css` qui nomme le rôle, et c'est la seule couche qu'un
+ * écran ou un composant a le droit de lire.
+ *
+ * Convention de nommage : tout nom commence par `--sv-`. Si vous voyez
+ * `--sv-*` référencé depuis un `.tsx` ou un fichier d'écran, c'est un bug de
+ * doctrine — au même titre qu'une fonction du cœur Python qui lit une
+ * variable d'environnement (règle absolue 2 de `CLAUDE.md`).
+ *
+ * Origine : synthèse des huit directions du sprint 8 (encre, papier, filets,
+ * les quatre teintes de données, la grille, la typographie) posée dans
+ * `front/directions/jetons-suisse-vivante.css` le 19/09/2026, complétée le
+ * 20/09/2026 par ce que `docs/ux/inventaire_systeme_visuel.md` a révélé
+ * manquant pour couvrir les onze écrans réels — espacement, épaisseur des
+ * traits, intensité d'effort (Z1–Z5) — dans `front/directions/jetons-systeme.css`.
+ * Ce fichier fusionne les deux : il n'existe plus qu'un seul endroit où
+ * chercher une primitive.
+ *
+ * Le parti pris tient en une phrase du mainteneur : « l'interface en noir et
+ * blanc, les données en couleur ». Tout ce qui est structure — grille,
+ * filets, boutons, la marque « recommandée » — reste en encre, jamais en
+ * couleur : une décision n'est pas une donnée mesurée, elle n'a pas à
+ * emprunter une teinte. Seules les données mesurées (pluie, vent, trafic,
+ * effort) portent une couleur, et cette couleur est pâle mais franche — un
+ * bleu qui est vraiment bleu, pas un gris bleuté — parce qu'elle est la seule
+ * tache de couleur d'un écran par ailleurs entièrement en noir et blanc.
+ *
+ * Discipline : une teinte, une seule catégorie, jamais deux. Cinq familles
+ * de teinte existent et couvrent tout le produit :
+ *   - pluie      (bleu)   — ce qui tombe
+ *   - vent-dos   (vert)   — ce qui pousse, favorable
+ *   - vent-face  (orange) — ce qui freine, défavorable
+ *   - trafic     (violet) — la route qui compte, la circulation
+ *   - effort     (ambre)  — l'intensité de puissance visée (Z1–Z5), un
+ *     cinquième *métier*, pas une cinquième catégorie de la même mesure : il
+ *     n'apparaît jamais dans la même vue qu'une donnée météo, donc « une
+ *     teinte, une catégorie » n'est pas violée. Cinq crans, pas trois : c'est
+ *     une échelle ordinale (Z1 à Z5), pas trois paliers d'une même mesure.
+ * Le vent traversier n'a délibérément AUCUNE teinte : ni gênant ni favorable,
+ * il reste en encre. Une sixième couleur pour lui aurait dilué la règle pour
+ * un cas qui ne coûte rien.
+ *
+ * Chaque teinte des quatre familles météo/route a trois paliers (100 pâle,
+ * 300 moyen, 600 soutenu) et TROIS usages fixes, jamais improvisés :
+ *   - 100 : fond d'un bloc porteur de texte (l'encre s'y pose dessus)
+ *   - 300 : remplissage d'un tracé, d'une aire de profil, d'une jauge
+ *   - 600 : trait, icône, bordure — jamais un fond de texte
+ * L'effort a cinq crans au lieu de trois (voir plus bas), chacun utilisé
+ * comme un « 600 » : un aplat contre le papier (jauge, puce), jamais un fond
+ * de texte.
+ *
+ * CONTRASTES VÉRIFIÉS PAR LE CALCUL (WCAG 2.1, luminance relative) — mesurés
+ * avec un script, pas à l'œil, rejoués pour chaque teinte :
+ *   clair — encre #14181c sur papier #ffffff ................ 17.8:1
+ *   clair — encre-att #4d555d sur papier ....................... 7.6:1
+ *   clair — encre sur les quatre teintes-100 ............. 14.5–15.0:1
+ *   clair — encre sur les quatre teintes-300 .............. 9.5–11.4:1
+ *   clair — chaque teinte-600 sur papier (non-texte) ....... 3.5–5.0:1
+ *   clair — encre sur chaque teinte-600 (si jamais posé) ... 3.6–6.0:1
+ *   clair — effort-1 3,12:1 · effort-2 4,11:1 · effort-3 5,88:1 ·
+ *           effort-4 8,36:1 · effort-5 11,64:1 (vs papier #ffffff)
+ *   sombre — encre #f0f2f4 sur papier #0b0d10 ................ 17.3:1
+ *   sombre — encre-att #9fb3c8 sur papier ..................... 9.0:1
+ *   sombre — chaque teinte-600 sur papier (non-texte) ...... 8.1–10.5:1
+ *   sombre — effort-1 4,72:1 · effort-2 6,91:1 · effort-3 9,95:1 ·
+ *            effort-4 12,30:1 · effort-5 14,43:1 (vs papier #0b0d10)
+ * Le seuil retenu : AA texte normal (4.5:1) pour tout texte, AA objet
+ * graphique (3:1) pour un trait, une icône ou une bordure. `encre-faible`
+ * (3.46:1 clair) ne sert donc jamais à du texte fin — uniquement au rail
+ * décoratif (numéros de colonne), en corps large. `trafic-600` est le seul
+ * palier où l'encre posée dessus (3.58:1) n'atteint pas 4.5:1 : la règle
+ * « 600 = jamais de texte » n'est donc pas une prudence en trop, elle évite
+ * ce cas précis en pratique.
+ *
+ * **`--sv-encre-att` relevée à 7,6:1 (lot d'application, 20/09/2026).** La
+ * synthèse du 19/09 l'avait posée à 6,8:1 en clair — sous le seuil de 7,5:1
+ * que le mainteneur avait explicitement porté dans `front/src/style.css` le
+ * 17/09/2026 (relecture F2 · C5) pour `--muet`, la même famille de texte
+ * (phrases d'honnêteté, notes, mentions), précisément parce qu'un produit
+ * lu dehors, en plein soleil, parfois à 6 h du matin, ne peut pas se
+ * permettre de perdre ses phrases les plus importantes — celles qui disent
+ * « facteur supposé, faute de mesure » — au premier rayon de soleil. Rien
+ * dans `docs/ux/direction_visuelle.md` ni dans l'usage du produit depuis le
+ * 17/09 ne justifie de revenir sur ce seuil : c'est un choix mesuré, tenu,
+ * pas une esthétique. Tranché ici en remontant la seule primitive concernée
+ * (teinte identique, un cran plus foncée) — la couche sémantique et les
+ * composants n'ont rien à savoir de ce changement. La valeur sombre
+ * (9,0:1) tenait déjà la marge, elle n'a pas bougé.
+ */
+
+:root {
+  /* ---------- encre et papier ---------- */
+
+  --sv-papier: #ffffff;
+  --sv-encre: #14181c;
+  --sv-encre-att: #4d555d; /* 7.6:1 — texte secondaire, notes d'honnêteté (relevée de 6.8:1, voir note ci-dessus) */
+  --sv-encre-faible: #838b92; /* 3.5:1 — rail décoratif seulement, jamais texte fin */
+
+  --sv-filet: #e2e5e8;
+  --sv-filet-fort: var(--sv-encre);
+
+  --sv-ombre: none; /* explicite : ce système n'a pas d'ombre */
+  --sv-rayon: 0px; /* explicite : rien n'est arrondi */
+
+  /* ---------- les quatre teintes de données, et elles seules ---------- */
+
+  --sv-pluie-100: #dcebfa;
+  --sv-pluie-300: #a8cdf2;
+  --sv-pluie-600: #3f86d6;
+
+  --sv-dos-100: #d9f1e3;
+  --sv-dos-300: #9ddcb9;
+  --sv-dos-600: #2f9068;
+
+  --sv-face-100: #fbe6d8;
+  --sv-face-300: #f0b98e;
+  --sv-face-600: #cf6f27;
+
+  --sv-trafic-100: #ece4f8;
+  --sv-trafic-300: #c2b6ea;
+  --sv-trafic-600: #7c5ec0;
+
+  /* ---------- grille ---------- */
+
+  --sv-unite: 8px;
+  --sv-marge: clamp(20px, 5vw, 64px);
+  --sv-colonnes: 12;
+  --sv-gouttiere: clamp(12px, 2vw, 24px);
+  --sv-rail: 88px;
+
+  /* ---------- typographie : pile système, aucune police distante ---------- */
+
+  --sv-police: -apple-system, "SF Pro Text", "Segoe UI", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  --sv-police-mono: ui-monospace, "SF Mono", "Cascadia Code", "Segoe UI Mono", Menlo, Consolas,
+    monospace;
+
+  --sv-taille-oeil: 0.6875rem; /* 11px — œilleton en capitales */
+  --sv-suivi-oeil: 0.14em;
+  --sv-taille-petite: 0.8125rem; /* 13px */
+  --sv-taille-corps: 1rem; /* 16px */
+  --sv-taille-titre-3: 1.0625rem; /* 17px */
+  --sv-taille-titre-2: clamp(1.25rem, 2.6vw, 1.625rem);
+  --sv-taille-titre-1: clamp(1.875rem, 5vw, 2.75rem);
+  --sv-taille-geante: clamp(2.75rem, 11vw, 4.75rem);
+
+  --sv-interligne-serre: 1.05;
+  --sv-interligne-titre: 1.15;
+  --sv-interligne: 1.5;
+
+  --sv-graisse-normale: 400;
+  --sv-graisse-medium: 500;
+  --sv-graisse-gras: 700;
+
+  --sv-duree: 120ms;
+  --sv-focus: 3px solid var(--sv-encre);
+  --sv-focus-decalage: 2px;
+
+  /* ---------- espacement : le rythme, sept rangs ----------
+     Reprise à l'identique de l'échelle `--sp-1..7` de l'ancien
+     `front/src/style.css` (4/8/12/16/24/32/48) : une progression déjà
+     mesurée et éprouvée sur les onze écrans, pas une valeur inventée pour ce
+     système. Elle n'est pas recalée sur `--sv-unite` (8px, le pas de la
+     grille de mise en page) : la grille et le rythme vertical sont deux
+     échelles différentes, et `--sv-taille-1` (4px, l'écart le plus serré —
+     étiquette à son contenu) répond à un besoin réel que 8px seul aurait
+     arrondi en silence. */
+  --sv-taille-1: 4px;
+  --sv-taille-2: 8px;
+  --sv-taille-3: 12px;
+  --sv-taille-4: 16px;
+  --sv-taille-5: 24px;
+  --sv-taille-6: 32px;
+  --sv-taille-7: 48px;
+
+  /* ---------- épaisseur des traits ----------
+     Trois rangs, pas plus : `1` couvre l'immense majorité des filets
+     horizontaux (rythme de liste, séparateurs) ; `2` est réservée à ce qui
+     doit se voir de loin (le filet sous l'en-tête, le rang le plus soutenu) ;
+     `3` est le trait d'encre de la règle 3 — cercler une décision, jamais
+     une mesure — seul emploi qui la justifie. */
+  --sv-epaisseur-1: 1px;
+  --sv-epaisseur-2: 2px;
+  --sv-epaisseur-3: 2.5px;
+
+  /* ---------- l'intensité d'effort (Z1–Z5) : un cinquième métier ----------
+     Cinq crans, comme un « 600 » des quatre familles météo : un aplat contre
+     le papier (jauge, puce), jamais un fond de texte — donc chaque cran doit
+     tenir ≥ 3:1 contre le papier de son thème (seuil AA objet graphique),
+     valeurs vérifiées ci-dessus. Le rang 5 est le plus « assertif » dans les
+     deux thèmes (le plus foncé en clair, le plus vif en sombre) — même
+     convention que les teintes-600 des quatre familles météo. */
+  --sv-effort-1: #c2861f;
+  --sv-effort-2: #ad7018;
+  --sv-effort-3: #8f5813;
+  --sv-effort-4: #71430f;
+  --sv-effort-5: #54300b;
+
+  /* ---------- la pente (ProfilAltitude) : un sixième métier ----------
+     Ajoutée le 20/09/2026 (lot d'application) : la pente est **une mesure**
+     (règle 1), pas une décision, et le profil d'altitude était resté en
+     encre par erreur — un agent avait pris un profil pour de l'interface.
+     Quatre crans, pas trois ni cinq : c'est le standard du domaine que le
+     mainteneur a demandé mot pour mot, vert jusqu'à 3 %, jaune de 3 à 6,
+     orange de 6 à 9, rouge au-delà — tout cycliste le lit sans légende,
+     contrairement aux quatre familles météo/route dont le rôle se lit dans
+     un jeton nommé, pas dans une convention universelle. Comme l'effort,
+     chaque cran est un aplat contre le papier (l'aire sous la courbe),
+     jamais un fond de texte, et tient ≥ 3:1 contre le papier de son thème en
+     clair (seuil AA objet graphique) — la même rigueur que l'effort, parce
+     que la même contrainte s'applique : lisible en plein soleil.
+
+     Tension assumée, signalée plutôt que cachée : le vert et l'orange
+     voisinent par la teinte ceux de `vent-dos`/`vent-face`, et le jaune
+     voisine `effort`. Les familles ne partagent aucune valeur (aucun nom ne
+     réutilise un autre : « une teinte, une catégorie » tient à la lettre),
+     mais la ressemblance de voisinage existe quand `Carte` (vent) et
+     `ProfilAltitude` (pente) apparaissent sur le même écran (`Proposition`).
+     Le canal non coloré de la règle d'accessibilité absolue fait le travail
+     dans ce cas précis : ce sont deux diagrammes distincts (une carte, un
+     profil), jamais le même tracé, et `ProfilAltitude` porte en plus
+     l'épaisseur du trait et le pourcentage écrit au point le plus raide —
+     voir `composants/ProfilAltitude.tsx`. Décision du mainteneur, prise
+     mot pour mot ; à confirmer à l'usage réel, pas seulement en revue.
+
+     CONTRASTES VÉRIFIÉS PAR LE CALCUL (WCAG 2.1, luminance relative,
+     méthode identique à l'en-tête de ce fichier) :
+       clair — pente-1 3.29:1 · pente-2 3.28:1 · pente-3 3.31:1 ·
+               pente-4 3.29:1 (vs papier #ffffff)
+       sombre — pente-1 7.99:1 · pente-2 8.01:1 · pente-3 7.99:1 ·
+                pente-4 8.01:1 (vs papier #0b0d10) */
+  --sv-pente-1: #5c9e3c; /* douce, < 3 % */
+  --sv-pente-2: #9b902d; /* modérée, 3–6 % */
+  --sv-pente-3: #d07642; /* forte, 6–9 % */
+  --sv-pente-4: #d4716a; /* sévère, > 9 % */
+
+  color-scheme: light dark;
+}
+
+/* Sombre par défaut système, sauf choix explicite (data-theme). Ce produit
+   se lit à l'aube comme en plein soleil (mandat) : les deux jeux visent le
+   même contraste, pas seulement l'inversion des teintes. Les teintes-600
+   sont remontées en sombre — même geste que la suisse éditoriale sur son
+   accent unique — parce qu'une teinte qui tenait 5:1 sur blanc ne tient
+   plus rien sur #0b0d10 sans être éclaircie. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sv-papier: #0b0d10;
+    --sv-encre: #f0f2f4;
+    --sv-encre-att: #9fb3c8; /* 9.0:1 — déjà au-dessus du seuil de 7,5:1, inchangée */
+    --sv-encre-faible: #7c8894; /* 5.4:1 */
+    --sv-filet: #262b30;
+    --sv-filet-fort: var(--sv-encre);
+
+    --sv-pluie-100: #14273b;
+    --sv-pluie-300: #2f5480;
+    --sv-pluie-600: #6fb0f2;
+
+    --sv-dos-100: #12291f;
+    --sv-dos-300: #276b4c;
+    --sv-dos-600: #5fd39c;
+
+    --sv-face-100: #2c2013;
+    --sv-face-300: #7a4f24;
+    --sv-face-600: #f0a25c;
+
+    --sv-trafic-100: #211a30;
+    --sv-trafic-300: #4a3872;
+    --sv-trafic-600: #b79ae8;
+
+    --sv-effort-1: #a8721f;
+    --sv-effort-2: #c98f34;
+    --sv-effort-3: #e8b04a;
+    --sv-effort-4: #eec97a;
+    --sv-effort-5: #f3dca3;
+
+    --sv-pente-1: #6cb946;
+    --sv-pente-2: #b5a835;
+    --sv-pente-3: #db966f;
+    --sv-pente-4: #de938d;
+  }
+}
+
+/* Bascule manuelle : les mêmes valeurs, retenues même si le système préfère
+   le clair. Pas encore posée par l'application (aucun `data-theme` écrit à
+   ce jour, cf. `docs/ux/inventaire_systeme_visuel.md`) — prête si un
+   sélecteur de thème arrive. */
+:root[data-theme="dark"] {
+  --sv-papier: #0b0d10;
+  --sv-encre: #f0f2f4;
+  --sv-encre-att: #9fb3c8;
+  --sv-encre-faible: #7c8894;
+  --sv-filet: #262b30;
+  --sv-filet-fort: var(--sv-encre);
+
+  --sv-pluie-100: #14273b;
+  --sv-pluie-300: #2f5480;
+  --sv-pluie-600: #6fb0f2;
+
+  --sv-dos-100: #12291f;
+  --sv-dos-300: #276b4c;
+  --sv-dos-600: #5fd39c;
+
+  --sv-face-100: #2c2013;
+  --sv-face-300: #7a4f24;
+  --sv-face-600: #f0a25c;
+
+  --sv-trafic-100: #211a30;
+  --sv-trafic-300: #4a3872;
+  --sv-trafic-600: #b79ae8;
+
+  --sv-effort-1: #a8721f;
+  --sv-effort-2: #c98f34;
+  --sv-effort-3: #e8b04a;
+  --sv-effort-4: #eec97a;
+  --sv-effort-5: #f3dca3;
+
+  --sv-pente-1: #6cb946;
+  --sv-pente-2: #b5a835;
+  --sv-pente-3: #db966f;
+  --sv-pente-4: #de938d;
+}
