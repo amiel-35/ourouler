@@ -1248,6 +1248,37 @@ dépasse parfois `temps_reel_s`** : tant qu'elle n'a pas de réponse, ajouter
 quoi que ce soit par-dessus (feux, convention, ou physique de relance) reste
 prématuré.
 
+**Réponse trouvée le 21/09, vérifiée et non plus devinée sur un nom de
+sortie.** Première tentative (même jour) : six des huit écarts négatifs
+portaient le même nom générique (« Rennes Cyclisme sur route ») que des
+sorties d'apprentissage repérées à 50-78 % « en groupe » par
+`calib.detecter_groupe` — mais ce critère, rejoué sur les huit, ne les
+détecte pas (`groupes_en_validation` vide dans le rapport). Le mainteneur a
+corrigé le tir : pas un gros groupe (le seuil du contrat, >50 % de la
+distance anormalement rapide, ne devait pas s'appliquer), mais 2 ou 3 roues
+— un effet plus discret, sous le seuil d'exclusion mais réel.
+
+Vérifié en rejouant `detecter_groupe` sur les 25 sorties de validation et en
+gardant, cette fois, la **part brute** (avant le seuil des 50 % qui décide
+« en groupe » ou pas) plutôt que le seul booléen : la corrélation entre
+cette part et l'écart de temps est de **-0,79** — forte. Les huit sorties à
+écart négatif portent en moyenne 34,1 % de distance anormalement rapide,
+contre 19,5 % pour les dix-sept autres. Aucune ne franchit le seuil de 50 %
+qui déclencherait l'exclusion automatique, mais le signal est net, mesuré
+sur le vrai critère du contrat, pas sur un nom de fichier. Ça correspond à
+l'hypothèse du mainteneur : un effet de roue partiel, assez fort pour
+biaiser le temps, pas assez soutenu pour être filtré. Strava (« riding
+with ») confirmerait sortie par sortie, mais n'est branché nulle part ici.
+
+**Ce que ça change pour le lot, sans le trancher** : la vraie explication
+des écarts négatifs n'est probablement pas un défaut du modèle physique,
+c'est une contamination de la donnée d'entrée — des sorties roulées à
+plusieurs, partiellement, que le seuil d'exclusion actuel (>50 % de la
+distance) ne repère pas. Avant tout travail sur le porte à porte ou sur un
+coût d'arrêt, la question qui se pose est **si ce seuil doit descendre**,
+et jusqu'où — sans savoir combien de vraies sorties solo il écarterait à
+tort au passage. Non mesuré, non tranché.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
