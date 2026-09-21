@@ -1224,22 +1224,40 @@ temps_simule_s` ne révèle **aucune logique simple** pris seul. Moyenne 245 s
 vingt-cinq ont un écart **négatif**, ce qu'un coût d'arrêt pur ne peut pas
 expliquer (un arrêt n'a jamais fait gagner du temps). Le bruit du modèle
 lui-même (vent mal estimé, résidu de calibration, déjà documenté à 5-10 %)
-domine le signal qu'on cherche à isoler. Croiser avec le nombre réel de
-feux/stops n'est donc pas une amélioration optionnelle, c'est ce qui sépare
-le signal du bruit — sans ça, aucune constante n'en sortirait de fiable.
+domine le signal qu'on cherche à isoler.
+
+**Objection du mainteneur le 21/09, et elle est décisive : compter les
+feux/stops ne répare rien.** Sur huit sorties sur vingt-cinq, le temps
+**simulé** dépasse déjà le temps **réel**, avant tout coût d'arrêt ajouté.
+Le sens ne trompe pas : un arrêt ne peut qu'ajouter du temps, jamais en
+retirer. Si le modèle est déjà trop lent sans compter le moindre feu, ce
+n'est pas qu'un coût d'arrêt manque — c'est que `temps_simule_s` se trompe
+déjà, pour une raison sans rapport avec les arrêts (vent, calibration,
+saison). Ajouter un coût de feux/stops par-dessus **aggraverait** ces huit
+prédictions au lieu de les corriger. La piste « croiser l'écart avec le
+nombre de feux/stops » (ci-dessus, même jour) est donc **invalidée**, pas
+seulement plus dure que prévu — elle a été écrite avant de vérifier le sens
+des écarts, l'erreur est d'avoir maintenu la piste vivante après l'avoir
+mesurée.
+
+**Ce qui reste vrai, sous cette réserve** : les options 1 (modéliser la
+relance en vrai) et 2 (convention assumée par arrêt) ne sont pas concernées
+par cette objection — mais aucune n'est mesurée ni cadrée non plus. La
+vraie question préalable, non résolue, est **pourquoi `temps_simule_s`
+dépasse parfois `temps_reel_s`** : tant qu'elle n'a pas de réponse, ajouter
+quoi que ce soit par-dessus (feux, convention, ou physique de relance) reste
+prématuré.
 
 **Condition posée par le mainteneur, et elle prime sur le choix du
-chemin** : « si je mets moi du temps, ça marchera jamais. » Quel que soit le
-chemin retenu, il doit se construire **une fois**, par un agent, puis
-tourner **tout seul** à l'intérieur de `ourouler calibrer` (ou d'un pipeline
-équivalent déjà automatique) à chaque recalibration — jamais un script que
-le mainteneur doit relancer, lire et interpréter lui-même. Une mesure qui
-dépend de son temps disponible n'arrivera jamais ; c'est un critère
-d'acceptation du lot, pas un confort.
+chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
+Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
+— jamais un script que le mainteneur relance et interprète lui-même. Une
+mesure qui dépend de son temps disponible n'arrivera jamais ; c'est un
+critère d'acceptation, pas un confort.
 
-Aucun des trois n'est formellement tranché ni mis en sprint. La moyenne
-compteur garde de toute façon son rôle ailleurs (dimensionner la distance
-demandée), ça ne change pas.
+Rien n'est tranché ni mis en sprint. La moyenne compteur garde de toute
+façon son rôle ailleurs (dimensionner la distance demandée), ça ne change
+pas.
 
 ## Historique des sprints
 
