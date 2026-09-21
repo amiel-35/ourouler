@@ -844,11 +844,47 @@ Ce n'est pas une régression de ce lot — le mécanisme est antérieur, et
 le plus grave, la clé Intervals du mainteneur servie à tout le monde. Mais le
 point de départ est, dit la doctrine elle-même, « son domicile, le plus
 sensible du fichier », et c'est exactement la fuite qui avait ouvert [[Q35]].
-**À vérifier par le mainteneur avant toute invitation : ce que porte le `.env`
-du service hébergé.** Si `OUROULER_DEPART_*` y est renseigné, chaque invité
-part de chez lui ; si elle ne l'est pas, un invité au profil incomplet reçoit
-un `ErreurConfig` technique au lieu du refus d'embarquement que L7.4 n'a pas
-pu écrire. Les deux branches mènent au même lot manquant.
+
+Vérifié le jour même sur le déploiement Coolify réel (`ourouler-api`) : la
+variable en service porte `OUROULER_DEPART_NOM=Rennes`, un point générique —
+**rien de personnel n'était exposé au moment de la mesure**. Le mécanisme
+restait néanmoins ouvert : il aurait servi la vraie adresse du mainteneur à
+n'importe quel invité si ces variables l'avaient un jour portée, ce que
+`deploiement/api/README.md` demandait explicitement de faire.
+
+**Corrigé le 22/09/2026, dans la foulée plutôt que reporté** (le mainteneur a
+préféré fermer avant de pousser). `SocleTOML.config` retire désormais les
+quatre sections du tiers 3 (`depart`, `cycliste`, `velos`, `intervals`) du
+socle serveur en mode hébergé, TOML et variables d'environnement compris ; le
+refus de démarrage déjà posé pour `[intervals]` (`application.py`) s'étend
+aux trois autres. Détail complet, y compris deux effets de bord mesurés en
+intégrant ce correctif avec L7.4 et le RGPD-compte, dans [[Q66]].
+
+**Une action reste due au mainteneur, hors du dépôt** (Q66a) : le service
+hébergé en ligne ne redémarrera pas tel quel une fois cette branche
+déployée. Avant de le faire : vider `OUROULER_DEPART_*` et
+`OUROULER_INTERVALS_*` dans le panneau Coolify de `ourouler-api`, et
+reconstruire `OUROULER_CONFIG_TOML_B64` sans `[cycliste]`/`[[velos]]` — rien
+n'a été touché côté Coolify par cette correction, règle absolue 7.
+
+**Un second trou, trouvé en corrigeant le premier, est également fermé**
+(Q66b) : sans repli, la toute première requête d'un compte hébergé fraîchement
+activé (ou réinvité après suppression RGPD) échouait avant même que
+l'assistant d'embarquement puisse s'afficher pour la remplir —
+`front/src/App.tsx` interroge `/profil` sans condition dès le premier écran.
+`DepotProfils.config_ou_comblee` comble alors, et seulement en mode hébergé,
+les trois champs sans lesquels aucune `Config` ne se construit
+(`depart.latitude`/`.longitude`, `cycliste.masse_kg`) avec une valeur neutre
+fixe — jamais écrite, jamais celle de quelqu'un de réel, jamais utilisée si
+le propriétaire a déjà écrit sa propre valeur, même invalide. Dette assumée
+et datée : une route de *calcul* appelée avant la fin de l'embarquement peut
+tourner sur ce comblement plutôt que de refuser franchement — un résultat
+sans queue ni tête, jamais une fuite, mais toujours pas le refus
+d'embarquement incomplet que L7.4 n'a pas pu écrire (voir dette n°4
+ci-dessus, inchangée).
+
+État mesuré après ce correctif, suite complète : `uv run ruff check .` vert,
+`uv run pytest -q` → **4838 passés**, 0 échec, 32 sautés, 5 xfailed.
 
 ---
 
@@ -1033,12 +1069,21 @@ quelqu'un qui n'est pas sur Intervals n'a aucun moyen de donner ses sorties, et
 la calibration ne pouvant se lancer que depuis la ligne de commande du
 mainteneur, « sans lui » n'est pas vrai. **Obtenir une boucle qui tient la
 route** tient, sur des paramètres génériques honnêtement annoncés — c'est le
-vrai acquis du lot L8.2. Et le « **ne jamais voir les données d'un autre** » a
-une réserve, celle qui clôt le sprint 7 : le tiers 3 de [[Q35]] n'est pas
-« jamais hérité » dans le code, et le point de départ du serveur peut écraser
-celui d'un invité. **Tant que ce point n'est pas vérifié sur le `.env` du
-service hébergé, le sprint 8 ne rend pas le produit prêt à inviter qui que ce
-soit** — et c'est la conclusion de ce sprint, pas une réserve de forme.
+vrai acquis du lot L8.2. Le « **ne jamais voir les données d'un autre** » a
+été mesuré en défaut le 21/09 — le tiers 3 de [[Q35]] s'héritait encore du
+socle serveur — et corrigé le 22/09 ([[Q66]]) : fermé dans le code, vérifié
+que rien de personnel n'était exposé sur le déploiement en service au moment
+de la mesure. **Une action reste due au mainteneur avant tout redéploiement**
+(Q66a, hors du dépôt, règle absolue 7) : vider `OUROULER_DEPART_*` et
+`OUROULER_INTERVALS_*` dans le panneau Coolify de `ourouler-api`, et
+reconstruire `OUROULER_CONFIG_TOML_B64` sans `[cycliste]`/`[[velos]]`. Sans
+ce geste, le service refusera simplement de démarrer (le refus voulu depuis
+L7.A, étendu aux quatre sections du tiers 3) — pas de fuite silencieuse
+possible, une panne visible au pire.
+
+Sur les quatre gestes qui tiennent, un sprint 9 reste donc nécessaire avant
+d'inviter pour de vrai : L8.1 (l'historique sans Intervals) est le seul
+absent qui empêche encore « sans lui » d'être vrai.
 
 ---
 
