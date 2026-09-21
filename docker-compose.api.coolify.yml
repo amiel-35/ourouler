@@ -84,6 +84,16 @@ services:
       - OUROULER_SERVICE=/config/service.toml
       - 'OUROULER_SERVICE_TOML_B64=${OUROULER_SERVICE_TOML_B64:-}'
       - OUROULER_PORT=8000
+      # **Les cinq variables suivantes ne valent qu'en OUROULER_MODE=personnel**
+      # (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
+      # fuite fermée le 21/09/2026, voir deploiement/api/README.md). En
+      # `heberge`, laisser leur valeur Coolify **vide** : l'API les ignore
+      # de toute façon depuis cette date et **refuse de démarrer** si l'une
+      # d'elles porte une valeur — un point de départ ou une clé au niveau du
+      # serveur seraient distribués à chaque personne invitée. La déclaration
+      # ci-dessous ne pose que le *nom* de la variable pour Coolify (même
+      # piège que `SERVICE_FQDN_API_8000` plus haut) ; c'est la valeur posée
+      # dans son panneau qui compte, pas sa présence ici.
       - 'OUROULER_INTERVALS_API_KEY=${OUROULER_INTERVALS_API_KEY}'
       - 'OUROULER_INTERVALS_ATHLETE_ID=${OUROULER_INTERVALS_ATHLETE_ID}'
       - 'OUROULER_DEPART_NOM=${OUROULER_DEPART_NOM}'

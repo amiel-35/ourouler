@@ -13,6 +13,18 @@
 # Ce fichier, lui, n'est pas secret : c'est celui qu'on encode en base64 dans
 # `OUROULER_CONFIG_TOML_B64` (voir deploiement/api/README.md), ou qu'on monte
 # directement pour un essai local (deploiement/api/docker-compose.yml).
+#
+# **[cycliste] et [[velos]] ci-dessous ne valent que pour OUROULER_MODE=personnel**
+# (le défaut documenté par deploiement/api/.env.example : « un seul cycliste
+# — l'usage prévu ici, sur le Coolify du mainteneur »). Q35 (« trois tiers,
+# et le vide n'existe pas », tranché le 17/09/2026 ; fuite fermée le
+# 21/09/2026) les classe dans le tiers 3 — perso pur, jamais hérité — au même
+# titre que [depart] et [intervals] : en `heberge`, l'API **refuse de
+# démarrer** si l'une de ces quatre sections figure ici, ou si l'une des
+# variables `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` est posée (elles
+# seraient sinon distribuées à chaque personne invitée). Pour un déploiement
+# hébergé, retirer [cycliste] et [[velos]] de ce fichier : chaque cycliste
+# les renseigne depuis l'assistant, une fois son compte activé.
 
 [cycliste]
 masse_kg = 75.0

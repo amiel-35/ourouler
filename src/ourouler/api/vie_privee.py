@@ -57,6 +57,7 @@ import io
 import json
 import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.api.comptes import DepotComptes
@@ -64,7 +65,6 @@ from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, J
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.config import Config
 
 #: Le fichier qui dit ce que chaque entrée de l'archive est — sans lui, un
 #: export RGPD n'est lisible que par qui a écrit le code (contrat §L7.B :
@@ -108,9 +108,18 @@ def construire_export(
     profils: DepotProfils,
     fichiers: DepotFichiers,
     journal: JournalServices,
-    config: Config,
+    dossier_cache: Path,
 ) -> bytes:
-    """L'archive ZIP de tout ce que ce propriétaire possède. Voir le module."""
+    """L'archive ZIP de tout ce que ce propriétaire possède. Voir le module.
+
+    **`dossier_cache`, pas une `Config` entière** (changé le 21/09/2026,
+    avec la fermeture de la fuite du tiers 3 de Q35) : ce module ne s'est
+    jamais servi que du dossier de cache, un réglage **serveur** qui ne
+    dépend d'aucun profil de cycliste. Exiger une `Config` complète aurait
+    fait échouer l'export d'un propriétaire qui n'a pas encore écrit son
+    départ ou son cycliste — exactement le cas RGPD le plus élémentaire,
+    « exporter les données de quelqu'un qui n'en a aucune ».
+    """
     tampon = io.BytesIO()
     with zipfile.ZipFile(tampon, mode="w", compression=zipfile.ZIP_STORED) as archive:
         archive.writestr(
@@ -128,8 +137,8 @@ def construire_export(
             json.dumps(journal.tout(qui), ensure_ascii=False, indent=2, sort_keys=True),
         )
         _ajouter_fichiers(archive, qui, fichiers)
-        _ajouter_activites(archive, qui, config)
-        _ajouter_routes_apprises(archive, qui, config)
+        _ajouter_activites(archive, qui, dossier_cache)
+        _ajouter_routes_apprises(archive, qui, dossier_cache)
     return tampon.getvalue()
 
 
@@ -140,10 +149,17 @@ def effacer_donnees(
     fichiers: DepotFichiers,
     journal: JournalServices,
     generations: DepotGenerations,
-    config: Config,
+    dossier_cache: Path,
     comptes: DepotComptes | None = None,
 ) -> dict:
     """Efface les données personnelles de ce propriétaire. Voir le module pour ce qui reste.
+
+    **`dossier_cache`, pas une `Config`** (changé le 21/09/2026, avec la
+    fermeture de la fuite du tiers 3 de Q35) : même raison que
+    `construire_export` — la suppression doit rester idempotente pour un
+    propriétaire qui n'a jamais complété son profil (contrat sprint 7
+    §L7.B), ce qu'exiger une `Config` entière aurait cassé depuis que le
+    socle partagé ne fournit plus le tiers 3 de Q35.
 
     `comptes` est **facultatif** : un déploiement sans base de comptes (mode
     personnel, ou hébergé sans `SessionParCookie`) n'a aucun compte à fermer,
@@ -152,7 +168,7 @@ def effacer_donnees(
     ferme le compte lié (mot de passe compris) et révoque du même coup ses
     sessions ouvertes, par la cascade du schéma (voir cette méthode).
     """
-    cache = Cache(config.cache.dossier, proprietaire=str(qui))
+    cache = Cache(dossier_cache, proprietaire=str(qui))
     supprime = {
         "profil": profils.supprimer_profil(qui),
         "journal_services": journal.supprimer(qui),
@@ -192,8 +208,8 @@ def _ajouter_fichiers(archive: zipfile.ZipFile, qui: Proprietaire, fichiers: Dep
     archive.writestr("fichiers/manifest.json", json.dumps(manifeste, ensure_ascii=False, indent=2))
 
 
-def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, config: Config) -> None:
-    cache = Cache(config.cache.dossier, proprietaire=str(qui))
+def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, dossier_cache: Path) -> None:
+    cache = Cache(dossier_cache, proprietaire=str(qui))
     entrees = cache.lister()
     index = [
         {
@@ -217,8 +233,8 @@ def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, config: Conf
             archive.write(entree.chemin, f"activites/bruts/{entree.chemin.name}")
 
 
-def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, config: Config) -> None:
-    base = BaseRoutes(config.cache.dossier / NOM_BASE, proprietaire=str(qui))
+def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossier_cache: Path) -> None:
+    base = BaseRoutes(dossier_cache / NOM_BASE, proprietaire=str(qui))
     stats = base.statistiques()
     resume = {
         "km_total": stats.km_total,

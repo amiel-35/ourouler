@@ -204,6 +204,13 @@ def test_sans_dossier_front_la_racine_ne_sert_rien():
 
 
 def _toml_de_serveur(tmp_path: Path, extra: str = "") -> Path:
+    """Un TOML **personnel** : départ et cycliste, comme celui du mainteneur.
+
+    Sert les tests du mode personnel (légitime) et ceux qui prouvent qu'un
+    mode **hébergé** refuse de démarrer sur un tel fichier — Q35, tiers 3 :
+    `[depart]` et `[cycliste]` n'y ont plus leur place depuis la fuite
+    mesurée en relecture le 21/09/2026.
+    """
     fichier = tmp_path / "serveur.toml"
     fichier.write_text(
         # Coordonnées volontairement nulle part : `tests/adversarial` refuse
@@ -213,6 +220,20 @@ def _toml_de_serveur(tmp_path: Path, extra: str = "") -> Path:
         "[cycliste]\nmasse_kg=75\nftp_w=250\n" + extra,
         encoding="utf-8",
     )
+    return fichier
+
+
+def _toml_de_serveur_heberge(tmp_path: Path, extra: str = "") -> Path:
+    """Un TOML de serveur **conforme** au mode hébergé : aucune section perso pur.
+
+    Q35, tiers 3 (« trois tiers, et le vide n'existe pas ») : `[depart]`,
+    `[cycliste]`, `[[velos]]` et `[intervals]` n'y figurent jamais — ce
+    fichier ne porte que le fond commun, ce dont aucun cycliste en
+    particulier ne dépend. `[cache]` pointe sous `tmp_path` pour ne jamais
+    toucher le vrai cache du mainteneur.
+    """
+    fichier = tmp_path / "serveur.toml"
+    fichier.write_text(f'[cache]\ndossier="{tmp_path / "cache"}"\n' + extra, encoding="utf-8")
     return fichier
 
 
@@ -226,7 +247,7 @@ def test_en_heberge_le_socle_n_appartient_a_personne(tmp_path: Path, monkeypatch
     Constaté en vrai, sur la première activation.
     """
     monkeypatch.setenv("OUROULER_MODE", "heberge")
-    monkeypatch.setenv("OUROULER_CONFIG", str(_toml_de_serveur(tmp_path)))
+    monkeypatch.setenv("OUROULER_CONFIG", str(_toml_de_serveur_heberge(tmp_path)))
     monkeypatch.setenv("OUROULER_DATABASE_URL", "postgres://personne@127.0.0.1:1/absente")
     from ourouler.api.application import application
 
@@ -250,19 +271,65 @@ def test_en_personnel_le_socle_reste_celui_du_mainteneur(tmp_path: Path, monkeyp
         depot.verifier_proprietaire(Proprietaire("quelqu-un-d-autre"))
 
 
-def test_en_heberge_une_cle_intervals_dans_le_socle_refuse_le_demarrage(tmp_path: Path, monkeypatch):
-    """Une base commune est servie à **tout le monde** : une clé qui y traîne est distribuée.
+# --- le tiers 3 de Q35 ne se lit jamais dans le socle d'un serveur partagé --
+#
+# Fuite mesurée en relecture le 21/09/2026 : `_refuser_une_base_personnelle`
+# ne couvrait que `[intervals]`. `depart`, `cycliste` et `velos` sont le même
+# tiers 3 (« perso pur », Q35) et méritent le même refus au démarrage, testé
+# ici section par section — et par variable d'environnement, l'autre porte
+# d'entrée du même tiers (`config.py:_survoler_environnement`).
+
+
+@pytest.mark.parametrize(
+    ("section", "extra"),
+    [
+        ("depart", '[depart]\nnom="Nulle part"\nlatitude=1.0\nlongitude=2.0\n'),
+        ("cycliste", "[cycliste]\nmasse_kg=75\nftp_w=250\n"),
+        ("velos", '[[velos]]\nnom="Route"\nusage="route"\nmasse_kg=9.0\n'),
+        ("intervals", '[intervals]\napi_key="cle-factice-de-test"\n'),
+    ],
+)
+def test_en_heberge_une_section_perso_pur_dans_le_socle_refuse_le_demarrage(
+    tmp_path: Path, monkeypatch, section: str, extra: str
+):
+    """Une base commune est servie à **tout le monde** : ce qui y traîne est distribué.
 
     Refus au démarrage et non à la requête — un déploiement mal configuré doit
-    échouer là où quelqu'un regarde.
+    échouer là où quelqu'un regarde. Les quatre sections du tiers 3 de Q35
+    sont éprouvées une par une, pour qu'aucune ne retombe dans l'angle mort
+    qui n'a longtemps couvert qu'`[intervals]`.
     """
     monkeypatch.setenv("OUROULER_MODE", "heberge")
-    monkeypatch.setenv(
-        "OUROULER_CONFIG",
-        str(_toml_de_serveur(tmp_path, '[intervals]\napi_key="cle-factice-de-test"\n')),
-    )
+    monkeypatch.setenv("OUROULER_CONFIG", str(_toml_de_serveur_heberge(tmp_path, extra)))
     monkeypatch.setenv("OUROULER_DATABASE_URL", "postgres://personne@127.0.0.1:1/absente")
     from ourouler.api.application import application
 
-    with pytest.raises(ErreurConfig, match="clé Intervals"):
+    with pytest.raises(ErreurConfig, match=section) as refus:
+        application()
+    assert "hébergé" in str(refus.value)
+
+
+@pytest.mark.parametrize(
+    "variable",
+    ["OUROULER_DEPART_NOM", "OUROULER_DEPART_LATITUDE", "OUROULER_INTERVALS_API_KEY"],
+)
+def test_en_heberge_une_variable_perso_pur_refuse_aussi_le_demarrage(
+    tmp_path: Path, monkeypatch, variable: str
+):
+    """La même fuite, par l'autre porte : une variable d'environnement plutôt que le TOML.
+
+    C'est le déploiement réel du mainteneur aujourd'hui (`OUROULER_DEPART_NOM
+    = Rennes`, posé dans Coolify) : un point générique, donc rien d'exposé en
+    ce moment précis, mais le mécanisme imposerait sa vraie adresse à
+    quiconque n'a pas encore la sienne si ces variables portaient un jour ses
+    coordonnées. `[cache]` d'`_toml_de_serveur_heberge` reste le seul contenu
+    du TOML : la variable seule doit suffire à déclencher le refus.
+    """
+    monkeypatch.setenv("OUROULER_MODE", "heberge")
+    monkeypatch.setenv("OUROULER_CONFIG", str(_toml_de_serveur_heberge(tmp_path)))
+    monkeypatch.setenv("OUROULER_DATABASE_URL", "postgres://personne@127.0.0.1:1/absente")
+    monkeypatch.setenv(variable, "valeur-de-test")
+    from ourouler.api.application import application
+
+    with pytest.raises(ErreurConfig, match=variable):
         application()

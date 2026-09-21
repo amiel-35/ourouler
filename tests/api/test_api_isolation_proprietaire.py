@@ -1001,6 +1001,27 @@ def _semer_chez_le_proprietaire_local(dossier_cache: Path) -> None:
 ROUTES_DU_SEMIS_LOCAL = (f"{PREFIXE_API}/inventaire", f"{PREFIXE_API}/routes/stats")
 
 
+def _completer_profil_local(local: ClientApi) -> None:
+    """Le propriétaire local écrit son propre tiers 3 (Q35), comme tout autre profil.
+
+    Le socle de `_toml_d_essai` n'appartient à personne (`proprietaire=None`) :
+    même le propriétaire local, qui monte ici sa propre session
+    (`SessionPersonnelle`), n'hérite plus de son départ ni de son cycliste
+    depuis ce socle partagé — il doit désormais les écrire, exactement comme
+    A et B le font par `_planter`. Sans cet appel, les routes qui calculent
+    (`POST /boucles`) échoueraient sur un profil incomplet, ce qui est le
+    comportement voulu (Q35) mais pas ce que ces deux tests-ci éprouvent.
+    """
+    reponse = local.requete(
+        "PATCH",
+        f"{PREFIXE_API}/profil",
+        json={"depart": DEPART_D_ESSAI, "cycliste": {"masse_kg": 70.0}},
+    )
+    assert reponse.status_code == 200, (
+        f"le propriétaire local n'a pas pu écrire son profil : {reponse.text[:300]}"
+    )
+
+
 def test_aucune_session_ne_voit_les_donnees_du_proprietaire_local(tmp_path):
     """**Q58 : le balayage vérifiait une forme, il vérifie ici un effet.**
 
@@ -1030,6 +1051,7 @@ def test_aucune_session_ne_voit_les_donnees_du_proprietaire_local(tmp_path):
     # qui suit vert sans rien mesurer — le mode d'échec ordinaire de ce genre
     # de balayage, et celui qui a déjà frappé ce fichier le 18/09/2026.
     local = _monter(tmp_path, SessionPersonnelle())
+    _completer_profil_local(local)
     muettes = sorted(
         chemin for chemin in ROUTES_DU_SEMIS_LOCAL if MARQUE_LOCALE not in local.get(chemin).text
     )
@@ -1080,12 +1102,26 @@ def test_une_boucle_n_est_jamais_deja_connue_pour_qui_n_a_rien_roule(tmp_path):
     demande = {"json": {"distance_km": 30.0, "candidates": 1}}
 
     local = _monter(tmp_path, SessionPersonnelle())
+    _completer_profil_local(local)
     part_locale = _part_connue(local.post(f"{PREFIXE_API}/boucles", **demande))
     assert part_locale, (
         f"le propriétaire local ne reconnaît rien de sa propre boucle (part_connue = "
         f"{part_locale}) : le quadrillage semé ne recouvre pas les tracés du BRouter "
         "bouchonné, et le volet suivant ne prouverait rien."
     )
+
+    # PROPRIETAIRE_A doit lui aussi écrire son propre départ et son propre
+    # cycliste (Q35, tiers 3) : le socle partagé ne les lui fournit plus,
+    # « n'a jamais rien enregistré » porte sur les **routes**, pas sur le
+    # profil, qui doit être complet pour que `POST /boucles` calcule quoi
+    # que ce soit.
+    profil_a = client.requete(
+        "PATCH",
+        f"{PREFIXE_API}/profil",
+        headers={"x-essai-proprietaire": PROPRIETAIRE_A},
+        json={"depart": DEPART_D_ESSAI, "cycliste": {"masse_kg": 70.0}},
+    )
+    assert profil_a.status_code == 200, profil_a.text[:300]
 
     reponse = client.post(
         f"{PREFIXE_API}/boucles", headers={"x-essai-proprietaire": PROPRIETAIRE_A}, **demande
@@ -1113,6 +1149,13 @@ def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
     déposé **en se servant du produit**. Écrire sous la route reviendrait à
     tester le dépôt, ce que `test_une_ressource_d_un_proprietaire_n_est_pas_lisible_par_un_autre`
     fait déjà, et à laisser la route hors de l'épreuve.
+
+    **`depart.latitude`/`.longitude` et `cycliste.masse_kg` sont désormais
+    écrits ici aussi** (Q35, tiers 3, fermé le 21/09/2026) : le socle partagé
+    de `_toml_d_essai` ne les fournit plus à qui ne les a pas écrits, donc
+    `qui` doit écrire un profil complet pour que sa `Config` se construise du
+    tout — ce n'était pas le cas avant cette date, `latitude`/`longitude`
+    manquants s'y trouvaient hérités du socle sans que ce test le voie.
     """
     entetes = {"x-essai-proprietaire": qui}
     profil = client.requete(
@@ -1120,7 +1163,8 @@ def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
         f"{PREFIXE_API}/profil",
         headers=entetes,
         json={
-            "depart": {"nom": f"depart-{marque}"},
+            "depart": {"nom": f"depart-{marque}", "latitude": 0.0007, "longitude": 0.0003},
+            "cycliste": {"masse_kg": 70.0},
             "velos": [
                 {"nom": f"velo-{marque}", "usage": "route", "masse_kg": 9.0, "cda_m2": 0.3}
             ],

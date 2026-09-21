@@ -874,10 +874,95 @@ def _socle_partage(tmp_path: Path) -> SocleTOML:
 
 
 def test_les_profils_de_deux_proprietaires_ne_se_melangent_pas(tmp_path: Path):
+    """Depuis Q35 (tiers 3, tranché le 17/09/2026), écrire son profil veut dire l'écrire **en entier** :
+    `depart`/`cycliste` ne s'héritent plus du socle partagé, y compris pour
+    le propriétaire qui n'a rien écrit du tout — voir le test suivant.
+    """
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
+    depot.enregistrer(
+        AUTRE,
+        {
+            "depart": {"nom": "Chez l'autre", "latitude": 3.0, "longitude": 4.0},
+            "cycliste": {"masse_kg": 60.0, "ftp_w": 999},
+        },
+    )
     assert depot.config(AUTRE).cycliste.ftp_w == 999
-    assert depot.config(PROPRIETAIRE_LOCAL).cycliste.ftp_w == W.FTP_TEST
+    assert depot.config(AUTRE).cycliste.masse_kg == 60.0
+    assert depot.config(AUTRE).depart.nom == "Chez l'autre"
+
+
+def test_un_proprietaire_qui_n_a_rien_ecrit_n_herite_pas_du_socle_partage(tmp_path: Path):
+    """**Le trou précis, fermé le 21/09/2026** — voir aussi `test_api_isolation_proprietaire.py`.
+
+    Le socle partagé du test ci-dessus (`ecrire_config`) porte pourtant un
+    départ, un cycliste (masse, FTP `W.FTP_TEST`) et des vélos bien formés :
+    c'est le TOML d'un profil personnel ordinaire, réutilisé tel quel pour
+    prouver que même un contenu personnel complet ne fuit plus vers un
+    propriétaire qui n'a rien surchargé — ni le point de départ, ni la masse,
+    ni la FTP du mainteneur. Avant correction, cette assertion réussissait
+    avec les valeurs du socle ; elle lève maintenant, ce qui est le
+    comportement voulu (Q35 : « un profil incomplet n'existe jamais », donc
+    ce cas ne construit plus de `Config` du tout).
+    """
+    depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
+    with pytest.raises(ErreurConfig, match="depart"):
+        depot.config(AUTRE)
+
+
+def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_proprietaires(
+    tmp_path: Path,
+):
+    """**Le trou précis du 21/09/2026**, fermé ici — voir aussi la sonde rejouée sur l'ancien code.
+
+    Ce qu'aucun test n'éprouvait avant cette date, malgré 4830 tests verts
+    (relecture du sprint 8) : un `SocleTOML` construit avec `variables=` **et**
+    plusieurs propriétaires en même temps. Ça reproduit le paquetage réel
+    (`deploiement/api/README.md`) : le TOML du serveur porte un départ (« Point
+    zéro », `ecrire_config`), et les trois variables `OUROULER_DEPART_*` sont
+    posées — comme le fait le déploiement Coolify en service aujourd'hui
+    (`OUROULER_DEPART_NOM=Rennes`, un point générique ; celui du test est
+    inventé et synthétique, règle absolue 1).
+
+    Deux propriétaires distincts d'un même socle hébergé : `AUTRE` écrit son
+    propre départ, `tiers` n'écrit rien du tout. Aucun des deux ne doit
+    jamais recevoir un `Depart` qu'il n'a pas lui-même écrit — ni celui du
+    TOML serveur, ni celui de la variable d'environnement, ni celui de
+    l'autre propriétaire.
+    """
+    tiers = Proprietaire("tierce-personne")
+    variables_serveur = {
+        # Nom générique et coordonnée synthétique (règle absolue 1, à plus de
+        # 50 km de toute ville française) : le point d'un déploiement réel,
+        # sans en être un.
+        "OUROULER_DEPART_NOM": "Commune générique",
+        "OUROULER_DEPART_LATITUDE": "0.0009",
+        "OUROULER_DEPART_LONGITUDE": "0.0004",
+    }
+    socle = SocleTOML(ecrire_config(tmp_path), variables=variables_serveur, proprietaire=None)
+    depot = DepotProfils(socle, tmp_path / "cache" / "api")
+
+    depot.enregistrer(
+        AUTRE,
+        {
+            "depart": {"nom": "Chez AUTRE", "latitude": 10.0, "longitude": 11.0},
+            "cycliste": {"masse_kg": 60.0},
+        },
+    )
+
+    # AUTRE reçoit exactement SON départ — ni celui du TOML serveur
+    # (« Point zéro »), ni celui de la variable d'environnement
+    # (« Commune générique »).
+    depart_autre = depot.config(AUTRE).depart
+    assert depart_autre.nom == "Chez AUTRE"
+    assert depart_autre.latitude == 10.0
+    assert depart_autre.longitude == 11.0
+
+    # `tiers` n'a rien écrit : aucun Depart improvisé — ni celui du TOML, ni
+    # celui de la variable, ni celui d'AUTRE. Un profil incomplet lève
+    # (Q35 : « il ne peut pas y avoir de vide »), il ne rend jamais un point
+    # de départ que ce propriétaire n'a pas lui-même écrit.
+    with pytest.raises(ErreurConfig, match="depart"):
+        depot.config(tiers)
 
 
 def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Path):
@@ -907,16 +992,27 @@ def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Pa
 
 def test_chaque_profil_est_ecrit_pour_son_seul_proprietaire(tmp_path: Path):
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
+    profil = {
+        "depart": {"nom": "Chez l'autre", "latitude": 3.0, "longitude": 4.0},
+        "cycliste": {"masse_kg": 60.0, "ftp_w": 999},
+    }
+    depot.enregistrer(AUTRE, profil)
     ecrit = json.loads((tmp_path / "cache" / "api" / AUTRE.identifiant / "profil.json").read_text())
-    assert ecrit == {"cycliste": {"ftp_w": 999}}
+    assert ecrit == profil
     assert not (tmp_path / "cache" / "api" / PROPRIETAIRE_LOCAL.identifiant / "profil.json").exists()
 
 
 def test_le_profil_qui_porte_une_cle_n_est_lisible_que_de_son_proprietaire(tmp_path: Path):
     """Pas de chiffrement au repos avant F3 ; les droits du fichier, eux, se posent."""
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    depot.enregistrer(PROPRIETAIRE_LOCAL, {"intervals": {"api_key": "cle-inventee-9876"}})
+    depot.enregistrer(
+        PROPRIETAIRE_LOCAL,
+        {
+            "depart": {"nom": "Chez le mainteneur", "latitude": 5.0, "longitude": 6.0},
+            "cycliste": {"masse_kg": 70.0},
+            "intervals": {"api_key": "cle-inventee-9876"},
+        },
+    )
     chemin = tmp_path / "cache" / "api" / PROPRIETAIRE_LOCAL.identifiant / "profil.json"
     assert chemin.stat().st_mode & 0o077 == 0
 

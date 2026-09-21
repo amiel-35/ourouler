@@ -36,8 +36,28 @@ from pathlib import Path
 from ourouler.api.erreurs import ErreurProfilAbsent
 from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
-from ourouler.config import Config
+from ourouler.config import CACHE_DEFAUT, PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+
+#: Le tiers 3 de Q35 (« trois tiers, et le vide n'existe pas », tranché le
+#: 17/09/2026) — **perso pur** : jamais hérité, jamais deviné. Ni le TOML du
+#: serveur, ni les variables d'environnement de la machine ne peuvent fournir
+#: une de ces sections à un propriétaire qui ne l'a pas lui-même écrite.
+#: `SocleTOML.config` s'en sert, c'est le seul endroit où un socle hébergé se
+#: construit (Q35 : « le contrôle vit à un seul endroit »).
+SECTIONS_PERSO_PUR = ("depart", "cycliste", "velos", "intervals")
+
+#: Les suffixes `OUROULER_<suffixe>` (`config.py:_survoler_environnement`,
+#: `PREFIXE_ENV`) qui portent les sections ci-dessus. `brouter` n'y figure
+#: pas : c'est un secret **serveur** d'après Q35, pas un profil de cycliste —
+#: ses variables restent légitimes en mode hébergé.
+VARIABLES_PERSO_PUR = (
+    "DEPART_NOM",
+    "DEPART_LATITUDE",
+    "DEPART_LONGITUDE",
+    "INTERVALS_API_KEY",
+    "INTERVALS_ATHLETE_ID",
+)
 
 #: Ce qu'un propriétaire a le droit de modifier dans son profil — section
 #: par section, et **champ par champ** à l'intérieur d'une section du tiers
@@ -190,6 +210,20 @@ class SocleTOML:
     il tourne (règle absolue 2), et l'invariant adversarial refuse jusqu'au
     nom `environ` dans le cœur. Vide par défaut, pour qu'une application
     construite dans un test n'absorbe pas les variables de la machine.
+
+    **`proprietaire=None` veut dire « hébergé, ce socle n'est le profil de
+    personne » (`application.py`).** Dans ce cas, `config` retire du TOML
+    serveur — et rend inertes les variables d'environnement pour — les
+    sections perso pur de Q35 (`SECTIONS_PERSO_PUR`) avant de fusionner la
+    surcharge de l'appelant : sans ce retrait, un propriétaire qui n'a pas
+    encore écrit son propre `[depart]`/`[cycliste]`/`[[velos]]`/`[intervals]`
+    héritait silencieusement de celui du serveur, ou d'une variable
+    `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` posée pour le déploiement —
+    la fuite mesurée en relecture du 21/09/2026, alors que `verifier_proprietaire`
+    (`DepotProfils`) ne refusait rien puisque ce socle n'appartient
+    justement à personne. La surcharge de l'appelant, elle, n'est jamais
+    touchée : c'est elle, et seulement elle, qui peut porter ces sections en
+    mode hébergé.
     """
 
     modifiable = True
@@ -206,7 +240,25 @@ class SocleTOML:
         self._variables = dict(variables or {})
 
     def config(self, surcharge: dict) -> Config:
-        return construire(fusionner(lire_toml(self.chemin), surcharge), environ=self._variables)
+        brut = lire_toml(self.chemin)
+        variables = self._variables
+        if self.proprietaire is None:
+            brut = {cle: valeur for cle, valeur in brut.items() if cle not in SECTIONS_PERSO_PUR}
+            variables_a_taire = {f"{PREFIXE_ENV}{suffixe}" for suffixe in VARIABLES_PERSO_PUR}
+            variables = {cle: valeur for cle, valeur in variables.items() if cle not in variables_a_taire}
+        return construire(fusionner(brut, surcharge), environ=variables)
+
+    def dossier_cache(self) -> Path:
+        """Le dossier de cache du **serveur**, sans construire de `Config`.
+
+        `[cache]` est un réglage serveur (Q35), qui ne dépend d'aucune
+        section perso pur : l'obtenir ne doit donc pas exiger qu'un
+        propriétaire ait déjà écrit son départ ou son cycliste — ce qu'un
+        socle hébergé sans surcharge ne garantit plus depuis `config`
+        ci-dessus. Sert `DepotProfils.dossier_cache` (export et suppression
+        RGPD, `api/vie_privee.py`).
+        """
+        return dossier_cache_depuis(lire_toml(self.chemin))
 
 
 class SocleVide:
@@ -248,6 +300,10 @@ class SocleVide:
                 f"{PHRASE_COMPLETER_PROFIL}"
             ) from e
 
+    def dossier_cache(self) -> Path:
+        """Aucun fichier ici : le défaut du cœur (`CACHE_DEFAUT`)."""
+        return CACHE_DEFAUT
+
 
 class SocleFixe:
     """Une `Config` déjà construite, injectée par l'appelant.
@@ -269,6 +325,9 @@ class SocleFixe:
     def config(self, surcharge: dict) -> Config:
         del surcharge  # aucune ne peut exister : `enregistrer` refuse d'en écrire
         return self._config
+
+    def dossier_cache(self) -> Path:
+        return self._config.cache.dossier
 
 
 class DepotProfils:
@@ -322,21 +381,28 @@ class DepotProfils:
         propriétaire n'a jamais eu pour but de partager les secrets du socle,
         seulement d'éviter de réécrire un TOML commenté.
 
-        Le refus reste volontairement **total** — pas de socle personnel
-        d'un autre propriétaire servi même pour ses seules sections
-        « serveur ». L'arbitrage produit lui-même **est** rendu depuis le
-        17/09/2026 (Q35, `docs/questions_mainteneur.md`, « trois tiers, et
-        jamais de profil incomplet ») : `CHAMPS_MODIFIABLES`,
-        `LISTES_MODIFIABLES` et `CHAMPS_RACINE_MODIFIABLES` plus haut
-        appliquent ce découpage à **la propre surcharge d'un propriétaire**
-        par-dessus son propre socle (ou aucun, `SocleVide`). Ce que ce
-        contrôle-ci refuse encore est différent : faire *partager* le socle
-        TOML d'**une personne** (le mainteneur, aujourd'hui) à un **autre**
-        propriétaire, même limité aux sections serveur — c'est le partage
-        d'un socle entre plusieurs comptes que F3 doit encore construire
-        (doctrine §10.1 : `Config` viendra de PostgreSQL, pas d'un TOML
-        propre à quelqu'un). Jusque-là, refuser est ce qui se fait de moins
-        faux.
+        En mode **personnel**, le refus reste volontairement **total** — pas de
+        socle personnel d'un autre propriétaire servi même pour ses seules
+        sections « serveur » : le TOML du serveur y est le profil du
+        mainteneur, et rien de ce qu'il porte — même `[cache]`, même
+        `[meteo]` — n'a de sens pour quelqu'un d'autre.
+
+        **En mode hébergé** (`socle.proprietaire is None`), ce contrôle-ci ne
+        s'applique à personne, puisque le socle n'appartient justement à
+        personne — l'invariant tient alors en deux moitiés. `SocleTOML.config`
+        applique le découpage en tiers de Q35 (« trois tiers, et le vide
+        n'existe pas », tranché le 17/09/2026), section par section, pour que
+        le tiers 3 (perso pur) ne soit jamais hérité du socle commun.
+        `CHAMPS_MODIFIABLES`, `LISTES_MODIFIABLES` et `CHAMPS_RACINE_MODIFIABLES`
+        plus haut appliquent le même découpage à **la propre surcharge d'un
+        propriétaire** par-dessus ce socle. Ce que ce contrôle-ci refuse
+        encore, dans les deux modes, est différent des deux : faire
+        *partager* le socle TOML d'**une personne** (le mainteneur, en mode
+        personnel) à un **autre** propriétaire, même limité aux sections
+        serveur — c'est le partage d'un socle entre plusieurs comptes que F3
+        doit encore construire (doctrine §10.1 : `Config` viendra de
+        PostgreSQL, pas d'un TOML propre à quelqu'un). Jusque-là, refuser est
+        ce qui se fait de moins faux.
         """
         self.verifier_proprietaire(proprietaire)
         return self._socle.config(self.surcharge(proprietaire))
@@ -801,6 +867,8 @@ __all__ = [
     "GENERATIONS_GARDEES",
     "LISTES_MODIFIABLES",
     "NOM_JOURNAL",
+    "SECTIONS_PERSO_PUR",
+    "VARIABLES_PERSO_PUR",
     "DepotFichiers",
     "DepotGenerations",
     "DepotProfils",

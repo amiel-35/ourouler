@@ -5047,3 +5047,49 @@ pas réclamer.
 mention « générique, à partir de votre poids et de votre vélo seuls » reste
 affichée quel que soit le chiffre retenu, donc aucun écran ne ment tant que
 la convention n'est pas présentée comme une mesure.
+
+---
+
+## Q66 — La fuite du tiers 3 de Q35 est fermée ; deux conséquences restent à trancher — **ouverte le 21/09/2026**
+
+Corrigé en relecture du sprint 8 : `SocleTOML.config` (en mode hébergé,
+`proprietaire=None`) fusionnait encore les sections perso pur de Q35
+(`depart`, `cycliste`, `velos`, `intervals`) depuis le TOML du serveur, et
+`config.py:_survoler_environnement` laissait les variables
+`OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` s'appliquer à quiconque — y
+compris par-dessus la surcharge d'un propriétaire qui avait déjà écrit la
+sienne. Fermé à l'endroit unique où un socle hébergé se construit
+(`api/depots.py`), avec un refus de démarrage étendu aux quatre sections
+(`api/application.py`, sur le modèle qui ne couvrait jusque-là que
+`[intervals]`). Deux effets de bord mesurés en fermant le trou, ni l'un ni
+l'autre du ressort d'un agent :
+
+**(a) Le déploiement Coolify hébergé en service ne redémarrera pas tel
+quel.** `docker-compose.api.coolify.yml` pose `OUROULER_DEPART_NOM` (valeur
+Coolify actuelle : « Rennes », un point générique) et
+`OUROULER_INTERVALS_*` sans condition de mode, et
+`deploiement/api/config.example.toml` — dont le TOML réellement déployé est
+vraisemblablement dérivé — porte `[cycliste]`/`[[velos]]`. Les deux sont
+désormais refusés au démarrage en mode `heberge`. Avant de redéployer cette
+branche : vider ces variables dans le panneau Coolify du service hébergé, et
+reconstruire son `OUROULER_CONFIG_TOML_B64` sans `[cycliste]`/`[[velos]]`
+(le fichier `deploiement/api/config.example.toml` mis à jour ici explique le
+découpage). Rien n'a été touché côté Coolify par cette correction — règle
+absolue 7.
+
+**(b) `GET /profil` (et vraisemblablement d'autres routes de lecture) rend
+un 500 `configuration_invalide` pour un compte hébergé qui n'a pas encore
+complété son tiers 3** — un compte tout juste activé, ou un compte supprimé
+qu'on interroge à nouveau. Avant la fermeture du trou, ce cas « marchait »
+en silence en affichant par erreur le départ/cycliste du mainteneur ; il n'y
+avait donc jamais eu besoin de le traiter proprement. `GET /moi/export` et
+`DELETE /moi` ont été corrigés dans ce même lot, parce que leur contrat
+(RGPD, sprint 7 §L7.B) l'exigeait explicitement — « idempotent, jamais une
+erreur ». `GET /profil` n'a pas ce contrat écrit, et la question est
+produit : (a) le tolérer aussi, en rendant un profil partiel avec des champs
+nuls plutôt qu'en exigeant une `Config` entière ; (b) le laisser en 500 et
+compter sur l'assistant d'embarquement pour ne jamais faire cet appel avant
+que le tiers 3 soit complet ; (c) une route dédiée à l'état d'embarquement,
+distincte de `GET /profil`. `donnees.assistant_recommande` existe déjà et
+suggère que (b) était l'intention d'origine, mais rien ne l'a vérifié côté
+front.

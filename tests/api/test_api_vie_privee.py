@@ -36,7 +36,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from outils_api import PROPRIETAIRE_A, PROPRIETAIRE_B, config_d_essai
+from outils_api import PROPRIETAIRE_A, PROPRIETAIRE_B
 
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
@@ -169,6 +169,14 @@ def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
 
     Plus fort qu'« absence de sentinelle » : la réponse entière est comparée
     à celle d'un troisième propriétaire qui n'a jamais existé.
+
+    **Les deux réponses sont désormais une erreur, et c'est plus fort qu'avant**
+    (changé le 21/09/2026, avec la fermeture de la fuite du tiers 3 de Q35) :
+    ni A supprimé ni un inconnu n'héritent plus du départ/cycliste du socle
+    partagé, donc les deux se heurtent au même « profil incomplet » — avant
+    cette date, les deux recevaient plutôt, en silence, le départ du socle
+    de test, ce qui masquait la comparaison sans la fausser par chance
+    (le socle était le même pour les deux).
     """
     client = _service_pour_deux(tmp_path)
     _planter(client, PROPRIETAIRE_A, MARQUE_A)
@@ -176,11 +184,11 @@ def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
 
     apres_a = client.requete(
         "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_A}
-    ).json()
+    )
     jamais_vu = client.requete(
         "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_JAMAIS_VU}
-    ).json()
-    assert apres_a["donnees"] == jamais_vu["donnees"], (
+    )
+    assert (apres_a.status_code, apres_a.json()) == (jamais_vu.status_code, jamais_vu.json()), (
         "le profil de A, après suppression, diffère encore de celui de quelqu'un qui n'a "
         "jamais existé"
     )
@@ -313,10 +321,9 @@ def test_la_suppression_via_effacer_donnees_laisse_intactes_les_routes_apprises(
     assert base.troncons(), "rien à protéger : la trace n'a pas été enregistrée"
     assert base.sorties()
 
-    # Un socle vide suffit : `effacer_donnees` n'a besoin que du dossier de
-    # cache dans `config`, pas d'un profil valide — elle n'appelle jamais
-    # `profils.config()`.
-    config = config_d_essai(cache={"dossier": str(tmp_path / "cache")})
+    # Un socle vide suffit : `effacer_donnees` n'a besoin que d'un dossier de
+    # cache (changé le 21/09/2026 : `dossier_cache`, plus une `Config` —
+    # voir `api/vie_privee.py`), pas d'un profil valide.
     dossier_donnees = tmp_path / "donnees"
     profils = DepotProfils(SocleVide(), dossier_donnees)
     fichiers = DepotFichiers(dossier_donnees)
@@ -329,7 +336,7 @@ def test_la_suppression_via_effacer_donnees_laisse_intactes_les_routes_apprises(
         fichiers=fichiers,
         journal=journal,
         generations=generations,
-        config=config,
+        dossier_cache=tmp_path / "cache",
     )
 
     apres = BaseRoutes(chemin_base, proprietaire=str(a))
