@@ -39,15 +39,38 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.config import Config
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 
-#: Ce qu'un propriétaire a le droit de modifier dans son profil, section par
-#: section. Liste blanche et non liste noire : un champ inconnu est refusé,
-#: pas ignoré — le front doit apprendre son erreur, pas la découvrir en
+#: Ce qu'un propriétaire a le droit de modifier dans son profil — section
+#: par section, et **champ par champ** à l'intérieur d'une section du tiers
+#: 2. Liste blanche et non liste noire : un champ inconnu est refusé, pas
+#: ignoré — le front doit apprendre son erreur, pas la découvrir en
 #: constatant que rien n'a changé.
 #:
-#: Ce qui n'y est **pas**, et pourquoi : `cache` (exploitation, pas profil),
-#: `brouter` (le serveur du mainteneur, pas un réglage de cycliste), `meteo`
-#: et les seuils de placement (réglages fins, écran avancé de V2),
-#: `historique_depuis` (Q6, il se change en connaissance de cause).
+#: Le découpage suit, littéralement, les trois tiers tranchés par Q35
+#: (`docs/questions_mainteneur.md`, « trois tiers, et jamais de profil
+#: incomplet », 17/09/2026) :
+#:
+#: - **serveur, jamais servi à un cycliste** — absent d'ici, et c'est
+#:   volontaire : `cache` (exploitation, pas profil), `brouter` (le serveur
+#:   BRouter du mainteneur, un secret d'infrastructure), `meteo` (modèle,
+#:   second avis, horizons — un réglage de méthode) et `calibration`. Ce
+#:   dernier trompe par son nom : la section `[calibration]` ne porte que des
+#:   réglages de méthode (`mots_groupe`, `part_validation`,
+#:   `vitesse_min_kmh`) — le **résultat** d'une calibration, personnel, vit
+#:   dans `calibration.json`, pas ici.
+#: - **perso, défaut serveur, champ par champ** — `boucle` (seul `sens` :
+#:   « horaire » ou « antihoraire » dépend d'où on roule ; `candidates` et
+#:   `tolerance_distance` coûtent des appels externes et restent un réglage
+#:   de service) et `seance` (seul `position_zone`, décision 7 : on ne
+#:   stocke jamais une valeur en watts à côté d'une table qui bouge).
+#:   `tenue` appartient à ce tiers **dans le modèle de données** (Q35), mais
+#:   son interface d'édition attend explicitement la V2 (« même ça attend
+#:   la V2 ») : ses seuils ne sont donc **pas encore** dans cette liste
+#:   blanche, volontairement.
+#: - **perso pur, jamais hérité, jamais deviné** — `depart`, `cycliste`,
+#:   `intervals` ci-dessous ; `velos` et `evitements`, des listes qui se
+#:   remplacent en entier (`LISTES_MODIFIABLES`) ; `historique_depuis`, un
+#:   champ scalaire à la racine du TOML, pas dans une section
+#:   (`CHAMPS_RACINE_MODIFIABLES`).
 CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
     "depart": ("nom", "latitude", "longitude"),
     # « prenom » et « nom » : identité du compte, obligatoire pour tout
@@ -59,12 +82,24 @@ CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
     # stocker une valeur en watts à côté d'une table qui bouge.
     "seance": ("position_zone",),
     "intervals": ("athlete_id", "api_key"),
+    # Le sens de la boucle, et lui seul : `candidates`/`tolerance_distance`
+    # restent un réglage de service (Q35).
+    "boucle": ("sens",),
 }
 
 #: Les tables qui se remplacent en entier plutôt que champ par champ. Un vélo
-#: se supprime, se renomme et se réordonne : fusionner une liste par index
-#: donnerait des résultats que personne ne peut prévoir.
-LISTES_MODIFIABLES = ("velos",)
+#: se supprime, se renomme et se réordonne, une zone à éviter aussi :
+#: fusionner une liste par index donnerait des résultats que personne ne
+#: peut prévoir. `evitements` a rejoint `velos` le 17/09/2026 (Q35, « les
+#: deux sections orphelines » : personnel, avec défaut vide).
+LISTES_MODIFIABLES = ("velos", "evitements")
+
+#: Les champs scalaires à la racine du TOML — pas dans une section — qu'un
+#: propriétaire a le droit d'écrire. Un seul aujourd'hui : `historique_depuis`
+#: (Q35, « les deux sections orphelines » : perso pur, avec un défaut pour
+#: que personne ne parte d'une page blanche — `config.HISTORIQUE_DEPUIS_DEFAUT`,
+#: le 1er décembre 2023 du mainteneur, ne s'applique qu'à qui n'a rien réglé).
+CHAMPS_RACINE_MODIFIABLES = ("historique_depuis",)
 
 def schema_des_modifications() -> dict:
     """Ce que `PATCH /profil` accepte, en schéma publiable (ajouté le 17/09/2026).
@@ -91,6 +126,7 @@ def schema_des_modifications() -> dict:
         for section, champs in CHAMPS_MODIFIABLES.items()
     }
     sections |= {nom: {"type": "array", "items": {"type": "object"}} for nom in LISTES_MODIFIABLES}
+    sections |= {nom: {} for nom in CHAMPS_RACINE_MODIFIABLES}
     return {
         "type": "object",
         "additionalProperties": False,
@@ -286,13 +322,21 @@ class DepotProfils:
         propriétaire n'a jamais eu pour but de partager les secrets du socle,
         seulement d'éviter de réécrire un TOML commenté.
 
-        Le refus est volontairement **total** plutôt que section par section :
-        décider quelles sections d'un TOML sont communes au serveur (cache,
-        BRouter, modèles météo) et lesquelles appartiennent au cycliste est un
-        arbitrage produit que le mainteneur n'a pas encore rendu — il est posé
-        dans `docs/questions_mainteneur.md`. Tant qu'il ne l'est pas, servir
-        un socle personnel à quelqu'un d'autre est ce qu'il ne faut pas faire,
-        et refuser est ce qui se fait de moins faux.
+        Le refus reste volontairement **total** — pas de socle personnel
+        d'un autre propriétaire servi même pour ses seules sections
+        « serveur ». L'arbitrage produit lui-même **est** rendu depuis le
+        17/09/2026 (Q35, `docs/questions_mainteneur.md`, « trois tiers, et
+        jamais de profil incomplet ») : `CHAMPS_MODIFIABLES`,
+        `LISTES_MODIFIABLES` et `CHAMPS_RACINE_MODIFIABLES` plus haut
+        appliquent ce découpage à **la propre surcharge d'un propriétaire**
+        par-dessus son propre socle (ou aucun, `SocleVide`). Ce que ce
+        contrôle-ci refuse encore est différent : faire *partager* le socle
+        TOML d'**une personne** (le mainteneur, aujourd'hui) à un **autre**
+        propriétaire, même limité aux sections serveur — c'est le partage
+        d'un socle entre plusieurs comptes que F3 doit encore construire
+        (doctrine §10.1 : `Config` viendra de PostgreSQL, pas d'un TOML
+        propre à quelqu'un). Jusque-là, refuser est ce qui se fait de moins
+        faux.
         """
         self.verifier_proprietaire(proprietaire)
         return self._socle.config(self.surcharge(proprietaire))
@@ -629,7 +673,15 @@ def valider(modifications: dict) -> dict:
     if not isinstance(modifications, dict):
         raise ErreurUtilisateur("profil : objet attendu")
     propre: dict = {}
+    modifiables = sorted([*CHAMPS_MODIFIABLES, *LISTES_MODIFIABLES, *CHAMPS_RACINE_MODIFIABLES])
     for section, contenu in modifications.items():
+        if section in CHAMPS_RACINE_MODIFIABLES:
+            # Champ scalaire à la racine (`historique_depuis`) : pas de sous-champ
+            # à filtrer, mais pas non plus de section ou de liste ici.
+            if isinstance(contenu, (dict, list)):
+                raise ErreurUtilisateur(f"profil : « {section} » attendu sous forme de valeur simple")
+            propre[section] = contenu
+            continue
         if section in LISTES_MODIFIABLES:
             if not isinstance(contenu, list):
                 raise ErreurUtilisateur(f"profil : « {section} » attendu sous forme de liste")
@@ -638,7 +690,7 @@ def valider(modifications: dict) -> dict:
         if section not in CHAMPS_MODIFIABLES:
             raise ErreurUtilisateur(
                 f"profil : « {section} » n'est pas modifiable depuis l'interface — "
-                f"modifiables : {', '.join(sorted([*CHAMPS_MODIFIABLES, *LISTES_MODIFIABLES]))}"
+                f"modifiables : {', '.join(modifiables)}"
             )
         if not isinstance(contenu, dict):
             raise ErreurUtilisateur(f"profil : « {section} » attendu sous forme d'objet")
