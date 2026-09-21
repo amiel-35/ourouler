@@ -18,7 +18,7 @@
  * (décision 8, règle absolue 5).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Zones } from "../api/types";
 import { modelePhysique, nombre, pourcentage } from "../api/formats";
@@ -30,22 +30,44 @@ interface Props {
   surApercu: (zones: Zones) => void;
   /** Absent dans l'assistant, où l'enregistrement se fait à l'étape suivante. */
   surFtp?: (ftp: number) => Promise<void>;
+  /** La seconde réponse à la question posée, quand l'écran en pose une.
+   *
+   * L'assistant demande « connaissez-vous votre FTP ? » : les deux réponses
+   * doivent tenir dans le même regard. Rendue sous le champ, avant les zones
+   * — qui sont la *conséquence* d'une FTP, donc exactement ce que n'a pas à
+   * lire celui qui répond non. Dans les réglages, il n'y a pas de question,
+   * donc pas d'échappatoire. */
+  echappatoire?: ReactNode;
 }
 
 type Champ = "puissance" | "vitesse" | null;
 
-export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
+/** La FTP telle qu'on la met dans le champ : des watts entiers.
+ *
+ * Une FTP qui sort de l'entonnoir (vitesse puis terrain, `t4`) est le résultat
+ * d'une inversion du modèle physique, donc un flottant : le champ affichait
+ * « 250.97864468892416 », quatorze décimales sur une grandeur dont le dernier
+ * watt n'est déjà pas mesurable. Constaté à l'écran le 20/09/2026.
+ *
+ * `null` (FTP facultative depuis le 19/09/2026, `docs/ux/parcours_accueil.md`)
+ * rend un champ vide, jamais le texte « null ».
+ */
+export function ftpAffichee(ftp_w: number | null): string {
+  return ftp_w === null ? "" : String(Math.round(ftp_w));
+}
+
+export function EcranFtp({ zones, velo, surApercu, surFtp, echappatoire }: Props) {
   const liees = zones.valeurs_liees;
   // `zones.ftp_w` peut valoir `null` (FTP facultative depuis le 19/09/2026,
   // `docs/ux/parcours_accueil.md`) : un profil qui n'a pas encore franchi
   // l'étage T3/T4 de l'accueil. Un champ vide, jamais le texte « null ».
-  const [ftp, setFtp] = useState(zones.ftp_w === null ? "" : String(zones.ftp_w));
+  const [ftp, setFtp] = useState(ftpAffichee(zones.ftp_w));
   const [enEdition, setEnEdition] = useState<Champ>(null);
   const [brouillon, setBrouillon] = useState("");
   const [panne, setPanne] = useState<string | null>(null);
   const minuteur = useRef<number | undefined>(undefined);
 
-  useEffect(() => setFtp(zones.ftp_w === null ? "" : String(zones.ftp_w)), [zones.ftp_w]);
+  useEffect(() => setFtp(ftpAffichee(zones.ftp_w)), [zones.ftp_w]);
   useEffect(() => () => window.clearTimeout(minuteur.current), []);
 
   function demanderApercu(champ: Exclude<Champ, null>, texte: string) {
@@ -75,7 +97,11 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
 
   async function validerFtp() {
     const valeur = Number(ftp.replace(",", "."));
-    if (!surFtp || !Number.isFinite(valeur) || valeur <= 0 || valeur === zones.ftp_w) return;
+    if (!surFtp || !Number.isFinite(valeur) || valeur <= 0) return;
+    // Sous le watt, ce n'est pas une modification : c'est l'arrondi d'affichage
+    // qui reviendrait. Sans cette tolérance, ouvrir puis quitter le champ
+    // réécrirait la FTP en silence, alors qu'on n'a rien tapé.
+    if (zones.ftp_w !== null && Math.abs(valeur - zones.ftp_w) < 0.5) return;
     try {
       await surFtp(valeur);
       setPanne(null);
@@ -107,6 +133,8 @@ export function EcranFtp({ zones, velo, surApercu, surFtp }: Props) {
           20 minutes, comptez 95 % de la moyenne.
         </div>
       </div>
+
+      {echappatoire}
 
       {zones.ftp_w === null ? (
         <div className="encart attention">

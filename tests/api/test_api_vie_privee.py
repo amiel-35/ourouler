@@ -36,7 +36,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from outils_api import PROPRIETAIRE_A, PROPRIETAIRE_B, config_d_essai
+from outils_api import PROPRIETAIRE_A, PROPRIETAIRE_B
 
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
@@ -167,8 +167,19 @@ def test_la_suppression_efface_le_profil_et_les_fichiers_de_ce_proprietaire(tmp_
 def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
     """Après suppression, A voit exactement ce qu'un inconnu qui n'a jamais rien écrit verrait.
 
-    Plus fort qu'« absence de sentinelle » : la réponse entière est comparée
-    à celle d'un troisième propriétaire qui n'a jamais existé.
+    Plus fort qu'« absence de sentinelle » : le contenu du profil est comparé
+    à celui d'un troisième propriétaire qui n'a jamais existé — `proprietaire`
+    est exclu de la comparaison, seule ligne qui doit légitimement différer.
+
+    **`GET /profil` répond 200 pour les deux, et c'est voulu** (Q66,
+    `docs/questions_mainteneur.md` — décidé le 22/09/2026, après la fuite
+    fermée le 21/09/2026 pour `depart`/`cycliste`/`velos`/`intervals`) : un
+    compte hébergé sans surcharge — tout juste activé, ou tout juste
+    supprimé — reste lisible, avec le **même comblement neutre**
+    (`COMBLEMENT_EMBARQUEMENT`) que n'importe quel autre compte à ce stade.
+    Ce que ce test prouve n'est donc plus « les deux échouent pareil », mais
+    « les deux montrent exactement le même rien » — aucune trace de A ne
+    reste dans ce que la route rend après sa suppression.
     """
     client = _service_pour_deux(tmp_path)
     _planter(client, PROPRIETAIRE_A, MARQUE_A)
@@ -176,11 +187,12 @@ def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
 
     apres_a = client.requete(
         "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_A}
-    ).json()
+    )
     jamais_vu = client.requete(
         "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_JAMAIS_VU}
-    ).json()
-    assert apres_a["donnees"] == jamais_vu["donnees"], (
+    )
+    assert apres_a.status_code == jamais_vu.status_code == 200
+    assert apres_a.json()["donnees"] == jamais_vu.json()["donnees"], (
         "le profil de A, après suppression, diffère encore de celui de quelqu'un qui n'a "
         "jamais existé"
     )
@@ -313,10 +325,9 @@ def test_la_suppression_via_effacer_donnees_laisse_intactes_les_routes_apprises(
     assert base.troncons(), "rien à protéger : la trace n'a pas été enregistrée"
     assert base.sorties()
 
-    # Un socle vide suffit : `effacer_donnees` n'a besoin que du dossier de
-    # cache dans `config`, pas d'un profil valide — elle n'appelle jamais
-    # `profils.config()`.
-    config = config_d_essai(cache={"dossier": str(tmp_path / "cache")})
+    # Un socle vide suffit : `effacer_donnees` n'a besoin que d'un dossier de
+    # cache (changé le 21/09/2026 : `dossier_cache`, plus une `Config` —
+    # voir `api/vie_privee.py`), pas d'un profil valide.
     dossier_donnees = tmp_path / "donnees"
     profils = DepotProfils(SocleVide(), dossier_donnees)
     fichiers = DepotFichiers(dossier_donnees)
@@ -329,7 +340,7 @@ def test_la_suppression_via_effacer_donnees_laisse_intactes_les_routes_apprises(
         fichiers=fichiers,
         journal=journal,
         generations=generations,
-        config=config,
+        dossier_cache=tmp_path / "cache",
     )
 
     apres = BaseRoutes(chemin_base, proprietaire=str(a))

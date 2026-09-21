@@ -22,13 +22,20 @@
  * troisième : un géocodage qui se trompe de commune est indétectable dans un
  * champ texte et visible en une seconde sur un point.
  *
+ * **Le point confirmé vient au lecteur.** Il s'affiche sous les quatre champs
+ * — c'est sa place pour un géocodage, dont il est le résultat — mais le bouton
+ * de position est tout en haut, et sur un téléphone la carte naît alors hors
+ * de l'écran : on a cliqué, rien n'a bougé, on croit que ça a raté. Constaté
+ * par le mainteneur le 20/09/2026. Le bloc se fait donc défiler jusqu'à lui
+ * quand il apparaît, quel que soit le chemin qui l'a produit.
+ *
  * **Ce qui manque, et qu'on ne fabrique pas** : l'API ne fait pas de géocodage
  * inverse. Une position relevée par le navigateur est donc une *coordonnée*,
  * pas une adresse — elle s'affiche comme telle, en chiffres, et on ne lui
  * invente pas un nom de rue.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Candidat } from "../api/types";
 import { nombre, sourceDAdresse } from "../api/formats";
@@ -155,6 +162,18 @@ export function FormulaireAdresse({
   const [positionEnCours, setPositionEnCours] = useState(false);
 
   const geoloc = etatGeolocalisation();
+  const blocApercu = useRef<HTMLDivElement>(null);
+
+  // Le point apparaît sous les champs, alors que le bouton de position est en
+  // haut : sans ce défilement, un téléphone ne montre rien de neuf et le clic
+  // passe pour un échec. `scrollIntoView` n'existe pas partout (jsdom ne
+  // l'implémente pas) — son absence n'est pas une panne, juste un écran qui
+  // ne bouge pas.
+  useEffect(() => {
+    const bloc = blocApercu.current;
+    if (!bloc || typeof bloc.scrollIntoView !== "function") return;
+    bloc.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [apercu]);
 
   function changer(clef: keyof Champs, valeur: string) {
     setChamps({ ...champs, [clef]: valeur });
@@ -300,7 +319,7 @@ export function FormulaireAdresse({
       ) : null}
 
       {apercu ? (
-        <div className="bloc doux">
+        <div className="bloc doux" ref={blocApercu}>
           <p className="mention">
             {apercu.genre === "candidat"
               ? `Vérifiez le point avant de partir : ${ouEst(apercu.candidat)}.`

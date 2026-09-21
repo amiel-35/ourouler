@@ -153,6 +153,46 @@ describe("la géolocalisation n'est jamais le seul chemin", () => {
       longitude: 0.25,
     });
   });
+
+  it("amène le point relevé sous les yeux, au lieu de le poser hors de l'écran", async () => {
+    // Le bouton de position est en haut, la carte naît sous les quatre champs :
+    // sur un téléphone, rien ne bouge à l'écran et le clic passe pour un échec
+    // (constaté par le mainteneur le 20/09/2026). jsdom n'implémente pas
+    // `scrollIntoView` — on le pose nous-mêmes pour l'observer.
+    const utilisateur = userEvent.setup();
+    Object.defineProperty(window, "isSecureContext", { value: true, configurable: true });
+    Object.defineProperty(navigator, "geolocation", {
+      value: {
+        getCurrentPosition: (ok: (p: unknown) => void) =>
+          ok({ coords: { latitude: 0.5, longitude: 0.25, accuracy: 18 } }),
+      },
+      configurable: true,
+    });
+    const defiler = vi.fn();
+    const sauvegarde = Object.getOwnPropertyDescriptor(Element.prototype, "scrollIntoView");
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      value: defiler,
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      render(<FormulaireAdresse surChoix={() => {}} />);
+      // Rien n'a encore paru : personne n'a fait défiler quoi que ce soit.
+      expect(defiler).not.toHaveBeenCalled();
+
+      await utilisateur.click(screen.getByRole("button", { name: "Utiliser ma position" }));
+      expect(await screen.findByLabelText(/point de départ à confirmer/)).toBeTruthy();
+
+      await waitFor(() => expect(defiler).toHaveBeenCalled());
+      // C'est bien le bloc du point qu'on amène, pas un autre élément.
+      const surQui = defiler.mock.instances[0] as HTMLElement;
+      expect(surQui.querySelector("[aria-label*='point de départ à confirmer']")).toBeTruthy();
+    } finally {
+      if (sauvegarde) Object.defineProperty(Element.prototype, "scrollIntoView", sauvegarde);
+      else Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+    }
+  });
 });
 
 describe("le formulaire à champs obligatoires", () => {

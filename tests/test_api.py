@@ -41,6 +41,7 @@ from ourouler.api.adaptateur import Budgets
 from ourouler.api.application import creer_application
 from ourouler.api.depots import (
     CHAMPS_MODIFIABLES,
+    CHAMPS_RACINE_MODIFIABLES,
     LISTES_MODIFIABLES,
     DepotFichiers,
     DepotProfils,
@@ -873,10 +874,106 @@ def _socle_partage(tmp_path: Path) -> SocleTOML:
 
 
 def test_les_profils_de_deux_proprietaires_ne_se_melangent_pas(tmp_path: Path):
+    """Depuis Q35 (tiers 3, tranché le 17/09/2026), écrire son profil veut dire l'écrire **en entier** :
+    `depart`/`cycliste` ne s'héritent plus du socle partagé, y compris pour
+    le propriétaire qui n'a rien écrit du tout — voir le test suivant.
+    """
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
+    depot.enregistrer(
+        AUTRE,
+        {
+            "depart": {"nom": "Chez l'autre", "latitude": 3.0, "longitude": 4.0},
+            "cycliste": {"masse_kg": 60.0, "ftp_w": 999},
+        },
+    )
     assert depot.config(AUTRE).cycliste.ftp_w == 999
-    assert depot.config(PROPRIETAIRE_LOCAL).cycliste.ftp_w == W.FTP_TEST
+    assert depot.config(AUTRE).cycliste.masse_kg == 60.0
+    assert depot.config(AUTRE).depart.nom == "Chez l'autre"
+
+
+def test_un_proprietaire_qui_n_a_rien_ecrit_n_herite_pas_du_socle_partage(tmp_path: Path):
+    """**Le trou précis, fermé le 21/09/2026** — voir aussi `test_api_isolation_proprietaire.py`.
+
+    Le socle partagé du test ci-dessus (`ecrire_config`) porte pourtant un
+    départ, un cycliste (masse, FTP `W.FTP_TEST`) et des vélos bien formés :
+    c'est le TOML d'un profil personnel ordinaire, réutilisé tel quel pour
+    prouver que même un contenu personnel complet ne fuit plus vers un
+    propriétaire qui n'a rien surchargé — ni le point de départ, ni la masse,
+    ni la FTP du mainteneur.
+
+    **Ce que ça rend au lieu de lever, depuis le 22/09/2026**
+    (`DepotProfils.config_ou_comblee` — voir `SocleTOML.config_ou_comblee`,
+    `docs/questions_mainteneur.md` Q66) : un profil incomplet lève encore
+    *tant que rien ne peut se construire du tout*, mais un compte hébergé
+    tout juste activé doit rester lisible avant sa première écriture — c'est
+    ce qu'`Assistant.tsx`/`App.tsx` supposent au démarrage. `AUTRE` reçoit
+    donc le comblement neutre (`COMBLEMENT_EMBARQUEMENT`), le même pour tout
+    le monde — jamais le départ ni le cycliste du mainteneur.
+    """
+    depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
+    config = depot.config(AUTRE)
+    assert (config.depart.latitude, config.depart.longitude) == (0.0, 0.0)
+    assert config.cycliste.masse_kg == 70.0
+    assert config.cycliste.ftp_w is None, "AUTRE hérite la FTP du mainteneur au lieu de rien avoir"
+
+
+def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_proprietaires(
+    tmp_path: Path,
+):
+    """**Le trou précis du 21/09/2026**, fermé ici — voir aussi la sonde rejouée sur l'ancien code.
+
+    Ce qu'aucun test n'éprouvait avant cette date, malgré 4830 tests verts
+    (relecture du sprint 8) : un `SocleTOML` construit avec `variables=` **et**
+    plusieurs propriétaires en même temps. Ça reproduit le paquetage réel
+    (`deploiement/api/README.md`) : le TOML du serveur porte un départ (« Point
+    zéro », `ecrire_config`), et les trois variables `OUROULER_DEPART_*` sont
+    posées — comme le fait le déploiement Coolify en service aujourd'hui
+    (`OUROULER_DEPART_NOM=Rennes`, un point générique ; celui du test est
+    inventé et synthétique, règle absolue 1).
+
+    Deux propriétaires distincts d'un même socle hébergé : `AUTRE` écrit son
+    propre départ, `tiers` n'écrit rien du tout. Aucun des deux ne doit
+    jamais recevoir un `Depart` qu'il n'a pas lui-même écrit — ni celui du
+    TOML serveur, ni celui de la variable d'environnement, ni celui de
+    l'autre propriétaire.
+    """
+    tiers = Proprietaire("tierce-personne")
+    variables_serveur = {
+        # Nom générique et coordonnée synthétique (règle absolue 1, à plus de
+        # 50 km de toute ville française) : le point d'un déploiement réel,
+        # sans en être un.
+        "OUROULER_DEPART_NOM": "Commune générique",
+        "OUROULER_DEPART_LATITUDE": "0.0009",
+        "OUROULER_DEPART_LONGITUDE": "0.0004",
+    }
+    socle = SocleTOML(ecrire_config(tmp_path), variables=variables_serveur, proprietaire=None)
+    depot = DepotProfils(socle, tmp_path / "cache" / "api")
+
+    depot.enregistrer(
+        AUTRE,
+        {
+            "depart": {"nom": "Chez AUTRE", "latitude": 10.0, "longitude": 11.0},
+            "cycliste": {"masse_kg": 60.0},
+        },
+    )
+
+    # AUTRE reçoit exactement SON départ — ni celui du TOML serveur
+    # (« Point zéro »), ni celui de la variable d'environnement
+    # (« Commune générique »).
+    depart_autre = depot.config(AUTRE).depart
+    assert depart_autre.nom == "Chez AUTRE"
+    assert depart_autre.latitude == 10.0
+    assert depart_autre.longitude == 11.0
+
+    # `tiers` n'a rien écrit : ni le TOML, ni la variable, ni le départ
+    # d'AUTRE ne lui parviennent — seulement le comblement neutre, le même
+    # pour n'importe quel compte tout juste activé (`config_ou_comblee`,
+    # Q66). C'est cette neutralité qui distingue le comblement de la fuite
+    # fermée par ce lot : (0, 0) n'est le domicile de personne, « Rennes »
+    # ou « Chez AUTRE » l'auraient été.
+    depart_tiers = depot.config(tiers).depart
+    assert (depart_tiers.latitude, depart_tiers.longitude) == (0.0, 0.0)
+    assert depart_tiers.nom not in {"Point zéro", "Commune générique", "Chez AUTRE"}
 
 
 def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Path):
@@ -906,18 +1003,152 @@ def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Pa
 
 def test_chaque_profil_est_ecrit_pour_son_seul_proprietaire(tmp_path: Path):
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    depot.enregistrer(AUTRE, {"cycliste": {"ftp_w": 999}})
+    profil = {
+        "depart": {"nom": "Chez l'autre", "latitude": 3.0, "longitude": 4.0},
+        "cycliste": {"masse_kg": 60.0, "ftp_w": 999},
+    }
+    depot.enregistrer(AUTRE, profil)
     ecrit = json.loads((tmp_path / "cache" / "api" / AUTRE.identifiant / "profil.json").read_text())
-    assert ecrit == {"cycliste": {"ftp_w": 999}}
+    assert ecrit == profil
     assert not (tmp_path / "cache" / "api" / PROPRIETAIRE_LOCAL.identifiant / "profil.json").exists()
 
 
 def test_le_profil_qui_porte_une_cle_n_est_lisible_que_de_son_proprietaire(tmp_path: Path):
     """Pas de chiffrement au repos avant F3 ; les droits du fichier, eux, se posent."""
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    depot.enregistrer(PROPRIETAIRE_LOCAL, {"intervals": {"api_key": "cle-inventee-9876"}})
+    depot.enregistrer(
+        PROPRIETAIRE_LOCAL,
+        {
+            "depart": {"nom": "Chez le mainteneur", "latitude": 5.0, "longitude": 6.0},
+            "cycliste": {"masse_kg": 70.0},
+            "intervals": {"api_key": "cle-inventee-9876"},
+        },
+    )
     chemin = tmp_path / "cache" / "api" / PROPRIETAIRE_LOCAL.identifiant / "profil.json"
     assert chemin.stat().st_mode & 0o077 == 0
+
+
+def test_le_socle_se_decoupe_en_trois_tiers_section_par_section_q35(tmp_path: Path):
+    """Q35 (17/09/2026, « trois tiers, et jamais de profil incomplet »), section par section.
+
+    Avant ce lot, `CHAMPS_MODIFIABLES` ne couvrait ni `boucle`, ni
+    `evitements`, ni `historique_depuis` — trois des sections « perso » ou
+    « perso à défaut serveur » de Q35 — et rien ne vérifiait que `calibration`
+    (tiers serveur, malgré son nom) reste bien hors de portée d'un cycliste.
+    Ce test remplace l'absence de couverture, pas un ancien test tout-ou-rien
+    (celui-là existe déjà : `test_les_profils_de_deux_proprietaires_ne_se_melangent_pas`
+    et `test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre`, qui
+    protègent un invariant différent — l'appartenance d'un *socle TOML entier*
+    — inchangé par ce lot).
+
+    Le socle est déclaré **impersonnel** (`_socle_partage`, comme les tests
+    voisins) : ça isole la mécanique de fusion section par section de la
+    question, distincte, de qui a le droit de lire le socle de qui.
+    """
+    chemin = tmp_path / "config.toml"
+    cache = tmp_path / "cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    chemin.write_text(
+        f"""
+historique_depuis = "2022-06-01"
+
+[depart]
+nom = "Point zéro"
+latitude = 0.0
+longitude = 0.0
+
+[cycliste]
+masse_kg = 76.5
+ftp_w = {W.FTP_TEST}
+
+[[velos]]
+nom = "Route"
+usage = "route"
+masse_kg = 8.5
+
+[meteo]
+directions = 8
+distances_km = [15]
+modele = "modele_principal_test"
+
+[brouter]
+url = "https://brouter.exemple.test"
+
+[boucle]
+sens = "horaire"
+candidates = 9
+tolerance_distance = 0.2
+
+[calibration]
+mots_groupe = ["club"]
+vitesse_min_kmh = 10.0
+
+[cache]
+dossier = "{cache}"
+""",
+        encoding="utf-8",
+    )
+    depot = DepotProfils(SocleTOML(chemin, proprietaire=None), tmp_path / "cache" / "api")
+
+    depot.enregistrer(
+        AUTRE,
+        {
+            "boucle": {"sens": "antihoraire"},
+            "historique_depuis": "2024-01-01",
+            "depart": {"nom": "Chez l'autre", "latitude": 1.0, "longitude": 1.0},
+            "evitements": [
+                {"nom": "carrefour test", "latitude": 1.0, "longitude": 1.0, "rayon_m": 150}
+            ],
+        },
+    )
+    autre = depot.config(AUTRE)
+    local = depot.config(PROPRIETAIRE_LOCAL)
+
+    # Tiers 2 (« perso, défaut serveur »), champ par champ : le sens choisi
+    # par AUTRE ne déteint pas sur les deux champs de service de la même
+    # section, qui restent ceux du socle pour tout le monde — y compris pour
+    # AUTRE, qui ne les a pas surchargés.
+    assert autre.boucle.sens == "antihoraire"
+    assert autre.boucle.candidates == 9
+    assert autre.boucle.tolerance_distance == 0.2
+    assert local.boucle.sens == "horaire"
+    assert local.boucle.candidates == 9
+
+    # Tiers 1 (« serveur, jamais servi ») : `calibration` trompe par son nom
+    # (Q35) — c'est un réglage de méthode, pas un résultat personnel — et
+    # reste refusé en écriture, même si le champ existe côté cœur.
+    with pytest.raises(ErreurUtilisateur, match="calibration"):
+        depot.enregistrer(AUTRE, {"calibration": {"vitesse_min_kmh": 3.0}})
+    assert autre.calibration.vitesse_min_kmh == 10.0
+
+    # Un champ de service d'une section à défaut commun reste refusé même si
+    # un autre champ de la même section, lui, est modifiable.
+    with pytest.raises(ErreurUtilisateur, match=r"boucle\.candidates"):
+        depot.enregistrer(AUTRE, {"boucle": {"candidates": 20}})
+
+    # Tiers 3 (« perso pur »), jamais hérité : ce qu'AUTRE a écrit lui
+    # appartient, sans rien devoir au socle ni au mainteneur. `local` (qui
+    # n'a rien écrit) ne reçoit ni « 2022-06-01 » (le TOML du serveur) ni
+    # « Point zéro » (son départ) : `historique_depuis` retombe sur le
+    # défaut du cœur, et `depart` sur le comblement neutre de l'embarquement
+    # (`COMBLEMENT_EMBARQUEMENT`, Q66 — trou mesuré et fermé le 22/09/2026 :
+    # `historique_depuis` est un champ scalaire à la racine, pas une
+    # section, et `SocleTOML.config` ne le taisait pas encore).
+    assert autre.historique_depuis.isoformat() == "2024-01-01"
+    assert local.historique_depuis.isoformat() == "2023-12-01"
+    assert autre.depart.nom == "Chez l'autre"
+    assert (local.depart.latitude, local.depart.longitude) == (0.0, 0.0)
+    assert local.depart.nom != "Point zéro"
+    assert [e.nom for e in autre.evitements] == ["carrefour test"]
+    assert local.evitements == ()
+
+    # `tenue` appartient au cycliste dans le **modèle de données** (Q35),
+    # mais son interface d'édition attend explicitement la V2 (« même ça
+    # attend la V2 ») : en V1, elle reste refusée en écriture, comme une
+    # section serveur ordinaire — décision prise en écrivant ce lot, à
+    # corriger d'un trait si elle ne convient pas.
+    with pytest.raises(ErreurUtilisateur, match="tenue"):
+        depot.enregistrer(AUTRE, {"tenue": {"vent_veste_kmh": 25.0}})
 
 
 # --- ce que la réconciliation des tests de contrat a ajouté (17/09/2026) -----
@@ -1022,8 +1253,11 @@ def test_la_route_d_ecriture_du_profil_publie_ce_qu_elle_accepte(tmp_path: Path)
     schema = serveur(tmp_path).get("/openapi.json").json()
     corps = schema["paths"]["/api/v1/profil"]["patch"]["requestBody"]
     proprietes = corps["content"]["application/json"]["schema"]["properties"]
-    assert set(proprietes) == set(CHAMPS_MODIFIABLES) | set(LISTES_MODIFIABLES)
+    assert set(proprietes) == (
+        set(CHAMPS_MODIFIABLES) | set(LISTES_MODIFIABLES) | set(CHAMPS_RACINE_MODIFIABLES)
+    )
     assert set(proprietes["seance"]["properties"]) == {"position_zone"}
+    assert set(proprietes["boucle"]["properties"]) == {"sens"}
 
 
 def test_le_facteur_compteur_dit_en_un_mot_s_il_est_mesure_ou_suppose(tmp_path: Path):

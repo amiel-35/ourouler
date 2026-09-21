@@ -5047,3 +5047,69 @@ pas réclamer.
 mention « générique, à partir de votre poids et de votre vélo seuls » reste
 affichée quel que soit le chiffre retenu, donc aucun écran ne ment tant que
 la convention n'est pas présentée comme une mesure.
+
+---
+
+## Q66 — La fuite du tiers 3 de Q35 est fermée ; (a) reste une action pour le mainteneur, (b) tranché le 22/09/2026
+
+Corrigé en relecture du sprint 8 : `SocleTOML.config` (en mode hébergé,
+`proprietaire=None`) fusionnait encore les sections perso pur de Q35
+(`depart`, `cycliste`, `velos`, `intervals`) depuis le TOML du serveur, et
+`config.py:_survoler_environnement` laissait les variables
+`OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` s'appliquer à quiconque — y
+compris par-dessus la surcharge d'un propriétaire qui avait déjà écrit la
+sienne. Fermé à l'endroit unique où un socle hébergé se construit
+(`api/depots.py`), avec un refus de démarrage étendu aux quatre sections
+(`api/application.py`, sur le modèle qui ne couvrait jusque-là que
+`[intervals]`). Deux effets de bord mesurés en fermant le trou, ni l'un ni
+l'autre du ressort d'un agent :
+
+**(a) Le déploiement Coolify hébergé en service ne redémarrera pas tel
+quel.** `docker-compose.api.coolify.yml` pose `OUROULER_DEPART_NOM` (valeur
+Coolify actuelle : « Rennes », un point générique) et
+`OUROULER_INTERVALS_*` sans condition de mode, et
+`deploiement/api/config.example.toml` — dont le TOML réellement déployé est
+vraisemblablement dérivé — porte `[cycliste]`/`[[velos]]`. Les deux sont
+désormais refusés au démarrage en mode `heberge`. Avant de redéployer cette
+branche : vider ces variables dans le panneau Coolify du service hébergé, et
+reconstruire son `OUROULER_CONFIG_TOML_B64` sans `[cycliste]`/`[[velos]]`
+(le fichier `deploiement/api/config.example.toml` mis à jour ici explique le
+découpage). Rien n'a été touché côté Coolify par cette correction — règle
+absolue 7.
+
+**(b) `GET /profil`, `GET /systeme` et `GET /profil/zones` rendaient un 500
+`configuration_invalide` pour un compte hébergé qui n'a pas encore complété
+son tiers 3** — un compte tout juste activé, ou un compte supprimé qu'on
+interroge à nouveau. Avant la fermeture du trou, ce cas « marchait » en
+silence en affichant par erreur le départ/cycliste du mainteneur ; il n'y
+avait donc jamais eu besoin de le traiter proprement.
+
+**Mesuré en intégrant ce lot avec L7.4 et le RGPD-compte (22/09/2026) que
+ce n'était pas qu'une question de confort d'écran** : `front/src/App.tsx`
+interroge `/systeme`, `/profil` et `/profil/zones` **sans condition** au
+tout premier rendu, avant la moindre écriture, et affiche un écran d'erreur
+dur si l'un des trois échoue — l'assistant d'embarquement ne peut alors
+jamais s'afficher. `front/src/ecrans/Assistant.tsx` écrit ensuite son profil
+en plusieurs `PATCH /profil` partiels et successifs
+(`{cycliste: {prenom, nom}}` d'abord, `{depart}` plus tard…). Et
+`tests/comptes/test_vie_privee_comptes_adversarial.py::test_reinviter_la_meme_adresse_repart_de_zero`
+(lot RGPD) attendait déjà, explicitement, qu'un compte tout juste réinvité
+réponde 200 sur `GET /profil` — ce n'était donc pas une question ouverte
+mais un contrat déjà posé ailleurs, qu'il restait à tenir ici.
+
+**Tranché en fermant ce trou-ci** (`DepotProfils.config_ou_comblee`,
+`api/depots.py`) : en mode hébergé, quand la `Config` d'un propriétaire ne
+se construit pas faute de tiers 3, on la retente en comblant *seulement* ce
+qui n'a strictement aucun défaut ailleurs — `depart.latitude`/`.longitude`
+et `cycliste.masse_kg` (`COMBLEMENT_EMBARQUEMENT`) — jamais écrit sur
+disque, jamais la valeur de quelqu'un de réel : (0, 0) et 70 kg, la même
+valeur neutre pour tout le monde, à l'opposé de la fuite fermée par ce lot
+qui servait le départ ou le poids *réels* du mainteneur.
+`donnees.assistant_recommande` (déjà rendu par ces routes) continue de dire
+au front que ce qu'il reçoit est provisoire. Ce que ça ne change pas : un
+propriétaire qui a écrit une valeur hors bornes reste refusé — seul ce qui
+**manque** est comblé, jamais ce qui est **présent et invalide** ; les
+routes de *calcul* (boucle, sortie, météo…) passent par le même chemin et
+pourraient donc tourner sur ce comblement si l'assistant n'est pas fini —
+un résultat sans queue ni tête plutôt qu'une fuite, jamais pire que l'état
+antérieur à ce lot.

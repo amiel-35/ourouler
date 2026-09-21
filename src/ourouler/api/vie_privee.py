@@ -17,13 +17,20 @@ contribution du propriétaire aux routes apprises (c'est encore « à lui », au
 sens où ce sont ses sorties qui l'ont produit), mais **n'efface jamais**
 `apprentissage.routes.BaseRoutes` — ni les tronçons, ni les sorties.
 
-Ce n'est pas une fermeture de [[Q46]] : la table de correspondance
-compte/propriétaire qui rendrait un effacement fin possible (doctrine §10.2,
-« c'est **elle** qu'on efface à la suppression d'un compte ») n'existe pas
-encore — il n'y a pas de compte, seulement un `Proprietaire`. Ce lot ne
-l'invente pas ; il choisit, faute de mieux, l'option la moins destructive et
-la dit — dans le code, dans l'archive d'export (`LISEZ_MOI`), et dans le
-rapport qui accompagne le lot.
+**Mise à jour du lot RGPD-compte, qui ferme [[Q46]] côté effacement** : la
+table de correspondance compte/propriétaire existe désormais
+(`comptes_proprietaires`, `migrations/0001_comptes.sql`, lot L7.2-A du
+18/09/2026), et c'est justement ce lot-ci qui la branche à `effacer_donnees`
+— « c'est **elle** qu'on efface à la suppression d'un compte » (doctrine
+§10.2) est maintenant vrai en code, pas seulement en intention. Quand un
+`DepotComptes` est fourni, `effacer_donnees` retrouve le compte lié à ce
+propriétaire et l'efface ; la cascade du schéma (`ON DELETE CASCADE` sur
+`invitations.compte`, `sessions.compte` et `comptes_proprietaires.compte`)
+emporte avec lui l'invitation, les sessions ouvertes et la correspondance
+elle-même — un compte « supprimé » ne peut donc plus s'authentifier ni
+rouvrir de session. Rien ne change pour un déploiement sans base de comptes
+(mode personnel, ou hébergé sans `SessionParCookie`) : `comptes` reste
+facultatif, et son absence laisse le comportement d'avant ce lot.
 
 Ce qui part dans l'export : le profil (la surcharge JSON, jamais le socle du
 serveur), le journal des services, les fichiers déposés et générés, l'index
@@ -50,13 +57,14 @@ import io
 import json
 import zipfile
 from datetime import UTC, datetime
+from pathlib import Path
 
 from ourouler.activites.cache import Cache
+from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.config import Config
 
 #: Le fichier qui dit ce que chaque entrée de l'archive est — sans lui, un
 #: export RGPD n'est lisible que par qui a écrit le code (contrat §L7.B :
@@ -100,9 +108,18 @@ def construire_export(
     profils: DepotProfils,
     fichiers: DepotFichiers,
     journal: JournalServices,
-    config: Config,
+    dossier_cache: Path,
 ) -> bytes:
-    """L'archive ZIP de tout ce que ce propriétaire possède. Voir le module."""
+    """L'archive ZIP de tout ce que ce propriétaire possède. Voir le module.
+
+    **`dossier_cache`, pas une `Config` entière** (changé le 21/09/2026,
+    avec la fermeture de la fuite du tiers 3 de Q35) : ce module ne s'est
+    jamais servi que du dossier de cache, un réglage **serveur** qui ne
+    dépend d'aucun profil de cycliste. Exiger une `Config` complète aurait
+    fait échouer l'export d'un propriétaire qui n'a pas encore écrit son
+    départ ou son cycliste — exactement le cas RGPD le plus élémentaire,
+    « exporter les données de quelqu'un qui n'en a aucune ».
+    """
     tampon = io.BytesIO()
     with zipfile.ZipFile(tampon, mode="w", compression=zipfile.ZIP_STORED) as archive:
         archive.writestr(
@@ -120,8 +137,8 @@ def construire_export(
             json.dumps(journal.tout(qui), ensure_ascii=False, indent=2, sort_keys=True),
         )
         _ajouter_fichiers(archive, qui, fichiers)
-        _ajouter_activites(archive, qui, config)
-        _ajouter_routes_apprises(archive, qui, config)
+        _ajouter_activites(archive, qui, dossier_cache)
+        _ajouter_routes_apprises(archive, qui, dossier_cache)
     return tampon.getvalue()
 
 
@@ -132,10 +149,26 @@ def effacer_donnees(
     fichiers: DepotFichiers,
     journal: JournalServices,
     generations: DepotGenerations,
-    config: Config,
+    dossier_cache: Path,
+    comptes: DepotComptes | None = None,
 ) -> dict:
-    """Efface les données personnelles de ce propriétaire. Voir le module pour ce qui reste."""
-    cache = Cache(config.cache.dossier, proprietaire=str(qui))
+    """Efface les données personnelles de ce propriétaire. Voir le module pour ce qui reste.
+
+    **`dossier_cache`, pas une `Config`** (changé le 21/09/2026, avec la
+    fermeture de la fuite du tiers 3 de Q35) : même raison que
+    `construire_export` — la suppression doit rester idempotente pour un
+    propriétaire qui n'a jamais complété son profil (contrat sprint 7
+    §L7.B), ce qu'exiger une `Config` entière aurait cassé depuis que le
+    socle partagé ne fournit plus le tiers 3 de Q35.
+
+    `comptes` est **facultatif** : un déploiement sans base de comptes (mode
+    personnel, ou hébergé sans `SessionParCookie`) n'a aucun compte à fermer,
+    et l'appelant passe alors `None` — le résultat ne porte simplement pas la
+    clé `"compte"`. Quand il est fourni, `DepotComptes.supprimer_compte_du_proprietaire`
+    ferme le compte lié (mot de passe compris) et révoque du même coup ses
+    sessions ouvertes, par la cascade du schéma (voir cette méthode).
+    """
+    cache = Cache(dossier_cache, proprietaire=str(qui))
     supprime = {
         "profil": profils.supprimer_profil(qui),
         "journal_services": journal.supprimer(qui),
@@ -143,6 +176,8 @@ def effacer_donnees(
         "activites": cache.supprimer_tout(),
         "generations_en_memoire": generations.supprimer(qui),
     }
+    if comptes is not None:
+        supprime["compte"] = comptes.supprimer_compte_du_proprietaire(qui)
     # Rangement, sans conséquence s'il échoue : `fichiers/` a déjà disparu
     # (supprimer_tout le fait), il ne reste donc à retirer que le dossier
     # racine du propriétaire s'il est devenu vide.
@@ -173,8 +208,8 @@ def _ajouter_fichiers(archive: zipfile.ZipFile, qui: Proprietaire, fichiers: Dep
     archive.writestr("fichiers/manifest.json", json.dumps(manifeste, ensure_ascii=False, indent=2))
 
 
-def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, config: Config) -> None:
-    cache = Cache(config.cache.dossier, proprietaire=str(qui))
+def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, dossier_cache: Path) -> None:
+    cache = Cache(dossier_cache, proprietaire=str(qui))
     entrees = cache.lister()
     index = [
         {
@@ -198,8 +233,8 @@ def _ajouter_activites(archive: zipfile.ZipFile, qui: Proprietaire, config: Conf
             archive.write(entree.chemin, f"activites/bruts/{entree.chemin.name}")
 
 
-def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, config: Config) -> None:
-    base = BaseRoutes(config.cache.dossier / NOM_BASE, proprietaire=str(qui))
+def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossier_cache: Path) -> None:
+    base = BaseRoutes(dossier_cache / NOM_BASE, proprietaire=str(qui))
     stats = base.statistiques()
     resume = {
         "km_total": stats.km_total,

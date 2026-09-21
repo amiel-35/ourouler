@@ -565,6 +565,22 @@ def _reporter(section: dict[str, Any], champ: str, environ: Mapping[str, str], s
         section[champ] = valeur
 
 
+def dossier_cache_depuis(brut: Mapping[str, Any]) -> Path:
+    """Le dossier de cache, lu dans un dict TOML déjà chargé — sans construire toute la `Config`.
+
+    Extraite pour l'API (`api/application.py`, mode hébergé) : `[cache]` est
+    un réglage serveur (Q35), qui ne dépend d'aucune section perso pur
+    (`depart`, `cycliste`, `velos`, `intervals`) ; le lire seul ne doit donc
+    pas exiger que ces sections soient déjà renseignées. C'est précisément ce
+    que `depuis_dict` ne peut plus garantir en mode hébergé, depuis que
+    `SocleTOML` retire les sections perso pur du socle serveur
+    (`api/depots.py`) — un socle hébergé sans surcharge de propriétaire est,
+    à raison, un profil incomplet qui ne construit plus de `Config` du tout.
+    """
+    cache = brut.get("cache", {}) or {}
+    return Path(str(cache.get("dossier") or CACHE_DEFAUT)).expanduser()
+
+
 def depuis_dict(d: dict[str, Any]) -> Config:
     """Construit la `Config` depuis un dictionnaire (contenu TOML déjà lu). Valide et nomme les champs."""
     if not isinstance(d, dict):
@@ -580,7 +596,6 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         velos = (Velo(nom="Route"),)
     meteo = d.get("meteo", {}) or {}
     intervals = d.get("intervals", {}) or {}
-    cache = d.get("cache", {}) or {}
     brouter = d.get("brouter", {}) or {}
     boucle = d.get("boucle", {}) or {}
     calibration = d.get("calibration", {}) or {}
@@ -631,9 +646,7 @@ def depuis_dict(d: dict[str, Any]) -> Config:
         ),
         # `.expanduser()` : un TOML écrit à la main porte presque toujours un
         # `~`, et le cœur qui reçoit ce chemin n'a pas le droit de le résoudre.
-        cache=ParametresCache(
-            dossier=Path(str(cache.get("dossier") or CACHE_DEFAUT)).expanduser()
-        ),
+        cache=ParametresCache(dossier=dossier_cache_depuis(d)),
         brouter=ParametresBrouter(
             url=str(brouter.get("url", "") or "").rstrip("/"),
             utilisateur=str(brouter.get("utilisateur", "") or ""),

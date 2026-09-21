@@ -1441,15 +1441,6 @@ h1,
    DIVERS — classes hors des douze composants nommés au brief du système
    ================================================================ */
 
-.etapes-assistant {
-  font-family: var(--police-chiffres);
-  font-size: var(--texte-oeil);
-  letter-spacing: var(--sv-suivi-oeil);
-  text-transform: uppercase;
-  color: var(--texte-attenue);
-  padding-top: var(--espace-bloc);
-}
-
 /* ÉTAT : vide. Un écran vide se lit « rien de prévu » — jamais silencieux,
    toujours un mot. */
 .vide {

@@ -54,7 +54,7 @@ détail de chaque règle) :
 | Formulaire d'adresse | `champs-adresse`, `liste-candidats` | § FORMULAIRE D'ADRESSE |
 | Arbitrage | `arbitrage`, `verdicts`, `verdict-tete`, `etiquette`, `sort-retenue`, `sort-ecartee`, `sort-place`, `matrice`, `matrice-cadre`, `case-diagonale`, `case-sous`, `case-au-dessus`, `phrase-essais`, `avant-contraste`, `invisible` | § ARBITRAGE |
 | Temps écoulé | `temps-ecoule` | § TEMPS ÉCOULÉ |
-| Divers | `etapes-assistant`, `vide` | § DIVERS |
+| Divers | `vide` | § DIVERS |
 
 **Classes composées dynamiquement**, repérées séparément parce qu'aucune
 recherche littérale `className="x"` ne les trouve (elles se construisent en

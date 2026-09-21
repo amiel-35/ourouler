@@ -25,6 +25,7 @@ sort en `erreur_interne` sans jamais laisser filer une trace Python.
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -36,6 +37,9 @@ from starlette.exceptions import HTTPException as ExceptionHTTP
 from ourouler import __version__
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.depots import (
+    CHAMPS_RACINE_MODIFIABLES,
+    SECTIONS_PERSO_PUR,
+    VARIABLES_PERSO_PUR,
     DepotFichiers,
     DepotGenerations,
     DepotProfils,
@@ -47,7 +51,7 @@ from ourouler.api.depots import (
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
-from ourouler.config import Config
+from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.erreurs import ErreurConfig
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
@@ -216,6 +220,10 @@ def creer_application(
         # (Q40 g). Ils vivent dans ce processus, bornés, jusqu'au choix.
         generations=DepotGenerations(),
         journal=JournalServices(dossier_donnees),
+        # Un réglage serveur (Q35), pas un profil : `socle.dossier_cache()`
+        # ne demande la surcharge de personne (`api/depots.py`), à la
+        # différence de `socle.config(...)` — voir `Contexte.dossier_cache`.
+        dossier_cache=socle.dossier_cache(),
         clients=clients
         or Clients(
             brouter=client_brouter,
@@ -402,51 +410,87 @@ def application() -> FastAPI:
     # entrait, et ne voyait rien (constaté en vrai le 19/09/2026, sur la
     # première activation).
     #
-    # Ce n'est pas la réponse à [[Q35]] — quelles sections sont communes et
-    # lesquelles appartiennent au cycliste reste à trancher. C'est la réponse
-    # à une question plus étroite : un serveur qui sert plusieurs personnes
-    # n'a pas le droit d'avoir un fichier qui soit le profil de l'une d'elles.
+    # C'est la réponse à [[Q35]] (« trois tiers, et le vide n'existe pas »,
+    # tranché le 17/09/2026) qui dit désormais quelles sections sont communes
+    # et lesquelles appartiennent au cycliste — et `SocleTOML.config`
+    # (`api/depots.py`) applique ce découpage à chaque construction de
+    # `Config` : le tiers 3 (perso pur) n'est jamais hérité du socle commun.
     partage = session.mode != MODE_PERSONNEL
-    socle = SocleTOML(
-        exploitation.chemin_config(),
-        variables=exploitation.variables(),
-        proprietaire=None if partage else PROPRIETAIRE_LOCAL,
-    )
-    base = socle.config({})
+    chemin = exploitation.chemin_config()
+    variables = exploitation.variables()
+    socle = SocleTOML(chemin, variables=variables, proprietaire=None if partage else PROPRIETAIRE_LOCAL)
+
     if partage:
-        _refuser_une_base_personnelle(base)
+        # **Un socle hébergé sans surcharge est maintenant, à raison, un
+        # profil incomplet** : depuis que `SocleTOML.config` retire les
+        # sections perso pur (`depart`, `cycliste`), `socle.config({})`
+        # n'a plus de raison de réussir à construire une `Config` — le
+        # tiers 3 y manque toujours. Le dossier de cache, lui, ne dépend
+        # d'aucune section perso pur (Q35 : `cache` est un réglage
+        # serveur) ; il se lit donc dans le TOML brut, sans passer par une
+        # `Config` complète.
+        brut = exploitation.lire_toml(chemin)
+        _refuser_une_base_partagee(brut, variables)
+        dossier_cache = dossier_cache_depuis(brut)
+    else:
+        dossier_cache = socle.config({}).cache.dossier
+
     return creer_application(
         socle=socle,
-        dossier_donnees=base.cache.dossier / NOM_DOSSIER_DONNEES,
+        dossier_donnees=dossier_cache / NOM_DOSSIER_DONNEES,
         session=session,
         dossier_front=exploitation.dossier_front(),
     )
 
 
-def _refuser_une_base_personnelle(base: Config) -> None:
-    """Un serveur partagé ne démarre pas sur le fichier personnel de quelqu'un.
+def _refuser_une_base_partagee(brut: dict, variables: Mapping[str, str]) -> None:
+    """Un serveur partagé ne démarre pas sur un TOML, ou des variables, perso pur.
 
     Le garde-fou qui accompagne la décision du dessus. Servir une base commune
-    veut dire que **tout le monde** la reçoit : une clé Intervals qui y traîne
-    est la clé d'un compte tiers remise à chaque personne invitée, ce qu'aucun
-    message d'erreur ne rattrape après coup.
+    veut dire que **tout le monde** la reçoit : une clé Intervals ou un point
+    de départ qui y traînent sont remis à chaque personne invitée, ce qu'aucun
+    message d'erreur ne rattrape après coup — c'était la fuite mesurée en
+    relecture le 21/09/2026, pour `depart`/`cycliste`/`velos`, alors que ce
+    contrôle-ci n'existait que pour `[intervals]`.
 
     On refuse au démarrage plutôt qu'à la requête : un déploiement mal
     configuré doit échouer là où quelqu'un regarde, pas servir la moitié de
     ses routes. C'est le même choix que pour `OUROULER_MODE` inconnu.
 
-    Le point de départ, lui, n'est pas contrôlé ici : il en faut un pour que
-    le modèle tourne, et une commune est un défaut, pas une identité. Qu'il
-    soit générique relève du déploiement — `deploiement/api/config.example.toml`
-    l'explique — et de [[Q35]].
+    **Testé sur le TOML brut et les variables brutes, avant toute fusion** —
+    et non sur une `Config` construite : `SocleTOML.config` retire déjà ces
+    sections en mode hébergé (`api/depots.py`), donc une `Config` de base ne
+    les montrerait plus jamais, qu'elles soient présentes ou non dans le
+    fichier du serveur. Vérifier la source plutôt que le résultat est ce qui
+    permet de nommer précisément ce qui est en trop.
     """
-    if base.intervals.api_key:
-        raise ErreurConfig(
-            "ce serveur est en mode hébergé et son fichier de configuration porte une clé "
-            "Intervals : elle serait servie à chaque personne invitée. Retirer "
-            "[intervals] du TOML du serveur — chaque cycliste branche le sien depuis "
-            "l'assistant."
-        )
+    depuis_toml = [section for section in SECTIONS_PERSO_PUR if brut.get(section)]
+    # `historique_depuis` est un champ scalaire à la racine, pas une section
+    # (`CHAMPS_RACINE_MODIFIABLES`) — perso pur lui aussi (Q35), oublié une
+    # première fois dans `SocleTOML.config` (mesuré le 22/09/2026).
+    depuis_racine = [champ for champ in CHAMPS_RACINE_MODIFIABLES if brut.get(champ)]
+    depuis_env = [
+        f"{PREFIXE_ENV}{suffixe}"
+        for suffixe in VARIABLES_PERSO_PUR
+        if variables.get(f"{PREFIXE_ENV}{suffixe}")
+    ]
+    if not depuis_toml and not depuis_racine and not depuis_env:
+        return
+    fautifs = []
+    if depuis_toml or depuis_racine:
+        noms = ", ".join(f"[[{s}]]" if s == "velos" else f"[{s}]" for s in depuis_toml)
+        if depuis_racine:
+            noms = ", ".join(filter(None, [noms, ", ".join(depuis_racine)]))
+        fautifs.append(f"les sections ou champs {noms} dans son fichier de configuration")
+    if depuis_env:
+        fautifs.append(f"les variables {', '.join(depuis_env)}")
+    raise ErreurConfig(
+        "ce serveur est en mode hébergé et porte " + " et ".join(fautifs) + " — "
+        "ce sont des réglages perso pur (Q35, tiers 3 : depart, cycliste, velos, intervals, "
+        "historique_depuis), jamais hérités : ils seraient servis, ou imposés, à chaque "
+        "personne invitée. Les retirer du fichier de configuration et de l'environnement du "
+        "serveur — chaque cycliste renseigne les siens depuis l'assistant."
+    )
 
 
 __all__ = ["DESCRIPTION", "NOM_DOSSIER_DONNEES", "application", "creer_application"]

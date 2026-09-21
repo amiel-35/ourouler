@@ -20,8 +20,10 @@ avant qu'elle ait des comptes.
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import date
+from pathlib import Path
 from typing import Annotated
 
 import httpx
@@ -178,6 +180,14 @@ class Contexte:
     #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
     session: FournisseurSession
+    #: Le dossier de cache du **serveur** — `[cache]`, un réglage commun
+    #: (Q35), pas le profil d'un propriétaire : à la différence de tout ce
+    #: qui précède, il n'a donc pas de clause. Ajouté le 21/09/2026 pour
+    #: `GET /moi/export` et `DELETE /moi` (`api/vie_privee.py`), qui n'ont
+    #: jamais eu besoin que de ce chemin et exigeaient jusque-là la `Config`
+    #: entière d'un propriétaire rien que pour l'obtenir — ce qui échoue
+    #: maintenant, à raison, pour qui n'a pas encore écrit son tiers 3.
+    dossier_cache: Path
 
 
 def contexte(requete: Request) -> Contexte:
@@ -1344,11 +1354,21 @@ def exporter_mes_donnees(ctx: Ctx, qui: Qui):
     sprint 7 §L7.B). L'archive n'est **pas compressée** : voir
     `api/vie_privee.py` pour pourquoi (c'est ce qui garde le balayage
     d'isolation capable de la couvrir).
+
+    **Pas de `_config(ctx, qui)` ici** (changé le 21/09/2026) : cette route
+    doit rester utilisable par un propriétaire qui n'a encore rien écrit —
+    exiger sa `Config` entière échouerait sur un profil incomplet depuis que
+    le tiers 3 de Q35 ne s'hérite plus du socle partagé. `dossier_cache()`
+    est le seul réglage dont `vie_privee.construire_export` se sert, et c'est
+    un réglage serveur (Q35), pas un profil.
     """
-    config = _config(ctx, qui)
     try:
         archive = vie_privee.construire_export(
-            qui, profils=ctx.profils, fichiers=ctx.fichiers, journal=ctx.journal, config=config
+            qui,
+            profils=ctx.profils,
+            fichiers=ctx.fichiers,
+            journal=ctx.journal,
+            dossier_cache=ctx.dossier_cache,
         )
     except Exception as e:
         raise classer(e) from e
@@ -1359,6 +1379,23 @@ def exporter_mes_donnees(ctx: Ctx, qui: Qui):
     )
 
 
+@contextmanager
+def _comptes_du_deploiement(ctx: Contexte):
+    """Le dépôt des comptes de ce déploiement, ou `None` — pour `effacer_donnees`.
+
+    `SessionParCookie` est la seule session qui porte une base de comptes
+    (`api/session.py`) : `SessionPersonnelle` (un seul cycliste, pas de
+    compte) et `SessionHebergee` (hébergé sans base de comptes configurée)
+    n'en ouvrent jamais. `vie_privee.effacer_donnees` traite `comptes=None`
+    comme « rien à fermer de ce côté », pas comme une erreur.
+    """
+    if not isinstance(ctx.session, SessionParCookie):
+        yield None
+        return
+    with base_de_donnees.ouvrir(ctx.session.url) as cx:
+        yield DepotComptes(cx)
+
+
 @routeur.delete("/moi")
 def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     """Efface les données personnelles de ce propriétaire.
@@ -1367,17 +1404,31 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     rend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —
     les routes apprises, collectives par décision du mainteneur — est nommé
     dans `donnees.conserve`, jamais tu.
+
+    **Ferme aussi le compte, quand ce déploiement en a un** (`SessionParCookie`,
+    lot RGPD-compte) : `DepotComptes.supprimer_compte_du_proprietaire` efface
+    la ligne `comptes` liée, et la cascade du schéma révoque du même coup ses
+    invitations et ses sessions ouvertes — le mot de passe ne rouvre plus rien
+    après cet appel. En mode personnel ou hébergé sans base de comptes, il n'y
+    a pas de compte à fermer et `donnees.supprime` ne porte alors pas la clé
+    `"compte"`.
+
+    **Pas de `_config(ctx, qui)` ici non plus** (changé le 21/09/2026), même
+    raison qu'à l'export ci-dessus : l'idempotence promise par ce docstring
+    casserait sur un profil incomplet si cette route exigeait la `Config`
+    entière du propriétaire pour obtenir un seul réglage serveur.
     """
-    config = _config(ctx, qui)
     try:
-        donnees = vie_privee.effacer_donnees(
-            qui,
-            profils=ctx.profils,
-            fichiers=ctx.fichiers,
-            journal=ctx.journal,
-            generations=ctx.generations,
-            config=config,
-        )
+        with _comptes_du_deploiement(ctx) as comptes:
+            donnees = vie_privee.effacer_donnees(
+                qui,
+                profils=ctx.profils,
+                fichiers=ctx.fichiers,
+                journal=ctx.journal,
+                generations=ctx.generations,
+                dossier_cache=ctx.dossier_cache,
+                comptes=comptes,
+            )
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": donnees}

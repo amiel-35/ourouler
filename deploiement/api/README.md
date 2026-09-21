@@ -44,6 +44,14 @@ dossier dans `OUROULER_FRONT_DIST` (`api/exploitation.py`), que le
    (le générateur de la page du jour) : voir sa docstring si le pourquoi
    intéresse.
 
+   **`[cycliste]` et `[[velos]]`, eux, ne valent qu'en mode `personnel`**
+   (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
+   fuite fermée le 21/09/2026). En mode `heberge`, ces deux sections aussi
+   doivent disparaître de ce fichier : l'API **refuse de démarrer** si
+   `[depart]`, `[cycliste]`, `[[velos]]` ou `[intervals]` y figurent — elles
+   seraient sinon servies à chaque personne invitée. Chaque cycliste les
+   renseigne lui-même depuis l'assistant, une fois son compte activé.
+
 2. **Les secrets, le point de départ, et le mode.**
    ```
    cp deploiement/api/.env.example deploiement/api/.env
@@ -56,13 +64,19 @@ dossier dans `OUROULER_FRONT_DIST` (`api/exploitation.py`), que le
      démarre et refuse tout** : ce n'est pas un bug du paquetage, c'est le
      comportement voulu depuis le lot L7.A — un service exposé sans qu'on
      ait dit qui il sert ne sert personne.
-   - `OUROULER_INTERVALS_API_KEY`, `OUROULER_INTERVALS_ATHLETE_ID` —
-     Intervals.icu → Settings → Developer.
-   - `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`,
-     `OUROULER_DEPART_LONGITUDE`.
+   - `OUROULER_INTERVALS_API_KEY`, `OUROULER_INTERVALS_ATHLETE_ID`,
+     `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`,
+     `OUROULER_DEPART_LONGITUDE` — **uniquement en mode `personnel`**
+     (Intervals.icu → Settings → Developer, pour les deux premières). **En
+     mode `heberge`, laisser ces cinq variables vides** : depuis le
+     21/09/2026, l'API les ignore (elles ne s'appliquent plus jamais à un
+     socle partagé, Q35 tiers 3) et refuse même de démarrer si l'une d'elles
+     porte une valeur — poser un point de départ ou une clé au niveau du
+     serveur imposerait celui du mainteneur à chaque personne invitée.
    - `OUROULER_BROUTER_URL` (et `OUROULER_BROUTER_UTILISATEUR` /
      `OUROULER_BROUTER_MOT_DE_PASSE` si protégé) — celui déjà en service sur
-     le Coolify du mainteneur.
+     le Coolify du mainteneur ; c'est un réglage serveur (Q35), légitime
+     dans les deux modes.
    - `OUROULER_CONFIG_HOTE` — chemin **absolu** vers le fichier TOML préparé
      à l'étape 1.
 

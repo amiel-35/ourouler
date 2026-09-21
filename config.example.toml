@@ -2,6 +2,15 @@
 # (ou passer --config <fichier>). Ce fichier d'exemple ne contient aucune donnée
 # réelle : toutes les valeurs sont inventées. Le vrai fichier est ignoré par git.
 
+# Fenêtre d'historique pour la calibration : à la racine, et non sous [boucle]
+# — en TOML, une clé nue après un en-tête de section rejoint cette section,
+# donc placée plus bas ce champ était silencieusement lu comme
+# `boucle.historique_depuis` et ignoré (`Config.historique_depuis` le lit à la
+# racine). Perso pur, avec un défaut, au sens de Q35 (docs/questions_mainteneur.md) :
+# chacun voit midi à sa porte sur ses propres sorties, ce n'est pas un réglage
+# de serveur.
+historique_depuis = 2023-12-01
+
 [depart]
 nom = "Maison"
 latitude = 47.0000    # inventé : mettre son vrai point de départ
@@ -74,11 +83,9 @@ profil = "fastbike"
 
 [boucle]
 vitesse_moyenne_kmh = 27   # en attendant le modèle physique
-sens = "horaire"           # horaire en France, antihoraire au Royaume-Uni
+sens = "horaire"           # horaire en France, antihoraire au Royaume-Uni — modifiable par le cycliste (Q35)
 candidates = 5
 tolerance_distance = 0.10
-
-historique_depuis = 2023-12-01   # fenêtre d'historique pour la calibration
 
 [calibration]
 mots_groupe = ["club", "groupe", "peloton", "sortie club"]  # sorties écartées de la calibration
