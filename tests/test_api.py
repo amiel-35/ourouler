@@ -899,14 +899,22 @@ def test_un_proprietaire_qui_n_a_rien_ecrit_n_herite_pas_du_socle_partage(tmp_pa
     c'est le TOML d'un profil personnel ordinaire, réutilisé tel quel pour
     prouver que même un contenu personnel complet ne fuit plus vers un
     propriétaire qui n'a rien surchargé — ni le point de départ, ni la masse,
-    ni la FTP du mainteneur. Avant correction, cette assertion réussissait
-    avec les valeurs du socle ; elle lève maintenant, ce qui est le
-    comportement voulu (Q35 : « un profil incomplet n'existe jamais », donc
-    ce cas ne construit plus de `Config` du tout).
+    ni la FTP du mainteneur.
+
+    **Ce que ça rend au lieu de lever, depuis le 22/09/2026**
+    (`DepotProfils.config_ou_comblee` — voir `SocleTOML.config_ou_comblee`,
+    `docs/questions_mainteneur.md` Q66) : un profil incomplet lève encore
+    *tant que rien ne peut se construire du tout*, mais un compte hébergé
+    tout juste activé doit rester lisible avant sa première écriture — c'est
+    ce qu'`Assistant.tsx`/`App.tsx` supposent au démarrage. `AUTRE` reçoit
+    donc le comblement neutre (`COMBLEMENT_EMBARQUEMENT`), le même pour tout
+    le monde — jamais le départ ni le cycliste du mainteneur.
     """
     depot = DepotProfils(_socle_partage(tmp_path), tmp_path / "cache" / "api")
-    with pytest.raises(ErreurConfig, match="depart"):
-        depot.config(AUTRE)
+    config = depot.config(AUTRE)
+    assert (config.depart.latitude, config.depart.longitude) == (0.0, 0.0)
+    assert config.cycliste.masse_kg == 70.0
+    assert config.cycliste.ftp_w is None, "AUTRE hérite la FTP du mainteneur au lieu de rien avoir"
 
 
 def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_proprietaires(
@@ -957,12 +965,15 @@ def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_prop
     assert depart_autre.latitude == 10.0
     assert depart_autre.longitude == 11.0
 
-    # `tiers` n'a rien écrit : aucun Depart improvisé — ni celui du TOML, ni
-    # celui de la variable, ni celui d'AUTRE. Un profil incomplet lève
-    # (Q35 : « il ne peut pas y avoir de vide »), il ne rend jamais un point
-    # de départ que ce propriétaire n'a pas lui-même écrit.
-    with pytest.raises(ErreurConfig, match="depart"):
-        depot.config(tiers)
+    # `tiers` n'a rien écrit : ni le TOML, ni la variable, ni le départ
+    # d'AUTRE ne lui parviennent — seulement le comblement neutre, le même
+    # pour n'importe quel compte tout juste activé (`config_ou_comblee`,
+    # Q66). C'est cette neutralité qui distingue le comblement de la fuite
+    # fermée par ce lot : (0, 0) n'est le domicile de personne, « Rennes »
+    # ou « Chez AUTRE » l'auraient été.
+    depart_tiers = depot.config(tiers).depart
+    assert (depart_tiers.latitude, depart_tiers.longitude) == (0.0, 0.0)
+    assert depart_tiers.nom not in {"Point zéro", "Commune générique", "Chez AUTRE"}
 
 
 def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Path):
@@ -1116,11 +1127,18 @@ dossier = "{cache}"
         depot.enregistrer(AUTRE, {"boucle": {"candidates": 20}})
 
     # Tiers 3 (« perso pur »), jamais hérité : ce qu'AUTRE a écrit lui
-    # appartient, sans rien devoir au socle ni au mainteneur.
+    # appartient, sans rien devoir au socle ni au mainteneur. `local` (qui
+    # n'a rien écrit) ne reçoit ni « 2022-06-01 » (le TOML du serveur) ni
+    # « Point zéro » (son départ) : `historique_depuis` retombe sur le
+    # défaut du cœur, et `depart` sur le comblement neutre de l'embarquement
+    # (`COMBLEMENT_EMBARQUEMENT`, Q66 — trou mesuré et fermé le 22/09/2026 :
+    # `historique_depuis` est un champ scalaire à la racine, pas une
+    # section, et `SocleTOML.config` ne le taisait pas encore).
     assert autre.historique_depuis.isoformat() == "2024-01-01"
-    assert local.historique_depuis.isoformat() == "2022-06-01"
+    assert local.historique_depuis.isoformat() == "2023-12-01"
     assert autre.depart.nom == "Chez l'autre"
-    assert local.depart.nom == "Point zéro"
+    assert (local.depart.latitude, local.depart.longitude) == (0.0, 0.0)
+    assert local.depart.nom != "Point zéro"
     assert [e.nom for e in autre.evitements] == ["carrefour test"]
     assert local.evitements == ()
 

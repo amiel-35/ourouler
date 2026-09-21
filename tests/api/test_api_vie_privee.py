@@ -167,16 +167,19 @@ def test_la_suppression_efface_le_profil_et_les_fichiers_de_ce_proprietaire(tmp_
 def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
     """Après suppression, A voit exactement ce qu'un inconnu qui n'a jamais rien écrit verrait.
 
-    Plus fort qu'« absence de sentinelle » : la réponse entière est comparée
-    à celle d'un troisième propriétaire qui n'a jamais existé.
+    Plus fort qu'« absence de sentinelle » : le contenu du profil est comparé
+    à celui d'un troisième propriétaire qui n'a jamais existé — `proprietaire`
+    est exclu de la comparaison, seule ligne qui doit légitimement différer.
 
-    **Les deux réponses sont désormais une erreur, et c'est plus fort qu'avant**
-    (changé le 21/09/2026, avec la fermeture de la fuite du tiers 3 de Q35) :
-    ni A supprimé ni un inconnu n'héritent plus du départ/cycliste du socle
-    partagé, donc les deux se heurtent au même « profil incomplet » — avant
-    cette date, les deux recevaient plutôt, en silence, le départ du socle
-    de test, ce qui masquait la comparaison sans la fausser par chance
-    (le socle était le même pour les deux).
+    **`GET /profil` répond 200 pour les deux, et c'est voulu** (Q66,
+    `docs/questions_mainteneur.md` — décidé le 22/09/2026, après la fuite
+    fermée le 21/09/2026 pour `depart`/`cycliste`/`velos`/`intervals`) : un
+    compte hébergé sans surcharge — tout juste activé, ou tout juste
+    supprimé — reste lisible, avec le **même comblement neutre**
+    (`COMBLEMENT_EMBARQUEMENT`) que n'importe quel autre compte à ce stade.
+    Ce que ce test prouve n'est donc plus « les deux échouent pareil », mais
+    « les deux montrent exactement le même rien » — aucune trace de A ne
+    reste dans ce que la route rend après sa suppression.
     """
     client = _service_pour_deux(tmp_path)
     _planter(client, PROPRIETAIRE_A, MARQUE_A)
@@ -188,7 +191,8 @@ def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
     jamais_vu = client.requete(
         "GET", f"{PREFIXE_API}/profil", headers={"x-essai-proprietaire": PROPRIETAIRE_JAMAIS_VU}
     )
-    assert (apres_a.status_code, apres_a.json()) == (jamais_vu.status_code, jamais_vu.json()), (
+    assert apres_a.status_code == jamais_vu.status_code == 200
+    assert apres_a.json()["donnees"] == jamais_vu.json()["donnees"], (
         "le profil de A, après suppression, diffère encore de celui de quelqu'un qui n'a "
         "jamais existé"
     )

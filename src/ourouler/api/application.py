@@ -37,6 +37,7 @@ from starlette.exceptions import HTTPException as ExceptionHTTP
 from ourouler import __version__
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.depots import (
+    CHAMPS_RACINE_MODIFIABLES,
     SECTIONS_PERSO_PUR,
     VARIABLES_PERSO_PUR,
     DepotFichiers,
@@ -464,25 +465,31 @@ def _refuser_une_base_partagee(brut: dict, variables: Mapping[str, str]) -> None
     permet de nommer précisément ce qui est en trop.
     """
     depuis_toml = [section for section in SECTIONS_PERSO_PUR if brut.get(section)]
+    # `historique_depuis` est un champ scalaire à la racine, pas une section
+    # (`CHAMPS_RACINE_MODIFIABLES`) — perso pur lui aussi (Q35), oublié une
+    # première fois dans `SocleTOML.config` (mesuré le 22/09/2026).
+    depuis_racine = [champ for champ in CHAMPS_RACINE_MODIFIABLES if brut.get(champ)]
     depuis_env = [
         f"{PREFIXE_ENV}{suffixe}"
         for suffixe in VARIABLES_PERSO_PUR
         if variables.get(f"{PREFIXE_ENV}{suffixe}")
     ]
-    if not depuis_toml and not depuis_env:
+    if not depuis_toml and not depuis_racine and not depuis_env:
         return
     fautifs = []
-    if depuis_toml:
+    if depuis_toml or depuis_racine:
         noms = ", ".join(f"[[{s}]]" if s == "velos" else f"[{s}]" for s in depuis_toml)
-        fautifs.append(f"les sections {noms} dans son fichier de configuration")
+        if depuis_racine:
+            noms = ", ".join(filter(None, [noms, ", ".join(depuis_racine)]))
+        fautifs.append(f"les sections ou champs {noms} dans son fichier de configuration")
     if depuis_env:
         fautifs.append(f"les variables {', '.join(depuis_env)}")
     raise ErreurConfig(
         "ce serveur est en mode hébergé et porte " + " et ".join(fautifs) + " — "
-        "ce sont des sections perso pur (Q35, tiers 3 : depart, cycliste, velos, intervals), "
-        "jamais héritées : elles seraient servies, ou imposées, à chaque personne invitée. "
-        "Les retirer du fichier de configuration et de l'environnement du serveur — chaque "
-        "cycliste renseigne les siennes depuis l'assistant."
+        "ce sont des réglages perso pur (Q35, tiers 3 : depart, cycliste, velos, intervals, "
+        "historique_depuis), jamais hérités : ils seraient servis, ou imposés, à chaque "
+        "personne invitée. Les retirer du fichier de configuration et de l'environnement du "
+        "serveur — chaque cycliste renseigne les siens depuis l'assistant."
     )
 
 

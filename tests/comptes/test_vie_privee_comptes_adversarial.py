@@ -114,17 +114,6 @@ def _requete(
     return asyncio.run(_aller())
 
 
-def _config_de_test(tmp_path: Path):
-    """Une `Config` autonome : `effacer_donnees` ne lit que `cache.dossier`."""
-    from ourouler.config import Config, Cycliste, Depart, ParametresCache
-
-    return Config(
-        depart=Depart(nom="Essai", latitude=0.0009, longitude=0.0004),
-        cycliste=Cycliste(masse_kg=70.0, ftp_w=200.0),
-        cache=ParametresCache(dossier=tmp_path / "cache"),
-    )
-
-
 def _inscrire(app, url_base: str, adresse: str) -> tuple[str, str, dict[str, str]]:
     """Invite puis active `adresse` ; rend (compte, proprietaire, cookies).
 
@@ -259,12 +248,17 @@ def test_reinviter_la_meme_adresse_repart_de_zero(url_base, tmp_path):
     compte_1, proprietaire_1, cookies_1 = _inscrire(app, url_base, ADRESSE_A)
 
     marque = "sentinelle-avant-suppression"
+    # Q35, tiers 3 : le socle partagé ne fournit plus `depart`/`cycliste`
+    # (fuite fermée le 21/09/2026) — le propriétaire écrit les deux.
     profil = _requete(
         app,
         "PATCH",
         f"{PREFIXE}/profil",
         cookies=cookies_1,
-        json={"depart": {"nom": marque}},
+        json={
+            "depart": {"nom": marque, "latitude": 0.0007, "longitude": 0.0003},
+            "cycliste": {"masse_kg": 70.0},
+        },
     )
     assert profil.status_code == 200, profil.text
 
@@ -359,7 +353,7 @@ def test_un_effacement_interrompu_laisse_le_compte_ouvert(url_base, tmp_path):
                 fichiers=_FichiersQuiTombent(ctx.fichiers),
                 journal=ctx.journal,
                 generations=ctx.generations,
-                config=_config_de_test(tmp_path),
+                dossier_cache=tmp_path / "cache",
                 comptes=DepotComptes(cx),
             )
 
@@ -421,9 +415,18 @@ def test_mode_personnel_sans_base_de_comptes(tmp_path):
     fichiers = DepotFichiers(donnees)
     journal = JournalServices(donnees)
     generations = DepotGenerations()
-    config = _config_de_test(tmp_path)
+    dossier_cache = tmp_path / "cache"
 
-    profils.enregistrer(qui, {"depart": {"nom": "sentinelle-personnelle"}})
+    # Q35, tiers 3 (fuite fermée le 21/09/2026) : le socle partagé ne fournit
+    # plus `depart`/`cycliste` — `qui` doit désormais écrire les deux, pas
+    # seulement le nom du départ, pour que sa `Config` se construise.
+    profils.enregistrer(
+        qui,
+        {
+            "depart": {"nom": "sentinelle-personnelle", "latitude": 0.0007, "longitude": 0.0003},
+            "cycliste": {"masse_kg": 70.0},
+        },
+    )
     assert profils.surcharge(qui), "le semis du profil n'a pas pris"
 
     premier = vie_privee.effacer_donnees(
@@ -432,7 +435,7 @@ def test_mode_personnel_sans_base_de_comptes(tmp_path):
         fichiers=fichiers,
         journal=journal,
         generations=generations,
-        config=config,
+        dossier_cache=dossier_cache,
     )
     assert "compte" not in premier["supprime"], (
         "le mode personnel annonce une clé « compte » alors qu'il n'a pas de comptes"
@@ -446,7 +449,7 @@ def test_mode_personnel_sans_base_de_comptes(tmp_path):
         fichiers=fichiers,
         journal=journal,
         generations=generations,
-        config=config,
+        dossier_cache=dossier_cache,
     )
     assert "compte" not in second["supprime"]
     assert second["supprime"]["profil"] is False
@@ -469,7 +472,16 @@ def test_route_moi_en_mode_personnel_ne_cherche_aucune_base_de_comptes(tmp_path)
     """
     app = _app_avec_session(SessionPersonnelle(), tmp_path)
 
-    profil = _requete(app, "PATCH", f"{PREFIXE}/profil", json={"depart": {"nom": "chez-moi"}})
+    # Q35, tiers 3 : le socle partagé ne fournit plus `depart`/`cycliste`.
+    profil = _requete(
+        app,
+        "PATCH",
+        f"{PREFIXE}/profil",
+        json={
+            "depart": {"nom": "chez-moi", "latitude": 0.0007, "longitude": 0.0003},
+            "cycliste": {"masse_kg": 70.0},
+        },
+    )
     assert profil.status_code == 200, profil.text
 
     premier = _requete(app, "DELETE", f"{PREFIXE}/moi")
@@ -525,12 +537,16 @@ def test_supprimer_a_ne_touche_pas_b(url_base, tmp_path):
     compte_b, proprietaire_b, cookies_b = _inscrire(app, url_base, ADRESSE_B)
 
     marque_b = "sentinelle-de-b"
+    # Q35, tiers 3 : le socle partagé ne fournit plus `depart`/`cycliste`.
     profil_b = _requete(
         app,
         "PATCH",
         f"{PREFIXE}/profil",
         cookies=cookies_b,
-        json={"depart": {"nom": marque_b}},
+        json={
+            "depart": {"nom": marque_b, "latitude": 0.0007, "longitude": 0.0003},
+            "cycliste": {"masse_kg": 70.0},
+        },
     )
     assert profil_b.status_code == 200, profil_b.text
 

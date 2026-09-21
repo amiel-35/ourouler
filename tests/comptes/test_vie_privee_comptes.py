@@ -293,7 +293,7 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
             fichiers=ourouler_ctx.fichiers,
             journal=ourouler_ctx.journal,
             generations=ourouler_ctx.generations,
-            config=_config_de_test(tmp_path),
+            dossier_cache=tmp_path / "cache",
             comptes=depot,
         )
     assert rejoue["supprime"] == {
@@ -310,18 +310,3 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
     apres_routes = BaseRoutes(chemin_base, proprietaire=proprietaire_id)
     assert apres_routes.troncons(), "les tronçons de A ont disparu à la suppression du compte"
     assert apres_routes.sorties(), "les sorties de A ont disparu à la suppression du compte"
-
-
-def _config_de_test(tmp_path: Path):
-    """Une `Config` autonome, pour rappeler `effacer_donnees` hors d'une requête HTTP.
-
-    `effacer_donnees` n'a besoin que de `config.cache.dossier` (voir
-    `api/vie_privee.py`) — pas d'un profil complet ni d'une requête en cours.
-    """
-    from ourouler.config import Config, Cycliste, Depart, ParametresCache
-
-    return Config(
-        depart=Depart(nom="Essai", latitude=0.0009, longitude=0.0004),
-        cycliste=Cycliste(masse_kg=70.0, ftp_w=200.0),
-        cache=ParametresCache(dossier=tmp_path / "cache"),
-    )

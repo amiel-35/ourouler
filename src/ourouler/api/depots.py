@@ -59,6 +59,23 @@ VARIABLES_PERSO_PUR = (
     "INTERVALS_ATHLETE_ID",
 )
 
+#: Le strict minimum pour qu'une `Config` se construise en mode hébergé tant
+#: que le tiers 3 n'est pas complet — voir `SocleTOML.config_ou_comblee`.
+#: **Jamais écrit sur disque, jamais présenté comme la valeur de quelqu'un** :
+#: seuls `depart.latitude`/`.longitude` et `cycliste.masse_kg` y figurent,
+#: parce que ce sont les trois seuls champs de tout `Config` sans aucun
+#: défaut ailleurs (`config.py:depuis_dict`) — `depart.nom` a déjà « Départ »,
+#: `cycliste.ftp_w` est déjà facultative, `velos` retombe déjà sur un vélo
+#: générique. Les valeurs choisies (0.0/0.0, 70.0) ne désignent personne :
+#: (0, 0) n'est le domicile de personne, 70 kg est un poids générique, au
+#: même titre que le filet de dernier recours de l'entonnoir T5 (Q35, note
+#: sur `docs/questions_mainteneur.md` Q65) — « un modèle générique, dit
+#: comme tel », pas une donnée devinée sur quelqu'un.
+COMBLEMENT_EMBARQUEMENT: dict = {
+    "depart": {"latitude": 0.0, "longitude": 0.0},
+    "cycliste": {"masse_kg": 70.0},
+}
+
 #: Ce qu'un propriétaire a le droit de modifier dans son profil — section
 #: par section, et **champ par champ** à l'intérieur d'une section du tiers
 #: 2. Liste blanche et non liste noire : un champ inconnu est refusé, pas
@@ -243,10 +260,64 @@ class SocleTOML:
         brut = lire_toml(self.chemin)
         variables = self._variables
         if self.proprietaire is None:
-            brut = {cle: valeur for cle, valeur in brut.items() if cle not in SECTIONS_PERSO_PUR}
+            # `SECTIONS_PERSO_PUR` couvre les sections (des dicts) ;
+            # `CHAMPS_RACINE_MODIFIABLES` couvre `historique_depuis`, un
+            # champ scalaire à la racine du TOML — perso pur lui aussi
+            # (Q35), mais absent de `SECTIONS_PERSO_PUR` parce que ce n'est
+            # pas une section. Oublié une première fois (mesuré le
+            # 22/09/2026, en intégrant ce lot avec L7.4) : un propriétaire
+            # qui n'écrivait rien recevait encore le 1ᵉʳ décembre 2023 — ou
+            # toute autre date — du mainteneur.
+            a_taire = {*SECTIONS_PERSO_PUR, *CHAMPS_RACINE_MODIFIABLES}
+            brut = {cle: valeur for cle, valeur in brut.items() if cle not in a_taire}
             variables_a_taire = {f"{PREFIXE_ENV}{suffixe}" for suffixe in VARIABLES_PERSO_PUR}
             variables = {cle: valeur for cle, valeur in variables.items() if cle not in variables_a_taire}
         return construire(fusionner(brut, surcharge), environ=variables)
+
+    def config_ou_comblee(self, surcharge: dict) -> Config:
+        """Comme `config`, mais ne refuse jamais faute de tiers 3 en mode hébergé.
+
+        **Le trou trouvé en intégrant ce lot avec L7.4 et le RGPD-compte,
+        22/09/2026.** Q35 dit deux choses qui se tiennent mal ensemble à
+        l'exécution : « le tiers 3 ne s'hérite jamais » (tenu par `config`
+        ci-dessus) et « c'est le but de l'assistant d'embarquement de
+        remplir ce qui est vide ». Le second suppose qu'on puisse **lire et
+        écrire un profil encore vide** — et le front (`Assistant.tsx`) écrit
+        le sien en plusieurs `PATCH /profil` successifs et partiels
+        (`{cycliste: {prenom, nom}}` d'abord, `{depart}` plus tard…), pendant
+        que `App.tsx` interroge `/systeme`, `/profil` et `/profil/zones`
+        **sans condition** dès le premier écran, avant la moindre écriture.
+        Avec `config` seule, la toute première requête d'un compte fraîchement
+        activé — ou d'un compte qui vient d'être effacé puis réinvité, voir
+        `tests/comptes/test_vie_privee_comptes_adversarial.py::test_reinviter_la_meme_adresse_repart_de_zero`
+        — lève « section [depart] manquante », et l'assistant qui est censé
+        la remplir ne peut jamais s'afficher.
+
+        **La réponse retenue ici** : en mode hébergé, quand `config` échoue
+        faute de tiers 3, on la retente en comblant *seulement* ce qui n'a
+        **aucun défaut ailleurs** — `depart.latitude`/`.longitude` et
+        `cycliste.masse_kg`, les trois champs sans quoi `Config` ne se
+        construit pas du tout (`COMBLEMENT_EMBARQUEMENT`). Ce comblement
+        n'est **jamais écrit** (seule `surcharge` l'est, dans `enregistrer`)
+        et n'est **jamais** celui d'une personne réelle : c'est une valeur
+        neutre, la même pour tout le monde, à l'opposé de la fuite fermée
+        plus haut qui servait le départ ou le poids *réels* de quelqu'un.
+        `assistant_recommande` (`api/routes.py`) dit déjà au front que ce
+        qu'il reçoit est provisoire — c'est le signal existant, pas un
+        nouveau.
+
+        **Ce que ça ne change pas** : un propriétaire qui a écrit une valeur
+        fausse (une FTP hors bornes, une latitude à 200°) continue d'être
+        refusé — le comblement ne porte que sur ce qui **manque**, jamais sur
+        ce qui est **présent et invalide** ; `fusionner` fait gagner la
+        surcharge de l'appelant sur le comblement, champ par champ.
+        """
+        try:
+            return self.config(surcharge)
+        except ErreurConfig:
+            if self.proprietaire is not None:
+                raise
+            return self.config(fusionner(COMBLEMENT_EMBARQUEMENT, surcharge))
 
     def dossier_cache(self) -> Path:
         """Le dossier de cache du **serveur**, sans construire de `Config`.
@@ -300,6 +371,17 @@ class SocleVide:
                 f"{PHRASE_COMPLETER_PROFIL}"
             ) from e
 
+    def config_ou_comblee(self, surcharge: dict) -> Config:
+        """Identique à `config` : pas de socle serveur, donc rien à combler.
+
+        Le comblement de `SocleTOML.config_ou_comblee` répond à un socle
+        **partagé** qui ne fournit plus le tiers 3 (Q35) ; `SocleVide` n'a
+        jamais rien fourni du tout, et `ErreurProfilAbsent` — avec son
+        message qui dit déjà comment compléter le profil — reste la réponse
+        la plus honnête ici, inchangée depuis le 17/09/2026.
+        """
+        return self.config(surcharge)
+
     def dossier_cache(self) -> Path:
         """Aucun fichier ici : le défaut du cœur (`CACHE_DEFAUT`)."""
         return CACHE_DEFAUT
@@ -325,6 +407,10 @@ class SocleFixe:
     def config(self, surcharge: dict) -> Config:
         del surcharge  # aucune ne peut exister : `enregistrer` refuse d'en écrire
         return self._config
+
+    def config_ou_comblee(self, surcharge: dict) -> Config:
+        """Identique à `config` : une `Config` injectée est toujours complète."""
+        return self.config(surcharge)
 
     def dossier_cache(self) -> Path:
         return self._config.cache.dossier
@@ -403,9 +489,17 @@ class DepotProfils:
         doit encore construire (doctrine §10.1 : `Config` viendra de
         PostgreSQL, pas d'un TOML propre à quelqu'un). Jusque-là, refuser est
         ce qui se fait de moins faux.
+
+        **`config_ou_comblee`, pas `config`** (22/09/2026) : en mode hébergé,
+        un propriétaire qui n'a pas encore complété son tiers 3 doit quand
+        même pouvoir être lu — c'est le cas d'un compte tout juste activé,
+        avant sa première écriture, que le front interroge sans condition au
+        démarrage (`front/src/App.tsx`). Voir `SocleTOML.config_ou_comblee`
+        pour ce que ça comble et pourquoi ce n'est pas la fuite que ce lot
+        vient de fermer.
         """
         self.verifier_proprietaire(proprietaire)
-        return self._socle.config(self.surcharge(proprietaire))
+        return self._socle.config_ou_comblee(self.surcharge(proprietaire))
 
     def verifier_proprietaire(self, proprietaire: Proprietaire) -> None:
         """Le seul contrôle de `config` qui vaille aussi **avant** une écriture.
@@ -428,9 +522,18 @@ class DepotProfils:
     def enregistrer(self, proprietaire: Proprietaire, modifications: dict) -> Config:
         """Applique des modifications au profil, et rend la `Config` qui en résulte.
 
-        Rien n'est écrit tant que la `Config` résultante n'est pas valide :
-        une FTP négative ou un vélo sans nom laisse le profil précédent
-        intact, et le front reçoit le nom du champ fautif.
+        Rien n'est écrit tant que ce qui est **donné** n'est pas individuellement
+        valide : une FTP négative ou un vélo sans nom laisse le profil
+        précédent intact, et le front reçoit le nom du champ fautif.
+
+        **Une écriture partielle, elle, n'est plus refusée en mode hébergé**
+        (22/09/2026, `config_ou_comblee`) : l'assistant d'embarquement écrit
+        son profil en plusieurs `PATCH /profil` (`front/src/ecrans/Assistant.tsx`,
+        `{cycliste: {prenom, nom}}` d'abord, `{depart}` plus tard…), et le
+        premier de ces appels, avant que `depart` existe, ne doit pas être
+        pris pour une configuration invalide. Ce qui est réellement écrit sur
+        le disque, `proposee`, ne porte jamais le comblement — seulement ce
+        que ce propriétaire a lui-même donné.
         """
         if not self._socle.modifiable:
             raise ErreurUtilisateur(
@@ -439,7 +542,7 @@ class DepotProfils:
             )
         self.verifier_proprietaire(proprietaire)  # même contrôle qu'en lecture
         proposee = fusionner(self.surcharge(proprietaire), valider(modifications))
-        config = self._socle.config(proposee)  # lève ErreurConfig si invalide
+        config = self._socle.config_ou_comblee(proposee)  # lève ErreurConfig si vraiment invalide
         ecrire_toml(
             self.dossier(proprietaire) / NOM_PROFIL,
             json.dumps(proposee, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -863,6 +966,8 @@ class JournalServices:
 
 __all__ = [
     "CHAMPS_MODIFIABLES",
+    "CHAMPS_RACINE_MODIFIABLES",
+    "COMBLEMENT_EMBARQUEMENT",
     "EXTENSIONS",
     "GENERATIONS_GARDEES",
     "LISTES_MODIFIABLES",

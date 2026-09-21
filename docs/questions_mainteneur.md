@@ -5050,7 +5050,7 @@ la convention n'est pas présentée comme une mesure.
 
 ---
 
-## Q66 — La fuite du tiers 3 de Q35 est fermée ; deux conséquences restent à trancher — **ouverte le 21/09/2026**
+## Q66 — La fuite du tiers 3 de Q35 est fermée ; (a) reste une action pour le mainteneur, (b) tranché le 22/09/2026
 
 Corrigé en relecture du sprint 8 : `SocleTOML.config` (en mode hébergé,
 `proprietaire=None`) fusionnait encore les sections perso pur de Q35
@@ -5077,19 +5077,39 @@ reconstruire son `OUROULER_CONFIG_TOML_B64` sans `[cycliste]`/`[[velos]]`
 découpage). Rien n'a été touché côté Coolify par cette correction — règle
 absolue 7.
 
-**(b) `GET /profil` (et vraisemblablement d'autres routes de lecture) rend
-un 500 `configuration_invalide` pour un compte hébergé qui n'a pas encore
-complété son tiers 3** — un compte tout juste activé, ou un compte supprimé
-qu'on interroge à nouveau. Avant la fermeture du trou, ce cas « marchait »
-en silence en affichant par erreur le départ/cycliste du mainteneur ; il n'y
-avait donc jamais eu besoin de le traiter proprement. `GET /moi/export` et
-`DELETE /moi` ont été corrigés dans ce même lot, parce que leur contrat
-(RGPD, sprint 7 §L7.B) l'exigeait explicitement — « idempotent, jamais une
-erreur ». `GET /profil` n'a pas ce contrat écrit, et la question est
-produit : (a) le tolérer aussi, en rendant un profil partiel avec des champs
-nuls plutôt qu'en exigeant une `Config` entière ; (b) le laisser en 500 et
-compter sur l'assistant d'embarquement pour ne jamais faire cet appel avant
-que le tiers 3 soit complet ; (c) une route dédiée à l'état d'embarquement,
-distincte de `GET /profil`. `donnees.assistant_recommande` existe déjà et
-suggère que (b) était l'intention d'origine, mais rien ne l'a vérifié côté
-front.
+**(b) `GET /profil`, `GET /systeme` et `GET /profil/zones` rendaient un 500
+`configuration_invalide` pour un compte hébergé qui n'a pas encore complété
+son tiers 3** — un compte tout juste activé, ou un compte supprimé qu'on
+interroge à nouveau. Avant la fermeture du trou, ce cas « marchait » en
+silence en affichant par erreur le départ/cycliste du mainteneur ; il n'y
+avait donc jamais eu besoin de le traiter proprement.
+
+**Mesuré en intégrant ce lot avec L7.4 et le RGPD-compte (22/09/2026) que
+ce n'était pas qu'une question de confort d'écran** : `front/src/App.tsx`
+interroge `/systeme`, `/profil` et `/profil/zones` **sans condition** au
+tout premier rendu, avant la moindre écriture, et affiche un écran d'erreur
+dur si l'un des trois échoue — l'assistant d'embarquement ne peut alors
+jamais s'afficher. `front/src/ecrans/Assistant.tsx` écrit ensuite son profil
+en plusieurs `PATCH /profil` partiels et successifs
+(`{cycliste: {prenom, nom}}` d'abord, `{depart}` plus tard…). Et
+`tests/comptes/test_vie_privee_comptes_adversarial.py::test_reinviter_la_meme_adresse_repart_de_zero`
+(lot RGPD) attendait déjà, explicitement, qu'un compte tout juste réinvité
+réponde 200 sur `GET /profil` — ce n'était donc pas une question ouverte
+mais un contrat déjà posé ailleurs, qu'il restait à tenir ici.
+
+**Tranché en fermant ce trou-ci** (`DepotProfils.config_ou_comblee`,
+`api/depots.py`) : en mode hébergé, quand la `Config` d'un propriétaire ne
+se construit pas faute de tiers 3, on la retente en comblant *seulement* ce
+qui n'a strictement aucun défaut ailleurs — `depart.latitude`/`.longitude`
+et `cycliste.masse_kg` (`COMBLEMENT_EMBARQUEMENT`) — jamais écrit sur
+disque, jamais la valeur de quelqu'un de réel : (0, 0) et 70 kg, la même
+valeur neutre pour tout le monde, à l'opposé de la fuite fermée par ce lot
+qui servait le départ ou le poids *réels* du mainteneur.
+`donnees.assistant_recommande` (déjà rendu par ces routes) continue de dire
+au front que ce qu'il reçoit est provisoire. Ce que ça ne change pas : un
+propriétaire qui a écrit une valeur hors bornes reste refusé — seul ce qui
+**manque** est comblé, jamais ce qui est **présent et invalide** ; les
+routes de *calcul* (boucle, sortie, météo…) passent par le même chemin et
+pourraient donc tourner sur ce comblement si l'assistant n'est pas fini —
+un résultat sans queue ni tête plutôt qu'une fuite, jamais pire que l'état
+antérieur à ce lot.
