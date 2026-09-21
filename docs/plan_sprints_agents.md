@@ -1197,8 +1197,28 @@ chemins, aucun tranché :
    la manière dont ce projet traite d'habitude ce genre de question, mais
    demande des sorties où un carrefour est identifiable dans le tracé GPS.
 
-Aucun des trois n'est retenu. La moyenne compteur garde de toute façon son
-rôle ailleurs (dimensionner la distance demandée), ça ne change pas.
+**Le 21/09, en creusant l'option 3 : les deux ingrédients existent déjà,
+séparés.** `physique/commande.py` (validation de `ourouler calibrer`)
+calcule déjà, pour chaque sortie de validation, `temps_reel_s` (le vrai
+porte à porte, arrêts compris) **et** `temps_simule_s` (le modèle sur ce
+même tracé, relief et vent réels, sans arrêt — la docstring le dit : « ni
+les arrêts, ni les redémarrages n'y sont modélisés »). L'écart entre les
+deux, sortie par sortie, est déjà le coût réel des arrêts de cette
+sortie-là, mesuré et non deviné — il manque seulement de le rapporter au
+nombre de feux/stops rencontrés, et **le rejeu d'une trace GPS dans BRouter
+pour en tirer les tags de carrefour** (feux, stops, cédez-le-passage) est
+lui aussi une méthode déjà en service ailleurs (`marqueurs_retrospectif.py`,
+`arrets_bloc_recup.py` question 2). Croiser les deux — `(temps_reel_s −
+temps_simule_s) / nombre de feux-stops`, sur assez de sorties — donnerait
+une constante mesurée en secondes par arrêt, sans modéliser de physique de
+relance. Reste un vrai script à écrire (aucun des deux jeux de résultats
+n'est aujourd'hui croisé l'un avec l'autre), mais pas une donnée à
+collecter ni une physique à inventer — l'option 3 est donc plus proche que
+les deux autres.
+
+Aucun des trois n'est formellement tranché ni mis en sprint. La moyenne
+compteur garde de toute façon son rôle ailleurs (dimensionner la distance
+demandée), ça ne change pas.
 
 ## Historique des sprints
 
