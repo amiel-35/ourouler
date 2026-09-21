@@ -1216,6 +1216,27 @@ n'est aujourd'hui croisé l'un avec l'autre), mais pas une donnée à
 collecter ni une physique à inventer — l'option 3 est donc plus proche que
 les deux autres.
 
+**Vérifié le 21/09 sur les vraies données du mainteneur** (`ourouler
+calibrer --json`, 25 sorties de validation) : l'écart brut `temps_reel_s −
+temps_simule_s` ne révèle **aucune logique simple** pris seul. Moyenne 245 s
+(≈ 4 s/km), mais corrélation à la distance faible (r = 0,49), et surtout
+écart-type de l'écart (373 s) plus grand que sa moyenne — huit sorties sur
+vingt-cinq ont un écart **négatif**, ce qu'un coût d'arrêt pur ne peut pas
+expliquer (un arrêt n'a jamais fait gagner du temps). Le bruit du modèle
+lui-même (vent mal estimé, résidu de calibration, déjà documenté à 5-10 %)
+domine le signal qu'on cherche à isoler. Croiser avec le nombre réel de
+feux/stops n'est donc pas une amélioration optionnelle, c'est ce qui sépare
+le signal du bruit — sans ça, aucune constante n'en sortirait de fiable.
+
+**Condition posée par le mainteneur, et elle prime sur le choix du
+chemin** : « si je mets moi du temps, ça marchera jamais. » Quel que soit le
+chemin retenu, il doit se construire **une fois**, par un agent, puis
+tourner **tout seul** à l'intérieur de `ourouler calibrer` (ou d'un pipeline
+équivalent déjà automatique) à chaque recalibration — jamais un script que
+le mainteneur doit relancer, lire et interpréter lui-même. Une mesure qui
+dépend de son temps disponible n'arrivera jamais ; c'est un critère
+d'acceptation du lot, pas un confort.
+
 Aucun des trois n'est formellement tranché ni mis en sprint. La moyenne
 compteur garde de toute façon son rôle ailleurs (dimensionner la distance
 demandée), ça ne change pas.
