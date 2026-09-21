@@ -392,8 +392,7 @@ class DepotProfils:
         """
         chemin = self.dossier(proprietaire) / NOM_PROFIL
         existait = chemin.is_file()
-        if existait:
-            chemin.unlink()
+        chemin.unlink(missing_ok=True)
         return existait
 
 
@@ -781,11 +780,18 @@ class JournalServices:
         return dict(self._lire(proprietaire))
 
     def supprimer(self, proprietaire: Proprietaire) -> bool:
-        """Efface le journal de ce propriétaire. Rend vrai s'il existait (lot L7.B)."""
+        """Efface le journal de ce propriétaire. Rend vrai s'il existait (lot L7.B).
+
+        `unlink(missing_ok=True)` plutôt que `if existait: unlink()` — trouvé
+        par le testeur adversarial du trou RGPD (21/09/2026) : deux
+        `DELETE /moi` réellement simultanés sur le même propriétaire peuvent
+        voir tous les deux `is_file() == True`, et le second levait alors
+        `FileNotFoundError` (500) au lieu de rester idempotent. Même correctif
+        que `DepotFichiers.supprimer_tout` plus haut, qui l'évitait déjà.
+        """
         chemin = self._chemin(proprietaire)
         existait = chemin.is_file()
-        if existait:
-            chemin.unlink()
+        chemin.unlink(missing_ok=True)
         return existait
 
 
