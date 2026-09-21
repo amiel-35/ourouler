@@ -1153,6 +1153,32 @@ réelle n'est pas encore mesurée : elle le sera sur vos sorties. » La règle d
 provenance (doctrine : chaque écran dit d'où vient la valeur) reste ; c'est
 la longueur et le jargon qui partent.
 
+Backlog « le porte à porte ignore le relief de la boucle » (note du
+mainteneur, 21/09/2026, aucun sprint attribué) : `physique.modele.temps_ecoule`
+calcule le porte à porte comme `distance / moyenne_compteur_kmh`, une moyenne
+à plat qui ne redescend jamais au relief réel de la boucle évaluée — assumé
+et documenté en toutes lettres dans le code (`temps_ecoule` docstring, «
+limite assumée, à dire en toutes lettres »), pour ne pas compter deux fois
+le relief déjà moyenné dans le facteur compteur. Mais ça laisse les deux
+chiffres affichés insatisfaisants : le porte à porte ignore le relief de
+cette boucle-ci, le temps en mouvement (`sans un seul arrêt`) ignore les
+arrêts. « Je pige pas » (mainteneur, 21/09) devant le dépliant explicatif ;
+« sinon en montagne ça va être débile » — le décalage entre un porte à
+porte à plat et une boucle réellement montagneuse est justement le cas où
+l'écart se voit le plus, et où il compte le plus.
+
+Piste retenue par le mainteneur, à cadrer avant code : remplacer le porte à
+porte par `temps_estime_s` (déjà fidèle au relief et au vent de cette boucle)
+plus un temps d'arrêt dérivé du nombre **réel** de feux et de stops sur ce
+tracé (`candidate.feux`/`candidate.stops`, déjà comptés et affichés
+ailleurs à l'écran) — plutôt qu'une moyenne à plat ou la convention
+`part_arret` à 5 %. Un seul chiffre, fidèle au relief et réaliste sur les
+arrêts, au lieu de deux chiffres dont aucun ne répond à la question posée.
+Reste à cadrer : combien de temps par feu/stop (une convention mesurable,
+voir `docs/table_ftp_vitesse.md` pour le style de mesure attendu), et si la
+moyenne compteur garde un rôle ailleurs (elle sert toujours à dimensionner
+la distance demandée, ça ne change pas).
+
 ## Historique des sprints
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
