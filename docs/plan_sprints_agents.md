@@ -1174,10 +1174,31 @@ tracé (`candidate.feux`/`candidate.stops`, déjà comptés et affichés
 ailleurs à l'écran) — plutôt qu'une moyenne à plat ou la convention
 `part_arret` à 5 %. Un seul chiffre, fidèle au relief et réaliste sur les
 arrêts, au lieu de deux chiffres dont aucun ne répond à la question posée.
-Reste à cadrer : combien de temps par feu/stop (une convention mesurable,
-voir `docs/table_ftp_vitesse.md` pour le style de mesure attendu), et si la
-moyenne compteur garde un rôle ailleurs (elle sert toujours à dimensionner
-la distance demandée, ça ne change pas).
+
+**Objection du mainteneur le 21/09, et elle tient** : « le temps de relancer
+etc., je vois pas comment tu peux t'en sortir là. » Vérifié dans le code —
+`physique/modele.py` le dit dès sa ligne 5, « ni inertie, ni frottement » :
+le modèle n'a aucune notion d'accélération, seulement des vitesses
+d'équilibre à puissance constante. Un feu ne coûte donc pas qu'un temps
+d'attente ; il coûte aussi une décélération puis une relance dont rien dans
+le modèle actuel ne sait le prix. Un simple « nombre de feux × durée fixe »
+serait une convention de plus, pas mieux fondée que `part_arret`. Trois
+chemins, aucun tranché :
+
+1. **Modéliser la relance en vrai** (masse, énergie cinétique, accélération)
+   — un vrai chantier de physique, pas un ajout à `temps_ecoule`.
+2. **Une convention par arrêt, assumée comme telle** (secondes fixes par
+   feu/stop, comme `part_arret` l'est déjà pour l'ensemble de la sortie) —
+   simple, mais devine plutôt que mesure.
+3. **Mesurer, pas deviner** — même méthode que le facteur compteur de
+   [[Q51]] : sur l'historique GPS réel du mainteneur, chercher combien de
+   temps se perd effectivement autour d'un carrefour connu par rapport à un
+   passage sans ralentir, et en tirer une constante mesurée. Cohérent avec
+   la manière dont ce projet traite d'habitude ce genre de question, mais
+   demande des sorties où un carrefour est identifiable dans le tracé GPS.
+
+Aucun des trois n'est retenu. La moyenne compteur garde de toute façon son
+rôle ailleurs (dimensionner la distance demandée), ça ne change pas.
 
 ## Historique des sprints
 
