@@ -17,13 +17,20 @@ contribution du propriétaire aux routes apprises (c'est encore « à lui », au
 sens où ce sont ses sorties qui l'ont produit), mais **n'efface jamais**
 `apprentissage.routes.BaseRoutes` — ni les tronçons, ni les sorties.
 
-Ce n'est pas une fermeture de [[Q46]] : la table de correspondance
-compte/propriétaire qui rendrait un effacement fin possible (doctrine §10.2,
-« c'est **elle** qu'on efface à la suppression d'un compte ») n'existe pas
-encore — il n'y a pas de compte, seulement un `Proprietaire`. Ce lot ne
-l'invente pas ; il choisit, faute de mieux, l'option la moins destructive et
-la dit — dans le code, dans l'archive d'export (`LISEZ_MOI`), et dans le
-rapport qui accompagne le lot.
+**Mise à jour du lot RGPD-compte, qui ferme [[Q46]] côté effacement** : la
+table de correspondance compte/propriétaire existe désormais
+(`comptes_proprietaires`, `migrations/0001_comptes.sql`, lot L7.2-A du
+18/09/2026), et c'est justement ce lot-ci qui la branche à `effacer_donnees`
+— « c'est **elle** qu'on efface à la suppression d'un compte » (doctrine
+§10.2) est maintenant vrai en code, pas seulement en intention. Quand un
+`DepotComptes` est fourni, `effacer_donnees` retrouve le compte lié à ce
+propriétaire et l'efface ; la cascade du schéma (`ON DELETE CASCADE` sur
+`invitations.compte`, `sessions.compte` et `comptes_proprietaires.compte`)
+emporte avec lui l'invitation, les sessions ouvertes et la correspondance
+elle-même — un compte « supprimé » ne peut donc plus s'authentifier ni
+rouvrir de session. Rien ne change pour un déploiement sans base de comptes
+(mode personnel, ou hébergé sans `SessionParCookie`) : `comptes` reste
+facultatif, et son absence laisse le comportement d'avant ce lot.
 
 Ce qui part dans l'export : le profil (la surcharge JSON, jamais le socle du
 serveur), le journal des services, les fichiers déposés et générés, l'index
@@ -52,6 +59,7 @@ import zipfile
 from datetime import UTC, datetime
 
 from ourouler.activites.cache import Cache
+from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.apprentissage.commande import NOM_BASE
@@ -133,8 +141,17 @@ def effacer_donnees(
     journal: JournalServices,
     generations: DepotGenerations,
     config: Config,
+    comptes: DepotComptes | None = None,
 ) -> dict:
-    """Efface les données personnelles de ce propriétaire. Voir le module pour ce qui reste."""
+    """Efface les données personnelles de ce propriétaire. Voir le module pour ce qui reste.
+
+    `comptes` est **facultatif** : un déploiement sans base de comptes (mode
+    personnel, ou hébergé sans `SessionParCookie`) n'a aucun compte à fermer,
+    et l'appelant passe alors `None` — le résultat ne porte simplement pas la
+    clé `"compte"`. Quand il est fourni, `DepotComptes.supprimer_compte_du_proprietaire`
+    ferme le compte lié (mot de passe compris) et révoque du même coup ses
+    sessions ouvertes, par la cascade du schéma (voir cette méthode).
+    """
     cache = Cache(config.cache.dossier, proprietaire=str(qui))
     supprime = {
         "profil": profils.supprimer_profil(qui),
@@ -143,6 +160,8 @@ def effacer_donnees(
         "activites": cache.supprimer_tout(),
         "generations_en_memoire": generations.supprimer(qui),
     }
+    if comptes is not None:
+        supprime["compte"] = comptes.supprimer_compte_du_proprietaire(qui)
     # Rangement, sans conséquence s'il échoue : `fichiers/` a déjà disparu
     # (supprimer_tout le fait), il ne reste donc à retirer que le dossier
     # racine du propriétaire s'il est devenu vide.

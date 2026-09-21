@@ -20,6 +20,7 @@ avant qu'elle ait des comptes.
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import date
 from typing import Annotated
@@ -1359,6 +1360,23 @@ def exporter_mes_donnees(ctx: Ctx, qui: Qui):
     )
 
 
+@contextmanager
+def _comptes_du_deploiement(ctx: Contexte):
+    """Le dépôt des comptes de ce déploiement, ou `None` — pour `effacer_donnees`.
+
+    `SessionParCookie` est la seule session qui porte une base de comptes
+    (`api/session.py`) : `SessionPersonnelle` (un seul cycliste, pas de
+    compte) et `SessionHebergee` (hébergé sans base de comptes configurée)
+    n'en ouvrent jamais. `vie_privee.effacer_donnees` traite `comptes=None`
+    comme « rien à fermer de ce côté », pas comme une erreur.
+    """
+    if not isinstance(ctx.session, SessionParCookie):
+        yield None
+        return
+    with base_de_donnees.ouvrir(ctx.session.url) as cx:
+        yield DepotComptes(cx)
+
+
 @routeur.delete("/moi")
 def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     """Efface les données personnelles de ce propriétaire.
@@ -1367,17 +1385,27 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     rend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —
     les routes apprises, collectives par décision du mainteneur — est nommé
     dans `donnees.conserve`, jamais tu.
+
+    **Ferme aussi le compte, quand ce déploiement en a un** (`SessionParCookie`,
+    lot RGPD-compte) : `DepotComptes.supprimer_compte_du_proprietaire` efface
+    la ligne `comptes` liée, et la cascade du schéma révoque du même coup ses
+    invitations et ses sessions ouvertes — le mot de passe ne rouvre plus rien
+    après cet appel. En mode personnel ou hébergé sans base de comptes, il n'y
+    a pas de compte à fermer et `donnees.supprime` ne porte alors pas la clé
+    `"compte"`.
     """
     config = _config(ctx, qui)
     try:
-        donnees = vie_privee.effacer_donnees(
-            qui,
-            profils=ctx.profils,
-            fichiers=ctx.fichiers,
-            journal=ctx.journal,
-            generations=ctx.generations,
-            config=config,
-        )
+        with _comptes_du_deploiement(ctx) as comptes:
+            donnees = vie_privee.effacer_donnees(
+                qui,
+                profils=ctx.profils,
+                fichiers=ctx.fichiers,
+                journal=ctx.journal,
+                generations=ctx.generations,
+                config=config,
+                comptes=comptes,
+            )
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": donnees}

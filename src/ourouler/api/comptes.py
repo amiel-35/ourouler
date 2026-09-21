@@ -618,6 +618,36 @@ class DepotComptes:
             )
         return Proprietaire(ligne[0])
 
+    def supprimer_compte_du_proprietaire(self, proprietaire: Proprietaire) -> bool:
+        """Efface le compte lié à ce propriétaire — vrai si un compte a été effacé.
+
+        C'est la fermeture de [[Q46]] côté effacement RGPD (`api/vie_privee.py`,
+        lot qui branche `comptes_proprietaires`) : « c'est **elle** qu'on
+        efface à la suppression d'un compte » (doctrine §10.2). Un seul
+        `DELETE`, sur une sous-requête qui retrouve le compte via
+        `comptes_proprietaires` (colonne `proprietaire`) : la cascade du
+        schéma fait le reste — `invitations.compte`, `sessions.compte` et
+        `comptes_proprietaires.compte` référencent `comptes (id)` en
+        `ON DELETE CASCADE` (`migrations/0001_comptes.sql`,
+        `migrations/0002_sessions.sql`), donc effacer la ligne `comptes`
+        emporte d'un coup l'invitation, les sessions ouvertes et la
+        correspondance elle-même. Aucune requête séparée n'est nécessaire.
+
+        **Idempotente** : un propriétaire sans compte lié (jamais invité, ou
+        déjà supprimé) ne lève rien et rend simplement `False` — le même
+        parti pris que `DepotProfils.supprimer_profil` et consorts
+        (`api/depots.py`), pour que `vie_privee.effacer_donnees` reste
+        appelable plusieurs fois sur le même propriétaire sans jamais échouer.
+        """
+        with self.cx.transaction():
+            ligne = self.cx.execute(
+                "DELETE FROM comptes WHERE id = ("
+                "  SELECT compte FROM comptes_proprietaires WHERE proprietaire = %s"
+                ") RETURNING id",
+                (str(proprietaire),),
+            ).fetchone()
+        return ligne is not None
+
     def invitations_en_cours(self, *, maintenant: datetime | None = None) -> list[InvitationAvecAdresse]:
         """Les invitations non consommées et non expirées, adresse et jeton compris.
 
