@@ -1279,6 +1279,36 @@ coût d'arrêt, la question qui se pose est **si ce seuil doit descendre**,
 et jusqu'où — sans savoir combien de vraies sorties solo il écarterait à
 tort au passage. Non mesuré, non tranché.
 
+**Objection du mainteneur, à raison : l'analyse ci-dessus ne portait que sur
+les 25 sorties réservées à la validation.** Il y en a en réalité 99
+calibrables au total (74 en apprentissage, 25 en validation). Rejoué sur les
+99 (temps réel/simulé et part de groupe recalculés pour chacune avec les
+paramètres finaux, indépendamment de leur usage en apprentissage ou en
+validation) :
+
+| seuil d'exclusion | sorties restantes | part négative |
+|---|---|---|
+| aucun | 99 | 61 % |
+| < 40 % | 64 | 39 % |
+| < 30 % | 39 | 18 % |
+| < 25 % | 21 | 10 % |
+| < 20 % | 13 | 8 % |
+| < 15 % | 8 | **0 %** |
+
+La baisse est régulière à chaque palier, avec cette fois des échantillons
+substantiels au milieu (39 et 21 sorties, pas seulement 6) — beaucoup plus
+convaincant qu'un artefact de petit échantillon. L'écart moyen, une fois
+nettoyé sous 15 %, converge à **5,9 %**, quasiment le même chiffre que sur
+les 25 seules (5,8 %) : deux calculs indépendants qui s'accordent.
+
+**Ce que ça reste : un signal solide, pas encore une constante.** Le fond
+du problème mesuré au 21/09 (l'exclusion à 61 % de négatifs quand on ne
+filtre rien) montre surtout que **beaucoup plus d'un tiers de l'historique
+du mainteneur porte un effet de roue**, pas seulement les cas extrêmes déjà
+filtrés par le seuil des 50 %. Ce que ferait un abaissement du seuil
+d'exclusion, et combien de vraies sorties solo il écarterait à tort au
+passage, reste non mesuré.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
