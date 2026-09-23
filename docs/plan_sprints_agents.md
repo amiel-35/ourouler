@@ -1444,6 +1444,27 @@ des ~25-30 W de mémoire du mainteneur. Trois mesures indépendantes
 recoupent. **Le même ratio de 1,06 tient sur les deux vélos** avec ces
 nouveaux paramètres — le sujet BMC séparé, ouvert plus haut, est refermé.
 
+**Confirmé le 23/09 sur grand échantillon** (le mainteneur a raison de ne
+pas se fier à 5-9 sorties) : rejoué sur les 99 sorties RCR et 35 BMC
+calibrables, avec ces mêmes paramètres.
+
+| | RCR (n=99) | BMC (n=35) |
+|---|---|---|
+| toutes | erreur 4,9 %, biais -2,9 % | erreur 2,3 %, biais +1,4 % |
+| < 50 % groupe (83/34) | erreur 3,7 %, biais -1,3 % | erreur 2,3 %, biais +1,6 % |
+| < 30 % groupe (39/15) | erreur 3,1 %, biais +2,0 % | erreur 2,8 %, biais +2,8 % |
+
+Vérifié aussi que l'erreur n'est **pas systématiquement dans le même sens**
+sur les sorties longues (4 sorties réel > prédit, 5 réel < prédit) — les
+5 % initialement inquiétants sur 9 sorties venaient pour l'essentiel des
+deux sorties déjà repérées en groupe (67 % et 46 %) ; sans elles, sept
+sorties, erreur moyenne **signée** quasi nulle (-0,0 %), 3,2 % en absolu.
+Nuance qui reste, honnête : plus on filtre serré sur les sorties les plus
+solo, plus le biais devient positif (le modèle sous-prédit légèrement) —
+1,06 est peut-être un peu bas pour les sorties vraiment propres, plutôt
+1,07-1,08 ; le BMC, lui, reste stable autour de +1,4 à +2,8 % quel que soit
+le filtre. Pas un problème de fond, une piste d'affinage.
+
 **Ce qui reste à faire pour que ce soit du code et pas une note** : ce
 recalage (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
 longues) n'est écrit dans aucun script réutilisable — fait à la main dans
