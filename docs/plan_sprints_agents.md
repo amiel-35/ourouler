@@ -1362,6 +1362,24 @@ sur un cas concret et vérifié, ce que le code documente déjà : CdA et Crr
 est fiable. Sujet à part, propre à la calibration, pas à ce lot — non
 traité ici.
 
+**Essayé le 23/09, à la demande du mainteneur : fixer le Crr du BMC à celui
+du RCR (mêmes pneus) et refitter le CdA seul. Résultat négatif, honnête,
+et instructif.** Nouveau CdA obtenu par moindres carrés pondéré : 0,1856 m²
+(contre 0,2204 en fit libre) — physiquement plus crédible pour une position
+contre-la-montre. Mais rejoué sur les cinq vraies sorties BMC de 3h20 à
+5h10, les temps prédits **s'éloignent** de la réalité au lieu de s'en
+rapprocher (ex. 2025-05-01 : réel 3h24, ancien modèle 3h27, nouveau modèle
+3h32). Cause probable : la calibration ne filtre que des tronçons très
+plats (pente ≤ 0,8 %) pour séparer CdA et Crr. Sur du plat, un Crr plus
+haut compensé par un CdA plus bas peut coller aussi bien aux mêmes
+données ; mais Crr et CdA ne pèsent pas pareil selon la vitesse et la
+pente (Crr compte plus en montée, CdA compte plus vite), et rejoué sur le
+relief réel d'une sortie complète, la combinaison forcée pénalise plus que
+l'ancienne. **Fixer un des deux paramètres à la main, sans données qui
+varient assez en pente pour vraiment les séparer, ne suffit pas** — la
+piste reste un vrai sujet de calibration (des tronçons à pentes variées,
+pas seulement plats), pas un ajustement qui se règle en une session.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
