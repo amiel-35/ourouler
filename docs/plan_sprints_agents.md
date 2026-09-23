@@ -1348,6 +1348,20 @@ roue. Non vérifié plus loin ici ; à recalibrer et creuser séparément avant
 d'appliquer le même ratio de 1,06 au BMC — rien ne dit qu'il vaut la même
 chose sur les deux vélos.
 
+**Confirmé le 23/09, avec `ourouler comparer` (mesure sans modèle) et le
+bon sens du mainteneur.** Écart mesuré à 169 W : le BMC roule 2,4 km/h plus
+vite, converti en 27 à 42 W selon la méthode — réel, mesuré sur 145 séries
+BMC et 317 RCR, aucun modèle physique impliqué. Mais la calibration des
+deux vélos (`RCR : CdA 0,2219, Crr 0,01062` / `BMC : CdA 0,2204,
+Crr 0,00838`) répartit cet écart à l'envers de ce qu'on sait du matériel :
+**mêmes pneus sur les deux vélos**, des roues un peu meilleures sur l'un
+sans que ce soit flagrant, donc le Crr devrait être quasi identique entre
+les deux et tout l'écart devrait sortir en CdA — pas l'inverse. Confirme,
+sur un cas concret et vérifié, ce que le code documente déjà : CdA et Crr
+« mal séparés » l'un de l'autre par la calibration, alors que leur total
+est fiable. Sujet à part, propre à la calibration, pas à ce lot — non
+traité ici.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
