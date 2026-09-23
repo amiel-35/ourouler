@@ -1412,7 +1412,44 @@ probablement pas la totalité du Crr mesuré** (0,0106 contre 0,0084, un
 écart de 0,0022) : les écarts publiés entre versions du même pneu sont en
 général plus petits. Le biais de calibration (CdA/Crr mal séparés)
 coexiste vraisemblablement avec un vrai écart de pneu, sans qu'on sache
-mesurer la part de chacun ici. Non tranché, non mesuré plus loin.
+mesurer la part de chacun ici.
+
+**Résolu le 23/09, avec la bonne méthode — Crr fixé par la littérature,
+pas cherché, CdA laissé varier et jugé sur les vraies sorties, sans chercher
+à faire coller le BMC au RCR.** La recherche libre (calibration à deux
+paramètres) donnait une dérive sans fin dès qu'on s'écartait du point de
+départ — un symptôme de sur-ajustement sur 5 à 9 sorties, pas une vraie
+convergence physique, à raison signalé par le mainteneur. En fixant le Crr
+à une valeur plausible de la littérature (0,006 pour le RCR, All Season,
+haut de la fourchette « bon pneu route » ; 0,005 pour le BMC, TR, légèrement
+en dessous) et en ne laissant varier que le CdA, **un vrai minimum en
+cloche apparaît pour les deux vélos**, pas une dérive :
+
+| | RCR | BMC |
+|---|---|---|
+| Crr (fixé, littérature) | 0,006 | 0,005 |
+| CdA (minimum trouvé) | 0,30 m² | 0,23 m² |
+| Erreur sur les vraies sorties (avec × 1,06) | 4,76 % | **0,72 %** |
+
+Les deux CdA tombent dans les fourchettes plausibles (route amateur 0,27 à
+0,36 ; contre-la-montre compétitif 0,20 à 0,24), sans avoir été cherchés
+pour ça — c'est une conséquence du minimum, pas un objectif imposé.
+**Recoupement indépendant, qui referme la boucle** : ces deux jeux de
+paramètres, calibrés séparément chacun sur ses propres sorties, prédisent
+entre eux un écart de puissance de 29,6 à 37,8 W à la vitesse réelle
+mesurée (28,6-31,5 km/h) — dans la fourchette des 27 à 42 W mesurés
+indépendamment par `ourouler comparer` (aucun modèle physique), et proche
+des ~25-30 W de mémoire du mainteneur. Trois mesures indépendantes
+(calibration RCR, calibration BMC, comparaison sans modèle) qui se
+recoupent. **Le même ratio de 1,06 tient sur les deux vélos** avec ces
+nouveaux paramètres — le sujet BMC séparé, ouvert plus haut, est refermé.
+
+**Ce qui reste à faire pour que ce soit du code et pas une note** : ce
+recalage (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
+longues) n'est écrit dans aucun script réutilisable — fait à la main dans
+cette conversation. À coder dans le pipeline de calibration si retenu,
+avec la même règle que partout ailleurs dans ce lot : ça tourne tout seul,
+jamais un script relancé à la main.
 
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
