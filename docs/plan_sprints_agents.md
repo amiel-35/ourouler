@@ -1465,6 +1465,23 @@ solo, plus le biais devient positif (le modèle sous-prédit légèrement) —
 1,07-1,08 ; le BMC, lui, reste stable autour de +1,4 à +2,8 % quel que soit
 le filtre. Pas un problème de fond, une piste d'affinage.
 
+**Le point le plus important de toute cette note, relevé le 23/09 par le
+mainteneur, au-dessus des chiffres précis de CdA/Crr : l'erreur du modèle
+sur une sortie (3 à 5 %) est du même ordre que l'effet qu'on cherche à
+corriger (6 %).** Le ratio de 1,06 corrige bien le **biais moyen** sur cent
+sorties — ça, c'est mesuré et solide. Mais il ne réduit pas le bruit propre
+du modèle sur **une** boucle donnée, qui reste du même ordre de grandeur que
+la correction elle-même. Concrètement : afficher un temps unique avec cette
+précision (« 3h54 ») dit plus de précision que ce que le modèle sait
+vraiment sur une sortie qu'il n'a jamais vue. Le ratio améliore la moyenne
+affichée à l'utilisateur sur l'ensemble des sorties qu'il verra dans le
+temps ; il ne rend pas fiable la prédiction d'une seule sortie prise à part.
+**Conséquence pour le produit, non tranchée** : soit le dire (une fourchette
+plutôt qu'un chiffre unique, cohérente avec l'incertitude réelle), soit
+l'assumer sciemment (un chiffre, moins précis qu'il n'y paraît, mais plus
+juste en moyenne que l'ancien porte-à-porte) — c'est une question produit,
+pas un calcul de plus.
+
 **Ce qui reste à faire pour que ce soit du code et pas une note** : ce
 recalage (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
 longues) n'est écrit dans aucun script réutilisable — fait à la main dans
