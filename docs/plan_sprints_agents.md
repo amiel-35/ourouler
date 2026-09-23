@@ -1482,6 +1482,25 @@ l'assumer sciemment (un chiffre, moins précis qu'il n'y paraît, mais plus
 juste en moyenne que l'ancien porte-à-porte) — c'est une question produit,
 pas un calcul de plus.
 
+**Tranché le 23/09 par le mainteneur : une fourchette, pas un chiffre
+unique.** Calculée en centiles sur le ratio réel/modèle mesuré (sorties à
+moins de 50 % de signal de groupe, RCR n=83, BMC n=34) plutôt que devinée :
+
+| | RCR | BMC |
+|---|---|---|
+| médiane | × 1,039 | × 1,082 |
+| fourchette 25e-75e centile (la moitié des sorties) | × 1,015 à × 1,072 | × 1,057 à × 1,095 |
+| fourchette 10e-90e centile (80 % des sorties) | × 0,997 à × 1,108 | × 1,048 à × 1,105 |
+
+Exemple concret, pour un `temps_estime_s` de 4h20 : RCR entre 4h23 et 4h38
+(moitié des sorties), BMC entre 4h34 et 4h44. **Fourchette retenue pour
+l'affichage : 25e-75e centile** — assez resserrée pour rester utile, assez
+large pour ne pas mentir sur l'incertitude réelle du modèle. Le porte à
+porte devient donc `[temps_estime_s × bas, temps_estime_s × haut]`, propre
+à chaque vélo, plutôt qu'un chiffre unique ou l'actuelle moyenne à plat.
+Chaque vélo garde ses propres centiles — pas de constante partagée entre
+RCR et BMC, cohérent avec tout ce que cette note a trouvé.
+
 **Ce qui reste à faire pour que ce soit du code et pas une note** : ce
 recalage (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
 longues) n'est écrit dans aucun script réutilisable — fait à la main dans
@@ -1496,16 +1515,19 @@ Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
 mesure qui dépend de son temps disponible n'arrivera jamais ; c'est un
 critère d'acceptation, pas un confort.
 
-**Reste à faire, non commencé** : coder le facteur (le calculer une fois
-dans `ourouler calibrer`, l'écrire dans `calibration.json` aux côtés de
-CdA/Crr, et brancher `temps_ecoule` dessus au lieu de
-`moyenne_compteur_kmh`) ; décider si 1,06 est une valeur par défaut
-générique en attendant d'avoir assez de sorties propres pour ce vélo, ou si
-le lot attend d'abord une vraie mesure par cycliste ; et le filtrage du
-signal de groupe (le seuil à abaisser, de combien) doit se faire **une
-seule fois**, dans le pipeline, jamais à la main. Rien n'est mis en sprint.
-La moyenne compteur garde de toute façon son rôle ailleurs (dimensionner
-la distance demandée), ça ne change pas.
+**Reste à faire, non commencé** : recalibrer CdA/Crr par la méthode qui a
+marché (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
+longues — pas la calibration libre à deux paramètres, qui dérive) ; calculer
+les centiles du ratio réel/modèle une fois dans `ourouler calibrer`,
+sorties à moins de 50 % de signal de groupe, écrire la fourchette (25e-75e
+centile) dans `calibration.json` aux côtés de CdA/Crr ; brancher
+`temps_ecoule` sur cette fourchette au lieu de `moyenne_compteur_kmh` et
+rendre `[bas, haut]` plutôt qu'un chiffre unique jusqu'au front ; décider
+d'une fourchette par défaut générique en attendant assez de sorties propres
+pour un vélo neuf ; le filtrage du signal de groupe (seuil, méthode) doit se
+faire **une seule fois**, dans le pipeline, jamais à la main. Rien n'est mis
+en sprint. La moyenne compteur garde de toute façon son rôle ailleurs
+(dimensionner la distance demandée), ça ne change pas.
 
 ## Historique des sprints
 
