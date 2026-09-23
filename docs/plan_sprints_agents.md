@@ -1309,6 +1309,28 @@ filtrés par le seuil des 50 %. Ce que ferait un abaissement du seuil
 d'exclusion, et combien de vraies sorties solo il écarterait à tort au
 passage, reste non mesuré.
 
+**Le dénivelé n'explique rien de cet écart, vérifié.** Sur les sorties
+« propres » (peu de signal de groupe), le dénivelé par kilomètre (6,6 à
+23 m/km sur l'historique du mainteneur — la Bretagne, pas la montagne) ne
+corrèle pas avec l'écart (r = -0,03). Logique : le modèle simulé calcule
+déjà la pente réelle point par point sur le tracé, c'est son travail — s'il
+y avait une corrélation, ce serait le signe d'un biais du modèle en côte,
+pas d'un facteur à ajouter. Le facteur peut donc rester une constante
+unique, sans varier selon le relief de la boucle — **dans la gamme de
+terrain roulée jusqu'ici** ; rien ne dit ce qu'il donnerait sur une vraie
+montagne, aucune sortie de ce profil dans l'historique.
+
+**Conclusion, validée par le mainteneur le 22/09 : c'est le facteur qui
+manquait au lot « le porte à porte ignore le relief » plus haut.** Les deux
+chiffres actuels sont faux chacun à sa manière — le porte à porte ignore le
+relief réel de cette boucle, le temps simulé ignore les arrêts. La
+correction proposée : **porte à porte = `temps_estime_s` (relief et vent
+réels de cette boucle, déjà calculé) × 1,06** — un seul chiffre qui tient
+les deux à la fois, plutôt que les deux chiffres actuels, faux chacun à sa
+manière. Réserve qui reste, honnête : 1,06 est mesuré sur un sous-ensemble
+filtré (les sorties les plus « en groupe » écartées), pas sur l'ensemble de
+l'historique — une bonne estimation, pas une certitude au dernier chiffre.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
@@ -1316,9 +1338,16 @@ Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
 mesure qui dépend de son temps disponible n'arrivera jamais ; c'est un
 critère d'acceptation, pas un confort.
 
-Rien n'est tranché ni mis en sprint. La moyenne compteur garde de toute
-façon son rôle ailleurs (dimensionner la distance demandée), ça ne change
-pas.
+**Reste à faire, non commencé** : coder le facteur (le calculer une fois
+dans `ourouler calibrer`, l'écrire dans `calibration.json` aux côtés de
+CdA/Crr, et brancher `temps_ecoule` dessus au lieu de
+`moyenne_compteur_kmh`) ; décider si 1,06 est une valeur par défaut
+générique en attendant d'avoir assez de sorties propres pour ce vélo, ou si
+le lot attend d'abord une vraie mesure par cycliste ; et le filtrage du
+signal de groupe (le seuil à abaisser, de combien) doit se faire **une
+seule fois**, dans le pipeline, jamais à la main. Rien n'est mis en sprint.
+La moyenne compteur garde de toute façon son rôle ailleurs (dimensionner
+la distance demandée), ça ne change pas.
 
 ## Historique des sprints
 
