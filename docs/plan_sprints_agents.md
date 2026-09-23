@@ -1380,6 +1380,24 @@ varient assez en pente pour vraiment les séparer, ne suffit pas** — la
 piste reste un vrai sujet de calibration (des tronçons à pentes variées,
 pas seulement plats), pas un ajustement qui se règle en une session.
 
+**Précisé le 23/09 : pas seulement les deux extrêmes, toute la plage entre
+les deux.** Le mainteneur a demandé un compromis — un peu mieux sur le
+Crr, un peu mieux sur le CdA, sans copier le RCR — plutôt que de forcer le
+Crr à 100 %. Testé sur cinq points intermédiaires (0 %, 20 %, 40 %, 60 %,
+100 % de la distance entre le Crr libre du BMC et celui du RCR), erreur
+mesurée sur les vraies sorties complètes à chaque fois : **la progression
+est monotone**, l'erreur augmente à chaque pas vers le Crr du RCR, sans
+aucun minimum entre les deux (7,6 % au fit libre, 10,1 % au Crr forcé du
+RCR). Aucun compromis ne fait mieux que le fit libre. Conclusion, honnête
+et un peu à contre-intuition : l'hypothèse « mêmes pneus donc même Crr »
+ne se vérifie pas dans les faits, même si elle paraît raisonnable sur le
+papier — le fit libre du BMC, aussi étrange que sa répartition CdA/Crr
+individuelle paraisse, reste le meilleur prédicteur trouvé. **Recommandation
+pour ce vélo : garder sa calibration libre pour la prédiction, ne pas
+essayer de la faire coller à celle du RCR** ; ne pas interpréter son CdA ou
+son Crr pris isolément comme une vérité physique (le code le dit déjà),
+seule la prédiction globale compte.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
