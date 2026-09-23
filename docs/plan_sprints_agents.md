@@ -1398,6 +1398,22 @@ essayer de la faire coller à celle du RCR** ; ne pas interpréter son CdA ou
 son Crr pris isolément comme une vérité physique (le code le dit déjà),
 seule la prédiction globale compte.
 
+**Pourquoi « mêmes pneus » était faux, précisé le 23/09 : équipement réel du
+mainteneur.** Les deux vélos sont en Continental GP5000, mais pas la même
+version — **All Season sur le RCR**, connu pour un Crr plus élevé que le
+**TR (tubeless) sur le BMC**, la version la plus rapide de la gamme dans les
+tests publiés. Pression basse sur les deux, sous 5 bar : hookless (Zipp
+303S) sur le RCR, confort d'épaule en position aéro sur le BMC — ce qui
+pousse le Crr réel des deux au-dessus des chiffres labo publiés à haute
+pression. L'hypothèse testée plus haut (« mêmes pneus donc même Crr ») était
+donc fausse dès son point de départ, pas seulement invalidée par la mesure.
+**Mais un vrai écart de pneu (All Season contre TR) n'explique
+probablement pas la totalité du Crr mesuré** (0,0106 contre 0,0084, un
+écart de 0,0022) : les écarts publiés entre versions du même pneu sont en
+général plus petits. Le biais de calibration (CdA/Crr mal séparés)
+coexiste vraisemblablement avec un vrai écart de pneu, sans qu'on sache
+mesurer la part de chacun ici. Non tranché, non mesuré plus loin.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
