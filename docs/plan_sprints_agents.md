@@ -1331,6 +1331,23 @@ manière. Réserve qui reste, honnête : 1,06 est mesuré sur un sous-ensemble
 filtré (les sorties les plus « en groupe » écartées), pas sur l'ensemble de
 l'historique — une bonne estimation, pas une certitude au dernier chiffre.
 
+**Vérifié le 23/09 sur ses sorties de 3h20 à 5h10 réelles (RCR et BMC), et
+un vrai sujet trouvé sur le second vélo.** Comparé sortie par sortie : réel,
+porte à porte actuel, modèle seul, modèle × 1,06. Sur RCR, cinq sorties sur
+neuf tombent quasiment à la minute près avec le ratio (4h14, 4h20, 4h53…),
+contre zéro avec le porte à porte actuel — cohérent avec la mesure globale.
+Sur BMC (le vélo de contre-la-montre), `detecter_groupe` signale 29 à 39 %
+de distance anormalement rapide sur **chacune** de ses cinq sorties de cette
+durée, sans exception — plus haut et plus systématique que sur RCR. Le
+mainteneur est formel : **le BMC ne se roule quasiment jamais en groupe.**
+Ce n'est donc probablement pas le même phénomène que sur RCR — plus
+vraisemblablement un vrai décalage de calibration propre à ce vélo (la
+position contre-la-montre change le CdA réel, que le modèle ne capte peut-
+être pas correctement pour cette position), pas une contamination de
+roue. Non vérifié plus loin ici ; à recalibrer et creuser séparément avant
+d'appliquer le même ratio de 1,06 au BMC — rien ne dit qu'il vaut la même
+chose sur les deux vélos.
+
 **Condition posée par le mainteneur, et elle prime sur le choix du
 chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
 Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
