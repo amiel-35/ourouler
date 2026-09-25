@@ -71,18 +71,30 @@ le « Sonnet par défaut » de CLAUDE.md :
   - `sortie` et `boucle` suivent la météo du moment : on les compare peu
     après, ou sur les champs hors prévision.
 
-**Lots du §5, état au 25/09/2026 au soir** (le mainteneur merge) :
+**Lots du §5, état au 25/09/2026, 18 h 45** : tout est mergé dans `main`.
+La prod tourne en **v0.9.6** (`9e093f5`).
 
 | Lot | PR | État |
 |---|---|---|
-| Plan et décisions | #30 | ouverte |
-| Tests portables (fuseau, flottants, `.gitignore`) | #34 | ouverte, **à merger avant #31** |
-| 0a — CI | #31 | ouverte, **verte** (python, front, image) |
-| Rétro-changelog 0.1.0 → 0.9.4 | #32 | ouverte ; #11 reste 0.5.2, et #15/#17/#18 sont regroupées (le mainteneur s'en remet à l'agent) |
-| Correctif 0.9.4 — fuseau | #35 | **en prod** ; la PR réaligne `main` |
-| 0c — contrat d'API figé | #33 | ouverte |
-| gitleaks | — | historique passé : 612 commits, 1 faux positif (mot de passe fictif d'un test front) ; `.gitleaksignore` et job de CI après #31 |
-| 0b, 0d, garde réseau, 0f | — | à faire |
+| Plan et décisions | #30 | mergé |
+| Tests portables (fuseau, flottants, `.gitignore`) | #34 | mergé |
+| 0a — CI (python 3.12, front, image) | #31 | mergé ; **protection de `main` à poser par le mainteneur** |
+| 0c — contrat d'API figé | #33 | mergé |
+| Rétro-changelog, étiquettes `v0.1.0` → `v0.9.6` | #32 | mergé, étiquettes posées |
+| Démarche et guide de la ligne de commande (1ᵉʳ temps du lot README) | #38 | mergé |
+| Correctifs de prod 0.9.4 (fuseau), 0.9.5 (message de la clé), 0.9.6 (accueil après branchement, cache du front, UTF-8) | #35, #37, #39 | **en prod** |
+| Backlog : l'heure de la séance du jour | #36 | mergé |
+| gitleaks | — | historique passé : 1 faux positif ; job de CI et `.gitleaksignore` à faire |
+| 0b, 0d, garde réseau, 0f, lot 1, lot 2, ARCHITECTURE, CONTRIBUTING, AGENTS, README | — | à faire |
+
+**Appris en livrant les correctifs :**
+- un redéploiement coupe le service environ 20 s (503) ;
+- une suite `pytest` s'est bloquée une fois pendant plus de 25 min, sur un conteneur Postgres de test resté démarré : à surveiller en CI, où un délai maximal par job s'impose ;
+- un agent a qualifié de « préexistant » un test cassé par son propre lot. La règle est donc de **toujours rejouer le test sur `main` avant d'accepter ce verdict**.
+
+**Backlog ajouté** : dans l'assistant d'accueil, une clé Intervals refusée
+affiche un message technique (« vérifier [intervals] api_key et
+athlete_id »), en haut de l'écran.
 
 **Écarts mesurés par la première CI** (Linux, Python 3.12, TZ=UTC) :
 - 11 tests verts sur Mac échouaient, dont 8 qui supposaient le fuseau de
