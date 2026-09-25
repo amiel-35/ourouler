@@ -54,6 +54,13 @@ export function Reglages({
   const [cle, setCle] = useState("");
   const [panne, setPanne] = useState<string | null>(null);
   const [dit, setDit] = useState<string | null>(null);
+  // Enregistrement de la clé intervals.icu : message et état affichés juste
+  // sous le bouton de ce volet, pas en haut de l'écran — le serveur vérifie
+  // la clé auprès d'intervals.icu avant d'enregistrer, ça prend une ou deux
+  // secondes, et sur téléphone un message en haut passe inaperçu.
+  const [panneIntervals, setPanneIntervals] = useState<string | null>(null);
+  const [ditIntervals, setDitIntervals] = useState<string | null>(null);
+  const [verificationIntervals, setVerificationIntervals] = useState(false);
   // L9.4 : ce que le serveur sait de la calibration de chaque vélo. `null`
   // tant qu'il n'a pas répondu — ou s'il ne sait pas répondre (un serveur
   // d'avant L9.4) : la section ne s'affiche alors simplement pas.
@@ -86,6 +93,26 @@ export function Reglages({
     setVolet(volet === cible ? null : cible);
     setDit(null);
     setPanne(null);
+    setDitIntervals(null);
+    setPanneIntervals(null);
+  }
+
+  async function enregistrerIntervals() {
+    setPanneIntervals(null);
+    setDitIntervals(null);
+    setVerificationIntervals(true);
+    try {
+      const reponse = await api.modifierProfil({ intervals: { api_key: cle } });
+      surProfil(reponse.donnees);
+      const fraiches = await api.zones();
+      surZones(fraiches.donnees);
+      setDitIntervals("Clé vérifiée auprès d'intervals.icu : c'est branché.");
+      setCle("");
+    } catch (erreur) {
+      setPanneIntervals(erreur instanceof ErreurApi ? erreur.message : String(erreur));
+    } finally {
+      setVerificationIntervals(false);
+    }
   }
 
   const liees = zones.valeurs_liees;
@@ -390,11 +417,21 @@ export function Reglages({
           <button
             type="button"
             className="bouton"
-            onClick={() => enregistrer({ intervals: { api_key: cle } }, "Clé enregistrée.")}
-            disabled={cle.trim() === ""}
+            onClick={enregistrerIntervals}
+            disabled={cle.trim() === "" || verificationIntervals}
           >
-            Enregistrer la clé
+            {verificationIntervals ? "Vérification…" : "Enregistrer la clé"}
           </button>
+          {ditIntervals ? (
+            <div className="encart bien" role="status">
+              {ditIntervals}
+            </div>
+          ) : null}
+          {panneIntervals ? (
+            <div className="encart alerte" role="alert">
+              {panneIntervals}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

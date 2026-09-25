@@ -9,12 +9,13 @@
  *   champ inventé qu'`api/depots.CHAMPS_MODIFIABLES` refuserait.
  */
 
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Assistant } from "../src/ecrans/Assistant";
 import { Reglages } from "../src/ecrans/Reglages";
-import { Serveur } from "./serveur";
+import { Serveur, panne } from "./serveur";
 import { PROFIL, zones } from "./fixtures";
 
 const ZONES = zones().donnees;
@@ -136,5 +137,90 @@ describe("les réglages — panneau identité", () => {
     const corps = patch.corps as { cycliste?: Record<string, unknown> };
     expect(corps.cycliste).toEqual({ prenom: "Camille", nom: "Ruiz" });
     expect(screen.getByText("Identité enregistrée.")).toBeTruthy();
+  });
+});
+
+describe("les réglages — panneau intervals.icu", () => {
+  /** Porte le profil en état, comme le ferait `App.tsx` : c'est ce qui
+   * permet d'observer la rangée « Branché » se mettre à jour après
+   * `surProfil`, plutôt que de figer le prop comme les autres tests
+   * de ce fichier (qui ne vérifient pas ce rafraîchissement). */
+  function Porteur({ depart }: { depart: typeof PROFIL.donnees }) {
+    const [profil, setProfil] = useState(depart);
+    return (
+      <Reglages
+        profil={profil}
+        zones={ZONES}
+        surProfil={setProfil}
+        surZones={() => undefined}
+        surRefaireInstallation={() => undefined}
+        surDeconnexion={() => undefined}
+      />
+    );
+  }
+
+  /** Le conteneur du volet ouvert — repéré par le champ de la clé, seul volet
+   * affiché à la fois puisque `volet` est un état unique côté `Reglages`. */
+  function conteneurVolet() {
+    return screen.getByLabelText("Votre clé intervals.icu").closest(".bloc")! as HTMLElement;
+  }
+
+  it("affiche sous le bouton, dans le volet, que la clé a été vérifiée — et branche la rangée", async () => {
+    const nonBranche = {
+      ...PROFIL.donnees,
+      services: { ...PROFIL.donnees.services, intervals: { renseigne: false, athlete_id: "" } },
+    };
+    const branche = {
+      ...PROFIL.donnees,
+      services: { ...PROFIL.donnees.services, intervals: { renseigne: true, athlete_id: "iFICTIF" } },
+    };
+    const serveur = new Serveur({
+      "/api/v1/profil/zones": { charge: { proprietaire: "essai", donnees: ZONES } },
+      "/api/v1/profil": { charge: { proprietaire: "essai", donnees: branche } },
+    });
+    serveur.installer();
+    render(<Porteur depart={nonBranche} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Non branché" }));
+    await userEvent.type(screen.getByLabelText("Votre clé intervals.icu"), "une-cle-fictive");
+    await userEvent.click(screen.getByRole("button", { name: "Enregistrer la clé" }));
+
+    await waitFor(() =>
+      expect(serveur.requetes.filter((r) => r.methode === "PATCH").length).toBe(1),
+    );
+    const patch = serveur.requetes.find((r) => r.methode === "PATCH")!;
+    expect(patch.corps).toEqual({ intervals: { api_key: "une-cle-fictive" } });
+
+    const message = await within(conteneurVolet()).findByText(
+      "Clé vérifiée auprès d'intervals.icu : c'est branché.",
+    );
+    expect(message.getAttribute("role")).toBe("status");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Branché" })).toBeTruthy());
+  });
+
+  it("affiche l'erreur de l'API dans le volet, en role alert, quand intervals.icu refuse la clé", async () => {
+    const nonBranche = {
+      ...PROFIL.donnees,
+      services: { ...PROFIL.donnees.services, intervals: { renseigne: false, athlete_id: "" } },
+    };
+    const serveur = new Serveur({
+      "/api/v1/profil/zones": { charge: { proprietaire: "essai", donnees: ZONES } },
+      "/api/v1/profil": panne("intervals_refuse", "Intervals.icu : HTTP 403", 502),
+    });
+    serveur.installer();
+    render(<Porteur depart={nonBranche} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Non branché" }));
+    await userEvent.type(screen.getByLabelText("Votre clé intervals.icu"), "une-cle-refusee");
+    await userEvent.click(screen.getByRole("button", { name: "Enregistrer la clé" }));
+
+    const alerte = await screen.findByRole("alert");
+    expect(alerte.textContent).toBe("Intervals.icu : HTTP 403");
+    expect(conteneurVolet().contains(alerte)).toBe(true);
+    // Refusée : le champ garde la clé saisie, rien n'est effacé.
+    expect((screen.getByLabelText("Votre clé intervals.icu") as HTMLInputElement).value).toBe(
+      "une-cle-refusee",
+    );
   });
 });
