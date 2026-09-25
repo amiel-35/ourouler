@@ -60,6 +60,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
+from ourouler.api import taches_fond
 from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
@@ -151,6 +152,22 @@ def construire_export(
     return tampon.getvalue()
 
 
+class TacheNonArretee(Exception):  # noqa: N818 — un état, pas une faute
+    """Une tâche de fond du compte n'a pas rendu la main à temps : rien n'a été effacé.
+
+    Une exception ordinaire, traduite en `ErreurApi` par la route **hors** de
+    son bloc `with` : une `ErreurApi` (dataclass figée) qui traverse un
+    `@contextmanager` fait échouer celui-ci sur l'écriture de son
+    `__traceback__`, et le refus sortait en 500.
+    """
+
+    code = "tache_lourde_en_cours"
+    message = (
+        "une tâche de votre compte (import ou calibration) ne s'est pas encore arrêtée — "
+        "rien n'a été effacé, réessayez dans une minute"
+    )
+
+
 def effacer_donnees(
     qui: Proprietaire,
     *,
@@ -177,6 +194,34 @@ def effacer_donnees(
     ferme le compte lié (mot de passe compris) et révoque du même coup ses
     sessions ouvertes, par la cascade du schéma (voir cette méthode).
     """
+    # **Les tâches de fond d'abord** (contre-lecture Fable du 25/09/2026) : un
+    # import en cours réécrivait ses lignes et ses fichiers bruts après
+    # l'effacement. On les annule, on attend qu'elles aient rendu la main, et
+    # rien ne se relance pour ce compte tant que l'effacement dure.
+    with taches_fond.suspendre(str(qui)):
+        if not taches_fond.annuler_et_attendre(str(qui)):
+            raise TacheNonArretee
+        return _effacer(
+            qui,
+            profils=profils,
+            fichiers=fichiers,
+            journal=journal,
+            generations=generations,
+            dossier_cache=dossier_cache,
+            comptes=comptes,
+        )
+
+
+def _effacer(
+    qui: Proprietaire,
+    *,
+    profils: DepotProfils,
+    fichiers: DepotFichiers,
+    journal: JournalServices,
+    generations: DepotGenerations,
+    dossier_cache: Path,
+    comptes: DepotComptes | None,
+) -> dict:
     cache = Cache(dossier_cache, proprietaire=str(qui))
     supprime = {
         "profil": profils.supprimer_profil(qui),
@@ -277,4 +322,4 @@ def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossie
     )
 
 
-__all__ = ["construire_export", "effacer_donnees"]
+__all__ = ["TacheNonArretee", "construire_export", "effacer_donnees"]

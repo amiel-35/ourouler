@@ -1864,6 +1864,8 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
                 dossier_cache=ctx.dossier_cache,
                 comptes=comptes,
             )
+    except vie_privee.TacheNonArretee as refus:
+        raise ErreurApi(code=refus.code, message=refus.message, statut=409) from None
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": donnees}

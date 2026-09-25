@@ -28,6 +28,15 @@ et appelle le cœur par une fonction qui rend un objet (`physique.commande.calib
 lancé la tâche ; `trouver()` ne rend jamais le job d'un autre — même refus
 que `DepotFichiers.trouver` pour un identifiant qui n'est pas le sien.
 
+**Annulable, pour la suppression d'un compte** (contre-lecture Fable du
+25/09/2026). `DELETE /moi` pendant un import effaçait les lignes du compte…
+puis l'import en cours en réécrivait cinq, fichiers bruts compris, pour un
+compte qui n'existait plus. `annuler_et_attendre` lève le drapeau d'annulation
+des tâches du propriétaire, que chaque tâche regarde à chaque pas
+(`Job.avancer`, `Job.verifier_annulation`), **attend qu'elles aient rendu la
+main**, et bloque tout nouveau lancement pour ce propriétaire jusqu'à la fin
+de l'effacement (`suspendre`).
+
 Ce module ne lit ni fichier de configuration ni variable d'environnement
 (doctrine §2) : il reçoit un travail déjà préparé par `api/routes.py`.
 """
@@ -82,6 +91,13 @@ class EchecLisible(Exception):  # noqa: N818 — « échec », pas « erreur » 
     """
 
 
+class TacheAnnulee(EchecLisible):
+    """Levée dans la tâche elle-même, au premier pas après `annuler_et_attendre`."""
+
+    def __init__(self) -> None:
+        super().__init__("annulée : le compte a été supprimé pendant la tâche")
+
+
 @dataclass
 class Job:
     """L'état d'une tâche, tel que la route `GET …/{id}` le rend."""
@@ -100,8 +116,17 @@ class Job:
     rapport: object | None = None
     erreur: str | None = None
     demarre_le: float = field(default_factory=time.monotonic)
+    _annule: threading.Event = field(default_factory=threading.Event, repr=False)
+    _termine: threading.Event = field(default_factory=threading.Event, repr=False)
+
+    def verifier_annulation(self) -> None:
+        """Lève `TacheAnnulee` si la tâche a été annulée. À appeler avant toute écriture."""
+        if self._annule.is_set():
+            raise TacheAnnulee
 
     def avancer(self, traites: int, total: int, etape: str | None = None) -> None:
+        """Note l'avancement — et arrête la tâche si elle a été annulée entre deux pas."""
+        self.verifier_annulation()
         self.traites = traites
         self.total = total
         if etape is not None:
@@ -130,6 +155,9 @@ _verrou_registre = threading.Lock()
 _jobs: dict[str, Job] = {}
 #: La nature de la tâche qui tient `VERROU`, pour nommer ce qui occupe le serveur.
 _occupant: list[str | None] = [None]
+#: Les propriétaires dont le compte est en train d'être effacé : aucune tâche
+#: ne se lance pour eux (`suspendre`).
+_suspendus: set[str] = set()
 
 
 def lancer(
@@ -147,6 +175,9 @@ def lancer(
     quand il lève — c'est là qu'un quota consommé se rembourse ; `enfin`
     toujours, après — c'est là que des fichiers temporaires s'effacent.
     """
+    with _verrou_registre:
+        if proprietaire in _suspendus:
+            raise ErreurTacheEnCours(None)
     if not VERROU.acquire(blocking=False):
         raise ErreurTacheEnCours(_occupant[0])
     _occupant[0] = nature
@@ -175,9 +206,52 @@ def lancer(
             finally:
                 _occupant[0] = None
                 VERROU.release()
+                job._termine.set()
 
     threading.Thread(target=executer, daemon=True, name=f"{nature}-{job.id[:8]}").start()
     return job
+
+
+def annuler_et_attendre(proprietaire: str, delai_s: float = 120.0) -> bool:
+    """Annule les tâches en cours de ce propriétaire et attend qu'elles aient rendu la main.
+
+    Rend `True` quand plus aucune ne tourne ; `False` si l'une d'elles n'a pas
+    fini dans `delai_s` — l'appelant ne doit alors **rien** effacer, puisque
+    la tâche peut encore écrire. Un import s'arrête au fichier suivant (un
+    tiers de seconde) ; une calibration au prochain pas, ou à la fin de son
+    ajustement, qui ne s'interrompt pas (au plus une ou deux minutes sur
+    l'historique du mainteneur).
+    """
+    with _verrou_registre:
+        en_cours = [
+            j for j in _jobs.values()
+            if j.proprietaire == proprietaire and j.statut == STATUT_EN_COURS
+        ]
+    for job in en_cours:
+        job._annule.set()
+    echeance = time.monotonic() + delai_s
+    return all(job._termine.wait(max(0.0, echeance - time.monotonic())) for job in en_cours)
+
+
+class suspendre:  # noqa: N801 — s'emploie comme une fonction : `with suspendre(qui):`
+    """Aucune nouvelle tâche pour ce propriétaire tant que le bloc dure (suppression du compte).
+
+    Une classe et non un `@contextmanager` : une `ErreurApi` (dataclass figée)
+    levée dans le bloc traverserait le générateur, qui tente d'écrire son
+    `__traceback__` — et échoue sur une instance figée.
+    """
+
+    def __init__(self, proprietaire: str) -> None:
+        self.proprietaire = proprietaire
+
+    def __enter__(self) -> None:
+        with _verrou_registre:
+            _suspendus.add(self.proprietaire)
+
+    def __exit__(self, *exc: object) -> bool:
+        with _verrou_registre:
+            _suspendus.discard(self.proprietaire)
+        return False
 
 
 def occupant() -> str | None:
@@ -237,8 +311,11 @@ __all__ = [
     "EchecLisible",
     "ErreurTacheEnCours",
     "Job",
+    "TacheAnnulee",
+    "annuler_et_attendre",
     "dernier",
     "lancer",
     "occupant",
+    "suspendre",
     "trouver",
 ]

@@ -274,6 +274,9 @@ def lancer(
                 rattachement_strict=True,
                 progres=lambda etape, faits, total: job.avancer(faits, total, etape),
             )
+            # Le compte a pu être supprimé pendant l'ajustement, qui ne
+            # s'interrompt pas : on ne réécrit pas sa calibration après coup.
+            job.verifier_annulation()
             physique.ecrire_calibration(chemin, velo.nom, resultat.contenu())
         except (ErreurUtilisateur, ErreurConnecteur) as e:
             raise taches_fond.EchecLisible(assainir(str(e), (), chemins)) from e
