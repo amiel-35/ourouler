@@ -21,7 +21,15 @@
 import { useState, type FocusEvent, type MouseEvent } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { CategoriePneu, Profil, Zones } from "../api/types";
-import { MASSE_VELO_DEFAUT_KG, masseVeloAffichee, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
+import {
+  departEstReel,
+  MASSE_VELO_DEFAUT_KG,
+  masseVeloAffichee,
+  nombre,
+  PNEUS,
+  pourcentage,
+  usageDeVelo,
+} from "../api/formats";
 import { EcranFtp, ftpAffichee } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -381,9 +389,11 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
               if (bon) aller("t1_question");
             }}
           />
-          <button type="button" className="bouton second" onClick={() => aller("t1_question")}>
-            Garder ce départ
-          </button>
+          {departEstReel(profil.depart) ? (
+            <button type="button" className="bouton second" onClick={() => aller("t1_question")}>
+              Garder ce départ
+            </button>
+          ) : null}
         </>
       ) : null}
 

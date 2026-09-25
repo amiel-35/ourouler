@@ -36,6 +36,13 @@ partir des PR.
   commande brut (« donner --puissance W ou --vitesse-a-plat KMH — aucune
   FTP… ») ; l'écran dit maintenant qu'il manque une FTP, propose d'indiquer
   la puissance à tenir, et lie vers Réglages.
+- L'assistant d'accueil ne propose plus « Garder ce départ » tant qu'aucun
+  départ réel n'a été choisi : un compte neuf gardait sans le vouloir le
+  point par défaut du serveur.
+- Quand le vent au départ n'est pas disponible, l'écran de demande affiche
+  une phrase courte au lieu du détail technique brut d'Open-Meteo (URL et
+  code HTTP compris), avec un lien vers Réglages si le départ n'est pas
+  encore renseigné.
 
 ## [0.9.6] — 2026-09-25
 

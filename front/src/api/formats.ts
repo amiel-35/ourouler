@@ -5,7 +5,7 @@
  * `compteArrets`, et elle se refuse quand le compte ne retombe pas juste.
  */
 
-import type { CategoriePneu } from "./types";
+import type { CategoriePneu, PointDepart } from "./types";
 
 const NBSP = " ";
 
@@ -318,6 +318,24 @@ export const SOURCE_ADRESSE: Record<string, string> = {
 
 export function sourceDAdresse(source: string): string {
   return SOURCE_ADRESSE[source] ?? source;
+}
+
+/**
+ * Vrai quand `depart` a été réellement choisi par le cycliste, faux quand
+ * c'est encore le comblement d'un compte neuf.
+ *
+ * L'API n'expose pas de champ « départ renseigné » : un compte neuf porte le
+ * défaut embarqué par le serveur (`COMBLEMENT_EMBARQUEMENT`,
+ * `src/ourouler/api/depots.py`) — nom « Départ » et coordonnées (0, 0), qui
+ * ne désignent le domicile de personne (même commentaire, même fichier). Un
+ * départ réel qui tomberait pile sur ces trois valeurs est vanishingly
+ * improbable (personne n'habite à l'intersection de l'équateur et du
+ * méridien de Greenwich) — la coïncidence sur les trois à la fois est le
+ * signal le plus sûr sans changement d'API. Si ce repère devient ambigu, il
+ * faudra un vrai champ côté serveur plutôt qu'élargir cette devinette.
+ */
+export function departEstReel(depart: PointDepart): boolean {
+  return !(depart.nom === "Départ" && depart.latitude === 0 && depart.longitude === 0);
 }
 
 /** Les quatre réponses possibles à la question du vent, telles qu'on les demande. */

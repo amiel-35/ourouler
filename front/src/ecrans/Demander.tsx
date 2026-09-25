@@ -33,6 +33,7 @@ import { phraseBudget } from "../composants/Attente";
 import { directionsDepuisCellules } from "../api/meteoRose";
 import { RoseDirections, LegendeRose } from "../composants/RoseDirections";
 import {
+  departEstReel,
   duree,
   heureDeRetour,
   nombre,
@@ -45,6 +46,20 @@ import type { DepartChoisi } from "../composants/FormulaireAdresse";
 
 /** Les trois préférences de « selon le vent », dans l'ordre où Q44 les pose. */
 const PREFERENCES_VENT = ["depart-dos", "retour-dos", "travers"];
+
+/**
+ * Un motif ou un message d'échec qui porte une URL ou un code HTTP — le
+ * signe qu'il vient tel quel d'un connecteur externe (Open-Meteo, ici) et
+ * n'a pas été mis en français pour le cycliste. Constaté le 25/09/2026 en
+ * rejouant l'arrivée d'un invité en préproduction : « vent au départ
+ * indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/
+ * forecast — No data is available for this location…) » s'affichait tel
+ * quel sous « Direction ». On ne montre plus jamais ce détail — il reste
+ * dans le `title` de la phrase, pour qui inspecte la page.
+ */
+const MOTIF_TECHNIQUE = /:\/\/|\bhttp\b/i;
+
+const MESSAGE_VENT_INDISPONIBLE = "Le vent au départ n'est pas disponible pour ce point de départ.";
 
 export interface Demande {
   mode: "seance" | "z2";
@@ -243,19 +258,44 @@ export function Demander({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demande.mode]);
 
-  /** La phrase du vent, ou pourquoi il n'y en a pas — jamais un vent inventé. */
-  function phraseVent(): string {
-    if (erreurVent !== null) return erreurVent;
-    if (vent === null) return "Vent : en cours…";
-    const donnees = vent.donnees;
-    if (!donnees.posee) return donnees.motif ?? "Le vent n'est pas connu pour ce départ.";
-    if (donnees.vent_depuis_nom === null || donnees.vent_kmh === null) {
-      return "Le vent n'est pas connu pour ce départ.";
+  /**
+   * La phrase du vent, ou pourquoi il n'y en a pas — jamais un vent inventé,
+   * et jamais non plus le détail technique d'un connecteur externe : `texte`
+   * est ce qui s'affiche, `detail` (quand il existe) le motif brut, réservé
+   * au `title` de la phrase. `chargement` distingue l'attente initiale d'une
+   * vraie absence, pour ne pas proposer le lien vers Réglages trop tôt.
+   */
+  function informationVent(): { texte: string; detail: string | null; chargement: boolean } {
+    if (erreurVent !== null) {
+      const technique = MOTIF_TECHNIQUE.test(erreurVent);
+      return {
+        texte: technique ? MESSAGE_VENT_INDISPONIBLE : erreurVent,
+        detail: technique ? erreurVent : null,
+        chargement: false,
+      };
     }
-    return `Vent ${ventDepuisAvecPreposition(donnees.vent_depuis_nom)} à ${nombre(
-      donnees.vent_kmh,
-      0,
-    )} km/h`;
+    if (vent === null) return { texte: "Vent : en cours…", detail: null, chargement: true };
+    const donnees = vent.donnees;
+    if (!donnees.posee) {
+      const motif = donnees.motif;
+      const technique = motif !== null && MOTIF_TECHNIQUE.test(motif);
+      return {
+        texte: technique ? MESSAGE_VENT_INDISPONIBLE : (motif ?? "Le vent n'est pas connu pour ce départ."),
+        detail: technique ? motif : null,
+        chargement: false,
+      };
+    }
+    if (donnees.vent_depuis_nom === null || donnees.vent_kmh === null) {
+      return { texte: "Le vent n'est pas connu pour ce départ.", detail: null, chargement: false };
+    }
+    return {
+      texte: `Vent ${ventDepuisAvecPreposition(donnees.vent_depuis_nom)} à ${nombre(
+        donnees.vent_kmh,
+        0,
+      )} km/h`,
+      detail: null,
+      chargement: false,
+    };
   }
 
   /** L'azimut (ou les deux, pour le latéral) qu'une préférence imposerait. */
@@ -425,7 +465,20 @@ export function Demander({
             Z2) — le moteur de boucle libre ne pose pas encore cette question.
           </div>
         ) : null}
-        <div className="aide">{phraseVent()}</div>
+        {(() => {
+          const infoVent = informationVent();
+          return (
+            <div className="aide" title={infoVent.detail ?? undefined}>
+              {infoVent.texte}
+              {infoVent.texte === MESSAGE_VENT_INDISPONIBLE && !departEstReel(profil.depart) ? (
+                <>
+                  {" "}
+                  <a href="/?onglet=reglages">Renseigner votre départ dans les réglages</a>
+                </>
+              ) : null}
+            </div>
+          );
+        })()}
       </div>
 
       {demande.modeDirection === "direction" ? (
