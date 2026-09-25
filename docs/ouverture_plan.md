@@ -103,7 +103,9 @@ tourne en **v0.9.6**.
     **Impossibles tant que le dépôt est privé** avec un compte gratuit
     (réponse de l'API : « Upgrade to GitHub Pro or make this repository
     public »), et le signalement privé n'existe que pour les dépôts publics.
-    Ils se font **le jour J, juste après le passage en public** :
+    Décision du mainteneur (25/09/2026) : **à revoir à la fin de la
+    restructuration complète** (lots 3 à 14), puis le jour J, juste après le
+    passage en public :
     - un ruleset sur la branche par défaut : PR obligatoire, vérifications
       `python`, `front` et `image`, force-push bloqué ;
     - Settings → Advanced Security → Private vulnerability reporting →
