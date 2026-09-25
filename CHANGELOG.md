@@ -21,6 +21,19 @@ partir des PR.
 
 ## [Non publié]
 
+## [0.9.6] — 2026-09-25
+
+### Corrigé
+
+- Après la mise en route d'un nouveau compte, « Aujourd'hui » affiche la
+  séance dès qu'intervals.icu est branché ; il restait sur « pas encore
+  relié » jusqu'au rechargement de la page.
+- Après une mise à jour du service, le navigateur ne garde plus l'ancienne
+  page en cache : elle réclamait des fichiers disparus et l'écran restait
+  blanc.
+- Les messages d'erreur s'affichent avec leurs accents dans tous les
+  navigateurs.
+
 ## [0.9.5] — 2026-09-25
 
 ### Corrigé

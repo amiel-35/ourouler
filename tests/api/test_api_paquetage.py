@@ -88,6 +88,54 @@ def test_le_front_construit_sert_aussi_ses_fichiers(tmp_path: Path):
     assert "front construit" in reponse.text
 
 
+# --- correctif 0.9.6 : `index.html` jamais en cache, les actifs immuables ---
+#
+# Panne constatée en prod : `index.html` part sans `Cache-Control`, un
+# navigateur le garde en cache à sa façon, et redemande après un
+# redéploiement un `/assets/index-<ancienne empreinte>.js` que `vite` a fait
+# disparaître — 404, front blanc pour l'utilisateur resté sur cet onglet.
+
+
+def test_la_racine_n_est_jamais_mise_en_cache(tmp_path: Path):
+    """`/` rend `index.html` : il doit toujours être revalidé, jamais gardé tel quel."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/")
+    assert reponse.status_code == 200
+    assert reponse.headers.get("cache-control") == "no-cache"
+
+
+def test_un_chemin_du_front_replie_sur_index_html_n_est_pas_mis_en_cache(tmp_path: Path):
+    """Le repli de `_erreur_du_cadre` (`/entrer`, `/connexion`…) porte la même garde."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/entrer")
+    assert reponse.status_code == 200
+    assert reponse.headers.get("cache-control") == "no-cache"
+
+
+def test_un_actif_sous_assets_est_mis_en_cache_de_facon_immuable(tmp_path: Path):
+    """`vite` met l'empreinte du contenu dans le nom : un nom donné ne change jamais de contenu."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/assets/app.js")
+    assert reponse.status_code == 200
+    assert reponse.headers.get("cache-control") == "public, max-age=31536000, immutable"
+
+
+def test_un_actif_absent_ne_porte_pas_le_cache_immuable(tmp_path: Path):
+    """Le 404 JSON d'un actif disparu ne doit pas prétendre être un contenu figé pour un an."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/assets/absent.js")
+    assert reponse.status_code == 404
+    assert "immutable" not in reponse.headers.get("cache-control", "")
+
+
+def test_le_404_json_annonce_l_utf8(tmp_path: Path):
+    """Constat en prod (Safari) : sans `charset=utf-8` explicite, un « — » s'affiche « â€” »."""
+    client = client_api(dossier_front=_construire_front(tmp_path))
+    reponse = client.get("/api/v1/inconnu")
+    assert reponse.status_code == 404
+    assert "charset=utf-8" in reponse.headers.get("content-type", "")
+
+
 def test_le_montage_du_front_ne_masque_aucune_route_de_l_api(tmp_path: Path):
     """Le point du lot : `/api/v1/...` et `/sante` restent prioritaires sur `/`.
 

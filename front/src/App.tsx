@@ -254,6 +254,23 @@ function ApplicationPrincipale() {
   const seanceDuJour = useRessource(() => api.seance(jour), [jour]);
   const semaine = useRessource(() => api.semaine(), []);
 
+  // Intervals se branche via l'assistant ou Réglages sans que `jour` bouge :
+  // sans ce rechargement, la séance et la semaine restent sur leur premier
+  // échec (409 intervals_absent) jusqu'au rechargement de page (constaté en
+  // prod le 25/09/2026). Seul le passage « profil connu, non branché » →
+  // « branché » recharge : l'arrivée du profil au démarrage (null → branché)
+  // ne doit pas doubler les appels de chaque ouverture.
+  const intervalsBranche = profilCourant ? profilCourant.services.intervals.renseigne : null;
+  const brancheAvant = useRef(intervalsBranche);
+  useEffect(() => {
+    if (brancheAvant.current === false && intervalsBranche === true) {
+      seanceDuJour.recharger();
+      semaine.recharger();
+    }
+    brancheAvant.current = intervalsBranche;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intervalsBranche]);
+
   useEffect(() => {
     if (semaine.valeur) retenirLectureSeances(jour);
   }, [semaine.valeur, jour]);
