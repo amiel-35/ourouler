@@ -1092,6 +1092,112 @@ qualité du tracé — [[Q29]], [[Q31]], [[Q32]] — n'entrent ni dans l'héberg
 dans l'accueil d'un nouveau venu. Elles sont posées en [[Q53]] avec trois
 issues possibles ; aucune n'est tranchée, et elles n'ont pas de sprint.
 
+### Sprint 9 — Inviter pour de vrai **[cap fixé par le mainteneur, cadré le 25/09/2026]**
+
+Cadré à la demande du mainteneur : « refaire une passe du projet pour
+finaliser et pouvoir inviter des gens », et « j'ai encore du mal avec le
+modèle vélo » (`docs/sprint9_contrat.md`). Six lots, tous fusionnés sur
+`sprint-9`.
+
+#### Clôture du sprint 9 — 25/09/2026
+
+**L9.1 — le modèle vélo : Crr par pneu, CdA cherché, porte à porte en
+fourchette.** Codé le 25/09 (branche `l9-1-modele`), méthode issue de la note
+du 23/09 (« le porte à porte ignore le relief de la boucle », ci-dessus) :
+Crr fixé par la littérature selon la catégorie de pneu (`Velo.pneu`,
+`src/ourouler/config.py:52,183-188`), seul le CdA est cherché
+(`src/ourouler/physique/calibration.py`), sur le **temps en mouvement**,
+apprentissage limité aux sorties sous 30 % de signal de groupe, fourchette du
+porte à porte mesurée sur les **seules sorties de validation**. Mesuré :
+RCR — CdA 0,378 (compensation, pas une mesure), MAE de validation 3,5 %,
+biais −0,8 % (n=25) ; BMC — CdA 0,318, MAE 2,5 %, biais +1,2 % (n=9). Écart de
+29,8 W à 30 km/h entre les deux vélos, recoupé sans modèle par
+`ourouler comparer` (27-42 W mesurés). Fourchette écoulé/simulé validation :
+RCR × 1,021 à × 1,099 (n=25) ; BMC en convention faute d'assez de sorties de
+validation roulées seul (7 < 8 requis). Convention par défaut : × 1,02 à
+× 1,14. **Un CdA calibré est un paramètre de compensation** (il absorbe entre
+autres l'étalonnage unilatéral du capteur RCR) : il ne se compare ni à la
+littérature ni d'un vélo à l'autre — c'est la correction que la contre-lecture
+Fable (relecture de méthode) a fait porter au critère d'acceptation du
+contrat, revu en conséquence le 25/09.
+
+**L9.2 — importer son historique.** Dépôt de fichiers `.fit`/`.gpx`/`.tcx`
+(et `.gz`) ou d'archive Strava/Garmin, en tâche de fond
+(`src/ourouler/activites/import_archive.py`, `src/ourouler/api/imports_fond.py`,
+`src/ourouler/api/taches_fond.py`), cloisonné par propriétaire, borné (taille,
+nombre de fichiers, décompression, chemins, profondeur d'archive). Contre-lu
+par Fable et durci en conséquence : le corps de la requête n'est jamais
+accumulé en mémoire d'un bloc, un import refusé (session absente, serveur
+occupé, quota épuisé) l'est **avant** la lecture du corps
+(`src/ourouler/api/limite_corps.py`, `src/ourouler/api/garde_avant_corps.py`),
+une suppression de compte annule les tâches de fond de ce compte et attend
+qu'elles aient rendu la main avant d'effacer (`taches_fond.annuler_et_attendre`,
+`api/vie_privee.py`), et les fichiers bruts importés sont rangés par compte
+dans le cache (jamais mêlés entre propriétaires).
+
+**L9.3 — le coût par utilisateur.** Cache mutualisé des prévisions Open-Meteo
+(`src/ourouler/meteo/cache_previsions.py` : même point arrondi, même heure,
+un seul appel pour tous les comptes qui le partagent) et quotas journaliers
+réglables par compte (`src/ourouler/api/quotas.py`,
+`src/ourouler/api/exploitation.py`) : 20 générations/jour, 100 consultations
+météo/jour, 1 calibration/jour, 5 imports/jour par défaut. Refus lisible
+`quota_atteint` (429).
+
+**L9.4 — la calibration depuis l'écran.** `POST /calibrations` lance la même
+`physique.commande.calibrer_velo` que `ourouler calibrer` — pas une seconde
+implémentation — en tâche de fond, sous le même verrou que l'import
+(`src/ourouler/api/calibrations.py`,
+`front/src/composants/CalibrationVelo.tsx`). Préconditions dites avant le
+clic, avec leur code (`velo_absent`, `ftp_absente`, `sorties_insuffisantes` —
+au moins 10 sorties exploitables —, `pneu_absent`). *Vérifié sur les vraies
+données du mainteneur* : sur 102 FIT importés depuis l'écran (100
+exploitables), CdA 0,364, 182 W à 30 km/h, MAE 3,6 %, biais −1,8 % (n=25),
+fourchette × 1,030 à × 1,110 — contre 0,378, 188 W, 3,5 %, × 1,021 à × 1,099
+par `ourouler calibrer` sur le même historique ; l'écart tient à ce qu'un FIT
+importé perd le nom Intervals de la sortie, et que les sorties nommées
+« club » (écartées par la ligne de commande) passent le filtre de groupe à
+30 % — voir le point de backlog ci-dessous.
+
+**L9.5 — le mode d'emploi de l'invitation.** `docs/inviter.md`, remis à jour
+dans ce lot de finition (25/09/2026) pour refléter L9.4 et L9.6 fusionnés
+depuis sa première version.
+
+**L9.6 — le compte de l'invité.** `reinitialiser` (mot de passe oublié d'un
+compte déjà actif) et `retirer` (fermeture d'un compte hébergé, RGPD, même
+chemin que `DELETE /moi`) en ligne de commande du mainteneur
+(`src/ourouler/cli.py`, `src/ourouler/api/invitation_commande.py`,
+`src/ourouler/api/retrait_commande.py`, `src/ourouler/api/comptes.py:644,679,836`).
+Côté invité, le volet « Mon compte » de l'écran des réglages
+(`front/src/ecrans/Reglages.tsx`, `MonCompteVolet`) : adresse, changement de
+mot de passe, export et suppression RGPD (double confirmation, texte à
+recopier) — ces deux dernières routes existaient côté API depuis le sprint 7
+sans bouton pour les atteindre ; ce lot ferme ce trou-là.
+
+**Lot de finition (25/09/2026, branche `l9-finition`), à la contre-lecture des
+tâches de fond et de la garde du corps de requête.** Une seconde `DELETE /moi`
+du même compte pendant qu'une première attend jusqu'à 120 s la fin d'une
+tâche de fond refuse désormais tout de suite (`suppression_deja_en_cours`,
+409) au lieu d'occuper un second fil du serveur pour rien
+(`taches_fond.debuter_effacement`/`finir_effacement`,
+`api/vie_privee.effacer_donnees`, `api/erreurs.py`, `Echec.tsx`,
+`inventaire_erreurs.test.tsx`). `api/garde_avant_corps.py` déporte l'appel
+bloquant à la base des comptes hors de la boucle d'événements
+(`run_in_threadpool`) et traduit une base en panne en
+`service_externe_indisponible` (502) plutôt qu'un 500 brut, vérifié par un
+test qui mesure que deux appels concurrents ne se bloquent pas l'un l'autre.
+
+**Restent au mainteneur, hors du dépôt (règle absolue 7) :**
+
+- L'action Q66a sur Coolify et le redéploiement du service hébergé — vider
+  `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` dans le panneau Coolify de
+  `ourouler-api` et reconstruire `OUROULER_CONFIG_TOML_B64` sans
+  `[cycliste]`/`[[velos]]`, comme décrit au sprint 8. Non refait par ce
+  sprint : la config du mainteneur elle-même n'a pas changé.
+- Déclarer `pneu` dans sa propre configuration (`config.toml`,
+  `[[velos]]`), puis relancer `ourouler calibrer` : sa calibration actuelle,
+  en date du 25/09, est encore l'ancienne à deux paramètres libres (avant
+  L9.1), pas la nouvelle à Crr fixé.
+
 ### Après — dépôt public
 
 AGPL-3.0-or-later (le fichier `LICENSE` est posé), anonymisation des documents
@@ -1659,7 +1765,42 @@ entière n'a pas bougé (seul l'apprentissage du CdA passe à 30 %) ; la
 réconciliation « facteur compteur » ne sert plus qu'à dimensionner la
 distance.
 
+Backlog « la calibration sur import garde les sorties de club » (constat du
+25/09/2026, mesuré en clôture du sprint 9 ci-dessus, aucun sprint attribué) :
+une calibration lancée depuis l'écran sur des FIT importés (L9.2/L9.4)
+apprend sur des sorties de club que `ourouler calibrer` écarte, parce que le
+filtre de la ligne de commande porte sur le **nom Intervals** de la sortie
+(`inventaire.py`), un champ qu'un `.fit` importé directement ne porte pas —
+seul le filtre de groupe à 30 % (L9.1) en rattrape une partie, celles où le
+signal de groupe reste assez fort pour être détecté. Mesuré comme un écart
+de méthode (CdA 0,364 contre 0,378 sur le même historique, ci-dessus), pas
+encore comme un biais isolé et chiffré : reste à mesurer combien de sorties
+de club exactement passent le filtre de groupe sans être nommées, et si un
+autre signal (fréquence cardiaque plus élevée et plus lissée, régularité du
+pas de pédalage) les distinguerait mieux qu'un nom qui n'existe pas hors
+d'Intervals.
+
+Backlog « import par lien » ([[Q48]], non fait) : L9.2 dépose un fichier ou
+une archive téléchargée à la main ; un import par lien direct vers Strava ou
+Garmin (sans passer par le poste de l'invité) reste [[Q48]], jamais cadré ni
+codé — voir aussi `docs/inviter.md`, §4, qui le nomme explicitement comme
+absent.
+
 ## Historique des sprints
+
+- **2026-09-25** — Sprint 9 livré sur `sprint-9` (PR vers `main` en attente),
+  cap « inviter pour de vrai » atteint : Crr par pneu et CdA cherché sur le
+  temps en mouvement (L9.1), import de fichiers et d'archives en tâche de
+  fond (L9.2), cache météo mutualisé et quotas par compte (L9.3),
+  calibration depuis l'écran (L9.4), `docs/inviter.md` (L9.5), le compte de
+  l'invité — Mon compte, `ourouler reinitialiser`, `ourouler retirer`
+  (L9.6). Contre-lu par Fable sur L9.1 (méthode) et L9.2 (durcissement du
+  dépôt de fichiers) ; lot de finition sur `l9-finition` (refus immédiat
+  d'une seconde suppression concurrente, garde de requête hors boucle
+  d'événements). Voir la clôture détaillée ci-dessus. Restent au
+  mainteneur : l'action Q66a sur Coolify avant redéploiement, et déclarer
+  `pneu` dans sa propre configuration pour que sa calibration passe à la
+  méthode à un paramètre.
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
   d'une descente sous un bloc **dépend maintenant de l'intensité demandée**,

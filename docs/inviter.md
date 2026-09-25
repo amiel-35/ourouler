@@ -171,15 +171,35 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
    l'avancement) ; l'écran affiche une barre de progression et reprend le
    suivi après un rechargement de page.
 4. **La calibration à partir d'un capteur de puissance** — L9.4 (« la
-   boucle de correction, depuis l'écran ») **n'est pas codée à la date du
-   25/09/2026** : aucun écran `front/src/ecrans/*.tsx` ne contient le mot
-   « calibr » (vérifié par recherche dans le dépôt), et le lot ne figure
-   pas dans les commits fusionnés de la branche `sprint-9` (seuls L9.1,
-   L9.2 et L9.3 y sont fusionnés à ce jour). Un invité avec capteur n'a donc
-   aujourd'hui aucun moyen, depuis l'écran, de lancer sa propre calibration
-   — c'est encore la ligne de commande du mainteneur (`ourouler calibrer`)
-   qui en est capable, et elle ne tourne que sur la machine du mainteneur.
-   À corriger dans ce document dès que L9.4 est fusionné.
+   boucle de correction, depuis l'écran »), codée et fusionnée le
+   25/09/2026 (`front/src/composants/CalibrationVelo.tsx`,
+   `src/ourouler/api/calibrations.py`). Sur la fiche vélo des Réglages, un
+   bouton « Calibrer sur mes sorties » lance `POST /calibrations`, qui
+   relit les sorties de ce vélo (importées ou synchronisées Intervals.icu),
+   va chercher le vent de chaque jour de sortie et cherche le CdA qui
+   explique le mieux les temps observés — même calcul que `ourouler
+   calibrer` (`physique.commande.calibrer_velo`), pas une seconde
+   implémentation, en tâche de fond parce que ça dure. L'écran affiche
+   d'abord la puissance qu'il faut à 30 km/h sur le plat sans vent, l'écart
+   mesuré sur des sorties que le calcul n'avait pas vues et la fourchette du
+   porte à porte ; le CdA et le Crr ne sortent que dans un détail replié,
+   présentés comme des paramètres de compensation (ils absorbent aussi
+   l'étalonnage du capteur), pas comme des mesures du vélo à comparer à un
+   catalogue.
+
+   **Ce qu'il faut avant de pouvoir calibrer**, chacun avec son refus
+   lisible si la condition manque : un vélo dans le profil
+   (`velo_absent`), une FTP renseignée (`ftp_absente`, elle sert à écarter
+   les efforts qui ne décrivent pas le vélo — sprints, relances), au moins
+   **10 sorties exploitables** pour ce vélo — extérieures, 20 km et plus,
+   avec un capteur de puissance, depuis la date d'historique du compte
+   (`sorties_insuffisantes`, le refus dit combien il en faut et combien il
+   y en a) —, et un pneu déclaré sur le vélo, ou calibrer quand même avec
+   le Crr de l'usage (`pneu_absent`, ou l'option `sans_pneu`). Avec
+   plusieurs vélos dans le profil, seules comptent les sorties qui
+   désignent explicitement celui-ci (capteur de puissance, équipement
+   Intervals, ou période déclarée) — l'écran dit ces préconditions avant le
+   clic, le serveur les vérifie de toute façon.
 5. **Ce qui reste générique, et le dit** : sans capteur ni historique
    importé, l'entonnoir descend jusqu'à l'étage littérature (poids + type de
    vélo) et l'écran le dit explicitement (`front/src/ecrans/Assistant.tsx`,
@@ -188,73 +208,125 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
 
 ## 4. Limites à annoncer à l'invité
 
-- **Quotas journaliers par compte** (`service.example.toml`, section
-  `[quotas]`, défauts effectifs si la section est absente —
-  `src/ourouler/api/quotas.py:GENERATIONS_PAR_JOUR_DEFAUT`,
-  `CONSULTATIONS_METEO_PAR_JOUR_DEFAUT`) : **20 générations par jour**
-  (`POST /sorties`, `POST /boucles`) et **100 consultations météo par jour**
-  (`GET /meteo`), remis à minuit UTC. Au-delà, `429 quota_atteint`
+- **Quotas journaliers par compte** (`src/ourouler/api/quotas.py`,
+  remis à minuit UTC, comptés par compte — un mode personnel n'est jamais
+  concerné) :
+  - **20 générations par jour** (`POST /sorties`, `POST /boucles`,
+    `GENERATIONS_PAR_JOUR_DEFAUT`) et **100 consultations météo par jour**
+    (`GET /meteo`, `CONSULTATIONS_METEO_PAR_JOUR_DEFAUT`) — les deux
+    réglables côté service, dans `service.example.toml` section `[quotas]`
+    (`generations_par_jour`, `consultations_meteo_par_jour` ;
+    `src/ourouler/api/exploitation.py`), défauts ci-dessus si la section ou
+    le champ sont absents.
+  - **1 calibration par jour** (`POST /calibrations`, L9.4,
+    `CALIBRATIONS_PAR_JOUR_DEFAUT`) et **5 imports d'historique par jour**
+    (`POST /activites/import`, L9.2, `IMPORTS_PAR_JOUR_DEFAUT`) — ces
+    deux-là sont des constantes du code, **pas encore réglables** depuis
+    `service.toml` (vérifié : `exploitation.py` n'expose que
+    `generations_par_jour` et `consultations_meteo_par_jour`).
+
+  Au-delà de n'importe lequel des quatre, `429 quota_atteint`
   (`front/src/composants/Echec.tsx` l'affiche lisiblement, le message dit
-  lequel des deux plafonds est atteint).
+  lequel des plafonds est atteint). Une calibration ou un import qui
+  échoue rembourse son crédit du jour.
 - **Un seul calcul lourd à la fois, pour le serveur entier** : une
   génération de sortie/boucle qui croise un calcul déjà en cours rend
-  `409 calcul_en_cours` ; un import qui croise un import déjà en cours rend
-  `409 import_deja_en_cours` (`src/ourouler/api/imports_fond.py`,
-  `src/ourouler/api/routes.py`). Pas d'attente silencieuse : un message,
+  `409 calcul_en_cours` ; un import ou une calibration qui croise un import
+  ou une calibration déjà en cours rend `409 tache_lourde_en_cours`
+  (`src/ourouler/api/taches_fond.py`, `src/ourouler/api/routes.py`). Une
+  seconde suppression du même compte (`DELETE /moi`) pendant qu'une
+  première attend jusqu'à deux minutes la fin d'une tâche de fond de ce
+  compte rend `409 suppression_deja_en_cours` — elle n'attend pas à son
+  tour. Pas d'attente silencieuse dans aucun de ces trois cas : un message,
   et réessayer plus tard.
 - **Bornes sur un dépôt d'historique**
   (`src/ourouler/activites/import_archive.py`) : 750 Mo par requête
   (`TAILLE_MAX_REQUETE`), 20 000 fichiers rencontrés au total
   (`NOMBRE_MAX_FICHIERS`), 2 Go décompressés toutes archives confondues
   (`TAILLE_MAX_DECOMPRESSEE`), 200 Mo pour une archive `.zip` imbriquée
-  (`TAILLE_MAX_FICHIER`), 50 Mo pour une activité isolée
-  (`TAILLE_MAX_ACTIVITE`), ratio de décompression maximum 100
-  (`RATIO_MAX_DECOMPRESSION`), imbrication `.zip` dans `.zip` limitée à 3
-  niveaux (`PROFONDEUR_MAX_ARCHIVE`). Au-delà, l'entrée fautive est ignorée
-  avec un motif lisible, pas un refus brutal de tout l'import.
+  (`TAILLE_MAX_FICHIER`), **16 Mo pour une activité isolée**
+  (`TAILLE_MAX_ACTIVITE`, ramené de 50 à 16 Mo le 25/09/2026 — un `.gpx`
+  synthétique de 50 Mo prenait +745 Mo de mémoire résidente à lire), ratio
+  de décompression maximum 100 (`RATIO_MAX_DECOMPRESSION`), imbrication
+  `.zip` dans `.zip` limitée à 3 niveaux (`PROFONDEUR_MAX_ARCHIVE`). Au-delà,
+  l'entrée fautive est ignorée avec un motif lisible, pas un refus brutal de
+  tout l'import.
 - **Ce qui n'existe pas, vérifié dans le code au 25/09/2026** :
-  - Pas de récupération de mot de passe oublié. Le commentaire de
-    `front/src/ecrans/Connexion.tsx` le dit explicitement : « Pas de
-    récupération de mot de passe non plus : lot à part, à trancher par le
-    mainteneur. »
+  - Pas de récupération de mot de passe oublié **en libre-service** — le
+    commentaire de `front/src/ecrans/Connexion.tsx` le dit toujours :
+    « Pas de récupération de mot de passe non plus ». Le mainteneur, lui,
+    peut émettre un lien de nouveau mot de passe depuis sa ligne de
+    commande (`ourouler reinitialiser`, §5) : ce n'est pas un trou resté
+    ouvert, c'est un geste volontairement réservé à la ligne de commande
+    (un « mot de passe oublié » en libre-service ouvrirait un relais de
+    spam et un oracle d'énumération d'adresses).
   - Pas d'inscription libre ni de demande d'accès : l'entrée est
     uniquement par invitation (même fichier, même commentaire ; doctrine
     §10.2).
   - Pas de passkey (aucune occurrence du mot dans le dépôt) — cité comme
     hors périmètre de ce sprint dans `docs/sprint9_contrat.md`.
   - Import par lien Strava/Garmin direct : non, c'est un dépôt de fichier
-    ou d'archive téléchargée à la main (voir §3.3).
+    ou d'archive téléchargée à la main (voir §3.3) — [[Q48]], toujours pas
+    fait.
 
 ## 5. Retirer quelqu'un / ses données
 
-Côté invité, deux routes de son propre compte
-(`src/ourouler/api/routes.py`) :
+**Côté invité**, depuis l'écran (lot L9.6, `front/src/ecrans/Reglages.tsx`,
+volet « Mon compte » — `Réglages → Mon compte → Gérer`) ou directement par
+l'API (`src/ourouler/api/routes.py`) :
 
-- `GET /moi/export` — toutes ses données personnelles dans une archive ZIP
-  non compressée, avec un `LISEZ-MOI.txt` à la racine qui dit ce qu'est
-  chaque entrée.
-- `DELETE /moi` — efface ses données personnelles, idempotent (rappeler la
-  route sur un propriétaire qui n'a déjà rien laissé rend des compteurs à
-  zéro, pas une erreur). Ferme aussi le compte quand ce déploiement en a
-  un : `DepotComptes.supprimer_compte_du_proprietaire` efface la ligne
-  `comptes`, la cascade du schéma révoque ses invitations et ses sessions
-  ouvertes — son mot de passe ne rouvre plus rien après cet appel.
+- **Export** — bouton « Export ZIP », qui pointe vers `GET /moi/export` :
+  toutes ses données personnelles dans une archive ZIP non compressée, avec
+  un `LISEZ-MOI.txt` à la racine qui dit ce qu'est chaque entrée.
+- **Changer de mot de passe** — formulaire (mot de passe actuel + nouveau),
+  `POST /moi/mot-de-passe`. Ne ferme pas les autres sessions ouvertes de ce
+  compte (contrairement à `reinitialiser` ci-dessous).
+- **Suppression** — bouton « Supprimer mon compte… », à double confirmation
+  (un second écran résume ce qui part et ce qui reste, puis « Confirmer la
+  suppression définitive »), qui appelle `DELETE /moi` : efface ses données
+  personnelles, idempotent (rappeler la route sur un propriétaire qui n'a
+  déjà rien laissé rend des compteurs à zéro, pas une erreur). Ferme aussi
+  le compte quand ce déploiement en a un : `DepotComptes.
+  supprimer_compte_du_proprietaire` efface la ligne `comptes`, la cascade
+  du schéma révoque ses invitations et ses sessions ouvertes — son mot de
+  passe ne rouvre plus rien après cet appel. **Une seconde suppression du
+  même compte pendant qu'une première tourne encore refuse tout de suite**
+  (`409 suppression_deja_en_cours`, lot de finition du 25/09/2026) plutôt
+  que d'attendre elle aussi jusqu'à deux minutes.
 
-**À vérifier** : aucun écran du front (`front/src/ecrans/Reglages.tsx`
-compris) n'appelle `GET /moi/export` ni `DELETE /moi` — recherche dans
-`front/src` sans résultat au 25/09/2026. Le docstring de `Reglages.tsx` le
-dit lui-même : « les clés d'accès, l'export et la suppression appartiennent
-aux comptes (lot F3) » — ces deux routes existent côté API mais ne sont pas
-encore accessibles depuis un bouton. Un invité qui veut exporter ou
-supprimer ses données aujourd'hui doit appeler l'API directement (`curl`,
-avec sa session ouverte), pas depuis un écran.
+  Ces trois gestes ne s'affichent que sur un déploiement hébergé avec un
+  compte lié à la session (`GET /moi` rend `email: null` sinon — mode
+  personnel, ou hébergé sans base de comptes) : sans compte, seul l'export
+  reste proposé (il porte sur le propriétaire de la session, pas sur un
+  compte).
 
-Côté mainteneur, **aucune commande n'a été trouvée pour retirer un compte
-ou révoquer une invitation depuis la ligne de commande** — `ourouler
-invitations` ne fait que lister ; `grep -n "revoquer\|supprimer_compte" cli.py`
-ne remonte rien. Si le mainteneur doit fermer un compte hébergé sans
-attendre que la personne le fasse elle-même via `DELETE /moi`, ce geste
-n'existe pas encore dans le dépôt.
+**Côté mainteneur**, en ligne de commande :
+
+- `ourouler reinitialiser <adresse>` — émet un lien de nouveau mot de passe
+  pour un compte **déjà actif** qui l'a perdu (`src/ourouler/cli.py`,
+  `ajouter_reinitialiser`/`_commande_reinitialiser`,
+  `src/ourouler/api/invitation_commande.py`). Même patron que `inviter` :
+  mêmes secrets `service.toml`, `--sans-courriel` pour n'afficher que le
+  lien, jeton à usage unique dans la même table `invitations`
+  (`src/ourouler/api/comptes.py:reinitialiser`). **Réservée à la ligne de
+  commande, jamais une route HTTP** : un « mot de passe oublié » en
+  libre-service ouvrirait un relais de spam et un oracle d'énumération
+  d'adresses.
+- `ourouler retirer <adresse>` — ferme un compte hébergé et efface ses
+  données personnelles, **par le même chemin que `DELETE /moi`**
+  (`src/ourouler/api/retrait_commande.py` appelle `vie_privee.
+  effacer_donnees` telle quelle, pas une réimplémentation). `--oui` pour ne
+  pas demander confirmation. **À lancer `docker exec` (ou équivalent) DANS
+  le conteneur du serveur, jamais depuis le poste du mainteneur** : la
+  commande reconstruit les mêmes dépôts (profil, fichiers, cache
+  d'activités) que le serveur hébergé réellement lancé, à partir de la
+  configuration et du dossier de données de la machine qui l'exécute — lancée
+  depuis le Mac du mainteneur, elle fermerait bien le compte dans la base
+  Postgres distante, mais chercherait les fichiers dans un dossier local
+  presque toujours vide, laissant le vrai dépôt du propriétaire orphelin
+  tout en annonçant un succès. `_depots_de_l_hebergement` (`cli.py`) refuse
+  maintenant si le dossier de données attendu n'existe pas, mais ce n'est
+  qu'un filet — voir `deploiement/api/README.md`.
 
 ## 6. Vérifier après déploiement
 
@@ -286,10 +358,20 @@ OUROULER_DATABASE_URL=... OUROULER_URL_PUBLIQUE=https://<domaine attribué> \
 `CHAMPS_RACINE_MODIFIABLES`), `src/ourouler/api/application.py`
 (`_refuser_une_base_partagee`), `src/ourouler/api/routes.py` (routes
 `/invitation`, `/entrer`, `/activites/import*`, `/moi/export`, `/moi`),
-`src/ourouler/api/quotas.py`, `src/ourouler/api/imports_fond.py`,
+`src/ourouler/api/quotas.py`, `src/ourouler/api/exploitation.py`,
+`src/ourouler/api/imports_fond.py`, `src/ourouler/api/taches_fond.py`,
+`src/ourouler/api/vie_privee.py`, `src/ourouler/api/erreurs.py`,
+`src/ourouler/api/calibrations.py`, `src/ourouler/api/retrait_commande.py`,
 `src/ourouler/activites/import_archive.py`, `docker-compose.api.coolify.yml`,
 `deploiement/api/README.md`, `deploiement/api/config.example.toml`,
 `service.example.toml`, `docs/questions_mainteneur.md` (Q66),
 `front/src/ecrans/Assistant.tsx`, `front/src/ecrans/Importer.tsx`,
 `front/src/ecrans/Connexion.tsx`, `front/src/ecrans/Entrer.tsx`,
-`front/src/ecrans/Reglages.tsx`, `docs/ux/parcours_accueil.md`.
+`front/src/ecrans/Reglages.tsx` (`MonCompteVolet`),
+`front/src/composants/CalibrationVelo.tsx`, `docs/ux/parcours_accueil.md`.
+Cette révision (25/09/2026, lot de finition `l9-finition`) met à jour §3.4
+(L9.4, calibration) et §5 (Mon compte, `reinitialiser`, `retirer`), ajoute
+les quatre quotas et le refus `suppression_deja_en_cours` en §4, corrige la
+borne d'activité isolée (16 Mo, pas 50), et retire les constats devenus faux
+(absence de calibration codée, absence de bouton d'export/suppression,
+absence de commande de retrait).
