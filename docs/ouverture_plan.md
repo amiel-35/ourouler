@@ -156,6 +156,22 @@ on les rebase après les lots qui les touchent :
   rebasée sur la nouvelle structure (lots 7 et 8).
 - `backlog-admin` (1 commit, doc seule).
 
+**À faire à la fin de la restructuration complète** (décisions du
+mainteneur, 25/09/2026 ; rien avant) :
+- **Retirer `.claude/` du dépôt** (5 définitions d'agents et
+  `settings.json`) : il reste en place tant que la restructuration s'en sert,
+  puis il part dans l'espace local du mainteneur. Les contributeurs
+  n'auront qu'`AGENTS.md` ; vérifier alors que `CLAUDE.md` et
+  `tests/test_agents_md.py` ne le citent plus.
+- Les réglages GitHub (protection de `main`, signalement privé des
+  failles), voir le point 13 du §0.
+
+**Préalable à la 0.10.0** (« analyser un parcours », dans `main` et en
+préprod, pas en prod) : sans FTP, l'écran d'analyse affiche le message de la
+ligne de commande (« donner --puissance W ou --vitesse-a-plat KMH »,
+`physique/commande.py:1216`). À remplacer, dans le front, par une phrase
+pour le cycliste avant de pousser en prod.
+
 ## 1. Diagnostic (mesuré)
 
 - **Taille réelle.** 89 fichiers Python pour 41 019 lignes. Docstrings et
