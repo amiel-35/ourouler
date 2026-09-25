@@ -1529,6 +1529,42 @@ faire **une seule fois**, dans le pipeline, jamais à la main. Rien n'est mis
 en sprint. La moyenne compteur garde de toute façon son rôle ailleurs
 (dimensionner la distance demandée), ça ne change pas.
 
+**Récapitulatif du 23/09 — la fourchette retenue, et ce qui reste précisément
+à vérifier sur le RCR.**
+
+Fourchette d'affichage (`temps_estime_s × [bas, haut]`, centiles 25-75 du
+ratio réel/modèle, sorties à moins de 50 % de signal de groupe) :
+
+- **RCR** (n=83) : × 1,015 à × 1,072 — médiane × 1,039.
+- **BMC** (n=34) : × 1,057 à × 1,095 — médiane × 1,082.
+
+Sur le RCR, quatre choses restent ouvertes, distinctes les unes des autres,
+à ne pas confondre :
+
+1. **Le minimum de CdA/Crr est plat** (0,32 à 0,34 à 0,36 donnent presque la
+   même erreur, Crr fixé à 0,006) — le point retenu (0,30) est dans cette
+   zone mais pas forcément le meilleur ; un vrai minimum n'a été confirmé
+   qu'à la louche, pas affiné.
+2. **L'erreur bouge selon le seuil de filtrage du signal de groupe** (4,9 %
+   sans filtre, 3,7 % sous 50 %, 3,1 % sous 30 %, 4,6 % sous 20 %) — le BMC,
+   lui, reste stable quel que soit le filtre. Cette instabilité peut venir
+   du plateau plat du point 1, ou du fait que 99 sorties couvrent beaucoup
+   plus de saisons et de conditions que les 35 du BMC — pas départagé.
+3. **Le biais change de sens selon le filtre** : légèrement négatif sans
+   filtre (-2,9 %, les sorties en groupe tirent vers le bas), légèrement
+   positif en filtrant serré (+4,5 % sous 20 %, seulement 13 sorties). Sur
+   les 7 sorties propres et longues (3h20-5h40, hors les deux repérées en
+   groupe), le biais signé tombe à quasi zéro (-0,0 %) — cohérent avec un
+   modèle non biaisé, mais peu de sorties pour le confirmer à grande échelle.
+4. **Le seuil de détection de groupe lui-même n'a jamais été abaissé ni
+   réglé** — seulement testé en lecture, jamais changé dans le pipeline. Une
+   partie de l'instabilité du RCR peut venir de sorties à 30-49 % de signal
+   de groupe qui passent encore le filtre à 50 % sans être vraiment solo.
+
+Rien de tout ça n'invalide la fourchette retenue — elle reste mesurée sur
+83 sorties réelles — mais un futur lot qui recoderait ce recalage devrait
+partir de ces quatre points plutôt que de repartir de zéro.
+
 ## Historique des sprints
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
