@@ -138,7 +138,8 @@ def test_un_import_qui_leve_est_marque_echoue_pas_perdu(tmp_path: Path, monkeypa
     client = client_api(config=_config_avec_cache(tmp_path))
     fini = _deposer_et_attendre(client, ("sortie.gpx", _gpx(), "application/gpx+xml"))
     assert fini["statut"] == "echoue"
-    assert "panne fabriquée" in fini["erreur"]
+    assert fini["code_erreur"] == "erreur_interne"
+    assert "panne fabriquée" not in fini["erreur"], "le texte interne ne sort pas"
 
 
 def test_requete_trop_grosse_est_refusee_sur_l_en_tete(tmp_path: Path):

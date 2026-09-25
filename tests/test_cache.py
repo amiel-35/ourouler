@@ -501,9 +501,60 @@ def test_deux_proprietaires_peuvent_avoir_la_meme_activite_intervals(
     assert [e.meta.get("velo") for e in b.lister()] == ["B"]
     with sqlite3.connect(dossier / NOM_INDEX) as cx:
         assert cx.execute("SELECT COUNT(*) FROM activites").fetchone()[0] == 2
-    # Un seul fichier brut : c'est le même contenu, et le partage ne fuite pas
-    # puisque c'est l'index filtré qui donne le chemin.
-    assert len(list((dossier / NOM_BRUT).iterdir())) == 1
+    # **Deux fichiers bruts**, un chacun (contre-lecture Fable du 25/09/2026) :
+    # le même contenu n'est plus partagé entre propriétaires — ni pour la
+    # suppression de l'un, ni comme indice que l'autre l'a déjà déposé.
+    assert len([f for f in (dossier / NOM_BRUT).iterdir() if f.is_file()]) == 1
+    assert len(list(b.brut.iterdir())) == 1
+    assert b.brut != a.brut and b.chemin(a.lister()[0].identifiant) != a.chemin(
+        a.lister()[0].identifiant
+    )
+
+
+def test_supprimer_un_compte_ne_touche_jamais_les_fichiers_d_un_autre(
+    tmp_path: Path, activites: Path
+):
+    """Même contenu chez deux comptes : effacer l'un laisse le fichier de l'autre."""
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    a = Cache(dossier, proprietaire="compte-a")
+    b = Cache(dossier, proprietaire="compte-b")
+    a.ajouter(contenu, source="fichier", id_externe=None, extension="gpx", meta={})
+    b.ajouter(contenu, source="fichier", id_externe=None, extension="gpx", meta={})
+    assert a.supprimer_tout() == 1
+    assert not a.brut.exists() or list(a.brut.iterdir()) == []
+    (entree,) = b.lister()
+    assert entree.chemin.is_file()
+    assert b.relire(entree.identifiant) is not None
+
+
+def test_un_proprietaire_au_nom_hostile_reste_dans_brut(tmp_path: Path):
+    """Un propriétaire qui ne serait pas un identifiant sûr ne sort jamais de `brut/`."""
+    cache = Cache(tmp_path / "cache", proprietaire="../../hors")
+    assert cache.brut.resolve().is_relative_to((tmp_path / "cache" / NOM_BRUT).resolve())
+    assert ".." not in cache.brut.relative_to(tmp_path / "cache").parts
+
+
+def test_un_fichier_depose_avant_la_separation_se_relit_encore(
+    tmp_path: Path, activites: Path
+):
+    """Un compte dont le fichier est dans le `brut/` commun (dépôt d'avant le
+    25/09/2026) le relit toujours, et sa suppression l'y efface s'il est seul à
+    le citer."""
+    dossier = tmp_path / "cache"
+    contenu = octets(activites, "boucle.gpx")
+    compte = Cache(dossier, proprietaire="compte-a")
+    identifiant = compte.ajouter(
+        contenu, source="fichier", id_externe=None, extension="gpx", meta={}
+    )
+    # Simule l'ancien rangement : le fichier dans le `brut/` commun.
+    propre = compte.brut / f"{identifiant}.gpx"
+    ancien = dossier / NOM_BRUT / f"{identifiant}.gpx"
+    propre.replace(ancien)
+    assert compte.chemin(identifiant) == ancien
+    assert compte.relire(identifiant) is not None
+    compte.supprimer_tout()
+    assert not ancien.exists()
 
 
 def test_reimporter_la_meme_activite_converge_toujours_par_proprietaire(

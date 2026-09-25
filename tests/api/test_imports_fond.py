@@ -99,7 +99,10 @@ def test_le_verrou_est_relache_meme_si_l_import_leve(tmp_path: Path, monkeypatch
     job = imports_fond.lancer(cache, "a", depots)
     _attendre(job)
     assert job.statut == imports_fond.STATUT_ECHOUE
-    assert "panne fabriquée" in job.erreur
+    # Contre-lecture Fable du 25/09 : le texte interne de l'exception ne sort
+    # plus ; un code et une phrase générique, la trace au journal.
+    assert job.code_erreur == "erreur_interne"
+    assert "panne fabriquée" not in job.erreur
     # Le verrou a bien été relâché : un import suivant peut partir aussitôt.
     assert imports_fond.VERROU.acquire(blocking=False)
     imports_fond.VERROU.release()
@@ -127,6 +130,61 @@ def test_json_rend_une_forme_stable(tmp_path: Path):
     job = imports_fond.lancer(cache, "a", depots)
     _attendre(job)
     charge = job.json()
-    assert set(charge) == {"id", "statut", "traites", "total", "rapport", "erreur"}
+    assert set(charge) == {
+        "id", "statut", "traites", "total", "rapport", "erreur", "code_erreur"
+    }
     assert charge["erreur"] is None
+    assert charge["code_erreur"] is None
     assert charge["rapport"] == {"importees": 1, "doublons": 0, "ignorees": []}
+
+
+# --- contre-lecture Fable du 25/09/2026 ---------------------------------------
+
+
+def test_un_fil_qui_ne_demarre_pas_rend_le_verrou(monkeypatch):
+    """`Thread.start()` qui lève (plus de fils, plus de mémoire) ne doit pas
+    laisser le verrou pris pour toujours."""
+    import threading
+
+    from ourouler.api import taches_fond
+
+    def refuser(self):
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(threading.Thread, "start", refuser)
+    with pytest.raises(RuntimeError):
+        taches_fond.lancer("a", taches_fond.NATURE_IMPORT, lambda job: None)
+    monkeypatch.undo()
+    assert imports_fond.VERROU.acquire(blocking=False), "le verrou est resté pris"
+    imports_fond.VERROU.release()
+
+
+def test_l_erreur_interne_part_au_journal_pas_dans_la_reponse(tmp_path: Path, monkeypatch, caplog):
+    def _casse(*args, **kwargs):
+        raise RuntimeError("/srv/secret/chemin interne")
+
+    monkeypatch.setattr("ourouler.api.imports_fond.importer", _casse)
+    cache = Cache(tmp_path / "cache", proprietaire="a")
+    with caplog.at_level("ERROR", logger="ourouler.api.taches_fond"):
+        job = imports_fond.lancer(cache, "a", [])
+        _attendre(job)
+    assert "/srv/secret" not in job.erreur
+    assert job.code_erreur == "erreur_interne"
+    assert any("/srv/secret" in (r.exc_text or "") for r in caplog.records)
+
+
+def test_balayer_les_copies_orphelines_et_elles_seules(tmp_path: Path):
+    import os
+
+    vieille = tmp_path / f"{imports_fond.PREFIXE_TEMPORAIRE}vieille.bin"
+    recente = tmp_path / f"{imports_fond.PREFIXE_TEMPORAIRE}recente.bin"
+    etrangere = tmp_path / "autre-chose.bin"
+    for chemin in (vieille, recente, etrangere):
+        chemin.write_bytes(b"x")
+    maintenant = 10_000_000.0
+    os.utime(vieille, (maintenant - 7200, maintenant - 7200))
+    os.utime(recente, (maintenant - 60, maintenant - 60))
+    os.utime(etrangere, (maintenant - 7200, maintenant - 7200))
+    assert imports_fond.balayer_temporaires_orphelins(tmp_path, maintenant=maintenant) == 1
+    assert not vieille.exists()
+    assert recente.exists() and etrangere.exists()

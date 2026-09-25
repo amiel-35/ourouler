@@ -306,6 +306,8 @@ export interface JobImport {
   total: number;
   rapport: RapportImport | null;
   erreur: string | null;
+  /** Le code de l'échec (« erreur_interne », « annulee »…), `null` sinon. */
+  code_erreur?: string | null;
 }
 
 /**
@@ -364,6 +366,8 @@ export interface JobCalibration {
     repli: string | null;
   } | null;
   erreur: string | null;
+  /** Le code de l'échec (« calibration_impossible », « annulee », « erreur_interne »). */
+  code_erreur?: string | null;
 }
 
 /** Un vélo dans `GET /calibrations` : sa calibration, ce qui la permettrait, la tâche récente. */

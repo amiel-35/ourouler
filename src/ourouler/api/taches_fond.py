@@ -71,6 +71,17 @@ NATURE_CALIBRATION = "calibration"
 
 _journal = logging.getLogger(__name__)
 
+#: Le code d'une tâche tombée sur autre chose qu'un échec prévu : un bug, ou
+#: une panne du serveur. Le message ne dit rien de plus — contre-lecture
+#: Fable du 25/09/2026 : `str(e)` renvoyait au cycliste le texte interne de
+#: l'exception (un chemin du serveur, un nom de module…). La trace complète
+#: reste au journal.
+CODE_ERREUR_INTERNE = "erreur_interne"
+MESSAGE_ERREUR_INTERNE = (
+    "la tâche s'est arrêtée sur une erreur du serveur — le détail est au journal du "
+    "serveur, pas dans cette réponse"
+)
+
 
 class ErreurTacheEnCours(Exception):
     """Une tâche lourde tourne déjà sur ce serveur : `lancer()` refuse plutôt que d'attendre.
@@ -87,12 +98,16 @@ class EchecLisible(Exception):  # noqa: N818 — « échec », pas « erreur » 
     """Un échec qu'on peut montrer tel quel au cycliste : le message est déjà assaini.
 
     Tout autre exception d'un travail devient un message générique — la trace
-    reste au journal du serveur, jamais dans la réponse.
+    reste au journal du serveur, jamais dans la réponse (`CODE_ERREUR_INTERNE`).
     """
+
+    code = "echec"
 
 
 class TacheAnnulee(EchecLisible):
     """Levée dans la tâche elle-même, au premier pas après `annuler_et_attendre`."""
+
+    code = "annulee"
 
     def __init__(self) -> None:
         super().__init__("annulée : le compte a été supprimé pendant la tâche")
@@ -115,6 +130,9 @@ class Job:
     sujet: str | None = None
     rapport: object | None = None
     erreur: str | None = None
+    #: Le code de l'échec — `EchecLisible.code` (« echec », « annulee »…) ou
+    #: `CODE_ERREUR_INTERNE` —, `None` tant que la tâche n'a pas échoué.
+    code_erreur: str | None = None
     demarre_le: float = field(default_factory=time.monotonic)
     _annule: threading.Event = field(default_factory=threading.Event, repr=False)
     _termine: threading.Event = field(default_factory=threading.Event, repr=False)
@@ -143,6 +161,7 @@ class Job:
             "total": self.total,
             "rapport": rapport,
             "erreur": self.erreur,
+            "code_erreur": self.code_erreur,
         }
         if self.nature != NATURE_IMPORT:
             # La forme d'un job d'import est figée depuis L9.2 (le front la
@@ -192,10 +211,12 @@ def lancer(
             job.statut = STATUT_FINI
         except EchecLisible as e:
             job.erreur = str(e)
+            job.code_erreur = e.code
             job.statut = STATUT_ECHOUE
-        except Exception as e:  # noqa: BLE001 — une tâche de fond ne doit jamais planter en silence
+        except Exception:  # noqa: BLE001 — une tâche de fond ne doit jamais planter en silence
             _journal.exception("tâche de fond %s (%s) en échec", job.id, nature)
-            job.erreur = str(e) or type(e).__name__
+            job.erreur = MESSAGE_ERREUR_INTERNE
+            job.code_erreur = CODE_ERREUR_INTERNE
             job.statut = STATUT_ECHOUE
         finally:
             try:
@@ -208,7 +229,19 @@ def lancer(
                 VERROU.release()
                 job._termine.set()
 
-    threading.Thread(target=executer, daemon=True, name=f"{nature}-{job.id[:8]}").start()
+    try:
+        threading.Thread(target=executer, daemon=True, name=f"{nature}-{job.id[:8]}").start()
+    except BaseException:
+        # Contre-lecture Fable du 25/09/2026 : un fil qui ne démarre pas
+        # (plus de fils disponibles, mémoire) gardait le verrou pour toujours —
+        # plus aucun import ni calibration sur ce serveur jusqu'au
+        # redémarrage. Le job est retiré, le verrou rendu, l'erreur remonte.
+        with _verrou_registre:
+            _jobs.pop(job.id, None)
+        _occupant[0] = None
+        VERROU.release()
+        job._termine.set()
+        raise
     return job
 
 

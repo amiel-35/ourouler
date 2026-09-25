@@ -94,19 +94,57 @@ def lancer(
     )
 
 
+#: Le préfixe des copies temporaires d'un dépôt (`api/routes._copier_en_temporaires`).
+PREFIXE_TEMPORAIRE = "ourouler-import-"
+
+#: Âge au-delà duquel une copie temporaire est tenue pour orpheline. Une copie
+#: vit le temps d'un import — un quart d'heure pour une grosse archive Strava ;
+#: une heure laisse une large marge sans laisser traîner 750 Mo pour rien.
+AGE_ORPHELIN_S = 3600.0
+
+
+def balayer_temporaires_orphelins(
+    dossier: Path, *, age_min_s: float = AGE_ORPHELIN_S, maintenant: float | None = None
+) -> int:
+    """Efface les copies de dépôt qu'un import interrompu a laissées. Rend le nombre effacé.
+
+    Contre-lecture Fable du 25/09/2026 : un processus arrêté en plein import
+    (redéploiement, plantage) ne passe jamais par l'`enfin` de sa tâche, et
+    ses copies — jusqu'à 750 Mo — restaient dans le dossier temporaire du
+    serveur. Appelée au démarrage du service (`api/application.application`).
+    Seulement les fichiers au préfixe `PREFIXE_TEMPORAIRE`, et seulement ceux
+    plus vieux que `age_min_s` : jamais la copie d'un import en cours.
+    """
+    import time
+
+    limite = (time.time() if maintenant is None else maintenant) - age_min_s
+    effaces = 0
+    for chemin in dossier.glob(f"{PREFIXE_TEMPORAIRE}*"):
+        try:
+            if chemin.is_file() and chemin.stat().st_mtime < limite:
+                chemin.unlink()
+                effaces += 1
+        except OSError:
+            continue
+    return effaces
+
+
 def trouver(proprietaire: str, id_job: str) -> Job | None:
     """Le job d'import de **ce** propriétaire portant cet identifiant, ou `None`."""
     return _trouver_tache(proprietaire, id_job, NATURE_IMPORT)
 
 
 __all__ = [
+    "AGE_ORPHELIN_S",
     "JOBS_GARDES",
+    "PREFIXE_TEMPORAIRE",
     "STATUT_ECHOUE",
     "STATUT_EN_COURS",
     "STATUT_FINI",
     "VERROU",
     "ErreurImportEnCours",
     "Job",
+    "balayer_temporaires_orphelins",
     "lancer",
     "trouver",
 ]

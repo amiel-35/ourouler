@@ -1312,12 +1312,18 @@ def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]
     cet appel est effacé — un import ne part jamais à moitié écrit.
     """
     from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+    from ourouler.api.imports_fond import PREFIXE_TEMPORAIRE
 
     chemins: list[Path] = []
     total = 0
     try:
         for fichier in fichiers:
-            destination = Path(tempfile.mkstemp(prefix="ourouler-import-", suffix=".bin")[1])
+            # Fermé tout de suite : `mkstemp` laissait son descripteur ouvert,
+            # un par fichier déposé, jusqu'à la fin du processus.
+            with tempfile.NamedTemporaryFile(
+                prefix=PREFIXE_TEMPORAIRE, suffix=".bin", delete=False
+            ) as vide:
+                destination = Path(vide.name)
             chemins.append(destination)
             with destination.open("wb") as sortie:
                 while True:

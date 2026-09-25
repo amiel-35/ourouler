@@ -279,7 +279,9 @@ def lancer(
             job.verifier_annulation()
             physique.ecrire_calibration(chemin, velo.nom, resultat.contenu())
         except (ErreurUtilisateur, ErreurConnecteur) as e:
-            raise taches_fond.EchecLisible(assainir(str(e), (), chemins)) from e
+            echec = taches_fond.EchecLisible(assainir(str(e), (), chemins))
+            echec.code = "calibration_impossible"
+            raise echec from e
         rapport = resultat.rapport
         return {
             "calibration": resume(config, velo),

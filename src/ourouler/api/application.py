@@ -443,11 +443,16 @@ def application() -> FastAPI:
     (`deploiement/api/Dockerfile`) qui pose cette variable, vers le dossier où
     il a copié `npm run build`.
     """
-    from ourouler.api import exploitation
+    from ourouler.api import exploitation, imports_fond
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
     from ourouler.api.session import MODE_PERSONNEL
 
     session = exploitation.fournisseur_session()
+    # Les copies de dépôt qu'un import interrompu par l'arrêt du processus a
+    # laissées (contre-lecture Fable du 25/09/2026) — au démarrage du service
+    # seulement, jamais dans `creer_application`, que les tests appellent à
+    # côté d'imports qui tournent encore.
+    imports_fond.balayer_temporaires_orphelins(Path(tempfile.gettempdir()))
 
     # **À qui appartient le TOML de ce serveur**, et c'est le mode qui le dit.
     #
