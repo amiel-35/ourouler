@@ -25,13 +25,13 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 4 : 21 exceptions, échéance 2026-10-31
+    lot 4 : 19 exceptions, échéance 2026-10-31
     lot 5 : 10 exceptions, échéance 2026-11-30
     lot 6 : 1 exception, échéance 2026-11-30
     lot 7 : 2 exceptions, échéance 2026-11-30
     lot 8 : 3 exceptions, échéance 2026-11-30
     lot 9 : 5 exceptions, échéance 2026-11-30
-    total : 42 exceptions
+    total : 40 exceptions
 
 Les lots 3 et 10 à 14 n'en retirent aucune : le lot 3 a déplacé sous
 `noyau/` des modules que cette table rangeait déjà au noyau, et les suivants
@@ -118,7 +118,7 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #:   `physique/comparer.py` sont des **cas d'usage** : ils lisent le cache
 #:   (et BRouter pour les routes) pour rendre un résultat ;
 #: - `meteo/openmeteo.py` est un **connecteur** (client HTTP) ; ses types de
-#:   prévision partiront au noyau (lot 4) ;
+#:   prévision sont au noyau depuis le lot 4 (`noyau/meteo.py`) ;
 #: - `boucle/gpx.py` est du **stockage** (lecteur et écrivain GPX) ;
 #: - `sortie/carte.py` est du **rendu** (carte HTML) ;
 #: - `config.py` est une **entrée** (lecture TOML et environnement) : les
@@ -130,6 +130,7 @@ MODULES: dict[str, str] = {
     "ourouler.noyau": "noyau",
     "ourouler.noyau.activite": "noyau",
     "ourouler.noyau.erreurs": "noyau",
+    "ourouler.noyau.meteo": "noyau",
     "ourouler.noyau.proprietaire": "noyau",
     "ourouler.noyau.seance": "noyau",
     "ourouler.noyau.trace": "noyau",
@@ -266,10 +267,6 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     ("ourouler.seance.tenue", "ourouler.config", "lot 4", "2026-10-31"),
     ("ourouler.sortie.commande", "ourouler.config", "lot 4", "2026-10-31"),
     ("ourouler.sortie.vent_demande", "ourouler.config", "lot 4", "2026-10-31"),
-    # Lot 4 : les types de prévision (PrevisionPoint) quittent le client
-    # Open-Meteo pour le noyau.
-    ("ourouler.meteo.cache_previsions", "ourouler.meteo.openmeteo", "lot 4", "2026-10-31"),
-    ("ourouler.meteo.rapport", "ourouler.meteo.openmeteo", "lot 4", "2026-10-31"),
     # Lot 5 : casser api ↔ cli. `profil_json` passe au rendu ; comptes,
     # invitation et retrait passent aux services. Les imports de `cli` vers
     # `api` qui resteront (lancer le serveur) ne seront plus dans un cycle.

@@ -34,7 +34,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from ourouler.meteo.openmeteo import PrevisionPoint
+from ourouler.noyau.meteo import PrevisionPoint
 
 #: La maille du point arrondi, en degrés (doctrine §10.1 : « par maille
 #: (~2 km) »). À l'équateur, 0,02° de latitude fait environ 2,2 km ; la

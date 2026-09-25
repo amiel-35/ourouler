@@ -11,13 +11,15 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine
+
+# Types de prévision rangés au noyau (lot 4), réexportés ici pour les appelants du dehors.
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 BASE_URL_DEFAUT = "https://api.open-meteo.com"
 CHEMIN_PREVISION = "/v1/forecast"
@@ -46,28 +48,6 @@ MODELE_GLOBAL_SUGGERE = "icon_seamless"
 #: HTTP 200 avec un corps que `json.loads` refuse. La classe de caractères en
 #: tête évite de confondre avec un `nan` dans une chaîne (« Nanterre »).
 LITTERAL_NON_JSON = re.compile(r"[:,\[]\s*-?(?:nan|inf(?:inity)?)\b", re.IGNORECASE)
-
-
-@dataclass(frozen=True)
-class PrevisionHeure:
-    """Une heure de prévision en un point. Toute valeur peut manquer (`null` côté API)."""
-
-    t: datetime
-    pluie_mm: float | None
-    vent_kmh: float | None
-    rafales_kmh: float | None
-    vent_depuis_deg: float | None
-    ressenti_c: float | None
-    temp_c: float | None
-
-
-@dataclass(frozen=True)
-class PrevisionPoint:
-    """La prévision horaire d'un point, dans l'ordre où il a été demandé."""
-
-    lat: float
-    lon: float
-    heures: list[PrevisionHeure]
 
 
 class ClientOpenMeteo:

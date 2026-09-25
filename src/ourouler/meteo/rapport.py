@@ -12,7 +12,7 @@ from datetime import date, datetime
 
 from ourouler.config import Depart
 from ourouler.meteo.couronne import NOM_ICI, PointCouronne, ecart_angulaire
-from ourouler.meteo.openmeteo import PrevisionPoint
+from ourouler.noyau.meteo import PrevisionPoint
 
 #: Au-delà, un modèle « annonce de la pluie ».
 SEUIL_PLUIE_MM_H = 0.3
