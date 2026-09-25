@@ -142,4 +142,26 @@ describe("le volet « Mon compte » des réglages", () => {
     expect(screen.queryByText(/Ceci efface définitivement/, { selector: "b" })).toBeNull();
     expect(serveur.vers("/api/v1/moi").filter((r) => r.methode === "DELETE")).toHaveLength(0);
   });
+
+  it("masque le changement de mot de passe et la suppression sans compte (mode personnel)", async () => {
+    // Relecture du 25/09/2026, point 1 : `GET /moi` rend `email: null` en mode
+    // personnel (un seul cycliste, pas de compte) ou hébergé sans base de
+    // comptes — `DELETE /moi` viserait alors le propriétaire local et
+    // effacerait tout son cache d'activités en deux clics si les boutons
+    // restaient là.
+    const serveur = new Serveur({
+      "/api/v1/moi": { charge: { proprietaire: "essai", donnees: { email: null } } },
+    });
+    serveur.installer();
+    rendreReglages();
+
+    await userEvent.click(screen.getByRole("button", { name: "Gérer" }));
+    await screen.findByText("aucun compte sur ce serveur");
+
+    expect(screen.queryByLabelText("Mot de passe actuel")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Changer le mot de passe" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Supprimer mon compte…" })).toBeNull();
+    // L'export, lui, reste proposé : il ne dépend d'aucun compte.
+    expect(screen.getByRole("link", { name: "Export ZIP" })).toBeTruthy();
+  });
 });

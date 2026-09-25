@@ -466,6 +466,15 @@ function MonCompteVolet({ surCompteSupprime }: { surCompteSupprime: () => void }
     }
   }
 
+  // Vrai seulement sur un déploiement hébergé avec un compte lié à cette
+  // session — `GET /moi` rend `email: null` en mode personnel (un seul
+  // cycliste, pas de compte) ou hébergé sans base de comptes configurée
+  // (`api/routes.py:mon_compte`). Changer un mot de passe ou fermer un
+  // compte n'a alors aucun sens : il n'y en a pas (relecture du 25/09/2026,
+  // point 1) — `DELETE /moi` viserait quand même le propriétaire local et
+  // effacerait tout son cache en deux clics si les boutons restaient là.
+  const aUnCompte = email !== undefined && email !== null;
+
   return (
     <div className="bloc">
       <div className="champ">
@@ -475,41 +484,47 @@ function MonCompteVolet({ surCompteSupprime }: { surCompteSupprime: () => void }
         </div>
       </div>
 
-      <div className="bloc-tete">
-        <h2>Changer de mot de passe</h2>
-      </div>
-      {ditMotDePasse ? <div className="encart bien">{ditMotDePasse}</div> : null}
-      {panneMotDePasse ? <div className="encart alerte">{panneMotDePasse}</div> : null}
-      <div className="champ">
-        <label htmlFor="compte-mdp-actuel">Mot de passe actuel</label>
-        <input
-          className="saisie"
-          id="compte-mdp-actuel"
-          type="password"
-          autoComplete="current-password"
-          value={motDePasseActuel}
-          onChange={(e) => setMotDePasseActuel(e.target.value)}
-        />
-      </div>
-      <div className="champ">
-        <label htmlFor="compte-mdp-nouveau">Nouveau mot de passe</label>
-        <input
-          className="saisie"
-          id="compte-mdp-nouveau"
-          type="password"
-          autoComplete="new-password"
-          value={nouveauMotDePasse}
-          onChange={(e) => setNouveauMotDePasse(e.target.value)}
-        />
-      </div>
-      <button
-        type="button"
-        className="bouton"
-        disabled={motDePasseActuel.trim() === "" || nouveauMotDePasse.trim() === "" || envoiMotDePasse}
-        onClick={changerLeMotDePasse}
-      >
-        {envoiMotDePasse ? "Changement…" : "Changer le mot de passe"}
-      </button>
+      {aUnCompte ? (
+        <>
+          <div className="bloc-tete">
+            <h2>Changer de mot de passe</h2>
+          </div>
+          {ditMotDePasse ? <div className="encart bien">{ditMotDePasse}</div> : null}
+          {panneMotDePasse ? <div className="encart alerte">{panneMotDePasse}</div> : null}
+          <div className="champ">
+            <label htmlFor="compte-mdp-actuel">Mot de passe actuel</label>
+            <input
+              className="saisie"
+              id="compte-mdp-actuel"
+              type="password"
+              autoComplete="current-password"
+              value={motDePasseActuel}
+              onChange={(e) => setMotDePasseActuel(e.target.value)}
+            />
+          </div>
+          <div className="champ">
+            <label htmlFor="compte-mdp-nouveau">Nouveau mot de passe</label>
+            <input
+              className="saisie"
+              id="compte-mdp-nouveau"
+              type="password"
+              autoComplete="new-password"
+              value={nouveauMotDePasse}
+              onChange={(e) => setNouveauMotDePasse(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="bouton"
+            disabled={
+              motDePasseActuel.trim() === "" || nouveauMotDePasse.trim() === "" || envoiMotDePasse
+            }
+            onClick={changerLeMotDePasse}
+          >
+            {envoiMotDePasse ? "Changement…" : "Changer le mot de passe"}
+          </button>
+        </>
+      ) : null}
 
       <div className="bloc-tete">
         <h2>Mes données</h2>
@@ -518,61 +533,70 @@ function MonCompteVolet({ surCompteSupprime }: { surCompteSupprime: () => void }
         <span className="cle">Télécharger mes données</span>
         {/* Lien natif, pas un appel de ce module : le cookie de session
             (même origine) suffit à authentifier le téléchargement, comme le
-            GPX d'une proposition (`Proposition.tsx`). */}
+            GPX d'une proposition (`Proposition.tsx`). Disponible sans compte
+            aussi (mode personnel) : l'export porte sur le propriétaire de la
+            session, pas sur un compte. */}
         <a className="lien" href={api.urlExportMesDonnees()} download>
           Export ZIP
         </a>
       </div>
 
-      <div className="bloc-tete">
-        <h2>Supprimer mon compte</h2>
-      </div>
-      {panneSuppression ? <div className="encart alerte">{panneSuppression}</div> : null}
-      {!confirmationSuppression ? (
-        <button
-          type="button"
-          className="lien"
-          onClick={() => setConfirmationSuppression(true)}
-        >
-          Supprimer mon compte…
-        </button>
-      ) : (
+      {aUnCompte ? (
         <>
-          {/* Le texte de référence sur ce qui part et ce qui reste est
-              `vie_privee.GABARIT_LISEZ_MOI` (`api/vie_privee.py`) — repris
-              ici en substance, pas copié mot à mot (c'est un fichier
-              d'archive, pas un texte d'écran). */}
-          <div className="encart alerte">
-            <p>
-              <b>Ceci efface définitivement</b> votre profil, vos fichiers déposés ou générés,
-              votre journal de services et votre cache d'activités. Ceci ferme aussi votre
-              compte : mot de passe, sessions ouvertes et invitation en cours disparaissent
-              avec lui.
-            </p>
-            <p>
-              <b>Ceci ne touche pas</b> les routes apprises de vos sorties : elles restent,
-              collectives, comme le reste de la contribution de tous les cyclistes à la
-              carte (doctrine du projet, §10.2).
-            </p>
+          <div className="bloc-tete">
+            <h2>Supprimer mon compte</h2>
           </div>
-          <button
-            type="button"
-            className="bouton"
-            disabled={suppressionEnCours}
-            onClick={confirmerLaSuppression}
-          >
-            {suppressionEnCours ? "Suppression…" : "Confirmer la suppression définitive"}
-          </button>
-          <button
-            type="button"
-            className="lien"
-            disabled={suppressionEnCours}
-            onClick={() => setConfirmationSuppression(false)}
-          >
-            Annuler
-          </button>
+          {panneSuppression ? <div className="encart alerte">{panneSuppression}</div> : null}
+          {!confirmationSuppression ? (
+            <button
+              type="button"
+              className="lien"
+              onClick={() => setConfirmationSuppression(true)}
+            >
+              Supprimer mon compte…
+            </button>
+          ) : (
+            <>
+              {/* Le texte de référence sur ce qui part et ce qui reste est
+                  `vie_privee.GABARIT_LISEZ_MOI` (`api/vie_privee.py`) — repris
+                  ici en substance, pas copié mot à mot (c'est un fichier
+                  d'archive, pas un texte d'écran), et sans le jargon interne
+                  (relecture du 25/09/2026, point 4 : « doctrine du projet,
+                  §10.2 » ne veut rien dire pour un cycliste). */}
+              <div className="encart alerte">
+                <p>
+                  <b>Ceci efface définitivement</b> votre profil, vos fichiers déposés ou
+                  générés, votre journal de services et votre cache d'activités. Ceci ferme
+                  aussi votre compte : mot de passe, sessions ouvertes et invitation en cours
+                  disparaissent avec lui.
+                </p>
+                <p>
+                  <b>Ceci ne touche pas</b> les routes apprises de vos sorties : elles restent,
+                  parce qu'elles décrivent la géographie parcourue par tous les cyclistes qui
+                  utilisent ce serveur, pas seulement vous — elles ne repartent donc jamais
+                  avec un compte supprimé.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="bouton"
+                disabled={suppressionEnCours}
+                onClick={confirmerLaSuppression}
+              >
+                {suppressionEnCours ? "Suppression…" : "Confirmer la suppression définitive"}
+              </button>
+              <button
+                type="button"
+                className="lien"
+                disabled={suppressionEnCours}
+                onClick={() => setConfirmationSuppression(false)}
+              >
+                Annuler
+              </button>
+            </>
+          )}
         </>
-      )}
+      ) : null}
     </div>
   );
 }
