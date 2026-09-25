@@ -520,18 +520,19 @@ def test_le_mode_degrade_n_accuse_jamais_les_poids(capsys):
     assert "80.0%" in degrade, degrade
 
 
-def test_la_conclusion_de_la_validation_est_ecrite_dans_le_readme():
+def test_la_conclusion_de_la_validation_est_ecrite_dans_la_demarche():
     """D2 : la *definition of done* dit « le script tourne et **conclut** ».
 
     Le résultat n'existait nulle part dans le dépôt, hors des docstrings de
     constantes : un lecteur sans la clé d'API du mainteneur ne pouvait pas
-    savoir ce que le mode qui fait foi avait conclu. Il est maintenant dans le
-    README, avec sa date, ses chiffres et ses deux limites.
+    savoir ce que le mode qui fait foi avait conclu. Il est écrit dans
+    `docs/demarche.md` (§5), avec son critère, le mode qui fait foi et ses
+    deux limites ; le README, devenu court, y renvoie.
     """
-    readme = (RACINE / "README.md").read_text(encoding="utf-8")
-    assert "tests/validation/terrain_retrospectif.py" in readme
-    for morceau in ("13/09/2026", "mode nominal", "33,2 %", "POIDS_CARREFOUR", "6 km"):
-        assert morceau in readme, f"le README ne dit pas « {morceau} »"
+    demarche = (RACINE / "docs" / "demarche.md").read_text(encoding="utf-8")
+    assert "tests/validation/terrain_retrospectif.py" in demarche
+    for morceau in ("70 %", "mode nominal", "carrefour", "6 km"):
+        assert morceau in demarche, f"docs/demarche.md ne dit pas « {morceau} »"
 
 
 def test_la_pente_moyenne_se_divise_par_la_longueur_du_profil_pas_du_couloir():
