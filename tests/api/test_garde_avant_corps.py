@@ -48,6 +48,16 @@ def _application(tmp_path: Path, **options):
     )
 
 
+def _application_avec_session(tmp_path: Path, session, **options):
+    """Comme `_application`, mais avec une session imposée (`_application` en pose déjà une)."""
+    return creer_application(
+        config=config_d_essai(cache={"dossier": str(tmp_path / "cache")}),
+        dossier_donnees=tmp_path / "donnees",
+        session=session,
+        **options,
+    )
+
+
 def _appeler_sans_lire(application, entetes: list[tuple[bytes, bytes]]) -> tuple[int, dict, int]:
     """(statut, corps JSON, nombre de `receive()` appelés) pour un POST d'import."""
     lus = 0
@@ -165,6 +175,59 @@ def test_un_import_qui_echoue_rend_son_credit(tmp_path: Path, monkeypatch):
     client = TestClient(_application(tmp_path, quotas_import=quotas))
     assert _importer(client, 1)[1]["statut"] == "echoue"
     assert quotas.restant(Proprietaire("essai-a")) == 1
+
+
+def test_une_base_en_panne_rend_service_externe_indisponible_pas_un_500_brut(tmp_path: Path):
+    """25/09/2026 : `ctx.session.ouvrir` qui lève (base injoignable) doit sortir en JSON lisible."""
+
+    @dataclass(frozen=True)
+    class SessionEnPanne:
+        mode = MODE_HEBERGE
+
+        def ouvrir(self, requete: object) -> Proprietaire | None:
+            raise RuntimeError("panne fabriquée de la base des comptes")
+
+    application = _application_avec_session(tmp_path, SessionEnPanne())
+    statut, corps, lus = _appeler_sans_lire(application, [(b"x-compte-essai", b"essai-a")])
+    assert statut == 502
+    assert corps["erreur"]["code"] == "service_externe_indisponible"
+    assert lus == 0, "le corps a été lu avant que la panne de la base ne soit constatée"
+
+
+def test_l_appel_a_la_session_ne_bloque_pas_la_boucle_d_evenements(tmp_path: Path):
+    """`ctx.session.ouvrir` doit tourner sur un fil, pas geler la boucle d'événements.
+
+    Appelle `GardeAvantCorps._refus` directement (pas `__call__` ni l'application
+    entière : une session valide laisserait passer jusqu'à la route réelle, qui
+    lirait un corps multipart qu'aucun `receive()` de test ne termine jamais —
+    hors sujet ici, qui ne teste que le déport de `ctx.session.ouvrir`). Deux
+    appels dont la session dort 0,2 s chacun, lancés en même temps sur la même
+    boucle : s'ils se bloquaient l'un l'autre (l'appel resté synchrone sur la
+    boucle), le total avoisinerait 0,4 s ; déportés sur des fils séparés
+    (`run_in_threadpool`), ils se recouvrent et le total reste proche de 0,2 s.
+    """
+    from ourouler.api.garde_avant_corps import GardeAvantCorps
+
+    @dataclass(frozen=True)
+    class SessionLente:
+        mode = MODE_HEBERGE
+
+        def ouvrir(self, requete: object) -> Proprietaire | None:
+            time.sleep(0.2)
+            return Proprietaire("essai-a")
+
+    application = _application_avec_session(tmp_path, SessionLente())
+    garde = GardeAvantCorps(application)
+    scope = {"type": "http", "method": "POST", "path": CHEMIN, "app": application, "headers": []}
+
+    async def _deux_a_la_fois():
+        return await asyncio.gather(garde._refus(dict(scope)), garde._refus(dict(scope)))
+
+    debut = time.monotonic()
+    resultats = asyncio.run(_deux_a_la_fois())
+    duree = time.monotonic() - debut
+    assert resultats == [None, None], "une session valide ne doit produire aucun refus"
+    assert duree < 0.35, f"{duree:.2f} s pour deux appels de 0,2 s : la boucle a été bloquée"
 
 
 def test_l_application_reelle_coupe_un_flux_sans_fin_a_la_borne(tmp_path: Path, monkeypatch):

@@ -183,6 +183,65 @@ def test_un_lancement_a_cheval_sur_la_suppression_est_attendu_ou_refuse(monkeypa
     assert True not in ecritures_apres_effacement
 
 
+def test_une_seconde_suppression_pendant_l_attente_refuse_tout_de_suite(tmp_path: Path, monkeypatch):
+    """25/09/2026 : la seconde ne doit pas occuper un fil du serveur jusqu'à 120 s.
+
+    La première `DELETE /moi` est bloquée dans `annuler_et_attendre` (comme le
+    serait une vraie attente jusqu'à 120 s) ; la seconde doit refuser en
+    `409 suppression_deja_en_cours`, et vite — pas au bout du délai de la
+    première.
+    """
+    import threading
+
+    demarree = threading.Event()
+    relache = threading.Event()
+
+    def lente(proprietaire, delai_s=120.0):
+        demarree.set()
+        relache.wait(5)
+        return True
+
+    monkeypatch.setattr(taches_fond, "annuler_et_attendre", lente)
+    client = _client(tmp_path)
+    h = {"x-compte-essai": A}
+
+    resultats: list = []
+
+    def premiere() -> None:
+        resultats.append(client.delete("/api/v1/moi", headers=h))
+
+    fil = threading.Thread(target=premiere)
+    fil.start()
+    try:
+        assert demarree.wait(5), "la première suppression n'a jamais atteint l'attente"
+        debut = time.monotonic()
+        seconde = client.delete("/api/v1/moi", headers=h)
+        duree = time.monotonic() - debut
+        assert seconde.status_code == 409, seconde.text
+        assert seconde.json()["erreur"]["code"] == "suppression_deja_en_cours"
+        assert duree < 2.0, f"la seconde suppression a attendu {duree:.1f} s au lieu de refuser tout de suite"
+    finally:
+        relache.set()
+        fil.join(5)
+    assert resultats and resultats[0].status_code == 200, resultats[0].text
+
+
+def test_debuter_effacement_refuse_un_second_appel_puis_se_libere():
+    """Le mécanisme nu, sans HTTP : refuse tant que `finir_effacement` n'est pas passé."""
+    taches_fond.debuter_effacement(A)
+    try:
+        with pytest.raises(taches_fond.SuppressionDejaEnCours):
+            taches_fond.debuter_effacement(A)
+        # Un autre propriétaire n'est pas concerné.
+        taches_fond.debuter_effacement(B)
+        taches_fond.finir_effacement(B)
+    finally:
+        taches_fond.finir_effacement(A)
+    # Libéré : un nouvel appel repasse.
+    taches_fond.debuter_effacement(A)
+    taches_fond.finir_effacement(A)
+
+
 def test_deux_suppressions_simultanees_la_premiere_finie_ne_leve_pas_la_suspension():
     with taches_fond.suspendre(A):
         with taches_fond.suspendre(A):

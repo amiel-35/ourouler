@@ -115,6 +115,15 @@ CODES_PANNE: dict[str, str] = {
         "un import d'historique ou une calibration tourne déjà sur ce serveur (un "
         "seul à la fois, quel que soit le propriétaire) — réessayer une fois terminé"
     ),
+    # `DELETE /moi` peut attendre jusqu'à 120 s qu'une tâche de fond de ce
+    # compte rende la main (`taches_fond.annuler_et_attendre`). Une seconde
+    # suppression du même compte pendant cette attente refuse tout de suite —
+    # elle n'attend pas à son tour, ce qui occuperait un second fil du
+    # serveur pour rien : la première a déjà tout pris en charge.
+    "suppression_deja_en_cours": (
+        "une suppression de ce compte est déjà en cours — inutile de la relancer, "
+        "attendre que la première termine (jusqu'à deux minutes)"
+    ),
     "velo_absent": "aucun vélo dans le profil — une calibration porte sur un vélo",
     "ftp_absente": (
         "FTP non renseignée — la calibration s'en sert pour écarter les efforts "

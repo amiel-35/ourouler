@@ -1949,6 +1949,8 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     casserait sur un profil incomplet si cette route exigeait la `Config`
     entière du propriétaire pour obtenir un seul réglage serveur.
     """
+    from ourouler.api import taches_fond
+
     try:
         with _comptes_du_deploiement(ctx) as comptes:
             donnees = vie_privee.effacer_donnees(
@@ -1960,7 +1962,7 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
                 dossier_cache=ctx.dossier_cache,
                 comptes=comptes,
             )
-    except vie_privee.TacheNonArretee as refus:
+    except (vie_privee.TacheNonArretee, taches_fond.SuppressionDejaEnCours) as refus:
         raise ErreurApi(code=refus.code, message=refus.message, statut=409) from None
     except Exception as e:
         raise classer(e) from e
