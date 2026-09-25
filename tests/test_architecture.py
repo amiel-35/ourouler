@@ -25,12 +25,11 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 5 : 10 exceptions, échéance 2026-11-30
     lot 6 : 1 exception, échéance 2026-11-30
     lot 7 : 3 exceptions, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
     lot 10 : 8 exceptions, échéance 2026-12-31
-    total : 26 exceptions
+    total : 16 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -110,7 +109,7 @@ PAQUETS: dict[str, tuple[int, bool]] = {
     "connecteurs": (2, True),
     "stockage": (2, False),
     "services": (3, False),
-    "rendu": (4, False),
+    "rendu": (4, True),
     "config": (5, True),
     "api": (5, True),
     "cli": (5, True),
@@ -217,7 +216,9 @@ MODULES: dict[str, str] = {
     "ourouler.physique.comparer": "services",
     "ourouler.seance.commande": "services",
     "ourouler.sortie.commande": "services",
-    # 4. rendu (à venir)
+    # 4. rendu
+    "ourouler.rendu": "rendu",
+    "ourouler.rendu.profil": "rendu",
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
     "ourouler.config": "config",
@@ -261,19 +262,6 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Lot 5 : casser api ↔ cli. `profil_json` passe au rendu ; comptes,
-    # invitation et retrait passent aux services. Les imports de `cli` vers
-    # `api` qui resteront (lancer le serveur) ne seront plus dans un cycle.
-    ("ourouler.api.vues", "ourouler.cli", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.application", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.base_de_donnees", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.comptes", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.courriel", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.depots", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.exploitation", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.invitation_commande", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.retrait_commande", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.session", "lot 5", "2026-11-30"),
     # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
     ("ourouler.sortie.commande", "ourouler.sortie.carte", "lot 6", "2026-11-30"),
     # Lot 7 : `stockage/` s'ouvre avec les calibrations ; le domaine reçoit
@@ -327,6 +315,9 @@ REEXPORTS: dict[str, str] = {
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     ("ourouler.cli", "ourouler.api.retrait_commande"),
+    # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
+    # l'entrée qui la charge (lot 5).
+    ("ourouler.rendu.profil", "ourouler.config"),
 }
 
 

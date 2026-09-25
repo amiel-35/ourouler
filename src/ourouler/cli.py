@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ourouler import __version__
-from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger, en_dict_public
+from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger
 
 if TYPE_CHECKING:
     # Import réservé à l'analyse statique (annotation de retour de
@@ -35,6 +35,7 @@ from ourouler.connecteurs.geocodage import (
     chercher_adresse,
 )
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.rendu.profil import info_vitesse_compteur, profil_json
 
 # Module volontairement sans dépendance : la liste des réponses à `--vent`
 # est nécessaire à la construction du parseur, donc à chaque `--help`.
@@ -318,25 +319,8 @@ def ajouter_config(sous: argparse._SubParsersAction) -> None:
     p.set_defaults(fonction=_commande_config)
 
 
-def profil_json(config: Config) -> dict:
-    """La configuration en JSON, **clé et mot de passe masqués**.
-
-    C'est la forme que rend `ourouler config --json`, et c'est donc le profil
-    que l'API sert au front (lot F1) : une seule fonction, un seul contrat,
-    et le masquage des secrets fait au même endroit pour les deux.
-    """
-    # Masquage des secrets et propriétés dérivées : `config.en_dict_public`,
-    # partagée avec l'API plutôt que recopiée ici. Un masquage qu'on réécrit
-    # est un masquage qu'on oublie.
-    d = en_dict_public(config)
-    # Troisième valeur de l'écran de FTP (F1, comble C2 de
-    # docs/journal/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
-    d["seance"]["vitesse_compteur"] = _info_vitesse_compteur(config)
-    return d
-
-
 def _commande_config(args: argparse.Namespace, config: Config) -> int:
-    info_vitesse = _info_vitesse_compteur(config)
+    info_vitesse = info_vitesse_compteur(config)
     if args.json:
         import json
 
@@ -395,39 +379,6 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
     print(f"Cache    : {config.cache.dossier}")
     print(f"Historique depuis : {config.historique_depuis}")
     return 0
-
-
-def _info_vitesse_compteur(config: Config) -> dict | None:
-    """La troisième valeur de l'écran de FTP — **déléguée**, jamais recalculée.
-
-    Relecture de F1, point 8 : ces trois valeurs avaient deux implémentations,
-    celle-ci et `seance.ecran_ftp.valeurs_liees`, servies par deux routes
-    différentes de la même API. Elles s'accordaient, avec des noms de champs
-    différents — une dette accidentelle, pas assumée. Il n'en reste qu'une.
-
-    Ce qui est conservé ici : le **sous-ensemble** de champs que
-    `ourouler config --json` publiait déjà, pour ne pas élargir son contrat
-    au passage. `GET /profil/zones` sert la forme complète.
-
-    `None` si la configuration ne porte aucun vélo : rien à calculer, et
-    `ourouler config` doit rester utilisable sans vélo déclaré.
-    """
-    from ourouler.seance.ecran_ftp import valeurs_liees
-
-    completes = valeurs_liees(config)
-    if completes is None:
-        return None
-    gardes = (
-        "velo",
-        "puissance_endurance_w",
-        "vitesse_a_plat_kmh",
-        "moyenne_compteur_kmh",
-        "facteur_compteur",
-        # Décision 8 : mesuré sur l'historique, ou dérivé d'une sortie de
-        # référence supposée. Tout écran qui l'affiche doit le dire.
-        "facteur_mesure",
-    )
-    return {cle: completes[cle] for cle in gardes}
 
 
 def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
