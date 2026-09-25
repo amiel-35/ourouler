@@ -28,6 +28,11 @@ partir des PR.
   le vent, sans rien retracer. Aussi en ligne de commande :
   `ourouler analyser`.
 
+### Corrigé
+
+- La version affichée par le service et par `ourouler --version` est la
+  vraie (elle disait 0.0.1).
+
 ## [0.9.6] — 2026-09-25
 
 ### Corrigé

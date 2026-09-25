@@ -74,7 +74,7 @@
       ]
     },
     "proprietaire": "local",
-    "version": "0.0.1"
+    "version": "0.9.6"
   },
   "requete": "GET /api/v1/systeme",
   "reseau": [],
