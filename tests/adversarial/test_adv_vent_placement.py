@@ -677,8 +677,11 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
 #: Placements de référence, **mesurés sur `sprint-5` avant le lot L5.1**
 #: (b311d88), sur deux cas non triviaux : une boucle vallonnée de 27 km où le
 #: terrain départage vraiment les décalages, et la boucle plate de 60 km des
-#: tests du sprint 4. Le contrat §1.2 b) demande l'égalité « au bit près » ;
-#: c'est donc une comparaison exacte, pas un `approx`.
+#: tests du sprint 4. Le contrat §1.2 b) demande l'égalité « au bit près » :
+#: au bit près **du code**, pas de la libm. Ces chiffres ont été relevés sur
+#: macOS ; la CI Linux (glibc) rend les mêmes à 1 à 10 ulp près (écart relatif
+#: mesuré au plus 1,9e-15, run 36149735808), parce que `sin`, `cos`, `atan2`…
+#: n'y arrondissent pas le dernier bit de la même façon. D'où `TOLERANCE_GOLDEN`.
 GOLDEN = {
     "vallonnee": {
         "decalage_z2_s": -60.0,
@@ -707,6 +710,41 @@ GOLDEN = {
         ],
     },
 }
+
+
+#: Écart **relatif** admis entre un flottant mesuré et son golden : 1e-13,
+#: cinquante fois l'écart de plateforme observé (1,9e-15), et huit ordres de
+#: grandeur sous la plus petite dérive que ce test doit attraper (un pas
+#: déplacé d'un mètre sur 27 km, soit 3,7e-5). Pas de tolérance absolue : un
+#: zéro du golden (terrain plat, note de bloc nulle) doit rester un zéro exact.
+#: Entiers, booléens, décalages en secondes et structure restent comparés à
+#: l'identique.
+TOLERANCE_GOLDEN = 1e-13
+
+
+def _ecarts_au_golden(obtenu: Any, attendu: Any, chemin: str = "") -> list[str]:
+    """Les écarts entre une mesure et son golden, flottants à `TOLERANCE_GOLDEN` près.
+
+    Vide si tout concorde. `pytest.approx` ne descend pas dans des listes de
+    tuples rangées dans un dict : on parcourt donc la structure à la main.
+    """
+    ecart = [f"{chemin or 'racine'} : {obtenu!r} au lieu de {attendu!r}"]
+    if isinstance(attendu, dict):
+        if not isinstance(obtenu, dict) or obtenu.keys() != attendu.keys():
+            return ecart
+        return [e for k in attendu for e in _ecarts_au_golden(obtenu[k], attendu[k], f"{chemin}.{k}")]
+    if isinstance(attendu, (list, tuple)):
+        if type(obtenu) is not type(attendu) or len(obtenu) != len(attendu):
+            return ecart
+        return [
+            e
+            for i, (o, a) in enumerate(zip(obtenu, attendu, strict=True))
+            for e in _ecarts_au_golden(o, a, f"{chemin}[{i}]")
+        ]
+    if type(attendu) is float and type(obtenu) is float:
+        proches = math.isclose(obtenu, attendu, rel_tol=TOLERANCE_GOLDEN, abs_tol=0.0)
+        return [] if proches else ecart
+    return [] if type(obtenu) is type(attendu) and obtenu == attendu else ecart
 
 
 def _trace_golden(nom: str) -> Any:
@@ -753,7 +791,8 @@ def test_sans_vent_le_placement_est_celui_d_avant_le_lot(nom: str):
         _seance_golden(), _trace_golden(nom), _parametres(), vent=None
     )
     assert placement is not None, "le placement de référence n'est pas None"
-    assert _mesure(placement) == GOLDEN[nom]
+    ecarts = _ecarts_au_golden(_mesure(placement), GOLDEN[nom])
+    assert not ecarts, "\n".join(ecarts)
 
 
 @pytest.mark.parametrize("nom", tuple(GOLDEN))
