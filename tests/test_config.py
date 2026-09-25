@@ -749,3 +749,45 @@ def test_un_tilde_ecrit_a_la_main_dans_le_toml_est_developpe(tmp_path: Path):
     assert config.cache.dossier.is_absolute()
     assert "~" not in str(config.cache.dossier)
     assert config.cache.dossier == Path("~/ailleurs/cache").expanduser()
+
+
+# --- catégorie de pneu par vélo (L9.1) ----------------------------------------
+
+
+def test_velo_sans_pneu_le_laisse_absent():
+    """`None` : le Crr reste celui du jeu de l'usage, comme avant L9.1."""
+    assert depuis_dict(BASE).velo("Route").pneu is None
+
+
+def test_velo_pneu_lu_et_normalise():
+    c = depuis_dict({**BASE, "velos": [{"nom": "Route", "pneu": " Course_Rapide "}]})
+    assert c.velo("Route").pneu == "course_rapide"
+
+
+@pytest.mark.parametrize("vide", ["", "   ", None])
+def test_velo_pneu_vide_vaut_absent(vide):
+    c = depuis_dict({**BASE, "velos": [{"nom": "Route", "pneu": vide}]})
+    assert c.velo("Route").pneu is None
+
+
+def test_velo_pneu_inconnu_est_refuse_et_nomme():
+    with pytest.raises(ErreurConfig, match="pneu"):
+        depuis_dict({**BASE, "velos": [{"nom": "Route", "pneu": "slick de piste"}]})
+
+
+def test_les_categories_de_pneu_de_la_config_sont_celles_de_la_litterature():
+    """Deux listes, une vérité : la configuration valide sans importer le
+    modèle physique, la littérature porte les Crr — elles ne divergent pas."""
+    from ourouler.config import PNEUS_VELO
+    from ourouler.physique.litterature import PNEUS
+
+    assert set(PNEUS_VELO) == set(PNEUS)
+
+
+def test_l_exemple_de_configuration_documente_le_pneu():
+    texte = (Path(__file__).parent.parent / "config.example.toml").read_text(encoding="utf-8")
+    assert "# pneu = " in texte
+    from ourouler.config import PNEUS_VELO
+
+    for categorie in PNEUS_VELO:
+        assert categorie in texte

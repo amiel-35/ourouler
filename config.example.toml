@@ -39,6 +39,10 @@ masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 # qu'il fait ; `ourouler calibrer` les mesure et prime sur tout le reste.
 # cda_m2 = 0.32        # traînée aérodynamique, mesurée par `ourouler calibrer`
 # crr = 0.005          # roulement, estimé par `ourouler calibrer`
+# pneu = "course_quatre_saisons"  # catégorie de pneu : course_rapide | course_quatre_saisons
+                                 # | entrainement | gravel | vtt. Donne le Crr (littérature,
+                                 # sur bitume réel) : `ourouler calibrer` le garde fixe et ne
+                                 # cherche plus que le CdA. Absent : Crr de la catégorie `usage`.
 intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
 intervals_gear_id = "" # identifiant Intervals du vélo (ex. b1234567), plus fiable que le nom
 capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex. "MARQUE 1234"

@@ -49,6 +49,12 @@ CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
 USAGES_VELO = ("route", "clm")
 
+#: Les catégories de pneu qu'un vélo peut déclarer (`Velo.pneu`). La table des
+#: Crr correspondants vit dans `physique.litterature.PNEUS` ; un test garde les
+#: deux listes identiques. Déclarée ici, comme `USAGES_VELO`, pour que la
+#: configuration se valide sans importer le modèle physique.
+PNEUS_VELO = ("course_rapide", "course_quatre_saisons", "entrainement", "gravel", "vtt")
+
 #: Préfixe commun des variables d'environnement lues par `charger()` (contrat
 #: de l'hébergé minimal, docs/heberge_minimal_contrat.md § « Les secrets »).
 PREFIXE_ENV = "OUROULER_"
@@ -170,6 +176,13 @@ class Velo:
     #: une supposition, pas une mesure, et l'écran doit le dire. La mesure se
     #: fait avec `tests/validation/facteur_compteur_retrospectif.py`.
     facteur_compteur: float | None = None
+
+    #: La catégorie de pneu (une des `PNEUS_VELO`), ou `None`. Elle donne le
+    #: Crr du vélo par la littérature (`physique.litterature.PNEUS`) : la
+    #: calibration le garde alors fixe et ne cherche que le CdA (L9.1). Sans
+    #: pneu, rien ne change — le Crr vient du jeu de l'usage, et la
+    #: calibration ajuste les deux.
+    pneu: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1121,4 +1134,15 @@ def _velo(v: Any, i: int) -> Velo:
             if v.get("facteur_compteur") is not None
             else None
         ),
+        pneu=_pneu(v.get("pneu"), section),
     )
+
+
+def _pneu(brut: Any, section: str) -> str | None:
+    """La catégorie de pneu, ou `None` si absente ou vide. Refusée si inconnue."""
+    if brut is None or (isinstance(brut, str) and not brut.strip()):
+        return None
+    pneu = str(brut).strip().casefold()
+    if pneu not in PNEUS_VELO:
+        raise ErreurConfig(f"{section} pneu = {brut!r}, attendu un de {PNEUS_VELO}")
+    return pneu
