@@ -97,6 +97,11 @@ services:
       # fois, comme `OUROULER_DATABASE_URL` juste au-dessus.
       - 'OUROULER_URL_PUBLIQUE=${SERVICE_URL_API}'
       - OUROULER_PORT=8000
+      # Le fuseau des cyclistes. Sans lui le conteneur vit en UTC, et une
+      # heure de départ saisie sans fuseau (« 09:00 ») est lue en UTC : la
+      # météo servie est celle de 11:00 à Paris l'été. Pansement : le vrai
+      # correctif passe un fuseau explicite au cœur.
+      - TZ=Europe/Paris
       # **Les cinq variables suivantes ne valent qu'en OUROULER_MODE=personnel**
       # (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
       # fuite fermée le 21/09/2026, voir deploiement/api/README.md). En
