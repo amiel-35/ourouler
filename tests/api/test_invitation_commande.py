@@ -1,6 +1,6 @@
 """`ourouler inviter` / `ourouler invitations` : l'orchestration, contre un dépôt en double.
 
-Ce module (`api/invitation_commande.py`) ne parle jamais à PostgreSQL directement — il
+Ce module (`services/comptes.py`) ne parle jamais à PostgreSQL directement — il
 reçoit un dépôt déjà ouvert. On le teste donc ici contre un **double** de `DepotComptes`,
 sans base réelle : ce qui se joue à cette base-là — la course entre deux invitations
 concurrentes, l'atomicité de l'activation — est déjà couvert par `tests/comptes/`
@@ -22,8 +22,9 @@ import pytest
 
 from ourouler.api.comptes import ErreurCompteExistant, Invitation, InvitationEmise
 from ourouler.api.courriel import ParametresBrevo
-from ourouler.api.invitation_commande import construire_lien, executer_invitations, executer_inviter
+from ourouler.cli import executer_invitations, executer_inviter
 from ourouler.config import Config, Cycliste, Depart
+from ourouler.services.comptes import construire_lien
 
 PARAMETRES_BREVO = ParametresBrevo(
     serveur="smtp-relay.exemple.invalid",

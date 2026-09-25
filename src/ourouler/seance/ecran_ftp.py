@@ -136,7 +136,7 @@ def info_compteur(
     (`physique.modele.temps_ecoule`). Ce module en est la source
     unique (voir la docstring du module) : ceci n'est pas une deuxième lecture
     de la configuration, seulement un sous-ensemble mis en forme pour ce
-    contrat-là, comme `cli._info_vitesse_compteur` l'est pour `ourouler config`.
+    contrat-là, comme `rendu.profil.info_vitesse_compteur` l'est pour `ourouler config`.
 
     **`puissance_w` / `vitesse_a_plat_kmh` (exclusifs entre eux, comme pour
     `position_pour`) : la puissance effectivement demandée pour CE parcours-ci**

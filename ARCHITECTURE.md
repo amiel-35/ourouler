@@ -61,13 +61,13 @@ HTTP injectable :
 
 ## 2. Carte des paquets, aujourd'hui
 
-94 fichiers Python, 42 051 lignes (docstrings et commentaires compris) sous
+103 fichiers Python, 42 455 lignes (docstrings et commentaires compris) sous
 `src/ourouler/`.
 
 | Paquet | Rôle | Fichiers principaux (lignes) |
 |---|---|---|
-| `cli.py` | argparse, lecture de la config, appel des commandes | `cli.py` (1 308) |
-| `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` (918) |
+| `cli.py` | argparse, lecture de la config, appel des commandes | `cli.py` (1 428) |
+| `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` (886) |
 | `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…), les protocoles que le domaine reçoit à la place des clients HTTP (`Routeur`, `SourcePrevisions`, `SourceSeances`) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py`, `ports.py` |
 | `activites/` | lecteur unique FIT/GPX/TCX, cache SQLite, inventaire, import d'archive | `cache.py` (703), `import_archive.py` (526), `lecture.py` (490) |
 | `connecteurs/` | clients HTTP : BRouter, Intervals.icu, archives Open-Meteo, géocodage | `brouter.py` (604), `intervals.py` (595), `openmeteo_archive.py` (478) |
@@ -78,6 +78,8 @@ HTTP injectable :
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions, carte HTML | `commande.py` (2 494), `carte.py` (1 283), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
+| `rendu/` | ce qu'une entrée montre d'un résultat : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`) | `profil.py`, `comptes.py` |
+| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) | `comptes.py` |
 | `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `routes.py` (2 122), `comptes.py` (1 095), `depots.py` (988), `application.py` (621), `adaptateur.py` (277) |
 
 Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
@@ -125,10 +127,14 @@ standard et la sortie d'erreur dans des tampons, puis relit le JSON imprimé.
 Comme la sortie standard est un objet de processus, un verrou global
 sérialise les calculs coûteux ; une deuxième requête reçoit `calcul_en_cours`.
 
-**Un cycle entre `api` et `cli`.** `src/ourouler/api/vues.py` importe
-`cli.profil_json` (pour masquer les secrets au même endroit que
-`ourouler config --json`), et `cli.py` contient 22 imports différés de
-`ourouler.api` (17 modules distincts).
+**Le cycle entre `api` et `cli` est rompu (lot 5).** `profil_json` et le
+masquage des secrets vivent dans `src/ourouler/rendu/profil.py`, que l'API
+et la ligne de commande importent toutes deux ; les commandes de comptes
+passent par `src/ourouler/services/comptes.py`. `cli.py` importe encore des
+modules de `ourouler.api` (le serveur à lancer, le dépôt PostgreSQL des
+comptes, le client SMTP, la lecture des variables de l'hébergé, les dépôts à
+effacer) : c'est lui qui construit ces dépendances et les passe au service,
+d'une entrée à une autre, sans cycle.
 
 **Les `commande.py` font tout.** `sortie/commande.py` (2 494 lignes),
 `boucle/commande.py` (1 857) et `physique/commande.py` (1 330) mêlent la
@@ -217,7 +223,7 @@ identiques, et retire les exceptions qu'elle rend inutiles.
 2. Y ranger aussi les types météo, le profil, le modèle de séance et les zones.
    *Fait (lot 4)*, sauf `Config` elle-même : elle garde `ParametresCache`.
 3. Casser le cycle `api` ↔ `cli` : `profil_json` passe au rendu, les comptes
-   et invitations passent aux services.
+   et invitations passent aux services. *Fait (lot 5).*
 4. Sortir le rendu texte et JSON des `commande.py` de `sortie`, `boucle` et
    `physique`.
 5. Isoler le stockage des calibrations : le domaine reçoit des paramètres,

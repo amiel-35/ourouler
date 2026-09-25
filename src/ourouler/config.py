@@ -7,7 +7,6 @@ Le reste du cœur reçoit un objet `Config` déjà construit.
 
 from __future__ import annotations
 
-import dataclasses
 import os
 import tomllib
 from collections.abc import Mapping
@@ -40,6 +39,11 @@ from ourouler.noyau.zones import (
     ZONE_ENDURANCE,
     position_endurance,
 )
+
+# Le masquage des secrets vit au rendu depuis le lot 5 (`rendu/profil.py`) ;
+# réexporté ici, son ancien chemin, pour les appelants du dehors.
+from ourouler.rendu.profil import MASQUE as MASQUE
+from ourouler.rendu.profil import en_dict_public as en_dict_public
 
 #: Bornes de chargement de `[seance] position_zone` : au plus une largeur de
 #: bande au-dessous du bas de la zone, une au-dessus du haut. Ce n'est pas le
@@ -135,42 +139,6 @@ class Config:
 
 
 # --- chargement -------------------------------------------------------------
-
-
-#: Ce que `en_dict_public` écrit à la place d'un secret renseigné. Une chaîne
-#: fixe, jamais un compte de caractères : la longueur d'une clé est déjà une
-#: information.
-MASQUE = "***"
-
-
-def en_dict_public(config: Config) -> dict:
-    """La configuration en dictionnaire, **secrets masqués**, prête à publier.
-
-    Existe parce que `dataclasses.asdict` ne voit que les champs : il ignore
-    les `__repr__` qui masquent, et il ignore aussi les propriétés dérivées.
-    Le masquage vivait donc en deux lignes à l'intérieur de `cli.py`, après
-    l'`asdict` — et la relecture des tests de contrat de l'API l'a relevé :
-    **l'API n'avait rien à réutiliser**, elle aurait réécrit son propre
-    masquage, et un masquage qu'on réécrit est un masquage qu'on oublie.
-
-    Ce que cette fonction garantit, et qui se teste :
-
-    - la clé Intervals et le mot de passe BRouter ne sortent jamais en clair ;
-    - un secret absent rend une chaîne vide, pas `MASQUE` — pour qu'un écran
-      puisse distinguer « non renseigné » de « renseigné, caché » ;
-    - `puissance_endurance_pct`, devenue une **propriété** dérivée de la
-      position dans la zone (décision 7), reste présente : sans ça elle
-      disparaîtrait du contrat d'API sans que rien ne le signale.
-
-    Ce qui n'est **pas** un secret et sort en clair : l'URL du serveur BRouter
-    et l'identifiant d'athlète Intervals — une adresse et un identifiant, que
-    le mainteneur a déjà tranchés comme publiables (Q6).
-    """
-    d = dataclasses.asdict(config)
-    d["intervals"]["api_key"] = MASQUE if config.intervals.api_key else ""
-    d["brouter"]["mot_de_passe"] = MASQUE if config.brouter.mot_de_passe else ""
-    d["seance"]["puissance_endurance_pct"] = config.seance.puissance_endurance_pct
-    return d
 
 
 def charger(

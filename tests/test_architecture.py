@@ -25,12 +25,11 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 5 : 10 exceptions, échéance 2026-11-30
     lot 6 : 1 exception, échéance 2026-11-30
     lot 7 : 3 exceptions, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
     lot 10 : 8 exceptions, échéance 2026-12-31
-    total : 26 exceptions
+    total : 16 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -49,6 +48,18 @@ et réexporte). Sur ses 21 exceptions, 11 sont tombées ; les 10 qui tiennent à
 la `Config` entière sont re-datées aux lots 7, 8 et 10, chacune avec sa
 raison.
 
+**Lot 5 fait.** `rendu/` et `services/` existent. `profil_json` et le
+masquage des secrets sont dans `rendu/profil.py` (que `config.py` réexporte
+pour `en_dict_public` et `MASQUE`) ; `api/vues.py` n'importe plus `cli`, et
+les dix exceptions du cycle `api` ↔ `cli` sont tombées. Inviter, lister les
+invitations, réinitialiser et retirer sont dans `services/comptes.py`, leur
+affichage dans `rendu/comptes.py` ; `api/invitation_commande.py` et
+`api/retrait_commande.py` ont disparu. `cli.py` importe encore des modules
+de `api/` — le serveur, le dépôt des comptes, le client SMTP, la lecture de
+l'environnement de l'hébergé, les dépôts à effacer — pour construire les
+dépendances qu'il passe au service : ce sont des arêtes d'une entrée à une
+autre, sans cycle, donc permises.
+
 **Lot 9 fait.** `noyau/ports` porte les protocoles que le domaine reçoit à
 la place des clients concrets : `Routeur` (BRouter), `SourcePrevisions`
 (Open-Meteo) et `SourceSeances` (Intervals). Le découpage d'un tracé en
@@ -56,23 +67,22 @@ mailles passe d'`apprentissage/routes` (un cas d'usage) au domaine
 (`boucle/mailles`), que `sortie/contraste` importe désormais. Ses 5
 exceptions sont tombées.
 
-Les trois cycles principaux, sur les paquets tels qu'ils sont rangés
-aujourd'hui (imports différés compris) :
+Les deux cycles principaux qui restent, sur les paquets tels qu'ils sont
+rangés aujourd'hui (imports différés compris) — le premier, `api` ↔ `cli`,
+est rompu depuis le lot 5 :
 
-1. `api` ↔ `cli` : `api/vues.py` importe `cli.profil_json`, et `cli.py`
-   importe neuf modules de `api/` (lot 5).
-2. `config` ↔ `seance` : `config.py` importait le modèle de séance et les
+1. `config` ↔ `seance` : `config.py` importait le modèle de séance et les
    zones, que `seance/commande.py`, `seance/ecran_ftp.py` et
    `seance/tenue.py` lui rendaient en important `Config`. Depuis le lot 4,
    `config.py` les prend au noyau et `seance/tenue.py` y prend
    `ParametresTenue` ; restent l'écran de FTP (lot 7) et la commande (lot 10).
-3. `boucle` ↔ `physique` : `physique/modele.py` et `physique/calibration.py`
+2. `boucle` ↔ `physique` : `physique/modele.py` et `physique/calibration.py`
    importaient `boucle/trace.py`, et `boucle/commande.py` importe
    `physique/modele.py`. Depuis le lot 3, ils importent `noyau/trace.py` ;
    entre dossiers, le cycle ne tient plus que par `physique/commande.py`
    (un cas d'usage) qui importe `boucle/`, et n'est pas une violation.
 
-Les deux derniers appartiennent à une seule composante de huit paquets :
+Ces deux-là appartiennent à une seule composante de huit paquets :
 `activites`, `apprentissage`, `boucle`, `config`, `connecteurs`, `meteo`,
 `physique` et `seance`. Rangés dans leurs couches cibles, ces cycles
 deviennent des arêtes qui montent, listées dans `EXCEPTIONS`.
@@ -109,8 +119,8 @@ PAQUETS: dict[str, tuple[int, bool]] = {
     "sortie": (1, True),
     "connecteurs": (2, True),
     "stockage": (2, False),
-    "services": (3, False),
-    "rendu": (4, False),
+    "services": (3, True),
+    "rendu": (4, True),
     "config": (5, True),
     "api": (5, True),
     "cli": (5, True),
@@ -134,6 +144,11 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #:   prévision sont au noyau depuis le lot 4 (`noyau/meteo.py`) ;
 #: - `boucle/gpx.py` est du **stockage** (lecteur et écrivain GPX) ;
 #: - `sortie/carte.py` est du **rendu** (carte HTML) ;
+#: - dans `api/`, trois modules ne sont pas des entrées (lot 5) :
+#:   `api/comptes.py` est du **stockage** (le dépôt PostgreSQL des comptes),
+#:   `api/courriel.py` un **connecteur** (le client SMTP), et
+#:   `api/proprietaire.py` un type du **noyau** (bibliothèque standard
+#:   seulement) ; c'est ce qui laisse `services/comptes.py` s'en servir ;
 #: - `config.py` est une **entrée** (lecture TOML et environnement) : les
 #:   dataclasses du profil sont au noyau depuis le lot 4 (`noyau/profil.py`) ;
 #:   `Config` et `ParametresCache` y restent.
@@ -158,6 +173,7 @@ MODULES: dict[str, str] = {
     "ourouler.proprietaire": "noyau",
     "ourouler.seance.modele": "noyau",
     "ourouler.seance.zones": "noyau",
+    "ourouler.api.proprietaire": "noyau",
     # 1. domaine pur
     "ourouler.physique": "physique",
     "ourouler.physique.modele": "physique",
@@ -203,7 +219,11 @@ MODULES: dict[str, str] = {
     "ourouler.activites.lecture": "stockage",
     "ourouler.boucle.gpx": "stockage",
     "ourouler.meteo.cache_previsions": "stockage",
-    # 3. cas d'usage (à venir)
+    "ourouler.api.comptes": "stockage",
+    "ourouler.api.courriel": "connecteurs",
+    # 3. cas d'usage
+    "ourouler.services": "services",
+    "ourouler.services.comptes": "services",
     "ourouler.activites.commande": "services",
     "ourouler.activites.inventaire": "services",
     "ourouler.apprentissage": "services",
@@ -217,7 +237,10 @@ MODULES: dict[str, str] = {
     "ourouler.physique.comparer": "services",
     "ourouler.seance.commande": "services",
     "ourouler.sortie.commande": "services",
-    # 4. rendu (à venir)
+    # 4. rendu
+    "ourouler.rendu": "rendu",
+    "ourouler.rendu.comptes": "rendu",
+    "ourouler.rendu.profil": "rendu",
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
     "ourouler.config": "config",
@@ -227,19 +250,14 @@ MODULES: dict[str, str] = {
     "ourouler.api.application": "api",
     "ourouler.api.base_de_donnees": "api",
     "ourouler.api.calibrations": "api",
-    "ourouler.api.comptes": "api",
-    "ourouler.api.courriel": "api",
     "ourouler.api.depots": "api",
     "ourouler.api.erreurs": "api",
     "ourouler.api.exploitation": "api",
     "ourouler.api.garde_avant_corps": "api",
     "ourouler.api.imports_fond": "api",
-    "ourouler.api.invitation_commande": "api",
     "ourouler.api.limite_corps": "api",
     "ourouler.api.modeles": "api",
-    "ourouler.api.proprietaire": "api",
     "ourouler.api.quotas": "api",
-    "ourouler.api.retrait_commande": "api",
     "ourouler.api.routes": "api",
     "ourouler.api.session": "api",
     "ourouler.api.taches_fond": "api",
@@ -261,19 +279,6 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Lot 5 : casser api ↔ cli. `profil_json` passe au rendu ; comptes,
-    # invitation et retrait passent aux services. Les imports de `cli` vers
-    # `api` qui resteront (lancer le serveur) ne seront plus dans un cycle.
-    ("ourouler.api.vues", "ourouler.cli", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.application", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.base_de_donnees", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.comptes", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.courriel", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.depots", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.exploitation", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.invitation_commande", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.retrait_commande", "lot 5", "2026-11-30"),
-    ("ourouler.cli", "ourouler.api.session", "lot 5", "2026-11-30"),
     # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
     ("ourouler.sortie.commande", "ourouler.sortie.carte", "lot 6", "2026-11-30"),
     # Lot 7 : `stockage/` s'ouvre avec les calibrations ; le domaine reçoit
@@ -326,7 +331,14 @@ REEXPORTS: dict[str, str] = {
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
-    ("ourouler.cli", "ourouler.api.retrait_commande"),
+    # Les annotations des adaptateurs de comptes : `cli.py` reste importable sans
+    # le pilote PostgreSQL, que `services/comptes.py` tire (lot 5).
+    ("ourouler.cli", "ourouler.api.comptes"),
+    ("ourouler.cli", "ourouler.api.courriel"),
+    ("ourouler.cli", "ourouler.services.comptes"),
+    # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
+    # l'entrée qui la charge (lot 5).
+    ("ourouler.rendu.profil", "ourouler.config"),
 }
 
 

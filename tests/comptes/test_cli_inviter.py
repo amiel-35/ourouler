@@ -6,7 +6,7 @@ PostgreSQL jetable (fixture `url_base` de ce dossier). Sans Docker, ces tests sa
 proprement — voir `conftest.py`.
 
 **Aucun courriel n'est envoyé ici** (règle absolue 4 du lot) : tous les appels passent
-`--sans-courriel`, ce qui évite à `_commande_inviter` de charger `service.toml` — donc de
+`--sans-courriel`, ce qui évite à `executer_inviter` de charger `service.toml` — donc de
 réclamer un vrai relais SMTP. L'envoi réel, contre un double, est déjà couvert par
 `tests/api/test_courriel.py` et `tests/api/test_invitation_commande.py`.
 

@@ -271,8 +271,8 @@ def test_info_vitesse_compteur_rend_none_sans_le_moindre_velo():
     en pratique (elle pose toujours un vélo « Route » par défaut)."""
     import dataclasses
 
-    from ourouler.cli import _info_vitesse_compteur
     from ourouler.config import depuis_dict
+    from ourouler.rendu.profil import info_vitesse_compteur as _info_vitesse_compteur
 
     config = depuis_dict(
         {

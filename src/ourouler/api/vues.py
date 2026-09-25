@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 
 from ourouler.api.depots import Fichier
+from ourouler.rendu.profil import profil_json
 
 #: Les sections de `Config` qui décrivent la machine et non le cycliste.
 #: Retirées du profil rendu par l'API.
@@ -32,12 +33,10 @@ SECTIONS_EXPLOITATION = ("cache",)
 def profil(config) -> dict:
     """Le profil du cycliste, secrets masqués, exploitation retirée.
 
-    Part de `cli.profil_json`, qui est la **même** fonction que celle
+    Part de `rendu.profil.profil_json`, qui est la **même** fonction que celle
     d'`ourouler config --json` : le masquage de la clé Intervals et du mot de
     passe BRouter se fait là-bas, à un seul endroit, pour les deux surfaces.
     """
-    from ourouler.cli import profil_json
-
     # `default=str` : dates et chemins, comme la ligne de commande le fait.
     donnees = json.loads(json.dumps(profil_json(config), default=str, ensure_ascii=False))
     for section in SECTIONS_EXPLOITATION:
