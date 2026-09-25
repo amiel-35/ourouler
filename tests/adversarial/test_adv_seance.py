@@ -35,7 +35,7 @@ import pytest
 from fabriques4 import FTP_TEST_W, JOUR, ZONES_PUISSANCE, appeler_depuis_workout, etape_doc, groupe
 from outils import CLE_BIDON, verifier_json
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.seance.modele)"
 MOTIF_INTERVALS = "module attendu par le contrat L4.1 absent (ourouler.seance.intervals)"

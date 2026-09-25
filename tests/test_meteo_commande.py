@@ -17,9 +17,9 @@ import httpx
 import pytest
 
 from ourouler.config import Config, depuis_dict
-from ourouler.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.commande import HORIZON_MAX_H, executer, heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
 
 CONFIG_BRUTE = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},

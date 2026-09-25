@@ -28,9 +28,9 @@ from fabriques import EspionHttp
 from outils import robuste
 
 from ourouler.boucle.horaire import construire_horaire
-from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo import rapport
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L2.5 absent (ourouler.boucle.meteo_trace)"
 

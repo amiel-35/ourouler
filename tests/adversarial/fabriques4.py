@@ -30,7 +30,7 @@ import fabriques
 import pytest
 from outils import fabriquer
 
-from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 
 #: Jour de référence des séances fabriquées. Une date quelconque : aucune
 #: sortie réelle du mainteneur n'est rejouée ici.

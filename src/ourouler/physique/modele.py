@@ -35,9 +35,9 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
-from ourouler.activites.modele import moyenne_glissante
-from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.activite import moyenne_glissante
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 
 #: Accélération de la pesanteur (valeur normale, CGPM 1901).
 G = 9.80665

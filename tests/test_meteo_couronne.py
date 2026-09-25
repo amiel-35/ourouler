@@ -11,7 +11,6 @@ import math
 import pytest
 
 from ourouler.config import Depart
-from ourouler.erreurs import ErreurConfig
 from ourouler.meteo.couronne import (
     NOM_ICI,
     NOMS_DIRECTIONS,
@@ -24,6 +23,7 @@ from ourouler.meteo.couronne import (
     ecart_angulaire,
     noms_directions,
 )
+from ourouler.noyau.erreurs import ErreurConfig
 
 DEPART = Depart(nom="Point zéro", latitude=0.0, longitude=0.0)
 DEPART_NORD = Depart(nom="Haute latitude", latitude=60.0, longitude=0.0)  # mer du Nord

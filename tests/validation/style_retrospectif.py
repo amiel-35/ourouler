@@ -95,11 +95,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from vent_retrospectif import DEPUIS_DEFAUT, _connexion_ro  # noqa: E402
 
 from ourouler.activites.lecture import lecteur_pour  # noqa: E402
-from ourouler.activites.modele import Activite, puissance_normalisee  # noqa: E402
 from ourouler.apprentissage.routes import mailles_ponderees  # noqa: E402
-from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m  # noqa: E402
 from ourouler.config import Config, charger  # noqa: E402
-from ourouler.erreurs import ErreurUtilisateur  # noqa: E402
+from ourouler.noyau.activite import Activite, puissance_normalisee  # noqa: E402
+from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
+from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m  # noqa: E402
 from ourouler.physique.calibration import (  # noqa: E402
     echantillonner,
     masse_totale_kg,

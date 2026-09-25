@@ -26,7 +26,7 @@ from test_seance_intervals import CLE
 from ourouler.api import adaptateur
 from ourouler.api.erreurs import ErreurApi, assainir, classer, message_profil_invalide
 from ourouler.config import _flottant
-from ourouler.erreurs import (
+from ourouler.noyau.erreurs import (
     ErreurConfig,
     ErreurConnecteur,
     ErreurHorsDomaine,

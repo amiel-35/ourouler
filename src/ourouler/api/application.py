@@ -68,7 +68,7 @@ from ourouler.api.routes import (
 )
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
-from ourouler.erreurs import ErreurConfig
+from ourouler.noyau.erreurs import ErreurConfig
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"

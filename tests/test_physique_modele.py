@@ -11,8 +11,8 @@ import math
 
 import pytest
 
-from ourouler.boucle.trace import PointTrace, Trace
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.physique.modele import (
     FACTEUR_VENT_HAUTEUR,
     FENETRE_ALTITUDE,

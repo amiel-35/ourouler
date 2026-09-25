@@ -27,7 +27,7 @@ import pytest
 from fabriques import EspionHttp
 
 from ourouler.config import depuis_dict
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_INVENTAIRE = "module attendu absent (ourouler.activites.inventaire)"
 MOTIF_CACHE = "module attendu absent (ourouler.activites.cache)"

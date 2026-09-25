@@ -12,8 +12,8 @@ from typing import Any
 import httpx
 import pytest
 
-from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine
 from ourouler.meteo.openmeteo import VARIABLES_HORAIRES, ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine
 
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
 POINTS_3 = [(0.0, 0.0), (0.1, 0.0), (0.0, 0.1)]

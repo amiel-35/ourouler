@@ -36,7 +36,7 @@ import fabriques4
 import pytest
 from outils import robuste
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L4.3 absent (ourouler.seance.placement)"
 MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.seance.modele)"

@@ -20,8 +20,8 @@ from ourouler.connecteurs.openmeteo_archive import (
     HeureArchive,
     arrondir,
 )
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
-from ourouler.proprietaire import PROPRIETAIRE_PARTAGE
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
 
 JOUR = date(2026, 3, 15)
 AUJOURD_HUI = date(2026, 9, 13)

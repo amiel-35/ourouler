@@ -42,12 +42,12 @@ from ourouler.boucle.commande import (
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
-from ourouler.boucle.trace import PointTrace, Segment, Trace
 from ourouler.cli import construire_parseur, main
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir

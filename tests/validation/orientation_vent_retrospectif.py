@@ -83,13 +83,13 @@ from vent_retrospectif import (  # noqa: E402
 )
 
 from ourouler.activites.lecture import lecteur_pour  # noqa: E402
-from ourouler.activites.modele import Activite  # noqa: E402
 from ourouler.config import charger  # noqa: E402
 from ourouler.connecteurs.intervals import ClientIntervals  # noqa: E402
 from ourouler.connecteurs.openmeteo_archive import ClientArchive, HeureArchive  # noqa: E402
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
 from ourouler.meteo.couronne import ecart_angulaire  # noqa: E402
 from ourouler.meteo.rapport import VENT_DOS, VENT_FACE, VENT_TRAVERS, vent_relatif  # noqa: E402
+from ourouler.noyau.activite import Activite  # noqa: E402
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
 from ourouler.physique.calibration import (  # noqa: E402
     _cap,
     _decouper,

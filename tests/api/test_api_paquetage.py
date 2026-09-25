@@ -23,7 +23,7 @@ from outils_api import client_api
 
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.session import SessionHebergee
-from ourouler.erreurs import ErreurConfig
+from ourouler.noyau.erreurs import ErreurConfig
 
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 

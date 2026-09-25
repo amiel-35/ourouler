@@ -13,7 +13,7 @@ from ourouler.config import (
     charger,
     depuis_dict,
 )
-from ourouler.erreurs import ErreurConfig
+from ourouler.noyau.erreurs import ErreurConfig
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 from ourouler.seance.zones import POSITION_ENDURANCE_DEFAUT
 

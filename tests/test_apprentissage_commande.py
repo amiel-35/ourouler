@@ -27,7 +27,7 @@ from ourouler.config import (
     ParametresCache,
 )
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 PARAMS_BROUTER = ParametresBrouter(url="https://brouter.exemple.test", profil="fastbike")
 

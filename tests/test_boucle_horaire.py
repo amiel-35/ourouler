@@ -17,7 +17,7 @@ from ourouler.boucle.horaire import (
     construire_horaire,
     valider_pauses,
 )
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 DEPART = datetime(2026, 5, 16, 5, 0, tzinfo=UTC)
 

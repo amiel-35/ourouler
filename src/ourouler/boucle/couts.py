@@ -29,7 +29,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from ourouler.boucle.antennes import detecter
-from ourouler.boucle.trace import PointTrace, Segment, Trace, cap_deg, distance_m, sens_boucle
+from ourouler.noyau.trace import PointTrace, Segment, Trace, cap_deg, distance_m, sens_boucle
 
 # --- classes de routes et de revêtements ------------------------------------
 

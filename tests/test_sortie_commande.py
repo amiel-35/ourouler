@@ -32,8 +32,6 @@ from test_seance_intervals import ATHLETE, CLE, W
 from ourouler.boucle.commande import ligne_temps_ecoule
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import lire_gpx_trace
-from ourouler.boucle.trace import PointTrace, Trace
-from ourouler.boucle.trace import distance_m as distance_points
 from ourouler.cli import construire_parseur, main
 from ourouler.config import (
     HORIZON_JOURS_DEFAUT,
@@ -44,8 +42,10 @@ from ourouler.config import (
 )
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace
+from ourouler.noyau.trace import distance_m as distance_points
 from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.physique.modele import Parametres

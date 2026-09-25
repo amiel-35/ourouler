@@ -74,7 +74,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.seance.modele import Seance
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH

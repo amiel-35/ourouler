@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import pytest
 
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
-from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 from ourouler.sortie import contraste
 from ourouler.sortie.contraste import (
     AXE_DEMI_TOURS,

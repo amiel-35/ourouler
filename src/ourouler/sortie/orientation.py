@@ -17,7 +17,7 @@ vent est de face aux deux bouts.
 
 from __future__ import annotations
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 ORIENTATION_RETOUR_DOS = "retour-dos"
 ORIENTATION_DEPART_DOS = "depart-dos"

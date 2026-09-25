@@ -13,7 +13,7 @@ from datetime import date
 from ourouler.activites.cache import Cache
 from ourouler.activites.inventaire import inventaire, rendre_json, rendre_texte
 from ourouler.config import Config
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 
 def executer(args: argparse.Namespace, config: Config, cache: Cache | None = None) -> int:

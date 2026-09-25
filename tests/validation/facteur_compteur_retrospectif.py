@@ -56,8 +56,8 @@ from pathlib import Path
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattacher_velo
-from ourouler.activites.modele import est_sport_velo
 from ourouler.config import Config, Velo, charger
+from ourouler.noyau.activite import est_sport_velo
 from ourouler.physique.commande import chemin_calibration, parametres_du_velo
 from ourouler.physique.modele import (
     DENIVELE_REFERENCE_M_PAR_KM,

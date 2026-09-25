@@ -18,10 +18,10 @@ from pathlib import Path
 import pytest
 
 from ourouler.activites.cache import Cache, EntreeCache
-from ourouler.activites.modele import Activite, Point
 from ourouler.config import depuis_dict
 from ourouler.connecteurs.openmeteo_archive import HeureArchive
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.activite import Activite, Point
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.calibration import (
     CDA_MAX,
     DELTA_V_MAX_MS,

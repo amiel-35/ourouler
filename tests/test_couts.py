@@ -27,7 +27,7 @@ from ourouler.boucle.couts import (
     tags_par_point,
     tags_par_troncon,
 )
-from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
+from ourouler.noyau.trace import PointTrace, Segment, Trace, distance_m
 
 #: Mètres par degré de latitude (et de longitude à l'équateur).
 METRES_PAR_DEGRE = 111_194.9

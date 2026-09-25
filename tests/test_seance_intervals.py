@@ -17,7 +17,7 @@ import httpx
 import pytest
 
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.seance.intervals import (
     PROFONDEUR_MAX,
     REPS_MAX,

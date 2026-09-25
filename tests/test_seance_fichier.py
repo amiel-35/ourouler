@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from ourouler.erreurs import ErreurLecture
+from ourouler.noyau.erreurs import ErreurLecture
 from ourouler.seance.fichier import EXTENSIONS, lire_fichier_seance
 
 JOUR = date(2026, 9, 16)

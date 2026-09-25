@@ -50,20 +50,20 @@ from ourouler.boucle.marqueurs import compter as compter_marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.tags_importes import greffer
-from ourouler.boucle.trace import DENIVELE_REROUTE, Trace, denivele_filtre
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import (
-    ErreurConfig,
-    ErreurConnecteur,
-    ErreurDistanceInatteignable,
-    ErreurUtilisateur,
-)
 from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, NOMS_DIRECTIONS_16, azimut_de
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
+from ourouler.noyau.erreurs import (
+    ErreurConfig,
+    ErreurConnecteur,
+    ErreurDistanceInatteignable,
+    ErreurUtilisateur,
+)
+from ourouler.noyau.trace import DENIVELE_REROUTE, Trace, denivele_filtre
 from ourouler.physique.modele import FourchettePorteAPorte, PorteAPorte, temps_ecoule
 
 #: Poids de la pluie dans le tri du tableau : un millimètre cumulé coûte

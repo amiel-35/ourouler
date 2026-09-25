@@ -23,9 +23,9 @@ import fabriques
 import pytest
 from outils import robuste
 
-from ourouler.boucle.trace import Trace
 from ourouler.config import Depart
-from ourouler.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
+from ourouler.noyau.trace import Trace
 
 MOTIF_ABSENT = "module attendu par le contrat L2.3 absent (ourouler.boucle.candidates)"
 

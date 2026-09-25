@@ -63,9 +63,9 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from ourouler.activites.modele import est_sport_velo
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.activite import est_sport_velo
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.seance.modele import (
     PUISSANCE_ENDURANCE_PCT_DEFAUT,
     SEUIL_RECUPERATION_PCT_DEFAUT,

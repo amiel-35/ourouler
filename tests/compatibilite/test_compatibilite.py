@@ -61,7 +61,7 @@ from ourouler.api.proprietaire import Proprietaire
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.commande import lire_calibration
 
 MESSAGE = (

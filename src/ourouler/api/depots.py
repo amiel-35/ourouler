@@ -37,7 +37,7 @@ from ourouler.api.erreurs import ErreurProfilAbsent
 from ourouler.api.exploitation import construire, ecrire_toml, lire_toml
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.config import CACHE_DEFAUT, PREFIXE_ENV, Config, dossier_cache_depuis
-from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
 
 #: Le tiers 3 de Q35 (« trois tiers, et le vide n'existe pas », tranché le
 #: 17/09/2026) — **perso pur** : jamais hérité, jamais deviné. Ni le TOML du

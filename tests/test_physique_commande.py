@@ -18,12 +18,12 @@ from test_physique_calibration import VRAI, sortie_synthetique
 
 from ourouler.activites.cache import Cache
 from ourouler.boucle.gpx import ecrire_gpx
-from ourouler.boucle.trace import PointTrace, Trace
 from ourouler.cli import main
 from ourouler.config import Config, Velo, depuis_dict
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
-from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.physique import litterature
 from ourouler.physique.commande import (
     ALERTE_PNEU_CHANGE,

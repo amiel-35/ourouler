@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from email.message import EmailMessage
 from typing import Protocol
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 
 class ErreurCourriel(ErreurUtilisateur):

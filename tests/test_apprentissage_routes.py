@@ -25,7 +25,6 @@ import httpx
 import pytest
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.modele import Activite, Point
 from ourouler.apprentissage.routes import (
     MAILLE,
     PART_EXPOSITION_MIN,
@@ -47,10 +46,11 @@ from ourouler.apprentissage.routes import (
     statistiques_de_traces,
 )
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
-from ourouler.boucle.trace import PointTrace, Segment, Trace
 from ourouler.config import Config, Cycliste, Depart, ParametresBrouter
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.activite import Activite, Point
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 
 #: Mètres par degré de latitude (et de longitude à l'équateur).
 METRES_PAR_DEGRE = 111_194.9
@@ -383,7 +383,7 @@ def test_l_archive_meteo_porte_la_colonne_sans_perdre_la_mutualisation(tmp_path:
     import sqlite3
 
     from ourouler.connecteurs.openmeteo_archive import ClientArchive
-    from ourouler.proprietaire import PROPRIETAIRE_PARTAGE
+    from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
 
     chemin = tmp_path / "archive_meteo.sqlite"
     client = ClientArchive(

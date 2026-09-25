@@ -17,8 +17,8 @@ from datetime import date, timedelta
 import httpx
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.modele import est_sport_velo
-from ourouler.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.activite import est_sport_velo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
 
 BASE_URL = "https://intervals.icu"
 

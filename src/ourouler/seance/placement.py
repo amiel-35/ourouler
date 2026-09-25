@@ -78,8 +78,8 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
-from ourouler.activites.modele import moyenne_glissante
-from ourouler.boucle.trace import (
+from ourouler.noyau.activite import moyenne_glissante
+from ourouler.noyau.trace import (
     DENIVELE_PARCOURS,
     PointTrace,
     Trace,

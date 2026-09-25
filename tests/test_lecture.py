@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 from ourouler.activites.lecture import _sans_preambule_xml, lire, lire_fit, lire_gpx, lire_tcx
-from ourouler.activites.modele import Point, denivele_positif, puissance_normalisee
-from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.activite import Point, denivele_positif, puissance_normalisee
+from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
 
 TROIS_FORMATS = ["boucle.fit", "boucle.gpx", "boucle.tcx"]
 

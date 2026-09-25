@@ -20,7 +20,7 @@ from ourouler.boucle.tags_importes import (
     _plus_proche,
     greffer,
 )
-from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 
 #: ~111 m par 0,001° de latitude — sert à fabriquer des décalages en mètres
 #: sans dépendre du module testé.

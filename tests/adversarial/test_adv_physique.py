@@ -34,8 +34,8 @@ import fabriques3
 import pytest
 from outils import robuste
 
-from ourouler.boucle.trace import Trace
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import Trace
 
 MOTIF_ABSENT = "module attendu par le contrat L3.3 absent (ourouler.physique.modele)"
 

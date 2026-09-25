@@ -26,7 +26,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import date
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 #: Les quatre types d'étape. L'ordre est celui du contrat de sprint 4 §1.
 TYPES = ("echauffement", "bloc", "recuperation", "calme")

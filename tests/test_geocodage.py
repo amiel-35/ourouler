@@ -21,7 +21,7 @@ from ourouler.connecteurs.geocodage import (
     ambiguite,
     chercher_adresse,
 )
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.noyau.erreurs import ErreurConnecteur
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "geocodage"
 

@@ -21,7 +21,7 @@ from ourouler.boucle.antennes import (
     detecter,
     elaguer,
 )
-from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
+from ourouler.noyau.trace import PointTrace, Segment, Trace, distance_m
 
 DEGRE_M = 111_320.0
 

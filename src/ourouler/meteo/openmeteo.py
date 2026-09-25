@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 
-from ourouler.erreurs import ErreurConnecteur, ErreurHorsDomaine
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine
 
 BASE_URL_DEFAUT = "https://api.open-meteo.com"
 CHEMIN_PREVISION = "/v1/forecast"

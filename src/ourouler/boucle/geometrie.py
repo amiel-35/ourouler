@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import math
 
-from ourouler.boucle.trace import RAYON_TERRE_M, PointTrace, Trace, cap_deg, distance_m
+from ourouler.noyau.trace import RAYON_TERRE_M, PointTrace, Trace, cap_deg, distance_m
 
 #: Voir la docstring du module. Point de départ, pas une constante figée : un
 #: appelant qui a besoin d'un tracé plus léger (ou plus fidèle) passe la

@@ -70,13 +70,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ourouler.activites.lecture import lecteur_pour
-from ourouler.activites.modele import Activite, Point
 from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import cle_maille
-from ourouler.boucle.trace import Segment, Trace
 from ourouler.config import charger
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.activite import Activite, Point
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.trace import Segment, Trace
 from ourouler.physique.calibration import trace_depuis_activite
 from ourouler.seance.terrain import NoteBloc, evaluer_couloir
 

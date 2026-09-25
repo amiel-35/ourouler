@@ -11,7 +11,7 @@ import dataclasses
 import pytest
 
 from ourouler.config import depuis_dict
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.commande import chemin_calibration, ecrire_calibration
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.seance.ecran_ftp import ftp_pour_vitesse_compteur, info_compteur, rendu, valeurs_liees

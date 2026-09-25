@@ -101,10 +101,10 @@ from marqueurs_retrospectif import (  # noqa: E402
 from ourouler.activites.cache import Cache  # noqa: E402
 from ourouler.apprentissage.routes import points_de_passage  # noqa: E402
 from ourouler.boucle.candidates import appels_pour, generer  # noqa: E402
-from ourouler.boucle.trace import PointTrace, Trace, distance_m  # noqa: E402
 from ourouler.config import Config, Depart, charger  # noqa: E402
 from ourouler.connecteurs.brouter import ClientBrouter  # noqa: E402
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
+from ourouler.noyau.trace import PointTrace, Trace, distance_m  # noqa: E402
 
 #: Clé WayTags portant l'estimation de BRouter.
 CLE_CLASSE = "estimated_traffic_class"

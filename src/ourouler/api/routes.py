@@ -98,8 +98,8 @@ from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals, resoudre_athlete_id
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
-from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
 from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
@@ -941,7 +941,7 @@ def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
     ni une panne ni une faute, c'est un compte qui n'en est pas encore là.
     """
     from ourouler.connecteurs.intervals import ClientIntervals
-    from ourouler.erreurs import ErreurIntervalsAbsent
+    from ourouler.noyau.erreurs import ErreurIntervalsAbsent
 
     config = _config(ctx, qui)
     try:

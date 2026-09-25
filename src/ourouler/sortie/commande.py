@@ -91,21 +91,21 @@ from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.horaire import construire_horaire
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent, vent_par_position
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
-from ourouler.boucle.trace import Trace
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import (
-    ErreurConnecteur,
-    ErreurDistanceInatteignable,
-    ErreurIntervalsAbsent,
-    ErreurUtilisateur,
-)
 from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
+from ourouler.noyau.erreurs import (
+    ErreurConnecteur,
+    ErreurDistanceInatteignable,
+    ErreurIntervalsAbsent,
+    ErreurUtilisateur,
+)
+from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur

@@ -113,7 +113,7 @@ from datetime import UTC, datetime, timedelta
 import psycopg
 
 from ourouler.api.proprietaire import Proprietaire
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 #: Combien de temps une invitation reste valable. **Trois jours** (et non
 #: sept) : c'est la contrepartie du jeton en clair — décision du mainteneur,

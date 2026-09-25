@@ -39,7 +39,7 @@ import fabriques4
 import fabriques_l53 as f53
 import pytest
 
-from ourouler.boucle.trace import Trace
+from ourouler.noyau.trace import Trace
 
 # Ce que le vérificateur a le droit de lever quand il attrape quelque chose :
 # une assertion, ou l'exception que la mutation elle-même provoque.

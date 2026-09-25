@@ -34,7 +34,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from ourouler.erreurs import ErreurLecture
+from ourouler.noyau.erreurs import ErreurLecture
 from ourouler.seance.modele import SEUIL_RECUPERATION_PCT_DEFAUT, Etape, Seance
 
 Entree = Path | str | bytes | bytearray

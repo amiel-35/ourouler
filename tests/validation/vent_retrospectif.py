@@ -64,13 +64,13 @@ from datetime import date
 from pathlib import Path
 
 from ourouler.activites.lecture import lecteur_pour
-from ourouler.activites.modele import Activite
 from ourouler.config import Config, charger
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.connecteurs.openmeteo_archive import ClientArchive, HeureArchive
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.couronne import ecart_angulaire
 from ourouler.meteo.rapport import SECTEUR_VENT_DEG, VENT_DOS, VENT_FACE, vent_relatif
+from ourouler.noyau.activite import Activite
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.physique.calibration import (
     _cap,
     _decouper,

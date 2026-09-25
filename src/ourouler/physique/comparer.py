@@ -68,9 +68,9 @@ from datetime import date
 
 from ourouler.activites.cache import Cache
 from ourouler.apprentissage.routes import cle_maille
-from ourouler.boucle.trace import PointTrace, cap_deg, distance_m
 from ourouler.config import Config
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, cap_deg, distance_m
 from ourouler.physique import calibration as calib
 from ourouler.physique.modele import Parametres, puissance_requise
 

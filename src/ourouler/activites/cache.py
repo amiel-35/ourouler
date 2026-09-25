@@ -22,9 +22,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from ourouler.activites.lecture import EXTENSIONS, lecteur_pour
-from ourouler.activites.modele import Activite
-from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
-from ourouler.proprietaire import PROPRIETAIRE_LOCAL
+from ourouler.noyau.activite import Activite
+from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.proprietaire import PROPRIETAIRE_LOCAL
 
 NOM_INDEX = "index.sqlite"
 NOM_BRUT = "brut"

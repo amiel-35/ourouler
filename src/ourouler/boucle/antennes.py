@@ -84,7 +84,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ourouler.boucle.trace import RAYON_TERRE_M, PointTrace, Segment, Trace, distance_m
+from ourouler.noyau.trace import RAYON_TERRE_M, PointTrace, Segment, Trace, distance_m
 
 #: Espacement du sous-échantillonnage. En dessous, on paye la résolution de
 #: BRouter (quelques mètres entre points) sans gagner en justesse : la

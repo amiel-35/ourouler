@@ -49,7 +49,7 @@ from typing import Any
 
 import httpx
 
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.noyau.erreurs import ErreurConnecteur
 
 BASE_URL_BAN = "https://data.geopf.fr/geocodage"
 CHEMIN_RECHERCHE_BAN = "/search"

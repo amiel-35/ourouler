@@ -38,7 +38,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from ourouler.boucle.trace import Trace
+from ourouler.noyau.trace import Trace
 
 #: `highway` d'un **nœud** qui impose un arrêt ou un ralentissement. Ils
 #: arrivent par `Segment.node_tags`, alimenté par la colonne `NodeTags` des

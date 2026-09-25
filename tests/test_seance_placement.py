@@ -26,7 +26,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance import placement
 from ourouler.seance.modele import Etape, Seance

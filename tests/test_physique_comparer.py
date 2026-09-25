@@ -16,8 +16,8 @@ import pytest
 from test_physique_commande import _en_tcx, config_de_test
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.modele import Activite, Point
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.activite import Activite, Point
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.comparer import (
     CAP_MAX_DEG_SUGGERE,
     LONGUEUR_MIN_M_DEFAUT,

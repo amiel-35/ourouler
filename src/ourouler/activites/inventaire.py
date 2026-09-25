@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ourouler.activites.cache import Cache, EntreeCache
-from ourouler.activites.modele import est_sport_velo
 from ourouler.config import Config
+from ourouler.noyau.activite import est_sport_velo
 
 #: Rattachement rendu pour une sortie manifestement faite en intérieur.
 HOME_TRAINER = "home-trainer"

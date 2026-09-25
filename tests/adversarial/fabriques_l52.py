@@ -54,7 +54,7 @@ import fabriques
 import fabriques4
 import pytest
 
-from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.noyau.trace import PointTrace, Trace
 
 #: Un cycliste plausible, aucune donnée personnelle : 80 kg tout compris.
 #: Les mêmes chiffres que `tests/test_seance_placement.py`, pour que les

@@ -17,7 +17,7 @@ from pathlib import Path
 import outils
 import pytest
 
-from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L1.2 absent (ourouler.activites.lecture)"
 

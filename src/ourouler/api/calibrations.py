@@ -53,7 +53,7 @@ from ourouler.activites.cache import Cache
 from ourouler.api import taches_fond
 from ourouler.api.erreurs import ErreurApi, assainir
 from ourouler.config import Config, Velo
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.physique import calibration as calib
 from ourouler.physique import commande as physique
 from ourouler.physique import litterature
