@@ -305,9 +305,9 @@ def _vitesses(config: Config) -> tuple[dict, SourceVitesse]:
     """
     from ourouler.physique.commande import (  # import paresseux : il lit un fichier
         chemin_calibration,
-        lire_calibration,
         velo_demande,
     )
+    from ourouler.stockage.calibrations import lire_calibration
 
     velo = velo_demande(config, None)
     calibration = lire_calibration(chemin_calibration(config), velo.nom)

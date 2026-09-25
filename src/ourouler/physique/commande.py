@@ -35,7 +35,7 @@ from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.profil import Velo
 from ourouler.physique import calibration as calib
-from ourouler.physique import litterature
+from ourouler.physique import litterature, parametres_velo
 from ourouler.physique.modele import (
     FourchettePorteAPorte,
     Parametres,
@@ -47,27 +47,30 @@ from ourouler.physique.modele import (
     vent_au_cycliste,
 )
 
-#: Nom du fichier où la calibration est écrite, dans le dossier de cache.
-NOM_CALIBRATION = "calibration.json"
-
-#: Version du format de `calibration.json`. Un fichier plus récent est ignoré
-#: plutôt que relu de travers.
-VERSION_CALIBRATION = 1
+# Réexports temporaires (lot 7) : l'ancien emplacement de ce qui touche à
+# `calibration.json`, retirés avec les autres réexports au lot final.
+from ourouler.physique.parametres_velo import (
+    ALERTE_PNEU_CHANGE,
+    CDA_DEFAUT,
+    CRR_DEFAUT,
+    Calibration,
+    crr_du_velo,
+    fourchette_defaut,
+)
+from ourouler.stockage.calibrations import (
+    NOM_CALIBRATION,
+    VERSION_CALIBRATION,
+    contenu_calibration,
+    ecrire_calibration,
+    lire_calibration,
+    porte_a_porte_json,
+)
 
 #: Distance maximale d'un GPX déposé pour `ourouler analyser` : la même borne
 #: que `DemandeBoucle.distance_km` (`api/modeles.py`) — au-delà, ni une
 #: Flèche ni un BRM ne va plus loin, et un tracé plus long a de bonnes
 #: chances d'être une erreur de dépôt plutôt qu'un vrai parcours.
 DISTANCE_MAX_ANALYSE_M = 1_000_000.0
-
-#: CdA et Crr de dernier recours, pour un vélo dont l'usage n'est **pas** dans
-#: la table de `physique.litterature` (aucun aujourd'hui, `config.USAGES_VELO`
-#: ne portant que « route » et « clm » — mais le jour où un gravel s'y
-#: ajoutera, mieux vaut un défaut muet qu'un jeu emprunté à une autre
-#: catégorie). Ils ne sont **pas** une mesure : toute commande qui s'en sert le
-#: dit, et `boucle` refuse d'en faire un temps « modèle ».
-CDA_DEFAUT = 0.32
-CRR_DEFAUT = 0.005
 
 #: Borne haute d'une vitesse à plat saisie à la main, en km/h. Au-delà, ce
 #: n'est plus un cycliste lancé sur le plat sans vent, c'est une faute de
@@ -86,40 +89,13 @@ MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 NOM_CACHE = "archive_meteo.sqlite"
 
 
-# --- lecture et écriture de calibration.json ---------------------------------
-
-
-@dataclass(frozen=True)
-class Calibration:
-    """Ce que `calibration.json` garde d'un vélo."""
-
-    velo: str
-    parametres: Parametres
-    date: str = ""
-    n_sorties: int = 0
-    mae: float | None = None
-    #: La fourchette du porte à porte mesurée sur ce vélo (L9.1), ou `None`
-    #: pour une calibration d'avant le 25/09/2026 ou faite sur trop peu de
-    #: sorties roulées seul : l'appelant retombe alors sur la convention.
-    porte_a_porte: FourchettePorteAPorte | None = None
-    #: D'où vient le Crr : « pneu », « configuration » ou « ajuste » (cherché
-    #: avec le CdA, l'ancienne méthode). Vide pour une calibration ancienne.
-    crr_source: str = ""
-    #: Le pneu déclaré au moment de la calibration (`crr_source` « pneu »).
-    pneu: str | None = None
-    #: Le biais de validation (temps simulé sur réel − 1, signé) et le nombre
-    #: de sorties de validation — ce que l'écran montre à côté de la MAE (L9.4).
-    biais: float | None = None
-    n_validation: int = 0
-
-    @property
-    def resume(self) -> str:
-        mae = f", MAE {self.mae * 100:.1f} %" if self.mae is not None else ""
-        return (
-            f"CdA {self.parametres.cda_m2:.3f} m², Crr {self.parametres.crr:.5f}, "
-            f"{self.parametres.masse_totale_kg:.1f} kg (calibré le {self.date or '?'} "
-            f"sur {self.n_sorties} sortie(s){mae})"
-        )
+# --- calibration.json : la commande résout le chemin, le stockage lit ---------
+#
+# Depuis le lot 7, la lecture et l'écriture vivent dans `stockage.calibrations`
+# et le calcul (quels paramètres pour quel vélo) dans `physique.parametres_velo`,
+# qui reçoit la `Calibration` déjà lue. Les fonctions ci-dessous gardent leurs
+# signatures d'avant — une `Config` et un chemin — pour les appelants : elles
+# lisent et délèguent.
 
 
 def chemin_calibration(config: Config) -> Path:
@@ -135,221 +111,22 @@ def chemin_calibration(config: Config) -> Path:
     return config.cache.dossier / NOM_CALIBRATION
 
 
-def lire_calibration(chemin: Path, velo: str) -> Calibration | None:
-    """La calibration d'un vélo, ou `None` si le fichier manque, est illisible ou muet.
-
-    Jamais d'exception : une calibration absente n'empêche pas de rouler, elle
-    change seulement la mention affichée à côté du temps estimé.
-    """
-    try:
-        charge = json.loads(chemin.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    if not isinstance(charge, dict) or charge.get("version") != VERSION_CALIBRATION:
-        return None
-    velos = charge.get("velos")
-    if not isinstance(velos, dict):
-        return None
-    brut = velos.get(velo) or _sans_casse(velos, velo)
-    if not isinstance(brut, dict):
-        return None
-    try:
-        parametres = Parametres(
-            masse_totale_kg=float(brut["masse_totale_kg"]),
-            cda_m2=float(brut["cda_m2"]),
-            crr=float(brut["crr"]),
-            rendement=float(brut.get("rendement", Parametres.rendement)),
-            rho=float(brut.get("rho", Parametres.rho)),
-        )
-    except (KeyError, TypeError, ValueError):
-        return None
-    mae = brut.get("mae")
-    biais = brut.get("biais")
-    return Calibration(
-        velo=velo,
-        parametres=parametres,
-        date=str(brut.get("date") or ""),
-        n_sorties=int(brut.get("n_sorties") or 0),
-        mae=float(mae) if isinstance(mae, (int, float)) else None,
-        porte_a_porte=_lire_porte_a_porte(brut.get("porte_a_porte")),
-        crr_source=str(brut.get("crr_source") or ""),
-        pneu=str(brut["pneu"]) if brut.get("pneu") else None,
-        biais=float(biais) if isinstance(biais, (int, float)) else None,
-        n_validation=int(brut.get("n_validation") or 0),
-    )
-
-
-def _lire_porte_a_porte(brut: object) -> FourchettePorteAPorte | None:
-    """La fourchette écrite par `ourouler calibrer`, ou `None` si absente ou illisible.
-
-    Jamais d'exception, comme `lire_calibration` : une fourchette abîmée
-    retombe sur la convention, elle n'empêche pas de rouler.
-    """
-    if not isinstance(brut, dict):
-        return None
-    try:
-        return FourchettePorteAPorte(
-            bas=float(brut["bas"]),
-            mediane=float(brut["mediane"]),
-            haut=float(brut["haut"]),
-            provenance="mesure",
-            n=int(brut.get("n") or 0),
-        )
-    except (KeyError, TypeError, ValueError, ErreurUtilisateur):
-        return None
-
-
-def _sans_casse(velos: dict, nom: str) -> dict | None:
-    for cle, valeur in velos.items():
-        if str(cle).casefold() == nom.casefold():
-            return valeur
-    return None
-
-
-def ecrire_calibration(chemin: Path, velo: str, contenu: dict) -> None:
-    """Écrit (ou remplace) l'entrée d'un vélo **sans toucher aux autres.
-
-    Calibrer le BMC ne doit pas effacer le RCR : le fichier est relu, l'entrée
-    du vélo remplacée, et le tout réécrit.
-    """
-    charge: dict = {"version": VERSION_CALIBRATION, "velos": {}}
-    try:
-        ancien = json.loads(chemin.read_text(encoding="utf-8"))
-        if isinstance(ancien, dict) and isinstance(ancien.get("velos"), dict):
-            charge["velos"] = dict(ancien["velos"])
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        pass
-    charge["velos"][velo] = contenu
-    try:
-        chemin.parent.mkdir(parents=True, exist_ok=True)
-        # Écrit à côté puis renommé : depuis L9.4, une calibration s'écrit
-        # dans une tâche de fond pendant que d'autres requêtes relisent le
-        # fichier — elles doivent voir l'ancien ou le nouveau, jamais un
-        # fichier à moitié écrit.
-        provisoire = chemin.with_name(chemin.name + ".provisoire")
-        provisoire.write_text(
-            json.dumps(charge, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-        provisoire.replace(chemin)
-    except OSError as e:
-        raise ErreurUtilisateur(f"calibration : écriture impossible dans {chemin} ({e})") from e
-
-
 def parametres_du_velo(config: Config, velo: Velo, chemin: Path) -> tuple[Parametres, str]:
-    """(paramètres, provenance) : la calibration, sinon la configuration, sinon la littérature.
-
-    Provenance vaut « calibration », « configuration », « littérature » ou
-    « défaut ». Elle est affichée telle quelle : un CdA de littérature n'est
-    pas une mesure, et la commande ne doit jamais laisser croire le contraire
-    (règle absolue 5).
-
-    **L'ordre ne change pas** : une calibration mesurée prime toujours sur ce
-    que la table générique propose. La littérature ne sert qu'à celui qui n'a
-    encore rien mesuré — et c'est tout l'objet de l'arbitrage du 17/09/2026,
-    « la littérature plutôt que la précision ».
-
-    Comme avant, une valeur donnée en configuration est **gardée** même quand
-    l'autre manque : la provenance nomme alors d'où vient la moitié complétée.
-    Un tel couple mi-configuré, mi-générique n'est pas un des couples dont
-    `physique.litterature` a mesuré la dérive — ce qui s'y mesure est une
-    somme, pas un CdA isolé.
-    """
-    calibree = lire_calibration(chemin, velo.nom)
-    if calibree is not None:
-        return (calibree.parametres, "calibration")
-    masse = calib.masse_totale_kg(config, velo)
-    if velo.cda_m2 is not None and velo.crr is not None:
-        return (Parametres(masse, velo.cda_m2, velo.crr), "configuration")
-    # Le Crr du pneu déclaré (L9.1) passe avant celui du jeu de l'usage, mais
-    # jamais avant une valeur écrite à la main dans la configuration.
-    connu = crr_du_velo(velo)
-    crr = connu[0] if connu is not None else None
-    choix = litterature.pour_usage(velo.usage)
-    if choix is not None:
-        return (
-            Parametres(
-                masse,
-                velo.cda_m2 if velo.cda_m2 is not None else choix.jeu.cda_m2,
-                crr if crr is not None else choix.jeu.crr,
-            ),
-            "littérature",
-        )
-    return (
-        Parametres(
-            masse,
-            velo.cda_m2 if velo.cda_m2 is not None else CDA_DEFAUT,
-            crr if crr is not None else CRR_DEFAUT,
-        ),
-        "défaut",
+    """(paramètres, provenance) du vélo : voir `physique.parametres_velo.parametres_du_velo`."""
+    return parametres_velo.parametres_du_velo(
+        velo, calib.masse_totale_kg(config, velo), lire_calibration(chemin, velo.nom)
     )
-
-
-def crr_du_velo(velo: Velo) -> tuple[float, str] | None:
-    """(Crr, provenance) quand le Crr du vélo est **connu** sans calibration, sinon `None`.
-
-    Provenance « configuration » (un `crr` écrit à la main, qui prime) ou
-    « pneu » (la catégorie déclarée, `physique.litterature.PNEUS`). `None` :
-    ni l'un ni l'autre, et la calibration ajuste alors le Crr avec le CdA.
-    """
-    if velo.crr is not None:
-        return (velo.crr, "configuration")
-    pneu = litterature.pour_pneu(velo.pneu)
-    if pneu is not None:
-        return (pneu.crr, "pneu")
-    return None
-
-
-#: Ce que dit l'écran quand le pneu (ou le Crr écrit à la main) du vélo n'est
-#: plus celui avec lequel la calibration a été faite. La calibration est
-#: gardée — elle reste la meilleure mesure disponible —, mais le cycliste doit
-#: savoir qu'elle ne suit plus son vélo (décision du mainteneur, 25/09/2026).
-ALERTE_PNEU_CHANGE = "pneu changé depuis la calibration, relancez-la"
 
 
 def alerte_calibration(velo: Velo, chemin: Path) -> str | None:
-    """`ALERTE_PNEU_CHANGE` si le Crr connu du vélo ne suit plus sa calibration, sinon `None`.
-
-    Compare ce que le vélo déclare aujourd'hui (`crr_du_velo`) à ce que
-    `calibration.json` a noté (`crr_source`, `pneu`, `crr`). Une calibration
-    d'avant L9.1 (sans `crr_source`) sur un vélo sans pneu ni Crr déclaré ne
-    dit rien : rien n'a changé. Pas de calibration : `None`.
-    """
-    calibree = lire_calibration(chemin, velo.nom)
-    if calibree is None:
-        return None
-    connu = crr_du_velo(velo)
-    if connu is None:
-        change = calibree.crr_source in ("pneu", "configuration")
-    else:
-        crr, source = connu
-        if source == "pneu":
-            change = calibree.crr_source != "pneu" or calibree.pneu != velo.pneu
-        else:
-            change = calibree.crr_source != "configuration" or not math.isclose(
-                calibree.parametres.crr, crr
-            )
-    return ALERTE_PNEU_CHANGE if change else None
+    """L'alerte « pneu changé » : voir `physique.parametres_velo.alerte_calibration`."""
+    return parametres_velo.alerte_calibration(velo, lire_calibration(chemin, velo.nom))
 
 
 def fourchette_du_velo(velo: Velo, chemin: Path) -> FourchettePorteAPorte:
-    """La fourchette du porte à porte de ce vélo : mesurée si elle l'a été, sinon la convention.
+    """La fourchette du porte à porte : voir `physique.parametres_velo.fourchette_du_velo`."""
+    return parametres_velo.fourchette_du_velo(lire_calibration(chemin, velo.nom))
 
-    Mesurée : écrite par `ourouler calibrer` dans `calibration.json`
-    (provenance « mesure »). Sinon — vélo jamais calibré, calibration
-    antérieure au 25/09/2026, ou trop peu de sorties roulées seul —
-    `litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT` (provenance « defaut »),
-    une convention mesurée sur un seul cycliste, et dite comme telle.
-    """
-    calibree = lire_calibration(chemin, velo.nom)
-    if calibree is not None and calibree.porte_a_porte is not None:
-        return calibree.porte_a_porte
-    return fourchette_defaut()
-
-
-def fourchette_defaut() -> FourchettePorteAPorte:
-    """La convention de `physique.litterature`, en objet."""
-    bas, mediane, haut = litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT
-    return FourchettePorteAPorte(bas=bas, mediane=mediane, haut=haut, provenance="defaut", n=0)
 
 
 def puissance_voulue(args: argparse.Namespace, parametres: Parametres) -> float | None:
@@ -389,15 +166,9 @@ def puissance_voulue(args: argparse.Namespace, parametres: Parametres) -> float 
 
 
 def velo_demande(config: Config, nom: str | None) -> Velo:
-    """Le vélo nommé, ou le premier vélo d'usage route."""
-    if nom:
-        return config.velo(nom)
-    for velo in config.velos:
-        if velo.usage == "route":
-            return velo
-    if not config.velos:
-        raise ErreurUtilisateur("aucun vélo dans la configuration : ajouter une section [[velos]]")
-    return config.velos[0]
+    """Le vélo nommé, ou le premier vélo d'usage route (`parametres_velo.velo_demande`)."""
+    return parametres_velo.velo_demande(config, nom)
+
 
 
 # --- ourouler calibrer --------------------------------------------------------
@@ -475,7 +246,7 @@ class ResultatCalibration:
 
     def contenu(self) -> dict:
         """L'entrée de ce vélo dans `calibration.json`."""
-        return _contenu_json(self.rapport, self.crr_source, self.velo.pneu)
+        return contenu_calibration(self.rapport, self.crr_source, self.velo.pneu)
 
 
 #: Signature du rappel d'avancement de `calibrer_velo` : (étape, faits, total).
@@ -680,77 +451,6 @@ def _archive_du_depart(activite, client: ClientArchive, pannes: list[str]) -> li
         if motif not in pannes:
             pannes.append(motif)
         return []
-
-
-def _contenu_json(
-    rapport: calib.RapportCalibration, crr_source: str = "ajuste", pneu: str | None = None
-) -> dict:
-    a = rapport.ajustement
-    return {
-        "cda_m2": round(a.cda_m2, 5),
-        "crr": round(a.crr, 6),
-        # D'où vient le Crr (L9.1) : « pneu » ou « configuration » (fixé, seul
-        # le CdA a été cherché) ou « ajuste » (cherché avec le CdA).
-        "crr_source": crr_source,
-        "pneu": pneu if crr_source == "pneu" else None,
-        "masse_totale_kg": round(a.masse_totale_kg, 2),
-        "rendement": a.parametres().rendement,
-        "rho": round(a.rho_moyen, 4),
-        "date": datetime.now().date().isoformat(),
-        "n_sorties": rapport.n_apprentissage,
-        "n_echantillons": a.n_echantillons,
-        "cda_incertitude": _arrondi(a.incertitudes.cda, 5),
-        "crr_incertitude": _arrondi(a.incertitudes.crr, 6),
-        "rmse_w": round(a.rmse_w, 2),
-        "resistance": {
-            f"{vitesse:g}": {"force_n": round(force, 2), "puissance_w": round(puissance, 1)}
-            for vitesse, force, puissance in a.resistances
-        },
-        "mae": _arrondi(rapport.validation.mae, 4),
-        "mediane": _arrondi(rapport.validation.mediane, 4),
-        "biais": _arrondi(rapport.validation.biais, 4),
-        "n_validation": rapport.validation.n,
-        "n_solo": rapport.n_solo,
-        "part_groupe_max": rapport.part_groupe_max,
-        "bornes_atteintes": list(a.bornes_atteintes),
-        "porte_a_porte": _porte_a_porte_json(rapport.porte_a_porte),
-    }
-
-
-def _porte_a_porte_json(mesure: calib.MesurePorteAPorte) -> dict | None:
-    """La fourchette telle que `calibration.json` la garde, ou `None` si trop peu de sorties.
-
-    `None` n'est pas une panne : `fourchette_du_velo` retombera sur la
-    convention, et le dira.
-    """
-    centiles = mesure.centiles
-    if centiles is None:
-        return None
-    bas, mediane, haut = centiles
-    mouvement = mesure.centiles_mouvement
-    return {
-        "bas": round(bas, 4),
-        "mediane": round(mediane, 4),
-        "haut": round(haut, 4),
-        "centiles": list(calib.CENTILES_PORTE_A_PORTE),
-        "n": mesure.n,
-        "n_total": len(mesure.sorties),
-        # Mesurée sur les seules sorties de validation, jamais vues par
-        # l'ajustement du CdA (contre-lecture du 25/09).
-        "sorties": "validation",
-        "seuil_groupe": mesure.seuil_groupe,
-        # Ce que les centiles mesurent : temps écoulé réel (du premier au
-        # dernier point, arrêts compris) / temps simulé en mouvement.
-        "base": "temps_ecoule",
-        # Les mêmes centiles sur le temps **en mouvement** — l'erreur du
-        # modèle seul, arrêts exclus. Gardés pour comparer à la note du 23/09,
-        # qui les avait lus sous ce nom.
-        "ratio_mouvement": None if mouvement is None else [round(x, 4) for x in mouvement],
-    }
-
-
-def _arrondi(valeur: float | None, decimales: int) -> float | None:
-    return None if valeur is None else round(valeur, decimales)
 
 
 def rendre_texte_calibration(
@@ -977,7 +677,7 @@ def rendre_json_calibration(
                 for s in v.sorties
             ],
         },
-        "porte_a_porte": _porte_a_porte_json(rapport.porte_a_porte),
+        "porte_a_porte": porte_a_porte_json(rapport.porte_a_porte),
         "fichier": str(chemin),
     }
 
@@ -1701,6 +1401,9 @@ def _duree(secondes: float) -> str:
 __all__ = [
     "DISTANCE_MAX_ANALYSE_M",
     "NOM_CALIBRATION",
+    "VERSION_CALIBRATION",
+    "CDA_DEFAUT",
+    "CRR_DEFAUT",
     "ALERTE_PNEU_CHANGE",
     "Calibration",
     "alerte_calibration",

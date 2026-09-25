@@ -567,7 +567,8 @@ def _calibration_de_reference(config: Config, velo: str) -> Parametres | None:
     fabrique aucun chemin. Rien n'est inventé — un vélo sans calibration
     n'a pas de seconde conversion, et la sortie n'en parle pas.
     """
-    from ourouler.physique.commande import chemin_calibration, lire_calibration
+    from ourouler.physique.commande import chemin_calibration
+    from ourouler.stockage.calibrations import lire_calibration
 
     calibree = lire_calibration(chemin_calibration(config), velo)
     return None if calibree is None else calibree.parametres

@@ -58,6 +58,7 @@ from ourouler.physique import calibration as calib
 from ourouler.physique import commande as physique
 from ourouler.physique import litterature
 from ourouler.physique.modele import puissance_a_plat_w
+from ourouler.stockage import calibrations as stockage
 
 #: La vitesse à laquelle l'écran dit ce que coûte le vélo : « à 30 km/h sur
 #: le plat, sans vent, il vous faut … W ». C'est la grandeur que le contrat
@@ -186,7 +187,7 @@ def resume(config: Config, velo: Velo) -> dict | None:
     compensation (capteur unilatéral compris), pas des mesures du vélo.
     """
     chemin = physique.chemin_calibration(config)
-    lue = physique.lire_calibration(chemin, velo.nom)
+    lue = stockage.lire_calibration(chemin, velo.nom)
     if lue is None:
         return None
     fourchette = physique.fourchette_du_velo(velo, chemin)
@@ -277,7 +278,7 @@ def lancer(
             # Le compte a pu être supprimé pendant l'ajustement, qui ne
             # s'interrompt pas : on ne réécrit pas sa calibration après coup.
             job.verifier_annulation()
-            physique.ecrire_calibration(chemin, velo.nom, resultat.contenu())
+            stockage.ecrire_calibration(chemin, velo.nom, resultat.contenu())
         except (ErreurUtilisateur, ErreurConnecteur) as e:
             echec = taches_fond.EchecLisible(assainir(str(e), (), chemins))
             echec.code = "calibration_impossible"
@@ -303,7 +304,7 @@ def lancer(
 
 def fichier_du_compte(dossier_du_compte: Path) -> Path:
     """Où la calibration d'un compte hébergé s'écrit : dans son dossier, à côté de son profil."""
-    return dossier_du_compte / physique.NOM_CALIBRATION
+    return dossier_du_compte / stockage.NOM_CALIBRATION
 
 
 def _fr(valeur: float, decimales: int) -> str:
