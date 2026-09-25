@@ -230,6 +230,53 @@ documents en place, installation qui marche depuis un conteneur vierge,
 Coolify branché sur `prod`, aucune URL de prod ni nom d'invité dans les
 documents.
 
+## 7 bis. Versions et journal des changements
+
+Demandé par le mainteneur le 25/09/2026 : « faire un changelog et penser à une
+numérotation de version pour faire propre, et tenter si possible le
+rétro-changelog des versions passées ».
+
+**Numérotation — proposition, à valider (question 9).** SemVer en `0.x`, tant
+que l'API et les formats persistés peuvent encore bouger :
+- **mineure** (`0.9.0`) : un sprint livré en production ;
+- **correctif** (`0.9.1`) : un correctif en production entre deux sprints.
+  Par exemple, le 25/09, « brancher Intervals avec la seule clé » ;
+- **`1.0.0`** : le jour de l'ouverture publique, avec une API et des formats
+  stabilisés.
+
+**Une seule source de vérité** : la version de `pyproject.toml`, que
+`/systeme` et `ourouler --version` exposent et que l'écran affiche dans
+Réglages. La version de `front/package.json` suit, vérifiée par un test.
+Chaque déploiement en `prod` (P1) porte une étiquette git `vX.Y.Z` ; le
+retour arrière vise une étiquette, plus un commit.
+
+**`CHANGELOG.md`** au format *Keep a Changelog*, en français et du point de
+vue du cycliste : Ajouté, Modifié, Corrigé, Retiré, Sécurité.
+- Chaque PR ajoute sa ligne sous « Non publié », et la CI (0a) le vérifie :
+  une PR sans ligne de changelog est refusée, sauf étiquette
+  `sans-changelog`.
+- Au déploiement, « Non publié » devient la version.
+
+**Rétro-changelog.** Reconstruire les versions passées à partir de
+l'historique : un sprint vaut une version mineure.
+- `0.1.0` à `0.8.0` : les sprints 1 à 8, via les PR #1 à #24 ;
+- `0.9.0` : le sprint 9 (PR #26) ;
+- `0.9.1` à `0.9.x` : les correctifs et petites livraisons du 25/09
+  (#27, #28, #29…).
+
+Chaque entrée est rédigée depuis les titres et descriptions de PR et les
+clôtures de sprint de `plan_sprints_agents.md`, **sans données personnelles**
+(ni lieux ni chiffres du mainteneur). Les étiquettes rétroactives se posent
+sur les commits de merge.
+- **Qui fait quoi** : Haiku extrait la liste des PR et des commits de merge ;
+  Opus rédige les entrées.
+- **Lot** : il vient **avant l'ouverture**, juste après 0a, puisque la CI
+  vérifie ensuite le changelog. Il ne touche pas au code, donc il est sans
+  risque pour la prod.
+- **Si l'option (c) de l'historique est retenue** (nouveau dépôt depuis un
+  commit unique) : le rétro-changelog devient la seule trace publique du
+  passé, et les étiquettes restent dans le dépôt privé.
+
 ## 8. Questions au mainteneur
 
 1. Historique git : (a), (b) ou (c) ? C'est la décision qui conditionne tout
@@ -245,3 +292,6 @@ documents.
    la cadence ?
 7. Langue du projet public : tout en français, ou un README anglais ?
 8. L'URL de prod et la page du jour peuvent-elles apparaître dans le dépôt ?
+9. Numérotation : SemVer `0.x` (un sprint = une mineure, un correctif = un
+   patch, `1.0.0` à l'ouverture), et le rétro-changelog `0.1.0` → `0.9.x` :
+   d'accord ?
