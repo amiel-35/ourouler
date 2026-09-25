@@ -12,27 +12,47 @@
  * départ au retour ; le temps de mouvement vient juste à côté, et dit ce que
  * ça donnerait sans un seul feu ni un seul stop.
  *
- * Les deux ne sont pas de la même finesse, et `Explication` le dit : le temps
- * de mouvement est une simulation de *ce tracé-ci* — pente point par point et
- * vent prévu à chaque cap — tandis que le porte à porte applique la moyenne
- * compteur habituelle à la distance, donc à plat.
+ * **Depuis L9.1 (25/09/2026), le porte à porte est une fourchette** :
+ * « entre 4 h 23 et 4 h 38 ». Il part du temps sans arrêt de *ce tracé-ci*
+ * (côtes et vent compris) et y ajoute ce que les vraies sorties du cycliste
+ * prennent en plus — la moitié d'entre elles tombent dans la fourchette. Il
+ * ne s'appuie plus sur la moyenne compteur, qui était à plat (« je pige
+ * pas », mainteneur, 21/09, devant l'ancien dépliant : d'où les phrases
+ * courtes et sans jargon ci-dessous).
  *
  * `compteur === null` (ou absent) : la configuration ne porte aucun vélo — il
- * n'y a alors ni modèle ni facteur, et **on retombe sur le seul chiffre
+ * n'y a alors pas de fourchette, et **on retombe sur le seul chiffre
  * disponible**, nommé pour ce qu'il est, plutôt que d'afficher un tiret
  * (règle absolue 5 : l'ignorance ne se montre pas comme une valeur).
  */
 
-import { duree, dureeApprox, nombre } from "../api/formats";
+import { duree, dureeApprox, enPlus, entreDurees, nombre } from "../api/formats";
 import type { Candidate, Compteur } from "../api/types";
+
+/** Le porte à porte en toutes lettres : la fourchette, ou la seule médiane d'une
+ * réponse d'avant L9.1 (arrondie et précédée de « ≈ », comme alors). */
+export function textePorteAPorte(
+  ecouleS: number,
+  basS: number | null | undefined,
+  hautS: number | null | undefined,
+): string {
+  if (basS !== null && basS !== undefined && hautS !== null && hautS !== undefined) {
+    return entreDurees(basS, hautS);
+  }
+  return `≈ ${dureeApprox(ecouleS)}`;
+}
 
 /** Ce que porte la ligne de chiffres d'une carte : le majeur, puis le second. */
 export function DureesDeSortie({
   mouvementS,
   ecouleS,
+  basS,
+  hautS,
 }: {
   mouvementS: number | null | undefined;
   ecouleS: number | null | undefined;
+  basS?: number | null;
+  hautS?: number | null;
 }) {
   if (ecouleS === null || ecouleS === undefined) {
     // Sans porte à porte, le temps de mouvement reste le seul chiffre — mais
@@ -46,7 +66,7 @@ export function DureesDeSortie({
   return (
     <>
       <span>
-        <b>≈ {dureeApprox(ecouleS)}</b> porte à porte
+        <b>{textePorteAPorte(ecouleS, basS, hautS)}</b> porte à porte
       </span>
       {mouvementS ? (
         <span className="second-chiffre">{duree(mouvementS)} sans un seul arrêt</span>
@@ -65,36 +85,41 @@ export function TempsEcoule({
 }) {
   const tempsEcouleS = candidate.temps_ecoule_s;
   if (!compteur || tempsEcouleS === null || tempsEcouleS === undefined) return null;
+  const fourchette = compteur.porte_a_porte;
   return (
     <div className="temps-ecoule">
       <details>
         <summary>D'où viennent ces deux chiffres</summary>
         <p className="mention">
-          Le premier applique votre <b>moyenne compteur habituelle</b> —{" "}
-          {nombre(compteur.moyenne_compteur_kmh, 1)} km/h — à la distance : c'est la durée
-          que vous liriez sur une montre, du départ au retour, arrêts compris.
+          <b>Sans un seul arrêt</b> : le temps calculé sur ce parcours-ci, avec ses côtes et
+          le vent prévu.
         </p>
-        <p className="mention">
-          Le second est la simulation de <b>ce tracé-ci</b> — puissance d'endurance, pente
-          point par point et vent prévu à chaque cap — <b>sans aucun arrêt</b> : ni feu, ni
-          stop, ni bidon. C'est le seul des deux qui tienne compte du relief de cette
-          boucle ; le premier, lui, est une moyenne à plat.
-        </p>
-        {compteur.facteur_provenance === "suppose" ? (
-          <p className="mention">
-            Facteur {nombre(compteur.facteur_compteur, 3)},{" "}
-            <span>supposé — il n'a pas été mesuré sur vos sorties</span>.
-          </p>
-        ) : null}
-        {candidate.temps_ecoule_source === "plancher_arrets" ? (
-          <p className="mention">
-            Cette boucle est assez vallonnée pour que votre moyenne habituelle ne s'applique
-            plus : le porte à porte est alors le temps de mouvement, plus une part d'arrêts.
-          </p>
+        {fourchette ? (
+          fourchette.provenance === "mesure" ? (
+            <p className="mention">
+              <b>Porte à porte</b> : on y ajoute ce que vos vraies sorties prennent en plus
+              — feux, pauses, relances. Sur vos {nombre(fourchette.n)} sorties roulées seul,
+              la moitié ont duré de {enPlus(fourchette.bas)} à {enPlus(fourchette.haut)} de
+              plus : <span>mesuré sur vos sorties</span>.
+            </p>
+          ) : (
+            <p className="mention">
+              <b>Porte à porte</b> : on y ajoute de {enPlus(fourchette.bas)} à{" "}
+              {enPlus(fourchette.haut)} pour les feux, les pauses et les relances.{" "}
+              <span>Convention, pas encore mesurée sur vos sorties</span> — elle vient d'un
+              seul cycliste.
+            </p>
+          )
         ) : null}
         <p className="mention">
-          C'est cette même moyenne compteur qui a servi à choisir la distance de cette
-          sortie — elle se retrouve dans Réglages.
+          La distance, elle, a été choisie avec votre moyenne habituelle au compteur —{" "}
+          {nombre(compteur.moyenne_compteur_kmh, 1)} km/h
+          {compteur.facteur_provenance === "suppose" ? (
+            <>
+              , <span>supposé — il n'a pas été mesuré sur vos sorties</span>
+            </>
+          ) : null}
+          . Elle se règle dans Réglages.
         </p>
       </details>
     </div>

@@ -35,9 +35,13 @@ import math
 
 from ourouler.config import Config, Velo
 from ourouler.erreurs import ErreurUtilisateur
-from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
+from ourouler.physique.commande import (
+    chemin_calibration,
+    fourchette_du_velo,
+    parametres_du_velo,
+    velo_demande,
+)
 from ourouler.physique.modele import (
-    PART_ARRET_REFERENCE,
     Parametres,
     facteur_compteur_defaut,
     moyenne_compteur_kmh,
@@ -122,10 +126,13 @@ def info_compteur(
 ) -> dict | None:
     """Le bloc « compteur » que `boucle` et `sortie` publient à côté de `demande`.
 
-    Réconcilier le temps en mouvement d'une candidate (`temps_estime_s`) et
-    son temps écoulé porte à porte (`physique.modele.temps_ecoule`) demande
-    trois des valeurs de cet écran — `moyenne_compteur_kmh`, `facteur_compteur`,
-    `facteur_provenance` — plus le nom du vélo. Ce module en est la source
+    La moyenne compteur qui a dimensionné la distance demandée (« 5 h à
+    23 km/h » → 115 km) demande trois des valeurs de cet écran —
+    `moyenne_compteur_kmh`, `facteur_compteur`, `facteur_provenance` — plus le
+    nom du vélo. Depuis L9.1 (25/09/2026), le bloc porte aussi la fourchette
+    du porte à porte du vélo (`porte_a_porte`) : c'est elle, et non plus la
+    moyenne compteur, qui chronomètre une candidate
+    (`physique.modele.temps_ecoule`). Ce module en est la source
     unique (voir la docstring du module) : ceci n'est pas une deuxième lecture
     de la configuration, seulement un sous-ensemble mis en forme pour ce
     contrat-là, comme `cli._info_vitesse_compteur` l'est pour `ourouler config`.
@@ -142,8 +149,8 @@ def info_compteur(
     **Ce que ça ne change pas** : l'écran de FTP lui-même (décision 7 du cycle
     UX) continue de montrer les trois valeurs liées à la position **de la
     configuration** — c'est `valeurs_liees`/`rendu`, appelés sans ces
-    paramètres, qui le servent. Seule la moyenne compteur **utilisée pour
-    chronométrer un parcours** doit suivre la puissance demandée ; les deux
+    paramètres, qui le servent. Seule la moyenne compteur **publiée à côté d'un
+    parcours** doit suivre la puissance demandée ; les deux
     usages divergent donc ici plutôt que l'un ne se fasse passer pour l'autre.
 
     Sans aucun des deux (défaut, et le seul cas pour `sortie`, qui n'a pas
@@ -165,6 +172,7 @@ def info_compteur(
     liees = valeurs_liees(config, nom_velo, position=position)
     if liees is None:
         return None
+    fourchette = fourchette_du_velo(velo_demande(config, nom_velo), chemin_calibration(config))
     return {
         "velo": liees["velo"],
         # La puissance à laquelle `moyenne_compteur_kmh` a été calculée — sans
@@ -173,7 +181,17 @@ def info_compteur(
         "moyenne_compteur_kmh": liees["moyenne_compteur_kmh"],
         "facteur_compteur": liees["facteur_compteur"],
         "facteur_provenance": liees["facteur_provenance"],
-        "part_arret_plancher": PART_ARRET_REFERENCE,
+        # La fourchette qui chronomètre le porte à porte (L9.1) :
+        # `temps_estime_s × [bas, haut]`. « mesure » : centiles mesurés sur les
+        # sorties de ce vélo par `ourouler calibrer` ; « defaut » : la
+        # convention de `physique.litterature`, mesurée sur un seul cycliste.
+        "porte_a_porte": {
+            "bas": fourchette.bas,
+            "mediane": fourchette.mediane,
+            "haut": fourchette.haut,
+            "provenance": fourchette.provenance,
+            "n": fourchette.n,
+        },
     }
 
 

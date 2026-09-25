@@ -1565,6 +1565,77 @@ Rien de tout ça n'invalide la fourchette retenue — elle reste mesurée sur
 83 sorties réelles — mais un futur lot qui recoderait ce recalage devrait
 partir de ces quatre points plutôt que de repartir de zéro.
 
+**Codé le 25/09 (L9.1, branche `l9-1-modele`), corrigé après la
+contre-lecture Fable et la relecture Opus du même jour, et mesuré sur les
+vraies données du mainteneur** — copie de sa configuration avec `pneu`
+ajouté (RCR `course_quatre_saisons`, BMC `course_rapide`), calibration écrite
+dans une copie du cache, jamais dans `~/.cache/ourouler/calibration.json`.
+
+Ce qui tourne tout seul : un champ `pneu` par vélo donne le Crr
+(`physique.litterature.PNEUS`) ; un `crr` écrit à la main est respecté et
+figé de la même façon ; `ourouler calibrer` ne cherche alors que le CdA
+(`--crr-libre` garde l'ancien ajustement), en minimisant l'erreur de temps en
+mouvement des sorties d'apprentissage à moins de `part_groupe_max` (0,30,
+section `[calibration]`) de signal de groupe ; la fourchette du porte à porte
+est mesurée sur les **seules sorties de validation**, centiles 25/50/75 du
+temps écoulé sur le temps simulé, sorties à moins de 50 % de signal de
+groupe, au moins huit, et écrite dans `calibration.json` avec `crr_source`
+et son n ; sinon la convention, dite comme telle. Un pneu changé depuis la
+calibration le dit (« pneu changé depuis la calibration, relancez-la ») sans
+jeter la calibration. `temps_ecoule` rend `temps simulé × [bas, haut]`
+jusqu'au front.
+
+**Trois choix de méthode, mesurés.**
+
+1. *CdA cherché sur le temps, pas sur les tronçons* (RCR, Crr 0,006) :
+   moindres carrés des tronçons → CdA 0,299, validation 6,5 % ; erreur de
+   temps des sorties → 0,33, 4,6 %.
+2. *Roue partielle hors de l'apprentissage.* Les sorties d'apprentissage du
+   RCR portent 36 % de signal de groupe en moyenne, la validation 20 % : une
+   roue partielle sous le seuil de 50 %, qui fait paraître le vélo plus fin.
+   Seuil à 0,30 pour chercher le CdA (parts remesurées avec le CdA du temps,
+   pas celui des tronçons, qui cachait la roue : 45 sorties passaient au lieu
+   de 27) : validation 3,5 % au lieu de 4,6 %, biais −0,8 % au lieu de
+   −4,2 %.
+3. *Fourchette hors échantillon.* Mesurée sur toutes les sorties, elle
+   héritait de l'ajustement et sous-prédisait une sortie neuve (RCR médiane
+   1,054 en échantillon, 1,072 en validation).
+
+| | RCR | BMC |
+|---|---|---|
+| Crr (fixé, pneu) | 0,006 | 0,005 |
+| CdA cherché (compensation, pas une mesure) | 0,378 | 0,318 |
+| sorties d'apprentissage sous 30 % de groupe | 27 | 10 |
+| puissance à 25 / 30 / 35 km/h, plat sans vent | 121 / 188 / 277 W | 102 / 158 / 233 W |
+| validation, temps en mouvement | MAE 3,5 %, biais −0,8 % (n=25) | MAE 2,5 %, biais +1,2 % (n=9) |
+| fourchette écoulé / simulé, validation | **× 1,021 à × 1,099** (méd. 1,035, n=25) | 7 solo < 8 → **convention** (indicatif : 1,044-1,086-1,137) |
+
+**Le recoupement avec `ourouler comparer` est refermé** : ces paramètres
+prédisent 29,8 W d'écart à 30 km/h entre les deux vélos (19 W à 25 km/h),
+dans les 27-42 W mesurés sans modèle et proches des 25-30 W de mémoire du
+mainteneur — là où le seuil de 50 % n'en donnait que 20 W. Les CdA, eux, ne
+se comparent ni à la littérature ni entre eux : le RCR porte un capteur
+unilatéral (× 2), le BMC un double, et ± 4 % de puissance déplacent le CdA
+de 0,306 à 0,356. D'où le critère d'acceptation révisé du contrat
+(puissance par watt affiché, biais ≈ 0, MAE).
+
+**Écart à la note, expliqué** : la note lisait un temps **en mouvement**
+(`temps_reel_s` de la validation est `temps_mouvement_s`), pas le porte à
+porte ; avec ses paramètres, les centiles en mouvement redonnent exactement
+les siens. La fourchette codée est sur le temps **écoulé**.
+
+Convention par défaut : **× 1,02 à × 1,14, médiane 1,06**, l'enveloppe des
+fourchettes de validation des deux vélos (`physique.litterature`). Sur une
+boucle réelle de 120 km (RCR, 168 W, `ourouler boucle`, 26/09 9 h) :
+« entre 4 h 40 et 5 h 01 » pour 4 h 34 sans arrêt ; sur 80 km au BMC, la
+convention le dit.
+
+Restent ouverts : le chrono n'a pas assez de sorties de validation roulées
+seul pour sa propre fourchette ; le seuil de 50 % qui écarte une sortie
+entière n'a pas bougé (seul l'apprentissage du CdA passe à 30 %) ; la
+réconciliation « facteur compteur » ne sert plus qu'à dimensionner la
+distance.
+
 ## Historique des sprints
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût

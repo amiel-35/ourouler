@@ -215,6 +215,141 @@ def pour_usage(usage: str) -> Choix | None:
     return PAR_USAGE.get(str(usage).strip().casefold())
 
 
+# --- le Crr par catégorie de pneu (L9.1, 25/09/2026) ---------------------------
+#
+# **Ce que valent les CdA et Crr calibrés avec ce Crr : des paramètres de
+# compensation, pas des mesures physiques.** Ils absorbent tout ce que le
+# modèle ne sait pas — l'étalonnage du capteur d'abord. Le vélo de route du
+# mainteneur porte un capteur **unilatéral** (jambe gauche × 2), le chrono un
+# capteur double : un écart de quelques pour cent sur les watts se retrouve
+# tel quel dans le CdA (± 4 % de puissance déplacent le CdA de 0,306 à 0,356,
+# mesuré le 25/09). Deux CdA calibrés sur deux capteurs différents **ne se
+# comparent donc pas** ; ce qui se compare, c'est le temps prédit, et la
+# puissance qu'il faut pour tenir une vitesse donnée *par watt affiché* sur
+# ce capteur-là.
+#
+# La note du 23/09 (`docs/plan_sprints_agents.md`, « le porte à porte ignore
+# le relief ») a montré que la calibration libre ne sépare pas CdA et Crr sur
+# les données du mainteneur : laissée à elle-même, elle rend un Crr de 0,0106
+# au vélo en pneus quatre saisons et de 0,0084 au chrono en tubeless, puis
+# dérive dès qu'on la pousse. **Fixer le Crr d'après le pneu et ne chercher que
+# le CdA** fait apparaître un vrai minimum sur les deux vélos. Cette table est
+# ce Crr fixé.
+#
+# **Ce que ces valeurs sont.** Des ordres de grandeur sur **bitume réel**, pas
+# des mesures de banc. Les bancs à rouleau publiés (Bicycle Rolling Resistance,
+# consulté pour cette table le 25/09/2026) mesurent un pneu de course rapide à
+# ~0,003 et un pneu d'entraînement renforcé à ~0,005 sur un tambour lisse, à
+# haute pression ; la route française, rugueuse, et les pressions basses
+# (moins de 5 bar, hookless ou confort) les relèvent d'un tiers à la moitié —
+# c'est la convention retenue ici, **non mesurée sur le cycliste**. Les deux
+# premières lignes sont exactement celles avec lesquelles la note du 23/09 a
+# trouvé ses minimums (0,005 et 0,006) ; les trois autres suivent la fourchette
+# déjà citée en tête de ce module (« pneu bon marché ou VTT 0,008 à 0,012 »).
+#
+# Les clés sont celles que `config.PNEUS_VELO` accepte : un test garde les deux
+# listes identiques.
+
+#: Date de la table des pneus : à relire si elle vieillit.
+DATE_PNEUS = "2026-09-25"
+
+
+@dataclass(frozen=True)
+class Pneu:
+    """Une catégorie de pneu et le Crr sur bitume réel qu'on lui prête."""
+
+    cle: str
+    libelle: str
+    crr: float
+    source: str
+
+
+PNEUS: dict[str, Pneu] = {
+    p.cle: p
+    for p in (
+        Pneu(
+            cle="course_rapide",
+            libelle="course rapide (tubeless ou chambre latex, type GP5000 TR)",
+            crr=0.005,
+            source=(
+                "banc ~0,003 relevé pour route réelle et pression basse ; valeur de la "
+                "note du 23/09/2026 pour le chrono du mainteneur"
+            ),
+        ),
+        Pneu(
+            cle="course_quatre_saisons",
+            libelle="course quatre saisons ou renforcé (type GP5000 All Season)",
+            crr=0.006,
+            source=(
+                "banc ~0,004 relevé pour route réelle et pression basse ; valeur de la "
+                "note du 23/09/2026 pour le vélo de route du mainteneur"
+            ),
+        ),
+        Pneu(
+            cle="entrainement",
+            libelle="entraînement courant (renforcé anti-crevaison)",
+            crr=0.008,
+            source="banc ~0,005-0,006 relevé pour route réelle ; bas de la fourchette 0,008-0,012",
+        ),
+        Pneu(
+            cle="gravel",
+            libelle="gravel, roulé sur route",
+            crr=0.009,
+            source="pneu à crampons fins sur bitume ; ordre de grandeur de vulgarisation",
+        ),
+        Pneu(
+            cle="vtt",
+            libelle="VTT, roulé sur route",
+            crr=0.012,
+            source="haut de la fourchette 0,008-0,012 citée en tête de module",
+        ),
+    )
+}
+
+
+def pour_pneu(cle: str | None) -> Pneu | None:
+    """La catégorie de pneu nommée, ou `None` (pneu non renseigné ou inconnu)."""
+    if not cle:
+        return None
+    return PNEUS.get(str(cle).strip().casefold())
+
+
+# --- la fourchette du porte à porte, pour un vélo jamais calibré ---------------
+#
+# Le porte à porte d'une boucle est `temps_estime_s × [bas, haut]` : le temps
+# en mouvement que le modèle simule sur ce tracé-ci (relief et vent réels),
+# multiplié par ce que les vraies sorties du cycliste coûtent en plus — arrêts,
+# relances, et l'erreur propre du modèle. Un vélo calibré porte **sa**
+# fourchette dans `calibration.json` (centiles 25-75 mesurés sur ses sorties
+# de validation roulées seul, jamais vues par l'ajustement). Un vélo qui ne
+# l'est pas — ou dont la validation compte moins de huit sorties roulées
+# seul — reçoit celle-ci.
+#
+# **C'est une convention, mesurée sur un seul cycliste.** Le 25/09/2026,
+# après la contre-lecture (fourchette sur la **validation** seule, CdA cherché
+# sur les sorties à moins de 30 % de signal de groupe), `ourouler calibrer` a
+# mesuré, sur le temps écoulé réel (du premier au dernier point, arrêts
+# compris) rapporté au temps simulé, sorties de validation à moins de 50 % de
+# signal de groupe :
+#
+# | vélo du mainteneur             | n  | 25ᵉ   | médiane | 75ᵉ   |
+# |--------------------------------|----|-------|---------|-------|
+# | route (Crr 0,006, CdA 0,378)   | 25 | 1,021 | 1,035   | 1,099 |
+# | chrono (Crr 0,005, CdA 0,318)  | 7  | 1,044 | 1,086   | 1,137 |
+#
+# Le chrono n'a que sept sorties de validation roulées seul : trop peu pour
+# sa propre fourchette (il reçoit donc celle-ci), assez pour en borner une.
+# La fourchette par défaut est l'**enveloppe** des deux : le plus bas des deux
+# 25ᵉ centiles, le plus haut des deux 75ᵉ, arrondis au centième vers
+# l'extérieur, et la moyenne des deux médianes. Plus large que chacune, à
+# dessein : elle couvre deux vélos et deux usages sans savoir lequel elle
+# sert. La version précédente (× 1,01 à × 1,11) était mesurée sur toutes les
+# sorties, apprentissage compris, et sous-prédisait une sortie neuve.
+
+#: (bas, médiane, haut) du ratio temps écoulé réel / temps simulé.
+FOURCHETTE_PORTE_A_PORTE_DEFAUT = (1.02, 1.06, 1.14)
+
+
 # --- une FTP plausible, pour qui n'en a aucune (T5 de l'accueil) --------------
 #
 # Décision du 19/09/2026 (`docs/ux/parcours_accueil.md` §5.3, [[Q65]] encore
@@ -264,6 +399,9 @@ def ftp_defaut(masse_kg: float) -> float:
 
 __all__ = [
     "CLM_AMATEUR",
+    "DATE_PNEUS",
+    "FOURCHETTE_PORTE_A_PORTE_DEFAUT",
+    "PNEUS",
     "FTP_W_MAXI",
     "FTP_W_MINI",
     "FTP_W_PAR_KG_DEFAUT",
@@ -273,6 +411,8 @@ __all__ = [
     "VITESSE_REFERENCE_KMH",
     "Choix",
     "Jeu",
+    "Pneu",
     "ftp_defaut",
+    "pour_pneu",
     "pour_usage",
 ]

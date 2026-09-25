@@ -64,6 +64,7 @@ from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, NOMS_DIRECTIONS_16, azimut_de
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
+from ourouler.physique.modele import FourchettePorteAPorte, PorteAPorte, temps_ecoule
 
 #: Poids de la pluie dans le tri du tableau : un millimètre cumulé coûte
 #: autant que deux kilomètres équivalents de score (contrat §6).
@@ -157,6 +158,9 @@ class ModeleTemps:
     #: `physique.litterature` quand la provenance en vient — sans rouvrir la
     #: configuration depuis un rendu.
     usage: str = ""
+    #: `physique.commande.ALERTE_PNEU_CHANGE` quand la calibration ne suit
+    #: plus le pneu déclaré du vélo (elle reste utilisée), sinon vide.
+    alerte: str = ""
 
     @property
     def calibre(self) -> bool:
@@ -531,6 +535,7 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
     donc pas de colonne « temps » plutôt qu'un calcul sur une valeur inventée.
     """
     from ourouler.physique.commande import (
+        alerte_calibration,
         chemin_calibration,
         parametres_du_velo,
         puissance_voulue,
@@ -556,6 +561,7 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
         velo=velo.nom,
         provenance=provenance,
         usage=velo.usage,
+        alerte=alerte_calibration(velo, chemin_calibration(config)) or "",
     )
 
 
@@ -1008,8 +1014,22 @@ def rendre_texte(
         )
     lignes += lignes_elargissement(evaluations, demande.distance_km)
     if chemin is not None:
-        lignes.append(f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}, écrite dans {chemin}")
+        lignes.append(
+            f"{MARQUE_RETENUE} retenue : n° {evaluations[0].numero}"
+            f"{_porte_a_porte_retenue(evaluations[0], config, compteur_info)}, "
+            f"écrite dans {chemin}"
+        )
     return "\n".join(lignes)
+
+
+def _porte_a_porte_retenue(
+    evaluation: Evaluation, config: Config, compteur_info: dict | None
+) -> str:
+    """« , entre 4 h 23 et 4 h 38 porte à porte » — ou rien sans fourchette."""
+    mouvement_s = _temps_mouvement_s(evaluation, config)
+    if mouvement_s is None or compteur_info is None:
+        return ""
+    return f", {texte_entre(porte_a_porte(mouvement_s, compteur_info))} porte à porte"
 
 
 def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
@@ -1278,6 +1298,8 @@ def _entete(
             f"Temps estimé par le modèle calibré du {modele.velo} à {modele.puissance_w:.0f} W "
             "— temps en mouvement, arrêts non modélisés"
         )
+        if modele.alerte:
+            lignes.append(f"⚠ Calibration du {modele.velo} : {modele.alerte}.")
     elif modele is not None:
         # Le modèle tourne, mais sur des CdA et Crr de catégorie : il le dit
         # ici comme le facteur compteur dit « supposé » (règle absolue 5).
@@ -1421,12 +1443,12 @@ def _temps_mouvement_s(evaluation: Evaluation, config: Config) -> float | None:
 def _temps_ecoule_s(
     evaluation: Evaluation, config: Config, compteur_info: dict | None
 ) -> float | None:
-    """Le temps écoulé porte à porte, en secondes — **sans les pauses déclarées**.
+    """Le temps écoulé porte à porte **médian**, en secondes — sans les pauses déclarées.
 
-    Celui du compteur (feux, micro-arrêts) quand un vélo permet de le
-    réconcilier ; à défaut, le temps en mouvement tel quel. `None` si même
+    La médiane de la fourchette du vélo (`porte_a_porte`) quand un vélo en
+    donne une ; à défaut, le temps en mouvement tel quel. `None` si même
     celui-ci manque. Les pauses s'ajoutent par-dessus, ailleurs
-    (`_duree_pauses_s` + ce résultat) : ce facteur-ci ne les connaît pas, et
+    (`_duree_pauses_s` + ce résultat) : la fourchette ne les connaît pas, et
     ne doit pas les connaître — les compter ici *et* les ajouter ensuite les
     compterait deux fois.
     """
@@ -1435,12 +1457,24 @@ def _temps_ecoule_s(
         return None
     if compteur_info is None:
         return mouvement_s
-    from ourouler.physique.modele import temps_ecoule
+    return porte_a_porte(mouvement_s, compteur_info).mediane_s
 
-    ecoule_s, _source = temps_ecoule(
-        evaluation.trace.distance_m / 1000.0, mouvement_s, compteur_info["moyenne_compteur_kmh"]
+
+def porte_a_porte(mouvement_s: float, compteur_info: dict) -> PorteAPorte:
+    """`temps_ecoule(mouvement_s, fourchette du vélo)` — la fourchette lue dans le bloc compteur.
+
+    **Publique** : `sortie.commande` chronomètre ses propositions de la même
+    façon, sans réécrire la lecture du bloc.
+    """
+    brut = compteur_info["porte_a_porte"]
+    fourchette = FourchettePorteAPorte(
+        bas=brut["bas"],
+        mediane=brut["mediane"],
+        haut=brut["haut"],
+        provenance=brut["provenance"],
+        n=brut.get("n", 0),
     )
-    return ecoule_s
+    return temps_ecoule(mouvement_s, fourchette)
 
 
 def _duree_pauses_s(pauses: Sequence[Pause]) -> float:
@@ -1495,8 +1529,8 @@ def _ligne_pauses(
 
 
 def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = None) -> str:
-    """« 2:14 » seul, ou « 2:36 / 2:14 » — écoulé porte à porte / mouvement —
-    dès qu'un vélo permet de réconcilier les deux (voir `ligne_temps_ecoule`).
+    """« 2:14 » seul, ou « 2:20-2:24 / 2:14 » — porte à porte en fourchette /
+    mouvement — dès qu'un vélo donne une fourchette (voir `ligne_temps_ecoule`).
 
     **L'écoulé vient en premier** (18/09/2026). Le mainteneur l'a tranché
     pour l'écran, et la CLI ne dit pas l'inverse : « je demande 5 h, je veux
@@ -1509,13 +1543,36 @@ def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = 
         return ABSENT
     if compteur_info is None:
         return _duree_texte(mouvement_s)
-    ecoule_s = _temps_ecoule_s(evaluation, config, compteur_info)
-    assert ecoule_s is not None  # mouvement_s est déjà connu, donc l'écoulé aussi
-    return f"{_duree_texte(ecoule_s)} / {_duree_texte(mouvement_s)}"
+    pp = porte_a_porte(mouvement_s, compteur_info)
+    return f"{_duree_texte(pp.bas_s)}-{_duree_texte(pp.haut_s)} / {_duree_texte(mouvement_s)}"
+
+
+def texte_entre(pp: PorteAPorte) -> str:
+    """« entre 4 h 23 et 4 h 38 » — la fourchette du porte à porte, en toutes lettres.
+
+    Publique : `sortie.commande` dit la sienne avec les mêmes mots.
+    """
+    return f"entre {_heures_minutes(pp.bas_s)} et {_heures_minutes(pp.haut_s)}"
+
+
+def _heures_minutes(secondes: float) -> str:
+    minutes = round(secondes / 60)
+    return f"{minutes // 60} h {minutes % 60:02d}"
+
+
+def provenance_fourchette(compteur_info: dict) -> str:
+    """D'où vient la fourchette du vélo, en une incise : mesurée sur ses sorties ou convention.
+
+    Règle absolue 5 : la convention ne se présente jamais comme une mesure.
+    """
+    brut = compteur_info["porte_a_porte"]
+    if brut["provenance"] == "mesure":
+        return f"mesurée sur {brut['n']} sorties du {compteur_info['velo']} roulées seul"
+    return "convention, mesurée sur un seul cycliste — pas encore sur vos sorties"
 
 
 def ligne_temps_ecoule(compteur_info: dict) -> str:
-    """La légende sous le tableau : ce que veut dire « 2:36 / 2:14 » en colonne « temps ».
+    """La légende sous le tableau : ce que veut dire « 2:20-2:31 / 2:14 » en colonne « temps ».
 
     Choix d'affichage (18/09/2026) : une cellule combinée plutôt qu'une
     colonne de plus — le tableau en a déjà treize, une quatorzième pour un
@@ -1527,16 +1584,21 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     raison que `lignes_elargissement` juste au-dessus.
 
     Ce temps écoulé ne connaît pas les pauses déclarées (`--pause`) : elles
-    couvrent un arrêt volontaire (repas, nuit), le facteur compteur couvre
-    déjà les feux et les micro-arrêts. Une pause déclarée s'ajoute
-    **par-dessus** ce chiffre, voir `_ligne_pauses` — les compter ici
-    reviendrait à les compter deux fois.
+    couvrent un arrêt volontaire (repas, nuit), la fourchette couvre déjà les
+    feux et les micro-arrêts. Une pause déclarée s'ajoute **par-dessus** ce
+    chiffre, voir `_ligne_pauses` — les compter ici reviendrait à les compter
+    deux fois.
+
+    Depuis L9.1 (25/09/2026) le porte à porte est le temps sans arrêt de ce
+    tracé-ci multiplié par la fourchette du vélo : la moyenne compteur ne le
+    chronomètre plus, elle ne sert qu'à choisir la distance.
     """
+    brut = compteur_info["porte_a_porte"]
     return (
-        "Temps affiché : écoulé porte à porte (arrêts compris) / sans un seul arrêt — "
-        f"l'écoulé réconcilie avec la moyenne compteur du {compteur_info['velo']}, "
-        f"{compteur_info['moyenne_compteur_kmh']:g} km/h (facteur "
-        f"{compteur_info['facteur_compteur']:.3f}, {compteur_info['facteur_provenance']})."
+        "Temps affiché : porte à porte, arrêts compris / sans un seul arrêt — le porte "
+        f"à porte est le temps sans arrêt × {_fr(brut['bas'], 2)} à × {_fr(brut['haut'], 2)} "
+        f"({provenance_fourchette(compteur_info)}) : la moitié des sorties tombe dans "
+        "cette fourchette."
     )
 
 
@@ -1622,6 +1684,7 @@ def rendre_json(
             # comme un temps mesuré (règle absolue 5).
             "mesure": modele.calibre,
             "litterature": _litterature_json(modele),
+            "alerte": modele.alerte or None,
         },
         "candidates": [
             _candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations
@@ -1648,14 +1711,14 @@ def _candidate_json(
         if evaluation.temps_s is not None
         else distance_km / config.boucle.vitesse_moyenne_kmh * 3600
     )
-    temps_ecoule_s = temps_ecoule_source = None
+    temps_ecoule_s = temps_ecoule_bas_s = temps_ecoule_haut_s = temps_ecoule_source = None
     ecoule_base_s = mouvement_s  # non arrondi : sert à `heure_arrivee`, voir plus bas
     if compteur_info is not None:
-        from ourouler.physique.modele import temps_ecoule
-
-        ecoule, source = temps_ecoule(distance_km, mouvement_s, compteur_info["moyenne_compteur_kmh"])
-        temps_ecoule_s, temps_ecoule_source = round(ecoule), source
-        ecoule_base_s = ecoule
+        pp = porte_a_porte(mouvement_s, compteur_info)
+        temps_ecoule_s = round(pp.mediane_s)
+        temps_ecoule_bas_s, temps_ecoule_haut_s = round(pp.bas_s), round(pp.haut_s)
+        temps_ecoule_source = pp.provenance
+        ecoule_base_s = pp.mediane_s
     # L'heure de la pendule : temps écoulé porte à porte (ou, à défaut, le
     # temps en mouvement) **plus** les pauses déclarées — jamais confondues
     # avec le facteur compteur, qui couvre déjà feux et micro-arrêts (voir
@@ -1676,9 +1739,14 @@ def _candidate_json(
         "temps_source": "modele" if evaluation.temps_s is not None else "vitesse_moyenne",
         # Le porte à porte, arrêts compris (`physique.modele.temps_ecoule`) —
         # jamais à la place de `temps_estime_s`, à côté (décision du
-        # mainteneur, 18/09/2026). `null` avec `compteur` : sans vélo, pas de
-        # moyenne compteur à laquelle réconcilier une distance.
+        # mainteneur, 18/09/2026). Depuis L9.1, une fourchette :
+        # `temps_ecoule_s` en est la médiane (gardé pour compatibilité),
+        # `_bas_s`/`_haut_s` les bornes (centiles 25 et 75), et la source dit
+        # « mesure » (sorties du vélo) ou « defaut » (convention). `null` avec
+        # `compteur` : sans vélo, pas de fourchette.
         "temps_ecoule_s": temps_ecoule_s,
+        "temps_ecoule_bas_s": temps_ecoule_bas_s,
+        "temps_ecoule_haut_s": temps_ecoule_haut_s,
         "temps_ecoule_source": temps_ecoule_source,
         # L'heure d'arrivée annoncée, pauses comprises — voir le commentaire
         # au-dessus du calcul de `heure_arrivee`.

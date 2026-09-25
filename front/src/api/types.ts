@@ -106,7 +106,19 @@ export interface VeloProfil {
   crr: number | null;
   facteur_compteur: number | null;
   capteur_puissance?: string | null;
+  /** La catégorie de pneu (L9.1, 25/09/2026) : elle donne le Crr du vélo par
+   * la littérature, et la calibration ne cherche plus alors que le CdA.
+   * `null` ou absent : pas de pneu déclaré. */
+  pneu?: CategoriePneu | null;
 }
+
+/** Les catégories de pneu que le serveur accepte (`config.PNEUS_VELO`). */
+export type CategoriePneu =
+  | "course_rapide"
+  | "course_quatre_saisons"
+  | "entrainement"
+  | "gravel"
+  | "vtt";
 
 export interface Profil {
   depart: PointDepart;
@@ -427,19 +439,22 @@ export interface Candidate {
   /** D'où vient `temps_estime_s`. Absent d'une réponse d'avant le 18/09/2026. */
   temps_source?: "modele" | "vitesse_moyenne";
   /**
-   * Porte à porte, arrêts compris — NOUVEAU (18/09/2026). `null` quand
-   * `compteur` (sur la réponse) l'est aussi : sans vélo enregistré, il n'y a
-   * ni modèle ni facteur pour le calculer. Absent d'une réponse plus
-   * ancienne, qui ne le rendait pas du tout.
+   * Porte à porte, arrêts compris (18/09/2026) — depuis L9.1 (25/09/2026),
+   * la **médiane** d'une fourchette : `temps_estime_s × médiane`. `null`
+   * quand `compteur` (sur la réponse) l'est aussi : sans vélo enregistré, il
+   * n'y a pas de fourchette. Absent d'une réponse plus ancienne.
    */
   temps_ecoule_s?: number | null;
+  /** Les bornes de la fourchette : la moitié des sorties du cycliste tombe
+   * entre les deux (centiles 25 et 75). Absentes d'une réponse d'avant L9.1. */
+  temps_ecoule_bas_s?: number | null;
+  temps_ecoule_haut_s?: number | null;
   /**
-   * `"compteur"` : la moyenne compteur habituelle appliquée à la distance.
-   * `"plancher_arrets"` : la boucle est trop vallonnée pour que cette
-   * moyenne s'applique encore, et le chiffre redevient le temps de
-   * mouvement plus une part d'arrêts.
+   * `"mesure"` : fourchette mesurée sur les sorties de ce vélo (`ourouler
+   * calibrer`). `"defaut"` : convention, mesurée sur un seul cycliste — à
+   * dire à l'écran (règle absolue 5).
    */
-  temps_ecoule_source?: "compteur" | "plancher_arrets" | null;
+  temps_ecoule_source?: "mesure" | "defaut" | null;
   couts: {
     km_trafic: number;
     km_calme: number;
@@ -633,7 +648,18 @@ export interface Compteur {
    * (décision 8 du cycle UX, règle absolue 5) chaque fois que la valeur
    * s'affiche. */
   facteur_provenance: "mesure" | "suppose";
-  part_arret_plancher: number;
+  /** La fourchette qui chronomètre le porte à porte (L9.1, 25/09/2026) :
+   * `temps_estime_s × [bas, haut]`, et d'où elle vient. `n` : le nombre de
+   * sorties roulées seul sur lesquelles elle a été mesurée (0 en convention). */
+  porte_a_porte: FourchettePorteAPorte;
+}
+
+export interface FourchettePorteAPorte {
+  bas: number;
+  mediane: number;
+  haut: number;
+  provenance: "mesure" | "defaut";
+  n: number;
 }
 
 export interface Sortie {

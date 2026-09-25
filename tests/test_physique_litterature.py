@@ -324,3 +324,41 @@ def test_ftp_defaut_ne_sort_jamais_des_bornes_de_config():
 
     assert ftp_defaut(1.0) == FTP_W_MINI
     assert ftp_defaut(1000.0) == FTP_W_MAXI
+
+
+# --- les pneus et la fourchette par défaut (L9.1) -----------------------------
+
+
+def test_chaque_pneu_porte_un_crr_sourcé_et_plausible():
+    from ourouler.physique.calibration import CRR_MAX, CRR_MIN
+
+    for cle, pneu in litterature.PNEUS.items():
+        assert pneu.cle == cle
+        assert pneu.libelle and pneu.source
+        assert CRR_MIN <= pneu.crr <= CRR_MAX
+
+
+def test_les_pneus_sont_ranges_du_plus_rapide_au_plus_lent():
+    """Ce que dit la table, et que le mainteneur a vérifié sur ses deux vélos :
+    le tubeless roule mieux que le quatre saisons (note du 23/09)."""
+    crr = [p.crr for p in litterature.PNEUS.values()]
+    assert crr == sorted(crr)
+    assert litterature.PNEUS["course_rapide"].crr == 0.005
+    assert litterature.PNEUS["course_quatre_saisons"].crr == 0.006
+
+
+def test_pour_pneu():
+    assert litterature.pour_pneu("VTT").crr == 0.012
+    assert litterature.pour_pneu(None) is None
+    assert litterature.pour_pneu("") is None
+    assert litterature.pour_pneu("pneu inventé") is None
+
+
+def test_la_fourchette_par_defaut_enveloppe_les_deux_velos_mesures():
+    """Les centiles mesurés le 25/09 sur les deux vélos du mainteneur (docstring
+    du module) : la convention les contient tous les deux."""
+    bas, mediane, haut = litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT
+    mesures = [(1.021, 1.035, 1.099), (1.044, 1.086, 1.137)]
+    assert bas <= min(m[0] for m in mesures)
+    assert haut >= max(m[2] for m in mesures)
+    assert bas < mediane < haut

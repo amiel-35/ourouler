@@ -600,6 +600,12 @@ def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
     p.add_argument(
         "--max", type=int, metavar="N", help="ne garder que les N sorties les plus récentes"
     )
+    p.add_argument(
+        "--crr-libre",
+        action="store_true",
+        help="chercher le Crr avec le CdA, même quand le pneu ou la configuration le donnent "
+        "(l'ancienne méthode, qui sépare mal les deux)",
+    )
     p.set_defaults(fonction=_commande_calibrer)
 
 

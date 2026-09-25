@@ -1532,3 +1532,20 @@ def test_un_profil_commence_mais_incomplet_nomme_ce_qui_manque():
         SocleVide().config({"cycliste": {"masse_kg": 80, "ftp_w": 250}})
     assert "incomplet" in str(faute.value)
     assert "PATCH /api/v1/profil" in str(faute.value)
+
+
+def test_le_pneu_d_un_velo_s_enregistre_et_se_relit(tmp_path: Path):
+    """L9.1 : la fiche vélo porte une catégorie de pneu, validée comme la
+    configuration TOML — une inconnue est refusée et nommée, jamais tue."""
+    client = serveur(tmp_path)
+    velos = [{"nom": "Route", "usage": "route", "masse_kg": 9.0, "pneu": "course_quatre_saisons"}]
+    reponse = client.patch("/api/v1/profil", json={"velos": velos})
+    assert reponse.status_code == 200
+    relu = client.get("/api/v1/profil").json()["donnees"]["velos"][0]
+    assert relu["pneu"] == "course_quatre_saisons"
+
+    refus = client.patch(
+        "/api/v1/profil", json={"velos": [{"nom": "Route", "pneu": "pneu inventé"}]}
+    )
+    assert refus.status_code >= 400
+    assert "pneu" in refus.text

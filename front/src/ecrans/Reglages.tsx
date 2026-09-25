@@ -19,7 +19,7 @@
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Profil, Zones } from "../api/types";
-import { jourEnLettres, nombre, pourcentage, usageDeVelo } from "../api/formats";
+import { jourEnLettres, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -407,6 +407,8 @@ function ListeVelos({
       // « zéro », et c'est le défaut serveur qui s'applique dans ce cas
       // (voir `defauts` ci-dessous).
       facteurCompteur: v.facteur_compteur === null ? "" : String(v.facteur_compteur),
+      // Vide : aucun pneu déclaré, le Crr reste celui de l'usage (L9.1).
+      pneu: v.pneu ?? "",
     })),
   );
 
@@ -473,6 +475,22 @@ function ListeVelos({
             </select>
           </div>
           <div className="champ">
+            <label htmlFor={`velo-pneu-${index}`}>Pneus</label>
+            <select
+              className="saisie"
+              id={`velo-pneu-${index}`}
+              value={velo.pneu}
+              onChange={(e) => modifier(index, { pneu: e.target.value })}
+            >
+              <option value="">Je ne sais pas</option>
+              {PNEUS.map((p) => (
+                <option key={p.cle} value={p.cle}>
+                  {p.libelle}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="champ">
             <label htmlFor={`velo-poids-${index}`}>Poids du vélo</label>
             <div className="saisie-unite">
               <input
@@ -535,8 +553,8 @@ function ListeVelos({
       <p className="mention">
         Le facteur compteur est le rapport entre la vitesse à plat que prédit le modèle et
         votre moyenne compteur réelle, arrêts compris. C'est lui qui convertit « je veux rouler
-        5 h » en kilomètres à chercher, et qui donne la durée porte à porte des boucles
-        proposées.
+        5 h » en kilomètres à chercher. La durée porte à porte des boucles, elle, part du
+        temps calculé sur chaque parcours.
       </p>
       <button
         type="button"
@@ -551,7 +569,14 @@ function ListeVelos({
         onClick={() =>
           setVelos([
             ...velos,
-            { origine: {}, nom: "", usage: "route", masse_kg: "", facteurCompteur: "" },
+            {
+              origine: {},
+              nom: "",
+              usage: "route",
+              masse_kg: "",
+              facteurCompteur: "",
+              pneu: "",
+            },
           ])
         }
       >
@@ -571,6 +596,7 @@ function ListeVelos({
                 velo.facteurCompteur.trim() === ""
                   ? null
                   : Number(velo.facteurCompteur.replace(",", ".")),
+              pneu: velo.pneu === "" ? null : velo.pneu,
             })),
           )
         }
@@ -579,7 +605,9 @@ function ListeVelos({
       </button>
       <p className="mention" style={{ marginTop: "var(--espace-champ)" }}>
         Le type fixe votre position sur le vélo, donc la prise au vent : un chrono avance plus
-        vite à puissance égale, et souffre moins de face.
+        vite à puissance égale, et souffre moins de face. Les pneus disent combien le vélo
+        roule facilement : un pneu de course tubeless coûte moins d'effort qu'un pneu
+        d'entraînement renforcé.
       </p>
     </div>
   );

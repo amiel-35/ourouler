@@ -36,11 +36,13 @@ paramètres dérive (CdA et Crr mal séparés : RCR 0,222/0,0106, BMC
   fourchette par défaut **qui se dit comme telle**.
 - Le front affiche « entre 4 h 23 et 4 h 38 », avec sa provenance.
 
-*Acceptation, sur les vraies données du mainteneur* : CdA dans les
-fourchettes de littérature (route 0,27-0,36 ; CLM 0,20-0,26) ; erreur de
-validation non dégradée par rapport au récapitulatif (RCR ≤ 5 %, BMC ≤ 3 %) ;
-fourchettes à ±0,02 de celles de la note (RCR × 1,015-1,072, BMC ×
-1,057-1,095) ou l'écart expliqué.
+*Acceptation, sur les vraies données du mainteneur* (révisée le 25/09
+après la contre-lecture : un CdA calibré est un paramètre de compensation —
+capteur unilatéral × 2 sur le RCR — et ne se compare ni à la littérature ni
+d'un capteur à l'autre) : puissance à 30 km/h **par watt affiché** stable
+et cohérente avec `ourouler comparer` ; biais de validation ≈ 0 ; MAE de
+validation ≤ 5 % RCR, ≤ 3 % BMC ; fourchette mesurée sur les seules
+sorties de validation, avec son n, ou la convention dite comme telle.
 
 ### L9.2 — importer son historique (L8.1)
 

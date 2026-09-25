@@ -128,6 +128,8 @@ export function Boucles({ reponse, surRetour }: Props) {
               <DureesDeSortie
                 mouvementS={candidate.temps_estime_s}
                 ecouleS={candidate.temps_ecoule_s}
+                basS={candidate.temps_ecoule_bas_s}
+                hautS={candidate.temps_ecoule_haut_s}
               />
               {candidate.meteo?.pluie_cumulee_mm !== null &&
               candidate.meteo?.pluie_cumulee_mm !== undefined ? (

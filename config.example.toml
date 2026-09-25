@@ -36,9 +36,15 @@ masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 # les valeurs de littérature de sa catégorie (`usage`), et chaque écran dit
 # d'où elles viennent et de combien elles ont dérivé sur les sorties de
 # validation du mainteneur. Les renseigner n'a de sens que pour qui sait ce
-# qu'il fait ; `ourouler calibrer` les mesure et prime sur tout le reste.
+# qu'il fait ; `ourouler calibrer` mesure le CdA (et le Crr si ni crr ni pneu ne le
+# donnent), et sa calibration prime sur tout le reste.
 # cda_m2 = 0.32        # traînée aérodynamique, mesurée par `ourouler calibrer`
-# crr = 0.005          # roulement, estimé par `ourouler calibrer`
+# crr = 0.005          # roulement : écrit ici, `ourouler calibrer` le garde fixe (comme
+                       # celui d'un pneu) et ne cherche que le CdA ; préférer `pneu`
+# pneu = "course_quatre_saisons"  # catégorie de pneu : course_rapide | course_quatre_saisons
+                                 # | entrainement | gravel | vtt. Donne le Crr (littérature,
+                                 # sur bitume réel) : `ourouler calibrer` le garde fixe et ne
+                                 # cherche plus que le CdA. Absent : Crr de la catégorie `usage`.
 intervals_gear = ""    # nom du vélo dans Intervals.icu (Settings → Gear)
 intervals_gear_id = "" # identifiant Intervals du vélo (ex. b1234567), plus fiable que le nom
 capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex. "MARQUE 1234"
@@ -91,6 +97,8 @@ tolerance_distance = 0.10
 mots_groupe = ["club", "groupe", "peloton", "sortie club"]  # sorties écartées de la calibration
 part_validation = 0.25                        # part des sorties gardées pour tester le modèle
 vitesse_min_kmh = 8
+part_groupe_max = 0.30                        # au-delà de cette part « en roue », une sortie ne
+                                              # sert pas à chercher le CdA (roue partielle)
 
 # [[evitements]]                               # zones à éviter, transmises au moteur de tracé
 # nom = "carrefour dangereux"

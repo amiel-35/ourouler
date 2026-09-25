@@ -49,6 +49,12 @@ CHEMIN_CONFIG_DEFAUT = Path("~/.config/ourouler/config.toml")
 HISTORIQUE_DEPUIS_DEFAUT = date(2023, 12, 1)
 USAGES_VELO = ("route", "clm")
 
+#: Les catégories de pneu qu'un vélo peut déclarer (`Velo.pneu`). La table des
+#: Crr correspondants vit dans `physique.litterature.PNEUS` ; un test garde les
+#: deux listes identiques. Déclarée ici, comme `USAGES_VELO`, pour que la
+#: configuration se valide sans importer le modèle physique.
+PNEUS_VELO = ("course_rapide", "course_quatre_saisons", "entrainement", "gravel", "vtt")
+
 #: Préfixe commun des variables d'environnement lues par `charger()` (contrat
 #: de l'hébergé minimal, docs/heberge_minimal_contrat.md § « Les secrets »).
 PREFIXE_ENV = "OUROULER_"
@@ -145,7 +151,10 @@ class Velo:
     usage: str = "route"
     masse_kg: float | None = None
     cda_m2: float | None = None
-    crr: float | None = None  # coefficient de roulement, estimé par la calibration (S3)
+    #: Coefficient de roulement. Écrit à la main, il est **respecté et figé**
+    #: par `ourouler calibrer`, comme celui d'un pneu (L9.1) : seul le CdA est
+    #: alors cherché.
+    crr: float | None = None
     intervals_gear: str = ""
     intervals_gear_id: str = ""
     capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
@@ -170,6 +179,13 @@ class Velo:
     #: une supposition, pas une mesure, et l'écran doit le dire. La mesure se
     #: fait avec `tests/validation/facteur_compteur_retrospectif.py`.
     facteur_compteur: float | None = None
+
+    #: La catégorie de pneu (une des `PNEUS_VELO`), ou `None`. Elle donne le
+    #: Crr du vélo par la littérature (`physique.litterature.PNEUS`) : la
+    #: calibration le garde alors fixe et ne cherche que le CdA (L9.1). Sans
+    #: pneu, rien ne change — le Crr vient du jeu de l'usage, et la
+    #: calibration ajuste les deux.
+    pneu: str | None = None
 
 
 @dataclass(frozen=True)
@@ -382,6 +398,14 @@ class ParametresCalibration:
     mots_groupe: tuple[str, ...] = ("club", "groupe", "peloton", "sortie club")
     part_validation: float = 0.25  # part des sorties (les plus récentes) réservée au test
     vitesse_min_kmh: float = 8.0
+    #: Part de signal de groupe au-delà de laquelle une sortie d'apprentissage
+    #: ne sert pas à chercher le CdA sur le temps (L9.1). 0,30 et non 0,50 :
+    #: mesuré le 25/09/2026, les sorties d'apprentissage du vélo de route du
+    #: mainteneur portent 36 % de signal de groupe en moyenne (20 % en
+    #: validation) — une roue partielle que le seuil de 50 % laisse passer, et
+    #: qui fait paraître le vélo plus fin qu'il n'est. À 0,30 : erreur de
+    #: validation 3,5 % au lieu de 4,6 %, biais −0,8 % au lieu de −4,2 %.
+    part_groupe_max: float = 0.30
 
 
 @dataclass(frozen=True)
@@ -677,6 +701,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             ),
             vitesse_min_kmh=_flottant(
                 calibration.get("vitesse_min_kmh", 8.0), "vitesse_min_kmh", "calibration", mini=1, maxi=30
+            ),
+            part_groupe_max=_flottant(
+                calibration.get("part_groupe_max", 0.30),
+                "part_groupe_max",
+                "calibration",
+                mini=0.05,
+                maxi=0.5,
             ),
         ),
         seance=ParametresSeance(
@@ -1121,4 +1152,15 @@ def _velo(v: Any, i: int) -> Velo:
             if v.get("facteur_compteur") is not None
             else None
         ),
+        pneu=_pneu(v.get("pneu"), section),
     )
+
+
+def _pneu(brut: Any, section: str) -> str | None:
+    """La catégorie de pneu, ou `None` si absente ou vide. Refusée si inconnue."""
+    if brut is None or (isinstance(brut, str) and not brut.strip()):
+        return None
+    pneu = str(brut).strip().casefold()
+    if pneu not in PNEUS_VELO:
+        raise ErreurConfig(f"{section} pneu = {brut!r}, attendu un de {PNEUS_VELO}")
+    return pneu
