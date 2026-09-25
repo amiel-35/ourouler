@@ -142,6 +142,41 @@ def message_invitation(
     return message
 
 
+def message_reinitialisation(
+    *,
+    destinataire: str,
+    lien: str,
+    expire_le: datetime,
+    parametres: ParametresBrevo,
+) -> EmailMessage:
+    """Compose le courriel de réinitialisation (`ourouler reinitialiser`, lot L9.6).
+
+    Même forme que `message_invitation` — texte simple, français, court, composé avec
+    `EmailMessage` et non par concaténation (même garde-fou contre un en-tête hostile) —
+    mais un texte différent : ce compte existe déjà, ce lien pose un nouveau mot de
+    passe, il ne crée rien.
+    """
+    message = EmailMessage()
+    message["Subject"] = "Nouveau mot de passe pour où rouler"
+    message["From"] = f"{parametres.nom_expediteur} <{parametres.expediteur}>"
+    try:
+        message["To"] = destinataire
+    except ValueError as e:
+        raise ErreurCourriel(f"adresse destinataire refusée par la composition du message : {e}") from e
+
+    echeance = expire_le.astimezone(UTC).strftime("%d/%m/%Y")
+    message.set_content(
+        "Bonjour,\n\n"
+        "Une réinitialisation de mot de passe a été demandée pour votre compte où rouler.\n\n"
+        f"Pour choisir un nouveau mot de passe, ouvrez ce lien avant le {echeance} :\n"
+        f"{lien}\n\n"
+        "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot "
+        "de passe actuel reste valable tant que vous n'ouvrez pas ce lien.\n\n"
+        "— où rouler\n"
+    )
+    return message
+
+
 class ClientSMTP(Protocol):
     """Ce qu'un client SMTP doit savoir faire, pour être injecté ici ou doublé en test.
 
@@ -196,5 +231,6 @@ __all__ = [
     "ParametresBrevo",
     "envoyer_invitation",
     "message_invitation",
+    "message_reinitialisation",
     "parametres_brevo_depuis_dict",
 ]

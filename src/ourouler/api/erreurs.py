@@ -34,7 +34,7 @@ en plus des bretelles, et elle est testée.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import FrozenInstanceError, dataclass, field
 
 from ourouler.erreurs import (
     ErreurConfig,
@@ -92,6 +92,11 @@ CODES_PANNE: dict[str, str] = {
         "adresse sans compte actif ou mot de passe faux (401) — les deux rendent "
         "la même réponse, dans le même temps, pour ne renseigner personne"
     ),
+    "mot_de_passe_actuel_refuse": (
+        "POST /moi/mot-de-passe : l'ancien mot de passe fourni ne correspond pas à "
+        "celui du compte (401) — la personne est déjà authentifiée par sa session, "
+        "ce n'est donc pas un oracle d'adresse comme identifiants_refuses"
+    ),
     "comptes_indisponibles": (
         "ce déploiement ne gère pas de comptes — pas de base de données de "
         "comptes configurée (mode personnel, ou hébergé sans base)"
@@ -99,6 +104,41 @@ CODES_PANNE: dict[str, str] = {
     "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
     "methode_refusee": "la route existe, pas avec cette méthode",
     "calcul_en_cours": "un calcul occupe déjà le serveur",
+    "import_deja_en_cours": (
+        "un import d'historique tourne déjà sur ce serveur (un seul à la fois, "
+        "quel que soit le propriétaire) — réessayer une fois celui-ci terminé"
+    ),
+    # L9.4 — la calibration depuis l'écran. Un calcul lourd occupe le
+    # serveur (import *ou* calibration, un seul à la fois) ; et quatre
+    # préconditions, chacune avec ce qu'il faut faire pour la lever.
+    "tache_lourde_en_cours": (
+        "un import d'historique ou une calibration tourne déjà sur ce serveur (un "
+        "seul à la fois, quel que soit le propriétaire) — réessayer une fois terminé"
+    ),
+    # `DELETE /moi` peut attendre jusqu'à 120 s qu'une tâche de fond de ce
+    # compte rende la main (`taches_fond.annuler_et_attendre`). Une seconde
+    # suppression du même compte pendant cette attente refuse tout de suite —
+    # elle n'attend pas à son tour, ce qui occuperait un second fil du
+    # serveur pour rien : la première a déjà tout pris en charge.
+    "suppression_deja_en_cours": (
+        "une suppression de ce compte est déjà en cours — inutile de la relancer, "
+        "attendre que la première termine (jusqu'à deux minutes)"
+    ),
+    "velo_absent": "aucun vélo dans le profil — une calibration porte sur un vélo",
+    "ftp_absente": (
+        "FTP non renseignée — la calibration s'en sert pour écarter les efforts "
+        "qui ne décrivent pas le vélo (sprints, relances)"
+    ),
+    "sorties_insuffisantes": (
+        "pas assez de sorties exploitables pour ce vélo (extérieures, 20 km et plus, "
+        "avec puissance, rattachées à ce vélo) — `details` dit combien il en faut "
+        "et combien il y en a"
+    ),
+    "pneu_absent": (
+        "aucun pneu déclaré pour ce vélo — le choisir, ou relancer avec "
+        "`sans_pneu` : la résistance au roulement typique de l'usage est alors "
+        "gardée fixe, et le résultat le dit"
+    ),
     "brouter_indisponible": "BRouter injoignable ou en erreur",
     "meteo_indisponible": (
         "Open-Meteo injoignable ou en erreur — le parcours reste servi sans "
@@ -121,6 +161,10 @@ CODES_PANNE: dict[str, str] = {
     "profil_absent": (
         "cette application n'a aucun profil — elle a été construite sans "
         "configuration, et rien n'a encore été écrit par PATCH /profil"
+    ),
+    "quota_atteint": (
+        "quota journalier de générations coûteuses atteint pour ce compte "
+        "(429) — le mode personnel n'est pas concerné (L9.3)"
     ),
     "erreur_interne": "un bug — le détail reste au journal, jamais dans la réponse",
 }
@@ -196,6 +240,67 @@ def classer_avertissement(message: str) -> str:
     return "autre"
 
 
+#: **Le libellé humain d'un champ du profil hors bornes** (ajouté le
+#: 25/09/2026, constaté en vrai sur l'assistant : un poids fautif rendait
+#: « [cycliste] masse_kg = 7075.0 hors de [20, 300] » affiché tel quel à
+#: l'écran). Clé : `(famille, champ)`, où `famille` vaut le nom de la
+#: section pour tout ce qui n'est pas un vélo, et toujours `"velo"` pour
+#: `velos[i]` — la personne ne sait pas qu'un vélo est un élément de liste
+#: dans le TOML, elle sait qu'elle regarde une fiche vélo. `%s` reçoit les
+#: bornes et l'unité, formatées par `_bornes_lisibles`.
+LIBELLES_CHAMP_PROFIL: dict[tuple[str, str], tuple[str, str]] = {
+    # (famille, champ) -> (ce que la phrase nomme, unité pour l'affichage)
+    ("cycliste", "masse_kg"): ("Votre poids", "kg"),
+    ("cycliste", "ftp_w"): ("Votre FTP", "W"),
+    ("velo", "masse_kg"): ("Le poids du vélo", "kg"),
+    ("velo", "facteur_compteur"): ("Le facteur compteur du vélo", ""),
+    ("velo", "cda_m2"): ("Le CdA du vélo", "m²"),
+    ("velo", "crr"): ("Le Crr du vélo", ""),
+}
+
+
+def _nombre_lisible(x: float) -> str:
+    """`300.0` -> `"300"`, `0.4` -> `"0,4"` — jamais `300.0` ni un point décimal."""
+    texte = f"{x:g}"
+    return texte.replace(".", ",")
+
+
+def message_profil_invalide(exception: ErreurConfig) -> tuple[str, dict]:
+    """Une `ErreurConfig` de profil, traduite pour l'écran qui la reçoit.
+
+    Rend `(message, details)` : le message est la phrase française à
+    afficher telle quelle (« Votre poids doit être entre 20 et 300 kg »), et
+    `details` porte `champ` (et `section` pour un vélo) — sur le modèle déjà
+    en place pour `aucune_boucle`/`distance_inatteignable`
+    (`front/src/composants/Echec.tsx`, `mesuresDistance`) — pour qu'un écran
+    qui affiche un champ par champ sache lequel est fautif sans reparser une
+    phrase.
+
+    Ne couvre que les bornes numériques (`champ`/`mini`/`maxi` posés par
+    `config._flottant`) : tout le reste (section manquante, type fautif,
+    pneu inconnu…) n'a pas encore de traduction et garde le message
+    technique du cœur — mieux qu'une fausse lisibilité inventée sans
+    justification.
+    """
+    champ, mini, maxi, section = exception.champ, exception.mini, exception.maxi, exception.section
+    details: dict = {"champ": champ} if champ else {}
+    # `section` porte l'index (« velos[0] ») dès qu'il y en a un : un profil
+    # à plusieurs vélos a besoin de savoir lequel est fautif, pas seulement
+    # que c'est « un » vélo.
+    if section and "[" in section:
+        details["section"] = section
+    if champ is None or mini is None or maxi is None:
+        return str(exception), details
+    famille = "velo" if section and section.startswith("velos[") else (section or "")
+    libelle = LIBELLES_CHAMP_PROFIL.get((famille, champ))
+    if libelle is None:
+        return str(exception), details
+    nom, unite = libelle
+    bornes = f"{_nombre_lisible(mini)} et {_nombre_lisible(maxi)}"
+    suffixe = f" {unite}" if unite else ""
+    return f"{nom} doit être entre {bornes}{suffixe}.", details
+
+
 def table_des_codes() -> str:
     """`CODES_PANNE` en Markdown, pour la description que publie l'application."""
     lignes = ["| code | quand |", "|---|---|"]
@@ -249,6 +354,39 @@ class ErreurApi(Exception):
                 "details": self.details,
             }
         }
+
+
+def _erreur_api_setattr(self: ErreurApi, nom: str, valeur: object) -> None:
+    """Le `__setattr__` d'`ErreurApi`, posé **après** le décorateur (voir plus bas).
+
+    Trouvé en relecture le 25/09/2026, lot L9.6, sur `POST /moi/mot-de-passe` — la
+    première route du dépôt à lever `ErreurApi` depuis l'intérieur d'un
+    `@contextmanager` (`api/routes.py:_comptes_du_deploiement`) : `contextlib`
+    réattribue `exc.__traceback__` en repropageant une exception depuis un
+    générateur (`throw()`), et le `__setattr__` qu'un `@dataclass(frozen=True)`
+    génère refuse **tout** attribut, y compris les champs internes qu'une
+    exception standard doit pouvoir recevoir après coup — `FrozenInstanceError`
+    explosait alors à la sortie du `with`, masquant la vraie panne (401) derrière
+    un 500 générique.
+
+    Les champs déclarés (`code`, `message`, `statut`, `service`, `details`) restent
+    immuables : seuls les attributs *dunder* — ceux qu'écrit la machinerie
+    d'exception de Python elle-même (`__traceback__`, `__cause__`, `__context__`,
+    `__suppress_context__`, `__notes__`…), jamais un champ métier — passent par
+    `object.__setattr__`.
+
+    **Pourquoi posé après le décorateur, pas dans le corps de la classe** :
+    `@dataclass(frozen=True)` refuse de se poser sur une classe qui définit déjà
+    `__setattr__` (`TypeError: Cannot overwrite attribute __setattr__`) — il faut
+    donc le laisser générer le sien, puis le remplacer une fois la classe construite.
+    """
+    if nom.startswith("__") and nom.endswith("__"):
+        object.__setattr__(self, nom, valeur)
+        return
+    raise FrozenInstanceError(f"cannot assign to field {nom!r}")
+
+
+ErreurApi.__setattr__ = _erreur_api_setattr  # type: ignore[method-assign]
 
 
 #: Les services externes, reconnus au préfixe que leurs connecteurs mettent en

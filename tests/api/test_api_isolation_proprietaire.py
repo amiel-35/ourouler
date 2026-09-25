@@ -36,6 +36,7 @@ from __future__ import annotations
 import importlib.util
 import re
 import sys
+import time
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -155,6 +156,8 @@ ROUTES_AVANT_SESSION: dict[str, str] = {
     "/api/v1/invitation": "l'état d'un jeton d'invitation, avant qu'aucun compte ne soit actif",
     "/api/v1/entrer": "active un compte et ouvre sa première session — aucun propriétaire "
     "n'est résolu avant cet appel, c'est lui qui le produit",
+    "/api/v1/reinitialiser": "consomme un jeton de réinitialisation et ouvre une session — "
+    "même situation qu'/entrer, aucun propriétaire résolu avant l'appel (lot L9.6)",
     "/api/v1/connexion": "ouvre une session sur un compte existant — le propriétaire n'est "
     "pas encore résolu au moment de l'appel, c'est lui qui le produit",
     "/api/v1/sortir": "détruit la session en cours — efface un cookie, ne lit aucune donnée",
@@ -1064,7 +1067,12 @@ def test_aucune_session_ne_voit_les_donnees_du_proprietaire_local(tmp_path):
     # Et maintenant deux sessions, dont aucune n'est le propriétaire local.
     # Les identifiants sont inventés : ces routes-là répondront 404, ce qui
     # n'empêche pas de lire leur réponse — on ne cherche qu'une chaîne.
-    ids = {"generation": "inexistante", "gpx": "inexistant", "fichier": "inexistant"}
+    ids = {
+        "generation": "inexistante",
+        "gpx": "inexistant",
+        "fichier": "inexistant",
+        "import": "inexistant",
+    }
     fuites = [
         f"{route} montre les données du propriétaire local à « {qui} »"
         for qui in (PROPRIETAIRE_A, PROPRIETAIRE_B)
@@ -1200,16 +1208,57 @@ def _planter(client: ClientApi, qui: str, marque: str) -> dict[str, str]:
     )
     assert boucle.status_code == 200, f"{qui} n'a pas pu générer sa boucle : {boucle.text[:300]}"
 
+    depot_import = client.post(
+        f"{PREFIXE_API}/activites/import",
+        headers=entetes,
+        files={"fichiers": (f"sortie-{marque}.gpx", _gpx(marque), "application/gpx+xml")},
+    )
+    assert depot_import.status_code == 202, (
+        f"{qui} n'a pas pu lancer d'import : {depot_import.text[:300]}"
+    )
+    id_import = depot_import.json()["donnees"]["id"]
+    # Attendu ici, pas seulement dans `_balayer` : le verrou serveur doit
+    # être relâché avant que l'identité suivante ne tente le sien, sans quoi
+    # `_planter(B, …)` recevrait `import_deja_en_cours` pour de mauvaises
+    # raisons plutôt que pour la vraie propriété qu'on veut éprouver.
+    _attendre_import(client, qui, id_import)
+
     return {
         "fichier": _corps(depot)["fichier"]["id"],
         "generation": sortie.json()["donnees"]["generation"],
         "gpx": boucle.json()["donnees"]["gpx"]["id"],
+        "import": id_import,
     }
 
 
 def _jour() -> str:
     """Le jour que les bouchons de séance connaissent."""
     return transports_du_depot().JOUR.isoformat()
+
+
+def _attendre_import(client: ClientApi, qui: str, id_job: str, delai_max_s: float = 5.0) -> dict:
+    """Interroge `GET /activites/import/{id}` jusqu'à ce que le job ne soit plus « en_cours ».
+
+    Les imports du balayage sont un seul petit fichier : le job passe de
+    « en_cours » à « fini » en quelques millisecondes, mais la tâche de fond
+    est un vrai thread — sans cette attente, un second `POST` du même
+    balayage pourrait arriver avant que le verrou serveur ne soit relâché et
+    recevoir `import_deja_en_cours` pour de mauvaises raisons.
+    """
+    debut = time.monotonic()
+    while True:
+        reponse = client.requete(
+            "GET",
+            f"{PREFIXE_API}/activites/import/{id_job}",
+            headers={"x-essai-proprietaire": qui},
+        )
+        assert reponse.status_code == 200, reponse.text
+        donnees = reponse.json()["donnees"]
+        if donnees["statut"] != "en_cours":
+            return donnees
+        if time.monotonic() - debut > delai_max_s:
+            raise AssertionError(f"import {id_job} toujours en_cours après {delai_max_s} s")
+        time.sleep(0.02)
 
 
 def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
@@ -1252,6 +1301,25 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("POST", f"{PREFIXE_API}/seances/fichier"): {
             "files": {"fichier": ("visiteur.zwo", _zwo("visiteur"), "application/xml")}
         },
+        ("GET", f"{PREFIXE_API}/activites/import"): {},
+        ("POST", f"{PREFIXE_API}/activites/import"): {
+            "files": {"fichiers": ("essai.gpx", _gpx("essai"), "application/gpx+xml")}
+        },
+        ("GET", f"{PREFIXE_API}/activites/import/{{id_job}}"): {
+            "chemin": f"{PREFIXE_API}/activites/import/{ids['import']}"
+        },
+        # L9.4 : la calibration depuis l'écran. Ni A ni B n'ont assez de
+        # sorties pour calibrer (un seul GPX importé chacun) : `POST` rend le
+        # refus lisible `ftp_absente`/`sorties_insuffisantes`, qui ne doit
+        # nommer que le vélo de qui appelle. `GET …/{id}` est rejoué avec
+        # l'identifiant de l'**import** de A : ni la nature ni le propriétaire
+        # ne correspondent, et la réponse doit être la même que pour un
+        # identifiant inconnu.
+        ("GET", f"{PREFIXE_API}/calibrations"): {},
+        ("POST", f"{PREFIXE_API}/calibrations"): {"json": {}},
+        ("GET", f"{PREFIXE_API}/calibrations/{{id_job}}"): {
+            "chemin": f"{PREFIXE_API}/calibrations/{ids['import']}"
+        },
         ("POST", f"{PREFIXE_API}/sorties"): {"json": {"jour": jour, "candidates": 2}},
         ("GET", f"{PREFIXE_API}/sorties/{{generation}}/propositions/{{numero}}/gpx"): {
             "chemin": f"{PREFIXE_API}/sorties/{ids['generation']}/propositions/1/gpx"
@@ -1273,6 +1341,19 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         # (voir sa docstring) pour que les routes de lecture de la même
         # identité aient déjà été éprouvées quand il s'exécute.
         ("GET", f"{PREFIXE_API}/moi/export"): {},
+        # L9.6 : l'adresse du compte de la session, et le changement de mot
+        # de passe. Sous `SessionDEssai` (ce balayage n'a pas de vraie base
+        # de comptes), `_comptes_du_deploiement` rend `None` pour les deux —
+        # `GET /moi` répond `email: null`, `POST /moi/mot-de-passe` répond
+        # `comptes_indisponibles` (404) — mais l'appel doit rester
+        # enregistré : c'est le fil HTTP qui doit être éprouvé, la
+        # profondeur du mécanisme de comptes l'est déjà par
+        # `tests/comptes/test_routes_reinitialisation_compte.py`, contre une
+        # vraie base.
+        ("GET", f"{PREFIXE_API}/moi"): {},
+        ("POST", f"{PREFIXE_API}/moi/mot-de-passe"): {
+            "json": {"mot_de_passe_actuel": "peu-importe", "nouveau_mot_de_passe": "peu-importe-aussi"}
+        },
         ("DELETE", f"{PREFIXE_API}/moi"): {},
     }
 
@@ -1288,7 +1369,7 @@ def test_le_balayage_de_bout_en_bout_couvre_toutes_les_routes_de_donnees():
     veut dire.
     """
     declarees = _routes_de_donnees(charger_application(config=config_d_essai()))
-    couvertes = set(_appels({"generation": "x", "gpx": "x", "fichier": "x"}))
+    couvertes = set(_appels({"generation": "x", "gpx": "x", "fichier": "x", "import": "x"}))
     oubliees = sorted(declarees - couvertes)
     assert not oubliees, (
         "routes de données absentes du balayage d'isolation :\n  "
@@ -1466,7 +1547,7 @@ def test_une_route_ajoutee_hors_du_balayage_fait_echouer_la_suite():
     application.include_router(routeur_neuf)
 
     declarees = _routes_de_donnees(application)
-    couvertes = set(_appels({"generation": "x", "gpx": "x", "fichier": "x"}))
+    couvertes = set(_appels({"generation": "x", "gpx": "x", "fichier": "x", "import": "x"}))
     assert declarees - couvertes == {("GET", f"{PREFIXE_API}/essai-hors-balayage")}, (
         "une route neuve n'est pas signalée comme absente du balayage : le filet ne "
         "mord pas, et la prochaine route ajoutée ne sera éprouvée par personne."
@@ -1714,3 +1795,56 @@ def _nomme_la_variable(fichier: Path, nom: str) -> bool:
         and id(noeud) not in prose
         for noeud in ast.walk(arbre)
     )
+
+
+def test_un_historique_importe_par_a_n_est_ni_vu_ni_compte_chez_b(tmp_path):
+    """L9.2, critère d'acceptation : « un compte A importe, B ne voit rien ».
+
+    Le balayage générique cherche des sentinelles dans le texte des réponses ;
+    `GET /activites/import` ne rend que des nombres, il n'y verrait donc rien.
+    D'où ce test dédié, avec sa contre-épreuve : A voit bien sa sortie.
+    """
+    client = _service_pour_deux(tmp_path)
+    depot = client.requete(
+        "POST",
+        f"{PREFIXE_API}/activites/import",
+        headers={"x-essai-proprietaire": PROPRIETAIRE_A},
+        files={"fichiers": ("sortie.gpx", _gpx("import-a"), "application/gpx+xml")},
+    )
+    # 202 : l'import tourne en tâche de fond (relecture du 25/09/2026, suite,
+    # « import en tâche de fond avec avancement »). On attend sa fin avant de
+    # vérifier le rapport — même geste que `_planter`.
+    assert depot.status_code == 202, depot.text
+    fini = _attendre_import(client, PROPRIETAIRE_A, depot.json()["donnees"]["id"])
+    assert fini["statut"] == "fini", fini
+    assert fini["rapport"]["importees"] == 1
+
+    def nombre(qui: str) -> int:
+        reponse = client.requete(
+            "GET", f"{PREFIXE_API}/activites/import", headers={"x-essai-proprietaire": qui}
+        )
+        assert reponse.status_code == 200, reponse.text
+        return reponse.json()["donnees"]["nombre"]
+
+    assert nombre(PROPRIETAIRE_A) == 1
+    assert nombre(PROPRIETAIRE_B) == 0
+
+    # B ne peut pas voir le job de A par son identifiant, même en le devinant.
+    vu_par_b = client.requete(
+        "GET",
+        f"{PREFIXE_API}/activites/import/{depot.json()['donnees']['id']}",
+        headers={"x-essai-proprietaire": PROPRIETAIRE_B},
+    )
+    assert vu_par_b.status_code == 404, vu_par_b.text
+
+    # Et B qui dépose **le même fichier** l'importe pour lui : ce n'est pas un
+    # doublon de la sortie de A (le dédoublonnage vaut par propriétaire).
+    depot_b = client.requete(
+        "POST",
+        f"{PREFIXE_API}/activites/import",
+        headers={"x-essai-proprietaire": PROPRIETAIRE_B},
+        files={"fichiers": ("sortie.gpx", _gpx("import-a"), "application/gpx+xml")},
+    )
+    assert depot_b.status_code == 202, depot_b.text
+    fini_b = _attendre_import(client, PROPRIETAIRE_B, depot_b.json()["donnees"]["id"])
+    assert fini_b["rapport"] == {"importees": 1, "doublons": 0, "ignorees": []}

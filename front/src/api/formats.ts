@@ -5,6 +5,8 @@
  * `compteArrets`, et elle se refuse quand le compte ne retombe pas juste.
  */
 
+import type { CategoriePneu } from "./types";
+
 const NBSP = " ";
 
 /** `1234.5` → `1 234,5`. `null` n'a pas de forme : l'appelant s'en occupe. */
@@ -63,6 +65,21 @@ export function dureeApprox(secondes: number): string {
   if (heures === 0) return `${minutes}${NBSP}min`;
   if (minutes === 0) return `${heures}${NBSP}h`;
   return `${heures}${NBSP}h${NBSP}${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * `(15834, 16723)` → `entre 4 h 24 et 4 h 39` : la fourchette du porte à
+ * porte (L9.1, 25/09/2026), à la minute — ses deux bornes disent déjà
+ * l'incertitude, inutile de l'arrondir une seconde fois.
+ */
+export function entreDurees(basS: number, hautS: number): string {
+  return `entre ${duree(basS)} et ${duree(hautS)}`;
+}
+
+/** `1.0174` → `+2 %` : ce qu'un ratio ajoute, en pourcentage entier signé. */
+export function enPlus(ratio: number): string {
+  const points = Math.round((ratio - 1) * 100);
+  return `${points < 0 ? "−" : "+"}${Math.abs(points)}${NBSP}%`;
 }
 
 /** `0.0162` → `2 %`. Un pourcentage se lit entier, sinon il ne se lit pas. */
@@ -250,6 +267,37 @@ export const USAGE_VELO: Record<string, string> = {
 
 export function usageDeVelo(usage: string): string {
   return USAGE_VELO[usage] ?? usage;
+}
+
+/**
+ * Les catégories de pneu (L9.1, 25/09/2026), dans l'ordre du plus roulant au
+ * moins roulant, avec un exemple qu'un cycliste reconnaît. Mêmes clés que
+ * `config.PNEUS_VELO` côté serveur.
+ */
+export const PNEUS: { cle: CategoriePneu; libelle: string }[] = [
+  { cle: "course_rapide", libelle: "Course rapide (tubeless, latex — type GP5000 TR)" },
+  { cle: "course_quatre_saisons", libelle: "Course quatre saisons (type GP5000 All Season)" },
+  { cle: "entrainement", libelle: "Entraînement, renforcé anti-crevaison" },
+  { cle: "gravel", libelle: "Gravel" },
+  { cle: "vtt", libelle: "VTT" },
+];
+
+/**
+ * Le poids de vélo supposé quand rien n'est déclaré (miroir de
+ * `physique.calibration.MASSE_VELO_DEFAUT_KG` côté serveur).
+ *
+ * Constaté le 25/09/2026 : l'assistant affichait « on suppose 9 kg » tout en
+ * préremplissant le champ avec `8`, une seconde valeur inventée côté front
+ * qui ne correspondait à rien. Une seule constante, ici, sert à la fois le
+ * texte d'aide et le `placeholder` du champ — le champ lui-même reste vide
+ * tant que personne n'a rien tapé, et c'est `null` qui part au serveur pour
+ * que ce soit lui, et lui seul, qui applique le défaut.
+ */
+export const MASSE_VELO_DEFAUT_KG = 9;
+
+/** Le poids d'un vélo tel qu'on l'affiche : le déclaré, ou le défaut dit comme supposé. */
+export function masseVeloAffichee(masseKg: number | null): string {
+  return masseKg === null ? `${MASSE_VELO_DEFAUT_KG} kg supposés` : `${nombre(masseKg, 1)} kg`;
 }
 
 /**

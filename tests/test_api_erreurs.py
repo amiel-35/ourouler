@@ -24,8 +24,10 @@ from test_api import moteur_meteo, serveur
 from test_seance_intervals import CLE
 
 from ourouler.api import adaptateur
-from ourouler.api.erreurs import ErreurApi, assainir, classer
+from ourouler.api.erreurs import ErreurApi, assainir, classer, message_profil_invalide
+from ourouler.config import _flottant
 from ourouler.erreurs import (
+    ErreurConfig,
     ErreurConnecteur,
     ErreurHorsDomaine,
     ErreurLecture,
@@ -116,6 +118,48 @@ def test_un_secret_trop_court_ne_massacre_pas_le_message():
 def test_une_erreur_deja_traduite_n_est_pas_reclassee():
     deja = ErreurApi(code="calcul_en_cours", message="occupé", statut=409)
     assert classer(deja) is deja
+
+
+def test_un_champ_de_profil_hors_bornes_rend_un_message_lisible():
+    """Constaté en vrai le 25/09/2026 : « [cycliste] masse_kg = 7075.0 hors de
+    [20, 300] » s'affichait tel quel dans l'assistant. `_flottant` lève
+    maintenant une `ErreurConfig` structurée, et `message_profil_invalide` la
+    traduit — message français, `details.champ` pour que le front puisse
+    l'afficher près du champ fautif."""
+    try:
+        _flottant(7075.0, "masse_kg", "cycliste", mini=20, maxi=300)
+    except ErreurConfig as e:
+        message, details = message_profil_invalide(e)
+    else:
+        pytest.fail("bornes non vérifiées")
+    assert message == "Votre poids doit être entre 20 et 300 kg."
+    assert "hors de" not in message  # le jargon technique ne doit plus fuiter
+    assert details == {"champ": "masse_kg"}
+
+
+def test_un_champ_de_velo_hors_bornes_porte_sa_section():
+    try:
+        _flottant(0.0, "facteur_compteur", "velos[0]", mini=0.4, maxi=1.2)
+    except ErreurConfig as e:
+        message, details = message_profil_invalide(e)
+    else:
+        pytest.fail("bornes non vérifiées")
+    assert message == "Le facteur compteur du vélo doit être entre 0,4 et 1,2."
+    assert details == {"champ": "facteur_compteur", "section": "velos[0]"}
+
+
+def test_un_champ_sans_traduction_garde_le_message_technique():
+    """Pas de fausse lisibilité inventée pour un champ que le catalogue ne
+    couvre pas encore : le message technique reste, plutôt qu'une phrase
+    fabriquée sans savoir de quoi elle parle."""
+    try:
+        _flottant(200.0, "latitude", "evitements[0]", mini=-90, maxi=90)
+    except ErreurConfig as e:
+        message, details = message_profil_invalide(e)
+    else:
+        pytest.fail("bornes non vérifiées")
+    assert "hors de" in message
+    assert details == {"champ": "latitude", "section": "evitements[0]"}
 
 
 def test_un_serveur_deja_occupe_le_dit_au_lieu_de_faire_attendre(tmp_path: Path, monkeypatch):

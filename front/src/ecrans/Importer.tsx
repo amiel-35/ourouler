@@ -19,6 +19,7 @@ import { duree, jourEnLettres, nombre } from "../api/formats";
 import { Etapes } from "../composants/Etapes";
 import { Echec } from "../composants/Echec";
 import { RetourEnTete } from "../composants/Retour";
+import { DepotHistorique } from "../composants/DepotHistorique";
 
 interface Props {
   jour: string;
@@ -142,6 +143,8 @@ export function Importer({ jour, surSeanceLue, surChercher, vers, surRetour }: P
           </button>
         </>
       ) : null}
+
+      <DepotHistorique />
     </section>
   );
 }

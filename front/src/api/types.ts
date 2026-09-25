@@ -85,9 +85,30 @@ export interface Invitation {
   expire_le: string;
 }
 
-/** `POST /entrer` et `POST /connexion` : la session vient de s'ouvrir. */
+/** `POST /entrer`, `POST /connexion` et `POST /reinitialiser` : la session vient de s'ouvrir. */
 export interface AccesOuvert {
   proprietaire: string;
+}
+
+/** `GET /moi` : l'adresse du compte de la session en cours (lot L9.6).
+ *
+ * `email` vaut `null` sur un déploiement sans base de comptes — mode personnel, ou
+ * hébergé sans compte configuré — voir `api/routes.py:mon_compte`.
+ */
+export interface MonCompte {
+  email: string | null;
+}
+
+/** `DELETE /moi` (`donnees`) : ce que l'effacement RGPD a supprimé, et ce qu'il a conservé.
+ *
+ * Forme volontairement ouverte (`Record<string, boolean | number>` pour `supprime`,
+ * `Record<string, string>` pour `conserve`) : c'est `api/vie_privee.effacer_donnees` qui
+ * décide des clés, et ce module ne les recopie pas en dur — un dépôt de plus qui gagne
+ * un compteur ne doit pas casser ce type.
+ */
+export interface EffacementCompte {
+  supprime: Record<string, boolean | number>;
+  conserve: Record<string, string>;
 }
 
 // --- profil -------------------------------------------------------------
@@ -101,12 +122,25 @@ export interface PointDepart {
 export interface VeloProfil {
   nom: string;
   usage: string;
-  masse_kg: number;
+  /** `null` : rien déclaré, le serveur suppose `MASSE_VELO_DEFAUT_KG`. */
+  masse_kg: number | null;
   cda_m2: number | null;
   crr: number | null;
   facteur_compteur: number | null;
   capteur_puissance?: string | null;
+  /** La catégorie de pneu (L9.1, 25/09/2026) : elle donne le Crr du vélo par
+   * la littérature, et la calibration ne cherche plus alors que le CdA.
+   * `null` ou absent : pas de pneu déclaré. */
+  pneu?: CategoriePneu | null;
 }
+
+/** Les catégories de pneu que le serveur accepte (`config.PNEUS_VELO`). */
+export type CategoriePneu =
+  | "course_rapide"
+  | "course_quatre_saisons"
+  | "entrainement"
+  | "gravel"
+  | "vtt";
 
 export interface Profil {
   depart: PointDepart;
@@ -255,6 +289,127 @@ export interface FicheFichier {
   id: string;
   nom: string;
   url: string;
+}
+
+/** Un motif de dépôt ignoré, groupé — `POST /activites/import` (L9.2). */
+export interface MotifIgnore {
+  motif: string;
+  nombre: number;
+  exemples: string[];
+}
+
+/** Le rapport final d'un import — fichiers isolés ou archive Strava/Garmin. */
+export interface RapportImport {
+  importees: number;
+  doublons: number;
+  ignorees: MotifIgnore[];
+}
+
+/** Ce que rend `GET /activites/import` : l'état du dépôt pour ce cycliste. */
+export interface EtatImport {
+  nombre: number;
+  premiere: string | null;
+  derniere: string | null;
+}
+
+/**
+ * Ce que rendent `POST /activites/import` (202) et `GET /activites/import/{id}` (L9.2).
+ *
+ * Une archive Strava réelle (≈2 900 sorties) prend environ 16 minutes à
+ * importer — bien au-delà des 180 s où le front abandonne un appel — d'où
+ * un import en tâche de fond : le dépôt rend tout de suite `id` et
+ * `statut: "en_cours"`, et l'écran interroge `GET .../import/{id}` pour
+ * suivre `traites`/`total` jusqu'à `"fini"` ou `"echoue"`.
+ */
+export interface JobImport {
+  id: string;
+  statut: "en_cours" | "fini" | "echoue";
+  traites: number;
+  total: number;
+  rapport: RapportImport | null;
+  erreur: string | null;
+  /** Le code de l'échec (« erreur_interne », « annulee »…), `null` sinon. */
+  code_erreur?: string | null;
+}
+
+/**
+ * Une calibration, en mots simples — `GET /calibrations` et le rapport d'un
+ * job de calibration (L9.4).
+ *
+ * Ce qui se montre d'abord : la puissance qu'il faut à `vitesse_repere_kmh`
+ * sur le plat sans vent, l'erreur mesurée sur des sorties que le calcul
+ * n'avait pas vues, la fourchette du porte à porte, le nombre de sorties.
+ * `detail` (CdA, Crr) ne se montre que replié : ce sont des paramètres de
+ * compensation — ils absorbent aussi l'étalonnage du capteur —, pas des
+ * mesures du vélo à comparer à un catalogue.
+ */
+export interface ResumeCalibration {
+  velo: string;
+  date: string | null;
+  provenance: "mesure";
+  puissance_repere_w: number;
+  vitesse_repere_kmh: number;
+  n_sorties: number;
+  n_validation: number;
+  /** Erreur absolue moyenne sur le temps en mouvement, en fraction (0,035 = 3,5 %). */
+  erreur_validation: number | null;
+  biais_validation: number | null;
+  porte_a_porte: {
+    bas: number;
+    mediane: number;
+    haut: number;
+    n: number;
+    provenance: "mesure" | "defaut";
+  };
+  /** « pneu », « configuration », « usage » (aucun pneu déclaré) ou « ajuste ». */
+  crr_source: string | null;
+  pneu: string | null;
+  /** « pneu changé depuis la calibration, relancez-la », ou `null`. */
+  alerte: string | null;
+  detail: { cda_m2: number; crr: number; masse_totale_kg: number };
+}
+
+/** Ce que rendent `POST /calibrations` (202) et `GET /calibrations/{id}` (L9.4). */
+export interface JobCalibration {
+  id: string;
+  statut: "en_cours" | "fini" | "echoue";
+  traites: number;
+  total: number;
+  /** « lecture » (des fichiers), « meteo » (archives du jour), « ajustement ». */
+  etape: "" | "lecture" | "meteo" | "ajustement";
+  nature: "calibration";
+  sujet: string | null;
+  rapport: {
+    calibration: ResumeCalibration | null;
+    sorties_lues: number;
+    sorties_apprentissage: number;
+    sorties_groupe: number;
+    archives_meteo_manquantes: number;
+    repli: string | null;
+  } | null;
+  erreur: string | null;
+  /** Le code de l'échec (« calibration_impossible », « annulee », « erreur_interne »). */
+  code_erreur?: string | null;
+}
+
+/** Un vélo dans `GET /calibrations` : sa calibration, ce qui la permettrait, la tâche récente. */
+export interface EtatCalibrationVelo {
+  velo: string;
+  calibration: ResumeCalibration | null;
+  sorties_disponibles: number;
+  sorties_ecartees: Record<string, number>;
+  pneu: string | null;
+  crr_connu: boolean;
+  crr_usage: number;
+  tache: JobCalibration | null;
+}
+
+export interface EtatCalibrations {
+  sorties_necessaires: number;
+  ftp_renseignee: boolean;
+  velos: EtatCalibrationVelo[];
+  /** Absent en mode personnel (pas de quota). */
+  quota?: { plafond: number; restant: number };
 }
 
 /**
@@ -427,19 +582,22 @@ export interface Candidate {
   /** D'où vient `temps_estime_s`. Absent d'une réponse d'avant le 18/09/2026. */
   temps_source?: "modele" | "vitesse_moyenne";
   /**
-   * Porte à porte, arrêts compris — NOUVEAU (18/09/2026). `null` quand
-   * `compteur` (sur la réponse) l'est aussi : sans vélo enregistré, il n'y a
-   * ni modèle ni facteur pour le calculer. Absent d'une réponse plus
-   * ancienne, qui ne le rendait pas du tout.
+   * Porte à porte, arrêts compris (18/09/2026) — depuis L9.1 (25/09/2026),
+   * la **médiane** d'une fourchette : `temps_estime_s × médiane`. `null`
+   * quand `compteur` (sur la réponse) l'est aussi : sans vélo enregistré, il
+   * n'y a pas de fourchette. Absent d'une réponse plus ancienne.
    */
   temps_ecoule_s?: number | null;
+  /** Les bornes de la fourchette : la moitié des sorties du cycliste tombe
+   * entre les deux (centiles 25 et 75). Absentes d'une réponse d'avant L9.1. */
+  temps_ecoule_bas_s?: number | null;
+  temps_ecoule_haut_s?: number | null;
   /**
-   * `"compteur"` : la moyenne compteur habituelle appliquée à la distance.
-   * `"plancher_arrets"` : la boucle est trop vallonnée pour que cette
-   * moyenne s'applique encore, et le chiffre redevient le temps de
-   * mouvement plus une part d'arrêts.
+   * `"mesure"` : fourchette mesurée sur les sorties de ce vélo (`ourouler
+   * calibrer`). `"defaut"` : convention, mesurée sur un seul cycliste — à
+   * dire à l'écran (règle absolue 5).
    */
-  temps_ecoule_source?: "compteur" | "plancher_arrets" | null;
+  temps_ecoule_source?: "mesure" | "defaut" | null;
   couts: {
     km_trafic: number;
     km_calme: number;
@@ -633,7 +791,18 @@ export interface Compteur {
    * (décision 8 du cycle UX, règle absolue 5) chaque fois que la valeur
    * s'affiche. */
   facteur_provenance: "mesure" | "suppose";
-  part_arret_plancher: number;
+  /** La fourchette qui chronomètre le porte à porte (L9.1, 25/09/2026) :
+   * `temps_estime_s × [bas, haut]`, et d'où elle vient. `n` : le nombre de
+   * sorties roulées seul sur lesquelles elle a été mesurée (0 en convention). */
+  porte_a_porte: FourchettePorteAPorte;
+}
+
+export interface FourchettePorteAPorte {
+  bas: number;
+  mediane: number;
+  haut: number;
+  provenance: "mesure" | "defaut";
+  n: number;
 }
 
 export interface Sortie {

@@ -323,6 +323,17 @@ def test_un_profil_invalide_ne_remplace_pas_le_precedent(tmp_path: Path):
     assert client.get("/api/v1/profil").json()["donnees"]["cycliste"]["ftp_w"] == 260
 
 
+def test_un_poids_hors_bornes_rend_un_message_lisible_a_l_ecran(tmp_path: Path):
+    """Constaté en vrai le 25/09/2026 : l'assistant affichait « [cycliste]
+    masse_kg = 7075.0 hors de [20, 300] » tel quel. L'API rend maintenant une
+    phrase française, et `details.champ` pour l'afficher près du champ."""
+    reponse = serveur(tmp_path).patch("/api/v1/profil", json={"cycliste": {"masse_kg": 7075.0}})
+    assert reponse.status_code == 422
+    erreur = reponse.json()["erreur"]
+    assert erreur["message"] == "Votre poids doit être entre 20 et 300 kg."
+    assert erreur["details"] == {"champ": "masse_kg"}
+
+
 def test_la_cle_intervals_s_enregistre_et_ne_ressort_jamais(tmp_path: Path):
     client = serveur(tmp_path)
     reponse = client.patch("/api/v1/profil", json={"intervals": {"api_key": "cle-inventee-1234"}})
@@ -1532,3 +1543,20 @@ def test_un_profil_commence_mais_incomplet_nomme_ce_qui_manque():
         SocleVide().config({"cycliste": {"masse_kg": 80, "ftp_w": 250}})
     assert "incomplet" in str(faute.value)
     assert "PATCH /api/v1/profil" in str(faute.value)
+
+
+def test_le_pneu_d_un_velo_s_enregistre_et_se_relit(tmp_path: Path):
+    """L9.1 : la fiche vélo porte une catégorie de pneu, validée comme la
+    configuration TOML — une inconnue est refusée et nommée, jamais tue."""
+    client = serveur(tmp_path)
+    velos = [{"nom": "Route", "usage": "route", "masse_kg": 9.0, "pneu": "course_quatre_saisons"}]
+    reponse = client.patch("/api/v1/profil", json={"velos": velos})
+    assert reponse.status_code == 200
+    relu = client.get("/api/v1/profil").json()["donnees"]["velos"][0]
+    assert relu["pneu"] == "course_quatre_saisons"
+
+    refus = client.patch(
+        "/api/v1/profil", json={"velos": [{"nom": "Route", "pneu": "pneu inventé"}]}
+    )
+    assert refus.status_code >= 400
+    assert "pneu" in refus.text

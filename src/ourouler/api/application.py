@@ -35,6 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as ExceptionHTTP
 
 from ourouler import __version__
+from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.depots import (
     CHAMPS_RACINE_MODIFIABLES,
@@ -49,13 +50,30 @@ from ourouler.api.depots import (
     SocleVide,
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
-from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
+from ourouler.api.garde_avant_corps import GardeAvantCorps
+from ourouler.api.limite_corps import LimiteTailleCorps
+from ourouler.api.quotas import (
+    CALIBRATIONS_PAR_JOUR_DEFAUT,
+    CONSULTATIONS_METEO_PAR_JOUR_DEFAUT,
+    IMPORTS_PAR_JOUR_DEFAUT,
+    Quotas,
+)
+from ourouler.api.routes import TAILLE_MAX_SEANCE, Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.erreurs import ErreurConfig
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"
+
+#: Les deux routes dont le corps peut être gros, et leur plafond —
+#: `LimiteTailleCorps` (relecture du 25/09/2026, suite) refuse **avant**
+#: que Starlette n'écrive quoi que ce soit sur disque, même si `Content-Length`
+#: ment ou manque (`Transfer-Encoding: chunked`).
+BORNES_CORPS = {
+    "/api/v1/activites/import": TAILLE_MAX_REQUETE,
+    "/api/v1/seances/fichier": TAILLE_MAX_SEANCE,
+}
 
 #: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` (lot
 #: L7.2-D) : toute route de l'API, la sonde de santé, et les deux chemins du
@@ -137,8 +155,13 @@ def creer_application(
     client_ban: object | None = None,
     client_nominatim: object | None = None,
     client_geocodage: object | None = None,
+    client_archive: object | None = None,
     clients: Clients | None = None,
     budgets: Budgets | None = None,
+    quotas: Quotas | None = None,
+    quotas_meteo: Quotas | None = None,
+    quotas_calibration: Quotas | None = None,
+    quotas_import: Quotas | None = None,
     session: FournisseurSession | None = None,
     dossier_front: Path | None = None,
 ) -> FastAPI:
@@ -188,6 +211,20 @@ def creer_application(
     pourrait rendre. C'est pour ça que le front n'a jamais d'URL absolue dans
     son code (`front/README.md`) — la même origine sert les deux, en
     développement par le proxy Vite, en production par ce montage.
+
+    **`quotas` et `quotas_meteo` portent les deux plafonds journaliers par
+    compte** (L9.3, `api/quotas.py`) : générations (`POST /sorties`,
+    `POST /boucles`) pour l'un, consultations météo (`GET /meteo`) pour
+    l'autre — deux postes de coût différents, deux compteurs. Sans eux,
+    `Quotas()` avec son défaut pour chacun — ce que font tous les tests qui
+    n'exercent pas le quota. Sans objet en mode personnel : voir
+    `routes._verifier_quota`. `quotas_calibration` (L9.4) est le troisième
+    compteur, une calibration par jour et par compte par défaut
+    (`quotas.CALIBRATIONS_PAR_JOUR_DEFAUT`).
+
+    **`client_archive`** (L9.4) : l'archive météo Open-Meteo que la
+    calibration interroge, un jour de sortie à la fois — un `httpx.Client`
+    bouchonné, ou un client déjà construit, comme les cinq autres.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -235,11 +272,23 @@ def creer_application(
             # réseau n'ait pas à connaître ce détail.
             ban=client_ban or client_geocodage,
             nominatim=client_nominatim or client_geocodage,
+            archive=client_archive,
         ),
         budgets=budgets or Budgets(),
+        quotas=quotas or Quotas(),
+        quotas_meteo=quotas_meteo
+        or Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo"),
+        quotas_calibration=quotas_calibration
+        or Quotas(plafond=CALIBRATIONS_PAR_JOUR_DEFAUT, libelle="calibration(s)"),
+        quotas_import=quotas_import
+        or Quotas(plafond=IMPORTS_PAR_JOUR_DEFAUT, libelle="import(s) d'historique"),
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
+    app.add_middleware(LimiteTailleCorps, bornes=BORNES_CORPS)
+    # Ajouté après, donc **extérieur** : les refus qui se savent sans le
+    # corps (session, verrou, quota) passent avant qu'on en compte un octet.
+    app.add_middleware(GardeAvantCorps)
 
     @app.get("/sante", include_in_schema=False)
     def _sonde_sante() -> dict:
@@ -394,11 +443,16 @@ def application() -> FastAPI:
     (`deploiement/api/Dockerfile`) qui pose cette variable, vers le dossier où
     il a copié `npm run build`.
     """
-    from ourouler.api import exploitation
+    from ourouler.api import exploitation, imports_fond
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
     from ourouler.api.session import MODE_PERSONNEL
 
     session = exploitation.fournisseur_session()
+    # Les copies de dépôt qu'un import interrompu par l'arrêt du processus a
+    # laissées (contre-lecture Fable du 25/09/2026) — au démarrage du service
+    # seulement, jamais dans `creer_application`, que les tests appellent à
+    # côté d'imports qui tournent encore.
+    imports_fond.balayer_temporaires_orphelins(Path(tempfile.gettempdir()))
 
     # **À qui appartient le TOML de ce serveur**, et c'est le mode qui le dit.
     #
@@ -435,11 +489,33 @@ def application() -> FastAPI:
     else:
         dossier_cache = socle.config({}).cache.dossier
 
+    # **Cache météo mutualisé et quotas par compte (L9.3), en mode hébergé
+    # seulement.** En personnel, un seul cycliste appelle depuis sa propre
+    # adresse (doctrine §10.1) : ni l'un ni l'autre n'a d'objet, et
+    # `client_meteo=None` laisse le cœur fabriquer son `ClientOpenMeteo`
+    # ordinaire, exactement comme avant ce lot.
+    client_meteo = None
+    quotas = Quotas()
+    quotas_meteo = Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo")
+    if partage:
+        from ourouler.meteo.cache_previsions import ClientOpenMeteoCache
+        from ourouler.meteo.openmeteo import ClientOpenMeteo
+
+        client_meteo = ClientOpenMeteoCache(ClientOpenMeteo())
+        quotas = Quotas(plafond=exploitation.generations_par_jour(variables))
+        quotas_meteo = Quotas(
+            plafond=exploitation.consultations_meteo_par_jour(variables),
+            libelle="consultations météo",
+        )
+
     return creer_application(
         socle=socle,
         dossier_donnees=dossier_cache / NOM_DOSSIER_DONNEES,
         session=session,
         dossier_front=exploitation.dossier_front(),
+        client_meteo=client_meteo,
+        quotas=quotas,
+        quotas_meteo=quotas_meteo,
     )
 
 

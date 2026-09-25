@@ -22,6 +22,7 @@ import type { Enveloppe, Sortie } from "../api/types";
 
 const CLE_SORTIE = "ourouler.sortie";
 const CLE_SEANCES = "ourouler.seances-lues-le";
+const CLE_IMPORT = "ourouler.import.job";
 
 export interface SortieMemorisee {
   jour: string;
@@ -76,5 +77,38 @@ export function derniereLectureSeances(): string | null {
     return window.localStorage.getItem(CLE_SEANCES);
   } catch {
     return null;
+  }
+}
+
+/**
+ * L'identifiant du dernier import d'historique lancé (L9.2) — un import réel
+ * dure jusqu'à un quart d'heure (archive Strava, ≈2 900 sorties), largement
+ * de quoi recharger la page ou fermer l'onglet par erreur pendant l'attente.
+ *
+ * **Pas keyée par propriétaire** : elle ne sert qu'à retrouver, sur *ce*
+ * navigateur, l'identifiant à interroger — le serveur, lui, refuse déjà de
+ * rendre le job de quelqu'un d'autre (`GET /activites/import/{id}`, 404).
+ */
+export function retenirImportEnCours(id: string): void {
+  try {
+    window.localStorage.setItem(CLE_IMPORT, id);
+  } catch {
+    /* rien à faire */
+  }
+}
+
+export function importEnCoursRetenu(): string | null {
+  try {
+    return window.localStorage.getItem(CLE_IMPORT);
+  } catch {
+    return null;
+  }
+}
+
+export function oublierImportEnCours(): void {
+  try {
+    window.localStorage.removeItem(CLE_IMPORT);
+  } catch {
+    /* rien à faire */
   }
 }

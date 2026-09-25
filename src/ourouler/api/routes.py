@@ -9,16 +9,34 @@ le résout, et il est passé en premier argument à tout accès aux données
 (doctrine §10.2). Aucune route ne lit un fichier de configuration
 elle-même : elle demande sa `Config` au dépôt, pour ce propriétaire-là.
 
-Ce qui n'est **pas** exposé, et pourquoi : `inventaire --importer` et
-`--synchroniser`, `routes apprendre --appliquer`, `calibrer` écrivent dans le
-cache du serveur et durent des minutes. Ce sont des gestes d'administration
-que le mainteneur fait en ligne de commande ; aucun écran des maquettes ne
-les demande, et les exposer ferait de l'API une console d'administration
-avant qu'elle ait des comptes.
+Ce qui n'est **pas** exposé, et pourquoi : `--synchroniser` et `routes
+apprendre --appliquer` écrivent dans le cache du serveur et durent des
+minutes — ce sont des gestes d'administration que le mainteneur fait en
+ligne de commande, et aucun écran des maquettes ne les demande.
+
+**`calibrer` l'est depuis L9.4** (`POST /calibrations`,
+`docs/sprint9_contrat.md`) : un compte hébergé avec capteur calibre son vélo
+sans la ligne de commande du mainteneur. Même calcul
+(`physique.commande.calibrer_velo`), en tâche de fond comme l'import
+(`api/taches_fond.py`, un seul calcul lourd à la fois), et écrit dans le
+dossier **du compte** — jamais dans le fichier de calibration du cache du
+serveur (`_config`, `api/calibrations.py`).
+`inventaire --importer DOSSIER` reste lui aussi hors API : c'est une lecture
+d'un chemin sur le **système de fichiers du serveur**, pas un dépôt du
+cycliste — l'exposer ferait de l'API une console d'administration.
+
+**Ce que L9.2 expose, `POST /activites/import`, est différent** : un
+cycliste sans Intervals dépose **ses propres octets** — fichiers isolés ou
+archive d'export Strava/Garmin — jamais un chemin. C'est le mécanisme que
+`Cache.indexer_dossier` appelle en CLI (`activites/import_archive.py`),
+rejoué ici sur des octets reçus par HTTP et bornés (taille, nombre de
+fichiers, décompression, chemins), pas sur un dossier du serveur
+(`docs/sprint9_contrat.md`, lot L9.2).
 """
 
 from __future__ import annotations
 
+import tempfile
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -33,7 +51,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from ourouler import __version__
 from ourouler.api import base_de_donnees, vie_privee, vues
 from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
-from ourouler.api.comptes import DepotComptes, ErreurInvitationRefusee
+from ourouler.api.comptes import DepotComptes, ErreurInvitationRefusee, ErreurMotDePasseActuelRefuse
 from ourouler.api.depots import (
     DepotFichiers,
     DepotGenerations,
@@ -42,12 +60,21 @@ from ourouler.api.depots import (
     JournalServices,
     schema_des_modifications,
 )
-from ourouler.api.erreurs import ErreurApi, classer, classer_avertissement, secrets_de
+from ourouler.api.erreurs import (
+    ErreurApi,
+    classer,
+    classer_avertissement,
+    message_profil_invalide,
+    secrets_de,
+)
 from ourouler.api.modeles import (
     ApercuZones,
     DemandeBoucle,
+    DemandeCalibration,
+    DemandeChangementMotDePasse,
     DemandeConnexion,
     DemandeEntree,
+    DemandeReinitialisation,
     DemandeSimulation,
     DemandeSortie,
     DemandeVitesseCompteur,
@@ -56,9 +83,11 @@ from ourouler.api.modeles import (
     TexteUtile,
 )
 from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.quotas import Quotas
 from ourouler.api.session import (
     CODE_SANS_SESSION,
     MESSAGE_SANS_SESSION,
+    MODE_PERSONNEL,
     NOM_COOKIE,
     FournisseurSession,
     SessionParCookie,
@@ -67,8 +96,10 @@ from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
 #:
@@ -86,9 +117,14 @@ PANNES_DECLAREES: dict[int | str, dict] = {
         (400, "requête refusée — voir `erreur.code`"),
         (401, "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"),
         (404, "route ou fichier introuvable — voir `erreur.code`"),
-        (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
+        (
+            409,
+            "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une "
+            "tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur",
+        ),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
-        (422, "requête ou fichier refusés — voir `erreur.code`"),
+        (422, "requête, fichier ou précondition refusés — voir `erreur.code`"),
+        (429, "quota journalier atteint (`quota_atteint`)"),
         (500, "bug du serveur (`erreur_interne`) ou configuration invalide"),
         (502, "un service externe a répondu mal ou pas du tout — voir `erreur.code`"),
     )
@@ -131,6 +167,12 @@ FABRIQUES_CONNECTEUR: dict[str, Callable[[Config, httpx.Client], object]] = {
     ),
     "ban": lambda config, http: ClientBAN(http=http),
     "nominatim": lambda config, http: ClientNominatim(http=http),
+    # L9.4 : l'archive météo de la calibration. Son cache sur disque est
+    # **partagé** entre comptes (`PROPRIETAIRE_PARTAGE`, le vent d'un jour
+    # passé est le même pour tous) et vit dans le dossier de cache du serveur.
+    "archive": lambda config, http: ClientArchive(
+        http=http, chemin_cache=config.cache.dossier / NOM_CACHE_ARCHIVE
+    ),
 }
 
 
@@ -152,6 +194,7 @@ class Clients:
     intervals: object | None = None
     ban: object | None = None
     nominatim: object | None = None
+    archive: object | None = None
 
     def connecteur(self, service: str, config: Config) -> object | None:
         """Le connecteur de ce service pour **ce** propriétaire, ou `None`.
@@ -176,6 +219,19 @@ class Contexte:
     generations: DepotGenerations
     clients: Clients
     budgets: Budgets
+    #: Quota journalier de générations coûteuses par compte (L9.3) —
+    #: `POST /sorties`, `POST /boucles`. Le mode personnel n'est pas
+    #: concerné — voir `_verifier_quota`.
+    quotas: Quotas
+    #: Quota journalier séparé pour `GET /meteo` (L9.3, poste distinct :
+    #: ~50 appels par consultation contre ~150 par génération).
+    quotas_meteo: Quotas
+    #: Quota journalier des calibrations (L9.4), une par jour par défaut.
+    quotas_calibration: Quotas
+    #: Quota journalier des imports d'historique (contre-lecture Fable du
+    #: 25/09/2026) — cinq par jour par défaut, vérifié aussi **avant** la
+    #: lecture du corps (`api/garde_avant_corps.py`).
+    quotas_import: Quotas
     journal: JournalServices
     #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
@@ -236,11 +292,28 @@ Qui = Annotated[Proprietaire, Depends(proprietaire)]
 
 
 def _config(ctx: Contexte, qui: Proprietaire) -> Config:
-    """La `Config` de ce propriétaire — jamais « la » configuration du serveur."""
+    """La `Config` de ce propriétaire — jamais « la » configuration du serveur.
+
+    **Sa calibration est la sienne** (L9.4). En mode hébergé, le dossier de
+    cache est celui du serveur, partagé : le fichier de calibration y serait
+    le même pour tous les comptes, et la calibration d'un vélo nommé
+    « Route » servirait à tous les « Route » du service. `fichier_calibration`
+    la range donc dans le dossier du compte, à côté de son profil — et comme
+    c'est cette `Config` que reçoivent `/boucles`, `/sorties`,
+    `/simulations` et l'écran de FTP, c'est ce fichier-là, et lui seul,
+    qu'ils relisent. En mode personnel, rien ne change : le fichier
+    que `ourouler calibrer` écrit.
+    """
     try:
-        return ctx.profils.config(qui)
+        config = ctx.profils.config(qui)
     except Exception as e:
         raise classer(e) from e
+    if ctx.session.mode == MODE_PERSONNEL:
+        return config
+    from ourouler.api.calibrations import fichier_du_compte
+
+    fichier = fichier_du_compte(ctx.profils.dossier(qui))
+    return replace(config, cache=replace(config.cache, fichier_calibration=fichier))
 
 
 def _base_routes(config: Config, qui: Proprietaire):
@@ -291,6 +364,41 @@ def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
         return ctx.clients.connecteur(nom, config)
     except Exception as e:
         raise classer(e) from e
+
+
+def _verifier_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
+    """Décompte un crédit pour ce compte sur ce poste — ou refuse (L9.3).
+
+    **Rien en mode personnel** : `ourouler api` sur la machine du mainteneur
+    sert toujours `PROPRIETAIRE_LOCAL` par `SessionPersonnelle`
+    (`api/session.py`), qui appelle Open-Meteo et BRouter depuis sa propre
+    adresse — aucun poste partagé à protéger (doctrine §10.1). Le test porte
+    sur le **mode**, pas sur l'identifiant : c'est `ctx.session.mode` qui dit
+    quel produit ce processus sert, l'identifiant ne fait que suivre.
+
+    Appelée **avant** tout travail (réservation de fichier, appel au cœur) :
+    un compte au plafond ne doit rien coûter au serveur pour se l'entendre
+    dire. `quotas` distingue le poste (`ctx.quotas` pour une génération,
+    `ctx.quotas_meteo` pour `GET /meteo`) — deux compteurs séparés, un seul
+    code de refus (`quota_atteint`).
+    """
+    if ctx.session.mode == MODE_PERSONNEL:
+        return
+    quotas.consommer(qui)
+
+
+def _rembourser_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
+    """Annule le décompte de `_verifier_quota` quand le travail a échoué (L9.3).
+
+    **Seul un succès consomme réellement le crédit.** Une panne BRouter ou
+    Open-Meteo, un `calcul_en_cours` (409, un autre calcul occupait déjà le
+    serveur), ou n'importe quelle autre exception : le compte n'a rien reçu,
+    il ne doit rien payer. Sans effet en mode personnel, symétrique de
+    `_verifier_quota`, qui n'y a rien décompté.
+    """
+    if ctx.session.mode == MODE_PERSONNEL:
+        return
+    quotas.rembourser(qui)
 
 
 def _avec_journal(ctx: Contexte, qui: Proprietaire, services: tuple[str, ...], appel):
@@ -402,23 +510,32 @@ def etat_invitation(ctx: Ctx, jeton: Annotated[TexteUtile, Query(min_length=1, m
     with base_de_donnees.ouvrir(url) as cx:
         etat = DepotComptes(cx).invitation_ouverte(jeton)
     if etat is None:
-        raise ErreurApi(code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=404)
+        raise ErreurApi(code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=404)
     return {"donnees": {"email": etat.email, "expire_le": etat.expire_le.isoformat()}}
 
 
-#: Ce que les deux routes du jeton d'invitation répondent quand il ne vaut
-#: rien — **le même texte, quel que soit le motif**. Distinguer « n'existe
-#: pas », « a expiré le 02/09 » et « a déjà servi » renseigne qui tient un
-#: jeton périmé sur le fait qu'il a bel et bien été émis, et sur sa date
-#: exacte. `GET /invitation` avait été écrite ainsi ; `POST /entrer` laissait
-#: passer le message détaillé de `comptes._invitation_refusee`, et rouvrait
-#: donc la porte qu'on venait de fermer (relecture du 19/09/2026).
+#: Ce que les trois routes qui consomment un jeton de la table `invitations`
+#: répondent quand il ne vaut rien — **le même texte, quel que soit le
+#: motif, et quel que soit le flux**. Distinguer « n'existe pas », « a
+#: expiré le 02/09 » et « a déjà servi » renseigne qui tient un jeton périmé
+#: sur le fait qu'il a bel et bien été émis, et sur sa date exacte. `GET
+#: /invitation` avait été écrite ainsi ; `POST /entrer` laissait passer le
+#: message détaillé de `comptes._invitation_refusee`, et rouvrait donc la
+#: porte qu'on venait de fermer (relecture du 19/09/2026).
+#:
+#: **Neutre, pas « d'invitation »** (relecture du 25/09/2026, point 2) :
+#: `POST /reinitialiser` consomme un jeton de la même table pour un usage
+#: différent (choisir un nouveau mot de passe, pas créer un compte) — un
+#: texte qui parle d'« invitation » à quelqu'un qui réinitialise son mot de
+#: passe décrit le mauvais geste. Le code (`invitation_invalide`) ne change
+#: pas : les deux flux restent indistinguables l'un de l'autre, seul le mot
+#: choisi dans le message change.
 #:
 #: Les messages détaillés ne disparaissent pas pour autant : ils restent ce
 #: que `DepotComptes` lève, et ce que la ligne de commande affiche au
 #: mainteneur — qui a le droit de savoir *pourquoi*, puisque c'est lui qui a
 #: émis le lien.
-MESSAGE_INVITATION_REFUSEE = "ce lien d'invitation n'est plus valable — inconnu, expiré ou déjà utilisé"
+MESSAGE_LIEN_INVALIDE = "ce lien n'est plus valable — inconnu, expiré ou déjà utilisé"
 
 
 @routeur.post("/entrer")
@@ -439,9 +556,38 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
         try:
             acces = depot.activer(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
-            # Le motif est perdu **exprès** : voir MESSAGE_INVITATION_REFUSEE.
+            # Le motif est perdu **exprès** : voir MESSAGE_LIEN_INVALIDE.
             raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
+                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
+            ) from e
+        except Exception as e:
+            raise classer(e) from e
+        jeton_session = depot.ouvrir_session(acces.compte.identifiant)
+    _poser_cookie(reponse, jeton_session)
+    return {"donnees": {"proprietaire": str(acces.proprietaire)}}
+
+
+@routeur.post("/reinitialiser")
+def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -> dict:
+    """Consomme un jeton de réinitialisation : pose le nouveau mot de passe, ferme
+    toutes les sessions déjà ouvertes du compte, en ouvre une neuve pour celle-ci.
+
+    **Jamais atteinte sans un jeton déjà émis** — il n'existe aucune route qui en émette
+    un depuis une simple adresse (« mot de passe oublié » en libre-service, exclu par
+    décision du mainteneur : voir la note de module de `DepotComptes.reinitialiser`,
+    `api/comptes.py`). Seul `ourouler reinitialiser`, en ligne de commande, en émet un ;
+    cette route-ci ne fait que le consommer — même mécanique que `POST /entrer` pour un
+    jeton d'invitation, même refus indistinguable (`MESSAGE_LIEN_INVALIDE`) pour un
+    jeton inconnu, expiré ou déjà utilisé.
+    """
+    url = _url_comptes(ctx)
+    with base_de_donnees.ouvrir(url) as cx:
+        depot = DepotComptes(cx)
+        try:
+            acces = depot.changer_mot_de_passe_par_jeton(corps.jeton, corps.secret)
+        except ErreurInvitationRefusee as e:
+            raise ErreurApi(
+                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
             ) from e
         except Exception as e:
             raise classer(e) from e
@@ -508,7 +654,7 @@ def systeme(
     renseigné, il n'a pas besoin de la clé pour ça.
     """
     config = _config(ctx, qui)
-    return {
+    charge: dict = {
         "proprietaire": str(qui),
         "version": __version__,
         "capacites": {
@@ -518,6 +664,33 @@ def systeme(
         },
         "budgets": ctx.budgets.tous(),
     }
+    if ctx.session.mode != MODE_PERSONNEL:
+        # Le quota est **celui de ce compte** — sa propre donnée, jamais
+        # celle d'un voisin. Sans objet en mode personnel (`_verifier_quota`).
+        charge["quotas"] = {
+            "generations": {"plafond": ctx.quotas.plafond, "restant": ctx.quotas.restant(qui)},
+            "consultations_meteo": {
+                "plafond": ctx.quotas_meteo.plafond,
+                "restant": ctx.quotas_meteo.restant(qui),
+            },
+            "calibrations": {
+                "plafond": ctx.quotas_calibration.plafond,
+                "restant": ctx.quotas_calibration.restant(qui),
+            },
+            "imports": {
+                "plafond": ctx.quotas_import.plafond,
+                "restant": ctx.quotas_import.restant(qui),
+            },
+        }
+    # **Les compteurs du cache météo ne sortent plus ici** (relecture
+    # Opus, L9.3) : `appels_reels`/`appels_servis_cache` sont globaux au
+    # processus, pas au compte qui interroge — les publier à n'importe quel
+    # compte authentifié laisse deviner l'activité de tous les autres (une
+    # fuite de voisinage, même sans identifiant nominatif dans le nombre
+    # lui-même). `ctx.clients.meteo.stats()` (`ClientOpenMeteoCache`) reste
+    # accessible côté serveur pour qui a la main sur le processus — journal
+    # ou une future route d'administration, jamais `/systeme`.
+    return charge
 
 
 @routeur.get("/systeme/budgets")
@@ -593,8 +766,12 @@ async def modifier_profil(
         config = ctx.profils.enregistrer(qui, corps)
     except ErreurConfig as e:
         # Ici, et seulement ici, une configuration invalide est la faute de
-        # ce que le cycliste vient d'écrire : 422 et non 500.
-        raise ErreurApi(code="profil_invalide", message=str(e), statut=422) from e
+        # ce que le cycliste vient d'écrire : 422 et non 500. Le message est
+        # traduit pour l'écran (constaté le 25/09/2026 : un poids fautif
+        # rendait « [cycliste] masse_kg = 7075.0 hors de [20, 300] » tel
+        # quel) ; `details.champ` laisse le front l'afficher près du champ.
+        message, details = message_profil_invalide(e)
+        raise ErreurApi(code="profil_invalide", message=message, statut=422, details=details) from e
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, config)}
@@ -894,6 +1071,12 @@ def meteo(
     """
     from ourouler.meteo import commande as meteo_commande
 
+    # L9.3 : quota séparé de celui des générations — ~50 appels Open-Meteo
+    # par consultation (une couronne, deux modèles), contre ~150 pour une
+    # sortie ou une boucle. Pas de remboursement ici (à la différence de
+    # `POST /sorties`/`POST /boucles`) : ce n'est pas demandé, et une
+    # consultation ratée coûte de toute façon moins cher.
+    _verifier_quota(ctx, qui, ctx.quotas_meteo)
     config = _config(ctx, qui)
     if (latitude is None) != (longitude is None):
         raise ErreurApi(
@@ -1055,6 +1238,296 @@ async def deposer_seance(
     return charge
 
 
+# --- historique déposé (L9.2) --------------------------------------------------
+
+
+@routeur.get("/activites/import")
+def etat_import(ctx: Ctx, qui: Qui) -> dict:
+    """Combien de sorties ce cycliste a déjà déposées, et sur quelle période.
+
+    Pour l'écran « Mes sorties passées » (`front/src/ecrans/Importer.tsx`) :
+    lui dire s'il a déjà déposé quelque chose avant de lui remontrer le
+    dépôt. Voir `import_archive.etat` pour ce qui est compté.
+    """
+    from ourouler.activites import import_archive
+
+    config = _config(ctx, qui)
+    return {"proprietaire": str(qui), "donnees": import_archive.etat(_cache(config, qui))}
+
+
+@routeur.get("/activites/import/{id_job}")
+def etat_job_import(ctx: Ctx, qui: Qui, id_job: str) -> dict:
+    """Où en est un import lancé par `POST /activites/import` — à interroger périodiquement.
+
+    Cloisonné par propriétaire comme tout le reste : un identifiant qui
+    n'appartient pas à ce propriétaire rend `fichier_introuvable`, exactement
+    comme un fichier de séance qu'on n'a pas soi-même déposé — pour ne
+    renseigner personne sur l'existence d'un import qu'il n'a pas lancé.
+    """
+    from ourouler.api import imports_fond
+
+    job = imports_fond.trouver(str(qui), id_job)
+    if job is None:
+        raise ErreurApi(
+            code="fichier_introuvable",
+            message=f"import {id_job} : introuvable, ou appartenant à quelqu'un d'autre",
+            statut=404,
+        )
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+@routeur.post("/activites/import", status_code=202)
+def importer_activites(
+    ctx: Ctx,
+    qui: Qui,
+    requete: Request,
+    fichiers: Annotated[
+        list[UploadFile],
+        File(description=".fit/.gpx/.tcx, éventuellement .gz, ou une archive .zip Strava/Garmin"),
+    ],
+) -> dict:
+    """Lance en tâche de fond le dépôt de l'historique d'un cycliste sans Intervals
+    — un invité sans capteur y trouve déjà de la valeur (routes), un porteur de
+    capteur y trouve aussi son niveau ([[Q48]]).
+
+    **202, pas 200** (suite de la relecture du 25/09/2026) : une archive
+    Strava réelle (≈2 900 sorties) prend environ 16 minutes à 0,33 s/fichier,
+    bien au-delà des 180 s où le front abandonne. La route rend tout de
+    suite un identifiant de tâche ; `GET /activites/import/{id}` dit où elle
+    en est (`en_cours`/`fini`/`echoue`, `traites`/`total`, et le rapport une
+    fois finie).
+
+    Accepte un ou plusieurs fichiers en un seul appel — `.fit`/`.gpx`/`.tcx`
+    isolés, leurs `.gz`, ou une archive d'export Strava ou Garmin — et les
+    indexe dans le cache de **ce** propriétaire uniquement
+    (`activites/import_archive.py`, bornes de sécurité en constantes
+    nommées). Réimporter la même archive ne duplique rien : une sortie
+    déposée est identifiée par son contenu ([[Q62]]).
+
+    **Un seul import à la fois, pour le serveur entier** (`api/imports_fond.py`) :
+    un second demandeur, propriétaire ou pas, reçoit `import_deja_en_cours`
+    (409) plutôt qu'une attente silencieuse — le serveur est petit et
+    partagé avec BRouter, deux imports simultanés doubleraient le pic
+    mémoire.
+
+    **Les fichiers reçus sont recopiés dans des fichiers temporaires à nous**
+    avant de rendre la main : ceux de Starlette (`UploadFile.file`) ne
+    survivent pas à la fin de la requête, alors que la tâche de fond continue
+    après le 202. La copie est bornée par bloc (`_copier_borne`), en plus de
+    `LimiteTailleCorps` (`api/limite_corps.py`) qui a déjà refusé tout corps
+    au-delà du plafond avant que Starlette n'en écrive un octet.
+    """
+    from ourouler.api import imports_fond
+
+    _refuser_import_sur_la_taille_annoncee(requete)
+    if not fichiers:
+        raise ErreurApi(code="requete_invalide", message="aucun fichier déposé", statut=400)
+
+    config = _config(ctx, qui)
+    cache = _cache(config, qui)
+
+    _verifier_quota(ctx, qui, ctx.quotas_import)
+    try:
+        depots = _copier_en_temporaires(fichiers)
+    except Exception:
+        _rembourser_quota(ctx, qui, ctx.quotas_import)
+        raise
+    try:
+        job = imports_fond.lancer(
+            cache,
+            str(qui),
+            depots,
+            au_echec=lambda: _rembourser_quota(ctx, qui, ctx.quotas_import),
+        )
+    except imports_fond.ErreurImportEnCours as occupe:
+        _rembourser_quota(ctx, qui, ctx.quotas_import)
+        for _, chemin in depots:
+            chemin.unlink(missing_ok=True)
+        raise ErreurApi(
+            code="import_deja_en_cours",
+            message=_message_occupe(occupe.nature),
+            statut=409,
+        ) from None
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]:
+    """Recopie chaque dépôt dans un fichier temporaire propre à ce job, borné par bloc.
+
+    Défense en profondeur : `LimiteTailleCorps` a déjà refusé tout corps de
+    requête au-delà de `TAILLE_MAX_REQUETE` avant que Starlette n'écrive quoi
+    que ce soit ; cette seconde borne, posée pendant la copie elle-même,
+    protège des mêmes octets une seconde fois plutôt que de faire confiance à
+    un seul étage. En cas de dépassement, tout ce qui a déjà été copié pour
+    cet appel est effacé — un import ne part jamais à moitié écrit.
+    """
+    from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+    from ourouler.api.imports_fond import PREFIXE_TEMPORAIRE
+
+    chemins: list[Path] = []
+    total = 0
+    try:
+        for fichier in fichiers:
+            # Fermé tout de suite : `mkstemp` laissait son descripteur ouvert,
+            # un par fichier déposé, jusqu'à la fin du processus.
+            with tempfile.NamedTemporaryFile(
+                prefix=PREFIXE_TEMPORAIRE, suffix=".bin", delete=False
+            ) as vide:
+                destination = Path(vide.name)
+            chemins.append(destination)
+            with destination.open("wb") as sortie:
+                while True:
+                    bloc = fichier.file.read(1 << 20)
+                    if not bloc:
+                        break
+                    total += len(bloc)
+                    if total > TAILLE_MAX_REQUETE:
+                        raise ErreurApi(
+                            code="fichier_trop_gros",
+                            message=f"{total} octets reçus — un import ne prend pas plus de "
+                            f"{TAILLE_MAX_REQUETE} octets à la fois",
+                            statut=413,
+                        )
+                    sortie.write(bloc)
+    except Exception:
+        for chemin in chemins:
+            chemin.unlink(missing_ok=True)
+        raise
+    return [
+        (fichier.filename or "(sans nom)", chemin) for fichier, chemin in zip(fichiers, chemins, strict=True)
+    ]
+
+
+# --- calibration depuis l'écran (L9.4) ------------------------------------------
+
+
+@routeur.get("/calibrations")
+def etat_calibrations(ctx: Ctx, qui: Qui) -> dict:
+    """Pour chaque vélo : sa calibration en mots simples, de quoi la lancer, la tâche récente.
+
+    L'écran s'en sert pour dessiner la fiche vélo sans rien lancer : combien
+    de sorties exploitables il y a (et combien il en faut), si un pneu est
+    déclaré, la dernière calibration de ce vélo (en cours ou terminée — c'est
+    ce qui permet de reprendre l'avancement après un rechargement de page).
+    Rien de tout ça ne coûte d'appel externe : l'index des sorties seul.
+    """
+    from ourouler.api import calibrations
+
+    config = _config(ctx, qui)
+    donnees = calibrations.etat(config, _cache(config, qui), str(qui))
+    if ctx.session.mode != MODE_PERSONNEL:
+        donnees["quota"] = {
+            "plafond": ctx.quotas_calibration.plafond,
+            "restant": ctx.quotas_calibration.restant(qui),
+        }
+    return {"proprietaire": str(qui), "donnees": donnees}
+
+
+@routeur.get("/calibrations/{id_job}")
+def etat_job_calibration(ctx: Ctx, qui: Qui, id_job: str) -> dict:
+    """Où en est une calibration lancée par `POST /calibrations` — à interroger périodiquement.
+
+    Même cloisonnement que `GET /activites/import/{id}` : l'identifiant d'un
+    autre propriétaire — ou celui d'un import — rend `fichier_introuvable`.
+    """
+    from ourouler.api import taches_fond
+
+    job = taches_fond.trouver(str(qui), id_job, taches_fond.NATURE_CALIBRATION)
+    if job is None:
+        raise ErreurApi(
+            code="fichier_introuvable",
+            message=f"calibration {id_job} : introuvable, ou appartenant à quelqu'un d'autre",
+            statut=404,
+        )
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+@routeur.post("/calibrations", status_code=202)
+def lancer_calibration(ctx: Ctx, qui: Qui, demande: DemandeCalibration) -> dict:
+    """Lance en tâche de fond la calibration d'un vélo sur les sorties de **ce** compte.
+
+    Crr fixé par le pneu (ou, `sans_pneu`, par l'usage — dit comme tel), CdA
+    cherché, fourchette du porte à porte mesurée hors échantillon : le calcul
+    de `ourouler calibrer` (L9.1), sur les sorties importées (L9.2) ou
+    synchronisées depuis Intervals. Voir `api/calibrations.py` pour le choix
+    des sorties quand le profil a plusieurs vélos.
+
+    Dans l'ordre, et c'est voulu : les **préconditions** d'abord (pas de
+    vélo, pas de FTP, pas assez de sorties, pas de pneu — chacune avec son
+    code et ce qu'il faut faire), puis le **quota** (une par jour et par
+    compte, remboursée si la calibration échoue), puis le **verrou** des
+    tâches lourdes (un import ou une calibration à la fois pour tout le
+    serveur, `tache_lourde_en_cours`). Un refus à l'une de ces étapes ne
+    coûte rien au compte.
+
+    202 et un identifiant tout de suite ; `GET /calibrations/{id}` dit où
+    elle en est, puis rend le résultat en mots simples.
+    """
+    from ourouler.api import calibrations, taches_fond
+
+    config = _config(ctx, qui)
+    cache = _cache(config, qui)
+    velo = calibrations.verifier(
+        config,
+        demande.velo,
+        cache,
+        sans_pneu=demande.sans_pneu,
+        velos_declares=_velos_declares(ctx, qui),
+    )
+    client_archive = _service(ctx, config, "archive") or ClientArchive(
+        chemin_cache=config.cache.dossier / NOM_CACHE_ARCHIVE
+    )
+    _verifier_quota(ctx, qui, ctx.quotas_calibration)
+    try:
+        job = calibrations.lancer(
+            config,
+            velo,
+            cache,
+            client_archive,
+            str(qui),
+            sans_pneu=demande.sans_pneu,
+            chemins={
+                str(ctx.profils.dossier(qui)): "(votre dossier)",
+                str(config.cache.dossier): "(cache du serveur)",
+            },
+            au_echec=lambda: _rembourser_quota(ctx, qui, ctx.quotas_calibration),
+        )
+    except taches_fond.ErreurTacheEnCours as occupe:
+        _rembourser_quota(ctx, qui, ctx.quotas_calibration)
+        raise ErreurApi(
+            code="tache_lourde_en_cours",
+            message=_message_occupe(occupe.nature),
+            statut=409,
+        ) from None
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+def _velos_declares(ctx: Contexte, qui: Proprietaire) -> bool:
+    """Le compte a-t-il déclaré ses vélos ? Voir `calibrations.verifier`.
+
+    En mode hébergé, `velos` est du tiers 3 (Q35) : jamais hérité du socle,
+    donc absent de la surcharge tant que le cycliste ne l'a pas écrit. En
+    mode personnel, les vélos sont ceux du TOML du mainteneur.
+    """
+    if ctx.session.mode == MODE_PERSONNEL:
+        return True
+    try:
+        return bool(ctx.profils.surcharge(qui).get("velos"))
+    except Exception as e:
+        raise classer(e) from e
+
+
+def _message_occupe(nature: str | None) -> str:
+    """Le refus quand une tâche lourde occupe le serveur — sans dire à qui elle appartient."""
+    quoi = {"import": "un import d'historique", "calibration": "une calibration"}.get(
+        nature or "", "un import ou une calibration"
+    )
+    return (
+        f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez "
+        "dans quelques minutes"
+    )
+
+
 # --- parcours -----------------------------------------------------------------
 
 
@@ -1080,55 +1553,66 @@ def generer_sortie(
     """
     from ourouler.sortie import commande as sortie_commande
 
-    config = _config(ctx, qui)
-    carte = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.html")
-    seance = _chemin_seance(ctx, qui, demande.fichier_seance)
-    # Q40 (g) : **aucun GPX n'est écrit ici**. Le cœur remet les trois textes
-    # à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc aucun fichier),
-    # et c'est la route `…/propositions/{n}/gpx` qui en servira un — celui que
-    # le cycliste aura choisi, et pas celui du classement.
-    recueillis: list[object] = []
-    resultat = _avec_journal(
-        ctx,
-        qui,
-        ("brouter", "openmeteo", "intervals"),
-        lambda: executer_commande(
-            sortie_commande.executer,
-            namespace(
-                jour=demande.jour,
-                depart=demande.heure_depart,
-                distance=demande.distance_km,
-                direction=demande.direction,
-                candidates=demande.candidates,
-                vent=demande.vent,
-                velo=demande.velo,
-                profil=demande.profil,
-                fichier_seance=seance,
-                carte=str(carte.chemin),
-                ecraser=True,
-            ),
-            config,
-            secrets=secrets_de(config),
-            chemins={str(carte.chemin): carte.nom},
-            operation="sortie",
-            budgets=ctx.budgets,
-            client_brouter=_service(ctx, config, "brouter"),
-            client_meteo=_service(ctx, config, "meteo"),
-            client_intervals=_service(ctx, config, "intervals"),
-            lieu_depart=_depart(demande.depart),
-            recueil_gpx=recueillis.extend,
-            # Q58, même raison que `POST /boucles`.
-            base_routes=_base_routes(config, qui),
-        ),
-    )
-    donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
-    if recueillis:
-        donnees = vues.avec_gpx_par_proposition(
-            donnees,
-            generation=ctx.generations.retenir(qui, recueillis),
-            noms={int(g.numero): str(g.nom_fichier) for g in recueillis},  # type: ignore[attr-defined]
-            prefixe=routeur.prefix,
+    _verifier_quota(ctx, qui, ctx.quotas)
+    try:
+        config = _config(ctx, qui)
+        carte = ctx.fichiers.reserver(
+            qui, f"sortie_{demande.jour or date.today().isoformat()}.html"
         )
+        seance = _chemin_seance(ctx, qui, demande.fichier_seance)
+        # Q40 (g) : **aucun GPX n'est écrit ici**. Le cœur remet les trois
+        # textes à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc
+        # aucun fichier), et c'est la route `…/propositions/{n}/gpx` qui en
+        # servira un — celui que le cycliste aura choisi, et pas celui du
+        # classement.
+        recueillis: list[object] = []
+        resultat = _avec_journal(
+            ctx,
+            qui,
+            ("brouter", "openmeteo", "intervals"),
+            lambda: executer_commande(
+                sortie_commande.executer,
+                namespace(
+                    jour=demande.jour,
+                    depart=demande.heure_depart,
+                    distance=demande.distance_km,
+                    direction=demande.direction,
+                    candidates=demande.candidates,
+                    vent=demande.vent,
+                    velo=demande.velo,
+                    profil=demande.profil,
+                    fichier_seance=seance,
+                    carte=str(carte.chemin),
+                    ecraser=True,
+                ),
+                config,
+                secrets=secrets_de(config),
+                chemins={str(carte.chemin): carte.nom},
+                operation="sortie",
+                budgets=ctx.budgets,
+                client_brouter=_service(ctx, config, "brouter"),
+                client_meteo=_service(ctx, config, "meteo"),
+                client_intervals=_service(ctx, config, "intervals"),
+                lieu_depart=_depart(demande.depart),
+                recueil_gpx=recueillis.extend,
+                # Q58, même raison que `POST /boucles`.
+                base_routes=_base_routes(config, qui),
+            ),
+        )
+        donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
+        if recueillis:
+            donnees = vues.avec_gpx_par_proposition(
+                donnees,
+                generation=ctx.generations.retenir(qui, recueillis),
+                noms={int(g.numero): str(g.nom_fichier) for g in recueillis},  # type: ignore[attr-defined]
+                prefixe=routeur.prefix,
+            )
+    except Exception:
+        # L9.3 : seul un succès consomme le crédit décompté ci-dessus — une
+        # panne (BRouter, Open-Meteo, calcul_en_cours, ou tout autre échec)
+        # le rend.
+        _rembourser_quota(ctx, qui, ctx.quotas)
+        raise
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("sortie"), qui)
 
 
@@ -1170,38 +1654,45 @@ def generer_boucle(
     """Une boucle libre, sans séance : candidates, coûts, météo le long du tracé, géométrie."""
     from ourouler.boucle import commande as boucle_commande
 
-    config = _config(ctx, qui)
-    # Q47 : sans direction, la recherche balaie tout l'horizon (comme
-    # `sortie`) plutôt que de refuser — le nom réservé le dit en clair plutôt
-    # que de porter un `None` littéral.
-    direction_nom = demande.direction or "toutes-directions"
-    gpx = ctx.fichiers.reserver(qui, f"boucle_{direction_nom}_{demande.distance_km:g}km.gpx")
-    resultat = executer_commande(
-        boucle_commande.executer,
-        namespace(
-            distance=demande.distance_km,
-            direction=demande.direction,
-            depart=demande.heure_depart,
-            candidates=demande.candidates,
-            profil=demande.profil,
-            velo=demande.velo,
-            puissance=demande.puissance_w,
-            sortie=str(gpx.chemin),
-            ecraser=True,
-        ),
-        config,
-        secrets=secrets_de(config),
-        chemins={str(gpx.chemin): gpx.nom},
-        operation="boucle",
-        budgets=ctx.budgets,
-        client_brouter=_service(ctx, config, "brouter"),
-        client_meteo=_service(ctx, config, "meteo"),
-        lieu_depart=_depart(demande.depart),
-        # Q58 : la colonne « connu % » est calculée contre les routes que
-        # **ce** cycliste a roulées, pas contre celles du propriétaire local.
-        base_routes=_base_routes(config, qui),
-    )
-    donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
+    _verifier_quota(ctx, qui, ctx.quotas)
+    try:
+        config = _config(ctx, qui)
+        # Q47 : sans direction, la recherche balaie tout l'horizon (comme
+        # `sortie`) plutôt que de refuser — le nom réservé le dit en clair
+        # plutôt que de porter un `None` littéral.
+        direction_nom = demande.direction or "toutes-directions"
+        gpx = ctx.fichiers.reserver(qui, f"boucle_{direction_nom}_{demande.distance_km:g}km.gpx")
+        resultat = executer_commande(
+            boucle_commande.executer,
+            namespace(
+                distance=demande.distance_km,
+                direction=demande.direction,
+                depart=demande.heure_depart,
+                candidates=demande.candidates,
+                profil=demande.profil,
+                velo=demande.velo,
+                puissance=demande.puissance_w,
+                sortie=str(gpx.chemin),
+                ecraser=True,
+            ),
+            config,
+            secrets=secrets_de(config),
+            chemins={str(gpx.chemin): gpx.nom},
+            operation="boucle",
+            budgets=ctx.budgets,
+            client_brouter=_service(ctx, config, "brouter"),
+            client_meteo=_service(ctx, config, "meteo"),
+            lieu_depart=_depart(demande.depart),
+            # Q58 : la colonne « connu % » est calculée contre les routes
+            # que **ce** cycliste a roulées, pas contre celles du
+            # propriétaire local.
+            base_routes=_base_routes(config, qui),
+        )
+        donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
+    except Exception:
+        # L9.3 : même remboursement que `POST /sorties` — voir sa docstring.
+        _rembourser_quota(ctx, qui, ctx.quotas)
+        raise
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)
 
 
@@ -1396,6 +1887,56 @@ def _comptes_du_deploiement(ctx: Contexte):
         yield DepotComptes(cx)
 
 
+@routeur.get("/moi")
+def mon_compte(ctx: Ctx, qui: Qui) -> dict:
+    """L'adresse du compte de la session en cours — pour l'écran « Mon compte » du front (L9.6).
+
+    `email` vaut `None` sur un déploiement sans base de comptes (mode personnel, ou
+    hébergé sans `SessionParCookie`) : il n'y a alors aucun compte à décrire, ce n'est
+    pas une panne — même parti pris que `_comptes_du_deploiement` pour `DELETE /moi`.
+    """
+    with _comptes_du_deploiement(ctx) as comptes:
+        compte = comptes.compte_du_proprietaire(qui) if comptes is not None else None
+    return {
+        "proprietaire": str(qui),
+        "donnees": {"email": compte.email if compte is not None else None},
+    }
+
+
+@routeur.post("/moi/mot-de-passe")
+def changer_mon_mot_de_passe(ctx: Ctx, qui: Qui, corps: DemandeChangementMotDePasse) -> dict:
+    """Change le mot de passe du compte de la session en cours — l'ancien doit être vérifié.
+
+    Refuse `comptes_indisponibles` (404) sur un déploiement sans base de comptes ou sans
+    compte lié à cette session — même code que les quatre routes de comptes et sessions
+    pour la même situation. Contrairement à `POST /reinitialiser`, les autres sessions
+    ouvertes de ce compte ne sont **pas** fermées : voir `DepotComptes.changer_mot_de_passe`.
+    """
+    with _comptes_du_deploiement(ctx) as comptes:
+        if comptes is None:
+            raise ErreurApi(
+                code="comptes_indisponibles",
+                message="ce déploiement ne gère pas de comptes — rien à changer",
+                statut=404,
+            )
+        compte = comptes.compte_du_proprietaire(qui)
+        if compte is None:
+            raise ErreurApi(
+                code="comptes_indisponibles",
+                message="aucun compte lié à cette session",
+                statut=404,
+            )
+        try:
+            comptes.changer_mot_de_passe(
+                compte.identifiant, corps.mot_de_passe_actuel, corps.nouveau_mot_de_passe
+            )
+        except ErreurMotDePasseActuelRefuse as e:
+            raise ErreurApi(
+                code="mot_de_passe_actuel_refuse", message="mot de passe actuel refusé", statut=401
+            ) from e
+    return {"proprietaire": str(qui), "donnees": {}}
+
+
 @routeur.delete("/moi")
 def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     """Efface les données personnelles de ce propriétaire.
@@ -1418,6 +1959,8 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     casserait sur un profil incomplet si cette route exigeait la `Config`
     entière du propriétaire pour obtenir un seul réglage serveur.
     """
+    from ourouler.api import taches_fond
+
     try:
         with _comptes_du_deploiement(ctx) as comptes:
             donnees = vie_privee.effacer_donnees(
@@ -1429,6 +1972,8 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
                 dossier_cache=ctx.dossier_cache,
                 comptes=comptes,
             )
+    except (vie_privee.TacheNonArretee, taches_fond.SuppressionDejaEnCours) as refus:
+        raise ErreurApi(code=refus.code, message=refus.message, statut=409) from None
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": donnees}
@@ -1455,6 +2000,32 @@ def _refuser_sur_la_taille_annoncee(requete: Request, nom: str) -> None:
             code="fichier_trop_gros",
             message=f"{nom} : {annoncee} octets annoncés — une séance n'en fait pas plus de "
             f"{TAILLE_MAX_SEANCE}, le dépôt est refusé sans être lu",
+            statut=413,
+        )
+
+
+def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
+    """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond de l'import.
+
+    Une archive Strava réelle pèse 665 Mo (`docs/services_externes.md`) : le
+    plafond n'est donc pas celui d'une séance, mais le principe est le même.
+
+    **Limite, dite (relecture du 25/09/2026)** : FastAPI a déjà reçu tout le
+    formulaire, dans des fichiers temporaires sur disque, avant d'appeler la
+    route — cette garde évite le traitement, pas la réception. Borner la
+    réception demande une limite de taille de corps en amont (proxy ou
+    intergiciel), comme pour `/seances/fichier`.
+    """
+    from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+
+    annoncee = requete.headers.get("content-length")
+    if annoncee is None or not annoncee.isdigit():
+        return
+    if int(annoncee) > TAILLE_MAX_REQUETE:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{annoncee} octets annoncés — un import ne prend pas plus de "
+            f"{TAILLE_MAX_REQUETE}, le dépôt est refusé sans être traité",
             statut=413,
         )
 

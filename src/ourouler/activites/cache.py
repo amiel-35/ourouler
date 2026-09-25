@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -27,6 +28,17 @@ from ourouler.proprietaire import PROPRIETAIRE_LOCAL
 
 NOM_INDEX = "index.sqlite"
 NOM_BRUT = "brut"
+
+#: Le sous-dossier de `brut/` où chaque propriétaire **autre que local** range
+#: ses fichiers, un dossier par propriétaire (contre-lecture Fable du
+#: 25/09/2026). Voir `Cache.__init__`.
+NOM_BRUT_COMPTES = "comptes"
+
+#: Ce qu'un propriétaire doit être pour servir tel quel de nom de dossier —
+#: la forme des identifiants de compte (`api/proprietaire.FORME_IDENTIFIANT`).
+#: Tout autre propriétaire est rangé sous l'empreinte de son nom : jamais un
+#: `..` ni un séparateur dans un chemin.
+_SEGMENT_SUR = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 #: Schéma 1 : `identifiant` (sha256 du contenu) était la clé primaire, donc
 #: deux activités distinctes partageant un même fichier d'origine (les deux
@@ -113,15 +125,33 @@ class EntreeCache:
 
 
 class Cache:
-    """Dossier de cache : `brut/<identifiant>.<extension>` + `index.sqlite`."""
+    """Dossier de cache : `brut/<identifiant>.<extension>` + `index.sqlite`.
+
+    **Les fichiers bruts d'un compte sont à lui** (contre-lecture Fable du
+    25/09/2026). Ils étaient rangés par contenu dans un `brut/` commun à tous
+    les propriétaires : deux comptes aux octets identiques partageaient le
+    même fichier, la suppression de l'un devait vérifier que l'autre ne le
+    citait plus, et l'existence du fichier disait, à qui savait regarder,
+    qu'un autre compte l'avait déjà déposé. Désormais le propriétaire local
+    — la ligne de commande, le cache du mainteneur — garde `brut/` tel quel,
+    et tout autre propriétaire a le sien, `brut/comptes/<propriétaire>/`.
+    Supprimer un compte n'y touche qu'à ses propres fichiers.
+    """
 
     def __init__(self, dossier: Path, proprietaire: str = PROPRIETAIRE_LOCAL):
         self.dossier = Path(dossier)
         self.proprietaire = _proprietaire_valide(proprietaire)
-        self.brut = self.dossier / NOM_BRUT
+        #: Le `brut/` commun, celui du propriétaire local — et celui où un
+        #: fichier déposé avant le 25/09/2026 par un autre compte se relit encore.
+        self.brut_commun = self.dossier / NOM_BRUT
+        self.brut = (
+            self.brut_commun
+            if self.proprietaire == PROPRIETAIRE_LOCAL
+            else self.brut_commun / NOM_BRUT_COMPTES / _segment(self.proprietaire)
+        )
         self.index = self.dossier / NOM_INDEX
         try:
-            self.brut.mkdir(parents=True, exist_ok=True)
+            self.brut_commun.mkdir(parents=True, exist_ok=True)
         except OSError as e:
             raise ErreurUtilisateur(f"cache : dossier {self.dossier} inutilisable ({e})") from e
         self.echecs: list[str] = []
@@ -257,6 +287,7 @@ class Cache:
         chemin = self.brut / f"{identifiant}.{extension}"
         if not chemin.exists():
             try:
+                self.brut.mkdir(parents=True, exist_ok=True)
                 chemin.write_bytes(contenu)
             except OSError as e:
                 raise ErreurUtilisateur(f"cache : écriture impossible dans {self.brut} ({e})") from e
@@ -369,12 +400,12 @@ class Cache:
         """Efface toutes les entrées de **ce** propriétaire. Rend le nombre effacé.
 
         Écrit pour le lot L7.B (export et suppression des données
-        personnelles, `docs/sprint7_contrat.md`). Un fichier brut est rangé
-        par **contenu** (`chemin`, cf. `Cache.chemin`) : deux propriétaires
-        aux octets identiques le partagent. On ne le supprime donc qu'une
-        fois qu'**aucune** ligne, d'aucun propriétaire, ne le cite plus après
-        l'effacement des lignes de celui-ci — sinon l'autre perdrait sa
-        propre activité pour une coïncidence de contenu.
+        personnelles, `docs/sprint7_contrat.md`). Un fichier du `brut/`
+        **commun** peut être cité par plusieurs propriétaires (le local, et
+        les comptes qui y ont déposé avant le 25/09/2026) : on ne l'y supprime
+        qu'une fois qu'**aucune** ligne, d'aucun propriétaire, ne le cite
+        plus. Un fichier du dossier propre à ce propriétaire, lui, n'est cité
+        que par lui : il part avec ses lignes.
         """
         with self._connexion() as cx:
             lignes = cx.execute(
@@ -401,7 +432,14 @@ class Cache:
                 is None
             ]
         for identifiant, extension in orphelins:
-            (self.brut / f"{identifiant}.{extension}").unlink(missing_ok=True)
+            (self.brut_commun / f"{identifiant}.{extension}").unlink(missing_ok=True)
+        if self.brut != self.brut_commun:
+            for identifiant, extension in lignes:
+                (self.brut / f"{identifiant}.{extension}").unlink(missing_ok=True)
+            try:
+                self.brut.rmdir()
+            except OSError:
+                pass  # pas vide (un fichier que l'index ne cite pas) ou déjà absent
         return len(lignes)
 
     # --- lecture --------------------------------------------------------------
@@ -473,7 +511,16 @@ class Cache:
             ).fetchone()
         if ligne is None:
             raise KeyError(identifiant)
-        return self.brut / f"{identifiant}.{ligne[0]}"
+        return self._fichier(identifiant, ligne[0])
+
+    def _fichier(self, identifiant: str, extension: str) -> Path:
+        """Le fichier brut de ce propriétaire — ou, s'il a été déposé avant le
+        25/09/2026, celui du `brut/` commun."""
+        propre = self.brut / f"{identifiant}.{extension}"
+        if propre.exists() or self.brut == self.brut_commun:
+            return propre
+        ancien = self.brut_commun / f"{identifiant}.{extension}"
+        return ancien if ancien.exists() else propre
 
     def relire(self, identifiant: str) -> Activite:
         """Relit l'activité complète (tous ses points) depuis le fichier brut."""
@@ -527,7 +574,7 @@ class Cache:
             sport=sport,
             appareil=appareil,
             equipement=equipement,
-            chemin=self.brut / f"{identifiant}.{extension}",
+            chemin=self._fichier(identifiant, extension),
             meta=_json(meta),
             extension=extension,
         )
@@ -554,6 +601,13 @@ def _index_existe(cx: sqlite3.Connection, nom: str) -> bool:
 def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
     """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
     return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
+
+
+def _segment(proprietaire: str) -> str:
+    """Le nom de dossier d'un propriétaire : lui-même s'il est sûr, son empreinte sinon."""
+    if _SEGMENT_SUR.match(proprietaire):
+        return proprietaire
+    return hashlib.sha256(proprietaire.encode("utf-8")).hexdigest()[:32]
 
 
 def _proprietaire_valide(valeur: str) -> str:

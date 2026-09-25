@@ -33,9 +33,9 @@ rouvrir de session. Rien ne change pour un déploiement sans base de comptes
 facultatif, et son absence laisse le comportement d'avant ce lot.
 
 Ce qui part dans l'export : le profil (la surcharge JSON, jamais le socle du
-serveur), le journal des services, les fichiers déposés et générés, l'index
-et les fichiers bruts du cache d'activités, et un résumé de la part du
-propriétaire dans les routes apprises. Ce que la suppression efface : tout ce
+serveur), sa calibration (L9.4), le journal des services, les fichiers déposés
+et générés, l'index et les fichiers bruts du cache d'activités, et un résumé
+de la part du propriétaire dans les routes apprises. Ce que la suppression efface : tout ce
 qui précède, sauf justement ce résumé des routes apprises, qui reste.
 
 **Format de l'archive : ZIP, `ZIP_STORED` — non compressé, volontairement.**
@@ -60,11 +60,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
+from ourouler.api import taches_fond
 from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.physique.commande import NOM_CALIBRATION
 
 #: Le fichier qui dit ce que chaque entrée de l'archive est — sans lui, un
 #: export RGPD n'est lisible que par qui a écrit le code (contrat §L7.B :
@@ -78,6 +80,9 @@ Ce que contient cette archive :
   FTP, vélos, position dans la zone, identifiants Intervals.icu). Le socle du
   serveur (URL de BRouter, modèles météo) n'y figure pas : il n'appartient à
   personne en particulier.
+- {nom_calibration} : la calibration de vos vélos, si vous en avez lancé une
+  depuis l'écran — ce que le calcul a trouvé sur vos sorties (paramètres,
+  erreur de validation, fourchette du porte à porte).
 - journal_services.json : la date du dernier succès de chaque service externe
   pour vous (Intervals.icu, Open-Meteo…) — sert uniquement à l'écran « plus lu
   depuis le… ».
@@ -95,7 +100,7 @@ Ce que contient cette archive :
   collectives (doctrine du projet, §10.2), justement parce qu'elles décrivent
   la géographie plus que vous.**
 
-Ce que la suppression du compte efface : le profil, le journal des services,
+Ce que la suppression du compte efface : le profil, la calibration, le journal des services,
 les fichiers déposés et générés, et votre cache d'activités listés
 ci-dessus. Ce qu'elle ne touche jamais : les routes apprises (paragraphe
 précédent).
@@ -125,13 +130,18 @@ def construire_export(
         archive.writestr(
             "LISEZ-MOI.txt",
             GABARIT_LISEZ_MOI.format(
-                proprietaire=qui, quand=datetime.now(UTC).isoformat(timespec="seconds")
+                proprietaire=qui,
+                quand=datetime.now(UTC).isoformat(timespec="seconds"),
+                nom_calibration=NOM_CALIBRATION,
             ),
         )
         archive.writestr(
             "profil.json",
             json.dumps(profils.surcharge(qui), ensure_ascii=False, indent=2, sort_keys=True),
         )
+        calibration = profils.dossier(qui) / NOM_CALIBRATION
+        if calibration.is_file():
+            archive.write(calibration, NOM_CALIBRATION)
         archive.writestr(
             "journal_services.json",
             json.dumps(journal.tout(qui), ensure_ascii=False, indent=2, sort_keys=True),
@@ -140,6 +150,22 @@ def construire_export(
         _ajouter_activites(archive, qui, dossier_cache)
         _ajouter_routes_apprises(archive, qui, dossier_cache)
     return tampon.getvalue()
+
+
+class TacheNonArretee(Exception):  # noqa: N818 — un état, pas une faute
+    """Une tâche de fond du compte n'a pas rendu la main à temps : rien n'a été effacé.
+
+    Une exception ordinaire, traduite en `ErreurApi` par la route **hors** de
+    son bloc `with` : une `ErreurApi` (dataclass figée) qui traverse un
+    `@contextmanager` fait échouer celui-ci sur l'écriture de son
+    `__traceback__`, et le refus sortait en 500.
+    """
+
+    code = "tache_lourde_en_cours"
+    message = (
+        "une tâche de votre compte (import ou calibration) ne s'est pas encore arrêtée — "
+        "rien n'a été effacé, réessayez dans une minute"
+    )
 
 
 def effacer_donnees(
@@ -168,9 +194,49 @@ def effacer_donnees(
     ferme le compte lié (mot de passe compris) et révoque du même coup ses
     sessions ouvertes, par la cascade du schéma (voir cette méthode).
     """
+    # **Une seule suppression à la fois, par compte** (25/09/2026) : sans ce
+    # verrou, un second `DELETE /moi` du même compte pendant que le premier
+    # attend `annuler_et_attendre` (jusqu'à 120 s) attendrait lui aussi, sur
+    # un second fil du serveur, pour un travail que le premier fait déjà —
+    # voir `taches_fond.debuter_effacement`. Il refuse tout de suite.
+    proprietaire = str(qui)
+    taches_fond.debuter_effacement(proprietaire)
+    try:
+        # **Les tâches de fond ensuite** (contre-lecture Fable du 25/09/2026) :
+        # un import en cours réécrivait ses lignes et ses fichiers bruts
+        # après l'effacement. On les annule, on attend qu'elles aient rendu
+        # la main, et rien ne se relance pour ce compte tant que
+        # l'effacement dure.
+        with taches_fond.suspendre(proprietaire):
+            if not taches_fond.annuler_et_attendre(proprietaire):
+                raise TacheNonArretee
+            return _effacer(
+                qui,
+                profils=profils,
+                fichiers=fichiers,
+                journal=journal,
+                generations=generations,
+                dossier_cache=dossier_cache,
+                comptes=comptes,
+            )
+    finally:
+        taches_fond.finir_effacement(proprietaire)
+
+
+def _effacer(
+    qui: Proprietaire,
+    *,
+    profils: DepotProfils,
+    fichiers: DepotFichiers,
+    journal: JournalServices,
+    generations: DepotGenerations,
+    dossier_cache: Path,
+    comptes: DepotComptes | None,
+) -> dict:
     cache = Cache(dossier_cache, proprietaire=str(qui))
     supprime = {
         "profil": profils.supprimer_profil(qui),
+        "calibration": _supprimer_calibration(profils, qui),
         "journal_services": journal.supprimer(qui),
         "fichiers": fichiers.supprimer_tout(qui),
         "activites": cache.supprimer_tout(),
@@ -196,6 +262,19 @@ def effacer_donnees(
             )
         },
     }
+
+
+def _supprimer_calibration(profils: DepotProfils, qui: Proprietaire) -> bool:
+    """Efface la calibration de ce compte (L9.4), rangée dans son dossier. Vrai si elle existait.
+
+    En mode personnel, ce fichier n'existe pas : la calibration du
+    mainteneur vit dans le dossier de cache, écrite par la ligne de commande,
+    et n'appartient à aucun compte du service.
+    """
+    chemin = profils.dossier(qui) / NOM_CALIBRATION
+    existait = chemin.is_file()
+    chemin.unlink(missing_ok=True)
+    return existait
 
 
 def _ajouter_fichiers(archive: zipfile.ZipFile, qui: Proprietaire, fichiers: DepotFichiers) -> None:
@@ -254,4 +333,4 @@ def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossie
     )
 
 
-__all__ = ["construire_export", "effacer_donnees"]
+__all__ = ["TacheNonArretee", "construire_export", "effacer_donnees"]

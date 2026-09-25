@@ -305,6 +305,7 @@ export function Echec({
     session_absente: "Vous n'êtes plus connecté",
     invitation_invalide: "Ce lien d'invitation n'est plus valable",
     identifiants_refuses: "Adresse ou mot de passe refusés",
+    mot_de_passe_actuel_refuse: "Mot de passe actuel refusé",
     comptes_indisponibles: "Ce serveur ne gère pas de comptes",
     requete_invalide: "Cette demande n'est pas valide",
     profil_invalide: "Ce réglage ne tient pas",
@@ -324,6 +325,24 @@ export function Echec({
     route_inconnue: "Cette route de l'API n'existe pas",
     methode_refusee: "Cette route n'accepte pas cette méthode",
     calcul_en_cours: "Un calcul occupe déjà le serveur",
+    // L9.3 : un compte hébergé qui a épuisé son quota du jour. Le message de
+    // l'API dit déjà quand ça se libère (minuit UTC) — pas de bouton
+    // « réessayer » ici (absent de `reessayable`, `api/client.ts`) : un
+    // nouvel essai immédiat échouera pareil.
+    quota_atteint: "Quota quotidien atteint",
+    import_deja_en_cours: "Un import occupe déjà le serveur",
+    // L9.4 — la calibration depuis l'écran. `Reglages` montre d'ordinaire
+    // ces refus dans la fiche vélo elle-même ; les titres restent ici en
+    // filet, comme pour les autres codes.
+    tache_lourde_en_cours: "Un calcul long occupe déjà le serveur",
+    // Une seconde `DELETE /moi` pendant qu'une première attend la fin
+    // d'une tâche de fond de ce compte (jusqu'à deux minutes) : elle
+    // refuse tout de suite plutôt que d'attendre à son tour.
+    suppression_deja_en_cours: "Suppression déjà en cours",
+    velo_absent: "Aucun vélo déclaré",
+    ftp_absente: "Votre FTP manque",
+    sorties_insuffisantes: "Pas encore assez de sorties",
+    pneu_absent: "Quels pneus sur ce vélo ?",
     brouter_indisponible: "Le traceur ne répond pas",
     intervals_indisponible: "intervals.icu est en panne",
     geocodage_indisponible: "L'annuaire d'adresses ne répond pas",

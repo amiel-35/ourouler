@@ -1092,6 +1092,135 @@ qualité du tracé — [[Q29]], [[Q31]], [[Q32]] — n'entrent ni dans l'héberg
 dans l'accueil d'un nouveau venu. Elles sont posées en [[Q53]] avec trois
 issues possibles ; aucune n'est tranchée, et elles n'ont pas de sprint.
 
+### Sprint 9 — Inviter pour de vrai **[cap fixé par le mainteneur, cadré le 25/09/2026]**
+
+Cadré à la demande du mainteneur : « refaire une passe du projet pour
+finaliser et pouvoir inviter des gens », et « j'ai encore du mal avec le
+modèle vélo » (`docs/sprint9_contrat.md`). Six lots, tous fusionnés sur
+`sprint-9`.
+
+#### Clôture du sprint 9 — 25/09/2026
+
+**L9.1 — le modèle vélo : Crr par pneu, CdA cherché, porte à porte en
+fourchette.** Codé le 25/09 (branche `l9-1-modele`), méthode issue de la note
+du 23/09 (« le porte à porte ignore le relief de la boucle », ci-dessus) :
+Crr fixé par la littérature selon la catégorie de pneu (`Velo.pneu`,
+`src/ourouler/config.py:52,183-188`), seul le CdA est cherché
+(`src/ourouler/physique/calibration.py`), sur le **temps en mouvement**,
+apprentissage limité aux sorties sous 30 % de signal de groupe, fourchette du
+porte à porte mesurée sur les **seules sorties de validation**. Mesuré :
+RCR — CdA 0,378 (compensation, pas une mesure), MAE de validation 3,5 %,
+biais −0,8 % (n=25) ; BMC — CdA 0,318, MAE 2,5 %, biais +1,2 % (n=9). Écart de
+29,8 W à 30 km/h entre les deux vélos, recoupé sans modèle par
+`ourouler comparer` (27-42 W mesurés). Fourchette écoulé/simulé validation :
+RCR × 1,021 à × 1,099 (n=25) ; BMC en convention faute d'assez de sorties de
+validation roulées seul (7 < 8 requis). Convention par défaut : × 1,02 à
+× 1,14. **Un CdA calibré est un paramètre de compensation** (il absorbe entre
+autres l'étalonnage unilatéral du capteur RCR) : il ne se compare ni à la
+littérature ni d'un vélo à l'autre — c'est la correction que la contre-lecture
+Fable (relecture de méthode) a fait porter au critère d'acceptation du
+contrat, revu en conséquence le 25/09.
+
+**L9.2 — importer son historique.** Dépôt de fichiers `.fit`/`.gpx`/`.tcx`
+(et `.gz`) ou d'archive Strava/Garmin, en tâche de fond
+(`src/ourouler/activites/import_archive.py`, `src/ourouler/api/imports_fond.py`,
+`src/ourouler/api/taches_fond.py`), cloisonné par propriétaire, borné (taille,
+nombre de fichiers, décompression, chemins, profondeur d'archive). Contre-lu
+par Fable et durci en conséquence : le corps de la requête n'est jamais
+accumulé en mémoire d'un bloc, un import refusé (session absente, serveur
+occupé, quota épuisé) l'est **avant** la lecture du corps
+(`src/ourouler/api/limite_corps.py`, `src/ourouler/api/garde_avant_corps.py`),
+une suppression de compte annule les tâches de fond de ce compte et attend
+qu'elles aient rendu la main avant d'effacer (`taches_fond.annuler_et_attendre`,
+`api/vie_privee.py`), et les fichiers bruts importés sont rangés par compte
+dans le cache (jamais mêlés entre propriétaires).
+
+**L9.3 — le coût par utilisateur.** Cache mutualisé des prévisions Open-Meteo
+(`src/ourouler/meteo/cache_previsions.py` : même point arrondi, même heure,
+un seul appel pour tous les comptes qui le partagent) et quotas journaliers
+réglables par compte (`src/ourouler/api/quotas.py`,
+`src/ourouler/api/exploitation.py`) : 20 générations/jour, 100 consultations
+météo/jour, 1 calibration/jour, 5 imports/jour par défaut. Refus lisible
+`quota_atteint` (429).
+
+**L9.4 — la calibration depuis l'écran.** `POST /calibrations` lance la même
+`physique.commande.calibrer_velo` que `ourouler calibrer` — pas une seconde
+implémentation — en tâche de fond, sous le même verrou que l'import
+(`src/ourouler/api/calibrations.py`,
+`front/src/composants/CalibrationVelo.tsx`). Préconditions dites avant le
+clic, avec leur code (`velo_absent`, `ftp_absente`, `sorties_insuffisantes` —
+au moins 10 sorties exploitables —, `pneu_absent`). *Vérifié sur les vraies
+données du mainteneur* : sur 102 FIT importés depuis l'écran (100
+exploitables), CdA 0,364, 182 W à 30 km/h, MAE 3,6 %, biais −1,8 % (n=25),
+fourchette × 1,030 à × 1,110 — contre 0,378, 188 W, 3,5 %, × 1,021 à × 1,099
+par `ourouler calibrer` sur le même historique ; l'écart tient à ce qu'un FIT
+importé perd le nom Intervals de la sortie, et que les sorties nommées
+« club » (écartées par la ligne de commande) passent le filtre de groupe à
+30 % — voir le point de backlog ci-dessous.
+
+**L9.5 — le mode d'emploi de l'invitation.** `docs/inviter.md`, remis à jour
+dans ce lot de finition (25/09/2026) pour refléter L9.4 et L9.6 fusionnés
+depuis sa première version.
+
+**L9.6 — le compte de l'invité.** `reinitialiser` (mot de passe oublié d'un
+compte déjà actif) et `retirer` (fermeture d'un compte hébergé, RGPD, même
+chemin que `DELETE /moi`) en ligne de commande du mainteneur
+(`src/ourouler/cli.py`, `src/ourouler/api/invitation_commande.py`,
+`src/ourouler/api/retrait_commande.py`, `src/ourouler/api/comptes.py:644,679,836`).
+Côté invité, le volet « Mon compte » de l'écran des réglages
+(`front/src/ecrans/Reglages.tsx`, `MonCompteVolet`) : adresse, changement de
+mot de passe, export et suppression RGPD (double confirmation, texte à
+recopier) — ces deux dernières routes existaient côté API depuis le sprint 7
+sans bouton pour les atteindre ; ce lot ferme ce trou-là.
+
+**Lot de finition (25/09/2026, branche `l9-finition`), à la contre-lecture des
+tâches de fond et de la garde du corps de requête.** Une seconde `DELETE /moi`
+du même compte pendant qu'une première attend jusqu'à 120 s la fin d'une
+tâche de fond refuse désormais tout de suite (`suppression_deja_en_cours`,
+409) au lieu d'occuper un second fil du serveur pour rien
+(`taches_fond.debuter_effacement`/`finir_effacement`,
+`api/vie_privee.effacer_donnees`, `api/erreurs.py`, `Echec.tsx`,
+`inventaire_erreurs.test.tsx`). `api/garde_avant_corps.py` déporte l'appel
+bloquant à la base des comptes hors de la boucle d'événements
+(`run_in_threadpool`) et traduit une base en panne en
+`service_externe_indisponible` (502) plutôt qu'un 500 brut, vérifié par un
+test qui mesure que deux appels concurrents ne se bloquent pas l'un l'autre.
+
+**L9.7 — l'accueil de l'invité, joué dans un vrai navigateur (25/09/2026).**
+Service hébergé monté en local (Postgres jetable, BRouter et Open-Meteo réels),
+un invité joué de bout en bout : lien d'invitation, mot de passe, assistant,
+trois boucles (« entre 1 h 44 et 1 h 56 porte à porte »), import de 30 FIT
+réels par la route, calibration depuis Réglages, suppression du compte (zéro
+sortie ni fichier restant, connexion refusée ensuite). Huit défauts vus à
+l'écran, corrigés sur `l9-7-accueil` : l'étape Strava/Garmin qui disait
+l'import « pas encore proposé » propose désormais le dépôt
+(`composants/DepotHistorique.tsx`) ; le pneu demandé dans l'assistant ; le
+poids du vélo à 8 kg affiché contre 9 kg annoncés (une seule constante) ; des
+champs pré-remplis où la saisie s'ajoutait (« 7075 kg ») ; une erreur de
+validation brute (« [cycliste] masse_kg = 7075.0 hors de [20, 300] ») devenue
+« Votre poids doit être entre 20 et 300 kg » ; l'accueil sans Intervals qui
+taisait le dépôt des sorties ; `?onglet=` ignoré au chargement ; le numéro de
+rue obligatoire pour une place. **Le rejeu de ces corrections dans le
+navigateur a trouvé une régression** — un vélo sans poids (`null`, désormais
+possible) faisait tomber le récapitulatif et Réglages — corrigée et gardée par
+`front/tests/velo_sans_poids.test.tsx`. Une instabilité reste au backlog :
+sur 30 sorties importées, la calibration donne 167 W à 30 km/h, contre 188 W
+sur tout l'historique en ligne de commande et 199 W sur 40 sorties (essai
+L9.4) — à 10 sorties minimum, le chiffre bouge de ±15 W ; l'erreur de
+validation affichée (4,9 % sur 7 sorties) le laisse deviner sans le dire.
+
+**Restent au mainteneur, hors du dépôt (règle absolue 7) :**
+
+- L'action Q66a sur Coolify et le redéploiement du service hébergé — vider
+  `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` dans le panneau Coolify de
+  `ourouler-api` et reconstruire `OUROULER_CONFIG_TOML_B64` sans
+  `[cycliste]`/`[[velos]]`, comme décrit au sprint 8. Non refait par ce
+  sprint : la config du mainteneur elle-même n'a pas changé.
+- Déclarer `pneu` dans sa propre configuration (`config.toml`,
+  `[[velos]]`), puis relancer `ourouler calibrer` : sa calibration actuelle,
+  en date du 25/09, est encore l'ancienne à deux paramètres libres (avant
+  L9.1), pas la nouvelle à Crr fixé.
+
 ### Après — dépôt public
 
 AGPL-3.0-or-later (le fichier `LICENSE` est posé), anonymisation des documents
@@ -1153,7 +1282,548 @@ réelle n'est pas encore mesurée : elle le sera sur vos sorties. » La règle d
 provenance (doctrine : chaque écran dit d'où vient la valeur) reste ; c'est
 la longueur et le jargon qui partent.
 
+Backlog « le porte à porte ignore le relief de la boucle » (note du
+mainteneur, 21/09/2026, aucun sprint attribué) : `physique.modele.temps_ecoule`
+calcule le porte à porte comme `distance / moyenne_compteur_kmh`, une moyenne
+à plat qui ne redescend jamais au relief réel de la boucle évaluée — assumé
+et documenté en toutes lettres dans le code (`temps_ecoule` docstring, «
+limite assumée, à dire en toutes lettres »), pour ne pas compter deux fois
+le relief déjà moyenné dans le facteur compteur. Mais ça laisse les deux
+chiffres affichés insatisfaisants : le porte à porte ignore le relief de
+cette boucle-ci, le temps en mouvement (`sans un seul arrêt`) ignore les
+arrêts. « Je pige pas » (mainteneur, 21/09) devant le dépliant explicatif ;
+« sinon en montagne ça va être débile » — le décalage entre un porte à
+porte à plat et une boucle réellement montagneuse est justement le cas où
+l'écart se voit le plus, et où il compte le plus.
+
+Piste retenue par le mainteneur, à cadrer avant code : remplacer le porte à
+porte par `temps_estime_s` (déjà fidèle au relief et au vent de cette boucle)
+plus un temps d'arrêt dérivé du nombre **réel** de feux et de stops sur ce
+tracé (`candidate.feux`/`candidate.stops`, déjà comptés et affichés
+ailleurs à l'écran) — plutôt qu'une moyenne à plat ou la convention
+`part_arret` à 5 %. Un seul chiffre, fidèle au relief et réaliste sur les
+arrêts, au lieu de deux chiffres dont aucun ne répond à la question posée.
+
+**Objection du mainteneur le 21/09, et elle tient** : « le temps de relancer
+etc., je vois pas comment tu peux t'en sortir là. » Vérifié dans le code —
+`physique/modele.py` le dit dès sa ligne 5, « ni inertie, ni frottement » :
+le modèle n'a aucune notion d'accélération, seulement des vitesses
+d'équilibre à puissance constante. Un feu ne coûte donc pas qu'un temps
+d'attente ; il coûte aussi une décélération puis une relance dont rien dans
+le modèle actuel ne sait le prix. Un simple « nombre de feux × durée fixe »
+serait une convention de plus, pas mieux fondée que `part_arret`. Trois
+chemins, aucun tranché :
+
+1. **Modéliser la relance en vrai** (masse, énergie cinétique, accélération)
+   — un vrai chantier de physique, pas un ajout à `temps_ecoule`.
+2. **Une convention par arrêt, assumée comme telle** (secondes fixes par
+   feu/stop, comme `part_arret` l'est déjà pour l'ensemble de la sortie) —
+   simple, mais devine plutôt que mesure.
+3. **Mesurer, pas deviner** — même méthode que le facteur compteur de
+   [[Q51]] : sur l'historique GPS réel du mainteneur, chercher combien de
+   temps se perd effectivement autour d'un carrefour connu par rapport à un
+   passage sans ralentir, et en tirer une constante mesurée. Cohérent avec
+   la manière dont ce projet traite d'habitude ce genre de question, mais
+   demande des sorties où un carrefour est identifiable dans le tracé GPS.
+
+**Le 21/09, en creusant l'option 3 : les deux ingrédients existent déjà,
+séparés.** `physique/commande.py` (validation de `ourouler calibrer`)
+calcule déjà, pour chaque sortie de validation, `temps_reel_s` (le vrai
+porte à porte, arrêts compris) **et** `temps_simule_s` (le modèle sur ce
+même tracé, relief et vent réels, sans arrêt — la docstring le dit : « ni
+les arrêts, ni les redémarrages n'y sont modélisés »). L'écart entre les
+deux, sortie par sortie, est déjà le coût réel des arrêts de cette
+sortie-là, mesuré et non deviné — il manque seulement de le rapporter au
+nombre de feux/stops rencontrés, et **le rejeu d'une trace GPS dans BRouter
+pour en tirer les tags de carrefour** (feux, stops, cédez-le-passage) est
+lui aussi une méthode déjà en service ailleurs (`marqueurs_retrospectif.py`,
+`arrets_bloc_recup.py` question 2). Croiser les deux — `(temps_reel_s −
+temps_simule_s) / nombre de feux-stops`, sur assez de sorties — donnerait
+une constante mesurée en secondes par arrêt, sans modéliser de physique de
+relance. Reste un vrai script à écrire (aucun des deux jeux de résultats
+n'est aujourd'hui croisé l'un avec l'autre), mais pas une donnée à
+collecter ni une physique à inventer — l'option 3 est donc plus proche que
+les deux autres.
+
+**Vérifié le 21/09 sur les vraies données du mainteneur** (`ourouler
+calibrer --json`, 25 sorties de validation) : l'écart brut `temps_reel_s −
+temps_simule_s` ne révèle **aucune logique simple** pris seul. Moyenne 245 s
+(≈ 4 s/km), mais corrélation à la distance faible (r = 0,49), et surtout
+écart-type de l'écart (373 s) plus grand que sa moyenne — huit sorties sur
+vingt-cinq ont un écart **négatif**, ce qu'un coût d'arrêt pur ne peut pas
+expliquer (un arrêt n'a jamais fait gagner du temps). Le bruit du modèle
+lui-même (vent mal estimé, résidu de calibration, déjà documenté à 5-10 %)
+domine le signal qu'on cherche à isoler.
+
+**Objection du mainteneur le 21/09, et elle est décisive : compter les
+feux/stops ne répare rien.** Sur huit sorties sur vingt-cinq, le temps
+**simulé** dépasse déjà le temps **réel**, avant tout coût d'arrêt ajouté.
+Le sens ne trompe pas : un arrêt ne peut qu'ajouter du temps, jamais en
+retirer. Si le modèle est déjà trop lent sans compter le moindre feu, ce
+n'est pas qu'un coût d'arrêt manque — c'est que `temps_simule_s` se trompe
+déjà, pour une raison sans rapport avec les arrêts (vent, calibration,
+saison). Ajouter un coût de feux/stops par-dessus **aggraverait** ces huit
+prédictions au lieu de les corriger. La piste « croiser l'écart avec le
+nombre de feux/stops » (ci-dessus, même jour) est donc **invalidée**, pas
+seulement plus dure que prévu — elle a été écrite avant de vérifier le sens
+des écarts, l'erreur est d'avoir maintenu la piste vivante après l'avoir
+mesurée.
+
+**Ce qui reste vrai, sous cette réserve** : les options 1 (modéliser la
+relance en vrai) et 2 (convention assumée par arrêt) ne sont pas concernées
+par cette objection — mais aucune n'est mesurée ni cadrée non plus. La
+vraie question préalable, non résolue, est **pourquoi `temps_simule_s`
+dépasse parfois `temps_reel_s`** : tant qu'elle n'a pas de réponse, ajouter
+quoi que ce soit par-dessus (feux, convention, ou physique de relance) reste
+prématuré.
+
+**Réponse trouvée le 21/09, vérifiée et non plus devinée sur un nom de
+sortie.** Première tentative (même jour) : six des huit écarts négatifs
+portaient le même nom générique (« Rennes Cyclisme sur route ») que des
+sorties d'apprentissage repérées à 50-78 % « en groupe » par
+`calib.detecter_groupe` — mais ce critère, rejoué sur les huit, ne les
+détecte pas (`groupes_en_validation` vide dans le rapport). Le mainteneur a
+corrigé le tir : pas un gros groupe (le seuil du contrat, >50 % de la
+distance anormalement rapide, ne devait pas s'appliquer), mais 2 ou 3 roues
+— un effet plus discret, sous le seuil d'exclusion mais réel.
+
+Vérifié en rejouant `detecter_groupe` sur les 25 sorties de validation et en
+gardant, cette fois, la **part brute** (avant le seuil des 50 % qui décide
+« en groupe » ou pas) plutôt que le seul booléen : la corrélation entre
+cette part et l'écart de temps est de **-0,79** — forte. Les huit sorties à
+écart négatif portent en moyenne 34,1 % de distance anormalement rapide,
+contre 19,5 % pour les dix-sept autres. Aucune ne franchit le seuil de 50 %
+qui déclencherait l'exclusion automatique, mais le signal est net, mesuré
+sur le vrai critère du contrat, pas sur un nom de fichier. Ça correspond à
+l'hypothèse du mainteneur : un effet de roue partiel, assez fort pour
+biaiser le temps, pas assez soutenu pour être filtré. Strava (« riding
+with ») confirmerait sortie par sortie, mais n'est branché nulle part ici.
+
+**Ce que ça change pour le lot, sans le trancher** : la vraie explication
+des écarts négatifs n'est probablement pas un défaut du modèle physique,
+c'est une contamination de la donnée d'entrée — des sorties roulées à
+plusieurs, partiellement, que le seuil d'exclusion actuel (>50 % de la
+distance) ne repère pas. Avant tout travail sur le porte à porte ou sur un
+coût d'arrêt, la question qui se pose est **si ce seuil doit descendre**,
+et jusqu'où — sans savoir combien de vraies sorties solo il écarterait à
+tort au passage. Non mesuré, non tranché.
+
+**Objection du mainteneur, à raison : l'analyse ci-dessus ne portait que sur
+les 25 sorties réservées à la validation.** Il y en a en réalité 99
+calibrables au total (74 en apprentissage, 25 en validation). Rejoué sur les
+99 (temps réel/simulé et part de groupe recalculés pour chacune avec les
+paramètres finaux, indépendamment de leur usage en apprentissage ou en
+validation) :
+
+| seuil d'exclusion | sorties restantes | part négative |
+|---|---|---|
+| aucun | 99 | 61 % |
+| < 40 % | 64 | 39 % |
+| < 30 % | 39 | 18 % |
+| < 25 % | 21 | 10 % |
+| < 20 % | 13 | 8 % |
+| < 15 % | 8 | **0 %** |
+
+La baisse est régulière à chaque palier, avec cette fois des échantillons
+substantiels au milieu (39 et 21 sorties, pas seulement 6) — beaucoup plus
+convaincant qu'un artefact de petit échantillon. L'écart moyen, une fois
+nettoyé sous 15 %, converge à **5,9 %**, quasiment le même chiffre que sur
+les 25 seules (5,8 %) : deux calculs indépendants qui s'accordent.
+
+**Ce que ça reste : un signal solide, pas encore une constante.** Le fond
+du problème mesuré au 21/09 (l'exclusion à 61 % de négatifs quand on ne
+filtre rien) montre surtout que **beaucoup plus d'un tiers de l'historique
+du mainteneur porte un effet de roue**, pas seulement les cas extrêmes déjà
+filtrés par le seuil des 50 %. Ce que ferait un abaissement du seuil
+d'exclusion, et combien de vraies sorties solo il écarterait à tort au
+passage, reste non mesuré.
+
+**Le dénivelé n'explique rien de cet écart, vérifié.** Sur les sorties
+« propres » (peu de signal de groupe), le dénivelé par kilomètre (6,6 à
+23 m/km sur l'historique du mainteneur — la Bretagne, pas la montagne) ne
+corrèle pas avec l'écart (r = -0,03). Logique : le modèle simulé calcule
+déjà la pente réelle point par point sur le tracé, c'est son travail — s'il
+y avait une corrélation, ce serait le signe d'un biais du modèle en côte,
+pas d'un facteur à ajouter. Le facteur peut donc rester une constante
+unique, sans varier selon le relief de la boucle — **dans la gamme de
+terrain roulée jusqu'ici** ; rien ne dit ce qu'il donnerait sur une vraie
+montagne, aucune sortie de ce profil dans l'historique.
+
+**Conclusion, validée par le mainteneur le 22/09 : c'est le facteur qui
+manquait au lot « le porte à porte ignore le relief » plus haut.** Les deux
+chiffres actuels sont faux chacun à sa manière — le porte à porte ignore le
+relief réel de cette boucle, le temps simulé ignore les arrêts. La
+correction proposée : **porte à porte = `temps_estime_s` (relief et vent
+réels de cette boucle, déjà calculé) × 1,06** — un seul chiffre qui tient
+les deux à la fois, plutôt que les deux chiffres actuels, faux chacun à sa
+manière. Réserve qui reste, honnête : 1,06 est mesuré sur un sous-ensemble
+filtré (les sorties les plus « en groupe » écartées), pas sur l'ensemble de
+l'historique — une bonne estimation, pas une certitude au dernier chiffre.
+
+**Vérifié le 23/09 sur ses sorties de 3h20 à 5h10 réelles (RCR et BMC), et
+un vrai sujet trouvé sur le second vélo.** Comparé sortie par sortie : réel,
+porte à porte actuel, modèle seul, modèle × 1,06. Sur RCR, cinq sorties sur
+neuf tombent quasiment à la minute près avec le ratio (4h14, 4h20, 4h53…),
+contre zéro avec le porte à porte actuel — cohérent avec la mesure globale.
+Sur BMC (le vélo de contre-la-montre), `detecter_groupe` signale 29 à 39 %
+de distance anormalement rapide sur **chacune** de ses cinq sorties de cette
+durée, sans exception — plus haut et plus systématique que sur RCR. Le
+mainteneur est formel : **le BMC ne se roule quasiment jamais en groupe.**
+Ce n'est donc probablement pas le même phénomène que sur RCR — plus
+vraisemblablement un vrai décalage de calibration propre à ce vélo (la
+position contre-la-montre change le CdA réel, que le modèle ne capte peut-
+être pas correctement pour cette position), pas une contamination de
+roue. Non vérifié plus loin ici ; à recalibrer et creuser séparément avant
+d'appliquer le même ratio de 1,06 au BMC — rien ne dit qu'il vaut la même
+chose sur les deux vélos.
+
+**Confirmé le 23/09, avec `ourouler comparer` (mesure sans modèle) et le
+bon sens du mainteneur.** Écart mesuré à 169 W : le BMC roule 2,4 km/h plus
+vite, converti en 27 à 42 W selon la méthode — réel, mesuré sur 145 séries
+BMC et 317 RCR, aucun modèle physique impliqué. Mais la calibration des
+deux vélos (`RCR : CdA 0,2219, Crr 0,01062` / `BMC : CdA 0,2204,
+Crr 0,00838`) répartit cet écart à l'envers de ce qu'on sait du matériel :
+**mêmes pneus sur les deux vélos**, des roues un peu meilleures sur l'un
+sans que ce soit flagrant, donc le Crr devrait être quasi identique entre
+les deux et tout l'écart devrait sortir en CdA — pas l'inverse. Confirme,
+sur un cas concret et vérifié, ce que le code documente déjà : CdA et Crr
+« mal séparés » l'un de l'autre par la calibration, alors que leur total
+est fiable. Sujet à part, propre à la calibration, pas à ce lot — non
+traité ici.
+
+**Essayé le 23/09, à la demande du mainteneur : fixer le Crr du BMC à celui
+du RCR (mêmes pneus) et refitter le CdA seul. Résultat négatif, honnête,
+et instructif.** Nouveau CdA obtenu par moindres carrés pondéré : 0,1856 m²
+(contre 0,2204 en fit libre) — physiquement plus crédible pour une position
+contre-la-montre. Mais rejoué sur les cinq vraies sorties BMC de 3h20 à
+5h10, les temps prédits **s'éloignent** de la réalité au lieu de s'en
+rapprocher (ex. 2025-05-01 : réel 3h24, ancien modèle 3h27, nouveau modèle
+3h32). Cause probable : la calibration ne filtre que des tronçons très
+plats (pente ≤ 0,8 %) pour séparer CdA et Crr. Sur du plat, un Crr plus
+haut compensé par un CdA plus bas peut coller aussi bien aux mêmes
+données ; mais Crr et CdA ne pèsent pas pareil selon la vitesse et la
+pente (Crr compte plus en montée, CdA compte plus vite), et rejoué sur le
+relief réel d'une sortie complète, la combinaison forcée pénalise plus que
+l'ancienne. **Fixer un des deux paramètres à la main, sans données qui
+varient assez en pente pour vraiment les séparer, ne suffit pas** — la
+piste reste un vrai sujet de calibration (des tronçons à pentes variées,
+pas seulement plats), pas un ajustement qui se règle en une session.
+
+**Précisé le 23/09 : pas seulement les deux extrêmes, toute la plage entre
+les deux.** Le mainteneur a demandé un compromis — un peu mieux sur le
+Crr, un peu mieux sur le CdA, sans copier le RCR — plutôt que de forcer le
+Crr à 100 %. Testé sur cinq points intermédiaires (0 %, 20 %, 40 %, 60 %,
+100 % de la distance entre le Crr libre du BMC et celui du RCR), erreur
+mesurée sur les vraies sorties complètes à chaque fois : **la progression
+est monotone**, l'erreur augmente à chaque pas vers le Crr du RCR, sans
+aucun minimum entre les deux (7,6 % au fit libre, 10,1 % au Crr forcé du
+RCR). Aucun compromis ne fait mieux que le fit libre. Conclusion, honnête
+et un peu à contre-intuition : l'hypothèse « mêmes pneus donc même Crr »
+ne se vérifie pas dans les faits, même si elle paraît raisonnable sur le
+papier — le fit libre du BMC, aussi étrange que sa répartition CdA/Crr
+individuelle paraisse, reste le meilleur prédicteur trouvé. **Recommandation
+pour ce vélo : garder sa calibration libre pour la prédiction, ne pas
+essayer de la faire coller à celle du RCR** ; ne pas interpréter son CdA ou
+son Crr pris isolément comme une vérité physique (le code le dit déjà),
+seule la prédiction globale compte.
+
+**Pourquoi « mêmes pneus » était faux, précisé le 23/09 : équipement réel du
+mainteneur.** Les deux vélos sont en Continental GP5000, mais pas la même
+version — **All Season sur le RCR**, connu pour un Crr plus élevé que le
+**TR (tubeless) sur le BMC**, la version la plus rapide de la gamme dans les
+tests publiés. Pression basse sur les deux, sous 5 bar : hookless (Zipp
+303S) sur le RCR, confort d'épaule en position aéro sur le BMC — ce qui
+pousse le Crr réel des deux au-dessus des chiffres labo publiés à haute
+pression. L'hypothèse testée plus haut (« mêmes pneus donc même Crr ») était
+donc fausse dès son point de départ, pas seulement invalidée par la mesure.
+**Mais un vrai écart de pneu (All Season contre TR) n'explique
+probablement pas la totalité du Crr mesuré** (0,0106 contre 0,0084, un
+écart de 0,0022) : les écarts publiés entre versions du même pneu sont en
+général plus petits. Le biais de calibration (CdA/Crr mal séparés)
+coexiste vraisemblablement avec un vrai écart de pneu, sans qu'on sache
+mesurer la part de chacun ici.
+
+**Résolu le 23/09, avec la bonne méthode — Crr fixé par la littérature,
+pas cherché, CdA laissé varier et jugé sur les vraies sorties, sans chercher
+à faire coller le BMC au RCR.** La recherche libre (calibration à deux
+paramètres) donnait une dérive sans fin dès qu'on s'écartait du point de
+départ — un symptôme de sur-ajustement sur 5 à 9 sorties, pas une vraie
+convergence physique, à raison signalé par le mainteneur. En fixant le Crr
+à une valeur plausible de la littérature (0,006 pour le RCR, All Season,
+haut de la fourchette « bon pneu route » ; 0,005 pour le BMC, TR, légèrement
+en dessous) et en ne laissant varier que le CdA, **un vrai minimum en
+cloche apparaît pour les deux vélos**, pas une dérive :
+
+| | RCR | BMC |
+|---|---|---|
+| Crr (fixé, littérature) | 0,006 | 0,005 |
+| CdA (minimum trouvé) | 0,30 m² | 0,23 m² |
+| Erreur sur les vraies sorties (avec × 1,06) | 4,76 % | **0,72 %** |
+
+Les deux CdA tombent dans les fourchettes plausibles (route amateur 0,27 à
+0,36 ; contre-la-montre compétitif 0,20 à 0,24), sans avoir été cherchés
+pour ça — c'est une conséquence du minimum, pas un objectif imposé.
+**Recoupement indépendant, qui referme la boucle** : ces deux jeux de
+paramètres, calibrés séparément chacun sur ses propres sorties, prédisent
+entre eux un écart de puissance de 29,6 à 37,8 W à la vitesse réelle
+mesurée (28,6-31,5 km/h) — dans la fourchette des 27 à 42 W mesurés
+indépendamment par `ourouler comparer` (aucun modèle physique), et proche
+des ~25-30 W de mémoire du mainteneur. Trois mesures indépendantes
+(calibration RCR, calibration BMC, comparaison sans modèle) qui se
+recoupent. **Le même ratio de 1,06 tient sur les deux vélos** avec ces
+nouveaux paramètres — le sujet BMC séparé, ouvert plus haut, est refermé.
+
+**Confirmé le 23/09 sur grand échantillon** (le mainteneur a raison de ne
+pas se fier à 5-9 sorties) : rejoué sur les 99 sorties RCR et 35 BMC
+calibrables, avec ces mêmes paramètres.
+
+| | RCR (n=99) | BMC (n=35) |
+|---|---|---|
+| toutes | erreur 4,9 %, biais -2,9 % | erreur 2,3 %, biais +1,4 % |
+| < 50 % groupe (83/34) | erreur 3,7 %, biais -1,3 % | erreur 2,3 %, biais +1,6 % |
+| < 30 % groupe (39/15) | erreur 3,1 %, biais +2,0 % | erreur 2,8 %, biais +2,8 % |
+
+Vérifié aussi que l'erreur n'est **pas systématiquement dans le même sens**
+sur les sorties longues (4 sorties réel > prédit, 5 réel < prédit) — les
+5 % initialement inquiétants sur 9 sorties venaient pour l'essentiel des
+deux sorties déjà repérées en groupe (67 % et 46 %) ; sans elles, sept
+sorties, erreur moyenne **signée** quasi nulle (-0,0 %), 3,2 % en absolu.
+Nuance qui reste, honnête : plus on filtre serré sur les sorties les plus
+solo, plus le biais devient positif (le modèle sous-prédit légèrement) —
+1,06 est peut-être un peu bas pour les sorties vraiment propres, plutôt
+1,07-1,08 ; le BMC, lui, reste stable autour de +1,4 à +2,8 % quel que soit
+le filtre. Pas un problème de fond, une piste d'affinage.
+
+**Le point le plus important de toute cette note, relevé le 23/09 par le
+mainteneur, au-dessus des chiffres précis de CdA/Crr : l'erreur du modèle
+sur une sortie (3 à 5 %) est du même ordre que l'effet qu'on cherche à
+corriger (6 %).** Le ratio de 1,06 corrige bien le **biais moyen** sur cent
+sorties — ça, c'est mesuré et solide. Mais il ne réduit pas le bruit propre
+du modèle sur **une** boucle donnée, qui reste du même ordre de grandeur que
+la correction elle-même. Concrètement : afficher un temps unique avec cette
+précision (« 3h54 ») dit plus de précision que ce que le modèle sait
+vraiment sur une sortie qu'il n'a jamais vue. Le ratio améliore la moyenne
+affichée à l'utilisateur sur l'ensemble des sorties qu'il verra dans le
+temps ; il ne rend pas fiable la prédiction d'une seule sortie prise à part.
+**Conséquence pour le produit, non tranchée** : soit le dire (une fourchette
+plutôt qu'un chiffre unique, cohérente avec l'incertitude réelle), soit
+l'assumer sciemment (un chiffre, moins précis qu'il n'y paraît, mais plus
+juste en moyenne que l'ancien porte-à-porte) — c'est une question produit,
+pas un calcul de plus.
+
+**Tranché le 23/09 par le mainteneur : une fourchette, pas un chiffre
+unique.** Calculée en centiles sur le ratio réel/modèle mesuré (sorties à
+moins de 50 % de signal de groupe, RCR n=83, BMC n=34) plutôt que devinée :
+
+| | RCR | BMC |
+|---|---|---|
+| médiane | × 1,039 | × 1,082 |
+| fourchette 25e-75e centile (la moitié des sorties) | × 1,015 à × 1,072 | × 1,057 à × 1,095 |
+| fourchette 10e-90e centile (80 % des sorties) | × 0,997 à × 1,108 | × 1,048 à × 1,105 |
+
+Exemple concret, pour un `temps_estime_s` de 4h20 : RCR entre 4h23 et 4h38
+(moitié des sorties), BMC entre 4h34 et 4h44. **Fourchette retenue pour
+l'affichage : 25e-75e centile** — assez resserrée pour rester utile, assez
+large pour ne pas mentir sur l'incertitude réelle du modèle. Le porte à
+porte devient donc `[temps_estime_s × bas, temps_estime_s × haut]`, propre
+à chaque vélo, plutôt qu'un chiffre unique ou l'actuelle moyenne à plat.
+Chaque vélo garde ses propres centiles — pas de constante partagée entre
+RCR et BMC, cohérent avec tout ce que cette note a trouvé.
+
+**Ce qui reste à faire pour que ce soit du code et pas une note** : ce
+recalage (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
+longues) n'est écrit dans aucun script réutilisable — fait à la main dans
+cette conversation. À coder dans le pipeline de calibration si retenu,
+avec la même règle que partout ailleurs dans ce lot : ça tourne tout seul,
+jamais un script relancé à la main.
+
+**Condition posée par le mainteneur, et elle prime sur le choix du
+chemin, quel qu'il soit** : « si je mets moi du temps, ça marchera jamais. »
+Toute mesure retenue devra tourner **tout seule** dans le pipeline existant
+— jamais un script que le mainteneur relance et interprète lui-même. Une
+mesure qui dépend de son temps disponible n'arrivera jamais ; c'est un
+critère d'acceptation, pas un confort.
+
+**Reste à faire, non commencé** : recalibrer CdA/Crr par la méthode qui a
+marché (Crr fixé par catégorie de pneu, CdA cherché sur les sorties
+longues — pas la calibration libre à deux paramètres, qui dérive) ; calculer
+les centiles du ratio réel/modèle une fois dans `ourouler calibrer`,
+sorties à moins de 50 % de signal de groupe, écrire la fourchette (25e-75e
+centile) dans `calibration.json` aux côtés de CdA/Crr ; brancher
+`temps_ecoule` sur cette fourchette au lieu de `moyenne_compteur_kmh` et
+rendre `[bas, haut]` plutôt qu'un chiffre unique jusqu'au front ; décider
+d'une fourchette par défaut générique en attendant assez de sorties propres
+pour un vélo neuf ; le filtrage du signal de groupe (seuil, méthode) doit se
+faire **une seule fois**, dans le pipeline, jamais à la main. Rien n'est mis
+en sprint. La moyenne compteur garde de toute façon son rôle ailleurs
+(dimensionner la distance demandée), ça ne change pas.
+
+**Récapitulatif du 23/09 — la fourchette retenue, et ce qui reste précisément
+à vérifier sur le RCR.**
+
+Fourchette d'affichage (`temps_estime_s × [bas, haut]`, centiles 25-75 du
+ratio réel/modèle, sorties à moins de 50 % de signal de groupe) :
+
+- **RCR** (n=83) : × 1,015 à × 1,072 — médiane × 1,039.
+- **BMC** (n=34) : × 1,057 à × 1,095 — médiane × 1,082.
+
+Sur le RCR, quatre choses restent ouvertes, distinctes les unes des autres,
+à ne pas confondre :
+
+1. **Le minimum de CdA/Crr est plat** (0,32 à 0,34 à 0,36 donnent presque la
+   même erreur, Crr fixé à 0,006) — le point retenu (0,30) est dans cette
+   zone mais pas forcément le meilleur ; un vrai minimum n'a été confirmé
+   qu'à la louche, pas affiné.
+2. **L'erreur bouge selon le seuil de filtrage du signal de groupe** (4,9 %
+   sans filtre, 3,7 % sous 50 %, 3,1 % sous 30 %, 4,6 % sous 20 %) — le BMC,
+   lui, reste stable quel que soit le filtre. Cette instabilité peut venir
+   du plateau plat du point 1, ou du fait que 99 sorties couvrent beaucoup
+   plus de saisons et de conditions que les 35 du BMC — pas départagé.
+3. **Le biais change de sens selon le filtre** : légèrement négatif sans
+   filtre (-2,9 %, les sorties en groupe tirent vers le bas), légèrement
+   positif en filtrant serré (+4,5 % sous 20 %, seulement 13 sorties). Sur
+   les 7 sorties propres et longues (3h20-5h40, hors les deux repérées en
+   groupe), le biais signé tombe à quasi zéro (-0,0 %) — cohérent avec un
+   modèle non biaisé, mais peu de sorties pour le confirmer à grande échelle.
+4. **Le seuil de détection de groupe lui-même n'a jamais été abaissé ni
+   réglé** — seulement testé en lecture, jamais changé dans le pipeline. Une
+   partie de l'instabilité du RCR peut venir de sorties à 30-49 % de signal
+   de groupe qui passent encore le filtre à 50 % sans être vraiment solo.
+
+Rien de tout ça n'invalide la fourchette retenue — elle reste mesurée sur
+83 sorties réelles — mais un futur lot qui recoderait ce recalage devrait
+partir de ces quatre points plutôt que de repartir de zéro.
+
+**Codé le 25/09 (L9.1, branche `l9-1-modele`), corrigé après la
+contre-lecture Fable et la relecture Opus du même jour, et mesuré sur les
+vraies données du mainteneur** — copie de sa configuration avec `pneu`
+ajouté (RCR `course_quatre_saisons`, BMC `course_rapide`), calibration écrite
+dans une copie du cache, jamais dans `~/.cache/ourouler/calibration.json`.
+
+Ce qui tourne tout seul : un champ `pneu` par vélo donne le Crr
+(`physique.litterature.PNEUS`) ; un `crr` écrit à la main est respecté et
+figé de la même façon ; `ourouler calibrer` ne cherche alors que le CdA
+(`--crr-libre` garde l'ancien ajustement), en minimisant l'erreur de temps en
+mouvement des sorties d'apprentissage à moins de `part_groupe_max` (0,30,
+section `[calibration]`) de signal de groupe ; la fourchette du porte à porte
+est mesurée sur les **seules sorties de validation**, centiles 25/50/75 du
+temps écoulé sur le temps simulé, sorties à moins de 50 % de signal de
+groupe, au moins huit, et écrite dans `calibration.json` avec `crr_source`
+et son n ; sinon la convention, dite comme telle. Un pneu changé depuis la
+calibration le dit (« pneu changé depuis la calibration, relancez-la ») sans
+jeter la calibration. `temps_ecoule` rend `temps simulé × [bas, haut]`
+jusqu'au front.
+
+**Trois choix de méthode, mesurés.**
+
+1. *CdA cherché sur le temps, pas sur les tronçons* (RCR, Crr 0,006) :
+   moindres carrés des tronçons → CdA 0,299, validation 6,5 % ; erreur de
+   temps des sorties → 0,33, 4,6 %.
+2. *Roue partielle hors de l'apprentissage.* Les sorties d'apprentissage du
+   RCR portent 36 % de signal de groupe en moyenne, la validation 20 % : une
+   roue partielle sous le seuil de 50 %, qui fait paraître le vélo plus fin.
+   Seuil à 0,30 pour chercher le CdA (parts remesurées avec le CdA du temps,
+   pas celui des tronçons, qui cachait la roue : 45 sorties passaient au lieu
+   de 27) : validation 3,5 % au lieu de 4,6 %, biais −0,8 % au lieu de
+   −4,2 %.
+3. *Fourchette hors échantillon.* Mesurée sur toutes les sorties, elle
+   héritait de l'ajustement et sous-prédisait une sortie neuve (RCR médiane
+   1,054 en échantillon, 1,072 en validation).
+
+| | RCR | BMC |
+|---|---|---|
+| Crr (fixé, pneu) | 0,006 | 0,005 |
+| CdA cherché (compensation, pas une mesure) | 0,378 | 0,318 |
+| sorties d'apprentissage sous 30 % de groupe | 27 | 10 |
+| puissance à 25 / 30 / 35 km/h, plat sans vent | 121 / 188 / 277 W | 102 / 158 / 233 W |
+| validation, temps en mouvement | MAE 3,5 %, biais −0,8 % (n=25) | MAE 2,5 %, biais +1,2 % (n=9) |
+| fourchette écoulé / simulé, validation | **× 1,021 à × 1,099** (méd. 1,035, n=25) | 7 solo < 8 → **convention** (indicatif : 1,044-1,086-1,137) |
+
+**Le recoupement avec `ourouler comparer` est refermé** : ces paramètres
+prédisent 29,8 W d'écart à 30 km/h entre les deux vélos (19 W à 25 km/h),
+dans les 27-42 W mesurés sans modèle et proches des 25-30 W de mémoire du
+mainteneur — là où le seuil de 50 % n'en donnait que 20 W. Les CdA, eux, ne
+se comparent ni à la littérature ni entre eux : le RCR porte un capteur
+unilatéral (× 2), le BMC un double, et ± 4 % de puissance déplacent le CdA
+de 0,306 à 0,356. D'où le critère d'acceptation révisé du contrat
+(puissance par watt affiché, biais ≈ 0, MAE).
+
+**Écart à la note, expliqué** : la note lisait un temps **en mouvement**
+(`temps_reel_s` de la validation est `temps_mouvement_s`), pas le porte à
+porte ; avec ses paramètres, les centiles en mouvement redonnent exactement
+les siens. La fourchette codée est sur le temps **écoulé**.
+
+Convention par défaut : **× 1,02 à × 1,14, médiane 1,06**, l'enveloppe des
+fourchettes de validation des deux vélos (`physique.litterature`). Sur une
+boucle réelle de 120 km (RCR, 168 W, `ourouler boucle`, 26/09 9 h) :
+« entre 4 h 40 et 5 h 01 » pour 4 h 34 sans arrêt ; sur 80 km au BMC, la
+convention le dit.
+
+**L9.4 codé le 25/09 (branche `l9-4-calibration`) : la même calibration,
+depuis l'écran.** `POST /calibrations` lance `physique.commande.calibrer_velo`
+(extrait d'`executer_calibrer`, qui n'imprime plus rien lui-même) en tâche
+de fond, sous le verrou des tâches lourdes partagé avec l'import
+(`api/taches_fond.py`) ; une par jour et par compte, remboursée sur échec.
+En hébergé, `calibration.json` s'écrit dans le dossier du compte
+(`Config.cache.fichier_calibration`, posé par `api/routes._config`) : c'est
+lui que ses boucles, sorties et simulations relisent, jamais celui d'un
+autre. Avec plusieurs vélos, seules les sorties rattachées explicitement
+(capteur, équipement, période) comptent ; au moins 10 sorties
+exploitables (8 d'apprentissage + la part de validation). Sans pneu,
+l'écran propose de le choisir ou de fixer le Crr de l'usage (`crr_source`
+« usage »). *Vérifié sur les vraies données*, compte hébergé de test dans un
+dossier temporaire, FIT du RCR importés par `POST /activites/import` (le
+cache du mainteneur lu seulement) : sur les 40 plus récents, CdA 0,408,
+199 W à 30 km/h, MAE 5,6 % sur 10 sorties de validation, fourchette par
+convention (0 solo de validation sur 8 requis) ; sur les 102 de
+l'historique (100 exploitables), CdA 0,364, 182 W à 30 km/h, MAE 3,6 %,
+biais −1,8 % (n=25), fourchette × 1,030 à × 1,110 (n=25) — contre 0,378,
+188 W, 3,5 %, × 1,021 à × 1,099 par `ourouler calibrer`. L'écart tient
+d'abord à ce qu'un FIT importé perd le nom Intervals de la sortie : les
+sorties nommées « club », que la ligne de commande écarte, passent ici.
+
+Restent ouverts : le chrono n'a pas assez de sorties de validation roulées
+seul pour sa propre fourchette ; le seuil de 50 % qui écarte une sortie
+entière n'a pas bougé (seul l'apprentissage du CdA passe à 30 %) ; la
+réconciliation « facteur compteur » ne sert plus qu'à dimensionner la
+distance.
+
+Backlog « la calibration sur import garde les sorties de club » (constat du
+25/09/2026, mesuré en clôture du sprint 9 ci-dessus, aucun sprint attribué) :
+une calibration lancée depuis l'écran sur des FIT importés (L9.2/L9.4)
+apprend sur des sorties de club que `ourouler calibrer` écarte, parce que le
+filtre de la ligne de commande porte sur le **nom Intervals** de la sortie
+(`inventaire.py`), un champ qu'un `.fit` importé directement ne porte pas —
+seul le filtre de groupe à 30 % (L9.1) en rattrape une partie, celles où le
+signal de groupe reste assez fort pour être détecté. Mesuré comme un écart
+de méthode (CdA 0,364 contre 0,378 sur le même historique, ci-dessus), pas
+encore comme un biais isolé et chiffré : reste à mesurer combien de sorties
+de club exactement passent le filtre de groupe sans être nommées, et si un
+autre signal (fréquence cardiaque plus élevée et plus lissée, régularité du
+pas de pédalage) les distinguerait mieux qu'un nom qui n'existe pas hors
+d'Intervals.
+
+Backlog « import par lien » ([[Q48]], non fait) : L9.2 dépose un fichier ou
+une archive téléchargée à la main ; un import par lien direct vers Strava ou
+Garmin (sans passer par le poste de l'invité) reste [[Q48]], jamais cadré ni
+codé — voir aussi `docs/inviter.md`, §4, qui le nomme explicitement comme
+absent.
+
 ## Historique des sprints
+
+- **2026-09-25** — Sprint 9 livré sur `sprint-9` (PR vers `main` en attente),
+  cap « inviter pour de vrai » atteint : Crr par pneu et CdA cherché sur le
+  temps en mouvement (L9.1), import de fichiers et d'archives en tâche de
+  fond (L9.2), cache météo mutualisé et quotas par compte (L9.3),
+  calibration depuis l'écran (L9.4), `docs/inviter.md` (L9.5), le compte de
+  l'invité — Mon compte, `ourouler reinitialiser`, `ourouler retirer`
+  (L9.6). Contre-lu par Fable sur L9.1 (méthode) et L9.2 (durcissement du
+  dépôt de fichiers) ; lot de finition sur `l9-finition` (refus immédiat
+  d'une seconde suppression concurrente, garde de requête hors boucle
+  d'événements). Voir la clôture détaillée ci-dessus. Restent au
+  mainteneur : l'action Q66a sur Coolify avant redéploiement, et déclarer
+  `pneu` dans sa propre configuration pour que sa calibration passe à la
+  méthode à un paramètre.
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût
   d'une descente sous un bloc **dépend maintenant de l'intensité demandée**,

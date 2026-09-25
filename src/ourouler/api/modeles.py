@@ -168,6 +168,21 @@ class DemandeSimulation(Modele):
     heure_depart: TexteUtile | None = None
 
 
+class DemandeCalibration(Modele):
+    """Calibrer un vélo sur ses propres sorties (L9.4)."""
+
+    velo: TexteUtile | None = Field(
+        default=None, description="nom du vélo (défaut : le premier vélo de route du profil)"
+    )
+    sans_pneu: bool = Field(
+        default=False,
+        description=(
+            "calibrer même sans pneu déclaré : la résistance au roulement typique de "
+            "l'usage est alors gardée fixe, et le résultat le dit"
+        ),
+    )
+
+
 class ApercuZones(Modele):
     """Les trois valeurs liées de l'écran de FTP, recalculées **sans rien stocker**.
 
@@ -229,11 +244,36 @@ class DemandeConnexion(Modele):
     secret: TexteUtile = Field(description="le mot de passe du compte")
 
 
+class DemandeReinitialisation(Modele):
+    """Le jeton d'un lien de réinitialisation et le nouveau mot de passe choisi.
+
+    Mêmes champs, même forme que `DemandeEntree` — c'est le même mécanisme de jeton
+    (`api/comptes.py`), une seule différence dans ce que sa consommation fait au compte
+    (`DepotComptes.changer_mot_de_passe_par_jeton` au lieu d'`activer`). Un modèle séparé
+    plutôt qu'une réutilisation de `DemandeEntree` : les deux corps de requête se
+    ressemblent aujourd'hui par coïncidence, pas par contrat — rien ne garantit qu'ils
+    resteront identiques, et `POST /reinitialiser` a besoin de son propre modèle nommé
+    pour que /docs (le schéma publié) décrive chaque route pour ce qu'elle fait.
+    """
+
+    jeton: TexteUtile = Field(description="le jeton reçu par le lien de réinitialisation")
+    secret: TexteUtile = Field(description="le nouveau mot de passe choisi pour ce compte")
+
+
+class DemandeChangementMotDePasse(Modele):
+    """L'ancien et le nouveau mot de passe — pour `POST /moi/mot-de-passe`, sous session ouverte."""
+
+    mot_de_passe_actuel: TexteUtile = Field(description="le mot de passe actuel du compte")
+    nouveau_mot_de_passe: TexteUtile = Field(description="le mot de passe choisi à la place")
+
+
 __all__ = [
     "ApercuZones",
     "DemandeBoucle",
+    "DemandeChangementMotDePasse",
     "DemandeConnexion",
     "DemandeEntree",
+    "DemandeReinitialisation",
     "DemandeSimulation",
     "DemandeSortie",
     "DemandeVitesseCompteur",

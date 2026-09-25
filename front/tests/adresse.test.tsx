@@ -64,10 +64,15 @@ describe("les fonctions pures de la décision", () => {
     ).toBe("7 Rue du If 44999 Vallombreuse");
   });
 
-  it("nomme les champs vides, tous les quatre étant obligatoires", () => {
+  it("nomme les champs vides, sauf le numéro qui est facultatif", () => {
     expect(
       champsManquants({ numero: "7", voie: "", codePostal: " ", commune: "Vallombreuse" }),
     ).toEqual(["voie", "codePostal"]);
+    // Une place ou un lieu-dit n'a pas de numéro : il ne compte pas parmi
+    // les champs manquants, même vide.
+    expect(
+      champsManquants({ numero: "", voie: "Place de la Mairie", codePostal: "44999", commune: "Vallombreuse" }),
+    ).toEqual([]);
   });
 
   it("montre la commune d'un candidat, et le dit quand elle manque", () => {
@@ -206,10 +211,29 @@ describe("le formulaire à champs obligatoires", () => {
     await utilisateur.type(screen.getByLabelText("Voie"), "Rue du If");
     await utilisateur.click(screen.getByRole("button", { name: "Chercher cette adresse" }));
 
-    expect(await screen.findByText(/Les quatre champs sont demandés/)).toBeTruthy();
+    expect(await screen.findByText(/sont demandés/)).toBeTruthy();
     expect(serveur.requetes).toEqual([]);
     expect(screen.getByLabelText("Commune").getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByLabelText("Numéro").getAttribute("aria-invalid")).toBe("false");
+  });
+
+  it("cherche sans numéro — une place ou un lieu-dit n'en a pas", async () => {
+    const utilisateur = userEvent.setup();
+    const serveur = new Serveur({
+      "/api/v1/geocodage": enveloppe([
+        candidat("Place de la Mairie 44999 Vallombreuse", "Vallombreuse", "44999"),
+      ]),
+    });
+    serveur.installer();
+
+    render(<FormulaireAdresse surChoix={() => {}} />);
+    await utilisateur.type(screen.getByLabelText("Voie"), "Place de la Mairie");
+    await utilisateur.type(screen.getByLabelText("Code postal"), "44999");
+    await utilisateur.type(screen.getByLabelText("Commune"), "Vallombreuse");
+    await utilisateur.click(screen.getByRole("button", { name: "Chercher cette adresse" }));
+
+    await waitFor(() => expect(serveur.vers("/api/v1/geocodage").length).toBe(1));
+    expect(screen.getByLabelText("Numéro").hasAttribute("required")).toBe(false);
   });
 
   it("envoie les quatre champs assemblés au géocodage", async () => {

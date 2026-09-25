@@ -9,12 +9,16 @@ La chaîne, en cinq temps :
    pour chacun, vitesse (moyenne et aux deux bouts), puissance, pente, vent de
    face et masse volumique de l'air — puis marque ceux qu'on garde et
    **pourquoi** on jette les autres ;
-3. `calibrer` ajuste (CdA, Crr) aux moindres carrés sur l'écart de puissance ;
+3. `calibrer` ajuste (CdA, Crr) aux moindres carrés sur l'écart de puissance —
+   ou, quand le pneu donne le Crr (L9.1), le CdA seul, que
+   `chercher_cda_sur_sorties` affine ensuite sur le temps des sorties ;
 4. `detecter_groupe` repère, avec le modèle obtenu, les sorties
    anormalement rapides — l'aspiration d'un peloton, que ni la pente ni le
    vent n'expliquent ;
 5. `valider` rejoue les sorties **les plus récentes**, jamais vues par
-   l'ajustement, et rend l'erreur de temps en mouvement.
+   l'ajustement, et rend l'erreur de temps en mouvement ;
+6. `mesurer_porte_a_porte` rejoue les sorties de validation avec les
+   paramètres finaux et en tire la fourchette du porte à porte (L9.1).
 
 Le tout deux fois (`calibrer_en_deux_passes`) : la première passe sert à
 trouver les sorties en groupe, la seconde à calibrer sans elles.
@@ -56,6 +60,7 @@ CdA descendait en butée basse et le Crr absorbait le reste.
 
 from __future__ import annotations
 
+import bisect
 import math
 import statistics
 from collections.abc import Callable, Sequence
@@ -66,7 +71,7 @@ from typing import NamedTuple
 import numpy as np
 
 from ourouler.activites.cache import Cache, EntreeCache
-from ourouler.activites.inventaire import en_interieur, rattacher_velo
+from ourouler.activites.inventaire import en_interieur, rattachement_explicite, rattacher_velo
 from ourouler.activites.modele import Activite, Point, est_sport_velo
 from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
 from ourouler.config import Config, Velo
@@ -575,6 +580,10 @@ class Ajustement:
     rho_moyen: float = RHO_DEFAUT
     bornes_atteintes: tuple[str, ...] = ()
     avertissements: tuple[str, ...] = ()
+    #: Vrai quand le Crr n'a pas été cherché mais **reçu** (pneu déclaré ou
+    #: valeur de configuration, L9.1) : seul le CdA est alors ajusté, et
+    #: `incertitudes.crr` vaut `None`.
+    crr_fixe: bool = False
 
     def resistance_a(self, v_kmh: float) -> tuple[float, float]:
         """(force en newtons, puissance au pédalier en watts) sur le plat sans vent.
@@ -626,8 +635,15 @@ def calibrer(
     masse_totale_kg: float,
     cda_init: float = 0.32,
     crr_init: float = 0.005,
+    crr_fixe: float | None = None,
 ) -> Ajustement:
     """Moindres carrés sur (CdA, Crr), bornés, à partir des échantillons retenus.
+
+    **`crr_fixe` donné (L9.1)** : le Crr n'est pas cherché, seul le CdA l'est
+    — moindres carrés à une inconnue sur la même équation, écrêtés à
+    `[CDA_MIN, CDA_MAX]`. C'est la méthode que la note du 23/09 a trouvée
+    convergente : laissés libres ensemble, CdA et Crr se compensent l'un
+    l'autre et la solution dérive (voir `calibrer_en_deux_passes`).
 
     **Le modèle est linéaire en CdA et en Crr** : à vitesse, pente et vent
     donnés, la puissance vaut `a·CdA + b·Crr + c`, où a, b et c ne dépendent
@@ -660,6 +676,8 @@ def calibrer(
         )
 
     a, b, c, y = _matrices(retenus, masse_totale_kg)
+    if crr_fixe is not None:
+        return _calibrer_cda_seul(retenus, a, b, c, y, masse_totale_kg, crr_fixe)
     matrice = np.column_stack((a, b))
     reste = y - c
     avertissements: list[str] = []
@@ -694,6 +712,61 @@ def calibrer(
         rho_moyen=float(np.mean([e.rho for e in retenus])),
         bornes_atteintes=bornes,
         avertissements=tuple(avertissements),
+    )
+
+
+def _calibrer_cda_seul(
+    retenus: Sequence[Echantillon],
+    a: np.ndarray,
+    b: np.ndarray,
+    c: np.ndarray,
+    y: np.ndarray,
+    masse_totale_kg: float,
+    crr: float,
+) -> Ajustement:
+    """Le CdA qui explique le mieux les échantillons, le Crr étant donné.
+
+    `P = a·CdA + b·Crr + c` ; à Crr connu, `a·CdA = y − c − b·Crr` se résout
+    exactement aux moindres carrés, `CdA = a·r / a·a`.
+    """
+    if not math.isfinite(crr) or not CRR_MIN <= crr <= CRR_MAX:
+        raise ErreurUtilisateur(
+            f"calibration : Crr fixé {crr!r} hors de [{CRR_MIN}, {CRR_MAX}]"
+        )
+    reste = y - c - b * crr
+    denominateur = float(a @ a)
+    if denominateur <= 0:
+        raise ErreurUtilisateur(
+            "calibration : les échantillons ne portent aucune traînée aérodynamique, "
+            "le CdA ne se mesure pas"
+        )
+    libre = float(a @ reste) / denominateur
+    cda = min(max(libre, CDA_MIN), CDA_MAX)
+    bornes: tuple[str, ...] = ()
+    avertissements: tuple[str, ...] = ()
+    if cda != libre:
+        bornes = (f"CdA = {cda:.2f}",)
+        avertissements = (
+            "une borne est atteinte : à ce Crr, aucun CdA plausible n'explique les "
+            "données — le pneu déclaré est peut-être le mauvais",
+        )
+    residus = a * cda - reste
+    n = len(retenus)
+    incertitude = None
+    if n > 1:
+        incertitude = math.sqrt(float(residus @ residus) / (n - 1) / denominateur)
+    return Ajustement(
+        cda_m2=float(cda),
+        crr=float(crr),
+        masse_totale_kg=float(masse_totale_kg),
+        n_echantillons=n,
+        rmse_w=float(np.sqrt(np.mean(residus**2))),
+        mae_w=float(np.mean(np.abs(residus))),
+        incertitudes=Incertitudes(cda=incertitude, crr=None),
+        rho_moyen=float(np.mean([e.rho for e in retenus])),
+        bornes_atteintes=bornes,
+        avertissements=avertissements,
+        crr_fixe=True,
     )
 
 
@@ -806,6 +879,115 @@ def _incertitudes(
         return (None, None)
     racines = np.sqrt(diagonale)
     return (float(racines[0]), float(racines[1]))
+
+
+# --- CdA cherché sur le temps des sorties (L9.1) --------------------------------
+
+#: Précision de la recherche du CdA sur le temps des sorties, en m². En deçà,
+#: le minimum est plat (note du 23/09 : 0,30 à 0,36 donnent presque la même
+#: erreur sur le vélo de route du mainteneur) — chercher plus fin ne dirait
+#: rien de plus.
+PRECISION_CDA_M2 = 0.002
+
+
+def erreur_temps(sorties: Sequence[SortieCalibration], p: Parametres) -> float | None:
+    """Erreur relative absolue moyenne du temps en mouvement simulé, sur ces sorties."""
+    return valider([(s.activite, s.vent) for s in sorties], p).mae
+
+
+def chercher_cda_sur_sorties(
+    sorties: Sequence[SortieCalibration],
+    *,
+    masse_totale_kg: float,
+    crr: float,
+    rho: float = RHO_DEFAUT,
+    precision: float = PRECISION_CDA_M2,
+) -> float:
+    """Le CdA qui minimise l'erreur de temps en mouvement sur ces sorties, Crr fixé.
+
+    **Pourquoi pas les moindres carrés des échantillons.** Mesuré le
+    25/09/2026 sur le vélo de route du mainteneur, Crr fixé à 0,006 : les
+    moindres carrés à une inconnue sur les tronçons filtrés donnent CdA 0,299
+    et une erreur de validation de 6,5 % ; minimiser l'erreur de temps sur
+    les sorties complètes d'apprentissage donne 0,33 et 4,6 %. Les tronçons
+    retenus sont des tronçons calmes (pente ≤ 8 %, sans arrêt ni relance
+    brutale) : ils ne portent pas le reste de la sortie, que le temps, lui,
+    porte entièrement. Et c'est le temps qu'on prédit.
+
+    Recherche par section dorée sur `[CDA_MIN, CDA_MAX]` : l'erreur en
+    fonction du CdA est en cuvette (plus haut, trop lent ; plus bas, trop
+    rapide), une dizaine de rejeux suffisent. Seules des sorties **vues par
+    l'apprentissage** entrent ici — la validation reste intacte.
+    """
+    if not sorties:
+        raise ErreurUtilisateur("calibration : aucune sortie pour chercher le CdA")
+
+    def cout(cda: float) -> float:
+        mae = erreur_temps(
+            sorties, Parametres(masse_totale_kg=masse_totale_kg, cda_m2=cda, crr=crr, rho=rho)
+        )
+        return math.inf if mae is None else mae
+
+    or_ = (math.sqrt(5.0) - 1.0) / 2.0
+    a, b = CDA_MIN, CDA_MAX
+    c, d = b - or_ * (b - a), a + or_ * (b - a)
+    fc, fd = cout(c), cout(d)
+    while b - a > precision:
+        if fc <= fd:
+            b, d, fd = d, c, fc
+            c = b - or_ * (b - a)
+            fc = cout(c)
+        else:
+            a, c, fc = c, d, fd
+            d = a + or_ * (b - a)
+            fd = cout(d)
+    return (a + b) / 2.0
+
+
+def ajuster_sur_sorties(
+    ajustement: Ajustement,
+    sorties: Sequence[SortieCalibration],
+    echantillons: Sequence[Echantillon],
+) -> Ajustement:
+    """`ajustement` (Crr fixé), son CdA remplacé par celui qui prédit le mieux le temps.
+
+    Les résidus de puissance (`rmse_w`, `mae_w`) sont recalculés au nouveau
+    CdA sur les mêmes échantillons, pour que le rapport ne cite pas ceux d'un
+    autre point. L'incertitude des moindres carrés ne s'applique plus : elle
+    vaut `None`.
+    """
+    cda = chercher_cda_sur_sorties(
+        sorties,
+        masse_totale_kg=ajustement.masse_totale_kg,
+        crr=ajustement.crr,
+        rho=ajustement.rho_moyen,
+    )
+    retenus = [e for e in echantillons if e.retenu]
+    a, b, c, y = _matrices(retenus, ajustement.masse_totale_kg)
+    residus = a * cda + b * ajustement.crr + c - y
+    bornes: tuple[str, ...] = ()
+    avertissements: tuple[str, ...] = ()
+    if math.isclose(cda, CDA_MIN, abs_tol=PRECISION_CDA_M2) or math.isclose(
+        cda, CDA_MAX, abs_tol=PRECISION_CDA_M2
+    ):
+        bornes = (f"CdA = {cda:.2f}",)
+        avertissements = (
+            "une borne est atteinte : à ce Crr, aucun CdA plausible n'explique le temps "
+            "des sorties — le pneu déclaré est peut-être le mauvais",
+        )
+    return Ajustement(
+        cda_m2=float(cda),
+        crr=ajustement.crr,
+        masse_totale_kg=ajustement.masse_totale_kg,
+        n_echantillons=len(retenus),
+        rmse_w=float(np.sqrt(np.mean(residus**2))) if len(retenus) else 0.0,
+        mae_w=float(np.mean(np.abs(residus))) if len(retenus) else 0.0,
+        incertitudes=Incertitudes(cda=None, crr=None),
+        rho_moyen=ajustement.rho_moyen,
+        bornes_atteintes=bornes,
+        avertissements=avertissements,
+        crr_fixe=True,
+    )
 
 
 # --- validation ---------------------------------------------------------------
@@ -1019,8 +1201,16 @@ def vent_le_long(
     instants = [p.t for p in points]
 
     def a_l_heure(dist_m: float) -> datetime:
-        i = min(range(len(distances)), key=lambda k: abs(distances[k] - dist_m))
-        return instants[i]
+        # Le point le plus proche en distance, le premier en cas d'égalité —
+        # par dichotomie (les distances cumulées ne décroissent jamais) : un
+        # parcours linéaire coûtait N par pas de simulation, et la calibration
+        # à CdA seul (L9.1) rejoue chaque sortie une dizaine de fois.
+        i = bisect.bisect_left(distances, dist_m)
+        if i >= len(distances) or (
+            i > 0 and dist_m - distances[i - 1] <= distances[i] - dist_m
+        ):
+            i -= 1
+        return instants[bisect.bisect_left(distances, distances[i])]
 
     def face(dist_m: float, cap: float) -> float:
         heure = _interpoler_archive(vent, a_l_heure(dist_m))
@@ -1075,6 +1265,149 @@ def detecter_groupe(
     return (part > PART_DISTANCE_GROUPE, part)
 
 
+# --- la fourchette du porte à porte (L9.1) -------------------------------------
+
+
+#: Les centiles du ratio réel/simulé qui bornent la fourchette affichée : la
+#: moitié centrale des sorties (tranché par le mainteneur le 23/09 — « assez
+#: resserrée pour rester utile, assez large pour ne pas mentir »).
+CENTILES_PORTE_A_PORTE = (25, 50, 75)
+
+#: En dessous de ce nombre de sorties de validation roulées seul, les
+#: centiles ne disent rien de stable : le vélo garde la fourchette par
+#: défaut. Convention, pas mesure — un quartile sur sept valeurs, c'est déjà
+#: deux sorties.
+SORTIES_MIN_FOURCHETTE = 8
+
+#: Part de signal de groupe au-delà de laquelle une sortie d'apprentissage ne
+#: sert pas à chercher le CdA sur le temps — défaut de
+#: `config.ParametresCalibration.part_groupe_max`, voir sa justification.
+PART_GROUPE_MAX_APPRENTISSAGE = 0.30
+
+#: En dessous de ce nombre de sorties d'apprentissage sous
+#: `part_groupe_max`, la recherche du CdA retombe sur toutes les sorties non
+#: écartées au seuil de 50 %, et le rapport le dit. Convention.
+SORTIES_MIN_SOLO = 8
+
+
+@dataclass(frozen=True)
+class RatioSortie:
+    """Une sortie rejouée avec les paramètres finaux : ses trois temps et sa part de groupe."""
+
+    jour: str
+    nom: str
+    #: Du premier au dernier point de l'enregistrement, arrêts compris : le
+    #: porte à porte réel.
+    temps_ecoule_s: float
+    temps_mouvement_s: float
+    temps_simule_s: float
+    #: Part de la distance anormalement rapide (`detecter_groupe`), avant
+    #: tout seuil.
+    part_groupe: float
+
+    @property
+    def ratio(self) -> float:
+        """Temps écoulé réel / temps simulé en mouvement : ce que la fourchette mesure."""
+        return self.temps_ecoule_s / self.temps_simule_s
+
+    @property
+    def ratio_mouvement(self) -> float:
+        """Temps en mouvement réel / temps simulé : l'erreur du modèle seul, arrêts exclus."""
+        return self.temps_mouvement_s / self.temps_simule_s
+
+
+def _centiles(valeurs: Sequence[float]) -> tuple[float, float, float]:
+    """25ᵉ, 50ᵉ et 75ᵉ centiles, interpolés entre valeurs (méthode « inclusive »)."""
+    q1, q2, q3 = statistics.quantiles(valeurs, n=4, method="inclusive")
+    return (q1, q2, q3)
+
+
+@dataclass
+class MesurePorteAPorte:
+    """Le ratio réel/simulé sortie par sortie, et la fourchette qu'on en tire.
+
+    Le filtre de groupe se fait **ici, une fois**, sur la part brute rendue
+    par `detecter_groupe` avec les paramètres finaux — jamais à la main
+    (condition du mainteneur, 23/09 : « si je mets moi du temps, ça marchera
+    jamais »).
+    """
+
+    sorties: list[RatioSortie] = field(default_factory=list)
+    seuil_groupe: float = PART_DISTANCE_GROUPE
+
+    @property
+    def retenues(self) -> list[RatioSortie]:
+        """Les sorties roulées seul : part de groupe **strictement** sous le seuil."""
+        return [s for s in self.sorties if s.part_groupe < self.seuil_groupe]
+
+    @property
+    def n(self) -> int:
+        return len(self.retenues)
+
+    @property
+    def centiles(self) -> tuple[float, float, float] | None:
+        """(25ᵉ, 50ᵉ, 75ᵉ) du ratio écoulé/simulé, ou `None` s'il y a trop peu de sorties."""
+        if self.n < SORTIES_MIN_FOURCHETTE:
+            return None
+        return _centiles([s.ratio for s in self.retenues])
+
+    @property
+    def centiles_mouvement(self) -> tuple[float, float, float] | None:
+        """Les mêmes centiles, sur le temps **en mouvement** : l'erreur du modèle seul."""
+        if self.n < SORTIES_MIN_FOURCHETTE:
+            return None
+        return _centiles([s.ratio_mouvement for s in self.retenues])
+
+
+def mesurer_porte_a_porte(
+    sorties: Sequence[SortieCalibration],
+    p: Parametres,
+    *,
+    ftp_w: float = 250.0,
+    vitesse_min_kmh: float = 8.0,
+    seuil_groupe: float = PART_DISTANCE_GROUPE,
+) -> MesurePorteAPorte:
+    """Rejoue chaque sortie avec `p` et mesure temps écoulé réel / temps simulé.
+
+    `calibrer_en_deux_passes` ne lui passe que les sorties de **validation**,
+    jamais vues par l'ajustement (contre-lecture du 25/09) : mesurée sur les
+    sorties apprises, la fourchette héritait de l'ajustement du CdA sur elles
+    et sous-prédisait le porte à porte d'une sortie neuve (médiane 1,054 en
+    échantillon contre 1,072 en validation sur le vélo de route du
+    mainteneur). Le ratio dit ce qu'une sortie nouvelle coûte en plus du
+    temps simulé : arrêts, relances, et l'erreur propre du modèle.
+
+    Le temps de référence est le temps **écoulé** (dernier point − premier) :
+    c'est lui que la fourchette doit prédire, porte à porte. La note du 23/09
+    lisait le `temps_reel_s` de la validation, qui est un temps **en
+    mouvement** ; ce ratio-là est gardé à côté (`ratio_mouvement`), pour
+    qu'on puisse comparer.
+    """
+    mesure = MesurePorteAPorte(seuil_groupe=seuil_groupe)
+    for s in sorties:
+        rejeu = simuler_sortie(s.activite, s.vent, p)
+        if rejeu is None:
+            continue
+        simulation, mouvement = rejeu
+        ecoule = float(s.activite.duree_s or 0.0)
+        if simulation.temps_s <= 0 or ecoule <= 0:
+            continue
+        _, part = detecter_groupe(
+            s.activite, p, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
+        )
+        mesure.sorties.append(
+            RatioSortie(
+                jour=s.jour.isoformat() if s.jour else "",
+                nom=s.nom,
+                temps_ecoule_s=ecoule,
+                temps_mouvement_s=mouvement,
+                temps_simule_s=simulation.temps_s,
+                part_groupe=part,
+            )
+        )
+    return mesure
+
+
 # --- choix des sorties --------------------------------------------------------
 
 
@@ -1089,16 +1422,32 @@ def masse_totale_kg(config: Config, velo: Velo) -> float:
     )
 
 
-def motif_exclusion(entree: EntreeCache, config: Config, velo: Velo) -> str | None:
+#: Le motif d'une sortie qu'on ne sait pas attribuer, en rattachement strict.
+MOTIF_VELO_NON_IDENTIFIE = "vélo non identifié"
+
+
+def motif_exclusion(
+    entree: EntreeCache, config: Config, velo: Velo, *, strict: bool = False
+) -> str | None:
     """Pourquoi cette sortie n'est pas calibrable, ou `None` si elle l'est.
 
     Rendre le motif, et pas seulement un booléen, permet à la commande de dire
     « 102 calibrables, 8 trop courtes, 2 en groupe » au lieu d'un nombre nu.
+
+    `strict` (L9.4, calibration depuis l'écran) : quand le profil a plusieurs
+    vélos, une sortie qui ne désigne aucun vélo elle-même (ni capteur, ni
+    équipement, ni période — `rattachement_explicite`) n'est plus créditée au
+    premier vélo de route : elle est écartée, motif `MOTIF_VELO_NON_IDENTIFIE`,
+    et comptée **pour chaque vélo**, pour que l'écran dise combien de sorties
+    attendent d'être rattachées. Avec un seul vélo, rien ne change : toutes
+    ses sorties sont les siennes.
     """
     if not est_sport_velo(entree.sport):
         return "pas du vélo"
     if en_interieur(entree):
         return "home-trainer"
+    if strict and len(config.velos) > 1 and rattachement_explicite(entree, config) is None:
+        return MOTIF_VELO_NON_IDENTIFIE
     if rattacher_velo(entree, config) != velo.nom:
         return "autre vélo"
     if entree.puissance_moy_w is None:
@@ -1155,6 +1504,7 @@ def sorties_calibrables_et_motifs(
     *,
     depuis: date | None = None,
     relire: Callable[[str], Activite | None] | None = None,
+    strict: bool = False,
 ) -> tuple[list[EntreeCache], dict[str, int]]:
     """(sorties utilisables, décompte des sorties **de ce vélo** écartées et pourquoi).
 
@@ -1172,7 +1522,7 @@ def sorties_calibrables_et_motifs(
     retenues: list[EntreeCache] = []
     motifs: dict[str, int] = {}
     for entree in cache.lister(depuis=depuis):
-        motif = motif_exclusion(entree, config, velo)
+        motif = motif_exclusion(entree, config, velo, strict=strict)
         if motif is None and relire is not None:
             motif = motif_multisport(relire(entree.identifiant))
         if motif is None:
@@ -1238,6 +1588,35 @@ class RapportCalibration:
     echantillons_retenus: int = 0
     motifs: dict[str, int] = field(default_factory=dict)
     echantillons_sans_vent: int = 0
+    porte_a_porte: MesurePorteAPorte = field(default_factory=MesurePorteAPorte)
+    """Le ratio temps écoulé réel / temps simulé sur les sorties de
+    validation, rejouées avec les paramètres finaux (L9.1)."""
+    n_solo: int = 0
+    """À Crr fixé : combien de sorties d'apprentissage ont servi à chercher le
+    CdA sur le temps (sous `part_groupe_max`). 0 en calibration libre."""
+    part_groupe_max: float = PART_GROUPE_MAX_APPRENTISSAGE
+    repli_solo: str = ""
+    """Non vide quand trop peu de sorties passaient `part_groupe_max` : dit
+    sur quoi le CdA a été cherché à la place."""
+
+
+def sorties_minimum(part_validation: float) -> int:
+    """Le moins de sorties calibrables avec lequel une calibration a un sens (L9.4).
+
+    Dérivé, pas choisi : il faut `SORTIES_MIN_SOLO` sorties d'**apprentissage**
+    pour que le CdA ne soit pas cherché sur une poignée de sorties (en deçà,
+    `calibrer_en_deux_passes` le dit par `repli_solo`), **plus** la part que
+    `partager` met de côté pour la validation. 10 avec la part par défaut
+    (0,25). La fourchette du porte à porte, elle, demande davantage (au moins
+    `SORTIES_MIN_FOURCHETTE` sorties de validation roulées seul) : en deçà,
+    la convention reste en vigueur, et le rapport le dit.
+    """
+    n = SORTIES_MIN_SOLO
+    while True:
+        n_test = max(1, min(n - 1, round(n * part_validation)))
+        if n - n_test >= SORTIES_MIN_SOLO:
+            return n
+        n += 1
 
 
 def partager(
@@ -1265,12 +1644,29 @@ def calibrer_en_deux_passes(
     part_validation: float = 0.25,
     ftp_w: float = 250.0,
     vitesse_min_kmh: float = 8.0,
+    crr_fixe: float | None = None,
+    part_groupe_max: float = PART_GROUPE_MAX_APPRENTISSAGE,
 ) -> RapportCalibration:
     """Calibre, repère les sorties en groupe au résidu, recalibre sans elles, valide.
 
     Une seule itération, comme décidé le 13/09 : « calibrer d'abord sur les
     sorties sûres, puis utiliser le modèle obtenu pour repérer les autres et
     les écarter ; itérer une fois ».
+
+    `crr_fixe` (L9.1) : le Crr connu par le pneu ou la configuration. Les
+    deux passes ne cherchent alors que le CdA. Sans lui, l'ajustement libre à
+    deux paramètres d'avant — qui ne sépare pas CdA et Crr sur les données du
+    mainteneur (0,0106 de Crr au vélo en pneus quatre saisons, note du 23/09).
+
+    `part_groupe_max` (L9.1, contre-lecture du 25/09) : à Crr fixé, le CdA
+    n'est cherché sur le temps que des sorties d'apprentissage dont la part
+    de signal de groupe est **sous** ce seuil — une roue partielle, sous les
+    50 % qui écartent une sortie, suffit à faire paraître le vélo plus fin.
+    Moins de `SORTIES_MIN_SOLO` sorties passent : repli sur toutes celles
+    que le seuil de 50 % garde, et `repli_solo` le dit.
+
+    Enfin, la fourchette du porte à porte est mesurée sur les sorties de
+    **validation** avec les paramètres finaux (`mesurer_porte_a_porte`).
     """
     if not sorties:
         raise ErreurUtilisateur(f"calibration : aucune sortie exploitable pour le vélo {velo}")
@@ -1293,22 +1689,66 @@ def calibrer_en_deux_passes(
         if not e.retenu:
             motifs[e.motif] = motifs.get(e.motif, 0) + 1
 
-    passe1 = calibrer(tous, masse_totale_kg=masse_totale_kg)
+    passe1 = calibrer(tous, masse_totale_kg=masse_totale_kg, crr_fixe=crr_fixe)
     p1 = passe1.parametres()
 
     groupes: list[tuple[str, float]] = []
     gardees: list[int] = []
+    parts: dict[int, float] = {}
     for rang, s in enumerate(apprentissage):
         en_groupe, part = detecter_groupe(
             s.activite, p1, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
         )
+        parts[rang] = part
         if en_groupe:
             groupes.append((s.nom, part))
         else:
             gardees.append(rang)
 
     restants = [e for rang in gardees for e in par_sortie[rang]]
-    passe2 = calibrer(restants, masse_totale_kg=masse_totale_kg) if gardees else passe1
+    passe2 = (
+        calibrer(restants, masse_totale_kg=masse_totale_kg, crr_fixe=crr_fixe)
+        if gardees
+        else passe1
+    )
+    n_solo = 0
+    repli_solo = ""
+    if crr_fixe is not None:
+        # L9.1 : à Crr fixé, le CdA retenu est celui qui prédit le mieux le
+        # **temps** des sorties d'apprentissage roulées seul, pas celui qui
+        # explique le mieux la puissance des tronçons plats — mesuré le
+        # 25/09/2026, voir `chercher_cda_sur_sorties`.
+        #
+        # La part de groupe qui trie ici n'est **pas** celle de la première
+        # passe : ses paramètres sortent des moindres carrés des tronçons,
+        # dont le CdA trop bas (0,287 sur le vélo de route du mainteneur)
+        # prédit des vitesses trop hautes et cache la roue partielle — 45
+        # sorties passaient sous 30 %, contre 27 avec des paramètres
+        # justes. On cherche donc d'abord le CdA sur toutes les sorties
+        # gardées à 50 %, on remesure leur part avec lui, puis on ne garde
+        # que celles sous `part_groupe_max`. Une itération de plus, pas deux.
+        candidates = [apprentissage[rang] for rang in gardees] or list(apprentissage)
+        passe2 = ajuster_sur_sorties(passe2, candidates, restants or tous)
+        p_temps = passe2.parametres()
+        for rang in gardees:
+            s = apprentissage[rang]
+            _, parts[rang] = detecter_groupe(
+                s.activite, p_temps, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
+            )
+        rangs_solo = [rang for rang in gardees if parts[rang] < part_groupe_max]
+        if len(rangs_solo) < SORTIES_MIN_SOLO:
+            repli_solo = (
+                f"{len(rangs_solo)} sortie(s) d'apprentissage sous {part_groupe_max:.0%} de "
+                f"signal de groupe, il en faut {SORTIES_MIN_SOLO} : le CdA est cherché sur "
+                f"les {len(gardees) or len(apprentissage)} sorties sous "
+                f"{PART_DISTANCE_GROUPE:.0%}, roue partielle comprise"
+            )
+            # Le CdA déjà cherché sur ces sorties-là reste le bon.
+            n_solo = len(candidates)
+        else:
+            n_solo = len(rangs_solo)
+            solo = [apprentissage[rang] for rang in rangs_solo]
+            passe2 = ajuster_sur_sorties(passe2, solo, restants or tous)
     p2 = passe2.parametres()
 
     validation = valider([(s.activite, s.vent) for s in validation_sorties], p2)
@@ -1333,4 +1773,10 @@ def calibrer_en_deux_passes(
         echantillons_retenus=sum(1 for e in tous if e.retenu),
         motifs=dict(sorted(motifs.items(), key=lambda kv: (-kv[1], kv[0]))),
         echantillons_sans_vent=sum(1 for e in tous if e.retenu and not e.vent_connu),
+        porte_a_porte=mesurer_porte_a_porte(
+            validation_sorties, p2, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
+        ),
+        n_solo=n_solo,
+        part_groupe_max=part_groupe_max,
+        repli_solo=repli_solo,
     )

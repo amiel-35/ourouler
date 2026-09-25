@@ -48,7 +48,7 @@ from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
-from ourouler.physique.modele import PART_ARRET_REFERENCE, temps_ecoule
+from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 
 CONFIG_BRUTE = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
@@ -1813,8 +1813,16 @@ def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
     assert compteur["velo"] == "RCR"
     assert compteur["facteur_compteur"] == pytest.approx(0.85)
     assert compteur["facteur_provenance"] == "mesure"
-    assert compteur["part_arret_plancher"] == PART_ARRET_REFERENCE
     assert compteur["moyenne_compteur_kmh"] > 0
+    # Sans calibration.json dans le cache de test : la convention, dite
+    # comme telle (L9.1).
+    assert compteur["porte_a_porte"] == {
+        "bas": FOURCHETTE_PORTE_A_PORTE_DEFAUT[0],
+        "mediane": FOURCHETTE_PORTE_A_PORTE_DEFAUT[1],
+        "haut": FOURCHETTE_PORTE_A_PORTE_DEFAUT[2],
+        "provenance": "defaut",
+        "n": 0,
+    }
 
 
 def test_info_compteur_suit_la_puissance_demandee(tmp_path: Path):
@@ -1872,9 +1880,10 @@ def test_ecran_ftp_valeurs_liees_sans_puissance_ne_bouge_pas(tmp_path: Path):
 def test_temps_ecoule_suit_la_puissance_demandee(tmp_path: Path):
     """Le porte à porte d'une candidate doit suivre `--puissance` : deux
     puissances, deux temps écoulés différents, et l'écart entre mouvement et
-    écoulé qui reste celui qu'impose le facteur mesuré (~1/0,85, soit environ
-    18 %) dans les deux cas — pas cinquante minutes d'arrêts imaginaires,
-    comme avant ce correctif (150 W et 300 W rendaient alors le même écoulé)."""
+    écoulé qui reste celui qu'impose la fourchette (quelques pour cent depuis
+    L9.1) dans les deux cas — pas cinquante minutes d'arrêts imaginaires,
+    comme avant le correctif du 18/09 (150 W et 300 W rendaient alors le même
+    écoulé)."""
     from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
     from ourouler.physique.modele import vitesse_a_plat_kmh
 
@@ -1909,15 +1918,16 @@ def test_temps_ecoule_suit_la_puissance_demandee(tmp_path: Path):
     assert ecoule_150 != ecoule_300
 
     for ecoule, mouvement in ((ecoule_150, mouvement_150), (ecoule_300, mouvement_300)):
-        assert ecoule >= mouvement  # le plancher, jamais un porte à porte plus rapide
+        assert ecoule >= mouvement  # jamais un porte à porte plus rapide
         ratio = ecoule / mouvement
-        assert 1.0 < ratio < 1.3  # ~1/0,85, pas un écart de cinquante minutes
+        assert 1.0 < ratio < 1.3  # la fourchette, pas un écart de cinquante minutes
 
 
 def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
     """Pas une deuxième formule : ce que `rendre_json` publie doit être
-    exactement `physique.modele.temps_ecoule` appliqué à la distance de la
-    candidate, son `temps_estime_s`, et la moyenne compteur du bloc `compteur`."""
+    exactement `physique.modele.temps_ecoule` appliqué au `temps_estime_s` de
+    la candidate et à la fourchette du bloc `compteur` — la médiane dans
+    `temps_ecoule_s` (compatibilité), les bornes à côté (L9.1)."""
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
@@ -1925,36 +1935,77 @@ def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
         [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
     )
     candidate = charge["candidates"][0]
-    attendu_s, attendue_source = temps_ecoule(
-        50.0, 5_000.0, compteur_info["moyenne_compteur_kmh"]
+    bas, mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
+    assert candidate["temps_ecoule_s"] == round(5_000.0 * mediane)
+    assert candidate["temps_ecoule_bas_s"] == round(5_000.0 * bas)
+    assert candidate["temps_ecoule_haut_s"] == round(5_000.0 * haut)
+    assert candidate["temps_ecoule_source"] == "defaut"
+    assert (
+        candidate["temps_ecoule_bas_s"]
+        <= candidate["temps_ecoule_s"]
+        <= candidate["temps_ecoule_haut_s"]
     )
-    assert candidate["temps_ecoule_s"] == round(attendu_s)
-    assert candidate["temps_ecoule_source"] == attendue_source
-    # Jamais sous le temps de mouvement (le point du plancher) :
-    assert candidate["temps_ecoule_s"] >= candidate["temps_estime_s"]
+
+
+def test_temps_ecoule_json_prend_la_fourchette_mesuree_du_velo(tmp_path: Path):
+    """Un vélo calibré depuis L9.1 porte sa fourchette dans calibration.json :
+    c'est elle qui chronomètre, et la source le dit (« mesure »)."""
+    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+
+    config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {
+            "cda_m2": 0.33,
+            "crr": 0.006,
+            "masse_totale_kg": 100.0,
+            "porte_a_porte": {"bas": 1.02, "mediane": 1.05, "haut": 1.10, "n": 40},
+        },
+    )
+    compteur_info = _info_compteur(config, None)
+    assert compteur_info["porte_a_porte"]["provenance"] == "mesure"
+    assert compteur_info["porte_a_porte"]["n"] == 40
+    evaluation = _evaluation_de_test(temps_s=10_000.0, distance_m=80_000.0)
+    candidate = rendre_json(
+        [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
+    )["candidates"][0]
+    assert candidate["temps_ecoule_bas_s"] == 10_200
+    assert candidate["temps_ecoule_s"] == 10_500
+    assert candidate["temps_ecoule_haut_s"] == 11_000
+    assert candidate["temps_ecoule_source"] == "mesure"
 
 
 def test_texte_boucle_affiche_mouvement_et_ecoule(tmp_path: Path):
-    """CLI et front disent la même chose, **dans le même ordre** : l'écoulé
-    porte à porte d'abord, le temps sans arrêt ensuite, une seule cellule
-    « h:mm / h:mm », et une légende sous le tableau plutôt qu'une colonne de
-    plus (ordre fixé par le mainteneur le 18/09/2026)."""
+    """CLI et front disent la même chose, **dans le même ordre** : le porte à
+    porte d'abord, en fourchette, le temps sans arrêt ensuite, une seule
+    cellule « h:mm-h:mm / h:mm », et une légende sous le tableau plutôt
+    qu'une colonne de plus (ordre fixé par le mainteneur le 18/09/2026)."""
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     compteur_info = _info_compteur(config, None)
     evaluation = _evaluation_de_test(temps_s=5_000.0, distance_m=50_000.0)
     texte = rendre_texte(
         [evaluation], _demande_de_test(), config, chemin=None, compteur_info=compteur_info
     )
-    ecoule_s, _ = temps_ecoule(50.0, 5_000.0, compteur_info["moyenne_compteur_kmh"])
-    minutes_mouvement = round(5_000.0 / 60)
-    minutes_ecoule = round(ecoule_s / 60)
-    attendu = (
-        f"{minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
-        f" / {minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
-    )
-    assert attendu in texte
-    assert "écoulé porte à porte (arrêts compris) / sans un seul arrêt" in texte
-    assert "RCR" in texte
+    bas, _mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
+
+    def hm(secondes: float) -> str:
+        minutes = round(secondes / 60)
+        return f"{minutes // 60}:{minutes % 60:02d}"
+
+    assert f"{hm(5_000 * bas)}-{hm(5_000 * haut)} / {hm(5_000)}" in texte
+    assert "porte à porte, arrêts compris / sans un seul arrêt" in texte
+    # La convention se dit comme telle (règle absolue 5).
+    assert "convention, mesurée sur un seul cycliste" in texte
+
+
+def test_texte_boucle_dit_la_fourchette_de_la_retenue_en_toutes_lettres():
+    """« entre 4 h 23 et 4 h 38 » : l'exemple de la note du 23/09."""
+    from ourouler.boucle.commande import texte_entre
+    from ourouler.physique.modele import FourchettePorteAPorte, temps_ecoule
+
+    pp = temps_ecoule(15_600.0, FourchettePorteAPorte(bas=1.015, mediane=1.039, haut=1.072))
+    assert texte_entre(pp) == "entre 4 h 24 et 4 h 39"
 
 
 def test_texte_boucle_sans_compteur_n_affiche_pas_la_legende(tmp_path: Path):
@@ -1965,3 +2016,33 @@ def test_texte_boucle_sans_compteur_n_affiche_pas_la_legende(tmp_path: Path):
     )
     assert "écoulé porte à porte" not in texte
     assert " / " not in texte.splitlines()[3]  # la ligne de la candidate n° 1
+
+
+def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Décision du 25/09 : la calibration est gardée, mais l'écran dit qu'elle
+    ne suit plus le pneu déclaré — en texte comme en JSON."""
+    from ourouler.physique.commande import (
+        ALERTE_PNEU_CHANGE,
+        chemin_calibration,
+        ecrire_calibration,
+    )
+
+    config = config_de_test(
+        cache={"dossier": str(tmp_path)},
+        velos=[{"nom": "RCR", "usage": "route", "pneu": "vtt"}],
+    )
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 89.0, "crr_source": "pneu",
+         "pneu": "course_rapide"},
+    )
+    monkeypatch.chdir(tmp_path)
+    executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["modele_physique"]["provenance"] == "calibration"
+    assert charge["modele_physique"]["alerte"] == ALERTE_PNEU_CHANGE
+    executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
+    assert ALERTE_PNEU_CHANGE in capsys.readouterr().out

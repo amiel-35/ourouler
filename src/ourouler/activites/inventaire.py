@@ -116,7 +116,24 @@ def rattacher_velo(entree: EntreeCache, config: Config) -> str:
     """
     if en_interieur(entree):
         return HOME_TRAINER
+    explicite = rattachement_explicite(entree, config)
+    if explicite is not None:
+        return explicite
+    for velo in config.velos:
+        if velo.usage == "route":
+            return velo.nom
+    return config.velos[0].nom if config.velos else INCONNU
 
+
+def rattachement_explicite(entree: EntreeCache, config: Config) -> str | None:
+    """Le vélo que la sortie **désigne elle-même** — étapes 2 à 4 de `rattacher_velo` —, ou `None`.
+
+    Capteur, équipement Intervals ou période : un signal que la sortie porte,
+    par opposition au repli « premier vélo de route » qui n'en est pas un.
+    Sert à la calibration depuis l'écran (L9.4) : un compte à plusieurs vélos
+    qui dépose des fichiers sans équipement ne doit pas voir toutes ses
+    sorties créditées au premier vélo sans qu'on le lui dise.
+    """
     capteur = _sans_blancs(entree.meta.get("power_meter"))
     if capteur:
         for velo in config.velos:
@@ -139,11 +156,7 @@ def rattacher_velo(entree: EntreeCache, config: Config) -> str:
         for velo in config.velos:
             if any(periode.contient(jour) for periode in velo.periodes):
                 return velo.nom
-
-    for velo in config.velos:
-        if velo.usage == "route":
-            return velo.nom
-    return config.velos[0].nom if config.velos else INCONNU
+    return None
 
 
 def _sans_blancs(valeur: object) -> str:

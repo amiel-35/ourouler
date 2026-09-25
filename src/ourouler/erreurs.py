@@ -11,7 +11,36 @@ class ErreurUtilisateur(Exception):
 
 
 class ErreurConfig(ErreurUtilisateur, ValueError):
-    """Configuration absente, incomplète ou invalide. Le message nomme le champ."""
+    """Configuration absente, incomplète ou invalide. Le message nomme le champ.
+
+    Le message reste la seule chose que la ligne de commande affiche — il
+    est écrit pour quelqu'un qui lit son TOML. `champ`, `section`, `mini`,
+    `maxi` et `valeur` sont **facultatifs** et voyagent en plus, sur le
+    modèle d'`ErreurDistanceInatteignable` : ils existent pour qu'`api/
+    erreurs.py` puisse reconstruire une phrase lisible à l'écran
+    (« Votre poids doit être entre 20 et 300 kg ») sans reparser le message
+    technique (« [cycliste] masse_kg = 7075.0 hors de [20, 300] »), constaté
+    affiché tel quel dans l'assistant le 25/09/2026. Une levée qui ne les
+    passe pas (la plupart) laisse simplement `str(exception)` comme message,
+    exactement comme avant.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        champ: str | None = None,
+        section: str | None = None,
+        mini: float | None = None,
+        maxi: float | None = None,
+        valeur: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.champ = champ
+        self.section = section
+        self.mini = mini
+        self.maxi = maxi
+        self.valeur = valeur
 
 
 class ErreurIntervalsAbsent(ErreurUtilisateur):

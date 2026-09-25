@@ -48,18 +48,19 @@ import { IconeAujourdhui, IconeSemaine, IconeDemander, IconeReglages } from "./c
 type Pagina =
   | { genre: "application" }
   | { genre: "entrer"; jeton: string }
+  | { genre: "reinitialiser"; jeton: string }
   | { genre: "connexion" };
 
 function paginaDepuisUrl(): Pagina {
   const chemin = window.location.pathname;
-  if (chemin === "/entrer") {
+  if (chemin === "/entrer" || chemin === "/reinitialiser") {
     const jeton = new URLSearchParams(window.location.search).get("jeton") ?? "";
     // Le jeton n'a rien à faire dans l'historique du navigateur ni dans un
     // en-tête `Referer` une fois lu : une ligne, faite ici et nulle part
     // ailleurs, pour que ni le rechargement de l'écran ni un lien partagé
     // depuis cette page ne le fassent fuiter une seconde fois.
-    window.history.replaceState(null, "", "/entrer");
-    return { genre: "entrer", jeton };
+    window.history.replaceState(null, "", chemin);
+    return chemin === "/entrer" ? { genre: "entrer", jeton } : { genre: "reinitialiser", jeton };
   }
   if (chemin === "/connexion") return { genre: "connexion" };
   return { genre: "application" };
@@ -138,6 +139,17 @@ const ONGLETS: { cle: Onglet; nom: string }[] = [
   { cle: "reglages", nom: "Réglages" },
 ];
 
+/** L'onglet demandé par l'URL (`?onglet=reglages`), lu **une fois**, au
+ * démarrage — même patron que `paginaDepuisUrl`. Constaté le 25/09/2026 :
+ * le lien « Le relier dans les réglages » posait ce paramètre, mais rien ne
+ * le lisait, et une ouverture directe de ce lien retombait sur Aujourd'hui.
+ * Une clé absente ou inconnue garde le défaut plutôt que d'échouer. */
+function ongletDepuisUrl(): Onglet {
+  const valeur = new URLSearchParams(window.location.search).get("onglet");
+  const trouve = ONGLETS.find((o) => o.cle === valeur);
+  return trouve ? trouve.cle : "aujourdhui";
+}
+
 /**
  * Le point d'entrée : décide une fois pour toutes sur quelle page on est
  * (lot L7.2-D), et rend `ApplicationPrincipale` — les quatre onglets
@@ -155,6 +167,15 @@ export function App() {
   if (pagina.genre === "entrer") {
     return <Entrer jeton={pagina.jeton} surEntre={() => window.location.assign("/")} />;
   }
+  if (pagina.genre === "reinitialiser") {
+    return (
+      <Entrer
+        jeton={pagina.jeton}
+        mode="reinitialiser"
+        surEntre={() => window.location.assign("/")}
+      />
+    );
+  }
   if (pagina.genre === "connexion") {
     return <Connexion surConnecte={() => window.location.assign("/")} />;
   }
@@ -163,7 +184,7 @@ export function App() {
 
 function ApplicationPrincipale() {
   const jour = aujourdhui();
-  const [onglet, setOnglet] = useState<Onglet>("aujourdhui");
+  const [onglet, setOnglet] = useState<Onglet>(ongletDepuisUrl);
   const [vue, setVue] = useState<Vue>({ genre: "onglet" });
   const [demande, setDemande] = useState<Demande>(demandeInitiale);
   const [resultat, setResultat] = useState<Resultat | null>(null);
@@ -574,7 +595,8 @@ function ApplicationPrincipale() {
               <h2>En attendant</h2>
             </div>
             <p className="mention">
-              Vous pouvez demander un parcours à la main, ou déposer un fichier de séance.
+              Vous pouvez demander un parcours à la main, déposer un fichier de séance, ou déposer vos
+              sorties passées — c'est l'autre source d'historique, sans Intervals.
               Tout le reste fonctionne.
             </p>
             <div className="boutons" style={{ marginTop: 11 }}>
@@ -632,7 +654,8 @@ function ApplicationPrincipale() {
               <h2>En attendant</h2>
             </div>
             <p className="mention">
-              Vous pouvez demander un parcours à la main, ou déposer un fichier de séance.
+              Vous pouvez demander un parcours à la main, déposer un fichier de séance, ou déposer vos
+              sorties passées — c'est l'autre source d'historique, sans Intervals.
               Tout le reste fonctionne.
             </p>
             <div className="boutons" style={{ marginTop: 11 }}>
