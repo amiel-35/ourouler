@@ -18,6 +18,7 @@ import pytest
 from ourouler.activites.cache import Cache
 from ourouler.activites.import_archive import (
     RATIO_MAX_DECOMPRESSION,
+    TAILLE_MAX_ACTIVITE,
     etat,
     importer,
 )
@@ -131,17 +132,26 @@ def test_reimporter_la_meme_archive_deux_appels_successifs(cache_a: Cache, activ
     assert len(cache_a.lister()) == 1
 
 
-def test_un_fichier_modifie_sous_le_meme_nom_met_a_jour_au_lieu_de_dupliquer(
-    cache_a: Cache, activites: Path
-):
-    importer(cache_a, [("boucle.fit", octets(activites, "boucle.fit"))])
-    autre_contenu = octets(activites, "boucle.tcx")  # contenu différent, même nom
-    second = importer(cache_a, [("boucle.fit", autre_contenu)])
-    # Le lecteur .fit refuse un contenu .tcx : c'est un fichier corrompu, pas
-    # un doublon — sert surtout à documenter que le nom seul ne fait pas
-    # l'identité, `Cache.ajouter` compare aussi le contenu.
-    assert second.doublons == 0
-    assert second.ignorees
+def test_deux_sorties_differentes_sous_le_meme_nom_restent_deux(cache_a: Cache, activites: Path):
+    """Un export Strava nomme une sortie d'après son titre (« Morning_Ride.gpx ») :
+    deux matinées différentes portent le même nom. Aucune ne doit écraser l'autre."""
+    premiere = octets(activites, "boucle.gpx")
+    seconde = premiere + b"\n"  # autre contenu, toujours un GPX valide
+    importer(cache_a, [("Morning_Ride.gpx", premiere)])
+    rapport = importer(cache_a, [("Morning_Ride.gpx", seconde)])
+    assert rapport.importees == 1 and rapport.doublons == 0
+    assert len(cache_a.lister()) == 2
+
+
+def test_la_meme_sortie_isolee_puis_dans_l_archive_est_un_doublon(cache_a: Cache, activites: Path):
+    """Déposée seule (`1234.fit`), puis avec tout l'export (`activities/1234.fit.gz`) :
+    une seule sortie, pas deux — l'identité est le contenu, pas le nom."""
+    contenu = octets(activites, "boucle.fit")
+    importer(cache_a, [("1234.fit", contenu)])
+    archive = _zip({"activities/1234.fit.gz": gzip.compress(contenu)})
+    rapport = importer(cache_a, [("export.zip", archive)])
+    assert rapport.importees == 0 and rapport.doublons == 1
+    assert len(cache_a.lister()) == 1
 
 
 # --- isolation par propriétaire -------------------------------------------------
@@ -215,7 +225,10 @@ def test_bombe_de_decompression_par_ratio_est_refusee(cache_a: Cache):
     """Un `.gpx` compressible à l'extrême — mesuré à 11× sur l'archive Garmin réelle,
     ici largement au-delà du plafond, pour que le test ne dépende pas du taux de
     compression réel de `zipfile`."""
-    enorme = b"0" * (RATIO_MAX_DECOMPRESSION * 2 * 1024 * 1024)  # se compresse à presque rien
+    # Sous le plafond de taille d'une activité, pour que ce soit bien le ratio
+    # qui refuse, et pas la taille annoncée.
+    enorme = b"0" * (RATIO_MAX_DECOMPRESSION * 50 * 1024)  # 5 Mo, se compresse à presque rien
+    assert len(enorme) < TAILLE_MAX_ACTIVITE
     archive = _zip({"bombe.gpx": enorme})
     rapport = importer(cache_a, [("hostile.zip", archive)])
     assert rapport.importees == 0
@@ -258,11 +271,13 @@ def test_gz_corrompu_est_ignore(cache_a: Cache):
 
 
 def test_gz_qui_decompresse_au_dela_du_plafond_est_refuse(cache_a: Cache, monkeypatch):
-    monkeypatch.setattr("ourouler.activites.import_archive.TAILLE_MAX_FICHIER", 1024)
+    monkeypatch.setattr("ourouler.activites.import_archive.TAILLE_MAX_ACTIVITE", 1024)
     enorme = gzip.compress(b"0" * (10 * 1024))
     rapport = importer(cache_a, [("gros.fit.gz", enorme)])
     assert rapport.importees == 0
-    assert rapport.ignorees
+    # Le motif du plafond, pas celui d'un FIT illisible : sans quoi ce test
+    # passerait même sans plafond (dix Ko de zéros ne sont pas un FIT).
+    assert "au-delà du plafond" in rapport.ignorees[0].motif
 
 
 def test_les_ignorees_sont_groupees_par_motif(cache_a: Cache):
@@ -295,3 +310,101 @@ def test_etat_compte_seulement_les_depots_fichier(cache_a: Cache, activites: Pat
     )
     e = etat(cache_a)
     assert e["nombre"] == 1
+
+
+# --- entrées hostiles : jamais une exception (donc jamais un 500) ---------------
+
+
+def _zip_brut(nom: str, contenu: bytes, methode: int = zipfile.ZIP_DEFLATED) -> bytes:
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w", compression=methode) as zf:
+        zf.writestr(nom, contenu)
+    return tampon.getvalue()
+
+
+def _flux_deflate_casse(zip_octets: bytes, contenu: bytes) -> bytes:
+    """Remplace le début du flux compressé de l'unique entrée par des octets invalides."""
+    info = zipfile.ZipFile(io.BytesIO(zip_octets)).infolist()[0]
+    debut = info.header_offset + 30 + len(info.filename.encode())
+    casse = bytearray(zip_octets)
+    casse[debut : debut + 8] = b"\xff" * 8
+    return bytes(casse)
+
+
+def test_les_entrees_qui_faisaient_lever_les_decompresseurs_sont_ignorees(
+    cache_a: Cache, activites: Path
+):
+    """Relecture du 25/09/2026 : chacun de ces dépôts levait une exception hors de
+    la liste attrapée (`zlib.error`, `NotImplementedError`, `LZMAError`…) et la
+    route répondait 500. Tous doivent finir dans `ignorees`, avec un motif."""
+    fit = octets(activites, "boucle.fit")
+    zip_deflate = _zip_brut("1.fit", fit)
+    methode_inconnue = bytearray(zip_deflate)
+    # Méthode de compression 99 (AES) dans l'en-tête local et le répertoire central.
+    for position in (8, zip_deflate.rindex(b"PK\x01\x02") + 10):
+        methode_inconnue[position : position + 2] = (99).to_bytes(2, "little")
+    gz_casse = bytearray(gzip.compress(fit))
+    gz_casse[12:20] = b"\xff" * 8
+
+    depots = [
+        ("deflate_casse.zip", _flux_deflate_casse(zip_deflate, fit)),
+        ("methode_inconnue.zip", bytes(methode_inconnue)),
+        ("lzma_casse.zip", _flux_deflate_casse(_zip_brut("1.fit", fit, zipfile.ZIP_LZMA), fit)),
+        ("casse.fit.gz", bytes(gz_casse)),
+        ("tronque.fit.gz", gzip.compress(fit)[:40]),
+    ]
+    for nom, contenu in depots:
+        rapport = importer(cache_a, [(nom, contenu)])  # ne doit pas lever
+        assert rapport.importees == 0, nom
+        assert rapport.ignorees, nom
+
+
+@pytest.mark.filterwarnings("ignore::UserWarning")  # fitdecode signale les CRC faux
+def test_des_octets_mutes_au_hasard_ne_font_jamais_lever(cache_a: Cache, activites: Path):
+    """Mutations aléatoires, graine fixe : avant la relecture, ~10 % de ces
+    dépôts levaient (mesuré sur 3 000 tirages)."""
+    import random
+
+    fit = octets(activites, "boucle.fit")
+    modeles = [
+        ("a.fit", fit),
+        ("a.fit.gz", gzip.compress(fit)),
+        ("x.zip", _zip({"1.fit": fit, "2.tcx.gz": gzip.compress(octets(activites, "boucle.tcx"))})),
+        ("x.zip", _zip_brut("1.fit", fit, zipfile.ZIP_LZMA)),
+    ]
+    hasard = random.Random(1)
+    for _ in range(400):
+        nom, modele = hasard.choice(modeles)
+        mute = bytearray(modele)
+        for _ in range(hasard.randint(1, 20)):
+            mute[hasard.randrange(len(mute))] = hasard.randrange(256)
+        importer(cache_a, [(nom, bytes(mute))])  # ne doit pas lever
+
+
+def test_le_plafond_total_compte_aussi_les_gz_d_une_archive(
+    cache_a: Cache, activites: Path, monkeypatch
+):
+    """Le total décompressé porte sur ce qui sort des `.gz` rangés dans l'archive,
+    pas seulement sur les entrées du `.zip` : sans quoi vingt mille `.gz` bien
+    compressés passaient sous le plafond."""
+    fit = octets(activites, "boucle.fit")
+    variantes = {f"activities/{i}.fit.gz": gzip.compress(fit + bytes([i])) for i in range(4)}
+    compresse = sum(len(v) for v in variantes.values())
+    # Assez pour lire toutes les enveloppes et une sortie, pas toutes.
+    monkeypatch.setattr(
+        "ourouler.activites.import_archive.TAILLE_MAX_DECOMPRESSEE", compresse + len(fit) + 10
+    )
+    rapport = importer(cache_a, [("export.zip", _zip(variantes))])
+    assert rapport.importees < 4
+    assert any("au total" in i.motif for i in rapport.ignorees)
+
+
+def test_un_depot_passe_en_fichier_ouvert_est_lu_sans_etre_charge(
+    cache_a: Cache, activites: Path, tmp_path: Path
+):
+    """La forme de l'API : un fichier déjà reçu, que `zipfile` lit entrée par entrée."""
+    chemin = tmp_path / "export.zip"
+    chemin.write_bytes(_zip({"activities/1.fit": octets(activites, "boucle.fit")}))
+    with chemin.open("rb") as fichier:
+        rapport = importer(cache_a, [("export.zip", fichier)])
+    assert rapport.importees == 1

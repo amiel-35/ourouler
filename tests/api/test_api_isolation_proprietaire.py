@@ -1718,3 +1718,41 @@ def _nomme_la_variable(fichier: Path, nom: str) -> bool:
         and id(noeud) not in prose
         for noeud in ast.walk(arbre)
     )
+
+
+def test_un_historique_importe_par_a_n_est_ni_vu_ni_compte_chez_b(tmp_path):
+    """L9.2, critère d'acceptation : « un compte A importe, B ne voit rien ».
+
+    Le balayage générique cherche des sentinelles dans le texte des réponses ;
+    `GET /activites/import` ne rend que des nombres, il n'y verrait donc rien.
+    D'où ce test dédié, avec sa contre-épreuve : A voit bien sa sortie.
+    """
+    client = _service_pour_deux(tmp_path)
+    depot = client.requete(
+        "POST",
+        f"{PREFIXE_API}/activites/import",
+        headers={"x-essai-proprietaire": PROPRIETAIRE_A},
+        files={"fichiers": ("sortie.gpx", _gpx("import-a"), "application/gpx+xml")},
+    )
+    assert depot.status_code == 200, depot.text
+    assert depot.json()["donnees"]["importees"] == 1
+
+    def nombre(qui: str) -> int:
+        reponse = client.requete(
+            "GET", f"{PREFIXE_API}/activites/import", headers={"x-essai-proprietaire": qui}
+        )
+        assert reponse.status_code == 200, reponse.text
+        return reponse.json()["donnees"]["nombre"]
+
+    assert nombre(PROPRIETAIRE_A) == 1
+    assert nombre(PROPRIETAIRE_B) == 0
+
+    # Et B qui dépose **le même fichier** l'importe pour lui : ce n'est pas un
+    # doublon de la sortie de A (le dédoublonnage vaut par propriétaire).
+    depot_b = client.requete(
+        "POST",
+        f"{PREFIXE_API}/activites/import",
+        headers={"x-essai-proprietaire": PROPRIETAIRE_B},
+        files={"fichiers": ("sortie.gpx", _gpx("import-a"), "application/gpx+xml")},
+    )
+    assert depot_b.json()["donnees"] == {"importees": 1, "doublons": 0, "ignorees": []}

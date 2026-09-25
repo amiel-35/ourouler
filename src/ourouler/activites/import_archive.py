@@ -4,15 +4,19 @@ archive d'export Strava/Garmin (lot L9.2, `docs/sprint9_contrat.md`).
 **Doctrine §2** : ce module ne lit ni fichier de configuration ni variable
 d'environnement — il reçoit un `Cache` déjà construit pour un propriétaire
 (voir `api/routes.py:_cache`, même règle que `Cache.indexer_dossier`) et des
-octets déjà en mémoire. Il ne sait pas d'où ils viennent (HTTP, disque,
-test) : c'est à l'appelant de les borner à la source (`api/routes.py` le
-fait sur `Content-Length` avant même de lire le corps).
+octets ou des fichiers binaires déjà ouverts. Il ne sait pas d'où ils
+viennent (HTTP, disque, test) : c'est à l'appelant de borner leur taille
+totale (`api/routes.py` le fait avant d'appeler).
 
-**Rien n'est jamais extrait sur disque.** Toute décompression — `.gz`,
+**Rien n'est jamais extrait sur disque, et le dépôt n'est jamais chargé
+d'un bloc.** L'archive déposée est lue entrée par entrée depuis le fichier
+que l'appelant fournit ; seules une entrée d'activité (au plus
+`TAILLE_MAX_ACTIVITE`) et, au besoin, une archive imbriquée (au plus
+`TAILLE_MAX_FICHIER`) passent en mémoire. Toute décompression — `.gz`,
 `.zip`, et les `.zip` imbriqués que Garmin range dans son archive — se fait
 en mémoire, avec un plafond vérifié à la lecture et pas seulement lu dans les
 métadonnées de l'archive (une taille déclarée dans un en-tête `.zip` n'est
-pas digne de confiance : `_lire_borne` et `_degzip_borne` coupent au premier
+pas digne de confiance : `_lire_borne_compte` coupe au premier
 octet en trop, quoi que l'archive prétende contenir).
 
 **Les bornes ci-dessous viennent des deux archives réelles du mainteneur**
@@ -38,12 +42,13 @@ from __future__ import annotations
 import gzip
 import hashlib
 import io
+import sqlite3
 import stat
 import zipfile
 from dataclasses import dataclass, field
+from typing import BinaryIO
 
 from ourouler.activites.cache import Cache
-from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
 
 #: `.fit`/`.gpx`/`.tcx`, avec ou sans `.gz` — Strava gzippe ses fichiers
 #: d'activité à l'intérieur de son archive (`docs/questions_mainteneur.md`,
@@ -66,9 +71,17 @@ NOMBRE_MAX_FICHIERS = 20_000
 #: extérieure.
 TAILLE_MAX_DECOMPRESSEE = 2 * 1024 * 1024 * 1024
 
-#: Taille décompressée max d'une *seule* entrée — défense en profondeur,
-#: pour qu'une entrée ne consomme pas à elle seule tout le plafond ci-dessus.
+#: Taille décompressée max d'une archive `.zip` *imbriquée* — elle est lue
+#: dans un tampon en mémoire avant d'être ouverte. Garmin range 238 Mo dans
+#: six `.zip`, soit une quarantaine de Mo chacun : marge x5.
 TAILLE_MAX_FICHIER = 200 * 1024 * 1024
+
+#: Taille décompressée max d'un fichier d'activité (`.fit`/`.gpx`/`.tcx`).
+#: Mesurée le 25/09/2026 sur les 936 fichiers du cache du mainteneur : le plus
+#: gros fait 3,7 Mo (un `.gpx`), le plus gros `.fit` 3,0 Mo — marge x13. Un
+#: plafond de 200 Mo, comme pour les archives, laissait `gpxpy` monter un
+#: arbre XML de plusieurs Go à partir d'un seul `.gpx.gz` de quelques Ko.
+TAILLE_MAX_ACTIVITE = 50 * 1024 * 1024
 
 #: Ratio décompressé/compressé max toléré pour une entrée. Mesuré à 11 sur
 #: l'archive Garmin réelle (`docs/services_externes.md`) ; marge x9.
@@ -82,10 +95,6 @@ PROFONDEUR_MAX_ARCHIVE = 3
 
 #: Combien d'octets on lit à la fois lorsqu'on borne une décompression.
 TAILLE_BLOC = 65_536
-
-
-class ErreurArchiveHostile(ErreurUtilisateur):
-    """Signal interne : une entrée dépasse une borne à la lecture, pas aux métadonnées."""
 
 
 @dataclass
@@ -139,20 +148,29 @@ class _Etat:
     limites_signalees: set[str] = field(default_factory=set)
 
 
-def importer(cache: Cache, depots: list[tuple[str, bytes]]) -> RapportImport:
+def importer(cache: Cache, depots: list[tuple[str, bytes | BinaryIO]]) -> RapportImport:
     """Importe un ou plusieurs fichiers/archives déposés en une requête.
 
-    `depots` : `[(nom, octets)]`, tels que reçus du multipart — chaque
-    élément est traité indépendamment, et un dépôt corrompu n'empêche pas les
-    suivants. Plusieurs archives successives, à des appels distincts, sont le
-    cas normal ([[Q62]]) : les bornes de `_Etat` sont neuves à chaque appel,
-    et `Cache.ajouter` dédoublonne par `(propriétaire, source, id_externe)`
-    contre ce qui est déjà indexé — réimporter la même archive n'ajoute rien
-    de plus.
+    `depots` : `[(nom, contenu)]`, où `contenu` est soit des octets, soit un
+    **fichier binaire positionnable** (le fichier temporaire où la couche web
+    a déjà reçu le dépôt). La seconde forme est celle de l'API : une archive
+    Strava de 665 Mo n'est jamais chargée en mémoire d'un bloc, `zipfile` la
+    lit entrée par entrée depuis ce fichier (relecture du 25/09/2026).
+
+    Chaque élément est traité indépendamment, et un dépôt corrompu n'empêche
+    pas les suivants. Plusieurs archives successives, à des appels
+    distincts, sont le cas normal ([[Q62]]) : les bornes de `_Etat` sont
+    neuves à chaque appel.
+
+    **L'identité d'une sortie déposée est son contenu**, pas son nom (voir
+    `_importer_contenu`) : réimporter la même archive, ou le même fichier
+    sous un autre nom, n'ajoute rien ; deux sorties différentes qui portent
+    le même nom (« Morning_Ride.gpx ») restent deux sorties.
     """
     etat = _Etat(cache=cache, rapport=RapportImport())
     for nom, contenu in depots:
-        _importer_un(etat, nom or "(sans nom)", contenu)
+        source = io.BytesIO(contenu) if isinstance(contenu, bytes | bytearray) else contenu
+        _importer_un(etat, nom or "(sans nom)", source)
     return etat.rapport
 
 
@@ -177,10 +195,9 @@ def etat(cache: Cache) -> dict:
 # --- un dépôt, isolé ou archive ------------------------------------------------
 
 
-def _importer_un(etat: _Etat, nom: str, contenu: bytes) -> None:
-    base = nom.lower()
-    if base.endswith(".zip"):
-        _traiter_zip(etat, contenu, prefixe="", profondeur=0)
+def _importer_un(etat: _Etat, nom: str, source: BinaryIO) -> None:
+    if nom.lower().endswith(".zip"):
+        _traiter_zip(etat, source, prefixe="", profondeur=0, nom_archive=nom)
         return
     extension = _extension_utile(nom)
     if extension is None:
@@ -192,29 +209,31 @@ def _importer_un(etat: _Etat, nom: str, contenu: bytes) -> None:
             )
         )
         return
-    if base.endswith(".gz"):
-        try:
-            contenu = _degzip_borne(contenu, TAILLE_MAX_FICHIER)
-        except (ErreurLecture, ErreurArchiveHostile) as e:
-            etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"gz illisible ({e})"))
-            return
-    _importer_contenu(etat, nom, contenu, extension)
+    donnees = _lire_activite(etat, nom, source)
+    if donnees is not None:
+        _importer_contenu(etat, nom, donnees, extension)
 
 
-def _traiter_zip(etat: _Etat, contenu: bytes, prefixe: str, profondeur: int) -> None:
-    """Lit une archive `.zip` en mémoire, entrée par entrée, bornée à chaque étape."""
+def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, nom_archive: str) -> None:
+    """Lit une archive `.zip` entrée par entrée, bornée à chaque étape.
+
+    `source` est un fichier positionnable (le dépôt lui-même, ou le tampon
+    d'une archive imbriquée) : `zipfile` n'en lit que le répertoire central
+    puis les entrées qu'on lui demande.
+    """
     if profondeur > PROFONDEUR_MAX_ARCHIVE:
         _signaler_une_fois(
             etat,
             f"imbrication:{prefixe}",
-            f"{prefixe or '(archive)'} : imbriquée au-delà de {PROFONDEUR_MAX_ARCHIVE} "
-            "niveaux, ignorée",
+            f"{prefixe or '(archive)'} : imbriquée au-delà de {PROFONDEUR_MAX_ARCHIVE} niveaux, ignorée",
         )
         return
     try:
-        zf = zipfile.ZipFile(io.BytesIO(contenu))
-    except zipfile.BadZipFile as e:
-        etat.rapport.ignorees.append(Ignoree(nom=prefixe or "(archive)", motif=f"archive corrompue ({e})"))
+        zf = zipfile.ZipFile(source)
+    except Exception as e:  # noqa: BLE001 — entrée hostile : tout échec est « illisible »
+        etat.rapport.ignorees.append(
+            Ignoree(nom=prefixe or nom_archive, motif=f"archive corrompue ({_cause(e)})")
+        )
         return
 
     with zf:
@@ -237,17 +256,11 @@ def _traiter_zip(etat: _Etat, contenu: bytes, prefixe: str, profondeur: int) -> 
                 )
                 continue
 
-            motif = _motif_hostile(info)
-            if motif:
-                etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=motif))
-                continue
-
             est_zip_imbrique = info.filename.lower().endswith(".zip")
             extension = _extension_utile(info.filename)
             if extension is None and not est_zip_imbrique:
                 # Média, `.csv`, `.json`… hors liste (contacts, messages — jamais lus,
-                # règle absolue 1). Compté et motivé, jamais téléchargé au-delà de ces
-                # octets : on ne lit ni n'écrit son contenu.
+                # règle absolue 1). Compté et motivé, jamais décompressé.
                 etat.rapport.ignorees.append(
                     Ignoree(
                         nom=nom_interne,
@@ -256,52 +269,66 @@ def _traiter_zip(etat: _Etat, contenu: bytes, prefixe: str, profondeur: int) -> 
                 )
                 continue
 
-            restant = TAILLE_MAX_DECOMPRESSEE - etat.octets_decompresses
-            if restant <= 0:
-                _signaler_une_fois(
-                    etat,
-                    "total_decompresse",
-                    f"plus de {TAILLE_MAX_DECOMPRESSEE // (1024 * 1024)} Mo décompressés au "
-                    "total, import arrêté (bombe de décompression suspectée)",
-                )
-                return
-            try:
-                donnees = _lire_borne(zf, info, min(TAILLE_MAX_FICHIER, restant))
-            except ErreurArchiveHostile:
-                etat.rapport.ignorees.append(
-                    Ignoree(nom=nom_interne, motif="décompression au-delà du plafond attendu, ignorée")
-                )
+            motif = _motif_hostile(info, TAILLE_MAX_FICHIER if est_zip_imbrique else TAILLE_MAX_ACTIVITE)
+            if motif:
+                etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=motif))
                 continue
-            except (zipfile.BadZipFile, OSError, EOFError) as e:
-                etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=f"fichier corrompu ({e})"))
-                continue
-            etat.octets_decompresses += len(donnees)
 
             if est_zip_imbrique:
-                _traiter_zip(etat, donnees, f"{nom_interne}:", profondeur + 1)
+                tampon = _lire_entree(etat, zf, info, nom_interne, TAILLE_MAX_FICHIER)
+                if tampon is None:
+                    if etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE:
+                        return
+                    continue
+                _traiter_zip(etat, tampon, f"{nom_interne}:", profondeur + 1, nom_interne)
                 continue
 
-            if info.filename.lower().endswith(".gz"):
-                try:
-                    donnees = _degzip_borne(donnees, TAILLE_MAX_FICHIER)
-                except (ErreurLecture, ErreurArchiveHostile) as e:
-                    etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=f"gz illisible ({e})"))
-                    continue
+            try:
+                entree = zf.open(info)
+            except Exception as e:  # noqa: BLE001 — chiffrée, méthode inconnue, en-tête faux
+                etat.rapport.ignorees.append(
+                    Ignoree(nom=nom_interne, motif=f"fichier corrompu ({_cause(e)})")
+                )
+                continue
+            with entree:
+                donnees = _lire_activite(etat, nom_interne, entree)
+            if donnees is None:
+                if etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE:
+                    return
+                continue
             _importer_contenu(etat, nom_interne, donnees, extension)
 
 
 def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> None:
-    """Indexe des octets déjà décompressés — dédoublonne comme `Cache.indexer_dossier`."""
+    """Indexe des octets déjà décompressés, **identifiés par leur contenu**.
+
+    `id_externe` est le sha256 du contenu, pas le nom du fichier (relecture
+    du 25/09/2026). Avec le nom, deux défauts : deux sorties différentes
+    portant le même nom (« Morning_Ride.gpx », le nom qu'un export Strava
+    donne à une sortie) s'écrasaient — `Cache.ajouter` met la ligne à jour —
+    et comptaient comme deux imports ; et la même sortie déposée isolée puis
+    dans l'archive (`1234.fit`, puis `activities/1234.fit.gz`) faisait deux
+    lignes. Le nom reste dans `meta["fichier"]`.
+
+    `Cache.indexer_dossier` (la ligne de commande) garde le nom : là, c'est
+    un chemin sur un disque, qui désigne vraiment un fichier.
+    """
     identifiant = hashlib.sha256(contenu).hexdigest()
-    if etat.cache.contient(source="fichier", id_externe=nom) and etat.cache.contient_identifiant(identifiant):
+    if etat.cache.contient(source="fichier", id_externe=identifiant):
         etat.rapport.doublons += 1
         return
     try:
         etat.cache.ajouter(
-            contenu, source="fichier", id_externe=nom, extension=extension, meta={"fichier": nom}
+            contenu,
+            source="fichier",
+            id_externe=identifiant,
+            extension=extension,
+            meta={"fichier": nom},
         )
-    except (ErreurLecture, ErreurUtilisateur) as e:
-        etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({e})"))
+    except sqlite3.Error:
+        raise  # l'index du serveur est en panne : ce n'est pas la faute du fichier
+    except Exception as e:  # noqa: BLE001 — les lecteurs FIT/GPX/TCX sur octets hostiles
+        etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
         return
     etat.rapport.importees += 1
 
@@ -336,14 +363,14 @@ def _est_lien_symbolique(info: zipfile.ZipInfo) -> bool:
     return bool(mode) and stat.S_ISLNK(mode)
 
 
-def _motif_hostile(info: zipfile.ZipInfo) -> str | None:
+def _motif_hostile(info: zipfile.ZipInfo, plafond: int) -> str | None:
     """Le motif de refus d'après les métadonnées de l'entrée, ou `None`.
 
     Un contrôle **rapide**, sur ce que l'archive annonce — il ne dispense pas
-    de `_lire_borne`, qui vérifie ce qui sort vraiment : une métadonnée de
+    de `_lire_borne_compte`, qui vérifie ce qui sort vraiment : une métadonnée de
     `.zip` n'engage que celui qui l'a écrite.
     """
-    if info.file_size > TAILLE_MAX_FICHIER:
+    if info.file_size > plafond:
         return f"fichier annoncé à {info.file_size} octets décompressés, au-delà du plafond"
     if info.compress_size > 0 and info.file_size / info.compress_size > RATIO_MAX_DECOMPRESSION:
         ratio = info.file_size / info.compress_size
@@ -351,44 +378,74 @@ def _motif_hostile(info: zipfile.ZipInfo) -> str | None:
     return None
 
 
-def _lire_borne(zf: zipfile.ZipFile, info: zipfile.ZipInfo, plafond: int) -> bytes:
-    """Lit une entrée par blocs, et coupe dès que `plafond` est dépassé.
+def _lire_entree(
+    etat: _Etat, zf: zipfile.ZipFile, info: zipfile.ZipInfo, nom: str, plafond: int
+) -> io.BytesIO | None:
+    """Une archive imbriquée, lue bornée dans un tampon — `None` (et motivé) sinon."""
+    try:
+        with zf.open(info) as source:
+            return _lire_borne_compte(etat, nom, source, plafond)
+    except Exception as e:  # noqa: BLE001 — entrée hostile : tout échec est « illisible »
+        etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
+        return None
+
+
+def _lire_activite(etat: _Etat, nom: str, source: BinaryIO) -> bytes | None:
+    """Les octets d'un fichier d'activité, `.gz` ôté, bornés — `None` (et motivé) sinon.
+
+    Tout ce qui sort compte dans `TAILLE_MAX_DECOMPRESSEE`, y compris la
+    décompression d'un `.gz` rangé dans une archive : sans quoi vingt mille
+    `.gz` de 50 Mo passeraient sous le plafond total.
+    """
+    try:
+        if nom.lower().endswith(".gz"):
+            with gzip.GzipFile(fileobj=source, mode="rb") as degzip:
+                tampon = _lire_borne_compte(etat, nom, degzip, TAILLE_MAX_ACTIVITE)
+        else:
+            tampon = _lire_borne_compte(etat, nom, source, TAILLE_MAX_ACTIVITE)
+    except Exception as e:  # noqa: BLE001 — zlib, lzma, bz2, en-tête faux : tout est « illisible »
+        etat.rapport.ignorees.append(Ignoree(nom=nom, motif=f"fichier corrompu ({_cause(e)})"))
+        return None
+    if tampon is None:
+        return None
+    return tampon.getvalue()
+
+
+def _lire_borne_compte(etat: _Etat, nom: str, source, plafond: int) -> io.BytesIO | None:
+    """Lit `source` par blocs, coupe au premier octet au-delà de `plafond` ou du total.
 
     C'est ce contrôle-ci, pas `_motif_hostile`, qui protège vraiment contre
     une bombe : il porte sur les octets réellement décompressés, pas sur ce
-    que l'en-tête de l'entrée prétend.
+    que l'en-tête prétend. Le tampon est rendu tel quel, sans recopie : une
+    archive imbriquée est relue directement depuis lui.
     """
-    morceaux: list[bytes] = []
-    lu = 0
-    with zf.open(info) as source:
-        while True:
-            bloc = source.read(TAILLE_BLOC)
-            if not bloc:
-                break
-            lu += len(bloc)
-            if lu > plafond:
-                raise ErreurArchiveHostile(f"{info.filename} : décompression au-delà de {plafond} octets")
-            morceaux.append(bloc)
-    return b"".join(morceaux)
+    tampon = io.BytesIO()
+    while True:
+        bloc = source.read(TAILLE_BLOC)
+        if not bloc:
+            break
+        etat.octets_decompresses += len(bloc)
+        if etat.octets_decompresses > TAILLE_MAX_DECOMPRESSEE:
+            _signaler_une_fois(
+                etat,
+                "total_decompresse",
+                f"plus de {TAILLE_MAX_DECOMPRESSEE // (1024 * 1024)} Mo décompressés au "
+                "total, import arrêté (bombe de décompression suspectée)",
+            )
+            return None
+        if tampon.tell() + len(bloc) > plafond:
+            etat.rapport.ignorees.append(
+                Ignoree(nom=nom, motif="décompression au-delà du plafond attendu, ignorée")
+            )
+            return None
+        tampon.write(bloc)
+    tampon.seek(0)
+    return tampon
 
 
-def _degzip_borne(contenu: bytes, plafond: int) -> bytes:
-    """Décompresse un `.gz` en mémoire, borné — même règle que `_lire_borne`."""
-    morceaux: list[bytes] = []
-    lu = 0
-    try:
-        with gzip.GzipFile(fileobj=io.BytesIO(contenu)) as source:
-            while True:
-                bloc = source.read(TAILLE_BLOC)
-                if not bloc:
-                    break
-                lu += len(bloc)
-                if lu > plafond:
-                    raise ErreurArchiveHostile(f"gz : décompression au-delà de {plafond} octets")
-                morceaux.append(bloc)
-    except OSError as e:  # gzip.BadGzipFile hérite d'OSError
-        raise ErreurLecture(f"gz corrompu ({e})") from e
-    return b"".join(morceaux)
+def _cause(e: Exception) -> str:
+    """Le message d'une exception, ou son type quand elle n'en a pas."""
+    return str(e).removeprefix("<octets> : ") or type(e).__name__
 
 
 def _signaler_une_fois(etat: _Etat, cle: str, motif: str) -> None:
@@ -405,10 +462,10 @@ __all__ = [
     "NOMBRE_MAX_FICHIERS",
     "PROFONDEUR_MAX_ARCHIVE",
     "RATIO_MAX_DECOMPRESSION",
+    "TAILLE_MAX_ACTIVITE",
     "TAILLE_MAX_DECOMPRESSEE",
     "TAILLE_MAX_FICHIER",
     "TAILLE_MAX_REQUETE",
-    "ErreurArchiveHostile",
     "Ignoree",
     "RapportImport",
     "etat",

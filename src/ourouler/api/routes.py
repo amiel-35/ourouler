@@ -28,6 +28,7 @@ fichiers, décompression, chemins), pas sur un dossier du serveur
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -1082,7 +1083,7 @@ def etat_import(ctx: Ctx, qui: Qui) -> dict:
 
 
 @routeur.post("/activites/import")
-async def importer_activites(
+def importer_activites(
     ctx: Ctx,
     qui: Qui,
     requete: Request,
@@ -1098,15 +1099,21 @@ async def importer_activites(
     isolés, leurs `.gz`, ou une archive d'export Strava ou Garmin — et les
     indexe dans le cache de **ce** propriétaire uniquement
     (`activites/import_archive.py`, bornes de sécurité en constantes
-    nommées). Plusieurs archives déposées à des appels successifs
-    fonctionnent : réimporter la même archive ne duplique rien
-    (`Cache.ajouter`, dédoublonné par `(propriétaire, source, id_externe)`
-    et par contenu — [[Q62]]).
+    nommées). Réimporter la même archive ne duplique rien : une sortie
+    déposée est identifiée par son contenu ([[Q62]]).
 
     Jamais de 500 sur une archive hostile ou un fichier corrompu : le motif
     rentre dans `donnees.ignorees`, la réponse reste 200 — même philosophie
     que `erreurs.py` pour « aucune boucle trouvée » : ce n'est pas une panne
     du service, c'est un compte-rendu de ce qui a été trouvé.
+
+    **Mémoire (relecture du 25/09/2026).** La route est synchrone : FastAPI
+    la fait tourner hors de la boucle d'événements, qu'un import de
+    plusieurs minutes bloquait pour tous les cyclistes. Les fichiers ne sont
+    pas lus en mémoire : Starlette les a déjà reçus dans des fichiers
+    temporaires, que le cœur lit entrée par entrée. Et un seul import à la
+    fois par processus (`_VERROU_IMPORT`) : le serveur est petit et
+    partagé avec BRouter, deux imports simultanés doubleraient le pic.
     """
     from ourouler.activites import import_archive
 
@@ -1114,23 +1121,36 @@ async def importer_activites(
     if not fichiers:
         raise ErreurApi(code="requete_invalide", message="aucun fichier déposé", statut=400)
 
-    depots: list[tuple[str, bytes]] = []
-    total = 0
-    for fichier in fichiers:
-        contenu = await fichier.read()
-        total += len(contenu)
-        if total > import_archive.TAILLE_MAX_REQUETE:
-            raise ErreurApi(
-                code="fichier_trop_gros",
-                message=f"{total} octets reçus — un import ne prend pas plus de "
-                f"{import_archive.TAILLE_MAX_REQUETE} octets à la fois",
-                statut=413,
-            )
-        depots.append((fichier.filename or "(sans nom)", contenu))
+    total = sum(_taille(fichier.file) for fichier in fichiers)
+    if total > import_archive.TAILLE_MAX_REQUETE:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{total} octets reçus — un import ne prend pas plus de "
+            f"{import_archive.TAILLE_MAX_REQUETE} octets à la fois",
+            statut=413,
+        )
+    depots = [(fichier.filename or "(sans nom)", fichier.file) for fichier in fichiers]
 
     config = _config(ctx, qui)
-    rapport = import_archive.importer(_cache(config, qui), depots)
+    cache = _cache(config, qui)
+    with _VERROU_IMPORT:
+        rapport = import_archive.importer(cache, depots)
     return {"proprietaire": str(qui), "donnees": rapport.json()}
+
+
+#: Un seul import d'historique à la fois par processus : voir `importer_activites`.
+#: Distinct du verrou des calculs (`api/adaptateur.py`), qui abandonne au bout
+#: de quinze secondes — un import de plusieurs minutes le tiendrait, et
+#: chaque boucle demandée pendant ce temps serait refusée.
+_VERROU_IMPORT = threading.Lock()
+
+
+def _taille(fichier) -> int:
+    """La taille d'un fichier déjà reçu, sans le lire."""
+    fichier.seek(0, 2)
+    taille = fichier.tell()
+    fichier.seek(0)
+    return taille
 
 
 # --- parcours -----------------------------------------------------------------
@@ -1541,10 +1561,13 @@ def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
     """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond de l'import.
 
     Une archive Strava réelle pèse 665 Mo (`docs/services_externes.md`) : le
-    plafond n'est donc pas celui d'une séance, mais le principe est le même —
-    refuser avant de lire quand `Content-Length` le permet, pour ne pas
-    laisser un dépôt bien plus gros que prévu occuper le serveur le temps de
-    le recevoir.
+    plafond n'est donc pas celui d'une séance, mais le principe est le même.
+
+    **Limite, dite (relecture du 25/09/2026)** : FastAPI a déjà reçu tout le
+    formulaire, dans des fichiers temporaires sur disque, avant d'appeler la
+    route — cette garde évite le traitement, pas la réception. Borner la
+    réception demande une limite de taille de corps en amont (proxy ou
+    intergiciel), comme pour `/seances/fichier`.
     """
     from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
 
@@ -1555,7 +1578,7 @@ def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
         raise ErreurApi(
             code="fichier_trop_gros",
             message=f"{annoncee} octets annoncés — un import ne prend pas plus de "
-            f"{TAILLE_MAX_REQUETE}, le dépôt est refusé sans être lu",
+            f"{TAILLE_MAX_REQUETE}, le dépôt est refusé sans être traité",
             statut=413,
         )
 
