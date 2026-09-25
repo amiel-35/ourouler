@@ -1,0 +1,62 @@
+{
+  "corps": {
+    "avertissements": [],
+    "budget": {
+      "attendu_ms": "<CHRONO>",
+      "median_ms": "<CHRONO>",
+      "n": 1,
+      "operation": "vent-depart",
+      "source": "mesure"
+    },
+    "donnees": {
+      "azimuts_par_choix": {
+        "depart-dos": [
+          {
+            "azimut_deg": 225.0,
+            "nom": "SO"
+          }
+        ],
+        "peu-importe": [],
+        "retour-dos": [
+          {
+            "azimut_deg": 45.0,
+            "nom": "NE"
+          }
+        ],
+        "travers": [
+          {
+            "azimut_deg": 135.0,
+            "nom": "SE"
+          },
+          {
+            "azimut_deg": 315.0,
+            "nom": "NO"
+          }
+        ]
+      },
+      "choix": [
+        "peu-importe",
+        "retour-dos",
+        "depart-dos",
+        "travers"
+      ],
+      "depart": "2026-09-08T09:00:00+02:00",
+      "horizon_jours": 3,
+      "jour": "2026-09-08",
+      "motif": null,
+      "posee": true,
+      "seuil_kmh": 8.0,
+      "vent_depuis_deg": 45.0,
+      "vent_depuis_nom": "NE",
+      "vent_kmh": 14.0
+    },
+    "duree_ms": "<CHRONO>",
+    "proprietaire": "local"
+  },
+  "requete": "GET /api/v1/vent-depart",
+  "reseau": [
+    "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T07:00&latitude=0.0000&longitude=0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC"
+  ],
+  "statut": 200,
+  "type": "application/json"
+}

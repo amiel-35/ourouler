@@ -1,0 +1,68 @@
+{
+  "boucle_distance_negative": {
+    "argv": [
+      "boucle",
+      "--json",
+      "--distance",
+      "-5"
+    ],
+    "code": 2,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "ourouler : --distance -5.0 : une distance en kilomètres strictement positive est attendue\n",
+    "stdout": null
+  },
+  "calibrer_velo_inconnu": {
+    "argv": [
+      "calibrer",
+      "--json",
+      "--velo",
+      "Tandem"
+    ],
+    "code": 2,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "ourouler : velos : aucun vélo nommé « Tandem »\n",
+    "stdout": null
+  },
+  "comparer_meme_velo": {
+    "argv": [
+      "comparer",
+      "--json",
+      "--velos",
+      "RCR",
+      "rcr"
+    ],
+    "code": 2,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "ourouler : comparer : RCR et rcr sont le même vélo — il n'y a rien à comparer\n",
+    "stdout": null
+  },
+  "seance_jour_illisible": {
+    "argv": [
+      "seance",
+      "--json",
+      "--jour",
+      "demain"
+    ],
+    "code": 2,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "ourouler : --jour 'demain' : date AAAA-MM-JJ attendue\n",
+    "stdout": null
+  },
+  "sortie_jour_impossible": {
+    "argv": [
+      "sortie",
+      "--json",
+      "--jour",
+      "2026-02-31"
+    ],
+    "code": 2,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "ourouler : --jour '2026-02-31' : date AAAA-MM-JJ attendue\n",
+    "stdout": null
+  }
+}

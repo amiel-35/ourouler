@@ -1,0 +1,35 @@
+{
+  "corps": {
+    "donnees": {
+      "ftp_renseignee": true,
+      "sorties_necessaires": 10,
+      "velos": [
+        {
+          "calibration": null,
+          "crr_connu": false,
+          "crr_usage": 0.006,
+          "pneu": null,
+          "sorties_disponibles": 0,
+          "sorties_ecartees": {},
+          "tache": null,
+          "velo": "RCR"
+        },
+        {
+          "calibration": null,
+          "crr_connu": false,
+          "crr_usage": 0.005,
+          "pneu": null,
+          "sorties_disponibles": 0,
+          "sorties_ecartees": {},
+          "tache": null,
+          "velo": "BMC"
+        }
+      ]
+    },
+    "proprietaire": "local"
+  },
+  "requete": "GET /api/v1/calibrations",
+  "reseau": [],
+  "statut": 200,
+  "type": "application/json"
+}

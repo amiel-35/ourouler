@@ -1,0 +1,31 @@
+{
+  "avec_cle": {
+    "corps": {
+      "donnees": {
+        "ftp_w": null,
+        "masse_kg": 70.0
+      },
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/profil/intervals",
+    "reseau": [
+      "GET intervals.icu/api/v1/athlete/i000000"
+    ],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "sans_cle_409": {
+    "corps": {
+      "erreur": {
+        "code": "intervals_absent",
+        "details": {},
+        "message": "profil Intervals : la clé n'est pas encore renseignée pour ce compte",
+        "service": null
+      }
+    },
+    "requete": "GET /api/v1/profil/intervals",
+    "reseau": [],
+    "statut": 409,
+    "type": "application/json"
+  }
+}

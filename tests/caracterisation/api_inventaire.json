@@ -1,0 +1,28 @@
+{
+  "corps": {
+    "avertissements": [],
+    "budget": {
+      "attendu_ms": "<CHRONO>",
+      "median_ms": "<CHRONO>",
+      "n": 1,
+      "operation": "inventaire",
+      "source": "mesure"
+    },
+    "donnees": {
+      "anomalies": [],
+      "autres_sports": 0,
+      "autres_sports_par_libelle": {},
+      "depuis": "2026-01-01",
+      "journal": [],
+      "par_mois": [],
+      "par_velo": [],
+      "total": 0
+    },
+    "duree_ms": "<CHRONO>",
+    "proprietaire": "local"
+  },
+  "requete": "GET /api/v1/inventaire",
+  "reseau": [],
+  "statut": 200,
+  "type": "application/json"
+}

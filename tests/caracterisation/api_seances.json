@@ -1,0 +1,554 @@
+{
+  "jour_avec_seance": {
+    "corps": {
+      "avertissements": [],
+      "budget": {
+        "attendu_ms": "<CHRONO>",
+        "median_ms": "<CHRONO>",
+        "n": 1,
+        "operation": "seance",
+        "source": "mesure"
+      },
+      "donnees": {
+        "avertissements": [],
+        "distance_estimee_m": 28350.0,
+        "duree_s": 3780,
+        "etapes": [
+          {
+            "duree_s": 600,
+            "elastique": true,
+            "indice": 0,
+            "libelle": "Echauffement · 130 W",
+            "longueur_m": 4500.0,
+            "puissance_cible_w": 130,
+            "puissance_max_w": 130,
+            "puissance_min_w": 130,
+            "recuperation_suivante_s": null,
+            "route_au_dela_m": null,
+            "type": "echauffement",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 480,
+            "elastique": false,
+            "indice": 1,
+            "libelle": "Corps 4x (1/4) · 240-260 W",
+            "longueur_m": 3600.0,
+            "puissance_cible_w": 250,
+            "puissance_max_w": 260,
+            "puissance_min_w": 240,
+            "recuperation_suivante_s": 240,
+            "route_au_dela_m": 900.0,
+            "type": "bloc",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 240,
+            "elastique": false,
+            "indice": 2,
+            "libelle": "Corps 4x (1/4) · 110 W",
+            "longueur_m": 1800.0,
+            "puissance_cible_w": 110,
+            "puissance_max_w": 110,
+            "puissance_min_w": 110,
+            "recuperation_suivante_s": null,
+            "route_au_dela_m": null,
+            "type": "recuperation",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 480,
+            "elastique": false,
+            "indice": 3,
+            "libelle": "Corps 4x (2/4) · 240-260 W",
+            "longueur_m": 3600.0,
+            "puissance_cible_w": 250,
+            "puissance_max_w": 260,
+            "puissance_min_w": 240,
+            "recuperation_suivante_s": 240,
+            "route_au_dela_m": 900.0,
+            "type": "bloc",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 240,
+            "elastique": false,
+            "indice": 4,
+            "libelle": "Corps 4x (2/4) · 110 W",
+            "longueur_m": 1800.0,
+            "puissance_cible_w": 110,
+            "puissance_max_w": 110,
+            "puissance_min_w": 110,
+            "recuperation_suivante_s": null,
+            "route_au_dela_m": null,
+            "type": "recuperation",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 480,
+            "elastique": false,
+            "indice": 5,
+            "libelle": "Corps 4x (3/4) · 240-260 W",
+            "longueur_m": 3600.0,
+            "puissance_cible_w": 250,
+            "puissance_max_w": 260,
+            "puissance_min_w": 240,
+            "recuperation_suivante_s": 240,
+            "route_au_dela_m": 900.0,
+            "type": "bloc",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 240,
+            "elastique": false,
+            "indice": 6,
+            "libelle": "Corps 4x (3/4) · 110 W",
+            "longueur_m": 1800.0,
+            "puissance_cible_w": 110,
+            "puissance_max_w": 110,
+            "puissance_min_w": 110,
+            "recuperation_suivante_s": null,
+            "route_au_dela_m": null,
+            "type": "recuperation",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 480,
+            "elastique": false,
+            "indice": 7,
+            "libelle": "Corps 4x (4/4) · 240-260 W",
+            "longueur_m": 3600.0,
+            "puissance_cible_w": 250,
+            "puissance_max_w": 260,
+            "puissance_min_w": 240,
+            "recuperation_suivante_s": 240,
+            "route_au_dela_m": 900.0,
+            "type": "bloc",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 240,
+            "elastique": false,
+            "indice": 8,
+            "libelle": "Corps 4x (4/4) · 110 W",
+            "longueur_m": 1800.0,
+            "puissance_cible_w": 110,
+            "puissance_max_w": 110,
+            "puissance_min_w": 110,
+            "recuperation_suivante_s": null,
+            "route_au_dela_m": null,
+            "type": "recuperation",
+            "vitesse_kmh": 27.0
+          },
+          {
+            "duree_s": 300,
+            "elastique": true,
+            "indice": 9,
+            "libelle": "Retour au calme · 110 W",
+            "longueur_m": 2250.0,
+            "puissance_cible_w": 110,
+            "puissance_max_w": 110,
+            "puissance_min_w": 110,
+            "recuperation_suivante_s": null,
+            "route_au_dela_m": null,
+            "type": "calme",
+            "vitesse_kmh": 27.0
+          }
+        ],
+        "jour": "2026-09-08",
+        "meta": {
+          "duree_doc_s": 3780.0,
+          "evenement_id": 1,
+          "ftp_w": 200.0,
+          "nom_source": "4x8 fabriquée",
+          "puissance_approximee": false,
+          "puissance_endurance_pct": 0.6,
+          "seuil_recuperation_pct": 0.75,
+          "seuil_recuperation_w": 150.0,
+          "source": "intervals",
+          "sport": "Ride",
+          "typage_source": [
+            "marqueur",
+            "defaut",
+            "marqueur",
+            "defaut",
+            "marqueur",
+            "defaut",
+            "marqueur",
+            "defaut",
+            "marqueur",
+            "marqueur"
+          ],
+          "zones_puissance": [
+            [
+              0.0,
+              0.55
+            ],
+            [
+              0.56,
+              0.75
+            ],
+            [
+              0.76,
+              0.9
+            ],
+            [
+              0.91,
+              1.05
+            ],
+            [
+              1.06,
+              1.2
+            ],
+            [
+              1.21,
+              1.5
+            ],
+            [
+              1.51,
+              2.0
+            ]
+          ]
+        },
+        "n_blocs": 4,
+        "nom": "4x8 fabriquée",
+        "vitesses": {
+          "calibree": false,
+          "provenance": "configuration",
+          "velo": "RCR",
+          "vitesse_kmh": 27.0
+        }
+      },
+      "duree_ms": "<CHRONO>",
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/seances/2026-09-08",
+    "reseau": [
+      "GET intervals.icu/api/v1/athlete/i000000/events?newest=2026-09-08&oldest=2026-09-08"
+    ],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "jour_illisible_422": {
+    "corps": {
+      "erreur": {
+        "code": "requete_invalide",
+        "details": {
+          "champs": [
+            {
+              "champ": "path.jour",
+              "motif": "Input should be a valid date or datetime, invalid character in year"
+            }
+          ]
+        },
+        "message": "requête mal formée : « path.jour » — valeur absente ou hors des bornes attendues (le détail par champ est dans « details »)",
+        "service": null
+      }
+    },
+    "requete": "GET /api/v1/seances/pas-une-date",
+    "reseau": [],
+    "statut": 422,
+    "type": "application/json"
+  },
+  "jour_sans_seance": {
+    "corps": {
+      "avertissements": [],
+      "budget": {
+        "attendu_ms": "<CHRONO>",
+        "median_ms": "<CHRONO>",
+        "n": 2,
+        "operation": "seance",
+        "source": "mesure"
+      },
+      "donnees": {
+        "jour": "2026-09-09",
+        "seance": null
+      },
+      "duree_ms": "<CHRONO>",
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/seances/2026-09-09",
+    "reseau": [
+      "GET intervals.icu/api/v1/athlete/i000000/events?newest=2026-09-09&oldest=2026-09-09"
+    ],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "sans_cle_409": {
+    "corps": {
+      "erreur": {
+        "code": "intervals_absent",
+        "details": {},
+        "message": "séance : Intervals.icu n'est pas renseigné — compléter [intervals] athlete_id et api_key dans la configuration",
+        "service": null
+      }
+    },
+    "requete": "GET /api/v1/seances/2026-09-08",
+    "reseau": [],
+    "statut": 409,
+    "type": "application/json"
+  },
+  "semaine": {
+    "corps": {
+      "avertissements": [],
+      "budget": {
+        "attendu_ms": "<CHRONO>",
+        "median_ms": "<CHRONO>",
+        "n": 1,
+        "operation": "seances",
+        "source": "mesure"
+      },
+      "donnees": {
+        "depuis": "2026-09-07",
+        "jours": [
+          {
+            "jour": "2026-09-07",
+            "seance": null
+          },
+          {
+            "jour": "2026-09-08",
+            "seance": {
+              "avertissements": [],
+              "distance_estimee_m": 28350.0,
+              "duree_s": 3780,
+              "etapes": [
+                {
+                  "duree_s": 600,
+                  "elastique": true,
+                  "indice": 0,
+                  "libelle": "Echauffement · 130 W",
+                  "longueur_m": 4500.0,
+                  "puissance_cible_w": 130,
+                  "puissance_max_w": 130,
+                  "puissance_min_w": 130,
+                  "recuperation_suivante_s": null,
+                  "route_au_dela_m": null,
+                  "type": "echauffement",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 480,
+                  "elastique": false,
+                  "indice": 1,
+                  "libelle": "Corps 4x (1/4) · 240-260 W",
+                  "longueur_m": 3600.0,
+                  "puissance_cible_w": 250,
+                  "puissance_max_w": 260,
+                  "puissance_min_w": 240,
+                  "recuperation_suivante_s": 240,
+                  "route_au_dela_m": 900.0,
+                  "type": "bloc",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 240,
+                  "elastique": false,
+                  "indice": 2,
+                  "libelle": "Corps 4x (1/4) · 110 W",
+                  "longueur_m": 1800.0,
+                  "puissance_cible_w": 110,
+                  "puissance_max_w": 110,
+                  "puissance_min_w": 110,
+                  "recuperation_suivante_s": null,
+                  "route_au_dela_m": null,
+                  "type": "recuperation",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 480,
+                  "elastique": false,
+                  "indice": 3,
+                  "libelle": "Corps 4x (2/4) · 240-260 W",
+                  "longueur_m": 3600.0,
+                  "puissance_cible_w": 250,
+                  "puissance_max_w": 260,
+                  "puissance_min_w": 240,
+                  "recuperation_suivante_s": 240,
+                  "route_au_dela_m": 900.0,
+                  "type": "bloc",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 240,
+                  "elastique": false,
+                  "indice": 4,
+                  "libelle": "Corps 4x (2/4) · 110 W",
+                  "longueur_m": 1800.0,
+                  "puissance_cible_w": 110,
+                  "puissance_max_w": 110,
+                  "puissance_min_w": 110,
+                  "recuperation_suivante_s": null,
+                  "route_au_dela_m": null,
+                  "type": "recuperation",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 480,
+                  "elastique": false,
+                  "indice": 5,
+                  "libelle": "Corps 4x (3/4) · 240-260 W",
+                  "longueur_m": 3600.0,
+                  "puissance_cible_w": 250,
+                  "puissance_max_w": 260,
+                  "puissance_min_w": 240,
+                  "recuperation_suivante_s": 240,
+                  "route_au_dela_m": 900.0,
+                  "type": "bloc",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 240,
+                  "elastique": false,
+                  "indice": 6,
+                  "libelle": "Corps 4x (3/4) · 110 W",
+                  "longueur_m": 1800.0,
+                  "puissance_cible_w": 110,
+                  "puissance_max_w": 110,
+                  "puissance_min_w": 110,
+                  "recuperation_suivante_s": null,
+                  "route_au_dela_m": null,
+                  "type": "recuperation",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 480,
+                  "elastique": false,
+                  "indice": 7,
+                  "libelle": "Corps 4x (4/4) · 240-260 W",
+                  "longueur_m": 3600.0,
+                  "puissance_cible_w": 250,
+                  "puissance_max_w": 260,
+                  "puissance_min_w": 240,
+                  "recuperation_suivante_s": 240,
+                  "route_au_dela_m": 900.0,
+                  "type": "bloc",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 240,
+                  "elastique": false,
+                  "indice": 8,
+                  "libelle": "Corps 4x (4/4) · 110 W",
+                  "longueur_m": 1800.0,
+                  "puissance_cible_w": 110,
+                  "puissance_max_w": 110,
+                  "puissance_min_w": 110,
+                  "recuperation_suivante_s": null,
+                  "route_au_dela_m": null,
+                  "type": "recuperation",
+                  "vitesse_kmh": 27.0
+                },
+                {
+                  "duree_s": 300,
+                  "elastique": true,
+                  "indice": 9,
+                  "libelle": "Retour au calme · 110 W",
+                  "longueur_m": 2250.0,
+                  "puissance_cible_w": 110,
+                  "puissance_max_w": 110,
+                  "puissance_min_w": 110,
+                  "recuperation_suivante_s": null,
+                  "route_au_dela_m": null,
+                  "type": "calme",
+                  "vitesse_kmh": 27.0
+                }
+              ],
+              "jour": "2026-09-08",
+              "meta": {
+                "duree_doc_s": 3780.0,
+                "evenement_id": 1,
+                "ftp_w": 200.0,
+                "nom_source": "4x8 fabriquée",
+                "puissance_approximee": false,
+                "puissance_endurance_pct": 0.6,
+                "seuil_recuperation_pct": 0.75,
+                "seuil_recuperation_w": 150.0,
+                "source": "intervals",
+                "sport": "Ride",
+                "typage_source": [
+                  "marqueur",
+                  "defaut",
+                  "marqueur",
+                  "defaut",
+                  "marqueur",
+                  "defaut",
+                  "marqueur",
+                  "defaut",
+                  "marqueur",
+                  "marqueur"
+                ],
+                "zones_puissance": [
+                  [
+                    0.0,
+                    0.55
+                  ],
+                  [
+                    0.56,
+                    0.75
+                  ],
+                  [
+                    0.76,
+                    0.9
+                  ],
+                  [
+                    0.91,
+                    1.05
+                  ],
+                  [
+                    1.06,
+                    1.2
+                  ],
+                  [
+                    1.21,
+                    1.5
+                  ],
+                  [
+                    1.51,
+                    2.0
+                  ]
+                ]
+              },
+              "n_blocs": 4,
+              "nom": "4x8 fabriquée",
+              "vitesses": {
+                "calibree": false,
+                "provenance": "configuration",
+                "velo": "RCR",
+                "vitesse_kmh": 27.0
+              }
+            }
+          },
+          {
+            "jour": "2026-09-09",
+            "seance": null
+          },
+          {
+            "jour": "2026-09-10",
+            "seance": null
+          },
+          {
+            "jour": "2026-09-11",
+            "seance": null
+          },
+          {
+            "jour": "2026-09-12",
+            "seance": null
+          },
+          {
+            "jour": "2026-09-13",
+            "seance": null
+          }
+        ],
+        "jusqua": "2026-09-13"
+      },
+      "duree_ms": "<CHRONO>",
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/seances",
+    "reseau": [
+      "GET intervals.icu/api/v1/athlete/i000000/events?newest=2026-09-13&oldest=2026-09-07"
+    ],
+    "statut": 200,
+    "type": "application/json"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "adresse": {
+    "corps": {
+      "avertissements": [],
+      "budget": {
+        "attendu_ms": "<CHRONO>",
+        "median_ms": "<CHRONO>",
+        "n": 1,
+        "operation": "geocodage",
+        "source": "mesure"
+      },
+      "donnees": {
+        "adresse": "7 rue du If",
+        "ambigu": false,
+        "candidats": [
+          {
+            "code_postal": "44999",
+            "commune": "Vallombreuse",
+            "label": "7 Rue du If 44999 Vallombreuse",
+            "latitude": 0.123456,
+            "longitude": 0.234567,
+            "score": 0.98,
+            "source": "ban"
+          },
+          {
+            "code_postal": "44999",
+            "commune": "Vallombreuse",
+            "label": "Rue du If 44999 Vallombreuse",
+            "latitude": 0.123499,
+            "longitude": 0.234599,
+            "score": 0.71,
+            "source": "ban"
+          }
+        ],
+        "motif_ambiguite": null
+      },
+      "duree_ms": "<CHRONO>",
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/geocodage",
+    "reseau": [
+      "GET data.geopf.fr/geocodage/search?limit=5&q=7 rue du If"
+    ],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "adresse_vide_422": {
+    "corps": {
+      "erreur": {
+        "code": "requete_invalide",
+        "details": {
+          "champs": [
+            {
+              "champ": "query.adresse",
+              "motif": "Value error, valeur vide de sens : au moins une lettre ou un chiffre est attendu (une chaîne vide, d'espaces ou d'octets de contrôle n'est pas une valeur)"
+            }
+          ]
+        },
+        "message": "requête mal formée : « query.adresse » — valeur absente ou hors des bornes attendues (le détail par champ est dans « details »)",
+        "service": null
+      }
+    },
+    "requete": "GET /api/v1/geocodage",
+    "reseau": [],
+    "statut": 422,
+    "type": "application/json"
+  }
+}

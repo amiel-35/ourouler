@@ -1,0 +1,3079 @@
+{
+  "demande_invalide_422": {
+    "corps": {
+      "erreur": {
+        "code": "requete_invalide",
+        "details": {
+          "champs": [
+            {
+              "champ": "body.candidates",
+              "motif": "Input should be greater than or equal to 1"
+            }
+          ]
+        },
+        "message": "requête mal formée : « body.candidates » — valeur absente ou hors des bornes attendues (le détail par champ est dans « details »)",
+        "service": null
+      }
+    },
+    "requete": "POST /api/v1/sorties",
+    "reseau": [],
+    "statut": 422,
+    "type": "application/json"
+  },
+  "gpx_proposition_1": {
+    "corps": {
+      "octets": 46467,
+      "sha256": "f860fee882f5b180"
+    },
+    "requete": "GET /api/v1/sorties/<HEX>/propositions/1/gpx",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/gpx+xml"
+  },
+  "gpx_proposition_inconnue_404": {
+    "corps": {
+      "erreur": {
+        "code": "generation_introuvable",
+        "details": {},
+        "message": "génération <HEX> : aucune proposition n° 99 (numéros servis : 1, 2)",
+        "service": null
+      }
+    },
+    "requete": "GET /api/v1/sorties/<HEX>/propositions/99/gpx",
+    "reseau": [],
+    "statut": 404,
+    "type": "application/json"
+  },
+  "quota_atteint_429": {
+    "corps": {
+      "erreur": {
+        "code": "quota_atteint",
+        "details": {
+          "plafond": 0,
+          "reinitialisation_utc": "2026-09-09T00:00:00+00:00"
+        },
+        "message": "quota journalier de 0 générations atteint pour ce compte — ça se libère à 00:00 UTC",
+        "service": null
+      }
+    },
+    "requete": "POST /api/v1/sorties",
+    "reseau": [],
+    "statut": 429,
+    "type": "application/json"
+  },
+  "sans_session_401": {
+    "corps": {
+      "erreur": {
+        "code": "session_absente",
+        "details": {},
+        "message": "aucune session ouverte — cette route sert des données personnelles, et ce serveur ne sait pas encore à qui elles appartiennent. Se connecter (POST /api/v1/connexion) ou activer son invitation (POST /api/v1/entrer) ; pour servir un seul cycliste sur sa propre machine, lancer « ourouler api ».",
+        "service": null
+      }
+    },
+    "requete": "POST /api/v1/sorties",
+    "reseau": [],
+    "statut": 401,
+    "type": "application/json"
+  },
+  "sortie": {
+    "corps": {
+      "avertissements": [],
+      "budget": {
+        "attendu_ms": "<CHRONO>",
+        "median_ms": "<CHRONO>",
+        "n": 1,
+        "operation": "sortie",
+        "source": "mesure"
+      },
+      "donnees": {
+        "arbitrage": {
+          "candidates": [
+            {
+              "contre_numero": 2,
+              "motif": "retenue — au plus 3% des mêmes routes que la n° 2, sous le seuil de 30%",
+              "numero": 1,
+              "recouvrement_max": 0.0267,
+              "sort": "retenue"
+            },
+            {
+              "contre_numero": 1,
+              "motif": "retenue — au plus 3% des mêmes routes que la n° 1, sous le seuil de 30%",
+              "numero": 2,
+              "recouvrement_max": 0.0267,
+              "sort": "retenue"
+            }
+          ],
+          "essais": null,
+          "paires": [
+            {
+              "a": 1,
+              "au_dessus_du_seuil": false,
+              "b": 2,
+              "recouvrement": 0.0267
+            }
+          ],
+          "phrase": null,
+          "seuil_recouvrement": 0.3
+        },
+        "candidates": [
+          {
+            "azimut_deg": 180.0,
+            "couts": {
+              "km_calme": 22.022,
+              "km_non_classe": 6.776,
+              "km_non_revetu": 5.082,
+              "km_trafic": 5.082,
+              "score": 35.574,
+              "sens": "horaire"
+            },
+            "denivele_m": 48.0,
+            "distance_km": 33.885,
+            "ecart_relatif": -0.031857142857142855,
+            "elargissement": 0.0,
+            "hors_tolerance": false,
+            "meteo": {
+              "confiance": "desaccord",
+              "fleches_vent": [
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.0,
+                    0.0
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 14
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    -0.019992,
+                    0.039237
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 14
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    -0.062761,
+                    0.046356
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "dos",
+                  "vent_kmh": 14
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    -0.094133,
+                    0.016429
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "dos",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    -0.089037,
+                    -0.026628
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    -0.051545,
+                    -0.048404
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    -0.01162,
+                    -0.031498
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "face",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.0,
+                    0.0
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "face",
+                  "vent_kmh": 15
+                }
+              ],
+              "minutes_pluie": 0,
+              "modele_utilise": "modele_principal_test",
+              "n_echantillons": 8,
+              "part_vent_face": 0.25,
+              "pluie_cumulee_mm": 0.0,
+              "repli": false,
+              "ressenti_min_c": 11.5,
+              "vent_par_position": [
+                {
+                  "dist_m": 0,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 5083,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 10081,
+                  "relatif": "dos"
+                },
+                {
+                  "dist_m": 15079,
+                  "relatif": "dos"
+                },
+                {
+                  "dist_m": 20077,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 25075,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 30073,
+                  "relatif": "face"
+                },
+                {
+                  "dist_m": 33885,
+                  "relatif": "face"
+                }
+              ]
+            },
+            "nom": "Boucle 180° 7.0 km",
+            "numero": 1,
+            "part_connue": 0.0,
+            "placement": {
+              "avertissements": [
+                "retour au calme : 42 min au lieu des 5 prescrites (+738%), 13 km de plus à allure facile — au-delà de la fenêtre (+150%) : cette boucle est trop longue pour cette séance"
+              ],
+              "blocs_bien_places": 2,
+              "decalage_z2_s": 30,
+              "demi_tours": 2,
+              "denivele_parcours_m": 59.0,
+              "distance_totale_m": 45544.4,
+              "duree_totale_s": 6024,
+              "emplacements": [
+                {
+                  "carrefours": null,
+                  "debut_m": 0.0,
+                  "debut_parcouru_m": 0.0,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 0,
+                  "km_batis": null,
+                  "longueur_m": 3955.3,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 3955.3,
+                  "debut_parcouru_m": 3955.3,
+                  "demi_tour": false,
+                  "descente_m": 0,
+                  "etape_idx": 1,
+                  "km_batis": 0.0,
+                  "longueur_m": 5017.7,
+                  "montee_m": 0,
+                  "motifs": [],
+                  "note": 0.047,
+                  "pente_max": -0.00443,
+                  "pente_moyenne": -0.00282
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 8973.0,
+                  "debut_parcouru_m": 8973.0,
+                  "demi_tour": true,
+                  "descente_m": null,
+                  "etape_idx": 2,
+                  "km_batis": null,
+                  "longueur_m": 2092.4,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 4957.0,
+                  "debut_parcouru_m": 11065.4,
+                  "demi_tour": true,
+                  "descente_m": 0,
+                  "etape_idx": 3,
+                  "km_batis": 0.0,
+                  "longueur_m": 4016.0,
+                  "montee_m": 0,
+                  "motifs": [
+                    "demi-tour : le segment du bloc précédent, repris en sens inverse"
+                  ],
+                  "note": 1.0308,
+                  "pente_max": -0.00443,
+                  "pente_moyenne": -0.00343
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 4189.3,
+                  "debut_parcouru_m": 15081.4,
+                  "demi_tour": true,
+                  "descente_m": null,
+                  "etape_idx": 4,
+                  "km_batis": null,
+                  "longueur_m": 1535.3,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 4957.0,
+                  "debut_parcouru_m": 16616.8,
+                  "demi_tour": true,
+                  "descente_m": 0,
+                  "etape_idx": 5,
+                  "km_batis": 0.0,
+                  "longueur_m": 5203.9,
+                  "montee_m": 0,
+                  "motifs": [
+                    "demi-tour : le segment du bloc précédent, repris en sens inverse"
+                  ],
+                  "note": 1.0284,
+                  "pente_max": -0.00443,
+                  "pente_moyenne": -0.00357
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 10160.9,
+                  "debut_parcouru_m": 21820.6,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 6,
+                  "km_batis": null,
+                  "longueur_m": 2067.0,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 12227.8,
+                  "debut_parcouru_m": 23887.6,
+                  "demi_tour": false,
+                  "descente_m": 0,
+                  "etape_idx": 7,
+                  "km_batis": 0.0,
+                  "longueur_m": 4996.6,
+                  "montee_m": 0,
+                  "motifs": [],
+                  "note": 0.0497,
+                  "pente_max": 0.00445,
+                  "pente_moyenne": 0.00261
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 17224.5,
+                  "debut_parcouru_m": 28884.2,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 8,
+                  "km_batis": null,
+                  "longueur_m": 1598.0,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 18822.5,
+                  "debut_parcouru_m": 30482.3,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 9,
+                  "km_batis": null,
+                  "longueur_m": 15062.1,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                }
+              ],
+              "informations": [],
+              "note_terrain": 0.539,
+              "note_totale": 0.9079,
+              "penalite_seance": 0.369
+            },
+            "retenue": true,
+            "temps_ecoule_bas_s": 6144,
+            "temps_ecoule_haut_s": 6867,
+            "temps_ecoule_s": 6385,
+            "temps_ecoule_source": "defaut",
+            "tolerance_distance": 0.1,
+            "trace": {
+              "points": [
+                [
+                  0.0,
+                  0.0
+                ],
+                [
+                  -5.4e-05,
+                  0.002285
+                ],
+                [
+                  -0.000215,
+                  0.004564
+                ],
+                [
+                  -0.000484,
+                  0.006834
+                ],
+                [
+                  -0.000859,
+                  0.009088
+                ],
+                [
+                  -0.00134,
+                  0.011322
+                ],
+                [
+                  -0.002144,
+                  0.014261
+                ],
+                [
+                  -0.002867,
+                  0.016429
+                ],
+                [
+                  -0.003692,
+                  0.01856
+                ],
+                [
+                  -0.004616,
+                  0.02065
+                ],
+                [
+                  -0.005637,
+                  0.022695
+                ],
+                [
+                  -0.006754,
+                  0.024689
+                ],
+                [
+                  -0.007963,
+                  0.026628
+                ],
+                [
+                  -0.009715,
+                  0.02912
+                ],
+                [
+                  -0.01113,
+                  0.030915
+                ],
+                [
+                  -0.012628,
+                  0.032641
+                ],
+                [
+                  -0.014205,
+                  0.034295
+                ],
+                [
+                  -0.015859,
+                  0.035872
+                ],
+                [
+                  -0.017585,
+                  0.03737
+                ],
+                [
+                  -0.01938,
+                  0.038785
+                ],
+                [
+                  -0.021872,
+                  0.040537
+                ],
+                [
+                  -0.023811,
+                  0.041746
+                ],
+                [
+                  -0.025805,
+                  0.042863
+                ],
+                [
+                  -0.02785,
+                  0.043884
+                ],
+                [
+                  -0.02994,
+                  0.044808
+                ],
+                [
+                  -0.032071,
+                  0.045633
+                ],
+                [
+                  -0.034239,
+                  0.046356
+                ],
+                [
+                  -0.037178,
+                  0.04716
+                ],
+                [
+                  -0.039412,
+                  0.047641
+                ],
+                [
+                  -0.041666,
+                  0.048016
+                ],
+                [
+                  -0.043936,
+                  0.048285
+                ],
+                [
+                  -0.046215,
+                  0.048446
+                ],
+                [
+                  -0.0485,
+                  0.0485
+                ],
+                [
+                  -0.050785,
+                  0.048446
+                ],
+                [
+                  -0.053064,
+                  0.048285
+                ],
+                [
+                  -0.055334,
+                  0.048016
+                ],
+                [
+                  -0.057588,
+                  0.047641
+                ],
+                [
+                  -0.059822,
+                  0.04716
+                ],
+                [
+                  -0.062761,
+                  0.046356
+                ],
+                [
+                  -0.064929,
+                  0.045633
+                ],
+                [
+                  -0.06706,
+                  0.044808
+                ],
+                [
+                  -0.06915,
+                  0.043884
+                ],
+                [
+                  -0.071195,
+                  0.042863
+                ],
+                [
+                  -0.073189,
+                  0.041746
+                ],
+                [
+                  -0.075128,
+                  0.040537
+                ],
+                [
+                  -0.07762,
+                  0.038785
+                ],
+                [
+                  -0.079415,
+                  0.03737
+                ],
+                [
+                  -0.081141,
+                  0.035872
+                ],
+                [
+                  -0.082795,
+                  0.034295
+                ],
+                [
+                  -0.084372,
+                  0.032641
+                ],
+                [
+                  -0.08587,
+                  0.030915
+                ],
+                [
+                  -0.087285,
+                  0.02912
+                ],
+                [
+                  -0.089037,
+                  0.026628
+                ],
+                [
+                  -0.090246,
+                  0.024689
+                ],
+                [
+                  -0.091363,
+                  0.022695
+                ],
+                [
+                  -0.092384,
+                  0.02065
+                ],
+                [
+                  -0.093308,
+                  0.01856
+                ],
+                [
+                  -0.094133,
+                  0.016429
+                ],
+                [
+                  -0.094856,
+                  0.014261
+                ],
+                [
+                  -0.09566,
+                  0.011322
+                ],
+                [
+                  -0.096141,
+                  0.009088
+                ],
+                [
+                  -0.096516,
+                  0.006834
+                ],
+                [
+                  -0.096785,
+                  0.004564
+                ],
+                [
+                  -0.096946,
+                  0.002285
+                ],
+                [
+                  -0.097,
+                  0.0
+                ],
+                [
+                  -0.096946,
+                  -0.002285
+                ],
+                [
+                  -0.096785,
+                  -0.004564
+                ],
+                [
+                  -0.096516,
+                  -0.006834
+                ],
+                [
+                  -0.096141,
+                  -0.009088
+                ],
+                [
+                  -0.09566,
+                  -0.011322
+                ],
+                [
+                  -0.094856,
+                  -0.014261
+                ],
+                [
+                  -0.094133,
+                  -0.016429
+                ],
+                [
+                  -0.093308,
+                  -0.01856
+                ],
+                [
+                  -0.092384,
+                  -0.02065
+                ],
+                [
+                  -0.091363,
+                  -0.022695
+                ],
+                [
+                  -0.090246,
+                  -0.024689
+                ],
+                [
+                  -0.089037,
+                  -0.026628
+                ],
+                [
+                  -0.087285,
+                  -0.02912
+                ],
+                [
+                  -0.08587,
+                  -0.030915
+                ],
+                [
+                  -0.084372,
+                  -0.032641
+                ],
+                [
+                  -0.082795,
+                  -0.034295
+                ],
+                [
+                  -0.081141,
+                  -0.035872
+                ],
+                [
+                  -0.079415,
+                  -0.03737
+                ],
+                [
+                  -0.07762,
+                  -0.038785
+                ],
+                [
+                  -0.075128,
+                  -0.040537
+                ],
+                [
+                  -0.073189,
+                  -0.041746
+                ],
+                [
+                  -0.071195,
+                  -0.042863
+                ],
+                [
+                  -0.06915,
+                  -0.043884
+                ],
+                [
+                  -0.06706,
+                  -0.044808
+                ],
+                [
+                  -0.064929,
+                  -0.045633
+                ],
+                [
+                  -0.062761,
+                  -0.046356
+                ],
+                [
+                  -0.059822,
+                  -0.04716
+                ],
+                [
+                  -0.057588,
+                  -0.047641
+                ],
+                [
+                  -0.055334,
+                  -0.048016
+                ],
+                [
+                  -0.053064,
+                  -0.048285
+                ],
+                [
+                  -0.050785,
+                  -0.048446
+                ],
+                [
+                  -0.0485,
+                  -0.0485
+                ],
+                [
+                  -0.046215,
+                  -0.048446
+                ],
+                [
+                  -0.043936,
+                  -0.048285
+                ],
+                [
+                  -0.041666,
+                  -0.048016
+                ],
+                [
+                  -0.039412,
+                  -0.047641
+                ],
+                [
+                  -0.037178,
+                  -0.04716
+                ],
+                [
+                  -0.034239,
+                  -0.046356
+                ],
+                [
+                  -0.032071,
+                  -0.045633
+                ],
+                [
+                  -0.02994,
+                  -0.044808
+                ],
+                [
+                  -0.02785,
+                  -0.043884
+                ],
+                [
+                  -0.025805,
+                  -0.042863
+                ],
+                [
+                  -0.023811,
+                  -0.041746
+                ],
+                [
+                  -0.021872,
+                  -0.040537
+                ],
+                [
+                  -0.01938,
+                  -0.038785
+                ],
+                [
+                  -0.017585,
+                  -0.03737
+                ],
+                [
+                  -0.015859,
+                  -0.035872
+                ],
+                [
+                  -0.014205,
+                  -0.034295
+                ],
+                [
+                  -0.012628,
+                  -0.032641
+                ],
+                [
+                  -0.01113,
+                  -0.030915
+                ],
+                [
+                  -0.009715,
+                  -0.02912
+                ],
+                [
+                  -0.007963,
+                  -0.026628
+                ],
+                [
+                  -0.006754,
+                  -0.024689
+                ],
+                [
+                  -0.005637,
+                  -0.022695
+                ],
+                [
+                  -0.004616,
+                  -0.02065
+                ],
+                [
+                  -0.003692,
+                  -0.01856
+                ],
+                [
+                  -0.002867,
+                  -0.016429
+                ],
+                [
+                  -0.002144,
+                  -0.014261
+                ],
+                [
+                  -0.00134,
+                  -0.011322
+                ],
+                [
+                  -0.000859,
+                  -0.009088
+                ],
+                [
+                  -0.000484,
+                  -0.006834
+                ],
+                [
+                  -0.000215,
+                  -0.004564
+                ],
+                [
+                  -5.4e-05,
+                  -0.002285
+                ],
+                [
+                  0.0,
+                  0.0
+                ]
+              ],
+              "profil": [
+                [
+                  0.0,
+                  40.0
+                ],
+                [
+                  254.2,
+                  41.1
+                ],
+                [
+                  508.2,
+                  42.2
+                ],
+                [
+                  762.4,
+                  43.4
+                ],
+                [
+                  1016.5,
+                  44.4
+                ],
+                [
+                  1270.7,
+                  45.5
+                ],
+                [
+                  1609.5,
+                  46.8
+                ],
+                [
+                  1863.7,
+                  47.6
+                ],
+                [
+                  2117.8,
+                  48.5
+                ],
+                [
+                  2371.9,
+                  49.2
+                ],
+                [
+                  2626.1,
+                  49.9
+                ],
+                [
+                  2880.2,
+                  50.5
+                ],
+                [
+                  3134.3,
+                  51.0
+                ],
+                [
+                  3473.1,
+                  51.5
+                ],
+                [
+                  3727.3,
+                  51.8
+                ],
+                [
+                  3981.4,
+                  52.0
+                ],
+                [
+                  4235.6,
+                  52.0
+                ],
+                [
+                  4489.7,
+                  52.0
+                ],
+                [
+                  4743.9,
+                  51.8
+                ],
+                [
+                  4998.0,
+                  51.5
+                ],
+                [
+                  5336.8,
+                  51.0
+                ],
+                [
+                  5590.9,
+                  50.5
+                ],
+                [
+                  5845.1,
+                  49.9
+                ],
+                [
+                  6099.3,
+                  49.2
+                ],
+                [
+                  6353.4,
+                  48.5
+                ],
+                [
+                  6607.5,
+                  47.6
+                ],
+                [
+                  6861.6,
+                  46.8
+                ],
+                [
+                  7200.5,
+                  45.5
+                ],
+                [
+                  7454.6,
+                  44.4
+                ],
+                [
+                  7708.7,
+                  43.4
+                ],
+                [
+                  7962.9,
+                  42.2
+                ],
+                [
+                  8217.0,
+                  41.1
+                ],
+                [
+                  8471.1,
+                  40.0
+                ],
+                [
+                  8725.3,
+                  38.9
+                ],
+                [
+                  8979.4,
+                  37.8
+                ],
+                [
+                  9233.6,
+                  36.6
+                ],
+                [
+                  9487.7,
+                  35.6
+                ],
+                [
+                  9741.8,
+                  34.5
+                ],
+                [
+                  10080.7,
+                  33.2
+                ],
+                [
+                  10334.8,
+                  32.4
+                ],
+                [
+                  10588.9,
+                  31.5
+                ],
+                [
+                  10843.0,
+                  30.8
+                ],
+                [
+                  11097.2,
+                  30.1
+                ],
+                [
+                  11351.4,
+                  29.5
+                ],
+                [
+                  11605.5,
+                  29.0
+                ],
+                [
+                  11944.3,
+                  28.5
+                ],
+                [
+                  12198.4,
+                  28.2
+                ],
+                [
+                  12452.6,
+                  28.1
+                ],
+                [
+                  12706.7,
+                  28.0
+                ],
+                [
+                  12960.9,
+                  28.1
+                ],
+                [
+                  13215.0,
+                  28.2
+                ],
+                [
+                  13469.2,
+                  28.5
+                ],
+                [
+                  13808.0,
+                  29.0
+                ],
+                [
+                  14062.1,
+                  29.5
+                ],
+                [
+                  14316.2,
+                  30.1
+                ],
+                [
+                  14570.4,
+                  30.8
+                ],
+                [
+                  14824.5,
+                  31.5
+                ],
+                [
+                  15078.6,
+                  32.4
+                ],
+                [
+                  15332.8,
+                  33.2
+                ],
+                [
+                  15671.6,
+                  34.5
+                ],
+                [
+                  15925.8,
+                  35.6
+                ],
+                [
+                  16179.9,
+                  36.6
+                ],
+                [
+                  16434.1,
+                  37.8
+                ],
+                [
+                  16688.1,
+                  38.9
+                ],
+                [
+                  16942.3,
+                  40.0
+                ],
+                [
+                  17196.5,
+                  41.1
+                ],
+                [
+                  17450.5,
+                  42.2
+                ],
+                [
+                  17704.7,
+                  43.4
+                ],
+                [
+                  17958.8,
+                  44.4
+                ],
+                [
+                  18212.9,
+                  45.5
+                ],
+                [
+                  18551.8,
+                  46.8
+                ],
+                [
+                  18806.0,
+                  47.6
+                ],
+                [
+                  19060.1,
+                  48.5
+                ],
+                [
+                  19314.2,
+                  49.2
+                ],
+                [
+                  19568.4,
+                  49.9
+                ],
+                [
+                  19822.5,
+                  50.5
+                ],
+                [
+                  20076.6,
+                  51.0
+                ],
+                [
+                  20415.4,
+                  51.5
+                ],
+                [
+                  20669.6,
+                  51.8
+                ],
+                [
+                  20923.7,
+                  52.0
+                ],
+                [
+                  21177.9,
+                  52.0
+                ],
+                [
+                  21432.0,
+                  52.0
+                ],
+                [
+                  21686.1,
+                  51.8
+                ],
+                [
+                  21940.3,
+                  51.5
+                ],
+                [
+                  22279.1,
+                  51.0
+                ],
+                [
+                  22533.2,
+                  50.5
+                ],
+                [
+                  22787.4,
+                  49.9
+                ],
+                [
+                  23041.5,
+                  49.2
+                ],
+                [
+                  23295.7,
+                  48.5
+                ],
+                [
+                  23549.8,
+                  47.6
+                ],
+                [
+                  23803.9,
+                  46.8
+                ],
+                [
+                  24142.8,
+                  45.5
+                ],
+                [
+                  24396.9,
+                  44.4
+                ],
+                [
+                  24651.0,
+                  43.4
+                ],
+                [
+                  24905.2,
+                  42.2
+                ],
+                [
+                  25159.3,
+                  41.1
+                ],
+                [
+                  25413.4,
+                  40.0
+                ],
+                [
+                  25667.6,
+                  38.9
+                ],
+                [
+                  25921.7,
+                  37.8
+                ],
+                [
+                  26175.9,
+                  36.6
+                ],
+                [
+                  26430.0,
+                  35.6
+                ],
+                [
+                  26684.1,
+                  34.5
+                ],
+                [
+                  27023.0,
+                  33.2
+                ],
+                [
+                  27277.1,
+                  32.4
+                ],
+                [
+                  27531.2,
+                  31.5
+                ],
+                [
+                  27785.3,
+                  30.8
+                ],
+                [
+                  28039.5,
+                  30.1
+                ],
+                [
+                  28293.7,
+                  29.5
+                ],
+                [
+                  28547.8,
+                  29.0
+                ],
+                [
+                  28886.6,
+                  28.5
+                ],
+                [
+                  29140.7,
+                  28.2
+                ],
+                [
+                  29394.9,
+                  28.1
+                ],
+                [
+                  29649.0,
+                  28.0
+                ],
+                [
+                  29903.1,
+                  28.1
+                ],
+                [
+                  30157.3,
+                  28.2
+                ],
+                [
+                  30411.5,
+                  28.5
+                ],
+                [
+                  30750.2,
+                  29.0
+                ],
+                [
+                  31004.3,
+                  29.5
+                ],
+                [
+                  31258.5,
+                  30.1
+                ],
+                [
+                  31512.7,
+                  30.8
+                ],
+                [
+                  31766.8,
+                  31.5
+                ],
+                [
+                  32020.9,
+                  32.4
+                ],
+                [
+                  32275.1,
+                  33.2
+                ],
+                [
+                  32613.9,
+                  34.5
+                ],
+                [
+                  32868.0,
+                  35.6
+                ],
+                [
+                  33122.1,
+                  36.6
+                ],
+                [
+                  33376.3,
+                  37.8
+                ],
+                [
+                  33630.4,
+                  38.9
+                ],
+                [
+                  33884.6,
+                  40.0
+                ]
+              ],
+              "simplification": {
+                "ecart_max_m": 2.66,
+                "points_origine": 401,
+                "points_rendus": 129,
+                "tolerance_m": 5.0
+              }
+            },
+            "vitesse_kmh": 27.22
+          },
+          {
+            "azimut_deg": 0.0,
+            "couts": {
+              "km_calme": 22.022,
+              "km_non_classe": 5.082,
+              "km_non_revetu": 5.082,
+              "km_trafic": 6.776,
+              "score": 40.656,
+              "sens": "horaire"
+            },
+            "denivele_m": 4.0,
+            "distance_km": 33.885,
+            "ecart_relatif": -0.031857142857142855,
+            "elargissement": 0.0,
+            "hors_tolerance": false,
+            "meteo": {
+              "confiance": "desaccord",
+              "fleches_vent": [
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.0,
+                    -0.0
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 14
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.019992,
+                    -0.039237
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 14
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.062761,
+                    -0.046356
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "face",
+                  "vent_kmh": 14
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.094133,
+                    -0.016429
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "face",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.089037,
+                    0.026628
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.051545,
+                    0.048404
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "travers",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.01162,
+                    0.031498
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "dos",
+                  "vent_kmh": 15
+                },
+                {
+                  "depuis_deg": 45.0,
+                  "pt": [
+                    0.0,
+                    -0.0
+                  ],
+                  "rafale_kmh": 25,
+                  "relatif": "dos",
+                  "vent_kmh": 15
+                }
+              ],
+              "minutes_pluie": 64.8,
+              "modele_utilise": "modele_principal_test",
+              "n_echantillons": 8,
+              "part_vent_face": 0.25,
+              "pluie_cumulee_mm": 2.159,
+              "repli": false,
+              "ressenti_min_c": 11.5,
+              "vent_par_position": [
+                {
+                  "dist_m": 0,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 5083,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 10081,
+                  "relatif": "face"
+                },
+                {
+                  "dist_m": 15079,
+                  "relatif": "face"
+                },
+                {
+                  "dist_m": 20077,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 25075,
+                  "relatif": "travers"
+                },
+                {
+                  "dist_m": 30073,
+                  "relatif": "dos"
+                },
+                {
+                  "dist_m": 33885,
+                  "relatif": "dos"
+                }
+              ]
+            },
+            "nom": "Boucle 0° 7.0 km",
+            "numero": 2,
+            "part_connue": 0.0,
+            "placement": {
+              "avertissements": [
+                "retour au calme : 45 min au lieu des 5 prescrites (+794%), 17 km de plus à allure facile — au-delà de la fenêtre (+150%) : cette boucle est trop longue pour cette séance"
+              ],
+              "blocs_bien_places": 1,
+              "decalage_z2_s": 120,
+              "demi_tours": 2,
+              "denivele_parcours_m": 0.0,
+              "distance_totale_m": 47580.6,
+              "duree_totale_s": 6282,
+              "emplacements": [
+                {
+                  "carrefours": null,
+                  "debut_m": 0.0,
+                  "debut_parcouru_m": 0.0,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 0,
+                  "km_batis": null,
+                  "longueur_m": 5448.0,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 5448.0,
+                  "debut_parcouru_m": 5448.0,
+                  "demi_tour": false,
+                  "descente_m": 0,
+                  "etape_idx": 1,
+                  "km_batis": 1.694,
+                  "longueur_m": 4190.1,
+                  "montee_m": 0,
+                  "motifs": [
+                    "1,7 km en zone bâtie"
+                  ],
+                  "note": 5.0847,
+                  "pente_max": -0.00041,
+                  "pente_moyenne": -0.00032
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 9638.0,
+                  "debut_parcouru_m": 9638.0,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 2,
+                  "km_batis": null,
+                  "longueur_m": 1353.1,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 10991.1,
+                  "debut_parcouru_m": 10991.1,
+                  "demi_tour": false,
+                  "descente_m": 0,
+                  "etape_idx": 3,
+                  "km_batis": 0.0,
+                  "longueur_m": 3890.1,
+                  "montee_m": 0,
+                  "motifs": [],
+                  "note": 0.0048,
+                  "pente_max": 0.00035,
+                  "pente_moyenne": 3e-05
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 14881.2,
+                  "debut_parcouru_m": 14881.2,
+                  "demi_tour": true,
+                  "descente_m": null,
+                  "etape_idx": 4,
+                  "km_batis": null,
+                  "longueur_m": 1324.4,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 9634.8,
+                  "debut_parcouru_m": 16205.6,
+                  "demi_tour": true,
+                  "descente_m": 0,
+                  "etape_idx": 5,
+                  "km_batis": 0.0,
+                  "longueur_m": 5246.4,
+                  "montee_m": 0,
+                  "motifs": [
+                    "demi-tour : le segment du bloc précédent, repris en sens inverse"
+                  ],
+                  "note": 1.0059,
+                  "pente_max": 0.00035,
+                  "pente_moyenne": -5e-05
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 8695.4,
+                  "debut_parcouru_m": 21452.0,
+                  "demi_tour": true,
+                  "descente_m": null,
+                  "etape_idx": 6,
+                  "km_batis": null,
+                  "longueur_m": 1878.8,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": 0,
+                  "debut_m": 9634.8,
+                  "debut_parcouru_m": 23330.8,
+                  "demi_tour": true,
+                  "descente_m": 0,
+                  "etape_idx": 7,
+                  "km_batis": 0.0,
+                  "longueur_m": 3909.9,
+                  "montee_m": 0,
+                  "motifs": [
+                    "demi-tour : le segment du bloc précédent, repris en sens inverse"
+                  ],
+                  "note": 1.0042,
+                  "pente_max": -0.00035,
+                  "pente_moyenne": -0.00014
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 13544.8,
+                  "debut_parcouru_m": 27240.7,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 8,
+                  "km_batis": null,
+                  "longueur_m": 1323.1,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                },
+                {
+                  "carrefours": null,
+                  "debut_m": 14867.9,
+                  "debut_parcouru_m": 28563.8,
+                  "demi_tour": false,
+                  "descente_m": null,
+                  "etape_idx": 9,
+                  "km_batis": null,
+                  "longueur_m": 19016.7,
+                  "montee_m": null,
+                  "motifs": null,
+                  "note": null,
+                  "pente_max": null,
+                  "pente_moyenne": null
+                }
+              ],
+              "informations": [],
+              "note_terrain": 1.7749,
+              "note_totale": 2.1719,
+              "penalite_seance": 0.397
+            },
+            "retenue": false,
+            "temps_ecoule_bas_s": 6408,
+            "temps_ecoule_haut_s": 7161,
+            "temps_ecoule_s": 6659,
+            "temps_ecoule_source": "defaut",
+            "tolerance_distance": 0.1,
+            "trace": {
+              "points": [
+                [
+                  0.0,
+                  -0.0
+                ],
+                [
+                  5.4e-05,
+                  -0.002285
+                ],
+                [
+                  0.000215,
+                  -0.004564
+                ],
+                [
+                  0.000484,
+                  -0.006834
+                ],
+                [
+                  0.000859,
+                  -0.009088
+                ],
+                [
+                  0.00134,
+                  -0.011322
+                ],
+                [
+                  0.002144,
+                  -0.014261
+                ],
+                [
+                  0.002867,
+                  -0.016429
+                ],
+                [
+                  0.003692,
+                  -0.01856
+                ],
+                [
+                  0.004616,
+                  -0.02065
+                ],
+                [
+                  0.005637,
+                  -0.022695
+                ],
+                [
+                  0.006754,
+                  -0.024689
+                ],
+                [
+                  0.007963,
+                  -0.026628
+                ],
+                [
+                  0.009715,
+                  -0.02912
+                ],
+                [
+                  0.01113,
+                  -0.030915
+                ],
+                [
+                  0.012628,
+                  -0.032641
+                ],
+                [
+                  0.014205,
+                  -0.034295
+                ],
+                [
+                  0.015859,
+                  -0.035872
+                ],
+                [
+                  0.017585,
+                  -0.03737
+                ],
+                [
+                  0.01938,
+                  -0.038785
+                ],
+                [
+                  0.021872,
+                  -0.040537
+                ],
+                [
+                  0.023811,
+                  -0.041746
+                ],
+                [
+                  0.025805,
+                  -0.042863
+                ],
+                [
+                  0.02785,
+                  -0.043884
+                ],
+                [
+                  0.02994,
+                  -0.044808
+                ],
+                [
+                  0.032071,
+                  -0.045633
+                ],
+                [
+                  0.034239,
+                  -0.046356
+                ],
+                [
+                  0.037178,
+                  -0.04716
+                ],
+                [
+                  0.039412,
+                  -0.047641
+                ],
+                [
+                  0.041666,
+                  -0.048016
+                ],
+                [
+                  0.043936,
+                  -0.048285
+                ],
+                [
+                  0.046215,
+                  -0.048446
+                ],
+                [
+                  0.0485,
+                  -0.0485
+                ],
+                [
+                  0.050785,
+                  -0.048446
+                ],
+                [
+                  0.053064,
+                  -0.048285
+                ],
+                [
+                  0.055334,
+                  -0.048016
+                ],
+                [
+                  0.057588,
+                  -0.047641
+                ],
+                [
+                  0.059822,
+                  -0.04716
+                ],
+                [
+                  0.062761,
+                  -0.046356
+                ],
+                [
+                  0.064929,
+                  -0.045633
+                ],
+                [
+                  0.06706,
+                  -0.044808
+                ],
+                [
+                  0.06915,
+                  -0.043884
+                ],
+                [
+                  0.071195,
+                  -0.042863
+                ],
+                [
+                  0.073189,
+                  -0.041746
+                ],
+                [
+                  0.075128,
+                  -0.040537
+                ],
+                [
+                  0.07762,
+                  -0.038785
+                ],
+                [
+                  0.079415,
+                  -0.03737
+                ],
+                [
+                  0.081141,
+                  -0.035872
+                ],
+                [
+                  0.082795,
+                  -0.034295
+                ],
+                [
+                  0.084372,
+                  -0.032641
+                ],
+                [
+                  0.08587,
+                  -0.030915
+                ],
+                [
+                  0.087285,
+                  -0.02912
+                ],
+                [
+                  0.089037,
+                  -0.026628
+                ],
+                [
+                  0.090246,
+                  -0.024689
+                ],
+                [
+                  0.091363,
+                  -0.022695
+                ],
+                [
+                  0.092384,
+                  -0.02065
+                ],
+                [
+                  0.093308,
+                  -0.01856
+                ],
+                [
+                  0.094133,
+                  -0.016429
+                ],
+                [
+                  0.094856,
+                  -0.014261
+                ],
+                [
+                  0.09566,
+                  -0.011322
+                ],
+                [
+                  0.096141,
+                  -0.009088
+                ],
+                [
+                  0.096516,
+                  -0.006834
+                ],
+                [
+                  0.096785,
+                  -0.004564
+                ],
+                [
+                  0.096946,
+                  -0.002285
+                ],
+                [
+                  0.097,
+                  0.0
+                ],
+                [
+                  0.096946,
+                  0.002285
+                ],
+                [
+                  0.096785,
+                  0.004564
+                ],
+                [
+                  0.096516,
+                  0.006834
+                ],
+                [
+                  0.096141,
+                  0.009088
+                ],
+                [
+                  0.09566,
+                  0.011322
+                ],
+                [
+                  0.094856,
+                  0.014261
+                ],
+                [
+                  0.094133,
+                  0.016429
+                ],
+                [
+                  0.093308,
+                  0.01856
+                ],
+                [
+                  0.092384,
+                  0.02065
+                ],
+                [
+                  0.091363,
+                  0.022695
+                ],
+                [
+                  0.090246,
+                  0.024689
+                ],
+                [
+                  0.089037,
+                  0.026628
+                ],
+                [
+                  0.087285,
+                  0.02912
+                ],
+                [
+                  0.08587,
+                  0.030915
+                ],
+                [
+                  0.084372,
+                  0.032641
+                ],
+                [
+                  0.082795,
+                  0.034295
+                ],
+                [
+                  0.081141,
+                  0.035872
+                ],
+                [
+                  0.079415,
+                  0.03737
+                ],
+                [
+                  0.07762,
+                  0.038785
+                ],
+                [
+                  0.075128,
+                  0.040537
+                ],
+                [
+                  0.073189,
+                  0.041746
+                ],
+                [
+                  0.071195,
+                  0.042863
+                ],
+                [
+                  0.06915,
+                  0.043884
+                ],
+                [
+                  0.06706,
+                  0.044808
+                ],
+                [
+                  0.064929,
+                  0.045633
+                ],
+                [
+                  0.062761,
+                  0.046356
+                ],
+                [
+                  0.059822,
+                  0.04716
+                ],
+                [
+                  0.057588,
+                  0.047641
+                ],
+                [
+                  0.055334,
+                  0.048016
+                ],
+                [
+                  0.053064,
+                  0.048285
+                ],
+                [
+                  0.050785,
+                  0.048446
+                ],
+                [
+                  0.0485,
+                  0.0485
+                ],
+                [
+                  0.046215,
+                  0.048446
+                ],
+                [
+                  0.043936,
+                  0.048285
+                ],
+                [
+                  0.041666,
+                  0.048016
+                ],
+                [
+                  0.039412,
+                  0.047641
+                ],
+                [
+                  0.037178,
+                  0.04716
+                ],
+                [
+                  0.034239,
+                  0.046356
+                ],
+                [
+                  0.032071,
+                  0.045633
+                ],
+                [
+                  0.02994,
+                  0.044808
+                ],
+                [
+                  0.02785,
+                  0.043884
+                ],
+                [
+                  0.025805,
+                  0.042863
+                ],
+                [
+                  0.023811,
+                  0.041746
+                ],
+                [
+                  0.021872,
+                  0.040537
+                ],
+                [
+                  0.01938,
+                  0.038785
+                ],
+                [
+                  0.017585,
+                  0.03737
+                ],
+                [
+                  0.015859,
+                  0.035872
+                ],
+                [
+                  0.014205,
+                  0.034295
+                ],
+                [
+                  0.012628,
+                  0.032641
+                ],
+                [
+                  0.01113,
+                  0.030915
+                ],
+                [
+                  0.009715,
+                  0.02912
+                ],
+                [
+                  0.007963,
+                  0.026628
+                ],
+                [
+                  0.006754,
+                  0.024689
+                ],
+                [
+                  0.005637,
+                  0.022695
+                ],
+                [
+                  0.004616,
+                  0.02065
+                ],
+                [
+                  0.003692,
+                  0.01856
+                ],
+                [
+                  0.002867,
+                  0.016429
+                ],
+                [
+                  0.002144,
+                  0.014261
+                ],
+                [
+                  0.00134,
+                  0.011322
+                ],
+                [
+                  0.000859,
+                  0.009088
+                ],
+                [
+                  0.000484,
+                  0.006834
+                ],
+                [
+                  0.000215,
+                  0.004564
+                ],
+                [
+                  5.4e-05,
+                  0.002285
+                ],
+                [
+                  0.0,
+                  -0.0
+                ]
+              ],
+              "profil": [
+                [
+                  0.0,
+                  40.0
+                ],
+                [
+                  254.2,
+                  40.1
+                ],
+                [
+                  508.2,
+                  40.2
+                ],
+                [
+                  762.4,
+                  40.3
+                ],
+                [
+                  1016.5,
+                  40.4
+                ],
+                [
+                  1270.7,
+                  40.5
+                ],
+                [
+                  1609.5,
+                  40.6
+                ],
+                [
+                  1863.7,
+                  40.6
+                ],
+                [
+                  2117.8,
+                  40.7
+                ],
+                [
+                  2371.9,
+                  40.8
+                ],
+                [
+                  2626.1,
+                  40.8
+                ],
+                [
+                  2880.2,
+                  40.9
+                ],
+                [
+                  3134.3,
+                  40.9
+                ],
+                [
+                  3473.1,
+                  41.0
+                ],
+                [
+                  3727.3,
+                  41.0
+                ],
+                [
+                  3981.4,
+                  41.0
+                ],
+                [
+                  4235.6,
+                  41.0
+                ],
+                [
+                  4489.7,
+                  41.0
+                ],
+                [
+                  4743.9,
+                  41.0
+                ],
+                [
+                  4998.0,
+                  41.0
+                ],
+                [
+                  5336.8,
+                  40.9
+                ],
+                [
+                  5590.9,
+                  40.9
+                ],
+                [
+                  5845.1,
+                  40.8
+                ],
+                [
+                  6099.3,
+                  40.8
+                ],
+                [
+                  6353.4,
+                  40.7
+                ],
+                [
+                  6607.5,
+                  40.6
+                ],
+                [
+                  6861.6,
+                  40.6
+                ],
+                [
+                  7200.5,
+                  40.5
+                ],
+                [
+                  7454.6,
+                  40.4
+                ],
+                [
+                  7708.7,
+                  40.3
+                ],
+                [
+                  7962.9,
+                  40.2
+                ],
+                [
+                  8217.0,
+                  40.1
+                ],
+                [
+                  8471.1,
+                  40.0
+                ],
+                [
+                  8725.3,
+                  39.9
+                ],
+                [
+                  8979.4,
+                  39.8
+                ],
+                [
+                  9233.6,
+                  39.7
+                ],
+                [
+                  9487.7,
+                  39.6
+                ],
+                [
+                  9741.8,
+                  39.5
+                ],
+                [
+                  10080.7,
+                  39.4
+                ],
+                [
+                  10334.8,
+                  39.4
+                ],
+                [
+                  10588.9,
+                  39.3
+                ],
+                [
+                  10843.0,
+                  39.2
+                ],
+                [
+                  11097.2,
+                  39.2
+                ],
+                [
+                  11351.4,
+                  39.1
+                ],
+                [
+                  11605.5,
+                  39.1
+                ],
+                [
+                  11944.3,
+                  39.0
+                ],
+                [
+                  12198.4,
+                  39.0
+                ],
+                [
+                  12452.6,
+                  39.0
+                ],
+                [
+                  12706.7,
+                  39.0
+                ],
+                [
+                  12960.9,
+                  39.0
+                ],
+                [
+                  13215.0,
+                  39.0
+                ],
+                [
+                  13469.2,
+                  39.0
+                ],
+                [
+                  13808.0,
+                  39.1
+                ],
+                [
+                  14062.1,
+                  39.1
+                ],
+                [
+                  14316.2,
+                  39.2
+                ],
+                [
+                  14570.4,
+                  39.2
+                ],
+                [
+                  14824.5,
+                  39.3
+                ],
+                [
+                  15078.6,
+                  39.4
+                ],
+                [
+                  15332.8,
+                  39.4
+                ],
+                [
+                  15671.6,
+                  39.5
+                ],
+                [
+                  15925.8,
+                  39.6
+                ],
+                [
+                  16179.9,
+                  39.7
+                ],
+                [
+                  16434.1,
+                  39.8
+                ],
+                [
+                  16688.1,
+                  39.9
+                ],
+                [
+                  16942.3,
+                  40.0
+                ],
+                [
+                  17196.5,
+                  40.1
+                ],
+                [
+                  17450.5,
+                  40.2
+                ],
+                [
+                  17704.7,
+                  40.3
+                ],
+                [
+                  17958.8,
+                  40.4
+                ],
+                [
+                  18212.9,
+                  40.5
+                ],
+                [
+                  18551.8,
+                  40.6
+                ],
+                [
+                  18806.0,
+                  40.6
+                ],
+                [
+                  19060.1,
+                  40.7
+                ],
+                [
+                  19314.2,
+                  40.8
+                ],
+                [
+                  19568.4,
+                  40.8
+                ],
+                [
+                  19822.5,
+                  40.9
+                ],
+                [
+                  20076.6,
+                  40.9
+                ],
+                [
+                  20415.4,
+                  41.0
+                ],
+                [
+                  20669.6,
+                  41.0
+                ],
+                [
+                  20923.7,
+                  41.0
+                ],
+                [
+                  21177.9,
+                  41.0
+                ],
+                [
+                  21432.0,
+                  41.0
+                ],
+                [
+                  21686.1,
+                  41.0
+                ],
+                [
+                  21940.3,
+                  41.0
+                ],
+                [
+                  22279.1,
+                  40.9
+                ],
+                [
+                  22533.2,
+                  40.9
+                ],
+                [
+                  22787.4,
+                  40.8
+                ],
+                [
+                  23041.5,
+                  40.8
+                ],
+                [
+                  23295.7,
+                  40.7
+                ],
+                [
+                  23549.8,
+                  40.6
+                ],
+                [
+                  23803.9,
+                  40.6
+                ],
+                [
+                  24142.8,
+                  40.5
+                ],
+                [
+                  24396.9,
+                  40.4
+                ],
+                [
+                  24651.0,
+                  40.3
+                ],
+                [
+                  24905.2,
+                  40.2
+                ],
+                [
+                  25159.3,
+                  40.1
+                ],
+                [
+                  25413.4,
+                  40.0
+                ],
+                [
+                  25667.6,
+                  39.9
+                ],
+                [
+                  25921.7,
+                  39.8
+                ],
+                [
+                  26175.9,
+                  39.7
+                ],
+                [
+                  26430.0,
+                  39.6
+                ],
+                [
+                  26684.1,
+                  39.5
+                ],
+                [
+                  27023.0,
+                  39.4
+                ],
+                [
+                  27277.1,
+                  39.4
+                ],
+                [
+                  27531.2,
+                  39.3
+                ],
+                [
+                  27785.3,
+                  39.2
+                ],
+                [
+                  28039.5,
+                  39.2
+                ],
+                [
+                  28293.7,
+                  39.1
+                ],
+                [
+                  28547.8,
+                  39.1
+                ],
+                [
+                  28886.6,
+                  39.0
+                ],
+                [
+                  29140.7,
+                  39.0
+                ],
+                [
+                  29394.9,
+                  39.0
+                ],
+                [
+                  29649.0,
+                  39.0
+                ],
+                [
+                  29903.1,
+                  39.0
+                ],
+                [
+                  30157.3,
+                  39.0
+                ],
+                [
+                  30411.5,
+                  39.0
+                ],
+                [
+                  30750.2,
+                  39.1
+                ],
+                [
+                  31004.3,
+                  39.1
+                ],
+                [
+                  31258.5,
+                  39.2
+                ],
+                [
+                  31512.7,
+                  39.2
+                ],
+                [
+                  31766.8,
+                  39.3
+                ],
+                [
+                  32020.9,
+                  39.4
+                ],
+                [
+                  32275.1,
+                  39.4
+                ],
+                [
+                  32613.9,
+                  39.5
+                ],
+                [
+                  32868.0,
+                  39.6
+                ],
+                [
+                  33122.1,
+                  39.7
+                ],
+                [
+                  33376.3,
+                  39.8
+                ],
+                [
+                  33630.4,
+                  39.9
+                ],
+                [
+                  33884.6,
+                  40.0
+                ]
+              ],
+              "simplification": {
+                "ecart_max_m": 2.66,
+                "points_origine": 401,
+                "points_rendus": 129,
+                "tolerance_m": 5.0
+              }
+            },
+            "vitesse_kmh": 27.27
+          }
+        ],
+        "carte": {
+          "id": "<HEX>",
+          "nom": "sortie_2026-09-08.html",
+          "url": "/api/v1/fichiers/<HEX>"
+        },
+        "compteur": {
+          "facteur_compteur": 0.792,
+          "facteur_provenance": "suppose",
+          "moyenne_compteur_kmh": 20.0,
+          "porte_a_porte": {
+            "bas": 1.02,
+            "haut": 1.14,
+            "mediane": 1.06,
+            "n": 0,
+            "provenance": "defaut"
+          },
+          "puissance_w": 120.0,
+          "velo": "RCR"
+        },
+        "demande": {
+          "azimut_deg": null,
+          "candidates": 2,
+          "depart": "2026-09-08T09:00:00+02:00",
+          "direction": null,
+          "distance_km": 35.0,
+          "distance_source": "estimée par le modèle sur le plat, 31.1 km arrondis au multiple de 5 supérieur",
+          "lieu_depart": {
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "nom": "Point zéro"
+          },
+          "profil": "fastbike",
+          "velo": null
+        },
+        "ecartees": [],
+        "generation": "<HEX>",
+        "gpx": null,
+        "jour": "2026-09-08",
+        "meteo_absente": null,
+        "modele_meteo": {
+          "repli": false,
+          "utilise": "modele_principal_test"
+        },
+        "modele_physique": "littérature (RCR)",
+        "motif_deux_propositions": "2 candidate(s) seulement portaient la séance : il n'y a pas de quoi en contraster 3",
+        "motif_equivalence": null,
+        "propositions": [
+          {
+            "axe_distinctif": "vent",
+            "demi_tours": 2,
+            "densite_marqueurs_km": 0.0,
+            "depassement_seance_s": 2244,
+            "distinction": "vent de travers, ni répit ni mur",
+            "duree_s": 6024,
+            "feux": 0,
+            "gpx": {
+              "nom": "sortie_20260908_n1.gpx",
+              "url": "/api/v1/sorties/<HEX>/propositions/1/gpx"
+            },
+            "note_terrain": 0.539,
+            "numero": 1,
+            "orientation_vent": "travers",
+            "part_trafic": 0.15,
+            "pluie_mm": 0.0,
+            "recouvrement_max_avec": {
+              "2": 0.0267
+            },
+            "retenue": true,
+            "stops": 0
+          },
+          {
+            "axe_distinctif": "vent",
+            "demi_tours": 2,
+            "densite_marqueurs_km": 0.0,
+            "depassement_seance_s": 2502,
+            "distinction": "vous rentrez avec le vent dans le dos",
+            "duree_s": 6282,
+            "feux": 0,
+            "gpx": {
+              "nom": "sortie_20260908_n2.gpx",
+              "url": "/api/v1/sorties/<HEX>/propositions/2/gpx"
+            },
+            "note_terrain": 1.7749,
+            "numero": 2,
+            "orientation_vent": "retour-dos",
+            "part_trafic": 0.2,
+            "pluie_mm": 2.159,
+            "recouvrement_max_avec": {
+              "1": 0.0267
+            },
+            "retenue": false,
+            "stops": 0
+          }
+        ],
+        "question_vent": {
+          "azimuts_par_choix": {
+            "depart-dos": [
+              225.0
+            ],
+            "peu-importe": [],
+            "retour-dos": [
+              45.0
+            ],
+            "travers": [
+              135.0,
+              315.0
+            ]
+          },
+          "azimuts_recherche_deg": [],
+          "choix": [
+            "peu-importe",
+            "retour-dos",
+            "depart-dos",
+            "travers"
+          ],
+          "horizon_jours": 3,
+          "motif": null,
+          "posee": true,
+          "reponse": "peu-importe",
+          "seuil_kmh": 8.0,
+          "vent_depuis_deg": 45.0,
+          "vent_kmh": 14.0
+        },
+        "seance": {
+          "duree_s": 3780,
+          "meta": {
+            "duree_doc_s": 3780.0,
+            "evenement_id": 1,
+            "ftp_w": 200.0,
+            "nom_source": "4x8 fabriquée",
+            "puissance_approximee": false,
+            "puissance_endurance_pct": 0.6,
+            "seuil_recuperation_pct": 0.75,
+            "seuil_recuperation_w": 150.0,
+            "source": "intervals",
+            "sport": "Ride",
+            "typage_source": [
+              "marqueur",
+              "defaut",
+              "marqueur",
+              "defaut",
+              "marqueur",
+              "defaut",
+              "marqueur",
+              "defaut",
+              "marqueur",
+              "marqueur"
+            ],
+            "zones_puissance": [
+              [
+                0.0,
+                0.55
+              ],
+              [
+                0.56,
+                0.75
+              ],
+              [
+                0.76,
+                0.9
+              ],
+              [
+                0.91,
+                1.05
+              ],
+              [
+                1.06,
+                1.2
+              ],
+              [
+                1.21,
+                1.5
+              ],
+              [
+                1.51,
+                2.0
+              ]
+            ]
+          },
+          "n_blocs": 4,
+          "n_etapes": 10,
+          "nom": "4x8 fabriquée"
+        },
+        "seuil_bloc_bien_place": 1.0,
+        "tenue": {
+          "a_emporter": [],
+          "a_enlever": [],
+          "base": [
+            "maillot manches courtes",
+            "manchettes",
+            "jambières",
+            "gilet coupe-vent",
+            "gants longs"
+          ],
+          "categorie_humidite": "sec",
+          "categorie_temp": "frais",
+          "motifs": [
+            "au départ : 12 °C ressentis, catégorie « frais »"
+          ]
+        },
+        "tolerance_egalite": 0.15
+      },
+      "duree_ms": "<CHRONO>",
+      "proprietaire": "local"
+    },
+    "requete": "POST /api/v1/sorties",
+    "reseau": [
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T07:00&latitude=0.0000&longitude=0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T09:00&latitude=0.0000,-0.0200,-0.0628,-0.0941,-0.0890,-0.0515,-0.0116,0.0000&longitude=0.0000,0.0392,0.0464,0.0164,-0.0266,-0.0484,-0.0315,0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T09:00&latitude=0.0000,-0.0200,-0.0628,-0.0941,-0.0890,-0.0515,-0.0116,0.0000&longitude=0.0000,0.0392,0.0464,0.0164,-0.0266,-0.0484,-0.0315,0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T09:00&latitude=0.0000,-0.0200,-0.0628,-0.0941,-0.0890,-0.0515,-0.0116,0.0000&longitude=0.0000,0.0392,0.0464,0.0164,-0.0266,-0.0484,-0.0315,0.0000&models=modele_second_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T09:00&latitude=0.0000,0.0200,0.0628,0.0941,0.0890,0.0515,0.0116,0.0000&longitude=-0.0000,-0.0392,-0.0464,-0.0164,0.0266,0.0484,0.0315,-0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T09:00&latitude=0.0000,0.0200,0.0628,0.0941,0.0890,0.0515,0.0116,0.0000&longitude=-0.0000,-0.0392,-0.0464,-0.0164,0.0266,0.0484,0.0315,-0.0000&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T09:00&latitude=0.0000,0.0200,0.0628,0.0941,0.0890,0.0515,0.0116,0.0000&longitude=-0.0000,-0.0392,-0.0464,-0.0164,0.0266,0.0484,0.0315,-0.0000&models=modele_second_test&start_hour=2026-09-08T07:00&timezone=UTC",
+      "GET brouter.exemple.test/brouter?alternativeidx=0&engineMode=4&format=geojson&lonlats=0.000000,0.000000&profile=fastbike&profile:correctMisplacedViaPoints=1&profile:correctMisplacedViaPointsDistance=0&roundTripDistance=7000&roundTripPoints=5&roundTripStartDirection=0",
+      "GET brouter.exemple.test/brouter?alternativeidx=0&engineMode=4&format=geojson&lonlats=0.000000,0.000000&profile=fastbike&profile:correctMisplacedViaPoints=1&profile:correctMisplacedViaPointsDistance=0&roundTripDistance=7000&roundTripPoints=5&roundTripStartDirection=180",
+      "GET brouter.exemple.test/brouter?alternativeidx=0&engineMode=4&format=geojson&lonlats=0.000000,0.000000&profile=fastbike&profile:correctMisplacedViaPoints=1&profile:correctMisplacedViaPointsDistance=0&roundTripDistance=7230&roundTripPoints=5&roundTripStartDirection=0",
+      "GET brouter.exemple.test/brouter?alternativeidx=0&engineMode=4&format=geojson&lonlats=0.000000,0.000000&profile=fastbike&profile:correctMisplacedViaPoints=1&profile:correctMisplacedViaPointsDistance=0&roundTripDistance=7230&roundTripPoints=5&roundTripStartDirection=180",
+      "GET intervals.icu/api/v1/athlete/i000000/events?newest=2026-09-08&oldest=2026-09-08"
+    ],
+    "statut": 200,
+    "type": "application/json"
+  }
+}

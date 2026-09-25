@@ -1,0 +1,76 @@
+{
+  "corps": {
+    "budgets": [
+      {
+        "attendu_ms": 5000,
+        "median_ms": null,
+        "n": 0,
+        "operation": "boucle",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 800,
+        "median_ms": null,
+        "n": 0,
+        "operation": "geocodage",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 1000,
+        "median_ms": null,
+        "n": 0,
+        "operation": "inventaire",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 2000,
+        "median_ms": null,
+        "n": 0,
+        "operation": "meteo",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 1500,
+        "median_ms": null,
+        "n": 0,
+        "operation": "seance",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 1500,
+        "median_ms": null,
+        "n": 0,
+        "operation": "seances",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 6000,
+        "median_ms": null,
+        "n": 0,
+        "operation": "sortie",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 600,
+        "median_ms": null,
+        "n": 0,
+        "operation": "vent-depart",
+        "source": "defaut"
+      }
+    ],
+    "capacites": {
+      "brouter": true,
+      "intervals": true,
+      "velos": [
+        "RCR",
+        "BMC"
+      ]
+    },
+    "proprietaire": "local",
+    "version": "0.0.1"
+  },
+  "requete": "GET /api/v1/systeme",
+  "reseau": [],
+  "statut": 200,
+  "type": "application/json"
+}

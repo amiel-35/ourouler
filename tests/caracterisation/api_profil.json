@@ -1,0 +1,186 @@
+{
+  "profil": {
+    "corps": {
+      "donnees": {
+        "assistant_recommande": true,
+        "boucle": {
+          "candidates": 4,
+          "sens": "horaire",
+          "tolerance_distance": 0.1,
+          "vitesse_moyenne_kmh": 27.0
+        },
+        "calibration": {
+          "mots_groupe": [
+            "club",
+            "groupe",
+            "peloton",
+            "sortie club"
+          ],
+          "part_groupe_max": 0.3,
+          "part_validation": 0.25,
+          "vitesse_min_kmh": 8.0
+        },
+        "cycliste": {
+          "ftp_w": 200.0,
+          "masse_kg": 91.0,
+          "nom": "",
+          "prenom": ""
+        },
+        "depart": {
+          "latitude": 0.0,
+          "longitude": 0.0,
+          "nom": "Point zéro"
+        },
+        "evitements": [],
+        "historique_depuis": "2026-01-01",
+        "intervals": {
+          "api_key": "***",
+          "athlete_id": "i000000"
+        },
+        "meteo": {
+          "directions": 8,
+          "distances_km": [
+            15.0,
+            25.0
+          ],
+          "horizon_h": 4,
+          "horizon_jours": 7,
+          "modele": "modele_principal_test",
+          "second_avis": "modele_second_test"
+        },
+        "seance": {
+          "demi_tour_penalite": 1.0,
+          "elasticite_calme_max": 1.5,
+          "elasticite_calme_min": -0.05,
+          "elasticite_z2_max": 0.2,
+          "elasticite_z2_min": -0.05,
+          "position_zone": 0.21052631578947334,
+          "puissance_endurance_pct": 0.6,
+          "seuil_recuperation_pct": 0.75,
+          "tolerance_egalite": 0.15,
+          "vitesse_compteur": {
+            "facteur_compteur": 0.792,
+            "facteur_mesure": false,
+            "moyenne_compteur_kmh": 20.0,
+            "puissance_endurance_w": 120.0,
+            "velo": "RCR",
+            "vitesse_a_plat_kmh": 25.2
+          },
+          "zones_pct": [
+            [
+              0.0,
+              0.55
+            ],
+            [
+              0.56,
+              0.75
+            ],
+            [
+              0.76,
+              0.9
+            ],
+            [
+              0.91,
+              1.05
+            ],
+            [
+              1.06,
+              1.2
+            ],
+            [
+              1.21,
+              1.5
+            ],
+            [
+              1.51,
+              2.0
+            ]
+          ]
+        },
+        "services": {
+          "brouter": {
+            "profil": "fastbike",
+            "renseigne": true
+          },
+          "intervals": {
+            "athlete_id": "i000000",
+            "renseigne": true
+          }
+        },
+        "tenue": {
+          "bornes_c": [
+            3.0,
+            9.0,
+            15.0,
+            22.0,
+            30.0
+          ],
+          "bornes_pluie_mmh": [
+            0.2,
+            0.5,
+            1.0
+          ],
+          "tenues": [],
+          "vent_veste_kmh": 30.0
+        },
+        "velos": [
+          {
+            "capteur_puissance": "",
+            "cda_m2": null,
+            "crr": null,
+            "facteur_compteur": null,
+            "intervals_gear": "",
+            "intervals_gear_id": "",
+            "masse_kg": null,
+            "nom": "RCR",
+            "periodes": [
+              {
+                "debut": "2026-01-01",
+                "fin": "2026-01-31"
+              }
+            ],
+            "pneu": null,
+            "usage": "route"
+          },
+          {
+            "capteur_puissance": "",
+            "cda_m2": null,
+            "crr": null,
+            "facteur_compteur": null,
+            "intervals_gear": "",
+            "intervals_gear_id": "",
+            "masse_kg": null,
+            "nom": "BMC",
+            "periodes": [
+              {
+                "debut": "2026-02-01",
+                "fin": "2026-02-28"
+              }
+            ],
+            "pneu": null,
+            "usage": "clm"
+          }
+        ]
+      },
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/profil",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "sans_session_401": {
+    "corps": {
+      "erreur": {
+        "code": "session_absente",
+        "details": {},
+        "message": "aucune session ouverte — cette route sert des données personnelles, et ce serveur ne sait pas encore à qui elles appartiennent. Se connecter (POST /api/v1/connexion) ou activer son invitation (POST /api/v1/entrer) ; pour servir un seul cycliste sur sa propre machine, lancer « ourouler api ».",
+        "service": null
+      }
+    },
+    "requete": "GET /api/v1/profil",
+    "reseau": [],
+    "statut": 401,
+    "type": "application/json"
+  }
+}
