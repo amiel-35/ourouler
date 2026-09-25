@@ -370,6 +370,8 @@ def test_systeme_porte_le_quota_du_compte_en_mode_heberge_mais_pas_en_personnel(
         "consultations_meteo": {"plafond": 9, "restant": 9},
         # L9.4 : le troisième compteur, une calibration par jour par défaut.
         "calibrations": {"plafond": 1, "restant": 1},
+        # Contre-lecture Fable du 25/09 : les imports d'historique, cinq par jour.
+        "imports": {"plafond": 5, "restant": 5},
     }
     # Aucune fuite de voisinage : pas de compteur global du cache météo dans
     # une réponse authentifiée par compte (relecture Opus, L9.3).

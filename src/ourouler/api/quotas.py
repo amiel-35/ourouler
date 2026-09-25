@@ -96,6 +96,14 @@ CONSULTATIONS_METEO_PAR_JOUR_DEFAUT = 100
 #: même le même jour ne change rien au résultat. Remboursée si elle échoue.
 CALIBRATIONS_PAR_JOUR_DEFAUT = 1
 
+#: Le plafond des **imports d'historique** (`POST /activites/import`),
+#: compteur séparé (contre-lecture Fable du 25/09/2026). Ce n'est pas
+#: Open-Meteo qui paie ici, c'est le serveur : jusqu'à 750 Mo reçus, écrits,
+#: décompressés et relus par import. **5** : de quoi déposer une archive en
+#: plusieurs fois (Q62) ou recommencer après une erreur de fichier, pas de
+#: quoi occuper le serveur toute la journée. Remboursé si l'import échoue.
+IMPORTS_PAR_JOUR_DEFAUT = 5
+
 #: Le code d'erreur du contrat (`api/erreurs.CODES_PANNE`, `Echec.tsx`) —
 #: partagé par les deux quotas : le front n'a qu'un écran à dessiner, le
 #: message dit lequel des deux plafonds est atteint.
@@ -132,6 +140,34 @@ class Quotas:
         default_factory=dict, repr=False, compare=False
     )
 
+    def refuser_si_epuise(self, proprietaire: Proprietaire) -> None:
+        """Le refus de `consommer`, sans rien décompter — pour refuser **avant** un travail.
+
+        Sert à `api/garde_avant_corps.py`, qui refuse un import avant d'en lire
+        le corps ; le décompte, lui, reste fait par la route, une fois le corps
+        reçu.
+        """
+        maintenant = self.horloge()
+        with self._verrou:
+            deja = self._compteurs.get((str(proprietaire), maintenant.date()), 0)
+        if deja >= self.plafond:
+            raise self._refus(maintenant)
+
+    def _refus(self, maintenant: datetime) -> ErreurApi:
+        liberation = _minuit_suivant(maintenant)
+        return ErreurApi(
+            code=CODE_QUOTA_ATTEINT,
+            message=(
+                f"quota journalier de {self.plafond} {self.libelle} atteint pour ce "
+                f"compte — ça se libère à {liberation.strftime('%H:%M')} UTC"
+            ),
+            statut=429,
+            details={
+                "plafond": self.plafond,
+                "reinitialisation_utc": liberation.isoformat(),
+            },
+        )
+
     def consommer(self, proprietaire: Proprietaire) -> None:
         """Décompte un crédit pour ce compte, ou refuse — jamais les deux.
 
@@ -147,19 +183,7 @@ class Quotas:
                 del self._compteurs[perimee]
             deja = self._compteurs.get(cle, 0)
             if deja >= self.plafond:
-                liberation = _minuit_suivant(maintenant)
-                raise ErreurApi(
-                    code=CODE_QUOTA_ATTEINT,
-                    message=(
-                        f"quota journalier de {self.plafond} {self.libelle} atteint pour ce "
-                        f"compte — ça se libère à {liberation.strftime('%H:%M')} UTC"
-                    ),
-                    statut=429,
-                    details={
-                        "plafond": self.plafond,
-                        "reinitialisation_utc": liberation.isoformat(),
-                    },
-                )
+                raise self._refus(maintenant)
             self._compteurs[cle] = deja + 1
 
     def rembourser(self, proprietaire: Proprietaire) -> None:
@@ -190,5 +214,6 @@ __all__ = [
     "CODE_QUOTA_ATTEINT",
     "CONSULTATIONS_METEO_PAR_JOUR_DEFAUT",
     "GENERATIONS_PAR_JOUR_DEFAUT",
+    "IMPORTS_PAR_JOUR_DEFAUT",
     "Quotas",
 ]

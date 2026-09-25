@@ -180,6 +180,11 @@ def lancer(
     return job
 
 
+def occupant() -> str | None:
+    """La nature de la tâche qui tient le verrou, ou `None` — pour nommer ce qui occupe."""
+    return _occupant[0]
+
+
 def trouver(proprietaire: str, id_job: str, nature: str = NATURE_IMPORT) -> Job | None:
     """Le job de **ce** propriétaire, de cette nature, portant cet identifiant, ou `None`."""
     with _verrou_registre:
@@ -234,5 +239,6 @@ __all__ = [
     "Job",
     "dernier",
     "lancer",
+    "occupant",
     "trouver",
 ]

@@ -106,7 +106,7 @@ def test_content_length_menteur_refuse_avant_de_lire():
 def test_un_flux_sans_content_length_est_coupe_en_cours_de_route():
     """Le cas que `Content-Length` seul ne voit pas : pas d'en-tête, plusieurs
     morceaux (`Transfer-Encoding: chunked`), et le total dépasse la borne
-    avant le dernier morceau. L'app ne doit voir aucun de ces octets."""
+    avant le dernier morceau. L'app ne reçoit jamais plus que la borne."""
     app = _AppEspion()
     middleware = LimiteTailleCorps(app, {"/api/v1/activites/import": 10})
     messages = [
@@ -115,8 +115,9 @@ def test_un_flux_sans_content_length_est_coupe_en_cours_de_route():
         {"type": "http.request", "body": b"trop", "more_body": False},
     ]
     envoyes = _executer(middleware, _scope("/api/v1/activites/import"), messages)
-    assert not app.appelee, "l'application ne doit jamais recevoir un corps qui dépasse"
+    assert len(app.corps_recu) <= 10, "l'application ne doit jamais recevoir plus que la borne"
     assert envoyes[0]["status"] == 413
+    assert len([m for m in envoyes if m["type"] == "http.response.start"]) == 1
     corps = _corps_json(envoyes)
     assert corps["erreur"]["code"] == "fichier_trop_gros"
     assert "reçus" in corps["erreur"]["message"]
@@ -153,3 +154,97 @@ def test_une_requete_websocket_traverse_sans_etre_touchee():
 
     asyncio.run(middleware(scope, receive, send))
     assert appelee
+
+
+# --- contre-lecture Fable du 25/09/2026 : rien n'est accumulé --------------------
+
+
+def test_l_application_est_appelee_avant_la_fin_du_corps():
+    """La preuve que l'intergiciel ne tamponne plus : quand l'application entre,
+    **aucun** morceau du corps n'a encore été lu — c'est elle qui les tire, un par
+    un, au travers du compteur."""
+    lus_a_l_entree: list[int] = []
+    lus = 0
+
+    async def receive() -> dict:
+        nonlocal lus
+        lus += 1
+        return {"type": "http.request", "body": b"x" * 10, "more_body": lus < 5}
+
+    async def app(scope, recevoir, send) -> None:
+        lus_a_l_entree.append(lus)
+        while (await recevoir()).get("more_body"):
+            pass
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    envoyes: list[dict] = []
+
+    async def send(message: dict) -> None:
+        envoyes.append(message)
+
+    middleware = LimiteTailleCorps(app, {"/api/v1/activites/import": 1000})
+    asyncio.run(middleware(_scope("/api/v1/activites/import"), receive, send))
+    assert lus_a_l_entree == [0], "l'application doit être appelée avant tout morceau lu"
+    assert lus == 5
+    assert envoyes[0]["status"] == 200
+
+
+def test_la_memoire_ne_croit_pas_avec_le_corps():
+    """300 morceaux de 1 Mo (la preuve de la contre-lecture) : l'ancienne version
+    les gardait tous avant d'appeler l'application, un pic de 300 Mo. Le pic
+    doit maintenant rester de l'ordre d'un morceau."""
+    import tracemalloc
+
+    morceau = 1 << 20
+    n = 300
+    restants = n
+
+    async def receive() -> dict:
+        nonlocal restants
+        restants -= 1
+        return {"type": "http.request", "body": bytes(morceau), "more_body": restants > 0}
+
+    async def app(scope, recevoir, send) -> None:
+        while (await recevoir()).get("more_body"):
+            pass  # l'application consomme et jette, comme un parseur qui écrit ailleurs
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    async def send(message: dict) -> None:
+        pass
+
+    middleware = LimiteTailleCorps(app, {"/api/v1/activites/import": 2 * n * morceau})
+    tracemalloc.start()
+    try:
+        asyncio.run(middleware(_scope("/api/v1/activites/import"), receive, send))
+        _, pic = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert pic < 10 * morceau, f"pic mémoire {pic / morceau:.0f} Mo pour {n} Mo reçus"
+
+
+def test_la_reponse_de_l_application_sur_un_corps_coupe_devient_un_413():
+    """FastAPI rattrape l'exception levée pendant la lecture du corps et répond
+    400 : c'est ce 400 que l'intergiciel remplace par le 413 qui dit pourquoi."""
+
+    async def receive() -> dict:
+        return {"type": "http.request", "body": b"x" * 8, "more_body": True}
+
+    async def app(scope, recevoir, send) -> None:
+        try:
+            while True:
+                await recevoir()
+        except Exception:  # noqa: BLE001 — imite FastAPI
+            await send({"type": "http.response.start", "status": 400, "headers": []})
+            await send({"type": "http.response.body", "body": b"There was an error"})
+
+    envoyes: list[dict] = []
+
+    async def send(message: dict) -> None:
+        envoyes.append(message)
+
+    middleware = LimiteTailleCorps(app, {"/api/v1/activites/import": 20})
+    asyncio.run(middleware(_scope("/api/v1/activites/import"), receive, send))
+    assert [m["status"] for m in envoyes if m["type"] == "http.response.start"] == [413]
+    assert _corps_json(envoyes)["erreur"]["code"] == "fichier_trop_gros"

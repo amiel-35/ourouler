@@ -50,10 +50,12 @@ from ourouler.api.depots import (
     SocleVide,
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
+from ourouler.api.garde_avant_corps import GardeAvantCorps
 from ourouler.api.limite_corps import LimiteTailleCorps
 from ourouler.api.quotas import (
     CALIBRATIONS_PAR_JOUR_DEFAUT,
     CONSULTATIONS_METEO_PAR_JOUR_DEFAUT,
+    IMPORTS_PAR_JOUR_DEFAUT,
     Quotas,
 )
 from ourouler.api.routes import TAILLE_MAX_SEANCE, Clients, Contexte, reponse_erreur, routeur
@@ -159,6 +161,7 @@ def creer_application(
     quotas: Quotas | None = None,
     quotas_meteo: Quotas | None = None,
     quotas_calibration: Quotas | None = None,
+    quotas_import: Quotas | None = None,
     session: FournisseurSession | None = None,
     dossier_front: Path | None = None,
 ) -> FastAPI:
@@ -277,10 +280,15 @@ def creer_application(
         or Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo"),
         quotas_calibration=quotas_calibration
         or Quotas(plafond=CALIBRATIONS_PAR_JOUR_DEFAUT, libelle="calibration(s)"),
+        quotas_import=quotas_import
+        or Quotas(plafond=IMPORTS_PAR_JOUR_DEFAUT, libelle="import(s) d'historique"),
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
     app.add_middleware(LimiteTailleCorps, bornes=BORNES_CORPS)
+    # Ajouté après, donc **extérieur** : les refus qui se savent sans le
+    # corps (session, verrou, quota) passent avant qu'on en compte un octet.
+    app.add_middleware(GardeAvantCorps)
 
     @app.get("/sante", include_in_schema=False)
     def _sonde_sante() -> dict:

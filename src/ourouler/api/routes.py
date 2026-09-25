@@ -220,6 +220,10 @@ class Contexte:
     quotas_meteo: Quotas
     #: Quota journalier des calibrations (L9.4), une par jour par défaut.
     quotas_calibration: Quotas
+    #: Quota journalier des imports d'historique (contre-lecture Fable du
+    #: 25/09/2026) — cinq par jour par défaut, vérifié aussi **avant** la
+    #: lecture du corps (`api/garde_avant_corps.py`).
+    quotas_import: Quotas
     journal: JournalServices
     #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
@@ -626,6 +630,10 @@ def systeme(
             "calibrations": {
                 "plafond": ctx.quotas_calibration.plafond,
                 "restant": ctx.quotas_calibration.restant(qui),
+            },
+            "imports": {
+                "plafond": ctx.quotas_import.plafond,
+                "restant": ctx.quotas_import.restant(qui),
             },
         }
     # **Les compteurs du cache météo ne sortent plus ici** (relecture
@@ -1268,10 +1276,21 @@ def importer_activites(
     config = _config(ctx, qui)
     cache = _cache(config, qui)
 
-    depots = _copier_en_temporaires(fichiers)
+    _verifier_quota(ctx, qui, ctx.quotas_import)
     try:
-        job = imports_fond.lancer(cache, str(qui), depots)
+        depots = _copier_en_temporaires(fichiers)
+    except Exception:
+        _rembourser_quota(ctx, qui, ctx.quotas_import)
+        raise
+    try:
+        job = imports_fond.lancer(
+            cache,
+            str(qui),
+            depots,
+            au_echec=lambda: _rembourser_quota(ctx, qui, ctx.quotas_import),
+        )
     except imports_fond.ErreurImportEnCours as occupe:
+        _rembourser_quota(ctx, qui, ctx.quotas_import)
         for _, chemin in depots:
             chemin.unlink(missing_ok=True)
         raise ErreurApi(

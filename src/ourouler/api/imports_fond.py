@@ -36,6 +36,7 @@ que `api/routes.py` lui passe.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
@@ -54,7 +55,13 @@ from ourouler.api.taches_fond import lancer as _lancer_tache
 from ourouler.api.taches_fond import trouver as _trouver_tache
 
 
-def lancer(cache: Cache, proprietaire: str, depots: list[tuple[str, Path]]) -> Job:
+def lancer(
+    cache: Cache,
+    proprietaire: str,
+    depots: list[tuple[str, Path]],
+    *,
+    au_echec: Callable[[], None] | None = None,
+) -> Job:
     """Démarre un import en tâche de fond. Lève `ErreurImportEnCours` si une tâche lourde tourne.
 
     `depots` : `[(nom, chemin)]` — des chemins de fichiers déjà sur disque
@@ -82,7 +89,9 @@ def lancer(cache: Cache, proprietaire: str, depots: list[tuple[str, Path]]) -> J
         for _, chemin in depots:
             chemin.unlink(missing_ok=True)
 
-    return _lancer_tache(proprietaire, NATURE_IMPORT, travailler, enfin=effacer_depots)
+    return _lancer_tache(
+        proprietaire, NATURE_IMPORT, travailler, au_echec=au_echec, enfin=effacer_depots
+    )
 
 
 def trouver(proprietaire: str, id_job: str) -> Job | None:

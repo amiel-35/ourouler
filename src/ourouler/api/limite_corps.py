@@ -6,16 +6,32 @@ ment (ou qui envoie en `Transfer-Encoding: chunked`, sans `Content-Length`
 du tout) les traverse sans être vu, et Starlette a déjà écrit le corps
 multipart entier dans un fichier temporaire avant que la route ne s'exécute
 et ne compte quoi que ce soit. C'est le trou que cet intergiciel ferme : il
-compte les octets **au fil de l'eau**, avant que `self.app` (donc le
-parseur multipart de Starlette, donc son écriture sur disque) n'en voie un
-seul — dès que le total dépasse la borne de la route, il répond 413
-lui-même et n'appelle jamais l'application.
+compte les octets **au fil de l'eau**, à mesure que le parseur multipart de
+Starlette les lit, et coupe la lecture au premier octet au-delà de la borne
+de la route — Starlette n'a alors jamais écrit plus que la borne — puis
+répond 413 lui-même.
 
 Volontairement **pas** un `starlette.middleware.base.BaseHTTPMiddleware` :
 il attend le corps entier avant de rendre la main à l'appelant, ce qui
-charge en mémoire exactement ce qu'on veut éviter d'écrire sur disque. Ici,
-ASGI brut — `receive()` enveloppé, rejoué à l'application une fois le total
-vérifié en dessous de la borne.
+charge en mémoire exactement ce qu'on veut éviter d'écrire sur disque.
+
+**Et rien n'est accumulé ici non plus** (contre-lecture Fable du 25/09/2026).
+La première version égrenait tout le corps, le gardait en mémoire pour le
+rejouer, et n'appelait l'application qu'après le dernier morceau : 300
+morceaux de 1 Mo, un pic de 300 Mo avant que Starlette n'ait vu un octet —
+la borne protégeait le disque en sacrifiant la mémoire. Maintenant
+l'application est appelée **tout de suite**, avec un `receive()` enveloppé
+qui compte au fil de l'eau et lève `_CorpsTropGros` dès que le total passe
+la borne. Le parseur multipart s'arrête là ; ce qu'il a déjà écrit est à lui
+de le nettoyer (Starlette referme ses fichiers temporaires).
+
+**Le refus reste un 413 lisible.** FastAPI traduit toute exception levée
+pendant la lecture du corps en un 400 « There was an error parsing the
+body » : l'exception ne remonte donc pas toujours jusqu'ici. `send()` est
+enveloppé lui aussi : une fois la borne dépassée, la réponse de
+l'application est jetée et remplacée par le 413 — tant qu'aucun octet de
+réponse n'est parti, ce qui est toujours le cas quand c'est la lecture du
+corps qui échoue.
 """
 
 from __future__ import annotations
@@ -25,6 +41,14 @@ from collections.abc import Awaitable, Callable, Mapping
 
 Receive = Callable[[], Awaitable[dict]]
 Send = Callable[[dict], Awaitable[None]]
+
+
+class _CorpsTropGros(Exception):  # noqa: N818 — un signal interne, jamais montré
+    """Levée par le `receive()` enveloppé au premier octet de trop."""
+
+    def __init__(self, mesure: int) -> None:
+        super().__init__(mesure)
+        self.mesure = mesure
 
 
 class LimiteTailleCorps:
@@ -53,44 +77,52 @@ class LimiteTailleCorps:
             return
 
         # **`Content-Length` d'abord** : un refus avant de lire le moindre
-        # octet quand le client l'annonce lui-même au-delà de la borne —
-        # même geste que `_refuser_import_sur_la_taille_annoncee`, mais ici
-        # posé une fois pour toute route bornée plutôt que réécrit par route.
+        # octet quand le client l'annonce lui-même au-delà de la borne.
         annonce = _content_length(scope)
         if annonce is not None and annonce > plafond:
             await _413(send, annonce, plafond, mode="annoncés")
             return
 
-        # **Puis le flux réel** : `Content-Length` peut mentir, ou manquer
-        # (`Transfer-Encoding: chunked`). On égrène les messages du corps
-        # nous-mêmes, on compte, et on coupe dès que le total dépasse la
-        # borne — avant que `self.app` (donc Starlette, donc son écriture
-        # sur disque) n'en voie un octet de trop. Tout est gardé pour être
-        # rejoué : c'est ce qui évite de charger le corps entier avant de le
-        # transmettre, tout en restant capable de couper en cours de route.
-        messages: list[dict] = []
+        # **Puis le flux réel**, compté au fil de l'eau — `Content-Length`
+        # peut mentir, ou manquer (`Transfer-Encoding: chunked`). Rien n'est
+        # gardé : chaque morceau passe à l'application dès qu'il arrive.
         total = 0
-        while True:
+        depasse: int | None = None
+        reponse_partie = False
+        refus_envoye = False
+
+        async def compter() -> dict:
+            nonlocal total, depasse
+            if depasse is not None:
+                raise _CorpsTropGros(depasse)
             message = await receive()
-            if message.get("type") != "http.request":
-                messages.append(message)
-                break
-            total += len(message.get("body") or b"")
-            if total > plafond:
-                await _413(send, total, plafond, mode="reçus")
+            if message.get("type") == "http.request":
+                total += len(message.get("body") or b"")
+                if total > plafond:
+                    depasse = total
+                    raise _CorpsTropGros(total)
+            return message
+
+        async def envoyer(message: dict) -> None:
+            nonlocal reponse_partie, refus_envoye
+            if depasse is not None and not reponse_partie:
+                # La réponse que l'application fabrique sur un corps coupé
+                # (un 400 de FastAPI, le plus souvent) est remplacée par le
+                # 413 qui dit ce qui s'est passé.
+                if not refus_envoye:
+                    refus_envoye = True
+                    await _413(send, depasse, plafond, mode="reçus")
                 return
-            messages.append(message)
-            if not message.get("more_body", False):
-                break
+            if message.get("type") == "http.response.start":
+                reponse_partie = True
+            await send(message)
 
-        file_dattente = list(messages)
-
-        async def rejouer() -> dict:
-            if file_dattente:
-                return file_dattente.pop(0)
-            return await receive()
-
-        await self.app(scope, rejouer, send)
+        try:
+            await self.app(scope, compter, envoyer)
+        except _CorpsTropGros:
+            pass
+        if depasse is not None and not refus_envoye and not reponse_partie:
+            await _413(send, depasse, plafond, mode="reçus")
 
 
 def _content_length(scope: dict) -> int | None:
@@ -109,7 +141,7 @@ async def _413(send: Send, mesure: int, plafond: int, *, mode: str) -> None:
             "erreur": {
                 "code": "fichier_trop_gros",
                 "message": f"{mesure} octets {mode} — cette route n'en prend pas plus de "
-                f"{plafond}, la requête est coupée avant d'être écrite sur disque",
+                f"{plafond}, la lecture est coupée à la borne",
                 "service": None,
                 "details": {},
             }
