@@ -1,6 +1,6 @@
 [project]
 name = "ourouler"
-version = "0.9.4"
+version = "0.9.5"
 description = "Où rouler ? Météo par direction, tracé et séance pour cyclistes — CLI et bibliothèque."
 readme = "README.md"
 license = "AGPL-3.0-or-later"

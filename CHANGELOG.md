@@ -21,6 +21,14 @@ partir des PR.
 
 ## [Non publié]
 
+## [0.9.5] — 2026-09-25
+
+### Corrigé
+
+- Dans Réglages, l'enregistrement de la clé intervals.icu dit juste sous le
+  bouton si la clé est vérifiée ou pourquoi elle est refusée ; le message
+  s'affichait en haut de l'écran, hors de vue sur téléphone. (#37)
+
 ## [0.9.4] — 2026-09-25
 
 ### Corrigé
