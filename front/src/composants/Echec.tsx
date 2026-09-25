@@ -324,6 +324,11 @@ export function Echec({
     route_inconnue: "Cette route de l'API n'existe pas",
     methode_refusee: "Cette route n'accepte pas cette méthode",
     calcul_en_cours: "Un calcul occupe déjà le serveur",
+    // L9.3 : un compte hébergé qui a épuisé son quota du jour. Le message de
+    // l'API dit déjà quand ça se libère (minuit UTC) — pas de bouton
+    // « réessayer » ici (absent de `reessayable`, `api/client.ts`) : un
+    // nouvel essai immédiat échouera pareil.
+    quota_atteint: "Quota quotidien atteint",
     brouter_indisponible: "Le traceur ne répond pas",
     intervals_indisponible: "intervals.icu est en panne",
     geocodage_indisponible: "L'annuaire d'adresses ne répond pas",
