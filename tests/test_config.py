@@ -720,6 +720,7 @@ def test_facteur_compteur_de_type_inattendu():
         depuis_dict({**BASE, "velos": [{"nom": "Route", "facteur_compteur": "rapide"}]})
 
 
+@pytest.mark.cache_machine
 def test_le_cache_par_defaut_est_un_chemin_absolu():
     """Le `~` se développe dans `config.py`, et nulle part ailleurs.
 
