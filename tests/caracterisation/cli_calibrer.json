@@ -1,0 +1,103 @@
+{
+  "argv": [
+    "calibrer",
+    "--json",
+    "--velo",
+    "RCR"
+  ],
+  "code": 0,
+  "fichiers_ecrits": {},
+  "reseau": [
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-01&latitude=0.0000&longitude=0.0000&start_date=2026-01-01&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-02&latitude=0.0000&longitude=0.0000&start_date=2026-01-02&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-03&latitude=0.0000&longitude=0.0000&start_date=2026-01-03&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-04&latitude=0.0000&longitude=0.0000&start_date=2026-01-04&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-05&latitude=0.0000&longitude=0.0000&start_date=2026-01-05&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-06&latitude=0.0000&longitude=0.0000&start_date=2026-01-06&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-07&latitude=0.0000&longitude=0.0000&start_date=2026-01-07&timezone=UTC",
+    "GET archive-api.open-meteo.com/v1/archive?end_date=2026-01-08&latitude=0.0000&longitude=0.0000&start_date=2026-01-08&timezone=UTC"
+  ],
+  "stderr": "",
+  "stdout": {
+    "ajustement": {
+      "avertissements": [],
+      "bornes_atteintes": [],
+      "cda_incertitude": 0.00100243,
+      "cda_m2": 0.312175,
+      "crr": 0.00440186,
+      "crr_fixe": false,
+      "crr_incertitude": 5.44814e-05,
+      "crr_source": "ajuste",
+      "mae_w": 0.448358,
+      "masse_totale_kg": 100.0,
+      "n_echantillons": 564,
+      "n_solo": 0,
+      "part_groupe_max": 0.3,
+      "pneu": null,
+      "repli_solo": null,
+      "resistance": [
+        {
+          "force_n": 15.07,
+          "puissance_w": 115.8,
+          "v_kmh": 27.0
+        },
+        {
+          "force_n": 22.39,
+          "puissance_w": 223.0,
+          "v_kmh": 35.0
+        }
+      ],
+      "rho_moyen": 1.22498,
+      "rmse_w": 0.509494
+    },
+    "apprentissage": {
+      "echantillons": 618,
+      "echantillons_retenus": 564,
+      "echantillons_sans_vent": 0,
+      "groupes": [],
+      "motifs": {
+        "départ": 54
+      },
+      "n_sorties": 6
+    },
+    "archives": {
+      "appels": 8,
+      "cache": 0
+    },
+    "depuis": "2026-01-01",
+    "fichier": "<TMP>/cache/calibration.json",
+    "passe1": {
+      "cda_m2": 0.312175,
+      "crr": 0.00440186
+    },
+    "porte_a_porte": null,
+    "sorties_calibrables": 8,
+    "sorties_ecartees": {},
+    "validation": {
+      "biais": -0.000278591,
+      "groupes": [],
+      "mae": 0.000278591,
+      "mediane": 0.000278591,
+      "n": 2,
+      "sorties": [
+        {
+          "distance_km": 24.19,
+          "erreur_relative": -0.0003,
+          "jour": "2026-01-07",
+          "nom": "<TMP>/cache/brut/<HEX>.tcx",
+          "temps_reel_s": 2595,
+          "temps_simule_s": 2594
+        },
+        {
+          "distance_km": 24.19,
+          "erreur_relative": -0.0003,
+          "jour": "2026-01-08",
+          "nom": "<TMP>/cache/brut/<HEX>.tcx",
+          "temps_reel_s": 2595,
+          "temps_simule_s": 2594
+        }
+      ]
+    },
+    "velo": "RCR"
+  }
+}

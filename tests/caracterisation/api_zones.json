@@ -1,0 +1,209 @@
+{
+  "apercu": {
+    "corps": {
+      "donnees": {
+        "ftp_w": 200.0,
+        "hors_bande": true,
+        "position_zone": 1.789474,
+        "valeurs_liees": {
+          "facteur_compteur": 0.847,
+          "facteur_mesure": false,
+          "facteur_provenance": "suppose",
+          "hors_bande": true,
+          "modele_physique": "littérature",
+          "moyenne_compteur_kmh": 25.3,
+          "position_zone": 1.789474,
+          "puissance_endurance_pct": 0.9,
+          "puissance_endurance_w": 180.0,
+          "velo": "RCR",
+          "vitesse_a_plat_kmh": 29.9
+        },
+        "zone_endurance": 2,
+        "zones": [
+          {
+            "bas_pct": 0.0,
+            "bas_w": 0.0,
+            "haut_pct": 0.55,
+            "haut_w": 110.0,
+            "numero": 1,
+            "ouverte": true,
+            "puissance_w": null
+          },
+          {
+            "bas_pct": 0.56,
+            "bas_w": 112.0,
+            "haut_pct": 0.75,
+            "haut_w": 150.0,
+            "numero": 2,
+            "ouverte": false,
+            "puissance_w": 180.0
+          },
+          {
+            "bas_pct": 0.76,
+            "bas_w": 152.0,
+            "haut_pct": 0.9,
+            "haut_w": 180.0,
+            "numero": 3,
+            "ouverte": false,
+            "puissance_w": 202.1
+          },
+          {
+            "bas_pct": 0.91,
+            "bas_w": 182.0,
+            "haut_pct": 1.05,
+            "haut_w": 210.0,
+            "numero": 4,
+            "ouverte": false,
+            "puissance_w": 232.1
+          },
+          {
+            "bas_pct": 1.06,
+            "bas_w": 212.0,
+            "haut_pct": 1.2,
+            "haut_w": 240.0,
+            "numero": 5,
+            "ouverte": false,
+            "puissance_w": 262.1
+          },
+          {
+            "bas_pct": 1.21,
+            "bas_w": 242.0,
+            "haut_pct": 1.5,
+            "haut_w": 300.0,
+            "numero": 6,
+            "ouverte": false,
+            "puissance_w": 345.8
+          },
+          {
+            "bas_pct": 1.51,
+            "bas_w": 302.0,
+            "haut_pct": 2.0,
+            "haut_w": 400.0,
+            "numero": 7,
+            "ouverte": true,
+            "puissance_w": null
+          }
+        ]
+      },
+      "proprietaire": "local"
+    },
+    "requete": "POST /api/v1/profil/zones/apercu",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "apercu_invalide_422": {
+    "corps": {
+      "erreur": {
+        "code": "requete_invalide",
+        "details": {
+          "champs": [
+            {
+              "champ": "body.puissance_w",
+              "motif": "Input should be a valid number, unable to parse string as a number"
+            }
+          ]
+        },
+        "message": "requête mal formée : « body.puissance_w » — valeur absente ou hors des bornes attendues (le détail par champ est dans « details »)",
+        "service": null
+      }
+    },
+    "requete": "POST /api/v1/profil/zones/apercu",
+    "reseau": [],
+    "statut": 422,
+    "type": "application/json"
+  },
+  "zones": {
+    "corps": {
+      "donnees": {
+        "ftp_w": 200.0,
+        "hors_bande": false,
+        "position_zone": 0.210526,
+        "valeurs_liees": {
+          "facteur_compteur": 0.792,
+          "facteur_mesure": false,
+          "facteur_provenance": "suppose",
+          "hors_bande": false,
+          "modele_physique": "littérature",
+          "moyenne_compteur_kmh": 20.0,
+          "position_zone": 0.210526,
+          "puissance_endurance_pct": 0.6,
+          "puissance_endurance_w": 120.0,
+          "velo": "RCR",
+          "vitesse_a_plat_kmh": 25.2
+        },
+        "zone_endurance": 2,
+        "zones": [
+          {
+            "bas_pct": 0.0,
+            "bas_w": 0.0,
+            "haut_pct": 0.55,
+            "haut_w": 110.0,
+            "numero": 1,
+            "ouverte": true,
+            "puissance_w": null
+          },
+          {
+            "bas_pct": 0.56,
+            "bas_w": 112.0,
+            "haut_pct": 0.75,
+            "haut_w": 150.0,
+            "numero": 2,
+            "ouverte": false,
+            "puissance_w": 120.0
+          },
+          {
+            "bas_pct": 0.76,
+            "bas_w": 152.0,
+            "haut_pct": 0.9,
+            "haut_w": 180.0,
+            "numero": 3,
+            "ouverte": false,
+            "puissance_w": 157.9
+          },
+          {
+            "bas_pct": 0.91,
+            "bas_w": 182.0,
+            "haut_pct": 1.05,
+            "haut_w": 210.0,
+            "numero": 4,
+            "ouverte": false,
+            "puissance_w": 187.9
+          },
+          {
+            "bas_pct": 1.06,
+            "bas_w": 212.0,
+            "haut_pct": 1.2,
+            "haut_w": 240.0,
+            "numero": 5,
+            "ouverte": false,
+            "puissance_w": 217.9
+          },
+          {
+            "bas_pct": 1.21,
+            "bas_w": 242.0,
+            "haut_pct": 1.5,
+            "haut_w": 300.0,
+            "numero": 6,
+            "ouverte": false,
+            "puissance_w": 254.2
+          },
+          {
+            "bas_pct": 1.51,
+            "bas_w": 302.0,
+            "haut_pct": 2.0,
+            "haut_w": 400.0,
+            "numero": 7,
+            "ouverte": true,
+            "puissance_w": null
+          }
+        ]
+      },
+      "proprietaire": "local"
+    },
+    "requete": "GET /api/v1/profil/zones",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/json"
+  }
+}
