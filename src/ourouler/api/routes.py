@@ -463,23 +463,32 @@ def etat_invitation(ctx: Ctx, jeton: Annotated[TexteUtile, Query(min_length=1, m
     with base_de_donnees.ouvrir(url) as cx:
         etat = DepotComptes(cx).invitation_ouverte(jeton)
     if etat is None:
-        raise ErreurApi(code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=404)
+        raise ErreurApi(code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=404)
     return {"donnees": {"email": etat.email, "expire_le": etat.expire_le.isoformat()}}
 
 
-#: Ce que les deux routes du jeton d'invitation répondent quand il ne vaut
-#: rien — **le même texte, quel que soit le motif**. Distinguer « n'existe
-#: pas », « a expiré le 02/09 » et « a déjà servi » renseigne qui tient un
-#: jeton périmé sur le fait qu'il a bel et bien été émis, et sur sa date
-#: exacte. `GET /invitation` avait été écrite ainsi ; `POST /entrer` laissait
-#: passer le message détaillé de `comptes._invitation_refusee`, et rouvrait
-#: donc la porte qu'on venait de fermer (relecture du 19/09/2026).
+#: Ce que les trois routes qui consomment un jeton de la table `invitations`
+#: répondent quand il ne vaut rien — **le même texte, quel que soit le
+#: motif, et quel que soit le flux**. Distinguer « n'existe pas », « a
+#: expiré le 02/09 » et « a déjà servi » renseigne qui tient un jeton périmé
+#: sur le fait qu'il a bel et bien été émis, et sur sa date exacte. `GET
+#: /invitation` avait été écrite ainsi ; `POST /entrer` laissait passer le
+#: message détaillé de `comptes._invitation_refusee`, et rouvrait donc la
+#: porte qu'on venait de fermer (relecture du 19/09/2026).
+#:
+#: **Neutre, pas « d'invitation »** (relecture du 25/09/2026, point 2) :
+#: `POST /reinitialiser` consomme un jeton de la même table pour un usage
+#: différent (choisir un nouveau mot de passe, pas créer un compte) — un
+#: texte qui parle d'« invitation » à quelqu'un qui réinitialise son mot de
+#: passe décrit le mauvais geste. Le code (`invitation_invalide`) ne change
+#: pas : les deux flux restent indistinguables l'un de l'autre, seul le mot
+#: choisi dans le message change.
 #:
 #: Les messages détaillés ne disparaissent pas pour autant : ils restent ce
 #: que `DepotComptes` lève, et ce que la ligne de commande affiche au
 #: mainteneur — qui a le droit de savoir *pourquoi*, puisque c'est lui qui a
 #: émis le lien.
-MESSAGE_INVITATION_REFUSEE = "ce lien d'invitation n'est plus valable — inconnu, expiré ou déjà utilisé"
+MESSAGE_LIEN_INVALIDE = "ce lien n'est plus valable — inconnu, expiré ou déjà utilisé"
 
 
 @routeur.post("/entrer")
@@ -500,9 +509,9 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
         try:
             acces = depot.activer(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
-            # Le motif est perdu **exprès** : voir MESSAGE_INVITATION_REFUSEE.
+            # Le motif est perdu **exprès** : voir MESSAGE_LIEN_INVALIDE.
             raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
+                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
             ) from e
         except Exception as e:
             raise classer(e) from e
@@ -521,7 +530,7 @@ def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -
     décision du mainteneur : voir la note de module de `DepotComptes.reinitialiser`,
     `api/comptes.py`). Seul `ourouler reinitialiser`, en ligne de commande, en émet un ;
     cette route-ci ne fait que le consommer — même mécanique que `POST /entrer` pour un
-    jeton d'invitation, même refus indistinguable (`MESSAGE_INVITATION_REFUSEE`) pour un
+    jeton d'invitation, même refus indistinguable (`MESSAGE_LIEN_INVALIDE`) pour un
     jeton inconnu, expiré ou déjà utilisé.
     """
     url = _url_comptes(ctx)
@@ -531,7 +540,7 @@ def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -
             acces = depot.changer_mot_de_passe_par_jeton(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
             raise ErreurApi(
-                code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
+                code="invitation_invalide", message=MESSAGE_LIEN_INVALIDE, statut=400
             ) from e
         except Exception as e:
             raise classer(e) from e
