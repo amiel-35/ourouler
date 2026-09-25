@@ -257,6 +257,27 @@ export interface FicheFichier {
   url: string;
 }
 
+/** Un motif de dépôt ignoré, groupé — `POST /activites/import` (L9.2). */
+export interface MotifIgnore {
+  motif: string;
+  nombre: number;
+  exemples: string[];
+}
+
+/** Ce que rend `POST /activites/import` : fichiers isolés ou archive Strava/Garmin. */
+export interface RapportImport {
+  importees: number;
+  doublons: number;
+  ignorees: MotifIgnore[];
+}
+
+/** Ce que rend `GET /activites/import` : l'état du dépôt pour ce cycliste. */
+export interface EtatImport {
+  nombre: number;
+  premiere: string | null;
+  derniere: string | null;
+}
+
 /**
  * Le GPX d'une proposition (Q40 g). Pas d'`id` : ce n'est pas un fichier
  * rangé quelque part, c'est une adresse qui le fabrique à l'appel — rien
