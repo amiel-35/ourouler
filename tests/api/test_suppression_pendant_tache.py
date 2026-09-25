@@ -132,3 +132,62 @@ def test_une_tache_qui_ne_s_arrete_pas_empeche_l_effacement(tmp_path: Path, monk
     finally:
         relache.set()
         assert job._termine.wait(5)
+
+
+def test_un_lancement_a_cheval_sur_la_suppression_est_attendu_ou_refuse(monkeypatch):
+    """Relecture du 25/09/2026 : un `lancer` qui a passé le contrôle de
+    suspension juste avant `suspendre` ne doit pas entrer au registre après
+    `annuler_et_attendre`. On le fige au milieu de `lancer` (la fabrication
+    de son identifiant) pendant que la suppression démarre ; la tâche, comme
+    les vraies, vérifie l'annulation avant d'écrire."""
+    import threading
+    import uuid
+
+    fige, reprend, efface = threading.Event(), threading.Event(), threading.Event()
+    vrai = uuid.uuid4
+
+    def lent():
+        fige.set()
+        reprend.wait(5)
+        return vrai()
+
+    monkeypatch.setattr(taches_fond.uuid, "uuid4", lent)
+    ecritures_apres_effacement: list[bool] = []
+
+    def travail(job):
+        job.verifier_annulation()
+        ecritures_apres_effacement.append(efface.is_set())
+
+    def lanceur() -> None:
+        try:
+            job = taches_fond.lancer(A, taches_fond.NATURE_IMPORT, travail)
+            job._termine.wait(5)
+        except taches_fond.ErreurTacheEnCours:
+            pass
+
+    def effaceur() -> None:
+        with taches_fond.suspendre(A):
+            assert taches_fond.annuler_et_attendre(A, 5)
+            efface.set()  # ici commence l'effacement : plus rien ne doit écrire
+            time.sleep(0.2)
+
+    fil_l = threading.Thread(target=lanceur)
+    fil_l.start()
+    assert fige.wait(5)
+    fil_e = threading.Thread(target=effaceur)
+    fil_e.start()
+    time.sleep(0.1)
+    reprend.set()
+    fil_l.join(5)
+    fil_e.join(5)
+    assert True not in ecritures_apres_effacement
+
+
+def test_deux_suppressions_simultanees_la_premiere_finie_ne_leve_pas_la_suspension():
+    with taches_fond.suspendre(A):
+        with taches_fond.suspendre(A):
+            pass
+        with pytest.raises(taches_fond.ErreurTacheEnCours):
+            taches_fond.lancer(A, taches_fond.NATURE_IMPORT, lambda job: None)
+    job = taches_fond.lancer(A, taches_fond.NATURE_IMPORT, lambda job: None)
+    assert job._termine.wait(5)

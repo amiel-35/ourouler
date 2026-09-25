@@ -175,8 +175,10 @@ _jobs: dict[str, Job] = {}
 #: La nature de la tâche qui tient `VERROU`, pour nommer ce qui occupe le serveur.
 _occupant: list[str | None] = [None]
 #: Les propriétaires dont le compte est en train d'être effacé : aucune tâche
-#: ne se lance pour eux (`suspendre`).
-_suspendus: set[str] = set()
+#: ne se lance pour eux (`suspendre`). Un **compte** d'effacements en cours
+#: et non un ensemble : deux `DELETE /moi` simultanés du même compte, le
+#: premier qui finit levait la suspension pendant que le second effaçait.
+_suspendus: dict[str, int] = {}
 
 
 def lancer(
@@ -194,14 +196,19 @@ def lancer(
     quand il lève — c'est là qu'un quota consommé se rembourse ; `enfin`
     toujours, après — c'est là que des fichiers temporaires s'effacent.
     """
+    # Contrôle de suspension, prise du verrou et entrée au registre **d'un
+    # seul tenant** (relecture du 25/09/2026) : séparés, un lancement qui
+    # avait passé le contrôle juste avant `suspendre` entrait au registre
+    # juste après `annuler_et_attendre`, qui ne l'avait donc pas attendu — et
+    # la tâche écrivait pour un compte effacé. `VERROU.acquire` ne bloque
+    # pas : le tenir sous `_verrou_registre` ne fait attendre personne.
     with _verrou_registre:
-        if proprietaire in _suspendus:
+        if _suspendus.get(proprietaire):
             raise ErreurTacheEnCours(None)
-    if not VERROU.acquire(blocking=False):
-        raise ErreurTacheEnCours(_occupant[0])
-    _occupant[0] = nature
-    job = Job(id=uuid.uuid4().hex, proprietaire=proprietaire, nature=nature, sujet=sujet)
-    with _verrou_registre:
+        if not VERROU.acquire(blocking=False):
+            raise ErreurTacheEnCours(_occupant[0])
+        _occupant[0] = nature
+        job = Job(id=uuid.uuid4().hex, proprietaire=proprietaire, nature=nature, sujet=sujet)
         _jobs[job.id] = job
         _purger()
 
@@ -256,9 +263,11 @@ def annuler_et_attendre(proprietaire: str, delai_s: float = 120.0) -> bool:
     l'historique du mainteneur).
     """
     with _verrou_registre:
+        # `_termine` et non `statut` : un job « fini » n'a pas encore rendu
+        # la main tant que son `au_echec` et son `enfin` tournent.
         en_cours = [
             j for j in _jobs.values()
-            if j.proprietaire == proprietaire and j.statut == STATUT_EN_COURS
+            if j.proprietaire == proprietaire and not j._termine.is_set()
         ]
     for job in en_cours:
         job._annule.set()
@@ -279,11 +288,15 @@ class suspendre:  # noqa: N801 — s'emploie comme une fonction : `with suspendr
 
     def __enter__(self) -> None:
         with _verrou_registre:
-            _suspendus.add(self.proprietaire)
+            _suspendus[self.proprietaire] = _suspendus.get(self.proprietaire, 0) + 1
 
     def __exit__(self, *exc: object) -> bool:
         with _verrou_registre:
-            _suspendus.discard(self.proprietaire)
+            reste = _suspendus.get(self.proprietaire, 1) - 1
+            if reste > 0:
+                _suspendus[self.proprietaire] = reste
+            else:
+                _suspendus.pop(self.proprietaire, None)
         return False
 
 

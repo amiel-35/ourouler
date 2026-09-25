@@ -217,6 +217,26 @@ def test_la_calibration_de_a_n_affecte_jamais_b(tmp_path: Path):
     assert "calibration" not in json.dumps(apres, ensure_ascii=False)
 
 
+def test_un_compte_heberge_ne_lit_jamais_la_calibration_commune(tmp_path: Path):
+    """Un `calibration.json` dans le cache du serveur (celui de la ligne de
+    commande) nomme un vélo « Route » ; B a un « Route » lui aussi, jamais
+    calibré. Ni son état de calibration ni son écran de FTP ne doivent le voir."""
+    client = _serveur(tmp_path)
+    _activer(client, B, _profil())
+    commun = tmp_path / "cache" / physique.NOM_CALIBRATION
+    commun.parent.mkdir(parents=True, exist_ok=True)
+    commun.write_text(
+        json.dumps({"version": physique.VERSION_CALIBRATION, "velos": {"Route": {
+            "cda_m2": 0.9, "crr": 0.02, "masse_totale_kg": 100.0, "rendement": 0.97,
+            "rho": 1.2, "date": "2026-01-01", "n_sorties": 50}}}),
+        encoding="utf-8",
+    )
+    etat_b = client.get(f"{PREFIXE}/calibrations", headers={"x-compte-essai": B}).json()
+    assert etat_b["donnees"]["velos"][0]["calibration"] is None
+    zones_b = client.get(f"{PREFIXE}/profil/zones", headers={"x-compte-essai": B}).json()
+    assert zones_b["donnees"]["valeurs_liees"]["modele_physique"] == "littérature"
+
+
 def test_le_job_d_un_autre_est_introuvable(tmp_path: Path):
     client = _serveur(tmp_path)
     _activer(client, A, _profil())
