@@ -132,9 +132,9 @@ describe("les boucles libres (Boucles.tsx)", () => {
     );
     expect(screen.getByText("Convention, pas encore mesurée sur vos sorties")).toBeTruthy();
     expect(screen.queryByText("mesuré sur vos sorties")).toBeNull();
-    // 5460 × 1,01 et × 1,11.
-    expect(texte(vue)).toMatch(/entre\s*1\s*h\s*32\s*et\s*1\s*h\s*41\s*porte à porte/);
-    expect(texte(vue)).toMatch(/de \+1\s*% à\s+\+11\s*%/);
+    // 5460 × 1,02 et × 1,14.
+    expect(texte(vue)).toMatch(/entre\s*1\s*h\s*33\s*et\s*1\s*h\s*44\s*porte à porte/);
+    expect(texte(vue)).toMatch(/de \+2\s*% à\s+\+14\s*%/);
   });
 
   it("n'emploie plus le jargon de l'ancien dépliant", () => {

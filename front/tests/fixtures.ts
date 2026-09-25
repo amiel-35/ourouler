@@ -163,7 +163,7 @@ export function apercuFtp(ftp_w: number): Simple<Zones> {
  * convention du serveur.
  */
 export const FOURCHETTE_MESUREE = { bas: 1.03, mediane: 1.06, haut: 1.08, n: 83 };
-export const FOURCHETTE_CONVENTION = { bas: 1.01, mediane: 1.05, haut: 1.11, n: 0 };
+export const FOURCHETTE_CONVENTION = { bas: 1.02, mediane: 1.06, haut: 1.14, n: 0 };
 
 export function compteur(options?: {
   provenance?: "mesure" | "suppose";

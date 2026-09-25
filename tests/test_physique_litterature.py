@@ -358,7 +358,7 @@ def test_la_fourchette_par_defaut_enveloppe_les_deux_velos_mesures():
     """Les centiles mesurés le 25/09 sur les deux vélos du mainteneur (docstring
     du module) : la convention les contient tous les deux."""
     bas, mediane, haut = litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT
-    mesures = [(1.017, 1.054, 1.106), (1.022, 1.047, 1.079)]
+    mesures = [(1.021, 1.035, 1.099), (1.044, 1.086, 1.137)]
     assert bas <= min(m[0] for m in mesures)
     assert haut >= max(m[2] for m in mesures)
     assert bas < mediane < haut

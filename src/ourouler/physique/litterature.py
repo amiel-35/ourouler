@@ -217,6 +217,17 @@ def pour_usage(usage: str) -> Choix | None:
 
 # --- le Crr par catégorie de pneu (L9.1, 25/09/2026) ---------------------------
 #
+# **Ce que valent les CdA et Crr calibrés avec ce Crr : des paramètres de
+# compensation, pas des mesures physiques.** Ils absorbent tout ce que le
+# modèle ne sait pas — l'étalonnage du capteur d'abord. Le vélo de route du
+# mainteneur porte un capteur **unilatéral** (jambe gauche × 2), le chrono un
+# capteur double : un écart de quelques pour cent sur les watts se retrouve
+# tel quel dans le CdA (± 4 % de puissance déplacent le CdA de 0,306 à 0,356,
+# mesuré le 25/09). Deux CdA calibrés sur deux capteurs différents **ne se
+# comparent donc pas** ; ce qui se compare, c'est le temps prédit, et la
+# puissance qu'il faut pour tenir une vitesse donnée *par watt affiché* sur
+# ce capteur-là.
+#
 # La note du 23/09 (`docs/plan_sprints_agents.md`, « le porte à porte ignore
 # le relief ») a montré que la calibration libre ne sépare pas CdA et Crr sur
 # les données du mainteneur : laissée à elle-même, elle rend un Crr de 0,0106
@@ -310,28 +321,33 @@ def pour_pneu(cle: str | None) -> Pneu | None:
 # multiplié par ce que les vraies sorties du cycliste coûtent en plus — arrêts,
 # relances, et l'erreur propre du modèle. Un vélo calibré porte **sa**
 # fourchette dans `calibration.json` (centiles 25-75 mesurés sur ses sorties
-# roulées seul). Un vélo qui ne l'est pas reçoit celle-ci.
+# de validation roulées seul, jamais vues par l'ajustement). Un vélo qui ne
+# l'est pas — ou dont la validation compte moins de huit sorties roulées
+# seul — reçoit celle-ci.
 #
 # **C'est une convention, mesurée sur un seul cycliste.** Le 25/09/2026,
-# `ourouler calibrer` a mesuré, sur le temps écoulé réel (du premier au dernier
-# point, arrêts compris) rapporté au temps simulé, pour les sorties à moins de
-# 50 % de signal de groupe :
+# après la contre-lecture (fourchette sur la **validation** seule, CdA cherché
+# sur les sorties à moins de 30 % de signal de groupe), `ourouler calibrer` a
+# mesuré, sur le temps écoulé réel (du premier au dernier point, arrêts
+# compris) rapporté au temps simulé, sorties de validation à moins de 50 % de
+# signal de groupe :
 #
-# | vélo du mainteneur          | n  | 25ᵉ   | médiane | 75ᵉ   |
-# |-----------------------------|----|-------|---------|-------|
-# | route (Crr 0,006, CdA 0,331)| 87 | 1,017 | 1,054   | 1,106 |
-# | chrono (Crr 0,005, CdA 0,299)| 34 | 1,022 | 1,047   | 1,079 |
+# | vélo du mainteneur             | n  | 25ᵉ   | médiane | 75ᵉ   |
+# |--------------------------------|----|-------|---------|-------|
+# | route (Crr 0,006, CdA 0,378)   | 25 | 1,021 | 1,035   | 1,099 |
+# | chrono (Crr 0,005, CdA 0,318)  | 7  | 1,044 | 1,086   | 1,137 |
 #
+# Le chrono n'a que sept sorties de validation roulées seul : trop peu pour
+# sa propre fourchette (il reçoit donc celle-ci), assez pour en borner une.
 # La fourchette par défaut est l'**enveloppe** des deux : le plus bas des deux
 # 25ᵉ centiles, le plus haut des deux 75ᵉ, arrondis au centième vers
 # l'extérieur, et la moyenne des deux médianes. Plus large que chacune, à
 # dessein : elle couvre deux vélos et deux usages sans savoir lequel elle
-# sert. Elle ne vaut que pour un temps simulé **non biaisé** — celui d'un vélo
-# dont le modèle prédit juste le temps en mouvement ; sur les vélos du
-# mainteneur, la médiane du ratio en mouvement est de 1,013 et 1,007.
+# sert. La version précédente (× 1,01 à × 1,11) était mesurée sur toutes les
+# sorties, apprentissage compris, et sous-prédisait une sortie neuve.
 
 #: (bas, médiane, haut) du ratio temps écoulé réel / temps simulé.
-FOURCHETTE_PORTE_A_PORTE_DEFAUT = (1.01, 1.05, 1.11)
+FOURCHETTE_PORTE_A_PORTE_DEFAUT = (1.02, 1.06, 1.14)
 
 
 # --- une FTP plausible, pour qui n'en a aucune (T5 de l'accueil) --------------

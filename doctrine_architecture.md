@@ -128,9 +128,11 @@ leur sprint : pas de squelette vide « pour plus tard ».
   vélo (champ d'équipement Intervals, ou règle manuelle) ; les paramètres
   physiques (masse, CdA, roulement) sont estimés par vélo, et une période peut
   être scindée si la validation le demande. Depuis le 25/09/2026 (L9.1), le
-  roulement d'un vélo dont le pneu est déclaré n'est plus estimé mais **fixé
-  par la littérature** de sa catégorie, et seul le CdA est cherché : les
-  deux, laissés libres ensemble, se compensent sur ces données.
+  roulement d'un vélo dont le pneu (ou le `crr`) est déclaré n'est plus
+  estimé mais **fixé**, et seul le CdA est cherché : les deux, laissés libres
+  ensemble, se compensent sur ces données. Le CdA obtenu est un paramètre de
+  compensation (capteur compris), pas une mesure physique : il ne se compare
+  pas d'un capteur à l'autre.
 - **Le dénominateur commun est le fichier.** Quelle que soit la source
   (Intervals, Garmin, Strava, Wahoo), le FIT/GPX/TCX brut est ce qui se lit,
   avec le même lecteur. Un connecteur ne fait que rapatrier des fichiers et
