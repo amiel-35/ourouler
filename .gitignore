@@ -84,3 +84,6 @@ front/dist/
 # Le fichier de service réel — secrets du serveur, jamais dans le dépôt.
 # Son modèle vide, `service.example.toml`, est commité (règle absolue 1).
 service.toml
+
+# Consignes locales de Claude Code pour le mainteneur (jamais commitées)
+CLAUDE.local.md
