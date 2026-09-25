@@ -91,6 +91,9 @@ l'inverse :
 - La PR se fusionne par un **commit de merge** (pas de squash), et **seul le
   mainteneur merge** : un agent pousse la branche et ouvre la PR, il ne la
   fusionne jamais.
+- **Aucune installation** sur une machine ou un serveur (moteur de tracé,
+  conteneurs, services d'hébergement…) sans l'accord explicite du
+  mainteneur : on propose, on attend.
 - Une décision qui contredit `doctrine_architecture.md` se pose en question
   dans la PR ; si elle est acceptée, la doctrine se met à jour dans la même
   PR. Voir aussi `CONTRIBUTING.md`.
