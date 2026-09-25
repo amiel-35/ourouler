@@ -25,6 +25,13 @@ BASE_URL = "https://intervals.icu"
 #: Délai par défaut d'un appel, en secondes.
 DELAI_S = 30.0
 
+#: **User-Agent explicite** (ajouté le 25/09/2026, correctif de prod). Sans
+#: lui, le pare-feu d'Intervals.icu renvoie 403 sur certains appels — constaté
+#: en vrai sur `GET /athlete/0` (voir `resoudre_athlete_id`). Même convention
+#: que `connecteurs/geocodage.py` (`USER_AGENT_NOMINATIM`) : un User-Agent par
+#: défaut de bibliothèque HTTP ne suffit pas.
+USER_AGENT = "ourouler-cli (https://github.com/amiel-35/ourouler)"
+
 #: Extension retenue quand la réponse ne dit rien du format du fichier.
 EXTENSION_DEFAUT = "fit"
 
@@ -250,7 +257,11 @@ class ClientIntervals:
         """Un GET authentifié. Les messages d'erreur ne citent que `libelle`."""
         try:
             reponse = self._http.request(
-                "GET", f"{self.base_url}{chemin}", params=params, auth=self._auth
+                "GET",
+                f"{self.base_url}{chemin}",
+                params=params,
+                auth=self._auth,
+                headers={"User-Agent": USER_AGENT},
             )
         except httpx.HTTPError as e:
             raise ErreurConnecteur(
@@ -261,6 +272,64 @@ class ClientIntervals:
                 f"Intervals.icu {libelle} : HTTP {reponse.status_code}{_indice(reponse.status_code)}"
             )
         return reponse
+
+
+def resoudre_athlete_id(
+    api_key: str, http: httpx.Client | None = None, base_url: str = BASE_URL
+) -> str:
+    """L'identifiant de l'athlète propriétaire de cette clé, sans le connaître d'avance.
+
+    Correctif de prod du 25/09/2026 : un invité hébergé branche Intervals
+    depuis l'assistant ou Réglages en ne donnant que sa clé d'API — le
+    formulaire ne demande jamais son `athlete_id` (`front/src/ecrans/
+    Assistant.tsx`, `Reglages.tsx`). Sans lui, `ParametresIntervals.renseigne`
+    (`config.py`) reste faux et toutes les routes Intervals répondent
+    `intervals_absent`, quelle que soit la clé. Chez le mainteneur ça
+    marchait parce que `athlete_id` venait du TOML du serveur — un héritage
+    que Q66 a supprimé à raison (`depots.DepotProfils.config`, « un socle qui
+    appartient à quelqu'un ne se sert qu'à lui »).
+
+    Intervals.icu traite l'identifiant spécial `0` comme « l'athlète
+    propriétaire de la clé d'API fournie » — vérifié le 25/09/2026,
+    `GET /api/v1/athlete/0` rend `200` avec le vrai `id` (« i123456 »). C'est
+    une fonction **libre**, pas une méthode de `ClientIntervals` : elle
+    tourne *avant* qu'un `athlete_id` existe, donc avant qu'un client complet
+    puisse se construire (`__init__` l'exige déjà, à raison — un connecteur
+    sans identifiant ne doit pas pouvoir appeler les autres endpoints).
+
+    Ne stocke rien : c'est l'appelant (`api/routes.py`) qui décide quoi faire
+    du résultat. Lève `ErreurConnecteur` — clé refusée (401/403, reconnue par
+    `_indice` et donc par `api/erreurs.py:_connecteur` comme `intervals_refuse`),
+    service injoignable, ou réponse sans `id` exploitable — jamais de valeur
+    inventée.
+    """
+    if not api_key:
+        raise ErreurConnecteur("Intervals.icu athlete/0 : api_key requise pour résoudre l'athlete_id")
+    http_local = http if http is not None else httpx.Client(timeout=DELAI_S)
+    auth = httpx.BasicAuth("API_KEY", str(api_key))
+    try:
+        reponse = http_local.request(
+            "GET",
+            f"{base_url.rstrip('/')}/api/v1/athlete/0",
+            auth=auth,
+            headers={"User-Agent": USER_AGENT},
+        )
+    except httpx.HTTPError as e:
+        raise ErreurConnecteur(
+            f"Intervals.icu athlete/0 : appel impossible ({type(e).__name__})"
+        ) from e
+    if reponse.status_code != 200:
+        raise ErreurConnecteur(
+            f"Intervals.icu athlete/0 : HTTP {reponse.status_code}{_indice(reponse.status_code)}"
+        )
+    try:
+        charge = reponse.json()
+    except ValueError as e:
+        raise ErreurConnecteur("Intervals.icu athlete/0 : réponse JSON illisible") from e
+    identifiant = charge.get("id") if isinstance(charge, dict) else None
+    if not identifiant:
+        raise ErreurConnecteur("Intervals.icu athlete/0 : identifiant absent de la réponse")
+    return str(identifiant)
 
 
 def _indice(code: int) -> str:

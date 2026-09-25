@@ -95,7 +95,7 @@ from ourouler.api.session import (
 from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
-from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.connecteurs.intervals import ClientIntervals, resoudre_athlete_id
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -762,6 +762,7 @@ async def modifier_profil(
         corps = await requete.json()
     except Exception as e:
         raise ErreurApi(code="requete_invalide", message="corps JSON illisible", statut=400) from e
+    corps = _corps_avec_athlete_id_resolu(ctx, corps)
     try:
         config = ctx.profils.enregistrer(qui, corps)
     except ErreurConfig as e:
@@ -775,6 +776,66 @@ async def modifier_profil(
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, config)}
+
+
+def _corps_avec_athlete_id_resolu(ctx: Contexte, corps: dict) -> dict:
+    """Complète `intervals.athlete_id` quand le corps pose une clé sans lui.
+
+    **Correctif de prod du 25/09/2026.** L'assistant et Réglages n'envoient
+    que `{"intervals": {"api_key": "…"}}` — aucun des deux ne demande
+    l'`athlete_id` (`front/src/ecrans/Assistant.tsx`, `Reglages.tsx`). Sans ce
+    complément, `ParametresIntervals.renseigne` reste faux et toutes les
+    routes Intervals répondent `intervals_absent`, quelle que soit la clé
+    (journaux prod du 25/09 : `GET /profil/intervals` et `GET /seances` en
+    409). Chez le mainteneur ça marchait parce que `athlete_id` venait du
+    TOML du serveur — hérité par le socle, jusqu'à ce que Q66 ferme cette
+    fuite (`depots.DepotProfils.config`, un socle ne se partage plus).
+
+    `intervals.athlete_id` **vide** compte comme absent — un champ posé à
+    `""` par un front plus ancien ne doit pas empêcher la résolution.
+    N'écrit rien : c'est `ctx.profils.enregistrer`, juste après, qui écrit —
+    une clé refusée ou Intervals injoignable lève avant, donc avant toute
+    écriture (règle du profil : rien n'est stocké tant que ce n'est pas
+    valide).
+    """
+    if not isinstance(corps, dict):
+        return corps
+    section = corps.get("intervals")
+    if not isinstance(section, dict):
+        return corps
+    cle = section.get("api_key")
+    identifiant = section.get("athlete_id")
+    if not cle or identifiant:
+        return corps
+    resolu = _resoudre_athlete_id(ctx, cle)
+    return {**corps, "intervals": {**section, "athlete_id": resolu}}
+
+
+def _resoudre_athlete_id(ctx: Contexte, api_key: str) -> str:
+    """Appelle Intervals.icu pour résoudre l'athlete_id — jamais la clé dans l'erreur.
+
+    `ctx.clients.intervals` est le même point d'injection que le reste de
+    l'API (voir `FABRIQUES_CONNECTEUR`) : un `httpx.Client` en test (bouchonné
+    par un `MockTransport`), rien en service — le connecteur fabrique alors
+    son propre client réel. Il ne peut pas passer par `Clients.connecteur`
+    (qui exige une `Config` déjà valide, donc déjà un `athlete_id`) : c'est
+    précisément ce qui manque encore à cet instant.
+
+    Un `ClientIntervals` déjà construit (l'autre forme d'injection acceptée
+    ailleurs, `test_un_connecteur_deja_construit_reste_accepte_tel_quel`) est
+    aussi accepté : son transport interne (`_http`) est repris, pour qu'un
+    test qui bouchonne Intervals une seule fois couvre les deux chemins.
+    """
+    donne = ctx.clients.intervals
+    if isinstance(donne, httpx.Client):
+        http = donne
+    else:
+        http = getattr(donne, "_http", None)
+        http = http if isinstance(http, httpx.Client) else None
+    try:
+        return resoudre_athlete_id(api_key, http=http)
+    except Exception as e:
+        raise classer(e, secrets=(api_key,)) from e
 
 
 def _profil_avec_flags(ctx: Contexte, qui: Proprietaire, config: Config) -> dict:

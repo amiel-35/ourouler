@@ -335,11 +335,21 @@ def test_un_poids_hors_bornes_rend_un_message_lisible_a_l_ecran(tmp_path: Path):
 
 
 def test_la_cle_intervals_s_enregistre_et_ne_ressort_jamais(tmp_path: Path):
-    client = serveur(tmp_path)
+    """Correctif de prod du 25/09/2026 : une clé seule (sans `athlete_id`,
+    comme l'envoient l'assistant et Réglages) déclenche sa résolution auprès
+    d'Intervals.icu (`GET /athlete/0`) — bouchonnée ici, jamais de réseau."""
+
+    def resoudre(requete: httpx.Request) -> httpx.Response:
+        del requete
+        return httpx.Response(200, json={"id": ATHLETE})
+
+    client = serveur(tmp_path, intervals=httpx.Client(transport=httpx.MockTransport(resoudre)))
     reponse = client.patch("/api/v1/profil", json={"intervals": {"api_key": "cle-inventee-1234"}})
-    assert reponse.status_code == 200
+    assert reponse.status_code == 200, reponse.text
     assert "cle-inventee-1234" not in reponse.text
     assert reponse.json()["donnees"]["intervals"]["api_key"] == "***"
+    assert reponse.json()["donnees"]["intervals"]["athlete_id"] == ATHLETE
+    assert reponse.json()["donnees"]["services"]["intervals"]["renseigne"] is True
     assert "cle-inventee-1234" not in client.get("/api/v1/profil").text
 
 
