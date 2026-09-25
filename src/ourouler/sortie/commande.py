@@ -77,7 +77,12 @@ from pathlib import Path
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
-from ourouler.boucle.commande import direction_en_azimut, ligne_temps_ecoule, lignes_elargissement
+from ourouler.boucle.commande import (
+    direction_en_azimut,
+    ligne_temps_ecoule,
+    lignes_elargissement,
+    porte_a_porte,
+)
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
@@ -101,7 +106,7 @@ from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import date_en_francais
-from ourouler.physique.modele import Parametres, temps_ecoule, vitesse_a_plat_ms
+from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
@@ -2289,14 +2294,12 @@ def _emplacement_json(e: Emplacement) -> dict:
 
 def _candidate_json(proposition: Proposition, compteur_info: dict | None = None) -> dict:
     trace, placement, meteo = proposition.trace, proposition.placement, proposition.meteo
-    temps_ecoule_s = temps_ecoule_source = None
+    temps_ecoule_s = temps_ecoule_bas_s = temps_ecoule_haut_s = temps_ecoule_source = None
     if compteur_info is not None:
-        ecoule, source = temps_ecoule(
-            placement.distance_totale_m / 1000.0,
-            placement.duree_totale_s,
-            compteur_info["moyenne_compteur_kmh"],
-        )
-        temps_ecoule_s, temps_ecoule_source = round(ecoule), source
+        pp = porte_a_porte(placement.duree_totale_s, compteur_info)
+        temps_ecoule_s = round(pp.mediane_s)
+        temps_ecoule_bas_s, temps_ecoule_haut_s = round(pp.bas_s), round(pp.haut_s)
+        temps_ecoule_source = pp.provenance
     return {
         "numero": proposition.numero,
         "retenue": proposition.numero == 1,
@@ -2319,9 +2322,13 @@ def _candidate_json(proposition: Proposition, compteur_info: dict | None = None)
         # même chiffre à deux adresses selon la route obligeait le front à
         # connaître deux chemins pour un seul composant, et le second était
         # tombé silencieusement : aucune erreur, juste un chiffre manquant.
-        # `null` avec `compteur` : sans vélo, pas de moyenne compteur à
-        # laquelle réconcilier une distance (`physique.modele.temps_ecoule`).
+        # Depuis L9.1, une fourchette (`physique.modele.temps_ecoule`) :
+        # `temps_ecoule_s` en est la médiane, `_bas_s`/`_haut_s` les bornes,
+        # la source « mesure » ou « defaut ». `null` avec `compteur` : sans
+        # vélo, pas de fourchette.
         "temps_ecoule_s": temps_ecoule_s,
+        "temps_ecoule_bas_s": temps_ecoule_bas_s,
+        "temps_ecoule_haut_s": temps_ecoule_haut_s,
         "temps_ecoule_source": temps_ecoule_source,
         "placement": {
             "note_totale": round(placement.note_totale, 4),
@@ -2436,25 +2443,24 @@ def _duree_courte(secondes: float) -> str:
 
 
 def _temps_texte(proposition: Proposition, compteur_info: dict | None) -> str:
-    """« 2:14 » seul, ou « 2:36 / 2:14 » — écoulé porte à porte / sans arrêt.
+    """« 2:14 » seul, ou « 2:20-2:31 / 2:14 » — porte à porte en fourchette / sans arrêt.
 
     Même ordre, même choix d'affichage et même légende (`ligne_temps_ecoule`)
-    que `boucle` : l'écoulé d'abord, parce que c'est lui qui répond à la durée
-    demandée, et une cellule combinée plutôt qu'une colonne de plus. La distance qui
-    sert au terme « compteur » de `temps_ecoule` est celle du **parcours
-    réellement roulé** (`distance_totale_m`, demi-tours compris), pas celle
-    de la boucle : c'est déjà la règle de la colonne « temps » elle-même
-    (voir `_notes_sous_tableau`).
+    que `boucle` : le porte à porte d'abord, parce que c'est lui qui répond à
+    la durée demandée, et une cellule combinée plutôt qu'une colonne de plus.
+    Le temps sans arrêt est celui du **parcours réellement roulé**
+    (`duree_totale_s`, demi-tours compris), pas celui de la boucle : c'est
+    déjà la règle de la colonne « temps » elle-même (voir
+    `_notes_sous_tableau`).
     """
     placement = proposition.placement
     if compteur_info is None:
         return _duree_courte(placement.duree_totale_s)
-    ecoule_s, _source = temps_ecoule(
-        placement.distance_totale_m / 1000.0,
-        placement.duree_totale_s,
-        compteur_info["moyenne_compteur_kmh"],
+    pp = porte_a_porte(placement.duree_totale_s, compteur_info)
+    return (
+        f"{_duree_courte(pp.bas_s)}-{_duree_courte(pp.haut_s)} / "
+        f"{_duree_courte(placement.duree_totale_s)}"
     )
-    return f"{_duree_courte(ecoule_s)} / {_duree_courte(placement.duree_totale_s)}"
 
 
 def _duree_longue(secondes: float) -> str:

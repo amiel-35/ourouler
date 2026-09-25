@@ -1013,3 +1013,184 @@ def test_sans_relecture_le_comportement_est_celui_d_avant(tmp_path: Path, genera
     )
     assert len(retenues) == 2
     assert "multisport" not in motifs
+
+
+# --- L9.1 : Crr fixé, CdA cherché, fourchette du porte à porte ----------------
+
+
+def test_calibrer_a_crr_fixe_retrouve_le_cda_exactement():
+    """Le Crr donné (pneu), seul le CdA est cherché : sans bruit, il est exact."""
+    ajustement = calibrer(
+        echantillons_synthetiques(bruit_w=0.0), masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+    assert ajustement.crr_fixe
+    assert ajustement.crr == CRR_VRAI  # reçu, jamais retouché
+    assert ajustement.cda_m2 == pytest.approx(CDA_VRAI, rel=1e-6)
+    assert ajustement.incertitudes.crr is None
+    assert ajustement.incertitudes.cda is not None
+
+
+def test_calibrer_a_crr_fixe_trop_haut_fait_baisser_le_cda():
+    """La compensation que la calibration libre ne savait pas séparer : un Crr
+    fixé trop haut ne se voit qu'à un CdA plus bas."""
+    trop_haut = calibrer(
+        echantillons_synthetiques(bruit_w=0.0), masse_totale_kg=MASSE, crr_fixe=CRR_VRAI * 1.5
+    )
+    assert trop_haut.cda_m2 < CDA_VRAI
+
+
+def test_calibrer_a_crr_fixe_absurde_est_refuse():
+    with pytest.raises(ErreurUtilisateur, match="Crr fixé"):
+        calibrer(echantillons_synthetiques(), masse_totale_kg=MASSE, crr_fixe=0.5)
+
+
+def test_calibrer_a_crr_fixe_qui_pousse_le_cda_en_butee_le_dit():
+    fin = Parametres(masse_totale_kg=MASSE, cda_m2=0.20, crr=0.002)
+    ajustement = calibrer(
+        echantillons_synthetiques(bruit_w=0.0, p=fin), masse_totale_kg=MASSE, crr_fixe=0.012
+    )
+    assert ajustement.cda_m2 == 0.18
+    assert ajustement.bornes_atteintes
+    assert any("pneu" in a for a in ajustement.avertissements)
+
+
+def _sorties_variees() -> list[SortieCalibration]:
+    """Six sorties fabriquées par le modèle : à plat, en côte, et vent de face."""
+    reglages = [
+        {"pente": 0.0},
+        {"pente": 0.02},
+        {"pente": 0.0, "vent_face_ms": 3.0},
+        {"pente": 0.01},
+        {"pente": 0.0},
+        {"pente": 0.03},
+    ]
+    sorties = []
+    for jour, reglage in enumerate(reglages, start=1):
+        sortie = _sortie(date(2026, 2, jour), duree_s=1500, **reglage)
+        if reglage.get("vent_face_ms"):
+            sortie.vent = [
+                HeureArchive(
+                    t=h.t.replace(month=2, day=jour),
+                    vent_kmh=h.vent_kmh,
+                    vent_depuis_deg=h.vent_depuis_deg,
+                    temp_c=h.temp_c,
+                    pression_hpa=h.pression_hpa,
+                )
+                for h in archive(vent_kmh=vent_archive_kmh(3.0), depuis_deg=90.0)
+            ]
+        sorties.append(sortie)
+    return sorties
+
+
+def test_chercher_cda_sur_sorties_retrouve_le_cda_du_modele():
+    """Méthode retenue le 25/09 : minimiser l'erreur de **temps** des sorties."""
+    from ourouler.physique.calibration import PRECISION_CDA_M2, chercher_cda_sur_sorties
+
+    cda = chercher_cda_sur_sorties(_sorties_variees(), masse_totale_kg=MASSE, crr=CRR_VRAI)
+    assert cda == pytest.approx(CDA_VRAI, abs=2 * PRECISION_CDA_M2)
+
+
+def test_chercher_cda_sans_sortie_est_refuse():
+    from ourouler.physique.calibration import chercher_cda_sur_sorties
+
+    with pytest.raises(ErreurUtilisateur, match="aucune sortie"):
+        chercher_cda_sur_sorties([], masse_totale_kg=MASSE, crr=CRR_VRAI)
+
+
+def test_deux_passes_a_crr_fixe_ne_cherchent_que_le_cda():
+    sorties = [*_sorties_variees(), _sortie(date(2026, 2, 9), duree_s=1500)]
+    rapport = calibrer_en_deux_passes(
+        sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+    assert rapport.ajustement.crr == CRR_VRAI
+    assert rapport.ajustement.crr_fixe
+    assert rapport.passe1.crr == CRR_VRAI
+    assert rapport.ajustement.cda_m2 == pytest.approx(CDA_VRAI, abs=0.005)
+    # À la précision de la simulation près (pas de 100 m, altitude lissée).
+    assert rapport.validation.mae is not None and rapport.validation.mae < 0.02
+
+
+def _avec_arrets(sortie: SortieCalibration, facteur: float) -> SortieCalibration:
+    """La même sortie, dont le porte à porte réel dure `facteur` fois son temps en mouvement.
+
+    Les points ne changent pas : seul l'écoulé (premier → dernier point, feux
+    compris) s'allonge, comme un compteur qui tourne pendant les arrêts.
+    """
+    sortie.activite.duree_s = sortie.activite.duree_s * facteur
+    return sortie
+
+
+def test_mesurer_porte_a_porte_rend_les_centiles_du_ratio_ecoule_sur_simule():
+    from ourouler.physique.calibration import mesurer_porte_a_porte
+
+    facteurs = [1.00, 1.02, 1.04, 1.06, 1.08, 1.10, 1.12, 1.14]
+    sorties = [
+        _avec_arrets(_sortie(date(2026, 3, i + 1), duree_s=1200), f)
+        for i, f in enumerate(facteurs)
+    ]
+    mesure = mesurer_porte_a_porte(sorties, VRAI)
+    assert mesure.n == 8
+    bas, mediane, haut = mesure.centiles
+    # Le modèle rejoue ses propres sorties : simulé ≈ mouvement, donc le ratio
+    # vaut le facteur d'arrêts, à la précision de la simulation près.
+    assert bas == pytest.approx(1.035, abs=0.01)
+    assert mediane == pytest.approx(1.07, abs=0.01)
+    assert haut == pytest.approx(1.105, abs=0.01)
+    assert mesure.centiles_mouvement[1] == pytest.approx(1.0, abs=0.01)
+
+
+def test_mesurer_porte_a_porte_ecarte_les_sorties_en_groupe():
+    """Le filtre à 50 % de signal de groupe se fait dans le pipeline, une fois."""
+    from ourouler.physique.calibration import mesurer_porte_a_porte
+
+    sorties = [
+        _avec_arrets(_sortie(date(2026, 3, i + 1), duree_s=1200), 1.05) for i in range(8)
+    ]
+    peloton = _avec_arrets(_sortie(date(2026, 3, 20), duree_s=1200, facteur_vitesse=1.2), 0.8)
+    mesure = mesurer_porte_a_porte([*sorties, peloton], VRAI)
+    assert len(mesure.sorties) == 9
+    assert mesure.n == 8
+    assert all(s.part_groupe < 0.5 for s in mesure.retenues)
+    assert mesure.centiles[0] == pytest.approx(1.05, abs=0.01)
+
+
+def test_trop_peu_de_sorties_solo_ne_donne_pas_de_fourchette():
+    from ourouler.physique.calibration import SORTIES_MIN_FOURCHETTE, mesurer_porte_a_porte
+
+    sorties = [
+        _sortie(date(2026, 3, i + 1), duree_s=1200) for i in range(SORTIES_MIN_FOURCHETTE - 1)
+    ]
+    mesure = mesurer_porte_a_porte(sorties, VRAI)
+    assert mesure.n == SORTIES_MIN_FOURCHETTE - 1
+    assert mesure.centiles is None
+    assert mesure.centiles_mouvement is None
+
+
+def test_le_vent_le_long_prend_le_point_le_plus_proche_comme_avant():
+    """La dichotomie de `vent_le_long` rend le même instant que l'ancien
+    parcours linéaire (premier point le plus proche), y compris aux égalités
+    et aux distances répétées d'un arrêt."""
+    from ourouler.physique import calibration as calib
+
+    activite = sortie_synthetique(duree_s=300)
+    # Un arrêt : trois points à la même distance.
+    for p in activite.points[100:103]:
+        p.dist_m = activite.points[100].dist_m
+    points = [p for p in activite.points if p.t is not None]
+    distances = calib._distances_points(points)
+    # Un vent qui change d'heure en heure, pour que l'instant choisi se voie.
+    heures = [
+        HeureArchive(
+            t=DEPART.replace(hour=h), vent_kmh=float(h), vent_depuis_deg=90.0, temp_c=15.0,
+            pression_hpa=1013.25,
+        )
+        for h in range(24)
+    ]
+    face = calib.vent_le_long(activite, heures)
+    milieu = (distances[10] + distances[11]) / 2
+    for d in [0.0, distances[100], distances[100] + 0.001, milieu, distances[-1], 1e9]:
+        attendu = min(range(len(distances)), key=lambda k: abs(distances[k] - d))
+        instant = points[attendu].t
+        assert face(d, 90.0) == pytest.approx(
+            calib._vent_de_face(calib._interpoler_archive(heures, instant), 90.0)
+        )

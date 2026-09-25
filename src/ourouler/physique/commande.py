@@ -32,6 +32,7 @@ from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique import calibration as calib
 from ourouler.physique import litterature
 from ourouler.physique.modele import (
+    FourchettePorteAPorte,
     Parametres,
     Simulation,
     puissance_a_plat_w,
@@ -84,6 +85,13 @@ class Calibration:
     date: str = ""
     n_sorties: int = 0
     mae: float | None = None
+    #: La fourchette du porte à porte mesurée sur ce vélo (L9.1), ou `None`
+    #: pour une calibration d'avant le 25/09/2026 ou faite sur trop peu de
+    #: sorties roulées seul : l'appelant retombe alors sur la convention.
+    porte_a_porte: FourchettePorteAPorte | None = None
+    #: D'où vient le Crr : « pneu », « configuration » ou « ajuste » (cherché
+    #: avec le CdA, l'ancienne méthode). Vide pour une calibration ancienne.
+    crr_source: str = ""
 
     @property
     def resume(self) -> str:
@@ -134,7 +142,29 @@ def lire_calibration(chemin: Path, velo: str) -> Calibration | None:
         date=str(brut.get("date") or ""),
         n_sorties=int(brut.get("n_sorties") or 0),
         mae=float(mae) if isinstance(mae, (int, float)) else None,
+        porte_a_porte=_lire_porte_a_porte(brut.get("porte_a_porte")),
+        crr_source=str(brut.get("crr_source") or ""),
     )
+
+
+def _lire_porte_a_porte(brut: object) -> FourchettePorteAPorte | None:
+    """La fourchette écrite par `ourouler calibrer`, ou `None` si absente ou illisible.
+
+    Jamais d'exception, comme `lire_calibration` : une fourchette abîmée
+    retombe sur la convention, elle n'empêche pas de rouler.
+    """
+    if not isinstance(brut, dict):
+        return None
+    try:
+        return FourchettePorteAPorte(
+            bas=float(brut["bas"]),
+            mediane=float(brut["mediane"]),
+            haut=float(brut["haut"]),
+            provenance="mesure",
+            n=int(brut.get("n") or 0),
+        )
+    except (KeyError, TypeError, ValueError, ErreurUtilisateur):
+        return None
 
 
 def _sans_casse(velos: dict, nom: str) -> dict | None:
@@ -192,13 +222,17 @@ def parametres_du_velo(config: Config, velo: Velo, chemin: Path) -> tuple[Parame
     masse = calib.masse_totale_kg(config, velo)
     if velo.cda_m2 is not None and velo.crr is not None:
         return (Parametres(masse, velo.cda_m2, velo.crr), "configuration")
+    # Le Crr du pneu déclaré (L9.1) passe avant celui du jeu de l'usage, mais
+    # jamais avant une valeur écrite à la main dans la configuration.
+    connu = crr_du_velo(velo)
+    crr = connu[0] if connu is not None else None
     choix = litterature.pour_usage(velo.usage)
     if choix is not None:
         return (
             Parametres(
                 masse,
                 velo.cda_m2 if velo.cda_m2 is not None else choix.jeu.cda_m2,
-                velo.crr if velo.crr is not None else choix.jeu.crr,
+                crr if crr is not None else choix.jeu.crr,
             ),
             "littérature",
         )
@@ -206,10 +240,46 @@ def parametres_du_velo(config: Config, velo: Velo, chemin: Path) -> tuple[Parame
         Parametres(
             masse,
             velo.cda_m2 if velo.cda_m2 is not None else CDA_DEFAUT,
-            velo.crr if velo.crr is not None else CRR_DEFAUT,
+            crr if crr is not None else CRR_DEFAUT,
         ),
         "défaut",
     )
+
+
+def crr_du_velo(velo: Velo) -> tuple[float, str] | None:
+    """(Crr, provenance) quand le Crr du vélo est **connu** sans calibration, sinon `None`.
+
+    Provenance « configuration » (un `crr` écrit à la main, qui prime) ou
+    « pneu » (la catégorie déclarée, `physique.litterature.PNEUS`). `None` :
+    ni l'un ni l'autre, et la calibration ajuste alors le Crr avec le CdA.
+    """
+    if velo.crr is not None:
+        return (velo.crr, "configuration")
+    pneu = litterature.pour_pneu(velo.pneu)
+    if pneu is not None:
+        return (pneu.crr, "pneu")
+    return None
+
+
+def fourchette_du_velo(velo: Velo, chemin: Path) -> FourchettePorteAPorte:
+    """La fourchette du porte à porte de ce vélo : mesurée si elle l'a été, sinon la convention.
+
+    Mesurée : écrite par `ourouler calibrer` dans `calibration.json`
+    (provenance « mesure »). Sinon — vélo jamais calibré, calibration
+    antérieure au 25/09/2026, ou trop peu de sorties roulées seul —
+    `litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT` (provenance « defaut »),
+    une convention mesurée sur un seul cycliste, et dite comme telle.
+    """
+    calibree = lire_calibration(chemin, velo.nom)
+    if calibree is not None and calibree.porte_a_porte is not None:
+        return calibree.porte_a_porte
+    return fourchette_defaut()
+
+
+def fourchette_defaut() -> FourchettePorteAPorte:
+    """La convention de `physique.litterature`, en objet."""
+    bas, mediane, haut = litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT
+    return FourchettePorteAPorte(bas=bas, mediane=mediane, haut=haut, provenance="defaut", n=0)
 
 
 def puissance_voulue(args: argparse.Namespace, parametres: Parametres) -> float | None:
@@ -304,6 +374,7 @@ def executer_calibrer(
             f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible"
         )
 
+    crr, crr_source = _crr_de_calibration(velo, bool(getattr(args, "crr_libre", False)))
     rapport = calib.calibrer_en_deux_passes(
         sorties,
         velo=velo.nom,
@@ -311,25 +382,44 @@ def executer_calibrer(
         part_validation=config.calibration.part_validation,
         ftp_w=config.cycliste.ftp_w,
         vitesse_min_kmh=config.calibration.vitesse_min_kmh,
+        crr_fixe=crr,
     )
 
     chemin = chemin_calibration(config)
-    ecrire_calibration(chemin, velo.nom, _contenu_json(rapport))
+    ecrire_calibration(chemin, velo.nom, _contenu_json(rapport, crr_source, velo.pneu))
     for panne in pannes:
         print(f"ourouler : {panne}", file=sys.stderr)
     if getattr(args, "json", False):
         print(
             json.dumps(
-                rendre_json_calibration(rapport, velo, config, chemin, client, motifs, len(entrees)),
+                rendre_json_calibration(
+                    rapport, velo, config, chemin, client, motifs, len(entrees), crr_source
+                ),
                 ensure_ascii=False,
                 indent=2,
             )
         )
     else:
         print(
-            rendre_texte_calibration(rapport, velo, config, chemin, client, motifs, len(entrees))
+            rendre_texte_calibration(
+                rapport, velo, config, chemin, client, motifs, len(entrees), crr_source
+            )
         )
     return 0
+
+
+def _crr_de_calibration(velo: Velo, crr_libre: bool) -> tuple[float | None, str]:
+    """(Crr fixé ou `None`, provenance) pour `ourouler calibrer`.
+
+    Le Crr connu (pneu ou configuration) est gardé fixe et seul le CdA est
+    cherché — la méthode que la note du 23/09 a trouvée convergente.
+    `--crr-libre`, ou un vélo sans pneu ni Crr déclarés, garde l'ajustement à
+    deux paramètres d'avant : provenance « ajuste ».
+    """
+    connu = None if crr_libre else crr_du_velo(velo)
+    if connu is None:
+        return (None, "ajuste")
+    return connu
 
 
 class _Lecteur:
@@ -402,11 +492,17 @@ def _archive_du_depart(activite, client: ClientArchive, pannes: list[str]) -> li
         return []
 
 
-def _contenu_json(rapport: calib.RapportCalibration) -> dict:
+def _contenu_json(
+    rapport: calib.RapportCalibration, crr_source: str = "ajuste", pneu: str | None = None
+) -> dict:
     a = rapport.ajustement
     return {
         "cda_m2": round(a.cda_m2, 5),
         "crr": round(a.crr, 6),
+        # D'où vient le Crr (L9.1) : « pneu » ou « configuration » (fixé, seul
+        # le CdA a été cherché) ou « ajuste » (cherché avec le CdA).
+        "crr_source": crr_source,
+        "pneu": pneu if crr_source == "pneu" else None,
         "masse_totale_kg": round(a.masse_totale_kg, 2),
         "rendement": a.parametres().rendement,
         "rho": round(a.rho_moyen, 4),
@@ -425,6 +521,36 @@ def _contenu_json(rapport: calib.RapportCalibration) -> dict:
         "biais": _arrondi(rapport.validation.biais, 4),
         "n_validation": rapport.validation.n,
         "bornes_atteintes": list(a.bornes_atteintes),
+        "porte_a_porte": _porte_a_porte_json(rapport.porte_a_porte),
+    }
+
+
+def _porte_a_porte_json(mesure: calib.MesurePorteAPorte) -> dict | None:
+    """La fourchette telle que `calibration.json` la garde, ou `None` si trop peu de sorties.
+
+    `None` n'est pas une panne : `fourchette_du_velo` retombera sur la
+    convention, et le dira.
+    """
+    centiles = mesure.centiles
+    if centiles is None:
+        return None
+    bas, mediane, haut = centiles
+    mouvement = mesure.centiles_mouvement
+    return {
+        "bas": round(bas, 4),
+        "mediane": round(mediane, 4),
+        "haut": round(haut, 4),
+        "centiles": list(calib.CENTILES_PORTE_A_PORTE),
+        "n": mesure.n,
+        "n_total": len(mesure.sorties),
+        "seuil_groupe": mesure.seuil_groupe,
+        # Ce que les centiles mesurent : temps écoulé réel (du premier au
+        # dernier point, arrêts compris) / temps simulé en mouvement.
+        "base": "temps_ecoule",
+        # Les mêmes centiles sur le temps **en mouvement** — l'erreur du
+        # modèle seul, arrêts exclus. Gardés pour comparer à la note du 23/09,
+        # qui les avait lus sous ce nom.
+        "ratio_mouvement": None if mouvement is None else [round(x, 4) for x in mouvement],
     }
 
 
@@ -440,6 +566,7 @@ def rendre_texte_calibration(
     client: ClientArchive,
     motifs: dict[str, int],
     n_calibrables: int,
+    crr_source: str = "ajuste",
 ) -> str:
     a = rapport.ajustement
     v = rapport.validation
@@ -477,12 +604,21 @@ def rendre_texte_calibration(
     lignes.append(
         f"  résidu de puissance : RMSE {_fr(a.rmse_w, 1)} W, MAE {_fr(a.mae_w, 1)} W"
     )
-    lignes.append(
-        f"  détail (mal séparé, à ne pas citer seul) : CdA {_fr(a.cda_m2, 3)} m²"
-        f"{_incertitude(a.incertitudes.cda, 3)}, Crr {_fr(a.crr, 5)}"
-        f"{_incertitude(a.incertitudes.crr, 5)}, masse {_fr(a.masse_totale_kg, 1)} kg, "
-        f"ρ moyen {_fr(a.rho_moyen, 3)}"
-    )
+    if a.crr_fixe:
+        # L9.1 : le Crr est reçu (pneu ou configuration), seul le CdA est
+        # cherché — il se cite donc, lui, sans la réserve « mal séparé ».
+        lignes.append(
+            f"  CdA {_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)} (cherché), "
+            f"Crr {_fr(a.crr, 4)} fixé ({_crr_texte(crr_source, velo)}), "
+            f"masse {_fr(a.masse_totale_kg, 1)} kg, ρ moyen {_fr(a.rho_moyen, 3)}"
+        )
+    else:
+        lignes.append(
+            f"  détail (mal séparé, à ne pas citer seul) : CdA {_fr(a.cda_m2, 3)} m²"
+            f"{_incertitude(a.incertitudes.cda, 3)}, Crr {_fr(a.crr, 5)}"
+            f"{_incertitude(a.incertitudes.crr, 5)}, masse {_fr(a.masse_totale_kg, 1)} kg, "
+            f"ρ moyen {_fr(a.rho_moyen, 3)}"
+        )
     lignes.append(
         f"  première passe (avec les sorties en groupe) : CdA {_fr(rapport.passe1.cda_m2, 3)}, "
         f"Crr {_fr(rapport.passe1.crr, 5)}"
@@ -518,12 +654,49 @@ def rendre_texte_calibration(
         for nom, part in rapport.groupes_en_validation:
             lignes.append(f"    {part:.0%} de la distance trop rapide — {nom}")
     lignes.append("")
+    lignes.extend(_lignes_porte_a_porte(rapport.porte_a_porte))
+    lignes.append("")
     lignes.append(
         "Le temps simulé est un temps **en mouvement** : ni les arrêts, ni les "
-        "redémarrages n'y sont modélisés."
+        "redémarrages n'y sont modélisés — la fourchette du porte à porte les ajoute."
     )
     lignes.append(f"Écrit dans {chemin}")
     return "\n".join(lignes)
+
+
+def _crr_texte(crr_source: str, velo: Velo) -> str:
+    """« pneu course_quatre_saisons », « configuration »… — d'où vient un Crr fixé."""
+    if crr_source == "pneu":
+        pneu = litterature.pour_pneu(velo.pneu)
+        return f"pneu {pneu.libelle}, littérature" if pneu is not None else "pneu"
+    return crr_source
+
+
+def _lignes_porte_a_porte(mesure: calib.MesurePorteAPorte) -> list[str]:
+    """Le paragraphe « porte à porte » du rapport : la fourchette, ou pourquoi il n'y en a pas."""
+    seuil = f"{mesure.seuil_groupe:.0%}"
+    centiles = mesure.centiles
+    if centiles is None:
+        return [
+            f"Porte à porte : {mesure.n} sortie(s) roulée(s) seul (moins de {seuil} de "
+            f"signal de groupe), il en faut {calib.SORTIES_MIN_FOURCHETTE} — la fourchette "
+            "par défaut (convention) reste en vigueur."
+        ]
+    bas, mediane, haut = centiles
+    lignes = [
+        f"Porte à porte : temps simulé × {_fr(bas, 3)} à × {_fr(haut, 3)} "
+        f"(médiane × {_fr(mediane, 3)}), centiles 25-75 du temps écoulé réel sur le "
+        f"temps simulé, {mesure.n} sortie(s) sur {len(mesure.sorties)} à moins de "
+        f"{seuil} de signal de groupe"
+    ]
+    mouvement = mesure.centiles_mouvement
+    if mouvement is not None:
+        lignes.append(
+            f"  sur le seul temps en mouvement : × {_fr(mouvement[0], 3)} à × "
+            f"{_fr(mouvement[2], 3)} (médiane × {_fr(mouvement[1], 3)}) — l'erreur du modèle, "
+            "arrêts exclus"
+        )
+    return lignes
 
 
 def rendre_json_calibration(
@@ -534,6 +707,7 @@ def rendre_json_calibration(
     client: ClientArchive,
     motifs: dict[str, int],
     n_calibrables: int,
+    crr_source: str = "ajuste",
 ) -> dict:
     a = rapport.ajustement
     v = rapport.validation
@@ -554,6 +728,9 @@ def rendre_json_calibration(
         "ajustement": {
             "cda_m2": a.cda_m2,
             "crr": a.crr,
+            "crr_fixe": a.crr_fixe,
+            "crr_source": crr_source,
+            "pneu": velo.pneu if crr_source == "pneu" else None,
             "cda_incertitude": a.incertitudes.cda,
             "crr_incertitude": a.incertitudes.crr,
             "masse_totale_kg": a.masse_totale_kg,
@@ -593,6 +770,7 @@ def rendre_json_calibration(
                 for s in v.sorties
             ],
         },
+        "porte_a_porte": _porte_a_porte_json(rapport.porte_a_porte),
         "fichier": str(chemin),
     }
 
@@ -934,9 +1112,12 @@ __all__ = [
     "NOM_CALIBRATION",
     "Calibration",
     "chemin_calibration",
+    "crr_du_velo",
     "ecrire_calibration",
     "executer_calibrer",
     "executer_simuler",
+    "fourchette_defaut",
+    "fourchette_du_velo",
     "lignes_litterature",
     "lire_calibration",
     "litterature_json",

@@ -16,11 +16,11 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.physique.modele import (
     FACTEUR_VENT_HAUTEUR,
     FENETRE_ALTITUDE,
-    PART_ARRET_REFERENCE,
     PAS_M,
     RHO_DEFAUT,
     V_MAX_BISSECTION_MS,
     V_MAX_DESCENTE_KMH,
+    FourchettePorteAPorte,
     Parametres,
     facteur_compteur_defaut,
     masse_volumique_air,
@@ -468,100 +468,52 @@ def test_la_moyenne_compteur_refuse_un_facteur_absurde(mauvais):
         moyenne_compteur_kmh(PUISSANCE_ESSAI, LEGER, mauvais)
 
 
-# --- temps_ecoule ---------------------------------------------------------
+# --- temps_ecoule (L9.1 : une fourchette, plus une moyenne à plat) -----------
 
 
-def test_temps_ecoule_la_moyenne_compteur_l_emporte():
-    """La formule à la main : 100 km à 20 km/h de moyenne compteur, c'est 5 h
-    pile — et c'est plus que le plancher d'arrêts sur les 2 h de mouvement."""
-    ecoule_s, source = temps_ecoule(
-        distance_km=100.0, temps_estime_s=2 * 3600.0, moyenne_compteur_kmh=20.0
-    )
-    assert source == "compteur"
-    assert ecoule_s == pytest.approx(100.0 / 20.0 * 3600.0)  # 18 000 s = 5 h
+def test_temps_ecoule_multiplie_le_temps_simule_par_la_fourchette():
+    """La formule à la main : 4 h 20 de mouvement × [1,015 ; 1,039 ; 1,072]
+    — l'exemple de la note du 23/09, « entre 4 h 23 et 4 h 38 »."""
+    f = FourchettePorteAPorte(bas=1.015, mediane=1.039, haut=1.072, provenance="mesure", n=83)
+    pp = temps_ecoule(4 * 3600 + 20 * 60, f)
+    assert pp.bas_s == pytest.approx(15600 * 1.015)  # 4 h 23 min 54 s
+    assert pp.mediane_s == pytest.approx(15600 * 1.039)
+    assert pp.haut_s == pytest.approx(15600 * 1.072)  # 4 h 38 min 43 s
+    assert pp.provenance == "mesure"
 
 
-def test_temps_ecoule_le_plancher_d_arrets_l_emporte():
-    """Même calcul, mais la moyenne compteur est cette fois plus rapide que ce
-    que le mouvement a réellement tenu (30 km en 1 h) : le plancher, temps de
-    mouvement étiré de la part d'arrêt de référence, l'emporte sur la
-    distance divisée par la moyenne compteur."""
-    ecoule_s, source = temps_ecoule(
-        distance_km=30.0, temps_estime_s=3600.0, moyenne_compteur_kmh=35.0
-    )
-    assert source == "plancher_arrets"
-    assert ecoule_s == pytest.approx(3600.0 / (1.0 - PART_ARRET_REFERENCE))  # ≈ 3 789,5 s
+def test_temps_ecoule_ignore_la_distance_et_suit_le_relief_du_trace():
+    """Le défaut que L9.1 corrige : le porte à porte ne dépend plus que du
+    temps simulé de CE tracé-ci. Deux boucles de même distance, l'une deux
+    fois plus lente (vallonnée), ont deux porte à porte dans le même
+    rapport — l'ancienne formule leur donnait le même, à plat."""
+    f = FourchettePorteAPorte(bas=1.02, mediane=1.05, haut=1.09)
+    plat, montagne = temps_ecoule(3600.0, f), temps_ecoule(7200.0, f)
+    assert montagne.mediane_s == pytest.approx(2 * plat.mediane_s)
 
 
-def test_temps_ecoule_le_plancher_utilise_la_part_donnee():
-    """`part_arret` n'est pas figée à la référence : le plancher suit celle
-    qu'on lui donne."""
-    ecoule_s, source = temps_ecoule(
-        distance_km=30.0, temps_estime_s=3600.0, moyenne_compteur_kmh=35.0, part_arret=0.20
-    )
-    assert source == "plancher_arrets"
-    assert ecoule_s == pytest.approx(3600.0 / 0.80)
+def test_temps_ecoule_rend_la_provenance_de_la_fourchette():
+    pp = temps_ecoule(3600.0, FourchettePorteAPorte(bas=1.02, mediane=1.05, haut=1.09))
+    assert pp.provenance == "defaut"
+    assert pp.bas_s <= pp.mediane_s <= pp.haut_s
 
 
-@pytest.mark.parametrize(
-    ("distance_km", "temps_estime_s", "moyenne_compteur_kmh"),
-    [
-        # Une boucle vallonnée : le modèle tient moins que la moyenne compteur
-        # attend (ici 20 km/h de moyenne réelle contre 24 km/h « compteur »).
-        (25.0, 4500.0, 24.0),
-        (60.0, 3 * 3600.0, 27.0),
-        (10.0, 1800.0, 22.0),
-    ],
-)
-def test_temps_ecoule_ne_descend_jamais_sous_le_temps_de_mouvement(
-    distance_km, temps_estime_s, moyenne_compteur_kmh
-):
-    """Le point du plancher (règle absolue 5) : sans lui, une boucle assez
-    vallonnée pour que le modèle descende sous la moyenne compteur afficherait
-    un temps écoulé **inférieur** à son propre temps de mouvement — un
-    porte-à-porte plus rapide que le temps en selle, impossible en réalité.
-
-    Les trois jeux de valeurs ci-dessus vérifient d'abord que le terme naïf
-    (distance / moyenne compteur) serait bien tombé sous `temps_estime_s` —
-    sans quoi le test ne prouverait rien — puis que la fonction, elle, ne le
-    laisse jamais faire.
-    """
-    naif_s = distance_km / moyenne_compteur_kmh * 3600.0
-    assert naif_s < temps_estime_s  # le cas que le plancher doit rattraper
-
-    ecoule_s, source = temps_ecoule(distance_km, temps_estime_s, moyenne_compteur_kmh)
-    assert source == "plancher_arrets"
-    assert ecoule_s >= temps_estime_s
-
-
-def test_temps_ecoule_a_egalite_choisit_compteur():
-    """Les deux termes égaux : la source reste `"compteur"` — un choix
-    arbitraire mais déterministe, documenté dans la docstring."""
-    # part_arret nul : le plancher vaut exactement temps_estime_s. En prenant
-    # une moyenne compteur telle que distance / moyenne * 3600 == temps_estime_s,
-    # les deux termes s'égalent pile.
-    ecoule_s, source = temps_ecoule(
-        distance_km=50.0, temps_estime_s=3600.0, moyenne_compteur_kmh=50.0, part_arret=0.0
-    )
-    assert source == "compteur"
-    assert ecoule_s == pytest.approx(3600.0)
+@pytest.mark.parametrize("mauvais", [-1.0, float("nan"), float("inf")])
+def test_temps_ecoule_refuse_un_temps_absurde(mauvais):
+    with pytest.raises(ErreurUtilisateur):
+        temps_ecoule(mauvais, FourchettePorteAPorte(bas=1.02, mediane=1.05, haut=1.09))
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "motif"),
+    ("bas", "mediane", "haut", "provenance"),
     [
-        ({"distance_km": -1.0}, "distance"),
-        ({"temps_estime_s": -1.0}, "mouvement"),
-        ({"moyenne_compteur_kmh": 0.0}, "moyenne compteur"),
-        ({"moyenne_compteur_kmh": -5.0}, "moyenne compteur"),
-        ({"part_arret": 1.0}, "part d'arrêt"),
-        ({"part_arret": -0.1}, "part d'arrêt"),
-        ({"distance_km": float("nan")}, "distance_km"),
-        ({"moyenne_compteur_kmh": float("inf")}, "moyenne_compteur_kmh"),
+        (1.10, 1.05, 1.09, "mesure"),  # bas au-dessus de la médiane
+        (1.02, 1.10, 1.09, "mesure"),  # médiane au-dessus du haut
+        (0.0, 1.05, 1.09, "mesure"),  # un ratio nul n'a pas de sens
+        (float("nan"), 1.05, 1.09, "mesure"),
+        (1.02, 1.05, 1.09, "devine"),  # provenance inconnue
     ],
 )
-def test_temps_ecoule_refuse_des_valeurs_absurdes(kwargs, motif):
-    base = {"distance_km": 100.0, "temps_estime_s": 3600.0, "moyenne_compteur_kmh": 25.0}
-    base.update(kwargs)
-    with pytest.raises(ErreurUtilisateur, match=motif):
-        temps_ecoule(**base)
+def test_la_fourchette_refuse_l_incoherent(bas, mediane, haut, provenance):
+    with pytest.raises(ErreurUtilisateur):
+        FourchettePorteAPorte(bas=bas, mediane=mediane, haut=haut, provenance=provenance)

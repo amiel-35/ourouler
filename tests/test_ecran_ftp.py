@@ -12,7 +12,8 @@ import pytest
 
 from ourouler.config import depuis_dict
 from ourouler.erreurs import ErreurUtilisateur
-from ourouler.physique.modele import PART_ARRET_REFERENCE
+from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.seance.ecran_ftp import ftp_pour_vitesse_compteur, info_compteur, rendu, valeurs_liees
 
 CONFIG_SANS_VELO = {
@@ -45,18 +46,19 @@ def test_info_compteur_rend_none_sans_le_moindre_velo():
 
 def test_info_compteur_reprend_exactement_valeurs_liees():
     """Pas une deuxième implémentation : les champs viennent tels quels de
-    `valeurs_liees`, plus `part_arret_plancher` — et `puissance_w` dit à
-    quelle puissance `moyenne_compteur_kmh` a été calculée (règle absolue 5)."""
+    `valeurs_liees`, plus la fourchette du porte à porte (L9.1) — et
+    `puissance_w` dit à quelle puissance `moyenne_compteur_kmh` a été
+    calculée (règle absolue 5)."""
     config = depuis_dict(CONFIG_VELO_MESURE)
     liees = valeurs_liees(config)
     info = info_compteur(config)
+    info.pop("porte_a_porte")
     assert info == {
         "velo": liees["velo"],
         "puissance_w": liees["puissance_endurance_w"],
         "moyenne_compteur_kmh": liees["moyenne_compteur_kmh"],
         "facteur_compteur": liees["facteur_compteur"],
         "facteur_provenance": liees["facteur_provenance"],
-        "part_arret_plancher": PART_ARRET_REFERENCE,
     }
 
 
@@ -88,7 +90,54 @@ def test_info_compteur_dit_le_facteur_mesure():
     assert info["velo"] == "RCR"
     assert info["facteur_compteur"] == 0.85
     assert info["facteur_provenance"] == "mesure"
-    assert info["part_arret_plancher"] == PART_ARRET_REFERENCE
+
+
+def _config_isolee(tmp_path):
+    """Le vélo mesuré, avec un cache à soi : jamais le calibration.json de la machine."""
+    return depuis_dict({**CONFIG_VELO_MESURE, "cache": {"dossier": str(tmp_path)}})
+
+
+def test_info_compteur_porte_la_fourchette_par_defaut_sans_calibration(tmp_path):
+    info = info_compteur(_config_isolee(tmp_path))
+    bas, mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
+    assert info["porte_a_porte"] == {
+        "bas": bas,
+        "mediane": mediane,
+        "haut": haut,
+        "provenance": "defaut",
+        "n": 0,
+    }
+
+
+def test_info_compteur_porte_la_fourchette_mesuree_du_velo(tmp_path):
+    config = _config_isolee(tmp_path)
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {
+            "cda_m2": 0.33,
+            "crr": 0.006,
+            "masse_totale_kg": 89.0,
+            "porte_a_porte": {"bas": 1.017, "mediane": 1.054, "haut": 1.106, "n": 87},
+        },
+    )
+    info = info_compteur(config)
+    assert info["porte_a_porte"] == {
+        "bas": 1.017,
+        "mediane": 1.054,
+        "haut": 1.106,
+        "provenance": "mesure",
+        "n": 87,
+    }
+
+
+def test_info_compteur_retombe_sur_la_convention_avec_une_calibration_ancienne(tmp_path):
+    """Une calibration d'avant L9.1 n'a pas de fourchette : la convention, dite comme telle."""
+    config = _config_isolee(tmp_path)
+    ecrire_calibration(
+        chemin_calibration(config), "RCR", {"cda_m2": 0.22, "crr": 0.0106, "masse_totale_kg": 89.0}
+    )
+    assert info_compteur(config)["porte_a_porte"]["provenance"] == "defaut"
 
 
 def test_info_compteur_dit_le_facteur_suppose_sans_reglage():

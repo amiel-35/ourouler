@@ -47,7 +47,8 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique.commande import VERSION_CALIBRATION
-from ourouler.physique.modele import PART_ARRET_REFERENCE, Parametres, temps_ecoule
+from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
+from ourouler.physique.modele import Parametres
 from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
@@ -1081,37 +1082,33 @@ def test_compteur_json_porte_les_quatre_champs_du_contrat(tmp_path: Path):
     assert compteur["velo"] == "Route"
     assert compteur["facteur_compteur"] == pytest.approx(0.85)
     assert compteur["facteur_provenance"] == "mesure"
-    assert compteur["part_arret_plancher"] == PART_ARRET_REFERENCE
     assert compteur["moyenne_compteur_kmh"] > 0
+    assert compteur["porte_a_porte"]["provenance"] == "defaut"
 
 
 def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
-    """Pas une deuxième formule : `candidate.temps_ecoule_s` doit être
-    exactement `physique.modele.temps_ecoule` appliqué à
-    `placement.distance_totale_m` (le parcours réellement roulé, demi-tours
-    compris — pas la boucle), `placement.duree_totale_s`, et la moyenne
-    compteur du bloc `compteur`."""
+    """Pas une deuxième formule : `candidate.temps_ecoule_s` et ses bornes
+    sont exactement `physique.modele.temps_ecoule` appliqué à
+    `placement.duree_totale_s` (le parcours réellement roulé, demi-tours
+    compris — pas la boucle) et à la fourchette du bloc `compteur`."""
     seance = _seance_fabriquee()
     config = config_avec_facteur_mesure(tmp_path / "cache", facteur=0.85)
     proposition = _proposition_avec_demi_tour()
     charge = rendre_json([proposition], _contexte_avec(seance, config))
-    compteur = charge["compteur"]
     candidate = charge["candidates"][0]
-    attendu_s, attendue_source = temps_ecoule(
-        proposition.placement.distance_totale_m / 1000.0,
-        proposition.placement.duree_totale_s,
-        compteur["moyenne_compteur_kmh"],
-    )
-    assert candidate["temps_ecoule_s"] == round(attendu_s)
-    assert candidate["temps_ecoule_source"] == attendue_source
-    # Jamais sous le temps de mouvement du placement (le point du plancher) :
+    mouvement = proposition.placement.duree_totale_s
+    bas, mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
+    assert candidate["temps_ecoule_s"] == round(mouvement * mediane)
+    assert candidate["temps_ecoule_bas_s"] == round(mouvement * bas)
+    assert candidate["temps_ecoule_haut_s"] == round(mouvement * haut)
+    assert candidate["temps_ecoule_source"] == "defaut"
     assert candidate["temps_ecoule_s"] >= candidate["placement"]["duree_totale_s"]
 
 
 def test_texte_sortie_affiche_mouvement_et_ecoule(tmp_path: Path):
-    """CLI et front disent la même chose, **dans le même ordre** : l'écoulé
-    porte à porte d'abord, le temps sans arrêt ensuite, dans une cellule
-    combinée, et la légende partagée avec `boucle` sous le tableau."""
+    """CLI et front disent la même chose, **dans le même ordre** : le porte à
+    porte d'abord, en fourchette, le temps sans arrêt ensuite, dans une
+    cellule combinée, et la légende partagée avec `boucle` sous le tableau."""
     seance = _seance_fabriquee()
     config = config_avec_facteur_mesure(tmp_path / "cache", facteur=0.85)
     contexte = _contexte_avec(seance, config)
@@ -1121,18 +1118,14 @@ def test_texte_sortie_affiche_mouvement_et_ecoule(tmp_path: Path):
     from ourouler.seance.ecran_ftp import info_compteur
 
     compteur = info_compteur(config, contexte.demande.velo)
-    ecoule_s, _ = temps_ecoule(
-        proposition.placement.distance_totale_m / 1000.0,
-        proposition.placement.duree_totale_s,
-        compteur["moyenne_compteur_kmh"],
-    )
-    minutes_mouvement = round(proposition.placement.duree_totale_s / 60)
-    minutes_ecoule = round(ecoule_s / 60)
-    attendu = (
-        f"{minutes_ecoule // 60}:{minutes_ecoule % 60:02d}"
-        f" / {minutes_mouvement // 60}:{minutes_mouvement % 60:02d}"
-    )
-    assert attendu in texte
+    mouvement = proposition.placement.duree_totale_s
+    bas, _mediane, haut = FOURCHETTE_PORTE_A_PORTE_DEFAUT
+
+    def hm(secondes: float) -> str:
+        minutes = round(secondes / 60)
+        return f"{minutes // 60}:{minutes % 60:02d}"
+
+    assert f"{hm(mouvement * bas)}-{hm(mouvement * haut)} / {hm(mouvement)}" in texte
     assert ligne_temps_ecoule(compteur) in texte
 
 
