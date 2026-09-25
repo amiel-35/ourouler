@@ -329,7 +329,7 @@ def profil_json(config: Config) -> dict:
     # est un masquage qu'on oublie.
     d = en_dict_public(config)
     # Troisième valeur de l'écran de FTP (F1, comble C2 de
-    # docs/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
+    # docs/journal/ux/relecture_f0.md) : `None` si la config ne porte aucun vélo.
     d["seance"]["vitesse_compteur"] = _info_vitesse_compteur(config)
     return d
 

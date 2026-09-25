@@ -1,7 +1,7 @@
 """L5.2 — la séance entière visible, mise à l'épreuve **en aveugle**.
 
-Écrit contre `docs/sprint5_contrat.md` §2, `docs/questions_mainteneur.md` Q13 et
-CLAUDE.md, à partir de la branche `essai-l5.1`, **sans avoir lu
+Écrit contre `docs/journal/sprints/sprint5_contrat.md` §2, Q13 et CLAUDE.md
+(voir `docs/journal/questions/questions_mainteneur.md`), à partir de la branche `essai-l5.1`, **sans avoir lu
 l'implémentation du lot** : elle s'écrit dans un autre worktree pendant que ce
 fichier se rédige. Le seul code lu est celui que le lot va modifier, tel qu'il
 était avant lui.

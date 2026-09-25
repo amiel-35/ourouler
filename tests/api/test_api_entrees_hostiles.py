@@ -133,7 +133,7 @@ def test_une_duree_absurde_est_refusee_proprement(valeur, quoi: str):
     "portée. Poser la borne suppose un chiffre : les seuls mesurés dans le dépôt sont la "
     "portée d'AROME (67 h) et l'horizon d'orientation au vent (3 j), et E15 sert justement "
     "une séance à J+4 sans vent. Jusqu'où un parcours reste servi est un arbitrage produit — "
-    "Q36 de docs/questions_mainteneur.md.",
+    "Q36 de docs/journal/questions/questions_mainteneur.md.",
 )
 def test_une_date_a_dix_ans_est_refusee_plutot_que_devinee():
     """Protège E16 (sélecteur « Quand ») et la règle absolue 5.
@@ -400,7 +400,7 @@ def test_un_fichier_de_200_mo_est_refuse_sans_etre_charge_en_memoire():
     "puissance, votre poids et le relief »). Convertir une durée en distance demande le modèle "
     "physique et son état de calibration, et E16 note lui-même que ce modèle « tourne sur ses "
     "valeurs par défaut » pour un invité. Prendre une durée en entrée est un lot de produit, "
-    "pas un correctif — Q36 de docs/questions_mainteneur.md.",
+    "pas un correctif — Q36 de docs/journal/questions/questions_mainteneur.md.",
 )
 def test_des_parametres_contradictoires_sont_refuses_plutot_qu_arbitres_en_silence():
     """Protège E16, où trois réglages cohabitent sur le même écran.

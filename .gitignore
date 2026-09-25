@@ -27,7 +27,7 @@ config.*.toml
 # d'entrée du front, qui est du code source (lot F2). Nommées une par une :
 # `!docs/ux/*.html` réintégrait tout `.html` déposé là, y compris une carte de
 # `ourouler sortie` sauvegardée par mégarde, avec la géométrie de la boucle.
-!docs/ux/maquettes_v1.html
+!docs/journal/ux/maquettes_v1.html
 !front/index.html
 !front/directions/suisse-vivante.html
 

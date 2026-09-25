@@ -459,7 +459,7 @@ def test_chaque_proposition_porte_son_propre_gpx():
     "la présence de `seance` avant de lire quoi que ce soit. Combler ce trou veut dire poser "
     "une forme de réponse **de référence** pour la séance — donc décider ce qui vaut `null` et "
     "ce qui disparaît — et cette forme est aussi celle que la ligne de commande rend : la "
-    "changer n'est pas un correctif d'API. Q36 de docs/questions_mainteneur.md.",
+    "changer n'est pas un correctif d'API. Q36 de docs/journal/questions/questions_mainteneur.md.",
 )
 def test_l_absence_de_seance_garde_la_meme_forme_de_reponse():
     """Protège E14 et E15, et la relecture adverse qui a relevé le cas.

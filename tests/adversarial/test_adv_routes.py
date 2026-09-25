@@ -631,5 +631,5 @@ def test_un_evitement_ne_fuite_pas_dans_le_repr_de_la_configuration():
     config = _charger({"evitements": [{"nom": "Chez X", "latitude": 0.001, "longitude": 0.002}]})
     assert "Chez X" in repr(config), (
         "les évitements sont désormais masqués dans le repr de Config : mettre à jour "
-        "docs/questions_mainteneur.md, c'est une décision produit"
+        "docs/journal/questions/questions_mainteneur.md, c'est une décision produit"
     )

@@ -234,4 +234,4 @@ de coordonnée à moins de 50 km d'une ville française réelle.
 - `uv run ourouler inventaire --importer <dossier>` tourne sur des fichiers
   réels si le mainteneur en fournit ; `--synchroniser` tourne si la clé
   Intervals est fournie (Q1). Sinon : **non vérifié**, dit en clair.
-- Verdict écrit du relecteur par lot dans `docs/sprint1_relecture.md`.
+- Verdict écrit du relecteur par lot dans `docs/journal/sprints/sprint1_relecture.md`.

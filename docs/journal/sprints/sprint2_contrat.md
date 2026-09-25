@@ -223,4 +223,4 @@ coordonnée réelle en fixture, mot de passe jamais imprimé).
   (BRouter Coolify + Open-Meteo) et écrit un GPX ; `--gpx` évalue un GPX.
 - `uv run ourouler inventaire --synchroniser` puis `inventaire` séparent
   RCR et BMC sur les vraies données.
-- Verdict du relecteur dans `docs/sprint2_relecture.md`.
+- Verdict du relecteur dans `docs/journal/sprints/sprint2_relecture.md`.

@@ -3,7 +3,7 @@
 Rédigé le 13/09/2026 par le superviseur (Fable au cadrage, Opus à
 l'exécution). Fixe les interfaces pour dev-feature, testeur-adversarial (en
 aveugle) et relecteur. **Le cadrage produit fait foi et se lit d'abord** :
-`docs/plan_sprints_agents.md`, section « Sprint 4 » — séances de référence
+`docs/journal/sprints/plan_sprints_agents.md`, section « Sprint 4 » — séances de référence
 réelles, contrainte bloc par bloc, récup amortisseur, mécanique du
 demi-tour, Z2 élastiques aux extrémités, note plutôt que filtre, validation
 rétrospective, carte de vérification.

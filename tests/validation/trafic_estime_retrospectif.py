@@ -13,7 +13,7 @@ c'est un pseudo-tag que BRouter calcule lui-même, à partir de la population
 des villes proches (pondérée par le carré de la distance), des zones
 industrielles, des aéroports et de la densité du réseau — jamais d'un
 comptage réel de véhicules ni d'un signal cycliste (voir Q16,
-`docs/questions_mainteneur.md`). Il vit dans les `WayTags`, donc sur le
+`docs/journal/questions/questions_mainteneur.md`). Il vit dans les `WayTags`, donc sur le
 **tronçon** (`Segment.tags`), pas sur le nœud : `estimated_traffic_class` est
 la classe d'une portion de route entière, pas d'un carrefour.
 

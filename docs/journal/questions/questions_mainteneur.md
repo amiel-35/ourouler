@@ -149,7 +149,7 @@ renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessou
 le projet est destiné à être open source, MIT.
 
 **Avant tout passage en public** (relevé par le relecteur du sprint 1) :
-les documents de cadrage (`docs/cadrage.md`, `docs/plan_sprints_agents.md`,
+les documents de cadrage (`docs/journal/cadrage.md`, `docs/journal/sprints/plan_sprints_agents.md`,
 ce fichier) citent des chiffres du mainteneur — FTP, masse, nombre de
 sorties, kilométrage, noms d'équipement Intervals. Le code, les tests et
 `config.example.toml` n'en contiennent aucun. Décider : anonymiser ces
@@ -185,7 +185,7 @@ successives de `boucle.fit` tiennent toutes dans ±0,009° du point fictif
 est illisible par conception. Vérifié indépendamment par la relecture.
 
 **Mais le point de Rennes-centre est encore dans HEAD aujourd'hui**,
-hors de portée de tout invariant : `docs/sprint1_relecture.md:42`, où la
+hors de portée de tout invariant : `docs/journal/sprints/sprint1_relecture.md:42`, où la
 relecture du sprint 1 cite le défaut qu'elle venait de trouver dans
 `config.example.toml`, coordonnée et commentaire compris, « soit le centre de
 Rennes, la ville où habite le mainteneur ». Le défaut d'origine a bien été
@@ -204,7 +204,7 @@ anonymisé avant publication — la précision du 13/09 range « coordonnées »
 parmi ce qui ne se publie pas, la réponse du même jour range « les chiffres »
 parmi ce qui peut rester, et un point de domicile n'est ni tout à fait l'un ni
 tout à fait l'autre ; (b) l'historique est-il réécrit pour autant. Rien n'a
-été touché : un centre-ville reste une coordonnée publique, et `docs/cadrage.md:15`
+été touché : un centre-ville reste une coordonnée publique, et `docs/journal/cadrage.md:15`
 dit déjà « j'habite près de Rennes » en toutes lettres — c'est le couple
 décimal accolé à la phrase qui mérite un arbitrage, pas une urgence.
 
@@ -254,7 +254,7 @@ roulement ; le modèle sert à prédire une durée (MAE 4,2 % RCR, 2,4 % BMC
 après vent à hauteur du cycliste et terme cinétique, CdA 0,22 hors butée)
 et l'avantage du CLM se mesure directement : +2,5 km/h à puissance égale en
 Z2 sur tronçons plats (`ourouler comparer`), ≈ 40 W à vitesse égale.
-Détail : `docs/sprint3_relecture_fable.md`.
+Détail : `docs/journal/sprints/sprint3_relecture_fable.md`.
 
 <details><summary>Historique de la question</summary>
 
@@ -954,7 +954,7 @@ télécharger le GPX sur l'ordinateur ne met rien sur le compteur.
   ceci près que le fichier part du Mac au lieu d'être déjà sur le téléphone.
 
 **Ce n'est pas un défaut du lot, c'est la limite d'une page écrite sur un
-disque**, et elle était connue au cadrage : `docs/plan_sprints_agents.md`
+disque**, et elle était connue au cadrage : `docs/journal/sprints/plan_sprints_agents.md`
 décrit la page du jour comme « la maquette du futur front », et le sprint 7
 comme le moment où « la même page sera servie par le serveur au lieu d'être
 écrite sur le disque ». C'est ce jour-là que le partage devient direct.
@@ -2937,7 +2937,7 @@ seuils en V2. Q3 n'avait donc plus de question depuis ce matin.
 
 ### Q6 — clôture du 17/09/2026
 
-L'identifiant d'athlète Intervals est retiré du dépôt (`docs/sprint1_relecture.md`),
+L'identifiant d'athlète Intervals est retiré du dépôt (`docs/journal/sprints/sprint1_relecture.md`),
 et il vit désormais côté profil de l'utilisateur, conformément à [[Q35]].
 
 **Ce que la vérification a établi, et qui change la gravité :**
@@ -2959,7 +2959,7 @@ réécrit — le faire changerait tous les sha du dépôt pour retirer une donn�
 publique.
 
 **Ce qui reste, et qui n'est pas un secret non plus** : la masse, la FTP et
-« centre de Rennes » figurent dans cinq documents, dont `docs/cadrage.md`.
+« centre de Rennes » figurent dans cinq documents, dont `docs/journal/cadrage.md`.
 Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
 purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
 ensemble, ils décrivent quelqu'un. Signalé, assumé.
@@ -4342,7 +4342,7 @@ Ce chiffre existe déjà, en ligne de commande :
 `tests/validation/facteur_compteur_retrospectif.py` le calcule sur les
 vraies sorties d'un vélo. C'est cette même famille de mesure qui a produit
 les 91 % (en mouvement) et 87 % (au compteur) rapportés pour RCR dans
-`docs/ux/cycle_ux_contrat.md` (décision 8, 69 sorties extérieures d'au moins
+`docs/journal/ux/cycle_ux_contrat.md` (décision 8, 69 sorties extérieures d'au moins
 une heure) — **à ne pas confondre** avec le 0,803 que l'écran affiche
 aujourd'hui en indication sur un champ vide : celui-là est le défaut
 *supposé*, dérivé d'un profil générique (10 m de dénivelé par km, 5 %
@@ -4364,7 +4364,7 @@ a une suite :
    duquel le chiffre ne veut rien dire (le script écarte déjà les sorties de
    moins d'une heure) ?
 3. **Ça devient une route d'API** : `api/routes.py` ne l'a pas — cohérent
-   avec ce que dit `docs/ux/front_contrat.md` sur F1, qui n'expose que ce que
+   avec ce que dit `docs/journal/ux/front_contrat.md` sur F1, qui n'expose que ce que
    les maquettes demandent déjà.
 
 Sans réponse, l'écran reste ce qu'il est : saisir à la main, ou laisser le
@@ -5163,4 +5163,4 @@ le code de ce sprint :
   3. Un entre-deux : garder le brut le temps du dédoublonnage seulement
      (fenêtre courte), le dériver pour la calibration puis le jeter.
 
-Référencée depuis la clôture du sprint 9, `docs/plan_sprints_agents.md`.
+Référencée depuis la clôture du sprint 9, `docs/journal/sprints/plan_sprints_agents.md`.

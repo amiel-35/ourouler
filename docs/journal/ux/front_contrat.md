@@ -102,7 +102,7 @@ Ce que la livraison a tranché, et qui n'était pas écrit ici :
   autres propositions le disent au lieu d'envoyer le mauvais tracé.
 - **L'étape d'identité de l'assistant n'a pas été écrite** : les maquettes
   l'écartent exprès (question ouverte n° 4) et l'API n'a aucun champ où la
-  ranger. Question posée en Q36 de `docs/questions_mainteneur.md`.
+  ranger. Question posée en Q36 de `docs/journal/questions/questions_mainteneur.md`.
 
 ### F3 — Les comptes
 

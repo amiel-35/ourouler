@@ -357,7 +357,7 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
             )
 
 
-#: C1 de `docs/ux/relecture_f0.md` : `zwo.py` et `mrc.py` (683 lignes, testées)
+#: C1 de `docs/journal/ux/relecture_f0.md` : `zwo.py` et `mrc.py` (683 lignes, testées)
 #: n'avaient aucun appelant dans `src/` — un trou du cadrage compté comme
 #: comblé qui ne l'était qu'à moitié. F1 les branche via `seance/fichier.py`,
 #: lui-même appelé par `seance/commande.py` et `sortie/commande.py`.
@@ -638,7 +638,7 @@ def test_aucun_fichier_de_configuration_du_depot_ne_porte_de_point_reel(config: 
 # Les deux détecteurs de coordonnées du dépôt lisaient les fixtures et les
 # fichiers de configuration ; aucun ne regardait `docs/`. L'audit de
 # l'historique mené en resserrant `.gitignore` y a trouvé le point de départ du
-# mainteneur en clair depuis le sprint 1 : `docs/sprint1_relecture.md` citait
+# mainteneur en clair depuis le sprint 1 : `docs/journal/sprints/sprint1_relecture.md` citait
 # le défaut qu'elle venait de faire corriger ailleurs, coordonnée comprise. Un
 # procès-verbal de relecture est un document comme un autre.
 

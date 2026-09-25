@@ -99,7 +99,7 @@ crédible, pas moins.
 **Vérifié** : `grep` sur tout `src/` — zéro import de `zwo` ou de `mrc` hors de
 ces deux fichiers. Aucune sous-commande, aucune option, rien dans `cli.py` ne
 permet de déposer un fichier de séance. Le trou nommé dans
-`docs/ux/front_contrat.md` était « l'**import** de séance » : il n'est pas
+`docs/journal/ux/front_contrat.md` était « l'**import** de séance » : il n'est pas
 comblé, c'est le lecteur qui existe, pas l'import.
 
 F0.5 a honnêtement déclaré n'avoir aucune donnée réelle (règle 4). Le cumul

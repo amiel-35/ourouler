@@ -3,8 +3,8 @@
 Relu le 13/09/2026 par l'agent `relecteur` (Opus) sur la branche `sprint-3`,
 après fusion des trois lots, des tests adversariaux et des corrections.
 Lecture de `CLAUDE.md`, `doctrine_architecture.md` (dont §10),
-`docs/sprint3_contrat.md`, `docs/sprint3_relecture_fable.md`,
-`docs/sprint2_relecture.md` (grille et dette héritée), puis de
+`docs/journal/sprints/sprint3_contrat.md`, `docs/journal/sprints/sprint3_relecture_fable.md`,
+`docs/journal/sprints/sprint2_relecture.md` (grille et dette héritée), puis de
 `boucle/antennes.py`, `apprentissage/{routes,commande}.py`,
 `physique/{modele,calibration,commande}.py`,
 `connecteurs/openmeteo_archive.py`, des diffs `sprint-2...sprint-3` de
@@ -16,7 +16,7 @@ document est le seul livrable de la relecture.
 **`src/ourouler/physique/comparer.py` et `tests/test_physique_comparer.py` sont
 hors relecture, en cours de réécriture par un autre agent** (schéma « séries
 plates droites Z2 » validé par le mainteneur le 13/09, complément de
-`docs/sprint3_relecture_fable.md`). Tout ce qui touche `comparer` n'est cité
+`docs/journal/sprints/sprint3_relecture_fable.md`). Tout ce qui touche `comparer` n'est cité
 ici que pour ce qu'il impose **ailleurs** — le README, au §9 point 1.
 
 **Verdict global : à corriger, rien de bloquant.** Les trois lots sont au
@@ -351,7 +351,7 @@ vise. *Correction : `max(1, maximum - 1)`, ou refuser `maximum < 2` en entrée.*
 La passe Fable a fait le gros du travail sur ce lot ; je vérifie ce qu'elle a
 demandé et je relis le reste.
 
-**Les quatre corrections de `docs/sprint3_relecture_fable.md` sont en place.**
+**Les quatre corrections de `docs/journal/sprints/sprint3_relecture_fable.md` sont en place.**
 
 1. **Vent à hauteur de cycliste.** `physique/modele.py:75-91` pose
    `FACTEUR_VENT_HAUTEUR = 0.6` avec la dérivation complète du profil
@@ -571,7 +571,7 @@ sans que rien ne l'explique.
 
 **Point léger — commentaire périmé.** `boucle/commande.py:79-86` :
 `PART_FTP_DEFAUT = 0.65` est annoté « À arbitrer par le mainteneur ». Q8 est
-**close** depuis le 13/09 (`docs/questions_mainteneur.md:167-173` : « Réponse
+**close** depuis le 13/09 (`docs/journal/questions/questions_mainteneur.md:167-173` : « Réponse
 d'Amiel (13/09/2026) — close »), et le commit `0b9ea0a` le dit aussi.
 *Correction : remplacer par « Q8, close le 13/09/2026 : allure Z2 tant que la
 séance du jour n'est pas connue ; le sprint 4 la remplacera par la séance. »*
@@ -690,7 +690,7 @@ Par gravité décroissante.
    (« +6 W pour le BMC, c'est-à-dire aucun avantage mesurable […] Ce résultat
    **contredit** la résistance totale calibrée ») et `:146-151` (« Deux mesures
    de l'écart RCR / BMC se contredisent […] l'écart n'est pas expliqué »). Le
-   complément du 13/09 de `docs/sprint3_relecture_fable.md` rapporte la mesure
+   complément du 13/09 de `docs/journal/sprints/sprint3_relecture_fable.md` rapporte la mesure
    refaite selon le schéma que le mainteneur a validé (« tu as trouvé un
    schéma cohérent, c'est OK ») : **+2,6 km/h à puissance égale, ≈ 30-40 W en
    faveur du BMC**, cohérente avec la calibration et avec son « 25-30 W à la
@@ -727,11 +727,11 @@ Par gravité décroissante.
    quota alors qu'il a coûté un appel. Correction au §3, C2.
 
 6. **Q9 et Q10 sont tranchées dans le code mais restent ouvertes dans
-   `docs/questions_mainteneur.md`.** Q9 (`:174-206`) publie encore les
+   `docs/journal/questions/questions_mainteneur.md`.** Q9 (`:174-206`) publie encore les
    mesures d'avant les corrections (CdA en butée à 0,18, MAE 5,2 % / 5,5 %) et
    quatre « pistes » dont trois sont abandonnées ; les vraies valeurs sont
    0,22 et MAE 4,2 % / 2,4 % (`README.md:58-68`), et
-   `docs/sprint3_relecture_fable.md` écrit « Q9 : close dans l'esprit
+   `docs/journal/sprints/sprint3_relecture_fable.md` écrit « Q9 : close dans l'esprit
    ci-dessus — on ne sépare plus CdA et Crr ». Q10 (`:207-215`) pose la
    question « découper ou écarter ? » alors que le code a **écarté**
    (`physique/calibration.py:1093-1126`, décision de la passe Fable, point 4).

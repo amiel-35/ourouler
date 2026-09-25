@@ -11,7 +11,7 @@
 
 Relu le 12/09/2026 par l'agent `relecteur` (Opus) sur la branche `sprint-1`,
 après fusion de `s1-meteo` et `s1-donnees`. Lecture de `CLAUDE.md`,
-`doctrine_architecture.md`, `docs/sprint1_contrat.md`, de tout
+`doctrine_architecture.md`, `docs/journal/sprints/sprint1_contrat.md`, de tout
 `src/ourouler/` et de tout `tests/`. Aucun fichier sous `src/` ou `tests/`
 n'a été modifié : ce document est le seul livrable de la relecture.
 
@@ -47,9 +47,9 @@ absolue 1 de `CLAUDE.md` l'interdit sans réserve et que le dépôt est destiné
 **A1 — données personnelles réelles dans `config.example.toml` (bloquant).**
 `config.example.toml:11-12` donne `masse_kg = 91.0` et `ftp_w = 258`, qui
 sont exactement les valeurs réelles du mainteneur telles qu'écrites dans
-`docs/cadrage.md:12` (« FTP 258 W, 91 kg »). `config.example.toml:7-8` place
+`docs/journal/cadrage.md:12` (« FTP 258 W, 91 kg »). `config.example.toml:7-8` place
 le départ au centre de Rennes, la ville où habite le mainteneur
-(`docs/cadrage.md:15`), et le commentaire la nomme.
+(`docs/journal/cadrage.md:15`), et le commentaire la nomme.
 `config.example.toml:29` proposait un identifiant d'athlète
 d'apparence réelle. Le fichier affirme lui-même en `config.example.toml:2-3`
 « ne contient aucune donnée personnelle », et `README.md:48` affirme « rien
@@ -437,8 +437,8 @@ Par gravité décroissante.
    violation de la règle absolue 1, dans un dépôt destiné à devenir public.
    Remplacer par des valeurs manifestement inventées et retirer « Rennes ».
    **Bloquant.**
-2. **`docs/questions_mainteneur.md:17-19`, `docs/plan_sprints_agents.md:83-86`,
-   `docs/cadrage.md:12` — même règle, autres fichiers** : noms d'équipement
+2. **`docs/journal/questions/questions_mainteneur.md:17-19`, `docs/journal/sprints/plan_sprints_agents.md:83-86`,
+   `docs/journal/cadrage.md:12` — même règle, autres fichiers** : noms d'équipement
    réels (`rcr`, `VR`, `BMC`), nombres de sorties, kilométrage, dates, FTP et
    masse. Et `README.md:48` affirme le contraire (« rien de personnel n'entre
    dans ce dépôt »). Décider avec le mainteneur ce qui reste avant l'ouverture

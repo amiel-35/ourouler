@@ -1,6 +1,6 @@
 # Relecture adverse des maquettes v1
 
-Relecture du 16/09/2026 de `docs/ux/maquettes_v1.html` (commit `9fe7431`),
+Relecture du 16/09/2026 de `docs/journal/ux/maquettes_v1.html` (commit `9fe7431`),
 par un agent qui n'a pas participé à leur conception. Les numéros de ligne
 renvoient à ce fichier. Chaque constat dit s'il est **vérifié** (dans le
 code, la config ou les documents du cycle, chemin à l'appui) ou **supposé**.
@@ -121,7 +121,7 @@ contraste est une densité par kilomètre, calibrée sur 143 boucles
 (`contraste.py:153-164`).
 
 **E10, l. 418 — « mesure de densité faite ».** La mesure est une étude
-ponctuelle sur quatre villes (`docs/questions_mainteneur.md:1479-1484`),
+ponctuelle sur quatre villes (`docs/journal/questions/questions_mainteneur.md:1479-1484`),
 pas une fonction appelable sur une adresse. **Vérifié** : aucune occurrence
 de « dégagement » dans `src/`. Pacé n'a jamais été mesurée : « à 4 km de chez
 vous, la densité tombe à 0,3 » (l. 410) est un chiffre inventé présenté

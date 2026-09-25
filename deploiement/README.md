@@ -1,6 +1,6 @@
 # L'hébergé minimal — tourner en local
 
-Contrat : `docs/heberge_minimal_contrat.md`. Ce dossier construit ce que le
+Contrat : `docs/journal/sprints/heberge_minimal_contrat.md`. Ce dossier construit ce que le
 contrat demande — un conteneur qui génère la page du jour une fois par jour,
 un serveur statique qui la sert derrière une authentification basique — et
 **rien de plus**. Aucun déploiement ici : `docker compose` sur cette machine

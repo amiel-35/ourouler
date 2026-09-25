@@ -9,7 +9,7 @@ front un schéma OpenAPI lisible sur `/docs`.
 **Aucun modèle de réponse de succès.** Les réponses heureuses sont le JSON que
 la ligne de commande rend déjà ; le décrire une seconde fois en Pydantic
 créerait exactement la divergence que l'adaptateur évite. Le contrat de ces
-réponses est `docs/ux/discovery_donnees.md`, complété par
+réponses est `docs/journal/ux/discovery_donnees.md`, complété par
 `docs/ux/api_contrat.md`.
 
 **Les pannes, elles, ont un modèle** (`ReponseErreur`, ajouté le 17/09/2026),

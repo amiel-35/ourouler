@@ -1,6 +1,6 @@
 """L5.1 — le vent dans le placement, mis à l'épreuve **en aveugle**.
 
-Écrit contre `docs/sprint5_contrat.md` §1 et CLAUDE.md, sans avoir lu
+Écrit contre `docs/journal/sprints/sprint5_contrat.md` §1 et CLAUDE.md, sans avoir lu
 l'implémentation : ces tests sont datés d'avant elle.
 
 Ce que ce fichier surveille, par ordre de gravité décroissante.

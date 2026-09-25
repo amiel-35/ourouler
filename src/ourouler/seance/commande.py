@@ -144,7 +144,7 @@ def executer(
     - `--depuis`/`--jusqua` ensemble : une plage chez Intervals.icu (F0.3,
       voir `_executer_periode`) ;
     - `--fichier-seance` : un `.ZWO`/`.MRC` donné en ligne de commande au lieu
-      d'Intervals.icu (F1, comble C1 de `docs/ux/relecture_f0.md` — voir
+      d'Intervals.icu (F1, comble C1 de `docs/journal/ux/relecture_f0.md` — voir
       `_executer_fichier`).
     """
     jour_brut = getattr(args, "jour", None)
@@ -349,7 +349,7 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
     if seance.meta.get("conversion"):
         # Séance venue d'un fichier (`.ZWO`/`.MRC`, F1) : la conversion des
         # pourcentages de FTP en watts doit être visible et dire qu'elle a eu
-        # lieu (docs/ux/maquettes_v1.html E17) — c'est ainsi que quelqu'un
+        # lieu (docs/journal/ux/maquettes_v1.html E17) — c'est ainsi que quelqu'un
         # découvre que sa FTP est mal renseignée.
         lignes.append(seance.meta["conversion"])
     if seance.meta.get("puissance_approximee"):

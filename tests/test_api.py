@@ -924,7 +924,7 @@ def test_un_proprietaire_qui_n_a_rien_ecrit_n_herite_pas_du_socle_partage(tmp_pa
 
     **Ce que ça rend au lieu de lever, depuis le 22/09/2026**
     (`DepotProfils.config_ou_comblee` — voir `SocleTOML.config_ou_comblee`,
-    `docs/questions_mainteneur.md` Q66) : un profil incomplet lève encore
+    `docs/journal/questions/questions_mainteneur.md` Q66) : un profil incomplet lève encore
     *tant que rien ne peut se construire du tout*, mais un compte hébergé
     tout juste activé doit rester lisible avant sa première écriture — c'est
     ce qu'`Assistant.tsx`/`App.tsx` supposent au démarrage. `AUTRE` reçoit
@@ -1008,7 +1008,7 @@ def test_le_socle_personnel_du_mainteneur_ne_se_sert_pas_a_un_autre(tmp_path: Pa
     mainteneur. Le socle du service est désormais déclaré comme étant le sien,
     et le dépôt refuse de le servir à quelqu'un d'autre plutôt que de décider
     tout seul quelles sections sont communes — cet arbitrage est au mainteneur
-    (`docs/questions_mainteneur.md`).
+    (`docs/journal/questions/questions_mainteneur.md`).
     """
     depot = DepotProfils(
         SocleTOML(ecrire_config(tmp_path), proprietaire=PROPRIETAIRE_LOCAL),

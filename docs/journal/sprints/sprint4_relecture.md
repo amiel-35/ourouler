@@ -3,9 +3,9 @@
 Relu le 13/09/2026 par l'agent `relecteur` (Opus) sur la branche `sprint-4`,
 après fusion des quatre lots, des tests adversariaux et des corrections.
 Lecture de `CLAUDE.md`, `doctrine_architecture.md` (dont §10),
-`docs/plan_sprints_agents.md` section « Sprint 4 » (le cadrage produit fait
-foi), `docs/sprint4_contrat.md`, `docs/questions_mainteneur.md` Q11 à Q14 et
-`docs/sprint3_relecture.md` (grille et dette héritée) ; puis de tout
+`docs/journal/sprints/plan_sprints_agents.md` section « Sprint 4 » (le cadrage produit fait
+foi), `docs/journal/sprints/sprint4_contrat.md`, `docs/journal/questions/questions_mainteneur.md` Q11 à Q14 et
+`docs/journal/sprints/sprint3_relecture.md` (grille et dette héritée) ; puis de tout
 `src/ourouler/seance/` et `src/ourouler/sortie/`, des diffs `main...sprint-4`
 de `boucle/{trace,couts,gpx}.py`, `connecteurs/{brouter,intervals}.py`,
 `config.py`, `cli.py`, `README.md`, `config.example.toml`, et des tests

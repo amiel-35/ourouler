@@ -1,9 +1,9 @@
 """Géométrie d'un tracé exposée en JSON : simplifiée, avec son profil d'altitude.
 
-Contrat du lot F0.1 (`docs/ux/front_contrat.md`) : aucune coordonnée d'un
+Contrat du lot F0.1 (`docs/journal/ux/front_contrat.md`) : aucune coordonnée d'un
 tracé n'existait dans le JSON de `boucle` ou de `sortie`, seulement dans le
 GPX écrit sur disque et dans le HTML Leaflet de `sortie/carte.py`
-(`docs/ux/discovery_donnees.md` §2, §3 « Page du jour ») — un front web ne
+(`docs/journal/ux/discovery_donnees.md` §2, §3 « Page du jour ») — un front web ne
 pouvait dessiner aucune carte. Ce module comble ce trou avec `geometrie_json`.
 
 **Le volume.** Un tracé BRouter compte quelques milliers de points ; un GPX

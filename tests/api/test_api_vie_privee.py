@@ -1,4 +1,4 @@
-"""Export et suppression des données personnelles (lot L7.B, `docs/sprint7_contrat.md`).
+"""Export et suppression des données personnelles (lot L7.B, `docs/journal/sprints/sprint7_contrat.md`).
 
 Deux exigences de fond, une pour l'export, une pour la suppression — et
 chacune a son piège.
@@ -172,7 +172,7 @@ def test_la_suppression_rend_le_profil_comme_neuf(tmp_path: Path):
     est exclu de la comparaison, seule ligne qui doit légitimement différer.
 
     **`GET /profil` répond 200 pour les deux, et c'est voulu** (Q66,
-    `docs/questions_mainteneur.md` — décidé le 22/09/2026, après la fuite
+    `docs/journal/questions/questions_mainteneur.md` — décidé le 22/09/2026, après la fuite
     fermée le 21/09/2026 pour `depart`/`cycliste`/`velos`/`intervals`) : un
     compte hébergé sans surcharge — tout juste activé, ou tout juste
     supprimé — reste lisible, avec le **même comblement neutre**

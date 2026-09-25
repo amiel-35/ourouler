@@ -826,7 +826,7 @@ def test_intervalles_http_en_erreur_remonte():
 # --- profil_athlete (T1 de l'accueil, [[Q64]]) --------------------------------
 #
 # Les noms de champs ci-dessous sont **inventés**, sur le modèle plausible
-# documenté dans `docs/questions_mainteneur.md` Q64 — jamais une réponse
+# documenté dans `docs/journal/questions/questions_mainteneur.md` Q64 — jamais une réponse
 # relue sur un vrai compte (règle absolue 4 : ce lot n'est pas vérifié sur les
 # vraies données d'Intervals.icu, et cli/docs le disent).
 

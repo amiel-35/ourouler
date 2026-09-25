@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Serveur statique du dossier des pages, derrière une authentification basique
-(docs/heberge_minimal_contrat.md, périmètre point 2).
+(docs/journal/sprints/heberge_minimal_contrat.md, périmètre point 2).
 
 Volontairement `http.server` seul, sans framework : la page servie est déjà
 autonome (Leaflet + GPX en base64 dedans, aucun appel serveur), rien ne

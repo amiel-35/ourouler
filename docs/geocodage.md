@@ -1,9 +1,9 @@
 # Géocodage — décision du lot F0.2
 
-Comble le trou nommé dans `docs/ux/front_contrat.md` (F0) et
-`docs/ux/discovery_donnees.md` §4 : transformer une adresse tapée en
+Comble le trou nommé dans `docs/journal/ux/front_contrat.md` (F0) et
+`docs/journal/ux/discovery_donnees.md` §4 : transformer une adresse tapée en
 coordonnées n'existait nulle part dans le dépôt. `--adresse-depart` reste le
-nom **réservé** (Q15, `docs/questions_mainteneur.md:511-524`) pour l'option
+nom **réservé** (Q15, `docs/journal/questions/questions_mainteneur.md:511-524`) pour l'option
 qui, plus tard, utilisera ce connecteur sur `meteo`/`boucle`/`sortie` — ce
 lot livre le connecteur et une commande dédiée (`ourouler geocoder`) pour
 l'exercer, pas encore ce branchement-là.

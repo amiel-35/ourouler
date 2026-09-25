@@ -3,8 +3,8 @@
 L'interface que le cycliste utilise. Elle **ne parle qu'à l'API** livrée au
 lot F1 (`src/ourouler/api/`), jamais au cœur Python : doctrine §10.2.
 
-Les écrans viennent de `docs/ux/maquettes_v1.html`, les arbitrages de
-`docs/ux/cycle_ux_contrat.md`, le contrat des réponses de
+Les écrans viennent de `docs/journal/ux/maquettes_v1.html`, les arbitrages de
+`docs/journal/ux/cycle_ux_contrat.md`, le contrat des réponses de
 `docs/ux/api_contrat.md`.
 
 ## Lancer

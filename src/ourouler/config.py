@@ -56,7 +56,7 @@ USAGES_VELO = ("route", "clm")
 PNEUS_VELO = ("course_rapide", "course_quatre_saisons", "entrainement", "gravel", "vtt")
 
 #: Préfixe commun des variables d'environnement lues par `charger()` (contrat
-#: de l'hébergé minimal, docs/heberge_minimal_contrat.md § « Les secrets »).
+#: de l'hébergé minimal, docs/journal/sprints/heberge_minimal_contrat.md § « Les secrets »).
 PREFIXE_ENV = "OUROULER_"
 
 #: Nombres de directions acceptés pour la couronne. Défini ici, et non dans
@@ -370,7 +370,7 @@ class ParametresSeance:
     #: cycliste** : « le vent doit-il faire préférer une boucle plus mouillée
     #: à une boucle plus sèche ? » Le défaut ci-dessous répond non dans le cas
     #: mesuré en L5.1 (deux boucles de même relief, seul le vent les
-    #: distingue) : voir `docs/sprint5_contrat.md` §1.6 pour la mesure sur
+    #: distingue) : voir `docs/journal/sprints/sprint5_contrat.md` §1.6 pour la mesure sur
     #: les boucles réelles du mainteneur qui le justifie. 0.0 = le vent
     #: tranche toujours, sans tolérance — l'autre réponse possible.
     tolerance_egalite: float = 0.15
@@ -509,7 +509,7 @@ def charger(
     injectable pour les tests (défaut : `os.environ`, jamais lu ailleurs que
     dans ce module et `cli.py`, règle absolue 2).
 
-    Contrat de l'hébergé minimal (docs/heberge_minimal_contrat.md, § « Les
+    Contrat de l'hébergé minimal (docs/journal/sprints/heberge_minimal_contrat.md, § « Les
     secrets ») : la tâche planifiée conteneurisée n'a ni fichier de
     configuration personnel dans l'image, ni coordonnée de départ commitée.
     La clé Intervals, le point de départ et le serveur BRouter viennent donc

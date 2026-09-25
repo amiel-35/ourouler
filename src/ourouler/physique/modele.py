@@ -306,7 +306,7 @@ def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
 # --- la moyenne du compteur ---------------------------------------------------
 #
 # La **troisième valeur** de l'écran de FTP (décision 8 du cycle UX,
-# `docs/ux/cycle_ux_contrat.md`). Sans elle, quelqu'un tape dans le champ « à
+# `docs/journal/ux/cycle_ux_contrat.md`). Sans elle, quelqu'un tape dans le champ « à
 # plat » la moyenne qu'il lit sur son compteur, et tout l'escalier des zones se
 # décale vers le bas : la mesure du 16/09/2026 place alors le cycliste *sous*
 # sa Z2, et cette position fausse se propage à toutes les autres zones.

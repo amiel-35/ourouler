@@ -193,7 +193,7 @@ def test_hors_de_portee_du_modele_et_hors_de_sa_grille_ne_disent_pas_la_meme_cho
     est ce que la règle absolue 5 interdit (`meteo/openmeteo._hors_domaine`).
     Séparer demanderait que l'API connaisse la portée publiée de chaque
     modèle ; ce chiffre est un arbitrage, posé en Q36 de
-    `docs/questions_mainteneur.md`. Écrit ici plutôt que masqué derrière une
+    `docs/journal/questions/questions_mainteneur.md`. Écrit ici plutôt que masqué derrière une
     marque : un test vert qui promet plus qu'il ne tient est le même mensonge
     qu'une marque au motif faux.
     """

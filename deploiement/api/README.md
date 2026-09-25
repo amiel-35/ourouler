@@ -210,7 +210,7 @@ que personne n'a remplie n'écrase plus le TOML.
 
 Il ne touche à rien sur le Coolify du mainteneur, ne lit aucun jeton dans
 `~/.config/coolify`, et ne décide pas de la méthode d'authentification (hors
-périmètre du sprint 7, `docs/sprint7_contrat.md`). Il ne touche pas non plus
+périmètre du sprint 7, `docs/journal/sprints/sprint7_contrat.md`). Il ne touche pas non plus
 au déploiement existant du générateur de la page du jour
 (`deploiement/Dockerfile`, `deploiement/docker-compose.yml`,
 `docker-compose.coolify.yml`) : ce paquetage-ci est un service distinct, avec

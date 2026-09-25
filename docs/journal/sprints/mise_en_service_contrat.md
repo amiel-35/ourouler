@@ -6,7 +6,7 @@ on corrige d'abord ce qui l'empêche d'observer, parce que l'observer est le
 contrôle qui a trouvé tous les autres.
 
 Aucun de ces défauts n'est une régression du sprint 5 ; ils sont documentés en
-Q19 à Q23 de `docs/questions_mainteneur.md`, qui fait foi pour le détail.
+Q19 à Q23 de `docs/journal/questions/questions_mainteneur.md`, qui fait foi pour le détail.
 
 ## 1. La carte (Q20) — le plus urgent
 

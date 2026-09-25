@@ -1,5 +1,5 @@
 """Importer l'historique qu'un cycliste dépose : fichiers isolés, `.gz`, ou
-archive d'export Strava/Garmin (lot L9.2, `docs/sprint9_contrat.md`).
+archive d'export Strava/Garmin (lot L9.2, `docs/journal/sprints/sprint9_contrat.md`).
 
 **Doctrine §2** : ce module ne lit ni fichier de configuration ni variable
 d'environnement — il reçoit un `Cache` déjà construit pour un propriétaire
@@ -62,7 +62,7 @@ from ourouler.activites.cache import Cache
 Progres = Callable[[int, int], None]
 
 #: `.fit`/`.gpx`/`.tcx`, avec ou sans `.gz` — Strava gzippe ses fichiers
-#: d'activité à l'intérieur de son archive (`docs/questions_mainteneur.md`,
+#: d'activité à l'intérieur de son archive (`docs/journal/questions/questions_mainteneur.md`,
 #: Q48 : « le seul angle mort mesuré »).
 EXTENSIONS_ACTIVITE = ("fit", "gpx", "tcx")
 

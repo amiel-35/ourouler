@@ -196,7 +196,7 @@ def avertissements_de(
 
 #: Ce qu'une opération est censée coûter, en millisecondes, **tant qu'aucune
 #: mesure locale n'existe**. Ces chiffres viennent des mesures du 16/09/2026
-#: rapportées dans `docs/ux/cycle_ux_contrat.md` (décision 6) : 3,8 à 6,0 s
+#: rapportées dans `docs/journal/ux/cycle_ux_contrat.md` (décision 6) : 3,8 à 6,0 s
 #: pour une sortie complète. Ils sont marqués « defaut » dans la réponse tant
 #: qu'ils ne sont pas remplacés par ce que ce serveur-ci a réellement mesuré
 #: — règle absolue 5 : on ne fait pas passer une estimation pour une mesure.

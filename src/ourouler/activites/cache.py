@@ -400,7 +400,7 @@ class Cache:
         """Efface toutes les entrées de **ce** propriétaire. Rend le nombre effacé.
 
         Écrit pour le lot L7.B (export et suppression des données
-        personnelles, `docs/sprint7_contrat.md`). Un fichier du `brut/`
+        personnelles, `docs/journal/sprints/sprint7_contrat.md`). Un fichier du `brut/`
         **commun** peut être cité par plusieurs propriétaires (le local, et
         les comptes qui y ont déposé avant le 25/09/2026) : on ne l'y supprime
         qu'une fois qu'**aucune** ligne, d'aucun propriétaire, ne le cite

@@ -526,7 +526,7 @@ def test_plage_inversee_est_refusee(tmp_path):
         )
 
 
-# --- --fichier-seance (F1, C1 de docs/ux/relecture_f0.md) ---------------------
+# --- --fichier-seance (F1, C1 de docs/journal/ux/relecture_f0.md) ---------------------
 
 ZWO_FABRIQUE = (
     "<?xml version='1.0'?>\n<workout_file>\n<name>4x8 fabriquée (fichier)</name>\n"
