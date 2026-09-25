@@ -100,6 +100,14 @@ tourne en **v0.9.6**.
 11. `front/.vite/deps/` retiré du dépôt ;
 12. le nettoyage des branches ;
 13. réglages GitHub : protection de `main` et signalement privé des failles.
+    **Impossibles tant que le dépôt est privé** avec un compte gratuit
+    (réponse de l'API : « Upgrade to GitHub Pro or make this repository
+    public »), et le signalement privé n'existe que pour les dépôts publics.
+    Ils se font **le jour J, juste après le passage en public** :
+    - un ruleset sur la branche par défaut : PR obligatoire, vérifications
+      `python`, `front` et `image`, force-push bloqué ;
+    - Settings → Advanced Security → Private vulnerability reporting →
+      Enable.
 
 **Verdict Fable sur le filet (après #48)** : il suffit pour les lots 3 et 4. Pour les lots 5 à 11, chaque lot a désormais une référence qui dépend de ce qu'il déplace. Restent hors filet : les comptes réels en base (lot 5), la calibration lancée par l'API (lot 7), P3 (lot 8), le double chemin (lot 11) et le front (lot 14).
 
