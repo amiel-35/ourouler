@@ -858,3 +858,39 @@ export interface Boucle {
   gpx: FicheFichier | null;
   candidates: Candidate[];
 }
+
+// --- un parcours déjà en main, à analyser (L9.8) -------------------------------
+
+/** Ce que `POST /parcours/fichier` rend tout de suite, avant l'analyse. */
+export interface ApercuParcours {
+  nom: string;
+  distance_km: number;
+  denivele_m: number | null;
+}
+
+/**
+ * `POST /parcours/analyser` — le pendant de `Candidate`, pour un parcours **déjà
+ * choisi** (l'imposé d'un BRM, une boucle de club) plutôt qu'une candidate du moteur.
+ * Même forme de `trace`/`meteo` que `Candidate` (F0.1) : `Carte`, `LegendeVent` et
+ * `ProfilAltitude` se réutilisent sans rien réécrire.
+ */
+export interface Analyse {
+  nom: string;
+  distance_km: number;
+  denivele_m: number | null;
+  velo: string;
+  puissance_w: number;
+  depart: string;
+  temps_estime_s: number;
+  vitesse_moy_kmh: number;
+  temps_ecoule_s: number;
+  temps_ecoule_bas_s: number;
+  temps_ecoule_haut_s: number;
+  temps_ecoule_source: "mesure" | "defaut";
+  heure_arrivee: string;
+  heure_arrivee_bas: string;
+  heure_arrivee_haut: string;
+  meteo_absente: MeteoAbsente | null;
+  meteo: MeteoCandidate | null;
+  trace: Trace;
+}

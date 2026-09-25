@@ -1,11 +1,11 @@
-/** « Aujourd'hui » sans Intervals — le secours dit les deux sources.
+/** « Aujourd'hui » sans Intervals — le secours dit les trois usages du dépôt.
  *
  * Constaté le 25/09/2026 : quand Intervals ne répond pas, l'écart « En
  * attendant » ne mentionnait que demander à la main ou déposer *une* séance
  * du jour, jamais qu'on peut aussi déposer ses **sorties passées** — l'autre
  * source d'historique (L9.2), disponible depuis le même bouton « Déposer »
- * (`Importer.tsx` porte les deux : le dépôt du jour, et « Mes sorties
- * passées » juste en dessous).
+ * (`Importer.tsx` porte les trois : le dépôt du jour, « Mes sorties
+ * passées », et depuis L9.8 l'analyse d'un parcours déjà en main).
  */
 
 import { describe, expect, it } from "vitest";
@@ -33,8 +33,18 @@ describe("l'écran du jour sans Intervals", () => {
 
     expect(await screen.findByText("En attendant")).toBeTruthy();
     expect(
-      screen.getByText(/déposer un fichier de séance, ou déposer vos\s+sorties passées/),
+      screen.getByText(/déposer un fichier de séance, déposer vos\s+sorties passées/),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Déposer" })).toBeTruthy();
+  });
+
+  it("dit aussi qu'on peut analyser un parcours qu'on a déjà (L9.8)", async () => {
+    installer();
+    render(<App />);
+
+    expect(await screen.findByText("En attendant")).toBeTruthy();
+    expect(
+      screen.getByText(/ou analyser un\s+parcours que vous avez déjà/),
+    ).toBeTruthy();
   });
 });

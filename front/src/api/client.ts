@@ -11,6 +11,8 @@
 
 import type {
   AccesOuvert,
+  Analyse,
+  ApercuParcours,
   Boucle,
   DonneesSeules,
   EffacementCompte,
@@ -391,6 +393,16 @@ export interface DemandeBoucle {
   depart?: { latitude: number; longitude: number; nom?: string };
 }
 
+/** L9.8 : un parcours déjà en main (imposé d'un BRM, boucle de club) — `POST /parcours/analyser`. */
+export interface DemandeAnalyse {
+  gpx: string;
+  /** Obligatoire ici (à la différence de `DemandeBoucle`) : sans elle, rien à caler. */
+  heure_depart: string;
+  velo?: string;
+  /** Facultative : à défaut, la puissance d'endurance du profil (position_zone × FTP). */
+  puissance_w?: number;
+}
+
 function poster<T>(
   chemin: string,
   corps: unknown,
@@ -607,6 +619,19 @@ export const api = {
 
   boucle: (demande: DemandeBoucle, signal?: AbortSignal) =>
     poster<Enveloppe<Boucle>>("/boucles", demande, signal, DELAI_CALCUL_MS),
+
+  // L9.8 : un parcours déjà en main, à analyser plutôt qu'à chercher.
+  deposerParcours: (fichier: File) => {
+    const corps = new FormData();
+    corps.append("fichier", fichier);
+    return appeler<{ fichier: { id: string; nom: string }; apercu: ApercuParcours }>(
+      url("/parcours/fichier"),
+      { method: "POST", body: corps },
+    );
+  },
+
+  analyserParcours: (demande: DemandeAnalyse, signal?: AbortSignal) =>
+    poster<Enveloppe<Analyse>>("/parcours/analyser", demande, signal, DELAI_CALCUL_MS),
 };
 
 export type Api = typeof api;

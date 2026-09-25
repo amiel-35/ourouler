@@ -25,12 +25,15 @@ interface Props {
   jour: string;
   surSeanceLue: (seance: Seance, identifiant: string) => void;
   surChercher: () => void;
+  /** L9.8 : le troisième usage de cet écran — un parcours déjà en main, à
+   * analyser plutôt qu'à chercher. */
+  surAnalyser: () => void;
   /** D'où l'écran a été ouvert (Aujourd'hui, Ma semaine…) — jamais « Retour » seul. */
   vers: string;
   surRetour: () => void;
 }
 
-export function Importer({ jour, surSeanceLue, surChercher, vers, surRetour }: Props) {
+export function Importer({ jour, surSeanceLue, surChercher, surAnalyser, vers, surRetour }: Props) {
   const [seance, setSeance] = useState<Seance | null>(null);
   const [erreur, setErreur] = useState<ErreurApi | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -145,6 +148,24 @@ export function Importer({ jour, surSeanceLue, surChercher, vers, surRetour }: P
       ) : null}
 
       <DepotHistorique />
+
+      {/* L9.8 : le troisième usage de « Déposer » — un parcours qu'on a déjà
+          (l'imposé d'un brevet, une boucle de club), à analyser plutôt qu'à
+          chercher (constat du mainteneur, 25/09/2026 : « déposer c'est pas
+          que ça, c'est aussi l'analyse d'une trace existante pour y caler
+          la météo, l'estimation, le vent etc. »). */}
+      <section className="mt-depot">
+        <div className="app-tete">
+          <h2>Un parcours déjà en main</h2>
+        </div>
+        <p className="mention">
+          L'imposé d'un brevet ou d'une Flèche, la boucle du club — pas un parcours à
+          chercher : sa météo par tronçon et sa durée porte à porte.
+        </p>
+        <button type="button" className="bouton second" onClick={surAnalyser}>
+          Analyser un parcours
+        </button>
+      </section>
     </section>
   );
 }

@@ -62,6 +62,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_routes(sous)
     ajouter_calibrer(sous)
     ajouter_simuler(sous)
+    ajouter_analyser(sous)
     ajouter_comparer(sous)
     ajouter_seance(sous)
     ajouter_sortie(sous)
@@ -659,6 +660,42 @@ def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
     from ourouler.physique.commande import executer_simuler  # import paresseux (lot L3.3)
 
     return executer_simuler(args, config)
+
+
+def ajouter_analyser(sous: argparse._SubParsersAction) -> None:
+    """Un parcours **déjà en main** (BRM, Flèche, boucle de club) : durée porte à porte
+    en fourchette, météo par tronçon, heure d'arrivée — `ourouler simuler` retourné dans
+    l'autre sens (voir la docstring d'`executer_analyser`)."""
+    p = sous.add_parser(
+        "analyser",
+        help="météo et durée porte à porte d'un parcours déjà en main (brevet, boucle de club)",
+        parents=[parent_json()],
+    )
+    p.add_argument("--gpx", metavar="FICHIER.GPX", required=True, help="le parcours à analyser")
+    p.add_argument(
+        "--puissance",
+        type=float,
+        metavar="W",
+        help="puissance tenue (défaut : puissance d'endurance du profil, position_zone × FTP)",
+    )
+    p.add_argument(
+        "--vitesse-a-plat",
+        type=float,
+        metavar="KMH",
+        help="au lieu de --puissance : la vitesse tenue à plat, sans vent, lancé — "
+        "le modèle en déduit les watts",
+    )
+    p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
+    # Obligatoire ici (à la différence de `simuler`) : sans heure de départ,
+    # rien à caler dans le temps — ni la météo par tronçon, ni l'arrivée.
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (obligatoire)")
+    p.set_defaults(fonction=_commande_analyser)
+
+
+def _commande_analyser(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.physique.commande import executer_analyser  # import paresseux (lot L3.3)
+
+    return executer_analyser(args, config)
 
 
 def ajouter_comparer(sous: argparse._SubParsersAction) -> None:

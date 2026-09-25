@@ -264,6 +264,48 @@ def test_le_plafond_meteo_n_entame_pas_celui_des_generations(tmp_path: Path):
     assert generer_sortie(client).status_code == 200
 
 
+def deposer_parcours(client: TestClient, compte: str = "essai-a") -> str:
+    from test_api import _gpx_parcours
+
+    reponse = client.post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("brm.gpx", _gpx_parcours(), "application/gpx+xml")},
+        headers={"x-compte-essai": compte},
+    )
+    assert reponse.status_code == 200, reponse.text
+    return reponse.json()["fichier"]["id"]
+
+
+def analyser_parcours(client: TestClient, gpx_id: str, compte: str = "essai-a"):
+    return client.post(
+        "/api/v1/parcours/analyser",
+        json={"gpx": gpx_id, "heure_depart": "2026-09-08T08:00"},
+        headers={"x-compte-essai": compte},
+    )
+
+
+def test_analyser_un_parcours_a_son_propre_plafond_distinct_des_generations(tmp_path: Path):
+    """L9.8 : `POST /parcours/analyser` consomme `quotas_meteo`, jamais `quotas` —
+    même poste que `GET /meteo` (une météo le long d'un tracé, pas une génération)."""
+    client = client_hors_reseau(
+        tmp_path, quotas=Quotas(plafond=1), quotas_meteo=Quotas(plafond=1, libelle="consultations météo")
+    )
+    activer_compte(client, "essai-a")
+    gpx_id = deposer_parcours(client, "essai-a")
+
+    assert analyser_parcours(client, gpx_id, "essai-a").status_code == 200
+    # Le plafond des générations reste entier après une analyse.
+    assert generer_sortie(client, "essai-a").status_code == 200
+
+    # La deuxième analyse se heurte à *son* plafond (déjà à 0 restant),
+    # pas à celui des générations.
+    refus = analyser_parcours(client, gpx_id, "essai-a")
+    assert refus.status_code == 429
+    charge = refus.json()["erreur"]
+    assert charge["code"] == "quota_atteint"
+    assert "météo" in charge["message"].lower()
+
+
 # --- isolation entre comptes ---------------------------------------------------
 
 
