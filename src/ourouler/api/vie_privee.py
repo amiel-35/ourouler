@@ -194,22 +194,33 @@ def effacer_donnees(
     ferme le compte lié (mot de passe compris) et révoque du même coup ses
     sessions ouvertes, par la cascade du schéma (voir cette méthode).
     """
-    # **Les tâches de fond d'abord** (contre-lecture Fable du 25/09/2026) : un
-    # import en cours réécrivait ses lignes et ses fichiers bruts après
-    # l'effacement. On les annule, on attend qu'elles aient rendu la main, et
-    # rien ne se relance pour ce compte tant que l'effacement dure.
-    with taches_fond.suspendre(str(qui)):
-        if not taches_fond.annuler_et_attendre(str(qui)):
-            raise TacheNonArretee
-        return _effacer(
-            qui,
-            profils=profils,
-            fichiers=fichiers,
-            journal=journal,
-            generations=generations,
-            dossier_cache=dossier_cache,
-            comptes=comptes,
-        )
+    # **Une seule suppression à la fois, par compte** (25/09/2026) : sans ce
+    # verrou, un second `DELETE /moi` du même compte pendant que le premier
+    # attend `annuler_et_attendre` (jusqu'à 120 s) attendrait lui aussi, sur
+    # un second fil du serveur, pour un travail que le premier fait déjà —
+    # voir `taches_fond.debuter_effacement`. Il refuse tout de suite.
+    proprietaire = str(qui)
+    taches_fond.debuter_effacement(proprietaire)
+    try:
+        # **Les tâches de fond ensuite** (contre-lecture Fable du 25/09/2026) :
+        # un import en cours réécrivait ses lignes et ses fichiers bruts
+        # après l'effacement. On les annule, on attend qu'elles aient rendu
+        # la main, et rien ne se relance pour ce compte tant que
+        # l'effacement dure.
+        with taches_fond.suspendre(proprietaire):
+            if not taches_fond.annuler_et_attendre(proprietaire):
+                raise TacheNonArretee
+            return _effacer(
+                qui,
+                profils=profils,
+                fichiers=fichiers,
+                journal=journal,
+                generations=generations,
+                dossier_cache=dossier_cache,
+                comptes=comptes,
+            )
+    finally:
+        taches_fond.finir_effacement(proprietaire)
 
 
 def _effacer(

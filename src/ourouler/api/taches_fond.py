@@ -113,6 +113,20 @@ class TacheAnnulee(EchecLisible):
         super().__init__("annulée : le compte a été supprimé pendant la tâche")
 
 
+class SuppressionDejaEnCours(Exception):  # noqa: N818 — un refus, pas une erreur du serveur
+    """`DELETE /moi` du même compte tourne déjà : celui-ci refuse plutôt que d'attendre à son tour.
+
+    Levée par `debuter_effacement` refusé — voir `api/vie_privee.effacer_donnees`,
+    qui ne tient jamais deux effacements du même propriétaire en même temps.
+    """
+
+    code = "suppression_deja_en_cours"
+    message = (
+        "une suppression de ce compte est déjà en cours — inutile de la relancer, "
+        "attendre que la première termine (jusqu'à deux minutes)"
+    )
+
+
 @dataclass
 class Job:
     """L'état d'une tâche, tel que la route `GET …/{id}` le rend."""
@@ -179,6 +193,14 @@ _occupant: list[str | None] = [None]
 #: et non un ensemble : deux `DELETE /moi` simultanés du même compte, le
 #: premier qui finit levait la suspension pendant que le second effaçait.
 _suspendus: dict[str, int] = {}
+#: Les propriétaires pour qui un `DELETE /moi` est déjà passé la porte de
+#: `vie_privee.effacer_donnees` et attend `annuler_et_attendre` (jusqu'à
+#: 120 s). **Un ensemble, pas un compte** (contrairement à `_suspendus`) :
+#: contrairement aux tâches lourdes, qui s'enchaînent légitimement (une
+#: suppression suit l'autre), deux effacements du même compte en même temps
+#: n'ont aucun sens — le second doit refuser, pas attendre à son tour et
+#: occuper un second fil du serveur pour rien.
+_effacements_en_cours: set[str] = set()
 
 
 def lancer(
@@ -300,6 +322,26 @@ class suspendre:  # noqa: N801 — s'emploie comme une fonction : `with suspendr
         return False
 
 
+def debuter_effacement(proprietaire: str) -> None:
+    """Marque un effacement en cours pour ce propriétaire, ou lève `SuppressionDejaEnCours`.
+
+    À appeler **avant** `suspendre`/`annuler_et_attendre` dans
+    `vie_privee.effacer_donnees` : c'est ce qui évite qu'un second
+    `DELETE /moi` du même compte attende, lui aussi, jusqu'à 120 s sur un
+    fil du serveur pendant que le premier fait déjà le travail.
+    """
+    with _verrou_registre:
+        if proprietaire in _effacements_en_cours:
+            raise SuppressionDejaEnCours
+        _effacements_en_cours.add(proprietaire)
+
+
+def finir_effacement(proprietaire: str) -> None:
+    """Lève la marque posée par `debuter_effacement` — à appeler dans un `finally`."""
+    with _verrou_registre:
+        _effacements_en_cours.discard(proprietaire)
+
+
 def occupant() -> str | None:
     """La nature de la tâche qui tient le verrou, ou `None` — pour nommer ce qui occupe."""
     return _occupant[0]
@@ -357,9 +399,12 @@ __all__ = [
     "EchecLisible",
     "ErreurTacheEnCours",
     "Job",
+    "SuppressionDejaEnCours",
     "TacheAnnulee",
     "annuler_et_attendre",
+    "debuter_effacement",
     "dernier",
+    "finir_effacement",
     "lancer",
     "occupant",
     "suspendre",
