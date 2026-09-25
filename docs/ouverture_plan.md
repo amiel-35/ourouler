@@ -68,6 +68,35 @@ le « Sonnet par défaut » de CLAUDE.md :
   - `sortie` et `boucle` suivent la météo du moment : on les compare peu
     après, ou sur les champs hors prévision.
 
+**Lots du §5, état au 25/09/2026 au soir** (le mainteneur merge) :
+
+| Lot | PR | État |
+|---|---|---|
+| Plan et décisions | #30 | ouverte |
+| Tests portables (fuseau, flottants, `.gitignore`) | #34 | ouverte, **à merger avant #31** |
+| 0a — CI | #31 | ouverte, **verte** (python, front, image) |
+| Rétro-changelog 0.1.0 → 0.9.3 | #32 | ouverte ; 2 points à trancher avant les étiquettes |
+| 0c — contrat d'API figé | #33 | ouverte |
+| gitleaks | — | historique passé : 612 commits, 1 faux positif (mot de passe fictif d'un test front) ; `.gitleaksignore` et job de CI après #31 |
+| 0b, 0d, garde réseau, 0f | — | à faire |
+
+**Écarts mesurés par la première CI** (Linux, Python 3.12, TZ=UTC) :
+- 11 tests verts sur Mac échouaient, dont 8 qui supposaient le fuseau de
+  Paris et 2 références flottantes relevées sur macOS (écart de 1e-15) ;
+- un **trou de la règle absolue 1** : `*.gpx` n'ignorait pas un `.GPX` sous
+  Linux. Corrigé en #34.
+- **Défaut en prod, trouvé par ricochet et vérifié dans le conteneur** :
+  - le conteneur est en UTC, sans `TZ` ;
+  - `meteo/commande.py` lit une heure sans fuseau dans le fuseau du système ;
+  - un invité qui demande 09:00 reçoit donc la météo de 11:00, heure de
+    Paris ;
+  - dans la même famille : `date.today()` près de minuit, et l'horodatage de
+    la carte et du rapport ;
+  - pansement possible : `TZ=Europe/Paris` dans Coolify, plus un
+    redéploiement de `prod` (la base des fuseaux est présente dans l'image) ;
+  - le vrai correctif, un fuseau explicite passé au cœur, relève de la
+    règle 2 et viendra après le gel.
+
 **Gel et branches garées.** Aucune fonctionnalité ne part pendant le
 chantier. Trois branches sont poussées sur origin et ne sont pas mergées ;
 on les rebase après les lots qui les touchent :
