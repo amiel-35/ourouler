@@ -11,6 +11,25 @@ questions ouvertes de `docs/journal/questions/questions_mainteneur.md`,
 mainteneur (cadence : deux sprints figés, un esquissé), et les trois branches
 garées `analyser-parcours`, `q67-sans-brut` et `backlog-admin`.
 
+
+## Décisions du mainteneur (25/09/2026)
+
+| Question | Décision |
+|---|---|
+| QP1 cadence | **(c) toute la restructuration d'abord** (lots 3 à 14), les fonctionnalités ensuite. Le découpage en deux pistes du §3 ne s'applique donc pas ; il sert d'ordre de reprise une fois la restructuration finie. |
+| QP2 `analyser-parcours` | (a) rebaser et merger **avant le lot 3** |
+| QP3 heure du jour | (a) le jour même, l'heure courante arrondie au quart d'heure suivant (9 h un autre jour), affichée et modifiable en un geste |
+| QP4 trois boucles | (c) relancer « Chercher plus loin » d'office jusqu'à trois boucles retenues |
+| QP5 consentement | (a) minimal, refus par défaut, « entraîner le modèle » nommé mais sans usage |
+| QP6 administration | (c) jamais exposée : locale au serveur, par tunnel SSH |
+| QP7 calibration | (a) afficher l'erreur de validation et le nombre de sorties, et « provisoire » sous un seuil |
+| QP8 import par lien | (c) puis (b) : mesurer sur une vraie archive, puis détecter un historique tronqué |
+
+**Conséquence de QP1** : pendant la restructuration, seuls passent la
+branche `analyser-parcours` (un merge, avant le lot 3) et les **correctifs
+de défauts vus en prod**, en patch `0.9.x`. B2, l'heure du jour, est un
+défaut constaté en prod : proposé en correctif, selon QP3.
+
 ## 0. Hypothèses de départ
 
 - Le sprint 10 (ouverture) est **gelé côté fonctionnalités** ; les
