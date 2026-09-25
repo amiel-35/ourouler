@@ -323,6 +323,17 @@ def test_un_profil_invalide_ne_remplace_pas_le_precedent(tmp_path: Path):
     assert client.get("/api/v1/profil").json()["donnees"]["cycliste"]["ftp_w"] == 260
 
 
+def test_un_poids_hors_bornes_rend_un_message_lisible_a_l_ecran(tmp_path: Path):
+    """Constaté en vrai le 25/09/2026 : l'assistant affichait « [cycliste]
+    masse_kg = 7075.0 hors de [20, 300] » tel quel. L'API rend maintenant une
+    phrase française, et `details.champ` pour l'afficher près du champ."""
+    reponse = serveur(tmp_path).patch("/api/v1/profil", json={"cycliste": {"masse_kg": 7075.0}})
+    assert reponse.status_code == 422
+    erreur = reponse.json()["erreur"]
+    assert erreur["message"] == "Votre poids doit être entre 20 et 300 kg."
+    assert erreur["details"] == {"champ": "masse_kg"}
+
+
 def test_la_cle_intervals_s_enregistre_et_ne_ressort_jamais(tmp_path: Path):
     client = serveur(tmp_path)
     reponse = client.patch("/api/v1/profil", json={"intervals": {"api_key": "cle-inventee-1234"}})

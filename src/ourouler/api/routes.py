@@ -60,7 +60,13 @@ from ourouler.api.depots import (
     JournalServices,
     schema_des_modifications,
 )
-from ourouler.api.erreurs import ErreurApi, classer, classer_avertissement, secrets_de
+from ourouler.api.erreurs import (
+    ErreurApi,
+    classer,
+    classer_avertissement,
+    message_profil_invalide,
+    secrets_de,
+)
 from ourouler.api.modeles import (
     ApercuZones,
     DemandeBoucle,
@@ -760,8 +766,12 @@ async def modifier_profil(
         config = ctx.profils.enregistrer(qui, corps)
     except ErreurConfig as e:
         # Ici, et seulement ici, une configuration invalide est la faute de
-        # ce que le cycliste vient d'écrire : 422 et non 500.
-        raise ErreurApi(code="profil_invalide", message=str(e), statut=422) from e
+        # ce que le cycliste vient d'écrire : 422 et non 500. Le message est
+        # traduit pour l'écran (constaté le 25/09/2026 : un poids fautif
+        # rendait « [cycliste] masse_kg = 7075.0 hors de [20, 300] » tel
+        # quel) ; `details.champ` laisse le front l'afficher près du champ.
+        message, details = message_profil_invalide(e)
+        raise ErreurApi(code="profil_invalide", message=message, statut=422, details=details) from e
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": _profil_avec_flags(ctx, qui, config)}

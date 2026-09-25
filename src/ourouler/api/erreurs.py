@@ -231,6 +231,67 @@ def classer_avertissement(message: str) -> str:
     return "autre"
 
 
+#: **Le libellé humain d'un champ du profil hors bornes** (ajouté le
+#: 25/09/2026, constaté en vrai sur l'assistant : un poids fautif rendait
+#: « [cycliste] masse_kg = 7075.0 hors de [20, 300] » affiché tel quel à
+#: l'écran). Clé : `(famille, champ)`, où `famille` vaut le nom de la
+#: section pour tout ce qui n'est pas un vélo, et toujours `"velo"` pour
+#: `velos[i]` — la personne ne sait pas qu'un vélo est un élément de liste
+#: dans le TOML, elle sait qu'elle regarde une fiche vélo. `%s` reçoit les
+#: bornes et l'unité, formatées par `_bornes_lisibles`.
+LIBELLES_CHAMP_PROFIL: dict[tuple[str, str], tuple[str, str]] = {
+    # (famille, champ) -> (ce que la phrase nomme, unité pour l'affichage)
+    ("cycliste", "masse_kg"): ("Votre poids", "kg"),
+    ("cycliste", "ftp_w"): ("Votre FTP", "W"),
+    ("velo", "masse_kg"): ("Le poids du vélo", "kg"),
+    ("velo", "facteur_compteur"): ("Le facteur compteur du vélo", ""),
+    ("velo", "cda_m2"): ("Le CdA du vélo", "m²"),
+    ("velo", "crr"): ("Le Crr du vélo", ""),
+}
+
+
+def _nombre_lisible(x: float) -> str:
+    """`300.0` -> `"300"`, `0.4` -> `"0,4"` — jamais `300.0` ni un point décimal."""
+    texte = f"{x:g}"
+    return texte.replace(".", ",")
+
+
+def message_profil_invalide(exception: ErreurConfig) -> tuple[str, dict]:
+    """Une `ErreurConfig` de profil, traduite pour l'écran qui la reçoit.
+
+    Rend `(message, details)` : le message est la phrase française à
+    afficher telle quelle (« Votre poids doit être entre 20 et 300 kg »), et
+    `details` porte `champ` (et `section` pour un vélo) — sur le modèle déjà
+    en place pour `aucune_boucle`/`distance_inatteignable`
+    (`front/src/composants/Echec.tsx`, `mesuresDistance`) — pour qu'un écran
+    qui affiche un champ par champ sache lequel est fautif sans reparser une
+    phrase.
+
+    Ne couvre que les bornes numériques (`champ`/`mini`/`maxi` posés par
+    `config._flottant`) : tout le reste (section manquante, type fautif,
+    pneu inconnu…) n'a pas encore de traduction et garde le message
+    technique du cœur — mieux qu'une fausse lisibilité inventée sans
+    justification.
+    """
+    champ, mini, maxi, section = exception.champ, exception.mini, exception.maxi, exception.section
+    details: dict = {"champ": champ} if champ else {}
+    # `section` porte l'index (« velos[0] ») dès qu'il y en a un : un profil
+    # à plusieurs vélos a besoin de savoir lequel est fautif, pas seulement
+    # que c'est « un » vélo.
+    if section and "[" in section:
+        details["section"] = section
+    if champ is None or mini is None or maxi is None:
+        return str(exception), details
+    famille = "velo" if section and section.startswith("velos[") else (section or "")
+    libelle = LIBELLES_CHAMP_PROFIL.get((famille, champ))
+    if libelle is None:
+        return str(exception), details
+    nom, unite = libelle
+    bornes = f"{_nombre_lisible(mini)} et {_nombre_lisible(maxi)}"
+    suffixe = f" {unite}" if unite else ""
+    return f"{nom} doit être entre {bornes}{suffixe}.", details
+
+
 def table_des_codes() -> str:
     """`CODES_PANNE` en Markdown, pour la description que publie l'application."""
     lignes = ["| code | quand |", "|---|---|"]
