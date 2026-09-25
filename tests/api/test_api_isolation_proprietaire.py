@@ -156,6 +156,8 @@ ROUTES_AVANT_SESSION: dict[str, str] = {
     "/api/v1/invitation": "l'état d'un jeton d'invitation, avant qu'aucun compte ne soit actif",
     "/api/v1/entrer": "active un compte et ouvre sa première session — aucun propriétaire "
     "n'est résolu avant cet appel, c'est lui qui le produit",
+    "/api/v1/reinitialiser": "consomme un jeton de réinitialisation et ouvre une session — "
+    "même situation qu'/entrer, aucun propriétaire résolu avant l'appel (lot L9.6)",
     "/api/v1/connexion": "ouvre une session sur un compte existant — le propriétaire n'est "
     "pas encore résolu au moment de l'appel, c'est lui qui le produit",
     "/api/v1/sortir": "détruit la session en cours — efface un cookie, ne lit aucune donnée",
@@ -1327,6 +1329,19 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         # (voir sa docstring) pour que les routes de lecture de la même
         # identité aient déjà été éprouvées quand il s'exécute.
         ("GET", f"{PREFIXE_API}/moi/export"): {},
+        # L9.6 : l'adresse du compte de la session, et le changement de mot
+        # de passe. Sous `SessionDEssai` (ce balayage n'a pas de vraie base
+        # de comptes), `_comptes_du_deploiement` rend `None` pour les deux —
+        # `GET /moi` répond `email: null`, `POST /moi/mot-de-passe` répond
+        # `comptes_indisponibles` (404) — mais l'appel doit rester
+        # enregistré : c'est le fil HTTP qui doit être éprouvé, la
+        # profondeur du mécanisme de comptes l'est déjà par
+        # `tests/comptes/test_routes_reinitialisation_compte.py`, contre une
+        # vraie base.
+        ("GET", f"{PREFIXE_API}/moi"): {},
+        ("POST", f"{PREFIXE_API}/moi/mot-de-passe"): {
+            "json": {"mot_de_passe_actuel": "peu-importe", "nouveau_mot_de_passe": "peu-importe-aussi"}
+        },
         ("DELETE", f"{PREFIXE_API}/moi"): {},
     }
 

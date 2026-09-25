@@ -43,7 +43,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from ourouler import __version__
 from ourouler.api import base_de_donnees, vie_privee, vues
 from ourouler.api.adaptateur import Avertissement, Budgets, executer_commande, namespace
-from ourouler.api.comptes import DepotComptes, ErreurInvitationRefusee
+from ourouler.api.comptes import DepotComptes, ErreurInvitationRefusee, ErreurMotDePasseActuelRefuse
 from ourouler.api.depots import (
     DepotFichiers,
     DepotGenerations,
@@ -56,8 +56,10 @@ from ourouler.api.erreurs import ErreurApi, classer, classer_avertissement, secr
 from ourouler.api.modeles import (
     ApercuZones,
     DemandeBoucle,
+    DemandeChangementMotDePasse,
     DemandeConnexion,
     DemandeEntree,
+    DemandeReinitialisation,
     DemandeSimulation,
     DemandeSortie,
     DemandeVitesseCompteur,
@@ -499,6 +501,35 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
             acces = depot.activer(corps.jeton, corps.secret)
         except ErreurInvitationRefusee as e:
             # Le motif est perdu **exprès** : voir MESSAGE_INVITATION_REFUSEE.
+            raise ErreurApi(
+                code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
+            ) from e
+        except Exception as e:
+            raise classer(e) from e
+        jeton_session = depot.ouvrir_session(acces.compte.identifiant)
+    _poser_cookie(reponse, jeton_session)
+    return {"donnees": {"proprietaire": str(acces.proprietaire)}}
+
+
+@routeur.post("/reinitialiser")
+def reinitialiser(ctx: Ctx, corps: DemandeReinitialisation, reponse: Response) -> dict:
+    """Consomme un jeton de réinitialisation : pose le nouveau mot de passe, ferme
+    toutes les sessions déjà ouvertes du compte, en ouvre une neuve pour celle-ci.
+
+    **Jamais atteinte sans un jeton déjà émis** — il n'existe aucune route qui en émette
+    un depuis une simple adresse (« mot de passe oublié » en libre-service, exclu par
+    décision du mainteneur : voir la note de module de `DepotComptes.reinitialiser`,
+    `api/comptes.py`). Seul `ourouler reinitialiser`, en ligne de commande, en émet un ;
+    cette route-ci ne fait que le consommer — même mécanique que `POST /entrer` pour un
+    jeton d'invitation, même refus indistinguable (`MESSAGE_INVITATION_REFUSEE`) pour un
+    jeton inconnu, expiré ou déjà utilisé.
+    """
+    url = _url_comptes(ctx)
+    with base_de_donnees.ouvrir(url) as cx:
+        depot = DepotComptes(cx)
+        try:
+            acces = depot.changer_mot_de_passe_par_jeton(corps.jeton, corps.secret)
+        except ErreurInvitationRefusee as e:
             raise ErreurApi(
                 code="invitation_invalide", message=MESSAGE_INVITATION_REFUSEE, statut=400
             ) from e
@@ -1640,6 +1671,56 @@ def _comptes_du_deploiement(ctx: Contexte):
         return
     with base_de_donnees.ouvrir(ctx.session.url) as cx:
         yield DepotComptes(cx)
+
+
+@routeur.get("/moi")
+def mon_compte(ctx: Ctx, qui: Qui) -> dict:
+    """L'adresse du compte de la session en cours — pour l'écran « Mon compte » du front (L9.6).
+
+    `email` vaut `None` sur un déploiement sans base de comptes (mode personnel, ou
+    hébergé sans `SessionParCookie`) : il n'y a alors aucun compte à décrire, ce n'est
+    pas une panne — même parti pris que `_comptes_du_deploiement` pour `DELETE /moi`.
+    """
+    with _comptes_du_deploiement(ctx) as comptes:
+        compte = comptes.compte_du_proprietaire(qui) if comptes is not None else None
+    return {
+        "proprietaire": str(qui),
+        "donnees": {"email": compte.email if compte is not None else None},
+    }
+
+
+@routeur.post("/moi/mot-de-passe")
+def changer_mon_mot_de_passe(ctx: Ctx, qui: Qui, corps: DemandeChangementMotDePasse) -> dict:
+    """Change le mot de passe du compte de la session en cours — l'ancien doit être vérifié.
+
+    Refuse `comptes_indisponibles` (404) sur un déploiement sans base de comptes ou sans
+    compte lié à cette session — même code que les quatre routes de comptes et sessions
+    pour la même situation. Contrairement à `POST /reinitialiser`, les autres sessions
+    ouvertes de ce compte ne sont **pas** fermées : voir `DepotComptes.changer_mot_de_passe`.
+    """
+    with _comptes_du_deploiement(ctx) as comptes:
+        if comptes is None:
+            raise ErreurApi(
+                code="comptes_indisponibles",
+                message="ce déploiement ne gère pas de comptes — rien à changer",
+                statut=404,
+            )
+        compte = comptes.compte_du_proprietaire(qui)
+        if compte is None:
+            raise ErreurApi(
+                code="comptes_indisponibles",
+                message="aucun compte lié à cette session",
+                statut=404,
+            )
+        try:
+            comptes.changer_mot_de_passe(
+                compte.identifiant, corps.mot_de_passe_actuel, corps.nouveau_mot_de_passe
+            )
+        except ErreurMotDePasseActuelRefuse as e:
+            raise ErreurApi(
+                code="mot_de_passe_actuel_refuse", message="mot de passe actuel refusé", statut=401
+            ) from e
+    return {"proprietaire": str(qui), "donnees": {}}
 
 
 @routeur.delete("/moi")

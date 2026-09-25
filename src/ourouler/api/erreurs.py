@@ -92,6 +92,11 @@ CODES_PANNE: dict[str, str] = {
         "adresse sans compte actif ou mot de passe faux (401) — les deux rendent "
         "la même réponse, dans le même temps, pour ne renseigner personne"
     ),
+    "mot_de_passe_actuel_refuse": (
+        "POST /moi/mot-de-passe : l'ancien mot de passe fourni ne correspond pas à "
+        "celui du compte (401) — la personne est déjà authentifiée par sa session, "
+        "ce n'est donc pas un oracle d'adresse comme identifiants_refuses"
+    ),
     "comptes_indisponibles": (
         "ce déploiement ne gère pas de comptes — pas de base de données de "
         "comptes configurée (mode personnel, ou hébergé sans base)"
