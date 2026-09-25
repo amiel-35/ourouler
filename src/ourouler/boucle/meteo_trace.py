@@ -33,7 +33,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from ourouler.boucle.horaire import Horaire
-from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
@@ -45,6 +44,7 @@ from ourouler.meteo.rapport import (
 )
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
 from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
+from ourouler.noyau.ports import SourcePrevisions
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 
 #: Au-delà, on compte l'échantillon comme « sous la pluie » (seuil du contrat).
@@ -160,7 +160,7 @@ class MeteoTrace:
 
 def evaluer(
     trace: Trace,
-    client: ClientOpenMeteo,
+    client: SourcePrevisions,
     *,
     horaire: Horaire,
     modele: str,
@@ -308,7 +308,7 @@ def evaluer(
 
 
 def _previsions_avec_repli(
-    client: ClientOpenMeteo,
+    client: SourcePrevisions,
     coordonnees: Sequence[tuple[float, float]],
     modele: str,
     modele_repli: str | None,
@@ -337,7 +337,7 @@ def _previsions_avec_repli(
 
 
 def _tenter_repli_partiel(
-    client: ClientOpenMeteo,
+    client: SourcePrevisions,
     coordonnees: Sequence[tuple[float, float]],
     modele_repli: str,
     debut_heure: datetime,
@@ -609,7 +609,7 @@ def interpoler_angle(a: float | None, b: float | None, f: float) -> float | None
 
 
 def _second_avis(
-    client: ClientOpenMeteo,
+    client: SourcePrevisions,
     coordonnees: Sequence[tuple[float, float]],
     instants: Sequence[datetime],
     au_dela: Sequence[bool],

@@ -35,8 +35,8 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
+from ourouler.noyau.ports import SourcePrevisions
 from ourouler.noyau.profil import Depart
 from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.sortie.orientation import (
@@ -123,7 +123,7 @@ class QuestionVent:
 
 
 def interroger(
-    client: ClientOpenMeteo,
+    client: SourcePrevisions,
     depart_lieu: Depart,
     *,
     depart_heure: datetime,

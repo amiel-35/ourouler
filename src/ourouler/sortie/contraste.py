@@ -90,7 +90,7 @@ import math
 from dataclasses import dataclass, field
 from itertools import combinations
 
-from ourouler.apprentissage.routes import mailles_ponderees
+from ourouler.boucle.mailles import mailles_ponderees
 from ourouler.boucle.marqueurs import compter
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.seance.placement import MOTIF_SEANCE_AMPUTEE
