@@ -51,7 +51,10 @@ le « Sonnet par défaut » de CLAUDE.md :
   exécution a été restaurée dans un Postgres jetable **sur le serveur**, et
   les comptages sont identiques, table par table. **Limite** : la copie vit
   sur le même disque, et aucun stockage S3 n'est configuré dans Coolify.
-  La copie hors serveur attend un compte S3 du mainteneur.
+  **Copie hors serveur : déjà assurée**, sans rien installer. Le timer
+  `inflexion-restic-backup` (04:00 UTC) envoie `/data/coolify/backups` sur
+  la Storage Box (restic, 7 j / 4 sem / 6 mois). **À vérifier le 26/09
+  après 04:05** : le dump ourouler est dans l'instantané.
 - **P2 — préprod créée.** Environnement `preprod` du projet Coolify
   `ourouler`, avec :
   - l'application `ourouler-api-preprod`, qui **suit `main`** : chaque merge
@@ -75,7 +78,8 @@ le « Sonnet par défaut » de CLAUDE.md :
 | Plan et décisions | #30 | ouverte |
 | Tests portables (fuseau, flottants, `.gitignore`) | #34 | ouverte, **à merger avant #31** |
 | 0a — CI | #31 | ouverte, **verte** (python, front, image) |
-| Rétro-changelog 0.1.0 → 0.9.3 | #32 | ouverte ; 2 points à trancher avant les étiquettes |
+| Rétro-changelog 0.1.0 → 0.9.4 | #32 | ouverte ; #11 reste 0.5.2, et #15/#17/#18 sont regroupées (le mainteneur s'en remet à l'agent) |
+| Correctif 0.9.4 — fuseau | #35 | **en prod** ; la PR réaligne `main` |
 | 0c — contrat d'API figé | #33 | ouverte |
 | gitleaks | — | historique passé : 612 commits, 1 faux positif (mot de passe fictif d'un test front) ; `.gitleaksignore` et job de CI après #31 |
 | 0b, 0d, garde réseau, 0f | — | à faire |
@@ -92,8 +96,11 @@ le « Sonnet par défaut » de CLAUDE.md :
     Paris ;
   - dans la même famille : `date.today()` près de minuit, et l'horodatage de
     la carte et du rapport ;
-  - pansement possible : `TZ=Europe/Paris` dans Coolify, plus un
-    redéploiement de `prod` (la base des fuseaux est présente dans l'image) ;
+  - **pansement en prod le 25/09 à 17:14 : version 0.9.4** (#35).
+    `TZ=Europe/Paris` dans le compose, poussé sur `prod`, et redéployé avec
+    l'accord du mainteneur. Le conteneur est à l'heure de Paris, et `/sante`
+    et le 401 sont vérifiés. C'est le premier déploiement par la branche
+    `prod` ;
   - le vrai correctif, un fuseau explicite passé au cœur, relève de la
     règle 2 et viendra après le gel.
 
@@ -107,8 +114,8 @@ on les rebase après les lots qui les touchent :
   d'activité brut conservé. Elle touche `activites/cache.py`,
   `physique/calibration.py` et `api/taches_fond.py`, et **recouvre les
   lots 7 et 8**. Elle n'a pas encore été testée en image. **Question
-  ouverte** : la passer avant la restructuration, pour en faire la base, ou
-  après, en la rebasant ?
+  tranchée** : elle passe **après** la restructuration, recodée ou
+  rebasée sur la nouvelle structure (lots 7 et 8).
 - `backlog-admin` (1 commit, doc seule).
 
 ## 1. Diagnostic (mesuré)
