@@ -182,12 +182,22 @@ Les dépendances ne vont que de haut en bas.
 simulations, des ajustements et des validations. Il n'importe ni `Config`,
 ni cache, ni `Path`, ni `httpx`, ni `boucle`. numpy y reste permis.
 
-**La règle d'imports deviendra un test**, `tests/test_architecture.py` (à
-venir), sur le modèle de `tests/test_invariants.py` : imports lus dans l'arbre
-syntaxique, imports différés compris, table des arêtes permises. Chaque
-violation d'aujourd'hui y entre comme une **exception datée** : le test échoue
-quand une exception expire ou quand elle ne sert plus. La dette devient une
-liste publique qui ne peut que baisser.
+### La règle vérifiée
+
+La règle d'imports est un test, `tests/test_architecture.py`, sur le modèle
+de `tests/test_invariants.py`. Il lit dans l'arbre syntaxique les imports
+internes de chaque module, imports différés compris ; ceux sous
+`TYPE_CHECKING` sont permis mais nommés. Chaque module y est rangé dans une
+couche et un paquet cible, y compris ceux qui n'ont pas encore de dossier
+(`noyau`, `stockage`, `services`, `rendu`). Une arête qui monte d'une couche,
+qui va contre l'ordre du domaine ou qui ferme un cycle entre paquets est
+interdite.
+
+Chaque violation d'aujourd'hui y figure comme une **exception datée**,
+rattachée au lot qui doit la retirer. Le test échoue quand une violation
+nouvelle apparaît, quand une exception ne sert plus ou quand elle a dépassé
+sa date. La dette est donc une liste publique qui ne peut que baisser ; son
+résumé par lot et les principaux cycles sont en tête du fichier de test.
 
 **Le chemin**, dans l'ordre du tableau de `docs/ouverture_plan.md` §6.
 Chaque étape garde les sorties de référence, le contrat OpenAPI et les tests
