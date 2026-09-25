@@ -79,6 +79,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
 from ourouler.noyau.activite import moyenne_glissante
+from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import (
     DENIVELE_PARCOURS,
     PointTrace,
@@ -95,7 +96,6 @@ from ourouler.physique.modele import (
     Parametres,
     vitesse_regime,
 )
-from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.terrain import NoteBloc, demi_tour_faisable, evaluer_couloir, route_au_dela
 from ourouler.seance.vent import ChampVent
 

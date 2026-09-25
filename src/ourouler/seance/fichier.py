@@ -23,7 +23,7 @@ from datetime import date
 from pathlib import Path
 
 from ourouler.noyau.erreurs import ErreurLecture
-from ourouler.seance.modele import SEUIL_RECUPERATION_PCT_DEFAUT, Seance
+from ourouler.noyau.seance import SEUIL_RECUPERATION_PCT_DEFAUT, Seance
 from ourouler.seance.mrc import lire_mrc
 from ourouler.seance.zwo import lire_zwo
 

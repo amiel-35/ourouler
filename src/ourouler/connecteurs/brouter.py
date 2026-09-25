@@ -30,8 +30,8 @@ from typing import Any
 
 import httpx
 
-from ourouler.config import Evitement, ParametresBrouter
 from ourouler.noyau.erreurs import ErreurConnecteur
+from ourouler.noyau.profil import Evitement, ParametresBrouter
 from ourouler.noyau.trace import DENIVELE_MOTEUR, PointTrace, Segment, Trace, distance_m
 
 CHEMIN_ITINERAIRE = "/brouter"

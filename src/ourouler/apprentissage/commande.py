@@ -130,7 +130,6 @@ def _apprendre(
         cache,
         client,
         base,
-        config,
         depuis=depuis,
         max_sorties=getattr(args, "max_sorties", None),
     )

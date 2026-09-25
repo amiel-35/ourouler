@@ -325,7 +325,7 @@ def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
     """Un test ne doublure pas un module de production : il l'importe.
 
     Le fichier de placement installait, **à l'import**, de faux
-    `ourouler.seance.modele` et `ourouler.seance.terrain` quand les vrais ne
+    `ourouler.noyau.seance` et `ourouler.seance.terrain` quand les vrais ne
     s'importaient pas. L'échafaudage a servi le temps que les lots s'écrivent
     en parallèle ; gardé, il rendait la suite menteuse — un symbole renommé
     dans `boucle.couts` aurait fait passer vingt-quatre tests au vert contre

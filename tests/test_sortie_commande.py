@@ -44,12 +44,12 @@ from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.noyau.trace import distance_m as distance_points
 from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.physique.modele import Parametres
-from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
 from ourouler.sortie import carte

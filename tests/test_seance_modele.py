@@ -11,7 +11,7 @@ from datetime import date
 import pytest
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.seance.modele import (
+from ourouler.noyau.seance import (
     TYPES,
     ZONES_PUISSANCE_DEFAUT,
     Etape,

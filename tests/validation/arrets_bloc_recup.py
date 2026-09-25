@@ -136,12 +136,12 @@ from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.activite import est_sport_velo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.physique.calibration import trace_depuis_activite
 from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
 from ourouler.physique.modele import Parametres
 from ourouler.seance.commande import longueurs
-from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.placement import CLE_MOTIF, Emplacement, placer
 
 # --- réglages ------------------------------------------------------------------

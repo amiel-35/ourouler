@@ -6,7 +6,7 @@ eux, sont importés normalement.
 
 Ce fichier a porté, le temps que les lots L4.1 et L4.2 s'écrivent en
 parallèle, un mécanisme de doubles qui installait de faux
-`ourouler.seance.modele` et `ourouler.seance.terrain` dans `sys.modules` quand
+`ourouler.noyau.seance` et `ourouler.seance.terrain` dans `sys.modules` quand
 les vrais ne s'importaient pas. Il est retiré : son `except ModuleNotFoundError`
 n'attrapait pas seulement « le module n'existe pas encore » mais aussi « le
 module existe et un de ses imports a disparu », et il aurait alors installé
@@ -26,10 +26,10 @@ from datetime import UTC, date, datetime
 
 import pytest
 
+from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance import placement
-from ourouler.seance.modele import Etape, Seance
 from ourouler.seance.terrain import PENALITE_BLOC_TRONQUE, POIDS_KM_BATI, NoteBloc
 
 # --- fixtures synthétiques ----------------------------------------------------

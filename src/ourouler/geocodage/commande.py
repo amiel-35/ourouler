@@ -4,7 +4,8 @@ Ce module est appelé par `cli.py` et ne lit rien : il reçoit `args` et
 `config`. Les clients sont injectables pour que les tests ne touchent jamais
 le réseau. `config` n'est pas encore utilisé (le connecteur n'a besoin
 d'aucun réglage utilisateur), mais reste au contrat pour que toutes les
-sous-commandes s'appellent de la même façon depuis `cli.py`.
+sous-commandes s'appellent de la même façon depuis `cli.py` ; typé `object`,
+puisqu'on n'en lit rien, pour ne pas importer `config.py`.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ from __future__ import annotations
 import argparse
 import json
 
-from ourouler.config import Config
 from ourouler.connecteurs.geocodage import (
     LIMITE_DEFAUT,
     Candidat,
@@ -25,7 +25,7 @@ from ourouler.connecteurs.geocodage import (
 
 def executer(
     args: argparse.Namespace,
-    config: Config,
+    config: object,
     ban: ClientBAN | None = None,
     nominatim: ClientNominatim | None = None,
 ) -> int:

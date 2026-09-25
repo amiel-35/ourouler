@@ -13,11 +13,12 @@ import sys
 from dataclasses import replace
 from datetime import datetime
 
-from ourouler.config import HORIZON_MAX_H, Config, Depart
+from ourouler.config import Config
 from ourouler.meteo.couronne import couronne
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import construire, rendre_json, rendre_texte
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.profil import HORIZON_MAX_H, Depart
 
 #: Horizon maximal accepté : au-delà, AROME HD n'a plus rien à dire. Défini
 #: dans `config`, qui valide `[meteo] horizon_h` au chargement ; importé ici

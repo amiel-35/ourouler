@@ -37,7 +37,7 @@ from outils import CLE_BIDON, verifier_json
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
-MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.seance.modele)"
+MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.noyau.seance)"
 MOTIF_INTERVALS = "module attendu par le contrat L4.1 absent (ourouler.seance.intervals)"
 
 ERREURS = (ErreurUtilisateur, ValueError)

@@ -39,7 +39,7 @@ from outils import robuste
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L4.3 absent (ourouler.seance.placement)"
-MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.seance.modele)"
+MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.noyau.seance)"
 MOTIF_PHYSIQUE = "module du sprint 3 absent (ourouler.physique.modele)"
 MOTIF_NODE_TAGS = "Segment.node_tags absent : prérequis du lot L4.2 (contrat §2)"
 

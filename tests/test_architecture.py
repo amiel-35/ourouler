@@ -25,32 +25,41 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 4 : 21 exceptions, échéance 2026-10-31
     lot 5 : 10 exceptions, échéance 2026-11-30
     lot 6 : 1 exception, échéance 2026-11-30
-    lot 7 : 2 exceptions, échéance 2026-11-30
-    lot 8 : 3 exceptions, échéance 2026-11-30
+    lot 7 : 3 exceptions, échéance 2026-11-30
+    lot 8 : 4 exceptions, échéance 2026-11-30
     lot 9 : 5 exceptions, échéance 2026-11-30
-    total : 42 exceptions
+    lot 10 : 8 exceptions, échéance 2026-12-31
+    total : 31 exceptions
 
-Les lots 3 et 10 à 14 n'en retirent aucune : le lot 3 a déplacé sous
-`noyau/` des modules que cette table rangeait déjà au noyau, et les suivants
-travaillent à l'intérieur d'une couche (argparse, fonctions longues, routes
-de l'API, front).
+Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
+cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
+travaillent à l'intérieur d'une couche (fonctions longues, routes de l'API,
+front).
 
 **Lot 3 fait.** `noyau/` existe : `trace`, `activite`, `erreurs`,
 `proprietaire`. Les anciens chemins sont des réexports (`REEXPORTS`), rangés
 au noyau eux aussi : chacun n'importe que sa cible, et aucun module de
 `src/` ne les importe plus (`scripts/reecrire_imports.py`).
 
+**Lot 4 fait.** `noyau/seance` et `noyau/zones` (réexportés à leurs anciens
+chemins), `noyau/meteo` (les types de prévision, que `meteo/openmeteo.py`
+réexporte) et `noyau/profil` (le profil du cycliste, que `config.py` compose
+et réexporte). Sur ses 21 exceptions, 11 sont tombées ; les 10 qui tiennent à
+la `Config` entière sont re-datées aux lots 7, 8 et 10, chacune avec sa
+raison.
+
 Les trois cycles principaux, sur les paquets tels qu'ils sont rangés
 aujourd'hui (imports différés compris) :
 
 1. `api` ↔ `cli` : `api/vues.py` importe `cli.profil_json`, et `cli.py`
    importe neuf modules de `api/` (lot 5).
-2. `config` ↔ `seance` : `config.py` importe le modèle de séance et les
+2. `config` ↔ `seance` : `config.py` importait le modèle de séance et les
    zones, que `seance/commande.py`, `seance/ecran_ftp.py` et
-   `seance/tenue.py` lui rendent en important `Config` (lot 4).
+   `seance/tenue.py` lui rendaient en important `Config`. Depuis le lot 4,
+   `config.py` les prend au noyau et `seance/tenue.py` y prend
+   `ParametresTenue` ; restent l'écran de FTP (lot 7) et la commande (lot 10).
 3. `boucle` ↔ `physique` : `physique/modele.py` et `physique/calibration.py`
    importaient `boucle/trace.py`, et `boucle/commande.py` importe
    `physique/modele.py`. Depuis le lot 3, ils importent `noyau/trace.py` ;
@@ -64,8 +73,6 @@ deviennent des arêtes qui montent, listées dans `EXCEPTIONS`.
 
 Le rangement de chaque module est dans `MODULES` : la couche qu'il occupe
 **de fait** aujourd'hui, par son rôle, pas par son dossier.
-`seance/modele.py` et `seance/zones.py` sont des types du noyau rangés dans
-le mauvais dossier ; le lot 4 les déplacera sans changer ce contrat.
 """
 
 from __future__ import annotations
@@ -118,28 +125,32 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #:   `physique/comparer.py` sont des **cas d'usage** : ils lisent le cache
 #:   (et BRouter pour les routes) pour rendre un résultat ;
 #: - `meteo/openmeteo.py` est un **connecteur** (client HTTP) ; ses types de
-#:   prévision partiront au noyau (lot 4) ;
+#:   prévision sont au noyau depuis le lot 4 (`noyau/meteo.py`) ;
 #: - `boucle/gpx.py` est du **stockage** (lecteur et écrivain GPX) ;
 #: - `sortie/carte.py` est du **rendu** (carte HTML) ;
 #: - `config.py` est une **entrée** (lecture TOML et environnement) : les
-#:   dataclasses que le reste y importe partiront au noyau sous le nom
-#:   `profil` (lot 4).
+#:   dataclasses du profil sont au noyau depuis le lot 4 (`noyau/profil.py`) ;
+#:   `Config` et `ParametresCache` y restent.
 MODULES: dict[str, str] = {
     # 0. noyau
     "ourouler": "noyau",
     "ourouler.noyau": "noyau",
     "ourouler.noyau.activite": "noyau",
     "ourouler.noyau.erreurs": "noyau",
+    "ourouler.noyau.meteo": "noyau",
+    "ourouler.noyau.profil": "noyau",
     "ourouler.noyau.proprietaire": "noyau",
+    "ourouler.noyau.seance": "noyau",
     "ourouler.noyau.trace": "noyau",
+    "ourouler.noyau.zones": "noyau",
     "ourouler.activites": "noyau",
-    "ourouler.seance.modele": "noyau",  # sous noyau/ au lot 4
-    "ourouler.seance.zones": "noyau",  # sous noyau/ au lot 4
-    # les réexports temporaires du lot 3 (`REEXPORTS`), retirés au lot final
+    # les réexports temporaires des lots 3 et 4 (`REEXPORTS`), retirés au lot final
     "ourouler.activites.modele": "noyau",
     "ourouler.boucle.trace": "noyau",
     "ourouler.erreurs": "noyau",
     "ourouler.proprietaire": "noyau",
+    "ourouler.seance.modele": "noyau",
+    "ourouler.seance.zones": "noyau",
     # 1. domaine pur
     "ourouler.physique": "physique",
     "ourouler.physique.modele": "physique",
@@ -242,32 +253,6 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Lot 4 : les dataclasses et constantes que le reste emprunte à
-    # `config.py` (Config, Depart, Velo, ParametresTenue, DIRECTIONS_ACCEPTEES,
-    # HORIZON_MAX_H) deviennent le `profil` du noyau.
-    ("ourouler.activites.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.activites.inventaire", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.apprentissage.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.apprentissage.routes", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.boucle.candidates", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.boucle.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.connecteurs.brouter", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.geocodage.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.meteo.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.meteo.couronne", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.meteo.rapport", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.physique.calibration", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.physique.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.physique.comparer", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.seance.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.seance.ecran_ftp", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.seance.tenue", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.sortie.commande", "ourouler.config", "lot 4", "2026-10-31"),
-    ("ourouler.sortie.vent_demande", "ourouler.config", "lot 4", "2026-10-31"),
-    # Lot 4 : les types de prévision (PrevisionPoint) quittent le client
-    # Open-Meteo pour le noyau.
-    ("ourouler.meteo.cache_previsions", "ourouler.meteo.openmeteo", "lot 4", "2026-10-31"),
-    ("ourouler.meteo.rapport", "ourouler.meteo.openmeteo", "lot 4", "2026-10-31"),
     # Lot 5 : casser api ↔ cli. `profil_json` passe au rendu ; comptes,
     # invitation et retrait passent aux services. Les imports de `cli` vers
     # `api` qui resteront (lancer le serveur) ne seront plus dans un cycle.
@@ -287,12 +272,20 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # des `Parametres`, plus la commande qui lit le fichier de calibration.
     # La synchronisation Intervals → cache passe du connecteur au service.
     ("ourouler.seance.ecran_ftp", "ourouler.physique.commande", "lot 7", "2026-11-30"),
+    # Re-daté du lot 4 : l'écran de FTP ne lit de `Config` que les vélos, la
+    # FTP et les zones, mais la passe entière à `physique.commande`
+    # (`parametres_du_velo`, `velo_demande`) ; les deux arêtes tombent ensemble.
+    ("ourouler.seance.ecran_ftp", "ourouler.config", "lot 7", "2026-11-30"),
     ("ourouler.connecteurs.intervals", "ourouler.activites.cache", "lot 7", "2026-11-30"),
     # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
     # cache, l'inventaire ni le connecteur d'archive météo.
     ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
     ("ourouler.physique.calibration", "ourouler.activites.inventaire", "lot 8", "2026-11-30"),
     ("ourouler.physique.calibration", "ourouler.connecteurs.openmeteo_archive", "lot 8", "2026-11-30"),
+    # Re-daté du lot 4 : la sélection des sorties à calibrer (`motif_exclusion`,
+    # `sorties_calibrables`…) lit vélos, masse, historique et mots de groupe
+    # dans la `Config` (33 appels dans 8 fichiers) ; elle part au service au lot 8.
+    ("ourouler.physique.calibration", "ourouler.config", "lot 8", "2026-11-30"),
     # Lot 9 : le domaine reçoit un protocole (`Routeur` pour BRouter, et sur
     # le même modèle Open-Meteo et Intervals), plus le client concret ; les
     # poids des routes connues deviennent une donnée qu'on lui passe.
@@ -301,6 +294,20 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     ("ourouler.sortie.vent_demande", "ourouler.meteo.openmeteo", "lot 9", "2026-11-30"),
     ("ourouler.seance.intervals", "ourouler.connecteurs.intervals", "lot 9", "2026-11-30"),
     ("ourouler.sortie.contraste", "ourouler.apprentissage.routes", "lot 9", "2026-11-30"),
+    # Lot 10 (re-daté du lot 4) : les cas d'usage reçoivent la `Config` entière,
+    # dont `cache.dossier`. `Config` ne peut pas descendre au noyau avec le
+    # reste du profil : le défaut de `ParametresCache` résout le répertoire de
+    # l'utilisateur (règle absolue 3). Quand `cli` construit la `Demande`
+    # (lot 10), elle y met le profil et le dossier, et le service ne voit plus
+    # `config.py`.
+    ("ourouler.activites.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.apprentissage.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.boucle.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.meteo.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.physique.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.physique.comparer", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.seance.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    ("ourouler.sortie.commande", "ourouler.config", "lot 10", "2026-12-31"),
 ]
 
 #: Ancien chemin → module du noyau qu'il réexporte (lot 3). Un réexport
@@ -313,6 +320,8 @@ REEXPORTS: dict[str, str] = {
     "ourouler.boucle.trace": "ourouler.noyau.trace",
     "ourouler.erreurs": "ourouler.noyau.erreurs",
     "ourouler.proprietaire": "ourouler.noyau.proprietaire",
+    "ourouler.seance.modele": "ourouler.noyau.seance",
+    "ourouler.seance.zones": "ourouler.noyau.zones",
 }
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.

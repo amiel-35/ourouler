@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from ourouler.boucle.horaire import Horaire
-from ourouler.meteo.openmeteo import ClientOpenMeteo, PrevisionHeure, PrevisionPoint
+from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
@@ -44,6 +44,7 @@ from ourouler.meteo.rapport import (
     vent_relatif,
 )
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 
 #: Au-delà, on compte l'échantillon comme « sous la pluie » (seuil du contrat).

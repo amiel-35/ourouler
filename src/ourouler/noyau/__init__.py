@@ -2,5 +2,6 @@
 
 Couche 0 du contrat d'imports (`docs/ouverture_plan.md` §2) : le noyau
 n'importe que la bibliothèque standard. `trace` (le tracé), `activite` (le
-modèle d'activité), `erreurs` et `proprietaire`.
+modèle d'activité), `erreurs` et `proprietaire` (lot 3) ; `seance` (le
+modèle de séance) et `zones` (lot 4).
 """

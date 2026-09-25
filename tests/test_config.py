@@ -14,8 +14,8 @@ from ourouler.config import (
     depuis_dict,
 )
 from ourouler.noyau.erreurs import ErreurConfig
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
-from ourouler.seance.zones import POSITION_ENDURANCE_DEFAUT
+from ourouler.noyau.seance import ZONES_PUISSANCE_DEFAUT
+from ourouler.noyau.zones import POSITION_ENDURANCE_DEFAUT
 
 # Point fictif en mer, loin de toute ville : jamais une coordonnée réelle.
 BASE = {

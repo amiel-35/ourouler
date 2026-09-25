@@ -14,7 +14,7 @@ Trois précautions, qui sont le cœur du lot :
    n'entre dans aucun score.
 2. **On ne lit aucun chemin, et on n'en fabrique aucun.** `BaseRoutes` reçoit
    un `Path` déjà résolu, `apprendre` reçoit un `Cache`, un `ClientBrouter` et
-   une `Config`. Les *noms* des fichiers du cache vivent eux aussi dans
+   une `BaseRoutes`. Les *noms* des fichiers du cache vivent eux aussi dans
    `apprentissage/commande.py` : écrire le nom du fichier de base ou celui
    des poids ici, ce serait savoir où l'on tourne — la règle absolue 2 de
    CLAUDE.md contournée par une chaîne. La ligne de commande sait où vivent
@@ -46,7 +46,6 @@ from pathlib import Path
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT, POIDS_HIGHWAY_INCONNU
-from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.noyau.activite import Activite, est_sport_velo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
@@ -855,14 +854,13 @@ def points_de_passage_depuis_coordonnees(
     return [(float(lat), float(lon)) for lat, lon in retenus]
 
 
-def sorties_a_apprendre(cache: Cache, config: Config, *, depuis: date) -> list[EntreeCache]:
+def sorties_a_apprendre(cache: Cache, *, depuis: date) -> list[EntreeCache]:
     """Les sorties **extérieures** du cache qui valent un rejeu, les plus anciennes d'abord.
 
     Le home-trainer est exclu (il n'a pas de route), les autres sports aussi,
     et les sorties de moins de `DISTANCE_MIN_M` : elles n'apprennent rien qui
     justifie un appel au serveur du mainteneur.
     """
-    del config  # la sélection ne dépend d'aucun réglage pour l'instant
     retenues = []
     for entree in cache.lister(depuis=depuis):
         if not est_sport_velo(entree.sport) or en_interieur(entree):
@@ -877,7 +875,6 @@ def apprendre(
     cache: Cache,
     client: ClientBrouter,
     base: BaseRoutes,
-    config: Config,
     *,
     depuis: date,
     max_sorties: int | None = None,
@@ -908,7 +905,7 @@ def apprendre(
     """
     rapport = RapportApprentissage()
     deja = base.sorties_apprises()
-    candidates = sorties_a_apprendre(cache, config, depuis=depuis)
+    candidates = sorties_a_apprendre(cache, depuis=depuis)
     rapport.sorties_vues = len(candidates)
     appels_restants = max_sorties
 

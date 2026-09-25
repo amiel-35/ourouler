@@ -46,10 +46,10 @@ from ourouler.apprentissage.routes import (
     statistiques_de_traces,
 )
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
-from ourouler.config import Config, Cycliste, Depart, ParametresBrouter
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.noyau.activite import Activite, Point
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.profil import ParametresBrouter
 from ourouler.noyau.trace import PointTrace, Segment, Trace
 
 #: Mètres par degré de latitude (et de longitude à l'équateur).
@@ -60,13 +60,6 @@ LUNDI = date(2024, 3, 4)
 DIMANCHE = date(2024, 3, 10)
 
 PARAMS_BROUTER = ParametresBrouter(url="https://brouter.exemple.test", profil="fastbike")
-
-
-def config_de_test() -> Config:
-    return Config(
-        depart=Depart(nom="Point fictif", latitude=0.0, longitude=0.0),
-        cycliste=Cycliste(masse_kg=75.0, ftp_w=250.0),
-    )
 
 
 # --- fabrique de tracés -------------------------------------------------------
@@ -869,7 +862,7 @@ def cache_garni(tmp_path: Path, activites: Path) -> Cache:
 
 
 def test_les_sorties_a_apprendre_excluent_le_home_trainer(cache_garni: Cache):
-    retenues = sorties_a_apprendre(cache_garni, config_de_test(), depuis=date(2020, 1, 1))
+    retenues = sorties_a_apprendre(cache_garni, depuis=date(2020, 1, 1))
     assert retenues
     noms = {e.meta.get("fichier") for e in retenues}
     assert "home_trainer.fit" not in noms
@@ -879,7 +872,7 @@ def test_apprendre_rejoue_chaque_sortie_une_fois(tmp_path: Path, cache_garni: Ca
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
     rapport = apprendre(
-        cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1)
+        cache_garni, client, base, depuis=date(2020, 1, 1)
     )
     assert rapport.sorties_apprises == len(vues) > 0
     assert rapport.echecs == 0
@@ -920,7 +913,7 @@ def test_apprendre_cumule_le_denivele_du_trace_reroute(tmp_path: Path, cache_gar
     client = ClientBrouter(
         PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
     )
-    rapport = apprendre(cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     assert rapport.sorties_apprises > 0
     assert rapport.denivele_m is not None
     assert rapport.denivele_m == pytest.approx(30.0 * rapport.sorties_apprises, abs=1.0)
@@ -935,7 +928,7 @@ def test_apprendre_sans_sortie_apprise_laisse_le_denivele_absent(tmp_path: Path)
     base = BaseRoutes(tmp_path / "routes.sqlite")
     cache = Cache(tmp_path / "cache_vide")
     client, _ = client_bouchonne()
-    rapport = apprendre(cache, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    rapport = apprendre(cache, client, base, depuis=date(2020, 1, 1))
     assert rapport.sorties_apprises == 0
     assert rapport.denivele_m is None
 
@@ -944,11 +937,11 @@ def test_relancer_apprendre_ne_refait_aucun_appel(tmp_path: Path, cache_garni: C
     """Idempotence : la deuxième passe ne coûte rien et ne fausse rien."""
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
-    premier = apprendre(cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    premier = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     appels = len(vues)
     km_apres_un = base.statistiques().km_total
 
-    second = apprendre(cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    second = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     assert len(vues) == appels
     assert second.sorties_apprises == 0
     assert second.sorties_deja_connues == premier.sorties_apprises
@@ -959,7 +952,7 @@ def test_apprendre_respecte_max_sorties(tmp_path: Path, cache_garni: Cache):
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
     rapport = apprendre(
-        cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1), max_sorties=1
+        cache_garni, client, base, depuis=date(2020, 1, 1), max_sorties=1
     )
     assert rapport.sorties_apprises == 1
     assert len(vues) == 1
@@ -984,7 +977,7 @@ def test_max_sorties_borne_les_appels_meme_quand_ils_echouent(tmp_path: Path, ca
     )
     base = BaseRoutes(tmp_path / "routes.sqlite")
     rapport = apprendre(
-        cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1), max_sorties=1
+        cache_garni, client, base, depuis=date(2020, 1, 1), max_sorties=1
     )
     assert rapport.sorties_vues >= 2, "il y avait bien d'autres sorties à tenter"
     assert len(vues) == 1, "un seul appel, alors qu'il a échoué"
@@ -1006,7 +999,7 @@ def test_un_echec_du_moteur_est_compte_pas_fatal(tmp_path: Path, cache_garni: Ca
         PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
     )
     base = BaseRoutes(tmp_path / "routes.sqlite")
-    rapport = apprendre(cache_garni, client, base, config_de_test(), depuis=date(2020, 1, 1))
+    rapport = apprendre(cache_garni, client, base, depuis=date(2020, 1, 1))
     assert rapport.echecs == 1
     assert rapport.sorties_apprises >= 1
     assert rapport.messages and "500" in rapport.messages[0]
@@ -1016,7 +1009,7 @@ def test_apprendre_sur_un_cache_vide_ne_dit_pas_n_importe_quoi(tmp_path: Path):
     base = BaseRoutes(tmp_path / "routes.sqlite")
     client, vues = client_bouchonne()
     rapport = apprendre(
-        Cache(tmp_path / "vide"), client, base, config_de_test(), depuis=date(2020, 1, 1)
+        Cache(tmp_path / "vide"), client, base, depuis=date(2020, 1, 1)
     )
     assert (rapport.sorties_vues, rapport.sorties_apprises, rapport.echecs) == (0, 0, 0)
     assert vues == []

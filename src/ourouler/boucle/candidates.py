@@ -16,9 +16,9 @@ import math
 from dataclasses import dataclass, replace
 
 from ourouler.boucle.antennes import detecter, elaguer
-from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
+from ourouler.noyau.profil import Depart
 from ourouler.noyau.trace import Trace
 
 #: Rapport de départ entre la longueur d'une boucle et le rayon demandé.
