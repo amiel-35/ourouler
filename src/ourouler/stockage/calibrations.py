@@ -1,10 +1,11 @@
-"""Lecture et écriture de `calibration.json`.
+"""Lecture et écriture du fichier de calibration (un JSON, toutes les calibrations par vélo).
 
 Le format est figé (`tests/compatibilite/LISEZMOI.md`) : ce module le lit et
 l'écrit à l'octet près comme `physique.commande` le faisait avant le lot 7.
 Il reçoit un chemin et rend une `physique.parametres_velo.Calibration` ; il
-ne sait pas **où** le fichier se trouve — c'est `physique.commande.
-chemin_calibration` qui le résout depuis la configuration.
+ne sait ni **où** le fichier se trouve ni comment il s'appelle — c'est
+`physique.commande.chemin_calibration` qui le résout depuis la configuration
+(règle absolue 2).
 """
 
 from __future__ import annotations
@@ -18,10 +19,7 @@ from ourouler.physique import calibration as calib
 from ourouler.physique.modele import FourchettePorteAPorte, Parametres
 from ourouler.physique.parametres_velo import Calibration
 
-#: Nom du fichier où la calibration est écrite, dans le dossier de cache.
-NOM_CALIBRATION = "calibration.json"
-
-#: Version du format de `calibration.json`. Un fichier plus récent est ignoré
+#: Version du format du fichier de calibration. Un fichier plus récent est ignoré
 #: plutôt que relu de travers.
 VERSION_CALIBRATION = 1
 
@@ -129,7 +127,7 @@ def ecrire_calibration(chemin: Path, velo: str, contenu: dict) -> None:
 def contenu_calibration(
     rapport: calib.RapportCalibration, crr_source: str = "ajuste", pneu: str | None = None
 ) -> dict:
-    """L'entrée d'un vélo dans `calibration.json`, telle que `ourouler calibrer` l'écrit."""
+    """L'entrée d'un vélo dans le fichier de calibration, telle que `ourouler calibrer` l'écrit."""
     a = rapport.ajustement
     return {
         "cda_m2": round(a.cda_m2, 5),
@@ -163,7 +161,7 @@ def contenu_calibration(
 
 
 def porte_a_porte_json(mesure: calib.MesurePorteAPorte) -> dict | None:
-    """La fourchette telle que `calibration.json` la garde, ou `None` si trop peu de sorties.
+    """La fourchette telle que le fichier de calibration la garde, ou `None` si trop peu de sorties.
 
     `None` n'est pas une panne : `fourchette_du_velo` retombera sur la
     convention, et le dira.

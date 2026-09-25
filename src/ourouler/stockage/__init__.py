@@ -5,5 +5,5 @@ connecteurs : un module de stockage reçoit un chemin et rend des objets du
 domaine (ou en reçoit et les écrit). Il n'importe que le noyau et le domaine,
 jamais la configuration : c'est l'appelant qui résout le chemin.
 
-`calibrations` (lot 7) : `calibration.json`.
+`calibrations` (lot 7) : le fichier des calibrations par vélo.
 """

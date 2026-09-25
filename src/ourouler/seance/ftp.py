@@ -27,7 +27,7 @@ silence (`seance.zones.position_dans_zone`).
 
 Ce module ne lit aucun fichier de configuration et ne connaît aucun chemin :
 les paramètres physiques du vélo (calibrés ou non) lui arrivent tout faits,
-et c'est `seance.ecran_ftp`, la couche commande, qui lit `calibration.json`
+et c'est `seance.ecran_ftp`, la couche commande, qui lit la calibration
 et la `Config` pour les construire (lot 7) — comme le reste du cœur (règle
 absolue 2).
 """

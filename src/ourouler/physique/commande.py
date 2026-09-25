@@ -58,7 +58,6 @@ from ourouler.physique.parametres_velo import (
     fourchette_defaut,
 )
 from ourouler.stockage.calibrations import (
-    NOM_CALIBRATION,
     VERSION_CALIBRATION,
     contenu_calibration,
     ecrire_calibration,
@@ -90,6 +89,9 @@ NOM_CACHE = "archive_meteo.sqlite"
 
 
 # --- calibration.json : la commande résout le chemin, le stockage lit ---------
+
+#: Nom du fichier où la calibration est écrite, dans le dossier de cache.
+NOM_CALIBRATION = "calibration.json"
 #
 # Depuis le lot 7, la lecture et l'écriture vivent dans `stockage.calibrations`
 # et le calcul (quels paramètres pour quel vélo) dans `physique.parametres_velo`,

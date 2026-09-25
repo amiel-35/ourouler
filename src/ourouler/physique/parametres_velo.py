@@ -2,7 +2,7 @@
 
 Du domaine pur : ce module **reçoit** la calibration déjà lue (une
 `Calibration`, ou `None` quand le vélo n'en a pas) et ne connaît aucun
-chemin. C'est `stockage.calibrations` qui lit et écrit `calibration.json`,
+chemin. C'est `stockage.calibrations` qui lit et écrit le fichier de calibration,
 et la couche commande (`physique.commande`) qui fait le lien entre les deux
 (`docs/ouverture_plan.md` §6, lot 7).
 """
@@ -35,7 +35,7 @@ ALERTE_PNEU_CHANGE = "pneu changé depuis la calibration, relancez-la"
 
 @dataclass(frozen=True)
 class Calibration:
-    """Ce que `calibration.json` garde d'un vélo."""
+    """Ce que le fichier de calibration garde d'un vélo."""
 
     velo: str
     parametres: Parametres
@@ -150,7 +150,7 @@ def alerte_calibration(velo: Velo, calibration: Calibration | None) -> str | Non
     """`ALERTE_PNEU_CHANGE` si le Crr connu du vélo ne suit plus sa calibration, sinon `None`.
 
     Compare ce que le vélo déclare aujourd'hui (`crr_du_velo`) à ce que
-    `calibration.json` a noté (`crr_source`, `pneu`, `crr`). Une calibration
+    la calibration a noté (`crr_source`, `pneu`, `crr`). Une calibration
     d'avant L9.1 (sans `crr_source`) sur un vélo sans pneu ni Crr déclaré ne
     dit rien : rien n'a changé. Pas de calibration : `None`.
     """
@@ -173,7 +173,7 @@ def alerte_calibration(velo: Velo, calibration: Calibration | None) -> str | Non
 def fourchette_du_velo(calibration: Calibration | None) -> FourchettePorteAPorte:
     """La fourchette du porte à porte d'un vélo : mesurée si elle l'a été, sinon la convention.
 
-    Mesurée : écrite par `ourouler calibrer` dans `calibration.json`
+    Mesurée : écrite par `ourouler calibrer` dans le fichier de calibration
     (provenance « mesure »). Sinon — vélo jamais calibré, calibration
     antérieure au 25/09/2026, ou trop peu de sorties roulées seul —
     `litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT` (provenance « defaut »),

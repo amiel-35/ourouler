@@ -304,7 +304,7 @@ def lancer(
 
 def fichier_du_compte(dossier_du_compte: Path) -> Path:
     """Où la calibration d'un compte hébergé s'écrit : dans son dossier, à côté de son profil."""
-    return dossier_du_compte / stockage.NOM_CALIBRATION
+    return dossier_du_compte / physique.NOM_CALIBRATION
 
 
 def _fr(valeur: float, decimales: int) -> str:

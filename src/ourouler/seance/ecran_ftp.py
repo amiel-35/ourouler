@@ -5,7 +5,7 @@ Le calcul des trois valeurs liées et de l'escalier est du domaine pur, dans
 tout faits (lot 7, `docs/ouverture_plan.md` §6). Ce module-ci est la couche
 commande qui les lui prépare : il choisit le vélo demandé dans la `Config`,
 lit sa calibration par `physique.commande` (qui résout le chemin de
-`calibration.json` et passe par `stockage.calibrations`) et délègue.
+du fichier de calibration et passe par `stockage.calibrations`) et délègue.
 
 Les signatures sont celles d'avant le lot 7 — une `Config` et un nom de vélo
 —, pour que la ligne de commande, l'API, `boucle` et `sortie` n'aient pas à

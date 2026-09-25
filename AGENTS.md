@@ -38,7 +38,7 @@ l'inverse :
   `apprentissage/` et `geocodage/` ;
 - adaptateurs HTTP : `src/ourouler/connecteurs/`, chacun avec un client
   injectable ;
-- stockage : `src/ourouler/stockage/` (aujourd'hui `calibration.json`), qui
+- stockage : `src/ourouler/stockage/` (aujourd'hui les calibrations), qui
   reçoit un chemin et rend des objets du domaine ;
 - noyau : `src/ourouler/noyau/` (`trace`, `activite`, `erreurs`,
   `proprietaire`, `seance`, `zones`, `meteo`, `profil`), bibliothèque
