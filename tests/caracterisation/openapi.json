@@ -1,0 +1,5381 @@
+{
+  "components": {
+    "schemas": {
+      "ApercuZones": {
+        "additionalProperties": false,
+        "description": "Les trois valeurs liées de l'écran de FTP, recalculées **sans rien stocker**.\n\nExactement un des trois champs : éditer la puissance ou la vitesse à plat\ndéplace la position, et c'est la position qui sera stockée si le cycliste\nvalide (décision 7). La moyenne compteur n'est pas éditable (décision 8) —\nelle n'a donc pas de champ ici, et c'est voulu.",
+        "properties": {
+          "position_zone": {
+            "anyOf": [
+              {
+                "maximum": 3.0,
+                "minimum": -2.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Zone"
+          },
+          "puissance_w": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Puissance W"
+          },
+          "velo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Velo"
+          },
+          "vitesse_a_plat_kmh": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vitesse A Plat Kmh"
+          }
+        },
+        "title": "ApercuZones",
+        "type": "object"
+      },
+      "Body_deposer_seance_api_v1_seances_fichier_post": {
+        "properties": {
+          "fichier": {
+            "contentMediaType": "application/octet-stream",
+            "description": ".ZWO ou .MRC",
+            "title": "Fichier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fichier"
+        ],
+        "title": "Body_deposer_seance_api_v1_seances_fichier_post",
+        "type": "object"
+      },
+      "Body_importer_activites_api_v1_activites_import_post": {
+        "properties": {
+          "fichiers": {
+            "description": ".fit/.gpx/.tcx, éventuellement .gz, ou une archive .zip Strava/Garmin",
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Fichiers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fichiers"
+        ],
+        "title": "Body_importer_activites_api_v1_activites_import_post",
+        "type": "object"
+      },
+      "DemandeBoucle": {
+        "additionalProperties": false,
+        "description": "Une boucle libre, sans séance — l'équivalent d'`ourouler boucle`.\n\nQ47 : `direction` était obligatoire alors que `sortie` balaie déjà tout\nl'horizon quand rien n'est demandé — une contrainte héritée, pas un choix\nde conception. Elle est désormais facultative, comme côté `sortie`.",
+        "properties": {
+          "candidates": {
+            "anyOf": [
+              {
+                "maximum": 24.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidates"
+          },
+          "depart": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "N, NE, … NO ou un azimut en degrés (défaut : tout l'horizon)",
+            "title": "Direction"
+          },
+          "distance_km": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000.0,
+            "title": "Distance Km",
+            "type": "number"
+          },
+          "heure_depart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heure Depart"
+          },
+          "profil": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profil"
+          },
+          "puissance_w": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Puissance W"
+          },
+          "velo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Velo"
+          }
+        },
+        "required": [
+          "distance_km"
+        ],
+        "title": "DemandeBoucle",
+        "type": "object"
+      },
+      "DemandeCalibration": {
+        "additionalProperties": false,
+        "description": "Calibrer un vélo sur ses propres sorties (L9.4).",
+        "properties": {
+          "sans_pneu": {
+            "default": false,
+            "description": "calibrer même sans pneu déclaré : la résistance au roulement typique de l'usage est alors gardée fixe, et le résultat le dit",
+            "title": "Sans Pneu",
+            "type": "boolean"
+          },
+          "velo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "nom du vélo (défaut : le premier vélo de route du profil)",
+            "title": "Velo"
+          }
+        },
+        "title": "DemandeCalibration",
+        "type": "object"
+      },
+      "DemandeChangementMotDePasse": {
+        "additionalProperties": false,
+        "description": "L'ancien et le nouveau mot de passe — pour `POST /moi/mot-de-passe`, sous session ouverte.",
+        "properties": {
+          "mot_de_passe_actuel": {
+            "description": "le mot de passe actuel du compte",
+            "title": "Mot De Passe Actuel",
+            "type": "string"
+          },
+          "nouveau_mot_de_passe": {
+            "description": "le mot de passe choisi à la place",
+            "title": "Nouveau Mot De Passe",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mot_de_passe_actuel",
+          "nouveau_mot_de_passe"
+        ],
+        "title": "DemandeChangementMotDePasse",
+        "type": "object"
+      },
+      "DemandeConnexion": {
+        "additionalProperties": false,
+        "description": "L'adresse et le secret d'un compte déjà actif — pour revenir sans jeton.",
+        "properties": {
+          "email": {
+            "description": "l'adresse du compte",
+            "title": "Email",
+            "type": "string"
+          },
+          "secret": {
+            "description": "le mot de passe du compte",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "secret"
+        ],
+        "title": "DemandeConnexion",
+        "type": "object"
+      },
+      "DemandeEntree": {
+        "additionalProperties": false,
+        "description": "Le jeton d'une invitation et le secret choisi — active le compte, ouvre la session.\n\n`jeton` et `secret` restent des `TexteUtile` ordinaires : ce module ne\nconnaît pas la forme du jeton (elle vit en base et dans `comptes.py`), et\naucune politique de mot de passe n'a été tranchée — inventer une longueur\nminimale ici serait décider une règle produit à la place du mainteneur.",
+        "properties": {
+          "jeton": {
+            "description": "le jeton reçu par le lien d'invitation",
+            "title": "Jeton",
+            "type": "string"
+          },
+          "secret": {
+            "description": "le mot de passe choisi pour ce compte",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jeton",
+          "secret"
+        ],
+        "title": "DemandeEntree",
+        "type": "object"
+      },
+      "DemandeReinitialisation": {
+        "additionalProperties": false,
+        "description": "Le jeton d'un lien de réinitialisation et le nouveau mot de passe choisi.\n\nMêmes champs, même forme que `DemandeEntree` — c'est le même mécanisme de jeton\n(`api/comptes.py`), une seule différence dans ce que sa consommation fait au compte\n(`DepotComptes.changer_mot_de_passe_par_jeton` au lieu d'`activer`). Un modèle séparé\nplutôt qu'une réutilisation de `DemandeEntree` : les deux corps de requête se\nressemblent aujourd'hui par coïncidence, pas par contrat — rien ne garantit qu'ils\nresteront identiques, et `POST /reinitialiser` a besoin de son propre modèle nommé\npour que /docs (le schéma publié) décrive chaque route pour ce qu'elle fait.",
+        "properties": {
+          "jeton": {
+            "description": "le jeton reçu par le lien de réinitialisation",
+            "title": "Jeton",
+            "type": "string"
+          },
+          "secret": {
+            "description": "le nouveau mot de passe choisi pour ce compte",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jeton",
+          "secret"
+        ],
+        "title": "DemandeReinitialisation",
+        "type": "object"
+      },
+      "DemandeSimulation": {
+        "additionalProperties": false,
+        "description": "Le temps d'un GPX déjà déposé, à puissance constante.",
+        "properties": {
+          "gpx": {
+            "description": "identifiant d'un GPX du dépôt (généré ou déposé)",
+            "title": "Gpx",
+            "type": "string"
+          },
+          "heure_depart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heure Depart"
+          },
+          "puissance_w": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 2000.0,
+            "title": "Puissance W",
+            "type": "number"
+          },
+          "velo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Velo"
+          }
+        },
+        "required": [
+          "gpx",
+          "puissance_w"
+        ],
+        "title": "DemandeSimulation",
+        "type": "object"
+      },
+      "DemandeSortie": {
+        "additionalProperties": false,
+        "description": "La séance du jour posée sur une boucle — l'équivalent d'`ourouler sortie`.",
+        "properties": {
+          "candidates": {
+            "anyOf": [
+              {
+                "maximum": 24.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidates"
+          },
+          "depart": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "partir d'ailleurs cette fois ; la configuration n'est pas modifiée"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "N, NE, … NO ou un azimut en degrés (défaut : tout l'horizon)",
+            "title": "Direction"
+          },
+          "distance_km": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Km"
+          },
+          "fichier_seance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "identifiant d'un .ZWO/.MRC déposé, au lieu de la séance d'Intervals.icu",
+            "title": "Fichier Seance"
+          },
+          "heure_depart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)",
+            "title": "Heure Depart"
+          },
+          "jour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AAAA-MM-JJ (défaut : aujourd'hui)",
+            "title": "Jour"
+          },
+          "profil": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profil"
+          },
+          "velo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Velo"
+          },
+          "vent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "retour-dos, depart-dos, travers ou peu-importe (défaut : peu-importe)",
+            "title": "Vent"
+          }
+        },
+        "title": "DemandeSortie",
+        "type": "object"
+      },
+      "DemandeVitesseCompteur": {
+        "additionalProperties": false,
+        "description": "T4 de l'accueil : une vitesse au compteur et un terrain, pour en tirer une FTP.\n\n`POST /profil/ftp/apercu` calcule **sans rien stocker** — même geste que\n`ApercuZones` : le front récupère la FTP rendue et l'envoie ensuite à\n`PATCH /profil` (`cycliste.ftp_w`) si la personne confirme.",
+        "properties": {
+          "denivele_m_par_km": {
+            "description": "dénivelé de référence du terrain déclaré, en m par km (voir docs/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Denivele M Par Km",
+            "type": "number"
+          },
+          "velo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Velo"
+          },
+          "vitesse_kmh": {
+            "description": "moyenne lue au compteur sur une sortie solo",
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Vitesse Kmh",
+            "type": "number"
+          }
+        },
+        "required": [
+          "vitesse_kmh",
+          "denivele_m_par_km"
+        ],
+        "title": "DemandeVitesseCompteur",
+        "type": "object"
+      },
+      "Panne": {
+        "additionalProperties": false,
+        "description": "Une panne traduite : un code stable, une phrase française, le service fautif.\n\n**Le code prime sur le message.** Le message vient du cœur et peut être\nreformulé ; le code est une valeur du contrat, et l'énumération ci-dessous\nest celle que le front branche sur ses écrans. Elle est engendrée de\n`erreurs.CODES_PANNE`, qui en est la seule source.",
+        "properties": {
+          "code": {
+            "description": "l'état d'échec, stable — voir la description de l'API pour le sens de chacun",
+            "enum": [
+              "aucune_boucle",
+              "brouter_indisponible",
+              "calcul_en_cours",
+              "comptes_indisponibles",
+              "configuration_invalide",
+              "erreur_interne",
+              "fichier_illisible",
+              "fichier_introuvable",
+              "fichier_trop_gros",
+              "format_non_lu",
+              "ftp_absente",
+              "generation_introuvable",
+              "geocodage_indisponible",
+              "identifiants_refuses",
+              "import_deja_en_cours",
+              "intervals_absent",
+              "intervals_indisponible",
+              "intervals_refuse",
+              "invitation_invalide",
+              "meteo_hors_domaine",
+              "meteo_indisponible",
+              "methode_refusee",
+              "mot_de_passe_actuel_refuse",
+              "pneu_absent",
+              "profil_absent",
+              "profil_invalide",
+              "quota_atteint",
+              "requete_invalide",
+              "route_inconnue",
+              "service_externe_indisponible",
+              "session_absente",
+              "sorties_insuffisantes",
+              "suppression_deja_en_cours",
+              "tache_lourde_en_cours",
+              "velo_absent"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "description": "ce que l'écran peut exploiter en plus du message",
+            "title": "Details",
+            "type": "object"
+          },
+          "message": {
+            "description": "la phrase française que l'écran affiche telle quelle",
+            "title": "Message",
+            "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "le service externe fautif, quand il y en a un",
+            "title": "Service"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "Panne",
+        "type": "object"
+      },
+      "Point": {
+        "additionalProperties": false,
+        "description": "Un point de départ déjà choisi, en degrés décimaux.",
+        "properties": {
+          "latitude": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "type": "number"
+          },
+          "nom": {
+            "default": "Départ",
+            "maxLength": 200,
+            "title": "Nom",
+            "type": "string"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
+      "ReponseErreur": {
+        "additionalProperties": false,
+        "description": "La forme **unique** d'une réponse en panne, quelle que soit la route.\n\nUne réponse porte `donnees` ou `erreur`, jamais les deux : c'est ce qui\npermet à un front de n'avoir qu'une gestion d'erreur.",
+        "properties": {
+          "erreur": {
+            "$ref": "#/components/schemas/Panne"
+          }
+        },
+        "required": [
+          "erreur"
+        ],
+        "title": "ReponseErreur",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "\nL'API d'ourouler. Elle expose ce que la ligne de commande rend déjà en JSON\n(doctrine §10.2) ; le front la consomme, et ne parle jamais au cœur.\n\nLes routes qui calculent rendent `{donnees, avertissements, duree_ms,\nbudget}` ; les pannes rendent `{erreur: {code, message, service, details}}`.\nLe contrat complet est dans `docs/ux/api_contrat.md`.\n\n## Les états d'échec, et le code qui les nomme\n\nLe **code** est la valeur du contrat : c'est lui qu'un écran teste, jamais le\ntexte du message, qui vient du cœur et peut être reformulé.\n\n| code | quand |\n|---|---|\n| `requete_invalide` | option fautive, corps mal formé, champ de profil non modifiable |\n| `profil_invalide` | ce que le cycliste vient d'écrire ne fait pas une configuration valide |\n| `aucune_boucle` | le moteur a répondu, mais aucune boucle ne convient (E18 · échec) |\n| `fichier_illisible` | .ZWO/.MRC vide, tronqué ou mal formé |\n| `format_non_lu` | un .FIT de séance — décision 5, la V1 lit .ZWO et .MRC |\n| `fichier_trop_gros` | plus d'un mégaoctet déposé |\n| `fichier_introuvable` | identifiant inconnu, ou appartenant à quelqu'un d'autre |\n| `generation_introuvable` | cette génération n'est plus en mémoire — ses GPX ne sont pas écrits sur le disque (Q40 g) ; relancer la recherche |\n| `session_absente` | aucune session ouverte — la route sert des données personnelles et le serveur ne sait pas à qui elles appartiennent (401). Le front montre l'écran de connexion ; il ne réessaie pas |\n| `invitation_invalide` | ce jeton d'invitation est inconnu, expiré ou déjà consommé (404) — les trois rendent la même réponse, pour ne renseigner personne sur lequel |\n| `identifiants_refuses` | adresse sans compte actif ou mot de passe faux (401) — les deux rendent la même réponse, dans le même temps, pour ne renseigner personne |\n| `mot_de_passe_actuel_refuse` | POST /moi/mot-de-passe : l'ancien mot de passe fourni ne correspond pas à celui du compte (401) — la personne est déjà authentifiée par sa session, ce n'est donc pas un oracle d'adresse comme identifiants_refuses |\n| `comptes_indisponibles` | ce déploiement ne gère pas de comptes — pas de base de données de comptes configurée (mode personnel, ou hébergé sans base) |\n| `route_inconnue` | aucune route à ce chemin — la liste est dans /openapi.json |\n| `methode_refusee` | la route existe, pas avec cette méthode |\n| `calcul_en_cours` | un calcul occupe déjà le serveur |\n| `import_deja_en_cours` | un import d'historique tourne déjà sur ce serveur (un seul à la fois, quel que soit le propriétaire) — réessayer une fois celui-ci terminé |\n| `tache_lourde_en_cours` | un import d'historique ou une calibration tourne déjà sur ce serveur (un seul à la fois, quel que soit le propriétaire) — réessayer une fois terminé |\n| `suppression_deja_en_cours` | une suppression de ce compte est déjà en cours — inutile de la relancer, attendre que la première termine (jusqu'à deux minutes) |\n| `velo_absent` | aucun vélo dans le profil — une calibration porte sur un vélo |\n| `ftp_absente` | FTP non renseignée — la calibration s'en sert pour écarter les efforts qui ne décrivent pas le vélo (sprints, relances) |\n| `sorties_insuffisantes` | pas assez de sorties exploitables pour ce vélo (extérieures, 20 km et plus, avec puissance, rattachées à ce vélo) — `details` dit combien il en faut et combien il y en a |\n| `pneu_absent` | aucun pneu déclaré pour ce vélo — le choisir, ou relancer avec `sans_pneu` : la résistance au roulement typique de l'usage est alors gardée fixe, et le résultat le dit |\n| `brouter_indisponible` | BRouter injoignable ou en erreur |\n| `meteo_indisponible` | Open-Meteo injoignable ou en erreur — le parcours reste servi sans météo, la tenue se tait (E14 · dégradé) |\n| `meteo_hors_domaine` | Open-Meteo ne couvre pas ce point ou cette fenêtre (Q19) |\n| `intervals_refuse` | clé Intervals.icu révoquée ou refusée — renvoyer vers l'écran de la clé, pas vers « réessayer » (E15 · échec) |\n| `intervals_indisponible` | panne côté Intervals.icu |\n| `intervals_absent` | Intervals.icu n'est pas relié à ce compte |\n| `geocodage_indisponible` | BAN ou Nominatim en erreur |\n| `service_externe_indisponible` | un service externe non reconnu |\n| `configuration_invalide` | le TOML du serveur ne charge pas |\n| `profil_absent` | cette application n'a aucun profil — elle a été construite sans configuration, et rien n'a encore été écrit par PATCH /profil |\n| `quota_atteint` | quota journalier de générations coûteuses atteint pour ce compte (429) — le mode personnel n'est pas concerné (L9.3) |\n| `erreur_interne` | un bug — le détail reste au journal, jamais dans la réponse |\n\nDeux cas qui n'en sont pas, et qui valent 200 : « aucune séance ce jour-là »\n(`donnees.seance` vaut `null`) et « une seule proposition au lieu de trois »\n(`donnees.motif_deux_propositions` porte l'explication).\n\n## Les avertissements, et le code qui les nomme aussi\n\nUn avertissement n'est pas une panne : la réponse vaut 200, le parcours est\nservi, mais une affirmation manque. Chaque entrée de `avertissements` vaut\n`{code, message}` — **le code se teste, le message s'affiche**. Un\navertissement que ce catalogue ne nomme pas encore porte le code `autre` :\nil se montre, il ne se lit pas.\n\n| code | quand |\n|---|---|\n| `meteo_indisponible` | Open-Meteo n'a rien rendu — le parcours reste servi, sans pluie ni vent, et la tenue se tait (E14 · dégradé) |\n| `second_avis_indisponible` | le second modèle météo n'a pas répondu — la confiance vaut « inconnu » sur toutes les cellules |\n| `adresse_introuvable` | aucun candidat pour cette adresse (E16) |\n| `autre` | un avertissement que ce catalogue ne nomme pas encore — à afficher tel quel, jamais à lire pour en déduire un état |\n",
+    "title": "ourouler",
+    "version": "0.0.1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/activites/import": {
+      "get": {
+        "description": "Combien de sorties ce cycliste a déjà déposées, et sur quelle période.\n\nPour l'écran « Mes sorties passées » (`front/src/ecrans/Importer.tsx`) :\nlui dire s'il a déjà déposé quelque chose avant de lui remontrer le\ndépôt. Voir `import_archive.etat` pour ce qui est compté.",
+        "operationId": "etat_import_api_v1_activites_import_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Import Api V1 Activites Import Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Import"
+      },
+      "post": {
+        "description": "Lance en tâche de fond le dépôt de l'historique d'un cycliste sans Intervals\n— un invité sans capteur y trouve déjà de la valeur (routes), un porteur de\ncapteur y trouve aussi son niveau ([[Q48]]).\n\n**202, pas 200** (suite de la relecture du 25/09/2026) : une archive\nStrava réelle (≈2 900 sorties) prend environ 16 minutes à 0,33 s/fichier,\nbien au-delà des 180 s où le front abandonne. La route rend tout de\nsuite un identifiant de tâche ; `GET /activites/import/{id}` dit où elle\nen est (`en_cours`/`fini`/`echoue`, `traites`/`total`, et le rapport une\nfois finie).\n\nAccepte un ou plusieurs fichiers en un seul appel — `.fit`/`.gpx`/`.tcx`\nisolés, leurs `.gz`, ou une archive d'export Strava ou Garmin — et les\nindexe dans le cache de **ce** propriétaire uniquement\n(`activites/import_archive.py`, bornes de sécurité en constantes\nnommées). Réimporter la même archive ne duplique rien : une sortie\ndéposée est identifiée par son contenu ([[Q62]]).\n\n**Un seul import à la fois, pour le serveur entier** (`api/imports_fond.py`) :\nun second demandeur, propriétaire ou pas, reçoit `import_deja_en_cours`\n(409) plutôt qu'une attente silencieuse — le serveur est petit et\npartagé avec BRouter, deux imports simultanés doubleraient le pic\nmémoire.\n\n**Les fichiers reçus sont recopiés dans des fichiers temporaires à nous**\navant de rendre la main : ceux de Starlette (`UploadFile.file`) ne\nsurvivent pas à la fin de la requête, alors que la tâche de fond continue\naprès le 202. La copie est bornée par bloc (`_copier_borne`), en plus de\n`LimiteTailleCorps` (`api/limite_corps.py`) qui a déjà refusé tout corps\nau-delà du plafond avant que Starlette n'en écrive un octet.",
+        "operationId": "importer_activites_api_v1_activites_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_importer_activites_api_v1_activites_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Importer Activites Api V1 Activites Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Importer Activites"
+      }
+    },
+    "/api/v1/activites/import/{id_job}": {
+      "get": {
+        "description": "Où en est un import lancé par `POST /activites/import` — à interroger périodiquement.\n\nCloisonné par propriétaire comme tout le reste : un identifiant qui\nn'appartient pas à ce propriétaire rend `fichier_introuvable`, exactement\ncomme un fichier de séance qu'on n'a pas soi-même déposé — pour ne\nrenseigner personne sur l'existence d'un import qu'il n'a pas lancé.",
+        "operationId": "etat_job_import_api_v1_activites_import__id_job__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id_job",
+            "required": true,
+            "schema": {
+              "title": "Id Job",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Job Import Api V1 Activites Import  Id Job  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Job Import"
+      }
+    },
+    "/api/v1/boucles": {
+      "post": {
+        "description": "Une boucle libre, sans séance : candidates, coûts, météo le long du tracé, géométrie.",
+        "operationId": "generer_boucle_api_v1_boucles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeBoucle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Generer Boucle Api V1 Boucles Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Generer Boucle"
+      }
+    },
+    "/api/v1/calibrations": {
+      "get": {
+        "description": "Pour chaque vélo : sa calibration en mots simples, de quoi la lancer, la tâche récente.\n\nL'écran s'en sert pour dessiner la fiche vélo sans rien lancer : combien\nde sorties exploitables il y a (et combien il en faut), si un pneu est\ndéclaré, la dernière calibration de ce vélo (en cours ou terminée — c'est\nce qui permet de reprendre l'avancement après un rechargement de page).\nRien de tout ça ne coûte d'appel externe : l'index des sorties seul.",
+        "operationId": "etat_calibrations_api_v1_calibrations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Calibrations Api V1 Calibrations Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Calibrations"
+      },
+      "post": {
+        "description": "Lance en tâche de fond la calibration d'un vélo sur les sorties de **ce** compte.\n\nCrr fixé par le pneu (ou, `sans_pneu`, par l'usage — dit comme tel), CdA\ncherché, fourchette du porte à porte mesurée hors échantillon : le calcul\nde `ourouler calibrer` (L9.1), sur les sorties importées (L9.2) ou\nsynchronisées depuis Intervals. Voir `api/calibrations.py` pour le choix\ndes sorties quand le profil a plusieurs vélos.\n\nDans l'ordre, et c'est voulu : les **préconditions** d'abord (pas de\nvélo, pas de FTP, pas assez de sorties, pas de pneu — chacune avec son\ncode et ce qu'il faut faire), puis le **quota** (une par jour et par\ncompte, remboursée si la calibration échoue), puis le **verrou** des\ntâches lourdes (un import ou une calibration à la fois pour tout le\nserveur, `tache_lourde_en_cours`). Un refus à l'une de ces étapes ne\ncoûte rien au compte.\n\n202 et un identifiant tout de suite ; `GET /calibrations/{id}` dit où\nelle en est, puis rend le résultat en mots simples.",
+        "operationId": "lancer_calibration_api_v1_calibrations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeCalibration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lancer Calibration Api V1 Calibrations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Lancer Calibration"
+      }
+    },
+    "/api/v1/calibrations/{id_job}": {
+      "get": {
+        "description": "Où en est une calibration lancée par `POST /calibrations` — à interroger périodiquement.\n\nMême cloisonnement que `GET /activites/import/{id}` : l'identifiant d'un\nautre propriétaire — ou celui d'un import — rend `fichier_introuvable`.",
+        "operationId": "etat_job_calibration_api_v1_calibrations__id_job__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id_job",
+            "required": true,
+            "schema": {
+              "title": "Id Job",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Job Calibration Api V1 Calibrations  Id Job  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Job Calibration"
+      }
+    },
+    "/api/v1/connexion": {
+      "post": {
+        "description": "Revient sur un compte actif : vérifie le secret, ouvre une session.\n\nUne adresse sans compte actif et un mot de passe faux rendent la **même**\nréponse (401, `identifiants_refuses`), dans le même temps —\n`DepotComptes.authentifier` égalise aussi le calcul, pas seulement le\nmessage.",
+        "operationId": "connexion_api_v1_connexion_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeConnexion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Connexion Api V1 Connexion Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Connexion"
+      }
+    },
+    "/api/v1/entrer": {
+      "post": {
+        "description": "Active le compte invité, ouvre sa première session, pose le cookie.\n\n`DepotComptes.activer` pose le secret, active le compte et consomme\nl'invitation dans une seule transaction (`api/comptes.py`) ; le\npropriétaire qu'elle rend est celui que `inviter` a déjà rattaché au\ncompte, dans `comptes_proprietaires` ([[Q46]]) — cette route n'a donc\nrien de plus à créer, elle ouvre la session qui en découle. Deux appels\nconcurrents avec le même jeton : un seul passe l'activation (transaction\natomique de `activer`), donc une seule session s'ouvre.",
+        "operationId": "entrer_api_v1_entrer_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeEntree"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Entrer Api V1 Entrer Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Entrer"
+      }
+    },
+    "/api/v1/fichiers/{identifiant}": {
+      "get": {
+        "description": "Le GPX (ou la carte) d'une proposition, s'il appartient à ce propriétaire.\n\nLa vérification est faite **côté serveur**, en cherchant le fichier dans\nle dossier de ce propriétaire et nulle part ailleurs : un identifiant\nvalable pour quelqu'un d'autre est introuvable ici, sans que la réponse\ndise s'il existe (doctrine §10.2).",
+        "operationId": "servir_fichier_api_v1_fichiers__identifiant__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identifiant",
+            "required": true,
+            "schema": {
+              "title": "Identifiant",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Servir Fichier"
+      }
+    },
+    "/api/v1/geocodage": {
+      "get": {
+        "description": "Tous les candidats d'une adresse, notés — **l'API ne tranche jamais**.\n\nC'est l'inverse de la ligne de commande, et c'est écrit dans F0.7 : une\ncommande doit bien partir de quelque part, donc elle retient le premier\ncandidat et le dit ; un front, lui, peut montrer la liste et faire\nchoisir. Les coordonnées choisies reviennent ensuite dans `depart`.",
+        "operationId": "geocoder_api_v1_geocodage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "adresse",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Adresse",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 20,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Geocoder Api V1 Geocodage Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Geocoder"
+      }
+    },
+    "/api/v1/inventaire": {
+      "get": {
+        "description": "L'inventaire des sorties par vélo et par mois, **sans synchroniser**.\n\nLa synchronisation avec Intervals.icu et l'import d'un dossier restent des\ngestes de ligne de commande : ils écrivent dans le cache du serveur et\ndurent des minutes.\n\n**Le cache est construit ici, avec le propriétaire de la session** (Q58,\n18/09/2026). Jusque-là cette route recevait bien `qui` — le balayage\nd'isolation la voyait donc conforme — mais la commande construisait son\n`Cache` toute seule, avec le défaut `PROPRIETAIRE_LOCAL` : quel que soit\nle demandeur, elle servait l'inventaire du mainteneur. C'est la couche web\nqui nomme le propriétaire, et elle seule (doctrine §10.1).",
+        "operationId": "inventaire_api_v1_inventaire_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "depuis",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Depuis"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Inventaire Api V1 Inventaire Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Inventaire"
+      }
+    },
+    "/api/v1/invitation": {
+      "get": {
+        "description": "L'état d'un jeton d'invitation, sans le consommer.\n\nUn jeton inconnu, périmé ou déjà consommé rendent la **même** réponse\n(404, `invitation_invalide`) : on ne dit pas à un inconnu lequel des\ntrois il a rencontré — voir `DepotComptes.invitation_ouverte`, qui rend\n`None` dans les trois cas par la même requête.",
+        "operationId": "etat_invitation_api_v1_invitation_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "jeton",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Jeton",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Etat Invitation Api V1 Invitation Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Etat Invitation"
+      }
+    },
+    "/api/v1/meteo": {
+      "get": {
+        "description": "Pluie, vent et ressenti par direction et par heure, autour d'un point.\n\n`latitude`/`longitude` remplacent le départ du profil pour cette requête\nseulement — toutes deux ou aucune.",
+        "operationId": "meteo_api_v1_meteo_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "heure_depart",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Heure Depart"
+            }
+          },
+          {
+            "in": "query",
+            "name": "horizon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 48,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Horizon"
+            }
+          },
+          {
+            "in": "query",
+            "name": "distance",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Distance"
+            }
+          },
+          {
+            "in": "query",
+            "name": "modele",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Modele"
+            }
+          },
+          {
+            "in": "query",
+            "name": "second_avis",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Second Avis"
+            }
+          },
+          {
+            "in": "query",
+            "name": "latitude",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Latitude"
+            }
+          },
+          {
+            "in": "query",
+            "name": "longitude",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Longitude"
+            }
+          },
+          {
+            "in": "query",
+            "name": "nom",
+            "required": false,
+            "schema": {
+              "default": "Départ",
+              "title": "Nom",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Meteo Api V1 Meteo Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Meteo"
+      }
+    },
+    "/api/v1/moi": {
+      "delete": {
+        "description": "Efface les données personnelles de ce propriétaire.\n\nIdempotent : appeler cette route sur un propriétaire qui n'a rien laissé\nrend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —\nles routes apprises, collectives par décision du mainteneur — est nommé\ndans `donnees.conserve`, jamais tu.\n\n**Ferme aussi le compte, quand ce déploiement en a un** (`SessionParCookie`,\nlot RGPD-compte) : `DepotComptes.supprimer_compte_du_proprietaire` efface\nla ligne `comptes` liée, et la cascade du schéma révoque du même coup ses\ninvitations et ses sessions ouvertes — le mot de passe ne rouvre plus rien\naprès cet appel. En mode personnel ou hébergé sans base de comptes, il n'y\na pas de compte à fermer et `donnees.supprime` ne porte alors pas la clé\n`\"compte\"`.\n\n**Pas de `_config(ctx, qui)` ici non plus** (changé le 21/09/2026), même\nraison qu'à l'export ci-dessus : l'idempotence promise par ce docstring\ncasserait sur un profil incomplet si cette route exigeait la `Config`\nentière du propriétaire pour obtenir un seul réglage serveur.",
+        "operationId": "supprimer_mes_donnees_api_v1_moi_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Supprimer Mes Donnees Api V1 Moi Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Supprimer Mes Donnees"
+      },
+      "get": {
+        "description": "L'adresse du compte de la session en cours — pour l'écran « Mon compte » du front (L9.6).\n\n`email` vaut `None` sur un déploiement sans base de comptes (mode personnel, ou\nhébergé sans `SessionParCookie`) : il n'y a alors aucun compte à décrire, ce n'est\npas une panne — même parti pris que `_comptes_du_deploiement` pour `DELETE /moi`.",
+        "operationId": "mon_compte_api_v1_moi_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mon Compte Api V1 Moi Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Mon Compte"
+      }
+    },
+    "/api/v1/moi/export": {
+      "get": {
+        "description": "Toutes les données personnelles de ce propriétaire, dans une archive ZIP.\n\nUn fichier `LISEZ-MOI.txt` à la racine dit ce qu'est chaque entrée — un\nexport que seul le code sait lire ne remplit pas son office (contrat\nsprint 7 §L7.B). L'archive n'est **pas compressée** : voir\n`api/vie_privee.py` pour pourquoi (c'est ce qui garde le balayage\nd'isolation capable de la couvrir).\n\n**Pas de `_config(ctx, qui)` ici** (changé le 21/09/2026) : cette route\ndoit rester utilisable par un propriétaire qui n'a encore rien écrit —\nexiger sa `Config` entière échouerait sur un profil incomplet depuis que\nle tiers 3 de Q35 ne s'hérite plus du socle partagé. `dossier_cache()`\nest le seul réglage dont `vie_privee.construire_export` se sert, et c'est\nun réglage serveur (Q35), pas un profil.",
+        "operationId": "exporter_mes_donnees_api_v1_moi_export_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Exporter Mes Donnees"
+      }
+    },
+    "/api/v1/moi/mot-de-passe": {
+      "post": {
+        "description": "Change le mot de passe du compte de la session en cours — l'ancien doit être vérifié.\n\nRefuse `comptes_indisponibles` (404) sur un déploiement sans base de comptes ou sans\ncompte lié à cette session — même code que les quatre routes de comptes et sessions\npour la même situation. Contrairement à `POST /reinitialiser`, les autres sessions\nouvertes de ce compte ne sont **pas** fermées : voir `DepotComptes.changer_mot_de_passe`.",
+        "operationId": "changer_mon_mot_de_passe_api_v1_moi_mot_de_passe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeChangementMotDePasse"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Changer Mon Mot De Passe Api V1 Moi Mot De Passe Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Changer Mon Mot De Passe"
+      }
+    },
+    "/api/v1/profil": {
+      "get": {
+        "description": "Le profil du cycliste : départ, poids, FTP, position dans la zone, vélos, services.\n\n`donnees.assistant_recommande` dit si ce propriétaire n'a **jamais**\nenregistré de surcharge (`DepotProfils.surcharge` vide) — un compte\nactivé mais jamais passé par l'assistant, quel qu'ait été le socle qu'il\na lu au démarrage. Corrige le défaut constaté en vrai le 19/09/2026 : un\ncompte neuf atterrissait sur l'écran du jour, qui réclame Intervals et\néchoue, au lieu de l'assistant qui construit le profil. Le premier\n`PATCH /profil` fait passer ce booléen à faux — pas un drapeau à part à\ntenir à jour, juste la conséquence de ce qui est déjà écrit sur le disque.",
+        "operationId": "lire_profil_api_v1_profil_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lire Profil Api V1 Profil Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Lire Profil"
+      },
+      "patch": {
+        "description": "Modifie ce que l'assistant demande, et rend le profil qui en résulte.\n\nCorps : les sections à modifier, telles qu'elles se lisent\n(`{\"cycliste\": {\"ftp_w\": 262}}`). Ce qu'un cycliste n'a pas le droit de\nmodifier est **refusé** et nommé, jamais ignoré (`depots.valider`).\n\nRien n'est écrit si la configuration résultante est invalide : le profil\nprécédent reste, et le front reçoit le champ fautif.",
+        "operationId": "modifier_profil_api_v1_profil_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "les sections à modifier ; tout champ absent de cette liste est refusé et nommé, jamais ignoré en silence",
+                "properties": {
+                  "boucle": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "sens": {}
+                    },
+                    "type": "object"
+                  },
+                  "cycliste": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "ftp_w": {},
+                      "masse_kg": {},
+                      "nom": {},
+                      "prenom": {}
+                    },
+                    "type": "object"
+                  },
+                  "depart": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "latitude": {},
+                      "longitude": {},
+                      "nom": {}
+                    },
+                    "type": "object"
+                  },
+                  "evitements": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "historique_depuis": {},
+                  "intervals": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "api_key": {},
+                      "athlete_id": {}
+                    },
+                    "type": "object"
+                  },
+                  "seance": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "position_zone": {}
+                    },
+                    "type": "object"
+                  },
+                  "velos": {
+                    "items": {
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Modifier Profil Api V1 Profil Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Modifier Profil"
+      }
+    },
+    "/api/v1/profil/ftp/apercu": {
+      "post": {
+        "description": "T4 de l'accueil : une FTP à partir d'une vitesse au compteur et d'un terrain, **sans rien stocker**.\n\nMême geste que `POST /profil/zones/apercu` : la FTP rendue est un aperçu,\nle front l'affiche et l'envoie à `PATCH /profil` (`cycliste.ftp_w`) si le\ncycliste confirme. Elle est calculée à la `position_zone` déjà en\nvigueur dans la configuration — c'est établir une FTP là où il n'y en\navait pas, pas déplacer une position (`seance.ecran_ftp.\nftp_pour_vitesse_compteur`).",
+        "operationId": "apercu_ftp_depuis_terrain_api_v1_profil_ftp_apercu_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeVitesseCompteur"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Apercu Ftp Depuis Terrain Api V1 Profil Ftp Apercu Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Apercu Ftp Depuis Terrain"
+      }
+    },
+    "/api/v1/profil/ftp/generique": {
+      "get": {
+        "description": "T5 de l'accueil, le fond du tunnel : une FTP à partir du seul poids, **sans rien stocker**.\n\nNe peut pas échouer — `physique.litterature.ftp_defaut` ne demande que\n`cycliste.masse_kg`, qui n'est jamais facultative. C'est la garantie que\nl'entonnoir de `docs/ux/parcours_accueil.md` promet à l'étage T5 : « rien\nà demander, jamais rien [en échec] ». Même geste que les deux routes\nd'aperçu voisines : le front affiche, et envoie `cycliste.ftp_w` à\n`PATCH /profil` si la personne continue.",
+        "operationId": "ftp_generique_api_v1_profil_ftp_generique_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "velo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Velo"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ftp Generique Api V1 Profil Ftp Generique Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Ftp Generique"
+      }
+    },
+    "/api/v1/profil/intervals": {
+      "get": {
+        "description": "Ce qu'Intervals.icu sait de l'athlète — FTP, poids — **pour confirmation, sans rien écrire**.\n\nL'étage T1 de l'accueil (`docs/ux/parcours_accueil.md` §4), une fois la\nclé Intervals posée : « on a trouvé ceci, c'est toujours d'actualité ? »\nplutôt que remplacer en silence ou reposer une question dont Intervals\nconnaît déjà la réponse ([[Q64]]). Le front confirme ou corrige, puis\nenvoie la valeur retenue à `PATCH /profil` comme n'importe quelle FTP ou\nmasse déclarée — cette route ne fait que lire.\n\n401 nommé `intervals_absent` si la clé n'est pas encore posée : ce n'est\nni une panne ni une faute, c'est un compte qui n'en est pas encore là.",
+        "operationId": "profil_intervals_api_v1_profil_intervals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Profil Intervals Api V1 Profil Intervals Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Profil Intervals"
+      }
+    },
+    "/api/v1/profil/zones": {
+      "get": {
+        "description": "L'échelle des zones en watts, et les trois valeurs liées de l'écran de FTP.\n\nLa troisième — la moyenne compteur attendue — dit toujours si son facteur\nest **mesuré** sur l'historique du cycliste ou **supposé** par le modèle\n(`facteur_mesure`, décision 8).",
+        "operationId": "lire_zones_api_v1_profil_zones_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "velo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Velo"
+            }
+          },
+          {
+            "in": "query",
+            "name": "position",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 3,
+                  "minimum": -2,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lire Zones Api V1 Profil Zones Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Lire Zones"
+      }
+    },
+    "/api/v1/profil/zones/apercu": {
+      "post": {
+        "description": "Recalcule les trois valeurs liées **sans rien stocker**.\n\nC'est le geste de l'écran de FTP : on tape des watts ou une vitesse à\nplat, les autres valeurs suivent, et rien n'est enregistré tant que le\ncycliste n'a pas validé — auquel cas le front envoie la **position**\nobtenue ici à `PATCH /profil` (`seance.position_zone`), jamais les watts.",
+        "operationId": "apercu_zones_api_v1_profil_zones_apercu_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApercuZones"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Apercu Zones Api V1 Profil Zones Apercu Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Apercu Zones"
+      }
+    },
+    "/api/v1/reinitialiser": {
+      "post": {
+        "description": "Consomme un jeton de réinitialisation : pose le nouveau mot de passe, ferme\ntoutes les sessions déjà ouvertes du compte, en ouvre une neuve pour celle-ci.\n\n**Jamais atteinte sans un jeton déjà émis** — il n'existe aucune route qui en émette\nun depuis une simple adresse (« mot de passe oublié » en libre-service, exclu par\ndécision du mainteneur : voir la note de module de `DepotComptes.reinitialiser`,\n`api/comptes.py`). Seul `ourouler reinitialiser`, en ligne de commande, en émet un ;\ncette route-ci ne fait que le consommer — même mécanique que `POST /entrer` pour un\njeton d'invitation, même refus indistinguable (`MESSAGE_LIEN_INVALIDE`) pour un\njeton inconnu, expiré ou déjà utilisé.",
+        "operationId": "reinitialiser_api_v1_reinitialiser_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeReinitialisation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reinitialiser Api V1 Reinitialiser Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Reinitialiser"
+      }
+    },
+    "/api/v1/routes/{action}": {
+      "get": {
+        "description": "Ce que les sorties passées ont appris : `stats` ou `poids` (en lecture seule).\n\n**La base est construite ici, avec le propriétaire de la session** (Q58,\n18/09/2026) — même correctif et même raison que `GET /inventaire`\njuste au-dessus.",
+        "operationId": "routes_connues_api_v1_routes__action__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "title": "Action",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Routes Connues Api V1 Routes  Action  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Routes Connues"
+      }
+    },
+    "/api/v1/seances": {
+      "get": {
+        "description": "La semaine depuis Intervals.icu : un jour sans séance est `null`, pas une absence.\n\nSans plage, les sept jours à partir d'aujourd'hui — ce que demande\nl'écran « Ma semaine ».",
+        "operationId": "seances_api_v1_seances_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "depuis",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Depuis"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jusqua",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jusqua"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Seances Api V1 Seances Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Seances"
+      }
+    },
+    "/api/v1/seances/fichier": {
+      "post": {
+        "description": "Dépose un `.ZWO` ou un `.MRC` et rend la séance qu'on y a lue.\n\nLe `.FIT` n'est pas accepté, et le dit (décision 5 du cycle UX : « V1 :\n`.ZWO` et `.MRC`. `.FIT` attend, et son absence se dit à l'écran plutôt\nque de se découvrir au moment du dépôt »).\n\nL'identifiant rendu se repasse à `POST /sorties` dans `fichier_seance` :\nle fichier reste chez son propriétaire, le front ne le renvoie pas.",
+        "operationId": "deposer_seance_api_v1_seances_fichier_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "jour",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jour"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_deposer_seance_api_v1_seances_fichier_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Deposer Seance Api V1 Seances Fichier Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Deposer Seance"
+      }
+    },
+    "/api/v1/seances/{jour}": {
+      "get": {
+        "description": "La séance d'un jour, étape par étape, avec la route que chaque bloc demande.\n\nPas de séance ce jour-là **n'est pas une erreur** : la réponse vaut 200 et\nporte `seance: null`, comme la ligne de commande sort en 0.",
+        "operationId": "seance_du_jour_api_v1_seances__jour__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "jour",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Jour",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Seance Du Jour Api V1 Seances  Jour  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Seance Du Jour"
+      }
+    },
+    "/api/v1/simulations": {
+      "post": {
+        "description": "Le temps d'un GPX du dépôt à puissance constante, avec le modèle calibré.",
+        "operationId": "simuler_api_v1_simulations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSimulation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Simuler Api V1 Simulations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Simuler"
+      }
+    },
+    "/api/v1/sorties": {
+      "post": {
+        "description": "La séance du jour posée sur une boucle : propositions, géométrie, blocs, tenue.\n\n**Semi-synchrone** : le calcul se fait pendant la requête (4 à 6 secondes\nmesurées), et la réponse porte `duree_ms` — ce que ça a réellement pris —\nà côté de `budget` — ce que le front avait annoncé. Voir\n`docs/ux/api_contrat.md` pour ce que ce choix implique côté écran.\n\n**Deux propositions au lieu de trois n'est pas une panne** :\n`motif_deux_propositions` porte l'explication, et la réponse reste un 200.\n\n**Trois propositions qui se valent n'en est pas une non plus** (Q45) :\n`motif_equivalence` porte alors « ces trois boucles se valent, choisissez\noù vous voulez aller », avec ce qui, mesuré, ne les sépare pas.",
+        "operationId": "generer_sortie_api_v1_sorties_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeSortie"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Generer Sortie Api V1 Sorties Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Generer Sortie"
+      }
+    },
+    "/api/v1/sorties/{generation}/propositions/{numero}/gpx": {
+      "get": {
+        "description": "Le GPX **de cette proposition-là**, fabriqué au moment où on le demande.\n\nQ40 (g) : rien n'est écrit à la génération — deux des trois traces\nseraient jetées — et rien n'est écrit ici non plus : la réponse *est* le\nfichier. Le nom proposé au navigateur est celui que le cœur a donné\n(`sortie_20260918_n2.gpx`), pour qu'un dossier de téléchargements dise\nlaquelle des trois a été emportée.\n\nUne génération qui n'est plus en mémoire rend 404 `generation_introuvable`\net non 500 : l'écran redemande une recherche.",
+        "operationId": "gpx_de_proposition_api_v1_sorties__generation__propositions__numero__gpx_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "generation",
+            "required": true,
+            "schema": {
+              "title": "Generation",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "numero",
+            "required": true,
+            "schema": {
+              "title": "Numero",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Gpx De Proposition"
+      }
+    },
+    "/api/v1/sortir": {
+      "post": {
+        "description": "Détruit la session en cours et efface le cookie.\n\nIdempotente : appeler cette route sans cookie, ou avec un cookie déjà\npérimé ou déjà fermé, réussit tout autant\n(`DepotComptes.fermer_session`) — se déconnecter deux fois n'est pas un\néchec.",
+        "operationId": "sortir_api_v1_sortir_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sortir Api V1 Sortir Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Sortir"
+      }
+    },
+    "/api/v1/systeme": {
+      "get": {
+        "description": "De quoi le front peut se servir, et combien de temps ça prend.\n\nLes capacités disent ce qui est renseigné — sans jamais dire avec quoi :\nle front sait qu'il peut proposer « ma semaine » si Intervals est\nrenseigné, il n'a pas besoin de la clé pour ça.",
+        "operationId": "systeme_api_v1_systeme_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Systeme Api V1 Systeme Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Systeme"
+      }
+    },
+    "/api/v1/systeme/budgets": {
+      "get": {
+        "description": "Combien de temps chaque opération prend **sur ce serveur**, et d'où vient le chiffre.\n\nDécision 6 du cycle UX : le front annonce une durée, et cette durée doit\nêtre mesurée. `source` vaut `defaut` tant que ce serveur n'a rien mesuré,\n`mesure` ensuite — un écran ne doit jamais présenter l'une pour l'autre.\n\nLes budgets sont ceux du **serveur**, pas d'un cycliste : cette route\nrésout quand même son propriétaire et le nomme. Dispenser la seule route\nqui n'en a pas besoin ouvrirait une liste d'exceptions, et une liste\nd'exceptions se remplit toute seule (doctrine §10.1).",
+        "operationId": "budgets_api_v1_systeme_budgets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Budgets Api V1 Systeme Budgets Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Budgets"
+      }
+    },
+    "/api/v1/vent-depart": {
+      "get": {
+        "description": "D'où vient le vent au départ, et ce que chaque préférence donnerait (Q44).\n\nL'écran de demande appelle cette route **pendant** que le cycliste choisit,\npas après : on ne demande pas une direction sans donner l'information qui\npermet de la choisir. Un point, une heure, un appel Open-Meteo — sans\ncommune mesure avec `/meteo`, qui interroge toute une couronne.\n\n`azimuts_par_choix` porte des listes : « de travers » en rend **deux**,\nopposés. Un front qui n'en afficherait qu'un mentirait sur ce qui sera\nexploré.\n\n`latitude`/`longitude` remplacent le départ du profil pour cette requête\nseulement — toutes deux ou aucune, comme pour `/meteo`.",
+        "operationId": "vent_depart_api_v1_vent_depart_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "jour",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Jour"
+            }
+          },
+          {
+            "in": "query",
+            "name": "heure_depart",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Heure Depart"
+            }
+          },
+          {
+            "in": "query",
+            "name": "latitude",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 90,
+                  "minimum": -90,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Latitude"
+            }
+          },
+          {
+            "in": "query",
+            "name": "longitude",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 180,
+                  "minimum": -180,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Longitude"
+            }
+          },
+          {
+            "in": "query",
+            "name": "nom",
+            "required": false,
+            "schema": {
+              "default": "Départ",
+              "title": "Nom",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Vent Depart Api V1 Vent Depart Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête refusée — voir `erreur.code`"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "route ou fichier introuvable — voir `erreur.code`"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "fichier trop gros (`fichier_trop_gros`)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "requête, fichier ou précondition refusés — voir `erreur.code`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "quota journalier atteint (`quota_atteint`)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "bug du serveur (`erreur_interne`) ou configuration invalide"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReponseErreur"
+                }
+              }
+            },
+            "description": "un service externe a répondu mal ou pas du tout — voir `erreur.code`"
+          }
+        },
+        "summary": "Vent Depart"
+      }
+    }
+  }
+}

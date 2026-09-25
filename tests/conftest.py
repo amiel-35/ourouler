@@ -67,6 +67,23 @@ def pytest_configure(config):
     )
 
 
+# --- fichiers de référence (golden) -------------------------------------------
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--regenerer-golden",
+        action="store_true",
+        default=False,
+        help="réécrit les fichiers de référence au lieu de les comparer",
+    )
+
+
+@pytest.fixture
+def regenerer_golden(request) -> bool:
+    return request.config.getoption("--regenerer-golden")
+
+
 @pytest.fixture(scope="session")
 def _caches_de_test(tmp_path_factory):
     """Un seul dossier pour la session : `mktemp` à chaque test rescanne ses
