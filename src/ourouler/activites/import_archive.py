@@ -45,10 +45,21 @@ import io
 import sqlite3
 import stat
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import BinaryIO
 
 from ourouler.activites.cache import Cache
+
+#: `(fichiers_traites, total_estime)`, rappelé pendant l'import — pour la
+#: tâche de fond (`api/imports_fond.py`) : une archive Strava réelle prend
+#: environ 16 minutes à 0,33 s/fichier, largement au-delà des 180 s où le
+#: front abandonne, et son avancement doit se voir. `total_estime` grandit
+#: au fil de la lecture : il ne compte au départ que les entrées du niveau
+#: qu'on vient d'ouvrir (le dépôt lui-même, une archive Garmin imbriquée
+#: qu'on découvre en cours de route) — jamais un dénombrement complet
+#: d'avance, qui coûterait aussi cher que l'import.
+Progres = Callable[[int, int], None]
 
 #: `.fit`/`.gpx`/`.tcx`, avec ou sans `.gz` — Strava gzippe ses fichiers
 #: d'activité à l'intérieur de son archive (`docs/questions_mainteneur.md`,
@@ -144,11 +155,30 @@ class _Etat:
     cache: Cache
     rapport: RapportImport
     fichiers_vus: int = 0
+    total_estime: int = 0
     octets_decompresses: int = 0
     limites_signalees: set[str] = field(default_factory=set)
+    progres: Progres | None = None
+
+    def compter(self, entrees: int) -> None:
+        """Une archive (le dépôt, ou une archive imbriquée) vient de s'ouvrir : `entrees`
+        de plus dans l'estimation totale."""
+        self.total_estime += entrees
+        self._avertir()
+
+    def avancer(self) -> None:
+        """Une entrée de plus a été traitée (importée, doublon ou ignorée)."""
+        self.fichiers_vus += 1
+        self._avertir()
+
+    def _avertir(self) -> None:
+        if self.progres is not None:
+            self.progres(self.fichiers_vus, max(self.total_estime, self.fichiers_vus))
 
 
-def importer(cache: Cache, depots: list[tuple[str, bytes | BinaryIO]]) -> RapportImport:
+def importer(
+    cache: Cache, depots: list[tuple[str, bytes | BinaryIO]], progres: Progres | None = None
+) -> RapportImport:
     """Importe un ou plusieurs fichiers/archives déposés en une requête.
 
     `depots` : `[(nom, contenu)]`, où `contenu` est soit des octets, soit un
@@ -166,10 +196,15 @@ def importer(cache: Cache, depots: list[tuple[str, bytes | BinaryIO]]) -> Rappor
     `_importer_contenu`) : réimporter la même archive, ou le même fichier
     sous un autre nom, n'ajoute rien ; deux sorties différentes qui portent
     le même nom (« Morning_Ride.gpx ») restent deux sorties.
+
+    `progres`, s'il est donné, est rappelé avec `(fichiers_traites, total_estime)`
+    à mesure que l'import avance — voir `Progres`.
     """
-    etat = _Etat(cache=cache, rapport=RapportImport())
+    etat = _Etat(cache=cache, rapport=RapportImport(), progres=progres)
     for nom, contenu in depots:
         source = io.BytesIO(contenu) if isinstance(contenu, bytes | bytearray) else contenu
+        if not nom.lower().endswith(".zip"):
+            etat.compter(1)
         _importer_un(etat, nom or "(sans nom)", source)
     return etat.rapport
 
@@ -208,10 +243,12 @@ def _importer_un(etat: _Etat, nom: str, source: BinaryIO) -> None:
                 "archive .zip Strava/Garmin attendue",
             )
         )
+        etat.avancer()
         return
     donnees = _lire_activite(etat, nom, source)
     if donnees is not None:
         _importer_contenu(etat, nom, donnees, extension)
+    etat.avancer()
 
 
 def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, nom_archive: str) -> None:
@@ -236,10 +273,11 @@ def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, n
         )
         return
 
+    utiles = [i for i in zf.infolist() if not i.is_dir()]
+    etat.compter(len(utiles))
+
     with zf:
-        for info in zf.infolist():
-            if info.is_dir():
-                continue
+        for info in utiles:
             if etat.fichiers_vus >= NOMBRE_MAX_FICHIERS:
                 _signaler_une_fois(
                     etat,
@@ -247,13 +285,13 @@ def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, n
                     f"plus de {NOMBRE_MAX_FICHIERS} fichiers rencontrés, le reste est ignoré",
                 )
                 return
-            etat.fichiers_vus += 1
             nom_interne = f"{prefixe}{info.filename}"
 
             if not _chemin_sur(info.filename) or _est_lien_symbolique(info):
                 etat.rapport.ignorees.append(
                     Ignoree(nom=nom_interne, motif="chemin refusé (absolu, « .. » ou lien symbolique)")
                 )
+                etat.avancer()
                 continue
 
             est_zip_imbrique = info.filename.lower().endswith(".zip")
@@ -267,20 +305,24 @@ def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, n
                         motif="extension non prise en charge — média, .csv, .json… hors liste",
                     )
                 )
+                etat.avancer()
                 continue
 
             motif = _motif_hostile(info, TAILLE_MAX_FICHIER if est_zip_imbrique else TAILLE_MAX_ACTIVITE)
             if motif:
                 etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=motif))
+                etat.avancer()
                 continue
 
             if est_zip_imbrique:
                 tampon = _lire_entree(etat, zf, info, nom_interne, TAILLE_MAX_FICHIER)
                 if tampon is None:
+                    etat.avancer()
                     if etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE:
                         return
                     continue
                 _traiter_zip(etat, tampon, f"{nom_interne}:", profondeur + 1, nom_interne)
+                etat.avancer()
                 continue
 
             try:
@@ -289,14 +331,17 @@ def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, n
                 etat.rapport.ignorees.append(
                     Ignoree(nom=nom_interne, motif=f"fichier corrompu ({_cause(e)})")
                 )
+                etat.avancer()
                 continue
             with entree:
                 donnees = _lire_activite(etat, nom_interne, entree)
             if donnees is None:
+                etat.avancer()
                 if etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE:
                     return
                 continue
             _importer_contenu(etat, nom_interne, donnees, extension)
+            etat.avancer()
 
 
 def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> None:

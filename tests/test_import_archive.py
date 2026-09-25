@@ -408,3 +408,45 @@ def test_un_depot_passe_en_fichier_ouvert_est_lu_sans_etre_charge(
     with chemin.open("rb") as fichier:
         rapport = importer(cache_a, [("export.zip", fichier)])
     assert rapport.importees == 1
+
+
+# --- avancement, pour la tâche de fond -------------------------------------------
+
+
+def test_le_progres_est_rappele_a_chaque_entree(cache_a: Cache, activites: Path):
+    archive = _zip(
+        {
+            "un.fit": octets(activites, "boucle.fit"),
+            "deux.gpx": octets(activites, "boucle.gpx"),
+            "trois.tcx": octets(activites, "boucle.tcx"),
+        }
+    )
+    appels: list[tuple[int, int]] = []
+    rapport = importer(
+        cache_a, [("export.zip", archive)], progres=lambda t, n: appels.append((t, n))
+    )
+    assert rapport.importees == 3
+    assert appels, "le progrès n'a jamais été rappelé"
+    assert appels[-1] == (3, 3)
+    # Croissant, et jamais au-delà du total qu'il annonce lui-même.
+    for traites, total in appels:
+        assert traites <= total
+
+
+def test_le_total_grandit_quand_une_archive_imbriquee_s_ouvre(cache_a: Cache, activites: Path):
+    """Le total n'est pas connu d'avance : il grandit à la découverte d'un `.zip` imbriqué,
+    sans jamais dépasser ce que `fichiers_traites` finit par valoir."""
+    interne = _zip({"1.fit": octets(activites, "boucle.fit"), "2.gpx": octets(activites, "boucle.gpx")})
+    exterieure = _zip({"UploadedFiles_1.zip": interne, "customer.json": b"{}"})
+    appels: list[tuple[int, int]] = []
+    importer(
+        cache_a, [("garmin.zip", exterieure)], progres=lambda t, n: appels.append((t, n))
+    )
+    assert appels[-1][0] == appels[-1][1]  # au bout, tout traité vaut le total
+    totaux = [t for _, t in appels]
+    assert totaux[-1] > totaux[0]  # le total a grandi en cours de route
+
+
+def test_sans_callback_de_progres_l_import_fonctionne_quand_meme(cache_a: Cache, activites: Path):
+    rapport = importer(cache_a, [("boucle.fit", octets(activites, "boucle.fit"))])
+    assert rapport.importees == 1
