@@ -1,0 +1,2404 @@
+{
+  "archive_meteo.sqlite": {
+    "0.0,0.0,2026-01-01": {
+      "derniere": [
+        "2026-01-01T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-01T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "583be8afdf52c128f5bf40d51b32e8827174ff5ca4d416f7589a22914c2d0c37"
+    },
+    "0.0,0.0,2026-01-02": {
+      "derniere": [
+        "2026-01-02T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-02T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "4d894afe14d4531b5c20ea6182f5bb5813fdf7ff056284a2a31d9cac4a64ddca"
+    },
+    "0.0,0.0,2026-01-03": {
+      "derniere": [
+        "2026-01-03T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-03T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "e0b500aaebb665d66d6248848bf9419f2d7a17fb6d253cf17e8981625e987f4f"
+    },
+    "0.0,0.0,2026-01-04": {
+      "derniere": [
+        "2026-01-04T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-04T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "e7e3c0af374d7f1be1fb578a6b9e68684353c3320cbf78576a6f2d02b2af8e22"
+    },
+    "0.0,0.0,2026-01-05": {
+      "derniere": [
+        "2026-01-05T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-05T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "87f2814a4d2173a87deb136d0ecea7e05b164448b58deb50be2d130aa3084d33"
+    },
+    "0.0,0.0,2026-01-06": {
+      "derniere": [
+        "2026-01-06T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-06T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "9c11d3863414350b3dd1dafe46e8909c88462f58fd7624c1ddd88c4acd2cf6aa"
+    },
+    "0.0,0.0,2026-01-07": {
+      "derniere": [
+        "2026-01-07T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-07T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "c26b53acd5695b074751c908fa1f79736f5050bf91f3c8a2565efea98c01d1e5"
+    },
+    "0.0,0.0,2026-01-08": {
+      "derniere": [
+        "2026-01-08T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-08T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "b3e5b67593521ce58a338c81f2224ec5d1cdbbf3641b6805ecfe6b1aec0beee4"
+    },
+    "0.0,0.0,2026-01-09": {
+      "derniere": [
+        "2026-01-09T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-09T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "6886d07aa70a5b9deb0eb6e76030ac7cf7a4a72957c274203b8bd26e32abd633"
+    },
+    "0.0,0.0,2026-01-10": {
+      "derniere": [
+        "2026-01-10T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-10T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "8619a8a51a0f8c60989827c9f0bcb96a3de599ed09b8e9e1ec1bd60ca8dcb820"
+    },
+    "0.0,0.0,2026-01-11": {
+      "derniere": [
+        "2026-01-11T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-11T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "fe763b2861597a6babfa5cda1044d61ebabbb6b0070d1230cc59edbe6b135eba"
+    },
+    "0.0,0.0,2026-01-12": {
+      "derniere": [
+        "2026-01-12T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-12T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "cc158b8b2069171345f4e7ffad60999684b9314135cb3e11b7d38b28d0d1618e"
+    },
+    "0.0,0.0,2026-01-13": {
+      "derniere": [
+        "2026-01-13T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-13T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "d13f26add1885cc10b7f8c64ffce1eb3d20417ac6ab7fb53937f1e2774fbf563"
+    },
+    "0.0,0.0,2026-01-14": {
+      "derniere": [
+        "2026-01-14T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-14T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "2f129751c86fa5e307647eb8ec95bebd7b1a9299fc17cfd4632a43c725604842"
+    },
+    "0.0,0.0,2026-01-15": {
+      "derniere": [
+        "2026-01-15T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-15T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "42a67143d6f7e7ef78fd5badc36b9b35f47c35fa5646eb142e8f99ef235bacb7"
+    },
+    "0.0,0.0,2026-01-16": {
+      "derniere": [
+        "2026-01-16T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-01-16T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "167dfaafe78effbd4275c5533178fa072e6614ae506f10767686f2d3369041b9"
+    },
+    "0.0,0.0,2026-02-01": {
+      "derniere": [
+        "2026-02-01T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-01T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "a8ee09703ddb875e010c2c9c57fc3feb601531aae286d75b106756543558f342"
+    },
+    "0.0,0.0,2026-02-02": {
+      "derniere": [
+        "2026-02-02T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-02T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "a69ecb7293d6872a77066841c9047ee87cfca7a74481da9fafa7139cb6f21d71"
+    },
+    "0.0,0.0,2026-02-03": {
+      "derniere": [
+        "2026-02-03T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-03T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "97a52a7d1a2612622b094a47d294f16c580615908e8d2e807c8efd822d13c6c9"
+    },
+    "0.0,0.0,2026-02-04": {
+      "derniere": [
+        "2026-02-04T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-04T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "26ccbe9a4b452113d96b1826a6c99cd13ca02993c72eb37fe3b38d80e97a01de"
+    },
+    "0.0,0.0,2026-02-05": {
+      "derniere": [
+        "2026-02-05T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-05T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "d498a923459a336782931ae309dcd0c2b2d352cc744c7b41fbd0bd32428fbd92"
+    },
+    "0.0,0.0,2026-02-06": {
+      "derniere": [
+        "2026-02-06T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-06T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "12b4c396c536675e0e2aa1b37fc16072adf3934b9ab416679152002bf317246b"
+    },
+    "0.0,0.0,2026-02-07": {
+      "derniere": [
+        "2026-02-07T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-07T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "77a6ab86038186eb1cedd89c2cb2a58c09b102225906c55daf4e378f75bd42bd"
+    },
+    "0.0,0.0,2026-02-08": {
+      "derniere": [
+        "2026-02-08T23:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "heures": 24,
+      "premiere": [
+        "2026-02-08T00:00:00+00:00",
+        0.0,
+        0.0,
+        15.0,
+        1013.25
+      ],
+      "sha256": "5fc682b9846e255c642bb766fa234906f9a079a08fa6e5faf78a8c4de3208943"
+    }
+  },
+  "calibration.json": {
+    "BMC": {
+      "biais": -0.0003,
+      "crr_source": "ajuste",
+      "date": "2026-09-08",
+      "mae": 0.0003,
+      "n_sorties": 4,
+      "n_validation": 4,
+      "parametres": {
+        "cda_m2": 0.26165,
+        "crr": 0.004419,
+        "masse_totale_kg": 100.0,
+        "rendement": 0.976,
+        "rho": 1.225
+      },
+      "pneu": null,
+      "porte_a_porte": null,
+      "velo": "BMC"
+    },
+    "RCR": {
+      "biais": -0.0003,
+      "crr_source": "ajuste",
+      "date": "2026-09-08",
+      "mae": 0.0003,
+      "n_sorties": 8,
+      "n_validation": 8,
+      "parametres": {
+        "cda_m2": 0.31217,
+        "crr": 0.004402,
+        "masse_totale_kg": 100.0,
+        "rendement": 0.976,
+        "rho": 1.225
+      },
+      "pneu": null,
+      "porte_a_porte": {
+        "bas": 1.0003,
+        "haut": 1.0003,
+        "mediane": 1.0003,
+        "n": 8,
+        "provenance": "mesure"
+      },
+      "velo": "RCR"
+    },
+    "Tandem": null,
+    "rcr": {
+      "biais": -0.0003,
+      "crr_source": "ajuste",
+      "date": "2026-09-08",
+      "mae": 0.0003,
+      "n_sorties": 8,
+      "n_validation": 8,
+      "parametres": {
+        "cda_m2": 0.31217,
+        "crr": 0.004402,
+        "masse_totale_kg": 100.0,
+        "rendement": 0.976,
+        "rho": 1.225
+      },
+      "pneu": null,
+      "porte_a_porte": {
+        "bas": 1.0003,
+        "haut": 1.0003,
+        "mediane": 1.0003,
+        "n": 8,
+        "provenance": "mesure"
+      },
+      "velo": "rcr"
+    }
+  },
+  "fichiers_deposes": {
+    "lister": [
+      {
+        "fichier": "00000000000000000000000000000001.zwo",
+        "id": "00000000000000000000000000000001",
+        "nom": "S_ance filet.zwo",
+        "sha256": "8e98b05f4253b059eb99a16734fa377d6a53bba579ed079d41508cc4da0bbb2d",
+        "type_contenu": "application/xml",
+        "url": "/api/v1/fichiers/00000000000000000000000000000001"
+      },
+      {
+        "fichier": "00000000000000000000000000000002.mrc",
+        "id": "00000000000000000000000000000002",
+        "nom": "seance.MRC",
+        "sha256": "790bc6ff134858dc4eae235125a69b2896bfc0003014823eddffea82f1f8468b",
+        "type_contenu": "text/plain; charset=utf-8",
+        "url": "/api/v1/fichiers/00000000000000000000000000000002"
+      }
+    ],
+    "trouver": {
+      "fichier": "00000000000000000000000000000002.mrc",
+      "id": "00000000000000000000000000000002",
+      "nom": "seance.MRC",
+      "sha256": "790bc6ff134858dc4eae235125a69b2896bfc0003014823eddffea82f1f8468b",
+      "type_contenu": "text/plain; charset=utf-8",
+      "url": "/api/v1/fichiers/00000000000000000000000000000002"
+    }
+  },
+  "index.sqlite": {
+    "compte-synthetique": [
+      {
+        "appareil": "Compteur inventé",
+        "chemin": "brut/comptes/compte-synthetique/0385ea2a1b7844c7f83fe0d79db4df9d07069ec78c3a2929d6b6bd08b2260cfe.tcx",
+        "debut": "2026-03-02T09:00:00+00:00",
+        "distance_m": 5645.31,
+        "duree_s": 595.0,
+        "equipement": "Route",
+        "extension": "tcx",
+        "id_externe": "i-synthetique-1",
+        "identifiant": "0385ea2a1b7844c7f83fe0d79db4df9d07069ec78c3a2929d6b6bd08b2260cfe",
+        "meta": {
+          "appareil": "Compteur inventé",
+          "sport": "Ride"
+        },
+        "puissance_moy_w": 209.25,
+        "source": "intervals",
+        "sport": "Ride"
+      }
+    ],
+    "contient": true,
+    "local": [
+      {
+        "appareil": null,
+        "chemin": "brut/aa58b20482c68415fce783b0cf347c3cf32d596cf0c67648986525a223434c88.tcx",
+        "debut": "2026-01-01T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-01.tcx",
+        "identifiant": "aa58b20482c68415fce783b0cf347c3cf32d596cf0c67648986525a223434c88",
+        "meta": {
+          "fichier": "sortie_2026-01-01.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/2f609cfc65b528c92a8921eb0a83b15578f7c70dde193d26d9a8743acc959e14.tcx",
+        "debut": "2026-01-02T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-02.tcx",
+        "identifiant": "2f609cfc65b528c92a8921eb0a83b15578f7c70dde193d26d9a8743acc959e14",
+        "meta": {
+          "fichier": "sortie_2026-01-02.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/08370d1cbef8af3504480b7f607cb060c90118a7abfb58f22c8e5fe959b46592.tcx",
+        "debut": "2026-01-03T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-03.tcx",
+        "identifiant": "08370d1cbef8af3504480b7f607cb060c90118a7abfb58f22c8e5fe959b46592",
+        "meta": {
+          "fichier": "sortie_2026-01-03.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/f5ab412efdd2c266abadc5287c0e3e65098f3a2d38c3975c936cfb96dba27d0c.tcx",
+        "debut": "2026-01-04T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-04.tcx",
+        "identifiant": "f5ab412efdd2c266abadc5287c0e3e65098f3a2d38c3975c936cfb96dba27d0c",
+        "meta": {
+          "fichier": "sortie_2026-01-04.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/fa5ca23ea1ae3bca94de132c7b3eecfb494c9f290470c21546ad0f8fbd8118fc.tcx",
+        "debut": "2026-01-05T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-05.tcx",
+        "identifiant": "fa5ca23ea1ae3bca94de132c7b3eecfb494c9f290470c21546ad0f8fbd8118fc",
+        "meta": {
+          "fichier": "sortie_2026-01-05.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/e40563ab68cddef251180637f3bbc459aca36f40e9c3d7244a2ffdfd47f22620.tcx",
+        "debut": "2026-01-06T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-06.tcx",
+        "identifiant": "e40563ab68cddef251180637f3bbc459aca36f40e9c3d7244a2ffdfd47f22620",
+        "meta": {
+          "fichier": "sortie_2026-01-06.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/ce0adcfb3d5d6333053d0252339e0211f49104905429803c0b02e099ee5a55eb.tcx",
+        "debut": "2026-01-07T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-07.tcx",
+        "identifiant": "ce0adcfb3d5d6333053d0252339e0211f49104905429803c0b02e099ee5a55eb",
+        "meta": {
+          "fichier": "sortie_2026-01-07.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/28703e371558545f7e079777486d79d0aacf3d26398b9aa16eba03757fa77267.tcx",
+        "debut": "2026-01-08T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-08.tcx",
+        "identifiant": "28703e371558545f7e079777486d79d0aacf3d26398b9aa16eba03757fa77267",
+        "meta": {
+          "fichier": "sortie_2026-01-08.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/02bad0d4e48cd10e89e853b586942fb5cc75051d2f36ac001d436d64aa7b6f9c.tcx",
+        "debut": "2026-01-09T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-09.tcx",
+        "identifiant": "02bad0d4e48cd10e89e853b586942fb5cc75051d2f36ac001d436d64aa7b6f9c",
+        "meta": {
+          "fichier": "sortie_2026-01-09.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/35670359e00bae7132fae26c0e80088012f0f515d0fcb68820ac82c9c5ceda78.tcx",
+        "debut": "2026-01-10T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-10.tcx",
+        "identifiant": "35670359e00bae7132fae26c0e80088012f0f515d0fcb68820ac82c9c5ceda78",
+        "meta": {
+          "fichier": "sortie_2026-01-10.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/dea3d97869fd61acb3666e4b8d998024bfec9985becb191aeb5880407758562a.tcx",
+        "debut": "2026-01-11T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-11.tcx",
+        "identifiant": "dea3d97869fd61acb3666e4b8d998024bfec9985becb191aeb5880407758562a",
+        "meta": {
+          "fichier": "sortie_2026-01-11.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/b095978c0bd32d2dfceef2b6cd31954803ccd513095096ef5d1b857f98172c04.tcx",
+        "debut": "2026-01-12T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-12.tcx",
+        "identifiant": "b095978c0bd32d2dfceef2b6cd31954803ccd513095096ef5d1b857f98172c04",
+        "meta": {
+          "fichier": "sortie_2026-01-12.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/d530876a807fca5ae366844922b9116ecd518e4af1c9c9c8e1dd6014a04fc910.tcx",
+        "debut": "2026-01-13T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-13.tcx",
+        "identifiant": "d530876a807fca5ae366844922b9116ecd518e4af1c9c9c8e1dd6014a04fc910",
+        "meta": {
+          "fichier": "sortie_2026-01-13.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/2752ff6026f176713edcb1b347c53b9493ec91ece0d7fd8fb6f2e68d6d7db1eb.tcx",
+        "debut": "2026-01-14T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-14.tcx",
+        "identifiant": "2752ff6026f176713edcb1b347c53b9493ec91ece0d7fd8fb6f2e68d6d7db1eb",
+        "meta": {
+          "fichier": "sortie_2026-01-14.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/27c57620892c3f1723cdb6b52834c49a61dc2f8e2b4de0c3556a40fbe8d69f11.tcx",
+        "debut": "2026-01-15T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-15.tcx",
+        "identifiant": "27c57620892c3f1723cdb6b52834c49a61dc2f8e2b4de0c3556a40fbe8d69f11",
+        "meta": {
+          "fichier": "sortie_2026-01-15.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/33910433391318d2e82e9c206ff487c2fd8943202573afe41901c5169f29facb.tcx",
+        "debut": "2026-01-16T09:00:00+00:00",
+        "distance_m": 24189.6,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-01-16.tcx",
+        "identifiant": "33910433391318d2e82e9c206ff487c2fd8943202573afe41901c5169f29facb",
+        "meta": {
+          "fichier": "sortie_2026-01-16.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/61efa1e2e12c62f21dd36932af03d56c31b7298ee93f27f82e22efe08b912e7d.tcx",
+        "debut": "2026-02-01T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-01.tcx",
+        "identifiant": "61efa1e2e12c62f21dd36932af03d56c31b7298ee93f27f82e22efe08b912e7d",
+        "meta": {
+          "fichier": "sortie_2026-02-01.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/3e922816c549f8e616439414962e946f99c9abd37c321f9ddec9764408106c45.tcx",
+        "debut": "2026-02-02T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-02.tcx",
+        "identifiant": "3e922816c549f8e616439414962e946f99c9abd37c321f9ddec9764408106c45",
+        "meta": {
+          "fichier": "sortie_2026-02-02.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/0a8f6335caeccb9f092b341d74faaf8d6dc8a7a355ce48b85aa3ad0e6a00cf95.tcx",
+        "debut": "2026-02-03T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-03.tcx",
+        "identifiant": "0a8f6335caeccb9f092b341d74faaf8d6dc8a7a355ce48b85aa3ad0e6a00cf95",
+        "meta": {
+          "fichier": "sortie_2026-02-03.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/e7ad8f8aeb66e8f35660402756f2e74427da6ba16f641ba1d4acc7d57ca67567.tcx",
+        "debut": "2026-02-04T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-04.tcx",
+        "identifiant": "e7ad8f8aeb66e8f35660402756f2e74427da6ba16f641ba1d4acc7d57ca67567",
+        "meta": {
+          "fichier": "sortie_2026-02-04.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/4dc27ce6bbca77306c9ef0ddbf4060bac2f1f827408e7cb8ef116528831a9142.tcx",
+        "debut": "2026-02-05T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-05.tcx",
+        "identifiant": "4dc27ce6bbca77306c9ef0ddbf4060bac2f1f827408e7cb8ef116528831a9142",
+        "meta": {
+          "fichier": "sortie_2026-02-05.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/8aaa416849a7ba46e380d16b1fe4672577c31f69c371de6e77d530308d503f90.tcx",
+        "debut": "2026-02-06T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-06.tcx",
+        "identifiant": "8aaa416849a7ba46e380d16b1fe4672577c31f69c371de6e77d530308d503f90",
+        "meta": {
+          "fichier": "sortie_2026-02-06.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/8ac56fdb2c7a0786315c402c94b2e81abc54463d1b0b870bf1e4b1103999446f.tcx",
+        "debut": "2026-02-07T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-07.tcx",
+        "identifiant": "8ac56fdb2c7a0786315c402c94b2e81abc54463d1b0b870bf1e4b1103999446f",
+        "meta": {
+          "fichier": "sortie_2026-02-07.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      },
+      {
+        "appareil": null,
+        "chemin": "brut/0ac30abc087ae82f275704721d4bba9f69206d71415d3476c7b289ecd317e340.tcx",
+        "debut": "2026-02-08T09:00:00+00:00",
+        "distance_m": 25523.57,
+        "duree_s": 2595.0,
+        "equipement": null,
+        "extension": "tcx",
+        "id_externe": "sortie_2026-02-08.tcx",
+        "identifiant": "0ac30abc087ae82f275704721d4bba9f69206d71415d3476c7b289ecd317e340",
+        "meta": {
+          "fichier": "sortie_2026-02-08.tcx"
+        },
+        "puissance_moy_w": 200.05769230769232,
+        "source": "fichier",
+        "sport": "Biking"
+      }
+    ],
+    "local_fevrier": [
+      "61efa1e2e12c62f21dd36932af03d56c31b7298ee93f27f82e22efe08b912e7d",
+      "3e922816c549f8e616439414962e946f99c9abd37c321f9ddec9764408106c45",
+      "0a8f6335caeccb9f092b341d74faaf8d6dc8a7a355ce48b85aa3ad0e6a00cf95",
+      "e7ad8f8aeb66e8f35660402756f2e74427da6ba16f641ba1d4acc7d57ca67567",
+      "4dc27ce6bbca77306c9ef0ddbf4060bac2f1f827408e7cb8ef116528831a9142",
+      "8aaa416849a7ba46e380d16b1fe4672577c31f69c371de6e77d530308d503f90",
+      "8ac56fdb2c7a0786315c402c94b2e81abc54463d1b0b870bf1e4b1103999446f",
+      "0ac30abc087ae82f275704721d4bba9f69206d71415d3476c7b289ecd317e340"
+    ]
+  },
+  "parcours.gpx": {
+    "denivele_m": 6.0,
+    "distance_m": 1445.534024362521,
+    "meta": {
+      "couts_partiels": true,
+      "denivele_source": "gpx relu",
+      "source": "gpx"
+    },
+    "nom": "Parcours synthétique",
+    "points": [
+      [
+        0.01,
+        0.0,
+        10.0,
+        0.0
+      ],
+      [
+        0.01,
+        0.001,
+        11.0,
+        111.19492495096317
+      ],
+      [
+        0.01,
+        0.002,
+        12.0,
+        222.38984990192634
+      ],
+      [
+        0.01,
+        0.003,
+        13.0,
+        333.5847748528895
+      ],
+      [
+        0.01,
+        0.004,
+        10.0,
+        444.7796998038527
+      ],
+      [
+        0.01,
+        0.005,
+        11.0,
+        555.9746247548159
+      ],
+      [
+        0.01,
+        0.006,
+        12.0,
+        667.169549705779
+      ],
+      [
+        0.01,
+        0.007,
+        13.0,
+        778.3644746567421
+      ],
+      [
+        0.01,
+        0.008,
+        10.0,
+        889.5593996077054
+      ],
+      [
+        0.01,
+        0.009,
+        11.0,
+        1000.7543245586685
+      ],
+      [
+        0.01,
+        0.01,
+        12.0,
+        1111.9492495096317
+      ],
+      [
+        0.01,
+        0.011,
+        13.0,
+        1223.1441744605947
+      ],
+      [
+        0.01,
+        0.012,
+        10.0,
+        1334.339099411558
+      ],
+      [
+        0.01,
+        0.013,
+        11.0,
+        1445.534024362521
+      ]
+    ]
+  },
+  "poids_routes.json": {
+    "primary": 0.0,
+    "residential": 4.0,
+    "tertiary": 0.0,
+    "track": 4.0
+  },
+  "profil.json": {
+    "cycliste": {
+      "ftp_w": 215.0,
+      "masse_kg": 72.5,
+      "nom": "Onyme",
+      "prenom": "Anne"
+    },
+    "depart": {
+      "latitude": 0.01,
+      "longitude": 0.02,
+      "nom": "Point en mer"
+    },
+    "historique_depuis": "2026-01-01",
+    "position_zone": 0.25,
+    "sens": "antihoraire",
+    "surcharge": {
+      "boucle": {
+        "sens": "antihoraire"
+      },
+      "cycliste": {
+        "ftp_w": 215,
+        "masse_kg": 72.5,
+        "nom": "Onyme",
+        "prenom": "Anne"
+      },
+      "depart": {
+        "latitude": 0.01,
+        "longitude": 0.02,
+        "nom": "Point en mer"
+      },
+      "historique_depuis": "2026-01-01",
+      "seance": {
+        "position_zone": 0.25
+      },
+      "velos": [
+        {
+          "masse_kg": 8.4,
+          "nom": "Route",
+          "pneu": "course_rapide",
+          "usage": "route"
+        },
+        {
+          "cda_m2": 0.24,
+          "nom": "Chrono",
+          "usage": "clm"
+        }
+      ]
+    },
+    "velos": [
+      {
+        "capteur_puissance": "",
+        "cda_m2": null,
+        "crr": null,
+        "facteur_compteur": null,
+        "intervals_gear": "",
+        "intervals_gear_id": "",
+        "masse_kg": 8.4,
+        "nom": "Route",
+        "periodes": [],
+        "pneu": "course_rapide",
+        "usage": "route"
+      },
+      {
+        "capteur_puissance": "",
+        "cda_m2": 0.24,
+        "crr": null,
+        "facteur_compteur": null,
+        "intervals_gear": "",
+        "intervals_gear_id": "",
+        "masse_kg": null,
+        "nom": "Chrono",
+        "periodes": [],
+        "pneu": null,
+        "usage": "clm"
+      }
+    ]
+  },
+  "routes_connues.sqlite": {
+    "compte-synthetique": {
+      "part_connue": 1.0,
+      "sorties": [
+        {
+          "ajoutee_le": "2026-09-08T07:00:00+00:00",
+          "id_sortie": "i-synthetique-1",
+          "jour": "2026-09-08",
+          "mailles": 40,
+          "metres": 1445.5340243625212
+        }
+      ],
+      "sorties_apprises": [
+        "i-synthetique-1"
+      ],
+      "statistiques": {
+        "cout_km_moyen": 1.9,
+        "km_par_highway": {
+          "primary": 0.7783644746567423,
+          "tertiary": 0.667169549705779
+        },
+        "km_par_maxspeed": {
+          "": 0.667169549705779,
+          "80": 0.7783644746567423
+        },
+        "km_par_surface": {
+          "asphalt": 1.4455340243625212
+        },
+        "km_semaine": 1.4455340243625212,
+        "km_semaine_par_highway": {
+          "primary": 0.7783644746567423,
+          "tertiary": 0.667169549705779
+        },
+        "km_total": 1.4455340243625212,
+        "mailles": 40,
+        "sorties": 1
+      },
+      "troncons": [
+        {
+          "cle": [
+            30,
+            0
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 13.899365618870396,
+          "metres_semaine": 13.899365618870396,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            10
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            11
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            12
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            13
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            14
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            15
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            16
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            17
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            18
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 13.899365618870386,
+          "metres_semaine": 13.899365618870386,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            18
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 13.899365618870396,
+          "metres_semaine": 13.899365618870396,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            19
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            1
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            20
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            21
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            22
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661122,
+          "metres_semaine": 41.69809685661122,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            23
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661122,
+          "metres_semaine": 41.69809685661122,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            24
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            25
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            26
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            27
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            28
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661122,
+          "metres_semaine": 41.69809685661122,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            29
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661122,
+          "metres_semaine": 41.69809685661122,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            2
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            30
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            31
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            32
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            33
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            34
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661122,
+          "metres_semaine": 41.69809685661122,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            35
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661122,
+          "metres_semaine": 41.69809685661122,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            36
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            37
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            38
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 41.69809685661116,
+          "metres_semaine": 41.69809685661116,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            39
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 13.899365618870386,
+          "metres_semaine": 13.899365618870386,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            3
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            4
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            5
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            6
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            7
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            8
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 41.69809685661119,
+          "metres_semaine": 41.69809685661119,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            9
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 27.798731237740792,
+          "passages": 1,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        }
+      ]
+    },
+    "local": {
+      "part_connue": 1.0,
+      "sorties": [
+        {
+          "ajoutee_le": "2026-09-08T07:00:00+00:00",
+          "id_sortie": "sortie-dimanche",
+          "jour": "2026-09-06",
+          "mailles": 40,
+          "metres": 1445.5340243625212
+        },
+        {
+          "ajoutee_le": "2026-09-08T07:00:00+00:00",
+          "id_sortie": "sortie-lundi",
+          "jour": "2026-09-07",
+          "mailles": 40,
+          "metres": 1445.5340243625212
+        }
+      ],
+      "sorties_apprises": [
+        "sortie-dimanche",
+        "sortie-lundi"
+      ],
+      "statistiques": {
+        "cout_km_moyen": 1.9,
+        "km_par_highway": {
+          "primary": 1.5567289493134846,
+          "tertiary": 1.334339099411558
+        },
+        "km_par_maxspeed": {
+          "": 1.334339099411558,
+          "80": 1.5567289493134846
+        },
+        "km_par_surface": {
+          "asphalt": 2.8910680487250424
+        },
+        "km_semaine": 1.4455340243625212,
+        "km_semaine_par_highway": {
+          "primary": 0.7783644746567423,
+          "tertiary": 0.667169549705779
+        },
+        "km_total": 2.8910680487250424,
+        "mailles": 40,
+        "sorties": 2
+      },
+      "troncons": [
+        {
+          "cle": [
+            30,
+            0
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 13.899365618870396,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            10
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            11
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            12
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            13
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            14
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            15
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            16
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            17
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            18
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.79873123774077,
+          "metres_semaine": 13.899365618870386,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            18
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 27.798731237740792,
+          "metres_semaine": 13.899365618870396,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            19
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            1
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            20
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            21
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            22
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322244,
+          "metres_semaine": 41.69809685661122,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            23
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322244,
+          "metres_semaine": 41.69809685661122,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            24
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            25
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            26
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            27
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            28
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322244,
+          "metres_semaine": 41.69809685661122,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            29
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322244,
+          "metres_semaine": 41.69809685661122,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            2
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            30
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            31
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            32
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            33
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            34
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322244,
+          "metres_semaine": 41.69809685661122,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            35
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322244,
+          "metres_semaine": 41.69809685661122,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            36
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            37
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            38
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 83.39619371322232,
+          "metres_semaine": 41.69809685661116,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            39
+          ],
+          "cout_km": 2.5,
+          "highway": "primary",
+          "maxspeed": "80",
+          "metres": 27.79873123774077,
+          "metres_semaine": 13.899365618870386,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            3
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            4
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            5
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            6
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            7
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            8
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 83.39619371322237,
+          "metres_semaine": 41.69809685661119,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        },
+        {
+          "cle": [
+            30,
+            9
+          ],
+          "cout_km": 1.2,
+          "highway": "tertiary",
+          "maxspeed": null,
+          "metres": 55.597462475481585,
+          "metres_semaine": 27.798731237740792,
+          "passages": 2,
+          "passages_semaine": 1,
+          "surface": "asphalt"
+        }
+      ]
+    }
+  },
+  "secret_compte": {
+    "accepte_le_bon": true,
+    "forme": true,
+    "refuse_un_autre": true
+  },
+  "services.json": {
+    "garmin": null,
+    "intervals": "2026-09-07T18:30:00+00:00",
+    "tout": {
+      "intervals": "2026-09-07T18:30:00+00:00",
+      "meteo": "2026-09-08T07:00:00+00:00"
+    }
+  }
+}

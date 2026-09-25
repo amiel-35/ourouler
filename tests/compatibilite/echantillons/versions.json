@@ -1,0 +1,27 @@
+{
+  "constantes": {
+    "ourouler.activites.cache.VERSION_SCHEMA": 3,
+    "ourouler.apprentissage.routes.VERSION_SCHEMA": 3,
+    "ourouler.connecteurs.openmeteo_archive.VERSION_SCHEMA": 2,
+    "ourouler.physique.commande.VERSION_CALIBRATION": 1
+  },
+  "ecrites": {
+    "donnees/archive_meteo.sqlite": 2,
+    "donnees/calibration.json": 1,
+    "donnees/index.sqlite": 3,
+    "donnees/poids_routes.json": 1,
+    "donnees/routes_connues.sqlite": 3
+  },
+  "migrations_postgres": [
+    {
+      "nom": "0001_comptes.sql",
+      "numero": 1,
+      "sha256": "fbd2d2ca9cfc562bfbab7664e31715cc3c324ed1f56c01f85b30ddc7b722788d"
+    },
+    {
+      "nom": "0002_sessions.sql",
+      "numero": 2,
+      "sha256": "22dcc8b83f0591170a4e73e311fa187614cd172f27ede6722816babad288d437"
+    }
+  ]
+}

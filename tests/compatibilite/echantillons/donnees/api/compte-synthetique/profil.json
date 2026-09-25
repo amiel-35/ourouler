@@ -1,0 +1,33 @@
+{
+  "boucle": {
+    "sens": "antihoraire"
+  },
+  "cycliste": {
+    "ftp_w": 215,
+    "masse_kg": 72.5,
+    "nom": "Onyme",
+    "prenom": "Anne"
+  },
+  "depart": {
+    "latitude": 0.01,
+    "longitude": 0.02,
+    "nom": "Point en mer"
+  },
+  "historique_depuis": "2026-01-01",
+  "seance": {
+    "position_zone": 0.25
+  },
+  "velos": [
+    {
+      "masse_kg": 8.4,
+      "nom": "Route",
+      "pneu": "course_rapide",
+      "usage": "route"
+    },
+    {
+      "cda_m2": 0.24,
+      "nom": "Chrono",
+      "usage": "clm"
+    }
+  ]
+}
