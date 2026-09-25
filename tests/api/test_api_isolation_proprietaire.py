@@ -1252,6 +1252,10 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("POST", f"{PREFIXE_API}/seances/fichier"): {
             "files": {"fichier": ("visiteur.zwo", _zwo("visiteur"), "application/xml")}
         },
+        ("GET", f"{PREFIXE_API}/activites/import"): {},
+        ("POST", f"{PREFIXE_API}/activites/import"): {
+            "files": {"fichiers": ("essai.gpx", _gpx("essai"), "application/gpx+xml")}
+        },
         ("POST", f"{PREFIXE_API}/sorties"): {"json": {"jour": jour, "candidates": 2}},
         ("GET", f"{PREFIXE_API}/sorties/{{generation}}/propositions/{{numero}}/gpx"): {
             "chemin": f"{PREFIXE_API}/sorties/{ids['generation']}/propositions/1/gpx"

@@ -9,12 +9,21 @@ le résout, et il est passé en premier argument à tout accès aux données
 (doctrine §10.2). Aucune route ne lit un fichier de configuration
 elle-même : elle demande sa `Config` au dépôt, pour ce propriétaire-là.
 
-Ce qui n'est **pas** exposé, et pourquoi : `inventaire --importer` et
-`--synchroniser`, `routes apprendre --appliquer`, `calibrer` écrivent dans le
-cache du serveur et durent des minutes. Ce sont des gestes d'administration
-que le mainteneur fait en ligne de commande ; aucun écran des maquettes ne
-les demande, et les exposer ferait de l'API une console d'administration
-avant qu'elle ait des comptes.
+Ce qui n'est **pas** exposé, et pourquoi : `--synchroniser`, `routes
+apprendre --appliquer`, `calibrer` écrivent dans le cache du serveur et
+durent des minutes — ce sont des gestes d'administration que le mainteneur
+fait en ligne de commande, et aucun écran des maquettes ne les demande.
+`inventaire --importer DOSSIER` reste lui aussi hors API : c'est une lecture
+d'un chemin sur le **système de fichiers du serveur**, pas un dépôt du
+cycliste — l'exposer ferait de l'API une console d'administration.
+
+**Ce que L9.2 expose, `POST /activites/import`, est différent** : un
+cycliste sans Intervals dépose **ses propres octets** — fichiers isolés ou
+archive d'export Strava/Garmin — jamais un chemin. C'est le mécanisme que
+`Cache.indexer_dossier` appelle en CLI (`activites/import_archive.py`),
+rejoué ici sur des octets reçus par HTTP et bornés (taille, nombre de
+fichiers, décompression, chemins), pas sur un dossier du serveur
+(`docs/sprint9_contrat.md`, lot L9.2).
 """
 
 from __future__ import annotations
@@ -1055,6 +1064,75 @@ async def deposer_seance(
     return charge
 
 
+# --- historique déposé (L9.2) --------------------------------------------------
+
+
+@routeur.get("/activites/import")
+def etat_import(ctx: Ctx, qui: Qui) -> dict:
+    """Combien de sorties ce cycliste a déjà déposées, et sur quelle période.
+
+    Pour l'écran « Mes sorties passées » (`front/src/ecrans/Importer.tsx`) :
+    lui dire s'il a déjà déposé quelque chose avant de lui remontrer le
+    dépôt. Voir `import_archive.etat` pour ce qui est compté.
+    """
+    from ourouler.activites import import_archive
+
+    config = _config(ctx, qui)
+    return {"proprietaire": str(qui), "donnees": import_archive.etat(_cache(config, qui))}
+
+
+@routeur.post("/activites/import")
+async def importer_activites(
+    ctx: Ctx,
+    qui: Qui,
+    requete: Request,
+    fichiers: Annotated[
+        list[UploadFile],
+        File(description=".fit/.gpx/.tcx, éventuellement .gz, ou une archive .zip Strava/Garmin"),
+    ],
+) -> dict:
+    """Dépose l'historique d'un cycliste sans Intervals — un invité sans capteur y trouve
+    déjà de la valeur (routes), un porteur de capteur y trouve aussi son niveau ([[Q48]]).
+
+    Accepte un ou plusieurs fichiers en un seul appel — `.fit`/`.gpx`/`.tcx`
+    isolés, leurs `.gz`, ou une archive d'export Strava ou Garmin — et les
+    indexe dans le cache de **ce** propriétaire uniquement
+    (`activites/import_archive.py`, bornes de sécurité en constantes
+    nommées). Plusieurs archives déposées à des appels successifs
+    fonctionnent : réimporter la même archive ne duplique rien
+    (`Cache.ajouter`, dédoublonné par `(propriétaire, source, id_externe)`
+    et par contenu — [[Q62]]).
+
+    Jamais de 500 sur une archive hostile ou un fichier corrompu : le motif
+    rentre dans `donnees.ignorees`, la réponse reste 200 — même philosophie
+    que `erreurs.py` pour « aucune boucle trouvée » : ce n'est pas une panne
+    du service, c'est un compte-rendu de ce qui a été trouvé.
+    """
+    from ourouler.activites import import_archive
+
+    _refuser_import_sur_la_taille_annoncee(requete)
+    if not fichiers:
+        raise ErreurApi(code="requete_invalide", message="aucun fichier déposé", statut=400)
+
+    depots: list[tuple[str, bytes]] = []
+    total = 0
+    for fichier in fichiers:
+        contenu = await fichier.read()
+        total += len(contenu)
+        if total > import_archive.TAILLE_MAX_REQUETE:
+            raise ErreurApi(
+                code="fichier_trop_gros",
+                message=f"{total} octets reçus — un import ne prend pas plus de "
+                f"{import_archive.TAILLE_MAX_REQUETE} octets à la fois",
+                statut=413,
+            )
+        depots.append((fichier.filename or "(sans nom)", contenu))
+
+    config = _config(ctx, qui)
+    rapport = import_archive.importer(_cache(config, qui), depots)
+    return {"proprietaire": str(qui), "donnees": rapport.json()}
+
+
 # --- parcours -----------------------------------------------------------------
 
 
@@ -1455,6 +1533,29 @@ def _refuser_sur_la_taille_annoncee(requete: Request, nom: str) -> None:
             code="fichier_trop_gros",
             message=f"{nom} : {annoncee} octets annoncés — une séance n'en fait pas plus de "
             f"{TAILLE_MAX_SEANCE}, le dépôt est refusé sans être lu",
+            statut=413,
+        )
+
+
+def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
+    """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond de l'import.
+
+    Une archive Strava réelle pèse 665 Mo (`docs/services_externes.md`) : le
+    plafond n'est donc pas celui d'une séance, mais le principe est le même —
+    refuser avant de lire quand `Content-Length` le permet, pour ne pas
+    laisser un dépôt bien plus gros que prévu occuper le serveur le temps de
+    le recevoir.
+    """
+    from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+
+    annoncee = requete.headers.get("content-length")
+    if annoncee is None or not annoncee.isdigit():
+        return
+    if int(annoncee) > TAILLE_MAX_REQUETE:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{annoncee} octets annoncés — un import ne prend pas plus de "
+            f"{TAILLE_MAX_REQUETE}, le dépôt est refusé sans être lu",
             statut=413,
         )
 
