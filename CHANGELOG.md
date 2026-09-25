@@ -24,7 +24,7 @@ partir des PR.
 ### Corrigé
 
 - Un invité peut brancher Intervals.icu avec sa seule clé d'API :
-  l'identifiant du compte est retrouvé tout seul. (#29)
+  l'identifiant Intervals est retrouvé tout seul. (#29)
 - Une clé refusée ou un Intervals injoignable donne un message lisible, et
   rien n'est enregistré. (#29)
 - Les appels à Intervals ne sont plus bloqués par son pare-feu. (#29)
