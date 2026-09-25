@@ -23,6 +23,65 @@ le « Sonnet par défaut » de CLAUDE.md :
 - `model` est obligatoire sur chaque appel. Un changement de tier en cours de
   lot fait repartir de zéro.
 
+## 0. Où on en est (tenu à jour)
+
+**Décisions du mainteneur, 25/09/2026** (réponses au §8) :
+
+| # | Question | Décision |
+|---|---|---|
+| 1 | Historique git | **(a) garder tel quel** — voir la conséquence au §7 |
+| 2 | Branche `prod` et préprod | acceptées toutes deux |
+| 3 | GitHub Actions et protection de `main` | acceptées ; la protection, le mainteneur la pose |
+| 4 | Commentaires historiques | purgés, avec renvoi `docs/decisions/Qnn` ; une PR par paquet, commentaires seuls |
+| 5 | Dépendances de dev | le minimum : contrat d'imports maison, gitleaks en Action seulement, horloge injectée (pas de freezegun), ESLint reporté |
+| 6 | Gel | un sprint dédié (sprint 10 = ouverture) ; correctifs de prod permis en `0.10.x`. Précisé le même jour : « gros sprint de refactoring, on code rien, on écrit seulement » |
+| 7 | Langue | tout en français, le README s'ouvre sur un paragraphe en anglais |
+| 8 | URL de prod dans le dépôt | **non** ; domaines d'exemple dans `deploiement/` |
+| 9 | Versions | SemVer `0.x` tel que proposé au §7 bis, étiquettes rétroactives comprises |
+| + | AGENTS.md | accepté au §5 (voir le point 5) |
+
+**Prérequis, fait le 25/09/2026 :**
+
+- **P1 — fait.** Branche `prod` créée sur `b8c390d` (le commit qui tournait),
+  et l'application Coolify `ourouler-api` suit `prod` au lieu de `main`.
+  Aucun redéploiement ne s'est produit. Désormais **merger dans `main` ne
+  touche plus la prod** ; on déploie en poussant sur `prod`.
+- **P4 — fait, en local seulement.** Sauvegarde Coolify planifiée de
+  `ourouler-db-prod` (chaque jour à 3 h 30, 7 copies gardées). Une
+  exécution a été restaurée dans un Postgres jetable **sur le serveur**, et
+  les comptages sont identiques, table par table. **Limite** : la copie vit
+  sur le même disque, et aucun stockage S3 n'est configuré dans Coolify.
+  La copie hors serveur attend un compte S3 du mainteneur.
+- **P2 — préprod créée.** Environnement `preprod` du projet Coolify
+  `ourouler`, avec :
+  - l'application `ourouler-api-preprod`, qui **suit `main`** : chaque merge
+    y arrive, et plus en prod ;
+  - une base `ourouler-db-preprod`, vide ;
+  - le domaine `preprod-…`, en mode hébergé et sans variable personnelle.
+  Le déroulé type devient : merge dans `main` → préprod → rejeu → poussée sur
+  `prod` à un moment choisi.
+- **P3 — référence capturée** sur `b8c390d`, hors dépôt, sur la machine du
+  mainteneur :
+  - commandes : `sortie --json`, `boucle --distance 60 --json` et
+    `calibrer --velo RCR` ;
+  - calibration RCR : **CdA 0,378, MAE 3,5 %**, le point fixe de chaque lot ;
+  - `sortie` et `boucle` suivent la météo du moment : on les compare peu
+    après, ou sur les champs hors prévision.
+
+**Gel et branches garées.** Aucune fonctionnalité ne part pendant le
+chantier. Trois branches sont poussées sur origin et ne sont pas mergées ;
+on les rebase après les lots qui les touchent :
+- `analyser-parcours` (3 commits) : analyse d'un GPX existant ; ajoute des
+  routes API, une commande CLI et un écran. Elle a été relue et testée en
+  image.
+- `q67-sans-brut` (5 commits) : en mode hébergé, plus aucun fichier
+  d'activité brut conservé. Elle touche `activites/cache.py`,
+  `physique/calibration.py` et `api/taches_fond.py`, et **recouvre les
+  lots 7 et 8**. Elle n'a pas encore été testée en image. **Question
+  ouverte** : la passer avant la restructuration, pour en faire la base, ou
+  après, en la rebasant ?
+- `backlog-admin` (1 commit, doc seule).
+
 ## 1. Diagnostic (mesuré)
 
 - **Taille réelle.** 89 fichiers Python pour 41 019 lignes. Docstrings et
@@ -157,7 +216,18 @@ en Opus + Fable. C'est trop pour ouvrir bientôt. **Avant l'ouverture :**
 4. **Décision sur l'historique git**, à prendre en premier (voir §7), avec le
    scan de secrets.
 5. ARCHITECTURE.md, CONTRIBUTING.md, SECURITY.md, README pour un visiteur, et
-   le tri des documents (§7).
+   le tri des documents (§7). Plus **AGENTS.md**, la source unique pour tout
+   agent de code, puisque Codex et Cursor le lisent aussi :
+   - contenu : installation, commandes de vérification, carte des paquets et
+     sens des dépendances, règles absolues publiques, pièges connus, façon
+     de proposer une PR ; une page, en français ;
+   - `CLAUDE.md` se réduit à `@AGENTS.md`, plus les sous-agents de
+     `.claude/agents/` ;
+   - les consignes personnelles du mainteneur partent vers son
+     `~/.claude/CLAUDE.md` ;
+   - pour Cursor, au plus une règle d'une ligne qui renvoie à AGENTS.md
+     (vérifier la doc Cursor avant de l'écrire) ;
+   - un test vérifie que les chemins et les commandes cités existent.
 6. Nettoyage des branches : 59 branches locales, beaucoup de worktrees
    d'agents morts.
 
@@ -225,6 +295,16 @@ options :
 - (c) **ouvrir un nouveau dépôt public à partir d'un commit unique**, l'actuel
   restant privé comme archive.
 
+**Décidé : (a).** Conséquence assumée : l'identifiant d'athlète, les
+coordonnées approchées et les noms de lieux restent lisibles dans les anciens
+commits. Le tri des documents garde son intérêt pour la lisibilité du dépôt,
+mais plus pour la confidentialité. Deux choses restent **obligatoires avant
+de rendre le dépôt public** :
+- gitleaks passé sur tout l'historique, pour qu'aucun secret actif n'y reste
+  (une clé trouvée se révoque ; ne pas se contenter de l'effacer) ;
+- le nettoyage des branches : ne publier que `main`, `prod` et les
+  étiquettes.
+
 **Jour J** : CI obligatoire et verte, gitleaks propre, contrat d'imports vert,
 documents en place, installation qui marche depuis un conteneur vierge,
 Coolify branché sur `prod`, aucune URL de prod ni nom d'invité dans les
@@ -277,7 +357,7 @@ sur les commits de merge.
   commit unique) : le rétro-changelog devient la seule trace publique du
   passé, et les étiquettes restent dans le dépôt privé.
 
-## 8. Questions au mainteneur
+## 8. Questions au mainteneur (répondues le 25/09/2026, voir §0)
 
 1. Historique git : (a), (b) ou (c) ? C'est la décision qui conditionne tout
    le tri des documents.
