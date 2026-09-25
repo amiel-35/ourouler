@@ -393,8 +393,8 @@ au plus, les types sont vérifiés contre openapi, chaque écran a son test.
 
 **Historique git — à décider en premier.** Mesuré :
 - l'identifiant d'athlète Intervals apparaît 7 fois dans `git log --all -p` ;
-- on y trouve des coordonnées `48.11xx` et 20 messages de commit qui citent
-  Rennes ;
+- on y trouve des coordonnées réelles et 20 messages de commit qui citent
+  la ville du mainteneur ;
 - aucune trace GPS ni aucune config réelle n'a jamais été commitée.
 
 Anonymiser les documents actuels ne sert à rien si l'historique reste. Trois

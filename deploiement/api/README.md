@@ -1,11 +1,10 @@
-# L'API et le front — paquetage, lot L7.E
+# L'API et le front — paquetage
 
 Le front (`front/`) et l'API (`src/ourouler/api/`) packagés pour tourner
-ailleurs que sur le Mac du mainteneur. **Rien n'est déployé ici** : `docker
-compose` sur cette machine sert à vérifier le paquet, pas à le mettre en
-ligne (règle absolue 7 de CLAUDE.md — le geste de déploiement sur Coolify
-reste au mainteneur, soumis séparément, et ce dossier ne le fait pas à sa
-place).
+sur un serveur. **Rien n'est déployé ici** : `docker compose` sur cette
+machine sert à vérifier le paquet, pas à le mettre en ligne — la mise en
+ligne est un geste séparé, fait par qui exploite le serveur (voir
+`AGENTS.md`).
 
 ## Comment le front et l'API se joignent, et pourquoi
 
@@ -14,8 +13,8 @@ construit le front (`npm run build`) dans un premier étage, et le copie dans
 le second, celui qui sert l'API : au démarrage, `uvicorn` sert `/api/v1/...`
 et, dessous, le contenu de `front/dist` à la racine (`/`).
 
-Ce n'est pas un choix arbitraire, c'est celui que le front avait déjà écrit
-avant ce lot (`front/vite.config.ts`, `front/README.md`) : *« la même
+Ce n'est pas un choix arbitraire, c'est celui que le front écrit déjà
+(`front/vite.config.ts`, `front/README.md`) : *« la même
 construction sert en production, où l'API et le front sont servis par la
 même origine »*. Le code du front n'a **jamais** d'URL absolue
 (`front/src/api/client.ts` : `RACINE = "/api/v1"`, toujours un chemin
@@ -44,9 +43,9 @@ dossier dans `OUROULER_FRONT_DIST` (`api/exploitation.py`), que le
    (le générateur de la page du jour) : voir sa docstring si le pourquoi
    intéresse.
 
-   **`[cycliste]` et `[[velos]]`, eux, ne valent qu'en mode `personnel`**
-   (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
-   fuite fermée le 21/09/2026). En mode `heberge`, ces deux sections aussi
+   **`[cycliste]` et `[[velos]]`, eux, ne valent qu'en mode `personnel`** :
+   ce sont des réglages personnels, jamais hérités d'un socle partagé. En
+   mode `heberge`, ces deux sections aussi
    doivent disparaître de ce fichier : l'API **refuse de démarrer** si
    `[depart]`, `[cycliste]`, `[[velos]]` ou `[intervals]` y figurent — elles
    seraient sinon servies à chaque personne invitée. Chaque cycliste les
@@ -57,26 +56,25 @@ dossier dans `OUROULER_FRONT_DIST` (`api/exploitation.py`), que le
    cp deploiement/api/.env.example deploiement/api/.env
    ```
    Renseigner dans `deploiement/api/.env` :
-   - `OUROULER_MODE` — `personnel` (un seul cycliste, le mainteneur) ou
+   - `OUROULER_MODE` — `personnel` (un seul cycliste, celui qui héberge) ou
      `heberge` (plusieurs cyclistes ; comme aucune méthode de connexion
      n'est branchée, toute route de données répond 401 — voir
      `src/ourouler/api/session.py`). **Sans cette variable, le service
      démarre et refuse tout** : ce n'est pas un bug du paquetage, c'est le
-     comportement voulu depuis le lot L7.A — un service exposé sans qu'on
-     ait dit qui il sert ne sert personne.
+     comportement voulu : un service exposé sans qu'on ait dit qui il sert
+     ne sert personne.
    - `OUROULER_INTERVALS_API_KEY`, `OUROULER_INTERVALS_ATHLETE_ID`,
      `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`,
      `OUROULER_DEPART_LONGITUDE` — **uniquement en mode `personnel`**
      (Intervals.icu → Settings → Developer, pour les deux premières). **En
-     mode `heberge`, laisser ces cinq variables vides** : depuis le
-     21/09/2026, l'API les ignore (elles ne s'appliquent plus jamais à un
-     socle partagé, Q35 tiers 3) et refuse même de démarrer si l'une d'elles
-     porte une valeur — poser un point de départ ou une clé au niveau du
-     serveur imposerait celui du mainteneur à chaque personne invitée.
+     mode `heberge`, laisser ces cinq variables vides** : l'API les ignore
+     (elles ne s'appliquent jamais à un socle partagé) et refuse même de
+     démarrer si l'une d'elles porte une valeur — poser un point de départ
+     ou une clé au niveau du serveur imposerait ceux de l'hébergeur à chaque
+     personne invitée.
    - `OUROULER_BROUTER_URL` (et `OUROULER_BROUTER_UTILISATEUR` /
-     `OUROULER_BROUTER_MOT_DE_PASSE` si protégé) — celui déjà en service sur
-     le Coolify du mainteneur ; c'est un réglage serveur (Q35), légitime
-     dans les deux modes.
+     `OUROULER_BROUTER_MOT_DE_PASSE` si protégé) — un serveur BRouter déjà en
+     service ; c'est un réglage serveur, légitime dans les deux modes.
    - `OUROULER_CONFIG_HOTE` — chemin **absolu** vers le fichier TOML préparé
      à l'étape 1.
 
@@ -116,17 +114,17 @@ volontairement hors de `/api/v1` et hors du schéma publié
 question posée par l'infrastructure. Le `Dockerfile` la pose en
 `HEALTHCHECK` ; Coolify peut l'utiliser de la même façon.
 
-## Gérer les comptes depuis la ligne de commande (mainteneur)
+## Gérer les comptes depuis la ligne de commande (exploitant)
 
 En mode `heberge`, les comptes se gèrent **exclusivement** en ligne de
-commande, depuis la machine du mainteneur — jamais par une route HTTP
+commande, par l'exploitant du serveur — jamais par une route HTTP
 ouverte à qui que ce soit d'autre (`src/ourouler/api/comptes.py`). Les
 quatre commandes lisent les mêmes deux variables : `OUROULER_DATABASE_URL`
 (l'URL de la base PostgreSQL de comptes, appliquant ses migrations au
 passage si besoin) et `OUROULER_URL_PUBLIQUE` (l'URL publique du front
 hébergé, devant laquelle `/entrer` et `/reinitialiser` s'ouvrent) — les
 poser dans l'environnement du poste qui lance la commande, pas dans
-`deploiement/api/.env` (qui sert le conteneur, pas la CLI du mainteneur).
+`deploiement/api/.env` (qui sert le conteneur, pas la ligne de commande).
 `--sans-courriel` affiche seulement le lien à la place d'envoyer un
 courriel, ce qui évite de charger `service.toml` (les secrets Brevo).
 
@@ -136,14 +134,14 @@ courriel, ce qui évite de charger `service.toml` (les secrets Brevo).
 - **`ourouler invitations`** — liste les invitations en cours, avec leur
   lien et leur échéance — pour relire ou renvoyer un lien déjà émis sans le
   régénérer.
-- **`ourouler reinitialiser ADRESSE`** (lot L9.6) — le pendant d'`inviter`
+- **`ourouler reinitialiser ADRESSE`** — le pendant d'`inviter`
   pour un compte **déjà actif** qui a perdu son mot de passe : émet un lien
   `/reinitialiser?jeton=...`, même mécanisme de jeton à usage unique. Rien
   n'est changé tant que le lien n'est pas ouvert et le formulaire soumis ;
   à ce moment-là, **toutes les sessions déjà ouvertes de ce compte sont
   fermées** — quiconque était connecté doit se reconnecter avec le nouveau
   mot de passe.
-- **`ourouler retirer ADRESSE`** (lot L9.6) — ferme le compte (mot de
+- **`ourouler retirer ADRESSE`** — ferme le compte (mot de
   passe, sessions, invitation) et efface ses données personnelles, par le
   même chemin que le bouton « Supprimer mon compte » du front
   (`DELETE /moi`, `api/vie_privee.effacer_donnees`) — jamais une
@@ -159,8 +157,8 @@ serveur un relais de spam (poster une adresse au hasard suffirait à lui
 faire envoyer un courriel) et un oracle d'énumération d'adresses (la
 réponse dirait si l'adresse a un compte chez ourouler, comme
 `ErreurCompteExistant` le documente déjà pour `inviter`). `reinitialiser`
-reste donc un geste du mainteneur, en ligne de commande, sur son propre
-poste — comme `inviter`.
+reste donc un geste de l'exploitant, en ligne de commande — comme
+`inviter`.
 
 ## Les pièges Coolify (deux hérités du générateur, deux mesurés ici)
 
@@ -181,7 +179,7 @@ Les deux s'appliquent ici à l'identique — voir `docker-compose.coolify.yml`
    TOML) ou `api/exploitation.fournisseur_session` (pour `OUROULER_MODE`)
    échouent ou refusent alors franchement au démarrage.
 
-Et deux de plus, mesurés le 18/09/2026 sur le premier déploiement réel de
+Et deux de plus, mesurés sur le premier déploiement réel de
 ce paquetage-ci — tous deux dans le **même bloc `environment:`**, et tous
 deux invisibles en local :
 
@@ -206,18 +204,16 @@ variable absente. C'est ce qui a fait échouer le premier démarrage
 `config.py:_reporter` traite désormais : **vide vaut absente**, une variable
 que personne n'a remplie n'écrase plus le TOML.
 
-## Ce que ce lot ne fait pas
+## Ce que ce dossier ne fait pas
 
-Il ne touche à rien sur le Coolify du mainteneur, ne lit aucun jeton dans
-`~/.config/coolify`, et ne décide pas de la méthode d'authentification (hors
-périmètre du sprint 7, `docs/journal/sprints/sprint7_contrat.md`). Il ne touche pas non plus
+Il ne touche à aucun serveur et ne lit aucun jeton d'hébergeur. Il ne touche pas non plus
 au déploiement existant du générateur de la page du jour
 (`deploiement/Dockerfile`, `deploiement/docker-compose.yml`,
 `docker-compose.coolify.yml`) : ce paquetage-ci est un service distinct, avec
 son propre `Dockerfile`, son propre compose, sa propre variable
 `SERVICE_FQDN_*`.
 
-## Ce qu'il reste à faire au mainteneur pour déployer
+## Déployer sur Coolify
 
 1. Créer un nouveau service sur Coolify (pas celui de la page du jour),
    pointé sur ce dépôt, fichier compose `docker-compose.api.coolify.yml`.
@@ -231,17 +227,13 @@ son propre `Dockerfile`, son propre compose, sa propre variable
    d'activités et de météo) ou si un volume éphémère suffit pour ce premier
    déploiement — les deux options existent déjà dans le compose
    (`volumes: donnees:`), le choix de le rendre persistant ou non sur
-   Coolify reste au mainteneur.
+   Coolify reste à l'exploitant.
 5. Lancer le déploiement depuis l'interface Coolify, puis vérifier
    `https://<le domaine attribué>/sante` avant toute chose.
 
-**Fait le 18/09/2026** : l'application s'appelle `ourouler-api` sur le
-Coolify du mainteneur, elle suit la branche d'intégration du sprint en
-cours, et elle répond sur **https://app-ourouler.inflexion.me** — `/sante`
-donne `{"etat":"ok"}`, `/` sert le front, `/api/v1/...` refuse tout en 401
-`session_absente` puisque `OUROULER_MODE=heberge` et qu'aucune méthode de
-connexion n'est branchée (lot L7.2). Le TOML déployé est
-`config.example.toml` tel quel et le point de départ est le centre de
-Rennes : **aucune donnée personnelle du mainteneur n'est sur ce serveur**,
-ni clé Intervals, ni identifiants BRouter. C'est un déploiement qui prouve
-la chaîne, pas un déploiement qui sert.
+**Un premier essai à blanc** (par exemple sur `https://ourouler.exemple.org`)
+prouve la chaîne sans rien exposer : `/sante` donne `{"etat":"ok"}`, `/` sert
+le front, `/api/v1/...` refuse tout en 401 `session_absente` sans session
+ouverte. Avec `config.example.toml` tel quel et un point de départ
+générique, aucune donnée personnelle n'est sur le serveur, ni clé
+Intervals, ni identifiants BRouter.

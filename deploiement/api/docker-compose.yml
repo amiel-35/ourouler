@@ -1,8 +1,7 @@
-# Orchestration LOCALE du conteneur API+front (lot L7.E). Sert à vérifier le
-# lot chez le mainteneur, sur sa machine — ce n'est PAS un artefact de
-# déploiement sur son Coolify (règle absolue 7 de CLAUDE.md : aucune
-# installation sur un serveur sans son accord explicite, soumis
-# séparément) : voir `docker-compose.api.coolify.yml`, à la racine du dépôt,
+# Orchestration LOCALE du conteneur API+front. Sert à vérifier le paquet sur
+# sa propre machine — ce n'est PAS un artefact de déploiement (aucune
+# installation sur un serveur sans l'accord explicite de qui l'exploite, voir
+# AGENTS.md) : voir `docker-compose.api.coolify.yml`, à la racine du dépôt,
 # pour ce que Coolify demande en plus.
 #
 # Lancer depuis la racine du dépôt :

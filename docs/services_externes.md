@@ -1,6 +1,6 @@
 # Services externes — ce qu'on appelle, pour quoi, et à quelles conditions
 
-Vue d'ensemble des dépendances réseau du produit, au 18/09/2026. Le détail et
+Vue d'ensemble des dépendances réseau du produit (septembre 2026). Le détail et
 les justifications sont dans les docstrings des modules cités : ce fichier est
 la carte, pas le territoire.
 
@@ -56,8 +56,8 @@ adresse de serveur et peut s'afficher ; le mot de passe ne vit que dans l'objet
 Deux usages : l'itinéraire A→B, et la **boucle** (`engineMode=4`), qui est le
 cœur du produit. Profil `fastbike` par défaut.
 
-**Ce qu'il faut savoir sur le mode boucle**, mesuré le 18/09/2026 sur le
-serveur réel :
+**Ce qu'il faut savoir sur le mode boucle**, mesuré sur un serveur
+réel :
 
 - BRouter n'a pas d'algorithme de boucle. Il place `roundTripPoints` points de
   passage sur un cercle, puis fait du point-à-point entre eux. Un point qui
@@ -74,8 +74,8 @@ serveur réel :
   BRouter** : `correctMisplacedViaPoints` en camelCase, et non le snake_case
   qu'envoyait le code jusqu'ici. Avec le bon nom **et** un seuil de distance à
   0, les culs-de-sac disparaissent entièrement au rayon de 20 km mesuré (0
-  antenne sur 8 boucles) — mais **pas** au rayon de 8 km, sweep du
-  18/09/2026 à l'appui (seuils 40/100/200/500/1000/0, 8 azimuts × 2 rayons) :
+  antenne sur 8 boucles) — mais **pas** au rayon de 8 km, balayage à
+  l'appui (seuils 40/100/200/500/1000/0, 8 azimuts × 2 rayons) :
   4 boucles sur 7 y gardent encore une antenne même à seuil 0, plus courte
   qu'à tout seuil plus grand (283 m médians contre 2 827 m). Ces crochets-là
   ne sont plus des points de passage mal placés mais de vrais culs-de-sac du
@@ -118,12 +118,12 @@ Leaflet est chargé depuis `cdnjs.cloudflare.com`, les tuiles viennent de
 
 | Service | Pour quoi | État |
 |---|---|---|
-| Brevo | le courriel d'inscription, modérée par le mainteneur | clé promise, rien d'écrit |
+| Brevo | le courriel d'inscription, modérée par l'exploitant | clé promise, rien d'écrit |
 | Garmin Connect | pousser le parcours sur le compteur | rien d'installé, rien de décidé |
-| Strava / Garmin (export) | importer l'historique d'un nouvel utilisateur | tranché en [[Q48]] : V1 couvre les deux, par dépôt de fichier |
+| Strava / Garmin (export) | importer l'historique d'un nouvel utilisateur | les deux, par dépôt de fichier (pas de lien direct) |
 
-**Aucune installation sur une machine ou un serveur sans l'accord explicite du
-mainteneur** (règle absolue 7). On propose, on attend.
+**Aucune installation sur une machine ou un serveur sans l'accord explicite de
+qui l'exploite** (voir `AGENTS.md`). On propose, on attend.
 
 ## Le cache, qui n'est pas un service
 
@@ -132,11 +132,11 @@ SQLite (stdlib, pas d'ORM). C'est lui qui évite de redemander à Intervals ce
 qu'on a déjà, et c'est sur lui seul que travaillent les scripts de mesure de
 `tests/validation/` — aucun d'eux ne sort sur le réseau.
 
-## Les archives d'export, mesurées sur de vraies données (19/09/2026)
+## Les archives d'export, mesurées sur de vraies données
 
-Tout ce chapitre vient de **deux archives réelles du mainteneur**, demandées et
-lues le 19/09/2026 — pas d'une documentation de plateforme. Ce qu'on croyait
-savoir avant ([[Q48]]) était faux sur plusieurs points, tous corrigés ici.
+Tout ce chapitre vient de **deux archives réelles**, demandées et lues pour
+l'occasion — pas d'une documentation de plateforme. Ce qu'on croyait savoir
+avant était faux sur plusieurs points, tous corrigés ici.
 
 ### Le lien n'est pas celui de la plateforme, et il change à chaque saut
 
@@ -154,7 +154,7 @@ Trois conséquences qui décident de l'implémentation :
    plateformes servent depuis `s3.amazonaws.com`, où la moitié d'Internet est
    hébergée : l'hôte seul ne filtre rien. C'est le préfixe qui discrimine.
 2. **Elle s'applique à chaque saut, pas à ce que la personne colle.** Le lien
-   Strava reçu par le mainteneur traversait une enveloppe
+   Strava reçu lors de la mesure traversait une enveloppe
    `safelinks.protection.outlook.com` (ajoutée par sa messagerie) puis un
    traceur `email.strava.com`, avant d'atteindre S3. Vérifier seulement l'URL
    collée laisserait passer n'importe quoi ; ne pas suivre les redirections du
@@ -191,15 +191,15 @@ customer_data/customer.json
 
 Le profil **y est** : FTP et paliers de puissance, FCmax, FC de repos, seuil
 lactique, zones cardiaques. C'est ce qui permet à l'étage export de rendre ce
-que la route `athlete` d'Intervals rend ([[Q64]]) — pour beaucoup plus de
+que la route `athlete` d'Intervals rend — pour beaucoup plus de
 monde, puisque peu de cyclistes ont Intervals.
 
 Trois pièges, tous rencontrés :
 
 - **Les zones trouvées peuvent être celles d'un autre sport.** Le
-  `powerZones.json` du mainteneur porte `sport = RUNNING` et une FTP de 401 W,
-  quand sa FTP vélo est 235. Prendre le premier fichier de zones donnerait un
-  cycliste trois fois trop fort — et **401 W est un nombre plausible**, donc
+  `powerZones.json` mesuré porte `sport = RUNNING` et une FTP de course à
+  pied bien plus haute que la FTP vélo. Prendre le premier fichier de zones
+  donnerait un cycliste bien trop fort — et **la valeur reste plausible**, donc
   l'erreur ne se verrait pas. **Filtrer sur le sport.** La confirmation par
   l'utilisateur ne rattrape pas ce cas : celui qui ne connaît pas sa FTP —
   précisément celui pour qui l'entonnoir existe — cliquera « oui ».
@@ -228,10 +228,10 @@ Et ce qu'on ne doit **jamais** lire, présent dans la même archive :
 extraire une donnée personnelle est la seule façon sûre de ne pas la
 conserver (règle absolue 1).
 
-### Ce que ça corrige dans [[Q48]]
+### Ce que ça corrige
 
-- « Garmin met plusieurs jours là où Strava met des heures » : le mainteneur a
-  reçu son archive Garmin **le jour même**. La conclusion de Q48 reste bonne —
+- « Garmin met plusieurs jours là où Strava met des heures » : l'archive
+  Garmin mesurée est arrivée **le jour même**. La conclusion reste bonne —
   le parcours doit survivre à une interruption longue — mais parce que le
   délai **n'est pas garanti**, pas parce qu'il serait toujours long. Ne rien
   promettre au cycliste au-delà de « de quelques heures à quelques jours ».
@@ -245,6 +245,5 @@ conserver (règle absolue 1).
 
 L'export en plusieurs parties. Le fichier Garmin s'appelle `<uuid>_1.zip`, ce
 que le suffixe rend suspect, mais rien ne dit qu'un `_2` existe et aucun n'a
-été observé. Hypothèse retenue : **une seule archive** ([[Q62]], tranchée par
-le mainteneur). Si un jour un `_2` existe, il doit se **voir** plutôt que
+été observé. Hypothèse retenue : **une seule archive**. Si un jour un `_2` existe, il doit se **voir** plutôt que
 d'importer la moitié d'un historique en silence.

@@ -1,8 +1,8 @@
 # Inviter quelqu'un sur où rouler
 
-Mode d'emploi opérationnel du lot L9.5 (`docs/journal/sprints/sprint9_contrat.md`). Ce
+Mode d'emploi opérationnel pour qui exploite un service hébergé. Ce
 document ne redécide rien : il pointe vers le code qui fait foi, avec ses
-chemins exacts, pour que le mainteneur puisse vérifier lui-même chaque
+chemins exacts, pour que chacun puisse vérifier lui-même chaque
 affirmation.
 
 ## 1. Avant la première invitation (une fois)
@@ -15,9 +15,8 @@ soit :
 ### La branche suivie
 
 Le service Coolify suit une branche du dépôt (posée à la création du
-service, dans son panneau Coolify — pas dans un fichier de ce dépôt). Le
-lot L9.5 ne change rien à ce réglage ; il se vérifie dans l'interface
-Coolify elle-même.
+service, dans son panneau Coolify — pas dans un fichier de ce dépôt). Ce
+réglage se vérifie dans l'interface Coolify elle-même.
 
 ### Le mode et la base de données
 
@@ -52,18 +51,15 @@ hors du dépôt :
 - `deploiement/api/config.example.toml` — le profil TOML non-secrets du
   conteneur. Encodé dans `OUROULER_CONFIG_TOML_B64`.
 
-### L'action Q66a : vider les variables perso pur — **faite, vérifiée le 25/09/2026**
+### Vider les variables personnelles du serveur
 
-Fermée côté code le 22/09/2026 (`docs/journal/questions/questions_mainteneur.md`, Q66) : en
-mode `heberge`, l'API **refuse de démarrer** si le TOML ou l'environnement
-du serveur portent une valeur perso pur — parce qu'un serveur partagé qui
-les porte les distribue à chaque personne invitée. Le geste côté Coolify
-restait dû au mainteneur (Q66a) ; **vérifié fait le 25/09/2026**, en
-invitant pour de vrai depuis la prod (`ssh inflexion` + `docker exec` dans
-le conteneur `api-hqcrmxt0dvyxlgojgvqmwhsk-*`) : dans le panneau Coolify de
-`ourouler-api`, `OUROULER_DEPART_*` et `OUROULER_INTERVALS_*` sont vides, et
-`OUROULER_CONFIG_TOML_B64` ne contient plus que `[meteo]`, `[cache]`,
-`[brouter]`, `[boucle]` — ni `[cycliste]` ni `[[velos]]`. [[Q66]] est close.
+En mode `heberge`, l'API **refuse de démarrer** si le TOML ou l'environnement
+du serveur portent une valeur personnelle — parce qu'un serveur partagé qui
+les porte les distribue à chaque personne invitée (le pourquoi détaillé est
+dans `docs/journal/questions/questions_mainteneur.md`). Dans le panneau
+Coolify du service, `OUROULER_DEPART_*` et `OUROULER_INTERVALS_*` doivent
+être vides, et `OUROULER_CONFIG_TOML_B64` ne contenir que `[meteo]`,
+`[cache]`, `[brouter]`, `[boucle]` — ni `[cycliste]` ni `[[velos]]`.
 Les noms exacts, lus par le code (`src/ourouler/api/depots.py:SECTIONS_PERSO_PUR`,
 `VARIABLES_PERSO_PUR`, `CHAMPS_RACINE_MODIFIABLES`), pour mémoire :
 
@@ -102,27 +98,25 @@ conteneur.
 
 ## 2. Inviter quelqu'un
 
-**Corrigé le 25/09/2026, en invitant pour de vrai depuis la prod** : ce qui
-suit décrivait `ourouler inviter` depuis le poste du mainteneur, contre la
-base Postgres distante. Ça ne marche pas telle quelle — la base des comptes
-n'est joignable que depuis le réseau Docker du serveur (`OUROULER_DATABASE_URL`
-pointe une adresse interne à Coolify, pas exposée sur Internet). Les
-commandes de comptes (`inviter`, `invitations`, `reinitialiser`, `retirer`)
-se lancent donc **dans le conteneur**, par `ssh` puis `docker exec` —
-`retirer` le disait déjà (§5 ci-dessous, pour une autre raison : le dossier
-de données), les trois autres non.
+La base des comptes n'est joignable que depuis le réseau Docker du serveur
+(`OUROULER_DATABASE_URL` pointe une adresse interne à Coolify, pas exposée
+sur Internet). Les commandes de comptes (`inviter`, `invitations`,
+`reinitialiser`, `retirer`) se lancent donc **dans le conteneur**, par `ssh`
+puis `docker exec` — pas depuis son propre poste contre la base distante
+(pour `retirer`, voir aussi §5 : le dossier de données).
 
 ```bash
-# Depuis le poste du mainteneur.
-ssh inflexion
+# Depuis son poste.
+ssh <serveur>
 
-# Sur le serveur : trouver le conteneur du service API (le nom porte un
-# suffixe aléatoire posé par Coolify à chaque déploiement, donc jamais fixe).
-docker ps --filter name=api-hqcrmxt0dvyxlgojgvqmwhsk --format '{{.Names}}'
-# → api-hqcrmxt0dvyxlgojgvqmwhsk-<quelque chose>
+# Sur le serveur : trouver le conteneur du service API (le nom commence par
+# api-<identifiant du service Coolify> et porte un suffixe aléatoire posé à
+# chaque déploiement, donc jamais fixe).
+docker ps --filter name=api-<identifiant> --format '{{.Names}}'
+# → api-<identifiant>-<quelque chose>
 
 # Inviter, depuis le conteneur trouvé ci-dessus.
-docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> ourouler inviter adresse@example.com
+docker exec api-<identifiant>-<...> ourouler inviter adresse@example.com
 ```
 
 Options réelles (`src/ourouler/cli.py:ajouter_inviter`, ~ligne 912) :
@@ -131,26 +125,18 @@ courriel, affiche seulement le lien), `--json` (hérité de `parent_json()`).
 `docker exec <conteneur> ourouler invitations` liste les invitations en
 cours (adresse, lien, échéance).
 
-**Deux trous corrigés par ce même lot, tous deux mesurés en essayant
-réellement la commande dans le conteneur :**
+**Deux choses que la commande fait d'elle-même dans le conteneur :**
 
-1. **`--config` n'était pas nécessaire, mais la commande refusait quand
-   même** sur « fichier de configuration introuvable :
-   `/root/.config/ourouler/config.toml` » — alors que
-   `OUROULER_CONFIG=/config/config.toml` est déjà posé pour le processus API
-   (`docker-compose.api.coolify.yml`). `cli.main()` ne consultait jamais
-   cette variable pour son propre `--config` par défaut ; il le fait
-   maintenant (`api.exploitation.chemin_config()`, la même résolution que le
-   serveur). Plus besoin de passer `--config /config/config.toml` à la main.
-2. **Même avec `--config` explicite, la commande exigeait tout le profil du
-   cycliste** (`[depart]`, `[cycliste]`) — un TOML hébergé sans tiers 3
-   (§1 ci-dessus) ne les porte plus, et `ourouler inviter` refusait sur
-   « section [depart] manquante » avant même d'atteindre la base des
-   comptes. Les commandes de comptes n'ont jamais eu besoin de ce profil
-   (`inviter`/`reinitialiser` ne s'en servent que pour composer « Prénom Nom
-   vous invite », facultatif ; `invitations` et `retirer` pas du tout) :
-   `cli.charger(..., requiert_profil=False)` lève l'obligation pour ces
-   quatre commandes seulement, pas pour le reste de la ligne de commande.
+1. **Pas besoin de `--config`** : `cli.main()` lit `OUROULER_CONFIG`
+   (`/config/config.toml`, déjà posé par `docker-compose.api.coolify.yml`)
+   pour son `--config` par défaut, par la même résolution que le serveur
+   (`api.exploitation.chemin_config()`).
+2. **Pas besoin du profil du cycliste** (`[depart]`, `[cycliste]`), qu'un
+   TOML hébergé ne porte pas (§1 ci-dessus) : les commandes de comptes n'en
+   ont pas besoin (`inviter`/`reinitialiser` ne s'en servent que pour
+   composer « Prénom Nom vous invite », facultatif ; `invitations` et
+   `retirer` pas du tout), et `cli.charger(..., requiert_profil=False)` lève
+   l'obligation pour ces quatre commandes seulement.
 
 Secrets et paramètres lus, et par quoi (`_commande_inviter`,
 `src/ourouler/cli.py` ~ligne 930) :
@@ -160,24 +146,22 @@ Secrets et paramètres lus, et par quoi (`_commande_inviter`,
   rien à faire.
 - `OUROULER_URL_PUBLIQUE` — l'URL publique devant laquelle `/entrer?jeton=…`
   s'ouvre ; obligatoire, sinon refus nommant la variable (`_url_publique`).
-  **Corrigé par ce lot** : n'était posée nulle part dans le conteneur avant
-  le 25/09/2026, alors que Coolify calcule déjà cette URL pour ce service
-  (`SERVICE_URL_API`, dérivée de `SERVICE_FQDN_API_8000`). Désormais reprise
-  telle quelle dans `docker-compose.api.coolify.yml`
-  (`OUROULER_URL_PUBLIQUE=${SERVICE_URL_API}`) : rien à poser à la main pour
-  inviter depuis le conteneur.
+  Coolify calcule cette URL pour le service (`SERVICE_URL_API`, dérivée de
+  `SERVICE_FQDN_API_8000`) et `docker-compose.api.coolify.yml` la reprend
+  telle quelle (`OUROULER_URL_PUBLIQUE=${SERVICE_URL_API}`) : rien à poser à
+  la main pour inviter depuis le conteneur.
 - `/config/service.toml` (`OUROULER_SERVICE`, déjà posée) — sauf
   `--sans-courriel` : section `[brevo]` (mêmes six champs que ci-dessus).
 
 Ce que reçoit l'invité (`src/ourouler/api/courriel.py:message_invitation`) :
 un courriel texte simple, sujet « Invitation à où rouler », qui dit qui
-invite (si le mainteneur a renseigné son prénom/nom dans son propre
-`config.toml` — absent du TOML hébergé depuis Q66a, donc « Vous êtes
-invité·e » en pratique aujourd'hui) ou « Vous êtes invité·e » sinon, le lien
+invite (si l'exploitant a renseigné son prénom/nom dans son propre
+`config.toml` — absent d'un TOML hébergé, donc « Vous êtes invité·e » en
+pratique) ou « Vous êtes invité·e » sinon, le lien
 `<url_publique>/entrer?jeton=<jeton>`, et l'échéance au format `JJ/MM/AAAA`.
 
 **Le lien s'affiche toujours en sortie de commande**, courriel envoyé ou
-non — pour que le mainteneur puisse le relire et le renvoyer par un autre
+non — pour que l'exploitant puisse le relire et le renvoyer par un autre
 canal.
 
 Durée de validité du lien : **3 jours**
@@ -198,16 +182,16 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
    précis au plus flou — compte Intervals.icu (facultatif, clé API + athlète
    Intervals), sinon export Strava/Garmin, sinon une valeur déclarée, sinon
    le vécu en choix (vitesse/terrain), sinon la littérature seule à partir
-   du poids et du vélo. Poids et vélo (avec, depuis L9.1, un pneu facultatif
+   du poids et du vélo. Poids et vélo (avec un pneu facultatif
    qui fixe le Crr par catégorie de littérature) se posent juste avant la
    première étape qui en a besoin.
    **À vérifier avant de montrer ce document à un invité** : l'étape
    « Export Strava ou Garmin » de cet assistant (`etape === "t2"` dans
-   `Assistant.tsx`) affiche encore, telle quelle dans le code au 25/09/2026,
+   `Assistant.tsx`) affiche encore, telle quelle dans le code,
    « L'import d'un export Strava ou Garmin n'est pas encore proposé par
    ourouler » — alors que l'import lui-même existe déjà ailleurs (point
    suivant). L'assistant ne l'offre pas pendant l'accueil.
-3. **Importer son historique, hors assistant** — L9.2. Ce n'est pas un
+3. **Importer son historique, hors assistant.** Ce n'est pas un
    écran de l'entonnoir d'accueil : c'est le bloc « Mes sorties passées »
    (`MesSortiesPassees`, dans `front/src/ecrans/Importer.tsx`), affiché
    sous le dépôt de séance du jour, sur l'écran atteint depuis « Aujourd'hui »
@@ -219,9 +203,8 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
    /activites/import` rend 202, `GET /activites/import/{id}` suit
    l'avancement) ; l'écran affiche une barre de progression et reprend le
    suivi après un rechargement de page.
-4. **La calibration à partir d'un capteur de puissance** — L9.4 (« la
-   boucle de correction, depuis l'écran »), codée et fusionnée le
-   25/09/2026 (`front/src/composants/CalibrationVelo.tsx`,
+4. **La calibration à partir d'un capteur de puissance**
+   (`front/src/composants/CalibrationVelo.tsx`,
    `src/ourouler/api/calibrations.py`). Sur la fiche vélo des Réglages, un
    bouton « Calibrer sur mes sorties » lance `POST /calibrations`, qui
    relit les sorties de ce vélo (importées ou synchronisées Intervals.icu),
@@ -267,9 +250,9 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
     (`generations_par_jour`, `consultations_meteo_par_jour` ;
     `src/ourouler/api/exploitation.py`), défauts ci-dessus si la section ou
     le champ sont absents.
-  - **1 calibration par jour** (`POST /calibrations`, L9.4,
+  - **1 calibration par jour** (`POST /calibrations`,
     `CALIBRATIONS_PAR_JOUR_DEFAUT`) et **5 imports d'historique par jour**
-    (`POST /activites/import`, L9.2, `IMPORTS_PAR_JOUR_DEFAUT`) — ces
+    (`POST /activites/import`, `IMPORTS_PAR_JOUR_DEFAUT`) — ces
     deux-là sont des constantes du code, **pas encore réglables** depuis
     `service.toml` (vérifié : `exploitation.py` n'expose que
     `generations_par_jour` et `consultations_meteo_par_jour`).
@@ -294,16 +277,16 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
   (`NOMBRE_MAX_FICHIERS`), 2 Go décompressés toutes archives confondues
   (`TAILLE_MAX_DECOMPRESSEE`), 200 Mo pour une archive `.zip` imbriquée
   (`TAILLE_MAX_FICHIER`), **16 Mo pour une activité isolée**
-  (`TAILLE_MAX_ACTIVITE`, ramené de 50 à 16 Mo le 25/09/2026 — un `.gpx`
-  synthétique de 50 Mo prenait +745 Mo de mémoire résidente à lire), ratio
+  (`TAILLE_MAX_ACTIVITE` — un `.gpx` synthétique de 50 Mo prenait
+  +745 Mo de mémoire résidente à lire), ratio
   de décompression maximum 100 (`RATIO_MAX_DECOMPRESSION`), imbrication
   `.zip` dans `.zip` limitée à 3 niveaux (`PROFONDEUR_MAX_ARCHIVE`). Au-delà,
   l'entrée fautive est ignorée avec un motif lisible, pas un refus brutal de
   tout l'import.
-- **Ce qui n'existe pas, vérifié dans le code au 25/09/2026** :
+- **Ce qui n'existe pas, vérifié dans le code** :
   - Pas de récupération de mot de passe oublié **en libre-service** — le
     commentaire de `front/src/ecrans/Connexion.tsx` le dit toujours :
-    « Pas de récupération de mot de passe non plus ». Le mainteneur, lui,
+    « Pas de récupération de mot de passe non plus ». L'exploitant, lui,
     peut émettre un lien de nouveau mot de passe depuis sa ligne de
     commande (`ourouler reinitialiser`, §5) : ce n'est pas un trou resté
     ouvert, c'est un geste volontairement réservé à la ligne de commande
@@ -312,15 +295,13 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
   - Pas d'inscription libre ni de demande d'accès : l'entrée est
     uniquement par invitation (même fichier, même commentaire ; doctrine
     §10.2).
-  - Pas de passkey (aucune occurrence du mot dans le dépôt) — cité comme
-    hors périmètre de ce sprint dans `docs/journal/sprints/sprint9_contrat.md`.
+  - Pas de passkey (aucune occurrence du mot dans le dépôt).
   - Import par lien Strava/Garmin direct : non, c'est un dépôt de fichier
-    ou d'archive téléchargée à la main (voir §3.3) — [[Q48]], toujours pas
-    fait.
+    ou d'archive téléchargée à la main (voir §3.3).
 
 ## 5. Retirer quelqu'un / ses données
 
-**Côté invité**, depuis l'écran (lot L9.6, `front/src/ecrans/Reglages.tsx`,
+**Côté invité**, depuis l'écran (`front/src/ecrans/Reglages.tsx`,
 volet « Mon compte » — `Réglages → Mon compte → Gérer`) ou directement par
 l'API (`src/ourouler/api/routes.py`) :
 
@@ -340,7 +321,7 @@ l'API (`src/ourouler/api/routes.py`) :
   du schéma révoque ses invitations et ses sessions ouvertes — son mot de
   passe ne rouvre plus rien après cet appel. **Une seconde suppression du
   même compte pendant qu'une première tourne encore refuse tout de suite**
-  (`409 suppression_deja_en_cours`, lot de finition du 25/09/2026) plutôt
+  (`409 suppression_deja_en_cours`) plutôt
   que d'attendre elle aussi jusqu'à deux minutes.
 
   Ces trois gestes ne s'affichent que sur un déploiement hébergé avec un
@@ -349,9 +330,9 @@ l'API (`src/ourouler/api/routes.py`) :
   reste proposé (il porte sur le propriétaire de la session, pas sur un
   compte).
 
-**Côté mainteneur**, en ligne de commande, **dans le conteneur du serveur**
-(même geste que pour `inviter`, §2 ci-dessus — `ssh inflexion`, puis
-`docker ps --filter name=api-hqcrmxt0dvyxlgojgvqmwhsk --format '{{.Names}}'`
+**Côté exploitant**, en ligne de commande, **dans le conteneur du serveur**
+(même geste que pour `inviter`, §2 ci-dessus — `ssh <serveur>`, puis
+`docker ps --filter name=api-<identifiant> --format '{{.Names}}'`
 pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
 
 - `ourouler reinitialiser <adresse>` — émet un lien de nouveau mot de passe
@@ -366,20 +347,20 @@ pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
   d'adresses.
 
   ```bash
-  docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> ourouler reinitialiser adresse@example.com
+  docker exec api-<identifiant>-<...> ourouler reinitialiser adresse@example.com
   ```
 - `ourouler retirer <adresse>` — ferme un compte hébergé et efface ses
   données personnelles, **par le même chemin que `DELETE /moi`**
   (`src/ourouler/api/retrait_commande.py` appelle `vie_privee.
   effacer_donnees` telle quelle, pas une réimplémentation). `--oui` pour ne
   pas demander confirmation. **À lancer `docker exec` (ou équivalent) DANS
-  le conteneur du serveur, jamais depuis le poste du mainteneur** — pas
+  le conteneur du serveur, jamais depuis son propre poste** — pas
   seulement par cohérence avec `inviter`/`reinitialiser` (§2, la base des
   comptes n'est joignable que depuis le réseau Docker du serveur) : la
   commande reconstruit en plus les mêmes dépôts (profil, fichiers, cache
   d'activités) que le serveur hébergé réellement lancé, à partir de la
   configuration et du dossier de données de la machine qui l'exécute — lancée
-  depuis le Mac du mainteneur, elle fermerait bien le compte dans la base
+  depuis un poste personnel, elle fermerait bien le compte dans la base
   Postgres distante, mais chercherait les fichiers dans un dossier local
   presque toujours vide, laissant le vrai dépôt du propriétaire orphelin
   tout en annonçant un succès. `_depots_de_l_hebergement` (`cli.py`) refuse
@@ -387,7 +368,7 @@ pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
   qu'un filet — voir `deploiement/api/README.md`.
 
   ```bash
-  docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> ourouler retirer adresse@example.com --oui
+  docker exec api-<identifiant>-<...> ourouler retirer adresse@example.com --oui
   ```
 
 ## 6. Vérifier après déploiement
@@ -406,10 +387,10 @@ curl -i https://<domaine attribué>/api/v1/systeme
 # 3. Une invitation de test, à sa propre adresse, sans envoyer de courriel —
 #    dans le conteneur (§2 ci-dessus) : les deux variables sont déjà posées
 #    par docker-compose.api.coolify.yml, rien à passer à la main.
-ssh inflexion
-docker ps --filter name=api-hqcrmxt0dvyxlgojgvqmwhsk --format '{{.Names}}'
-docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> \
-  ourouler inviter mainteneur@son-domaine.example --sans-courriel
+ssh <serveur>
+docker ps --filter name=api-<identifiant> --format '{{.Names}}'
+docker exec api-<identifiant>-<...> \
+  ourouler inviter moi@exemple.org --sans-courriel
 # → affiche le lien et l'échéance (3 jours) ; ouvrir le lien affiché
 #   pour vérifier que /entrer active bien le compte.
 ```
@@ -430,24 +411,10 @@ docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> \
 `src/ourouler/api/calibrations.py`, `src/ourouler/api/retrait_commande.py`,
 `src/ourouler/activites/import_archive.py`, `docker-compose.api.coolify.yml`,
 `deploiement/api/README.md`, `deploiement/api/config.example.toml`,
-`service.example.toml`, `docs/journal/questions/questions_mainteneur.md` (Q66),
+`service.example.toml`, `src/ourouler/config.py` (`charger`/`depuis_dict`,
+paramètre `requiert_profil`), `docs/journal/questions/questions_mainteneur.md`,
 `front/src/ecrans/Assistant.tsx`, `front/src/ecrans/Importer.tsx`,
 `front/src/ecrans/Connexion.tsx`, `front/src/ecrans/Entrer.tsx`,
 `front/src/ecrans/Reglages.tsx` (`MonCompteVolet`),
-`front/src/composants/CalibrationVelo.tsx`, `docs/ux/parcours_accueil.md`.
-Cette révision (25/09/2026, lot de finition `l9-finition`) met à jour §3.4
-(L9.4, calibration) et §5 (Mon compte, `reinitialiser`, `retirer`), ajoute
-les quatre quotas et le refus `suppression_deja_en_cours` en §4, corrige la
-borne d'activité isolée (16 Mo, pas 50), et retire les constats devenus faux
-(absence de calibration codée, absence de bouton d'export/suppression,
-absence de commande de retrait).
-
-**Seconde révision, le 25/09/2026, branche `comptes-en-prod`** : en invitant
-pour de vrai sur la prod (`ssh inflexion` + `docker exec`), la procédure
-ci-dessus ne marchait pas telle quelle — voir §1 (Q66a faite), §2 et §5
-(commandes de comptes lancées dans le conteneur, `OUROULER_CONFIG` et le
-profil du cycliste honorés/levés par `cli.py`, `OUROULER_URL_PUBLIQUE`
-posée par `docker-compose.api.coolify.yml`). Sources ajoutées :
-`src/ourouler/config.py` (`charger`/`depuis_dict`, paramètre
-`requiert_profil`), `src/ourouler/api/exploitation.py` (`chemin_config`,
-`VARIABLE_CONFIG`), `docs/journal/questions/questions_mainteneur.md` (Q66, close).
+`front/src/composants/CalibrationVelo.tsx`, `docs/ux/parcours_accueil.md`,
+`src/ourouler/api/exploitation.py` (`chemin_config`, `VARIABLE_CONFIG`).

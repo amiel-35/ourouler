@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Point d'entrée du conteneur qui sert l'API et le front (lot L7.E).
+"""Point d'entrée du conteneur qui sert l'API et le front.
 
 Ce script est **hors** de `src/ourouler/` : ce n'est pas le cœur, c'est la
 couche d'exploitation du paquetage, au même titre que `cli.py` pour l'usage
@@ -87,8 +87,8 @@ def _ecrire_service_depuis_environnement() -> None:
     courriel n'a aucune raison de la poser, et `ourouler inviter` dira alors
     franchement que le fichier manque plutôt que de partir sans identifiants.
 
-    **Pourquoi une variable plutôt qu'un fichier copié à la main.** Le
-    19/09/2026, l'essai du relais a été fait en copiant le fichier dans le
+    **Pourquoi une variable plutôt qu'un fichier copié à la main.** Un
+    premier essai du relais a été fait en copiant le fichier dans le
     conteneur avec `docker cp`, puis en l'effaçant. Ça marche une fois ; ça ne
     survit pas à un déploiement, et ça ne se raconte pas à quelqu'un d'autre.
     """

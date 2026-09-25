@@ -1,12 +1,10 @@
-# Géocodage — décision du lot F0.2
+# Géocodage — le choix du fournisseur
 
-Comble le trou nommé dans `docs/journal/ux/front_contrat.md` (F0) et
-`docs/journal/ux/discovery_donnees.md` §4 : transformer une adresse tapée en
-coordonnées n'existait nulle part dans le dépôt. `--adresse-depart` reste le
-nom **réservé** (Q15, `docs/journal/questions/questions_mainteneur.md:511-524`) pour l'option
-qui, plus tard, utilisera ce connecteur sur `meteo`/`boucle`/`sortie` — ce
-lot livre le connecteur et une commande dédiée (`ourouler geocoder`) pour
-l'exercer, pas encore ce branchement-là.
+Transformer une adresse tapée en coordonnées : c'est ce que font le
+connecteur `src/ourouler/connecteurs/geocodage.py`, la commande
+`ourouler geocoder`, l'option `--adresse-depart` de `meteo`/`boucle`/`sortie`
+et la route de géocodage de l'API. Ce document dit quel fournisseur a été
+retenu et pourquoi.
 
 ## Ce qui a été regardé
 
@@ -16,7 +14,7 @@ légalement utilisable, bonne en France sans être inutilisable ailleurs.
 ### 1. La Base Adresse Nationale (BAN)
 
 Service officiel français. L'ancien point d'entrée
-`api-adresse.data.gouv.fr` répond encore (vérifié le 16/09/2026), mais la
+`api-adresse.data.gouv.fr` répond encore (vérifié en septembre 2026), mais la
 documentation officielle (`cartes.gouv.fr`, guide « Géocodage ») indique
 qu'il est **en cours de retrait au profit de la Géoplateforme de l'IGN**,
 `https://data.geopf.fr/geocodage/search` — même données, même format de
@@ -31,7 +29,7 @@ réponse. C'est ce dernier que le connecteur appelle.
   obligation contractuelle trouvée dans la documentation consultée.
 - **Qualité en France : excellente.** Donnée d'adressage officielle, au
   numéro de rue près, avec un `score` par candidat déjà normalisé entre 0
-  et 1 — exactement la forme dont ce lot a besoin (plusieurs candidats
+  et 1 — exactement la forme dont on a besoin (plusieurs candidats
   notés, jamais un choix imposé).
 - **Limite mesurée** : une adresse hors de France rend une liste **vide**,
   pas une erreur — la BAN ne connaît que le territoire national. C'est le
@@ -43,8 +41,8 @@ réponse. C'est ce dernier que le connecteur appelle.
 Service mondial, construit sur OpenStreetMap.
 
 - **Sans clé.** Confirmé par un appel réel.
-- **Légal, mais avec des obligations concrètes** (politique d'usage lue le
-  16/09/2026 sur `operations.osmfoundation.org/policies/nominatim`) :
+- **Légal, mais avec des obligations concrètes** (politique d'usage lue en
+  septembre 2026 sur `operations.osmfoundation.org/policies/nominatim`) :
   1 requête par seconde maximum, un en-tête `User-Agent` (ou `Referer`)
   identifiant l'application est **obligatoire** — les en-têtes par défaut
   d'une bibliothèque HTTP ne suffisent pas — attribution ODbL visible, et
@@ -57,8 +55,7 @@ Service mondial, construit sur OpenStreetMap.
 ### 3. Photon (komoot), écarté sans test approfondi
 
 Même famille que Nominatim (indexe OpenStreetMap), hébergé gratuitement par
-komoot sans clé. Écarté à ce stade : pas de gain net sur Nominatim pour ce
-lot (même source de données, couverture mondiale équivalente), et
+komoot sans clé. Écarté à ce stade : pas de gain net sur Nominatim (même source de données, couverture mondiale équivalente), et
 ajouter un troisième fournisseur pour un score marginal ne semblait pas
 justifié tant qu'aucun besoin concret (au-delà de la France) ne s'est
 présenté. À reconsidérer si Nominatim se révèle trop capricieux à l'usage.
@@ -68,8 +65,7 @@ présenté. À reconsidérer si Nominatim se révèle trop capricieux à l'usage
 **La BAN (Géoplateforme) en fournisseur principal, Nominatim en repli
 explicite quand la BAN ne rend aucun candidat.**
 
-Raisonnement : le besoin premier est celui du mainteneur et de ses copains
-cyclistes, tous français d'abord (`CLAUDE.md`) — la BAN sert ce cas avec la
+Raisonnement : les premiers utilisateurs sont des cyclistes en France — la BAN sert ce cas avec la
 meilleure précision possible, sans dépendance externe à la qualité
 variable d'OSM. Mais le cadrage demande explicitement de ne pas rendre le
 connecteur inutilisable pour une adresse hors de France ; comme
@@ -102,30 +98,29 @@ sans être avalée.
   `ambiguite()` refuserait alors tout résultat de repli.
 - **La commande** `ourouler geocoder "<adresse>" [--max N] [--json]`
   (`src/ourouler/geocodage/commande.py`) expose le connecteur sans jamais
-  trancher entre les candidats — exactement la forme qu'une future route
-  d'API (F1) reprendra telle quelle.
-- **`--adresse-depart` était réservé à la fin de ce lot ; il a été livré par
-  le lot F0.7** (17/09/2026) sur `meteo`, `boucle` et `sortie` : `cli.py`
+  trancher entre les candidats — exactement la forme que la route d'API
+  reprend telle quelle.
+- **`--adresse-depart`** existe sur `meteo`, `boucle` et `sortie` : `cli.py`
   résout l'adresse en un `Depart` et le passe au cœur, qui ne géocode
   toujours rien.
-- **Une adresse ambiguë est refusée depuis le 17/09/2026** (réponse du
-  mainteneur à Q34 : « on refuse »). Ce qui est ambigu ne se mesure **pas**
+- **Une adresse ambiguë est refusée** : mieux vaut refuser que retenir un
+  lieu au hasard. Ce qui est ambigu ne se mesure **pas**
   par un écart de score : `ambiguite()` refuse quand les candidats rendus ne
   désignent pas tous la même commune, ou quand le géocodeur ne rattache pas
   la réponse à une commune. La CLI affiche alors les candidats, avec leur
   commune, et sort en code 2. Le raisonnement est dans la docstring
-  d'`ambiguite()`, la décision et sa mesure dans Q34.
+  d'`ambiguite()`, la mesure qui l'a guidé dans
+  `docs/journal/questions/questions_mainteneur.md`.
 
 ## Ce qui reste ouvert
 
-- **Non vérifié sur les vraies données du mainteneur** : ce lot n'a pas
-  d'adresse personnelle à tester (règle absolue 1 — aucune coordonnée
+- **Non vérifié sur une adresse personnelle** : le dépôt n'en porte aucune
+  (règle absolue 1 — aucune coordonnée
   réelle dans le dépôt, y compris comme entrée d'un test manuel dont la
   trace resterait dans l'historique). Les services ont été appelés en direct
   avec des **lieux publics** (mairies, gares, préfectures), jamais avec une
-  adresse du mainteneur, et seuls les chiffres sont reportés. Une
-  vérification avec sa vraie adresse reste à faire par lui, localement, hors
-  du dépôt.
+  adresse personnelle, et seuls les chiffres sont reportés. Chacun peut
+  vérifier avec sa propre adresse, localement, hors du dépôt.
 - **Le géocodage inverse n'existe pas.** La BAN a bien un `/reverse`, le
   connecteur ne l'expose pas. Conséquence visible dans le front : une
   position relevée par le navigateur reste une coordonnée affichée en
@@ -147,4 +142,4 @@ sans être avalée.
 - **Aucune limite de débit explicite côté client** (ni pour la BAN ni pour
   Nominatim) : pas nécessaire tant qu'un seul utilisateur tape une adresse
   à la fois, mais si ce connecteur sert un jour plusieurs comptes en
-  parallèle (l'hébergé, F3), il faudra y revenir.
+  parallèle (le service hébergé), il faudra y revenir.

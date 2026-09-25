@@ -1,6 +1,6 @@
 # Météo et vent — ce qu'on demande, et ce qu'on en fait
 
-État au 18/09/2026. Les justifications complètes sont dans les docstrings des
+État en septembre 2026. Les justifications complètes sont dans les docstrings des
 modules cités.
 
 ## Deux questions, deux mécanismes
@@ -32,7 +32,7 @@ celui que vous prenez dans la figure à 1,10 m derrière une haie.
 
 ## Deux modèles, jamais moyennés
 
-| | rôle | portée mesurée le 17/09/2026 |
+| | rôle | portée mesurée (septembre 2026) |
 |---|---|---|
 | `meteofrance_arome_france_hd` | maille 1,3 km, France seulement | dernière valeur à **J+2** |
 | `icon_seamless` | le second avis | **J+7** |
@@ -49,8 +49,8 @@ la portée appartient au modèle, pas au projet.
 
 - **`horizon_jours` = 7** — au-delà, le parcours est servi quand même et la
   météo est **déclarée absente**, sans qu'Open-Meteo soit appelé
-  (`meteo/portee.py`). Une date lointaine ne se refuse pas : c'est l'arbitrage
-  du mainteneur sur Q40, « si on demande trop loin, ben pas de météo ».
+  (`meteo/portee.py`). Une date lointaine ne se refuse pas : mieux vaut un
+  parcours sans météo qu'un refus.
 - **`HORIZON_ORIENTATION_J` = 3** — au-delà, on ne propose plus de **s'orienter
   au vent**. Mesuré : à 3 jours la direction tombe dans le bon secteur 88 % du
   temps, à 4 jours 85 %, et AROME est déjà sorti du jeu. La pluie reste

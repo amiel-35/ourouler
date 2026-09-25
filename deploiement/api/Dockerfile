@@ -1,4 +1,4 @@
-# Image de l'API et du front (lot L7.E), servis depuis le même conteneur.
+# Image de l'API et du front, servis depuis le même conteneur.
 #
 # Deux étages : le premier construit le front (`npm run build`), le second
 # installe l'API Python et y copie le résultat du premier. Une seule image en
@@ -41,7 +41,7 @@ WORKDIR /app
 
 # Couche de dépendances séparée du code : un changement de source ne
 # réinstalle pas les paquets. `--extra api` : FastAPI et uvicorn, que le
-# lot F1 a mis derrière un extra pour que `ourouler` reste installable sans
+# projet met derrière un extra pour que `ourouler` reste installable sans
 # cadre web (pyproject.toml).
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --extra api --no-install-project
@@ -61,7 +61,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 # déploiement, la même distinction qu'entre `cli.py` et le cœur.
 ENV OUROULER_FRONT_DIST=/app/front/dist
 
-# La sonde ne demande aucune session (lot L7.E) : c'est ce qui la rend
+# La sonde ne demande aucune session : c'est ce qui la rend
 # utilisable ici, avant même qu'une méthode d'authentification soit branchée.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD python3 -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/sante', timeout=2)" || exit 1
