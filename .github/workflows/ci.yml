@@ -31,7 +31,7 @@ jobs:
 
       - run: uv run ruff check .
 
-      # les tests de comptes lancent ce conteneur eux-memes et se sautent si l'image manque
+      # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
 
       - name: Tests
@@ -39,11 +39,11 @@ jobs:
           set -o pipefail
           uv run pytest -q -rs 2>&1 | tee pytest.log
 
-      # un test Postgres saute = CI rouge
-      - name: Verifier qu'aucun test Postgres n'a ete saute
+      # un test Postgres sauté = CI rouge
+      - name: Vérifier qu’aucun test Postgres n’a été sauté
         run: |
           if grep -q "PostgreSQL local indisponible" pytest.log; then
-            echo "Test(s) Postgres saute(s) : CI rouge."
+            echo "Test(s) Postgres sauté(s) : CI rouge."
             exit 1
           fi
 
@@ -71,7 +71,7 @@ jobs:
 
       - run: docker build -f deploiement/api/Dockerfile -t ourouler-api:ci .
 
-      - name: Demarrer l'image sans Postgres, en mode heberge
+      - name: Démarrer l’image sans Postgres, en mode hébergé
         run: |
           printf '[cache]\ndossier = "/data/cache"\n' > heberge.toml
           docker run -d --name api -p 8000:8000 \
@@ -80,12 +80,12 @@ jobs:
             -e OUROULER_CONFIG_TOML_B64="$(base64 -w0 heberge.toml)" \
             ourouler-api:ci
 
-      - name: Attendre que /sante reponde 200
+      - name: Attendre que /sante réponde 200
         run: |
           for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/sante || true)
             if [ "$code" = "200" ]; then
-              echo "OK apres ${i}s"
+              echo "OK après ${i}s"
               exit 0
             fi
             sleep 1
@@ -93,7 +93,7 @@ jobs:
           echo "Timeout : /sante n'a jamais rendu 200"
           exit 1
 
-      - name: Verifier les routes
+      - name: Vérifier les routes
         run: |
           code_sante=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/sante)
           code_racine=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/)
@@ -101,6 +101,6 @@ jobs:
           echo "sante=$code_sante racine=$code_racine profil=$code_profil"
           [ "$code_sante" = "200" ] && [ "$code_racine" = "200" ] && [ "$code_profil" = "401" ]
 
-      - name: Logs de l'API en cas d'echec
+      - name: Journal de l’API en cas d’échec
         if: failure()
         run: docker logs api
