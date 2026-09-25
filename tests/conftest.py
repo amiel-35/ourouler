@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import itertools
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -88,3 +89,29 @@ def _cache_isole(request, monkeypatch, _caches_de_test):
     # Le défaut du champ de la dataclass est figé à sa définition : on le
     # remplace là où `ParametresCache()` le lit.
     monkeypatch.setattr(module_config.ParametresCache.__init__, "__defaults__", (dossier, None))
+
+
+@pytest.fixture
+def fuseau_de_paris(monkeypatch):
+    """Le fuseau du système posé à Europe/Paris le temps d'un test, puis rendu.
+
+    `--depart 09:00` se lit en **heure locale de la machine** (`heure_depart`,
+    contrat de la CLI). Les bouchons Open-Meteo de `test_boucle_commande.py`,
+    `test_sortie_commande.py` et `fabriques_l53.py` rendent une série figée qui
+    commence à 06:00 **UTC**, sans lire `start_hour` : ils ont été calibrés sur
+    le Mac du mainteneur, où 09:00 local vaut 07:00 UTC. Sous TZ=UTC (CI,
+    conteneur), le même 09:00 tombe à la fin de la série et la pluie, le vent
+    et la tenue disparaissent. Le fuseau que ces tests supposent est donc dit
+    ici, au lieu d'être emprunté à la machine qui les lance.
+
+    `monkeypatch` rend `TZ` à la fin, mais la libc garde le fuseau chargé
+    tant qu'on ne rappelle pas `tzset()` : sans le second appel, tous les
+    tests suivants hériteraient de Paris.
+    """
+    if not hasattr(time, "tzset"):  # pragma: no cover - Windows
+        pytest.skip("time.tzset() indisponible sur cette plateforme")
+    monkeypatch.setenv("TZ", "Europe/Paris")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()

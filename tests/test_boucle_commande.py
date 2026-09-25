@@ -50,6 +50,11 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 
+# Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
+# `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
+pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
+
+
 CONFIG_BRUTE = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
     "cycliste": {"masse_kg": 80, "ftp_w": 250},
