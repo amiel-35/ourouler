@@ -71,21 +71,37 @@ le « Sonnet par défaut » de CLAUDE.md :
   - `sortie` et `boucle` suivent la météo du moment : on les compare peu
     après, ou sur les champs hors prévision.
 
-**Lots du §5, état au 25/09/2026, 18 h 45** : tout est mergé dans `main`.
-La prod tourne en **v0.9.6** (`9e093f5`).
+**Lots du §5, état au 25/09/2026, 21 h** : tout est mergé dans `main`, et la prod
+tourne en **v0.9.6**.
 
-| Lot | PR | État |
-|---|---|---|
-| Plan et décisions | #30 | mergé |
-| Tests portables (fuseau, flottants, `.gitignore`) | #34 | mergé |
-| 0a — CI (python 3.12, front, image) | #31 | mergé ; **protection de `main` à poser par le mainteneur** |
-| 0c — contrat d'API figé | #33 | mergé |
-| Rétro-changelog, étiquettes `v0.1.0` → `v0.9.6` | #32 | mergé, étiquettes posées |
-| Démarche et guide de la ligne de commande (1ᵉʳ temps du lot README) | #38 | mergé |
-| Correctifs de prod 0.9.4 (fuseau), 0.9.5 (message de la clé), 0.9.6 (accueil après branchement, cache du front, UTF-8) | #35, #37, #39 | **en prod** |
-| Backlog : l'heure de la séance du jour | #36 | mergé |
-| gitleaks | — | historique passé : 1 faux positif ; job de CI et `.gitleaksignore` à faire |
-| 0b, 0d, garde réseau, 0f, lot 1, lot 2, ARCHITECTURE, CONTRIBUTING, AGENTS, README | — | à faire |
+| Fait | PR |
+|---|---|
+| Plan et décisions, tests portables, CI (0a), contrat d'API (0c) | #30, #34, #31, #33 |
+| Rétro-changelog, étiquettes `v0.1.0` → `v0.9.6` | #32 |
+| Correctifs en prod : 0.9.4, 0.9.5, 0.9.6 | #35, #37, #39 |
+| **0b** : sorties de référence (CLI et API) | #46 |
+| **0b bis** : trous du filet comblés d'après la relecture Fable (calibration, hébergé, avertissements, texte, carte, horloge) | #48 |
+| README réécrit (relu par Fable), démarche et guide | #42, #38 |
+| ARCHITECTURE, CONTRIBUTING, SECURITY, AGENTS, CLAUDE.md réduit (+ `CLAUDE.local.md` local) | #44, #43, #45 |
+| Brut du chantier rangé dans `docs/journal/`, tel quel | #47 |
+| Backlog : l'heure de la séance du jour ; le consentement sur les données | #36, #41 |
+
+**Reste avant l'ouverture**, dans l'ordre :
+1. 0d : fichiers de compatibilité ;
+2. garde réseau pour tous les tests ;
+3. job gitleaks et `.gitleaksignore` ;
+4. 0f : répétition du retour arrière, avec le mainteneur ;
+5. **lot 1** : contrat d'imports en constat ;
+6. **lot 2** : règles ruff ;
+7. une source unique de version (`/sante` et `--version` disent encore `0.0.1`) ;
+8. la purge des commentaires historiques (Q4), à commencer par `config.example.toml`, `front/README.md` et `deploiement/api/README.md` ;
+9. **une recette BRouter** : sans elle, `boucle` et `sortie` sont inaccessibles à un nouveau venu ;
+10. l'anonymisation de `docs/journal/` (lieux et chiffres, sans toucher au ton) ;
+11. `front/.vite/deps/` retiré du dépôt ;
+12. le nettoyage des branches ;
+13. réglages GitHub : protection de `main` et signalement privé des failles.
+
+**Verdict Fable sur le filet (après #48)** : il suffit pour les lots 3 et 4. Pour les lots 5 à 11, chaque lot a désormais une référence qui dépend de ce qu'il déplace. Restent hors filet : les comptes réels en base (lot 5), la calibration lancée par l'API (lot 7), P3 (lot 8), le double chemin (lot 11) et le front (lot 14).
 
 **Appris en livrant les correctifs :**
 - un redéploiement coupe le service environ 20 s (503) ;
