@@ -968,6 +968,37 @@ def test_un_depot_de_parcours_en_flux_sans_longueur_est_coupe_a_la_borne(tmp_pat
     assert reponse.json()["erreur"]["code"] == "fichier_trop_gros"
 
 
+def test_un_parcours_en_deux_segments_disjoints_le_dit_des_le_depot(tmp_path: Path):
+    """Deux segments d'une même trace, 5 km d'écart : enchaînés, et le trou est dit."""
+    km = 1.0 / 111.19493
+
+    def seg(debut_km: int, fin_km: int) -> str:
+        points = [f'<trkpt lat="0" lon="{d * km:.7f}"/>' for d in range(debut_km, fin_km + 1)]
+        return "<trkseg>" + "".join(points) + "</trkseg>"
+
+    gpx = f"<gpx><trk><name>BRM</name>{seg(0, 10)}{seg(15, 30)}</trk></gpx>".encode()
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("brm.gpx", gpx, "application/gpx+xml")},
+    )
+    assert reponse.status_code == 200, reponse.text
+    apercu = reponse.json()["apercu"]
+    assert apercu["distance_km"] == pytest.approx(30.0, rel=0.01)
+    assert apercu["avertissements"] == [
+        "2 morceaux enchaînés, dans l'ordre du fichier",
+        "un trou de 5 km entre la trace 1 (segment 1) et la trace 1 (segment 2), compté "
+        "en ligne droite dans la distance et la durée",
+    ]
+
+
+def test_un_parcours_d_une_seule_trace_n_avertit_de_rien(tmp_path: Path):
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("club.gpx", _gpx_parcours(), "application/gpx+xml")},
+    )
+    assert reponse.json()["apercu"]["avertissements"] == []
+
+
 #: Le quota de `POST /parcours/analyser` (mode hébergé) est testé à part,
 #: dans `test_api_quotas.py` — c'est là que vivent les autres tests de
 #: `quotas_meteo`, et le serveur de ce module tourne en mode personnel, où

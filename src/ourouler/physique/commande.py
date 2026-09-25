@@ -19,12 +19,12 @@ import math
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.boucle.geometrie import geometrie_json
-from ourouler.boucle.gpx import lire_gpx_trace
+from ourouler.boucle.gpx import lire_gpx_parcours, lire_gpx_trace
 from ourouler.boucle.horaire import Pause, analyser_pause, construire_horaire, valider_pauses
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
@@ -1160,12 +1160,24 @@ def executer_analyser(
     vallonné, c'est très différent d'une vitesse moyenne plate, et c'est tout l'intérêt :
     la météo d'un col à 12 km/h n'est pas celle d'une plaine à 30.
 
+    **Les heures de passage sont celles du porte à porte** (L9.8, relecture) : le
+    temps en mouvement à vent nul, multiplié par la médiane de la fourchette L9.1
+    du vélo (mesurée ou convention). Sur un 600 km, caler la météo sur le seul
+    temps en mouvement la décalait de plusieurs heures — les arrêts arrivent
+    bien, eux aussi.
+
     **Horizon météo** : au-delà de `config.meteo.horizon_jours`, aucun appel n'est fait —
     la durée est rendue sans météo, et le dit (même mécanisme que `ourouler boucle`,
     `meteo.portee`). Un 600 km dépasse presque toujours la portée horaire utile du modèle
     régional (AROME) avant son arrivée : `boucle.meteo_trace.evaluer` bascule alors sur
     `second_avis` pour la fin du parcours, et chaque échantillon dit lequel a répondu
-    (`Echantillon.modele`) — jamais mélangé en silence (règle absolue 5).
+    (`Echantillon.modele`) — jamais mélangé en silence (règle absolue 5). Un
+    parcours parti le dernier jour couvert qui arrive le lendemain : les
+    échantillons d'après la fin de ce jour sont vides et marqués
+    `au_dela_prevision`, jamais présentés comme une prévision.
+
+    **Plusieurs traces** : lues toutes, enchaînées (`boucle.gpx.lire_gpx_parcours`),
+    et chaque trou franchi en ligne droite est dit.
     """
     chemin_gpx = getattr(args, "gpx", None)
     if not chemin_gpx:
@@ -1184,7 +1196,9 @@ def executer_analyser(
 
     depart_dt = heure_depart(depart_brut)
 
-    trace = lire_gpx_trace(chemin_gpx)
+    trace, avertissements_trace = lire_gpx_parcours(chemin_gpx)
+    for avertissement in avertissements_trace:
+        print(f"ourouler : {avertissement}", file=sys.stderr)
     if trace.distance_m > DISTANCE_MAX_ANALYSE_M:
         raise ErreurUtilisateur(
             f"analyser : {trace.distance_m / 1000:.0f} km, au-delà des "
@@ -1210,6 +1224,7 @@ def executer_analyser(
     puissance = float(puissance)
 
     client = client_meteo if client_meteo is not None else ClientOpenMeteo()
+    fourchette = fourchette_du_velo(velo, chemin_calibration(config))
 
     dernier_jour = portee.dernier_jour_couvert(config.meteo.horizon_jours, aujourdhui=date.today())
     jour_demande = depart_dt.date()
@@ -1219,13 +1234,21 @@ def executer_analyser(
 
     meteo: MeteoTrace | None = None
     panne: str | None = None
+    vitesse_a_vent_nul = _vitesse_a_vent_nul(trace, puissance, parametres, config)
     if meteo_absente is None:
-        vitesse_meteo = _vitesse_a_vent_nul(trace, puissance, parametres, config)
+        # Porte à porte, pas en mouvement : la vitesse « de montre », arrêts
+        # compris, à la médiane de la fourchette du vélo.
+        vitesse_montre = vitesse_a_vent_nul / fourchette.mediane
+        fuseau = depart_dt.tzinfo or UTC
+        fin_de_prevision = datetime.combine(
+            dernier_jour + timedelta(days=1), time(0), tzinfo=fuseau
+        )
         try:
             meteo = evaluer_meteo(
                 trace,
                 client,
-                horaire=construire_horaire(depart_dt, vitesse_meteo),
+                horaire=construire_horaire(depart_dt, vitesse_montre),
+                limite=fin_de_prevision,
                 modele=config.meteo.modele,
                 second_avis=config.meteo.second_avis,
                 # Même repli que `boucle`/`sortie` (Q19) : un parcours plus
@@ -1240,7 +1263,6 @@ def executer_analyser(
     vent = vent_depuis_meteo(meteo) if meteo is not None else None
     simulation = simuler(trace, puissance, parametres, vent=vent)
 
-    fourchette = fourchette_du_velo(velo, chemin_calibration(config))
     ecoule = temps_ecoule(simulation.temps_s, fourchette)
     arrivee_bas = depart_dt + timedelta(seconds=ecoule.bas_s)
     arrivee_mediane = depart_dt + timedelta(seconds=ecoule.mediane_s)
@@ -1257,7 +1279,8 @@ def executer_analyser(
                 rendre_json_analyse(
                     simulation, trace, velo, parametres, provenance, puissance, meteo,
                     ecoule, depart_dt, arrivee_bas, arrivee_mediane, arrivee_haut, alerte,
-                    meteo_absente,
+                    meteo_absente, fourchette, panne, avertissements_trace,
+                    vitesse_a_vent_nul,
                 ),
                 ensure_ascii=False,
                 indent=2,
@@ -1335,12 +1358,22 @@ def rendre_texte_analyse(
             f"Vent : face sur {meteo.part_vent_face:.0%} des échantillons "
             f"({meteo.n_vent_connu}/{len(meteo.echantillons)} connus), "
             f"pluie cumulée {_fr(meteo.pluie_cumulee_mm, 1)} mm"
+            + (" (sur la partie prévue)" if _debut_au_dela(meteo) is not None else "")
         )
         if meteo.repli and meteo.bascule_dist_m is not None:
             lignes.append(
                 f"  au-delà du km {meteo.bascule_dist_m / 1000:.0f}, la prévision vient du "
                 "second modèle (portée horaire du principal dépassée)"
             )
+        debut_au_dela = _debut_au_dela(meteo)
+        if debut_au_dela is not None:
+            lignes.append(
+                f"  à partir du km {debut_au_dela / 1000:.0f} : au-delà de la prévision, "
+                "pas de météo"
+            )
+        lignes.append(
+            "  (heures de passage estimées porte à porte, arrêts compris)"
+        )
     if alerte:
         lignes.append(alerte)
     return "\n".join(lignes)
@@ -1361,6 +1394,10 @@ def rendre_json_analyse(
     arrivee_haut: datetime,
     alerte: str | None,
     meteo_absente,
+    fourchette: FourchettePorteAPorte,
+    panne: str | None,
+    avertissements_trace: list[str],
+    vitesse_a_vent_nul_kmh: float,
 ) -> dict:
     return {
         "nom": trace.nom,
@@ -1394,7 +1431,24 @@ def rendre_json_analyse(
         "heure_arrivee": arrivee_mediane.isoformat(),
         "heure_arrivee_bas": arrivee_bas.isoformat(),
         "heure_arrivee_haut": arrivee_haut.isoformat(),
+        # La fourchette elle-même, pour le dépliant « d'où viennent ces
+        # chiffres » : sa médiane date aussi les échantillons météo.
+        "porte_a_porte": {
+            "bas": fourchette.bas,
+            "mediane": fourchette.mediane,
+            "haut": fourchette.haut,
+            "provenance": fourchette.provenance,
+            "n": fourchette.n,
+        },
+        # La vitesse qui a daté les échantillons météo, divisée par la
+        # médiane ci-dessus : à vent nul (le vent attendu dépend de l'heure,
+        # qui dépend du vent — second ordre, voir `_vitesse_a_vent_nul`).
+        "vitesse_a_vent_nul_kmh": round(vitesse_a_vent_nul_kmh, 3),
         "meteo_absente": None if meteo_absente is None else meteo_absente.json(),
+        # La panne Open-Meteo, dite à part : l'API rembourse la consultation
+        # quand aucune météo n'a été rendue.
+        "meteo_panne": panne,
+        "avertissements_trace": avertissements_trace,
         "meteo": _meteo_json_analyse(meteo),
         # Même forme que `boucle._candidate_json["trace"]` (F0.1) : `points`
         # pour la carte, `profil` pour la courbe d'altitude — le front
@@ -1427,6 +1481,9 @@ def _meteo_json_analyse(meteo: MeteoTrace | None) -> dict | None:
         "bascule_dist_m": (
             None if meteo.bascule_dist_m is None else round(meteo.bascule_dist_m, 1)
         ),
+        # Le premier kilomètre (en mètres) passé **au-delà de la prévision** —
+        # `None` si tout le parcours est couvert.
+        "au_dela_prevision_dist_m": _debut_au_dela(meteo),
         "fleches_vent": fleches_vent(meteo),
         "echantillons": [
             {
@@ -1438,10 +1495,19 @@ def _meteo_json_analyse(meteo: MeteoTrace | None) -> dict | None:
                 "vent_relatif": e.vent_relatif,
                 "ressenti_c": e.ressenti_c,
                 "modele": e.modele,
+                "au_dela_prevision": e.au_dela_prevision,
             }
             for e in meteo.echantillons
         ],
     }
+
+
+def _debut_au_dela(meteo: MeteoTrace) -> float | None:
+    """La distance du premier échantillon au-delà de la prévision, ou `None`."""
+    for e in meteo.echantillons:
+        if e.au_dela_prevision:
+            return round(e.dist_m, 1)
+    return None
 
 
 def rendre_texte_simulation(

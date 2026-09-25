@@ -306,6 +306,64 @@ def test_analyser_un_parcours_a_son_propre_plafond_distinct_des_generations(tmp_
     assert "météo" in charge["message"].lower()
 
 
+def test_une_analyse_ratee_rend_la_consultation_meteo(tmp_path: Path):
+    """Décision du superviseur (25/09/2026) : seule une météo rendue consomme.
+
+    Plafond à 1 : chaque échec ci-dessous, s'il consommait, ferait refuser le
+    succès final en 429.
+    """
+    from ourouler.api.depots import DepotFichiers
+
+    client = client_hors_reseau(
+        tmp_path, quotas_meteo=Quotas(plafond=1, libelle="consultations météo")
+    )
+    activer_compte(client, "essai-a")
+
+    # Fichier inexistant : 404.
+    assert analyser_parcours(client, "0" * 32, "essai-a").status_code == 404
+
+    # GPX refusé par le cœur (un seul point, déposé sans passer par la
+    # route qui le refuserait dès le dépôt) : 400.
+    un_point = DepotFichiers(tmp_path / "cache" / "api").deposer(
+        Proprietaire("essai-a"),
+        "un-point.gpx",
+        b'<gpx><trk><trkseg><trkpt lat="0" lon="0"/></trkseg></trk></gpx>',
+    )
+    assert analyser_parcours(client, un_point.identifiant, "essai-a").status_code == 400
+
+    # Heure de départ illisible : l'erreur tombe dans le cœur, 400.
+    gpx_id = deposer_parcours(client, "essai-a")
+    reponse = client.post(
+        "/api/v1/parcours/analyser",
+        json={"gpx": gpx_id, "heure_depart": "demain à l'aube"},
+        headers={"x-compte-essai": "essai-a"},
+    )
+    assert reponse.status_code == 400, reponse.text
+
+    # Le crédit est toujours là.
+    assert analyser_parcours(client, gpx_id, "essai-a").status_code == 200
+    assert analyser_parcours(client, gpx_id, "essai-a").status_code == 429
+
+
+def test_une_analyse_sans_meteo_par_panne_rend_la_consultation(tmp_path: Path):
+    """Open-Meteo en panne : la durée est servie (200), mais sans météo — la
+    consultation n'a rien rapporté, elle est rendue."""
+    client = serveur(
+        tmp_path,
+        quotas_meteo=Quotas(plafond=1, libelle="consultations météo"),
+        session=SessionParEnTete(),
+        meteo=moteur_meteo(en_panne=True),
+    )
+    activer_compte(client, "essai-a")
+    gpx_id = deposer_parcours(client, "essai-a")
+    for _ in range(3):
+        reponse = analyser_parcours(client, gpx_id, "essai-a")
+        assert reponse.status_code == 200, reponse.text
+        donnees = reponse.json()["donnees"]
+        assert donnees["meteo"] is None
+        assert donnees["meteo_panne"]
+
+
 # --- isolation entre comptes ---------------------------------------------------
 
 

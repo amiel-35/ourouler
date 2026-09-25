@@ -15,7 +15,12 @@ import { App } from "../src/App";
 import { Serveur } from "./serveur";
 import { PROFIL, SEANCE, SEMAINE, SYSTEME, sortie, zones } from "./fixtures";
 
-const APERCU = { nom: "Imposé du club", distance_km: 42.0, denivele_m: 310 };
+const APERCU = {
+  nom: "Imposé du club",
+  distance_km: 42.0,
+  denivele_m: 310,
+  avertissements: ["3 traces enchaînées, dans l'ordre du fichier"],
+};
 
 const ANALYSE = {
   donnees: {
@@ -31,6 +36,9 @@ const ANALYSE = {
     temps_ecoule_bas_s: 6600,
     temps_ecoule_haut_s: 7100,
     temps_ecoule_source: "defaut",
+    porte_a_porte: { bas: 1.05, mediane: 1.08, haut: 1.13, provenance: "defaut", n: 0 },
+    meteo_panne: null,
+    avertissements_trace: [],
     heure_arrivee: "2026-09-20T09:53:20+00:00",
     heure_arrivee_bas: "2026-09-20T09:50:00+00:00",
     heure_arrivee_haut: "2026-09-20T10:01:40+00:00",
@@ -47,6 +55,7 @@ const ANALYSE = {
       modele_utilise: "meteofrance_arome_france_hd",
       repli: false,
       bascule_dist_m: null as number | null,
+      au_dela_prevision_dist_m: null as number | null,
       fleches_vent: [],
       echantillons: [],
     },
@@ -99,6 +108,7 @@ describe("analyser un parcours déjà en main (L9.8)", () => {
     await utilisateur.upload(champ, fichier);
 
     expect(await screen.findByText(APERCU.nom)).toBeTruthy();
+    expect(screen.getByText("3 traces enchaînées, dans l'ordre du fichier")).toBeTruthy();
 
     const champHeure = (await screen.findByLabelText(/Heure de départ/)) as HTMLInputElement;
     await utilisateur.type(champHeure, "2026-09-20T08:00");
@@ -110,6 +120,9 @@ describe("analyser un parcours déjà en main (L9.8)", () => {
       expect(await screen.findByText(/entre 1 h 50 et 1 h 58/)).toBeTruthy();
     });
     expect(screen.getByText(/165 W/)).toBeTruthy();
+    // Le dépliant dit que la météo est datée au porte à porte.
+    expect(screen.getByText(/l'heure de passage suit le porte à porte/)).toBeTruthy();
+    expect(screen.queryByText(/au-delà\s+de la prévision/)).toBeNull();
   });
 
   it("dit la bascule vers le second modèle et le jour d'une arrivée le lendemain (relecture)", async () => {
@@ -121,7 +134,12 @@ describe("analyser un parcours déjà en main (L9.8)", () => {
         heure_arrivee: "2026-09-21T07:30:00+02:00",
         heure_arrivee_bas: "2026-09-21T07:00:00+02:00",
         heure_arrivee_haut: "2026-09-21T08:00:00+02:00",
-        meteo: { ...ANALYSE.donnees.meteo, repli: true, bascule_dist_m: 210020.4 },
+        meteo: {
+          ...ANALYSE.donnees.meteo,
+          repli: true,
+          bascule_dist_m: 210020.4,
+          au_dela_prevision_dist_m: 250000.0,
+        },
       },
     });
     const utilisateur = userEvent.setup();
@@ -137,5 +155,6 @@ describe("analyser un parcours déjà en main (L9.8)", () => {
 
     expect(await screen.findByText(/Au-delà du km 210, la prévision vient du\s+second modèle/)).toBeTruthy();
     expect(screen.getByText(/Arrivée estimée entre lundi 21 septembre/)).toBeTruthy();
+    expect(screen.getByText(/À partir du km 250, au-delà\s+de la prévision : pas de météo/)).toBeTruthy();
   });
 });

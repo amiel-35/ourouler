@@ -137,11 +137,13 @@ routeur = APIRouter(prefix="/api/v1", responses=PANNES_DECLAREES)
 #: kilo-octets ; au-delà d'un mégaoctet, ce n'est plus une séance.
 TAILLE_MAX_SEANCE = 1_000_000
 
-#: Taille maximale d'un GPX déposé pour être analysé (L9.8) — un Flèche ou un
-#: BRM de 600 km, décrit à quelques dizaines de mètres près, pèse quelques
-#: mégaoctets ; 20 Mo laisse large sans ouvrir la porte à un dépôt abusif.
+#: Taille maximale d'un GPX déposé pour être analysé (L9.8) — un BRM de
+#: 600 km, un point tous les 10 m, pèse environ 4 Mo. Ramené de 20 à 5 Mo
+#: à la relecture : la lecture (gpxpy) coûte en mémoire environ 24 fois la
+#: taille du fichier — mesuré le 25/09/2026, +465 Mo de pic pour 20 Mo,
+#: +120 Mo pour 5 Mo (dépôt 0,8 s, analyse 1,1 s).
 #: `physique.commande.DISTANCE_MAX_ANALYSE_M` borne ensuite le contenu lu.
-TAILLE_MAX_PARCOURS = 20_000_000
+TAILLE_MAX_PARCOURS = 5_000_000
 
 
 #: **La convention d'injection de l'API, tranchée le 17/09/2026.**
@@ -1842,11 +1844,11 @@ async def deposer_parcours(
     # Lu tout de suite : un GPX mal formé ou trop long se dit au dépôt, pas
     # à l'analyse — même geste que `/seances/fichier`, qui lit la séance
     # déposée avant de rendre la main.
-    from ourouler.boucle.gpx import lire_gpx_trace
+    from ourouler.boucle.gpx import lire_gpx_parcours
     from ourouler.physique.commande import DISTANCE_MAX_ANALYSE_M
 
     try:
-        trace = lire_gpx_trace(depose.chemin)
+        trace, avertissements_trace = lire_gpx_parcours(depose.chemin)
     except ErreurUtilisateur as e:
         raise classer(e, chemins=chemins) from e
     if len(trace.points) < 2 or trace.distance_m <= 0:
@@ -1869,6 +1871,9 @@ async def deposer_parcours(
             "nom": trace.nom,
             "distance_km": round(trace.distance_m / 1000.0, 3),
             "denivele_m": trace.denivele_m,
+            # « 3 traces enchaînées », « un trou de 12 km entre… » — dit dès
+            # le dépôt, avant qu'on règle l'heure de départ.
+            "avertissements": avertissements_trace,
         },
     }
 
@@ -1884,33 +1889,42 @@ def analyser_parcours(
     `ourouler simuler` retourné dans l'autre sens (voir la docstring
     d'`executer_analyser`) : le GPX n'est pas une candidate choisie par le moteur, c'est
     celui qu'on va rouler — l'imposé d'un brevet, une boucle de club. Compte dans les
-    **consultations météo** (`ctx.quotas_meteo`), pas dans les générations : comme
-    `GET /meteo`, ni panne ni parcours trop long n'y consomme moins qu'un succès, donc pas
-    de remboursement (même choix que `GET /meteo`, voir `_verifier_quota`).
+    **consultations météo** (`ctx.quotas_meteo`), pas dans les générations.
+
+    **Seule une météo rendue consomme la consultation** (décision du superviseur,
+    25/09/2026) : fichier introuvable, GPX refusé, toute erreur — et aussi une
+    réponse 200 **sans** météo (panne Open-Meteo, départ au-delà de l'horizon), où
+    la durée est servie mais la consultation n'a rien rapporté — la rembourse.
     """
     from ourouler.physique import commande as physique
 
     _verifier_quota(ctx, qui, ctx.quotas_meteo)
-    config = _config(ctx, qui)
     try:
-        gpx = ctx.fichiers.trouver(qui, demande.gpx)
-    except ErreurUtilisateur as e:
-        raise ErreurApi(code="fichier_introuvable", message=str(e), statut=404) from e
-    resultat = executer_commande(
-        physique.executer_analyser,
-        namespace(
-            gpx=str(gpx.chemin),
-            puissance=demande.puissance_w,
-            velo=demande.velo,
-            depart=demande.heure_depart,
-        ),
-        config,
-        secrets=secrets_de(config),
-        chemins={str(gpx.chemin): gpx.nom},
-        operation="analyse",
-        budgets=ctx.budgets,
-        client_meteo=_service(ctx, config, "meteo"),
-    )
+        config = _config(ctx, qui)
+        try:
+            gpx = ctx.fichiers.trouver(qui, demande.gpx)
+        except ErreurUtilisateur as e:
+            raise ErreurApi(code="fichier_introuvable", message=str(e), statut=404) from e
+        resultat = executer_commande(
+            physique.executer_analyser,
+            namespace(
+                gpx=str(gpx.chemin),
+                puissance=demande.puissance_w,
+                velo=demande.velo,
+                depart=demande.heure_depart,
+            ),
+            config,
+            secrets=secrets_de(config),
+            chemins={str(gpx.chemin): gpx.nom},
+            operation="analyse",
+            budgets=ctx.budgets,
+            client_meteo=_service(ctx, config, "meteo"),
+        )
+    except Exception:
+        _rembourser_quota(ctx, qui, ctx.quotas_meteo)
+        raise
+    if resultat.donnees.get("meteo") is None:
+        _rembourser_quota(ctx, qui, ctx.quotas_meteo)
     return resultat.enveloppe(ctx.budgets.budget("analyse"), qui)
 
 

@@ -16,7 +16,7 @@
 import { useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { Analyse, ApercuParcours } from "../api/types";
-import { duree, entreDurees, heure, kmDepuisKm, nombre } from "../api/formats";
+import { duree, enPlus, entreDurees, heure, kmDepuisKm, nombre } from "../api/formats";
 import { Carte, LegendeVent } from "../composants/Carte";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, Echec, meteoManquante } from "../composants/Echec";
@@ -148,6 +148,11 @@ export function AnalyserParcours({ vers, surRetour }: Props) {
             {kmDepuisKm(etape.apercu.distance_km)}
             {etape.apercu.denivele_m !== null ? `, ${nombre(etape.apercu.denivele_m)} m D+` : ""}
           </p>
+          {etape.apercu.avertissements.map((phrase) => (
+            <p className="mention" key={phrase}>
+              <span>{phrase}</span>
+            </p>
+          ))}
           <label>
             Heure de départ
             <input
@@ -211,7 +216,35 @@ export function AnalyserParcours({ vers, surRetour }: Props) {
                 second modèle : la portée du modèle principal est dépassée.
               </p>
             ) : null}
+            {resultat.meteo?.au_dela_prevision_dist_m != null ? (
+              <p className="mention">
+                <span>
+                  À partir du km {nombre(resultat.meteo.au_dela_prevision_dist_m / 1000)}, au-delà
+                  de la prévision : pas de météo.
+                </span>
+              </p>
+            ) : null}
             <p className="mention">Puissance tenue : {nombre(resultat.puissance_w)} W.</p>
+            <details>
+              <summary>D'où viennent ces chiffres</summary>
+              <p className="mention">
+                <b>Sans un seul arrêt</b> : le temps calculé sur ce parcours-ci, avec ses côtes et
+                le vent prévu.
+              </p>
+              <p className="mention">
+                <b>Porte à porte</b> : on y ajoute de {enPlus(resultat.porte_a_porte.bas)} à{" "}
+                {enPlus(resultat.porte_a_porte.haut)} pour les feux, les pauses et les relances —{" "}
+                {resultat.porte_a_porte.provenance === "mesure"
+                  ? `mesuré sur vos ${nombre(resultat.porte_a_porte.n)} sorties roulées seul.`
+                  : "convention, pas encore mesurée sur vos sorties."}
+              </p>
+              <p className="mention">
+                <b>La météo de chaque tronçon</b> est celle de l'heure où vous y passerez, arrêts
+                compris : l'heure de passage suit le porte à porte (
+                {enPlus(resultat.porte_a_porte.mediane)} sur le temps sans arrêt), pas le seul
+                temps en roulant.
+              </p>
+            </details>
             {resultat.meteo ? (
               <JaugePluie
                 mm={resultat.meteo.pluie_cumulee_mm ?? 0}
