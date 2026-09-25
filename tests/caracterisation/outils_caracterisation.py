@@ -545,6 +545,13 @@ def preparer(monkeypatch: pytest.MonkeyPatch) -> Rejeu:
 #: remplacement par un marqueur plutôt qu'une suppression.
 UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 HEX_LONG = re.compile(r"\b[0-9a-f]{24,}\b")
+#: Un chemin temporaire que le texte a **tronqué** (colonne « nom » du
+#: tableau de `calibrer`, coupée à sa largeur) échappe au remplacement exact
+#: ci-dessous : il ne reste qu'un préfixe, propre à la machine
+#: (`/private/var/folders/…` sous macOS, `/tmp/pytest-of-…` sous Linux).
+#: Constaté par la CI le 25/09/2026. Tout reste de dossier temporaire devient
+#: donc `<TMP>`, jusqu'au prochain blanc.
+CHEMIN_TEMPORAIRE = re.compile(r"(?:/private)?/(?:var/folders|tmp)/\S*")
 
 
 def normaliser(valeur: Any, remplacements: dict[str, str]) -> Any:
@@ -565,6 +572,7 @@ def _normaliser_texte(texte: str, remplacements: dict[str, str]) -> str:
     # Les plus longs d'abord : un chemin temporaire en contient un autre.
     for avant in sorted(remplacements, key=len, reverse=True):
         texte = texte.replace(avant, remplacements[avant])
+    texte = CHEMIN_TEMPORAIRE.sub("<TMP>", texte)
     texte = UUID.sub("<UUID>", texte)
     return HEX_LONG.sub("<HEX>", texte)
 
