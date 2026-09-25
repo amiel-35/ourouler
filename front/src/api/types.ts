@@ -309,6 +309,84 @@ export interface JobImport {
 }
 
 /**
+ * Une calibration, en mots simples — `GET /calibrations` et le rapport d'un
+ * job de calibration (L9.4).
+ *
+ * Ce qui se montre d'abord : la puissance qu'il faut à `vitesse_repere_kmh`
+ * sur le plat sans vent, l'erreur mesurée sur des sorties que le calcul
+ * n'avait pas vues, la fourchette du porte à porte, le nombre de sorties.
+ * `detail` (CdA, Crr) ne se montre que replié : ce sont des paramètres de
+ * compensation — ils absorbent aussi l'étalonnage du capteur —, pas des
+ * mesures du vélo à comparer à un catalogue.
+ */
+export interface ResumeCalibration {
+  velo: string;
+  date: string | null;
+  provenance: "mesure";
+  puissance_repere_w: number;
+  vitesse_repere_kmh: number;
+  n_sorties: number;
+  n_validation: number;
+  /** Erreur absolue moyenne sur le temps en mouvement, en fraction (0,035 = 3,5 %). */
+  erreur_validation: number | null;
+  biais_validation: number | null;
+  porte_a_porte: {
+    bas: number;
+    mediane: number;
+    haut: number;
+    n: number;
+    provenance: "mesure" | "defaut";
+  };
+  /** « pneu », « configuration », « usage » (aucun pneu déclaré) ou « ajuste ». */
+  crr_source: string | null;
+  pneu: string | null;
+  /** « pneu changé depuis la calibration, relancez-la », ou `null`. */
+  alerte: string | null;
+  detail: { cda_m2: number; crr: number; masse_totale_kg: number };
+}
+
+/** Ce que rendent `POST /calibrations` (202) et `GET /calibrations/{id}` (L9.4). */
+export interface JobCalibration {
+  id: string;
+  statut: "en_cours" | "fini" | "echoue";
+  traites: number;
+  total: number;
+  /** « lecture » (des fichiers), « meteo » (archives du jour), « ajustement ». */
+  etape: "" | "lecture" | "meteo" | "ajustement";
+  nature: "calibration";
+  sujet: string | null;
+  rapport: {
+    calibration: ResumeCalibration | null;
+    sorties_lues: number;
+    sorties_apprentissage: number;
+    sorties_groupe: number;
+    archives_meteo_manquantes: number;
+    repli: string | null;
+  } | null;
+  erreur: string | null;
+}
+
+/** Un vélo dans `GET /calibrations` : sa calibration, ce qui la permettrait, la tâche récente. */
+export interface EtatCalibrationVelo {
+  velo: string;
+  calibration: ResumeCalibration | null;
+  sorties_disponibles: number;
+  sorties_ecartees: Record<string, number>;
+  pneu: string | null;
+  crr_connu: boolean;
+  crr_usage: number;
+  tache: JobCalibration | null;
+}
+
+export interface EtatCalibrations {
+  sorties_necessaires: number;
+  ftp_renseignee: boolean;
+  velos: EtatCalibrationVelo[];
+  /** Absent en mode personnel (pas de quota). */
+  quota?: { plafond: number; restant: number };
+}
+
+/**
  * Le GPX d'une proposition (Q40 g). Pas d'`id` : ce n'est pas un fichier
  * rangé quelque part, c'est une adresse qui le fabrique à l'appel — rien
  * n'est écrit tant que le cycliste n'a pas choisi.

@@ -14,7 +14,9 @@ import type {
   Boucle,
   DonneesSeules,
   Enveloppe,
+  EtatCalibrations,
   EtatImport,
+  JobCalibration,
   Geocodage,
   Invitation,
   JobImport,
@@ -540,6 +542,23 @@ export const api = {
 
   /** L'état d'un import lancé par `importerActivites` — à interroger périodiquement. */
   suivreImport: (id: string) => appeler<Enveloppe<JobImport>>(url(`/activites/import/${id}`)),
+
+  /** Pour chaque vélo : sa calibration, ce qui la permettrait, la tâche récente (L9.4). */
+  etatCalibrations: () => appeler<Enveloppe<EtatCalibrations>>(url("/calibrations")),
+
+  /**
+   * Lance la calibration d'un vélo sur les sorties du cycliste (L9.4). Rend
+   * un `JobCalibration` tout de suite (202) : le calcul relit toutes les
+   * sorties et l'archive météo de chaque jour, il se suit par
+   * `suivreCalibration`. `sansPneu` : calibrer quand même sans pneu déclaré
+   * (la résistance au roulement de l'usage est alors gardée fixe).
+   */
+  calibrer: (velo: string, sansPneu = false) =>
+    poster<Enveloppe<JobCalibration>>("/calibrations", { velo, sans_pneu: sansPneu }),
+
+  /** L'état d'une calibration lancée par `calibrer` — à interroger périodiquement. */
+  suivreCalibration: (id: string) =>
+    appeler<Enveloppe<JobCalibration>>(url(`/calibrations/${id}`)),
 
   // Les deux seuls appels qui calculent : cinq à huit tracés BRouter et
   // autant d'appels Open-Meteo, sérialisés par le verrou de l'API. Ils ont

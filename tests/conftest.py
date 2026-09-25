@@ -87,4 +87,4 @@ def _cache_isole(request, monkeypatch, _caches_de_test):
     monkeypatch.setattr(depots, "CACHE_DEFAUT", dossier)
     # Le défaut du champ de la dataclass est figé à sa définition : on le
     # remplace là où `ParametresCache()` le lit.
-    monkeypatch.setattr(module_config.ParametresCache.__init__, "__defaults__", (dossier,))
+    monkeypatch.setattr(module_config.ParametresCache.__init__, "__defaults__", (dossier, None))

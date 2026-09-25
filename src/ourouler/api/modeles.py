@@ -168,6 +168,21 @@ class DemandeSimulation(Modele):
     heure_depart: TexteUtile | None = None
 
 
+class DemandeCalibration(Modele):
+    """Calibrer un vélo sur ses propres sorties (L9.4)."""
+
+    velo: TexteUtile | None = Field(
+        default=None, description="nom du vélo (défaut : le premier vélo de route du profil)"
+    )
+    sans_pneu: bool = Field(
+        default=False,
+        description=(
+            "calibrer même sans pneu déclaré : la résistance au roulement typique de "
+            "l'usage est alors gardée fixe, et le résultat le dit"
+        ),
+    )
+
+
 class ApercuZones(Modele):
     """Les trois valeurs liées de l'écran de FTP, recalculées **sans rien stocker**.
 

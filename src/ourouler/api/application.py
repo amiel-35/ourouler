@@ -51,7 +51,11 @@ from ourouler.api.depots import (
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
 from ourouler.api.limite_corps import LimiteTailleCorps
-from ourouler.api.quotas import CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, Quotas
+from ourouler.api.quotas import (
+    CALIBRATIONS_PAR_JOUR_DEFAUT,
+    CONSULTATIONS_METEO_PAR_JOUR_DEFAUT,
+    Quotas,
+)
 from ourouler.api.routes import TAILLE_MAX_SEANCE, Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
@@ -149,10 +153,12 @@ def creer_application(
     client_ban: object | None = None,
     client_nominatim: object | None = None,
     client_geocodage: object | None = None,
+    client_archive: object | None = None,
     clients: Clients | None = None,
     budgets: Budgets | None = None,
     quotas: Quotas | None = None,
     quotas_meteo: Quotas | None = None,
+    quotas_calibration: Quotas | None = None,
     session: FournisseurSession | None = None,
     dossier_front: Path | None = None,
 ) -> FastAPI:
@@ -209,7 +215,13 @@ def creer_application(
     l'autre — deux postes de coût différents, deux compteurs. Sans eux,
     `Quotas()` avec son défaut pour chacun — ce que font tous les tests qui
     n'exercent pas le quota. Sans objet en mode personnel : voir
-    `routes._verifier_quota`.
+    `routes._verifier_quota`. `quotas_calibration` (L9.4) est le troisième
+    compteur, une calibration par jour et par compte par défaut
+    (`quotas.CALIBRATIONS_PAR_JOUR_DEFAUT`).
+
+    **`client_archive`** (L9.4) : l'archive météo Open-Meteo que la
+    calibration interroge, un jour de sortie à la fois — un `httpx.Client`
+    bouchonné, ou un client déjà construit, comme les cinq autres.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -257,11 +269,14 @@ def creer_application(
             # réseau n'ait pas à connaître ce détail.
             ban=client_ban or client_geocodage,
             nominatim=client_nominatim or client_geocodage,
+            archive=client_archive,
         ),
         budgets=budgets or Budgets(),
         quotas=quotas or Quotas(),
         quotas_meteo=quotas_meteo
         or Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo"),
+        quotas_calibration=quotas_calibration
+        or Quotas(plafond=CALIBRATIONS_PAR_JOUR_DEFAUT, libelle="calibration(s)"),
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)

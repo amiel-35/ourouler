@@ -226,6 +226,7 @@ def test_supprimer_un_proprietaire_sans_donnees_ne_plante_pas(tmp_path: Path):
     assert reponse.status_code == 200, reponse.text
     assert reponse.json()["donnees"]["supprime"] == {
         "profil": False,
+        "calibration": False,
         "journal_services": False,
         "fichiers": 0,
         "activites": 0,

@@ -88,6 +88,14 @@ GENERATIONS_PAR_JOUR_DEFAUT = 20
 #: userait toutes les deux à fond le même jour.
 CONSULTATIONS_METEO_PAR_JOUR_DEFAUT = 100
 
+#: Le plafond des **calibrations** (`POST /calibrations`, L9.4), compteur
+#: séparé des deux autres. **Une** par jour et par compte : une calibration
+#: relit toutes les sorties du compte et demande l'archive météo de chaque
+#: jour de sortie jamais vu (une fois dans la vie du cache partagé, mais ~150
+#: appels au premier passage d'un historique de 150 jours) — et refaire la
+#: même le même jour ne change rien au résultat. Remboursée si elle échoue.
+CALIBRATIONS_PAR_JOUR_DEFAUT = 1
+
 #: Le code d'erreur du contrat (`api/erreurs.CODES_PANNE`, `Echec.tsx`) —
 #: partagé par les deux quotas : le front n'a qu'un écran à dessiner, le
 #: message dit lequel des deux plafonds est atteint.
@@ -178,6 +186,7 @@ class Quotas:
 
 
 __all__ = [
+    "CALIBRATIONS_PAR_JOUR_DEFAUT",
     "CODE_QUOTA_ATTEINT",
     "CONSULTATIONS_METEO_PAR_JOUR_DEFAUT",
     "GENERATIONS_PAR_JOUR_DEFAUT",
