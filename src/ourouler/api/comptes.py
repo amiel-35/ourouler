@@ -188,6 +188,14 @@ class ErreurInvitationRefusee(ErreurCompte):
     """Le jeton est inconnu, expiré, ou déjà consommé. Le message dit lequel, jamais le jeton."""
 
 
+class ErreurMotDePasseActuelRefuse(ErreurCompte):
+    """L'ancien mot de passe fourni ne correspond pas à celui du compte.
+
+    Levée par `changer_mot_de_passe` — le changement « je connais déjà mon mot de passe,
+    j'en choisis un autre », sous session ouverte, distinct de la réinitialisation par
+    jeton (`changer_mot_de_passe_par_jeton`) qui, elle, ne prouve rien de l'ancien secret."""
+
+
 @dataclass(frozen=True)
 class Compte:
     """L'identité et l'accès : un identifiant opaque, une adresse, l'état, une date.
@@ -598,6 +606,193 @@ class DepotComptes:
             proprietaire=proprietaire,
         )
 
+    # -- réinitialiser : un nouveau mot de passe pour un compte déjà actif ----
+    #
+    # Lot L9.6. Le trou que `inviter` laisse volontairement ouvert : un
+    # compte **actif** qui a perdu son mot de passe n'a aucun moyen d'en
+    # poser un autre. Plutôt qu'un second système de jetons, `reinitialiser`
+    # pose une invitation sur la **même** table `invitations`, avec la même
+    # garantie d'unicité en cours (`invitations_en_cours_unique`) et le même
+    # mécanisme de consommation atomique — voir `_emettre_ou_reprendre`,
+    # partagé avec `inviter`. Ce qui distingue les deux flux n'est donc pas
+    # le jeton, mais ce que sa consommation fait au compte : `activer` pose
+    # `actif = true` et remplit `comptes_proprietaires` (un compte neuf) ;
+    # `changer_mot_de_passe_par_jeton` ne touche ni l'un ni l'autre (déjà en
+    # place) et referme toutes les sessions ouvertes du compte à la place.
+    #
+    # **Aucune route HTTP anonyme n'appelle `reinitialiser`** — décision du
+    # mainteneur, lot L9.6 : un « mot de passe oublié » en libre-service
+    # ouvrirait un relais de spam (poster une adresse au hasard fait partir
+    # un courriel) et un oracle d'énumération (la réponse dirait si l'adresse
+    # a un compte, comme `ErreurCompteExistant` le documente déjà pour
+    # `inviter`). Seul le mainteneur, en ligne de commande
+    # (`ourouler reinitialiser`), émet ce lien — voir `cli.py` et
+    # `deploiement/api/README.md`.
+
+    def reinitialiser(
+        self,
+        email: str,
+        *,
+        duree: timedelta = DUREE_INVITATION,
+        maintenant: datetime | None = None,
+    ) -> InvitationEmise:
+        """Émet un lien de réinitialisation — ou relance celui déjà en cours — pour un compte actif.
+
+        Le pendant exact d'`inviter`, avec la condition inversée : `inviter` refuse un
+        compte déjà actif (`ErreurCompteExistant`), `reinitialiser` l'exige. Une adresse
+        sans compte, ou dont le compte est encore inactif (invité mais jamais activé),
+        est refusée : c'est `inviter` qu'il faut alors, pas `reinitialiser` — les deux
+        commandes ne se chevauchent pas.
+        """
+        normalise = normaliser_email(email)
+        maintenant = _instant(maintenant)
+        identifiant_compte = self._compte_actif_a_reinitialiser(normalise)
+        return self._emettre_ou_reprendre(identifiant_compte, duree=duree, maintenant=maintenant)
+
+    def _compte_actif_a_reinitialiser(self, email_normalise: str) -> str:
+        """L'identifiant du compte actif à réinitialiser, ou un refus qui dit pourquoi."""
+        ligne = self.cx.execute(
+            "SELECT id, actif FROM comptes WHERE lower(email) = %s", (email_normalise,)
+        ).fetchone()
+        if ligne is None:
+            raise ErreurCompte(f"{email_normalise} n'a pas de compte — rien à réinitialiser")
+        identifiant, actif = ligne
+        if not actif:
+            raise ErreurCompte(
+                f"{email_normalise} n'a pas encore de compte actif — « ourouler inviter », "
+                "pas « ourouler reinitialiser », pour une invitation en cours"
+            )
+        return identifiant
+
+    def changer_mot_de_passe_par_jeton(
+        self, jeton: str, nouveau_mot_de_passe: str, *, maintenant: datetime | None = None
+    ) -> Acces:
+        """Pose un nouveau mot de passe depuis un jeton de réinitialisation, et déconnecte tout le monde.
+
+        Le pendant d'`activer`, pour un compte **déjà actif** : consomme l'invitation par
+        le même `UPDATE … WHERE … RETURNING` (même garantie d'usage unique et de course
+        gagnée par une seule des deux tentatives concurrentes), hache et pose le nouveau
+        secret — mais, à la différence d'`activer`, ne touche ni `actif` (déjà vrai) ni
+        `comptes_proprietaires` (déjà rempli depuis l'activation d'origine : reposer une
+        ligne recréerait la correspondance de [[Q46]] sur un identifiant neuf, ce qui
+        casserait le rattachement aux données existantes).
+
+        **Toutes les sessions ouvertes du compte sont fermées ici, à la consommation du
+        jeton — pas avant.** Un lien émis mais pas encore utilisé ne doit déconnecter
+        personne (le mainteneur qui vient d'émettre un lien reste connecté) ; c'est la
+        perte du mot de passe, actée par la pose du nouveau, qui rend caduque toute
+        confiance dans les sessions déjà ouvertes — quelqu'un qui aurait volé l'ancien
+        mot de passe et laissé une session active ne doit pas la garder après coup. Les
+        quatre gestes (consommer, hacher, poser le secret, fermer les sessions) sont dans
+        la **même transaction** qu'`activer` : un incident au milieu laisse tout en
+        arrière, jeton compris.
+        """
+        maintenant = _instant(maintenant)
+        with self.cx.transaction():
+            ligne = self.cx.execute(
+                "UPDATE invitations SET consomme_le = %(quand)s "
+                "WHERE jeton = %(jeton)s "
+                "  AND consomme_le IS NULL "
+                "  AND expire_le > %(quand)s "
+                "RETURNING compte",
+                {"quand": maintenant, "jeton": jeton},
+            ).fetchone()
+            if ligne is None:
+                raise self._invitation_refusee(jeton)
+            identifiant_compte = ligne[0]
+            secret = hacher_mot_de_passe(nouveau_mot_de_passe)
+            compte = self.cx.execute(
+                "UPDATE comptes SET methode_authentification = %s, secret = %s "
+                "WHERE id = %s "
+                "RETURNING id, email, actif, cree_le",
+                (METHODE_MOT_DE_PASSE, secret, identifiant_compte),
+            ).fetchone()
+            self.cx.execute("DELETE FROM sessions WHERE compte = %s", (identifiant_compte,))
+            proprietaire = self.proprietaire_du_compte(identifiant_compte)
+        if compte is None:  # pragma: no cover - la clé étrangère l'interdit
+            raise ErreurCompte("invitation de réinitialisation rattachée à un compte disparu")
+        return Acces(
+            compte=Compte(
+                identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]
+            ),
+            proprietaire=proprietaire,
+        )
+
+    def changer_mot_de_passe(
+        self, identifiant_compte: str, ancien_mot_de_passe: str, nouveau_mot_de_passe: str
+    ) -> None:
+        """Change le mot de passe sous session ouverte — vérifie l'ancien, pose le nouveau.
+
+        À la différence de `changer_mot_de_passe_par_jeton`, l'appelant est déjà
+        authentifié (une session ouverte l'a amené ici) et vient de prouver, en
+        fournissant l'ancien mot de passe, qu'il n'a rien perdu : les autres sessions
+        ouvertes de ce compte ne sont **pas** fermées — rien ne les rend caduques.
+
+        Lève `ErreurMotDePasseActuelRefuse` si `ancien_mot_de_passe` ne correspond pas
+        (compte inconnu ou inactif compris, pour ne pas distinguer les deux cas).
+        """
+        ligne = self.cx.execute(
+            "SELECT secret FROM comptes WHERE id = %s AND actif", (identifiant_compte,)
+        ).fetchone()
+        if ligne is None or not verifier_mot_de_passe(ancien_mot_de_passe, ligne[0]):
+            raise ErreurMotDePasseActuelRefuse("mot de passe actuel refusé")
+        nouveau_secret = hacher_mot_de_passe(nouveau_mot_de_passe)
+        with self.cx.transaction():
+            self.cx.execute(
+                "UPDATE comptes SET secret = %s WHERE id = %s",
+                (nouveau_secret, identifiant_compte),
+            )
+
+    # -- retrouver un compte, pour `ourouler retirer` et le changement de mot de passe --
+
+    def compte_par_email(self, email: str) -> Compte | None:
+        """Le compte pour cette adresse, actif ou non — ou `None` si l'adresse n'a pas de compte.
+
+        Sert `ourouler retirer` (lot L9.6) : trouver le compte visé avant d'en chercher
+        le propriétaire (`proprietaire_du_compte`) et d'effacer ses données.
+        """
+        normalise = normaliser_email(email)
+        ligne = self.cx.execute(
+            "SELECT id, email, actif, cree_le FROM comptes WHERE lower(email) = %s", (normalise,)
+        ).fetchone()
+        if ligne is None:
+            return None
+        return Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3])
+
+    def compte_du_proprietaire(self, proprietaire: Proprietaire) -> Compte | None:
+        """Le compte lié à ce propriétaire — ou `None` (déploiement sans compte, ou orphelin).
+
+        Le sens inverse de `proprietaire_du_compte`, utile à `GET /moi` et
+        `POST /moi/mot-de-passe` : ces deux routes partent d'un `Proprietaire` (résolu par
+        la session) et ont besoin du compte pour, respectivement, en montrer l'adresse et
+        en changer le secret.
+        """
+        ligne = self.cx.execute(
+            "SELECT c.id, c.email, c.actif, c.cree_le FROM comptes c "
+            "JOIN comptes_proprietaires cp ON cp.compte = c.id "
+            "WHERE cp.proprietaire = %s",
+            (str(proprietaire),),
+        ).fetchone()
+        if ligne is None:
+            return None
+        return Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3])
+
+    # -- fermer toutes les sessions d'un compte --------------------------------
+
+    def fermer_sessions_du_compte(self, identifiant_compte: str) -> int:
+        """Révoque toutes les sessions ouvertes de ce compte — combien l'étaient.
+
+        Publique pour rester appelable seule (un futur « déconnecter tous mes appareils »,
+        par exemple) ; `changer_mot_de_passe_par_jeton` ne l'appelle pas directement — il
+        fait le même `DELETE` **dans sa propre transaction**, pour que fermeture des
+        sessions et pose du nouveau secret réussissent ou échouent ensemble.
+        """
+        with self.cx.transaction():
+            lignes = self.cx.execute(
+                "DELETE FROM sessions WHERE compte = %s RETURNING jeton", (identifiant_compte,)
+            ).fetchall()
+        return len(lignes)
+
     # -- ce qui est commun aux deux --------------------------------------------
 
     def proprietaire_du_compte(self, identifiant_compte: str) -> Proprietaire:
@@ -834,6 +1029,7 @@ __all__ = [
     "ErreurCompte",
     "ErreurCompteExistant",
     "ErreurInvitationRefusee",
+    "ErreurMotDePasseActuelRefuse",
     "Invitation",
     "InvitationAvecAdresse",
     "InvitationEmise",
