@@ -16,8 +16,8 @@ Un import sous `if TYPE_CHECKING:` ne s'exécute jamais : il est permis, mais
 listé à part (`IMPORTS_TYPE_CHECKING`), pour qu'il ne serve pas de porte
 dérobée sans que ça se voie.
 
-**Mode « constat » (lot 1).** Rien n'a encore bougé : chaque violation
-d'aujourd'hui est une exception datée (`EXCEPTIONS`), rattachée au lot du §6
+**Mode « constat » (lot 1).** Chaque violation d'aujourd'hui est une
+exception datée (`EXCEPTIONS`), rattachée au lot du §6
 qui doit la retirer. Le test échoue :
 (a) si une violation nouvelle apparaît ;
 (b) si une exception ne sert plus : on la retire, la dette ne peut que baisser ;
@@ -33,9 +33,15 @@ Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
     lot 9 : 5 exceptions, échéance 2026-11-30
     total : 42 exceptions
 
-Les lots 3 et 10 à 14 n'en retirent aucune : le lot 3 déplace des modules que
-cette table range déjà au noyau, et les suivants travaillent à l'intérieur
-d'une couche (argparse, fonctions longues, routes de l'API, front).
+Les lots 3 et 10 à 14 n'en retirent aucune : le lot 3 a déplacé sous
+`noyau/` des modules que cette table rangeait déjà au noyau, et les suivants
+travaillent à l'intérieur d'une couche (argparse, fonctions longues, routes
+de l'API, front).
+
+**Lot 3 fait.** `noyau/` existe : `trace`, `activite`, `erreurs`,
+`proprietaire`. Les anciens chemins sont des réexports (`REEXPORTS`), rangés
+au noyau eux aussi : chacun n'importe que sa cible, et aucun module de
+`src/` ne les importe plus (`scripts/reecrire_imports.py`).
 
 Les trois cycles principaux, sur les paquets tels qu'ils sont rangés
 aujourd'hui (imports différés compris) :
@@ -46,9 +52,10 @@ aujourd'hui (imports différés compris) :
    zones, que `seance/commande.py`, `seance/ecran_ftp.py` et
    `seance/tenue.py` lui rendent en important `Config` (lot 4).
 3. `boucle` ↔ `physique` : `physique/modele.py` et `physique/calibration.py`
-   importent `boucle/trace.py`, et `boucle/commande.py` importe
-   `physique/modele.py`. `Trace` rangée au noyau, ce cycle n'est déjà plus
-   une violation ; le lot 3 le fait disparaître des dossiers.
+   importaient `boucle/trace.py`, et `boucle/commande.py` importe
+   `physique/modele.py`. Depuis le lot 3, ils importent `noyau/trace.py` ;
+   entre dossiers, le cycle ne tient plus que par `physique/commande.py`
+   (un cas d'usage) qui importe `boucle/`, et n'est pas une violation.
 
 Les deux derniers appartiennent à une seule composante de huit paquets :
 `activites`, `apprentissage`, `boucle`, `config`, `connecteurs`, `meteo`,
@@ -56,9 +63,9 @@ Les deux derniers appartiennent à une seule composante de huit paquets :
 deviennent des arêtes qui montent, listées dans `EXCEPTIONS`.
 
 Le rangement de chaque module est dans `MODULES` : la couche qu'il occupe
-**de fait** aujourd'hui, par son rôle, pas par son dossier. `boucle/trace.py`
-ne dépend de rien et sert partout : c'est un type du noyau rangé dans le
-mauvais dossier, et le lot 3 le déplacera sans changer ce contrat.
+**de fait** aujourd'hui, par son rôle, pas par son dossier.
+`seance/modele.py` et `seance/zones.py` sont des types du noyau rangés dans
+le mauvais dossier ; le lot 4 les déplacera sans changer ce contrat.
 """
 
 from __future__ import annotations
@@ -81,7 +88,7 @@ SOURCES = RACINE / "src" / "ourouler"
 #: Un paquet « à venir » n'a pas encore de dossier : ses modules vivent
 #: ailleurs aujourd'hui, et `MODULES` dit lesquels.
 PAQUETS: dict[str, tuple[int, bool]] = {
-    "noyau": (0, False),
+    "noyau": (0, True),
     "physique": (1, True),
     "meteo": (1, True),
     "boucle": (1, True),
@@ -118,15 +125,21 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #:   dataclasses que le reste y importe partiront au noyau sous le nom
 #:   `profil` (lot 4).
 MODULES: dict[str, str] = {
-    # 0. noyau (à venir)
+    # 0. noyau
     "ourouler": "noyau",
-    "ourouler.erreurs": "noyau",
-    "ourouler.proprietaire": "noyau",
+    "ourouler.noyau": "noyau",
+    "ourouler.noyau.activite": "noyau",
+    "ourouler.noyau.erreurs": "noyau",
+    "ourouler.noyau.proprietaire": "noyau",
+    "ourouler.noyau.trace": "noyau",
     "ourouler.activites": "noyau",
+    "ourouler.seance.modele": "noyau",  # sous noyau/ au lot 4
+    "ourouler.seance.zones": "noyau",  # sous noyau/ au lot 4
+    # les réexports temporaires du lot 3 (`REEXPORTS`), retirés au lot final
     "ourouler.activites.modele": "noyau",
     "ourouler.boucle.trace": "noyau",
-    "ourouler.seance.modele": "noyau",
-    "ourouler.seance.zones": "noyau",
+    "ourouler.erreurs": "noyau",
+    "ourouler.proprietaire": "noyau",
     # 1. domaine pur
     "ourouler.physique": "physique",
     "ourouler.physique.modele": "physique",
@@ -289,6 +302,18 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     ("ourouler.seance.intervals", "ourouler.connecteurs.intervals", "lot 9", "2026-11-30"),
     ("ourouler.sortie.contraste", "ourouler.apprentissage.routes", "lot 9", "2026-11-30"),
 ]
+
+#: Ancien chemin → module du noyau qu'il réexporte (lot 3). Un réexport
+#: n'importe que sa cible, et plus aucun module de `src/` ne l'importe : un
+#: `monkeypatch.setattr` qui le viserait ne remplacerait rien dans le vrai
+#: module. `scripts/reecrire_imports.py` a fait suivre imports et cibles de
+#: `src/` et `tests/` ; le lot final retire ces modules et cette table.
+REEXPORTS: dict[str, str] = {
+    "ourouler.activites.modele": "ourouler.noyau.activite",
+    "ourouler.boucle.trace": "ourouler.noyau.trace",
+    "ourouler.erreurs": "ourouler.noyau.erreurs",
+    "ourouler.proprietaire": "ourouler.noyau.proprietaire",
+}
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
@@ -534,6 +559,23 @@ def test_aucune_exception_echue():
     assert not echues, "exceptions échues : le lot qui devait les retirer est en retard :\n  " + "\n  ".join(
         echues
     )
+
+
+def test_un_reexport_n_importe_que_sa_cible():
+    for ancien, cible in REEXPORTS.items():
+        assert MODULES[ancien] == MODULES[cible] == "noyau"
+        importes = {i.importe for i in tous_les_imports() if i.importeur == ancien}
+        assert importes == {cible}, ancien
+
+
+def test_personne_n_importe_un_reexport():
+    """Le code importe le noyau directement : les réexports ne servent qu'aux appelants du dehors."""
+    fautifs = [
+        f"{i.importeur}:{i.ligne} → {i.importe}"
+        for i in tous_les_imports()
+        if i.importe in REEXPORTS and i.importeur not in REEXPORTS
+    ]
+    assert not fautifs, "importer depuis ourouler.noyau :\n  " + "\n  ".join(fautifs)
 
 
 def test_les_exceptions_sont_bien_formees():
