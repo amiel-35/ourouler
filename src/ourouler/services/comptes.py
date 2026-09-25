@@ -101,6 +101,10 @@ class Retrait:
     adresse: str
     donnees: dict
 
+    def __repr__(self) -> str:
+        """Masque l'adresse, comme `LienEmis` et `InvitationListee` : un `repr` finit dans un journal."""
+        return f"Retrait(adresse=<masqué>, donnees={self.donnees!r})"
+
 
 def inviter(
     adresse: str,
