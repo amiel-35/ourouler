@@ -35,6 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as ExceptionHTTP
 
 from ourouler import __version__
+from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.depots import (
     CHAMPS_RACINE_MODIFIABLES,
@@ -49,14 +50,24 @@ from ourouler.api.depots import (
     SocleVide,
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
+from ourouler.api.limite_corps import LimiteTailleCorps
 from ourouler.api.quotas import CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, Quotas
-from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
+from ourouler.api.routes import TAILLE_MAX_SEANCE, Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.erreurs import ErreurConfig
 
 #: Le sous-dossier du cache où l'API range ce qui appartient aux propriétaires.
 NOM_DOSSIER_DONNEES = "api"
+
+#: Les deux routes dont le corps peut être gros, et leur plafond —
+#: `LimiteTailleCorps` (relecture du 25/09/2026, suite) refuse **avant**
+#: que Starlette n'écrive quoi que ce soit sur disque, même si `Content-Length`
+#: ment ou manque (`Transfer-Encoding: chunked`).
+BORNES_CORPS = {
+    "/api/v1/activites/import": TAILLE_MAX_REQUETE,
+    "/api/v1/seances/fichier": TAILLE_MAX_SEANCE,
+}
 
 #: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` (lot
 #: L7.2-D) : toute route de l'API, la sonde de santé, et les deux chemins du
@@ -254,6 +265,7 @@ def creer_application(
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
+    app.add_middleware(LimiteTailleCorps, bornes=BORNES_CORPS)
 
     @app.get("/sante", include_in_schema=False)
     def _sonde_sante() -> dict:

@@ -269,6 +269,45 @@ export interface FicheFichier {
   url: string;
 }
 
+/** Un motif de dépôt ignoré, groupé — `POST /activites/import` (L9.2). */
+export interface MotifIgnore {
+  motif: string;
+  nombre: number;
+  exemples: string[];
+}
+
+/** Le rapport final d'un import — fichiers isolés ou archive Strava/Garmin. */
+export interface RapportImport {
+  importees: number;
+  doublons: number;
+  ignorees: MotifIgnore[];
+}
+
+/** Ce que rend `GET /activites/import` : l'état du dépôt pour ce cycliste. */
+export interface EtatImport {
+  nombre: number;
+  premiere: string | null;
+  derniere: string | null;
+}
+
+/**
+ * Ce que rendent `POST /activites/import` (202) et `GET /activites/import/{id}` (L9.2).
+ *
+ * Une archive Strava réelle (≈2 900 sorties) prend environ 16 minutes à
+ * importer — bien au-delà des 180 s où le front abandonne un appel — d'où
+ * un import en tâche de fond : le dépôt rend tout de suite `id` et
+ * `statut: "en_cours"`, et l'écran interroge `GET .../import/{id}` pour
+ * suivre `traites`/`total` jusqu'à `"fini"` ou `"echoue"`.
+ */
+export interface JobImport {
+  id: string;
+  statut: "en_cours" | "fini" | "echoue";
+  traites: number;
+  total: number;
+  rapport: RapportImport | null;
+  erreur: string | null;
+}
+
 /**
  * Le GPX d'une proposition (Q40 g). Pas d'`id` : ce n'est pas un fichier
  * rangé quelque part, c'est une adresse qui le fabrique à l'appel — rien

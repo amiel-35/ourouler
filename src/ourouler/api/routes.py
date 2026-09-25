@@ -9,16 +9,26 @@ le résout, et il est passé en premier argument à tout accès aux données
 (doctrine §10.2). Aucune route ne lit un fichier de configuration
 elle-même : elle demande sa `Config` au dépôt, pour ce propriétaire-là.
 
-Ce qui n'est **pas** exposé, et pourquoi : `inventaire --importer` et
-`--synchroniser`, `routes apprendre --appliquer`, `calibrer` écrivent dans le
-cache du serveur et durent des minutes. Ce sont des gestes d'administration
-que le mainteneur fait en ligne de commande ; aucun écran des maquettes ne
-les demande, et les exposer ferait de l'API une console d'administration
-avant qu'elle ait des comptes.
+Ce qui n'est **pas** exposé, et pourquoi : `--synchroniser`, `routes
+apprendre --appliquer`, `calibrer` écrivent dans le cache du serveur et
+durent des minutes — ce sont des gestes d'administration que le mainteneur
+fait en ligne de commande, et aucun écran des maquettes ne les demande.
+`inventaire --importer DOSSIER` reste lui aussi hors API : c'est une lecture
+d'un chemin sur le **système de fichiers du serveur**, pas un dépôt du
+cycliste — l'exposer ferait de l'API une console d'administration.
+
+**Ce que L9.2 expose, `POST /activites/import`, est différent** : un
+cycliste sans Intervals dépose **ses propres octets** — fichiers isolés ou
+archive d'export Strava/Garmin — jamais un chemin. C'est le mécanisme que
+`Cache.indexer_dossier` appelle en CLI (`activites/import_archive.py`),
+rejoué ici sur des octets reçus par HTTP et bornés (taille, nombre de
+fichiers, décompression, chemins), pas sur un dossier du serveur
+(`docs/sprint9_contrat.md`, lot L9.2).
 """
 
 from __future__ import annotations
 
+import tempfile
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -88,7 +98,11 @@ PANNES_DECLAREES: dict[int | str, dict] = {
         (400, "requête refusée — voir `erreur.code`"),
         (401, "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"),
         (404, "route ou fichier introuvable — voir `erreur.code`"),
-        (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
+        (
+            409,
+            "un calcul (`calcul_en_cours`) ou un import (`import_deja_en_cours`) occupe "
+            "déjà le serveur",
+        ),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
         (422, "requête ou fichier refusés — voir `erreur.code`"),
         (429, "quota journalier de générations atteint (`quota_atteint`)"),
@@ -1125,6 +1139,150 @@ async def deposer_seance(
     return charge
 
 
+# --- historique déposé (L9.2) --------------------------------------------------
+
+
+@routeur.get("/activites/import")
+def etat_import(ctx: Ctx, qui: Qui) -> dict:
+    """Combien de sorties ce cycliste a déjà déposées, et sur quelle période.
+
+    Pour l'écran « Mes sorties passées » (`front/src/ecrans/Importer.tsx`) :
+    lui dire s'il a déjà déposé quelque chose avant de lui remontrer le
+    dépôt. Voir `import_archive.etat` pour ce qui est compté.
+    """
+    from ourouler.activites import import_archive
+
+    config = _config(ctx, qui)
+    return {"proprietaire": str(qui), "donnees": import_archive.etat(_cache(config, qui))}
+
+
+@routeur.get("/activites/import/{id_job}")
+def etat_job_import(ctx: Ctx, qui: Qui, id_job: str) -> dict:
+    """Où en est un import lancé par `POST /activites/import` — à interroger périodiquement.
+
+    Cloisonné par propriétaire comme tout le reste : un identifiant qui
+    n'appartient pas à ce propriétaire rend `fichier_introuvable`, exactement
+    comme un fichier de séance qu'on n'a pas soi-même déposé — pour ne
+    renseigner personne sur l'existence d'un import qu'il n'a pas lancé.
+    """
+    from ourouler.api import imports_fond
+
+    job = imports_fond.trouver(str(qui), id_job)
+    if job is None:
+        raise ErreurApi(
+            code="fichier_introuvable",
+            message=f"import {id_job} : introuvable, ou appartenant à quelqu'un d'autre",
+            statut=404,
+        )
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+@routeur.post("/activites/import", status_code=202)
+def importer_activites(
+    ctx: Ctx,
+    qui: Qui,
+    requete: Request,
+    fichiers: Annotated[
+        list[UploadFile],
+        File(description=".fit/.gpx/.tcx, éventuellement .gz, ou une archive .zip Strava/Garmin"),
+    ],
+) -> dict:
+    """Lance en tâche de fond le dépôt de l'historique d'un cycliste sans Intervals
+    — un invité sans capteur y trouve déjà de la valeur (routes), un porteur de
+    capteur y trouve aussi son niveau ([[Q48]]).
+
+    **202, pas 200** (suite de la relecture du 25/09/2026) : une archive
+    Strava réelle (≈2 900 sorties) prend environ 16 minutes à 0,33 s/fichier,
+    bien au-delà des 180 s où le front abandonne. La route rend tout de
+    suite un identifiant de tâche ; `GET /activites/import/{id}` dit où elle
+    en est (`en_cours`/`fini`/`echoue`, `traites`/`total`, et le rapport une
+    fois finie).
+
+    Accepte un ou plusieurs fichiers en un seul appel — `.fit`/`.gpx`/`.tcx`
+    isolés, leurs `.gz`, ou une archive d'export Strava ou Garmin — et les
+    indexe dans le cache de **ce** propriétaire uniquement
+    (`activites/import_archive.py`, bornes de sécurité en constantes
+    nommées). Réimporter la même archive ne duplique rien : une sortie
+    déposée est identifiée par son contenu ([[Q62]]).
+
+    **Un seul import à la fois, pour le serveur entier** (`api/imports_fond.py`) :
+    un second demandeur, propriétaire ou pas, reçoit `import_deja_en_cours`
+    (409) plutôt qu'une attente silencieuse — le serveur est petit et
+    partagé avec BRouter, deux imports simultanés doubleraient le pic
+    mémoire.
+
+    **Les fichiers reçus sont recopiés dans des fichiers temporaires à nous**
+    avant de rendre la main : ceux de Starlette (`UploadFile.file`) ne
+    survivent pas à la fin de la requête, alors que la tâche de fond continue
+    après le 202. La copie est bornée par bloc (`_copier_borne`), en plus de
+    `LimiteTailleCorps` (`api/limite_corps.py`) qui a déjà refusé tout corps
+    au-delà du plafond avant que Starlette n'en écrive un octet.
+    """
+    from ourouler.api import imports_fond
+
+    _refuser_import_sur_la_taille_annoncee(requete)
+    if not fichiers:
+        raise ErreurApi(code="requete_invalide", message="aucun fichier déposé", statut=400)
+
+    config = _config(ctx, qui)
+    cache = _cache(config, qui)
+
+    depots = _copier_en_temporaires(fichiers)
+    try:
+        job = imports_fond.lancer(cache, str(qui), depots)
+    except imports_fond.ErreurImportEnCours:
+        for _, chemin in depots:
+            chemin.unlink(missing_ok=True)
+        raise ErreurApi(
+            code="import_deja_en_cours",
+            message="un import tourne déjà sur ce serveur — réessayer une fois celui-ci "
+            "terminé (GET /activites/import/{id} pour le suivre)",
+            statut=409,
+        ) from None
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]:
+    """Recopie chaque dépôt dans un fichier temporaire propre à ce job, borné par bloc.
+
+    Défense en profondeur : `LimiteTailleCorps` a déjà refusé tout corps de
+    requête au-delà de `TAILLE_MAX_REQUETE` avant que Starlette n'écrive quoi
+    que ce soit ; cette seconde borne, posée pendant la copie elle-même,
+    protège des mêmes octets une seconde fois plutôt que de faire confiance à
+    un seul étage. En cas de dépassement, tout ce qui a déjà été copié pour
+    cet appel est effacé — un import ne part jamais à moitié écrit.
+    """
+    from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+
+    chemins: list[Path] = []
+    total = 0
+    try:
+        for fichier in fichiers:
+            destination = Path(tempfile.mkstemp(prefix="ourouler-import-", suffix=".bin")[1])
+            chemins.append(destination)
+            with destination.open("wb") as sortie:
+                while True:
+                    bloc = fichier.file.read(1 << 20)
+                    if not bloc:
+                        break
+                    total += len(bloc)
+                    if total > TAILLE_MAX_REQUETE:
+                        raise ErreurApi(
+                            code="fichier_trop_gros",
+                            message=f"{total} octets reçus — un import ne prend pas plus de "
+                            f"{TAILLE_MAX_REQUETE} octets à la fois",
+                            statut=413,
+                        )
+                    sortie.write(bloc)
+    except Exception:
+        for chemin in chemins:
+            chemin.unlink(missing_ok=True)
+        raise
+    return [
+        (fichier.filename or "(sans nom)", chemin) for fichier, chemin in zip(fichiers, chemins, strict=True)
+    ]
+
+
 # --- parcours -----------------------------------------------------------------
 
 
@@ -1543,6 +1701,32 @@ def _refuser_sur_la_taille_annoncee(requete: Request, nom: str) -> None:
             code="fichier_trop_gros",
             message=f"{nom} : {annoncee} octets annoncés — une séance n'en fait pas plus de "
             f"{TAILLE_MAX_SEANCE}, le dépôt est refusé sans être lu",
+            statut=413,
+        )
+
+
+def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
+    """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond de l'import.
+
+    Une archive Strava réelle pèse 665 Mo (`docs/services_externes.md`) : le
+    plafond n'est donc pas celui d'une séance, mais le principe est le même.
+
+    **Limite, dite (relecture du 25/09/2026)** : FastAPI a déjà reçu tout le
+    formulaire, dans des fichiers temporaires sur disque, avant d'appeler la
+    route — cette garde évite le traitement, pas la réception. Borner la
+    réception demande une limite de taille de corps en amont (proxy ou
+    intergiciel), comme pour `/seances/fichier`.
+    """
+    from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+
+    annoncee = requete.headers.get("content-length")
+    if annoncee is None or not annoncee.isdigit():
+        return
+    if int(annoncee) > TAILLE_MAX_REQUETE:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{annoncee} octets annoncés — un import ne prend pas plus de "
+            f"{TAILLE_MAX_REQUETE}, le dépôt est refusé sans être traité",
             statut=413,
         )
 

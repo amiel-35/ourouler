@@ -99,6 +99,10 @@ CODES_PANNE: dict[str, str] = {
     "route_inconnue": "aucune route à ce chemin — la liste est dans /openapi.json",
     "methode_refusee": "la route existe, pas avec cette méthode",
     "calcul_en_cours": "un calcul occupe déjà le serveur",
+    "import_deja_en_cours": (
+        "un import d'historique tourne déjà sur ce serveur (un seul à la fois, "
+        "quel que soit le propriétaire) — réessayer une fois celui-ci terminé"
+    ),
     "brouter_indisponible": "BRouter injoignable ou en erreur",
     "meteo_indisponible": (
         "Open-Meteo injoignable ou en erreur — le parcours reste servi sans "
