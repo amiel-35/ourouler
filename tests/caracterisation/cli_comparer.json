@@ -1,119 +1,160 @@
 {
-  "argv": [
-    "comparer",
-    "--json",
-    "--velos",
-    "RCR",
-    "BMC",
-    "--zone",
-    "0.85",
-    "0.99"
-  ],
-  "code": 0,
-  "fichiers_ecrits": {},
-  "reseau": [],
-  "stderr": "",
-  "stdout": {
-    "bandes": [
-      {
-        "n": {
-          "BMC": 0,
-          "RCR": 0
-        },
-        "p_max_w": 179.3,
-        "p_min_w": 170.0,
-        "vitesse_mediane_kmh": {
-          "BMC": null,
-          "RCR": null
-        }
-      },
-      {
-        "n": {
-          "BMC": 0,
-          "RCR": 0
-        },
-        "p_max_w": 188.7,
-        "p_min_w": 179.3,
-        "vitesse_mediane_kmh": {
-          "BMC": null,
-          "RCR": null
-        }
-      },
-      {
-        "n": {
-          "BMC": 8,
-          "RCR": 8
-        },
-        "p_max_w": 198.0,
-        "p_min_w": 188.7,
-        "vitesse_mediane_kmh": {
-          "BMC": 34.7,
-          "RCR": 32.9
-        }
-      }
-    ],
-    "cap_max_deg": null,
-    "depuis": "2026-01-01",
-    "longueur_min_m": 500.0,
-    "longueur_troncon_m": 200.0,
-    "mailles": {
-      "BMC": 46,
-      "RCR": 47
-    },
-    "mailles_communes": 5,
-    "modele_physique": false,
-    "pente_max": 0.008,
-    "puissance_lue_w": 184.0,
-    "synthese": {
-      "ecart_kmh": null,
-      "ecart_w_modele": null,
-      "ecart_w_v3": null,
-      "formules": {
-        "ecart_w_modele": "puissance_requise(vitesse(second)) − puissance_requise(vitesse(RCR)) avec la calibration de RCR, à plat et sans vent",
-        "ecart_w_v3": "3 × puissance_w × ecart_kmh / vitesse(RCR)",
-        "mesure": "ecart_kmh = vitesse(second) − vitesse(premier) au milieu de la zone"
-      },
-      "puissance_w": 184.0,
-      "vitesse_kmh": {
-        "BMC": null,
-        "RCR": 32.89
-      }
-    },
-    "velo": {
-      "BMC": {
-        "km": 88.6,
-        "puissance_moyenne_w": 189.7,
-        "regression": null,
-        "series": 8,
-        "sorties": 8,
-        "vitesse_mediane_kmh": 34.7
-      },
-      "RCR": {
-        "km": 85.9,
-        "puissance_moyenne_w": 189.9,
-        "regression": {
-          "km": 85.9,
-          "ordonnee_kmh": 32.892,
-          "pente_kmh_par_w": 0.0,
-          "series": 8,
-          "vitesse_lue_kmh": 32.89
-        },
-        "series": 8,
-        "sorties": 8,
-        "vitesse_mediane_kmh": 32.9
-      }
-    },
-    "velos": [
+  "json": {
+    "argv": [
+      "comparer",
+      "--json",
+      "--velos",
       "RCR",
-      "BMC"
+      "BMC",
+      "--zone",
+      "0.85",
+      "0.99"
     ],
-    "zone_ftp": [
-      0.85,
-      0.99
+    "code": 0,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "",
+    "stdout": {
+      "bandes": [
+        {
+          "n": {
+            "BMC": 0,
+            "RCR": 0
+          },
+          "p_max_w": 179.3,
+          "p_min_w": 170.0,
+          "vitesse_mediane_kmh": {
+            "BMC": null,
+            "RCR": null
+          }
+        },
+        {
+          "n": {
+            "BMC": 0,
+            "RCR": 0
+          },
+          "p_max_w": 188.7,
+          "p_min_w": 179.3,
+          "vitesse_mediane_kmh": {
+            "BMC": null,
+            "RCR": null
+          }
+        },
+        {
+          "n": {
+            "BMC": 8,
+            "RCR": 8
+          },
+          "p_max_w": 198.0,
+          "p_min_w": 188.7,
+          "vitesse_mediane_kmh": {
+            "BMC": 34.7,
+            "RCR": 32.9
+          }
+        }
+      ],
+      "cap_max_deg": null,
+      "depuis": "2026-01-01",
+      "longueur_min_m": 500.0,
+      "longueur_troncon_m": 200.0,
+      "mailles": {
+        "BMC": 46,
+        "RCR": 47
+      },
+      "mailles_communes": 5,
+      "modele_physique": false,
+      "pente_max": 0.008,
+      "puissance_lue_w": 184.0,
+      "synthese": {
+        "ecart_kmh": null,
+        "ecart_w_modele": null,
+        "ecart_w_v3": null,
+        "formules": {
+          "ecart_w_modele": "puissance_requise(vitesse(second)) − puissance_requise(vitesse(RCR)) avec la calibration de RCR, à plat et sans vent",
+          "ecart_w_v3": "3 × puissance_w × ecart_kmh / vitesse(RCR)",
+          "mesure": "ecart_kmh = vitesse(second) − vitesse(premier) au milieu de la zone"
+        },
+        "puissance_w": 184.0,
+        "vitesse_kmh": {
+          "BMC": null,
+          "RCR": 32.89
+        }
+      },
+      "velo": {
+        "BMC": {
+          "km": 88.6,
+          "puissance_moyenne_w": 189.7,
+          "regression": null,
+          "series": 8,
+          "sorties": 8,
+          "vitesse_mediane_kmh": 34.7
+        },
+        "RCR": {
+          "km": 85.9,
+          "puissance_moyenne_w": 189.9,
+          "regression": {
+            "km": 85.9,
+            "ordonnee_kmh": 32.892,
+            "pente_kmh_par_w": 0.0,
+            "series": 8,
+            "vitesse_lue_kmh": 32.89
+          },
+          "series": 8,
+          "sorties": 8,
+          "vitesse_mediane_kmh": 32.9
+        }
+      },
+      "velos": [
+        "RCR",
+        "BMC"
+      ],
+      "zone_ftp": [
+        0.85,
+        0.99
+      ],
+      "zone_w": [
+        170.0,
+        198.0
+      ]
+    }
+  },
+  "texte": {
+    "argv": [
+      "comparer",
+      "--velos",
+      "RCR",
+      "BMC",
+      "--zone",
+      "0.85",
+      "0.99"
     ],
-    "zone_w": [
-      170.0,
-      198.0
+    "code": 0,
+    "fichiers_ecrits": {},
+    "reseau": [],
+    "stderr": "",
+    "stdout": [
+      "Comparaison RCR / BMC — vitesse à puissance égale, mesurée",
+      "Depuis le 2026-01-01 : RCR 8 sortie(s), BMC 8 sortie(s)",
+      "Séries de tronçons de 200 m : |pente| ≤ 0.8 %, aucun filtre de cap (--cap-max pour en poser un), ≥ 500 m, sans arrêt ni relance,",
+      "puissance dans la zone 85-99 % de la FTP, soit 170-198 W. Vent inconnu ; la mesure n'utilise aucun modèle.",
+      "",
+      "  vélo      séries      km    P moy   V médiane",
+      "  RCR            8      86    190 W   32.9 km/h",
+      "  BMC            8      89    190 W   34.7 km/h",
+      "",
+      "  Vitesse médiane par bande de puissance (bandes égales dans la zone) :",
+      "  bande                       RCR                BMC",
+      "  170-179 W               — (n=0)            — (n=0)",
+      "  179-189 W               — (n=0)            — (n=0)",
+      "  189-198 W       32.9 km/h (n=8)    34.7 km/h (n=8)",
+      "",
+      "  Régression vitesse = a + b·puissance (pondérée par la longueur), lue à 184 W (milieu de la zone) :",
+      "  RCR : 32.9 km/h (pente 0.00 km/h par 10 W, 8 séries, 86 km)",
+      "  BMC : pas de régression — 8 série(s), il en faut au moins 8.",
+      "",
+      "Écart non mesurable : il manque une régression (RCR 8 série(s), BMC 8).",
+      "Mailles de ~30 m touchées par ces séries : RCR 47, BMC 46 — 5 en commun (information : les mailles communes ne filtrent rien ici).",
+      "La mesure ne doit rien à un modèle : ce sont des moyennes de vitesse et de puissance mesurées. Le vent, la fraîcheur et le sens de passage diffèrent d'une série à l'autre — ils se compensent en partie, ils ne s'annulent pas."
     ]
   }
 }

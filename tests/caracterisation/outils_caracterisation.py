@@ -13,17 +13,27 @@ Trois choses, partagées par `test_caracterisation_cli.py` (ici) et
    journal fait partie de la référence : le nombre et la forme des appels
    aux services sont un comportement.
 2. **L'horloge figée.** `date.today()`, `datetime.now()` et `datetime.today()`
-   rendent l'instant `INSTANT` dans **tous** les modules `ourouler.*` qui ont
-   importé `date` ou `datetime` — on les importe tous d'abord, puis on
-   remplace l'attribut du module. Aucune modification de `src/` : le sens du
-   balayage (tous les modules, pas une liste) survit aux déplacements de code.
+   rendent l'instant `INSTANT` dans **tous** les modules `ourouler.*` —
+   on les importe tous d'abord, puis on balaie chaque attribut de chaque
+   module : `from datetime import date` (et ses alias, `date as _date`) comme
+   `import datetime` (et `import datetime as _dt`, remplacé par un module
+   mandataire). Aucune modification de `src/` : le sens du balayage (tous les
+   modules, tous les attributs, pas une liste) survit aux déplacements de code.
+   Ce qui y échappe : un `import datetime` **à l'intérieur d'une fonction**
+   (il relit `sys.modules`) et `time.time()` — les références de `meteo` et
+   `seance` sans date passent alors au rouge, c'est leur rôle.
 3. **La comparaison normalisée** : `json.loads` puis
    `json.dumps(sort_keys=True, indent=2, ensure_ascii=False)`, chemins
    temporaires et identifiants aléatoires remplacés, flottants comparés à
    `TOLERANCE_RELATIVE` près.
 
+Les données fabriquées (séance Intervals, anneaux BRouter, sorties TCX)
+viennent de `donnees_synthetiques.py`, copiées ici plutôt qu'importées
+d'autres modules de test : le filet ne dépend que de `ourouler.cli.main`, de
+l'application FastAPI et de `httpx`.
+
 Aucune donnée personnelle : départ (0, 0) en mer, clés et identifiants
-inventés, séances de `tests/fixtures/workouts.py`.
+inventés.
 """
 
 from __future__ import annotations
@@ -38,6 +48,7 @@ import pkgutil
 import re
 import socket
 import sys
+import types
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -47,12 +58,13 @@ import httpx
 import pytest
 
 DOSSIER = Path(__file__).resolve().parent
+if str(DOSSIER) not in sys.path:
+    sys.path.insert(0, str(DOSSIER))
+
+import donnees_synthetiques as synth  # noqa: E402
+
 TESTS = DOSSIER.parent
 FIXTURES = TESTS / "fixtures"
-
-for _chemin in (TESTS, TESTS / "api"):
-    if str(_chemin) not in sys.path:
-        sys.path.insert(0, str(_chemin))
 
 # --- l'instant figé ------------------------------------------------------------
 
@@ -128,30 +140,76 @@ def _modules_du_paquet() -> list[str]:
     return noms
 
 
-def figer_horloge(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Fige `date`/`datetime` dans chaque module `ourouler.*`. Rend les modules touchés.
+def _module_datetime_fige() -> types.ModuleType:
+    """Un mandataire du module `datetime` dont `date` et `datetime` sont figées.
+
+    Pour `import datetime` / `import datetime as _dt` : le vrai module est
+    partagé par tout le processus (pytest, httpx…), on ne le touche pas ; on
+    remplace **l'attribut du module ourouler** par ce mandataire.
+    """
+    mandataire = types.ModuleType("datetime", _dt.__doc__)
+    mandataire.__dict__.update(
+        {cle: valeur for cle, valeur in vars(_dt).items() if not cle.startswith("__")}
+    )
+    mandataire.date = DateFigee  # type: ignore[attr-defined]
+    mandataire.datetime = DatetimeFigee  # type: ignore[attr-defined]
+    return mandataire
+
+
+def _remplacant(valeur: Any, mandataire: types.ModuleType) -> Any:
+    """Ce qui remplace `valeur` si c'est une horloge réelle, sinon `None`."""
+    if valeur is _DATE:
+        return DateFigee
+    if valeur is _DATETIME:
+        return DatetimeFigee
+    if valeur is _dt:
+        return mandataire
+    return None
+
+
+def _modules_de(paquet: str) -> list[tuple[str, types.ModuleType]]:
+    return [
+        (nom, module)
+        for nom, module in sorted(sys.modules.items())
+        if (nom == paquet or nom.startswith(paquet + ".")) and module is not None
+    ]
+
+
+def horloges_reelles_restantes(paquet: str = "ourouler") -> list[str]:
+    """Les `module:attribut` de `paquet.*` qui tiennent encore une vraie horloge."""
+    return [
+        f"{nom}:{attribut}"
+        for nom, module in _modules_de(paquet)
+        for attribut, valeur in list(vars(module).items())
+        if valeur is _DATE or valeur is _DATETIME or valeur is _dt
+    ]
+
+
+def figer_horloge(monkeypatch: pytest.MonkeyPatch, paquet: str = "ourouler") -> list[str]:
+    """Fige `date`/`datetime` dans chaque module `ourouler.*`. Rend les `module:attribut` touchés.
 
     Tous les modules sont importés d'abord : la CLI importe ses commandes
     paresseusement, et un module importé *après* le remplacement garderait la
-    vraie horloge. Le remplacement vise l'**attribut du module** (`from
-    datetime import date`), pas la classe elle-même, qui est immuable.
+    vraie horloge. Le remplacement vise l'**attribut du module**, quel que
+    soit son nom (`date`, `_date`, `_dt`…), pas la classe elle-même, qui est
+    immuable. `paquet` ne sert qu'au test du balayage lui-même, sur un paquet
+    d'essai : un test ne fabrique pas de faux module `ourouler`
+    (`tests/adversarial/test_adv_invariants.py`).
     """
     for nom in _modules_du_paquet():
         try:
             importlib.import_module(nom)
         except Exception:  # noqa: BLE001 — un module optionnel absent n'arrête rien
             continue
+    mandataire = _module_datetime_fige()
     touches = []
-    for nom, module in sorted(sys.modules.items()):
-        if not (nom == "ourouler" or nom.startswith("ourouler.")) or module is None:
-            continue
-        if getattr(module, "date", None) is _DATE:
-            monkeypatch.setattr(module, "date", DateFigee)
-            touches.append(nom)
-        if getattr(module, "datetime", None) is _DATETIME:
-            monkeypatch.setattr(module, "datetime", DatetimeFigee)
-            touches.append(nom)
-    return sorted(set(touches))
+    for nom, module in _modules_de(paquet):
+        for attribut, valeur in list(vars(module).items()):
+            remplacant = _remplacant(valeur, mandataire)
+            if remplacant is not None:
+                monkeypatch.setattr(module, attribut, remplacant)
+                touches.append(f"{nom}:{attribut}")
+    return touches
 
 
 # --- la garde réseau ---------------------------------------------------------------
@@ -249,17 +307,15 @@ def _meteo_archive(requete: httpx.Request) -> httpx.Response:
 
 def _intervals(requete: httpx.Request) -> httpx.Response:
     """Intervals.icu : une séance « 4x8 fabriquée » le 8 septembre, rien ailleurs."""
-    import test_seance_intervals as tsi
-
     chemin = requete.url.path
     if chemin.endswith("/events") or "/events" in chemin:
         debut = requete.url.params.get("oldest")
         fin = requete.url.params.get("newest")
         dedans = debut is None or fin is None or debut[:10] <= JOUR <= fin[:10]
-        charge = [tsi.W.evenement(tsi.W.groupes_watts(), nom="4x8 fabriquée")] if dedans else []
+        charge = [synth.evenement_seance()] if dedans else []
         return httpx.Response(200, json=charge)
-    if chemin.rstrip("/").endswith(f"athlete/{tsi.ATHLETE}"):
-        return httpx.Response(200, json={"id": tsi.ATHLETE, "icu_weight": 70.0})
+    if chemin.rstrip("/").endswith(f"athlete/{synth.ATHLETE}"):
+        return httpx.Response(200, json={"id": synth.ATHLETE, "icu_weight": 70.0})
     return httpx.Response(404, json={"error": "inconnu du rejeu"})
 
 
@@ -281,17 +337,15 @@ TAGS_TOURNANTS = (
 
 
 def _brouter(requete: httpx.Request) -> httpx.Response:
-    """BRouter : l'anneau de `tests/test_sortie_commande.py`, relief et routes variés.
+    """BRouter : l'anneau de `donnees_synthetiques`, relief et routes variés.
 
-    La géométrie et le format du serveur réel sont empruntés tels quels
-    (`anneau`, `reponse_anneau`) ; seuls l'amplitude du relief et les tags des
-    tronçons dépendent ici de l'azimut demandé.
+    La géométrie et le format du serveur réel sont ceux de `anneau` et
+    `reponse_anneau` ; seuls l'amplitude du relief et les tags des tronçons
+    dépendent ici de l'azimut demandé.
     """
-    import test_sortie_commande as tsc
-
     azimut = float(requete.url.params["roundTripStartDirection"])
-    corps = tsc.reponse_anneau(
-        tsc.anneau(azimut, amplitude_m=RELIEF_PAR_AZIMUT.get(azimut % 360, 4.0))
+    corps = synth.reponse_anneau(
+        synth.anneau(azimut, amplitude_m=RELIEF_PAR_AZIMUT.get(azimut % 360, 4.0))
     )
     messages = corps["features"][0]["properties"]["messages"]
     colonne = messages[0].index("WayTags")
@@ -332,22 +386,44 @@ class Rejeu:
 
     def __init__(self) -> None:
         self.journal: list[str] = []
+        self.pannes: list[tuple[str, dict[str, str], int]] = []
+        #: Les `module:attribut` que le gel d'horloge a remplacés (`preparer`).
+        self.horloge_touchee: list[str] = []
+
+    def en_panne(self, hote: str, statut: int = 500, **parametres: str) -> None:
+        """Fait répondre `statut` aux appels vers `hote` qui portent ces paramètres.
+
+        Ex. `en_panne("api.open-meteo.com", models=MODELE_SECOND)` : le second
+        avis météo tombe, le principal répond. L'appel reste au journal,
+        suffixé du statut rendu.
+        """
+        self.pannes.append((hote, parametres, statut))
 
     def __call__(self, requete: httpx.Request) -> httpx.Response:
         hote = requete.url.host
+        for hote_panne, parametres, statut in self.pannes:
+            if hote == hote_panne and all(
+                requete.url.params.get(c) == v for c, v in parametres.items()
+            ):
+                self._journaliser(requete, f" -> {statut}")
+                return httpx.Response(statut, json={"error": True, "reason": "panne rejouée"})
         servir = AIGUILLAGE.get(hote)
         if servir is None:
             raise AssertionError(f"réseau rejoué : hôte inattendu {hote!r} ({requete.url})")
+        self._journaliser(requete)
+        return servir(requete)
+
+    def _journaliser(self, requete: httpx.Request, suffixe: str = "") -> None:
         params = sorted(
             (cle, valeur)
             for cle, valeur in parse_qsl(requete.url.query.decode(), keep_blank_values=True)
             if cle not in PARAMETRES_TUS
         )
         self.journal.append(
-            f"{requete.method} {hote}{requete.url.path}"
+            f"{requete.method} {requete.url.host}{requete.url.path}"
             + ("?" + "&".join(f"{c}={v}" for c, v in params) if params else "")
+            + suffixe
         )
-        return servir(requete)
 
 
 def rejouer_reseau(monkeypatch: pytest.MonkeyPatch) -> Rejeu:
@@ -419,15 +495,13 @@ dossier = "{cache}"
 
 def ecrire_config(chemin: Path, cache: Path, *, avec_intervals: bool = True) -> Path:
     """Écrit la configuration synthétique. `avec_intervals=False` : clé absente."""
-    import test_seance_intervals as tsi
-
     chemin.write_text(
         CONFIG_TOML.format(
             modele=MODELE_PRINCIPAL,
             second=MODELE_SECOND,
             brouter=HOTE_BROUTER,
-            athlete=tsi.ATHLETE if avec_intervals else "",
-            cle=tsi.CLE if avec_intervals else "",
+            athlete=synth.ATHLETE if avec_intervals else "",
+            cle=synth.CLE if avec_intervals else "",
             cache=cache,
         ),
         encoding="utf-8",
@@ -435,18 +509,32 @@ def ecrire_config(chemin: Path, cache: Path, *, avec_intervals: bool = True) -> 
     return chemin
 
 
+#: Variables `OUROULER_*` **gardées** par `preparer` : celles qui choisissent
+#: un chemin de code sans changer ce qui doit être répondu. Point d'extension
+#: du lot 11 (`docs/ouverture_plan.md` §6) : `OUROULER_API_CHEMIN=ancien|
+#: nouveau|double` n'existe pas encore dans `src/` ; le jour où elle existe,
+#: `OUROULER_API_CHEMIN=nouveau uv run pytest tests/caracterisation
+#: tests/api/test_caracterisation_api.py` rejoue tout le filet sur le nouveau
+#: chemin, contre les **mêmes** références. Paramétrer les tests sur ses trois
+#: valeurs est l'affaire du lot 11 : aujourd'hui, elles rendraient la même chose.
+VARIABLES_GARDEES = frozenset({"OUROULER_API_CHEMIN"})
+
+
 def preparer(monkeypatch: pytest.MonkeyPatch) -> Rejeu:
     """Environnement vidé des `OUROULER_*`, horloge figée, réseau rejoué.
 
     Les variables `OUROULER_*` de la machine surchargent la configuration
     (`config._survoler_environnement`) : une clé Intervals posée dans le shell
-    du mainteneur changerait la référence. Elles sont retirées le temps du test.
+    du mainteneur changerait la référence. Elles sont retirées le temps du
+    test, sauf `VARIABLES_GARDEES`.
     """
     for nom in list(os.environ):
-        if nom.startswith("OUROULER_"):
+        if nom.startswith("OUROULER_") and nom not in VARIABLES_GARDEES:
             monkeypatch.delenv(nom)
-    figer_horloge(monkeypatch)
-    return rejouer_reseau(monkeypatch)
+    touchee = figer_horloge(monkeypatch)
+    rejeu = rejouer_reseau(monkeypatch)
+    rejeu.horloge_touchee = touchee
+    return rejeu
 
 
 # --- normalisation et comparaison ---------------------------------------------
@@ -457,6 +545,13 @@ def preparer(monkeypatch: pytest.MonkeyPatch) -> Rejeu:
 #: remplacement par un marqueur plutôt qu'une suppression.
 UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 HEX_LONG = re.compile(r"\b[0-9a-f]{24,}\b")
+#: Un chemin temporaire que le texte a **tronqué** (colonne « nom » du
+#: tableau de `calibrer`, coupée à sa largeur) échappe au remplacement exact
+#: ci-dessous : il ne reste qu'un préfixe, propre à la machine
+#: (`/private/var/folders/…` sous macOS, `/tmp/pytest-of-…` sous Linux).
+#: Constaté par la CI le 25/09/2026. Tout reste de dossier temporaire devient
+#: donc `<TMP>`, jusqu'au prochain blanc.
+CHEMIN_TEMPORAIRE = re.compile(r"(?:/private)?/(?:var/folders|tmp)/\S*")
 
 
 def normaliser(valeur: Any, remplacements: dict[str, str]) -> Any:
@@ -477,6 +572,7 @@ def _normaliser_texte(texte: str, remplacements: dict[str, str]) -> str:
     # Les plus longs d'abord : un chemin temporaire en contient un autre.
     for avant in sorted(remplacements, key=len, reverse=True):
         texte = texte.replace(avant, remplacements[avant])
+    texte = CHEMIN_TEMPORAIRE.sub("<TMP>", texte)
     texte = UUID.sub("<UUID>", texte)
     return HEX_LONG.sub("<HEX>", texte)
 
@@ -508,13 +604,17 @@ TOLERANCE_RELATIVE = 1e-12
 
 
 def _proches(a: Any, b: Any) -> bool:
+    """Même structure, mêmes types ; flottants à `TOLERANCE_RELATIVE` près.
+
+    Un entier ne vaut **pas** un flottant : un `30` devenu `30.0` dans une
+    réponse JSON est un changement de contrat (un client typé peut refuser
+    l'un ou l'autre), pas un écart d'arrondi.
+    """
     if isinstance(a, dict) and isinstance(b, dict):
         return a.keys() == b.keys() and all(_proches(a[k], b[k]) for k in a)
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(_proches(x, y) for x, y in zip(a, b, strict=True))
-    if isinstance(a, float) and isinstance(b, float | int) and not isinstance(b, bool):
-        return math.isclose(a, b, rel_tol=TOLERANCE_RELATIVE, abs_tol=0.0)
-    if isinstance(b, float) and isinstance(a, int) and not isinstance(a, bool):
+    if type(a) is float and type(b) is float:
         return math.isclose(a, b, rel_tol=TOLERANCE_RELATIVE, abs_tol=0.0)
     return type(a) is type(b) and a == b
 

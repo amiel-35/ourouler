@@ -1,0 +1,118 @@
+{
+  "calibrations_apres": {
+    "corps": {
+      "donnees": {
+        "ftp_renseignee": true,
+        "quota": {
+          "plafond": 1,
+          "restant": 1
+        },
+        "sorties_necessaires": 10,
+        "velos": [
+          {
+            "calibration": null,
+            "crr_connu": false,
+            "crr_usage": 0.006,
+            "pneu": null,
+            "sorties_disponibles": 1,
+            "sorties_ecartees": {},
+            "tache": null,
+            "velo": "RCR"
+          }
+        ]
+      },
+      "proprietaire": "compte-essai-caracterisation"
+    },
+    "requete": "GET /api/v1/calibrations",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "depot": {
+    "corps": {
+      "donnees": {
+        "code_erreur": null,
+        "erreur": null,
+        "id": "<HEX>",
+        "rapport": "<selon l'avancement>",
+        "statut": "<en_cours|fini>",
+        "total": "<selon l'avancement>",
+        "traites": "<selon l'avancement>"
+      },
+      "proprietaire": "compte-essai-caracterisation"
+    },
+    "requete": "POST /api/v1/activites/import",
+    "reseau": [],
+    "statut": 202,
+    "type": "application/json"
+  },
+  "fin": {
+    "corps": {
+      "donnees": {
+        "code_erreur": null,
+        "erreur": null,
+        "id": "<HEX>",
+        "rapport": {
+          "doublons": 0,
+          "ignorees": [],
+          "importees": 1
+        },
+        "statut": "fini",
+        "total": 1,
+        "traites": 1
+      },
+      "proprietaire": "compte-essai-caracterisation"
+    },
+    "requete": "GET /api/v1/activites/import/<HEX>",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/json"
+  },
+  "inventaire_apres": {
+    "corps": {
+      "avertissements": [],
+      "budget": {
+        "attendu_ms": "<CHRONO>",
+        "median_ms": "<CHRONO>",
+        "n": 1,
+        "operation": "inventaire",
+        "source": "mesure"
+      },
+      "donnees": {
+        "anomalies": [],
+        "autres_sports": 0,
+        "autres_sports_par_libelle": {},
+        "depuis": "2023-12-01",
+        "journal": [],
+        "par_mois": [
+          {
+            "km": 24.2,
+            "mois": "2026-01",
+            "sorties": 1,
+            "sorties_avec_puissance": 1
+          }
+        ],
+        "par_velo": [
+          {
+            "avec_puissance": 1,
+            "capteurs": [],
+            "derniere": "2026-01-05",
+            "heures": 0.72,
+            "km": 24.2,
+            "nombre": 1,
+            "part_puissance": 1.0,
+            "premiere": "2026-01-05",
+            "velo": "RCR"
+          }
+        ],
+        "total": 1
+      },
+      "duree_ms": "<CHRONO>",
+      "proprietaire": "compte-essai-caracterisation"
+    },
+    "requete": "GET /api/v1/inventaire",
+    "reseau": [],
+    "statut": 200,
+    "type": "application/json"
+  }
+}

@@ -19,6 +19,8 @@ def test_la_tolerance_absorbe_un_ulp_mais_pas_une_derive():
     assert not _proches({"x": 1.0}, {"x": 1.0 + 1e-9}), "une dérive de 1e-9 doit se voir"
     assert not _proches({"x": 0.0}, {"x": 1e-300}), "un zéro reste un zéro"
     assert not _proches({"x": 1}, {"x": True}), "un booléen n'est pas un entier"
+    assert not _proches({"x": 30}, {"x": 30.0}), "un entier devenu flottant change le contrat"
+    assert not _proches({"x": 30.0}, {"x": 30}), "et l'inverse aussi"
     assert not _proches([1.0, 2.0], [1.0]), "la structure compte"
     assert TOLERANCE_RELATIVE < 1e-9
 
