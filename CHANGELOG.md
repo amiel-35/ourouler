@@ -3,7 +3,9 @@ Règle de rangement : une PR mergée dans `main` depuis une branche `sprint-N`
 se fond dans la mineure de ce sprint (étiquette sur le dernier merge de la
 branche) ; une PR mergée directement dans `main` hors branche de sprint est un
 correctif de la mineure précédente, un par merge sur `main`, dans l'ordre où
-ils ont atterri (une PR fusionnée dans une autre branche suit celle-ci).
+ils ont atterri (une PR fusionnée dans une autre branche suit celle-ci) ;
+des merges arrivés ensemble à quelques secondes d'écart font un seul correctif,
+étiqueté sur le dernier.
 -->
 
 # Journal des changements
@@ -18,6 +20,13 @@ publique. Les versions 0.1.0 à 0.9.3 ont été reconstruites après coup, à
 partir des PR.
 
 ## [Non publié]
+
+## [0.9.4] — 2026-09-25
+
+### Corrigé
+
+- La météo, la tenue et le placement sont calculés pour l'heure de départ
+  demandée ; ils l'étaient deux heures plus tard. (#35)
 
 ## [0.9.3] — 2026-09-25
 
@@ -113,44 +122,36 @@ partir des PR.
 
 - Une requête sans session ne voit plus aucune donnée. (#20)
 
-## [0.6.6] — 2026-09-18
+## [0.6.4] — 2026-09-18
 
 ### Modifié
 
 - Licence AGPL-3.0-or-later à la place de MIT, avec le fichier `LICENSE`
   qui manquait. (#19)
 
-## [0.6.5] — 2026-09-18
+## [0.6.3] — 2026-09-18
 
 ### Ajouté
 
 - Un vélo sans calibration reçoit un modèle tiré de valeurs publiées, et
   l'outil dit d'où il vient. (#18)
-- `--vitesse-a-plat` à la place de `--puissance`, pour qui n'a pas de FTP.
-  (#18)
+- `--vitesse-a-plat` à la place de `--puissance`, pour qui n'a pas de FTP ;
+  une table indicative FTP → vitesse à plat → moyenne compteur se lit dans
+  les deux sens. (#17, #18)
 - Des pauses déclarées (`--pause`), même une nuit : l'heure de passage météo
   et l'heure d'arrivée en tiennent compte. (#18)
 - Un GPX importé reçoit trafic, revêtement et feux, repris d'un tracé
   rerouté ; au-delà de 25 m, l'outil dit qu'il ne sait pas. (#16, #18)
 
-### Corrigé
-
-- Le temps porte à porte suit la puissance demandée. (#18)
-- L'écran dit à partir de quel kilomètre la prévision change de modèle. (#18)
-
-## [0.6.4] — 2026-09-18
-
-### Ajouté
-
-- Une table indicative FTP → vitesse à plat → moyenne compteur, qui se lit
-  dans les deux sens. (#17)
-
-## [0.6.3] — 2026-09-18
-
 ### Modifié
 
 - Entre deux boucles, la plus proche de la distance demandée l'emporte ; à
   écart égal, la plus longue. (#15)
+
+### Corrigé
+
+- Le temps porte à porte suit la puissance demandée, et l'écran dit à partir
+  de quel kilomètre la prévision change de modèle. (#18)
 
 ## [0.6.2] — 2026-09-18
 
@@ -191,6 +192,9 @@ avant d'être codées. (#12)
   balaie tout l'horizon. (#11)
 - L'outil dit quelles propositions il écarte parce qu'elles se ressemblent.
   (#11)
+
+Grosse livraison hors sprint : l'arrivée de l'API et de l'interface web.
+(#11)
 
 ## [0.5.1] — 2026-09-16
 
