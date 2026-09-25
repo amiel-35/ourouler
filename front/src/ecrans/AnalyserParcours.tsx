@@ -136,7 +136,21 @@ export function AnalyserParcours({ vers, surRetour }: Props) {
         </div>
       ) : null}
 
-      {erreur ? <Echec erreur={erreur} contexte="Analyse d'un parcours" /> : null}
+      {erreur ? (
+        ftpManquante(erreur) ? (
+          <div className="encart">
+            <b>Votre FTP n'est pas encore renseignée.</b> Indiquez la puissance que vous
+            comptez tenir, ou renseignez votre FTP dans Réglages.
+            <p>
+              <a className="bouton" href="/?onglet=reglages">
+                Renseigner ma FTP dans Réglages
+              </a>
+            </p>
+          </div>
+        ) : (
+          <Echec erreur={erreur} contexte="Analyse d'un parcours" />
+        )
+      ) : null}
 
       {etape.nom !== "depot" ? (
         <div className="bloc doux">
@@ -272,4 +286,15 @@ function quand(departIso: string, arriveeIso: string): string {
 
 function erreurInterne(cause: unknown): ErreurApi {
   return new ErreurApi({ code: "erreur_interne", message: String(cause), service: null, details: {} }, 0);
+}
+
+/** Le refus faute de FTP, quand ni puissance ni vitesse à plat n'ont été
+ * données (`physique/commande.py`, commande « analyser » : « donner
+ * --puissance W ou --vitesse-a-plat KMH — aucune FTP dans le profil »). Le
+ * message de ligne de commande n'a pas sa place à l'écran ; le code d'abord,
+ * la mention de FTP dans le message ensuite, pour ne pas confondre avec un
+ * autre refus `requete_invalide` (détection robuste plutôt qu'un message
+ * figé qui peut être reformulé). */
+function ftpManquante(erreur: ErreurApi): boolean {
+  return erreur.code === "requete_invalide" && /ftp/i.test(erreur.message);
 }

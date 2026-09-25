@@ -32,6 +32,10 @@ partir des PR.
 
 - La version affichée par le service et par `ourouler --version` est la
   vraie (elle disait 0.0.1).
+- Analyser un parcours sans FTP renseignée affichait le message de ligne de
+  commande brut (« donner --puissance W ou --vitesse-a-plat KMH — aucune
+  FTP… ») ; l'écran dit maintenant qu'il manque une FTP, propose d'indiquer
+  la puissance à tenir, et lie vers Réglages.
 
 ## [0.9.6] — 2026-09-25
 

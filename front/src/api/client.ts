@@ -209,6 +209,43 @@ export async function panneDeReponseGpx(reponse: Response): Promise<{ code: stri
   };
 }
 
+/** Ce qu'une panne du partage GPX affiche — jamais un code technique nu. */
+export interface PanneGpx {
+  code: string;
+  message: string;
+}
+
+/**
+ * Récupère le GPX d'une proposition, pour le bouton « Envoyer vers mon
+ * compteur » de `ecrans/Proposition.tsx`.
+ *
+ * **Reste un `fetch` brut** — le navigateur a besoin d'un fichier, pas d'un
+ * JSON désérialisé, pour le passer à `navigator.share` — mais il vit ici,
+ * avec `appeler` ci-dessous : `api/client.ts` est le seul module du front
+ * qui touche au réseau (`docs/ouverture_plan.md` §7, `tests/reseau_unique.
+ * test.ts`).
+ *
+ * Distingue les deux échecs qui n'appellent pas le même mot : le réseau ne
+ * répond pas du tout (`fetch` jette un `TypeError`, hors ligne ou serveur
+ * éteint — pas de JSON à lire, donc le code et la phrase de
+ * `CODE_INJOIGNABLE`, plutôt que de laisser fuir le texte technique de
+ * l'exception du navigateur), ou le serveur a répondu et refusé (une panne
+ * nommée, lue par `panneDeReponseGpx`).
+ */
+export async function recupererGpx(url: string): Promise<Blob> {
+  let reponse: Response;
+  try {
+    reponse = await fetch(url);
+  } catch {
+    throw {
+      code: CODE_INJOIGNABLE,
+      message: "le serveur d'où rouler ne répond pas — vérifiez qu'il tourne",
+    } satisfies PanneGpx;
+  }
+  if (!reponse.ok) throw await panneDeReponseGpx(reponse);
+  return reponse.blob();
+}
+
 function url(chemin: string, parametres?: Record<string, string | number | undefined>): string {
   const requete = new URLSearchParams();
   for (const [cle, valeur] of Object.entries(parametres ?? {})) {

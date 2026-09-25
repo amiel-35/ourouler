@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import type { Candidate, Enveloppe, Seance, Sortie, Trace, VentPosition } from "../api/types";
-import { CODE_INJOIGNABLE, panneDeReponseGpx } from "../api/client";
+import { type PanneGpx, recupererGpx } from "../api/client";
 import {
   duree,
   heure,
@@ -111,43 +111,6 @@ interface Props {
   numero: number;
   seance: Seance | null;
   surRetour: () => void;
-}
-
-/** Ce qu'une panne du partage GPX affiche — jamais un code technique nu. */
-export interface PanneGpx {
-  code: string;
-  message: string;
-}
-
-/**
- * Récupère le GPX, et distingue **trois échecs qui n'appellent pas le même
- * mot** :
- *
- * 1. le réseau ne répond pas du tout (`fetch` jette un `TypeError` — hors
- *    ligne, serveur éteint) : ce cas n'a pas de JSON à lire, donc pas de
- *    message français à en tirer — on reprend le même code et la même
- *    phrase que `client.appeler` pour ce cas-là (`CODE_INJOIGNABLE`), plutôt
- *    que de laisser fuir le texte technique de l'exception du navigateur
- *    (trouvé en relecture le 18/09/2026 : « Failed to fetch » s'affichait
- *    tel quel, exactement le « code technique nu » que L7.D interdit) ;
- * 2. le serveur a répondu et refusé — une panne nommée, comme
- *    `generation_introuvable` quand la recherche est sortie de la mémoire
- *    (`docs/ux/api_contrat.md`) ;
- * 3. le fichier est bien là, et c'est le partage du navigateur qui ne marche
- *    pas — ce cas-là ne jette jamais ici, il se gère dans `partager`.
- */
-async function recupererGpx(url: string): Promise<Blob> {
-  let reponse: Response;
-  try {
-    reponse = await fetch(url);
-  } catch {
-    throw {
-      code: CODE_INJOIGNABLE,
-      message: "le serveur d'où rouler ne répond pas — vérifiez qu'il tourne",
-    } satisfies PanneGpx;
-  }
-  if (!reponse.ok) throw await panneDeReponseGpx(reponse);
-  return reponse.blob();
 }
 
 function partager(url: string, nom: string, surEchec: (panne: PanneGpx | null) => void) {

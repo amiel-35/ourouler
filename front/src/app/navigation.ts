@@ -1,0 +1,124 @@
+/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — les types et
+ * utilitaires de navigation (page, onglet, vue), et le résultat d'une
+ * recherche. `App.tsx` s'approchait des 900 lignes ; ce module n'en fait rien
+ * qu'assembler ce qui n'a pas besoin de vivre à côté du rendu.
+ */
+
+import type { Boucle, Enveloppe, Seance, Sortie } from "../api/types";
+
+/**
+ * Sur quelle page ce chargement de l'application s'est ouvert — lu **une
+ * fois**, au démarrage, jamais réévalué (lot L7.2-D).
+ *
+ * Pas de routeur : le reste de l'application navigue par état React
+ * (`Onglet`, `Vue` ci-dessous), comme avant ce lot. Seuls ces deux chemins
+ * sont distingués, parce qu'ils doivent fonctionner **avant** qu'aucune
+ * session n'existe — l'un des deux, justement, sert à en ouvrir une.
+ */
+export type Pagina =
+  | { genre: "application" }
+  | { genre: "entrer"; jeton: string }
+  | { genre: "reinitialiser"; jeton: string }
+  | { genre: "connexion" };
+
+export function paginaDepuisUrl(): Pagina {
+  const chemin = window.location.pathname;
+  if (chemin === "/entrer" || chemin === "/reinitialiser") {
+    const jeton = new URLSearchParams(window.location.search).get("jeton") ?? "";
+    // Le jeton n'a rien à faire dans l'historique du navigateur ni dans un
+    // en-tête `Referer` une fois lu : une ligne, faite ici et nulle part
+    // ailleurs, pour que ni le rechargement de l'écran ni un lien partagé
+    // depuis cette page ne le fassent fuiter une seconde fois.
+    window.history.replaceState(null, "", chemin);
+    return chemin === "/entrer" ? { genre: "entrer", jeton } : { genre: "reinitialiser", jeton };
+  }
+  if (chemin === "/connexion") return { genre: "connexion" };
+  return { genre: "application" };
+}
+
+export type Onglet = "aujourdhui" | "semaine" | "demander" | "reglages";
+export type Vue =
+  | { genre: "onglet" }
+  | { genre: "assistant" }
+  /**
+   * **Le dépôt porte son jour** (trouvé en cliquant, le 17/09/2026).
+   *
+   * `Importer` recevait `demande.jour`, qui dérive : `chercher` le réécrit à
+   * chaque génération. Après avoir généré le parcours de samedi depuis « Ma
+   * semaine », « Déposer une séance » depuis l'écran **d'aujourd'hui**
+   * déposait le fichier pour samedi. Le rattachement au jour étant devenu la
+   * garde de B1, un rattachement au mauvais jour est le même défaut déplacé.
+   */
+  | { genre: "importer"; jour: string }
+  /** L9.8 : un parcours déjà en main, à analyser — le troisième usage de
+   * « Déposer », sans jour rattaché (ce n'est pas une prescription). */
+  | { genre: "analyser"; jour: string }
+  | { genre: "propositions" }
+  | { genre: "detail"; numero: number }
+  | { genre: "boucles" };
+
+export interface Resultat {
+  sortie: Enveloppe<Sortie> | null;
+  boucle: Enveloppe<Boucle> | null;
+  seance: Seance | null;
+  jour: string;
+}
+
+/**
+ * Un fichier de séance déposé — **et le jour pour lequel il l'a été**.
+ *
+ * Q38 : « le fichier déposé c'est une séance à faire ». C'est une
+ * prescription, et une prescription vaut pour un jour. `POST /seances/fichier`
+ * prend d'ailleurs ce jour ; le front ne l'honorait pas.
+ *
+ * Avant le 17/09/2026, seul l'identifiant était retenu, et **rien ne le
+ * remettait à `null`** : ni le changement de jour, ni le changement d'onglet,
+ * ni une séance Intervals retrouvée, ni la fin de la génération. Un `.ZWO`
+ * déposé mardi se replaçait silencieusement sur toutes les recherches
+ * suivantes — le cycliste partait faire les blocs de mardi le mercredi, sur
+ * des données qu'il ne pourrait pas refaire, et l'interface avait l'air
+ * d'accord avec lui (relecture F2 · B1).
+ *
+ * L'invariant tenu maintenant, et testé : **une séance déposée ne part qu'avec
+ * une recherche pour son propre jour**, et elle est visible tant qu'elle est
+ * en usage.
+ */
+export interface SeanceDeposee {
+  identifiant: string;
+  jour: string;
+  nom: string;
+}
+
+/**
+ * L'identifiant à joindre à une recherche — **ou rien**.
+ *
+ * La règle de B1, nommée plutôt que laissée en ligne dans l'appel : une
+ * prescription déposée pour mardi ne part pas avec la recherche de mercredi.
+ * C'est la seule chose qui sépare « le cycliste fait la séance du jour » de
+ * « le cycliste part faire les blocs d'hier sans le savoir ».
+ */
+export function fichierPourLaRecherche(
+  deposee: SeanceDeposee | null,
+  jourDemande: string,
+): string | undefined {
+  if (deposee === null) return undefined;
+  return deposee.jour === jourDemande ? deposee.identifiant : undefined;
+}
+
+export const ONGLETS: { cle: Onglet; nom: string }[] = [
+  { cle: "aujourdhui", nom: "Aujourd'hui" },
+  { cle: "semaine", nom: "Ma semaine" },
+  { cle: "demander", nom: "Demander" },
+  { cle: "reglages", nom: "Réglages" },
+];
+
+/** L'onglet demandé par l'URL (`?onglet=reglages`), lu **une fois**, au
+ * démarrage — même patron que `paginaDepuisUrl`. Constaté le 25/09/2026 :
+ * le lien « Le relier dans les réglages » posait ce paramètre, mais rien ne
+ * le lisait, et une ouverture directe de ce lien retombait sur Aujourd'hui.
+ * Une clé absente ou inconnue garde le défaut plutôt que d'échouer. */
+export function ongletDepuisUrl(): Onglet {
+  const valeur = new URLSearchParams(window.location.search).get("onglet");
+  const trouve = ONGLETS.find((o) => o.cle === valeur);
+  return trouve ? trouve.cle : "aujourdhui";
+}

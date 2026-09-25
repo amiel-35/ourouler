@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../src/App";
-import { Serveur } from "./serveur";
+import { Serveur, panne } from "./serveur";
 import { PROFIL, SEANCE, SEMAINE, SYSTEME, sortie, zones } from "./fixtures";
 
 const APERCU = {
@@ -156,5 +156,45 @@ describe("analyser un parcours déjà en main (L9.8)", () => {
     expect(await screen.findByText(/Au-delà du km 210, la prévision vient du\s+second modèle/)).toBeTruthy();
     expect(screen.getByText(/Arrivée estimée entre lundi 21 septembre/)).toBeTruthy();
     expect(screen.getByText(/À partir du km 250, au-delà\s+de la prévision : pas de météo/)).toBeTruthy();
+  });
+
+  it("reformule le refus faute de FTP, avec un lien vers Réglages, au lieu du message de ligne de commande", async () => {
+    const serveur = new Serveur({
+      "/api/v1/systeme": { charge: SYSTEME },
+      "/api/v1/profil/zones": { charge: zones() },
+      "/api/v1/profil": { charge: PROFIL },
+      "/api/v1/seances/fichier": { charge: SEANCE },
+      "/api/v1/seances/": { charge: { ...SEANCE, donnees: { jour: "2026-09-16", seance: null } } },
+      "/api/v1/seances": { charge: SEMAINE },
+      "/api/v1/sorties": { charge: sortie() },
+      "/api/v1/parcours/fichier": {
+        charge: { fichier: { id: "gpx-essai-0001", nom: "imposé.gpx" }, apercu: APERCU },
+      },
+      "/api/v1/parcours/analyser": panne(
+        "requete_invalide",
+        "analyser : donner --puissance W ou --vitesse-a-plat KMH — aucune FTP dans le profil " +
+          "pour calculer par défaut la puissance d'endurance",
+        400,
+      ),
+    });
+    serveur.installer();
+    const utilisateur = userEvent.setup();
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Déposer une séance" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Analyser un parcours" }));
+    const champ = (await screen.findByLabelText("Parcours à analyser")) as HTMLInputElement;
+    await utilisateur.upload(champ, new File(["<gpx></gpx>"], "imposé.gpx"));
+    const champHeure = (await screen.findByLabelText(/Heure de départ/)) as HTMLInputElement;
+    await utilisateur.type(champHeure, "2026-09-20T08:00");
+    await utilisateur.click(await screen.findByRole("button", { name: "Analyser" }));
+
+    expect(await screen.findByText(/Votre FTP n'est pas encore renseignée/)).toBeTruthy();
+    expect(
+      screen.getByText(/Indiquez la puissance que vous comptez tenir, ou renseignez votre FTP dans Réglages/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/donner --puissance W ou --vitesse-a-plat KMH/)).toBeNull();
+    const lien = screen.getByRole("link", { name: /Renseigner ma FTP dans Réglages/ });
+    expect(lien.getAttribute("href")).toBe("/?onglet=reglages");
   });
 });
