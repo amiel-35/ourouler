@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "velos": {
+    "RCR": {
+      "cda_m2": 0.31217,
+      "crr": 0.004402,
+      "crr_source": "ajuste",
+      "pneu": null,
+      "masse_totale_kg": 100.0,
+      "rendement": 0.976,
+      "rho": 1.225,
+      "date": "2026-09-08",
+      "n_sorties": 8,
+      "n_echantillons": 752,
+      "cda_incertitude": 0.00087,
+      "crr_incertitude": 4.7e-05,
+      "rmse_w": 0.51,
+      "resistance": {
+        "27": {
+          "force_n": 15.07,
+          "puissance_w": 115.8
+        },
+        "35": {
+          "force_n": 22.39,
+          "puissance_w": 223.0
+        }
+      },
+      "mae": 0.0003,
+      "mediane": 0.0003,
+      "biais": -0.0003,
+      "n_validation": 8,
+      "n_solo": 0,
+      "part_groupe_max": 0.3,
+      "bornes_atteintes": [],
+      "porte_a_porte": {
+        "bas": 1.0003,
+        "mediane": 1.0003,
+        "haut": 1.0003,
+        "centiles": [
+          25,
+          50,
+          75
+        ],
+        "n": 8,
+        "n_total": 8,
+        "sorties": "validation",
+        "seuil_groupe": 0.5,
+        "base": "temps_ecoule",
+        "ratio_mouvement": [
+          1.0003,
+          1.0003,
+          1.0003
+        ]
+      }
+    },
+    "BMC": {
+      "cda_m2": 0.26165,
+      "crr": 0.004419,
+      "crr_source": "ajuste",
+      "pneu": null,
+      "masse_totale_kg": 100.0,
+      "rendement": 0.976,
+      "rho": 1.225,
+      "date": "2026-09-08",
+      "n_sorties": 4,
+      "n_echantillons": 408,
+      "cda_incertitude": 0.00109,
+      "crr_incertitude": 6.6e-05,
+      "rmse_w": 0.56,
+      "resistance": {
+        "27": {
+          "force_n": 13.35,
+          "puissance_w": 102.6
+        },
+        "35": {
+          "force_n": 19.48,
+          "puissance_w": 194.1
+        }
+      },
+      "mae": 0.0003,
+      "mediane": 0.0003,
+      "biais": -0.0003,
+      "n_validation": 4,
+      "n_solo": 0,
+      "part_groupe_max": 0.3,
+      "bornes_atteintes": [],
+      "porte_a_porte": null
+    }
+  }
+}

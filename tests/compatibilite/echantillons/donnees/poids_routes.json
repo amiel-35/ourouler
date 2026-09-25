@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ecrit_le": "2026-09-08T07:00:00+00:00",
+  "poids": {
+    "primary": 0.0,
+    "residential": 4.0,
+    "tertiary": 0.0,
+    "track": 4.0
+  },
+  "sorties_apprises": 2,
+  "km_appris": 2.9,
+  "boucles_exposition": 8,
+  "km_exposition": 271.0
+}
