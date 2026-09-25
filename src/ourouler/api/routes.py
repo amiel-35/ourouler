@@ -9,10 +9,18 @@ le résout, et il est passé en premier argument à tout accès aux données
 (doctrine §10.2). Aucune route ne lit un fichier de configuration
 elle-même : elle demande sa `Config` au dépôt, pour ce propriétaire-là.
 
-Ce qui n'est **pas** exposé, et pourquoi : `--synchroniser`, `routes
-apprendre --appliquer`, `calibrer` écrivent dans le cache du serveur et
-durent des minutes — ce sont des gestes d'administration que le mainteneur
-fait en ligne de commande, et aucun écran des maquettes ne les demande.
+Ce qui n'est **pas** exposé, et pourquoi : `--synchroniser` et `routes
+apprendre --appliquer` écrivent dans le cache du serveur et durent des
+minutes — ce sont des gestes d'administration que le mainteneur fait en
+ligne de commande, et aucun écran des maquettes ne les demande.
+
+**`calibrer` l'est depuis L9.4** (`POST /calibrations`,
+`docs/sprint9_contrat.md`) : un compte hébergé avec capteur calibre son vélo
+sans la ligne de commande du mainteneur. Même calcul
+(`physique.commande.calibrer_velo`), en tâche de fond comme l'import
+(`api/taches_fond.py`, un seul calcul lourd à la fois), et écrit dans le
+dossier **du compte** — jamais dans le fichier de calibration du cache du
+serveur (`_config`, `api/calibrations.py`).
 `inventaire --importer DOSSIER` reste lui aussi hors API : c'est une lecture
 d'un chemin sur le **système de fichiers du serveur**, pas un dépôt du
 cycliste — l'exposer ferait de l'API une console d'administration.
@@ -56,6 +64,7 @@ from ourouler.api.erreurs import ErreurApi, classer, classer_avertissement, secr
 from ourouler.api.modeles import (
     ApercuZones,
     DemandeBoucle,
+    DemandeCalibration,
     DemandeChangementMotDePasse,
     DemandeConnexion,
     DemandeEntree,
@@ -81,8 +90,10 @@ from ourouler.config import Config, Depart
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
 #:
@@ -102,12 +113,12 @@ PANNES_DECLAREES: dict[int | str, dict] = {
         (404, "route ou fichier introuvable — voir `erreur.code`"),
         (
             409,
-            "un calcul (`calcul_en_cours`) ou un import (`import_deja_en_cours`) occupe "
-            "déjà le serveur",
+            "un calcul (`calcul_en_cours`), un import (`import_deja_en_cours`) ou une "
+            "tâche lourde (`tache_lourde_en_cours`) occupe déjà le serveur",
         ),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
-        (422, "requête ou fichier refusés — voir `erreur.code`"),
-        (429, "quota journalier de générations atteint (`quota_atteint`)"),
+        (422, "requête, fichier ou précondition refusés — voir `erreur.code`"),
+        (429, "quota journalier atteint (`quota_atteint`)"),
         (500, "bug du serveur (`erreur_interne`) ou configuration invalide"),
         (502, "un service externe a répondu mal ou pas du tout — voir `erreur.code`"),
     )
@@ -150,6 +161,12 @@ FABRIQUES_CONNECTEUR: dict[str, Callable[[Config, httpx.Client], object]] = {
     ),
     "ban": lambda config, http: ClientBAN(http=http),
     "nominatim": lambda config, http: ClientNominatim(http=http),
+    # L9.4 : l'archive météo de la calibration. Son cache sur disque est
+    # **partagé** entre comptes (`PROPRIETAIRE_PARTAGE`, le vent d'un jour
+    # passé est le même pour tous) et vit dans le dossier de cache du serveur.
+    "archive": lambda config, http: ClientArchive(
+        http=http, chemin_cache=config.cache.dossier / NOM_CACHE_ARCHIVE
+    ),
 }
 
 
@@ -171,6 +188,7 @@ class Clients:
     intervals: object | None = None
     ban: object | None = None
     nominatim: object | None = None
+    archive: object | None = None
 
     def connecteur(self, service: str, config: Config) -> object | None:
         """Le connecteur de ce service pour **ce** propriétaire, ou `None`.
@@ -202,6 +220,12 @@ class Contexte:
     #: Quota journalier séparé pour `GET /meteo` (L9.3, poste distinct :
     #: ~50 appels par consultation contre ~150 par génération).
     quotas_meteo: Quotas
+    #: Quota journalier des calibrations (L9.4), une par jour par défaut.
+    quotas_calibration: Quotas
+    #: Quota journalier des imports d'historique (contre-lecture Fable du
+    #: 25/09/2026) — cinq par jour par défaut, vérifié aussi **avant** la
+    #: lecture du corps (`api/garde_avant_corps.py`).
+    quotas_import: Quotas
     journal: JournalServices
     #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
@@ -262,11 +286,28 @@ Qui = Annotated[Proprietaire, Depends(proprietaire)]
 
 
 def _config(ctx: Contexte, qui: Proprietaire) -> Config:
-    """La `Config` de ce propriétaire — jamais « la » configuration du serveur."""
+    """La `Config` de ce propriétaire — jamais « la » configuration du serveur.
+
+    **Sa calibration est la sienne** (L9.4). En mode hébergé, le dossier de
+    cache est celui du serveur, partagé : le fichier de calibration y serait
+    le même pour tous les comptes, et la calibration d'un vélo nommé
+    « Route » servirait à tous les « Route » du service. `fichier_calibration`
+    la range donc dans le dossier du compte, à côté de son profil — et comme
+    c'est cette `Config` que reçoivent `/boucles`, `/sorties`,
+    `/simulations` et l'écran de FTP, c'est ce fichier-là, et lui seul,
+    qu'ils relisent. En mode personnel, rien ne change : le fichier
+    que `ourouler calibrer` écrit.
+    """
     try:
-        return ctx.profils.config(qui)
+        config = ctx.profils.config(qui)
     except Exception as e:
         raise classer(e) from e
+    if ctx.session.mode == MODE_PERSONNEL:
+        return config
+    from ourouler.api.calibrations import fichier_du_compte
+
+    fichier = fichier_du_compte(ctx.profils.dossier(qui))
+    return replace(config, cache=replace(config.cache, fichier_calibration=fichier))
 
 
 def _base_routes(config: Config, qui: Proprietaire):
@@ -625,6 +666,14 @@ def systeme(
             "consultations_meteo": {
                 "plafond": ctx.quotas_meteo.plafond,
                 "restant": ctx.quotas_meteo.restant(qui),
+            },
+            "calibrations": {
+                "plafond": ctx.quotas_calibration.plafond,
+                "restant": ctx.quotas_calibration.restant(qui),
+            },
+            "imports": {
+                "plafond": ctx.quotas_import.plafond,
+                "restant": ctx.quotas_import.restant(qui),
             },
         }
     # **Les compteurs du cache météo ne sortent plus ici** (relecture
@@ -1267,16 +1316,26 @@ def importer_activites(
     config = _config(ctx, qui)
     cache = _cache(config, qui)
 
-    depots = _copier_en_temporaires(fichiers)
+    _verifier_quota(ctx, qui, ctx.quotas_import)
     try:
-        job = imports_fond.lancer(cache, str(qui), depots)
-    except imports_fond.ErreurImportEnCours:
+        depots = _copier_en_temporaires(fichiers)
+    except Exception:
+        _rembourser_quota(ctx, qui, ctx.quotas_import)
+        raise
+    try:
+        job = imports_fond.lancer(
+            cache,
+            str(qui),
+            depots,
+            au_echec=lambda: _rembourser_quota(ctx, qui, ctx.quotas_import),
+        )
+    except imports_fond.ErreurImportEnCours as occupe:
+        _rembourser_quota(ctx, qui, ctx.quotas_import)
         for _, chemin in depots:
             chemin.unlink(missing_ok=True)
         raise ErreurApi(
             code="import_deja_en_cours",
-            message="un import tourne déjà sur ce serveur — réessayer une fois celui-ci "
-            "terminé (GET /activites/import/{id} pour le suivre)",
+            message=_message_occupe(occupe.nature),
             statut=409,
         ) from None
     return {"proprietaire": str(qui), "donnees": job.json()}
@@ -1293,12 +1352,18 @@ def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]
     cet appel est effacé — un import ne part jamais à moitié écrit.
     """
     from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
+    from ourouler.api.imports_fond import PREFIXE_TEMPORAIRE
 
     chemins: list[Path] = []
     total = 0
     try:
         for fichier in fichiers:
-            destination = Path(tempfile.mkstemp(prefix="ourouler-import-", suffix=".bin")[1])
+            # Fermé tout de suite : `mkstemp` laissait son descripteur ouvert,
+            # un par fichier déposé, jusqu'à la fin du processus.
+            with tempfile.NamedTemporaryFile(
+                prefix=PREFIXE_TEMPORAIRE, suffix=".bin", delete=False
+            ) as vide:
+                destination = Path(vide.name)
             chemins.append(destination)
             with destination.open("wb") as sortie:
                 while True:
@@ -1321,6 +1386,136 @@ def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]
     return [
         (fichier.filename or "(sans nom)", chemin) for fichier, chemin in zip(fichiers, chemins, strict=True)
     ]
+
+
+# --- calibration depuis l'écran (L9.4) ------------------------------------------
+
+
+@routeur.get("/calibrations")
+def etat_calibrations(ctx: Ctx, qui: Qui) -> dict:
+    """Pour chaque vélo : sa calibration en mots simples, de quoi la lancer, la tâche récente.
+
+    L'écran s'en sert pour dessiner la fiche vélo sans rien lancer : combien
+    de sorties exploitables il y a (et combien il en faut), si un pneu est
+    déclaré, la dernière calibration de ce vélo (en cours ou terminée — c'est
+    ce qui permet de reprendre l'avancement après un rechargement de page).
+    Rien de tout ça ne coûte d'appel externe : l'index des sorties seul.
+    """
+    from ourouler.api import calibrations
+
+    config = _config(ctx, qui)
+    donnees = calibrations.etat(config, _cache(config, qui), str(qui))
+    if ctx.session.mode != MODE_PERSONNEL:
+        donnees["quota"] = {
+            "plafond": ctx.quotas_calibration.plafond,
+            "restant": ctx.quotas_calibration.restant(qui),
+        }
+    return {"proprietaire": str(qui), "donnees": donnees}
+
+
+@routeur.get("/calibrations/{id_job}")
+def etat_job_calibration(ctx: Ctx, qui: Qui, id_job: str) -> dict:
+    """Où en est une calibration lancée par `POST /calibrations` — à interroger périodiquement.
+
+    Même cloisonnement que `GET /activites/import/{id}` : l'identifiant d'un
+    autre propriétaire — ou celui d'un import — rend `fichier_introuvable`.
+    """
+    from ourouler.api import taches_fond
+
+    job = taches_fond.trouver(str(qui), id_job, taches_fond.NATURE_CALIBRATION)
+    if job is None:
+        raise ErreurApi(
+            code="fichier_introuvable",
+            message=f"calibration {id_job} : introuvable, ou appartenant à quelqu'un d'autre",
+            statut=404,
+        )
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+@routeur.post("/calibrations", status_code=202)
+def lancer_calibration(ctx: Ctx, qui: Qui, demande: DemandeCalibration) -> dict:
+    """Lance en tâche de fond la calibration d'un vélo sur les sorties de **ce** compte.
+
+    Crr fixé par le pneu (ou, `sans_pneu`, par l'usage — dit comme tel), CdA
+    cherché, fourchette du porte à porte mesurée hors échantillon : le calcul
+    de `ourouler calibrer` (L9.1), sur les sorties importées (L9.2) ou
+    synchronisées depuis Intervals. Voir `api/calibrations.py` pour le choix
+    des sorties quand le profil a plusieurs vélos.
+
+    Dans l'ordre, et c'est voulu : les **préconditions** d'abord (pas de
+    vélo, pas de FTP, pas assez de sorties, pas de pneu — chacune avec son
+    code et ce qu'il faut faire), puis le **quota** (une par jour et par
+    compte, remboursée si la calibration échoue), puis le **verrou** des
+    tâches lourdes (un import ou une calibration à la fois pour tout le
+    serveur, `tache_lourde_en_cours`). Un refus à l'une de ces étapes ne
+    coûte rien au compte.
+
+    202 et un identifiant tout de suite ; `GET /calibrations/{id}` dit où
+    elle en est, puis rend le résultat en mots simples.
+    """
+    from ourouler.api import calibrations, taches_fond
+
+    config = _config(ctx, qui)
+    cache = _cache(config, qui)
+    velo = calibrations.verifier(
+        config,
+        demande.velo,
+        cache,
+        sans_pneu=demande.sans_pneu,
+        velos_declares=_velos_declares(ctx, qui),
+    )
+    client_archive = _service(ctx, config, "archive") or ClientArchive(
+        chemin_cache=config.cache.dossier / NOM_CACHE_ARCHIVE
+    )
+    _verifier_quota(ctx, qui, ctx.quotas_calibration)
+    try:
+        job = calibrations.lancer(
+            config,
+            velo,
+            cache,
+            client_archive,
+            str(qui),
+            sans_pneu=demande.sans_pneu,
+            chemins={
+                str(ctx.profils.dossier(qui)): "(votre dossier)",
+                str(config.cache.dossier): "(cache du serveur)",
+            },
+            au_echec=lambda: _rembourser_quota(ctx, qui, ctx.quotas_calibration),
+        )
+    except taches_fond.ErreurTacheEnCours as occupe:
+        _rembourser_quota(ctx, qui, ctx.quotas_calibration)
+        raise ErreurApi(
+            code="tache_lourde_en_cours",
+            message=_message_occupe(occupe.nature),
+            statut=409,
+        ) from None
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+def _velos_declares(ctx: Contexte, qui: Proprietaire) -> bool:
+    """Le compte a-t-il déclaré ses vélos ? Voir `calibrations.verifier`.
+
+    En mode hébergé, `velos` est du tiers 3 (Q35) : jamais hérité du socle,
+    donc absent de la surcharge tant que le cycliste ne l'a pas écrit. En
+    mode personnel, les vélos sont ceux du TOML du mainteneur.
+    """
+    if ctx.session.mode == MODE_PERSONNEL:
+        return True
+    try:
+        return bool(ctx.profils.surcharge(qui).get("velos"))
+    except Exception as e:
+        raise classer(e) from e
+
+
+def _message_occupe(nature: str | None) -> str:
+    """Le refus quand une tâche lourde occupe le serveur — sans dire à qui elle appartient."""
+    quoi = {"import": "un import d'historique", "calibration": "une calibration"}.get(
+        nature or "", "un import ou une calibration"
+    )
+    return (
+        f"{quoi} tourne déjà sur ce serveur, qui n'en fait qu'un à la fois — réessayez "
+        "dans quelques minutes"
+    )
 
 
 # --- parcours -----------------------------------------------------------------
@@ -1765,6 +1960,8 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
                 dossier_cache=ctx.dossier_cache,
                 comptes=comptes,
             )
+    except vie_privee.TacheNonArretee as refus:
+        raise ErreurApi(code=refus.code, message=refus.message, statut=409) from None
     except Exception as e:
         raise classer(e) from e
     return {"proprietaire": str(qui), "donnees": donnees}

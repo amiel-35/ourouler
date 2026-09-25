@@ -50,8 +50,14 @@ from ourouler.api.depots import (
     SocleVide,
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
+from ourouler.api.garde_avant_corps import GardeAvantCorps
 from ourouler.api.limite_corps import LimiteTailleCorps
-from ourouler.api.quotas import CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, Quotas
+from ourouler.api.quotas import (
+    CALIBRATIONS_PAR_JOUR_DEFAUT,
+    CONSULTATIONS_METEO_PAR_JOUR_DEFAUT,
+    IMPORTS_PAR_JOUR_DEFAUT,
+    Quotas,
+)
 from ourouler.api.routes import TAILLE_MAX_SEANCE, Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
@@ -149,10 +155,13 @@ def creer_application(
     client_ban: object | None = None,
     client_nominatim: object | None = None,
     client_geocodage: object | None = None,
+    client_archive: object | None = None,
     clients: Clients | None = None,
     budgets: Budgets | None = None,
     quotas: Quotas | None = None,
     quotas_meteo: Quotas | None = None,
+    quotas_calibration: Quotas | None = None,
+    quotas_import: Quotas | None = None,
     session: FournisseurSession | None = None,
     dossier_front: Path | None = None,
 ) -> FastAPI:
@@ -209,7 +218,13 @@ def creer_application(
     l'autre — deux postes de coût différents, deux compteurs. Sans eux,
     `Quotas()` avec son défaut pour chacun — ce que font tous les tests qui
     n'exercent pas le quota. Sans objet en mode personnel : voir
-    `routes._verifier_quota`.
+    `routes._verifier_quota`. `quotas_calibration` (L9.4) est le troisième
+    compteur, une calibration par jour et par compte par défaut
+    (`quotas.CALIBRATIONS_PAR_JOUR_DEFAUT`).
+
+    **`client_archive`** (L9.4) : l'archive météo Open-Meteo que la
+    calibration interroge, un jour de sortie à la fois — un `httpx.Client`
+    bouchonné, ou un client déjà construit, comme les cinq autres.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -257,15 +272,23 @@ def creer_application(
             # réseau n'ait pas à connaître ce détail.
             ban=client_ban or client_geocodage,
             nominatim=client_nominatim or client_geocodage,
+            archive=client_archive,
         ),
         budgets=budgets or Budgets(),
         quotas=quotas or Quotas(),
         quotas_meteo=quotas_meteo
         or Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo"),
+        quotas_calibration=quotas_calibration
+        or Quotas(plafond=CALIBRATIONS_PAR_JOUR_DEFAUT, libelle="calibration(s)"),
+        quotas_import=quotas_import
+        or Quotas(plafond=IMPORTS_PAR_JOUR_DEFAUT, libelle="import(s) d'historique"),
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
     app.add_middleware(LimiteTailleCorps, bornes=BORNES_CORPS)
+    # Ajouté après, donc **extérieur** : les refus qui se savent sans le
+    # corps (session, verrou, quota) passent avant qu'on en compte un octet.
+    app.add_middleware(GardeAvantCorps)
 
     @app.get("/sante", include_in_schema=False)
     def _sonde_sante() -> dict:
@@ -420,11 +443,16 @@ def application() -> FastAPI:
     (`deploiement/api/Dockerfile`) qui pose cette variable, vers le dossier où
     il a copié `npm run build`.
     """
-    from ourouler.api import exploitation
+    from ourouler.api import exploitation, imports_fond
     from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL
     from ourouler.api.session import MODE_PERSONNEL
 
     session = exploitation.fournisseur_session()
+    # Les copies de dépôt qu'un import interrompu par l'arrêt du processus a
+    # laissées (contre-lecture Fable du 25/09/2026) — au démarrage du service
+    # seulement, jamais dans `creer_application`, que les tests appellent à
+    # côté d'imports qui tournent encore.
+    imports_fond.balayer_temporaires_orphelins(Path(tempfile.gettempdir()))
 
     # **À qui appartient le TOML de ce serveur**, et c'est le mode qui le dit.
     #

@@ -17,7 +17,7 @@ import argparse
 import json
 import math
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -94,6 +94,10 @@ class Calibration:
     crr_source: str = ""
     #: Le pneu déclaré au moment de la calibration (`crr_source` « pneu »).
     pneu: str | None = None
+    #: Le biais de validation (temps simulé sur réel − 1, signé) et le nombre
+    #: de sorties de validation — ce que l'écran montre à côté de la MAE (L9.4).
+    biais: float | None = None
+    n_validation: int = 0
 
     @property
     def resume(self) -> str:
@@ -106,6 +110,15 @@ class Calibration:
 
 
 def chemin_calibration(config: Config) -> Path:
+    """Le `calibration.json` de cette configuration.
+
+    Dans le dossier de cache pour la ligne de commande ; à l'endroit que la
+    couche web a posé pour un compte hébergé (`ParametresCache.fichier_calibration`,
+    L9.4) — c'est ce qui fait que les boucles, les sorties et les simulations
+    d'un compte lisent **sa** calibration, et jamais celle d'un autre.
+    """
+    if config.cache.fichier_calibration is not None:
+        return config.cache.fichier_calibration
     return config.cache.dossier / NOM_CALIBRATION
 
 
@@ -138,6 +151,7 @@ def lire_calibration(chemin: Path, velo: str) -> Calibration | None:
     except (KeyError, TypeError, ValueError):
         return None
     mae = brut.get("mae")
+    biais = brut.get("biais")
     return Calibration(
         velo=velo,
         parametres=parametres,
@@ -147,6 +161,8 @@ def lire_calibration(chemin: Path, velo: str) -> Calibration | None:
         porte_a_porte=_lire_porte_a_porte(brut.get("porte_a_porte")),
         crr_source=str(brut.get("crr_source") or ""),
         pneu=str(brut["pneu"]) if brut.get("pneu") else None,
+        biais=float(biais) if isinstance(biais, (int, float)) else None,
+        n_validation=int(brut.get("n_validation") or 0),
     )
 
 
@@ -193,9 +209,15 @@ def ecrire_calibration(chemin: Path, velo: str, contenu: dict) -> None:
     charge["velos"][velo] = contenu
     try:
         chemin.parent.mkdir(parents=True, exist_ok=True)
-        chemin.write_text(
+        # Écrit à côté puis renommé : depuis L9.4, une calibration s'écrit
+        # dans une tâche de fond pendant que d'autres requêtes relisent le
+        # fichier — elles doivent voir l'ancien ou le nouveau, jamais un
+        # fichier à moitié écrit.
+        provisoire = chemin.with_name(chemin.name + ".provisoire")
+        provisoire.write_text(
             json.dumps(charge, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        provisoire.replace(chemin)
     except OSError as e:
         raise ErreurUtilisateur(f"calibration : écriture impossible dans {chemin} ({e})") from e
 
@@ -369,27 +391,145 @@ def velo_demande(config: Config, nom: str | None) -> Velo:
 
 
 def executer_calibrer(
-    args: argparse.Namespace, config: Config, client_archive: ClientArchive | None = None
+    args: argparse.Namespace,
+    config: Config,
+    client_archive: ClientArchive | None = None,
+    cache: Cache | None = None,
 ) -> int:
-    """Calibre un vélo sur les sorties réelles du cache. Code de sortie 0 si ça a marché."""
+    """Calibre un vélo sur les sorties réelles du cache. Code de sortie 0 si ça a marché.
+
+    **`cache` s'injecte** (L9.4), sur le patron d'`activites/commande.executer` :
+    absent — la ligne de commande —, la commande construit celui du
+    propriétaire local sur `config.cache.dossier`, comme avant. Le calcul
+    lui-même est `calibrer_velo`, qui n'imprime rien : c'est lui que la tâche
+    de fond de l'API appelle (`api/calibrations.py`), parce qu'une commande
+    qui écrit sur la sortie standard ne peut pas tourner dans un fil pendant
+    que d'autres requêtes capturent la leur (`api/adaptateur.py`).
+    """
     velo = velo_demande(config, getattr(args, "velo", None))
+    cache = cache if cache is not None else Cache(config.cache.dossier)
+    client = (
+        client_archive
+        if client_archive is not None
+        else ClientArchive(chemin_cache=config.cache.dossier / NOM_CACHE)
+    )
+    resultat = calibrer_velo(
+        config,
+        velo,
+        cache,
+        client,
+        depuis=_date_option(getattr(args, "depuis", None), config.historique_depuis),
+        maximum=getattr(args, "max", None),
+        crr_libre=bool(getattr(args, "crr_libre", False)),
+    )
+
+    chemin = chemin_calibration(config)
+    ecrire_calibration(chemin, velo.nom, resultat.contenu())
+    for panne in resultat.pannes:
+        print(f"ourouler : {panne}", file=sys.stderr)
+    arguments = (
+        resultat.rapport,
+        velo,
+        config,
+        chemin,
+        client,
+        resultat.motifs,
+        resultat.n_calibrables,
+        resultat.crr_source,
+    )
+    if getattr(args, "json", False):
+        print(json.dumps(rendre_json_calibration(*arguments), ensure_ascii=False, indent=2))
+    else:
+        print(rendre_texte_calibration(*arguments))
+    return 0
+
+
+@dataclass
+class ResultatCalibration:
+    """Ce que `calibrer_velo` a trouvé — de quoi écrire `calibration.json` et le rapport."""
+
+    velo: Velo
+    rapport: calib.RapportCalibration
+    #: Sorties de ce vélo écartées, et pourquoi (`sorties_calibrables_et_motifs`).
+    motifs: dict[str, int]
+    #: Combien de sorties ont passé le choix (avant relecture des fichiers).
+    n_calibrables: int
+    #: Sorties illisibles et archives météo indisponibles — la calibration a
+    #: continué sans elles (ou sans vent), mais il faut le dire.
+    pannes: list[str]
+    #: D'où vient le Crr : « pneu », « configuration », « usage » ou « ajuste ».
+    crr_source: str
+
+    def contenu(self) -> dict:
+        """L'entrée de ce vélo dans `calibration.json`."""
+        return _contenu_json(self.rapport, self.crr_source, self.velo.pneu)
+
+
+#: Signature du rappel d'avancement de `calibrer_velo` : (étape, faits, total).
+Progres = Callable[[str, int, int], None]
+
+#: Les étapes que `calibrer_velo` annonce, dans l'ordre.
+ETAPE_LECTURE = "lecture"
+ETAPE_METEO = "meteo"
+ETAPE_AJUSTEMENT = "ajustement"
+
+
+def calibrer_velo(
+    config: Config,
+    velo: Velo,
+    cache: Cache,
+    client_archive: ClientArchive,
+    *,
+    depuis: date | None = None,
+    maximum: int | None = None,
+    crr_libre: bool = False,
+    crr_usage: bool = False,
+    rattachement_strict: bool = False,
+    progres: Progres | None = None,
+) -> ResultatCalibration:
+    """Calibre `velo` sur les sorties de `cache`. N'écrit rien, n'imprime rien.
+
+    `crr_usage` (L9.4) : un vélo sans pneu ni Crr déclarés garde fixé le Crr
+    du jeu de son usage (`physique.litterature`) au lieu de l'ajuster avec le
+    CdA — c'est ce que l'écran propose à qui ne connaît pas ses pneus,
+    l'ajustement libre dérivant sur les vraies données (note du 23/09).
+
+    `rattachement_strict` (L9.4) : quand le profil a plusieurs vélos, seules
+    les sorties **explicitement** rattachées à celui-ci (capteur, équipement,
+    période) comptent — voir `calibration.motif_exclusion`.
+
+    `progres(étape, faits, total)` est appelé au fil de la relecture des
+    fichiers et des archives météo, puis une fois avant l'ajustement.
+    """
     if config.cycliste.ftp_w is None:
         raise ErreurUtilisateur(
             "calibration : FTP non renseignée dans la configuration — cette commande a "
             "besoin d'une FTP de référence pour repérer les sorties calibrables"
         )
-    depuis = _date_option(getattr(args, "depuis", None), config.historique_depuis)
-    cache = Cache(config.cache.dossier)
+    depuis = depuis if depuis is not None else config.historique_depuis
+    annoncer = progres or (lambda etape, faits, total: None)
 
-    # Un seul lecteur pour toute la commande : le choix des sorties a besoin
-    # du contenu des fichiers (combien de sessions ? quel sport ?) et le
+    # Un seul lecteur pour tout le calcul : le choix des sorties a besoin du
+    # contenu des fichiers (combien de sessions ? quel sport ?) et le
     # chargement en a besoin aussi. Sans mémoïsation, chaque FIT serait analysé
     # deux fois.
     lecteur = _Lecteur(cache)
-    entrees, motifs = calib.sorties_calibrables_et_motifs(
-        cache, config, velo, depuis=depuis, relire=lecteur
+    candidates, _ = calib.sorties_calibrables_et_motifs(
+        cache, config, velo, depuis=depuis, strict=rattachement_strict
     )
-    maximum = getattr(args, "max", None)
+    total = len(candidates)
+    annoncer(ETAPE_LECTURE, 0, total)
+
+    def relire(identifiant: str):
+        deja = identifiant in lecteur._lues
+        activite = lecteur(identifiant)
+        if not deja:
+            annoncer(ETAPE_LECTURE, len(lecteur._lues), total)
+        return activite
+
+    entrees, motifs = calib.sorties_calibrables_et_motifs(
+        cache, config, velo, depuis=depuis, relire=relire, strict=rattachement_strict
+    )
     if maximum:
         entrees = entrees[-int(maximum) :]
     if not entrees:
@@ -398,18 +538,16 @@ def executer_calibrer(
             "— vérifier le rattachement au vélo (`ourouler inventaire`)"
         )
 
-    client = (
-        client_archive
-        if client_archive is not None
-        else ClientArchive(chemin_cache=config.cache.dossier / NOM_CACHE)
+    sorties, pannes = _charger_sorties(
+        lecteur, entrees, client_archive, lambda faits: annoncer(ETAPE_METEO, faits, len(entrees))
     )
-    sorties, pannes = _charger_sorties(lecteur, entrees, client)
     if not sorties:
         raise ErreurUtilisateur(
             f"calibration : aucune des {len(entrees)} sortie(s) de {velo.nom} n'est relisible"
         )
 
-    crr, crr_source = _crr_de_calibration(velo, bool(getattr(args, "crr_libre", False)))
+    annoncer(ETAPE_AJUSTEMENT, 0, 1)
+    crr, crr_source = _crr_de_calibration(velo, crr_libre, crr_usage)
     rapport = calib.calibrer_en_deux_passes(
         sorties,
         velo=velo.nom,
@@ -420,42 +558,40 @@ def executer_calibrer(
         crr_fixe=crr,
         part_groupe_max=config.calibration.part_groupe_max,
     )
-
-    chemin = chemin_calibration(config)
-    ecrire_calibration(chemin, velo.nom, _contenu_json(rapport, crr_source, velo.pneu))
-    for panne in pannes:
-        print(f"ourouler : {panne}", file=sys.stderr)
-    if getattr(args, "json", False):
-        print(
-            json.dumps(
-                rendre_json_calibration(
-                    rapport, velo, config, chemin, client, motifs, len(entrees), crr_source
-                ),
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-    else:
-        print(
-            rendre_texte_calibration(
-                rapport, velo, config, chemin, client, motifs, len(entrees), crr_source
-            )
-        )
-    return 0
+    annoncer(ETAPE_AJUSTEMENT, 1, 1)
+    return ResultatCalibration(
+        velo=velo,
+        rapport=rapport,
+        motifs=motifs,
+        n_calibrables=len(entrees),
+        pannes=pannes,
+        crr_source=crr_source,
+    )
 
 
-def _crr_de_calibration(velo: Velo, crr_libre: bool) -> tuple[float | None, str]:
+def _crr_de_calibration(
+    velo: Velo, crr_libre: bool, crr_usage: bool = False
+) -> tuple[float | None, str]:
     """(Crr fixé ou `None`, provenance) pour `ourouler calibrer`.
 
     Le Crr connu (pneu ou configuration) est gardé fixe et seul le CdA est
     cherché — la méthode que la note du 23/09 a trouvée convergente.
     `--crr-libre`, ou un vélo sans pneu ni Crr déclarés, garde l'ajustement à
-    deux paramètres d'avant : provenance « ajuste ».
+    deux paramètres d'avant : provenance « ajuste ». Sauf `crr_usage` (L9.4,
+    l'écran) : le Crr du jeu de l'usage est alors fixé, provenance « usage ».
     """
     connu = None if crr_libre else crr_du_velo(velo)
-    if connu is None:
-        return (None, "ajuste")
-    return connu
+    if connu is not None:
+        return connu
+    if crr_usage and not crr_libre:
+        return (crr_de_l_usage(velo), "usage")
+    return (None, "ajuste")
+
+
+def crr_de_l_usage(velo: Velo) -> float:
+    """Le Crr de la littérature pour l'usage de ce vélo, ou `CRR_DEFAUT`."""
+    choix = litterature.pour_usage(velo.usage)
+    return choix.jeu.crr if choix is not None else CRR_DEFAUT
 
 
 class _Lecteur:
@@ -483,7 +619,10 @@ class _Lecteur:
 
 
 def _charger_sorties(
-    lecteur: _Lecteur, entrees, client: ClientArchive
+    lecteur: _Lecteur,
+    entrees,
+    client: ClientArchive,
+    avancer: Callable[[int], None] | None = None,
 ) -> tuple[list[calib.SortieCalibration], list[str]]:
     """Relit chaque sortie et va chercher l'archive météo de son jour, à son départ.
 
@@ -493,7 +632,9 @@ def _charger_sorties(
     """
     sorties: list[calib.SortieCalibration] = []
     pannes: list[str] = []
-    for entree in entrees:
+    for rang, entree in enumerate(entrees, start=1):
+        if avancer is not None:
+            avancer(rang)
         activite = lecteur(entree.identifiant)
         if activite is None:
             motif = lecteur.pannes.get(entree.identifiant, "cause inconnue")
@@ -717,6 +858,8 @@ def _crr_texte(crr_source: str, velo: Velo) -> str:
     if crr_source == "pneu":
         pneu = litterature.pour_pneu(velo.pneu)
         return f"pneu {pneu.libelle}, littérature" if pneu is not None else "pneu"
+    if crr_source == "usage":
+        return f"usage {velo.usage}, littérature — aucun pneu déclaré"
     return crr_source
 
 

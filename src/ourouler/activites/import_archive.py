@@ -92,7 +92,15 @@ TAILLE_MAX_FICHIER = 200 * 1024 * 1024
 #: gros fait 3,7 Mo (un `.gpx`), le plus gros `.fit` 3,0 Mo — marge x13. Un
 #: plafond de 200 Mo, comme pour les archives, laissait `gpxpy` monter un
 #: arbre XML de plusieurs Go à partir d'un seul `.gpx.gz` de quelques Ko.
-TAILLE_MAX_ACTIVITE = 50 * 1024 * 1024
+#:
+#: **Ramené de 50 à 16 Mo** (contre-lecture Fable du 25/09/2026), sur mesure :
+#: un `.gpx` valide et synthétique de 50 Mo (555 000 points) prend 6,4 s et
+#: **+745 Mo** de mémoire résidente à lire (`lecture.py`, `gpxpy`) — sur un
+#: serveur partagé avec BRouter, c'est un fichier qui suffit à tout faire
+#: tomber. À 16 Mo : 1,9 s et +240 Mo (10 Mo : 1,1 s, +150 Mo). 16 Mo, c'est
+#: plus de 4 fois le plus gros fichier réel mesuré, et une sortie de 15 h
+#: enregistrée à la seconde avec cardio, cadence et puissance.
+TAILLE_MAX_ACTIVITE = 16 * 1024 * 1024
 
 #: Ratio décompressé/compressé max toléré pour une entrée. Mesuré à 11 sur
 #: l'archive Garmin réelle (`docs/services_externes.md`) ; marge x9.

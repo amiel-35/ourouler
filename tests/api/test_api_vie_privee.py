@@ -226,6 +226,7 @@ def test_supprimer_un_proprietaire_sans_donnees_ne_plante_pas(tmp_path: Path):
     assert reponse.status_code == 200, reponse.text
     assert reponse.json()["donnees"]["supprime"] == {
         "profil": False,
+        "calibration": False,
         "journal_services": False,
         "fichiers": 0,
         "activites": 0,
@@ -286,10 +287,11 @@ def test_suppression_du_cache_d_activites_efface_les_entrees_de_ce_proprietaire(
 def test_suppression_du_cache_epargne_le_fichier_brut_encore_reference(
     tmp_path: Path, activites: Path
 ):
-    """Deux propriétaires aux octets identiques partagent le fichier brut (doc. `Cache.chemin`).
+    """Deux propriétaires aux octets identiques : effacer l'un ne prive pas l'autre.
 
-    Effacer l'un ne doit pas priver l'autre de son activité — et une fois les
-    deux effacés, le fichier brut, lui, disparaît vraiment.
+    Depuis la contre-lecture Fable du 25/09/2026, chacun a **son** fichier
+    brut (`Cache.__init__`) : la suppression de A efface le sien, jamais celui
+    de B — et une fois les deux effacés, plus rien ne reste.
     """
     a, b = Proprietaire(PROPRIETAIRE_A), Proprietaire(PROPRIETAIRE_B)
     dossier = tmp_path / "cache"
@@ -299,15 +301,18 @@ def test_suppression_du_cache_epargne_le_fichier_brut_encore_reference(
     id_a = cache_a.ajouter(contenu, source="fichier", id_externe="chez-a", extension="gpx", meta={})
     id_b = cache_b.ajouter(contenu, source="fichier", id_externe="chez-b", extension="gpx", meta={})
     assert id_a == id_b, "le test suppose un contenu identique — même sha256"
-    chemin_brut = cache_a.chemin(id_a)
-    assert chemin_brut.is_file()
+    brut_a, brut_b = cache_a.chemin(id_a), cache_b.chemin(id_b)
+    assert brut_a.is_file() and brut_b.is_file()
+    assert brut_a != brut_b, "le même contenu ne se partage plus entre comptes"
 
     cache_a.supprimer_tout()
-    assert chemin_brut.is_file(), "le fichier brut a disparu alors que B le référence encore"
+    assert not brut_a.is_file(), "le fichier de A aurait dû partir avec lui"
+    assert brut_b.is_file(), "la suppression de A a touché le fichier de B"
     assert cache_b.contient_identifiant(id_b), "B a perdu son activité à cause de la suppression de A"
+    assert cache_b.relire(id_b) is not None
 
     cache_b.supprimer_tout()
-    assert not chemin_brut.is_file(), "plus personne ne le référence : il aurait dû disparaître"
+    assert not brut_b.is_file()
 
 
 def test_la_suppression_via_effacer_donnees_laisse_intactes_les_routes_apprises(tmp_path: Path):

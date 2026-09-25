@@ -50,6 +50,32 @@ class ReseauInterdit(BaseException):
 
 
 @pytest.fixture(autouse=True)
+def taches_lourdes_rendues():
+    """Chaque test part d'un serveur sans tâche lourde en cours (import, calibration).
+
+    Une tâche lancée par le test précédent peut encore être en train de rendre
+    le verrou serveur (`api/taches_fond.VERROU`, quelques millisecondes après
+    son « fini ») : depuis que `api/garde_avant_corps.py` refuse un import
+    **avant** d'en lire le corps, cette fenêtre suffisait à recevoir un
+    `import_deja_en_cours` pour de mauvaises raisons. Importé ici et non en
+    tête de module : garantie 3 ci-dessus, rien de l'API à la collecte.
+    """
+    import time
+
+    try:
+        from ourouler.api import taches_fond
+    except Exception:  # noqa: BLE001 — extra « api » absent : rien à attendre
+        yield
+        return
+    debut = time.monotonic()
+    while not taches_fond.VERROU.acquire(blocking=False):
+        assert time.monotonic() - debut < 30, "une tâche lourde ne rend pas le verrou serveur"
+        time.sleep(0.01)
+    taches_fond.VERROU.release()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def reseau_interdit(monkeypatch: pytest.MonkeyPatch) -> None:
     """Coupe toute sortie réseau pour les tests de ce dossier."""
 

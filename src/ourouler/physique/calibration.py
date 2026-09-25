@@ -71,7 +71,7 @@ from typing import NamedTuple
 import numpy as np
 
 from ourouler.activites.cache import Cache, EntreeCache
-from ourouler.activites.inventaire import en_interieur, rattacher_velo
+from ourouler.activites.inventaire import en_interieur, rattachement_explicite, rattacher_velo
 from ourouler.activites.modele import Activite, Point, est_sport_velo
 from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m
 from ourouler.config import Config, Velo
@@ -1422,16 +1422,32 @@ def masse_totale_kg(config: Config, velo: Velo) -> float:
     )
 
 
-def motif_exclusion(entree: EntreeCache, config: Config, velo: Velo) -> str | None:
+#: Le motif d'une sortie qu'on ne sait pas attribuer, en rattachement strict.
+MOTIF_VELO_NON_IDENTIFIE = "vélo non identifié"
+
+
+def motif_exclusion(
+    entree: EntreeCache, config: Config, velo: Velo, *, strict: bool = False
+) -> str | None:
     """Pourquoi cette sortie n'est pas calibrable, ou `None` si elle l'est.
 
     Rendre le motif, et pas seulement un booléen, permet à la commande de dire
     « 102 calibrables, 8 trop courtes, 2 en groupe » au lieu d'un nombre nu.
+
+    `strict` (L9.4, calibration depuis l'écran) : quand le profil a plusieurs
+    vélos, une sortie qui ne désigne aucun vélo elle-même (ni capteur, ni
+    équipement, ni période — `rattachement_explicite`) n'est plus créditée au
+    premier vélo de route : elle est écartée, motif `MOTIF_VELO_NON_IDENTIFIE`,
+    et comptée **pour chaque vélo**, pour que l'écran dise combien de sorties
+    attendent d'être rattachées. Avec un seul vélo, rien ne change : toutes
+    ses sorties sont les siennes.
     """
     if not est_sport_velo(entree.sport):
         return "pas du vélo"
     if en_interieur(entree):
         return "home-trainer"
+    if strict and len(config.velos) > 1 and rattachement_explicite(entree, config) is None:
+        return MOTIF_VELO_NON_IDENTIFIE
     if rattacher_velo(entree, config) != velo.nom:
         return "autre vélo"
     if entree.puissance_moy_w is None:
@@ -1488,6 +1504,7 @@ def sorties_calibrables_et_motifs(
     *,
     depuis: date | None = None,
     relire: Callable[[str], Activite | None] | None = None,
+    strict: bool = False,
 ) -> tuple[list[EntreeCache], dict[str, int]]:
     """(sorties utilisables, décompte des sorties **de ce vélo** écartées et pourquoi).
 
@@ -1505,7 +1522,7 @@ def sorties_calibrables_et_motifs(
     retenues: list[EntreeCache] = []
     motifs: dict[str, int] = {}
     for entree in cache.lister(depuis=depuis):
-        motif = motif_exclusion(entree, config, velo)
+        motif = motif_exclusion(entree, config, velo, strict=strict)
         if motif is None and relire is not None:
             motif = motif_multisport(relire(entree.identifiant))
         if motif is None:
@@ -1581,6 +1598,25 @@ class RapportCalibration:
     repli_solo: str = ""
     """Non vide quand trop peu de sorties passaient `part_groupe_max` : dit
     sur quoi le CdA a été cherché à la place."""
+
+
+def sorties_minimum(part_validation: float) -> int:
+    """Le moins de sorties calibrables avec lequel une calibration a un sens (L9.4).
+
+    Dérivé, pas choisi : il faut `SORTIES_MIN_SOLO` sorties d'**apprentissage**
+    pour que le CdA ne soit pas cherché sur une poignée de sorties (en deçà,
+    `calibrer_en_deux_passes` le dit par `repli_solo`), **plus** la part que
+    `partager` met de côté pour la validation. 10 avec la part par défaut
+    (0,25). La fourchette du porte à porte, elle, demande davantage (au moins
+    `SORTIES_MIN_FOURCHETTE` sorties de validation roulées seul) : en deçà,
+    la convention reste en vigueur, et le rapport le dit.
+    """
+    n = SORTIES_MIN_SOLO
+    while True:
+        n_test = max(1, min(n - 1, round(n * part_validation)))
+        if n - n_test >= SORTIES_MIN_SOLO:
+            return n
+        n += 1
 
 
 def partager(

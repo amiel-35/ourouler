@@ -20,8 +20,9 @@
 
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Profil, Zones } from "../api/types";
+import type { EtatCalibrations, Profil, Zones } from "../api/types";
 import { jourEnLettres, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
+import { CalibrationVelo } from "../composants/CalibrationVelo";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -53,6 +54,19 @@ export function Reglages({
   const [cle, setCle] = useState("");
   const [panne, setPanne] = useState<string | null>(null);
   const [dit, setDit] = useState<string | null>(null);
+  // L9.4 : ce que le serveur sait de la calibration de chaque vélo. `null`
+  // tant qu'il n'a pas répondu — ou s'il ne sait pas répondre (un serveur
+  // d'avant L9.4) : la section ne s'affiche alors simplement pas.
+  const [calibrations, setCalibrations] = useState<EtatCalibrations | null>(null);
+
+  function relireCalibrations() {
+    api
+      .etatCalibrations()
+      .then((reponse) => setCalibrations(reponse.donnees))
+      .catch(() => setCalibrations(null));
+  }
+
+  useEffect(relireCalibrations, [profil]);
 
   async function enregistrer(sections: Record<string, unknown>, phrase: string) {
     setPanne(null);
@@ -255,6 +269,9 @@ export function Reglages({
               {velo.facteur_compteur === null
                 ? " · vitesse supposée"
                 : " · vitesse mesurée sur vos sorties"}
+              {calibrations?.velos.find((c) => c.velo === velo.nom)?.calibration
+                ? " · modèle mesuré sur vos sorties"
+                : ""}
             </span>
           </div>
         ))}
@@ -289,6 +306,37 @@ export function Reglages({
           profil={profil}
           surListe={(velos) => enregistrer({ velos }, "Vélos enregistrés.")}
         />
+      ) : null}
+
+      {calibrations && calibrations.velos.length > 0 ? (
+        <>
+          <h2>Vos vélos, mesurés sur vos sorties</h2>
+          <p className="mention">
+            Avec un capteur de puissance, vos propres sorties disent ce que coûte chaque vélo :
+            le temps annoncé des boucles part alors de là plutôt que d'une valeur typique.
+          </p>
+          {calibrations.velos.map((etat) => (
+            <CalibrationVelo
+              key={etat.velo}
+              etat={etat}
+              sortiesNecessaires={calibrations.sorties_necessaires}
+              ftpRenseignee={calibrations.ftp_renseignee}
+              quotaRestant={calibrations.quota?.restant}
+              surChoisirPneus={() => {
+                setVolet("velos");
+                setDit(null);
+                setPanne(null);
+              }}
+              surCalibree={() => {
+                relireCalibrations();
+                api
+                  .zones()
+                  .then((reponse) => surZones(reponse.donnees))
+                  .catch(() => undefined);
+              }}
+            />
+          ))}
+        </>
       ) : null}
 
       <div className="bloc doux liste">

@@ -108,6 +108,28 @@ CODES_PANNE: dict[str, str] = {
         "un import d'historique tourne déjà sur ce serveur (un seul à la fois, "
         "quel que soit le propriétaire) — réessayer une fois celui-ci terminé"
     ),
+    # L9.4 — la calibration depuis l'écran. Un calcul lourd occupe le
+    # serveur (import *ou* calibration, un seul à la fois) ; et quatre
+    # préconditions, chacune avec ce qu'il faut faire pour la lever.
+    "tache_lourde_en_cours": (
+        "un import d'historique ou une calibration tourne déjà sur ce serveur (un "
+        "seul à la fois, quel que soit le propriétaire) — réessayer une fois terminé"
+    ),
+    "velo_absent": "aucun vélo dans le profil — une calibration porte sur un vélo",
+    "ftp_absente": (
+        "FTP non renseignée — la calibration s'en sert pour écarter les efforts "
+        "qui ne décrivent pas le vélo (sprints, relances)"
+    ),
+    "sorties_insuffisantes": (
+        "pas assez de sorties exploitables pour ce vélo (extérieures, 20 km et plus, "
+        "avec puissance, rattachées à ce vélo) — `details` dit combien il en faut "
+        "et combien il y en a"
+    ),
+    "pneu_absent": (
+        "aucun pneu déclaré pour ce vélo — le choisir, ou relancer avec "
+        "`sans_pneu` : la résistance au roulement typique de l'usage est alors "
+        "gardée fixe, et le résultat le dit"
+    ),
     "brouter_indisponible": "BRouter injoignable ou en erreur",
     "meteo_indisponible": (
         "Open-Meteo injoignable ou en erreur — le parcours reste servi sans "

@@ -298,6 +298,7 @@ def test_supprimer_mes_donnees_ferme_le_compte_et_revoque_la_session(url_base, t
         )
     assert rejoue["supprime"] == {
         "profil": False,
+        "calibration": False,
         "journal_services": False,
         "fichiers": 0,
         "activites": 0,

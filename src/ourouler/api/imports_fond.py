@@ -22,6 +22,12 @@ que `DepotFichiers.trouver` pour un identifiant qui n'est pas le sien
 (`fichier_introuvable`), pour ne renseigner personne sur l'existence d'un
 import qu'il n'a pas lancé.
 
+**Le registre, le verrou et le cloisonnement vivent désormais dans
+`api/taches_fond.py`** (L9.4, 25/09/2026), partagés avec la calibration :
+le verrou est celui des tâches lourdes, import *ou* calibration. Ce module
+garde ce qui est propre à l'import et ré-exporte le reste sous ses noms
+d'origine.
+
 Ce module ne lit ni fichier de configuration ni variable d'environnement
 (doctrine §2) : il reçoit un `Cache` déjà construit pour un propriétaire et
 des dépôts déjà résolus (chemins de fichiers temporaires) — exactement ce
@@ -30,64 +36,33 @@ que `api/routes.py` lui passe.
 
 from __future__ import annotations
 
-import threading
-import time
-import uuid
-from dataclasses import dataclass, field
+from collections.abc import Callable
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.import_archive import RapportImport, importer
-
-#: Un seul import à la fois, pour tout le serveur — voir le module.
-VERROU = threading.Lock()
-
-#: Combien de tâches on garde en mémoire (en cours ou terminées) avant
-#: d'oublier les plus vieilles déjà terminées. Un `Job` pèse quelques
-#: centaines d'octets (le rapport compris) : large marge pour qu'un
-#: mainteneur qui recharge sa page retrouve toujours son import.
-JOBS_GARDES = 200
-
-#: Les trois états qu'un job traverse, dans cet ordre — jamais de retour en arrière.
-STATUT_EN_COURS = "en_cours"
-STATUT_FINI = "fini"
-STATUT_ECHOUE = "echoue"
+from ourouler.activites.import_archive import importer
+from ourouler.api.taches_fond import (
+    JOBS_GARDES,
+    NATURE_IMPORT,
+    STATUT_ECHOUE,
+    STATUT_EN_COURS,
+    STATUT_FINI,
+    VERROU,
+    Job,
+)
+from ourouler.api.taches_fond import ErreurTacheEnCours as ErreurImportEnCours
+from ourouler.api.taches_fond import lancer as _lancer_tache
+from ourouler.api.taches_fond import trouver as _trouver_tache
 
 
-class ErreurImportEnCours(Exception):
-    """Un import tourne déjà sur ce serveur : `lancer()` refuse plutôt que d'attendre."""
-
-
-@dataclass
-class Job:
-    """L'état d'un import, tel que `GET /activites/import/{id}` le rend."""
-
-    id: str
-    proprietaire: str
-    statut: str = STATUT_EN_COURS
-    traites: int = 0
-    total: int = 0
-    rapport: RapportImport | None = None
-    erreur: str | None = None
-    demarre_le: float = field(default_factory=time.monotonic)
-
-    def json(self) -> dict:
-        return {
-            "id": self.id,
-            "statut": self.statut,
-            "traites": self.traites,
-            "total": self.total,
-            "rapport": self.rapport.json() if self.rapport is not None else None,
-            "erreur": self.erreur,
-        }
-
-
-_verrou_registre = threading.Lock()
-_jobs: dict[str, Job] = {}
-
-
-def lancer(cache: Cache, proprietaire: str, depots: list[tuple[str, Path]]) -> Job:
-    """Démarre un import en tâche de fond. Lève `ErreurImportEnCours` si un autre tourne déjà.
+def lancer(
+    cache: Cache,
+    proprietaire: str,
+    depots: list[tuple[str, Path]],
+    *,
+    au_echec: Callable[[], None] | None = None,
+) -> Job:
+    """Démarre un import en tâche de fond. Lève `ErreurImportEnCours` si une tâche lourde tourne.
 
     `depots` : `[(nom, chemin)]` — des chemins de fichiers déjà sur disque
     (une copie propre au job, voir `api/routes.py`), jamais l'`UploadFile` de
@@ -95,74 +70,81 @@ def lancer(cache: Cache, proprietaire: str, depots: list[tuple[str, Path]]) -> J
     permet de rendre tout de suite (Starlette referme ses fichiers temporaires
     une fois la requête terminée).
     """
-    if not VERROU.acquire(blocking=False):
-        raise ErreurImportEnCours
-    job = Job(id=uuid.uuid4().hex, proprietaire=proprietaire)
-    with _verrou_registre:
-        _jobs[job.id] = job
-        _purger()
 
-    def travailler() -> None:
+    def travailler(job: Job):
+        fichiers = [(nom, chemin.open("rb")) for nom, chemin in depots]
         try:
-            fichiers = [(nom, chemin.open("rb")) for nom, chemin in depots]
-            try:
-                rapport = importer(
-                    cache,
-                    [(nom, f) for nom, f in fichiers],
-                    progres=lambda traites, total: _avancer(job, traites, total),
-                )
-            finally:
-                for _, f in fichiers:
-                    f.close()
-            job.rapport = rapport
-            job.statut = STATUT_FINI
-        except Exception as e:  # noqa: BLE001 — une tâche de fond ne doit jamais planter en silence
-            job.erreur = str(e) or type(e).__name__
-            job.statut = STATUT_ECHOUE
+            # `importer` est relu dans ce module à chaque appel : un test peut
+            # le remplacer (`monkeypatch`) sans toucher au registre.
+            return importer(
+                cache,
+                [(nom, f) for nom, f in fichiers],
+                progres=lambda traites, total: job.avancer(traites, total),
+            )
         finally:
-            for _, chemin in depots:
-                chemin.unlink(missing_ok=True)
-            VERROU.release()
+            for _, f in fichiers:
+                f.close()
 
-    threading.Thread(target=travailler, daemon=True, name=f"import-{job.id[:8]}").start()
-    return job
+    def effacer_depots() -> None:
+        for _, chemin in depots:
+            chemin.unlink(missing_ok=True)
+
+    return _lancer_tache(
+        proprietaire, NATURE_IMPORT, travailler, au_echec=au_echec, enfin=effacer_depots
+    )
 
 
-def _avancer(job: Job, traites: int, total: int) -> None:
-    job.traites = traites
-    job.total = total
+#: Le préfixe des copies temporaires d'un dépôt (`api/routes._copier_en_temporaires`).
+PREFIXE_TEMPORAIRE = "ourouler-import-"
+
+#: Âge au-delà duquel une copie temporaire est tenue pour orpheline. Une copie
+#: vit le temps d'un import — un quart d'heure pour une grosse archive Strava ;
+#: une heure laisse une large marge sans laisser traîner 750 Mo pour rien.
+AGE_ORPHELIN_S = 3600.0
+
+
+def balayer_temporaires_orphelins(
+    dossier: Path, *, age_min_s: float = AGE_ORPHELIN_S, maintenant: float | None = None
+) -> int:
+    """Efface les copies de dépôt qu'un import interrompu a laissées. Rend le nombre effacé.
+
+    Contre-lecture Fable du 25/09/2026 : un processus arrêté en plein import
+    (redéploiement, plantage) ne passe jamais par l'`enfin` de sa tâche, et
+    ses copies — jusqu'à 750 Mo — restaient dans le dossier temporaire du
+    serveur. Appelée au démarrage du service (`api/application.application`).
+    Seulement les fichiers au préfixe `PREFIXE_TEMPORAIRE`, et seulement ceux
+    plus vieux que `age_min_s` : jamais la copie d'un import en cours.
+    """
+    import time
+
+    limite = (time.time() if maintenant is None else maintenant) - age_min_s
+    effaces = 0
+    for chemin in dossier.glob(f"{PREFIXE_TEMPORAIRE}*"):
+        try:
+            if chemin.is_file() and chemin.stat().st_mtime < limite:
+                chemin.unlink()
+                effaces += 1
+        except OSError:
+            continue
+    return effaces
 
 
 def trouver(proprietaire: str, id_job: str) -> Job | None:
-    """Le job de **ce** propriétaire portant cet identifiant, ou `None`."""
-    with _verrou_registre:
-        job = _jobs.get(id_job)
-    return job if job is not None and job.proprietaire == proprietaire else None
-
-
-def _purger() -> None:
-    """Oublie les tâches terminées les plus anciennes au-delà de `JOBS_GARDES`.
-
-    Appelée sous `_verrou_registre` (voir `lancer`) : jamais deux purges en
-    même temps, jamais une purge pendant qu'un job entre dans le registre.
-    """
-    if len(_jobs) <= JOBS_GARDES:
-        return
-    termines = sorted(
-        (j for j in _jobs.values() if j.statut != STATUT_EN_COURS), key=lambda j: j.demarre_le
-    )
-    for job in termines[: len(_jobs) - JOBS_GARDES]:
-        _jobs.pop(job.id, None)
+    """Le job d'import de **ce** propriétaire portant cet identifiant, ou `None`."""
+    return _trouver_tache(proprietaire, id_job, NATURE_IMPORT)
 
 
 __all__ = [
+    "AGE_ORPHELIN_S",
     "JOBS_GARDES",
+    "PREFIXE_TEMPORAIRE",
     "STATUT_ECHOUE",
     "STATUT_EN_COURS",
     "STATUT_FINI",
     "VERROU",
     "ErreurImportEnCours",
     "Job",
+    "balayer_temporaires_orphelins",
     "lancer",
     "trouver",
 ]

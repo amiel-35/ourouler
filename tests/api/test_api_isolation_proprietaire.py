@@ -1308,6 +1308,18 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("GET", f"{PREFIXE_API}/activites/import/{{id_job}}"): {
             "chemin": f"{PREFIXE_API}/activites/import/{ids['import']}"
         },
+        # L9.4 : la calibration depuis l'écran. Ni A ni B n'ont assez de
+        # sorties pour calibrer (un seul GPX importé chacun) : `POST` rend le
+        # refus lisible `ftp_absente`/`sorties_insuffisantes`, qui ne doit
+        # nommer que le vélo de qui appelle. `GET …/{id}` est rejoué avec
+        # l'identifiant de l'**import** de A : ni la nature ni le propriétaire
+        # ne correspondent, et la réponse doit être la même que pour un
+        # identifiant inconnu.
+        ("GET", f"{PREFIXE_API}/calibrations"): {},
+        ("POST", f"{PREFIXE_API}/calibrations"): {"json": {}},
+        ("GET", f"{PREFIXE_API}/calibrations/{{id_job}}"): {
+            "chemin": f"{PREFIXE_API}/calibrations/{ids['import']}"
+        },
         ("POST", f"{PREFIXE_API}/sorties"): {"json": {"jour": jour, "candidates": 2}},
         ("GET", f"{PREFIXE_API}/sorties/{{generation}}/propositions/{{numero}}/gpx"): {
             "chemin": f"{PREFIXE_API}/sorties/{ids['generation']}/propositions/1/gpx"

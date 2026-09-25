@@ -240,6 +240,15 @@ CACHE_DEFAUT = Path("~/.cache/ourouler").expanduser()
 @dataclass(frozen=True)
 class ParametresCache:
     dossier: Path = CACHE_DEFAUT
+    #: Où lire et écrire `calibration.json`. `None` — la ligne de commande, et
+    #: `ourouler api` en mode personnel — : dans `dossier`, comme toujours.
+    #: **Jamais lu dans un TOML** : c'est la couche web hébergée qui le pose,
+    #: par propriétaire (`api/routes._config`, L9.4), pour que la calibration
+    #: d'un compte ne soit lue que par lui. Le dossier de cache, lui, est
+    #: celui du serveur et se partage (l'index d'activités y porte déjà sa
+    #: colonne de propriétaire ; `calibration.json`, un fichier entier, n'en a
+    #: pas).
+    fichier_calibration: Path | None = None
 
 
 SENS_BOUCLE = ("horaire", "antihoraire")

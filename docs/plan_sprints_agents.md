@@ -1630,6 +1630,29 @@ boucle réelle de 120 km (RCR, 168 W, `ourouler boucle`, 26/09 9 h) :
 « entre 4 h 40 et 5 h 01 » pour 4 h 34 sans arrêt ; sur 80 km au BMC, la
 convention le dit.
 
+**L9.4 codé le 25/09 (branche `l9-4-calibration`) : la même calibration,
+depuis l'écran.** `POST /calibrations` lance `physique.commande.calibrer_velo`
+(extrait d'`executer_calibrer`, qui n'imprime plus rien lui-même) en tâche
+de fond, sous le verrou des tâches lourdes partagé avec l'import
+(`api/taches_fond.py`) ; une par jour et par compte, remboursée sur échec.
+En hébergé, `calibration.json` s'écrit dans le dossier du compte
+(`Config.cache.fichier_calibration`, posé par `api/routes._config`) : c'est
+lui que ses boucles, sorties et simulations relisent, jamais celui d'un
+autre. Avec plusieurs vélos, seules les sorties rattachées explicitement
+(capteur, équipement, période) comptent ; au moins 10 sorties
+exploitables (8 d'apprentissage + la part de validation). Sans pneu,
+l'écran propose de le choisir ou de fixer le Crr de l'usage (`crr_source`
+« usage »). *Vérifié sur les vraies données*, compte hébergé de test dans un
+dossier temporaire, FIT du RCR importés par `POST /activites/import` (le
+cache du mainteneur lu seulement) : sur les 40 plus récents, CdA 0,408,
+199 W à 30 km/h, MAE 5,6 % sur 10 sorties de validation, fourchette par
+convention (0 solo de validation sur 8 requis) ; sur les 102 de
+l'historique (100 exploitables), CdA 0,364, 182 W à 30 km/h, MAE 3,6 %,
+biais −1,8 % (n=25), fourchette × 1,030 à × 1,110 (n=25) — contre 0,378,
+188 W, 3,5 %, × 1,021 à × 1,099 par `ourouler calibrer`. L'écart tient
+d'abord à ce qu'un FIT importé perd le nom Intervals de la sortie : les
+sorties nommées « club », que la ligne de commande écarte, passent ici.
+
 Restent ouverts : le chrono n'a pas assez de sorties de validation roulées
 seul pour sa propre fourchette ; le seuil de 50 % qui écarte une sortie
 entière n'a pas bougé (seul l'apprentissage du CdA passe à 30 %) ; la
