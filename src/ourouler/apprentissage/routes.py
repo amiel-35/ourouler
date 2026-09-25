@@ -46,6 +46,12 @@ from pathlib import Path
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT, POIDS_HIGHWAY_INCONNU
+
+#: Réexportés : le découpage en mailles vit dans `ourouler.boucle.mailles`
+#: depuis le lot 9, mais il s'est toujours lu depuis ce module.
+from ourouler.boucle.mailles import MAILLE as MAILLE
+from ourouler.boucle.mailles import cle_maille as cle_maille
+from ourouler.boucle.mailles import mailles_ponderees, mailles_traversees
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.noyau.activite import Activite, est_sport_velo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
@@ -55,10 +61,6 @@ from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilis
 from ourouler.noyau.proprietaire import PROPRIETAIRE_LOCAL
 from ourouler.noyau.trace import PointTrace, Trace, denivele_filtre, distance_m
 
-#: Facteur de la maille : 1/3000 de degré ≈ 37 m en latitude, ~37 m en
-#: longitude à nos latitudes. « ~30 m » du contrat, au degré de précision près.
-MAILLE = 3000
-
 #: Espacement des points de passage envoyés à BRouter pour rejouer une sortie.
 ESPACEMENT_PASSAGE_M = 1500.0
 
@@ -67,11 +69,6 @@ PASSAGES_MAX = 60
 
 #: En dessous, une sortie n'apprend rien qui vaille un appel au serveur.
 DISTANCE_MIN_M = 3000.0
-
-#: Pas de découpe d'un segment pour l'attribution aux mailles : une demi-maille,
-#: pour qu'aucune maille traversée ne soit sautée quel que soit l'espacement
-#: des points du tracé.
-PAS_ECHANTILLON_M = 15.0
 
 #: Libellé des tags absents, côté base comme côté statistiques. SQLite accepte
 #: des NULL dans une clé primaire (et casse alors l'unicité) : on stocke une
@@ -227,57 +224,6 @@ class RapportApprentissage:
 # --- maille -------------------------------------------------------------------
 
 
-def cle_maille(lat: float, lon: float) -> tuple[int, int]:
-    """La maille ~30 m qui contient ce point : `(round(lat × 3000), round(lon × 3000))`.
-
-    L'arrondi de Python est « au pair le plus proche » : c'est sans importance
-    ici, seule la **stabilité** compte — deux passages au même endroit doivent
-    tomber dans la même maille, quelle que soit la convention.
-    """
-    return (round(lat * MAILLE), round(lon * MAILLE))
-
-
-def _mailles_traversees(a: PointTrace, b: PointTrace, longueur: float) -> list[tuple[int, int]]:
-    """Les mailles rencontrées entre deux points, une par sous-pas de ~15 m.
-
-    Un tracé BRouter a des points espacés de quelques mètres, un GPX relu
-    parfois de cent. Sans subdivision, un pas de 100 m ne marquerait qu'**une**
-    maille sur les trois qu'il traverse : la base aurait des trous, et
-    `part_connue` chuterait pour la seule raison que deux tracés n'ont pas le
-    même pas d'échantillonnage. On découpe donc à une demi-maille, des deux
-    côtés — apprentissage et mesure — pour que les deux se répondent.
-    """
-    n = max(1, math.ceil(longueur / PAS_ECHANTILLON_M))
-    mailles = []
-    for k in range(n):
-        f = (k + 0.5) / n
-        mailles.append(cle_maille(a.lat + (b.lat - a.lat) * f, a.lon + (b.lon - a.lon) * f))
-    return mailles
-
-
-def mailles_ponderees(trace: Trace) -> dict[tuple[int, int], float]:
-    """Les mailles traversées par un tracé, chacune avec les mètres qu'elle porte.
-
-    Extraite de `BaseRoutes.part_connue` au lot L5.3 pour être partagée avec
-    `recouvrement` : « quelle part de ce tracé connais-je ? » et « quelle part
-    de ce tracé est aussi dans celui-là ? » sont la même question posée à deux
-    ensembles de mailles différents, et il n'y a pas deux façons de découper
-    un tracé en mailles. La somme des valeurs est la longueur exploitable du
-    tracé, en mètres.
-    """
-    metres: dict[tuple[int, int], float] = {}
-    for i in range(len(trace.points) - 1):
-        a, b = trace.points[i], trace.points[i + 1]
-        longueur = distance_m(a, b)
-        if not math.isfinite(longueur) or longueur <= 0:
-            continue
-        mailles = _mailles_traversees(a, b, longueur)
-        part = longueur / len(mailles)
-        for cle in mailles:
-            metres[cle] = metres.get(cle, 0.0) + part
-    return metres
-
-
 def recouvrement(a: Trace, b: Trace) -> float:
     """Part des kilomètres de `a` qui passent aussi par des mailles de `b`, dans [0, 1].
 
@@ -340,7 +286,7 @@ def _decouper(trace: Trace) -> list[_Morceau]:
     """Le tracé découpé en morceaux (maille, tags), longueurs cumulées.
 
     Chaque paire de points consécutifs est sous-échantillonnée à la
-    **demi-maille** (`_mailles_traversees`) et sa longueur répartie à parts
+    **demi-maille** (`boucle.mailles.mailles_traversees`) et sa longueur répartie à parts
     égales sur toutes les mailles ainsi rencontrées — pas seulement sur celle
     de son milieu. C'est ce qui rend la mesure indépendante du pas
     d'échantillonnage : `part_connue` fait exactement le même découpage, un
@@ -358,7 +304,7 @@ def _decouper(trace: Trace) -> list[_Morceau]:
         highway = str(t.get("highway", SANS_TAG) or SANS_TAG)
         surface = str(t.get("surface", SANS_TAG) or SANS_TAG)
         maxspeed = str(t.get("maxspeed", SANS_TAG) or SANS_TAG)
-        mailles = _mailles_traversees(a, b, longueur)
+        mailles = mailles_traversees(a, b, longueur)
         part = longueur / len(mailles)
         for cle in mailles:
             identite = (cle, highway, surface, maxspeed)

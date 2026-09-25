@@ -29,9 +29,8 @@ Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
     lot 6 : 1 exception, échéance 2026-11-30
     lot 7 : 3 exceptions, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
-    lot 9 : 5 exceptions, échéance 2026-11-30
     lot 10 : 8 exceptions, échéance 2026-12-31
-    total : 31 exceptions
+    total : 26 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -49,6 +48,13 @@ réexporte) et `noyau/profil` (le profil du cycliste, que `config.py` compose
 et réexporte). Sur ses 21 exceptions, 11 sont tombées ; les 10 qui tiennent à
 la `Config` entière sont re-datées aux lots 7, 8 et 10, chacune avec sa
 raison.
+
+**Lot 9 fait.** `noyau/ports` porte les protocoles que le domaine reçoit à
+la place des clients concrets : `Routeur` (BRouter), `SourcePrevisions`
+(Open-Meteo) et `SourceSeances` (Intervals). Le découpage d'un tracé en
+mailles passe d'`apprentissage/routes` (un cas d'usage) au domaine
+(`boucle/mailles`), que `sortie/contraste` importe désormais. Ses 5
+exceptions sont tombées.
 
 Les trois cycles principaux, sur les paquets tels qu'ils sont rangés
 aujourd'hui (imports différés compris) :
@@ -138,6 +144,7 @@ MODULES: dict[str, str] = {
     "ourouler.noyau.activite": "noyau",
     "ourouler.noyau.erreurs": "noyau",
     "ourouler.noyau.meteo": "noyau",
+    "ourouler.noyau.ports": "noyau",
     "ourouler.noyau.profil": "noyau",
     "ourouler.noyau.proprietaire": "noyau",
     "ourouler.noyau.seance": "noyau",
@@ -166,6 +173,7 @@ MODULES: dict[str, str] = {
     "ourouler.boucle.couts": "boucle",
     "ourouler.boucle.geometrie": "boucle",
     "ourouler.boucle.horaire": "boucle",
+    "ourouler.boucle.mailles": "boucle",
     "ourouler.boucle.marqueurs": "boucle",
     "ourouler.boucle.meteo_trace": "boucle",
     "ourouler.boucle.tags_importes": "boucle",
@@ -286,14 +294,6 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # `sorties_calibrables`…) lit vélos, masse, historique et mots de groupe
     # dans la `Config` (33 appels dans 8 fichiers) ; elle part au service au lot 8.
     ("ourouler.physique.calibration", "ourouler.config", "lot 8", "2026-11-30"),
-    # Lot 9 : le domaine reçoit un protocole (`Routeur` pour BRouter, et sur
-    # le même modèle Open-Meteo et Intervals), plus le client concret ; les
-    # poids des routes connues deviennent une donnée qu'on lui passe.
-    ("ourouler.boucle.candidates", "ourouler.connecteurs.brouter", "lot 9", "2026-11-30"),
-    ("ourouler.boucle.meteo_trace", "ourouler.meteo.openmeteo", "lot 9", "2026-11-30"),
-    ("ourouler.sortie.vent_demande", "ourouler.meteo.openmeteo", "lot 9", "2026-11-30"),
-    ("ourouler.seance.intervals", "ourouler.connecteurs.intervals", "lot 9", "2026-11-30"),
-    ("ourouler.sortie.contraste", "ourouler.apprentissage.routes", "lot 9", "2026-11-30"),
     # Lot 10 (re-daté du lot 4) : les cas d'usage reçoivent la `Config` entière,
     # dont `cache.dossier`. `Config` ne peut pas descendre au noyau avec le
     # reste du profil : le défaut de `ParametresCache` résout le répertoire de

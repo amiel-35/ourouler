@@ -16,8 +16,8 @@ import math
 from dataclasses import dataclass, replace
 
 from ourouler.boucle.antennes import detecter, elaguer
-from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
+from ourouler.noyau.ports import Routeur
 from ourouler.noyau.profil import Depart
 from ourouler.noyau.trace import Trace
 
@@ -203,7 +203,7 @@ def _plus_proche(
 
 
 def generer(
-    client: ClientBrouter,
+    client: Routeur,
     depart: Depart,
     *,
     distance_km: float,

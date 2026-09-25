@@ -63,9 +63,9 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.activite import est_sport_velo
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.ports import SourceSeances
 from ourouler.noyau.seance import (
     PUISSANCE_ENDURANCE_PCT_DEFAUT,
     SEUIL_RECUPERATION_PCT_DEFAUT,
@@ -166,7 +166,7 @@ def depuis_workout_doc(
 
 
 def seance_du_jour(
-    client: ClientIntervals,
+    client: SourceSeances,
     jour: date,
     *,
     ftp_w: float | None,
@@ -192,7 +192,7 @@ def seance_du_jour(
 
 
 def seances_periode(
-    client: ClientIntervals,
+    client: SourceSeances,
     depuis: date,
     jusqua: date,
     *,
