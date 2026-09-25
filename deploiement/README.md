@@ -1,12 +1,11 @@
 # L'hébergé minimal — tourner en local
 
-Contrat : `docs/journal/sprints/heberge_minimal_contrat.md`. Ce dossier construit ce que le
-contrat demande — un conteneur qui génère la page du jour une fois par jour,
-un serveur statique qui la sert derrière une authentification basique — et
+Ce dossier construit une version minimale du service hébergé (cahier des
+charges d'origine : `docs/journal/sprints/heberge_minimal_contrat.md`) — un conteneur qui
+génère la page du jour une fois par jour, un serveur statique qui la sert derrière une authentification basique — et
 **rien de plus**. Aucun déploiement ici : `docker compose` sur cette machine
-sert à vérifier le lot, pas à le mettre en ligne (règle absolue 7 de
-CLAUDE.md — le geste de déploiement sur Coolify reste au mainteneur, soumis
-séparément).
+sert à vérifier que tout tourne, pas à le mettre en ligne — la mise en ligne
+est un geste séparé, fait par qui exploite le serveur (voir `AGENTS.md`).
 
 ## Ce qu'il y a dans ce dossier
 
@@ -39,8 +38,8 @@ séparément).
    - `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`, `OUROULER_DEPART_LONGITUDE`.
    - `OUROULER_BROUTER_URL` (et `OUROULER_BROUTER_UTILISATEUR` /
      `OUROULER_BROUTER_MOT_DE_PASSE` si le serveur BRouter est protégé) —
-     celui déjà en service sur le Coolify du mainteneur, atteint depuis un
-     conteneur local par son URL publique, comme n'importe quel client.
+     un serveur BRouter déjà en service, atteint depuis un conteneur local
+     par son URL publique, comme n'importe quel client.
    - `OUROULER_WWW_UTILISATEUR`, `OUROULER_WWW_MOT_DE_PASSE` — l'authentification
      basique du serveur statique (des valeurs à soi, sans rapport avec Intervals
      ou BRouter).
@@ -72,7 +71,7 @@ Ou depuis un téléphone sur le même réseau local :
 Arrêter : `docker compose -f deploiement/docker-compose.yml down` (ajouter
 `-v` pour aussi supprimer le volume `pages` et repartir de zéro).
 
-## Les deux cas du contrat, à vérifier à l'œil
+## Les deux cas à vérifier à l'œil
 
 - **Rien de prévu ce jour-là** : `index.html` doit afficher « Rien de prévu »,
   la date du jour, et quand la page a été générée — jamais une erreur, jamais
@@ -81,9 +80,9 @@ Arrêter : `docker compose -f deploiement/docker-compose.yml down` (ajouter
 - **La date** : que la séance soit prévue ou non, la page affiche toujours de
   quand elle date, visible sans ouvrir les outils de développement.
 
-## Ce que ce lot ne fait pas
+## Ce que ce dossier ne fait pas
 
-Il ne touche à rien sur le Coolify du mainteneur, ne lit aucun jeton dans
-`~/.config/coolify`, et ne décide pas de la forme du déploiement final (une
-image par service ou deux, `docker-compose.yml` réutilisé tel quel ou non) —
-ce sont des choix du mainteneur, une fois qu'il a vu tourner ce qui précède.
+Il ne touche à aucun serveur, ne lit aucun jeton d'hébergeur, et ne décide
+pas de la forme du déploiement final (une image par service ou deux,
+`docker-compose.yml` réutilisé tel quel ou non) : ce sont des choix
+d'exploitation, à faire une fois qu'on a vu tourner ce qui précède.

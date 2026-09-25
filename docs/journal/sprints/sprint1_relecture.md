@@ -45,10 +45,10 @@ absolue 1 de `CLAUDE.md` l'interdit sans réserve et que le dépôt est destiné
 à devenir public (Q6).
 
 **A1 — données personnelles réelles dans `config.example.toml` (bloquant).**
-`config.example.toml:11-12` donne `masse_kg = 91.0` et `ftp_w = 258`, qui
+`config.example.toml:11-12` donne `masse_kg` et `ftp_w` à des valeurs qui
 sont exactement les valeurs réelles du mainteneur telles qu'écrites dans
-`docs/journal/cadrage.md:12` (« FTP 258 W, 91 kg »). `config.example.toml:7-8` place
-le départ au centre de Rennes, la ville où habite le mainteneur
+`docs/journal/cadrage.md:12` (« <valeur mesurée> »). `config.example.toml:7-8` place
+le départ au centre de la ville où habite le mainteneur
 (`docs/journal/cadrage.md:15`), et le commentaire la nomme.
 `config.example.toml:29` proposait un identifiant d'athlète
 d'apparence réelle. Le fichier affirme lui-même en `config.example.toml:2-3`
@@ -56,7 +56,7 @@ d'apparence réelle. Le fichier affirme lui-même en `config.example.toml:2-3`
 de personnel n'entre dans ce dépôt » : la contradiction est dans le dépôt.
 *Correction : remplacer par des valeurs manifestement inventées (75 kg,
 FTP 200, point rond hors de toute ville, `i000000` comme dans
-`tests/test_intervals.py:28`) et retirer la mention de Rennes.*
+`tests/test_intervals.py:28`) et retirer la mention de la ville.*
 
 **A2 — la clé d'API Intervals apparaît dans `repr(Config)` (à corriger).**
 `config.py:66-73` : `ParametresIntervals` est une dataclass sans protection,
@@ -435,7 +435,7 @@ Par gravité décroissante.
 1. **`config.example.toml:7-12` et `:29` — données personnelles réelles dans
    le dépôt** (masse, FTP, ville et identifiant d'athlète réels), en
    violation de la règle absolue 1, dans un dépôt destiné à devenir public.
-   Remplacer par des valeurs manifestement inventées et retirer « Rennes ».
+   Remplacer par des valeurs manifestement inventées et retirer « <ville> ».
    **Bloquant.**
 2. **`docs/journal/questions/questions_mainteneur.md:17-19`, `docs/journal/sprints/plan_sprints_agents.md:83-86`,
    `docs/journal/cadrage.md:12` — même règle, autres fichiers** : noms d'équipement

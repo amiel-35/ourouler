@@ -26,7 +26,7 @@ novembre 2024 sur la grande majorité des sorties. Il faut :
   réponse : toute sortie extérieure sans équipement = vélo de route
   principal, sur toute la période.
 
-**Réponse d'Amiel (12/09/2026)** : deux vélos. **RCR** (SRAM Rival, capteur
+**Réponse du mainteneur (12/09/2026)** : deux vélos. **RCR** (SRAM Rival, capteur
 d'un seul côté → puissance symétrique, valeurs paires) = **route** ; **BMC**
 (SRAM Force, capteur dans chaque manivelle) = **CLM**. Distinguer par le
 capteur plutôt que par Intervals. Piste retenue : lire dans le FIT les
@@ -35,14 +35,14 @@ champ d'équilibre gauche/droite (bilatéral = Force = BMC) ; parité de la
 puissance en repli. Lot « rattachement par capteur » au sprint 2, à valider
 sur les vrais fichiers rapatriés. Masse et périodes restent à donner.
 
-**Réponse d'Amiel (13/09/2026) — masses, et Q2 close.** Posées dans sa
+**Réponse du mainteneur (13/09/2026) — masses, et Q2 close.** Posées dans sa
 configuration locale, hors dépôt :
-- **RCR** : Van Rysel, SRAM Rival, roues Zipp 303s → 8,5 kg, plus 0,5 kg de
-  porte-bidon, pédales et compteur = **9,0 kg**.
+- **RCR** : Van Rysel, SRAM Rival, roues Zipp 303s, plus porte-bidon, pédales et
+  compteur = **<valeur mesurée>**.
 - **BMC** : Timemachine 2021, SRAM Force, roues Hologram 64 arrière et 45
-  avant → 9,5 kg, plus 0,5 = **10,0 kg**.
+  avant, plus les mêmes accessoires = **<valeur mesurée>**.
 
-Masses totales avec le cycliste : 100,0 et 101,0 kg. Effet mesuré sur la
+Masses totales avec le cycliste : de l'ordre de la centaine de kilos. Effet mesuré sur la
 calibration : **nul** — erreur de temps inchangée à 4,2 % et 2,4 %. C'est
 ce que le cadrage annonçait : hors montagne, un kilo sur cent ne se voit
 pas. Les masses sont désormais justes, ce qui compte pour le jour où une
@@ -53,7 +53,7 @@ sortie montagneuse entrera dans le jeu.
 
 - Coordonnées du point de départ habituel (dans le fichier de configuration,
   jamais dans le dépôt). En attendant, la démo `meteo` tourne sur le centre
-  de Rennes.
+  de la ville du mainteneur.
   **Réponse (13/09/2026)** : adresse donnée, géocodée et posée dans la
   configuration locale (« Maison »). Règle produit : **le point de départ
   est un paramètre utilisateur, remplaçable ponctuellement** (déplacement,
@@ -66,7 +66,7 @@ sortie montagneuse entrera dans le jeu.
 - Règles de séance : que veut dire « un bloc tient sur un terrain » (pente
   max, longueur minimale sans carrefour, etc.) — S4.
 
-**Réponse d'Amiel (13/09/2026), à préciser au sprint 4** :
+**Réponse du mainteneur (13/09/2026), à préciser au sprint 4** :
 - Séance : quand la séance a des blocs, chercher à **éviter les villages et
   les descentes** pendant les blocs.
 - Tenue : des **seuils par catégorie**. Humidité : sec / humide / pluie /
@@ -82,7 +82,7 @@ sortie montagneuse entrera dans le jeu.
   durée, surtout en sortie longue.** Conséquence de conception pour S4 : la
   tenue ne se calcule pas sur la météo au départ mais sur la **série des
   échantillons le long du tracé à l'heure de passage** (déjà produite par
-  `boucle`). **Correction d'Amiel (13/09)** : le **départ est ce qui
+  `boucle`). **Correction du mainteneur (13/09)** : le **départ est ce qui
   compte** pour la tenue de base, parce que c'est là qu'on a froid ; puis on
   tient compte de la suite du parcours — montée en température (couches à
   enlever, rangeables : manchettes, gilet) ou pluie annoncée (veste à
@@ -144,7 +144,7 @@ restent au backlog du service hébergé, pas du besoin du mainteneur.
 
 ## Q6 — Nom du projet et purge avant publication — **close le 17/09/2026**
 
-Nom validé : `ourouler` (paquet, commande, dépôt GitHub `amiel-35/ourouler`,
+Nom validé : `ourouler` (paquet, commande, dépôt GitHub `<compte>/ourouler`,
 renommé le 13/09/2026). Le dépôt reste **privé** jusqu'à la purge ci-dessous ;
 le projet est destiné à être open source, MIT.
 
@@ -165,7 +165,7 @@ ne pas publier : numéros de série, identifiants Intervals (athlète,
 les documents de cadrage, à anonymiser avant publication. Tant que le dépôt
 est privé, aucune urgence.
 
-**Réponse d'Amiel (13/09/2026) — seuls les identifiants comptent.** « Les
+**Réponse du mainteneur (13/09/2026) — seuls les identifiants comptent.** « Les
 chiffres, je m'en fous un peu ; Intervals, plus chiant. » Donc avant
 publication : purger **les identifiants Intervals** (identifiant d'athlète,
 identifiants d'équipement `b…`) et rien d'autre. Les chiffres
@@ -184,17 +184,17 @@ successives de `boucle.fit` tiennent toutes dans ±0,009° du point fictif
 (0, 0) ; `home_trainer.fit` n'a pas de GPS par construction ; `tronque.fit`
 est illisible par conception. Vérifié indépendamment par la relecture.
 
-**Mais le point de Rennes-centre est encore dans HEAD aujourd'hui**,
+**Mais le point du centre de la ville du mainteneur est encore dans HEAD aujourd'hui**,
 hors de portée de tout invariant : `docs/journal/sprints/sprint1_relecture.md:42`, où la
 relecture du sprint 1 cite le défaut qu'elle venait de trouver dans
 `config.example.toml`, coordonnée et commentaire compris, « soit le centre de
-Rennes, la ville où habite le mainteneur ». Le défaut d'origine a bien été
+<ville>, la ville où habite le mainteneur ». Le défaut d'origine a bien été
 corrigé, son procès-verbal non. Les deux détecteurs de coordonnées du dépôt
 (`tests/test_invariants.py`, `tests/adversarial/test_adv_invariants.py`) ne
 scannent que `src/ourouler/` et `tests/` : `docs/` n'a jamais été regardé.
 
 La même coordonnée a aussi vécu dans l'historique, retirée depuis de HEAD :
-`config.example.toml` (blob `53f8d50`, « Rennes centre en exemple »),
+`config.example.toml` (blob `53f8d50`, « <ville> centre en exemple »),
 `tests/test_invariants.py` (les villes en décimal avant leur écriture en
 centièmes entiers), `tests/test_boucle_geometrie.py`, et
 `tests/test_meteo_openmeteo.py` (au centième près, puis au dix-millième).
@@ -205,7 +205,7 @@ parmi ce qui ne se publie pas, la réponse du même jour range « les chiffres �
 parmi ce qui peut rester, et un point de domicile n'est ni tout à fait l'un ni
 tout à fait l'autre ; (b) l'historique est-il réécrit pour autant. Rien n'a
 été touché : un centre-ville reste une coordonnée publique, et `docs/journal/cadrage.md:15`
-dit déjà « j'habite près de Rennes » en toutes lettres — c'est le couple
+dit déjà « j'habite près de <ville> » en toutes lettres — c'est le couple
 décimal accolé à la phrase qui mérite un arbitrage, pas une urgence.
 
 
@@ -217,7 +217,7 @@ d'intérieur tombant dans la période d'un vélo lui sera attribuée au lieu
 d'aller en « home-trainer ». Proposition : inverser (intérieur d'abord),
 sauf si un vélo est explicitement déclaré d'usage home-trainer.
 
-**Réponse d'Amiel (13/09/2026)** : le home-trainer est majoritairement en
+**Réponse du mainteneur (13/09/2026)** : le home-trainer est majoritairement en
 mode ergo (puissance contrôlée), on n'y apprend rien sur le vélo : classé à
 part et **exclu de la calibration**. Ordre appliqué : intérieur → capteur →
 équipement Intervals → période → vélo route par défaut. Rappel du rôle de
@@ -230,8 +230,7 @@ Le contrat du sprint 3 demande que la colonne « temps estimé » vienne du
 modèle calibré, sans dire à quelle puissance. Un temps sans puissance n'a pas
 de sens : 58 km de la boucle NE font 2 h 19 à 130 W et 1 h 48 à 200 W.
 
-Choix provisoire de `boucle/commande.py` : **65 % de la FTP** (168 W pour une
-FTP de 258 W), affiché dans l'en-tête, remplaçable par `--puissance`. C'est
+Choix provisoire de `boucle/commande.py` : **65 % de la FTP**, affiché dans l'en-tête, remplaçable par `--puissance`. C'est
 une allure d'endurance plausible, pas une mesure.
 
 À trancher : garder ce défaut, en choisir un autre (une puissance en watts
@@ -239,7 +238,7 @@ dans `[boucle]` ? une part de FTP configurable ?), ou faire venir la
 puissance de la séance du jour quand le sprint 4 la connaîtra — ce dernier
 choix semble le bon à terme.
 
-**Réponse d'Amiel (13/09/2026) — close.** « Soit c'est une séance full Z2,
+**Réponse du mainteneur (13/09/2026) — close.** « Soit c'est une séance full Z2,
 donc OK ; sinon ça dépend justement de la séance avec des blocs, c'est tout
 l'enjeu. » Donc : sans séance, `boucle` affiche une durée à l'allure Z2
 (65 % de la FTP, affiché en tête) ; dès le sprint 4, `sortie` simule la
@@ -251,7 +250,7 @@ est celle de la séance sur ce terrain.
 **Close le 13/09/2026.** Décision du mainteneur : « on va trop dans le
 détail pour un coureur amateur ». On ne cherche plus à séparer CdA et
 roulement ; le modèle sert à prédire une durée (MAE 4,2 % RCR, 2,4 % BMC
-après vent à hauteur du cycliste et terme cinétique, CdA 0,22 hors butée)
+après vent à hauteur du cycliste et terme cinétique, CdA calibré hors butée)
 et l'avantage du CLM se mesure directement : +2,5 km/h à puissance égale en
 Z2 sur tronçons plats (`ourouler comparer`), ≈ 40 W à vitesse égale.
 Détail : `docs/journal/sprints/sprint3_relecture_fable.md`.
@@ -274,13 +273,13 @@ valent. Il serait faux **hors de cette plage** : à 45 km/h, CdA 0,18 promet
 une vitesse que le vélo ne tiendra pas.
 
 Cause probable, mesurée : sur les tronçons plats et sans vent, la puissance
-mesurée croît presque linéairement avec la vitesse (120 W à 24 km/h, 151 W à
-27 km/h, 167 W à 30 km/h) au lieu de croître comme v³. Les échantillons
+mesurée croît presque linéairement avec la vitesse (mesures à 24, 27 et
+30 km/h) au lieu de croître comme v³. Les échantillons
 rapides sont vraisemblablement pollués par ce que le modèle ne voit pas :
 l'élan (le cycliste arrive vite sur le plat après une descente), et le vent
 local que l'archive, maillée à plusieurs kilomètres, ne connaît pas. Le
 sous-ensemble « vent d'archive presque nul » rend d'ailleurs un couple
-beaucoup plus plausible (CdA 0,26, Crr 0,0093).
+beaucoup plus plausible (<valeur mesurée>, dans les plages physiques).
 
 Pistes, par coût croissant : (a) borner CdA par le bas plus haut (0,28 pour
 un vélo de route) et laisser Crr absorber le reste ; (b) ne calibrer que Crr
@@ -299,9 +298,9 @@ signale plusieurs sessions). Ils restent dans l'inventaire.
 
 <details><summary>Historique de la question</summary>
 
-La pire erreur de validation du BMC (−20 %, 223 km en 10 h) est le fichier
+La pire erreur de validation du BMC (−20 %, <valeur mesurée>) est le fichier
 d'un triathlon : le FIT contient la natation, le vélo **et** la course à
-pied, et l'inventaire le compte comme une sortie vélo de 223 km. Le modèle
+pied, et l'inventaire le compte comme une seule sortie vélo. Le modèle
 simule les 42 km de course à pied à la puissance du vélo, donc bien trop
 vite. Faut-il découper les fichiers multisport par segment (le FIT porte les
 trames `session`, une par sport), ou simplement les écarter de la
@@ -319,7 +318,7 @@ L'avertissement à l'écran dit laquelle des deux s'applique.
 
 **C'est un cas minoritaire, et il faut le garder en tête.** Comptage des
 unités sur les 82 séances vélo de 2026 : **259 étapes en `%ftp`**, 16 en
-`power_zone`, **28 en `hr_zone`**. Les séances de coach (iDOSport) et le plan
+`power_zone`, **28 en `hr_zone`**. Les séances de coach et le plan
 Ironman sont **tous en pourcentage de FTP** : traduction exacte, aucune
 approximation, aucun avertissement. Les zones de FC sont un lot de séances
 « Vélo HIT / Sortie EF » de juin à septembre 2026.
@@ -331,9 +330,9 @@ façon pas de milieu qui veuille dire quelque chose. Une zone de FC n'est pas
 non plus la zone de puissance de même numéro : un plan qui écrit « Z1 de FC »
 pour une endurance désigne une puissance d'endurance franche.
 
-**La valeur, mesurée.** Médiane de 60 % de FTP (154 W pour 258 W de FTP) sur
+**La valeur, mesurée.** Médiane de 60 % de FTP sur
 les 96 sorties extérieures de plus d'une heure depuis 2025 ; 59 % sur toutes
-les sorties extérieures confondues. Les EF de 3 h font 75-81 km, soit
+les sorties extérieures confondues. Les EF de 3 h se roulent à
 25-27 km/h.
 
 **Ce que ça change, mesuré sur les vraies séances (`ourouler seance`) :**
@@ -342,7 +341,7 @@ les sorties extérieures confondues. Les EF de 3 h font 75-81 km, soit
 |---|---|---|---|
 | « Sortie EF 2h » du 29/08 (Z1 de FC) | 36,1 km (18,0 km/h) | **57,3 km (28,6 km/h)** | ses EF réelles : 25-27 km/h |
 | Récup de 4 min de « 4x8min Z4 » du 08/09 | 0,6 km au-delà du segment | **1,0 km** | cadrage S4 : « 4 min à 25 km/h ≈ 800 m » |
-| Blocs Z4 du 08/09 | 4,9 km à 235-271 W | **inchangés** | plausible pour du seuil |
+| Blocs Z4 du 08/09 | 4,9 km à 91-105 % de la FTP | **inchangés** | plausible pour du seuil |
 
 Les zones hautes n'ont pas bougé : la table des zones tombe juste pour elles.
 
@@ -357,8 +356,8 @@ prescrites en pourcentage de FTP.
 Ouverte le 13/09/2026 au lot L4.1. Le contrat de sprint 4 §1 demandait
 d'approximer une consigne en zone de FC par la zone de **puissance** de même
 numéro, et de le dire. C'était fait, et affiché, mais le résultat chiffré
-n'était pas utilisable : « Sortie EF 2h » prescrite en Z1 de FC donnait 71 W
-de cible, donc 36,1 km pour 2 h — 18 km/h là où une EF de 2 h fait 50 à
+n'était pas utilisable : « Sortie EF 2h » prescrite en Z1 de FC donnait 27,5 %
+de la FTP de cible, donc 36,1 km pour 2 h — 18 km/h là où une EF de 2 h fait 50 à
 60 km. Même effet, plus discret, sur les récupérations : 4 min de Z1 donnaient
 1,2 km, donc 0,6 km de route nécessaire au-delà du segment pour un demi-tour,
 contre les 800 m du cadrage.
@@ -392,19 +391,19 @@ retour au calme, donc élastique. Les séances de coach nomment
 « Récupération » jusqu'au retour à la maison, et c'est cette étape-là qui
 referme la boucle.
 
-**Pourquoi.** Les séances de coach (iDOSport) — la majorité, et les deux
+**Pourquoi.** Les séances de coach — la majorité, et les deux
 séances de référence du cadrage produit — **ne portent aucun marqueur**. Sans
 cette cascade, `ourouler seance --jour 2026-02-08` annonçait **14 étapes,
 14 blocs** : ni échauffement, ni récupération, donc aucune élasticité, aucun
 demi-tour possible, et le placement (L4.3) serait parti chercher un couloir
 propre pour 30 minutes d'échauffement et 20 minutes de retour au calme.
 
-**Vérifié sur les trois séances réelles** (FTP 258 W, donc seuil à 193 W) :
+**Vérifié sur les trois séances réelles** (seuil à 75 % de la FTP) :
 
 | Séance | Avant | Après |
 |---|---|---|
 | « 2x20' + 4x3' » du 08/02 (texte) | 14 blocs | **6 blocs**, échauffement 30 min élastique, 6 récups, calme 20 min élastique |
-| « 4x8 SV1 outdoor » du 22/04 (muette) | 19 blocs | **9 blocs**, récups à 129-134 W, extrémités libres élastiques |
+| « 4x8 SV1 outdoor » du 22/04 (muette) | 19 blocs | **9 blocs**, récups à 50-52 % de la FTP, extrémités libres élastiques |
 | « 4x8min Z4 » du 08/09 (marqueurs) | 4 blocs | **4 blocs**, inchangée |
 
 **Deux garde-fous.** Si la FTP est inconnue, le seuil est le mi-chemin entre
@@ -416,8 +415,8 @@ uniforme), la séance n'a **aucun bloc**, et c'est correct : on ne fabrique
 pas un bloc artificiel pour avoir quelque chose à placer.
 
 **Ce qui reste discutable.** Sur « 4x8 SV1 outdoor », la règle 3 classe en
-bloc les 4 × 40 s à 375 W (des activations d'échauffement) et les 5 min à
-208 W qui précèdent le corps de séance : 9 blocs là où le mainteneur n'en
+bloc les 4 × 40 s à 145 % de la FTP (des activations d'échauffement) et les
+5 min à 81 % qui précèdent le corps de séance : 9 blocs là où le mainteneur n'en
 voit sans doute que 4. Ce sont bien des efforts au-dessus du seuil, donc la
 règle est appliquée correctement ; c'est le placement (L4.3) qui devra
 décider s'il contraint le terrain sous un effort de 40 secondes.
@@ -426,7 +425,7 @@ décider s'il contraint le terrain sous un effort de 40 secondes.
 
 Relevé par le mainteneur le 13/09/2026 en lisant la sortie du 08/02 :
 « t'as pas oublié l'échauffement ? ». Il n'était pas oublié — 28 min à
-155 W, soit 13,2 km, exactement là où le premier bloc démarre — mais
+60 % de la FTP, soit 13,2 km, exactement là où le premier bloc démarre — mais
 **rien ne le montrait** : `sortie/commande.py` ne liste que les étapes de
 type « bloc », parce que `Placement.emplacements` ne mémorise que celles-là.
 
@@ -598,7 +597,7 @@ par les cyclistes ? C'est la force de Strava sur son générateur d'itinéraire.
 3. **Les itinéraires balisés sont un contre-signal, et c'est le mainteneur
    qui tranche** : « pas bon signal, c'est des itinéraires rando souvent ».
    BRouter renvoie bien `route_bicycle_lcn` (52 tronçons sur une boucle au
-   nord de Rennes) et `route_bicycle_ncn` (3), mais en France ces réseaux
+   nord de la ville du mainteneur) et `route_bicycle_ncn` (3), mais en France ces réseaux
    sont des véloroutes et voies vertes — partagées avec les piétons, parfois
    en revêtement souple. C'est du tourisme, pas de l'entraînement : un
    balisage est même un contre-signal pour un bloc à 250 W. **Aucune mesure
@@ -727,7 +726,7 @@ pluie, sans vent et sans tenue.
 **Trois défauts distincts dans un seul message :**
 
 1. **Le message est faux.** Il parle du « domaine » du modèle, c'est-à-dire de
-   sa couverture géographique. Rennes est au centre du domaine d'AROME. La
+   sa couverture géographique. La ville du mainteneur est au centre du domaine d'AROME. La
    cause est ailleurs, et le message envoie chercher au mauvais endroit.
 2. **Il conseille une option qui n'existe pas.** `ourouler sortie` n'accepte
    pas `--modele` : ses options sont `--json --jour --distance --direction
@@ -834,7 +833,7 @@ fin » ; il est fin et gris, et illisible.
    n'est pas une séance sans parcours.
 2. **Assombrir la non-sélectionnée** jusqu'à ce qu'elle se lise sur les
    tuiles — à régler à l'œil sur une vraie page, pas au jugé, et sur la zone
-   de Rennes où le fond est dense.
+   de la ville du mainteneur, où le fond est dense.
 3. Vérifier la même page sur une séance **à blocs** : la hiérarchie doit
    rester lisible à trois niveaux — blocs en couleurs vives, reste du parcours
    sélectionné en couleur franche, autres propositions en gris lisible.
@@ -869,7 +868,7 @@ Deux défauts en un. Le chiffre est **illisible** (une densité par kilomètre
 n'est pas une grandeur de cycliste) et il est **faux comme résumé** : la même
 moyenne recouvre une sortie hachée de bout en bout et une sortie fluide
 encadrée de deux traversées d'agglomération — et la seconde, c'est presque
-toutes ses sorties, qui partent de Rennes et y reviennent.
+toutes ses sorties, qui partent de sa ville et y reviennent.
 
 **C'est exactement l'intuition de Q17** — « ce qui sépare le village de la
 ville, c'est l'étendue, pas la densité » — appliquée cette fois à
@@ -883,7 +882,7 @@ Ses mots : « ça fait peur, ça veut dire quoi ? »
 
 Ça veut dire : 57 % des kilomètres sont sur des routes classées `primary`,
 `secondary` ou `trunk` dans OpenStreetMap (`boucle/couts.py::HIGHWAY_TRAFIC`).
-Autour de Rennes une `secondary` est une **départementale ordinaire**, pas une
+Autour de la ville du mainteneur une `secondary` est une **départementale ordinaire**, pas une
 quatre-voies. L'étiquette « grands axes » évoque le danger là où la mesure ne
 décrit qu'une classe administrative.
 
@@ -984,7 +983,7 @@ répertoire de cache déjà configuré.
 
 Relevé par le superviseur sur la capture de la page du 19/09 ouverte dans
 Safari : les deux boucles font 56 km de tour, soit ~18 km de diamètre, et la
-vue s'étale de Ploërmel à Laval — environ 150 km. Elles se réduisent à deux
+vue s'étale sur deux départements — environ 150 km. Elles se réduisent à deux
 petits pointillés au centre.
 
 **Hypothèse, à vérifier** : ce n'est pas un défaut de calcul des limites mais
@@ -1022,8 +1021,8 @@ d'orientation au vent, revenue nulle le 15/09.
 
 ### a) Il roule un très petit terrain, et il le roule de plus en plus petit
 
-- 6 368 km roulés sur **~2 000 km de réseau distinct** : chaque kilomètre de
-  route a été parcouru 3,2 fois. Les 5 % de mailles les plus roulées portent
+- <valeur mesurée> km roulés sur **un réseau distinct trois fois plus court** :
+  chaque kilomètre de route a été parcouru 3,2 fois. Les 5 % de mailles les plus roulées portent
   **45 %** des kilomètres ; une maille a été passée 79 fois.
 - **53 % des sorties** sont à plus de 85 % identiques à une sortie déjà faite
   (recouvrement de mailles de 30 m, `apprentissage.routes`).
@@ -1082,8 +1081,8 @@ l'ordre. Le **niveau** est un fait, sa **pente** n'en est pas un.
 - **Effort** : sa puissance monte de +19 W par point de pente, quand rouler à
   vitesse constante en demanderait +78. Il parcourt **25 %** du chemin entre
   « puissance constante » et « vitesse constante » — il lève le pied en côte
-  (199 W en montée contre 154 à plat) et ne se relance pas en descente
-  (107 W). Aucune des 96 sorties ne dépasse la moitié du contrefactuel.
+  (30 % de plus en montée qu'à plat) et ne se relance pas en descente
+  (30 % de moins). Aucune des 96 sorties ne dépasse la moitié du contrefactuel.
 
 ### Ce que la mesure ne peut pas trancher
 
@@ -1130,7 +1129,7 @@ Le mécanisme est celui du (a) : sans outil, on ne peut pas savoir qu'une route
 inconnue portera un bloc de 8 minutes, donc on se rabat sur ce qui a déjà
 marché. C'est précisément ce que le sprint 4 sait faire — évaluer un couloir
 avant d'y aller. La mesure du sprint 5 donne l'ampleur de ce qu'il y a à
-gagner : il roule 6 368 km sur 2 000 km de réseau distinct, et l'effet de
+gagner : il roule chaque kilomètre de son réseau plus de trois fois, et l'effet de
 resserrement est **le plus fort sur les sorties de 70-120 km**, celles qui
 ont le choix.
 
@@ -1249,7 +1248,8 @@ Question du mainteneur, après une discussion qui partait dans le détail :
 « pour être sûr — je prends plus de tertiary, ou bien BRouter en propose
 plus ? »
 
-Mesuré sur 25 de ses sorties rejouées (1 559 km, de 28 à 134 km) contre des
+Mesuré sur 25 de ses sorties rejouées (de quelques dizaines à plus de cent
+kilomètres) contre des
 boucles proposées **aux mêmes longueurs**, dans six directions :
 
 | Classe OSM | Lui | Proposé |
@@ -1310,7 +1310,7 @@ la répartition est fondamentalement différente ? »
    du produit servait un cas quasi inexistant. Faux : ses séances ne sont pas
    toujours posées au calendrier.
 3. **La bonne : le nom de l'activité.** « des découpages clairs dans la séance
-   par bloc avec souvent un nom associé » — « Rennes - 4x15 SST R3' (90 % FTP) ».
+   par bloc avec souvent un nom associé » — « <ville> - 4x15 SST R3' (90 % FTP) ».
    Motif `NxM`, plus « durabilité », « rappel », « dont NN' ». Exclus : les
    endurances encadrées (EF, Z2, « 4H », « 3H à 75 % »). **21 séances
    structurées en extérieur**, pas une.
@@ -1454,7 +1454,7 @@ Le test du signe ne trouve que des égalités. Rien à trancher.
 
 **Ce n'est pas un bug de comptage**, et l'agent l'a vérifié : en forçant un
 échauffement d'une minute, donc un bloc collé au départ, les marqueurs
-réapparaissent par dizaines. La cause est ailleurs — **autour de Rennes, les
+réapparaissent par dizaines. La cause est ailleurs — **autour de la ville du mainteneur, les
 nœuds tagués disparaissent presque entièrement dès qu'on sort du cœur urbain,
 dans toutes les directions**. Avec un échauffement réaliste, le bloc *et* la
 récup voisine trouvent tous deux un couloir à zéro carrefour.
@@ -1494,7 +1494,7 @@ perd donc beaucoup de son intérêt : elle décrirait un phénomène qui n'exist
 qu'en ville, où il ne fait pas ses blocs.
 
 **Réserve qui pourrait tout changer** : la mesure a été faite au départ de
-chez lui, en Bretagne bocagère. Un cycliste partant d'une agglomération dense
+chez lui, en campagne bocagère. Un cycliste partant d'une agglomération dense
 aurait une tout autre réponse — c'est un rappel que les poids du placement
 sont calibrés sur **un** terrain, et que la version hébergée devra le dire.
 
@@ -1526,17 +1526,17 @@ Feux + stops au kilomètre, huit boucles par ville, par anneau :
 
 | | 0-3 | 3-6 | 6-9 | 9-12 |
 |---|---|---|---|---|
-| Rennes | 2,70 | 0,79 | **0,30** | 0,55 |
+| ville du mainteneur | 2,70 | 0,79 | **0,30** | 0,55 |
 | Nantes | 2,51 | 0,78 | 0,44 | 0,46 |
 | Angers | 2,09 | 0,95 | **0,34** | 0,38 |
 | **Les Lilas (93)** | 3,26 | 2,91 | **3,49** | 2,54 |
 
-Distance de dégagement (seuil 0,40/km, la campagne rennaise) : **Rennes et
+Distance de dégagement (seuil 0,40/km, la campagne du mainteneur) : **sa ville et
 Angers 6 km, Nantes 12 km, Les Lilas jamais à moins de 15**.
 
 Poussé plus loin pour Les Lilas, par anneaux de 5 km : 3,03 / 3,22 / 2,18 /
 1,33 / 0,85 / 0,93 / 0,64. **À une heure de vélo, on est encore à trois fois
-la campagne bretonne**, et la densité *monte* entre 0-5 et 5-10 km — on sort
+la campagne du mainteneur**, et la densité *monte* entre 0-5 et 5-10 km — on sort
 d'un arrondissement pour entrer dans la petite couronne, qui est pire.
 
 ### Ce que ça change, et pour qui
@@ -1577,7 +1577,7 @@ avant » (Q20) **ne s'applique plus** en mode circuit. Répéter le même segmen
 vingt fois y est la fonctionnalité, pas le défaut.
 
 **Et ça déplace la question de la version hébergée** : inviter des copains ne
-veut pas dire « le même outil pour tout le monde ». Un Rennais et un
+veut pas dire « le même outil pour tout le monde ». Un cycliste de province et un
 Francilien n'ont pas besoin du même produit. Découverte qui vaut mieux
 maintenant qu'au sprint 8.
 
@@ -1610,8 +1610,8 @@ avec le vent d'archive du jour :
 
 | course | partie vélo | CdA | Crr | RMSE |
 |---|---|---|---|---|
-| Sables-d'Olonne, 22/06/2025 | 176,5 km en 5 h 32, 31,9 km/h | **0,1800** *(butée)* | 0,00583 | 81 W |
-| Châtelaillon, 11/05/2025 | 86,0 km en 2 h 38, 32,7 km/h | **0,1800** *(butée)* | 0,00883 | 83 W |
+| course A (2025) | <valeur mesurée> | **0,1800** *(butée)* | 0,00583 | 81 W |
+| course B (2025) | <valeur mesurée> | **0,1800** *(butée)* | 0,00883 | 83 W |
 
 `CDA_MIN = 0,18` (`physique/calibration.py:138`) est **un plancher trop haut
 pour une position de chrono tenue**. Les deux courses s'y collent : ce n'est
@@ -1633,12 +1633,12 @@ Pour une sortie ordinaire, le CdA moyen des positions réellement tenues est le
 bon chiffre — c'est la réserve écrite dans l'en-tête du module. Pour une cible
 de course, il faut le CdA du jour de course. Avec celui d'entraînement, la
 cible serait systématiquement pessimiste : une puissance plus haute que
-nécessaire pour tenir le temps visé. Sur cinq heures, c'est l'erreur qui coûte
+nécessaire pour tenir le temps visé. Sur plusieurs heures, c'est l'erreur qui coûte
 le marathon derrière.
 
 **Réserves de la mesure.** Une course porte des relances et des passages
 abrités, et le modèle n'a aucun terme d'aspiration — d'où un RMSE de plus de
-80 W. Une chute est visible à Châtelaillon (102 s sous 8 km/h au km 5,8) mais
+80 W. Une chute est visible sur la course B (une centaine de secondes sous 8 km/h) mais
 ne pollue pas l'ajustement : l'échantillonnage écarte déjà tout ce qui roule
 sous 8 km/h, et 236 tronçons sur 420 ont été retenus.
 
@@ -2443,8 +2443,8 @@ les trois heures. Une heure est sans risque, trois heures est défendable,
 au-delà on sert une donnée que le modèle a déjà remplacée.
 
 **Ce qui reste non mesuré, et qui décide du gain réel** : le recouvrement
-entre utilisateurs **différents**. Des copains rennais partageraient
-beaucoup ; un ami nantais, rien. Le gain dépend de la densité géographique
+entre utilisateurs **différents**. Des copains de la même ville partageraient
+beaucoup ; un ami d'une autre ville, rien. Le gain dépend de la densité géographique
 des invités, pas du produit — et ne se mesurera qu'avec de vrais comptes.
 
 
@@ -2959,7 +2959,7 @@ réécrit — le faire changerait tous les sha du dépôt pour retirer une donn�
 publique.
 
 **Ce qui reste, et qui n'est pas un secret non plus** : la masse, la FTP et
-« centre de Rennes » figurent dans cinq documents, dont `docs/journal/cadrage.md`.
+« centre de <ville> » figuraient dans cinq documents, dont `docs/journal/cadrage.md`.
 Décision du 13/09 maintenue — « seuls les identifiants Intervals sont à
 purger, pas les chiffres ». Séparément ces chiffres ne disent rien ;
 ensemble, ils décrivent quelqu'un. Signalé, assumé.
@@ -3272,7 +3272,7 @@ cette unité-là.
 
 La chaîne complète — FC → zone → tronçons → physique → watts — tient à
 **15,5 W de MAE**, soit 10,3 % de la puissance. Convertie par
-`vitesse_regime` à l'allure d'endurance mesurée (151 W, 27,7 km/h) : **1,56
+`vitesse_regime` à l'allure d'endurance mesurée (<valeur mesurée>, vers 28 km/h) : **1,56
 km/h, soit 5,6 %**. Le terme aérodynamique divise l'erreur relative par près
 de trois, et d'autant mieux que l'allure monte.
 
@@ -3292,8 +3292,8 @@ Le lot est nettement moins risqué qu'il n'en avait l'air.
 
 14,1 min contre 7-8 : c'est **elle** le vrai sujet. Décomposée :
 
-- **9,3 min** parce que le cycliste appuie moins l'hiver (168 W l'été contre
-  147 W en Z2). Ce n'est pas une erreur de modèle, c'est un fait — une
+- **9,3 min** parce que le cycliste appuie moins l'hiver (12 % de moins
+  l'hiver en Z2). Ce n'est pas une erreur de modèle, c'est un fait — une
   **fenêtre glissante** sur la puissance d'endurance le capte sans une ligne
   de code ;
 - **4,8 min** de vêtements (ΔCdA = 0,046 m²), qui demandent du code — un CdA
@@ -3324,7 +3324,7 @@ zone », c'est **une plage de FC déclarée n'est pas une donnée fiable, et le
 produit n'a aucun moyen de savoir d'où elle sort**.
 
 Autre piège mesuré, contre-intuitif : `220 − âge` fait mieux que la **FCmax
-réellement observée** (11,5 contre 17,9 W). FCmax observée 185, formule 171,
+réellement observée** (11,5 contre 17,9 W). FCmax observée au-dessus de la formule,
 mais la Z2 réelle vaut 62-71 % de FCmax là où la convention dit 65-75 % — les
 deux erreurs s'annulent. Chez quelqu'un dont la FCmax est *sous* la formule,
 elles s'additionneraient. **Corriger la FCmax sans recalibrer la bande aggrave
@@ -3367,17 +3367,19 @@ grandeur utile est la **puissance habituellement produite**, pas la capacité.
 
 ### Trois valeurs de seuil qui semblaient se contredire, démêlées
 
-Par l'historique daté du réglage : **258 W** = test du 27/10/2025 réglé le
-06/11 ; **235 W** = réglé le **16/09/2026, la veille de l'étude**, à la reprise
-après deux mois d'arrêt et sans test en 2026 ; **207-211 W** = seuil estimé
+Par l'historique daté du réglage : **la plus haute** = test d'octobre 2025 ;
+**une valeur 9 % plus basse** = réglée **la veille de l'étude**, à la reprise
+après deux mois d'arrêt et sans test en 2026 ; **une valeur 20 % sous la
+première** = seuil estimé
 d'un trimestre sans effort maximal, donc un plancher. Trois grandeurs, pas un
 désaccord.
 
 ### Deux défauts du dépôt trouvés en chemin, à instruire
 
-1. **`masse_totale_kg` rend 100 kg** alors que la masse réelle sur la fenêtre
-   de calibration était de 93-95 kg : 5 à 9 W d'erreur systématique, **qui
-   dérive** (le poids a varié de 13,5 kg sur la période). La constante de la
+1. **`masse_totale_kg` rend la masse de la configuration** alors que la masse
+   réelle sur la fenêtre de calibration était plus basse de 5 à 7 kg : 5 à 9 W
+   d'erreur systématique, **qui dérive** (le poids a varié de plus de dix kilos
+   sur la période). La constante de la
    configuration est le poids d'aujourd'hui appliqué à hier. Le dépôt n'a aucun
    code de poids corporel — attention, `ourouler routes poids` concerne les
    **classes de routes**, pas le cycliste.
@@ -3420,9 +3422,9 @@ désaccord.
 
 **1. La masse est celle d'aujourd'hui, appliquée à hier.** `masse_totale_kg`
 lit **une seule** valeur de poids dans la configuration, la même pour toutes les
-sorties quelle que soit leur date. Le poids du mainteneur a varié de 13,5 kg sur
-la période : estimer une sortie de 2021 avec le poids de 2026 lui ajoute treize
-kilos. La masse entrant linéairement dans le roulement et la gravité, l'erreur
+sorties quelle que soit leur date. Le poids du mainteneur a varié de plus de dix kilos
+sur la période : estimer une sortie ancienne avec le poids d'aujourd'hui lui
+ajoute autant. La masse entrant linéairement dans le roulement et la gravité, l'erreur
 **grandit à mesure qu'on remonte le temps** (+2,7 à +9,3 W selon l'année).
 Correction simple : dater le poids, la série existe côté Intervals.
 
@@ -3543,10 +3545,10 @@ découpage éditable (V2), depuis les données rapatriées d'Intervals.
 **On lui fait confiance.** Correction du mainteneur, le 17/09, contre ce que
 j'avais écrit ici — et il a raison.
 
-J'avais lu ses trois valeurs (258 d'octobre 2025, 235 saisi la veille de
-l'étude, 207-211 lus sur la courbe) comme un réglage périmé à confronter. C'est
-l'inverse : *« j'ai mis 235 car j'ai recommencé le vélo et j'ai perdu de la
-forme. Si j'utilisais ourouler, j'aurais corrigé aussi et remis 235. »* La
+J'avais lu ses trois valeurs (celle d'octobre 2025, celle saisie la veille de
+l'étude, celle lue sur la courbe) comme un réglage périmé à confronter. C'est
+l'inverse : *« j'ai mis <valeur mesurée> car j'ai recommencé le vélo et j'ai perdu de la
+forme. Si j'utilisais ourouler, j'aurais corrigé aussi et remis <valeur mesurée>. »* La
 valeur déclarée n'est pas une donnée fragile, c'est **le jugement de la
 personne sur elle-même**, et il est plus frais que n'importe quel test.
 
@@ -3663,24 +3665,24 @@ demandait de corriger. Trois résultats, dont deux réfutent ce qui précède.
 
 **La fenêtre glissante n'apporte rien au mainteneur.** Balayage de 14 à 365
 jours, strictement causal (au jour J, jamais la sortie J) : **aucune longueur ne
-bat la constante**. La constante vaut `puissance_endurance_pct × ftp_w`, soit
-154,8 W, et sa puissance réelle en mouvement vaut 153,1 W — il est déjà à
+bat la constante**. La constante vaut `puissance_endurance_pct × ftp_w`, et sa
+puissance réelle en mouvement n'en diffère que de 1 % — il est déjà à
 l'optimum. La fenêtre sert quelqu'un dont la constante est fausse ; elle ne peut
 rien apporter à quelqu'un qui n'en a pas besoin. Écarts constatés (0,3 min,
 15,98 contre 16,16 W) **sous le plancher de bruit**.
 
-**L'écart de saison 168/147 ne se reproduit pas** sur la puissance **mesurée** :
+**L'écart de saison de 12 % ne se reproduit pas** sur la puissance **mesurée** :
 
 | découpage | instrument | été | hiver | écart |
 |---|---|---|---|---|
-| mois civils | NP de sortie | 175,4 | 177,8 | **−2,3 W** |
-| mois civils | moyenne en mouvement | 149,1 | 152,9 | **−3,8 W** |
-| mois civils | P à FC basse | 146,7 | 147,2 | **−0,5 W** |
-| quartiles de température | moyenne en mouvement | 148,9 (26,9 °C) | 155,6 (9,8 °C) | **+6,7 W pour le froid** |
+| mois civils | NP de sortie | <valeur mesurée> | <valeur mesurée> | **−2,3 W** |
+| mois civils | moyenne en mouvement | <valeur mesurée> | <valeur mesurée> | **−3,8 W** |
+| mois civils | P à FC basse | <valeur mesurée> | <valeur mesurée> | **−0,5 W** |
+| quartiles de température | moyenne en mouvement | <valeur mesurée> (26,9 °C) | <valeur mesurée> (9,8 °C) | **+6,7 W pour le froid** |
 
 Le signe s'inverse même : les médianes les plus hautes sont en octobre-décembre.
 
-**Explication retenue** : le couple 168/147 **encadre** les 151 W que [[Q51]]
+**Explication retenue** : le couple été/hiver **encadre** la puissance d'endurance que [[Q51]]
 cite par ailleurs. Il vient donc très probablement de la chaîne **sans capteur**
 (FC → zone → physique), où un hiver plus lent — vêtements, routes mouillées — se
 lit comme une puissance plus basse. Chez un porteur de capteur, il n'y a rien à
@@ -3688,28 +3690,28 @@ capter. **Les 9 minutes de [[Q51]] valent pour le monde sans capteur, pas pour
 le monde mesuré.**
 
 **Un piège d'instrument, qui n'était pas nommé** : `simuler` est un modèle
-d'équilibre et veut une puissance **moyenne**. La NP médiane (177,8 W) est 24 W
-au-dessus de la moyenne en mouvement (153,1 W) : une fenêtre glissante calculée
+d'équilibre et veut une puissance **moyenne**. La NP médiane est 24 W
+au-dessus de la moyenne en mouvement : une fenêtre glissante calculée
 sur la NP fait passer l'écart de 7,96 à **10,99 min/2 h**, franchement pire.
 
 **La masse datée dégrade la validation tant que le Crr est écrêté** :
 
 | masse | CdA | Crr | F@27 km/h | MAE de validation | butée |
 |---|---|---|---|---|---|
-| 100,0 (config) | 0,2219 | 0,01062 | 18,04 N | **4,23 %** | — |
-| 94,0 | 0,2055 | 0,01200 | 18,12 N | 4,44 % | **Crr max** |
-| 93,0 (la vraie) | 0,2070 | 0,01200 | 18,06 N | **4,55 %** | **Crr max** |
-| 90,0 | 0,2109 | 0,01200 | 17,84 N | 4,97 % | **Crr max** |
+| M (config) | 0,2219 | 0,01062 | 18,04 N | **4,23 %** | — |
+| M − 6 kg | 0,2055 | 0,01200 | 18,12 N | 4,44 % | **Crr max** |
+| M − 7 kg (la vraie) | 0,2070 | 0,01200 | 18,06 N | **4,55 %** | **Crr max** |
+| M − 10 kg | 0,2109 | 0,01200 | 17,84 N | 4,97 % | **Crr max** |
 
 **Et la dégénérescence est mesurée de face** : la résistance totale à 27 km/h
-reste entre **17,84 et 18,12 N** pendant que la masse parcourt 90 à 100 kg.
+reste entre **17,84 et 18,12 N** pendant que la masse parcourt dix kilos.
 L'ajustement glisse le long de la vallée en gardant le total juste. C'est la
 preuve directe que [[Q51]] demandait, et elle est nette.
 
-**La série de poids existe** : 295 jours mesurés sur 1052 (`get_wellness`), du
-03/11/2023 au 14/09/2026, 78,5 à 92,0 kg. Écart médian entre mesures 2 jours,
+**La série de poids existe** : 295 jours mesurés sur 1052 (`get_wellness`), sur
+novembre 2023 → septembre 2026, <valeur mesurée>. Écart médian entre mesures 2 jours,
 trois trous ≥ 30 jours qui demanderont une interpolation déclarée. La masse
-datée est **7,6 kg plus basse en moyenne** que les 100 kg appliqués partout.
+datée est **7,6 kg plus basse en moyenne** que la masse de configuration appliquée partout.
 
 **Une erreur de ma part, consignée** : le brief de L6.1 citait « 12,1 W de MAE »
 comme critère de non-régression. `valider` ne rend pas des watts mais une
@@ -3738,7 +3740,7 @@ boucle de 2 h vaut donc `mae × 120`.
 
 #### Correction 1 — Crr figé, CdA seul ajusté : **réfutée**
 
-RCR, masse 100 kg, Crr imposé et CdA seul ajusté :
+RCR, masse de la configuration, Crr imposé et CdA seul ajusté :
 
 | Crr imposé | CdA trouvé | F@27 km/h | MAE de validation | min/2 h | biais | apparié |
 |---|---|---|---|---|---|---|
@@ -3773,8 +3775,8 @@ Sur le BMC la courbe n'est pas monotone (optimum vers 0,008, soit la valeur
 libre 0,00838), mais un Crr de bitume à 0,005 y coûte encore +1,0 point de MAE
 (+1,3 min/2 h), 3↑/6↓.
 
-**Et la masse datée n'y change rien** : rejoué à 93 kg de cycliste (la vraie
-masse médiane) au lieu de 100, le classement est identique et le Crr de bitume
+**Et la masse datée n'y change rien** : rejoué à la vraie masse médiane du
+cycliste au lieu de celle de la configuration, le classement est identique et le Crr de bitume
 coûte toujours +2,7 points de MAE. Figer le Crr n'est donc **pas** le préalable
 qui débloque la masse datée de L6.1 ; c'est une régression à toutes les masses
 essayées.
@@ -3939,7 +3941,7 @@ reste : on n'a plus de référence, mais on peut relier les poids à un même
 cycliste, et à d'autres choses qu'on voudrait stocker pour l'apprentissage —
 l'owner avait telle FTP, ou je sais pas quoi. Pas d'adresse, pas de nom. Si un
 jour l'âge, c'est l'année de naissance, pas la date. Une FCmax si on veut,
-pareil : c'est comme une FTP, dire que le cycliste avait une FTP de 258, on
+pareil : c'est comme une FTP, dire que le cycliste avait une FTP de <valeur mesurée>, on
 s'en fout. Tant que le compte est là, il peut savoir ce qui est à lui ; s'il
 disparaît, on ne sait plus qui était l'owner. »
 
@@ -3960,7 +3962,7 @@ maintenant : cette table-là, on ne la rattrape pas.
 **Les deux principes qui vont avec, et qui sont justes.** L'année de naissance
 plutôt que la date — un identifiant de moins, et aucun lot n'a besoin du jour.
 Et « une FCmax c'est comme une FTP » : ce sont des grandeurs qui ne désignent
-personne. 258 W ne dit rien de qui que ce soit sans le nom d'à côté.
+personne. Une FTP en watts ne dit rien de qui que ce soit sans le nom d'à côté.
 
 **La réserve, et elle est technique.** Couper la correspondance donne une
 **pseudonymisation**, pas une anonymisation — et dans ce produit précisément,
@@ -4015,8 +4017,8 @@ catégorie nominale**, les deux écarts se ressemblent :
 
 | vélo | catégorie nominale | théorique | mesuré | écart |
 |---|---|---|---|---|
-| RCR (route) | route amateur | 120 W | 135 W | **+16 W** |
-| BMC (chrono) | CLM amateur | 101 W | 119 W | **+19 W** |
+| RCR (route) | route amateur | <valeur mesurée> | <valeur mesurée> | **+16 W** |
+| BMC (chrono) | CLM amateur | <valeur mesurée> | <valeur mesurée> | **+19 W** |
 
 La marche entre deux catégories vaut 19 W. **Chaque vélo est donc à environ une
 catégorie au-dessus de la sienne** : en sortie, le chrono se comporte comme un
@@ -4056,22 +4058,22 @@ le relief par la statistique, l'éliminer par la sélection. Les sorties sont
 pavées en fenêtres de temps consécutives (180/300/600 s), la stationnarité se
 lit en `NP / P` sur les points bruts, et la résistance est réajustée **avec
 l'estimateur du dépôt** sur les seuls tronçons retenus, lue en `F@27` — donc
-comparable aux 135 / 119 W mesurés plus haut. IC95 par bootstrap **par sortie**.
+comparable aux puissances mesurées plus haut. IC95 par bootstrap **par sortie**.
 
 **Sur le RCR** (99 sorties, 2 350 fenêtres de 300 s) :
 
-| NP / P | fenêtres | sorties | F@27 | IC95 |
+| NP / P | fenêtres | sorties | F@27 − nominal | IC95 |
 |---|---|---|---|---|
-| 1,00–1,02 (le plus régulier) | 94 | 47 | **139,3 W** | 130,0–147,0 |
-| 1,02–1,05 | 292 | 77 | 136,7 W | 132,5–140,5 |
-| 1,05–1,10 | 574 | 94 | 136,8 W | 132,9–140,3 |
-| 1,10–1,20 | 677 | 97 | 134,5 W | 129,6–138,5 |
-| > 1,20 (le plus haché) | 692 | 92 | **127,9 W** | 121,8–134,5 |
+| 1,00–1,02 (le plus régulier) | 94 | 47 | **+19,7 W** | +10,4–+27,4 |
+| 1,02–1,05 | 292 | 77 | +17,1 W | +12,9–+20,9 |
+| 1,05–1,10 | 574 | 94 | +17,2 W | +13,3–+20,7 |
+| 1,10–1,20 | 677 | 97 | +14,9 W | +10,0–+18,9 |
+| > 1,20 (le plus haché) | 692 | 92 | **+8,3 W** | +2,2–+14,9 |
 
-Nominal « route amateur » = **119,6 W**, hors de tous les intervalles.
+Le nominal « route amateur » (écart 0) est hors de tous les intervalles.
 
-**Sur le BMC** : 116,7 W au plus régulier contre 124,5 W au plus haché, nominal
-« CLM amateur » = 100,7 W, hors de l'intervalle. Signe conforme à l'hypothèse
+**Sur le BMC** : +16,0 W au-dessus du nominal « CLM amateur » au plus régulier
+contre +23,8 W au plus haché, nominal hors de l'intervalle. Signe conforme à l'hypothèse
 ici, mais **7,8 W** d'amplitude sur toute l'étendue du rapport, pas 19.
 
 **L'hypothèse ne tient pas.** Au mieux 3 à 4 W des 16 à 20 W d'écart
@@ -4081,7 +4083,7 @@ plus basse. Les deux vélos donnent des pentes de signes opposés, à intervalle
 largement recouvrants. Aucun mécanisme cohérent.
 
 Test direct sans aucun ajustement, à la vitesse, la pente et le vent observés :
-sur les fenêtres RCR les plus stationnaires (29,8 km/h, 172 W médians), le jeu
+sur les fenêtres RCR les plus stationnaires (29,8 km/h médians), le jeu
 de littérature prédit **7,8 W de moins** que ce qu'il a réellement produit,
 contre +0,6 W pour sa calibration. Même à leur propre vitesse, la littérature
 est courte.
@@ -4092,7 +4094,7 @@ propres commentaires disent : `SEUIL_ARRET_MS` (`calibration.py:93`) jette tout
 tronçon contenant un point à l'arrêt, `vitesse_min_kmh` en jette les lents, et
 `DELTA_V_MAX_MS` (`calibration.py:120`) « ne sert plus qu'à écarter les
 freinages et relances brutaux » — à eux trois, **48 à 62 % de la distance est
-éliminée dans toutes les tranches**. Les 135 W étaient donc déjà mesurés sur des
+éliminée dans toutes les tranches**. Les puissances étaient donc déjà mesurées sur des
 tronçons de 200 m quasi stationnaires. Il ne restait pas de place pour que
 l'irrégularité les gonfle, et elle ne les gonfle pas.
 
@@ -4107,8 +4109,9 @@ on ne peut pas promettre qu'elle vaudra pour un cycliste au profil différent.
 **Une limite du dépôt relevée au passage** : les blocs planifiés n'ont pas pu
 servir d'étiquette. `seance/placement.py` place une séance **prévue** sur un
 tracé **futur** ; rien ne sait rapprocher un FIT d'hier de la séance planifiée
-de ce jour-là. Les fenêtres stationnaires **retrouvent** les blocs (173 W
-médians dans la tranche la plus stationnaire contre 132 W dans la moins), mais
+de ce jour-là. Les fenêtres stationnaires **retrouvent** les blocs (une
+puissance médiane 30 % plus haute dans la tranche la plus stationnaire que
+dans la moins), mais
 retrouver n'est pas étiqueter. À noter pour qui voudra analyser le passé
 séance par séance.
 
@@ -4279,7 +4282,7 @@ placer une résistance totale, pas un CdA.
    optimiste. Il borne, il ne recommande pas.
 4. **Le BMC n'a que 9 sorties de test**, et la campagne de la nuit a déjà noté
    qu'elles sont presque toutes estivales. Ses chiffres sont fragiles.
-5. **La masse reste celle de sa configuration** (100 et 101 kg). La mesure
+5. **La masse reste celle de sa configuration**. La mesure
    isole bien CdA et Crr, mais un vrai invité se trompera aussi sur sa masse,
    et cette erreur-là s'ajoute.
 6. **ρ** : les jeux de littérature tournent à `RHO_DEFAUT` (1,226), sa
@@ -4772,10 +4775,10 @@ BMC), puis en donnant son estimation réelle : **25 et 27**.
 
 Les deux lectures ne disent pas la même chose :
 
-- par les **tranches**, milieu à milieu : 23,5 et 26,5, soit 108 W et 118 W —
+- par les **tranches**, milieu à milieu : 23,5 et 26,5, soit
   10 W d'écart entre ses deux vélos, ce qui ferait croire qu'il produit plus
   de puissance sur l'un que sur l'autre ;
-- par son **estimation réelle** : 25 et 27, soit 121 W et 122 W — **1,6 W
+- par son **estimation réelle** : 25 et 27, soit **1,6 W
   d'écart**. Il produit la même puissance sur les deux, et toute la différence
   de vitesse vient du matériel, ce qui est exactement ce qu'on attend.
 
@@ -4786,7 +4789,7 @@ relisant.
 
 ### Et une validation de la méthode, au passage
 
-À 121 W, la calibration mesurée dit que le mainteneur ferait **26,8 km/h** sur
+À cette puissance, la calibration mesurée dit que le mainteneur ferait **26,8 km/h** sur
 son BMC. Il a répondu **27**, de mémoire. L'écart est de 0,2 km/h.
 
 Ça ne prouve rien sur les autres cyclistes — n = 1, et c'est celui qui connaît
@@ -4892,7 +4895,7 @@ C'était le bon raisonnement. Il ne marche pas.
 ### Ce que ça donne, sur ses données
 
 Fréquence de repos relevée sur un mois (intervals.icu, 20/08 au 19/09) :
-**39 à 49, médiane 45**. FCmax observée 185. Sa Z2 réelle vaut 62-71 % de
+**<valeur mesurée>**. Sa Z2 réelle vaut 62-71 % de
 FCmax ([[Q51]]).
 
 | échelle | sa Z2 réelle | la convention |
@@ -4956,13 +4959,13 @@ tout ce que le parcours d'accueil s'apprêtait à demander :
 
 | champ | valeur relevée |
 |---|---|
-| FTP vélo | 235 W |
-| FCmax vélo | 177 |
-| LTHR | 161 |
+| FTP vélo | <valeur mesurée> |
+| FCmax vélo | <valeur mesurée> |
+| LTHR | <valeur mesurée> |
 | zones de puissance | 50 / 70 / 90 / 103 / 120 / 150 % |
-| zones cardiaques | 113 / 132 / 138 / 156 / 165 / 173 |
-| poids | 90,7 kg |
-| FC de repos | 48 |
+| zones cardiaques | <valeurs mesurées> |
+| poids | <valeur mesurée> |
+| FC de repos | <valeur mesurée> |
 | date de naissance | renseignée |
 
 **`src/ourouler/connecteurs/intervals.py` n'appelle jamais cette route.** Il
@@ -4975,7 +4978,7 @@ garde malgré tout la FTP du fichier serveur.
 Ce n'est plus « poser la question à tout le monde », c'est **lire puis faire
 confirmer** :
 
-> On a trouvé dans ton profil Intervals : FTP 235 W, FCmax 177, poids 90,7 kg.
+> On a trouvé dans ton profil Intervals : FTP <n> W, FCmax <n>, poids <n> kg.
 > C'est toujours d'actualité ? ○ oui ○ je corrige
 
 La personne garde le dernier mot — ce que [[Q52]] demande, la valeur déclarée
@@ -5012,8 +5015,8 @@ valable jusqu'au 22). Non fait à ce jour.
 
 ### Une précision que ça apporte à [[Q51]]
 
-La FCmax **déclarée** du mainteneur dans Intervals est **177**. La FCmax
-**observée** dans ses sorties était **185**. Deux nombres pour la même notion.
+La FCmax **déclarée** du mainteneur dans Intervals est **inférieure de
+huit battements** à la FCmax **observée** dans ses sorties. Deux nombres pour la même notion.
 La mesure de Q51 qui donnait 17,9 W portait sur l'**observée** — elle ne dit
 donc rien sur ce que vaudrait une FCmax déclarée d'un vrai test. Ça ne change
 pas sa conclusion (voir [[Q63]]), ça précise sa portée.
@@ -5066,7 +5069,7 @@ l'autre du ressort d'un agent :
 
 **(a) Le déploiement Coolify hébergé en service ne redémarrera pas tel
 quel.** `docker-compose.api.coolify.yml` pose `OUROULER_DEPART_NOM` (valeur
-Coolify actuelle : « Rennes », un point générique) et
+Coolify actuelle : « <ville> », un point générique) et
 `OUROULER_INTERVALS_*` sans condition de mode, et
 `deploiement/api/config.example.toml` — dont le TOML réellement déployé est
 vraisemblablement dérivé — porte `[cycliste]`/`[[velos]]`. Les deux sont
@@ -5078,8 +5081,8 @@ découpage). Rien n'a été touché côté Coolify par cette correction — règ
 absolue 7.
 
 **Faite, et vérifiée sur les vraies variables Coolify le 25/09/2026** (en
-invitant pour de vrai depuis la prod, `ssh inflexion` + `docker exec` dans le
-conteneur `api-hqcrmxt0dvyxlgojgvqmwhsk-*`) : `OUROULER_DEPART_*` et
+invitant pour de vrai depuis la prod, `ssh <serveur>` + `docker exec` dans le
+conteneur `api-<uuid>-*`) : `OUROULER_DEPART_*` et
 `OUROULER_INTERVALS_*` sont vides dans le panneau Coolify de `ourouler-api`,
 et `OUROULER_CONFIG_TOML_B64` ne porte plus que `[meteo]`, `[cache]`,
 `[brouter]`, `[boucle]` — ni `[cycliste]` ni `[[velos]]`. **(a) est close.**

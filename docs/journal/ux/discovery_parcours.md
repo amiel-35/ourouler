@@ -23,24 +23,24 @@ prolonge, il ne la jette pas.
 
 ### 1.1 Ce qui les sépare, en une phrase chacun
 
-**Amiel** — tout est déjà renseigné, son Intervals est branché, son modèle
+**Le mainteneur** — tout est déjà renseigné, son Intervals est branché, son modèle
 physique est calibré sur 162 sorties, il roule 3 à 4 fois par semaine depuis
 le même point de départ, et il connaît le produit parce qu'il l'a écrit. Ce
 qu'il veut d'une interface : **moins de gestes**, la page du jour sur son
 téléphone, et le GPX dans son compteur. Il n'a pas besoin qu'on lui explique
 ce qu'est un couloir de 11 km.
 
-**L'invité** — un copain cycliste, invité par Amiel. Zéro sortie dans le
+**L'invité** — un copain cycliste, invité par le mainteneur. Zéro sortie dans le
 système, donc **aucune calibration possible** : le modèle physique tournera
 sur des paramètres génériques et devra le dire (sprint 8, en toutes lettres).
 Il ne connaît ni le vocabulaire du produit, ni ses limites mesurées. Et le
 sprint 8 pose la barre : il doit créer son compte, renseigner son profil,
 brancher son Intervals, obtenir une boucle qui tient la route **sans
-déranger Amiel**. Un parcours qui suppose un coup de fil est un parcours raté.
+déranger le mainteneur**. Un parcours qui suppose un coup de fil est un parcours raté.
 
 ### 1.2 Écran par écran, ce qui change
 
-| Écran | Amiel | L'invité |
+| Écran | Le mainteneur | L'invité |
 |---|---|---|
 | Demande d'accès (E1) | ne le voit jamais — son compte préexiste | **c'est son premier contact**, et il ne sait pas encore ce que fait l'outil |
 | File de modération (E4) | **lui seul la voit** — c'est son écran d'administration | n'existe pas pour lui ; il n'en voit que le délai |
@@ -58,13 +58,13 @@ déranger Amiel**. Un parcours qui suppose un coup de fil est un parcours raté.
 
 ### 1.3 Deux asymétries qui ne se rattrapent pas par du design
 
-1. **Le temps estimé n'a pas la même valeur pour les deux.** Chez Amiel il
+1. **Le temps estimé n'a pas la même valeur pour les deux.** Chez le mainteneur il
    est calibré (MAE 4,2 % et 2,4 % selon le vélo, sur sorties non vues). Chez
    l'invité il vient de paramètres génériques. C'est le même nombre à
    l'écran, ce n'est pas la même promesse — et la règle absolue 5 interdit de
    laisser croire l'inverse (question 4).
 2. **Le produit ne rend pas le même service partout**, mesuré le 16/09 :
-   distance de dégagement urbain 6 km à Rennes et Angers, 12 km à Nantes,
+   distance de dégagement urbain 6 km dans la ville du mainteneur et à Angers, 12 km à Nantes,
    jamais atteinte à moins de 15 km aux Lilas. Un invité francilien aura
    des blocs qui portent quatre à cinq feux, et l'outil n'a pas aujourd'hui
    le mode circuit qui serait sa vraie réponse (Q32). L'interface peut le
@@ -84,14 +84,14 @@ E1 accueil public + formulaire de demande
    ⟂ champs invalides → E1 en erreur, le champ est nommé
    → E2 « demande enregistrée », et ce qu'il se passe ensuite
         ⟂ le demandeur ferme l'onglet : rien de plus n'est attendu de lui
-E4 file de modération (Amiel)
+E4 file de modération (le mainteneur)
    ⟂ accepter → envoi du message d'invitation (Brevo) → E3
    ⟂ refuser  → question 6 : message de refus, ou silence ?
    ⟂ ne rien faire → la demande vieillit (question 6 : délai annoncé ?)
 E3 message d'invitation (hors application) : un lien, une phrase, rien d'autre
    → E6 activation : le lien ouvre la première connexion
         ⟂ lien expiré ou déjà utilisé → E6 en erreur, avec un chemin
-          de rattrapage qui ne passe pas par Amiel (contrainte sprint 8)
+          de rattrapage qui ne passe pas par le mainteneur (contrainte sprint 8)
    → E5 connexion (identité déléguée — question 5)
    → E7 assistant de configuration
 ```
@@ -122,7 +122,7 @@ le monde sait, on garde pour la fin ce qui peut faire abandonner.
 Ce que l'assistant **ne** demande **pas**, et il faut le dire à voix haute :
 CdA, coefficient de roulement, profil BRouter, modèle météo, élasticité des
 zones 2, bornes de tenue. Ce sont des réglages du fichier de configuration
-d'Amiel ; les exposer à un invité en V1 serait le meilleur moyen de le perdre.
+du mainteneur ; les exposer à un invité en V1 serait le meilleur moyen de le perdre.
 Le brief est d'accord : « édition précise des zones en version 2 ».
 
 Branches :
@@ -244,13 +244,13 @@ courte en dessous, pas un tableau par heure.
 
 | # | Écran | À quoi il sert | Qui le voit | D'où on y arrive | Où on en part |
 |---|---|---|---|---|---|
-| E1 | Accueil public et demande d'accès | dire ce que fait l'outil, recueillir une demande | tout le monde | lien d'Amiel, adresse directe | E2 |
+| E1 | Accueil public et demande d'accès | dire ce que fait l'outil, recueillir une demande | tout le monde | lien du mainteneur, adresse directe | E2 |
 | E2 | Demande enregistrée | dire ce qu'il se passe ensuite, et quand | demandeur | E1 | fin (le relais est le message) |
-| E3 | Message d'invitation *(hors application)* | porter le lien d'activation | invité accepté | E4 (action d'Amiel) | E6 |
-| E4 | File de modération | accepter, refuser, voir l'ancienneté des demandes | Amiel seul | E21 ou une adresse réservée | E4 (reste sur place) |
+| E3 | Message d'invitation *(hors application)* | porter le lien d'activation | invité accepté | E4 (action du mainteneur) | E6 |
+| E4 | File de modération | accepter, refuser, voir l'ancienneté des demandes | le mainteneur seul | E21 ou une adresse réservée | E4 (reste sur place) |
 | E5 | Connexion | entrer | tous, à chaque retour | adresse directe, lien expiré | E14, ou E7 si profil vide |
 | E6 | Activation de l'invitation | consommer le lien, créer le compte | invité | E3 | E7 |
-| E7 | Assistant — ce qu'on va demander | annoncer les cinq étapes et leur durée | invité (Amiel : jamais) | E6 | E8 |
+| E7 | Assistant — ce qu'on va demander | annoncer les cinq étapes et leur durée | invité (le mainteneur : jamais) | E6 | E8 |
 | E8 | Assistant — identité | prénom, nom, âge, poids | invité | E7 | E9 |
 | E9 | Assistant — FTP et zones | FTP, zones dérivées (édition précise en V2) | invité | E8 | E10 |
 | E10 | Assistant — départ habituel | l'adresse, géocodée | invité | E9 | E11 |
@@ -264,7 +264,7 @@ courte en dessous, pas un tableau par heure.
 | E18 | Génération en cours | tenir l'attente d'un calcul long | tous | E13, E15, E16, E17 | E19 |
 | E19 | Les propositions | choisir entre trois options contrastées | tous | E18, E14 | E20 |
 | E20 | Détail d'une proposition, et emporter | carte, blocs, météo, tenue, GPX | tous | E19 | partage système (hors application) |
-| E21 | Profil et réglages | modifier ce que l'assistant a demandé, brancher Intervals plus tard | tous | menu | E21, E4 (Amiel) |
+| E21 | Profil et réglages | modifier ce que l'assistant a demandé, brancher Intervals plus tard | tous | menu | E21, E4 (le mainteneur) |
 | E22 | Clés d'accès | créer, nommer, révoquer une clé d'accès (« webkey ») | tous | E21 | E22 |
 | E23 | Mes sorties proposées | retrouver une proposition passée et son GPX | tous | E14, menu | E20 |
 | E24 | Compte et données | exporter, supprimer le compte | tous | E21 | fin |
@@ -277,7 +277,7 @@ métier*. « Sans objet » quand l'état ne peut pas exister.
 **E1 Accueil public** — vide : sans objet (l'écran est son propre contenu) ·
 chargement : sans objet · erreur : champ invalide, nommé, la saisie est
 conservée ; adresse déjà demandée ; adresse déjà titulaire d'un compte →
-renvoi vers E5 · succès : E2 · *dégradé : les demandes sont fermées (Amiel ne
+renvoi vers E5 · succès : E2 · *dégradé : les demandes sont fermées (le mainteneur ne
 modère plus, ou une borne de capacité) — l'écran le dit au lieu d'accepter
 une demande qui ne sera jamais traitée.*
 
@@ -289,7 +289,7 @@ est une impasse polie — c'est le moment M1 du §4.*
 **E3 Message d'invitation** — pas d'états d'écran ; deux échecs propres à un
 message : non délivré (Brevo rejette, boîte pleine) et classé indésirable.
 Ni l'un ni l'autre n'est visible du produit. C'est un angle mort : **côté
-Amiel, E4 doit montrer qu'une invitation a été envoyée et qu'elle n'a pas été
+mainteneur, E4 doit montrer qu'une invitation a été envoyée et qu'elle n'a pas été
 consommée** — sinon personne ne sait que le parcours est cassé.
 
 **E4 File de modération** — vide : « aucune demande en attente » · chargement :
@@ -297,7 +297,7 @@ liste · erreur : l'envoi du message a échoué → la demande **reste** en
 attente, elle ne bascule pas en « acceptée » ; réessayer est offert · succès :
 la demande passe en « invitée le …, non activée » · *dégradé : invitation
 envoyée il y a plus de N jours et jamais activée — à distinguer visuellement
-d'une demande neuve, c'est le seul signal qu'Amiel aura d'un lien perdu.*
+d'une demande neuve, c'est le seul signal que le mainteneur aura d'un lien perdu.*
 
 **E5 Connexion** — vide : sans objet · chargement : redirection vers le
 fournisseur d'identité · erreur : refus du fournisseur, compte inconnu (→ E1,
@@ -308,7 +308,7 @@ sans mot de passe n'a aucun chemin de secours, sauf la clé d'accès de E22
 
 **E6 Activation** — vide : sans objet · chargement : bref · erreur : lien
 expiré, lien déjà consommé, lien inconnu → **et un chemin de rattrapage qui
-ne passe pas par Amiel** (sprint 8) · succès : E7 · *dégradé : lien valide
+ne passe pas par le mainteneur** (sprint 8) · succès : E7 · *dégradé : lien valide
 mais compte déjà configuré → E14 directement, ne pas rejouer l'assistant.*
 
 **E7-E13 Assistant** — vide : chaque étape s'ouvre vide, c'est son état
@@ -381,7 +381,7 @@ seuil, qui est déjà dans la configuration (`elasticite_calme_min`, Q21 a).*
 **E20 Détail et emporter** — vide : sans objet · chargement : carte et tracés ·
 erreur : GPX introuvable ou illisible — le seul échec qui annule tout le
 reste · succès : le GPX est parti dans l'application du compteur · *dégradés :
-(a) séance sans bloc — le cas le plus courant chez Amiel : le parcours
+(a) séance sans bloc — le cas le plus courant chez le mainteneur : le parcours
 s'affiche plein, pas en pointillé pâle (Q20 c) ; (b) demi-tours dans le
 parcours → le profil d'altitude superpose les blocs, défaut connu et ouvert ;
 (c) une part de grands axes à afficher : `primary` seul, pas la catégorie
@@ -418,7 +418,7 @@ pas**, et où le remède n'est pas cosmétique.
 
 **M1 — L'attente après la demande d'accès (E2 → E3).**
 C'est le seul délai du parcours qui dépend d'un humain, et il est par nature
-non borné : Amiel modère quand il ouvre sa file. L'invité, lui, vient de
+non borné : le mainteneur modère quand il ouvre sa file. L'invité, lui, vient de
 décider d'essayer quelque chose ; c'est le pic de sa motivation, et il le
 passe à attendre. **Pourquoi c'est décisif** : un invité qui reçoit son lien
 quatre jours plus tard ne se souvient plus de ce qu'on lui avait promis, et
@@ -428,7 +428,7 @@ imaginer) et la **visibilité de l'ancienneté en E4**. Voir question 6.
 
 **M2 — L'étape FTP (E9).**
 C'est la première question du parcours à laquelle un cycliste normal peut ne
-pas savoir répondre. Amiel connaît sa FTP au watt près ; un copain qui roule
+pas savoir répondre. Le mainteneur connaît sa FTP au watt près ; un copain qui roule
 sans plan structuré peut ne l'avoir jamais mesurée. **Pourquoi c'est
 décisif** : ce n'est pas seulement un champ vide, c'est un champ qui
 **bloque tout l'aval** — sans cible de puissance, il n'y a ni placement de
@@ -457,7 +457,7 @@ depuis son téléphone. Q22 l'a déjà établi côté bureau : « le télécharg
 du GPX fonctionne, mais depuis le Mac », et ça ne suffisait pas.
 
 **M5 — La première proposition d'un invité qui habite en ville dense (E19).**
-Mesuré : à Rennes et Angers la densité de feux et stops retombe sous
+Mesuré : dans la ville du mainteneur et à Angers la densité de feux et stops retombe sous
 0,40/km à 6 km du centre, à Nantes à 12 km, aux Lilas **jamais** à moins de
 15 km — et elle y **remonte** entre 0-5 et 5-10 km. Un invité francilien
 recevra donc des blocs qui portent quatre à cinq arrêts. **Pourquoi c'est
@@ -476,7 +476,7 @@ Aucune n'est tranchée ici. Chacune donne les options et ce qui bascule.
 **1. L'horizon « sans vent » : 2 jours ou 3 ?**
 Le brief dit deux fois « sans vent si plus de 2 jours ». Le produit a mesuré
 et retenu **3 jours inclus** : `HORIZON_ORIENTATION_J = 3` dans
-`src/ourouler/sortie/vent_demande.py`, sur 2 064 heures à Rennes en référence
+`src/ourouler/sortie/vent_demande.py`, sur 2 064 heures dans la ville du mainteneur en référence
 ERA5 — la direction tombe dans le bon secteur de ±45° neuf fois sur dix à
 1-3 jours (93 %, 92 %, 88 %) et 78 % à 5 jours ; le commentaire du module
 tranche explicitement « trois jours inclus, quatre non ».
@@ -521,7 +521,7 @@ utilisateur exigé au sprint 8.
 
 **4. L'invité n'a aucun historique : que montre-t-on à la place d'une
 estimation calibrée ?**
-Chez Amiel, la calibration donne une erreur mesurée (4,2 % et 2,4 % de MAE
+Chez le mainteneur, la calibration donne une erreur mesurée (4,2 % et 2,4 % de MAE
 selon le vélo, sur sorties non vues). Chez l'invité il n'y a rien, et le
 sprint 8 dit : « le modèle doit tourner sur des paramètres génériques **et le
 dire** ».
@@ -616,7 +616,7 @@ produit.
 obligatoire ?**
 Le brief dit « préparation sur la zone 2 de la personne ». Le dépôt a trois
 sources possibles : les zones de puissance saisies, `puissance_endurance_pct`
-(0,60 de la FTP, médiane mesurée sur les sorties extérieures d'Amiel, Q11),
+(0,60 de la FTP, médiane mesurée sur les sorties extérieures du mainteneur, Q11),
 ou les zones d'Intervals.
 *Options* : (a) FTP obligatoire à l'assistant, Z2 dérivée ; (b) FTP
 facultative et, sans elle, un itinéraire dimensionné en durée seule avec une
@@ -628,13 +628,13 @@ affirmer.
 elle-même — « un parcours » ou « un parcours pour ta séance ».
 
 **12. Dit-on à l'invité que le produit rend moins de service chez lui ?**
-Mesuré le 16/09 : distance de dégagement urbain 6 km (Rennes, Angers), 12 km
+Mesuré le 16/09 : distance de dégagement urbain 6 km (ville du mainteneur, Angers), 12 km
 (Nantes), jamais à moins de 15 km aux Lilas. Q31 et Q32 le posent comme un
 constat produit ; le mode circuit qui serait la réponse n'est pas écrit.
 *Options* : (a) mesurer la distance de dégagement à l'adresse saisie dès E10
 et l'annoncer (« vos blocs porteront 4 à 5 arrêts ») ; (b) ne rien dire et le
 laisser découvrir en E19 ; (c) le dire au moment où ça se voit, c'est-à-dire
-sur la proposition elle-même ; (d) le dire à Amiel en E4, au moment
+sur la proposition elle-même ; (d) le dire au mainteneur en E4, au moment
 d'accepter la demande.
 *Ce qui bascule* : un calcul supplémentaire dans l'assistant (donc des appels,
 donc la question 3), le sens de l'invitation, et la sincérité du produit —
@@ -648,7 +648,7 @@ semaine » demande soit sept appels, soit une plage à ajouter au connecteur.
 chaque ouverture de E15, une fois par jour, ou sur geste explicite.
 *Ce qui bascule* : le nombre d'appels à Intervals par utilisateur et par jour,
 l'état vide de E15, et la fraîcheur d'une séance que l'entraîneur vient de
-modifier — le cas est réel, les séances d'Amiel sont planifiées par un tiers.
+modifier — le cas est réel, les séances du mainteneur sont planifiées par un tiers.
 
 **14. Brevo sert-il seulement à l'invitation ?**
 Le brief nomme Brevo pour l'inscription (« mail via Brevo, je filerai une

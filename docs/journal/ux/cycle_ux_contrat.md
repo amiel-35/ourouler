@@ -41,7 +41,7 @@ qu'un mot de passe ; ce qui change est le fournisseur d'identité, pas le
 principe.
 
 Ce que la décision apporte en plus : **la modération est native**. Le
-sprint 8 veut qu'Amiel puisse inviter des copains ; avec Google, il aurait
+sprint 8 veut que le mainteneur puisse inviter des copains ; avec Google, il aurait
 fallu construire une liste d'attente par-dessus une connexion ouverte.
 
 ### 2. L'horizon du vent reste à trois jours
@@ -159,7 +159,7 @@ la position, pas la valeur.
 Sans elle, quelqu'un tape dans le champ « à plat » la moyenne qu'il lit sur
 son compteur. **Tout l'escalier des zones se décale alors vers le bas** :
 mesuré chez le mainteneur, 26 km/h déclarés au lieu de 28,6 le placeraient à
-131 W, soit 0,508 × FTP — *sous* sa Z2, à −27 % de la bande. Et cette
+0,508 × FTP — *sous* sa Z2, à −27 % de la bande. Et cette
 position fausse se propagerait à la Z3, la Z4 et toutes les autres.
 
 **Mesuré le 16/09/2026**, sorties libres extérieures d'au moins une heure,
@@ -196,7 +196,7 @@ plus structurantes, dans l'ordre où elles bloquent :
    150 appels Open-Meteo et plusieurs appels BRouter. C'est le seul endroit
    où l'architecture de l'interface dépend d'une contrainte physique.
 2. **Ce qu'on montre à un invité sans historique.** Il n'a aucune
-   calibration : les chiffres qu'on affiche à Amiel sont des mesures, ceux
+   calibration : les chiffres qu'on affiche au mainteneur sont des mesures, ceux
    qu'on afficherait à l'invité seraient des suppositions. Les afficher
    pareil serait un mensonge par mise en page.
 3. **Le téléversement de séance** (`.FIT`, `.MRC`, `.ZWO`). Aucun de ces

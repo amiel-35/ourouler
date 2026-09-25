@@ -6,9 +6,8 @@
 # — en TOML, une clé nue après un en-tête de section rejoint cette section,
 # donc placée plus bas ce champ était silencieusement lu comme
 # `boucle.historique_depuis` et ignoré (`Config.historique_depuis` le lit à la
-# racine). Perso pur, avec un défaut, au sens de Q35 (docs/journal/questions/questions_mainteneur.md) :
-# chacun voit midi à sa porte sur ses propres sorties, ce n'est pas un réglage
-# de serveur.
+# racine). Réglage personnel, avec un défaut : chacun le règle sur ses propres
+# sorties, ce n'est pas un réglage de serveur.
 historique_depuis = 2023-12-01
 
 [depart]
@@ -19,11 +18,10 @@ longitude = -0.5000   # le point rond précédent tombait sous le seuil de l'inv
 [cycliste]
 masse_kg = 75.0
 ftp_w = 250
-# Identité du compte, obligatoire pour tout profil créé par l'assistant
-# (décision du 17/09/2026) — mais un fichier plus ancien qui ne les porte
-# pas continue de se charger et de se modifier normalement. Aucun calcul ne
-# s'en sert aujourd'hui ; l'usage prévu est le compte multi-utilisateurs du
-# lot F3 (e-mail d'invitation, affichage). Champs vides ici à dessein :
+# Identité du compte, obligatoire pour tout profil créé par l'assistant — mais
+# un fichier plus ancien qui ne les porte pas continue de se charger et de se
+# modifier normalement. Aucun calcul ne s'en sert : elle sert au compte
+# multi-utilisateurs (e-mail d'invitation, affichage). Champs vides ici à dessein :
 # inventer un nom mettrait une donnée personnelle dans un fichier versionné.
 prenom = ""
 nom = ""
@@ -34,8 +32,8 @@ usage = "route"        # route | clm
 masse_kg = 9.0         # vélo équipé (bidons, GPS…)
 # Laisser cda_m2 et crr commentés est le cas normal : sans eux, le vélo reçoit
 # les valeurs de littérature de sa catégorie (`usage`), et chaque écran dit
-# d'où elles viennent et de combien elles ont dérivé sur les sorties de
-# validation du mainteneur. Les renseigner n'a de sens que pour qui sait ce
+# d'où elles viennent et de combien elles ont dérivé sur des sorties de
+# validation réelles. Les renseigner n'a de sens que pour qui sait ce
 # qu'il fait ; `ourouler calibrer` mesure le CdA (et le Crr si ni crr ni pneu ne le
 # donnent), et sa calibration prime sur tout le reste.
 # cda_m2 = 0.32        # traînée aérodynamique, mesurée par `ourouler calibrer`
@@ -66,9 +64,9 @@ second_avis = "icon_seamless"  # désaccord entre modèles = indice de confiance
 horizon_h = 6                  # couronne `ourouler meteo` : heures affichées
 horizon_jours = 7              # au-delà, le parcours est servi et la météo
                                # déclarée absente, sans appeler Open-Meteo.
-                               # 7 = portée mesurée d'icon_seamless le
-                               # 17/09/2026 (AROME HD s'arrête à J+2, d'où le
-                               # repli). Un autre second_avis = un autre chiffre.
+                               # 7 = portée mesurée d'icon_seamless (AROME HD
+                               # s'arrête à J+2, d'où le repli). Un autre
+                               # second_avis = un autre chiffre.
 
 [intervals]
 athlete_id = ""   # ex. i123456 (Intervals.icu → Settings)
@@ -89,7 +87,7 @@ profil = "fastbike"
 
 [boucle]
 vitesse_moyenne_kmh = 27   # en attendant le modèle physique
-sens = "horaire"           # horaire en France, antihoraire au Royaume-Uni — modifiable par le cycliste (Q35)
+sens = "horaire"           # horaire en France, antihoraire au Royaume-Uni — modifiable par le cycliste
 candidates = 5
 tolerance_distance = 0.10
 
@@ -112,10 +110,8 @@ part_groupe_max = 0.30                        # au-delà de cette part « en rou
 elasticite_z2_max = 0.20     # allongement maximal de l'échauffement, pour atteindre un bon couloir
 elasticite_z2_min = -0.05
 # Le retour au calme, lui, ne place rien : il referme une boucle dont la longueur n'est
-# jamais exacte. Sa fenêtre est donc largement ouverte vers le haut (Q14, 13/09/2026 —
-# « le retour au calme en fait peut dépasser de plus, c'est souvent ce que je fais car
-# c'est incontrôlable de faire parfait, et c'est du kilomètre facile. Faut réduire le
-# dépassement au max. »). Dépasser n'est pas une faute : chaque minute en trop se paie,
+# jamais exacte. Sa fenêtre est donc largement ouverte vers le haut : c'est du kilomètre
+# facile, et viser juste au kilomètre près est impossible. Dépasser n'est pas une faute : chaque minute en trop se paie,
 # mais peu et sans seuil, ce qui suffit à préférer la boucle la plus juste à terrain égal.
 # Au-delà de cette borne haute, ce n'est plus la boucle qui tombe mal, c'est la boucle qui
 # ne va pas avec la séance : on le dit. Bornes : 0 à 5 (soit jusqu'à +500 %).
@@ -124,18 +120,18 @@ elasticite_calme_max = 1.5   # +150 % : le retour au calme absorbe, il n'est pas
 elasticite_calme_min = -0.05
 demi_tour_penalite = 1.0     # coût d'un bloc qui reprend le segment précédent en sens inverse
 # Les zones de puissance, en fraction de la FTP, de Z1 à la dernière. Défaut : la table
-# de Coggan, celle que le compte Intervals.icu du mainteneur renvoie au pourcent près.
+# de Coggan, celle qu'Intervals.icu propose par défaut.
 # Trois zones au minimum, croissantes, sans chevauchement (les trous sont permis).
 # zones = [[0.0, 0.55], [0.56, 0.75], [0.76, 0.90], [0.91, 1.05], [1.06, 1.20], [1.21, 1.50], [1.51, 2.00]]
 
 # OÙ VOUS VOUS PLACEZ DANS VOTRE BANDE : 0 = bas de la zone, 1 = haut, 0,5 = milieu.
-# C'est la seule chose qu'on stocke (décision 7 du cycle UX) : la FTP progresse ou les
+# C'est la seule chose qu'on stocke : la FTP progresse ou les
 # zones décalent, tout l'escalier suit sans qu'on touche à ce fichier. La même position
 # vaut pour toutes les zones fermées — au milieu de sa Z2, on est au milieu de sa Z3.
 # La puissance d'endurance n'est donc PLUS un réglage : elle se déduit de cette position
 # dans la Z2, et `ourouler config` l'affiche en watts pour que vous la vérifiiez.
-# Défaut 0,2105 = la position qu'occupe 0,60 de FTP — la médiane mesurée sur les sorties
-# extérieures du mainteneur (Q11) — dans la Z2 par défaut. Bornes : −1 à 2 ; hors de
+# Défaut 0,2105 = la position qu'occupe 0,60 de FTP — une médiane mesurée sur des sorties
+# extérieures réelles — dans la Z2 par défaut. Bornes : −1 à 2 ; hors de
 # [0, 1] veut dire « hors de la bande », ce qui se voit plutôt que de se corriger tout seul.
 position_zone = 0.2105263157894737
 # Compatibilité : une configuration qui porte encore `puissance_endurance_pct` (une valeur,
@@ -151,13 +147,13 @@ position_zone = 0.2105263157894737
 # récupération ou du retour au calme. Dernier recours du typage, quand la séance ne porte
 # ni marqueur ni texte explicite. Bornes : 0,50 à 0,90.
 seuil_recuperation_pct = 0.75
-# Depuis le sprint 5, le vent entre dans la note qui classe les boucles — avant lui,
-# seul le relief (carrefours, bâti, pente) comptait. En dessous de cet écart relatif de
-# note, deux boucles sont considérées équivalentes et c'est la plus sèche qui gagne,
-# comme avant le sprint 5 ; au-delà, c'est la boucle la mieux orientée par rapport au
+# Le vent entre dans la note qui classe les boucles, à côté du relief (carrefours,
+# bâti, pente). En dessous de cet écart relatif de
+# note, deux boucles sont considérées équivalentes et c'est la plus sèche qui gagne ;
+# au-delà, c'est la boucle la mieux orientée par rapport au
 # vent qui gagne, même si elle prend un peu plus la pluie. Mettre à 0 pour que le vent
-# tranche toujours. 0,15 (15 %) est la valeur mesurée par défaut sur les boucles réelles
-# du mainteneur (docs/journal/sprints/sprint5_contrat.md §1.6) ; bornes : 0 à 0,5.
+# tranche toujours. 0,15 (15 %) est la valeur mesurée sur des boucles réelles ; bornes :
+# 0 à 0,5.
 tolerance_egalite = 0.15
 
 [tenue]

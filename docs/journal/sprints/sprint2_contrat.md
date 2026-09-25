@@ -210,7 +210,7 @@ distance 0, profil inconnu, timeout, mot de passe absent de toute erreur.
 Candidates : moteur qui renvoie toujours la même boucle, boucle trop courte
 malgré l'ajustement, plafond d'appels respecté. Coûts : trace de 2 points,
 segments vides, tags sans `highway`, virages à 180°, cap au passage du
-méridien 0 (Rennes est à −1,68°, mais tester à 0). Météo le long : trace
+méridien 0 (la ville du mainteneur est à <coordonnées>, mais tester à 0). Météo le long : trace
 plus longue que l'horizon, échantillon unique, `null`, second avis absent.
 GPX : vide, `<rte>` seulement, sans altitude, aller-retour. Invariants du
 sprint 1 maintenus (pas de réseau, pas de config dans le cœur, pas de

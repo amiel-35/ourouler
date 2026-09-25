@@ -4,7 +4,7 @@ Rédigé le 13/09/2026 par le superviseur (Fable). Fixe les interfaces pour
 dev-feature, testeur-adversarial (en aveugle) et relecteur. Décisions du
 mainteneur intégrées : antennes = seul défaut de tracé à corriger ;
 traversées de bourg acceptées ; `fastbike` par défaut ; les traces servent
-à **apprendre**, jamais comme critère (couverture sud/ouest de Rennes) ;
+à **apprendre**, jamais comme critère (couverture sud/ouest de la ville du mainteneur) ;
 home-trainer exclu ; précision « pas de folie » ; sorties en groupe =
 nom + incohérence puissance/vitesse.
 
@@ -52,8 +52,8 @@ vraiment est 0, pas 40 — voir `connecteurs/brouter.py`] ; (b) après
 génération, détecte et élague les antennes, note `meta["antennes"]`
 (nombre, mètres retirés). `couts.Couts` gagne `antennes_m` (mètres
 d'antennes **avant** élagage, pour information) et la CLI une colonne.
-Vérification réelle : la boucle « 60 km NE » du 13/09 (Thorigné-Fouillard,
-Noyal) ne doit plus présenter de crochet — comparer avant/après sur les
+Vérification réelle : la boucle « 60 km NE » du 13/09 (deux communes
+voisines) ne doit plus présenter de crochet — comparer avant/après sur les
 mêmes azimuts.
 
 ## 2. Lot L3.2 — Routes connues : apprentissage — `apprentissage/routes.py` + CLI `routes`

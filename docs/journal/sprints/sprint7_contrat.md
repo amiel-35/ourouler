@@ -63,8 +63,8 @@ Mesuré le 18/09 sur deux courses, avec les valeurs Strava corrigées comme
 
 | | appareil | Strava corrigé | notre filtre | BRouter, altitudes point par point, seuil 2 m |
 |---|---|---|---|---|
-| Lacanau | 858 m | **235 m** | 884 m | **234 m** |
-| Les Sables | 1 566 m | **1 260 m** | 1 378 m | **1 076 m** |
+| sortie côtière A | 858 m | **235 m** | 884 m | **234 m** |
+| sortie côtière B | 1 566 m | **1 260 m** | 1 378 m | **1 076 m** |
 
 Le filtre n'était pas en cause : **la source l'était**. Un altimètre
 barométrique accumule 20 cm de bruit par point ; sur 9 731 points, il fabrique
