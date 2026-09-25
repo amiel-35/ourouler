@@ -208,3 +208,58 @@ def test_le_jeton_n_apparait_dans_aucun_journal(config_toml: Path, capsys, caplo
     jeton = lien.rsplit("jeton=", 1)[1]
     assert jeton, "le test ne prouve rien s'il n'a pas trouvé de jeton dans la sortie"
     assert all(jeton not in enregistrement.getMessage() for enregistrement in caplog.records)
+
+
+# --- un TOML hébergé sans tiers 3 doit suffire (constat du 25/09/2026) ------
+#
+# En prod, une fois Q66a appliqué, `config.toml` ne porte ni `[depart]` ni
+# `[cycliste]` (`docs/inviter.md`, §1). `inviter`/`invitations` ne s'en
+# servent que pour composer « Prénom Nom vous invite » — facultatif — et ne
+# doivent pas refuser avant même d'atteindre la base des comptes.
+
+
+@pytest.fixture
+def config_toml_hebergement(tmp_path: Path) -> Path:
+    """Le TOML réellement servi en prod après Q66a : ni [depart] ni [cycliste]."""
+    fichier = tmp_path / "hebergement.toml"
+    fichier.write_text('[meteo]\ndirections=8\n', encoding="utf-8")
+    return fichier
+
+
+def test_inviter_marche_avec_un_toml_hebergement_sans_depart_ni_cycliste(
+    config_toml_hebergement: Path, capsys
+):
+    code = main(
+        [
+            "--config",
+            str(config_toml_hebergement),
+            "inviter",
+            "hebergement@exemple.invalid",
+            "--sans-courriel",
+        ]
+    )
+    sortie = capsys.readouterr()
+    assert code == 0, sortie.err
+    assert f"{URL_PUBLIQUE}/entrer?jeton=" in sortie.out
+    # Sans [cycliste], l'e-mail dit « vous êtes invité·e », jamais un nom inventé
+    # (règle absolue 1) — vérifié directement dans `tests/api/test_courriel.py`.
+
+
+def test_invitations_marche_avec_un_toml_hebergement_sans_depart_ni_cycliste(
+    config_toml_hebergement: Path, capsys
+):
+    main(
+        [
+            "--config",
+            str(config_toml_hebergement),
+            "inviter",
+            "hebergement2@exemple.invalid",
+            "--sans-courriel",
+        ]
+    )
+    capsys.readouterr()
+
+    code = main(["--config", str(config_toml_hebergement), "invitations"])
+    sortie = capsys.readouterr()
+    assert code == 0, sortie.err
+    assert "hebergement2@exemple.invalid" in sortie.out

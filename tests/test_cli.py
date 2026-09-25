@@ -28,6 +28,54 @@ def test_config_absente_code_2(tmp_path: Path, capsys):
     assert "introuvable" in capsys.readouterr().err
 
 
+# --- OUROULER_CONFIG honorée sans --config (constat du 25/09/2026) ----------
+#
+# En prod, `OUROULER_CONFIG=/config/config.toml` est déjà posé pour le
+# processus API (`docker-compose.api.coolify.yml`) mais `ourouler inviter`,
+# lancé sans `--config` dans le même conteneur, cherchait quand même
+# `~/.config/ourouler/config.toml` — absent là-bas — au lieu de suivre la
+# même variable. Voir `cli.main()`, qui délègue à
+# `api.exploitation.chemin_config()`, la même résolution que le serveur.
+
+
+def test_config_honore_ouroulet_config_sans_option_config(tmp_path: Path, capsys, monkeypatch):
+    from ourouler.api.exploitation import VARIABLE_CONFIG
+
+    f = tmp_path / "ailleurs.toml"
+    f.write_text(CONFIG, encoding="utf-8")
+    monkeypatch.setenv(VARIABLE_CONFIG, str(f))
+
+    assert main(["config"]) == 0
+    assert "Test" in capsys.readouterr().out
+
+
+def test_option_config_l_emporte_toujours_sur_ouroulet_config(tmp_path: Path, capsys, monkeypatch):
+    from ourouler.api.exploitation import VARIABLE_CONFIG
+
+    ignoree = tmp_path / "ignoree.toml"
+    ignoree.write_text(CONFIG.replace('"Test"', '"Ignoree"'), encoding="utf-8")
+    monkeypatch.setenv(VARIABLE_CONFIG, str(ignoree))
+
+    voulue = _config(tmp_path, CONFIG)
+    assert main(["--config", str(voulue), "config"]) == 0
+    out = capsys.readouterr().out
+    assert "Test" in out
+    assert "Ignoree" not in out
+
+
+def test_sans_ouroulet_config_le_defaut_reste_celui_de_config_py(monkeypatch):
+    """Sans la variable posée (le poste du mainteneur), `chemin_config()` — que
+    `cli.main()` consulte quand `--config` est absent — rend encore le défaut
+    local de `config.py`, inchangé. Vérifié sur la fonction directement, pas via
+    `main(["config"])`, pour ne jamais dépendre d'un vrai `~/.config/ourouler/`
+    qui pourrait exister sur la machine qui fait tourner ce test."""
+    from ourouler.api.exploitation import VARIABLE_CONFIG, chemin_config
+    from ourouler.config import CHEMIN_CONFIG_DEFAUT
+
+    monkeypatch.delenv(VARIABLE_CONFIG, raising=False)
+    assert chemin_config() == CHEMIN_CONFIG_DEFAUT.expanduser()
+
+
 # --- --json avant ou après la sous-commande ---------------------------------
 #
 # Tests qui auraient attrapé A3 : `--json` n'était déclaré qu'en option

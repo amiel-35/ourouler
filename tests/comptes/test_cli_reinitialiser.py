@@ -110,3 +110,30 @@ def test_reinitialiser_deux_fois_de_suite_reprend_le_meme_lien(config_toml: Path
     second_lien = next(ligne for ligne in seconde.splitlines() if "reinitialiser?jeton=" in ligne)
     assert premier_lien == second_lien
     assert "déjà en cours" in seconde
+
+
+def test_reinitialiser_marche_avec_un_toml_hebergement_sans_depart_ni_cycliste(
+    capsys, tmp_path: Path, url_base: str
+):
+    """Même constat qu'`inviter` (25/09/2026) : un TOML hébergé sans [depart] ni
+    [cycliste] (Q66a) doit suffire — `reinitialiser` ne s'en sert pas non plus."""
+    with ouvrir(url_base) as connexion:
+        depot = DepotComptes(connexion)
+        emise = depot.inviter("hebergement@exemple.invalid")
+        depot.activer(emise.jeton, MOT_DE_PASSE)
+
+    config_toml_hebergement = tmp_path / "hebergement.toml"
+    config_toml_hebergement.write_text('[meteo]\ndirections=8\n', encoding="utf-8")
+
+    code = main(
+        [
+            "--config",
+            str(config_toml_hebergement),
+            "reinitialiser",
+            "hebergement@exemple.invalid",
+            "--sans-courriel",
+        ]
+    )
+    sortie = capsys.readouterr()
+    assert code == 0, sortie.err
+    assert f"{URL_PUBLIQUE}/reinitialiser?jeton=" in sortie.out

@@ -931,7 +931,7 @@ def ajouter_inviter(sous: argparse._SubParsersAction) -> None:
         action="store_true",
         help="n'envoie pas le courriel d'invitation, affiche seulement le lien",
     )
-    p.set_defaults(fonction=_commande_inviter)
+    p.set_defaults(fonction=_commande_inviter, requiert_profil=False)
 
 
 def _commande_inviter(args: argparse.Namespace, config: Config) -> int:
@@ -959,7 +959,7 @@ def ajouter_invitations(sous: argparse._SubParsersAction) -> None:
         help="liste les invitations en cours : adresse, lien, échéance",
         parents=[parent_json()],
     )
-    p.set_defaults(fonction=_commande_invitations)
+    p.set_defaults(fonction=_commande_invitations, requiert_profil=False)
 
 
 def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
@@ -1002,7 +1002,7 @@ def ajouter_reinitialiser(sous: argparse._SubParsersAction) -> None:
         action="store_true",
         help="n'envoie pas le courriel de réinitialisation, affiche seulement le lien",
     )
-    p.set_defaults(fonction=_commande_reinitialiser)
+    p.set_defaults(fonction=_commande_reinitialiser, requiert_profil=False)
 
 
 def _commande_reinitialiser(args: argparse.Namespace, config: Config) -> int:
@@ -1083,7 +1083,7 @@ def ajouter_retirer(sous: argparse._SubParsersAction) -> None:
         action="store_true",
         help="ne demande pas confirmation avant de supprimer définitivement",
     )
-    p.set_defaults(fonction=_commande_retirer)
+    p.set_defaults(fonction=_commande_retirer, requiert_profil=False)
 
 
 def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
@@ -1277,7 +1277,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         parseur.print_help()
         return 0
     try:
-        config = charger(args.config)
+        # `chemin_config()` : même résolution que le serveur hébergé
+        # (`OUROULER_CONFIG`, sinon le défaut local) — sans elle, un `ourouler
+        # inviter` lancé dans le conteneur du serveur cherchait
+        # `~/.config/ourouler/config.toml`, qui n'existe pas là-bas, alors que
+        # `OUROULER_CONFIG=/config/config.toml` était déjà posé pour le
+        # processus API (constat du 25/09/2026, en invitant pour de vrai
+        # depuis la prod). `--config` explicite reste toujours prioritaire :
+        # cette fonction n'est consultée que quand il est absent, exactement
+        # comme `config.charger` consultait déjà son propre défaut local.
+        from ourouler.api.exploitation import chemin_config
+
+        chemin = args.config or chemin_config()
+        # Les commandes de comptes (`inviter`, `invitations`, `reinitialiser`,
+        # `retirer`) ne parlent qu'à la base des comptes et, pour deux
+        # d'entre elles, au relais SMTP — jamais au profil du cycliste
+        # (`[depart]`, `[cycliste]`). Un TOML hébergé sans tiers 3 (Q35/Q66)
+        # ne porte plus ces deux sections : les exiger quand même faisait
+        # échouer ces commandes en prod sur « section [depart] manquante »
+        # avant même d'atteindre la base (même constat du 25/09/2026).
+        requiert_profil = getattr(args, "requiert_profil", True)
+        config = charger(chemin, requiert_profil=requiert_profil)
         return int(args.fonction(args, config))
     except ErreurUtilisateur as e:
         print(f"ourouler : {e}", file=sys.stderr)

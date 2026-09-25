@@ -1133,7 +1133,9 @@ occupé, quota épuisé) l'est **avant** la lecture du corps
 une suppression de compte annule les tâches de fond de ce compte et attend
 qu'elles aient rendu la main avant d'effacer (`taches_fond.annuler_et_attendre`,
 `api/vie_privee.py`), et les fichiers bruts importés sont rangés par compte
-dans le cache (jamais mêlés entre propriétaires).
+dans le cache (jamais mêlés entre propriétaires). **Ces fichiers bruts
+conservés par compte sont un écart avec [[Q48]]** (« on jette le brut, on
+garde le dérivé ») — posé sans trancher en [[Q67]], le 25/09/2026.
 
 **L9.3 — le coût par utilisateur.** Cache mutualisé des prévisions Open-Meteo
 (`src/ourouler/meteo/cache_previsions.py` : même point arrondi, même heure,
@@ -1211,11 +1213,13 @@ validation affichée (4,9 % sur 7 sorties) le laisse deviner sans le dire.
 
 **Restent au mainteneur, hors du dépôt (règle absolue 7) :**
 
-- L'action Q66a sur Coolify et le redéploiement du service hébergé — vider
-  `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` dans le panneau Coolify de
-  `ourouler-api` et reconstruire `OUROULER_CONFIG_TOML_B64` sans
-  `[cycliste]`/`[[velos]]`, comme décrit au sprint 8. Non refait par ce
-  sprint : la config du mainteneur elle-même n'a pas changé.
+- ~~L'action Q66a sur Coolify~~ — **faite**, vérifiée le 25/09/2026 en
+  invitant pour de vrai depuis la prod (`ssh inflexion` + `docker exec` dans
+  le conteneur `api-hqcrmxt0dvyxlgojgvqmwhsk-*`) : `OUROULER_DEPART_*` et
+  `OUROULER_INTERVALS_*` sont vides dans le panneau Coolify de
+  `ourouler-api`, et `OUROULER_CONFIG_TOML_B64` ne contient plus que
+  `[meteo]`, `[cache]`, `[brouter]`, `[boucle]` — ni `[cycliste]` ni
+  `[[velos]]`. [[Q66]] est close.
 - Déclarer `pneu` dans sa propre configuration (`config.toml`,
   `[[velos]]`), puis relancer `ourouler calibrer` : sa calibration actuelle,
   en date du 25/09, est encore l'ancienne à deux paramètres libres (avant
@@ -1808,6 +1812,84 @@ une archive téléchargée à la main ; un import par lien direct vers Strava ou
 Garmin (sans passer par le poste de l'invité) reste [[Q48]], jamais cadré ni
 codé — voir aussi `docs/inviter.md`, §4, qui le nomme explicitement comme
 absent.
+
+**Précision du 25/09/2026, à ne pas perdre en repriorisant** : [[Q48]]
+(17/09/2026, § « Le lien plutôt que le téléversement ») avait tranché le lien
+comme la voie **principale** — « on ne fait pas traverser une archive de
+plusieurs centaines de mégaoctets à un navigateur. La personne colle le lien
+que la plateforme lui a envoyé par courriel, et le serveur va chercher
+l'archive. Le téléversement reste en secours. » L9.2 n'a livré que le
+téléversement — le secours, pas la voie principale décidée. Le mainteneur l'a
+redit le 25/09/2026, en dogfooding : « pour Strava et Garmin on a vu aussi
+qu'une méthode pouvait être de copier-coller le lien. » Les trois contraintes
+posées par Q48 pour cette voie restent entières et n'ont pas bougé : **le lien
+est un secret** (jamais journalisé, jamais en paramètre d'URL, jamais conservé
+après usage), **une garde SSRF** (liste blanche de domaines, refus des plages
+privées après résolution DNS, aucune redirection hors domaine, plafond de
+taille et de durée), et une **expiration à sept jours** (Strava — Garmin et
+Polar diffèrent, voir Q48 pour le détail par plateforme).
+
+Backlog « la vidéo de démonstration a promis trois choses en plus » (constat
+du mainteneur, 25/09/2026, en marge du carton « Bientôt » et du carton de fin
+de la vidéo publique) :
+
+1. **Les pauses et les nuits, pour les randonnées au long cours** — rien
+   n'existe : plusieurs jours, pauses repas, étape du soir, météo par jour.
+   Aucun sprint, aucune question ouverte encore posée dessus.
+2. **La recherche par dénivelé** — déjà couverte par le backlog « relief
+   demandé » ci-dessus (note du 20/09/2026) : même besoin, pas une entrée
+   séparée.
+3. **La météo et la durée d'un parcours qu'on a déjà** — le cœur porte
+   l'essentiel : `ourouler simuler` / `POST /simulations`
+   (`DemandeSimulation`, `src/ourouler/api/modeles.py`) calcule le temps d'un
+   GPX déposé à puissance constante, la météo le long d'un tracé existe
+   (chercher `meteo_trace`), et la fourchette porte à porte de L9.1
+   s'applique au même modèle physique. Il manque un **écran** « déposer mon
+   parcours » qui rende pluie, vent par tronçon et durée en fourchette à
+   partir de ces briques — aucun aujourd'hui ne les assemble à l'écran.
+
+   **Rattaché à un constat séparé du mainteneur, même jour** : le bouton
+   « Déposer » de l'écran Aujourd'hui/Ma semaine sans Intervals
+   (`front/src/App.tsx`, bloc « En attendant », ~lignes 592-616 et 651-675 —
+   « Vous pouvez demander un parcours à la main, déposer un fichier de
+   séance, ou déposer vos sorties passées ») ne dit que deux de ses usages
+   réels. Ses mots : « déposer c'est pas que ça, c'est aussi l'analyse d'une
+   trace existante pour y caler la météo, l'estimation, le vent etc. » —
+   « Déposer » doit couvrir **trois** choses : une séance à faire
+   (`.zwo`/`.mrc`, déjà géré), ses sorties passées (L9.2, déjà géré), et un
+   parcours à **analyser** (le point 3 ci-dessus, qui n'existe pas encore en
+   écran). Le texte d'accueil (`front/src/App.tsx`) et l'écran
+   `front/src/ecrans/Importer.tsx` devront dire ces trois usages le jour où
+   le troisième existe — pas avant, pour ne pas promettre un écran qui n'est
+   pas là.
+4. **« Garmin, bientôt »** (carton de fin, retiré de la version finale de la
+   vidéo mais dit à l'enregistrement) — déjà couvert par le backlog « envoi
+   au compteur » ci-dessus (décisions du 12/09/2026) : même sujet, pas une
+   entrée séparée.
+
+Backlog « le zoom de la carte des boucles » (constat du mainteneur,
+25/09/2026, sur l'écran « 3 boucles » en production — boucle de 124 km au
+départ de Rennes, `front/src/ecrans/Boucles.tsx`) : la carte
+(`front/src/composants/Carte.tsx`, `carte.fitBounds(L.latLngBounds(tous), …)`
+où `tous` vient de **toutes** les boucles proposées) s'ouvrait à l'échelle de
+la Bretagne et de la Normandie (golfe du Morbihan, Fougères, parc
+Normandie-Maine visibles) alors que les trois candidates tiennent dans un
+rayon d'environ 30 km autour de Rennes et n'occupaient qu'un petit quart de la
+carte. Premier mot du mainteneur : « le zoom par défaut n'est pas le plus
+adapté » ; précisé ensuite : « en fait faut zoomer sur le circuit
+sélectionné » — la carte doit se cadrer sur la boucle **retenue** (celle
+marquée « Retenue », ou choisie dans la liste — `Boucles.tsx` porte déjà cet
+état, `choisie`/`retenue`), pas sur l'emprise des trois boucles ensemble, et
+se recadrer quand on change de boucle sélectionnée. Piste à cadrer, pas
+tranchée : `fitBounds` sur les seuls points de la boucle sélectionnée (avec
+une marge), redéclenché à chaque changement de sélection.
+
+Observation de l'agent superviseur en marge de ce même constat, à distinguer
+du mot du mainteneur : à l'échelle « les trois boucles », les étiquettes de
+vent « vitesse/rafale » des trois tracés s'empilaient en un amas peu lisible.
+Un cadrage sur la seule boucle sélectionnée réduit déjà ce risque en pratique
+(un seul tracé de vent affiché à la fois) ; à revérifier une fois le zoom
+corrigé, avant de coder quoi que ce soit de plus pour ça spécifiquement.
 
 ## Historique des sprints
 

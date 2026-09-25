@@ -497,7 +497,12 @@ def en_dict_public(config: Config) -> dict:
     return d
 
 
-def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = None) -> Config:
+def charger(
+    chemin: Path | None = None,
+    *,
+    environ: Mapping[str, str] | None = None,
+    requiert_profil: bool = True,
+) -> Config:
     """Lit un fichier TOML, le complète depuis l'environnement, et construit la `Config`.
 
     Chemin par défaut : ~/.config/ourouler/config.toml. `environ` est
@@ -512,6 +517,13 @@ def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = N
     ailleurs — et l'emportent sur le TOML quand ils sont présents. Pour
     l'usage local (CLI interactive), rien ne change : sans ces variables,
     le TOML seul décide, comme avant.
+
+    `requiert_profil=False` (`cli.py`, commandes de comptes — constat du
+    25/09/2026 en invitant depuis la prod) : `[depart]` et `[cycliste]`
+    deviennent facultatives. Ces commandes ne parlent qu'à la base des
+    comptes et, pour `inviter`/`reinitialiser`, au relais SMTP — jamais au
+    profil du cycliste — et un déploiement hébergé sans tiers 3 (Q35/Q66)
+    n'écrit justement plus ces deux sections dans son TOML.
     """
     environ = os.environ if environ is None else environ
     chemin = (chemin or CHEMIN_CONFIG_DEFAUT).expanduser()
@@ -525,10 +537,15 @@ def charger(chemin: Path | None = None, *, environ: Mapping[str, str] | None = N
             brut = tomllib.load(f)
     except tomllib.TOMLDecodeError as e:
         raise ErreurConfig(f"{chemin} : TOML invalide ({e})") from e
-    return finaliser(brut, environ=environ)
+    return finaliser(brut, environ=environ, requiert_profil=requiert_profil)
 
 
-def finaliser(brut: dict[str, Any], *, environ: Mapping[str, str] | None = None) -> Config:
+def finaliser(
+    brut: dict[str, Any],
+    *,
+    environ: Mapping[str, str] | None = None,
+    requiert_profil: bool = True,
+) -> Config:
     """La fin du chargement, à partir d'un dict TOML déjà lu.
 
     Extraite de `charger` pour l'API (lot F1) : le profil d'un propriétaire
@@ -537,7 +554,7 @@ def finaliser(brut: dict[str, Any], *, environ: Mapping[str, str] | None = None)
     changement de comportement : `charger` appelle cette fonction.
     """
     environ = os.environ if environ is None else environ
-    config = depuis_dict(_survoler_environnement(brut, environ))
+    config = depuis_dict(_survoler_environnement(brut, environ), requiert_profil=requiert_profil)
     # Seul endroit où « ~ » est développé : le cœur reçoit un chemin absolu.
     return replace(config, cache=ParametresCache(config.cache.dossier.expanduser()))
 
@@ -614,16 +631,25 @@ def dossier_cache_depuis(brut: Mapping[str, Any]) -> Path:
     return Path(str(cache.get("dossier") or CACHE_DEFAUT)).expanduser()
 
 
-def depuis_dict(d: dict[str, Any]) -> Config:
-    """Construit la `Config` depuis un dictionnaire (contenu TOML déjà lu). Valide et nomme les champs."""
+def depuis_dict(d: dict[str, Any], *, requiert_profil: bool = True) -> Config:
+    """Construit la `Config` depuis un dictionnaire (contenu TOML déjà lu). Valide et nomme les champs.
+
+    `requiert_profil=False` (commandes de comptes, voir `charger`) : `[depart]`
+    et `[cycliste]` peuvent être absentes, ou présentes sans `latitude`,
+    `longitude` ni `masse_kg` — le `Depart`/`Cycliste` rendu porte alors des
+    zéros, jamais lus par ces commandes (`ourouler inviter` ne s'en sert que
+    pour composer « Prénom Nom vous invite », vide si absent). Toute autre
+    validation (bornes, types) reste inchangée : ce n'est pas un mode permissif
+    général, seulement ces deux sections, seulement leur absence.
+    """
     if not isinstance(d, dict):
         # Un TOML valide donne toujours un dict, mais `depuis_dict` est aussi
         # appelée directement (tests, futurs appelants) : une liste ou une
         # chaîne finissait en `AttributeError: 'list' object has no attribute
         # 'get'`, donc une trace et un code 1 au lieu d'un message.
         raise ErreurConfig(f"configuration : dictionnaire attendu, reçu {type(d).__name__}")
-    depart = _section(d, "depart")
-    cycliste = _section(d, "cycliste")
+    depart = _section(d, "depart", requis=requiert_profil)
+    cycliste = _section(d, "cycliste", requis=requiert_profil)
     velos = tuple(_velo(v, i) for i, v in enumerate(d.get("velos", []) or []))
     if not velos:
         velos = (Velo(nom="Route"),)
@@ -642,11 +668,17 @@ def depuis_dict(d: dict[str, Any]) -> Config:
     return Config(
         depart=Depart(
             nom=str(depart.get("nom", "Départ")),
-            latitude=_nombre(depart, "latitude", "depart", -90, 90),
-            longitude=_nombre(depart, "longitude", "depart", -180, 180),
+            latitude=_nombre(
+                depart, "latitude", "depart", -90, 90, requis=requiert_profil, defaut=0.0
+            ),
+            longitude=_nombre(
+                depart, "longitude", "depart", -180, 180, requis=requiert_profil, defaut=0.0
+            ),
         ),
         cycliste=Cycliste(
-            masse_kg=_nombre(cycliste, "masse_kg", "cycliste", 20, 300),
+            masse_kg=_nombre(
+                cycliste, "masse_kg", "cycliste", 20, 300, requis=requiert_profil, defaut=0.0
+            ),
             ftp_w=_nombre_optionnel(cycliste, "ftp_w", "cycliste", 50, 1000),
             # Absents dans toute configuration écrite avant ce lot : une
             # chaîne vide, jamais un refus de chargement (voir la docstring
@@ -970,8 +1002,19 @@ def _evitement(e: Any, i: int) -> Evitement:
     )
 
 
-def _section(d: dict[str, Any], nom: str) -> dict[str, Any]:
+def _section(d: dict[str, Any], nom: str, *, requis: bool = True) -> dict[str, Any]:
+    """La table `[nom]`, ou une table vide quand `requis=False` et qu'elle est absente.
+
+    `requis=False` sert au chargement allégé des commandes de comptes
+    (`ourouler inviter`, `invitations`, `reinitialiser`, `retirer`) : elles
+    n'ont besoin ni de `[depart]` ni de `[cycliste]`, et un TOML hébergé sans
+    tiers 3 (Q35/Q66) ne les porte pas — voir `charger`/`depuis_dict`.
+    Une section **présente** mais du mauvais type reste toujours un refus,
+    `requis` ou pas : ce n'est plus une absence, c'est un TOML fautif.
+    """
     s = d.get(nom)
+    if s is None and not requis:
+        return {}
     if not isinstance(s, dict):
         raise ErreurConfig(f"section [{nom}] manquante")
     return s
@@ -982,9 +1025,26 @@ def _champ(section: str, cle: str) -> str:
     return f"{section} {cle}" if "[" in section else f"[{section}] {cle}"
 
 
-def _nombre(s: dict[str, Any], cle: str, section: str, mini: float, maxi: float) -> float:
+def _nombre(
+    s: dict[str, Any],
+    cle: str,
+    section: str,
+    mini: float,
+    maxi: float,
+    *,
+    requis: bool = True,
+    defaut: float = 0.0,
+) -> float:
+    """`requis=False` : une clé absente rend `defaut` plutôt qu'un refus.
+
+    Comme `_section(..., requis=False)`, sert au chargement allégé des
+    commandes de comptes — une valeur présente reste soumise aux mêmes
+    bornes, `requis` ou pas.
+    """
     if cle not in s:
-        raise ErreurConfig(f"[{section}] {cle} manquant")
+        if requis:
+            raise ErreurConfig(f"[{section}] {cle} manquant")
+        return defaut
     return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
 
 

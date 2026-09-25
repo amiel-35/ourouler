@@ -84,6 +84,32 @@ def test_retirer_refuse_une_adresse_sans_compte(
     assert "Traceback" not in erreur
 
 
+def test_retirer_marche_avec_un_toml_de_commande_sans_depart_ni_cycliste(
+    capsys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """Le TOML passé par `--config` (celui que `charger()` construit pour `_commande_retirer`,
+    distinct du TOML partagé lu via `OUROULER_CONFIG`) n'est jamais lu par `executer_retirer` —
+    voir sa docstring. Un TOML hébergé sans [depart] ni [cycliste] (Q66a) doit donc suffire,
+    même constat que pour `inviter`/`reinitialiser` (25/09/2026)."""
+    monkeypatch.setenv(VARIABLE_CONFIG, str(_toml_partage(tmp_path)))
+    config_toml_hebergement = tmp_path / "hebergement.toml"
+    config_toml_hebergement.write_text('[meteo]\ndirections=8\n', encoding="utf-8")
+
+    code = main(
+        [
+            "--config",
+            str(config_toml_hebergement),
+            "retirer",
+            "personne@exemple.invalid",
+            "--oui",
+        ]
+    )
+    erreur = capsys.readouterr().err
+    assert code == 2, erreur
+    assert "n'a pas de compte" in erreur
+    assert "Traceback" not in erreur
+
+
 def test_retirer_annule_sans_confirmation(
     config_toml: Path, capsys, tmp_path: Path, url_base: str, monkeypatch: pytest.MonkeyPatch
 ):
