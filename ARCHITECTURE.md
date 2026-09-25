@@ -68,7 +68,7 @@ HTTP injectable :
 |---|---|---|
 | `cli.py` | argparse, lecture de la config, appel des commandes | `cli.py` (1 308) |
 | `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` (918) |
-| `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py` |
+| `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…), les protocoles que le domaine reçoit à la place des clients HTTP (`Routeur`, `SourcePrevisions`, `SourceSeances`) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py`, `ports.py` |
 | `activites/` | lecteur unique FIT/GPX/TCX, cache SQLite, inventaire, import d'archive | `cache.py` (703), `import_archive.py` (526), `lecture.py` (490) |
 | `connecteurs/` | clients HTTP : BRouter, Intervals.icu, archives Open-Meteo, géocodage | `brouter.py` (604), `intervals.py` (595), `openmeteo_archive.py` (478) |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
@@ -224,7 +224,8 @@ identiques, et retire les exceptions qu'elle rend inutiles.
    plus un chemin.
 6. Couper `physique/calibration.py` entre le calcul pur et le service qui
    lit les données, à résultat identique au dernier chiffre.
-7. Introduire une interface de routeur et découper `generer`.
+7. Introduire une interface de routeur et découper `generer`. *Fait (lot 9)* :
+   `noyau/ports.py`, et le découpage en mailles passé à `boucle/mailles.py`.
 8. Sortir argparse des commandes : la `Demande` est construite par `cli`.
 9. Faire appeler service et rendu par l'API, sans `Namespace` ni capture de
    la sortie standard, avec une période où l'ancien et le nouveau chemin
