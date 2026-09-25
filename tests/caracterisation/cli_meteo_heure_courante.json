@@ -2,9 +2,7 @@
   "json": {
     "argv": [
       "meteo",
-      "--json",
-      "--heure-depart",
-      "2026-09-08T09:00"
+      "--json"
     ],
     "code": 0,
     "fichiers_ecrits": {},
@@ -849,9 +847,7 @@
   },
   "texte": {
     "argv": [
-      "meteo",
-      "--heure-depart",
-      "2026-09-08T09:00"
+      "meteo"
     ],
     "code": 0,
     "fichiers_ecrits": {},

@@ -60,59 +60,85 @@
     }
   },
   "relecture": {
-    "argv": [
-      "inventaire",
-      "--json"
-    ],
-    "code": 0,
-    "fichiers_ecrits": {},
-    "reseau": [],
-    "stderr": "",
-    "stdout": {
-      "anomalies": [],
-      "autres_sports": 0,
-      "autres_sports_par_libelle": {},
-      "depuis": "2026-01-01",
-      "journal": [],
-      "par_mois": [
-        {
-          "km": 193.5,
-          "mois": "2026-01",
-          "sorties": 8,
-          "sorties_avec_puissance": 8
-        },
-        {
-          "km": 204.2,
-          "mois": "2026-02",
-          "sorties": 8,
-          "sorties_avec_puissance": 8
-        }
+    "json": {
+      "argv": [
+        "inventaire",
+        "--json"
       ],
-      "par_velo": [
-        {
-          "avec_puissance": 8,
-          "capteurs": [],
-          "derniere": "2026-02-08",
-          "heures": 5.77,
-          "km": 204.2,
-          "nombre": 8,
-          "part_puissance": 1.0,
-          "premiere": "2026-02-01",
-          "velo": "BMC"
-        },
-        {
-          "avec_puissance": 8,
-          "capteurs": [],
-          "derniere": "2026-01-08",
-          "heures": 5.77,
-          "km": 193.5,
-          "nombre": 8,
-          "part_puissance": 1.0,
-          "premiere": "2026-01-01",
-          "velo": "RCR"
-        }
+      "code": 0,
+      "fichiers_ecrits": {},
+      "reseau": [],
+      "stderr": "",
+      "stdout": {
+        "anomalies": [],
+        "autres_sports": 0,
+        "autres_sports_par_libelle": {},
+        "depuis": "2026-01-01",
+        "journal": [],
+        "par_mois": [
+          {
+            "km": 193.5,
+            "mois": "2026-01",
+            "sorties": 8,
+            "sorties_avec_puissance": 8
+          },
+          {
+            "km": 204.2,
+            "mois": "2026-02",
+            "sorties": 8,
+            "sorties_avec_puissance": 8
+          }
+        ],
+        "par_velo": [
+          {
+            "avec_puissance": 8,
+            "capteurs": [],
+            "derniere": "2026-02-08",
+            "heures": 5.77,
+            "km": 204.2,
+            "nombre": 8,
+            "part_puissance": 1.0,
+            "premiere": "2026-02-01",
+            "velo": "BMC"
+          },
+          {
+            "avec_puissance": 8,
+            "capteurs": [],
+            "derniere": "2026-01-08",
+            "heures": 5.77,
+            "km": 193.5,
+            "nombre": 8,
+            "part_puissance": 1.0,
+            "premiere": "2026-01-01",
+            "velo": "RCR"
+          }
+        ],
+        "total": 16
+      }
+    },
+    "texte": {
+      "argv": [
+        "inventaire"
       ],
-      "total": 16
+      "code": 0,
+      "fichiers_ecrits": {},
+      "reseau": [],
+      "stderr": "",
+      "stdout": [
+        "Inventaire des sorties depuis le 2026-01-01 — 16 activité(s)",
+        "",
+        "Par vélo",
+        "  vélo               sorties        km  heures  % puiss.  capteur               période",
+        "  BMC                      8       204       6      100%  —                     2026-02-01 → 2026-02-08",
+        "  RCR                      8       194       6      100%  —                     2026-01-01 → 2026-01-08",
+        "",
+        "Par mois (sorties extérieures)",
+        "  mois       sorties        km  dont puiss.",
+        "  2026-01          8       194            8",
+        "  2026-02          8       204            8",
+        "",
+        "Aucune anomalie."
+      ]
     }
   }
 }

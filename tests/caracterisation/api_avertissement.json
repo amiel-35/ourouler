@@ -1,26 +1,26 @@
 {
-  "json": {
-    "argv": [
-      "meteo",
-      "--json",
-      "--heure-depart",
-      "2026-09-08T09:00"
+  "corps": {
+    "avertissements": [
+      {
+        "code": "second_avis_indisponible",
+        "message": "second avis « modele_second_test » indisponible (Open-Meteo : HTTP 500 sur https://api.open-meteo.com/v1/forecast — panne rejouée (modèle demandé : modele_second_test)) — confiance « inconnu » sur toutes les cellules"
+      }
     ],
-    "code": 0,
-    "fichiers_ecrits": {},
-    "reseau": [
-      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T10:00&latitude=0.0000,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,-0.0000,0.0954,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590,-0.0000,0.1590&longitude=0.0000,0.0000,0.0954,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,0.0000,0.1590,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
-      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T10:00&latitude=0.0000,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,-0.0000,0.0954,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590,-0.0000,0.1590&longitude=0.0000,0.0000,0.0954,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,0.0000,0.1590,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590&models=modele_second_test&start_hour=2026-09-08T07:00&timezone=UTC"
-    ],
-    "stderr": "",
-    "stdout": {
+    "budget": {
+      "attendu_ms": "<CHRONO>",
+      "median_ms": "<CHRONO>",
+      "n": 1,
+      "operation": "meteo",
+      "source": "mesure"
+    },
+    "donnees": {
       "cellules": [
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "ici",
           "distance_km": 0.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -28,11 +28,11 @@
           "vent_relatif": null
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "ici",
           "distance_km": 0.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -40,11 +40,11 @@
           "vent_relatif": null
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "ici",
           "distance_km": 0.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -52,11 +52,11 @@
           "vent_relatif": null
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "ici",
           "distance_km": 0.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -64,11 +64,11 @@
           "vent_relatif": null
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -76,11 +76,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -88,11 +88,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -100,11 +100,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -112,11 +112,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -124,11 +124,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -136,11 +136,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -148,11 +148,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -160,11 +160,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -172,11 +172,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -184,11 +184,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -196,11 +196,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -208,11 +208,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -220,11 +220,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -232,11 +232,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -244,11 +244,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -256,11 +256,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -268,11 +268,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -280,11 +280,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -292,11 +292,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -304,11 +304,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -316,11 +316,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -328,11 +328,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -340,11 +340,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -352,11 +352,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -364,11 +364,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -376,11 +376,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -388,11 +388,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 15.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -400,11 +400,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -412,11 +412,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -424,11 +424,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -436,11 +436,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 15.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -448,11 +448,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -460,11 +460,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -472,11 +472,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -484,11 +484,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "N",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -496,11 +496,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -508,11 +508,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -520,11 +520,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -532,11 +532,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "NE",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -544,11 +544,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -556,11 +556,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -568,11 +568,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -580,11 +580,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "E",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -592,11 +592,11 @@
           "vent_relatif": "face"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -604,11 +604,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -616,11 +616,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -628,11 +628,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "SE",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 2.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -640,11 +640,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -652,11 +652,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -664,11 +664,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -676,11 +676,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "S",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -688,11 +688,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -700,11 +700,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -712,11 +712,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -724,11 +724,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "SO",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -736,11 +736,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -748,11 +748,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -760,11 +760,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -772,11 +772,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "accord",
+          "confiance": "inconnu",
           "direction": "O",
           "distance_km": 25.0,
           "pluie_mm": 0.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -784,11 +784,11 @@
           "vent_relatif": "dos"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T07:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -796,11 +796,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T08:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -808,11 +808,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T09:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -820,11 +820,11 @@
           "vent_relatif": "travers"
         },
         {
-          "confiance": "desaccord",
+          "confiance": "inconnu",
           "direction": "NO",
           "distance_km": 25.0,
           "pluie_mm": 2.0,
-          "pluie_second_avis_mm": 0.0,
+          "pluie_second_avis_mm": null,
           "ressenti_c": 11.5,
           "t": "2026-09-08T10:00:00+00:00",
           "vent_depuis_deg": 45.0,
@@ -845,54 +845,15 @@
       },
       "modele": "modele_principal_test",
       "second_avis": "modele_second_test"
-    }
+    },
+    "duree_ms": "<CHRONO>",
+    "proprietaire": "local"
   },
-  "texte": {
-    "argv": [
-      "meteo",
-      "--heure-depart",
-      "2026-09-08T09:00"
-    ],
-    "code": 0,
-    "fichiers_ecrits": {},
-    "reseau": [
-      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T10:00&latitude=0.0000,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,-0.0000,0.0954,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590,-0.0000,0.1590&longitude=0.0000,0.0000,0.0954,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,0.0000,0.1590,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
-      "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T10:00&latitude=0.0000,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,-0.0000,0.0954,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590,-0.0000,0.1590&longitude=0.0000,0.0000,0.0954,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,0.0000,0.1590,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590&models=modele_second_test&start_hour=2026-09-08T07:00&timezone=UTC"
-    ],
-    "stderr": "",
-    "stdout": [
-      "Départ Point zéro — mardi 8 septembre 2026 à 09h00 (CEST) — horizon 4 h",
-      "Modèle modele_principal_test, second avis modele_second_test",
-      "Cellule : pluie mm | vent km/h + f=face d=dos t=travers (à l'aller) | ressenti °C",
-      "« ? » = les deux modèles ne sont pas d'accord sur la pluie ; « - » = valeur absente",
-      "",
-      "── 0 km (sur place)",
-      "     09h             10h             11h             12h",
-      "ici  0.0 14 12°      0.0 15 12°      0.0 16 12°      0.0 17 12°",
-      "",
-      "── 15 km",
-      "     09h             10h             11h             12h",
-      "N    2.0 14f 12°?    2.0 15f 12°?    2.0 16f 12°?    2.0 17f 12°?",
-      "NE   2.0 14f 12°     2.0 15f 12°     2.0 16f 12°     2.0 17f 12°",
-      "E    0.0 14f 12°?    0.0 15f 12°?    0.0 16f 12°?    0.0 17f 12°?",
-      "SE   0.0 14t 12°?    0.0 15t 12°?    0.0 16t 12°?    0.0 17t 12°?",
-      "S    0.0 14d 12°     0.0 15d 12°     0.0 16d 12°     0.0 17d 12°",
-      "SO   0.0 14d 12°     0.0 15d 12°     0.0 16d 12°     0.0 17d 12°",
-      "O    0.0 14d 12°     0.0 15d 12°     0.0 16d 12°     0.0 17d 12°",
-      "NO   2.0 14t 12°?    2.0 15t 12°?    2.0 16t 12°?    2.0 17t 12°?",
-      "",
-      "── 25 km",
-      "     09h             10h             11h             12h",
-      "N    2.0 14f 12°?    2.0 15f 12°?    2.0 16f 12°?    2.0 17f 12°?",
-      "NE   2.0 14f 12°     2.0 15f 12°     2.0 16f 12°     2.0 17f 12°",
-      "E    0.0 14f 12°?    0.0 15f 12°?    0.0 16f 12°?    0.0 17f 12°?",
-      "SE   0.0 14t 12°?    0.0 15t 12°?    0.0 16t 12°?    0.0 17t 12°?",
-      "S    0.0 14d 12°     0.0 15d 12°     0.0 16d 12°     0.0 17d 12°",
-      "SO   0.0 14d 12°     0.0 15d 12°     0.0 16d 12°     0.0 17d 12°",
-      "O    0.0 14d 12°     0.0 15d 12°     0.0 16d 12°     0.0 17d 12°",
-      "NO   2.0 14t 12°?    2.0 15t 12°?    2.0 16t 12°?    2.0 17t 12°?",
-      "",
-      "Direction conseillée : E — 5 directions à égalité (0.0 mm de pluie), vent de face à l'aller."
-    ]
-  }
+  "requete": "GET /api/v1/meteo",
+  "reseau": [
+    "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T10:00&latitude=0.0000,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,-0.0000,0.0954,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590,-0.0000,0.1590&longitude=0.0000,0.0000,0.0954,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,0.0000,0.1590,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590&models=modele_principal_test&start_hour=2026-09-08T07:00&timezone=UTC",
+    "GET api.open-meteo.com/v1/forecast?end_hour=2026-09-08T10:00&latitude=0.0000,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,-0.0000,0.0954,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590,-0.0000,0.1590&longitude=0.0000,0.0000,0.0954,0.1349,0.0954,0.0000,-0.0954,-0.1349,-0.0954,0.0000,0.1590,0.2248,0.1590,0.0000,-0.1590,-0.2248,-0.1590&models=modele_second_test&start_hour=2026-09-08T07:00&timezone=UTC -> 500"
+  ],
+  "statut": 200,
+  "type": "application/json"
 }

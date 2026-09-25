@@ -1,0 +1,71 @@
+{
+  "id": 1,
+  "name": "4x8 fabriquée",
+  "type": "Ride",
+  "category": "WORKOUT",
+  "start_date_local": "2026-09-08T00:00:00",
+  "workout_doc": {
+    "steps": [
+      {
+        "reps": 1,
+        "text": "Echauffement",
+        "steps": [
+          {
+            "power": {
+              "units": "watts",
+              "value": 130
+            },
+            "warmup": true,
+            "duration": 600
+          }
+        ],
+        "distance": 0,
+        "duration": 600
+      },
+      {
+        "reps": 4,
+        "text": "Corps 4x",
+        "steps": [
+          {
+            "power": {
+              "units": "watts",
+              "start": 240,
+              "end": 260
+            },
+            "duration": 480
+          },
+          {
+            "power": {
+              "units": "watts",
+              "value": 110
+            },
+            "duration": 240,
+            "intensity": "recovery"
+          }
+        ],
+        "distance": 0,
+        "duration": 2880
+      },
+      {
+        "reps": 1,
+        "text": "Retour au calme",
+        "steps": [
+          {
+            "power": {
+              "units": "watts",
+              "value": 110
+            },
+            "duration": 300,
+            "intensity": "cooldown"
+          }
+        ],
+        "distance": 0,
+        "duration": 300
+      }
+    ],
+    "locales": [],
+    "options": {},
+    "distance": 0,
+    "duration": 3780
+  }
+}

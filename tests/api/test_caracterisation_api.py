@@ -23,7 +23,9 @@ from __future__ import annotations
 import hashlib
 import os
 import sys
+import time
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -34,10 +36,12 @@ pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "caracterisation"))
 
+from donnees_synthetiques import ATHLETE, CLE, ROUTE, tcx_synthetique  # noqa: E402
 from outils_api import ClientApi  # noqa: E402
 from outils_caracterisation import (  # noqa: E402
     DOSSIER,
     JOUR,
+    MODELE_SECOND,
     comparer_a_la_reference,
     ecrire_config,
     normaliser,
@@ -46,6 +50,7 @@ from outils_caracterisation import (  # noqa: E402
 
 from ourouler.api.adaptateur import Budgets  # noqa: E402
 from ourouler.api.application import creer_application  # noqa: E402
+from ourouler.api.depots import SocleTOML  # noqa: E402
 from ourouler.api.proprietaire import Proprietaire  # noqa: E402
 from ourouler.api.quotas import Quotas  # noqa: E402
 from ourouler.api.session import MODE_HEBERGE, SessionHebergee  # noqa: E402
@@ -81,9 +86,14 @@ class Serveur:
         cache = tmp_path / "cache"
         cache.mkdir(parents=True, exist_ok=True)
         chemin = ecrire_config(tmp_path / "config.toml", cache, avec_intervals=avec_intervals)
+        if options.pop("socle_partage", False):
+            # Comme `application()` en mode hébergé : le TOML du serveur n'est
+            # le profil de personne, chaque compte pose le sien (`PATCH /profil`).
+            options["socle"] = SocleTOML(chemin, proprietaire=None)
+        else:
+            options["chemin_config"] = chemin
         self.client = ClientApi(
             creer_application(
-                chemin_config=chemin,
                 dossier_donnees=tmp_path / "donnees",
                 budgets=Budgets(),
                 **options,
@@ -102,6 +112,7 @@ class Serveur:
                 "octets": len(reponse.content),
                 "sha256": hashlib.sha256(reponse.content).hexdigest()[:16],
             }
+        self.dernier_corps = corps
         resultat = {
             "requete": f"{methode} {url}",
             "statut": reponse.status_code,
@@ -302,3 +313,106 @@ def test_inventaire(serveur, regenerer_golden: bool):
 
 def test_calibrations(serveur, regenerer_golden: bool):
     verifier("calibrations", serveur().appel("GET", "/api/v1/calibrations"), regenerer_golden)
+
+
+# --- un compte hébergé, en succès ------------------------------------------------
+#
+# `SessionUnCompte` tient lieu de compte : un propriétaire ≠ `local`, en mode
+# hébergé (quotas actifs), **sans** Postgres. Ce qui est figé ici : ce qu'un
+# compte obtient une fois authentifié (cloisonnement du cache, de la
+# calibration, des imports). Ce qui ne l'est pas : l'authentification réelle
+# (comptes, invitations, sessions en base) — voir le LISEZMOI.
+
+
+#: Le profil que le compte pose sur le socle commun : les sections « perso
+#: pur » (Q35) que `SocleTOML(proprietaire=None)` retire du TOML du serveur.
+#: Mêmes valeurs synthétiques que `CONFIG_TOML` : départ (0, 0) en mer.
+PROFIL_DU_COMPTE = {
+    "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},
+    "cycliste": {"masse_kg": 91.0, "ftp_w": 200},
+    "velos": [
+        {
+            "nom": "RCR",
+            "usage": "route",
+            "periodes": [{"debut": "2026-01-01", "fin": "2026-01-31"}],
+        }
+    ],
+    "intervals": {"athlete_id": ATHLETE, "api_key": CLE},
+}
+
+
+def serveur_de_compte(serveur) -> tuple[Serveur, dict[str, Any]]:
+    """Un serveur hébergé à socle commun, et le compte qui y pose son profil."""
+    s = serveur("compte", session=SessionUnCompte(), socle_partage=True)
+    return s, s.appel("PATCH", "/api/v1/profil", json=PROFIL_DU_COMPTE)
+
+
+def test_heberge_sortie_et_calibrations(serveur, regenerer_golden: bool):
+    s, profil = serveur_de_compte(serveur)
+    obtenu = {
+        "profil_pose": profil,
+        "sortie": s.appel(
+            "POST",
+            "/api/v1/sorties",
+            json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2},
+        ),
+        "calibrations": s.appel("GET", "/api/v1/calibrations"),
+    }
+    verifier("heberge", obtenu, regenerer_golden)
+
+
+#: Au-delà, un import qui ne finit pas fait échouer le test au lieu de le bloquer.
+DELAI_IMPORT_S = 30.0
+
+
+def test_heberge_import_d_activites(serveur, regenerer_golden: bool):
+    """`POST /activites/import` (202), puis `GET /activites/import/{id}` jusqu'à la fin.
+
+    Seul l'état final est figé : combien d'interrogations il a fallu dépend
+    de la machine, pas du comportement.
+    """
+    s, _ = serveur_de_compte(serveur)
+    tcx = tcx_synthetique(ROUTE, date(2026, 1, 5))
+    depot = s.appel(
+        "POST",
+        "/api/v1/activites/import",
+        files={"fichiers": ("sortie_2026-01-05.tcx", tcx, "application/vnd.garmin.tcx+xml")},
+    )
+    id_job = s.dernier_corps["donnees"]["id"]  # avant normalisation : l'UUID réel
+    debut = time.monotonic()
+    while True:
+        etat = s.appel("GET", f"/api/v1/activites/import/{id_job}")
+        if etat["corps"]["donnees"]["statut"] != "en_cours":
+            break
+        assert time.monotonic() - debut < DELAI_IMPORT_S, "import toujours en cours"
+        time.sleep(0.02)
+    # L'état du dépôt (en cours ou déjà fini) dépend de la vitesse de la machine.
+    depot["corps"]["donnees"]["statut"] = "<en_cours|fini>"
+    for cle in ("traites", "total", "rapport"):
+        if cle in depot["corps"]["donnees"]:
+            depot["corps"]["donnees"][cle] = "<selon l'avancement>"
+    obtenu = {
+        "depot": depot,
+        "fin": etat,
+        "inventaire_apres": s.appel("GET", "/api/v1/inventaire"),
+        "calibrations_apres": s.appel("GET", "/api/v1/calibrations"),
+    }
+    verifier("heberge_import", obtenu, regenerer_golden)
+
+
+# --- un avertissement du cœur -----------------------------------------------------
+
+
+def test_avertissement_second_avis_en_panne(serveur, rejeu, regenerer_golden: bool):
+    """Le second modèle météo répond 500 : la météo sort, avec un avertissement **codé**.
+
+    Le chemin est celui que le lot 11 réécrit (sortie d'erreur du cœur →
+    `avertissements` de l'enveloppe) : sans ce scénario, toutes les
+    références portent `avertissements: []`, et un adaptateur qui les
+    perdrait passerait.
+    """
+    rejeu.en_panne("api.open-meteo.com", models=MODELE_SECOND)
+    obtenu = serveur().appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"})
+    avertissements = obtenu["corps"]["avertissements"]
+    assert avertissements and all(a.get("code") for a in avertissements), avertissements
+    verifier("avertissement", obtenu, regenerer_golden)
