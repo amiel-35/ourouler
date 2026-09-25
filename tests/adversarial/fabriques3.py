@@ -29,7 +29,7 @@ import fabriques
 import httpx
 import outils
 
-from ourouler.activites.modele import Activite, Point
+from ourouler.noyau.activite import Activite, Point
 
 #: Faux serveur d'archive météo. Le vrai (`archive-api.open-meteo.com`) n'est
 #: jamais joignable depuis les tests (règle absolue 3).

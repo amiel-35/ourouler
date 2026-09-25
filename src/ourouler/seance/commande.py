@@ -38,7 +38,7 @@ from pathlib import Path
 
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.intervals import seance_du_jour, seances_periode
 from ourouler.seance.modele import (

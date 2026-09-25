@@ -32,7 +32,7 @@ from fabriques4 import droite, trace_taguee
 from outils import robuste
 
 from ourouler.boucle.couts import HIGHWAY_TRAFIC
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L4.2 absent (ourouler.seance.terrain)"
 MOTIF_NODE_TAGS = "Segment.node_tags absent : prérequis du lot L4.2 (contrat §2)"

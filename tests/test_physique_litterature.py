@@ -37,7 +37,7 @@ from test_physique_commande import args_simuler, config_de_test, gpx_plat
 
 from ourouler.boucle.commande import executer
 from ourouler.boucle.gpx import lire_gpx_trace
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique import litterature
 from ourouler.physique.commande import (
     VITESSE_A_PLAT_MAXI_KMH,

@@ -22,14 +22,14 @@ from pathlib import Path
 import gpxpy
 import gpxpy.gpx
 
-from ourouler.boucle.trace import (
+from ourouler.noyau.erreurs import ErreurLecture
+from ourouler.noyau.trace import (
     DENIVELE_GPX_RELU,
     PointTrace,
     Trace,
     denivele_filtre,
     distance_m,
 )
-from ourouler.erreurs import ErreurLecture
 
 Entree = Path | str | bytes | bytearray
 

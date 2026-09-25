@@ -27,7 +27,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 Horaire = Callable[[float], datetime]
 """À quelle heure le cycliste est-il à `dist_m` mètres du départ."""

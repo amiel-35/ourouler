@@ -55,7 +55,7 @@ import xml.etree.ElementTree as ET
 from datetime import date
 from pathlib import Path
 
-from ourouler.erreurs import ErreurLecture
+from ourouler.noyau.erreurs import ErreurLecture
 from ourouler.seance.modele import Etape, Seance
 
 Entree = Path | str | bytes | bytearray

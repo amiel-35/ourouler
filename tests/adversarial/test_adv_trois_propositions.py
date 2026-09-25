@@ -1219,7 +1219,7 @@ def test_la_densite_ne_lit_ni_configuration_ni_chemin_utilisateur():
 
 def test_la_densite_est_finie_sur_un_trace_sans_point():
     """Un tracé vide : pas de division par une longueur nulle, pas de NaN."""
-    from ourouler.boucle.trace import Trace
+    from ourouler.noyau.trace import Trace
 
     fn = _densite_ou_skip()
     vide = Trace(

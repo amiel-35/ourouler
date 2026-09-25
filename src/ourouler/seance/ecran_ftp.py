@@ -34,7 +34,7 @@ from __future__ import annotations
 import math
 
 from ourouler.config import Config, Velo
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.commande import (
     chemin_calibration,
     fourchette_du_velo,

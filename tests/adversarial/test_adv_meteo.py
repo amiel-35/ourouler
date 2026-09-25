@@ -20,7 +20,7 @@ import outils
 import pytest
 
 from ourouler.config import Depart
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 MOTIF_COURONNE = "module attendu par le contrat L1.5 absent (ourouler.meteo.couronne)"
 MOTIF_OPENMETEO = "module attendu par le contrat L1.5 absent (ourouler.meteo.openmeteo)"

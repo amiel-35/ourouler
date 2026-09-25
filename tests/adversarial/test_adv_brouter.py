@@ -28,7 +28,7 @@ from fabriques import EspionHttp, geojson_brouter
 from outils import robuste
 
 from ourouler.config import ParametresBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L2.1 absent (ourouler.connecteurs.brouter)"
 

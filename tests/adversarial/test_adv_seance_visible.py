@@ -1193,7 +1193,7 @@ def _points_dessines(noeud: Any, cle: str | None = None, sauf: str = "trace") ->
 
 
 def _distance_min(points: list[tuple[float, float]], cible: Any) -> float:
-    from ourouler.boucle.trace import PointTrace, distance_m
+    from ourouler.noyau.trace import PointTrace, distance_m
 
     return min(
         (

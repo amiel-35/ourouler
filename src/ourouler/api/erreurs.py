@@ -36,7 +36,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import FrozenInstanceError, dataclass, field
 
-from ourouler.erreurs import (
+from ourouler.noyau.erreurs import (
     ErreurConfig,
     ErreurConnecteur,
     ErreurDistanceInatteignable,

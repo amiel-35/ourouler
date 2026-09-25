@@ -32,8 +32,8 @@ from ourouler import cli
 from ourouler.config import Config, Depart, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
-from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "geocodage"
 

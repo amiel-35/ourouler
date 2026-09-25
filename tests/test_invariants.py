@@ -18,8 +18,8 @@ from xml.etree import ElementTree
 import pytest
 
 from ourouler.activites.lecture import lire_fit
-from ourouler.erreurs import ErreurLecture
 from ourouler.meteo.couronne import distance_haversine_km
+from ourouler.noyau.erreurs import ErreurLecture
 
 RACINE = Path(__file__).resolve().parents[1]
 SOURCES = RACINE / "src" / "ourouler"

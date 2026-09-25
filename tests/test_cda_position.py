@@ -33,7 +33,7 @@ import pytest
 
 from ourouler.activites.cache import EntreeCache
 from ourouler.activites.lecture import lire_fit
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.calibration import CDA_MIN, Echantillon
 from ourouler.physique.modele import Parametres, puissance_requise
 

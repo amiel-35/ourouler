@@ -61,7 +61,7 @@ from typing import Any
 import fabriques
 import fabriques4
 
-from ourouler.boucle.trace import Trace
+from ourouler.noyau.trace import Trace
 
 # --- les axes perceptibles ----------------------------------------------------
 

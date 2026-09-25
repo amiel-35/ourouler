@@ -2,7 +2,7 @@
 
 import math
 
-from ourouler.boucle.trace import PointTrace, Trace, cap_deg, distance_m, sens_boucle
+from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m, sens_boucle
 
 
 def _cercle(sens: int, n: int = 36, rayon_deg: float = 0.02) -> Trace:

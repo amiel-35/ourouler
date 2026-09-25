@@ -51,7 +51,7 @@ import fabriques4
 import fabriques5
 import pytest
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_VENT = (
     "module attendu par le contrat L5.1 §1.2 b) absent (ourouler.seance.vent) — "

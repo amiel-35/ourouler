@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 from ourouler.seance import terrain
 from ourouler.seance.placement import PENTE_DEMI_TOUR_MAX
 from ourouler.seance.terrain import (

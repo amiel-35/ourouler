@@ -26,7 +26,7 @@ from ourouler.boucle.candidates import (
 )
 from ourouler.config import Depart
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurDistanceInatteignable, ErreurUtilisateur
 
 DEPART = Depart(nom="Point fictif", latitude=0.0, longitude=0.0)
 
@@ -344,7 +344,7 @@ def test_distance_demandee_absurde_refusee(distance_km):
     """Une distance de cible inexploitable est une erreur d'usage, pas une panne du moteur.
 
     `ErreurConnecteur` est réservée à « échec d'un appel à un service
-    externe » (`ourouler.erreurs`) : ici rien n'est encore parti. Le refus est
+    externe » (`ourouler.noyau.erreurs`) : ici rien n'est encore parti. Le refus est
     une `ErreurUtilisateur` qui nomme le paramètre, levée avant tout appel.
     """
     client, appels = moteur(20_000)

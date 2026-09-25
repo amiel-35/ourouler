@@ -35,7 +35,7 @@ from ourouler.config import (
     ParametresSeance,
     depuis_dict,
 )
-from ourouler.erreurs import ErreurConfig
+from ourouler.noyau.erreurs import ErreurConfig
 from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 
 # Point fictif en mer, loin de toute ville : jamais une coordonnée réelle.

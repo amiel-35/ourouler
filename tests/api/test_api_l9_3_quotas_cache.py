@@ -24,7 +24,7 @@ from ourouler.api.quotas import (
     CONSULTATIONS_METEO_PAR_JOUR_DEFAUT,
     GENERATIONS_PAR_JOUR_DEFAUT,
 )
-from ourouler.erreurs import ErreurConfig
+from ourouler.noyau.erreurs import ErreurConfig
 
 
 def _toml_de_serveur_heberge(tmp_path: Path) -> Path:

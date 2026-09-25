@@ -38,7 +38,7 @@ from outils import robuste, sans_accents
 
 from ourouler import config as module_config
 from ourouler.activites.cache import Cache
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L3.3 absent (ourouler.physique.calibration)"
 MOTIF_MODELE = "ourouler.physique.modele absent : la calibration ne se vérifie pas seule"
@@ -787,7 +787,7 @@ def test_les_defauts_de_la_section_calibration():
 )
 def test_une_valeur_de_calibration_hors_bornes_nomme_le_champ(champ, valeur):
     """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ fautif, pas une trace."""
-    from ourouler.erreurs import ErreurConfig
+    from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:
         _charger(json.dumps({"calibration": {champ: valeur}}))
@@ -804,7 +804,7 @@ def test_mots_groupe_donne_comme_une_chaine():
     entier — jamais `('c', 'l', 'u', 'b')`, qui écarterait de la calibration
     toute sortie dont le nom contient un « c ».
     """
-    from ourouler.erreurs import ErreurConfig
+    from ourouler.noyau.erreurs import ErreurConfig
 
     config, erreur = robuste(
         lambda: _charger(json.dumps({"calibration": {"mots_groupe": "club"}})),
@@ -822,7 +822,7 @@ def test_mots_groupe_donne_comme_une_chaine():
 @pytest.mark.parametrize("crr", [0.0, 0.5, -0.004, "leger", True])
 def test_un_crr_de_velo_invalide_nomme_le_champ(crr):
     """Contrat §0 : `Velo.crr` est un coefficient de roulement, pas un nombre libre."""
-    from ourouler.erreurs import ErreurConfig
+    from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:
         _charger(json.dumps({"velos": [{"nom": "Essai", "crr": crr}]}))

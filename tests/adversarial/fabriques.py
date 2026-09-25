@@ -31,7 +31,7 @@ from typing import Any
 
 import httpx
 
-from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m
+from ourouler.noyau.trace import PointTrace, Segment, Trace, distance_m
 
 # --- valeurs bidon ----------------------------------------------------------
 

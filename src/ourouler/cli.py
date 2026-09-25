@@ -34,7 +34,7 @@ from ourouler.connecteurs.geocodage import (
     ambiguite,
     chercher_adresse,
 )
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 # Module volontairement sans dépendance : la liste des réponses à `--vent`
 # est nécessaire à la construction du parseur, donc à chaque `--help`.

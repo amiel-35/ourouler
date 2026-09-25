@@ -94,7 +94,7 @@ from ourouler.api.session import (  # noqa: E402
 )
 from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
 from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
-from ourouler.boucle.trace import PointTrace, Segment, Trace  # noqa: E402
+from ourouler.noyau.trace import PointTrace, Segment, Trace  # noqa: E402
 
 #: Les noms acceptables pour la clause de propriétaire. On n'impose pas le mot :
 #: on impose qu'il y en ait un, et qu'il soit déclaré dans le contrat.
@@ -1745,7 +1745,7 @@ def test_le_mode_se_lit_dans_l_environnement_et_refuse_par_defaut():
     vue passer.
     """
     from ourouler.api import exploitation
-    from ourouler.erreurs import ErreurConfig
+    from ourouler.noyau.erreurs import ErreurConfig
 
     assert exploitation.fournisseur_session({}).mode == MODE_HEBERGE
     assert exploitation.fournisseur_session({"OUROULER_MODE": ""}).mode == MODE_HEBERGE

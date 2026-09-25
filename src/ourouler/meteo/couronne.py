@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ourouler.config import DIRECTIONS_ACCEPTEES, Depart
-from ourouler.erreurs import ErreurConfig
+from ourouler.noyau.erreurs import ErreurConfig
 
 #: Rayon moyen de la Terre, en kilomètres.
 RAYON_TERRE_KM = 6371.0

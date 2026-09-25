@@ -45,16 +45,16 @@ from pathlib import Path
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
-from ourouler.activites.modele import Activite, est_sport_velo
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT, POIDS_HIGHWAY_INCONNU
-from ourouler.boucle.trace import PointTrace, Trace, denivele_filtre, distance_m
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.activite import Activite, est_sport_velo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
 
-#: Réexporté : la constante vit désormais dans `ourouler.proprietaire`, mais
+#: Réexporté : la constante vit désormais dans `ourouler.noyau.proprietaire`, mais
 #: elle s'est toujours lue depuis ce module.
-from ourouler.proprietaire import PROPRIETAIRE_LOCAL
+from ourouler.noyau.proprietaire import PROPRIETAIRE_LOCAL
+from ourouler.noyau.trace import PointTrace, Trace, denivele_filtre, distance_m
 
 #: Facteur de la maille : 1/3000 de degré ≈ 37 m en latitude, ~37 m en
 #: longitude à nos latitudes. « ~30 m » du contrat, au degré de précision près.

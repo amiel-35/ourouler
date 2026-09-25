@@ -45,8 +45,8 @@ from ourouler.api.depots import DepotFichiers, DepotProfils, JournalServices, So
 from ourouler.api.proprietaire import Proprietaire  # noqa: E402
 from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
 from ourouler.boucle.gpx import ecrire_gpx  # noqa: E402
-from ourouler.boucle.trace import PointTrace, Segment, Trace, distance_m  # noqa: E402
 from ourouler.cli import main  # noqa: E402
+from ourouler.noyau.trace import PointTrace, Segment, Trace, distance_m  # noqa: E402
 
 #: Où vivent les échantillons figés.
 ECHANTILLONS = DOSSIER / "echantillons"

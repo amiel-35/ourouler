@@ -30,9 +30,9 @@ from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.config import Config, Velo
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo import portee
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.physique import calibration as calib
 from ourouler.physique import litterature
 from ourouler.physique.modele import (

@@ -21,7 +21,7 @@ from pathlib import Path
 import outils
 import pytest
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L1.3 absent (ourouler.activites.cache)"
 

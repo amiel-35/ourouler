@@ -72,14 +72,14 @@ from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.activites.inventaire import en_interieur
-from ourouler.activites.modele import est_sport_velo
 from ourouler.apprentissage.routes import DISTANCE_MIN_M, points_de_passage
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.marqueurs import LIBELLES, compter
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.config import Config, charger
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.activite import est_sport_velo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace, distance_m
 
 #: Rayon autour du point de départ configuré au-delà duquel une sortie n'est
 #: pas comparable aux boucles proposées : une sortie de vacances roule dans un

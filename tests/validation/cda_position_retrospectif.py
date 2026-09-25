@@ -175,10 +175,10 @@ import numpy as np
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattacher_velo
-from ourouler.activites.modele import Activite, est_sport_velo, puissance_moyenne
 from ourouler.config import Config, Velo, charger
 from ourouler.connecteurs.openmeteo_archive import HeureArchive
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.activite import Activite, est_sport_velo, puissance_moyenne
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.physique.calibration import (
     CDA_MAX,
     CDA_MIN,

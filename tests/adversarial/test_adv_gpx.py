@@ -19,7 +19,7 @@ import fabriques
 import pytest
 from outils import robuste
 
-from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L2.2 absent (ourouler.boucle.gpx)"
 

@@ -10,7 +10,7 @@ from datetime import date
 
 import pytest
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.seance.modele import (
     TYPES,
     ZONES_PUISSANCE_DEFAUT,

@@ -24,7 +24,7 @@ import outils
 import pytest
 
 from ourouler.config import depuis_dict
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L1.3 absent (ourouler.activites.inventaire)"
 MOTIF_CACHE = "module attendu par le contrat L1.3 absent (ourouler.activites.cache)"

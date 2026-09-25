@@ -40,7 +40,7 @@ from ourouler.api.proprietaire import Proprietaire  # noqa: E402
 from ourouler.api.quotas import Quotas  # noqa: E402
 from ourouler.api.routes import Clients  # noqa: E402
 from ourouler.api.session import MODE_HEBERGE  # noqa: E402
-from ourouler.erreurs import ErreurUtilisateur  # noqa: E402
+from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
 from ourouler.physique import commande as physique  # noqa: E402
 
 PREFIXE = "/api/v1"

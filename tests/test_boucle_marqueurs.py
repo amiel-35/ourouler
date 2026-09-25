@@ -16,7 +16,7 @@ from ourouler.boucle.marqueurs import (
     compter,
     nature_du_noeud,
 )
-from ourouler.boucle.trace import PointTrace, Segment, Trace
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 
 DEGRE_M = math.radians(1.0) * 6_371_000.0
 PAS_M = 100.0

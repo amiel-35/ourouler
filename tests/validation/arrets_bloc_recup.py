@@ -128,15 +128,15 @@ from datetime import date
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
-from ourouler.activites.modele import est_sport_velo
 from ourouler.apprentissage.routes import points_de_passage
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.marqueurs import NOEUDS_ARRET, nature_du_noeud
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
 from ourouler.config import Config, charger
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.activite import est_sport_velo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.physique.calibration import trace_depuis_activite
 from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
 from ourouler.physique.modele import Parametres

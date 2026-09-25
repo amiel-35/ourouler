@@ -36,8 +36,8 @@ from typing import Any
 
 import httpx
 
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
-from ourouler.proprietaire import PROPRIETAIRE_PARTAGE
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
 
 BASE_URL_DEFAUT = "https://archive-api.open-meteo.com"
 CHEMIN_ARCHIVE = "/v1/archive"

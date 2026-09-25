@@ -33,7 +33,7 @@ from outils import robuste, sans_accents, verifier_json
 from ourouler import config as module_config
 from ourouler.boucle import meteo_trace
 from ourouler.config import ParametresSeance, ParametresTenue
-from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L4.3 absent (ourouler.seance.tenue)"
 

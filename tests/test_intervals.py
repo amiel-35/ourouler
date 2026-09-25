@@ -15,7 +15,6 @@ import httpx
 import pytest
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.modele import TYPES_VELO, est_sport_velo
 from ourouler.connecteurs.intervals import (
     USER_AGENT,
     ClientIntervals,
@@ -24,7 +23,8 @@ from ourouler.connecteurs.intervals import (
     resoudre_athlete_id,
     synchroniser,
 )
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.activite import TYPES_VELO, est_sport_velo
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 # Clé et identifiant d'athlète entièrement inventés pour les tests.
 ATHLETE = "i000000"

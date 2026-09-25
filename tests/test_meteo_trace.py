@@ -16,9 +16,9 @@ import pytest
 
 from ourouler.boucle.horaire import Pause, construire_horaire
 from ourouler.boucle.meteo_trace import SEUIL_PLUIE_MM_H, Echantillon, evaluer
-from ourouler.boucle.trace import PointTrace, Trace
-from ourouler.erreurs import ErreurHorsDomaine, ErreurUtilisateur
 from ourouler.meteo.openmeteo import VARIABLES_HORAIRES, ClientOpenMeteo
+from ourouler.noyau.erreurs import ErreurHorsDomaine, ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace
 
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
 METRES_PAR_DEGRE = 111_194.9

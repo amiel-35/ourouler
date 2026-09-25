@@ -14,8 +14,8 @@ import pytest
 from test_brouter import client_fabrique  # même dossier : pytest y met le sys.path
 
 from ourouler.boucle.gpx import description, ecrire_gpx, lire_gpx_trace
-from ourouler.boucle.trace import PointTrace, Trace, denivele_filtre
-from ourouler.erreurs import ErreurLecture
+from ourouler.noyau.erreurs import ErreurLecture
+from ourouler.noyau.trace import PointTrace, Trace, denivele_filtre
 
 GPX_ROUTE_SEULE = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="essai" xmlns="http://www.topografix.com/GPX/1/1">

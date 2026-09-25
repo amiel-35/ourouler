@@ -35,8 +35,8 @@ import fabriques
 import pytest
 from outils import robuste, sans_accents
 
-from ourouler.boucle.trace import Trace
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import Trace
 
 MOTIF_ABSENT = "module attendu par le contrat L3.2 absent (ourouler.apprentissage.routes)"
 
@@ -611,7 +611,7 @@ def test_un_evitement_sans_nom_en_recoit_un():
 )
 def test_un_evitement_invalide_nomme_la_section(evitement):
     """Contrat sprint 1 §0 : `ErreurConfig` nomme le champ, jamais une trace et un code 1."""
-    from ourouler.erreurs import ErreurConfig
+    from ourouler.noyau.erreurs import ErreurConfig
 
     with pytest.raises(ErreurConfig) as capture:
         _charger({"evitements": [evitement]})

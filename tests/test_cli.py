@@ -412,7 +412,7 @@ def test_charger_service_suit_la_variable_d_environnement(tmp_path, monkeypatch)
 
 def test_charger_service_refuse_un_fichier_absent(tmp_path):
     from ourouler.cli import _charger_service
-    from ourouler.erreurs import ErreurUtilisateur
+    from ourouler.noyau.erreurs import ErreurUtilisateur
 
     with pytest.raises(ErreurUtilisateur) as refus:
         _charger_service(tmp_path / "absent.toml")
@@ -422,7 +422,7 @@ def test_charger_service_refuse_un_fichier_absent(tmp_path):
 
 def test_charger_service_refuse_un_toml_invalide(tmp_path):
     from ourouler.cli import _charger_service
-    from ourouler.erreurs import ErreurUtilisateur
+    from ourouler.noyau.erreurs import ErreurUtilisateur
 
     fichier = tmp_path / "service.toml"
     fichier.write_text("ceci n'est pas du TOML valide [[[", encoding="utf-8")
@@ -449,7 +449,7 @@ def test_charger_service_lit_un_fichier_de_test(tmp_path):
 
 def test_url_publique_refuse_une_variable_absente_ou_vide():
     from ourouler.cli import _url_publique
-    from ourouler.erreurs import ErreurUtilisateur
+    from ourouler.noyau.erreurs import ErreurUtilisateur
 
     with pytest.raises(ErreurUtilisateur):
         _url_publique({})

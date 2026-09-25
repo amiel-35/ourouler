@@ -57,7 +57,7 @@ import math
 from dataclasses import dataclass
 
 from ourouler.boucle.geometrie import _distance_segment_m
-from ourouler.boucle.trace import RAYON_TERRE_M, PointTrace, Segment, Trace, distance_m
+from ourouler.noyau.trace import RAYON_TERRE_M, PointTrace, Segment, Trace, distance_m
 
 #: Voir la docstring du module pour la mesure qui le justifie. Point de
 #: départ du mainteneur, confirmé sur quatre sorties réelles rejouées.

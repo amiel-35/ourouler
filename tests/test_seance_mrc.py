@@ -10,7 +10,7 @@ from datetime import date
 
 import pytest
 
-from ourouler.erreurs import ErreurLecture
+from ourouler.noyau.erreurs import ErreurLecture
 from ourouler.seance.mrc import lire_mrc
 
 JOUR = date(2026, 9, 16)

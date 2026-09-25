@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 
 from ourouler.boucle.couts import HIGHWAY_TRAFIC, tags_par_troncon, virages_detectes
 from ourouler.boucle.marqueurs import nature_du_noeud
-from ourouler.boucle.trace import PointTrace, Trace
+from ourouler.noyau.trace import PointTrace, Trace
 
 # --- ce qui fait un carrefour -------------------------------------------------
 #

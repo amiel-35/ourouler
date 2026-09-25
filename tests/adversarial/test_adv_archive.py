@@ -36,7 +36,7 @@ import httpx
 import pytest
 from outils import robuste, sans_accents, verifier_utc
 
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 MOTIF_ABSENT = (
     "module attendu par le contrat L3.3 absent (ourouler.connecteurs.openmeteo_archive)"

@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 from ourouler.activites.cache import NOM_BRUT, NOM_INDEX, VERSION_SCHEMA, Cache
-from ourouler.erreurs import ErreurLecture, ErreurUtilisateur
-from ourouler.proprietaire import PROPRIETAIRE_LOCAL
+from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.proprietaire import PROPRIETAIRE_LOCAL
 
 
 @pytest.fixture

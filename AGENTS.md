@@ -38,7 +38,10 @@ l'inverse :
   `apprentissage/` et `geocodage/` ;
 - adaptateurs HTTP : `src/ourouler/connecteurs/`, chacun avec un client
   injectable ;
-- noyau : `src/ourouler/erreurs.py`, `src/ourouler/proprietaire.py` ;
+- noyau : `src/ourouler/noyau/` (`trace`, `activite`, `erreurs`,
+  `proprietaire`), bibliothèque standard seulement ; les anciens chemins
+  (`boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
+  `proprietaire.py`) sont des réexports temporaires : importer le noyau ;
 - `front/` : l'interface, qui ne parle qu'à l'API.
 
 ## Règles absolues

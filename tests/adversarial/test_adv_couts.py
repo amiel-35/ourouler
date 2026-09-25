@@ -25,8 +25,8 @@ import outils
 import pytest
 from outils import robuste
 
-from ourouler.boucle.trace import Segment
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import Segment
 
 MOTIF_ABSENT = "module attendu par le contrat L2.4 absent (ourouler.boucle.couts)"
 

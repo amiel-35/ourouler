@@ -21,7 +21,7 @@ import pytest
 
 from ourouler.config import Evitement, ParametresBrouter
 from ourouler.connecteurs.brouter import MODE_BOUCLE, ClientBrouter
-from ourouler.erreurs import ErreurConnecteur
+from ourouler.noyau.erreurs import ErreurConnecteur
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "brouter"
 MOT_DE_PASSE = "secret-de-test-a-ne-jamais-imprimer"

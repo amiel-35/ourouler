@@ -447,7 +447,7 @@ def test_part_connue_reste_bornee(tmp_path: Path):
 
 def test_part_connue_d_un_trace_vide_rend_zero(tmp_path: Path):
     """« pas une division par zéro, et pas 1,0 » — le docstring du sprint 3."""
-    from ourouler.boucle.trace import Trace
+    from ourouler.noyau.trace import Trace
 
     base, _, _ = _base_et_traces(tmp_path)
     vide = Trace(

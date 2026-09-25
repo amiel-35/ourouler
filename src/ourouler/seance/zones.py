@@ -47,7 +47,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from ourouler.erreurs import ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.seance.modele import PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT
 
 #: Numéro (1-based) de la zone de **puissance** qui porte l'endurance, et dans

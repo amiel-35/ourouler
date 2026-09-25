@@ -15,7 +15,7 @@ from ourouler.boucle.geometrie import (
     geometrie_json,
     simplifier,
 )
-from ourouler.boucle.trace import PointTrace, Trace, distance_m
+from ourouler.noyau.trace import PointTrace, Trace, distance_m
 
 #: Rayon terrestre, redéfini ici plutôt qu'importé : la règle de contrôle ne
 #: doit rien partager avec ce qu'elle mesure, constantes comprises.

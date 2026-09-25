@@ -55,7 +55,7 @@ from ourouler.config import depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
 
 #: La configuration servie par le serveur de test. Point fictif en pleine mer,
 #: clé inventée, serveur BRouter qui n'existe pas (tous les appels sont
@@ -828,7 +828,7 @@ def test_une_simulation_sur_le_gpx_d_un_autre_est_introuvable(tmp_path: Path):
 
 def _gpx_parcours(longueur_m: float = 30_000.0, nom: str = "Imposé du club") -> bytes:
     from ourouler.boucle.gpx import ecrire_gpx
-    from ourouler.boucle.trace import PointTrace, Trace
+    from ourouler.noyau.trace import PointTrace, Trace
 
     metre_en_degre = 1.0 / 111_194.93
     points = [
@@ -1689,7 +1689,7 @@ def test_intervals_jamais_relie_n_est_pas_une_demande_invalide():
     front de le remplacer par une phrase et un bouton vers les réglages.
     """
     from ourouler.api.erreurs import classer
-    from ourouler.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
+    from ourouler.noyau.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
 
     panne = classer(ErreurIntervalsAbsent("séance : Intervals.icu n'est pas renseigné"))
     assert panne.code == "intervals_absent"

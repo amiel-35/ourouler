@@ -18,7 +18,7 @@ import httpx
 import outils
 import pytest
 
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 MOTIF_ABSENT = "module attendu par le contrat L1.4 absent (ourouler.connecteurs.intervals)"
 MOTIF_CACHE = "module attendu par le contrat L1.3 absent (ourouler.activites.cache)"

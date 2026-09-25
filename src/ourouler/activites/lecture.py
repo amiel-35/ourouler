@@ -20,14 +20,14 @@ import fitdecode
 import gpxpy
 import gpxpy.gpx
 
-from ourouler.activites.modele import (
+from ourouler.noyau.activite import (
     Activite,
     Point,
     denivele_positif,
     puissance_moyenne,
     puissance_normalisee,
 )
-from ourouler.erreurs import ErreurLecture
+from ourouler.noyau.erreurs import ErreurLecture
 
 #: Extensions reconnues, en minuscules et sans le point.
 EXTENSIONS = ("fit", "gpx", "tcx")

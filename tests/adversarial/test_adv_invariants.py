@@ -29,8 +29,9 @@ import outils
 import pytest
 from conftest import RACINE, ReseauInterdit
 
-from ourouler import cli, erreurs
+from ourouler import cli
 from ourouler import config as module_config
+from ourouler.noyau import erreurs
 from ourouler.sortie import commande as commande_sortie
 
 SRC = RACINE / "src" / "ourouler"

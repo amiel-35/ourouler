@@ -36,11 +36,11 @@ from ourouler.apprentissage.routes import (
 )
 from ourouler.boucle.antennes import detecter, elaguer
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
-from ourouler.boucle.trace import Trace
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, azimut_de
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.trace import Trace
 
 #: Nom du fichier de base des routes connues, sous le dossier de cache. Il vit
 #: ici et non dans `apprentissage/routes.py` : le cœur reçoit un `Path` déjà
