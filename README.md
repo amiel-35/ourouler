@@ -14,8 +14,9 @@ GPX file. The project is written in French and licensed under AGPL-3.0-or-later.
 - **La météo par direction.** Pluie, vent et ressenti au nord, au sud, à
   l'est, heure par heure, avec un second modèle météo affiché en désaccord
   plutôt que moyenné.
-- **Une boucle de la bonne distance**, dans la direction sèche, vent de face
-  à l'aller, sur les routes que vous empruntez déjà. Elle s'exporte en GPX.
+- **Une boucle de la bonne distance**, dans la direction sèche, au choix
+  vent de face à l'aller, avec des routes pondérées par vos sorties passées
+  (`ourouler routes`). Elle s'exporte en GPX.
 - **La séance posée sur le terrain.** Les blocs de la séance du jour tombent
   là où la route s'y prête : pas en ville, pas en descente pour un bloc
   intense. Une carte HTML montre où commence chaque bloc.
@@ -46,8 +47,18 @@ uv run ourouler config        # relit la configuration et dit ce qui manque
 ```
 
 Renseignez dans ce fichier votre point de départ, votre masse et votre FTP,
-vos vélos et, si vous en avez une, votre clé d'API intervals.icu. Le tracé
-des boucles demande un serveur [BRouter](https://github.com/abrensch/brouter).
+vos vélos et, si vous en avez une, votre clé d'API intervals.icu.
+
+Ce qui marche selon ce que vous avez :
+
+- **Rien de plus** : `meteo` fonctionne tout de suite, sans clé.
+- **Un serveur [BRouter](https://github.com/abrensch/brouter)** (le moteur de
+  tracé, à héberger soi-même, renseigné dans `[brouter] url`) : `boucle` et
+  `sortie`. Sans lui, ces commandes s'arrêtent et le disent. Il n'existe pas
+  encore de recette d'installation dans ce dépôt ; c'est aujourd'hui le vrai
+  coût d'entrée.
+- **Une séance** : la séance du jour vient d'intervals.icu ; sans compte,
+  `sortie --fichier-seance ma_seance.zwo`.
 
 ```bash
 uv run ourouler meteo --heure-depart 08:00 --horizon 6
@@ -60,12 +71,13 @@ toutes.
 
 L'interface web vit dans `front/` et ne parle qu'à l'API :
 
+`--extra dev` installe aussi ce qu'il faut pour l'API.
+
 ```bash
 uv run ourouler api --port 8000              # dans un terminal
 cd front && npm ci && npm run dev            # dans un autre, puis http://localhost:5180
 ```
 
-Avant tout commit : `uv run pytest` et `uv run ruff check .`.
 
 ## Pour aller plus loin
 
@@ -76,9 +88,6 @@ Avant tout commit : `uv run pytest` et `uv run ruff check .`.
 - [Doctrine d'architecture](doctrine_architecture.md) : les choix
   structurants et leurs raisons.
 - [Journal des changements](CHANGELOG.md).
-- [Déploiement](deploiement/README.md) : la page du jour et
-  [l'API avec l'interface](deploiement/api/README.md), à essayer en local
-  avec `docker compose`.
 - [L'interface web](front/README.md) : sa construction et ses règles.
 
 ## Licence
