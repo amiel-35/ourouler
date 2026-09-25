@@ -111,6 +111,92 @@ def test_retirer_annule_sans_confirmation(
     assert restant == 1, "le compte ne doit pas avoir été touché"
 
 
+def test_retirer_refuse_proprement_quand_le_dossier_du_serveur_est_introuvable(
+    tmp_path: Path, url_base: str, monkeypatch: pytest.MonkeyPatch, capsys
+):
+    """Le bug de la relecture ([[B1]]) : lancé ailleurs que sur le serveur, `retirer`
+    ne doit PAS annoncer un succès muet sur un dossier vide.
+
+    Deux `tmp_path` bien séparés, l'un jouant « le serveur » (où l'application réelle
+    a déposé le fichier d'un compte, exactement comme `test_retirer_efface_bien_les_donnees_
+    par_le_chemin_partage`), l'autre jouant « le poste du mainteneur » (un `OUROULER_CONFIG`
+    qui pointe vers un `[cache]` différent, jamais touché par le serveur). Lancer
+    `ourouler retirer` avec cette seconde configuration doit refuser — pas fermer le compte
+    en laissant le fichier orphelin sur le serveur.
+    """
+    dossier_serveur = tmp_path / "serveur"
+    dossier_serveur.mkdir()
+    chemin_toml_serveur = _toml_partage(dossier_serveur)
+
+    socle = SocleTOML(chemin_toml_serveur, proprietaire=None)
+    dossier_donnees_serveur = (dossier_serveur / "cache") / NOM_DOSSIER_DONNEES
+    app = creer_application(
+        socle=socle, dossier_donnees=dossier_donnees_serveur, session=SessionParCookie(url_base)
+    )
+
+    with ouvrir(url_base) as connexion:
+        emise = DepotComptes(connexion).inviter("mauvaise-machine@exemple.invalid")
+
+    entree = _requete_http(
+        app, "POST", "/api/v1/entrer", json={"jeton": emise.jeton, "secret": MOT_DE_PASSE}
+    )
+    assert entree.status_code == 200, entree.text
+    proprietaire_id = entree.json()["donnees"]["proprietaire"]
+    jeton_session = entree.cookies.get(NOM_COOKIE)
+
+    fichier_zwo = (
+        b"<?xml version='1.0'?>\n<workout_file>\n"
+        b"<name>essai</name>\n<description>essai</description>\n"
+        b'<workout><SteadyState Duration="600" Power="0.7"/></workout>\n'
+        b"</workout_file>\n"
+    )
+    depot_fichier = _requete_http(
+        app,
+        "POST",
+        "/api/v1/seances/fichier",
+        cookies={NOM_COOKIE: jeton_session},
+        files={"fichier": ("seance.zwo", fichier_zwo, "application/xml")},
+    )
+    assert depot_fichier.status_code == 200, depot_fichier.text[:300]
+
+    from ourouler.api.proprietaire import Proprietaire
+
+    qui = Proprietaire(proprietaire_id)
+    fichiers_serveur = DepotFichiers(dossier_donnees_serveur)
+    assert fichiers_serveur.lister(qui), "le semis du fichier n'a pas pris"
+
+    # --- « le poste du mainteneur » : un tout autre dossier, jamais peuplé ---
+
+    dossier_poste_mainteneur = tmp_path / "poste_mainteneur"
+    dossier_poste_mainteneur.mkdir()
+    chemin_toml_poste = _toml_partage(dossier_poste_mainteneur)
+
+    monkeypatch.setenv(VARIABLE_DATABASE_URL, url_base)
+    monkeypatch.setenv(VARIABLE_CONFIG, str(chemin_toml_poste))
+    monkeypatch.setattr("builtins.input", lambda *_a, **_k: "oui")
+
+    config_toml_cli = tmp_path / "config_cycliste.toml"
+    config_toml_cli.write_text(CONFIG_CYCLISTE, encoding="utf-8")
+
+    code = main(["--config", str(config_toml_cli), "retirer", "mauvaise-machine@exemple.invalid"])
+
+    erreur = capsys.readouterr().err
+    assert code == 2, erreur
+    assert "conteneur" in erreur
+    assert "Traceback" not in erreur
+
+    # --- le compte n'a pas été touché, et le fichier reste sur le serveur ---
+
+    with ouvrir(url_base) as connexion:
+        restant = connexion.execute(
+            "SELECT count(*) FROM comptes WHERE lower(email) = %s", ("mauvaise-machine@exemple.invalid",)
+        ).fetchone()[0]
+    assert restant == 1, "le refus d'environnement ne doit pas avoir fermé le compte"
+    assert DepotFichiers(dossier_donnees_serveur).lister(qui), (
+        "le fichier du vrai serveur aurait dû rester intact"
+    )
+
+
 def _requete_http(app, methode: str, chemin: str, *, cookies=None, **kwargs) -> httpx.Response:
     async def _aller() -> httpx.Response:
         transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)

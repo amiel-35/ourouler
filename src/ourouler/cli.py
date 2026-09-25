@@ -14,12 +14,18 @@ import sys
 import tomllib
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger, en_dict_public
+
+if TYPE_CHECKING:
+    # Import réservé à l'analyse statique (annotation de retour de
+    # `_depots_de_l_hebergement`) : le type vit dans `api/retrait_commande.py`, pas
+    # ici, pour que ce module reste importable sans lui (règle du module : une
+    # sous-commande absente ou cassée ne doit pas empêcher les autres de tourner).
+    from ourouler.api.retrait_commande import DepotsHeberges
 from ourouler.connecteurs.geocodage import (
     LIMITE_DEFAUT,
     Candidat,
@@ -1027,12 +1033,48 @@ def _commande_reinitialiser(args: argparse.Namespace, config: Config) -> int:
 # les mêmes dépôts (profil, fichiers, journal, générations) et le même dossier de
 # cache que le serveur hébergé réellement lancé — `_depots_de_l_hebergement`
 # ci-dessous les reconstruit à l'identique de `api.application.application()`.
+#
+# **À lancer dans le conteneur du serveur, pas depuis le poste du mainteneur**
+# (relecture du 25/09/2026, [[B1]]) : `OUROULER_CONFIG` et le dossier de cache que
+# `_depots_de_l_hebergement` lit sont ceux de la machine **qui exécute la
+# commande**. Lancée depuis le Mac du mainteneur avec seulement
+# `OUROULER_DATABASE_URL` pointé sur la base distante, `retirer` fermerait bien le
+# compte dans Postgres (distant, donc correct) mais chercherait profil, fichiers et
+# cache d'activités dans un dossier **local**, presque toujours vide ou absent —
+# laissant le vrai dépôt du propriétaire, sur le serveur, intact et désormais
+# orphelin (`comptes_proprietaires` ne le retrouve plus), tout en annonçant un
+# succès. `_depots_de_l_hebergement` refuse maintenant si le dossier de données
+# attendu n'existe pas, plutôt que de continuer en silence sur une base vide — mais
+# ce n'est qu'un filet : la commande doit être lancée `docker exec` (ou équivalent)
+# dans le conteneur `deploiement/api/Dockerfile`, avec les mêmes variables que lui,
+# voir `deploiement/api/README.md`. `inviter`, `invitations` et `reinitialiser`
+# n'ont pas ce problème : elles ne touchent que la base de comptes (distante), pas
+# de fichier local.
 
 
 def ajouter_retirer(sous: argparse._SubParsersAction) -> None:
+    # `VARIABLE_CONFIG` importée plutôt que son nom recopié en dur dans l'aide
+    # ci-dessous : `tests/test_invariants.py` interdit qu'un module autre
+    # qu'`api/exploitation.py` écrive le nom d'une variable `OUROULER_*` de
+    # l'API dans du code exécuté (règle absolue 2, un pas de plus que « ne pas
+    # la lire ») — même dans un simple texte d'aide.
+    from ourouler.api.exploitation import VARIABLE_CONFIG
+
     p = sous.add_parser(
         "retirer",
-        help="ferme un compte hébergé et efface ses données personnelles (RGPD)",
+        help="ferme un compte hébergé et efface ses données personnelles (RGPD) — "
+        "à lancer DANS le conteneur du serveur, pas depuis le poste du mainteneur "
+        "(voir deploiement/api/README.md)",
+        description=(
+            "Ferme un compte hébergé et efface ses données personnelles (RGPD), par le "
+            "même chemin que DELETE /moi. À lancer DANS le conteneur du serveur, pas "
+            "depuis le poste du mainteneur (voir deploiement/api/README.md). "
+            "IMPORTANT : --config (l'option globale de `ourouler`) n'a aucun effet ici "
+            f"— cette commande lit le profil du serveur hébergé via {VARIABLE_CONFIG} "
+            "(la variable, pas l'option), exactement comme le fait le serveur lui-même ; "
+            "--config ne sert qu'à charger une configuration valide pour le reste de la "
+            "CLI, elle n'est jamais utilisée pour retrouver les données à effacer."
+        ),
         parents=[parent_json()],
     )
     p.add_argument("adresse", help="adresse e-mail du compte à retirer")
@@ -1052,31 +1094,16 @@ def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
 
     with _base_des_comptes("retirer", url_db) as connexion:
         depot = DepotComptes(connexion)
-        heberges = _depots_de_l_hebergement()
+        # `_depots_de_l_hebergement` passée telle quelle, jamais appelée ici : elle ne
+        # doit s'exécuter (et donc pouvoir refuser sur un dossier de données absent)
+        # qu'une fois l'adresse et la confirmation validées côté `executer_retirer` —
+        # voir la note de module d'`api/retrait_commande.py` ([[B1]] de la relecture).
         return executer_retirer(
-            args,
-            config,
-            depot=depot,
-            profils=heberges.profils,
-            fichiers=heberges.fichiers,
-            journal=heberges.journal,
-            generations=heberges.generations,
-            dossier_cache=heberges.dossier_cache,
+            args, config, depot=depot, resoudre_depots_heberges=_depots_de_l_hebergement
         )
 
 
-@dataclass(frozen=True)
-class _DepotsHeberges:
-    """Les quatre dépôts de données personnelles du serveur hébergé, et son dossier de cache."""
-
-    profils: Any
-    fichiers: Any
-    journal: Any
-    generations: Any
-    dossier_cache: Path
-
-
-def _depots_de_l_hebergement() -> _DepotsHeberges:
+def _depots_de_l_hebergement() -> DepotsHeberges:
     """Reconstruit les dépôts du serveur hébergé, à l'identique d'`api.application.application()`.
 
     « retirer » doit effacer les mêmes fichiers que sert le serveur réellement lancé —
@@ -1090,6 +1117,15 @@ def _depots_de_l_hebergement() -> _DepotsHeberges:
 
     `proprietaire=None` sur le socle, comme le fait `application()` en mode hébergé : ce
     TOML est la base commune, le profil de personne en particulier.
+
+    **Refuse si le dossier de données attendu n'existe pas** (lot L9.6, [[B1]] de la
+    relecture) — au lieu de rendre des dépôts qui pointent sur un dossier vide ou
+    absent, ce qui laissait `retirer` annoncer un succès sans avoir rien effacé sur le
+    vrai serveur quand la commande tournait depuis le poste du mainteneur plutôt que
+    dans le conteneur. Ce n'est qu'un filet : un dossier qui existe par coïncidence au
+    même chemin sur la machine du mainteneur passerait ce test sans être le bon — la
+    commande doit être lancée dans l'environnement du serveur, voir
+    `deploiement/api/README.md`.
     """
     from ourouler.api import exploitation
     from ourouler.api.application import NOM_DOSSIER_DONNEES
@@ -1100,6 +1136,7 @@ def _depots_de_l_hebergement() -> _DepotsHeberges:
         JournalServices,
         SocleTOML,
     )
+    from ourouler.api.retrait_commande import DepotsHeberges
     from ourouler.config import dossier_cache_depuis
 
     chemin = exploitation.chemin_config()
@@ -1107,7 +1144,17 @@ def _depots_de_l_hebergement() -> _DepotsHeberges:
     socle = SocleTOML(chemin, variables=variables, proprietaire=None)
     dossier_cache = dossier_cache_depuis(exploitation.lire_toml(chemin))
     dossier_donnees = dossier_cache / NOM_DOSSIER_DONNEES
-    return _DepotsHeberges(
+    if not dossier_donnees.is_dir():
+        raise ErreurUtilisateur(
+            f"retirer : dossier de données introuvable ({dossier_donnees}) — cette "
+            "commande doit tourner DANS le conteneur du serveur hébergé (mêmes "
+            f"{exploitation.VARIABLE_CONFIG} et volume que lui), pas depuis un autre "
+            "poste : lancée ailleurs, elle fermerait le compte dans la base de comptes "
+            "distante sans toucher au vrai profil, aux vrais fichiers ni au vrai cache "
+            "du propriétaire, qui resteraient orphelins sur le serveur. "
+            "Voir deploiement/api/README.md."
+        )
+    return DepotsHeberges(
         profils=DepotProfils(socle, dossier_donnees),
         fichiers=DepotFichiers(dossier_donnees),
         journal=JournalServices(dossier_donnees),
