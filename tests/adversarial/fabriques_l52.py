@@ -86,7 +86,7 @@ def placement_mod() -> Any:
 
 
 def modele_mod() -> Any:
-    return pytest.importorskip("ourouler.seance.modele", reason=MOTIF_PLACEMENT)
+    return pytest.importorskip("ourouler.noyau.seance", reason=MOTIF_PLACEMENT)
 
 
 # --- géométries --------------------------------------------------------------

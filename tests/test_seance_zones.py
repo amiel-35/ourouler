@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.seance.modele import PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT
-from ourouler.seance.zones import (
+from ourouler.noyau.seance import PUISSANCE_ENDURANCE_PCT_DEFAUT, ZONES_PUISSANCE_DEFAUT
+from ourouler.noyau.zones import (
     POSITION_ENDURANCE_DEFAUT,
     ZONE_ENDURANCE,
     bornes_zone,

@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from ourouler.noyau.erreurs import ErreurConfig
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
-from ourouler.seance.zones import (
+from ourouler.noyau.seance import ZONES_PUISSANCE_DEFAUT
+from ourouler.noyau.zones import (
     POSITION_ENDURANCE_DEFAUT,
     ZONE_ENDURANCE,
     position_endurance,

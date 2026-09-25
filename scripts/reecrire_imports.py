@@ -1,6 +1,6 @@
 """Réécrit les imports et les cibles de monkeypatch vers les modules déplacés.
 
-Lot 3 du plan de restructuration (`docs/ouverture_plan.md` §6) : quatre
+Lots 3 et 4 du plan de restructuration (`docs/ouverture_plan.md` §6) : des
 modules passent au noyau, et leur ancien chemin ne garde qu'un réexport
 temporaire. Un `monkeypatch.setattr` qui vise un module de réexport ne
 remplace rien dans le vrai module : le test passerait sans rien tester. Ce
@@ -21,7 +21,7 @@ Ce qu'il réécrit, dans chaque fichier `.py` de `src/` et `tests/` :
 
 Il laisse les modules de réexport eux-mêmes, le noyau et
 `tests/test_architecture.py` (sa table nomme les anciens chemins exprès).
-Une table de plus pour le lot 4 : ajouter ses lignes à `DEPLACEMENTS`.
+Le lot 4 y a ajouté le modèle de séance et les zones.
 """
 
 from __future__ import annotations
@@ -40,6 +40,9 @@ DEPLACEMENTS: dict[str, str] = {
     "ourouler.activites.modele": "ourouler.noyau.activite",
     "ourouler.erreurs": "ourouler.noyau.erreurs",
     "ourouler.proprietaire": "ourouler.noyau.proprietaire",
+    # lot 4
+    "ourouler.seance.modele": "ourouler.noyau.seance",
+    "ourouler.seance.zones": "ourouler.noyau.zones",
 }
 
 #: Fichiers qui nomment les anciens chemins exprès.
@@ -48,6 +51,8 @@ EPARGNES = {
     "src/ourouler/activites/modele.py",
     "src/ourouler/erreurs.py",
     "src/ourouler/proprietaire.py",
+    "src/ourouler/seance/modele.py",
+    "src/ourouler/seance/zones.py",
     "tests/test_architecture.py",
 }
 

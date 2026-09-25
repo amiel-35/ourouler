@@ -131,15 +131,17 @@ MODULES: dict[str, str] = {
     "ourouler.noyau.activite": "noyau",
     "ourouler.noyau.erreurs": "noyau",
     "ourouler.noyau.proprietaire": "noyau",
+    "ourouler.noyau.seance": "noyau",
     "ourouler.noyau.trace": "noyau",
+    "ourouler.noyau.zones": "noyau",
     "ourouler.activites": "noyau",
-    "ourouler.seance.modele": "noyau",  # sous noyau/ au lot 4
-    "ourouler.seance.zones": "noyau",  # sous noyau/ au lot 4
-    # les réexports temporaires du lot 3 (`REEXPORTS`), retirés au lot final
+    # les réexports temporaires des lots 3 et 4 (`REEXPORTS`), retirés au lot final
     "ourouler.activites.modele": "noyau",
     "ourouler.boucle.trace": "noyau",
     "ourouler.erreurs": "noyau",
     "ourouler.proprietaire": "noyau",
+    "ourouler.seance.modele": "noyau",
+    "ourouler.seance.zones": "noyau",
     # 1. domaine pur
     "ourouler.physique": "physique",
     "ourouler.physique.modele": "physique",
@@ -313,6 +315,8 @@ REEXPORTS: dict[str, str] = {
     "ourouler.boucle.trace": "ourouler.noyau.trace",
     "ourouler.erreurs": "ourouler.noyau.erreurs",
     "ourouler.proprietaire": "ourouler.noyau.proprietaire",
+    "ourouler.seance.modele": "ourouler.noyau.seance",
+    "ourouler.seance.zones": "ourouler.noyau.zones",
 }
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.

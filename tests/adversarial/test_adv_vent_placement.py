@@ -657,7 +657,7 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
         return
     import fabriques4 as f4
 
-    from ourouler.seance import modele as seance_modele
+    from ourouler.noyau import seance as seance_modele
 
     resultat, erreur = _resultat_ou_erreur(
         lambda: _placement().placer(
@@ -754,7 +754,7 @@ def _trace_golden(nom: str) -> Any:
 
 
 def _seance_golden() -> Any:
-    from ourouler.seance import modele as seance_modele
+    from ourouler.noyau import seance as seance_modele
 
     return fabriques4.seance_deux_blocs(seance_modele)
 

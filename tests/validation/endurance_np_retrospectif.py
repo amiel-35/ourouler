@@ -62,7 +62,7 @@ from pathlib import Path
 from ourouler.activites.lecture import lecteur_pour
 from ourouler.config import charger
 from ourouler.noyau.activite import puissance_normalisee
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
+from ourouler.noyau.seance import ZONES_PUISSANCE_DEFAUT
 
 #: Un nom de séance qui porte une structure : répétitions, ou un mot de
 #: famille d'entraînement. Le mainteneur a montré au sprint 5 que cette

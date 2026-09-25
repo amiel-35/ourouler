@@ -18,6 +18,7 @@ import pytest
 
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.seance import ZONES_PUISSANCE_DEFAUT
 from ourouler.seance.intervals import (
     PROFONDEUR_MAX,
     REPS_MAX,
@@ -26,7 +27,6 @@ from ourouler.seance.intervals import (
     seance_du_jour,
     seances_periode,
 )
-from ourouler.seance.modele import ZONES_PUISSANCE_DEFAUT
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 JOUR = date(2026, 9, 8)

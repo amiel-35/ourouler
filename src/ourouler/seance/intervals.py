@@ -66,7 +66,7 @@ from datetime import date, timedelta
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.activite import est_sport_velo
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.seance.modele import (
+from ourouler.noyau.seance import (
     PUISSANCE_ENDURANCE_PCT_DEFAUT,
     SEUIL_RECUPERATION_PCT_DEFAUT,
     ZONE_FC_BASSE_MAX,

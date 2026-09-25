@@ -35,6 +35,7 @@ import math
 
 from ourouler.config import Config, Velo
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.zones import ZONE_ENDURANCE, echelle, position_dans_zone, puissance_pct_ftp
 from ourouler.physique.commande import (
     chemin_calibration,
     fourchette_du_velo,
@@ -48,7 +49,6 @@ from ourouler.physique.modele import (
     puissance_a_plat_w,
     vitesse_a_plat_kmh,
 )
-from ourouler.seance.zones import ZONE_ENDURANCE, echelle, position_dans_zone, puissance_pct_ftp
 
 
 def contexte(config: Config, nom_velo: str | None = None) -> tuple[Velo, Parametres, str] | None:

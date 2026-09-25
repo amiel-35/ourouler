@@ -105,12 +105,12 @@ from ourouler.noyau.erreurs import (
     ErreurIntervalsAbsent,
     ErreurUtilisateur,
 )
+from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
-from ourouler.seance.modele import Seance
 from ourouler.seance.placement import CLE_MOTIF, Emplacement, Placement, placer, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
