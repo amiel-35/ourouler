@@ -14,6 +14,7 @@ import sys
 import tomllib
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +63,8 @@ def construire_parseur() -> argparse.ArgumentParser:
     ajouter_api(sous)
     ajouter_inviter(sous)
     ajouter_invitations(sous)
+    ajouter_reinitialiser(sous)
+    ajouter_retirer(sous)
     return p
 
 
@@ -963,6 +966,154 @@ def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
     with _base_des_comptes("invitations", url_db) as connexion:
         depot = DepotComptes(connexion)
         return executer_invitations(args, config, depot=depot, url_publique=url_pub)
+
+
+# --- reinitialiser (lot L9.6) --------------------------------------------------
+#
+# Le trou que `inviter` laisse volontairement ouvert : un compte **actif** qui a
+# perdu son mot de passe. Même patron que `inviter` — mêmes secrets `service.toml`,
+# même base de comptes, `--sans-courriel` pour n'afficher que le lien — voir
+# `api/comptes.py` (note de module de `reinitialiser`) pour le détail du mécanisme
+# réutilisé (même table `invitations`, même jeton à usage unique).
+#
+# **Aucune route HTTP n'appelle ceci.** Réservée à la ligne de commande du
+# mainteneur — un « mot de passe oublié » en libre-service ouvrirait un relais de
+# spam (poster une adresse au hasard fait partir un courriel) et un oracle
+# d'énumération d'adresses (la réponse dirait si l'adresse a un compte). Voir
+# `deploiement/api/README.md`.
+
+
+def ajouter_reinitialiser(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "reinitialiser",
+        help="émet un lien de nouveau mot de passe pour un compte déjà actif (hébergé)",
+        parents=[parent_json()],
+    )
+    p.add_argument("adresse", help="adresse e-mail du compte déjà actif")
+    p.add_argument(
+        "--sans-courriel",
+        dest="sans_courriel",
+        action="store_true",
+        help="n'envoie pas le courriel de réinitialisation, affiche seulement le lien",
+    )
+    p.set_defaults(fonction=_commande_reinitialiser)
+
+
+def _commande_reinitialiser(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.courriel import parametres_brevo_depuis_dict
+    from ourouler.api.invitation_commande import executer_reinitialiser
+
+    url_db = _url_des_comptes("reinitialiser")
+    url_pub = _url_publique()
+
+    parametres_brevo = None
+    if not getattr(args, "sans_courriel", False):
+        parametres_brevo = parametres_brevo_depuis_dict(_charger_service())
+
+    with _base_des_comptes("reinitialiser", url_db) as connexion:
+        depot = DepotComptes(connexion)
+        return executer_reinitialiser(
+            args, config, depot=depot, url_publique=url_pub, parametres_brevo=parametres_brevo
+        )
+
+
+# --- retirer (lot L9.6) ---------------------------------------------------------
+#
+# Ferme un compte, ses sessions, son invitation, et efface ses données
+# personnelles — le même chemin que `DELETE /moi` (`api/routes.py`), jamais une
+# réimplémentation : `api/retrait_commande.py` appelle `vie_privee.effacer_donnees`
+# telle quelle. Cette commande a donc besoin de plus que la base des comptes :
+# les mêmes dépôts (profil, fichiers, journal, générations) et le même dossier de
+# cache que le serveur hébergé réellement lancé — `_depots_de_l_hebergement`
+# ci-dessous les reconstruit à l'identique de `api.application.application()`.
+
+
+def ajouter_retirer(sous: argparse._SubParsersAction) -> None:
+    p = sous.add_parser(
+        "retirer",
+        help="ferme un compte hébergé et efface ses données personnelles (RGPD)",
+        parents=[parent_json()],
+    )
+    p.add_argument("adresse", help="adresse e-mail du compte à retirer")
+    p.add_argument(
+        "--oui",
+        action="store_true",
+        help="ne demande pas confirmation avant de supprimer définitivement",
+    )
+    p.set_defaults(fonction=_commande_retirer)
+
+
+def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.retrait_commande import executer_retirer
+
+    url_db = _url_des_comptes("retirer")
+
+    with _base_des_comptes("retirer", url_db) as connexion:
+        depot = DepotComptes(connexion)
+        heberges = _depots_de_l_hebergement()
+        return executer_retirer(
+            args,
+            config,
+            depot=depot,
+            profils=heberges.profils,
+            fichiers=heberges.fichiers,
+            journal=heberges.journal,
+            generations=heberges.generations,
+            dossier_cache=heberges.dossier_cache,
+        )
+
+
+@dataclass(frozen=True)
+class _DepotsHeberges:
+    """Les quatre dépôts de données personnelles du serveur hébergé, et son dossier de cache."""
+
+    profils: Any
+    fichiers: Any
+    journal: Any
+    generations: Any
+    dossier_cache: Path
+
+
+def _depots_de_l_hebergement() -> _DepotsHeberges:
+    """Reconstruit les dépôts du serveur hébergé, à l'identique d'`api.application.application()`.
+
+    « retirer » doit effacer les mêmes fichiers que sert le serveur réellement lancé —
+    pas une approximation : même lecture du TOML partagé et des variables
+    d'environnement (`api/exploitation.py`, seule autre porte du paquet à avoir le droit
+    de les lire), même calcul du dossier de cache (`dossier_cache_depuis`), même
+    sous-dossier `api/` pour les données (`NOM_DOSSIER_DONNEES`). Dupliqué ici plutôt
+    qu'obtenu en appelant `application()` : cette fabrique construit une application
+    FastAPI entière (routes, middlewares, front statique…) qu'une commande de ligne de
+    commande n'a aucune raison de monter pour effacer des fichiers.
+
+    `proprietaire=None` sur le socle, comme le fait `application()` en mode hébergé : ce
+    TOML est la base commune, le profil de personne en particulier.
+    """
+    from ourouler.api import exploitation
+    from ourouler.api.application import NOM_DOSSIER_DONNEES
+    from ourouler.api.depots import (
+        DepotFichiers,
+        DepotGenerations,
+        DepotProfils,
+        JournalServices,
+        SocleTOML,
+    )
+    from ourouler.config import dossier_cache_depuis
+
+    chemin = exploitation.chemin_config()
+    variables = exploitation.variables()
+    socle = SocleTOML(chemin, variables=variables, proprietaire=None)
+    dossier_cache = dossier_cache_depuis(exploitation.lire_toml(chemin))
+    dossier_donnees = dossier_cache / NOM_DOSSIER_DONNEES
+    return _DepotsHeberges(
+        profils=DepotProfils(socle, dossier_donnees),
+        fichiers=DepotFichiers(dossier_donnees),
+        journal=JournalServices(dossier_donnees),
+        generations=DepotGenerations(),
+        dossier_cache=dossier_cache,
+    )
 
 
 def _url_des_comptes(commande: str) -> str:
