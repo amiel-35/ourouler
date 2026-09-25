@@ -67,6 +67,44 @@ function infobulle(fleche: FlecheVent): string {
   return texte;
 }
 
+/**
+ * En dessous de cette distance à l'écran (pixels), deux étiquettes de vent se
+ * chevauchent — constat de l'agent superviseur sur une capture de production
+ * (25/09/2026, trois boucles de ~124 km autour de Rennes, vitesse **et**
+ * rafale empilées dans chaque étiquette). Mesuré à l'œil sur `.vent-
+ * etiquette` (`style.css`) : une étiquette « 24/38 » tient sur une
+ * quarantaine de pixels de large.
+ */
+const SEUIL_CHEVAUCHEMENT_VENT_PX = 46;
+
+/**
+ * Filtre générique : garde `items` dans l'ordre reçu, en jetant tout élément
+ * dont le point projeté tombe à moins de `seuilPx` d'un élément déjà gardé.
+ *
+ * Pure et sans Leaflet — testable directement avec des points en pixels
+ * inventés, pas besoin de faire tourner une vraie carte (`Carte` l'appelle
+ * avec `carte.latLngToContainerPoint`, mais le test n'en a pas besoin).
+ * Le premier élément d'un groupe qui se chevauche gagne : `vents` arrive déjà
+ * trié le long du tracé par le cœur, donc « le premier » n'est pas un choix
+ * arbitraire, c'est l'ordre où on les rencontre en roulant.
+ */
+export function sansChevauchement<T>(
+  items: T[],
+  point: (item: T) => { x: number; y: number },
+  seuilPx: number,
+): T[] {
+  const gardees: T[] = [];
+  const points: { x: number; y: number }[] = [];
+  for (const item of items) {
+    const p = point(item);
+    const chevauche = points.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < seuilPx);
+    if (chevauche) continue;
+    gardees.push(item);
+    points.push(p);
+  }
+  return gardees;
+}
+
 export interface TraceDessinee {
   points: [number, number][];
   /** Le tracé retenu est plein ; les autres sont en pointillé (maquette E19). */
@@ -238,14 +276,6 @@ export function Carte({
           .bindTooltip(segment.titre ?? "")
           .addTo(couche);
       }
-      // Après les tracés et les blocs : les flèches se posent dessus, jamais
-      // dessous, sinon un bloc de séance les recouvre là où elles comptent le
-      // plus — sur la portion où l'on va pousser.
-      for (const fleche of vents) {
-        L.marker(fleche.pt, { icon: icone(fleche) })
-          .bindTooltip(infobulle(fleche), { sticky: true })
-          .addTo(couche);
-      }
       if (depart) {
         // Même logique que `styleDe()` : `className` porte la couleur
         // jusqu'à `.trace-depart` dans `front/src/style.css`, jamais une
@@ -259,14 +289,62 @@ export function Carte({
           .addTo(couche);
       }
 
-      const tous = traces.flatMap((t) => t.points);
-      if (tous.length > 0) {
-        carte.fitBounds(L.latLngBounds(tous), { padding: [14, 14] });
+      // Constat du mainteneur (25/09/2026, boucle de 124 km autour de Rennes) :
+      // la carte se cadrait sur l'emprise de **toutes** les boucles proposées
+      // et s'ouvrait à l'échelle de la Bretagne et de la Normandie pour trois
+      // candidates qui tenaient dans un rayon de 30 km. « En fait faut
+      // zoomer sur le circuit sélectionné » — le cadrage porte donc sur les
+      // seuls points de la boucle **retenue** (`trace.choisi`), les autres
+      // restant visibles en pointillé sans peser sur le zoom. Sans boucle
+      // sélectionnée (aucune `choisi`, ou son tracé est vide — écran qui ne
+      // distingue encore rien), on retombe sur l'emprise de toutes les
+      // boucles plutôt que de ne rien cadrer.
+      const traceChoisie = traces.find((t) => t.choisi && t.points.length > 0);
+      const pointsCadrage = traceChoisie ? traceChoisie.points : traces.flatMap((t) => t.points);
+      if (pointsCadrage.length > 0) {
+        carte.fitBounds(L.latLngBounds(pointsCadrage), { padding: [14, 14] });
       } else if (depart) {
         carte.setView([depart.latitude, depart.longitude], zoomPoint);
       } else {
         carte.setView([0, 0], 2);
       }
+
+      // Les flèches de vent, posées après le cadrage : leur position à
+      // l'écran (donc leur chevauchement) dépend du zoom et du centre que
+      // `fitBounds`/`setView` viennent de fixer. Une couche à elles, pour
+      // pouvoir les redessiner seules quand le zoom change (boutons +/-, la
+      // molette étant coupée) sans reconstruire toute la carte.
+      const coucheVent = L.layerGroup().addTo(carte);
+      const carteVent = carte;
+      function redessinerVent() {
+        coucheVent.clearLayers();
+        if (vents.length === 0) return;
+        // Amas illisible constaté par l'agent superviseur sur une capture de
+        // production (25/09/2026, trois boucles de ~124 km au départ de
+        // Rennes) : les étiquettes « vitesse/rafale » qui se chevauchent à
+        // l'écran se filtrent par détection de collision (`sansChevauchement`),
+        // réévaluée à chaque zoom plutôt que figée au premier rendu.
+        let visibles: FlecheVent[];
+        try {
+          visibles = sansChevauchement(
+            vents,
+            (fleche) => carteVent.latLngToContainerPoint(fleche.pt),
+            SEUIL_CHEVAUCHEMENT_VENT_PX,
+          );
+        } catch {
+          visibles = vents;
+        }
+        // Après les tracés et les blocs : les flèches se posent dessus,
+        // jamais dessous, sinon un bloc de séance les recouvre là où elles
+        // comptent le plus — sur la portion où l'on va pousser.
+        for (const fleche of visibles) {
+          L.marker(fleche.pt, { icon: icone(fleche) })
+            .bindTooltip(infobulle(fleche), { sticky: true })
+            .addTo(coucheVent);
+        }
+      }
+      redessinerVent();
+      carte.on("zoomend", redessinerVent);
     } catch {
       // Un environnement sans vraie mise en page (un test, une capture) ne
       // peut pas faire tourner Leaflet : la description textuelle reste, et
