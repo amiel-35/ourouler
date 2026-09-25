@@ -26,9 +26,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Le binaire, version épinglée, plutôt que gitleaks-action : l'action
+      # interroge l'API des PR (permission refusée ici) et, sur une PR, ne lit
+      # que les commits de la PR. Ici, tout l'historique est parcouru ; les
+      # faux positifs connus sont écartés par .gitleaksignore.
+      - name: Chercher des secrets dans tout l'historique
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | tar xz -C /tmp gitleaks
+          /tmp/gitleaks git . --redact --no-banner --verbose
 
   python:
     runs-on: ubuntu-latest
