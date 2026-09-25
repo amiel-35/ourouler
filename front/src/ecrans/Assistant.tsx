@@ -18,14 +18,15 @@
  * dépend.
  */
 
-import { useState } from "react";
+import { useState, type FocusEvent, type MouseEvent } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { Profil, Zones } from "../api/types";
-import { nombre, pourcentage, usageDeVelo } from "../api/formats";
+import type { CategoriePneu, Profil, Zones } from "../api/types";
+import { MASSE_VELO_DEFAUT_KG, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
 import { EcranFtp, ftpAffichee } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
 import { RetourEnTete } from "../composants/Retour";
+import { DepotHistorique } from "../composants/DepotHistorique";
 
 type Etape =
   | "bienvenue"
@@ -95,6 +96,30 @@ const CHOIX_TERRAIN: Array<{ libelle: string; denivele_m_par_km: number | null }
   { libelle: "Je ne sais pas trop", denivele_m_par_km: null },
 ];
 
+/** Sélectionne tout le contenu d'un champ dès qu'il reçoit le focus.
+ *
+ * Constaté le 25/09/2026 : les champs préremplis avec une valeur qui n'est
+ * pas forcément celle de la personne (poids « 70 », nom de vélo « Route » —
+ * des défauts posés côté serveur quand rien n'a encore été déclaré, `depots.
+ * SOCLE_MINIMAL`, `config.depuis_dict`) laissaient taper à la suite du texte
+ * existant : « 70 » puis « 75 » tapé donnait « 7075 ». Le front ne peut pas
+ * distinguer ce défaut fabriqué d'une vraie valeur déjà confirmée — les deux
+ * ont le même type côté API — donc la sélection au focus, plutôt qu'un
+ * placeholder, est la réponse qui marche pour ces champs-là : reprendre la
+ * frappe remplace tout, sans qu'il faille d'abord tout effacer à la main.
+ */
+function surFocusSelectionner(e: FocusEvent<HTMLInputElement>) {
+  e.target.select();
+}
+
+/** Le clic qui donne le focus replace ensuite le curseur au point cliqué au
+ * relâchement — un vrai navigateur fait ça aussi — ce qui annule la
+ * sélection que `surFocusSelectionner` vient de poser. `preventDefault` sur
+ * `mouseup` coupe cet ajustement sans empêcher le focus ni le clic lui-même. */
+function surRelacherNePasDeselectionner(e: MouseEvent<HTMLInputElement>) {
+  if (document.activeElement === e.currentTarget) e.preventDefault();
+}
+
 interface Props {
   profil: Profil;
   zones: Zones;
@@ -121,7 +146,15 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
   const [poidsConnu, setPoidsConnu] = useState(false);
   const [nomVelo, setNomVelo] = useState(profil.velos[0]?.nom ?? "");
   const [usageVelo, setUsageVelo] = useState(profil.velos[0]?.usage ?? "route");
-  const [poidsVelo, setPoidsVelo] = useState(String(profil.velos[0]?.masse_kg ?? 8));
+  // Vide tant qu'aucun poids réel n'est connu — jamais `8` ni aucun autre
+  // chiffre inventé côté front (constaté le 25/09/2026 : le texte d'aide
+  // disait « on suppose 9 kg » pendant que le champ en préremplissait un
+  // autre). Le `placeholder` montre `MASSE_VELO_DEFAUT_KG`, et un champ vide
+  // part `null` : c'est le serveur, seul, qui applique le défaut.
+  const [poidsVelo, setPoidsVelo] = useState(
+    profil.velos[0]?.masse_kg != null ? String(profil.velos[0].masse_kg) : "",
+  );
+  const [pneu, setPneu] = useState<CategoriePneu | "">((profil.velos[0]?.pneu as CategoriePneu) ?? "");
   const [cle, setCle] = useState("");
   const [exportChoisi, setExportChoisi] = useState<string | null>(null);
 
@@ -466,6 +499,8 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
                     inputMode="decimal"
                     value={ftpCorrigee}
                     onChange={(e) => setFtpCorrigee(e.target.value)}
+                    onFocus={surFocusSelectionner}
+                    onMouseUp={surRelacherNePasDeselectionner}
                   />
                   <span className="unite">W</span>
                 </div>
@@ -480,6 +515,8 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
                       inputMode="decimal"
                       value={masseCorrigee}
                       onChange={(e) => setMasseCorrigee(e.target.value)}
+                      onFocus={surFocusSelectionner}
+                      onMouseUp={surRelacherNePasDeselectionner}
                     />
                     <span className="unite">kg</span>
                   </div>
@@ -507,11 +544,52 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
               </button>
             ))}
           </div>
-          <div className="encart attention">
-            L'import d'un export Strava ou Garmin n'est pas encore proposé par ourouler.
-          </div>
+          {exportChoisi === "Strava" || exportChoisi === "Garmin" ? (
+            <>
+              {/* L9.2 a ajouté l'import (`POST /activites/import`, tâche de
+                  fond), mais cet écran continuait à dire qu'il n'existait
+                  pas — constaté le 25/09/2026. Deux lignes pour l'obtenir,
+                  puis le même dépôt qu'« Importer » (`DepotHistorique`),
+                  réutilisé plutôt que dupliqué. */}
+              <p className="mention" style={{ marginBottom: 16 }}>
+                {exportChoisi === "Strava" ? (
+                  <>
+                    Demandez votre export sur{" "}
+                    <a
+                      href="https://www.strava.com/athlete/download_my_account"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      strava.com
+                    </a>
+                    .
+                  </>
+                ) : (
+                  <>
+                    Demandez votre export sur{" "}
+                    <a
+                      href="https://www.garmin.com/en-US/account/datamanagement/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      garmin.com
+                    </a>
+                    .
+                  </>
+                )}
+                <br />
+                Vous recevez une archive par courriel : déposez-la ici tout de suite, ou plus
+                tard depuis « Déposer ».
+              </p>
+              <DepotHistorique intro={<></>} masquerTitre />
+              <p className="mention" style={{ marginTop: 8 }}>
+                L'import continue en fond : vous pouvez avancer dans l'assistant pendant ce
+                temps-là.
+              </p>
+            </>
+          ) : null}
           <button type="button" className="bouton" onClick={() => aller(poidsConnu ? "velo" : "poids")}>
-            Continuer
+            {exportChoisi === "Strava" || exportChoisi === "Garmin" ? "Plus tard, depuis Déposer" : "Continuer"}
           </button>
         </>
       ) : null}
@@ -527,6 +605,8 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
                 inputMode="decimal"
                 value={poids}
                 onChange={(e) => setPoids(e.target.value)}
+                onFocus={surFocusSelectionner}
+                onMouseUp={surRelacherNePasDeselectionner}
               />
               <span className="unite">kg</span>
             </div>
@@ -581,6 +661,8 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
               id="velo-nom"
               value={nomVelo}
               onChange={(e) => setNomVelo(e.target.value)}
+              onFocus={surFocusSelectionner}
+              onMouseUp={surRelacherNePasDeselectionner}
             />
             <div className="aide">Pour le reconnaître quand vous en aurez deux.</div>
           </div>
@@ -593,10 +675,32 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
                 inputMode="decimal"
                 value={poidsVelo}
                 onChange={(e) => setPoidsVelo(e.target.value)}
+                placeholder={String(MASSE_VELO_DEFAUT_KG)}
               />
               <span className="unite">kg</span>
             </div>
-            <div className="aide">Facultatif — sans chiffre, on suppose 9 kg.</div>
+            <div className="aide">Facultatif — sans chiffre, on suppose {MASSE_VELO_DEFAUT_KG} kg.</div>
+          </div>
+          <div className="champ">
+            <label htmlFor="velo-pneu">Pneus</label>
+            <select
+              className="saisie"
+              id="velo-pneu"
+              value={pneu}
+              onChange={(e) => setPneu(e.target.value as CategoriePneu | "")}
+            >
+              <option value="">Je ne sais pas</option>
+              {PNEUS.map((p) => (
+                <option key={p.cle} value={p.cle}>
+                  {p.libelle}
+                </option>
+              ))}
+            </select>
+            <div className="aide">
+              Les pneus disent combien le vélo roule facilement — c'est ce qui fixe le
+              roulement du modèle aujourd'hui. Vous pourrez le préciser plus tard, dans
+              Réglages.
+            </div>
           </div>
           <button
             type="button"
@@ -608,7 +712,8 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
                 ...((profil.velos[0] ?? {}) as unknown as object),
                 nom: nomVelo,
                 usage: usageVelo,
-                masse_kg: Number(poidsVelo.replace(",", ".")),
+                masse_kg: poidsVelo.trim() === "" ? null : Number(poidsVelo.replace(",", ".")),
+                pneu: pneu === "" ? null : pneu,
               };
               const bon = await enregistrer({ velos: [premier, ...autres] });
               // Une FTP déjà confirmée par Intervals (T1) saute T3 à T5 en
