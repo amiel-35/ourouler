@@ -23,7 +23,7 @@ boucle à allure habituelle.
 ## Le défaut : pourquoi CdA tombe en butée
 
 L'agent observe que, sur les tronçons plats sans vent, la puissance croît
-**presque linéairement** avec la vitesse (120 W à 24, 151 à 27, 167 à
+**presque linéairement** avec la vitesse (mesures à 24, 27 et
 30 km/h) au lieu de v³. Ce n'est pas la physique qui est linéaire, c'est la
 régression qui est **atténuée** : le régresseur aérodynamique
 `½ρ·v_air·|v_air|·v` est construit avec un vent **mesuré avec erreur**
@@ -42,7 +42,7 @@ vent arrière non capturé), ce qui nourrit le même biais.
 
 ## Corrections demandées — réduites après l'avis du mainteneur
 
-Amiel (13/09) : « on va trop dans le détail pour un coureur amateur ; mon
+Le mainteneur (13/09) : « on va trop dans le détail pour un coureur amateur ; mon
 CLM va plus vite sur le plat grâce aux prolongateurs, on doit pouvoir voir
 sur des segments identiques la différence approximative, à la louche 25 à
 30 W ». Le modèle sert à prédire une durée — il le fait à 5 %. On ne
@@ -108,8 +108,8 @@ de la régression et doublerait le chiffre en watts (≈ 71 W au lieu de
 | | RCR | BMC |
 |---|---|---|
 | séries / km | 339 / 257 | 163 / 129 |
-| vitesse à 160-175 W | 29,1 km/h | 31,8 km/h |
-| vitesse à 165 W (régression) | 29,0 km/h | 31,6 km/h |
+| vitesse à puissance d'endurance (bande de 15 W) | 29,1 km/h | 31,8 km/h |
+| vitesse à la même puissance (régression) | 29,0 km/h | 31,6 km/h |
 
 Soit **+2,6 km/h à puissance égale, ≈ 30-40 W à vitesse égale** en faveur
 du BMC — cohérent avec la calibration et avec le « 25-30 W à la louche ».

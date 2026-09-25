@@ -72,7 +72,7 @@ donnent le type. Règles :
   "calme" ; `intensity=recovery` → "recuperation" ; sinon "bloc".
 - Puissance : `units="%ftp"` → part de FTP × `ftp_w`, **les deux écritures
   acceptées** : les séances du mainteneur donnent l'entier (`80` pour 80 %,
-  soit 206-219 W pour une FTP de 258 W le 08/02), d'autres sources la
+  le 08/02), d'autres sources la
   fraction (`1.05` pour 105 %). Le seuil `SEUIL_FRACTION_FTP = 3.0` tranche
   — au-dessus, un pourcentage ; au-dessous ou égal, une fraction — parce que
   3 % de FTP vaudrait 8 W, ce qui n'existe pas comme consigne, alors que

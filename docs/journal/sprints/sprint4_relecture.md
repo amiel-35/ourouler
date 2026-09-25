@@ -343,7 +343,7 @@ cœur (léger, mais contraire à l'esprit de la doctrine).**
 `placement.py:87-90` : une étape sans fourchette de puissance est roulée à
 150 W. Ce n'est pas une constante du modèle, c'est une puissance d'endurance —
 et le sprint vient précisément de décider (Q11) que cette valeur-là est un
-paramètre de profil, mesuré à 0,60 × FTP, soit 155 W pour le mainteneur. La
+paramètre de profil, mesuré à 0,60 × FTP chez le mainteneur. La
 coïncidence est parlante. Le repli est annoncé dans les avertissements, donc
 rien n'est caché, mais la doctrine §10.1 dit que « l'unité de tout est le
 profil » : `placer` reçoit déjà `Parametres`, il pourrait recevoir la

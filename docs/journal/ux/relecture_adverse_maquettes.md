@@ -123,7 +123,7 @@ contraste est une densité par kilomètre, calibrée sur 143 boucles
 **E10, l. 418 — « mesure de densité faite ».** La mesure est une étude
 ponctuelle sur quatre villes (`docs/journal/questions/questions_mainteneur.md:1479-1484`),
 pas une fonction appelable sur une adresse. **Vérifié** : aucune occurrence
-de « dégagement » dans `src/`. Pacé n'a jamais été mesurée : « à 4 km de chez
+de « dégagement » dans `src/`. Vallombreuse (commune fictive de la maquette) n'a jamais été mesurée : « à 4 km de chez
 vous, la densité tombe à 0,3 » (l. 410) est un chiffre inventé présenté
 comme une mesure. Et la note l. 416 dit « aux Lilas, jamais avant 30 km »
 alors que la source dit **15 km** (`questions_mainteneur.md:1482`,
@@ -338,7 +338,7 @@ un artefact fidèle de la table du code, en pourcentages entiers (0,55 / 0,56,
 `seance/modele.py:52-60`). Un utilisateur qui roule à 185 W demandera dans
 quelle zone il est. Le code a sept zones, la maquette cinq. Et la table est
 documentée comme « calée sur les zoneTimes observés du compte du
-mainteneur » : ce que l'écran appelle « Vos zones » est la découpe d'Amiel,
+mainteneur » : ce que l'écran appelle « Vos zones » est la découpe du mainteneur,
 appliquée à tout le monde.
 
 ### M4. « 27 km/h à 160 W » habille une constante en résultat physique
@@ -350,7 +350,7 @@ d'aucun modèle. La maquette présente un bouche-trou comme une prédiction.
 
 ### M5. E4 n'a pas l'état que la discovery jugeait le plus important
 
-`discovery_parcours.md` §3.1, E3 et E4 : « côté Amiel, E4 doit montrer
+`discovery_parcours.md` §3.1, E3 et E4 : « côté mainteneur, E4 doit montrer
 qu'une invitation a été envoyée et qu'elle n'a pas été consommée — sinon
 personne ne sait que le parcours est cassé ». La file (l. 309-317) ne montre
 que des demandes non traitées. L'unique signal d'un lien perdu n'existe pas.
@@ -416,7 +416,7 @@ pas à trancher lequel.
 
 ### b2. Le prénom du modérateur dans l'interface publique
 
-E1, l. 261 et 269 ; E2, l. 288 : « Amiel ouvre la porte ». Pas une fuite
+E1, l. 261 et 269 ; E2, l. 288 : « Le mainteneur ouvre la porte ». Pas une fuite
 (il est déjà dans `CLAUDE.md`), mais un choix produit pour un service que la
 doctrine §10 veut multi-utilisateur : le texte suppose qu'il n'y aura jamais
 d'autre modérateur.
@@ -446,7 +446,7 @@ Peu de choses, mais elles sont solides, et elles sont vérifiées.
 - **La règle absolue 1 est respectée.** Comparaison oui/non de chaque valeur
   de la maquette à la configuration réelle du mainteneur (adresse, code
   postal, FTP 245, masse 72, vélo 8,4 kg, nom du vélo, clé Intervals) :
-  aucune correspondance. « Pacé » n'apparaît nulle part ailleurs dans le
+  aucune correspondance. « Vallombreuse » n'apparaît nulle part ailleurs dans le
   dépôt. La clé de E12 n'est ni dans le dépôt ni dans la config.
 - **Les trois arbitrages du contrat qui se voient sont appliqués
   littéralement** : E12 montre le chemin vers la clé, en trois étapes ; E15

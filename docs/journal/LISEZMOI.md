@@ -7,6 +7,9 @@ d'interface. Il a été écrit au fil de l'eau, avec les errements, les fausses
 pistes et les corrections — c'est ce qui le rend utile, et c'est aussi
 pourquoi il n'est pas relu comme le reste de la documentation.
 
+Les lieux, identifiants et chiffres personnels du mainteneur ont été
+remplacés par des formules neutres ; le reste est tel qu'écrit.
+
 - `questions/` : les questions posées au mainteneur et leurs réponses,
   citées dans le code par leur identifiant (Q12, Q48…).
 - `sprints/` : le plan des sprints (et le backlog), puis les contrats et

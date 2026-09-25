@@ -162,7 +162,7 @@ microdegrés de l'axe au point n° 7 — qui n'est simplement pas une fin de
 tronçon (`FINS_DE_TRONCON = (5, 10, 15, 20, 25, 29)`). La fixture frôle le
 bug sans le toucher, et les tests paramétrés microdegrés/degrés
 (`tests/adversarial/test_adv_brouter.py:180-196`) ne visitent pas la bande.
-Sans effet pour le mainteneur (Rennes est à 48,11°, −1,68°), faux partout
+Sans effet pour le mainteneur (sa ville est à <coordonnées>), faux partout
 ailleurs et invisible.
 *Correction : ne pas deviner l'unité valeur par valeur. Décider une fois pour
 toute la réponse — par exemple, si la valeur brute est une chaîne d'entier
@@ -587,7 +587,7 @@ Par gravité décroissante.
 3. **`connecteurs/brouter.py:56` et `:377-378` — une coordonnée de message à
    moins de 0,001° d'un axe est lue comme des degrés** (mesuré :
    `_degres("570")` → 570,0). Les tronçons sont alors rattachés n'importe où,
-   en silence, et `km_trafic` devient faux. Sans effet à Rennes, faux partout
+   en silence, et `km_trafic` devient faux. Sans effet dans la ville du mainteneur, faux partout
    ailleurs — et toutes les fixtures du dépôt vivent dans cette zone.
    Décider l'unité une fois pour toute la réponse, pas valeur par valeur.
 4. **`boucle/candidates.py:129` — l'ajustement du rayon n'est borné ni en

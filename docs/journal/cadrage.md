@@ -2,17 +2,17 @@
 
 À coller en premier message d'une nouvelle session Claude Code, dans le
 dossier du nouveau projet (dépôt de code pur, pas un projet `pj`).
-Rédigé le 12/09/2026 à partir d'une discussion avec Amiel.
+Rédigé le 12/09/2026 à partir d'une discussion avec le mainteneur.
 
 ---
 
 ## Qui je suis, ce que je veux
 
-Je suis Amiel, cycliste avec capteur de puissance, entraînement suivi dans
-Intervals.icu (FTP 258 W, 91 kg), montre et compteur Garmin, historique
+Je suis le mainteneur, cycliste avec capteur de puissance, entraînement suivi dans
+Intervals.icu (FTP et masse : <valeur mesurée>), montre et compteur Garmin, historique
 depuis 2020 mais **n'utiliser que les données à partir de décembre 2023**
 (plusieurs vélos, roues et positions avant ; calibrer par vélo et par
-période). J'habite près de Rennes (Ille-et-Vilaine).
+période). J'habite près de <ville> (la ville du mainteneur).
 
 Le besoin, en une phrase : *« je vais faire du vélo ; au sud, au nord ou
 à l'est, où va-t-il pleuvoir ? »* — puis en tirer un parcours de la bonne
@@ -87,7 +87,7 @@ Les données et les clés d'API restent chez l'utilisateur.
 - **S0 — Données** : lecteur FIT/GPX/TCX, connecteur Intervals, cache
   local ; premier inventaire de mes sorties depuis décembre 2023 par vélo.
 - **S1 — Météo par direction** : sous-commande `meteo` (démo déjà faite le
-  12/09 : 7 points à 25 km autour de Rennes, AROME, pluie 8h-14h + vent).
+  12/09 : 7 points à 25 km autour de la ville du mainteneur, AROME, pluie 8h-14h + vent).
 - **S2 — Tracé** : sous-commande `boucle` (BRouter ou GraphHopper, GPX,
   coûts de virage à droite, revérification pluie le long du tracé).
 - **S3 — Modèle physique** : calibration par vélo sur l'historique,

@@ -572,7 +572,7 @@ sans que rien ne l'explique.
 **Point léger — commentaire périmé.** `boucle/commande.py:79-86` :
 `PART_FTP_DEFAUT = 0.65` est annoté « À arbitrer par le mainteneur ». Q8 est
 **close** depuis le 13/09 (`docs/journal/questions/questions_mainteneur.md:167-173` : « Réponse
-d'Amiel (13/09/2026) — close »), et le commit `0b9ea0a` le dit aussi.
+du mainteneur (13/09/2026) — close »), et le commit `0b9ea0a` le dit aussi.
 *Correction : remplacer par « Q8, close le 13/09/2026 : allure Z2 tant que la
 séance du jour n'est pas connue ; le sprint 4 la remplacera par la séance. »*
 

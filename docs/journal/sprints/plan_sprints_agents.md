@@ -138,23 +138,23 @@ revêtement, virages à gauche, sens, pluie et vent à l'heure de passage), et
 relecture : `docs/journal/sprints/sprint2_relecture.md`.
 
 Moteur : **BRouter auto-hébergé sur Coolify** (Q4), image nightly épinglée
-(le tag stable lit un format de segments dépassé), segments Bretagne, proxy
+(le tag stable lit un format de segments dépassé), segments de la région, proxy
 nginx à auth basique ; identifiants dans la config locale du mainteneur.
 Le lot « virages à droite » est un post-traitement des candidates (aucun
 moteur ne distingue gauche/droite nativement).
 
 ### Sprint 3 — Antennes, routes connues, modèle physique **[livré le 13/09/2026, fusionné]**
 
-**Lot « routes connues » (décision d'Amiel, nuit du 12 au 13/09).** Mesuré
+**Lot « routes connues » (décision du mainteneur, nuit du 12 au 13/09).** Mesuré
 sur dix vraies sorties rejouées dans BRouter (747 km) : 65 % de `tertiary`,
 23 % de `secondary`, 2 % de `primary`. Nos classes « trafic » (primary +
 secondary) étaient donc trop sévères : les secondaires font un quart de sa
-pratique. Amiel : « la majorité de mes traces sont des routes acceptables
+pratique. Le mainteneur : « la majorité de mes traces sont des routes acceptables
 et pas dangereuses, surtout en semaine ; le dimanche j'en suis sûr à 90 % ;
 souvent issues de Strava, très bon pour ça ». D'où le renversement : **les
 traces du cycliste sont la vérité terrain pour apprendre**, pas les
-étiquettes OSM. **Attention (précision d'Amiel)** : ces traces ne couvrent
-que le sud et l'ouest de Rennes ; elles servent à l'apprentissage, jamais
+étiquettes OSM. **Attention (précision du mainteneur)** : ces traces ne couvrent
+que le sud et l'ouest de la ville du mainteneur ; elles servent à l'apprentissage, jamais
 comme critère de choix — sinon toute boucle vers le nord ou l'est serait
 pénalisée à tort. « Inconnu » n'est jamais un malus.
 - Construire depuis l'historique la liste des tronçons parcourus (rejoués
@@ -171,26 +171,26 @@ pénalisée à tort. « Inconnu » n'est jamais un malus.
 - Liste d'évitement (routes à ne plus prendre) → `nogos` BRouter.
 - Ce même jeu de sorties sert ensuite à calibrer les poids du score.
 
-**Vu par Amiel sur une boucle réelle (carte du 13/09).** Un seul vrai
-défaut : les **antennes en cul-de-sac** (Thorigné-Fouillard : crochet
-aller-retour sur un chemin non revêtu ; Noyal-sur-Vilaine : petit crochet),
+**Vu par le mainteneur sur une boucle réelle (carte du 13/09).** Un seul vrai
+défaut : les **antennes en cul-de-sac** (une commune voisine : crochet
+aller-retour sur un chemin non revêtu ; une autre commune voisine : petit crochet),
 artefact du mode boucle de BRouter dont les points de passage sur le cercle
 tombent à côté des routes. À corriger dans ce lot : activer
 `profile:correct_misplaced_via_points` (et sa distance) dans l'appel, et
 détecter dans le tracé tout aller-retour sur lui-même (même géométrie
 parcourue dans les deux sens sur < 500 m) pour l'élaguer ou pénaliser la
-candidate. **Le reste lui va** : les traversées de bourg (Noyal par la D92)
+candidate. **Le reste lui va** : les traversées de bourg (une commune voisine par la route départementale habituelle)
 ne sont pas un défaut — c'est la principale différence entre `fastbike` et
 `fastbike-verylowtraffic`, et **`fastbike` reste le profil par défaut**.
 Nuance mineure de classement, sans urgence : une simple traversée d'une
-route à trafic (Chevaigné, D3175 sur quelques dizaines de mètres) ne
+route à trafic (une départementale, sur quelques dizaines de mètres) ne
 devrait pas compter comme un tronçon « trafic ».
 
 **Lot modèle physique.** Jalon : pour chaque vélo, des paramètres calibrés
 (masse, CdA, roulement) et un rapport d'erreur de temps sur des sorties non
 vues ; home-trainer exclu (Q7). Relecture Fable.
 
-Niveau de précision voulu (Amiel, 13/09) : **pas de folie**, la route est
+Niveau de précision voulu (le mainteneur, 13/09) : **pas de folie**, la route est
 ouverte, avec circulation, stops et vent qui tourne. Une masse approximative
 par vélo suffit (1 kg sur 100 kg = 1 % en montée, rien sur le plat) ; le
 poids du cycliste vient d'Intervals quand il y est, sinon une constante, car
@@ -198,7 +198,7 @@ hors montagne il pèse peu. L'effort va dans ce qui compte : CdA par vélo,
 vent réel (archives Open-Meteo), et **l'exclusion des sorties en groupe**
 (peloton = aérodynamique faussée). Les FIT ne le disent pas ; Strava a un
 champ « nombre d'athlètes » (export Strava ou API en lecture). **Décision
-d'Amiel (13/09) : c'est le plus dur, donc combiner** (1) le nom de la
+du mainteneur (13/09) : c'est le plus dur, donc combiner** (1) le nom de la
 sortie (« sortie club », « groupe », « peloton »… liste de mots dans la
 configuration) et (2) l'incohérence physique : vitesse élevée pour une
 puissance basse que ni la pente ni le vent n'expliquent. Méthode : calibrer
@@ -219,15 +219,15 @@ blocs sur le terrain et rend GPX, résumé, tenue et **carte de vérification**.
 - « Vélo — Sortie EF 2h » : aucune contrainte de terrain.
 - « 2x20' 80-85 % + 4x3' 100 % FTP » : deux longs puis quatre courts.
 
-**Deux séances de coach fournies par le mainteneur le 13/09 (iDOSport,
+**Deux séances de coach fournies par le mainteneur le 13/09 (séances
 planifiées par son entraîneur, remontées dans Intervals).** Elles changent
 la nature du problème : on ne place pas des blocs isolés, on place des
 **séries**, et l'échauffement fixe *où* chercher sur la boucle.
 
 | Séance | Structure | Contrainte de terrain |
 |---|---|---|
-| « 2x20' (80 % FTP) + 2x10' r4/3' », 2h44 | 1h à 168-194 W ; 2 × [20 min à 199-214 W, récup 4 min] ; 2 × [10 min à 212-224 W, récup 3 min] ; 30 min calme | un couloir propre de **11 km d'un trait**, deux fois |
-| « Durabilité », 2h57 | 1h à 155-181 W ; 4 × [5 min à 232-258 W, récup 1'30] ; 45 min ; 4 × [5 min, récup 1'30] ; 20 min | 4 tronçons propres d'**environ 2,8 km**, deux fois |
+| « 2x20' (80 % FTP) + 2x10' r4/3' », 2h44 | 1h à 65-75 % FTP ; 2 × [20 min à 77-83 % FTP, récup 4 min] ; 2 × [10 min à 82-87 % FTP, récup 3 min] ; 30 min calme | un couloir propre de **11 km d'un trait**, deux fois |
+| « Durabilité », 2h57 | 1h à 60-70 % FTP ; 4 × [5 min à 90-100 % FTP, récup 1'30] ; 45 min ; 4 × [5 min, récup 1'30] ; 20 min | 4 tronçons propres d'**environ 2,8 km**, deux fois |
 
 Trois conséquences de conception :
 - **La récupération absorbe le point dur, même courte** (correction du
@@ -351,7 +351,7 @@ deux fois.
 **Ce que le sprint a réellement contenu** (16/09/2026) — il a débordé de son
 esquisse, et c'est le débordement qui a le plus rapporté :
 
-- **L5.1** le vent dans le placement. Un bloc de 20 min à 210 W fait 9,18 km
+- **L5.1** le vent dans le placement. Un bloc de 20 min au seuil fait 9,18 km
   vent de face contre 13,28 km vent de dos : 4,1 km d'écart sur un bloc qui
   en fait 11. Validé sur 161 sorties, erreur du modèle de 1,063 à 0,993 m/s,
   et 1,445 avec le vent retourné — le contrôle qui prouve le signe.
@@ -492,7 +492,7 @@ Elle réfute la première correction du lot et redimensionne la seconde :
   2 h** et dégrade 22 sorties de validation sur 25. Le CdA effectif
   **n'absorbe pas** le Crr figé, contrairement à ce qu'annonçait le commit
   `2741984` : la résistance totale à 27 km/h tombe de 18,04 à 15,78 N et le
-  modèle devient systématiquement trop rapide. Rejoué à 93 kg, même classement
+  modèle devient systématiquement trop rapide. Rejoué à la masse réelle, même classement
   — figer le Crr n'est donc pas non plus le préalable de la masse datée.
 - **CdA saisonnier : réel, mais 1 min et non 5, et sur un seul vélo.** Le
   paramètre est stable et bien signé (CdA d'hiver +10 % aux trois partages de
@@ -752,8 +752,8 @@ l'isolation vérifiée côté serveur, et Google puis Apple en V2, en plus et no
   part dans `front/src/` ni dans les vues de l'API, alors que le D+ chiffré est
   affiché à l'écran (`front/src/ecrans/Proposition.tsx:329-331`). Règle absolue
   5 tenue côté CLI, pas côté web. Et **le chiffre du contrat n'est gardé par
-  rien** : « moins de 15 % des valeurs Strava corrigées sur Lacanau et Les
-  Sables » a été mesuré le 18/09 et n'est rejoué par aucun test ni script de
+  rien** : « moins de 15 % des valeurs Strava corrigées sur deux sorties
+  côtières » a été mesuré le 18/09 et n'est rejoué par aucun test ni script de
   `tests/validation/` — le mécanisme est prouvé sur fixtures synthétiques, le
   chiffre annoncé ne l'est plus.
 
@@ -831,7 +831,7 @@ et ça se mesure en trois lignes :
   serveur**. Sonde rejouée le 21/09 sur ce worktree, socle impersonnel +
   variables d'environnement : surcharge écrite `{'nom': 'Chez le copain',
   'latitude': 47.0, …}`, configuration relue `Depart(nom='Maison du
-  mainteneur', latitude=48.111111, …)`.
+  mainteneur', latitude=<coordonnées>, …)`.
 - **Aucun test ne couvre ce chemin** : aucun ne construit un `SocleTOML` avec
   `variables=` **et** plusieurs propriétaires ; toute la suite tourne avec un
   environnement vide, ce qui explique 4 830 tests verts. Le balayage
@@ -846,7 +846,7 @@ point de départ est, dit la doctrine elle-même, « son domicile, le plus
 sensible du fichier », et c'est exactement la fuite qui avait ouvert [[Q35]].
 
 Vérifié le jour même sur le déploiement Coolify réel (`ourouler-api`) : la
-variable en service porte `OUROULER_DEPART_NOM=Rennes`, un point générique —
+variable en service porte `OUROULER_DEPART_NOM=<ville>`, un point générique —
 **rien de personnel n'était exposé au moment de la mesure**. Le mécanisme
 restait néanmoins ouvert : il aurait servi la vraie adresse du mainteneur à
 n'importe quel invité si ces variables l'avaient un jour portée, ce que
@@ -1153,8 +1153,8 @@ implémentation — en tâche de fond, sous le même verrou que l'import
 clic, avec leur code (`velo_absent`, `ftp_absente`, `sorties_insuffisantes` —
 au moins 10 sorties exploitables —, `pneu_absent`). *Vérifié sur les vraies
 données du mainteneur* : sur 102 FIT importés depuis l'écran (100
-exploitables), CdA 0,364, 182 W à 30 km/h, MAE 3,6 %, biais −1,8 % (n=25),
-fourchette × 1,030 à × 1,110 — contre 0,378, 188 W, 3,5 %, × 1,021 à × 1,099
+exploitables), CdA 0,364, puissance à 30 km/h 3 % plus basse, MAE 3,6 %, biais −1,8 % (n=25),
+fourchette × 1,030 à × 1,110 — contre 0,378, 3,5 %, × 1,021 à × 1,099
 par `ourouler calibrer` sur le même historique ; l'écart tient à ce qu'un FIT
 importé perd le nom Intervals de la sortie, et que les sorties nommées
 « club » (écartées par la ligne de commande) passent le filtre de groupe à
@@ -1197,7 +1197,7 @@ sortie ni fichier restant, connexion refusée ensuite). Huit défauts vus à
 l'écran, corrigés sur `l9-7-accueil` : l'étape Strava/Garmin qui disait
 l'import « pas encore proposé » propose désormais le dépôt
 (`composants/DepotHistorique.tsx`) ; le pneu demandé dans l'assistant ; le
-poids du vélo à 8 kg affiché contre 9 kg annoncés (une seule constante) ; des
+poids du vélo affiché différent de celui annoncé (une seule constante) ; des
 champs pré-remplis où la saisie s'ajoutait (« 7075 kg ») ; une erreur de
 validation brute (« [cycliste] masse_kg = 7075.0 hors de [20, 300] ») devenue
 « Votre poids doit être entre 20 et 300 kg » ; l'accueil sans Intervals qui
@@ -1206,16 +1206,16 @@ rue obligatoire pour une place. **Le rejeu de ces corrections dans le
 navigateur a trouvé une régression** — un vélo sans poids (`null`, désormais
 possible) faisait tomber le récapitulatif et Réglages — corrigée et gardée par
 `front/tests/velo_sans_poids.test.tsx`. Une instabilité reste au backlog :
-sur 30 sorties importées, la calibration donne 167 W à 30 km/h, contre 188 W
-sur tout l'historique en ligne de commande et 199 W sur 40 sorties (essai
-L9.4) — à 10 sorties minimum, le chiffre bouge de ±15 W ; l'erreur de
+sur 30 sorties importées, la calibration donne une puissance à 30 km/h 11 % plus basse que
+sur tout l'historique en ligne de commande et 16 % plus basse que sur 40
+sorties (essai L9.4) — à 10 sorties minimum, le chiffre bouge de ±15 W ; l'erreur de
 validation affichée (4,9 % sur 7 sorties) le laisse deviner sans le dire.
 
 **Restent au mainteneur, hors du dépôt (règle absolue 7) :**
 
 - ~~L'action Q66a sur Coolify~~ — **faite**, vérifiée le 25/09/2026 en
-  invitant pour de vrai depuis la prod (`ssh inflexion` + `docker exec` dans
-  le conteneur `api-hqcrmxt0dvyxlgojgvqmwhsk-*`) : `OUROULER_DEPART_*` et
+  invitant pour de vrai depuis la prod (`ssh <serveur>` + `docker exec` dans
+  le conteneur `api-<uuid>-*`) : `OUROULER_DEPART_*` et
   `OUROULER_INTERVALS_*` sont vides dans le panneau Coolify de
   `ourouler-api`, et `OUROULER_CONFIG_TOML_B64` ne contient plus que
   `[meteo]`, `[cache]`, `[brouter]`, `[boucle]` — ni `[cycliste]` ni
@@ -1261,7 +1261,7 @@ Backlog « relief demandé » (note du mainteneur, 20/09/2026, aucun sprint
 attribué) : pouvoir demander, en plus de la durée et de la direction, le
 relief voulu — **plat, vallonné, qui grimpe, montagne** — et que le produit
 réponde honnêtement dans deux cas : (1) **introuvable à portée** : pas de
-montagne en Bretagne, on le dit au lieu de servir la moins plate des boucles
+montagne dans une région de plaine, on le dit au lieu de servir la moins plate des boucles
 sous ce nom ; (2) **en désaccord avec les blocs de la séance** : on ne tient
 pas une vraie Z2 sur un col à 15 %, un bloc de force à 60 rpm ne se place pas
 sur du plat qui descend, etc. Ce désaccord doit s'afficher comme une alerte
@@ -1274,7 +1274,7 @@ question produit à poser au mainteneur avant tout code.
 
 Backlog « le modèle arbitre trop » (note du mainteneur, 20/09/2026, aucun
 sprint attribué) : en demandant trois parcours pour une séance, l'appli n'en
-retient souvent qu'un — mesuré le 20/09 à Rennes comme à La Rochelle, les
+retient souvent qu'un — mesuré le 20/09 dans la ville du mainteneur comme à La Rochelle, les
 deux autres candidates étant écartées à 31 % de recouvrement pour un seuil
 de 30 % (`seuil_recouvrement`, non réglable dans la configuration). Le
 mainteneur veut **plusieurs solutions pour choisir lui-même** ; « c'est
@@ -1406,7 +1406,7 @@ prématuré.
 
 **Réponse trouvée le 21/09, vérifiée et non plus devinée sur un nom de
 sortie.** Première tentative (même jour) : six des huit écarts négatifs
-portaient le même nom générique (« Rennes Cyclisme sur route ») que des
+portaient le même nom générique (« <ville> Cyclisme sur route ») que des
 sorties d'apprentissage repérées à 50-78 % « en groupe » par
 `calib.detecter_groupe` — mais ce critère, rejoué sur les huit, ne les
 détecte pas (`groupes_en_validation` vide dans le rapport). Le mainteneur a
@@ -1467,7 +1467,7 @@ passage, reste non mesuré.
 
 **Le dénivelé n'explique rien de cet écart, vérifié.** Sur les sorties
 « propres » (peu de signal de groupe), le dénivelé par kilomètre (6,6 à
-23 m/km sur l'historique du mainteneur — la Bretagne, pas la montagne) ne
+23 m/km sur l'historique du mainteneur — une région de plaine, pas la montagne) ne
 corrèle pas avec l'écart (r = -0,03). Logique : le modèle simulé calcule
 déjà la pente réelle point par point sur le tracé, c'est son travail — s'il
 y avait une corrélation, ce serait le signe d'un biais du modèle en côte,
@@ -1490,7 +1490,7 @@ l'historique — une bonne estimation, pas une certitude au dernier chiffre.
 **Vérifié le 23/09 sur ses sorties de 3h20 à 5h10 réelles (RCR et BMC), et
 un vrai sujet trouvé sur le second vélo.** Comparé sortie par sortie : réel,
 porte à porte actuel, modèle seul, modèle × 1,06. Sur RCR, cinq sorties sur
-neuf tombent quasiment à la minute près avec le ratio (4h14, 4h20, 4h53…),
+neuf tombent quasiment à la minute près avec le ratio,
 contre zéro avec le porte à porte actuel — cohérent avec la mesure globale.
 Sur BMC (le vélo de contre-la-montre), `detecter_groupe` signale 29 à 39 %
 de distance anormalement rapide sur **chacune** de ses cinq sorties de cette
@@ -1505,7 +1505,7 @@ d'appliquer le même ratio de 1,06 au BMC — rien ne dit qu'il vaut la même
 chose sur les deux vélos.
 
 **Confirmé le 23/09, avec `ourouler comparer` (mesure sans modèle) et le
-bon sens du mainteneur.** Écart mesuré à 169 W : le BMC roule 2,4 km/h plus
+bon sens du mainteneur.** Écart mesuré à puissance d'endurance égale : le BMC roule 2,4 km/h plus
 vite, converti en 27 à 42 W selon la méthode — réel, mesuré sur 145 séries
 BMC et 317 RCR, aucun modèle physique impliqué. Mais la calibration des
 deux vélos (`RCR : CdA 0,2219, Crr 0,01062` / `BMC : CdA 0,2204,
@@ -1524,8 +1524,8 @@ et instructif.** Nouveau CdA obtenu par moindres carrés pondéré : 0,1856 m²
 (contre 0,2204 en fit libre) — physiquement plus crédible pour une position
 contre-la-montre. Mais rejoué sur les cinq vraies sorties BMC de 3h20 à
 5h10, les temps prédits **s'éloignent** de la réalité au lieu de s'en
-rapprocher (ex. 2025-05-01 : réel 3h24, ancien modèle 3h27, nouveau modèle
-3h32). Cause probable : la calibration ne filtre que des tronçons très
+rapprocher (ex. une sortie de 2025 : +3 min avec l'ancien modèle, +8 min avec le
+nouveau). Cause probable : la calibration ne filtre que des tronçons très
 plats (pente ≤ 0,8 %) pour séparer CdA et Crr. Sur du plat, un Crr plus
 haut compensé par un CdA plus bas peut coller aussi bien aux mêmes
 données ; mais Crr et CdA ne pèsent pas pareil selon la vitesse et la
@@ -1762,7 +1762,7 @@ jusqu'au front.
 | Crr (fixé, pneu) | 0,006 | 0,005 |
 | CdA cherché (compensation, pas une mesure) | 0,378 | 0,318 |
 | sorties d'apprentissage sous 30 % de groupe | 27 | 10 |
-| puissance à 25 / 30 / 35 km/h, plat sans vent | 121 / 188 / 277 W | 102 / 158 / 233 W |
+| puissance à 25 / 30 / 35 km/h, plat sans vent | <valeurs mesurées> | <valeurs mesurées> |
 | validation, temps en mouvement | MAE 3,5 %, biais −0,8 % (n=25) | MAE 2,5 %, biais +1,2 % (n=9) |
 | fourchette écoulé / simulé, validation | **× 1,021 à × 1,099** (méd. 1,035, n=25) | 7 solo < 8 → **convention** (indicatif : 1,044-1,086-1,137) |
 
@@ -1782,7 +1782,7 @@ les siens. La fourchette codée est sur le temps **écoulé**.
 
 Convention par défaut : **× 1,02 à × 1,14, médiane 1,06**, l'enveloppe des
 fourchettes de validation des deux vélos (`physique.litterature`). Sur une
-boucle réelle de 120 km (RCR, 168 W, `ourouler boucle`, 26/09 9 h) :
+boucle réelle de 120 km (RCR, 65 % de la FTP, `ourouler boucle`, 26/09 9 h) :
 « entre 4 h 40 et 5 h 01 » pour 4 h 34 sans arrêt ; sur 80 km au BMC, la
 convention le dit.
 
@@ -1801,11 +1801,11 @@ l'écran propose de le choisir ou de fixer le Crr de l'usage (`crr_source`
 « usage »). *Vérifié sur les vraies données*, compte hébergé de test dans un
 dossier temporaire, FIT du RCR importés par `POST /activites/import` (le
 cache du mainteneur lu seulement) : sur les 40 plus récents, CdA 0,408,
-199 W à 30 km/h, MAE 5,6 % sur 10 sorties de validation, fourchette par
+MAE 5,6 % sur 10 sorties de validation, fourchette par
 convention (0 solo de validation sur 8 requis) ; sur les 102 de
-l'historique (100 exploitables), CdA 0,364, 182 W à 30 km/h, MAE 3,6 %,
+l'historique (100 exploitables), CdA 0,364, MAE 3,6 %,
 biais −1,8 % (n=25), fourchette × 1,030 à × 1,110 (n=25) — contre 0,378,
-188 W, 3,5 %, × 1,021 à × 1,099 par `ourouler calibrer`. L'écart tient
+3,5 %, × 1,021 à × 1,099 par `ourouler calibrer`. L'écart tient
 d'abord à ce qu'un FIT importé perd le nom Intervals de la sortie : les
 sorties nommées « club », que la ligne de commande écarte, passent ici.
 
@@ -1892,13 +1892,13 @@ de la vidéo publique) :
 
 Backlog « le zoom de la carte des boucles » (constat du mainteneur,
 25/09/2026, sur l'écran « 3 boucles » en production — boucle de 124 km au
-départ de Rennes, `front/src/ecrans/Boucles.tsx`, **fait le 25/09/2026**) :
+départ de la ville du mainteneur, `front/src/ecrans/Boucles.tsx`, **fait le 25/09/2026**) :
 la carte (`front/src/composants/Carte.tsx`,
 `carte.fitBounds(L.latLngBounds(tous), …)` où `tous` vient de **toutes**
-les boucles proposées) s'ouvrait à l'échelle de la Bretagne et de la
-Normandie (golfe du Morbihan, Fougères, parc Normandie-Maine visibles)
+les boucles proposées) s'ouvrait à l'échelle de deux régions entières (côtes et parcs naturels
+voisins visibles)
 alors que les trois candidates tiennent dans un rayon d'environ 30 km
-autour de Rennes et n'occupaient qu'un petit quart de la carte. Premier mot
+autour de la ville du mainteneur et n'occupaient qu'un petit quart de la carte. Premier mot
 du mainteneur : « le zoom par défaut n'est pas le plus adapté » ; précisé
 ensuite : « en fait faut zoomer sur le circuit sélectionné » — la carte
 doit se cadrer sur la boucle **retenue** (celle marquée « Retenue », ou
@@ -1987,8 +1987,8 @@ premier rendu.
   2 892 tests, ruff vert.
 
   **Vérifié sur les vraies séances du mainteneur.** Le modèle et son
-  cadrage écrit à la main se recoupent : bloc de 20 min à 206-219 W →
-  11,2 km estimés contre « 11 km d'un trait » annoncés ; 8 min à 253 W →
+  cadrage écrit à la main se recoupent : bloc de 20 min à 80-85 % de la FTP →
+  11,2 km estimés contre « 11 km d'un trait » annoncés ; 8 min à 98 % de la FTP →
   4,9 km contre « environ 4 km » ; demi-tour en 4 min de récup → 1,0 km de
   route au-delà contre « ≈ 800 m ». **Validation rétrospective** sur deux
   séances réellement faites dehors (22/04 et 25/04/2026) : les emplacements
@@ -2044,7 +2044,7 @@ premier rendu.
   4,2 %, BMC 2,4 % sur sorties non vues, après vent à hauteur du cycliste
   (×0,6) et terme cinétique — l'un sans l'autre laissait le CdA en butée ;
   `comparer` : BMC +2,4 km/h à puissance égale en Z2 sur séries plates,
-  ≈ 27-42 W, conforme au « 25-30 W à la louche » d'Amiel. Décisions :
+  ≈ 27-42 W, conforme au « 25-30 W à la louche » du mainteneur. Décisions :
   on ne sépare plus CdA et Crr (Q9), multisport écarté (Q10), Q8 = Z2 par
   défaut puis la séance (S4). Dette assumée : `routes poids` fait 8 appels
   BRouter même sans `--appliquer` ; conversion en watts = fourchette, pas
@@ -2081,7 +2081,7 @@ premier rendu.
   relecture Opus (17 points, 1 bloquant : valeurs réelles dans
   `config.example.toml`, corrigé) ; deux passes de corrections. État final :
   822 tests, ruff vert. **Vérifié sur vraies données** : `ourouler meteo`
-  (Rennes, AROME HD + ICON, soirée sans pluie donc branche « désaccord »
+  (ville du mainteneur, AROME HD + ICON, soirée sans pluie donc branche « désaccord »
   démontrée sur fixtures seulement). **Non vérifié** : lecteurs, cache,
   inventaire et connecteur Intervals — aucun fichier réel ni clé (Q1).
   Écarts prévu/réalisé : sous-commande `config` ajoutée ; `--depart`

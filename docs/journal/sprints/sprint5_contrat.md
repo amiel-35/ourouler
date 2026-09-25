@@ -11,8 +11,8 @@ dans le livrable principal du sprint.
 
 ## 0. Pourquoi le vent d'abord — la mesure qui l'impose
 
-Mesuré le 15/09/2026 sur les paramètres calibrés du RCR (masse 100 kg,
-CdA 0,2219 m², Crr 0,010615), terrain plat, bloc de 20 min à 210 W :
+Mesuré le 15/09/2026 sur les paramètres calibrés du RCR (masse, CdA et Crr :
+<valeur mesurée>), terrain plat, bloc de 20 min au seuil :
 
 | Vent | Vitesse | Distance en 20 min |
 |---|---|---|
@@ -26,8 +26,8 @@ fenêtre d'antenne (6 km) et sans commune mesure avec les couloirs qu'on
 hors agglomération et poser le cycliste en plein bourg.
 
 L'objection « sur une boucle le vent s'annule » est fausse, et c'est mesuré,
-pas supposé. Sur la sortie du 05/04/2026 (`i137367129`, 124 km au départ de
-Rennes), Intervals.icu enregistre **27,7 % de vent de face contre 14,3 % de
+pas supposé. Sur une sortie d'avril 2026 (`<id d'activité>`, plus de cent kilomètres au
+départ de la ville du mainteneur), Intervals.icu enregistre **27,7 % de vent de face contre 14,3 % de
 vent dans le dos** — deux fois plus de face que de dos sur un parcours qui
 revient à son point de départ. Sur les 162 sorties route de l'historique qui
 portent la météo, la part de vent de face médiane est de 33 % et **monte à
@@ -148,7 +148,7 @@ baisser ; si elle ne baisse pas, quelque chose est faux et le lot ne passe pas.
 ### 1.4 Ce qui n'est pas dans ce lot
 
 Pas d'endpoint Intervals non documenté. Vérifié le 15/09/2026 sur
-`i137367129` : `/activity/{id}/weather`, `weather-data`, `map-weather`,
+`<id d'activité>` : `/activity/{id}/weather`, `weather-data`, `map-weather`,
 `conditions`, `wind` rendent tous 404, et aucun des 12 streams disponibles
 ne porte le vent. La carte de leur interface web est calculée côté
 navigateur. **Notre source de vent reste Open-Meteo, pour la prévision comme
@@ -228,7 +228,7 @@ que le juge mesure le code que le placement utilise vraiment.
 ## 2. Lot L5.2 — La séance entière visible (Q13)
 
 Origine : le mainteneur lit la sortie du 08/02 et demande « t'as pas oublié
-l'échauffement ? ». Il n'était pas oublié — 28 min à 155 W, 13,2 km, très
+l'échauffement ? ». Il n'était pas oublié — 28 min à 60 % de la FTP, 13,2 km, très
 exactement là où le premier bloc démarre — mais **rien ne le montrait**. Ce
 qui rend le défaut sérieux : on ne peut pas vérifier ce qu'on ne voit pas, et
 c'est précisément ce qu'on lui demande de faire sur la carte.
@@ -389,7 +389,7 @@ principal) **67 h**, Météo-France seamless 115 h, ICON seamless (notre second
 avis) 168 h. Au-delà de deux jours et demi, la haute résolution ne répond
 plus du tout.
 
-**Justesse**, 2 064 heures à Rennes, du 16/06 au 09/09/2026, **référence =
+**Justesse**, 2 064 heures dans la ville du mainteneur, du 16/06 au 09/09/2026, **référence =
 archive ERA5** (qui assimile les observations) :
 
 | Prévu | Erreur vitesse | Erreur direction | Direction dans le bon secteur de ±45° |
@@ -530,7 +530,7 @@ une puissance statistique limitée. Elle va dans le même sens que la mesure
 globale, elle ne la renforce pas beaucoup.
 
 Piège écarté par construction dans cette mesure : un effet apparent peut
-n'être que de la géographie. Le vent dominant en Bretagne vient de
+n'être que de la géographie. Le vent dominant dans sa région vient de
 l'ouest-sud-ouest, et si ses routes habituelles partent majoritairement dans
 une direction, le résultat serait un artefact du réseau routier. Le contrôle
 qui décide : l'effet tient-il les jours où le vent vient du nord ou de l'est ?
