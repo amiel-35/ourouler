@@ -2112,3 +2112,36 @@ Pistes à cadrer, pas tranchées :
 - si la séance planifiée d'Intervals porte une heure, la prendre.
 Voisin du correctif 0.9.4 (fuseau du conteneur) mais distinct : là l'heure
 demandée était bien 09:00, et c'est ce 09:00 qui est faux.
+
+Backlog « le cycliste choisit ce qu'on garde de ses données » (demande du
+mainteneur, 25/09/2026 au soir, **revient sur [[Q48]] et [[Q67]]**, non
+fait — gel du sprint d'ouverture, à cadrer avant tout code) : aujourd'hui
+la règle est unique pour tous (Q48 : « on jette le brut, on garde le
+dérivé » ; la branche garée `q67-sans-brut` l'applique en hébergé). Le
+mainteneur veut un **choix par personne, explicite et réversible** :
+
+- **Soit conserver** ses sorties importées et ses données, **et autoriser le
+  mainteneur à s'en servir pour apprendre et entraîner le modèle** (au-delà
+  de sa propre calibration) ;
+- **soit demander leur effacement** (ne garder que le dérivé nécessaire au
+  service, ou rien).
+
+Quand demander : **clairement, au moment où les données arrivent**, après
+avoir branché intervals.icu ou après l'import d'un fichier ou d'une
+archive. Pas une case pré-cochée, pas une clause enfouie dans les CGU.
+
+Changer d'avis : depuis Réglages, à tout moment, dans les deux sens, **et
+surtout après avoir accepté** — retirer son accord doit effacer (ou exclure
+de tout entraînement futur) ce qui avait été conservé à ce titre.
+
+À cadrer, pas tranché :
+- ce qu'« entraîner le modèle » couvre exactement (calibration collective,
+  priors par catégorie de vélo, routes apprises…) et si c'est anonymisé ou
+  agrégé ;
+- ce que devient un modèle déjà entraîné quand l'accord est retiré ;
+- le défaut tant que la personne n'a pas répondu (le plus protecteur :
+  rien de conservé au-delà du dérivé) ;
+- l'articulation avec `q67-sans-brut` : cette branche devient le cas
+  « refus », et la conservation le cas « accord » ;
+- mentions RGPD : base légale (consentement), finalité, durée, preuve du
+  consentement horodatée.
