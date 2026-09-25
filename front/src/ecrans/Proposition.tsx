@@ -341,6 +341,8 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             <DureesDeSortie
               mouvementS={proposition.duree_s}
               ecouleS={candidate.temps_ecoule_s}
+              basS={candidate.temps_ecoule_bas_s}
+              hautS={candidate.temps_ecoule_haut_s}
             />
             {arrets !== null ? (
               <span>

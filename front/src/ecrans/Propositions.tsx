@@ -16,7 +16,6 @@ import type { Candidate, Enveloppe, Proposition, Sortie } from "../api/types";
 import {
   compteArrets,
   duree,
-  dureeApprox,
   kmDepuisKm,
   nombre,
   pourcentage,
@@ -26,7 +25,7 @@ import { Carte, type TraceDessinee } from "../composants/Carte";
 import { PanneauArbitrage } from "../composants/Arbitrage";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
 import { BandeauElargissement } from "../composants/Elargissement";
-import { TempsEcoule } from "../composants/TempsEcoule";
+import { TempsEcoule, textePorteAPorte } from "../composants/TempsEcoule";
 import { JaugePluie } from "../composants/JaugePluie";
 
 /** Le nom de l'axe sur lequel le cœur a distingué cette proposition. */
@@ -54,13 +53,20 @@ export function chiffresDe(proposition: Proposition, candidate: Candidate | null
   // Le porte à porte en majeur, le temps sans arrêt juste après
   // (18/09/2026) : « je demande 5 h, je veux 5 h, pas 4 h et un truc plus
   // loin qui me dit en fait c'est 5 h ». Sans porte à porte — aucun vélo,
-  // donc aucune moyenne compteur — le temps de mouvement reste seul, mais
-  // garde son nom.
+  // donc aucune fourchette — le temps de mouvement reste seul, mais garde
+  // son nom. Depuis L9.1, le porte à porte est une fourchette.
   const ecoule = candidate?.temps_ecoule_s;
   if (ecoule === null || ecoule === undefined) {
     chiffres.push({ cle: "en roulant", valeur: duree(proposition.duree_s) });
   } else {
-    chiffres.push({ cle: "porte à porte", valeur: `≈ ${dureeApprox(ecoule)}` });
+    chiffres.push({
+      cle: "porte à porte",
+      valeur: textePorteAPorte(
+        ecoule,
+        candidate?.temps_ecoule_bas_s,
+        candidate?.temps_ecoule_haut_s,
+      ),
+    });
     chiffres.push({
       cle: "sans un seul arrêt",
       valeur: duree(proposition.duree_s),

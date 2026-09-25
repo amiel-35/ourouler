@@ -18,6 +18,10 @@
  *    tout, pas même un tiret ;
  * 3. `facteur_provenance: "suppose"` : l'écran le dit, avec la formulation
  *    déjà posée par `EcranFtp.tsx` pour ne pas en inventer une seconde.
+ *
+ * Depuis L9.1 (25/09/2026), le porte à porte est une **fourchette** —
+ * « entre 1 h 34 et 1 h 39 » — et le dépliant dit d'où elle vient : mesurée
+ * sur les sorties du cycliste, ou convention (règle absolue 5).
  */
 
 import { describe, expect, it } from "vitest";
@@ -61,12 +65,11 @@ const DUREE = /porte à porte|en roulant/;
 describe("les boucles libres (Boucles.tsx)", () => {
   it("montrent le porte à porte en majeur, et le temps sans arrêt en second", () => {
     const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
-    // Le majeur : le temps du modèle (temps_estime_s = 5460 s), avec le mot
-    // qui dit quelle horloge c'est — il ne peut plus rester nu.
+    // Le temps du modèle (temps_estime_s = 5460 s), avec le mot qui dit
+    // quelle horloge c'est — il ne peut plus rester nu.
     expect(texte(vue)).toMatch(/1\s*h\s*31\s*sans un seul arrêt/);
-    // Le second, arrondi à 5 minutes et introduit par « ≈ » : ce n'est pas
-    // une mesure à la minute.
-    expect(texte(vue)).toMatch(/≈\s*1\s*h\s*45\s*porte à porte/);
+    // Le majeur, en fourchette (L9.1) : 5460 × 1,03 et × 1,08.
+    expect(texte(vue)).toMatch(/entre\s*1\s*h\s*34\s*et\s*1\s*h\s*38\s*porte à porte/);
   });
 
   it("place le bloc de durées juste après le D+, avant la météo et les routes", () => {
@@ -90,14 +93,15 @@ describe("les boucles libres (Boucles.tsx)", () => {
   it("explique les deux chiffres dans un dépliant, sans rien affirmer au hasard", () => {
     const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
     expect(screen.getByText("D'où viennent ces deux chiffres")).toBeTruthy();
-    // La simulation de ce tracé-ci, sans arrêt — et le fait, dit en toutes
-    // lettres, que c'est le seul des deux qui tienne compte du relief.
-    expect(texte(vue)).toMatch(/simulation de ce tracé-ci/);
-    expect(texte(vue)).toMatch(/seul des deux qui tienne compte du relief/);
-    // La moyenne compteur habituelle, avec sa valeur.
+    // Le temps sans arrêt : calculé sur ce parcours-ci, côtes et vent compris.
+    expect(texte(vue)).toMatch(/calculé sur ce parcours-ci, avec ses côtes et\s+le vent prévu/);
+    // Le porte à porte : ce que les vraies sorties prennent en plus, chiffré.
+    expect(texte(vue)).toMatch(/Sur vos 83 sorties roulées seul/);
+    expect(texte(vue)).toMatch(/de \+3\s*% à \+8\s*% de\s+plus/);
+    expect(screen.getByText("mesuré sur vos sorties")).toBeTruthy();
+    // La moyenne compteur, avec sa valeur, ne sert plus qu'à la distance.
     expect(texte(vue)).toMatch(/24,6\s*km\/h/);
-    // Le fait qui referme la boucle : la même moyenne a choisi la distance.
-    expect(texte(vue)).toMatch(/a servi à choisir la distance/);
+    expect(texte(vue)).toMatch(/La distance, elle, a été choisie avec votre moyenne/);
   });
 
   it("n'affiche aucun second chiffre, pas même un tiret, sans vélo enregistré", () => {
@@ -122,11 +126,23 @@ describe("les boucles libres (Boucles.tsx)", () => {
     expect(screen.queryByText(/supposé/)).toBeNull();
   });
 
-  it("dit que la moyenne habituelle ne s'applique plus sur une boucle trop vallonnée", () => {
-    render(
-      <Boucles reponse={boucle({ arretsPlancher: true })} surRetour={() => undefined} />,
+  it("dit que la fourchette est une convention quand elle n'est pas mesurée", () => {
+    const vue = render(
+      <Boucles reponse={boucle({ fourchette: "defaut" })} surRetour={() => undefined} />,
     );
-    expect(screen.getByText(/assez vallonnée pour que votre moyenne habituelle/)).toBeTruthy();
+    expect(screen.getByText("Convention, pas encore mesurée sur vos sorties")).toBeTruthy();
+    expect(screen.queryByText("mesuré sur vos sorties")).toBeNull();
+    // 5460 × 1,01 et × 1,11.
+    expect(texte(vue)).toMatch(/entre\s*1\s*h\s*32\s*et\s*1\s*h\s*41\s*porte à porte/);
+    expect(texte(vue)).toMatch(/de \+1\s*% à\s+\+11\s*%/);
+  });
+
+  it("n'emploie plus le jargon de l'ancien dépliant", () => {
+    // « Je pige pas » (mainteneur, 21/09) : ni « facteur », ni « plancher »,
+    // ni « moyenne à plat » dans l'explication d'un temps mesuré.
+    const vue = render(<Boucles reponse={boucle()} surRetour={() => undefined} />);
+    const depliant = vue.container.querySelector(".temps-ecoule")?.textContent ?? "";
+    expect(depliant).not.toMatch(/facteur|plancher|moyenne à plat|centile/i);
   });
 });
 
@@ -146,7 +162,8 @@ describe("la liste des propositions (Propositions.tsx)", () => {
   it("portent les deux chiffres sur chaque carte", () => {
     const vue = afficher();
     expect(texte(vue)).toMatch(/1\s*h\s*15\s*sans un seul arrêt/);
-    expect(texte(vue)).toMatch(/≈\s*1\s*h\s*20\s*porte à porte/);
+    // 4512 × 1,03 et × 1,08.
+    expect(texte(vue)).toMatch(/entre\s*1\s*h\s*17\s*et\s*1\s*h\s*21\s*porte à porte/);
   });
 
   it("place le bloc de durées juste après le kilométrage, avant le D+", () => {
@@ -195,7 +212,7 @@ describe("le détail d'une proposition (Proposition.tsx)", () => {
   it("porte le porte à porte en majeur, et le temps sans arrêt en second", () => {
     const vue = afficher();
     expect(texte(vue)).toMatch(/1\s*h\s*15\s*sans un seul arrêt/);
-    expect(texte(vue)).toMatch(/≈\s*1\s*h\s*20\s*porte à porte/);
+    expect(texte(vue)).toMatch(/entre\s*1\s*h\s*17\s*et\s*1\s*h\s*21\s*porte à porte/);
     expect(screen.getByText("D'où viennent ces deux chiffres")).toBeTruthy();
   });
 

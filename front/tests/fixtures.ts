@@ -157,14 +157,46 @@ export function apercuFtp(ftp_w: number): Simple<Zones> {
  * Le second temps de sortie et son facteur (18/09/2026, décision « les 2
  * valeurs et une explication »). `provenance` inventée et distinctive :
  * 0,872 ne se retrouve nulle part ailleurs dans ces fixtures.
+ *
+ * `fourchette` (L9.1, 25/09/2026) : la fourchette du porte à porte,
+ * mesurée sur les sorties du vélo (valeurs inventées, 41 sorties) ou la
+ * convention du serveur.
  */
-export function compteur(options?: { provenance?: "mesure" | "suppose" }): Compteur {
+export const FOURCHETTE_MESUREE = { bas: 1.03, mediane: 1.06, haut: 1.08, n: 83 };
+export const FOURCHETTE_CONVENTION = { bas: 1.01, mediane: 1.05, haut: 1.11, n: 0 };
+
+export function compteur(options?: {
+  provenance?: "mesure" | "suppose";
+  fourchette?: "mesure" | "defaut";
+}): Compteur {
+  const fourchette = options?.fourchette ?? "mesure";
+  const valeurs = fourchette === "mesure" ? FOURCHETTE_MESUREE : FOURCHETTE_CONVENTION;
   return {
     velo: "Le vert",
     moyenne_compteur_kmh: 24.6,
     facteur_compteur: 0.872,
     facteur_provenance: options?.provenance ?? "mesure",
-    part_arret_plancher: 0.045,
+    porte_a_porte: { ...valeurs, provenance: fourchette },
+  };
+}
+
+/** Le porte à porte d'une candidate, tel que le serveur le calcule : le temps
+ * sans arrêt multiplié par la fourchette. `null` partout sans vélo. */
+function porteAPorte(mouvementS: number, fourchette: "mesure" | "defaut" | null) {
+  if (fourchette === null) {
+    return {
+      temps_ecoule_s: null,
+      temps_ecoule_bas_s: null,
+      temps_ecoule_haut_s: null,
+      temps_ecoule_source: null,
+    };
+  }
+  const f = fourchette === "mesure" ? FOURCHETTE_MESUREE : FOURCHETTE_CONVENTION;
+  return {
+    temps_ecoule_s: Math.round(mouvementS * f.mediane),
+    temps_ecoule_bas_s: Math.round(mouvementS * f.bas),
+    temps_ecoule_haut_s: Math.round(mouvementS * f.haut),
+    temps_ecoule_source: fourchette,
   };
 }
 
@@ -504,9 +536,8 @@ export function sortie(options?: {
    * pas même un tiret. Par défaut, un facteur mesuré.
    */
   compteur?: "mesure" | "suppose" | null;
-  /** La première candidate est trop vallonnée pour la moyenne compteur : son
-   * second temps vient du plancher d'arrêts, pas de la moyenne habituelle. */
-  arretsPlancher?: boolean;
+  /** D'où vient la fourchette du porte à porte (L9.1) : mesurée par défaut. */
+  fourchette?: "mesure" | "defaut";
 }): Enveloppe<Sortie> {
   const combien = options?.propositions ?? 3;
   const axes = ["ville", "pluie", "vent"];
@@ -548,7 +579,10 @@ export function sortie(options?: {
         lieu_depart: DEPART,
         velo: "Le vert",
       },
-      compteur: options?.compteur === null ? null : compteur({ provenance: options?.compteur ?? "mesure" }),
+      compteur:
+        options?.compteur === null
+          ? null
+          : compteur({ provenance: options?.compteur ?? "mesure", fourchette: options?.fourchette }),
       modele_physique: "modele-invente (Le vert)",
       modele_meteo: { utilise: "modele-meteo-invente", repli: false },
       meteo_absente: null,
@@ -616,20 +650,14 @@ export function sortie(options?: {
         // Le second temps (18/09/2026) : `temps_estime_s` est le temps de
         // mouvement — la même valeur que `duree_s` de la proposition et que
         // `placement.duree_totale_s` ci-dessous, ce sont trois vues du même
-        // chiffre. `temps_ecoule_s` y ajoute les arrêts ; `null` quand
-        // `compteur` (sur la réponse) l'est aussi.
+        // chiffre. `temps_ecoule_*` y ajoutent les arrêts, en fourchette ;
+        // `null` quand `compteur` (sur la réponse) l'est aussi.
         temps_estime_s: 4512 + i * 97,
         temps_source: "modele" as const,
-        temps_ecoule_s:
-          options?.compteur === null
-            ? null
-            : 4512 + i * 97 + (options?.arretsPlancher && i === 0 ? 380 : 420),
-        temps_ecoule_source:
-          options?.compteur === null
-            ? null
-            : options?.arretsPlancher && i === 0
-              ? ("plancher_arrets" as const)
-              : ("compteur" as const),
+        ...porteAPorte(
+          4512 + i * 97,
+          options?.compteur === null ? null : (options?.fourchette ?? "mesure"),
+        ),
         // `km_non_classe` : la troisième catégorie de trafic, ajoutée en même
         // temps que l'élargissement de tolérance par un autre agent. Les deux
         // sont vrais, la fixture porte les deux.
@@ -729,15 +757,18 @@ export function boucle(options?: {
    * second chiffre à l'écran, pas même un tiret. Par défaut, un facteur
    * mesuré. */
   compteur?: "mesure" | "suppose" | null;
-  /** La boucle est trop vallonnée pour la moyenne compteur habituelle. */
-  arretsPlancher?: boolean;
+  /** D'où vient la fourchette du porte à porte (L9.1) : mesurée par défaut. */
+  fourchette?: "mesure" | "defaut";
 }): Enveloppe<Boucle> {
   return {
     proprietaire: "essai",
     donnees: {
       depart: { ...DEPART, heure: "2026-09-16T08:15:00+02:00" },
       demande: { distance_km: 41.3, direction: "NE", candidates: 2 },
-      compteur: options?.compteur === null ? null : compteur({ provenance: options?.compteur ?? "mesure" }),
+      compteur:
+        options?.compteur === null
+          ? null
+          : compteur({ provenance: options?.compteur ?? "mesure", fourchette: options?.fourchette }),
       meteo_absente: null,
       gpx: { id: "b".repeat(32), nom: "boucle.gpx", url: "/api/v1/fichiers/" + "b".repeat(32) },
       candidates: [
@@ -750,10 +781,7 @@ export function boucle(options?: {
           azimut_deg: 46,
           temps_estime_s: 5460,
           temps_source: "modele",
-          temps_ecoule_s:
-            options?.compteur === null ? null : 5460 + (options?.arretsPlancher ? 420 : 780),
-          temps_ecoule_source:
-            options?.compteur === null ? null : options?.arretsPlancher ? "plancher_arrets" : "compteur",
+          ...porteAPorte(5460, options?.compteur === null ? null : (options?.fourchette ?? "mesure")),
           // 2,4 + 38,4 ne font pas les 40,8 km de la boucle : les 3,2 qui
           // manquent sont sur des voies que la carte ne classe pas. C'est
           // exactement le cas que l'écran taisait, et une fixture qui le
