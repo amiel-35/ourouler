@@ -22,8 +22,9 @@ import pytest
 
 from ourouler.api.comptes import ErreurCompteExistant, Invitation, InvitationEmise
 from ourouler.api.courriel import ParametresBrevo
-from ourouler.api.invitation_commande import construire_lien, executer_invitations, executer_inviter
+from ourouler.cli import executer_invitations, executer_inviter
 from ourouler.config import Config, Cycliste, Depart
+from ourouler.services.comptes import construire_lien
 
 PARAMETRES_BREVO = ParametresBrevo(
     serveur="smtp-relay.exemple.invalid",

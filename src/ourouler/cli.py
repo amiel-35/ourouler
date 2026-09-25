@@ -12,7 +12,7 @@ import argparse
 import os
 import sys
 import tomllib
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -21,11 +21,13 @@ from ourouler import __version__
 from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger
 
 if TYPE_CHECKING:
-    # Import réservé à l'analyse statique (annotation de retour de
-    # `_depots_de_l_hebergement`) : le type vit dans `api/retrait_commande.py`, pas
-    # ici, pour que ce module reste importable sans lui (règle du module : une
-    # sous-commande absente ou cassée ne doit pas empêcher les autres de tourner).
-    from ourouler.api.retrait_commande import DepotsHeberges
+    # Imports réservés à l'analyse statique (annotations des adaptateurs de comptes) :
+    # `services/comptes.py` tire le pilote PostgreSQL, un extra ; ce module doit
+    # rester importable sans lui (règle du module : une sous-commande absente ou
+    # cassée ne doit pas empêcher les autres de tourner).
+    from ourouler.api.comptes import DepotComptes
+    from ourouler.api.courriel import FabriqueSMTP, ParametresBrevo
+    from ourouler.services.comptes import DepotsHeberges
 from ourouler.connecteurs.geocodage import (
     LIMITE_DEFAUT,
     Candidat,
@@ -882,9 +884,11 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
 # choses que seul `cli.py` a le droit de lire (règle absolue 2) : l'URL de la
 # base PostgreSQL de l'hébergé, l'URL publique devant laquelle le lien
 # s'ouvre, et — sauf `--sans-courriel` — les secrets du relais SMTP. Le reste
-# (composer et envoyer le courriel, afficher le résultat) est délégué à
-# `api/invitation_commande.py` et `api/courriel.py`, qui ne lisent rien
-# eux-mêmes : `tests/test_invariants.py` le vérifie.
+# (inviter, composer et envoyer le courriel) est délégué à `services/comptes.py`,
+# et l'affichage à `rendu/comptes.py`, qui ne lisent rien eux-mêmes :
+# `tests/test_invariants.py` le vérifie. Les fonctions `executer_*` ci-dessous
+# sont les adaptateurs : options argparse et configuration en entrée, texte ou
+# JSON sur la sortie standard.
 
 #: Où vivent les secrets du *service* (Brevo…), distincts du profil cycliste
 #: de `config.toml` — voir `service.example.toml`. Même statut que
@@ -925,7 +929,6 @@ def ajouter_inviter(sous: argparse._SubParsersAction) -> None:
 def _commande_inviter(args: argparse.Namespace, config: Config) -> int:
     from ourouler.api.comptes import DepotComptes
     from ourouler.api.courriel import parametres_brevo_depuis_dict
-    from ourouler.api.invitation_commande import executer_inviter
 
     url_db = _url_des_comptes("inviter")
     url_pub = _url_publique()
@@ -952,7 +955,6 @@ def ajouter_invitations(sous: argparse._SubParsersAction) -> None:
 
 def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
     from ourouler.api.comptes import DepotComptes
-    from ourouler.api.invitation_commande import executer_invitations
 
     url_db = _url_des_comptes("invitations")
     url_pub = _url_publique()
@@ -960,6 +962,62 @@ def _commande_invitations(args: argparse.Namespace, config: Config) -> int:
     with _base_des_comptes("invitations", url_db) as connexion:
         depot = DepotComptes(connexion)
         return executer_invitations(args, config, depot=depot, url_publique=url_pub)
+
+
+def _nom_complet(config: Config) -> str:
+    """« Prénom Nom » du cycliste qui invite (celui qui a lancé la commande), ou une chaîne vide.
+
+    Une configuration qui ne porte ni l'un ni l'autre donne un e-mail qui dit
+    « vous êtes invité·e », sans inventer de nom (règle absolue 1).
+    """
+    return " ".join(morceau for morceau in (config.cycliste.prenom, config.cycliste.nom) if morceau)
+
+
+def executer_inviter(
+    args: argparse.Namespace,
+    config: Config,
+    *,
+    depot: DepotComptes,
+    url_publique: str,
+    parametres_brevo: ParametresBrevo | None,
+    fabrique_smtp: FabriqueSMTP | None = None,
+) -> int:
+    """`ourouler inviter ADRESSE` : le service `inviter`, puis son affichage. Code 0.
+
+    Un refus du dépôt (compte déjà actif, adresse invalide) remonte tel quel :
+    `main()` l'affiche en une ligne, code 2, sans trace.
+    """
+    from ourouler.rendu.comptes import json_lien_emis, texte_lien_emis
+    from ourouler.services.comptes import inviter
+
+    resultat = inviter(
+        args.adresse,
+        depot=depot,
+        url_publique=url_publique,
+        sans_courriel=getattr(args, "sans_courriel", False),
+        parametres_brevo=parametres_brevo,
+        invite_par=_nom_complet(config),
+        fabrique_smtp=fabrique_smtp,
+    )
+    print(json_lien_emis(resultat) if getattr(args, "json", False) else texte_lien_emis(resultat))
+    return 0
+
+
+def executer_invitations(
+    args: argparse.Namespace,
+    config: Config,
+    *,
+    depot: DepotComptes,
+    url_publique: str,
+) -> int:
+    """`ourouler invitations` : les invitations en cours, adresse et lien compris. Code 0."""
+    from ourouler.rendu.comptes import json_invitations, texte_invitations
+    from ourouler.services.comptes import invitations_en_cours
+
+    del config  # non utilisé ici, gardé pour la même signature que les autres sous-commandes
+    invitations = invitations_en_cours(depot=depot, url_publique=url_publique)
+    print(json_invitations(invitations) if getattr(args, "json", False) else texte_invitations(invitations))
+    return 0
 
 
 # --- reinitialiser (lot L9.6) --------------------------------------------------
@@ -996,7 +1054,6 @@ def ajouter_reinitialiser(sous: argparse._SubParsersAction) -> None:
 def _commande_reinitialiser(args: argparse.Namespace, config: Config) -> int:
     from ourouler.api.comptes import DepotComptes
     from ourouler.api.courriel import parametres_brevo_depuis_dict
-    from ourouler.api.invitation_commande import executer_reinitialiser
 
     url_db = _url_des_comptes("reinitialiser")
     url_pub = _url_publique()
@@ -1012,11 +1069,37 @@ def _commande_reinitialiser(args: argparse.Namespace, config: Config) -> int:
         )
 
 
+def executer_reinitialiser(
+    args: argparse.Namespace,
+    config: Config,
+    *,
+    depot: DepotComptes,
+    url_publique: str,
+    parametres_brevo: ParametresBrevo | None,
+    fabrique_smtp: FabriqueSMTP | None = None,
+) -> int:
+    """`ourouler reinitialiser ADRESSE` : le service `reinitialiser`, puis son affichage. Code 0."""
+    from ourouler.rendu.comptes import json_lien_emis, texte_lien_emis
+    from ourouler.services.comptes import reinitialiser
+
+    del config  # non utilisé : pas de « X vous invite » sur un lien de réinitialisation
+    resultat = reinitialiser(
+        args.adresse,
+        depot=depot,
+        url_publique=url_publique,
+        sans_courriel=getattr(args, "sans_courriel", False),
+        parametres_brevo=parametres_brevo,
+        fabrique_smtp=fabrique_smtp,
+    )
+    print(json_lien_emis(resultat) if getattr(args, "json", False) else texte_lien_emis(resultat))
+    return 0
+
+
 # --- retirer (lot L9.6) ---------------------------------------------------------
 #
 # Ferme un compte, ses sessions, son invitation, et efface ses données
 # personnelles — le même chemin que `DELETE /moi` (`api/routes.py`), jamais une
-# réimplémentation : `api/retrait_commande.py` appelle `vie_privee.effacer_donnees`
+# réimplémentation : `services/comptes.retirer` appelle `vie_privee.effacer_donnees`
 # telle quelle. Cette commande a donc besoin de plus que la base des comptes :
 # les mêmes dépôts (profil, fichiers, journal, générations) et le même dossier de
 # cache que le serveur hébergé réellement lancé — `_depots_de_l_hebergement`
@@ -1076,7 +1159,6 @@ def ajouter_retirer(sous: argparse._SubParsersAction) -> None:
 
 def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
     from ourouler.api.comptes import DepotComptes
-    from ourouler.api.retrait_commande import executer_retirer
 
     url_db = _url_des_comptes("retirer")
 
@@ -1084,11 +1166,61 @@ def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
         depot = DepotComptes(connexion)
         # `_depots_de_l_hebergement` passée telle quelle, jamais appelée ici : elle ne
         # doit s'exécuter (et donc pouvoir refuser sur un dossier de données absent)
-        # qu'une fois l'adresse et la confirmation validées côté `executer_retirer` —
-        # voir la note de module d'`api/retrait_commande.py` ([[B1]] de la relecture).
+        # qu'une fois l'adresse et la confirmation validées — voir `services/comptes.retirer`
+        # ([[B1]] de la relecture).
         return executer_retirer(
             args, config, depot=depot, resoudre_depots_heberges=_depots_de_l_hebergement
         )
+
+
+#: Les réponses qui valent « oui » à la confirmation de `retirer` — en minuscules, sans
+#: espace de bord (la comparaison est faite après `.strip().lower()`).
+REPONSES_OUI = ("o", "oui", "y", "yes")
+
+
+def executer_retirer(
+    args: argparse.Namespace,
+    config: Config,
+    *,
+    depot: DepotComptes,
+    resoudre_depots_heberges: Callable[[], DepotsHeberges],
+    demander_confirmation: Callable[[str], str] | None = None,
+) -> int:
+    """`ourouler retirer ADRESSE`. Renvoie le code de sortie (0 = succès, 1 = annulé).
+
+    `demander_confirmation` est injectable (défaut : `None`, résolu en `input` **au
+    moment de demander**, jamais comme valeur par défaut du paramètre) : une valeur
+    par défaut `= input` capturerait l'objet `input` à l'import du module, qu'un
+    `monkeypatch.setattr("builtins.input", ...)` ne pourrait plus atteindre — un test
+    se retrouverait à attendre une frappe sur stdin.
+
+    Une adresse sans compte lève `ErreurCompte` — `main()` l'affiche en une ligne,
+    code 2, sans trace, comme les refus d'`inviter`.
+    """
+    from ourouler.api import vie_privee
+    from ourouler.rendu.comptes import RETRAIT_ANNULE, json_retrait, question_retrait, texte_retrait
+    from ourouler.services.comptes import retirer
+
+    del config  # non utilisé : cette commande ne construit aucune configuration cycliste
+
+    def confirmer(adresse: str) -> bool:
+        if getattr(args, "oui", False):
+            return True
+        demander = demander_confirmation if demander_confirmation is not None else input
+        return demander(question_retrait(adresse)).strip().lower() in REPONSES_OUI
+
+    retrait = retirer(
+        args.adresse,
+        depot=depot,
+        confirmer=confirmer,
+        resoudre_depots_heberges=resoudre_depots_heberges,
+        effacer_donnees=vie_privee.effacer_donnees,
+    )
+    if retrait is None:
+        print(RETRAIT_ANNULE, file=sys.stderr)
+        return 1
+    print(json_retrait(retrait) if getattr(args, "json", False) else texte_retrait(retrait))
+    return 0
 
 
 def _depots_de_l_hebergement() -> DepotsHeberges:
@@ -1124,8 +1256,8 @@ def _depots_de_l_hebergement() -> DepotsHeberges:
         JournalServices,
         SocleTOML,
     )
-    from ourouler.api.retrait_commande import DepotsHeberges
     from ourouler.config import dossier_cache_depuis
+    from ourouler.services.comptes import DepotsHeberges
 
     chemin = exploitation.chemin_config()
     variables = exploitation.variables()

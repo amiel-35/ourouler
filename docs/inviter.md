@@ -338,7 +338,7 @@ pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
 - `ourouler reinitialiser <adresse>` — émet un lien de nouveau mot de passe
   pour un compte **déjà actif** qui l'a perdu (`src/ourouler/cli.py`,
   `ajouter_reinitialiser`/`_commande_reinitialiser`,
-  `src/ourouler/api/invitation_commande.py`). Même patron que `inviter` :
+  `src/ourouler/services/comptes.py`). Même patron que `inviter` :
   mêmes secrets `service.toml`, `--sans-courriel` pour n'afficher que le
   lien, jeton à usage unique dans la même table `invitations`
   (`src/ourouler/api/comptes.py:reinitialiser`). **Réservée à la ligne de
@@ -351,7 +351,7 @@ pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
   ```
 - `ourouler retirer <adresse>` — ferme un compte hébergé et efface ses
   données personnelles, **par le même chemin que `DELETE /moi`**
-  (`src/ourouler/api/retrait_commande.py` appelle `vie_privee.
+  (`src/ourouler/services/comptes.py:retirer` appelle `vie_privee.
   effacer_donnees` telle quelle, pas une réimplémentation). `--oui` pour ne
   pas demander confirmation. **À lancer `docker exec` (ou équivalent) DANS
   le conteneur du serveur, jamais depuis son propre poste** — pas
@@ -399,7 +399,8 @@ docker exec api-<identifiant>-<...> \
 
 `src/ourouler/cli.py` (`ajouter_inviter`, `_commande_inviter`,
 `_url_des_comptes`, `_url_publique`, `_charger_service`, ~lignes 850-1070),
-`src/ourouler/api/invitation_commande.py`, `src/ourouler/api/courriel.py`,
+`src/ourouler/services/comptes.py`, `src/ourouler/rendu/comptes.py`,
+`src/ourouler/api/courriel.py`,
 `src/ourouler/api/comptes.py` (`DUREE_INVITATION`, `DUREE_SESSION`),
 `src/ourouler/api/depots.py` (`SECTIONS_PERSO_PUR`, `VARIABLES_PERSO_PUR`,
 `CHAMPS_RACINE_MODIFIABLES`), `src/ourouler/api/application.py`
@@ -408,7 +409,7 @@ docker exec api-<identifiant>-<...> \
 `src/ourouler/api/quotas.py`, `src/ourouler/api/exploitation.py`,
 `src/ourouler/api/imports_fond.py`, `src/ourouler/api/taches_fond.py`,
 `src/ourouler/api/vie_privee.py`, `src/ourouler/api/erreurs.py`,
-`src/ourouler/api/calibrations.py`, `src/ourouler/api/retrait_commande.py`,
+`src/ourouler/api/calibrations.py`,
 `src/ourouler/activites/import_archive.py`, `docker-compose.api.coolify.yml`,
 `deploiement/api/README.md`, `deploiement/api/config.example.toml`,
 `service.example.toml`, `src/ourouler/config.py` (`charger`/`depuis_dict`,
