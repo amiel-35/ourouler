@@ -21,7 +21,7 @@
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { EtatCalibrations, Profil, Zones } from "../api/types";
-import { jourEnLettres, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
+import { jourEnLettres, masseVeloAffichee, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
 import { CalibrationVelo } from "../composants/CalibrationVelo";
 import { EcranFtp } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
@@ -265,7 +265,7 @@ export function Reglages({
           <div className="rangee" key={velo.nom}>
             <span className="cle">{velo.nom}</span>
             <span className="val texte">
-              {usageDeVelo(velo.usage)} · {nombre(velo.masse_kg, 1)} kg
+              {usageDeVelo(velo.usage)} · {masseVeloAffichee(velo.masse_kg)}
               {velo.facteur_compteur === null
                 ? " · vitesse supposée"
                 : " · vitesse mesurée sur vos sorties"}
@@ -665,7 +665,7 @@ function ListeVelos({
       origine: v as unknown as Record<string, unknown>,
       nom: v.nom,
       usage: v.usage,
-      masse_kg: String(v.masse_kg),
+      masse_kg: v.masse_kg === null ? "" : String(v.masse_kg),
       // Vide quand `null` : « rien saisi » n'est pas la même chose que
       // « zéro », et c'est le défaut serveur qui s'applique dans ce cas
       // (voir `defauts` ci-dessous).
@@ -854,7 +854,7 @@ function ListeVelos({
               ...velo.origine,
               nom: velo.nom,
               usage: velo.usage,
-              masse_kg: Number(velo.masse_kg.replace(",", ".")),
+              masse_kg: velo.masse_kg.trim() === "" ? null : Number(velo.masse_kg.replace(",", ".")),
               facteur_compteur:
                 velo.facteurCompteur.trim() === ""
                   ? null

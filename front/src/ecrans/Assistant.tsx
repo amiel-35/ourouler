@@ -21,7 +21,7 @@
 import { useState, type FocusEvent, type MouseEvent } from "react";
 import { api, ErreurApi } from "../api/client";
 import type { CategoriePneu, Profil, Zones } from "../api/types";
-import { MASSE_VELO_DEFAUT_KG, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
+import { MASSE_VELO_DEFAUT_KG, masseVeloAffichee, nombre, PNEUS, pourcentage, usageDeVelo } from "../api/formats";
 import { EcranFtp, ftpAffichee } from "../composants/EcranFtp";
 import { FormulaireAdresse } from "../composants/FormulaireAdresse";
 import type { DepartChoisi } from "../composants/FormulaireAdresse";
@@ -816,7 +816,7 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
               <div className="rangee" key={velo.nom}>
                 <span className="cle">{velo.nom}</span>
                 <span className="val texte">
-                  {usageDeVelo(velo.usage)} · {nombre(velo.masse_kg, 1)} kg
+                  {usageDeVelo(velo.usage)} · {masseVeloAffichee(velo.masse_kg)}
                 </span>
               </div>
             ))}

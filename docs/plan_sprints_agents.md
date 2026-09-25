@@ -1186,6 +1186,29 @@ bloquant à la base des comptes hors de la boucle d'événements
 `service_externe_indisponible` (502) plutôt qu'un 500 brut, vérifié par un
 test qui mesure que deux appels concurrents ne se bloquent pas l'un l'autre.
 
+**L9.7 — l'accueil de l'invité, joué dans un vrai navigateur (25/09/2026).**
+Service hébergé monté en local (Postgres jetable, BRouter et Open-Meteo réels),
+un invité joué de bout en bout : lien d'invitation, mot de passe, assistant,
+trois boucles (« entre 1 h 44 et 1 h 56 porte à porte »), import de 30 FIT
+réels par la route, calibration depuis Réglages, suppression du compte (zéro
+sortie ni fichier restant, connexion refusée ensuite). Huit défauts vus à
+l'écran, corrigés sur `l9-7-accueil` : l'étape Strava/Garmin qui disait
+l'import « pas encore proposé » propose désormais le dépôt
+(`composants/DepotHistorique.tsx`) ; le pneu demandé dans l'assistant ; le
+poids du vélo à 8 kg affiché contre 9 kg annoncés (une seule constante) ; des
+champs pré-remplis où la saisie s'ajoutait (« 7075 kg ») ; une erreur de
+validation brute (« [cycliste] masse_kg = 7075.0 hors de [20, 300] ») devenue
+« Votre poids doit être entre 20 et 300 kg » ; l'accueil sans Intervals qui
+taisait le dépôt des sorties ; `?onglet=` ignoré au chargement ; le numéro de
+rue obligatoire pour une place. **Le rejeu de ces corrections dans le
+navigateur a trouvé une régression** — un vélo sans poids (`null`, désormais
+possible) faisait tomber le récapitulatif et Réglages — corrigée et gardée par
+`front/tests/velo_sans_poids.test.tsx`. Une instabilité reste au backlog :
+sur 30 sorties importées, la calibration donne 167 W à 30 km/h, contre 188 W
+sur tout l'historique en ligne de commande et 199 W sur 40 sorties (essai
+L9.4) — à 10 sorties minimum, le chiffre bouge de ±15 W ; l'erreur de
+validation affichée (4,9 % sur 7 sorties) le laisse deviner sans le dire.
+
 **Restent au mainteneur, hors du dépôt (règle absolue 7) :**
 
 - L'action Q66a sur Coolify et le redéploiement du service hébergé — vider

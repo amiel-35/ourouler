@@ -295,6 +295,11 @@ export const PNEUS: { cle: CategoriePneu; libelle: string }[] = [
  */
 export const MASSE_VELO_DEFAUT_KG = 9;
 
+/** Le poids d'un vélo tel qu'on l'affiche : le déclaré, ou le défaut dit comme supposé. */
+export function masseVeloAffichee(masseKg: number | null): string {
+  return masseKg === null ? `${MASSE_VELO_DEFAUT_KG} kg supposés` : `${nombre(masseKg, 1)} kg`;
+}
+
 /**
  * D'où vient une adresse trouvée, **nommé plutôt que codé**.
  *

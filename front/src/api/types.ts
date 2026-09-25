@@ -122,7 +122,8 @@ export interface PointDepart {
 export interface VeloProfil {
   nom: string;
   usage: string;
-  masse_kg: number;
+  /** `null` : rien déclaré, le serveur suppose `MASSE_VELO_DEFAUT_KG`. */
+  masse_kg: number | null;
   cda_m2: number | null;
   crr: number | null;
   facteur_compteur: number | null;
