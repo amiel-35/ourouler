@@ -141,22 +141,22 @@ describe("le cadrage de la carte", () => {
     appelsLatLngBounds.length = 0;
     const rennes = trace(
       [
-        [48.1, -1.68],
-        [48.11, -1.66],
+        [0.1, 0.32],
+        [0.11, 0.34],
       ],
       true,
     );
     const lointaine1 = trace(
       [
-        [47.6, -2.8],
-        [47.65, -2.75],
+        [-0.4, -0.8],
+        [-0.35, -0.75],
       ],
       false,
     );
     const lointaine2 = trace(
       [
-        [48.6, -0.2],
-        [48.65, -0.15],
+        [0.6, 1.8],
+        [0.65, 1.85],
       ],
       false,
     );
@@ -175,15 +175,15 @@ describe("le cadrage de la carte", () => {
     appelsLatLngBounds.length = 0;
     const boucleA = trace(
       [
-        [48.1, -1.68],
-        [48.11, -1.66],
+        [0.1, 0.32],
+        [0.11, 0.34],
       ],
       true,
     );
     const boucleB = trace(
       [
-        [48.6, -0.2],
-        [48.65, -0.15],
+        [0.6, 1.8],
+        [0.65, 1.85],
       ],
       false,
     );
@@ -209,15 +209,15 @@ describe("le cadrage de la carte", () => {
     appelsLatLngBounds.length = 0;
     const boucleA = trace(
       [
-        [48.1, -1.68],
-        [48.11, -1.66],
+        [0.1, 0.32],
+        [0.11, 0.34],
       ],
       false,
     );
     const boucleB = trace(
       [
-        [48.6, -0.2],
-        [48.65, -0.15],
+        [0.6, 1.8],
+        [0.65, 1.85],
       ],
       false,
     );
