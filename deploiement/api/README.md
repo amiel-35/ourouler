@@ -116,6 +116,52 @@ volontairement hors de `/api/v1` et hors du schéma publié
 question posée par l'infrastructure. Le `Dockerfile` la pose en
 `HEALTHCHECK` ; Coolify peut l'utiliser de la même façon.
 
+## Gérer les comptes depuis la ligne de commande (mainteneur)
+
+En mode `heberge`, les comptes se gèrent **exclusivement** en ligne de
+commande, depuis la machine du mainteneur — jamais par une route HTTP
+ouverte à qui que ce soit d'autre (`src/ourouler/api/comptes.py`). Les
+quatre commandes lisent les mêmes deux variables : `OUROULER_DATABASE_URL`
+(l'URL de la base PostgreSQL de comptes, appliquant ses migrations au
+passage si besoin) et `OUROULER_URL_PUBLIQUE` (l'URL publique du front
+hébergé, devant laquelle `/entrer` et `/reinitialiser` s'ouvrent) — les
+poser dans l'environnement du poste qui lance la commande, pas dans
+`deploiement/api/.env` (qui sert le conteneur, pas la CLI du mainteneur).
+`--sans-courriel` affiche seulement le lien à la place d'envoyer un
+courriel, ce qui évite de charger `service.toml` (les secrets Brevo).
+
+- **`ourouler inviter ADRESSE`** — crée un compte inactif et une invitation ;
+  émet le lien `/entrer?jeton=...`, à usage unique, valable trois jours. Un
+  compte déjà actif est refusé (« il a déjà un compte »).
+- **`ourouler invitations`** — liste les invitations en cours, avec leur
+  lien et leur échéance — pour relire ou renvoyer un lien déjà émis sans le
+  régénérer.
+- **`ourouler reinitialiser ADRESSE`** (lot L9.6) — le pendant d'`inviter`
+  pour un compte **déjà actif** qui a perdu son mot de passe : émet un lien
+  `/reinitialiser?jeton=...`, même mécanisme de jeton à usage unique. Rien
+  n'est changé tant que le lien n'est pas ouvert et le formulaire soumis ;
+  à ce moment-là, **toutes les sessions déjà ouvertes de ce compte sont
+  fermées** — quiconque était connecté doit se reconnecter avec le nouveau
+  mot de passe.
+- **`ourouler retirer ADRESSE`** (lot L9.6) — ferme le compte (mot de
+  passe, sessions, invitation) et efface ses données personnelles, par le
+  même chemin que le bouton « Supprimer mon compte » du front
+  (`DELETE /moi`, `api/vie_privee.effacer_donnees`) — jamais une
+  réimplémentation séparée. Demande confirmation (adresse affichée en
+  toutes lettres) avant d'agir ; `--oui` s'en passe, pour un script. Les
+  routes apprises des sorties de ce compte ne sont **pas** effacées : elles
+  restent collectives (doctrine du projet, §10.2).
+
+**Pas de « mot de passe oublié » en libre-service, et c'est volontaire.**
+Aucune route HTTP n'accepte une adresse seule pour déclencher l'envoi d'un
+lien de réinitialisation : ouvrir un tel geste à n'importe qui ferait de ce
+serveur un relais de spam (poster une adresse au hasard suffirait à lui
+faire envoyer un courriel) et un oracle d'énumération d'adresses (la
+réponse dirait si l'adresse a un compte chez ourouler, comme
+`ErreurCompteExistant` le documente déjà pour `inviter`). `reinitialiser`
+reste donc un geste du mainteneur, en ligne de commande, sur son propre
+poste — comme `inviter`.
+
 ## Les pièges Coolify (deux hérités du générateur, deux mesurés ici)
 
 Les deux s'appliquent ici à l'identique — voir `docker-compose.coolify.yml`
