@@ -338,6 +338,8 @@ l'organisation du code sont dans `front/README.md`.
 - `doctrine_architecture.md` — les choix structurants et leurs raisons.
 - `docs/plan_sprints_agents.md` — sprints, critères d'acceptation, équipe d'agents.
 - `docs/questions_mainteneur.md` — ce qui attend une décision.
+- `docs/inviter.md` — inviter quelqu'un sur le service hébergé : prérequis
+  de déploiement, commande, ce que voit l'invité, ses limites.
 - `docs/heberge_minimal_contrat.md` — le contrat de l'hébergé minimal.
 - `docs/ux/front_contrat.md` — les lots du front, dans l'ordre.
 - `docs/ux/api_contrat.md` — le contrat de l'API que le front consomme.
