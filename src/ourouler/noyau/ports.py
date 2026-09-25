@@ -78,3 +78,39 @@ class SourceSeances(Protocol):
     def evenements(self, depuis: date, jusqua: date | None = None) -> list[dict]:
         """Les événements bruts d'une plage de jours locaux, bornes incluses."""
         ...
+
+
+class DepotActivites(Protocol):
+    """Là où une synchronisation range les sorties rapatriées : `activites.cache.Cache`.
+
+    Le connecteur Intervals le reçoit (`connecteurs.intervals.synchroniser`)
+    sans importer le cache (lot 7) : il demande si une sortie est déjà là,
+    en rafraîchit les métadonnées, ou y ajoute le fichier téléchargé.
+    """
+
+    def contient(self, *, source: str, id_externe: str) -> bool:
+        """Vrai si la sortie `(source, id_externe)` est déjà rangée."""
+        ...
+
+    def mettre_a_jour_meta(
+        self,
+        *,
+        source: str,
+        id_externe: str,
+        meta: dict,
+        equipement: str | None = None,
+    ) -> bool:
+        """Réécrit les métadonnées d'une sortie déjà rangée ; vrai si elle a été trouvée."""
+        ...
+
+    def ajouter(
+        self,
+        contenu: bytes,
+        *,
+        source: str,
+        id_externe: str | None,
+        extension: str,
+        meta: dict,
+    ) -> str:
+        """Range un fichier d'activité et ses métadonnées ; rend son identifiant (sha256)."""
+        ...

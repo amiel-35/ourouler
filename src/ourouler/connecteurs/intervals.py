@@ -16,9 +16,9 @@ from datetime import date, timedelta
 
 import httpx
 
-from ourouler.activites.cache import Cache
 from ourouler.noyau.activite import est_sport_velo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilisateur
+from ourouler.noyau.ports import DepotActivites
 
 BASE_URL = "https://intervals.icu"
 
@@ -515,7 +515,7 @@ def metadonnees(activite: dict, equipements: dict[str, str] | None = None) -> di
 
 def synchroniser(
     client: ClientIntervals,
-    cache: Cache,
+    cache: DepotActivites,
     depuis: date,
     *,
     rafraichir_meta: bool = True,
@@ -538,6 +538,10 @@ def synchroniser(
     cache (capteur de puissance, équipement, appareil) **sans** retélécharger
     le fichier : c'est ce qui permet d'enrichir un cache rempli avant que le
     rattachement par capteur existe, sans repayer 355 téléchargements.
+
+    `cache` est un `noyau.ports.DepotActivites` — `activites.cache.Cache` en
+    pratique, que l'appelant construit : le connecteur ne connaît pas le
+    cache, seulement les trois questions qu'il lui pose (lot 7).
     """
     rapport = RapportSynchro()
     activites = client.activites(depuis)
