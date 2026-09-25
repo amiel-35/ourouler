@@ -2091,3 +2091,24 @@ premier rendu.
   de la puissance normalisée ; lissage du dénivelé à 5 points non calibré ;
   découpage mois/jour en UTC ; règle « ici » sans vent relatif ; budget de
   fixtures à 2 % de sa borne ; Q7 (ordre des règles de rattachement).
+
+Backlog « la séance du jour part à 9 h, quelle que soit l'heure » (constat du
+mainteneur, 25/09/2026 vers 17:30, en production, onglet « Aujourd'hui »,
+**non fait** — gel du sprint d'ouverture) : la proposition affichée disait
+« 9 h 00 … retour vers 9 h 52 », avec une tenue d'automne (« au départ :
+14 °C ressentis, catégorie frais » : manchettes, jambières, gilet, gants
+longs) alors qu'il faisait environ 30 °C au moment de partir. Cause
+localisée : `demandeInitiale()` pose `heure_depart: "09:00"` en dur
+(`front/src/ecrans/Demander.tsx:70`), et le parcours « Aujourd'hui » reprend
+cette demande sans jamais demander l'heure ni afficher un moyen de la
+changer. Météo, tenue, placement des blocs selon le vent : tout est calculé
+pour le matin.
+
+Pistes à cadrer, pas tranchées :
+- le jour même, partir par défaut de l'heure courante arrondie au quart
+  d'heure suivant (et 9 h pour un autre jour) ;
+- afficher l'heure de départ sur « Aujourd'hui » et la rendre modifiable en
+  un geste ;
+- si la séance planifiée d'Intervals porte une heure, la prendre.
+Voisin du correctif 0.9.4 (fuseau du conteneur) mais distinct : là l'heure
+demandée était bien 09:00, et c'est ce 09:00 qui est faux.
