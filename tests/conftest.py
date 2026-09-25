@@ -3,21 +3,130 @@
 Les fichiers d'activité de test sont versionnés dans
 `tests/fixtures/activites/`, mais régénérés automatiquement s'ils manquent :
 le script `tests/fixtures/generer_activites.py` est la source de vérité.
-Aucun test ne touche le réseau.
+Aucun test ne touche le réseau — voir `reseau_interdit` ci-dessous.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import itertools
+import socket
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 DOSSIER_FIXTURES = Path(__file__).resolve().parent / "fixtures"
 DOSSIER_ACTIVITES = DOSSIER_FIXTURES / "activites"
+
+
+# --- pas de réseau dans les tests, pour toute la suite ------------------------
+#
+# `tests/api/conftest.py` et `tests/adversarial/conftest.py` coupent déjà tout
+# le réseau, sans exception, pour leurs dossiers respectifs — de même que la
+# fixture `garde_reseau` importée par les modules de `tests/caracterisation/`.
+# Ils sont volontairement conservés : ils font strictement plus que la garde
+# ci-dessous (aucune sortie locale non plus, pas même `127.0.0.1`), ce dont
+# leurs tests ASGI/rejoués n'ont jamais besoin. Cette garde-ci couvre le
+# **reste** de la suite, qui n'avait jusqu'ici aucun filet : un `monkeypatch`
+# déplacé par une restructuration pouvait laisser un test partir sur Internet
+# sans que rien ne le signale.
+#
+# Elle bloque toute connexion qui n'est pas locale, mais laisse passer la
+# boucle locale : `tests/comptes/` a besoin d'une vraie connexion TCP vers le
+# PostgreSQL jetable que Docker publie sur `127.0.0.1` (voir
+# `tests/comptes/conftest.py`). psycopg parle au serveur via la libpq (code C,
+# hors du module `socket` de Python) : cette garde ne le voit de toute façon
+# pas passer, local ou non.
+#
+# Comme pour les gardes existantes, `ReseauInterdit` dérive de `BaseException`
+# pour qu'un `except Exception` du code testé ne puisse pas l'avaler en
+# silence.
+
+
+class ReseauInterdit(BaseException):
+    """Un test a tenté de sortir sur le réseau. Règle absolue 3 de CLAUDE.md."""
+
+
+#: Hôtes considérés locaux : boucle locale (v4/v6), nom conventionnel, et
+#: `""`/`None` (adresse « toutes interfaces », utilisée en écoute plutôt qu'en
+#: connexion, mais jamais une sortie vers Internet).
+_HOTES_LOCAUX = frozenset({"127.0.0.1", "::1", "localhost", "0.0.0.0", "", None})
+
+
+def _hote_est_local(hote: object) -> bool:
+    if isinstance(hote, bytes):
+        hote = hote.decode("utf-8", errors="replace")
+    return hote in _HOTES_LOCAUX
+
+
+def _cible(adresse: object) -> tuple[object, object] | None:
+    """`(hôte, port)` d'une adresse `AF_INET`/`AF_INET6`, ou `None` pour un
+    chemin de socket Unix (`str`/`bytes` au lieu d'un tuple) — toujours local."""
+    if isinstance(adresse, tuple) and len(adresse) >= 2:
+        return adresse[0], adresse[1]
+    return None
+
+
+def _message(hote: object, port: object) -> str:
+    return (
+        f"test qui sort sur Internet : {hote}:{port} — la règle est pas de réseau "
+        "dans les tests ; injecter un client ou une réponse enregistrée"
+    )
+
+
+@pytest.fixture(autouse=True)
+def reseau_interdit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Coupe toute sortie réseau non locale, pour l'ensemble de la suite."""
+
+    connect_original = socket.socket.connect
+    connect_ex_original = socket.socket.connect_ex
+    create_connection_original = socket.create_connection
+    getaddrinfo_original = socket.getaddrinfo
+
+    def connect(self: socket.socket, adresse: Any, *args: Any, **kwargs: Any):
+        cible = _cible(adresse)
+        if cible is not None and not _hote_est_local(cible[0]):
+            raise ReseauInterdit(_message(*cible))
+        return connect_original(self, adresse, *args, **kwargs)
+
+    def connect_ex(self: socket.socket, adresse: Any, *args: Any, **kwargs: Any):
+        cible = _cible(adresse)
+        if cible is not None and not _hote_est_local(cible[0]):
+            raise ReseauInterdit(_message(*cible))
+        return connect_ex_original(self, adresse, *args, **kwargs)
+
+    def create_connection(adresse: Any, *args: Any, **kwargs: Any):
+        cible = _cible(adresse)
+        if cible is not None and not _hote_est_local(cible[0]):
+            raise ReseauInterdit(_message(*cible))
+        return create_connection_original(adresse, *args, **kwargs)
+
+    def getaddrinfo(hote: Any, port: Any, *args: Any, **kwargs: Any):
+        if not _hote_est_local(hote):
+            raise ReseauInterdit(_message(hote, port))
+        return getaddrinfo_original(hote, port, *args, **kwargs)
+
+    monkeypatch.setattr(socket.socket, "connect", connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
+    monkeypatch.setattr(socket, "create_connection", create_connection)
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+
+
+@pytest.fixture
+def classe_reseau_interdit() -> type[BaseException]:
+    """`ReseauInterdit`, exposée en fixture plutôt qu'en `from conftest import` :
+
+    quatre `conftest.py` coexistent sous `tests/` (racine, `api/`,
+    `adversarial/`, `comptes/`), tous nommés `conftest` une fois importés —
+    `from conftest import ...` depuis un module à la racine de `tests/`
+    résout au hasard de l'ordre de collecte (déjà noté dans
+    `tests/caracterisation/outils_caracterisation.py`). Une fixture, elle,
+    passe par le mécanisme de pytest, jamais par `sys.modules["conftest"]`.
+    """
+    return ReseauInterdit
 
 
 def _generateur():
