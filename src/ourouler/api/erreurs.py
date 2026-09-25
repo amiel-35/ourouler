@@ -122,6 +122,10 @@ CODES_PANNE: dict[str, str] = {
         "cette application n'a aucun profil — elle a été construite sans "
         "configuration, et rien n'a encore été écrit par PATCH /profil"
     ),
+    "quota_atteint": (
+        "quota journalier de générations coûteuses atteint pour ce compte "
+        "(429) — le mode personnel n'est pas concerné (L9.3)"
+    ),
     "erreur_interne": "un bug — le détail reste au journal, jamais dans la réponse",
 }
 
