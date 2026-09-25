@@ -56,9 +56,11 @@ from ourouler.api.modeles import (
     TexteUtile,
 )
 from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.quotas import Quotas
 from ourouler.api.session import (
     CODE_SANS_SESSION,
     MESSAGE_SANS_SESSION,
+    MODE_PERSONNEL,
     NOM_COOKIE,
     FournisseurSession,
     SessionParCookie,
@@ -68,6 +70,7 @@ from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
+from ourouler.meteo.cache_previsions import ClientOpenMeteoCache
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
@@ -89,6 +92,7 @@ PANNES_DECLAREES: dict[int | str, dict] = {
         (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
         (422, "requête ou fichier refusés — voir `erreur.code`"),
+        (429, "quota journalier de générations atteint (`quota_atteint`)"),
         (500, "bug du serveur (`erreur_interne`) ou configuration invalide"),
         (502, "un service externe a répondu mal ou pas du tout — voir `erreur.code`"),
     )
@@ -176,6 +180,9 @@ class Contexte:
     generations: DepotGenerations
     clients: Clients
     budgets: Budgets
+    #: Quota journalier de générations coûteuses par compte (L9.3). Le mode
+    #: personnel n'est pas concerné — voir `_verifier_quota`.
+    quotas: Quotas
     journal: JournalServices
     #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
@@ -291,6 +298,25 @@ def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
         return ctx.clients.connecteur(nom, config)
     except Exception as e:
         raise classer(e) from e
+
+
+def _verifier_quota(ctx: Contexte, qui: Proprietaire) -> None:
+    """Décompte une génération coûteuse pour ce compte — ou refuse (L9.3).
+
+    **Rien en mode personnel** : `ourouler api` sur la machine du mainteneur
+    sert toujours `PROPRIETAIRE_LOCAL` par `SessionPersonnelle`
+    (`api/session.py`), qui appelle Open-Meteo et BRouter depuis sa propre
+    adresse — aucun poste partagé à protéger (doctrine §10.1). Le test porte
+    sur le **mode**, pas sur l'identifiant : c'est `ctx.session.mode` qui dit
+    quel produit ce processus sert, l'identifiant ne fait que suivre.
+
+    Appelée **avant** tout travail (réservation de fichier, appel au cœur) :
+    un compte au plafond ne doit rien coûter au serveur pour se l'entendre
+    dire.
+    """
+    if ctx.session.mode == MODE_PERSONNEL:
+        return
+    ctx.quotas.consommer(qui)
 
 
 def _avec_journal(ctx: Contexte, qui: Proprietaire, services: tuple[str, ...], appel):
@@ -508,7 +534,7 @@ def systeme(
     renseigné, il n'a pas besoin de la clé pour ça.
     """
     config = _config(ctx, qui)
-    return {
+    charge: dict = {
         "proprietaire": str(qui),
         "version": __version__,
         "capacites": {
@@ -518,6 +544,13 @@ def systeme(
         },
         "budgets": ctx.budgets.tous(),
     }
+    if ctx.session.mode != MODE_PERSONNEL:
+        # Quota et cache météo n'existent que pour distinguer des comptes —
+        # sans objet en mode personnel (`_verifier_quota`).
+        charge["quota"] = {"plafond": ctx.quotas.plafond, "restant": ctx.quotas.restant(qui)}
+    if isinstance(ctx.clients.meteo, ClientOpenMeteoCache):
+        charge["cache_meteo"] = ctx.clients.meteo.stats()
+    return charge
 
 
 @routeur.get("/systeme/budgets")
@@ -1080,6 +1113,7 @@ def generer_sortie(
     """
     from ourouler.sortie import commande as sortie_commande
 
+    _verifier_quota(ctx, qui)
     config = _config(ctx, qui)
     carte = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.html")
     seance = _chemin_seance(ctx, qui, demande.fichier_seance)
@@ -1170,6 +1204,7 @@ def generer_boucle(
     """Une boucle libre, sans séance : candidates, coûts, météo le long du tracé, géométrie."""
     from ourouler.boucle import commande as boucle_commande
 
+    _verifier_quota(ctx, qui)
     config = _config(ctx, qui)
     # Q47 : sans direction, la recherche balaie tout l'horizon (comme
     # `sortie`) plutôt que de refuser — le nom réservé le dit en clair plutôt
