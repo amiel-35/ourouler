@@ -68,13 +68,14 @@ HTTP injectable :
 |---|---|---|
 | `cli.py` | argparse, lecture de la config, appel des commandes | `cli.py` (1 428) |
 | `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` (886) |
-| `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…), les protocoles que le domaine reçoit à la place des clients HTTP (`Routeur`, `SourcePrevisions`, `SourceSeances`) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py`, `ports.py` |
+| `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…), les protocoles que le domaine reçoit à la place des clients HTTP (`Routeur`, `SourcePrevisions`, `SourceSeances`) et celui où le connecteur Intervals range ses sorties (`DepotActivites`) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py`, `ports.py` |
 | `activites/` | lecteur unique FIT/GPX/TCX, cache SQLite, inventaire, import d'archive | `cache.py` (703), `import_archive.py` (526), `lecture.py` (490) |
 | `connecteurs/` | clients HTTP : BRouter, Intervals.icu, archives Open-Meteo, géocodage | `brouter.py` (604), `intervals.py` (595), `openmeteo_archive.py` (478) |
+| `stockage/` | ce qui s'écrit sur disque et se relit : `calibration.json` (lot 7) ; le cache d'activités, les routes connues et le cache des prévisions y viendront | `calibrations.py` |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
 | `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (1 857), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
-| `physique/` | modèle puissance ↔ vitesse, calibration CdA/Crr, comparaison de vélos | `calibration.py` (1 782), `commande.py` (1 330), `comparer.py` (884), `modele.py` (668) |
-| `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue, écran de FTP | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
+| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calibration CdA/Crr, comparaison de vélos | `calibration.py` (1 782), `commande.py` (1 330), `comparer.py` (884), `modele.py` (668) |
+| `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions, carte HTML | `commande.py` (2 494), `carte.py` (1 283), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
@@ -86,7 +87,9 @@ Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
 `proprietaire.py`, `seance/modele.py` et `seance/zones.py` ne sont plus que
 des réexports du noyau, pour un appelant extérieur ; le code du dépôt importe
 `ourouler.noyau`, et le lot final les retire. `config.py` réexporte de même
-le profil, et `meteo/openmeteo.py` les types de prévision.
+le profil, et `meteo/openmeteo.py` les types de prévision. Depuis le lot 7,
+`physique/commande.py` réexporte de même la lecture et l'écriture de
+`calibration.json` (`stockage/calibrations.py`) et la `Calibration`.
 
 Chaque paquet de domaine a son `commande.py` : c'est la sous-commande de la
 ligne de commande, et, on le verra, bien plus que ça.
@@ -139,7 +142,7 @@ d'une entrée à une autre, sans cycle.
 **Les `commande.py` font tout.** `sortie/commande.py` (2 494 lignes),
 `boucle/commande.py` (1 857) et `physique/commande.py` (1 330) mêlent la
 lecture des options argparse, l'orchestration des connecteurs, les écritures
-de fichiers, le rendu texte et le rendu JSON. Des modules du domaine importent
+de fichiers, le rendu texte et le rendu JSON. D'autres cas d'usage importent
 ces fichiers de commande : `seance/ecran_ftp.py` et `physique/comparer.py`
 importent `physique/commande.py` ; `sortie/commande.py` importe les
 commandes de `boucle`, `meteo`, `seance` et `apprentissage`.
@@ -154,7 +157,8 @@ commandes de `boucle`, `meteo`, `seance` et `apprentissage`.
 - les cas d'usage (`*/commande.py`) reçoivent la `Config` entière, qui reste
   dans `config.py` : le défaut de son dossier de cache se résout depuis le
   répertoire de l'utilisateur ;
-- `connecteurs/` importe `activites` et `boucle`, qui l'importent en retour ;
+- `connecteurs/` n'importe plus que le noyau depuis le lot 7 (le connecteur
+  Intervals range ses sorties dans un `DepotActivites`) ;
 - `boucle/candidates.py` reçoit un `ClientBrouter` concret, pas une interface.
 
 **La physique n'est pas pure.** `physique/calibration.py` importe le `Cache`
@@ -203,8 +207,8 @@ La règle d'imports est un test, `tests/test_architecture.py`, sur le modèle
 de `tests/test_invariants.py`. Il lit dans l'arbre syntaxique les imports
 internes de chaque module, imports différés compris ; ceux sous
 `TYPE_CHECKING` sont permis mais nommés. Chaque module y est rangé dans une
-couche et un paquet cible, y compris ceux qui n'ont pas encore de dossier
-(`stockage`, `services`, `rendu`). Une arête qui monte d'une couche,
+couche et un paquet cible, là où il vit de fait, même quand son dossier
+cible le rangerait ailleurs. Une arête qui monte d'une couche,
 qui va contre l'ordre du domaine ou qui ferme un cycle entre paquets est
 interdite.
 
@@ -227,7 +231,8 @@ identiques, et retire les exceptions qu'elle rend inutiles.
 4. Sortir le rendu texte et JSON des `commande.py` de `sortie`, `boucle` et
    `physique`.
 5. Isoler le stockage des calibrations : le domaine reçoit des paramètres,
-   plus un chemin.
+   plus un chemin. *Fait (lot 7)* : `stockage/calibrations.py`,
+   `physique/parametres_velo.py` et `seance/ftp.py`.
 6. Couper `physique/calibration.py` entre le calcul pur et le service qui
    lit les données, à résultat identique au dernier chiffre.
 7. Introduire une interface de routeur et découper `generer`. *Fait (lot 9)* :
@@ -261,7 +266,7 @@ api/adaptateur.py       Namespace argparse + verrou global
   ▼
 sortie/commande.py      executer(args, config, clients…)
   │   ├─ séance du jour ─────────────► connecteurs/intervals.py ──► Intervals.icu
-  │   ├─ paramètres du vélo (physique/modele.py, calibration lue sur disque)
+  │   ├─ paramètres du vélo (physique/parametres_velo.py, calibration lue par stockage/calibrations.py)
   │   ├─ vent au départ ─────────────► meteo/openmeteo.py ────────► Open-Meteo
   │   │                                 (cache mutualisé en hébergé)
   │   ├─ candidates de boucle ───────► boucle/candidates.py
