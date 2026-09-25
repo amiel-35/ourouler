@@ -251,8 +251,14 @@ function ApplicationPrincipale() {
 
   // --- les ressources des onglets ---------------------------------------
 
-  const seanceDuJour = useRessource(() => api.seance(jour), [jour]);
-  const semaine = useRessource(() => api.semaine(), []);
+  // Intervals branché change via l'assistant ou Réglages sans que `jour`
+  // bouge : sans cette dépendance, la séance et la semaine restent sur leur
+  // premier échec (409 intervals_absent) jusqu'au rechargement de page
+  // (défaut constaté en prod le 25/09/2026). Un booléen dérivé, pas l'objet
+  // `profilCourant` entier, pour ne pas recharger à chaque FTP ou poids modifié.
+  const intervalsBranche = profilCourant?.services.intervals.renseigne ?? false;
+  const seanceDuJour = useRessource(() => api.seance(jour), [jour, intervalsBranche]);
+  const semaine = useRessource(() => api.semaine(), [intervalsBranche]);
 
   useEffect(() => {
     if (semaine.valeur) retenirLectureSeances(jour);
