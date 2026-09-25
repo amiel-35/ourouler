@@ -58,7 +58,14 @@ from ourouler.api.quotas import (
     IMPORTS_PAR_JOUR_DEFAUT,
     Quotas,
 )
-from ourouler.api.routes import TAILLE_MAX_SEANCE, Clients, Contexte, reponse_erreur, routeur
+from ourouler.api.routes import (
+    TAILLE_MAX_PARCOURS,
+    TAILLE_MAX_SEANCE,
+    Clients,
+    Contexte,
+    reponse_erreur,
+    routeur,
+)
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.erreurs import ErreurConfig
@@ -73,6 +80,10 @@ NOM_DOSSIER_DONNEES = "api"
 BORNES_CORPS = {
     "/api/v1/activites/import": TAILLE_MAX_REQUETE,
     "/api/v1/seances/fichier": TAILLE_MAX_SEANCE,
+    # L9.8 : sans cette ligne, un envoi en `chunked` (ou au `Content-Length`
+    # menteur) passait la garde de la route et s'écrivait en entier sur disque
+    # puis en mémoire avant d'être compté (relecture du 25/09/2026).
+    "/api/v1/parcours/fichier": TAILLE_MAX_PARCOURS,
 }
 
 

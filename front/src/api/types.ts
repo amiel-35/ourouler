@@ -891,6 +891,8 @@ export interface Analyse {
   heure_arrivee_bas: string;
   heure_arrivee_haut: string;
   meteo_absente: MeteoAbsente | null;
-  meteo: MeteoCandidate | null;
+  /** `bascule_dist_m` : au-delà, la prévision vient du second modèle (portée
+   * horaire du principal dépassée) — un long parcours y arrive souvent. */
+  meteo: (MeteoCandidate & { bascule_dist_m?: number | null }) | null;
   trace: Trace;
 }

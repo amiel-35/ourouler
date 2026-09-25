@@ -916,6 +916,58 @@ def test_analyser_sur_le_gpx_d_un_autre_est_introuvable(tmp_path: Path):
     assert reponse.json()["erreur"]["code"] == "fichier_introuvable"
 
 
+@pytest.mark.parametrize(
+    ("cas", "points"),
+    [
+        ("un seul point", '<trkpt lat="45" lon="5"/>'),
+        ("latitude hors du globe", '<trkpt lat="91" lon="5"/><trkpt lat="91.01" lon="5"/>'),
+        ("longitude infinie", '<trkpt lat="45" lon="5"/><trkpt lat="45" lon="inf"/>'),
+        ("latitude nan", '<trkpt lat="nan" lon="5"/><trkpt lat="45" lon="5"/>'),
+    ],
+)
+def test_un_gpx_impossible_est_refuse_lisiblement_au_depot(tmp_path: Path, cas: str, points: str):
+    """Relecture de L9.8 : « inf » rendait un 500 au dépôt, « nan » un 500 à
+    l'analyse, un seul point passait le dépôt pour échouer à l'analyse."""
+    del cas
+    gpx = f"<gpx><trk><trkseg>{points}</trkseg></trk></gpx>".encode()
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    reponse = client.post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("imposé.gpx", gpx, "application/gpx+xml")},
+    )
+    assert reponse.status_code == 422, reponse.text
+    erreur = reponse.json()["erreur"]
+    assert erreur["code"] == "fichier_illisible"
+    # Le nom du fichier du cycliste, jamais le chemin du serveur.
+    assert "imposé.gpx" in erreur["message"]
+    assert str(tmp_path) not in erreur["message"]
+
+
+def test_un_depot_de_parcours_en_flux_sans_longueur_est_coupe_a_la_borne(tmp_path: Path):
+    """Relecture de L9.8 : la route manquait à `BORNES_CORPS` — un envoi sans
+    `Content-Length` s'écrivait en entier avant d'être compté."""
+    from ourouler.api.routes import TAILLE_MAX_PARCOURS
+
+    frontiere = "xyz"
+    entete = (
+        f"--{frontiere}\r\nContent-Disposition: form-data; name=\"fichier\"; "
+        'filename="gros.gpx"\r\nContent-Type: application/gpx+xml\r\n\r\n'
+    ).encode()
+
+    def morceaux():
+        yield entete
+        for _ in range(TAILLE_MAX_PARCOURS // 1_000_000 + 2):
+            yield b"<" * 1_000_000
+
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/fichier",
+        content=morceaux(),
+        headers={"content-type": f"multipart/form-data; boundary={frontiere}"},
+    )
+    assert reponse.status_code == 413, reponse.text
+    assert reponse.json()["erreur"]["code"] == "fichier_trop_gros"
+
+
 #: Le quota de `POST /parcours/analyser` (mode hébergé) est testé à part,
 #: dans `test_api_quotas.py` — c'est là que vivent les autres tests de
 #: `quotas_meteo`, et le serveur de ce module tourne en mode personnel, où

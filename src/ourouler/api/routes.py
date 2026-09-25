@@ -1835,6 +1835,10 @@ async def deposer_parcours(
         depose = ctx.fichiers.deposer(qui, nom, contenu)
     except ErreurUtilisateur as e:
         raise classer(e) from e
+    # Le lecteur cite le chemin qu'on lui donne ; ce chemin est celui du
+    # serveur, le cycliste reconnaît le nom de son fichier (même geste que
+    # `/seances/fichier`, via `executer_commande(chemins=...)`).
+    chemins = {str(depose.chemin): nom}
     # Lu tout de suite : un GPX mal formé ou trop long se dit au dépôt, pas
     # à l'analyse — même geste que `/seances/fichier`, qui lit la séance
     # déposée avant de rendre la main.
@@ -1844,7 +1848,14 @@ async def deposer_parcours(
     try:
         trace = lire_gpx_trace(depose.chemin)
     except ErreurUtilisateur as e:
-        raise classer(e) from e
+        raise classer(e, chemins=chemins) from e
+    if len(trace.points) < 2 or trace.distance_m <= 0:
+        raise ErreurApi(
+            code="fichier_illisible",
+            message=f"{nom} : un seul point, ou des points tous au même endroit — "
+            "il n'y a rien à parcourir",
+            statut=422,
+        )
     if trace.distance_m > DISTANCE_MAX_ANALYSE_M:
         raise ErreurApi(
             code="requete_invalide",

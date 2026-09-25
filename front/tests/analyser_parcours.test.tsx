@@ -46,7 +46,7 @@ const ANALYSE = {
       confiance: "haute",
       modele_utilise: "meteofrance_arome_france_hd",
       repli: false,
-      bascule_dist_m: null,
+      bascule_dist_m: null as number | null,
       fleches_vent: [],
       echantillons: [],
     },
@@ -67,7 +67,7 @@ const ANALYSE = {
   budget: { operation: "analyse", attendu_ms: 5000, source: "defaut", n: 0, median_ms: null },
 };
 
-function installer() {
+function installer(analyse: typeof ANALYSE = ANALYSE) {
   const serveur = new Serveur({
     "/api/v1/systeme": { charge: SYSTEME },
     "/api/v1/profil/zones": { charge: zones() },
@@ -79,7 +79,7 @@ function installer() {
     "/api/v1/parcours/fichier": {
       charge: { fichier: { id: "gpx-essai-0001", nom: "imposé.gpx" }, apercu: APERCU },
     },
-    "/api/v1/parcours/analyser": { charge: ANALYSE },
+    "/api/v1/parcours/analyser": { charge: analyse },
   });
   serveur.installer();
   return serveur;
@@ -110,5 +110,32 @@ describe("analyser un parcours déjà en main (L9.8)", () => {
       expect(await screen.findByText(/entre 1 h 50 et 1 h 58/)).toBeTruthy();
     });
     expect(screen.getByText(/165 W/)).toBeTruthy();
+  });
+
+  it("dit la bascule vers le second modèle et le jour d'une arrivée le lendemain (relecture)", async () => {
+    installer({
+      ...ANALYSE,
+      donnees: {
+        ...ANALYSE.donnees,
+        depart: "2026-09-20T20:00:00+02:00",
+        heure_arrivee: "2026-09-21T07:30:00+02:00",
+        heure_arrivee_bas: "2026-09-21T07:00:00+02:00",
+        heure_arrivee_haut: "2026-09-21T08:00:00+02:00",
+        meteo: { ...ANALYSE.donnees.meteo, repli: true, bascule_dist_m: 210020.4 },
+      },
+    });
+    const utilisateur = userEvent.setup();
+    render(<App />);
+
+    await utilisateur.click(await screen.findByRole("button", { name: "Déposer une séance" }));
+    await utilisateur.click(await screen.findByRole("button", { name: "Analyser un parcours" }));
+    const champ = (await screen.findByLabelText("Parcours à analyser")) as HTMLInputElement;
+    await utilisateur.upload(champ, new File(["<gpx></gpx>"], "imposé.gpx"));
+    const champHeure = (await screen.findByLabelText(/Heure de départ/)) as HTMLInputElement;
+    await utilisateur.type(champHeure, "2026-09-20T20:00");
+    await utilisateur.click(await screen.findByRole("button", { name: "Analyser" }));
+
+    expect(await screen.findByText(/Au-delà du km 210, la prévision vient du\s+second modèle/)).toBeTruthy();
+    expect(screen.getByText(/Arrivée estimée entre lundi 21 septembre/)).toBeTruthy();
   });
 });

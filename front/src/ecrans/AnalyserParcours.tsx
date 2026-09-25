@@ -202,9 +202,15 @@ export function AnalyserParcours({ vers, surRetour }: Props) {
               {resultat.temps_ecoule_source === "mesure"
                 ? "Fourchette mesurée sur vos sorties."
                 : "Fourchette par convention (pas encore assez de vos sorties)."}{" "}
-              Arrivée estimée entre {heure(resultat.heure_arrivee_bas)} et{" "}
-              {heure(resultat.heure_arrivee_haut)}.
+              Arrivée estimée entre {quand(resultat.depart, resultat.heure_arrivee_bas)} et{" "}
+              {quand(resultat.depart, resultat.heure_arrivee_haut)}.
             </p>
+            {resultat.meteo?.repli && resultat.meteo.bascule_dist_m != null ? (
+              <p className="mention">
+                Au-delà du km {nombre(resultat.meteo.bascule_dist_m / 1000)}, la prévision vient du
+                second modèle : la portée du modèle principal est dépassée.
+              </p>
+            ) : null}
             <p className="mention">Puissance tenue : {nombre(resultat.puissance_w)} W.</p>
             {resultat.meteo ? (
               <JaugePluie
@@ -217,6 +223,18 @@ export function AnalyserParcours({ vers, surRetour }: Props) {
       ) : null}
     </section>
   );
+}
+
+/** L'heure d'arrivée, avec le jour quand ce n'est plus celui du départ — un
+ * brevet de 300 km parti à 20 h n'arrive pas « à 6 h » du même jour. */
+function quand(departIso: string, arriveeIso: string): string {
+  const depart = new Date(departIso);
+  const arrivee = new Date(arriveeIso);
+  if (Number.isNaN(arrivee.getTime()) || depart.toDateString() === arrivee.toDateString()) {
+    return heure(arriveeIso);
+  }
+  const jour = arrivee.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  return `${jour}, ${heure(arriveeIso)}`;
 }
 
 function erreurInterne(cause: unknown): ErreurApi {

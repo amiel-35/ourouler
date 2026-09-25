@@ -83,7 +83,7 @@ type Vue =
   | { genre: "importer"; jour: string }
   /** L9.8 : un parcours déjà en main, à analyser — le troisième usage de
    * « Déposer », sans jour rattaché (ce n'est pas une prescription). */
-  | { genre: "analyser" }
+  | { genre: "analyser"; jour: string }
   | { genre: "propositions" }
   | { genre: "detail"; numero: number }
   | { genre: "boucles" };
@@ -559,13 +559,13 @@ function ApplicationPrincipale() {
           setFichierSeance({ identifiant, jour: vue.jour, nom: seance.nom })
         }
         surChercher={() => chercher({ mode: "seance", jour: vue.jour })}
-        surAnalyser={() => setVue({ genre: "analyser" })}
+        surAnalyser={() => setVue({ genre: "analyser", jour: vue.jour })}
         vers={versOnglet}
         surRetour={() => setVue({ genre: "onglet" })}
       />
     );
   } else if (vue.genre === "analyser") {
-    contenu = <AnalyserParcours vers="Déposer" surRetour={() => setVue({ genre: "importer", jour })} />;
+    contenu = <AnalyserParcours vers="Déposer" surRetour={() => setVue({ genre: "importer", jour: vue.jour })} />;
   } else if (vue.genre === "propositions" && resultat?.sortie) {
     const reponse = resultat.sortie;
     const parDefaut = reponse.donnees.propositions.find((p) => p.retenue)?.numero ?? 1;

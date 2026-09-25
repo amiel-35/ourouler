@@ -16,6 +16,7 @@ pour le parcours réellement roulé.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import gpxpy
@@ -110,12 +111,20 @@ def lire_gpx_trace(chemin_ou_bytes: Entree) -> Trace:
     for brut in bruts:
         if brut.latitude is None or brut.longitude is None:
             continue
-        point = PointTrace(
-            lat=float(brut.latitude),
-            lon=float(brut.longitude),
-            alt_m=float(brut.elevation) if brut.elevation is not None else None,
-            dist_m=cumul,
-        )
+        lat, lon = float(brut.latitude), float(brut.longitude)
+        # Une coordonnée impossible (« nan », « inf », une latitude de 91°)
+        # n'est pas un parcours : refusée ici, lisiblement, plutôt que de
+        # remonter en `ValueError` du calcul de distance — une erreur interne
+        # (500) côté API (relecture de L9.8, 25/09/2026).
+        if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ErreurLecture(
+                f"{fichier or '<octets>'} : coordonnée impossible dans le GPX "
+                f"(latitude {brut.latitude}, longitude {brut.longitude})"
+            )
+        altitude = float(brut.elevation) if brut.elevation is not None else None
+        if altitude is not None and not math.isfinite(altitude):
+            altitude = None  # « nan » en altitude : une altitude absente, pas un calcul faux
+        point = PointTrace(lat=lat, lon=lon, alt_m=altitude, dist_m=cumul)
         if points:
             cumul += distance_m(points[-1], point)
             point = PointTrace(lat=point.lat, lon=point.lon, alt_m=point.alt_m, dist_m=cumul)
