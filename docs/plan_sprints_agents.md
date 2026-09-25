@@ -1232,21 +1232,30 @@ de cadrage (Q6). Le dépôt peut s'ouvrir
 avant le sprint 8 : la publication du code et l'invitation de personnes
 sont deux décisions distinctes.
 
-Backlog « envoi au compteur » (décisions du 12/09) : pas d'API Garmin
-Connect pour un particulier → le GPX généré est le socle ; sur mobile,
-partage système du GPX vers l'application Garmin Connect (deep link /
-« ouvrir avec ») ; puis, dans l'ordre d'intérêt exprimé, **Coros, Wahoo
+Backlog « envoi au compteur » (décisions du 12/09, **requalifié le
+25/09/2026**) : pas d'API Garmin Connect pour un particulier → le GPX
+généré est le socle. Ce socle **est fait** — le bouton « Télécharger le
+GPX » (`Boucles.tsx`, `Propositions.tsx`) marche, l'envoi manuel aussi ;
+le mainteneur l'a d'ailleurs cru clos pour cette raison (« je pensais que
+c'était fait car on a le bouton télécharger le GPX »). Ce qui reste est du
+**confort**, pas un bloquant : sur mobile, partage direct du GPX vers
+l'application Garmin Connect via la Web Share API avec fichier
+(`navigator.share({ files: […] })`, remplace le détour « télécharger, puis
+ouvrir avec ») ; puis, dans l'ordre d'intérêt exprimé, **Coros, Wahoo
 (ELEMNT), Hammerhead (Karoo)**. Vérifié le 12/09 (doc des marques) :
 **Wahoo** a une vraie API cloud (OAuth 2, envoi d'un parcours FIT qui
 arrive sur le compteur ; accès développeur sur demande motivée) — la voie
 la plus propre, à demander quand le service sera hébergé ; **COROS** : GPX
-« ouvrir avec » l'application, ou synchro depuis Strava / Komoot / Ride with
-GPS, programme développeur sur candidature ; **Hammerhead** : tableau de
-bord avec import par URL (Strava, RWGPS, Komoot) et comptes liés (dont
-Intervals.icu pour les séances), pas de dépôt direct public → intermédiaire
-ou import de fichier. Le GPX partagé depuis le mobile couvre Garmin et
+« ouvrir avec » l'application (donc déjà couvert par le partage direct
+ci-dessus), ou synchro depuis Strava / Komoot / Ride with GPS, programme
+développeur sur candidature ; **Hammerhead** : tableau de bord avec import
+par URL (Strava, RWGPS, Komoot) et comptes liés (dont Intervals.icu pour
+les séances), pas de dépôt direct public → intermédiaire ou import de
+fichier. Le partage système du GPX depuis le mobile couvre Garmin et
 COROS sans rien demander à personne. L'Edge sait charger un parcours et une séance
-structurée en même temps : la séance vient déjà d'Intervals.icu.
+structurée en même temps : la séance vient déjà d'Intervals.icu. Aucun
+sprint attribué : à cadrer (Web Share API d'abord, Wahoo cloud quand le
+service sera hébergé) quand le mainteneur le priorisera.
 
 Backlog « relief demandé » (note du mainteneur, 20/09/2026, aucun sprint
 attribué) : pouvoir demander, en plus de la durée et de la direction, le
@@ -1274,10 +1283,11 @@ seuil réglable ou relevé, plus de candidates par défaut quand la
 déduplication en mange, ou « Chercher plus loin » lancé d'office jusqu'à
 trois retenues (mesuré : cinq candidates en donnent trois).
 
-Backlog « la phrase sur la vitesse » (note du mainteneur, 20/09/2026) : sous
-« Ce que ça donnera » (`front/src/ecrans/Demander.tsx`), le paragraphe
-« Estimé avec votre moyenne compteur de … km/h, que le modèle physique tire
-de votre puissance … Facteur de compteur supposé, faute de mesure ; modèle
+Backlog « la phrase sur la vitesse » (note du mainteneur, 20/09/2026,
+**fait le 25/09/2026**) : sous « Ce que ça donnera »
+(`front/src/ecrans/Demander.tsx`), le paragraphe « Estimé avec votre
+moyenne compteur de … km/h, que le modèle physique tire de votre
+puissance … Facteur de compteur supposé, faute de mesure ; modèle
 physique littérature » est jugé incompréhensible (« c'est débile, faut faire
 plus simple »). Deux formulations proposées le 20/09, en attente du choix du
 mainteneur : A « Estimation d'après votre profil et votre vélo. Le tracé
@@ -1285,6 +1295,19 @@ vient avec le bouton. » ; B « Estimation d'après votre profil. Votre vitesse
 réelle n'est pas encore mesurée : elle le sera sur vos sorties. » La règle de
 provenance (doctrine : chaque écran dit d'où vient la valeur) reste ; c'est
 la longueur et le jargon qui partent.
+
+Décision du superviseur le 25/09, validée dans son principe par le
+mainteneur (« fais 8 ») : formulation A, la plus courte, sans le chiffre de
+moyenne compteur ni « Le tracé vient avec le bouton » (déjà dit ailleurs à
+l'écran). Deux variantes seulement, selon `Zones.valeurs_liees` (`phraseEstimation`,
+`front/src/ecrans/Demander.tsx`) : « Estimation d'après votre profil et
+votre vélo. » quand rien n'est mesuré ; « Estimation d'après vos sorties. »
+dès que le facteur de compteur est mesuré (`facteur_mesure`) ou que le vélo
+est calibré (`modele_physique === "calibration"`). Aucun chiffre ni jargon
+dans cette phrase-là ; la provenance détaillée (le facteur, le modèle
+physique) reste dans Réglages, sous le dépliant « D'où viennent ces deux
+chiffres » — la règle de provenance ne bouge pas, seule cette phrase se
+simplifie.
 
 Backlog « le porte à porte ignore le relief de la boucle » (note du
 mainteneur, 21/09/2026, aucun sprint attribué) : `physique.modele.temps_ecoule`
@@ -1869,20 +1892,29 @@ de la vidéo publique) :
 
 Backlog « le zoom de la carte des boucles » (constat du mainteneur,
 25/09/2026, sur l'écran « 3 boucles » en production — boucle de 124 km au
-départ de Rennes, `front/src/ecrans/Boucles.tsx`) : la carte
-(`front/src/composants/Carte.tsx`, `carte.fitBounds(L.latLngBounds(tous), …)`
-où `tous` vient de **toutes** les boucles proposées) s'ouvrait à l'échelle de
-la Bretagne et de la Normandie (golfe du Morbihan, Fougères, parc
-Normandie-Maine visibles) alors que les trois candidates tiennent dans un
-rayon d'environ 30 km autour de Rennes et n'occupaient qu'un petit quart de la
-carte. Premier mot du mainteneur : « le zoom par défaut n'est pas le plus
-adapté » ; précisé ensuite : « en fait faut zoomer sur le circuit
-sélectionné » — la carte doit se cadrer sur la boucle **retenue** (celle
-marquée « Retenue », ou choisie dans la liste — `Boucles.tsx` porte déjà cet
-état, `choisie`/`retenue`), pas sur l'emprise des trois boucles ensemble, et
-se recadrer quand on change de boucle sélectionnée. Piste à cadrer, pas
+départ de Rennes, `front/src/ecrans/Boucles.tsx`, **fait le 25/09/2026**) :
+la carte (`front/src/composants/Carte.tsx`,
+`carte.fitBounds(L.latLngBounds(tous), …)` où `tous` vient de **toutes**
+les boucles proposées) s'ouvrait à l'échelle de la Bretagne et de la
+Normandie (golfe du Morbihan, Fougères, parc Normandie-Maine visibles)
+alors que les trois candidates tiennent dans un rayon d'environ 30 km
+autour de Rennes et n'occupaient qu'un petit quart de la carte. Premier mot
+du mainteneur : « le zoom par défaut n'est pas le plus adapté » ; précisé
+ensuite : « en fait faut zoomer sur le circuit sélectionné » — la carte
+doit se cadrer sur la boucle **retenue** (celle marquée « Retenue », ou
+choisie dans la liste — `Boucles.tsx` porte déjà cet état,
+`choisie`/`retenue`), pas sur l'emprise des trois boucles ensemble, et se
+recadrer quand on change de boucle sélectionnée. Piste à cadrer, pas
 tranchée : `fitBounds` sur les seuls points de la boucle sélectionnée (avec
 une marge), redéclenché à chaque changement de sélection.
+
+Fait : `Carte` cadre désormais sur les seuls points de la trace dont
+`choisi` est vrai (fourni par `Boucles.tsx` et `Propositions.tsx`, qui
+posent déjà cet état) — les autres boucles restent dessinées en pointillé,
+elles ne pèsent simplement plus sur le zoom. Sans trace `choisi` (garde-fou,
+pas un cas normal), le cadrage retombe sur l'emprise de toutes les traces,
+comme avant. Le recadrage suit la sélection : changer de boucle change les
+props de `Carte`, l'effet se redéclenche.
 
 Observation de l'agent superviseur en marge de ce même constat, à distinguer
 du mot du mainteneur : à l'échelle « les trois boucles », les étiquettes de
@@ -1890,6 +1922,14 @@ vent « vitesse/rafale » des trois tracés s'empilaient en un amas peu lisible.
 Un cadrage sur la seule boucle sélectionnée réduit déjà ce risque en pratique
 (un seul tracé de vent affiché à la fois) ; à revérifier une fois le zoom
 corrigé, avant de coder quoi que ce soit de plus pour ça spécifiquement.
+
+Revérifié : même une seule boucle de 124 km peut porter huit flèches de vent
+assez rapprochées à l'écran pour se chevaucher, surtout dézoomée après un
+`fitBounds`. `Carte` filtre donc désormais les étiquettes qui se
+chevauchent à l'écran par détection de collision (`sansChevauchement`,
+seuil de 46 px — la largeur approximative d'une étiquette « 24/38 »),
+réévaluée à chaque zoom (`carte.on("zoomend", …)`) plutôt que figée au
+premier rendu.
 
 ## Historique des sprints
 

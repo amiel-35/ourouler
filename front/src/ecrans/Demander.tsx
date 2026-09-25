@@ -19,14 +19,22 @@
 
 import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../api/client";
-import type { AzimutVent, Budget, Enveloppe, Meteo, Profil, VentDepart, Zones } from "../api/types";
+import type {
+  AzimutVent,
+  Budget,
+  Enveloppe,
+  Meteo,
+  Profil,
+  ValeursLiees,
+  VentDepart,
+  Zones,
+} from "../api/types";
 import { phraseBudget } from "../composants/Attente";
 import { directionsDepuisCellules } from "../api/meteoRose";
 import { RoseDirections, LegendeRose } from "../composants/RoseDirections";
 import {
   duree,
   heureDeRetour,
-  modelePhysique,
   nombre,
   VENT_PREFERENCE_EN_TOUTES_LETTRES,
   ventDepuisAvecPreposition,
@@ -85,6 +93,31 @@ export function minutesDe(texte: string): number | null {
 
 export function texteDuree(minutes: number): string {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/**
+ * La phrase sous « Ce que ça donnera » (backlog « la phrase sur la vitesse »,
+ * note du mainteneur du 20/09/2026 : « c'est débile, faut faire plus simple »
+ * devant l'ancien paragraphe — chiffre de moyenne compteur et jargon « modèle
+ * physique littérature » compris). Décision du 25/09/2026 (« fais 8 ») :
+ * formulation A, la plus courte des deux proposées, sans chiffre ni jargon.
+ *
+ * Mesuré = le facteur de compteur est mesuré sur l'historique, ou le vélo est
+ * calibré (`modele_physique === "calibration"` — la calibration mesure aussi
+ * bien la vitesse que la puissance, donc l'un ou l'autre suffit à dire
+ * « mesuré »). Sinon, l'estimation ne repose que sur le profil déclaré et les
+ * caractéristiques du vélo — jamais mesurées.
+ *
+ * La provenance détaillée (le facteur, le modèle physique, chiffre par
+ * chiffre) reste ailleurs, dans Réglages, sous le dépliant « D'où viennent
+ * ces deux chiffres » — la règle de provenance de la doctrine ne bouge pas,
+ * c'est seulement cette phrase-ci qui se simplifie.
+ */
+export function phraseEstimation(liees: ValeursLiees): string {
+  const mesure = liees.facteur_mesure || liees.modele_physique === "calibration";
+  return mesure
+    ? "Estimation d'après vos sorties."
+    : "Estimation d'après votre profil et votre vélo.";
 }
 
 interface Props {
@@ -275,16 +308,7 @@ export function Demander({
             <p className="mention">{retour ? `retour vers ${retour}` : "heure à préciser"}</p>
           </div>
         </div>
-        {liees ? (
-          <p className="mention">
-            Estimé avec votre moyenne compteur de {nombre(liees.moyenne_compteur_kmh, 1)} km/h,
-            que le modèle physique tire de votre puissance, de votre poids et de votre vélo.
-            Facteur de compteur{" "}
-            {liees.facteur_mesure ? "mesuré sur vos sorties" : "supposé, faute de mesure"} ;
-            modèle physique {modelePhysique(liees.modele_physique)}. Le tracé, lui, attend le
-            bouton.
-          </p>
-        ) : null}
+        {liees ? <p className="mention">{phraseEstimation(liees)}</p> : null}
       </div>
 
       <div className="champ">
