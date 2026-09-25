@@ -27,6 +27,7 @@ import { Aujourdhui } from "./ecrans/Aujourdhui";
 import { MaSemaine } from "./ecrans/MaSemaine";
 import { Demander, demandeInitiale, type Demande } from "./ecrans/Demander";
 import { Importer } from "./ecrans/Importer";
+import { AnalyserParcours } from "./ecrans/AnalyserParcours";
 import { Propositions } from "./ecrans/Propositions";
 import { PropositionDetail } from "./ecrans/Proposition";
 import { Boucles } from "./ecrans/Boucles";
@@ -80,6 +81,9 @@ type Vue =
    * garde de B1, un rattachement au mauvais jour est le même défaut déplacé.
    */
   | { genre: "importer"; jour: string }
+  /** L9.8 : un parcours déjà en main, à analyser — le troisième usage de
+   * « Déposer », sans jour rattaché (ce n'est pas une prescription). */
+  | { genre: "analyser"; jour: string }
   | { genre: "propositions" }
   | { genre: "detail"; numero: number }
   | { genre: "boucles" };
@@ -555,10 +559,13 @@ function ApplicationPrincipale() {
           setFichierSeance({ identifiant, jour: vue.jour, nom: seance.nom })
         }
         surChercher={() => chercher({ mode: "seance", jour: vue.jour })}
+        surAnalyser={() => setVue({ genre: "analyser", jour: vue.jour })}
         vers={versOnglet}
         surRetour={() => setVue({ genre: "onglet" })}
       />
     );
+  } else if (vue.genre === "analyser") {
+    contenu = <AnalyserParcours vers="Déposer" surRetour={() => setVue({ genre: "importer", jour: vue.jour })} />;
   } else if (vue.genre === "propositions" && resultat?.sortie) {
     const reponse = resultat.sortie;
     const parDefaut = reponse.donnees.propositions.find((p) => p.retenue)?.numero ?? 1;
@@ -612,8 +619,9 @@ function ApplicationPrincipale() {
               <h2>En attendant</h2>
             </div>
             <p className="mention">
-              Vous pouvez demander un parcours à la main, déposer un fichier de séance, ou déposer vos
-              sorties passées — c'est l'autre source d'historique, sans Intervals.
+              Vous pouvez demander un parcours à la main, déposer un fichier de séance, déposer vos
+              sorties passées — c'est l'autre source d'historique, sans Intervals — ou analyser un
+              parcours que vous avez déjà (l'imposé d'un brevet, la boucle du club).
               Tout le reste fonctionne.
             </p>
             <div className="boutons" style={{ marginTop: 11 }}>
@@ -671,8 +679,9 @@ function ApplicationPrincipale() {
               <h2>En attendant</h2>
             </div>
             <p className="mention">
-              Vous pouvez demander un parcours à la main, déposer un fichier de séance, ou déposer vos
-              sorties passées — c'est l'autre source d'historique, sans Intervals.
+              Vous pouvez demander un parcours à la main, déposer un fichier de séance, déposer vos
+              sorties passées — c'est l'autre source d'historique, sans Intervals — ou analyser un
+              parcours que vous avez déjà (l'imposé d'un brevet, la boucle du club).
               Tout le reste fonctionne.
             </p>
             <div className="boutons" style={{ marginTop: 11 }}>

@@ -858,3 +858,50 @@ export interface Boucle {
   gpx: FicheFichier | null;
   candidates: Candidate[];
 }
+
+// --- un parcours déjà en main, à analyser (L9.8) -------------------------------
+
+/** Ce que `POST /parcours/fichier` rend tout de suite, avant l'analyse. */
+export interface ApercuParcours {
+  nom: string;
+  distance_km: number;
+  denivele_m: number | null;
+  /** « 3 traces enchaînées », « un trou de 12 km entre… » — vide pour une seule trace. */
+  avertissements: string[];
+}
+
+/**
+ * `POST /parcours/analyser` — le pendant de `Candidate`, pour un parcours **déjà
+ * choisi** (l'imposé d'un BRM, une boucle de club) plutôt qu'une candidate du moteur.
+ * Même forme de `trace`/`meteo` que `Candidate` (F0.1) : `Carte`, `LegendeVent` et
+ * `ProfilAltitude` se réutilisent sans rien réécrire.
+ */
+export interface Analyse {
+  nom: string;
+  distance_km: number;
+  denivele_m: number | null;
+  velo: string;
+  puissance_w: number;
+  depart: string;
+  temps_estime_s: number;
+  vitesse_moy_kmh: number;
+  temps_ecoule_s: number;
+  temps_ecoule_bas_s: number;
+  temps_ecoule_haut_s: number;
+  temps_ecoule_source: "mesure" | "defaut";
+  heure_arrivee: string;
+  heure_arrivee_bas: string;
+  heure_arrivee_haut: string;
+  /** La fourchette du vélo : sa médiane date aussi les échantillons météo. */
+  porte_a_porte: { bas: number; mediane: number; haut: number; provenance: string; n: number };
+  meteo_absente: MeteoAbsente | null;
+  meteo_panne: string | null;
+  avertissements_trace: string[];
+  /** `bascule_dist_m` : au-delà, la prévision vient du second modèle (portée
+   * horaire du principal dépassée) — un long parcours y arrive souvent.
+   * `au_dela_prevision_dist_m` : au-delà, plus aucune prévision. */
+  meteo:
+    | (MeteoCandidate & { bascule_dist_m?: number | null; au_dela_prevision_dist_m?: number | null })
+    | null;
+  trace: Trace;
+}

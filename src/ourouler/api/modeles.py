@@ -168,6 +168,27 @@ class DemandeSimulation(Modele):
     heure_depart: TexteUtile | None = None
 
 
+class DemandeAnalyse(Modele):
+    """Un parcours **déjà en main** (BRM, Flèche, boucle de club) : sa météo et sa durée,
+    pas une recherche — `POST /parcours/analyser`.
+
+    Même GPX déposé et même vélo que `DemandeSimulation`, dont c'est le pendant retourné
+    dans l'autre sens : ici `heure_depart` est obligatoire (sans elle, rien à caler dans
+    le temps) et `puissance_w` devient facultative — son défaut est la puissance
+    d'endurance du profil (`position_zone` × FTP), le même calcul que l'écran de FTP.
+    """
+
+    gpx: TexteUtile = Field(description="identifiant d'un GPX du dépôt (déposé pour l'analyse)")
+    heure_depart: TexteUtile = Field(description="heure de départ — sans elle, rien à caler")
+    velo: TexteUtile | None = None
+    puissance_w: float | None = Field(
+        default=None,
+        gt=0,
+        le=2000,
+        description="défaut : la puissance d'endurance du profil (position_zone × FTP)",
+    )
+
+
 class DemandeCalibration(Modele):
     """Calibrer un vélo sur ses propres sorties (L9.4)."""
 
@@ -269,6 +290,7 @@ class DemandeChangementMotDePasse(Modele):
 
 __all__ = [
     "ApercuZones",
+    "DemandeAnalyse",
     "DemandeBoucle",
     "DemandeChangementMotDePasse",
     "DemandeConnexion",

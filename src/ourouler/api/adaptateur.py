@@ -211,6 +211,10 @@ BUDGETS_DEFAUT_MS = {
     "seance": 1500,
     "geocodage": 800,
     "inventaire": 1000,
+    # L9.8 : une météo le long du tracé (comme « boucle »), sur un parcours
+    # qui peut être bien plus long qu'une boucle (un BRM 600) — plus proche
+    # du poste « boucle » que du poste « simulation », muet.
+    "analyse": 5000,
 }
 
 

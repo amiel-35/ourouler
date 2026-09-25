@@ -823,6 +823,188 @@ def test_une_simulation_sur_le_gpx_d_un_autre_est_introuvable(tmp_path: Path):
     assert reponse.json()["erreur"]["code"] == "fichier_introuvable"
 
 
+# --- un parcours déjà en main, à analyser (L9.8) -------------------------------
+
+
+def _gpx_parcours(longueur_m: float = 30_000.0, nom: str = "Imposé du club") -> bytes:
+    from ourouler.boucle.gpx import ecrire_gpx
+    from ourouler.boucle.trace import PointTrace, Trace
+
+    metre_en_degre = 1.0 / 111_194.93
+    points = [
+        PointTrace(lat=0.0, lon=d * metre_en_degre, alt_m=100.0, dist_m=float(d))
+        for d in range(0, int(longueur_m) + 1, 500)
+    ]
+    trace = Trace(nom, points, [], longueur_m, 0.0, None)
+    return ecrire_gpx(trace, nom).encode("utf-8")
+
+
+def test_deposer_puis_analyser_un_parcours(tmp_path: Path):
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    depot = client.post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("brm200.gpx", _gpx_parcours(), "application/gpx+xml")},
+    )
+    assert depot.status_code == 200, depot.text
+    charge = depot.json()
+    assert charge["apercu"]["distance_km"] == pytest.approx(30.0, rel=0.01)
+    identifiant = charge["fichier"]["id"]
+
+    reponse = client.post(
+        "/api/v1/parcours/analyser",
+        json={"gpx": identifiant, "heure_depart": "2026-09-08T08:00"},
+    )
+    assert reponse.status_code == 200, reponse.text
+    donnees = reponse.json()["donnees"]
+    # La fourchette porte à porte (L9.1), jamais un seul chiffre.
+    assert donnees["temps_ecoule_bas_s"] <= donnees["temps_ecoule_s"] <= donnees["temps_ecoule_haut_s"]
+    assert donnees["heure_arrivee_bas"] <= donnees["heure_arrivee"] <= donnees["heure_arrivee_haut"]
+    # La puissance par défaut est celle de l'endurance du profil : ni nulle,
+    # ni celle, arbitraire, d'un autre test.
+    assert donnees["puissance_w"] > 0
+    # La météo par tronçon, dans la forme d'une candidate de boucle (F0.1).
+    assert donnees["meteo"] is not None
+    assert isinstance(donnees["meteo"]["fleches_vent"], list)
+    assert len(donnees["trace"]["points"]) > 0
+
+
+def test_analyser_refuse_un_fichier_qui_n_est_pas_un_gpx(tmp_path: Path):
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    reponse = client.post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("seance.zwo", b"<workout_file/>", "application/xml")},
+    )
+    assert reponse.status_code == 422
+    assert reponse.json()["erreur"]["code"] == "format_non_lu"
+
+
+def test_analyser_refuse_un_parcours_trop_long_des_le_depot(tmp_path: Path):
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    reponse = client.post(
+        "/api/v1/parcours/fichier",
+        files={
+            "fichier": (
+                "flèche.gpx",
+                _gpx_parcours(longueur_m=1_100_000.0),
+                "application/gpx+xml",
+            )
+        },
+    )
+    assert reponse.status_code == 422
+    assert reponse.json()["erreur"]["code"] == "requete_invalide"
+
+
+def test_analyser_sans_heure_depart_est_une_faute_de_requete(tmp_path: Path):
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    depot = client.post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("boucle.gpx", _gpx_parcours(), "application/gpx+xml")},
+    )
+    identifiant = depot.json()["fichier"]["id"]
+    reponse = client.post("/api/v1/parcours/analyser", json={"gpx": identifiant})
+    assert reponse.status_code == 422
+    assert reponse.json()["erreur"]["code"] == "requete_invalide"
+
+
+def test_analyser_sur_le_gpx_d_un_autre_est_introuvable(tmp_path: Path):
+    a_lui = DepotFichiers(tmp_path / "cache" / "api").deposer(AUTRE, "a-lui.gpx", b"<gpx/>")
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/analyser",
+        json={"gpx": a_lui.identifiant, "heure_depart": "2026-09-08T08:00"},
+    )
+    assert reponse.status_code == 404
+    assert reponse.json()["erreur"]["code"] == "fichier_introuvable"
+
+
+@pytest.mark.parametrize(
+    ("cas", "points"),
+    [
+        ("un seul point", '<trkpt lat="45" lon="5"/>'),
+        ("latitude hors du globe", '<trkpt lat="91" lon="5"/><trkpt lat="91.01" lon="5"/>'),
+        ("longitude infinie", '<trkpt lat="45" lon="5"/><trkpt lat="45" lon="inf"/>'),
+        ("latitude nan", '<trkpt lat="nan" lon="5"/><trkpt lat="45" lon="5"/>'),
+    ],
+)
+def test_un_gpx_impossible_est_refuse_lisiblement_au_depot(tmp_path: Path, cas: str, points: str):
+    """Relecture de L9.8 : « inf » rendait un 500 au dépôt, « nan » un 500 à
+    l'analyse, un seul point passait le dépôt pour échouer à l'analyse."""
+    del cas
+    gpx = f"<gpx><trk><trkseg>{points}</trkseg></trk></gpx>".encode()
+    client = serveur(tmp_path, meteo=moteur_meteo())
+    reponse = client.post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("imposé.gpx", gpx, "application/gpx+xml")},
+    )
+    assert reponse.status_code == 422, reponse.text
+    erreur = reponse.json()["erreur"]
+    assert erreur["code"] == "fichier_illisible"
+    # Le nom du fichier du cycliste, jamais le chemin du serveur.
+    assert "imposé.gpx" in erreur["message"]
+    assert str(tmp_path) not in erreur["message"]
+
+
+def test_un_depot_de_parcours_en_flux_sans_longueur_est_coupe_a_la_borne(tmp_path: Path):
+    """Relecture de L9.8 : la route manquait à `BORNES_CORPS` — un envoi sans
+    `Content-Length` s'écrivait en entier avant d'être compté."""
+    from ourouler.api.routes import TAILLE_MAX_PARCOURS
+
+    frontiere = "xyz"
+    entete = (
+        f"--{frontiere}\r\nContent-Disposition: form-data; name=\"fichier\"; "
+        'filename="gros.gpx"\r\nContent-Type: application/gpx+xml\r\n\r\n'
+    ).encode()
+
+    def morceaux():
+        yield entete
+        for _ in range(TAILLE_MAX_PARCOURS // 1_000_000 + 2):
+            yield b"<" * 1_000_000
+
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/fichier",
+        content=morceaux(),
+        headers={"content-type": f"multipart/form-data; boundary={frontiere}"},
+    )
+    assert reponse.status_code == 413, reponse.text
+    assert reponse.json()["erreur"]["code"] == "fichier_trop_gros"
+
+
+def test_un_parcours_en_deux_segments_disjoints_le_dit_des_le_depot(tmp_path: Path):
+    """Deux segments d'une même trace, 5 km d'écart : enchaînés, et le trou est dit."""
+    km = 1.0 / 111.19493
+
+    def seg(debut_km: int, fin_km: int) -> str:
+        points = [f'<trkpt lat="0" lon="{d * km:.7f}"/>' for d in range(debut_km, fin_km + 1)]
+        return "<trkseg>" + "".join(points) + "</trkseg>"
+
+    gpx = f"<gpx><trk><name>BRM</name>{seg(0, 10)}{seg(15, 30)}</trk></gpx>".encode()
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("brm.gpx", gpx, "application/gpx+xml")},
+    )
+    assert reponse.status_code == 200, reponse.text
+    apercu = reponse.json()["apercu"]
+    assert apercu["distance_km"] == pytest.approx(30.0, rel=0.01)
+    assert apercu["avertissements"] == [
+        "2 morceaux enchaînés, dans l'ordre du fichier",
+        "un trou de 5 km entre la trace 1 (segment 1) et la trace 1 (segment 2), compté "
+        "en ligne droite dans la distance et la durée",
+    ]
+
+
+def test_un_parcours_d_une_seule_trace_n_avertit_de_rien(tmp_path: Path):
+    reponse = serveur(tmp_path).post(
+        "/api/v1/parcours/fichier",
+        files={"fichier": ("club.gpx", _gpx_parcours(), "application/gpx+xml")},
+    )
+    assert reponse.json()["apercu"]["avertissements"] == []
+
+
+#: Le quota de `POST /parcours/analyser` (mode hébergé) est testé à part,
+#: dans `test_api_quotas.py` — c'est là que vivent les autres tests de
+#: `quotas_meteo`, et le serveur de ce module tourne en mode personnel, où
+#: `_verifier_quota` ne fait rien (voir sa docstring).
+
+
 # --- fichiers et isolation ----------------------------------------------------
 
 

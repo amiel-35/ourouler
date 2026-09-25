@@ -5,6 +5,13 @@
         "attendu_ms": 5000,
         "median_ms": null,
         "n": 0,
+        "operation": "analyse",
+        "source": "defaut"
+      },
+      {
+        "attendu_ms": 5000,
+        "median_ms": null,
+        "n": 0,
         "operation": "boucle",
         "source": "defaut"
       },

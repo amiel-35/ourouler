@@ -69,6 +69,7 @@ from ourouler.api.erreurs import (
 )
 from ourouler.api.modeles import (
     ApercuZones,
+    DemandeAnalyse,
     DemandeBoucle,
     DemandeCalibration,
     DemandeChangementMotDePasse,
@@ -135,6 +136,14 @@ routeur = APIRouter(prefix="/api/v1", responses=PANNES_DECLAREES)
 #: Taille maximale d'un fichier de séance déposé. Un `.ZWO` fait quelques
 #: kilo-octets ; au-delà d'un mégaoctet, ce n'est plus une séance.
 TAILLE_MAX_SEANCE = 1_000_000
+
+#: Taille maximale d'un GPX déposé pour être analysé (L9.8) — un BRM de
+#: 600 km, un point tous les 10 m, pèse environ 4 Mo. Ramené de 20 à 5 Mo
+#: à la relecture : la lecture (gpxpy) coûte en mémoire environ 24 fois la
+#: taille du fichier — mesuré le 25/09/2026, +465 Mo de pic pour 20 Mo,
+#: +120 Mo pour 5 Mo (dépôt 0,8 s, analyse 1,1 s).
+#: `physique.commande.DISTANCE_MAX_ANALYSE_M` borne ensuite le contenu lu.
+TAILLE_MAX_PARCOURS = 5_000_000
 
 
 #: **La convention d'injection de l'API, tranchée le 17/09/2026.**
@@ -1787,6 +1796,150 @@ def simuler(
         client_meteo=_service(ctx, config, "meteo"),
     )
     return resultat.enveloppe(ctx.budgets.budget("simulation"), qui)
+
+
+# --- un parcours déjà en main, à analyser (L9.8) -------------------------------
+
+
+@routeur.post("/parcours/fichier")
+async def deposer_parcours(
+    ctx: Ctx,
+    qui: Qui,
+    requete: Request,
+    fichier: Annotated[UploadFile, File(description=".GPX à analyser")],
+) -> dict:
+    """Dépose le GPX d'un parcours **déjà en main** (imposé d'un BRM, d'une Flèche, boucle
+    de club) — l'identifiant rendu se repasse à `POST /parcours/analyser` dans `gpx`.
+
+    Seul le `.GPX` est accepté : `DepotHistorique` (L9.2) sait déjà lire un `.FIT`/`.TCX`,
+    mais pour des **sorties passées**, pas pour un parcours qu'on va rouler — deux usages
+    du dépôt de fichier, deux routes, comme `/seances/fichier` et `/activites/import` sont
+    déjà séparées pour la même raison.
+    """
+    nom = fichier.filename or "parcours"
+    if not nom.lower().endswith(".gpx"):
+        raise ErreurApi(
+            code="format_non_lu",
+            message="un parcours à analyser se dépose en .GPX — pour un .FIT ou un .TCX, "
+            "voir « mes sorties passées »",
+            statut=422,
+        )
+    _refuser_parcours_sur_la_taille_annoncee(requete, nom)
+    contenu = await fichier.read()
+    if len(contenu) > TAILLE_MAX_PARCOURS:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{nom} : {len(contenu)} octets — un parcours n'en fait pas plus de "
+            f"{TAILLE_MAX_PARCOURS}",
+            statut=413,
+        )
+    try:
+        depose = ctx.fichiers.deposer(qui, nom, contenu)
+    except ErreurUtilisateur as e:
+        raise classer(e) from e
+    # Le lecteur cite le chemin qu'on lui donne ; ce chemin est celui du
+    # serveur, le cycliste reconnaît le nom de son fichier (même geste que
+    # `/seances/fichier`, via `executer_commande(chemins=...)`).
+    chemins = {str(depose.chemin): nom}
+    # Lu tout de suite : un GPX mal formé ou trop long se dit au dépôt, pas
+    # à l'analyse — même geste que `/seances/fichier`, qui lit la séance
+    # déposée avant de rendre la main.
+    from ourouler.boucle.gpx import lire_gpx_parcours
+    from ourouler.physique.commande import DISTANCE_MAX_ANALYSE_M
+
+    try:
+        trace, avertissements_trace = lire_gpx_parcours(depose.chemin)
+    except ErreurUtilisateur as e:
+        raise classer(e, chemins=chemins) from e
+    if len(trace.points) < 2 or trace.distance_m <= 0:
+        raise ErreurApi(
+            code="fichier_illisible",
+            message=f"{nom} : un seul point, ou des points tous au même endroit — "
+            "il n'y a rien à parcourir",
+            statut=422,
+        )
+    if trace.distance_m > DISTANCE_MAX_ANALYSE_M:
+        raise ErreurApi(
+            code="requete_invalide",
+            message=f"{nom} : {trace.distance_m / 1000:.0f} km, au-delà des "
+            f"{DISTANCE_MAX_ANALYSE_M / 1000:.0f} km qu'un parcours à analyser accepte",
+            statut=422,
+        )
+    return {
+        "fichier": depose.json(),
+        "apercu": {
+            "nom": trace.nom,
+            "distance_km": round(trace.distance_m / 1000.0, 3),
+            "denivele_m": trace.denivele_m,
+            # « 3 traces enchaînées », « un trou de 12 km entre… » — dit dès
+            # le dépôt, avant qu'on règle l'heure de départ.
+            "avertissements": avertissements_trace,
+        },
+    }
+
+
+@routeur.post("/parcours/analyser")
+def analyser_parcours(
+    ctx: Ctx,
+    qui: Qui,
+    demande: DemandeAnalyse,
+) -> dict:
+    """La météo et la durée porte à porte d'un parcours déjà en main (L9.8).
+
+    `ourouler simuler` retourné dans l'autre sens (voir la docstring
+    d'`executer_analyser`) : le GPX n'est pas une candidate choisie par le moteur, c'est
+    celui qu'on va rouler — l'imposé d'un brevet, une boucle de club. Compte dans les
+    **consultations météo** (`ctx.quotas_meteo`), pas dans les générations.
+
+    **Seule une météo rendue consomme la consultation** (décision du superviseur,
+    25/09/2026) : fichier introuvable, GPX refusé, toute erreur — et aussi une
+    réponse 200 **sans** météo (panne Open-Meteo, départ au-delà de l'horizon), où
+    la durée est servie mais la consultation n'a rien rapporté — la rembourse.
+    """
+    from ourouler.physique import commande as physique
+
+    _verifier_quota(ctx, qui, ctx.quotas_meteo)
+    try:
+        config = _config(ctx, qui)
+        try:
+            gpx = ctx.fichiers.trouver(qui, demande.gpx)
+        except ErreurUtilisateur as e:
+            raise ErreurApi(code="fichier_introuvable", message=str(e), statut=404) from e
+        resultat = executer_commande(
+            physique.executer_analyser,
+            namespace(
+                gpx=str(gpx.chemin),
+                puissance=demande.puissance_w,
+                velo=demande.velo,
+                depart=demande.heure_depart,
+            ),
+            config,
+            secrets=secrets_de(config),
+            chemins={str(gpx.chemin): gpx.nom},
+            operation="analyse",
+            budgets=ctx.budgets,
+            client_meteo=_service(ctx, config, "meteo"),
+        )
+    except Exception:
+        _rembourser_quota(ctx, qui, ctx.quotas_meteo)
+        raise
+    if resultat.donnees.get("meteo") is None:
+        _rembourser_quota(ctx, qui, ctx.quotas_meteo)
+    return resultat.enveloppe(ctx.budgets.budget("analyse"), qui)
+
+
+def _refuser_parcours_sur_la_taille_annoncee(requete: Request, nom: str) -> None:
+    """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond d'un parcours."""
+    annoncee = requete.headers.get("content-length")
+    if annoncee is None or not annoncee.isdigit():
+        return
+    if int(annoncee) > TAILLE_MAX_PARCOURS:
+        raise ErreurApi(
+            code="fichier_trop_gros",
+            message=f"{nom} : {annoncee} octets annoncés — un parcours n'en fait pas plus "
+            f"de {TAILLE_MAX_PARCOURS}, le dépôt est refusé sans être lu",
+            statut=413,
+        )
 
 
 # --- inventaire et routes connues ---------------------------------------------

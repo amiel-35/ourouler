@@ -1328,6 +1328,16 @@ def _appels(ids: dict[str, str]) -> dict[tuple[str, str], dict]:
         ("POST", f"{PREFIXE_API}/simulations"): {
             "json": {"gpx": ids["gpx"], "puissance_w": 180.0}
         },
+        # L9.8 : un parcours déjà en main, déposé pour être analysé. Le
+        # dépôt reçoit son propre GPX (un dépôt brut, pas une candidate du
+        # moteur) ; l'analyse rejoue le GPX de boucle de A, comme
+        # `/simulations` juste au-dessus.
+        ("POST", f"{PREFIXE_API}/parcours/fichier"): {
+            "files": {"fichier": ("parcours-essai.gpx", _gpx("essai"), "application/gpx+xml")}
+        },
+        ("POST", f"{PREFIXE_API}/parcours/analyser"): {
+            "json": {"gpx": ids["gpx"], "heure_depart": f"{_jour()}T08:00"}
+        },
         ("GET", f"{PREFIXE_API}/inventaire"): {},
         ("GET", f"{PREFIXE_API}/routes/{{action}}"): {"chemin": f"{PREFIXE_API}/routes/stats"},
         ("GET", f"{PREFIXE_API}/fichiers/{{identifiant}}"): {

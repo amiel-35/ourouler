@@ -112,6 +112,12 @@ class Echantillon:
     `MeteoTrace.modele_utilise` ne portait qu'un seul nom pour tout le
     tracé — un mensonge par mise en page pour la moitié qui n'avait pas
     cette réponse-là (règle absolue 5)."""
+    au_dela_prevision: bool = False
+    """Vrai quand l'heure de passage ici est **au-delà de la prévision** :
+    après `limite` (l'horizon que le produit accepte, voir `evaluer`), ou
+    hors de la série qu'aucun modèle n'a rendue. Toutes les valeurs sont
+    alors absentes, et l'écran doit le dire plutôt que de montrer un vide
+    (L9.8 : un 600 km parti le dernier jour couvert arrive le lendemain)."""
 
 
 @dataclass
@@ -160,6 +166,7 @@ def evaluer(
     second_avis: str | None = None,
     modele_repli: str | None = None,
     pas_m: float = PAS_DEFAUT_M,
+    limite: datetime | None = None,
 ) -> MeteoTrace:
     """La météo le long de `trace`, échantillonnée tous les `pas_m`.
 
@@ -190,6 +197,12 @@ def evaluer(
     (règle absolue 5, deux qualités de prévision ne s'affichent jamais de la
     même façon). Le second avis (`second_avis`) n'est jamais redemandé au
     modèle qui sert déjà de repli : le comparer à lui-même n'apprendrait rien.
+
+    `limite` (L9.8) : l'instant au-delà duquel **aucune** valeur n'est
+    présentée comme une prévision, même si Open-Meteo en rendait une — la fin
+    du dernier jour couvert (`meteo.portee`). Les échantillons après elle
+    sont vides et marqués `au_dela_prevision`, et la fenêtre demandée
+    s'arrête là. `None` (le défaut) : comportement d'avant, inchangé.
     """
     # Ces deux refus tombent **avant** le premier appel à Open-Meteo : une
     # entrée absurde ne consomme pas de quota et ne fait pas attendre.
@@ -215,7 +228,8 @@ def evaluer(
     ]
     coordonnees = [(p.lat, p.lon) for _, _, p, _ in bases]
 
-    debut_heure, horizon_h = _fenetre(depart_tz, bases[-1][1])
+    arrivee = bases[-1][1] if limite is None else min(bases[-1][1], limite)
+    debut_heure, horizon_h = _fenetre(depart_tz, max(arrivee, depart_tz))
     previsions, modele_principal, repli_total = _previsions_avec_repli(
         client, coordonnees, modele, modele_repli, debut_heure, horizon_h
     )
@@ -224,10 +238,12 @@ def evaluer(
     bascule_dist_m: float | None = None
     echantillons = []
     for i, ((dist, t, point, cap), prevision) in enumerate(zip(bases, previsions, strict=True)):
-        valeurs = _interpoler(prevision.heures, t)
+        hors_limite = limite is not None and t > limite
+        valeurs = _Valeurs() if hors_limite else _interpoler(prevision.heures, t)
         modele_echantillon: str | None = None if _valeurs_vides(valeurs) else modele_principal
         if (
-            modele_echantillon is None
+            not hors_limite
+            and modele_echantillon is None
             and not repli_total
             and modele_repli
             and modele_repli != modele_principal
@@ -264,6 +280,7 @@ def evaluer(
                 vent_depuis_deg=valeurs.vent_depuis_deg,
                 rafales_kmh=valeurs.rafales_kmh,
                 modele=modele_echantillon,
+                au_dela_prevision=hors_limite or modele_echantillon is None,
             )
         )
 
@@ -277,6 +294,7 @@ def evaluer(
         client,
         coordonnees,
         [t for _, t, _, _ in bases],
+        [e.au_dela_prevision for e in echantillons],
         debut_heure,
         horizon_h,
         avis_pour_comparaison,
@@ -593,6 +611,7 @@ def _second_avis(
     client: ClientOpenMeteo,
     coordonnees: Sequence[tuple[float, float]],
     instants: Sequence[datetime],
+    au_dela: Sequence[bool],
     debut_heure: datetime,
     horizon_h: int,
     modele: str | None,
@@ -612,9 +631,11 @@ def _second_avis(
         )
     except ErreurConnecteur:
         return None
+    # Au-delà de la prévision, le second avis se tait aussi : il ne doit pas
+    # fabriquer un « accord » sur un échantillon que le principal n'a pas.
     return [
-        _interpoler(prevision.heures, t).pluie_mm
-        for prevision, t in zip(previsions, instants, strict=True)
+        None if hors else _interpoler(prevision.heures, t).pluie_mm
+        for prevision, t, hors in zip(previsions, instants, au_dela, strict=True)
     ]
 
 
