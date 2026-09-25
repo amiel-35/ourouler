@@ -190,6 +190,76 @@ describe("posee: false n'invente aucun vent", () => {
   });
 });
 
+describe("le motif technique d'un connecteur externe ne s'affiche jamais tel quel (rejoué le 25/09/2026)", () => {
+  it("remplace un motif qui porte une URL par une phrase courte, sans URL ni HTTP", async () => {
+    const motifBrut =
+      "vent au départ indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/forecast — No data is available for this location (modèle demandé : arome))";
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": { charge: ventDepart({ posee: false, motif: motifBrut }) },
+    });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+
+    expect(
+      await screen.findByText("Le vent au départ n'est pas disponible pour ce point de départ."),
+    ).toBeTruthy();
+    expect(screen.queryByText(/https?:\/\//)).toBeNull();
+    expect(screen.queryByText(/HTTP/)).toBeNull();
+    expect(screen.queryByText(motifBrut)).toBeNull();
+  });
+
+  it("garde un motif déjà en français quand il ne porte aucun détail technique", async () => {
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": {
+        charge: ventDepart({ posee: false, motif: "vent sous le seuil (motif inventé)" }),
+      },
+    });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+
+    expect(await screen.findByText("vent sous le seuil (motif inventé)")).toBeTruthy();
+  });
+
+  it("propose Réglages quand le départ n'est encore que le défaut du compte neuf", async () => {
+    const motifBrut = "vent au départ indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/forecast)";
+    const profilSansDepart = {
+      ...PROFIL.donnees,
+      depart: { nom: "Départ", latitude: 0, longitude: 0 },
+    };
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": { charge: ventDepart({ posee: false, motif: motifBrut }) },
+    });
+    serveur.installer();
+    render(
+      <Demander
+        profil={profilSansDepart}
+        zones={ZONES}
+        dureeSeance_s={SEANCE.donnees.duree_s}
+        nomSeance={SEANCE.donnees.nom}
+        demande={demandeEssai()}
+        budget={null}
+        surDemande={() => undefined}
+        surChercher={() => undefined}
+      />,
+    );
+
+    await screen.findByText("Le vent au départ n'est pas disponible pour ce point de départ.");
+    expect(screen.getByRole("link", { name: "Renseigner votre départ dans les réglages" })).toBeTruthy();
+  });
+
+  it("ne propose pas Réglages quand un départ réel est déjà enregistré", async () => {
+    const motifBrut = "vent au départ indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/forecast)";
+    const serveur = new Serveur({
+      "/api/v1/vent-depart": { charge: ventDepart({ posee: false, motif: motifBrut }) },
+    });
+    serveur.installer();
+    render(<ConteneurDemander demande={demandeEssai()} />);
+
+    await screen.findByText("Le vent au départ n'est pas disponible pour ce point de départ.");
+    expect(screen.queryByRole("link", { name: /Réglages/ })).toBeNull();
+  });
+});
+
 describe("les valeurs du vent viennent de l'API, jamais d'un calcul local", () => {
   it("suit la fixture quand elle change de vent, au lieu de rester au sud-ouest", async () => {
     // Le défaut le plus silencieux d'un front : un secteur déduit sur place
