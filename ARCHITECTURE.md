@@ -67,23 +67,24 @@ HTTP injectable :
 | Paquet | Rôle | Fichiers principaux (lignes) |
 |---|---|---|
 | `cli.py` | argparse, lecture de la config, appel des commandes | `cli.py` (1 308) |
-| `config.py` | dataclasses `Config`, `Velo`, `Depart`… ; chargement TOML et environnement | `config.py` (1 242) |
-| `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py` |
+| `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` (918) |
+| `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py` |
 | `activites/` | lecteur unique FIT/GPX/TCX, cache SQLite, inventaire, import d'archive | `cache.py` (703), `import_archive.py` (526), `lecture.py` (490) |
 | `connecteurs/` | clients HTTP : BRouter, Intervals.icu, archives Open-Meteo, géocodage | `brouter.py` (604), `intervals.py` (595), `openmeteo_archive.py` (478) |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
 | `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (1 857), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
 | `physique/` | modèle puissance ↔ vitesse, calibration CdA/Crr, comparaison de vélos | `calibration.py` (1 782), `commande.py` (1 330), `comparer.py` (884), `modele.py` (668) |
-| `seance/` | modèle de séance et zones, lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
+| `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue, écran de FTP | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions, carte HTML | `commande.py` (2 494), `carte.py` (1 283), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
 | `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `routes.py` (2 122), `comptes.py` (1 095), `depots.py` (988), `application.py` (621), `adaptateur.py` (277) |
 
-Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py` et
-`proprietaire.py` ne sont plus que des réexports du noyau, pour un appelant
-extérieur ; le code du dépôt importe `ourouler.noyau`, et le lot final les
-retire.
+Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
+`proprietaire.py`, `seance/modele.py` et `seance/zones.py` ne sont plus que
+des réexports du noyau, pour un appelant extérieur ; le code du dépôt importe
+`ourouler.noyau`, et le lot final les retire. `config.py` réexporte de même
+le profil, et `meteo/openmeteo.py` les types de prévision.
 
 Chaque paquet de domaine a son `commande.py` : c'est la sous-commande de la
 ligne de commande, et, on le verra, bien plus que ça.
@@ -144,7 +145,9 @@ commandes de `boucle`, `meteo`, `seance` et `apprentissage`.
 - `physique/commande.py` importe `boucle/` (le type `Trace`, lui, est passé au
   noyau au lot 3 : `physique/modele.py` et `physique/calibration.py`
   n'importent plus `boucle/`) ;
-- `config.py` importe `seance` (zones par défaut) ;
+- les cas d'usage (`*/commande.py`) reçoivent la `Config` entière, qui reste
+  dans `config.py` : le défaut de son dossier de cache se résout depuis le
+  répertoire de l'utilisateur ;
 - `connecteurs/` importe `activites` et `boucle`, qui l'importent en retour ;
 - `boucle/candidates.py` reçoit un `ClientBrouter` concret, pas une interface.
 
@@ -212,6 +215,7 @@ identiques, et retire les exceptions qu'elle rend inutiles.
 1. Créer `noyau/` (trace, activité, erreurs, propriétaire), avec des
    réexports pour ne rien casser. *Fait (lot 3).*
 2. Y ranger aussi les types météo, le profil, le modèle de séance et les zones.
+   *Fait (lot 4)*, sauf `Config` elle-même : elle garde `ParametresCache`.
 3. Casser le cycle `api` ↔ `cli` : `profil_json` passe au rendu, les comptes
    et invitations passent aux services.
 4. Sortir le rendu texte et JSON des `commande.py` de `sortie`, `boucle` et

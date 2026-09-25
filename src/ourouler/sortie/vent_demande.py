@@ -35,9 +35,9 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from ourouler.config import Depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
+from ourouler.noyau.profil import Depart
 from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.sortie.orientation import (
     ORIENTATION_DEPART_DOS,

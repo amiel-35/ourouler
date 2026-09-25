@@ -72,10 +72,11 @@ import numpy as np
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattachement_explicite, rattacher_velo
-from ourouler.config import Config, Velo
+from ourouler.config import Config
 from ourouler.connecteurs.openmeteo_archive import HeureArchive
 from ourouler.noyau.activite import Activite, Point, est_sport_velo
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.profil import Velo
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 from ourouler.physique.modele import (
     RENDEMENT_DEFAUT,

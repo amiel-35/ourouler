@@ -91,7 +91,7 @@ from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.horaire import construire_horaire
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent, vent_par_position
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
-from ourouler.config import Config, Depart
+from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.meteo import portee
@@ -105,6 +105,7 @@ from ourouler.noyau.erreurs import (
     ErreurIntervalsAbsent,
     ErreurUtilisateur,
 )
+from ourouler.noyau.profil import Depart
 from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms

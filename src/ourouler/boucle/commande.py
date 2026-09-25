@@ -50,7 +50,7 @@ from ourouler.boucle.marqueurs import compter as compter_marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.boucle.tags_importes import greffer
-from ourouler.config import Config, Depart
+from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.meteo import portee
 from ourouler.meteo.commande import heure_depart
@@ -63,6 +63,7 @@ from ourouler.noyau.erreurs import (
     ErreurDistanceInatteignable,
     ErreurUtilisateur,
 )
+from ourouler.noyau.profil import Depart
 from ourouler.noyau.trace import DENIVELE_REROUTE, Trace, denivele_filtre
 from ourouler.physique.modele import FourchettePorteAPorte, PorteAPorte, temps_ecoule
 

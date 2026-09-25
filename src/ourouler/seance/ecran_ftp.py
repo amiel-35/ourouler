@@ -33,8 +33,9 @@ from __future__ import annotations
 
 import math
 
-from ourouler.config import Config, Velo
+from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.profil import Velo
 from ourouler.noyau.zones import ZONE_ENDURANCE, echelle, position_dans_zone, puissance_pct_ftp
 from ourouler.physique.commande import (
     chemin_calibration,

@@ -39,9 +39,12 @@ l'inverse :
 - adaptateurs HTTP : `src/ourouler/connecteurs/`, chacun avec un client
   injectable ;
 - noyau : `src/ourouler/noyau/` (`trace`, `activite`, `erreurs`,
-  `proprietaire`), bibliothèque standard seulement ; les anciens chemins
-  (`boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
-  `proprietaire.py`) sont des réexports temporaires : importer le noyau ;
+  `proprietaire`, `seance`, `zones`, `meteo`, `profil`), bibliothèque
+  standard seulement ; les anciens chemins (`boucle/trace.py`,
+  `activites/modele.py`, `erreurs.py`, `proprietaire.py`,
+  `seance/modele.py`, `seance/zones.py`) sont des réexports temporaires :
+  importer le noyau, et le profil (`Velo`, `Depart`…) depuis
+  `noyau.profil` plutôt que `config` ;
 - `front/` : l'interface, qui ne parle qu'à l'API.
 
 ## Règles absolues

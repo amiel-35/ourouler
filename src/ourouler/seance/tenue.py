@@ -29,7 +29,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
-from ourouler.config import ParametresTenue
+from ourouler.noyau.profil import ParametresTenue
 
 #: Catégories de température ressentie, de la plus froide à la plus chaude.
 #: Il y en a une de plus que de bornes : `ParametresTenue.bornes_c`.

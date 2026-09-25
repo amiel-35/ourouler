@@ -4,7 +4,8 @@ Sert à répondre « de quoi disposera la calibration ? » avant de calibrer
 quoi que ce soit : combien de sorties, avec quel vélo, avec ou sans
 puissance, et quelles entrées sont suspectes.
 
-Ne lit ni configuration, ni environnement : reçoit un `Cache` et une `Config`.
+Ne lit ni configuration, ni environnement : reçoit un `Cache` et une `Config`
+(ou tout `noyau.profil.PorteVelos` : seuls ses vélos servent).
 """
 
 from __future__ import annotations
@@ -13,8 +14,8 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from ourouler.activites.cache import Cache, EntreeCache
-from ourouler.config import Config
 from ourouler.noyau.activite import est_sport_velo
+from ourouler.noyau.profil import PorteVelos
 
 #: Rattachement rendu pour une sortie manifestement faite en intérieur.
 HOME_TRAINER = "home-trainer"
@@ -94,7 +95,7 @@ class Inventaire:
 # --- rattachement -------------------------------------------------------------
 
 
-def rattacher_velo(entree: EntreeCache, config: Config) -> str:
+def rattacher_velo(entree: EntreeCache, config: PorteVelos) -> str:
     """Nom du vélo auquel rattacher une sortie.
 
     Ordre du contrat du sprint 2, §7 (lot L2.7) — il a changé depuis le
@@ -125,7 +126,7 @@ def rattacher_velo(entree: EntreeCache, config: Config) -> str:
     return config.velos[0].nom if config.velos else INCONNU
 
 
-def rattachement_explicite(entree: EntreeCache, config: Config) -> str | None:
+def rattachement_explicite(entree: EntreeCache, config: PorteVelos) -> str | None:
     """Le vélo que la sortie **désigne elle-même** — étapes 2 à 4 de `rattacher_velo` —, ou `None`.
 
     Capteur, équipement Intervals ou période : un signal que la sortie porte,
@@ -185,7 +186,7 @@ def en_interieur(entree: EntreeCache) -> bool:
 # --- inventaire ---------------------------------------------------------------
 
 
-def inventaire(cache: Cache, config: Config, depuis: date) -> Inventaire:
+def inventaire(cache: Cache, config: PorteVelos, depuis: date) -> Inventaire:
     """Ce que le cache contient en **vélo**, par vélo et par mois.
 
     Le cache peut contenir d'autres sports (le compte Intervals du mainteneur

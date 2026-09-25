@@ -28,11 +28,12 @@ from ourouler.boucle.gpx import lire_gpx_parcours, lire_gpx_trace
 from ourouler.boucle.horaire import Pause, analyser_pause, construire_horaire, valider_pauses
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
-from ourouler.config import Config, Velo
+from ourouler.config import Config
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo import portee
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.profil import Velo
 from ourouler.physique import calibration as calib
 from ourouler.physique import litterature
 from ourouler.physique.modele import (
