@@ -17,9 +17,11 @@ import pytest
 from ourouler.activites.cache import Cache
 from ourouler.activites.modele import TYPES_VELO, est_sport_velo
 from ourouler.connecteurs.intervals import (
+    USER_AGENT,
     ClientIntervals,
     RapportSynchro,
     metadonnees,
+    resoudre_athlete_id,
     synchroniser,
 )
 from ourouler.erreurs import ErreurConnecteur, ErreurUtilisateur
@@ -902,3 +904,85 @@ def test_profil_athlete_erreur_http_ne_laisse_pas_fuir_la_cle():
     with pytest.raises(ErreurConnecteur) as e:
         c.profil_athlete()
     assert CLE not in str(e.value)
+
+
+# --- resoudre_athlete_id (correctif de prod du 25/09/2026) -------------------
+
+
+def _transport_athlete_0(reponses):
+    """Espion + transport pour `resoudre_athlete_id` : pas de `ClientIntervals`,
+    donc pas de fabrique `client()` (qui exige déjà un athlete_id)."""
+    espion = Espion(reponses)
+    http = httpx.Client(transport=httpx.MockTransport(espion))
+    return http, espion
+
+
+def test_resoudre_athlete_id_lit_l_identifiant_de_la_reponse():
+    http, espion = _transport_athlete_0(json_fixe({"id": "i999999"}))
+    assert resoudre_athlete_id(CLE, http=http) == "i999999"
+    assert espion.requetes[0].url.path == "/api/v1/athlete/0"
+
+
+def test_resoudre_athlete_id_pose_un_user_agent_explicite():
+    """Constaté en vrai : Intervals.icu répond 403 sans User-Agent explicite."""
+    http, espion = _transport_athlete_0(json_fixe({"id": "i999999"}))
+    resoudre_athlete_id(CLE, http=http)
+    assert espion.requetes[0].headers["user-agent"] == USER_AGENT
+
+
+def test_resoudre_athlete_id_authentifie_avec_la_cle_donnee():
+    http, espion = _transport_athlete_0(json_fixe({"id": "i999999"}))
+    resoudre_athlete_id(CLE, http=http)
+    entete = espion.requetes[0].headers["authorization"]
+    attendu = base64.b64encode(f"API_KEY:{CLE}".encode()).decode()
+    assert entete == f"Basic {attendu}"
+
+
+@pytest.mark.parametrize("code", [401, 403])
+def test_resoudre_athlete_id_cle_refusee_est_une_erreur_connecteur(code: int):
+    http, _ = _transport_athlete_0(json_fixe({"message": "refuse"}, code=code))
+    with pytest.raises(ErreurConnecteur, match="clé d'API refusée"):
+        resoudre_athlete_id(CLE, http=http)
+
+
+def test_resoudre_athlete_id_cle_refusee_ne_laisse_pas_fuir_la_cle():
+    http, _ = _transport_athlete_0(json_fixe({}, code=401))
+    with pytest.raises(ErreurConnecteur) as e:
+        resoudre_athlete_id(CLE, http=http)
+    assert CLE not in str(e.value)
+
+
+def test_resoudre_athlete_id_service_injoignable():
+    def transport(requete: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("injoignable", request=requete)
+
+    http = httpx.Client(transport=httpx.MockTransport(transport))
+    with pytest.raises(ErreurConnecteur, match="appel impossible"):
+        resoudre_athlete_id(CLE, http=http)
+
+
+def test_resoudre_athlete_id_reponse_sans_identifiant():
+    http, _ = _transport_athlete_0(json_fixe({"weight": 70}))
+    with pytest.raises(ErreurConnecteur, match="identifiant absent"):
+        resoudre_athlete_id(CLE, http=http)
+
+
+def test_resoudre_athlete_id_json_illisible():
+    def transport(requete: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"pas du json")
+
+    http = httpx.Client(transport=httpx.MockTransport(transport))
+    with pytest.raises(ErreurConnecteur, match="JSON"):
+        resoudre_athlete_id(CLE, http=http)
+
+
+def test_resoudre_athlete_id_sans_cle_est_un_refus_immediat():
+    with pytest.raises(ErreurConnecteur, match="api_key"):
+        resoudre_athlete_id("")
+
+
+def test_get_pose_aussi_un_user_agent_explicite():
+    """Pas seulement `resoudre_athlete_id` : tous les appels du connecteur."""
+    c, espion = client(json_fixe([]))
+    c.activites(date(2024, 3, 1), date(2024, 3, 31))
+    assert espion.requetes[0].headers["user-agent"] == USER_AGENT

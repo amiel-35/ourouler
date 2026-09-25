@@ -109,6 +109,114 @@ def test_profil_intervals_401_ne_laisse_pas_fuir_la_cle():
     assert CLE_INTERVALS_SENTINELLE not in reponse.text
 
 
+# --- PATCH /profil {intervals: {api_key}} : résolution de l'athlete_id ---------
+#
+# Correctif de prod du 25/09/2026 : un invité hébergé ne peut brancher
+# Intervals que par sa clé (l'assistant et Réglages ne demandent jamais son
+# athlete_id) — sans résolution côté serveur, `ParametresIntervals.renseigne`
+# restait faux et toutes les routes Intervals répondaient 409 `intervals_absent`.
+
+
+def test_patch_profil_cle_seule_resout_l_athlete_id_et_l_ecrit(tmp_path: Path):
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_TOML_ESSAI, encoding="utf-8")
+    bouchon = client_bouchon(200, {"id": "i555555", "weight": 70.0})
+    client = client_api(
+        chemin_config=chemin,
+        dossier_donnees=tmp_path / "donnees",
+        client_intervals=bouchon,
+    )
+    patch = client.requete(
+        "PATCH",
+        "/api/v1/profil",
+        json={"intervals": {"api_key": CLE_INTERVALS_SENTINELLE}},
+    )
+    assert patch.status_code == 200, patch.text[:300]
+    assert patch.json()["donnees"]["services"]["intervals"]["renseigne"] is True
+    assert patch.json()["donnees"]["services"]["intervals"]["athlete_id"] == "i555555"
+    # La clé posée n'apparaît jamais dans la réponse.
+    assert CLE_INTERVALS_SENTINELLE not in patch.text
+    # Rechargé depuis le disque, le profil porte bien le vrai identifiant :
+    # `GET /profil/intervals` ne répond plus 409 `intervals_absent`.
+    lu = client.get("/api/v1/profil")
+    assert lu.json()["donnees"]["services"]["intervals"]["athlete_id"] == "i555555"
+
+
+def test_patch_profil_athlete_id_deja_pose_n_est_pas_ecrase(tmp_path: Path):
+    """`athlete_id` déjà présent (non vide) dans le corps : pas d'appel réseau."""
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_TOML_ESSAI, encoding="utf-8")
+
+    def refuse(requete):  # ne doit jamais être appelé
+        raise AssertionError(f"appel réseau inattendu : {requete.url}")
+
+    import httpx
+
+    bouchon = httpx.Client(transport=httpx.MockTransport(refuse))
+    client = client_api(
+        chemin_config=chemin,
+        dossier_donnees=tmp_path / "donnees",
+        client_intervals=bouchon,
+    )
+    patch = client.requete(
+        "PATCH",
+        "/api/v1/profil",
+        json={"intervals": {"athlete_id": "i000001", "api_key": CLE_INTERVALS_SENTINELLE}},
+    )
+    assert patch.status_code == 200, patch.text[:300]
+    assert patch.json()["donnees"]["services"]["intervals"]["athlete_id"] == "i000001"
+
+
+def test_patch_profil_cle_refusee_n_ecrit_rien(tmp_path: Path):
+    """Clé rejetée par Intervals (401) : `intervals_refuse`, rien n'est écrit."""
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_TOML_ESSAI, encoding="utf-8")
+    bouchon = client_bouchon(401, {"error": "unauthorized"})
+    client = client_api(
+        chemin_config=chemin,
+        dossier_donnees=tmp_path / "donnees",
+        client_intervals=bouchon,
+    )
+    patch = client.requete(
+        "PATCH",
+        "/api/v1/profil",
+        json={"intervals": {"api_key": CLE_INTERVALS_SENTINELLE}},
+    )
+    assert patch.status_code >= 400
+    assert patch.json()["erreur"]["code"] == "intervals_refuse"
+    assert CLE_INTERVALS_SENTINELLE not in patch.text
+    # Rien écrit : le profil reste celui d'un compte jamais touché.
+    lu = client.get("/api/v1/profil")
+    assert lu.json()["donnees"]["assistant_recommande"] is True
+    assert lu.json()["donnees"]["services"]["intervals"]["renseigne"] is False
+
+
+def test_patch_profil_intervals_injoignable_n_ecrit_rien(tmp_path: Path):
+    chemin = tmp_path / "config.toml"
+    chemin.write_text(_TOML_ESSAI, encoding="utf-8")
+
+    import httpx
+
+    def injoignable(requete: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("injoignable", request=requete)
+
+    bouchon = httpx.Client(transport=httpx.MockTransport(injoignable))
+    client = client_api(
+        chemin_config=chemin,
+        dossier_donnees=tmp_path / "donnees",
+        client_intervals=bouchon,
+    )
+    patch = client.requete(
+        "PATCH",
+        "/api/v1/profil",
+        json={"intervals": {"api_key": CLE_INTERVALS_SENTINELLE}},
+    )
+    assert patch.status_code >= 400
+    assert patch.json()["erreur"]["code"] in ("intervals_indisponible", "service_externe_indisponible")
+    lu = client.get("/api/v1/profil")
+    assert lu.json()["donnees"]["services"]["intervals"]["renseigne"] is False
+
+
 # --- POST /profil/ftp/apercu ----------------------------------------------------
 
 
