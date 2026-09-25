@@ -21,6 +21,13 @@ partir des PR.
 
 ## [Non publié]
 
+### Ajouté
+
+- Analyser un parcours qu'on a déjà (un brevet, la boucle du club) : on
+  dépose son GPX, l'outil dit le temps estimé, la météo le long du tracé et
+  le vent, sans rien retracer. Aussi en ligne de commande :
+  `ourouler analyser`.
+
 ## [0.9.6] — 2026-09-25
 
 ### Corrigé
