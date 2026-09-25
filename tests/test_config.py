@@ -133,6 +133,58 @@ def test_charger_absent_ou_invalide(tmp_path: Path):
         charger(f)
 
 
+# --- requiert_profil=False (commandes de comptes, constat du 25/09/2026) ----
+#
+# `ourouler inviter`/`invitations`/`reinitialiser`/`retirer` ne parlent
+# jamais au profil du cycliste ([depart], [cycliste]) — voir `cli.py`. Un
+# TOML hébergé sans tiers 3 (Q35/Q66) ne porte plus ces deux sections, et les
+# exiger quand même les faisait échouer en prod avant même d'atteindre la
+# base des comptes.
+
+
+def test_depuis_dict_sans_profil_ni_depart_ni_cycliste():
+    """Le cas réel : un TOML hébergé auquel Q66a a retiré [cycliste] et [[velos]],
+    et qui n'a jamais porté [depart] (docs/inviter.md, §1 « L'action Q66a »)."""
+    c = depuis_dict({"meteo": {"directions": 8}}, requiert_profil=False)
+    assert c.depart.latitude == 0.0
+    assert c.depart.longitude == 0.0
+    assert c.cycliste.masse_kg == 0.0
+    assert c.cycliste.ftp_w is None
+    assert [v.nom for v in c.velos] == ["Route"]
+
+
+def test_depuis_dict_sans_profil_mais_avec_des_sections_partielles():
+    """`[depart]`/`[cycliste]` présentes mais vides restent acceptées aussi —
+    pas seulement leur absence totale."""
+    c = depuis_dict({"depart": {}, "cycliste": {}}, requiert_profil=False)
+    assert c.depart.latitude == 0.0
+    assert c.cycliste.masse_kg == 0.0
+
+
+def test_depuis_dict_sans_profil_valide_quand_meme_les_champs_presents():
+    """`requiert_profil=False` lève l'obligation de présence, pas les bornes :
+    une masse hors limites reste un refus, même pour une commande de comptes."""
+    with pytest.raises(ErreurConfig, match="hors de"):
+        depuis_dict({"cycliste": {"masse_kg": 1000}}, requiert_profil=False)
+
+
+def test_charger_sans_profil_accepte_un_toml_hors_tiers_3(tmp_path: Path):
+    f = tmp_path / "hebergement.toml"
+    f.write_text('[meteo]\ndirections=8\n[cache]\ndossier="~/x"\n', encoding="utf-8")
+    c = charger(f, requiert_profil=False)
+    assert c.depart.latitude == 0.0
+    assert c.cycliste.masse_kg == 0.0
+
+
+def test_charger_avec_profil_refuse_toujours_le_meme_toml(tmp_path: Path):
+    """Le défaut (`requiert_profil=True`, inchangé) continue de refuser ce
+    TOML — la levée d'exigence ne s'applique qu'aux commandes qui le demandent."""
+    f = tmp_path / "hebergement.toml"
+    f.write_text('[meteo]\ndirections=8\n[cache]\ndossier="~/x"\n', encoding="utf-8")
+    with pytest.raises(ErreurConfig, match=r"\[depart\] manquante"):
+        charger(f)
+
+
 # --- environnement (contrat de l'hébergé minimal) ---------------------------
 #
 # Le contrat (docs/heberge_minimal_contrat.md, § « Les secrets ») fait venir

@@ -52,14 +52,20 @@ hors du dépôt :
 - `deploiement/api/config.example.toml` — le profil TOML non-secrets du
   conteneur. Encodé dans `OUROULER_CONFIG_TOML_B64`.
 
-### L'action Q66a : vider les variables perso pur
+### L'action Q66a : vider les variables perso pur — **faite, vérifiée le 25/09/2026**
 
-Fermée le 22/09/2026 (`docs/questions_mainteneur.md`, Q66) : en mode
-`heberge`, l'API **refuse de démarrer** si le TOML ou l'environnement du
-serveur portent une valeur perso pur — parce qu'un serveur partagé qui les
-porte les distribue à chaque personne invitée. Les noms exacts, lus par le
-code (`src/ourouler/api/depots.py:SECTIONS_PERSO_PUR`,
-`VARIABLES_PERSO_PUR`, `CHAMPS_RACINE_MODIFIABLES`) :
+Fermée côté code le 22/09/2026 (`docs/questions_mainteneur.md`, Q66) : en
+mode `heberge`, l'API **refuse de démarrer** si le TOML ou l'environnement
+du serveur portent une valeur perso pur — parce qu'un serveur partagé qui
+les porte les distribue à chaque personne invitée. Le geste côté Coolify
+restait dû au mainteneur (Q66a) ; **vérifié fait le 25/09/2026**, en
+invitant pour de vrai depuis la prod (`ssh inflexion` + `docker exec` dans
+le conteneur `api-hqcrmxt0dvyxlgojgvqmwhsk-*`) : dans le panneau Coolify de
+`ourouler-api`, `OUROULER_DEPART_*` et `OUROULER_INTERVALS_*` sont vides, et
+`OUROULER_CONFIG_TOML_B64` ne contient plus que `[meteo]`, `[cache]`,
+`[brouter]`, `[boucle]` — ni `[cycliste]` ni `[[velos]]`. [[Q66]] est close.
+Les noms exacts, lus par le code (`src/ourouler/api/depots.py:SECTIONS_PERSO_PUR`,
+`VARIABLES_PERSO_PUR`, `CHAMPS_RACINE_MODIFIABLES`), pour mémoire :
 
 - Sections TOML à retirer : `[depart]`, `[cycliste]`, `[[velos]]`,
   `[intervals]`. `deploiement/api/config.example.toml`, tel qu'il est
@@ -96,36 +102,79 @@ conteneur.
 
 ## 2. Inviter quelqu'un
 
-Depuis la ligne de commande du mainteneur, pas depuis le conteneur :
+**Corrigé le 25/09/2026, en invitant pour de vrai depuis la prod** : ce qui
+suit décrivait `ourouler inviter` depuis le poste du mainteneur, contre la
+base Postgres distante. Ça ne marche pas telle quelle — la base des comptes
+n'est joignable que depuis le réseau Docker du serveur (`OUROULER_DATABASE_URL`
+pointe une adresse interne à Coolify, pas exposée sur Internet). Les
+commandes de comptes (`inviter`, `invitations`, `reinitialiser`, `retirer`)
+se lancent donc **dans le conteneur**, par `ssh` puis `docker exec` —
+`retirer` le disait déjà (§5 ci-dessous, pour une autre raison : le dossier
+de données), les trois autres non.
 
 ```bash
-ourouler inviter adresse@example.com
+# Depuis le poste du mainteneur.
+ssh inflexion
+
+# Sur le serveur : trouver le conteneur du service API (le nom porte un
+# suffixe aléatoire posé par Coolify à chaque déploiement, donc jamais fixe).
+docker ps --filter name=api-hqcrmxt0dvyxlgojgvqmwhsk --format '{{.Names}}'
+# → api-hqcrmxt0dvyxlgojgvqmwhsk-<quelque chose>
+
+# Inviter, depuis le conteneur trouvé ci-dessus.
+docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> ourouler inviter adresse@example.com
 ```
 
 Options réelles (`src/ourouler/cli.py:ajouter_inviter`, ~ligne 912) :
 `adresse` (positionnel, obligatoire), `--sans-courriel` (n'envoie pas le
 courriel, affiche seulement le lien), `--json` (hérité de `parent_json()`).
-`ourouler invitations` liste les invitations en cours (adresse, lien,
-échéance).
+`docker exec <conteneur> ourouler invitations` liste les invitations en
+cours (adresse, lien, échéance).
+
+**Deux trous corrigés par ce même lot, tous deux mesurés en essayant
+réellement la commande dans le conteneur :**
+
+1. **`--config` n'était pas nécessaire, mais la commande refusait quand
+   même** sur « fichier de configuration introuvable :
+   `/root/.config/ourouler/config.toml` » — alors que
+   `OUROULER_CONFIG=/config/config.toml` est déjà posé pour le processus API
+   (`docker-compose.api.coolify.yml`). `cli.main()` ne consultait jamais
+   cette variable pour son propre `--config` par défaut ; il le fait
+   maintenant (`api.exploitation.chemin_config()`, la même résolution que le
+   serveur). Plus besoin de passer `--config /config/config.toml` à la main.
+2. **Même avec `--config` explicite, la commande exigeait tout le profil du
+   cycliste** (`[depart]`, `[cycliste]`) — un TOML hébergé sans tiers 3
+   (§1 ci-dessus) ne les porte plus, et `ourouler inviter` refusait sur
+   « section [depart] manquante » avant même d'atteindre la base des
+   comptes. Les commandes de comptes n'ont jamais eu besoin de ce profil
+   (`inviter`/`reinitialiser` ne s'en servent que pour composer « Prénom Nom
+   vous invite », facultatif ; `invitations` et `retirer` pas du tout) :
+   `cli.charger(..., requiert_profil=False)` lève l'obligation pour ces
+   quatre commandes seulement, pas pour le reste de la ligne de commande.
 
 Secrets et paramètres lus, et par quoi (`_commande_inviter`,
 `src/ourouler/cli.py` ~ligne 930) :
 
 - `OUROULER_DATABASE_URL` — obligatoire, sinon refus nommant la variable
-  (`_url_des_comptes`).
+  (`_url_des_comptes`). Déjà posée dans le conteneur (`docker-compose.api.coolify.yml`),
+  rien à faire.
 - `OUROULER_URL_PUBLIQUE` — l'URL publique devant laquelle `/entrer?jeton=…`
   s'ouvre ; obligatoire, sinon refus nommant la variable (`_url_publique`).
-  Posée dans l'environnement du mainteneur le temps de la commande, pas
-  dans le compose du service.
-- `~/.config/ourouler/service.toml` (ou le chemin de `OUROULER_SERVICE`) —
-  sauf `--sans-courriel` : section `[brevo]` (mêmes six champs que
-  ci-dessus).
+  **Corrigé par ce lot** : n'était posée nulle part dans le conteneur avant
+  le 25/09/2026, alors que Coolify calcule déjà cette URL pour ce service
+  (`SERVICE_URL_API`, dérivée de `SERVICE_FQDN_API_8000`). Désormais reprise
+  telle quelle dans `docker-compose.api.coolify.yml`
+  (`OUROULER_URL_PUBLIQUE=${SERVICE_URL_API}`) : rien à poser à la main pour
+  inviter depuis le conteneur.
+- `/config/service.toml` (`OUROULER_SERVICE`, déjà posée) — sauf
+  `--sans-courriel` : section `[brevo]` (mêmes six champs que ci-dessus).
 
 Ce que reçoit l'invité (`src/ourouler/api/courriel.py:message_invitation`) :
 un courriel texte simple, sujet « Invitation à où rouler », qui dit qui
-invite (si le mainteneur a renseigné son prénom/nom) ou « Vous êtes
-invité·e » sinon, le lien `<url_publique>/entrer?jeton=<jeton>`, et
-l'échéance au format `JJ/MM/AAAA`.
+invite (si le mainteneur a renseigné son prénom/nom dans son propre
+`config.toml` — absent du TOML hébergé depuis Q66a, donc « Vous êtes
+invité·e » en pratique aujourd'hui) ou « Vous êtes invité·e » sinon, le lien
+`<url_publique>/entrer?jeton=<jeton>`, et l'échéance au format `JJ/MM/AAAA`.
 
 **Le lien s'affiche toujours en sortie de commande**, courriel envoyé ou
 non — pour que le mainteneur puisse le relire et le renvoyer par un autre
@@ -300,7 +349,10 @@ l'API (`src/ourouler/api/routes.py`) :
   reste proposé (il porte sur le propriétaire de la session, pas sur un
   compte).
 
-**Côté mainteneur**, en ligne de commande :
+**Côté mainteneur**, en ligne de commande, **dans le conteneur du serveur**
+(même geste que pour `inviter`, §2 ci-dessus — `ssh inflexion`, puis
+`docker ps --filter name=api-hqcrmxt0dvyxlgojgvqmwhsk --format '{{.Names}}'`
+pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
 
 - `ourouler reinitialiser <adresse>` — émet un lien de nouveau mot de passe
   pour un compte **déjà actif** qui l'a perdu (`src/ourouler/cli.py`,
@@ -312,13 +364,19 @@ l'API (`src/ourouler/api/routes.py`) :
   commande, jamais une route HTTP** : un « mot de passe oublié » en
   libre-service ouvrirait un relais de spam et un oracle d'énumération
   d'adresses.
+
+  ```bash
+  docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> ourouler reinitialiser adresse@example.com
+  ```
 - `ourouler retirer <adresse>` — ferme un compte hébergé et efface ses
   données personnelles, **par le même chemin que `DELETE /moi`**
   (`src/ourouler/api/retrait_commande.py` appelle `vie_privee.
   effacer_donnees` telle quelle, pas une réimplémentation). `--oui` pour ne
   pas demander confirmation. **À lancer `docker exec` (ou équivalent) DANS
-  le conteneur du serveur, jamais depuis le poste du mainteneur** : la
-  commande reconstruit les mêmes dépôts (profil, fichiers, cache
+  le conteneur du serveur, jamais depuis le poste du mainteneur** — pas
+  seulement par cohérence avec `inviter`/`reinitialiser` (§2, la base des
+  comptes n'est joignable que depuis le réseau Docker du serveur) : la
+  commande reconstruit en plus les mêmes dépôts (profil, fichiers, cache
   d'activités) que le serveur hébergé réellement lancé, à partir de la
   configuration et du dossier de données de la machine qui l'exécute — lancée
   depuis le Mac du mainteneur, elle fermerait bien le compte dans la base
@@ -327,6 +385,10 @@ l'API (`src/ourouler/api/routes.py`) :
   tout en annonçant un succès. `_depots_de_l_hebergement` (`cli.py`) refuse
   maintenant si le dossier de données attendu n'existe pas, mais ce n'est
   qu'un filet — voir `deploiement/api/README.md`.
+
+  ```bash
+  docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> ourouler retirer adresse@example.com --oui
+  ```
 
 ## 6. Vérifier après déploiement
 
@@ -341,8 +403,12 @@ curl https://<domaine attribué>/sante
 curl -i https://<domaine attribué>/api/v1/systeme
 # → 401, corps JSON avec erreur.code = "session_absente"
 
-# 3. Une invitation de test, à sa propre adresse, sans envoyer de courriel.
-OUROULER_DATABASE_URL=... OUROULER_URL_PUBLIQUE=https://<domaine attribué> \
+# 3. Une invitation de test, à sa propre adresse, sans envoyer de courriel —
+#    dans le conteneur (§2 ci-dessus) : les deux variables sont déjà posées
+#    par docker-compose.api.coolify.yml, rien à passer à la main.
+ssh inflexion
+docker ps --filter name=api-hqcrmxt0dvyxlgojgvqmwhsk --format '{{.Names}}'
+docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> \
   ourouler inviter mainteneur@son-domaine.example --sans-courriel
 # → affiche le lien et l'échéance (3 jours) ; ouvrir le lien affiché
 #   pour vérifier que /entrer active bien le compte.
@@ -375,3 +441,13 @@ les quatre quotas et le refus `suppression_deja_en_cours` en §4, corrige la
 borne d'activité isolée (16 Mo, pas 50), et retire les constats devenus faux
 (absence de calibration codée, absence de bouton d'export/suppression,
 absence de commande de retrait).
+
+**Seconde révision, le 25/09/2026, branche `comptes-en-prod`** : en invitant
+pour de vrai sur la prod (`ssh inflexion` + `docker exec`), la procédure
+ci-dessus ne marchait pas telle quelle — voir §1 (Q66a faite), §2 et §5
+(commandes de comptes lancées dans le conteneur, `OUROULER_CONFIG` et le
+profil du cycliste honorés/levés par `cli.py`, `OUROULER_URL_PUBLIQUE`
+posée par `docker-compose.api.coolify.yml`). Sources ajoutées :
+`src/ourouler/config.py` (`charger`/`depuis_dict`, paramètre
+`requiert_profil`), `src/ourouler/api/exploitation.py` (`chemin_config`,
+`VARIABLE_CONFIG`), `docs/questions_mainteneur.md` (Q66, close).

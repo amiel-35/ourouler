@@ -5050,7 +5050,7 @@ la convention n'est pas présentée comme une mesure.
 
 ---
 
-## Q66 — La fuite du tiers 3 de Q35 est fermée ; (a) reste une action pour le mainteneur, (b) tranché le 22/09/2026
+## Q66 — La fuite du tiers 3 de Q35 est fermée ; (a) faite et close le 25/09/2026, (b) tranché le 22/09/2026
 
 Corrigé en relecture du sprint 8 : `SocleTOML.config` (en mode hébergé,
 `proprietaire=None`) fusionnait encore les sections perso pur de Q35
@@ -5076,6 +5076,13 @@ reconstruire son `OUROULER_CONFIG_TOML_B64` sans `[cycliste]`/`[[velos]]`
 (le fichier `deploiement/api/config.example.toml` mis à jour ici explique le
 découpage). Rien n'a été touché côté Coolify par cette correction — règle
 absolue 7.
+
+**Faite, et vérifiée sur les vraies variables Coolify le 25/09/2026** (en
+invitant pour de vrai depuis la prod, `ssh inflexion` + `docker exec` dans le
+conteneur `api-hqcrmxt0dvyxlgojgvqmwhsk-*`) : `OUROULER_DEPART_*` et
+`OUROULER_INTERVALS_*` sont vides dans le panneau Coolify de `ourouler-api`,
+et `OUROULER_CONFIG_TOML_B64` ne porte plus que `[meteo]`, `[cache]`,
+`[brouter]`, `[boucle]` — ni `[cycliste]` ni `[[velos]]`. **(a) est close.**
 
 **(b) `GET /profil`, `GET /systeme` et `GET /profil/zones` rendaient un 500
 `configuration_invalide` pour un compte hébergé qui n'a pas encore complété
@@ -5113,3 +5120,47 @@ routes de *calcul* (boucle, sortie, météo…) passent par le même chemin et
 pourraient donc tourner sur ce comblement si l'assistant n'est pas fini —
 un résultat sans queue ni tête plutôt qu'une fuite, jamais pire que l'état
 antérieur à ce lot.
+
+## Q67 — [[Q48]] disait « on jette le brut, on garde le dérivé » ; L9.2/L9.4 gardent le brut — **posée le 25/09/2026**
+
+Constat en relisant `docs/inviter.md` en le corrigeant (lot `comptes-en-prod`,
+25/09/2026), pas une régression fraîche : [[Q48]] (17/09/2026) tranchait
+« on jette le brut, on garde le dérivé » (les mailles et coefficients de
+calibration, jamais les traces GPS elles-mêmes) — explicitement pour ne pas
+« devenir un Strava bis ». Or `activites/cache.py` (docstring de module,
+`NOM_BRUT`, `Cache.brut`) conserve bel et bien le FIT/GPX/TCX d'origine,
+`brut/comptes/<propriétaire>/` pour un compte hébergé, un dossier par
+propriétaire depuis la relecture Fable du 25/09/2026 citée dans son propre
+commentaire de module — et `activites/import_archive.py` (L9.2) y écrit
+directement ce que l'invité dépose, archive comprise.
+
+**Deux usages qui s'appuient sur ce brut conservé**, tous deux mesurés dans
+le code de ce sprint :
+
+- La calibration depuis l'écran (L9.4, `api/calibrations.py`,
+  `front/src/composants/CalibrationVelo.tsx`) relit les FIT importés pour
+  cette calibration précise.
+- Le dédoublonnage d'un import (L9.2) compare par contenu les fichiers
+  déjà en cache pour ne pas réimporter deux fois la même sortie.
+
+**L'écart, tel quel, sans trancher :**
+
+- **RGPD / promesse produit** : les traces GPS restent des données
+  personnelles précises (domicile, habitudes de déplacement) — Q48 le
+  disait déjà en écartant leur conservation. `DELETE /moi` (`vie_privee.py`)
+  efface-t-il bien `brut/comptes/<propriétaire>/` en plus de l'index ? À
+  vérifier avant d'aller plus loin (pas fait par cette question).
+- **Stockage** : un brut par sortie importée, par compte, sans les mailles
+  qui font l'économie du dérivé — le volume grandit avec chaque invité,
+  pas seulement avec l'usage.
+- **Options, aucune tranchée** :
+  1. Assumer la conservation du brut (Q48 se rouvre, le motif « pas un
+     Strava bis » se pose autrement — peut-être un brut chiffré, purgé après
+     un délai, ou jamais exposé par aucune route).
+  2. Dériver puis jeter réellement le brut après calibration/dédoublonnage
+     — recalibrer demanderait alors de redéposer les fichiers, ce que
+     l'écran de calibration (L9.4) ne fait pas aujourd'hui.
+  3. Un entre-deux : garder le brut le temps du dédoublonnage seulement
+     (fenêtre courte), le dériver pour la calibration puis le jeter.
+
+Référencée depuis la clôture du sprint 9, `docs/plan_sprints_agents.md`.
