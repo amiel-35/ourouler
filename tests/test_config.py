@@ -792,3 +792,13 @@ def test_l_exemple_de_configuration_documente_le_pneu():
 
     for categorie in PNEUS_VELO:
         assert categorie in texte
+
+
+def test_part_groupe_max_par_defaut_et_bornee():
+    """Le seuil de roue partielle pour l'apprentissage (L9.1) : 0,30 par
+    défaut, réglable dans [calibration], refusé hors de [0,05 ; 0,5]."""
+    assert depuis_dict(BASE).calibration.part_groupe_max == 0.30
+    c = depuis_dict({**BASE, "calibration": {"part_groupe_max": 0.2}})
+    assert c.calibration.part_groupe_max == 0.2
+    with pytest.raises(ErreurConfig, match="part_groupe_max"):
+        depuis_dict({**BASE, "calibration": {"part_groupe_max": 0.9}})

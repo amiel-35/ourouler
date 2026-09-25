@@ -1194,3 +1194,69 @@ def test_le_vent_le_long_prend_le_point_le_plus_proche_comme_avant():
         assert face(d, 90.0) == pytest.approx(
             calib._vent_de_face(calib._interpoler_archive(heures, instant), 90.0)
         )
+
+
+# --- contre-lecture du 25/09 : roue partielle hors de l'apprentissage ---------
+
+
+def test_la_roue_partielle_n_entre_pas_dans_la_recherche_du_cda(monkeypatch):
+    """Neuf sorties solo, dix à 40 % de signal de groupe — sous les 50 % qui
+    écartent une sortie, au-dessus des 30 % de `part_groupe_max` — roulées
+    20 % plus vite que la puissance ne le justifie. Elles restent dans les
+    moindres carrés de la seconde passe, mais pas dans la recherche du CdA
+    sur le temps : le CdA vrai est retrouvé. (Majoritaires exprès : l'erreur
+    absolue moyenne est robuste à une minorité d'aberrantes, et c'est bien
+    une majorité de sorties en roue partielle qu'on a mesurée chez le
+    mainteneur — 36 % de signal de groupe en moyenne.)"""
+    from ourouler.physique import calibration as calib
+
+    solo = [_sortie(date(2026, 4, j), duree_s=1500) for j in range(1, 10)]
+    roue = [_sortie(date(2026, 4, j), duree_s=1500, facteur_vitesse=1.2) for j in range(10, 20)]
+    for s in roue:
+        s.activite.meta["nom"] = "roue partielle"
+    validation = [_sortie(date(2026, 5, j), duree_s=1500) for j in range(1, 7)]
+
+    def part_imposee(activite, *_a, **_k):
+        return (False, 0.40 if activite.meta.get("nom") == "roue partielle" else 0.05)
+
+    monkeypatch.setattr(calib, "detecter_groupe", part_imposee)
+    rapport = calibrer_en_deux_passes(
+        [*solo, *roue, *validation], velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+    assert rapport.part_groupe_max == 0.30
+    assert rapport.n_validation == 6
+    assert rapport.n_solo == 9
+    assert rapport.repli_solo == ""
+    assert rapport.ajustement.cda_m2 == pytest.approx(CDA_VRAI, abs=0.005)
+
+    # Au seuil de 50 %, la roue partielle entre, et le CdA descend.
+    au_seuil_large = calibrer_en_deux_passes(
+        [*solo, *roue, *validation],
+        velo="Essai",
+        masse_totale_kg=MASSE,
+        crr_fixe=CRR_VRAI,
+        part_groupe_max=0.5,
+    )
+    assert au_seuil_large.n_solo == 19
+    assert au_seuil_large.ajustement.cda_m2 < rapport.ajustement.cda_m2 - 0.01
+
+
+def test_trop_peu_de_sorties_solo_replie_et_le_dit():
+    from ourouler.physique.calibration import SORTIES_MIN_SOLO
+
+    sorties = [_sortie(date(2026, 4, j), duree_s=1500) for j in range(1, 8)]
+    rapport = calibrer_en_deux_passes(
+        sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+    assert rapport.n_solo < SORTIES_MIN_SOLO
+    assert "il en faut" in rapport.repli_solo
+
+
+def test_la_fourchette_n_est_mesuree_que_sur_la_validation():
+    sorties = [_sortie(date(2026, 4, j), duree_s=1200) for j in range(1, 13)]
+    rapport = calibrer_en_deux_passes(
+        sorties, velo="Essai", masse_totale_kg=MASSE, crr_fixe=CRR_VRAI
+    )
+    assert len(rapport.porte_a_porte.sorties) == rapport.n_validation == 3
+    jours_validation = {s.jour for s in rapport.porte_a_porte.sorties}
+    assert jours_validation == {"2026-04-10", "2026-04-11", "2026-04-12"}

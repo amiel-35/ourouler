@@ -151,7 +151,10 @@ class Velo:
     usage: str = "route"
     masse_kg: float | None = None
     cda_m2: float | None = None
-    crr: float | None = None  # coefficient de roulement, estimé par la calibration (S3)
+    #: Coefficient de roulement. Écrit à la main, il est **respecté et figé**
+    #: par `ourouler calibrer`, comme celui d'un pneu (L9.1) : seul le CdA est
+    #: alors cherché.
+    crr: float | None = None
     intervals_gear: str = ""
     intervals_gear_id: str = ""
     capteur_puissance: str = ""  # valeur exacte du champ Intervals `power_meter`, ex. « MARQUE 1234 »
@@ -395,6 +398,14 @@ class ParametresCalibration:
     mots_groupe: tuple[str, ...] = ("club", "groupe", "peloton", "sortie club")
     part_validation: float = 0.25  # part des sorties (les plus récentes) réservée au test
     vitesse_min_kmh: float = 8.0
+    #: Part de signal de groupe au-delà de laquelle une sortie d'apprentissage
+    #: ne sert pas à chercher le CdA sur le temps (L9.1). 0,30 et non 0,50 :
+    #: mesuré le 25/09/2026, les sorties d'apprentissage du vélo de route du
+    #: mainteneur portent 36 % de signal de groupe en moyenne (20 % en
+    #: validation) — une roue partielle que le seuil de 50 % laisse passer, et
+    #: qui fait paraître le vélo plus fin qu'il n'est. À 0,30 : erreur de
+    #: validation 3,5 % au lieu de 4,6 %, biais −0,8 % au lieu de −4,2 %.
+    part_groupe_max: float = 0.30
 
 
 @dataclass(frozen=True)
@@ -690,6 +701,13 @@ def depuis_dict(d: dict[str, Any]) -> Config:
             ),
             vitesse_min_kmh=_flottant(
                 calibration.get("vitesse_min_kmh", 8.0), "vitesse_min_kmh", "calibration", mini=1, maxi=30
+            ),
+            part_groupe_max=_flottant(
+                calibration.get("part_groupe_max", 0.30),
+                "part_groupe_max",
+                "calibration",
+                mini=0.05,
+                maxi=0.5,
             ),
         ),
         seance=ParametresSeance(

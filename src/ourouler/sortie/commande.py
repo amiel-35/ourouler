@@ -722,11 +722,20 @@ def _parametres(config: Config, velo: str | None) -> tuple[Parametres, str]:
     configuration ou valeurs par défaut — et la provenance est affichée en
     toutes lettres.
     """
-    from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
+    from ourouler.physique.commande import (
+        alerte_calibration,
+        chemin_calibration,
+        parametres_du_velo,
+        velo_demande,
+    )
 
     choisi = velo_demande(config, velo)
     parametres, provenance = parametres_du_velo(config, choisi, chemin_calibration(config))
-    return parametres, f"{provenance} ({choisi.nom})"
+    alerte = alerte_calibration(choisi, chemin_calibration(config))
+    # L'alerte suit la provenance, qui s'affiche en texte comme en JSON : une
+    # calibration qui ne suit plus le pneu du vélo reste utilisée, mais dite.
+    suite = f" — {alerte}" if alerte else ""
+    return parametres, f"{provenance} ({choisi.nom}){suite}"
 
 
 def _distance(

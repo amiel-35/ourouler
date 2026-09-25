@@ -158,6 +158,9 @@ class ModeleTemps:
     #: `physique.litterature` quand la provenance en vient — sans rouvrir la
     #: configuration depuis un rendu.
     usage: str = ""
+    #: `physique.commande.ALERTE_PNEU_CHANGE` quand la calibration ne suit
+    #: plus le pneu déclaré du vélo (elle reste utilisée), sinon vide.
+    alerte: str = ""
 
     @property
     def calibre(self) -> bool:
@@ -532,6 +535,7 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
     donc pas de colonne « temps » plutôt qu'un calcul sur une valeur inventée.
     """
     from ourouler.physique.commande import (
+        alerte_calibration,
         chemin_calibration,
         parametres_du_velo,
         puissance_voulue,
@@ -557,6 +561,7 @@ def _modele_temps(args: argparse.Namespace, config: Config) -> ModeleTemps | Non
         velo=velo.nom,
         provenance=provenance,
         usage=velo.usage,
+        alerte=alerte_calibration(velo, chemin_calibration(config)) or "",
     )
 
 
@@ -1293,6 +1298,8 @@ def _entete(
             f"Temps estimé par le modèle calibré du {modele.velo} à {modele.puissance_w:.0f} W "
             "— temps en mouvement, arrêts non modélisés"
         )
+        if modele.alerte:
+            lignes.append(f"⚠ Calibration du {modele.velo} : {modele.alerte}.")
     elif modele is not None:
         # Le modèle tourne, mais sur des CdA et Crr de catégorie : il le dit
         # ici comme le facteur compteur dit « supposé » (règle absolue 5).
@@ -1677,6 +1684,7 @@ def rendre_json(
             # comme un temps mesuré (règle absolue 5).
             "mesure": modele.calibre,
             "litterature": _litterature_json(modele),
+            "alerte": modele.alerte or None,
         },
         "candidates": [
             _candidate_json(e, demande, config, chemin, compteur_info) for e in evaluations

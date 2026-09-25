@@ -17,8 +17,8 @@ La chaîne, en cinq temps :
    vent n'expliquent ;
 5. `valider` rejoue les sorties **les plus récentes**, jamais vues par
    l'ajustement, et rend l'erreur de temps en mouvement ;
-6. `mesurer_porte_a_porte` rejoue toutes les sorties avec les paramètres
-   finaux et en tire la fourchette du porte à porte (L9.1).
+6. `mesurer_porte_a_porte` rejoue les sorties de validation avec les
+   paramètres finaux et en tire la fourchette du porte à porte (L9.1).
 
 Le tout deux fois (`calibrer_en_deux_passes`) : la première passe sert à
 trouver les sorties en groupe, la seconde à calibrer sans elles.
@@ -1273,10 +1273,21 @@ def detecter_groupe(
 #: resserrée pour rester utile, assez large pour ne pas mentir »).
 CENTILES_PORTE_A_PORTE = (25, 50, 75)
 
-#: En dessous de ce nombre de sorties roulées seul, les centiles ne disent
-#: rien de stable : le vélo garde la fourchette par défaut. Convention, pas
-#: mesure — un quartile sur sept valeurs, c'est déjà deux sorties.
+#: En dessous de ce nombre de sorties de validation roulées seul, les
+#: centiles ne disent rien de stable : le vélo garde la fourchette par
+#: défaut. Convention, pas mesure — un quartile sur sept valeurs, c'est déjà
+#: deux sorties.
 SORTIES_MIN_FOURCHETTE = 8
+
+#: Part de signal de groupe au-delà de laquelle une sortie d'apprentissage ne
+#: sert pas à chercher le CdA sur le temps — défaut de
+#: `config.ParametresCalibration.part_groupe_max`, voir sa justification.
+PART_GROUPE_MAX_APPRENTISSAGE = 0.30
+
+#: En dessous de ce nombre de sorties d'apprentissage sous
+#: `part_groupe_max`, la recherche du CdA retombe sur toutes les sorties non
+#: écartées au seuil de 50 %, et le rapport le dit. Convention.
+SORTIES_MIN_SOLO = 8
 
 
 @dataclass(frozen=True)
@@ -1358,11 +1369,13 @@ def mesurer_porte_a_porte(
 ) -> MesurePorteAPorte:
     """Rejoue chaque sortie avec `p` et mesure temps écoulé réel / temps simulé.
 
-    **Sur toutes les sorties calibrables**, apprentissage et validation
-    confondus, comme la note du 23/09 : ce ratio n'est pas une erreur qu'on
-    évalue, c'est une grandeur qu'on mesure — il dit ce qu'une sortie de ce
-    cycliste coûte en plus du temps simulé (arrêts, relances, erreur propre du
-    modèle). Le CdA, lui, n'a vu que l'apprentissage.
+    `calibrer_en_deux_passes` ne lui passe que les sorties de **validation**,
+    jamais vues par l'ajustement (contre-lecture du 25/09) : mesurée sur les
+    sorties apprises, la fourchette héritait de l'ajustement du CdA sur elles
+    et sous-prédisait le porte à porte d'une sortie neuve (médiane 1,054 en
+    échantillon contre 1,072 en validation sur le vélo de route du
+    mainteneur). Le ratio dit ce qu'une sortie nouvelle coûte en plus du
+    temps simulé : arrêts, relances, et l'erreur propre du modèle.
 
     Le temps de référence est le temps **écoulé** (dernier point − premier) :
     c'est lui que la fourchette doit prédire, porte à porte. La note du 23/09
@@ -1559,8 +1572,15 @@ class RapportCalibration:
     motifs: dict[str, int] = field(default_factory=dict)
     echantillons_sans_vent: int = 0
     porte_a_porte: MesurePorteAPorte = field(default_factory=MesurePorteAPorte)
-    """Le ratio temps écoulé réel / temps simulé sur toutes les sorties,
-    rejouées avec les paramètres finaux (L9.1)."""
+    """Le ratio temps écoulé réel / temps simulé sur les sorties de
+    validation, rejouées avec les paramètres finaux (L9.1)."""
+    n_solo: int = 0
+    """À Crr fixé : combien de sorties d'apprentissage ont servi à chercher le
+    CdA sur le temps (sous `part_groupe_max`). 0 en calibration libre."""
+    part_groupe_max: float = PART_GROUPE_MAX_APPRENTISSAGE
+    repli_solo: str = ""
+    """Non vide quand trop peu de sorties passaient `part_groupe_max` : dit
+    sur quoi le CdA a été cherché à la place."""
 
 
 def partager(
@@ -1589,6 +1609,7 @@ def calibrer_en_deux_passes(
     ftp_w: float = 250.0,
     vitesse_min_kmh: float = 8.0,
     crr_fixe: float | None = None,
+    part_groupe_max: float = PART_GROUPE_MAX_APPRENTISSAGE,
 ) -> RapportCalibration:
     """Calibre, repère les sorties en groupe au résidu, recalibre sans elles, valide.
 
@@ -1601,8 +1622,15 @@ def calibrer_en_deux_passes(
     deux paramètres d'avant — qui ne sépare pas CdA et Crr sur les données du
     mainteneur (0,0106 de Crr au vélo en pneus quatre saisons, note du 23/09).
 
-    Enfin, la fourchette du porte à porte est mesurée sur **toutes** les
-    sorties avec les paramètres finaux (`mesurer_porte_a_porte`).
+    `part_groupe_max` (L9.1, contre-lecture du 25/09) : à Crr fixé, le CdA
+    n'est cherché sur le temps que des sorties d'apprentissage dont la part
+    de signal de groupe est **sous** ce seuil — une roue partielle, sous les
+    50 % qui écartent une sortie, suffit à faire paraître le vélo plus fin.
+    Moins de `SORTIES_MIN_SOLO` sorties passent : repli sur toutes celles
+    que le seuil de 50 % garde, et `repli_solo` le dit.
+
+    Enfin, la fourchette du porte à porte est mesurée sur les sorties de
+    **validation** avec les paramètres finaux (`mesurer_porte_a_porte`).
     """
     if not sorties:
         raise ErreurUtilisateur(f"calibration : aucune sortie exploitable pour le vélo {velo}")
@@ -1630,10 +1658,12 @@ def calibrer_en_deux_passes(
 
     groupes: list[tuple[str, float]] = []
     gardees: list[int] = []
+    parts: dict[int, float] = {}
     for rang, s in enumerate(apprentissage):
         en_groupe, part = detecter_groupe(
             s.activite, p1, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
         )
+        parts[rang] = part
         if en_groupe:
             groupes.append((s.nom, part))
         else:
@@ -1645,13 +1675,44 @@ def calibrer_en_deux_passes(
         if gardees
         else passe1
     )
+    n_solo = 0
+    repli_solo = ""
     if crr_fixe is not None:
         # L9.1 : à Crr fixé, le CdA retenu est celui qui prédit le mieux le
         # **temps** des sorties d'apprentissage roulées seul, pas celui qui
         # explique le mieux la puissance des tronçons plats — mesuré le
         # 25/09/2026, voir `chercher_cda_sur_sorties`.
-        solo = [apprentissage[rang] for rang in gardees] or list(apprentissage)
-        passe2 = ajuster_sur_sorties(passe2, solo, restants or tous)
+        #
+        # La part de groupe qui trie ici n'est **pas** celle de la première
+        # passe : ses paramètres sortent des moindres carrés des tronçons,
+        # dont le CdA trop bas (0,287 sur le vélo de route du mainteneur)
+        # prédit des vitesses trop hautes et cache la roue partielle — 45
+        # sorties passaient sous 30 %, contre 27 avec des paramètres
+        # justes. On cherche donc d'abord le CdA sur toutes les sorties
+        # gardées à 50 %, on remesure leur part avec lui, puis on ne garde
+        # que celles sous `part_groupe_max`. Une itération de plus, pas deux.
+        candidates = [apprentissage[rang] for rang in gardees] or list(apprentissage)
+        passe2 = ajuster_sur_sorties(passe2, candidates, restants or tous)
+        p_temps = passe2.parametres()
+        for rang in gardees:
+            s = apprentissage[rang]
+            _, parts[rang] = detecter_groupe(
+                s.activite, p_temps, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
+            )
+        rangs_solo = [rang for rang in gardees if parts[rang] < part_groupe_max]
+        if len(rangs_solo) < SORTIES_MIN_SOLO:
+            repli_solo = (
+                f"{len(rangs_solo)} sortie(s) d'apprentissage sous {part_groupe_max:.0%} de "
+                f"signal de groupe, il en faut {SORTIES_MIN_SOLO} : le CdA est cherché sur "
+                f"les {len(gardees) or len(apprentissage)} sorties sous "
+                f"{PART_DISTANCE_GROUPE:.0%}, roue partielle comprise"
+            )
+            # Le CdA déjà cherché sur ces sorties-là reste le bon.
+            n_solo = len(candidates)
+        else:
+            n_solo = len(rangs_solo)
+            solo = [apprentissage[rang] for rang in rangs_solo]
+            passe2 = ajuster_sur_sorties(passe2, solo, restants or tous)
     p2 = passe2.parametres()
 
     validation = valider([(s.activite, s.vent) for s in validation_sorties], p2)
@@ -1677,6 +1738,9 @@ def calibrer_en_deux_passes(
         motifs=dict(sorted(motifs.items(), key=lambda kv: (-kv[1], kv[0]))),
         echantillons_sans_vent=sum(1 for e in tous if e.retenu and not e.vent_connu),
         porte_a_porte=mesurer_porte_a_porte(
-            sorties, p2, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
+            validation_sorties, p2, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
         ),
+        n_solo=n_solo,
+        part_groupe_max=part_groupe_max,
+        repli_solo=repli_solo,
     )

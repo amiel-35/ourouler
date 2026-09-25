@@ -26,9 +26,11 @@ from ourouler.erreurs import ErreurUtilisateur
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.physique import litterature
 from ourouler.physique.commande import (
+    ALERTE_PNEU_CHANGE,
     CDA_DEFAUT,
     VERSION_CALIBRATION,
     Calibration,
+    alerte_calibration,
     chemin_calibration,
     crr_du_velo,
     ecrire_calibration,
@@ -765,14 +767,17 @@ def test_calibrer_crr_libre_garde_l_ancien_ajustement(tmp_path: Path, capsys):
 
 
 def test_calibrer_ecrit_la_fourchette_du_porte_a_porte(tmp_path: Path, capsys):
-    """Huit sorties roulées seul : la fourchette est mesurée et écrite, relue
-    par `fourchette_du_velo` avec la provenance « mesure »."""
-    jours = [date(2026, 1, j) for j in range(1, 9)]
+    """Trente-deux sorties, donc huit en validation : la fourchette est mesurée
+    sur ces huit-là seulement, écrite, et relue par `fourchette_du_velo` avec
+    la provenance « mesure »."""
+    jours = [date(2026, 1, 1) + timedelta(days=j) for j in range(32)]
     cache_de_sorties(tmp_path / "cache", jours, duree_s=2600)
     config = config_de_test(tmp_path / "cache")
     executer_calibrer(args(velo="RCR", json=True), config, client_archive=archive_bouchonnee())
     charge = json.loads(capsys.readouterr().out)
     assert charge["porte_a_porte"]["n"] == 8
+    assert charge["porte_a_porte"]["n_total"] == 8  # la validation, pas les 32
+    assert charge["porte_a_porte"]["sorties"] == "validation"
     assert charge["porte_a_porte"]["base"] == "temps_ecoule"
     brut = json.loads(chemin_calibration(config).read_text(encoding="utf-8"))["velos"]["RCR"]
     pp = brut["porte_a_porte"]
@@ -820,3 +825,79 @@ def test_une_fourchette_abimee_retombe_sur_la_convention(tmp_path: Path, porte_a
     lue = lire_calibration(chemin, "RCR")
     assert lue is not None and lue.porte_a_porte is None
     assert fourchette_du_velo(config.velo("RCR"), chemin).provenance == "defaut"
+
+
+# --- décisions du mainteneur du 25/09 : Crr écrit figé, pneu changé dit -------
+
+
+def test_un_crr_ecrit_a_la_main_est_fige_par_calibrer(tmp_path: Path, capsys):
+    jours = [date(2026, 1, j) for j in range(1, 9)]
+    cache_de_sorties(tmp_path / "cache", jours, duree_s=2600)
+    config = config_de_test(
+        tmp_path / "cache",
+        velos=[
+            {"nom": "RCR", "usage": "route", "capteur_puissance": "CAPTEUR 0001", "crr": 0.0045}
+        ],
+    )
+    executer_calibrer(args(velo="RCR"), config, client_archive=archive_bouchonnee())
+    brut = json.loads(chemin_calibration(config).read_text(encoding="utf-8"))["velos"]["RCR"]
+    assert brut["crr"] == 0.0045
+    assert brut["crr_source"] == "configuration"
+    assert "fixé (configuration)" in capsys.readouterr().out
+
+
+def _calibre_avec(tmp_path: Path, **velo) -> tuple:
+    config = config_de_test(tmp_path, velos=[{"nom": "RCR", "usage": "route", **velo}])
+    return config, chemin_calibration(config)
+
+
+def test_pas_d_alerte_quand_le_pneu_n_a_pas_change(tmp_path: Path):
+    config, chemin = _calibre_avec(tmp_path, pneu="course_rapide")
+    ecrire_calibration(
+        chemin,
+        "RCR",
+        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 100.0, "crr_source": "pneu",
+         "pneu": "course_rapide"},
+    )
+    assert alerte_calibration(config.velo("RCR"), chemin) is None
+
+
+@pytest.mark.parametrize(
+    ("velo", "calibration"),
+    [
+        # Pneu changé.
+        ({"pneu": "vtt"}, {"crr_source": "pneu", "pneu": "course_rapide", "crr": 0.005}),
+        # Pneu déclaré après une calibration libre.
+        ({"pneu": "vtt"}, {"crr_source": "ajuste", "crr": 0.0106}),
+        # Pneu retiré.
+        ({}, {"crr_source": "pneu", "pneu": "course_rapide", "crr": 0.005}),
+        # Crr écrit à la main, modifié depuis.
+        ({"crr": 0.004}, {"crr_source": "configuration", "crr": 0.005}),
+    ],
+)
+def test_la_calibration_qui_ne_suit_plus_le_pneu_le_dit_et_reste_utilisee(
+    tmp_path: Path, velo: dict, calibration: dict
+):
+    config, chemin = _calibre_avec(tmp_path, **velo)
+    ecrire_calibration(chemin, "RCR", {"cda_m2": 0.33, "masse_totale_kg": 100.0, **calibration})
+    assert alerte_calibration(config.velo("RCR"), chemin) == ALERTE_PNEU_CHANGE
+    _parametres, provenance = parametres_du_velo(config, config.velo("RCR"), chemin)
+    assert provenance == "calibration"  # gardée, pas jetée
+
+
+def test_une_calibration_ancienne_sans_pneu_ne_dit_rien(tmp_path: Path):
+    config, chemin = _calibre_avec(tmp_path)
+    ecrire_calibration(chemin, "RCR", {"cda_m2": 0.22, "crr": 0.0106, "masse_totale_kg": 100.0})
+    assert alerte_calibration(config.velo("RCR"), chemin) is None
+
+
+def test_simuler_dit_que_le_pneu_a_change(tmp_path: Path, capsys):
+    config, chemin = _calibre_avec(tmp_path, pneu="vtt")
+    ecrire_calibration(
+        chemin,
+        "RCR",
+        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 100.0, "crr_source": "pneu",
+         "pneu": "course_rapide"},
+    )
+    executer_simuler(args_simuler(gpx=str(gpx_plat(tmp_path / "plat.gpx"))), config)
+    assert ALERTE_PNEU_CHANGE in capsys.readouterr().out

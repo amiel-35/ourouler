@@ -92,6 +92,8 @@ class Calibration:
     #: D'où vient le Crr : « pneu », « configuration » ou « ajuste » (cherché
     #: avec le CdA, l'ancienne méthode). Vide pour une calibration ancienne.
     crr_source: str = ""
+    #: Le pneu déclaré au moment de la calibration (`crr_source` « pneu »).
+    pneu: str | None = None
 
     @property
     def resume(self) -> str:
@@ -144,6 +146,7 @@ def lire_calibration(chemin: Path, velo: str) -> Calibration | None:
         mae=float(mae) if isinstance(mae, (int, float)) else None,
         porte_a_porte=_lire_porte_a_porte(brut.get("porte_a_porte")),
         crr_source=str(brut.get("crr_source") or ""),
+        pneu=str(brut["pneu"]) if brut.get("pneu") else None,
     )
 
 
@@ -259,6 +262,38 @@ def crr_du_velo(velo: Velo) -> tuple[float, str] | None:
     if pneu is not None:
         return (pneu.crr, "pneu")
     return None
+
+
+#: Ce que dit l'écran quand le pneu (ou le Crr écrit à la main) du vélo n'est
+#: plus celui avec lequel la calibration a été faite. La calibration est
+#: gardée — elle reste la meilleure mesure disponible —, mais le cycliste doit
+#: savoir qu'elle ne suit plus son vélo (décision du mainteneur, 25/09/2026).
+ALERTE_PNEU_CHANGE = "pneu changé depuis la calibration, relancez-la"
+
+
+def alerte_calibration(velo: Velo, chemin: Path) -> str | None:
+    """`ALERTE_PNEU_CHANGE` si le Crr connu du vélo ne suit plus sa calibration, sinon `None`.
+
+    Compare ce que le vélo déclare aujourd'hui (`crr_du_velo`) à ce que
+    `calibration.json` a noté (`crr_source`, `pneu`, `crr`). Une calibration
+    d'avant L9.1 (sans `crr_source`) sur un vélo sans pneu ni Crr déclaré ne
+    dit rien : rien n'a changé. Pas de calibration : `None`.
+    """
+    calibree = lire_calibration(chemin, velo.nom)
+    if calibree is None:
+        return None
+    connu = crr_du_velo(velo)
+    if connu is None:
+        change = calibree.crr_source in ("pneu", "configuration")
+    else:
+        crr, source = connu
+        if source == "pneu":
+            change = calibree.crr_source != "pneu" or calibree.pneu != velo.pneu
+        else:
+            change = calibree.crr_source != "configuration" or not math.isclose(
+                calibree.parametres.crr, crr
+            )
+    return ALERTE_PNEU_CHANGE if change else None
 
 
 def fourchette_du_velo(velo: Velo, chemin: Path) -> FourchettePorteAPorte:
@@ -383,6 +418,7 @@ def executer_calibrer(
         ftp_w=config.cycliste.ftp_w,
         vitesse_min_kmh=config.calibration.vitesse_min_kmh,
         crr_fixe=crr,
+        part_groupe_max=config.calibration.part_groupe_max,
     )
 
     chemin = chemin_calibration(config)
@@ -520,6 +556,8 @@ def _contenu_json(
         "mediane": _arrondi(rapport.validation.mediane, 4),
         "biais": _arrondi(rapport.validation.biais, 4),
         "n_validation": rapport.validation.n,
+        "n_solo": rapport.n_solo,
+        "part_groupe_max": rapport.part_groupe_max,
         "bornes_atteintes": list(a.bornes_atteintes),
         "porte_a_porte": _porte_a_porte_json(rapport.porte_a_porte),
     }
@@ -543,6 +581,9 @@ def _porte_a_porte_json(mesure: calib.MesurePorteAPorte) -> dict | None:
         "centiles": list(calib.CENTILES_PORTE_A_PORTE),
         "n": mesure.n,
         "n_total": len(mesure.sorties),
+        # Mesurée sur les seules sorties de validation, jamais vues par
+        # l'ajustement du CdA (contre-lecture du 25/09).
+        "sorties": "validation",
         "seuil_groupe": mesure.seuil_groupe,
         # Ce que les centiles mesurent : temps écoulé réel (du premier au
         # dernier point, arrêts compris) / temps simulé en mouvement.
@@ -623,6 +664,13 @@ def rendre_texte_calibration(
         f"  première passe (avec les sorties en groupe) : CdA {_fr(rapport.passe1.cda_m2, 3)}, "
         f"Crr {_fr(rapport.passe1.crr, 5)}"
     )
+    if a.crr_fixe:
+        lignes.append(
+            f"  CdA cherché sur le temps de {rapport.n_solo} sortie(s) d'apprentissage à moins "
+            f"de {rapport.part_groupe_max:.0%} de signal de groupe"
+        )
+    if rapport.repli_solo:
+        lignes.append(f"  ⚠ {rapport.repli_solo}")
     for borne in a.bornes_atteintes:
         lignes.append(f"  ⚠ borne atteinte : {borne} — la vraie valeur est probablement au-delà")
     for avertissement in a.avertissements:
@@ -678,16 +726,16 @@ def _lignes_porte_a_porte(mesure: calib.MesurePorteAPorte) -> list[str]:
     centiles = mesure.centiles
     if centiles is None:
         return [
-            f"Porte à porte : {mesure.n} sortie(s) roulée(s) seul (moins de {seuil} de "
-            f"signal de groupe), il en faut {calib.SORTIES_MIN_FOURCHETTE} — la fourchette "
-            "par défaut (convention) reste en vigueur."
+            f"Porte à porte : {mesure.n} sortie(s) de validation roulée(s) seul (moins de "
+            f"{seuil} de signal de groupe), il en faut {calib.SORTIES_MIN_FOURCHETTE} — la "
+            "fourchette par défaut (convention) reste en vigueur."
         ]
     bas, mediane, haut = centiles
     lignes = [
         f"Porte à porte : temps simulé × {_fr(bas, 3)} à × {_fr(haut, 3)} "
         f"(médiane × {_fr(mediane, 3)}), centiles 25-75 du temps écoulé réel sur le "
-        f"temps simulé, {mesure.n} sortie(s) sur {len(mesure.sorties)} à moins de "
-        f"{seuil} de signal de groupe"
+        f"temps simulé, {mesure.n} sortie(s) de validation sur {len(mesure.sorties)} à "
+        f"moins de {seuil} de signal de groupe"
     ]
     mouvement = mesure.centiles_mouvement
     if mouvement is not None:
@@ -729,6 +777,9 @@ def rendre_json_calibration(
             "cda_m2": a.cda_m2,
             "crr": a.crr,
             "crr_fixe": a.crr_fixe,
+            "n_solo": rapport.n_solo,
+            "part_groupe_max": rapport.part_groupe_max,
+            "repli_solo": rapport.repli_solo or None,
             "crr_source": crr_source,
             "pneu": velo.pneu if crr_source == "pneu" else None,
             "cda_incertitude": a.incertitudes.cda,
@@ -793,6 +844,7 @@ def executer_simuler(
     # à plat ne se convertit en watts qu'avec eux (L8.5, lot C).
     velo = velo_demande(config, getattr(args, "velo", None))
     parametres, provenance = parametres_du_velo(config, velo, chemin_calibration(config))
+    alerte = alerte_calibration(velo, chemin_calibration(config))
     puissance = puissance_voulue(args, parametres)
     if puissance is None:
         raise ErreurUtilisateur(
@@ -852,7 +904,7 @@ def executer_simuler(
             json.dumps(
                 rendre_json_simulation(
                     simulation, trace, velo, parametres, provenance, float(puissance), resume,
-                    pauses, arrivee,
+                    pauses, arrivee, alerte,
                 ),
                 ensure_ascii=False,
                 indent=2,
@@ -862,7 +914,7 @@ def executer_simuler(
         print(
             rendre_texte_simulation(
                 simulation, trace, velo, parametres, provenance, float(puissance), resume,
-                pauses, arrivee,
+                pauses, arrivee, alerte,
             )
         )
     return 0
@@ -936,6 +988,7 @@ def rendre_texte_simulation(
     meteo,
     pauses: Sequence[Pause] = (),
     arrivee: datetime | None = None,
+    alerte: str | None = None,
 ) -> str:
     lignes = [
         f"Simulation de « {trace.nom} » — {_fr(simulation.distance_m / 1000, 1)} km"
@@ -977,6 +1030,8 @@ def rendre_texte_simulation(
             from ourouler.meteo.rapport import date_en_francais
 
             lignes.append(f"Arrivée estimée : {date_en_francais(arrivee)}.")
+    if alerte:
+        lignes.append(f"⚠ Calibration du {velo.nom} : {alerte} (`ourouler calibrer --velo {velo.nom}`).")
     if provenance != "calibration":
         lignes.append(
             f"CdA et Crr viennent de la {provenance} et n'ont pas été mesurés : "
@@ -1037,6 +1092,7 @@ def rendre_json_simulation(
     meteo,
     pauses: Sequence[Pause] = (),
     arrivee: datetime | None = None,
+    alerte: str | None = None,
 ) -> dict:
     return {
         "trace": trace.nom,
@@ -1050,6 +1106,7 @@ def rendre_json_simulation(
             "rendement": parametres.rendement,
             "rho": parametres.rho,
             "provenance": provenance,
+            "alerte": alerte,
             "litterature": litterature_json(provenance, velo.usage),
         },
         "puissance_w": puissance_w,
@@ -1110,7 +1167,9 @@ def _duree(secondes: float) -> str:
 
 __all__ = [
     "NOM_CALIBRATION",
+    "ALERTE_PNEU_CHANGE",
     "Calibration",
+    "alerte_calibration",
     "chemin_calibration",
     "crr_du_velo",
     "ecrire_calibration",

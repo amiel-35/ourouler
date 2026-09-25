@@ -2016,3 +2016,33 @@ def test_texte_boucle_sans_compteur_n_affiche_pas_la_legende(tmp_path: Path):
     )
     assert "écoulé porte à porte" not in texte
     assert " / " not in texte.splitlines()[3]  # la ligne de la candidate n° 1
+
+
+def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(
+    tmp_path: Path, monkeypatch, capsys
+):
+    """Décision du 25/09 : la calibration est gardée, mais l'écran dit qu'elle
+    ne suit plus le pneu déclaré — en texte comme en JSON."""
+    from ourouler.physique.commande import (
+        ALERTE_PNEU_CHANGE,
+        chemin_calibration,
+        ecrire_calibration,
+    )
+
+    config = config_de_test(
+        cache={"dossier": str(tmp_path)},
+        velos=[{"nom": "RCR", "usage": "route", "pneu": "vtt"}],
+    )
+    ecrire_calibration(
+        chemin_calibration(config),
+        "RCR",
+        {"cda_m2": 0.33, "crr": 0.005, "masse_totale_kg": 89.0, "crr_source": "pneu",
+         "pneu": "course_rapide"},
+    )
+    monkeypatch.chdir(tmp_path)
+    executer(args(velo=None, puissance=None, json=True), config, moteur_brouter(), moteur_meteo())
+    charge = json.loads(capsys.readouterr().out)
+    assert charge["modele_physique"]["provenance"] == "calibration"
+    assert charge["modele_physique"]["alerte"] == ALERTE_PNEU_CHANGE
+    executer(args(velo=None, puissance=None), config, moteur_brouter(), moteur_meteo())
+    assert ALERTE_PNEU_CHANGE in capsys.readouterr().out
