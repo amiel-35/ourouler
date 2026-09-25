@@ -1031,7 +1031,14 @@ def _flottant(
     if valeur != valeur or valeur in (float("inf"), float("-inf")):
         raise ErreurConfig(f"{_champ(section, cle)} : nombre fini attendu, reçu {x!r}")
     if mini is not None and maxi is not None and not mini <= valeur <= maxi:
-        raise ErreurConfig(f"{_champ(section, cle)} = {valeur} hors de [{mini}, {maxi}]")
+        raise ErreurConfig(
+            f"{_champ(section, cle)} = {valeur} hors de [{mini}, {maxi}]",
+            champ=cle,
+            section=section,
+            mini=mini,
+            maxi=maxi,
+            valeur=valeur,
+        )
     return valeur
 
 

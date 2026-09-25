@@ -74,6 +74,14 @@ const LIBELLES: Record<keyof Champs, string> = {
   commune: "Commune",
 };
 
+/** Les champs obligatoires — le numéro n'en fait pas partie (constaté le
+ * 25/09/2026 : une place ou un lieu-dit, « Place de la Mairie », n'a pas de
+ * numéro, et le formulaire refusait de chercher tant qu'il était vide). La
+ * commune et le code postal restent obligatoires : c'est eux qui gardent le
+ * garde-fou du géocodage (Q34) — sans commune, la même rue existe dans des
+ * dizaines de communes, ce qu'un numéro seul ne corrige pas. */
+const OBLIGATOIRES: (keyof Champs)[] = ["voie", "codePostal", "commune"];
+
 /** Le point à confirmer : soit un candidat du géocodeur, soit la position du navigateur. */
 type Apercu =
   | { genre: "candidat"; candidat: Candidat }
@@ -122,9 +130,9 @@ export function requete(champs: Champs): string {
     .join(" ");
 }
 
-/** Les champs restés vides. Tous sont obligatoires : c'est le fond de la décision. */
+/** Les champs obligatoires restés vides — le numéro est facultatif (voir `OBLIGATOIRES`). */
 export function champsManquants(champs: Champs): (keyof Champs)[] {
-  return (Object.keys(VIDES) as (keyof Champs)[]).filter((clef) => champs[clef].trim() === "");
+  return OBLIGATOIRES.filter((clef) => champs[clef].trim() === "");
 }
 
 function nomDuPoint(apercu: Apercu): string {
@@ -185,8 +193,9 @@ export function FormulaireAdresse({
     if (vides.length > 0) {
       setManquants(vides);
       setPhrase(
-        "Les quatre champs sont demandés : sans la commune, le géocodeur rend jusqu'à cinq " +
-          "adresses identiques à des centaines de kilomètres, et la première est prise au hasard.",
+        "La voie, le code postal et la commune sont demandés : sans eux, le géocodeur rend " +
+          "jusqu'à cinq adresses identiques à des centaines de kilomètres, et la première est " +
+          "prise au hasard.",
       );
       return;
     }
@@ -258,7 +267,8 @@ export function FormulaireAdresse({
         <legend>Adresse de départ</legend>
         <p className="mention">
           Quatre champs plutôt qu'une ligne : sans la commune, la même rue existe dans des
-          dizaines de communes et rien ne permet de choisir la bonne.
+          dizaines de communes et rien ne permet de choisir la bonne. Le numéro est
+          facultatif — une place ou un lieu-dit n'en a pas.
         </p>
         {(Object.keys(VIDES) as (keyof Champs)[]).map((clef) => (
           <div className="champ" key={clef}>
@@ -267,7 +277,7 @@ export function FormulaireAdresse({
               className="saisie"
               id={`adresse-${clef}`}
               value={champs[clef]}
-              required
+              required={OBLIGATOIRES.includes(clef)}
               aria-invalid={manquants.includes(clef)}
               inputMode={clef === "codePostal" || clef === "numero" ? "numeric" : "text"}
               autoComplete={

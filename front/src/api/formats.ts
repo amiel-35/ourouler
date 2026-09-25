@@ -283,6 +283,19 @@ export const PNEUS: { cle: CategoriePneu; libelle: string }[] = [
 ];
 
 /**
+ * Le poids de vélo supposé quand rien n'est déclaré (miroir de
+ * `physique.calibration.MASSE_VELO_DEFAUT_KG` côté serveur).
+ *
+ * Constaté le 25/09/2026 : l'assistant affichait « on suppose 9 kg » tout en
+ * préremplissant le champ avec `8`, une seconde valeur inventée côté front
+ * qui ne correspondait à rien. Une seule constante, ici, sert à la fois le
+ * texte d'aide et le `placeholder` du champ — le champ lui-même reste vide
+ * tant que personne n'a rien tapé, et c'est `null` qui part au serveur pour
+ * que ce soit lui, et lui seul, qui applique le défaut.
+ */
+export const MASSE_VELO_DEFAUT_KG = 9;
+
+/**
  * D'où vient une adresse trouvée, **nommé plutôt que codé**.
  *
  * `source` vaut « ban » ou « nominatim » : les noms des deux services de
