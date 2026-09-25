@@ -22,6 +22,12 @@ Le point 3 passe par `git check-ignore` : les subtilités de `.gitignore`
 exclu) ne se réimplémentent pas honnêtement en Python, et c'est le verdict de
 git qui compte. Aucun réseau, aucune écriture dans le dépôt.
 
+Ce verdict est demandé **sous les deux valeurs de `core.ignorecase`** : macOS
+(insensible à la casse, `true`) et Linux (CI, serveur, `false`). Interrogé
+seulement avec la configuration de la machine, le filet était vert sur le Mac
+du mainteneur alors que `*.gpx` laissait passer `Ma_sortie_du_dimanche.GPX`
+sous Linux (run CI 36149735808).
+
 **Ce que ce filet ne peut pas attraper**, et qu'il ne faut pas croire qu'il
 attrape : un vrai fichier déposé sous le nom exact d'une fixture. `boucle.fit`
 est réintégré, donc un `boucle.fit` réel le serait aussi — et sur un système de
@@ -68,12 +74,15 @@ def extensions_ignorees() -> set[str]:
     Lues dans le fichier plutôt qu'écrites ici : si `*.kml` est ajouté demain
     aux données de l'utilisateur, une fixture `.kml` devra elle aussi être
     réintégrée nommément, sans qu'on ait à y penser.
+
+    Une extension écrite en classes de caractères (`*.[gG][pP][xX]`, la forme
+    insensible à la casse) compte pour son nom en minuscules (`gpx`).
     """
     extensions = set()
     for ligne in lignes_utiles():
-        trouve = re.fullmatch(r"\*\.(\w+)", ligne)
+        trouve = re.fullmatch(r"\*\.((?:\w|\[\w\w\])+)", ligne)
         if trouve:
-            extensions.add(trouve.group(1).lower())
+            extensions.add(re.sub(r"\[(\w)\w\]", r"\1", trouve.group(1)).lower())
     return extensions
 
 
@@ -81,11 +90,9 @@ def noms_a_reintegrer(noms: list[str]) -> set[str]:
     """Parmi des noms de fixtures, ceux qu'une règle `*.xxx` ignorerait.
 
     Comparaison en minuscules des deux côtés : `COURTE.GPX` est attrapé par
-    `*.gpx` sur un système de fichiers insensible à la casse (macOS,
-    `core.ignorecase`), pas sur un système sensible (CI Linux). On le nomme
-    donc dans les deux cas — inutile là où il n'est pas ignoré, indispensable
-    là où il l'est. Ce qui ne rend pas la liste insensible à la casse pour
-    autant : voir la limite dite en tête de module.
+    `*.[gG][pP][xX]` quelle que soit la casse du système de fichiers, il doit
+    donc être nommé. Ce qui ne rend pas la liste de réintégrations insensible
+    à la casse pour autant : voir la limite dite en tête de module.
     """
     return {nom for nom in noms if nom.rsplit(".", 1)[-1].lower() in extensions_ignorees()}
 
@@ -108,15 +115,45 @@ def git_disponible() -> None:
         pytest.skip("pas dans un dépôt git")
 
 
-def est_ignore(chemin_relatif: str) -> bool:
-    """Le verdict de git sur un chemin, qu'il existe ou non sur le disque."""
-    return _git("check-ignore", "--no-index", "-q", chemin_relatif).returncode == 0
+#: Les deux valeurs de `core.ignorecase` : macOS (`true`), Linux (`false`).
+CASSES = (True, False)
 
 
-def test_la_sonde_mesure_bien_quelque_chose(git_disponible: None):
+def _option_casse(ignorecase: bool) -> tuple[str, str]:
+    return ("-c", f"core.ignorecase={'true' if ignorecase else 'false'}")
+
+
+def est_ignore(chemin_relatif: str, *, ignorecase: bool) -> bool:
+    """Le verdict de git sur un chemin, qu'il existe ou non sur le disque.
+
+    `ignorecase` impose `core.ignorecase` au lieu de prendre celui de la
+    machine : le filet doit tenir sous Linux même quand on le mesure sur macOS.
+    """
+    options = _option_casse(ignorecase)
+    return _git(*options, "check-ignore", "--no-index", "-q", chemin_relatif).returncode == 0
+
+
+@pytest.mark.parametrize("ignorecase", CASSES, ids=lambda v: f"ignorecase={v}")
+def test_la_sonde_mesure_bien_quelque_chose(ignorecase: bool, git_disponible: None):
     """Sans ce contrôle, un `est_ignore` cassé rendrait tous les tests suivants verts."""
-    assert est_ignore(".venv/lib/python3.12/site-packages/x.py"), "`.venv/` doit être ignoré"
-    assert not est_ignore("pyproject.toml"), "`pyproject.toml` ne doit pas être ignoré"
+    assert est_ignore(".venv/lib/python3.12/site-packages/x.py", ignorecase=ignorecase), (
+        "`.venv/` doit être ignoré"
+    )
+    assert not est_ignore("pyproject.toml", ignorecase=ignorecase), (
+        "`pyproject.toml` ne doit pas être ignoré"
+    )
+
+
+def test_la_sonde_distingue_les_deux_casses(git_disponible: None):
+    """Sans ce contrôle, `-c core.ignorecase` pourrait être sans effet et le
+    paramétrage sur les deux casses ne mesurerait qu'une seule configuration.
+
+    `COURTE.GPX` est réintégré nommément : sa variante en minuscules l'est
+    aussi quand la casse est ignorée (macOS), et ne l'est pas sous Linux.
+    """
+    variante = "tests/fixtures/activites/courte.gpx"
+    assert not est_ignore(variante, ignorecase=True)
+    assert est_ignore(variante, ignorecase=False)
 
 
 # --- 1. aucune réintégration en bloc -----------------------------------------
@@ -186,6 +223,9 @@ def test_les_noms_non_ignores_ne_sont_pas_reintegres(generateur, tmp_path: Path)
 DEPOTS_INTERDITS = (
     "tests/fixtures/activites/sortie_2026_09_17.fit",
     "tests/fixtures/activites/Ma_sortie_du_dimanche.GPX",
+    "tests/fixtures/activites/EXPORT_GARMIN.FIT",
+    "tests/fixtures/activites/Sortie.Tcx",
+    "tests/fixtures/activites/sortie.gPx",
     "tests/fixtures/activites/entrainement.gpx",
     "tests/fixtures/activites/entrainement.tcx",
     "tests/fixtures/activites/sous_dossier/vraie_trace.fit",
@@ -196,16 +236,24 @@ DEPOTS_INTERDITS = (
 )
 
 
+@pytest.mark.parametrize("ignorecase", CASSES, ids=lambda v: f"ignorecase={v}")
 @pytest.mark.parametrize("chemin", DEPOTS_INTERDITS, ids=lambda c: c)
-def test_un_vrai_fichier_d_activite_reste_ignore(chemin: str, git_disponible: None):
-    """Le cas que `!tests/fixtures/**` laissait passer, posé à git tel quel."""
-    assert est_ignore(chemin), (
-        f"{chemin} serait commité sans résistance. C'est exactement ce que la règle "
-        "absolue 1 interdit : seules les fixtures nommées sont réintégrées."
+def test_un_vrai_fichier_d_activite_reste_ignore(
+    chemin: str, ignorecase: bool, git_disponible: None
+):
+    """Le cas que `!tests/fixtures/**` laissait passer, posé à git tel quel.
+
+    Sous les deux casses : `*.gpx` seul laissait passer `….GPX` sous Linux.
+    """
+    assert est_ignore(chemin, ignorecase=ignorecase), (
+        f"{chemin} serait commité sans résistance (core.ignorecase={ignorecase}). "
+        "C'est exactement ce que la règle absolue 1 interdit : seules les fixtures "
+        "nommées sont réintégrées."
     )
 
 
-def test_aucun_fichier_versionne_n_est_ignore(git_disponible: None):
+@pytest.mark.parametrize("ignorecase", CASSES, ids=lambda v: f"ignorecase={v}")
+def test_aucun_fichier_versionne_n_est_ignore(ignorecase: bool, git_disponible: None):
     """Le filet doit se resserrer sur les vraies données, pas sur le dépôt.
 
     Un fichier à la fois suivi et ignoré est un piège : il reste dans l'index,
@@ -214,7 +262,7 @@ def test_aucun_fichier_versionne_n_est_ignore(git_disponible: None):
     suivis = _git("ls-files").stdout.splitlines()
     assert suivis, "aucun fichier suivi : le test ne mesurerait rien"
     ignores = subprocess.run(
-        ["git", "-C", str(RACINE), "check-ignore", "--stdin", "--no-index"],
+        ["git", "-C", str(RACINE), *_option_casse(ignorecase), "check-ignore", "--stdin", "--no-index"],
         input="\n".join(suivis),
         capture_output=True,
         text=True,
