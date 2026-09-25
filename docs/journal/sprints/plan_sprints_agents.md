@@ -2145,3 +2145,10 @@ de tout entraînement futur) ce qui avait été conservé à ce titre.
   « refus », et la conservation le cas « accord » ;
 - mentions RGPD : base légale (consentement), finalité, durée, preuve du
   consentement horodatée.
+
+Backlog « `ourouler retirer` sur un serveur neuf » (constat de la répétition
+du retour arrière, 25/09/2026, préproduction) : tant qu'aucune personne ne
+s'est connectée, le dossier des comptes (`/data/cache/api`) n'existe pas, et
+`retirer` refuse avec « dossier de données introuvable » — même pour une
+invitation jamais activée, qui n'a aucun fichier. Piste : ne refuser que si
+le compte a des données à effacer ailleurs que dans la base.
