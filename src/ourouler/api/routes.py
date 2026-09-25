@@ -70,7 +70,6 @@ from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.erreurs import ErreurConfig, ErreurUtilisateur
-from ourouler.meteo.cache_previsions import ClientOpenMeteoCache
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
@@ -180,9 +179,13 @@ class Contexte:
     generations: DepotGenerations
     clients: Clients
     budgets: Budgets
-    #: Quota journalier de générations coûteuses par compte (L9.3). Le mode
-    #: personnel n'est pas concerné — voir `_verifier_quota`.
+    #: Quota journalier de générations coûteuses par compte (L9.3) —
+    #: `POST /sorties`, `POST /boucles`. Le mode personnel n'est pas
+    #: concerné — voir `_verifier_quota`.
     quotas: Quotas
+    #: Quota journalier séparé pour `GET /meteo` (L9.3, poste distinct :
+    #: ~50 appels par consultation contre ~150 par génération).
+    quotas_meteo: Quotas
     journal: JournalServices
     #: **Comment cette application sait qui parle** (`api/session.py`). Injecté
     #: par la fabrique ; les routes ne le choisissent pas, elles l'utilisent.
@@ -300,8 +303,8 @@ def _service(ctx: Contexte, config: Config, nom: str) -> object | None:
         raise classer(e) from e
 
 
-def _verifier_quota(ctx: Contexte, qui: Proprietaire) -> None:
-    """Décompte une génération coûteuse pour ce compte — ou refuse (L9.3).
+def _verifier_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
+    """Décompte un crédit pour ce compte sur ce poste — ou refuse (L9.3).
 
     **Rien en mode personnel** : `ourouler api` sur la machine du mainteneur
     sert toujours `PROPRIETAIRE_LOCAL` par `SessionPersonnelle`
@@ -312,11 +315,27 @@ def _verifier_quota(ctx: Contexte, qui: Proprietaire) -> None:
 
     Appelée **avant** tout travail (réservation de fichier, appel au cœur) :
     un compte au plafond ne doit rien coûter au serveur pour se l'entendre
-    dire.
+    dire. `quotas` distingue le poste (`ctx.quotas` pour une génération,
+    `ctx.quotas_meteo` pour `GET /meteo`) — deux compteurs séparés, un seul
+    code de refus (`quota_atteint`).
     """
     if ctx.session.mode == MODE_PERSONNEL:
         return
-    ctx.quotas.consommer(qui)
+    quotas.consommer(qui)
+
+
+def _rembourser_quota(ctx: Contexte, qui: Proprietaire, quotas: Quotas) -> None:
+    """Annule le décompte de `_verifier_quota` quand le travail a échoué (L9.3).
+
+    **Seul un succès consomme réellement le crédit.** Une panne BRouter ou
+    Open-Meteo, un `calcul_en_cours` (409, un autre calcul occupait déjà le
+    serveur), ou n'importe quelle autre exception : le compte n'a rien reçu,
+    il ne doit rien payer. Sans effet en mode personnel, symétrique de
+    `_verifier_quota`, qui n'y a rien décompté.
+    """
+    if ctx.session.mode == MODE_PERSONNEL:
+        return
+    quotas.rembourser(qui)
 
 
 def _avec_journal(ctx: Contexte, qui: Proprietaire, services: tuple[str, ...], appel):
@@ -545,11 +564,23 @@ def systeme(
         "budgets": ctx.budgets.tous(),
     }
     if ctx.session.mode != MODE_PERSONNEL:
-        # Quota et cache météo n'existent que pour distinguer des comptes —
-        # sans objet en mode personnel (`_verifier_quota`).
-        charge["quota"] = {"plafond": ctx.quotas.plafond, "restant": ctx.quotas.restant(qui)}
-    if isinstance(ctx.clients.meteo, ClientOpenMeteoCache):
-        charge["cache_meteo"] = ctx.clients.meteo.stats()
+        # Le quota est **celui de ce compte** — sa propre donnée, jamais
+        # celle d'un voisin. Sans objet en mode personnel (`_verifier_quota`).
+        charge["quotas"] = {
+            "generations": {"plafond": ctx.quotas.plafond, "restant": ctx.quotas.restant(qui)},
+            "consultations_meteo": {
+                "plafond": ctx.quotas_meteo.plafond,
+                "restant": ctx.quotas_meteo.restant(qui),
+            },
+        }
+    # **Les compteurs du cache météo ne sortent plus ici** (relecture
+    # Opus, L9.3) : `appels_reels`/`appels_servis_cache` sont globaux au
+    # processus, pas au compte qui interroge — les publier à n'importe quel
+    # compte authentifié laisse deviner l'activité de tous les autres (une
+    # fuite de voisinage, même sans identifiant nominatif dans le nombre
+    # lui-même). `ctx.clients.meteo.stats()` (`ClientOpenMeteoCache`) reste
+    # accessible côté serveur pour qui a la main sur le processus — journal
+    # ou une future route d'administration, jamais `/systeme`.
     return charge
 
 
@@ -927,6 +958,12 @@ def meteo(
     """
     from ourouler.meteo import commande as meteo_commande
 
+    # L9.3 : quota séparé de celui des générations — ~50 appels Open-Meteo
+    # par consultation (une couronne, deux modèles), contre ~150 pour une
+    # sortie ou une boucle. Pas de remboursement ici (à la différence de
+    # `POST /sorties`/`POST /boucles`) : ce n'est pas demandé, et une
+    # consultation ratée coûte de toute façon moins cher.
+    _verifier_quota(ctx, qui, ctx.quotas_meteo)
     config = _config(ctx, qui)
     if (latitude is None) != (longitude is None):
         raise ErreurApi(
@@ -1113,56 +1150,66 @@ def generer_sortie(
     """
     from ourouler.sortie import commande as sortie_commande
 
-    _verifier_quota(ctx, qui)
-    config = _config(ctx, qui)
-    carte = ctx.fichiers.reserver(qui, f"sortie_{demande.jour or date.today().isoformat()}.html")
-    seance = _chemin_seance(ctx, qui, demande.fichier_seance)
-    # Q40 (g) : **aucun GPX n'est écrit ici**. Le cœur remet les trois textes
-    # à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc aucun fichier),
-    # et c'est la route `…/propositions/{n}/gpx` qui en servira un — celui que
-    # le cycliste aura choisi, et pas celui du classement.
-    recueillis: list[object] = []
-    resultat = _avec_journal(
-        ctx,
-        qui,
-        ("brouter", "openmeteo", "intervals"),
-        lambda: executer_commande(
-            sortie_commande.executer,
-            namespace(
-                jour=demande.jour,
-                depart=demande.heure_depart,
-                distance=demande.distance_km,
-                direction=demande.direction,
-                candidates=demande.candidates,
-                vent=demande.vent,
-                velo=demande.velo,
-                profil=demande.profil,
-                fichier_seance=seance,
-                carte=str(carte.chemin),
-                ecraser=True,
-            ),
-            config,
-            secrets=secrets_de(config),
-            chemins={str(carte.chemin): carte.nom},
-            operation="sortie",
-            budgets=ctx.budgets,
-            client_brouter=_service(ctx, config, "brouter"),
-            client_meteo=_service(ctx, config, "meteo"),
-            client_intervals=_service(ctx, config, "intervals"),
-            lieu_depart=_depart(demande.depart),
-            recueil_gpx=recueillis.extend,
-            # Q58, même raison que `POST /boucles`.
-            base_routes=_base_routes(config, qui),
-        ),
-    )
-    donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
-    if recueillis:
-        donnees = vues.avec_gpx_par_proposition(
-            donnees,
-            generation=ctx.generations.retenir(qui, recueillis),
-            noms={int(g.numero): str(g.nom_fichier) for g in recueillis},  # type: ignore[attr-defined]
-            prefixe=routeur.prefix,
+    _verifier_quota(ctx, qui, ctx.quotas)
+    try:
+        config = _config(ctx, qui)
+        carte = ctx.fichiers.reserver(
+            qui, f"sortie_{demande.jour or date.today().isoformat()}.html"
         )
+        seance = _chemin_seance(ctx, qui, demande.fichier_seance)
+        # Q40 (g) : **aucun GPX n'est écrit ici**. Le cœur remet les trois
+        # textes à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc
+        # aucun fichier), et c'est la route `…/propositions/{n}/gpx` qui en
+        # servira un — celui que le cycliste aura choisi, et pas celui du
+        # classement.
+        recueillis: list[object] = []
+        resultat = _avec_journal(
+            ctx,
+            qui,
+            ("brouter", "openmeteo", "intervals"),
+            lambda: executer_commande(
+                sortie_commande.executer,
+                namespace(
+                    jour=demande.jour,
+                    depart=demande.heure_depart,
+                    distance=demande.distance_km,
+                    direction=demande.direction,
+                    candidates=demande.candidates,
+                    vent=demande.vent,
+                    velo=demande.velo,
+                    profil=demande.profil,
+                    fichier_seance=seance,
+                    carte=str(carte.chemin),
+                    ecraser=True,
+                ),
+                config,
+                secrets=secrets_de(config),
+                chemins={str(carte.chemin): carte.nom},
+                operation="sortie",
+                budgets=ctx.budgets,
+                client_brouter=_service(ctx, config, "brouter"),
+                client_meteo=_service(ctx, config, "meteo"),
+                client_intervals=_service(ctx, config, "intervals"),
+                lieu_depart=_depart(demande.depart),
+                recueil_gpx=recueillis.extend,
+                # Q58, même raison que `POST /boucles`.
+                base_routes=_base_routes(config, qui),
+            ),
+        )
+        donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
+        if recueillis:
+            donnees = vues.avec_gpx_par_proposition(
+                donnees,
+                generation=ctx.generations.retenir(qui, recueillis),
+                noms={int(g.numero): str(g.nom_fichier) for g in recueillis},  # type: ignore[attr-defined]
+                prefixe=routeur.prefix,
+            )
+    except Exception:
+        # L9.3 : seul un succès consomme le crédit décompté ci-dessus — une
+        # panne (BRouter, Open-Meteo, calcul_en_cours, ou tout autre échec)
+        # le rend.
+        _rembourser_quota(ctx, qui, ctx.quotas)
+        raise
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("sortie"), qui)
 
 
@@ -1204,39 +1251,45 @@ def generer_boucle(
     """Une boucle libre, sans séance : candidates, coûts, météo le long du tracé, géométrie."""
     from ourouler.boucle import commande as boucle_commande
 
-    _verifier_quota(ctx, qui)
-    config = _config(ctx, qui)
-    # Q47 : sans direction, la recherche balaie tout l'horizon (comme
-    # `sortie`) plutôt que de refuser — le nom réservé le dit en clair plutôt
-    # que de porter un `None` littéral.
-    direction_nom = demande.direction or "toutes-directions"
-    gpx = ctx.fichiers.reserver(qui, f"boucle_{direction_nom}_{demande.distance_km:g}km.gpx")
-    resultat = executer_commande(
-        boucle_commande.executer,
-        namespace(
-            distance=demande.distance_km,
-            direction=demande.direction,
-            depart=demande.heure_depart,
-            candidates=demande.candidates,
-            profil=demande.profil,
-            velo=demande.velo,
-            puissance=demande.puissance_w,
-            sortie=str(gpx.chemin),
-            ecraser=True,
-        ),
-        config,
-        secrets=secrets_de(config),
-        chemins={str(gpx.chemin): gpx.nom},
-        operation="boucle",
-        budgets=ctx.budgets,
-        client_brouter=_service(ctx, config, "brouter"),
-        client_meteo=_service(ctx, config, "meteo"),
-        lieu_depart=_depart(demande.depart),
-        # Q58 : la colonne « connu % » est calculée contre les routes que
-        # **ce** cycliste a roulées, pas contre celles du propriétaire local.
-        base_routes=_base_routes(config, qui),
-    )
-    donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
+    _verifier_quota(ctx, qui, ctx.quotas)
+    try:
+        config = _config(ctx, qui)
+        # Q47 : sans direction, la recherche balaie tout l'horizon (comme
+        # `sortie`) plutôt que de refuser — le nom réservé le dit en clair
+        # plutôt que de porter un `None` littéral.
+        direction_nom = demande.direction or "toutes-directions"
+        gpx = ctx.fichiers.reserver(qui, f"boucle_{direction_nom}_{demande.distance_km:g}km.gpx")
+        resultat = executer_commande(
+            boucle_commande.executer,
+            namespace(
+                distance=demande.distance_km,
+                direction=demande.direction,
+                depart=demande.heure_depart,
+                candidates=demande.candidates,
+                profil=demande.profil,
+                velo=demande.velo,
+                puissance=demande.puissance_w,
+                sortie=str(gpx.chemin),
+                ecraser=True,
+            ),
+            config,
+            secrets=secrets_de(config),
+            chemins={str(gpx.chemin): gpx.nom},
+            operation="boucle",
+            budgets=ctx.budgets,
+            client_brouter=_service(ctx, config, "brouter"),
+            client_meteo=_service(ctx, config, "meteo"),
+            lieu_depart=_depart(demande.depart),
+            # Q58 : la colonne « connu % » est calculée contre les routes
+            # que **ce** cycliste a roulées, pas contre celles du
+            # propriétaire local.
+            base_routes=_base_routes(config, qui),
+        )
+        donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
+    except Exception:
+        # L9.3 : même remboursement que `POST /sorties` — voir sa docstring.
+        _rembourser_quota(ctx, qui, ctx.quotas)
+        raise
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)
 
 

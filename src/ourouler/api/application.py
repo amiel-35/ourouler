@@ -49,7 +49,7 @@ from ourouler.api.depots import (
     SocleVide,
 )
 from ourouler.api.erreurs import ErreurApi, table_des_avertissements, table_des_codes
-from ourouler.api.quotas import Quotas
+from ourouler.api.quotas import CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, Quotas
 from ourouler.api.routes import Clients, Contexte, reponse_erreur, routeur
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
@@ -141,6 +141,7 @@ def creer_application(
     clients: Clients | None = None,
     budgets: Budgets | None = None,
     quotas: Quotas | None = None,
+    quotas_meteo: Quotas | None = None,
     session: FournisseurSession | None = None,
     dossier_front: Path | None = None,
 ) -> FastAPI:
@@ -191,10 +192,13 @@ def creer_application(
     son code (`front/README.md`) — la même origine sert les deux, en
     développement par le proxy Vite, en production par ce montage.
 
-    **`quotas` porte le plafond journalier de générations coûteuses par
-    compte** (L9.3, `api/quotas.py`). Sans lui, `Quotas()` avec son défaut —
-    ce que font tous les tests qui n'exercent pas le quota. Sans objet en
-    mode personnel : voir `routes._verifier_quota`.
+    **`quotas` et `quotas_meteo` portent les deux plafonds journaliers par
+    compte** (L9.3, `api/quotas.py`) : générations (`POST /sorties`,
+    `POST /boucles`) pour l'un, consultations météo (`GET /meteo`) pour
+    l'autre — deux postes de coût différents, deux compteurs. Sans eux,
+    `Quotas()` avec son défaut pour chacun — ce que font tous les tests qui
+    n'exercent pas le quota. Sans objet en mode personnel : voir
+    `routes._verifier_quota`.
     """
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
@@ -245,6 +249,8 @@ def creer_application(
         ),
         budgets=budgets or Budgets(),
         quotas=quotas or Quotas(),
+        quotas_meteo=quotas_meteo
+        or Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo"),
         session=session or SessionPersonnelle(),
     )
     app.include_router(routeur)
@@ -443,19 +449,24 @@ def application() -> FastAPI:
     else:
         dossier_cache = socle.config({}).cache.dossier
 
-    # **Cache météo mutualisé et quota par compte (L9.3), en mode hébergé
+    # **Cache météo mutualisé et quotas par compte (L9.3), en mode hébergé
     # seulement.** En personnel, un seul cycliste appelle depuis sa propre
     # adresse (doctrine §10.1) : ni l'un ni l'autre n'a d'objet, et
     # `client_meteo=None` laisse le cœur fabriquer son `ClientOpenMeteo`
     # ordinaire, exactement comme avant ce lot.
     client_meteo = None
     quotas = Quotas()
+    quotas_meteo = Quotas(plafond=CONSULTATIONS_METEO_PAR_JOUR_DEFAUT, libelle="consultations météo")
     if partage:
         from ourouler.meteo.cache_previsions import ClientOpenMeteoCache
         from ourouler.meteo.openmeteo import ClientOpenMeteo
 
         client_meteo = ClientOpenMeteoCache(ClientOpenMeteo())
         quotas = Quotas(plafond=exploitation.generations_par_jour(variables))
+        quotas_meteo = Quotas(
+            plafond=exploitation.consultations_meteo_par_jour(variables),
+            libelle="consultations météo",
+        )
 
     return creer_application(
         socle=socle,
@@ -464,6 +475,7 @@ def application() -> FastAPI:
         dossier_front=exploitation.dossier_front(),
         client_meteo=client_meteo,
         quotas=quotas,
+        quotas_meteo=quotas_meteo,
     )
 
 

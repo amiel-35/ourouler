@@ -59,20 +59,36 @@ nom_expediteur = "où rouler"
 [quotas]
 # Lot L9.3 — le coût par utilisateur. Doctrine §10.1 : Open-Meteo gratuit
 # tolère ~10 000 appels par jour et par adresse IP, et un service hébergé où
-# tous les comptes partagent la même adresse les additionne. Une « sortie » à
-# cinq candidates en coûte à elle seule ~150 : sans plafond, un seul compte
-# peut épuiser le quota partagé.
+# tous les comptes partagent la même adresse les additionne. Grouper
+# plusieurs points dans une requête n'économise **aucun** appel décompté —
+# Open-Meteo compte par coordonnée, pas par requête (doctrine §10.1,
+# correction du 16/09/2026) — donc `GET /meteo` (une couronne, deux modèles,
+# ~50 appels) pèse lui aussi, pas seulement `POST /sorties`/`POST /boucles`
+# (~150 chacune, cinq candidates). D'où deux réglages, pour deux postes.
 #
 # `generations_par_jour` borne, par compte et par jour (minuit UTC), les
-# appels à `POST /sorties` et `POST /boucles` — les deux routes qui font
-# tourner plusieurs candidates, chacune avec son aller-retour BRouter et
-# Open-Meteo. Au-delà, l'API rend `429 quota_atteint` (`api/erreurs.py`,
-# `front/src/composants/Echec.tsx`).
+# appels à `POST /sorties` et `POST /boucles`. **Calcul du défaut (20)** :
+# 20 générations × ~150 appels ≈ 3 000, sur les 10 000 que tout le service
+# partage par jour et par adresse IP — de quoi laisser de la place aux
+# consultations météo (ci-dessous) et aux autres comptes du même service. Au
+# 40 d'une première version de ce lot, 40 × 150 = 6 000 ne laissait presque
+# rien pour le reste (relecture Opus, 25/09/2026).
 #
-# **Absent, ou ce fichier absent : le défaut s'applique**
-# (`api.quotas.GENERATIONS_PAR_JOUR_DEFAUT`, 40 aujourd'hui) — un déploiement
-# qui n'a pas encore de section `[quotas]` n'est pas sans plafond, il a le
-# défaut. **Le mode personnel n'a pas de quota** (`OUROULER_MODE=personnel`,
+# `consultations_meteo_par_jour` borne, séparément, `GET /meteo`.
+# **Calcul du défaut (100)** : 100 × ~50 ≈ 5 000 — qui s'ajoutent aux ~3 000
+# ci-dessus sans dépasser le budget partagé, pour un compte qui userait les
+# deux plafonds à fond le même jour (3 000 + 5 000 = 8 000, sous les 10 000).
+#
+# Au-delà de l'un ou l'autre, l'API rend `429 quota_atteint` (`api/erreurs.py`,
+# `front/src/composants/Echec.tsx`) — **même code pour les deux**, le message
+# dit lequel des deux plafonds est atteint.
+#
+# **Absent, ou ce fichier absent : les défauts s'appliquent**
+# (`api.quotas.GENERATIONS_PAR_JOUR_DEFAUT`,
+# `api.quotas.CONSULTATIONS_METEO_PAR_JOUR_DEFAUT`) — un déploiement qui n'a
+# pas encore de section `[quotas]` n'est pas sans plafond, il a le défaut.
+# **Le mode personnel n'a aucun des deux quotas** (`OUROULER_MODE=personnel`,
 # `ourouler api` sur la machine du mainteneur) : ce réglage ne le concerne
 # pas, il n'appelle Open-Meteo que depuis sa propre adresse IP.
-generations_par_jour = 40
+generations_par_jour = 20
+consultations_meteo_par_jour = 100

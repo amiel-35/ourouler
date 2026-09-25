@@ -140,6 +140,23 @@ def test_un_modele_different_n_est_pas_la_meme_clef():
     assert cache.appels_reels == 2
 
 
+def test_un_horizon_different_n_est_pas_la_meme_clef():
+    """`horizon_h` fait partie de la clé : 6 h et 12 h ne sont pas la même demande."""
+    sous_jacent = ClientCompteur()
+    cache = ClientOpenMeteoCache(sous_jacent)
+
+    cache.previsions([(1.0, 1.0)], modele="m", debut=DEBUT, horizon_h=6)
+    cache.previsions([(1.0, 1.0)], modele="m", debut=DEBUT, horizon_h=12)
+
+    assert cache.appels_reels == 2
+    assert cache.appels_servis_cache == 0
+
+    # Et une troisième demande, à l'horizon déjà vu, retombe bien en cache.
+    cache.previsions([(1.0, 1.0)], modele="m", debut=DEBUT, horizon_h=6)
+    assert cache.appels_reels == 2
+    assert cache.appels_servis_cache == 1
+
+
 def test_les_minutes_du_debut_ne_changent_pas_la_cle():
     """`start_hour` d'Open-Meteo ne porte pas les minutes : ni la clé de cache."""
     sous_jacent = ClientCompteur()
@@ -184,29 +201,53 @@ def test_la_taille_du_cache_est_bornee_lru():
 
 
 def test_appels_concurrents_ne_corrompent_pas_le_cache():
-    """Concurrence simple : plusieurs fils tapent le cache en même temps, sans y laisser de plumes."""
+    """Concurrence simple : plusieurs fils tapent le cache en même temps, sans y laisser de plumes.
+
+    Une assertion levée **dans** un fil ne fait pas échouer le test — un fil
+    dont le corps lève termine juste silencieusement, et `join()` ne le
+    répercute pas (trouvé en relecture Opus, L9.3) : les échecs sont donc
+    collectés ici et rejoués dans le fil principal, seul capable de faire
+    échouer le test pour de vrai.
+    """
     sous_jacent = ClientCompteur()
     cache = ClientOpenMeteoCache(sous_jacent)
     points = [(float(i), float(i)) for i in range(8)]
+    nb_fils = 6
+    verrou_erreurs = threading.Lock()
+    erreurs: list[BaseException] = []
 
     def taper() -> None:
-        for _ in range(20):
-            for point in points:
-                resultat = cache.previsions([point], modele="m", debut=DEBUT, horizon_h=6)
-                assert resultat[0].lat == point[0]
-                assert resultat[0].lon == point[1]
+        try:
+            for _ in range(20):
+                for point in points:
+                    resultat = cache.previsions([point], modele="m", debut=DEBUT, horizon_h=6)
+                    assert resultat[0].lat == point[0]
+                    assert resultat[0].lon == point[1]
+        except BaseException as e:  # noqa: BLE001 - remonté tel quel au fil principal
+            with verrou_erreurs:
+                erreurs.append(e)
 
-    fils = [threading.Thread(target=taper) for _ in range(6)]
+    fils = [threading.Thread(target=taper) for _ in range(nb_fils)]
     for f in fils:
         f.start()
     for f in fils:
         f.join()
 
-    # Au plus un appel réel par point distinct (8) — la concurrence peut en
-    # provoquer quelques-uns de plus (deux fils manquent le cache en même
-    # temps sur le même point manquant, voir la docstring du module), mais
-    # jamais un par tour de boucle : la mutualisation doit se voir.
-    assert cache.appels_reels < len(points) * 20
+    assert not erreurs, f"{len(erreurs)} fil(s) en échec : {erreurs!r}"
+
+    # Une borne resserrée, qui prouve quelque chose : la seule vraie course
+    # est le tout premier tour, où plusieurs fils peuvent manquer le cache
+    # au même instant sur le même point avant que l'un d'eux ne le
+    # remplisse (voir la docstring du module — aucune déduplication des
+    # requêtes concurrentes en vol). Après ce premier tour, chaque point est
+    # en cache et les 19 tours suivants ne devraient plus jamais y toucher.
+    # Le pire des cas est donc **un appel réel par fil, par point du premier
+    # tour** — jamais un par tour de boucle (160 par fil, 960 en tout).
+    assert cache.appels_reels >= len(points), "au moins un appel réel par point distinct"
+    assert cache.appels_reels <= len(points) * nb_fils, (
+        f"{cache.appels_reels} appels réels pour {len(points)} points × {nb_fils} fils : "
+        "la mutualisation ne s'est pas vue"
+    )
     assert cache.stats()["entrees"] == len(points)
 
 
