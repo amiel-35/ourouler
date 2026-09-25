@@ -575,6 +575,17 @@ class DepotComptes:
 
         Le jeton n'apparaît dans aucun message d'erreur : ce qui est refusé
         est nommé (inconnu, expiré, déjà utilisé), pas montré.
+
+        **Le compte visé doit être inactif** (lot L9.6, [[B2]] de la relecture) :
+        `AND compte IN (SELECT id FROM comptes WHERE NOT actif)` — sans ce filtre, un
+        jeton de *réinitialisation* (`reinitialiser`, qui vise un compte déjà actif)
+        présenté ici se consommait quand même : le mot de passe changeait, mais
+        `actif` restait déjà vrai et rien ne le contredisait, si bien que la ligne
+        d'`invitations` brûlait pour un effet qu'`activer` ne documente pas (elle ne
+        ferme pas les sessions, contrairement à `changer_mot_de_passe_par_jeton`).
+        Un jeton d'invitation ne vaut donc que pour le compte inactif qui l'a reçu ;
+        le même jeton présenté après coup à `changer_mot_de_passe_par_jeton` échoue
+        symétriquement, pour la raison inverse.
         """
         maintenant = _instant(maintenant)
         with self.cx.transaction():
@@ -583,11 +594,12 @@ class DepotComptes:
                 "WHERE jeton = %(jeton)s "
                 "  AND consomme_le IS NULL "
                 "  AND expire_le > %(quand)s "
+                "  AND compte IN (SELECT id FROM comptes WHERE NOT actif) "
                 "RETURNING compte",
                 {"quand": maintenant, "jeton": jeton},
             ).fetchone()
             if ligne is None:
-                raise self._invitation_refusee(jeton)
+                raise self._invitation_refusee(jeton, attendu_actif=False, maintenant=maintenant)
             identifiant_compte = ligne[0]
             secret = hacher_mot_de_passe(mot_de_passe)
             compte = self.cx.execute(
@@ -686,6 +698,13 @@ class DepotComptes:
         quatre gestes (consommer, hacher, poser le secret, fermer les sessions) sont dans
         la **même transaction** qu'`activer` : un incident au milieu laisse tout en
         arrière, jeton compris.
+
+        **Le compte visé doit être actif** (lot L9.6, [[B2]] de la relecture) :
+        `AND compte IN (SELECT id FROM comptes WHERE actif)` — sans ce filtre, un
+        jeton *d'invitation* (qui vise un compte encore inactif) présenté ici posait
+        quand même un secret et ouvrait une session, sans jamais activer le compte ni
+        remplir `comptes_proprietaires` : un compte inactif avec une session valide,
+        un état que la doctrine du module interdit ailleurs.
         """
         maintenant = _instant(maintenant)
         with self.cx.transaction():
@@ -694,11 +713,12 @@ class DepotComptes:
                 "WHERE jeton = %(jeton)s "
                 "  AND consomme_le IS NULL "
                 "  AND expire_le > %(quand)s "
+                "  AND compte IN (SELECT id FROM comptes WHERE actif) "
                 "RETURNING compte",
                 {"quand": maintenant, "jeton": jeton},
             ).fetchone()
             if ligne is None:
-                raise self._invitation_refusee(jeton)
+                raise self._invitation_refusee(jeton, attendu_actif=True, maintenant=maintenant)
             identifiant_compte = ligne[0]
             secret = hacher_mot_de_passe(nouveau_mot_de_passe)
             compte = self.cx.execute(
@@ -973,24 +993,58 @@ class DepotComptes:
         with self.cx.transaction():
             self.cx.execute("DELETE FROM sessions WHERE jeton = %s", (jeton,))
 
-    def _invitation_refusee(self, jeton: str) -> ErreurInvitationRefusee:
-        """Dire *pourquoi* le jeton est refusé, sans jamais répéter le jeton."""
+    def _invitation_refusee(
+        self,
+        jeton: str,
+        *,
+        attendu_actif: bool | None = None,
+        maintenant: datetime | None = None,
+    ) -> ErreurInvitationRefusee:
+        """Dire *pourquoi* le jeton est refusé, sans jamais répéter le jeton.
+
+        `attendu_actif` distingue un jeton d'invitation (`False` : vise un compte
+        encore inactif) d'un jeton de réinitialisation (`True` : vise un compte déjà
+        actif) — lot L9.6, [[B2]] de la relecture. Sans cette distinction, un jeton
+        présenté au mauvais flux (invitation à la réinitialisation, ou l'inverse)
+        retombait sur le message « a expiré », qui n'était pas la vraie raison du
+        refus : le jeton n'a ni expiré ni servi, il ne vaut simplement pas pour ce
+        flux-là.
+        """
         ligne = self.cx.execute(
-            "SELECT expire_le, consomme_le FROM invitations WHERE jeton = %s", (jeton,)
+            "SELECT i.expire_le, i.consomme_le, c.actif FROM invitations i "
+            "JOIN comptes c ON c.id = i.compte WHERE i.jeton = %s",
+            (jeton,),
         ).fetchone()
         if ligne is None:
             return ErreurInvitationRefusee(
                 "ce lien d'invitation n'existe pas — vérifier qu'il a été copié en entier"
             )
-        expire_le, consomme_le = ligne
+        expire_le, consomme_le, actif = ligne
         if consomme_le is not None:
             return ErreurInvitationRefusee(
                 "ce lien d'invitation a déjà servi le "
                 f"{consomme_le.astimezone(UTC).strftime('%d/%m/%Y')} — un lien ne sert qu'une fois"
             )
-        return ErreurInvitationRefusee(
-            "ce lien d'invitation a expiré le "
-            f"{expire_le.astimezone(UTC).strftime('%d/%m/%Y')} — il en faut un nouveau"
+        if attendu_actif is not None and actif != attendu_actif:
+            if attendu_actif:
+                return ErreurInvitationRefusee(
+                    "ce lien est un lien d'invitation, pas un lien de réinitialisation — "
+                    "le compte visé n'est pas encore actif"
+                )
+            return ErreurInvitationRefusee(
+                "ce lien est un lien de réinitialisation, pas un lien d'invitation — "
+                "le compte visé est déjà actif"
+            )
+        maintenant = _instant(maintenant)
+        if expire_le <= maintenant:
+            return ErreurInvitationRefusee(
+                "ce lien d'invitation a expiré le "
+                f"{expire_le.astimezone(UTC).strftime('%d/%m/%Y')} — il en faut un nouveau"
+            )
+        raise ErreurCompte(  # pragma: no cover - la ligne aurait dû matcher la mise à jour
+            "jeton refusé sans raison identifiable — incohérence entre la mise à jour "
+            "qui a échoué et ce diagnostic, à corriger (le jeton n'apparaît pas ici, "
+            "voir la règle du module)"
         )
 
 

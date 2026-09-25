@@ -159,6 +159,56 @@ def test_un_jeton_de_reinitialisation_expire_est_refuse(depot: DepotComptes):
     assert "expiré" in str(refus.value)
 
 
+# --- B2 (relecture) : un jeton d'invitation et un jeton de réinitialisation ---
+# --- ne sont PAS interchangeables, dans aucun des deux sens ------------------
+
+
+def test_un_jeton_d_invitation_presente_a_la_reinitialisation_est_refuse(depot: DepotComptes, connexion):
+    """Le compte visé par un jeton d'invitation est encore inactif — pas le bon flux."""
+    emise = depot.inviter("jamais-active-b2@exemple.invalid")
+
+    with pytest.raises(ErreurInvitationRefusee) as refus:
+        depot.changer_mot_de_passe_par_jeton(emise.jeton, NOUVEAU_MOT_DE_PASSE)
+    assert emise.jeton not in str(refus.value)
+
+    # Rien n'a bougé : ni le mot de passe (il n'y en a toujours aucun), ni la
+    # consommation de l'invitation — elle doit rester utilisable pour son
+    # usage réel, l'activation.
+    secret, consomme_le = connexion.execute(
+        "SELECT c.secret, i.consomme_le FROM comptes c "
+        "JOIN invitations i ON i.compte = c.id WHERE i.jeton = %s",
+        (emise.jeton,),
+    ).fetchone()
+    assert secret is None
+    assert consomme_le is None
+
+    acces = depot.activer(emise.jeton, MOT_DE_PASSE)
+    assert acces.compte.actif is True
+
+
+def test_un_jeton_de_reinitialisation_presente_a_l_activation_est_refuse(depot: DepotComptes, connexion):
+    """Le compte visé par un jeton de réinitialisation est déjà actif — pas le bon flux."""
+    identifiant = _compte_actif(depot, "deja-actif-b2@exemple.invalid")
+    emise = depot.reinitialiser("deja-actif-b2@exemple.invalid")
+
+    with pytest.raises(ErreurInvitationRefusee) as refus:
+        depot.activer(emise.jeton, "un-mot-de-passe-qui-ne-doit-jamais-se-poser")
+    assert emise.jeton not in str(refus.value)
+
+    # Le mot de passe d'origine tient toujours, et le jeton reste utilisable
+    # pour son vrai usage, la réinitialisation.
+    secret, consomme_le = connexion.execute(
+        "SELECT c.secret, i.consomme_le FROM comptes c "
+        "JOIN invitations i ON i.compte = c.id WHERE i.jeton = %s",
+        (emise.jeton,),
+    ).fetchone()
+    assert verifier_mot_de_passe(MOT_DE_PASSE, secret)
+    assert consomme_le is None
+
+    acces = depot.changer_mot_de_passe_par_jeton(emise.jeton, NOUVEAU_MOT_DE_PASSE)
+    assert acces.compte.identifiant == identifiant
+
+
 # --- changer_mot_de_passe : sous session ouverte, l'ancien vérifié ----------
 
 
