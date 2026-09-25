@@ -8,7 +8,7 @@
  * tests protègent, c'est le premier rendu, pas un comportement qui reboucle.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { App } from "../src/App";
 import { Serveur } from "./serveur";
@@ -46,6 +46,38 @@ describe("le routage du premier écran", () => {
 
     await screen.findByRole("navigation", { name: "Navigation principale" });
     expect(screen.queryByRole("button", { name: "Commencer" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Aujourd'hui" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+  });
+});
+
+describe("l'onglet demandé par l'URL", () => {
+  const url = window.location.href;
+  afterEach(() => {
+    window.history.replaceState(null, "", url);
+  });
+
+  it("« ?onglet=reglages » ouvre directement Réglages, pas Aujourd'hui", async () => {
+    window.history.replaceState(null, "", "/?onglet=reglages");
+    serveurDeBase(false).installer();
+    render(<App />);
+
+    await screen.findByRole("navigation", { name: "Navigation principale" });
+    expect(screen.getByRole("button", { name: "Réglages" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+    expect(screen.queryByRole("button", { name: "Aujourd'hui" })?.getAttribute("aria-current")).not.toBe(
+      "page",
+    );
+  });
+
+  it("un onglet inconnu ou absent retombe sur Aujourd'hui", async () => {
+    window.history.replaceState(null, "", "/?onglet=n-importe-quoi");
+    serveurDeBase(false).installer();
+    render(<App />);
+
+    await screen.findByRole("navigation", { name: "Navigation principale" });
     expect(screen.getByRole("button", { name: "Aujourd'hui" }).getAttribute("aria-current")).toBe(
       "page",
     );
