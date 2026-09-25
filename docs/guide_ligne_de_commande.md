@@ -29,7 +29,8 @@ Renseigner ensuite, dans le fichier copié :
 - `[intervals]` : la clé d'API Intervals.icu et l'identifiant du compte,
   pour la synchronisation et la séance du jour ;
 - `[brouter]` : l'adresse d'un serveur BRouter, sans quoi `boucle` et
-  `sortie` ne peuvent pas tracer.
+  `sortie` ne peuvent pas tracer. Recette pour en obtenir un :
+  `docs/brouter.md`.
 
 `ourouler config` relit le fichier, dit ce qui manque et affiche ce que le
 modèle en déduit : la puissance d'endurance en watts, la vitesse à plat et

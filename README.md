@@ -54,9 +54,8 @@ Ce qui marche selon ce que vous avez :
 - **Rien de plus** : `meteo` fonctionne tout de suite, sans clé.
 - **Un serveur [BRouter](https://github.com/abrensch/brouter)** (le moteur de
   tracé, à héberger soi-même, renseigné dans `[brouter] url`) : `boucle` et
-  `sortie`. Sans lui, ces commandes s'arrêtent et le disent. Il n'existe pas
-  encore de recette d'installation dans ce dépôt ; c'est aujourd'hui le vrai
-  coût d'entrée.
+  `sortie`. Sans lui, ces commandes s'arrêtent et le disent. Recette :
+  [`docs/brouter.md`](docs/brouter.md).
 - **Une séance** : la séance du jour vient d'intervals.icu ; sans compte,
   `sortie --fichier-seance ma_seance.zwo`.
 
@@ -83,6 +82,8 @@ cd front && npm ci && npm run dev            # dans un autre, puis http://localh
 
 - [Guide de la ligne de commande](docs/guide_ligne_de_commande.md) : chaque
   commande, ses options, les limites connues.
+- [Obtenir un serveur BRouter](docs/brouter.md) : la recette d'installation
+  du moteur de tracé.
 - [La démarche](docs/demarche.md) : d'où vient le projet, ce qui a été
   mesuré, essayé, abandonné.
 - [Doctrine d'architecture](doctrine_architecture.md) : les choix
