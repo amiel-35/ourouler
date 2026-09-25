@@ -98,10 +98,10 @@ docstrings ni commentaires) :
 - un fichier : 600 lignes au plus ;
 - complexité cyclomatique (`C901` de ruff) : 12 au plus.
 
-Ils arrivent comme **règles vérifiées** (ruff et tests). Le code existant
-qui les dépasse est listé en exceptions datées, qui ne peuvent que
-disparaître : un nouveau code respecte les seuils d'emblée, et une
-exception n'est pas un précédent.
+Ils sont vérifiés par ruff ; l'existant est listé en exceptions datées dans
+`pyproject.toml`. Le code existant qui les dépasse est listé en exceptions
+datées, qui ne peuvent que disparaître : un nouveau code respecte les
+seuils d'emblée, et une exception n'est pas un précédent.
 
 ## Fichiers de référence
 
