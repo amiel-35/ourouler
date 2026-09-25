@@ -34,10 +34,21 @@ build sans prévenir : `docker pull ghcr.io/abrensch/brouter:nightly` puis
 `docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/abrensch/brouter:nightly`
 donne `ghcr.io/abrensch/brouter@sha256:<empreinte>`, la référence à figer.
 
-**Non vérifié à la source pour cette page** : nom de l'image, port par
-défaut (17777) et chemins `/segments4` / `/profiles2` viennent de la lecture
-du dépôt GitHub et de son `Dockerfile`, pas d'un déploiement testé ici — à
-confirmer par un `docker run` avant de s'y fier.
+**Prendre `nightly`, pas `latest`.** Constaté sur le déploiement du
+mainteneur : la version taguée (`latest`, 1.7.8 au moment de l'essai) lit
+l'ancien format de segments, alors que les `.rd5` téléchargeables
+aujourd'hui sont au format suivant ; elle démarre, puis ne trouve aucun
+itinéraire. Une `nightly` épinglée par empreinte fonctionne. Ce même
+déploiement tourne avec `JAVA_OPTS=-Xmx1024M` et `MAXTHREADS=4`, et trois
+tuiles de 5° × 5° : c'est assez pour une région.
+
+Vérifié sur ce déploiement réel : l'image, les tuiles `.rd5` de
+`segments4` et leur nommage par le coin sud-ouest (`W5_N45`, `E0_N45`…),
+les profils fournis avec l'image (`fastbike`, `trekking`, `gravel`…, mais
+pas `fastbike-lowtraffic`), et l'appel en boucle (`engineMode=4`). Lus
+dans le dépôt amont et pas éprouvés tels quels ici : le port par défaut
+(17777) et les chemins de volumes `/segments4` et `/profiles2` du
+`docker run` ci-dessous.
 
 ```bash
 mkdir -p ~/brouter/segments4 ~/brouter/profiles2
