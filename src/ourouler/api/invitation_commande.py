@@ -21,13 +21,28 @@ import json
 from datetime import UTC
 
 from ourouler.api.comptes import DepotComptes, InvitationEmise, normaliser_email
-from ourouler.api.courriel import FabriqueSMTP, ParametresBrevo, envoyer_invitation, message_invitation
+from ourouler.api.courriel import (
+    FabriqueSMTP,
+    ParametresBrevo,
+    envoyer_invitation,
+    message_invitation,
+    message_reinitialisation,
+)
 from ourouler.config import Config
 
 
 def construire_lien(url_publique: str, jeton: str) -> str:
     """`<url_publique>/entrer?jeton=<jeton>` — la seule forme du lien d'invitation."""
     return f"{url_publique.rstrip('/')}/entrer?jeton={jeton}"
+
+
+def construire_lien_reinitialisation(url_publique: str, jeton: str) -> str:
+    """`<url_publique>/reinitialiser?jeton=<jeton>` — le lien de `ourouler reinitialiser`.
+
+    Chemin distinct de `construire_lien` (`/entrer`) : même mécanisme de jeton
+    (`api/comptes.py`), mais un écran différent côté front — « choisissez un nouveau mot
+    de passe » n'est pas « bienvenue, créez votre compte » (lot L9.6)."""
+    return f"{url_publique.rstrip('/')}/reinitialiser?jeton={jeton}"
 
 
 def _nom_complet(config: Config) -> str:
@@ -112,6 +127,52 @@ def _afficher_invitation(
     print("courriel envoyé" if envoye else "courriel non envoyé (--sans-courriel)")
 
 
+def executer_reinitialiser(
+    args: argparse.Namespace,
+    config: Config,
+    *,
+    depot: DepotComptes,
+    url_publique: str,
+    parametres_brevo: ParametresBrevo | None,
+    fabrique_smtp: FabriqueSMTP | None = None,
+) -> int:
+    """Exécute `ourouler reinitialiser ADRESSE`. Renvoie le code de sortie (0 = succès).
+
+    Réservée au mainteneur, en ligne de commande : aucune route HTTP anonyme n'appelle
+    `DepotComptes.reinitialiser` — voir la note de module d'`api/comptes.py`. Une adresse
+    sans compte actif (aucun compte, ou compte invité jamais activé) laisse remonter
+    l'`ErreurCompte` du dépôt telle quelle, comme `executer_inviter`.
+
+    **Le lien s'affiche toujours**, même choix qu'à l'invitation : le mainteneur veut
+    pouvoir le relire et le renvoyer par un autre canal.
+    """
+    del config  # non utilisé : pas de « X vous invite » sur un lien de réinitialisation
+    sans_courriel = getattr(args, "sans_courriel", False)
+    adresse = normaliser_email(args.adresse)
+
+    emise = depot.reinitialiser(adresse)
+    lien = construire_lien_reinitialisation(url_publique, emise.jeton)
+
+    envoye = False
+    if not sans_courriel:
+        if parametres_brevo is None:
+            raise ValueError(  # bug d'appel : cli.py doit charger service.toml avant d'appeler ceci
+                "executer_reinitialiser appelé sans parametres_brevo alors que "
+                "--sans-courriel n'est pas posé"
+            )
+        message = message_reinitialisation(
+            destinataire=adresse,
+            lien=lien,
+            expire_le=emise.invitation.expire_le,
+            parametres=parametres_brevo,
+        )
+        envoyer_invitation(parametres_brevo, message, fabrique=fabrique_smtp)
+        envoye = True
+
+    _afficher_invitation(args, emise, lien, envoye=envoye)
+    return 0
+
+
 def executer_invitations(
     args: argparse.Namespace,
     config: Config,
@@ -157,6 +218,8 @@ def executer_invitations(
 
 __all__ = [
     "construire_lien",
+    "construire_lien_reinitialisation",
     "executer_inviter",
     "executer_invitations",
+    "executer_reinitialiser",
 ]

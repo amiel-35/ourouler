@@ -34,7 +34,7 @@ en plus des bretelles, et elle est testée.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import FrozenInstanceError, dataclass, field
 
 from ourouler.erreurs import (
     ErreurConfig,
@@ -91,6 +91,11 @@ CODES_PANNE: dict[str, str] = {
     "identifiants_refuses": (
         "adresse sans compte actif ou mot de passe faux (401) — les deux rendent "
         "la même réponse, dans le même temps, pour ne renseigner personne"
+    ),
+    "mot_de_passe_actuel_refuse": (
+        "POST /moi/mot-de-passe : l'ancien mot de passe fourni ne correspond pas à "
+        "celui du compte (401) — la personne est déjà authentifiée par sa session, "
+        "ce n'est donc pas un oracle d'adresse comme identifiants_refuses"
     ),
     "comptes_indisponibles": (
         "ce déploiement ne gère pas de comptes — pas de base de données de "
@@ -257,6 +262,39 @@ class ErreurApi(Exception):
                 "details": self.details,
             }
         }
+
+
+def _erreur_api_setattr(self: ErreurApi, nom: str, valeur: object) -> None:
+    """Le `__setattr__` d'`ErreurApi`, posé **après** le décorateur (voir plus bas).
+
+    Trouvé en relecture le 25/09/2026, lot L9.6, sur `POST /moi/mot-de-passe` — la
+    première route du dépôt à lever `ErreurApi` depuis l'intérieur d'un
+    `@contextmanager` (`api/routes.py:_comptes_du_deploiement`) : `contextlib`
+    réattribue `exc.__traceback__` en repropageant une exception depuis un
+    générateur (`throw()`), et le `__setattr__` qu'un `@dataclass(frozen=True)`
+    génère refuse **tout** attribut, y compris les champs internes qu'une
+    exception standard doit pouvoir recevoir après coup — `FrozenInstanceError`
+    explosait alors à la sortie du `with`, masquant la vraie panne (401) derrière
+    un 500 générique.
+
+    Les champs déclarés (`code`, `message`, `statut`, `service`, `details`) restent
+    immuables : seuls les attributs *dunder* — ceux qu'écrit la machinerie
+    d'exception de Python elle-même (`__traceback__`, `__cause__`, `__context__`,
+    `__suppress_context__`, `__notes__`…), jamais un champ métier — passent par
+    `object.__setattr__`.
+
+    **Pourquoi posé après le décorateur, pas dans le corps de la classe** :
+    `@dataclass(frozen=True)` refuse de se poser sur une classe qui définit déjà
+    `__setattr__` (`TypeError: Cannot overwrite attribute __setattr__`) — il faut
+    donc le laisser générer le sien, puis le remplacer une fois la classe construite.
+    """
+    if nom.startswith("__") and nom.endswith("__"):
+        object.__setattr__(self, nom, valeur)
+        return
+    raise FrozenInstanceError(f"cannot assign to field {nom!r}")
+
+
+ErreurApi.__setattr__ = _erreur_api_setattr  # type: ignore[method-assign]
 
 
 #: Les services externes, reconnus au préfixe que leurs connecteurs mettent en

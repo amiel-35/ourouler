@@ -13,12 +13,14 @@ import type {
   AccesOuvert,
   Boucle,
   DonneesSeules,
+  EffacementCompte,
   Enveloppe,
   EtatImport,
   Geocodage,
   Invitation,
   JobImport,
   Meteo,
+  MonCompte,
   Panne,
   Profil,
   Seance,
@@ -422,6 +424,43 @@ export const api = {
 
   /** `POST /sortir` : révoque la session en cours. Toujours 200, même sans cookie. */
   sortir: () => poster<DonneesSeules<Record<string, never>>>("/sortir", {}),
+
+  /**
+   * `POST /reinitialiser` (lot L9.6) : consomme un jeton de réinitialisation, pose le
+   * nouveau mot de passe, ferme les autres sessions du compte, ouvre celle-ci. Émis
+   * uniquement par `ourouler reinitialiser` (mainteneur) — pas de « mot de passe
+   * oublié » en libre-service ici.
+   */
+  reinitialiser: (jeton: string, secret: string) =>
+    poster<DonneesSeules<AccesOuvert>>("/reinitialiser", { jeton, secret }),
+
+  // --- mon compte (lot L9.6) — routes de données, sous session ouverte -----
+
+  /** `GET /moi` : l'adresse du compte de la session en cours. */
+  monCompte: () => appeler<Simple<MonCompte>>(url("/moi")),
+
+  /** `POST /moi/mot-de-passe` : change le mot de passe — l'ancien est vérifié côté serveur. */
+  changerMotDePasse: (motDePasseActuel: string, nouveauMotDePasse: string) =>
+    poster<Simple<Record<string, never>>>("/moi/mot-de-passe", {
+      mot_de_passe_actuel: motDePasseActuel,
+      nouveau_mot_de_passe: nouveauMotDePasse,
+    }),
+
+  /**
+   * `DELETE /moi` : efface les données personnelles du compte de la session en cours,
+   * et ferme le compte lui-même. Irréversible — l'écran qui l'appelle porte la double
+   * confirmation, pas ce module.
+   */
+  supprimerMesDonnees: () =>
+    appeler<Simple<EffacementCompte>>(url("/moi"), { method: "DELETE" }),
+
+  /**
+   * `GET /moi/export`, l'adresse à donner à un lien de téléchargement — pas un appel
+   * JSON : l'archive ZIP n'est pas une réponse que ce module désérialise, et un lien
+   * `<a href download>` laisse le navigateur gérer le téléchargement et le cookie de
+   * session (même origine, même geste que le GPX d'une proposition).
+   */
+  urlExportMesDonnees: () => `${RACINE}/moi/export`,
 
   systeme: () => appeler<Systeme>(url("/systeme")),
 
