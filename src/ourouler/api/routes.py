@@ -28,7 +28,7 @@ fichiers, décompression, chemins), pas sur un dossier du serveur
 
 from __future__ import annotations
 
-import threading
+import tempfile
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -96,7 +96,11 @@ PANNES_DECLAREES: dict[int | str, dict] = {
         (400, "requête refusée — voir `erreur.code`"),
         (401, "aucune session ouverte (`session_absente`) — se connecter, ne pas réessayer"),
         (404, "route ou fichier introuvable — voir `erreur.code`"),
-        (409, "un calcul occupe déjà le serveur (`calcul_en_cours`)"),
+        (
+            409,
+            "un calcul (`calcul_en_cours`) ou un import (`import_deja_en_cours`) occupe "
+            "déjà le serveur",
+        ),
         (413, "fichier trop gros (`fichier_trop_gros`)"),
         (422, "requête ou fichier refusés — voir `erreur.code`"),
         (500, "bug du serveur (`erreur_interne`) ou configuration invalide"),
@@ -1082,7 +1086,28 @@ def etat_import(ctx: Ctx, qui: Qui) -> dict:
     return {"proprietaire": str(qui), "donnees": import_archive.etat(_cache(config, qui))}
 
 
-@routeur.post("/activites/import")
+@routeur.get("/activites/import/{id_job}")
+def etat_job_import(ctx: Ctx, qui: Qui, id_job: str) -> dict:
+    """Où en est un import lancé par `POST /activites/import` — à interroger périodiquement.
+
+    Cloisonné par propriétaire comme tout le reste : un identifiant qui
+    n'appartient pas à ce propriétaire rend `fichier_introuvable`, exactement
+    comme un fichier de séance qu'on n'a pas soi-même déposé — pour ne
+    renseigner personne sur l'existence d'un import qu'il n'a pas lancé.
+    """
+    from ourouler.api import imports_fond
+
+    job = imports_fond.trouver(str(qui), id_job)
+    if job is None:
+        raise ErreurApi(
+            code="fichier_introuvable",
+            message=f"import {id_job} : introuvable, ou appartenant à quelqu'un d'autre",
+            statut=404,
+        )
+    return {"proprietaire": str(qui), "donnees": job.json()}
+
+
+@routeur.post("/activites/import", status_code=202)
 def importer_activites(
     ctx: Ctx,
     qui: Qui,
@@ -1092,8 +1117,16 @@ def importer_activites(
         File(description=".fit/.gpx/.tcx, éventuellement .gz, ou une archive .zip Strava/Garmin"),
     ],
 ) -> dict:
-    """Dépose l'historique d'un cycliste sans Intervals — un invité sans capteur y trouve
-    déjà de la valeur (routes), un porteur de capteur y trouve aussi son niveau ([[Q48]]).
+    """Lance en tâche de fond le dépôt de l'historique d'un cycliste sans Intervals
+    — un invité sans capteur y trouve déjà de la valeur (routes), un porteur de
+    capteur y trouve aussi son niveau ([[Q48]]).
+
+    **202, pas 200** (suite de la relecture du 25/09/2026) : une archive
+    Strava réelle (≈2 900 sorties) prend environ 16 minutes à 0,33 s/fichier,
+    bien au-delà des 180 s où le front abandonne. La route rend tout de
+    suite un identifiant de tâche ; `GET /activites/import/{id}` dit où elle
+    en est (`en_cours`/`fini`/`echoue`, `traites`/`total`, et le rapport une
+    fois finie).
 
     Accepte un ou plusieurs fichiers en un seul appel — `.fit`/`.gpx`/`.tcx`
     isolés, leurs `.gz`, ou une archive d'export Strava ou Garmin — et les
@@ -1102,55 +1135,82 @@ def importer_activites(
     nommées). Réimporter la même archive ne duplique rien : une sortie
     déposée est identifiée par son contenu ([[Q62]]).
 
-    Jamais de 500 sur une archive hostile ou un fichier corrompu : le motif
-    rentre dans `donnees.ignorees`, la réponse reste 200 — même philosophie
-    que `erreurs.py` pour « aucune boucle trouvée » : ce n'est pas une panne
-    du service, c'est un compte-rendu de ce qui a été trouvé.
+    **Un seul import à la fois, pour le serveur entier** (`api/imports_fond.py`) :
+    un second demandeur, propriétaire ou pas, reçoit `import_deja_en_cours`
+    (409) plutôt qu'une attente silencieuse — le serveur est petit et
+    partagé avec BRouter, deux imports simultanés doubleraient le pic
+    mémoire.
 
-    **Mémoire (relecture du 25/09/2026).** La route est synchrone : FastAPI
-    la fait tourner hors de la boucle d'événements, qu'un import de
-    plusieurs minutes bloquait pour tous les cyclistes. Les fichiers ne sont
-    pas lus en mémoire : Starlette les a déjà reçus dans des fichiers
-    temporaires, que le cœur lit entrée par entrée. Et un seul import à la
-    fois par processus (`_VERROU_IMPORT`) : le serveur est petit et
-    partagé avec BRouter, deux imports simultanés doubleraient le pic.
+    **Les fichiers reçus sont recopiés dans des fichiers temporaires à nous**
+    avant de rendre la main : ceux de Starlette (`UploadFile.file`) ne
+    survivent pas à la fin de la requête, alors que la tâche de fond continue
+    après le 202. La copie est bornée par bloc (`_copier_borne`), en plus de
+    `LimiteTailleCorps` (`api/limite_corps.py`) qui a déjà refusé tout corps
+    au-delà du plafond avant que Starlette n'en écrive un octet.
     """
-    from ourouler.activites import import_archive
+    from ourouler.api import imports_fond
 
     _refuser_import_sur_la_taille_annoncee(requete)
     if not fichiers:
         raise ErreurApi(code="requete_invalide", message="aucun fichier déposé", statut=400)
 
-    total = sum(_taille(fichier.file) for fichier in fichiers)
-    if total > import_archive.TAILLE_MAX_REQUETE:
-        raise ErreurApi(
-            code="fichier_trop_gros",
-            message=f"{total} octets reçus — un import ne prend pas plus de "
-            f"{import_archive.TAILLE_MAX_REQUETE} octets à la fois",
-            statut=413,
-        )
-    depots = [(fichier.filename or "(sans nom)", fichier.file) for fichier in fichiers]
-
     config = _config(ctx, qui)
     cache = _cache(config, qui)
-    with _VERROU_IMPORT:
-        rapport = import_archive.importer(cache, depots)
-    return {"proprietaire": str(qui), "donnees": rapport.json()}
+
+    depots = _copier_en_temporaires(fichiers)
+    try:
+        job = imports_fond.lancer(cache, str(qui), depots)
+    except imports_fond.ErreurImportEnCours:
+        for _, chemin in depots:
+            chemin.unlink(missing_ok=True)
+        raise ErreurApi(
+            code="import_deja_en_cours",
+            message="un import tourne déjà sur ce serveur — réessayer une fois celui-ci "
+            "terminé (GET /activites/import/{id} pour le suivre)",
+            statut=409,
+        ) from None
+    return {"proprietaire": str(qui), "donnees": job.json()}
 
 
-#: Un seul import d'historique à la fois par processus : voir `importer_activites`.
-#: Distinct du verrou des calculs (`api/adaptateur.py`), qui abandonne au bout
-#: de quinze secondes — un import de plusieurs minutes le tiendrait, et
-#: chaque boucle demandée pendant ce temps serait refusée.
-_VERROU_IMPORT = threading.Lock()
+def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]:
+    """Recopie chaque dépôt dans un fichier temporaire propre à ce job, borné par bloc.
 
+    Défense en profondeur : `LimiteTailleCorps` a déjà refusé tout corps de
+    requête au-delà de `TAILLE_MAX_REQUETE` avant que Starlette n'écrive quoi
+    que ce soit ; cette seconde borne, posée pendant la copie elle-même,
+    protège des mêmes octets une seconde fois plutôt que de faire confiance à
+    un seul étage. En cas de dépassement, tout ce qui a déjà été copié pour
+    cet appel est effacé — un import ne part jamais à moitié écrit.
+    """
+    from ourouler.activites.import_archive import TAILLE_MAX_REQUETE
 
-def _taille(fichier) -> int:
-    """La taille d'un fichier déjà reçu, sans le lire."""
-    fichier.seek(0, 2)
-    taille = fichier.tell()
-    fichier.seek(0)
-    return taille
+    chemins: list[Path] = []
+    total = 0
+    try:
+        for fichier in fichiers:
+            destination = Path(tempfile.mkstemp(prefix="ourouler-import-", suffix=".bin")[1])
+            chemins.append(destination)
+            with destination.open("wb") as sortie:
+                while True:
+                    bloc = fichier.file.read(1 << 20)
+                    if not bloc:
+                        break
+                    total += len(bloc)
+                    if total > TAILLE_MAX_REQUETE:
+                        raise ErreurApi(
+                            code="fichier_trop_gros",
+                            message=f"{total} octets reçus — un import ne prend pas plus de "
+                            f"{TAILLE_MAX_REQUETE} octets à la fois",
+                            statut=413,
+                        )
+                    sortie.write(bloc)
+    except Exception:
+        for chemin in chemins:
+            chemin.unlink(missing_ok=True)
+        raise
+    return [
+        (fichier.filename or "(sans nom)", chemin) for fichier, chemin in zip(fichiers, chemins, strict=True)
+    ]
 
 
 # --- parcours -----------------------------------------------------------------
