@@ -1565,6 +1565,79 @@ Rien de tout ça n'invalide la fourchette retenue — elle reste mesurée sur
 83 sorties réelles — mais un futur lot qui recoderait ce recalage devrait
 partir de ces quatre points plutôt que de repartir de zéro.
 
+**Codé le 25/09 (L9.1, branche `l9-1-modele`), et mesuré sur les vraies
+données du mainteneur** — copie de sa configuration avec `pneu` ajouté (RCR
+`course_quatre_saisons`, BMC `course_rapide`), calibration écrite dans une
+copie du cache, jamais dans `~/.cache/ourouler/calibration.json`.
+
+Ce qui tourne tout seul désormais : un champ `pneu` par vélo donne le Crr
+(`physique.litterature.PNEUS`) ; `ourouler calibrer` le garde fixe et ne
+cherche que le CdA (`--crr-libre` garde l'ancien ajustement) ; la fourchette
+du porte à porte est calculée une fois dans le pipeline, centiles 25/50/75,
+sorties à moins de 50 % de signal de groupe, et écrite dans
+`calibration.json` avec `crr_source` ; `temps_ecoule` rend `temps simulé ×
+[bas, haut]`, jusqu'au front (« entre 4 h 29 et 4 h 52 porte à porte »).
+
+**Choix de la recherche du CdA, mesuré** (RCR, Crr 0,006, mêmes 74 sorties
+d'apprentissage, validation sur les 25 plus récentes) : moindres carrés à
+une inconnue sur les tronçons filtrés → CdA 0,299, erreur de validation
+6,5 % ; minimisation de l'erreur de temps sur les sorties complètes
+d'apprentissage → CdA 0,33, **4,6 %**. La seconde est retenue (section dorée,
+une dizaine de rejeux). Le minimum est bien plat (MAE d'apprentissage 3,3 %
+de 0,32 à 0,34, 3,9 % à 0,30 et 0,36), comme le disait le point 1 du
+récapitulatif.
+
+| | RCR | BMC |
+|---|---|---|
+| Crr (fixé, pneu) | 0,006 | 0,005 |
+| CdA cherché | **0,331** | **0,298** |
+| F@27 | 17,2 N | 15,2 N |
+| erreur de validation (temps en mouvement) | 4,6 % (biais −4,2 %, n=25) | 2,6 % (biais −0,5 %, n=9) |
+| calibration libre, pour mémoire | 4,2 % (CdA 0,222, Crr 0,0106) | — |
+| fourchette 25-75, temps **écoulé** / simulé | **× 1,017 à × 1,106** (méd. 1,054, n=87/99) | **× 1,022 à × 1,079** (méd. 1,047, n=34/35) |
+| mêmes centiles, temps **en mouvement** / simulé | × 0,990 à × 1,040 (méd. 1,013) | × 0,988 à × 1,021 (méd. 1,007) |
+
+**Deux écarts à la note, expliqués.**
+
+1. **La note lisait un temps en mouvement, pas un porte à porte.** Le
+   `temps_reel_s` de `ourouler calibrer --json` est `temps_mouvement_s`
+   (arrêts déduits), et non « le vrai porte à porte, arrêts compris » comme
+   écrit le 21/09. Vérifié : avec les paramètres de la note (RCR 0,30/0,006,
+   BMC 0,23/0,005), les centiles **en mouvement** redonnent exactement ceux
+   du récapitulatif (RCR 1,011-1,066, BMC 1,056-1,095) ; en temps écoulé ils
+   montent à 1,04-1,13 et 1,09-1,15. La fourchette codée prend le temps
+   **écoulé** (dernier point − premier, arrêts compris), parce que c'est ce
+   que le porte à porte promet.
+2. **Le CdA du BMC sort à 0,30, pas 0,23, hors de la fourchette CLM
+   (0,20-0,26) du contrat.** La note cherchait le CdA qui collait au temps
+   **avec × 1,06 déjà appliqué**, ce qui pousse le modèle à rouler 6 % trop
+   vite et descend le CdA ; ici le modèle doit prédire juste le temps en
+   mouvement (médiane 1,007). 0,30 est cohérent avec ce que la campagne du
+   17/09 avait déjà mesuré (Q57 : sur ce chrono, le jeu « route amateur »
+   prédit mieux que le jeu « CLM amateur ») : le mainteneur ne le roule pas
+   en position de chrono de bout en bout. Le recoupement avec `ourouler
+   comparer` s'affaiblit : ces paramètres ne prédisent plus que ~20 W d'écart
+   entre les vélos à 30 km/h, contre 27-42 W mesurés sans modèle — non
+   résolu.
+
+Comparées à la note, les fourchettes finales tiennent le ± 0,02 du contrat
+sur un seul des quatre bords (RCR bas : 1,017 contre 1,015) ; RCR haut
++ 0,034, BMC bas − 0,035, BMC haut − 0,016. C'est l'effet cumulé des deux
+écarts ci-dessus (base de temps, et CdA qui ne compense plus le × 1,06),
+pas une dérive : les deux changent ensemble le temps simulé et le ratio. Sur une boucle réelle de 120 km
+(RCR, 168 W, `ourouler boucle`, 26/09 9 h) : « entre 4 h 29 et 4 h 52 »
+pour 4 h 25 sans arrêt.
+
+Fourchette par défaut (vélo jamais calibré ou calibration d'avant ce lot) :
+**× 1,01 à × 1,11, médiane 1,05**, l'enveloppe des deux vélos, dite
+« convention, mesurée sur un seul cycliste » partout où elle s'affiche.
+
+Restent ouverts : les points 2 à 4 du récapitulatif (seuil de groupe jamais
+réglé, biais de la validation RCR à −4,2 % sur les sorties les plus
+récentes — saisonnier ?) ; l'écart de puissance entre vélos ci-dessus ; la
+réconciliation « facteur compteur » de l'écran de FTP, qui ne sert plus
+qu'à dimensionner la distance et reste mesurée à part.
+
 ## Historique des sprints
 
 - **2026-09-13, nuit (après le sprint 4, sur la même branche)** — Le coût

@@ -9,12 +9,16 @@ La chaîne, en cinq temps :
    pour chacun, vitesse (moyenne et aux deux bouts), puissance, pente, vent de
    face et masse volumique de l'air — puis marque ceux qu'on garde et
    **pourquoi** on jette les autres ;
-3. `calibrer` ajuste (CdA, Crr) aux moindres carrés sur l'écart de puissance ;
+3. `calibrer` ajuste (CdA, Crr) aux moindres carrés sur l'écart de puissance —
+   ou, quand le pneu donne le Crr (L9.1), le CdA seul, que
+   `chercher_cda_sur_sorties` affine ensuite sur le temps des sorties ;
 4. `detecter_groupe` repère, avec le modèle obtenu, les sorties
    anormalement rapides — l'aspiration d'un peloton, que ni la pente ni le
    vent n'expliquent ;
 5. `valider` rejoue les sorties **les plus récentes**, jamais vues par
-   l'ajustement, et rend l'erreur de temps en mouvement.
+   l'ajustement, et rend l'erreur de temps en mouvement ;
+6. `mesurer_porte_a_porte` rejoue toutes les sorties avec les paramètres
+   finaux et en tire la fourchette du porte à porte (L9.1).
 
 Le tout deux fois (`calibrer_en_deux_passes`) : la première passe sert à
 trouver les sorties en groupe, la seconde à calibrer sans elles.
