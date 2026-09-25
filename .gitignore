@@ -12,10 +12,12 @@ build/
 config.toml
 config.*.toml
 !config.example.toml
-*.fit
-*.FIT
-*.tcx
-*.gpx
+# Insensibles à la casse, écrits en classes de caractères : `*.gpx` n'attrape
+# pas `Ma_sortie.GPX` sous Linux (CI, serveur), et un export Garmin sort
+# volontiers en majuscules. Sur macOS, `core.ignorecase` masquait le trou.
+*.[fF][iI][tT]
+*.[tT][cC][xX]
+*.[gG][pP][xX]
 # Les cartes de `ourouler sortie` portent la géométrie complète de la boucle,
 # donc le point de départ du mainteneur. Elles sont écrites dans le dossier
 # courant, y compris quand on lance la commande à la racine du dépôt.

@@ -71,6 +71,11 @@ from ourouler.sortie.commande import (
     rendre_texte,
 )
 
+# Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
+# `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
+pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
+
+
 JOUR = date(2026, 9, 8)
 FTP = W.FTP_TEST  # 200 W, inventée
 

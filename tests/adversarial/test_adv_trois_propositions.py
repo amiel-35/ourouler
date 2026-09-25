@@ -94,6 +94,11 @@ from typing import Any
 import fabriques_l53 as f53
 import pytest
 
+# Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
+# `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
+pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
+
+
 MOTIF_PHRASE = (
     "le lot L5.3 n'est pas livré : `ourouler sortie --json` ne publie aucune phrase par "
     "proposition (contrat §3.3.3)"

@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - prod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12
+
+      # dev est un extra d'optional-dependencies, pas un groupe
+      - run: uv sync --frozen --extra dev --python 3.12
+
+      - run: uv run ruff check .
+
+      # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
+      - run: docker pull postgres:17-alpine
+
+      - name: Tests
+        run: |
+          set -o pipefail
+          uv run pytest -q -rs 2>&1 | tee pytest.log
+
+      # un test Postgres sauté = CI rouge
+      - name: Vérifier qu’aucun test Postgres n’a été sauté
+        run: |
+          if grep -q "PostgreSQL local indisponible" pytest.log; then
+            echo "Test(s) Postgres sauté(s) : CI rouge."
+            exit 1
+          fi
+
+  front:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: front/package-lock.json
+
+      - run: npm ci
+      - run: npm run verifier
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: docker build -f deploiement/api/Dockerfile -t ourouler-api:ci .
+
+      - name: Démarrer l’image sans Postgres, en mode hébergé
+        run: |
+          printf '[cache]\ndossier = "/data/cache"\n' > heberge.toml
+          docker run -d --name api -p 8000:8000 \
+            -e OUROULER_MODE=heberge \
+            -e OUROULER_CONFIG=/config/config.toml \
+            -e OUROULER_CONFIG_TOML_B64="$(base64 -w0 heberge.toml)" \
+            ourouler-api:ci
+
+      - name: Attendre que /sante réponde 200
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/sante || true)
+            if [ "$code" = "200" ]; then
+              echo "OK après ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Timeout : /sante n'a jamais rendu 200"
+          exit 1
+
+      - name: Vérifier les routes
+        run: |
+          code_sante=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/sante)
+          code_racine=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/)
+          code_profil=$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/api/v1/profil)
+          echo "sante=$code_sante racine=$code_racine profil=$code_profil"
+          [ "$code_sante" = "200" ] && [ "$code_racine" = "200" ] && [ "$code_profil" = "401" ]
+
+      - name: Journal de l’API en cas d’échec
+        if: failure()
+        run: docker logs api
