@@ -55,7 +55,59 @@ line-length = 110
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+select = ["E", "F", "I", "B", "UP", "C901", "PLR0912", "PLR0915", "PLR0917"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.pylint]
+max-branches = 15
+max-statements = 50
+max-positional-args = 6
+
+[tool.ruff.lint.per-file-ignores]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/activites/import_archive.py" = ["C901", "PLR0915"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/activites/inventaire.py" = ["C901"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/activites/lecture.py" = ["C901"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/api/application.py" = ["C901"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/api/limite_corps.py" = ["C901"]
+# exception datée : 2 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/api/routes.py" = ["PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/boucle/candidates.py" = ["C901", "PLR0912", "PLR0915"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/boucle/commande.py" = ["PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/boucle/meteo_trace.py" = ["PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/physique/calibration.py" = ["PLR0917"]
+# exception datée : 7 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/physique/commande.py" = ["C901", "PLR0912", "PLR0915", "PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/physique/comparer.py" = ["C901"]
+# exception datée : 5 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/seance/placement.py" = ["C901", "PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/seance/tenue.py" = ["PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/sortie/commande.py" = ["C901", "PLR0912", "PLR0915"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"tests/adversarial/test_adv_invariants.py" = ["C901"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"tests/comptes/test_vie_privee_comptes.py" = ["PLR0915"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"tests/test_sortie_carte.py" = ["PLR0917"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"tests/validation/arrets_bloc_recup.py" = ["C901", "PLR0915"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"tests/validation/cda_position_retrospectif.py" = ["C901", "PLR0915"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"tests/validation/style_retrospectif.py" = ["C901", "PLR0915"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
