@@ -260,6 +260,26 @@ en Opus + Fable. C'est trop pour ouvrir bientôt. **Avant l'ouverture :**
 6. Nettoyage des branches : 59 branches locales, beaucoup de worktrees
    d'agents morts.
 
+7. **Lot final — README réécrit, la démarche préservée** (demandé par le
+   mainteneur le 25/09/2026 : « c'est pas un readme, c'est une journée de
+   pensée… y a des trucs intéressants… faudrait pas perdre ça »). Il vient
+   en dernier, parce qu'il renvoie aux documents du point 5.
+   - `README.md` : un vrai README, une page à une page et demie. Ce que fait
+     l'outil, une capture, un démarrage rapide, le paragraphe en anglais
+     (Q7), puis des liens.
+   - `docs/demarche.md` : comment le projet s'est construit (sprints,
+     agents, relectures adverses), les réfutations mesurées, la validation
+     rétrospective, ce qui reste possible. Il recueille, **anonymisée**, la
+     substance des contrats et relectures de sprint qui sortent du dépôt
+     (§7) : rien de ce qui s'y est appris ne se perd.
+   - `docs/guide_ligne_de_commande.md` : le mode d'emploi de la ligne de
+     commande et les limites connues, repris de l'actuel README.
+   - Écrit par Opus, puis contre-lu par Fable avec un regard extérieur :
+     « un inconnu comprend-il en 30 secondes ? ».
+   - Critères : aucune section de l'ancien README ne disparaît sans avoir
+     été reprise (table ancien → nouveau dans la PR) ; tout lien vérifié
+     par le test d'AGENTS.md ; aucune donnée personnelle.
+
 **Après l'ouverture**, sprint par sprint, dans la cadence à deux sprints du
 projet : les lots de restructuration ci-dessous.
 
