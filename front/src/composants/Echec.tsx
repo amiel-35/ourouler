@@ -305,6 +305,7 @@ export function Echec({
     session_absente: "Vous n'êtes plus connecté",
     invitation_invalide: "Ce lien d'invitation n'est plus valable",
     identifiants_refuses: "Adresse ou mot de passe refusés",
+    mot_de_passe_actuel_refuse: "Mot de passe actuel refusé",
     comptes_indisponibles: "Ce serveur ne gère pas de comptes",
     requete_invalide: "Cette demande n'est pas valide",
     profil_invalide: "Ce réglage ne tient pas",

@@ -85,9 +85,30 @@ export interface Invitation {
   expire_le: string;
 }
 
-/** `POST /entrer` et `POST /connexion` : la session vient de s'ouvrir. */
+/** `POST /entrer`, `POST /connexion` et `POST /reinitialiser` : la session vient de s'ouvrir. */
 export interface AccesOuvert {
   proprietaire: string;
+}
+
+/** `GET /moi` : l'adresse du compte de la session en cours (lot L9.6).
+ *
+ * `email` vaut `null` sur un déploiement sans base de comptes — mode personnel, ou
+ * hébergé sans compte configuré — voir `api/routes.py:mon_compte`.
+ */
+export interface MonCompte {
+  email: string | null;
+}
+
+/** `DELETE /moi` (`donnees`) : ce que l'effacement RGPD a supprimé, et ce qu'il a conservé.
+ *
+ * Forme volontairement ouverte (`Record<string, boolean | number>` pour `supprime`,
+ * `Record<string, string>` pour `conserve`) : c'est `api/vie_privee.effacer_donnees` qui
+ * décide des clés, et ce module ne les recopie pas en dur — un dépôt de plus qui gagne
+ * un compteur ne doit pas casser ce type.
+ */
+export interface EffacementCompte {
+  supprime: Record<string, boolean | number>;
+  conserve: Record<string, string>;
 }
 
 // --- profil -------------------------------------------------------------

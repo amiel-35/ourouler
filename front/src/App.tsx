@@ -48,18 +48,19 @@ import { IconeAujourdhui, IconeSemaine, IconeDemander, IconeReglages } from "./c
 type Pagina =
   | { genre: "application" }
   | { genre: "entrer"; jeton: string }
+  | { genre: "reinitialiser"; jeton: string }
   | { genre: "connexion" };
 
 function paginaDepuisUrl(): Pagina {
   const chemin = window.location.pathname;
-  if (chemin === "/entrer") {
+  if (chemin === "/entrer" || chemin === "/reinitialiser") {
     const jeton = new URLSearchParams(window.location.search).get("jeton") ?? "";
     // Le jeton n'a rien à faire dans l'historique du navigateur ni dans un
     // en-tête `Referer` une fois lu : une ligne, faite ici et nulle part
     // ailleurs, pour que ni le rechargement de l'écran ni un lien partagé
     // depuis cette page ne le fassent fuiter une seconde fois.
-    window.history.replaceState(null, "", "/entrer");
-    return { genre: "entrer", jeton };
+    window.history.replaceState(null, "", chemin);
+    return chemin === "/entrer" ? { genre: "entrer", jeton } : { genre: "reinitialiser", jeton };
   }
   if (chemin === "/connexion") return { genre: "connexion" };
   return { genre: "application" };
@@ -154,6 +155,15 @@ export function App() {
 
   if (pagina.genre === "entrer") {
     return <Entrer jeton={pagina.jeton} surEntre={() => window.location.assign("/")} />;
+  }
+  if (pagina.genre === "reinitialiser") {
+    return (
+      <Entrer
+        jeton={pagina.jeton}
+        mode="reinitialiser"
+        surEntre={() => window.location.assign("/")}
+      />
+    );
   }
   if (pagina.genre === "connexion") {
     return <Connexion surConnecte={() => window.location.assign("/")} />;
