@@ -187,7 +187,7 @@ def test_charger_avec_profil_refuse_toujours_le_meme_toml(tmp_path: Path):
 
 # --- environnement (contrat de l'hébergé minimal) ---------------------------
 #
-# Le contrat (docs/heberge_minimal_contrat.md, § « Les secrets ») fait venir
+# Le contrat (docs/journal/sprints/heberge_minimal_contrat.md, § « Les secrets ») fait venir
 # de l'environnement le point de départ, la clé Intervals et le serveur
 # BRouter — jamais commités, jamais dans une image. `environ=` est injectable
 # pour ne jamais dépendre de ce qui traîne sur la machine qui exécute le test

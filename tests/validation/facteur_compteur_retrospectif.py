@@ -2,7 +2,7 @@
 """Le facteur qui relie la vitesse à plat à la moyenne du compteur, mesuré.
 
 **Pourquoi ce script existe.** L'écran de FTP montre trois valeurs liées
-(décision 8 du cycle UX, `docs/ux/cycle_ux_contrat.md`) : la puissance visée,
+(décision 8 du cycle UX, `docs/journal/ux/cycle_ux_contrat.md`) : la puissance visée,
 la vitesse à plat sans vent lancé, et **la moyenne que le compteur affichera**.
 Sans la troisième, quelqu'un tape dans le champ « à plat » la moyenne qu'il lit
 sur son compteur, et tout l'escalier de ses zones se décale vers le bas.

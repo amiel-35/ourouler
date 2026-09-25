@@ -133,11 +133,12 @@ def test_aucune_boucle_trouvee_rend_un_refus_exploitable():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="E18 exige des pistes de repli chiffrées (« élargir la durée, 1 h 45 à 2 h 15 ») et "
-    "l'API ne rend que le code `aucune_boucle` et son message : de combien élargir, et sur "
-    "quel levier en premier, est un arbitrage produit non rendu — Q36 de "
-    "docs/questions_mainteneur.md. Chiffrer un élargissement ici serait une affirmation sans "
-    "mesure (règle absolue 5).",
+    reason=(
+        "E18 exige des pistes de repli chiffrées (« élargir la durée, 1 h 45 à 2 h 15 ») et l'API ne rend "
+        "que le code `aucune_boucle` et son message : de combien élargir, et sur quel levier en premier, "
+        "est un arbitrage produit non rendu (Q36 de docs/journal/questions/questions_mainteneur.md). "
+        "Chiffrer un élargissement ici serait une affirmation sans mesure (règle absolue 5)."
+    ),
 )
 def test_aucune_boucle_trouvee_propose_les_deux_leviers_avec_leurs_valeurs():
     """Protège E18 · échec, deuxième moitié : « Ce qui peut aider ».
@@ -273,10 +274,12 @@ def test_une_seule_proposition_est_un_succes_explique_et_pas_une_erreur():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="E19 · dégradé propose « Chercher plus loin (8 candidates) » et l'API ne rend que le "
-    "nombre de candidates essayées : combien en réessayer est un arbitrage produit non rendu — "
-    "Q36 de docs/questions_mainteneur.md. Chercher plus large coûte plus cher et peut ne rien "
-    "donner de plus ; poser le chiffre ici serait le décider à la place du mainteneur.",
+    reason=(
+        "E19 · dégradé propose « Chercher plus loin (8 candidates) » et l'API ne rend que le nombre "
+        "de candidates essayées : combien en réessayer est un arbitrage produit non rendu (Q36 de "
+        "docs/journal/questions/questions_mainteneur.md). Chercher plus large coûte plus cher et peut "
+        "ne rien donner de plus ; poser le chiffre ici serait le décider à la place du mainteneur."
+    ),
 )
 def test_une_seule_proposition_porte_le_recours_chiffre():
     """Protège E19 · dégradé, bouton du bas.

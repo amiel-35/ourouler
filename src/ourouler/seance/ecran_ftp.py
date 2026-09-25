@@ -1,6 +1,6 @@
 """Les trois valeurs liées de l'écran de FTP, et l'escalier qu'elles déplacent.
 
-Décision 7 du cycle UX (`docs/ux/cycle_ux_contrat.md`) : l'écran montre trois
+Décision 7 du cycle UX (`docs/journal/ux/cycle_ux_contrat.md`) : l'écran montre trois
 valeurs, dont deux sont éditables et la troisième réconcilie.
 
 | la puissance visée | éditable — pour qui pense en watts |

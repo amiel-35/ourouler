@@ -254,7 +254,7 @@ Concrètement, aujourd'hui :
   désormais déclaré comme étant le sien, et le dépôt **refuse** de le servir à
   un autre plutôt que de décider seul quelles sections sont communes. Ce
   découpage est un arbitrage produit, posé en Q35 de
-  `docs/questions_mainteneur.md` et à rendre avant F3 ;
+  `docs/journal/questions/questions_mainteneur.md` et à rendre avant F3 ;
 - les fichiers produits ou déposés vivent sous `<cache>/api/<propriétaire>/`
   et sont servis par un identifiant opaque. L'identifiant d'un autre
   propriétaire est **introuvable**, sans que la réponse dise s'il existe ;

@@ -1,13 +1,13 @@
 """Ce qu'un propriétaire peut récupérer de ses données, et en demander l'effacement.
 
-Lot L7.B du sprint 7 (`docs/sprint7_contrat.md`). Doctrine §10.2 : « RGPD par
+Lot L7.B du sprint 7 (`docs/journal/sprints/sprint7_contrat.md`). Doctrine §10.2 : « RGPD par
 construction : export de toutes ses données et suppression du compte (profil,
 fichiers, calibrations, clés) […] » — calendrier révisé le 17/09/2026 (le
 principe ne bouge pas, seul le moment où il devient obligatoire change), mais
 rien n'empêche de l'écrire dès que le sprint le demande.
 
 **La frontière, posée par le mainteneur le 17/09/2026 et non renégociable
-ici** ([[Q46]] dans `docs/questions_mainteneur.md`, doctrine §10.2) : le
+ici** ([[Q46]] dans `docs/journal/questions/questions_mainteneur.md`, doctrine §10.2) : le
 **tracé** — la géographie d'une route, ses tags, son coût — est collectif ;
 le **lien** — qui l'a roulée, quand, sur quelle sortie — est personnel. Et une
 chose est déjà tranchée dans la doctrine, en toutes lettres : « les poids de
@@ -258,7 +258,7 @@ def _effacer(
                 "les routes apprises de vos sorties restent : le mainteneur a tranché "
                 "qu'elles sont collectives (doctrine du projet, §10.2) et elles ne "
                 "repartent donc jamais avec un compte supprimé — voir aussi [[Q46]] dans "
-                "docs/questions_mainteneur.md"
+                "docs/journal/questions/questions_mainteneur.md"
             )
         },
     }

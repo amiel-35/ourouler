@@ -1,4 +1,4 @@
-"""Tests de l'import d'archives déposées (L9.2, `docs/sprint9_contrat.md`).
+"""Tests de l'import d'archives déposées (L9.2, `docs/journal/sprints/sprint9_contrat.md`).
 
 Toutes les archives sont **fabriquées en mémoire** dans ce fichier — aucune
 vraie archive Strava/Garmin, aucune donnée personnelle, aucun réseau (règle

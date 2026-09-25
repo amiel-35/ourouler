@@ -62,12 +62,12 @@ Le constat de couverture, pour l'étage Intervals comme pour un futur import,
 reste **à écrire** (voir §10).
 
 **Sources lues avant d'écrire** : `doctrine_architecture.md` (§5, §10),
-`docs/ux/discovery_parcours.md`, `discovery_donnees.md`, `front_contrat.md`,
+`docs/journal/ux/discovery_parcours.md`, `discovery_donnees.md`, `front_contrat.md`,
 `cycle_ux_contrat.md`, `api_contrat.md` (le patron d'attente déjà en
 service), `front/src/ecrans/Assistant.tsx`, `front/src/composants/
 EcranFtp.tsx`, `src/ourouler/physique/litterature.py` et `modele.py`,
 `src/ourouler/config.py`, `src/ourouler/connecteurs/intervals.py`, et dans
-`docs/questions_mainteneur.md` : [[Q34]] (départ), [[Q36]] (identité),
+`docs/journal/questions/questions_mainteneur.md` : [[Q34]] (départ), [[Q36]] (identité),
 [[Q46]] (propriétaire), [[Q48]] (import, en entier), [[Q49]]–[[Q52]]
 (estimer sans capteur), [[Q60]], [[Q63]], [[Q64]] (les trois tranchées le
 19/09/2026, voir §2 et §5).
@@ -405,7 +405,7 @@ niveau de confiance redevient visible immédiatement.
 
 ## 12. Questions posées au mainteneur
 
-Ajoutées à `docs/questions_mainteneur.md` :
+Ajoutées à `docs/journal/questions/questions_mainteneur.md` :
 
 - **[[Q65]]** — le chiffre de FTP par défaut du filet de littérature (T5,
   §5.3) : quel W/kg, et faut-il le distinguer route/chrono comme les jeux

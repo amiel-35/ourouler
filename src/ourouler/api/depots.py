@@ -69,7 +69,7 @@ VARIABLES_PERSO_PUR = (
 #: générique. Les valeurs choisies (0.0/0.0, 70.0) ne désignent personne :
 #: (0, 0) n'est le domicile de personne, 70 kg est un poids générique, au
 #: même titre que le filet de dernier recours de l'entonnoir T5 (Q35, note
-#: sur `docs/questions_mainteneur.md` Q65) — « un modèle générique, dit
+#: sur `docs/journal/questions/questions_mainteneur.md` Q65) — « un modèle générique, dit
 #: comme tel », pas une donnée devinée sur quelqu'un.
 COMBLEMENT_EMBARQUEMENT: dict = {
     "depart": {"latitude": 0.0, "longitude": 0.0},
@@ -83,7 +83,7 @@ COMBLEMENT_EMBARQUEMENT: dict = {
 #: constatant que rien n'a changé.
 #:
 #: Le découpage suit, littéralement, les trois tiers tranchés par Q35
-#: (`docs/questions_mainteneur.md`, « trois tiers, et jamais de profil
+#: (`docs/journal/questions/questions_mainteneur.md`, « trois tiers, et jamais de profil
 #: incomplet », 17/09/2026) :
 #:
 #: - **serveur, jamais servi à un cycliste** — absent d'ici, et c'est

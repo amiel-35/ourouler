@@ -155,7 +155,7 @@ buté sur une borne physique — à afficher, pas à cacher (règle absolue 5).
 | Poids | `cycliste.masse_kg`, `config.py:46` | | |
 | FTP | `cycliste.ftp_w`, `config.py:47` | | |
 | Calage des zones de puissance | | | **`ZONES_PUISSANCE_DEFAUT`** (`seance/modele.py:52-60`) est une constante Python, table de Coggan figée. Aucun champ `Config` ne la porte : `seance/intervals.py:172` prend `zones_puissance` en paramètre mais tous les appelants (`seance/commande.py:146`, `sortie/commande.py:525`) passent toujours `ZONES_PUISSANCE_DEFAUT`. Éditer les zones demande d'ajouter une section `[seance.zones]` à `Config` et de la faire suivre jusqu'aux deux appelants — pas un simple champ, une plomberie à trois endroits. |
-| Adresse de départ | `depart.nom/latitude/longitude` en TOML (`config.py:38-41`) | | **Aucune géocodification.** `--adresse-depart` est un nom réservé, non livré (`cli.py:85-92`, `docs/questions_mainteneur.md:519-524`). L'utilisateur doit connaître ses lat/lon. |
+| Adresse de départ | `depart.nom/latitude/longitude` en TOML (`config.py:38-41`) | | **Aucune géocodification.** `--adresse-depart` est un nom réservé, non livré (`cli.py:85-92`, `docs/journal/questions/questions_mainteneur.md:519-524`). L'utilisateur doit connaître ses lat/lon. |
 | Vélo : type route/CLM/gravel | `usage` existe (`config.py:60`) | | **`gravel` n'est pas une valeur acceptée.** `USAGES_VELO = ("route", "clm")` (`config.py:22`), validé strictement à l'écriture (`config.py:685-686`, lève `ErreurConfig`). Il faudrait étendre le tuple + vérifier ce que ça change en aval (choix du profil BRouter, etc. — pas vérifié ici). |
 | Vélo : poids | `velo.masse_kg` (`config.py:66`) | | |
 | Connexion Intervals.icu (clé d'API) | Champs `athlete_id`/`api_key` (`config.py:97-98`), variables d'env `INTERVALS_API_KEY`/`INTERVALS_ATHLETE_ID` (`config.py:329-332`) | Un « tester la connexion » se déduit en appelant `ClientIntervals.equipements()` ou `.activites()` une fois et en regardant si ça lève `ErreurConnecteur` (`connecteurs/intervals.py:149-166`) | **Aucune commande de validation dédiée** — `config --json` affiche seulement `renseigne` (bool, `config.py:104-106`), pas « la clé marche ». |
@@ -200,7 +200,7 @@ buté sur une borne physique — à afficher, pas à cacher (règle absolue 5).
 
 ### Géocodification
 
-**N'existe pas.** Recherché exhaustivement (`grep -rn "géocod\|geocod\|Nominatim\|photon"` sur `src/`) : zéro occurrence dans le cœur. `--adresse-depart` est un nom **réservé mais non implémenté** (`cli.py:82-92`, décision Q15 du 13/09/2026, `docs/questions_mainteneur.md:511-524`). La seule mention de Nominatim est une intention future notée dans une réponse du mainteneur (`docs/questions_mainteneur.md:57-61`) — jamais codée. Aujourd'hui, la configuration exige des `latitude`/`longitude` numériques saisies à la main (`config.example.toml:6-7`).
+**N'existe pas.** Recherché exhaustivement (`grep -rn "géocod\|geocod\|Nominatim\|photon"` sur `src/`) : zéro occurrence dans le cœur. `--adresse-depart` est un nom **réservé mais non implémenté** (`cli.py:82-92`, décision Q15 du 13/09/2026, `docs/journal/questions/questions_mainteneur.md:511-524`). La seule mention de Nominatim est une intention future notée dans une réponse du mainteneur (`docs/journal/questions/questions_mainteneur.md:57-61`) — jamais codée. Aujourd'hui, la configuration exige des `latitude`/`longitude` numériques saisies à la main (`config.example.toml:6-7`).
 
 ### Zones de puissance
 

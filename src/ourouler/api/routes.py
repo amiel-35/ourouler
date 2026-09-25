@@ -15,7 +15,7 @@ minutes — ce sont des gestes d'administration que le mainteneur fait en
 ligne de commande, et aucun écran des maquettes ne les demande.
 
 **`calibrer` l'est depuis L9.4** (`POST /calibrations`,
-`docs/sprint9_contrat.md`) : un compte hébergé avec capteur calibre son vélo
+`docs/journal/sprints/sprint9_contrat.md`) : un compte hébergé avec capteur calibre son vélo
 sans la ligne de commande du mainteneur. Même calcul
 (`physique.commande.calibrer_velo`), en tâche de fond comme l'import
 (`api/taches_fond.py`, un seul calcul lourd à la fois), et écrit dans le
@@ -31,7 +31,7 @@ archive d'export Strava/Garmin — jamais un chemin. C'est le mécanisme que
 `Cache.indexer_dossier` appelle en CLI (`activites/import_archive.py`),
 rejoué ici sur des octets reçus par HTTP et bornés (taille, nombre de
 fichiers, décompression, chemins), pas sur un dossier du serveur
-(`docs/sprint9_contrat.md`, lot L9.2).
+(`docs/journal/sprints/sprint9_contrat.md`, lot L9.2).
 """
 
 from __future__ import annotations
@@ -1890,7 +1890,7 @@ def servir_fichier(
 
 # --- vie privée : export et suppression ----------------------------------------
 #
-# Lot L7.B (`docs/sprint7_contrat.md`) : un propriétaire récupère ce qui le
+# Lot L7.B (`docs/journal/sprints/sprint7_contrat.md`) : un propriétaire récupère ce qui le
 # concerne, et peut en demander l'effacement. La frontière — le tracé est
 # collectif, le lien est personnel — et ce qui en découle sont expliqués dans
 # `api/vie_privee.py`, qui fait le travail ; ces deux routes ne font que

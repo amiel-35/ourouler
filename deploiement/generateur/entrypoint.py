@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Point d'entrée du conteneur « générateur » (docs/heberge_minimal_contrat.md, périmètre point 1).
+"""Point d'entrée du conteneur « générateur ».
+
+Périmètre point 1 de docs/journal/sprints/heberge_minimal_contrat.md.
 
 Produit la page du jour une première fois immédiatement (utile pour vérifier
 tout de suite, et pour ne pas attendre l'heure planifiée après un redémarrage
@@ -15,7 +17,7 @@ sans exception.
 Toute la configuration vient de variables d'environnement, jamais d'une
 valeur écrite ici. En particulier, la clé Intervals, le point de départ et le
 serveur BRouter sont lus par `ourouler` lui-même (`config.charger`, voir
-docs/heberge_minimal_contrat.md) — ce script ne fait que les transmettre par
+docs/journal/sprints/heberge_minimal_contrat.md) — ce script ne fait que les transmettre par
 l'environnement du sous-processus, il ne les connaît ni ne les stocke.
 """
 
@@ -33,7 +35,7 @@ DOSSIER_PAGES = os.environ.get("OUROULER_DOSSIER_PAGES", "/data/pages")
 
 #: Fichier de configuration TOML (cycliste, vélos, météo, séance, tenue... —
 #: rien de secret : depart/intervals/brouter viennent de l'environnement,
-#: voir docs/heberge_minimal_contrat.md). Monté en lecture seule.
+#: voir docs/journal/sprints/heberge_minimal_contrat.md). Monté en lecture seule.
 CHEMIN_CONFIG = os.environ.get("OUROULER_CONFIG", "/config/config.toml")
 
 #: Contenu du fichier TOML, encodé en base64, quand il ne vient pas d'un

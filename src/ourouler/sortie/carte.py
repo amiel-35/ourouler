@@ -1227,7 +1227,7 @@ document.querySelectorAll('.carte-item').forEach(function (el) {{
 def construire_page_sans_seance(jour: date, *, maintenant: datetime | None = None) -> str:
     """La page du jour quand Intervals.icu ne porte aucune séance vélo ce jour-là.
 
-    Le contrat de l'hébergé minimal (docs/heberge_minimal_contrat.md, §
+    Le contrat de l'hébergé minimal (docs/journal/sprints/heberge_minimal_contrat.md, §
     périmètre point 4) interdit deux choses à la fois : planter, et laisser
     filer en silence la page de la veille. Cette page dit donc en clair
     qu'il n'y a rien à rouler **et** de quand elle date (point 5 du même

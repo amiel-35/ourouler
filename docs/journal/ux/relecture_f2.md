@@ -1,7 +1,7 @@
 # Relecture du lot F2 — le front React
 
 Relu le 17/09/2026 sur `ux-discovery` à `41afafb`, contre
-`docs/ux/maquettes_v1.html`, `docs/ux/cycle_ux_contrat.md`,
+`docs/journal/ux/maquettes_v1.html`, `docs/journal/ux/cycle_ux_contrat.md`,
 `docs/ux/api_contrat.md`, `CLAUDE.md` et `doctrine_architecture.md` §10.
 
 **Comment j'ai relu.** Lecture intégrale de `front/src` et de `front/tests`,
@@ -388,7 +388,7 @@ commentaire dit honnêtement quel bogue réel l'a motivée.
 **Les quatre points laissés ouverts par l'agent sont exacts.** Vérifiés un par
 un : l'étape d'identité est absente et l'écran le dit au cycliste plutôt qu'au
 lecteur du code (`Assistant.tsx:129-133`), Q36 existe bien dans
-`docs/questions_mainteneur.md:1675` ; `POST /boucles` ne rend pas de
+`docs/journal/questions/questions_mainteneur.md:1675` ; `POST /boucles` ne rend pas de
 propositions ; le rattachement passe par le `localStorage` (avec la réserve C10) ;
 le jalon retiré l'est. Rien d'autre n'a été caché — les points ci-dessus sont des
 choses qu'il n'a pas vues, pas des choses qu'il a tues.

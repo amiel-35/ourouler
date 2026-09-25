@@ -500,7 +500,7 @@ Ce qu'il faut savoir avant de lire un chiffre.
 
 - `docs/demarche.md` — comment le projet s'est construit, ce qui a été
   essayé et abandonné, ce qui reste possible.
-- `docs/cadrage.md` — le besoin d'origine.
+- `docs/journal/cadrage.md` — le besoin d'origine.
 - `doctrine_architecture.md` — les choix structurants et leurs raisons.
 - `docs/services_externes.md` — Open-Meteo, Intervals.icu, BRouter et les
   autres, avec leurs limites.

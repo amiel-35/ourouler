@@ -1,6 +1,6 @@
 """Les CdA et Crr d'un vélo jamais calibré, par catégorie, et ce qu'ils valent.
 
-Arbitrage du mainteneur du 17/09/2026 (`docs/questions_mainteneur.md`, réponse
+Arbitrage du mainteneur du 17/09/2026 (`docs/journal/questions/questions_mainteneur.md`, réponse
 « la littérature plutôt que la précision ») : plutôt que d'exiger de chaque
 nouveau venu une calibration personnelle, on lui sert des **valeurs de
 littérature par catégorie** — et on le dit. Ce module est cette table, et rien
@@ -228,7 +228,7 @@ def pour_usage(usage: str) -> Choix | None:
 # puissance qu'il faut pour tenir une vitesse donnée *par watt affiché* sur
 # ce capteur-là.
 #
-# La note du 23/09 (`docs/plan_sprints_agents.md`, « le porte à porte ignore
+# La note du 23/09 (`docs/journal/sprints/plan_sprints_agents.md`, « le porte à porte ignore
 # le relief ») a montré que la calibration libre ne sépare pas CdA et Crr sur
 # les données du mainteneur : laissée à elle-même, elle rend un Crr de 0,0106
 # au vélo en pneus quatre saisons et de 0,0084 au chrono en tubeless, puis

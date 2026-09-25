@@ -1,6 +1,6 @@
 """L5.3 — trois propositions contrastées, mises à l'épreuve.
 
-Écrit **en aveugle** contre `docs/sprint5_contrat.md` §3 et CLAUDE.md, sur une
+Écrit **en aveugle** contre `docs/journal/sprints/sprint5_contrat.md` §3 et CLAUDE.md, sur une
 branche partie de `sprint-5` au commit `b2b0a3c`, avant l'implémentation.
 **Réconcilié le 16/09/2026** après la fusion du lot : les cas n'ont pas changé,
 seuls les points d'entrée l'ont — voir « Ce qui a bougé à la réconciliation »

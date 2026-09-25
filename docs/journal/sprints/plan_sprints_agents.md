@@ -2,7 +2,7 @@
 
 Déroulé de la roadmap en sprints, avec pour chaque lot l'agent, le modèle et
 les critères d'acceptation. Puis l'équipe Claude Code qui l'exécute. Le
-découpage d'origine (S0 → S5) est dans `docs/cadrage.md` ; ce document le
+découpage d'origine (S0 → S5) est dans `docs/journal/cadrage.md` ; ce document le
 transpose en sprints et le fera vivre.
 
 ## Cadence de repriorisation — tous les deux sprints
@@ -134,8 +134,8 @@ l'inventaire des sorties depuis décembre 2023 par vélo.
 Jalon atteint : `ourouler boucle --distance 60 --direction NE` produit un
 GPX de boucle depuis le point de départ, avec candidates comparées (trafic,
 revêtement, virages à gauche, sens, pluie et vent à l'heure de passage), et
-`--gpx` évalue un tracé importé. Contrat : `docs/sprint2_contrat.md` ;
-relecture : `docs/sprint2_relecture.md`.
+`--gpx` évalue un tracé importé. Contrat : `docs/journal/sprints/sprint2_contrat.md` ;
+relecture : `docs/journal/sprints/sprint2_relecture.md`.
 
 Moteur : **BRouter auto-hébergé sur Coolify** (Q4), image nightly épinglée
 (le tag stable lit un format de segments dépassé), segments Bretagne, proxy
@@ -728,7 +728,7 @@ l'isolation vérifiée côté serveur, et Google puis Apple en V2, en plus et no
   `PATCH /api/v1/profil` et de `ourouler api` à quelqu'un qui n'a pas écrit le
   code (`depots.py:163-177`).
 
-- **Les cinq lots du contrat `docs/sprint7_contrat.md` : quatre tenus, un à
+- **Les cinq lots du contrat `docs/journal/sprints/sprint7_contrat.md` : quatre tenus, un à
   moitié.** **L7.A** — `proprietaire()` lit une session injectable et rend 401
   sans elle (`src/ourouler/api/routes.py:188-215`) ; l'isolation est prouvée
   route par route, voir L7.2. **L7.B** — `GET /moi/export`
@@ -1096,7 +1096,7 @@ issues possibles ; aucune n'est tranchée, et elles n'ont pas de sprint.
 
 Cadré à la demande du mainteneur : « refaire une passe du projet pour
 finaliser et pouvoir inviter des gens », et « j'ai encore du mal avec le
-modèle vélo » (`docs/sprint9_contrat.md`). Six lots, tous fusionnés sur
+modèle vélo » (`docs/journal/sprints/sprint9_contrat.md`). Six lots, tous fusionnés sur
 `sprint-9`.
 
 #### Clôture du sprint 9 — 25/09/2026

@@ -3,7 +3,7 @@
 Relu le 13/09/2026 par l'agent `relecteur` (Opus) sur la branche `sprint-2`,
 après fusion des lots L2.1 à L2.7, des tests adversariaux et des corrections.
 Lecture de `CLAUDE.md`, `doctrine_architecture.md` (dont §10),
-`docs/sprint2_contrat.md`, `docs/sprint1_relecture.md` (grille et dette
+`docs/journal/sprints/sprint2_contrat.md`, `docs/journal/sprints/sprint1_relecture.md` (grille et dette
 héritée), de tout `src/ourouler/boucle/`, de
 `src/ourouler/connecteurs/brouter.py`, des diffs de
 `connecteurs/intervals.py`, `activites/inventaire.py`, `activites/cache.py`,
@@ -89,9 +89,9 @@ de la suite dépend encore de l'analyse statique de
 **A1 — données du mainteneur dans `docs/`, augmentées par ce sprint, et
 maintenant dans l'historique git (bloquant pour la publication).** La règle
 absolue 1 dit « aucune donnée personnelle **dans le dépôt** », sans réserve
-sur le dossier. `docs/sprint2_contrat.md:17`, `:178-182` ajoute les deux
+sur le dossier. `docs/journal/sprints/sprint2_contrat.md:17`, `:178-182` ajoute les deux
 numéros de capteur réels et les quatre identifiants d'équipement Intervals du
-mainteneur ; `docs/questions_mainteneur.md:29-34` ajoute les marques. La
+mainteneur ; `docs/journal/questions/questions_mainteneur.md:29-34` ajoute les marques. La
 relecture du sprint 1 avait déjà classé ce sujet « bloquant pour la
 publication » (point 2 de sa liste) : le sprint 2 l'a aggravé, pas réduit.
 
@@ -567,7 +567,7 @@ ce sont les deux constantes qui décident si une boucle est une boucle.
 
 Par gravité décroissante.
 
-1. **`docs/sprint2_contrat.md:17` et `:178-182`, `docs/questions_mainteneur.md:29-34`
+1. **`docs/journal/sprints/sprint2_contrat.md:17` et `:178-182`, `docs/journal/questions/questions_mainteneur.md:29-34`
    — données du mainteneur dans le dépôt, augmentées par ce sprint**
    (deux numéros de capteur, quatre identifiants d'équipement Intervals), et
    surtout **toujours présentes dans l'historique git** malgré la purge

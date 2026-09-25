@@ -53,7 +53,7 @@ injectables pour que les tests ne touchent jamais le réseau.
 **`--fichier-seance`** (F1) : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
 ligne de commande au lieu d'interroger Intervals.icu — `_seance` bascule
 dessus quand `demande.fichier` est renseigné, tout le reste de l'enchaînement
-est inchangé (comble C1 de `docs/ux/relecture_f0.md`).
+est inchangé (comble C1 de `docs/journal/ux/relecture_f0.md`).
 
 **Ce que la météo n'empêche pas.** Comme pour `boucle`, une panne d'Open-Meteo
 fait disparaître les colonnes météo et la tenue, avec un avertissement sur la
@@ -2401,7 +2401,7 @@ def _candidate_json(proposition: Proposition, compteur_info: dict | None = None)
             "repli": meteo.repli,
         },
         # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
-        # le GPX et le HTML Leaflet (`docs/ux/discovery_donnees.md` §2). Les
+        # le GPX et le HTML Leaflet (`docs/journal/ux/discovery_donnees.md` §2). Les
         # `debut_m`/`longueur_m` des `emplacements` ci-dessus se raccordent à
         # `trace.profil` par recherche dichotomique sur `dist_m` — voir la
         # docstring de `boucle.geometrie`.

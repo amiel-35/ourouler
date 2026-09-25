@@ -5,7 +5,7 @@ validé par le mainteneur le 13/09/2026. Ce
 document fixe les choix structurants et leurs raisons. On le modifie par
 décision explicite du mainteneur, jamais par dérive. `CLAUDE.md` en est le
 résumé opérationnel pour les agents ; en cas de doute, c'est ce document qui
-fait foi. Le besoin d'origine est dans `docs/cadrage.md`.
+fait foi. Le besoin d'origine est dans `docs/journal/cadrage.md`.
 
 ## 1. Principes
 
@@ -485,7 +485,7 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
   d'audience ; hébergement en Europe.
 
   **Calendrier révisé le 17/09/2026 par le mainteneur** ([[Q46]] dans
-  `docs/questions_mainteneur.md`) : l'export et la suppression étaient
+  `docs/journal/questions/questions_mainteneur.md`) : l'export et la suppression étaient
   promis « dès la première version hébergée » ; ils passent au **sprint 9
   ou 10**. Motif : « je suis pas un service, c'est des potes ». Le principe
   ne bouge pas, seul le moment change.
@@ -506,7 +506,7 @@ mainteneur ; tout ce chapitre s'applique déjà à la manière d'écrire le cœu
 ### 10.3 Ce qui a été décidé depuis, et ce qui ne l'est toujours pas
 
 **Tranché le 16/09/2026** par le mainteneur, à l'ouverture du cycle UX
-(`docs/ux/front_contrat.md`) : le front sera **React**, l'API vient **avant**
+(`docs/journal/ux/front_contrat.md`) : le front sera **React**, l'API vient **avant**
 le front, et les comptes après. **Livré le 17/09/2026** (lot F1) : le cadre
 web est **FastAPI**, avec uvicorn pour le servir — c'est la seule dépendance
 lourde qu'ouvre l'API, et elle ouvre avec elle la porte que `§3` laissait

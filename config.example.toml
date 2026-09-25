@@ -6,7 +6,7 @@
 # — en TOML, une clé nue après un en-tête de section rejoint cette section,
 # donc placée plus bas ce champ était silencieusement lu comme
 # `boucle.historique_depuis` et ignoré (`Config.historique_depuis` le lit à la
-# racine). Perso pur, avec un défaut, au sens de Q35 (docs/questions_mainteneur.md) :
+# racine). Perso pur, avec un défaut, au sens de Q35 (docs/journal/questions/questions_mainteneur.md) :
 # chacun voit midi à sa porte sur ses propres sorties, ce n'est pas un réglage
 # de serveur.
 historique_depuis = 2023-12-01
@@ -157,7 +157,7 @@ seuil_recuperation_pct = 0.75
 # comme avant le sprint 5 ; au-delà, c'est la boucle la mieux orientée par rapport au
 # vent qui gagne, même si elle prend un peu plus la pluie. Mettre à 0 pour que le vent
 # tranche toujours. 0,15 (15 %) est la valeur mesurée par défaut sur les boucles réelles
-# du mainteneur (docs/sprint5_contrat.md §1.6) ; bornes : 0 à 0,5.
+# du mainteneur (docs/journal/sprints/sprint5_contrat.md §1.6) ; bornes : 0 à 0,5.
 tolerance_egalite = 0.15
 
 [tenue]

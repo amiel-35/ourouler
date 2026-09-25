@@ -17,7 +17,7 @@ Aucun appel réseau : BRouter et Open-Meteo sont les bouchons de
 
 Les CdA et Crr du mainteneur employés ici ne sont pas des données
 personnelles : ce sont des paramètres physiques déjà publiés tels quels dans
-`docs/questions_mainteneur.md`, et ils ne désignent personne.
+`docs/journal/questions/questions_mainteneur.md`, et ils ne désignent personne.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ from ourouler.physique.commande import (
 from ourouler.physique.modele import Parametres, puissance_a_plat_w, simuler, vitesse_a_plat_kmh
 
 #: La calibration mesurée du vélo de route du mainteneur (campagne du
-#: 17/09/2026, `docs/questions_mainteneur.md`). Sa `MAE` valait 4,23 %.
+#: 17/09/2026, `docs/journal/questions/questions_mainteneur.md`). Sa `MAE` valait 4,23 %.
 CALIBRATION_ROUTE = {
     "cda_m2": 0.2219,
     "crr": 0.01062,

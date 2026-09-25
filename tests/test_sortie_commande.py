@@ -1984,7 +1984,7 @@ def test_le_repli_est_dit_et_nomme_les_deux_modeles():
     assert "ne couvre pas" in lignes[0]
 
 
-# --- --fichier-seance (F1, C1 de docs/ux/relecture_f0.md) ---------------------
+# --- --fichier-seance (F1, C1 de docs/journal/ux/relecture_f0.md) ---------------------
 
 ZWO_SORTIE_FABRIQUE = (
     "<?xml version='1.0'?>\n<workout_file>\n<name>Séance fichier fabriquée</name>\n"

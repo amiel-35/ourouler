@@ -1,4 +1,4 @@
-# Image de l'hébergé minimal (docs/heberge_minimal_contrat.md).
+# Image de l'hébergé minimal (docs/journal/sprints/heberge_minimal_contrat.md).
 #
 # Une seule image pour les deux rôles du contrat — « générateur » (exécute
 # `ourouler sortie` une fois par jour) et « serveur » (sert le volume produit

@@ -20,7 +20,7 @@ DOCUMENTS = ("AGENTS.md", "CLAUDE.md")
 
 #: Fichiers cités mais écrits en parallèle sur d'autres branches. À VIDER dès
 #: qu'ils sont mergés dans `main` : ils seront alors vérifiés comme les autres.
-A_VENIR = {"ARCHITECTURE.md", "CONTRIBUTING.md"}
+A_VENIR = set()
 
 #: Un chemin court est cherché à la racine, puis dans le paquet
 #: (`cli.py`, `activites/` se lisent comme des modules de `src/ourouler/`).

@@ -1,7 +1,7 @@
 """La forme des pannes, pour un front qui ne peut rien faire d'une trace Python.
 
 Quatre des vingt écrans des maquettes sont des écrans d'échec
-(`docs/ux/maquettes_v1.html`). Ils ne peuvent exister que si chaque panne
+(`docs/journal/ux/maquettes_v1.html`). Ils ne peuvent exister que si chaque panne
 prévisible a **un code stable** — que le front teste — et **une phrase en
 français** — qu'il affiche telle quelle. C'est le contrat de ce module.
 

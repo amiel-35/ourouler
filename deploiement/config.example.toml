@@ -1,5 +1,5 @@
 # Fichier TOML du conteneur « générateur » de l'hébergé minimal
-# (docs/heberge_minimal_contrat.md). Toutes les valeurs sont inventées.
+# (docs/journal/sprints/heberge_minimal_contrat.md). Toutes les valeurs sont inventées.
 #
 # Différence avec config.example.toml (usage local, racine du dépôt) :
 # **ce fichier ne porte jamais [depart] ni [intervals], et [brouter] n'y a

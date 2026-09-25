@@ -1,7 +1,7 @@
 # Contrat du sprint 5 — Le vent, la séance entière, la page du jour
 
 Rédigé le 15/09/2026. Le cadrage produit fait foi et se lit d'abord :
-`docs/plan_sprints_agents.md`, section « Sprint 5 ». Ce contrat fixe les
+`docs/journal/sprints/plan_sprints_agents.md`, section « Sprint 5 ». Ce contrat fixe les
 interfaces pour dev-feature, testeur-adversarial (en aveugle) et relecteur.
 
 **L5.1 passe en premier et bloque tout le reste.** Les trois propositions

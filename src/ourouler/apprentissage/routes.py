@@ -547,8 +547,8 @@ class BaseRoutes:
     def sorties(self) -> list[dict]:
         """Les sorties apprises de **ce** propriétaire — id, jour, mailles, mètres.
 
-        Écrit pour l'export du lot L7.B (`docs/sprint7_contrat.md`, §L7.B) :
-        c'est « le lien » au sens de [[Q46]] (`docs/questions_mainteneur.md`)
+        Écrit pour l'export du lot L7.B (`docs/journal/sprints/sprint7_contrat.md`, §L7.B) :
+        c'est « le lien » au sens de [[Q46]] (`docs/journal/questions/questions_mainteneur.md`)
         — que ce cycliste est passé là, ce jour-là, sur cette sortie.
 
         **Lecture seule, volontairement : il n'y a pas de méthode de

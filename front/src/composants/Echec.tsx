@@ -1,7 +1,7 @@
 /** Les états d'échec — des **écrans**, pas des alertes.
  *
  * « Un écran vide se lit "rien de prévu", et l'utilisateur ne va pas rouler »
- * (`docs/ux/maquettes_v1.html`, section « Quand ça casse »). Chaque échec dit
+ * (`docs/journal/ux/maquettes_v1.html`, section « Quand ça casse »). Chaque échec dit
  * donc trois choses : ce qui s'est passé, ce qui marche encore, et le geste
  * suivant — jamais un simple « réessayez ».
  *

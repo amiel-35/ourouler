@@ -1,7 +1,7 @@
 """L4.3 — placement de la séance sur le tracé, mis à l'épreuve.
 
 Cible : contrat du sprint 4 §3 et §5, et les décisions produit du 13/09
-rapportées dans `docs/plan_sprints_agents.md`. C'est le point le plus facile à
+rapportées dans `docs/journal/sprints/plan_sprints_agents.md`. C'est le point le plus facile à
 trahir en silence : le placement rend toujours un nombre, et une règle produit
 oubliée ne se voit ni dans un test de forme, ni à la lecture d'une note.
 

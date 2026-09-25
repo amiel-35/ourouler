@@ -1794,7 +1794,7 @@ def _candidate_json(
         "meteo": _meteo_json(meteo),
         "meta": trace.meta,
         # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
-        # le GPX écrit sur disque (`docs/ux/discovery_donnees.md` §2). Voir
+        # le GPX écrit sur disque (`docs/journal/ux/discovery_donnees.md` §2). Voir
         # `boucle.geometrie` pour la forme et la simplification appliquée.
         "trace": geometrie_json(trace),
     }

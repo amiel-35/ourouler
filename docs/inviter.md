@@ -1,6 +1,6 @@
 # Inviter quelqu'un sur où rouler
 
-Mode d'emploi opérationnel du lot L9.5 (`docs/sprint9_contrat.md`). Ce
+Mode d'emploi opérationnel du lot L9.5 (`docs/journal/sprints/sprint9_contrat.md`). Ce
 document ne redécide rien : il pointe vers le code qui fait foi, avec ses
 chemins exacts, pour que le mainteneur puisse vérifier lui-même chaque
 affirmation.
@@ -54,7 +54,7 @@ hors du dépôt :
 
 ### L'action Q66a : vider les variables perso pur — **faite, vérifiée le 25/09/2026**
 
-Fermée côté code le 22/09/2026 (`docs/questions_mainteneur.md`, Q66) : en
+Fermée côté code le 22/09/2026 (`docs/journal/questions/questions_mainteneur.md`, Q66) : en
 mode `heberge`, l'API **refuse de démarrer** si le TOML ou l'environnement
 du serveur portent une valeur perso pur — parce qu'un serveur partagé qui
 les porte les distribue à chaque personne invitée. Le geste côté Coolify
@@ -313,7 +313,7 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
     uniquement par invitation (même fichier, même commentaire ; doctrine
     §10.2).
   - Pas de passkey (aucune occurrence du mot dans le dépôt) — cité comme
-    hors périmètre de ce sprint dans `docs/sprint9_contrat.md`.
+    hors périmètre de ce sprint dans `docs/journal/sprints/sprint9_contrat.md`.
   - Import par lien Strava/Garmin direct : non, c'est un dépôt de fichier
     ou d'archive téléchargée à la main (voir §3.3) — [[Q48]], toujours pas
     fait.
@@ -430,7 +430,7 @@ docker exec api-hqcrmxt0dvyxlgojgvqmwhsk-<...> \
 `src/ourouler/api/calibrations.py`, `src/ourouler/api/retrait_commande.py`,
 `src/ourouler/activites/import_archive.py`, `docker-compose.api.coolify.yml`,
 `deploiement/api/README.md`, `deploiement/api/config.example.toml`,
-`service.example.toml`, `docs/questions_mainteneur.md` (Q66),
+`service.example.toml`, `docs/journal/questions/questions_mainteneur.md` (Q66),
 `front/src/ecrans/Assistant.tsx`, `front/src/ecrans/Importer.tsx`,
 `front/src/ecrans/Connexion.tsx`, `front/src/ecrans/Entrer.tsx`,
 `front/src/ecrans/Reglages.tsx` (`MonCompteVolet`),
@@ -450,4 +450,4 @@ profil du cycliste honorés/levés par `cli.py`, `OUROULER_URL_PUBLIQUE`
 posée par `docker-compose.api.coolify.yml`). Sources ajoutées :
 `src/ourouler/config.py` (`charger`/`depuis_dict`, paramètre
 `requiert_profil`), `src/ourouler/api/exploitation.py` (`chemin_config`,
-`VARIABLE_CONFIG`), `docs/questions_mainteneur.md` (Q66, close).
+`VARIABLE_CONFIG`), `docs/journal/questions/questions_mainteneur.md` (Q66, close).

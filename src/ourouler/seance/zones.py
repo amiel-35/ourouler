@@ -1,6 +1,6 @@
 """La position du cycliste dans sa zone, et ce qu'elle vaut en watts.
 
-Décision 7 du cycle UX (`docs/ux/cycle_ux_contrat.md`) : **on stocke la
+Décision 7 du cycle UX (`docs/journal/ux/cycle_ux_contrat.md`) : **on stocke la
 position dans la zone, jamais la valeur.** Mots du mainteneur : « comme ça la
 FTP change ou les zones décalent, on suit ». Une FTP qui progresse de 12 W
 déplace tout l'escalier sans qu'on touche à un réglage ; une puissance figée
