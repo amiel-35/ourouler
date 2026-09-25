@@ -324,6 +324,7 @@ export function Echec({
     route_inconnue: "Cette route de l'API n'existe pas",
     methode_refusee: "Cette route n'accepte pas cette méthode",
     calcul_en_cours: "Un calcul occupe déjà le serveur",
+    import_deja_en_cours: "Un import occupe déjà le serveur",
     brouter_indisponible: "Le traceur ne répond pas",
     intervals_indisponible: "intervals.icu est en panne",
     geocodage_indisponible: "L'annuaire d'adresses ne répond pas",

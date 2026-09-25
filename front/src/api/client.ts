@@ -17,10 +17,10 @@ import type {
   EtatImport,
   Geocodage,
   Invitation,
+  JobImport,
   Meteo,
   Panne,
   Profil,
-  RapportImport,
   Seance,
   Semaine,
   Simple,
@@ -515,24 +515,31 @@ export const api = {
   etatImport: () => appeler<Enveloppe<EtatImport>>(url("/activites/import")),
 
   /**
-   * Dépose l'historique d'un cycliste sans Intervals — un ou plusieurs
-   * fichiers `.fit`/`.gpx`/`.tcx` (`.gz` compris), ou une archive `.zip`
-   * d'export Strava ou Garmin. Plusieurs dépôts successifs sont le cas
-   * normal (Q62) : réimporter ne duplique rien, c'est le serveur qui
-   * dédoublonne.
+   * Lance en tâche de fond le dépôt de l'historique d'un cycliste sans
+   * Intervals — un ou plusieurs fichiers `.fit`/`.gpx`/`.tcx` (`.gz`
+   * compris), ou une archive `.zip` d'export Strava ou Garmin. Plusieurs
+   * dépôts successifs sont le cas normal (Q62) : réimporter ne duplique
+   * rien, c'est le serveur qui dédoublonne.
+   *
+   * **Rend un `JobImport` tout de suite (202), pas le rapport** : une
+   * archive Strava réelle (≈2 900 sorties) prend environ 16 minutes à
+   * importer, bien au-delà des 180 s où le front abandonne. `suivreImport`
+   * dit où l'import en est. Le délai long reste sur *ce* seul appel : c'est
+   * l'envoi de l'archive elle-même — plusieurs centaines de méga-octets —
+   * qui peut dépasser les 30 s par défaut, pas le traitement.
    */
   importerActivites: (fichiers: File[]) => {
     const corps = new FormData();
     for (const fichier of fichiers) corps.append("fichiers", fichier);
-    // Délai long, comme les deux appels qui calculent : une archive Strava
-    // ou Garmin réelle pèse plusieurs centaines de méga-octets et prend plus
-    // longtemps à envoyer et à lire que les 30 s par défaut.
-    return appeler<Enveloppe<RapportImport>>(
+    return appeler<Enveloppe<JobImport>>(
       url("/activites/import"),
       { method: "POST", body: corps },
       DELAI_CALCUL_MS,
     );
   },
+
+  /** L'état d'un import lancé par `importerActivites` — à interroger périodiquement. */
+  suivreImport: (id: string) => appeler<Enveloppe<JobImport>>(url(`/activites/import/${id}`)),
 
   // Les deux seuls appels qui calculent : cinq à huit tracés BRouter et
   // autant d'appels Open-Meteo, sérialisés par le verrou de l'API. Ils ont
