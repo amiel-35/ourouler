@@ -1,7 +1,7 @@
 {
   "name": "ourouler-front",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.9.5",
   "type": "module",
   "description": "L'interface du cycliste — elle ne parle qu'à l'API d'ourouler.",
   "scripts": {
