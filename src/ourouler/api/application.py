@@ -75,6 +75,36 @@ BORNES_CORPS = {
     "/api/v1/seances/fichier": TAILLE_MAX_SEANCE,
 }
 
+
+class _StaticFilesAvecCache(StaticFiles):
+    """Sert le front avec un `Cache-Control` adapté au contenu (correctif 0.9.6).
+
+    Panne constatée en prod : `StaticFiles` sert `index.html` sans aucun
+    `Cache-Control`, et le navigateur d'un utilisateur le garde en cache à sa
+    façon. Après un redéploiement, cet `index.html` périmé réclame un
+    `/assets/index-<ancienne empreinte>.js` que `vite` a fait disparaître au
+    profit d'un nouveau nom — 404, front blanc. `index.html` doit donc
+    toujours être revalidé (`no-cache`), alors que les fichiers sous
+    `/assets/` portent l'empreinte de leur contenu dans leur nom (Vite) : un
+    nom donné ne change jamais de contenu, la mise en cache la plus longue
+    possible (`immutable`) est donc sûre.
+    """
+
+    def file_response(
+        self,
+        full_path: str | Path,
+        stat_result,
+        scope: Mapping,
+        status_code: int = 200,
+    ) -> Response:
+        reponse = super().file_response(full_path, stat_result, scope, status_code=status_code)
+        if scope["path"].startswith("/assets/"):
+            reponse.headers["cache-control"] = "public, max-age=31536000, immutable"
+        elif Path(full_path).name == "index.html":
+            reponse.headers["cache-control"] = "no-cache"
+        return reponse
+
+
 #: Ce qu'un 404 **ne doit jamais** faire retomber sur `index.html` (lot
 #: L7.2-D) : toute route de l'API, la sonde de santé, et les deux chemins du
 #: schéma publié. Large exprès sur `/api/` plutôt que le seul `/api/v1/` du
@@ -87,6 +117,21 @@ BORNES_CORPS = {
 #: construite ou une sonde générique recevait du HTML là où elle attendait une
 #: erreur (relecture du 19/09/2026).
 PREFIXES_HORS_FRONT = ("/api", "/sante", "/openapi.json", "/docs", "/redoc")
+
+
+def _reponse_erreur_utf8(erreur: ErreurApi) -> JSONResponse:
+    """`reponse_erreur`, avec un `Content-Type` qui annonce `charset=utf-8`.
+
+    `starlette.responses.JSONResponse` n'ajoute `charset` qu'aux réponses
+    `text/*` (`Response.init_headers`) : une réponse `application/json` sort
+    donc sans charset annoncé. Un navigateur qui ne le devine pas correctement
+    (constaté sous Safari) affiche un accent mal décodé (« — » devient
+    « â€” ») au lieu de retomber sur l'UTF-8 réel du corps.
+    """
+    reponse = reponse_erreur(erreur)
+    reponse.headers["content-type"] = "application/json; charset=utf-8"
+    return reponse
+
 
 #: La description publiée par `/openapi.json` et par `/docs`.
 #:
@@ -312,7 +357,7 @@ def creer_application(
     @app.exception_handler(ErreurApi)
     async def _erreur_api(requete: Request, erreur: ErreurApi) -> JSONResponse:
         del requete
-        return reponse_erreur(erreur)
+        return _reponse_erreur_utf8(erreur)
 
     @app.exception_handler(RequestValidationError)
     async def _erreur_validation(requete: Request, erreur: RequestValidationError) -> JSONResponse:
@@ -335,7 +380,7 @@ def creer_application(
             for faute in erreur.errors()
         ]
         noms = ", ".join(f"« {c['champ']} »" for c in champs) or "(champ non nommé)"
-        return reponse_erreur(
+        return _reponse_erreur_utf8(
             ErreurApi(
                 code="requete_invalide",
                 message=f"requête mal formée : {noms} — valeur absente ou hors des bornes "
@@ -376,7 +421,11 @@ def creer_application(
             and not requete.url.path.startswith(PREFIXES_HORS_FRONT)
             and not _ressemble_a_un_fichier(requete.url.path)
         ):
-            return FileResponse(dossier_front / "index.html", media_type="text/html")
+            return FileResponse(
+                dossier_front / "index.html",
+                media_type="text/html",
+                headers={"Cache-Control": "no-cache"},
+            )
         connus = {
             404: (
                 "route_inconnue",
@@ -392,7 +441,7 @@ def creer_application(
             erreur.status_code,
             ("requete_invalide", "la requête a été refusée par le serveur"),
         )
-        return reponse_erreur(
+        return _reponse_erreur_utf8(
             ErreurApi(code=code, message=message, statut=erreur.status_code or 400)
         )
 
@@ -400,7 +449,7 @@ def creer_application(
     async def _erreur_inattendue(requete: Request, erreur: Exception) -> JSONResponse:
         """Un bug ne sort jamais en trace : il sort en une ligne, et reste au journal."""
         del requete, erreur
-        return reponse_erreur(
+        return _reponse_erreur_utf8(
             ErreurApi(
                 code="erreur_interne",
                 message="erreur interne du serveur — le détail est dans le journal du serveur",
@@ -417,7 +466,7 @@ def creer_application(
         # ferait un serveur de fichiers statiques ordinaire ; il n'y a pas de
         # Le repli des chemins du front (`/entrer`, `/connexion`) est dans
         # `_erreur_du_cadre` : `StaticFiles` ne sert que ce qu'elle trouve.
-        app.mount("/", StaticFiles(directory=dossier_front, html=True), name="front")
+        app.mount("/", _StaticFilesAvecCache(directory=dossier_front, html=True), name="front")
 
     return app
 
