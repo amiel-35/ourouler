@@ -18,7 +18,7 @@
 
 # --- étage 1 : le front -------------------------------------------------------
 
-FROM node:20-slim AS front
+FROM node:26-slim AS front
 
 WORKDIR /front
 
