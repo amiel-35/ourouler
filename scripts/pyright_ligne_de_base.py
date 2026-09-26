@@ -34,6 +34,7 @@ import argparse
 import json
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parent.parent
@@ -93,19 +94,21 @@ def ecrire_ligne_de_base(erreurs: list[dict]) -> None:
     )
 
 
-def cles_de_la_ligne_de_base(entrees: list[dict]) -> set[tuple[str, str, str]]:
-    return {(e["fichier"], e["regle"], e["message"]) for e in entrees}
+def cles_de_la_ligne_de_base(entrees: list[dict]) -> Counter[tuple[str, str, str]]:
+    return Counter((e["fichier"], e["regle"], e["message"]) for e in entrees)
 
 
 def verifier() -> int:
     rapport = executer_pyright()
     erreurs_actuelles = erreurs_du_rapport(rapport)
-    cles_actuelles = {cle_erreur(e): e for e in erreurs_actuelles}
+    # Compté, pas seulement présent : une deuxième erreur identique dans le même
+    # fichier est une erreur nouvelle.
+    cles_actuelles = Counter(cle_erreur(e) for e in erreurs_actuelles)
     ligne_de_base = charger_ligne_de_base()
     cles_figees = cles_de_la_ligne_de_base(ligne_de_base)
 
-    nouvelles = sorted(set(cles_actuelles) - cles_figees)
-    disparues = sorted(cles_figees - set(cles_actuelles))
+    nouvelles = sorted((cles_actuelles - cles_figees).elements())
+    disparues = sorted((cles_figees - cles_actuelles).elements())
 
     if disparues:
         print(f"{len(disparues)} erreur(s) de la ligne de base ont disparu (progrès) :")
