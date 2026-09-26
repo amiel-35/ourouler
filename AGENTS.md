@@ -23,7 +23,7 @@ durée, cohérente avec la séance du jour et la tenue. Licence AGPL-3.0-or-late
   un conteneur PostgreSQL : il faut Docker et l'image
   (`docker pull postgres:17-alpine`), sinon ils sont sautés, et la CI
   (`.github/workflows/ci.yml`) refuse un test Postgres sauté.
-- `cd front && npm run verifier` (typage puis tests du front).
+- `cd front && npm run verifier` (typage, lint, puis tests du front).
 
 ## Carte des paquets
 

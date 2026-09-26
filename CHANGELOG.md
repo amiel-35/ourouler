@@ -20,6 +20,11 @@ partir des PR.
 
 ## [Non publié]
 
+### Modifié
+
+- Outillage : ESLint vérifie le front (`npm run lint`, inclus dans
+  `npm run verifier`) ; aucun changement de comportement pour le cycliste.
+
 ## [0.10.0] — 2026-09-26
 
 ### Ajouté

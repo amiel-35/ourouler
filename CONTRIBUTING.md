@@ -46,7 +46,7 @@ Les trois commandes doivent passer, sans exception :
 uv run ruff check .
 uv run ruff format --check .   # ou `ruff format .` pour corriger
 uv run pytest -q                 # la suite complète, pas un sous-ensemble
-cd front && npm run verifier     # tsc --noEmit puis vitest run
+cd front && npm run verifier     # tsc --noEmit, eslint, puis vitest run
 ```
 
 La CI (`.github/workflows/ci.yml`) tourne sur chaque PR vers `main`, et à
