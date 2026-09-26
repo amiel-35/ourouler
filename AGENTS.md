@@ -24,6 +24,7 @@ durée, cohérente avec la séance du jour et la tenue. Licence AGPL-3.0-or-late
   (`docker pull postgres:17-alpine`), sinon ils sont sautés, et la CI
   (`.github/workflows/ci.yml`) refuse un test Postgres sauté.
 - `cd front && npm run verifier` (typage puis tests du front).
+- `uv run python scripts/verifier_backlog.py`, si `docs/backlog/` a bougé.
 
 ## Carte des paquets
 
@@ -91,6 +92,17 @@ l'inverse :
 - **Linux est sensible à la casse** (CI, serveur), macOS non : un nom de
   fichier ou un import qui ne diffère que par la casse passe en local et
   casse en CI.
+
+## Backlog et sprints
+
+- Un sujet = une fiche dans `docs/backlog/` (feature ou bug). Elle décrit ;
+  elle ne dit pas où en est le travail.
+- L'avancement vit **uniquement** dans `docs/backlog/sprints.toml` : sprints,
+  fiches embarquées, statuts. `scripts/verifier_backlog.py` le vérifie en CI,
+  y compris qu'un sprint figé ne change pas de composition sans dérogation.
+- Le récit d'un sprint s'écrit une fois, à sa clôture, dans
+  `docs/journal/sprints/`. `docs/journal/sprints/plan_sprints_agents.md`
+  est une archive gelée.
 
 ## Proposer une PR
 

@@ -1,5 +1,12 @@
 # Plan de sprints et équipe d'agents — ourouler
 
+> **Archive, gelée le 26/09/2026.** Ce fichier ne se modifie plus. L'état des
+> sprints vit dans `docs/backlog/sprints.toml` (vérifié par
+> `scripts/verifier_backlog.py` en CI), les sujets dans les fiches de
+> `docs/backlog/`, et le récit d'un sprint dans
+> `docs/journal/sprints/sprint-N-bilan.md`, écrit une fois, à sa clôture.
+> Chaque ancienne entrée « Backlog » porte ci-dessous un renvoi vers sa fiche.
+
 Déroulé de la roadmap en sprints, avec pour chaque lot l'agent, le modèle et
 les critères d'acceptation. Puis l'équipe Claude Code qui l'exécute. Le
 découpage d'origine (S0 → S5) est dans `docs/journal/cadrage.md` ; ce document le
@@ -1232,6 +1239,8 @@ de cadrage (Q6). Le dépôt peut s'ouvrir
 avant le sprint 8 : la publication du code et l'invitation de personnes
 sont deux décisions distinctes.
 
+→ **Suivi (26/09/2026)** : fiche `docs/backlog/2026-09-26-feature-partage-gpx-boucle-libre.md`, sprint 11.
+
 Backlog « envoi au compteur » (décisions du 12/09, **requalifié le
 25/09/2026**) : pas d'API Garmin Connect pour un particulier → le GPX
 généré est le socle. Ce socle **est fait** — le bouton « Télécharger le
@@ -1257,6 +1266,8 @@ structurée en même temps : la séance vient déjà d'Intervals.icu. Aucun
 sprint attribué : à cadrer (Web Share API d'abord, Wahoo cloud quand le
 service sera hébergé) quand le mainteneur le priorisera.
 
+→ **Suivi (26/09/2026)** : fiche `docs/backlog/2026-09-26-feature-relief-demande.md`, sprint 13.
+
 Backlog « relief demandé » (note du mainteneur, 20/09/2026, aucun sprint
 attribué) : pouvoir demander, en plus de la durée et de la direction, le
 relief voulu — **plat, vallonné, qui grimpe, montagne** — et que le produit
@@ -1272,6 +1283,8 @@ du tracé, au backlog) quand le dogfooding le rendra urgent. Le vocabulaire des
 quatre reliefs et leurs seuils (dénivelé par km, pente maximale) sont une
 question produit à poser au mainteneur avant tout code.
 
+→ **Suivi (26/09/2026)** : fiche `docs/backlog/2026-09-26-feature-trois-boucles-retenues.md`, sprint 11.
+
 Backlog « le modèle arbitre trop » (note du mainteneur, 20/09/2026, aucun
 sprint attribué) : en demandant trois parcours pour une séance, l'appli n'en
 retient souvent qu'un — mesuré le 20/09 dans la ville du mainteneur comme à La Rochelle, les
@@ -1282,6 +1295,8 @@ chiant quand le modèle arbitre trop ». Pistes à cadrer, pas tranchées :
 seuil réglable ou relevé, plus de candidates par défaut quand la
 déduplication en mange, ou « Chercher plus loin » lancé d'office jusqu'à
 trois retenues (mesuré : cinq candidates en donnent trois).
+
+→ **Suivi (26/09/2026)** : livré le 25/09/2026 (PR #28), rien à planifier.
 
 Backlog « la phrase sur la vitesse » (note du mainteneur, 20/09/2026,
 **fait le 25/09/2026**) : sous « Ce que ça donnera »
@@ -1308,6 +1323,8 @@ dans cette phrase-là ; la provenance détaillée (le facteur, le modèle
 physique) reste dans Réglages, sous le dépliant « D'où viennent ces deux
 chiffres » — la règle de provenance ne bouge pas, seule cette phrase se
 simplifie.
+
+→ **Suivi (26/09/2026)** : livré au sprint 9 (L9.1, fourchette du porte à porte), rien à planifier.
 
 Backlog « le porte à porte ignore le relief de la boucle » (note du
 mainteneur, 21/09/2026, aucun sprint attribué) : `physique.modele.temps_ecoule`
@@ -1815,6 +1832,8 @@ entière n'a pas bougé (seul l'apprentissage du CdA passe à 30 %) ; la
 réconciliation « facteur compteur » ne sert plus qu'à dimensionner la
 distance.
 
+→ **Suivi (26/09/2026)** : pas de fiche — une mesure d'abord (B10). À rédiger par `/feature` ou `/bug` quand la mesure est faite.
+
 Backlog « la calibration sur import garde les sorties de club » (constat du
 25/09/2026, mesuré en clôture du sprint 9 ci-dessus, aucun sprint attribué) :
 une calibration lancée depuis l'écran sur des FIT importés (L9.2/L9.4)
@@ -1829,6 +1848,8 @@ de club exactement passent le filtre de groupe sans être nommées, et si un
 autre signal (fréquence cardiaque plus élevée et plus lissée, régularité du
 pas de pédalage) les distinguerait mieux qu'un nom qui n'existe pas hors
 d'Intervals.
+
+→ **Suivi (26/09/2026)** : fiche `docs/backlog/2026-09-26-feature-import-par-lien-strava-garmin.md`, sprint 13.
 
 Backlog « import par lien » ([[Q48]], non fait) : L9.2 dépose un fichier ou
 une archive téléchargée à la main ; un import par lien direct vers Strava ou
@@ -1851,6 +1872,8 @@ après usage), **une garde SSRF** (liste blanche de domaines, refus des plages
 privées après résolution DNS, aucune redirection hors domaine, plafond de
 taille et de durée), et une **expiration à sept jours** (Strava — Garmin et
 Polar diffèrent, voir Q48 pour le détail par plateforme).
+
+→ **Suivi (26/09/2026)** : couvert par les fiches relief demandé (sprint 13) et partage GPX (sprint 11) ; l'analyse d'un parcours est livrée.
 
 Backlog « la vidéo de démonstration a promis trois choses en plus » (constat
 du mainteneur, 25/09/2026, en marge du carton « Bientôt » et du carton de fin
@@ -1889,6 +1912,8 @@ de la vidéo publique) :
    vidéo mais dit à l'enregistrement) — déjà couvert par le backlog « envoi
    au compteur » ci-dessus (décisions du 12/09/2026) : même sujet, pas une
    entrée séparée.
+
+→ **Suivi (26/09/2026)** : livré le 25/09/2026 (PR #28), rien à planifier.
 
 Backlog « le zoom de la carte des boucles » (constat du mainteneur,
 25/09/2026, sur l'écran « 3 boucles » en production — boucle de 124 km au
@@ -2092,6 +2117,8 @@ premier rendu.
   découpage mois/jour en UTC ; règle « ici » sans vent relatif ; budget de
   fixtures à 2 % de sa borne ; Q7 (ordre des règles de rattachement).
 
+→ **Suivi (26/09/2026)** : fiche `docs/backlog/2026-09-26-feature-heure-depart-du-jour.md`, sprint 11.
+
 Backlog « la séance du jour part à 9 h, quelle que soit l'heure » (constat du
 mainteneur, 25/09/2026 vers 17:30, en production, onglet « Aujourd'hui »,
 **non fait** — gel du sprint d'ouverture) : la proposition affichée disait
@@ -2112,6 +2139,8 @@ Pistes à cadrer, pas tranchées :
 - si la séance planifiée d'Intervals porte une heure, la prendre.
 Voisin du correctif 0.9.4 (fuseau du conteneur) mais distinct : là l'heure
 demandée était bien 09:00, et c'est ce 09:00 qui est faux.
+
+→ **Suivi (26/09/2026)** : fiche `docs/backlog/2026-09-26-feature-choix-conservation-fichiers-bruts.md`, sprint 12.
 
 Backlog « le cycliste choisit ce qu'on garde de ses données » (demande du
 mainteneur, 25/09/2026 au soir, **revient sur [[Q48]] et [[Q67]]**, non
@@ -2146,12 +2175,16 @@ de tout entraînement futur) ce qui avait été conservé à ce titre.
 - mentions RGPD : base légale (consentement), finalité, durée, preuve du
   consentement horodatée.
 
+→ **Suivi (26/09/2026)** : pas de fiche — sujet technique, à rédiger par `/bug` s'il se reproduit.
+
 Backlog « `ourouler retirer` sur un serveur neuf » (constat de la répétition
 du retour arrière, 25/09/2026, préproduction) : tant qu'aucune personne ne
 s'est connectée, le dossier des comptes (`/data/cache/api`) n'existe pas, et
 `retirer` refuse avec « dossier de données introuvable » — même pour une
 invitation jamais activée, qui n'a aucun fichier. Piste : ne refuser que si
 le compte a des données à effacer ailleurs que dans la base.
+
+→ **Suivi (26/09/2026)** : trois fiches — `docs/backlog/2026-09-26-feature-demande-invitation-et-admin.md` (sprint 12), `docs/backlog/2026-09-26-feature-connexion-par-lien-et-mot-de-passe-oublie.md` et `docs/backlog/2026-09-26-feature-zone-rouge-reglages.md` (sprint 13).
 
 Backlog « les comptes, côté cycliste et côté mainteneur » (demande du
 mainteneur, 26/09/2026, après la restructuration ; trois sujets liés,
