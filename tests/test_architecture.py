@@ -305,6 +305,7 @@ MODULES: dict[str, str] = {
     "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.carte_dessin": "rendu",
     "ourouler.rendu.carte_jour": "rendu",
+    "ourouler.rendu.comparaison": "rendu",
     "ourouler.rendu.comptes": "rendu",
     "ourouler.rendu.physique": "rendu",
     "ourouler.rendu.profil": "rendu",
