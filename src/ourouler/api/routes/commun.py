@@ -198,6 +198,9 @@ class Contexte:
     #: entière d'un propriétaire rien que pour l'obtenir — ce qui échoue
     #: maintenant, à raison, pour qui n'a pas encore écrit son tiers 3.
     dossier_cache: Path
+    #: Par quel chemin les routes de calcul appellent le cœur (lot 11,
+    #: `api/double_chemin.py`) : `ancien`, `nouveau` ou `double`.
+    chemin_api: str = "ancien"
 
 
 def contexte(requete: Request) -> Contexte:

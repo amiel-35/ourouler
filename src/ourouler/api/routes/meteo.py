@@ -6,8 +6,10 @@ from typing import Annotated
 
 from fastapi import Query
 
-from ourouler.api.adaptateur import Avertissement, executer_commande, namespace
-from ourouler.api.erreurs import ErreurApi, classer_avertissement, secrets_de
+from ourouler.api import calculs
+from ourouler.api.adaptateur import Avertissement
+from ourouler.api.double_chemin import calculer
+from ourouler.api.erreurs import ErreurApi, classer_avertissement
 from ourouler.api.modeles import TexteUtile
 from ourouler.api.routes.commun import (
     Ctx,
@@ -47,15 +49,19 @@ def geocoder(
     from ourouler.geocodage import commande as geocodage
 
     config = _config(ctx, qui)
-    resultat = executer_commande(
-        geocodage.executer,
-        namespace(adresse=adresse, max=max),
+    resultat = calculer(
+        ctx.chemin_api,
         config,
-        secrets=secrets_de(config),
+        route="geocodage",
         operation="geocodage",
+        ancien=geocodage.executer,
+        nouveau=calculs.geocoder,
+        options={"adresse": adresse, "max": max},
+        clients={
+            "ban": _service(ctx, config, "ban"),
+            "nominatim": _service(ctx, config, "nominatim"),
+        },
         budgets=ctx.budgets,
-        ban=_service(ctx, config, "ban"),
-        nominatim=_service(ctx, config, "nominatim"),
     )
     charge = resultat.enveloppe(ctx.budgets.budget("geocodage"), qui)
     if not resultat.donnees.get("candidats"):
@@ -115,15 +121,16 @@ def vent_depart(
         ctx,
         qui,
         ("openmeteo",),
-        lambda: executer_commande(
-            sortie_commande.executer_vent,
-            namespace(jour=jour, depart=heure_depart),
+        lambda: calculer(
+            ctx.chemin_api,
             config,
-            secrets=secrets_de(config),
+            route="vent-depart",
             operation="vent-depart",
+            ancien=sortie_commande.executer_vent,
+            nouveau=calculs.vent_depart,
+            options={"jour": jour, "depart": heure_depart},
+            clients={"client_meteo": _service(ctx, config, "meteo"), "lieu_depart": lieu},
             budgets=ctx.budgets,
-            client_meteo=_service(ctx, config, "meteo"),
-            lieu_depart=lieu,
         ),
     )
     return resultat.enveloppe(ctx.budgets.budget("vent-depart"), qui)
@@ -167,20 +174,21 @@ def meteo(
         if latitude is None
         else Depart(nom=nom, latitude=latitude, longitude=longitude)
     )
-    resultat = executer_commande(
-        meteo_commande.executer,
-        namespace(
-            depart=heure_depart,
-            horizon=horizon,
-            distance=distance,
-            modele=modele,
-            second_avis=second_avis,
-        ),
+    resultat = calculer(
+        ctx.chemin_api,
         config,
-        secrets=secrets_de(config),
+        route="meteo",
         operation="meteo",
+        ancien=meteo_commande.executer,
+        nouveau=calculs.meteo,
+        options={
+            "depart": heure_depart,
+            "horizon": horizon,
+            "distance": distance,
+            "modele": modele,
+            "second_avis": second_avis,
+        },
+        clients={"client": _service(ctx, config, "meteo"), "lieu_depart": lieu},
         budgets=ctx.budgets,
-        client=_service(ctx, config, "meteo"),
-        lieu_depart=lieu,
     )
     return resultat.enveloppe(ctx.budgets.budget("meteo"), qui)

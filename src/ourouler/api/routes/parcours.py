@@ -6,8 +6,9 @@ from typing import Annotated
 
 from fastapi import File, Request, UploadFile
 
-from ourouler.api.adaptateur import executer_commande, namespace
-from ourouler.api.erreurs import ErreurApi, classer, secrets_de
+from ourouler.api import calculs
+from ourouler.api.double_chemin import calculer
+from ourouler.api.erreurs import ErreurApi, classer
 from ourouler.api.modeles import DemandeAnalyse, DemandeSimulation
 from ourouler.api.routes.commun import (
     TAILLE_MAX_PARCOURS,
@@ -38,20 +39,22 @@ def simuler(
         gpx = ctx.fichiers.trouver(qui, demande.gpx)
     except ErreurUtilisateur as e:
         raise ErreurApi(code="fichier_introuvable", message=str(e), statut=404) from e
-    resultat = executer_commande(
-        physique.executer_simuler,
-        namespace(
-            gpx=str(gpx.chemin),
-            puissance=demande.puissance_w,
-            velo=demande.velo,
-            depart=demande.heure_depart,
-        ),
+    resultat = calculer(
+        ctx.chemin_api,
         config,
-        secrets=secrets_de(config),
-        chemins={str(gpx.chemin): gpx.nom},
+        route="simulations",
         operation="simulation",
+        ancien=physique.executer_simuler,
+        nouveau=calculs.simuler,
+        options={
+            "gpx": str(gpx.chemin),
+            "puissance": demande.puissance_w,
+            "velo": demande.velo,
+            "depart": demande.heure_depart,
+        },
+        clients={"client_meteo": _service(ctx, config, "meteo")},
+        chemins={str(gpx.chemin): gpx.nom},
         budgets=ctx.budgets,
-        client_meteo=_service(ctx, config, "meteo"),
     )
     return resultat.enveloppe(ctx.budgets.budget("simulation"), qui)
 
@@ -97,7 +100,7 @@ async def deposer_parcours(
         raise classer(e) from e
     # Le lecteur cite le chemin qu'on lui donne ; ce chemin est celui du
     # serveur, le cycliste reconnaît le nom de son fichier (même geste que
-    # `/seances/fichier`, via `executer_commande(chemins=...)`).
+    # `/seances/fichier`, via `calculer(chemins=...)`).
     chemins = {str(depose.chemin): nom}
     # Lu tout de suite : un GPX mal formé ou trop long se dit au dépôt, pas
     # à l'analyse — même geste que `/seances/fichier`, qui lit la séance
@@ -163,20 +166,22 @@ def analyser_parcours(
             gpx = ctx.fichiers.trouver(qui, demande.gpx)
         except ErreurUtilisateur as e:
             raise ErreurApi(code="fichier_introuvable", message=str(e), statut=404) from e
-        resultat = executer_commande(
-            physique.executer_analyser,
-            namespace(
-                gpx=str(gpx.chemin),
-                puissance=demande.puissance_w,
-                velo=demande.velo,
-                depart=demande.heure_depart,
-            ),
+        resultat = calculer(
+            ctx.chemin_api,
             config,
-            secrets=secrets_de(config),
-            chemins={str(gpx.chemin): gpx.nom},
+            route="parcours-analyser",
             operation="analyse",
+            ancien=physique.executer_analyser,
+            nouveau=calculs.analyser,
+            options={
+                "gpx": str(gpx.chemin),
+                "puissance": demande.puissance_w,
+                "velo": demande.velo,
+                "depart": demande.heure_depart,
+            },
+            clients={"client_meteo": _service(ctx, config, "meteo")},
+            chemins={str(gpx.chemin): gpx.nom},
             budgets=ctx.budgets,
-            client_meteo=_service(ctx, config, "meteo"),
         )
     except Exception:
         _rembourser_quota(ctx, qui, ctx.quotas_meteo)

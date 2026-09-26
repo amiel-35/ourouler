@@ -7,8 +7,9 @@ from typing import Annotated
 
 from fastapi import File, Request, UploadFile
 
-from ourouler.api.adaptateur import executer_commande, namespace
-from ourouler.api.erreurs import ErreurApi, classer, secrets_de
+from ourouler.api import calculs
+from ourouler.api.double_chemin import calculer
+from ourouler.api.erreurs import ErreurApi, classer
 from ourouler.api.routes.commun import (
     TAILLE_MAX_SEANCE,
     Ctx,
@@ -47,14 +48,16 @@ def seances(
         ctx,
         qui,
         ("intervals",),
-        lambda: executer_commande(
-            seance_commande.executer,
-            namespace(depuis=debut.isoformat(), jusqua=fin.isoformat()),
+        lambda: calculer(
+            ctx.chemin_api,
             config,
-            secrets=secrets_de(config),
+            route="seances",
             operation="seances",
+            ancien=seance_commande.executer,
+            nouveau=calculs.seance,
+            options={"depuis": debut.isoformat(), "jusqua": fin.isoformat()},
+            clients={"client": _service(ctx, config, "intervals")},
             budgets=ctx.budgets,
-            client=_service(ctx, config, "intervals"),
         ),
     )
     return resultat.enveloppe(ctx.budgets.budget("seances"), qui)
@@ -78,14 +81,16 @@ def seance_du_jour(
         ctx,
         qui,
         ("intervals",),
-        lambda: executer_commande(
-            seance_commande.executer,
-            namespace(jour=jour.isoformat()),
+        lambda: calculer(
+            ctx.chemin_api,
             config,
-            secrets=secrets_de(config),
+            route="seance",
             operation="seance",
+            ancien=seance_commande.executer,
+            nouveau=calculs.seance,
+            options={"jour": jour.isoformat()},
+            clients={"client": _service(ctx, config, "intervals")},
             budgets=ctx.budgets,
-            client=_service(ctx, config, "intervals"),
         ),
     )
     return resultat.enveloppe(ctx.budgets.budget("seance"), qui)
@@ -132,21 +137,23 @@ async def deposer_seance(
         depose = ctx.fichiers.deposer(qui, nom, contenu)
     except ErreurUtilisateur as e:
         raise classer(e) from e
-    resultat = executer_commande(
-        seance_commande.executer,
-        namespace(
-            fichier_seance=str(depose.chemin),
-            jour=(jour or date.today()).isoformat(),
-        ),
+    resultat = calculer(
+        ctx.chemin_api,
         config,
-        secrets=secrets_de(config),
+        route="seances-fichier",
+        operation="seance",
+        ancien=seance_commande.executer,
+        nouveau=calculs.seance,
+        options={
+            "fichier_seance": str(depose.chemin),
+            "jour": (jour or date.today()).isoformat(),
+        },
+        clients={"client": _service(ctx, config, "intervals")},
         # Le cœur cite le chemin qu'on lui donne (« … : fichier vide ») ; ce
         # chemin est celui du serveur, et le nom que le cycliste reconnaît est
         # celui de son fichier.
         chemins={str(depose.chemin): nom},
-        operation="seance",
         budgets=ctx.budgets,
-        client=_service(ctx, config, "intervals"),
     )
     charge = resultat.enveloppe(ctx.budgets.budget("seance"), qui)
     charge["fichier"] = depose.json()

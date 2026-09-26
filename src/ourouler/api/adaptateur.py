@@ -1,5 +1,12 @@
 """Comment l'API appelle le cœur — et pourquoi elle l'appelle comme la CLI.
 
+**L'ancien chemin, depuis le lot 11.** Le nouveau (`api/calculs.py`) appelle
+le service et le rendu sans `Namespace`, sans capture ni verrou ;
+`api/double_chemin.py` choisit entre les deux (`OUROULER_API_CHEMIN`), et ce
+module reste le défaut jusqu'à la bascule, faite en préproduction par le
+mode `double`. Il disparaîtra avec elle ; `Resultat`, `Avertissement`,
+`avertissements_de` et `Budgets` servent aux deux chemins et resteront.
+
 Doctrine §10.2 : « L'API expose ce que la CLI sait déjà rendre en JSON. »
 Prise au mot, cette phrase interdit une deuxième implémentation. L'API
 construit donc le même `argparse.Namespace` que la ligne de commande,

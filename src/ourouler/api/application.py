@@ -220,6 +220,7 @@ def creer_application(
     quotas_import: Quotas | None = None,
     session: FournisseurSession | None = None,
     dossier_front: Path | None = None,
+    chemin_api: str | None = None,
 ) -> FastAPI:
     """L'application, avec ses dépôts et ses clients — rien n'est lu de l'environnement ici.
 
@@ -281,7 +282,20 @@ def creer_application(
     **`client_archive`** (L9.4) : l'archive météo Open-Meteo que la
     calibration interroge, un jour de sortie à la fois — un `httpx.Client`
     bouchonné, ou un client déjà construit, comme les cinq autres.
+
+    **`chemin_api`** (lot 11) : par où les routes de calcul appellent le
+    cœur — `ancien`, `nouveau` ou `double` (`api/double_chemin.py`). Absent,
+    `double_chemin.CHEMIN_DEFAUT`. Le service le lit dans
+    `OUROULER_API_CHEMIN`, par `application()`.
     """
+    from ourouler.api import double_chemin
+
+    chemin_api = double_chemin.CHEMIN_DEFAUT if chemin_api is None else chemin_api
+    if chemin_api not in double_chemin.CHEMINS:
+        raise ValueError(
+            f"creer_application : chemin_api {chemin_api!r} inconnu — attendu "
+            + ", ".join(double_chemin.CHEMINS)
+        )
     donnes = [nom for nom, v in (("socle", socle), ("config", config),
                                  ("chemin_config", chemin_config)) if v is not None]
     if len(donnes) > 1:
@@ -339,6 +353,7 @@ def creer_application(
         quotas_import=quotas_import
         or Quotas(plafond=IMPORTS_PAR_JOUR_DEFAUT, libelle="import(s) d'historique"),
         session=session or SessionPersonnelle(),
+        chemin_api=chemin_api,
     )
     app.include_router(routeur)
     app.add_middleware(LimiteTailleCorps, bornes=BORNES_CORPS)
@@ -576,6 +591,7 @@ def application() -> FastAPI:
         client_meteo=client_meteo,
         quotas=quotas,
         quotas_meteo=quotas_meteo,
+        chemin_api=exploitation.chemin_api(variables),
     )
 
 

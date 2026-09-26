@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from ourouler.api.adaptateur import executer_commande, namespace
-from ourouler.api.erreurs import ErreurApi, secrets_de
+from ourouler.api import calculs
+from ourouler.api.double_chemin import calculer
+from ourouler.api.erreurs import ErreurApi
 from ourouler.api.routes.commun import Ctx, Qui, _base_routes, _cache, _config, _service, nouveau_routeur
 
 routeur = nouveau_routeur()
@@ -36,14 +37,16 @@ def inventaire(
     from ourouler.activites import commande as activites
 
     config = _config(ctx, qui)
-    resultat = executer_commande(
-        activites.executer,
-        namespace(depuis=depuis.isoformat() if depuis else None),
+    resultat = calculer(
+        ctx.chemin_api,
         config,
-        secrets=secrets_de(config),
+        route="inventaire",
         operation="inventaire",
+        ancien=activites.executer,
+        nouveau=calculs.inventaire,
+        options={"depuis": depuis.isoformat() if depuis else None},
+        clients={"cache": _cache(config, qui)},
         budgets=ctx.budgets,
-        cache=_cache(config, qui),
     )
     return resultat.enveloppe(ctx.budgets.budget("inventaire"), qui)
 
@@ -70,14 +73,18 @@ def routes_connues(
             statut=404,
         )
     config = _config(ctx, qui)
-    resultat = executer_commande(
-        apprentissage.executer,
-        namespace(action=action, appliquer=False),
+    resultat = calculer(
+        ctx.chemin_api,
         config,
-        secrets=secrets_de(config),
+        route="routes",
         operation="routes",
+        ancien=apprentissage.executer,
+        nouveau=calculs.routes,
+        options={"action": action, "appliquer": False},
+        clients={
+            "client_brouter": _service(ctx, config, "brouter"),
+            "base": _base_routes(config, qui),
+        },
         budgets=ctx.budgets,
-        client_brouter=_service(ctx, config, "brouter"),
-        base=_base_routes(config, qui),
     )
     return resultat.enveloppe(ctx.budgets.budget("routes"), qui)
