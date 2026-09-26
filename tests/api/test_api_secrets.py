@@ -218,7 +218,7 @@ def test_le_masquage_des_secrets_est_une_fonction_partagee():
     """
     from importlib import import_module
 
-    candidats = ("ourouler.config", "ourouler.noyau.erreurs")
+    candidats = ("ourouler.config", "ourouler.noyau.erreurs", "ourouler.rendu.profil")
     noms = ("masquer_secrets", "sans_secrets", "en_dict_public", "masquer", "public")
     trouvee = None
     for module_nom in candidats:

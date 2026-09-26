@@ -16,6 +16,11 @@ from pathlib import Path
 from typing import Any
 
 from ourouler.noyau.erreurs import ErreurConfig
+
+# Le profil du cycliste vit au noyau depuis le lot 4 (`noyau/profil.py`) ;
+# `Config` le compose. Ces types restent aussi importables depuis ce module
+# (`config.Velo`, `config.Depart`…) — alias public délibéré, souvent importé
+# ainsi par les appelants (tests compris) plutôt que depuis `noyau.profil`.
 from ourouler.noyau.profil import (
     DIRECTIONS_ACCEPTEES,
     HORIZON_JOURS_DEFAUT,
@@ -39,11 +44,6 @@ from ourouler.noyau.zones import (
     ZONE_ENDURANCE,
     position_endurance,
 )
-
-# Le masquage des secrets vit au rendu depuis le lot 5 (`rendu/profil.py`) ;
-# réexporté ici, son ancien chemin, pour les appelants du dehors.
-from ourouler.rendu.profil import MASQUE as MASQUE
-from ourouler.rendu.profil import en_dict_public as en_dict_public
 
 #: Bornes de chargement de `[seance] position_zone` : au plus une largeur de
 #: bande au-dessous du bas de la zone, une au-dessus du haut. Ce n'est pas le

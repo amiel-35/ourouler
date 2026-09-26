@@ -44,11 +44,9 @@ l'inverse :
   reçoit un chemin et rend des objets du domaine ;
 - noyau : `src/ourouler/noyau/` (`trace`, `activite`, `erreurs`,
   `proprietaire`, `seance`, `zones`, `meteo`, `profil`), bibliothèque
-  standard seulement ; les anciens chemins (`boucle/trace.py`,
-  `activites/modele.py`, `erreurs.py`, `proprietaire.py`,
-  `seance/modele.py`, `seance/zones.py`) sont des réexports temporaires :
-  importer le noyau, et le profil (`Velo`, `Depart`…) depuis
-  `noyau.profil` plutôt que `config` ;
+  standard seulement ; importer directement depuis le noyau. `config.Velo`,
+  `config.Depart`… restent un alias public délibéré (souvent importés
+  ainsi) plutôt qu'un réexport à retirer ;
 - `front/` : l'interface, qui ne parle qu'à l'API.
 
 ## Règles absolues

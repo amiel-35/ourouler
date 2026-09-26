@@ -80,18 +80,17 @@ HTTP injectable :
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions | `commande.py` (1 305), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
-| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`, son JSON dans `sortie_json.py`) et de `boucle` (`boucle.py`, son JSON et la fourchette porte à porte dans `boucle_json.py`), la carte HTML (`carte.py`, qui s'appuie sur `carte_dessin.py` pour les couches et le profil, et sur `carte_jour.py` pour la page du jour), le texte et le JSON de `calibrer`, `simuler` et `analyser` (`physique.py`, lot 8) et de `comparer` (`comparaison.py`, réexporté par `physique.py`) et de `routes` (`routes.py`, lot 10) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `physique.py` (874), `routes.py`, `profil.py`, `comptes.py` |
+| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`, son JSON dans `sortie_json.py`) et de `boucle` (`boucle.py`, son JSON et la fourchette porte à porte dans `boucle_json.py`), la carte HTML (`carte.py`, qui s'appuie sur `carte_dessin.py` pour les couches et le profil, et sur `carte_jour.py` pour la page du jour), le texte et le JSON de `calibrer`, `simuler` et `analyser` (`physique.py`, lot 8) et de `comparer` (`comparaison.py`) et de `routes` (`routes.py`, lot 10) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `physique.py` (874), `routes.py`, `profil.py`, `comptes.py` |
 | `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`, lot 8) ; comparer deux vélos (`comparer.py`, lot 10) ; le `Contexte` que reçoit tout service — profil, dossier de cache et fichier de calibration résolus (`contexte.py`, lot 10). Les autres cas d'usage vivent encore dans les `*/commande.py` de leur paquet, sous la même règle | `comparer.py` (610), `calibrer.py`, `comptes.py`, `contexte.py` |
 | `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `comptes.py` (1 095), `depots.py` (988), `application.py` (632), `routes/commun.py` (411), `routes/profil.py` (331) — les routes, un module par domaine sous `routes/` (lot 13) |
 
-Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
-`proprietaire.py`, `seance/modele.py` et `seance/zones.py` ne sont plus que
-des réexports du noyau, pour un appelant extérieur ; le code du dépôt importe
-`ourouler.noyau`, et le lot final les retire. `config.py` réexporte de même
-le profil, et `meteo/openmeteo.py` les types de prévision. Depuis le lot 7,
-`physique/commande.py` réexporte de même la lecture et l'écriture de
-`calibration.json` (`stockage/calibrations.py`) et la `Calibration`. Depuis
-le lot 6, `sortie/carte.py` réexporte `rendu/carte.py`.
+Depuis le lot final, les anciens chemins `boucle/trace.py`,
+`activites/modele.py`, `erreurs.py`, `proprietaire.py`, `seance/modele.py`,
+`seance/zones.py`, `sortie/carte.py` et `physique/comparer.py` sont retirés :
+le code du dépôt importe directement le noyau (ou `rendu/carte.py`,
+`services/comparer.py`). `config.py` garde `Velo`, `Depart`… comme alias
+public délibéré (souvent importés ainsi), mais ne réexporte plus `MASQUE` ni
+`en_dict_public`, inutilisés en dehors du module.
 
 Depuis le lot 10, argparse est sorti des cas d'usage. Chaque sous-commande
 a sa `Demande` (une dataclass, dans le module du service) et un service
@@ -100,8 +99,7 @@ imprimer ; le `Contexte` porte le profil (`noyau.profil.Profil`, que
 `Config` satisfait), le dossier de cache et le fichier de calibration déjà
 résolus, et le canal des avertissements. `commandes/<nom>.py` lit le
 `Namespace`, appelle le service, puis le rendu, et imprime. Les `*/commande.py`
-n'importent plus ni `config` ni `rendu`, et `physique/comparer.py` n'est plus
-qu'un réexport de `services/comparer.py`.
+n'importent plus ni `config` ni `rendu`.
 
 Chaque paquet de domaine a son `commande.py` : c'est la sous-commande de la
 ligne de commande, et, on le verra, bien plus que ça.
@@ -267,7 +265,7 @@ identiques, et retire les exceptions qu'elle rend inutiles.
     module par domaine, et `tests/api/test_resolution_routes.py`.
 12. Côté front : un seul point d'accès au réseau, des types vérifiés contre
     le schéma OpenAPI, `App.tsx` découpé.
-13. Retirer les réexports.
+13. Retirer les réexports. *Fait (lot final)*.
 
 ## 6. Le trajet d'une demande « sortie »
 
