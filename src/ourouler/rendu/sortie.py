@@ -34,7 +34,6 @@ from ourouler.sortie import contraste, orientation, vent_demande
 from ourouler.sortie.commande import (
     NOTE_BLOC_BIEN_PLACE,
     Demande,
-    Ecartee,
     GpxPropose,
     Proposition,
     _Contexte,
@@ -194,25 +193,6 @@ def vent_depart_json(
             for choix in orientation.CHOIX
         },
     }
-
-
-def motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) -> str:
-    """Le message quand **aucune** candidate ne porte la séance.
-
-    Code de sortie 2, et non 0 : ce n'est pas le cas « rien de prévu
-    aujourd'hui » (qui est une réponse), c'est « je n'ai rien à proposer » —
-    le même cas que `boucle` quand le moteur ne rend aucune boucle bornée, qui
-    sort déjà en 2. Un script qui enchaîne sur le GPX doit s'arrêter là.
-    """
-    detail = "; ".join(
-        f"{_azimut(e.azimut_deg)} {e.distance_km:.1f} km : {e.motif}" for e in ecartees[:3]
-    )
-    suite = f" (et {len(ecartees) - 3} autre(s))" if len(ecartees) > 3 else ""
-    return (
-        f"sortie : la séance « {seance.nom} » ne tient sur aucune des {len(ecartees)} boucle(s) "
-        f"proposées autour de {distance_km:g} km — {detail}{suite}. "
-        "Essayer --distance plus grande, une autre direction, ou plus de candidates."
-    )
 
 
 def _sous_titre(proposition: Proposition, demande: Demande, config: Config) -> str:

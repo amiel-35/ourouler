@@ -45,12 +45,15 @@ se contourne pas, et depuis le sprint 5 un vent de face non plus. La météo
 départage, elle ne décide pas — sauf à égalité de note, où c'est elle qui
 tranche entre deux boucles que le terrain et le vent ne distinguent pas.
 
-Ce module est la couche commande : c'est lui qui lit `calibration.json` et
-`poids_routes.json` (par les fonctions qui savent où ils sont) et qui passe
-des objets au cœur. Les trois clients — BRouter, Open-Meteo, Intervals — sont
+Ce module est le cas d'usage : il reçoit une `Demande` déjà lue et validée
+par l'entrée (`commandes/sortie.py`, qui lit argparse) et un
+`services.contexte.Contexte` ; c'est lui qui lit `calibration.json` et
+`poids_routes.json` (aux chemins que le contexte a résolus) et qui passe des
+objets au cœur. Les trois clients — BRouter, Open-Meteo, Intervals — sont
 injectables pour que les tests ne touchent jamais le réseau. Ce qu'il montre
 — tableau, JSON, phrases, page du jour — est construit par `rendu/sortie.py`
-(lot 6) : ce module écrit les fichiers et imprime ce que le rendu lui rend.
+(lot 6) ; depuis le lot 10, ce module écrit le GPX et rend un résultat, et
+c'est l'entrée qui écrit la page du jour et imprime.
 
 **`--fichier-seance`** (F1) : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
 ligne de commande au lieu d'interroger Intervals.icu — `_seance` bascule
@@ -65,21 +68,17 @@ C'est le cas normal pour un `--jour` passé, hors de l'horizon de prévision.
 
 from __future__ import annotations
 
-import argparse
 import functools
-import json
 import math
-import sys
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
-from ourouler.boucle.commande import direction_en_azimut
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.gpx import description as description_gpx
@@ -87,11 +86,9 @@ from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.boucle.horaire import construire_horaire
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
-from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.meteo import portee
-from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import (
     ErreurConnecteur,
@@ -99,7 +96,7 @@ from ourouler.noyau.erreurs import (
     ErreurIntervalsAbsent,
     ErreurUtilisateur,
 )
-from ourouler.noyau.profil import Depart
+from ourouler.noyau.profil import Profil
 from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
@@ -110,6 +107,7 @@ from ourouler.seance.placement import CLE_MOTIF, Placement, placer, trace_parcou
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
+from ourouler.services.contexte import Contexte
 from ourouler.sortie import contraste, orientation, vent_demande
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
@@ -268,32 +266,50 @@ class GpxPropose:
     texte: str
 
 
+@dataclass(frozen=True)
+class SansSeance:
+    """Rien de planifié ce jour-là : une réponse, pas une erreur (code 0)."""
+
+    demande: Demande
+
+
+@dataclass(frozen=True)
+class ResultatSortie:
+    """Les propositions classées, et tout ce que le rendu et la page du jour en disent."""
+
+    propositions: list[Proposition]
+    #: Le contexte du rendu ; `carte` y vaut `None` tant que l'entrée n'a pas
+    #: écrit la page du jour.
+    contexte: _Contexte
+    #: Les GPX des propositions contrastées, en mémoire, pour la page du jour.
+    gpx_propositions: list[GpxPropose]
+    #: Le motif de la panne météo, s'il y en a eu une.
+    panne: str | None
+
+
 def executer(
-    args: argparse.Namespace,
-    config: Config,
+    demande: Demande,
+    contexte: Contexte,
     client_brouter: ClientBrouter | None = None,
     client_meteo: ClientOpenMeteo | None = None,
     client_intervals: ClientIntervals | None = None,
     *,
-    lieu_depart: Depart | None = None,
     recueil_gpx: Callable[[list[GpxPropose]], None] | None = None,
     base_routes: BaseRoutes | None = None,
-) -> int:
-    """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
+) -> SansSeance | ResultatSortie:
+    """Exécute `ourouler sortie` : `SansSeance` un jour sans séance, `ResultatSortie` sinon.
 
     `base_routes` s'injecte comme les clients, pour la même raison et de la
     même façon que dans `boucle/commande.executer` ([[Q58]]) : absente, la
-    base est ouverte sur `config.cache.dossier` avec le propriétaire par
+    base est ouverte sur `contexte.dossier_cache` avec le propriétaire par
     défaut, ce qui est le bon comportement en ligne de commande et le mauvais
     dans un service qui sert plusieurs cyclistes.
 
-    `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
-    requête d'API demain. Absent, c'est celui de la configuration. Le cœur ne
-    géocode rien, ne lit aucune adresse et ne sait pas d'où vient ce point
-    (règle absolue 2) — il reçoit un `Depart`.
-
-    À ne pas confondre avec `demande.depart`, qui porte une **heure**.
+    Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
+    celui de **cette** exécution (`--adresse-depart` géocodée par `cli.py`, ou
+    les coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit
+    aucune adresse et ne sait pas d'où vient ce point (règle absolue 2). À ne
+    pas confondre avec `demande.depart`, qui porte une **heure**.
 
     `recueil_gpx` décide **à qui va le GPX** (Q40 g, tranché le 17/09/2026 :
     « aucun GPX à la génération, et on le fait à la demande quand l'user
@@ -313,44 +329,15 @@ def executer(
     le dit sur la sortie d'erreur plutôt que de laisser croire à un tracé
     inédit.
     """
-    if lieu_depart is not None:
-        # Substitué dans la `Config` plutôt que passé de fonction en fonction :
-        # la question du vent, la génération des candidates, les en-têtes de
-        # texte, la carte et le JSON lisent tous `config.depart`, et un seul de
-        # ces points oublié rendrait une réponse fausse — une boucle autour de
-        # la maison pour une adresse à 400 km. `Config` est un dataclass gelé :
-        # `replace` rend une copie, la configuration de l'appelant n'est pas
-        # touchée.
-        config = replace(config, depart=lieu_depart)
-    demande = lire_options(args, config)
-
-    # Le rendu (lot 6) : ce module cherche, place, mesure et écrit ;
-    # `rendu/sortie.py` met en mots, en JSON et en page. Import différé : le
-    # rendu importe les types d'ici (`Proposition`, `_Contexte`…).
-    from ourouler.rendu import sortie as rendu
-
-    seance = _seance(demande, config, client_intervals)
+    profil = contexte.profil
+    seance = _seance(demande, profil, client_intervals)
     if seance is None:
         # Service planifié (contrat de l'hébergé minimal, périmètre point 4) :
-        # un jour sans séance doit produire une page qui le dit, jamais rien
-        # ni la page de la veille. Par défaut (`--carte-sans-seance` absent),
-        # rien n'est écrit — comportement inchangé pour l'usage interactif,
-        # où un fichier à chaque essai sans séance serait du bruit.
-        chemin_carte = None
-        if getattr(args, "carte_sans_seance", False):
-            chemin_carte = _ecrire_page_sans_seance(demande, config)
-        if getattr(args, "json", False):
-            print(
-                json.dumps(
-                    rendu.json_sans_seance(demande.jour, chemin_carte), ensure_ascii=False, indent=2
-                )
-            )
-        else:
-            print(rendu.texte_sans_seance(demande.jour, chemin_carte))
-        return 0
+        # l'entrée écrit alors, si on le lui demande, la page qui le dit.
+        return SansSeance(demande=demande)
 
-    parametres, provenance = _parametres(config, demande.velo)
-    distance_km, distance_source = _distance(demande, seance, parametres, config)
+    parametres, provenance = _parametres(profil, demande.velo, contexte.fichier_calibration)
+    distance_km, distance_source = _distance(demande, seance, parametres, profil)
 
     # Q40 (a) : une date lointaine ne se refuse pas, elle se sert **sans
     # météo**. On le constate ici, avant le premier appel : demander une
@@ -359,7 +346,7 @@ def executer(
     # couvre pas — là où le cycliste veut lire « pas de météo ce jour-là » et
     # recevoir sa boucle.
     dernier_jour = portee.dernier_jour_couvert(
-        config.meteo.horizon_jours, aujourdhui=date.today()
+        profil.meteo.horizon_jours, aujourdhui=date.today()
     )
     meteo_absente = (
         portee.constater(demande.jour, dernier_jour) if demande.jour > dernier_jour else None
@@ -384,22 +371,22 @@ def executer(
         client_meteo = client_meteo if client_meteo is not None else ClientOpenMeteo()
         question = vent_demande.interroger(
             client_meteo,
-            config.depart,
+            profil.depart,
             depart_heure=demande.depart,
             jour=demande.jour,
-            modele=config.meteo.modele,
-            modele_repli=config.meteo.second_avis,
+            modele=profil.meteo.modele,
+            modele_repli=profil.meteo.second_avis,
         )
     azimuts_vent = question.azimuts_pour(demande.vent)
 
     client_brouter = (
         client_brouter
         if client_brouter is not None
-        else ClientBrouter(config.brouter, evitements=config.evitements)
+        else ClientBrouter(profil.brouter, evitements=profil.evitements)
     )
-    candidates, hors_bande = _candidates(client_brouter, config, demande, distance_km, azimuts_vent)
+    candidates, hors_bande = _candidates(client_brouter, profil, demande, distance_km, azimuts_vent)
 
-    retenues, ecartees = _placer_toutes(candidates, seance, config, parametres)
+    retenues, ecartees = _placer_toutes(candidates, seance, profil, parametres)
     # Les directions refusées sur la distance (Q41 d) rejoignent celles que le
     # placement a refusées : deux motifs différents, un seul endroit où le
     # cycliste les lit. Sans ça, demander cinq directions et en voir trois se
@@ -407,11 +394,13 @@ def executer(
     # à revenir par la porte de derrière.
     ecartees = hors_bande + ecartees
     if not retenues:
-        raise ErreurUtilisateur(rendu.motif_aucune(seance, ecartees, distance_km))
+        raise ErreurUtilisateur(motif_aucune(seance, ecartees, distance_km))
 
-    retenues = _replacer_avec_vent(retenues, seance, config, parametres, demande, client_meteo)
-    propositions, panne = _mesurer(retenues, config, demande, client_meteo, base_routes)
-    propositions.sort(key=functools.cmp_to_key(_comparer(config.seance.tolerance_egalite)))
+    retenues = _replacer_avec_vent(retenues, seance, profil, parametres, demande, client_meteo)
+    propositions, panne = _mesurer(
+        retenues, profil, demande, client_meteo, base_routes, dossier_cache=contexte.dossier_cache
+    )
+    propositions.sort(key=functools.cmp_to_key(_comparer(profil.seance.tolerance_egalite)))
     for numero, proposition in enumerate(propositions, start=1):
         proposition.numero = numero
 
@@ -422,35 +411,34 @@ def executer(
 
     meilleure = propositions[0]
     tenue = (
-        conseiller_tenue(meilleure.meteo, config.tenue) if meilleure.meteo is not None else None
+        conseiller_tenue(meilleure.meteo, profil.tenue) if meilleure.meteo is not None else None
     )
     gpx_propositions = _gpx_propositions(seance, demande, selection)
     chemin_gpx = None
     if recueil_gpx is None:
-        chemin_gpx = _ecrire_gpx(meilleure.trace, meilleure.placement, seance, demande, config)
+        chemin_gpx = _ecrire_gpx(
+            meilleure.trace, meilleure.placement, seance, demande, contexte.dossier_cache
+        )
     else:
         recueil_gpx(gpx_propositions)
-    chemin_carte = _ecrire_page_jour(seance, demande, config, selection, gpx_propositions)
 
     # Une météo tombée dans l'horizon est le même état à l'écran qu'une date
     # trop lointaine (E14 · dégradé) : la boucle reste servie, la pluie, le
     # vent et la tenue disparaissent. La phrase, elle, ne dit pas pourquoi.
     if meteo_absente is None and panne is not None:
         meteo_absente = portee.constater(demande.jour, dernier_jour)
-    avertissement = rendu.avertissement_meteo(panne, meteo_absente)
-    if avertissement is not None:
-        print(avertissement, file=sys.stderr)
-    contexte = _Contexte(
+    pour_le_rendu = _Contexte(
         seance=seance,
         demande=demande,
-        config=config,
+        config=profil,
         distance_km=distance_km,
         distance_source=distance_source,
         provenance_modele=provenance,
         ecartees=ecartees,
         tenue=tenue,
         gpx=chemin_gpx,
-        carte=chemin_carte,
+        # La page du jour est écrite par l'entrée, qui pose ici son chemin.
+        carte=None,
         selection=selection,
         question_vent=question,
         meteo_absente=meteo_absente,
@@ -458,13 +446,16 @@ def executer(
         # toujours un vélo (`_parametres` lève sinon), donc ce bloc n'est
         # `None` qu'en test avec une configuration construite à la main. Lu
         # ici et non dans le rendu : il relit la calibration du vélo.
-        compteur_info=info_compteur(config, demande.velo),
+        compteur_info=info_compteur(
+            profil, demande.velo, fichier_calibration=contexte.fichier_calibration
+        ),
     )
-    if getattr(args, "json", False):
-        print(json.dumps(rendu.rendre_json(propositions, contexte), ensure_ascii=False, indent=2))
-    else:
-        print(rendu.rendre_texte(propositions, contexte))
-    return 0
+    return ResultatSortie(
+        propositions=propositions,
+        contexte=pour_le_rendu,
+        gpx_propositions=gpx_propositions,
+        panne=panne,
+    )
 
 
 @dataclass(frozen=True)
@@ -473,7 +464,8 @@ class _Contexte:
 
     seance: Seance
     demande: Demande
-    config: Config
+    #: Le profil du cycliste (le nom est resté celui d'avant le lot 10).
+    config: Profil
     distance_km: float
     distance_source: str
     provenance_modele: str
@@ -493,87 +485,36 @@ class _Contexte:
     compteur_info: dict | None = None
 
 
+def motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) -> str:
+    """Le message quand **aucune** candidate ne porte la séance.
+
+    Code de sortie 2, et non 0 : ce n'est pas le cas « rien de prévu
+    aujourd'hui » (qui est une réponse), c'est « je n'ai rien à proposer » —
+    le même cas que `boucle` quand le moteur ne rend aucune boucle bornée, qui
+    sort déjà en 2. Un script qui enchaîne sur le GPX doit s'arrêter là.
+
+    Au cas d'usage depuis le lot 10 (il était au rendu) : c'est le texte de
+    l'erreur qu'il lève, pas un rendu de son résultat.
+    """
+
+    def azimut(azimut_deg: float | None) -> str:
+        return f"{azimut_deg:.0f}°" if azimut_deg is not None else "direction inconnue"
+
+    detail = "; ".join(
+        f"{azimut(e.azimut_deg)} {e.distance_km:.1f} km : {e.motif}" for e in ecartees[:3]
+    )
+    suite = f" (et {len(ecartees) - 3} autre(s))" if len(ecartees) > 3 else ""
+    return (
+        f"sortie : la séance « {seance.nom} » ne tient sur aucune des {len(ecartees)} boucle(s) "
+        f"proposées autour de {distance_km:g} km — {detail}{suite}. "
+        "Essayer --distance plus grande, une autre direction, ou plus de candidates."
+    )
+
+
 # --- options ------------------------------------------------------------------
 
 
-def lire_options(args: argparse.Namespace, config: Config) -> Demande:
-    """Valide tout ce qui peut l'être **avant** le premier appel réseau.
-
-    Une date illisible, une distance négative, une direction inconnue, un vélo
-    absent de la configuration ou un dossier de sortie où l'on ne peut pas
-    écrire doivent coûter un message immédiat — pas un aller-retour chez
-    Intervals, puis chez BRouter, puis chez Open-Meteo.
-    """
-    jour = _jour(getattr(args, "jour", None))
-
-    distance_km = getattr(args, "distance", None)
-    if distance_km is not None and (not math.isfinite(distance_km) or distance_km <= 0):
-        raise ErreurUtilisateur(
-            f"--distance {distance_km} : une distance en kilomètres strictement positive est "
-            "attendue (omettre l'option pour la déduire de la séance)"
-        )
-
-    direction = getattr(args, "direction", None)
-    libelle, azimut = ("", None)
-    if direction is not None:
-        libelle, azimut = direction_en_azimut(direction)
-
-    nb = getattr(args, "candidates", None)
-    nb = config.boucle.candidates if nb is None else int(nb)
-    if nb < 1:
-        raise ErreurUtilisateur(f"--candidates {nb} : au moins une candidate est attendue")
-
-    velo = getattr(args, "velo", None)
-    if velo:
-        config.velo(velo)  # lève ErreurConfig si le vélo n'existe pas
-
-    if not config.brouter.renseigne:
-        raise ErreurUtilisateur(
-            "sortie : [brouter] url n'est pas renseigné dans la configuration — "
-            "y mettre l'adresse du serveur BRouter"
-        )
-
-    vent = orientation.valider(getattr(args, "vent", None))
-    # Q44 : les deux réglages fixaient le même azimut, et rien ne disait lequel
-    # gagnait. `--direction` l'emportait en silence, ce qui laissait le
-    # cycliste croire que son orientation au vent avait été honorée. On ne
-    # choisit plus un gagnant : on refuse la contradiction, et le message dit
-    # les deux formulations possibles. « Peu importe » n'est pas une
-    # contradiction — c'est l'absence de demande.
-    if azimut is not None and vent != orientation.PEU_IMPORTE:
-        raise ErreurUtilisateur(
-            f"--direction {libelle} et --vent {vent} demandent tous deux une direction de "
-            "recherche, et rien ne dit laquelle devrait l'emporter : choisir sa direction "
-            "**ou** la laisser déduire du vent, pas les deux"
-        )
-
-    sortie = getattr(args, "sortie", None)
-    carte = getattr(args, "carte", None)
-    fichier_seance = getattr(args, "fichier_seance", None)
-    demande = Demande(
-        jour=jour,
-        distance_km=float(distance_km) if distance_km is not None else None,
-        direction=libelle,
-        azimut_deg=azimut,
-        nb_candidates=nb,
-        profil=getattr(args, "profil", None) or config.brouter.profil,
-        depart=_heure_depart(getattr(args, "depart", None), jour),
-        velo=velo,
-        sortie=Path(sortie) if sortie else None,
-        carte=Path(carte) if carte else None,
-        ecraser=bool(getattr(args, "ecraser", False)),
-        vent=vent,
-        fichier=Path(fichier_seance) if fichier_seance else None,
-    )
-    for chemin, demande_explicite in (
-        (chemin_gpx_par_defaut(demande, config), demande.sortie is not None),
-        (chemin_carte_par_defaut(demande, config), demande.carte is not None),
-    ):
-        _verifier_ecriture(chemin, explicite=demande_explicite, ecraser=demande.ecraser)
-    return demande
-
-
-def _jour(brut: str | None) -> date:
+def jour_option(brut: str | None) -> date:
     if not brut:
         return date.today()
     try:
@@ -582,7 +523,7 @@ def _jour(brut: str | None) -> date:
         raise ErreurUtilisateur(f"--jour {brut!r} : date AAAA-MM-JJ attendue") from e
 
 
-def _heure_depart(brut: str | None, jour: date) -> datetime:
+def heure_depart_du_jour(brut: str | None, jour: date) -> datetime:
     """L'heure de départ, **ramenée au jour de la séance**.
 
     `heure_depart` interprète « 09:00 » comme « aujourd'hui à 9 h » : demander
@@ -591,13 +532,15 @@ def _heure_depart(brut: str | None, jour: date) -> datetime:
     calcule, et on remplace la date par celle de la séance — sauf si
     l'utilisateur a écrit la date lui-même.
     """
+    from ourouler.meteo.commande import heure_depart
+
     quand = heure_depart(brut)
     if brut and "T" in str(brut):
         return quand
     return quand.replace(year=jour.year, month=jour.month, day=jour.day)
 
 
-def _dossier_sorties_par_defaut(config: Config) -> Path:
+def _dossier_sorties_par_defaut(dossier_cache: Path) -> Path:
     """Le dossier des fichiers produits par défaut, hors du dépôt (Q23).
 
     Avant ce correctif, sans `--sortie` ni `--carte`, `sortie_AAAAMMJJ.gpx`
@@ -607,13 +550,13 @@ def _dossier_sorties_par_defaut(config: Config) -> Path:
     fichier que seul `.gitignore` protège n'est pas protégé, il est
     seulement discret. »
 
-    Un sous-dossier du cache déjà configuré (`config.cache.dossier`,
+    Un sous-dossier du cache déjà configuré (`Contexte.dossier_cache`,
     `~/.cache/ourouler` par défaut) — l'une des deux destinations que le
     contrat proposait, et celle qui n'ajoute pas un nouveau réglage. Créé au
     besoin : le premier `ourouler sortie` d'une machine neuve ne doit pas
     échouer faute de dossier.
     """
-    dossier = config.cache.dossier / "sorties"
+    dossier = dossier_cache / "sorties"
     try:
         dossier.mkdir(parents=True, exist_ok=True)
     except OSError as e:
@@ -621,19 +564,21 @@ def _dossier_sorties_par_defaut(config: Config) -> Path:
     return dossier
 
 
-def chemin_gpx_par_defaut(demande: Demande, config: Config) -> Path:
+def chemin_gpx_par_defaut(demande: Demande, dossier_cache: Path) -> Path:
     """`sortie_<AAAAMMJJ>.gpx` dans le dossier de sortie par défaut, ou le `--sortie` demandé."""
-    return demande.sortie or (_dossier_sorties_par_defaut(config) / f"sortie_{demande.jour:%Y%m%d}.gpx")
-
-
-def chemin_carte_par_defaut(demande: Demande, config: Config) -> Path:
-    """`sortie_<AAAAMMJJ>.html` dans le dossier de sortie par défaut, ou le `--carte` demandé."""
-    return demande.carte or (
-        _dossier_sorties_par_defaut(config) / f"sortie_{demande.jour:%Y%m%d}.html"
+    return demande.sortie or (
+        _dossier_sorties_par_defaut(dossier_cache) / f"sortie_{demande.jour:%Y%m%d}.gpx"
     )
 
 
-def _verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
+def chemin_carte_par_defaut(demande: Demande, dossier_cache: Path) -> Path:
+    """`sortie_<AAAAMMJJ>.html` dans le dossier de sortie par défaut, ou le `--carte` demandé."""
+    return demande.carte or (
+        _dossier_sorties_par_defaut(dossier_cache) / f"sortie_{demande.jour:%Y%m%d}.html"
+    )
+
+
+def verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
     """Refuse d'avance un fichier qu'on ne pourra pas écrire (même règle que `boucle`).
 
     Un nom **choisi** qui existe déjà n'est pas écrasé sans `--ecraser` : la
@@ -663,7 +608,7 @@ def _verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
 # --- les étapes de l'enchaînement ---------------------------------------------
 
 
-def _seance(demande: Demande, config: Config, client: ClientIntervals | None) -> Seance | None:
+def _seance(demande: Demande, config: Profil, client: ClientIntervals | None) -> Seance | None:
     """La séance à placer : Intervals.icu, ou `demande.fichier` s'il est donné (F1, C1)."""
     if demande.fichier is not None:
         from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
@@ -691,7 +636,7 @@ def _seance(demande: Demande, config: Config, client: ClientIntervals | None) ->
     )
 
 
-def _parametres(config: Config, velo: str | None) -> tuple[Parametres, str]:
+def _parametres(profil: Profil, velo: str | None, fichier_calibration: Path) -> tuple[Parametres, str]:
     """Les paramètres physiques du vélo et leur provenance.
 
     Contrairement à `ourouler seance`, qui préfère une vitesse moyenne assumée
@@ -703,14 +648,13 @@ def _parametres(config: Config, velo: str | None) -> tuple[Parametres, str]:
     """
     from ourouler.physique.commande import (
         alerte_calibration,
-        chemin_calibration,
         parametres_du_velo,
         velo_demande,
     )
 
-    choisi = velo_demande(config, velo)
-    parametres, provenance = parametres_du_velo(config, choisi, chemin_calibration(config))
-    alerte = alerte_calibration(choisi, chemin_calibration(config))
+    choisi = velo_demande(profil, velo)
+    parametres, provenance = parametres_du_velo(profil, choisi, fichier_calibration)
+    alerte = alerte_calibration(choisi, fichier_calibration)
     # L'alerte suit la provenance, qui s'affiche en texte comme en JSON : une
     # calibration qui ne suit plus le pneu du vélo reste utilisée, mais dite.
     suite = f" — {alerte}" if alerte else ""
@@ -718,7 +662,7 @@ def _parametres(config: Config, velo: str | None) -> tuple[Parametres, str]:
 
 
 def _distance(
-    demande: Demande, seance: Seance, parametres: Parametres, config: Config
+    demande: Demande, seance: Seance, parametres: Parametres, config: Profil
 ) -> tuple[float, str]:
     """(distance en km, d'où elle vient). `--distance` gagne toujours."""
     if demande.distance_km is not None:
@@ -772,13 +716,26 @@ def _distance(
     return float(arrondie), f"{source}, {metres / 1000:.1f} km arrondis au multiple de 5 supérieur"
 
 
+@dataclass(frozen=True)
+class DemandeVent:
+    """Le jour, et l'heure de départ déjà ramenée à ce jour."""
+
+    jour: date
+    depart: datetime
+
+
+@dataclass(frozen=True)
+class ResultatVent:
+    question: vent_demande.QuestionVent
+    jour: date
+    depart: datetime
+
+
 def executer_vent(
-    args: argparse.Namespace,
-    config: Config,
+    demande: DemandeVent,
+    contexte: Contexte,
     client_meteo: ClientOpenMeteo | None = None,
-    *,
-    lieu_depart: Depart | None = None,
-) -> int:
+) -> ResultatVent:
     """Le vent au départ, **avant** de chercher quoi que ce soit (Q44).
 
     Un seul appel Open-Meteo, un point, une heure : le poste le moins cher du
@@ -796,12 +753,10 @@ def executer_vent(
     Aucun tracé, aucun appel BRouter, aucune séance : cette commande ne répond
     qu'à « d'où vient le vent, et qu'est-ce que chaque préférence donnerait ».
     """
-    jour = _jour(getattr(args, "jour", None))
-    depart_lieu = lieu_depart if lieu_depart is not None else config.depart
-    depart_heure = _heure_depart(getattr(args, "depart", None), jour)
-
+    profil = contexte.profil
+    jour, depart_heure = demande.jour, demande.depart
     dernier_jour = portee.dernier_jour_couvert(
-        config.meteo.horizon_jours, aujourdhui=date.today()
+        profil.meteo.horizon_jours, aujourdhui=date.today()
     )
     if jour > dernier_jour:
         # Même règle que `executer` : au-delà de l'horizon on ne demande rien à
@@ -815,16 +770,13 @@ def executer_vent(
     else:
         question = vent_demande.interroger(
             client_meteo if client_meteo is not None else ClientOpenMeteo(),
-            depart_lieu,
+            profil.depart,
             depart_heure=depart_heure,
             jour=jour,
-            modele=config.meteo.modele,
-            modele_repli=config.meteo.second_avis,
+            modele=profil.meteo.modele,
+            modele_repli=profil.meteo.second_avis,
         )
-    from ourouler.rendu.sortie import vent_depart_json  # le rendu, import différé (lot 6)
-
-    print(json.dumps(vent_depart_json(question, jour, depart_heure), ensure_ascii=False, indent=2))
-    return 0
+    return ResultatVent(question=question, jour=jour, depart=depart_heure)
 
 
 def _parts(total: int, combien: int) -> list[int]:
@@ -847,7 +799,7 @@ def _parts(total: int, combien: int) -> list[int]:
 
 def _candidates(
     client: ClientBrouter,
-    config: Config,
+    config: Profil,
     demande: Demande,
     distance_km: float,
     azimuts_vent: tuple[float, ...] = (),
@@ -943,7 +895,7 @@ def _candidates(
 
 
 def _placer_toutes(
-    candidates: list, seance: Seance, config: Config, parametres: Parametres
+    candidates: list, seance: Seance, config: Profil, parametres: Parametres
 ) -> tuple[list[tuple[object, Placement]], list[Ecartee]]:
     """Le placement sur chaque candidate : les retenues d'un côté, les motifs de l'autre."""
     retenues: list[tuple[object, Placement]] = []
@@ -978,7 +930,7 @@ def _placer_toutes(
 def _replacer_avec_vent(
     retenues: list[tuple[object, Placement]],
     seance: Seance,
-    config: Config,
+    config: Profil,
     parametres: Parametres,
     demande: Demande,
     client_meteo: ClientOpenMeteo | None,
@@ -1094,10 +1046,12 @@ def _notes_egales(a: float, b: float, tolerance: float) -> bool:
 
 def _mesurer(
     retenues: list[tuple[object, Placement]],
-    config: Config,
+    config: Profil,
     demande: Demande,
     client_meteo: ClientOpenMeteo | None,
     base_routes: BaseRoutes | None = None,
+    *,
+    dossier_cache: Path,
 ) -> tuple[list[Proposition], str | None]:
     """Coûts, routes connues et météo des candidates retenues.
 
@@ -1111,8 +1065,8 @@ def _mesurer(
     d'habitude, la météo reste absente, et ce n'est **pas** une panne — il n'y
     a rien à signaler qui ne soit déjà dit par `meteo_absente`.
     """
-    poids = lire_poids(config.cache.dossier / NOM_POIDS)
-    base = base_routes if base_routes is not None else _base_routes(config)
+    poids = lire_poids(dossier_cache / NOM_POIDS)
+    base = base_routes if base_routes is not None else _base_routes(dossier_cache)
     propositions: list[Proposition] = []
     panne: str | None = None
     for candidate, placement in retenues:
@@ -1152,7 +1106,7 @@ def _mesurer(
     return propositions, panne
 
 
-def _vitesse(placement: Placement, config: Config) -> float:
+def _vitesse(placement: Placement, config: Profil) -> float:
     """La vitesse moyenne de la séance sur ce tracé, en km/h."""
     if placement.duree_totale_s > 0 and placement.distance_totale_m > 0:
         vitesse = placement.distance_totale_m / 1000.0 / (placement.duree_totale_s / 3600.0)
@@ -1161,14 +1115,14 @@ def _vitesse(placement: Placement, config: Config) -> float:
     return config.boucle.vitesse_moyenne_kmh
 
 
-def _base_routes(config: Config) -> BaseRoutes | None:
+def _base_routes(dossier_cache: Path) -> BaseRoutes | None:
     """La base des routes connues si elle existe déjà, sinon `None`.
 
     Même règle que `boucle.commande` : on ne la **crée** pas au passage, et une
     base illisible ne fait pas perdre la sortie — la colonne « connu % »
     disparaît, elle n'a jamais pesé sur le tri.
     """
-    chemin = config.cache.dossier / NOM_BASE
+    chemin = dossier_cache / NOM_BASE
     if not chemin.is_file():
         return None
     try:
@@ -1181,7 +1135,7 @@ def _base_routes(config: Config) -> BaseRoutes | None:
 
 
 def _ecrire_gpx(
-    trace: Trace, placement: Placement, seance: Seance, demande: Demande, config: Config
+    trace: Trace, placement: Placement, seance: Seance, demande: Demande, dossier_cache: Path
 ) -> Path:
     """Le GPX du **parcours placé**, demi-tours compris — pas celui de la boucle.
 
@@ -1191,7 +1145,7 @@ def _ecrire_gpx(
     GPX ne correspond pas à la séance. La carte, elle, montre toujours la
     boucle : c'est son rôle de situer les blocs sur le tracé d'origine.
     """
-    chemin = chemin_gpx_par_defaut(demande, config)
+    chemin = chemin_gpx_par_defaut(demande, dossier_cache)
     nom = f"{seance.nom} — {seance.jour.isoformat()}"
     parcours = trace_parcourue(placement, trace)
     try:
@@ -1247,59 +1201,17 @@ def _description_parcours(parcours: Trace, placement: Placement) -> str:
     return f"{description_gpx(parcours)} · {combien}"
 
 
-def _ecrire_page_sans_seance(demande: Demande, config: Config) -> Path:
-    """La page du jour quand rien n'est planifié (contrat de l'hébergé minimal, périmètre point 4).
-
-    Réutilise l'emplacement standard de la carte (`--carte`, ou le nom daté
-    par défaut `chemin_carte_par_defaut`) : le serveur statique qui sert le
-    dossier n'a besoin de rien savoir de plus qu'un jour ouvré. Le contenu
-    dit qu'il n'y a rien à rouler et quand la page a été produite (point 5) —
-    une page qui le dit vaut mieux qu'aucune page, jamais une erreur ni la
-    page de la veille servie en silence.
-    """
-    from ourouler.rendu.sortie import page_sans_seance  # le rendu, import différé (lot 6)
-
-    chemin = chemin_carte_par_defaut(demande, config)
-    try:
-        chemin.write_text(page_sans_seance(demande.jour, maintenant=datetime.now()), encoding="utf-8")
-    except OSError as e:
-        raise ErreurUtilisateur(f"écriture impossible dans {chemin} ({e})") from e
-    return chemin
-
-
-def _ecrire_page_jour(
-    seance: Seance,
-    demande: Demande,
-    config: Config,
-    selection: contraste.Selection,
-    gpx_propositions: list[GpxPropose],
-) -> Path:
-    """La page du jour (lot L5.4) : les propositions contrastées, superposées.
-
-    La page elle-même est construite par `rendu.sortie.page_jour` ; ce module
-    ne fait que l'écrire à l'emplacement de la carte (`--carte`, ou le nom
-    daté par défaut). Les GPX qu'elle embarque sont ceux de
-    `_gpx_propositions`, déjà en mémoire : jamais écrits sur disque, ils
-    partent en base64 dans la page (§4.2 du contrat — « le fichier suit le
-    choix du cycliste, pas le classement »).
-    """
-    from ourouler.rendu.sortie import page_jour  # le rendu, import différé (lot 6)
-
-    chemin = chemin_carte_par_defaut(demande, config)
-    page = page_jour(seance, demande, config, selection, gpx_propositions, maintenant=datetime.now())
-    try:
-        chemin.write_text(page, encoding="utf-8")
-    except OSError as e:
-        raise ErreurUtilisateur(f"écriture impossible dans {chemin} ({e})") from e
-    return chemin
-
-
 __all__ = [
     "ARRONDI_DISTANCE_KM",
     "NOTE_BLOC_BIEN_PLACE",
     "Demande",
+    "DemandeVent",
     "GpxPropose",
     "Proposition",
+    "ResultatSortie",
+    "ResultatVent",
+    "SansSeance",
     "executer",
-    "lire_options",
+    "executer_vent",
+    "motif_aucune",
 ]

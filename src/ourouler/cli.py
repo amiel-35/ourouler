@@ -800,9 +800,11 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.sortie.commande import executer  # import paresseux (lot L4.4)
+    from ourouler.commandes.sortie import executer_depuis_namespace  # import paresseux (lot L4.4)
 
-    return executer(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
+    return executer_depuis_namespace(
+        args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
+    )
 
 
 def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
