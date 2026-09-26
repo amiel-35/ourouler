@@ -678,7 +678,9 @@ def _essayer(
             continue
 
         if etape.type == TYPE_BLOC:
-            emplacement = _bloc_droit(trace, terrain, etat, etape, i, puissance, duree, ftp_w)
+            emplacement = _bloc_droit(
+                trace, terrain, etat, etape, i, puissance_w=puissance, duree_s=duree, ftp_w=ftp_w
+            )
             if isinstance(emplacement, str):
                 return emplacement
             emplacements.append(emplacement)
@@ -714,11 +716,11 @@ def _essayer(
             etat,
             etapes[idx_fermeture],
             idx_fermeture,
-            elasticite_calme,
-            avertissements,
-            informations,
-            ecarts,
-            emplacements,
+            elasticite_calme=elasticite_calme,
+            avertissements=avertissements,
+            informations=informations,
+            ecarts=ecarts,
+            emplacements=emplacements,
         )
         if motif is not None:
             return motif
@@ -844,6 +846,7 @@ def _bloc_droit(
     etat: _Etat,
     bloc: Etape,
     bloc_idx: int,
+    *,
     puissance_w: float,
     duree_s: float,
     ftp_w: float | None,
@@ -904,20 +907,29 @@ def _recup_puis_bloc(
     qui vient après.
     """
     droite = _variante_droite(
-        trace, terrain, etat, recup, recup_puissance, recup_idx, bloc, bloc_idx, bloc_puissance, ftp_w
+        trace,
+        terrain,
+        etat,
+        recup=recup,
+        recup_puissance=recup_puissance,
+        recup_idx=recup_idx,
+        bloc=bloc,
+        bloc_idx=bloc_idx,
+        bloc_puissance=bloc_puissance,
+        ftp_w=ftp_w,
     )
     demi = _variante_demi_tour(
         trace,
         terrain,
         etat,
-        recup,
-        recup_puissance,
-        recup_idx,
-        bloc,
-        bloc_idx,
-        bloc_puissance,
-        penalite_demi_tour,
-        ftp_w,
+        recup=recup,
+        recup_puissance=recup_puissance,
+        recup_idx=recup_idx,
+        bloc=bloc,
+        bloc_idx=bloc_idx,
+        bloc_puissance=bloc_puissance,
+        penalite_demi_tour=penalite_demi_tour,
+        ftp_w=ftp_w,
     )
     candidates = [c for c in (droite, demi) if c is not None]
     if not candidates:
@@ -933,6 +945,7 @@ def _variante_droite(
     trace: Trace,
     terrain: _Terrain,
     etat: _Etat,
+    *,
     recup: Etape,
     recup_puissance: float,
     recup_idx: int,
@@ -976,6 +989,7 @@ def _variante_demi_tour(
     trace: Trace,
     terrain: _Terrain,
     etat: _Etat,
+    *,
     recup: Etape,
     recup_puissance: float,
     recup_idx: int,
@@ -1086,6 +1100,7 @@ def _fermer(
     etat: _Etat,
     etape: Etape,
     idx: int,
+    *,
     elasticite_calme: tuple[float, float],
     avertissements: list[str],
     informations: list[str],
