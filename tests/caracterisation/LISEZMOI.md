@@ -42,7 +42,7 @@ journal des appels aux services :
 Fichiers écrits : un GPX par l'empreinte de ses octets ; une carte HTML par
 l'empreinte de son texte normalisé (chemins, UUID, jetons), **une seule
 ligne retirée** : `<p class="horodatage">Page générée le JJ/MM/AAAA à
-HH:MM.</p>` (`rendu/carte.py`). L'horloge étant figée, elle serait stable ;
+HH:MM.</p>` (`rendu/carte_jour.py`). L'horloge étant figée, elle serait stable ;
 elle est retirée pour qu'un lot qui déplace la lecture de l'horloge de la
 carte ne casse pas l'empreinte de toute la page.
 
@@ -90,7 +90,7 @@ les tests nommés).
 |---|---|---|
 | 3–4 (noyau, types) | toutes les références ; le filet n'importe aucun module déplacé (`test_le_filet_ne_depend_que_de_surfaces_stables`) | — |
 | 5 (api ↔ cli, comptes) | `api_profil`, `api_zones`, `api_heberge*` (propriétaire ≠ `local`) | les comptes réels en base (authentification, invitation, retrait) |
-| 6 (rendu hors de `sortie/commande.py`, `boucle`, `physique/commande`) | sorties **texte** de chaque scénario, empreinte de la carte HTML (mutations `sortie.rendre_texte → ""`, `carte._page_jour → <html></html>` : rouges) | la mise en page de la carte au-delà de l'empreinte (un écart se voit, il ne se lit pas dans le diff) |
+| 6 (rendu hors de `sortie/commande.py`, `boucle`, `physique/commande`) | sorties **texte** de chaque scénario, empreinte de la carte HTML (mutations `sortie.rendre_texte → ""`, `carte_jour._page_jour → <html></html>` : rouges) | la mise en page de la carte au-delà de l'empreinte (un écart se voit, il ne se lit pas dans le diff) |
 | 7 (`stockage/calibrations`) | `cli_calibrer` : `calibration.json` écrit, puis relu par `sortie` (mutations `ecrire_calibration` muette et `lire_calibration → None` : rouges) ; `api_heberge*` pour le chemin par compte | la calibration lancée **par l'API** (`POST /calibrations`, tâche de fond) : ses tests `test_api_calibration.py` |
 | 8 (physique pure) | `cli_calibrer`, `cli_comparer` (6 chiffres significatifs) | « identique au dernier chiffre » sur la calibration RCR du mainteneur : c'est P3, sur les vraies données, hors dépôt |
 | 9 (`Routeur`, `generer`) | `cli_boucle`, `cli_sortie`, `api_boucles`, `api_sorties` (journal BRouter compris) | — |
