@@ -80,28 +80,11 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.profil import Velo
 from ourouler.physique.echantillonnage import (
-    DEBUT_IGNORE_M,  # noqa: F401 — réexporté
-    DELTA_V_MAX_MS,  # noqa: F401 — réexporté
-    DEMI_FENETRE_ALTITUDE_M,  # noqa: F401 — réexporté
-    FACTEUR_FTP_MAX,  # noqa: F401 — réexporté
-    LONGUEUR_ECHANTILLON_M,  # noqa: F401 — réexporté
-    MOTIF_RETENU,  # noqa: F401 — réexporté
-    PENTE_MAX,  # noqa: F401 — réexporté
-    PENTE_MIN,  # noqa: F401 — réexporté
-    PUISSANCE_MIN_W,  # noqa: F401 — réexporté
-    SEUIL_ARRET_MS,  # noqa: F401 — réexporté
     Echantillon,
-    _angulaire,  # noqa: F401 — réexporté
-    _cap,  # noqa: F401 — réexporté
-    _decouper,  # noqa: F401 — réexporté
-    _distances_points,  # noqa: F401 — réexporté
-    _interpoler_archive,  # noqa: F401 — réexporté
-    _vent_de_face,  # noqa: F401 — réexporté
     echantillonner,
 )
 from ourouler.physique.groupe import (
     PART_DISTANCE_GROUPE,
-    SEUIL_RESIDU_GROUPE,  # noqa: F401 — réexporté
     detecter_groupe,
 )
 from ourouler.physique.modele import (
@@ -110,14 +93,9 @@ from ourouler.physique.modele import (
     puissance_requise,
 )
 from ourouler.physique.validation import (
-    ErreurSortie,  # noqa: F401 — réexporté
     Validation,
-    puissance_moyenne_en_mouvement,  # noqa: F401 — réexporté
     simuler_sortie,
-    temps_mouvement_s,  # noqa: F401 — réexporté
-    trace_depuis_activite,  # noqa: F401 — réexporté
     valider,
-    vent_le_long,  # noqa: F401 — réexporté
 )
 
 #: Bornes de l'ajustement (contrat §3).

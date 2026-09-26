@@ -1,6 +1,6 @@
 """La détection des sorties en groupe : rouler durablement plus vite que la puissance ne le justifie.
 
-Sorti de physique/calibration.py, qui réexporte ces noms. Physique pure
+Sorti de physique/calibration.py. Physique pure
 comme lui ; mêmes calculs, dans le même ordre, avant et après le déplacement.
 """
 

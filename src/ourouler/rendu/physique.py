@@ -1,7 +1,7 @@
 """Rendu des commandes du modèle physique : `calibrer`, `simuler`, `analyser`, `comparer`.
 
-Couche 4 de `docs/ouverture_plan.md` §2, sortie de `physique/commande.py` et
-de `physique/comparer.py` au lot 8. Chaque fonction reçoit des objets déjà
+Couche 4 de `docs/ouverture_plan.md` §2, sortie de `physique/commande.py`
+et de `services/comparer.py` au lot 8. Chaque fonction reçoit des objets déjà
 calculés — le rapport de calibration, la simulation, la météo le long du
 tracé, la comparaison — et rend une chaîne ou un dictionnaire : aucun accès
 disque ni réseau, aucune lecture de configuration. Ce que la commande
@@ -30,9 +30,6 @@ from ourouler.physique.calibration import (
     RapportCalibration,
 )
 from ourouler.physique.modele import FourchettePorteAPorte, Parametres, PorteAPorte, Simulation
-
-# Réexport : `comparer` a son rendu dans `rendu.comparaison`.
-from ourouler.rendu.comparaison import rendre_json_comparaison, rendre_texte_comparaison  # noqa: F401
 from ourouler.stockage.calibrations import porte_a_porte_json
 
 #: Mention affichée à côté d'un temps, selon d'où il vient. La seconde vaut

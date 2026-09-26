@@ -29,7 +29,7 @@ import pytest
 from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
 from ourouler.physique.modele import Parametres, vitesse_regime
-from ourouler.seance import placement
+from ourouler.seance import pas_trace, placement, placement_note, placement_resultat
 from ourouler.seance.terrain import PENALITE_BLOC_TRONQUE, POIDS_KM_BATI, NoteBloc
 
 # --- fixtures synthétiques ----------------------------------------------------
@@ -415,7 +415,7 @@ def test_les_deux_penalites_de_seance_restent_dans_le_bon_ordre():
     kilomètres équivalents par heure de trop, le second en part de séance
     manquante.
     """
-    heure_de_trop = placement.PENALITE_CALME_ALLONGE_KM_PAR_H
+    heure_de_trop = placement_note.PENALITE_CALME_ALLONGE_KM_PAR_H
     calme_supprime = placement._penalite_seance([_calme(ecart=-1.0)], ELASTICITE, ELASTICITE_CALME)
     assert heure_de_trop < calme_supprime / 10
     # Et une heure entière de trop reste sous le poids brut d'un défaut de
@@ -953,7 +953,7 @@ def test_un_retour_au_calme_a_zero_se_paie_et_se_dit(monkeypatch):
     # +20 % pour forcer le placement, n'entre pas dans ce calcul : depuis Q14
     # les deux fenêtres sont distinctes.
     assert resultat.penalite_seance == pytest.approx(
-        placement.PENALITE_SEANCE_NON_TENUE * 0.95, rel=0.01
+        placement_note.PENALITE_SEANCE_NON_TENUE * 0.95, rel=0.01
     ), "la pénalité se compte hors de la fenêtre du retour au calme, au prorata"
     assert resultat.note_totale == pytest.approx(
         resultat.note_terrain + resultat.penalite_seance
@@ -1078,7 +1078,7 @@ def _boucle_carree(cote_m: float = 20_000.0, pas_m: float = 500.0) -> Trace:
 
 def _point_du_parcours(parcours: Trace, distance_m_: float) -> PointTrace:
     """Le point du parcours à `distance_m_` du départ, interpolé."""
-    return placement._point_a(parcours.points, [p.dist_m for p in parcours.points], distance_m_)
+    return pas_trace._point_a(parcours.points, [p.dist_m for p in parcours.points], distance_m_)
 
 
 def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
@@ -1100,7 +1100,7 @@ def test_le_parcours_place_contient_le_demi_tour(monkeypatch):
     )
     assert len(resultat.jalons_m) == 3, f"un demi-tour, donc trois jalons : {resultat.jalons_m}"
 
-    parcours = placement.trace_parcourue(resultat, trace)
+    parcours = placement_resultat.trace_parcourue(resultat, trace)
 
     assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01), (
         f"parcours de {parcours.distance_m:.0f} m pour une séance placée sur "
@@ -1131,7 +1131,7 @@ def test_un_parcours_sans_demi_tour_redonne_le_trace(monkeypatch):
 
     assert resultat is not None
     assert [e.demi_tour for e in resultat.blocs()] == [False, False]
-    parcours = placement.trace_parcourue(resultat, trace)
+    parcours = placement_resultat.trace_parcourue(resultat, trace)
     assert parcours.distance_m == pytest.approx(trace.distance_m, rel=0.001)
     assert parcours.distance_m == pytest.approx(resultat.distance_totale_m, rel=0.01)
 
@@ -1146,7 +1146,7 @@ def test_un_placement_sans_jalons_rend_le_trace_tel_quel(monkeypatch):
         duree_totale_s=0.0,
         distance_totale_m=0.0,
     )
-    assert placement.trace_parcourue(nu, trace) is trace
+    assert placement_resultat.trace_parcourue(nu, trace) is trace
 
 
 # --- refus ----------------------------------------------------------------------
@@ -1452,8 +1452,8 @@ def test_un_vent_inconnu_ne_vaut_pas_un_vent_nul(monkeypatch):
 )
 def test_le_vent_sarrondit_au_quart_de_metre_par_seconde(brut: float, attendu: float):
     """Sans arrondi, aucune clé de cache ne serait jamais réutilisée."""
-    assert placement._arrondir_vent(brut) == pytest.approx(attendu)
-    assert str(placement._arrondir_vent(brut))[0] != "-" or attendu < 0
+    assert pas_trace._arrondir_vent(brut) == pytest.approx(attendu)
+    assert str(pas_trace._arrondir_vent(brut))[0] != "-" or attendu < 0
 
 
 def test_la_cle_de_memoisation_porte_le_vent():

@@ -1,6 +1,6 @@
 """La validation de la calibration : resimuler des sorties jamais vues, mesurer leur erreur.
 
-Sorti de physique/calibration.py, qui réexporte ces noms. Physique pure
+Sorti de physique/calibration.py. Physique pure
 comme lui ; mêmes calculs, dans le même ordre, avant et après le déplacement.
 """
 

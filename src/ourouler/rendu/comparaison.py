@@ -1,6 +1,6 @@
 """Rendu de `ourouler comparer` : le texte et le JSON d'une `Comparaison`.
 
-Sorti de `rendu/physique.py`, qui le réexporte. Aucun accès disque ni réseau,
+Sorti de `rendu/physique.py`. Aucun accès disque ni réseau,
 aucune lecture de configuration ; texte et JSON figés par
 `tests/caracterisation/cli_comparer.json`.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from ourouler.physique.calibration import LONGUEUR_ECHANTILLON_M
+from ourouler.physique.echantillonnage import LONGUEUR_ECHANTILLON_M
 from ourouler.services.comparer import SERIES_MIN_BANDE, SERIES_MIN_REGRESSION, Bande, Comparaison
 
 # --- ourouler comparer ---------------------------------------------------------

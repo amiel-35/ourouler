@@ -19,13 +19,11 @@ import pytest
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.config import depuis_dict
-from ourouler.connecteurs.openmeteo_archive import HeureArchive
 from ourouler.noyau.activite import Activite, Point
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.meteo import HeureArchive
 from ourouler.physique.calibration import (
     CDA_MAX,
-    DELTA_V_MAX_MS,
-    LONGUEUR_ECHANTILLON_M,
     MASSE_VELO_DEFAUT_KG,
     Echantillon,
     Parametres,
@@ -36,10 +34,9 @@ from ourouler.physique.calibration import (
     echantillonner,
     motif_multisport,
     partager,
-    puissance_moyenne_en_mouvement,
-    temps_mouvement_s,
     valider,
 )
+from ourouler.physique.echantillonnage import DELTA_V_MAX_MS, LONGUEUR_ECHANTILLON_M
 from ourouler.physique.modele import (
     FACTEUR_VENT_HAUTEUR,
     RHO_DEFAUT,
@@ -47,6 +44,7 @@ from ourouler.physique.modele import (
     vent_au_cycliste,
     vitesse_regime,
 )
+from ourouler.physique.validation import puissance_moyenne_en_mouvement, temps_mouvement_s
 from ourouler.services.calibrer import (
     masse_totale_kg,
     motif_exclusion,
@@ -1172,14 +1170,15 @@ def test_le_vent_le_long_prend_le_point_le_plus_proche_comme_avant():
     """La dichotomie de `vent_le_long` rend le même instant que l'ancien
     parcours linéaire (premier point le plus proche), y compris aux égalités
     et aux distances répétées d'un arrêt."""
-    from ourouler.physique import calibration as calib
+    from ourouler.physique import echantillonnage
+    from ourouler.physique.validation import vent_le_long
 
     activite = sortie_synthetique(duree_s=300)
     # Un arrêt : trois points à la même distance.
     for p in activite.points[100:103]:
         p.dist_m = activite.points[100].dist_m
     points = [p for p in activite.points if p.t is not None]
-    distances = calib._distances_points(points)
+    distances = echantillonnage._distances_points(points)
     # Un vent qui change d'heure en heure, pour que l'instant choisi se voie.
     heures = [
         HeureArchive(
@@ -1188,13 +1187,13 @@ def test_le_vent_le_long_prend_le_point_le_plus_proche_comme_avant():
         )
         for h in range(24)
     ]
-    face = calib.vent_le_long(activite, heures)
+    face = vent_le_long(activite, heures)
     milieu = (distances[10] + distances[11]) / 2
     for d in [0.0, distances[100], distances[100] + 0.001, milieu, distances[-1], 1e9]:
         attendu = min(range(len(distances)), key=lambda k: abs(distances[k] - d))
         instant = points[attendu].t
         assert face(d, 90.0) == pytest.approx(
-            calib._vent_de_face(calib._interpoler_archive(heures, instant), 90.0)
+            echantillonnage._vent_de_face(echantillonnage._interpoler_archive(heures, instant), 90.0)
         )
 
 

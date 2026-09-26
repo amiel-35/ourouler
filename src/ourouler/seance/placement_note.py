@@ -1,6 +1,6 @@
 """La note d'un placement : pénalité des extrémités élastiques et note de terrain pondérée.
 
-Sorti de `seance/placement.py`, qui réexporte ces noms. Mêmes calculs, même
+Sorti de `seance/placement.py`. Mêmes calculs, même
 ordre des sommes et des comparaisons qu'avant le déplacement.
 """
 

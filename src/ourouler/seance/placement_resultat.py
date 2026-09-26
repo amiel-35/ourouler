@@ -1,6 +1,6 @@
 """Ce que le placement rend : `Emplacement`, `Placement`, et la trace réellement parcourue.
 
-Sorti de `seance/placement.py`, qui réexporte ces noms : le résultat d'un
+Sorti de `seance/placement.py` : le résultat d'un
 placement et sa relecture sur le tracé (`trace_parcourue`), sans rien du
 déroulé qui l'a produit.
 """

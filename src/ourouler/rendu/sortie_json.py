@@ -1,6 +1,6 @@
 """Le JSON de `ourouler sortie` : le contrat que lit le front.
 
-Sorti de `rendu/sortie.py`, qui réexporte `rendre_json`. Mêmes règles que
+Sorti de `rendu/sortie.py`. Mêmes règles que
 lui : aucun fichier, aucune configuration, aucune horloge ; la forme est
 figée par `tests/caracterisation` et `tests/api/test_contrat_openapi.py`.
 """

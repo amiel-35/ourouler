@@ -48,13 +48,13 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.noyau.trace import distance_m as distance_points
-from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.physique.modele import Parametres
 from ourouler.rendu import carte
 from ourouler.rendu.boucle import ligne_temps_ecoule
 from ourouler.rendu.carte import COULEURS_BLOCS
-from ourouler.rendu.sortie import _ecart_seance, _ligne_modele_meteo, rendre_json, rendre_texte
+from ourouler.rendu.sortie import _ecart_seance, _ligne_modele_meteo, rendre_texte
+from ourouler.rendu.sortie_json import rendre_json
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
@@ -68,6 +68,7 @@ from ourouler.sortie.commande import (
     _notes_egales,
     _seance,
 )
+from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
