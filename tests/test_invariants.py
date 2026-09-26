@@ -1,7 +1,7 @@
 """Invariants de doctrine, vérifiés sur le code source lui-même.
 
-Règle absolue 2 de CLAUDE.md : sous `src/ourouler/`, seuls `cli.py` et
-`config.py` ont le droit de toucher un fichier de configuration, une
+Règle absolue 2 de CLAUDE.md : sous `src/ourouler/`, seuls le paquet `cli/`
+et `config.py` ont le droit de toucher un fichier de configuration, une
 variable d'environnement ou un chemin utilisateur. Plutôt que de faire
 confiance à la relecture, on le mesure.
 """
@@ -43,10 +43,14 @@ def _generateur():
 
 
 #: Modules autorisés à lire l'environnement d'exécution.
-AUTORISES = {"cli.py", "config.py"}
+AUTORISES = {"config.py"}
+
+#: Le paquet de la ligne de commande, autorisé en entier : un **dossier**
+#: directement sous `src/ourouler/`, pas un nom de fichier.
+PAQUETS_AUTORISES = {"cli"}
 
 #: **La porte que l'API ouvre, et elle seule** (lot F1). L'API est une couche
-#: d'exploitation, comme `cli.py` : elle a le droit de lire la configuration
+#: d'exploitation, comme `cli/` : elle a le droit de lire la configuration
 #: et l'environnement. Ce droit est donné à **un chemin**, pas à un nom de
 #: fichier, et à un seul module du paquet — les routes, les dépôts et la
 #: traduction d'erreurs restent soumis à la règle absolue 2.
@@ -60,7 +64,9 @@ def modules_du_coeur() -> list[Path]:
     return sorted(
         p
         for p in SOURCES.rglob("*.py")
-        if p.name not in AUTORISES and p.relative_to(SOURCES).as_posix() not in CHEMINS_AUTORISES
+        if p.name not in AUTORISES
+        and p.relative_to(SOURCES).parts[0] not in PAQUETS_AUTORISES
+        and p.relative_to(SOURCES).as_posix() not in CHEMINS_AUTORISES
     )
 
 
@@ -306,7 +312,7 @@ def test_le_coeur_ne_lit_pas_son_environnement(module: Path):
     source = module.read_text(encoding="utf-8")
     for interdit in INTERDITS:
         assert interdit not in source, (
-            f"{module.relative_to(SOURCES)} touche « {interdit} » : seuls cli.py et config.py en ont le droit"
+            f"{module.relative_to(SOURCES)} touche « {interdit} » : seuls cli/ et config.py en ont le droit"
         )
 
 
@@ -330,11 +336,11 @@ PAQUETS_DE_COMMANDE = ("meteo", "boucle", "sortie")
 
 @pytest.mark.parametrize("paquet", PAQUETS_DE_COMMANDE)
 def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
-    """F0.7 : l'adresse devient un `Depart` dans `cli.py`, et nulle part ailleurs.
+    """F0.7 : l'adresse devient un `Depart` dans `cli/`, et nulle part ailleurs.
 
     Le connecteur de géocodage sort sur le réseau et interprète une saisie
     d'utilisateur : le cœur, qui ne sait pas où il tourne (règle absolue 2),
-    reçoit le point déjà choisi. Seuls `cli.py` et le paquet `geocodage`
+    reçoit le point déjà choisi. Seuls `cli/` et le paquet `geocodage`
     (qui sert la sous-commande dédiée) ont le droit de l'importer.
     """
     for module in sorted((SOURCES / paquet).rglob("*.py")):
@@ -347,7 +353,7 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
                 depuis = " ".join(alias.name for alias in noeud.names)
             assert depuis is None or "geocodage" not in depuis, (
                 f"{module.relative_to(SOURCES)} importe le géocodage : "
-                "seul cli.py résout une adresse, le cœur reçoit un Depart"
+                "seul cli/ résout une adresse, le cœur reçoit un Depart"
             )
 
 

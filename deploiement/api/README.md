@@ -173,7 +173,7 @@ reste donc un geste de l'exploitant, en ligne de commande — comme
 
 La table complète, vérifiée contre le code : chaque variable, qui la lit, et
 ce qu'elle vaut quand elle est absente. En dehors de `deploiement/`, seuls
-`src/ourouler/cli.py`, `src/ourouler/config.py` et
+`src/ourouler/cli/`, `src/ourouler/config.py` et
 `src/ourouler/api/exploitation.py` lisent l'environnement
 (`tests/test_invariants.py`). Une variable **vide** vaut une variable
 absente partout où c'est précisé, parce que Coolify transmet vides les
@@ -187,9 +187,9 @@ variables déclarées sans valeur.
 | `OUROULER_DATABASE_URL` | `api/exploitation.url_base_de_donnees` (serveur et commandes de comptes) | pas de base : en `heberge`, aucune session, tout répond 401 ; les commandes de comptes refusent | URL PostgreSQL des comptes, invitations et sessions ; vide vaut absente |
 | `OUROULER_CONFIG` | `api/exploitation.chemin_config` (serveur, et `ourouler` quand `--config` est absent) ; `deploiement/api/entrypoint.py` | `~/.config/ourouler/config.toml` ; `/config/config.toml` dans l'image | le fichier TOML servi |
 | `OUROULER_CONFIG_TOML_B64` | `deploiement/api/entrypoint.py` | rien n'est écrit | le TOML encodé en base64, écrit à `OUROULER_CONFIG` avant le démarrage |
-| `OUROULER_SERVICE` | `api/exploitation.chemin_service`, `cli.py` (`_charger_service`) ; `deploiement/api/entrypoint.py` | `~/.config/ourouler/service.toml` ; `/config/service.toml` dans l'image | le fichier des réglages du service : relais SMTP `[brevo]`, `[quotas]` |
+| `OUROULER_SERVICE` | `api/exploitation.chemin_service`, `cli/comptes.py` (`_charger_service`) ; `deploiement/api/entrypoint.py` | `~/.config/ourouler/service.toml` ; `/config/service.toml` dans l'image | le fichier des réglages du service : relais SMTP `[brevo]`, `[quotas]` |
 | `OUROULER_SERVICE_TOML_B64` | `deploiement/api/entrypoint.py` | rien n'est écrit | `service.toml` encodé en base64, écrit à `OUROULER_SERVICE` |
-| `OUROULER_URL_PUBLIQUE` | `cli.py` (`_url_publique`) : `inviter`, `invitations`, `reinitialiser` | la commande refuse | l'URL publique du front, devant laquelle `/entrer?jeton=…` s'ouvre ; vide vaut absente |
+| `OUROULER_URL_PUBLIQUE` | `cli/comptes.py` (`_url_publique`) : `inviter`, `invitations`, `reinitialiser` | la commande refuse | l'URL publique du front, devant laquelle `/entrer?jeton=…` s'ouvre ; vide vaut absente |
 | `OUROULER_API_CHEMIN` | `api/exploitation.chemin_api` | `ancien` | `ancien`, `nouveau` ou `double` : par quel chemin l'API appelle le cœur (`ARCHITECTURE.md` §4) ; toute autre valeur refuse le démarrage |
 | `OUROULER_FRONT_DIST` | `api/exploitation.dossier_front` | l'API ne sert que `/api/v1` | le dossier du front construit ; l'image la pose à `/app/front/dist` (`deploiement/api/Dockerfile`) |
 | `OUROULER_HOTE` | `deploiement/api/entrypoint.py` | `0.0.0.0` | l'adresse d'écoute d'uvicorn dans le conteneur |

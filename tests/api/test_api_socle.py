@@ -209,7 +209,7 @@ def test_aucune_route_n_ouvre_de_connexion_reelle():
 def test_l_api_ne_lit_pas_l_environnement_hors_de_sa_bordure():
     """Protège la règle absolue 2 : « le cœur ne sait pas où il tourne ».
 
-    `CLAUDE.md` n'autorise que `cli.py` et `config.py` à lire un TOML, une
+    `CLAUDE.md` n'autorise que `cli/` et `config.py` à lire un TOML, une
     variable d'environnement ou un chemin utilisateur. Une API a besoin d'une
     bordure équivalente (port, URL de base, secrets d'hébergement) : ce test
     exige qu'elle soit **unique et nommée** — un seul fichier de composition —

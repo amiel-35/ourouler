@@ -626,7 +626,7 @@ class DepotComptes:
     # un courriel) et un oracle d'énumération (la réponse dirait si l'adresse
     # a un compte, comme `ErreurCompteExistant` le documente déjà pour
     # `inviter`). Seul l'exploitant, en ligne de commande
-    # (`ourouler reinitialiser`), émet ce lien — voir `cli.py` et
+    # (`ourouler reinitialiser`), émet ce lien — voir `cli/` et
     # `deploiement/api/README.md`.
 
     def reinitialiser(

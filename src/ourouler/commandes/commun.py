@@ -35,7 +35,7 @@ def contexte(
     """Le contexte d'un service, depuis la `Config` chargée par l'entrée.
 
     `lieu_depart` est le point de départ de **cette** exécution, déjà tranché
-    (`--adresse-depart` géocodée par `cli.lieu_depart`, ou les coordonnées
+    (`--adresse-depart` géocodée par `cli.depart.lieu_depart`, ou les coordonnées
     choisies sur la carte par l'API). Il remplace celui de la configuration
     dans le profil, qui est gelé : `replace` rend une copie, la configuration
     de l'appelant n'est pas touchée.

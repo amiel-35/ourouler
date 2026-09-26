@@ -9,7 +9,7 @@ clé dédiée à son relais SMTP — voir `service.example.toml`, section `[brev
 **Ce module ne lit ni fichier ni variable d'exécution** (le cœur ne lit ni
 configuration ni environnement) : il
 reçoit ses paramètres déjà résolus — `ParametresBrevo` — construits par
-`cli.py` à partir du fichier de secrets du service. `tests/test_invariants.py`
+`cli/` à partir du fichier de secrets du service. `tests/test_invariants.py`
 vérifie que ce module n'a pas cette permission ; lui en écrire une reviendrait
 à rouvrir la porte que la doctrine tient fermée.
 
@@ -75,7 +75,7 @@ def parametres_brevo_depuis_dict(brut: dict) -> ParametresBrevo:
 
     Lève `ErreurCourriel`, avec les champs manquants ou vides **nommés**, plutôt qu'un
     `KeyError` sur le premier accès. Ce n'est pas ici que le fichier s'ouvre — c'est
-    `cli.py` qui le lit et qui appelle cette fonction avec le dictionnaire obtenu (règle
+    `cli/` qui le lit et qui appelle cette fonction avec le dictionnaire obtenu (règle
     absolue 2) : cette fonction-ci est pure, elle ne touche qu'à ce qu'on lui donne.
     """
     section = brut.get("brevo") if isinstance(brut, dict) else None

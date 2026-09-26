@@ -76,13 +76,14 @@ IGNORES: dict[str, frozenset[str]] = {
             "api/client.ts",
             "api/routes.py",
             "boucle/trace.py",
+            "cli.py",
             "CLAUDE.local.md",
         }
     ),
 }
 
 #: Un chemin court est cherché à la racine, puis dans le paquet Python et le
-#: front (`cli.py`, `activites/` comme modules de `src/ourouler/` ;
+#: front (`cli/`, `activites/` comme modules de `src/ourouler/` ;
 #: `api/client.ts` comme module de `front/src/`).
 BASES = (RACINE, RACINE / "src" / "ourouler", RACINE / "front" / "src")
 

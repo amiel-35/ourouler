@@ -59,7 +59,7 @@ COPY --from=front /front/dist ./front/dist
 ENV PATH="/app/.venv/bin:${PATH}"
 # Le dossier que `application()` monte à la racine (`api/exploitation.py`,
 # `VARIABLE_FRONT_DIST`) — posé ici, pas dans le code : c'est une donnée du
-# déploiement, la même distinction qu'entre `cli.py` et le cœur.
+# déploiement, la même distinction qu'entre `cli/` et le cœur.
 ENV OUROULER_FRONT_DIST=/app/front/dist
 
 # La sonde ne demande aucune session : c'est ce qui la rend

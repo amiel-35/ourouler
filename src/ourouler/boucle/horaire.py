@@ -9,7 +9,7 @@ quelqu'un qui passera à 14 h.
 
 Ce module porte ce que `evaluer` reçoit maintenant à la place de `depart` et
 `vitesse_kmh` : un `Horaire`, la fonction « à quelle heure suis-je au
-kilomètre X », construite par l'appelant (`cli.py`/`boucle.commande` ou
+kilomètre X », construite par l'appelant (`cli/`/`boucle.commande` ou
 `physique.commande`) et reçue telle quelle — le cœur ne lit ni configuration
 ni ligne de commande (le cœur ne lit ni configuration ni environnement).
 

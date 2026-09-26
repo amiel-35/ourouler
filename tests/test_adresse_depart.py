@@ -6,7 +6,7 @@ Deux choses distinctes sont vérifiées ici :
    `sortie` interrogent bien le point qu'on leur donne, et non celui de la
    configuration — la couronne météo et les appels BRouter se déplacent
    entièrement.
-2. **`cli.py` géocode et tranche**, lui seul : l'adresse ambiguë (le cas
+2. **`cli/` géocode et tranche**, lui seul : l'adresse ambiguë (le cas
    normal), l'adresse introuvable qui ne retombe jamais sur le départ
    configuré, et l'heure de départ qui n'est pas le lieu.
 
@@ -29,6 +29,7 @@ import pytest
 from test_brouter import reponse_fabriquee  # même dossier : pytest y met le sys.path
 
 from ourouler import cli
+from ourouler.cli import depart as cli_depart
 from ourouler.config import Config, Depart, depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
@@ -395,7 +396,7 @@ def test_une_adresse_de_depart_avec_un_gpx_importe_est_refusee(tmp_path, monkeyp
     autant. On refuse, et on dit pourquoi.
     """
     monkeypatch.setattr(
-        cli,
+        cli_depart,
         "chercher_adresse",
         lambda *a, **k: pytest.fail("aucun géocodage ne doit avoir lieu"),
     )
@@ -425,10 +426,10 @@ def test_une_adresse_de_depart_avec_un_gpx_importe_est_refusee(tmp_path, monkeyp
 def test_l_adresse_introuvable_sort_en_code_2_sans_trace_python(tmp_path, monkeypatch, capsys):
     """De bout en bout : `main` affiche une ligne et rend 2, jamais une trace.
 
-    Le géocodage est remplacé dans `cli` (aucun réseau) ; ce qui est mesuré
+    Le géocodage est remplacé dans `cli.depart` (aucun réseau) ; ce qui est mesuré
     ici est le chemin d'erreur de la ligne de commande, pas le connecteur.
     """
-    monkeypatch.setattr(cli, "chercher_adresse", lambda *a, **k: [])
+    monkeypatch.setattr(cli_depart, "chercher_adresse", lambda *a, **k: [])
     config = tmp_path / "config.toml"
     config.write_text(
         '[depart]\nnom = "Point zéro"\nlatitude = 0.0\nlongitude = 0.0\n'

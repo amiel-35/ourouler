@@ -10,7 +10,7 @@ chaque sous-commande, un module de ce paquet :
 3. appelle le service (couche 3), qui rend un résultat sans rien imprimer ;
 4. appelle le rendu (texte ou JSON selon `--json`) et l'imprime.
 
-`cli.py` appelle ces fonctions. L'API a deux chemins
+`cli/` appelle ces fonctions. L'API a deux chemins
 (`api/double_chemin.py`) : l'ancien construit un `Namespace` et capture la
 sortie standard (`api/adaptateur.py`) ; le nouveau (`api/calculs.py`)
 appelle les pièces sans impression de ce paquet — `interpreter(...)` sur les

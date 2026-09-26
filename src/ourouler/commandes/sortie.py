@@ -58,7 +58,7 @@ def executer_depuis_namespace(
     """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant (`cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant (`cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API). Il remplace celui de la configuration dans le profil que
     reçoit le service : la question du vent, la génération des candidates,
     les en-têtes de texte, la carte et le JSON lisent tous ce départ-là.

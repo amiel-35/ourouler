@@ -21,7 +21,7 @@ un lot n'est fini que lorsqu'une commande tourne sur *ses* vraies données.
 en dur, une variable d'environnement, un fichier `~/.config` : elle reçoit un
 objet de configuration (point de départ, cycliste, vélos, clés) et des
 connecteurs. Seules les entrées savent lire un fichier de configuration ou
-l'environnement : la ligne de commande (`cli.py`, `config.py`) et, pour
+l'environnement : la ligne de commande (`cli/`, `config.py`) et, pour
 l'API, `api/exploitation.py` (`tests/test_invariants.py`). Raison : le graal
 à terme est un service hébergé où d'autres cyclistes se créent un compte,
 renseignent leur profil et importent leurs données. On s'interdit ce qui le
@@ -96,7 +96,7 @@ ni Garmin Connect, dessinés ici au cadrage, ne sont branchés.*
   avec les fichiers bruts tels que reçus, et un index **SQLite** (stdlib)
   pour retrouver une activité par date, vélo, source. Pas d'ORM.
 - **Configuration** : un fichier **TOML** (`tomllib`, stdlib) lu par les
-  entrées seulement (`cli.py`, `config.py`, `api/exploitation.py`), plus
+  entrées seulement (`cli/`, `config.py`, `api/exploitation.py`), plus
   `service.toml` pour les réglages du service hébergé ;
   `config.example.toml` et `service.example.toml` versionnés, les vrais
   fichiers ignorés.
@@ -119,7 +119,7 @@ ourouler/
 ├── service.example.toml       ← modèle des réglages du service hébergé
 ├── docs/                      ← documents relus ; docs/journal/ : le matériau brut
 ├── src/ourouler/
-│   ├── cli.py, config.py      ← entrées : argparse, lecture TOML et environnement
+│   ├── cli/, config.py        ← entrées : argparse, lecture TOML et environnement
 │   ├── commandes/             ← du Namespace à la Demande, puis au rendu imprimé
 │   ├── api/                   ← FastAPI, comptes, dépôts par propriétaire
 │   ├── rendu/                 ← texte, JSON, carte HTML

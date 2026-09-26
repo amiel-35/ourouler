@@ -2,7 +2,7 @@
 """Point d'entrée du conteneur qui sert l'API et le front.
 
 Ce script est **hors** de `src/ourouler/` : ce n'est pas le cœur, c'est la
-couche d'exploitation du paquetage, au même titre que `cli.py` pour l'usage
+couche d'exploitation du paquetage, au même titre que `cli/` pour l'usage
 interactif et que `deploiement/generateur/entrypoint.py` pour le générateur
 de la page du jour. Il a donc le droit de lire l'environnement — rien de tout
 cela n'entre dans `src/ourouler/`, où « le cœur ne lit ni configuration ni environnement »
@@ -39,7 +39,7 @@ CONFIG_TOML_B64 = os.environ.get("OUROULER_CONFIG_TOML_B64", "")
 #: Le fichier des secrets **du service** — aujourd'hui le relais SMTP qui
 #: porte les invitations. Distinct de `config.toml`, qui est le profil d'un
 #: cycliste : celui-ci appartient au serveur et ne concerne personne en
-#: particulier. Même chemin que celui que `cli.py` cherche par défaut, pour
+#: particulier. Même chemin que celui que `cli/` cherche par défaut, pour
 #: que `ourouler inviter` le trouve sans rien lui dire.
 CHEMIN_SERVICE = os.environ.get("OUROULER_SERVICE", "/config/service.toml")
 

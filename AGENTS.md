@@ -31,7 +31,7 @@ Tout est sous `src/ourouler/` ; le détail et la règle d'imports sont dans
 `ARCHITECTURE.md`. Les dépendances vont des entrées vers le noyau, jamais
 l'inverse :
 
-- entrées : `src/ourouler/cli.py`, `src/ourouler/commandes/` (une par
+- entrées : `src/ourouler/cli/`, `src/ourouler/commandes/` (une par
   sous-commande : du `Namespace` à la `Demande`, puis au rendu imprimé),
   `src/ourouler/config.py` (lecture du TOML et de l'environnement),
   `src/ourouler/api/` (FastAPI, comptes PostgreSQL) ;
@@ -57,7 +57,7 @@ l'inverse :
    jamais commitée ; `config.example.toml` et `service.example.toml` le sont.
 2. **Pas de réseau dans les tests.** Chaque connecteur prend un client HTTP
    injectable ; les tests rejouent des réponses de `tests/fixtures/`.
-3. **Le cœur ne lit ni configuration ni environnement.** Seuls `cli.py`,
+3. **Le cœur ne lit ni configuration ni environnement.** Seuls `cli/`,
    `config.py` et `src/ourouler/api/exploitation.py` lisent un fichier de
    configuration, une variable d'environnement ou un chemin utilisateur ; le
    reste reçoit des objets. `tests/test_invariants.py` le mesure.

@@ -42,7 +42,7 @@ Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 * La physique est pure : hors `commande.py`, `physique/` n'importe ni
   `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`
   (`test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`).
-* `cli.py` importe des modules de `api/` (serveur, dépôt des comptes, client
+* `cli/` importe des modules de `api/` (serveur, dépôt des comptes, client
   SMTP, environnement de l'hébergé) pour construire les dépendances qu'il passe
   aux services : ce sont des arêtes d'une entrée à une autre, sans cycle, donc
   permises.
@@ -232,6 +232,11 @@ MODULES: dict[str, str] = {
     # 5. entrées
     "ourouler.config": "config",
     "ourouler.cli": "cli",
+    "ourouler.cli.__main__": "cli",
+    "ourouler.cli.comptes": "cli",
+    "ourouler.cli.depart": "cli",
+    "ourouler.cli.options": "cli",
+    "ourouler.cli.parseur": "cli",
     # du `Namespace` à la `Demande`, puis au rendu imprimé
     "ourouler.commandes": "commandes",
     "ourouler.commandes.boucle": "commandes",
@@ -304,11 +309,11 @@ REEXPORTS: dict[str, str] = {}
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
-    # Les annotations des adaptateurs de comptes : `cli.py` reste importable sans
-    # le pilote PostgreSQL, que `services/comptes.py` tire.
-    ("ourouler.cli", "ourouler.api.comptes"),
-    ("ourouler.cli", "ourouler.api.courriel"),
-    ("ourouler.cli", "ourouler.services.comptes"),
+    # Les annotations des adaptateurs de comptes : `cli/comptes.py` reste importable
+    # sans le pilote PostgreSQL, que `services/comptes.py` tire.
+    ("ourouler.cli.comptes", "ourouler.api.comptes"),
+    ("ourouler.cli.comptes", "ourouler.api.courriel"),
+    ("ourouler.cli.comptes", "ourouler.services.comptes"),
     # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
     # l'entrée qui la charge ; celui des parcours de même.
     ("ourouler.rendu.profil", "ourouler.config"),
@@ -525,7 +530,7 @@ def test_chaque_module_a_sa_place():
 def test_les_paquets_a_venir_sont_bien_a_venir():
     """Quand un lot crée `noyau/` ou `services/`, la table doit le dire."""
     for nom, (_, existe) in PAQUETS.items():
-        if nom in ("config", "cli"):
+        if nom == "config":
             assert (SOURCES / f"{nom}.py").exists()
             continue
         assert (SOURCES / nom).is_dir() == existe, f"{nom}/ : « existe={existe} » ne dit plus vrai"

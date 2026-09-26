@@ -39,7 +39,7 @@ def executer_depuis_namespace(
     """Exécute `ourouler boucle`. Renvoie le code de sortie (0 = succès).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant (`cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant (`cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API). Il remplace celui de la configuration **avant** la
     lecture des options : la génération des candidates,
     les en-têtes de texte et le JSON lisent tous le départ du profil, et un

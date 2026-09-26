@@ -155,7 +155,7 @@ def ambiguite(candidats: list[Candidat]) -> Ambiguite | None:
     **Ce dont cette règle dépend, et qui doit être dit** : du nombre de
     candidats demandés au service. Demander vingt candidats au lieu de cinq
     fait apparaître des communes lointaines et mal notées, donc refuse plus
-    souvent. L'appelant qui tranche (`cli.lieu_depart`) demande toujours
+    souvent. L'appelant qui tranche (`cli.depart.lieu_depart`) demande toujours
     `LIMITE_DEFAUT`, c'est ce qui rend la règle reproductible.
     """
     if not candidats:

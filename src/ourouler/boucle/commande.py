@@ -216,7 +216,7 @@ def executer(
     roulé (décision Q58, voir `activites/commande.executer`).
 
     Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
-    celui de **cette** exécution (`--adresse-depart` géocodée par `cli.py`, ou
+    celui de **cette** exécution (`--adresse-depart` géocodée par `cli/`, ou
     les coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit
     aucune adresse et ne sait pas d'où vient ce point (le cœur ne lit ni configuration ni environnement). À ne
     pas confondre avec `demande.depart`, qui porte une **heure**.
@@ -225,7 +225,7 @@ def executer(
     appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
     autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
     connue est informative et n'entre dans aucun score — mais elle tombera
-    naturellement à zéro loin de chez soi. `cli.py` le dit sur la sortie
+    naturellement à zéro loin de chez soi. `cli/` le dit sur la sortie
     d'erreur plutôt que de laisser croire à un tracé
     inédit.
     """

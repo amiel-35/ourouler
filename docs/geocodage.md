@@ -100,7 +100,7 @@ sans être avalée.
   (`src/ourouler/geocodage/commande.py`) expose le connecteur sans jamais
   trancher entre les candidats — exactement la forme que la route d'API
   reprend telle quelle.
-- **`--adresse-depart`** existe sur `meteo`, `boucle` et `sortie` : `cli.py`
+- **`--adresse-depart`** existe sur `meteo`, `boucle` et `sortie` : `cli/`
   résout l'adresse en un `Depart` et le passe au cœur, qui ne géocode
   toujours rien.
 - **Une adresse ambiguë est refusée** : mieux vaut refuser que retenir un
@@ -128,7 +128,7 @@ sans être avalée.
   il ne l'est pas pour tracer une boucle.
 - **`ambiguite()` dépend du nombre de candidats demandé.** Demander vingt
   candidats au lieu de cinq fait apparaître des communes lointaines et mal
-  notées, donc refuse plus souvent. `cli.lieu_depart` demande toujours
+  notées, donc refuse plus souvent. `cli.depart.lieu_depart` demande toujours
   `LIMITE_DEFAUT` ; `ourouler geocoder --max` et la route d'API laissent le
   choix, et c'est assumé — ni l'un ni l'autre ne refuse quoi que ce soit.
 - **La migration `api-adresse.data.gouv.fr` → `data.geopf.fr`** n'a pas de

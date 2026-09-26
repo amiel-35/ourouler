@@ -1,6 +1,6 @@
 """L'API HTTP d'`ourouler`.
 
-**Une couche d'exploitation, comme `cli.py`** : elle a le droit de lire la
+**Une couche d'exploitation, comme `cli/`** : elle a le droit de lire la
 configuration et l'environnement, le cœur non (règle « le cœur ne lit ni
 configuration ni environnement » d'`AGENTS.md`). Dans ce paquet, un seul module y touche — `exploitation.py` —
 et un invariant le vérifie (`tests/test_invariants.py`).
@@ -8,7 +8,7 @@ et un invariant le vérifie (`tests/test_invariants.py`).
 Ce qu'elle expose est **ce que la ligne de commande sait déjà rendre en
 JSON** (`doctrine_architecture.md` §10.2 : « L'API expose ce que la CLI sait
 déjà rendre en JSON ; le front la consomme »). Elle ne recalcule rien
-elle-même : elle appelle les mêmes fonctions `executer(...)` que `cli.py`,
+elle-même : elle appelle les mêmes fonctions `executer(...)` que `cli/`,
 avec les mêmes clients injectables, et rend leur JSON tel quel — voir
 `adaptateur.py` pour le pourquoi de ce choix et son prix.
 

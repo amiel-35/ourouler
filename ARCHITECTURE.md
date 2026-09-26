@@ -17,7 +17,7 @@ carte de vérification.
 
 **Deux entrées :**
 
-- **La ligne de commande** `ourouler` (`src/ourouler/cli.py`, argparse) :
+- **La ligne de commande** `ourouler` (`src/ourouler/cli/`, argparse) :
   `config`, `inventaire`, `meteo`, `boucle`, `routes`, `calibrer`,
   `simuler`, `analyser`, `comparer`, `seance`, `sortie`, `geocoder`, `api`,
   et les commandes d'administration des comptes (`inviter`, `invitations`,
@@ -75,7 +75,7 @@ Tout est sous `src/ourouler/`.
 
 | Paquet | Rôle | Fichiers principaux |
 |---|---|---|
-| `cli.py` | argparse (le parseur), lecture de la config, `--adresse-depart`, codes de sortie, appel des commandes ; construit aussi les dépendances des commandes de comptes | `cli.py` |
+| `cli/` | argparse (le parseur), lecture de la config, `--adresse-depart`, codes de sortie, appel des commandes ; construit aussi les dépendances des commandes de comptes | `__init__.py` (`main`), `parseur.py`, `options.py`, `depart.py`, `comptes.py` |
 | `commandes/` | une entrée par sous-commande : lit le `Namespace`, construit la `Demande` du service (`interpreter`) et son `Contexte` depuis la `Config`, appelle le service puis le rendu, et imprime. `executer_depuis_namespace` sert aussi l'**ancien chemin** de l'API (§4) | `sortie.py`, `boucle.py`, `physique.py`, `comparer.py`, `commun.py` |
 | `config.py` | `Config` (le profil du noyau plus `ParametresCache`) ; chargement TOML et environnement | `config.py` |
 | `noyau/` | types partagés, bibliothèque standard seulement : le tracé `Trace`, le modèle `Activite`, les exceptions communes, la constante du propriétaire local, le modèle de séance et les zones, les types de prévision météo, le profil du cycliste (`Velo`, `Depart`, les paramètres…), les protocoles que le domaine reçoit à la place des clients HTTP (`Routeur`, `SourcePrevisions`, `SourceSeances`) et celui où le connecteur Intervals range ses sorties (`DepotActivites`), et de petites aides partagées (lecture de fichiers, structure SQLite, nombres à la française) | `activite.py`, `trace.py`, `erreurs.py`, `proprietaire.py`, `seance.py`, `zones.py`, `meteo.py`, `profil.py`, `ports.py`, `lecture.py`, `sqlite.py`, `texte.py` |
@@ -123,7 +123,7 @@ Postgres).
 
 | Invariant | Où il est vérifié |
 |---|---|
-| **Le cœur ne sait pas où il tourne.** Seuls `cli.py`, `config.py` et `api/exploitation.py` lisent l'environnement, `tomllib` ou le dossier de l'utilisateur. | `tests/test_invariants.py` (`test_le_coeur_ne_lit_pas_son_environnement`, `test_le_coeur_n_importe_pas_tomllib`, `test_seul_le_module_d_exploitation_de_l_api_lit_l_environnement`) ; `tests/adversarial/test_adv_invariants.py` |
+| **Le cœur ne sait pas où il tourne.** Seuls `cli/`, `config.py` et `api/exploitation.py` lisent l'environnement, `tomllib` ou le dossier de l'utilisateur. | `tests/test_invariants.py` (`test_le_coeur_ne_lit_pas_son_environnement`, `test_le_coeur_n_importe_pas_tomllib`, `test_seul_le_module_d_exploitation_de_l_api_lit_l_environnement`) ; `tests/adversarial/test_adv_invariants.py` |
 | **Les routes ne chargent jamais la configuration elles-mêmes.** | `tests/test_invariants.py` (`test_les_routes_ne_chargent_jamais_la_configuration_elles_memes`) |
 | **Le cœur ne géocode pas** : `meteo`, `boucle` et `sortie` reçoivent un point déjà choisi. | `tests/test_invariants.py` (`test_le_coeur_ne_geocode_jamais_lui_meme`) |
 | **Pas de réseau en test.** Clients HTTP injectables ; toute connexion vers une adresse non locale coupée par une fixture automatique de `tests/conftest.py`, pour toute la suite ; aucun `httpx.Client` sans transport bouchonné. | `tests/conftest.py` (`reseau_interdit`), `tests/test_garde_reseau.py`, `tests/test_invariants.py` (`test_aucun_test_ne_cree_un_client_http_sans_transport_bouchonne`) |
@@ -166,7 +166,7 @@ l'ancien chemin.
 **Le cycle entre `api` et `cli` est rompu.** `profil_json` et le masquage
 des secrets vivent dans `src/ourouler/rendu/profil.py`, que l'API et la
 ligne de commande importent toutes deux ; les commandes de comptes passent
-par `src/ourouler/services/comptes.py`. `cli.py` importe encore des modules
+par `src/ourouler/services/comptes.py`. `cli/` importe encore des modules
 de `ourouler.api` (le serveur à lancer, le dépôt PostgreSQL des comptes, le
 client SMTP, la lecture des variables de l'hébergé, les dépôts à effacer) :
 c'est lui qui construit ces dépendances et les passe au service, d'une
@@ -336,5 +336,5 @@ sortie standard.
 
 Le géocodage n'apparaît pas dans ce trajet : le front a déjà choisi un point
 dans la liste rendue par `GET /api/v1/geocodage`, et l'API ne géocode jamais
-au vol. Par la ligne de commande, le trajet part de `cli.py`, qui tient le
+au vol. Par la ligne de commande, le trajet part de `cli/`, qui tient le
 rôle de la route, puis passe par `commandes/sortie.py` comme ci-dessus.

@@ -997,7 +997,7 @@ def test_une_direction_de_vent_non_finie_ne_doit_pas_poser_la_question():
 
 
 def test_la_question_du_vent_ne_lit_ni_configuration_ni_chemin_utilisateur():
-    """Règle absolue 2 : seul `cli.py` (et `config.py`) touche au disque.
+    """Règle absolue 2 : seul `cli/` (et `config.py`) touche au disque.
 
     Contrôle **d'exécution**, complémentaire du contrôle statique de
     `test_adv_invariants.py` : une fonction qui reçoit un `Config` peut fort

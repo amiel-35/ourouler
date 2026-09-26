@@ -1,4 +1,4 @@
-"""`ourouler inviter` / `ourouler invitations` : le câblage complet de `cli.py`.
+"""`ourouler inviter` / `ourouler invitations` : le câblage complet de `cli/`.
 
 Contrairement à `tests/api/test_invitation_commande.py` (un double de `DepotComptes`,
 aucune base), ce fichier exerce `cli.main()` de bout en bout, avec une vraie base

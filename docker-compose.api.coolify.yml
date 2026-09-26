@@ -76,7 +76,7 @@ services:
       - OUROULER_SERVICE=/config/service.toml
       - 'OUROULER_SERVICE_TOML_B64=${OUROULER_SERVICE_TOML_B64:-}'
       # L'URL publique devant laquelle `/entrer?jeton=…` et
-      # `/reinitialiser?jeton=…` s'ouvrent — lue par `cli._url_publique()`
+      # `/reinitialiser?jeton=…` s'ouvrent — lue par `cli.comptes._url_publique()`
       # pour `ourouler inviter`/`reinitialiser`, jamais par le processus API
       # lui-même. Sans elle, ces deux commandes refuseraient dans le conteneur
       # avec « OUROULER_URL_PUBLIQUE n'est pas défini », alors même que
@@ -84,7 +84,7 @@ services:
       # la variable magique qu'il dérive de `SERVICE_FQDN_API_8000` ci-dessus
       # (même mécanisme que `SERVICE_FQDN_API` pour le domaine nu), avec le
       # `https://` déjà dedans. La reprendre ici évite de la deviner en code
-      # (repli sur `SERVICE_URL_API` dans `cli.py`, qui aurait dû en connaître
+      # (repli sur `SERVICE_URL_API` dans `cli/`, qui aurait dû en connaître
       # le format) : Coolify la calcule une fois, ce fichier la nomme une
       # fois, comme `OUROULER_DATABASE_URL` juste au-dessus.
       - 'OUROULER_URL_PUBLIQUE=${SERVICE_URL_API}'

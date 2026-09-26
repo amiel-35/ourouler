@@ -57,7 +57,7 @@ def executer_depuis_namespace(
     """Exécute `ourouler meteo`. Renvoie le code de sortie (0 = succès).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant : `cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API. Absent, c'est celui de la configuration. À ne pas confondre
     avec `args.depart`, qui porte une **heure** (ancien nom de
     `--heure-depart`).

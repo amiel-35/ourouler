@@ -2,7 +2,7 @@
 
 Règles absolues 1 à 3 d'AGENTS.md :
 
-* aucun module de `src/ourouler/` autre que `cli.py` et `config.py` ne lit
+* aucun module de `src/ourouler/` hors du paquet `cli/` et de `config.py` ne lit
   `tomllib`, `os.environ`, `Path.home()` ni un chemin utilisateur ;
 * aucun test n'ouvre de socket, et tout `httpx.Client` de `tests/` reçoit un
   transport bouchon ;
@@ -39,10 +39,14 @@ SRC = RACINE / "src" / "ourouler"
 TESTS = RACINE / "tests"
 
 #: Seuls modules autorisés à connaître la machine hôte (CLAUDE.md règle 2).
-FICHIERS_AUTORISES = {"cli.py", "config.py"}
+FICHIERS_AUTORISES = {"config.py"}
+
+#: Le paquet de la ligne de commande, autorisé en entier : un **dossier**
+#: directement sous `src/ourouler/`, pas un nom de fichier.
+PAQUETS_AUTORISES = {"cli"}
 
 #: **L'unique porte du paquet `api/`** (lot F1). L'API est une couche
-#: d'exploitation comme `cli.py` ; ce droit est donné à un **chemin**, et à un
+#: d'exploitation comme `cli/` ; ce droit est donné à un **chemin**, et à un
 #: seul module — les routes, les dépôts et la traduction d'erreurs restent
 #: soumis à la règle absolue 2. Le jumeau de cet invariant,
 #: `tests/test_invariants.py`, vérifie en plus que le reste du paquet est bien
@@ -139,11 +143,13 @@ def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     fautes: list[str] = []
     for chemin in _fichiers_python(SRC):
         autorise = (
-            chemin.name in FICHIERS_AUTORISES or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
+            chemin.name in FICHIERS_AUTORISES
+            or chemin.relative_to(SRC).parts[0] in PAQUETS_AUTORISES
+            or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
         )
         fautes += _acces_machine(chemin, autorise=autorise)
     assert not fautes, (
-        "seuls cli.py et config.py peuvent toucher la machine hôte "
+        "seuls cli/ et config.py peuvent toucher la machine hôte "
         "(CLAUDE.md règle 2, contrat §0) :\n  " + "\n  ".join(sorted(set(fautes)))
     )
 
@@ -690,8 +696,8 @@ def _chaines(chemin: Path) -> list[tuple[int, str]]:
 
 
 def _peut_nommer_un_fichier_du_cache(chemin: Path) -> bool:
-    """`cli.py` et les `commande.py` de chaque paquet : eux seuls lisent le disque."""
-    return chemin.name == "cli.py" or chemin.name == "commande.py"
+    """Le paquet `cli/` et les `commande.py` de chaque paquet : eux seuls lisent le disque."""
+    return chemin.relative_to(SRC).parts[0] == "cli" or chemin.name == "commande.py"
 
 
 def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
@@ -705,7 +711,7 @@ def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
                 if fichier in texte:
                     fautes.append(f"{chemin.relative_to(RACINE)}:{ligne} — « {fichier} »")
     assert not fautes, (
-        "nom de fichier du cache écrit en dur hors de cli.py et des commande.py "
+        "nom de fichier du cache écrit en dur hors de cli/ et des commande.py "
         "(le cœur reçoit un chemin ou un dict, il ne le fabrique pas) :\n  "
         + "\n  ".join(sorted(set(fautes)))
     )
@@ -814,12 +820,12 @@ def test_les_modules_de_la_seance_sont_bien_scannes_par_les_regles_du_coeur():
 def test_le_coeur_de_la_seance_ne_touche_pas_au_disque():
     """Le cœur reçoit une séance, un tracé et des paramètres, jamais un chemin.
 
-    Seuls `cli.py` et les `commande.py` lisent un chemin. Un `open()` ou un
+    Seuls `cli/` et les `commande.py` lisent un chemin. Un `open()` ou un
     `pathlib` dans `placement.py` est la règle absolue 2 contournée.
     """
     fautes = [faute for chemin in _modules_seance() for faute in _fautes_de_disque(chemin)]
     assert not fautes, (
-        "accès au disque dans le cœur du sprint 4 (seuls cli.py et les commande.py y ont droit) :\n  "
+        "accès au disque dans le cœur du sprint 4 (seuls cli/ et les commande.py y ont droit) :\n  "
         + "\n  ".join(fautes)
     )
 
