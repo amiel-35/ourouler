@@ -5,7 +5,7 @@
 appelle Intervals.icu : les deux sont interdits dans la suite de tests (règles
 absolues 1 et 3). Il se lance à la main, depuis la racine du dépôt :
 
-    uv run python tests/validation/vent_retrospectif.py
+    uv run python scripts/validation/vent_retrospectif.py
 
 Ce qu'il mesure, et pourquoi c'est le critère d'acceptation du lot. Le vent
 entre dans le placement ; encore faut-il savoir si notre chaîne — archive

@@ -6,7 +6,7 @@ appelle le vrai serveur BRouter : les deux sont interdits dans la suite de
 tests (règles absolues 1 et 3). Il se lance à la main, depuis la racine du
 dépôt :
 
-    uv run python tests/validation/trafic_estime_retrospectif.py
+    uv run python scripts/validation/trafic_estime_retrospectif.py
 
 **Ce qu'est `estimated_traffic_class`.** Ce n'est pas une classe de route :
 c'est un pseudo-tag que BRouter calcule lui-même, à partir de la population
@@ -73,18 +73,15 @@ import random
 import statistics
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
 
 # `marqueurs_retrospectif.py` vit dans le même dossier, hors de tout paquet
-# Python (`tests/validation` n'a pas de `__init__.py`). On réutilise sa
+# Python (`scripts/validation` n'a pas de `__init__.py`). On réutilise sa
 # collecte des deux populations (sorties réelles comparables, boucles
 # proposées par bande de distance) plutôt que de la dupliquer : même filtre
 # de proximité au départ, même tirage déterministe, même regroupement par
-# bande. `sys.path` doit être complété avant l'import, d'où le `noqa: E402`
-# qui suit.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from marqueurs_retrospectif import (  # noqa: E402
+# bande.
+# Lancé comme script, son dossier est en tête de `sys.path` : l'import direct suffit.
+from marqueurs_retrospectif import (
     AZIMUTS,
     BANDE_KM,
     DISTANCE_MIN_PAR_DEFAUT_KM,
@@ -98,13 +95,13 @@ from marqueurs_retrospectif import (  # noqa: E402
     sorties_comparables,
 )
 
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.apprentissage.routes import points_de_passage  # noqa: E402
-from ourouler.boucle.candidates import appels_pour, generer  # noqa: E402
-from ourouler.config import Config, Depart, charger  # noqa: E402
-from ourouler.connecteurs.brouter import ClientBrouter  # noqa: E402
-from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
-from ourouler.noyau.trace import PointTrace, Trace, distance_m  # noqa: E402
+from ourouler.activites.cache import Cache
+from ourouler.apprentissage.routes import points_de_passage
+from ourouler.boucle.candidates import appels_pour, generer
+from ourouler.config import Config, Depart, charger
+from ourouler.connecteurs.brouter import ClientBrouter
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace, distance_m
 
 #: Clé WayTags portant l'estimation de BRouter.
 CLE_CLASSE = "estimated_traffic_class"

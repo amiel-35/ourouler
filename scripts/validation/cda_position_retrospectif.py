@@ -153,7 +153,7 @@ produit. `--sans-vent` interdit tout appel, au prix d'un vent compté nul.
 configuration : il ajuste en mémoire et imprime.
 
 Usage :
-    uv run python tests/validation/cda_position_retrospectif.py \\
+    uv run python scripts/validation/cda_position_retrospectif.py \\
         --groupe-a AAAA-MM-JJ:bout-de-nom --session-sport cycling \\
         --groupe-b AAAA-MM-JJ --groupe-b AAAA-MM-JJ
 """

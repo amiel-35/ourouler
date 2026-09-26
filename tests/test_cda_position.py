@@ -1,4 +1,4 @@
-"""Tests du script de mesure `tests/validation/cda_position_retrospectif.py`.
+"""Tests du script de mesure `scripts/validation/cda_position_retrospectif.py`.
 
 Le script lui-même lit le cache réel du mainteneur et ne peut donc pas être
 collecté par pytest. Ce qu'on teste ici, ce sont ses **deux mécanismes
@@ -49,10 +49,10 @@ MASSE_KG = 95.0
 
 
 def _mesure():
-    """Le script de validation, chargé par chemin (son nom ne le fait pas collecter)."""
+    """Le script de validation, chargé par chemin (il vit hors de `tests/`)."""
     if "cda_position_retrospectif" in sys.modules:
         return sys.modules["cda_position_retrospectif"]
-    chemin = RACINE / "tests" / "validation" / "cda_position_retrospectif.py"
+    chemin = RACINE / "scripts" / "validation" / "cda_position_retrospectif.py"
     spec = importlib.util.spec_from_file_location("cda_position_retrospectif", chemin)
     module = importlib.util.module_from_spec(spec)
     sys.modules["cda_position_retrospectif"] = module
@@ -572,7 +572,7 @@ def test_le_script_n_ecrit_aucun_fichier_de_calibration():
     est grossier, mais c'est exactement ce qu'on veut vérifier : qu'aucune
     écriture n'a été ajoutée par inadvertance au fil des retouches.
     """
-    source = (RACINE / "tests" / "validation" / "cda_position_retrospectif.py").read_text()
+    source = (RACINE / "scripts" / "validation" / "cda_position_retrospectif.py").read_text()
     for interdit in ("ecrire_calibration", "write_text", "open(", ".write("):
         assert interdit not in source, f"le script de mesure ne doit rien écrire ({interdit})"
 

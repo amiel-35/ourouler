@@ -371,7 +371,7 @@ au hasard sur la même boucle. Le script lit le cache réel et n'est pas
 collecté par la suite de tests :
 
 ```bash
-uv run python tests/validation/terrain_retrospectif.py
+uv run python scripts/validation/terrain_retrospectif.py
 ```
 
 **Critère** : la note médiane des emplacements réels vaut au plus 70 % de
@@ -404,7 +404,7 @@ il en est rendu.
 **Le constat qui justifie l'outil** : sur une sortie de référence, deux
 longs blocs étaient tombés sur un couloir médiocre quand un couloir plus de
 trois fois meilleur existait sur la même boucle. Le même geste a servi au
-vent, aux marqueurs urbains et au trafic estimé (`tests/validation/`).
+vent, aux marqueurs urbains et au trafic estimé (`scripts/validation/`).
 
 ## 6. Ce qui reste possible
 

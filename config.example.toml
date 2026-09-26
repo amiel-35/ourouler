@@ -49,7 +49,7 @@ capteur_puissance = "" # valeur exacte du champ Intervals « power_meter », ex.
 # facteur_compteur = 0.85  # exemple — moyenne réelle d'une sortie (distance / temps écoulé, arrêts
                            # compris) rapportée à la vitesse à plat, sans vent, lancé.
                            # Se mesure sur son propre historique :
-                           #   uv run python tests/validation/facteur_compteur_retrospectif.py
+                           #   uv run python scripts/validation/facteur_compteur_retrospectif.py
                            # Absent, il est dérivé du modèle et de la masse — une
                            # supposition, pas une mesure. `ourouler config` affiche
                            # les deux (vitesse à plat, moyenne compteur) et dit

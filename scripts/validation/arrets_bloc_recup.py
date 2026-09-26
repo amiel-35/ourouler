@@ -6,7 +6,7 @@ pour la question 2, le vrai compte Intervals.icu du mainteneur : les deux sont
 interdits dans la suite de tests (règles absolues 1 et 3). Il se lance à la
 main, depuis la racine du dépôt :
 
-    uv run python tests/validation/arrets_bloc_recup.py
+    uv run python scripts/validation/arrets_bloc_recup.py
 
 La question du mainteneur, dans ses mots : « tu peux faire générer des
 itinéraires de type bloc et regarder la concentration des éléments de
@@ -35,7 +35,7 @@ l'instinct depuis des années. Ses **propres** blocs, en extérieur, tombent-ils
 sur des portions plus propres que ses **propres** récupérations ? Les
 intervalles enregistrés donnent où un bloc a été réellement roulé
 (`ClientIntervals.intervalles`), croisés avec la trace GPS **rejouée** dans
-BRouter (même méthode que `tests/validation/marqueurs_retrospectif.py`, qui
+BRouter (même méthode que `scripts/validation/marqueurs_retrospectif.py`, qui
 fait déjà ce rejeu) pour obtenir les tags de nœud, absents d'une trace GPS
 brute.
 

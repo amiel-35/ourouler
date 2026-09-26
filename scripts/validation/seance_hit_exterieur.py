@@ -4,7 +4,7 @@ Script de validation manuelle, **non collecté par pytest** : il appelle le
 vrai serveur BRouter, la vraie météo et le vrai compte Intervals du
 mainteneur, comme ses voisins de ce dossier.
 
-Usage : `uv run python tests/validation/seance_hit_exterieur.py --jour 2026-09-01`
+Usage : `uv run python scripts/validation/seance_hit_exterieur.py --jour 2026-09-01`
 puis les options habituelles de `ourouler sortie`.
 
 

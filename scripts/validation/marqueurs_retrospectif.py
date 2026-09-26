@@ -6,7 +6,7 @@ appelle le vrai serveur BRouter : les deux sont interdits dans la suite de
 tests (règles absolues 1 et 3). Il se lance à la main, depuis la racine du
 dépôt :
 
-    uv run python tests/validation/marqueurs_retrospectif.py
+    uv run python scripts/validation/marqueurs_retrospectif.py
 
 Ce qu'il mesure, et pourquoi c'est le critère d'acceptation de la seule mesure
 nouvelle du lot. `boucle.marqueurs.compter` compte les feux, stops, passages

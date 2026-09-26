@@ -268,7 +268,9 @@ def _fichiers_texte(racine: Path) -> list[Path]:
 def test_aucune_coordonnee_francaise_dans_les_tests():
     """Règle absolue 1 : pas de coordonnée de départ dans le dépôt, même en fixture."""
     fautes = []
-    for chemin in _fichiers_texte(TESTS):
+    # `scripts/` aussi : les scripts de mesure de `scripts/validation/` lisent
+    # les vraies données du mainteneur, raison de plus pour n'en rien écrire.
+    for chemin in [*_fichiers_texte(TESTS), *_fichiers_texte(RACINE / "scripts")]:
         texte = chemin.read_text(encoding="utf-8", errors="replace")
         for numero, lat, lon, ville, distance in _paires_suspectes(texte):
             fautes.append(

@@ -1,6 +1,6 @@
 # FTP, vitesse à plat, moyenne compteur — la table indicative
 
-**Engendrée par `tests/validation/table_ftp_vitesse.py`** : ne la corrigez pas
+**Engendrée par `scripts/validation/table_ftp_vitesse.py`** : ne la corrigez pas
 à la main, relancez le script. Dernier rendu le 18/09/2026.
 
 Ce sont les **trois valeurs liées** de l'écran de FTP (décision 7 du cycle UX),
