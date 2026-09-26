@@ -2,7 +2,7 @@
 
 Le domaine (`boucle`, `seance`, `sortie`…) reçoit un objet qui sait répondre
 à ces questions ; il n'importe jamais le client HTTP qui y répond
-(`docs/ouverture_plan.md` §2, lot 9). Les clients concrets de `connecteurs/`
+(`ARCHITECTURE.md`). Les clients concrets de `connecteurs/`
 et `meteo/openmeteo.py` satisfont ces protocoles **tels quels**, sans en
 hériter : c'est une conformité de forme, que
 `tests/test_ports.py` vérifie signature par signature.
@@ -84,7 +84,7 @@ class DepotActivites(Protocol):
     """Là où une synchronisation range les sorties rapatriées : `activites.cache.Cache`.
 
     Le connecteur Intervals le reçoit (`connecteurs.intervals.synchroniser`)
-    sans importer le cache (lot 7) : il demande si une sortie est déjà là,
+    sans importer le cache : il demande si une sortie est déjà là,
     en rafraîchit les métadonnées, ou y ajoute le fichier téléchargé.
     """
 

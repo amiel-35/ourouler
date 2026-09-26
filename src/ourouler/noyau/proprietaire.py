@@ -6,19 +6,19 @@ réécriture. » §10.2 : « Isolation des données : par utilisateur, vérifié
 serveur à chaque requête, jamais seulement côté front. **Aucune requête sans
 clause de propriétaire.** »
 
-Il n'y a pas encore de comptes — c'est le lot F3. La colonne et la clause
-s'écrivent quand même **maintenant** : aujourd'hui c'est une colonne et un
-`WHERE` de plus, demain c'est une migration de données sous un service qui
-tourne.
+La colonne et la clause s'écrivent partout, y compris en mode personnel :
+c'est une colonne et un `WHERE` de plus, là où les ajouter après coup
+serait une migration de données sous un service qui tourne.
 
 **Où le propriétaire entre.** Au constructeur du dépôt, et nulle part ailleurs.
 `Cache(dossier, proprietaire=…)`, `BaseRoutes(chemin, proprietaire=…)`,
 `ClientArchive(chemin_cache=…, proprietaire=…)` : exactement la même position
 que le `Path`, qui est déjà ce que la ligne de commande fournit et que le cœur
-ignore (règle absolue 2 de CLAUDE.md). Le reste du cœur continue d'appeler
-`cache.lister()` sans jamais prononcer le mot. Le jour où l'hébergé arrivera,
-c'est la couche web qui construira le dépôt avec l'identifiant de l'utilisateur
-authentifié ; aucune fonction du cœur ne changera.
+ignore (le cœur ne lit ni configuration ni environnement). Le reste du cœur
+appelle `cache.lister()` sans jamais prononcer le mot : en mode hébergé, c'est
+la couche web qui construit le dépôt
+avec l'identifiant de l'utilisateur authentifié, et aucune fonction du cœur ne
+change.
 """
 
 from __future__ import annotations

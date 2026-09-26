@@ -1,6 +1,6 @@
 """Structure d'une séance : des étapes à plat, avec une fourchette de puissance.
 
-Le cœur du sprint 4 ne manipule que ces deux objets. Une séance lue chez
+Le placement de séance ne manipule que ces deux objets. Une séance lue chez
 Intervals.icu (`seance.intervals`) et une séance écrite à la main dans un
 test ont exactement la même forme : **les répétitions sont développées**, il
 n'y a plus de groupe ni de `reps`, seulement une liste d'étapes dans l'ordre
@@ -9,7 +9,7 @@ où on les roule.
 Quatre types d'étapes, et un seul est contraignant pour le terrain :
 
 - `echauffement` et `calme` — les deux zones 2 des extrémités. Ce sont les
-  **seules** étapes élastiques (décision du mainteneur du 13/09) : on peut
+  **seules** étapes élastiques (décision Q14) : on peut
   les allonger ou les raccourcir pour faire coulisser les blocs jusqu'à un
   bon couloir.
 - `bloc` — la prescription : durée et puissance ne bougent pas, et c'est sous
@@ -28,7 +28,7 @@ from datetime import date
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
-#: Les quatre types d'étape. L'ordre est celui du contrat de sprint 4 §1.
+#: Les quatre types d'étape, dans l'ordre où ils se roulent.
 TYPES = ("echauffement", "bloc", "recuperation", "calme")
 
 #: Types dont la durée est élastique quand ils sont en tête ou en queue de séance.
@@ -37,12 +37,10 @@ TYPES_ELASTIQUES = ("echauffement", "calme")
 #: Bornes des zones de puissance, en **fraction de la FTP**, de Z1 à Z7.
 #:
 #: C'est la table de Coggan, et c'est aussi, au pourcent près, celle que le
-#: compte Intervals.icu du mainteneur renvoie dans `zoneTimes`
-#: (Z1 0-55 %, Z2 56-75 %, Z3 76-90 %, Z4 91-105 %, Z5 106-120 %, Z6
-#: 121-150 %, Z7 151 % et plus). Le contrat de sprint écrit « ex. Z4 =
-#: 105-120 % » : c'est la Z5 de cette table, l'exemple du contrat ne
-#: correspond pas aux données réelles et c'est la table observée qui est
-#: retenue. Écart signalé.
+#: compte Intervals.icu renvoie dans `zoneTimes` (Z1 0-55 %, Z2 56-75 %,
+#: Z3 76-90 %, Z4 91-105 %, Z5 106-120 %, Z6 121-150 %, Z7 151 % et plus).
+#: C'est la table observée qui est retenue : « Z4 = 105-120 % », qu'on lit
+#: parfois, est la Z5 de cette table.
 #:
 #: Elle sert deux fois : pour traduire une consigne donnée en zone de
 #: puissance (traduction exacte) et pour **approximer** une consigne donnée en
@@ -75,10 +73,9 @@ ZONE_FC_BASSE_MAX = 2
 #: qui écrit « Z1 de FC » pour une endurance désigne en pratique une
 #: puissance d'endurance franche.
 #:
-#: 0,60 est la **médiane mesurée** sur les 96 sorties extérieures de plus
-#: d'une heure du mainteneur depuis 2025 (154 W pour 258 W de FTP ; 59 % sur
-#: toutes les sorties extérieures confondues). Question Q11, close le
-#: 13/09/2026. C'est une valeur de cycliste, donc un paramètre de
+#: 0,60 est la **médiane mesurée** sur 96 sorties extérieures réelles de plus
+#: d'une heure (59 % sur toutes les sorties extérieures confondues ; décision
+#: Q11, `docs/journal/questions/questions_mainteneur.md`). C'est une valeur de cycliste, donc un paramètre de
 #: configuration (`[seance] puissance_endurance_pct`), pas une constante du
 #: modèle : celle-ci n'est que le défaut.
 #:
@@ -91,16 +88,16 @@ PUISSANCE_ENDURANCE_PCT_DEFAUT = 0.60
 #:
 #: C'est le **dernier recours** du typage : quand la séance ne porte ni
 #: marqueur (`warmup`, `cooldown`, `intensity`) ni mot reconnaissable dans son
-#: texte, il ne reste que la puissance pour distinguer un bloc du reste. Les
-#: séances de coach du mainteneur sont dans ce cas : « 4x8 SV1 outdoor » du
-#: 22/04/2026 n'a aucun marqueur et aucun texte, ses récupérations ne se
+#: texte, il ne reste que la puissance pour distinguer un bloc du reste. Des
+#: séances de coach réelles sont dans ce cas : l'une n'a aucun marqueur et
+#: aucun texte, ses récupérations ne se
 #: reconnaissent qu'à leurs 50 % de FTP entre des efforts à 98 et 145 %.
 #:
 #: 0,75 est la frontière Z2/Z3 de la table des zones : au-dessus, on est dans
-#: l'effort prescrit ; en dessous, on roule. Vérifié sur les deux séances de
-#: référence avec 258 W de FTP, soit un seuil à 193 W — 08/02 : 155 W en
-#: dessous (échauffement, récups, calme), 212 et 258 W au-dessus (blocs) ;
-#: 22/04 : 129 et 134 W en dessous, 253 et 375 W au-dessus.
+#: l'effort prescrit ; en dessous, on roule. Vérifié sur deux séances de
+#: référence avec 258 W de FTP, soit un seuil à 193 W — la première : 155 W
+#: en dessous (échauffement, récups, calme), 212 et 258 W au-dessus (blocs) ;
+#: la seconde : 129 et 134 W en dessous, 253 et 375 W au-dessus.
 SEUIL_RECUPERATION_PCT_DEFAUT = 0.75
 
 
@@ -199,7 +196,7 @@ class Seance:
 
         C'est elle, et elle seule, qui peut payer un demi-tour : sa première
         moitié sert à dépasser le bout du segment, la seconde à revenir
-        dessus (mécanique fixée par le mainteneur le 13/09).
+        dessus.
         """
         suivante = indice + 1
         if 0 <= suivante < len(self.etapes) and self.etapes[suivante].type == "recuperation":
