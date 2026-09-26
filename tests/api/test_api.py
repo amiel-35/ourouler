@@ -18,8 +18,7 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from test_seance_intervals import ATHLETE, CLE, W
-from test_sortie_commande import (
+from outils_sortie_commande import (
     JOUR,
     client_intervals,
     ecrire_calibration,
@@ -28,6 +27,7 @@ from test_sortie_commande import (
     pluie_au_nord,
     reponse_anneau,
 )
+from test_seance_intervals import ATHLETE, CLE, W
 
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.application import creer_application

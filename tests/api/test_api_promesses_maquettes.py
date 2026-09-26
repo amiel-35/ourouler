@@ -469,7 +469,7 @@ def test_l_absence_de_seance_garde_la_meme_forme_de_reponse():
     construction. Il vise maintenant la route d'un jour, compare les
     **données**, et sépare un jour avec séance d'un jour sans.
     """
-    module = __import__("test_sortie_commande")
+    module = __import__("outils_sortie_commande")
     client = client_api(
         config=config_d_essai(), client_intervals=client_seance_ordinaire(ce_jour_la=True)
     )

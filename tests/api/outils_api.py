@@ -529,12 +529,12 @@ def transports_du_depot() -> Any:
     tronçons, des tags et un profil d'altitude ; la refabriquer ici en ferait
     une deuxième à tenir à jour, et un bouchon qui dérive rend les tests qui
     s'en servent muets sans prévenir. On emprunte donc celle de
-    `tests/test_sortie_commande.py`, qui est déjà la référence du dépôt.
+    `tests/outils_sortie_commande.py`, qui est déjà la référence du dépôt.
 
     Import différé : ce module est chargé au niveau du module de test, et
     `tests/` n'est sur `sys.path` qu'une fois la collecte faite.
     """
-    return import_module("test_sortie_commande")
+    return import_module("outils_sortie_commande")
 
 
 def client_brouter_ordinaire(reglages: dict[float, dict] | None = None) -> httpx.Client:

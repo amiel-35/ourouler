@@ -277,8 +277,8 @@ def fuseau_de_paris(monkeypatch):
     """Le fuseau du système posé à Europe/Paris le temps d'un test, puis rendu.
 
     `--depart 09:00` se lit en **heure locale de la machine** (`heure_depart`,
-    contrat de la CLI). Les bouchons Open-Meteo de `test_boucle_commande.py`,
-    `test_sortie_commande.py` et `fabriques_propositions.py` rendent une série figée qui
+    contrat de la CLI). Les bouchons Open-Meteo de `outils_boucle_commande.py`,
+    `outils_sortie_commande.py` et `fabriques_propositions.py` rendent une série figée qui
     commence à 06:00 **UTC**, sans lire `start_hour` : ils ont été calibrés sur
     le Mac du mainteneur, où 09:00 local vaut 07:00 UTC. Sous TZ=UTC (CI,
     conteneur), le même 09:00 tombe à la fin de la série et la pluie, le vent

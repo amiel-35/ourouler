@@ -1410,19 +1410,19 @@ def depart_fictif() -> tuple[float, float]:
 # Le contrat §3.3 ne nomme aucune interface interne. La seule surface stable du
 # lot est donc celle que le mainteneur voit : ce que `ourouler sortie --json`
 # écrit. On la pilote avec le harnais déjà écrit pour le sprint 4
-# (`tests/test_sortie_commande.py`) : trois clients bouchonnés par
+# (`tests/outils_sortie_commande.py`) : trois clients bouchonnés par
 # `httpx.MockTransport`, aucune socket, aucune donnée réelle, un départ à
 # (0, 0). Tester par là plutôt que par un nom de fonction deviné, c'est tester
 # ce qui est promis plutôt que ce qu'on imagine.
 
 
 def harnais() -> Any:
-    """Le module `tests/test_sortie_commande.py`, ses bouchons et sa configuration.
+    """Le module `tests/outils_sortie_commande.py`, ses bouchons et sa configuration.
 
     `tests/` est sur le chemin d'import par `pythonpath` (`pyproject.toml`)."""
-    import test_sortie_commande
+    import outils_sortie_commande
 
-    return test_sortie_commande
+    return outils_sortie_commande
 
 
 def moteur_brouter_clone(*, amplitude_m: float = 1.0) -> Any:

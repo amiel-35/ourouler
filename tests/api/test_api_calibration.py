@@ -23,10 +23,10 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from outils_sortie_commande import client_intervals, moteur_brouter, moteur_meteo
 from test_api import ecrire_config
 from test_physique_calibration import sortie_synthetique
 from test_physique_commande import _en_tcx, archive_bouchonnee
-from test_sortie_commande import client_intervals, moteur_brouter, moteur_meteo
 
 from ourouler.activites.cache import Cache
 from ourouler.api import taches_fond

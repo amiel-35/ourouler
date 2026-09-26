@@ -12,7 +12,7 @@ Ce que ces tests gardent :
    donnée en même temps que `--puissance`.
 
 Aucun appel réseau : BRouter et Open-Meteo sont les bouchons de
-`test_boucle_commande`. Aucune coordonnée réelle : tout part du point (0, 0),
+`outils_boucle_commande`. Aucune coordonnée réelle : tout part du point (0, 0),
 à 5 000 km de toute ville — l'invariant `test_invariants` le vérifie.
 
 Les CdA et Crr du mainteneur employés ici ne sont pas des données
@@ -27,7 +27,7 @@ import json
 from pathlib import Path
 
 import pytest
-from test_boucle_commande import (
+from outils_boucle_commande import (
     args,
     config_avec_velo_calibrable,
     moteur_brouter,
