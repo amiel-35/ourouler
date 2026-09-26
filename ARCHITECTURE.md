@@ -75,7 +75,7 @@ HTTP injectable :
 | `stockage/` | ce qui s'écrit sur disque et se relit : `calibration.json` (lot 7) ; le cache d'activités, les routes connues et le cache des prévisions y viendront | `calibrations.py` |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
 | `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (904), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
-| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr (pur depuis le lot 8) ; `commande.py` porte les cas d'usage `calibrer`, `simuler`, `analyser` | `calibration.py` (1 696), `modele.py` (668), `commande.py` |
+| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr (pur depuis le lot 8), ses échantillons dans `echantillonnage.py` ; `commande.py` porte les cas d'usage `calibrer`, `simuler`, `analyser` | `calibration.py` (1 696), `modele.py` (668), `commande.py` |
 | `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain (`placement.py`, son résultat dans `placement_resultat.py`, sa note dans `placement_note.py`, le tracé en pas dans `pas_trace.py`), tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions | `commande.py` (1 305), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
