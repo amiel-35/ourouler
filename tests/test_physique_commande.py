@@ -19,6 +19,8 @@ from test_physique_calibration import VRAI, sortie_synthetique
 from ourouler.activites.cache import Cache
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.cli import main
+from ourouler.commandes.physique import calibrer_depuis_namespace as executer_calibrer
+from ourouler.commandes.physique import simuler_depuis_namespace as executer_simuler
 from ourouler.config import Config, Velo, depuis_dict
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo.openmeteo import ClientOpenMeteo
@@ -34,8 +36,6 @@ from ourouler.physique.commande import (
     chemin_calibration,
     crr_du_velo,
     ecrire_calibration,
-    executer_calibrer,
-    executer_simuler,
     fourchette_defaut,
     fourchette_du_velo,
     lire_calibration,

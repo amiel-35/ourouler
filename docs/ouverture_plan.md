@@ -223,7 +223,7 @@ Les dépendances ne vont que de haut en bas.
 
 | Couche | Contenu | Peut importer |
 |---|---|---|
-| 5. Entrées | `cli`, `api`, `config` (lecture TOML et environnement) | tout |
+| 5. Entrées | `cli`, `commandes` (lot 10 : du `Namespace` à la `Demande`), `api`, `config` (lecture TOML et environnement) | tout |
 | 4. Rendu | `rendu/` : texte, JSON (le contrat), carte HTML | 0–3 |
 | 3. Cas d'usage | `services/` : sortie, boucle, meteo, calibrer, comparer, seance, apprendre, inventaire, comptes — une `Demande` en entrée, un résultat en sortie, sans argparse ni print | 0–2 |
 | 2. Adaptateurs | `connecteurs/` (HTTP) ; `stockage/` (cache, lecteurs FIT/GPX/TCX, routes connues, calibrations, cache des prévisions) | 0–1 |

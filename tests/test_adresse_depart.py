@@ -153,7 +153,7 @@ def test_meteo_interroge_la_couronne_autour_du_depart_recu():
         second_avis=None, json=False,
     )
 
-    from ourouler.meteo.commande import executer
+    from ourouler.commandes.meteo import executer_depuis_namespace as executer
 
     assert executer(args, config, meteo_qui_note_les_points(vus), lieu_depart=AILLEURS) == 0
 
@@ -180,7 +180,7 @@ def test_meteo_sans_depart_recu_reste_sur_celui_de_la_configuration():
         second_avis=None, json=False,
     )
 
-    from ourouler.meteo.commande import executer
+    from ourouler.commandes.meteo import executer_depuis_namespace as executer
 
     assert executer(args, config_de_test(), meteo_qui_note_les_points(vus)) == 0
     assert vus[0] == pytest.approx((0.0, 0.0), abs=1e-9)
@@ -194,7 +194,7 @@ def test_le_rapport_meteo_nomme_le_depart_recu():
         second_avis=None, json=True,
     )
 
-    from ourouler.meteo.commande import executer
+    from ourouler.commandes.meteo import executer_depuis_namespace as executer
 
     sortie = io.StringIO()
     import contextlib
@@ -224,7 +224,7 @@ def test_boucle_demande_ses_candidates_depuis_le_depart_recu(tmp_path: Path):
         puissance=None,
     )
 
-    from ourouler.boucle.commande import executer
+    from ourouler.commandes.boucle import executer_depuis_namespace as executer
 
     code = executer(
         args,

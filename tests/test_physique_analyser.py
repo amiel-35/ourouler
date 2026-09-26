@@ -15,12 +15,12 @@ from pathlib import Path
 import pytest
 from test_physique_commande import client_meteo_bouchonne, config_de_test, gpx_plat
 
+from ourouler.commandes.physique import analyser_depuis_namespace as executer_analyser
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.commande import (
     DISTANCE_MAX_ANALYSE_M,
     chemin_calibration,
     ecrire_calibration,
-    executer_analyser,
 )
 
 

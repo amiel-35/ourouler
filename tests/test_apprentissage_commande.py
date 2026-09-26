@@ -16,9 +16,10 @@ import pytest
 from test_apprentissage_routes import LUNDI, droite, reponse_brouter
 
 from ourouler.activites.cache import Cache
-from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS, executer
+from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes
 from ourouler.cli import construire_parseur
+from ourouler.commandes.routes import executer_depuis_namespace as executer
 from ourouler.config import (
     Config,
     Cycliste,

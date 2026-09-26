@@ -436,8 +436,8 @@ def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(
         carte=None,
     )
     par_defaut = [
-        commande_sortie.chemin_gpx_par_defaut(demande, config),
-        commande_sortie.chemin_carte_par_defaut(demande, config),
+        commande_sortie.chemin_gpx_par_defaut(demande, config.cache.dossier),
+        commande_sortie.chemin_carte_par_defaut(demande, config.cache.dossier),
     ]
     dans_le_depot = [c for c in par_defaut if c.resolve().is_relative_to(tmp_path.resolve())]
     assert not dans_le_depot, (

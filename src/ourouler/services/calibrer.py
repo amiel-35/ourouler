@@ -16,8 +16,9 @@ météo déjà obtenue et une masse. Ce module fait le reste :
   écrire ni imprimer : la ligne de commande (`physique.commande`) et la
   tâche de fond de l'API (`api/calibrations.py`) en sont les adaptateurs.
 
-La `Config` n'est qu'annotée (import sous `TYPE_CHECKING`) : ce module lit
-ses attributs, il ne dépend pas, à l'exécution, de l'entrée qui la charge.
+Il reçoit le profil du cycliste (`noyau.profil.Profil`, dont `config.Config`
+est un exemple) et en lit les attributs, sans dépendre de l'entrée qui
+charge la configuration (lot 10 : l'annotation n'est plus la `Config`).
 L'ordre des sorties et des sommes est celui d'avant le lot 8, à l'identique :
 la calibration du mainteneur doit rester la même au dernier chiffre.
 """
@@ -27,21 +28,17 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING
 
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattachement_explicite, rattacher_velo
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.noyau.activite import Activite, est_sport_velo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-from ourouler.noyau.profil import Velo
+from ourouler.noyau.profil import Profil, Velo
 from ourouler.physique import calibration as calib
 from ourouler.physique import litterature
 from ourouler.physique.parametres_velo import CRR_DEFAUT, crr_du_velo
 from ourouler.stockage.calibrations import contenu_calibration
-
-if TYPE_CHECKING:
-    from ourouler.config import Config
 
 #: Date de repli pour trier une entrée sans horodatage — avant tout le reste,
 #: et consciente du fuseau, sinon la comparaison échoue sur un mélange de
@@ -52,7 +49,7 @@ _JAMAIS = datetime.min.replace(tzinfo=UTC)
 # --- choix des sorties --------------------------------------------------------
 
 
-def masse_totale_kg(config: Config, velo: Velo) -> float:
+def masse_totale_kg(config: Profil, velo: Velo) -> float:
     """Cycliste + vélo. Un vélo sans masse déclarée pèse `MASSE_VELO_DEFAUT_KG`.
 
     Le mainteneur l'a dit : « une masse approximative par vélo suffit, 1 kg
@@ -67,7 +64,7 @@ MOTIF_VELO_NON_IDENTIFIE = "vélo non identifié"
 
 
 def motif_exclusion(
-    entree: EntreeCache, config: Config, velo: Velo, *, strict: bool = False
+    entree: EntreeCache, config: Profil, velo: Velo, *, strict: bool = False
 ) -> str | None:
     """Pourquoi cette sortie n'est pas calibrable, ou `None` si elle l'est.
 
@@ -103,7 +100,7 @@ def motif_exclusion(
 
 def sorties_calibrables_et_motifs(
     cache: Cache,
-    config: Config,
+    config: Profil,
     velo: Velo,
     *,
     depuis: date | None = None,
@@ -139,7 +136,7 @@ def sorties_calibrables_et_motifs(
 
 def sorties_calibrables(
     cache: Cache,
-    config: Config,
+    config: Profil,
     velo: Velo,
     *,
     depuis: date | None = None,
@@ -185,7 +182,7 @@ ETAPE_AJUSTEMENT = "ajustement"
 
 
 def calibrer_velo(
-    config: Config,
+    config: Profil,
     velo: Velo,
     cache: Cache,
     client_archive: ClientArchive,

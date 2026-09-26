@@ -1,104 +1,92 @@
 """Sous-commande `ourouler meteo` : couronne → deux appels Open-Meteo → rapport.
 
-Ce module est appelé par `cli.py` et ne lit rien : il reçoit `args` et
-`config`. Le client est injectable pour que les tests ne touchent jamais le
-réseau.
+Le cas d'usage (`executer`) reçoit une `DemandeMeteo` déjà interprétée par
+l'entrée (`commandes/meteo.py`) et un `Contexte` ; il rend le rapport, sans
+rien imprimer. Le client est injectable pour que les tests ne touchent
+jamais le réseau.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-import sys
-from dataclasses import replace
+from dataclasses import dataclass
 from datetime import datetime
 
-from ourouler.config import Config
 from ourouler.meteo.couronne import couronne
 from ourouler.meteo.openmeteo import ClientOpenMeteo
-from ourouler.meteo.rapport import construire, rendre_json, rendre_texte
+from ourouler.meteo.rapport import RapportMeteo, construire
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-from ourouler.noyau.profil import HORIZON_MAX_H, Depart
+from ourouler.noyau.profil import HORIZON_MAX_H
+from ourouler.services.contexte import Contexte
 
 #: Horizon maximal accepté : au-delà, AROME HD n'a plus rien à dire. Défini
 #: dans `config`, qui valide `[meteo] horizon_h` au chargement ; importé ici
 #: pour que `--horizon` applique exactement la même borne.
 
 
+@dataclass(frozen=True)
+class DemandeMeteo:
+    """Ce que le cycliste demande, déjà interprété : quand, sur combien d'heures, quels modèles."""
+
+    debut: datetime
+    horizon_h: int
+    modele: str
+    second_avis: str | None
+
+
 def executer(
-    args: argparse.Namespace,
-    config: Config,
+    demande: DemandeMeteo,
+    contexte: Contexte,
     client: ClientOpenMeteo | None = None,
-    *,
-    lieu_depart: Depart | None = None,
-) -> int:
-    """Exécute `ourouler meteo`. Renvoie le code de sortie (0 = succès).
+) -> RapportMeteo:
+    """Exécute `ourouler meteo` : le rapport par direction et par heure.
 
-    `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
-    requête d'API demain. Absent, c'est celui de la configuration. Le cœur ne
-    géocode rien, ne lit aucune adresse et ne sait pas d'où vient ce point
-    (règle absolue 2) — il reçoit un `Depart`.
-
-    À ne pas confondre avec `args.depart`, qui porte une **heure** (ancien nom
-    de `--heure-depart`) : c'est exactement la confusion pour laquelle le lieu
-    s'appelle `--adresse-depart` et non `--depart`.
+    Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
+    celui de **cette** exécution (`--adresse-depart` géocodée, ou les
+    coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit aucune
+    adresse et ne sait pas d'où vient ce point (règle absolue 2).
     """
-    if lieu_depart is not None:
-        # Substitué dans la `Config` plutôt que passé de fonction en fonction :
-        # la couronne, le rapport, le texte et le JSON lisent tous
-        # `config.depart`, et un seul de ces points oublié rendrait une
-        # réponse fausse — la météo autour de la maison pour une adresse à
-        # 400 km. `Config` est un dataclass gelé : `replace` rend une copie,
-        # la configuration de l'appelant n'est pas touchée.
-        config = replace(config, depart=lieu_depart)
-    modele = getattr(args, "modele", None) or config.meteo.modele
-    second_avis = getattr(args, "second_avis", None) or config.meteo.second_avis
-    # `or` ne conviendrait pas : --horizon 0 doit être refusé, pas remplacé par la config.
-    demande = getattr(args, "horizon", None)
-    horizon_h = config.meteo.horizon_h if demande is None else demande
+    profil = contexte.profil
+    modele, second_avis = demande.modele, demande.second_avis
+    points = couronne(profil.depart, profil.meteo.directions, profil.meteo.distances_km)
+    coordonnees = [(p.lat, p.lon) for p in points]
+
+    client = client if client is not None else ClientOpenMeteo()
+    principale = client.previsions(
+        coordonnees, modele=modele, debut=demande.debut, horizon_h=demande.horizon_h
+    )
+
+    second = None
+    if second_avis and second_avis != modele:
+        try:
+            second = client.previsions(
+                coordonnees, modele=second_avis, debut=demande.debut, horizon_h=demande.horizon_h
+            )
+        except ErreurConnecteur as e:
+            contexte.avertir(
+                f"ourouler : second avis « {second_avis} » indisponible ({e}) — "
+                "confiance « inconnu » sur toutes les cellules"
+            )
+
+    return construire(
+        profil.depart,
+        points,
+        principale,
+        second,
+        demande.debut,
+        demande.horizon_h,
+        modele=modele,
+        second_avis=second_avis,
+    )
+
+
+def valider_horizon(horizon_h: int) -> int:
+    """L'horizon en heures, borné comme `[meteo] horizon_h` l'est au chargement."""
     if horizon_h < 1 or horizon_h > HORIZON_MAX_H:
         raise ErreurUtilisateur(
             f"horizon de {horizon_h} h : attendu entre 1 et {HORIZON_MAX_H} "
             "(option --horizon, ou [meteo] horizon_h dans la configuration)"
         )
-
-    # Heure locale, consciente du fuseau : le client la convertit en UTC lui-même.
-    debut = heure_depart(getattr(args, "depart", None))
-
-    points = couronne(config.depart, config.meteo.directions, config.meteo.distances_km)
-    coordonnees = [(p.lat, p.lon) for p in points]
-
-    client = client if client is not None else ClientOpenMeteo()
-    principale = client.previsions(coordonnees, modele=modele, debut=debut, horizon_h=horizon_h)
-
-    second = None
-    if second_avis and second_avis != modele:
-        try:
-            second = client.previsions(coordonnees, modele=second_avis, debut=debut, horizon_h=horizon_h)
-        except ErreurConnecteur as e:
-            print(
-                f"ourouler : second avis « {second_avis} » indisponible ({e}) — "
-                "confiance « inconnu » sur toutes les cellules",
-                file=sys.stderr,
-            )
-
-    rapport = construire(
-        config.depart,
-        points,
-        principale,
-        second,
-        debut,
-        horizon_h,
-        modele=modele,
-        second_avis=second_avis,
-    )
-
-    if getattr(args, "json", False):
-        print(json.dumps(rendre_json(rapport), ensure_ascii=False, indent=2))
-    else:
-        print(rendre_texte(rapport, distance_km=getattr(args, "distance", None)))
-    return 0
+    return horizon_h
 
 
 def heure_depart(depart: str | None, maintenant: datetime | None = None) -> datetime:

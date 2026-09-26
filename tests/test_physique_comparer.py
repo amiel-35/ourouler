@@ -16,6 +16,7 @@ import pytest
 from test_physique_commande import _en_tcx, config_de_test
 
 from ourouler.activites.cache import Cache
+from ourouler.commandes.comparer import executer_depuis_namespace as executer_comparer
 from ourouler.noyau.activite import Activite, Point
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique.comparer import (
@@ -26,7 +27,6 @@ from ourouler.physique.comparer import (
     Serie,
     bornes_bandes,
     comparer,
-    executer_comparer,
     regresser,
     series_droites,
 )

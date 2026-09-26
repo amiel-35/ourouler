@@ -393,8 +393,8 @@ def _modele_meteo_json(evaluations: list[Evaluation]) -> dict | None:
 
 
 def _litterature_json(modele: ModeleTemps) -> dict | None:
-    """L'équivalent JSON de `_lignes_litterature` — délégué à `physique.commande`."""
-    from ourouler.physique.commande import litterature_json
+    """L'équivalent JSON de `_lignes_litterature` — délégué à `rendu.physique`."""
+    from ourouler.rendu.physique import litterature_json
 
     return litterature_json(modele.provenance, modele.usage)
 

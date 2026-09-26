@@ -31,8 +31,10 @@ Tout est sous `src/ourouler/` ; le détail et la règle d'imports sont dans
 `ARCHITECTURE.md`. Les dépendances vont des entrées vers le noyau, jamais
 l'inverse :
 
-- entrées : `src/ourouler/cli.py`, `src/ourouler/config.py` (lecture du TOML
-  et de l'environnement), `src/ourouler/api/` (FastAPI, comptes PostgreSQL) ;
+- entrées : `src/ourouler/cli.py`, `src/ourouler/commandes/` (une par
+  sous-commande : du `Namespace` à la `Demande`, puis au rendu imprimé),
+  `src/ourouler/config.py` (lecture du TOML et de l'environnement),
+  `src/ourouler/api/` (FastAPI, comptes PostgreSQL) ;
 - domaine, du plus bas au plus haut : `physique` < `meteo` < `boucle` <
   `seance` < `sortie`, plus `activites/` (lecteurs FIT/GPX/TCX, cache SQLite),
   `apprentissage/` et `geocodage/` ;

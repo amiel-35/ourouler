@@ -3,7 +3,7 @@
 Doctrine §10.2 : « L'API expose ce que la CLI sait déjà rendre en JSON. »
 Prise au mot, cette phrase interdit une deuxième implémentation. L'API
 construit donc le même `argparse.Namespace` que la ligne de commande,
-appelle la **même** fonction `executer(args, config, …)` avec `json=True`, et
+appelle la **même** commande (`commandes.executer_depuis_namespace`) avec `json=True`, et
 rend le JSON qu'elle imprime. Aucune divergence possible : ce que le
 mainteneur vérifie en ligne de commande est exactement ce que le front reçoit.
 
@@ -35,6 +35,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 from ourouler.api.erreurs import ErreurApi, assainir, classer, classer_avertissement
+from ourouler.commandes import executer_depuis_namespace
 
 #: Un seul calcul du cœur à la fois par processus (voir le module).
 _VERROU = threading.Lock()
@@ -144,7 +145,9 @@ def executer_commande(
     debut = time.perf_counter()
     try:
         with contextlib.redirect_stdout(sortie), contextlib.redirect_stderr(erreurs):
-            code = fonction(args, config, **clients)
+            # Lot 10 : `fonction` est le service ; la commande qui le sert
+            # depuis un `Namespace` imprime ce qu'il imprimait (lot 11 : fini).
+            code = executer_depuis_namespace(fonction, args, config, **clients)
     except Exception as e:  # traduit, jamais propagé tel quel
         raise classer(e, secrets=secrets, chemins=chemins) from e
     finally:

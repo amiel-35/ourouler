@@ -1,8 +1,9 @@
 """Sous-commande `ourouler routes` : apprendre, regarder, pondérer.
 
-Adaptateur entre `argparse` et `apprentissage.routes`. C'est **ici** que les
-chemins se composent (`config.cache.dossier / …`) et que les clients se
-créent : le cœur, lui, reçoit des objets déjà faits.
+Cas d'usage entre l'entrée (`commandes/routes.py`, qui lit argparse) et
+`apprentissage.routes`. C'est **ici** que les chemins se composent
+(`contexte.dossier_cache / …`) et que les clients se créent : le cœur, lui,
+reçoit des objets déjà faits. Le texte et le JSON sont dans `rendu/routes.py`.
 
 Trois actions :
 
@@ -17,14 +18,12 @@ Trois actions :
 
 from __future__ import annotations
 
-import argparse
-import json
+from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.apprentissage.routes import (
-    LIBELLE_SANS_HIGHWAY,
-    PART_EXPOSITION_MIN,
     BaseRoutes,
     RapportApprentissage,
     Statistiques,
@@ -35,12 +34,12 @@ from ourouler.apprentissage.routes import (
     statistiques_de_traces,
 )
 from ourouler.boucle.antennes import detecter, elaguer
-from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
-from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, azimut_de
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.profil import Profil
 from ourouler.noyau.trace import Trace
+from ourouler.services.contexte import Contexte
 
 #: Nom du fichier de base des routes connues, sous le dossier de cache. Il vit
 #: ici et non dans `apprentissage/routes.py` : le cœur reçoit un `Path` déjà
@@ -67,230 +66,133 @@ ABSENT = "—"
 ACTIONS = ("apprendre", "stats", "poids")
 
 
-def executer(
-    args: argparse.Namespace,
-    config: Config,
-    client_brouter: ClientBrouter | None = None,
-    base: BaseRoutes | None = None,
-) -> int:
-    """Exécute `ourouler routes <action>`. Renvoie le code de sortie (0 = succès).
+@dataclass(frozen=True)
+class DemandeRoutes:
+    """L'action demandée, et ses options déjà interprétées par l'entrée (`commandes/routes.py`)."""
 
-    **`base` s'injecte, comme `client_brouter` juste au-dessus.** Absente — le
-    cas de la ligne de commande — la commande la construit comme avant, sur
-    `config.cache.dossier` et avec le propriétaire par défaut.
+    action: str
+    #: `apprendre` : depuis quand rejouer les sorties (le début de l'historique par défaut).
+    depuis: date | None = None
+    max_sorties: int | None = None
+    #: `poids` : écrire les poids dans `poids_routes.json`, ou seulement les montrer.
+    appliquer: bool = False
 
-    C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
-    cœur : la commande reçoit un dépôt déjà fait et ne prononce jamais le mot
-    « propriétaire ». Voir `activites/commande.executer` pour le raisonnement
-    complet et la phrase de doctrine §10.1 qui le porte.
-    """
-    action = getattr(args, "action", None)
+
+@dataclass(frozen=True)
+class ResultatApprentissage:
+    rapport: RapportApprentissage
+    depuis: date
+    #: L'état de la base **après** l'apprentissage.
+    stats: Statistiques
+
+
+@dataclass(frozen=True)
+class ResultatStats:
+    stats: Statistiques
+    appris: dict[str, float] | None
+
+
+@dataclass(frozen=True)
+class ResultatPoids:
+    stats: Statistiques
+    exposition: Statistiques
+    poids: dict[str, float]
+    echecs: list[str]
+    #: Là où les poids ont été écrits, ou `None` sans `--appliquer`.
+    ecrit_dans: Path | None
+
+
+def valider_action(action: str | None) -> str:
     if action not in ACTIONS:
         raise ErreurUtilisateur(
             f"routes : préciser une action — {', '.join(ACTIONS)} "
             "(`ourouler routes apprendre` rejoue vos sorties dans BRouter)"
         )
-    base = base if base is not None else BaseRoutes(config.cache.dossier / NOM_BASE)
+    return action
+
+
+def executer(
+    demande: DemandeRoutes,
+    contexte: Contexte,
+    client_brouter: ClientBrouter | None = None,
+    base: BaseRoutes | None = None,
+) -> ResultatApprentissage | ResultatStats | ResultatPoids:
+    """Exécute `ourouler routes <action>`.
+
+    **`base` s'injecte, comme `client_brouter` juste au-dessus.** Absente — le
+    cas de la ligne de commande — le service la construit sur
+    `contexte.dossier_cache` et avec le propriétaire par défaut.
+
+    C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
+    cœur : le service reçoit un dépôt déjà fait et ne prononce jamais le mot
+    « propriétaire ». Voir `activites/commande.executer` pour le raisonnement
+    complet et la phrase de doctrine §10.1 qui le porte.
+    """
+    action = valider_action(demande.action)
+    base = base if base is not None else BaseRoutes(contexte.dossier_cache / NOM_BASE)
     if action == "apprendre":
-        return _apprendre(args, config, base, client_brouter)
+        return _apprendre(demande, contexte, base, client_brouter)
     if action == "stats":
-        return _stats(args, config, base)
-    return _poids(args, config, base, client_brouter)
+        return ResultatStats(
+            stats=base.statistiques(), appris=lire_poids(contexte.dossier_cache / NOM_POIDS)
+        )
+    return _poids(demande, contexte, base, client_brouter)
 
 
-def _client(config: Config, client_brouter: ClientBrouter | None) -> ClientBrouter:
+def _client(profil: Profil, client_brouter: ClientBrouter | None) -> ClientBrouter:
     if client_brouter is not None:
         return client_brouter
-    if not config.brouter.renseigne:
+    if not profil.brouter.renseigne:
         raise ErreurUtilisateur(
             "routes : [brouter] url n'est pas renseigné dans la configuration — "
             "y mettre l'adresse du serveur BRouter"
         )
-    return ClientBrouter(config.brouter, evitements=config.evitements)
+    return ClientBrouter(profil.brouter, evitements=profil.evitements)
 
 
 # --- apprendre ----------------------------------------------------------------
 
 
 def _apprendre(
-    args: argparse.Namespace,
-    config: Config,
+    demande: DemandeRoutes,
+    contexte: Contexte,
     base: BaseRoutes,
     client_brouter: ClientBrouter | None,
-) -> int:
-    depuis = _depuis(getattr(args, "depuis", None), config)
+) -> ResultatApprentissage:
+    depuis = demande.depuis or contexte.profil.historique_depuis
     # Pas de dépôt injecté ici, contrairement à `base` : `apprendre` est une
     # action d'administration que l'API n'expose pas (`api/routes/inventaire.py` n'accepte
     # que `stats` et `poids`), donc ce `Cache` n'est jamais construit pour le
     # compte d'un demandeur. Le jour où une route l'exposerait, c'est ce
     # constructeur-là qu'il faudrait injecter — [[Q58]].
-    cache = Cache(config.cache.dossier)
-    client = _client(config, client_brouter)
-    rapport = apprendre(
-        cache,
-        client,
-        base,
-        depuis=depuis,
-        max_sorties=getattr(args, "max_sorties", None),
-    )
-    if getattr(args, "json", False):
-        print(json.dumps(_apprentissage_json(rapport, depuis), ensure_ascii=False, indent=2))
-    else:
-        print(_apprentissage_texte(rapport, depuis, base))
-    return 0
-
-
-def _apprentissage_texte(rapport: RapportApprentissage, depuis: date, base: BaseRoutes) -> str:
-    stats = base.statistiques()
-    lignes = [
-        f"Apprentissage des routes depuis le {depuis.isoformat()} — "
-        f"{rapport.sorties_vues} sortie(s) extérieure(s) en cache",
-        f"  apprises ce coup-ci : {rapport.sorties_apprises} "
-        f"({_fr(rapport.km, 0)} km rejoués, {rapport.mailles} mailles, "
-        f"D+ {_fr(rapport.denivele_m, 0) if rapport.denivele_m is not None else ABSENT} m "
-        "tracé rerouté)",
-        f"  déjà connues        : {rapport.sorties_deja_connues}",
-        f"  échecs              : {rapport.echecs}",
-    ]
-    lignes.extend(f"    échec — {m}" for m in rapport.messages[:20])
-    if len(rapport.messages) > 20:
-        lignes.append(f"    … et {len(rapport.messages) - 20} autre(s)")
-    lignes.append("")
-    lignes.append(
-        f"Base : {stats.sorties} sortie(s), {_fr(stats.km_total, 0)} km roulés, "
-        f"{stats.mailles} mailles connues."
-    )
-    return "\n".join(lignes)
-
-
-def _apprentissage_json(rapport: RapportApprentissage, depuis: date) -> dict:
-    return {
-        "depuis": depuis.isoformat(),
-        "sorties_vues": rapport.sorties_vues,
-        "sorties_apprises": rapport.sorties_apprises,
-        "sorties_deja_connues": rapport.sorties_deja_connues,
-        "echecs": rapport.echecs,
-        "km": round(rapport.km, 1),
-        "mailles": rapport.mailles,
-        "denivele_m": round(rapport.denivele_m, 1) if rapport.denivele_m is not None else None,
-        "denivele_source": "tracé rerouté" if rapport.denivele_m is not None else None,
-        "messages": list(rapport.messages),
-    }
-
-
-# --- stats --------------------------------------------------------------------
-
-
-def _stats(args: argparse.Namespace, config: Config, base: BaseRoutes) -> int:
-    stats = base.statistiques()
-    appris = lire_poids(config.cache.dossier / NOM_POIDS)
-    if getattr(args, "json", False):
-        print(json.dumps(_stats_json(stats, appris), ensure_ascii=False, indent=2))
-    else:
-        print(_stats_texte(stats, appris))
-    return 0
-
-
-def _stats_texte(stats: Statistiques, appris: dict[str, float] | None) -> str:
-    if stats.km_total <= 0:
-        return (
-            "Aucune route apprise pour l'instant — lancer `ourouler routes apprendre` "
-            "(un appel BRouter par sortie extérieure)."
-        )
-    lignes = [
-        f"Routes roulées — {stats.sorties} sortie(s), {_fr(stats.km_total, 0)} km, "
-        f"{stats.mailles} mailles",
-        f"Coût moyen du profil BRouter : "
-        f"{_fr(stats.cout_km_moyen, 0) if stats.cout_km_moyen is not None else ABSENT}",
-        "",
-    ]
-    titres = ("classe", "km", "part", "part semaine", "poids défaut", "poids appris")
-    cellules = [
-        [
-            _libelle(classe),
-            _fr(stats.km_par_highway[classe], 0),
-            f"{stats.part(classe) * 100:.0f} %",
-            f"{stats.part_semaine(classe) * 100:.0f} %",
-            _fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
-            _fr(appris[classe], 2) if appris and classe in appris else ABSENT,
-        ]
-        for classe in stats.classes()
-    ]
-    lignes.extend(_tableau(titres, cellules))
-    if appris is None:
-        lignes.append("")
-        lignes.append(
-            "Aucun poids appris pour l'instant : `ourouler routes poids --appliquer` "
-            "les mesure et les écrit."
-        )
-    lignes.append("")
-    lignes.extend(_secondaire("maxspeed", stats.km_par_maxspeed, stats.km_total))
-    lignes.append("")
-    lignes.extend(_secondaire("surface", stats.km_par_surface, stats.km_total))
-    return "\n".join(lignes)
-
-
-def _secondaire(nom: str, par_valeur: dict[str, float], km_total: float) -> list[str]:
-    """Les cinq valeurs les plus roulées d'un tag secondaire, en une petite table."""
-    classees = sorted(par_valeur.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
-    titres = (nom, "km", "part")
-    cellules = [
-        [
-            valeur or "(absent)",
-            _fr(km, 0),
-            f"{(km / km_total * 100 if km_total else 0):.0f} %",
-        ]
-        for valeur, km in classees
-    ]
-    return _tableau(titres, cellules)
-
-
-def _stats_json(stats: Statistiques, appris: dict[str, float] | None) -> dict:
-    return {
-        "sorties": stats.sorties,
-        "mailles": stats.mailles,
-        "km_total": round(stats.km_total, 1),
-        "km_semaine": round(stats.km_semaine, 1),
-        "cout_km_moyen": stats.cout_km_moyen,
-        "par_highway": [
-            {
-                "classe": classe,
-                "km": round(stats.km_par_highway[classe], 1),
-                "part": round(stats.part(classe), 4),
-                "part_semaine": round(stats.part_semaine(classe), 4),
-                "poids_defaut": POIDS_HIGHWAY_DEFAUT.get(classe, 0.0),
-                "poids_appris": (appris or {}).get(classe),
-            }
-            for classe in stats.classes()
-        ],
-        "km_par_maxspeed": {k: round(v, 1) for k, v in stats.km_par_maxspeed.items()},
-        "km_par_surface": {k: round(v, 1) for k, v in stats.km_par_surface.items()},
-    }
+    cache = Cache(contexte.dossier_cache)
+    client = _client(contexte.profil, client_brouter)
+    rapport = apprendre(cache, client, base, depuis=depuis, max_sorties=demande.max_sorties)
+    return ResultatApprentissage(rapport=rapport, depuis=depuis, stats=base.statistiques())
 
 
 # --- poids --------------------------------------------------------------------
 
 
 def _poids(
-    args: argparse.Namespace,
-    config: Config,
+    demande: DemandeRoutes,
+    contexte: Contexte,
     base: BaseRoutes,
     client_brouter: ClientBrouter | None,
-) -> int:
+) -> ResultatPoids:
     stats = base.statistiques()
     if stats.km_total <= 0:
         raise ErreurUtilisateur(
             "routes poids : aucune route apprise — lancer d'abord "
             "`ourouler routes apprendre`"
         )
-    client = _client(config, client_brouter)
-    traces, echecs = _boucles_exposition(client, config)
+    client = _client(contexte.profil, client_brouter)
+    traces, echecs = _boucles_exposition(client, contexte.profil)
     exposition = statistiques_de_traces(traces)
     poids = poids_appris(stats, exposition if traces else None)
 
-    chemin = config.cache.dossier / NOM_POIDS
-    applique = bool(getattr(args, "appliquer", False))
-    if applique:
+    chemin = contexte.dossier_cache / NOM_POIDS
+    if demande.appliquer:
         ecrire_poids(
             chemin,
             poids,
@@ -301,16 +203,16 @@ def _poids(
                 "km_exposition": round(exposition.km_total, 1),
             },
         )
-    if getattr(args, "json", False):
-        sortie = _poids_json(stats, exposition, poids, echecs)
-        sortie["ecrit_dans"] = str(chemin) if applique else None
-        print(json.dumps(sortie, ensure_ascii=False, indent=2))
-    else:
-        print(_poids_texte(stats, exposition, poids, echecs, chemin if applique else None))
-    return 0
+    return ResultatPoids(
+        stats=stats,
+        exposition=exposition,
+        poids=poids,
+        echecs=echecs,
+        ecrit_dans=chemin if demande.appliquer else None,
+    )
 
 
-def _boucles_exposition(client: ClientBrouter, config: Config) -> tuple[list[Trace], list[str]]:
+def _boucles_exposition(client: ClientBrouter, profil: Profil) -> tuple[list[Trace], list[str]]:
     """Une boucle de 40 km par direction : ce que le moteur **propose** au départ.
 
     Chaque réponse est **élaguée de ses antennes**, exactement comme
@@ -333,10 +235,10 @@ def _boucles_exposition(client: ClientBrouter, config: Config) -> tuple[list[Tra
     for nom in NOMS_DIRECTIONS:
         try:
             trace = client.boucle(
-                (config.depart.latitude, config.depart.longitude),
+                (profil.depart.latitude, profil.depart.longitude),
                 azimut_deg=azimut_de(nom),
                 rayon_m=rayon,
-                profil=config.brouter.profil,
+                profil=profil.brouter.profil,
             )
             traces.append(elaguer(trace, detecter(trace)))
         except ErreurConnecteur as e:
@@ -344,106 +246,10 @@ def _boucles_exposition(client: ClientBrouter, config: Config) -> tuple[list[Tra
     return (traces, echecs)
 
 
-def _poids_texte(
-    stats: Statistiques,
-    exposition: Statistiques,
-    poids: dict[str, float],
-    echecs: list[str],
-    ecrit_dans,
-) -> str:
-    lignes = [
-        f"Poids appris — {stats.sorties} sortie(s) roulée(s) ({_fr(stats.km_total, 0)} km) "
-        f"contre {exposition.sorties} boucle(s) d'exposition "
-        f"({_fr(exposition.km_total, 0)} km, {DISTANCE_EXPOSITION_KM:g} km × "
-        f"{len(NOMS_DIRECTIONS)} directions)",
-        "Poids = min(4, max(0, log2(part exposition / part sorties))), en km "
-        "équivalents par km ; tertiary est la référence, donc 0.",
-        f"Sous {PART_EXPOSITION_MIN * 100:.0f} % d'exposition, la classe garde son poids par "
-        "défaut : trop peu proposée pour que le rapport veuille dire quelque chose.",
-        "",
-    ]
-    classes = sorted(
-        set(stats.km_par_highway) | set(exposition.km_par_highway),
-        key=lambda c: -stats.km_par_highway.get(c, 0.0),
-    )
-    titres = ("classe", "part sorties", "part exposition", "poids défaut", "poids appris")
-    cellules = [
-        [
-            _libelle(classe),
-            f"{_fr(stats.part(classe) * 100, 1)} %",
-            f"{_fr(exposition.part(classe) * 100, 1)} %",
-            _fr(POIDS_HIGHWAY_DEFAUT.get(classe, 0.0), 1),
-            _fr(poids[classe], 2) if classe in poids else ABSENT,
-        ]
-        for classe in classes
-    ]
-    lignes.extend(_tableau(titres, cellules))
-    if echecs:
-        lignes.append("")
-        lignes.append(f"{len(echecs)} direction(s) sans boucle — l'exposition porte sur le reste :")
-        lignes.extend(f"  {m}" for m in echecs)
-    lignes.append("")
-    if ecrit_dans is not None:
-        lignes.append(f"Poids écrits dans {ecrit_dans} — `ourouler boucle` les utilisera.")
-    else:
-        lignes.append("Rien n'a été écrit : ajouter --appliquer pour enregistrer ces poids.")
-    return "\n".join(lignes)
-
-
-def _poids_json(
-    stats: Statistiques, exposition: Statistiques, poids: dict[str, float], echecs: list[str]
-) -> dict:
-    classes = sorted(set(stats.km_par_highway) | set(exposition.km_par_highway))
-    return {
-        "sorties_apprises": stats.sorties,
-        "km_appris": round(stats.km_total, 1),
-        "boucles_exposition": exposition.sorties,
-        "km_exposition": round(exposition.km_total, 1),
-        "directions": list(NOMS_DIRECTIONS),
-        "distance_exposition_km": DISTANCE_EXPOSITION_KM,
-        "echecs": list(echecs),
-        "classes": [
-            {
-                "classe": classe,
-                "part_sorties": round(stats.part(classe), 4),
-                "part_exposition": round(exposition.part(classe), 4),
-                "poids_defaut": POIDS_HIGHWAY_DEFAUT.get(classe, 0.0),
-                "poids_appris": poids.get(classe),
-            }
-            for classe in classes
-        ],
-        "poids": {k: round(v, 4) for k, v in poids.items()},
-    }
-
-
-# --- rendu partagé ------------------------------------------------------------
-
-
-def _tableau(titres: tuple[str, ...], cellules: list[list[str]]) -> list[str]:
-    """Un tableau aligné à droite, titres compris. Vide si aucune ligne."""
-    if not cellules:
-        return [f"  {titres[0]} : aucune donnée"]
-    largeurs = [
-        max([len(t)] + [len(ligne[i]) for ligne in cellules]) for i, t in enumerate(titres)
-    ]
-    lignes = ["  " + "  ".join(t.rjust(n) for t, n in zip(titres, largeurs, strict=True))]
-    for ligne in cellules:
-        lignes.append("  " + "  ".join(c.rjust(n) for c, n in zip(ligne, largeurs, strict=True)))
-    return lignes
-
-
-def _libelle(classe: str) -> str:
-    return classe or LIBELLE_SANS_HIGHWAY
-
-
-def _fr(valeur: float, decimales: int) -> str:
-    """Un nombre à la française : virgule décimale, pas de séparateur de milliers."""
-    return f"{valeur:.{decimales}f}".replace(".", ",")
-
-
-def _depuis(brut: str | None, config: Config) -> date:
+def date_depuis(brut: str | None) -> date | None:
+    """`--depuis` en date ; `None` s'il est absent (le service prend alors le début de l'historique)."""
     if not brut:
-        return config.historique_depuis
+        return None
     try:
         return date.fromisoformat(brut)
     except ValueError as e:

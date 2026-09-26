@@ -402,9 +402,9 @@ def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_inventaire(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.activites.commande import executer  # import paresseux (lot L1.3)
+    from ourouler.commandes.inventaire import executer_depuis_namespace  # import paresseux (lot L1.3)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
@@ -423,9 +423,9 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_meteo(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.meteo.commande import executer  # import paresseux (lot L1.5)
+    from ourouler.commandes.meteo import executer_depuis_namespace  # import paresseux (lot L1.5)
 
-    return executer(args, config, lieu_depart=lieu_depart(args, config))
+    return executer_depuis_namespace(args, config, lieu_depart=lieu_depart(args, config))
 
 
 def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
@@ -481,7 +481,7 @@ def ajouter_boucle(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.boucle.commande import executer  # import paresseux (lot L2.6)
+    from ourouler.commandes.boucle import executer_depuis_namespace  # import paresseux (lot L2.6)
 
     # Avec `--gpx`, la boucle n'est pas générée : elle est lue dans le fichier,
     # qui porte son propre départ. Géocoder une adresse pour l'annoncer ensuite
@@ -496,7 +496,9 @@ def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     # `avertir_routes` : `boucle` affiche une part de kilomètres déjà connus,
     # mesurée autour du départ configuré — partir d'ailleurs la fait tomber à
     # zéro pour une raison qui n'a rien à voir avec le tracé proposé.
-    return executer(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
+    return executer_depuis_namespace(
+        args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
+    )
 
 
 def ajouter_routes(sous: argparse._SubParsersAction) -> None:
@@ -547,9 +549,9 @@ def ajouter_routes(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_routes(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.apprentissage.commande import executer  # import paresseux (lot L3.2)
+    from ourouler.commandes.routes import executer_depuis_namespace  # import paresseux (lot L3.2)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
@@ -573,9 +575,9 @@ def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_calibrer(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.commande import executer_calibrer  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import calibrer_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_calibrer(args, config)
+    return calibrer_depuis_namespace(args, config)
 
 
 def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
@@ -610,9 +612,9 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.commande import executer_simuler  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import simuler_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_simuler(args, config)
+    return simuler_depuis_namespace(args, config)
 
 
 def ajouter_analyser(sous: argparse._SubParsersAction) -> None:
@@ -646,9 +648,9 @@ def ajouter_analyser(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_analyser(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.commande import executer_analyser  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import analyser_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_analyser(args, config)
+    return analyser_depuis_namespace(args, config)
 
 
 def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
@@ -695,9 +697,9 @@ def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.comparer import executer_comparer  # import paresseux (lot L3.3)
+    from ourouler.commandes.comparer import executer_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_comparer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_seance(sous: argparse._SubParsersAction) -> None:
@@ -727,9 +729,9 @@ def ajouter_seance(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_seance(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.seance.commande import executer  # import paresseux (lot L4.1)
+    from ourouler.commandes.seance import executer_depuis_namespace  # import paresseux (lot L4.1)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
@@ -798,9 +800,11 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.sortie.commande import executer  # import paresseux (lot L4.4)
+    from ourouler.commandes.sortie import executer_depuis_namespace  # import paresseux (lot L4.4)
 
-    return executer(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
+    return executer_depuis_namespace(
+        args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
+    )
 
 
 def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
@@ -825,9 +829,9 @@ def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_geocoder(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.geocodage.commande import executer  # import paresseux (lot F0.2)
+    from ourouler.commandes.geocoder import executer_depuis_namespace  # import paresseux (lot F0.2)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_api(sous: argparse._SubParsersAction) -> None:

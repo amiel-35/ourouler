@@ -32,6 +32,8 @@ from test_seance_intervals import ATHLETE, CLE, W
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.cli import construire_parseur, main
+from ourouler.commandes.sortie import executer_depuis_namespace as executer
+from ourouler.commandes.sortie import lire_options
 from ourouler.config import (
     HORIZON_JOURS_DEFAUT,
     Config,
@@ -65,8 +67,6 @@ from ourouler.sortie.commande import (
     _ecrire_gpx,
     _notes_egales,
     _seance,
-    executer,
-    lire_options,
 )
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
@@ -1450,7 +1450,7 @@ def test_le_gpx_d_un_parcours_avec_demi_tour_contient_l_aller_retour(
     config = config_de_test(tmp_path / "cache")
     demande = lire_options(args(), config)
 
-    chemin = _ecrire_gpx(trace, place, seance, demande, config)
+    chemin = _ecrire_gpx(trace, place, seance, demande, config.cache.dossier)
 
     texte = chemin.read_text(encoding="utf-8")
     relu = lire_gpx_trace(texte.encode("utf-8"))

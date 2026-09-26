@@ -30,13 +30,10 @@ pas.
 
 from __future__ import annotations
 
-import argparse
-import json
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.erreurs import ErreurIntervalsAbsent, ErreurUtilisateur
 from ourouler.noyau.seance import (
@@ -46,6 +43,7 @@ from ourouler.noyau.seance import (
 )
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.intervals import seance_du_jour, seances_periode
+from ourouler.services.contexte import Contexte
 
 #: Comment les types s'écrivent dans le tableau.
 LIBELLES_TYPE = {
@@ -128,144 +126,6 @@ def longueurs(
     return mesures
 
 
-# --- la commande --------------------------------------------------------------
-
-
-def executer(
-    args: argparse.Namespace, config: Config, client: ClientIntervals | None = None
-) -> int:
-    """Exécute `ourouler seance`. Sans séance ce jour-là : message clair, code 0.
-
-    Trois modes, exclusifs entre eux sauf `--jour` qui reste compatible avec
-    `--fichier-seance` (il y fixe alors le jour auquel la séance importée est
-    rattachée, aujourd'hui par défaut) :
-
-    - `--jour` seul : un jour chez Intervals.icu (inchangé depuis L4.1) ;
-    - `--depuis`/`--jusqua` ensemble : une plage chez Intervals.icu (F0.3,
-      voir `_executer_periode`) ;
-    - `--fichier-seance` : un `.ZWO`/`.MRC` donné en ligne de commande au lieu
-      d'Intervals.icu (F1, comble C1 de `docs/journal/ux/relecture_f0.md` — voir
-      `_executer_fichier`).
-    """
-    jour_brut = getattr(args, "jour", None)
-    depuis_brut = getattr(args, "depuis", None)
-    jusqua_brut = getattr(args, "jusqua", None)
-    fichier_brut = getattr(args, "fichier_seance", None)
-    _valider_mode(jour_brut, depuis_brut, jusqua_brut, fichier_brut)
-
-    if fichier_brut:
-        return _executer_fichier(args, config, Path(fichier_brut), _jour(jour_brut))
-
-    if client is None:
-        if not config.intervals.renseigne:
-            raise ErreurIntervalsAbsent(
-                "séance : Intervals.icu n'est pas renseigné — compléter [intervals] "
-                "athlete_id et api_key dans la configuration"
-            )
-        client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
-
-    if depuis_brut or jusqua_brut:
-        return _executer_periode(args, config, client, _jour(depuis_brut), _jour(jusqua_brut))
-
-    jour = _jour(jour_brut)
-    seance = seance_du_jour(
-        client,
-        jour,
-        ftp_w=config.cycliste.ftp_w,
-        zones_puissance=config.seance.zones_pct,
-        puissance_endurance_pct=config.seance.puissance_endurance_pct,
-        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
-    )
-    if seance is None:
-        if getattr(args, "json", False):
-            print(json.dumps({"jour": jour.isoformat(), "seance": None}, ensure_ascii=False))
-        else:
-            print(f"Aucune séance vélo planifiée le {jour.isoformat()} sur Intervals.icu.")
-        return 0
-
-    return _rendre(args, config, seance)
-
-
-def _executer_fichier(
-    args: argparse.Namespace, config: Config, chemin: Path, jour: date
-) -> int:
-    """Séance lue depuis un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, C1).
-
-    Le reste de l'enchaînement — vitesses, longueurs, rendu — est celui de
-    `executer` : un fichier remplace seulement la source de la `Seance`.
-    `lire_fichier_seance` lève `ErreurLecture` (sous-classe d'`ErreurUtilisateur`)
-    pour un fichier absent, vide, mal formé ou d'extension inconnue ; `cli.py`
-    l'affiche en une ligne comme toute autre erreur utilisateur.
-    """
-    from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
-
-    seance = lire_fichier_seance(
-        chemin,
-        ftp_w=config.cycliste.ftp_w,
-        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
-        jour=jour,
-    )
-    return _rendre(args, config, seance)
-
-
-def _rendre(args: argparse.Namespace, config: Config, seance: Seance) -> int:
-    """La queue commune à `--jour` et `--fichier-seance` : vitesses, longueurs, rendu."""
-    vitesses, source = _vitesses(config)
-    mesures = longueurs(seance, **vitesses)
-    if getattr(args, "json", False):
-        print(json.dumps(rendre_json(seance, mesures, source), ensure_ascii=False, indent=2))
-    else:
-        print(rendre_texte(seance, mesures, source))
-    return 0
-
-
-def _valider_mode(
-    jour: str | None, depuis: str | None, jusqua: str | None, fichier: str | None = None
-) -> None:
-    if fichier and (depuis or jusqua):
-        raise ErreurUtilisateur(
-            "séance : --fichier-seance est exclusif de --depuis/--jusqua "
-            "— un fichier ne couvre qu'un seul jour"
-        )
-    if jour and (depuis or jusqua):
-        raise ErreurUtilisateur("séance : --jour et --depuis/--jusqua sont exclusifs")
-    if bool(depuis) != bool(jusqua):
-        raise ErreurUtilisateur("séance : --depuis et --jusqua se donnent ensemble")
-
-
-def _executer_periode(
-    args: argparse.Namespace, config: Config, client: ClientIntervals, depuis: date, jusqua: date
-) -> int:
-    """Le mode `--depuis`/`--jusqua` : une séance par jour de la plage, un seul appel réseau.
-
-    `seances_periode` porte déjà la garde `jusqua < depuis`. Chaque jour de la
-    plage figure dans le rendu, avec `seance: null` s'il n'y en a pas — un
-    jour vide s'y distingue donc d'un jour jamais demandé, qui n'apparaît
-    simplement pas.
-    """
-    resultats = seances_periode(
-        client,
-        depuis,
-        jusqua,
-        ftp_w=config.cycliste.ftp_w,
-        zones_puissance=config.seance.zones_pct,
-        puissance_endurance_pct=config.seance.puissance_endurance_pct,
-        seuil_recuperation_pct=config.seance.seuil_recuperation_pct,
-    )
-    vitesses, source = _vitesses(config)
-    if getattr(args, "json", False):
-        print(
-            json.dumps(
-                rendre_json_periode(depuis, jusqua, resultats, vitesses, source),
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-    else:
-        print(rendre_texte_periode(depuis, jusqua, resultats, vitesses, source))
-    return 0
-
-
 @dataclass(frozen=True)
 class SourceVitesse:
     """D'où vient la vitesse affichée. Elle est toujours dite : ce n'est pas pareil."""
@@ -294,7 +154,7 @@ class SourceVitesse:
         )
 
 
-def _vitesses(config: Config) -> tuple[dict, SourceVitesse]:
+def _vitesses(contexte: Contexte) -> tuple[dict, SourceVitesse]:
     """Le modèle calibré s'il existe, sinon la vitesse moyenne de la configuration.
 
     `parametres_du_velo` sait aussi fabriquer des paramètres depuis la
@@ -303,25 +163,164 @@ def _vitesses(config: Config) -> tuple[dict, SourceVitesse]:
     fausse : entre une fausse précision et une vitesse moyenne assumée, le
     mainteneur a demandé la seconde, et qu'on dise laquelle.
     """
-    from ourouler.physique.commande import (  # import paresseux : il lit un fichier
-        chemin_calibration,
-        velo_demande,
-    )
-    from ourouler.stockage.calibrations import lire_calibration
+    from ourouler.physique.parametres_velo import velo_demande
+    from ourouler.stockage.calibrations import lire_calibration  # import paresseux : lit un fichier
 
-    velo = velo_demande(config, None)
-    calibration = lire_calibration(chemin_calibration(config), velo.nom)
+    velo = velo_demande(contexte.profil, None)
+    calibration = lire_calibration(contexte.fichier_calibration, velo.nom)
     if calibration is not None:
         source = SourceVitesse("calibration", velo.nom, calibration.parametres, None)
         return ({"parametres": calibration.parametres}, source)
-    vitesse_ms = config.boucle.vitesse_moyenne_kmh / 3.6
+    vitesse_ms = contexte.profil.boucle.vitesse_moyenne_kmh / 3.6
     return (
         {"vitesse_ms": vitesse_ms},
         SourceVitesse("configuration", velo.nom, None, vitesse_ms),
     )
 
 
-def _jour(brut: str | None) -> date:
+# --- le cas d'usage -----------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DemandeSeance:
+    """La séance demandée, déjà interprétée par l'entrée (`commandes/seance.py`).
+
+    Trois modes, exclusifs entre eux (`valider_mode` l'a vérifié) :
+
+    - `jour` seul : un jour chez Intervals.icu (inchangé depuis L4.1) ;
+    - `depuis`/`jusqua` ensemble : une plage chez Intervals.icu (F0.3) ;
+    - `fichier` : un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, comble C1 de
+      `docs/journal/ux/relecture_f0.md`), rattaché à `jour`.
+    """
+
+    jour: date | None = None
+    depuis: date | None = None
+    jusqua: date | None = None
+    fichier: Path | None = None
+
+
+@dataclass(frozen=True)
+class ResultatSeance:
+    """Un jour : la séance (ou `None` s'il n'y en a pas), ses longueurs et d'où vient la vitesse."""
+
+    jour: date
+    seance: Seance | None
+    mesures: list[LongueurEtape]
+    source: SourceVitesse | None
+
+
+@dataclass(frozen=True)
+class ResultatPeriode:
+    """Une plage : une entrée par jour, `None` les jours sans séance."""
+
+    depuis: date
+    jusqua: date
+    resultats: list
+    vitesses: dict
+    source: SourceVitesse
+
+
+def executer(
+    demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None
+) -> ResultatSeance | ResultatPeriode:
+    """Exécute `ourouler seance`. Sans séance ce jour-là : `seance` vaut `None`, pas d'erreur."""
+    profil = contexte.profil
+    if demande.fichier is not None:
+        return _executer_fichier(demande.fichier, demande.jour or date.today(), contexte)
+
+    if client is None:
+        if not profil.intervals.renseigne:
+            raise ErreurIntervalsAbsent(
+                "séance : Intervals.icu n'est pas renseigné — compléter [intervals] "
+                "athlete_id et api_key dans la configuration"
+            )
+        client = ClientIntervals(profil.intervals.athlete_id, profil.intervals.api_key)
+
+    if demande.depuis is not None and demande.jusqua is not None:
+        return _executer_periode(client, demande.depuis, demande.jusqua, contexte)
+
+    jour = demande.jour or date.today()
+    seance = seance_du_jour(
+        client,
+        jour,
+        ftp_w=profil.cycliste.ftp_w,
+        zones_puissance=profil.seance.zones_pct,
+        puissance_endurance_pct=profil.seance.puissance_endurance_pct,
+        seuil_recuperation_pct=profil.seance.seuil_recuperation_pct,
+    )
+    if seance is None:
+        return ResultatSeance(jour=jour, seance=None, mesures=[], source=None)
+    return _mesurer(seance, jour, contexte)
+
+
+def _executer_fichier(chemin: Path, jour: date, contexte: Contexte) -> ResultatSeance:
+    """Séance lue depuis un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, C1).
+
+    Le reste de l'enchaînement — vitesses, longueurs, rendu — est celui du
+    jour chez Intervals : un fichier remplace seulement la source de la
+    `Seance`. `lire_fichier_seance` lève `ErreurLecture` (sous-classe
+    d'`ErreurUtilisateur`) pour un fichier absent, vide, mal formé ou
+    d'extension inconnue ; `cli.py` l'affiche en une ligne comme toute autre
+    erreur utilisateur.
+    """
+    from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
+
+    seance = lire_fichier_seance(
+        chemin,
+        ftp_w=contexte.profil.cycliste.ftp_w,
+        seuil_recuperation_pct=contexte.profil.seance.seuil_recuperation_pct,
+        jour=jour,
+    )
+    return _mesurer(seance, jour, contexte)
+
+
+def _mesurer(seance: Seance, jour: date, contexte: Contexte) -> ResultatSeance:
+    """La queue commune à `--jour` et `--fichier-seance` : vitesses, longueurs."""
+    vitesses, source = _vitesses(contexte)
+    return ResultatSeance(jour=jour, seance=seance, mesures=longueurs(seance, **vitesses), source=source)
+
+
+def valider_mode(
+    jour: str | None, depuis: str | None, jusqua: str | None, fichier: str | None = None
+) -> None:
+    if fichier and (depuis or jusqua):
+        raise ErreurUtilisateur(
+            "séance : --fichier-seance est exclusif de --depuis/--jusqua "
+            "— un fichier ne couvre qu'un seul jour"
+        )
+    if jour and (depuis or jusqua):
+        raise ErreurUtilisateur("séance : --jour et --depuis/--jusqua sont exclusifs")
+    if bool(depuis) != bool(jusqua):
+        raise ErreurUtilisateur("séance : --depuis et --jusqua se donnent ensemble")
+
+
+def _executer_periode(
+    client: ClientIntervals, depuis: date, jusqua: date, contexte: Contexte
+) -> ResultatPeriode:
+    """Le mode `--depuis`/`--jusqua` : une séance par jour de la plage, un seul appel réseau.
+
+    `seances_periode` porte déjà la garde `jusqua < depuis`. Chaque jour de la
+    plage figure dans le rendu, avec `seance: null` s'il n'y en a pas — un
+    jour vide s'y distingue donc d'un jour jamais demandé, qui n'apparaît
+    simplement pas.
+    """
+    profil = contexte.profil
+    resultats = seances_periode(
+        client,
+        depuis,
+        jusqua,
+        ftp_w=profil.cycliste.ftp_w,
+        zones_puissance=profil.seance.zones_pct,
+        puissance_endurance_pct=profil.seance.puissance_endurance_pct,
+        seuil_recuperation_pct=profil.seance.seuil_recuperation_pct,
+    )
+    vitesses, source = _vitesses(contexte)
+    return ResultatPeriode(
+        depuis=depuis, jusqua=jusqua, resultats=resultats, vitesses=vitesses, source=source
+    )
+
+
+def jour_option(brut: str | None) -> date:
     if not brut:
         return date.today()
     try:

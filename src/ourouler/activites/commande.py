@@ -1,32 +1,55 @@
-"""Sous-commande `ourouler inventaire`.
+"""Cas d'usage `ourouler inventaire` : importer, synchroniser, puis compter.
 
-Adaptateur entre `argparse` et le cœur : ne lit aucun fichier de
-configuration (la `Config` arrive déjà construite), n'affiche jamais de clé.
+Reçoit une `DemandeInventaire` déjà interprétée par l'entrée
+(`commandes/inventaire.py`) et un `Contexte` ; ne lit aucun fichier de
+configuration, n'affiche jamais de clé, n'imprime rien : il rend
+l'inventaire et le journal de ce qu'il a fait.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
+from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from ourouler.activites.cache import Cache
-from ourouler.activites.inventaire import inventaire, rendre_json, rendre_texte
-from ourouler.config import Config
+from ourouler.activites.inventaire import Inventaire, inventaire
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.profil import Profil
+from ourouler.services.contexte import Contexte
 
 
-def executer(args: argparse.Namespace, config: Config, cache: Cache | None = None) -> int:
-    """Exécute `ourouler inventaire`. Renvoie le code de sortie (0 = succès).
+@dataclass(frozen=True)
+class DemandeInventaire:
+    """Depuis quand compter, et ce qu'il faut faire entrer dans le cache avant."""
+
+    depuis: date
+    importer: Path | None = None
+    synchroniser: bool = False
+    rafraichir_meta: bool = True
+
+
+@dataclass(frozen=True)
+class ResultatInventaire:
+    """L'inventaire, et les lignes du journal d'import et de synchronisation."""
+
+    inventaire: Inventaire
+    journal: tuple[str, ...] = ()
+
+
+def executer(
+    demande: DemandeInventaire, contexte: Contexte, cache: Cache | None = None
+) -> ResultatInventaire:
+    """Exécute `ourouler inventaire`.
 
     **`cache` s'injecte, exactement comme un client HTTP** (règle 3 de
     CLAUDE.md, et c'est déjà la forme de `client_brouter` dans
     `apprentissage/commande.py`). Absent — le cas de la ligne de commande —
-    la commande le construit comme avant, sur `config.cache.dossier` et avec
-    le propriétaire par défaut.
+    le service le construit sur `contexte.dossier_cache` et avec le
+    propriétaire par défaut.
 
     C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
-    cœur : la commande reçoit un dépôt déjà fait et ne prononce jamais le mot
+    cœur : le service reçoit un dépôt déjà fait et ne prononce jamais le mot
     « propriétaire ». Le seul endroit qui le prononce est l'appelant — pour
     l'API, `api/routes/`, qui construit
     `Cache(config.cache.dossier, proprietaire=str(qui))`, exactement comme
@@ -35,43 +58,31 @@ def executer(args: argparse.Namespace, config: Config, cache: Cache | None = Non
     couche web qui construira le dépôt avec l'identifiant de l'utilisateur
     authentifié ».
     """
-    depuis = _depuis(getattr(args, "depuis", None), config)
-    cache = cache if cache is not None else Cache(config.cache.dossier)
+    cache = cache if cache is not None else Cache(contexte.dossier_cache)
     journal: list[str] = []
 
-    if getattr(args, "importer", None):
-        ajoutes = cache.indexer_dossier(args.importer)
-        journal.append(f"Import de {args.importer} : {ajoutes} activité(s) ajoutée(s).")
+    if demande.importer:
+        ajoutes = cache.indexer_dossier(demande.importer)
+        journal.append(f"Import de {demande.importer} : {ajoutes} activité(s) ajoutée(s).")
         for echec in cache.echecs:
             journal.append(f"  ignoré — {echec}")
 
-    if getattr(args, "synchroniser", False):
+    if demande.synchroniser:
         journal.extend(
             _synchroniser(
-                cache,
-                config,
-                depuis,
-                rafraichir_meta=not getattr(args, "sans_rafraichir", False),
+                cache, contexte.profil, demande.depuis, rafraichir_meta=demande.rafraichir_meta
             )
         )
 
-    inv = inventaire(cache, config, depuis)
-    if getattr(args, "json", False):
-        sortie = rendre_json(inv)
-        sortie["journal"] = journal
-        print(json.dumps(sortie, ensure_ascii=False, indent=2))
-    else:
-        for ligne in journal:
-            print(ligne)
-        if journal:
-            print()
-        print(rendre_texte(inv))
-    return 0
+    return ResultatInventaire(
+        inventaire=inventaire(cache, contexte.profil, demande.depuis), journal=tuple(journal)
+    )
 
 
-def _depuis(brut: str | None, config: Config) -> date:
+def date_depuis(brut: str | None, defaut: date) -> date:
+    """`--depuis` en date ; absent, le début de l'historique du profil."""
     if not brut:
-        return config.historique_depuis
+        return defaut
     try:
         return date.fromisoformat(brut)
     except ValueError as e:
@@ -79,18 +90,18 @@ def _depuis(brut: str | None, config: Config) -> date:
 
 
 def _synchroniser(
-    cache: Cache, config: Config, depuis: date, *, rafraichir_meta: bool = True
+    cache: Cache, profil: Profil, depuis: date, *, rafraichir_meta: bool = True
 ) -> list[str]:
     """Rapatrie les activités Intervals.icu manquantes. Import paresseux : le
     connecteur n'est chargé que si on s'en sert."""
-    if not config.intervals.renseigne:
+    if not profil.intervals.renseigne:
         raise ErreurUtilisateur(
             "--synchroniser : [intervals] athlete_id et api_key doivent être "
             "renseignés dans la configuration (Intervals.icu → Settings → Developer)"
         )
     from ourouler.connecteurs.intervals import ClientIntervals, synchroniser
 
-    client = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
+    client = ClientIntervals(profil.intervals.athlete_id, profil.intervals.api_key)
     rapport = synchroniser(client, cache, depuis, rafraichir_meta=rafraichir_meta)
     journal = [
         f"Synchronisation Intervals.icu depuis le {depuis.isoformat()} : "
