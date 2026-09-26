@@ -19,12 +19,12 @@ config.*.toml
 *.[tT][cC][xX]
 *.[gG][pP][xX]
 # Les cartes de `ourouler sortie` portent la géométrie complète de la boucle,
-# donc le point de départ du mainteneur. Elles sont écrites dans le dossier
+# donc le point de départ du cycliste. Elles sont écrites dans le dossier
 # courant, y compris quand on lance la commande à la racine du dépôt.
 *.html
 # ...sauf les maquettes du cycle UX, qui sont du travail de conception et non
 # une sortie de `ourouler sortie` (la raison de la règle ci-dessus), et la page
-# d'entrée du front, qui est du code source (lot F2). Nommées une par une :
+# d'entrée du front, qui est du code source. Nommées une par une :
 # `!docs/ux/*.html` réintégrait tout `.html` déposé là, y compris une carte de
 # `ourouler sortie` sauvegardée par mégarde, avec la géométrie de la boucle.
 !docs/journal/ux/maquettes_v1.html
@@ -79,7 +79,7 @@ data/
 !deploiement/.env.example
 !deploiement/api/.env.example
 
-# Front (lot F2) : les dépendances s'installent, elles ne se commitent pas.
+# Front : les dépendances s'installent, elles ne se commitent pas.
 front/node_modules/
 front/dist/
 # Cache de Vite (pré-bundling des dépendances), régénéré à chaque build.
@@ -93,5 +93,5 @@ front/.vite/
 # Son modèle vide, `service.example.toml`, est commité (aucune donnée personnelle ni clé dans le dépôt).
 service.toml
 
-# Consignes locales de Claude Code pour le mainteneur (jamais commitées)
+# Consignes locales de Claude Code (jamais commitées)
 CLAUDE.local.md
