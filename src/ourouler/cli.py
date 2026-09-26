@@ -423,9 +423,9 @@ def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_meteo(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.meteo.commande import executer  # import paresseux (lot L1.5)
+    from ourouler.commandes.meteo import executer_depuis_namespace  # import paresseux (lot L1.5)
 
-    return executer(args, config, lieu_depart=lieu_depart(args, config))
+    return executer_depuis_namespace(args, config, lieu_depart=lieu_depart(args, config))
 
 
 def ajouter_boucle(sous: argparse._SubParsersAction) -> None:

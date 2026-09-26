@@ -16,8 +16,9 @@ from zoneinfo import ZoneInfo
 import httpx
 import pytest
 
+from ourouler.commandes.meteo import executer_depuis_namespace as executer
 from ourouler.config import Config, depuis_dict
-from ourouler.meteo.commande import HORIZON_MAX_H, executer, heure_depart
+from ourouler.meteo.commande import HORIZON_MAX_H, heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurConfig, ErreurConnecteur, ErreurUtilisateur
 
