@@ -94,6 +94,17 @@ def _est_entier(valeur: Any) -> bool:
     return isinstance(valeur, int) and not isinstance(valeur, bool)
 
 
+# Espace insécable (U+00A0) et espace fine insécable (U+202F) : typographie
+# française normale (avant « : », « ; », « ! », « ? »), tolérées en plus de
+# str.isprintable() dans titre/raison, sans changer le reste du filtrage.
+CARACTERES_ESPACE_TOLERES = (" ", " ")
+
+
+def _est_imprimable_tolerant(texte: str) -> bool:
+    """Comme str.isprintable(), mais tolère U+00A0 et U+202F."""
+    return all(c.isprintable() or c in CARACTERES_ESPACE_TOLERES for c in texte)
+
+
 def _elements(sprint: dict[str, Any]) -> list[dict[str, Any]]:
     """Les éléments d'un sprint qui sont bien des tables (les autres sont
     signalés par la règle A)."""
@@ -228,7 +239,7 @@ def valider_entree_derogation(entree: str) -> str | None:
         )
     # Avant tout strip() : un caractère de contrôle en bordure ne doit pas
     # disparaître avant d'être vu.
-    if not raison.isprintable():
+    if not _est_imprimable_tolerant(raison):
         return "raison avec un caractère non imprimable (saut de ligne, tabulation, contrôle…)"
     raison = raison.strip()
     if len(raison) < LONGUEUR_MIN_RAISON_DEROGATION:
@@ -274,7 +285,7 @@ def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]
     if not isinstance(titre, str):
         violations.append(f"{ctx} 'titre' doit être une chaîne")
     else:
-        if not titre.isprintable():
+        if not _est_imprimable_tolerant(titre):
             violations.append(
                 f"{ctx} 'titre' contient un caractère non imprimable "
                 "(saut de ligne, tabulation, contrôle…)"
@@ -322,7 +333,7 @@ def _valider_cles_et_types_element(element: dict[str, Any], ctx: str) -> list[st
         raison = element["raison"]
         if not isinstance(raison, str):
             violations.append(f"{ctx} 'raison' doit être une chaîne")
-        elif not raison.isprintable():
+        elif not _est_imprimable_tolerant(raison):
             violations.append(
                 f"{ctx} 'raison' contient un caractère non imprimable "
                 "(saut de ligne, tabulation, contrôle…)"
@@ -498,20 +509,20 @@ def regle_e_sprint_clos_termine(sprint: dict[str, Any]) -> list[str]:
         f"{_contexte(sprint.get('numero'), None)} sprint clos mais contient un élément de "
         f"statut {e.get('statut')!r} (seuls livre/abandonne sont autorisés)"
         for e in _elements(sprint)
-        if e.get("statut") not in {"livre", "abandonne"}
+        if not isinstance(e.get("statut"), str) or e.get("statut") not in {"livre", "abandonne"}
     ]
 
 
 def regle_e_sprint_non_commence(sprint: dict[str, Any]) -> list[str]:
     """Un sprint fige ou esquisse ne contient que du prévu ou de l'abandonné."""
     statut = sprint.get("statut")
-    if statut not in {"fige", "esquisse"}:
+    if not isinstance(statut, str) or statut not in {"fige", "esquisse"}:
         return []
     return [
         f"{_contexte(sprint.get('numero'), None)} sprint {statut} mais contient un élément de "
         f"statut {e.get('statut')!r} (seuls prevu/abandonne sont autorisés)"
         for e in _elements(sprint)
-        if e.get("statut") not in {"prevu", "abandonne"}
+        if not isinstance(e.get("statut"), str) or e.get("statut") not in {"prevu", "abandonne"}
     ]
 
 
@@ -553,7 +564,7 @@ def _violations_monotonie_statuts(sprints: list[dict[str, Any]]) -> list[str]:
     esquisse* (≤ 2)."""
     violations: list[str] = []
     statuts_ordre = [s.get("statut") for s in sprints]
-    if any(s not in ORDRE_SEQUENCE_FICHIER for s in statuts_ordre):
+    if any(not isinstance(s, str) or s not in ORDRE_SEQUENCE_FICHIER for s in statuts_ordre):
         return violations  # statut invalide déjà signalé par la règle A
 
     rangs = [ORDRE_SEQUENCE_FICHIER[s] for s in statuts_ordre]
@@ -650,7 +661,12 @@ def _regle_g_transition_sprint(
     """Pas de recul, au plus une étape. « clos seulement depuis en_cours » en
     découle : la progression étant linéaire, arriver à clos depuis autre
     chose que en_cours ou clos est forcément un saut de plus d'une étape."""
-    if statut_base not in ORDRE_PROGRESSION or statut_courant not in ORDRE_PROGRESSION:
+    if (
+        not isinstance(statut_base, str)
+        or statut_base not in ORDRE_PROGRESSION
+        or not isinstance(statut_courant, str)
+        or statut_courant not in ORDRE_PROGRESSION
+    ):
         return []  # statut invalide : règle A
     ecart = ORDRE_PROGRESSION[statut_courant] - ORDRE_PROGRESSION[statut_base]
     if ecart < 0:

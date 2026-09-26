@@ -1703,3 +1703,163 @@ def test_commits_premier_parent_illisible_est_une_violation(tmp_path, capsys):
     _commit_toml(racine, TOML_BASE)
     assert main(["--racine", str(racine), "--commits", "HEAD~1"]) == 1
     assert "au premier parent" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Correction 1 : espace insécable (U+00A0) et espace fine insécable (U+202F)
+# tolérées dans titre/raison, le reste d'isprintable() inchangé.
+# ---------------------------------------------------------------------------
+
+
+def test_espace_insecable_et_fine_toleree_dans_titre_et_raisons(tmp_path):
+    nbsp = " "
+    nnbsp = " "
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        f'[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre{nbsp}: essai"\n'
+        f'[[sprint.element]]\nfiche = "fiche-a"\nstatut = "abandonne"\n'
+        f'raison = "raison{nnbsp}: pas de souci ici"\n',
+    )
+    violations = violations_statiques(donnees, racine)
+    assert not _viole(violations, "'titre' contient un caractère non imprimable")
+    assert not _viole(violations, "'raison' contient un caractère non imprimable")
+
+    entree_ok = f"26/09/2026 : raison avec une espace fine{nnbsp}: correcte"
+    assert verifier_backlog.valider_entree_derogation(entree_ok) is None
+    entree_ok_nbsp = f"26/09/2026 : raison avec une espace insécable{nbsp}: correcte"
+    assert verifier_backlog.valider_entree_derogation(entree_ok_nbsp) is None
+
+
+def test_autres_caracteres_non_imprimables_toujours_refuses_non_regression(tmp_path):
+    """Non-régression : \\r et \\x0b (parmi d'autres) restent refusés, seules
+    U+00A0 et U+202F sont tolérées en plus."""
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    # Échappements TOML (\r, \u000b) : le caractère brut correspondant n'est
+    # pas légal tel quel dans une chaîne TOML sur une ligne.
+    for piege_toml in ("\\r", "\\u000b"):
+        donnees = _ecrire_toml(
+            racine,
+            f'[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre{piege_toml}suite"\n'
+            f'[[sprint.element]]\nfiche = "fiche-a"\nstatut = "abandonne"\n'
+            f'raison = "raison{piege_toml}suite ici"\n',
+        )
+        violations = violations_statiques(donnees, racine)
+        assert _viole(violations, "'titre' contient un caractère non imprimable"), piege_toml
+        assert _viole(violations, "'raison' contient un caractère non imprimable"), piege_toml
+
+    entree = "26/09/2026 : raison avec un\rretour chariot ici"
+    assert "non imprimable" in verifier_backlog.valider_entree_derogation(entree)
+
+
+# ---------------------------------------------------------------------------
+# Correction 2 : un champ d'un type inattendu (liste, table…) ne plante
+# jamais le script — une violation propre, jamais une exception.
+# ---------------------------------------------------------------------------
+
+
+def test_robustesse_type_statut_sprint(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = []\ntitre = "Titre"\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = "prevu"\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'statut' invalide")
+
+
+def test_robustesse_type_statut_element(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "clos"\ntitre = "Titre"\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = []\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'statut' invalide")
+
+
+def test_robustesse_type_numero(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = []\nstatut = "fige"\ntitre = "Titre"\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = "prevu"\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'numero' doit être un entier")
+
+
+def test_robustesse_type_titre(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = { x = 1 }\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = "prevu"\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'titre' doit être une chaîne")
+
+
+def test_robustesse_type_fiche(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre"\n'
+        '[[sprint.element]]\nfiche = []\nstatut = "prevu"\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'fiche' doit être une chaîne")
+
+
+def test_robustesse_type_chantier(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre"\n'
+        '[[sprint.element]]\nchantier = { x = 1 }\nstatut = "prevu"\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'chantier' doit être une chaîne")
+
+
+def test_robustesse_type_pr(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "en_cours"\ntitre = "Titre"\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = "livre"\npr = []\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'pr' doit être un entier")
+
+
+def test_robustesse_type_raison(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre"\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = "abandonne"\nraison = []\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "'raison' doit être une chaîne")
+
+
+def test_robustesse_type_derogations(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre"\nderogations = { x = 1 }\n',
+    )
+    violations = violations_statiques(donnees, racine)  # ne doit pas lever
+    assert violations != []
+    assert _viole(violations, "derogations doit être une liste de chaînes")
