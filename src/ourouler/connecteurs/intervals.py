@@ -297,7 +297,7 @@ def resoudre_athlete_id(
     puisse se construire (`__init__` l'exige déjà, à raison — un connecteur
     sans identifiant ne doit pas pouvoir appeler les autres endpoints).
 
-    Ne stocke rien : c'est l'appelant (`api/routes.py`) qui décide quoi faire
+    Ne stocke rien : c'est l'appelant (`api/routes/`) qui décide quoi faire
     du résultat. Lève `ErreurConnecteur` — clé refusée (401/403, reconnue par
     `_indice` et donc par `api/erreurs.py:_connecteur` comme `intervals_refuse`),
     service injoignable, ou réponse sans `id` exploitable — jamais de valeur

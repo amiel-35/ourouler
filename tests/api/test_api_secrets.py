@@ -94,7 +94,7 @@ def test_la_route_de_configuration_dit_quand_meme_si_la_cle_est_renseignee():
 # Marque « pas de route qui échoue sur un service authentifié » retirée le
 # 17/09/2026 : la route de la semaine échoue sur un Intervals bouchonné à 401
 # depuis que la fabrique sait habiller un transport injecté du connecteur qui
-# porte la clé (`api/routes.FABRIQUES_CONNECTEUR`).
+# porte la clé (`api/routes/commun.FABRIQUES_CONNECTEUR`).
 def test_aucun_secret_ne_fuit_dans_un_message_d_erreur():
     """Protège E15 · échec et E12, et la doctrine §10.1 (« jamais dans une erreur »).
 

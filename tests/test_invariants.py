@@ -230,14 +230,19 @@ def test_les_routes_ne_chargent_jamais_la_configuration_elles_memes():
     sans rien casser de visible — le genre de régression qui ne se voit qu'en
     production, quand il y a deux utilisateurs.
     """
-    arbre = ast.parse((SOURCES / "api" / "routes.py").read_text(encoding="utf-8"))
-    for noeud in ast.walk(arbre):
-        if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").startswith("ourouler.config"):
-            importes = {alias.name for alias in noeud.names}
-            assert "charger" not in importes, (
-                "api/routes.py importe config.charger : la Config vient du dépôt, "
-                "pour un propriétaire"
-            )
+    modules = sorted((SOURCES / "api" / "routes").glob("*.py"))
+    assert len(modules) > 1, "api/routes/ doit exister, un module par domaine (lot 13)"
+    for module in modules:
+        arbre = ast.parse(module.read_text(encoding="utf-8"))
+        for noeud in ast.walk(arbre):
+            if isinstance(noeud, ast.ImportFrom) and (noeud.module or "").startswith(
+                "ourouler.config"
+            ):
+                importes = {alias.name for alias in noeud.names}
+                assert "charger" not in importes, (
+                    f"api/routes/{module.name} importe config.charger : la Config vient "
+                    "du dépôt, pour un propriétaire"
+                )
 
 
 def test_les_prefixes_qui_classent_les_pannes_existent_vraiment():

@@ -82,7 +82,7 @@ class GardeAvantCorps:
         ):
             refus = await self._refus(scope)
             if refus is not None:
-                from ourouler.api.routes import reponse_erreur
+                from ourouler.api.routes.commun import reponse_erreur
 
                 await reponse_erreur(refus)(scope, receive, send)
                 return
@@ -107,7 +107,7 @@ class GardeAvantCorps:
         if qui is None:
             return ErreurApi(code=CODE_SANS_SESSION, message=MESSAGE_SANS_SESSION, statut=401)
         if taches_fond.VERROU.locked():
-            from ourouler.api.routes import _message_occupe
+            from ourouler.api.routes.commun import _message_occupe
 
             return ErreurApi(
                 code="import_deja_en_cours",

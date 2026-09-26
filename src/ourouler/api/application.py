@@ -58,13 +58,13 @@ from ourouler.api.quotas import (
     IMPORTS_PAR_JOUR_DEFAUT,
     Quotas,
 )
-from ourouler.api.routes import (
+from ourouler.api.routes import routeur
+from ourouler.api.routes.commun import (
     TAILLE_MAX_PARCOURS,
     TAILLE_MAX_SEANCE,
     Clients,
     Contexte,
     reponse_erreur,
-    routeur,
 )
 from ourouler.api.session import FournisseurSession, SessionPersonnelle
 from ourouler.config import PREFIXE_ENV, Config, dossier_cache_depuis
@@ -245,7 +245,7 @@ def creer_application(
     transport, bouchonné dans un test — que la route habille du connecteur qui
     va avec, avec l'URL et les identifiants du profil du propriétaire. Un
     connecteur déjà construit est accepté aussi, et pris tel quel. La règle et
-    ses raisons sont sur `routes.FABRIQUES_CONNECTEUR` ; il n'y a **pas** de
+    ses raisons sont sur `routes.commun.FABRIQUES_CONNECTEUR` ; il n'y a **pas** de
     service qui s'injecte autrement que les autres.
 
     **`session` dit comment l'application sait qui parle** (`api/session.py`).
@@ -274,7 +274,7 @@ def creer_application(
     l'autre — deux postes de coût différents, deux compteurs. Sans eux,
     `Quotas()` avec son défaut pour chacun — ce que font tous les tests qui
     n'exercent pas le quota. Sans objet en mode personnel : voir
-    `routes._verifier_quota`. `quotas_calibration` (L9.4) est le troisième
+    `routes.commun._verifier_quota`. `quotas_calibration` (L9.4) est le troisième
     compteur, une calibration par jour et par compte par défaut
     (`quotas.CALIBRATIONS_PAR_JOUR_DEFAUT`).
 

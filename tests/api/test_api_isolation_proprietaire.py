@@ -85,7 +85,7 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: 
 #: `test_une_route_sans_clause_de_proprietaire_est_bien_detectee` sont définies
 #: ici ; avec un import local, `Ctx` et `Qui` seraient irrésolubles et le
 #: détecteur déclarerait « sans clause » une route qui en a une.
-from ourouler.api.routes import Ctx, Qui  # noqa: E402
+from ourouler.api.routes.commun import Ctx, Qui  # noqa: E402
 from ourouler.api.session import (  # noqa: E402
     MODE_HEBERGE,
     MODE_PERSONNEL,
@@ -203,7 +203,7 @@ def test_chaque_route_de_donnees_resout_un_proprietaire_cote_serveur():
     remplit. Un `?proprietaire=` dans le contrat publié serait le contraire de
     ce qu'on veut : tant que rien n'authentifie personne, un paramètre que
     n'importe qui peut écrire est une référence directe à l'objet d'autrui —
-    la faille même que ce fichier prétend fermer. `api/routes.proprietaire()`
+    la faille même que ce fichier prétend fermer. `api/routes/commun.proprietaire()`
     le dit dans les mêmes termes : rien dans la requête HTTP ne doit pouvoir
     désigner un autre propriétaire — c'est le fournisseur de session qui
     tranche, jamais le client.
@@ -973,7 +973,7 @@ def _semer_chez_le_proprietaire_local(dossier_cache: Path) -> None:
     de route : l'index des activités se remplit par `ourouler inventaire
     --importer/--synchroniser` et la base des routes par `ourouler routes
     apprendre`, trois gestes de ligne de commande que l'API n'expose
-    délibérément pas (voir `api/routes.py`). Exiger un semis « par le
+    délibérément pas (voir `api/routes/`). Exiger un semis « par le
     produit » reviendrait donc à ne jamais éprouver ces deux lectures-là —
     et c'est exactement par elles que Q58 est entrée.
 

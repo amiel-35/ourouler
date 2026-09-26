@@ -77,7 +77,7 @@ max-positional-args = 6
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/api/limite_corps.py" = ["C901"]
 # exception datée : 2 fonction(s), à retirer au lot 12 (2026-12-31)
-"src/ourouler/api/routes.py" = ["PLR0917"]
+"src/ourouler/api/routes/meteo.py" = ["PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/boucle/meteo_trace.py" = ["PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)

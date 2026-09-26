@@ -1,7 +1,7 @@
 """Intergiciel ASGI : refuse un corps trop gros **avant** qu'il touche le disque.
 
 `_refuser_import_sur_la_taille_annoncee` et son jumeau pour les séances
-(`api/routes.py`) ne lisent que l'en-tête `Content-Length` — un client qui
+(`api/routes/`) ne lisent que l'en-tête `Content-Length` — un client qui
 ment (ou qui envoie en `Transfer-Encoding: chunked`, sans `Content-Length`
 du tout) les traverse sans être vu, et Starlette a déjà écrit le corps
 multipart entier dans un fichier temporaire avant que la route ne s'exécute

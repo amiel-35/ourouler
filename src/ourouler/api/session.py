@@ -141,7 +141,7 @@ class SessionHebergee:
 #: front ne le lit jamais), `Secure` (jamais envoyé en clair), `SameSite=Lax`
 #: (un lien externe peut encore ouvrir une page authentifiée ; un site tiers
 #: ne peut pas déclencher, depuis chez lui, une requête qui s'en sert) — les
-#: trois posés par `api/routes.py` au moment d'écrire le cookie, pas ici : ce
+#: trois posés par `api/routes/` au moment d'écrire le cookie, pas ici : ce
 #: module ne connaît pas la forme d'une réponse HTTP.
 NOM_COOKIE = "ourouler_session"
 
@@ -155,7 +155,7 @@ class SessionParCookie:
     que Starlette expose) et demande au dépôt des comptes à qui il
     appartient. `DepotComptes.proprietaire_de_la_session` rend `None` pour un
     jeton absent, inconnu ou expiré — les trois cas où « personne » est la
-    seule réponse honnête, et `proprietaire()` (`api/routes.py`) les traduit
+    seule réponse honnête, et `proprietaire()` (`api/routes/`) les traduit
     tous en 401 de la même façon.
 
     **Une connexion par appel, pas de réserve tenue ouverte.** Chaque

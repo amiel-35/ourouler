@@ -28,7 +28,7 @@ def executer(args: argparse.Namespace, config: Config, cache: Cache | None = Non
     C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
     cœur : la commande reçoit un dépôt déjà fait et ne prononce jamais le mot
     « propriétaire ». Le seul endroit qui le prononce est l'appelant — pour
-    l'API, `api/routes.py`, qui construit
+    l'API, `api/routes/`, qui construit
     `Cache(config.cache.dossier, proprietaire=str(qui))`, exactement comme
     `api/vie_privee.py` le fait déjà. Doctrine §10.1 : « le propriétaire entre
     au constructeur du dépôt, et nulle part ailleurs […] en hébergé, c'est la

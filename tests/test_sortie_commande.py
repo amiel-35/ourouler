@@ -294,7 +294,7 @@ def client_brouter(reglages: dict[float, dict] | None = None) -> httpx.Client:
 
     Extrait le 17/09/2026 : les tests de contrat de l'API injectent un
     `httpx.Client` et laissent l'API l'habiller du connecteur, avec l'URL et
-    les identifiants du profil (`api/routes.FABRIQUES_CONNECTEUR`). Ils ont
+    les identifiants du profil (`api/routes/commun.FABRIQUES_CONNECTEUR`). Ils ont
     donc besoin de ce bouchon-ci, pas d'un `ClientBrouter` déjà pointé
     ailleurs — et refabriquer chez eux une géométrie de boucle crédible en
     ferait une deuxième à tenir à jour.

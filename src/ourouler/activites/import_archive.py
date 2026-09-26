@@ -3,10 +3,10 @@ archive d'export Strava/Garmin (lot L9.2, `docs/journal/sprints/sprint9_contrat.
 
 **Doctrine §2** : ce module ne lit ni fichier de configuration ni variable
 d'environnement — il reçoit un `Cache` déjà construit pour un propriétaire
-(voir `api/routes.py:_cache`, même règle que `Cache.indexer_dossier`) et des
+(voir `api/routes/commun.py:_cache`, même règle que `Cache.indexer_dossier`) et des
 octets ou des fichiers binaires déjà ouverts. Il ne sait pas d'où ils
 viennent (HTTP, disque, test) : c'est à l'appelant de borner leur taille
-totale (`api/routes.py` le fait avant d'appeler).
+totale (`api/routes/` le fait avant d'appeler).
 
 **Rien n'est jamais extrait sur disque, et le dépôt n'est jamais chargé
 d'un bloc.** L'archive déposée est lue entrée par entrée depuis le fichier

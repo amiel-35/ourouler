@@ -1098,7 +1098,7 @@ def executer_reinitialiser(
 # --- retirer (lot L9.6) ---------------------------------------------------------
 #
 # Ferme un compte, ses sessions, son invitation, et efface ses données
-# personnelles — le même chemin que `DELETE /moi` (`api/routes.py`), jamais une
+# personnelles — le même chemin que `DELETE /moi` (`api/routes/`), jamais une
 # réimplémentation : `services/comptes.retirer` appelle `vie_privee.effacer_donnees`
 # telle quelle. Cette commande a donc besoin de plus que la base des comptes :
 # les mêmes dépôts (profil, fichiers, journal, générations) et le même dossier de

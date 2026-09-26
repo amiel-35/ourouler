@@ -1,0 +1,474 @@
+{
+  "ordre": [
+    {
+      "chemin": "/openapi.json",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "openapi"
+    },
+    {
+      "chemin": "/docs",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "swagger_ui_html"
+    },
+    {
+      "chemin": "/docs/oauth2-redirect",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "swagger_ui_redirect"
+    },
+    {
+      "chemin": "/redoc",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "redoc_html"
+    },
+    {
+      "chemin": "/api/v1/invitation",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_invitation"
+    },
+    {
+      "chemin": "/api/v1/entrer",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "entrer"
+    },
+    {
+      "chemin": "/api/v1/reinitialiser",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "reinitialiser"
+    },
+    {
+      "chemin": "/api/v1/connexion",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "connexion"
+    },
+    {
+      "chemin": "/api/v1/sortir",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "sortir"
+    },
+    {
+      "chemin": "/api/v1/systeme",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "systeme"
+    },
+    {
+      "chemin": "/api/v1/systeme/budgets",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "budgets"
+    },
+    {
+      "chemin": "/api/v1/profil",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "lire_profil"
+    },
+    {
+      "chemin": "/api/v1/profil",
+      "methodes": [
+        "PATCH"
+      ],
+      "nom": "modifier_profil"
+    },
+    {
+      "chemin": "/api/v1/profil/zones",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "lire_zones"
+    },
+    {
+      "chemin": "/api/v1/profil/zones/apercu",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "apercu_zones"
+    },
+    {
+      "chemin": "/api/v1/profil/intervals",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "profil_intervals"
+    },
+    {
+      "chemin": "/api/v1/profil/ftp/apercu",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "apercu_ftp_depuis_terrain"
+    },
+    {
+      "chemin": "/api/v1/profil/ftp/generique",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "ftp_generique"
+    },
+    {
+      "chemin": "/api/v1/geocodage",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "geocoder"
+    },
+    {
+      "chemin": "/api/v1/vent-depart",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "vent_depart"
+    },
+    {
+      "chemin": "/api/v1/meteo",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "meteo"
+    },
+    {
+      "chemin": "/api/v1/seances",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "seances"
+    },
+    {
+      "chemin": "/api/v1/seances/{jour}",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "seance_du_jour"
+    },
+    {
+      "chemin": "/api/v1/seances/fichier",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "deposer_seance"
+    },
+    {
+      "chemin": "/api/v1/activites/import",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_import"
+    },
+    {
+      "chemin": "/api/v1/activites/import/{id_job}",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_job_import"
+    },
+    {
+      "chemin": "/api/v1/activites/import",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "importer_activites"
+    },
+    {
+      "chemin": "/api/v1/calibrations",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_calibrations"
+    },
+    {
+      "chemin": "/api/v1/calibrations/{id_job}",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "etat_job_calibration"
+    },
+    {
+      "chemin": "/api/v1/calibrations",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "lancer_calibration"
+    },
+    {
+      "chemin": "/api/v1/sorties",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "generer_sortie"
+    },
+    {
+      "chemin": "/api/v1/sorties/{generation}/propositions/{numero}/gpx",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "gpx_de_proposition"
+    },
+    {
+      "chemin": "/api/v1/boucles",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "generer_boucle"
+    },
+    {
+      "chemin": "/api/v1/simulations",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "simuler"
+    },
+    {
+      "chemin": "/api/v1/parcours/fichier",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "deposer_parcours"
+    },
+    {
+      "chemin": "/api/v1/parcours/analyser",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "analyser_parcours"
+    },
+    {
+      "chemin": "/api/v1/inventaire",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "inventaire"
+    },
+    {
+      "chemin": "/api/v1/routes/{action}",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "routes_connues"
+    },
+    {
+      "chemin": "/api/v1/fichiers/{identifiant}",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "servir_fichier"
+    },
+    {
+      "chemin": "/api/v1/moi/export",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "exporter_mes_donnees"
+    },
+    {
+      "chemin": "/api/v1/moi",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "mon_compte"
+    },
+    {
+      "chemin": "/api/v1/moi/mot-de-passe",
+      "methodes": [
+        "POST"
+      ],
+      "nom": "changer_mon_mot_de_passe"
+    },
+    {
+      "chemin": "/api/v1/moi",
+      "methodes": [
+        "DELETE"
+      ],
+      "nom": "supprimer_mes_donnees"
+    },
+    {
+      "chemin": "/sante",
+      "methodes": [
+        "GET"
+      ],
+      "nom": "_sonde_sante"
+    }
+  ],
+  "resolution": {
+    "DELETE /api/v1/activites/import": "405",
+    "DELETE /api/v1/activites/import/exemple-id_job": "405",
+    "DELETE /api/v1/boucles": "405",
+    "DELETE /api/v1/calibrations": "405",
+    "DELETE /api/v1/calibrations/exemple-id_job": "405",
+    "DELETE /api/v1/connexion": "405",
+    "DELETE /api/v1/entrer": "405",
+    "DELETE /api/v1/fichiers/exemple-identifiant": "405",
+    "DELETE /api/v1/geocodage": "405",
+    "DELETE /api/v1/inventaire": "405",
+    "DELETE /api/v1/invitation": "405",
+    "DELETE /api/v1/meteo": "405",
+    "DELETE /api/v1/moi": "ourouler.api.routes:supprimer_mes_donnees",
+    "DELETE /api/v1/moi/export": "405",
+    "DELETE /api/v1/moi/mot-de-passe": "405",
+    "DELETE /api/v1/parcours/analyser": "405",
+    "DELETE /api/v1/parcours/fichier": "405",
+    "DELETE /api/v1/profil": "405",
+    "DELETE /api/v1/profil/ftp/apercu": "405",
+    "DELETE /api/v1/profil/ftp/generique": "405",
+    "DELETE /api/v1/profil/intervals": "405",
+    "DELETE /api/v1/profil/zones": "405",
+    "DELETE /api/v1/profil/zones/apercu": "405",
+    "DELETE /api/v1/reinitialiser": "405",
+    "DELETE /api/v1/routes/exemple-action": "405",
+    "DELETE /api/v1/seances": "405",
+    "DELETE /api/v1/seances/2026-09-26": "405",
+    "DELETE /api/v1/seances/fichier": "405",
+    "DELETE /api/v1/simulations": "405",
+    "DELETE /api/v1/sorties": "405",
+    "DELETE /api/v1/sorties/exemple-generation/propositions/exemple-numero/gpx": "405",
+    "DELETE /api/v1/sortir": "405",
+    "DELETE /api/v1/systeme": "405",
+    "DELETE /api/v1/systeme/budgets": "405",
+    "DELETE /api/v1/vent-depart": "405",
+    "DELETE /docs": "405",
+    "DELETE /docs/oauth2-redirect": "405",
+    "DELETE /openapi.json": "405",
+    "DELETE /redoc": "405",
+    "DELETE /sante": "405",
+    "GET /api/v1/activites/import": "ourouler.api.routes:etat_import",
+    "GET /api/v1/activites/import/exemple-id_job": "ourouler.api.routes:etat_job_import",
+    "GET /api/v1/boucles": "405",
+    "GET /api/v1/calibrations": "ourouler.api.routes:etat_calibrations",
+    "GET /api/v1/calibrations/exemple-id_job": "ourouler.api.routes:etat_job_calibration",
+    "GET /api/v1/connexion": "405",
+    "GET /api/v1/entrer": "405",
+    "GET /api/v1/fichiers/exemple-identifiant": "ourouler.api.routes:servir_fichier",
+    "GET /api/v1/geocodage": "ourouler.api.routes:geocoder",
+    "GET /api/v1/inventaire": "ourouler.api.routes:inventaire",
+    "GET /api/v1/invitation": "ourouler.api.routes:etat_invitation",
+    "GET /api/v1/meteo": "ourouler.api.routes:meteo",
+    "GET /api/v1/moi": "ourouler.api.routes:mon_compte",
+    "GET /api/v1/moi/export": "ourouler.api.routes:exporter_mes_donnees",
+    "GET /api/v1/moi/mot-de-passe": "405",
+    "GET /api/v1/parcours/analyser": "405",
+    "GET /api/v1/parcours/fichier": "405",
+    "GET /api/v1/profil": "ourouler.api.routes:lire_profil",
+    "GET /api/v1/profil/ftp/apercu": "405",
+    "GET /api/v1/profil/ftp/generique": "ourouler.api.routes:ftp_generique",
+    "GET /api/v1/profil/intervals": "ourouler.api.routes:profil_intervals",
+    "GET /api/v1/profil/zones": "ourouler.api.routes:lire_zones",
+    "GET /api/v1/profil/zones/apercu": "405",
+    "GET /api/v1/reinitialiser": "405",
+    "GET /api/v1/routes/exemple-action": "ourouler.api.routes:routes_connues",
+    "GET /api/v1/seances": "ourouler.api.routes:seances",
+    "GET /api/v1/seances/2026-09-26": "ourouler.api.routes:seance_du_jour",
+    "GET /api/v1/seances/fichier": "ourouler.api.routes:seance_du_jour",
+    "GET /api/v1/simulations": "405",
+    "GET /api/v1/sorties": "405",
+    "GET /api/v1/sorties/exemple-generation/propositions/exemple-numero/gpx": "ourouler.api.routes:gpx_de_proposition",
+    "GET /api/v1/sortir": "405",
+    "GET /api/v1/systeme": "ourouler.api.routes:systeme",
+    "GET /api/v1/systeme/budgets": "ourouler.api.routes:budgets",
+    "GET /api/v1/vent-depart": "ourouler.api.routes:vent_depart",
+    "GET /docs": "fastapi.applications:swagger_ui_html",
+    "GET /docs/oauth2-redirect": "fastapi.applications:swagger_ui_redirect",
+    "GET /openapi.json": "fastapi.applications:openapi",
+    "GET /redoc": "fastapi.applications:redoc_html",
+    "GET /sante": "ourouler.api.application:_sonde_sante",
+    "PATCH /api/v1/activites/import": "405",
+    "PATCH /api/v1/activites/import/exemple-id_job": "405",
+    "PATCH /api/v1/boucles": "405",
+    "PATCH /api/v1/calibrations": "405",
+    "PATCH /api/v1/calibrations/exemple-id_job": "405",
+    "PATCH /api/v1/connexion": "405",
+    "PATCH /api/v1/entrer": "405",
+    "PATCH /api/v1/fichiers/exemple-identifiant": "405",
+    "PATCH /api/v1/geocodage": "405",
+    "PATCH /api/v1/inventaire": "405",
+    "PATCH /api/v1/invitation": "405",
+    "PATCH /api/v1/meteo": "405",
+    "PATCH /api/v1/moi": "405",
+    "PATCH /api/v1/moi/export": "405",
+    "PATCH /api/v1/moi/mot-de-passe": "405",
+    "PATCH /api/v1/parcours/analyser": "405",
+    "PATCH /api/v1/parcours/fichier": "405",
+    "PATCH /api/v1/profil": "ourouler.api.routes:modifier_profil",
+    "PATCH /api/v1/profil/ftp/apercu": "405",
+    "PATCH /api/v1/profil/ftp/generique": "405",
+    "PATCH /api/v1/profil/intervals": "405",
+    "PATCH /api/v1/profil/zones": "405",
+    "PATCH /api/v1/profil/zones/apercu": "405",
+    "PATCH /api/v1/reinitialiser": "405",
+    "PATCH /api/v1/routes/exemple-action": "405",
+    "PATCH /api/v1/seances": "405",
+    "PATCH /api/v1/seances/2026-09-26": "405",
+    "PATCH /api/v1/seances/fichier": "405",
+    "PATCH /api/v1/simulations": "405",
+    "PATCH /api/v1/sorties": "405",
+    "PATCH /api/v1/sorties/exemple-generation/propositions/exemple-numero/gpx": "405",
+    "PATCH /api/v1/sortir": "405",
+    "PATCH /api/v1/systeme": "405",
+    "PATCH /api/v1/systeme/budgets": "405",
+    "PATCH /api/v1/vent-depart": "405",
+    "PATCH /docs": "405",
+    "PATCH /docs/oauth2-redirect": "405",
+    "PATCH /openapi.json": "405",
+    "PATCH /redoc": "405",
+    "PATCH /sante": "405",
+    "POST /api/v1/activites/import": "ourouler.api.routes:importer_activites",
+    "POST /api/v1/activites/import/exemple-id_job": "405",
+    "POST /api/v1/boucles": "ourouler.api.routes:generer_boucle",
+    "POST /api/v1/calibrations": "ourouler.api.routes:lancer_calibration",
+    "POST /api/v1/calibrations/exemple-id_job": "405",
+    "POST /api/v1/connexion": "ourouler.api.routes:connexion",
+    "POST /api/v1/entrer": "ourouler.api.routes:entrer",
+    "POST /api/v1/fichiers/exemple-identifiant": "405",
+    "POST /api/v1/geocodage": "405",
+    "POST /api/v1/inventaire": "405",
+    "POST /api/v1/invitation": "405",
+    "POST /api/v1/meteo": "405",
+    "POST /api/v1/moi": "405",
+    "POST /api/v1/moi/export": "405",
+    "POST /api/v1/moi/mot-de-passe": "ourouler.api.routes:changer_mon_mot_de_passe",
+    "POST /api/v1/parcours/analyser": "ourouler.api.routes:analyser_parcours",
+    "POST /api/v1/parcours/fichier": "ourouler.api.routes:deposer_parcours",
+    "POST /api/v1/profil": "405",
+    "POST /api/v1/profil/ftp/apercu": "ourouler.api.routes:apercu_ftp_depuis_terrain",
+    "POST /api/v1/profil/ftp/generique": "405",
+    "POST /api/v1/profil/intervals": "405",
+    "POST /api/v1/profil/zones": "405",
+    "POST /api/v1/profil/zones/apercu": "ourouler.api.routes:apercu_zones",
+    "POST /api/v1/reinitialiser": "ourouler.api.routes:reinitialiser",
+    "POST /api/v1/routes/exemple-action": "405",
+    "POST /api/v1/seances": "405",
+    "POST /api/v1/seances/2026-09-26": "405",
+    "POST /api/v1/seances/fichier": "ourouler.api.routes:deposer_seance",
+    "POST /api/v1/simulations": "ourouler.api.routes:simuler",
+    "POST /api/v1/sorties": "ourouler.api.routes:generer_sortie",
+    "POST /api/v1/sorties/exemple-generation/propositions/exemple-numero/gpx": "405",
+    "POST /api/v1/sortir": "ourouler.api.routes:sortir",
+    "POST /api/v1/systeme": "405",
+    "POST /api/v1/systeme/budgets": "405",
+    "POST /api/v1/vent-depart": "405",
+    "POST /docs": "405",
+    "POST /docs/oauth2-redirect": "405",
+    "POST /openapi.json": "405",
+    "POST /redoc": "405",
+    "POST /sante": "405"
+  }
+}

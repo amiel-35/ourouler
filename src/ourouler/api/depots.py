@@ -302,7 +302,7 @@ class SocleTOML:
         et n'est **jamais** celui d'une personne réelle : c'est une valeur
         neutre, la même pour tout le monde, à l'opposé de la fuite fermée
         plus haut qui servait le départ ou le poids *réels* de quelqu'un.
-        `assistant_recommande` (`api/routes.py`) dit déjà au front que ce
+        `assistant_recommande` (`api/routes/`) dit déjà au front que ce
         qu'il reçoit est provisoire — c'est le signal existant, pas un
         nouveau.
 

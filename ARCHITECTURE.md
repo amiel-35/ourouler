@@ -81,7 +81,7 @@ HTTP injectable :
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
 | `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`) et de `boucle` (`boucle.py`), la carte HTML (`carte.py`), le texte et le JSON de `calibrer`, `simuler`, `analyser` et `comparer` (`physique.py`, lot 8) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `physique.py` (874), `profil.py`, `comptes.py` |
 | `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`, lot 8) | `calibrer.py`, `comptes.py` |
-| `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `routes.py` (2 122), `comptes.py` (1 095), `depots.py` (988), `application.py` (621), `adaptateur.py` (277) |
+| `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `comptes.py` (1 095), `depots.py` (988), `application.py` (632), `routes/commun.py` (411), `routes/profil.py` (331) — les routes, un module par domaine sous `routes/` (lot 13) |
 
 Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
 `proprietaire.py`, `seance/modele.py` et `seance/zones.py` ne sont plus que
@@ -121,7 +121,7 @@ l'image et démarrage sans Postgres).
 | **Aucune requête sans clause de propriétaire**, en SQLite comme dans les dépôts de l'API. | `tests/test_invariants.py` (`test_aucun_acces_aux_donnees_sans_clause_de_proprietaire`, `test_aucun_depot_ne_s_ajoute_a_depots_py_sans_etre_nomme`) ; `tests/api/test_api_isolation_proprietaire.py` |
 | **Le mode hébergé refuse les sections personnelles** dans le socle, en TOML comme en variable d'environnement. | `tests/api/test_api_paquetage.py` (`test_en_heberge_une_section_perso_pur_dans_le_socle_refuse_le_demarrage`, `test_en_heberge_une_variable_perso_pur_refuse_aussi_le_demarrage`) |
 | **Aucun secret ne sort** : ni dans une réponse, ni dans une erreur, ni dans le journal, ni dans le schéma publié. | `tests/api/test_api_secrets.py` |
-| **Le contrat d'API est figé** : le schéma OpenAPI trié est comparé à une référence. | `tests/api/test_contrat_openapi.py`, `tests/caracterisation/openapi.json` |
+| **Le contrat d'API est figé** : le schéma OpenAPI trié est comparé à une référence. | `tests/api/test_contrat_openapi.py`, `tests/caracterisation/openapi.json` ; la route qui sert chaque chemin, dans l'ordre d'enregistrement : `tests/api/test_resolution_routes.py` |
 | **numpy reste dans `physique/`.** | `tests/test_invariants.py` (`test_numpy_reste_dans_le_paquet_physique`) |
 
 ## 4. L'écart honnête
@@ -254,7 +254,8 @@ identiques, et retire les exceptions qu'elle rend inutiles.
    tournent ensemble et où l'écart est journalisé.
 10. Découper les fonctions trop longues, une à la fois.
 11. Scinder `api/routes.py` par domaine, en vérifiant que chaque chemin se
-    résout toujours vers la même route.
+    résout toujours vers la même route. *Fait (lot 13)* : `api/routes/`, un
+    module par domaine, et `tests/api/test_resolution_routes.py`.
 12. Côté front : un seul point d'accès au réseau, des types vérifiés contre
     le schéma OpenAPI, `App.tsx` découpé.
 13. Retirer les réexports.
@@ -269,7 +270,7 @@ front (écran de la sortie du jour)
   ▼
 api/application.py      session (cookie en hébergé), limite de corps, erreurs
   ▼
-api/routes.py           generer_sortie : quota du compte, Config du propriétaire
+api/routes/generations.py  generer_sortie : quota du compte, Config du propriétaire
   │                     (socle + profil, api/depots.py), clients HTTP du service
   ▼
 api/adaptateur.py       Namespace argparse + verrou global
@@ -302,6 +303,6 @@ au vol. Par la ligne de commande, le trajet est le même depuis
 `sortie/commande.py`, `cli.py` tenant le rôle de l'API et de l'adaptateur.
 
 Dans l'architecture visée, les trois boîtes « adaptateur », « commande » et
-« rendu imprimé » deviennent : `api/routes.py` construit une `Demande`,
+« rendu imprimé » deviennent : `api/routes/` construit une `Demande`,
 appelle `services/sortie`, qui orchestre le domaine pur et les connecteurs,
 puis `rendu/` produit le JSON, sans passer par la sortie standard.

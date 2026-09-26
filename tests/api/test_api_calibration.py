@@ -38,7 +38,7 @@ from ourouler.api.application import creer_application  # noqa: E402
 from ourouler.api.depots import SocleTOML  # noqa: E402
 from ourouler.api.proprietaire import Proprietaire  # noqa: E402
 from ourouler.api.quotas import Quotas  # noqa: E402
-from ourouler.api.routes import Clients  # noqa: E402
+from ourouler.api.routes.commun import Clients  # noqa: E402
 from ourouler.api.session import MODE_HEBERGE  # noqa: E402
 from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
 from ourouler.physique import commande as physique  # noqa: E402

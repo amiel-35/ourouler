@@ -10,7 +10,7 @@ dure et appelle l'archive Open-Meteo, une fois par jour de sortie.
 
 **Où la calibration s'écrit.** En mode hébergé, dans le dossier du compte
 (`DepotProfils.dossier`, à côté de son profil) : c'est ce chemin que
-`api/routes._config` pose dans `Config.cache.fichier_calibration`, donc
+`api/routes/commun._config` pose dans `Config.cache.fichier_calibration`, donc
 celui que les boucles, les sorties, les simulations et l'écran de FTP de ce
 compte relisent — et jamais ceux d'un autre. L'export et la suppression
 RGPD l'emportent avec le reste du dossier (`api/vie_privee.py`). En mode
@@ -41,7 +41,7 @@ le quota et avant le verrou : un refus ne coûte rien.
 
 Ce module ne lit ni fichier de configuration ni variable d'environnement : il
 reçoit une `Config`, un `Cache` et un client d'archive déjà construits pour
-le propriétaire de la requête (`api/routes.py`).
+le propriétaire de la requête (`api/routes/`).
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def verifier(
     en fabrique un générique (« Route », sans poids ni pneu) pour que les
     boucles tournent. Calibrer ce vélo-là n'aurait pas de sens : le résultat
     serait rangé sous un nom que le cycliste n'a jamais choisi. C'est
-    l'appelant qui sait si la liste vient du cycliste (`api/routes.py` : sa
+    l'appelant qui sait si la liste vient du cycliste (`api/routes/calibrations.py` : sa
     surcharge de profil, en mode hébergé).
 
     Le pneu vient en dernier : demander de choisir un pneu à quelqu'un qui n'a
