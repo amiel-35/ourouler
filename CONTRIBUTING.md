@@ -12,7 +12,9 @@ Pour une faille de sécurité, n'ouvrez pas de ticket public : voir
 ## Installer
 
 Prérequis : Python 3.12 ou plus récent, [uv](https://docs.astral.sh/uv/),
-Node.js 20 et npm, et Docker pour une partie des tests.
+Node.js 20 et npm, et Docker pour une partie des tests. Le dépôt porte un
+`.python-version` (3.12, la version de la CI) : `uv` s'aligne dessus tout
+seul, sans installation manuelle.
 
 ```sh
 uv sync --frozen --extra dev     # Python : dépendances de test et de lint
