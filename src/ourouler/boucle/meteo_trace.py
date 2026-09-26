@@ -66,10 +66,8 @@ SEUIL_PLUIE_MM_H = 0.2
 #: l'orientation au vent se pose (`sortie.vent_demande`). Si le vent ne mérite
 #: pas d'être montré, il ne mérite pas qu'on demande son orientation.
 #:
-#: Elle vivait dans `seance.vent`, qui la réexporte pour ses appelants
-#: historiques. Elle est descendue ici le 17/09/2026 parce que `boucle` en a
-#: besoin pour sérialiser les flèches, et que `boucle` ne peut pas importer
-#: `seance` : partout ailleurs, c'est `seance` qui importe `boucle`.
+#: Elle vit ici, et non dans `seance.vent`, parce que `boucle` en a besoin pour
+#: sérialiser les flèches et que `boucle` ne peut pas importer `seance`.
 SEUIL_VENT_SENSIBLE_KMH = 8.0
 
 #: Marge demandée après l'heure d'arrivée : la dernière heure encadrante doit

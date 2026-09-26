@@ -26,12 +26,13 @@ from ourouler.api.modeles import Point, ReponseErreur
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.api.quotas import Quotas
 from ourouler.api.session import CODE_SANS_SESSION, MESSAGE_SANS_SESSION, MODE_PERSONNEL, FournisseurSession
-from ourouler.config import Config, Depart
+from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo.openmeteo import ClientOpenMeteo
+from ourouler.noyau.profil import Depart
 from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.

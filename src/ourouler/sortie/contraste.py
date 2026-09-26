@@ -92,13 +92,9 @@ from itertools import combinations
 
 from ourouler.boucle.mailles import mailles_ponderees
 from ourouler.boucle.marqueurs import compter
-from ourouler.boucle.meteo_trace import MeteoTrace
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, MeteoTrace
 from ourouler.seance.placement import MOTIF_SEANCE_AMPUTEE
-from ourouler.seance.vent import (
-    SEUIL_VENT_SENSIBLE_KMH,
-    ChampVent,
-    seuil_vent_sensible_ms,
-)
+from ourouler.seance.vent import ChampVent, seuil_vent_sensible_ms
 from ourouler.sortie.orientation import (
     ORIENTATION_DEPART_DOS,
     ORIENTATION_FACE,

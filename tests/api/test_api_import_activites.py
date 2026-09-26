@@ -20,7 +20,7 @@ from outils_api import client_api, config_d_essai
 
 pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
-from ourouler.api import imports_fond  # noqa: E402
+from ourouler.api import taches_fond  # noqa: E402
 
 PREFIXE = "/api/v1"
 
@@ -179,7 +179,7 @@ def test_un_second_import_pendant_le_premier_est_refuse_lisiblement(tmp_path: Pa
     directement, sans dépendre du minutage réel d'un import (trop rapide sur un
     petit fichier pour être observé de façon fiable autrement)."""
     client = client_api(config=_config_avec_cache(tmp_path))
-    assert imports_fond.VERROU.acquire(blocking=False), "verrou déjà tenu avant le test"
+    assert taches_fond.VERROU.acquire(blocking=False), "verrou déjà tenu avant le test"
     try:
         reponse = client.post(
             f"{PREFIXE}/activites/import",
@@ -188,7 +188,7 @@ def test_un_second_import_pendant_le_premier_est_refuse_lisiblement(tmp_path: Pa
         assert reponse.status_code == 409, reponse.text
         assert reponse.json()["erreur"]["code"] == "import_deja_en_cours"
     finally:
-        imports_fond.VERROU.release()
+        taches_fond.VERROU.release()
 
     # Le verrou relâché, un import suivant fonctionne normalement.
     fini = _deposer_et_attendre(client, ("sortie.gpx", _gpx(), "application/gpx+xml"))

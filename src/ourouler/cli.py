@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ourouler import __version__
-from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, Depart, charger
+from ourouler.config import CHEMIN_CONFIG_DEFAUT, Config, charger
 
 if TYPE_CHECKING:
     # Imports réservés à l'analyse statique (annotations des adaptateurs de comptes) :
@@ -37,6 +37,7 @@ from ourouler.connecteurs.geocodage import (
     chercher_adresse,
 )
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.profil import Depart
 from ourouler.rendu.profil import info_vitesse_compteur, profil_json
 
 # Module volontairement sans dépendance : la liste des réponses à `--vent`

@@ -152,7 +152,11 @@ def ecart_angulaire(a_deg: float, b_deg: float) -> float:
 
 
 def distance_haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Distance orthodromique entre deux points, en km (formule de haversine)."""
+    """Distance orthodromique entre deux points, en km (formule de haversine).
+
+    Avec `azimut_initial_deg`, l'inverse de `destination` : ce qui permet de
+    vérifier la couronne de l'extérieur.
+    """
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = phi2 - phi1
     dlambda = math.radians(lon2 - lon1)

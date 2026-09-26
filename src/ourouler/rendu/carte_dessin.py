@@ -13,11 +13,10 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ourouler.boucle.meteo_trace import fleches_vent
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, fleches_vent
 from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
-from ourouler.seance.placement import Emplacement, Placement
-from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
+from ourouler.seance.placement_resultat import Emplacement, Placement
 
 #: Version épinglée de Leaflet, servie par le CDN autorisé.
 LEAFLET_VERSION = "1.9.4"

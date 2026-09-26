@@ -101,7 +101,7 @@ from ourouler.rendu.carte_jour import (
     construire_page_jour,
     construire_page_sans_seance,
 )
-from ourouler.seance.placement import Placement
+from ourouler.seance.placement_resultat import Placement
 
 
 def construire(

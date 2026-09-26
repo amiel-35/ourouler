@@ -10,7 +10,7 @@ Deux gardes, tous deux mesurés
 ------------------------------
 
 **On ne pose la question que si le vent a un effet.** Sous
-`seance.vent.SEUIL_VENT_SENSIBLE_KMH` (8 km/h, le haut de la force 1 de
+`boucle.meteo_trace.SEUIL_VENT_SENSIBLE_KMH` (8 km/h, le haut de la force 1 de
 Beaufort), l'orientation ne change rien de perceptible et la question
 n'apprend qu'à cliquer sans lire. C'est **la même constante** que celle qui
 décide de dessiner les flèches de vent sur la carte : si le vent ne mérite pas
@@ -35,10 +35,10 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine, ErreurUtilisateur
 from ourouler.noyau.ports import SourcePrevisions
 from ourouler.noyau.profil import Depart
-from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.sortie.orientation import (
     ORIENTATION_DEPART_DOS,
     ORIENTATION_RETOUR_DOS,

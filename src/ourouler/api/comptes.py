@@ -797,22 +797,6 @@ class DepotComptes:
             return None
         return Compte(identifiant=ligne[0], email=ligne[1], actif=ligne[2], cree_le=ligne[3])
 
-    # -- fermer toutes les sessions d'un compte --------------------------------
-
-    def fermer_sessions_du_compte(self, identifiant_compte: str) -> int:
-        """Révoque toutes les sessions ouvertes de ce compte — combien l'étaient.
-
-        Publique pour rester appelable seule (un futur « déconnecter tous mes appareils »,
-        par exemple) ; `changer_mot_de_passe_par_jeton` ne l'appelle pas directement — il
-        fait le même `DELETE` **dans sa propre transaction**, pour que fermeture des
-        sessions et pose du nouveau secret réussissent ou échouent ensemble.
-        """
-        with self.cx.transaction():
-            lignes = self.cx.execute(
-                "DELETE FROM sessions WHERE compte = %s RETURNING jeton", (identifiant_compte,)
-            ).fetchall()
-        return len(lignes)
-
     # -- ce qui est commun aux deux --------------------------------------------
 
     def proprietaire_du_compte(self, identifiant_compte: str) -> Proprietaire:

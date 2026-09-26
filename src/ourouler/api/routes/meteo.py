@@ -21,7 +21,7 @@ from ourouler.api.routes.commun import (
     _verifier_quota,
     nouveau_routeur,
 )
-from ourouler.config import Depart
+from ourouler.noyau.profil import Depart
 
 routeur = nouveau_routeur()
 

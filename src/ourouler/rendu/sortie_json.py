@@ -8,9 +8,9 @@ figée par `tests/caracterisation` et `tests/api/test_contrat_openapi.py`.
 from __future__ import annotations
 
 from ourouler.boucle.geometrie import geometrie_json
-from ourouler.boucle.meteo_trace import fleches_vent, vent_par_position
-from ourouler.rendu.boucle import porte_a_porte
-from ourouler.seance.placement import Emplacement
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, fleches_vent, vent_par_position
+from ourouler.rendu.boucle_json import porte_a_porte
+from ourouler.seance.placement_resultat import Emplacement
 from ourouler.sortie import contraste, orientation, vent_demande
 from ourouler.sortie.commande import (
     NOTE_BLOC_BIEN_PLACE,
@@ -273,7 +273,7 @@ def _question_vent_json(contexte: _Contexte) -> dict | None:
         "motif": question.motif or None,
         "vent_kmh": question.vent_kmh,
         "vent_depuis_deg": question.vent_depuis_deg,
-        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "seuil_kmh": SEUIL_VENT_SENSIBLE_KMH,
         "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
         "reponse": contexte.demande.vent,
         # Pluriel depuis Q44 : « de travers » en ouvre deux, opposés. Le

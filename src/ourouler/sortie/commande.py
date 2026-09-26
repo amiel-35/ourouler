@@ -7,7 +7,7 @@ L'enchaînement est celui du contrat du sprint 4 §4 :
 1 bis. la **question de l'orientation au vent** est posée **avant** la
    recherche (lot L5.3) : un appel Open-Meteo sur un point et une heure, donc
    le poste le moins cher, et il tombe avant BRouter. Elle ne se pose que si
-   le vent se sent (8 km/h, `seance.vent.SEUIL_VENT_SENSIBLE_KMH`) et à trois
+   le vent se sent (8 km/h, `boucle.meteo_trace.SEUIL_VENT_SENSIBLE_KMH`) et à trois
    jours au plus. Quand elle a une réponse (`--vent`), elle **dirige** la
    recherche au lieu de contraster après coup ;
 2. des **boucles candidates** sont demandées au moteur (lot L2.3), de la
@@ -103,8 +103,8 @@ from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
-from ourouler.seance.placement import CLE_MOTIF, Placement, placer
-from ourouler.seance.placement_resultat import trace_parcourue
+from ourouler.seance.placement import CLE_MOTIF, placer
+from ourouler.seance.placement_resultat import Placement, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent

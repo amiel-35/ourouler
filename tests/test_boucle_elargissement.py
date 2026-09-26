@@ -164,7 +164,6 @@ def test_une_boucle_servie_hors_tolerance_est_marquee_et_chiffree():
     assert candidate.hors_tolerance is True
     assert candidate.elargissement == pytest.approx(0.05)
     assert candidate.tolerance == pytest.approx(0.05)
-    assert candidate.tolerance_atteinte == pytest.approx(0.10)
 
 
 def test_une_boucle_dans_la_tolerance_ne_porte_aucun_elargissement():

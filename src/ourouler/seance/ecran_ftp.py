@@ -33,12 +33,6 @@ from ourouler.physique.commande import (
 )
 from ourouler.physique.modele import Parametres
 from ourouler.seance import ftp
-from ourouler.seance.ftp import (
-    MAX_ITERATIONS_BISSECTION,
-    PUISSANCE_MAXI_BISSECTION_W,
-    PUISSANCE_MINI_BISSECTION_W,
-    TOLERANCE_PUISSANCE_W,
-)
 
 
 def modele_du_velo(
@@ -224,10 +218,6 @@ def ftp_pour_vitesse_compteur(
 
 
 __all__ = [
-    "MAX_ITERATIONS_BISSECTION",
-    "PUISSANCE_MAXI_BISSECTION_W",
-    "PUISSANCE_MINI_BISSECTION_W",
-    "TOLERANCE_PUISSANCE_W",
     "contexte",
     "ftp_pour_vitesse_compteur",
     "info_compteur",

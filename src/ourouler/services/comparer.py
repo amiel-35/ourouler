@@ -65,7 +65,7 @@ from datetime import date
 from pathlib import Path
 
 from ourouler.activites.cache import Cache
-from ourouler.apprentissage.routes import cle_maille
+from ourouler.boucle.mailles import cle_maille
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.profil import Profil, Velo
 from ourouler.noyau.trace import PointTrace, cap_deg, distance_m

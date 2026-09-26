@@ -19,11 +19,13 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.meteo import portee
 from ourouler.meteo.couronne import nom_de_azimut
 from ourouler.meteo.rapport import date_en_francais
 from ourouler.noyau.seance import Seance
-from ourouler.rendu.boucle import ligne_temps_ecoule, lignes_elargissement, porte_a_porte
+from ourouler.rendu.boucle import ligne_temps_ecoule, lignes_elargissement
+from ourouler.rendu.boucle_json import porte_a_porte
 from ourouler.rendu.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
@@ -179,7 +181,7 @@ def vent_depart_json(
             if question.vent_depuis_deg is not None
             else None
         ),
-        "seuil_kmh": vent_demande.SEUIL_VENT_SENSIBLE_KMH,
+        "seuil_kmh": SEUIL_VENT_SENSIBLE_KMH,
         "horizon_jours": vent_demande.HORIZON_ORIENTATION_J,
         "choix": list(orientation.CHOIX),
         "azimuts_par_choix": {

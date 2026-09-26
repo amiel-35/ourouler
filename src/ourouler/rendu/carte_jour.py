@@ -29,7 +29,7 @@ from ourouler.rendu.carte_dessin import (
     _section_vent,
     _vent_fleches,
 )
-from ourouler.seance.placement import Placement
+from ourouler.seance.placement_resultat import Placement
 
 # --- la page du jour (lot L5.4) -------------------------------------------------
 
