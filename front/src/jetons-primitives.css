@@ -16,10 +16,11 @@
  * Origine : synthèse des huit directions visuelles étudiées (encre, papier,
  * filets, les quatre teintes de données, la grille, la typographie) posée dans
  * `docs/journal/ux/directions/jetons-suisse-vivante.css`, complétée par ce que
- * `docs/journal/ux/inventaire_systeme_visuel.md` a révélé manquant pour couvrir les onze écrans réels — espacement, épaisseur des
- * traits, intensité d'effort (Z1–Z5) — dans `docs/journal/ux/directions/jetons-systeme.css`.
- * Ce fichier fusionne les deux : il n'existe qu'un seul endroit où chercher
- * une primitive.
+ * `docs/journal/ux/inventaire_systeme_visuel.md` a révélé manquant pour
+ * couvrir les onze écrans réels — espacement, épaisseur des traits, intensité
+ * d'effort (Z1–Z5) ; la règle d'ensemble est dans
+ * `docs/ux/doctrine_design_system.md`. Ce fichier est le seul endroit où
+ * chercher une primitive.
  *
  * Le parti pris tient en une phrase : « l'interface en noir et blanc, les
  * données en couleur ». Tout ce qui est structure — grille,

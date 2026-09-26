@@ -186,7 +186,7 @@ def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]
 def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
     """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond de l'import.
 
-    Une archive Strava réelle pèse 665 Mo (`docs/services_externes.md`) : le
+    Une archive Strava réelle pèse 665 Mo (`docs/journal/archives_export_mesures.md`) : le
     plafond n'est donc pas celui d'une séance, mais le principe est le même.
 
     **Limite, dite** : FastAPI a déjà reçu tout le

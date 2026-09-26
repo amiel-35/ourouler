@@ -20,8 +20,7 @@ pas digne de confiance : `_lire_borne_compte` coupe au premier
 octet en trop, quoi que l'archive prétende contenir).
 
 **Les bornes ci-dessous viennent de deux archives réelles**
-(`docs/services_externes.md`, §« Les archives d'export, mesurées sur de
-vraies données »), avec une marge généreuse — pas d'un chiffre rond choisi à
+(`docs/journal/archives_export_mesures.md`), avec une marge généreuse — pas d'un chiffre rond choisi à
 l'aveugle :
 
 - Strava : 665 Mo, 3 730 entrées, 20 Mo utiles une fois le tri fait.
@@ -29,7 +28,7 @@ l'aveugle :
   décompression de 11 sur l'enveloppe *intérieure* quand l'extérieure n'est
   qu'à 1,5 — d'où un plafond de ratio vérifié **à chaque niveau
   d'imbrication**, pas seulement sur l'archive déposée : « un plafond de
-  ratio posé sur l'enveloppe ne verrait rien » (services_externes.md).
+  ratio posé sur l'enveloppe ne verrait rien » (archives_export_mesures.md).
 
 Un fichier corrompu, une archive hostile ou une entrée hors liste ne fait
 jamais échouer l'import : il compte dans `RapportImport.ignorees`, avec un
@@ -103,7 +102,7 @@ TAILLE_MAX_FICHIER = 200 * 1024 * 1024
 TAILLE_MAX_ACTIVITE = 16 * 1024 * 1024
 
 #: Ratio décompressé/compressé max toléré pour une entrée. Mesuré à 11 sur
-#: l'archive Garmin réelle (`docs/services_externes.md`) ; marge x9.
+#: l'archive Garmin réelle (`docs/journal/archives_export_mesures.md`) ; marge x9.
 RATIO_MAX_DECOMPRESSION = 100
 
 #: Profondeur d'imbrication max (un `.zip` dans un `.zip`, dans un `.zip`…).
