@@ -5167,3 +5167,10 @@ le code de ce sprint :
      (fenêtre courte), le dériver pour la calibration puis le jeter.
 
 Référencée depuis la clôture du sprint 9, `docs/journal/sprints/plan_sprints_agents.md`.
+
+**Tranchée le 26/09/2026 par le mainteneur : option 1, la doctrine suit le
+code.** Le brut d'un export déposé se conserve, par propriétaire, jamais
+montré à un autre, inclus dans l'export de la personne et effacé avec son
+compte (`DELETE /moi`, vérifié par `tests/api/test_api_vie_privee.py`). Le
+choix de conserver ou d'effacer, et d'en changer, est au backlog.
+`doctrine_architecture.md` §5 est mis à jour en conséquence.

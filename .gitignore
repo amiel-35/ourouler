@@ -87,8 +87,9 @@ front/dist/
 # Cache de Vite (pré-bundling des dépendances), régénéré à chaque build.
 front/.vite/
 
-# Outillage local
-.claude/worktrees/
+# Outillage local : réglages et agents de Claude Code, copies de travail des
+# agents. Les consignes communes à tout agent sont dans AGENTS.md.
+.claude/
 .DS_Store
 
 # Le fichier de service réel — secrets du serveur, jamais dans le dépôt.
