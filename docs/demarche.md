@@ -2,7 +2,8 @@
 
 D'où part le projet, comment on y a travaillé, avec quels outils, ce qui a
 été essayé et abandonné, ce qui reste possible. Ce document recueille la
-substance des contrats et relectures de sprint, absents du dépôt public.
+substance des contrats et relectures de sprint, gardés bruts dans
+[`journal/sprints/`](journal/sprints/).
 Les chiffres sont des ordres de grandeur ou des rapports : les mesures
 portent sur l'historique réel du mainteneur, dont les valeurs personnelles
 n'ont pas leur place ici. Mode d'emploi : `docs/guide_ligne_de_commande.md`.

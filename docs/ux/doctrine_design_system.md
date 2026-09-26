@@ -4,24 +4,25 @@
 doctrine sérieuse de design system, même si l'appli n'a pas d'ambition. »*
 Les deux moitiés de cette phrase tirent en sens opposés, et c'est
 volontairement tenu ainsi dans tout ce document : **la rigueur est dans la
-méthode, pas dans le volume.** Onze écrans, douze composants partagés, un
-seul mainteneur — ce n'est pas un système pour cinquante produits. Un
+méthode, pas dans le volume.** Une douzaine d'écrans, quelques composants
+partagés, un seul mainteneur — ce n'est pas un système pour cinquante produits. Un
 système de jetons bien nommés, en deux couches, avec une règle d'admission
 restrictive, vaut infiniment mieux que deux cents jetons exhaustifs que
 personne ne retient.
 
 C'est ce document qu'un agent doit lire **avant** d'ajouter un écran, un
-composant ou un jeton — pas `jetons-systeme.css` seul, qui ne porte que le
-résultat, pas les règles qui l'ont produit.
+composant ou un jeton — pas les feuilles de jetons seules
+(`front/src/jetons-primitives.css`, `front/src/jetons-semantiques.css`),
+qui ne portent que le résultat, pas les règles qui l'ont produit.
 
 ## 1. Deux couches, jamais une
 
-- **Les primitives** (`docs/journal/ux/directions/jetons-suisse-vivante.css` et la
-  section « PRIMITIVES AJOUTÉES » de `docs/journal/ux/directions/jetons-systeme.css`)
-  portent une valeur brute à un rang : une teinte à un palier (`--sv-pluie-
+- **Les primitives** (`front/src/jetons-primitives.css`, qui fusionne
+  l'exploration d'origine, `docs/journal/ux/directions/jetons-suisse-vivante.css`,
+  et les primitives ajoutées ensuite) portent une valeur brute à un rang : une teinte à un palier (`--sv-pluie-
   600`), une taille à un rang (`--sv-taille-4`), une durée (`--sv-duree`).
   Une primitive ne dit jamais à quoi elle sert.
-- **Les jetons sémantiques** (le reste de `jetons-systeme.css`) portent un
+- **Les jetons sémantiques** (`front/src/jetons-semantiques.css`) portent un
   rôle : « la couleur de la pluie forte » (`--couleur-pluie-trait`),
   « l'espace entre deux blocs » (`--espace-section`). Chacun est un alias
   vers une primitive ; aucun n'invente une valeur qui n'existe pas déjà dans
@@ -30,7 +31,8 @@ résultat, pas les règles qui l'ont produit.
 **Les écrans, et tout composant qui en dérive, ne référencent que la couche
 sémantique.** Un `.tsx` ou une feuille de style d'écran qui écrit `var(--sv-
 pluie-600)` est un bug de doctrine, au même titre qu'un module du cœur qui
-lit une variable d'environnement (règle absolue 2 de `CLAUDE.md` — la même
+lit une variable d'environnement (`AGENTS.md`, « Le cœur ne lit ni
+configuration ni environnement » — la même
 discipline, appliquée à un autre étage du produit).
 
 **Pourquoi ça compte, concrètement** : si le mainteneur décide un jour que
@@ -103,17 +105,15 @@ sous un autre nom pour « faire plus clair ».
 Aucune valeur n'est écrite deux fois. En particulier :
 
 - Un contraste WCAG est **calculé une fois**, par un script (voir la
-  méthode dans l'en-tête de `jetons-suisse-vivante.css` et de
-  `jetons-systeme.css` pour l'échelle d'effort), et son résultat vit en
+  méthode dans l'en-tête de `front/src/jetons-primitives.css`), et son
+  résultat vit en
   commentaire à côté de la primitive qu'il vérifie — jamais recalculé à
   l'œil ailleurs, jamais réécrit dans un second fichier.
-- `composants-systeme.css` ne redéfinit **aucune** couleur, taille ou durée
-  en dur : chaque déclaration y référence un jeton sémantique. Si vous
-  trouvez un hexadécimal ou un `px` nu dans ce fichier en dehors des
-  définitions de jetons elles-mêmes, c'est une régression de doctrine.
-- La page de démonstration (`docs/journal/ux/directions/systeme-composants.html`)
-  n'invente pas non plus de couleur : sa propre feuille de style inline ne
-  pose que de la mise en page (grilles, largeurs), jamais une teinte.
+- Les composants (`front/src/style.css`) ne devraient redéfinir **aucune**
+  couleur, taille ou durée en dur : chaque déclaration y référence un jeton
+  sémantique. Aucun hexadécimal n'y reste ; des tailles en `px` nu et
+  quelques références directes à une primitive (`--sv-suivi-oeil`) y
+  restent, dette connue à résorber plutôt que précédent à suivre.
 
 ## 5. Les composants se documentent par leurs états
 
@@ -124,8 +124,8 @@ s'est produit une première fois dans `front/src/style.css` (« aucun bouton,
 aucun champ, aucun lien n'avait de survol, de pression ni de focus clavier
 visible »).
 
-`composants-systeme.css` documente, pour chaque composant qui en a besoin,
-les états parmi : **repos, survol, focus, actif/pressé, désactivé, en cours
+Dans `front/src/style.css`, chaque composant qui en a besoin porte ses
+états parmi : **repos, survol, focus, actif/pressé, désactivé, en cours
 de chargement, en erreur, vide.** Tous ne s'appliquent pas à tous les
 composants (un `Barriere` n'a pas de survol ; un `Attente` n'a pas de
 désactivé) — mais l'absence d'un état dans un composant qui pourrait
@@ -134,7 +134,7 @@ interpréter.
 
 Un composant qui gagne un état à l'usage (un exemple donné pour mémoire :
 un bouton qui devient aussi annulable en cours de clic) voit son état
-ajouté à `composants-systeme.css` avec un commentaire qui dit d'où vient le
+ajouté à `front/src/style.css` avec un commentaire qui dit d'où vient le
 besoin — jamais improvisé directement dans un `.tsx` au moment de
 l'application.
 
@@ -142,11 +142,11 @@ l'application.
 
 - **Une teinte change** (par exemple : le mainteneur juge le bleu de la
   pluie trop froid après usage). On modifie la primitive concernée dans
-  `jetons-suisse-vivante.css` (ou `jetons-systeme.css` pour l'effort), on
+  `front/src/jetons-primitives.css`, on
   recalcule et on remet à jour les contrastes commentés en tête de fichier,
   on ne touche à rien d'autre — la couche sémantique ne bouge pas, les
   composants non plus.
-- **Un composant gagne un état.** On l'ajoute dans `composants-systeme.css`,
+- **Un composant gagne un état.** On l'ajoute dans `front/src/style.css`,
   à la section du composant concerné, avec les jetons sémantiques
   existants — un nouvel état ne justifie presque jamais un nouveau jeton
   (voir §3) : un état se construit d'ordinaire en recomposant ce qui existe
@@ -159,9 +159,9 @@ l'application.
   correspondant, avec le commentaire qui justifie l'ajout — jamais en valeur
   brute dans l'écran qui en a besoin.
 - **Un nouveau composant partagé apparaît.** Il se documente dans
-  `composants-systeme.css` selon le même gabarit que les douze déjà
+  `front/src/style.css` selon le même gabarit que les composants déjà
   couverts (à quoi il ressemble, ses états, ses éventuelles teintes de
-  donnée) et rejoint la page de démonstration.
+  donnée).
 - **Ce que ce système ne fait pas, et ne fera pas sans décision du
   mainteneur** : gérer plusieurs marques, plusieurs plateformes visuelles
   distinctes, ou un outillage de génération de jetons. Deux thèmes (clair,
@@ -193,15 +193,11 @@ s'applique et repris ici pour mémoire :
    prise) est une décision, pas une mesure — règle 3, appliquée au-delà de
    la seule rose des directions. Le poids du filet et du texte la portent,
    jamais une couleur.
-4. **`--sv-encre-att` (6,8:1 en clair) est en dessous du seuil que le
-   mainteneur avait explicitement porté à 7,5:1** dans `front/src/style.css`
-   pour la lisibilité en plein soleil. Ce n'est pas silencieux — signalé en
-   commentaire dans `jetons-systeme.css` — et volontairement **non
-   corrigé** par ce lot : durcir cette primitive appartient à
-   `jetons-suisse-vivante.css`, hors de son périmètre, et c'est une décision
-   produit (le mainteneur a-t-il vraiment besoin de ce demi-point
-   supplémentaire avec la nouvelle typographie, plus grande ?), pas une
-   décision de système.
+4. **`--sv-encre-att` était à 6,8:1 en clair, sous le seuil que le
+   mainteneur avait explicitement porté à 7,5:1** pour la lisibilité en
+   plein soleil — signalé, et non corrigé par ce lot-là. *Corrigé depuis* :
+   la primitive a été relevée à 7,6:1 en clair (note sur `--sv-encre-att`
+   dans `front/src/jetons-primitives.css`).
 5. **Un bloc n'a plus de fond ni de bordure pleine.** La direction retire
    les cartes empilées ; ce lot en tire la conséquence jusqu'au bout : un
    `.bloc` se délimite par un filet horizontal et du padding, jamais par une
@@ -212,7 +208,7 @@ s'applique et repris ici pour mémoire :
 
 Écrit le 20/09/2026, à l'usage réel du mainteneur sur l'écran `Reglages` une
 fois la direction appliquée : `251 W` (modifiable), `90,0 kg` (modifiable),
-`Rennes` (modifiable), `Ajouter ou retirer` (ouvre un volet) et
+le nom de la ville de départ (modifiable), `Ajouter ou retirer` (ouvre un volet) et
 `Se déconnecter` (agit) se lisaient **exactement comme** `151 W · 21 % de la
 Z2`, qui ne fait rien — même alignement, même graisse, même encre. En
 retirant cadres, fonds et ombres, la direction avait retiré ce qui disait
@@ -287,9 +283,8 @@ partie.
   et ses interdits.
 - `docs/journal/ux/inventaire_systeme_visuel.md` — le contrat : chaque classe
   réellement utilisée par l'application et sa réponse dans ce système.
-- `docs/journal/ux/directions/jetons-systeme.css` — les jetons, primitives et
-  sémantiques.
-- `docs/journal/ux/directions/composants-systeme.css` — les composants, par leurs
-  états.
-- `docs/journal/ux/directions/systeme-composants.html` — la démonstration, clair et
-  sombre.
+- `front/src/jetons-primitives.css` et `front/src/jetons-semantiques.css` —
+  les jetons, primitives et sémantiques.
+- `front/src/style.css` — les composants, par leurs états.
+- `docs/journal/ux/directions/suisse-vivante.html` — l'exploration d'origine
+  de la direction (archive).

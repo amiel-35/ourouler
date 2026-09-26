@@ -80,7 +80,7 @@ de lignes, pas une réécriture.
 panne.** Si la BAN répond une erreur technique (service injoignable,
 réponse illisible), l'erreur remonte telle quelle — Nominatim n'est pas
 appelé à sa place, pour ne pas travestir une panne en « adresse
-introuvable » (règle absolue 5 : ne rien affirmer sans mesure). Si
+introuvable » (doctrine §1 : ne rien affirmer sans mesure). Si
 Nominatim est ensuite appelé (parce que la BAN a légitimement répondu
 « rien trouvé ») et qu'il échoue à son tour, cette erreur-là remonte aussi,
 sans être avalée.
@@ -115,8 +115,8 @@ sans être avalée.
 ## Ce qui reste ouvert
 
 - **Non vérifié sur une adresse personnelle** : le dépôt n'en porte aucune
-  (règle absolue 1 — aucune coordonnée
-  réelle dans le dépôt, y compris comme entrée d'un test manuel dont la
+  (`AGENTS.md`, « Aucune donnée personnelle ni clé dans le dépôt » — aucune
+  coordonnée réelle dans le dépôt, y compris comme entrée d'un test manuel dont la
   trace resterait dans l'historique). Les services ont été appelés en direct
   avec des **lieux publics** (mairies, gares, préfectures), jamais avec une
   adresse personnelle, et seuls les chiffres sont reportés. Chacun peut
