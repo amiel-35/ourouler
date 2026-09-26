@@ -2,7 +2,7 @@
 
 `ourouler inviter`, `reinitialiser`, `invitations` et `retirer` : `cli.py` imprime
 ces chaînes telles quelles. **Le lien s'affiche toujours**, que le courriel parte
-ou non — le mainteneur veut pouvoir le relire et le renvoyer par un autre canal.
+ou non — l'exploitant doit pouvoir le relire et le renvoyer par un autre canal.
 """
 
 from __future__ import annotations

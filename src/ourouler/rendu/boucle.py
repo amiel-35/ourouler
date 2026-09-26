@@ -1,6 +1,6 @@
 """Ce que `ourouler boucle` montre de ses candidates : le tableau texte et le JSON.
 
-Couche 4 de `docs/ouverture_plan.md` §2 (lot 6). `boucle/commande.py`
+La couche de rendu (`ARCHITECTURE.md`). `boucle/commande.py`
 cherche, mesure, classe et écrit le GPX ; il passe ici des objets déjà
 construits — `Evaluation`, `Demande`, `ModeleTemps`, la `Config` et le bloc
 « compteur » — et imprime ce qui en revient. Ce module ne lit ni fichier, ni
@@ -45,7 +45,7 @@ MENTION_MODELE = "(modèle)"
 #: La même, quand CdA et Crr n'ont pas été mesurés sur ce vélo mais viennent de
 #: la table de `physique.litterature`. Deux mots de plus, et ils comptent : le
 #: temps est calculé, pas supposé constant, mais il repose sur des valeurs de
-#: catégorie (règle absolue 5, même geste que le « supposé » du facteur
+#: catégorie (on ne présente jamais une estimation comme une mesure : même geste que le « supposé » du facteur
 #: compteur).
 MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 
@@ -59,7 +59,7 @@ PART_NON_CLASSE_SIGNALEE = 0.05
 #: mètres qu'on lui a retirés et le tracé proposé n'en a plus ; un GPX importé
 #: n'est pas touché, le tableau compte les mètres qui y sont **encore**.
 #: Afficher le même mot pour les deux ferait croire à un élagage qui n'a pas
-#: eu lieu (règle absolue 5).
+#: eu lieu.
 TITRE_ANTENNES_RETIREES = "antennes retirées"
 TITRE_ANTENNES_DETECTEES = "antennes détectées"
 
@@ -73,7 +73,7 @@ def avertissement_meteo(panne: str | None, meteo_absente: portee.MeteoAbsente | 
     """La ligne de la sortie d'erreur quand la météo manque, ou `None` si elle a répondu.
 
     La boucle reste servie sans ses colonnes météo : une panne d'Open-Meteo se
-    nomme, une date hors de l'horizon dit ce qu'on ne sait pas (Q40 a).
+    nomme, une date hors de l'horizon dit ce qu'on ne sait pas.
     """
     if panne is not None:
         return (
@@ -90,8 +90,7 @@ def avertissement_meteo(panne: str | None, meteo_absente: portee.MeteoAbsente | 
 
 # --- rendu texte ---------------------------------------------------------------
 
-#: Colonnes du tableau, dans l'ordre des contrats §6 (sprint 2) et §2
-#: (sprint 3). Le second membre nomme la mesure dont la colonne dépend :
+#: Colonnes du tableau, dans l'ordre d'affichage. Le second membre nomme la mesure dont la colonne dépend :
 #: sans cette mesure, la colonne **disparaît** au lieu d'afficher une colonne
 #: de tirets. `None` = toujours affichée.
 COLONNES = (
@@ -191,8 +190,9 @@ def _porte_a_porte_retenue(
 def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
     """« On n'a pas trouvé de boucle dans les contraintes, on a élargi de X %. »
 
-    Les mots sont ceux du mainteneur (Q41 d). Rien ne s'affiche quand toutes
-    les boucles tiennent dans la tolérance — c'est le cas normal, et une
+    Les mots sont ceux de la décision Q41 d
+    (`docs/journal/questions/questions_mainteneur.md`). Rien ne s'affiche quand
+    toutes les boucles tiennent dans la tolérance — c'est le cas normal, et une
     ligne qui signale ce qui ne compte pas apprend à ne plus lire la ligne
     (même raison que `SEUIL_ECART_DUREE` dans `sortie/commande.py`).
 
@@ -289,7 +289,7 @@ def _vitesse_passage(
 def _ligne_rapprochement_tags(evaluations: list[Evaluation]) -> str | None:
     """« Tags de route rapprochés... » — d'où viennent les tags d'un GPX greffé.
 
-    Règle absolue 5 : un tag **mesuré** par le moteur (une candidate générée)
+    Un tag **mesuré** par le moteur (une candidate générée)
     et un tag **deviné** par rapprochement (un GPX importé, `boucle.
     tags_importes`) ne sont pas la même chose, et l'écran doit le dire —
     avec le seuil retenu et la part de kilomètres qui n'a rien trouvé.
@@ -315,8 +315,8 @@ def _non_classes_signales(evaluations: list[Evaluation]) -> float:
     Un tracé dont la moitié passe par des chemins sans `highway` connu
     (`path`, `footway`, une valeur OSM nouvelle) affichait « 0,0 km de
     trafic » exactement comme un tracé parfaitement calme : `km_trafic` et
-    `km_calme` peuvent valoir bien moins que la distance, et rien ne le disait
-    (point 15 de la relecture du sprint 2).
+    `km_calme` peuvent valoir bien moins que la distance, et rien ne le dirait
+    sans elle.
     """
     a_signaler = [
         e.couts.km_non_classe
@@ -345,12 +345,12 @@ def _mesures_presentes(evaluations: list[Evaluation]) -> set[str]:
 def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
     """Nomme le modèle météo qui a **répondu**, et le dit haut quand c'est un repli.
 
-    Cette ligne annonçait le modèle *configuré* et son second avis. Depuis que
-    le repli de Q19 s'applique aussi à `boucle`, ce serait un mensonge une
-    fois sur deux : le tableau montrerait la pluie d'`icon_seamless` sous un
-    en-tête qui nomme AROME. Même phrase et même raison que
-    `rendu.sortie._ligne_modele_meteo` — règle absolue 5 : quand un seul
-    des deux modèles a pu répondre, c'est encore une divergence à dire.
+    Annoncer le modèle *configuré* et son second avis serait, puisque le repli
+    de modèle s'applique aussi à `boucle`, un mensonge une fois sur deux : le
+    tableau montrerait la pluie d'`icon_seamless` sous un en-tête qui nomme
+    AROME. Même phrase et même raison que
+    `rendu.sortie._ligne_modele_meteo` : quand un seul des deux modèles a pu
+    répondre, c'est encore une divergence à dire.
     """
     meteo = _meteo_rendue(evaluations)
     if meteo is None or not meteo.modele_utilise:
@@ -403,7 +403,7 @@ def _entete(
     if demande.gpx is not None:
         lignes.append(f"Tracé importé : {demande.gpx}")
     else:
-        # Sans `--direction` (Q47), la recherche balaie tout l'horizon : il
+        # Sans `--direction`, la recherche balaie tout l'horizon : il
         # n'y a alors pas un azimut à afficher, mais huit.
         direction = (
             f"{demande.direction} ({demande.azimut_deg:.0f}°)"
@@ -428,7 +428,8 @@ def _entete(
             lignes.append(f"⚠ Calibration du {modele.velo} : {modele.alerte}.")
     elif modele is not None:
         # Le modèle tourne, mais sur des CdA et Crr de catégorie : il le dit
-        # ici comme le facteur compteur dit « supposé » (règle absolue 5).
+        # ici comme le facteur compteur dit « supposé » (on ne présente jamais
+        # une estimation comme une mesure).
         lignes.append(
             f"Temps estimé par le modèle du {modele.velo} à {modele.puissance_w:.0f} W, "
             f"sur des valeurs de {modele.provenance} — temps en mouvement, arrêts non modélisés"
@@ -535,8 +536,7 @@ def _denivele(trace: Trace) -> str:
 
     Le « filtered ascend » du moteur et le D+ recalculé à la relecture d'un
     GPX divergent de 10 à 32 % sur les tracés mesurés, dans les deux sens :
-    afficher le chiffre sans sa provenance rendait l'écart incompréhensible
-    (point 5 de la relecture du sprint 2).
+    afficher le chiffre sans sa provenance rendrait l'écart incompréhensible.
     """
     if trace.denivele_m is None:
         return ABSENT
@@ -549,9 +549,9 @@ def _vent_face(meteo: MeteoTrace | None) -> str:
 
     Les parts de vent se calculent sur les seuls échantillons au vent connu,
     ce qui est le bon choix : un échantillon sans donnée ne doit pas compter
-    pour du travers. Mais « vent face 100 % » ne disait pas s'il reposait sur
+    pour du travers. Mais « vent face 100 % » ne dirait pas s'il repose sur
     douze échantillons ou sur un seul, les onze autres étant hors de
-    l'horizon de prévision (point 18 de la relecture du sprint 2).
+    l'horizon de prévision.
     """
     if meteo is None:
         return ABSENT
@@ -641,10 +641,9 @@ def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = 
     """« 2:14 » seul, ou « 2:20-2:24 / 2:14 » — porte à porte en fourchette /
     mouvement — dès qu'un vélo donne une fourchette (voir `ligne_temps_ecoule`).
 
-    **L'écoulé vient en premier** (18/09/2026). Le mainteneur l'a tranché
-    pour l'écran, et la CLI ne dit pas l'inverse : « je demande 5 h, je veux
-    5 h, pas 4 h et un truc plus loin qui me dit en fait c'est 5 h ». Le
-    premier chiffre est donc celui qui répond à la durée demandée ; le
+    **L'écoulé vient en premier**, à l'écran comme dans la CLI : qui demande
+    5 h veut lire 5 h, pas 4 h et, plus loin, une correction qui dit qu'en
+    fait c'est 5 h. Le premier chiffre est donc celui qui répond à la durée demandée ; le
     second dit ce que ça donnerait sans un seul arrêt.
     """
     mouvement_s = _temps_mouvement_s(evaluation, config)
@@ -672,7 +671,7 @@ def _heures_minutes(secondes: float) -> str:
 def provenance_fourchette(compteur_info: dict) -> str:
     """D'où vient la fourchette du vélo, en une incise : mesurée sur ses sorties ou convention.
 
-    Règle absolue 5 : la convention ne se présente jamais comme une mesure.
+    La convention ne se présente jamais comme une mesure.
     """
     brut = compteur_info["porte_a_porte"]
     if brut["provenance"] == "mesure":
@@ -683,7 +682,7 @@ def provenance_fourchette(compteur_info: dict) -> str:
 def ligne_temps_ecoule(compteur_info: dict) -> str:
     """La légende sous le tableau : ce que veut dire « 2:20-2:31 / 2:14 » en colonne « temps ».
 
-    Choix d'affichage (18/09/2026) : une cellule combinée plutôt qu'une
+    Choix d'affichage : une cellule combinée plutôt qu'une
     colonne de plus — le tableau en a déjà treize, une quatorzième pour un
     seul chiffre de plus n'aurait pas tenu en largeur de terminal. La CLI et
     le JSON disent la même chose : `temps_estime_s`/`temps_ecoule_s`.
@@ -698,9 +697,9 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     chiffre, voir `_ligne_pauses` — les compter ici reviendrait à les compter
     deux fois.
 
-    Depuis L9.1 (25/09/2026) le porte à porte est le temps sans arrêt de ce
-    tracé-ci multiplié par la fourchette du vélo : la moyenne compteur ne le
-    chronomètre plus, elle ne sert qu'à choisir la distance.
+    Le porte à porte est le temps sans arrêt de ce tracé-ci multiplié par la
+    fourchette du vélo : la moyenne compteur ne le chronomètre pas, elle ne
+    sert qu'à choisir la distance.
     """
     brut = compteur_info["porte_a_porte"]
     return (

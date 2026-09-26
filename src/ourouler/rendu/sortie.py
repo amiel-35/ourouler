@@ -1,6 +1,6 @@
 """Ce que `ourouler sortie` montre : le tableau texte, le JSON et la page du jour.
 
-Couche 4 de `docs/ouverture_plan.md` §2 (lot 6). `sortie/commande.py` lit la
+La couche de rendu (`ARCHITECTURE.md`). `sortie/commande.py` lit la
 séance, cherche les boucles, place, mesure, trie et écrit les fichiers ; il
 passe ici des objets déjà construits — les `Proposition`, le `_Contexte` (qui
 porte la `Config` et le bloc « compteur » déjà lus), la `Selection`
@@ -82,7 +82,7 @@ def avertissement_meteo(panne: str | None, meteo_absente: portee.MeteoAbsente | 
     Perdre la séance parce qu'il manque la pluie serait absurde : le tableau
     reste servi sans ses colonnes météo ni la tenue, et le placement reste
     valable. Une panne d'Open-Meteo se nomme ; une date hors de l'horizon dit
-    ce qu'on ne sait pas (Q40 a).
+    ce qu'on ne sait pas.
     """
     if panne is not None:
         return (
@@ -111,7 +111,7 @@ def page_jour(
     *,
     maintenant: datetime,
 ) -> str:
-    """La page du jour (lot L5.4) : les propositions contrastées, superposées.
+    """La page du jour : les propositions contrastées, superposées.
 
     Une `carte.PropositionCarte` par proposition retenue par
     `contraste.choisir` — jamais recalculée ici, seulement mise en forme
@@ -165,7 +165,7 @@ def vent_depart_json(
     `azimuts_par_choix` porte **des listes**, y compris pour les préférences
     qui n'ouvrent qu'un azimut : un consommateur qui lit une liste ne peut pas
     rater le second azimut du travers, là où un champ scalaire l'aurait
-    silencieusement tronqué (Q44).
+    silencieusement tronqué.
 
     Les noms de direction (`"SO"`) sont calculés **ici** et non côté écran : le
     front n'a le droit d'afficher que ce que l'API lui donne.
@@ -236,7 +236,7 @@ def _notes_carte(proposition: Proposition, seance: Seance, tenue: Tenue | None) 
 
 #: Écart, en mètres, au-delà duquel le parcours réellement roulé mérite sa
 #: propre colonne. Sans demi-tour il vaut la boucle au mètre près ; avec, il
-#: peut valoir le double (72,7 km sur une boucle de 38,5 le 22/04). Cent mètres
+#: peut valoir le double (72,7 km mesurés sur une boucle de 38,5). Cent mètres
 #: parce qu'en dessous l'écart n'est que l'arrondi du placement.
 ECART_PARCOURS_M = 100.0
 
@@ -273,7 +273,7 @@ def rendre_texte(propositions: list[Proposition], contexte: _Contexte) -> str:
     """L'en-tête, le tableau des candidates, la séance placée, la tenue, les fichiers."""
     presentes = _mesures_presentes(propositions)
     lignes = _entete(propositions, contexte, presentes)
-    # La troisième valeur de l'écran de FTP (18/09/2026), lue par la commande
+    # La troisième valeur de l'écran de FTP, lue par la commande
     # (elle relit la calibration du vélo) et portée par le contexte.
     compteur_info = contexte.compteur_info
 
@@ -343,7 +343,7 @@ _LIBELLES_VENT = {
 def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     """Les deux ou trois propositions retenues, chacune avec sa phrase.
 
-    C'est le livrable du lot L5.3 : la phrase, en langage de cycliste et
+    La phrase, en langage de cycliste et
     jamais en langage de note, est ce qui permet d'arbitrer **en regardant**
     plutôt qu'en réglant.
     """
@@ -357,7 +357,7 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
     ]
     for retenue in selection.retenues:
         numero = retenue.proposition.numero
-        # Depuis Q43, une retenue peut n'avoir aucune phrase : son tracé la
+        # Une retenue peut n'avoir aucune phrase : son tracé la
         # distingue, pas un axe mesuré. « La seule candidate » ne vaut alors
         # que si elle est vraiment seule — l'écrire sous l'une de trois
         # propositions serait faux.
@@ -384,12 +384,13 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
 
 
 #: Écart de durée en deçà duquel on n'affiche rien : 5 % de la séance.
-#: Mots du mainteneur (16/09/2026) : « 1 min en plus ou en moins n'est pas un
-#: seuil important, faire une alerte quand on est à 5 % de différence de durée,
-#: pas moins ». Deux seuils, deux rôles : celui-ci décide si l'écart mérite
-#: d'être dit, `elasticite_calme_min` s'il mérite une alerte.
+#: Une minute en plus ou en moins n'est pas un écart important ; on ne dit
+#: rien en deçà de 5 % de différence de durée (décision Q21 a,
+#: `docs/journal/questions/questions_mainteneur.md`). Deux seuils, deux rôles :
+#: celui-ci décide si l'écart mérite d'être dit, `elasticite_calme_min` s'il
+#: mérite une alerte.
 #:
-#: **Et un troisième, à ne surtout pas confondre avec lui** : depuis Q41 (d),
+#: **Et un troisième, à ne surtout pas confondre avec lui** :
 #: `boucle.candidates.elargissement_max` borne l'écart de **distance** entre
 #: la boucle servie et la boucle demandée. Les deux mesurent des grandeurs
 #: différentes sur des objets différents, et ne se recouvrent pas :
@@ -404,9 +405,8 @@ def _propositions_contrastees(contexte: _Contexte) -> list[str]:
 #: Conséquence pratique : une boucle peut être servie en disant « tolérance
 #: élargie de 10 % » (fait de distance) et ne rien afficher sur la durée
 #: parce que la séance tombe à 2 % près (fait de durée). Ce n'est pas une
-#: incohérence, c'est la raison d'avoir deux seuils. Le premier reste une
-#: décision du mainteneur au sprint 5 — il avait trouvé l'affichage alarmant
-#: à tort — et Q41 (d) ne la défait pas.
+#: incohérence, c'est la raison d'avoir deux seuils : un affichage d'écart de
+#: durée trop bavard serait alarmant à tort.
 SEUIL_ECART_DUREE = 0.05
 
 
@@ -419,19 +419,16 @@ def _ecart_seance(profil) -> str:
     ne doivent pas l'être à l'affichage.
 
     **Le ⚠ suit le verdict du placement (`profil.seance_amputee`), pas un
-    seuil recalculé ici (Q21 a).** Avant ce correctif, 60 secondes (1 min)
-    suffisaient à afficher « ⚠ séance amputée », y compris pour un écart de
-    0,8 % sur une séance de 2 h — alors que le mainteneur a déjà fixé le
-    seuil qui compte, `elasticite_calme_min` (config `[seance]`, −5 % par
-    défaut), et que `seance.placement` l'applique déjà pour décider si le
+    seuil recalculé ici.** Un seuil fixe de 60 secondes afficherait
+    « ⚠ séance amputée » pour un écart de 0,8 % sur une séance de 2 h — alors
+    que le seuil qui compte est déjà fixé, `elasticite_calme_min` (config
+    `[seance]`, −5 % par défaut), et que `seance.placement` l'applique déjà pour décider si le
     retour au calme est raccourci. Un écart sous ce seuil reste visible en
     minutes, neutre, sans ⚠ — symétrique du dépassement positif.
 
-    **Et sous le seuil, on n'affiche rien du tout (correction du 16/09/2026).**
-    La première version gardait « (−5 min) » sans le ⚠ ; le mainteneur a
-    répondu « pas réglé ». Il avait raison : sa phrase était « faire une
-    alerte quand on est à 5 % de différence de durée, pas moins », et un
-    écart qu'on juge négligeable n'a pas à s'afficher. Une ligne qui signale
+    **Et sous le seuil, on n'affiche rien du tout** : même « (−5 min) » sans
+    le ⚠ serait de trop, un écart qu'on juge négligeable n'a pas à
+    s'afficher. Une ligne qui signale
     ce qui ne compte pas apprend à ne plus lire la ligne.
     """
     depassement = getattr(profil, "depassement_s", None)
@@ -455,9 +452,9 @@ def _details_proposition(retenue) -> str:
     morceaux = [duree_h_min(profil.duree_s) + _ecart_seance(profil)]
     if profil.feux is not None:
         # Nombres absolus, et séparés : « 1,7 feux/stops/passages au km » se
-        # lisait « 170 sur 100 km » (mots du mainteneur) sur un composite dont
-        # les deux tiers étaient des passages piétons, qu'on traverse sans
-        # lever le pied. On ne montre plus que ce qui pose le pied.
+        # lirait « 170 sur 100 km » sur un composite dont les deux tiers sont
+        # des passages piétons, qu'on traverse sans lever le pied. On ne
+        # montre que ce qui pose le pied.
         arrets = [f"{profil.feux} feu{'x' if profil.feux > 1 else ''}"]
         if profil.stops:
             arrets.append(f"{profil.stops} stop{'s' if profil.stops > 1 else ''}")
@@ -468,10 +465,10 @@ def _details_proposition(retenue) -> str:
         "aucun demi-tour" if profil.demi_tours == 0 else f"{profil.demi_tours} demi-tour(s)"
     )
     if profil.part_trafic is not None:
-        # Q21 c : le % de `primary` seul, plus le composite primary +
-        # secondary + trunk qui multipliait par quatre ce qui devait
-        # inquiéter (« secondary », une départementale ordinaire ici, en
-        # portait les deux tiers).
+        # Le % de `primary` seul, pas le composite primary + secondary +
+        # trunk qui multiplierait par quatre ce qui doit inquiéter
+        # (« secondary », une départementale ordinaire, en porterait les deux
+        # tiers ; décision Q21 c).
         morceaux.append(f"{profil.part_trafic * 100:.0f} % de nationales")
     if profil.pluie_mm is not None:
         morceaux.append(f"{nombre_fr(profil.pluie_mm, 1)} mm de pluie")
@@ -485,9 +482,8 @@ def _details_proposition(retenue) -> str:
 
 #: Comment on nomme une orientation au vent dans la ligne de détail. La part
 #: connue y figure aussi, mais **seulement pour décrire** une proposition déjà
-#: retenue : le contrat du sprint 3 interdit qu'elle entre dans un score, et
-#: le lot L5.3 le redit — pénaliser l'inconnu condamnerait d'avance toute
-#: direction jamais explorée.
+#: retenue : elle n'entre jamais dans un score — pénaliser l'inconnu
+#: condamnerait d'avance toute direction jamais explorée.
 _LIBELLES_ORIENTATION = {
     orientation.ORIENTATION_RETOUR_DOS: "dans le dos au retour",
     orientation.ORIENTATION_DEPART_DOS: "dans le dos au départ",
@@ -499,14 +495,14 @@ _LIBELLES_ORIENTATION = {
 def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[str]:
     """Ce que les colonnes ne peuvent pas dire : les deux parcours, et les deux D+.
 
-    Règle absolue 5 : « deux modèles qui divergent sont affichés comme un
-    désaccord, jamais moyennés ». Ici ce n'est pas deux modèles mais deux
+    Même règle que pour la météo : deux modèles qui divergent s'affichent
+    comme un désaccord, jamais moyennés. Ici ce n'est pas deux modèles mais deux
     mesures — le « filtered ascend » que BRouter annonce pour la boucle, et le
     D+ que `denivele_filtre` recalcule sur le parcours placé, hystérésis de 2 m
-    comprise. Elles diffèrent de −33 % dans le cas relevé le 22/04, alors qu'un
-    aller-retour devrait plutôt *augmenter* le D+. La provenance était écrite
-    dans chaque artefact (`(moteur)`, `(parcours placé)`), mais il fallait
-    ouvrir le GPX pour voir le désaccord : il s'affiche maintenant.
+    comprise. Elles ont différé de −33 % sur un cas mesuré, alors qu'un
+    aller-retour devrait plutôt *augmenter* le D+. La provenance est écrite
+    dans chaque artefact (`(moteur)`, `(parcours placé)`), mais sans cette
+    note il faudrait ouvrir le GPX pour voir le désaccord.
     """
     lignes: list[str] = []
     if "parcours" in presentes:
@@ -527,12 +523,11 @@ def _notes_sous_tableau(proposition: Proposition, presentes: set[str]) -> list[s
 
 
 def _ligne_modele_meteo(propositions: list[Proposition], config: Config) -> list[str]:
-    """Nomme le modèle météo utilisé (Q19), et le dit haut quand c'est un repli.
+    """Nomme le modèle météo utilisé, et le dit haut quand c'est un repli.
 
-    « en nommant le modèle utilisé » est le critère d'acceptation du contrat
-    de mise en service : sans cette ligne, un repli sur le second avis se
-    passait en silence — exactement ce que la règle absolue 5 interdit pour
-    deux modèles qui divergent, et ici un seul des deux a pu répondre.
+    Sans cette ligne, un repli sur le second avis passerait en silence — ce
+    que la règle « deux modèles météo qui divergent s'affichent comme un
+    désaccord » interdit, et ici un seul des deux a pu répondre.
     """
     meteo = next((p.meteo for p in propositions if p.meteo is not None), None)
     if meteo is None or not meteo.modele_utilise:
@@ -549,7 +544,7 @@ def _entete(
     propositions: list[Proposition], contexte: _Contexte, presentes: set[str]
 ) -> list[str]:
     seance, demande, config = contexte.seance, contexte.demande, contexte.config
-    # Trois cas et non deux : depuis le lot L5.3, une réponse à la question
+    # Trois cas et non deux : une réponse à la question
     # d'orientation au vent dirige la recherche elle aussi. Dire « dans toutes
     # les directions » alors qu'on a cherché au sud-ouest serait faux.
     azimuts_vent = (
@@ -581,11 +576,11 @@ def _entete(
         f"Distance : {contexte.distance_source}",
         f"Modèle physique : {contexte.provenance_modele}",
     ]
-    # Le test portait sur « défaut » seul. Depuis que les vélos non calibrés
-    # reçoivent les valeurs de `physique.litterature` (18/09/2026), cette
-    # provenance-là ne dit plus « défaut » — et l'avertissement disparaissait
-    # justement dans le cas où il sert le plus (règle absolue 5). Ce qui
-    # compte, c'est « mesuré sur ce vélo ou non ».
+    # Pas un test sur « défaut » seul : les vélos non calibrés reçoivent les
+    # valeurs de `physique.litterature`, dont la provenance ne dit pas
+    # « défaut » — et l'avertissement disparaîtrait justement dans le cas où
+    # il sert le plus (on ne présente jamais une estimation comme une mesure).
+    # Ce qui compte, c'est « mesuré sur ce vélo ou non ».
     if not contexte.provenance_modele.startswith("calibration"):
         lignes.append(
             "⚠ aucun vélo calibré : les vitesses, donc la position des blocs, reposent sur un "
@@ -607,7 +602,7 @@ def _entete(
             f"Autre(s) séance(s) vélo ce jour-là, ignorée(s) au profit de la plus longue : {autres}."
         )
     if contexte.ecartees:
-        # Deux motifs cohabitent ici depuis Q41 (d) : la séance qui ne tient
+        # Deux motifs cohabitent ici : la séance qui ne tient
         # pas sur le tracé, et la boucle trop loin de la distance demandée.
         # Chaque ligne porte le sien ; l'en-tête ne préjuge plus duquel il
         # s'agit, sous peine d'annoncer « la séance n'y tenait pas » pour une
@@ -685,7 +680,7 @@ def _cellules(
     return cellules
 
 
-#: Libellé humain d'un type d'étape non-bloc, pour l'affichage texte (Q13, lot L5.2).
+#: Libellé humain d'un type d'étape non-bloc, pour l'affichage texte.
 _LIBELLES_ETAPE = {
     "echauffement": "échauffement",
     "recuperation": "récupération",
@@ -697,11 +692,10 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     """La séance posée sur la candidate retenue, étape par étape, motifs en clair.
 
     Toutes les étapes de la séance apparaissent, pas seulement les blocs
-    (Q13, lot L5.2) : `seance.placement` mémorise désormais la position de
-    chacune. Seuls les blocs portent une note — aucun terrain n'est évalué
-    sous une récupération, c'est la règle du sprint 4 et elle ne bouge pas —
-    donc la colonne reste vide pour le reste plutôt que de porter un tiret
-    ambigu (contrat §2.2 b). Le décalage de la Z2 d'ouverture et la durée
+    (décision Q13, `docs/journal/questions/questions_mainteneur.md`) : `seance.placement` mémorise la position
+    de chacune. Seuls les blocs portent une note — aucun terrain n'est évalué
+    sous une récupération — donc la colonne reste vide pour le reste plutôt
+    que de porter un tiret ambigu. Le décalage de la Z2 d'ouverture et la durée
     totale disent, eux, ce qui arrive aux extrémités.
 
     Le kilomètre affiché est `debut_parcouru_m`, le compteur — jamais
@@ -714,8 +708,8 @@ def _seance_placee(proposition: Proposition, contexte: _Contexte) -> list[str]:
     note = nombre_fr(placement.note_totale, 2)
     if placement.penalite_seance > 0:
         note += (
-            # « extrémités » et non « séance non tenue » : depuis Q14 cette
-            # pénalité additionne deux choses de natures différentes — une
+            # « extrémités » et non « séance non tenue » : cette pénalité
+            # additionne deux choses de natures différentes — une
             # séance amputée, qui est un défaut, et le dépassement du retour au
             # calme, qui n'en est pas un. Le détail se lit deux lignes plus bas.
             f" = terrain {nombre_fr(placement.note_terrain, 2)} + extrémités "
@@ -798,7 +792,7 @@ def _puissance(etape) -> str:
 
 
 def _azimuts(azimuts_deg: Sequence[float]) -> str:
-    """Un azimut, ou deux joints par « et » — le travers en ouvre deux (Q44).
+    """Un azimut, ou deux joints par « et » — le travers en ouvre deux.
 
     Écrire « 315° » quand la recherche a exploré 315° **et** 135° serait faux
     au même titre que « dans toutes les directions » quand une seule a été

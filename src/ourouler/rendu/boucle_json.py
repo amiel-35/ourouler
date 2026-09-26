@@ -89,7 +89,7 @@ def rendre_json(
     meteo_absente: portee.MeteoAbsente | None = None,
     compteur_info: dict | None = None,
 ) -> dict:
-    """Toutes les mesures, plus le chemin du GPX écrit (contrat §6)."""
+    """Toutes les mesures, plus le chemin du GPX écrit."""
     return {
         "depart": {
             "nom": config.depart.nom,
@@ -124,11 +124,11 @@ def rendre_json(
         "modele": config.meteo.modele,
         "second_avis": config.meteo.second_avis,
         # Ce qui a **répondu**, à côté de ce qui est configuré. Même forme que
-        # `sortie` (`{utilise, repli}`), pour qu'un écran lise le repli de Q19
-        # de la même façon sur les deux routes de parcours. `null` quand
+        # `sortie` (`{utilise, repli}`), pour qu'un écran lise le repli de
+        # modèle de la même façon sur les deux routes de parcours. `null` quand
         # aucune candidate n'a de météo.
         "modele_meteo": _modele_meteo_json(evaluations),
-        # Q40 (a) : l'état « pas de météo », dit une fois. `null` quand la
+        # L'état « pas de météo », dit une fois. `null` quand la
         # météo a répondu. Voir `meteo.portee`.
         "meteo_absente": None if meteo_absente is None else meteo_absente.json(),
         "gpx": str(chemin) if chemin is not None else None,
@@ -144,7 +144,7 @@ def rendre_json(
             "masse_totale_kg": modele.parametres.masse_totale_kg,
             # Le même fait qu'en texte, en un booléen et un bloc : un client
             # qui ne lit que `provenance` afficherait un temps de littérature
-            # comme un temps mesuré (règle absolue 5).
+            # comme un temps mesuré (on ne présente jamais une estimation comme une mesure).
             "mesure": modele.calibre,
             "litterature": _litterature_json(modele),
             "alerte": modele.alerte or None,
@@ -201,8 +201,7 @@ def _candidate_json(
         "temps_estime_s": round(mouvement_s),
         "temps_source": "modele" if evaluation.temps_s is not None else "vitesse_moyenne",
         # Le porte à porte, arrêts compris (`physique.modele.temps_ecoule`) —
-        # jamais à la place de `temps_estime_s`, à côté (décision du
-        # mainteneur, 18/09/2026). Depuis L9.1, une fourchette :
+        # jamais à la place de `temps_estime_s`, à côté. Une fourchette :
         # `temps_ecoule_s` en est la médiane (gardé pour compatibilité),
         # `_bas_s`/`_haut_s` les bornes (centiles 25 et 75), et la source dit
         # « mesure » (sorties du vélo) ou « defaut » (convention). `null` avec
@@ -224,7 +223,7 @@ def _candidate_json(
         "ecart_relatif": evaluation.ecart_relatif,
         # L'écart cesse d'être tu : trois champs, pas un commentaire. Un
         # client qui n'affiche que `distance_km` continue de marcher, un
-        # client qui veut expliquer a de quoi le faire (Q41 d).
+        # client qui veut expliquer a de quoi le faire.
         "hors_tolerance": bool(evaluation.elargissement),
         "elargissement": evaluation.elargissement,
         "tolerance_distance": evaluation.tolerance_distance,
@@ -256,8 +255,8 @@ def _candidate_json(
         },
         "meteo": _meteo_json(meteo),
         "meta": trace.meta,
-        # Lot F0.1 : la géométrie n'existait dans aucun JSON, seulement dans
-        # le GPX écrit sur disque (`docs/journal/ux/discovery_donnees.md` §2). Voir
+        # La géométrie, pour que le front n'ait pas à relire le GPX écrit sur
+        # disque. Voir
         # `boucle.geometrie` pour la forme et la simplification appliquée.
         "trace": geometrie_json(trace),
     }

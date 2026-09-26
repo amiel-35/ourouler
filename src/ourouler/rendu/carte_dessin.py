@@ -51,10 +51,10 @@ COULEUR_TRACE = "#8c8c8c"
 #: Les liaisons non notées (échauffement, récupérations, retour au calme).
 COULEUR_LIAISON = "#9fb8cd"
 #: Le tracé d'une proposition **non sélectionnée**, sur la page du jour
-#: (`construire_page_jour`), toujours en pointillé (Q20 b — le pointillé ne
-#: veut plus dire que « ce n'est pas la sélection »). Assombri le 16/09/2026
-#: (Q20 b) : `#c9c9c9` ne se lisait pas sur les tuiles OpenStreetMap denses
-#: (vérifié à l'œil sur la zone de Rennes) — réglé, pas mesuré.
+#: (`construire_page_jour`), toujours en pointillé — le pointillé ne veut dire
+#: que « ce n'est pas la sélection ». Assez sombre pour se lire sur les
+#: tuiles OpenStreetMap denses, où `#c9c9c9` disparaît — réglé à l'œil, pas
+#: mesuré.
 COULEUR_AUTRE_PROPOSITION = "#707070"
 
 #: Nombre maximal de points du profil d'altitude. Au-delà, on sous-échantillonne :
@@ -64,7 +64,7 @@ POINTS_PROFIL_MAX = 800
 
 #: Vent moyen en dessous duquel aucune flèche n'est dessinée, en km/h.
 #:
-#: **Remontée dans `seance.vent` au lot L5.3** sous le nom
+#: **Définie dans `seance.vent`** sous le nom
 #: `SEUIL_VENT_SENSIBLE_KMH`, avec sa justification (échelle de Beaufort) :
 #: la question de l'orientation au vent se pose exactement quand les flèches
 #: se dessinent, et deux constantes égales par hasard auraient fini par
@@ -94,9 +94,9 @@ def _blocs(
 ) -> list[dict]:
     """Un dictionnaire par bloc : géométrie, couleur, étiquette, infobulle.
 
-    `placement.blocs()`, pas `placement.emplacements` : depuis le lot L5.2
-    (Q13), ce dernier porte aussi l'échauffement, les récupérations et le
-    retour au calme, qui n'ont pas de note — `emplacement.note.note`
+    `placement.blocs()`, pas `placement.emplacements` : ce dernier porte aussi
+    l'échauffement, les récupérations et le retour au calme, qui n'ont pas de
+    note — `emplacement.note.note`
     lèverait sur l'un d'eux. `_liaisons` s'occupe de les dessiner.
     """
     dessins = []
@@ -167,12 +167,11 @@ def _infobulle(numero: int, emplacement: Emplacement, etape) -> str:
 def _liaisons(trace: Trace, placement: Placement, cumuls: Sequence[float]) -> list[_Portion]:
     """Les portions non notées : échauffement, récupérations, retour au calme.
 
-    Depuis le lot L5.2 (Q13), chacune est un `Emplacement` à part entière —
-    on la dessine donc **directement**, sur son propre `debut_m`/`longueur_m`,
-    au lieu de deviner un trou entre deux blocs par soustraction. L'ancienne
-    méthode (« ce qui n'est pas un bloc ») peignait tout ce qui suit le
-    dernier bloc jusqu'à la fin du tracé, y compris la portion qu'un
-    demi-tour ne fait jamais rouler — exactement le défaut que Q13 signale.
+    Chacune est un `Emplacement` à part entière — on la dessine donc
+    **directement**, sur son propre `debut_m`/`longueur_m`, au lieu de deviner
+    un trou entre deux blocs par soustraction. Peindre « ce qui n'est pas un
+    bloc » peindrait tout ce qui suit le dernier bloc jusqu'à la fin du
+    tracé, y compris la portion qu'un demi-tour ne fait jamais rouler.
     Nourrir cette fonction avec des positions déjà connues, et non avec un
     calcul de gap, est aussi ce qui rend un demi-tour visible d'un bloc à
     l'autre : la récupération qui y mène a sa propre portion, là où l'ancien
@@ -196,9 +195,8 @@ def _liaisons(trace: Trace, placement: Placement, cumuls: Sequence[float]) -> li
 
 # --- flèches de vent -----------------------------------------------------------
 
-#: La règle des flèches est **partie d'ici** : elle vit depuis le 17/09/2026
-#: dans `boucle.meteo_trace.fleches_vent`, avec son code et ses raisons, sans
-#: une virgule de changée. Elle a bougé parce que le JSON de `boucle.commande`
+#: La règle des flèches vit dans `boucle.meteo_trace.fleches_vent`, avec son
+#: code et ses raisons, parce que le JSON de `boucle.commande`
 #: et de `sortie.commande` doit servir les mêmes flèches au front, et que
 #: `boucle` ne peut pas importer `sortie`. Ce nom local reste pour ne pas
 #: casser les appelants ; les deux chemins dessinent le même vent.
@@ -292,7 +290,7 @@ def _profil_svg(trace: Trace, cumuls: Sequence[float], blocs: Sequence[dict]) ->
 
     Sans altitude sur le tracé, le profil n'est pas dessiné : on le dit
     plutôt que de tracer une ligne plate qui ferait croire à un parcours plat
-    (règle absolue 5).
+    (on n'affirme rien sans mesure).
     """
     gauche, droite, bas, haut = PROFIL_MARGES
     altitudes = [(d, p.alt_m) for d, p in zip(cumuls, trace.points, strict=True) if p.alt_m is not None]

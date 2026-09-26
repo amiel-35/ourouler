@@ -77,7 +77,7 @@ def info_vitesse_compteur(config: Config) -> dict | None:
     `ourouler config` doit rester utilisable sans vélo déclaré.
     """
     # Import différé : `config.py` réexporte ce module, et `seance.ecran_ftp`
-    # importe encore `config.py` (dette du lot 7) ; l'importer au chargement
+    # importe encore `config.py` ; l'importer au chargement
     # fermerait une boucle d'import à l'exécution.
     from ourouler.seance.ecran_ftp import valeurs_liees
 

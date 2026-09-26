@@ -31,7 +31,7 @@ from ourouler.rendu.carte_dessin import (
 )
 from ourouler.seance.placement_resultat import Placement
 
-# --- la page du jour (lot L5.4) -------------------------------------------------
+# --- la page du jour -----------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -76,14 +76,14 @@ def construire_page_jour(
     La sélectionnée est **pleine de bout en bout** : ses blocs en couleurs
     vives et ses flèches de vent comme avant, ses liaisons (échauffement,
     récupérations, retour au calme) en couleur franche plutôt qu'en
-    pointillé, et sa boucle non parcourue en fond, sous ses blocs — Q20 a et
-    c, la correction du 16/09/2026 : sans ce fond, la portion au-delà d'un
-    demi-tour n'était peinte par personne, et une séance sans bloc (le cas
-    courant du mainteneur) n'avait que des liaisons pâles et pointillées.
+    pointillé, et sa boucle non parcourue en fond, sous ses blocs : sans ce fond,
+    la portion au-delà d'un demi-tour ne serait peinte par personne, et une
+    séance sans bloc (un cas courant) n'aurait que des liaisons pâles et
+    pointillées.
     Les autres propositions passent en **pointillé gris**
     (`COULEUR_AUTRE_PROPOSITION`) — le pointillé ne veut plus dire « ce
-    n'est pas un bloc » mais « ce n'est pas la sélection », et rien d'autre
-    (Q20 b) : on ne demande jamais à l'œil de suivre plusieurs choses à la
+    n'est pas un bloc » mais « ce n'est pas la sélection », et rien d'autre :
+    on ne demande jamais à l'œil de suivre plusieurs choses à la
     fois. Sous la carte, une miniature par proposition sert de sélecteur :
     cliquer en allume une, sans jamais en cacher une autre (pas d'onglet).
 
@@ -94,7 +94,7 @@ def construire_page_jour(
     (aucune comparaison n'a de sens, la page le montre sans sélecteur inutile
     à comparer).
 
-    `motif_equivalence` est la phrase de Q45 : trois tracés différents dont
+    `motif_equivalence` est la phrase « elles se valent » : trois tracés différents dont
     aucun ne se détache sur un axe mesuré. Elle s'affiche au même endroit que
     l'autre motif, et les deux peuvent tenir ensemble.
     """
