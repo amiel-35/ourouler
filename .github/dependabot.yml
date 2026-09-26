@@ -14,3 +14,13 @@ updates:
     directory: "/front"
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/deploiement/api"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/deploiement"
+    schedule:
+      interval: "weekly"
