@@ -3,11 +3,11 @@
 Ce module porte les trois cas d'usage : chacun reçoit une demande déjà
 interprétée par l'entrée (`commandes/physique.py`, qui lit argparse) et un
 `services.contexte.Contexte` (profil, dossier de cache et fichier de
-calibration résolus), et rend un résultat sans rien imprimer. Depuis le
-lot 8, choisir et lire les sorties à calibrer est `services.calibrer`, le
-calcul `physique.calibration` (qui ne connaît ni chemin, ni cache, ni
+calibration résolus), et rend un résultat sans rien imprimer. Choisir et
+lire les sorties à calibrer est `services.calibrer`, le calcul
+`physique.calibration` (qui ne connaît ni chemin, ni cache, ni
 configuration), et le texte comme le JSON `rendu.physique` — que l'entrée
-appelle depuis le lot 10.
+appelle.
 
 `calibrer` enchaîne : choix des sorties → archives météo (mémoïsées) →
 échantillons → deux passes d'ajustement → validation sur les sorties les plus
@@ -75,24 +75,23 @@ NOM_CACHE = "archive_meteo.sqlite"
 #: Nom du fichier où la calibration est écrite, dans le dossier de cache.
 NOM_CALIBRATION = "calibration.json"
 #
-# Depuis le lot 7, la lecture et l'écriture vivent dans `stockage.calibrations`
+# La lecture et l'écriture vivent dans `stockage.calibrations`
 # et le calcul (quels paramètres pour quel vélo) dans `physique.parametres_velo`,
-# qui reçoit la `Calibration` déjà lue. Les fonctions ci-dessous gardent leurs
-# signatures d'avant — un profil et un chemin — pour les appelants : elles
+# qui reçoit la `Calibration` déjà lue. Les fonctions ci-dessous prennent un profil
+# et un chemin, pour les appelants : elles
 # lisent et délèguent.
 
 
 def chemin_calibration(config) -> Path:
     """Le `calibration.json` d'une `config.Config` (lue sans importer l'entrée).
 
-    Depuis le lot 10, les services reçoivent ce chemin déjà résolu
+    Les services reçoivent ce chemin déjà résolu
     (`Contexte.fichier_calibration`) ; ce sont les entrées qui appellent
-    cette fonction — `commandes/commun.py`, et l'API
-    (`api/calibrations.py`) en attendant le lot 11.
+    cette fonction — `commandes/commun.py`, et l'API (`api/calibrations.py`).
 
     Dans le dossier de cache pour la ligne de commande ; à l'endroit que la
-    couche web a posé pour un compte hébergé (`ParametresCache.fichier_calibration`,
-    L9.4) — c'est ce qui fait que les boucles, les sorties et les simulations
+    couche web a posé pour un compte hébergé (`ParametresCache.fichier_calibration`)
+    — c'est ce qui fait que les boucles, les sorties et les simulations
     d'un compte lisent **sa** calibration, et jamais celle d'un autre.
     """
     if config.cache.fichier_calibration is not None:
@@ -128,7 +127,7 @@ def puissance_voulue(
     `simuler` refuse).
 
     **Les deux options disent la même chose de deux façons et sont exclusives.**
-    Le mainteneur, le 18/09/2026 : « et s'il n'a pas de FTP ? » Pour chronométrer
+    Tout le monde n'a pas de FTP : pour chronométrer
     un parcours, le produit n'a pas besoin d'une FTP mais d'une puissance ; la
     vitesse à plat, sans vent, lancé, en est l'autre chemin — c'est la
     décision 7 du cycle UX, et l'inversion est celle qu'emploie déjà l'écran de
@@ -192,9 +191,9 @@ def executer_calibrer(
 ) -> CalibrationEcrite:
     """Calibre un vélo sur les sorties réelles du cache et écrit `calibration.json`.
 
-    **`cache` s'injecte** (L9.4), sur le patron d'`activites/commande.executer` :
+    **`cache` s'injecte**, sur le patron d'`activites/commande.executer` :
     absent — la ligne de commande —, le service construit celui du
-    propriétaire local sur `contexte.dossier_cache`, comme avant. Le calcul
+    propriétaire local sur `contexte.dossier_cache`. Le calcul
     lui-même est `calibrer_velo`, qui n'imprime rien : c'est lui que la tâche
     de fond de l'API appelle (`api/calibrations.py`), parce qu'une commande
     qui écrit sur la sortie standard ne peut pas tourner dans un fil pendant
@@ -266,7 +265,7 @@ def executer_simuler(
 ) -> ResultatSimulation:
     """Simule un GPX à puissance constante, avec le vent prévu si un départ est donné."""
     # Les paramètres du vélo sont résolus **avant** la puissance : une vitesse
-    # à plat ne se convertit en watts qu'avec eux (L8.5, lot C).
+    # à plat ne se convertit en watts qu'avec eux.
     velo = velo_demande(contexte.profil, demande.velo)
     parametres, provenance = parametres_du_velo(contexte.profil, velo, contexte.fichier_calibration)
     alerte = alerte_calibration(velo, contexte.fichier_calibration)
@@ -438,7 +437,7 @@ def executer_analyser(
     **La puissance, par défaut, est celle de l'endurance du profil** :
     `profil.seance.puissance_endurance_pct × profil.cycliste.ftp_w` — le même calcul que
     l'écran de FTP (`seance.ecran_ftp.apercu_zones`). `--puissance`/`--vitesse-a-plat`
-    la remplacent pour qui veut un autre rythme (Q7, même inversion que `simuler`).
+    la remplacent pour qui veut un autre rythme (même inversion que `simuler`).
 
     **La vitesse qui date les échantillons météo est celle du modèle, pas la moyenne
     configurée** : `physique.modele.simuler` à vent nul donne une vitesse moyenne qui
@@ -447,10 +446,10 @@ def executer_analyser(
     vallonné, c'est très différent d'une vitesse moyenne plate, et c'est tout l'intérêt :
     la météo d'un col à 12 km/h n'est pas celle d'une plaine à 30.
 
-    **Les heures de passage sont celles du porte à porte** (L9.8, relecture) : le
-    temps en mouvement à vent nul, multiplié par la médiane de la fourchette L9.1
-    du vélo (mesurée ou convention). Sur un 600 km, caler la météo sur le seul
-    temps en mouvement la décalait de plusieurs heures — les arrêts arrivent
+    **Les heures de passage sont celles du porte à porte** : le temps en
+    mouvement à vent nul, multiplié par la médiane de la fourchette du vélo
+    (mesurée ou convention). Sur un 600 km, caler la météo sur le seul temps
+    en mouvement la décalerait de plusieurs heures — les arrêts arrivent
     bien, eux aussi.
 
     **Horizon météo** : au-delà de `profil.meteo.horizon_jours`, aucun appel n'est fait —
@@ -458,7 +457,7 @@ def executer_analyser(
     `meteo.portee`). Un 600 km dépasse presque toujours la portée horaire utile du modèle
     régional (AROME) avant son arrivée : `boucle.meteo_trace.evaluer` bascule alors sur
     `second_avis` pour la fin du parcours, et chaque échantillon dit lequel a répondu
-    (`Echantillon.modele`) — jamais mélangé en silence (règle absolue 5). Un
+    (`Echantillon.modele`) — jamais mélangé en silence. Un
     parcours parti le dernier jour couvert qui arrive le lendemain : les
     échantillons d'après la fin de ce jour sont vides et marqués
     `au_dela_prevision`, jamais présentés comme une prévision.
@@ -523,7 +522,7 @@ def executer_analyser(
                 limite=fin_de_prevision,
                 modele=profil.meteo.modele,
                 second_avis=profil.meteo.second_avis,
-                # Même repli que `boucle`/`sortie` (Q19) : un parcours plus
+                # Même repli que `boucle`/`sortie` : un parcours plus
                 # long que la portée horaire du modèle régional ne perd pas
                 # toute sa météo, seulement la partie que le repli ne couvre
                 # pas non plus.

@@ -1,22 +1,22 @@
 """Les CdA et Crr d'un vélo jamais calibré, par catégorie, et ce qu'ils valent.
 
-Arbitrage du mainteneur du 17/09/2026 (`docs/journal/questions/questions_mainteneur.md`, réponse
-« la littérature plutôt que la précision ») : plutôt que d'exiger de chaque
+La littérature plutôt que la précision (décision Q52, `docs/journal/questions/questions_mainteneur.md`) :
+plutôt que d'exiger de chaque
 nouveau venu une calibration personnelle, on lui sert des **valeurs de
 littérature par catégorie** — et on le dit. Ce module est cette table, et rien
 d'autre : il ne lit aucun fichier, ne connaît aucun chemin et ne décide pas
-quel vélo l'appelant regarde (règle absolue 2).
+quel vélo l'appelant regarde (le cœur ne lit ni configuration ni environnement).
 
 **Ce que ces valeurs sont.** Des ordres de grandeur de vulgarisation cycliste
 (Best Bike Split, Bicycle Rolling Resistance, Roadman Cycling), pas des
 publications revues par les pairs, et surtout **pas une mesure du cycliste qui
 les reçoit**. Tout écran qui affiche un temps calculé avec elles doit porter la
 mention correspondante — c'est le rôle de la provenance `littérature` rendue
-par `physique.commande.parametres_du_velo` (règle absolue 5).
+par `physique.commande.parametres_du_velo` (on ne présente jamais une estimation comme une mesure).
 
-**Ce qu'elles valent, mesuré.** La campagne du 17/09/2026 (commit `b6114b2`)
-a rejoué **34 sorties de validation du mainteneur** avec ces jeux au lieu de sa
-calibration, et lu l'écart en minutes sur une boucle de 2 h (`mae × 120`). Le
+**Ce qu'elles valent, mesuré.** Une campagne de mesure (commit `b6114b2`) a
+rejoué **34 sorties de validation d'un cycliste de référence** avec ces jeux
+au lieu de sa calibration, et lu l'écart en minutes sur une boucle de 2 h (`mae × 120`). Le
 résultat tient en une phrase : **seule compte la résistance totale à l'allure
 de croisière**, `F@27` — la force à vaincre à 27 km/h, sur le plat, sans vent.
 À `F@27` égale, le partage entre CdA et Crr ne déplace pas la durée d'une
@@ -38,7 +38,7 @@ lui va : ce qui les sépare, c'est la position sur le vélo, les pneus, la tenue
 et la transmission. La masse, elle, déplace les deux jeux ensemble et ne
 tranche donc rien. Faute de règle défendable, chaque catégorie porte le jeu
 dont le `F@27` tombe le plus près de la **référence mesurée** pour cet usage,
-et la question est posée au mainteneur (Q57). Une règle inventée serait pire
+et la question reste ouverte (question Q57). Une règle inventée serait pire
 qu'un défaut assumé.
 """
 
@@ -50,8 +50,8 @@ from ourouler.noyau.texte import nombre_fr
 from ourouler.physique.modele import RHO_DEFAUT, Parametres, force_a_plat_n
 
 #: Vitesse de référence à laquelle la résistance totale se lit et se compare.
-#: 27 km/h, c'est l'allure de croisière du mainteneur — et la valeur qui sert
-#: encore de `vitesse_moyenne_kmh` par défaut dans la configuration.
+#: 27 km/h, c'est l'allure de croisière du cycliste de référence — et la
+#: valeur qui sert de `vitesse_moyenne_kmh` par défaut dans la configuration.
 VITESSE_REFERENCE_KMH = 27.0
 
 
@@ -77,7 +77,7 @@ class Jeu:
         )
 
 
-#: Les trois jeux mesurés le 17/09/2026. Les fourchettes citées sont celles sur
+#: Les trois jeux mesurés. Les fourchettes citées sont celles sur
 #: lesquelles les sources de vulgarisation s'accordent : amateur aux cocottes
 #: 0,30 à 0,35 m², amateur dans le creux du cintre 0,27 à 0,30, chrono
 #: compétitif 0,20 à 0,24 ; Crr d'un bon pneu de route sur bitume réel 0,004 à
@@ -120,7 +120,7 @@ class Choix:
 
     usage: str
     jeu: Jeu
-    #: Le vélo du mainteneur sur lequel cet usage a été mesuré, et combien de
+    #: Le vélo de référence sur lequel cet usage a été mesuré, et combien de
     #: sorties de validation. Jamais une marque ni un modèle : le nom que sa
     #: configuration donne au vélo est déjà dans la doc publique.
     mesure_sur: str
@@ -154,22 +154,22 @@ class Choix:
 #:
 #: **Le choix de chaque ligne est celui du `F@27` le plus proche de la
 #: référence mesurée, et rien de plus savant.** C'est assumé, et c'est
-#: exactement ce que la mesure du 17/09 permet de justifier : à `F@27` bien
+#: exactement ce que la mesure permet de justifier : à `F@27` bien
 #: posée, le reste ne compte presque pas.
 #:
 #: **Deux lignes surprennent, et c'est la mesure qui les impose :**
 #:
 #: - `route` prend le **haut** de la fourchette, pas son centre. Sur le vélo de
-#:   route du mainteneur, le centre (15,94 N) dérive de +3,3 min quand le haut
-#:   (18,30 N) fait −0,8 min. C'est le défaut que le dépôt servait jusqu'ici :
-#:   ses 25 sorties de validation se trompaient **toutes du même côté**, une
-#:   boucle vendue pour 2 h en durant 2 h 07 à 2 h 22.
+#:   route de référence, le centre (15,94 N) dérive de +3,3 min quand le haut
+#:   (18,30 N) fait −0,8 min : avec le centre, ses 25 sorties de validation se
+#: trompaient **toutes du même côté**, une boucle vendue pour 2 h en durant 2 h
+#: 07 à 2 h 22.
 #: - `clm` ne prend **pas** le jeu qui porte son nom. Sur son chrono, « CLM
 #:   amateur » est le pire des trois (+3,5 min) et « route amateur » le
 #:   meilleur (+0,3 min) : il ne roule pas son chrono en position de chrono,
 #:   ou pas avec l'équipement que la catégorie suppose. Nommer la catégorie
 #:   d'après le vélo est mesuré faux **ici** ; que ce soit vrai ailleurs n'est
-#:   pas mesuré, et c'est la moitié de Q57.
+#:   pas mesuré, et c'est la moitié de la question Q57.
 PAR_USAGE: dict[str, Choix] = {
     "route": Choix(
         usage="route",
@@ -211,22 +211,22 @@ def pour_usage(usage: str) -> Choix | None:
     return PAR_USAGE.get(str(usage).strip().casefold())
 
 
-# --- le Crr par catégorie de pneu (L9.1, 25/09/2026) ---------------------------
+# --- le Crr par catégorie de pneu ----------------------------------------------
 #
 # **Ce que valent les CdA et Crr calibrés avec ce Crr : des paramètres de
 # compensation, pas des mesures physiques.** Ils absorbent tout ce que le
-# modèle ne sait pas — l'étalonnage du capteur d'abord. Le vélo de route du
-# mainteneur porte un capteur **unilatéral** (jambe gauche × 2), le chrono un
+# modèle ne sait pas — l'étalonnage du capteur d'abord. Le vélo de route de
+# référence porte un capteur **unilatéral** (jambe gauche × 2), le chrono un
 # capteur double : un écart de quelques pour cent sur les watts se retrouve
 # tel quel dans le CdA (± 4 % de puissance déplacent le CdA de 0,306 à 0,356,
-# mesuré le 25/09). Deux CdA calibrés sur deux capteurs différents **ne se
+# mesuré). Deux CdA calibrés sur deux capteurs différents **ne se
 # comparent donc pas** ; ce qui se compare, c'est le temps prédit, et la
 # puissance qu'il faut pour tenir une vitesse donnée *par watt affiché* sur
 # ce capteur-là.
 #
-# La note du 23/09 (`docs/journal/sprints/plan_sprints_agents.md`, « le porte à porte ignore
-# le relief ») a montré que la calibration libre ne sépare pas CdA et Crr sur
-# les données du mainteneur : laissée à elle-même, elle rend un Crr de 0,0106
+# La note « le porte à porte ignore le relief »
+# (`docs/journal/sprints/plan_sprints_agents.md`) a montré que la calibration
+# libre ne sépare pas CdA et Crr sur des données réelles : laissée à elle-même, elle rend un Crr de 0,0106
 # au vélo en pneus quatre saisons et de 0,0084 au chrono en tubeless, puis
 # dérive dès qu'on la pousse. **Fixer le Crr d'après le pneu et ne chercher que
 # le CdA** fait apparaître un vrai minimum sur les deux vélos. Cette table est
@@ -234,12 +234,12 @@ def pour_usage(usage: str) -> Choix | None:
 #
 # **Ce que ces valeurs sont.** Des ordres de grandeur sur **bitume réel**, pas
 # des mesures de banc. Les bancs à rouleau publiés (Bicycle Rolling Resistance,
-# consulté pour cette table le 25/09/2026) mesurent un pneu de course rapide à
+# consulté pour cette table, voir `DATE_PNEUS`) mesurent un pneu de course rapide à
 # ~0,003 et un pneu d'entraînement renforcé à ~0,005 sur un tambour lisse, à
 # haute pression ; la route française, rugueuse, et les pressions basses
 # (moins de 5 bar, hookless ou confort) les relèvent d'un tiers à la moitié —
 # c'est la convention retenue ici, **non mesurée sur le cycliste**. Les deux
-# premières lignes sont exactement celles avec lesquelles la note du 23/09 a
+# premières lignes sont exactement celles avec lesquelles cette note a
 # trouvé ses minimums (0,005 et 0,006) ; les trois autres suivent la fourchette
 # déjà citée en tête de ce module (« pneu bon marché ou VTT 0,008 à 0,012 »).
 #
@@ -321,14 +321,13 @@ def pour_pneu(cle: str | None) -> Pneu | None:
 # l'est pas — ou dont la validation compte moins de huit sorties roulées
 # seul — reçoit celle-ci.
 #
-# **C'est une convention, mesurée sur un seul cycliste.** Le 25/09/2026,
-# après la contre-lecture (fourchette sur la **validation** seule, CdA cherché
-# sur les sorties à moins de 30 % de signal de groupe), `ourouler calibrer` a
-# mesuré, sur le temps écoulé réel (du premier au dernier point, arrêts
+# **C'est une convention, mesurée sur un seul cycliste.** Fourchette sur la
+# **validation** seule, CdA cherché sur les sorties à moins de 30 % de signal
+# de groupe, `ourouler calibrer` a mesuré, sur le temps écoulé réel (du premier au dernier point, arrêts
 # compris) rapporté au temps simulé, sorties de validation à moins de 50 % de
 # signal de groupe :
 #
-# | vélo du mainteneur             | n  | 25ᵉ   | médiane | 75ᵉ   |
+# | vélo de référence              | n  | 25ᵉ   | médiane | 75ᵉ   |
 # |--------------------------------|----|-------|---------|-------|
 # | route (Crr 0,006, CdA 0,378)   | 25 | 1,021 | 1,035   | 1,099 |
 # | chrono (Crr 0,005, CdA 0,318)  | 7  | 1,044 | 1,086   | 1,137 |
@@ -339,8 +338,8 @@ def pour_pneu(cle: str | None) -> Pneu | None:
 # 25ᵉ centiles, le plus haut des deux 75ᵉ, arrondis au centième vers
 # l'extérieur, et la moyenne des deux médianes. Plus large que chacune, à
 # dessein : elle couvre deux vélos et deux usages sans savoir lequel elle
-# sert. La version précédente (× 1,01 à × 1,11) était mesurée sur toutes les
-# sorties, apprentissage compris, et sous-prédisait une sortie neuve.
+# sert. Mesurée sur toutes les sorties, apprentissage compris, elle serait
+# plus étroite (× 1,01 à × 1,11) et sous-prédirait une sortie neuve.
 
 #: (bas, médiane, haut) du ratio temps écoulé réel / temps simulé.
 FOURCHETTE_PORTE_A_PORTE_DEFAUT = (1.02, 1.06, 1.14)
@@ -348,27 +347,27 @@ FOURCHETTE_PORTE_A_PORTE_DEFAUT = (1.02, 1.06, 1.14)
 
 # --- une FTP plausible, pour qui n'en a aucune (T5 de l'accueil) --------------
 #
-# Décision du 19/09/2026 (`docs/journal/ux/parcours_accueil.md` §5.3, [[Q65]] encore
-# ouverte) : le fond du tunnel de l'entonnoir d'accueil ne peut jamais
-# échouer, même sans vitesse déclarée, sans compte Intervals et sans FTP
-# connue. Jusqu'ici cette table ne donnait que des paramètres aérodynamiques
-# (CdA, Crr) : rien n'y produisait une puissance seuil, alors que le reste du
+# `docs/journal/ux/parcours_accueil.md` §5.3 (question Q65, ouverte) : le fond du tunnel
+# de l'entonnoir d'accueil ne peut jamais échouer, même sans vitesse déclarée,
+# sans compte Intervals et sans FTP
+# connue. Sans lui, cette table ne donnerait que des paramètres
+# aérodynamiques (CdA, Crr) : rien n'y produirait une puissance seuil, alors que le reste du
 # produit (les zones, `seance.ecran_ftp`) ne sait raisonner qu'en watts.
 #
 # **Ce chiffre est une convention, pas une mesure**, et il le reste tant que
-# [[Q65]] n'est pas tranchée — exactement le même statut que les jeux
-# aérodynamiques ci-dessus au moment de leur écriture, avant la campagne du
-# 17/09/2026. La différence, assumée : aucune campagne équivalente n'existe
-# ici. Une seule valeur, non distinguée par usage (route/clm) — [[Q57]] a
-# montré qu'une distinction non mesurée peut se tromper de sens (le jeu
-# « CLM amateur » n'est pas le meilleur pour un usage clm sur les données du
-# mainteneur) ; inventer un second chiffre sans donnée serait le même risque
+# la question Q65 n'est pas tranchée — le statut des jeux aérodynamiques
+# ci-dessus avant leur campagne de mesure. La différence, assumée : aucune
+# campagne équivalente n'existe ici. Une seule valeur, non distinguée par
+# usage (route/clm) — la question Q57 a montré qu'une distinction non
+# mesurée peut se tromper de sens (le jeu « CLM amateur » n'est pas le meilleur
+# pour un usage clm sur les données de référence) ; inventer un second chiffre
+# sans donnée serait le même risque
 # une fois de plus.
 
 #: Watts par kilogramme de cycliste, pour une FTP jamais mesurée ni déclarée.
 #: Ordre de grandeur usuel pour un cycliste amateur non spécifiquement
 #: entraîné (sources de vulgarisation citées en tête de module) : ni un
-#: débutant complet, ni un compétiteur. **Non mesuré** — voir [[Q65]].
+#: débutant complet, ni un compétiteur. **Non mesuré** — voir la question Q65.
 FTP_W_PAR_KG_DEFAUT = 2.2
 
 #: Bornes de plausibilité de la FTP rendue : mêmes bornes que

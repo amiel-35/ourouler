@@ -12,7 +12,7 @@ from ourouler.physique.echantillonnage import echantillonner
 from ourouler.physique.modele import Parametres, vitesse_regime
 
 #: Une sortie est dite « en groupe » si le résidu de vitesse dépasse ce seuil
-#: sur plus de `PART_DISTANCE_GROUPE` de la distance retenue (contrat §3).
+#: sur plus de `PART_DISTANCE_GROUPE` de la distance retenue.
 SEUIL_RESIDU_GROUPE = 0.08
 PART_DISTANCE_GROUPE = 0.50
 

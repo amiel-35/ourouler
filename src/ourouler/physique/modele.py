@@ -1,7 +1,7 @@
 """Modèle physique : quelle puissance pour quelle vitesse, et l'inverse.
 
 Le bilan est celui de Martin & al. (1998), réduit à ce qui compte hors
-montagne et **sans folie** (décision du mainteneur, 13/09) : roulement,
+montagne et **sans folie** : roulement,
 gravité, aérodynamique, rendement de transmission. Ni inertie, ni frottement
 des roulements de roue, ni résistance du vent de travers.
 
@@ -142,8 +142,7 @@ def vent_au_cycliste(vent_10m: float) -> float:
     `seance.vent.ChampVent` applique la même constante lui-même, parce qu'il
     expose un `facteur_hauteur` injectable que ses tests font varier. Les deux
     ne peuvent donc pas diverger numériquement, mais ce ne sont pas les mêmes
-    lignes — la version antérieure de cette docstring disait « un seul
-    endroit », et c'est devenu faux avec le lot L5.1.
+    lignes : il y a deux endroits, pas un.
 
     Le signe est conservé : un vent de dos (compté négatif en composante de
     face) reste un vent de dos. Une valeur non finie est rendue telle quelle —
@@ -254,8 +253,8 @@ def vitesse_regime(puissance_w: float, pente: float, vent_face_ms: float, p: Par
 # `vitesse_regime(p, 0.0, 0.0, params)` à chaque appel marchait, mais laissait
 # à chaque appelant le soin de se rappeler lequel des deux zéros est la pente.
 #
-# **Ce n'est pas la moyenne du compteur.** Mesuré le 16/09/2026 sur les sorties
-# extérieures du mainteneur (décision 8) : le compteur affiche 87 à 90 % de
+# **Ce n'est pas la moyenne du compteur.** Mesuré sur des sorties extérieures
+# réelles (décision 8 du cycle UX) : le compteur affiche 87 à 90 % de
 # cette vitesse-là selon le vélo, le relief et le vent coûtant plus cher que
 # les arrêts. Confondre les deux décale tout l'escalier des zones vers le bas.
 
@@ -277,7 +276,7 @@ def force_a_plat_n(vitesse_kmh: float, p: Parametres) -> float:
     force subie par le vélo, pas ce que le cycliste dépense pour la vaincre.
 
     Ce nombre est celui qui gouverne la durée prédite d'une boucle quand les
-    paramètres ne sont pas mesurés (campagne du 17/09/2026, commit `b6114b2`) :
+    paramètres ne sont pas mesurés (campagne de mesure, commit `b6114b2`) :
     à résistance totale égale à l'allure de croisière, le partage entre CdA et
     Crr ne déplace pas la durée d'une demi-minute sur 2 h, alors qu'un newton
     d'erreur en coûte de l'ordre de deux et demie. `physique.litterature` s'en
@@ -308,18 +307,18 @@ def puissance_a_plat_w(vitesse_kmh: float, p: Parametres) -> float:
 # La **troisième valeur** de l'écran de FTP (décision 8 du cycle UX,
 # `docs/journal/ux/cycle_ux_contrat.md`). Sans elle, quelqu'un tape dans le champ « à
 # plat » la moyenne qu'il lit sur son compteur, et tout l'escalier des zones se
-# décale vers le bas : la mesure du 16/09/2026 place alors le cycliste *sous*
+# décale vers le bas : la mesure place alors le cycliste *sous*
 # sa Z2, et cette position fausse se propage à toutes les autres zones.
 #
 # **Le facteur est un réglage par vélo** (`config.Velo.facteur_compteur`), pas
 # une constante de module : il dépend de la masse du cycliste autant que de ses
 # routes. Le mesurer sur son propre historique est le travail de
-# `tests/validation/facteur_compteur_retrospectif.py` ; ce qui suit n'est que le
+# `scripts/validation/facteur_compteur_retrospectif.py` ; ce qui suit n'est que le
 # défaut de celui qui n'a pas encore d'historique.
 #
 # **Le temps retenu est le temps écoulé**, du premier au dernier point, arrêts
 # compris — pas le temps de mouvement. Les deux existent et ne donnent pas le
-# même facteur (quatre points d'écart, mesurés le 16/09/2026). Trois raisons :
+# même facteur (quatre points d'écart, mesurés). Trois raisons :
 # le temps écoulé se lit sur n'importe quelle source, alors que le GPX et le TCX
 # ne portent aucun temps de mouvement (`Activite.duree_mouvement_s` y vaut
 # `None`) ; il ne dépend pas du réglage d'arrêt automatique du compteur, qui est
@@ -436,14 +435,13 @@ def moyenne_compteur_kmh(
 # --- temps écoulé, porte à porte ---------------------------------------------
 #
 # `simuler` rend un temps **en mouvement** (docstring plus bas) ; le cycliste,
-# lui, mesure sa sortie porte à porte. Jusqu'au 25/09/2026, le porte à porte
-# appliquait la moyenne compteur habituelle à la distance — une moyenne à
-# plat, qui ignorait le relief de la boucle évaluée (« sinon en montagne ça va
-# être débile », mainteneur, 21/09). Depuis L9.1, il part du temps simulé de
+# lui, mesure sa sortie porte à porte. Appliquer la moyenne compteur
+# habituelle à la distance ignorerait le relief de la boucle évaluée — en
+# montagne, ce serait absurde. Le porte à porte part donc du temps simulé de
 # CE tracé-ci, relief et vent compris, et le multiplie par ce que les vraies
 # sorties du cycliste coûtent en plus : une **fourchette**, pas un chiffre,
 # parce que l'erreur du modèle sur une sortie (3 à 5 %) est du même ordre que
-# la correction elle-même (note du 23/09, tranché par le mainteneur).
+# la correction elle-même.
 
 
 @dataclass(frozen=True)
@@ -454,7 +452,7 @@ class FourchettePorteAPorte:
     les sorties de ce vélo roulées seul, `n` sorties) ou `"defaut"` (la
     convention de `physique.litterature.FOURCHETTE_PORTE_A_PORTE_DEFAUT`,
     mesurée sur un seul cycliste, `n` = 0). Tout écran qui l'affiche dit
-    laquelle des deux (règle absolue 5).
+    laquelle des deux (on ne présente jamais une estimation comme une mesure).
     """
 
     bas: float
