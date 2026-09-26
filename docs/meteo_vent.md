@@ -39,7 +39,7 @@ celui que vous prenez dans la figure à 1,10 m derrière une haie.
 
 Quand les deux divergent sur un échantillon, on ne fait pas la moyenne : la
 réponse porte `confiance` = `accord`, `desaccord` ou `inconnu`, et l'écran le
-montre (règle absolue 5, doctrine §1).
+montre (`AGENTS.md`, règle 5 ; doctrine §1).
 
 C'est le **modèle de repli** qui fixe la portée du produit : `horizon_jours`
 vaut 7 par défaut, et c'est un paramètre de configuration, pas une constante —

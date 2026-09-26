@@ -152,7 +152,8 @@ BRouter, et les commentaires de `src/ourouler/connecteurs/brouter.py`) :
 ## Exposer le serveur
 
 Ce dépôt n'installe rien sur un serveur pour le compte de qui que ce soit
-(règle absolue 7 de `CLAUDE.md`) : ce qui suit décrit un principe, pas une
+(`AGENTS.md` : « Aucune installation sur une machine ou un serveur sans
+l'accord explicite du mainteneur ») : ce qui suit décrit un principe, pas une
 procédure vers une machine précise. BRouter lui-même ne porte aucune
 authentification. L'exposer au-delà de `localhost` passe par un **proxy
 inverse avec authentification basique** devant le conteneur, jamais par le

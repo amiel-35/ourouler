@@ -31,7 +31,8 @@ Pour un cycliste qui roule avec un capteur de puissance. Un compte
 intervals.icu est facultatif : il apporte l'historique et la séance du jour ;
 sans lui, on importe ses fichiers FIT, GPX ou TCX, ou une séance `.zwo`.
 
-Version actuelle : 0.9.6 (voir le [journal des changements](CHANGELOG.md)).
+La version courante et son historique sont dans le
+[journal des changements](CHANGELOG.md).
 Un service hébergé tourne, sur invitation seulement. Le dépôt est en cours
 d'ouverture : la 1.0.0 viendra avec l'ouverture publique.
 
@@ -40,7 +41,7 @@ d'ouverture : la 1.0.0 viendra avec l'ouverture publique.
 Il faut Python 3.12 ou plus et [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync --extra dev
+uv sync --frozen --extra dev
 mkdir -p ~/.config/ourouler
 cp config.example.toml ~/.config/ourouler/config.toml
 uv run ourouler config        # relit la configuration et dit ce qui manque
@@ -68,9 +69,8 @@ uv run ourouler sortie --heure-depart 09:30 --carte sortie.html
 Chaque commande accepte `--json`, et `uv run ourouler --help` les liste
 toutes.
 
-L'interface web vit dans `front/` et ne parle qu'à l'API :
-
-`--extra dev` installe aussi ce qu'il faut pour l'API.
+L'interface web vit dans `front/` et ne parle qu'à l'API (`--extra dev`
+installe aussi ce qu'il faut pour l'API) :
 
 ```bash
 uv run ourouler api --port 8000              # dans un terminal
@@ -90,6 +90,9 @@ cd front && npm ci && npm run dev            # dans un autre, puis http://localh
   structurants et leurs raisons.
 - [Journal des changements](CHANGELOG.md).
 - [L'interface web](front/README.md) : sa construction et ses règles.
+- [Architecture](ARCHITECTURE.md) et [contribuer](CONTRIBUTING.md) : la
+  carte du code, et ce qu'une PR doit vérifier.
+- [Index de la documentation](docs/LISEZMOI.md).
 
 ## Licence
 

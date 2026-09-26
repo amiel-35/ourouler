@@ -14,8 +14,9 @@ constaté, et la version ou le commit concerné.
 Sont dans le périmètre, en priorité :
 
 - l'API (routes, authentification, validation des entrées) ;
-- la gestion des comptes et des sessions (inscription, invitation,
-  connexion, jetons, déconnexion) ;
+- la gestion des comptes et des sessions (invitation, activation,
+  connexion, réinitialisation du mot de passe, jetons, déconnexion — il n'y
+  a pas d'inscription libre) ;
 - toute fuite de données entre comptes : un cycliste qui lit ou modifie les
   activités, la configuration ou les clés d'un autre ;
 - une clé d'API tierce (Intervals.icu…) exposée dans une réponse, un

@@ -4,19 +4,21 @@ L'interface que le cycliste utilise. Elle **ne parle qu'à l'API**
 (`src/ourouler/api/`), jamais au cœur Python : doctrine §10.2.
 
 Les écrans viennent de `docs/journal/ux/maquettes_v1.html`, les arbitrages de
-`docs/journal/ux/cycle_ux_contrat.md`, le contrat des réponses de
-`docs/journal/ux/api_contrat.md`.
+`docs/journal/ux/cycle_ux_contrat.md` (archives du chantier). Le contrat des
+réponses qui fait foi est le schéma figé `tests/caracterisation/openapi.json`,
+contre lequel `tests/types_openapi.test.ts` vérifie `src/api/types.ts` ; les
+règles visuelles sont dans `docs/ux/doctrine_design_system.md`.
 
 ## Lancer
 
 ```sh
 # dans un terminal : l'API, sur la configuration de la ligne de commande
-uv sync --all-extras
+uv sync --frozen --extra dev
 uv run ourouler api --port 8000        # 8000 : ce que le proxy ci-dessous attend
 
 # dans un autre : le front, qui lui renvoie /api
 cd front
-npm install
+npm ci
 npm run dev            # http://localhost:5180, /api → http://127.0.0.1:8000
 ```
 
@@ -31,13 +33,16 @@ qu'au serveur de développement : le code, lui, n'appelle que des chemins
 relatifs sous `/api/v1`, si bien qu'en production l'API et le front se servent
 depuis la même origine.
 
-**Il y a deux fabriques d'API, et une seule sert un profil.** `ourouler api`
-lance `ourouler.api.application:application`, qui lit le fichier de
-configuration. `creer_application` est la fabrique de bibliothèque : elle ne
-lit rien, et une application construite ainsi répond `profil_absent` (503) sur
-toutes les routes de données tant que personne ne lui a donné de profil. Un
-serveur qui démarre normalement et refuse tout est presque toujours ce
-cas-là ; le détail est dans `docs/journal/ux/api_contrat.md`, « Les deux fabriques ».
+**Il y a deux fabriques d'API** (`src/ourouler/api/application.py`).
+`creer_application(...)` ne lit rien d'autre que ce qu'on lui passe : `ourouler
+api` l'appelle avec le fichier de configuration et le mode personnel ; appelée
+sans profil, elle répond `profil_absent` (503) aux demandes de données tant
+que rien n'a été écrit par `PATCH /profil`.
+`application()` est celle que le conteneur lance : elle lit l'environnement
+(`OUROULER_MODE`, `OUROULER_CONFIG`…, voir `deploiement/api/README.md`) et,
+sans `OUROULER_MODE`, sert le mode hébergé, qui refuse toute requête sans
+session (401). Un serveur qui démarre normalement et refuse tout est presque
+toujours l'un de ces deux cas.
 
 ```sh
 npm run verifier       # types + tests

@@ -32,7 +32,17 @@ préfère l'épinglage ci-dessus, réversible et sans réécrire la branche.
 **Ce qui peut empêcher un retour arrière** : un format persisté ou une
 migration de base plus récents que le code qu'on remet. Les tests de
 `tests/compatibilite/` figent ces formats pour qu'aucun lot ne les change
-sans le dire ; deux cas restent à surveiller, décrits dans leur LISEZMOI.
+sans le dire ; ce qui reste hors de ce filet est décrit dans
+[`tests/compatibilite/LISEZMOI.md`](../tests/compatibilite/LISEZMOI.md).
+
+## Revenir à l'ancien chemin de l'API
+
+Sans changer de version : `OUROULER_API_CHEMIN` choisit, au démarrage, par
+quel chemin l'API appelle le cœur (`ancien`, `nouveau` ou `double` ;
+absente ou vide, `ancien`). Si le chemin `nouveau` pose problème, poser
+`OUROULER_API_CHEMIN=ancien` (ou la vider) dans l'environnement du service
+et redéployer (`src/ourouler/api/exploitation.py`, `chemin_api` ; les
+autres variables : `deploiement/api/README.md`).
 
 ## Restaurer la base des comptes
 
@@ -49,8 +59,9 @@ locales), et le dossier des sauvegardes part ensuite hors du serveur.
    puis `pg_restore -U <utilisateur> -d <base> --clean --if-exists --no-owner --no-acl <fichier>`.
    **Ce geste efface l'état courant de la base** : en production, il se
    montre au mainteneur avant d'être fait.
-4. Vérifier : les comptes attendus sont là (`ourouler invitations` dans le
-   conteneur de l'application), une connexion réussit.
+4. Vérifier : les invitations attendues sont là (`ourouler invitations`
+   dans le conteneur de l'application, qui liste les invitations en cours),
+   une connexion réussit.
 
 Répété en préproduction : compte d'essai présent (1), supprimé (0),
 restauré (1), et l'invitation de nouveau listée.

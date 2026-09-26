@@ -119,7 +119,7 @@ docker ps --filter name=api-<identifiant> --format '{{.Names}}'
 docker exec api-<identifiant>-<...> ourouler inviter adresse@example.com
 ```
 
-Options réelles (`src/ourouler/cli.py:ajouter_inviter`, ~ligne 912) :
+Options réelles (`src/ourouler/cli.py:ajouter_inviter`) :
 `adresse` (positionnel, obligatoire), `--sans-courriel` (n'envoie pas le
 courriel, affiche seulement le lien), `--json` (hérité de `parent_json()`).
 `docker exec <conteneur> ourouler invitations` liste les invitations en
@@ -139,7 +139,7 @@ cours (adresse, lien, échéance).
    l'obligation pour ces quatre commandes seulement.
 
 Secrets et paramètres lus, et par quoi (`_commande_inviter`,
-`src/ourouler/cli.py` ~ligne 930) :
+`src/ourouler/cli.py`) :
 
 - `OUROULER_DATABASE_URL` — obligatoire, sinon refus nommant la variable
   (`_url_des_comptes`). Déjà posée dans le conteneur (`docker-compose.api.coolify.yml`),
@@ -184,18 +184,15 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
    le vécu en choix (vitesse/terrain), sinon la littérature seule à partir
    du poids et du vélo. Poids et vélo (avec un pneu facultatif
    qui fixe le Crr par catégorie de littérature) se posent juste avant la
-   première étape qui en a besoin.
-   **À vérifier avant de montrer ce document à un invité** : l'étape
-   « Export Strava ou Garmin » de cet assistant (`etape === "t2"` dans
-   `Assistant.tsx`) affiche encore, telle quelle dans le code,
-   « L'import d'un export Strava ou Garmin n'est pas encore proposé par
-   ourouler » — alors que l'import lui-même existe déjà ailleurs (point
-   suivant). L'assistant ne l'offre pas pendant l'accueil.
-3. **Importer son historique, hors assistant.** Ce n'est pas un
-   écran de l'entonnoir d'accueil : c'est le bloc « Mes sorties passées »
-   (`MesSortiesPassees`, dans `front/src/ecrans/Importer.tsx`), affiché
-   sous le dépôt de séance du jour, sur l'écran atteint depuis « Aujourd'hui »
-   ou « Ma semaine » en choisissant d'importer/déposer une séance. On y
+   première étape qui en a besoin. L'étape « Export Strava ou Garmin »
+   (`front/src/ecrans/assistant/EtapeExport.tsx`) dit comment demander
+   l'export et propose le même dépôt que le point suivant.
+3. **Importer son historique.** C'est le bloc « Mes sorties passées »
+   (`front/src/composants/DepotHistorique.tsx`), affiché dans l'étape
+   d'export de l'assistant et sur l'écran « Importer »
+   (`front/src/ecrans/Importer.tsx`), sous le dépôt de séance du jour —
+   l'écran atteint depuis « Aujourd'hui » ou « Ma semaine » en choisissant
+   d'importer/déposer une séance. On y
    dépose un `.fit`/`.gpx`/`.tcx` (éventuellement `.gz`) isolé, ou
    l'archive d'export Strava (`strava.com/athlete/download_my_account`) ou
    Garmin (`garmin.com/en-US/account/datamanagement/`), lien direct affiché
@@ -210,7 +207,7 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
    relit les sorties de ce vélo (importées ou synchronisées Intervals.icu),
    va chercher le vent de chaque jour de sortie et cherche le CdA qui
    explique le mieux les temps observés — même calcul que `ourouler
-   calibrer` (`physique.commande.calibrer_velo`), pas une seconde
+   calibrer` (`services.calibrer.calibrer_velo`), pas une seconde
    implémentation, en tâche de fond parce que ça dure. L'écran affiche
    d'abord la puissance qu'il faut à 30 km/h sur le plat sans vent, l'écart
    mesuré sur des sorties que le calcul n'avait pas vues et la fourchette du
@@ -261,11 +258,14 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
   (`front/src/composants/Echec.tsx` l'affiche lisiblement, le message dit
   lequel des plafonds est atteint). Une calibration ou un import qui
   échoue rembourse son crédit du jour.
-- **Un seul calcul lourd à la fois, pour le serveur entier** : une
+- **Un seul calcul lourd à la fois, pour le serveur entier** : sur le
+  chemin `ancien` de l'API (le défaut, `OUROULER_API_CHEMIN`), une
   génération de sortie/boucle qui croise un calcul déjà en cours rend
-  `409 calcul_en_cours` ; un import ou une calibration qui croise un import
-  ou une calibration déjà en cours rend `409 tache_lourde_en_cours`
-  (`src/ourouler/api/taches_fond.py`, `src/ourouler/api/routes.py`). Une
+  `409 calcul_en_cours` (`src/ourouler/api/adaptateur.py` ; le chemin
+  `nouveau` ne prend pas ce verrou) ; un import ou une calibration qui
+  croise un import ou une calibration déjà en cours rend
+  `409 tache_lourde_en_cours` (`src/ourouler/api/taches_fond.py`,
+  `src/ourouler/api/vie_privee.py`). Une
   seconde suppression du même compte (`DELETE /moi`) pendant qu'une
   première attend jusqu'à deux minutes la fin d'une tâche de fond de ce
   compte rend `409 suppression_deja_en_cours` — elle n'attend pas à son
@@ -295,7 +295,8 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
   - Pas d'inscription libre ni de demande d'accès : l'entrée est
     uniquement par invitation (même fichier, même commentaire ; doctrine
     §10.2).
-  - Pas de passkey (aucune occurrence du mot dans le dépôt).
+  - Pas de passkey : le schéma lui laisse une place, mais aucune n'est
+    écrite (`src/ourouler/api/comptes.py`).
   - Import par lien Strava/Garmin direct : non, c'est un dépôt de fichier
     ou d'archive téléchargée à la main (voir §3.3).
 
@@ -303,7 +304,7 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
 
 **Côté invité**, depuis l'écran (`front/src/ecrans/Reglages.tsx`,
 volet « Mon compte » — `Réglages → Mon compte → Gérer`) ou directement par
-l'API (`src/ourouler/api/routes.py`) :
+l'API (`src/ourouler/api/routes/moi.py`) :
 
 - **Export** — bouton « Export ZIP », qui pointe vers `GET /moi/export` :
   toutes ses données personnelles dans une archive ZIP non compressée, avec
@@ -398,14 +399,15 @@ docker exec api-<identifiant>-<...> \
 ## Sources vérifiées
 
 `src/ourouler/cli.py` (`ajouter_inviter`, `_commande_inviter`,
-`_url_des_comptes`, `_url_publique`, `_charger_service`, ~lignes 850-1070),
+`_url_des_comptes`, `_url_publique`, `_charger_service`),
 `src/ourouler/services/comptes.py`, `src/ourouler/rendu/comptes.py`,
 `src/ourouler/api/courriel.py`,
 `src/ourouler/api/comptes.py` (`DUREE_INVITATION`, `DUREE_SESSION`),
 `src/ourouler/api/depots.py` (`SECTIONS_PERSO_PUR`, `VARIABLES_PERSO_PUR`,
 `CHAMPS_RACINE_MODIFIABLES`), `src/ourouler/api/application.py`
-(`_refuser_une_base_partagee`), `src/ourouler/api/routes.py` (routes
-`/invitation`, `/entrer`, `/activites/import*`, `/moi/export`, `/moi`),
+(`_refuser_une_base_partagee`), `src/ourouler/api/routes/` (`sessions.py` :
+`/invitation`, `/entrer` ; `activites.py` : `/activites/import*` ;
+`moi.py` : `/moi/export`, `/moi`),
 `src/ourouler/api/quotas.py`, `src/ourouler/api/exploitation.py`,
 `src/ourouler/api/imports_fond.py`, `src/ourouler/api/taches_fond.py`,
 `src/ourouler/api/vie_privee.py`, `src/ourouler/api/erreurs.py`,
@@ -416,6 +418,8 @@ docker exec api-<identifiant>-<...> \
 paramètre `requiert_profil`), `docs/journal/questions/questions_mainteneur.md`,
 `front/src/ecrans/Assistant.tsx`, `front/src/ecrans/Importer.tsx`,
 `front/src/ecrans/Connexion.tsx`, `front/src/ecrans/Entrer.tsx`,
-`front/src/ecrans/Reglages.tsx` (`MonCompteVolet`),
+`front/src/ecrans/reglages/MonCompteVolet.tsx`,
+`front/src/ecrans/assistant/EtapeExport.tsx`,
+`front/src/composants/DepotHistorique.tsx`,
 `front/src/composants/CalibrationVelo.tsx`, `docs/journal/ux/parcours_accueil.md`,
 `src/ourouler/api/exploitation.py` (`chemin_config`, `VARIABLE_CONFIG`).
