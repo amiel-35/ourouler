@@ -599,7 +599,7 @@ def _entete(propositions: list[Proposition], contexte: _Contexte, presentes: set
     lignes.append(
         "Tri : note de placement (km équivalents) d'abord, pluie cumulée ensuite ; "
         "plus bas = mieux. La note additionne le terrain sous les blocs (vent de face "
-        "compris depuis le sprint 5), le coût — faible et sans seuil — de chaque minute "
+        "compris), le coût — faible et sans seuil — de chaque minute "
         "de retour au calme en trop, et la pénalité, elle très lourde, d'une séance "
         "amputée : rentrer plus tard est normal, ne pas rouler la séance ne l'est pas. "
         f"À note égale à {config.seance.tolerance_egalite * 100:.0f} % près, c'est la "

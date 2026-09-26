@@ -28,8 +28,7 @@ def inventaire(
     gestes de ligne de commande : ils écrivent dans le cache du serveur et
     durent des minutes.
 
-    **Le cache est construit ici, avec le propriétaire de la session**
-    (décision Q58, `docs/journal/questions/questions_mainteneur.md`). Recevoir
+    **Le cache est construit ici, avec le propriétaire de la session.** Recevoir
     `qui` ne suffit pas : si la commande construisait son `Cache` toute seule,
     avec le défaut
     `PROPRIETAIRE_LOCAL`, elle servirait l'inventaire du cycliste local à

@@ -125,7 +125,7 @@ def entrer(ctx: Ctx, corps: DemandeEntree, reponse: Response) -> dict:
     `DepotComptes.activer` pose le secret, active le compte et consomme
     l'invitation dans une seule transaction (`api/comptes.py`) ; le
     propriétaire qu'elle rend est celui que `inviter` a déjà rattaché au
-    compte, dans `comptes_proprietaires` (décision Q46) — cette route n'a donc
+    compte, dans `comptes_proprietaires` — cette route n'a donc
     rien de plus à créer, elle ouvre la session qui en découle. Deux appels
     concurrents avec le même jeton : un seul passe l'activation (transaction
     atomique de `activer`), donc une seule session s'ouvre.

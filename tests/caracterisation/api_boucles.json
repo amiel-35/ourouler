@@ -5233,7 +5233,7 @@
             "f27_jeu_n": 18.3,
             "f27_reference_n": 18.04,
             "jeu": "route amateur, haut de fourchette",
-            "mesure_sur": "le vélo de route du mainteneur, 25 sorties de validation",
+            "mesure_sur": "un vélo de route de référence, 25 sorties de validation",
             "mesuree": false,
             "source": "position redressée, pneus courants ; 0,36 est au bord haut de ce que les sources citent",
             "usage": "route"

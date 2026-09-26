@@ -174,7 +174,7 @@ PAR_USAGE: dict[str, Choix] = {
     "route": Choix(
         usage="route",
         jeu=ROUTE_AMATEUR_HAUT,
-        mesure_sur="le vélo de route du mainteneur, 25 sorties de validation",
+        mesure_sur="un vélo de route de référence, 25 sorties de validation",
         masse_reference_kg=100.0,
         f27_reference_n=18.04,
         f27_jeu_n=18.30,
@@ -187,7 +187,7 @@ PAR_USAGE: dict[str, Choix] = {
     "clm": Choix(
         usage="clm",
         jeu=ROUTE_AMATEUR,
-        mesure_sur="le chrono du mainteneur, 9 sorties de validation (toutes estivales)",
+        mesure_sur="un vélo de chrono de référence, 9 sorties de validation (toutes estivales)",
         masse_reference_kg=101.0,
         f27_reference_n=15.90,
         f27_jeu_n=15.99,
@@ -268,8 +268,8 @@ PNEUS: dict[str, Pneu] = {
             libelle="course rapide (tubeless ou chambre latex, type GP5000 TR)",
             crr=0.005,
             source=(
-                "banc ~0,003 relevé pour route réelle et pression basse ; valeur de la "
-                "note du 23/09/2026 pour le chrono du mainteneur"
+                "banc ~0,003 relevé pour route réelle et pression basse ; valeur retenue "
+                "pour le vélo de chrono de référence"
             ),
         ),
         Pneu(
@@ -277,8 +277,8 @@ PNEUS: dict[str, Pneu] = {
             libelle="course quatre saisons ou renforcé (type GP5000 All Season)",
             crr=0.006,
             source=(
-                "banc ~0,004 relevé pour route réelle et pression basse ; valeur de la "
-                "note du 23/09/2026 pour le vélo de route du mainteneur"
+                "banc ~0,004 relevé pour route réelle et pression basse ; valeur retenue "
+                "pour le vélo de route de référence"
             ),
         ),
         Pneu(

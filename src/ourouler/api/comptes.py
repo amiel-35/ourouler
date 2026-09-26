@@ -799,7 +799,7 @@ class DepotComptes:
         if ligne is None:
             raise ErreurCompte(
                 f"aucun propriétaire rattaché au compte {identifiant_compte!r} — "
-                "la correspondance de [[Q46]] manque, ce qui ne devrait pas arriver"
+                "la correspondance compte → propriétaire manque, ce qui ne devrait pas arriver"
             )
         return Proprietaire(ligne[0])
 

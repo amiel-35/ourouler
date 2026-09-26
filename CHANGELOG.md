@@ -20,6 +20,14 @@ partir des PR.
 
 ## [Non publié]
 
+### Modifié
+
+- Les textes affichés (aide des réglages, écran d'entrée, légende du tri,
+  catégorie de pneu, export et suppression du compte, erreurs de l'API) ne
+  renvoient plus à des numéros de décision, de lot ou de sprint, ni au
+  mainteneur : ils disent le pourquoi au présent, et « l'administrateur du
+  service » quand il faut quelqu'un pour émettre un lien.
+
 ### Retiré
 
 - La page du jour autonome hébergée (un conteneur qui générait une carte une

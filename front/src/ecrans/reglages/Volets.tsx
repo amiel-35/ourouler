@@ -45,8 +45,7 @@ export function VoletIdentite({
           onChange={(e) => surNom(e.target.value)}
         />
         <div className="aide">
-          La base du compte (17/09/2026). Aucun calcul ne s'en sert aujourd'hui ; l'usage
-          prévu est le compte multi-utilisateurs du lot F3.
+          Sert à nommer votre compte ; aucun calcul ne s'en sert.
         </div>
       </div>
       <button

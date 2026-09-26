@@ -284,12 +284,12 @@ def ajouter_retirer(sous: argparse._SubParsersAction) -> None:
     p = sous.add_parser(
         "retirer",
         help="ferme un compte hébergé et efface ses données personnelles (RGPD) — "
-        "à lancer DANS le conteneur du serveur, pas depuis le poste du mainteneur "
+        "à lancer DANS le conteneur du serveur, pas depuis un poste d'administration "
         "(voir deploiement/api/README.md)",
         description=(
             "Ferme un compte hébergé et efface ses données personnelles (RGPD), par le "
             "même chemin que DELETE /moi. À lancer DANS le conteneur du serveur, pas "
-            "depuis le poste du mainteneur (voir deploiement/api/README.md). "
+            "depuis un poste d'administration (voir deploiement/api/README.md). "
             "IMPORTANT : --config (l'option globale de `ourouler`) n'a aucun effet ici "
             f"— cette commande lit le profil du serveur hébergé via {VARIABLE_CONFIG} "
             "(la variable, pas l'option), exactement comme le fait le serveur lui-même ; "

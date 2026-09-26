@@ -70,12 +70,12 @@ CODES_PANNE: dict[str, str] = {
     "profil_invalide": "ce que le cycliste vient d'écrire ne fait pas une configuration valide",
     "aucune_boucle": "le moteur a répondu, mais aucune boucle ne convient (E18 · échec)",
     "fichier_illisible": ".ZWO/.MRC vide, tronqué ou mal formé",
-    "format_non_lu": "un .FIT de séance — décision 5, la V1 lit .ZWO et .MRC",
+    "format_non_lu": "un .FIT de séance — seuls .ZWO et .MRC sont lus",
     "fichier_trop_gros": "plus d'un mégaoctet déposé",
     "fichier_introuvable": "identifiant inconnu, ou appartenant à quelqu'un d'autre",
     "generation_introuvable": (
         "cette génération n'est plus en mémoire — ses GPX ne sont pas écrits sur "
-        "le disque (Q40 g) ; relancer la recherche"
+        "le disque ; relancer la recherche"
     ),
     "session_absente": (
         "aucune session ouverte — la route sert des données personnelles et le "
@@ -142,7 +142,7 @@ CODES_PANNE: dict[str, str] = {
         "Open-Meteo injoignable ou en erreur — le parcours reste servi sans "
         "météo, la tenue se tait (E14 · dégradé)"
     ),
-    "meteo_hors_domaine": "Open-Meteo ne couvre pas ce point ou cette fenêtre (Q19)",
+    "meteo_hors_domaine": "Open-Meteo ne couvre pas ce point ou cette fenêtre",
     "intervals_refuse": (
         "clé Intervals.icu révoquée ou refusée — renvoyer vers l'écran de la "
         "clé, pas vers « réessayer » (E15 · échec)"
@@ -162,7 +162,7 @@ CODES_PANNE: dict[str, str] = {
     ),
     "quota_atteint": (
         "quota journalier de générations coûteuses atteint pour ce compte "
-        "(429) — le mode personnel n'est pas concerné (L9.3)"
+        "(429) — le mode personnel n'est pas concerné"
     ),
     "erreur_interne": "un bug — le détail reste au journal, jamais dans la réponse",
 }

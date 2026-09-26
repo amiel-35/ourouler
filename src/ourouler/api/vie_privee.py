@@ -91,9 +91,8 @@ Ce que contient cette archive :
   statistiques.json (kilomètres roulés par classe de route, de revêtement, de
   vitesse) et sorties.json (vos sorties apprises, avec leur jour). **Fourni
   pour information, et ceci ne part JAMAIS avec la suppression de votre
-  compte : le mainteneur a tranché que les routes apprises restent
-  collectives (doctrine du projet, §10.2), justement parce qu'elles décrivent
-  la géographie plus que vous.**
+  compte : les routes apprises restent collectives (doctrine du projet,
+  §10.2), justement parce qu'elles décrivent la géographie plus que vous.**
 
 Ce que la suppression du compte efface : le profil, la calibration, le journal des services,
 les fichiers déposés et générés, et votre cache d'activités listés
@@ -247,10 +246,9 @@ def _effacer(
         "supprime": supprime,
         "conserve": {
             "routes_apprises": (
-                "les routes apprises de vos sorties restent : le mainteneur a tranché "
-                "qu'elles sont collectives (doctrine du projet, §10.2) et elles ne "
-                "repartent donc jamais avec un compte supprimé — voir aussi [[Q46]] dans "
-                "docs/journal/questions/questions_mainteneur.md"
+                "les routes apprises de vos sorties restent : elles sont collectives "
+                "(doctrine du projet, §10.2), parce qu'elles décrivent la géographie "
+                "plus que vous, et ne repartent donc jamais avec un compte supprimé"
             )
         },
     }

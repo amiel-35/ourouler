@@ -233,8 +233,7 @@ def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
     L'étage T1 de l'accueil (`docs/journal/ux/parcours_accueil.md` §4), une fois la
     clé Intervals posée : « on a trouvé ceci, c'est toujours d'actualité ? »
     plutôt que remplacer en silence ou reposer une question dont Intervals
-    connaît déjà la réponse (décision Q64,
-    `docs/journal/questions/questions_mainteneur.md`). Le front confirme ou
+    connaît déjà la réponse. Le front confirme ou
     corrige, puis envoie la valeur retenue à `PATCH /profil` comme n'importe
     quelle FTP ou
     masse déclarée — cette route ne fait que lire.
