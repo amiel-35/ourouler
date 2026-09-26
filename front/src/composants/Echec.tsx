@@ -8,13 +8,22 @@
  * Le choix de l'écran se fait sur le **code** de la panne, jamais sur son
  * message : le message vient du cœur et peut être reformulé, le code est une
  * valeur du contrat (`docs/ux/api_contrat.md`).
+ *
+ * Le cadre et les replis sont dans `echec/Cadre.tsx`, les titres du
+ * générique dans `echec/titres.ts`, le bandeau « pas de météo » dans
+ * `echec/MeteoAbsente.tsx`.
  */
 
 import type { ReactNode } from "react";
 import { CODE_DELAI, CODE_ILLISIBLE, ErreurApi, reessayable, serveurMuet } from "../api/client";
-import type { Avertissement } from "../api/types";
 import { jourEnLettres, pourcentage } from "../api/formats";
 import { signe } from "./Elargissement";
+import { Cadre, ListeReplis } from "./echec/Cadre";
+import type { Repli } from "./echec/Cadre";
+import { TITRES_PANNE } from "./echec/titres";
+
+export type { Repli } from "./echec/Cadre";
+export { BandeauMeteoAbsente, meteoManquante } from "./echec/MeteoAbsente";
 
 /** Les mesures du refus sur la distance, quand l'API les a jointes.
  *
@@ -43,12 +52,6 @@ export function mesuresDistance(erreur: ErreurApi): {
   return { cible, obtenue, ecart, requis, plafond };
 }
 
-export interface Repli {
-  titre: string;
-  detail?: string;
-  action: () => void;
-}
-
 interface Props {
   erreur: ErreurApi;
   /** Les leviers qui marchent vraiment, avec leurs valeurs. */
@@ -60,53 +63,6 @@ interface Props {
   contexte?: string;
   /** Dernier jour où les séances ont réellement été lues, si on le sait. */
   dernierSucces?: string | null;
-}
-
-function Cadre({
-  contexte,
-  titre,
-  children,
-}: {
-  contexte?: string;
-  titre: string;
-  children: ReactNode;
-}) {
-  return (
-    <section>
-      <div className="app-tete">
-        <div>
-          {contexte ? <span className="quand">{contexte}</span> : null}
-          <h1>{titre}</h1>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function ListeReplis({ replis }: { replis: Repli[] }) {
-  if (replis.length === 0) return null;
-  return (
-    <div className="bloc doux">
-      <div className="bloc-tete">
-        <h2>Ce qui peut aider</h2>
-      </div>
-      <div className="etapes">
-        {replis.map((repli) => (
-          <div className="etape" key={repli.titre}>
-            <span className="km">→</span>
-            <span className="nom">
-              <b>{repli.titre}</b>
-              {repli.detail ? <small>{repli.detail}</small> : null}
-            </span>
-            <button type="button" className="lien" onClick={repli.action}>
-              Essayer
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export function Echec({
@@ -280,82 +236,10 @@ export function Echec({
     );
   }
 
-  // --- tout le reste : une panne qu'on nomme, et ce qui marche encore.
-  //
-  // **Inventaire complet du 18/09/2026** (L7.D). Avant ce lot, 13 des 21
-  // codes d'`api/erreurs.CODES_PANNE` avaient un écran — 9 par une entrée de
-  // ce tableau, 4 par un écran dédié (`aucune_boucle`, `meteo_indisponible`,
-  // `meteo_hors_domaine`, `intervals_refuse`, tous traités plus haut). Les 8
-  // restants (`requete_invalide`, `fichier_introuvable`,
-  // `generation_introuvable`, `route_inconnue`, `methode_refusee`,
-  // `service_externe_indisponible`, `configuration_invalide`,
-  // `erreur_interne`) tombaient dans « Ça n'a pas marché » — pas un écran
-  // muet (le message et le code restaient affichés), mais pas non plus le
-  // titre qui dit ce qui s'est passé. `tests/inventaire_erreurs.test.tsx`
-  // relit `CODES_PANNE` dans les sources Python pour qu'un code qu'on y
-  // ajoute sans le nommer ici casse un test, plutôt que de retomber en
-  // silence dans le générique — c'est ainsi que `session_absente` (L7.A,
-  // mergé pendant ce lot) a été trouvé, et il a son propre écran plus haut.
-  const titres: Record<string, string> = {
-    // Sans écran dédié : `App.tsx` intercepte ces quatre codes avant qu'ils
-    // n'atteignent `Echec` (lot L7.2-D — l'écran de connexion, ou celui
-    // d'activation d'une invitation, les traite lui-même). Un titre nommé
-    // reste ici en filet, pour le jour où l'un d'eux échapperait à cette
-    // interception.
-    session_absente: "Vous n'êtes plus connecté",
-    invitation_invalide: "Ce lien d'invitation n'est plus valable",
-    identifiants_refuses: "Adresse ou mot de passe refusés",
-    mot_de_passe_actuel_refuse: "Mot de passe actuel refusé",
-    comptes_indisponibles: "Ce serveur ne gère pas de comptes",
-    requete_invalide: "Cette demande n'est pas valide",
-    profil_invalide: "Ce réglage ne tient pas",
-    fichier_illisible: "Ce fichier n'a pas été compris",
-    format_non_lu: "Ce format n'est pas encore lu",
-    fichier_trop_gros: "Ce fichier est trop gros",
-    fichier_introuvable: "Ce fichier n'est plus accessible",
-    // Le GPX d'une génération oubliée : l'API le dit dans son message
-    // (« relancer la recherche »), mais un titre qui reprend le mot
-    // « introuvable » sans le nommer laisserait croire à un bug plutôt qu'à
-    // une mémoire qui a fait sa place (`docs/ux/api_contrat.md`).
-    generation_introuvable: "Cette recherche n'est plus disponible",
-    // Pas « adresse » : ce mot désigne déjà l'adresse postale du départ
-    // ailleurs dans l'écran (`FormulaireAdresse`, E16) — l'ambigüité aurait
-    // fait croire à une adresse mal saisie plutôt qu'à un chemin d'API
-    // inconnu.
-    route_inconnue: "Cette route de l'API n'existe pas",
-    methode_refusee: "Cette route n'accepte pas cette méthode",
-    calcul_en_cours: "Un calcul occupe déjà le serveur",
-    // L9.3 : un compte hébergé qui a épuisé son quota du jour. Le message de
-    // l'API dit déjà quand ça se libère (minuit UTC) — pas de bouton
-    // « réessayer » ici (absent de `reessayable`, `api/client.ts`) : un
-    // nouvel essai immédiat échouera pareil.
-    quota_atteint: "Quota quotidien atteint",
-    import_deja_en_cours: "Un import occupe déjà le serveur",
-    // L9.4 — la calibration depuis l'écran. `Reglages` montre d'ordinaire
-    // ces refus dans la fiche vélo elle-même ; les titres restent ici en
-    // filet, comme pour les autres codes.
-    tache_lourde_en_cours: "Un calcul long occupe déjà le serveur",
-    // Une seconde `DELETE /moi` pendant qu'une première attend la fin
-    // d'une tâche de fond de ce compte (jusqu'à deux minutes) : elle
-    // refuse tout de suite plutôt que d'attendre à son tour.
-    suppression_deja_en_cours: "Suppression déjà en cours",
-    velo_absent: "Aucun vélo déclaré",
-    ftp_absente: "Votre FTP manque",
-    sorties_insuffisantes: "Pas encore assez de sorties",
-    pneu_absent: "Quels pneus sur ce vélo ?",
-    brouter_indisponible: "Le traceur ne répond pas",
-    intervals_indisponible: "intervals.icu est en panne",
-    geocodage_indisponible: "L'annuaire d'adresses ne répond pas",
-    service_externe_indisponible: "Un service externe ne répond pas",
-    // Le serveur tourne et **refuse** : la distinction avec « ne répond pas »
-    // se voit dès le titre, qui dit ce qui manque au serveur et non ce qui
-    // manquerait à la demande.
-    profil_absent: "Ce serveur n'a pas de profil",
-    configuration_invalide: "La configuration du serveur ne tient pas",
-    erreur_interne: "Quelque chose a cassé côté serveur",
-  };
+  // --- tout le reste : une panne qu'on nomme (`TITRES_PANNE`), et ce qui
+  // marche encore.
   return (
-    <Cadre contexte={contexte} titre={titres[erreur.code] ?? "Ça n'a pas marché"}>
+    <Cadre contexte={contexte} titre={TITRES_PANNE[erreur.code] ?? "Ça n'a pas marché"}>
       <div className="encart alerte">{erreur.message}</div>
       <ListeReplis replis={replis} />
       {secours}
@@ -368,38 +252,5 @@ export function Echec({
         Code de la panne : {erreur.code}
       </p>
     </Cadre>
-  );
-}
-
-/**
- * E14 · dégradé : le parcours est servi, la météo non.
- *
- * Le cœur prévient sur sa sortie d'erreur, l'API capture dans
- * `avertissements`. On ne retire alors que les affirmations qu'on ne peut
- * plus soutenir — la pluie, le vent, la tenue —, jamais le parcours.
- *
- * **Sur le code, jamais sur la phrase** (corrigé le 17/09/2026). Cette
- * fonction cherchait `/m[ée]t[ée]o/i` dans le message, alors que
- * `docs/ux/api_contrat.md` pose l'inverse en toutes lettres : « le code prime
- * sur le message […] qui peut être reformulé ». Le jour où quelqu'un écrivait
- * « Open-Meteo injoignable », le bandeau disparaissait sans bruit et il
- * restait un parcours servi sans pluie, sans vent, **et sans la phrase qui
- * dit pourquoi** — pire qu'un bloc vide, que E14 interdit déjà.
- *
- * Le front n'avait alors aucun autre levier : `avertissements` ne portait pas
- * de code. C'était un trou du contrat F1, il a été bouché côté API
- * (`api/erreurs.CODES_AVERTISSEMENT`) plutôt que contourné ici.
- */
-export function meteoManquante(avertissements: Avertissement[]): string | null {
-  const trouve = avertissements.find((a) => a.code === "meteo_indisponible");
-  return trouve?.message ?? null;
-}
-
-export function BandeauMeteoAbsente({ phrase }: { phrase: string }) {
-  return (
-    <div className="encart attention">
-      <b>Pas de météo.</b> Le parcours est calculé sans la pluie ni le vent — on ne vous dira
-      pas où il fait sec. <span className="mention">{phrase}</span>
-    </div>
   );
 }

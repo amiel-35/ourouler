@@ -11,142 +11,32 @@
  * autres sans intégration par marque. Le téléchargement reste en dessous,
  * discret, pour celui qui est sur un ordinateur — et c'est le seul recours
  * quand le navigateur ne sait pas partager de fichier.
+ *
+ * Le découpage du tracé est dans `proposition/traceVent.ts`, le partage
+ * dans `proposition/partager.ts`, les chiffres, l'envoi et la tenue dans
+ * `proposition/Onglets.tsx`.
  */
 
 import { useState } from "react";
-import type { Candidate, Enveloppe, Seance, Sortie, Trace, VentPosition } from "../api/types";
-import { type PanneGpx, recupererGpx } from "../api/client";
-import {
-  duree,
-  heure,
-  heureDeRetour,
-  kmDepuisKm,
-  nombre,
-  pourcentage,
-  compteArrets,
-  visibleEnKm,
-  jourEnLettres,
-} from "../api/formats";
-import { Carte, LegendeVent, type SegmentDessine, type SegmentVent } from "../composants/Carte";
+import type { Candidate, Enveloppe, Seance, Sortie } from "../api/types";
+import type { PanneGpx } from "../api/client";
+import { duree, heure, heureDeRetour, nombre, jourEnLettres } from "../api/formats";
+import { Carte, LegendeVent, type SegmentDessine } from "../composants/Carte";
 import { RetourEnTete } from "../composants/Retour";
 import { Etapes, COULEUR_TYPE } from "../composants/Etapes";
 import { ProfilAltitude } from "../composants/ProfilAltitude";
 import { BandeauMeteoAbsente, meteoManquante } from "../composants/Echec";
-import { DureesDeSortie, TempsEcoule } from "../composants/TempsEcoule";
+import { TempsEcoule } from "../composants/TempsEcoule";
+import { ChiffresParcours, EnvoiGpx, Tenue } from "./proposition/Onglets";
+import { portion, segmentsVent } from "./proposition/traceVent";
 
-/**
- * La portion de tracé entre deux distances, en mètres.
- *
- * `trace.profil[i][0]` est la distance cumulée au point `trace.points[i]` :
- * les deux listes ont la même longueur, c'est ce que rend le lot F0.1.
- */
-export function portion(trace: Trace, debutM: number, finM: number): [number, number][] {
-  const [a, b] = debutM <= finM ? [debutM, finM] : [finM, debutM];
-  const points: [number, number][] = [];
-  for (let i = 0; i < trace.points.length && i < trace.profil.length; i += 1) {
-    const distance = trace.profil[i][0];
-    if (distance >= a && distance <= b) points.push(trace.points[i]);
-  }
-  return points;
-}
-
-/**
- * Colore le tracé lui-même par ce que le vent y coûte (point 5 du lot
- * d'affordance, 20/09/2026) — pas seulement les huit flèches.
- *
- * `positions` couvre le tracé entier, échantillon par échantillon, sans
- * filtre de sensibilité (`vent_par_position`, voir sa docstring côté cœur).
- * Chaque **intervalle** entre deux échantillons consécutifs porte la
- * catégorie de l'échantillon qui l'ouvre (« le vent mesuré ici vaut jusqu'au
- * prochain échantillon ») ; les intervalles consécutifs de même catégorie
- * sont fusionnés en une seule portion, pour ne pas redessiner un segment
- * par échantillon. **Point de relecture du 20/09/2026** : une version
- * antérieure fusionnait les échantillons eux-mêmes plutôt que les
- * intervalles entre eux, ce qui laissait un trou d'un pas d'échantillonnage
- * (5 km par défaut) à chaque changement de catégorie — un vent qui bascule
- * souvent de face à dos sur une boucle se serait retrouvé troué à chaque
- * bascule. Fusionner les intervalles élimine le trou : la borne de fin d'une
- * portion est toujours la borne de début de la suivante.
- *
- * Le travers et l'inconnu ne produisent aucune portion — le tracé noir de
- * base reste visible en dessous, exactement comme la direction le demande
- * pour ces deux cas (règle absolue 5, et « le vent traversier n'a
- * délibérément aucune teinte »).
- *
- * Une portion dont `portion()` ne retrouve aucun point réel (bornes trop
- * rapprochées pour qu'un point du tracé simplifié tombe entre les deux,
- * notamment aux confins du tracé) est écartée plutôt que poussée vide :
- * sans ce filtre, `traceColoree` (l'écran) mentait — la légende affirmait
- * une coloration que `Carte` n'aurait de toute façon pas dessinée
- * (`Carte.tsx` écarte déjà un segment à moins de deux points, mais après
- * que l'écran a cru, à tort, qu'il y en avait un).
- */
-export function segmentsVent(trace: Trace, positions: VentPosition[]): SegmentVent[] {
-  const segments: SegmentVent[] = [];
-  let i = 0;
-  const n = positions.length;
-  while (i < n - 1) {
-    const categorie = positions[i].relatif;
-    if (categorie !== "face" && categorie !== "dos") {
-      i += 1;
-      continue;
-    }
-    let j = i;
-    while (j + 1 < n - 1 && positions[j + 1].relatif === categorie) j += 1;
-    const points = portion(trace, positions[i].dist_m, positions[j + 1].dist_m);
-    if (points.length >= 2) {
-      segments.push({
-        points,
-        categorie,
-        titre: categorie === "face" ? "Vent de face" : "Vent dans le dos",
-      });
-    }
-    i = j + 1;
-  }
-  return segments;
-}
+export { portion, segmentsVent } from "./proposition/traceVent";
 
 interface Props {
   reponse: Enveloppe<Sortie>;
   numero: number;
   seance: Seance | null;
   surRetour: () => void;
-}
-
-function partager(url: string, nom: string, surEchec: (panne: PanneGpx | null) => void) {
-  return async () => {
-    // Un nouvel essai efface la panne du précédent : sinon le message reste
-    // affiché même quand l'essai suivant réussit.
-    surEchec(null);
-    let contenu: Blob;
-    try {
-      contenu = await recupererGpx(url);
-    } catch (panne) {
-      // Le serveur a refusé, ou le réseau ne répond pas : ni l'un ni l'autre
-      // n'est une affaire de navigateur, et dire « ce navigateur ne sait pas
-      // partager » serait faux ici — c'est exactement le défaut trouvé le
-      // 18/09/2026.
-      surEchec(panne as PanneGpx);
-      return;
-    }
-    try {
-      const fichier = new File([contenu], nom, { type: "application/gpx+xml" });
-      const partage = navigator as Navigator & {
-        canShare?: (donnees: { files: File[] }) => boolean;
-        share?: (donnees: { files: File[]; title?: string }) => Promise<void>;
-      };
-      if (partage.share && partage.canShare?.({ files: [fichier] })) {
-        await partage.share({ files: [fichier], title: nom });
-        return;
-      }
-    } catch {
-      /* le partage a été refusé ou n'existe pas : le lien du dessous reste */
-    }
-    window.alert(
-      "Ce navigateur ne sait pas partager de fichier. Utilisez « Télécharger le GPX » " +
-        "juste en dessous, puis envoyez-le à votre compteur comme d'habitude.",
-    );
-  };
 }
 
 export function PropositionDetail({ reponse, numero, seance, surRetour }: Props) {
@@ -204,7 +94,6 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
     trace && candidate.meteo?.vent_par_position
       ? segmentsVent(trace, candidate.meteo.vent_par_position)
       : [];
-  const arrets = compteArrets(proposition.feux, proposition.stops);
   const retour = heureDeRetour(sortie.demande.depart, proposition.duree_s);
 
   return (
@@ -285,49 +174,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             </div>
           )}
 
-          <div className="chiffres espace">
-            <span>
-              <b>{kmDepuisKm(candidate.distance_km)}</b>
-            </span>
-            {candidate.denivele_m !== null ? (
-              <span>
-                <b>{nombre(candidate.denivele_m)}</b> m D+
-              </span>
-            ) : null}
-            {/* Le porte à porte en majeur, le temps sans arrêt juste à côté
-                (18/09/2026) : « je demande 5 h, je veux 5 h ». Les deux
-                chiffres restaient corrects mais éloignés — le porte à porte
-                arrivait après le D+, les feux, le trafic et les routes non
-                classées, si loin que l'œil ne les rapprochait plus l'un de
-                l'autre. Ils suivent maintenant tout de suite le D+, comme sur
-                `Boucles.tsx` et `Propositions.tsx`. */}
-            <DureesDeSortie
-              mouvementS={proposition.duree_s}
-              ecouleS={candidate.temps_ecoule_s}
-              basS={candidate.temps_ecoule_bas_s}
-              hautS={candidate.temps_ecoule_haut_s}
-            />
-            {arrets !== null ? (
-              <span>
-                <b>{nombre(arrets)}</b> feux et stops
-              </span>
-            ) : null}
-            {proposition.part_trafic !== null ? (
-              <span>
-                <b>{pourcentage(proposition.part_trafic)}</b> sur routes passantes
-              </span>
-            ) : null}
-            {/* Le même piège qu'à l'écran des boucles : « 5 % sur routes
-                passantes » se lit « 95 % de tranquillité », alors qu'une part
-                de la distance est sur des voies que la carte ne classe pas.
-                Elle n'apparaît que lorsqu'elle existe, jamais en zéro. */}
-            {candidate.couts && visibleEnKm(candidate.couts.km_non_classe) ? (
-              <span>
-                <b>{kmDepuisKm(candidate.couts.km_non_classe)}</b> qu'on ne sait pas
-                classer
-              </span>
-            ) : null}
-          </div>
+          <ChiffresParcours proposition={proposition} candidate={candidate} />
 
           <TempsEcoule candidate={candidate} compteur={sortie.compteur} />
 
@@ -363,89 +210,10 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
             </div>
           ))}
 
-          {/* Q40 (g) : chaque proposition porte **sa** trace, fabriquée au
-              moment où on la demande. Auparavant un seul GPX existait, celui
-              de la proposition retenue : emporter « la plus sèche » envoyait
-              la trace de « la plus calme » au compteur. */}
-          {proposition.gpx ? (
-            <>
-              {erreurGpx ? (
-                <div className="encart alerte">
-                  <b>L'envoi vers votre compteur a échoué.</b> {erreurGpx.message}
-                  <p className="mention" style={{ marginTop: "var(--espace-interne)", marginBottom: 0 }}>
-                    Code de la panne : {erreurGpx.code}.
-                  </p>
-                </div>
-              ) : null}
-              <button
-                type="button"
-                className="bouton"
-                onClick={partager(proposition.gpx.url, proposition.gpx.nom, setErreurGpx)}
-              >
-                Envoyer vers mon compteur
-              </button>
-              <a className="bouton fantome" href={proposition.gpx.url} download={proposition.gpx.nom}>
-                Télécharger le GPX
-              </a>
-            </>
-          ) : (
-            <p className="mention">Aucun GPX n'est disponible pour ce parcours.</p>
-          )}
+          <EnvoiGpx proposition={proposition} erreurGpx={erreurGpx} surErreurGpx={setErreurGpx} />
         </>
-      ) : sortie.tenue ? (
-        <div>
-          <div className="bloc">
-            <div className="bloc-tete">
-              <h2>Sur vous</h2>
-              <span className="rang">
-                {sortie.tenue.categorie_temp} · {sortie.tenue.categorie_humidite}
-              </span>
-            </div>
-            <ul className="liste-simple">
-              {sortie.tenue.base.map((piece) => (
-                <li key={piece}>{piece}</li>
-              ))}
-            </ul>
-          </div>
-          {sortie.tenue.a_emporter.length > 0 ? (
-            <div className="bloc doux">
-              <div className="bloc-tete">
-                <h2>À emporter</h2>
-              </div>
-              <ul className="liste-simple">
-                {sortie.tenue.a_emporter.map((piece) => (
-                  <li key={piece}>{piece}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {sortie.tenue.a_enlever.length > 0 ? (
-            <div className="bloc doux">
-              <div className="bloc-tete">
-                <h2>À enlever en route</h2>
-              </div>
-              <ul className="liste-simple">
-                {sortie.tenue.a_enlever.map((piece) => (
-                  <li key={piece}>{piece}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {sortie.tenue.motifs.map((motif) => (
-            <p className="mention" key={motif}>
-              {motif}
-            </p>
-          ))}
-        </div>
       ) : (
-        <div className="bloc doux">
-          <div className="bloc-tete">
-            <h2>La tenue</h2>
-          </div>
-          <p className="mention">
-            Sans température, on ne conseille rien plutôt que de conseiller au hasard.
-          </p>
-        </div>
+        <Tenue tenue={sortie.tenue} />
       )}
 
       <button type="button" className="bouton fantome" onClick={surRetour}>
