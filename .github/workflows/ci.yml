@@ -15,7 +15,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Annuler un run dépassé seulement sur une PR : jamais sur un push à main/prod.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   secrets:
@@ -54,6 +55,8 @@ jobs:
       # Base de comparaison : la branche cible sur une PR ; sur un push (main
       # comme prod), le commit d'avant le push, sauf branche toute neuve (before
       # nul) où l'on compare à origin/main. Une base introuvable fait échouer.
+      # --commits : chaque commit de base..HEAD qui touche sprints.toml est
+      # vérifié contre son premier parent (un diff = un commit).
       - name: Vérifier le backlog
         env:
           EVENEMENT: ${{ github.event_name }}
@@ -73,7 +76,7 @@ jobs:
             base="origin/main"
           fi
           echo "Base de comparaison du backlog : $base"
-          uv run python scripts/verifier_backlog.py --base "$base"
+          uv run python scripts/verifier_backlog.py --commits "$base"
 
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine

@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 RACINE_DEPOT = Path(__file__).resolve().parent.parent
 
 # scripts/ n'est pas un package installé : on charge le module par chemin.
@@ -653,7 +655,7 @@ def test_m3_titre_avec_saut_de_ligne(tmp_path):
     donnees = _ecrire_toml(
         racine, '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "Ligne\\nautre"\n'
     )
-    assert _viole(violations_statiques(donnees, racine), "'titre' contient un saut de ligne")
+    assert _viole(violations_statiques(donnees, racine), "'titre' contient un caractère non imprimable")
 
 
 def test_m4_raison_hors_abandonne(tmp_path):
@@ -723,7 +725,7 @@ def test_m7_derogations_strictes(tmp_path):
     liste = ", ".join(f'"{e}"' for e in entrees)
     donnees = _ecrire_toml(
         racine,
-        f'[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\nderogations = [{liste}]\n',
+        f'[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "T"\nderogations = [{liste}]\n',
     )
     violations = violations_statiques(donnees, racine)
     assert _viole(violations, "date inexistante au calendrier : '31/02/2026")
@@ -1243,3 +1245,461 @@ def test_regles_e_une_par_une():
     assert not ve.regle_e_sprint_non_commence(
         _sprint(1, "esquisse", [{"fiche": "a", "statut": "abandonne", "raison": "x"}])
     )
+
+
+# ---------------------------------------------------------------------------
+# Deuxième contre-relecture : m1, m2, m3, m5 (N8, N15, N26) et --commits.
+# ---------------------------------------------------------------------------
+
+
+# --- m1 : dérogations interdites sur esquisse, jamais sans changement -------
+
+
+def test_m1_derogations_interdites_sur_sprint_esquisse(tmp_path):
+    """Règle statique : vraie sans aucune base git."""
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        f'[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n'
+        f'derogations = ["{DEROGATION_OK}"]\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "'derogations' interdite sur un sprint esquisse")
+    # la même clé sur un sprint figé n'est pas interdite par cette règle
+    donnees = _ecrire_toml(
+        racine,
+        f'[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "T"\nderogations = ["{DEROGATION_OK}"]\n',
+    )
+    assert not _viole(violations_statiques(donnees, racine), "interdite sur un sprint esquisse")
+
+
+def test_m1_derogation_sans_changement_refusee_quel_que_soit_le_statut():
+    elements = [{"fiche": "a", "statut": "prevu"}]
+    # esquisse -> fige, une dérogation ajoutée sans rien changer
+    base = _fichier([_sprint(1, "esquisse", elements)])
+    courant = _fichier([_sprint(1, "fige", elements, derogations=[DEROGATION_OK])])
+    assert _viole(violations_contre_base(base, courant), "dérogation nouvelle sans changement")
+    # en_cours -> clos, idem
+    livres = [{"fiche": "a", "statut": "livre", "pr": 1}]
+    base = _fichier([_sprint(1, "en_cours", livres)])
+    courant = _fichier([_sprint(1, "clos", livres, derogations=[DEROGATION_OK])])
+    assert _viole(violations_contre_base(base, courant), "dérogation nouvelle sans changement")
+
+
+def test_m1_derogation_qui_couvre_un_changement_admise_depuis_esquisse():
+    base = _fichier([_sprint(1, "esquisse", [{"fiche": "a", "statut": "prevu"}])])
+    courant = _fichier(
+        [_sprint(1, "fige", [{"fiche": "b", "statut": "prevu"}], derogations=[DEROGATION_OK])]
+    )
+    assert violations_contre_base(base, courant) == []
+
+
+# --- m2 : un élément ne recule jamais de statut -----------------------------
+
+
+def test_m2_transitions_d_element_interdites():
+    interdites = [
+        ("livre", "prevu"), ("en_cours", "prevu"), ("abandonne", "prevu"),
+        ("abandonne", "en_cours"), ("livre", "abandonne"), ("livre", "en_cours"),
+    ]
+    for avant, apres in interdites:
+        base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": avant}])])
+        courant = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": apres}])])
+        violations = verifier_backlog.regle_g_transition_elements(base, courant)
+        assert _viole(violations, f"transition d'élément interdite : {avant!r} -> {apres!r}"), (
+            avant, apres
+        )
+
+
+def test_m2_transitions_d_element_admises():
+    admises = [
+        ("prevu", "prevu"), ("prevu", "en_cours"), ("en_cours", "livre"),
+        ("prevu", "abandonne"), ("en_cours", "abandonne"), ("prevu", "livre"),
+    ]
+    for avant, apres in admises:
+        base = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": avant}])])
+        courant = _fichier([_sprint(1, "en_cours", [{"fiche": "a", "statut": apres}])])
+        assert verifier_backlog.regle_g_transition_elements(base, courant) == [], (avant, apres)
+
+
+def test_m2_recul_par_deplacement_dans_un_autre_sprint():
+    """Déplacer un élément en_cours dans un autre sprint en prevu est un recul."""
+    base = _fichier(
+        [_sprint(1, "en_cours", [{"fiche": "a", "statut": "en_cours"}]), _sprint(2, "fige", [])]
+    )
+    courant = _fichier(
+        [_sprint(1, "en_cours", []), _sprint(2, "fige", [{"fiche": "a", "statut": "prevu"}])]
+    )
+    assert _viole(violations_contre_base(base, courant), "'en_cours' -> 'prevu'")
+
+
+# --- m3 : dates bornées, caractères imprimables -----------------------------
+
+
+def test_m3_bornes_des_dates_de_derogation():
+    valider = verifier_backlog.valider_entree_derogation
+    assert valider("01/01/2024 : première date admise") is None
+    assert valider("31/12/2100 : dernière date admise") is None
+    assert "hors bornes" in valider("31/12/2023 : la veille de la borne")
+    assert "hors bornes" in valider("01/01/2101 : le lendemain de la borne")
+    assert "hors bornes" in valider("01/01/0001 : an un du calendrier")
+
+
+def test_m3_date_en_chiffres_non_ascii_refusee():
+    # « ٢٦ » : chiffres arabo-indiens, que int() accepterait
+    assert "mal formée" in verifier_backlog.valider_entree_derogation(
+        "٢٦/09/2026 : chiffres non ASCII"
+    )
+
+
+def test_m3_raison_de_derogation_non_imprimable_refusee_avant_strip():
+    valider = verifier_backlog.valider_entree_derogation
+    for piege in ("\t", "\r", "\x0b", "\x00", " ", "\x1b"):
+        for entree in (
+            f"26/09/2026 : raison assez longue{piege}",  # en bordure : strip() l'effacerait
+            f"26/09/2026 : raison{piege}assez longue",
+        ):
+            assert "non imprimable" in (valider(entree) or ""), repr(entree)
+    assert valider("26/09/2026 : raison avec des espaces normaux") is None
+
+
+def test_m3_titre_et_raison_non_imprimables(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    for piege in ("\\t", "\\r", "\\u000b", "\\u2028"):
+        donnees = _ecrire_toml(
+            racine,
+            f'[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "Titre{piege}"\n'
+            f'[[sprint.element]]\nfiche = "fiche-a"\nstatut = "abandonne"\n'
+            f'raison = "{piege}une raison"\n',
+        )
+        violations = violations_statiques(donnees, racine)
+        assert _viole(violations, "'titre' contient un caractère non imprimable"), piege
+        assert _viole(violations, "'raison' contient un caractère non imprimable"), piege
+
+
+# --- m5 : N15 (raison multi-lignes), N26 (unicité des chantiers), N8 --------
+
+
+def test_n15_raison_d_element_avec_saut_de_ligne_refusee(tmp_path):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature"})
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "T"\n'
+        '[[sprint.element]]\nfiche = "fiche-a"\nstatut = "abandonne"\n'
+        'raison = """première ligne\nseconde ligne"""\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "'raison' contient un caractère non imprimable")
+
+
+def test_n15_raison_de_derogation_avec_saut_de_ligne_refusee(tmp_path):
+    entree = "26/09/2026 : première ligne\nseconde ligne"
+    assert "non imprimable" in verifier_backlog.valider_entree_derogation(entree)
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[[sprint]]\nnumero = 1\nstatut = "fige"\ntitre = "T"\n'
+        'derogations = ["26/09/2026 : première ligne\\nseconde ligne"]\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "non imprimable")
+
+
+def test_n26_chantier_reference_dans_deux_sprints(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "ouverture_plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        """
+        [[sprint]]
+        numero = 1
+        statut = "en_cours"
+        titre = "Un"
+        [[sprint.element]]
+        chantier = "ouverture"
+        statut = "en_cours"
+
+        [[sprint]]
+        numero = 2
+        statut = "fige"
+        titre = "Deux"
+        [[sprint.element]]
+        chantier = "ouverture"
+        statut = "prevu"
+        """,
+    )
+    violations = violations_statiques(donnees, racine)
+    assert _viole(violations, "chantier référencé plusieurs fois")
+    assert not _viole(violations, "fiche référencée plusieurs fois")
+
+
+def test_n8_clos_depuis_fige_une_seule_violation():
+    """« clos seulement depuis en_cours » découle de « une étape au plus » :
+    une seule violation, qui dit les deux."""
+    base = _fichier([_sprint(1, "fige", [])])
+    courant = _fichier([_sprint(1, "clos", [])])
+    violations = verifier_backlog._regle_g_transition_sprint("[sprint 1]", "fige", "clos")
+    assert len(violations) == 1
+    assert "plus d'une étape" in violations[0] and "clos alors qu'il n'était pas en_cours" in violations[0]
+    assert violations_contre_base(base, courant) == violations
+
+
+# --- --commits : un diff = un commit ------------------------------------------
+
+
+def _sha(racine: Path, rev: str = "HEAD") -> str:
+    return subprocess.run(
+        [*GIT, "rev-parse", rev], cwd=racine, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+TOML_EN_COURS = TOML_BASE.replace('statut = "fige"', 'statut = "en_cours"')
+TOML_CLOS = (
+    TOML_BASE.replace('statut = "fige"', 'statut = "clos"')
+    .replace('fiche = "fiche-a"\nstatut = "prevu"', 'fiche = "fiche-a"\nstatut = "livre"\npr = 1')
+    .replace(
+        'fiche = "fiche-b"\nstatut = "prevu"',
+        'fiche = "fiche-b"\nstatut = "abandonne"\nraison = "reporté au sprint suivant"',
+    )
+)
+
+
+def test_cas17_deux_commits_legitimes_passent(tmp_path, capsys):
+    """fige -> en_cours puis en_cours -> clos : une étape par commit."""
+    racine = _depot_git(tmp_path)
+    _commit_toml(racine, TOML_EN_COURS)
+    _commit_toml(racine, TOML_CLOS)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 0
+    assert "2 commit(s)" in capsys.readouterr().out
+    # --base, en bloc, voit fige -> clos et refuse : c'est bien la différence
+    assert main(["--racine", str(racine), "--base", "HEAD~2"]) == 1
+
+
+def test_cas17_meme_transformation_en_un_commit_refusee(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    _commit_toml(racine, TOML_CLOS)
+    assert main(["--racine", str(racine), "--commits", "HEAD~1"]) == 1
+    sortie = capsys.readouterr().out
+    assert f"[{_sha(racine)[:7]}] [sprint 1] statut avancé de plus d'une étape" in sortie
+
+
+def test_commits_seul_le_commit_fautif_est_cite(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    _commit_toml(racine, TOML_EN_COURS)
+    legitime = _sha(racine)
+    _commit_toml(racine, TOML_BASE)  # recul en_cours -> fige
+    fautif = _sha(racine)
+    _commit_toml(racine, TOML_EN_COURS)
+    assert main(["--racine", str(racine), "--commits", "HEAD~3"]) == 1
+    sortie = capsys.readouterr().out
+    assert f"[{fautif[:7]}] [sprint 1] statut revenu en arrière" in sortie
+    assert f"[{legitime[:7]}]" not in sortie
+    # --base ne voit que fige -> en_cours, légitime en bloc
+    assert main(["--racine", str(racine), "--base", "HEAD~3"]) == 0
+
+
+def _branche(racine: Path, nom: str, depuis: str) -> None:
+    _git(racine, "checkout", "-q", "-b", nom, depuis)
+
+
+def _fusion_resolue_a_la_main(racine: Path, autre: str, contenu: str) -> None:
+    """Commit de fusion à deux parents dont sprints.toml vaut `contenu`."""
+    _git(racine, "merge", "-q", "--no-ff", "--no-commit", "-s", "ours", autre)
+    (racine / "docs" / "backlog" / "sprints.toml").write_text(contenu, encoding="utf-8")
+    _git(racine, "add", ".")
+    _git(racine, "commit", "-q", "-m", "fusion")
+
+
+TOML_REMANIE_AVEC_DEROGATION = TOML_BASE.replace('fiche = "fiche-b"', 'fiche = "fiche-c"').replace(
+    'titre = "Titre"', f'titre = "Titre"\nderogations = ["{DEROGATION_OK}"]'
+)
+
+
+def _deux_branches(racine: Path) -> None:
+    """principale : fige -> en_cours ; cote (depuis la base) : remaniement
+    couvert par une dérogation. Revient sur principale."""
+    _git(racine, "branch", "-q", "-M", "principale")
+    _commit_toml(racine, TOML_EN_COURS)
+    _branche(racine, "cote", "HEAD~1")
+    _commit_toml(racine, TOML_REMANIE_AVEC_DEROGATION)
+    _git(racine, "checkout", "-q", "principale")
+
+
+def test_commits_fusion_identique_a_un_parent_ignoree(tmp_path, capsys):
+    """La fusion garde la version de « cote » (second parent) : comparée au
+    premier parent elle serait un recul en_cours -> fige, mais elle ne
+    retouche pas le fichier par rapport à chacun de ses parents : ignorée."""
+    racine = _depot_git(tmp_path)
+    _deux_branches(racine)
+    _fusion_resolue_a_la_main(racine, "cote", TOML_REMANIE_AVEC_DEROGATION)
+    fusion = _sha(racine)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 0
+    assert f"[{fusion[:7]}]" not in capsys.readouterr().out
+
+
+def test_commits_fusion_qui_retouche_le_fichier_est_controlee(tmp_path, capsys):
+    """Résolution à la main qui diffère des deux parents : comparée au premier
+    parent (en_cours), où fiche-b devient fiche-c sans dérogation."""
+    racine = _depot_git(tmp_path)
+    _deux_branches(racine)
+    _fusion_resolue_a_la_main(
+        racine, "cote", TOML_EN_COURS.replace('fiche = "fiche-b"', 'fiche = "fiche-c"')
+    )
+    fusion = _sha(racine)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 1
+    assert f"[{fusion[:7]}] [sprint 1] était 'en_cours' et a changé sans dérogation" in (
+        capsys.readouterr().out
+    )
+
+
+def test_commits_fusion_qui_retouche_le_fichier_legitimement_passe(tmp_path):
+    racine = _depot_git(tmp_path)
+    _deux_branches(racine)
+    _fusion_resolue_a_la_main(
+        racine,
+        "cote",
+        TOML_REMANIE_AVEC_DEROGATION.replace('statut = "fige"', 'statut = "en_cours"'),
+    )
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 0
+
+
+def test_commits_une_fusion_ne_masque_pas_un_commit_fautif_de_l_autre_cote(tmp_path, capsys):
+    """Sans --full-history, git suivrait seulement le parent identique à la
+    fusion et sauterait le commit fautif du premier parent."""
+    racine = _depot_git(tmp_path)
+    _git(racine, "branch", "-q", "-M", "principale")
+    _commit_toml(racine, TOML_CLOS)  # fige -> clos : saut interdit
+    fautif = _sha(racine)
+    _branche(racine, "cote", "HEAD~1")
+    _commit_toml(racine, TOML_EN_COURS)
+    _git(racine, "checkout", "-q", "principale")
+    _fusion_resolue_a_la_main(racine, "cote", TOML_EN_COURS)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 1
+    assert f"[{fautif[:7]}] [sprint 1] statut avancé de plus d'une étape" in capsys.readouterr().out
+
+
+def test_commits_ref_introuvable(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    assert main(["--racine", str(racine), "--commits", "ref-qui-n-existe-pas"]) == 1
+    assert "[commits] référence git introuvable" in capsys.readouterr().out
+
+
+def test_commits_hors_depot_git(tmp_path, capsys):
+    racine = _preparer_depot(tmp_path, {"fiche-a": "feature", "fiche-b": "feature"})
+    (racine / "docs" / "backlog" / "sprints.toml").write_text(TOML_BASE, encoding="utf-8")
+    assert main(["--racine", str(racine), "--commits", "HEAD"]) == 1
+    assert "n'est pas un dépôt git" in capsys.readouterr().out
+
+
+def test_commits_toml_invalide_dans_un_commit_intermediaire(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    _commit_toml(racine, "[[sprint]\nnumero = ")
+    fautif = _sha(racine)
+    _commit_toml(racine, TOML_EN_COURS)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 1
+    assert f"[{fautif[:7]}] docs/backlog/sprints.toml n'est pas un TOML valide" in (
+        capsys.readouterr().out
+    )
+
+
+def test_commits_creation_toleree_et_dite(tmp_path, capsys):
+    racine = _depot_git(tmp_path, contenu_base=None)
+    _commit_toml(racine, TOML_BASE)
+    createur = _sha(racine)
+    _commit_toml(racine, TOML_EN_COURS)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 0
+    assert f"[{createur[:7]}] création" in capsys.readouterr().out
+
+
+def test_commits_creation_au_commit_racine(tmp_path, capsys):
+    """Base sans ancêtre commun : le commit racine, qui crée le fichier, est
+    dans la plage ; sans parent, c'est une création."""
+    racine = _depot_git(tmp_path)  # le commit racine crée le fichier
+    racine_sha = _sha(racine)
+    _commit_toml(racine, TOML_EN_COURS)
+    # commit sans parent, sans lien avec l'historique de HEAD
+    orphelin = subprocess.run(
+        [*GIT, "commit-tree", "HEAD^{tree}", "-m", "sans lien"],
+        cwd=racine, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    assert main(["--racine", str(racine), "--commits", orphelin]) == 0
+    sortie = capsys.readouterr().out
+    assert "2 commit(s)" in sortie
+    assert f"[{racine_sha[:7]}] création" in sortie
+
+
+def test_commits_base_qui_n_est_pas_un_commit(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    arbre = subprocess.run(
+        [*GIT, "rev-parse", "HEAD^{tree}"], cwd=racine, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert main(["--racine", str(racine), "--commits", arbre]) == 1
+    assert "référence git introuvable" in capsys.readouterr().out
+
+
+def test_commits_suppression_puis_recreation_refusees(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    _git(racine, "rm", "-q", "docs/backlog/sprints.toml")
+    _git(racine, "commit", "-q", "-m", "suppression")
+    suppression = _sha(racine)
+    _commit_toml(racine, TOML_EN_COURS)
+    recreation = _sha(racine)
+    assert main(["--racine", str(racine), "--commits", "HEAD~2"]) == 1
+    sortie = capsys.readouterr().out
+    assert f"[{suppression[:7]}] docs/backlog/sprints.toml supprimé" in sortie
+    assert f"[{recreation[:7]}] docs/backlog/sprints.toml recréé" in sortie
+
+
+def test_commits_et_base_sont_exclusifs(tmp_path):
+    racine = _depot_git(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["--racine", str(racine), "--base", "HEAD", "--commits", "HEAD"])
+    assert exc.value.code == 2
+
+
+def test_commits_version_courante_passe_toujours_les_regles_statiques(tmp_path, capsys):
+    racine = _depot_git(tmp_path)
+    (racine / "docs" / "backlog" / "sprints.toml").write_text(
+        TOML_BASE.replace('titre = "Titre"', 'titre = "Titre"\nclef_inconnue = 1'),
+        encoding="utf-8",
+    )
+    assert main(["--racine", str(racine), "--commits", "HEAD"]) == 1
+    assert "clé(s) inconnue(s)" in capsys.readouterr().out
+
+
+def _git_show_en_echec(monkeypatch):
+    """Le fichier existe dans l'objet git mais `git show` échoue (dépôt
+    abîmé, objet manquant) : jamais un saut silencieux."""
+    vrai_git = verifier_backlog._git
+
+    def faux_git(racine, *arguments):
+        if arguments[:1] == ("show",):
+            return subprocess.CompletedProcess(["git", *arguments], 128, "", "objet manquant")
+        return vrai_git(racine, *arguments)
+
+    monkeypatch.setattr(verifier_backlog, "_git", faux_git)
+
+
+def test_base_git_show_en_echec_est_une_violation(tmp_path, capsys, monkeypatch):
+    racine = _depot_git(tmp_path)
+    _commit_toml(racine, TOML_EN_COURS)
+    _git_show_en_echec(monkeypatch)
+    assert main(["--racine", str(racine), "--base", "HEAD~1"]) == 1
+    assert "illisible : objet manquant" in capsys.readouterr().out
+
+
+def test_commits_git_show_en_echec_est_une_violation(tmp_path, capsys, monkeypatch):
+    racine = _depot_git(tmp_path)
+    _commit_toml(racine, TOML_EN_COURS)
+    commit = _sha(racine)
+    _git_show_en_echec(monkeypatch)
+    assert main(["--racine", str(racine), "--commits", "HEAD~1"]) == 1
+    assert f"[{commit[:7]}] docs/backlog/sprints.toml illisible : objet manquant" in (
+        capsys.readouterr().out
+    )
+
+
+def test_commits_premier_parent_illisible_est_une_violation(tmp_path, capsys):
+    """Le premier parent est hors de la plage (c'est la base) et son TOML est
+    invalide : le commit qui le répare ne peut pas être comparé."""
+    racine = _depot_git(tmp_path, contenu_base="[[sprint]\nnumero = ")
+    _commit_toml(racine, TOML_BASE)
+    assert main(["--racine", str(racine), "--commits", "HEAD~1"]) == 1
+    assert "au premier parent" in capsys.readouterr().out

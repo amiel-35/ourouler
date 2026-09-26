@@ -3,20 +3,24 @@
 
 Outillage de dépôt (pas du cœur ourouler) : lu en local et en CI. Vérifie des
 règles statiques toujours (structure, cohérence des statuts, existence des
-fiches/chantiers référencés) et, si --base est fourni, des règles contre une
-version antérieure du fichier (via git) pour empêcher un remaniement furtif
-d'un sprint déjà figé/en cours et tout retour en arrière de statut.
+fiches/chantiers référencés) et, avec --base ou --commits, des règles contre
+une version antérieure du fichier (via git) pour empêcher un remaniement
+furtif d'un sprint déjà figé/en cours et tout retour en arrière de statut.
 
-Avec --base, toute impossibilité de comparer (racine hors dépôt git, référence
-introuvable, TOML de la base illisible) est une violation. Seul cas toléré :
-la référence existe mais le fichier n'y existe pas encore (création), ce qui
-est dit explicitement.
+--base <ref> compare la version courante à <ref> en un seul bloc.
+--commits <ref> compare, pour chaque commit de <ref>..HEAD qui touche le
+fichier, sa version à celle de son premier parent : un diff = un commit.
+
+Toute impossibilité de comparer (racine hors dépôt git, référence
+introuvable, TOML illisible) est une violation. Seul cas toléré : le fichier
+n'existe pas encore (création), ce qui est dit explicitement.
 
 Usage :
     uv run python scripts/verifier_backlog.py
     uv run python scripts/verifier_backlog.py --etat
     uv run python scripts/verifier_backlog.py --json
     uv run python scripts/verifier_backlog.py --base origin/main
+    uv run python scripts/verifier_backlog.py --commits origin/main
 """
 
 from __future__ import annotations
@@ -46,8 +50,10 @@ CLES_ELEMENT_VALIDES = {"chantier", "fiche", "statut", "pr", "raison"}
 
 # Nom de fiche : minuscules, chiffres, tirets simples entre des mots.
 MOTIF_FICHE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-# Dérogation : « JJ/MM/AAAA : raison ».
-MOTIF_DEROGATION = re.compile(r"^(\d{2})/(\d{2})/(\d{4}) : (.*)$", re.DOTALL)
+# Dérogation : « JJ/MM/AAAA : raison » (chiffres ASCII seulement).
+MOTIF_DEROGATION = re.compile(r"^(\d{2})/(\d{2})/(\d{4}) : (.*)$", re.DOTALL | re.ASCII)
+DATE_MIN_DEROGATION = datetime.date(2024, 1, 1)
+DATE_MAX_DEROGATION = datetime.date(2100, 12, 31)
 LONGUEUR_MIN_RAISON_DEROGATION = 10
 LONGUEUR_MAX_RAISON = 120
 LONGUEUR_MAX_TITRE = 80
@@ -64,6 +70,17 @@ ORDRE_SEQUENCE_FICHIER = {"clos": 0, "en_cours": 1, "fige": 2, "esquisse": 3}
 # diff, jamais en arrière.
 ORDRE_PROGRESSION = {"esquisse": 0, "fige": 1, "en_cours": 2, "clos": 3}
 
+# Progression d'un ÉLÉMENT entre la base et la version courante : pour chaque
+# statut de la base, les statuts courants admis. prevu -> en_cours -> livre
+# dans cet ordre sans retour ; abandonne depuis prevu ou en_cours ; livre et
+# abandonne sont terminaux.
+PROGRESSION_ELEMENT = {
+    "prevu": {"prevu", "en_cours", "livre", "abandonne"},
+    "en_cours": {"en_cours", "livre", "abandonne"},
+    "livre": {"livre"},
+    "abandonne": {"abandonne"},
+}
+
 MESSAGE_CREATION = "création : {chemin} absent de {base}, règles F et G sans objet"
 
 
@@ -75,10 +92,6 @@ MESSAGE_CREATION = "création : {chemin} absent de {base}, règles F et G sans o
 def _est_entier(valeur: Any) -> bool:
     """Entier strict : un booléen Python est un int, on le refuse."""
     return isinstance(valeur, int) and not isinstance(valeur, bool)
-
-
-def _est_texte_non_vide(valeur: Any) -> bool:
-    return isinstance(valeur, str) and valeur.strip() != ""
 
 
 def _elements(sprint: dict[str, Any]) -> list[dict[str, Any]]:
@@ -106,6 +119,44 @@ def _git(racine: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _violations_acces_git(racine: Path, ref: str, etiquette: str) -> list[str]:
+    """Vide si `racine` est la racine d'un dépôt git où `ref` désigne un
+    commit ; sinon la violation qui interdit toute comparaison."""
+    if not racine.is_dir():
+        return [f"{etiquette} racine introuvable : {racine}"]
+
+    toplevel = _git(racine, "rev-parse", "--show-toplevel")
+    if toplevel.returncode != 0:
+        return [f"{etiquette} {racine} n'est pas un dépôt git : impossible de comparer à {ref}"]
+    if Path(toplevel.stdout.strip()).resolve() != racine.resolve():
+        return [
+            f"{etiquette} {racine} n'est pas la racine du dépôt git "
+            f"({toplevel.stdout.strip()}) : impossible de comparer à {ref}"
+        ]
+
+    verif = _git(racine, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    if verif.returncode != 0:
+        return [f"{etiquette} référence git introuvable : {ref!r}"]
+    return []
+
+
+def _blob(racine: Path, rev: str) -> str | None:
+    """Identifiant du blob de sprints.toml à `rev`, None s'il y est absent."""
+    r = _git(racine, "rev-parse", "--verify", "--quiet", f"{rev}:{CHEMIN_RELATIF_TOML}")
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def _toml_au_commit(racine: Path, rev: str) -> tuple[dict[str, Any] | None, str | None]:
+    """(structure, None) ou (None, motif de l'échec de lecture)."""
+    contenu = _git(racine, "show", f"{rev}:{CHEMIN_RELATIF_TOML}")
+    if contenu.returncode != 0:
+        return None, f"illisible : {contenu.stderr.strip()}"
+    try:
+        return tomllib.loads(contenu.stdout), None
+    except tomllib.TOMLDecodeError as exc:
+        return None, f"n'est pas un TOML valide : {exc}"
+
+
 def charger_toml_depuis_git(
     racine: Path, base: str
 ) -> tuple[dict[str, Any] | None, list[str], str | None]:
@@ -117,38 +168,17 @@ def charger_toml_depuis_git(
     - None, [], message : la référence existe mais le fichier n'y existe pas
       encore (création), F et G sont sans objet.
     """
-    if not racine.is_dir():
-        return None, [f"[base] racine introuvable : {racine}"], None
+    violations = _violations_acces_git(racine, base, "[base]")
+    if violations:
+        return None, violations, None
 
-    toplevel = _git(racine, "rev-parse", "--show-toplevel")
-    if toplevel.returncode != 0:
-        return None, [f"[base] {racine} n'est pas un dépôt git : impossible de comparer à {base}"], None
-    if Path(toplevel.stdout.strip()).resolve() != racine.resolve():
-        return None, [
-            f"[base] {racine} n'est pas la racine du dépôt git "
-            f"({toplevel.stdout.strip()}) : impossible de comparer à {base}"
-        ], None
-
-    ref = _git(racine, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
-    if ref.returncode != 0:
-        return None, [f"[base] référence git introuvable : {base!r}"], None
-
-    existe = _git(racine, "cat-file", "-e", f"{base}:{CHEMIN_RELATIF_TOML}")
-    if existe.returncode != 0:
+    if _blob(racine, base) is None:
         return None, [], MESSAGE_CREATION.format(chemin=CHEMIN_RELATIF_TOML, base=base)
 
-    contenu = _git(racine, "show", f"{base}:{CHEMIN_RELATIF_TOML}")
-    if contenu.returncode != 0:
-        return None, [
-            f"[base] lecture de {CHEMIN_RELATIF_TOML} dans {base} impossible : "
-            f"{contenu.stderr.strip()}"
-        ], None
-    try:
-        return tomllib.loads(contenu.stdout), [], None
-    except tomllib.TOMLDecodeError as exc:
-        return None, [
-            f"[base] {CHEMIN_RELATIF_TOML} dans {base} n'est pas un TOML valide : {exc}"
-        ], None
+    donnees, erreur = _toml_au_commit(racine, base)
+    if donnees is None:
+        return None, [f"[base] {CHEMIN_RELATIF_TOML} dans {base} {erreur}"], None
+    return donnees, [], None
 
 
 # ---------------------------------------------------------------------------
@@ -181,22 +211,30 @@ def _ctx_element(sprint: dict[str, Any], element: dict[str, Any]) -> str:
 
 def valider_entree_derogation(entree: str) -> str | None:
     """Retourne None si l'entrée est bien « JJ/MM/AAAA : raison », sinon le
-    motif du refus. La date doit exister au calendrier."""
+    motif du refus. La date doit exister au calendrier et tomber entre le
+    01/01/2024 et le 31/12/2100 ; la raison n'a que des caractères imprimables."""
     correspondance = MOTIF_DEROGATION.match(entree)
     if correspondance is None:
         return "mal formée (attendu 'JJ/MM/AAAA : raison')"
     jour, mois, annee, raison = correspondance.groups()
     try:
-        datetime.date(int(annee), int(mois), int(jour))
+        date = datetime.date(int(annee), int(mois), int(jour))
     except ValueError:
         return "date inexistante au calendrier"
+    if not DATE_MIN_DEROGATION <= date <= DATE_MAX_DEROGATION:
+        return (
+            f"date hors bornes ({DATE_MIN_DEROGATION:%d/%m/%Y} à "
+            f"{DATE_MAX_DEROGATION:%d/%m/%Y})"
+        )
+    # Avant tout strip() : un caractère de contrôle en bordure ne doit pas
+    # disparaître avant d'être vu.
+    if not raison.isprintable():
+        return "raison avec un caractère non imprimable (saut de ligne, tabulation, contrôle…)"
     raison = raison.strip()
     if len(raison) < LONGUEUR_MIN_RAISON_DEROGATION:
         return f"raison de moins de {LONGUEUR_MIN_RAISON_DEROGATION} caractères"
     if len(raison) > LONGUEUR_MAX_RAISON:
         return f"raison de plus de {LONGUEUR_MAX_RAISON} caractères"
-    if "\n" in raison:
-        return "raison sur plusieurs lignes"
     return None
 
 
@@ -236,14 +274,22 @@ def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]
     if not isinstance(titre, str):
         violations.append(f"{ctx} 'titre' doit être une chaîne")
     else:
+        if not titre.isprintable():
+            violations.append(
+                f"{ctx} 'titre' contient un caractère non imprimable "
+                "(saut de ligne, tabulation, contrôle…)"
+            )
         if not titre.strip():
             violations.append(f"{ctx} 'titre' vide")
-        if "\n" in titre or "\r" in titre:
-            violations.append(f"{ctx} 'titre' contient un saut de ligne")
         if len(titre) > LONGUEUR_MAX_TITRE:
             violations.append(f"{ctx} 'titre' dépasse {LONGUEUR_MAX_TITRE} caractères")
 
     if "derogations" in sprint:
+        if statut == "esquisse":
+            violations.append(
+                f"{ctx} clé 'derogations' interdite sur un sprint esquisse "
+                "(rien n'y est encore engagé)"
+            )
         violations.extend(_valider_derogations(sprint["derogations"], ctx))
 
     if "element" in sprint and not isinstance(sprint["element"], list):
@@ -276,6 +322,11 @@ def _valider_cles_et_types_element(element: dict[str, Any], ctx: str) -> list[st
         raison = element["raison"]
         if not isinstance(raison, str):
             violations.append(f"{ctx} 'raison' doit être une chaîne")
+        elif not raison.isprintable():
+            violations.append(
+                f"{ctx} 'raison' contient un caractère non imprimable "
+                "(saut de ligne, tabulation, contrôle…)"
+            )
         elif not raison.strip():
             violations.append(f"{ctx} 'raison' vide")
         elif len(raison) > LONGUEUR_MAX_RAISON:
@@ -596,23 +647,23 @@ def _derogations(sprint: dict[str, Any]) -> list[Any]:
 def _regle_g_transition_sprint(
     ctx: str, statut_base: Any, statut_courant: Any
 ) -> list[str]:
-    """Pas de recul, au plus une étape, clos seulement depuis en_cours."""
+    """Pas de recul, au plus une étape. « clos seulement depuis en_cours » en
+    découle : la progression étant linéaire, arriver à clos depuis autre
+    chose que en_cours ou clos est forcément un saut de plus d'une étape."""
     if statut_base not in ORDRE_PROGRESSION or statut_courant not in ORDRE_PROGRESSION:
         return []  # statut invalide : règle A
     ecart = ORDRE_PROGRESSION[statut_courant] - ORDRE_PROGRESSION[statut_base]
     if ecart < 0:
         return [f"{ctx} statut revenu en arrière : {statut_base!r} -> {statut_courant!r}"]
-    violations: list[str] = []
-    if ecart > 1:
-        violations.append(
-            f"{ctx} statut avancé de plus d'une étape en un diff : "
-            f"{statut_base!r} -> {statut_courant!r}"
-        )
-    if statut_courant == "clos" and statut_base not in {"en_cours", "clos"}:
-        violations.append(
-            f"{ctx} clos alors qu'il n'était pas en_cours dans la base ({statut_base!r})"
-        )
-    return violations
+    if ecart <= 1:
+        return []
+    message = (
+        f"{ctx} statut avancé de plus d'une étape en un diff : "
+        f"{statut_base!r} -> {statut_courant!r}"
+    )
+    if statut_courant == "clos":
+        message += f" (clos alors qu'il n'était pas en_cours dans la base ({statut_base!r}))"
+    return [message]
 
 
 def _regle_g_elements_termines_geles(
@@ -670,16 +721,11 @@ def _regle_f_derogations_append_only(
     return []
 
 
-def _regle_f_composition_figee(
-    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+def _changements_de_composition(
+    sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
 ) -> list[str]:
-    """Un sprint fige/en_cours dans la base garde ses éléments et son titre,
-    sauf exactement une dérogation nouvelle dans ce diff ; une dérogation
-    nouvelle sans changement est orpheline."""
-    statut_base = sprint_base.get("statut")
-    if statut_base not in {"fige", "en_cours"}:
-        return []
-
+    """Les changements réels qu'une dérogation peut couvrir : l'ensemble des
+    éléments, le titre."""
     ids_base = set(_index_elements(sprint_base))
     ids_courant = set(_index_elements(sprint_courant))
     changements = []
@@ -689,12 +735,49 @@ def _regle_f_composition_figee(
         changements.append(
             f"titre {sprint_base.get('titre')!r} -> {sprint_courant.get('titre')!r}"
         )
+    return changements
 
+
+def _nb_derogations_nouvelles(
+    sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> int | None:
+    """Nombre de dérogations ajoutées en fin de liste ; None si la liste de la
+    base n'est pas un préfixe exact (déjà signalé par
+    _regle_f_derogations_append_only)."""
     derog_base = _derogations(sprint_base)
     derog_courant = _derogations(sprint_courant)
     if derog_courant[: len(derog_base)] != derog_base:
-        return []  # déjà signalé par _regle_f_derogations_append_only
-    nb_nouvelles = len(derog_courant) - len(derog_base)
+        return None
+    return len(derog_courant) - len(derog_base)
+
+
+def _regle_f_derogation_sans_changement(
+    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> list[str]:
+    """Quel que soit le statut du sprint, une dérogation nouvelle qui ne
+    couvre aucun changement d'éléments ni de titre est refusée."""
+    nb_nouvelles = _nb_derogations_nouvelles(sprint_base, sprint_courant)
+    if not nb_nouvelles or _changements_de_composition(sprint_base, sprint_courant):
+        return []
+    return [
+        f"{ctx} dérogation nouvelle sans changement d'éléments ni de titre "
+        f"({nb_nouvelles} ajoutée(s)) : une dérogation couvre un changement"
+    ]
+
+
+def _regle_f_composition_figee(
+    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> list[str]:
+    """Un sprint fige/en_cours dans la base garde ses éléments et son titre,
+    sauf exactement une dérogation nouvelle dans ce diff."""
+    statut_base = sprint_base.get("statut")
+    if statut_base not in {"fige", "en_cours"}:
+        return []
+
+    changements = _changements_de_composition(sprint_base, sprint_courant)
+    nb_nouvelles = _nb_derogations_nouvelles(sprint_base, sprint_courant)
+    if nb_nouvelles is None:
+        return []
 
     if changements and nb_nouvelles == 0:
         return [
@@ -705,11 +788,6 @@ def _regle_f_composition_figee(
         return [
             f"{ctx} était {statut_base!r} : {nb_nouvelles} dérogations nouvelles dans ce diff, "
             "exactement une est attendue pour couvrir le changement"
-        ]
-    if not changements and nb_nouvelles > 0:
-        return [
-            f"{ctx} dérogation nouvelle sans changement d'éléments ni de titre "
-            f"({nb_nouvelles} ajoutée(s)) : une dérogation couvre un changement"
         ]
     return []
 
@@ -724,6 +802,40 @@ def _regle_g_nouveau_sprint_esquisse(ctx: str, sprint_courant: dict[str, Any]) -
     return [
         f"{ctx} sprint nouveau (absent de la base) doit être 'esquisse', trouvé {statut!r}"
     ]
+
+
+def _statuts_elements(donnees: dict[str, Any]) -> dict[str, tuple[Any, Any]]:
+    """Clé d'élément -> (numéro de sprint, statut), sur tout le fichier."""
+    statuts: dict[str, tuple[Any, Any]] = {}
+    sprints = donnees.get("sprint", [])
+    for sprint in sprints if isinstance(sprints, list) else []:
+        if isinstance(sprint, dict):
+            for element in _elements(sprint):
+                statuts[_cle_element(element)] = (sprint.get("numero"), element.get("statut"))
+    return statuts
+
+
+def regle_g_transition_elements(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
+    """Un élément ne recule jamais : prevu -> en_cours -> livre dans cet
+    ordre, abandonne depuis prevu ou en_cours, livre et abandonne terminaux.
+    Suivi par clé d'élément sur tout le fichier (un déplacement de sprint ne
+    permet pas de reculer)."""
+    violations: list[str] = []
+    statuts_courant = _statuts_elements(courant)
+    for cle, (_, statut_base) in _statuts_elements(base).items():
+        if cle not in statuts_courant:
+            continue
+        numero, statut_courant = statuts_courant[cle]
+        if not isinstance(statut_base, str) or statut_base not in PROGRESSION_ELEMENT:
+            continue  # statut invalide : règle A
+        if not isinstance(statut_courant, str) or statut_courant not in STATUTS_ELEMENT_VALIDES:
+            continue  # statut invalide : règle A
+        if statut_courant not in PROGRESSION_ELEMENT[statut_base]:
+            violations.append(
+                f"{_contexte(numero, cle)} transition d'élément interdite : "
+                f"{statut_base!r} -> {statut_courant!r}"
+            )
+    return violations
 
 
 def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
@@ -746,6 +858,7 @@ def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> lis
         violations.extend(_regle_g_elements_termines_geles(ctx, sprint_base, sprint_courant))
         violations.extend(_regle_f_derogations_append_only(ctx, sprint_base, sprint_courant))
         violations.extend(_regle_f_composition_figee(ctx, sprint_base, sprint_courant))
+        violations.extend(_regle_f_derogation_sans_changement(ctx, sprint_base, sprint_courant))
 
     for numero, sprint_courant in sprints_courant.items():
         if numero not in sprints_base:
@@ -753,7 +866,93 @@ def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> lis
                 _regle_g_nouveau_sprint_esquisse(f"[sprint {numero}]", sprint_courant)
             )
 
+    violations.extend(regle_g_transition_elements(base, courant))
     return violations
+
+
+# ---------------------------------------------------------------------------
+# --commits : un diff = un commit
+# ---------------------------------------------------------------------------
+
+
+def _parents(racine: Path, sha: str) -> list[str]:
+    r = _git(racine, "rev-list", "--parents", "-n", "1", sha)
+    return r.stdout.split()[1:]
+
+
+def _fichier_deja_present_avant(racine: Path, rev: str) -> bool:
+    """Vrai si un ancêtre de `rev` (inclus) a déjà contenu le fichier."""
+    r = _git(racine, "rev-list", "-n", "1", "--full-history", rev, "--", CHEMIN_RELATIF_TOML)
+    return bool(r.stdout.strip())
+
+
+def _violations_d_un_commit(racine: Path, sha: str) -> tuple[list[str], list[str]]:
+    """Compare sprints.toml à `sha` à son premier parent. Retourne
+    (violations, informations), préfixées du sha court."""
+    court = f"[{sha[:7]}]"
+    parents = _parents(racine, sha)
+    blob = _blob(racine, sha)
+
+    if len(parents) > 1:
+        # Fusion : comparée seulement si elle retouche le fichier par rapport
+        # à chacun de ses parents (résolution à la main), et alors à son
+        # premier parent seulement.
+        if any(_blob(racine, parent) == blob for parent in parents):
+            return [], []
+
+    if blob is None:
+        return [f"{court} {CHEMIN_RELATIF_TOML} supprimé par ce commit"], []
+
+    courant, erreur = _toml_au_commit(racine, sha)
+    if courant is None:
+        return [f"{court} {CHEMIN_RELATIF_TOML} {erreur}"], []
+
+    premier_parent = parents[0] if parents else None
+    if premier_parent is None or _blob(racine, premier_parent) is None:
+        if premier_parent is not None and _fichier_deja_present_avant(racine, premier_parent):
+            return [
+                f"{court} {CHEMIN_RELATIF_TOML} recréé : absent du premier parent "
+                f"{premier_parent[:7]} mais déjà présent plus tôt dans l'historique"
+            ], []
+        return [], [
+            f"{court} création : {CHEMIN_RELATIF_TOML} absent du premier parent, "
+            "règles F et G sans objet"
+        ]
+
+    base, erreur = _toml_au_commit(racine, premier_parent)
+    if base is None:
+        return [
+            f"{court} {CHEMIN_RELATIF_TOML} au premier parent {premier_parent[:7]} {erreur}"
+        ], []
+    return [f"{court} {v}" for v in violations_contre_base(base, courant)], []
+
+
+def violations_par_commit(racine: Path, base: str) -> tuple[list[str], list[str]]:
+    """Règles F et G pour chaque commit de base..HEAD qui touche sprints.toml,
+    chacun contre son premier parent. Retourne (violations, informations).
+
+    --full-history : sans elle, git suit seulement le parent d'une fusion
+    dont le fichier est identique et masquerait les commits de l'autre côté."""
+    violations = _violations_acces_git(racine, base, "[commits]")
+    if violations:
+        return violations, []
+
+    liste = _git(
+        racine, "rev-list", "--reverse", "--full-history", f"{base}..HEAD",
+        "--", CHEMIN_RELATIF_TOML,
+    )
+    if liste.returncode != 0:
+        return [f"[commits] liste des commits de {base}..HEAD impossible : {liste.stderr.strip()}"], []
+
+    shas = liste.stdout.split()
+    informations = [
+        f"[commits] {len(shas)} commit(s) de {base}..HEAD touchent {CHEMIN_RELATIF_TOML}"
+    ]
+    for sha in shas:
+        violations_commit, informations_commit = _violations_d_un_commit(racine, sha)
+        violations.extend(violations_commit)
+        informations.extend(informations_commit)
+    return violations, informations
 
 
 # ---------------------------------------------------------------------------
@@ -837,7 +1036,21 @@ def imprimer_etat(etat: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Vérifie docs/backlog/sprints.toml")
     parser.add_argument("--racine", type=Path, default=None, help="Racine du dépôt (surcharge)")
-    parser.add_argument("--base", default=None, help="Référence git à comparer (ex. origin/main)")
+    comparaison = parser.add_mutually_exclusive_group()
+    comparaison.add_argument(
+        "--base",
+        default=None,
+        help="Référence git à comparer en un seul bloc à la version courante "
+        "(ex. origin/main). Exclusif avec --commits.",
+    )
+    comparaison.add_argument(
+        "--commits",
+        default=None,
+        metavar="BASE",
+        help="Compare chaque commit de BASE..HEAD qui touche sprints.toml à son "
+        "premier parent (une fusion seulement si elle retouche le fichier par "
+        "rapport à chacun de ses parents). Utilisé par la CI. Exclusif avec --base.",
+    )
     parser.add_argument("--etat", action="store_true", help="Affiche l'état lisible")
     parser.add_argument("--json", action="store_true", help="Affiche l'état en JSON")
     args = parser.parse_args(argv)
@@ -865,6 +1078,10 @@ def main(argv: list[str] | None = None) -> int:
             informations.append(message_creation)
         if base_donnees is not None:
             violations.extend(violations_contre_base(base_donnees, donnees))
+    elif args.commits:
+        violations_commits, informations_commits = violations_par_commit(racine, args.commits)
+        violations.extend(violations_commits)
+        informations.extend(informations_commits)
 
     _imprimer_resultat(args, donnees, racine, informations, violations)
     return 1 if violations else 0
