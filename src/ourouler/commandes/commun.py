@@ -4,13 +4,15 @@
 qu'un service reçoit (`services.contexte.Contexte`) : le profil, le dossier de
 cache et le fichier de calibration résolus, et un canal d'avertissements qui
 écrit sur la sortie d'erreur **telle qu'elle est au moment de l'écriture**
-— l'API la redirige le temps d'un appel (`api/adaptateur.py`).
+— l'ancien chemin de l'API la redirige le temps d'un appel
+(`api/adaptateur.py`), le nouveau passe son propre canal (`api/calculs.py`).
 """
 
 from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from dataclasses import replace
 
 from ourouler.config import Config
@@ -24,7 +26,12 @@ def avertir(ligne: str) -> None:
     print(ligne, file=sys.stderr)
 
 
-def contexte(config: Config, *, lieu_depart: Depart | None = None) -> Contexte:
+def contexte(
+    config: Config,
+    *,
+    lieu_depart: Depart | None = None,
+    avertir: Callable[[str], None] = avertir,
+) -> Contexte:
     """Le contexte d'un service, depuis la `Config` chargée par l'entrée.
 
     `lieu_depart` est le point de départ de **cette** exécution, déjà tranché
@@ -32,6 +39,9 @@ def contexte(config: Config, *, lieu_depart: Depart | None = None) -> Contexte:
     choisies sur la carte par l'API). Il remplace celui de la configuration
     dans le profil, qui est gelé : `replace` rend une copie, la configuration
     de l'appelant n'est pas touchée.
+
+    `avertir` est la sortie d'erreur pour la ligne de commande ; l'API passe
+    le sien, qui recueille les lignes pour `avertissements` (lot 11).
     """
     if lieu_depart is not None:
         config = replace(config, depart=lieu_depart)

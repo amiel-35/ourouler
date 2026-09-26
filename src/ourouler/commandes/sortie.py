@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
@@ -28,6 +27,7 @@ from ourouler.noyau.profil import Depart, Profil
 from ourouler.noyau.seance import Seance
 from ourouler.rendu import sortie as rendu
 from ourouler.rendu.sortie import page_jour, page_sans_seance
+from ourouler.services.contexte import Contexte
 from ourouler.sortie import commande as service
 from ourouler.sortie import contraste, orientation
 from ourouler.sortie.commande import (
@@ -75,7 +75,34 @@ def executer_depuis_namespace(
         recueil_gpx=recueil_gpx,
         base_routes=base_routes,
     )
-    en_json = getattr(args, "json", False)
+    donnees, texte = terminer(
+        demande,
+        ctx,
+        resultat,
+        en_json=getattr(args, "json", False),
+        carte_sans_seance=bool(getattr(args, "carte_sans_seance", False)),
+    )
+    if donnees is not None:
+        imprimer_json(donnees)
+    else:
+        print(texte)
+    return 0
+
+
+def terminer(
+    demande: Demande,
+    ctx: Contexte,
+    resultat: object,
+    *,
+    en_json: bool,
+    carte_sans_seance: bool = False,
+) -> tuple[dict | None, str | None]:
+    """Après le service : la page du jour écrite, l'avertissement dit, le JSON ou le texte.
+
+    Rend `(json, None)` si `en_json`, `(None, texte)` sinon. L'avertissement
+    météo part par `ctx.avertir` : sur la sortie d'erreur pour la ligne de
+    commande, dans `avertissements` pour l'API.
+    """
     if isinstance(resultat, SansSeance):
         # Service planifié (contrat de l'hébergé minimal, périmètre point 4) :
         # un jour sans séance doit produire une page qui le dit, jamais rien
@@ -83,13 +110,11 @@ def executer_depuis_namespace(
         # rien n'est écrit — comportement inchangé pour l'usage interactif,
         # où un fichier à chaque essai sans séance serait du bruit.
         chemin_carte = None
-        if getattr(args, "carte_sans_seance", False):
+        if carte_sans_seance:
             chemin_carte = ecrire_page_sans_seance(demande, ctx.dossier_cache)
         if en_json:
-            imprimer_json(rendu.json_sans_seance(demande.jour, chemin_carte))
-        else:
-            print(rendu.texte_sans_seance(demande.jour, chemin_carte))
-        return 0
+            return rendu.json_sans_seance(demande.jour, chemin_carte), None
+        return None, rendu.texte_sans_seance(demande.jour, chemin_carte)
 
     pour_le_rendu = resultat.contexte
     chemin_carte = ecrire_page_jour(
@@ -103,12 +128,10 @@ def executer_depuis_namespace(
     pour_le_rendu = replace(pour_le_rendu, carte=chemin_carte)
     avertissement = rendu.avertissement_meteo(resultat.panne, pour_le_rendu.meteo_absente)
     if avertissement is not None:
-        print(avertissement, file=sys.stderr)
+        ctx.avertir(avertissement)
     if en_json:
-        imprimer_json(rendu.rendre_json(resultat.propositions, pour_le_rendu))
-    else:
-        print(rendu.rendre_texte(resultat.propositions, pour_le_rendu))
-    return 0
+        return rendu.rendre_json(resultat.propositions, pour_le_rendu), None
+    return None, rendu.rendre_texte(resultat.propositions, pour_le_rendu)
 
 
 def vent_depuis_namespace(
@@ -119,44 +142,81 @@ def vent_depuis_namespace(
     lieu_depart: Depart | None = None,
 ) -> int:
     """Le vent au départ, **avant** de chercher quoi que ce soit (Q44) : toujours en JSON."""
-    jour = jour_option(getattr(args, "jour", None))
-    demande = DemandeVent(jour=jour, depart=heure_depart_du_jour(getattr(args, "depart", None), jour))
+    demande = demande_vent(jour=getattr(args, "jour", None), depart=getattr(args, "depart", None))
     r = service.executer_vent(demande, contexte(config, lieu_depart=lieu_depart), client_meteo=client_meteo)
     imprimer_json(rendu.vent_depart_json(r.question, r.jour, r.depart))
     return 0
+
+
+def demande_vent(*, jour: str | None = None, depart: str | None = None) -> DemandeVent:
+    """Le jour, puis l'heure de départ de ce jour-là."""
+    jour_lu = jour_option(jour)
+    return DemandeVent(jour=jour_lu, depart=heure_depart_du_jour(depart, jour_lu))
 
 
 # --- options ------------------------------------------------------------------
 
 
 def lire_options(args: argparse.Namespace, config: Config) -> Demande:
+    """Les options de la ligne de commande, passées à `demande`."""
+    return demande(
+        config,
+        jour=getattr(args, "jour", None),
+        distance=getattr(args, "distance", None),
+        direction=getattr(args, "direction", None),
+        candidates=getattr(args, "candidates", None),
+        velo=getattr(args, "velo", None),
+        vent=getattr(args, "vent", None),
+        profil=getattr(args, "profil", None),
+        depart=getattr(args, "depart", None),
+        sortie=getattr(args, "sortie", None),
+        carte=getattr(args, "carte", None),
+        ecraser=bool(getattr(args, "ecraser", False)),
+        fichier_seance=getattr(args, "fichier_seance", None),
+    )
+
+
+def demande(
+    config: Config,
+    *,
+    jour: str | None = None,
+    distance: float | None = None,
+    direction: str | None = None,
+    candidates: int | None = None,
+    velo: str | None = None,
+    vent: str | None = None,
+    profil: str | None = None,
+    depart: str | None = None,
+    sortie: str | None = None,
+    carte: str | None = None,
+    ecraser: bool = False,
+    fichier_seance: str | None = None,
+) -> Demande:
     """Valide tout ce qui peut l'être **avant** le premier appel réseau.
 
     Une date illisible, une distance négative, une direction inconnue, un vélo
     absent de la configuration ou un dossier de sortie où l'on ne peut pas
     écrire doivent coûter un message immédiat — pas un aller-retour chez
-    Intervals, puis chez BRouter, puis chez Open-Meteo.
+    Intervals, puis chez BRouter, puis chez Open-Meteo. `profil` est le
+    profil **BRouter** (`--profil`), `config` celle du cycliste.
     """
-    jour = jour_option(getattr(args, "jour", None))
+    jour_lu = jour_option(jour)
 
-    distance_km = getattr(args, "distance", None)
+    distance_km = distance
     if distance_km is not None and (not math.isfinite(distance_km) or distance_km <= 0):
         raise ErreurUtilisateur(
             f"--distance {distance_km} : une distance en kilomètres strictement positive est "
             "attendue (omettre l'option pour la déduire de la séance)"
         )
 
-    direction = getattr(args, "direction", None)
     libelle, azimut = ("", None)
     if direction is not None:
         libelle, azimut = direction_en_azimut(direction)
 
-    nb = getattr(args, "candidates", None)
-    nb = config.boucle.candidates if nb is None else int(nb)
+    nb = config.boucle.candidates if candidates is None else int(candidates)
     if nb < 1:
         raise ErreurUtilisateur(f"--candidates {nb} : au moins une candidate est attendue")
 
-    velo = getattr(args, "velo", None)
     if velo:
         config.velo(velo)  # lève ErreurConfig si le vélo n'existe pas
 
@@ -166,44 +226,41 @@ def lire_options(args: argparse.Namespace, config: Config) -> Demande:
             "y mettre l'adresse du serveur BRouter"
         )
 
-    vent = orientation.valider(getattr(args, "vent", None))
+    vent_lu = orientation.valider(vent)
     # Q44 : les deux réglages fixaient le même azimut, et rien ne disait lequel
     # gagnait. `--direction` l'emportait en silence, ce qui laissait le
     # cycliste croire que son orientation au vent avait été honorée. On ne
     # choisit plus un gagnant : on refuse la contradiction, et le message dit
     # les deux formulations possibles. « Peu importe » n'est pas une
     # contradiction — c'est l'absence de demande.
-    if azimut is not None and vent != orientation.PEU_IMPORTE:
+    if azimut is not None and vent_lu != orientation.PEU_IMPORTE:
         raise ErreurUtilisateur(
-            f"--direction {libelle} et --vent {vent} demandent tous deux une direction de "
+            f"--direction {libelle} et --vent {vent_lu} demandent tous deux une direction de "
             "recherche, et rien ne dit laquelle devrait l'emporter : choisir sa direction "
             "**ou** la laisser déduire du vent, pas les deux"
         )
 
-    sortie = getattr(args, "sortie", None)
-    carte = getattr(args, "carte", None)
-    fichier_seance = getattr(args, "fichier_seance", None)
-    demande = Demande(
-        jour=jour,
+    lue = Demande(
+        jour=jour_lu,
         distance_km=float(distance_km) if distance_km is not None else None,
         direction=libelle,
         azimut_deg=azimut,
         nb_candidates=nb,
-        profil=getattr(args, "profil", None) or config.brouter.profil,
-        depart=heure_depart_du_jour(getattr(args, "depart", None), jour),
+        profil=profil or config.brouter.profil,
+        depart=heure_depart_du_jour(depart, jour_lu),
         velo=velo,
         sortie=Path(sortie) if sortie else None,
         carte=Path(carte) if carte else None,
-        ecraser=bool(getattr(args, "ecraser", False)),
-        vent=vent,
+        ecraser=ecraser,
+        vent=vent_lu,
         fichier=Path(fichier_seance) if fichier_seance else None,
     )
     for chemin, demande_explicite in (
-        (chemin_gpx_par_defaut(demande, config.cache.dossier), demande.sortie is not None),
-        (chemin_carte_par_defaut(demande, config.cache.dossier), demande.carte is not None),
+        (chemin_gpx_par_defaut(lue, config.cache.dossier), lue.sortie is not None),
+        (chemin_carte_par_defaut(lue, config.cache.dossier), lue.carte is not None),
     ):
-        verifier_ecriture(chemin, explicite=demande_explicite, ecraser=demande.ecraser)
-    return demande
+        verifier_ecriture(chemin, explicite=demande_explicite, ecraser=lue.ecraser)
+    return lue
 
 
 # --- la page du jour ------------------------------------------------------------

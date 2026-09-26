@@ -14,17 +14,36 @@ from ourouler.noyau.profil import Depart, Profil
 
 
 def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeMeteo:
+    """Les options de la ligne de commande, passées à `demande`."""
+    return demande(
+        profil,
+        depart=getattr(args, "depart", None),
+        horizon=getattr(args, "horizon", None),
+        modele=getattr(args, "modele", None),
+        second_avis=getattr(args, "second_avis", None),
+    )
+
+
+def demande(
+    profil: Profil,
+    *,
+    depart: str | None = None,
+    horizon: int | None = None,
+    modele: str | None = None,
+    second_avis: str | None = None,
+) -> DemandeMeteo:
     """Les options, interprétées **avant** tout appel : horizon borné, puis heure de départ.
 
     `--horizon 0` doit être refusé, pas remplacé par la configuration : d'où
-    le test sur `None` plutôt qu'un `or`.
+    le test sur `None` plutôt qu'un `or`. Appelée par la ligne de commande
+    (`lire_options`) et par l'API (`api/calculs.py`), avec les mêmes valeurs
+    brutes : les mêmes refus, dans le même ordre.
     """
-    modele = getattr(args, "modele", None) or profil.meteo.modele
-    second_avis = getattr(args, "second_avis", None) or profil.meteo.second_avis
-    horizon = getattr(args, "horizon", None)
+    modele = modele or profil.meteo.modele
+    second_avis = second_avis or profil.meteo.second_avis
     horizon_h = valider_horizon(profil.meteo.horizon_h if horizon is None else horizon)
     # Heure locale, consciente du fuseau : le client la convertit en UTC lui-même.
-    debut = heure_depart(getattr(args, "depart", None))
+    debut = heure_depart(depart)
     return DemandeMeteo(debut=debut, horizon_h=horizon_h, modele=modele, second_avis=second_avis)
 
 
