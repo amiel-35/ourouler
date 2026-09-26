@@ -1,4 +1,4 @@
-# Orchestration de l'API+front (lot L7.E) **sur Coolify**, distincte du
+# Orchestration de l'API+front **sur Coolify**, distincte du
 # `deploiement/api/docker-compose.yml` local. Même différences que celles déjà
 # mesurées pour le générateur de la page du jour (`docker-compose.coolify.yml`,
 # à lire d'abord) et toutes conséquences de l'hébergeur, pas des choix de
@@ -31,10 +31,8 @@
 # dont l'outil s'y prend.
 #
 # **`OUROULER_MODE` n'a pas de défaut ici, et c'est voulu.** Le poser à
-# `personnel` (le mainteneur, seul cycliste, sur son propre déploiement) ou
-# `heberge` (plusieurs cyclistes — aucune méthode de connexion n'est branchée
-# tant que le mainteneur n'en a pas décidé une, hors périmètre du sprint 7)
-# est un choix produit, pas une valeur qui se devine : l'absence de variable
+# `personnel` (un seul cycliste, sur son propre déploiement) ou `heberge`
+# (plusieurs cyclistes, chacun avec son compte) est un choix produit, pas une valeur qui se devine : l'absence de variable
 # vaut déjà `heberge` côté code (`api/exploitation.fournisseur_session`), donc
 # ce fichier n'a pas besoin de la répéter pour obtenir ce comportement, et ne
 # doit surtout pas y substituer `personnel` en silence.
@@ -44,14 +42,8 @@ services:
     build:
       context: .
       dockerfile: deploiement/api/Dockerfile
-    # Tout en dictionnaire : mélanger la forme liste (`- CLE`) et la forme
-    # dictionnaire (`CLE: valeur`) dans le même bloc est un YAML invalide, et
-    # le déploiement échoue sur « did not find expected '-' indicator » sans
-    # dire lequel des deux blocs est fautif (constaté le 18/09/2026, avant le
-    # premier déploiement). `SERVICE_FQDN_API_8000` sans valeur est repris de
-    # l'environnement, ce que la forme dictionnaire écrit avec une valeur vide.
     # Tout en liste, et pas en dictionnaire — deux pièges successifs, tous
-    # deux mesurés sur ce fichier le 18/09/2026 :
+    # deux mesurés sur ce fichier :
     #
     # 1. Mélanger les deux formes (`- CLE` et `CLE: valeur`) dans le même bloc
     #    est un YAML invalide : le déploiement échoue sur « did not find
@@ -86,9 +78,9 @@ services:
       # L'URL publique devant laquelle `/entrer?jeton=…` et
       # `/reinitialiser?jeton=…` s'ouvrent — lue par `cli._url_publique()`
       # pour `ourouler inviter`/`reinitialiser`, jamais par le processus API
-      # lui-même. Absente jusqu'au 25/09/2026 : ces deux commandes refusaient
-      # dans le conteneur avec « OUROULER_URL_PUBLIQUE n'est pas défini »,
-      # alors même que Coolify calcule déjà cette URL — `SERVICE_URL_API` est
+      # lui-même. Sans elle, ces deux commandes refuseraient dans le conteneur
+      # avec « OUROULER_URL_PUBLIQUE n'est pas défini », alors même que
+      # Coolify calcule déjà cette URL — `SERVICE_URL_API` est
       # la variable magique qu'il dérive de `SERVICE_FQDN_API_8000` ci-dessus
       # (même mécanisme que `SERVICE_FQDN_API` pour le domaine nu), avec le
       # `https://` déjà dedans. La reprendre ici évite de la deviner en code
@@ -108,10 +100,9 @@ services:
       # directement en `nouveau`. Déclarée ici, sinon Coolify ne la transmet pas.
       - 'OUROULER_API_CHEMIN=${OUROULER_API_CHEMIN:-}'
       # **Les cinq variables suivantes ne valent qu'en OUROULER_MODE=personnel**
-      # (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
-      # fuite fermée le 21/09/2026, voir deploiement/api/README.md). En
-      # `heberge`, laisser leur valeur Coolify **vide** : l'API les ignore
-      # de toute façon depuis cette date et **refuse de démarrer** si l'une
+      # (sections personnelles, jamais héritées : décision Q35 ; voir
+      # deploiement/api/README.md). En `heberge`, laisser leur valeur Coolify
+      # **vide** : l'API les ignore de toute façon et **refuse de démarrer** si l'une
       # d'elles porte une valeur — un point de départ ou une clé au niveau du
       # serveur seraient distribués à chaque personne invitée. La déclaration
       # ci-dessous ne pose que le *nom* de la variable pour Coolify (même

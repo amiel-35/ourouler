@@ -7,8 +7,9 @@
 # plutôt que deux services et un proxy devant.
 #
 # **Rien n'est déployé par ce fichier.** Il décrit une image ; la construire
-# et la lancer localement (`docker-compose.yml` à côté) sert à vérifier le
-# lot, pas à le mettre en ligne (règle absolue 7 de CLAUDE.md).
+# et la lancer localement (`docker-compose.yml` à côté) sert à vérifier
+# l'image, pas à la mettre en ligne (aucune installation sur un serveur sans
+# l'accord de qui l'exploite, `AGENTS.md`).
 #
 # Aucune donnée personnelle ni clé ici : la configuration réelle (TOML
 # non-secrets en base64 + variables d'environnement pour les secrets) est

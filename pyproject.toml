@@ -17,17 +17,16 @@ dependencies = [
 ourouler = "ourouler.cli:main"
 
 [project.optional-dependencies]
-# L'API (lot F1) et son serveur. Extra séparé : `ourouler` reste une
-# bibliothèque et une ligne de commande installables sans cadre web.
-# `doctrine_architecture.md:74` autorisait Pydantic « tant qu'il n'y a pas
-# d'API » — l'API arrive, FastAPI l'apporte.
+# L'API et son serveur. Extra séparé : `ourouler` reste une bibliothèque et
+# une ligne de commande installables sans cadre web. FastAPI apporte Pydantic,
+# que `doctrine_architecture.md` (§3, « Stack ») réserve à l'API.
 api = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
     # Le dépôt d'un .ZWO/.MRC passe par un formulaire multipart : FastAPI
     # délègue son analyse à cette bibliothèque, qu'il ne tire pas tout seul.
     "python-multipart>=0.0.9",
-    # Les comptes (lot L7.2-A) vivent dans le PostgreSQL de l'hébergé
+    # Les comptes vivent dans le PostgreSQL de l'hébergé
     # (doctrine §10.2). Pilote seul, SQL nu, pas d'ORM ; « binary » évite de
     # dépendre d'un libpq installé sur la machine.
     "psycopg[binary]>=3.2",

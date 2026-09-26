@@ -1,7 +1,7 @@
 # Secrets du *service*, pas du cycliste — exemple, à copier hors du dépôt.
 #
 # Le vrai fichier vit dans `~/.config/ourouler/service.toml`, en 0600, et
-# **n'entre jamais dans le dépôt** (règle absolue 1). Celui-ci est son modèle,
+# **n'entre jamais dans le dépôt** (aucune donnée personnelle dans le dépôt). Celui-ci est son modèle,
 # vide, et c'est le seul des deux qui est commité.
 #
 # ## Pourquoi un second fichier
@@ -12,21 +12,20 @@
 # particulier. Les deux ne se remplissent pas par la même personne et ne se
 # déploient pas de la même façon.
 #
-# La frontière exacte entre les deux est [[Q35]], encore ouverte. Ce fichier
-# n'anticipe pas sa réponse : il accueille ce dont on est sûr qu'il est au
-# service, et rien d'autre.
+# La frontière entre les deux est la décision Q35
+# (`docs/journal/questions/questions_mainteneur.md`) : il n'accueille que ce qui
+# est au service, et rien d'autre.
 #
 # ## Ce qui le lit
 #
-# `ourouler inviter` (lot L7.2-B) : `cli.py` l'ouvre, valide la section
+# `ourouler inviter` : `cli.py` l'ouvre, valide la section
 # [brevo] et passe le résultat à `api/courriel.py`, qui ne lit ni fichier ni
-# variable lui-même (règle absolue 2 — `tests/test_invariants.py` le
-# vérifie). Sans `--sans-courriel`, la commande refuse de démarrer avec un
+# variable lui-même (le cœur ne lit ni configuration ni environnement — `tests/test_invariants.py` le vérifie). Sans `--sans-courriel`, la commande refuse de démarrer avec un
 # message lisible si ce fichier manque ou si [brevo] est incomplète.
 #
-# Depuis le lot L9.3, le processus API le lit aussi, pour [quotas] — via
+# Le processus API le lit aussi, pour [quotas] — via
 # `api/exploitation.py`, le seul module de l'API qui en a le droit, jamais
-# `api/quotas.py` lui-même (même règle absolue 2). Contrairement à [brevo],
+# `api/quotas.py` lui-même (même règle). Contrairement à [brevo],
 # [quotas] est facultatif : son absence, ou celle du fichier entier, vaut le
 # défaut, pas un refus de démarrer.
 
@@ -35,7 +34,7 @@
 # main, puis lien à usage unique par courriel, puis passkey pour ne plus
 # dépendre de la boîte mail.
 #
-# **Envoi par SMTP, pas par l'API REST** (décidé le 18/09/2026). C'est du
+# **Envoi par SMTP, pas par l'API REST.** C'est du
 # protocole standard : aucune bibliothèque du fournisseur, et on change de
 # prestataire en éditant trois lignes. L'API REST n'apporterait qu'un suivi
 # d'ouverture dont ce produit n'a que faire.
@@ -57,12 +56,11 @@ expediteur = ""
 nom_expediteur = "où rouler"
 
 [quotas]
-# Lot L9.3 — le coût par utilisateur. Doctrine §10.1 : Open-Meteo gratuit
+# Le coût par utilisateur. Doctrine §10.1 : Open-Meteo gratuit
 # tolère ~10 000 appels par jour et par adresse IP, et un service hébergé où
 # tous les comptes partagent la même adresse les additionne. Grouper
 # plusieurs points dans une requête n'économise **aucun** appel décompté —
-# Open-Meteo compte par coordonnée, pas par requête (doctrine §10.1,
-# correction du 16/09/2026) — donc `GET /meteo` (une couronne, deux modèles,
+# Open-Meteo compte par coordonnée, pas par requête (doctrine §10.1) — donc `GET /meteo` (une couronne, deux modèles,
 # ~50 appels) pèse lui aussi, pas seulement `POST /sorties`/`POST /boucles`
 # (~150 chacune, cinq candidates). D'où deux réglages, pour deux postes.
 #
@@ -70,9 +68,8 @@ nom_expediteur = "où rouler"
 # appels à `POST /sorties` et `POST /boucles`. **Calcul du défaut (20)** :
 # 20 générations × ~150 appels ≈ 3 000, sur les 10 000 que tout le service
 # partage par jour et par adresse IP — de quoi laisser de la place aux
-# consultations météo (ci-dessous) et aux autres comptes du même service. Au
-# 40 d'une première version de ce lot, 40 × 150 = 6 000 ne laissait presque
-# rien pour le reste (relecture Opus, 25/09/2026).
+# consultations météo (ci-dessous) et aux autres comptes du même service. À
+# 40, 40 × 150 = 6 000 ne laisserait presque rien pour le reste.
 #
 # `consultations_meteo_par_jour` borne, séparément, `GET /meteo`.
 # **Calcul du défaut (100)** : 100 × ~50 ≈ 5 000 — qui s'ajoutent aux ~3 000
@@ -88,7 +85,7 @@ nom_expediteur = "où rouler"
 # `api.quotas.CONSULTATIONS_METEO_PAR_JOUR_DEFAUT`) — un déploiement qui n'a
 # pas encore de section `[quotas]` n'est pas sans plafond, il a le défaut.
 # **Le mode personnel n'a aucun des deux quotas** (`OUROULER_MODE=personnel`,
-# `ourouler api` sur la machine du mainteneur) : ce réglage ne le concerne
+# `ourouler api` sur un poste personnel) : ce réglage ne le concerne
 # pas, il n'appelle Open-Meteo que depuis sa propre adresse IP.
 generations_par_jour = 20
 consultations_meteo_par_jour = 100
