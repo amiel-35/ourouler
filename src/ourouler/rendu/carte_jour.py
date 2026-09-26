@@ -45,8 +45,8 @@ class PropositionCarte:
     — recopiés tels quels, jamais reformulés ici. `gpx_texte` est le GPX du
     **parcours placé** (demi-tours compris, comme `_ecrire_gpx`) : ce module
     ne l'écrit pas sur disque, il l'embarque dans la page pour un
-    téléchargement `blob:` côté navigateur (§4.2 du contrat — « le fichier
-    suit le choix du cycliste, pas le classement »).
+    téléchargement `blob:` côté navigateur : le fichier suit le choix du
+    cycliste, pas le classement.
     """
 
     numero: int

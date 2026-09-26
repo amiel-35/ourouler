@@ -121,8 +121,8 @@ def page_jour(
     GPX embarqué dans la page est celui du **parcours placé**, demi-tours
     compris — même règle que le fichier que la commande écrit sur disque,
     mais celui-ci n'est jamais écrit : il part en base64 dans la page, pour
-    un téléchargement `blob:` côté navigateur (§4.2 du contrat — « le
-    fichier suit le choix du cycliste, pas le classement »).
+    un téléchargement `blob:` côté navigateur : le fichier suit le choix du
+    cycliste, pas le classement.
     """
     par_numero = {g.numero: g for g in gpx_propositions}
     cartes_props = []

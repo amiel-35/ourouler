@@ -207,11 +207,11 @@ def calibrer(
 
     **Le modèle est linéaire en CdA et en Crr** : à vitesse, pente et vent
     donnés, la puissance vaut `a·CdA + b·Crr + c`, où a, b et c ne dépendent
-    d'aucun des deux. Le contrat de sprint prévoyait une grille grossière puis
-    un affinage ; la solution exacte existe, on la prend — et les coefficients
+    d'aucun des deux. Pas de grille grossière puis d'affinage : la solution
+    exacte existe, on la prend — et les coefficients
     a, b, c sont obtenus en appelant `puissance_requise` avec des paramètres
     unitaires, de sorte que la calibration ne puisse pas diverger de la
-    physique du modèle. Écart au contrat assumé et signalé.
+    physique du modèle.
 
     Hors des bornes, le minimum d'une forme quadratique convexe sur un pavé
     est sur le bord : on résout alors les quatre arêtes et on garde la

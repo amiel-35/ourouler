@@ -221,8 +221,7 @@ export interface PanneGpx {
  * **Reste un `fetch` brut** — le navigateur a besoin d'un fichier, pas d'un
  * JSON désérialisé, pour le passer à `navigator.share` — mais il vit ici,
  * avec `appeler` ci-dessous : `api/client.ts` est le seul module du front
- * qui touche au réseau (`docs/ouverture_plan.md` §7, `tests/reseau_unique.
- * test.ts`).
+ * qui touche au réseau (`tests/reseau_unique.test.ts`).
  *
  * Distingue les deux échecs qui n'appellent pas le même mot : le réseau ne
  * répond pas du tout (`fetch` jette un `TypeError`, hors ligne ou serveur

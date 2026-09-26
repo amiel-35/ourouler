@@ -171,7 +171,7 @@ def interpreter(
     pauses_lues = tuple(analyser_pause(p) for p in pauses or [])
     # Sans `--gpx`, `distance_km` (la distance **demandée**) est la seule
     # longueur connue avant tout appel BRouter — les candidates réellement
-    # générées peuvent différer dans la tolérance du contrat, mais une pause
+    # générées peuvent différer dans la tolérance de distance, mais une pause
     # au-delà de ce qui a été demandé est déjà une erreur d'entrée. Avec
     # `--gpx`, la longueur réelle du tracé n'est connue qu'après lecture du
     # fichier : le service revalide alors contre elle.

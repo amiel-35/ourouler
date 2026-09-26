@@ -36,7 +36,7 @@ def detecter_groupe(
     fait gagner 20 à 30 % de traînée, et un tel gain attribué au vélo
     fausserait son CdA pour toutes les autres sorties.
 
-    Le seuil est celui du contrat : résidu > +8 % sur plus de la moitié de la
+    Le seuil : résidu > +8 % sur plus de la moitié de la
     distance **retenue** (les tronçons écartés — arrêts, accélérations — ne
     disent rien d'un équilibre).
     """

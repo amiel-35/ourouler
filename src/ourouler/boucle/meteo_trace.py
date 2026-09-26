@@ -47,7 +47,7 @@ from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint, interpoler_angl
 from ourouler.noyau.ports import SourcePrevisions
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 
-#: Au-delà, on compte l'échantillon comme « sous la pluie » (seuil du contrat).
+#: Au-delà, on compte l'échantillon comme « sous la pluie ».
 SEUIL_PLUIE_MM_H = 0.2
 
 #: Vent moyen (à 10 m, en km/h) en dessous duquel on considère qu'il n'y a

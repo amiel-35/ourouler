@@ -134,8 +134,8 @@ def analyser_pause(texte: str) -> Pause:
     à `analyser_duree`.
 
     Refuse, en nommant le champ fautif : un kilomètre négatif ou illisible,
-    une durée nulle ou négative (une pause de zéro n'en est pas une, et son
-    absence complète du contrat plutôt qu'un refus silencieux serait la même
+    une durée nulle ou négative (une pause de zéro n'en est pas une, et
+    l'ignorer en silence plutôt que la refuser serait la même
     erreur cachée qu'une donnée inventée — on n'affirme rien sans mesure).
     """
     brut = (texte or "").strip()

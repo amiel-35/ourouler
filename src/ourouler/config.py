@@ -205,8 +205,8 @@ def finaliser(
 
 
 def _survoler_environnement(brut: dict[str, Any], environ: Mapping[str, str]) -> dict[str, Any]:
-    """Complète ou remplace, dans le dict TOML, les trois sections que le contrat de
-    l'hébergé minimal fait venir de l'environnement : le point de départ, la
+    """Complète ou remplace, dans le dict TOML, les trois sections que l'hébergé
+    minimal fait venir de l'environnement : le point de départ, la
     clé Intervals, l'URL et les identifiants BRouter. Une variable absente
     laisse le TOML inchangé ; présente, elle l'emporte toujours — c'est
     l'environnement qui fait foi en conteneur. Ne mute jamais `brut` : une
@@ -793,8 +793,8 @@ def _entier(
     """Un entier de configuration, ou `ErreurConfig` nommant le champ.
 
     `int(meteo.get(...))` laissait remonter la `ValueError` brute de
-    `int("huit")` : trace et code 1, là où le contrat demande une erreur
-    utilisateur nommant le champ. Les bornes sont vérifiées ici plutôt qu'au
+    `int("huit")` : trace et code 1, là où il faut une erreur utilisateur
+    nommant le champ. Les bornes sont vérifiées ici plutôt qu'au
     moment de s'en servir, pour que la faute soit signalée au chargement.
     """
     if isinstance(x, bool):

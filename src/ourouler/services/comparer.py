@@ -258,7 +258,7 @@ def _admissible(echantillon, *, zone_w: tuple[float, float], pente_max: float) -
     """Tronçon plat, roulé d'un trait, dans la zone de puissance, et localisé.
 
     Les motifs acceptés sont ceux qui ne disent **rien contre** la vitesse du
-    tronçon : `retenu`, `accélération` (le contrat de calibration écarte un
+    tronçon : `retenu`, `accélération` (la calibration écarte un
     tronçon dont la vitesse change de plus de 1 m/s ; ici c'est la vitesse elle
     -même qu'on mesure, et la série n'est pas coupée pour si peu) et `départ`
     (les deux premiers kilomètres ne dérangent que l'ajustement d'un modèle).

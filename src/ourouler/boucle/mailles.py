@@ -17,7 +17,7 @@ import math
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
 
 #: Facteur de la maille : 1/3000 de degré ≈ 37 m en latitude, ~37 m en
-#: longitude à nos latitudes. « ~30 m » du contrat, au degré de précision près.
+#: longitude à nos latitudes. « ~30 m », au degré de précision près.
 MAILLE = 3000
 
 #: Pas de découpe d'un segment pour l'attribution aux mailles : une demi-maille,

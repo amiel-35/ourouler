@@ -22,7 +22,7 @@ from ourouler.physique.modele import (
     vent_au_cycliste,
 )
 
-#: Longueur visée d'un échantillon, en mètres (contrat de sprint §3).
+#: Longueur visée d'un échantillon, en mètres.
 LONGUEUR_ECHANTILLON_M = 200.0
 
 #: Sous cette vitesse instantanée, le cycliste est à l'arrêt (feu, stop).
@@ -83,8 +83,7 @@ class Echantillon:
     """Un tronçon d'environ 200 m d'une sortie réelle, et ce qu'on en sait.
 
     `retenu` dit si la calibration s'en sert, `motif` dit pourquoi pas. Les
-    champs après `motif` sont des compléments du contrat de sprint : la
-    longueur (pour pondérer par la distance), la masse volumique de l'air
+    champs après `motif` complètent : la longueur (pour pondérer par la distance), la masse volumique de l'air
     mesurée du jour, si le vent était connu, l'instant de passage, et les
     **vitesses aux deux bouts** — sans elles, on ne sait pas si le cycliste a
     accéléré pendant les 200 m.

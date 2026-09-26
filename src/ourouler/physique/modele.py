@@ -8,11 +8,11 @@ des roulements de roue, ni résistance du vent de travers.
     P = (1/η) · [ (Crr·m·g·cos θ + m·g·sin θ)·v + ½·ρ·CdA·v_air·|v_air|·v ]
 
 avec θ = atan(pente) et `v_air = v + v_vent_face` (vent de face compté
-positif). Le contrat de sprint §3 écrit ce dernier terme `(v + v_vent_face)²` ;
-c'est la même chose tant que l'air vient de face, mais un vent arrière plus
-rapide que le cycliste (`v_air < 0`) rendait alors une traînée **positive**,
+positif). On écrit souvent ce dernier terme `(v + v_vent_face)²` ; c'est la
+même chose tant que l'air vient de face, mais un vent arrière plus rapide que
+le cycliste (`v_air < 0`) rendrait alors une traînée **positive**,
 c'est-à-dire un vent de dos qui freine. `v_air·|v_air|` garde le signe : la
-poussée est une puissance négative. Écart au contrat assumé et signalé.
+poussée est une puissance négative.
 
 Le vent que ce bilan attend est celui **à hauteur de cycliste**, pas celui
 des bulletins : `vent_au_cycliste` fait la conversion, une fois pour toutes,

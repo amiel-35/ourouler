@@ -18,7 +18,7 @@ d'effacement qu'on lui passe — `vie_privee.effacer_donnees`, la même que
 `DELETE /moi` — avec les dépôts du serveur hébergé.
 
 `api/comptes.py` (le dépôt PostgreSQL) et `api/courriel.py` (le client SMTP)
-sont rangés, par leur rôle, au stockage et aux connecteurs dans le contrat
+sont rangés, par leur rôle, au stockage et aux connecteurs dans la règle
 d'imports (`tests/test_architecture.py`) : un service a le droit de les
 importer, pas le reste du paquet `api/`.
 """

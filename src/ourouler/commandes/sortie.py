@@ -300,8 +300,8 @@ def ecrire_page_jour(
     ne fait que l'écrire à l'emplacement de la carte (`--carte`, ou le nom
     daté par défaut). Les GPX qu'elle embarque sont ceux de
     `sortie.commande._gpx_propositions`, déjà en mémoire : jamais écrits sur disque, ils
-    partent en base64 dans la page (§4.2 du contrat — « le fichier suit le
-    choix du cycliste, pas le classement »).
+    partent en base64 dans la page : le fichier suit le choix du cycliste, pas
+    le classement.
     """
     chemin = chemin_carte_par_defaut(demande, dossier_cache)
     page = page_jour(seance, demande, profil, selection, gpx_propositions, maintenant=datetime.now())

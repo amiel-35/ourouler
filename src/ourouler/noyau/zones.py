@@ -139,7 +139,7 @@ def position_dans_zone(
     **Le résultat n'est pas ramené dans [0, 1], et c'est voulu.** Décision 8 :
     quelqu'un qui saisit sa moyenne compteur au lieu de sa vitesse à plat se
     retrouve *sous* sa Z2 — 0,508 × FTP donne ici −0,274, soit « à −27 % de la
-    bande », exactement le chiffre que le contrat rapporte. Un écrêtage aurait
+    bande », exactement le chiffre qu'il faut rapporter. Un écrêtage aurait
     masqué la faute au lieu de la montrer, et l'écran doit pouvoir la dire.
 
     Rend `None` pour une zone ouverte, pour la même raison que
