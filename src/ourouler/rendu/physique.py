@@ -57,8 +57,6 @@ def rendre_texte_calibration(
     n_calibrables: int,
     crr_source: str = "ajuste",
 ) -> str:
-    a = rapport.ajustement
-    v = rapport.validation
     lignes = [
         f"Calibration {velo.nom} — {n_calibrables} sortie(s) calibrable(s) "
         f"depuis le {depuis.isoformat()}"
@@ -70,6 +68,24 @@ def rendre_texte_calibration(
         f"Archives météo : {archives_appels} appel(s), {archives_cache} déjà en cache"
     )
     lignes.append("")
+    lignes.extend(_lignes_apprentissage(rapport, velo, crr_source))
+    lignes.append("")
+    lignes.extend(_lignes_validation(rapport))
+    lignes.append("")
+    lignes.extend(_lignes_porte_a_porte(rapport.porte_a_porte))
+    lignes.append("")
+    lignes.append(
+        "Le temps simulé est un temps **en mouvement** : ni les arrêts, ni les "
+        "redémarrages n'y sont modélisés — la fourchette du porte à porte les ajoute."
+    )
+    lignes.append(f"Écrit dans {fichier}")
+    return "\n".join(lignes)
+
+
+def _lignes_apprentissage(rapport: RapportCalibration, velo: Velo, crr_source: str) -> list[str]:
+    """Le paragraphe « Apprentissage » : échantillons, résistance, CdA et Crr, écarts."""
+    a = rapport.ajustement
+    lignes: list[str] = []
     lignes.append(
         f"Apprentissage : {rapport.n_apprentissage} sortie(s), "
         f"{rapport.echantillons_retenus} échantillon(s) retenu(s) sur {rapport.echantillons}"
@@ -128,7 +144,13 @@ def rendre_texte_calibration(
         for nom, part in rapport.groupes:
             lignes.append(f"    {part:.0%} de la distance trop rapide — {nom}")
 
-    lignes.append("")
+    return lignes
+
+
+def _lignes_validation(rapport: RapportCalibration) -> list[str]:
+    """Le paragraphe « Validation » : l'erreur sur les sorties jamais vues par l'ajustement."""
+    v = rapport.validation
+    lignes: list[str] = []
     lignes.append(f"Validation : {v.n} sortie(s) les plus récentes, jamais vues par l'ajustement")
     if v.n:
         lignes.append(
@@ -149,15 +171,7 @@ def rendre_texte_calibration(
         )
         for nom, part in rapport.groupes_en_validation:
             lignes.append(f"    {part:.0%} de la distance trop rapide — {nom}")
-    lignes.append("")
-    lignes.extend(_lignes_porte_a_porte(rapport.porte_a_porte))
-    lignes.append("")
-    lignes.append(
-        "Le temps simulé est un temps **en mouvement** : ni les arrêts, ni les "
-        "redémarrages n'y sont modélisés — la fourchette du porte à porte les ajoute."
-    )
-    lignes.append(f"Écrit dans {fichier}")
-    return "\n".join(lignes)
+    return lignes
 
 
 def _crr_texte(crr_source: str, velo: Velo) -> str:
