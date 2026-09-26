@@ -50,10 +50,10 @@ from ourouler.noyau.trace import distance_m as distance_points
 from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.physique.modele import Parametres
+from ourouler.rendu import carte
+from ourouler.rendu.carte import COULEURS_BLOCS
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
-from ourouler.sortie import carte
-from ourouler.sortie.carte import COULEURS_BLOCS
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
     Proposition,

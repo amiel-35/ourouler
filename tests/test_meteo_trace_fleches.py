@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import ourouler.rendu.carte as carte
 import ourouler.seance.vent as seance_vent
-import ourouler.sortie.carte as carte
 from ourouler.boucle.meteo_trace import (
     SEUIL_VENT_SENSIBLE_KMH,
     Echantillon,

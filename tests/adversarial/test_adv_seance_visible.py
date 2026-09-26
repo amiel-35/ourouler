@@ -73,7 +73,7 @@ import fabriques_l52 as fab
 import pytest
 from outils import fabriquer
 
-MOTIF_CARTE = "module du sprint 4 absent (ourouler.sortie.carte)"
+MOTIF_CARTE = "module du sprint 4 absent (ourouler.rendu.carte)"
 MOTIF_SORTIE = "module du sprint 4 absent (ourouler.sortie.commande)"
 
 
@@ -160,7 +160,7 @@ def exiger_lot() -> None:
 
 
 def carte_mod() -> Any:
-    return pytest.importorskip("ourouler.sortie.carte", reason=MOTIF_CARTE)
+    return pytest.importorskip("ourouler.rendu.carte", reason=MOTIF_CARTE)
 
 
 def commande_mod() -> Any:

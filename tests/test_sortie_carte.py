@@ -17,8 +17,8 @@ import pytest
 from ourouler.boucle.meteo_trace import Echantillon, MeteoTrace
 from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import PointTrace, Trace
+from ourouler.rendu import carte
 from ourouler.seance.placement import Placement
-from ourouler.sortie import carte
 
 T0 = datetime(2026, 9, 16, 8, 0, tzinfo=UTC)
 

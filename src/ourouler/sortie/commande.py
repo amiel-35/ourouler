@@ -109,6 +109,7 @@ from ourouler.noyau.profil import Depart
 from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
+from ourouler.rendu.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
@@ -117,7 +118,6 @@ from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
 from ourouler.sortie import contraste, orientation, vent_demande
-from ourouler.sortie.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
 #: haut** : une séance de 72 km demande une boucle de 75 km. Vers le haut et

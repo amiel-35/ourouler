@@ -152,7 +152,8 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #: - `meteo/openmeteo.py` est un **connecteur** (client HTTP) ; ses types de
 #:   prévision sont au noyau depuis le lot 4 (`noyau/meteo.py`) ;
 #: - `boucle/gpx.py` est du **stockage** (lecteur et écrivain GPX) ;
-#: - `sortie/carte.py` est du **rendu** (carte HTML) ;
+#: - la carte HTML est du **rendu** : `rendu/carte.py` depuis le lot 6,
+#:   `sortie/carte.py` n'en est plus que le réexport ;
 #: - dans `api/`, trois modules ne sont pas des entrées (lot 5) :
 #:   `api/comptes.py` est du **stockage** (le dépôt PostgreSQL des comptes),
 #:   `api/courriel.py` un **connecteur** (le client SMTP), et
@@ -252,8 +253,10 @@ MODULES: dict[str, str] = {
     "ourouler.sortie.commande": "services",
     # 4. rendu
     "ourouler.rendu": "rendu",
+    "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.comptes": "rendu",
     "ourouler.rendu.profil": "rendu",
+    # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
     "ourouler.config": "config",
@@ -293,7 +296,7 @@ ECHEANCES = {
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
-    ("ourouler.sortie.commande", "ourouler.sortie.carte", "lot 6", "2026-11-30"),
+    ("ourouler.sortie.commande", "ourouler.rendu.carte", "lot 6", "2026-11-30"),
     # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
     # cache, l'inventaire ni le connecteur d'archive météo.
     ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
@@ -323,7 +326,8 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     ("ourouler.sortie.commande", "ourouler.config", "lot 10", "2026-12-31"),
 ]
 
-#: Ancien chemin → module du noyau qu'il réexporte (lot 3). Un réexport
+#: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
+#: carte, au rendu). Un réexport
 #: n'importe que sa cible, et plus aucun module de `src/` ne l'importe : un
 #: `monkeypatch.setattr` qui le viserait ne remplacerait rien dans le vrai
 #: module. `scripts/reecrire_imports.py` a fait suivre imports et cibles de
@@ -335,6 +339,8 @@ REEXPORTS: dict[str, str] = {
     "ourouler.proprietaire": "ourouler.noyau.proprietaire",
     "ourouler.seance.modele": "ourouler.noyau.seance",
     "ourouler.seance.zones": "ourouler.noyau.zones",
+    # lot 6 : la carte HTML, rangée au rendu avec sa cible
+    "ourouler.sortie.carte": "ourouler.rendu.carte",
 }
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
@@ -592,7 +598,7 @@ def test_aucune_exception_echue():
 
 def test_un_reexport_n_importe_que_sa_cible():
     for ancien, cible in REEXPORTS.items():
-        assert MODULES[ancien] == MODULES[cible] == "noyau"
+        assert MODULES[ancien] == MODULES[cible]
         importes = {i.importe for i in tous_les_imports() if i.importeur == ancien}
         assert importes == {cible}, ancien
 

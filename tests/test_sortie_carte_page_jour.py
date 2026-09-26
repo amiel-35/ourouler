@@ -18,7 +18,7 @@ from html.parser import HTMLParser
 import pytest
 from test_sortie_carte import _placement_vide, _seance_vide, _trace_droite, echantillon, meteo
 
-from ourouler.sortie import carte
+from ourouler.rendu import carte
 
 GPX_TEXTE = (
     '<?xml version="1.0"?>\n'
