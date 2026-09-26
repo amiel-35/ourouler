@@ -156,30 +156,27 @@ pas de squelette vide « pour plus tard ».
   avec le même lecteur. Un connecteur ne fait que rapatrier des fichiers et
   des métadonnées.
 
-  **Mais on ne le conserve pas — précisé le 19/09/2026 par le mainteneur**,
-  parce que ce chapitre disait « on stocke le brut » là où [Q48](docs/journal/questions/questions_mainteneur.md) (17/09)
-  avait décidé « on jette le brut, on garde le dérivé », et que les deux
-  tournaient en même temps sans que personne l'ait voulu.
+  **Le brut d'un export déposé se conserve** — tranché le 26/09/2026 par le
+  mainteneur ([Q67](docs/journal/questions/questions_mainteneur.md)), qui
+  rouvre la règle précédente « on jette le brut, on garde le dérivé »
+  ([Q48](docs/journal/questions/questions_mainteneur.md), précisée le 19/09).
+  La doctrine suit ici le code, pour trois raisons mesurées :
 
-  La règle est : **on ne garde jamais ce qu'on peut redemander.**
+  - **Un export est un instantané** qu'on ne peut pas re-télécharger ; le
+    jeter obligerait la personne à redéposer son archive à chaque
+    recalibration.
+  - **La calibration depuis l'écran relit les fichiers importés**
+    (`api/calibrations.py`), et **le dédoublonnage d'un import compare par
+    contenu** les fichiers déjà en cache (`activites/import_archive.py`).
+  - **Intervals reste branché** : là, le cache local n'est qu'un cache, qui
+    se remplit depuis la source et se jette sans rien perdre.
 
-  - **Intervals reste branché** : on relit quand on veut, donc rien à
-    conserver. Le cache local (`~/.cache/ourouler`) garde bien les fichiers
-    bruts, et c'est légitime — **c'est un cache, pas une archive** : il se
-    remplit tout seul depuis la source, et se jette sans rien perdre.
-  - **Un export déposé est un instantané** qu'on ne peut pas re-télécharger.
-    On en extrait le dérivé — les mailles avec leurs tags et leurs kilomètres,
-    les coefficients de calibration, quelques kilo-octets — et le brut part.
-    Quand l'algorithme change vraiment, ou quand la personne a progressé, **on
-    lui redemande une archive**. C'est le prix, et il est assumé : garder les
-    traces pour lui permettre de revoir ses sorties ferait « un Strava bis »,
-    explicitement écarté en [Q48](docs/journal/questions/questions_mainteneur.md).
-
-  *État : le code ne suit pas encore cette règle.* L'import range chaque
-  activité déposée dans le cache du propriétaire, fichier brut compris
-  (`activites/import_archive.py`, `Cache.ajouter`), et la calibration depuis
-  l'écran les relit. L'écart est posé au mainteneur, sans être tranché :
-  [Q67](docs/journal/questions/questions_mainteneur.md).
+  Ce qui garde la promesse « pas un Strava bis » : le brut est rangé **par
+  propriétaire** (`brut/comptes/<propriétaire>/`), **aucune route ne le montre
+  à quelqu'un d'autre**, il part dans l'export de la personne (`GET /moi/export`)
+  et **il s'efface avec le compte** (`DELETE /moi`, `api/vie_privee.py`,
+  vérifié par `tests/api/test_api_vie_privee.py`). Le choix donné à chacun de
+  conserver ou d'effacer ses données, et de changer d'avis, est au backlog.
 
   **Deux conséquences qui se voient dans le produit**, et qui ne sont pas des
   détails d'implémentation :
@@ -197,8 +194,9 @@ pas de squelette vide « pour plus tard ».
   échelle le risque d'action est nul et ce n'est pas ce qui décide. Ce qui
   décide : des traces GPS sont des données de localisation, elles portent le
   domicile de chacun au départ de chaque sortie, et **celui à qui ça se
-  reprocherait est l'ami qui les a confiées**, pas un régulateur. Jeter ce
-  qu'on n'a pas besoin de garder est la seule façon sûre de ne pas le perdre.
+  reprocherait est l'ami qui les a confiées**, pas un régulateur. C'est pour
+  cela que le brut conservé ne sort jamais du compte de la personne, part avec
+  lui, et que le choix de l'effacer lui reviendra.
 
 ## 6. Sources externes et leurs limites, telles que connues au cadrage
 

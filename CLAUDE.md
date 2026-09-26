@@ -5,14 +5,6 @@
 Tout ce qui vaut pour n'importe quel agent est dans `AGENTS.md`, importé
 ci-dessus. Ne s'ajoute ici que ce qui concerne Claude Code.
 
-## Sous-agents (`.claude/agents/`)
-
-- `superviseur` : découpe un chantier en tâches vérifiables et les distribue ; à lancer en premier.
-- `dev-feature` : implémente une tâche spécifiée, avec ses tests.
-- `dev-mecanique` : tâches mécaniques en checklist (fixtures, boilerplate, docs depuis un diff).
-- `testeur-adversarial` : écrit, sans lire le code, les tests qui essaient de casser une livraison.
-- `relecteur` : revue finale d'une livraison (doctrine, régressions, tests probants).
-
 ## Politique de modèles
 
 - Le `model` est **obligatoire** sur chaque appel d'agent : l'omettre hérite

@@ -158,7 +158,7 @@ on les rebase après les lots qui les touchent :
 
 **À faire à la fin de la restructuration complète** (décisions du
 mainteneur, 25/09/2026 ; rien avant) :
-- **Retirer `.claude/` du dépôt** (5 définitions d'agents et
+- **Fait le 26/09/2026.** **Retirer `.claude/` du dépôt** (5 définitions d'agents et
   `settings.json`) : il reste en place tant que la restructuration s'en sert,
   puis il part dans l'espace local du mainteneur. Les contributeurs
   n'auront qu'`AGENTS.md` ; vérifier alors que `CLAUDE.md` et
