@@ -52,13 +52,18 @@ A_VENIR: set[str] = set()
 #: - `docs/ouverture_plan.md` : un plan antérieur à la phase de nettoyage
 #:   (rangement en `docs/decisions/`, jamais fait — voir `docs/journal/questions/`)
 #:   et des raccourcis vers des modules déjà déplacés ou renommés depuis, sous
-#:   un ancien chemin ou sans leur extension, assumés comme tels dans la prose.
+#:   un ancien chemin ou sans leur extension, assumés comme tels dans la prose ;
+#:   et `.claude/` (agents et `settings.json` de Claude Code), retiré du dépôt
+#:   et gardé en local, que le plan cite pour dire ce retrait.
 IGNORES: dict[str, frozenset[str]] = {
     "docs/guide_ligne_de_commande.md": frozenset({"sorties/"}),
     "docs/inviter.md": frozenset({"config.toml", "service.toml"}),
     "docs/services_externes.md": frozenset({"service.toml"}),
     "docs/ouverture_plan.md": frozenset(
         {
+            ".claude/",
+            ".claude/agents/",
+            "settings.json",
             "docs/decisions/",
             "docs/decisions/Qnn",
             "docs/journal/questions/…#Qnn",
