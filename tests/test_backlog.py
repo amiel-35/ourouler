@@ -833,6 +833,54 @@ def test_m13_element_livre_qui_change_de_champ():
     assert _viole(violations_contre_base(base, courant), "ne peut plus changer")
 
 
+def test_m14_nouveau_sprint_doit_etre_esquisse():
+    """Un numéro de sprint absent de la base (mais le fichier existait déjà) ne
+    peut apparaître qu'en 'esquisse' ; toute autre valeur est une violation."""
+    base = _fichier([_sprint(1, "fige", [])])
+
+    courant_en_cours = _fichier([_sprint(1, "fige", []), _sprint(2, "en_cours", [])])
+    assert _viole(
+        violations_contre_base(base, courant_en_cours),
+        "sprint nouveau (absent de la base) doit être 'esquisse'",
+    )
+
+    # Cas positif : le même sprint nouveau, mais en esquisse, ne déclenche pas
+    # cette règle (les autres règles F/G ne s'appliquent pas à un numéro
+    # absent de la base, seule cette nouvelle règle les concerne).
+    courant_esquisse = _fichier([_sprint(1, "fige", []), _sprint(2, "esquisse", [])])
+    assert not _viole(
+        violations_contre_base(base, courant_esquisse),
+        "sprint nouveau (absent de la base) doit être 'esquisse'",
+    )
+
+
+def test_m14_mutation_neutraliser_la_regle_du_nouveau_sprint(monkeypatch):
+    """Test de mutation (au sens de ce fichier, cf. M1-M13) : si on neutralise
+    la vérification du sprint nouveau (en la faisant toujours passer), la
+    violation du scénario ci-dessus n'est plus détectée — la présence de
+    cette règle dans violations_contre_base est bien ce qui la détecte."""
+    base = _fichier([_sprint(1, "fige", [])])
+    courant = _fichier([_sprint(1, "fige", []), _sprint(2, "en_cours", [])])
+
+    # Sans mutation : la règle réelle du dépôt détecte la violation.
+    assert _viole(
+        violations_contre_base(base, courant),
+        "sprint nouveau (absent de la base) doit être 'esquisse'",
+    )
+
+    # Mutation : on neutralise la fonction de la règle (comme un mutant qui
+    # supprimerait le corps de la vérification) et on vérifie que la
+    # violation disparaît bien — preuve que le test ci-dessus tuerait ce
+    # mutant s'il apparaissait dans le code.
+    monkeypatch.setattr(
+        verifier_backlog, "_regle_g_nouveau_sprint_esquisse", lambda ctx, sprint_courant: []
+    )
+    assert not _viole(
+        violations_contre_base(base, courant),
+        "sprint nouveau (absent de la base) doit être 'esquisse'",
+    )
+
+
 # --- B1 et M12 : la comparaison à la base n'est jamais sautée en silence ----
 
 

@@ -714,12 +714,25 @@ def _regle_f_composition_figee(
     return []
 
 
+def _regle_g_nouveau_sprint_esquisse(ctx: str, sprint_courant: dict[str, Any]) -> list[str]:
+    """Un sprint dont le numéro est absent de la base (fichier déjà existant,
+    mais ce sprint précis y est nouveau) ne peut apparaître qu'en 'esquisse'.
+    Toute autre valeur de statut pour un sprint tout neuf est une violation."""
+    statut = sprint_courant.get("statut")
+    if statut == "esquisse":
+        return []
+    return [
+        f"{ctx} sprint nouveau (absent de la base) doit être 'esquisse', trouvé {statut!r}"
+    ]
+
+
 def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
     """Règles F et G, comparaison pure entre deux structures déjà parsées."""
     violations: list[str] = []
+    sprints_base = _index_sprints(base)
     sprints_courant = _index_sprints(courant)
 
-    for numero, sprint_base in _index_sprints(base).items():
+    for numero, sprint_base in sprints_base.items():
         ctx = f"[sprint {numero}]"
         sprint_courant = sprints_courant.get(numero)
         if sprint_courant is None:
@@ -733,6 +746,12 @@ def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> lis
         violations.extend(_regle_g_elements_termines_geles(ctx, sprint_base, sprint_courant))
         violations.extend(_regle_f_derogations_append_only(ctx, sprint_base, sprint_courant))
         violations.extend(_regle_f_composition_figee(ctx, sprint_base, sprint_courant))
+
+    for numero, sprint_courant in sprints_courant.items():
+        if numero not in sprints_base:
+            violations.extend(
+                _regle_g_nouveau_sprint_esquisse(f"[sprint {numero}]", sprint_courant)
+            )
 
     return violations
 
