@@ -93,11 +93,10 @@ jobs:
 
       - name: Démarrer l’image sans Postgres, en mode hébergé
         run: |
-          printf '[cache]\ndossier = "/data/cache"\n' > heberge.toml
           docker run -d --name api -p 8000:8000 \
             -e OUROULER_MODE=heberge \
             -e OUROULER_CONFIG=/config/config.toml \
-            -e OUROULER_CONFIG_TOML_B64="$(base64 -w0 heberge.toml)" \
+            -e OUROULER_CONFIG_TOML_B64="$(base64 -w0 deploiement/api/config.heberge.example.toml)" \
             ourouler-api:ci
 
       - name: Attendre que /sante réponde 200

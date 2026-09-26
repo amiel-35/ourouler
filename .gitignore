@@ -12,6 +12,8 @@ build/
 config.toml
 config.*.toml
 !config.example.toml
+!deploiement/api/config.personnel.example.toml
+!deploiement/api/config.heberge.example.toml
 # Insensibles à la casse, écrits en classes de caractères : `*.gpx` n'attrape
 # pas `Ma_sortie.GPX` sous Linux (CI, serveur), et un export Garmin sort
 # volontiers en majuscules. Sur macOS, `core.ignorecase` masquait le trou.

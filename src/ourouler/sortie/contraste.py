@@ -27,13 +27,8 @@ On n'exige **pas en plus** que chaque proposition soit la meilleure des trois
 sur un axe mesuré, d'une marge perceptible. Cette exigence viserait les
 *descriptions*, pas les tracés, et elle finirait par interdire de montrer
 trois routes franchement différentes sous prétexte qu'on ne sait pas dire en
-une phrase ce qui les sépare.
-
-**Mesuré deux fois, pas supposé.** Quatre candidates dont le recouvrement
-médian valait **1,4 %** — quasi disjointes, aussi différentes qu'il est
-possible de l'être — n'étaient servies qu'à une ou deux sous cette exigence :
-elle absorbait tout le gain. Et plus on génère de candidates, moins un trio
-passe : à cinq candidates trois axes distinguaient encore, à huit un seul.
+une phrase ce qui les sépare — mesuré deux fois plutôt que supposé (détail :
+`docs/journal/notes_modules.md`).
 
 **Ce que ça coûte, et qui est assumé** : parfois, trois propositions porteront
 presque la même phrase. La carte, qui porte la géométrie des trois tracés,
@@ -172,14 +167,9 @@ PAS_DUREE_S = 600.0
 PAS_PLUIE_MM = 0.5
 
 #: Écart de densité de marqueurs en dessous duquel deux propositions traversent
-#: autant de village l'une que l'autre, en marqueurs par kilomètre.
-#:
-#: **Chiffré sur une mesure**
-#: (`scripts/validation/marqueurs_retrospectif.py`, 143 boucles proposées par
-#: le moteur autour d'un départ réel) : q1 = 1,21, médiane = 1,50,
-#: q3 = 2,01, soit un écart interquartile de 0,80. La moitié de cet écart,
-#: 0,40, est l'oscillation ordinaire entre deux candidates ; 0,50 est
-#: au-dessus. Et en unités de cycliste : sur une boucle de 60 km, c'est
+#: autant de village l'une que l'autre, en marqueurs par kilomètre. Chiffré
+#: sur une mesure rétrospective (méthode et détail :
+#: `docs/journal/notes_modules.md`) : sur une boucle de 60 km, c'est
 #: 30 marqueurs d'écart — un arrêt tous les deux kilomètres contre un arrêt
 #: tous les kilomètres.
 PAS_MARQUEURS_KM = 0.5
@@ -188,15 +178,9 @@ PAS_MARQUEURS_KM = 0.5
 #: duquel deux propositions roulent autant l'une que l'autre sur les grands
 #: axes. Une part et non des kilomètres : deux boucles n'ont pas la même
 #: longueur, et 24 km de départementale sur 55 n'est pas la même sortie que
-#: 24 km sur 100.
-#:
-#: **Chiffré sur une mesure** (35 boucles proposées par le moteur autour d'un
-#: départ réel, à 40, 60 et 80 km) : q1 = 34,8 %,
-#: médiane = 41,1 %, q3 = 49,5 %, soit un écart interquartile de 14,7 points
-#: et un écart-type de 12,0. La moitié de l'écart interquartile, 7,4 points,
-#: est l'oscillation ordinaire entre deux candidates ; 10 points est au-dessus.
-#: Et en unités de cycliste : sur une boucle de 60 km, 6 km de départementale
-#: en plus ou en moins.
+#: 24 km sur 100. Chiffré sur une mesure rétrospective (méthode et détail :
+#: `docs/journal/notes_modules.md`) : sur une boucle de 60 km, 6 km de
+#: départementale en plus ou en moins.
 PAS_TRAFIC_PART = 0.10
 
 #: Écart de note de terrain en dessous duquel deux couloirs se valent, en

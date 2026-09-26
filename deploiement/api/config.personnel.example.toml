@@ -1,5 +1,5 @@
-# Fichier TOML du conteneur API+front. Toutes les valeurs sont
-# inventées.
+# Fichier TOML du conteneur API+front, mode `OUROULER_MODE=personnel` (un
+# seul cycliste, celui qui héberge). Toutes les valeurs sont inventées.
 #
 # Différence avec config.example.toml (usage local, racine du dépôt), et même
 # raison que deploiement/config.example.toml pour le générateur de la page du
@@ -14,15 +14,12 @@
 # `OUROULER_CONFIG_TOML_B64` (voir deploiement/api/README.md), ou qu'on monte
 # directement pour un essai local (deploiement/api/docker-compose.yml).
 #
-# **[cycliste] et [[velos]] ci-dessous ne valent que pour OUROULER_MODE=personnel**
-# (le défaut documenté par deploiement/api/.env.example : un seul cycliste,
-# celui qui héberge). Ce sont des réglages personnels, jamais hérités d'un
-# socle partagé, au même titre que [depart] et [intervals] : en `heberge`, l'API **refuse de
-# démarrer** si l'une de ces quatre sections figure ici, ou si l'une des
-# variables `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` est posée (elles
-# seraient sinon distribuées à chaque personne invitée). Pour un déploiement
-# hébergé, retirer [cycliste] et [[velos]] de ce fichier : chaque cycliste
-# les renseigne depuis l'assistant, une fois son compte activé.
+# **[cycliste] et [[velos]] ne valent que pour ce mode.** Pour un déploiement
+# hébergé (plusieurs cyclistes), utiliser `config.heberge.example.toml` à la
+# place : ce sont deux modèles distincts plutôt qu'un seul à retoucher à la
+# main, parce que l'API **refuse de démarrer** en `heberge` si l'une de ces
+# deux sections figure dans son TOML (voir la docstring de
+# `config.heberge.example.toml` pour le détail et le pourquoi).
 
 [cycliste]
 masse_kg = 75.0
