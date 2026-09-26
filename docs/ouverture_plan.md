@@ -172,6 +172,11 @@ ligne de commande (« donner --puissance W ou --vitesse-a-plat KMH »,
 `physique/commande.py:1216`). À remplacer, dans le front, par une phrase
 pour le cycliste avant de pousser en prod.
 
+**Constat du lot 14 (26/09/2026)** : le schéma OpenAPI ne décrit **aucune
+réponse réussie** (les 200 sont des objets vides) ; les types du front ne
+sont donc vérifiés que pour les requêtes. Déclarer des modèles de réponse
+fait partie du lot 11.
+
 ## 1. Diagnostic (mesuré)
 
 - **Taille réelle.** 89 fichiers Python pour 41 019 lignes. Docstrings et

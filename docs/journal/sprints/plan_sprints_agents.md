@@ -2152,3 +2152,38 @@ s'est connectée, le dossier des comptes (`/data/cache/api`) n'existe pas, et
 `retirer` refuse avec « dossier de données introuvable » — même pour une
 invitation jamais activée, qui n'a aucun fichier. Piste : ne refuser que si
 le compte a des données à effacer ailleurs que dans la base.
+
+Backlog « les comptes, côté cycliste et côté mainteneur » (demande du
+mainteneur, 26/09/2026, après la restructuration ; trois sujets liés,
+**non faits**, à cadrer ensemble) :
+
+1. **Demander une invitation depuis le site.** Aujourd'hui, seul le
+   mainteneur invite, en ligne de commande dans le conteneur. Voulu : un
+   formulaire public « demander une invitation » (adresse, un mot), une
+   **file d'attente**, une **modération** par le mainteneur dans l'interface
+   d'administration (accepter → l'invitation part, refuser → rien), et une
+   **alerte par courriel** au mainteneur à chaque nouvelle demande. À croiser
+   avec la décision QP6 (l'administration n'est pas exposée publiquement,
+   joignable par tunnel SSH) : le formulaire est public, la modération ne
+   l'est pas. À prévoir : limite de débit et anti-robot sur le formulaire,
+   aucune fuite d'existence d'un compte (« si l'adresse est acceptée, vous
+   recevrez un courriel »), purge des demandes refusées.
+
+2. **Se connecter par un lien à usage unique, et « mot de passe oublié ».**
+   Aujourd'hui : mot de passe, et réinitialisation seulement par le
+   mainteneur (`ourouler reinitialiser`). Voulu : un lien de connexion
+   envoyé par courriel, valable une fois et peu de temps, et un parcours
+   « mot de passe oublié » que le cycliste mène seul. Le mécanisme de jeton
+   des invitations existe déjà (`services/comptes`) : le réutiliser. Mêmes
+   exigences : réponse identique que l'adresse existe ou non, jeton jamais
+   journalisé, débit limité.
+
+3. **Une zone rouge dans Réglages, deux gestes bien séparés.**
+   - « Effacer mes données de parcours » (sorties importées, fichiers
+     déposés, calibrations, cache) **quand il y en a** — le compte reste ;
+   - « Supprimer mon compte » — tout part (le `DELETE /moi` existant).
+   Chacun derrière une **confirmation forte** (retaper un mot, par exemple
+   `SUPPRIMER`, avant que le bouton s'active), avec ce qui sera effacé dit
+   en clair, et ce qui reste (les routes apprises, collectives). À croiser
+   avec le choix « garder ou effacer ses données » (QP5) : le premier geste
+   en est la version à la demande.
