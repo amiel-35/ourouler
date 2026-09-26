@@ -53,6 +53,10 @@ api = [
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+    # Version exacte : la ligne de base pyright (pyright_ligne_de_base.json)
+    # est datée pour cette version précise de l'outil ; une montée de
+    # version se fait en régénérant la ligne de base dans la même PR.
+    "pyright==1.1.414",
     # L'extra `api` est repris ici pour que `uv run pytest` couvre
     # réellement les tests de l'API plutôt que de les sauter.
     "ourouler[api]",
@@ -107,3 +111,12 @@ testpaths = ["tests"]
 # partagés d'un test à l'autre s'importent par leur nom, sans `sys.path.insert`.
 # Leurs noms sont uniques dans tout `tests/` : c'est ce qui rend l'import sûr.
 pythonpath = ["tests", "tests/adversarial", "tests/api", "tests/caracterisation"]
+
+[tool.pyright]
+# Lot N9-T : n'inspecte que src/, pas tests/ pour l'instant (périmètre décidé
+# par le mainteneur pour ce lot ; les tests pourront être ajoutés plus tard).
+include = ["src"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"

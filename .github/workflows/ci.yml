@@ -58,6 +58,11 @@ jobs:
 
       - run: uv run ruff format --check .
 
+      # Ligne de base : les erreurs déjà présentes lors de l'adoption sont
+      # tolérées, gelées dans pyright_ligne_de_base.json ; toute erreur
+      # nouvelle fait échouer ce pas (AGENTS.md, CONTRIBUTING.md).
+      - run: uv run python scripts/pyright_ligne_de_base.py
+
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
 
