@@ -7,6 +7,11 @@ fiches/chantiers référencés) et, si --base est fourni, des règles contre une
 version antérieure du fichier (via git) pour empêcher un remaniement furtif
 d'un sprint déjà figé/en cours et tout retour en arrière de statut.
 
+Avec --base, toute impossibilité de comparer (racine hors dépôt git, référence
+introuvable, TOML de la base illisible) est une violation. Seul cas toléré :
+la référence existe mais le fichier n'y existe pas encore (création), ce qui
+est dit explicitement.
+
 Usage :
     uv run python scripts/verifier_backlog.py
     uv run python scripts/verifier_backlog.py --etat
@@ -17,11 +22,15 @@ Usage :
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
+import re
 import subprocess
 import tomllib
 from pathlib import Path
 from typing import Any
+
+CHEMIN_RELATIF_TOML = "docs/backlog/sprints.toml"
 
 # Chantiers connus : nom -> chemin relatif (depuis la racine du dépôt) du
 # fichier qui doit exister pour que le chantier soit considéré valide.
@@ -31,16 +40,54 @@ CHANTIERS: dict[str, str] = {
 
 STATUTS_SPRINT_VALIDES = {"esquisse", "fige", "en_cours", "clos"}
 STATUTS_ELEMENT_VALIDES = {"prevu", "en_cours", "livre", "abandonne"}
+CLES_RACINE_VALIDES = {"sprint"}
 CLES_SPRINT_VALIDES = {"numero", "statut", "titre", "derogations", "element"}
 CLES_ELEMENT_VALIDES = {"chantier", "fiche", "statut", "pr", "raison"}
+
+# Nom de fiche : minuscules, chiffres, tirets simples entre des mots.
+MOTIF_FICHE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Dérogation : « JJ/MM/AAAA : raison ».
+MOTIF_DEROGATION = re.compile(r"^(\d{2})/(\d{2})/(\d{4}) : (.*)$", re.DOTALL)
+LONGUEUR_MIN_RAISON_DEROGATION = 10
+LONGUEUR_MAX_RAISON = 120
+LONGUEUR_MAX_TITRE = 80
+# La ligne « Type : ... » d'une fiche doit se trouver dans ses premières lignes.
+LIGNES_EN_TETE_FICHE = 10
+LIGNES_TYPE_FICHE = {"Type : feature", "Type : bug"}
 
 # Ordre attendu DANS LE FICHIER (règle C) : clos* puis au plus un en_cours
 # puis fige* puis esquisse* — une suite non décroissante selon ces rangs.
 ORDRE_SEQUENCE_FICHIER = {"clos": 0, "en_cours": 1, "fige": 2, "esquisse": 3}
 
 # Ordre de PROGRESSION DANS LE TEMPS d'un même sprint (règle G) : un sprint
-# n'évolue que esquisse -> fige -> en_cours -> clos, jamais en arrière.
+# n'évolue que esquisse -> fige -> en_cours -> clos, d'une étape au plus par
+# diff, jamais en arrière.
 ORDRE_PROGRESSION = {"esquisse": 0, "fige": 1, "en_cours": 2, "clos": 3}
+
+MESSAGE_CREATION = "création : {chemin} absent de {base}, règles F et G sans objet"
+
+
+# ---------------------------------------------------------------------------
+# Petits outils de type
+# ---------------------------------------------------------------------------
+
+
+def _est_entier(valeur: Any) -> bool:
+    """Entier strict : un booléen Python est un int, on le refuse."""
+    return isinstance(valeur, int) and not isinstance(valeur, bool)
+
+
+def _est_texte_non_vide(valeur: Any) -> bool:
+    return isinstance(valeur, str) and valeur.strip() != ""
+
+
+def _elements(sprint: dict[str, Any]) -> list[dict[str, Any]]:
+    """Les éléments d'un sprint qui sont bien des tables (les autres sont
+    signalés par la règle A)."""
+    elements = sprint.get("element", [])
+    if not isinstance(elements, list):
+        return []
+    return [e for e in elements if isinstance(e, dict)]
 
 
 # ---------------------------------------------------------------------------
@@ -53,26 +100,55 @@ def charger_toml(chemin: Path) -> dict[str, Any]:
         return tomllib.load(f)
 
 
-def charger_toml_depuis_git(racine: Path, base: str) -> tuple[dict[str, Any] | None, str | None]:
-    """Retourne (structure, message_erreur). Un des deux est None."""
-    resultat = subprocess.run(
-        ["git", "show", f"{base}:docs/backlog/sprints.toml"],
-        cwd=racine,
-        capture_output=True,
-        text=True,
+def _git(racine: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *arguments], cwd=racine, capture_output=True, text=True
     )
-    if resultat.returncode != 0:
-        return None, (
-            f"Impossible de lire docs/backlog/sprints.toml dans {base} "
-            f"(règles F et G sautées) : {resultat.stderr.strip()}"
-        )
+
+
+def charger_toml_depuis_git(
+    racine: Path, base: str
+) -> tuple[dict[str, Any] | None, list[str], str | None]:
+    """Lit sprints.toml dans la référence git `base`.
+
+    Retourne (structure, violations, message_creation) :
+    - structure lue, [], None : comparaison possible ;
+    - None, [violation], None : impossible de comparer, c'est une violation ;
+    - None, [], message : la référence existe mais le fichier n'y existe pas
+      encore (création), F et G sont sans objet.
+    """
+    if not racine.is_dir():
+        return None, [f"[base] racine introuvable : {racine}"], None
+
+    toplevel = _git(racine, "rev-parse", "--show-toplevel")
+    if toplevel.returncode != 0:
+        return None, [f"[base] {racine} n'est pas un dépôt git : impossible de comparer à {base}"], None
+    if Path(toplevel.stdout.strip()).resolve() != racine.resolve():
+        return None, [
+            f"[base] {racine} n'est pas la racine du dépôt git "
+            f"({toplevel.stdout.strip()}) : impossible de comparer à {base}"
+        ], None
+
+    ref = _git(racine, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
+    if ref.returncode != 0:
+        return None, [f"[base] référence git introuvable : {base!r}"], None
+
+    existe = _git(racine, "cat-file", "-e", f"{base}:{CHEMIN_RELATIF_TOML}")
+    if existe.returncode != 0:
+        return None, [], MESSAGE_CREATION.format(chemin=CHEMIN_RELATIF_TOML, base=base)
+
+    contenu = _git(racine, "show", f"{base}:{CHEMIN_RELATIF_TOML}")
+    if contenu.returncode != 0:
+        return None, [
+            f"[base] lecture de {CHEMIN_RELATIF_TOML} dans {base} impossible : "
+            f"{contenu.stderr.strip()}"
+        ], None
     try:
-        return tomllib.loads(resultat.stdout), None
+        return tomllib.loads(contenu.stdout), [], None
     except tomllib.TOMLDecodeError as exc:
-        return None, (
-            f"docs/backlog/sprints.toml dans {base} n'est pas un TOML valide "
-            f"(règles F et G sautées) : {exc}"
-        )
+        return None, [
+            f"[base] {CHEMIN_RELATIF_TOML} dans {base} n'est pas un TOML valide : {exc}"
+        ], None
 
 
 # ---------------------------------------------------------------------------
@@ -80,9 +156,9 @@ def charger_toml_depuis_git(racine: Path, base: str) -> tuple[dict[str, Any] | N
 # ---------------------------------------------------------------------------
 
 
-def _contexte(numero_sprint: int | None, element_desc: str | None) -> str:
-    if numero_sprint is None:
-        return "[fichier]"
+def _contexte(numero_sprint: Any, element_desc: str | None) -> str:
+    if not _est_entier(numero_sprint):
+        return "[fichier]" if element_desc is None else f"[sprint ?, élément {element_desc}]"
     if element_desc is None:
         return f"[sprint {numero_sprint}]"
     return f"[sprint {numero_sprint}, élément {element_desc}]"
@@ -96,24 +172,51 @@ def _identifiant_element(element: dict[str, Any]) -> str:
     return "sans identifiant"
 
 
-def _valider_derogations(valeur: Any, ctx: str, violations: list[str]) -> None:
+def _ctx_element(sprint: dict[str, Any], element: dict[str, Any]) -> str:
+    return _contexte(sprint.get("numero"), _identifiant_element(element))
+
+
+# --- Règle A : dérogations --------------------------------------------------
+
+
+def valider_entree_derogation(entree: str) -> str | None:
+    """Retourne None si l'entrée est bien « JJ/MM/AAAA : raison », sinon le
+    motif du refus. La date doit exister au calendrier."""
+    correspondance = MOTIF_DEROGATION.match(entree)
+    if correspondance is None:
+        return "mal formée (attendu 'JJ/MM/AAAA : raison')"
+    jour, mois, annee, raison = correspondance.groups()
+    try:
+        datetime.date(int(annee), int(mois), int(jour))
+    except ValueError:
+        return "date inexistante au calendrier"
+    raison = raison.strip()
+    if len(raison) < LONGUEUR_MIN_RAISON_DEROGATION:
+        return f"raison de moins de {LONGUEUR_MIN_RAISON_DEROGATION} caractères"
+    if len(raison) > LONGUEUR_MAX_RAISON:
+        return f"raison de plus de {LONGUEUR_MAX_RAISON} caractères"
+    if "\n" in raison:
+        return "raison sur plusieurs lignes"
+    return None
+
+
+def _valider_derogations(valeur: Any, ctx: str) -> list[str]:
     if not isinstance(valeur, list) or not all(isinstance(v, str) for v in valeur):
-        violations.append(f"{ctx} derogations doit être une liste de chaînes")
-        return
+        return [f"{ctx} derogations doit être une liste de chaînes"]
+    violations: list[str] = []
     for entree in valeur:
-        partie_date = entree.split(" : ", 1)
-        if len(partie_date) != 2:
-            violations.append(
-                f"{ctx} dérogation mal formée (attendu 'JJ/MM/AAAA : raison') : {entree!r}"
-            )
-            continue
-        date_str, raison = partie_date
-        morceaux = date_str.split("/")
-        date_ok = len(morceaux) == 3 and all(m.isdigit() for m in morceaux)
-        if not date_ok:
-            violations.append(f"{ctx} date de dérogation invalide : {entree!r}")
-        if len(raison) > 120:
-            violations.append(f"{ctx} raison de dérogation > 120 caractères : {entree!r}")
+        motif = valider_entree_derogation(entree)
+        if motif is not None:
+            violations.append(f"{ctx} dérogation invalide, {motif} : {entree!r}")
+    vues: set[str] = set()
+    for entree in valeur:
+        if entree in vues:
+            violations.append(f"{ctx} dérogation en double : {entree!r}")
+        vues.add(entree)
+    return violations
+
+
+# --- Règle A : clés et types --------------------------------------------------
 
 
 def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]:
@@ -122,8 +225,8 @@ def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]
     if cles_inconnues:
         violations.append(f"{ctx} clé(s) inconnue(s) : {sorted(cles_inconnues)}")
 
-    if not isinstance(sprint.get("numero"), int):
-        violations.append(f"{ctx} 'numero' doit être un entier")
+    if not _est_entier(sprint.get("numero")):
+        violations.append(f"{ctx} 'numero' doit être un entier (booléen refusé)")
 
     statut = sprint.get("statut")
     if not isinstance(statut, str) or statut not in STATUTS_SPRINT_VALIDES:
@@ -133,61 +236,18 @@ def _valider_cles_et_types_sprint(sprint: dict[str, Any], ctx: str) -> list[str]
     if not isinstance(titre, str):
         violations.append(f"{ctx} 'titre' doit être une chaîne")
     else:
-        if "\n" in titre:
+        if not titre.strip():
+            violations.append(f"{ctx} 'titre' vide")
+        if "\n" in titre or "\r" in titre:
             violations.append(f"{ctx} 'titre' contient un saut de ligne")
-        if len(titre) > 80:
-            violations.append(f"{ctx} 'titre' dépasse 80 caractères")
+        if len(titre) > LONGUEUR_MAX_TITRE:
+            violations.append(f"{ctx} 'titre' dépasse {LONGUEUR_MAX_TITRE} caractères")
 
     if "derogations" in sprint:
-        _valider_derogations(sprint["derogations"], ctx, violations)
+        violations.extend(_valider_derogations(sprint["derogations"], ctx))
 
-    return violations
-
-
-def _violations_coherence_statut_sprint(
-    statut: Any, statuts_elements: list[Any], ctx: str
-) -> list[str]:
-    violations: list[str] = []
-    if statut == "clos":
-        for s in statuts_elements:
-            if s not in {"livre", "abandonne"}:
-                violations.append(
-                    f"{ctx} sprint clos mais contient un élément de statut {s!r} "
-                    "(seuls livre/abandonne sont autorisés)"
-                )
-    if statut in {"fige", "esquisse"}:
-        for s in statuts_elements:
-            if s not in {"prevu", "abandonne"}:
-                violations.append(
-                    f"{ctx} sprint {statut} mais contient un élément de statut {s!r} "
-                    "(seuls prevu/abandonne sont autorisés)"
-                )
-    return violations
-
-
-def _valider_sprint_statique(
-    sprint: dict[str, Any], racine: Path, identifiants_vus: set[str]
-) -> list[str]:
-    numero = sprint.get("numero")
-    ctx = _contexte(numero if isinstance(numero, int) else None, None)
-
-    violations = _valider_cles_et_types_sprint(sprint, ctx)
-
-    elements = sprint.get("element", [])
-    if not isinstance(elements, list):
+    if "element" in sprint and not isinstance(sprint["element"], list):
         violations.append(f"{ctx} 'element' doit être une liste")
-        elements = []
-
-    for element in elements:
-        violations.extend(
-            _valider_element_statique(element, numero, racine, identifiants_vus)
-        )
-
-    statut = sprint.get("statut")
-    statuts_elements = [
-        e.get("statut") for e in elements if isinstance(e, dict) and isinstance(e.get("statut"), str)
-    ]
-    violations.extend(_violations_coherence_statut_sprint(statut, statuts_elements, ctx))
 
     return violations
 
@@ -209,136 +269,219 @@ def _valider_cles_et_types_element(element: dict[str, Any], ctx: str) -> list[st
     if not isinstance(statut, str) or statut not in STATUTS_ELEMENT_VALIDES:
         violations.append(f"{ctx} 'statut' invalide : {statut!r}")
 
-    return violations
-
-
-def _valider_pr_et_raison(element: dict[str, Any], ctx: str) -> list[str]:
-    violations: list[str] = []
-    statut = element.get("statut")
-
-    if "pr" in element and not isinstance(element["pr"], int):
-        violations.append(f"{ctx} 'pr' doit être un entier")
-    if statut == "livre" and "pr" not in element:
-        violations.append(f"{ctx} statut livre exige la clé 'pr'")
-    if "pr" in element and statut != "livre":
-        violations.append(f"{ctx} 'pr' présent mais statut != livre")
+    if "pr" in element and not _est_entier(element["pr"]):
+        violations.append(f"{ctx} 'pr' doit être un entier (booléen refusé)")
 
     if "raison" in element:
         raison = element["raison"]
         if not isinstance(raison, str):
             violations.append(f"{ctx} 'raison' doit être une chaîne")
-        elif len(raison) > 120:
-            violations.append(f"{ctx} 'raison' dépasse 120 caractères")
-    if statut == "abandonne" and "raison" not in element:
-        violations.append(f"{ctx} statut abandonne exige la clé 'raison'")
-    if "raison" in element and statut != "abandonne":
-        violations.append(f"{ctx} 'raison' présente mais statut != abandonne")
+        elif not raison.strip():
+            violations.append(f"{ctx} 'raison' vide")
+        elif len(raison) > LONGUEUR_MAX_RAISON:
+            violations.append(f"{ctx} 'raison' dépasse {LONGUEUR_MAX_RAISON} caractères")
 
     return violations
+
+
+# --- Règle D : références (fiches, chantiers) et unicité --------------------
+
+
+def ligne_type_fiche(texte: str) -> str | None:
+    """Cherche « Type : feature » ou « Type : bug » dans les premières lignes
+    de la fiche, hors bloc de code Markdown. Retourne 'feature', 'bug' ou None."""
+    dans_bloc_code = False
+    for ligne in texte.splitlines()[:LIGNES_EN_TETE_FICHE]:
+        nette = ligne.strip()
+        if nette.startswith("```") or nette.startswith("~~~"):
+            dans_bloc_code = not dans_bloc_code
+            continue
+        if dans_bloc_code:
+            continue
+        if nette in LIGNES_TYPE_FICHE:
+            return nette.split(":", 1)[1].strip()
+    return None
+
+
+def _noms_fichiers_backlog(racine: Path) -> set[str]:
+    """Noms exacts (casse comprise) des fichiers de docs/backlog/ : on ne se
+    fie pas à Path.exists(), qui ignore la casse sur certains systèmes."""
+    dossier = racine / "docs" / "backlog"
+    if not dossier.is_dir():
+        return set()
+    return {entree.name for entree in dossier.iterdir() if entree.is_file()}
 
 
 def _valider_reference_fiche(
-    fiche: Any, racine: Path, identifiants_vus: set[str], ctx: str
+    fiche: Any, racine: Path, noms_fichiers: set[str], ctx: str
 ) -> list[str]:
-    violations: list[str] = []
     if not isinstance(fiche, str):
         return [f"{ctx} 'fiche' doit être une chaîne"]
+    if not MOTIF_FICHE.match(fiche):
+        return [f"{ctx} nom de fiche invalide (attendu {MOTIF_FICHE.pattern}) : {fiche!r}"]
 
-    if fiche in identifiants_vus:
-        violations.append(f"{ctx} fiche référencée plusieurs fois dans le fichier")
-    identifiants_vus.add(fiche)
+    nom_fichier = f"{fiche}.md"
+    chemin_fiche = racine / "docs" / "backlog" / nom_fichier
+    if nom_fichier not in noms_fichiers:
+        return [f"{ctx} fichier introuvable (nom exact, casse comprise) : {chemin_fiche}"]
 
-    chemin_fiche = racine / "docs" / "backlog" / f"{fiche}.md"
-    if not chemin_fiche.exists():
-        violations.append(f"{ctx} fichier introuvable : {chemin_fiche}")
-        return violations
-
-    lignes = chemin_fiche.read_text(encoding="utf-8").splitlines()
-    if not any(ligne.strip() in {"Type : feature", "Type : bug"} for ligne in lignes):
-        violations.append(
-            f"{ctx} {chemin_fiche} n'a pas de ligne 'Type : feature' ou 'Type : bug'"
-        )
-    return violations
+    if ligne_type_fiche(chemin_fiche.read_text(encoding="utf-8")) is None:
+        return [
+            f"{ctx} {chemin_fiche} n'a pas de ligne 'Type : feature' ou 'Type : bug' "
+            f"dans ses {LIGNES_EN_TETE_FICHE} premières lignes, hors bloc de code"
+        ]
+    return []
 
 
-def _valider_reference_chantier(
-    chantier: Any, racine: Path, identifiants_vus: set[str], ctx: str
-) -> list[str]:
-    violations: list[str] = []
+def _valider_reference_chantier(chantier: Any, racine: Path, ctx: str) -> list[str]:
     if not isinstance(chantier, str):
         return [f"{ctx} 'chantier' doit être une chaîne"]
-
-    if chantier in identifiants_vus:
-        violations.append(f"{ctx} chantier référencé plusieurs fois dans le fichier")
-    identifiants_vus.add(chantier)
-
     if chantier not in CHANTIERS:
-        violations.append(f"{ctx} chantier inconnu (absent de CHANTIERS) : {chantier!r}")
-        return violations
-
+        return [f"{ctx} chantier inconnu (absent de CHANTIERS) : {chantier!r}"]
     chemin_chantier = racine / CHANTIERS[chantier]
-    if not chemin_chantier.exists():
-        violations.append(f"{ctx} fichier de chantier introuvable : {chemin_chantier}")
+    if not chemin_chantier.is_file():
+        return [f"{ctx} fichier de chantier introuvable : {chemin_chantier}"]
+    return []
+
+
+def _violations_unicite(sprints: list[dict[str, Any]]) -> list[str]:
+    """Une fiche n'apparaît qu'une fois, un chantier aussi : deux espaces de
+    noms séparés (une fiche et un chantier de même nom ne se confondent pas)."""
+    violations: list[str] = []
+    for espace, libelle in (("fiche", "fiche référencée"), ("chantier", "chantier référencé")):
+        vus: set[str] = set()
+        for sprint in sprints:
+            for element in _elements(sprint):
+                valeur = element.get(espace)
+                if not isinstance(valeur, str):
+                    continue
+                if valeur in vus:
+                    violations.append(
+                        f"{_ctx_element(sprint, element)} {libelle} plusieurs fois dans le fichier"
+                    )
+                vus.add(valeur)
     return violations
 
 
 def _valider_element_statique(
-    element: Any, numero_sprint: Any, racine: Path, identifiants_vus: set[str]
+    element: Any, sprint: dict[str, Any], racine: Path, noms_fichiers: set[str]
 ) -> list[str]:
     if not isinstance(element, dict):
-        ctx = _contexte(numero_sprint if isinstance(numero_sprint, int) else None, "?")
-        return [f"{ctx} élément qui n'est pas une table"]
+        return [f"{_contexte(sprint.get('numero'), '?')} élément qui n'est pas une table"]
 
-    ident = _identifiant_element(element)
-    ctx = _contexte(numero_sprint if isinstance(numero_sprint, int) else None, ident)
-
+    ctx = _ctx_element(sprint, element)
     violations = _valider_cles_et_types_element(element, ctx)
-    violations.extend(_valider_pr_et_raison(element, ctx))
-
-    # Règle D : existence et unicité (l'élément en_cours vs sprint parent est
-    # vérifié à part dans violations_statiques, qui a la vue d'ensemble).
     if "fiche" in element:
-        violations.extend(_valider_reference_fiche(element["fiche"], racine, identifiants_vus, ctx))
+        violations.extend(_valider_reference_fiche(element["fiche"], racine, noms_fichiers, ctx))
     elif "chantier" in element:
-        violations.extend(
-            _valider_reference_chantier(element["chantier"], racine, identifiants_vus, ctx)
-        )
-
+        violations.extend(_valider_reference_chantier(element["chantier"], racine, ctx))
     return violations
 
 
-def _violations_element_vs_sprint_parent(sprints: list[dict[str, Any]]) -> list[str]:
-    """Règle E (suite) : en_cours/livre de l'élément vs statut du sprint parent."""
+# --- Règle E : cohérence statut d'élément / statut de sprint ----------------
+# Une fonction par sous-règle ; chacune prend un sprint et rend ses violations.
+
+
+def regle_e_en_cours_exige_sprint_en_cours(sprint: dict[str, Any]) -> list[str]:
+    """Un élément en_cours n'existe que dans le sprint en_cours."""
+    statut_sprint = sprint.get("statut")
+    if statut_sprint == "en_cours":
+        return []
+    return [
+        f"{_ctx_element(sprint, e)} élément en_cours mais le sprint parent n'est pas en_cours "
+        f"(statut sprint : {statut_sprint!r})"
+        for e in _elements(sprint)
+        if e.get("statut") == "en_cours"
+    ]
+
+
+def regle_e_livre_exige_pr_et_sprint_actif(sprint: dict[str, Any]) -> list[str]:
+    """Un élément livré porte sa PR et son sprint est en_cours ou clos."""
     violations: list[str] = []
-    for sprint in sprints:
-        if not isinstance(sprint, dict):
+    statut_sprint = sprint.get("statut")
+    for e in _elements(sprint):
+        if e.get("statut") != "livre":
             continue
-        statut_sprint = sprint.get("statut")
-        numero = sprint.get("numero")
-        for element in sprint.get("element", []) or []:
-            if not isinstance(element, dict):
-                continue
-            statut_element = element.get("statut")
-            ctx = _contexte(
-                numero if isinstance(numero, int) else None, _identifiant_element(element)
+        if "pr" not in e:
+            violations.append(f"{_ctx_element(sprint, e)} statut livre exige la clé 'pr'")
+        if statut_sprint not in {"en_cours", "clos"}:
+            violations.append(
+                f"{_ctx_element(sprint, e)} élément livré mais le sprint parent n'est ni "
+                f"en_cours ni clos (statut sprint : {statut_sprint!r})"
             )
-            if statut_element == "en_cours" and statut_sprint != "en_cours":
-                violations.append(
-                    f"{ctx} élément en_cours mais le sprint parent n'est pas en_cours "
-                    f"(statut sprint : {statut_sprint!r})"
-                )
-            if statut_element == "livre" and statut_sprint not in {"en_cours", "clos"}:
-                violations.append(
-                    f"{ctx} élément livré mais le sprint parent n'est ni en_cours ni clos "
-                    f"(statut sprint : {statut_sprint!r})"
-                )
     return violations
+
+
+def regle_e_pr_reservee_au_livre(sprint: dict[str, Any]) -> list[str]:
+    """La clé 'pr' n'a de sens que sur un élément livré."""
+    return [
+        f"{_ctx_element(sprint, e)} 'pr' présent mais statut != livre"
+        for e in _elements(sprint)
+        if "pr" in e and e.get("statut") != "livre"
+    ]
+
+
+def regle_e_abandonne_exige_raison(sprint: dict[str, Any]) -> list[str]:
+    """Un élément abandonné dit pourquoi."""
+    return [
+        f"{_ctx_element(sprint, e)} statut abandonne exige la clé 'raison'"
+        for e in _elements(sprint)
+        if e.get("statut") == "abandonne" and "raison" not in e
+    ]
+
+
+def regle_e_raison_reservee_a_abandonne(sprint: dict[str, Any]) -> list[str]:
+    """La clé 'raison' n'a de sens que sur un élément abandonné."""
+    return [
+        f"{_ctx_element(sprint, e)} 'raison' présente mais statut != abandonne"
+        for e in _elements(sprint)
+        if "raison" in e and e.get("statut") != "abandonne"
+    ]
+
+
+def regle_e_sprint_clos_termine(sprint: dict[str, Any]) -> list[str]:
+    """Un sprint clos ne contient que du livré ou de l'abandonné."""
+    if sprint.get("statut") != "clos":
+        return []
+    return [
+        f"{_contexte(sprint.get('numero'), None)} sprint clos mais contient un élément de "
+        f"statut {e.get('statut')!r} (seuls livre/abandonne sont autorisés)"
+        for e in _elements(sprint)
+        if e.get("statut") not in {"livre", "abandonne"}
+    ]
+
+
+def regle_e_sprint_non_commence(sprint: dict[str, Any]) -> list[str]:
+    """Un sprint fige ou esquisse ne contient que du prévu ou de l'abandonné."""
+    statut = sprint.get("statut")
+    if statut not in {"fige", "esquisse"}:
+        return []
+    return [
+        f"{_contexte(sprint.get('numero'), None)} sprint {statut} mais contient un élément de "
+        f"statut {e.get('statut')!r} (seuls prevu/abandonne sont autorisés)"
+        for e in _elements(sprint)
+        if e.get("statut") not in {"prevu", "abandonne"}
+    ]
+
+
+REGLES_E = (
+    regle_e_en_cours_exige_sprint_en_cours,
+    regle_e_livre_exige_pr_et_sprint_actif,
+    regle_e_pr_reservee_au_livre,
+    regle_e_abandonne_exige_raison,
+    regle_e_raison_reservee_a_abandonne,
+    regle_e_sprint_clos_termine,
+    regle_e_sprint_non_commence,
+)
+
+
+# --- Règles B et C : numérotation et ordre des statuts ----------------------
 
 
 def _violations_numerotation(sprints: list[dict[str, Any]]) -> list[str]:
     """Règle B : numéros uniques et strictement croissants dans l'ordre du fichier."""
     violations: list[str] = []
-    numeros_valides = [s.get("numero") for s in sprints if isinstance(s.get("numero"), int)]
+    numeros_valides = [s.get("numero") for s in sprints if _est_entier(s.get("numero"))]
 
     vus: set[int] = set()
     for n in numeros_valides:
@@ -355,14 +498,14 @@ def _violations_numerotation(sprints: list[dict[str, Any]]) -> list[str]:
 
 
 def _violations_monotonie_statuts(sprints: list[dict[str, Any]]) -> list[str]:
-    """Règle C : suite clos* puis au plus un en_cours puis fige* puis esquisse*."""
+    """Règle C : suite clos* puis au plus un en_cours puis fige* (≤ 2) puis
+    esquisse* (≤ 2)."""
     violations: list[str] = []
     statuts_ordre = [s.get("statut") for s in sprints]
-    statuts_connus = [s for s in statuts_ordre if s in ORDRE_SEQUENCE_FICHIER]
-    if len(statuts_connus) != len(statuts_ordre):
-        return violations  # statut invalide déjà signalé ailleurs (règle A)
+    if any(s not in ORDRE_SEQUENCE_FICHIER for s in statuts_ordre):
+        return violations  # statut invalide déjà signalé par la règle A
 
-    rangs = [ORDRE_SEQUENCE_FICHIER[s] for s in statuts_connus]
+    rangs = [ORDRE_SEQUENCE_FICHIER[s] for s in statuts_ordre]
     for precedent, suivant in zip(rangs, rangs[1:], strict=False):
         if suivant < precedent:
             violations.append(
@@ -371,13 +514,13 @@ def _violations_monotonie_statuts(sprints: list[dict[str, Any]]) -> list[str]:
             )
             break
 
-    nb_en_cours = statuts_connus.count("en_cours")
+    nb_en_cours = statuts_ordre.count("en_cours")
     if nb_en_cours > 1:
         violations.append(f"[fichier] plus d'un sprint en_cours ({nb_en_cours}) : {statuts_ordre}")
-    nb_fige = statuts_connus.count("fige")
+    nb_fige = statuts_ordre.count("fige")
     if nb_fige > 2:
         violations.append(f"[fichier] plus de 2 sprints figés ({nb_fige})")
-    nb_esquisse = statuts_connus.count("esquisse")
+    nb_esquisse = statuts_ordre.count("esquisse")
     if nb_esquisse > 2:
         violations.append(f"[fichier] plus de 2 sprints esquissés ({nb_esquisse})")
     return violations
@@ -385,22 +528,37 @@ def _violations_monotonie_statuts(sprints: list[dict[str, Any]]) -> list[str]:
 
 def violations_statiques(donnees: dict[str, Any], racine: Path) -> list[str]:
     violations: list[str] = []
+
+    cles_racine_inconnues = set(donnees.keys()) - CLES_RACINE_VALIDES
+    if cles_racine_inconnues:
+        violations.append(
+            f"[fichier] clé(s) inconnue(s) à la racine (seule 'sprint' est permise) : "
+            f"{sorted(cles_racine_inconnues)}"
+        )
+
     sprints = donnees.get("sprint", [])
     if not isinstance(sprints, list):
-        return ["[fichier] la clé 'sprint' doit être une liste"]
+        return violations + ["[fichier] la clé 'sprint' doit être une liste de tables [[sprint]]"]
+    if not sprints:
+        violations.append("[fichier] aucun [[sprint]] : au moins un sprint est exigé")
 
-    identifiants_vus: set[str] = set()
+    noms_fichiers = _noms_fichiers_backlog(racine)
+    sprints_tables: list[dict[str, Any]] = []
     for sprint in sprints:
         if not isinstance(sprint, dict):
             violations.append("[fichier] un sprint n'est pas une table")
             continue
-        violations.extend(_valider_sprint_statique(sprint, racine, identifiants_vus))
+        sprints_tables.append(sprint)
+        violations.extend(_valider_cles_et_types_sprint(sprint, _contexte(sprint.get("numero"), None)))
+        elements = sprint.get("element", [])
+        for element in elements if isinstance(elements, list) else []:
+            violations.extend(_valider_element_statique(element, sprint, racine, noms_fichiers))
+        for regle in REGLES_E:
+            violations.extend(regle(sprint))
 
-    sprints_tables = [s for s in sprints if isinstance(s, dict)]
-    violations.extend(_violations_element_vs_sprint_parent(sprints_tables))
+    violations.extend(_violations_unicite(sprints_tables))
     violations.extend(_violations_numerotation(sprints_tables))
     violations.extend(_violations_monotonie_statuts(sprints_tables))
-
     return violations
 
 
@@ -410,89 +568,12 @@ def violations_statiques(donnees: dict[str, Any], racine: Path) -> list[str]:
 
 
 def _index_sprints(donnees: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    sprints = donnees.get("sprint", [])
+    if not isinstance(sprints, list):
+        return {}
     return {
-        s["numero"]: s
-        for s in donnees.get("sprint", [])
-        if isinstance(s, dict) and isinstance(s.get("numero"), int)
+        s["numero"]: s for s in sprints if isinstance(s, dict) and _est_entier(s.get("numero"))
     }
-
-
-def _identifiants_elements(sprint: dict[str, Any]) -> set[str]:
-    ids = set()
-    for element in sprint.get("element", []) or []:
-        if not isinstance(element, dict):
-            continue
-        if "fiche" in element:
-            ids.add(f"fiche:{element['fiche']}")
-        elif "chantier" in element:
-            ids.add(f"chantier:{element['chantier']}")
-    return ids
-
-
-def _a_derogation_nouvelle(sprint_courant: dict[str, Any], sprint_base: dict[str, Any]) -> bool:
-    derog_courantes = sprint_courant.get("derogations") or []
-    derog_base = set(sprint_base.get("derogations") or [])
-    return any(d not in derog_base for d in derog_courantes)
-
-
-def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
-    """Règles F et G, comparaison pure entre deux structures déjà parsées."""
-    violations: list[str] = []
-    sprints_base = _index_sprints(base)
-    sprints_courant = _index_sprints(courant)
-
-    for numero, sprint_base in sprints_base.items():
-        ctx = f"[sprint {numero}]"
-
-        # Règle G : un sprint de la base doit rester présent.
-        if numero not in sprints_courant:
-            violations.append(f"{ctx} a disparu du fichier (présent dans la base)")
-            continue
-
-        sprint_courant = sprints_courant[numero]
-        statut_base = sprint_base.get("statut")
-        statut_courant = sprint_courant.get("statut")
-
-        # Règle G : pas de retour en arrière de statut de sprint.
-        if statut_base in ORDRE_PROGRESSION and statut_courant in ORDRE_PROGRESSION:
-            if ORDRE_PROGRESSION[statut_courant] < ORDRE_PROGRESSION[statut_base]:
-                violations.append(
-                    f"{ctx} statut revenu en arrière : {statut_base!r} -> {statut_courant!r}"
-                )
-
-        # Règle F : un sprint fige/en_cours dans la base garde le même ensemble
-        # d'éléments, sauf dérogation nouvelle.
-        if statut_base in {"fige", "en_cours"}:
-            ids_base = _identifiants_elements(sprint_base)
-            ids_courant = _identifiants_elements(sprint_courant)
-            if ids_base != ids_courant and not _a_derogation_nouvelle(sprint_courant, sprint_base):
-                violations.append(
-                    f"{ctx} était {statut_base!r} et ses éléments ont changé sans dérogation "
-                    f"nouvelle : base={sorted(ids_base)} courant={sorted(ids_courant)}"
-                )
-
-        # Règle G : un élément livré/abandonné dans la base ne change plus de statut.
-        elements_base = {
-            _cle_element(e): e.get("statut")
-            for e in sprint_base.get("element", []) or []
-            if isinstance(e, dict)
-        }
-        elements_courant = {
-            _cle_element(e): e.get("statut")
-            for e in sprint_courant.get("element", []) or []
-            if isinstance(e, dict)
-        }
-        for cle, statut_elem_base in elements_base.items():
-            if statut_elem_base not in {"livre", "abandonne"}:
-                continue
-            statut_elem_courant = elements_courant.get(cle)
-            if statut_elem_courant is not None and statut_elem_courant != statut_elem_base:
-                violations.append(
-                    f"{ctx} élément {cle} était {statut_elem_base!r} dans la base, "
-                    f"ne peut plus changer (trouvé {statut_elem_courant!r})"
-                )
-
-    return violations
 
 
 def _cle_element(element: dict[str, Any]) -> str:
@@ -503,13 +584,166 @@ def _cle_element(element: dict[str, Any]) -> str:
     return "?"
 
 
+def _index_elements(sprint: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {_cle_element(e): e for e in _elements(sprint)}
+
+
+def _derogations(sprint: dict[str, Any]) -> list[Any]:
+    valeur = sprint.get("derogations", [])
+    return valeur if isinstance(valeur, list) else []
+
+
+def _regle_g_transition_sprint(
+    ctx: str, statut_base: Any, statut_courant: Any
+) -> list[str]:
+    """Pas de recul, au plus une étape, clos seulement depuis en_cours."""
+    if statut_base not in ORDRE_PROGRESSION or statut_courant not in ORDRE_PROGRESSION:
+        return []  # statut invalide : règle A
+    ecart = ORDRE_PROGRESSION[statut_courant] - ORDRE_PROGRESSION[statut_base]
+    if ecart < 0:
+        return [f"{ctx} statut revenu en arrière : {statut_base!r} -> {statut_courant!r}"]
+    violations: list[str] = []
+    if ecart > 1:
+        violations.append(
+            f"{ctx} statut avancé de plus d'une étape en un diff : "
+            f"{statut_base!r} -> {statut_courant!r}"
+        )
+    if statut_courant == "clos" and statut_base not in {"en_cours", "clos"}:
+        violations.append(
+            f"{ctx} clos alors qu'il n'était pas en_cours dans la base ({statut_base!r})"
+        )
+    return violations
+
+
+def _regle_g_elements_termines_geles(
+    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> list[str]:
+    """Un élément livré/abandonné dans la base reste dans le même sprint, avec
+    exactement les mêmes champs."""
+    violations: list[str] = []
+    elements_courant = _index_elements(sprint_courant)
+    for cle, element_base in _index_elements(sprint_base).items():
+        if element_base.get("statut") not in {"livre", "abandonne"}:
+            continue
+        element_courant = elements_courant.get(cle)
+        if element_courant is None:
+            violations.append(
+                f"{ctx} élément {cle} était {element_base.get('statut')!r} dans la base "
+                "et a quitté ce sprint (il ne peut plus changer)"
+            )
+        elif element_courant != element_base:
+            violations.append(
+                f"{ctx} élément {cle} était {element_base.get('statut')!r} dans la base, "
+                f"ne peut plus changer : base={element_base} courant={element_courant}"
+            )
+    return violations
+
+
+def _regle_g_sprint_clos_gele(
+    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> list[str]:
+    """Un sprint clos dans la base est identique en tout dans la version courante."""
+    if sprint_base.get("statut") != "clos":
+        return []
+    identiques = (
+        sprint_base.get("statut") == sprint_courant.get("statut")
+        and sprint_base.get("titre") == sprint_courant.get("titre")
+        and _derogations(sprint_base) == _derogations(sprint_courant)
+        and _index_elements(sprint_base) == _index_elements(sprint_courant)
+        and len(_elements(sprint_base)) == len(_elements(sprint_courant))
+    )
+    if identiques:
+        return []
+    return [f"{ctx} était clos dans la base et a été modifié (un sprint clos ne change plus)"]
+
+
+def _regle_f_derogations_append_only(
+    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> list[str]:
+    derog_base = _derogations(sprint_base)
+    derog_courant = _derogations(sprint_courant)
+    if derog_courant[: len(derog_base)] != derog_base:
+        return [
+            f"{ctx} dérogations modifiées : la liste de la base doit rester un préfixe exact "
+            f"(ajouts en fin seulement) : base={derog_base} courant={derog_courant}"
+        ]
+    return []
+
+
+def _regle_f_composition_figee(
+    ctx: str, sprint_base: dict[str, Any], sprint_courant: dict[str, Any]
+) -> list[str]:
+    """Un sprint fige/en_cours dans la base garde ses éléments et son titre,
+    sauf exactement une dérogation nouvelle dans ce diff ; une dérogation
+    nouvelle sans changement est orpheline."""
+    statut_base = sprint_base.get("statut")
+    if statut_base not in {"fige", "en_cours"}:
+        return []
+
+    ids_base = set(_index_elements(sprint_base))
+    ids_courant = set(_index_elements(sprint_courant))
+    changements = []
+    if ids_base != ids_courant:
+        changements.append(f"éléments base={sorted(ids_base)} courant={sorted(ids_courant)}")
+    if sprint_base.get("titre") != sprint_courant.get("titre"):
+        changements.append(
+            f"titre {sprint_base.get('titre')!r} -> {sprint_courant.get('titre')!r}"
+        )
+
+    derog_base = _derogations(sprint_base)
+    derog_courant = _derogations(sprint_courant)
+    if derog_courant[: len(derog_base)] != derog_base:
+        return []  # déjà signalé par _regle_f_derogations_append_only
+    nb_nouvelles = len(derog_courant) - len(derog_base)
+
+    if changements and nb_nouvelles == 0:
+        return [
+            f"{ctx} était {statut_base!r} et a changé sans dérogation nouvelle : "
+            + " ; ".join(changements)
+        ]
+    if changements and nb_nouvelles > 1:
+        return [
+            f"{ctx} était {statut_base!r} : {nb_nouvelles} dérogations nouvelles dans ce diff, "
+            "exactement une est attendue pour couvrir le changement"
+        ]
+    if not changements and nb_nouvelles > 0:
+        return [
+            f"{ctx} dérogation nouvelle sans changement d'éléments ni de titre "
+            f"({nb_nouvelles} ajoutée(s)) : une dérogation couvre un changement"
+        ]
+    return []
+
+
+def violations_contre_base(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
+    """Règles F et G, comparaison pure entre deux structures déjà parsées."""
+    violations: list[str] = []
+    sprints_courant = _index_sprints(courant)
+
+    for numero, sprint_base in _index_sprints(base).items():
+        ctx = f"[sprint {numero}]"
+        sprint_courant = sprints_courant.get(numero)
+        if sprint_courant is None:
+            violations.append(f"{ctx} a disparu du fichier (présent dans la base)")
+            continue
+
+        violations.extend(
+            _regle_g_transition_sprint(ctx, sprint_base.get("statut"), sprint_courant.get("statut"))
+        )
+        violations.extend(_regle_g_sprint_clos_gele(ctx, sprint_base, sprint_courant))
+        violations.extend(_regle_g_elements_termines_geles(ctx, sprint_base, sprint_courant))
+        violations.extend(_regle_f_derogations_append_only(ctx, sprint_base, sprint_courant))
+        violations.extend(_regle_f_composition_figee(ctx, sprint_base, sprint_courant))
+
+    return violations
+
+
 # ---------------------------------------------------------------------------
 # Vue --etat / --json
 # ---------------------------------------------------------------------------
 
 
 def _titre_fiche(chemin: Path) -> str:
-    if not chemin.exists():
+    if not chemin.is_file():
         return "(fiche introuvable)"
     for ligne in chemin.read_text(encoding="utf-8").splitlines():
         ligne = ligne.strip()
@@ -518,33 +752,21 @@ def _titre_fiche(chemin: Path) -> str:
     return "(sans titre)"
 
 
-def _type_fiche(chemin: Path) -> str | None:
-    if not chemin.exists():
-        return None
-    for ligne in chemin.read_text(encoding="utf-8").splitlines():
-        ligne = ligne.strip()
-        if ligne in {"Type : feature", "Type : bug"}:
-            return ligne.split(":", 1)[1].strip()
-    return None
-
-
 def construire_etat(donnees: dict[str, Any], racine: Path) -> dict[str, Any]:
     sprints_actifs = []
     fiches_planifiees: set[str] = set()
 
-    for sprint in donnees.get("sprint", []) or []:
+    sprints = donnees.get("sprint", [])
+    for sprint in sprints if isinstance(sprints, list) else []:
         if not isinstance(sprint, dict):
             continue
         elements_sortie = []
-        for element in sprint.get("element", []) or []:
-            if not isinstance(element, dict):
-                continue
-            if "fiche" in element:
+        for element in _elements(sprint):
+            if isinstance(element.get("fiche"), str):
                 fiches_planifiees.add(element["fiche"])
-                chemin_fiche = racine / "docs" / "backlog" / f"{element['fiche']}.md"
-                titre = _titre_fiche(chemin_fiche)
+                titre = _titre_fiche(racine / "docs" / "backlog" / f"{element['fiche']}.md")
             else:
-                titre = element.get("chantier", "?")
+                titre = str(element.get("chantier", "?"))
             elements_sortie.append(
                 {
                     "identifiant": element.get("fiche") or element.get("chantier"),
@@ -565,12 +787,12 @@ def construire_etat(donnees: dict[str, Any], racine: Path) -> dict[str, Any]:
 
     dossier_backlog = racine / "docs" / "backlog"
     non_planifie = []
-    if dossier_backlog.exists():
+    if dossier_backlog.is_dir():
         for fichier in sorted(dossier_backlog.glob("*.md")):
-            nom = fichier.stem
-            if nom in fiches_planifiees:
+            if fichier.stem in fiches_planifiees:
                 continue
-            non_planifie.append({"fiche": nom, "type": _type_fiche(fichier)})
+            type_fiche = ligne_type_fiche(fichier.read_text(encoding="utf-8"))
+            non_planifie.append({"fiche": fichier.stem, "type": type_fiche})
 
     return {"sprints": sprints_actifs, "non_planifie": non_planifie}
 
@@ -593,48 +815,71 @@ def imprimer_etat(etat: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Vérifie docs/backlog/sprints.toml")
     parser.add_argument("--racine", type=Path, default=None, help="Racine du dépôt (surcharge)")
     parser.add_argument("--base", default=None, help="Référence git à comparer (ex. origin/main)")
     parser.add_argument("--etat", action="store_true", help="Affiche l'état lisible")
     parser.add_argument("--json", action="store_true", help="Affiche l'état en JSON")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     racine = args.racine or Path(__file__).resolve().parent.parent
-    chemin_toml = racine / "docs" / "backlog" / "sprints.toml"
-    donnees = charger_toml(chemin_toml)
+    chemin_toml = racine / CHEMIN_RELATIF_TOML
+    try:
+        donnees = charger_toml(chemin_toml)
+    except FileNotFoundError:
+        print(f"[fichier] {chemin_toml} introuvable")
+        return 1
+    except tomllib.TOMLDecodeError as exc:
+        print(f"[fichier] {chemin_toml} n'est pas un TOML valide : {exc}")
+        return 1
 
     violations = violations_statiques(donnees, racine)
 
+    informations: list[str] = []
     if args.base:
-        base_donnees, message_erreur = charger_toml_depuis_git(racine, args.base)
-        if message_erreur:
-            print(message_erreur)
-        else:
-            assert base_donnees is not None
+        base_donnees, violations_base, message_creation = charger_toml_depuis_git(
+            racine, args.base
+        )
+        violations.extend(violations_base)
+        if message_creation:
+            informations.append(message_creation)
+        if base_donnees is not None:
             violations.extend(violations_contre_base(base_donnees, donnees))
 
-    if args.etat or args.json:
+    _imprimer_resultat(args, donnees, racine, informations, violations)
+    return 1 if violations else 0
+
+
+def _imprimer_resultat(
+    args: argparse.Namespace,
+    donnees: dict[str, Any],
+    racine: Path,
+    informations: list[str],
+    violations: list[str],
+) -> None:
+    if args.json:
         etat = construire_etat(donnees, racine)
-        if args.json:
-            print(json.dumps({"etat": etat, "violations": violations}, ensure_ascii=False, indent=2))
-        else:
-            imprimer_etat(etat)
-            if violations:
-                print()
-                print("Violations :")
-                for v in violations:
-                    print(f"  - {v}")
-        return 1 if violations else 0
+        sortie = {"etat": etat, "informations": informations, "violations": violations}
+        print(json.dumps(sortie, ensure_ascii=False, indent=2))
+        return
+
+    for information in informations:
+        print(information)
+
+    if args.etat:
+        imprimer_etat(construire_etat(donnees, racine))
+        if violations:
+            print()
+            print("Violations :")
+            for v in violations:
+                print(f"  - {v}")
+        return
 
     if not violations:
         print("backlog conforme")
-        return 0
-
     for v in violations:
         print(v)
-    return 1
 
 
 if __name__ == "__main__":

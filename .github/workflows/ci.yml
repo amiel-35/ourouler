@@ -51,8 +51,29 @@ jobs:
 
       - run: uv run ruff check .
 
+      # Base de comparaison : la branche cible sur une PR ; sur un push (main
+      # comme prod), le commit d'avant le push, sauf branche toute neuve (before
+      # nul) où l'on compare à origin/main. Une base introuvable fait échouer.
       - name: Vérifier le backlog
-        run: uv run python scripts/verifier_backlog.py --base origin/${{ github.base_ref || 'main' }}
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          BRANCHE_CIBLE: ${{ github.base_ref }}
+          AVANT: ${{ github.event.before }}
+        run: |
+          REF_NULLE=0000000000000000000000000000000000000000
+          if [ "$EVENEMENT" = "pull_request" ]; then
+            base="origin/$BRANCHE_CIBLE"
+          elif [ "$EVENEMENT" = "push" ]; then
+            if [ "$AVANT" = "$REF_NULLE" ] || [ -z "$AVANT" ]; then
+              base="origin/main"
+            else
+              base="$AVANT"
+            fi
+          else
+            base="origin/main"
+          fi
+          echo "Base de comparaison du backlog : $base"
+          uv run python scripts/verifier_backlog.py --base "$base"
 
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
