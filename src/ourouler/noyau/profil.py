@@ -371,3 +371,50 @@ class PorteVelos(Protocol):
 
     @property
     def velos(self) -> tuple[Velo, ...]: ...
+
+
+class Profil(PorteVelos, Protocol):
+    """Ce qu'un cas d'usage lit du cycliste : `config.Config` en est un, **sans son cache**.
+
+    Lot 10 (`docs/ouverture_plan.md` §6) : un service ne reçoit plus la
+    `Config` entière. Il reçoit ce profil, plus un dossier de cache et un
+    fichier de calibration **déjà résolus** par l'entrée qui l'appelle
+    (`services.contexte.Contexte`). `ParametresCache` n'y figure pas exprès :
+    son défaut résout le répertoire de l'utilisateur (règle absolue 3), et
+    c'est l'entrée — `cli.py`, l'API — qui décide où est le cache.
+    """
+
+    @property
+    def depart(self) -> Depart: ...
+
+    @property
+    def cycliste(self) -> Cycliste: ...
+
+    @property
+    def meteo(self) -> ParametresMeteo: ...
+
+    @property
+    def intervals(self) -> ParametresIntervals: ...
+
+    @property
+    def brouter(self) -> ParametresBrouter: ...
+
+    @property
+    def boucle(self) -> ParametresBoucle: ...
+
+    @property
+    def calibration(self) -> ParametresCalibration: ...
+
+    @property
+    def seance(self) -> ParametresSeance: ...
+
+    @property
+    def tenue(self) -> ParametresTenue: ...
+
+    @property
+    def evitements(self) -> tuple[Evitement, ...]: ...
+
+    @property
+    def historique_depuis(self) -> date: ...
+
+    def velo(self, nom: str) -> Velo: ...
