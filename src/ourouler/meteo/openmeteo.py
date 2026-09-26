@@ -208,8 +208,9 @@ class ClientOpenMeteo:
         # `NaN` majuscule (et `Infinity`) sont acceptés par le module `json` de
         # Python, qui les rend en flottants. Un NaN de pluie se propagerait
         # dans les cumuls et rendrait `meilleure_direction` arbitraire, sans
-        # un message. `lecture.py:429` les écarte déjà, l'asymétrie était
-        # accidentelle : ici aussi, une valeur non finie vaut « absente ».
+        # un message. `activites.lecture._flottant` les écarte déjà,
+        # l'asymétrie était accidentelle : ici aussi, une valeur non finie
+        # vaut « absente ».
         return x if math.isfinite(x) else None
 
     def _instant(self, brut: Any) -> datetime:

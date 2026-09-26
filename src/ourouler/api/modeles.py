@@ -1,6 +1,6 @@
 """Les corps de requête, et seulement eux.
 
-Pydantic entre dans le projet avec l'API (`doctrine_architecture.md:74` :
+Pydantic entre dans le projet avec l'API (`doctrine_architecture.md` §10.3 :
 « pas de Pydantic **tant qu'il n'y a pas d'API** »), et il n'en sort pas : le
 cœur reste en dataclasses. Il sert ici à deux choses, et pas une de plus —
 refuser un corps mal formé avant d'appeler quoi que ce soit, et donner au

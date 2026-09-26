@@ -10,16 +10,14 @@ mode boucle : quand l'un d'eux tombe à côté de la route, le moteur va le
 chercher et revient. **Ce module n'est pas la seule ligne de défense.** Le
 mécanisme de recalage du moteur (`correctMisplacedViaPoints`) n'agit que
 sous son nom camelCase (voir `connecteurs/brouter.py`) et avec un seuil de
-distance à 0 (« pas de vérification de distance ») ; ainsi réglé et mesuré,
-le moteur élimine l'essentiel des antennes lui-même — mais pas toutes : au rayon de boucle le
-plus petit mesuré (8 km), 4 boucles sur 7 gardaient encore une antenne
-même à seuil 0, signe que certains crochets ne sont pas des points de
-passage mal placés mais de vrais culs-de-sac du réseau à ce rayon, que le
-moteur ne peut pas recaler. `boucle/antennes.py` est donc un **filet** : un
-serveur qui régresse sur ce paramètre, un GPX importé sans être passé par
-BRouter, ou un rayon assez petit pour buter sur
-un vrai cul-de-sac continuent d'y trouver une protection. On garde le tracé
-propre après coup, dans tous les cas.
+distance à 0 (« pas de vérification de distance ») ; ainsi réglé, le moteur
+élimine l'essentiel des antennes lui-même — mais pas toutes, y compris à
+seuil 0 sur un petit rayon de boucle (mesure :
+`docs/journal/notes_modules.md`). `boucle/antennes.py` est donc un
+**filet** : un serveur qui régresse sur ce paramètre, un GPX importé sans
+être passé par BRouter, ou un rayon assez petit pour buter sur un vrai
+cul-de-sac continuent d'y trouver une protection. On garde le tracé propre
+après coup, dans tous les cas.
 
 Comment on les reconnaît
 ------------------------

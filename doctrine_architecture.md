@@ -258,6 +258,9 @@ pas de squelette vide « pour plus tard ».
 
 ## 10. Cible hébergée et multi-utilisateur — ce qu'on décide maintenant
 
+*Les §8 et §9 du cadrage ont été retirés ; la numérotation est conservée
+parce que le code et cette doctrine la citent ailleurs (§10, §10.2).*
+
 Décision du mainteneur (12/09/2026) : la cible est **multi-utilisateur**,
 et il faut y penser tôt parce que ça a des implications
 techniques (base de données, stockage, secrets) qu'on ne rattrape pas.

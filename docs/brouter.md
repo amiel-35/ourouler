@@ -26,7 +26,7 @@ n'en ont **pas besoin** : la météo ne regarde que des coordonnées, et
 
 ### L'image et le conteneur
 
-Le dépôt `abrensch/brouter` publie une image sur GitHub Container Registry :
+Le dépôt *abrensch/brouter* publie une image sur GitHub Container Registry :
 `ghcr.io/abrensch/brouter`, en tags `nightly` (un build par jour depuis
 `master`), `latest`/version taguée, et par version (`v1.7.x`). Épingler par
 **digest** plutôt qu'un tag mouvant, `nightly` changeant de contenu à chaque
@@ -60,7 +60,7 @@ docker run -d --name brouter \
   ghcr.io/abrensch/brouter@sha256:<empreinte>
 ```
 
-Ou, en `deploiement/brouter/docker-compose.yml` (à créer si cette forme est
+Ou, en *deploiement/brouter/docker-compose.yml* (à créer si cette forme est
 préférée — rien de tel n'existe encore ici ; `deploiement/docker-compose.yml`
 orchestre `ourouler` lui-même, pas BRouter) :
 
@@ -90,8 +90,8 @@ bords). Les fichiers vont dans `/segments4`.
 
 Les profils (`fastbike`, `fastbike-verylowtraffic`, `trekking`, `gravel`…)
 doivent être des fichiers `.brf` dans `/profiles2` — un profil absent donne
-un **HTTP 500 sans corps** (voir plus bas). Ceux du dépôt `abrensch/brouter`
-(`misc/profiles2/`) sont la source à copier ; `[brouter] profil` doit nommer
+un **HTTP 500 sans corps** (voir plus bas). Ceux du dépôt *abrensch/brouter* (dossier *misc/profiles2/*, sur GitHub)
+sont la source à copier ; `[brouter] profil` doit nommer
 exactement un fichier présent là, sans l'extension.
 
 ## Brancher `ourouler`

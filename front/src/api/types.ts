@@ -1,4 +1,6 @@
-/** Le contrat de l'API, tel qu'il est écrit dans `docs/journal/ux/api_contrat.md`.
+/** Le contrat de l'API, tel qu'il est écrit dans `tests/caracterisation/openapi.json`
+ * (schéma qui fait foi, vérifié par `tests/types_openapi.test.ts` ; les
+ * arbitrages qui l'expliquent sont dans `docs/journal/ux/api_contrat.md`).
  *
  * Ces types décrivent **ce que l'API rend**, pas ce que le front voudrait
  * recevoir. Quand un champ manque au contrat, il manque ici aussi : c'est la

@@ -93,11 +93,12 @@ Tout est sous `src/ourouler/`.
 | `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`) ; comparer deux vélos (`comparer.py`) ; le `Contexte` que reçoit tout service (`contexte.py`). Les autres cas d'usage vivent encore dans les `*/commande.py` de leur paquet, sous la même règle | `comparer.py`, `calibrer.py`, `comptes.py`, `contexte.py` |
 | `api/` | application FastAPI, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond ; les routes, un module par domaine sous `routes/` ; les deux chemins vers le cœur (`adaptateur.py`, `calculs.py`, `double_chemin.py`, voir §4) ; la seule lecture de l'environnement de l'API (`exploitation.py`) | `application.py`, `comptes.py`, `depots.py`, `double_chemin.py`, `routes/` |
 
-Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
-`proprietaire.py`, `seance/modele.py`, `seance/zones.py`, `sortie/carte.py`
-et `physique/comparer.py` n'existent plus : le code importe directement le
-noyau (ou `rendu/carte.py`, `services/comparer.py`). `config.py` garde
-`Velo`, `Depart`… comme alias public délibéré (souvent importés ainsi).
+Les anciens chemins *boucle/trace.py*, *activites/modele.py*, *erreurs.py*
+et *proprietaire.py* à la racine du paquet, *seance/modele.py*,
+*seance/zones.py*, *sortie/carte.py* et *physique/comparer.py* n'existent
+plus : le code importe directement le noyau (ou `rendu/carte.py`,
+`services/comparer.py`). `config.py` garde `Velo`, `Depart`… comme alias
+public délibéré (souvent importés ainsi).
 
 argparse est sorti des cas d'usage. Chaque sous-commande a sa `Demande` (une
 dataclass, dans le module du service) et un service
@@ -249,40 +250,41 @@ sa date. La table est vide aujourd'hui.
 sorties de référence, le contrat OpenAPI et les tests identiques, et retire
 les exceptions qu'elle rend inutiles.
 
-1. Créer `noyau/` (trace, activité, erreurs, propriétaire). *Fait (lot 3).*
+1. Créer `noyau/` (trace, activité, erreurs, propriétaire). *Fait.*
 2. Y ranger aussi les types météo, le profil, le modèle de séance et les
-   zones. *Fait (lot 4)*, sauf `Config` elle-même : elle garde
+   zones. *Fait*, sauf `Config` elle-même : elle garde
    `ParametresCache`.
 3. Casser le cycle `api` ↔ `cli` : `profil_json` passe au rendu, les comptes
-   et invitations passent aux services. *Fait (lot 5).*
+   et invitations passent aux services. *Fait.*
 4. Sortir le rendu texte et JSON des `commande.py` de `sortie`, `boucle` et
-   `physique`. *Fait (lots 6 et 8)* : `rendu/sortie.py`, `rendu/boucle.py`,
+   `physique`. *Fait* : `rendu/sortie.py`, `rendu/boucle.py`,
    `rendu/carte.py`, `rendu/physique.py`.
 5. Isoler le stockage des calibrations : le domaine reçoit des paramètres,
-   plus un chemin. *Fait (lot 7)* : `stockage/calibrations.py`,
+   plus un chemin. *Fait* : `stockage/calibrations.py`,
    `physique/parametres_velo.py` et `seance/ftp.py`.
 6. Couper `physique/calibration.py` entre le calcul pur et le service qui
-   lit les données, à résultat identique au dernier chiffre. *Fait (lot 8)* :
+   lit les données, à résultat identique au dernier chiffre. *Fait* :
    `services/calibrer.py` et `rendu/physique.py`.
-7. Introduire une interface de routeur et découper `generer`. *Fait (lot 9)* :
+7. Introduire une interface de routeur et découper `generer`. *Fait* :
    `noyau/ports.py`, et le découpage en mailles passé à `boucle/mailles.py`.
 8. Sortir argparse des commandes : la `Demande` est construite par l'entrée.
-   *Fait (lot 10)* : `commandes/` et `services/contexte.py`.
+   *Fait* : `commandes/` et `services/contexte.py`.
 9. Faire appeler service et rendu par l'API, sans `Namespace` ni capture de
    la sortie standard, avec une période où l'ancien et le nouveau chemin
-   tournent ensemble et où l'écart est journalisé. *Écrit (lot 11)* :
+   tournent ensemble et où l'écart est journalisé. *Écrit* :
    `api/calculs.py`, `api/double_chemin.py` ; le défaut reste `ancien`
    jusqu'à la bascule.
 10. Découper les fonctions trop longues, une à la fois. *À faire* : les
     exceptions datées de `pyproject.toml` en portent la liste.
-11. Scinder `api/routes.py` par domaine, en vérifiant que chaque chemin se
-    résout toujours vers la même route. *Fait (lot 13)* : `api/routes/`, un
-    module par domaine, et `tests/api/test_resolution_routes.py`.
+11. Scinder *api/routes.py* (l'ancien fichier unique) par domaine, en
+    vérifiant que chaque chemin se résout toujours vers la même route. *Fait*
+    : `api/routes/`, un module par domaine, et
+    `tests/api/test_resolution_routes.py`.
 12. Côté front : un seul point d'accès au réseau, des types vérifiés contre
-    le schéma OpenAPI, `App.tsx` découpé. *Fait (lot 14)* :
+    le schéma OpenAPI, `App.tsx` découpé. *Fait* :
     `front/tests/reseau_unique.test.ts`, `front/tests/types_openapi.test.ts`,
     `front/tests/taille_composants.test.ts`.
-13. Retirer les réexports. *Fait (lot final)*.
+13. Retirer les réexports. *Fait.*
 
 ## 6. Le trajet d'une demande « sortie »
 
