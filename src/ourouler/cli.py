@@ -573,9 +573,9 @@ def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_calibrer(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.commande import executer_calibrer  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import calibrer_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_calibrer(args, config)
+    return calibrer_depuis_namespace(args, config)
 
 
 def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
@@ -610,9 +610,9 @@ def ajouter_simuler(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_simuler(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.commande import executer_simuler  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import simuler_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_simuler(args, config)
+    return simuler_depuis_namespace(args, config)
 
 
 def ajouter_analyser(sous: argparse._SubParsersAction) -> None:
@@ -646,9 +646,9 @@ def ajouter_analyser(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_analyser(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.commande import executer_analyser  # import paresseux (lot L3.3)
+    from ourouler.commandes.physique import analyser_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_analyser(args, config)
+    return analyser_depuis_namespace(args, config)
 
 
 def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
