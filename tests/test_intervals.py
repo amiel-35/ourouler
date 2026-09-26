@@ -511,11 +511,11 @@ def test_synchroniser_converge_quand_deux_activites_partagent_le_fichier(
 ):
     """Deux activités, un seul fichier d'origine (le cas du triathlon).
 
-    Point 2 de la relecture du sprint 2 : le cache était indexé par le sha256
-    du contenu, donc les deux segments d'un triathlon (natation et vélo dans
-    le même FIT) n'avaient qu'une ligne, celle de la dernière. `contient()`
-    devenait faux pour la première, qui était retéléchargée à chaque passe en
-    faisant disparaître la seconde : la synchronisation n'a jamais convergé.
+    Un cache indexé par le sha256 du contenu n'aurait qu'une ligne pour les
+    deux segments d'un triathlon (natation et vélo dans le même FIT), celle de
+    la dernière. `contient()` deviendrait faux pour la première, retéléchargée
+    à chaque passe en faisant disparaître la seconde : la synchronisation ne
+    convergerait jamais.
     """
     premiere = {**ACTIVITE_1, "id": "t1", "name": "Segment invente 1"}
     seconde = {**ACTIVITE_1, "id": "t2", "name": "Segment invente 2"}
@@ -622,8 +622,8 @@ def test_equipements_erreur_http_ne_laisse_pas_fuir_la_cle():
 
 
 def test_metadonnees_recopie_les_champs_de_rattachement():
-    """Contrat §7 : power_meter, power_meter_serial, bilateral, gear_id, trainer,
-    device_name."""
+    """Champs recopiés pour le rattachement : power_meter, power_meter_serial,
+    bilateral, gear_id, trainer, device_name."""
     m = metadonnees(ACTIVITE_1)
     assert m["power_meter"] == "CAPTEUR 0001"
     assert m["power_meter_serial"] == "SN-0001"

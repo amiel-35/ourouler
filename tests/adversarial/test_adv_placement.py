@@ -1,7 +1,7 @@
-"""L4.3 — placement de la séance sur le tracé, mis à l'épreuve.
+"""Placement de la séance sur le tracé, mis à l'épreuve.
 
-Cible : contrat du sprint 4 §3 et §5, et les décisions produit du 13/09
-rapportées dans `docs/journal/sprints/plan_sprints_agents.md`. C'est le point le plus facile à
+Les règles produit du placement sont tranchées dans
+`docs/journal/sprints/plan_sprints_agents.md`. C'est le point le plus facile à
 trahir en silence : le placement rend toujours un nombre, et une règle produit
 oubliée ne se voit ni dans un test de forme, ni à la lecture d'une note.
 
@@ -38,10 +38,9 @@ import pytest
 from outils import robuste
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.physique import modele as module_modele
+from ourouler.seance import placement as module_placement
 
-MOTIF_ABSENT = "module attendu par le contrat L4.3 absent (ourouler.seance.placement)"
-MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.noyau.seance)"
-MOTIF_PHYSIQUE = "module du sprint 3 absent (ourouler.physique.modele)"
 MOTIF_NODE_TAGS = "Segment.node_tags absent : prérequis du lot L4.2 (contrat §2)"
 
 ERREURS = (ErreurUtilisateur, ValueError)
@@ -62,27 +61,19 @@ RAYON_BOUCLE_M = 9549.0  # 60 km de tour : la courbure reste très loin d'un vir
 N_COTES = 600
 
 
-def _placement() -> Any:
-    return fabriques_seance.module("placement", motif=MOTIF_ABSENT)
-
-
 def _modele() -> Any:
-    # Le modèle de séance vit au noyau depuis le lot 4 : import direct, jamais
-    # de saut (un saut ici rendait 30 tests adversariaux silencieusement verts).
+    # Le modèle de séance vit au noyau : import direct, jamais de saut (un saut
+    # ici rendrait 30 tests adversariaux silencieusement verts).
     return importlib.import_module("ourouler.noyau.seance")
 
 
-def _physique() -> Any:
-    return pytest.importorskip("ourouler.physique.modele", reason=MOTIF_PHYSIQUE)
-
-
 def _parametres() -> Any:
-    return fabriques_physique.parametres(_physique())
+    return fabriques_physique.parametres(module_modele)
 
 
 def _vitesse(puissance_w: float) -> float:
     """Vitesse d'équilibre sur le plat, en m/s — la même que celle du placement."""
-    return _physique().vitesse_regime(puissance_w, 0.0, 0.0, _parametres())
+    return module_modele.vitesse_regime(puissance_w, 0.0, 0.0, _parametres())
 
 
 def _seance(**surcharges: Any) -> Any:
@@ -102,7 +93,7 @@ def _boucle(**kwargs: Any) -> Any:
 
 
 def _appeler(seance: Any, trace: Any, **kwargs: Any):
-    mod = _placement()
+    mod = module_placement
     return robuste(
         lambda: mod.placer(seance, trace, _parametres(), **kwargs),
         quoi=f"placer(..., {kwargs})",
@@ -270,7 +261,7 @@ def test_les_entrees_impossibles_ne_levent_pas(cas):
 
 
 def test_une_seance_qui_ne_tient_pas_le_dit():
-    """Contrat §3 : « si la séance ne tient pas sur la boucle, None et le motif »."""
+    """Si la séance ne tient pas sur la boucle : `None` et le motif."""
     seance = _seance(echauffement_s=10_800.0, bloc_s=3600.0, calme_s=10_800.0)
     trace = fabriques_seance.trace_taguee(fabriques_seance.droite(50, pas_m=100.0))  # 5 km rectilignes
     placement, erreur = _appeler(seance, trace)
@@ -408,7 +399,7 @@ def test_un_village_sous_les_blocs_change_la_note():
 
 
 def test_ce_qui_suit_le_dernier_bloc_ne_change_pas_le_decalage_d_ouverture():
-    """« Z2 de fin = absorption. Elle ne place rien » (plan, sprint 4).
+    """« Z2 de fin = absorption. Elle ne place rien. »
 
     Le retour au calme dure ici 30 min : la zone salie est franchement roulée
     pendant cette Z2 de fin, et reste hors d'atteinte des blocs quel que soit
@@ -499,7 +490,7 @@ def test_un_couloir_unique_et_propre_fait_choisir_le_demi_tour():
     ids=["pas_plat", "demi_tour_infaisable"],
 )
 def test_le_demi_tour_exige_ses_conditions(cas, trace_):
-    """Plan du sprint 4 : plat ou faux-plat, route au-delà, demi-tour faisable."""
+    """Un demi-tour exige plat ou faux-plat, une route au-delà, et d'être faisable."""
     _exiger_node_tags()
     seance = _seance()
     placement = _placer(seance, _boucle_a_couloir_unique(**trace_), elasticite=(0.0, 0.0))

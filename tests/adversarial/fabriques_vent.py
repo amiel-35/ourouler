@@ -1,4 +1,4 @@
-"""Fabriques du sprint 5 — échantillons de vent et tracés à cap contrôlé.
+"""Fabriques du vent sur le placement : échantillons de vent et tracés à cap contrôlé.
 
 Rien ici n'est réel : les coordonnées partent de `fabriques.LAT0/LON0`, en
 pleine mer au sud du golfe de Guinée, et les vents sont des chiffres ronds
@@ -39,9 +39,9 @@ VENT_MS = VENT_KMH / 3.6
 def facteur_hauteur_du_projet() -> float:
     """`FACTEUR_VENT_HAUTEUR` de `physique.modele` — jamais une valeur recopiée.
 
-    Le contrat §1.2 b) exige que `ChampVent` utilise **la** constante du
-    projet, pas un 0,6 réécrit dans son coin. Un test qui coderait 0,6 en dur
-    passerait encore si quelqu'un redéfinissait la constante ailleurs.
+    `ChampVent` doit utiliser **la** constante du projet, pas un 0,6 réécrit
+    dans son coin. Un test qui coderait 0,6 en dur passerait encore si
+    quelqu'un redéfinissait la constante ailleurs.
     """
     from ourouler.physique.modele import FACTEUR_VENT_HAUTEUR
 

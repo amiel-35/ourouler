@@ -17,7 +17,7 @@ c'est `httpx.Client` lui-même qui est rejoué (`outils_caracterisation`). Une
 restructuration qui change la façon d'injecter les clients ne casse donc pas
 ces références ; une qui change ce que l'API répond, si.
 
-**Lot 11 : chaque test tourne sur les trois chemins de l'API**
+**Chaque test tourne sur les trois chemins de l'API**
 (`api/double_chemin.py`) — `ancien` (l'adaptateur de la ligne de commande),
 `nouveau` (service et rendu), `double` (les deux, l'ancien répond) — contre
 les **mêmes** références. En `double`, deux choses de plus : aucune ligne
@@ -168,14 +168,14 @@ def rejeu(monkeypatch: pytest.MonkeyPatch):
     return preparer(monkeypatch)
 
 
-#: Les trois chemins de l'API (lot 11, `api/double_chemin.py`), écrits en
+#: Les trois chemins de l'API (`api/double_chemin.py`), écrits en
 #: clair : le filet ne dépend que de surfaces stables
 #: (`test_le_filet_ne_depend_que_de_surfaces_stables`), et ces trois mots
 #: sont celles d'`OUROULER_API_CHEMIN`.
 CHEMIN_ANCIEN, CHEMIN_NOUVEAU, CHEMIN_DOUBLE = "ancien", "nouveau", "double"
 CHEMINS = (CHEMIN_ANCIEN, CHEMIN_NOUVEAU, CHEMIN_DOUBLE)
 
-#: Le chemin de l'API de chaque test (lot 11), lu par `verifier`.
+#: Le chemin de l'API de chaque test, lu par `verifier`.
 _CHEMIN_COURANT: list[str] = [CHEMIN_ANCIEN]
 
 
@@ -455,10 +455,10 @@ def test_heberge_import_d_activites(serveur, regenerer_golden: bool):
 def test_avertissement_second_avis_en_panne(serveur, rejeu, regenerer_golden: bool):
     """Le second modèle météo répond 500 : la météo sort, avec un avertissement **codé**.
 
-    Le chemin est celui que le lot 11 réécrit (sortie d'erreur du cœur →
-    `avertissements` de l'enveloppe) : sans ce scénario, toutes les
-    références portent `avertissements: []`, et un adaptateur qui les
-    perdrait passerait.
+    Le chemin est celui que le nouveau chemin de l'API réécrit (sortie d'erreur
+    du cœur → `avertissements` de l'enveloppe) : sans ce scénario, toutes les
+    références portent `avertissements: []`, et un adaptateur qui les perdrait
+    passerait.
     """
     rejeu.en_panne("api.open-meteo.com", models=MODELE_SECOND)
     obtenu = serveur().appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"})

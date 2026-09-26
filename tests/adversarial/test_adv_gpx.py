@@ -1,9 +1,9 @@
-"""L2.2 — écriture et import GPX, mis à l'épreuve.
+"""Écriture et import GPX, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §2 et §8. `ecrire_gpx` doit produire un GPX 1.1
-valide même quand le nom du tracé contient des caractères XML ; `lire_gpx_trace`
-doit refuser proprement (`ErreurLecture`) ce qui n'est pas lisible, et ne
-jamais laisser remonter une exception « bug » : la CLI l'afficherait en trace.
+`ecrire_gpx` doit produire un GPX 1.1 valide même quand le nom du tracé
+contient des caractères XML ; `lire_gpx_trace` doit refuser proprement
+(`ErreurLecture`) ce qui n'est pas lisible, et ne jamais laisser remonter une
+exception « bug » : la CLI l'afficherait en trace.
 
 Les fichiers écrits vivent dans `tmp_path` : rien de binaire ni de traçable
 n'est déposé à côté des tests (règle absolue 1, `.gitignore` ne réintègre
@@ -19,9 +19,8 @@ import fabriques
 import pytest
 from outils import robuste
 
+from ourouler.boucle import gpx as module_gpx
 from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L2.2 absent (ourouler.boucle.gpx)"
 
 GPX_MINIMAL_TRK = """<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
@@ -70,10 +69,6 @@ GPX_ENTITE = """<?xml version="1.0"?>
 """
 
 
-def _module():
-    return pytest.importorskip("ourouler.boucle.gpx", reason=MOTIF_ABSENT)
-
-
 def _lire(module, entree):
     return robuste(
         lambda: module.lire_gpx_trace(entree),
@@ -93,7 +88,7 @@ def _points_xml(texte: str) -> list[tuple[float, float]]:
 
 
 def test_ecrire_gpx_produit_un_gpx_1_1_analysable():
-    module = _module()
+    module = module_gpx
     trace = fabriques.trace_fictive(fabriques.ligne(6, pas_m=250.0, cap_deg=30.0))
     texte = module.ecrire_gpx(trace, "boucle d'essai")
 
@@ -107,7 +102,7 @@ def test_ecrire_gpx_produit_un_gpx_1_1_analysable():
 
 def test_le_nom_est_echappe_et_ne_casse_pas_le_xml():
     """Un nom de fichier vient de la CLI : `&`, `<` et `"` doivent être échappés."""
-    module = _module()
+    module = module_gpx
     trace = fabriques.trace_fictive(fabriques.ligne(3))
     hostile = 'Nord & <Sud> "test"'
     texte = module.ecrire_gpx(trace, hostile)
@@ -117,7 +112,7 @@ def test_le_nom_est_echappe_et_ne_casse_pas_le_xml():
 
 
 def test_la_description_reprend_distance_denivele_et_temps():
-    module = _module()
+    module = module_gpx
     trace = fabriques.trace_fictive(
         fabriques.ligne(11, pas_m=1000.0), denivele_m=250.0, temps_moteur_s=3600.0
     )
@@ -131,7 +126,7 @@ def test_la_description_reprend_distance_denivele_et_temps():
 
 
 def test_les_altitudes_absentes_ne_cassent_pas_l_ecriture():
-    module = _module()
+    module = module_gpx
     coords = [(lat, lon, None) for lat, lon, _ in fabriques.ligne(4)]
     trace = fabriques.trace_fictive(coords, denivele_m=None)
     texte = module.ecrire_gpx(trace, "sans altitude")
@@ -142,7 +137,7 @@ def test_les_altitudes_absentes_ne_cassent_pas_l_ecriture():
 
 
 def test_une_trace_sans_point_ne_produit_pas_un_gpx_mensonger():
-    module = _module()
+    module = module_gpx
     trace = fabriques.trace_fictive([])
     texte, erreur = robuste(
         lambda: module.ecrire_gpx(trace, "vide"),
@@ -160,7 +155,7 @@ def test_une_trace_sans_point_ne_produit_pas_un_gpx_mensonger():
 
 
 def test_aller_retour_conserve_les_points_dans_l_ordre():
-    module = _module()
+    module = module_gpx
     coords = fabriques.ligne(8, pas_m=350.0, cap_deg=115.0)
     trace = fabriques.trace_fictive(coords)
     relue, erreur = _lire(module, module.ecrire_gpx(trace, "aller-retour").encode("utf-8"))
@@ -179,7 +174,7 @@ def test_aller_retour_conserve_les_points_dans_l_ordre():
 
 
 def test_aller_retour_d_une_boucle_reste_borne():
-    module = _module()
+    module = module_gpx
     trace = fabriques.trace_fictive(fabriques.cercle(16, rayon_m=1200.0))
     assert trace.bornee(), "le cercle de départ est fermé"
     relue, erreur = _lire(module, module.ecrire_gpx(trace, "boucle").encode("utf-8"))
@@ -202,7 +197,7 @@ def test_aller_retour_d_une_boucle_reste_borne():
     ],
 )
 def test_un_gpx_illisible_donne_une_erreur_de_lecture(contenu, quoi):
-    module = _module()
+    module = module_gpx
     _, erreur = _lire(module, contenu)
     assert erreur is not None, f"{quoi} : une ErreurLecture était attendue"
     assert isinstance(erreur, ErreurLecture), (
@@ -212,7 +207,7 @@ def test_un_gpx_illisible_donne_une_erreur_de_lecture(contenu, quoi):
 
 
 def test_un_fichier_absent_donne_une_erreur_utilisateur(tmp_path: Path):
-    module = _module()
+    module = module_gpx
     _, erreur = _lire(module, tmp_path / "inexistant.gpx")
     assert erreur is not None, (
         "un chemin inexistant doit devenir une erreur utilisateur, pas un FileNotFoundError brut"
@@ -220,7 +215,7 @@ def test_un_fichier_absent_donne_une_erreur_utilisateur(tmp_path: Path):
 
 
 def test_lire_accepte_un_chemin_et_des_octets(tmp_path: Path):
-    module = _module()
+    module = module_gpx
     chemin = tmp_path / "essai.gpx"
     chemin.write_text(GPX_MINIMAL_TRK, encoding="utf-8")
 
@@ -233,8 +228,8 @@ def test_lire_accepte_un_chemin_et_des_octets(tmp_path: Path):
 
 
 def test_une_route_seule_est_importee():
-    """Contrat §2 : « première <trk> ou <rte> »."""
-    module = _module()
+    """L'import lit la première `<trk>` ou, à défaut, la première `<rte>`."""
+    module = module_gpx
     trace, erreur = _lire(module, GPX_ROUTE_SEULE.encode("utf-8"))
     assert erreur is None, f"une <rte> seule doit s'importer : {erreur}"
     assert len(trace.points) == 3, "les trois <rtept> attendus"
@@ -242,7 +237,7 @@ def test_une_route_seule_est_importee():
 
 
 def test_un_gpx_sans_altitude_donne_des_altitudes_nulles():
-    module = _module()
+    module = module_gpx
     trace, erreur = _lire(module, GPX_SANS_ALTITUDE.encode("utf-8"))
     assert erreur is None, f"l'altitude est facultative : {erreur}"
     assert all(p.alt_m is None for p in trace.points), (
@@ -254,7 +249,7 @@ def test_un_gpx_sans_altitude_donne_des_altitudes_nulles():
 
 
 def test_un_gpx_sans_point_ne_devient_pas_une_trace_fantome():
-    module = _module()
+    module = module_gpx
     trace, erreur = _lire(module, GPX_TRACE_VIDE.encode("utf-8"))
     if erreur is None:
         assert trace.points == [], "une <trkseg> vide ne contient aucun point"
@@ -264,14 +259,14 @@ def test_un_gpx_sans_point_ne_devient_pas_une_trace_fantome():
 
 def test_une_entite_externe_n_est_pas_resolue():
     """Un GPX peut venir d'un tiers : aucune entité ne doit ouvrir un fichier local."""
-    module = _module()
+    module = module_gpx
     trace, erreur = _lire(module, GPX_ENTITE.encode("utf-8"))
     if erreur is None:
         assert "root:" not in (trace.nom or ""), "le contenu d'un fichier système a été injecté"
 
 
 def test_les_distances_cumulees_sont_croissantes_et_coherentes():
-    module = _module()
+    module = module_gpx
     trace, erreur = _lire(module, GPX_MINIMAL_TRK.encode("utf-8"))
     assert erreur is None, f"GPX minimal illisible : {erreur}"
     assert trace.points[0].dist_m == 0, "le premier point est à l'origine des distances"

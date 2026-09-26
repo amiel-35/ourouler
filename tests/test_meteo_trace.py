@@ -411,9 +411,8 @@ def test_echantillon_unique():
 def test_trace_sans_point():
     """Une entrée que l'utilisateur peut corriger : `ErreurUtilisateur`, pas `ValueError`.
 
-    Convention du sprint 1 (contrat §0) reprise par le contrat du sprint 2 :
-    seule une `ErreurUtilisateur` est affichée en une ligne avec le code 2 ;
-    toute autre exception est un bug et sort en trace.
+    Convention de la CLI : seule une `ErreurUtilisateur` est affichée en une
+    ligne avec le code 2 ; toute autre exception est un bug et sort en trace.
     """
     vide = Trace(
         nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None

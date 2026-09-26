@@ -26,7 +26,7 @@ import json
 from dataclasses import replace
 
 import pytest
-from test_sortie_commande import _contexte_minimal, _seance_fabriquee, lancer
+from outils_sortie_commande import _contexte_minimal, _seance_fabriquee, lancer
 from test_sortie_contraste import droite, profil, selection_de
 
 from ourouler.rendu.sortie_json import rendre_json

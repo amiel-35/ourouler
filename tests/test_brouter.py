@@ -115,7 +115,7 @@ def test_le_profil_de_l_appel_prime_sur_celui_de_la_configuration():
 
 
 def test_la_boucle_demande_le_recalage_des_points_de_passage():
-    """Contrat §1 : les paramètres de recalage partent avec la demande, au nom que BRouter attend.
+    """Les paramètres de recalage partent avec la demande, au nom que BRouter attend.
 
     Mesuré sur le serveur du mainteneur le 18/09/2026 : le snake_case envoyé
     jusqu'ici (`profile:correct_misplaced_via_points…`) n'était jamais reçu

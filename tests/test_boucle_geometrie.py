@@ -193,7 +193,7 @@ def test_altitude_absente_rend_null_partout():
 
 
 def test_dist_m_croissant_permet_une_recherche_dichotomique_sans_ambiguite():
-    """Contrat §4 : les repères kilométriques des blocs se raccordent à `profil`.
+    """Les repères kilométriques des blocs se raccordent à `profil`.
 
     `debut_m` d'un `Emplacement` est une distance en mètres sur le tracé
     d'origine (`seance/placement.py`) : un front la retrouve par `bisect` sur

@@ -1,9 +1,9 @@
-"""L4.2 — le terrain sous un bloc, mis à l'épreuve.
+"""Le terrain sous un bloc, mis à l'épreuve.
 
-Cible : contrat du sprint 4 §2 et §5. C'est un point critique : `evaluer_couloir`
-ne lève jamais rien, elle rend un nombre. Un poids inversé ou un seuil raté
-donne une note plausible sur un terrain infaisable, et personne ne le voit
-avant d'être dehors, au milieu d'un bourg, à 320 W.
+C'est un point critique : `evaluer_couloir` ne lève jamais rien, elle rend un
+nombre. Un poids inversé ou un seuil raté donne une note plausible sur un
+terrain infaisable, et personne ne le voit avant d'être dehors, au milieu d'un
+bourg, à 320 W.
 
 Ce qui est traqué :
 
@@ -33,8 +33,8 @@ from outils import robuste
 
 from ourouler.boucle.couts import HIGHWAY_TRAFIC
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.seance import terrain as module_terrain
 
-MOTIF_ABSENT = "module attendu par le contrat L4.2 absent (ourouler.seance.terrain)"
 MOTIF_NODE_TAGS = "Segment.node_tags absent : prérequis du lot L4.2 (contrat §2)"
 
 ERREURS = (ErreurUtilisateur, ValueError)
@@ -48,10 +48,6 @@ LONGUEUR_M = 4000.0
 
 #: Une route passante, prise dans la liste que `couts` fait déjà autorité.
 HIGHWAY_PASSANTE = sorted(HIGHWAY_TRAFIC)[0]
-
-
-def _terrain() -> Any:
-    return fabriques_seance.module("terrain", motif=MOTIF_ABSENT)
 
 
 def _exiger_node_tags() -> None:
@@ -76,7 +72,7 @@ def _trace(
 
 
 def _note(trace: Any, debut: float = DEBUT_M, longueur: float = LONGUEUR_M) -> Any:
-    note = _terrain().evaluer_couloir(trace, debut, longueur)
+    note = module_terrain.evaluer_couloir(trace, debut, longueur)
     fabriques_seance.verifier_note(note, quoi=f"evaluer_couloir({debut}, {longueur})")
     return note
 
@@ -113,7 +109,7 @@ def test_un_couloir_propre_ne_reproche_rien():
     ids=["plus_long_que_le_trace", "debut_negatif", "hors_trace", "longueur_nulle"],
 )
 def test_un_couloir_hors_bornes_ne_rend_ni_nan_ni_trace(debut, longueur):
-    mod = _terrain()
+    mod = module_terrain
     trace = _trace()
     note, erreur = robuste(
         lambda: mod.evaluer_couloir(trace, debut, longueur),
@@ -126,7 +122,7 @@ def test_un_couloir_hors_bornes_ne_rend_ni_nan_ni_trace(debut, longueur):
 
 @pytest.mark.parametrize("n", [1], ids=["un_seul_troncon"])
 def test_un_trace_minuscule_ne_casse_pas(n):
-    mod = _terrain()
+    mod = module_terrain
     trace = _trace(n=n)
     note, erreur = robuste(
         lambda: mod.evaluer_couloir(trace, 0.0, 1000.0),
@@ -139,7 +135,7 @@ def test_un_trace_minuscule_ne_casse_pas(n):
 
 def test_un_trace_sans_segments_reste_evaluable():
     """Un GPX importé n'a aucun segment : restent la géométrie et l'altitude."""
-    mod = _terrain()
+    mod = module_terrain
     trace = trace_taguee(droite(N_TRONCONS, pentes=0.0), sans_segments=True)
     note, erreur = robuste(
         lambda: mod.evaluer_couloir(trace, DEBUT_M, LONGUEUR_M),
@@ -152,7 +148,7 @@ def test_un_trace_sans_segments_reste_evaluable():
 
 
 def test_un_trace_sans_altitude_ne_fabrique_pas_de_pente():
-    mod = _terrain()
+    mod = module_terrain
     trace = _trace(alt0=None)
     note, erreur = robuste(
         lambda: mod.evaluer_couloir(trace, DEBUT_M, LONGUEUR_M),
@@ -216,7 +212,7 @@ def test_seuls_les_noeuds_de_la_liste_font_un_carrefour(tags_noeud, attendu):
 
 @pytest.mark.parametrize(("angle", "attendu"), [(90.0, True), (20.0, False)], ids=["angle_droit", "leger"])
 def test_un_virage_serre_compte_comme_un_carrefour(angle, attendu):
-    """Contrat §2 : « virage de plus de 60° détecté géométriquement »."""
+    """Un virage de plus de 60° se détecte géométriquement."""
     coords = fabriques_seance.virage(65, 135, angle_deg=angle, pas_m=PAS_M)
     note = _note(trace_taguee(coords))
     assert (note.carrefours >= 1) is attendu, (
@@ -254,7 +250,7 @@ def test_la_zone_batie_suit_la_regle_du_contrat(tags_troncon, batie):
 @pytest.mark.parametrize("maxspeed", ["30 mph", "50;30"])
 def test_un_maxspeed_non_numerique_ne_leve_pas(maxspeed):
     """OSM écrit ce qu'il veut dans `maxspeed` : un `int()` nu tomberait."""
-    mod = _terrain()
+    mod = module_terrain
     tags = [{"highway": "tertiary"} for _ in range(N_TRONCONS)]
     for i in range(60, 70):
         tags[i] = {"highway": "tertiary", "maxspeed": maxspeed}
@@ -298,7 +294,7 @@ def test_une_descente_sous_les_seuils_n_est_pas_une_descente(pente, troncons, ra
 
 
 def test_une_montee_douce_ne_coute_rien():
-    """Contrat §2 : « tolérée et non pénalisée jusqu'à +2 % »."""
+    """Une montée est tolérée et non pénalisée jusqu'à +2 %."""
     plat = _note(_trace())
     douce = _note(_trace(pentes=0.015))
     assert douce.note == pytest.approx(plat.note, abs=1e-6), (
@@ -329,7 +325,7 @@ def test_une_longue_descente_coute_plus_qu_un_carrefour():
 
 
 def test_un_profil_irregulier_coute_plus_qu_un_profil_regulier():
-    """Écart-type de la pente, poids faible mais non nul (contrat §2)."""
+    """Écart-type de la pente, poids faible mais non nul."""
     # ±1,2 % : sous le seuil de montée tolérée (+2 %) et au-dessus de celui de
     # descente (−1,5 %). Ne reste que l'écart-type pour différencier les deux.
     alternee = [0.012 if i % 2 else -0.012 for i in range(N_TRONCONS)]
@@ -349,9 +345,9 @@ def test_un_profil_irregulier_coute_plus_qu_un_profil_regulier():
 
 
 def test_un_bloc_a_cheval_sur_la_fermeture_continue_sur_la_boucle():
-    """Contrat §2 (`route_au_dela`) : sur une boucle fermée, « on continue sur la boucle »."""
+    """`route_au_dela` : sur une boucle fermée, « on continue sur la boucle »."""
     _exiger_node_tags()
-    mod = _terrain()
+    mod = module_terrain
     boucle = fabriques_seance.boucle_plate(node_tags={2: {"highway": "traffic_signals"}})
     debut = boucle.distance_m - 500.0
     note, erreur = robuste(
@@ -377,13 +373,13 @@ def test_un_bloc_a_cheval_sur_la_fermeture_continue_sur_la_boucle():
     ids=["assez_de_route", "trace_trop_court", "presque_la_fin"],
 )
 def test_route_au_dela_sur_un_trace_ouvert(position, besoin, attendu):
-    mod = _terrain()
+    mod = module_terrain
     assert mod.route_au_dela(_trace(), position, besoin) is attendu
 
 
 def test_route_au_dela_est_toujours_vrai_sur_une_boucle_fermee():
     """« ou si le tracé est une boucle fermée (on continue sur la boucle) »."""
-    mod = _terrain()
+    mod = module_terrain
     boucle = fabriques_seance.boucle_plate()
     assert mod.route_au_dela(boucle, boucle.distance_m - 10.0, 100_000.0) is True
 
@@ -394,7 +390,7 @@ def test_route_au_dela_est_toujours_vrai_sur_une_boucle_fermee():
     ids=["position_negative", "besoin_negatif"],
 )
 def test_route_au_dela_sur_des_entrees_absurdes(position, besoin):
-    mod = _terrain()
+    mod = module_terrain
     trace = _trace()
     valeur, erreur = robuste(
         lambda: mod.route_au_dela(trace, position, besoin),
@@ -414,7 +410,7 @@ def test_route_au_dela_sur_des_entrees_absurdes(position, besoin):
     ids=["petite_route", "departementale_calme", "route_passante"],
 )
 def test_demi_tour_faisable_suit_la_liste_des_routes_passantes(highway, attendu):
-    mod = _terrain()
+    mod = module_terrain
     trace = _trace(tags={"highway": highway})
     assert mod.demi_tour_faisable(trace, 10_000.0) is attendu, (
         f"demi-tour sur {highway} : le contrat §2 refuse les routes de HIGHWAY_TRAFIC et accepte le reste"
@@ -423,7 +419,7 @@ def test_demi_tour_faisable_suit_la_liste_des_routes_passantes(highway, attendu)
 
 @pytest.mark.parametrize("position", [50_000.0], ids=["hors_trace"])
 def test_demi_tour_faisable_sur_une_position_absurde(position):
-    mod = _terrain()
+    mod = module_terrain
     trace = _trace()
     valeur, erreur = robuste(
         lambda: mod.demi_tour_faisable(trace, position),
@@ -436,7 +432,7 @@ def test_demi_tour_faisable_sur_une_position_absurde(position):
 
 def test_demi_tour_faisable_sans_segments():
     """Sans tag, on ne peut pas affirmer que la route est passante."""
-    mod = _terrain()
+    mod = module_terrain
     trace = trace_taguee(droite(N_TRONCONS), sans_segments=True)
     valeur, erreur = robuste(
         lambda: mod.demi_tour_faisable(trace, 10_000.0),

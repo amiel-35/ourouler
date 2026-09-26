@@ -1,4 +1,4 @@
-"""Lot 11 : les modèles de réponse publiés disent vrai, et ne touchent pas aux corps.
+"""Les modèles de réponse publiés disent vrai, et ne touchent pas aux corps.
 
 `api/reponses.py` décrit les réponses réussies **sans les filtrer** : rien,
 à l'exécution, ne vérifie qu'une réponse ressemble à son modèle. Ce test le

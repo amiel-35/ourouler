@@ -1,8 +1,8 @@
-"""L1.5 — couronne de directions, client Open-Meteo, rapport, mis à l'épreuve.
+"""Couronne de directions, client Open-Meteo, rapport, mis à l'épreuve.
 
-Cible : contrat §4. Tous les points de départ sont fictifs : (0.0, 0.0) en
-mer, (0.0, 179.9) au milieu du Pacifique pour le passage de l'antiméridien,
-(89.9, 0.0) pour le franchissement du pôle.
+Tous les points de départ sont fictifs : (0.0, 0.0) en mer, (0.0, 179.9) au
+milieu du Pacifique pour le passage de l'antiméridien, (89.9, 0.0) pour le
+franchissement du pôle.
 
 Le changement d'heure est traité là où il fait mal : la fenêtre du dernier
 dimanche d'octobre 2026, calculée en UTC et rendue en heure locale de Paris,
@@ -20,12 +20,10 @@ import outils
 import pytest
 
 from ourouler.config import Depart
+from ourouler.meteo import couronne as module_couronne
+from ourouler.meteo import openmeteo as module_openmeteo
+from ourouler.meteo import rapport as module_rapport
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-
-MOTIF_COURONNE = "module attendu par le contrat L1.5 absent (ourouler.meteo.couronne)"
-MOTIF_OPENMETEO = "module attendu par le contrat L1.5 absent (ourouler.meteo.openmeteo)"
-MOTIF_RAPPORT = "module attendu par le contrat L1.5 absent (ourouler.meteo.rapport)"
-MOTIF_COMMANDE = "module attendu par le contrat L1.5 absent (ourouler.meteo.commande)"
 
 DEPART = Depart(nom="Point fictif", latitude=0.0, longitude=0.0)
 DEBUT = datetime(2026, 4, 12, 9, 0, tzinfo=UTC)
@@ -42,25 +40,13 @@ VARIABLES = (
 HEURES_CHANGEMENT = [datetime(2026, 10, 24, 23, 0, tzinfo=UTC) + timedelta(hours=n) for n in range(5)]
 
 
-def _couronne_module():
-    return pytest.importorskip("ourouler.meteo.couronne", reason=MOTIF_COURONNE)
-
-
-def _openmeteo_module():
-    return pytest.importorskip("ourouler.meteo.openmeteo", reason=MOTIF_OPENMETEO)
-
-
-def _rapport_module():
-    return pytest.importorskip("ourouler.meteo.rapport", reason=MOTIF_RAPPORT)
-
-
 # =============================================================================
 # Couronne
 # =============================================================================
 
 
 def test_noms_des_directions():
-    module = _couronne_module()
+    module = module_couronne
     assert module.NOMS_DIRECTIONS == ("N", "NE", "E", "SE", "S", "SO", "O", "NO"), (
         "noms français, sens horaire (contrat §4)"
     )
@@ -84,7 +70,7 @@ def _verifier_couronne(points, *, directions: int, distances: list[float]) -> No
 
 
 def test_couronne_nominale():
-    module = _couronne_module()
+    module = module_couronne
     points = module.couronne(DEPART, 8, [15.0, 25.0, 40.0])
     _verifier_couronne(points, directions=8, distances=[15.0, 25.0, 40.0])
     ici = next(p for p in points if p.distance_km == 0)
@@ -102,7 +88,7 @@ def test_couronne_nominale():
 
 
 def test_azimuts_des_huit_directions():
-    module = _couronne_module()
+    module = module_couronne
     points = module.couronne(DEPART, 8, [20.0])
     azimuts = {p.nom: p.azimut_deg for p in points if p.distance_km == 20.0}
     attendus = {nom: 45.0 * i for i, nom in enumerate(module.NOMS_DIRECTIONS)}
@@ -110,13 +96,13 @@ def test_azimuts_des_huit_directions():
 
 
 def test_couronne_a_seize_directions():
-    module = _couronne_module()
+    module = module_couronne
     points = module.couronne(DEPART, 16, [20.0])
     _verifier_couronne(points, directions=16, distances=[20.0])
 
 
 def test_point_couronne_est_immuable():
-    module = _couronne_module()
+    module = module_couronne
     point = module.couronne(DEPART, 8, [20.0])[0]
     with pytest.raises(Exception):  # noqa: B017 — FrozenInstanceError est un ValueError-like
         point.lat = 1.0
@@ -124,7 +110,7 @@ def test_point_couronne_est_immuable():
 
 def test_franchissement_de_l_antimeridien():
     """Départ à 179,9° E, 40 km vers l'est : la longitude doit revenir dans [-180, 180]."""
-    module = _couronne_module()
+    module = module_couronne
     depart = Depart(nom="Pacifique fictif", latitude=0.0, longitude=179.9)
     points = module.couronne(depart, 8, [40.0])
     _verifier_couronne(points, directions=8, distances=[40.0])
@@ -135,7 +121,7 @@ def test_franchissement_de_l_antimeridien():
 
 
 def test_franchissement_du_pole():
-    module = _couronne_module()
+    module = module_couronne
     depart = Depart(nom="Presque le pôle", latitude=89.9, longitude=0.0)
     points = module.couronne(depart, 8, [40.0])
     _verifier_couronne(points, directions=8, distances=[40.0])
@@ -144,7 +130,7 @@ def test_franchissement_du_pole():
 @pytest.mark.parametrize("directions", [0, 1, 3, -4, 360])
 def test_nombre_de_directions_inattendu(directions):
     """Le contrat prévoit 8, « 16 si demandé » : le reste doit refuser ou rester cohérent."""
-    module = _couronne_module()
+    module = module_couronne
     points, erreur = outils.robuste(
         lambda: module.couronne(DEPART, directions, [20.0]),
         quoi=f"couronne(directions={directions})",
@@ -155,14 +141,14 @@ def test_nombre_de_directions_inattendu(directions):
 
 
 def test_sans_distance_il_reste_le_point_de_depart():
-    module = _couronne_module()
+    module = module_couronne
     points = module.couronne(DEPART, 8, [])
     assert len(points) == 1 and points[0].nom == "ici", f"reçu {points}"
 
 
 @pytest.mark.parametrize("distances", [[0.0], [-10.0], [20000.0], [15.0, 15.0]])
 def test_distances_inattendues(distances):
-    module = _couronne_module()
+    module = module_couronne
     points, _ = outils.robuste(
         lambda: module.couronne(DEPART, 8, distances),
         quoi=f"couronne(distances={distances})",
@@ -221,7 +207,7 @@ POINTS_TROIS = [(0.0, 0.0), (0.2, 0.0), (0.0, 0.2)]
 
 
 def test_un_seul_appel_pour_tous_les_points():
-    module = _openmeteo_module()
+    module = module_openmeteo
     corps = [_bloc(lat, lon) for lat, lon in POINTS_TROIS]
     client, requetes = _client_om(module, httpx.Response(200, json=corps))
     previsions = client.previsions(POINTS_TROIS, modele="modele_fictif", debut=DEBUT, horizon_h=3)
@@ -239,7 +225,7 @@ def test_un_seul_appel_pour_tous_les_points():
 
 def test_un_seul_point_renvoye_comme_objet():
     """Open-Meteo renvoie un objet, et non un tableau, quand on ne demande qu'un point."""
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0)))
     previsions = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
     assert isinstance(previsions, list), "la signature annonce list[PrevisionPoint]"
@@ -249,7 +235,7 @@ def test_un_seul_point_renvoye_comme_objet():
 
 def test_les_horodatages_reviennent_conscients_du_fuseau():
     """L'API répond « 2026-04-12T09:00 » sans fuseau alors que timezone=UTC."""
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0)))
     (prevision,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
     for i, heure in enumerate(prevision.heures):
@@ -258,7 +244,7 @@ def test_les_horodatages_reviennent_conscients_du_fuseau():
 
 
 def test_valeurs_nulles_deviennent_none():
-    module = _openmeteo_module()
+    module = module_openmeteo
     horaire = _heures_json(3, precipitation=[None, 0.4, None], wind_speed_10m=[None, None, None])
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0, horaire)))
     (prevision,) = client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
@@ -268,7 +254,7 @@ def test_valeurs_nulles_deviennent_none():
 
 def test_tableaux_de_longueurs_differentes():
     """`time` fait foi : les séries plus courtes se complètent en None, pas en IndexError."""
-    module = _openmeteo_module()
+    module = module_openmeteo
     horaire = _heures_json(6)
     horaire["precipitation"] = [0.1, 0.2]
     horaire["wind_speed_10m"] = [5.0] * 9
@@ -288,7 +274,7 @@ def test_tableaux_de_longueurs_differentes():
 
 
 def test_serie_time_vide():
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0, _heures_json(0))))
     resultat, erreur = outils.robuste(
         lambda: client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3),
@@ -302,7 +288,7 @@ def test_serie_time_vide():
 @pytest.mark.parametrize("valeur", ["3,2", "abc", True, [0.2], {"x": 1}], ids=str)
 def test_valeurs_de_type_inattendu(valeur):
     """Ni la valeur brute ni un plantage : soit un refus, soit None."""
-    module = _openmeteo_module()
+    module = module_openmeteo
     horaire = _heures_json(2, precipitation=[valeur, 0.1])
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0, horaire)))
     resultat, erreur = outils.robuste(
@@ -323,7 +309,7 @@ def test_valeurs_de_type_inattendu(valeur):
     ids=["vide", "blancs", "null", "objet vide", "sans hourly", "html", "json casse"],
 )
 def test_reponse_inexploitable(corps):
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, _ = _client_om(module, httpx.Response(200, content=corps))
     with pytest.raises(ErreurConnecteur):
         client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
@@ -331,7 +317,7 @@ def test_reponse_inexploitable(corps):
 
 @pytest.mark.parametrize("code", [400, 401, 429, 500, 503])
 def test_erreur_http(code):
-    module = _openmeteo_module()
+    module = module_openmeteo
     reponse = httpx.Response(code, json={"error": True, "reason": "modèle inconnu"})
     client, _ = _client_om(module, reponse)
     with pytest.raises(ErreurConnecteur) as capture:
@@ -341,7 +327,7 @@ def test_erreur_http(code):
 
 def test_enveloppe_d_erreur_en_200():
     """Open-Meteo répond parfois 200 avec `{"error": true, "reason": …}`."""
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, _ = _client_om(module, httpx.Response(200, json={"error": True, "reason": "bad model"}))
     with pytest.raises(ErreurConnecteur):
         client.previsions([(0.0, 0.0)], modele="m", debut=DEBUT, horizon_h=3)
@@ -349,7 +335,7 @@ def test_enveloppe_d_erreur_en_200():
 
 def test_moins_de_points_que_demande():
     """Deux points demandés, un seul rendu : refus, ou alignement explicite."""
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, _ = _client_om(module, httpx.Response(200, json=[_bloc(0.0, 0.0)]))
     resultat, erreur = outils.robuste(
         lambda: client.previsions(POINTS_TROIS[:2], modele="m", debut=DEBUT, horizon_h=3),
@@ -364,7 +350,7 @@ def test_moins_de_points_que_demande():
 
 
 def test_sans_point_aucun_appel():
-    module = _openmeteo_module()
+    module = module_openmeteo
     client, requetes = _client_om(module, httpx.Response(200, json=[]))
     resultat, _ = outils.robuste(
         lambda: client.previsions([], modele="m", debut=DEBUT, horizon_h=3),
@@ -377,7 +363,7 @@ def test_sans_point_aucun_appel():
 
 
 def test_fenetre_du_changement_d_heure_reste_monotone_en_utc():
-    module = _openmeteo_module()
+    module = module_openmeteo
     horaire = _heures_json(5, debut=HEURES_CHANGEMENT[0])
     client, _ = _client_om(module, httpx.Response(200, json=_bloc(0.0, 0.0, horaire)))
     (prevision,) = client.previsions(
@@ -422,9 +408,9 @@ def _rapport(
     second_avis_absent: bool = False,
 ):
     """Construit un RapportMeteo complet à partir de valeurs par direction."""
-    couronne_module = _couronne_module()
-    openmeteo = _openmeteo_module()
-    rapport_module = _rapport_module()
+    couronne_module = module_couronne
+    openmeteo = module_openmeteo
+    rapport_module = module_rapport
     instants = instants or [DEBUT]
     distances = distances if distances is not None else [20.0]
     points = couronne_module.couronne(DEPART, 8, distances)
@@ -485,7 +471,7 @@ def _cellule(rapport, nom: str, *, distance: float = 20.0, index: int = 0):
     ],
 )
 def test_vent_relatif(direction, vent_depuis_deg, attendu):
-    """« face » pour qui s'éloigne du départ dans cette direction (contrat §4)."""
+    """« face » pour qui s'éloigne du départ dans cette direction."""
     _, rapport = _rapport(vent_depuis_deg=vent_depuis_deg)
     cellule = _cellule(rapport, direction)
     assert cellule.vent_relatif == attendu, (
@@ -678,7 +664,6 @@ def test_rapport_meteo_expose_les_champs_du_contrat():
 @pytest.mark.parametrize("depart", ["pas une heure", "25:00", "2026-13-45T10:00", "10h30", ""])
 def test_cli_heure_de_depart_invalide(ecrire_config, capsys, depart):
     """L'heure doit être validée avant tout appel réseau : sinon la fixture le montre."""
-    pytest.importorskip("ourouler.meteo.commande", reason=MOTIF_COMMANDE)
     from ourouler.cli import main
 
     chemin = ecrire_config()

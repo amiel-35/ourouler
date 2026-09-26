@@ -1,16 +1,16 @@
-"""L2.5 — pluie et vent le long du tracé, mis à l'épreuve.
+"""Pluie et vent le long du tracé, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §5 et §8. Le client Open-Meteo est le vrai
-(`ourouler.meteo.openmeteo.ClientOpenMeteo`, livré au sprint 1) branché sur un
+Le client Open-Meteo est le vrai
+(`ourouler.meteo.openmeteo.ClientOpenMeteo`) branché sur un
 `MockTransport` qui fabrique la réponse **à partir de la requête reçue** : un
 bloc par point demandé, les heures de la fenêtre demandée. C'est ce qui permet
-de vérifier en aveugle les promesses coûteuses du contrat :
+de vérifier en aveugle les promesses coûteuses :
 
 * **un seul appel** Open-Meteo pour tous les échantillons ;
 * l'heure de passage `depart + dist / vitesse`, et l'**interpolation linéaire**
   entre les deux heures encadrantes (pas la valeur de l'heure la plus proche) ;
-* `vent_relatif` calculé sur le **cap local**, avec la règle ±45° du sprint 1
-  et non une seconde règle recopiée ;
+* `vent_relatif` calculé sur le **cap local**, avec la règle ±45° de
+  `meteo.rapport` et non une seconde règle recopiée ;
 * aucune division par zéro (`vitesse_kmh = 0`) ni boucle infinie (`pas_m = 0`).
 """
 
@@ -27,12 +27,11 @@ import pytest
 from fabriques import EspionHttp
 from outils import robuste
 
+from ourouler.boucle import meteo_trace as module_meteo_trace
 from ourouler.boucle.horaire import construire_horaire
 from ourouler.meteo import rapport
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L2.5 absent (ourouler.boucle.meteo_trace)"
 
 BASE_URL = "https://openmeteo.exemple.invalide"
 MODELE = "meteofrance_arome_france_hd"
@@ -59,10 +58,6 @@ CHAMPS_METEO = {
     "ressenti_min_c",
     "confiance",
 }
-
-
-def _module():
-    return pytest.importorskip("ourouler.boucle.meteo_trace", reason=MOTIF_ABSENT)
 
 
 def _client(**kwargs) -> tuple[ClientOpenMeteo, EspionHttp]:
@@ -165,8 +160,8 @@ def _verifier(meteo: Any, quoi: str) -> None:
 
 
 def test_un_seul_appel_open_meteo_pour_tout_le_trace():
-    """Contrat §5 : « un **seul** appel Open-Meteo pour tous les échantillons »."""
-    module = _module()
+    """Un **seul** appel Open-Meteo pour tous les échantillons."""
+    module = module_meteo_trace
     client, espion = _client()
     meteo = _evaluer(module, _trace(40.0, pas_m=200.0), client, pas_m=2000.0)
     _verifier(meteo, "un seul appel")
@@ -181,7 +176,7 @@ def test_un_seul_appel_open_meteo_pour_tout_le_trace():
 
 
 def test_les_echantillons_couvrent_le_trace_et_finissent_au_dernier_point():
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client()
     trace = _trace(12.0)
     meteo = _evaluer(module, trace, client, pas_m=5000.0)
@@ -200,7 +195,7 @@ def test_les_echantillons_couvrent_le_trace_et_finissent_au_dernier_point():
 
 
 def test_l_heure_de_passage_suit_la_vitesse():
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client()
     meteo = _evaluer(module, _trace(12.0), client, vitesse_kmh=20.0, pas_m=5000.0)
     for e in meteo.echantillons:
@@ -212,8 +207,8 @@ def test_l_heure_de_passage_suit_la_vitesse():
 
 
 def test_la_valeur_horaire_est_interpolee_lineairement():
-    """Contrat §5 : « valeur horaire interpolée linéairement entre les deux heures encadrantes »."""
-    module = _module()
+    """La valeur horaire s'interpole linéairement entre les deux heures encadrantes."""
+    module = module_meteo_trace
     client, _ = _client(pluie=lambda _ip, ih: 2.0 * ih)  # 0 mm à H, 2 mm à H+1, 4 mm à H+2
     meteo = _evaluer(module, _trace(10.0), client, vitesse_kmh=10.0, pas_m=5000.0)
     _verifier(meteo, "interpolation")
@@ -241,7 +236,7 @@ def test_la_valeur_horaire_est_interpolee_lineairement():
     ],
 )
 def test_le_vent_relatif_suit_le_cap_local(cap, vent_depuis, attendu):
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client(vent_depuis_deg=vent_depuis)
     meteo = _evaluer(module, _trace(12.0, cap_deg=cap), client, pas_m=5000.0)
     relatifs = {e.vent_relatif for e in meteo.echantillons}
@@ -253,7 +248,7 @@ def test_le_vent_relatif_suit_le_cap_local(cap, vent_depuis, attendu):
 
 
 def test_les_minutes_de_pluie_comptent_le_seuil_du_contrat():
-    module = _module()
+    module = module_meteo_trace
     trace = _trace(20.0)
     client_mouille, _ = _client(pluie=0.5)
     mouille = _evaluer(module, trace, client_mouille, vitesse_kmh=20.0, pas_m=5000.0)
@@ -273,7 +268,7 @@ def test_les_minutes_de_pluie_comptent_le_seuil_du_contrat():
 
 
 def test_le_ressenti_minimal_est_bien_le_minimum():
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client(ressenti_c=lambda _ip, ih: 10.0 - ih)
     meteo = _evaluer(module, _trace(20.0), client, vitesse_kmh=20.0, pas_m=5000.0)
     ressentis = [e.ressenti_c for e in meteo.echantillons if e.ressenti_c is not None]
@@ -286,7 +281,7 @@ def test_le_ressenti_minimal_est_bien_le_minimum():
 
 
 def test_sans_second_avis_la_confiance_est_inconnue():
-    module = _module()
+    module = module_meteo_trace
     client, espion = _client(pluie=1.0)
     meteo = _evaluer(module, _trace(12.0), client, second_avis=None)
     assert meteo.confiance == rapport.CONFIANCE_INCONNUE, (
@@ -296,7 +291,7 @@ def test_sans_second_avis_la_confiance_est_inconnue():
 
 
 def test_un_desaccord_entre_modeles_est_signale():
-    module = _module()
+    module = module_meteo_trace
     client, espion = _client_par_modele({MODELE: {"pluie": 1.0}, SECOND_AVIS: {"pluie": 0.0}})
     meteo = _evaluer(module, _trace(12.0), client, second_avis=SECOND_AVIS)
     _verifier(meteo, "second avis")
@@ -315,7 +310,7 @@ def test_un_desaccord_entre_modeles_est_signale():
 
 
 def test_un_accord_entre_modeles_est_signale():
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client_par_modele({MODELE: {"pluie": 1.0}, SECOND_AVIS: {"pluie": 1.2}})
     meteo = _evaluer(module, _trace(12.0), client, second_avis=SECOND_AVIS)
     assert meteo.confiance == rapport.CONFIANCE_ACCORD, (
@@ -328,7 +323,7 @@ def test_un_accord_entre_modeles_est_signale():
 
 @pytest.mark.parametrize("vitesse", [0.0, -12.0])
 def test_une_vitesse_absurde_ne_divise_pas_par_zero(vitesse):
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client()
     meteo, erreur = robuste(
         lambda: _evaluer(module, _trace(12.0), client, vitesse_kmh=vitesse),
@@ -342,7 +337,7 @@ def test_une_vitesse_absurde_ne_divise_pas_par_zero(vitesse):
 @pytest.mark.parametrize("pas_m", [0.0, -5000.0])
 def test_un_pas_absurde_ne_fait_pas_tourner_la_boucle_a_vide(pas_m):
     """Un `pas_m` nul fige la génération des échantillons : `limite_temps` le prouve."""
-    module = _module()
+    module = module_meteo_trace
     client, espion = _client()
     meteo, erreur = robuste(
         lambda: _evaluer(module, _trace(12.0), client, pas_m=pas_m),
@@ -358,7 +353,7 @@ def test_un_pas_absurde_ne_fait_pas_tourner_la_boucle_a_vide(pas_m):
 
 
 def test_une_trace_d_un_seul_point_ne_casse_rien():
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client()
     trace = fabriques.trace_fictive(fabriques.ligne(1))
     meteo, erreur = robuste(
@@ -373,7 +368,7 @@ def test_une_trace_d_un_seul_point_ne_casse_rien():
 
 
 def test_une_trace_vide_ne_part_pas_interroger_open_meteo():
-    module = _module()
+    module = module_meteo_trace
     client, espion = _client()
     trace = fabriques.trace_fictive([])
     _, erreur = robuste(
@@ -388,7 +383,7 @@ def test_une_trace_vide_ne_part_pas_interroger_open_meteo():
 
 def test_une_pluie_absente_ne_devient_pas_zero():
     """`null` veut dire « le modèle ne sait pas », pas « il ne pleut pas »."""
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client(pluie=None)
     meteo = _evaluer(module, _trace(12.0), client)
     _verifier(meteo, "pluie nulle")
@@ -400,8 +395,8 @@ def test_une_pluie_absente_ne_devient_pas_zero():
 
 
 def test_un_trace_plus_long_que_l_horizon_ne_ment_pas():
-    """Contrat §8 : « trace plus longue que l'horizon »."""
-    module = _module()
+    """Une trace plus longue que l'horizon météo le dit au lieu d'inventer."""
+    module = module_meteo_trace
     client, _ = _client(heures_max=3)  # trois heures de prévision pour vingt heures de vélo
     trace = _trace(400.0, pas_m=5000.0)
     meteo, erreur = robuste(
@@ -419,7 +414,7 @@ def test_un_trace_plus_long_que_l_horizon_ne_ment_pas():
 
 
 def test_un_depart_naif_ne_provoque_pas_de_comparaison_impossible():
-    module = _module()
+    module = module_meteo_trace
     client, _ = _client()
     meteo, erreur = robuste(
         lambda: _evaluer(module, _trace(12.0), client, depart=datetime(2026, 4, 12, 8, 0)),
@@ -431,8 +426,8 @@ def test_un_depart_naif_ne_provoque_pas_de_comparaison_impossible():
 
 
 def test_le_point_de_depart_ne_part_pas_dans_un_message_d_erreur():
-    """Règle du sprint 1 : les messages Open-Meteo ne publient jamais les coordonnées."""
-    module = _module()
+    """Les messages Open-Meteo ne publient jamais les coordonnées."""
+    module = module_meteo_trace
     espion = EspionHttp(httpx.Response(500, text="boom"))
     client = ClientOpenMeteo(http=espion.client(), base_url=BASE_URL)
     _, erreur = robuste(

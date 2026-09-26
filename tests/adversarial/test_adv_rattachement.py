@@ -1,18 +1,17 @@
-"""L2.7 — rattachement par capteur et métadonnées Intervals, mis à l'épreuve.
+"""Rattachement par capteur et métadonnées Intervals, mis à l'épreuve.
 
-Cible : contrat du sprint 2 §7. L'ordre des règles **change** par rapport au
-sprint 1 : (1) intérieur, (2) capteur de puissance, (3) identifiant ou nom
-d'équipement, (4) période, (5) premier vélo route. La moitié de ce fichier
-vérifie l'ordre, pas les règles prises à part : c'est là que se logent les
-régressions, et c'est ce qui sépare les deux vélos du mainteneur.
+L'ordre des règles de rattachement : (1) intérieur, (2) capteur de puissance,
+(3) identifiant ou nom d'équipement, (4) période, (5) premier vélo route. La
+moitié de ce fichier vérifie l'ordre, pas les règles prises à part : c'est là
+que se logent les régressions, et c'est ce qui sépare les deux vélos du
+mainteneur.
 
 Aucune valeur réelle ici : les capteurs et les identifiants d'équipement du
 mainteneur restent dans `docs/` (voir `test_adv_invariants`), les tests
 utilisent des noms inventés.
 
-Tant que le lot n'est pas livré, les tests se **skippent** explicitement
-(le module du sprint 1 existe déjà, `importorskip` ne suffit donc pas) : la
-sonde regarde si le code connaît seulement la notion de capteur.
+Une sonde regarde si le code connaît la notion de capteur ; sans elle, les
+tests se sautent explicitement au lieu d'échouer sur un attribut absent.
 """
 
 from __future__ import annotations
@@ -26,12 +25,12 @@ import outils
 import pytest
 from fabriques import EspionHttp
 
+from ourouler.activites import cache as module_cache
+from ourouler.activites import inventaire as module_inventaire
 from ourouler.config import depuis_dict
+from ourouler.connecteurs import intervals as module_intervals
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
-MOTIF_INVENTAIRE = "module attendu absent (ourouler.activites.inventaire)"
-MOTIF_CACHE = "module attendu absent (ourouler.activites.cache)"
-MOTIF_INTERVALS = "module attendu absent (ourouler.connecteurs.intervals)"
 MOTIF_L27 = "L2.7 non livré dans ce worktree (rattachement par capteur absent du code)"
 MOTIF_RAFRAICHIR = "L2.7 non livré : `synchroniser` n'a pas encore de paramètre `rafraichir_meta`"
 
@@ -65,20 +64,8 @@ VELOS = [
 NOMS_VELOS = {"Chrono", "Alpha", "Beta", HOME_TRAINER, "inconnu"}
 
 
-def _inventaire():
-    return pytest.importorskip("ourouler.activites.inventaire", reason=MOTIF_INVENTAIRE)
-
-
-def _cache_module():
-    return pytest.importorskip("ourouler.activites.cache", reason=MOTIF_CACHE)
-
-
-def _intervals():
-    return pytest.importorskip("ourouler.connecteurs.intervals", reason=MOTIF_INTERVALS)
-
-
 def _exiger_l27(module):
-    """Le module existe depuis le sprint 1 : ce qui manque, c'est la notion de capteur."""
+    """Le module peut exister sans connaître la notion de capteur : on la sonde."""
     try:
         source = inspect.getsource(module)
     except OSError:  # pragma: no cover - module sans source lisible
@@ -118,9 +105,9 @@ def _entree(module, **surcharges):
 
 
 def _rattacher(config=None, **surcharges) -> str:
-    inventaire = _inventaire()
+    inventaire = module_inventaire
     _exiger_l27(inventaire)
-    cache = _cache_module()
+    cache = module_cache
     resultat = inventaire.rattacher_velo(_entree(cache, **surcharges), config or _config())
     assert isinstance(resultat, str) and resultat, "rattacher_velo rend un nom de vélo non vide"
     assert resultat in NOMS_VELOS, f"nom inattendu : {resultat!r} (attendu parmi {sorted(NOMS_VELOS)})"
@@ -169,7 +156,7 @@ def test_l_interieur_prime_aussi_sur_la_periode_et_l_equipement():
     [CAPTEUR_BETA, CAPTEUR_BETA.lower(), CAPTEUR_BETA.title(), f"  {CAPTEUR_BETA}  "],
 )
 def test_le_capteur_rattache_quelle_que_soit_la_casse(capteur):
-    """Contrat §7 : le champ vient d'Intervals, sa casse n'est pas garantie."""
+    """Le champ vient d'Intervals, sa casse n'est pas garantie."""
     resultat = _rattacher(meta={"power_meter": capteur}, debut=DEBUT_REF)
     assert resultat == "Beta", (
         f"power_meter = {capteur!r} : le vélo Beta porte ce capteur, reçu « {resultat} » "
@@ -209,7 +196,7 @@ def test_un_capteur_inconnu_laisse_les_regles_suivantes_travailler():
     "power_meter", [None, 0, 17, ["liste"], {"nom": "dict"}, True]
 )
 def test_un_power_meter_d_un_type_inattendu_ne_fait_pas_planter(power_meter):
-    _exiger_l27(_inventaire())  # hors de `robuste` : un skip n'est pas un échec du code testé
+    _exiger_l27(module_inventaire)  # hors de `robuste` : un skip n'est pas un échec du code testé
     resultat, erreur = outils.robuste(
         lambda: _rattacher(meta={"power_meter": power_meter}, debut=DEBUT_REF),
         quoi=f"rattacher_velo(power_meter={power_meter!r})",
@@ -230,7 +217,7 @@ def test_le_cache_garantit_une_meta_dictionnaire(tmp_path, hostiles, brut):
     """
     import sqlite3
 
-    cache = _cache_module().Cache(tmp_path / "cache")
+    cache = module_cache.Cache(tmp_path / "cache")
     cache.ajouter(
         hostiles["nominal.gpx"].read_bytes(),
         source="intervals",
@@ -246,7 +233,7 @@ def test_le_cache_garantit_une_meta_dictionnaire(tmp_path, hostiles, brut):
         f"meta = {entree.meta!r} après une colonne JSON contenant {brut!r} : "
         "le cache doit rendre un dictionnaire, toujours"
     )
-    inventaire = _inventaire()
+    inventaire = module_inventaire
     _exiger_l27(inventaire)
     assert inventaire.rattacher_velo(entree, _config()) in NOMS_VELOS
 
@@ -256,7 +243,7 @@ def test_le_cache_garantit_une_meta_dictionnaire(tmp_path, hostiles, brut):
 
 @pytest.mark.parametrize("bilateral", [True, False, None])
 def test_bilateral_sans_capteur_ne_rattache_rien(bilateral):
-    """Contrat §7 : `bilateral` est une métadonnée, pas une règle de rattachement.
+    """`bilateral` est une métadonnée, pas une règle de rattachement.
 
     Sans `power_meter`, une sortie bilatérale doit être rattachée exactement
     comme une sortie sans cette information : deviner « CLM » à partir de
@@ -317,7 +304,7 @@ def test_hors_periode_on_retombe_sur_le_premier_velo_route():
 
 def test_l_ordre_complet_des_cinq_regles():
     """Une entrée qui satisfait tout : chaque règle retirée doit faire descendre d'un cran."""
-    inventaire = _inventaire()
+    inventaire = module_inventaire
     _exiger_l27(inventaire)
     couches = [
         ({"sport": "VirtualRide"}, HOME_TRAINER),
@@ -370,7 +357,7 @@ def _exiger_meta_l27(module):
 
 
 def test_les_metadonnees_recopient_les_champs_du_contrat():
-    module = _intervals()
+    module = module_intervals
     meta = _exiger_meta_l27(module)
     for cle in ("power_meter", "power_meter_serial", "bilateral", "gear_id", "trainer", "device_name"):
         assert cle in meta, f"`{cle}` doit être recopié dans meta (contrat §7), meta = {sorted(meta)}"
@@ -384,8 +371,8 @@ def test_les_metadonnees_recopient_les_champs_du_contrat():
     [(49.5, True), (0.0, True), (None, False)],
 )
 def test_bilateral_vaut_avg_lr_balance_est_present(avg_lr_balance, attendu):
-    """Contrat §7 : `bilateral` = `avg_lr_balance is not None` — 0.0 n'est pas « absent »."""
-    module = _intervals()
+    """`bilateral` = `avg_lr_balance is not None` — 0.0 n'est pas « absent »."""
+    module = module_intervals
     _exiger_meta_l27(module)
     activite = dict(ACTIVITE, avg_lr_balance=avg_lr_balance)
     meta = module.metadonnees(activite)
@@ -395,7 +382,7 @@ def test_bilateral_vaut_avg_lr_balance_est_present(avg_lr_balance, attendu):
 
 
 def test_une_activite_sans_equipement_ne_fabrique_pas_de_gear_id():
-    module = _intervals()
+    module = module_intervals
     _exiger_meta_l27(module)
     for gear in (None, "", {}, "Vélo Beta", {"id": None}):
         meta = module.metadonnees(dict(ACTIVITE, gear=gear))
@@ -441,10 +428,10 @@ def _client(module, repondre):
 
 
 def test_rafraichir_meta_ne_retelecharge_pas_le_fichier(tmp_path, hostiles):
-    """Contrat §7 : met à jour `meta`/`equipement` **sans** retélécharger le fichier."""
-    module = _intervals()
+    """Met à jour `meta`/`equipement` **sans** retélécharger le fichier."""
+    module = module_intervals
     _exiger_rafraichir(module)
-    cache = _cache_module().Cache(tmp_path / "cache")
+    cache = module_cache.Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
     cache.ajouter(octets, source="intervals", id_externe="i1", extension="gpx", meta={"sport": "Ride"})
 
@@ -462,9 +449,9 @@ def test_rafraichir_meta_ne_retelecharge_pas_le_fichier(tmp_path, hostiles):
 
 
 def test_rafraichir_meta_resout_l_equipement_en_un_seul_appel(tmp_path, hostiles):
-    module = _intervals()
+    module = module_intervals
     _exiger_rafraichir(module)
-    cache = _cache_module().Cache(tmp_path / "cache")
+    cache = module_cache.Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
     for i in (1, 2, 3):
         cache.ajouter(
@@ -493,9 +480,9 @@ def test_synchroniser_nu_rafraichit_la_meta_par_defaut(tmp_path, hostiles):
     deux vélos. Ce test appelle donc `synchroniser(client, cache, depuis)`
     nu, exactement comme la commande.
     """
-    module = _intervals()
+    module = module_intervals
     _exiger_rafraichir(module)
-    cache = _cache_module().Cache(tmp_path / "cache")
+    cache = module_cache.Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
     cache.ajouter(octets, source="intervals", id_externe="i1", extension="gpx", meta={"sport": "Ride"})
     avant = cache.lister()[0]
@@ -518,18 +505,15 @@ def test_synchroniser_nu_rafraichit_la_meta_par_defaut(tmp_path, hostiles):
 def test_sans_rafraichir_meta_rien_ne_bouge(tmp_path, hostiles):
     """`rafraichir_meta=False` : l'entrée déjà en cache est laissée telle quelle.
 
-    Le drapeau est passé explicitement. Le contrat du sprint 2 §7 écrit
-    « `synchroniser` gagne `rafraichir_meta=True` », c'est-à-dire un paramètre
-    dont la **valeur par défaut est True** — comme tous les autres défauts du
-    contrat (`nb_points: int = 5`, `pas_m: float = 5000`). C'est aussi ce que
-    la DoD demande : `ourouler inventaire --synchroniser` doit enrichir les
-    sorties déjà en cache pour séparer les deux vélos, sans option à ajouter.
-    La première version de ce test omettait l'argument et exigeait quand même
-    le comportement de `False` : elle contredisait le contrat.
+    Le drapeau est passé explicitement : `synchroniser` a
+    `rafraichir_meta=True` pour **valeur par défaut**, parce que
+    `ourouler inventaire --synchroniser` doit enrichir les sorties déjà en
+    cache pour séparer les deux vélos, sans option à ajouter. Omettre
+    l'argument testerait donc le comportement de `True`, pas celui de `False`.
     """
-    module = _intervals()
+    module = module_intervals
     _exiger_rafraichir(module)
-    cache = _cache_module().Cache(tmp_path / "cache")
+    cache = module_cache.Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
     cache.ajouter(octets, source="intervals", id_externe="i1", extension="gpx", meta={"sport": "Ride"})
     avant = cache.lister()[0]
@@ -554,9 +538,9 @@ def test_sans_rafraichir_meta_rien_ne_bouge(tmp_path, hostiles):
 
 
 def test_rafraichir_meta_telecharge_quand_meme_les_nouvelles_activites(tmp_path, hostiles):
-    module = _intervals()
+    module = module_intervals
     _exiger_rafraichir(module)
-    cache = _cache_module().Cache(tmp_path / "cache")
+    cache = module_cache.Cache(tmp_path / "cache")
     octets = hostiles["nominal.gpx"].read_bytes()
 
     client, espion = _client(module, _serveur([dict(ACTIVITE, id="i1")], octets))

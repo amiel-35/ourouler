@@ -1,13 +1,12 @@
-"""Non-régression du lot L5.3 : ce qui existait avant lui ne doit pas bouger.
+"""Non-régression des trois propositions : le contraste ne renote rien.
 
-Toutes les valeurs de ce fichier ont été **relevées sur `sprint-5` le
-16/09/2026, avant le lot L5.3** (commit `b2b0a3c`, « Contrat du lot L5.3 »), et
-sont comparées à l'**égalité exacte**. C'est la méthode qui a payé deux fois
-sur ce sprint : une valeur recopiée d'une exécution postérieure au lot ne
-prouve rien — elle grave la régression au lieu de l'attraper.
+Toutes les valeurs de ce fichier ont été **relevées avant le contraste**
+(commit `b2b0a3c`), et sont comparées à l'**égalité exacte** : une valeur
+recopiée d'une exécution postérieure ne prouve rien — elle grave la régression
+au lieu de l'attraper.
 
-Ce que le lot L5.3 a le droit de faire, d'après son §3.3.5 : « on note, on
-contraste, on explique — on ne replace pas ». Donc :
+Ce que le contraste a le droit de faire : « on note, on contraste, on
+explique — on ne replace pas ». Donc :
 
 * `Placement.note_totale`, `note_terrain`, `penalite_seance` et l'identité
   `note_totale = note_terrain + penalite_seance` : inchangés ;
@@ -15,11 +14,10 @@ contraste, on explique — on ne replace pas ». Donc :
   « on ne sait pas » (tracé sans segments : `routes inconnues` ; tracé tagué
   sans marqueur : note nulle **mesurée**) ;
 * `BaseRoutes.part_connue` : inchangé, **y compris sa promesse d'être
-  « informatif seulement »** — c'est la docstring que j'avais citée ici tout
-  en exigeant ailleurs le contraire, avant que la réconciliation ne tranche ;
+  « informatif seulement »** ;
 * `_comparer` et `_notes_egales` : inchangés, bornes comprises.
 
-Le lot ajoute un axe de contraste ; il ne renote rien. Un changement de l'une
+Le contraste ajoute des axes ; il ne renote rien. Un changement de l'une
 de ces valeurs se discute avec le mainteneur, il ne se constate pas après coup.
 """
 
@@ -182,7 +180,7 @@ def test_comparer_garde_sa_signature():
 
 
 def test_proposition_garde_ses_champs_d_axe():
-    """Les axes que le contrat §3.3.2 dit « mesure existante » doivent exister.
+    """Les axes qui reposent sur une « mesure existante » doivent exister.
 
     Si le lot renomme `pluie_mm`, `demi_tours` ou `part_connue`, la moitié du
     tableau de la §3.3.2 ne désigne plus rien. Le lot a le droit d'**ajouter**
@@ -213,7 +211,7 @@ GOLDEN_2X20 = {
     "jalons_m": [0.0, 48392.51929108446, 0.0],
 }
 
-#: Le cas courant du mainteneur (contrat §3.1.3 b) : aucune étape n'est un bloc.
+#: Le cas courant du mainteneur : aucune étape n'est un bloc.
 #: `note_terrain` vaut **exactement zéro**, et toute la note est la pénalité
 #: d'extrémité. C'est le classement dégénéré que L5.3 doit traverser sans
 #: diviser par zéro.
@@ -358,7 +356,7 @@ def test_une_portion_sans_marqueur_note_zero_et_ne_dit_rien():
 
 
 def test_une_portion_sans_segments_avoue_ne_pas_savoir():
-    """L'invariant du sprint 3 : une classe inconnue n'est jamais un malus…
+    """Une classe inconnue n'est jamais un malus…
 
     …et, symétriquement, elle ne devient jamais un bonus non plus. Un tracé sans
     segments rend **note nulle et le motif « routes inconnues »** : la note ne
@@ -446,7 +444,7 @@ def test_part_connue_reste_bornee(tmp_path: Path):
 
 
 def test_part_connue_d_un_trace_vide_rend_zero(tmp_path: Path):
-    """« pas une division par zéro, et pas 1,0 » — le docstring du sprint 3."""
+    """« pas une division par zéro, et pas 1,0 » — la docstring de `part_connue`."""
     from ourouler.noyau.trace import Trace
 
     base, _, _ = _base_et_traces(tmp_path)

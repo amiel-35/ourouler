@@ -398,8 +398,8 @@ def test_le_compte_de_feux_est_un_nombre_absolu_et_pas_une_densite():
     **`xfail` levé le 17/09/2026.** Ce test décrivait un trou, et il disait
     déjà comment le combler : « le **cœur** compte et publie — pas l'API qui
     multiplie une densité par une distance ». C'est ce qui a été fait :
-    `contraste.Profil` portait `feux` et `stops` depuis le sprint 3 sans
-    jamais les sérialiser, `sortie/commande.rendre_json` les rend maintenant.
+    `contraste.Profil` portait `feux` et `stops` sans jamais les
+    sérialiser, `sortie/commande.rendre_json` les rend maintenant.
     Le front, lui, a cessé de multiplier (relecture F2 · C1).
     """
     client = _client_de_parcours()
@@ -469,7 +469,7 @@ def test_l_absence_de_seance_garde_la_meme_forme_de_reponse():
     construction. Il vise maintenant la route d'un jour, compare les
     **données**, et sépare un jour avec séance d'un jour sans.
     """
-    module = __import__("test_sortie_commande")
+    module = __import__("outils_sortie_commande")
     client = client_api(
         config=config_d_essai(), client_intervals=client_seance_ordinaire(ce_jour_la=True)
     )

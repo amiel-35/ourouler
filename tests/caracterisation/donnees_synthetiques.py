@@ -15,7 +15,7 @@ sont identiques à l'octet (les références n'ont pas bougé en la copiant).
 
 - séance Intervals : `rejeu_intervals_evenement.json`, sérialisation de
   `workouts.evenement(workouts.groupes_watts(), nom="4x8 fabriquée")` ;
-- anneau BRouter : `anneau` et `reponse_anneau` de `tests/test_sortie_commande.py` ;
+- anneau BRouter : `anneau` et `reponse_anneau` de `tests/outils_sortie_commande.py` ;
 - sorties TCX : `sortie_synthetique` de `tests/test_physique_calibration.py`
   (le modèle `puissance_requise`/`vitesse_regime` de `physique/modele.py`,
   réduit au plat sans vent) et `_en_tcx` de `tests/test_physique_commande.py`.

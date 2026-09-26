@@ -70,7 +70,7 @@ def _verifier_nombre(valeur: Any, quoi: str, *, positif: bool = True) -> None:
 
 
 def verifier_activite(a: Any, *, source_attendue: str | None = None) -> None:
-    """Invariants du modèle `Activite` du contrat §1, valables pour tout fichier."""
+    """Invariants du modèle `Activite`, valables pour tout fichier lu."""
     assert a.source in ("fit", "gpx", "tcx"), f"source inattendue : {a.source!r}"
     if source_attendue:
         assert a.source == source_attendue, f"source {a.source!r}, attendu {source_attendue!r}"
@@ -123,7 +123,7 @@ RAYON_TERRE_KM = 6371.0
 
 
 def distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Haversine, même rayon que le contrat §4."""
+    """Haversine, avec le rayon terrestre de `RAYON_TERRE_KM`."""
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = phi2 - phi1
     dlambda = math.radians(lon2 - lon1)

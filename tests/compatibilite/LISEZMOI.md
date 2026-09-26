@@ -1,17 +1,16 @@
 # Formats persistés (filet 0d)
 
 Ce dossier fige **ce que le code écrit sur disque ou en base et relit plus
-tard**, tel que la version d'aujourd'hui l'écrit. Il répond au défaut D5 du
-plan d'ouverture (`docs/ouverture_plan.md`, §1) : « un retour arrière peut
-casser sur les données ».
+tard**, tel que la version d'aujourd'hui l'écrit, parce qu'« un retour
+arrière peut casser sur les données ».
 
 ## Les règles
 
-1. **Un lot de restructuration ne touche ni un format persisté, ni une
-   constante de version, ni une migration** (plan §4, 0d). Un test rouge ici
-   n'est pas une référence à régénérer : c'est le lot qui a débordé.
+1. **Une restructuration ne touche ni un format persisté, ni une constante
+   de version, ni une migration.** Un test rouge ici n'est pas une référence
+   à régénérer : c'est la restructuration qui a débordé.
 2. **Postgres : on ajoute d'abord, on retire plus tard.** Jamais de `DROP` ni
-   de `RENAME` dans un lot de restructuration. Une colonne qui doit
+   de `RENAME` dans une restructuration. Une colonne qui doit
    disparaître reste en place jusqu'à ce qu'aucune version déployable ne la
    lise plus ; son retrait est une migration à part, décidée par le
    mainteneur (et inscrite dans `MIGRATIONS_DESTRUCTIVES_ADMISES` de
@@ -50,9 +49,9 @@ du mot de passe et les identifiants de fichier sont fixés pour que la
 fabrication soit reproductible. `calibration.json` se compare à 6 chiffres
 significatifs (numpy), les autres flottants à 1e-9 près en relatif.
 
-Un lot qui **déplace** un module d'écriture ou de lecture met à jour les
-imports de `fabrique_echantillons.py` et `test_compatibilite.py` (ou garde un
-réexport, lot 3) et les noms qualifiés de `CONSTANTES_DE_VERSION` ; il ne
+Un changement qui **déplace** un module d'écriture ou de lecture met à jour
+les imports de `fabrique_echantillons.py` et `test_compatibilite.py` (ou garde
+un réexport) et les noms qualifiés de `CONSTANTES_DE_VERSION` ; il ne
 touche jamais `echantillons/`.
 
 ## Inventaire des formats

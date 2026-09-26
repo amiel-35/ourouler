@@ -1,4 +1,4 @@
-"""Tests de `seance.placement` (sprint 4, lot L4.3).
+"""Tests de `seance.placement` : la séance posée sur le tracé.
 
 Les fonctions de terrain sont remplacées par `monkeypatch` dans chaque test :
 on veut un terrain dont on connaît la réponse, pas le vrai. Les **modules**,
@@ -499,13 +499,12 @@ def test_pas_s_absurde_ne_boucle_pas(monkeypatch):
         assert resultat is not None
 
 
-# --- l'invariant de continuité (Q13, lot L5.2) --------------------------------
+# --- l'invariant de continuité (Q13) ------------------------------------------
 #
-# Le cœur du lot : les emplacements se suivent sans trou ni recouvrement, du
+# Les emplacements se suivent sans trou ni recouvrement, du
 # départ à l'arrivée, et la somme de leurs longueurs vaut `distance_totale_m`
 # — au sens du parcours réellement roulé, demi-tours compris. C'est ce qui
-# prouve qu'on montre toute la séance et pas des morceaux (contrat sprint 5
-# §2.2 a)). Écrit avant le reste de l'implémentation, et rejoué sur une
+# prouve qu'on montre toute la séance et pas des morceaux. Rejoué sur une
 # séance tout droit et une séance à demi-tour.
 
 

@@ -1,7 +1,7 @@
-"""L3.1 — antennes (cul-de-sac), mises à l'épreuve.
+"""Antennes (cul-de-sac), mises à l'épreuve.
 
-Cible : contrat du sprint 3 §1 et §4. `detecter` et `elaguer` sont deux
-fonctions pures sur un `Trace` : rien à brancher, donc rien à excuser.
+`detecter` et `elaguer` sont deux fonctions pures sur un `Trace` : rien à
+brancher, donc rien à excuser.
 
 Ce qui est traqué :
 
@@ -20,8 +20,8 @@ Ce qui est traqué :
   réindexés ». Un segment qui garde les indices d'avant pointe, après coupe,
   sur des points qui n'existent plus — `IndexError` chez `couts.evaluer` ;
 * l'**immutabilité de l'entrée** : `elaguer` rend un *nouveau* `Trace`. Un
-  élagage en place casserait la comparaison avant/après que le contrat §1
-  demande précisément de faire sur la boucle NE de 60 km.
+  élagage en place casserait la comparaison avant/après qu'on fait
+  précisément sur la boucle NE de 60 km.
 """
 
 from __future__ import annotations
@@ -34,24 +34,19 @@ import fabriques_physique
 import pytest
 from outils import robuste
 
+from ourouler.boucle import antennes as module_antennes
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import Segment, Trace
 from ourouler.noyau.trace import distance_m as distance_entre
 
-MOTIF_ABSENT = "module attendu par le contrat L3.1 absent (ourouler.boucle.antennes)"
-
 CHAMPS_ANTENNE = {"debut_idx", "fin_idx", "longueur_m"}
 
-#: Défauts du contrat §1, réécrits ici : un test qui lit les défauts du module
+#: Défauts de la détection, réécrits ici : un test qui lit les défauts du module
 #: testé ne teste plus rien.
 FENETRE_DEFAUT_M = 600.0
 TOLERANCE_DEFAUT_M = 20.0
 
 ERREURS = (ErreurUtilisateur, ValueError)
-
-
-def _module():
-    return pytest.importorskip("ourouler.boucle.antennes", reason=MOTIF_ABSENT)
 
 
 # --- vérificateurs ----------------------------------------------------------
@@ -117,8 +112,8 @@ def _verifier_elaguee(avant: Trace, apres: Any, quoi: str) -> None:
 
 
 def test_une_boucle_propre_ne_contient_aucune_antenne():
-    """Contrat §4 : « boucle sans antenne (aucune fausse détection) »."""
-    module = _module()
+    """Une boucle sans antenne : aucune fausse détection."""
+    module = module_antennes
     coords = fabriques.cercle(n=48, rayon_m=2000.0)
     trace = fabriques.trace_fictive(coords)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(cercle)")
@@ -130,7 +125,7 @@ def test_une_boucle_propre_ne_contient_aucune_antenne():
 
 def test_une_ligne_droite_ne_contient_aucune_antenne():
     """Un aller simple n'est pas un aller-retour : rien à élaguer."""
-    module = _module()
+    module = module_antennes
     trace = fabriques.trace_fictive(fabriques.ligne(40, pas_m=100.0))
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(ligne)")
     assert antennes == [], f"antenne inventée sur une ligne droite : {antennes}"
@@ -140,8 +135,8 @@ def test_une_ligne_droite_ne_contient_aucune_antenne():
 
 
 def test_un_aller_retour_exact_est_detecte():
-    """Contrat §4 : « aller-retour exact »."""
-    module = _module()
+    """Un aller-retour exact est une antenne."""
+    module = module_antennes
     trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(antenne exacte)")
     assert antennes, "aller-retour de 400 m greffé sur une boucle : aucune antenne détectée"
@@ -158,8 +153,8 @@ def test_un_aller_retour_exact_est_detecte():
 
 
 def test_un_aller_retour_bruite_de_dix_metres_reste_detecte():
-    """Contrat §4 : « quasi-exact (bruit 10 m) », sous la tolérance de 20 m."""
-    module = _module()
+    """Un aller-retour quasi exact (bruit de 10 m), sous la tolérance de 20 m."""
+    module = module_antennes
     trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4, bruit_m=10.0)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(bruit 10 m)")
     assert antennes, (
@@ -170,7 +165,7 @@ def test_un_aller_retour_bruite_de_dix_metres_reste_detecte():
 
 def test_un_retour_au_dela_de_la_tolerance_n_est_pas_une_antenne():
     """Le pendant du test précédent : au-delà de la tolérance, deux routes distinctes."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4, bruit_m=120.0)
     antennes = _verifier_antennes(
         module.detecter(trace, tolerance_m=TOLERANCE_DEFAUT_M), trace, "detecter(bruit 120 m)"
@@ -182,8 +177,8 @@ def test_un_retour_au_dela_de_la_tolerance_n_est_pas_une_antenne():
 
 
 def test_une_antenne_au_depart_est_detectee():
-    """Contrat §4 : « antenne au départ » — le cas où les indices commencent à 0."""
-    module = _module()
+    """Une antenne au départ : le cas où les indices commencent à 0."""
+    module = module_antennes
     trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4, position=0)
     assert debut == 0, "le montage doit greffer l'antenne sur le tout premier point"
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(antenne au départ)")
@@ -196,8 +191,8 @@ def test_une_antenne_au_depart_est_detectee():
 
 
 def test_une_antenne_plus_longue_que_la_fenetre_est_laissee_en_place():
-    """Contrat §1 : l'antenne se définit « sur une longueur totale ≤ fenetre_m »."""
-    module = _module()
+    """L'antenne se définit « sur une longueur totale ≤ fenetre_m »."""
+    module = module_antennes
     trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=1200.0, n_aller=12)
     longueur = fabriques_physique.longueur_entre(trace, debut, fin)
     assert longueur > FENETRE_DEFAUT_M, "le montage doit dépasser la fenêtre par défaut"
@@ -212,12 +207,12 @@ def test_une_antenne_plus_longue_que_la_fenetre_est_laissee_en_place():
 
 
 def test_une_antenne_exactement_a_la_fenetre_est_dedans():
-    """Contrat §1 : « ≤ fenetre_m ». La borne est inclusive, sinon elle n'est pas dite.
+    """« ≤ fenetre_m » : la borne est inclusive, sinon elle n'est pas dite.
 
     La longueur est mesurée avec les distances cumulées de la trace elle-même :
     c'est exactement ce que le module additionnera.
     """
-    module = _module()
+    module = module_antennes
     trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=250.0, n_aller=5)
     longueur = fabriques_physique.longueur_entre(trace, debut, fin)
     en_dessous = _verifier_antennes(
@@ -238,7 +233,7 @@ def test_une_antenne_exactement_a_la_fenetre_est_dedans():
 
 def test_deux_antennes_distinctes_sont_rendues_separement():
     """Deux culs-de-sac sur la même boucle : deux entrées, pas une fusion."""
-    module = _module()
+    module = module_antennes
     coords = fabriques.cercle(n=32, rayon_m=2000.0)
     coords, _, _ = fabriques_physique.greffer_antenne(coords, position=20, aller_m=180.0, n_aller=3)
     coords, _, _ = fabriques_physique.greffer_antenne(coords, position=5, aller_m=180.0, n_aller=3)
@@ -253,7 +248,7 @@ def test_deux_antennes_distinctes_sont_rendues_separement():
 @pytest.mark.parametrize("nb", [0, 1, 2])
 def test_detecter_sur_une_trace_minuscule(nb):
     """Le contrat ne dit rien d'une trace de 0 à 2 points : aucun `IndexError` n'est permis."""
-    module = _module()
+    module = module_antennes
     coords = fabriques.ligne(nb, pas_m=100.0) if nb else []
     trace = fabriques.trace_fictive(coords) if nb else Trace("vide", [], [], 0.0, None, None, {})
     resultat, _ = robuste(
@@ -266,7 +261,7 @@ def test_detecter_sur_une_trace_minuscule(nb):
 @pytest.mark.parametrize(("fenetre", "tolerance"), [(0.0, 20.0), (-100.0, 20.0), (600.0, 0.0), (600.0, -5.0)])
 def test_detecter_avec_des_reglages_absurdes(fenetre, tolerance):
     """Fenêtre ou tolérance nulle ou négative : erreur utilisateur ou résultat cohérent."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne()
     with fabriques.limite_temps(10.0, f"detecter(fenetre_m={fenetre}, tolerance_m={tolerance})"):
         resultat, _ = robuste(
@@ -280,7 +275,7 @@ def test_detecter_avec_des_reglages_absurdes(fenetre, tolerance):
 
 def test_detecter_sur_une_trace_a_points_confondus():
     """Un moteur qui répète deux fois le même point ne doit pas engendrer une antenne de 0 m."""
-    module = _module()
+    module = module_antennes
     coords = fabriques.ligne(20, pas_m=100.0)
     coords = coords[:10] + [coords[10]] * 4 + coords[10:]
     trace = fabriques.trace_fictive(coords)
@@ -294,7 +289,7 @@ def test_detecter_sur_une_trace_a_points_confondus():
 
 def test_elaguer_sans_antenne_rend_une_trace_equivalente():
     """Angle obligatoire : `elaguer(trace, [])` ne doit rien changer d'observable."""
-    module = _module()
+    module = module_antennes
     coords = fabriques.cercle(n=32, rayon_m=1800.0)
     trace = fabriques.trace_fictive(coords, tags=[{"highway": "tertiary"}] * (len(coords) - 1))
     avant = fabriques_physique.copie_lisible(trace)
@@ -314,8 +309,8 @@ def test_elaguer_sans_antenne_rend_une_trace_equivalente():
 
 
 def test_elaguer_retire_l_antenne_et_preserve_la_fermeture():
-    """Contrat §4 : « élagage qui préserve la fermeture et les segments »."""
-    module = _module()
+    """L'élagage préserve la fermeture de la boucle et les segments."""
+    module = module_antennes
     trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     assert trace.bornee(), "le montage doit partir d'une boucle fermée"
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter")
@@ -335,7 +330,7 @@ def test_elaguer_retire_l_antenne_et_preserve_la_fermeture():
 
 def test_elaguer_ne_touche_pas_la_trace_d_origine():
     """Le contrat demande un « nouveau Trace » : la comparaison avant/après en dépend."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     avant = fabriques_physique.copie_lisible(trace)
     segments_avant = [(s.debut_idx, s.fin_idx, s.longueur_m) for s in trace.segments]
@@ -349,7 +344,7 @@ def test_elaguer_ne_touche_pas_la_trace_d_origine():
 
 def test_elaguer_puis_detecter_ne_trouve_plus_rien():
     """L'élagage converge : une trace élaguée n'a plus d'antenne à élaguer."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter")
     apres = module.elaguer(trace, antennes)
@@ -359,7 +354,7 @@ def test_elaguer_puis_detecter_ne_trouve_plus_rien():
 
 def test_elaguer_conserve_les_tags_des_troncons_gardes():
     """Les segments survivants gardent leurs tags : `couts.evaluer` tourne derrière."""
-    module = _module()
+    module = module_antennes
     coords = fabriques.cercle(n=24, rayon_m=1500.0)
     coords, debut, fin = fabriques_physique.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
     tags = [
@@ -389,7 +384,7 @@ def test_elaguer_conserve_les_tags_des_troncons_gardes():
 )
 def test_elaguer_avec_des_antennes_fabriquees_hors_bornes(fabrique):
     """Une antenne venue d'ailleurs (JSON relu, appelant bricolé) ne doit pas faire d'`IndexError`."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne()
     debut, fin = fabrique(len(trace.points))
     antenne = module.Antenne(debut_idx=debut, fin_idx=fin, longueur_m=400.0)
@@ -404,7 +399,7 @@ def test_elaguer_avec_des_antennes_fabriquees_hors_bornes(fabrique):
 
 def test_elaguer_toute_la_trace_ne_rend_pas_une_trace_incoherente():
     """Cas limite : l'antenne couvre tout. Refus ou trace cohérente, jamais un `Trace` cassé."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne()
     antenne = module.Antenne(debut_idx=0, fin_idx=len(trace.points) - 1, longueur_m=trace.distance_m)
     resultat, _ = robuste(
@@ -419,7 +414,7 @@ def test_elaguer_toute_la_trace_ne_rend_pas_une_trace_incoherente():
 
 def test_elaguer_une_trace_sans_segment():
     """Un GPX importé n'a pas de segment : la réindexation ne doit pas le supposer."""
-    module = _module()
+    module = module_antennes
     coords = fabriques.cercle(n=24, rayon_m=1500.0)
     coords, _, _ = fabriques_physique.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
     trace = fabriques.trace_fictive(coords)  # aucun segment
@@ -432,7 +427,7 @@ def test_elaguer_une_trace_sans_segment():
 
 def test_elaguer_avec_des_segments_qui_debordent():
     """Segments incohérents en entrée : erreur utilisateur ou sortie cohérente."""
-    module = _module()
+    module = module_antennes
     trace, _, _ = fabriques_physique.boucle_avec_antenne()
     trace.segments.append(Segment(debut_idx=0, fin_idx=len(trace.points) + 5, longueur_m=10.0, tags={}))
     antennes, _ = robuste(

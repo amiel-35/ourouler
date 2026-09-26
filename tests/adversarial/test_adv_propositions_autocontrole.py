@@ -1,16 +1,15 @@
-"""Autocontrôle du lot L5.3 : les vérificateurs ont-ils des dents ?
+"""Autocontrôle des vérificateurs des trois propositions : ont-ils des dents ?
 
-**Ce fichier ne teste pas le lot.** Il teste `fabriques_propositions`, c'est-à-dire les
-vérificateurs avec lesquels `test_adv_trois_propositions.py` jugera le lot. Il tournait
-vert avant que le lot existe, et il doit le rester après : il ne dépend
-d'aucune interface du lot, seulement de mes propres vérificateurs.
+**Ce fichier ne teste pas `ourouler`.** Il teste `fabriques_propositions`,
+c'est-à-dire les vérificateurs avec lesquels `test_adv_trois_propositions.py`
+juge la commande. Il ne dépend d'aucune interface du code, seulement des
+vérificateurs.
 
 ## Pourquoi il existe
 
-Sur le lot L5.2, deux tests adversariaux annonçaient attraper une mutation
-qu'ils n'attrapaient pas ; on ne l'a su qu'en écrivant une implémentation de
-référence et en la mutant quatorze fois. La leçon est reprise ici et durcie :
-`fabriques_propositions` porte un cobaye complet (`choisir_reference`,
+Un test adversarial peut annoncer attraper une mutation qu'il n'attrape pas ;
+on ne le sait qu'en écrivant une implémentation de référence et en la mutant.
+`fabriques_propositions` porte donc un cobaye complet (`choisir_reference`,
 `densite_reference`, `question_vent_reference`), et ce fichier le mute
 **vingt-sept fois**. Chaque mutation est nommée, rattachée au vérificateur qui
 doit la voir, et le test échoue si le vérificateur la laisse passer.
@@ -23,9 +22,8 @@ exigent qu'un appel **échoue**.
 
 Qu'un vérificateur attrape une mutation de la référence ne prouve pas qu'il
 attrapera *toute* faute de l'implémentation réelle : la référence n'est pas
-l'implémentation, et le contrat ne fixe pas d'interface (voir le docstring de
-`fabriques_propositions`). Il prouve seulement que le vérificateur n'est pas creux —
-ce qui est exactement ce qui avait manqué au lot précédent.
+l'implémentation, et la règle ne fixe pas d'interface (voir le docstring de
+`fabriques_propositions`). Il prouve seulement que le vérificateur n'est pas creux.
 """
 
 from __future__ import annotations
@@ -123,7 +121,7 @@ def test_la_reference_de_question_vent_passe_ses_gardes(seuil):
     """Le vérificateur ne doit dépendre d'aucune valeur de seuil particulière.
 
     Les seuils balayés sont tous **au-dessus de 2,5 km/h**, seule valeur que le
-    contrat §3.3.4 place explicitement sous le seuil, et tous au plus égaux à
+    la règle place explicitement sous le seuil, et tous au plus égaux à
     45 km/h, borne haute du balayage. Un seuil de 1 km/h fait légitimement
     échouer le vérificateur : il contredirait le contrat.
     """
@@ -167,7 +165,7 @@ def m03_normalisation_sans_garde(pool) -> f53.VueChoix:
 
 
 def m04_distance_sur_la_note(pool) -> f53.VueChoix:
-    """Contraste mesuré sur la note — ce que le contrat §3.3.1 exclut (« Pas la note »)."""
+    """Contraste mesuré sur la note — ce que la règle exclut (« Pas la note »)."""
     classees = f53.tri_primaire(pool)
     retenues = [classees[0]]
     restantes = list(classees[1:])
@@ -799,7 +797,7 @@ def test_des_clones_qui_partagent_leurs_routes_ne_passent_pas_meme_en_le_disant(
     [("PAS_DUREE_S", 300.0), ("PAS_PLUIE_MM", 0.1), ("PAS_TERRAIN_KM_EQ", 0.2)],
 )
 def test_mutation_pas_relache_attrapee(nom, valeur):
-    """m34 : un pas du lot plus étroit que celui du contrat §3.3.3 bis.
+    """m34 : un pas de contraste plus étroit que celui de la règle.
 
     « Être meilleur de 1 % n'est pas une différence pour un cycliste » : un pas
     de 5 min sur la durée, ou de 0,1 mm sur la pluie, rouvre exactement le trou
@@ -827,8 +825,8 @@ def test_des_pas_conformes_ou_plus_stricts_passent():
     )
 
 
-def test_les_marges_du_contrat_sont_celles_du_contrat():
-    """Les chiffres de `MARGES_CONTRASTE` sont ceux que le §3.3.3 bis écrit.
+def test_les_marges_de_contraste_sont_figees():
+    """Les chiffres de `MARGES_CONTRASTE` sont ceux de la règle de contraste.
 
     Figés ici pour qu'une relecture distraite ne puisse pas les assouplir sans
     que quelque chose crie : « durée ≥ 10 min ; pluie ≥ 0,5 mm ; terrain : au
@@ -932,8 +930,8 @@ def test_le_detecteur_de_langage_de_note(phrase, attendu):
         ("retour au calme confortable", set()),
     ],
 )
-def test_le_lexique_reconnait_les_tournures_du_contrat(phrase, axes_attendus):
-    """Les tournures reconnues sont celles que le contrat §3.3.3 donne en exemple.
+def test_le_lexique_reconnait_les_tournures_de_la_regle(phrase, axes_attendus):
+    """Les tournures reconnues sont celles que la règle des phrases donne en exemple.
 
     « retour au calme » ne doit pas être lu comme « la plus calme » : c'est le
     faux positif le plus probable, le retour au calme étant une étape de toutes
@@ -1083,8 +1081,8 @@ def test_l_adaptateur_json_attrape_une_phrase_fausse():
     )
 
 
-def test_l_adaptateur_json_ne_lit_aucune_phrase_avant_le_lot():
-    """Sur un document à la forme de `sprint-5`, aucune phrase : le skip est mérité.
+def test_l_adaptateur_json_ne_lit_aucune_phrase_sans_cle_phrase():
+    """Sur un document sans clé de phrase, aucune phrase : le skip est mérité.
 
     Contrôle négatif indispensable : si l'adaptateur inventait une phrase à
     partir d'une clé quelconque (« nom », « motif »…), les dix-sept tests en

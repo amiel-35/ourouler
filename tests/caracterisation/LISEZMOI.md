@@ -1,8 +1,7 @@
 # Sorties de référence (filet 0b)
 
-Ces fichiers figent ce que `ourouler` répond **aujourd'hui**, avant la
-restructuration du plan d'ouverture (`docs/ouverture_plan.md`, §4 et §6).
-Chaque lot de restructuration doit les laisser identiques.
+Ces fichiers figent ce que `ourouler` répond **aujourd'hui**. Un changement
+qui ne fait que réorganiser le code doit les laisser identiques.
 
 ## La règle
 
@@ -43,8 +42,8 @@ Fichiers écrits : un GPX par l'empreinte de ses octets ; une carte HTML par
 l'empreinte de son texte normalisé (chemins, UUID, jetons), **une seule
 ligne retirée** : `<p class="horodatage">Page générée le JJ/MM/AAAA à
 HH:MM.</p>` (`rendu/carte_jour.py`). L'horloge étant figée, elle serait stable ;
-elle est retirée pour qu'un lot qui déplace la lecture de l'horloge de la
-carte ne casse pas l'empreinte de toute la page.
+elle est retirée pour qu'un changement qui déplace la lecture de l'horloge de
+la carte ne casse pas l'empreinte de toute la page.
 
 API (`tests/api/test_caracterisation_api.py`, application complète sans client
 injecté) — chaque fichier fige statut, type de contenu, corps et journal réseau :
@@ -70,35 +69,35 @@ injecté) — chaque fichier fige statut, type de contenu, corps et journal rés
 Le « compte hébergé » est `SessionUnCompte` : un propriétaire fixe en mode
 hébergé, sur un `SocleTOML(proprietaire=None)` comme en service, **sans
 Postgres**. Les comptes réels (base, invitations, sessions, retrait) restent
-**hors filet** : le lot 5 se vérifie par ses propres tests
+**hors filet** : ils se vérifient par leurs propres tests
 (`tests/comptes/`, `tests/api/test_invitation_commande.py`) et par la préproduction.
 
 `openapi.json` (filet 0c) vit ici aussi ; son test est
 `tests/api/test_contrat_openapi.py`.
 
-`resolution_routes.json` (lot 13) fige l'ordre d'enregistrement des routes et,
+`resolution_routes.json` fige l'ordre d'enregistrement des routes et,
 pour chaque chemin littéral et chaque méthode, le point d'entrée que le
 routeur choisit ; son test est `tests/api/test_resolution_routes.py`.
 
-## Ce que chaque lot du §6 a pour se vérifier
+## Ce que chaque zone du code a pour se vérifier
 
-Pour chaque lot, au moins une référence **dépend** de ce qu'il déplace
+Pour chaque zone, au moins une référence **dépend** de ce qu'elle fait
 (mutation de contrôle mesurée le 25/09/2026 : la casser fait passer au rouge
 les tests nommés).
 
-| lot | couvert par | reste hors filet |
+| zone | couverte par | reste hors filet |
 |---|---|---|
-| 3–4 (noyau, types) | toutes les références ; le filet n'importe aucun module déplacé (`test_le_filet_ne_depend_que_de_surfaces_stables`) | — |
-| 5 (api ↔ cli, comptes) | `api_profil`, `api_zones`, `api_heberge*` (propriétaire ≠ `local`) | les comptes réels en base (authentification, invitation, retrait) |
-| 6 (rendu hors de `sortie/commande.py`, `boucle`, `physique/commande`) | sorties **texte** de chaque scénario, empreinte de la carte HTML (mutations `sortie.rendre_texte → ""`, `carte_jour._page_jour → <html></html>` : rouges) | la mise en page de la carte au-delà de l'empreinte (un écart se voit, il ne se lit pas dans le diff) |
-| 7 (`stockage/calibrations`) | `cli_calibrer` : `calibration.json` écrit, puis relu par `sortie` (mutations `ecrire_calibration` muette et `lire_calibration → None` : rouges) ; `api_heberge*` pour le chemin par compte | la calibration lancée **par l'API** (`POST /calibrations`, tâche de fond) : ses tests `test_api_calibration.py` |
-| 8 (physique pure) | `cli_calibrer`, `cli_comparer` (6 chiffres significatifs) | « identique au dernier chiffre » sur la calibration RCR du mainteneur : c'est P3, sur les vraies données, hors dépôt |
-| 9 (`Routeur`, `generer`) | `cli_boucle`, `cli_sortie`, `api_boucles`, `api_sorties` (journal BRouter compris) | — |
-| 10 (argparse sort des commandes) | tous les scénarios CLI, dont les refus (code 2) | — |
-| 11 (l'API sans `Namespace`) | toutes les références API, dont `api_avertissement` (mutation `adaptateur.avertissements_de → ()` : rouge) | le **double chemin** : `OUROULER_API_CHEMIN` (lue par `api/exploitation.py`) ; `preparer` la laisse passer (`VARIABLES_GARDEES`) pour que le lot 11 rejoue le filet sur chaque valeur, contre les mêmes références |
-| 12 (fonctions trop longues) | toutes | — |
-| 13 (`api/routes.py` scindé) | toutes les références API, `openapi.json`, `resolution_routes.json` | — |
-| 14 (front) | — | le front n'est pas dans ce filet |
+| noyau, types | toutes les références ; le filet n'importe aucun module déplacé (`test_le_filet_ne_depend_que_de_surfaces_stables`) | — |
+| api ↔ cli, comptes | `api_profil`, `api_zones`, `api_heberge*` (propriétaire ≠ `local`) | les comptes réels en base (authentification, invitation, retrait) |
+| rendu (`rendu/`) | sorties **texte** de chaque scénario, empreinte de la carte HTML (mutations `sortie.rendre_texte → ""`, `carte_jour._page_jour → <html></html>` : rouges) | la mise en page de la carte au-delà de l'empreinte (un écart se voit, il ne se lit pas dans le diff) |
+| `stockage/calibrations` | `cli_calibrer` : `calibration.json` écrit, puis relu par `sortie` (mutations `ecrire_calibration` muette et `lire_calibration → None` : rouges) ; `api_heberge*` pour le chemin par compte | la calibration lancée **par l'API** (`POST /calibrations`, tâche de fond) : ses tests `test_api_calibration.py` |
+| physique pure | `cli_calibrer`, `cli_comparer` (6 chiffres significatifs) | « identique au dernier chiffre » sur la calibration RCR du mainteneur : c'est P3, sur les vraies données, hors dépôt |
+| ports (`Routeur`, `generer`) | `cli_boucle`, `cli_sortie`, `api_boucles`, `api_sorties` (journal BRouter compris) | — |
+| `commandes/` (argparse) | tous les scénarios CLI, dont les refus (code 2) | — |
+| l'API sans `Namespace` | toutes les références API, dont `api_avertissement` (mutation `adaptateur.avertissements_de → ()` : rouge) | le **double chemin** : `OUROULER_API_CHEMIN` (lue par `api/exploitation.py`) ; `preparer` la laisse passer (`VARIABLES_GARDEES`) pour qu'on rejoue le filet sur chaque valeur, contre les mêmes références |
+| fonctions longues découpées | toutes | — |
+| `api/routes/` | toutes les références API, `openapi.json`, `resolution_routes.json` | — |
+| front | — | le front n'est pas dans ce filet |
 
 ## Comment c'est tenu stable
 

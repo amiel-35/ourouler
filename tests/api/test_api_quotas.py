@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from outils_sortie_commande import client_intervals, ecrire_calibration, moteur_brouter, moteur_meteo
 from test_api import ecrire_config, moteur_muet
 from test_seance_intervals import ATHLETE, CLE, W
-from test_sortie_commande import client_intervals, ecrire_calibration, moteur_brouter, moteur_meteo
 
 from ourouler.api import adaptateur
 from ourouler.api.adaptateur import Budgets

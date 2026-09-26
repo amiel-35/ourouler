@@ -1,11 +1,10 @@
-"""L1.3 — cache local (fichiers bruts + index SQLite), mis à l'épreuve.
+"""Cache local (fichiers bruts + index SQLite), mis à l'épreuve.
 
-Cible : contrat §2. Le contrat ne dit pas d'où `ajouter` tire `debut`,
-`duree_s`, `distance_m`, `puissance_moy_w` et `sport` — sa signature ne les
-reçoit pas — donc on suppose ici qu'il relit le fichier avec le lecteur
-L1.2. `equipement`, lui, n'est dans aucun fichier d'activité : il ne peut
-venir que de `meta`, sous une clé que le contrat ne nomme pas. Les tests de
-rattachement construisent donc leurs `EntreeCache` directement
+La signature de `ajouter` ne reçoit ni `debut`, ni `duree_s`, ni `distance_m`,
+ni `puissance_moy_w`, ni `sport` : on suppose ici qu'il relit le fichier avec
+le lecteur unique. `equipement`, lui, n'est dans aucun fichier d'activité : il
+ne peut venir que de `meta`, sous une clé que ces tests ne supposent pas. Les
+tests de rattachement construisent donc leurs `EntreeCache` directement
 (`test_adv_inventaire.py`) et ceux d'ici n'affirment rien sur `equipement`.
 """
 
@@ -21,18 +20,13 @@ from pathlib import Path
 import outils
 import pytest
 
+from ourouler.activites import cache as module_cache
 from ourouler.noyau.erreurs import ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L1.3 absent (ourouler.activites.cache)"
 
 CHAMPS_ENTREE = {
     "identifiant", "source", "id_externe", "debut", "duree_s", "distance_m",
     "puissance_moy_w", "sport", "appareil", "equipement", "chemin", "meta",
 }
-
-
-def _cache_module():
-    return pytest.importorskip("ourouler.activites.cache", reason=MOTIF_ABSENT)
 
 
 def _gpx(generateur, *, jours: int = 0, nb_points: int = 6) -> bytes:
@@ -52,7 +46,7 @@ def _ajouter(cache, contenu: bytes, **surcharges) -> str:
 
 def test_dossier_absent_est_cree(tmp_path):
     """Contrat : `Cache(dossier)` crée `dossier/` et `dossier/index.sqlite`."""
-    module = _cache_module()
+    module = module_cache
     dossier = tmp_path / "jamais" / "cree" / "cache"
     cache = module.Cache(dossier)
     assert dossier.is_dir(), "le dossier de cache doit être créé, y compris ses parents"
@@ -61,7 +55,7 @@ def test_dossier_absent_est_cree(tmp_path):
 
 
 def test_cache_reouvert_retrouve_ses_entrees(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     dossier = tmp_path / "cache"
     identifiant = _ajouter(module.Cache(dossier), _gpx(generateur))
     autre = module.Cache(dossier)
@@ -76,7 +70,7 @@ def test_index_corrompu_ne_remonte_pas_d_erreur_sqlite(tmp_path, generateur):
     Ce qui est refusé, c'est qu'une `sqlite3.DatabaseError` brute remonte
     jusqu'à la CLI (code 1 + trace au lieu du code 2 et d'une ligne lisible).
     """
-    module = _cache_module()
+    module = module_cache
     dossier = tmp_path / "cache"
     dossier.mkdir()
     (dossier / "index.sqlite").write_text(
@@ -100,7 +94,7 @@ def test_index_corrompu_ne_remonte_pas_d_erreur_sqlite(tmp_path, generateur):
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root écrit partout, le test n'a pas de sens")
 def test_dossier_non_inscriptible(tmp_path):
-    module = _cache_module()
+    module = module_cache
     parent = tmp_path / "lecture_seule"
     parent.mkdir()
     parent.chmod(stat.S_IRUSR | stat.S_IXUSR)
@@ -119,14 +113,14 @@ def test_dossier_non_inscriptible(tmp_path):
 
 
 def test_identifiant_est_le_sha256_du_contenu(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     contenu = _gpx(generateur)
     identifiant = _ajouter(module.Cache(tmp_path / "cache"), contenu)
     assert identifiant == hashlib.sha256(contenu).hexdigest(), "contrat §2 : sha256 du contenu"
 
 
 def test_ajout_idempotent(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     contenu = _gpx(generateur)
     premier = _ajouter(cache, contenu, id_externe="a1")
@@ -141,13 +135,12 @@ def test_ajout_meme_contenu_sous_deux_identites(tmp_path, generateur):
     """Mêmes octets, deux `id_externe` : deux entrées, un seul fichier brut.
 
     Le cas réel est le triathlon : Intervals en fait deux activités, natation
-    et vélo, qui citent le même FIT. Le test exigeait l'inverse (« le contenu
-    est la clé ») jusqu'à la relecture du sprint 2 (point 2) : c'est ce qui
-    faisait perdre une des deux, puis osciller `--synchroniser`.
+    et vélo, qui citent le même FIT. « Le contenu est la clé » ferait perdre
+    une des deux, puis osciller `--synchroniser`.
     L'identifiant, lui, reste le sha256 : c'est le nom du fichier brut,
     partagé.
     """
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     contenu = _gpx(generateur)
     assert _ajouter(cache, contenu, source="intervals", id_externe="a1") == _ajouter(
@@ -163,7 +156,7 @@ def test_ajout_meme_contenu_sous_deux_identites(tmp_path, generateur):
 
 
 def test_contenus_differents_entrees_differentes(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     identifiants = {_ajouter(cache, _gpx(generateur, jours=n)) for n in (0, 1, 2)}
     assert len(identifiants) == 3
@@ -171,7 +164,7 @@ def test_contenus_differents_entrees_differentes(tmp_path, generateur):
 
 
 def test_fichier_brut_stocke_tel_quel(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     dossier = tmp_path / "cache"
     cache = module.Cache(dossier)
     contenu = _gpx(generateur)
@@ -184,7 +177,7 @@ def test_fichier_brut_stocke_tel_quel(tmp_path, generateur):
 
 def test_chemin_ne_sort_pas_du_cache(tmp_path):
     """Un identifiant hostile ne doit pas permettre d'écrire ou de lire ailleurs."""
-    module = _cache_module()
+    module = module_cache
     dossier = tmp_path / "cache"
     cache = module.Cache(dossier)
     for hostile in ("../../etc/passwd", "/etc/passwd", "..", "a/../../b"):
@@ -200,7 +193,7 @@ def test_chemin_ne_sort_pas_du_cache(tmp_path):
 
 
 def test_injection_sql_dans_id_externe(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     hostile = "x'); drop table activites; --"
     _ajouter(cache, _gpx(generateur), source="intervals", id_externe=hostile)
@@ -209,7 +202,7 @@ def test_injection_sql_dans_id_externe(tmp_path, generateur):
 
 
 def test_meta_survit_au_passage_par_sqlite(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     meta = {
         "nom": "Sortie « été » — 30 °C",
@@ -225,7 +218,7 @@ def test_meta_survit_au_passage_par_sqlite(tmp_path, generateur):
 
 
 def test_meta_non_serialisable_refusee_proprement(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     _, erreur = outils.robuste(
         lambda: _ajouter(cache, _gpx(generateur), meta={"t": datetime(2026, 4, 12, tzinfo=UTC)}),
@@ -238,7 +231,7 @@ def test_meta_non_serialisable_refusee_proprement(tmp_path, generateur):
 
 @pytest.mark.parametrize("extension", ["GPX", ".gpx", "gpx"])
 def test_extension_en_casse_ou_avec_point(tmp_path, generateur, extension):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     identifiant, erreur = outils.robuste(
         lambda: _ajouter(cache, _gpx(generateur), extension=extension),
@@ -252,7 +245,7 @@ def test_extension_en_casse_ou_avec_point(tmp_path, generateur, extension):
 
 
 def test_contenu_vide_ou_illisible_refuse_proprement(tmp_path):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     for contenu in (b"", b"\x00\x01\x02", b"<gpx"):
         _, erreur = outils.robuste(
@@ -267,7 +260,7 @@ def test_contenu_vide_ou_illisible_refuse_proprement(tmp_path):
 
 
 def test_contient_distingue_la_source(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     assert cache.contient(source="intervals", id_externe="a1") is False
     _ajouter(cache, _gpx(generateur), source="intervals", id_externe="a1")
@@ -279,7 +272,7 @@ def test_contient_distingue_la_source(tmp_path, generateur):
 
 
 def test_contient_sur_cache_vide_et_id_absurde(tmp_path):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     for id_externe in ("", "  ", "%", "1 or 1=1"):
         assert cache.contient(source="intervals", id_externe=id_externe) is False
@@ -296,7 +289,7 @@ def _remplir_trois_jours(module, dossier, generateur):
 
 
 def test_lister_sans_bornes_rend_tout(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = _remplir_trois_jours(module, tmp_path / "cache", generateur)
     entrees = cache.lister()
     assert len(entrees) == 3
@@ -309,7 +302,7 @@ def test_lister_sans_bornes_rend_tout(tmp_path, generateur):
 
 
 def test_lister_filtre_sur_les_bornes(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = _remplir_trois_jours(module, tmp_path / "cache", generateur)
     depuis_recent = cache.lister(depuis=date(2026, 4, 20))
     assert len(depuis_recent) == 2, "seules les sorties du 22/04 et du 02/05 sont attendues"
@@ -320,14 +313,14 @@ def test_lister_filtre_sur_les_bornes(tmp_path, generateur):
 
 
 def test_lister_bornes_inversees_ne_plante_pas(tmp_path, generateur):
-    module = _cache_module()
+    module = module_cache
     cache = _remplir_trois_jours(module, tmp_path / "cache", generateur)
     assert cache.lister(depuis=date(2026, 12, 31), jusqua=date(2026, 1, 1)) == []
 
 
 def test_lister_bornes_de_type_inattendu(tmp_path, generateur):
     """`datetime` au lieu de `date`, chaîne ISO : refus propre ou tolérance."""
-    module = _cache_module()
+    module = module_cache
     cache = _remplir_trois_jours(module, tmp_path / "cache", generateur)
     for borne in (datetime(2026, 4, 20, 12, tzinfo=UTC), "2026-04-20"):
         outils.robuste(
@@ -341,7 +334,7 @@ def test_lister_bornes_de_type_inattendu(tmp_path, generateur):
 
 
 def test_indexer_dossier(tmp_path, hostiles, generateur):
-    module = _cache_module()
+    module = module_cache
     source = tmp_path / "a_importer"
     source.mkdir()
     for nom in ("nominal.fit", "nominal.gpx", "nominal.tcx", "fit_sans_gps.fit"):
@@ -357,7 +350,7 @@ def test_indexer_dossier(tmp_path, hostiles, generateur):
 
 
 def test_indexer_dossier_extensions_en_majuscules(tmp_path, hostiles):
-    module = _cache_module()
+    module = module_cache
     source = tmp_path / "majuscules"
     source.mkdir()
     (source / "nominal_maj.GPX").write_bytes(hostiles["nominal_maj.GPX"].read_bytes())
@@ -368,12 +361,11 @@ def test_indexer_dossier_extensions_en_majuscules(tmp_path, hostiles):
 def test_indexer_dossier_deux_noms_un_seul_contenu(tmp_path, hostiles):
     """Deux noms = deux entrées, un seul fichier brut — et le second import n'ajoute rien.
 
-    Le test exigeait « même contenu = une seule entrée » jusqu'à la relecture
-    du sprint 2 (point 2) : c'est ce qui faisait disparaître une des deux
-    moitiés d'un triathlon. L'identité d'une entrée est désormais
+    « Même contenu = une seule entrée » ferait disparaître une des deux
+    moitiés d'un triathlon. L'identité d'une entrée est donc
     `(source, id_externe)`, le fichier brut restant partagé par contenu.
     """
-    module = _cache_module()
+    module = module_cache
     source = tmp_path / "doublons"
     source.mkdir()
     octets = hostiles["nominal.gpx"].read_bytes()
@@ -391,7 +383,7 @@ def test_indexer_dossier_deux_noms_un_seul_contenu(tmp_path, hostiles):
 
 def test_indexer_dossier_avec_un_fichier_corrompu(tmp_path, hostiles):
     """Un intrus illisible ne doit ni faire planter l'import ni rester silencieux."""
-    module = _cache_module()
+    module = module_cache
     source = tmp_path / "melange"
     source.mkdir()
     (source / "bon.gpx").write_bytes(hostiles["nominal.gpx"].read_bytes())
@@ -409,7 +401,7 @@ def test_indexer_dossier_avec_un_fichier_corrompu(tmp_path, hostiles):
 
 
 def test_indexer_dossier_absent_ou_fichier(tmp_path, hostiles):
-    module = _cache_module()
+    module = module_cache
     cache = module.Cache(tmp_path / "cache")
     with pytest.raises(ErreurUtilisateur):
         cache.indexer_dossier(tmp_path / "jamais_vu")
@@ -418,7 +410,7 @@ def test_indexer_dossier_absent_ou_fichier(tmp_path, hostiles):
 
 
 def test_indexer_dossier_vide(tmp_path):
-    module = _cache_module()
+    module = module_cache
     vide = tmp_path / "vide"
     vide.mkdir()
     cache = module.Cache(tmp_path / "cache")

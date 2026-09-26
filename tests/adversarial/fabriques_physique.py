@@ -1,21 +1,21 @@
-"""Fabriques d'entrées hostiles pour le sprint 3 (antennes, routes, physique, archive).
+"""Fabriques d'entrées hostiles pour les antennes, les routes, la physique et l'archive.
 
-Complète `fabriques.py` (sprint 2) avec ce dont les lots L3.1 à L3.3 ont besoin :
+Complète `fabriques.py` avec ce dont ces tests ont besoin :
 
 * des **géométries à antenne** : une boucle fermée dans laquelle on greffe un
   aller-retour exact, bruité, ou trop long pour la fenêtre — c'est le seul
-  défaut de tracé que le mainteneur veut voir corrigé (contrat §1) ;
+  défaut de tracé que le mainteneur veut voir corrigé ;
 * des **activités synthétiques** dont on connaît la vitesse point par point :
   sans elles, `detecter_groupe` ne se teste que par ses bornes, jamais par son
-  verdict (contrat §3) ;
+  verdict ;
 * des **réponses d'archive météo fabriquées**, avec heures manquantes, valeurs
-  `null` ou colonnes plus courtes que `time` — le cas que le contrat §4 cite
-  nommément ;
+  `null` ou colonnes plus courtes que `time` — le cas qui fait tomber un
+  lecteur qui zippe à l'aveugle ;
 * un **constructeur tolérant de `Parametres`** : le contrat fixe les champs du
   modèle physique mais pas leur ordre ni leurs valeurs par défaut.
 
-Comme au sprint 2 : aucune coordonnée française, aucune URL réelle, aucun
-identifiant du mainteneur (règle absolue 1 de CLAUDE.md).
+Comme partout dans ce dossier : aucune coordonnée française, aucune URL réelle,
+aucun identifiant du mainteneur (règle absolue 1 de CLAUDE.md).
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def greffer_antenne(
     trouve exactement l'aller-retour, et rien d'autre.
 
     `bruit_m` décale latéralement chaque point du retour : c'est l'antenne
-    « quasi exacte » du contrat §4, celle qu'un moteur de tracé rend vraiment
+    « quasi exacte », celle qu'un moteur de tracé rend vraiment
     (le retour emprunte le même axe, pas les mêmes nœuds).
     """
     assert 0 <= position < len(coords), f"position {position} hors de la trace"
@@ -245,7 +245,7 @@ def repondre_archive(
     """Une réponse d'archive fabriquée, calée sur le jour demandé.
 
     `colonnes_courtes` tronque **toutes** les colonnes sauf `time` : c'est
-    l'« heures manquantes » du contrat §4, celle qui fabrique un `IndexError`
+    le cas des heures manquantes, celui qui fabrique un `IndexError`
     chez un lecteur qui zippe à l'aveugle. `sans` retire des variables
     entières, `hourly` remplace le bloc (pour `{}`, `None`, une liste…).
     """
@@ -289,7 +289,7 @@ CHAMPS_PARAMETRES = {"masse_totale_kg", "cda_m2", "crr"}
 
 
 def parametres(module: Any, **surcharges: Any) -> Any:
-    """Un `Parametres` du contrat §3, construit sans supposer l'ordre des champs."""
+    """Un `Parametres` de `physique.modele`, construit sans supposer l'ordre des champs."""
     outils.exiger_champs(module.Parametres, CHAMPS_PARAMETRES)
     valeurs: dict[str, Any] = {"masse_totale_kg": 85.0, "cda_m2": 0.32, "crr": 0.005}
     valeurs.update(surcharges)

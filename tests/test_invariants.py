@@ -362,16 +362,16 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
             )
 
 
-#: C1 de `docs/journal/ux/relecture_f0.md` : `zwo.py` et `mrc.py` (683 lignes, testées)
-#: n'avaient aucun appelant dans `src/` — un trou du cadrage compté comme
-#: comblé qui ne l'était qu'à moitié. F1 les branche via `seance/fichier.py`,
-#: lui-même appelé par `seance/commande.py` et `sortie/commande.py`.
+#: Les lecteurs de séance ZWO et MRC doivent être appelés par le cœur, pas
+#: seulement testés : un lecteur que rien n'appelle passe ses propres tests
+#: sans qu'aucune commande ne sache lire ces fichiers. Ils le sont via
+#: `seance/fichier.py`, lui-même appelé par `seance/commande.py` et
+#: `sortie/commande.py` (constat C1 de `docs/journal/ux/relecture_f0.md`).
 MODULES_SANS_APPELANT_HISTORIQUE = ("seance.zwo", "seance.mrc")
 
 
-def test_zwo_et_mrc_ont_desormais_un_appelant():
-    """Régression de C1 : si ce branchement disparaissait, ce test doit le dire
-    avant qu'un futur agent ne recompte le trou comme comblé.
+def test_les_lecteurs_zwo_et_mrc_sont_appeles_par_le_coeur():
+    """Un lecteur de séance sans appelant serait compté comme livré à tort.
 
     Ne vérifie pas que ces lecteurs *marchent* (leurs propres tests le font),
     seulement qu'au moins un module du cœur, en dehors d'eux-mêmes, les
@@ -405,10 +405,12 @@ def test_aucun_client_http_reel_n_est_cree_a_l_import():
         assert not isinstance(noeud, ast.Assign) or "httpx.Client" not in ast.unparse(noeud.value)
 
 
-#: `tests/*.py`, plus les trois tests d'API de bout en bout rangés sous `tests/api/`.
+#: `tests/*.py` (tests et modules d'outils, qui portent les bouchons partagés),
+#: plus les trois tests d'API de bout en bout rangés sous `tests/api/`.
 _PERIMETRE_CLIENT_HTTP = sorted(
     [
         *TESTS.glob("test_*.py"),
+        *TESTS.glob("outils_*.py"),
         *(TESTS / "api" / nom for nom in ("test_api.py", "test_api_erreurs.py", "test_api_quotas.py")),
     ]
 )
@@ -652,7 +654,7 @@ def test_aucun_fichier_de_configuration_du_depot_ne_porte_de_point_reel(config: 
 # Les deux détecteurs de coordonnées du dépôt lisaient les fixtures et les
 # fichiers de configuration ; aucun ne regardait `docs/`. L'audit de
 # l'historique mené en resserrant `.gitignore` y a trouvé le point de départ du
-# mainteneur en clair depuis le sprint 1 : `docs/journal/sprints/sprint1_relecture.md` citait
+# mainteneur en clair dans `docs/journal/sprints/sprint1_relecture.md`, qui citait
 # le défaut qu'elle venait de faire corriger ailleurs, coordonnée comprise. Un
 # procès-verbal de relecture est un document comme un autre.
 
@@ -791,10 +793,10 @@ def test_le_generateur_de_fixtures_est_reproductible(generateur, tmp_path: Path)
 
 # --- numpy est confiné au paquet physique ------------------------------------
 #
-# Contrat du sprint 3 §4 : « numpy interdit hors physique/ ». La dépendance a
-# été ajoutée pour les moindres carrés de la calibration ; elle n'a rien à
-# faire dans un lecteur de fichier ou un connecteur, où elle ferait entrer des
-# scalaires `np.float64` dans des dataclasses censées porter des `float`.
+# « numpy interdit hors physique/ ». La dépendance a été ajoutée pour les
+# moindres carrés de la calibration ; elle n'a rien à faire dans un lecteur de
+# fichier ou un connecteur, où elle ferait entrer des scalaires `np.float64`
+# dans des dataclasses censées porter des `float`.
 
 PAQUET_NUMPY = "physique"
 

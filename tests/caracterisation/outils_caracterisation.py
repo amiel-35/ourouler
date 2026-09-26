@@ -507,8 +507,8 @@ def ecrire_config(chemin: Path, cache: Path, *, avec_intervals: bool = True) -> 
 
 
 #: Variables `OUROULER_*` **gardées** par `preparer` : celles qui choisissent
-#: un chemin de code sans changer ce qui doit être répondu. Depuis le lot 11
-#: (`api/double_chemin.py`), `OUROULER_API_CHEMIN=ancien|nouveau|double`
+#: un chemin de code sans changer ce qui doit être répondu.
+#: `OUROULER_API_CHEMIN=ancien|nouveau|double` (`api/double_chemin.py`)
 #: choisit par où l'API appelle le cœur. `test_caracterisation_api.py` est
 #: paramétré sur les trois valeurs, contre les **mêmes** références ; la
 #: variable, gardée ici, rejoue en plus tout `tests/api/` sur un chemin

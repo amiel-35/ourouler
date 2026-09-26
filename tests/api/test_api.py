@@ -18,8 +18,7 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from test_seance_intervals import ATHLETE, CLE, W
-from test_sortie_commande import (
+from outils_sortie_commande import (
     JOUR,
     client_intervals,
     ecrire_calibration,
@@ -28,6 +27,7 @@ from test_sortie_commande import (
     pluie_au_nord,
     reponse_anneau,
 )
+from test_seance_intervals import ATHLETE, CLE, W
 
 from ourouler.api.adaptateur import Budgets
 from ourouler.api.application import creer_application
@@ -1117,14 +1117,14 @@ def test_le_socle_partage_ignore_les_variables_ouroler_depart_pour_les_deux_prop
 ):
     """**Le trou précis du 21/09/2026**, fermé ici — voir aussi la sonde rejouée sur l'ancien code.
 
-    Ce qu'aucun test n'éprouvait avant cette date, malgré 4830 tests verts
-    (relecture du sprint 8) : un `SocleTOML` construit avec `variables=` **et**
-    plusieurs propriétaires en même temps. Ça reproduit le paquetage réel
-    (`deploiement/api/README.md`) : le TOML du serveur porte un départ (« Point
-    zéro », `ecrire_config`), et les trois variables `OUROULER_DEPART_*` sont
-    posées — comme le fait le déploiement Coolify en service aujourd'hui
-    (`OUROULER_DEPART_NOM=Rennes`, un point générique ; celui du test est
-    inventé et synthétique, règle absolue 1).
+    Ce qu'aucun test n'éprouvait avant cette date, malgré 4830 tests verts : un
+    `SocleTOML` construit avec `variables=` **et** plusieurs propriétaires en
+    même temps. Ça reproduit le paquetage réel (`deploiement/api/README.md`) :
+    le TOML du serveur porte un départ (« Point zéro », `ecrire_config`), et
+    les trois variables `OUROULER_DEPART_*` sont posées — comme le fait le
+    déploiement Coolify en service aujourd'hui (`OUROULER_DEPART_NOM=Rennes`,
+    un point générique ; celui du test est inventé et synthétique, règle
+    absolue 1).
 
     Deux propriétaires distincts d'un même socle hébergé : `AUTRE` écrit son
     propre départ, `tiers` n'écrit rien du tout. Aucun des deux ne doit

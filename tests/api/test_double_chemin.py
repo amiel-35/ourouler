@@ -1,4 +1,4 @@
-"""Lot 11 : le choix du chemin, et ce que la comparaison du mode `double` dit (et tait).
+"""Le choix du chemin de l'API, et ce que la comparaison du mode `double` dit (et tait).
 
 Les références de caractérisation, rejouées sur les trois chemins, sont dans
 `test_caracterisation_api.py` ; ici, les pièces du mécanisme une à une.
@@ -41,7 +41,7 @@ def test_sans_variable_le_chemin_est_le_defaut():
     assert exploitation.chemin_api({"OUROULER_API_CHEMIN": "  "}) == double_chemin.CHEMIN_DEFAUT
 
 
-def test_le_defaut_de_ce_lot_est_l_ancien_chemin():
+def test_le_chemin_par_defaut_de_l_api_est_l_ancien():
     """La bascule se fait en préproduction, par `double` d'abord — pas dans le code.
 
     Lu dans la source et non sur le module : `OUROULER_API_CHEMIN` posée pour
