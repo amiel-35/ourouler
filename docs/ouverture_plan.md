@@ -208,6 +208,17 @@ fois. Chaque lot est une PR, mergée si la CI est verte.
 Ordre : N0 et N1 d'abord (sans risque), puis N2 et N3 en parallèle, N4, puis
 N5 et N6 (la documentation décrit le code nettoyé), N7, N8, N9.
 
+**État au 26/09/2026.** N0 fait (0.10.0 en prod, étiquette `v0.10.0`). N1
+fait. N2 mergé (#83), N3 (#84), N6 (#85), N5 (#86), N4 (#87 : 1 523 lignes
+d'historique → 69, AST identique hors docstrings, P3 identique), N7 (#88 :
+métadonnées, CI à délai maximal et actions épinglées, Dependabot). N8 en
+cours (relecture Fable). `ruff format` : reporté en un commit mécanique
+unique après N8, pour ne pas croiser les lots en cours. Restent pour après la
+phase, hors comportement : les chaînes affichées qui portent encore de
+l'historique (aide de `Volets.tsx`, `CODES_PANNE`), à traiter comme un
+changement visible ; l'écart doctrine ↔ code sur la conservation des fichiers
+bruts après export (Q67), à trancher par le mainteneur.
+
 ## 1. Diagnostic (mesuré)
 
 - **Taille réelle.** 89 fichiers Python pour 41 019 lignes. Docstrings et
