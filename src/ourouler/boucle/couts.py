@@ -8,15 +8,15 @@ dans le bon sens présente moins de tourne-à-gauche.
 
 Le score agrège tout ça en **kilomètres équivalents** : plus bas = mieux.
 Tous les poids sont des constantes nommées ci-dessous, jamais des nombres
-enfouis dans une formule. Depuis le sprint 3, le poids d'une classe de route
-peut aussi être **appris** sur les sorties réelles du cycliste et injecté par
-la ligne de commande (`evaluer(..., poids=...)`) : les constantes restent le
+enfouis dans une formule. Le poids d'une classe de route peut aussi être
+**appris** sur les sorties réelles du cycliste et injecté par la ligne de
+commande (`evaluer(..., poids=...)`) : les constantes restent le
 cas par défaut, celui d'un cycliste dont on ne sait rien.
 
 Sans `segments` (un GPX importé n'en a pas), les kilomètres par type de
 route ne sont pas calculables : ils valent 0 et `trace.meta["couts_partiels"]`
 passe à `True` pour que l'affichage ne fasse pas passer une ignorance pour
-une mesure (règle absolue 5). Un tronçon dont la longueur est absurde
+une mesure (on ne présente jamais une estimation comme une mesure). Un tronçon dont la longueur est absurde
 (négative, NaN, infinie) est écarté du calcul plutôt que soustrait des
 kilomètres réels, et compté dans `trace.meta["segments_ignores"]` — pour la
 même raison : une ignorance se dit, elle ne se déguise pas en mesure.
@@ -74,7 +74,7 @@ POIDS_HIGHWAY_DEFAUT: dict[str, float] = {h: POIDS_KM_TRAFIC for h in sorted(HIG
 
 #: Ce que coûte une classe absente du dictionnaire de poids. Zéro, jamais
 #: autre chose : une classe qu'on ne sait pas juger ne se pénalise pas
-#: (« inconnu » n'est jamais un malus, contrat du sprint 3 §2).
+#: (« inconnu » n'est jamais un malus).
 POIDS_HIGHWAY_INCONNU = 0.0
 #: Un kilomètre non revêtu en coûte 4.
 POIDS_KM_NON_REVETU = 4.0
@@ -148,8 +148,8 @@ def evaluer(
     mauvais sens : on ne sait pas, donc on ne promet rien.
 
     `poids` associe un coût en kilomètres équivalents à chaque classe
-    `highway`. Absent, c'est `POIDS_HIGHWAY_DEFAUT` — les constantes
-    historiques, donc exactement le score du sprint 2. Fourni, il vient de
+    `highway`. Absent, c'est `POIDS_HIGHWAY_DEFAUT`, les constantes
+    de ce module. Fourni, il vient de
     `apprentissage.routes.poids_appris` et c'est **la ligne de commande** qui
     l'injecte : ce module ne lit aucun fichier. Une classe absente du
     dictionnaire ne coûte rien (`POIDS_HIGHWAY_INCONNU`) : on ne pénalise pas
@@ -463,7 +463,7 @@ def tags_par_troncon(
     élément de moins que `points`, et l'élément `i` décrit ce qu'on a sous les
     roues entre le point `i` et le point `i + 1`.
 
-    Public depuis le sprint 4 : `seance.terrain` mesure des kilomètres bâtis
+    Public : `seance.terrain` mesure des kilomètres bâtis
     sous un bloc, donc des longueurs, et il n'y a pas deux façons de
     construire cette correspondance. La différence avec `tags_par_point` n'est
     pas cosmétique : attribuer à l'intervalle qui *commence* au point `i` les

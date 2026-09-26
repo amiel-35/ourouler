@@ -1,7 +1,7 @@
 """GPX : écrire un `Trace`, relire un GPX en `Trace`.
 
-C'est le format d'échange décidé par le mainteneur (Q5) : le GPX suffit, on
-ne pousse rien chez Garmin avant le sprint 5.
+C'est le format d'échange retenu : le GPX suffit, on ne pousse rien chez
+Garmin (décision Q5, `docs/journal/questions/questions_mainteneur.md`).
 
 À ne pas confondre avec `activites.lecture.lire_gpx`, qui lit une **sortie
 enregistrée** (points horodatés, puissance, cadence) pour l'inventaire.
@@ -64,8 +64,7 @@ def description(trace: Trace) -> str:
 
     Le D+ porte sa provenance : sans elle, relire avec `--gpx` le fichier
     qu'on vient d'écrire affichait un dénivelé différent de celui inscrit
-    dans le `<desc>`, sans qu'on puisse comprendre pourquoi (point 5 de la
-    relecture du sprint 2).
+    dans le `<desc>`, sans qu'on puisse comprendre pourquoi.
     """
     morceaux = [f"{trace.distance_m / 1000:.1f} km".replace(".", ",")]
     if trace.denivele_m is not None:
@@ -93,8 +92,8 @@ def lire_gpx_trace(chemin_ou_bytes: Entree) -> Trace:
     """Lit un GPX de parcours : première `<trk>`, à défaut première `<rte>`.
 
     Les horodatages ne sont pas nécessaires (un parcours n'en a pas) ;
-    `segments` reste vide, faute de tags OSM — d'où les coûts partiels du lot
-    L2.4. Fichier vide, XML cassé, GPX sans point ou coordonnée impossible :
+    `segments` reste vide, faute de tags OSM — d'où les coûts partiels de
+    `boucle.couts`. Fichier vide, XML cassé, GPX sans point ou coordonnée impossible :
     `ErreurLecture`.
 
     Pour un parcours **déposé** à analyser, qui peut arriver en plusieurs
@@ -113,7 +112,7 @@ ECART_MAX_ENTRE_MORCEAUX_M = 200.0
 
 
 def lire_gpx_parcours(chemin_ou_bytes: Entree) -> tuple[Trace, list[str]]:
-    """Lit **tout** un GPX de parcours (L9.8) : (tracé, avertissements).
+    """Lit **tout** un GPX de parcours : (tracé, avertissements).
 
     Un brevet ou une Flèche arrive souvent en plusieurs `<trk>` (une par
     étape) ou en plusieurs `<trkseg>`. `lire_gpx_trace` n'en lit que le
@@ -192,8 +191,7 @@ def _coordonnees(brut, fichier: str | None) -> tuple[float, float] | None:
 
     Une coordonnée impossible (« nan », « inf », une latitude de 91°) n'est
     pas un parcours : refusée ici, lisiblement, plutôt que de remonter en
-    `ValueError` du calcul de distance — une erreur interne (500) côté API
-    (relecture de L9.8, 25/09/2026).
+    `ValueError` du calcul de distance — une erreur interne (500) côté API.
     """
     if brut.latitude is None or brut.longitude is None:
         return None

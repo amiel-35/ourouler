@@ -6,8 +6,8 @@ parallèles à 100 m l'une de l'autre non. C'est la seule façon de découper un
 tracé en mailles : les routes connues (`apprentissage.routes`) et la mesure
 de recouvrement entre propositions (`sortie.contraste`) la partagent.
 
-Sorti d'`apprentissage/routes.py` au lot 9, sans changer une ligne de calcul :
-le domaine (`sortie`) n'importe plus un cas d'usage pour découper un tracé.
+Séparé d'`apprentissage/routes.py` pour que le domaine (`sortie`) n'importe pas
+un cas d'usage pour découper un tracé.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def mailles_traversees(a: PointTrace, b: PointTrace, longueur: float) -> list[tu
 def mailles_ponderees(trace: Trace) -> dict[tuple[int, int], float]:
     """Les mailles traversées par un tracé, chacune avec les mètres qu'elle porte.
 
-    Extraite de `BaseRoutes.part_connue` au lot L5.3 pour être partagée avec
+    Séparée de `BaseRoutes.part_connue` pour être partagée avec
     `recouvrement` : « quelle part de ce tracé connais-je ? » et « quelle part
     de ce tracé est aussi dans celui-là ? » sont la même question posée à deux
     ensembles de mailles différents, et il n'y a pas deux façons de découper
