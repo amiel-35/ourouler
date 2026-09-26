@@ -177,6 +177,37 @@ réponse réussie** (les 200 sont des objets vides) ; les types du front ne
 sont donc vérifiés que pour les requêtes. Déclarer des modèles de réponse
 fait partie du lot 11.
 
+## 0 bis. Phase de nettoyage — avant toute nouvelle fonctionnalité
+
+Demandée par le mainteneur le 26/09/2026 : « avant de repartir sur les
+features, un vrai nettoyage : worktrees, documents de travail, vérification
+des documents, du README, du changelog… Pas de nouvelle feature, pas de
+nouveau code ; des retouches seulement pour finir ou nettoyer (code mort,
+doublons, artefacts de test), et le contenu et la documentation. Le dépôt
+doit être vu comme l'état de l'art. »
+
+**Règles de la phase.** Aucun changement de comportement : les sorties de
+référence, la compatibilité et le contrat d'API passent sans régénération
+(sauf l'openapi si un texte de description change, relu comme tel). P3 sur les
+vraies données après chaque lot qui touche `src/`. Au plus deux agents à la
+fois. Chaque lot est une PR, mergée si la CI est verte.
+
+| Lot | Contenu | Critère de fin | Modèle |
+|---|---|---|---|
+| N0 | **Mise en prod 0.10.0** (API en `ancien`) : rejeu complet en préprod, P3, poussée sur `prod`, étiquette. Rien ne change pour les invités hors les correctifs déjà dans `main` | prod saine, invitation rejouée en prod, étiquette `v0.10.0` | moi |
+| N1 | **Environnement de travail** : worktrees morts, branches locales et distantes déjà mergées (garder `main`, `prod`, les étiquettes, les branches garées nommées), stash, conteneurs et images de test orphelins, dossiers temporaires | `git worktree list` et `git branch -r` ne montrent que l'utile ; liste de ce qui a été supprimé | moi |
+| N2 | **Code mort et doublons** : fonctions, constantes et modules jamais appelés (analyse AST + vérification à la main), aides dupliquées entre modules, réexports résiduels, `noqa` et exceptions qui ne servent plus, `TODO`/`FIXME` périmés | chaque suppression justifiée en une ligne ; suite complète et références vertes | Opus |
+| N3 | **Tests et fixtures** : tests morts ou en double, fixtures inutilisées, artefacts (fichiers écrits par des tests, dossiers `~`), docstrings de tests qui citent d'anciens chemins, scripts `tests/validation/` (garder, documenter ou retirer), exceptions ruff des tests tranchées | nombre de tests et temps de suite rapportés avant/après ; rien de ce qui mord n'est retiré (mutation de contrôle) | Opus |
+| N4 | **Commentaires historiques** (décision Q4) : dates, numéros de lot, « le mainteneur a dit », citations → le pourquoi durable en une phrase, renvoi `docs/journal/questions/…#Qnn` quand utile ; docstrings périmées | `grep` des marqueurs historiques vide dans `src/` (hors renvois assumés) ; aucune ligne de code changée | Opus, par paquets |
+| N5 | **Documentation** : README, ARCHITECTURE (carte réelle après les lots 3–14), CONTRIBUTING, SECURITY, AGENTS, `doctrine_architecture.md` relue et mise à jour, guides de `docs/`, READMEs de `front/` et `deploiement/`, `CHANGELOG.md` (entrée « Non publié » rédigée du point de vue du cycliste). Chaque commande, option, chemin et lien cité existe (test) | aucune affirmation fausse sur le code ; liens et commandes vérifiés | Opus |
+| N6 | **Documents de travail** : le plan d'ouverture et la préparation des sprints passent dans `docs/journal/` une fois clos ; `docs/` ne garde que le relu ; index de `docs/` | arborescence de `docs/` lisible par un inconnu | Sonnet |
+| N7 | **Métadonnées et outillage** : `pyproject.toml` (description, licence, URLs, classifiers), `front/package.json`, `.gitignore` relu, délai maximal par job en CI (leçon du blocage de 25 min), format du code (`ruff format` : décider et appliquer ou documenter) | CI verte, métadonnées complètes | Sonnet |
+| N8 | **Relecture « état de l'art »** en regard extérieur (Fable) sur tout le dépôt : ce qu'un développeur expérimenté qui découvre le dépôt trouverait brouillon, faux ou daté ; corrections, puis seconde passe | verdict écrit ; points bloquants corrigés | Fable, puis Opus |
+| N9 | **Gestes de fin avec le mainteneur** : retrait de `.claude/`, branches garées, réglages GitHub (au passage en public) | fait avec lui | lui + moi |
+
+Ordre : N0 et N1 d'abord (sans risque), puis N2 et N3 en parallèle, N4, puis
+N5 et N6 (la documentation décrit le code nettoyé), N7, N8, N9.
+
 ## 1. Diagnostic (mesuré)
 
 - **Taille réelle.** 89 fichiers Python pour 41 019 lignes. Docstrings et
