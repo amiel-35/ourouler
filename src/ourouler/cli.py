@@ -825,9 +825,9 @@ def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_geocoder(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.geocodage.commande import executer  # import paresseux (lot F0.2)
+    from ourouler.commandes.geocoder import executer_depuis_namespace  # import paresseux (lot F0.2)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_api(sous: argparse._SubParsersAction) -> None:

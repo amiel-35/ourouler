@@ -1,17 +1,16 @@
 """Sous-commande `ourouler geocoder ADRESSE` : rend les candidats, sans trancher.
 
-Ce module est appelé par `cli.py` et ne lit rien : il reçoit `args` et
-`config`. Les clients sont injectables pour que les tests ne touchent jamais
-le réseau. `config` n'est pas encore utilisé (le connecteur n'a besoin
-d'aucun réglage utilisateur), mais reste au contrat pour que toutes les
-sous-commandes s'appellent de la même façon depuis `cli.py` ; typé `object`,
-puisqu'on n'en lit rien, pour ne pas importer `config.py`.
+Le cas d'usage (`executer`) reçoit une `DemandeGeocodage` déjà lue par
+l'entrée (`commandes/geocoder.py`) et rend les candidats ; il ne connaît ni
+argparse ni la sortie standard. Les clients sont injectables pour que les
+tests ne touchent jamais le réseau. Aucun réglage du cycliste n'est lu : le
+contexte est accepté pour que tous les services s'appellent de la même façon,
+et ignoré.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
+from dataclasses import dataclass
 
 from ourouler.connecteurs.geocodage import (
     LIMITE_DEFAUT,
@@ -21,26 +20,35 @@ from ourouler.connecteurs.geocodage import (
     ambiguite,
     chercher_adresse,
 )
+from ourouler.services.contexte import Contexte
+
+
+@dataclass(frozen=True)
+class DemandeGeocodage:
+    """L'adresse à chercher et le nombre maximal de candidats."""
+
+    adresse: str
+    limite: int = LIMITE_DEFAUT
+
+
+@dataclass(frozen=True)
+class ResultatGeocodage:
+    """Les candidats, dans l'ordre des services, et l'adresse qui les a donnés."""
+
+    adresse: str
+    candidats: list[Candidat]
 
 
 def executer(
-    args: argparse.Namespace,
-    config: object,
+    demande: DemandeGeocodage,
+    contexte: Contexte | None = None,
     ban: ClientBAN | None = None,
     nominatim: ClientNominatim | None = None,
-) -> int:
-    """Exécute `ourouler geocoder`. Renvoie le code de sortie (0 = succès)."""
-    del config  # non utilisé ici, gardé pour la même signature que les autres sous-commandes
-    adresse = args.adresse
-    limite = getattr(args, "max", None) or LIMITE_DEFAUT
-
-    candidats = chercher_adresse(adresse, ban=ban, nominatim=nominatim, limite=limite)
-
-    if getattr(args, "json", False):
-        print(json.dumps(rendre_json(adresse, candidats), ensure_ascii=False, indent=2))
-    else:
-        print(rendre_texte(adresse, candidats))
-    return 0
+) -> ResultatGeocodage:
+    """Cherche l'adresse. Ne tranche jamais : c'est le rendu qui dit l'ambiguïté."""
+    del contexte  # rien à lire du cycliste ici
+    candidats = chercher_adresse(demande.adresse, ban=ban, nominatim=nominatim, limite=demande.limite)
+    return ResultatGeocodage(adresse=demande.adresse, candidats=candidats)
 
 
 def rendre_json(adresse: str, candidats: list[Candidat]) -> dict:
