@@ -124,7 +124,13 @@ def rendre_texte(
     """Le tableau des candidates, la ligne retenue marquée d'une flèche."""
     presentes = _mesures_presentes(evaluations)
     lignes = _entete(
-        demande, config, "meteo" in presentes, poids, evaluations, modele, compteur_info
+        demande,
+        config,
+        "meteo" in presentes,
+        poids=poids,
+        evaluations=evaluations,
+        modele=modele,
+        compteur_info=compteur_info,
     )
 
     titres = _titres(presentes, elaguees=demande.gpx is None, config=config, modele=modele)
@@ -416,6 +422,7 @@ def _entete(
     demande: Demande,
     config: Config,
     avec_meteo: bool,
+    *,
     poids: dict[str, float] | None = None,
     evaluations: list[Evaluation] | None = None,
     modele: ModeleTemps | None = None,
