@@ -286,16 +286,14 @@ window.addEventListener('resize', function () {{ carte.invalidateSize(); }});
 """
 
 
-def _page(
-    *, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool
-) -> str:
+def _page(*, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool) -> str:
     """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
     puces = "".join(
         f'<li><i style="background:{bloc["couleur"]}"></i>bloc {bloc["n"]} — note '
         f"{nombre_fr(bloc['note'], 2)}</li>"
         for bloc in blocs
     )
-    lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
+    lignes_notes = "".join(f'<p class="note">{html.escape(str(n))}</p>' for n in notes)
     section_vent = _section_vent() if avec_vent else ""
     charge = _charge_json(donnees)
     return (

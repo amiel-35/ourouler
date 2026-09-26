@@ -46,7 +46,6 @@ SOUS_COMMANDES_DES_ECRANS = (
 )
 
 
-
 # Marque `xfail(strict=True)` posée par le testeur en aveugle avant que F1
 # n'existe, retirée le 17/09/2026 à sa livraison. C'est `strict` qui l'a
 # signalé : le test s'est mis à passer et la suite a échoué pour le dire,
@@ -303,9 +302,7 @@ def test_le_verificateur_de_refus_attrape_ce_qu_il_doit_attraper():
     with pytest.raises(AssertionError, match="français"):
         verifier_refus_exploitable(reponse({"code": "x", "message": "bad request"}), "anglais")
     with pytest.raises(AssertionError, match="trace Python"):
-        verifier_refus_exploitable(
-            reponse({"code": "x", "message": 'La durée.\nFile "boucle.py"'}), "trace"
-        )
+        verifier_refus_exploitable(reponse({"code": "x", "message": 'La durée.\nFile "boucle.py"'}), "trace")
     with pytest.raises(AssertionError, match="secret"):
         verifier_refus_exploitable(
             reponse({"code": "x", "message": f"La clé {CLE_INTERVALS_SENTINELLE} est refusée"}),
@@ -353,16 +350,12 @@ def test_les_outils_de_decouverte_du_schema_fonctionnent():
                 "post": {
                     "parameters": [{"name": "proprietaire", "in": "query"}],
                     "requestBody": {
-                        "content": {
-                            "application/json": {"schema": {"$ref": "#/components/schemas/Demande"}}
-                        }
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Demande"}}}
                     },
                 }
             }
         },
-        "components": {
-            "schemas": {"Demande": {"properties": {"duree_min": {}, "heure_depart": {}}}}
-        },
+        "components": {"schemas": {"Demande": {"properties": {"duree_min": {}, "heure_depart": {}}}}},
     }
     chemin, methode, operation = route_pour(schema, "sortie")
     assert (chemin, methode) == ("/api/sortie", "POST")

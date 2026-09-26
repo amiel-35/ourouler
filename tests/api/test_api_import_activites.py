@@ -30,7 +30,7 @@ def _gpx() -> bytes:
     return (
         b"<?xml version='1.0'?>\n"
         b'<gpx version="1.1" creator="essai">\n'
-        b'<trk><name>essai</name><trkseg>\n'
+        b"<trk><name>essai</name><trkseg>\n"
         b'<trkpt lat="0.0009" lon="0.0004"><time>2024-06-05T08:00:00Z</time></trkpt>\n'
         b'<trkpt lat="0.0018" lon="0.0004"><time>2024-06-05T08:01:00Z</time></trkpt>\n'
         b"</trkseg></trk>\n</gpx>\n"
@@ -118,9 +118,7 @@ def test_une_archive_hostile_est_ignoree_pas_une_panne(tmp_path: Path):
 
 def test_un_gz_depose_est_decompresse(tmp_path: Path):
     client = client_api(config=_config_avec_cache(tmp_path))
-    fini = _deposer_et_attendre(
-        client, ("sortie.gpx.gz", gzip.compress(_gpx()), "application/gzip")
-    )
+    fini = _deposer_et_attendre(client, ("sortie.gpx.gz", gzip.compress(_gpx()), "application/gzip"))
     assert fini["rapport"]["importees"] == 1
 
 

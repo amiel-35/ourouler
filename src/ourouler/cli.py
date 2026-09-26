@@ -332,9 +332,7 @@ def _commande_config(args: argparse.Namespace, config: Config) -> int:
         print(json.dumps(profil_json(config), default=defaut, ensure_ascii=False, indent=2))
         return 0
     print(f"Départ   : {config.depart.nom} ({config.depart.latitude:.4f}, {config.depart.longitude:.4f})")
-    ftp_texte = (
-        f"{config.cycliste.ftp_w:.0f} W" if config.cycliste.ftp_w is not None else "non renseignée"
-    )
+    ftp_texte = f"{config.cycliste.ftp_w:.0f} W" if config.cycliste.ftp_w is not None else "non renseignée"
     print(f"Cycliste : {config.cycliste.masse_kg:.1f} kg, FTP {ftp_texte}")
     print(f"Vélos    : {', '.join(v.nom + ' (' + v.usage + ')' for v in config.velos)}")
     print(
@@ -496,9 +494,7 @@ def _commande_boucle(args: argparse.Namespace, config: Config) -> int:
     # `avertir_routes` : `boucle` affiche une part de kilomètres déjà connus,
     # mesurée autour du départ configuré — partir d'ailleurs la fait tomber à
     # zéro pour une raison qui n'a rien à voir avec le tracé proposé.
-    return executer_depuis_namespace(
-        args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
-    )
+    return executer_depuis_namespace(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
 
 
 def ajouter_routes(sous: argparse._SubParsersAction) -> None:
@@ -562,9 +558,7 @@ def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
     )
     p.add_argument("--velo", help="nom du vélo (défaut : premier vélo d'usage route)")
     p.add_argument("--depuis", help="date AAAA-MM-JJ (défaut : historique_depuis de la config)")
-    p.add_argument(
-        "--max", type=int, metavar="N", help="ne garder que les N sorties les plus récentes"
-    )
+    p.add_argument("--max", type=int, metavar="N", help="ne garder que les N sorties les plus récentes")
     p.add_argument(
         "--crr-libre",
         action="store_true",
@@ -777,9 +771,7 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
         "opposées — ou peu-importe (défaut, les propositions contrastées répondent)",
     )
     p.add_argument("--velo", help="vélo dont la calibration sert au placement (défaut : premier vélo route)")
-    ajouter_heure_depart(
-        p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)"
-    )
+    ajouter_heure_depart(p, "heure de départ HH:MM ou AAAA-MM-JJTHH:MM (défaut : le jour de la séance)")
     ajouter_adresse_depart(p)
     p.add_argument("--sortie", metavar="FICHIER.GPX", help="où écrire la boucle retenue")
     p.add_argument("--carte", metavar="FICHIER.HTML", help="où écrire la carte de vérification")
@@ -802,9 +794,7 @@ def ajouter_sortie(sous: argparse._SubParsersAction) -> None:
 def _commande_sortie(args: argparse.Namespace, config: Config) -> int:
     from ourouler.commandes.sortie import executer_depuis_namespace  # import paresseux
 
-    return executer_depuis_namespace(
-        args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True)
-    )
+    return executer_depuis_namespace(args, config, lieu_depart=lieu_depart(args, config, avertir_routes=True))
 
 
 def ajouter_geocoder(sous: argparse._SubParsersAction) -> None:
@@ -857,8 +847,7 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
         from ourouler.api.session import SessionPersonnelle
     except ImportError as e:
         raise ErreurUtilisateur(
-            "api : FastAPI et uvicorn ne sont pas installés — `uv sync --extra api` "
-            f"({e})"
+            f"api : FastAPI et uvicorn ne sont pas installés — `uv sync --extra api` ({e})"
         ) from e
 
     application = creer_application(
@@ -872,8 +861,7 @@ def _commande_api(args: argparse.Namespace, config: Config) -> int:
         session=SessionPersonnelle(),
     )
     print(
-        f"ourouler : API sur http://{args.hote}:{args.port}/api/v1 "
-        f"(documentation interactive sur /docs)",
+        f"ourouler : API sur http://{args.hote}:{args.port}/api/v1 (documentation interactive sur /docs)",
         file=sys.stderr,
     )
     uvicorn.run(application, host=args.hote, port=args.port, log_level="info")
@@ -1172,9 +1160,7 @@ def _commande_retirer(args: argparse.Namespace, config: Config) -> int:
         # `_depots_de_l_hebergement` passée telle quelle, jamais appelée ici : elle ne
         # doit s'exécuter (et donc pouvoir refuser sur un dossier de données absent)
         # qu'une fois l'adresse et la confirmation validées — voir `services/comptes.retirer`.
-        return executer_retirer(
-            args, config, depot=depot, resoudre_depots_heberges=_depots_de_l_hebergement
-        )
+        return executer_retirer(args, config, depot=depot, resoudre_depots_heberges=_depots_de_l_hebergement)
 
 
 #: Les réponses qui valent « oui » à la confirmation de `retirer` — en minuscules, sans

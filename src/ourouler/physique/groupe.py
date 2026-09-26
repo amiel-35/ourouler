@@ -41,9 +41,7 @@ def detecter_groupe(
     disent rien d'un équilibre).
     """
     echantillons = [
-        e
-        for e in echantillonner(activite, vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
-        if e.retenu
+        e for e in echantillonner(activite, vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh) if e.retenu
     ]
     distance = sum(e.longueur_m for e in echantillons)
     if distance <= 0:

@@ -116,10 +116,7 @@ def fourchette_du_velo(velo: Velo, chemin: Path) -> FourchettePorteAPorte:
     return parametres_velo.fourchette_du_velo(lire_calibration(chemin, velo.nom))
 
 
-
-def puissance_voulue(
-    puissance: float | None, vitesse: float | None, parametres: Parametres
-) -> float | None:
+def puissance_voulue(puissance: float | None, vitesse: float | None, parametres: Parametres) -> float | None:
     """La puissance demandée : `--puissance`, ou celle que `--vitesse-a-plat` exige.
 
     `None` si aucune des deux options n'est donnée — c'est à l'appelant de
@@ -156,7 +153,6 @@ def puissance_voulue(
 def velo_demande(profil: Profil, nom: str | None) -> Velo:
     """Le vélo nommé, ou le premier vélo d'usage route (`parametres_velo.velo_demande`)."""
     return parametres_velo.velo_demande(profil, nom)
-
 
 
 # --- ourouler calibrer --------------------------------------------------------
@@ -229,7 +225,6 @@ def executer_calibrer(
     )
 
 
-
 # --- ourouler simuler ---------------------------------------------------------
 
 
@@ -272,8 +267,7 @@ def executer_simuler(
     puissance = puissance_voulue(demande.puissance_w, demande.vitesse_a_plat_kmh, parametres)
     if puissance is None:
         raise ErreurUtilisateur(
-            "simuler : donner --puissance W, ou --vitesse-a-plat KMH pour qui ne connaît "
-            "pas sa puissance"
+            "simuler : donner --puissance W, ou --vitesse-a-plat KMH pour qui ne connaît pas sa puissance"
         )
     if not (0 < float(puissance) <= 2000):
         vitesse = demande.vitesse_a_plat_kmh
@@ -306,8 +300,7 @@ def executer_simuler(
             # a pas d'heure à décaler — le signaler plutôt que de laisser
             # croire que `--pause` a joué un rôle.
             contexte.avertir(
-                "ourouler : --pause sans --heure-depart n'a aucun effet "
-                "(rien à dater sans heure de départ)"
+                "ourouler : --pause sans --heure-depart n'a aucun effet (rien à dater sans heure de départ)"
             )
 
     simulation = simuler(trace, float(puissance), parametres, vent=vent)
@@ -499,9 +492,7 @@ def executer_analyser(
 
     dernier_jour = portee.dernier_jour_couvert(profil.meteo.horizon_jours, aujourdhui=date.today())
     jour_demande = depart_dt.date()
-    meteo_absente = (
-        portee.constater(jour_demande, dernier_jour) if jour_demande > dernier_jour else None
-    )
+    meteo_absente = portee.constater(jour_demande, dernier_jour) if jour_demande > dernier_jour else None
 
     meteo: MeteoTrace | None = None
     panne: str | None = None
@@ -511,9 +502,7 @@ def executer_analyser(
         # compris, à la médiane de la fourchette du vélo.
         vitesse_montre = vitesse_a_vent_nul / fourchette.mediane
         fuseau = depart_dt.tzinfo or UTC
-        fin_de_prevision = datetime.combine(
-            dernier_jour + timedelta(days=1), time(0), tzinfo=fuseau
-        )
+        fin_de_prevision = datetime.combine(dernier_jour + timedelta(days=1), time(0), tzinfo=fuseau)
         try:
             meteo = evaluer_meteo(
                 trace,
@@ -566,9 +555,7 @@ def executer_analyser(
     )
 
 
-def _vitesse_a_vent_nul(
-    trace, puissance_w: float, parametres: Parametres, profil: Profil
-) -> float:
+def _vitesse_a_vent_nul(trace, puissance_w: float, parametres: Parametres, profil: Profil) -> float:
     """La vitesse qui date les échantillons météo — le pendant, pour un GPX déposé, de
     `boucle.commande._vitesse_meteo` : une simulation à vent nul (la météo qu'on cherche
     dépendrait sinon de l'heure, qui dépend de la vitesse, qui dépend du vent — second

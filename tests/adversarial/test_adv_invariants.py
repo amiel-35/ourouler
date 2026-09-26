@@ -139,8 +139,7 @@ def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     fautes: list[str] = []
     for chemin in _fichiers_python(SRC):
         autorise = (
-            chemin.name in FICHIERS_AUTORISES
-            or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
+            chemin.name in FICHIERS_AUTORISES or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
         )
         fautes += _acces_machine(chemin, autorise=autorise)
     assert not fautes, (
@@ -379,15 +378,12 @@ def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
             appele = ast.unparse(noeud.func)
             fabrique = appele.endswith("ModuleType") and "ourouler" in texte
             accroche = (
-                appele == "setattr"
-                and noeud.args
-                and ast.unparse(noeud.args[0]).startswith("ourouler")
+                appele == "setattr" and noeud.args and ast.unparse(noeud.args[0]).startswith("ourouler")
             )
             if fabrique or accroche:
                 fautes.append(f"{chemin.relative_to(RACINE)}:{noeud.lineno} {texte}")
-    assert not fautes, (
-        "un test remplace un module de production au lieu de l'importer :\n  "
-        + "\n  ".join(fautes)
+    assert not fautes, "un test remplace un module de production au lieu de l'importer :\n  " + "\n  ".join(
+        fautes
     )
 
 
@@ -464,9 +460,7 @@ def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(
         commande_sortie.chemin_carte_par_defaut(demande, config.cache.dossier),
     ]
     dans_le_depot = [c for c in par_defaut if c.resolve().is_relative_to(tmp_path.resolve())]
-    assert not dans_le_depot, (
-        f"`ourouler sortie` écrirait ces fichiers dans le dépôt : {dans_le_depot}"
-    )
+    assert not dans_le_depot, f"`ourouler sortie` écrirait ces fichiers dans le dépôt : {dans_le_depot}"
     for chemin in par_defaut:
         assert chemin.resolve().is_relative_to(dossier_cache.resolve()), (
             f"{chemin} n'est pas sous le dossier de cache configuré {dossier_cache}"
@@ -719,9 +713,7 @@ def test_le_coeur_ne_fabrique_pas_les_chemins_du_cache():
 
 def test_le_detecteur_de_chemins_du_cache_fonctionne(tmp_path):
     faux = tmp_path / "faux.py"
-    faux.write_text(
-        'CHEMIN = dossier / "poids_routes.json"\nAUTRE = "index.sqlite"\n', encoding="utf-8"
-    )
+    faux.write_text('CHEMIN = dossier / "poids_routes.json"\nAUTRE = "index.sqlite"\n', encoding="utf-8")
     textes = {texte for _, texte in _chaines(faux)}
     assert "poids_routes.json" in textes, "le détecteur ne voit pas la chaîne fautive"
     assert not any(f in t for t in textes for f in FICHIERS_DU_CACHE if f != "poids_routes.json"), (
@@ -744,8 +736,17 @@ MODULES_SEANCE_COEUR = ("modele.py", "intervals.py", "terrain.py", "placement.py
 #: `json.load` et `json.dump` (les variantes fichier) sont interdits.
 MODULES_DISQUE = {"pathlib", "sqlite3", "shutil", "tempfile", "os", "tomllib", "csv"}
 APPELS_DISQUE = {
-    "open", "read_text", "write_text", "read_bytes", "write_bytes",
-    "mkdir", "unlink", "iterdir", "glob", "rglob", "connect",
+    "open",
+    "read_text",
+    "write_text",
+    "read_bytes",
+    "write_bytes",
+    "mkdir",
+    "unlink",
+    "iterdir",
+    "glob",
+    "rglob",
+    "connect",
 }
 #: Lectures de l'horloge : le cœur reçoit le jour, il ne le devine pas.
 APPELS_HORLOGE = {"now", "today", "utcnow", "fromtimestamp"}
@@ -789,9 +790,7 @@ def _appels(chemin: Path) -> list[tuple[int, str]]:
 def _fautes_de_disque(chemin: Path) -> list[str]:
     relatif = chemin.relative_to(RACINE) if chemin.is_relative_to(RACINE) else chemin.name
     fautes = [
-        f"{relatif}:{ligne} import {module}"
-        for ligne, module in _imports(chemin)
-        if module in MODULES_DISQUE
+        f"{relatif}:{ligne} import {module}" for ligne, module in _imports(chemin) if module in MODULES_DISQUE
     ]
     for ligne, appel in _appels(chemin):
         if appel in APPELS_DISQUE or appel in ("json.load", "json.dump"):
@@ -908,6 +907,7 @@ def test_les_detecteurs_de_disque_et_d_horloge_reperent_une_faute(tmp_path):
     appels = {appel for _, appel in _appels(faux)}
     assert "date.today" in appels and "today" in appels, f"date.today() non repéré : {appels}"
     propre = tmp_path / "propre.py"
-    propre.write_text("def placer(seance, trace, p):\n    return sum(e.duree_s for e in seance.etapes)\n",
-                      encoding="utf-8")
+    propre.write_text(
+        "def placer(seance, trace, p):\n    return sum(e.duree_s for e in seance.etapes)\n", encoding="utf-8"
+    )
     assert not _fautes_de_disque(propre), "faux positif sur un module qui ne touche à rien"

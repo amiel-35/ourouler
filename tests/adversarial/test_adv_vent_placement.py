@@ -239,10 +239,15 @@ def test_interpolation_angulaire_passe_par_le_nord(a: float, b: float):
     face, soit une erreur de 2·V, 12 m/s ici. La valeur attendue est la
     bissectrice angulaire, donc le cap 0 est plein face.
     """
-    milieu = (math.degrees(math.atan2(
-        (math.sin(math.radians(a)) + math.sin(math.radians(b))) / 2,
-        (math.cos(math.radians(a)) + math.cos(math.radians(b))) / 2,
-    )) % 360.0)
+    milieu = (
+        math.degrees(
+            math.atan2(
+                (math.sin(math.radians(a)) + math.sin(math.radians(b))) / 2,
+                (math.cos(math.radians(a)) + math.cos(math.radians(b))) / 2,
+            )
+        )
+        % 360.0
+    )
     champ = _champ([a, b], pas_m=1000.0)
     obtenu = champ.vent_face_ms(500.0, 0.0, 1)
     attendu = fabriques_vent.attendu_ms(milieu)
@@ -340,12 +345,8 @@ def test_un_demi_tour_change_le_plein_face_en_plein_dos(cap: float):
     """Le cas du contrat : un bloc aller vent de face, le même bloc au retour
     vent de dos, et la valeur exacte de part et d'autre."""
     champ = _champ([cap] * 3)
-    assert champ.vent_face_ms(2500.0, cap, 1) == pytest.approx(
-        fabriques_vent.attendu_ms(0.0), abs=1e-9
-    )
-    assert champ.vent_face_ms(2500.0, cap, -1) == pytest.approx(
-        fabriques_vent.attendu_ms(180.0), abs=1e-9
-    )
+    assert champ.vent_face_ms(2500.0, cap, 1) == pytest.approx(fabriques_vent.attendu_ms(0.0), abs=1e-9)
+    assert champ.vent_face_ms(2500.0, cap, -1) == pytest.approx(fabriques_vent.attendu_ms(180.0), abs=1e-9)
 
 
 @pytest.mark.parametrize("cap", CAPS)
@@ -364,9 +365,7 @@ def test_sens_nul_est_traite_comme_le_sens_inverse():
     contrat doit le dire (question remontée au mainteneur).
     """
     champ = _champ([0.0] * 3)
-    assert champ.vent_face_ms(2500.0, 0.0, 0) == pytest.approx(
-        champ.vent_face_ms(2500.0, 0.0, -1), abs=1e-9
-    )
+    assert champ.vent_face_ms(2500.0, 0.0, 0) == pytest.approx(champ.vent_face_ms(2500.0, 0.0, -1), abs=1e-9)
 
 
 # =============================================================================
@@ -428,9 +427,7 @@ def test_vent_nul_mesure_n_est_pas_un_vent_inconnu():
     donc affiche « vent non pris en compte » le jour où il n'y a pas de vent.
     """
     champ = _champ([0.0, 0.0, 0.0], vitesses=[0.0, 0.0, 0.0])
-    assert champ.complet is True, (
-        "un vent mesuré à 0 km/h est connu : il ne rend pas le champ incomplet"
-    )
+    assert champ.complet is True, "un vent mesuré à 0 km/h est connu : il ne rend pas le champ incomplet"
     assert champ.vent_face_ms(2500.0, 0.0, 1) == pytest.approx(0.0, abs=1e-12)
 
 
@@ -643,9 +640,7 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
     from ourouler.noyau import seance as seance_modele
 
     resultat, erreur = _resultat_ou_erreur(
-        lambda: module_placement.placer(
-            f4.seance_deux_blocs(seance_modele), trace, _parametres(), vent=champ
-        )
+        lambda: module_placement.placer(f4.seance_deux_blocs(seance_modele), trace, _parametres(), vent=champ)
     )
     assert erreur is None or isinstance(erreur, ERREURS)
     if resultat is not None:
@@ -752,8 +747,7 @@ def _mesure(placement: Any) -> dict:
         "distance_totale_m": placement.distance_totale_m,
         "jalons_m": list(placement.jalons_m),
         "emplacements": [
-            (e.etape_idx, e.debut_m, e.longueur_m, e.demi_tour, e.note.note)
-            for e in placement.blocs()
+            (e.etape_idx, e.debut_m, e.longueur_m, e.demi_tour, e.note.note) for e in placement.blocs()
         ],
     }
 
@@ -770,9 +764,7 @@ def test_sans_vent_le_placement_reste_celui_des_valeurs_figees(nom: str):
     recalculée au passage, un cap qui déplace un pas d'un mètre).
     """
     _exiger_parametre_vent()
-    placement = module_placement.placer(
-        _seance_golden(), _trace_golden(nom), _parametres(), vent=None
-    )
+    placement = module_placement.placer(_seance_golden(), _trace_golden(nom), _parametres(), vent=None)
     assert placement is not None, "le placement de référence n'est pas None"
     ecarts = _ecarts_au_golden(_mesure(placement), GOLDEN[nom])
     assert not ecarts, "\n".join(ecarts)
@@ -867,9 +859,7 @@ def _caps(terrain: Any) -> list[float]:
         return [float(c) for c in terrain.caps]
     if hasattr(terrain, "cap_a"):
         bornes = terrain.bornes
-        return [
-            float(terrain.cap_a((bornes[i] + bornes[i + 1]) / 2.0)) for i in range(len(bornes) - 1)
-        ]
+        return [float(terrain.cap_a((bornes[i] + bornes[i + 1]) / 2.0)) for i in range(len(bornes) - 1)]
     pytest.skip(
         "ni `_Terrain.caps` ni `_Terrain.cap_a` : le contrat L5.1 §1.2 a) demande le cap "
         "de chaque pas mais ne nomme pas l'interface (question remontée au mainteneur)"
@@ -960,9 +950,7 @@ def test_le_vent_de_face_ralentit_et_le_vent_de_dos_accelere():
     """
     terrain = _terrain(fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430))
     if not _vitesse_accepte_le_vent(terrain):
-        pytest.skip(
-            "_Terrain.vitesse n'a pas encore de paramètre de vent (contrat L5.1 §1.2 c)"
-        )
+        pytest.skip("_Terrain.vitesse n'a pas encore de paramètre de vent (contrat L5.1 §1.2 c)")
     face = terrain.vitesse(210.0, 0.0, 5.0)
     calme = terrain.vitesse(210.0, 0.0, 0.0)
     dos = terrain.vitesse(210.0, 0.0, -5.0)

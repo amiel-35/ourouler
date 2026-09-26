@@ -523,8 +523,7 @@ class DepotComptes:
         jeton = secrets.token_urlsafe(OCTETS_JETON)
         with self.cx.transaction():
             self.cx.execute(
-                "DELETE FROM invitations "
-                "WHERE compte = %s AND consomme_le IS NULL AND expire_le <= %s",
+                "DELETE FROM invitations WHERE compte = %s AND consomme_le IS NULL AND expire_le <= %s",
                 (identifiant_compte, maintenant),
             )
             ligne = self.cx.execute(
@@ -543,17 +542,14 @@ class DepotComptes:
             ).fetchone()
         if en_cours is None:  # pragma: no cover - la ligne a disparu entre-temps
             raise ErreurCompte(
-                f"impossible de poser une invitation pour le compte "
-                f"{identifiant_compte!r} — réessayer"
+                f"impossible de poser une invitation pour le compte {identifiant_compte!r} — réessayer"
             )
         invitation = _invitation(en_cours)
         return InvitationEmise(invitation, jeton=invitation.jeton, deja_en_cours=True)
 
     # -- activer --------------------------------------------------------------
 
-    def activer(
-        self, jeton: str, mot_de_passe: str, *, maintenant: datetime | None = None
-    ) -> Acces:
+    def activer(self, jeton: str, mot_de_passe: str, *, maintenant: datetime | None = None) -> Acces:
         """Pose le mot de passe, active le compte, consomme l'invitation — atomique.
 
         **Une seule transaction pour les trois.** L'invitation se consomme
@@ -607,9 +603,7 @@ class DepotComptes:
         if compte is None:  # pragma: no cover - la clé étrangère l'interdit
             raise ErreurCompte("invitation rattachée à un compte disparu")
         return Acces(
-            compte=Compte(
-                identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]
-            ),
+            compte=Compte(identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]),
             proprietaire=proprietaire,
         )
 
@@ -726,9 +720,7 @@ class DepotComptes:
         if compte is None:  # pragma: no cover - la clé étrangère l'interdit
             raise ErreurCompte("invitation de réinitialisation rattachée à un compte disparu")
         return Acces(
-            compte=Compte(
-                identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]
-            ),
+            compte=Compte(identifiant=compte[0], email=compte[1], actif=compte[2], cree_le=compte[3]),
             proprietaire=proprietaire,
         )
 
@@ -862,6 +854,7 @@ class DepotComptes:
             InvitationAvecAdresse(jeton=jeton, email=email, cree_le=cree_le, expire_le=expire_le)
             for jeton, email, cree_le, expire_le in lignes
         ]
+
     # -- l'état d'un jeton, sans le consommer ------------------------------------
 
     def invitation_ouverte(
@@ -934,8 +927,7 @@ class DepotComptes:
         jeton = secrets.token_urlsafe(OCTETS_JETON_SESSION)
         with self.cx.transaction():
             self.cx.execute(
-                "INSERT INTO sessions (jeton, compte, cree_le, expire_le) "
-                "VALUES (%s, %s, %s, %s)",
+                "INSERT INTO sessions (jeton, compte, cree_le, expire_le) VALUES (%s, %s, %s, %s)",
                 (jeton, compte, maintenant, maintenant + duree),
             )
         return jeton

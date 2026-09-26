@@ -68,9 +68,7 @@ CALIBRATION_ROUTE = {
 def test_chaque_f27_consigne_se_recalcule(usage: str):
     """Les newtons cités dans la table ne sont pas recopiés : ils se refont."""
     choix = litterature.PAR_USAGE[usage]
-    assert choix.jeu.force_a_27_n(choix.masse_reference_kg) == pytest.approx(
-        choix.f27_jeu_n, abs=0.01
-    )
+    assert choix.jeu.force_a_27_n(choix.masse_reference_kg) == pytest.approx(choix.f27_jeu_n, abs=0.01)
     for jeu, f27, _derive in choix.ecartes:
         assert jeu.force_a_27_n(choix.masse_reference_kg) == pytest.approx(f27, abs=0.01)
 
@@ -163,9 +161,7 @@ def test_avec_sa_calibration_rien_ne_change(tmp_path: Path, monkeypatch, capsys)
     assert retenue["temps_source"] == "modele"
 
 
-def test_avec_sa_calibration_l_ecran_ne_parle_pas_de_litterature(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_avec_sa_calibration_l_ecran_ne_parle_pas_de_litterature(tmp_path: Path, monkeypatch, capsys):
     config = config_avec_velo_calibrable(tmp_path)
     ecrire_calibration(chemin_calibration(config), "RCR", CALIBRATION_ROUTE)
     monkeypatch.chdir(tmp_path)
@@ -237,9 +233,7 @@ def test_les_deux_options_ensemble_sont_refusees_et_le_disent(tmp_path: Path):
     config = config_de_test(tmp_path / "cache")
     gpx = gpx_plat(tmp_path / "boucle.gpx")
     with pytest.raises(ErreurUtilisateur, match="n'en donner qu'une"):
-        executer_simuler(
-            args_simuler(gpx=str(gpx), puissance=200.0, vitesse_a_plat=30.0), config
-        )
+        executer_simuler(args_simuler(gpx=str(gpx), puissance=200.0, vitesse_a_plat=30.0), config)
 
 
 def test_boucle_refuse_les_deux_options_avant_tout_appel(tmp_path: Path, monkeypatch):
@@ -288,9 +282,7 @@ def test_une_vitesse_a_plat_absurde_est_refusee(tmp_path: Path, vitesse: float):
     config = config_de_test(tmp_path / "cache")
     gpx = gpx_plat(tmp_path / "boucle.gpx")
     with pytest.raises(ErreurUtilisateur, match="vitesse-a-plat"):
-        executer_simuler(
-            args_simuler(gpx=str(gpx), puissance=None, vitesse_a_plat=vitesse), config
-        )
+        executer_simuler(args_simuler(gpx=str(gpx), puissance=None, vitesse_a_plat=vitesse), config)
 
 
 def test_simuler_distingue_le_modele_calibre_du_modele_de_litterature(tmp_path: Path, capsys):

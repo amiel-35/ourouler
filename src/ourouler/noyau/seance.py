@@ -126,9 +126,7 @@ class Etape:
 
     def __post_init__(self) -> None:
         if self.type not in TYPES:
-            raise ErreurUtilisateur(
-                f"séance : type d'étape {self.type!r} inconnu, attendu un de {TYPES}"
-            )
+            raise ErreurUtilisateur(f"séance : type d'étape {self.type!r} inconnu, attendu un de {TYPES}")
         duree = _fini(self.duree_s, "duree_s")
         if duree < 0:
             raise ErreurUtilisateur(f"séance : durée négative ({duree} s)")

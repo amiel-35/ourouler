@@ -78,8 +78,15 @@ def test_les_colonnes_du_contrat_sont_toutes_la(tmp_path: Path, monkeypatch, cap
     executer(args(), config_de_test(), moteur_brouter(), moteur_meteo(pluie=0.5))
     sortie = capsys.readouterr().out
     for titre in (
-        "n°", "distance", "D+", "temps", "trafic", "non revêtu",
-        TITRE_ANTENNES_RETIREES, "virages G", "sens",
+        "n°",
+        "distance",
+        "D+",
+        "temps",
+        "trafic",
+        "non revêtu",
+        TITRE_ANTENNES_RETIREES,
+        "virages G",
+        "sens",
     ):
         assert titre in sortie
     for titre in ("pluie", "vent face", "ressenti min"):
@@ -113,9 +120,7 @@ def test_le_tri_suit_bien_le_total_annonce(tmp_path: Path, monkeypatch, capsys):
         assert candidate["total_tri"] == pytest.approx(attendu, abs=3e-3)
 
 
-def test_le_temps_estime_vient_du_modele_meme_sans_calibration(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_temps_estime_vient_du_modele_meme_sans_calibration(tmp_path: Path, monkeypatch, capsys):
     """Le défaut du 18/09/2026, à l'envers : une configuration nue donne un modèle.
 
     Avant ce lot, une configuration sans `calibration.json` retombait sur
@@ -193,9 +198,7 @@ def test_sans_antenne_la_colonne_affiche_zero(tmp_path: Path, monkeypatch, capsy
     assert candidate["distance_source"] is None
 
 
-def test_un_gpx_importe_dit_antennes_detectees_et_non_retirees(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_un_gpx_importe_dit_antennes_detectees_et_non_retirees(tmp_path: Path, monkeypatch, capsys):
     """Un GPX n'est pas élagué : ses antennes sont encore là, le titre le dit."""
     monkeypatch.chdir(tmp_path)
     executer(
@@ -217,9 +220,7 @@ def test_un_gpx_importe_dit_antennes_detectees_et_non_retirees(
     assert _cellule(lignes, entete, TITRE_ANTENNES_DETECTEES) == 0.0
 
 
-def test_le_json_nomme_la_provenance_des_metres_d_antennes(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_json_nomme_la_provenance_des_metres_d_antennes(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     executer(
         args(distance=7.0, candidates=1, json=True),
@@ -239,6 +240,7 @@ def test_le_json_nomme_la_provenance_des_metres_d_antennes(
     candidate = json.loads(capsys.readouterr().out)["candidates"][0]
     assert candidate["antennes_source"] == "detectees"
     assert candidate["antennes"] is None
+
 
 # --- routes connues et poids appris ---------------------------------------------
 #
@@ -270,9 +272,7 @@ def ecrire_poids_de_test(tmp_path: Path, poids: dict) -> None:
     ecrire_poids(tmp_path / "cache" / NOM_POIDS, poids)
 
 
-def test_sans_fichiers_appris_les_colonnes_apprises_disparaissent(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_sans_fichiers_appris_les_colonnes_apprises_disparaissent(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     executer(args(), config_avec_cache(tmp_path), moteur_brouter(), moteur_meteo())
     sortie = capsys.readouterr().out
@@ -281,9 +281,7 @@ def test_sans_fichiers_appris_les_colonnes_apprises_disparaissent(
     assert "valeurs par défaut" in sortie
 
 
-def test_la_colonne_cout_profil_apparait_des_que_le_moteur_le_donne(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_la_colonne_cout_profil_apparait_des_que_le_moteur_le_donne(tmp_path: Path, monkeypatch, capsys):
     """La fixture BRouter porte `CostPerKm` : la colonne doit être là."""
     monkeypatch.chdir(tmp_path)
     executer(args(), config_avec_cache(tmp_path), moteur_brouter(), moteur_meteo())
@@ -317,9 +315,7 @@ def test_la_part_connue_n_entre_pas_dans_le_tri(tmp_path: Path, monkeypatch, cap
     executer(args(json=True), config_avec_cache(tmp_path), moteur_brouter(), moteur_meteo())
     avec = json.loads(capsys.readouterr().out)
 
-    assert [c["total_tri"] for c in avec["candidates"]] == [
-        c["total_tri"] for c in sans["candidates"]
-    ]
+    assert [c["total_tri"] for c in avec["candidates"]] == [c["total_tri"] for c in sans["candidates"]]
     assert avec["candidates"][0]["part_connue"] == pytest.approx(1.0, abs=0.01)
     assert sans["candidates"][0]["part_connue"] is None
 
@@ -353,9 +349,7 @@ def test_l_entete_dit_d_ou_viennent_les_poids(tmp_path: Path, monkeypatch, capsy
     assert "trunk_link" not in sortie, "une classe absente du tracé n'a rien à faire là"
 
 
-def test_un_fichier_de_poids_abime_ne_fait_pas_perdre_la_boucle(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_un_fichier_de_poids_abime_ne_fait_pas_perdre_la_boucle(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "cache").mkdir(parents=True, exist_ok=True)
     (tmp_path / "cache" / "poids_routes.json").write_text("{tronqué", encoding="utf-8")
@@ -363,9 +357,7 @@ def test_un_fichier_de_poids_abime_ne_fait_pas_perdre_la_boucle(
     assert "valeurs par défaut" in capsys.readouterr().out
 
 
-def test_une_base_de_routes_abimee_ne_fait_pas_perdre_la_boucle(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_une_base_de_routes_abimee_ne_fait_pas_perdre_la_boucle(tmp_path: Path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "cache").mkdir(parents=True, exist_ok=True)
     (tmp_path / "cache" / "routes_connues.sqlite").write_bytes(b"pas une base" * 50)

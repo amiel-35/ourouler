@@ -152,8 +152,7 @@ def test_comparer_est_antisymetrique():
         for na, pa, nb, pb in CAS_COMPARER:
             a, b = _PropositionMinimale(na, pa), _PropositionMinimale(nb, pb)
             assert comparer(a, b) == -comparer(b, a), (
-                f"comparer non antisymétrique sur ({na}, {pa}) / ({nb}, {pb}), "
-                f"tolérance {tolerance}"
+                f"comparer non antisymétrique sur ({na}, {pa}) / ({nb}, {pb}), tolérance {tolerance}"
             )
 
 
@@ -340,16 +339,12 @@ def test_evaluer_couloir_ne_bouge_pas():
     assert note.note == 4.0, f"note {note.note!r}, attendu 4.0"
     assert note.carrefours == 4, f"carrefours {note.carrefours!r}, attendu 4"
     assert note.km_batis == 0.0, f"km_batis {note.km_batis!r}, attendu 0.0"
-    assert list(note.motifs) == ["deux feux", "deux ralentisseurs"], (
-        f"motifs {list(note.motifs)!r}"
-    )
+    assert list(note.motifs) == ["deux feux", "deux ralentisseurs"], f"motifs {list(note.motifs)!r}"
 
 
 def test_une_portion_sans_marqueur_note_zero_et_ne_dit_rien():
     """Des tronçons tagués sans nœud de carrefour : zéro **mesuré**, aucun motif."""
-    note = evaluer_couloir(
-        _trace_200_troncons({}), 2000.0, 5000.0, puissance_w=210.0, ftp_w=200.0
-    )
+    note = evaluer_couloir(_trace_200_troncons({}), 2000.0, 5000.0, puissance_w=210.0, ftp_w=200.0)
     assert note.note == 0.0, f"note {note.note!r}, attendu 0.0"
     assert note.carrefours == 0
     assert list(note.motifs) == [], f"motifs {list(note.motifs)!r}, attendu aucun"
@@ -368,9 +363,7 @@ def test_une_portion_sans_segments_avoue_ne_pas_savoir():
     note = evaluer_couloir(
         _trace_200_troncons(sans_segments=True), 2000.0, 5000.0, puissance_w=210.0, ftp_w=200.0
     )
-    assert note.note == 0.0, (
-        f"note {note.note!r} : l'ignorance ne se paie pas (contrat du sprint 3)"
-    )
+    assert note.note == 0.0, f"note {note.note!r} : l'ignorance ne se paie pas (contrat du sprint 3)"
     assert note.carrefours == 0
     assert "routes inconnues" in note.motifs, (
         f"motifs {list(note.motifs)!r} : sans ce motif, la note nulle se lirait « aucun feu », "
@@ -381,9 +374,9 @@ def test_une_portion_sans_segments_avoue_ne_pas_savoir():
 def test_les_marqueurs_reconnus_ne_bougent_pas():
     """Le vocabulaire des marqueurs, figé : L5.3 s'appuie dessus (§3.3.2)."""
     carrefour, cle_calme, sans_effet = f53.marqueurs_du_projet()
-    assert carrefour == frozenset(
-        {"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}
-    ), f"NOEUDS_CARREFOUR = {sorted(carrefour)}"
+    assert carrefour == frozenset({"traffic_signals", "stop", "give_way", "mini_roundabout", "crossing"}), (
+        f"NOEUDS_CARREFOUR = {sorted(carrefour)}"
+    )
     assert cle_calme == "traffic_calming", f"CLE_RALENTISSEUR = {cle_calme!r}"
     assert sans_effet == frozenset({"choker", "island", "dip"}), (
         f"RALENTISSEURS_SANS_EFFET = {sorted(sans_effet)}"

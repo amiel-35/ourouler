@@ -252,9 +252,7 @@ def test_le_denivele_est_lisse_et_non_cumule_a_l_aveugle(hostiles):
 # --- horodatages non monotones ----------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "nom", ["fit_non_monotone.fit", "gpx_non_monotone.gpx", "tcx_non_monotone.tcx"]
-)
+@pytest.mark.parametrize("nom", ["fit_non_monotone.fit", "gpx_non_monotone.gpx", "tcx_non_monotone.tcx"])
 def test_non_monotone_tolere_et_signale(hostiles, nom):
     """Un horodatage non monotone est toléré, et signalé dans `meta["avertissements"]`."""
     lecture = module_lecture
@@ -270,9 +268,7 @@ def test_non_monotone_tolere_et_signale(hostiles, nom):
 def test_pas_d_avertissement_gratuit(hostiles, nom):
     lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
-    assert not activite.meta.get("avertissements"), (
-        "un fichier propre ne doit pas produire d'avertissement"
-    )
+    assert not activite.meta.get("avertissements"), "un fichier propre ne doit pas produire d'avertissement"
 
 
 # --- changement d'heure ------------------------------------------------------

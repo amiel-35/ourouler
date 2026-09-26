@@ -226,9 +226,7 @@ def fichiers_du_cache(dossier_cache: Path) -> dict[str, Path]:
     index = dossier_cache / "index.sqlite"
     par_id: dict[str, Path] = {}
     with _connexion_ro(index) as cx:
-        lignes = cx.execute(
-            "SELECT identifiant, id_externe, extension, meta FROM activites"
-        ).fetchall()
+        lignes = cx.execute("SELECT identifiant, id_externe, extension, meta FROM activites").fetchall()
     for identifiant, id_externe, extension, meta in lignes:
         externe = str(id_externe or "") or _source_id(meta)
         if not externe:
@@ -460,10 +458,7 @@ def imprimer_accord(comparaisons: list[Comparaison]) -> bool:
 
     print(f"  sorties comparées : {len(comparaisons)} (attendu au 15/09/2026 : {SORTIES_ATTENDUES})")
     print()
-    print(
-        f"  {'mesure':<22} {'médiane nous':>13} {'médiane eux':>12} "
-        f"{'|écart| médian':>15} {'biais':>8}"
-    )
+    print(f"  {'mesure':<22} {'médiane nous':>13} {'médiane eux':>12} {'|écart| médian':>15} {'biais':>8}")
     for nom, ecarts, notres, leurs in (
         (
             "vent de face (%)",
@@ -510,8 +505,7 @@ def imprimer_pires(comparaisons: list[Comparaison], combien: int = 5) -> None:
     print()
     print(f"  les {len(pires)} plus grands écarts :")
     print(
-        f"    {'date':<12} {'face nous':>10} {'face eux':>9} "
-        f"{'dos nous':>9} {'dos eux':>8} {'vent m/s':>9}"
+        f"    {'date':<12} {'face nous':>10} {'face eux':>9} {'dos nous':>9} {'dos eux':>8} {'vent m/s':>9}"
     )
     for c in pires:
         vent = f"{c.jugement.vent_moyen_ms:.1f}" if c.jugement.vent_moyen_ms is not None else "?"
@@ -688,9 +682,11 @@ def executer(arguments: argparse.Namespace) -> int:
     velo = velo_demande(config, arguments.velo)
     parametres, provenance = parametres_du_velo(config, velo, chemin_calibration(config))
     ftp_w = arguments.ftp if arguments.ftp else float(config.cycliste.ftp_w)
-    print(f"Vélo « {velo.nom} », paramètres de {provenance} : "
-          f"masse {parametres.masse_totale_kg:.1f} kg, CdA {parametres.cda_m2:.4f} m², "
-          f"Crr {parametres.crr:.5f}. FTP {ftp_w:.0f} W.")
+    print(
+        f"Vélo « {velo.nom} », paramètres de {provenance} : "
+        f"masse {parametres.masse_totale_kg:.1f} kg, CdA {parametres.cda_m2:.4f} m², "
+        f"Crr {parametres.crr:.5f}. FTP {ftp_w:.0f} W."
+    )
 
     client_intervals = ClientIntervals(config.intervals.athlete_id, config.intervals.api_key)
     client_archive = ClientArchive(chemin_cache=config.cache.dossier / NOM_CACHE)
@@ -713,8 +709,10 @@ def executer(arguments: argparse.Namespace) -> int:
     physique = imprimer_physique(erreurs)
     imprimer_manques(manques)
     print()
-    print(f"  archives météo : {client_archive.appels} appel(s), "
-          f"{client_archive.lectures_cache} lecture(s) de cache.")
+    print(
+        f"  archives météo : {client_archive.appels} appel(s), "
+        f"{client_archive.lectures_cache} lecture(s) de cache."
+    )
 
     print()
     if accord and physique:

@@ -285,8 +285,7 @@ def rendre_texte(inv: Inventaire) -> str:
     lignes.append("")
     lignes.append("Par vélo")
     lignes.append(
-        f"  {'vélo':<18}{'sorties':>8}{'km':>10}{'heures':>8}{'% puiss.':>10}"
-        f"  {'capteur':<22}période"
+        f"  {'vélo':<18}{'sorties':>8}{'km':>10}{'heures':>8}{'% puiss.':>10}  {'capteur':<22}période"
     )
     for s in inv.par_velo:
         plage = f"{s.premiere or '?'} → {s.derniere or '?'}"
@@ -299,15 +298,11 @@ def rendre_texte(inv: Inventaire) -> str:
     lignes.append("Par mois (sorties extérieures)")
     lignes.append(f"  {'mois':<10}{'sorties':>8}{'km':>10}{'dont puiss.':>13}")
     for m in inv.par_mois:
-        lignes.append(
-            f"  {m.mois:<10}{m.sorties:>8}{m.km:>10.0f}{m.sorties_avec_puissance:>13}"
-        )
+        lignes.append(f"  {m.mois:<10}{m.sorties:>8}{m.km:>10.0f}{m.sorties_avec_puissance:>13}")
 
     lignes.append("")
     if inv.autres_sports:
-        lignes.append(
-            f"{inv.autres_sports} activité(s) d'autres sports ignorée(s){_libelles_ecartes(inv)}."
-        )
+        lignes.append(f"{inv.autres_sports} activité(s) d'autres sports ignorée(s){_libelles_ecartes(inv)}.")
         lignes.append("")
     if inv.anomalies:
         lignes.append(f"Anomalies ({len(inv.anomalies)})")

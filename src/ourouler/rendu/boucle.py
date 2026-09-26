@@ -136,9 +136,7 @@ def rendre_texte(
 
     titres = _titres(presentes, elaguees=demande.gpx is None, config=config, modele=modele)
     cellules = [_cellules(e, config, presentes, compteur_info) for e in evaluations]
-    largeurs = [
-        max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)
-    ]
+    largeurs = [max([len(titre)] + [len(ligne[i]) for ligne in cellules]) for i, titre in enumerate(titres)]
     marge = " " * (len(MARQUE_RETENUE) + 1)
     lignes.append(marge + "  ".join(t.rjust(n) for t, n in zip(titres, largeurs, strict=True)))
     for evaluation, ligne in zip(evaluations, cellules, strict=True):
@@ -149,9 +147,7 @@ def rendre_texte(
     if compteur_info is not None:
         lignes.append(ligne_temps_ecoule(compteur_info))
     if any(e.trace.meta.get("couts_partiels") for e in evaluations):
-        lignes.append(
-            f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus."
-        )
+        lignes.append(f"{ABSENT} : tracé sans tags de route (GPX importé) — trafic et revêtement inconnus.")
     ligne_rapprochement = _ligne_rapprochement_tags(evaluations)
     if ligne_rapprochement is not None:
         lignes.append(ligne_rapprochement)
@@ -177,9 +173,7 @@ def rendre_texte(
     return "\n".join(lignes)
 
 
-def _porte_a_porte_retenue(
-    evaluation: Evaluation, config: Config, compteur_info: dict | None
-) -> str:
+def _porte_a_porte_retenue(evaluation: Evaluation, config: Config, compteur_info: dict | None) -> str:
     """« , entre 4 h 23 et 4 h 38 porte à porte » — ou rien sans fourchette."""
     mouvement_s = _temps_mouvement_s(evaluation, config)
     if mouvement_s is None or compteur_info is None:
@@ -271,9 +265,7 @@ def _vitesse_passage(
     moins vite qu'un plat-pays à la même puissance. L'entête affiche donc la
     moyenne des candidates dès qu'elles diffèrent d'un dixième.
     """
-    connues = [
-        e.vitesse_meteo_kmh for e in (evaluations or []) if e.vitesse_meteo_kmh is not None
-    ]
+    connues = [e.vitesse_meteo_kmh for e in (evaluations or []) if e.vitesse_meteo_kmh is not None]
     if not connues:
         return f"{config.boucle.vitesse_moyenne_kmh:g} km/h"
     moyenne = sum(connues) / len(connues)
@@ -371,9 +363,7 @@ def _ligne_modele_meteo(evaluations: list[Evaluation], config: Config) -> str:
             f"Météo : {config.meteo.modele} ne couvre pas cette fenêtre — bascule sur "
             f"{meteo.modele_utilise} (second avis, configuré en repli)."
         )
-    return (
-        f"Météo {meteo.modele_utilise}, second avis {config.meteo.second_avis or 'aucun'}"
-    )
+    return f"Météo {meteo.modele_utilise}, second avis {config.meteo.second_avis or 'aucun'}"
 
 
 def _lignes_litterature(modele: ModeleTemps) -> list[str]:
@@ -451,24 +441,17 @@ def _entete(
         # séparées par un `routes poids --appliquer` donneraient des scores
         # différents sans que rien ne l'explique.
         cites = _classes_citees(poids, evaluations or [])
-        lignes.append(
-            "Poids des routes : appris sur vos sorties"
-            + (f" ({cites})." if cites else ".")
-        )
+        lignes.append("Poids des routes : appris sur vos sorties" + (f" ({cites})." if cites else "."))
     else:
         lignes.append(
             "Poids des routes : valeurs par défaut — `ourouler routes poids --appliquer` "
             "les apprend sur vos sorties."
         )
-    lignes.append(
-        "« connu % » : part des km déjà roulés — informatif, jamais dans le score."
-    )
+    lignes.append("« connu % » : part des km déjà roulés — informatif, jamais dans le score.")
     return lignes
 
 
-def _classes_citees(
-    poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4
-) -> str:
+def _classes_citees(poids: dict[str, float], evaluations: list[Evaluation], nombre: int = 4) -> str:
     """Le poids des classes les plus **présentes dans les candidates affichées**.
 
     Citer les plus pénalisées donnait une ligne vraie mais inutile
@@ -499,9 +482,7 @@ def _cellules(
         ABSENT if partiels else f"{nombre_fr(couts.km_non_revetu, 1)} km",
     ]
     if "cout" in presentes:
-        cellules.append(
-            nombre_fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT
-        )
+        cellules.append(nombre_fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT)
     cellules += [
         f"{couts.virages_gauche} ({couts.virages_gauche_trafic})",
         couts.sens,
@@ -570,9 +551,7 @@ def _temps_mouvement_s(evaluation: Evaluation, config: Config) -> float | None:
     return evaluation.trace.distance_m / 1000 / vitesse * 3600
 
 
-def _temps_ecoule_s(
-    evaluation: Evaluation, config: Config, compteur_info: dict | None
-) -> float | None:
+def _temps_ecoule_s(evaluation: Evaluation, config: Config, compteur_info: dict | None) -> float | None:
     """Le temps écoulé porte à porte **médian**, en secondes — sans les pauses déclarées.
 
     La médiane de la fourchette du vélo (`porte_a_porte`) quand un vélo en
@@ -708,5 +687,3 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
         f"({provenance_fourchette(compteur_info)}) : la moitié des sorties tombe dans "
         "cette fourchette."
     )
-
-

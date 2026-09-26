@@ -181,10 +181,7 @@ def anneau(
 
 def distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
     la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
-    h = (
-        math.sin((la2 - la1) / 2) ** 2
-        + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
-    )
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
     return 2 * 6_371_000.0 * math.asin(math.sqrt(h))
 
 
@@ -209,16 +206,24 @@ def reponse_anneau(points: list[tuple[float, float, float]], *, troncons: int = 
     debut = 0
     total = 0.0
     for fin in fins:
-        longueur = sum(
-            distance_m(points[i][:2], points[i + 1][:2]) for i in range(debut, fin)
-        )
+        longueur = sum(distance_m(points[i][:2], points[i + 1][:2]) for i in range(debut, fin))
         total += longueur
         lat, lon, alt = points[fin]
         messages.append(
             [
-                str(round(lon * 1e6)), str(round(lat * 1e6)), str(round(alt)),
-                str(round(longueur)), "1200", "0", "0", "0", "0",
-                "highway=tertiary surface=asphalt", "", "60", "9000",
+                str(round(lon * 1e6)),
+                str(round(lat * 1e6)),
+                str(round(alt)),
+                str(round(longueur)),
+                "1200",
+                "0",
+                "0",
+                "0",
+                "0",
+                "highway=tertiary surface=asphalt",
+                "",
+                "60",
+                "9000",
             ]  # fmt: skip
         )
         debut = fin
@@ -326,8 +331,7 @@ def _gestionnaire_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14
         return httpx.Response(
             200,
             json=[
-                bloc_meteo(a, o, n, pluie(a, o), vent_kmh=vent_kmh)
-                for a, o in zip(lats, lons, strict=True)
+                bloc_meteo(a, o, n, pluie(a, o), vent_kmh=vent_kmh) for a, o in zip(lats, lons, strict=True)
             ],
         )
 
@@ -336,9 +340,7 @@ def _gestionnaire_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14
 
 def client_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> httpx.Client:
     """Le **client HTTP** bouchonné de `moteur_meteo`. Même raison que `client_brouter`."""
-    return httpx.Client(
-        transport=httpx.MockTransport(_gestionnaire_meteo(pluie, en_panne, vent_kmh))
-    )
+    return httpx.Client(transport=httpx.MockTransport(_gestionnaire_meteo(pluie, en_panne, vent_kmh)))
 
 
 def moteur_meteo(pluie=None, en_panne: bool = False, vent_kmh: float = 14.0) -> ClientOpenMeteo:
@@ -361,18 +363,12 @@ def pluie_au_nord(lat: float, lon: float) -> float:
 
 
 def client_intervals(evenements: list[dict] | None = None) -> ClientIntervals:
-    charge = (
-        evenements
-        if evenements is not None
-        else [W.evenement(W.groupes_watts(), nom="4x8 fabriquée")]
-    )
+    charge = evenements if evenements is not None else [W.evenement(W.groupes_watts(), nom="4x8 fabriquée")]
 
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=charge)
 
-    return ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    return ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
 
 
 def clients_interdits():
@@ -449,9 +445,7 @@ def _proposition_avec_demi_tour(denivele_moteur_m: float = 460.0):
     place = Placement(
         decalage_z2_s=0.0,
         emplacements=[
-            Emplacement(
-                etape_idx=1, debut_m=6000.0, longueur_m=3000.0, demi_tour=True, note=NoteBloc(0.0)
-            )
+            Emplacement(etape_idx=1, debut_m=6000.0, longueur_m=3000.0, demi_tour=True, note=NoteBloc(0.0))
         ],
         note_totale=1.0,
         duree_totale_s=9840.0,  # 2 h 44, comme le cas relevé
@@ -488,9 +482,7 @@ def _seance_fabriquee() -> Seance:
         Etape("echauffement", 1200.0, 140.0, 160.0, "Z2", elastique=True),
         Etape("bloc", 1200.0, 200.0, 220.0, "bloc"),
     ]
-    return Seance(
-        nom="4x8 fabriquée", jour=JOUR, etapes=etapes, duree_s=2400.0, meta={}
-    )
+    return Seance(nom="4x8 fabriquée", jour=JOUR, etapes=etapes, duree_s=2400.0, meta={})
 
 
 def _contexte_minimal(tmp_path: Path, seance: Seance) -> Any:
@@ -570,9 +562,7 @@ def carte_produite(tmp_path: Path, monkeypatch, **champs) -> str:
     lancer(tmp_path, monkeypatch, **champs)
     # Q23 : le fichier par défaut vit sous le dossier de cache, plus le
     # dossier courant — voir `chemin_carte_par_defaut`.
-    return (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(
-        encoding="utf-8"
-    )
+    return (tmp_path / "cache" / "sorties" / f"sortie_{JOUR:%Y%m%d}.html").read_text(encoding="utf-8")
 
 
 # --- Q40 (g) : aucun GPX à la génération, un GPX au choix ----------------------

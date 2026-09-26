@@ -51,8 +51,7 @@ def ecrire_gpx(trace: Trace, nom: str, *, desc: str | None = None) -> str:
     piste = gpxpy.gpx.GPXTrack(name=nom, description=desc if desc is not None else description(trace))
     segment = gpxpy.gpx.GPXTrackSegment()
     segment.points = [
-        gpxpy.gpx.GPXTrackPoint(latitude=p.lat, longitude=p.lon, elevation=p.alt_m)
-        for p in trace.points
+        gpxpy.gpx.GPXTrackPoint(latitude=p.lat, longitude=p.lon, elevation=p.alt_m) for p in trace.points
     ]
     piste.segments.append(segment)
     gpx.tracks.append(piste)
@@ -155,9 +154,7 @@ def lire_gpx_parcours(chemin_ou_bytes: Entree) -> tuple[Trace, list[str]]:
         mot = genre if un_segment_par_piste else "morceaux"
         accord = "enchaînés" if mot == "morceaux" else "enchaînées"
         avertissements.append(f"{len(morceaux)} {mot} {accord}, dans l'ordre du fichier")
-    for (libelle_a, _, points_a), (libelle_b, _, points_b) in zip(
-        morceaux[:-1], morceaux[1:], strict=True
-    ):
+    for (libelle_a, _, points_a), (libelle_b, _, points_b) in zip(morceaux[:-1], morceaux[1:], strict=True):
         fin_a, debut_b = _coordonnees(points_a[-1], fichier), _coordonnees(points_b[0], fichier)
         if fin_a is None or debut_b is None:
             continue

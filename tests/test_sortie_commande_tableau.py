@@ -136,17 +136,13 @@ def test_le_vent_change_ou_tombent_les_blocs(tmp_path: Path, monkeypatch, capsys
     """
     dossier_sans = tmp_path / "sans_vent"
     dossier_sans.mkdir()
-    code = lancer(
-        dossier_sans, monkeypatch, meteo=moteur_meteo(vent_kmh=0.0), candidates=1, json=True
-    )
+    code = lancer(dossier_sans, monkeypatch, meteo=moteur_meteo(vent_kmh=0.0), candidates=1, json=True)
     assert code == 0
     sans_vent = json.loads(capsys.readouterr().out)["candidates"][0]["placement"]
 
     dossier_avec = tmp_path / "avec_vent"
     dossier_avec.mkdir()
-    code = lancer(
-        dossier_avec, monkeypatch, meteo=moteur_meteo(vent_kmh=45.0), candidates=1, json=True
-    )
+    code = lancer(dossier_avec, monkeypatch, meteo=moteur_meteo(vent_kmh=45.0), candidates=1, json=True)
     assert code == 0
     avec_vent = json.loads(capsys.readouterr().out)["candidates"][0]["placement"]
 
@@ -158,9 +154,9 @@ def test_le_vent_change_ou_tombent_les_blocs(tmp_path: Path, monkeypatch, capsys
     # doit bouger avec le vent.
     premier_bloc_sans = next(e for e in sans_vent["emplacements"] if e["note"] is not None)
     premier_bloc_avec = next(e for e in avec_vent["emplacements"] if e["note"] is not None)
-    assert premier_bloc_avec["debut_m"] != pytest.approx(
-        premier_bloc_sans["debut_m"]
-    ), "…et donc l'endroit où tombe le premier bloc"
+    assert premier_bloc_avec["debut_m"] != pytest.approx(premier_bloc_sans["debut_m"]), (
+        "…et donc l'endroit où tombe le premier bloc"
+    )
 
 
 def _proposition_note_pluie(note: float, pluie_mm: float) -> Proposition:
@@ -237,15 +233,11 @@ def test_une_candidate_de_note_catastrophique_reste_affichee_en_derniere_positio
     lignes = lignes_du_tableau(texte)
     assert len(lignes) == 3, texte
     assert lignes[-1].split()[0] == "3", lignes[-1]
-    assert "250,00" in lignes[-1], (
-        f"la candidate épouvantable est affichée sans sa note : {lignes[-1]}"
-    )
+    assert "250,00" in lignes[-1], f"la candidate épouvantable est affichée sans sa note : {lignes[-1]}"
 
 
 @pytest.mark.parametrize("en_json", [False, True], ids=["texte", "json"])
-def test_une_candidate_epouvantable_n_est_jamais_filtree(
-    tmp_path: Path, monkeypatch, capsys, en_json
-):
+def test_une_candidate_epouvantable_n_est_jamais_filtree(tmp_path: Path, monkeypatch, capsys, en_json):
     """Suite du précédent : le rendu, texte comme JSON, la montre toujours."""
     reglages = {0.0: {"amplitude_m": 1.0}, 120.0: {"amplitude_m": 1.0}, 240.0: {"amplitude_m": 120.0}}
     code = lancer(
@@ -275,9 +267,7 @@ def test_une_candidate_epouvantable_n_est_jamais_filtree(
         assert "candidate(s) écartée(s)" not in sortie
 
 
-def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(tmp_path: Path, monkeypatch, capsys):
     """Un anneau trop court est écarté, et on dit pourquoi — jamais en silence.
 
     **Le motif a changé le 17/09/2026 (Q41 d), pas l'exigence.** Un anneau six
@@ -289,9 +279,7 @@ def test_les_candidates_ou_la_seance_ne_tient_pas_sont_ecartees(
     sans explication serait le défaut même que ce lot corrige.
     """
     reglages = {180.0: {"rayon_deg": RAYON_DEG / 6}}
-    code = lancer(
-        tmp_path, monkeypatch, brouter=moteur_brouter(reglages), candidates=2
-    )
+    code = lancer(tmp_path, monkeypatch, brouter=moteur_brouter(reglages), candidates=2)
     sortie = capsys.readouterr().out
     assert code == 0
     assert "1 candidate(s) écartée(s)" in sortie

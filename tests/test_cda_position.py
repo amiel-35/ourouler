@@ -118,9 +118,7 @@ def _population(cda: float, **extra) -> list[Echantillon]:
 
 def test_ajustement_retrouve_les_parametres_qui_ont_fabrique_les_donnees(mesure):
     """Sur des données sans bruit, les trois inconnues sortent à la virgule près."""
-    resultat = mesure.ajuster(
-        _population(CDA_A_VRAI), _population(CDA_B_VRAI), masse_totale_kg=MASSE_KG
-    )
+    resultat = mesure.ajuster(_population(CDA_A_VRAI), _population(CDA_B_VRAI), masse_totale_kg=MASSE_KG)
     assert resultat.cda_a == pytest.approx(CDA_A_VRAI, abs=1e-6)
     assert resultat.cda_b == pytest.approx(CDA_B_VRAI, abs=1e-6)
     assert resultat.crr == pytest.approx(CRR_VRAI, abs=1e-7)
@@ -147,15 +145,13 @@ def test_le_crr_est_bien_commun_aux_deux_groupes(mesure):
 
 def test_les_watts_rendus_sont_ceux_du_modele(mesure):
     """La traduction du ΔCdA en watts est celle de `puissance_requise`, pas une formule à part."""
-    resultat = mesure.ajuster(
-        _population(CDA_A_VRAI), _population(CDA_B_VRAI), masse_totale_kg=MASSE_KG
-    )
+    resultat = mesure.ajuster(_population(CDA_A_VRAI), _population(CDA_B_VRAI), masse_totale_kg=MASSE_KG)
     for v_kmh in (27.0, 35.0):
         v = v_kmh / 3.6
         commun = {"masse_totale_kg": MASSE_KG, "crr": resultat.crr, "rho": resultat.rho_moyen}
-        attendu = puissance_requise(
-            v, 0.0, 0.0, Parametres(cda_m2=CDA_A_VRAI, **commun)
-        ) - puissance_requise(v, 0.0, 0.0, Parametres(cda_m2=CDA_B_VRAI, **commun))
+        attendu = puissance_requise(v, 0.0, 0.0, Parametres(cda_m2=CDA_A_VRAI, **commun)) - puissance_requise(
+            v, 0.0, 0.0, Parametres(cda_m2=CDA_B_VRAI, **commun)
+        )
         assert resultat.watts(v_kmh) == pytest.approx(attendu, abs=1e-6)
     # Le groupe A est le plus aérodynamique : l'écart doit être une économie.
     assert resultat.watts(35.0) < resultat.watts(27.0) < 0
@@ -168,9 +164,7 @@ def test_une_borne_atteinte_est_signalee_et_la_solution_libre_rapportee(mesure):
     Le script doit donc rendre les deux — la valeur bornée qu'il utilise, et la
     valeur libre qui montre à quel point les données la refusent.
     """
-    resultat = mesure.ajuster(
-        _population(0.10), _population(CDA_B_VRAI), masse_totale_kg=MASSE_KG
-    )
+    resultat = mesure.ajuster(_population(0.10), _population(CDA_B_VRAI), masse_totale_kg=MASSE_KG)
     assert resultat.cda_a == pytest.approx(CDA_MIN)
     assert any("borne basse" in b for b in resultat.bornes_atteintes)
     assert any("borne" in a for a in resultat.avertissements)
@@ -328,10 +322,7 @@ def test_un_segment_agrege_se_reajuste_sur_les_memes_parametres(mesure):
     groupes = []
     for cda in (CDA_A_VRAI, CDA_B_VRAI):
         bruts = [
-            _echantillon(v, pente, cda)
-            for v in (24.0, 30.0, 38.0)
-            for pente in (0.0, 0.02)
-            for _ in range(5)
+            _echantillon(v, pente, cda) for v in (24.0, 30.0, 38.0) for pente in (0.0, 0.02) for _ in range(5)
         ]
         groupes.append(mesure.agreger(bruts, [True] * len(bruts), reglages))
     resultat = mesure.ajuster(groupes[0], groupes[1], masse_totale_kg=MASSE_KG)
@@ -382,9 +373,7 @@ def triathlon(generateur, tmp_path) -> Path:
             )
         troncons.append(troncon)
     chemin = tmp_path / "triathlon.fit"
-    chemin.write_bytes(
-        generateur.encoder_fit_multisession(troncons, sports=[NAGE, VELO, COURSE])
-    )
+    chemin.write_bytes(generateur.encoder_fit_multisession(troncons, sports=[NAGE, VELO, COURSE]))
     return chemin
 
 

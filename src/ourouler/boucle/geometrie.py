@@ -72,10 +72,7 @@ def geometrie_json(trace: Trace, *, tolerance_m: float = TOLERANCE_DEFAUT_M) -> 
     retenus = [trace.points[i] for i in indices]
     return {
         "points": [[round(p.lat, 6), round(p.lon, 6)] for p in retenus],
-        "profil": [
-            [round(p.dist_m, 1), None if p.alt_m is None else round(p.alt_m, 1)]
-            for p in retenus
-        ],
+        "profil": [[round(p.dist_m, 1), None if p.alt_m is None else round(p.alt_m, 1)] for p in retenus],
         "simplification": {
             "tolerance_m": tolerance_m,
             "points_origine": len(trace.points),
@@ -96,9 +93,7 @@ def simplifier(points: list[PointTrace], tolerance_m: float = TOLERANCE_DEFAUT_M
     return [points[i] for i in indices]
 
 
-def _simplifier_indices(
-    points: list[PointTrace], tolerance_m: float
-) -> tuple[list[int], float]:
+def _simplifier_indices(points: list[PointTrace], tolerance_m: float) -> tuple[list[int], float]:
     """Indices retenus et écart maximal réel des points retirés à la ligne rendue.
 
     Itératif (pile explicite), pas récursif : un GPX à 1 Hz peut dépasser la

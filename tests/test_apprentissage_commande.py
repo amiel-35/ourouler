@@ -56,9 +56,7 @@ def client_bouchonne() -> tuple[ClientBrouter, list[httpx.Request]]:
         return httpx.Response(200, json=reponse_brouter())
 
     return (
-        ClientBrouter(
-            PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-        ),
+        ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))),
         vues,
     )
 
@@ -81,9 +79,7 @@ def base_garnie(tmp_path: Path) -> BaseRoutes:
     """Une base contenant de quoi faire un tableau : tertiary majoritaire."""
     base = BaseRoutes(tmp_path / "cache" / NOM_BASE)
     base.ajouter_trace(droite(101, tags={"highway": "tertiary"}), jour=LUNDI, id_sortie="s1")
-    base.ajouter_trace(
-        droite(51, tags={"highway": "secondary"}, depart_lat=1.0), jour=LUNDI, id_sortie="s2"
-    )
+    base.ajouter_trace(droite(51, tags={"highway": "secondary"}, depart_lat=1.0), jour=LUNDI, id_sortie="s2")
     return base
 
 
@@ -112,9 +108,7 @@ def test_sans_json_la_sortie_reste_en_texte():
 
 
 def test_les_options_d_apprendre_sont_declarees():
-    args = construire_parseur().parse_args(
-        ["routes", "apprendre", "--depuis", "2024-01-01", "--max", "3"]
-    )
+    args = construire_parseur().parse_args(["routes", "apprendre", "--depuis", "2024-01-01", "--max", "3"])
     assert args.depuis == "2024-01-01" and args.max_sorties == 3
 
 
@@ -218,9 +212,7 @@ def test_stats_en_json(tmp_path: Path, capsys):
 
 def test_stats_montre_les_poids_appris_quand_ils_existent(tmp_path: Path, capsys):
     base_garnie(tmp_path)
-    (tmp_path / "cache" / NOM_POIDS).write_text(
-        json.dumps({"poids": {"secondary": 1.25}}), encoding="utf-8"
-    )
+    (tmp_path / "cache" / NOM_POIDS).write_text(json.dumps({"poids": {"secondary": 1.25}}), encoding="utf-8")
     executer(args_de(action="stats"), config_de(tmp_path))
     assert "1,25" in capsys.readouterr().out
 
@@ -302,8 +294,19 @@ def reponse_avec_antenne_en_track() -> dict:
     ):
         messages.append(
             [
-                "0", str(round(lat_fin * 1e6)), "10", distance, "1200",
-                "0", "0", "0", "0", tags, "", "600", "9000",
+                "0",
+                str(round(lat_fin * 1e6)),
+                "10",
+                distance,
+                "1200",
+                "0",
+                "0",
+                "0",
+                "0",
+                tags,
+                "",
+                "600",
+                "9000",
             ]  # fmt: skip
         )
     return {
@@ -331,9 +334,7 @@ def test_l_exposition_est_elaguee_de_ses_antennes(tmp_path: Path, capsys):
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=reponse_avec_antenne_en_track())
 
-    client = ClientBrouter(
-        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     executer(args_de(action="poids", json=True), config_de(tmp_path), client)
     charge = json.loads(capsys.readouterr().out)
     classes = {c["classe"]: c for c in charge["classes"]}
@@ -355,9 +356,7 @@ def test_une_direction_en_panne_ne_perd_pas_les_autres(tmp_path: Path, capsys):
             return httpx.Response(500, content=b"")
         return httpx.Response(200, json=reponse_brouter())
 
-    client = ClientBrouter(
-        PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientBrouter(PARAMS_BROUTER, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     executer(args_de(action="poids"), config_de(tmp_path), client)
     sortie = capsys.readouterr().out
     assert "1 direction(s) sans boucle" in sortie

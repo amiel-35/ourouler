@@ -87,15 +87,12 @@ def parametres_brevo_depuis_dict(brut: dict) -> ParametresBrevo:
     manquants = [champ for champ in CHAMPS_REQUIS_BREVO if not str(section.get(champ, "")).strip()]
     if manquants:
         raise ErreurCourriel(
-            "service.toml [brevo] incomplète — champ(s) manquant(s) ou vide(s) : "
-            + ", ".join(manquants)
+            "service.toml [brevo] incomplète — champ(s) manquant(s) ou vide(s) : " + ", ".join(manquants)
         )
     try:
         port = int(section["port"])
     except (TypeError, ValueError) as e:
-        raise ErreurCourriel(
-            f"service.toml [brevo] port : entier attendu, reçu {section['port']!r}"
-        ) from e
+        raise ErreurCourriel(f"service.toml [brevo] port : entier attendu, reçu {section['port']!r}") from e
     return ParametresBrevo(
         serveur=str(section["serveur"]),
         port=port,

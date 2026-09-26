@@ -210,9 +210,7 @@ def test_la_calibration_de_a_n_affecte_jamais_b(tmp_path: Path):
     assert boucle_b_apres.status_code == 200, boucle_b_apres.text
     avant = boucle_b_avant.json()["donnees"]
     apres = boucle_b_apres.json()["donnees"]
-    assert json.dumps(apres["compteur"], sort_keys=True) == json.dumps(
-        avant["compteur"], sort_keys=True
-    )
+    assert json.dumps(apres["compteur"], sort_keys=True) == json.dumps(avant["compteur"], sort_keys=True)
     assert "calibration" not in json.dumps(apres, ensure_ascii=False)
 
 
@@ -225,9 +223,22 @@ def test_un_compte_heberge_ne_lit_jamais_la_calibration_commune(tmp_path: Path):
     commun = tmp_path / "cache" / physique.NOM_CALIBRATION
     commun.parent.mkdir(parents=True, exist_ok=True)
     commun.write_text(
-        json.dumps({"version": VERSION_CALIBRATION, "velos": {"Route": {
-            "cda_m2": 0.9, "crr": 0.02, "masse_totale_kg": 100.0, "rendement": 0.97,
-            "rho": 1.2, "date": "2026-01-01", "n_sorties": 50}}}),
+        json.dumps(
+            {
+                "version": VERSION_CALIBRATION,
+                "velos": {
+                    "Route": {
+                        "cda_m2": 0.9,
+                        "crr": 0.02,
+                        "masse_totale_kg": 100.0,
+                        "rendement": 0.97,
+                        "rho": 1.2,
+                        "date": "2026-01-01",
+                        "n_sorties": 50,
+                    }
+                },
+            }
+        ),
         encoding="utf-8",
     )
     etat_b = client.get(f"{PREFIXE}/calibrations", headers={"x-compte-essai": B}).json()
@@ -241,15 +252,11 @@ def test_le_job_d_un_autre_est_introuvable(tmp_path: Path):
     _activer(client, A, _profil())
     _semer(tmp_path, A, 12)
     fini = _calibrer(client, A)
-    reponse = client.get(
-        f"{PREFIXE}/calibrations/{fini['id']}", headers={"x-compte-essai": B}
-    )
+    reponse = client.get(f"{PREFIXE}/calibrations/{fini['id']}", headers={"x-compte-essai": B})
     assert reponse.status_code == 404
     assert reponse.json()["erreur"]["code"] == "fichier_introuvable"
     # Et un identifiant de calibration ne se lit pas par la route des imports.
-    reponse = client.get(
-        f"{PREFIXE}/activites/import/{fini['id']}", headers={"x-compte-essai": A}
-    )
+    reponse = client.get(f"{PREFIXE}/activites/import/{fini['id']}", headers={"x-compte-essai": A})
     assert reponse.status_code == 404
 
 
@@ -307,8 +314,13 @@ def test_sans_pneu_le_refus_propose_de_calibrer_quand_meme(tmp_path: Path):
 def test_plusieurs_velos_sorties_sans_rattachement_refus_lisible(tmp_path: Path):
     """Deux vélos, des fichiers déposés sans capteur ni équipement : on ne devine pas."""
     velos = [
-        {"nom": "Route", "usage": "route", "masse_kg": 9.0, "pneu": "course_rapide",
-         "capteur_puissance": "CAPTEUR 0001"},
+        {
+            "nom": "Route",
+            "usage": "route",
+            "masse_kg": 9.0,
+            "pneu": "course_rapide",
+            "capteur_puissance": "CAPTEUR 0001",
+        },
         {"nom": "Chrono", "usage": "clm", "masse_kg": 9.0, "pneu": "course_rapide"},
     ]
     client = _serveur(tmp_path)
@@ -322,8 +334,13 @@ def test_plusieurs_velos_sorties_sans_rattachement_refus_lisible(tmp_path: Path)
 
 def test_plusieurs_velos_sorties_rattachees_par_le_capteur(tmp_path: Path):
     velos = [
-        {"nom": "Route", "usage": "route", "masse_kg": 9.0, "pneu": "course_rapide",
-         "capteur_puissance": "CAPTEUR 0001"},
+        {
+            "nom": "Route",
+            "usage": "route",
+            "masse_kg": 9.0,
+            "pneu": "course_rapide",
+            "capteur_puissance": "CAPTEUR 0001",
+        },
         {"nom": "Chrono", "usage": "clm", "masse_kg": 9.0, "pneu": "course_rapide"},
     ]
     client = _serveur(tmp_path)
@@ -372,9 +389,7 @@ def test_une_calibration_par_jour_la_seconde_est_refusee(tmp_path: Path):
     assert _calibrer(client, B)["statut"] == "fini"
 
 
-def test_une_calibration_qui_echoue_rend_son_credit_et_le_dit_sans_chemin(
-    tmp_path: Path, monkeypatch
-):
+def test_une_calibration_qui_echoue_rend_son_credit_et_le_dit_sans_chemin(tmp_path: Path, monkeypatch):
     client = _serveur(tmp_path)
     _activer(client, A, _profil())
     _semer(tmp_path, A, 12)
@@ -443,9 +458,10 @@ def test_en_mode_personnel_la_calibration_est_celle_de_la_ligne_de_commande(tmp_
     velo = profil["velos"][0]["nom"]
     client.patch(
         f"{PREFIXE}/profil",
-        json={"cycliste": {"masse_kg": 91.0, "ftp_w": 258.0},
-              "velos": [{"nom": velo, "usage": "route", "masse_kg": 9.0,
-                         "pneu": "course_rapide"}]},
+        json={
+            "cycliste": {"masse_kg": 91.0, "ftp_w": 258.0},
+            "velos": [{"nom": velo, "usage": "route", "masse_kg": 9.0, "pneu": "course_rapide"}],
+        },
     )
     _semer(tmp_path, "local", 12)
     reponse = client.post(f"{PREFIXE}/calibrations", json={})

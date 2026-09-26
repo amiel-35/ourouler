@@ -75,10 +75,7 @@ def anneau(
 
 def _distance_m(a: tuple[float, float], b: tuple[float, float]) -> float:
     la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
-    h = (
-        math.sin((la2 - la1) / 2) ** 2
-        + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
-    )
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
     return 2 * 6_371_000.0 * math.asin(math.sqrt(h))
 
 
@@ -103,9 +100,19 @@ def reponse_anneau(points: list[tuple[float, float, float]], *, troncons: int = 
         lat, lon, alt = points[fin]
         messages.append(
             [
-                str(round(lon * 1e6)), str(round(lat * 1e6)), str(round(alt)),
-                str(round(longueur)), "1200", "0", "0", "0", "0",
-                "highway=tertiary surface=asphalt", "", "60", "9000",
+                str(round(lon * 1e6)),
+                str(round(lat * 1e6)),
+                str(round(alt)),
+                str(round(longueur)),
+                "1200",
+                "0",
+                "0",
+                "0",
+                "0",
+                "highway=tertiary surface=asphalt",
+                "",
+                "60",
+                "9000",
             ]  # fmt: skip
         )
         debut = fin
@@ -165,9 +172,7 @@ def _puissance_requise(v_ms: float, r: Reglage) -> float:
     """`physique.modele.puissance_requise` sur le plat, sans vent — même ordre d'opérations."""
     theta = math.atan(0.0)
     v_air = v_ms + 0.0
-    resistance = r.crr * r.masse_totale_kg * _G * math.cos(theta) + r.masse_totale_kg * _G * math.sin(
-        theta
-    )
+    resistance = r.crr * r.masse_totale_kg * _G * math.cos(theta) + r.masse_totale_kg * _G * math.sin(theta)
     trainee = 0.5 * _RHO * r.cda_m2 * v_air * abs(v_air)
     return (resistance * v_ms + trainee * v_ms) / _RENDEMENT
 
@@ -211,7 +216,7 @@ def tcx_synthetique(r: Reglage, jour: date, *, duree_s: int = 2600) -> bytes:
                 f"<LongitudeDegrees>{distance * _METRE_EN_DEGRE:.7f}</LongitudeDegrees></Position>"
                 f"<AltitudeMeters>{altitude:.2f}</AltitudeMeters>"
                 f"<DistanceMeters>{distance:.2f}</DistanceMeters>"
-                "<Extensions><TPX xmlns=\"http://www.garmin.com/xmlschemas/ActivityExtension/v2\">"
+                '<Extensions><TPX xmlns="http://www.garmin.com/xmlschemas/ActivityExtension/v2">'
                 f"<Speed>{v:.3f}</Speed><Watts>{puissance:.0f}</Watts>"
                 "</TPX></Extensions>"
                 "</Trackpoint>"

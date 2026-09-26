@@ -55,9 +55,7 @@ def commande_de(service: Callable) -> Callable[..., int]:
     return getattr(importlib.import_module(f"{__name__}.{module}"), nom)
 
 
-def executer_depuis_namespace(
-    service: Callable, args: argparse.Namespace, config: Config, **clients
-) -> int:
+def executer_depuis_namespace(service: Callable, args: argparse.Namespace, config: Config, **clients) -> int:
     """Compatibilité pour l'ancien chemin de l'API : la commande du service, avec son `Namespace`.
 
     Imprime exactement ce que la commande imprime ; l'API le capture. Il

@@ -273,9 +273,7 @@ def _ajouter_fichiers(archive: zipfile.ZipFile, qui: Proprietaire, fichiers: Dep
     manifeste = []
     for fichier in fichiers.lister(qui):
         archive.write(fichier.chemin, f"fichiers/{fichier.identifiant}_{fichier.nom}")
-        manifeste.append(
-            {"id": fichier.identifiant, "nom": fichier.nom, "type": fichier.type_contenu}
-        )
+        manifeste.append({"id": fichier.identifiant, "nom": fichier.nom, "type": fichier.type_contenu})
     archive.writestr("fichiers/manifest.json", json.dumps(manifeste, ensure_ascii=False, indent=2))
 
 
@@ -317,12 +315,8 @@ def _ajouter_routes_apprises(archive: zipfile.ZipFile, qui: Proprietaire, dossie
         "km_par_surface": stats.km_par_surface,
         "cout_km_moyen": stats.cout_km_moyen,
     }
-    archive.writestr(
-        "routes_apprises/statistiques.json", json.dumps(resume, ensure_ascii=False, indent=2)
-    )
-    archive.writestr(
-        "routes_apprises/sorties.json", json.dumps(base.sorties(), ensure_ascii=False, indent=2)
-    )
+    archive.writestr("routes_apprises/statistiques.json", json.dumps(resume, ensure_ascii=False, indent=2))
+    archive.writestr("routes_apprises/sorties.json", json.dumps(base.sorties(), ensure_ascii=False, indent=2))
 
 
 __all__ = ["TacheNonArretee", "construire_export", "effacer_donnees"]

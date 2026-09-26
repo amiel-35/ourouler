@@ -235,9 +235,7 @@ def collecter(
         # L'heure **locale** vit dans l'index du cache (`meta.debut_local`), pas
         # dans le fichier d'activité : un FIT porte de l'UTC, et lire l'UTC ferait
         # partir le mainteneur deux heures trop tôt tous les étés.
-        sortie = _en_sortie(
-            activite, str(indexee.get("debut_local") or debut), duree_s, distance_m_
-        )
+        sortie = _en_sortie(activite, str(indexee.get("debut_local") or debut), duree_s, distance_m_)
         if sortie is None:
             manques.append("sans tracé exploitable")
             continue
@@ -265,9 +263,7 @@ def _en_sortie(
     points = trace.points
     depart = points[0]
     rayons = [distance_m(depart, p) for p in points]
-    longueur = points[-1].dist_m or sum(
-        distance_m(points[i], points[i + 1]) for i in range(len(points) - 1)
-    )
+    longueur = points[-1].dist_m or sum(distance_m(points[i], points[i + 1]) for i in range(len(points) - 1))
     if longueur <= 0:
         return None
 
@@ -278,9 +274,7 @@ def _en_sortie(
 
     puissance_moy = puissance_moyenne_en_mouvement(activite)
     normalisee = puissance_normalisee(activite.points)
-    variabilite = (
-        normalisee / puissance_moy if normalisee and puissance_moy and puissance_moy > 0 else None
-    )
+    variabilite = normalisee / puissance_moy if normalisee and puissance_moy and puissance_moy > 0 else None
 
     return Sortie(
         jour=instant.date(),
@@ -786,17 +780,12 @@ def _imprimer_ce_qu_il_en_dit(km: collections.Counter, somme: float) -> None:
     classement = sorted(SECTEURS, key=lambda s: -km[s])
     print()
     print("   CE QU'IL EN DIT (16/09/2026) contre CE QUE LA MESURE DIT")
-    print('     ses mots : « peu au nord-ouest, un peu plus au nord-est, surtout sud et ouest »')
+    print("     ses mots : « peu au nord-ouest, un peu plus au nord-est, surtout sud et ouest »")
     print("     classement mesuré, du plus roulé au moins roulé :")
-    print(
-        "       "
-        + "  >  ".join(f"{s} {100 * km[s] / somme:.0f} %" for s in classement)
-    )
+    print("       " + "  >  ".join(f"{s} {100 * km[s] / somme:.0f} %" for s in classement))
     for secteur, mot in CE_QU_IL_EN_DIT.items():
         rang = classement.index(secteur) + 1
-        print(
-            f"       « {mot} » au {secteur:<2s} → rang {rang}/8, {100 * km[secteur] / somme:4.1f} % des km"
-        )
+        print(f"       « {mot} » au {secteur:<2s} → rang {rang}/8, {100 * km[secteur] / somme:4.1f} % des km")
     print(
         "     → deux de ses quatre repères tiennent : le nord-ouest est bien son secteur\n"
         "       le plus rare, et le sud est bien dans ses premiers. Deux ne tiennent pas :\n"
@@ -871,9 +860,7 @@ def _imprimer_resserrement(base: Base, permutations: int, graine: int) -> None:
     residus = _residus_sur_log_distance(donnees)
     rho_res = spearman([d[0] for d in donnees], residus)
     alea = random.Random(graine + 1)
-    nul = [
-        spearman([d[0] for d in donnees], alea.sample(residus, len(residus))) for _ in range(permutations)
-    ]
+    nul = [spearman([d[0] for d in donnees], alea.sample(residus, len(residus))) for _ in range(permutations)]
     print(
         f"     diversité corrigée de la longueur (résidu d'une régression sur log km) :\n"
         f"       Spearman = {rho_res:+.3f} ; {rapport_permutation(rho_res, nul)}"
@@ -1029,8 +1016,7 @@ def imprimer_effort(base: Base, masse_kg: float) -> None:
             f"[p10 {centile(pentes, 0.10):+.1f} ; p90 {centile(pentes, 0.90):+.1f}]"
         )
         print(
-            f"     contrefactuel « vitesse constante » à {vitesse:.1f} m/s : "
-            f"{contrefactuel:+.1f} W par point"
+            f"     contrefactuel « vitesse constante » à {vitesse:.1f} m/s : {contrefactuel:+.1f} W par point"
         )
         print(
             f"     → il parcourt {100 * statistics.median(pentes) / contrefactuel:.0f} % du chemin "
@@ -1110,8 +1096,7 @@ def imprimer_rythme(base: Base) -> None:
     matin = sum(v for h, v in heures.items() if h < 12)
     print(
         f"   heure de départ : {matin} le matin, {len(sorties) - matin} l'après-midi ; "
-        f"heures les plus fréquentes : "
-        + ", ".join(f"{h}h ({n})" for h, n in heures.most_common(3))
+        f"heures les plus fréquentes : " + ", ".join(f"{h}h ({n})" for h, n in heures.most_common(3))
     )
     mois = collections.Counter(s.jour.month for s in sorties)
     print("   par mois (janv.→déc.) : " + " ".join(f"{mois[m]:2d}" for m in range(1, 13)))
@@ -1219,9 +1204,7 @@ def executer(arguments: argparse.Namespace) -> int:
         print("Sorties non exploitées : " + ", ".join(f"{n} {motif}" for motif, n in compte.most_common()))
 
     imprimer_repetition(base, arguments.permutations, arguments.rotations, arguments.graine)
-    imprimer_directions(
-        base, sorties, arguments.rayons_testes, arguments.permutations, arguments.graine
-    )
+    imprimer_directions(base, sorties, arguments.rayons_testes, arguments.permutations, arguments.graine)
     imprimer_forme(base)
     imprimer_effort(base, masse)
     imprimer_rythme(base)

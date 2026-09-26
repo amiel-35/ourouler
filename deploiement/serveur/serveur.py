@@ -48,9 +48,7 @@ class GestionnaireAuthentifie(http.server.SimpleHTTPRequestHandler):
 
     def _authentifie(self) -> bool:
         recu = self.headers.get("Authorization", "")
-        return hmac.compare_digest(
-            recu.encode(), _en_tete_attendu(UTILISATEUR, MOT_DE_PASSE)
-        )
+        return hmac.compare_digest(recu.encode(), _en_tete_attendu(UTILISATEUR, MOT_DE_PASSE))
 
     def _refuser(self) -> None:
         corps = b"401 Unauthorized\n"

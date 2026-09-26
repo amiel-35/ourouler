@@ -33,9 +33,7 @@ DEGRE_M = math.radians(1.0) * 6_371_000.0
 PAS_M = 50.0
 
 
-def ligne_droite(
-    longueur_m: float, altitudes=None, pas_m: float = PAS_M
-) -> list[PointTrace]:
+def ligne_droite(longueur_m: float, altitudes=None, pas_m: float = PAS_M) -> list[PointTrace]:
     """Une ligne droite plein est depuis (0, 0), un point tous les `pas_m`.
 
     `altitudes` est une fonction distance → altitude ; sans elle, l'altitude
@@ -62,17 +60,13 @@ def anneau(rayon_deg: float = 0.01, nombre: int = 120) -> list[PointTrace]:
     bruts = []
     for i in range(nombre):
         angle = 2 * math.pi * i / nombre
-        bruts.append(
-            (LAT_FICTIVE + rayon_deg * math.cos(angle), LON_FICTIVE + rayon_deg * math.sin(angle))
-        )
+        bruts.append((LAT_FICTIVE + rayon_deg * math.cos(angle), LON_FICTIVE + rayon_deg * math.sin(angle)))
     bruts.append(bruts[0])
     points, cumul = [], 0.0
     for i, (lat, lon) in enumerate(bruts):
         if i:
             precedent = points[-1]
-            cumul += math.hypot(
-                (lat - precedent.lat) * DEGRE_M, (lon - precedent.lon) * DEGRE_M
-            )
+            cumul += math.hypot((lat - precedent.lat) * DEGRE_M, (lon - precedent.lon) * DEGRE_M)
         points.append(PointTrace(lat=lat, lon=lon, alt_m=100.0, dist_m=cumul))
     return points
 
@@ -484,9 +478,7 @@ def test_le_script_echoue_quand_les_deux_modes_divergent(capsys):
 
 def _bilan_qui_echoue(validation):
     """Un bilan de blocs courts dont la note vaut 80 % du hasard : verdict NON."""
-    bloc = validation.Bloc(
-        libelle="bloc 1", debut_m=0.0, longueur_m=1500.0, duree_s=300.0, puissance_w=210.0
-    )
+    bloc = validation.Bloc(libelle="bloc 1", debut_m=0.0, longueur_m=1500.0, duree_s=300.0, puissance_w=210.0)
     comparaison = validation.Comparaison(
         sortie="sortie fabriquée",
         bloc=bloc,
@@ -647,10 +639,7 @@ def test_sans_segments_les_routes_sont_dites_inconnues():
 
 
 def test_sans_altitude_le_motif_le_dit():
-    points = [
-        PointTrace(lat=p.lat, lon=p.lon, alt_m=None, dist_m=p.dist_m)
-        for p in ligne_droite(2000.0)
-    ]
+    points = [PointTrace(lat=p.lat, lon=p.lon, alt_m=None, dist_m=p.dist_m) for p in ligne_droite(2000.0)]
     note = evaluer_couloir(trace_de(points, un_segment(points, highway="tertiary")), 0.0, 1000.0)
     assert note.pente_moyenne == pytest.approx(0.0)
     assert "altitude inconnue" in note.motifs
@@ -682,9 +671,7 @@ def test_trace_de_deux_points_ne_leve_pas():
 
 
 def test_trace_vide_rend_une_note_sans_lever():
-    trace = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
-    )
+    trace = Trace(nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None)
     note = evaluer_couloir(trace, 0.0, 1000.0)
     assert note.note == pytest.approx(PENALITE_BLOC_TRONQUE)
     assert note.motifs == ["aucun tracé sous le bloc"]
@@ -735,9 +722,7 @@ def test_route_au_dela_sur_boucle_fermee():
 
 
 def test_route_au_dela_sur_trace_sans_longueur():
-    trace = Trace(
-        nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None
-    )
+    trace = Trace(nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None, temps_moteur_s=None)
     assert route_au_dela(trace, 0.0, 300.0) is False
 
 

@@ -282,15 +282,12 @@ def _calibrer_cda_seul(
     exactement aux moindres carrés, `CdA = a·r / a·a`.
     """
     if not math.isfinite(crr) or not CRR_MIN <= crr <= CRR_MAX:
-        raise ErreurUtilisateur(
-            f"calibration : Crr fixé {crr!r} hors de [{CRR_MIN}, {CRR_MAX}]"
-        )
+        raise ErreurUtilisateur(f"calibration : Crr fixé {crr!r} hors de [{CRR_MIN}, {CRR_MAX}]")
     reste = y - c - b * crr
     denominateur = float(a @ a)
     if denominateur <= 0:
         raise ErreurUtilisateur(
-            "calibration : les échantillons ne portent aucune traînée aérodynamique, "
-            "le CdA ne se mesure pas"
+            "calibration : les échantillons ne portent aucune traînée aérodynamique, le CdA ne se mesure pas"
         )
     libre = float(a @ reste) / denominateur
     cda = min(max(libre, CDA_MIN), CDA_MAX)
@@ -382,17 +379,13 @@ def _borner(
         candidates.append((valeur, _arete(matrice, reste, fixe=0, valeur=valeur)))
     for valeur in (CRR_MIN, CRR_MAX):
         candidates.append((_arete(matrice, reste, fixe=1, valeur=valeur), valeur))
-    candidates += [
-        (x, z) for x in (CDA_MIN, CDA_MAX) for z in (CRR_MIN, CRR_MAX)
-    ]
+    candidates += [(x, z) for x in (CDA_MIN, CDA_MAX) for z in (CRR_MIN, CRR_MAX)]
     valides = [
         (x, z)
         for x, z in candidates
         if CDA_MIN - 1e-12 <= x <= CDA_MAX + 1e-12 and CRR_MIN - 1e-12 <= z <= CRR_MAX + 1e-12
     ]
-    meilleure = min(
-        valides, key=lambda xz: float(np.sum((matrice @ np.array(xz) - reste) ** 2))
-    )
+    meilleure = min(valides, key=lambda xz: float(np.sum((matrice @ np.array(xz) - reste) ** 2)))
     cda, crr = meilleure
     bornes = []
     if math.isclose(cda, CDA_MIN) or math.isclose(cda, CDA_MAX):
@@ -415,9 +408,7 @@ def _arete(matrice: np.ndarray, reste: np.ndarray, *, fixe: int, valeur: float) 
     return min(max(x, mini), maxi)
 
 
-def _incertitudes(
-    matrice: np.ndarray, residus: np.ndarray, n: int
-) -> tuple[float | None, float | None]:
+def _incertitudes(matrice: np.ndarray, residus: np.ndarray, n: int) -> tuple[float | None, float | None]:
     """Écarts-types des deux paramètres, `σ²·(AᵀA)⁻¹`. `None` si la matrice est singulière."""
     if n <= 2:
         return (None, None)
@@ -475,9 +466,7 @@ def chercher_cda_sur_sorties(
         raise ErreurUtilisateur("calibration : aucune sortie pour chercher le CdA")
 
     def cout(cda: float) -> float:
-        mae = erreur_temps(
-            sorties, Parametres(masse_totale_kg=masse_totale_kg, cda_m2=cda, crr=crr, rho=rho)
-        )
+        mae = erreur_temps(sorties, Parametres(masse_totale_kg=masse_totale_kg, cda_m2=cda, crr=crr, rho=rho))
         return math.inf if mae is None else mae
 
     or_ = (math.sqrt(5.0) - 1.0) / 2.0
@@ -668,9 +657,7 @@ def mesurer_porte_a_porte(
         ecoule = float(s.activite.duree_s or 0.0)
         if simulation.temps_s <= 0 or ecoule <= 0:
             continue
-        _, part = detecter_groupe(
-            s.activite, p, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
-        )
+        _, part = detecter_groupe(s.activite, p, s.vent, ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
         mesure.sorties.append(
             RatioSortie(
                 jour=s.jour.isoformat() if s.jour else "",
@@ -694,9 +681,7 @@ def masse_totale(masse_cycliste_kg: float, velo: Velo) -> float:
     montée et rien sur le plat. La masse du cycliste est reçue : c'est
     `services.calibrer.masse_totale_kg` qui la lit dans le profil.
     """
-    return masse_cycliste_kg + (
-        velo.masse_kg if velo.masse_kg is not None else MASSE_VELO_DEFAUT_KG
-    )
+    return masse_cycliste_kg + (velo.masse_kg if velo.masse_kg is not None else MASSE_VELO_DEFAUT_KG)
 
 
 def motif_multisport(activite: Activite | None) -> str | None:
@@ -895,11 +880,7 @@ def calibrer_en_deux_passes(
             gardees.append(rang)
 
     restants = [e for rang in gardees for e in par_sortie[rang]]
-    passe2 = (
-        calibrer(restants, masse_totale_kg=masse_totale_kg, crr_fixe=crr_fixe)
-        if gardees
-        else passe1
-    )
+    passe2 = calibrer(restants, masse_totale_kg=masse_totale_kg, crr_fixe=crr_fixe) if gardees else passe1
     n_solo = 0
     repli_solo = ""
     if crr_fixe is not None:

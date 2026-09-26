@@ -81,9 +81,7 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         # est le dernier jour couvert, jamais pourquoi celui-ci ne l'est pas —
         # Open-Meteo rend le même bloc vide dans les deux cas, et le cœur ne
         # tranche pas (on n'affirme rien sans mesure).
-        "meteo_absente": (
-            None if contexte.meteo_absente is None else contexte.meteo_absente.json()
-        ),
+        "meteo_absente": (None if contexte.meteo_absente is None else contexte.meteo_absente.json()),
         "seuil_bloc_bien_place": NOTE_BLOC_BIEN_PLACE,
         # Écart relatif de note en dessous duquel la pluie départage plutôt que
         # le vent (préférence du cycliste, `config.seance.tolerance_egalite`) :
@@ -129,9 +127,7 @@ def rendre_json(propositions: list[Proposition], contexte: _Contexte) -> dict:
         # se détache, on le dit au lieu de fabriquer une différence. Les deux
         # peuvent être remplies en même temps — deux boucles qui vont ailleurs
         # et qui se valent.
-        "motif_equivalence": (
-            contexte.selection.motif_equivalence if contexte.selection else None
-        ),
+        "motif_equivalence": (contexte.selection.motif_equivalence if contexte.selection else None),
         # Ce que le contraste a décidé de **chaque** candidate, et par quelle
         # paire. Sans lui, le produit montrerait ce qu'il retient, jamais ce
         # qu'il jette ni pourquoi — et c'est au contraste que la plupart des
@@ -161,9 +157,7 @@ def _arbitrage_json(contexte: _Contexte) -> dict | None:
             {
                 "numero": v.numero,
                 "sort": v.sort,
-                "recouvrement_max": (
-                    None if v.recouvrement_max is None else round(v.recouvrement_max, 4)
-                ),
+                "recouvrement_max": (None if v.recouvrement_max is None else round(v.recouvrement_max, 4)),
                 "contre_numero": v.contre_numero,
                 "motif": v.motif,
             }
@@ -216,9 +210,7 @@ def _propositions_json(contexte: _Contexte) -> list[dict]:
                 # pas « vent:travers » — l'orientation est déjà sous
                 # `orientation_vent`.
                 "axe_distinctif": (
-                    contraste.axe_de_base(retenue.axe_distinctif)
-                    if retenue.axe_distinctif
-                    else None
+                    contraste.axe_de_base(retenue.axe_distinctif) if retenue.axe_distinctif else None
                 ),
                 "duree_s": round(profil.duree_s),
                 # Signé : positif = on rentre plus tard (normal), négatif = la
@@ -233,9 +225,7 @@ def _propositions_json(contexte: _Contexte) -> list[dict]:
                 # pas qu'il n'y a pas de feu (on n'affirme rien sans mesure),
                 # et l'ignorance n'est jamais un malus.
                 "densite_marqueurs_km": (
-                    None
-                    if profil.densite_marqueurs_km is None
-                    else round(profil.densite_marqueurs_km, 3)
+                    None if profil.densite_marqueurs_km is None else round(profil.densite_marqueurs_km, 3)
                 ),
                 # **Les entiers, et pas seulement la densité.** `contraste.Profil`
                 # les porte — « affiché tel quel : 28 feux, 20 stops ». Avec la
@@ -246,9 +236,7 @@ def _propositions_json(contexte: _Contexte) -> list[dict]:
                 # de 100 km. Les rendre supprime la seule arithmétique du front.
                 "feux": profil.feux,
                 "stops": profil.stops,
-                "part_trafic": (
-                    None if profil.part_trafic is None else round(profil.part_trafic, 4)
-                ),
+                "part_trafic": (None if profil.part_trafic is None else round(profil.part_trafic, 4)),
                 "orientation_vent": profil.orientation,
                 "note_terrain": round(profil.note_terrain, 4),
                 "recouvrement_max_avec": {
@@ -279,9 +267,7 @@ def _question_vent_json(contexte: _Contexte) -> dict | None:
         # à un seul azimut exploré.
         "azimuts_recherche_deg": list(question.azimuts_pour(contexte.demande.vent)),
         "choix": list(orientation.CHOIX),
-        "azimuts_par_choix": {
-            choix: list(question.azimuts_pour(choix)) for choix in orientation.CHOIX
-        },
+        "azimuts_par_choix": {choix: list(question.azimuts_pour(choix)) for choix in orientation.CHOIX},
     }
 
 
@@ -374,9 +360,7 @@ def _candidate_json(proposition: Proposition, compteur_info: dict | None = None)
             # du `denivele_m` de la boucle annoncé par le moteur : deux méthodes
             # qui divergent, et un désaccord se montre, il ne se moyenne pas.
             "denivele_parcours_m": (
-                None
-                if proposition.denivele_parcours_m is None
-                else round(proposition.denivele_parcours_m, 1)
+                None if proposition.denivele_parcours_m is None else round(proposition.denivele_parcours_m, 1)
             ),
             "blocs_bien_places": proposition.blocs_bien_places,
             "demi_tours": proposition.demi_tours,

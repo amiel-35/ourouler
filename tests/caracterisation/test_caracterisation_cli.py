@@ -93,9 +93,7 @@ class Scene:
             "stdout": stdout,
             "stderr": erreur,
             "fichiers_ecrits": {
-                nom: empreinte
-                for nom, empreinte in self._fichiers().items()
-                if avant.get(nom) != empreinte
+                nom: empreinte for nom, empreinte in self._fichiers().items() if avant.get(nom) != empreinte
             },
             "reseau": sorted(self.rejeu.journal),
         }
@@ -341,9 +339,7 @@ IMPORTS_AUTORISES = frozenset(
 
 #: Les modules de test qu'il peut importer : les siens (`outils_caracterisation`,
 #: `donnees_synthetiques`) et le client ASGI (`outils_api`) — jamais un `test_*`.
-MODULES_DE_TEST_AUTORISES = frozenset(
-    {"outils_caracterisation", "donnees_synthetiques", "outils_api"}
-)
+MODULES_DE_TEST_AUTORISES = frozenset({"outils_caracterisation", "donnees_synthetiques", "outils_api"})
 
 
 def test_le_filet_ne_depend_que_de_surfaces_stables():

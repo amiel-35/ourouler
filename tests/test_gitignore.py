@@ -101,9 +101,7 @@ def noms_a_reintegrer(noms: list[str]) -> set[str]:
 
 
 def _git(*arguments: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(RACINE), *arguments], capture_output=True, text=True, check=False
-    )
+    return subprocess.run(["git", "-C", str(RACINE), *arguments], capture_output=True, text=True, check=False)
 
 
 @pytest.fixture(scope="module")
@@ -139,9 +137,7 @@ def test_la_sonde_mesure_bien_quelque_chose(ignorecase: bool, git_disponible: No
     assert est_ignore(".venv/lib/python3.12/site-packages/x.py", ignorecase=ignorecase), (
         "`.venv/` doit être ignoré"
     )
-    assert not est_ignore("pyproject.toml", ignorecase=ignorecase), (
-        "`pyproject.toml` ne doit pas être ignoré"
-    )
+    assert not est_ignore("pyproject.toml", ignorecase=ignorecase), "`pyproject.toml` ne doit pas être ignoré"
 
 
 def test_la_sonde_distingue_les_deux_casses(git_disponible: None):
@@ -238,9 +234,7 @@ DEPOTS_INTERDITS = (
 
 @pytest.mark.parametrize("ignorecase", CASSES, ids=lambda v: f"ignorecase={v}")
 @pytest.mark.parametrize("chemin", DEPOTS_INTERDITS, ids=lambda c: c)
-def test_un_vrai_fichier_d_activite_reste_ignore(
-    chemin: str, ignorecase: bool, git_disponible: None
-):
+def test_un_vrai_fichier_d_activite_reste_ignore(chemin: str, ignorecase: bool, git_disponible: None):
     """Le cas que `!tests/fixtures/**` laissait passer, posé à git tel quel.
 
     Sous les deux casses : `*.gpx` seul laissait passer `….GPX` sous Linux.

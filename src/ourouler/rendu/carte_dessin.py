@@ -28,9 +28,7 @@ LEAFLET_JS = f"https://cdnjs.cloudflare.com/ajax/libs/leaflet/{LEAFLET_VERSION}/
 #: L'ODbL demande une attribution qui **pointe** vers la page de licence, pas
 #: seulement le nom du projet : c'est un lien, et Leaflet le rend tel quel.
 TUILES_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-TUILES_ATTRIBUTION = (
-    '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-)
+TUILES_ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
 #: Couleurs des blocs, dans l'ordre. Vives et distinctes les unes des autres,
 #: y compris pour un œil qui confond le rouge et le vert : la teinte n'est pas
@@ -89,9 +87,7 @@ class _Portion:
 # --- ce qu'on dessine ---------------------------------------------------------
 
 
-def _blocs(
-    trace: Trace, seance: Seance, placement: Placement, cumuls: Sequence[float]
-) -> list[dict]:
+def _blocs(trace: Trace, seance: Seance, placement: Placement, cumuls: Sequence[float]) -> list[dict]:
     """Un dictionnaire par bloc : géométrie, couleur, étiquette, infobulle.
 
     `placement.blocs()`, pas `placement.emplacements` : ce dernier porte aussi
@@ -367,9 +363,7 @@ def _points_svg(echantillons: Sequence[tuple[float, float]], x, y) -> str:
     return " ".join(f"{x(d):.1f},{y(a):.1f}" for d, a in echantillons)
 
 
-def _sous_echantillonner(
-    valeurs: Sequence[tuple[float, float]], maximum: int
-) -> list[tuple[float, float]]:
+def _sous_echantillonner(valeurs: Sequence[tuple[float, float]], maximum: int) -> list[tuple[float, float]]:
     """Au plus `maximum` points, régulièrement espacés, extrémités conservées."""
     if len(valeurs) <= maximum:
         return list(valeurs)
@@ -444,5 +438,3 @@ def _section_vent() -> str:
 <p class="note">La flèche pointe d'où vient le vent, comme une girouette. Chiffres à côté :
 vitesse moyenne puis rafale, en km/h. Rien en dessous de {SEUIL_AFFICHAGE_VENT_KMH:.0f} km/h
 (en deçà, on ne sent quasiment plus l'air).</p>"""
-
-

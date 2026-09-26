@@ -44,6 +44,7 @@ Les trois commandes doivent passer, sans exception :
 
 ```sh
 uv run ruff check .
+uv run ruff format --check .   # ou `ruff format .` pour corriger
 uv run pytest -q                 # la suite complète, pas un sous-ensemble
 cd front && npm run verifier     # tsc --noEmit puis vitest run
 ```
@@ -53,7 +54,7 @@ chaque poussée sur `main` et `prod`. Elle comporte quatre jobs :
 
 1. **secrets** — `gitleaks` parcourt tout l'historique du dépôt ; les faux
    positifs connus sont écartés par `.gitleaksignore`.
-2. **python** — Linux, Python 3.12, fuseau UTC : `ruff check`, puis toute
+2. **python** — Linux, Python 3.12, fuseau UTC : `ruff check` et `ruff format --check`, puis toute
    la suite `pytest` avec l'image Postgres ; elle échoue sur tout test sauté
    dont le motif n'est pas dans `tests/sauts_autorises.py`, un test Postgres
    sauté compris. `CI=1 uv run pytest -q` rejoue cette garde chez vous.
@@ -114,8 +115,10 @@ ruff est listé dans `[tool.ruff.lint.per-file-ignores]`, chaque exception
 précédée d'un commentaire « datée » (avec une échéance) ou « permanente »
 (avec sa raison) ; `tests/test_regles_ruff.py` échoue quand une exception ne
 sert plus ou a passé son échéance. Un nouveau code respecte les seuils
-d'emblée, et une exception n'est pas un précédent. ruff sert de linter, pas
-de formateur : `ruff format` n'est pas appliqué au dépôt.
+d'emblée, et une exception n'est pas un précédent. Le code est formaté par
+`ruff format` (le journal, `docs/journal/`, en est exclu) ; le commit qui l'a
+appliqué d'un coup est listé dans `.git-blame-ignore-revs`, à passer à
+`git blame --ignore-revs-file` (GitHub le lit tout seul).
 
 ## Fichiers de référence
 

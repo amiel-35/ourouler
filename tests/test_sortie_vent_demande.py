@@ -89,9 +89,7 @@ def test_au_dela_de_trois_jours_la_question_ne_se_pose_pas():
 
 def test_trois_jours_est_inclus():
     """88 % de directions dans le bon secteur, c'est encore utile."""
-    question, _ = demander(
-        date(2026, 9, 16 + HORIZON_ORIENTATION_J), vent_kmh=30.0, depuis_deg=270.0
-    )
+    question, _ = demander(date(2026, 9, 16 + HORIZON_ORIENTATION_J), vent_kmh=30.0, depuis_deg=270.0)
     assert question.posee is True
 
 
@@ -236,9 +234,7 @@ def test_le_travers_ouvre_deux_azimuts_opposes(depuis_deg):
     assert ecart == pytest.approx(180.0), f"{azimuts} ne sont pas opposés"
 
 
-@pytest.mark.parametrize(
-    "reponse", [ORIENTATION_RETOUR_DOS, ORIENTATION_DEPART_DOS]
-)
+@pytest.mark.parametrize("reponse", [ORIENTATION_RETOUR_DOS, ORIENTATION_DEPART_DOS])
 def test_dos_au_depart_et_dos_au_retour_n_en_fixent_qu_un(reponse):
     """Une seule direction remplit la condition : on n'en invente pas une seconde."""
     question, _ = demander(AUJOURDHUI, vent_kmh=25.0, depuis_deg=270.0)

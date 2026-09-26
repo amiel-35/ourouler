@@ -86,9 +86,7 @@ class Panne(Modele):
         json_schema_extra={"enum": sorted(CODES_PANNE)},
     )
     message: str = Field(description="la phrase française que l'écran affiche telle quelle")
-    service: str | None = Field(
-        default=None, description="le service externe fautif, quand il y en a un"
-    )
+    service: str | None = Field(default=None, description="le service externe fautif, quand il y en a un")
     details: dict = Field(
         default_factory=dict, description="ce que l'écran peut exploiter en plus du message"
     )
@@ -232,9 +230,7 @@ class DemandeVitesseCompteur(Modele):
     # désignerait un propriétaire — un faux positif ici, mais le contourner
     # par le nom est plus simple et plus sûr que de creuser une exception
     # dans une liste que la doctrine veut la plus courte possible.
-    vitesse_kmh: float = Field(
-        gt=0, le=100, description="moyenne lue au compteur sur une sortie solo"
-    )
+    vitesse_kmh: float = Field(gt=0, le=100, description="moyenne lue au compteur sur une sortie solo")
     denivele_m_par_km: float = Field(
         ge=0,
         le=100,

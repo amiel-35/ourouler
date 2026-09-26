@@ -46,9 +46,7 @@ class Routeur(Protocol):
         """
         ...
 
-    def itineraire(
-        self, points: Sequence[tuple[float, float]], *, profil: str | None = None
-    ) -> Trace:
+    def itineraire(self, points: Sequence[tuple[float, float]], *, profil: str | None = None) -> Trace:
         """Un itinéraire A→B passant par `points`, au moins deux."""
         ...
 

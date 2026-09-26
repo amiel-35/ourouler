@@ -151,9 +151,7 @@ def _echantillons_coherents(module, modele, p, *, n_max: int = 60):
             for vent in (-3.0, 0.0, 4.0):
                 puissance = modele.puissance_requise(v, pente, vent, p)
                 echantillons.append(
-                    _echantillon(
-                        module, v_ms=v, puissance_w=puissance, pente=pente, vent_face_ms=vent
-                    )
+                    _echantillon(module, v_ms=v, puissance_w=puissance, pente=pente, vent_face_ms=vent)
                 )
     return echantillons[:n_max]
 
@@ -370,9 +368,7 @@ def test_echantillonner_ecarte_les_pentes_hors_bornes():
         module.echantillonner(activite, _vent_constant(archive)), "echantillonner(14 %)"
     )
     retenus = [e for e in echantillons if e.retenu]
-    assert not retenus, (
-        f"{len(retenus)} échantillon(s) retenus sur une sortie à 14 % de pente constante"
-    )
+    assert not retenus, f"{len(retenus)} échantillon(s) retenus sur une sortie à 14 % de pente constante"
 
 
 def test_echantillonner_sur_une_sortie_sans_puissance():
@@ -533,9 +529,7 @@ def test_valider_sans_aucune_sortie_de_test():
     module = module_calibration
     modele = module_modele
     p = fabriques_physique.parametres(modele)
-    resultat, _ = robuste(
-        lambda: module.valider([], p), quoi="valider([])", erreurs_acceptees=ERREURS
-    )
+    resultat, _ = robuste(lambda: module.valider([], p), quoi="valider([])", erreurs_acceptees=ERREURS)
     if resultat is not None:
         _verifier_validation(resultat, "valider([])")
 
@@ -776,9 +770,7 @@ def test_une_valeur_de_calibration_hors_bornes_nomme_le_champ(champ, valeur):
 
     with pytest.raises(ErreurConfig) as capture:
         _charger(json.dumps({"calibration": {champ: valeur}}))
-    assert champ in str(capture.value), (
-        f"le message ne nomme pas le champ fautif : « {capture.value} »"
-    )
+    assert champ in str(capture.value), f"le message ne nomme pas le champ fautif : « {capture.value} »"
 
 
 def test_mots_groupe_donne_comme_une_chaine():

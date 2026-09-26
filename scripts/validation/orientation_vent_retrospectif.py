@@ -537,8 +537,10 @@ def imprimer_travers(mesures: list[SortieMesuree]) -> None:
         f"  sorties majoritairement en travers (secteur ±45° de vent_relatif, "
         f">50 % de la distance) : {n_travers} sur {n} ({100.0 * n_travers / n:.1f} %)."
     )
-    print(f"  sous ce secteur, un cap tiré au hasard tombe en travers une fois sur deux : "
-          f"p-valeur contre 50 % = {p:.4f}")
+    print(
+        f"  sous ce secteur, un cap tiré au hasard tombe en travers une fois sur deux : "
+        f"p-valeur contre 50 % = {p:.4f}"
+    )
     print(
         f"  part de travers par sortie : médiane {statistics.median(parts):.1f} %, "
         f"p25 {_centile(parts, 25):.1f} %, p75 {_centile(parts, 75):.1f} %."
@@ -585,8 +587,10 @@ def imprimer_confond(mesures: list[SortieMesuree]) -> None:
         f"\n  secteur « habituel » (sud-est → nord-ouest par l'ouest, {135:.0f}°-{315:.0f}°) : "
         f"{len(habituelles)} sorties."
     )
-    print(f"  secteur « inhabituel » (nord ou est, {315:.0f}°-{135:.0f}° en passant par 0°) : "
-          f"{len(inhabituelles)} sorties.")
+    print(
+        f"  secteur « inhabituel » (nord ou est, {315:.0f}°-{135:.0f}° en passant par 0°) : "
+        f"{len(inhabituelles)} sorties."
+    )
 
     for nom, sous_ensemble in (("habituel", habituelles), ("inhabituel (nord/est)", inhabituelles)):
         print(f"\n  --- vent {nom} ---")
@@ -699,8 +703,10 @@ def executer(arguments: argparse.Namespace) -> int:
     imprimer_manques(manques)
 
     print()
-    print(f"  archives météo : {client_archive.appels} appel(s), "
-          f"{client_archive.lectures_cache} lecture(s) de cache.")
+    print(
+        f"  archives météo : {client_archive.appels} appel(s), "
+        f"{client_archive.lectures_cache} lecture(s) de cache."
+    )
     print()
     print(
         "Cette mesure ne rend pas de verdict pass/fail : c'est une mesure, pas une "

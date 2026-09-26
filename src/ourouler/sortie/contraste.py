@@ -361,9 +361,7 @@ class Profil:
         }.get(axe)
 
 
-def profil(
-    proposition, meteo: MeteoTrace | None = None, *, duree_seance_s: float | None = None
-) -> Profil:
+def profil(proposition, meteo: MeteoTrace | None = None, *, duree_seance_s: float | None = None) -> Profil:
     """Le profil d'une `sortie.commande.Proposition`.
 
     `meteo` est celle de la proposition ; elle n'est prise en argument à part
@@ -400,8 +398,7 @@ def profil(
 def _seance_amputee(placement) -> bool:
     """Le placement a-t-il dit que la séance n'est pas roulée en entier ?"""
     return any(
-        MOTIF_SEANCE_AMPUTEE in avertissement
-        for avertissement in getattr(placement, "avertissements", ())
+        MOTIF_SEANCE_AMPUTEE in avertissement for avertissement in getattr(placement, "avertissements", ())
     )
 
 
@@ -721,9 +718,7 @@ def _verdicts(
     return verdicts
 
 
-def _motif_verdict(
-    sort: str, pire: float | None, contre: int | None, seuil: float, combien: int
-) -> str:
+def _motif_verdict(sort: str, pire: float | None, contre: int | None, seuil: float, combien: int) -> str:
     """La phrase d'un verdict — un pourcentage et un numéro, jamais de la prose.
 
     « 55 % des mêmes routes que la n° 1 » : c'est le critère qui a vraiment
@@ -772,9 +767,7 @@ def _essais(
             valides += 1
         elif au_dessus == 1:
             par_une_paire += 1
-    return Essais(
-        taille=combien, essayes=essayes, valides=valides, refuses_par_une_paire=par_une_paire
-    )
+    return Essais(taille=combien, essayes=essayes, valides=valides, refuses_par_une_paire=par_une_paire)
 
 
 def _phrase_arbitrage(essais: Essais | None, seuil: float) -> str | None:
@@ -790,7 +783,9 @@ def _phrase_arbitrage(essais: Essais | None, seuil: float) -> str | None:
     tiennent = (
         "aucun ne tient"
         if essais.valides == 0
-        else f"{essais.valides} tient" if essais.valides == 1 else f"{essais.valides} tiennent"
+        else f"{essais.valides} tient"
+        if essais.valides == 1
+        else f"{essais.valides} tiennent"
     )
     tete = (
         f"{essais.essayes} groupe(s) de {combien} contenant la première du tri ont été "

@@ -69,9 +69,7 @@ def _verifier_antennes(antennes: Any, trace: Trace, quoi: str) -> list[Any]:
         assert isinstance(a.longueur_m, (int, float)) and not isinstance(a.longueur_m, bool), (
             f"{quoi}[{i}].longueur_m : nombre attendu, reçu {a.longueur_m!r}"
         )
-        assert math.isfinite(a.longueur_m) and a.longueur_m >= 0, (
-            f"{quoi}[{i}].longueur_m = {a.longueur_m}"
-        )
+        assert math.isfinite(a.longueur_m) and a.longueur_m >= 0, f"{quoi}[{i}].longueur_m = {a.longueur_m}"
     rangees = sorted(antennes, key=lambda a: a.debut_idx)
     for precedente, suivante in zip(rangees, rangees[1:], strict=False):
         assert precedente.fin_idx <= suivante.debut_idx, (
@@ -219,8 +217,7 @@ def test_une_antenne_exactement_a_la_fenetre_est_dedans():
         module.detecter(trace, fenetre_m=longueur / 2), trace, "detecter(fenêtre = moitié)"
     )
     assert en_dessous == [], (
-        f"antenne de {longueur:.0f} m rendue avec une fenêtre de {longueur / 2:.0f} m : "
-        f"{en_dessous}"
+        f"antenne de {longueur:.0f} m rendue avec une fenêtre de {longueur / 2:.0f} m : {en_dessous}"
     )
     a_la_borne = _verifier_antennes(
         module.detecter(trace, fenetre_m=longueur), trace, "detecter(fenêtre = longueur)"
@@ -319,9 +316,7 @@ def test_elaguer_retire_l_antenne_et_preserve_la_fermeture():
     _verifier_elaguee(trace, apres, "elaguer(boucle avec antenne)")
     assert apres.bornee(), "la boucle n'est plus fermée après élagage"
     retiree = fabriques_physique.longueur_entre(trace, debut, fin)
-    assert apres.points[-1].dist_m == pytest.approx(
-        trace.points[-1].dist_m - retiree, rel=0.05
-    ), (
+    assert apres.points[-1].dist_m == pytest.approx(trace.points[-1].dist_m - retiree, rel=0.05), (
         f"{trace.points[-1].dist_m - apres.points[-1].dist_m:.0f} m retirés pour une antenne "
         f"de {retiree:.0f} m"
     )
@@ -358,8 +353,7 @@ def test_elaguer_conserve_les_tags_des_troncons_gardes():
     coords = fabriques.cercle(n=24, rayon_m=1500.0)
     coords, debut, fin = fabriques_physique.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
     tags = [
-        {"highway": "track"} if debut <= i < fin else {"highway": "tertiary"}
-        for i in range(len(coords) - 1)
+        {"highway": "track"} if debut <= i < fin else {"highway": "tertiary"} for i in range(len(coords) - 1)
     ]
     trace = fabriques.trace_fictive(coords, tags=tags)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter")
@@ -368,9 +362,7 @@ def test_elaguer_conserve_les_tags_des_troncons_gardes():
     _verifier_elaguee(trace, apres, "elaguer(tags distincts)")
     restants = [s.tags.get("highway") for s in apres.segments]
     assert "tertiary" in restants, f"les tronçons gardés ont perdu leurs tags : {restants}"
-    assert restants.count("track") == 0, (
-        f"les tags de l'antenne survivent à son élagage : {restants}"
-    )
+    assert restants.count("track") == 0, f"les tags de l'antenne survivent à son élagage : {restants}"
 
 
 @pytest.mark.parametrize(

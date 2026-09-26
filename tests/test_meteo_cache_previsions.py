@@ -107,9 +107,7 @@ def test_un_lot_mixte_ne_redemande_que_les_points_manquants():
     cache = ClientOpenMeteoCache(sous_jacent)
 
     cache.previsions([(1.0, 1.0)], modele="m", debut=DEBUT, horizon_h=6)
-    resultat = cache.previsions(
-        [(1.0, 1.0), (2.0, 2.0)], modele="m", debut=DEBUT, horizon_h=6
-    )
+    resultat = cache.previsions([(1.0, 1.0), (2.0, 2.0)], modele="m", debut=DEBUT, horizon_h=6)
 
     assert len(resultat) == 2
     assert cache.appels_reels == 2  # le premier lot, puis le point manquant du second
@@ -123,9 +121,7 @@ def test_points_dans_la_meme_maille_partagent_la_cle():
     cache = ClientOpenMeteoCache(sous_jacent)
 
     cache.previsions([(10.0, 10.0)], modele="m", debut=DEBUT, horizon_h=6)
-    cache.previsions(
-        [(10.0 + PRECISION_MAILLE_DEG / 4, 10.0)], modele="m", debut=DEBUT, horizon_h=6
-    )
+    cache.previsions([(10.0 + PRECISION_MAILLE_DEG / 4, 10.0)], modele="m", debut=DEBUT, horizon_h=6)
 
     assert cache.appels_reels == 1, "un point à moins d'un quart de maille reste la même clé"
 
@@ -163,9 +159,7 @@ def test_les_minutes_du_debut_ne_changent_pas_la_cle():
     cache = ClientOpenMeteoCache(sous_jacent)
 
     cache.previsions([(1.0, 1.0)], modele="m", debut=DEBUT, horizon_h=6)
-    cache.previsions(
-        [(1.0, 1.0)], modele="m", debut=DEBUT.replace(minute=45), horizon_h=6
-    )
+    cache.previsions([(1.0, 1.0)], modele="m", debut=DEBUT.replace(minute=45), horizon_h=6)
 
     assert cache.appels_reels == 1
 

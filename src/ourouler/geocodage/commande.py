@@ -90,8 +90,7 @@ def rendre_texte(adresse: str, candidats: list[Candidat]) -> str:
         if c.code_postal:
             ou += f" {c.code_postal}"
         lignes.append(
-            f"  {i}. {c.label} — {ou} — {c.latitude:.5f}, {c.longitude:.5f} "
-            f"(score {c.score:.4f}, {c.source})"
+            f"  {i}. {c.label} — {ou} — {c.latitude:.5f}, {c.longitude:.5f} (score {c.score:.4f}, {c.source})"
         )
     trouble = ambiguite(candidats)
     if trouble is not None:

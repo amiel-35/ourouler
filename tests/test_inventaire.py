@@ -200,13 +200,9 @@ def test_2_avant_4_le_capteur_prime_sur_la_periode(config: Config):
 def test_3_avant_4_l_equipement_prime_sur_la_periode(config: Config):
     """Un équipement connu gagne même si la date tombe dans la période d'un autre vélo."""
     dans_la_periode_clm = datetime(2024, 6, 15, 9, 0, tzinfo=UTC)
+    assert rattacher_velo(entree(equipement="velo-test-route", debut=dans_la_periode_clm), config) == "Route"
     assert (
-        rattacher_velo(entree(equipement="velo-test-route", debut=dans_la_periode_clm), config)
-        == "Route"
-    )
-    assert (
-        rattacher_velo(entree(meta={"gear_id": "b-test-route"}, debut=dans_la_periode_clm), config)
-        == "Route"
+        rattacher_velo(entree(meta={"gear_id": "b-test-route"}, debut=dans_la_periode_clm), config) == "Route"
     )
 
 
@@ -447,9 +443,7 @@ def test_l_inventaire_dit_lesquels_il_ecarte(tmp_path: Path, config: Config, mon
     assert rendre_json(inv)["autres_sports_par_libelle"] == {"Run": 10, "Swim": 4, "Triathlon": 2}
 
 
-def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(
-    tmp_path: Path, config: Config, monkeypatch
-):
+def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(tmp_path: Path, config: Config, monkeypatch):
     """Au-delà de quelques libellés, la ligne dit « … » plutôt que de tout dérouler."""
     autres = ["Run", "Swim", "WeightTraining", "Hike", "AlpineSki", "Rowing"]
     entrees = [entree(identifiant=f"{i:064d}", sport=sport) for i, sport in enumerate(autres)]
@@ -462,12 +456,8 @@ def test_la_liste_des_libelles_ecartes_ne_deroule_pas_tout(
     assert len(inv.autres_sports_par_libelle) == len(autres), "le JSON, lui, garde tout"
 
 
-@pytest.mark.parametrize(
-    "sport", ["cycling", "cycling/indoor_cycling", "Biking", None, "", "GravelRide"]
-)
-def test_les_sports_de_fichier_restent_du_velo(
-    tmp_path: Path, config: Config, monkeypatch, sport
-):
+@pytest.mark.parametrize("sport", ["cycling", "cycling/indoor_cycling", "Biking", None, "", "GravelRide"])
+def test_les_sports_de_fichier_restent_du_velo(tmp_path: Path, config: Config, monkeypatch, sport):
     """Un FIT dit « cycling », un TCX « Biking » : un filtre calé sur le seul
     vocabulaire d'Intervals jetterait tout ce qui vient de `--importer`."""
     cache = _cache_bouchonne(tmp_path, [entree(sport=sport)], monkeypatch)

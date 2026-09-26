@@ -479,9 +479,8 @@ def _page_jour(
     n = len(propositions)
     premiere = propositions[0]
     accord = "s" if n != 1 else ""
-    sous_titre = (
-        f"{n} proposition{accord} contrastée{accord}"
-        + (" — cliquez une miniature pour l'afficher sur la carte" if n > 1 else "")
+    sous_titre = f"{n} proposition{accord} contrastée{accord}" + (
+        " — cliquez une miniature pour l'afficher sur la carte" if n > 1 else ""
     )
     items = [_item_selecteur(prop, actif=prop is premiere, seule=n == 1) for prop in propositions]
     panneaux_html = "".join(
@@ -527,8 +526,8 @@ const D = {charge};
 def _item_selecteur(prop: PropositionCarte, *, actif: bool, seule: bool) -> str:
     """La miniature d'une proposition dans le sélecteur de la page du jour."""
     recommandee = ' <span class="badge badge-reco">recommandée</span>' if actif else ""
-    return f"""<div class="carte-item{' actif' if actif else ''}" role="button" tabindex="0"
-     aria-pressed="{'true' if actif else 'false'}" data-prop="{prop.numero}">
+    return f"""<div class="carte-item{" actif" if actif else ""}" role="button" tabindex="0"
+     aria-pressed="{"true" if actif else "false"}" data-prop="{prop.numero}">
 <div class="mini-carte" aria-hidden="true"></div>
 <p class="distinction"><span class="badge">n° {prop.numero}</span>{recommandee}
 {html.escape(prop.distinction or ("la seule candidate" if seule else ""))}</p>

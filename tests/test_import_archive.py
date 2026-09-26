@@ -183,9 +183,7 @@ def test_archive_zip_corrompue_est_ignoree_sans_lever(cache_a: Cache):
     assert "corrompue" in rapport.ignorees[0].motif
 
 
-def test_une_entree_corrompue_dans_une_archive_n_empeche_pas_les_autres(
-    cache_a: Cache, activites: Path
-):
+def test_une_entree_corrompue_dans_une_archive_n_empeche_pas_les_autres(cache_a: Cache, activites: Path):
     archive = _zip(
         {
             "bonne.fit": octets(activites, "boucle.fit"),
@@ -331,9 +329,7 @@ def _flux_deflate_casse(zip_octets: bytes, contenu: bytes) -> bytes:
     return bytes(casse)
 
 
-def test_les_entrees_qui_faisaient_lever_les_decompresseurs_sont_ignorees(
-    cache_a: Cache, activites: Path
-):
+def test_les_entrees_qui_faisaient_lever_les_decompresseurs_sont_ignorees(cache_a: Cache, activites: Path):
     """Relecture du 25/09/2026 : chacun de ces dépôts levait une exception hors de
     la liste attrapée (`zlib.error`, `NotImplementedError`, `LZMAError`…) et la
     route répondait 500. Tous doivent finir dans `ignorees`, avec un motif."""
@@ -381,9 +377,7 @@ def test_des_octets_mutes_au_hasard_ne_font_jamais_lever(cache_a: Cache, activit
         importer(cache_a, [(nom, bytes(mute))])  # ne doit pas lever
 
 
-def test_le_plafond_total_compte_aussi_les_gz_d_une_archive(
-    cache_a: Cache, activites: Path, monkeypatch
-):
+def test_le_plafond_total_compte_aussi_les_gz_d_une_archive(cache_a: Cache, activites: Path, monkeypatch):
     """Le total décompressé porte sur ce qui sort des `.gz` rangés dans l'archive,
     pas seulement sur les entrées du `.zip` : sans quoi vingt mille `.gz` bien
     compressés passaient sous le plafond."""
@@ -422,9 +416,7 @@ def test_le_progres_est_rappele_a_chaque_entree(cache_a: Cache, activites: Path)
         }
     )
     appels: list[tuple[int, int]] = []
-    rapport = importer(
-        cache_a, [("export.zip", archive)], progres=lambda t, n: appels.append((t, n))
-    )
+    rapport = importer(cache_a, [("export.zip", archive)], progres=lambda t, n: appels.append((t, n)))
     assert rapport.importees == 3
     assert appels, "le progrès n'a jamais été rappelé"
     assert appels[-1] == (3, 3)
@@ -439,9 +431,7 @@ def test_le_total_grandit_quand_une_archive_imbriquee_s_ouvre(cache_a: Cache, ac
     interne = _zip({"1.fit": octets(activites, "boucle.fit"), "2.gpx": octets(activites, "boucle.gpx")})
     exterieure = _zip({"UploadedFiles_1.zip": interne, "customer.json": b"{}"})
     appels: list[tuple[int, int]] = []
-    importer(
-        cache_a, [("garmin.zip", exterieure)], progres=lambda t, n: appels.append((t, n))
-    )
+    importer(cache_a, [("garmin.zip", exterieure)], progres=lambda t, n: appels.append((t, n)))
     assert appels[-1][0] == appels[-1][1]  # au bout, tout traité vaut le total
     totaux = [t for _, t in appels]
     assert totaux[-1] > totaux[0]  # le total a grandi en cours de route

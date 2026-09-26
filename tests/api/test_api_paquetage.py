@@ -246,6 +246,7 @@ def test_sans_dossier_front_la_racine_ne_sert_rien():
     assert reponse.status_code == 404
     assert reponse.json()["erreur"]["code"] == "route_inconnue"
 
+
 # --- à qui appartient le TOML du serveur (lot L7.2, corrigé le 19/09/2026) ----
 
 

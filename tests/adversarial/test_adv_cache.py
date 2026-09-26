@@ -24,8 +24,18 @@ from ourouler.activites import cache as module_cache
 from ourouler.noyau.erreurs import ErreurUtilisateur
 
 CHAMPS_ENTREE = {
-    "identifiant", "source", "id_externe", "debut", "duree_s", "distance_m",
-    "puissance_moy_w", "sport", "appareil", "equipement", "chemin", "meta",
+    "identifiant",
+    "source",
+    "id_externe",
+    "debut",
+    "duree_s",
+    "distance_m",
+    "puissance_moy_w",
+    "sport",
+    "appareil",
+    "equipement",
+    "chemin",
+    "meta",
 }
 
 

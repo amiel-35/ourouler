@@ -128,7 +128,6 @@ class Serveur:
         racine = str(self.racine)
         return normaliser(resultat, {racine: "<TMP>", os.path.realpath(racine): "<TMP>"})
 
-
     def _journal_d_un_passage(self) -> list[str]:
         """Le journal réseau d'**un** chemin : en `double`, la moitié répétée.
 
@@ -154,10 +153,7 @@ def _chronos(valeur: Any) -> Any:
         chronos = set(CLES_CHRONOMETREES)
         if valeur.get("source") == "mesure":
             chronos |= CLES_CHRONOMETREES_SI_MESURE
-        return {
-            cle: ("<CHRONO>" if cle in chronos else _chronos(sous))
-            for cle, sous in valeur.items()
-        }
+        return {cle: ("<CHRONO>" if cle in chronos else _chronos(sous)) for cle, sous in valeur.items()}
     if isinstance(valeur, list):
         return [_chronos(sous) for sous in valeur]
     return valeur
@@ -216,9 +212,7 @@ def test_systeme(serveur, regenerer_golden: bool):
 def test_profil(serveur, regenerer_golden: bool):
     obtenu = {
         "profil": serveur().appel("GET", "/api/v1/profil"),
-        "sans_session_401": serveur("heberge", session=SessionHebergee()).appel(
-            "GET", "/api/v1/profil"
-        ),
+        "sans_session_401": serveur("heberge", session=SessionHebergee()).appel("GET", "/api/v1/profil"),
     }
     verifier("profil", obtenu, regenerer_golden)
 
@@ -238,9 +232,7 @@ def test_zones(serveur, regenerer_golden: bool):
 def test_profil_intervals(serveur, regenerer_golden: bool):
     obtenu = {
         "avec_cle": serveur().appel("GET", "/api/v1/profil/intervals"),
-        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel(
-            "GET", "/api/v1/profil/intervals"
-        ),
+        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel("GET", "/api/v1/profil/intervals"),
     }
     verifier("profil_intervals", obtenu, regenerer_golden)
 
@@ -256,12 +248,8 @@ def test_geocodage(serveur, regenerer_golden: bool):
 
 def test_meteo(serveur, regenerer_golden: bool):
     obtenu = {
-        "meteo": serveur().appel(
-            "GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"}
-        ),
-        "horizon_invalide_422": serveur("invalide").appel(
-            "GET", "/api/v1/meteo", params={"horizon": 0}
-        ),
+        "meteo": serveur().appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"}),
+        "horizon_invalide_422": serveur("invalide").appel("GET", "/api/v1/meteo", params={"horizon": 0}),
         "quota_atteint_429": serveur(
             "quota", session=SessionUnCompte(), quotas_meteo=Quotas(plafond=0)
         ).appel("GET", "/api/v1/meteo", params={"heure_depart": f"{JOUR}T09:00"}),
@@ -270,52 +258,40 @@ def test_meteo(serveur, regenerer_golden: bool):
 
 
 def test_vent_depart(serveur, regenerer_golden: bool):
-    obtenu = serveur().appel(
-        "GET", "/api/v1/vent-depart", params={"jour": JOUR, "heure_depart": "09:00"}
-    )
+    obtenu = serveur().appel("GET", "/api/v1/vent-depart", params={"jour": JOUR, "heure_depart": "09:00"})
     verifier("vent_depart", obtenu, regenerer_golden)
 
 
 def test_seances(serveur, regenerer_golden: bool):
     s = serveur()
     obtenu = {
-        "semaine": s.appel(
-            "GET", "/api/v1/seances", params={"depuis": "2026-09-07", "jusqua": "2026-09-13"}
-        ),
+        "semaine": s.appel("GET", "/api/v1/seances", params={"depuis": "2026-09-07", "jusqua": "2026-09-13"}),
         "jour_avec_seance": s.appel("GET", f"/api/v1/seances/{JOUR}"),
         "jour_sans_seance": s.appel("GET", "/api/v1/seances/2026-09-09"),
         "jour_illisible_422": s.appel("GET", "/api/v1/seances/pas-une-date"),
-        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel(
-            "GET", f"/api/v1/seances/{JOUR}"
-        ),
+        "sans_cle_409": serveur("sans_cle", avec_intervals=False).appel("GET", f"/api/v1/seances/{JOUR}"),
     }
     verifier("seances", obtenu, regenerer_golden)
 
 
 def test_sorties(serveur, regenerer_golden: bool):
     s = serveur()
-    sortie = s.appel(
-        "POST", "/api/v1/sorties", json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2}
-    )
+    sortie = s.appel("POST", "/api/v1/sorties", json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2})
     generation = s.client.post(
         "/api/v1/sorties", json={"jour": JOUR, "heure_depart": "09:00", "candidates": 2}
     ).json()
     identifiant = _generation(generation)
     obtenu = {
         "sortie": sortie,
-        "gpx_proposition_1": s.appel(
-            "GET", f"/api/v1/sorties/{identifiant}/propositions/1/gpx"
-        ),
-        "gpx_proposition_inconnue_404": s.appel(
-            "GET", f"/api/v1/sorties/{identifiant}/propositions/99/gpx"
-        ),
+        "gpx_proposition_1": s.appel("GET", f"/api/v1/sorties/{identifiant}/propositions/1/gpx"),
+        "gpx_proposition_inconnue_404": s.appel("GET", f"/api/v1/sorties/{identifiant}/propositions/99/gpx"),
         "demande_invalide_422": s.appel("POST", "/api/v1/sorties", json={"candidates": 0}),
         "sans_session_401": serveur("heberge", session=SessionHebergee()).appel(
             "POST", "/api/v1/sorties", json={"jour": JOUR}
         ),
-        "quota_atteint_429": serveur(
-            "quota", session=SessionUnCompte(), quotas=Quotas(plafond=0)
-        ).appel("POST", "/api/v1/sorties", json={"jour": JOUR}),
+        "quota_atteint_429": serveur("quota", session=SessionUnCompte(), quotas=Quotas(plafond=0)).appel(
+            "POST", "/api/v1/sorties", json={"jour": JOUR}
+        ),
     }
     verifier("sorties", obtenu, regenerer_golden)
 
@@ -465,4 +441,3 @@ def test_avertissement_second_avis_en_panne(serveur, rejeu, regenerer_golden: bo
     avertissements = obtenu["corps"]["avertissements"]
     assert avertissements and all(a.get("code") for a in avertissements), avertissements
     verifier("avertissement", obtenu, regenerer_golden)
-

@@ -181,9 +181,7 @@ class ClientOpenMeteoCache:
                 "entrees": len(self._entrees),
             }
 
-    def _cle(
-        self, point: tuple[float, float], modele: str, debut: datetime, horizon_h: int
-    ) -> tuple:
+    def _cle(self, point: tuple[float, float], modele: str, debut: datetime, horizon_h: int) -> tuple:
         lat, lon = point
         return (
             modele,

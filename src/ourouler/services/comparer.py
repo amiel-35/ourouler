@@ -326,9 +326,7 @@ def series_droites(
     coupée dès que ce cap tourne de plus de `cap_max_deg` d'un tronçon au
     suivant, ou dès qu'un tronçon n'est pas admissible.
     """
-    echantillons = calib.echantillonner(
-        activite, [], ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh
-    )
+    echantillons = calib.echantillonner(activite, [], ftp_w=ftp_w, vitesse_min_kmh=vitesse_min_kmh)
     series: list[Serie] = []
     courante: list = []
     cap_precedent: float | None = None
@@ -499,9 +497,7 @@ def executer(demande: DemandeComparaison, contexte: Contexte) -> ResultatCompara
     par_velo: dict[str, list[Serie]] = {}
     sorties: dict[str, int] = {}
     for velo in velos:
-        par_velo[velo.nom], sorties[velo.nom] = _series_du_velo(
-            cache, profil, velo, demande, zone_w, relire
-        )
+        par_velo[velo.nom], sorties[velo.nom] = _series_du_velo(cache, profil, velo, demande, zone_w, relire)
 
     if not any(par_velo.values()):
         raise ErreurUtilisateur(

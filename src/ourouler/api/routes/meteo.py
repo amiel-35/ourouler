@@ -69,9 +69,7 @@ def geocoder(
         # Zéro candidat **n'est pas une panne** — les services ont répondu —
         # mais l'écran d'échec « adresse introuvable » a besoin d'une phrase,
         # et une liste vide n'en est pas une.
-        phrase = (
-            f"aucune adresse trouvée pour « {adresse} » — préciser la commune ou le code postal"
-        )
+        phrase = f"aucune adresse trouvée pour « {adresse} » — préciser la commune ou le code postal"
         charge["avertissements"] = [
             *charge["avertissements"],
             Avertissement(code=classer_avertissement(phrase), message=phrase).charge(),
@@ -115,9 +113,7 @@ def vent_depart(
             message="vent au départ : latitude et longitude se donnent ensemble",
             statut=400,
         )
-    lieu = (
-        None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
-    )
+    lieu = None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
     resultat = _avec_journal(
         ctx,
         qui,
@@ -170,11 +166,7 @@ def meteo(
             message="météo : latitude et longitude se donnent ensemble",
             statut=400,
         )
-    lieu = (
-        None
-        if latitude is None
-        else Depart(nom=nom, latitude=latitude, longitude=longitude)
-    )
+    lieu = None if latitude is None else Depart(nom=nom, latitude=latitude, longitude=longitude)
     resultat = calculer(
         ctx.chemin_api,
         config,

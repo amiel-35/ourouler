@@ -123,15 +123,11 @@ def _valider_heure(heure: str) -> tuple[int, int]:
     morceaux = heure.split(":")
     if len(morceaux) != 2 or not all(m.isdigit() for m in morceaux):
         raise SystemExit(
-            f"OUROULER_HEURE_GENERATION = {heure!r} : format attendu « HH:MM », "
-            "par exemple 06:00"
+            f"OUROULER_HEURE_GENERATION = {heure!r} : format attendu « HH:MM », par exemple 06:00"
         )
     h, m = int(morceaux[0]), int(morceaux[1])
     if not (0 <= h <= 23 and 0 <= m <= 59):
-        raise SystemExit(
-            f"OUROULER_HEURE_GENERATION = {heure!r} : heure hors des bornes "
-            "(00:00 à 23:59)"
-        )
+        raise SystemExit(f"OUROULER_HEURE_GENERATION = {heure!r} : heure hors des bornes (00:00 à 23:59)")
     return h, m
 
 
@@ -154,8 +150,7 @@ def main() -> None:
         cible = _prochain_declenchement(HEURE_QUOTIDIENNE, datetime.now())
         attente_s = max(0.0, (cible - datetime.now()).total_seconds())
         print(
-            f"prochaine génération : {cible.isoformat(timespec='minutes')} "
-            f"(dans {attente_s / 3600:.1f} h)",
+            f"prochaine génération : {cible.isoformat(timespec='minutes')} (dans {attente_s / 3600:.1f} h)",
             flush=True,
         )
         time.sleep(attente_s)

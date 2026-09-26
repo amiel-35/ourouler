@@ -90,9 +90,7 @@ def _demander_un_parcours(client, **champs):
     """
     schema = schema_openapi(client)
     chemin, methode, operation = route_pour(schema, "sortie", "parcours", "meteo")
-    return appeler_route(
-        client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs
-    )
+    return appeler_route(client, schema, chemin, methode, operation, DEMANDE_PARCOURS_MINIMALE | champs)
 
 
 # Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais

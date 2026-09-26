@@ -138,6 +138,4 @@ def heure_depart(depart: str | None, maintenant: datetime | None = None) -> date
         if t.tzinfo is not None:
             return t
         return t.astimezone() if zone is None else t.replace(tzinfo=zone)
-    raise ErreurUtilisateur(
-        f"--heure-depart {depart!r} : attendu HH:MM ou AAAA-MM-JJTHH:MM (heure locale)"
-    )
+    raise ErreurUtilisateur(f"--heure-depart {depart!r} : attendu HH:MM ou AAAA-MM-JJTHH:MM (heure locale)")

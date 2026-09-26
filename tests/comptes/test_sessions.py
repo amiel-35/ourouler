@@ -75,14 +75,10 @@ def test_un_jeton_de_session_respecte_la_forme_et_ne_se_repete_pas(depot: DepotC
     assert all(forme.match(j) for j in jetons)
 
 
-def test_ouvrir_session_pose_bien_une_ligne_avec_la_bonne_echeance(
-    depot: DepotComptes, connexion
-):
+def test_ouvrir_session_pose_bien_une_ligne_avec_la_bonne_echeance(depot: DepotComptes, connexion):
     acces = _activer(depot, "echeance@exemple.invalid")
     depart = datetime(2026, 9, 19, 8, 0, tzinfo=UTC)
-    jeton = depot.ouvrir_session(
-        acces.compte.identifiant, duree=timedelta(days=30), maintenant=depart
-    )
+    jeton = depot.ouvrir_session(acces.compte.identifiant, duree=timedelta(days=30), maintenant=depart)
     compte, cree_le, expire_le = connexion.execute(
         "SELECT compte, cree_le, expire_le FROM sessions WHERE jeton = %s", (jeton,)
     ).fetchone()
@@ -121,17 +117,14 @@ def test_un_jeton_de_session_invente_ne_resout_personne(depot: DepotComptes):
 def test_une_session_expiree_rend_none(depot: DepotComptes):
     acces = _activer(depot, "expire-vite@exemple.invalid")
     depart = datetime(2026, 9, 1, 12, tzinfo=UTC)
-    jeton = depot.ouvrir_session(
-        acces.compte.identifiant, duree=timedelta(hours=1), maintenant=depart
-    )
+    jeton = depot.ouvrir_session(acces.compte.identifiant, duree=timedelta(hours=1), maintenant=depart)
     # Juste avant l'échéance : la session est encore vivante.
-    assert depot.proprietaire_de_la_session(
-        jeton, maintenant=depart + timedelta(minutes=59)
-    ) == acces.proprietaire
-    # Juste après : elle ne l'est plus.
     assert (
-        depot.proprietaire_de_la_session(jeton, maintenant=depart + timedelta(hours=2)) is None
+        depot.proprietaire_de_la_session(jeton, maintenant=depart + timedelta(minutes=59))
+        == acces.proprietaire
     )
+    # Juste après : elle ne l'est plus.
+    assert depot.proprietaire_de_la_session(jeton, maintenant=depart + timedelta(hours=2)) is None
 
 
 def test_une_session_fermee_rend_none(depot: DepotComptes):
@@ -175,9 +168,7 @@ def test_authentifier_refuse_une_adresse_inconnue_un_mauvais_mot_de_passe_et_un_
     assert depot.authentifier("jamais-active@exemple.invalid", MOT_DE_PASSE) is None
 
 
-def test_authentifier_calcule_un_hachage_meme_quand_l_adresse_est_inconnue(
-    depot: DepotComptes, monkeypatch
-):
+def test_authentifier_calcule_un_hachage_meme_quand_l_adresse_est_inconnue(depot: DepotComptes, monkeypatch):
     """La preuve **déterministe** de l'égalisation du temps — pas une mesure d'horloge.
 
     Le temps de réponse ne peut différer que si le calcul diffère : ce test
@@ -221,8 +212,7 @@ def test_authentifier_met_a_peu_pres_le_meme_temps_pour_une_adresse_inconnue_et_
         return time.perf_counter() - depart
 
     t_inconnue = min(
-        _chrono(lambda: depot.authentifier("personne-du-tout@exemple.invalid", "x"))
-        for _ in range(5)
+        _chrono(lambda: depot.authentifier("personne-du-tout@exemple.invalid", "x")) for _ in range(5)
     )
     t_mauvais = min(
         _chrono(lambda: depot.authentifier("chrono@exemple.invalid", "mauvais-mot-de-passe"))
@@ -271,16 +261,12 @@ def test_invitation_ouverte_rend_none_pour_un_jeton_inconnu_expire_ou_consomme(
 ):
     """Les trois façons d'échouer, une seule réponse — `None` dans les trois cas."""
     depart = datetime(2026, 9, 1, tzinfo=UTC)
-    expiree = depot.inviter(
-        "expiree@exemple.invalid", duree=timedelta(days=3), maintenant=depart
-    )
+    expiree = depot.inviter("expiree@exemple.invalid", duree=timedelta(days=3), maintenant=depart)
     consommee = depot.inviter("consommee@exemple.invalid")
     depot.activer(consommee.jeton, MOT_DE_PASSE)
 
     assert depot.invitation_ouverte("jeton-completement-invente") is None
-    assert (
-        depot.invitation_ouverte(expiree.jeton, maintenant=depart + timedelta(days=10)) is None
-    )
+    assert depot.invitation_ouverte(expiree.jeton, maintenant=depart + timedelta(days=10)) is None
     assert depot.invitation_ouverte(consommee.jeton) is None
 
 
@@ -349,9 +335,7 @@ def test_la_base_refuse_un_jeton_de_session_hors_forme(depot: DepotComptes, conn
             )
 
 
-def test_la_base_refuse_une_session_qui_expire_avant_sa_creation(
-    depot: DepotComptes, connexion
-):
+def test_la_base_refuse_une_session_qui_expire_avant_sa_creation(depot: DepotComptes, connexion):
     import psycopg
 
     acces = _activer(depot, "echeance-absurde@exemple.invalid")
@@ -370,9 +354,7 @@ def test_supprimer_un_compte_efface_ses_sessions(depot: DepotComptes, connexion)
 
     connexion.execute("DELETE FROM comptes WHERE id = %s", (acces.compte.identifiant,))
 
-    restantes = connexion.execute(
-        "SELECT count(*) FROM sessions WHERE jeton = %s", (jeton,)
-    ).fetchone()[0]
+    restantes = connexion.execute("SELECT count(*) FROM sessions WHERE jeton = %s", (jeton,)).fetchone()[0]
     assert restantes == 0
 
 

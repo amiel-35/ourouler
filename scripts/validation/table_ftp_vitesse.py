@@ -66,9 +66,7 @@ FTP_MIN, FTP_MAX, FTP_PAS = 150, 350, 25
 
 def ligne(ftp_w: float, masse_cycliste_kg: float) -> tuple[float, float, float, float]:
     """(puissance d'endurance, vitesse à plat, moyenne compteur, facteur)."""
-    p = Parametres(
-        masse_totale_kg=masse_cycliste_kg + VELO_KG, cda_m2=CDA_ROUTE, crr=CRR_ROUTE
-    )
+    p = Parametres(masse_totale_kg=masse_cycliste_kg + VELO_KG, cda_m2=CDA_ROUTE, crr=CRR_ROUTE)
     w = ftp_w * PCT_ENDURANCE
     facteur = facteur_compteur_defaut(w, p)
     return (w, vitesse_a_plat_kmh(w, p), moyenne_compteur_kmh(w, p, facteur), facteur)
@@ -93,11 +91,7 @@ def main() -> None:
         for ftp in range(FTP_MIN, FTP_MAX + 1, FTP_PAS):
             w, plat, compteur, facteur = ligne(ftp, masse)
             if args.markdown:
-                print(
-                    f"| {ftp} W | {w:.0f} W | {plat:.1f} km/h | {compteur:.1f} km/h |".replace(
-                        ".", ","
-                    )
-                )
+                print(f"| {ftp} W | {w:.0f} W | {plat:.1f} km/h | {compteur:.1f} km/h |".replace(".", ","))
             else:
                 print(f"{ftp:>5} {w:>6.0f}W {plat:>8.1f} {compteur:>9.1f} {facteur:>8.3f}")
 

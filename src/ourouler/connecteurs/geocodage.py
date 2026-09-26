@@ -197,9 +197,7 @@ class ClientBAN:
         try:
             reponse = self.http.get(self.url_recherche, params=params)
         except httpx.HTTPError as e:
-            raise ErreurConnecteur(
-                f"BAN : injoignable sur {self.url_recherche} ({type(e).__name__})"
-            ) from e
+            raise ErreurConnecteur(f"BAN : injoignable sur {self.url_recherche} ({type(e).__name__})") from e
         if reponse.status_code >= 400:
             raise ErreurConnecteur(f"BAN : HTTP {reponse.status_code} sur {self.url_recherche}")
         try:

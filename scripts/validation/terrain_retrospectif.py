@@ -514,9 +514,7 @@ def comparer(
             if any(depart < fin and depart + bloc.longueur_m > debut for debut, fin in occupes):
                 continue
             notes.append(
-                evaluer_couloir(
-                    trace, depart, bloc.longueur_m, puissance_w=bloc.puissance_w, ftp_w=ftp_w
-                )
+                evaluer_couloir(trace, depart, bloc.longueur_m, puissance_w=bloc.puissance_w, ftp_w=ftp_w)
             )
         resultats.append(
             Comparaison(
@@ -707,9 +705,7 @@ def _constater_les_longs(tous: list[Bilan]) -> None:
     print(f"\nCONSTAT (blocs longs, {len(retenues)} blocs) — mesuré, pas jugé.")
     pires = sum(1 for c in retenues if c.rang <= 0.05)
     descente = sum(c.note.descente_m for c in retenues)
-    meilleur = min(
-        (min(c.notes_au_hasard) for c in retenues if c.au_hasard), default=float("nan")
-    )
+    meilleur = min((min(c.notes_au_hasard) for c in retenues if c.au_hasard), default=float("nan"))
     reelle = statistics.median([c.note.note for c in retenues])
     if pires == 0:
         combien = f"Aucun de ces {len(retenues)} blocs n'est moins bien noté"
@@ -779,9 +775,7 @@ def diagnostiquer(comparaisons: list[Comparaison]) -> None:
     print(f"  {'poste':<14} {'réels':>8} {'hasard':>8} {'écart':>8}   poids")
     for poste, poids, _ in POSTES:
         reels = statistics.fmean([_par_km(c.note, c.bloc.longueur_m)[poste] for c in comparaisons])
-        tires = [
-            _par_km(n, c.bloc.longueur_m)[poste] for c in comparaisons for n in c.au_hasard
-        ]
+        tires = [_par_km(n, c.bloc.longueur_m)[poste] for c in comparaisons for n in c.au_hasard]
         au_hasard = statistics.fmean(tires) if tires else 0.0
         rapport = reels / au_hasard if au_hasard > 0 else float("nan")
         verdict = _verdict(rapport)

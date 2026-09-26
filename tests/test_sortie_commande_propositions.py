@@ -67,9 +67,7 @@ def test_le_json_publie_les_propositions_avec_leur_phrase(tmp_path: Path, monkey
     assert "motif_deux_propositions" in charge
 
 
-def test_chaque_proposition_porte_une_phrase_et_un_axe_distinct(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_chaque_proposition_porte_une_phrase_et_un_axe_distinct(tmp_path: Path, monkeypatch, capsys):
     """Le garde-fou du lot : pas de phrase, pas de proposition — et deux
     propositions ne peuvent pas se réclamer du même axe."""
     lancer(tmp_path, monkeypatch, candidates=3, json=True)
@@ -93,9 +91,7 @@ def test_moins_de_trois_propositions_dit_pourquoi(tmp_path: Path, monkeypatch, c
     assert charge["motif_deux_propositions"]
 
 
-def test_les_propositions_sont_un_sous_ensemble_des_candidates(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_les_propositions_sont_un_sous_ensemble_des_candidates(tmp_path: Path, monkeypatch, capsys):
     """`candidates` reste la liste complète et inchangée : un script qui la
     lisait avant les propositions continue de marcher."""
     lancer(tmp_path, monkeypatch, candidates=3, json=True)
@@ -114,9 +110,7 @@ def test_sous_le_seuil_de_vent_la_question_n_est_pas_posee(tmp_path: Path, monke
     assert question["azimuts_recherche_deg"] == []
 
 
-def test_au_dessus_du_seuil_la_question_est_posee_et_le_texte_la_montre(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_au_dessus_du_seuil_la_question_est_posee_et_le_texte_la_montre(tmp_path: Path, monkeypatch, capsys):
     lancer(tmp_path, monkeypatch, meteo=moteur_meteo(vent_kmh=30.0), candidates=2)
     sortie = capsys.readouterr().out
     assert "Vent au départ" in sortie
@@ -138,9 +132,7 @@ def test_une_reponse_au_vent_dirige_la_recherche(tmp_path: Path, monkeypatch, ca
     assert charge["question_vent"]["azimuts_recherche_deg"] == [pytest.approx(45.0)]
 
 
-def test_demander_une_direction_et_une_orientation_au_vent_est_refuse(
-    tmp_path: Path, monkeypatch
-):
+def test_demander_une_direction_et_une_orientation_au_vent_est_refuse(tmp_path: Path, monkeypatch):
     """Q44 : les deux fixent le même azimut, et rien ne disait lequel gagnait.
 
     `--direction` l'emportait en silence — le cycliste qui avait demandé de
@@ -175,9 +167,7 @@ def test_une_direction_seule_reste_acceptee(tmp_path: Path, monkeypatch, capsys)
     assert charge["demande"]["azimut_deg"] == 0.0
 
 
-def test_peu_importe_avec_une_direction_n_est_pas_une_contradiction(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_peu_importe_avec_une_direction_n_est_pas_une_contradiction(tmp_path: Path, monkeypatch, capsys):
     """« Peu importe » est l'absence de demande, pas une demande concurrente."""
     lancer(
         tmp_path,
@@ -231,9 +221,7 @@ def azimuts_demandes_a_brouter() -> tuple[httpx.Client, list[float]]:
     return ClientBrouter(params, http=httpx.Client(transport=httpx.MockTransport(espion))), vus
 
 
-def test_le_travers_repartit_les_candidates_entre_les_deux_azimuts(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_travers_repartit_les_candidates_entre_les_deux_azimuts(tmp_path: Path, monkeypatch, capsys):
     """Quatre candidates de travers : deux d'un côté, deux de l'autre."""
     brouter, vus = azimuts_demandes_a_brouter()
     lancer(

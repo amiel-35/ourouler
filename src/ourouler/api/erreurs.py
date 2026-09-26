@@ -194,8 +194,7 @@ CODES_AVERTISSEMENT: dict[str, str] = {
         "vent, et la tenue se tait (E14 · dégradé)"
     ),
     "second_avis_indisponible": (
-        "le second modèle météo n'a pas répondu — la confiance vaut "
-        "« inconnu » sur toutes les cellules"
+        "le second modèle météo n'a pas répondu — la confiance vaut « inconnu » sur toutes les cellules"
     ),
     "adresse_introuvable": "aucun candidat pour cette adresse (E16)",
     "autre": (

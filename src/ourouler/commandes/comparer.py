@@ -29,8 +29,7 @@ def lire_options(args: argparse.Namespace, config: Config) -> DemandeComparaison
     noms = list(getattr(args, "velos", None) or [])
     if len(noms) != 2:
         raise ErreurUtilisateur(
-            "comparer : --velos attend exactement deux noms de vélo, par exemple "
-            "`--velos RCR BMC`"
+            "comparer : --velos attend exactement deux noms de vélo, par exemple `--velos RCR BMC`"
         )
     if noms[0].casefold() == noms[1].casefold():
         raise ErreurUtilisateur(
@@ -90,9 +89,7 @@ def _zone(valeur) -> tuple[float, float]:
         return ZONE_DEFAUT
     bornes = list(valeur)
     if len(bornes) != 2:
-        raise ErreurUtilisateur(
-            "--zone attend deux fractions de la FTP, par exemple `--zone 0.56 0.75`"
-        )
+        raise ErreurUtilisateur("--zone attend deux fractions de la FTP, par exemple `--zone 0.56 0.75`")
     bas = _fraction(bornes[0], ZONE_DEFAUT[0], "--zone", "0.56 = 56 % de la FTP")
     haut = _fraction(bornes[1], ZONE_DEFAUT[1], "--zone", "0.75 = 75 % de la FTP")
     if not (bas < haut):

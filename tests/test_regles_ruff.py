@@ -149,9 +149,7 @@ def test_exceptions_encore_necessaires() -> None:
         timeout=30,
     )
 
-    assert resultat.returncode in (0, 1), (
-        f"ruff a échoué à s'exécuter : {resultat.stderr}"
-    )
+    assert resultat.returncode in (0, 1), f"ruff a échoué à s'exécuter : {resultat.stderr}"
 
     import json
 

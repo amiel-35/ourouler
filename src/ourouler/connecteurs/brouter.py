@@ -122,8 +122,7 @@ class ClientBrouter:
     ):
         if not params.url:
             raise ErreurConnecteur(
-                "BRouter : [brouter] url est vide — renseigner l'adresse du serveur "
-                "dans la configuration"
+                "BRouter : [brouter] url est vide — renseigner l'adresse du serveur dans la configuration"
             )
         self.base_url = params.url.rstrip("/")
         self.profil_defaut = params.profil or "fastbike"
@@ -132,9 +131,7 @@ class ClientBrouter:
         # Le mot de passe n'est **pas** conservé en attribut : il ne vit que
         # dans l'objet d'authentification, passé à chaque requête. Un client
         # injecté par un test n'est jamais modifié.
-        self._auth = (
-            httpx.BasicAuth(params.utilisateur, params.mot_de_passe) if params.utilisateur else None
-        )
+        self._auth = httpx.BasicAuth(params.utilisateur, params.mot_de_passe) if params.utilisateur else None
         # Les zones à éviter viennent de `Config.evitements` et sont passées
         # par l'appelant : ce module ne lit aucune configuration.
         self.nogos = _nogos(evitements)
@@ -149,9 +146,7 @@ class ClientBrouter:
 
     # --- endpoints ------------------------------------------------------------
 
-    def itineraire(
-        self, points: Sequence[tuple[float, float]], *, profil: str | None = None
-    ) -> Trace:
+    def itineraire(self, points: Sequence[tuple[float, float]], *, profil: str | None = None) -> Trace:
         """Itinéraire passant par `points`, donnés en (lat, lon) — au moins deux."""
         if len(points) < 2:
             raise ErreurConnecteur(
@@ -245,17 +240,14 @@ class ClientBrouter:
             ) from e
         if reponse.status_code >= 400:
             raise ErreurConnecteur(
-                f"BRouter : HTTP {reponse.status_code} sur {self.url_itineraire}"
-                f"{_indice(reponse, profil)}"
+                f"BRouter : HTTP {reponse.status_code} sur {self.url_itineraire}{_indice(reponse, profil)}"
             )
         if not reponse.content:
             raise ErreurConnecteur(f"BRouter : réponse vide sur {self.url_itineraire}")
         try:
             return reponse.json()
         except ValueError as e:
-            raise ErreurConnecteur(
-                f"BRouter : réponse non-JSON sur {self.url_itineraire} ({e})"
-            ) from e
+            raise ErreurConnecteur(f"BRouter : réponse non-JSON sur {self.url_itineraire} ({e})") from e
 
 
 #: Nombre de caractères du corps d'erreur cités dans un message. Assez pour
@@ -330,8 +322,7 @@ def _trace(charge: Any, *, nom: str, profil: str, url: str) -> Trace:
     entites = charge.get("features")
     if not isinstance(entites, list) or not entites:
         raise ErreurConnecteur(
-            f"BRouter : réponse sans « features » exploitable sur {url} "
-            "(aucun itinéraire trouvé ?)"
+            f"BRouter : réponse sans « features » exploitable sur {url} (aucun itinéraire trouvé ?)"
         )
     entite = entites[0]
     if not isinstance(entite, dict):
@@ -421,8 +412,7 @@ def _segments(points: list[PointTrace], messages: Any, ignores: list[str]) -> li
             # `meta["messages_ignores"]` annoncerait 0 alors que des tronçons
             # ont disparu, le contraire de l'intention.
             ignores.extend(
-                f"ligne {reste} : plus de point où s'accrocher"
-                for reste in range(numero, len(lignes))
+                f"ligne {reste} : plus de point où s'accrocher" for reste in range(numero, len(lignes))
             )
             break
         if not isinstance(ligne, (list, tuple)) or len(ligne) <= colonnes["Latitude"]:
@@ -514,9 +504,7 @@ def _point_suivant(
     return min(range(depuis, len(points)), key=lambda i: distance_m(points[i], cible))
 
 
-def _facteur_coordonnees(
-    points: list[PointTrace], lignes: list, colonnes: dict[str, int]
-) -> float:
+def _facteur_coordonnees(points: list[PointTrace], lignes: list, colonnes: dict[str, int]) -> float:
     """L'unité des coordonnées des messages, décidée **une fois pour toute la réponse**.
 
     Deviner valeur par valeur était faux : une coordonnée à moins de 0,001°

@@ -97,9 +97,7 @@ def retenue(entree: EntreeCache) -> bool:
     )
 
 
-def collecter(
-    config: Config, depuis: date, *, avec_mouvement: bool
-) -> tuple[dict[str, MesuresVelo], int]:
+def collecter(config: Config, depuis: date, *, avec_mouvement: bool) -> tuple[dict[str, MesuresVelo], int]:
     """Les vitesses réelles, par vélo. Aucun réseau : le cache local seulement."""
     cache = Cache(Path(config.cache.dossier).expanduser())
     par_velo = {velo.nom: MesuresVelo(velo=velo) for velo in config.velos}
@@ -164,10 +162,7 @@ def rapporter(config: Config, par_velo: dict[str, MesuresVelo], depuis: date) ->
         defaut = facteur_compteur_defaut(puissance_w, parametres)
 
         print(f"{nom} ({mesures.velo.usage}) — {len(mesures.vitesses_ecoulees_kmh)} sorties")
-        print(
-            f"   à plat, sans vent, lancé    {v_plat:5.1f} km/h"
-            f"          [paramètres : {provenance}]"
-        )
+        print(f"   à plat, sans vent, lancé    {v_plat:5.1f} km/h          [paramètres : {provenance}]")
         if mesures.vitesses_mouvement_kmh:
             med = statistics.median(mesures.vitesses_mouvement_kmh)
             print(
@@ -176,15 +171,9 @@ def rapporter(config: Config, par_velo: dict[str, MesuresVelo], depuis: date) ->
             )
         med_ecoule = statistics.median(mesures.vitesses_ecoulees_kmh)
         facteur = med_ecoule / v_plat
-        print(
-            f"   au compteur, temps écoulé   {med_ecoule:5.1f} km/h   {facteur:4.0%}"
-            "   ← le facteur retenu"
-        )
+        print(f"   au compteur, temps écoulé   {med_ecoule:5.1f} km/h   {facteur:4.0%}   ← le facteur retenu")
         configure = mesures.velo.facteur_compteur
-        print(
-            "   facteur_compteur configuré  "
-            + (f"{configure:.3f}" if configure is not None else "absent")
-        )
+        print("   facteur_compteur configuré  " + (f"{configure:.3f}" if configure is not None else "absent"))
         print(
             f"   défaut dérivé du modèle     {defaut:.3f}"
             f"   ({DENIVELE_REFERENCE_M_PAR_KM:.0f} m/km, "
@@ -197,9 +186,7 @@ def main() -> None:
     parseur = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parseur.add_argument(
-        "--depuis", default=None, help="date de début (défaut : celle de la configuration)"
-    )
+    parseur.add_argument("--depuis", default=None, help="date de début (défaut : celle de la configuration)")
     parseur.add_argument("--config", default=None, help="fichier de configuration")
     parseur.add_argument(
         "--sans-mouvement",

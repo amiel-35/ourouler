@@ -336,9 +336,7 @@ class BaseRoutes:
         try:
             self.chemin.parent.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            raise ErreurUtilisateur(
-                f"routes : dossier {self.chemin.parent} inutilisable ({e})"
-            ) from e
+            raise ErreurUtilisateur(f"routes : dossier {self.chemin.parent} inutilisable ({e})") from e
         with self._connexion() as cx:
             self._migrer(cx)
             cx.executescript(_SCHEMA)
@@ -705,8 +703,7 @@ def _index_de(cx: sqlite3.Connection, table: str) -> list[str]:
     return [
         ligne[0]
         for ligne in cx.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL",
             (table,),
         )
     ]
@@ -764,9 +761,7 @@ def points_de_passage_depuis_coordonnees(
     retenus = [coordonnees[0]]
     cumul = 0.0
     for (lat_a, lon_a), (lat_b, lon_b) in zip(coordonnees[:-1], coordonnees[1:], strict=True):
-        cumul += distance_m(
-            PointTrace(lat_a, lon_a, None, 0.0), PointTrace(lat_b, lon_b, None, 0.0)
-        )
+        cumul += distance_m(PointTrace(lat_a, lon_a, None, 0.0), PointTrace(lat_b, lon_b, None, 0.0))
         if cumul >= espacement_m:
             retenus.append((lat_b, lon_b))
             cumul = 0.0
@@ -857,9 +852,7 @@ def apprendre(
         passages = points_de_passage(activite)
         if len(passages) < 2:
             rapport.echecs += 1
-            rapport.messages.append(
-                f"{jour} {entree.identifiant[:12]} : aucune position exploitable"
-            )
+            rapport.messages.append(f"{jour} {entree.identifiant[:12]} : aucune position exploitable")
             continue
         if appels_restants is not None:
             # Décrémenté **avant** l'appel : c'est lui qu'on borne, pas son
@@ -964,9 +957,7 @@ def poids_appris(stats: Statistiques, exposition: Statistiques | None = None) ->
     for highway in sorted(set(parts_sorties) | set(parts_expo)):
         if not highway:
             continue  # une classe sans `highway` ne se pondère pas : on ne sait rien d'elle
-        poids[highway] = _poids_classe(
-            highway, parts_sorties.get(highway, 0.0), parts_expo.get(highway, 0.0)
-        )
+        poids[highway] = _poids_classe(highway, parts_sorties.get(highway, 0.0), parts_expo.get(highway, 0.0))
     return poids
 
 

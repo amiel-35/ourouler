@@ -226,8 +226,10 @@ def mesurer_reelles(
             continue
         mesures.append(mesure)
         if bavard:
-            print(f"  réel  {mesure.etiquette} {mesure.distance_km:6.1f} km "
-                  f"{mesure.marqueurs:4d} marqueurs {mesure.par_km:5.2f} /km")
+            print(
+                f"  réel  {mesure.etiquette} {mesure.distance_km:6.1f} km "
+                f"{mesure.marqueurs:4d} marqueurs {mesure.par_km:5.2f} /km"
+            )
     return mesures, manques
 
 
@@ -260,8 +262,10 @@ def mesurer_proposees(
                 if mesure is not None:
                     lot.append(mesure)
                     if bavard:
-                        print(f"  prop. {mesure.etiquette:>16} {mesure.distance_km:6.1f} km "
-                              f"{mesure.marqueurs:4d} marqueurs {mesure.par_km:5.2f} /km")
+                        print(
+                            f"  prop. {mesure.etiquette:>16} {mesure.distance_km:6.1f} km "
+                            f"{mesure.marqueurs:4d} marqueurs {mesure.par_km:5.2f} /km"
+                        )
         par_bande[cible] = lot
     return par_bande, manques
 
@@ -389,8 +393,10 @@ def executer(arguments: argparse.Namespace) -> int:
     cache = Cache(dossier)
     client = ClientBrouter(config.brouter, evitements=config.evitements)
 
-    print(f"Sorties réelles (depuis {config.historique_depuis.isoformat()}, "
-          f"à moins de {RAYON_DEPART_M / 1000:g} km du départ) :")
+    print(
+        f"Sorties réelles (depuis {config.historique_depuis.isoformat()}, "
+        f"à moins de {RAYON_DEPART_M / 1000:g} km du départ) :"
+    )
     reelles, manques_reels = mesurer_reelles(
         cache,
         client,

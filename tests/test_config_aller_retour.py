@@ -175,6 +175,7 @@ def charge_ou_refuse(d: dict[str, Any]) -> Config | None:
     except ErreurConfig:
         return None
 
+
 #: Une configuration complète, tous champs renseignés : l'aller-retour doit
 #: tenir sur autre chose que les défauts. Rien de personnel — un point en mer,
 #: une clé factice, des chiffres inventés.
@@ -354,9 +355,7 @@ def test_le_balayage_n_est_pas_vide_de_sens():
     propriété se viderait en silence, et c'est cette ligne qui le dirait.
     """
     refuses = [
-        cas.id
-        for cas in CONFIGURATIONS
-        if charge_ou_refuse({**BASE, "seance": cas.values[0]}) is None
+        cas.id for cas in CONFIGURATIONS if charge_ou_refuse({**BASE, "seance": cas.values[0]}) is None
     ]
     assert refuses == ["cas-relecture-f0-refuse"]
 

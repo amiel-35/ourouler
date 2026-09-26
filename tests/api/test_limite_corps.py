@@ -91,9 +91,7 @@ def test_content_length_menteur_refuse_avant_de_lire():
     """`Content-Length` annoncé au-delà de la borne : l'app n'est jamais appelée."""
     app = _AppEspion()
     middleware = LimiteTailleCorps(app, {"/api/v1/activites/import": 100})
-    envoyes = _executer(
-        middleware, _scope("/api/v1/activites/import", content_length=1000), messages=[]
-    )
+    envoyes = _executer(middleware, _scope("/api/v1/activites/import", content_length=1000), messages=[])
     assert not app.appelee, "l'application ne doit jamais voir un corps refusé sur l'en-tête"
     assert envoyes[0]["status"] == 413
     assert "annoncés" in _corps_json(envoyes)["erreur"]["message"]

@@ -153,9 +153,7 @@ def seance(
     """`GET /seances`, `GET /seances/{jour}`, `POST /seances/fichier`."""
     from ourouler.seance import commande as service
 
-    demande = cmd_seance.interpreter(
-        jour=jour, depuis=depuis, jusqua=jusqua, fichier_seance=fichier_seance
-    )
+    demande = cmd_seance.interpreter(jour=jour, depuis=depuis, jusqua=jusqua, fichier_seance=fichier_seance)
     resultat = service.executer(demande, contexte(config, avertir=avertir), client=client)
     return cmd_seance.json_seance(resultat)
 
@@ -173,12 +171,8 @@ def simuler(
     """`POST /simulations` : le temps d'un GPX à puissance constante."""
     from ourouler.physique import commande as service
 
-    demande = cmd_physique.interpreter_simulation(
-        gpx=gpx, velo=velo, puissance=puissance, depart=depart
-    )
-    r = service.executer_simuler(
-        demande, contexte(config, avertir=avertir), client_meteo=client_meteo
-    )
+    demande = cmd_physique.interpreter_simulation(gpx=gpx, velo=velo, puissance=puissance, depart=depart)
+    r = service.executer_simuler(demande, contexte(config, avertir=avertir), client_meteo=client_meteo)
     return cmd_physique.json_simulation(r)
 
 
@@ -195,12 +189,8 @@ def analyser(
     """`POST /parcours/analyser` : météo et durée porte à porte d'un parcours en main."""
     from ourouler.physique import commande as service
 
-    demande = cmd_physique.interpreter_analyse(
-        gpx=gpx, depart=depart, velo=velo, puissance=puissance
-    )
-    r = service.executer_analyser(
-        demande, contexte(config, avertir=avertir), client_meteo=client_meteo
-    )
+    demande = cmd_physique.interpreter_analyse(gpx=gpx, depart=depart, velo=velo, puissance=puissance)
+    r = service.executer_analyser(demande, contexte(config, avertir=avertir), client_meteo=client_meteo)
     return cmd_physique.json_analyse(r)
 
 

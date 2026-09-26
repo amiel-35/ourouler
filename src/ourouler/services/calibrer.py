@@ -62,9 +62,7 @@ def masse_totale_kg(config: Profil, velo: Velo) -> float:
 MOTIF_VELO_NON_IDENTIFIE = "vélo non identifié"
 
 
-def motif_exclusion(
-    entree: EntreeCache, config: Profil, velo: Velo, *, strict: bool = False
-) -> str | None:
+def motif_exclusion(entree: EntreeCache, config: Profil, velo: Velo, *, strict: bool = False) -> str | None:
     """Pourquoi cette sortie n'est pas calibrable, ou `None` si elle l'est.
 
     Rendre le motif, et pas seulement un booléen, permet à la commande de dire
@@ -142,9 +140,7 @@ def sorties_calibrables(
     relire: Callable[[str], Activite | None] | None = None,
 ) -> list[EntreeCache]:
     """Les sorties utilisables pour calibrer ce vélo, de la plus ancienne à la plus récente."""
-    return sorties_calibrables_et_motifs(
-        cache, config, velo, depuis=depuis, relire=relire
-    )[0]
+    return sorties_calibrables_et_motifs(cache, config, velo, depuis=depuis, relire=relire)[0]
 
 
 # --- calibrer un vélo ---------------------------------------------------------
@@ -275,9 +271,7 @@ def calibrer_velo(
     )
 
 
-def _crr_de_calibration(
-    velo: Velo, crr_libre: bool, crr_usage: bool = False
-) -> tuple[float | None, str]:
+def _crr_de_calibration(velo: Velo, crr_libre: bool, crr_usage: bool = False) -> tuple[float | None, str]:
     """(Crr fixé ou `None`, provenance) pour `ourouler calibrer`.
 
     Le Crr connu (pneu ou configuration) est gardé fixe et seul le CdA est
@@ -352,17 +346,13 @@ def _charger_sorties(
         if nom:
             activite.meta["nom"] = str(nom)
         vent = _archive_du_depart(activite, client, pannes)
-        sorties.append(
-            calib.SortieCalibration(activite=activite, vent=vent, identifiant=entree.identifiant)
-        )
+        sorties.append(calib.SortieCalibration(activite=activite, vent=vent, identifiant=entree.identifiant))
     return (sorties, pannes)
 
 
 def _archive_du_depart(activite, client: ClientArchive, pannes: list[str]) -> list:
     """L'archive du jour au **point de départ** de la sortie, arrondi à 0,05°."""
-    depart = next(
-        (p for p in activite.points if p.lat is not None and p.lon is not None), None
-    )
+    depart = next((p for p in activite.points if p.lat is not None and p.lon is not None), None)
     if depart is None or activite.debut is None:
         return []
     try:

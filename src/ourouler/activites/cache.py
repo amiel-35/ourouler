@@ -446,8 +446,7 @@ class Cache:
     def contient(self, *, source: str, id_externe: str) -> bool:
         with self._connexion() as cx:
             trouve = cx.execute(
-                "SELECT 1 FROM activites "
-                "WHERE proprietaire = ? AND source = ? AND id_externe = ? LIMIT 1",
+                "SELECT 1 FROM activites WHERE proprietaire = ? AND source = ? AND id_externe = ? LIMIT 1",
                 (self.proprietaire, source, str(id_externe)),
             ).fetchone()
         return trouve is not None
@@ -581,9 +580,7 @@ class Cache:
 
 def _index_existe(cx: sqlite3.Connection, nom: str) -> bool:
     return (
-        cx.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (nom,)
-        ).fetchone()
+        cx.execute("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (nom,)).fetchone()
         is not None
     )
 

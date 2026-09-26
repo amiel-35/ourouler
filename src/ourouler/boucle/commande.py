@@ -288,13 +288,9 @@ def executer(
     # Une heure de départ trop lointaine ne se refuse pas, elle se
     # sert **sans météo** — et sans appeler Open-Meteo pour récolter des blocs
     # vides. Même règle et même phrase que `ourouler sortie`.
-    dernier_jour = portee.dernier_jour_couvert(
-        profil.meteo.horizon_jours, aujourdhui=date.today()
-    )
+    dernier_jour = portee.dernier_jour_couvert(profil.meteo.horizon_jours, aujourdhui=date.today())
     jour_demande = demande.depart.date()
-    meteo_absente = (
-        portee.constater(jour_demande, dernier_jour) if jour_demande > dernier_jour else None
-    )
+    meteo_absente = portee.constater(jour_demande, dernier_jour) if jour_demande > dernier_jour else None
     if meteo_absente is not None:
         meteos, panne = [None] * len(traces), None
         vitesses = [_vitesse_meteo(t, modele, profil) for t, _, _ in traces]
@@ -393,9 +389,7 @@ def _generer_candidates(client: ClientBrouter, profil: Profil, demande: Demande)
     return trouvees
 
 
-def _greffer_tags_sur_gpx(
-    trace_gpx: Trace, profil: Profil, client_brouter: ClientBrouter | None
-) -> None:
+def _greffer_tags_sur_gpx(trace_gpx: Trace, profil: Profil, client_brouter: ClientBrouter | None) -> None:
     """Tente de greffer des tags OSM — et un D+ — sur un GPX importé, en le modifiant sur place.
 
     Le principe (voir `boucle.tags_importes`) : rejouer le GPX dans BRouter
@@ -426,9 +420,7 @@ def _greffer_tags_sur_gpx(
             if client_brouter is not None
             else ClientBrouter(profil.brouter, evitements=profil.evitements)
         )
-        passages = points_de_passage_depuis_coordonnees(
-            [(p.lat, p.lon) for p in trace_gpx.points]
-        )
+        passages = points_de_passage_depuis_coordonnees([(p.lat, p.lon) for p in trace_gpx.points])
         if len(passages) < 2:
             return
         trace_reroutee = client.itineraire(passages)
@@ -552,14 +544,11 @@ def verifier_sortie(demande: Demande) -> None:
     chemin = demande.sortie if demande.sortie is not None else Path(nom_par_defaut(demande))
     dossier = chemin.parent if str(chemin.parent) else Path(".")
     if not dossier.is_dir():
-        raise ErreurUtilisateur(
-            f"--sortie {chemin} : le dossier {dossier} n'existe pas"
-        )
+        raise ErreurUtilisateur(f"--sortie {chemin} : le dossier {dossier} n'existe pas")
     _verifier_inscriptible(dossier, chemin)
     if demande.sortie is not None and chemin.exists() and not demande.ecraser:
         raise ErreurUtilisateur(
-            f"{chemin} existe déjà — ajouter --ecraser pour le remplacer, "
-            "ou choisir un autre nom"
+            f"{chemin} existe déjà — ajouter --ecraser pour le remplacer, ou choisir un autre nom"
         )
 
 
@@ -574,9 +563,7 @@ def _verifier_inscriptible(dossier: Path, chemin: Path) -> None:
     try:
         temoin.touch()
     except OSError as e:
-        raise ErreurUtilisateur(
-            f"--sortie {chemin} : écriture impossible dans {dossier} ({e})"
-        ) from e
+        raise ErreurUtilisateur(f"--sortie {chemin} : écriture impossible dans {dossier} ({e})") from e
     finally:
         try:
             temoin.unlink(missing_ok=True)
@@ -724,9 +711,7 @@ def _classer(
     """
     evaluations = []
     vitesses = list(vitesses_meteo) if vitesses_meteo is not None else [None] * len(traces)
-    for (trace, ecart, candidate), meteo, vitesse in zip(
-        traces, meteos, vitesses, strict=True
-    ):
+    for (trace, ecart, candidate), meteo, vitesse in zip(traces, meteos, vitesses, strict=True):
         couts = evaluer_couts(trace, sens_prefere=sens_prefere, poids=poids)
         pluie = meteo.pluie_cumulee_mm if meteo is not None else 0.0
         evaluations.append(

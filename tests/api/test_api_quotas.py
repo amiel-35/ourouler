@@ -109,9 +109,7 @@ def client_hors_reseau(
 def activer_compte(client: TestClient, compte: str) -> None:
     """Écrit un profil complet pour ce compte — sinon la génération refuse
     (« profil incomplet »), sans rapport avec le quota que ces tests visent."""
-    reponse = client.patch(
-        "/api/v1/profil", json=PROFIL_COMPTE_ESSAI, headers={"x-compte-essai": compte}
-    )
+    reponse = client.patch("/api/v1/profil", json=PROFIL_COMPTE_ESSAI, headers={"x-compte-essai": compte})
     assert reponse.status_code == 200, reponse.text
 
 
@@ -311,9 +309,7 @@ def test_une_analyse_ratee_rend_la_consultation_meteo(tmp_path: Path):
     """
     from ourouler.api.depots import DepotFichiers
 
-    client = client_hors_reseau(
-        tmp_path, quotas_meteo=Quotas(plafond=1, libelle="consultations météo")
-    )
+    client = client_hors_reseau(tmp_path, quotas_meteo=Quotas(plafond=1, libelle="consultations météo"))
     activer_compte(client, "essai-a")
 
     # Fichier inexistant : 404.
@@ -407,9 +403,7 @@ def test_quotas_consommer_rembourser_et_restant_directement():
     assert quotas.restant(quelqu_un) == 0
     with pytest.raises(Exception) as exc_info:
         quotas.consommer(quelqu_un)
-    assert "quota_atteint" in str(exc_info.value) or getattr(exc_info.value, "code", "") == (
-        "quota_atteint"
-    )
+    assert "quota_atteint" in str(exc_info.value) or getattr(exc_info.value, "code", "") == ("quota_atteint")
 
     quotas.rembourser(quelqu_un)
     assert quotas.restant(quelqu_un) == 1
@@ -437,9 +431,7 @@ def test_le_mode_personnel_n_a_aucun_quota(tmp_path: Path):
     application = creer_application(
         chemin_config=ecrire_config(tmp_path),
         dossier_donnees=tmp_path / "cache" / "api",
-        clients=Clients(
-            brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()
-        ),
+        clients=Clients(brouter=moteur_brouter(), meteo=moteur_meteo(), intervals=client_intervals()),
         budgets=Budgets(),
         quotas=Quotas(plafond=0),
         quotas_meteo=Quotas(plafond=0, libelle="consultations météo"),
@@ -447,9 +439,7 @@ def test_le_mode_personnel_n_a_aucun_quota(tmp_path: Path):
     )
     client = TestClient(application, raise_server_exceptions=False)
     for _ in range(3):
-        reponse = client.post(
-            "/api/v1/sorties", json={"jour": "2026-09-08", "candidates": 1}
-        )
+        reponse = client.post("/api/v1/sorties", json={"jour": "2026-09-08", "candidates": 1})
         assert reponse.status_code == 200, reponse.text
     for _ in range(3):
         assert client.get("/api/v1/meteo").status_code == 200

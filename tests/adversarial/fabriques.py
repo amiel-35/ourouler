@@ -249,8 +249,7 @@ def verifier_trace(trace: Any, *, quoi: str, distance_max_km: float = 1000.0) ->
         assert isinstance(s.tags, dict), f"{quoi} : segments[{i}].tags doit être un dict"
         for cle, valeur in s.tags.items():
             assert isinstance(cle, str) and isinstance(valeur, str), (
-                f"{quoi} : segments[{i}].tags contient {cle!r}: {valeur!r}, "
-                "des chaînes OSM étaient attendues"
+                f"{quoi} : segments[{i}].tags contient {cle!r}: {valeur!r}, des chaînes OSM étaient attendues"
             )
 
 

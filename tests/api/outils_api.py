@@ -485,13 +485,8 @@ def config_d_essai(**remplacements: Any) -> Any:
     module = import_module("ourouler.config")
     depuis_dict = getattr(module, "depuis_dict", None)
     if not callable(depuis_dict):
-        raise ApiAbsente(
-            "ourouler.config.depuis_dict a disparu : la Config d'essai n'est plus constructible"
-        )
-    brut = {
-        cle: dict(valeur) if isinstance(valeur, dict) else valeur
-        for cle, valeur in CONFIG_ESSAI.items()
-    }
+        raise ApiAbsente("ourouler.config.depuis_dict a disparu : la Config d'essai n'est plus constructible")
+    brut = {cle: dict(valeur) if isinstance(valeur, dict) else valeur for cle, valeur in CONFIG_ESSAI.items()}
     for cle, valeur in remplacements.items():
         if isinstance(valeur, dict) and isinstance(brut.get(cle), dict):
             brut[cle].update(valeur)
@@ -503,9 +498,7 @@ def config_d_essai(**remplacements: Any) -> Any:
 # --- transports bouchonnés ---------------------------------------------------
 
 
-def transport_constant(
-    statut: int, corps: Any = None, *, texte: str | None = None
-) -> httpx.MockTransport:
+def transport_constant(statut: int, corps: Any = None, *, texte: str | None = None) -> httpx.MockTransport:
     """Un service externe qui répond toujours la même chose. Zéro socket ouverte."""
 
     def repondre(requete: httpx.Request) -> httpx.Response:

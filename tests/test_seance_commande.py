@@ -51,9 +51,7 @@ def client_bouchon(evenements: list[dict]) -> ClientIntervals:
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=evenements)
 
-    return ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    return ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
 
 
 def args(**champs) -> argparse.Namespace:
@@ -84,9 +82,7 @@ def ecrire_calibration_de_test(dossier: Path, velo: str = "Route") -> None:
 
 
 def seance_4x8() -> Seance:
-    return depuis_workout_doc(
-        W.groupes_watts(), nom="4x8 fabriquée", jour=JOUR, ftp_w=FTP
-    )
+    return depuis_workout_doc(W.groupes_watts(), nom="4x8 fabriquée", jour=JOUR, ftp_w=FTP)
 
 
 # --- longueurs ----------------------------------------------------------------
@@ -495,9 +491,7 @@ def test_plage_un_seul_appel_reseau(tmp_path, capsys):
         urls.append(requete.url)
         return httpx.Response(200, json=[])
 
-    client = ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     executer(args(jour=None, depuis="2026-09-07", jusqua="2026-09-13"), config, client=client)
     assert len(urls) == 1
     assert urls[0].params["oldest"] == "2026-09-07"
@@ -507,9 +501,7 @@ def test_plage_un_seul_appel_reseau(tmp_path, capsys):
 def test_jour_et_plage_ensemble_sont_refuses(tmp_path):
     config = config_de_test(tmp_path)
     with pytest.raises(ErreurUtilisateur, match="exclusifs"):
-        executer(
-            args(depuis="2026-09-07", jusqua="2026-09-13"), config, client=client_bouchon([])
-        )
+        executer(args(depuis="2026-09-07", jusqua="2026-09-13"), config, client=client_bouchon([]))
 
 
 def test_depuis_sans_jusqua_est_refuse(tmp_path):
@@ -550,9 +542,7 @@ def test_fichier_seance_ne_touche_jamais_intervals(tmp_path):
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         raise AssertionError("Intervals.icu appelé alors qu'un fichier était donné")
 
-    client = ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    client = ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
     chemin = _ecrire_zwo(tmp_path)
     config = config_de_test(tmp_path)
     code = executer(args(jour=None, fichier_seance=str(chemin)), config, client=client)

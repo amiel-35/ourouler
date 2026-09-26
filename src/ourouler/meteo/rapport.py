@@ -259,9 +259,7 @@ def construire(
                     pluie_second_avis_mm=pluie_second,
                     vent_kmh=heure.vent_kmh,
                     vent_depuis_deg=heure.vent_depuis_deg,
-                    vent_relatif=vent_relatif(
-                        point.azimut_deg, heure.vent_depuis_deg, direction=point.nom
-                    ),
+                    vent_relatif=vent_relatif(point.azimut_deg, heure.vent_depuis_deg, direction=point.nom),
                     ressenti_c=heure.ressenti_c,
                     confiance=confiance(heure.pluie_mm, pluie_second),
                 )

@@ -145,9 +145,7 @@ def _module_datetime_fige() -> types.ModuleType:
     remplace **l'attribut du module ourouler** par ce mandataire.
     """
     mandataire = types.ModuleType("datetime", _dt.__doc__)
-    mandataire.__dict__.update(
-        {cle: valeur for cle, valeur in vars(_dt).items() if not cle.startswith("__")}
-    )
+    mandataire.__dict__.update({cle: valeur for cle, valeur in vars(_dt).items() if not cle.startswith("__")})
     mandataire.date = DateFigee  # type: ignore[attr-defined]
     mandataire.datetime = DatetimeFigee  # type: ignore[attr-defined]
     return mandataire
@@ -341,9 +339,7 @@ def _brouter(requete: httpx.Request) -> httpx.Response:
     dépendent ici de l'azimut demandé.
     """
     azimut = float(requete.url.params["roundTripStartDirection"])
-    corps = synth.reponse_anneau(
-        synth.anneau(azimut, amplitude_m=RELIEF_PAR_AZIMUT.get(azimut % 360, 4.0))
-    )
+    corps = synth.reponse_anneau(synth.anneau(azimut, amplitude_m=RELIEF_PAR_AZIMUT.get(azimut % 360, 4.0)))
     messages = corps["features"][0]["properties"]["messages"]
     colonne = messages[0].index("WayTags")
     decalage = int(azimut // 45)
@@ -399,9 +395,7 @@ class Rejeu:
     def __call__(self, requete: httpx.Request) -> httpx.Response:
         hote = requete.url.host
         for hote_panne, parametres, statut in self.pannes:
-            if hote == hote_panne and all(
-                requete.url.params.get(c) == v for c, v in parametres.items()
-            ):
+            if hote == hote_panne and all(requete.url.params.get(c) == v for c, v in parametres.items()):
                 self._journaliser(requete, f" -> {statut}")
                 return httpx.Response(statut, json={"error": True, "reason": "panne rejouée"})
         servir = AIGUILLAGE.get(hote)
@@ -430,9 +424,7 @@ def rejouer_reseau(monkeypatch: pytest.MonkeyPatch) -> Rejeu:
 
     class ClientRejoue(vrai_client):  # type: ignore[misc, valid-type]
         def __init__(self, *args: Any, transport: Any = None, **kwargs: Any) -> None:
-            super().__init__(
-                *args, transport=transport or httpx.MockTransport(rejeu), **kwargs
-            )
+            super().__init__(*args, transport=transport or httpx.MockTransport(rejeu), **kwargs)
 
     monkeypatch.setattr(httpx, "Client", ClientRejoue)
     return rejeu
@@ -630,9 +622,7 @@ def comparer_a_la_reference(
         reference.parent.mkdir(parents=True, exist_ok=True)
         reference.write_text(texte, encoding="utf-8")
         pytest.skip(f"référence régénérée : {reference.name}")
-    assert reference.is_file(), (
-        f"référence absente : {reference.name} — la créer par {commande_regeneration}"
-    )
+    assert reference.is_file(), f"référence absente : {reference.name} — la créer par {commande_regeneration}"
     attendu = reference.read_text(encoding="utf-8")
     if texte == attendu or _proches(json.loads(texte), json.loads(attendu)):
         return
@@ -649,7 +639,6 @@ def comparer_a_la_reference(
         diff = diff[:6000] + "\n[… diff tronqué …]\n"
     pytest.fail(
         f"changement de comportement : {reference.name} ne correspond plus à la sortie. "
-        f"Relire le diff comme un changement de comportement, puis {commande_regeneration}\n"
-        + diff,
+        f"Relire le diff comme un changement de comportement, puis {commande_regeneration}\n" + diff,
         pytrace=False,
     )

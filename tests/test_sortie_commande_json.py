@@ -48,9 +48,7 @@ def test_le_json_est_valide_et_complet(tmp_path: Path, monkeypatch, capsys):
     for emplacement in candidate["placement"]["emplacements"]:
         assert emplacement["longueur_m"] > 0
         if emplacement["note"] is None:
-            assert emplacement["motifs"] is None, (
-                "une étape sans note ne doit pas porter de motifs inventés"
-            )
+            assert emplacement["motifs"] is None, "une étape sans note ne doit pas porter de motifs inventés"
         else:
             assert isinstance(emplacement["motifs"], list)
     # Lot L5.3 : `km_non_classe` manquait côté sortie alors qu'il existait déjà

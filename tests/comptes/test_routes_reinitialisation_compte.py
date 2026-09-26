@@ -50,9 +50,7 @@ def _compte_actif(url_base: str, adresse: str) -> None:
 
 
 def _entrer(app, adresse: str) -> dict[str, str]:
-    reponse = requete(
-        app, "POST", f"{PREFIXE}/connexion", json={"email": adresse, "secret": MOT_DE_PASSE}
-    )
+    reponse = requete(app, "POST", f"{PREFIXE}/connexion", json={"email": adresse, "secret": MOT_DE_PASSE})
     assert reponse.status_code == 200, reponse.text
     jeton = reponse.cookies.get(NOM_COOKIE)
     assert jeton
@@ -62,9 +60,7 @@ def _entrer(app, adresse: str) -> dict[str, str]:
 # --- POST /reinitialiser --------------------------------------------------------
 
 
-def test_reinitialiser_pose_le_nouveau_mot_de_passe_et_ferme_les_autres_sessions(
-    url_base, tmp_path
-):
+def test_reinitialiser_pose_le_nouveau_mot_de_passe_et_ferme_les_autres_sessions(url_base, tmp_path):
     _compte_actif(url_base, "reinit-route@exemple.invalid")
     app = _app(url_base, tmp_path)
 

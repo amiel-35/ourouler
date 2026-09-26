@@ -56,15 +56,12 @@ def rendre_texte_calibration(
     crr_source: str = "ajuste",
 ) -> str:
     lignes = [
-        f"Calibration {velo.nom} — {n_calibrables} sortie(s) calibrable(s) "
-        f"depuis le {depuis.isoformat()}"
+        f"Calibration {velo.nom} — {n_calibrables} sortie(s) calibrable(s) depuis le {depuis.isoformat()}"
     ]
     if motifs:
         detail = ", ".join(f"{nombre} {motif}" for motif, nombre in sorted(motifs.items()))
         lignes.append(f"Sorties du vélo écartées : {detail}")
-    lignes.append(
-        f"Archives météo : {archives_appels} appel(s), {archives_cache} déjà en cache"
-    )
+    lignes.append(f"Archives météo : {archives_appels} appel(s), {archives_cache} déjà en cache")
     lignes.append("")
     lignes.extend(_lignes_apprentissage(rapport, velo, crr_source))
     lignes.append("")
@@ -104,9 +101,7 @@ def _lignes_apprentissage(rapport: RapportCalibration, velo: Velo, crr_source: s
         lignes.append(
             f"    à {vitesse:g} km/h : {nombre_fr(force, 1)} N  —  {nombre_fr(puissance, 0)} W au pédalier"
         )
-    lignes.append(
-        f"  résidu de puissance : RMSE {nombre_fr(a.rmse_w, 1)} W, MAE {nombre_fr(a.mae_w, 1)} W"
-    )
+    lignes.append(f"  résidu de puissance : RMSE {nombre_fr(a.rmse_w, 1)} W, MAE {nombre_fr(a.mae_w, 1)} W")
     if a.crr_fixe:
         # Le Crr est reçu (pneu ou configuration), seul le CdA est
         # cherché — il se cite donc, lui, sans la réserve « mal séparé ».
@@ -270,9 +265,7 @@ def rendre_json_calibration(
             "mae": v.mae,
             "mediane": v.mediane,
             "biais": v.biais,
-            "groupes": [
-                {"nom": nom, "part": round(part, 3)} for nom, part in rapport.groupes_en_validation
-            ],
+            "groupes": [{"nom": nom, "part": round(part, 3)} for nom, part in rapport.groupes_en_validation],
             "sorties": [
                 {
                     "jour": s.jour or None,
@@ -322,9 +315,7 @@ def rendre_texte_analyse(
         f"Temps en mouvement : {duree_h_min(simulation.temps_s)} "
         f"({nombre_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
-    source = (
-        "mesurée sur vos sorties" if ecoule.provenance == "mesure" else "convention par défaut"
-    )
+    source = "mesurée sur vos sorties" if ecoule.provenance == "mesure" else "convention par défaut"
     lignes.append(
         f"Porte à porte : {duree_h_min(ecoule.bas_s)} à {duree_h_min(ecoule.haut_s)} "
         f"({source}) — arrivée vers {arrivee_mediane.strftime('%d/%m %H:%M')}"
@@ -348,12 +339,9 @@ def rendre_texte_analyse(
         debut_au_dela = _debut_au_dela(meteo)
         if debut_au_dela is not None:
             lignes.append(
-                f"  à partir du km {debut_au_dela / 1000:.0f} : au-delà de la prévision, "
-                "pas de météo"
+                f"  à partir du km {debut_au_dela / 1000:.0f} : au-delà de la prévision, pas de météo"
             )
-        lignes.append(
-            "  (heures de passage estimées porte à porte, arrêts compris)"
-        )
+        lignes.append("  (heures de passage estimées porte à porte, arrêts compris)")
     if alerte:
         lignes.append(alerte)
     return "\n".join(lignes)
@@ -459,9 +447,7 @@ def _meteo_json_analyse(meteo: MeteoTrace | None) -> dict | None:
         "confiance": meteo.confiance,
         "modele_utilise": meteo.modele_utilise,
         "repli": meteo.repli,
-        "bascule_dist_m": (
-            None if meteo.bascule_dist_m is None else round(meteo.bascule_dist_m, 1)
-        ),
+        "bascule_dist_m": (None if meteo.bascule_dist_m is None else round(meteo.bascule_dist_m, 1)),
         # Le premier kilomètre (en mètres) passé **au-delà de la prévision** —
         # `None` si tout le parcours est couvert.
         "au_dela_prevision_dist_m": _debut_au_dela(meteo),
@@ -523,17 +509,13 @@ def rendre_texte_simulation(
         f"({nombre_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
     if simulation.pas_plafonnes:
-        lignes.append(
-            f"  {simulation.pas_plafonnes} pas de 100 m plafonnés à 60 km/h en descente"
-        )
+        lignes.append(f"  {simulation.pas_plafonnes} pas de 100 m plafonnés à 60 km/h en descente")
     if simulation.pas_bloques:
         lignes.append(
             f"  {simulation.pas_bloques} pas où la vitesse calculée est sous 0,5 m/s "
             "(temps plancher, pas une mesure)"
         )
-    lignes.append(
-        "Les arrêts ne sont pas modélisés : feux, stops et ravitaillements s'ajoutent à ce temps."
-    )
+    lignes.append("Les arrêts ne sont pas modélisés : feux, stops et ravitaillements s'ajoutent à ce temps.")
     if pauses:
         total = sum(p.duree_s for p in pauses)
         lignes.append(
@@ -638,9 +620,7 @@ def rendre_json_simulation(
         "arrets_modelises": False,
         # Les pauses telles que déclarées (`--pause`), et l'heure d'arrivée
         # qui en tient compte — `null` sans `--heure-depart` (rien à dater).
-        "pauses": [
-            {"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in pauses
-        ],
+        "pauses": [{"km": round(p.dist_m / 1000.0, 3), "duree_s": round(p.duree_s)} for p in pauses],
         "heure_arrivee": arrivee.isoformat() if arrivee is not None else None,
     }
 
@@ -657,5 +637,3 @@ def _pourcent(valeur: float | None, *, signe: bool = False) -> str:
         return "—"
     texte = f"{valeur * 100:{'+' if signe else ''}.1f}"
     return texte.replace(".", ",") + " %"
-
-

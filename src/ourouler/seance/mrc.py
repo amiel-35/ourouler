@@ -71,8 +71,7 @@ def lire_mrc(
     points = _points(texte)
     if len(points) < 2:
         raise ErreurLecture(
-            f"{fichier or '<octets>'} : moins de deux points de données exploitables, "
-            "aucune étape à en tirer"
+            f"{fichier or '<octets>'} : moins de deux points de données exploitables, aucune étape à en tirer"
         )
 
     etapes = _segments(points, unite=unite, ftp_w=ftp_w)
@@ -88,14 +87,10 @@ def lire_mrc(
     meta: dict = {"source": "mrc", "unite": unite, "ftp_w": ftp_w}
     if unite == "percent":
         if ftp_w is not None:
-            meta["conversion"] = (
-                f"pourcentages de FTP convertis en watts avec une FTP de {ftp_w:g} W"
-            )
+            meta["conversion"] = f"pourcentages de FTP convertis en watts avec une FTP de {ftp_w:g} W"
         else:
             sans_ftp = sum(1 for e in etapes if e.puissance_cible_w is None)
-            meta["conversion"] = (
-                "FTP inconnue : aucun pourcentage de FTP n'a pu être converti en watts"
-            )
+            meta["conversion"] = "FTP inconnue : aucun pourcentage de FTP n'a pu être converti en watts"
             if sans_ftp:
                 meta["etapes_sans_ftp"] = sans_ftp
     if description:

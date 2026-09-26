@@ -262,9 +262,7 @@ def test_a_ecart_egal_la_plus_longue_l_emporte():
 def test_l_essai_plus_long_ne_se_declenche_pas_sans_budget_disponible():
     """Le biais ne dépense jamais plus que ce qu'`appels_max` autorise déjà."""
     client, appels = moteur(lambda rayon: rayon * 4.8)  # −4 %, dans la tolérance, sous la cible
-    trouvees = generer(
-        client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10, appels_max=1
-    )
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=1, tolerance=0.10, appels_max=1)
     assert len(appels) == 1  # le plafond d'appels prime sur l'essai « plus long »
     assert trouvees[0].ecart_relatif == pytest.approx(-0.04, abs=1e-9)
 
@@ -292,9 +290,7 @@ def test_les_candidates_sont_triees_par_ecart_absolu():
         return httpx.Response(200, json=charge)
 
     client = ClientBrouter(PARAMS, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
-    trouvees = generer(
-        client, DEPART, distance_km=60, azimut_deg=45, nb=3, tolerance=0.01, appels_max=99
-    )
+    trouvees = generer(client, DEPART, distance_km=60, azimut_deg=45, nb=3, tolerance=0.01, appels_max=99)
     ecarts = [abs(c.ecart_relatif) for c in trouvees]
     assert ecarts == sorted(ecarts)
     assert round(trouvees[0].azimut_deg) == 25

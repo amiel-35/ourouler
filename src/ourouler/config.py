@@ -335,20 +335,14 @@ def depuis_dict(d: dict[str, Any], *, requiert_profil: bool = True) -> Config:
 def _depart_depuis(depart: dict[str, Any], *, requiert_profil: bool) -> Depart:
     return Depart(
         nom=str(depart.get("nom", "Départ")),
-        latitude=_nombre(
-            depart, "latitude", "depart", -90, 90, requis=requiert_profil, defaut=0.0
-        ),
-        longitude=_nombre(
-            depart, "longitude", "depart", -180, 180, requis=requiert_profil, defaut=0.0
-        ),
+        latitude=_nombre(depart, "latitude", "depart", -90, 90, requis=requiert_profil, defaut=0.0),
+        longitude=_nombre(depart, "longitude", "depart", -180, 180, requis=requiert_profil, defaut=0.0),
     )
 
 
 def _cycliste_depuis(cycliste: dict[str, Any], *, requiert_profil: bool) -> Cycliste:
     return Cycliste(
-        masse_kg=_nombre(
-            cycliste, "masse_kg", "cycliste", 20, 300, requis=requiert_profil, defaut=0.0
-        ),
+        masse_kg=_nombre(cycliste, "masse_kg", "cycliste", 20, 300, requis=requiert_profil, defaut=0.0),
         ftp_w=_nombre_optionnel(cycliste, "ftp_w", "cycliste", 50, 1000),
         # Absents dans toute configuration écrite avant ce lot : une
         # chaîne vide, jamais un refus de chargement (voir la docstring
@@ -360,15 +354,11 @@ def _cycliste_depuis(cycliste: dict[str, Any], *, requiert_profil: bool) -> Cycl
 
 def _meteo_depuis(meteo: dict[str, Any]) -> ParametresMeteo:
     return ParametresMeteo(
-        directions=_entier(
-            meteo.get("directions", 8), "directions", "meteo", parmi=DIRECTIONS_ACCEPTEES
-        ),
+        directions=_entier(meteo.get("directions", 8), "directions", "meteo", parmi=DIRECTIONS_ACCEPTEES),
         distances_km=_distances(meteo.get("distances_km", (15, 25, 40))),
         modele=str(meteo.get("modele", ParametresMeteo.modele)),
         second_avis=str(meteo.get("second_avis", ParametresMeteo.second_avis)),
-        horizon_h=_entier(
-            meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H
-        ),
+        horizon_h=_entier(meteo.get("horizon_h", 6), "horizon_h", "meteo", mini=1, maxi=HORIZON_MAX_H),
         horizon_jours=_entier(
             meteo.get("horizon_jours", HORIZON_JOURS_DEFAUT),
             "horizon_jours",
@@ -404,9 +394,7 @@ def _boucle_depuis(boucle: dict[str, Any], sens: str) -> ParametresBoucle:
 
 def _calibration_depuis(calibration: dict[str, Any]) -> ParametresCalibration:
     return ParametresCalibration(
-        mots_groupe=_mots(
-            calibration.get("mots_groupe", ParametresCalibration().mots_groupe)
-        ),
+        mots_groupe=_mots(calibration.get("mots_groupe", ParametresCalibration().mots_groupe)),
         part_validation=_flottant(
             calibration.get("part_validation", 0.25),
             "part_validation",
@@ -487,9 +475,7 @@ def _seance_depuis(
 
 def _tenue_depuis(tenue_brut: dict[str, Any]) -> ParametresTenue:
     return ParametresTenue(
-        bornes_c=_bornes(
-            tenue_brut.get("bornes_c", (3.0, 9.0, 15.0, 22.0, 30.0)), "bornes_c", "tenue"
-        ),
+        bornes_c=_bornes(tenue_brut.get("bornes_c", (3.0, 9.0, 15.0, 22.0, 30.0)), "bornes_c", "tenue"),
         bornes_pluie_mmh=_bornes(
             tenue_brut.get("bornes_pluie_mmh", (0.2, 0.5, 1.0)), "bornes_pluie_mmh", "tenue"
         ),
@@ -505,7 +491,7 @@ def _mots(brut: Any) -> tuple[str, ...]:
     donnerait ('c', 'l', 'u', 'b') et écarterait presque toutes les sorties."""
     if isinstance(brut, str) or not isinstance(brut, (list, tuple)):
         raise ErreurConfig(
-            f"[calibration] mots_groupe : liste de mots attendue (ex. [\"club\"]), reçu {brut!r}"
+            f'[calibration] mots_groupe : liste de mots attendue (ex. ["club"]), reçu {brut!r}'
         )
     mots = tuple(str(m).strip().casefold() for m in brut if str(m).strip())
     return mots
@@ -552,9 +538,7 @@ def _zones_pct(brut: Any) -> tuple[tuple[float, float], ...]:
     for i, zone in enumerate(brut):
         numero = i + 1
         if isinstance(zone, str) or not isinstance(zone, (list, tuple)) or len(zone) != 2:
-            raise ErreurConfig(
-                f"[seance] zones : Z{numero} — paire [bas, haut] attendue, reçu {zone!r}"
-            )
+            raise ErreurConfig(f"[seance] zones : Z{numero} — paire [bas, haut] attendue, reçu {zone!r}")
         bas = _flottant(zone[0], f"zones Z{numero} (bas)", "seance", mini=0.0, maxi=5.0)
         haut = _flottant(zone[1], f"zones Z{numero} (haut)", "seance", mini=0.0, maxi=5.0)
         if haut <= bas:
@@ -727,9 +711,7 @@ def _nombre(
     return _flottant(s[cle], cle, section, mini=mini, maxi=maxi)
 
 
-def _nombre_optionnel(
-    s: dict[str, Any], cle: str, section: str, mini: float, maxi: float
-) -> float | None:
+def _nombre_optionnel(s: dict[str, Any], cle: str, section: str, mini: float, maxi: float) -> float | None:
     """Comme `_nombre`, mais une clé absente ou vide rend `None` plutôt que de refuser.
 
     Écrit pour `cycliste.ftp_w` (facultative,
@@ -890,9 +872,7 @@ def _velo(v: Any, i: int) -> Velo:
             else None
         ),
         crr=(
-            _flottant(v["crr"], "crr", section, mini=0.001, maxi=0.05)
-            if v.get("crr") is not None
-            else None
+            _flottant(v["crr"], "crr", section, mini=0.001, maxi=0.05) if v.get("crr") is not None else None
         ),
         intervals_gear=str(v.get("intervals_gear", "") or ""),
         intervals_gear_id=str(v.get("intervals_gear_id", "") or ""),

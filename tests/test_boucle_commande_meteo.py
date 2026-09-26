@@ -90,8 +90,7 @@ def moteur_meteo_hors_de_portee(pluie_du_repli: float = 2.0) -> tuple[ClientOpen
             blocs = [bloc_meteo_nul(float(a), float(o), n) for a, o in zip(lats, lons, strict=True)]
         else:
             blocs = [
-                bloc_meteo(float(a), float(o), n, pluie_du_repli)
-                for a, o in zip(lats, lons, strict=True)
+                bloc_meteo(float(a), float(o), n, pluie_du_repli) for a, o in zip(lats, lons, strict=True)
             ]
         return httpx.Response(200, json=blocs)
 
@@ -119,9 +118,7 @@ def bloc_meteo_nul(lat: float, lon: float, n: int) -> dict:
     }
 
 
-def test_le_repli_garde_la_meteo_quand_le_modele_principal_ne_couvre_pas(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_repli_garde_la_meteo_quand_le_modele_principal_ne_couvre_pas(tmp_path: Path, monkeypatch, capsys):
     """Le défaut Q19 lui-même : sans repli, les trois colonnes météo disparaissaient."""
     monkeypatch.chdir(tmp_path)
     meteo, demandes = moteur_meteo_hors_de_portee()
@@ -132,9 +129,7 @@ def test_le_repli_garde_la_meteo_quand_le_modele_principal_ne_couvre_pas(
         CONFIG_BRUTE["meteo"]["modele"],
         CONFIG_BRUTE["meteo"]["second_avis"],
     ], "le principal est demandé d'abord, puis le repli — jamais l'inverse"
-    titres = next(
-        ligne for ligne in capture.out.splitlines() if "n°" in ligne and "distance" in ligne
-    )
+    titres = next(ligne for ligne in capture.out.splitlines() if "n°" in ligne and "distance" in ligne)
     for colonne in ("pluie", "vent face", "ressenti min"):
         assert colonne in titres, "le repli rend la météo, donc les colonnes"
     assert "météo indisponible" not in capture.err
@@ -172,8 +167,15 @@ def _meteo_repli_partiel(bascule_dist_m: float | None) -> MeteoTrace:
     return MeteoTrace(
         echantillons=[
             Echantillon(
-                dist_m=0.0, t=datetime(2026, 9, 13, 9, 0), lat=0.0, lon=0.0, cap_deg=0.0,
-                pluie_mm=0.0, vent_kmh=None, vent_relatif=None, ressenti_c=None,
+                dist_m=0.0,
+                t=datetime(2026, 9, 13, 9, 0),
+                lat=0.0,
+                lon=0.0,
+                cap_deg=0.0,
+                pluie_mm=0.0,
+                vent_kmh=None,
+                vent_relatif=None,
+                ressenti_c=None,
             )
         ],
         pluie_cumulee_mm=0.0,
@@ -230,9 +232,7 @@ def test_sans_repli_l_entete_nomme_le_modele_qui_a_repondu(tmp_path: Path, monke
     assert "bascule" not in sortie
 
 
-def test_le_json_dit_quel_modele_a_repondu_et_si_c_est_un_repli(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_le_json_dit_quel_modele_a_repondu_et_si_c_est_un_repli(tmp_path: Path, monkeypatch, capsys):
     """Même forme que `sortie` : un écran lit le repli de la même façon sur les deux routes."""
     monkeypatch.chdir(tmp_path)
     meteo, _ = moteur_meteo_hors_de_portee()

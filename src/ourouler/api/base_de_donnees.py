@@ -92,8 +92,7 @@ def migrations_disponibles(dossier: Path | None = None) -> list[tuple[int, str, 
         prefixe = chemin.name.split("_", 1)[0]
         if not prefixe.isdigit():
             raise ErreurMigration(
-                f"{chemin.name} : une migration se nomme « NNNN_sujet.sql », "
-                "le numéro d'abord"
+                f"{chemin.name} : une migration se nomme « NNNN_sujet.sql », le numéro d'abord"
             )
         trouvees.append((int(prefixe), chemin.name, chemin))
     numeros = [numero for numero, _, _ in trouvees]
@@ -102,9 +101,7 @@ def migrations_disponibles(dossier: Path | None = None) -> list[tuple[int, str, 
     return sorted(trouvees)
 
 
-def appliquer_migrations(
-    connexion: psycopg.Connection, dossier: Path | None = None
-) -> list[str]:
+def appliquer_migrations(connexion: psycopg.Connection, dossier: Path | None = None) -> list[str]:
     """Applique ce qui manque et rend les noms des migrations appliquées cette fois.
 
     Relancer ne fait rien et ne casse rien : la liste rendue est alors vide.
@@ -130,17 +127,13 @@ def appliquer_migrations(
 
 def _migrer_deja_appliquees(connexion: psycopg.Connection) -> set[int]:
     """Les numéros déjà passés. Préfixe `_migrer` : voir `PREFIXE_EXEMPT` des invariants."""
-    lignes: Iterable[tuple[int]] = connexion.execute(
-        "SELECT numero FROM migrations"
-    ).fetchall()
+    lignes: Iterable[tuple[int]] = connexion.execute("SELECT numero FROM migrations").fetchall()
     return {numero for (numero,) in lignes}
 
 
 def _migrer_noter(connexion: psycopg.Connection, numero: int, nom: str) -> None:
     """Note qu'une migration est passée. Préfixe `_migrer` : voir les invariants."""
-    connexion.execute(
-        "INSERT INTO migrations (numero, nom) VALUES (%s, %s)", (numero, nom)
-    )
+    connexion.execute("INSERT INTO migrations (numero, nom) VALUES (%s, %s)", (numero, nom))
 
 
 __all__ = [

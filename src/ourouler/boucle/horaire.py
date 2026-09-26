@@ -41,9 +41,7 @@ class Pause:
     duree_s: float
 
 
-def construire_horaire(
-    depart: datetime, vitesse_kmh: float, pauses: Sequence[Pause] = ()
-) -> Horaire:
+def construire_horaire(depart: datetime, vitesse_kmh: float, pauses: Sequence[Pause] = ()) -> Horaire:
     """Construit l'horaire : `heure(km) = départ + km / vitesse + pauses avant km`.
 
     Une pause compte pour un échantillon si elle est **strictement avant**
@@ -121,9 +119,7 @@ def analyser_duree(texte: str) -> float:
     m = _RE_DUREE_HHMM.match(brut)
     if m:
         return float(int(m.group(1)) * 3600 + int(m.group(2)) * 60)
-    raise ErreurUtilisateur(
-        f"durée {texte!r} illisible : attendu 4h30, 45min ou 1:30 (heures:minutes)"
-    )
+    raise ErreurUtilisateur(f"durée {texte!r} illisible : attendu 4h30, 45min ou 1:30 (heures:minutes)")
 
 
 def analyser_pause(texte: str) -> Pause:
@@ -140,21 +136,15 @@ def analyser_pause(texte: str) -> Pause:
     """
     brut = (texte or "").strip()
     if ":" not in brut:
-        raise ErreurUtilisateur(
-            f"--pause {texte!r} : forme attendue KM:DUREE, par exemple 180:0h45"
-        )
+        raise ErreurUtilisateur(f"--pause {texte!r} : forme attendue KM:DUREE, par exemple 180:0h45")
     km_texte, duree_texte = brut.split(":", 1)
     km_texte = km_texte.strip()
     try:
         km = float(km_texte.replace(",", "."))
     except ValueError as e:
-        raise ErreurUtilisateur(
-            f"--pause {texte!r} : kilomètre {km_texte!r} illisible"
-        ) from e
+        raise ErreurUtilisateur(f"--pause {texte!r} : kilomètre {km_texte!r} illisible") from e
     if not math.isfinite(km) or km < 0:
-        raise ErreurUtilisateur(
-            f"--pause {texte!r} : kilomètre {km_texte!r} négatif ou invalide"
-        )
+        raise ErreurUtilisateur(f"--pause {texte!r} : kilomètre {km_texte!r} négatif ou invalide")
     duree_s = analyser_duree(duree_texte)
     if duree_s <= 0:
         raise ErreurUtilisateur(f"--pause {texte!r} : durée nulle ou négative")
@@ -174,17 +164,14 @@ def valider_pauses(pauses: Sequence[Pause], distance_m: float | None = None) -> 
     for p in pauses:
         cle = round(p.dist_m, 3)
         if cle in vus:
-            raise ErreurUtilisateur(
-                f"--pause : deux pauses au même kilomètre ({p.dist_m / 1000.0:g} km)"
-            )
+            raise ErreurUtilisateur(f"--pause : deux pauses au même kilomètre ({p.dist_m / 1000.0:g} km)")
         vus[cle] = p
     if distance_m is None:
         return
     for p in pauses:
         if p.dist_m > distance_m:
             raise ErreurUtilisateur(
-                f"--pause à {p.dist_m / 1000.0:g} km : au-delà des "
-                f"{distance_m / 1000.0:g} km du parcours"
+                f"--pause à {p.dist_m / 1000.0:g} km : au-delà des {distance_m / 1000.0:g} km du parcours"
             )
 
 

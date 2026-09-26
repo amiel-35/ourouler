@@ -79,9 +79,7 @@ def test_brouter_non_renseigne_est_refuse_avant_tout_appel(tmp_path: Path, monke
 
 def test_un_dossier_de_sortie_inexistant_est_refuse(tmp_path: Path):
     with pytest.raises(ErreurUtilisateur, match="n'existe pas"):
-        lire_options(
-            args(sortie=str(tmp_path / "absent" / "s.gpx")), config_de_test(tmp_path / "cache")
-        )
+        lire_options(args(sortie=str(tmp_path / "absent" / "s.gpx")), config_de_test(tmp_path / "cache"))
 
 
 def test_un_fichier_existant_n_est_pas_ecrase_sans_ecraser(tmp_path: Path):
@@ -90,9 +88,10 @@ def test_un_fichier_existant_n_est_pas_ecrase_sans_ecraser(tmp_path: Path):
     with pytest.raises(ErreurUtilisateur, match="existe déjà"):
         lire_options(args(sortie=str(cible)), config_de_test(tmp_path / "cache"))
     # Avec --ecraser, la même demande passe.
-    assert lire_options(
-        args(sortie=str(cible), ecraser=True), config_de_test(tmp_path / "cache")
-    ).sortie == cible
+    assert (
+        lire_options(args(sortie=str(cible), ecraser=True), config_de_test(tmp_path / "cache")).sortie
+        == cible
+    )
 
 
 def test_les_erreurs_sortent_en_code_2_par_la_cli(tmp_path: Path, capsys):
@@ -146,9 +145,7 @@ def test_sans_seance_le_json_le_dit(tmp_path: Path, monkeypatch, capsys):
 def test_sans_seance_et_carte_sans_seance_ecrit_une_page(tmp_path: Path, monkeypatch, capsys):
     """Contrat de l'hébergé minimal, périmètre point 4 : le service planifié
     doit produire une page, jamais rien ni une erreur, un jour sans séance."""
-    code = lancer(
-        tmp_path, monkeypatch, intervals=client_intervals([]), carte_sans_seance=True
-    )
+    code = lancer(tmp_path, monkeypatch, intervals=client_intervals([]), carte_sans_seance=True)
     sortie = capsys.readouterr().out
     assert code == 0
     pages = list((tmp_path / "cache" / "sorties").glob("*.html"))
@@ -208,9 +205,7 @@ def refus_intervals() -> ClientIntervals:
     def gestionnaire(requete: httpx.Request) -> httpx.Response:
         raise AssertionError("Intervals.icu appelé alors qu'un fichier de séance était donné")
 
-    return ClientIntervals(
-        ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire))
-    )
+    return ClientIntervals(ATHLETE, CLE, http=httpx.Client(transport=httpx.MockTransport(gestionnaire)))
 
 
 def test_lire_options_porte_le_fichier_de_la_demande(tmp_path: Path):
@@ -275,9 +270,7 @@ def test_fichier_seance_bout_en_bout_remplace_intervals(tmp_path: Path, monkeypa
 # --- Q40 (a) : une date lointaine est servie, sans météo -----------------------
 
 
-def test_une_date_lointaine_est_servie_sans_appeler_open_meteo(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_une_date_lointaine_est_servie_sans_appeler_open_meteo(tmp_path: Path, monkeypatch, capsys):
     """Q40 (a) : « si on demande trop loin, ben pas de météo » — et direct.
 
     Le client météo interdit fait échouer le test au premier appel : demander
@@ -299,23 +292,19 @@ def test_une_date_lointaine_est_servie_sans_appeler_open_meteo(
     assert charge["candidates"], "la boucle reste là : c'est la météo qui disparaît"
     absente = charge["meteo_absente"]
     assert absente["jour"] == lointain.isoformat()
-    assert absente["dernier_jour_couvert"] == (
-        date.today() + timedelta(days=HORIZON_JOURS_DEFAUT)
-    ).isoformat()
+    assert (
+        absente["dernier_jour_couvert"] == (date.today() + timedelta(days=HORIZON_JOURS_DEFAUT)).isoformat()
+    )
     assert "pas de météo" in absente["message"]
     assert "s'arrêtent" in absente["message"], "le message dit jusqu'où vont les prévisions"
     assert "pas de météo" in lu.err
 
 
-def test_une_date_lointaine_ne_promet_ni_pluie_ni_vent_ni_tenue(
-    tmp_path: Path, monkeypatch, capsys
-):
+def test_une_date_lointaine_ne_promet_ni_pluie_ni_vent_ni_tenue(tmp_path: Path, monkeypatch, capsys):
     """E14 · dégradé : ce qui disparaît sont les affirmations qu'on ne soutient plus."""
     _, meteo_interdite, _ = clients_interdits()
     lointain = date.today() + timedelta(days=HORIZON_JOURS_DEFAUT + 30)
-    lancer(
-        tmp_path, monkeypatch, meteo=meteo_interdite, jour=lointain.isoformat(), json=True
-    )
+    lancer(tmp_path, monkeypatch, meteo=meteo_interdite, jour=lointain.isoformat(), json=True)
     charge = json.loads(capsys.readouterr().out)
     assert charge["tenue"] is None
     assert charge["modele_meteo"] is None

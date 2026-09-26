@@ -134,6 +134,7 @@ LISTES_MODIFIABLES = ("velos", "evitements")
 #: `config.HISTORIQUE_DEPUIS_DEFAUT` ne s'applique qu'à qui n'a rien réglé).
 CHAMPS_RACINE_MODIFIABLES = ("historique_depuis",)
 
+
 def schema_des_modifications() -> dict:
     """Ce que `PATCH /profil` accepte, en schéma publiable.
 
@@ -358,8 +359,7 @@ class SocleVide:
             # disant seulement d'où elle vient, parce qu'aucun fichier n'est
             # en cause ici non plus.
             raise ErreurProfilAbsent(
-                f"le profil de cette application est incomplet : {e} — "
-                f"{PHRASE_COMPLETER_PROFIL}"
+                f"le profil de cette application est incomplet : {e} — {PHRASE_COMPLETER_PROFIL}"
             ) from e
 
     def config_ou_comblee(self, surcharge: dict) -> Config:
@@ -620,9 +620,7 @@ class DepotFichiers:
         contrôlée — c'est ce que la doctrine appelle « vérifiée côté serveur ».
         """
         if fichier.chemin.parent != self.dossier(proprietaire):
-            raise ErreurUtilisateur(
-                f"fichier {fichier.identifiant} : n'appartient pas à ce propriétaire"
-            )
+            raise ErreurUtilisateur(f"fichier {fichier.identifiant} : n'appartient pas à ce propriétaire")
         _ecrire_nom(fichier)
         return fichier
 
@@ -724,10 +722,7 @@ class DepotGenerations:
 
     def retenir(self, proprietaire: Proprietaire, propositions: Iterable[object]) -> str:
         """Range les GPX d'une génération et rend son identifiant opaque."""
-        par_numero = {
-            int(p.numero): (str(p.nom_fichier), str(p.texte))
-            for p in propositions
-        }
+        par_numero = {int(p.numero): (str(p.nom_fichier), str(p.texte)) for p in propositions}
         identifiant = uuid.uuid4().hex
         self._generations[(proprietaire.identifiant, identifiant)] = par_numero
         while len(self._generations) > self._taille:
@@ -913,8 +908,7 @@ class JournalServices:
             return {}
         return charge if isinstance(charge, dict) else {}
 
-    def noter_succes(self, proprietaire: Proprietaire, *services: str, quand: datetime | None = None
-                     ) -> None:
+    def noter_succes(self, proprietaire: Proprietaire, *services: str, quand: datetime | None = None) -> None:
         """Retient que ces services ont répondu, maintenant."""
         if not services:
             return

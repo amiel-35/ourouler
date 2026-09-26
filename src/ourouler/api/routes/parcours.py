@@ -116,8 +116,7 @@ async def deposer_parcours(
     if len(trace.points) < 2 or trace.distance_m <= 0:
         raise ErreurApi(
             code="fichier_illisible",
-            message=f"{nom} : un seul point, ou des points tous au même endroit — "
-            "il n'y a rien à parcourir",
+            message=f"{nom} : un seul point, ou des points tous au même endroit — il n'y a rien à parcourir",
             statut=422,
         )
     if trace.distance_m > DISTANCE_MAX_ANALYSE_M:
