@@ -24,6 +24,7 @@ T0 = datetime(2026, 9, 16, 8, 0, tzinfo=UTC)
 
 
 def echantillon(
+    *,
     dist_m: float = 0.0,
     vent_kmh: float | None = 20.0,
     vent_depuis_deg: float | None = 90.0,

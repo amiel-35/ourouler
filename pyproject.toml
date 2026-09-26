@@ -72,12 +72,8 @@ max-positional-args = 6
 "src/ourouler/api/limite_corps.py" = ["C901"]
 # exception datée : 2 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/api/routes/meteo.py" = ["PLR0917"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/adversarial/test_adv_invariants.py" = ["C901"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+# exception permanente : scénario de bout en bout (semer, prouver, effacer, vérifier) lu dans l'ordre
 "tests/comptes/test_vie_privee_comptes.py" = ["PLR0915"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/test_sortie_carte.py" = ["PLR0917"]
 # exception permanente : script de mesure hors produit, sa fonction principale se lit d'une traite
 "scripts/validation/arrets_bloc_recup.py" = ["C901", "PLR0915"]
 # exception permanente : script de mesure hors produit, sa fonction principale se lit d'une traite

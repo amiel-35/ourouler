@@ -95,6 +95,46 @@ def test_src_existe():
     assert _fichiers_python(SRC), "aucun module Python sous src/ourouler"
 
 
+def _imports_interdits(arbre: ast.AST, racines_interdites: set[str]) -> list[tuple[int, str]]:
+    """`import os`, `from pathlib import …` : les modules qui touchent la machine."""
+    fautes: list[tuple[int, str]] = []
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Import):
+            for alias in noeud.names:
+                if alias.name.split(".")[0] in racines_interdites:
+                    fautes.append((noeud.lineno, f"import {alias.name}"))
+        elif isinstance(noeud, ast.ImportFrom):
+            if (noeud.module or "").split(".")[0] in racines_interdites:
+                fautes.append((noeud.lineno, f"from {noeud.module} import …"))
+    return fautes
+
+
+def _attributs_interdits(arbre: ast.AST) -> list[tuple[int, str]]:
+    """`environ`, `expanduser`… importés, lus comme attribut ou comme nom."""
+    fautes: list[tuple[int, str]] = []
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.ImportFrom):
+            for alias in noeud.names:
+                if alias.name in ATTRIBUTS_INTERDITS:
+                    fautes.append((noeud.lineno, f"from … import {alias.name}"))
+        elif isinstance(noeud, ast.Attribute) and noeud.attr in ATTRIBUTS_INTERDITS:
+            fautes.append((noeud.lineno, f".{noeud.attr}"))
+        elif isinstance(noeud, ast.Name) and noeud.id in ATTRIBUTS_INTERDITS:
+            fautes.append((noeud.lineno, noeud.id))
+    return fautes
+
+
+def _acces_machine(chemin: Path, *, autorise: bool) -> list[str]:
+    """Les imports et attributs d'un module qui touchent la machine hôte."""
+    interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
+    arbre = _arbre(chemin)
+    fautes = _imports_interdits(arbre, {m.split(".")[0] for m in interdits})
+    if not autorise:
+        fautes += _attributs_interdits(arbre)
+    relatif = chemin.relative_to(RACINE)
+    return [f"{relatif}:{ligne} {quoi}" for ligne, quoi in fautes]
+
+
 def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     fautes: list[str] = []
     for chemin in _fichiers_python(SRC):
@@ -102,27 +142,7 @@ def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
             chemin.name in FICHIERS_AUTORISES
             or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
         )
-        interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
-        relatif = chemin.relative_to(RACINE)
-        for noeud in ast.walk(_arbre(chemin)):
-            if isinstance(noeud, ast.Import):
-                for alias in noeud.names:
-                    if alias.name.split(".")[0] in {m.split(".")[0] for m in interdits}:
-                        fautes.append(f"{relatif}:{noeud.lineno} import {alias.name}")
-            elif isinstance(noeud, ast.ImportFrom):
-                racine_module = (noeud.module or "").split(".")[0]
-                if racine_module in {m.split(".")[0] for m in interdits}:
-                    fautes.append(f"{relatif}:{noeud.lineno} from {noeud.module} import …")
-                if not autorise:
-                    for alias in noeud.names:
-                        if alias.name in ATTRIBUTS_INTERDITS:
-                            fautes.append(f"{relatif}:{noeud.lineno} from … import {alias.name}")
-            elif not autorise and isinstance(noeud, ast.Attribute):
-                if noeud.attr in ATTRIBUTS_INTERDITS:
-                    fautes.append(f"{relatif}:{noeud.lineno} .{noeud.attr}")
-            elif not autorise and isinstance(noeud, ast.Name):
-                if noeud.id in ATTRIBUTS_INTERDITS:
-                    fautes.append(f"{relatif}:{noeud.lineno} {noeud.id}")
+        fautes += _acces_machine(chemin, autorise=autorise)
     assert not fautes, (
         "seuls cli.py et config.py peuvent toucher la machine hôte "
         "(CLAUDE.md règle 2, contrat §0) :\n  " + "\n  ".join(sorted(set(fautes)))
