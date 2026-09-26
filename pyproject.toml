@@ -67,8 +67,6 @@ max-positional-args = 6
 
 [tool.ruff.lint.per-file-ignores]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"src/ourouler/activites/import_archive.py" = ["C901", "PLR0915"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/activites/inventaire.py" = ["C901"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/activites/lecture.py" = ["C901"]

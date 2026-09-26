@@ -293,63 +293,66 @@ def _traiter_zip(etat: _Etat, source: BinaryIO, prefixe: str, profondeur: int, n
                     f"plus de {NOMBRE_MAX_FICHIERS} fichiers rencontrés, le reste est ignoré",
                 )
                 return
-            nom_interne = f"{prefixe}{info.filename}"
+            if _traiter_entree(etat, zf, info, prefixe, profondeur):
+                return
 
-            if not _chemin_sur(info.filename) or _est_lien_symbolique(info):
-                etat.rapport.ignorees.append(
-                    Ignoree(nom=nom_interne, motif="chemin refusé (absolu, « .. » ou lien symbolique)")
-                )
-                etat.avancer()
-                continue
 
-            est_zip_imbrique = info.filename.lower().endswith(".zip")
-            extension = _extension_utile(info.filename)
-            if extension is None and not est_zip_imbrique:
-                # Média, `.csv`, `.json`… hors liste (contacts, messages — jamais lus,
-                # règle absolue 1). Compté et motivé, jamais décompressé.
-                etat.rapport.ignorees.append(
-                    Ignoree(
-                        nom=nom_interne,
-                        motif="extension non prise en charge — média, .csv, .json… hors liste",
-                    )
-                )
-                etat.avancer()
-                continue
+def _traiter_entree(
+    etat: _Etat, zf: zipfile.ZipFile, info: zipfile.ZipInfo, prefixe: str, profondeur: int
+) -> bool:
+    """Traite une entrée de l'archive ; `True` si la lecture de l'archive doit s'arrêter."""
+    nom_interne = f"{prefixe}{info.filename}"
 
-            motif = _motif_hostile(info, TAILLE_MAX_FICHIER if est_zip_imbrique else TAILLE_MAX_ACTIVITE)
-            if motif:
-                etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=motif))
-                etat.avancer()
-                continue
+    if not _chemin_sur(info.filename) or _est_lien_symbolique(info):
+        etat.rapport.ignorees.append(
+            Ignoree(nom=nom_interne, motif="chemin refusé (absolu, « .. » ou lien symbolique)")
+        )
+        etat.avancer()
+        return False
 
-            if est_zip_imbrique:
-                tampon = _lire_entree(etat, zf, info, nom_interne, TAILLE_MAX_FICHIER)
-                if tampon is None:
-                    etat.avancer()
-                    if etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE:
-                        return
-                    continue
-                _traiter_zip(etat, tampon, f"{nom_interne}:", profondeur + 1, nom_interne)
-                etat.avancer()
-                continue
+    est_zip_imbrique = info.filename.lower().endswith(".zip")
+    extension = _extension_utile(info.filename)
+    if extension is None and not est_zip_imbrique:
+        # Média, `.csv`, `.json`… hors liste (contacts, messages — jamais lus,
+        # règle absolue 1). Compté et motivé, jamais décompressé.
+        etat.rapport.ignorees.append(
+            Ignoree(
+                nom=nom_interne,
+                motif="extension non prise en charge — média, .csv, .json… hors liste",
+            )
+        )
+        etat.avancer()
+        return False
 
-            try:
-                entree = zf.open(info)
-            except Exception as e:  # noqa: BLE001 — chiffrée, méthode inconnue, en-tête faux
-                etat.rapport.ignorees.append(
-                    Ignoree(nom=nom_interne, motif=f"fichier corrompu ({_cause(e)})")
-                )
-                etat.avancer()
-                continue
-            with entree:
-                donnees = _lire_activite(etat, nom_interne, entree)
-            if donnees is None:
-                etat.avancer()
-                if etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE:
-                    return
-                continue
-            _importer_contenu(etat, nom_interne, donnees, extension)
+    motif = _motif_hostile(info, TAILLE_MAX_FICHIER if est_zip_imbrique else TAILLE_MAX_ACTIVITE)
+    if motif:
+        etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=motif))
+        etat.avancer()
+        return False
+
+    if est_zip_imbrique:
+        tampon = _lire_entree(etat, zf, info, nom_interne, TAILLE_MAX_FICHIER)
+        if tampon is None:
             etat.avancer()
+            return etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE
+        _traiter_zip(etat, tampon, f"{nom_interne}:", profondeur + 1, nom_interne)
+        etat.avancer()
+        return False
+
+    try:
+        entree = zf.open(info)
+    except Exception as e:  # noqa: BLE001 — chiffrée, méthode inconnue, en-tête faux
+        etat.rapport.ignorees.append(Ignoree(nom=nom_interne, motif=f"fichier corrompu ({_cause(e)})"))
+        etat.avancer()
+        return False
+    with entree:
+        donnees = _lire_activite(etat, nom_interne, entree)
+    if donnees is None:
+        etat.avancer()
+        return etat.octets_decompresses >= TAILLE_MAX_DECOMPRESSEE
+    _importer_contenu(etat, nom_interne, donnees, extension)
+    etat.avancer()
+    return False
 
 
 def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> None:
