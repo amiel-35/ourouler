@@ -13,7 +13,7 @@
  * Les noms de classe sont ceux qu'utilisaient déjà les onze écrans sous
  * `front/src/ecrans/` et les composants sous `front/src/composants/` — ce
  * lot est une substitution de feuille de style, pas une réécriture des
- * `.tsx` (voir `docs/ux/inventaire_systeme_visuel.md` pour le contrat des
+ * `.tsx` (voir `docs/journal/ux/inventaire_systeme_visuel.md` pour le contrat des
  * 98 classes couvertes). Les seules retouches `.tsx` de ce lot renomment un
  * jeton lu en ligne (`style={{ ... "var(--sp-3)" }}` → `"var(--espace-champ)"`,
  * etc.) ou remplacent une couleur hexadécimale par une classe CSS

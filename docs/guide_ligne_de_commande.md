@@ -368,7 +368,7 @@ uv run ourouler api --port 8000     # puis http://127.0.0.1:8000/docs
 ```
 
 Les routes, la forme des réponses, les codes d'erreur, l'isolation par
-propriétaire sont décrits dans `docs/ux/api_contrat.md`. En mode hébergé,
+propriétaire sont décrits dans `docs/journal/ux/api_contrat.md`. En mode hébergé,
 chaque compte a des quotas journaliers (générations, consultations météo,
 calibrations, imports) ; un quota atteint rend un refus lisible.
 FastAPI et son serveur sont un extra : la ligne de commande s'installe et
@@ -508,7 +508,7 @@ Ce qu'il faut savoir avant de lire un chiffre.
 - `docs/geocodage.md` et `docs/meteo_vent.md` — deux sujets techniques
   détaillés.
 - `docs/inviter.md` — inviter quelqu'un sur le service hébergé.
-- `docs/ux/api_contrat.md` — le contrat de l'API.
+- `docs/journal/ux/api_contrat.md` — le contrat de l'API.
 - `front/README.md` — la construction de l'interface web et ses règles.
 - `deploiement/README.md` et `deploiement/api/README.md` — les deux
   paquetages de déploiement.

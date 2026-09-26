@@ -5,7 +5,7 @@
  * l'application dès qu'une route de données répond 401 `session_absente` —
  * la session a expiré ou n'a jamais existé, et ce serveur ne peut montrer
  * les données de personne tant qu'il ne sait pas qui parle
- * (`docs/ux/api_contrat.md`, « La session, et les deux produits »). Les deux
+ * (`docs/journal/ux/api_contrat.md`, « La session, et les deux produits »). Les deux
  * cas passent `surConnecte`, qui diffère selon d'où l'écran est montré : une
  * navigation complète depuis `/connexion`, une reprise en place depuis
  * l'application.

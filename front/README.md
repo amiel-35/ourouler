@@ -5,7 +5,7 @@ L'interface que le cycliste utilise. Elle **ne parle qu'à l'API**
 
 Les écrans viennent de `docs/journal/ux/maquettes_v1.html`, les arbitrages de
 `docs/journal/ux/cycle_ux_contrat.md`, le contrat des réponses de
-`docs/ux/api_contrat.md`.
+`docs/journal/ux/api_contrat.md`.
 
 ## Lancer
 
@@ -37,7 +37,7 @@ configuration. `creer_application` est la fabrique de bibliothèque : elle ne
 lit rien, et une application construite ainsi répond `profil_absent` (503) sur
 toutes les routes de données tant que personne ne lui a donné de profil. Un
 serveur qui démarre normalement et refuse tout est presque toujours ce
-cas-là ; le détail est dans `docs/ux/api_contrat.md`, « Les deux fabriques ».
+cas-là ; le détail est dans `docs/journal/ux/api_contrat.md`, « Les deux fabriques ».
 
 ```sh
 npm run verifier       # types + tests

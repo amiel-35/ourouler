@@ -7,7 +7,7 @@
  *
  * Le choix de l'écran se fait sur le **code** de la panne, jamais sur son
  * message : le message vient du cœur et peut être reformulé, le code est une
- * valeur du contrat (`docs/ux/api_contrat.md`).
+ * valeur du contrat (`docs/journal/ux/api_contrat.md`).
  *
  * Le cadre et les replis sont dans `echec/Cadre.tsx`, les titres du
  * générique dans `echec/titres.ts`, le bandeau « pas de météo » dans

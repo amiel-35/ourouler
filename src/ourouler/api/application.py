@@ -156,7 +156,7 @@ L'API d'ourouler. Elle expose ce que la ligne de commande rend déjà en JSON
 
 Les routes qui calculent rendent `{{donnees, avertissements, duree_ms,
 budget}}` ; les pannes rendent `{{erreur: {{code, message, service, details}}}}`.
-Le contrat complet est dans `docs/ux/api_contrat.md`.
+Le contrat complet est dans `docs/journal/ux/api_contrat.md`.
 
 ## Les états d'échec, et le code qui les nomme
 

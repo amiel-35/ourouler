@@ -2178,7 +2178,7 @@ encore se pose donc avec plus de force, pas moins.
 
 **(a), (b) et (g) sont appliquées** (17/09/2026). Ce qui a été livré, et ce
 qui reste à trancher, est noté sous chaque réponse ci-dessous ; le contrat
-correspondant est dans `docs/ux/api_contrat.md`. (c), (d) et (e) restent
+correspondant est dans `docs/journal/ux/api_contrat.md`. (c), (d) et (e) restent
 ouvertes ; (f) attend la mesure de densité par tranche.
 
 ### (a) et (b) — aucune limite de date, et la météo se tait d'elle-même
@@ -4807,7 +4807,7 @@ dernière), et le traitement des deux tranches ouvertes (« moins de X »,
 
 ## Q60 (énoncé d'origine) — Les bornes des tranches de vitesse de la question « rien du tout » — **posée le 19/09/2026**
 
-Posée en écrivant `docs/ux/parcours_accueil.md`, l'arbre du parcours
+Posée en écrivant `docs/journal/ux/parcours_accueil.md`, l'arbre du parcours
 d'accueil. Le dernier étage de l'entonnoir avant le filet générique (T5)
 pose la question validée par [[Q52]] — « sur tes sorties solo, à plat,
 sans vent et sans forcer, tu es à peu près à quelle moyenne ? » — sous
@@ -4859,7 +4859,7 @@ propre lien.
 
 Rien dans [[Q48]] n'envisage ce cas. Si un cycliste ne colle que le
 premier lien reçu, l'import serait partiel sans que rien ne le signale —
-ni à lui, ni à nous. `docs/ux/parcours_accueil.md` §4 pose la question
+ni à lui, ni à nous. `docs/journal/ux/parcours_accueil.md` §4 pose la question
 sans la trancher : l'écran de dépôt du lien (AC6-2b) doit-il accepter
 plusieurs liens à la suite, avertir explicitement qu'un seul a été traité,
 ou autre chose ?
@@ -4925,7 +4925,7 @@ attendu est faible. **À relancer si quelqu'un veut trancher pour de bon.**
 ### La conséquence pour l'arbre d'accueil
 
 L'étage cardiaque est placé **au-dessus** de la question de vitesse dans
-`docs/ux/parcours_accueil.md`, donc présenté comme plus précis qu'elle.
+`docs/journal/ux/parcours_accueil.md`, donc présenté comme plus précis qu'elle.
 Rien ne le soutient : la seule mesure disponible donne 11,5 W pour la méthode
 cardiaque contre un facteur de vitesse dont Q51 a mesuré qu'il fait aussi bien
 sans poser de question sur le cœur. Deux suites possibles, à trancher :
@@ -4938,7 +4938,7 @@ sans poser de question sur le cœur. Deux suites possibles, à trancher :
 Et l'arbitrage sur l'âge ([[Q39]], rouvert par l'arbre) dépend de ce choix :
 si l'étage descend ou disparaît, la question de l'âge disparaît avec lui.
 
-**Tranché le 19/09/2026, en écrivant `docs/ux/parcours_accueil.md` (révision) :**
+**Tranché le 19/09/2026, en écrivant `docs/journal/ux/parcours_accueil.md` (révision) :**
 option 1, sortie complète de l'entonnoir plutôt que simple descente sous la
 question de vitesse. Aucune mesure ne soutient une place précise « juste en
 dessous » non plus — la garder dans l'entonnoir à quelque rang que ce soit
@@ -5025,7 +5025,7 @@ pas sa conclusion (voir [[Q63]]), ça précise sa portée.
 
 ## Q65 — Le chiffre de FTP par défaut du filet de littérature (T5) — **ouverte le 19/09/2026**
 
-Posée en écrivant la révision de `docs/ux/parcours_accueil.md`. Le dernier
+Posée en écrivant la révision de `docs/journal/ux/parcours_accueil.md`. Le dernier
 étage de l'entonnoir (T5, « littérature seule ») doit rendre un chiffre de
 FTP plausible à partir du seul poids du cycliste et du type de vélo, pour ne
 jamais échouer. `physique/litterature.py` n'a, à ce jour, que des valeurs

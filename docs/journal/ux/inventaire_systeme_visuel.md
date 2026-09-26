@@ -25,7 +25,7 @@ confirme qu'aucune des deux n'est `marque`, voir plus bas).
 
 Chaque classe utilisée par `front/src/ecrans/` ou `front/src/composants/`
 trouve son équivalent, **sous le même nom**, dans
-`front/directions/composants-systeme.css` — c'est un choix délibéré : le
+`docs/journal/ux/directions/composants-systeme.css` — c'est un choix délibéré : le
 fichier reprend la structure section par section de `front/src/style.css`
 (mêmes commentaires `/* ---------- x ---------- */`), pour qu'une
 comparaison ligne à ligne soit directe et pour qu'une éventuelle application

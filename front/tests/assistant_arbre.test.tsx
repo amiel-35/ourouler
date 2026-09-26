@@ -1,4 +1,4 @@
-/** L'arbre de l'accueil (`docs/ux/parcours_accueil.md`) : T1 à T5, et les
+/** L'arbre de l'accueil (`docs/journal/ux/parcours_accueil.md`) : T1 à T5, et les
  * quatre chemins qui comptent.
  *
  * Ce que ces tests protègent :

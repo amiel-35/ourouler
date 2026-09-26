@@ -52,7 +52,7 @@ class Depart:
 class Cycliste:
     masse_kg: float
     #: La puissance seuil, en watts. **Facultative depuis le 19/09/2026**
-    #: (`docs/ux/parcours_accueil.md`) : ce que quelqu'un donne à l'accueil —
+    #: (`docs/journal/ux/parcours_accueil.md`) : ce que quelqu'un donne à l'accueil —
     #: « je roule à 25 de moyenne » — est sa puissance d'**endurance**, pas
     #: son seuil, et rien n'oblige plus à en connaître un pour avoir un
     #: profil qui tourne. `None` veut dire « pas encore établie » : les zones

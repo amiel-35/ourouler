@@ -1,6 +1,6 @@
 """L'accueil : `assistant_recommande`, la lecture du profil Intervals, la FTP par vitesse+terrain.
 
-Trois pièces neuves du 19/09/2026 (`docs/ux/parcours_accueil.md`) :
+Trois pièces neuves du 19/09/2026 (`docs/journal/ux/parcours_accueil.md`) :
 
 - `GET /profil` porte `donnees.assistant_recommande`, le signal qui doit
   faire atterrir un compte neuf dans l'assistant plutôt que sur l'écran du
@@ -232,7 +232,7 @@ def test_apercu_ftp_depuis_terrain_ne_stocke_rien():
 
 
 def test_apercu_ftp_terrain_plus_raide_demande_plus_de_puissance():
-    """Le levier du §6 de `docs/ux/parcours_accueil.md` : à vitesse compteur
+    """Le levier du §6 de `docs/journal/ux/parcours_accueil.md` : à vitesse compteur
     égale, un terrain plus raide implique une FTP plus haute."""
     client = client_api(config=config_d_essai())
     plat = client.post(

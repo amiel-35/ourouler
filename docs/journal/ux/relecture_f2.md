@@ -2,7 +2,7 @@
 
 Relu le 17/09/2026 sur `ux-discovery` à `41afafb`, contre
 `docs/journal/ux/maquettes_v1.html`, `docs/journal/ux/cycle_ux_contrat.md`,
-`docs/ux/api_contrat.md`, `CLAUDE.md` et `doctrine_architecture.md` §10.
+`docs/journal/ux/api_contrat.md`, `CLAUDE.md` et `doctrine_architecture.md` §10.
 
 **Comment j'ai relu.** Lecture intégrale de `front/src` et de `front/tests`,
 puis l'interface **exercée en vrai** : API du mainteneur sur le port 8011,
@@ -68,7 +68,7 @@ mot « météo » dans une prose destinée à un humain.
 
 Trois choses le rendent bloquant plutôt que discutable :
 
-1. `docs/ux/api_contrat.md` pose la règle inverse en toutes lettres : « **Le
+1. `docs/journal/ux/api_contrat.md` pose la règle inverse en toutes lettres : « **Le
    code prime sur le message.** Le message vient du cœur, il est écrit pour un
    humain et **peut être reformulé** ; le code est une valeur du contrat. »
 2. `front/README.md` affirme que le front l'applique : « Les échecs sont des

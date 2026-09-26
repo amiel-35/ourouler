@@ -518,7 +518,7 @@ n'implémente rien, elle appelle les mêmes fonctions que la ligne de commande
 et rend leur JSON ; l'isolation par propriétaire est écrite **dès maintenant**
 dans la forme des dépôts, avec un invariant qui la garde ; et l'attente d'une
 génération est semi-synchrone, avec une durée annoncée qui dit si elle est
-mesurée. Le contrat complet est dans `docs/ux/api_contrat.md`.
+mesurée. Le contrat complet est dans `docs/journal/ux/api_contrat.md`.
 
 **Toujours pas décidé** : l'hébergement exact (Coolify sur Hetzner reste le
 candidat naturel) et la tarification éventuelle. Ces choix se prendront au

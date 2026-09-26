@@ -1,6 +1,6 @@
 /** Un compte neuf atterrit dans l'assistant, pas sur l'écran du jour.
  *
- * Défaut constaté en vrai le 19/09/2026 (`docs/ux/parcours_accueil.md`) : un
+ * Défaut constaté en vrai le 19/09/2026 (`docs/journal/ux/parcours_accueil.md`) : un
  * compte activé mais jamais passé par l'assistant tombait sur « Aujourd'hui »,
  * qui réclame Intervals et échoue. `donnees.assistant_recommande` (vrai tant
  * qu'aucun `PATCH /profil` n'a jamais été écrit) est le signal qui corrige
@@ -23,7 +23,7 @@ function serveurDeBase(assistantRecommande: boolean) {
     "/api/v1/profil/zones": { charge: { proprietaire: "essai", donnees: ZONES } },
     "/api/v1/profil": { charge: profil },
     // Aucune séance aujourd'hui : le contrat rend `{jour, seance: null}`,
-    // pas une panne (`docs/ux/api_contrat.md`) — peu importe ici, seul
+    // pas une panne (`docs/journal/ux/api_contrat.md`) — peu importe ici, seul
     // compte l'écran sur lequel on atterrit.
     "/api/v1/seances/": { charge: { proprietaire: "essai", donnees: { jour: "2026-09-19", seance: null } } },
     "/api/v1/seances": { charge: SEMAINE },

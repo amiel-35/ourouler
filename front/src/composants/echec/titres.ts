@@ -37,7 +37,7 @@ export const TITRES_PANNE: Record<string, string> = {
   // Le GPX d'une génération oubliée : l'API le dit dans son message
   // (« relancer la recherche »), mais un titre qui reprend le mot
   // « introuvable » sans le nommer laisserait croire à un bug plutôt qu'à
-  // une mémoire qui a fait sa place (`docs/ux/api_contrat.md`).
+  // une mémoire qui a fait sa place (`docs/journal/ux/api_contrat.md`).
   generation_introuvable: "Cette recherche n'est plus disponible",
   // Pas « adresse » : ce mot désigne déjà l'adresse postale du départ
   // ailleurs dans l'écran (`FormulaireAdresse`, E16) — l'ambigüité aurait

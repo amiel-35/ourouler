@@ -74,7 +74,7 @@ describe("l'assistant — étape d'identité", () => {
     expect(corps.cycliste).toEqual({ prenom: "Camille", nom: "Ruiz" });
 
     // L'écran suivant est bien celui du départ (AC5, juste après l'identité
-    // dans le nouvel arbre — `docs/ux/parcours_accueil.md` §5.1) : l'étape a
+    // dans le nouvel arbre — `docs/journal/ux/parcours_accueil.md` §5.1) : l'étape a
     // avancé, et ce n'est plus la FTP qui ouvrait l'ancien parcours.
     await waitFor(() => expect(screen.getByText("D'où partez-vous ?")).toBeTruthy());
   });

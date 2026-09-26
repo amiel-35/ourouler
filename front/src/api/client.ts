@@ -6,7 +6,7 @@
  *
  * Une panne a toujours un **code**, jamais seulement un message : c'est le
  * code qui choisit l'écran d'échec, parce que le message vient du cœur et
- * peut être reformulé (`docs/ux/api_contrat.md`).
+ * peut être reformulé (`docs/journal/ux/api_contrat.md`).
  */
 
 import type {
@@ -44,7 +44,7 @@ export const RACINE = "/api/v1";
  * Tous les autres codes viennent du serveur et sont ceux du contrat. Ces
  * trois-là nomment l'inverse : une requête qui n'aboutit pas, un délai
  * dépassé, une réponse illisible. Ils sont publiés dans
- * `docs/ux/api_contrat.md` sous « Ce que le front nomme quand l'API n'a rien
+ * `docs/journal/ux/api_contrat.md` sous « Ce que le front nomme quand l'API n'a rien
  * dit », pour qu'un écran puisse les reconnaître comme les autres.
  *
  * **La distinction que l'écran doit pouvoir faire** : « le serveur ne répond
@@ -115,7 +115,7 @@ export function surSessionAbsente(ecouteur: EcouteurSessionAbsente | null): void
  * Deux valeurs et pas une : une lecture de profil qui met trente secondes est
  * cassée, une génération de parcours qui met trois minutes ne l'est pas — elle
  * enchaîne cinq à huit appels BRouter et autant d'Open-Meteo, et l'API
- * sérialise les calculs (`docs/ux/api_contrat.md`). Sans délai du tout, une
+ * sérialise les calculs (`docs/journal/ux/api_contrat.md`). Sans délai du tout, une
  * requête partie dans le vide laisse l'écran d'attente tourner jusqu'à ce que
  * le cycliste recharge la page — l'écran muet que les maquettes interdisent.
  */
@@ -539,7 +539,7 @@ export const api = {
    * T1 de l'accueil : lit le profil de l'athlète sur Intervals.icu pour
    * confirmation, **n'écrit rien**. Répond 409 `intervals_absent` si la clé
    * n'est pas encore posée pour ce compte — un état normal à gérer, pas une
-   * panne (`docs/ux/parcours_accueil.md` §4).
+   * panne (`docs/journal/ux/parcours_accueil.md` §4).
    */
   profilIntervals: () =>
     appeler<Simple<{ ftp_w: number | null; masse_kg: number | null }>>(url("/profil/intervals")),
@@ -578,7 +578,7 @@ export const api = {
    * **La réponse change de forme, et c'est voulu côté cœur** : quand la
    * séance existe, `donnees` *est* la séance ; quand elle n'existe pas,
    * `donnees` vaut `{jour, seance: null}` — 200, parce que « pas de séance ce
-   * jour-là » n'est pas une erreur (`docs/ux/api_contrat.md`). Le front
+   * jour-là » n'est pas une erreur (`docs/journal/ux/api_contrat.md`). Le front
    * ramène les deux à une seule forme ici, à la frontière, plutôt que de
    * laisser chaque écran deviner : un écran qui devine finit par lire
    * `etapes` sur un objet qui n'en a pas.

@@ -348,7 +348,7 @@ FOURCHETTE_PORTE_A_PORTE_DEFAUT = (1.02, 1.06, 1.14)
 
 # --- une FTP plausible, pour qui n'en a aucune (T5 de l'accueil) --------------
 #
-# Décision du 19/09/2026 (`docs/ux/parcours_accueil.md` §5.3, [[Q65]] encore
+# Décision du 19/09/2026 (`docs/journal/ux/parcours_accueil.md` §5.3, [[Q65]] encore
 # ouverte) : le fond du tunnel de l'entonnoir d'accueil ne peut jamais
 # échouer, même sans vitesse déclarée, sans compte Intervals et sans FTP
 # connue. Jusqu'ici cette table ne donnait que des paramètres aérodynamiques

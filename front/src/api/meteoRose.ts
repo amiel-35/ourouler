@@ -42,7 +42,7 @@ export type NiveauPluie = "aucune-donnee" | "sec" | "faible" | "modere" | "fort"
 /**
  * Quatre paliers d'**affichage** pour un cumul de pluie sur l'horizon de la
  * rose — repris tels quels de la direction retenue le 19/09/2026
- * (`front/directions/suisse-vivante.html`, légende « Pluie (3 h) ») : sec à
+ * (`docs/journal/ux/directions/suisse-vivante.html`, légende « Pluie (3 h) ») : sec à
  * 0, faible de 0,1 à 1,0 mm, modérée de 1,1 à 3,0, forte au-delà.
  *
  * **Distinct du seuil météorologique du cœur** (`SEUIL_PLUIE_MM_H` = 0,3
