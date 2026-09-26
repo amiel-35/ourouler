@@ -1,88 +1,13 @@
-# L'hébergé minimal — tourner en local
+# `deploiement/` — le paquetage API et front
 
-Ce dossier construit une version minimale du service hébergé (cahier des
-charges d'origine : `docs/journal/sprints/heberge_minimal_contrat.md`) — un conteneur qui
-génère la page du jour une fois par jour, un serveur statique qui la sert derrière une authentification basique — et
-**rien de plus**. Aucun déploiement ici : `docker compose` sur cette machine
-sert à vérifier que tout tourne, pas à le mettre en ligne — la mise en ligne
-est un geste séparé, fait par qui exploite le serveur (voir `AGENTS.md`).
+Ce dossier ne contient plus qu'un seul paquetage : `api/`, qui construit une
+image servant l'API et l'interface web (front) derrière la même origine, avec
+les comptes dans PostgreSQL en mode hébergé.
 
-## Ce qu'il y a dans ce dossier
+Voir [`deploiement/api/README.md`](api/README.md) pour tout — préparer, lancer
+en local pour vérifier, variables d'environnement, déployer.
 
-- `Dockerfile` — une image, deux rôles (la commande du service choisit).
-- `generateur/entrypoint.py` — exécute `ourouler sortie` une fois au
-  démarrage, puis chaque jour à `OUROULER_HEURE_GENERATION`.
-- `serveur/serveur.py` — sert le volume produit, derrière une
-  authentification basique (stdlib `http.server`, aucun framework).
-- `docker-compose.yml` — orchestration locale des deux conteneurs.
-- `config.example.toml` — gabarit du fichier TOML du conteneur : cycliste,
-  vélos, météo, séance, tenue... **jamais** le départ, la clé Intervals ni
-  les identifiants BRouter, qui viennent exclusivement de l'environnement.
-- `.env.example` — gabarit des variables d'environnement (secrets compris),
-  aucune valeur dedans.
-
-## Préparer
-
-1. **Le fichier TOML non-secrets.** Copier `config.example.toml` vers un
-   chemin hors du dépôt, ou sous un nom que `.gitignore` couvre déjà (ex.
-   `deploiement/config.local.toml`), et le renseigner (masse, FTP, vélos,
-   éventuellement `[seance]`/`[tenue]` si les défauts ne conviennent pas).
-
-2. **Les secrets et le point de départ.**
-   ```
-   cp deploiement/.env.example deploiement/.env
-   ```
-   Renseigner dans `deploiement/.env` :
-   - `OUROULER_INTERVALS_API_KEY`, `OUROULER_INTERVALS_ATHLETE_ID` — Intervals.icu
-     → Settings → Developer.
-   - `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`, `OUROULER_DEPART_LONGITUDE`.
-   - `OUROULER_BROUTER_URL` (et `OUROULER_BROUTER_UTILISATEUR` /
-     `OUROULER_BROUTER_MOT_DE_PASSE` si le serveur BRouter est protégé) —
-     un serveur BRouter déjà en service, atteint depuis un conteneur local
-     par son URL publique, comme n'importe quel client.
-   - `OUROULER_WWW_UTILISATEUR`, `OUROULER_WWW_MOT_DE_PASSE` — l'authentification
-     basique du serveur statique (des valeurs à soi, sans rapport avec Intervals
-     ou BRouter).
-   - `OUROULER_CONFIG_HOTE` — chemin **absolu** vers le fichier TOML préparé
-     à l'étape 1.
-
-   `deploiement/.env` n'est jamais commité (`.gitignore` couvre déjà `.env`
-   et `.env.*`, avec une exception explicite pour `.env.example`).
-
-## Lancer
-
-Depuis la racine du dépôt :
-
-```
-docker compose -f deploiement/docker-compose.yml --env-file deploiement/.env up --build
-```
-
-Le conteneur `generateur` produit la page immédiatement (pas d'attente de
-l'heure planifiée pour vérifier), puis chaque jour à `OUROULER_HEURE_GENERATION`.
-Le conteneur `serveur` écoute sur `OUROULER_PORT_HOTE` (8080 par défaut) :
-
-```
-curl -u <OUROULER_WWW_UTILISATEUR>:<OUROULER_WWW_MOT_DE_PASSE> http://localhost:8080/index.html
-```
-
-Ou depuis un téléphone sur le même réseau local :
-`http://<IP locale du Mac>:8080/` (identifiants demandés par le navigateur).
-
-Arrêter : `docker compose -f deploiement/docker-compose.yml down` (ajouter
-`-v` pour aussi supprimer le volume `pages` et repartir de zéro).
-
-## Les deux cas à vérifier à l'œil
-
-- **Rien de prévu ce jour-là** : `index.html` doit afficher « Rien de prévu »,
-  la date du jour, et quand la page a été générée — jamais une erreur, jamais
-  la page de la veille en silence (`--carte-sans-seance`, voir
-  `ourouler sortie --help`).
-- **La date** : que la séance soit prévue ou non, la page affiche toujours de
-  quand elle date, visible sans ouvrir les outils de développement.
-
-## Ce que ce dossier ne fait pas
-
-Il ne touche à aucun serveur, ne lit aucun jeton d'hébergeur, et ne décide
-pas de la forme du déploiement final (une image par service ou deux,
-`docker-compose.yml` réutilisé tel quel ou non) : ce sont des choix
-d'exploitation, à faire une fois qu'on a vu tourner ce qui précède.
+Historique : une « page du jour » autonome (un conteneur qui générait une
+carte statique une fois par jour, servie derrière une authentification
+basique, sans compte ni interface) a existé dans ce dossier ; l'API et le
+front la remplacent et ce paquetage a été retiré (voir `CHANGELOG.md`).

@@ -78,7 +78,6 @@ data/
 .env
 .env.*
 !.env.example
-!deploiement/.env.example
 !deploiement/api/.env.example
 
 # Front : les dépendances s'installent, elles ne se commitent pas.

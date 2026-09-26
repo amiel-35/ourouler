@@ -409,16 +409,10 @@ touche au réseau. Les écrans et l'organisation du code sont décrits dans
 
 ### Le déploiement
 
-Deux paquetages, dans `deploiement/`, à essayer d'abord sur sa propre
-machine avec `docker compose` :
-
-- **la page du jour** (`deploiement/README.md`) : un conteneur qui exécute
-  `ourouler sortie` une fois par jour et un serveur statique qui sert la
-  page derrière une authentification basique. C'est l'hébergé minimal,
-  sans compte ni base ;
-- **l'API et l'interface** (`deploiement/api/README.md`) : un seul
-  conteneur qui sert l'API et, dessous, l'interface construite, avec les
-  comptes dans PostgreSQL.
+Le paquetage `deploiement/api/` (`deploiement/api/README.md`), à essayer
+d'abord sur sa propre machine avec `docker compose` : un seul conteneur qui
+sert l'API et, dessous, l'interface construite, avec les comptes dans
+PostgreSQL.
 
 En mode hébergé, le point de départ, le cycliste, les vélos et la clé
 Intervals appartiennent à chaque compte : le serveur refuse de démarrer si
@@ -531,7 +525,6 @@ Ce qu'il faut savoir avant de lire un chiffre.
   `docs/journal/ux/api_contrat.md` en garde l'histoire (archive, pas une
   référence).
 - `front/README.md` — la construction de l'interface web et ses règles.
-- `deploiement/README.md` et `deploiement/api/README.md` — les deux
-  paquetages de déploiement.
+- `deploiement/api/README.md` — le paquetage de déploiement.
 
 Licence AGPL-3.0-or-later — voir `LICENSE`.

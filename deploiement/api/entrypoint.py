@@ -3,23 +3,19 @@
 
 Ce script est **hors** de `src/ourouler/` : ce n'est pas le cœur, c'est la
 couche d'exploitation du paquetage, au même titre que `cli/` pour l'usage
-interactif et que `deploiement/generateur/entrypoint.py` pour le générateur
-de la page du jour. Il a donc le droit de lire l'environnement — rien de tout
+interactif. Il a donc le droit de lire l'environnement — rien de tout
 cela n'entre dans `src/ourouler/`, où « le cœur ne lit ni configuration ni environnement »
 continue de s'appliquer sans exception ; le paquet `api/` n'a lui-même qu'une porte,
 `api/exploitation.py`, que ce script ne contourne pas : il pose des variables,
 il ne lit jamais la configuration à la place d'`exploitation.py`.
 
-**La même contrainte que le générateur, et la même solution.** Coolify ne
-propose aucun chemin d'hôte à monter : le fichier TOML (non-secrets — départ,
-clé Intervals et identifiants BRouter restent des variables, lues par
-`config.charger` via `api/exploitation.py`) arrive encodé en base64 dans
-`OUROULER_CONFIG_TOML_B64`, et ce script l'écrit sur disque avant de démarrer
-le serveur. Écrit en 0600 : il porte la masse, la FTP et les vélos du
-cycliste — des données personnelles (aucune donnée personnelle dans le dépôt). Voir
-`deploiement/generateur/entrypoint.py` pour le jumeau de cette fonction ;
-elle n'est pas partagée entre les deux scripts parce que chacun reste un
-paquetage indépendant, déployable et lisible sans l'autre.
+Coolify ne propose aucun chemin d'hôte à monter : le fichier TOML
+(non-secrets — départ, clé Intervals et identifiants BRouter restent des
+variables, lues par `config.charger` via `api/exploitation.py`) arrive
+encodé en base64 dans `OUROULER_CONFIG_TOML_B64`, et ce script l'écrit sur
+disque avant de démarrer le serveur. Écrit en 0600 : il porte la masse, la
+FTP et les vélos du cycliste — des données personnelles (aucune donnée
+personnelle dans le dépôt).
 """
 
 from __future__ import annotations

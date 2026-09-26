@@ -20,6 +20,13 @@ partir des PR.
 
 ## [Non publié]
 
+### Retiré
+
+- La page du jour autonome hébergée (un conteneur qui générait une carte une
+  fois par jour, servie derrière une authentification basique, sans compte
+  ni interface) n'est plus fournie : l'API et son interface web la
+  remplacent.
+
 ## [0.10.0] — 2026-09-26
 
 ### Ajouté

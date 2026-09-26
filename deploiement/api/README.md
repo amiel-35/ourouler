@@ -48,9 +48,9 @@ dossier dans `OUROULER_FRONT_DIST` (`api/exploitation.py`), que le
    `[brouter].url` / `.utilisateur` / `.mot_de_passe` dedans — ces valeurs
    viennent exclusivement de variables d'environnement, listées ci-dessous ;
    l'API refuse aussi de démarrer si `[depart]` ou `[intervals]` figurent
-   dans le TOML hébergé. C'est la même contrainte, pour la même raison, que
-   `deploiement/config.example.toml` (le générateur de la page du jour) :
-   voir sa docstring si le pourquoi intéresse.
+   dans le TOML hébergé : ces trois valeurs sont propres à une personne, pas
+   à un socle partagé entre plusieurs cyclistes, et poser l'une d'elles au
+   niveau du serveur la distribuerait à chaque compte.
 
 2. **Les secrets, le point de départ, et le mode.**
    ```
@@ -198,32 +198,19 @@ variables déclarées sans valeur.
 | `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`, `OUROULER_DEPART_LONGITUDE`, `OUROULER_INTERVALS_API_KEY`, `OUROULER_INTERVALS_ATHLETE_ID` | `config.py` (`_survoler_environnement`) | le TOML fait foi | le départ et la clé Intervals, **en `personnel` seulement** : en `heberge`, une valeur posée refuse le démarrage (`api/depots.py`, `VARIABLES_PERSO_PUR`) ; vide vaut absente |
 | `TZ` | aucun module d'ourouler : le fuseau du processus | UTC dans le conteneur | l'heure locale lue par le cœur (`date.today()`, heure de départ sans fuseau) ; `docker-compose.api.coolify.yml` pose `Europe/Paris` |
 
-**La page du jour** (`deploiement/generateur/entrypoint.py`,
-`deploiement/serveur/serveur.py`, voir `deploiement/README.md`)
-
-| Variable | Lue par | Absente | Rôle |
-|---|---|---|---|
-| `OUROULER_CONFIG`, `OUROULER_CONFIG_TOML_B64` | générateur | `/config/config.toml` ; rien n'est écrit | comme ci-dessus |
-| `OUROULER_DOSSIER_PAGES` | générateur, serveur statique | `/data/pages` | où la page est écrite, puis servie |
-| `OUROULER_HEURE_GENERATION` | générateur | `06:00` | l'heure quotidienne de génération, `HH:MM` |
-| `OUROULER_PORT` | serveur statique | `8080` | le port d'écoute |
-| `OUROULER_WWW_UTILISATEUR`, `OUROULER_WWW_MOT_DE_PASSE` | serveur statique | le serveur refuse de démarrer | l'authentification basique devant la page |
-
 **Hors du code**
 
 - `OUROULER_CONFIG_HOTE` et `OUROULER_PORT_HOTE` ne sont lues par aucun
   programme : `docker compose` les substitue dans
-  `deploiement/api/docker-compose.yml` et `deploiement/docker-compose.yml`
-  (chemin du TOML sur la machine hôte, port publié).
+  `deploiement/api/docker-compose.yml` (chemin du TOML sur la machine hôte,
+  port publié).
 - `OUROULER_API` est lue par le serveur de développement du front
   (`front/vite.config.ts`) : la cible du proxy `/api`, par défaut
   `http://127.0.0.1:8000`.
 
-## Les pièges Coolify (deux hérités du générateur, deux mesurés ici)
+## Les pièges Coolify
 
-Les deux s'appliquent ici à l'identique — voir `docker-compose.coolify.yml`
-(racine du dépôt) pour la mesure d'origine, et
-`docker-compose.api.coolify.yml` (racine aussi) pour ce paquetage-ci :
+Mesurés sur `docker-compose.api.coolify.yml` (racine du dépôt) :
 
 1. **Coolify ne résout pas `context:` relativement au fichier compose.** Un
    fichier compose dans `deploiement/` avec `context: ..` échoue sur `lstat
@@ -265,17 +252,14 @@ que personne n'a remplie n'écrase plus le TOML.
 
 ## Ce que ce dossier ne fait pas
 
-Il ne touche à aucun serveur et ne lit aucun jeton d'hébergeur. Il ne touche pas non plus
-au déploiement existant du générateur de la page du jour
-(`deploiement/Dockerfile`, `deploiement/docker-compose.yml`,
-`docker-compose.coolify.yml`) : ce paquetage-ci est un service distinct, avec
-son propre `Dockerfile`, son propre compose, sa propre variable
-`SERVICE_FQDN_*`.
+Il ne touche à aucun serveur et ne lit aucun jeton d'hébergeur : `docker
+compose` sur cette machine sert à vérifier le paquet, pas à le mettre en
+ligne.
 
 ## Déployer sur Coolify
 
-1. Créer un nouveau service sur Coolify (pas celui de la page du jour),
-   pointé sur ce dépôt, fichier compose `docker-compose.api.coolify.yml`.
+1. Créer un service sur Coolify, pointé sur ce dépôt, fichier compose
+   `docker-compose.api.coolify.yml`.
 2. Poser les variables listées ci-dessus dans l'interface Coolify —
    `OUROULER_CONFIG_TOML_B64` (le TOML de l'étape 1, encodé :
    `base64 -i config.toml`, ou `base64 -i deploiement/api/config.heberge.example.toml`
