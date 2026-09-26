@@ -8,7 +8,7 @@ d'ajouter un réglage d'orientation au vent, on regarde ce que le mainteneur
 `vent_retrospectif.py`, dont il reprend la collecte (mêmes 162 sorties route,
 même archive Open-Meteo, mêmes fonctions privées de `physique.calibration`) :
 
-    uv run python tests/validation/orientation_vent_retrospectif.py
+    uv run python scripts/validation/orientation_vent_retrospectif.py
 
 Ce qu'il mesure, sur chaque sortie découpée en quatre quarts de distance
 égale (pas de temps : un quart plus lent ne doit pas peser plus qu'un quart
@@ -67,14 +67,12 @@ from datetime import date
 from pathlib import Path
 
 # `vent_retrospectif.py` vit dans le même dossier, hors de tout paquet Python
-# (`tests/validation` n'a pas de `__init__.py`, décision assumée du sprint 4 :
+# (`scripts/validation` n'a pas de `__init__.py`, décision assumée du sprint 4 :
 # ce ne sont pas des tests collectés par pytest). On réutilise sa collecte
 # plutôt que de la dupliquer : mêmes 162 sorties, même lecture de cache, même
-# archive météo. `sys.path` doit être complété avant l'import, d'où le
-# `noqa: E402` qui suit.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from vent_retrospectif import (  # noqa: E402
+# archive météo.
+# Lancé comme script, son dossier est en tête de `sys.path` : l'import direct suffit.
+from vent_retrospectif import (
     DEPUIS_DEFAUT,
     JugementIntervals,
     archive_du_depart,
@@ -82,24 +80,24 @@ from vent_retrospectif import (  # noqa: E402
     jugements,
 )
 
-from ourouler.activites.lecture import lecteur_pour  # noqa: E402
-from ourouler.config import charger  # noqa: E402
-from ourouler.connecteurs.intervals import ClientIntervals  # noqa: E402
-from ourouler.connecteurs.openmeteo_archive import ClientArchive  # noqa: E402
-from ourouler.meteo.couronne import ecart_angulaire  # noqa: E402
-from ourouler.meteo.rapport import VENT_DOS, VENT_FACE, VENT_TRAVERS, vent_relatif  # noqa: E402
-from ourouler.noyau.activite import Activite  # noqa: E402
-from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
-from ourouler.noyau.meteo import HeureArchive  # noqa: E402
-from ourouler.physique.commande import NOM_CACHE  # noqa: E402
-from ourouler.physique.echantillonnage import (  # noqa: E402
+from ourouler.activites.lecture import lecteur_pour
+from ourouler.config import charger
+from ourouler.connecteurs.intervals import ClientIntervals
+from ourouler.connecteurs.openmeteo_archive import ClientArchive
+from ourouler.meteo.couronne import ecart_angulaire
+from ourouler.meteo.rapport import VENT_DOS, VENT_FACE, VENT_TRAVERS, vent_relatif
+from ourouler.noyau.activite import Activite
+from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.meteo import HeureArchive
+from ourouler.physique.commande import NOM_CACHE
+from ourouler.physique.echantillonnage import (
     _cap,
     _decouper,
     _distances_points,
     _interpoler_archive,
     _vent_de_face,
 )
-from ourouler.physique.modele import vent_au_cycliste  # noqa: E402
+from ourouler.physique.modele import vent_au_cycliste
 
 #: Nombre de quarts de distance dans lesquels chaque sortie est découpée.
 NOMBRE_QUARTS = 4

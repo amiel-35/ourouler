@@ -21,22 +21,13 @@ from __future__ import annotations
 
 import importlib.util
 import socket
-import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+from outils import ReseauInterdit
 
 DOSSIER = Path(__file__).resolve().parent
-RACINE = DOSSIER.parent.parent
-
-# Rend `outils.py` importable depuis les modules de test de ce dossier.
-if str(DOSSIER) not in sys.path:
-    sys.path.insert(0, str(DOSSIER))
-
-
-class ReseauInterdit(BaseException):
-    """Un test a tenté d'ouvrir une connexion. Règle absolue 3 de CLAUDE.md."""
 
 
 @pytest.fixture(autouse=True)

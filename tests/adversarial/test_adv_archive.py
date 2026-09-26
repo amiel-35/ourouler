@@ -31,7 +31,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import fabriques
-import fabriques3
+import fabriques_physique
 import httpx
 import pytest
 from outils import robuste, sans_accents, verifier_utc
@@ -70,7 +70,7 @@ def _parametre_cache(fonction) -> str | None:
 
 def _client(module, espion, *, memo=None):
     """Un `ClientArchive` branché sur le transport bouchon, avec mémo si possible."""
-    kwargs: dict[str, Any] = {"base_url": fabriques3.URL_ARCHIVE}
+    kwargs: dict[str, Any] = {"base_url": fabriques_physique.URL_ARCHIVE}
     if memo is not None:
         nom = _parametre_cache(module.ClientArchive.__init__)
         if nom is None:
@@ -83,7 +83,7 @@ def _client(module, espion, *, memo=None):
 
 
 def _espion(**options):
-    return fabriques.EspionHttp(lambda requete: fabriques3.repondre_archive(requete, **options))
+    return fabriques.EspionHttp(lambda requete: fabriques_physique.repondre_archive(requete, **options))
 
 
 # --- vérificateurs ------------------------------------------------------------
@@ -127,7 +127,8 @@ def test_une_journee_complete_se_relit():
     espion = _espion()
     client = _client(module, espion)
     heures = _verifier_heures(
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE), "horaires(jour passé)"
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
+        "horaires(jour passé)",
     )
     assert len(heures) == 24, f"{len(heures)} heures pour une journée de 24 heures"
     assert espion.requetes, "aucune requête émise"
@@ -145,11 +146,11 @@ def test_les_heures_sont_datees_en_utc():
     module = _module()
     espion = _espion()
     heures = _verifier_heures(
-        _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE),
+        _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
         "horaires",
     )
-    assert heures[0].t.date() == fabriques3.JOUR_ARCHIVE, (
-        f"première heure au {heures[0].t.date()} pour un appel sur {fabriques3.JOUR_ARCHIVE}"
+    assert heures[0].t.date() == fabriques_physique.JOUR_ARCHIVE, (
+        f"première heure au {heures[0].t.date()} pour un appel sur {fabriques_physique.JOUR_ARCHIVE}"
     )
     assert heures[0].t.hour == 0, f"la journée commence à {heures[0].t.hour} h UTC"
 
@@ -157,9 +158,9 @@ def test_les_heures_sont_datees_en_utc():
 def test_la_requete_demande_bien_le_jour_voulu():
     module = _module()
     espion = _espion()
-    _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+    _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     params = espion.params(0)
-    jour = fabriques3.JOUR_ARCHIVE.isoformat()
+    jour = fabriques_physique.JOUR_ARCHIVE.isoformat()
     assert any(jour in str(v) for v in params.values()), (
         f"le jour demandé ({jour}) n'apparaît pas dans les paramètres : {params}"
     )
@@ -221,7 +222,7 @@ def test_des_coordonnees_hors_du_globe_sont_refusees_sans_appel(lat, lon):
     espion = _espion()
     client = _client(module, espion)
     resultat, _ = robuste(
-        lambda: client.horaires(lat, lon, fabriques3.JOUR_ARCHIVE),
+        lambda: client.horaires(lat, lon, fabriques_physique.JOUR_ARCHIVE),
         quoi=f"horaires({lat}, {lon})",
         erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
     )
@@ -242,7 +243,7 @@ def test_une_reponse_aux_heures_manquantes():
     espion = _espion(colonnes_courtes=10)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(colonnes tronquées)",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -278,7 +279,7 @@ def test_des_reponses_incompletes(options):
     espion = _espion(**options)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi=f"horaires({options})",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -293,7 +294,7 @@ def test_des_valeurs_nulles_restent_nulles():
     espion = _espion(vent_kmh=None, vent_depuis_deg=None, temp_c=None, pression_hpa=None)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(valeurs null)",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -314,10 +315,10 @@ def test_une_erreur_http_devient_une_erreur_utilisateur(code):
     espion = fabriques.EspionHttp(httpx.Response(code, json={"reason": "essai"}))
     client = _client(module, espion)
     with pytest.raises(ErreurConnecteur) as capture:
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     message = str(capture.value)
     assert str(code) in message, f"le code HTTP n'est pas dit : « {message} »"
-    assert fabriques3.URL_ARCHIVE.split("//")[1] in message, (
+    assert fabriques_physique.URL_ARCHIVE.split("//")[1] in message, (
         f"le message ne dit pas quel service a refusé : « {message} »"
     )
 
@@ -336,7 +337,7 @@ def test_des_corps_de_reponse_inexploitables(reponse):
     espion = fabriques.EspionHttp(reponse)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(corps inexploitable)",
         erreurs_acceptees=(ErreurConnecteur,),
@@ -354,7 +355,7 @@ def test_un_reseau_qui_tombe_devient_une_erreur_utilisateur():
     espion = fabriques.EspionHttp(couper)
     client = _client(module, espion)
     with pytest.raises(ErreurConnecteur):
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
 
 
 # --- mémoïsation ---------------------------------------------------------------
@@ -366,7 +367,7 @@ def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
     espion = _espion()
     client = _client(module, espion)
     for _ in range(3):
-        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
+        client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     assert len(espion.requetes) == 1, (
         f"{len(espion.requetes)} requêtes pour trois fois le même (jour, point) : "
         "l'archive du passé ne change pas, elle se mémorise"
@@ -378,8 +379,8 @@ def test_deux_points_de_la_meme_maille_ne_font_qu_un_appel():
     module = _module()
     espion = _espion()
     client = _client(module, espion)
-    client.horaires(0.0011, 0.0017, fabriques3.JOUR_ARCHIVE)
-    client.horaires(0.0155, 0.0180, fabriques3.JOUR_ARCHIVE)
+    client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
+    client.horaires(0.0155, 0.0180, fabriques_physique.JOUR_ARCHIVE)
     assert len(espion.requetes) == 1, (
         f"{len(espion.requetes)} requêtes pour deux points distants de moins de 3 km, qui "
         "s'arrondissent au même 0,05°"
@@ -391,8 +392,8 @@ def test_deux_mailles_distinctes_font_deux_appels():
     module = _module()
     espion = _espion()
     client = _client(module, espion)
-    client.horaires(0.0011, 0.0017, fabriques3.JOUR_ARCHIVE)
-    client.horaires(0.4011, 0.4017, fabriques3.JOUR_ARCHIVE)
+    client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
+    client.horaires(0.4011, 0.4017, fabriques_physique.JOUR_ARCHIVE)
     assert len(espion.requetes) == 2, (
         f"{len(espion.requetes)} requête(s) pour deux points distants de 60 km"
     )
@@ -402,8 +403,8 @@ def test_deux_jours_distincts_font_deux_appels():
     module = _module()
     espion = _espion()
     client = _client(module, espion)
-    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE)
-    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE - timedelta(days=1))
+    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
+    client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE - timedelta(days=1))
     assert len(espion.requetes) == 2, (
         f"{len(espion.requetes)} requête(s) pour deux jours différents : la mémoïsation "
         "ignore la date"
@@ -416,12 +417,12 @@ def test_la_memoisation_survit_a_un_nouveau_client(tmp_path):
     memo = tmp_path / "archive_meteo.sqlite"
     premier = _espion()
     _client(module, premier, memo=memo).horaires(
-        fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+        fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
     )
     assert len(premier.requetes) == 1
     second = _espion()
     heures = _client(module, second, memo=memo).horaires(
-        fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+        fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
     )
     _verifier_heures(heures, "horaires(depuis le fichier de mémoïsation)")
     assert not second.requetes, (
@@ -439,7 +440,7 @@ def test_un_fichier_de_memoisation_corrompu(tmp_path):
     espion = _espion()
     resultat, _ = robuste(
         lambda: _client(module, espion, memo=memo).horaires(
-            fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE
+            fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE
         ),
         quoi="horaires(mémo corrompu)",
         erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
@@ -455,7 +456,7 @@ def test_une_reponse_en_erreur_n_est_pas_memorisee_comme_une_journee():
     client = _client(module, espion)
     for _ in range(2):
         robuste(
-            lambda: client.horaires(fabriques.LAT0, fabriques.LON0, fabriques3.JOUR_ARCHIVE),
+            lambda: client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
             quoi="horaires(HTTP 500)",
             erreurs_acceptees=(ErreurConnecteur, ErreurUtilisateur),
         )

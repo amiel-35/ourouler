@@ -15,12 +15,9 @@ import time
 import zipfile
 from pathlib import Path
 
-import pytest
 from outils_api import client_api, config_d_essai
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api import taches_fond  # noqa: E402
+from ourouler.api import taches_fond
 
 PREFIXE = "/api/v1"
 

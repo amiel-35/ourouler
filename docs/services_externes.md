@@ -130,7 +130,7 @@ qui l'exploite** (voir `AGENTS.md`). On propose, on attend.
 `~/.cache/ourouler` (configurable) : les fichiers bruts d'activité et un index
 SQLite (stdlib, pas d'ORM). C'est lui qui évite de redemander à Intervals ce
 qu'on a déjà, et c'est sur lui seul que travaillent les scripts de mesure de
-`tests/validation/` — aucun d'eux ne sort sur le réseau.
+`scripts/validation/` — aucun d'eux ne sort sur le réseau.
 
 ## Les archives d'export, mesurées sur de vraies données
 

@@ -1,6 +1,6 @@
 """La forme des pannes, et le verrou qui rend l'adaptateur sûr (lot F1).
 
-`tests/test_api.py` vérifie les pannes de bout en bout, à travers de vraies
+`tests/api/test_api.py` vérifie les pannes de bout en bout, à travers de vraies
 requêtes ; ici, on vérifie la traduction elle-même, cas par cas, avec les
 messages **exacts** que les connecteurs du projet écrivent. Les deux
 ensemble : le classement est juste, et il est branché.
@@ -12,14 +12,6 @@ import threading
 from pathlib import Path
 
 import pytest
-
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, l'import ci-dessous levait une
-#: erreur de collecte, et le contributeur voyait la suite échouer au lieu de
-#: voir des tests ignorés. `uv sync --all-extras` les rend.
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 from test_api import moteur_meteo, serveur
 from test_seance_intervals import CLE
 

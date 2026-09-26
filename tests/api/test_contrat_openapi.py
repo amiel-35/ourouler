@@ -20,10 +20,6 @@ from pathlib import Path
 import pytest
 from outils_api import client_api, schema_openapi
 
-#: Sans l'extra `api`, ce module se saute au lieu de casser la collecte
-#: (même garde que `test_api_socle.py`).
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 REFERENCE = Path(__file__).resolve().parents[1] / "caracterisation" / "openapi.json"
 
 

@@ -72,18 +72,19 @@ max-positional-args = 6
 "src/ourouler/api/limite_corps.py" = ["C901"]
 # exception datée : 2 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/api/routes/meteo.py" = ["PLR0917"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/adversarial/test_adv_invariants.py" = ["C901"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+# exception permanente : scénario de bout en bout (semer, prouver, effacer, vérifier) lu dans l'ordre
 "tests/comptes/test_vie_privee_comptes.py" = ["PLR0915"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/test_sortie_carte.py" = ["PLR0917"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/validation/arrets_bloc_recup.py" = ["C901", "PLR0915"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/validation/cda_position_retrospectif.py" = ["C901", "PLR0915"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"tests/validation/style_retrospectif.py" = ["C901", "PLR0915"]
+# exception permanente : script de mesure hors produit, sa fonction principale se lit d'une traite
+"scripts/validation/arrets_bloc_recup.py" = ["C901", "PLR0915"]
+# exception permanente : script de mesure hors produit, sa fonction principale se lit d'une traite
+"scripts/validation/cda_position_retrospectif.py" = ["C901", "PLR0915"]
+# exception permanente : script de mesure hors produit, sa fonction principale se lit d'une traite
+"scripts/validation/style_retrospectif.py" = ["C901", "PLR0915"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Les modules d'outils des tests (`outils.py`, `fabriques*.py`, `outils_api.py`,
+# `outils_caracterisation.py`, `donnees_synthetiques.py`) et les bouchons
+# partagés d'un test à l'autre s'importent par leur nom, sans `sys.path.insert`.
+# Leurs noms sont uniques dans tout `tests/` : c'est ce qui rend l'import sûr.
+pythonpath = ["tests", "tests/adversarial", "tests/api", "tests/caracterisation"]

@@ -33,14 +33,6 @@ from outils_api import (
     transport_constant,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Décision 2 du contrat UX : « L'horizon du vent reste à trois jours. » Mesuré
 #: sur 2 064 heures : 93 %, 92 %, 88 % à un, deux et trois jours.
 HORIZON_ORIENTATION_J = 3

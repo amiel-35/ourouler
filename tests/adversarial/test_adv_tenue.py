@@ -26,7 +26,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-import fabriques4
+import fabriques_seance
 import pytest
 from outils import robuste, sans_accents, verifier_json
 
@@ -45,7 +45,7 @@ RESSENTIS_PAR_CATEGORIE = (-2.0, 6.0, 12.0, 18.0, 26.0, 34.0)
 
 
 def _tenue() -> Any:
-    return fabriques4.module("tenue", motif=MOTIF_ABSENT)
+    return fabriques_seance.module("tenue", motif=MOTIF_ABSENT)
 
 
 def _conseiller(meteo: Any, p: ParametresTenue = DEFAUT) -> Any:
@@ -59,7 +59,7 @@ def _verifier(tenue: Any) -> None:
         valeur = getattr(tenue, nom)
         assert isinstance(valeur, str) and valeur.strip(), f"Tenue.{nom} : catégorie lisible attendue"
     for nom in ("base", "a_emporter", "a_enlever", "motifs"):
-        fabriques4.liste_de_chaines(getattr(tenue, nom), f"Tenue.{nom}")
+        fabriques_seance.liste_de_chaines(getattr(tenue, nom), f"Tenue.{nom}")
     if tenue.a_emporter or tenue.a_enlever:
         assert tenue.motifs, (
             "un conseil sans motif n'est pas actionnable : le contrat demande des motifs lisibles"
@@ -68,7 +68,7 @@ def _verifier(tenue: Any) -> None:
 
 
 def _meteo(**kwargs: Any) -> Any:
-    return fabriques4.meteo_uniforme(meteo_trace, **kwargs)
+    return fabriques_seance.meteo_uniforme(meteo_trace, **kwargs)
 
 
 def _contient(morceaux: Any, mot: str) -> bool:
@@ -82,7 +82,7 @@ def _contient(morceaux: Any, mot: str) -> bool:
 def test_une_meteo_sans_echantillon_ne_casse_pas():
     """Tracé hors horizon de prévision : aucun échantillon exploitable."""
     mod = _tenue()
-    meteo = fabriques4.meteo_fictive(meteo_trace, [], confiance="aucune")
+    meteo = fabriques_seance.meteo_fictive(meteo_trace, [], confiance="aucune")
     tenue, erreur = robuste(
         lambda: mod.conseiller(meteo, DEFAUT), quoi="conseiller sans échantillon", erreurs_acceptees=ERREURS
     )
@@ -108,7 +108,8 @@ def test_des_valeurs_absentes_ne_fabriquent_pas_de_conseil_faux(ressenti, pluie,
 
 
 def test_un_seul_echantillon_suffit_a_habiller_le_cycliste():
-    meteo = fabriques4.meteo_fictive(meteo_trace, [fabriques4.echantillon(meteo_trace, 0.0, ressenti=6.0)])
+    echantillons = [fabriques_seance.echantillon(meteo_trace, 0.0, ressenti=6.0)]
+    meteo = fabriques_seance.meteo_fictive(meteo_trace, echantillons)
     tenue = _conseiller(meteo)
     assert tenue.base, "avec un échantillon au départ, la base doit être décidée"
     assert tenue.a_enlever == [], "rien à enlever quand rien ne change : il n'y a qu'un point"
@@ -117,10 +118,10 @@ def test_un_seul_echantillon_suffit_a_habiller_le_cycliste():
 def test_des_echantillons_en_desordre_ne_levent_pas():
     mod = _tenue()
     echantillons = [
-        fabriques4.echantillon(meteo_trace, 20_000.0, minute=40.0, ressenti=18.0),
-        fabriques4.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=6.0),
+        fabriques_seance.echantillon(meteo_trace, 20_000.0, minute=40.0, ressenti=18.0),
+        fabriques_seance.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=6.0),
     ]
-    meteo = fabriques4.meteo_fictive(meteo_trace, echantillons)
+    meteo = fabriques_seance.meteo_fictive(meteo_trace, echantillons)
     tenue, erreur = robuste(
         lambda: mod.conseiller(meteo, DEFAUT), quoi="échantillons en désordre", erreurs_acceptees=ERREURS
     )
@@ -174,14 +175,14 @@ def test_les_bornes_viennent_de_la_configuration():
 
 def test_la_base_se_decide_sur_le_depart():
     """Règle du 13/09 : « la base se décide sur le départ, parce que c'est là qu'on a froid »."""
-    depart = fabriques4.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=4.0)
-    froide = fabriques4.meteo_fictive(
+    depart = fabriques_seance.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=4.0)
+    froide = fabriques_seance.meteo_fictive(
         meteo_trace,
-        [depart, fabriques4.echantillon(meteo_trace, 20_000.0, minute=45.0, ressenti=4.0)],
+        [depart, fabriques_seance.echantillon(meteo_trace, 20_000.0, minute=45.0, ressenti=4.0)],
     )
-    rechauffee = fabriques4.meteo_fictive(
+    rechauffee = fabriques_seance.meteo_fictive(
         meteo_trace,
-        [depart, fabriques4.echantillon(meteo_trace, 20_000.0, minute=45.0, ressenti=24.0)],
+        [depart, fabriques_seance.echantillon(meteo_trace, 20_000.0, minute=45.0, ressenti=24.0)],
     )
     a, b = _conseiller(froide), _conseiller(rechauffee)
     assert a.base == b.base, (
@@ -193,10 +194,10 @@ def test_la_base_se_decide_sur_le_depart():
 
 
 def test_un_ressenti_qui_baisse_ne_fait_pas_enlever():
-    depart = fabriques4.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=20.0)
-    refroidie = fabriques4.meteo_fictive(
+    depart = fabriques_seance.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=20.0)
+    refroidie = fabriques_seance.meteo_fictive(
         meteo_trace,
-        [depart, fabriques4.echantillon(meteo_trace, 20_000.0, minute=45.0, ressenti=2.0)],
+        [depart, fabriques_seance.echantillon(meteo_trace, 20_000.0, minute=45.0, ressenti=2.0)],
     )
     tenue = _conseiller(refroidie)
     assert not tenue.a_enlever, f"le ressenti baisse de 18 °C et le conseil est d'enlever {tenue.a_enlever}"
@@ -207,9 +208,9 @@ def test_un_ressenti_qui_baisse_ne_fait_pas_enlever():
 
 
 def test_la_pluie_annoncee_plus_loin_fait_emporter_la_veste():
-    sec = fabriques4.echantillon(meteo_trace, 0.0, minute=0.0, pluie=0.0)
-    averse = fabriques4.echantillon(meteo_trace, 20_000.0, minute=45.0, pluie=2.0)
-    tenue = _conseiller(fabriques4.meteo_fictive(meteo_trace, [sec, averse]))
+    sec = fabriques_seance.echantillon(meteo_trace, 0.0, minute=0.0, pluie=0.0)
+    averse = fabriques_seance.echantillon(meteo_trace, 20_000.0, minute=45.0, pluie=2.0)
+    tenue = _conseiller(fabriques_seance.meteo_fictive(meteo_trace, [sec, averse]))
     assert _contient(tenue.a_emporter + tenue.motifs, "veste"), (
         f"2 mm/h annoncés au km 20 et rien à emporter : {tenue.a_emporter}, motifs {tenue.motifs}"
     )

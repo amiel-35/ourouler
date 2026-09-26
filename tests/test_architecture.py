@@ -35,7 +35,7 @@ routes de l'API, front).
 **Lot 3 fait.** `noyau/` existe : `trace`, `activite`, `erreurs`,
 `proprietaire`. Les anciens chemins sont des réexports (`REEXPORTS`), rangés
 au noyau eux aussi : chacun n'importe que sa cible, et aucun module de
-`src/` ne les importe plus (`scripts/reecrire_imports.py`).
+`src/` ne les importe plus.
 
 **Lot 4 fait.** `noyau/seance` et `noyau/zones` (réexportés à leurs anciens
 chemins), `noyau/meteo` (les types de prévision, que `meteo/openmeteo.py`
@@ -394,7 +394,7 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
 
 #: Ancien chemin → module qu'il réexporte. Vide depuis le lot final : les
 #: modules de réexport des lots 3, 4, 6 et 10 sont retirés, et tout import
-#: passe par la cible directement (`scripts/reecrire_imports.py`).
+#: passe par la cible directement.
 REEXPORTS: dict[str, str] = {}
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.

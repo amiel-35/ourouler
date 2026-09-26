@@ -25,16 +25,13 @@ from pathlib import Path
 import httpx
 import pytest
 
+from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application
 from ourouler.api.base_de_donnees import ouvrir
 from ourouler.api.comptes import DepotComptes
+from ourouler.api.depots import DepotFichiers, SocleTOML
 from ourouler.api.exploitation import VARIABLE_CONFIG, VARIABLE_DATABASE_URL
+from ourouler.api.session import NOM_COOKIE, SessionParCookie
 from ourouler.cli import main
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api.application import NOM_DOSSIER_DONNEES, creer_application  # noqa: E402
-from ourouler.api.depots import DepotFichiers, SocleTOML  # noqa: E402
-from ourouler.api.session import NOM_COOKIE, SessionParCookie  # noqa: E402
 
 CONFIG_CYCLISTE = (
     '[depart]\nnom="Test"\nlatitude=48.0\nlongitude=2.0\n'

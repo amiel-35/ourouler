@@ -159,6 +159,10 @@ def test_regle_5_sans_velo_de_route():
 
 
 # --- l'ordre lui-même : un cas par paire de règles concurrentes ---------------
+#
+# Les paires « n avant 5 » n'ont pas de test à elles : le vélo par défaut de
+# `CONFIG_BRUTE` est « Route », donc chaque `test_regle_n_*` qui attend « CLM »
+# (ou le home-trainer) prouve déjà que la règle n passe devant la règle 5.
 
 
 def test_1_avant_2_l_interieur_prime_sur_le_capteur(config: Config):
@@ -171,10 +175,6 @@ def test_1_avant_2_l_interieur_prime_sur_le_capteur(config: Config):
 def test_1_avant_3_l_interieur_prime_sur_l_equipement(config: Config):
     ht = entree(sport="VirtualRide", equipement="velo-test-clm", meta={"gear_id": "b-test-clm"})
     assert rattacher_velo(ht, config) == HOME_TRAINER
-
-
-def test_1_avant_5_l_interieur_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(meta={"trainer": True}), config) == HOME_TRAINER
 
 
 def test_1_avant_4_l_interieur_prime_sur_la_periode(config: Config):
@@ -198,10 +198,6 @@ def test_2_avant_4_le_capteur_prime_sur_la_periode(config: Config):
     assert rattacher_velo(sortie, config) == "Route"
 
 
-def test_2_avant_5_le_capteur_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(meta={"power_meter": "CAPTEUR 0002"}), config) == "CLM"
-
-
 def test_3_avant_4_l_equipement_prime_sur_la_periode(config: Config):
     """Un équipement connu gagne même si la date tombe dans la période d'un autre vélo."""
     dans_la_periode_clm = datetime(2024, 6, 15, 9, 0, tzinfo=UTC)
@@ -213,14 +209,6 @@ def test_3_avant_4_l_equipement_prime_sur_la_periode(config: Config):
         rattacher_velo(entree(meta={"gear_id": "b-test-route"}, debut=dans_la_periode_clm), config)
         == "Route"
     )
-
-
-def test_3_avant_5_l_equipement_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(equipement="velo-test-clm"), config) == "CLM"
-
-
-def test_4_avant_5_la_periode_prime_sur_le_velo_par_defaut(config: Config):
-    assert rattacher_velo(entree(debut=datetime(2024, 6, 15, 9, 0, tzinfo=UTC)), config) == "CLM"
 
 
 def test_rattachement_sans_date(config: Config):

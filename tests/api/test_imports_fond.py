@@ -16,10 +16,7 @@ from pathlib import Path
 import pytest
 
 from ourouler.activites.cache import Cache
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api import imports_fond, taches_fond  # noqa: E402
+from ourouler.api import imports_fond, taches_fond
 
 
 def _fichier(tmp_path: Path, nom: str, contenu: bytes) -> Path:

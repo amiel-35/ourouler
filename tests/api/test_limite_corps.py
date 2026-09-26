@@ -6,18 +6,14 @@ plusieurs morceaux sans `Content-Length` (`Transfer-Encoding: chunked`),
 qu'`httpx.AsyncClient` ne fabrique pas lui-même pour un `files=` en mémoire.
 Le comportement contre le **service réel** (FastAPI, les deux routes
 bornées) est éprouvé par `tests/api/test_api_entrees_hostiles.py` et
-`tests/test_api.py`.
+`tests/api/test_api.py`.
 """
 
 from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from ourouler.api.limite_corps import LimiteTailleCorps
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
 
 class _AppEspion:

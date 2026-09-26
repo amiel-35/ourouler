@@ -139,30 +139,30 @@ def boucle_vallonnee(
     varier les vitesses le long du tracé, donc les positions des blocs, donc
     les notes de couloir.
     """
-    import fabriques4
+    import fabriques_seance
 
     coords = fabriques.cercle(n, rayon_m=rayon_m, sens="horaire")
     ondules = [
         (lat, lon, 50.0 + amplitude_m * math.sin(2.0 * math.pi * periodes * i / max(n, 1)))
         for i, (lat, lon, _) in enumerate(coords)
     ]
-    return fabriques4.trace_taguee(ondules, nom=nom)
+    return fabriques_seance.trace_taguee(ondules, nom=nom)
 
 
 def droite_au_cap(cap_deg: float, *, n_troncons: int = 40, pas_m: float = 100.0) -> Any:
     """Un segment droit d'un seul cap, plat, pour lire le cap calculé par `_Terrain`."""
-    import fabriques4
+    import fabriques_seance
 
     coords = fabriques.ligne(n_troncons + 1, pas_m=pas_m, cap_deg=cap_deg)
-    return fabriques4.trace_taguee(coords, nom=f"droite au cap {cap_deg:g}")
+    return fabriques_seance.trace_taguee(coords, nom=f"droite au cap {cap_deg:g}")
 
 
 def coude_au_nord(*, cap_avant: float = 350.0, cap_apres: float = 10.0, n: int = 20) -> Any:
     """Deux branches encadrant le nord : le piège du passage 359° → 1°."""
-    import fabriques4
+    import fabriques_seance
 
     coords = fabriques.coude(cap_avant=cap_avant, cap_apres=cap_apres, n=n, pas_m=100.0)
-    return fabriques4.trace_taguee(coords, nom="coude au nord")
+    return fabriques_seance.trace_taguee(coords, nom="coude au nord")
 
 
 def ecart_au_nord(cap: float) -> float:

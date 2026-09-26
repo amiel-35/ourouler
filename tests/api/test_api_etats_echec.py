@@ -38,15 +38,6 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-
 #: Les quatre états, chacun avec les mots qui doivent apparaître quelque part
 #: dans le contrat publié. Un état d'échec qui n'est nommé nulle part dans le
 #: schéma n'a pas été modélisé : il sera découvert en production.

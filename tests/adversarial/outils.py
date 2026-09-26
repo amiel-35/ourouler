@@ -28,6 +28,14 @@ CLE_BIDON = "clef-de-test-qui-ne-doit-jamais-fuiter-0123456789"
 ATHLETE_BIDON = "i000000"
 
 
+class ReseauInterdit(BaseException):
+    """Un test a tenté d'ouvrir une connexion. Règle absolue 3 de CLAUDE.md.
+
+    Définie ici plutôt que dans `conftest.py` : quatre `conftest.py` coexistent
+    sous `tests/`, et `from conftest import …` dépend de l'ordre de collecte.
+    """
+
+
 # --- invariants -------------------------------------------------------------
 
 

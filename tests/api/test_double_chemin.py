@@ -7,35 +7,29 @@ Les références de caractérisation, rejouées sur les trois chemins, sont dans
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "caracterisation"))
-
-from outils_caracterisation import (  # noqa: E402
+from outils_caracterisation import (
     DOSSIER,
     JOUR,
     comparer_a_la_reference,
     preparer,
     serialiser,
 )
-from test_caracterisation_api import REGENERER, Serveur  # noqa: E402
+from test_caracterisation_api import REGENERER, Serveur
 
-from ourouler.api import exploitation  # noqa: E402
-from ourouler.api.adaptateur import Avertissement, Resultat  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.double_chemin import (  # noqa: E402
+from ourouler.api import exploitation
+from ourouler.api.adaptateur import Avertissement, Resultat
+from ourouler.api.application import creer_application
+from ourouler.api.double_chemin import (
     CHEMIN_ANCIEN,
     ecart_entre,
     executer_service,
 )
-from ourouler.api.erreurs import ErreurApi  # noqa: E402
-from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
+from ourouler.api.erreurs import ErreurApi
+from ourouler.noyau.erreurs import ErreurUtilisateur
 
 # --- la variable ----------------------------------------------------------------
 

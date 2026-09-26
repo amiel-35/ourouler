@@ -44,8 +44,8 @@ conçue pour être insensible à cette distribution.
 Aucun réseau : tout est lu dans le cache local (règle absolue 3).
 
 Usage :
-    uv run python tests/validation/endurance_np_retrospectif.py
-    uv run python tests/validation/endurance_np_retrospectif.py --depuis 2025-01-01
+    uv run python scripts/validation/endurance_np_retrospectif.py
+    uv run python scripts/validation/endurance_np_retrospectif.py --depuis 2025-01-01
 """
 
 from __future__ import annotations

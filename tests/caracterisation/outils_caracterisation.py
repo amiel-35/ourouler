@@ -54,14 +54,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
 
+import donnees_synthetiques as synth
 import httpx
 import pytest
 
 DOSSIER = Path(__file__).resolve().parent
-if str(DOSSIER) not in sys.path:
-    sys.path.insert(0, str(DOSSIER))
-
-import donnees_synthetiques as synth  # noqa: E402
 
 TESTS = DOSSIER.parent
 FIXTURES = TESTS / "fixtures"

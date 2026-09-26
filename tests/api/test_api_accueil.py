@@ -16,7 +16,6 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-import pytest
 from outils_api import (
     CLE_INTERVALS_SENTINELLE,
     DEPART_SYNTHETIQUE,
@@ -24,8 +23,6 @@ from outils_api import (
     client_bouchon,
     config_d_essai,
 )
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
 #: Un TOML d'essai minimal, écrit sur `tmp_path` — jamais de coordonnée réelle
 #: (règle absolue 1). Sert les tests qui écrivent (`PATCH /profil`) : `config=`

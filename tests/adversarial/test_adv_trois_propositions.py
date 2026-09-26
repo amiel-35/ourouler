@@ -78,9 +78,9 @@ docstring qui l'interdit. Deux positions contradictoires dans la même branche ;
 un test adversarial n'est pas plus infaillible que le code qu'il attaque. Il est
 remplacé par son miroir, qui garde la règle au lieu de la casser.
 
-La non-régression a son fichier (`test_adv_l53_non_regression.py`), et les
+La non-régression a son fichier (`test_adv_propositions_non_regression.py`), et les
 vérificateurs employés ici sont éprouvés par vingt-sept mutations dans
-`test_adv_l53_autocontrole.py`. Sans ce dernier, rien ne garantirait que les
+`test_adv_propositions_autocontrole.py`. Sans ce dernier, rien ne garantirait que les
 assertions ci-dessous ne sont pas creuses — c'est la leçon du lot L5.2.
 """
 
@@ -91,7 +91,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-import fabriques_l53 as f53
+import fabriques_propositions as f53
 import pytest
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
@@ -524,7 +524,7 @@ def test_la_phrase_parle_de_la_pluie_quand_la_pluie_est_la_seule_difference(
     Toutes les directions rendent le même relief ; seule la pluie change, et
     franchement (0 mm au sud, 2 mm/h au nord). La proposition la plus sèche ne
     peut être distinguée que par là. Si sa phrase n'en parle pas, ou si sa
-    tournure est absente du lexique de `fabriques_l53.AFFIRMATIONS`, le message
+    tournure est absente du lexique de `fabriques_propositions.AFFIRMATIONS`, le message
     d'échec dit laquelle des deux hypothèses vérifier — on n'étend pas le
     lexique en silence.
 

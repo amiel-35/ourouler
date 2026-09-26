@@ -6,7 +6,7 @@ C'est une mesure, pas une fonctionnalité. Il lit le cache réel du mainteneur �
 ce que la suite de tests n'a pas le droit de faire (règles absolues 1 et 3) —
 et il se lance à la main, depuis la racine du dépôt :
 
-    uv run python tests/validation/style_retrospectif.py
+    uv run python scripts/validation/style_retrospectif.py
 
 Il **n'appelle aucun réseau** : tout vient de l'index SQLite du cache et des
 fichiers d'activité déjà téléchargés. C'est voulu — une mesure de style ne
@@ -86,27 +86,23 @@ from datetime import date, datetime
 from pathlib import Path
 
 # `vent_retrospectif.py` vit dans le même dossier, hors de tout paquet Python
-# (`tests/validation` n'a pas de `__init__.py`, décision assumée du sprint 4).
+# (`scripts/validation` n'a pas de `__init__.py`, décision assumée du sprint 4).
 # On lui reprend le début de l'historique et l'ouverture en lecture seule de
 # l'index : il n'y a pas deux façons d'ouvrir le cache sans risquer d'y
-# écrire. `sys.path` doit être complété avant l'import, d'où le `noqa: E402`.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# écrire.
+# Lancé comme script, son dossier est en tête de `sys.path` : l'import direct suffit.
+from vent_retrospectif import DEPUIS_DEFAUT, _connexion_ro
 
-from vent_retrospectif import DEPUIS_DEFAUT, _connexion_ro  # noqa: E402
-
-from ourouler.activites.lecture import lecteur_pour  # noqa: E402
-from ourouler.apprentissage.routes import mailles_ponderees  # noqa: E402
-from ourouler.config import Config, charger  # noqa: E402
-from ourouler.noyau.activite import Activite, puissance_normalisee  # noqa: E402
-from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
-from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m  # noqa: E402
-from ourouler.physique.calibration import (  # noqa: E402
-    echantillonner,
-    puissance_moyenne_en_mouvement,
-    trace_depuis_activite,
-)
-from ourouler.physique.commande import velo_demande  # noqa: E402
-from ourouler.services.calibrer import masse_totale_kg  # noqa: E402
+from ourouler.activites.lecture import lecteur_pour
+from ourouler.apprentissage.routes import mailles_ponderees
+from ourouler.config import Config, charger
+from ourouler.noyau.activite import Activite, puissance_normalisee
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
+from ourouler.physique.commande import velo_demande
+from ourouler.physique.echantillonnage import echantillonner
+from ourouler.physique.validation import puissance_moyenne_en_mouvement, trace_depuis_activite
+from ourouler.services.calibrer import masse_totale_kg
 
 #: Taille de la maille du projet, en degrés inversés : `cle_maille` multiplie
 #: par 3000, donc une maille vaut 1/3000 de degré, ~30 m de côté. Recopié ici

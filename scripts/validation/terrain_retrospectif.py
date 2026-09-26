@@ -6,7 +6,7 @@ si une clé d'API est configurée, appelle Intervals.icu : les deux sont
 interdits dans la suite de tests (règles absolues 1 et 3). Il se lance à la
 main, depuis la racine du dépôt :
 
-    uv run python tests/validation/terrain_retrospectif.py
+    uv run python scripts/validation/terrain_retrospectif.py
 
 Ce qu'il mesure, et pourquoi c'est le critère d'acceptation du lot : on prend
 des séances déjà faites dehors, on relit **où les blocs sont réellement

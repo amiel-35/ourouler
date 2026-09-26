@@ -51,7 +51,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import fabriques
-import fabriques4
+import fabriques_seance
 import pytest
 
 from ourouler.noyau.trace import PointTrace, Trace
@@ -160,7 +160,7 @@ def etape(
     libelle: str | None = None,
 ) -> Any:
     mod = modele_mod()
-    return fabriques4.etape(
+    return fabriques_seance.etape(
         mod,
         type_,
         minutes * 60.0,
@@ -172,7 +172,7 @@ def etape(
 
 
 def seance(etapes: Sequence[Any], *, nom: str = "séance d'essai") -> Any:
-    return fabriques4.seance(modele_mod(), etapes, nom=nom)
+    return fabriques_seance.seance(modele_mod(), etapes, nom=nom)
 
 
 def seance_2x20() -> Any:

@@ -47,8 +47,8 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import fabriques
-import fabriques4
-import fabriques5
+import fabriques_seance
+import fabriques_vent
 import pytest
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
@@ -85,14 +85,14 @@ def _vent() -> Any:
 
 def _champ(directions, *, pas_m: float = 5000.0, vitesses=None, **kw: Any) -> Any:
     """Un `ChampVent` sur une série d'échantillons construits par écart voulu."""
-    echantillons = fabriques5.serie(_meteo(), directions, pas_m=pas_m, vitesses_kmh=vitesses)
+    echantillons = fabriques_vent.serie(_meteo(), directions, pas_m=pas_m, vitesses_kmh=vitesses)
     return _vent().ChampVent(echantillons, **kw)
 
 
 def _parametres() -> Any:
-    import fabriques3
+    import fabriques_physique
 
-    return fabriques3.parametres(pytest.importorskip("ourouler.physique.modele"))
+    return fabriques_physique.parametres(pytest.importorskip("ourouler.physique.modele"))
 
 
 def _placer_accepte_vent() -> bool:
@@ -175,9 +175,9 @@ def test_composante_suit_le_cosinus_de_l_ecart(cap: float, ecart: float):
     """
     champ = _champ([(cap + ecart) % 360.0] * 3)
     obtenu = champ.vent_face_ms(2500.0, cap, 1)
-    assert obtenu == pytest.approx(fabriques5.attendu_ms(ecart), abs=1e-9), (
+    assert obtenu == pytest.approx(fabriques_vent.attendu_ms(ecart), abs=1e-9), (
         f"cap {cap}°, vent venant de {(cap + ecart) % 360.0}° (écart {ecart}°) : "
-        f"attendu {fabriques5.attendu_ms(ecart):+.3f} m/s, obtenu {obtenu:+.3f} m/s"
+        f"attendu {fabriques_vent.attendu_ms(ecart):+.3f} m/s, obtenu {obtenu:+.3f} m/s"
     )
 
 
@@ -214,9 +214,9 @@ def test_le_facteur_de_hauteur_du_projet_est_applique(cap: float):
     dit, et celui-ci reste juste.
     """
     obtenu = _champ([cap] * 3).vent_face_ms(2500.0, cap, 1)
-    attendu = fabriques5.VENT_MS * fabriques5.facteur_hauteur_du_projet()
+    attendu = fabriques_vent.VENT_MS * fabriques_vent.facteur_hauteur_du_projet()
     assert obtenu == pytest.approx(attendu, abs=1e-9)
-    assert obtenu != pytest.approx(fabriques5.VENT_MS, abs=1e-3), (
+    assert obtenu != pytest.approx(fabriques_vent.VENT_MS, abs=1e-3), (
         "le vent à 10 m est rendu tel quel : le facteur de hauteur n'est pas appliqué"
     )
 
@@ -224,7 +224,7 @@ def test_le_facteur_de_hauteur_du_projet_est_applique(cap: float):
 def test_le_facteur_de_hauteur_est_un_parametre_effectif():
     """`facteur_hauteur=1.0` doit rendre le vent brut : le paramètre n'est pas décoratif."""
     obtenu = _champ([0.0] * 3, facteur_hauteur=1.0).vent_face_ms(2500.0, 0.0, 1)
-    assert obtenu == pytest.approx(fabriques5.VENT_MS, abs=1e-9)
+    assert obtenu == pytest.approx(fabriques_vent.VENT_MS, abs=1e-9)
 
 
 def test_la_composante_ne_lit_pas_le_cap_de_l_echantillon():
@@ -238,8 +238,8 @@ def test_la_composante_ne_lit_pas_le_cap_de_l_echantillon():
     champ = _champ([40.0] * 3)
     a = champ.vent_face_ms(2500.0, 40.0, 1)
     b = champ.vent_face_ms(2500.0, 130.0, 1)
-    assert a == pytest.approx(fabriques5.attendu_ms(0.0), abs=1e-9)
-    assert b == pytest.approx(fabriques5.attendu_ms(90.0), abs=1e-9)
+    assert a == pytest.approx(fabriques_vent.attendu_ms(0.0), abs=1e-9)
+    assert b == pytest.approx(fabriques_vent.attendu_ms(90.0), abs=1e-9)
 
 
 # =============================================================================
@@ -262,7 +262,7 @@ def test_interpolation_angulaire_passe_par_le_nord(a: float, b: float):
     )) % 360.0)
     champ = _champ([a, b], pas_m=1000.0)
     obtenu = champ.vent_face_ms(500.0, 0.0, 1)
-    attendu = fabriques5.attendu_ms(milieu)
+    attendu = fabriques_vent.attendu_ms(milieu)
     assert obtenu == pytest.approx(attendu, abs=1e-9), (
         f"directions {a}° et {b}° : la bissectrice est {milieu:.1f}°, "
         f"attendu {attendu:+.3f} m/s, obtenu {obtenu:+.3f} m/s"
@@ -279,21 +279,21 @@ def test_interpolation_compose_direction_et_vitesse_separement():
     presque identiques.
     """
     obtenu = _champ([0.0, 90.0], pas_m=1000.0).vent_face_ms(500.0, 0.0, 1)
-    assert obtenu == pytest.approx(fabriques5.attendu_ms(45.0), abs=1e-9)
-    assert obtenu != pytest.approx(fabriques5.attendu_ms(0.0) / 2.0, abs=1e-3)
+    assert obtenu == pytest.approx(fabriques_vent.attendu_ms(45.0), abs=1e-9)
+    assert obtenu != pytest.approx(fabriques_vent.attendu_ms(0.0) / 2.0, abs=1e-3)
 
 
 def test_interpolation_lineaire_de_la_vitesse():
     """La vitesse s'interpole linéairement (contrat §1.2 b) : 10 et 30 font 20."""
     champ = _champ([0.0, 0.0], pas_m=1000.0, vitesses=[10.0, 30.0])
     assert champ.vent_face_ms(500.0, 0.0, 1) == pytest.approx(
-        fabriques5.attendu_ms(0.0, vent_kmh=20.0), abs=1e-9
+        fabriques_vent.attendu_ms(0.0, vent_kmh=20.0), abs=1e-9
     )
     assert champ.vent_face_ms(0.0, 0.0, 1) == pytest.approx(
-        fabriques5.attendu_ms(0.0, vent_kmh=10.0), abs=1e-9
+        fabriques_vent.attendu_ms(0.0, vent_kmh=10.0), abs=1e-9
     )
     assert champ.vent_face_ms(1000.0, 0.0, 1) == pytest.approx(
-        fabriques5.attendu_ms(0.0, vent_kmh=30.0), abs=1e-9
+        fabriques_vent.attendu_ms(0.0, vent_kmh=30.0), abs=1e-9
     )
 
 
@@ -306,7 +306,7 @@ def test_la_valeur_sur_un_echantillon_est_celle_de_cet_echantillon():
     champ = _champ([0.0, 90.0, 180.0], pas_m=1000.0)
     for position, ecart in ((0.0, 0.0), (1000.0, 90.0), (2000.0, 180.0)):
         assert champ.vent_face_ms(position, 0.0, 1) == pytest.approx(
-            fabriques5.attendu_ms(ecart), abs=1e-9
+            fabriques_vent.attendu_ms(ecart), abs=1e-9
         ), f"position {position} m"
 
 
@@ -358,10 +358,10 @@ def test_un_demi_tour_change_le_plein_face_en_plein_dos(cap: float):
     vent de dos, et la valeur exacte de part et d'autre."""
     champ = _champ([cap] * 3)
     assert champ.vent_face_ms(2500.0, cap, 1) == pytest.approx(
-        fabriques5.attendu_ms(0.0), abs=1e-9
+        fabriques_vent.attendu_ms(0.0), abs=1e-9
     )
     assert champ.vent_face_ms(2500.0, cap, -1) == pytest.approx(
-        fabriques5.attendu_ms(180.0), abs=1e-9
+        fabriques_vent.attendu_ms(180.0), abs=1e-9
     )
 
 
@@ -416,7 +416,7 @@ def test_champ_sans_aucun_echantillon():
 
 def test_champ_partiellement_inconnu_n_est_pas_complet():
     """Un seul trou suffit à retirer `complet` : c'est ce que l'appelant affiche."""
-    champ = _champ([0.0, 0.0, 0.0], vitesses=[fabriques5.VENT_KMH, None, fabriques5.VENT_KMH])
+    champ = _champ([0.0, 0.0, 0.0], vitesses=[fabriques_vent.VENT_KMH, None, fabriques_vent.VENT_KMH])
     assert champ.complet is False
 
 
@@ -459,7 +459,7 @@ def test_vent_nul_mesure_n_est_pas_un_vent_inconnu():
 def test_un_seul_echantillon_vaut_partout():
     """Un point de mesure : le vent est ce qu'il est, sur toute la longueur."""
     champ = _champ([0.0])
-    attendu = fabriques5.attendu_ms(0.0)
+    attendu = fabriques_vent.attendu_ms(0.0)
     for position in (0.0, 1234.0, 99999.0):
         assert champ.vent_face_ms(position, 0.0, 1) == pytest.approx(attendu, abs=1e-9)
 
@@ -478,7 +478,7 @@ def test_position_hors_du_trace_reste_bornee(position: float):
     """
     champ = _champ([0.0, 90.0, 180.0], pas_m=5000.0)
     valeur = champ.vent_face_ms(position, 33.0, 1)
-    plafond = fabriques5.VENT_MS * fabriques5.facteur_hauteur_du_projet()
+    plafond = fabriques_vent.VENT_MS * fabriques_vent.facteur_hauteur_du_projet()
     assert math.isfinite(valeur), f"position {position} : valeur non finie ({valeur!r})"
     assert abs(valeur) <= plafond + 1e-9, (
         f"position {position} : |{valeur:.3f}| dépasse le vent du champ ({plafond:.3f} m/s) — "
@@ -494,9 +494,9 @@ def test_deux_echantillons_a_la_meme_position():
     """
     mod = _meteo()
     doublons = [
-        fabriques5.echantillon(mod, dist_m=0.0, vent_depuis_deg=0.0),
-        fabriques5.echantillon(mod, dist_m=0.0, vent_depuis_deg=180.0),
-        fabriques5.echantillon(mod, dist_m=5000.0, vent_depuis_deg=0.0),
+        fabriques_vent.echantillon(mod, dist_m=0.0, vent_depuis_deg=0.0),
+        fabriques_vent.echantillon(mod, dist_m=0.0, vent_depuis_deg=180.0),
+        fabriques_vent.echantillon(mod, dist_m=5000.0, vent_depuis_deg=0.0),
     ]
     champ = _vent().ChampVent(doublons)
     for position in (0.0, 1.0, 2500.0, 5000.0):
@@ -512,12 +512,12 @@ def test_echantillons_en_desordre():
     """
     mod = _meteo()
     desordre = [
-        fabriques5.echantillon(mod, dist_m=10000.0, vent_depuis_deg=180.0),
-        fabriques5.echantillon(mod, dist_m=0.0, vent_depuis_deg=0.0),
-        fabriques5.echantillon(mod, dist_m=5000.0, vent_depuis_deg=90.0),
+        fabriques_vent.echantillon(mod, dist_m=10000.0, vent_depuis_deg=180.0),
+        fabriques_vent.echantillon(mod, dist_m=0.0, vent_depuis_deg=0.0),
+        fabriques_vent.echantillon(mod, dist_m=5000.0, vent_depuis_deg=90.0),
     ]
     champ = _vent().ChampVent(desordre)
-    plafond = fabriques5.VENT_MS * fabriques5.facteur_hauteur_du_projet()
+    plafond = fabriques_vent.VENT_MS * fabriques_vent.facteur_hauteur_du_projet()
     for position in (0.0, 2500.0, 7500.0, 10000.0):
         valeur = champ.vent_face_ms(position, 0.0, 1)
         assert math.isfinite(valeur) and abs(valeur) <= plafond + 1e-9
@@ -542,7 +542,7 @@ def test_le_champ_ne_depend_pas_des_horodatages():
     directions = [10.0, 80.0, 200.0]
     reference = _champ(directions, pas_m=5000.0)
     bizarres = [
-        fabriques5.echantillon(mod, dist_m=i * 5000.0, vent_depuis_deg=d)
+        fabriques_vent.echantillon(mod, dist_m=i * 5000.0, vent_depuis_deg=d)
         for i, d in enumerate(directions)
     ]
     for e, t in zip(bizarres, heures, strict=True):
@@ -568,7 +568,7 @@ def test_vent_tres_fort():
     """
     champ = _champ([0.0] * 3, vitesses=[144.0] * 3)
     obtenu = champ.vent_face_ms(2500.0, 0.0, 1)
-    assert obtenu == pytest.approx(fabriques5.attendu_ms(0.0, vent_kmh=144.0), abs=1e-9)
+    assert obtenu == pytest.approx(fabriques_vent.attendu_ms(0.0, vent_kmh=144.0), abs=1e-9)
 
 
 @pytest.mark.parametrize("direction", (720.0, 1080.5, -90.0, -450.0))
@@ -601,8 +601,8 @@ def test_caps_hors_de_zero_360(cap: float):
         (float("nan"), 0.0),
         (float("inf"), 0.0),
         (-float("inf"), 0.0),
-        (fabriques5.VENT_KMH, float("nan")),
-        (fabriques5.VENT_KMH, float("inf")),
+        (fabriques_vent.VENT_KMH, float("nan")),
+        (fabriques_vent.VENT_KMH, float("inf")),
         (-10.0, 0.0),
     ),
 )
@@ -621,7 +621,7 @@ def test_valeur_non_finie_ne_ressort_jamais(vitesse: float, direction: float):
     """
     mod = _meteo()
     abimes = [
-        fabriques5.echantillon(mod, dist_m=i * 5000.0, vent_kmh=vitesse, vent_depuis_deg=direction)
+        fabriques_vent.echantillon(mod, dist_m=i * 5000.0, vent_kmh=vitesse, vent_depuis_deg=direction)
         for i in range(3)
     ]
     champ, erreur = _resultat_ou_erreur(lambda: _vent().ChampVent(abimes))
@@ -645,17 +645,17 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
     """
     _exiger_parametre_vent()
     mod = _meteo()
-    trace = fabriques5.boucle_vallonnee(rayon_m=4300.0, n=430)
+    trace = fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430)
     abimes = [
-        fabriques5.echantillon(
-            mod, dist_m=d, vent_kmh=float("nan") if d else fabriques5.VENT_KMH, vent_depuis_deg=0.0
+        fabriques_vent.echantillon(
+            mod, dist_m=d, vent_kmh=float("nan") if d else fabriques_vent.VENT_KMH, vent_depuis_deg=0.0
         )
         for d in (0.0, 13000.0, 26000.0)
     ]
     champ, erreur = _resultat_ou_erreur(lambda: _vent().ChampVent(abimes))
     if erreur is not None:
         return
-    import fabriques4 as f4
+    import fabriques_seance as f4
 
     from ourouler.noyau import seance as seance_modele
 
@@ -749,14 +749,14 @@ def _ecarts_au_golden(obtenu: Any, attendu: Any, chemin: str = "") -> list[str]:
 
 def _trace_golden(nom: str) -> Any:
     if nom == "vallonnee":
-        return fabriques5.boucle_vallonnee(rayon_m=4300.0, n=430)
-    return fabriques4.boucle_plate(rayon_m=9549.0, n=600)
+        return fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430)
+    return fabriques_seance.boucle_plate(rayon_m=9549.0, n=600)
 
 
 def _seance_golden() -> Any:
     from ourouler.noyau import seance as seance_modele
 
-    return fabriques4.seance_deux_blocs(seance_modele)
+    return fabriques_seance.seance_deux_blocs(seance_modele)
 
 
 def _mesure(placement: Any) -> dict:
@@ -901,10 +901,10 @@ def test_le_cap_de_chaque_pas_suit_la_geometrie(cap_voulu: float):
     latitude/longitude intervertis (les caps 47° et 43° s'échangeraient — d'où
     le choix de caps non symétriques), cap exprimé en radians.
     """
-    caps = _caps(_terrain(fabriques5.droite_au_cap(cap_voulu, n_troncons=40)))
+    caps = _caps(_terrain(fabriques_vent.droite_au_cap(cap_voulu, n_troncons=40)))
     assert caps, "aucun pas : le terrain n'a pas de cap"
     for i, cap in enumerate(caps):
-        assert fabriques5.ecart_angulaire(cap, cap_voulu) <= 1.0, (
+        assert fabriques_vent.ecart_angulaire(cap, cap_voulu) <= 1.0, (
             f"pas {i} : cap {cap:.1f}° au lieu de {cap_voulu:.1f}°"
         )
 
@@ -916,8 +916,8 @@ def test_les_caps_franchissent_le_nord_sans_detour_par_le_sud():
     deux points (350 et 10 donneraient 180). Le cap d'un pas se calcule par la
     géométrie du pas, jamais par une moyenne d'angles bruts.
     """
-    caps = _caps(_terrain(fabriques5.coude_au_nord(cap_avant=350.0, cap_apres=10.0, n=20)))
-    pires = [c for c in caps if fabriques5.ecart_au_nord(c) > 45.0]
+    caps = _caps(_terrain(fabriques_vent.coude_au_nord(cap_avant=350.0, cap_apres=10.0, n=20)))
+    pires = [c for c in caps if fabriques_vent.ecart_au_nord(c) > 45.0]
     assert not pires, (
         f"caps éloignés du nord de plus de 45° sur un tracé qui va de 350° à 10° : {pires[:5]} — "
         "moyenne linéaire d'angles ?"
@@ -926,10 +926,10 @@ def test_les_caps_franchissent_le_nord_sans_detour_par_le_sud():
 
 def test_les_caps_distinguent_les_deux_branches_d_un_coude():
     """Contrôle positif : un cap constant partout passerait le test précédent."""
-    caps = _caps(_terrain(fabriques5.coude_au_nord(cap_avant=20.0, cap_apres=110.0, n=20)))
-    assert fabriques5.ecart_angulaire(caps[0], 20.0) <= 2.0
-    assert fabriques5.ecart_angulaire(caps[-1], 110.0) <= 2.0
-    assert fabriques5.ecart_angulaire(caps[0], caps[-1]) >= 80.0, (
+    caps = _caps(_terrain(fabriques_vent.coude_au_nord(cap_avant=20.0, cap_apres=110.0, n=20)))
+    assert fabriques_vent.ecart_angulaire(caps[0], 20.0) <= 2.0
+    assert fabriques_vent.ecart_angulaire(caps[-1], 110.0) <= 2.0
+    assert fabriques_vent.ecart_angulaire(caps[0], caps[-1]) >= 80.0, (
         "les deux branches du coude portent le même cap : le cap ne suit pas le tracé"
     )
 
@@ -952,7 +952,7 @@ def test_trace_degenere_deux_points_confondus():
     tracé dégénéré ; la correction, elle, ne lui appartient pas.
     """
     coords = [(fabriques.LAT0, fabriques.LON0, 10.0), (fabriques.LAT0, fabriques.LON0, 10.0)]
-    trace = fabriques4.trace_taguee(coords, nom="deux points confondus")
+    trace = fabriques_seance.trace_taguee(coords, nom="deux points confondus")
     terrain, erreur = _resultat_ou_erreur(lambda: _terrain(trace))
     assert erreur is None or isinstance(erreur, ERREURS), (
         f"deux points confondus font lever {type(erreur).__name__} : {erreur}"
@@ -975,7 +975,7 @@ def test_le_vent_de_face_ralentit_et_le_vent_de_dos_accelere():
     branchement les recoller à l'envers. Aucun test de `ChampVent` seul ne
     l'attrape.
     """
-    terrain = _terrain(fabriques5.boucle_vallonnee(rayon_m=4300.0, n=430))
+    terrain = _terrain(fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430))
     if not _vitesse_accepte_le_vent(terrain):
         pytest.skip(
             "_Terrain.vitesse n'a pas encore de paramètre de vent (contrat L5.1 §1.2 c)"
@@ -1022,7 +1022,7 @@ def test_le_sens_du_pas_arrive_bien_jusqu_au_champ():
     ne peut pas être la même, et c'est l'aller qui doit être le plus court.
     """
     cap = 103.0
-    trace = fabriques5.droite_au_cap(cap, n_troncons=400, pas_m=100.0)
+    trace = fabriques_vent.droite_au_cap(cap, n_troncons=400, pas_m=100.0)
     champ = _champ([cap] * 3, pas_m=20000.0)
     terrain = _terrain_avec_vent(trace, champ)
     depart = terrain.total / 2.0
@@ -1060,7 +1060,7 @@ def test_le_vent_de_dos_mene_plus_loin_que_le_vent_de_face():
     """
     _exiger_parametre_vent()
     cap = 103.0
-    trace = fabriques5.droite_au_cap(cap, n_troncons=600, pas_m=100.0)
+    trace = fabriques_vent.droite_au_cap(cap, n_troncons=600, pas_m=100.0)
     face = _champ([cap] * 3, pas_m=30000.0)
     dos = _champ([(cap + 180.0) % 360.0] * 3, pas_m=30000.0)
     mod = _placement()
@@ -1084,7 +1084,7 @@ def test_la_vitesse_a_vent_nul_est_celle_d_avant_le_lot():
     Si le branchement change la vitesse à vent nul, le placement dérive
     partout sans qu'aucun test de vent ne bronche.
     """
-    terrain = _terrain(fabriques5.boucle_vallonnee(rayon_m=4300.0, n=430))
+    terrain = _terrain(fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430))
     attendus = {
         (210.0, 0.0): 9.45058046293525,
         (210.0, 0.03): 5.749765049031339,
@@ -1110,7 +1110,7 @@ def test_le_vent_est_arrondi_pour_la_memoisation():
     recalculerait tout et `ourouler sortie` doublerait plus que le budget) ;
     arrondi trop grossier (0,0 et 1,0 confondus) aussi.
     """
-    terrain = _terrain(fabriques5.boucle_vallonnee(rayon_m=4300.0, n=430))
+    terrain = _terrain(fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430))
     if not _vitesse_accepte_le_vent(terrain):
         pytest.skip("_Terrain.vitesse n'a pas encore de paramètre de vent (contrat L5.1 §1.2 c)")
     assert terrain.vitesse(210.0, 0.0, 0.01) == terrain.vitesse(210.0, 0.0, 0.02), (
@@ -1193,7 +1193,7 @@ def test_les_fixtures_de_ce_fichier_ne_portent_aucune_coordonnee_reelle():
     même déguisé en fixture de vent.
     """
     assert abs(fabriques.LAT0) < 0.01 and abs(fabriques.LON0) < 0.01
-    echantillon = fabriques5.echantillon(_meteo(), dist_m=5000.0)
+    echantillon = fabriques_vent.echantillon(_meteo(), dist_m=5000.0)
     assert abs(echantillon.lat) < 1.0 and abs(echantillon.lon) < 1.0, (
         "un échantillon de test s'éloigne du point fictif : coordonnée réelle ?"
     )

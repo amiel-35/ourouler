@@ -40,15 +40,6 @@ from outils_api import (
     texte_entier,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-
 
 # Marque « F1 non livré » retirée le 17/09/2026 : la fabrique accepte désormais
 # une Config et des clients injectés, et ce test passe. `strict` l'a signalé.

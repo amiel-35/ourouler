@@ -40,9 +40,9 @@ donne quand même la part des arrêts.
 Aucun réseau : tout est lu dans le cache local (règle absolue 3).
 
 Usage :
-    uv run python tests/validation/facteur_compteur_retrospectif.py
-    uv run python tests/validation/facteur_compteur_retrospectif.py --depuis 2025-01-01
-    uv run python tests/validation/facteur_compteur_retrospectif.py --sans-mouvement
+    uv run python scripts/validation/facteur_compteur_retrospectif.py
+    uv run python scripts/validation/facteur_compteur_retrospectif.py --depuis 2025-01-01
+    uv run python scripts/validation/facteur_compteur_retrospectif.py --sans-mouvement
 """
 
 from __future__ import annotations

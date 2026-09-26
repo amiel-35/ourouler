@@ -50,8 +50,9 @@ La CI (`.github/workflows/ci.yml`) tourne sur chaque PR vers `main` et
 comporte trois jobs :
 
 1. **python** — Linux, Python 3.12, fuseau UTC : `ruff check`, puis toute
-   la suite `pytest` avec l'image Postgres ; elle échoue si un seul test
-   Postgres a été sauté.
+   la suite `pytest` avec l'image Postgres ; elle échoue sur tout test sauté
+   dont le motif n'est pas dans `tests/sauts_autorises.py`, un test Postgres
+   sauté compris. `CI=1 uv run pytest -q` rejoue cette garde chez vous.
 2. **front** — Node 20 : `npm ci` puis `npm run verifier`.
 3. **image** — construit l'image de l'API (`deploiement/api/Dockerfile`),
    la démarre en mode hébergé sans base, et vérifie que `/sante` répond 200,

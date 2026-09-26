@@ -30,7 +30,7 @@ import math
 from typing import Any
 
 import fabriques
-import fabriques3
+import fabriques_physique
 import pytest
 from outils import robuste
 
@@ -59,7 +59,7 @@ def _module():
 
 
 def _p(module, **surcharges):
-    return fabriques3.parametres(module, **surcharges)
+    return fabriques_physique.parametres(module, **surcharges)
 
 
 def _trace_pente(pente: float, *, n: int = 51, pas_m: float = 100.0, alt0: float = 200.0) -> Trace:
@@ -578,10 +578,10 @@ def test_simuler_ne_modifie_pas_le_trace():
     module = _module()
     p = _p(module)
     trace = _trace_pente(0.02, n=101, pas_m=100.0)
-    avant = fabriques3.copie_lisible(trace)
+    avant = fabriques_physique.copie_lisible(trace)
     with fabriques.limite_temps(20.0, "simuler"):
         module.simuler(trace, 200.0, p)
-    assert fabriques3.copie_lisible(trace) == avant, "simuler a modifié les points du tracé"
+    assert fabriques_physique.copie_lisible(trace) == avant, "simuler a modifié les points du tracé"
 
 
 def test_simuler_donne_un_temps_en_mouvement_reproductible():

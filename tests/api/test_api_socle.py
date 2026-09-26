@@ -32,14 +32,6 @@ from outils_api import (
     verifier_refus_exploitable,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Les dix sous-commandes de `discovery_donnees.md` §1. F1 en expose une route
 #: chacune. `routes` et `calibrer` ne sont pas dans la liste dure : elles
 #: n'apparaissent sur aucun des vingt écrans.

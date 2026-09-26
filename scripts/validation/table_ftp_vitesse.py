@@ -33,8 +33,8 @@ cycliste réel.
 Aucun réseau, aucune configuration lue : la table est générique par construction.
 
 Usage :
-    uv run python tests/validation/table_ftp_vitesse.py            # texte
-    uv run python tests/validation/table_ftp_vitesse.py --markdown # la doc
+    uv run python scripts/validation/table_ftp_vitesse.py            # texte
+    uv run python scripts/validation/table_ftp_vitesse.py --markdown # la doc
 """
 
 from __future__ import annotations

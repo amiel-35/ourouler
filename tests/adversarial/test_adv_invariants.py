@@ -23,17 +23,18 @@ import socket
 from datetime import date, datetime
 from pathlib import Path
 
-import fabriques4
+import fabriques_seance
 import httpx
 import outils
 import pytest
-from conftest import RACINE, ReseauInterdit
+from outils import ReseauInterdit
 
 from ourouler import cli
 from ourouler import config as module_config
 from ourouler.noyau import erreurs
 from ourouler.sortie import commande as commande_sortie
 
+RACINE = Path(__file__).resolve().parents[2]
 SRC = RACINE / "src" / "ourouler"
 TESTS = RACINE / "tests"
 
@@ -94,6 +95,46 @@ def test_src_existe():
     assert _fichiers_python(SRC), "aucun module Python sous src/ourouler"
 
 
+def _imports_interdits(arbre: ast.AST, racines_interdites: set[str]) -> list[tuple[int, str]]:
+    """`import os`, `from pathlib import …` : les modules qui touchent la machine."""
+    fautes: list[tuple[int, str]] = []
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Import):
+            for alias in noeud.names:
+                if alias.name.split(".")[0] in racines_interdites:
+                    fautes.append((noeud.lineno, f"import {alias.name}"))
+        elif isinstance(noeud, ast.ImportFrom):
+            if (noeud.module or "").split(".")[0] in racines_interdites:
+                fautes.append((noeud.lineno, f"from {noeud.module} import …"))
+    return fautes
+
+
+def _attributs_interdits(arbre: ast.AST) -> list[tuple[int, str]]:
+    """`environ`, `expanduser`… importés, lus comme attribut ou comme nom."""
+    fautes: list[tuple[int, str]] = []
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.ImportFrom):
+            for alias in noeud.names:
+                if alias.name in ATTRIBUTS_INTERDITS:
+                    fautes.append((noeud.lineno, f"from … import {alias.name}"))
+        elif isinstance(noeud, ast.Attribute) and noeud.attr in ATTRIBUTS_INTERDITS:
+            fautes.append((noeud.lineno, f".{noeud.attr}"))
+        elif isinstance(noeud, ast.Name) and noeud.id in ATTRIBUTS_INTERDITS:
+            fautes.append((noeud.lineno, noeud.id))
+    return fautes
+
+
+def _acces_machine(chemin: Path, *, autorise: bool) -> list[str]:
+    """Les imports et attributs d'un module qui touchent la machine hôte."""
+    interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
+    arbre = _arbre(chemin)
+    fautes = _imports_interdits(arbre, {m.split(".")[0] for m in interdits})
+    if not autorise:
+        fautes += _attributs_interdits(arbre)
+    relatif = chemin.relative_to(RACINE)
+    return [f"{relatif}:{ligne} {quoi}" for ligne, quoi in fautes]
+
+
 def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
     fautes: list[str] = []
     for chemin in _fichiers_python(SRC):
@@ -101,27 +142,7 @@ def test_le_coeur_ne_lit_ni_configuration_ni_environnement():
             chemin.name in FICHIERS_AUTORISES
             or chemin.relative_to(SRC).as_posix() in CHEMINS_AUTORISES
         )
-        interdits = MODULES_INTERDITS_PARTOUT if autorise else MODULES_INTERDITS_HORS_CLI
-        relatif = chemin.relative_to(RACINE)
-        for noeud in ast.walk(_arbre(chemin)):
-            if isinstance(noeud, ast.Import):
-                for alias in noeud.names:
-                    if alias.name.split(".")[0] in {m.split(".")[0] for m in interdits}:
-                        fautes.append(f"{relatif}:{noeud.lineno} import {alias.name}")
-            elif isinstance(noeud, ast.ImportFrom):
-                racine_module = (noeud.module or "").split(".")[0]
-                if racine_module in {m.split(".")[0] for m in interdits}:
-                    fautes.append(f"{relatif}:{noeud.lineno} from {noeud.module} import …")
-                if not autorise:
-                    for alias in noeud.names:
-                        if alias.name in ATTRIBUTS_INTERDITS:
-                            fautes.append(f"{relatif}:{noeud.lineno} from … import {alias.name}")
-            elif not autorise and isinstance(noeud, ast.Attribute):
-                if noeud.attr in ATTRIBUTS_INTERDITS:
-                    fautes.append(f"{relatif}:{noeud.lineno} .{noeud.attr}")
-            elif not autorise and isinstance(noeud, ast.Name):
-                if noeud.id in ATTRIBUTS_INTERDITS:
-                    fautes.append(f"{relatif}:{noeud.lineno} {noeud.id}")
+        fautes += _acces_machine(chemin, autorise=autorise)
     assert not fautes, (
         "seuls cli.py et config.py peuvent toucher la machine hôte "
         "(CLAUDE.md règle 2, contrat §0) :\n  " + "\n  ".join(sorted(set(fautes)))
@@ -267,7 +288,9 @@ def _fichiers_texte(racine: Path) -> list[Path]:
 def test_aucune_coordonnee_francaise_dans_les_tests():
     """Règle absolue 1 : pas de coordonnée de départ dans le dépôt, même en fixture."""
     fautes = []
-    for chemin in _fichiers_texte(TESTS):
+    # `scripts/` aussi : les scripts de mesure de `scripts/validation/` lisent
+    # les vraies données du mainteneur, raison de plus pour n'en rien écrire.
+    for chemin in [*_fichiers_texte(TESTS), *_fichiers_texte(RACINE / "scripts")]:
         texte = chemin.read_text(encoding="utf-8", errors="replace")
         for numero, lat, lon, ville, distance in _paires_suspectes(texte):
             fautes.append(
@@ -369,7 +392,7 @@ def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
 
 
 def test_fabriques4_ne_saute_jamais(tmp_path, monkeypatch):
-    """`fabriques4.module` ne saute plus : il échoue si le module manque.
+    """`fabriques_seance.module` ne saute plus : il échoue si le module manque.
 
     Tous les lots du contrat existent. Un module introuvable est donc une
     régression, et un `ImportError` interne remonte tel quel : dans les deux
@@ -384,15 +407,15 @@ def test_fabriques4_ne_saute_jamais(tmp_path, monkeypatch):
         "from paquet_de_test.inexistant import quoi_que_ce_soit\n", encoding="utf-8"
     )
     monkeypatch.syspath_prepend(str(tmp_path))
-    monkeypatch.setattr(fabriques4, "PAQUETS", ("paquet_de_test",))
+    monkeypatch.setattr(fabriques_seance, "PAQUETS", ("paquet_de_test",))
 
-    assert fabriques4.module("present", motif="absent").VALEUR == 1
+    assert fabriques_seance.module("present", motif="absent").VALEUR == 1
 
     with pytest.raises(ModuleNotFoundError):
-        fabriques4.module("casse", motif="ne doit pas être sauté")
+        fabriques_seance.module("casse", motif="ne doit pas être sauté")
 
     with pytest.raises(pytest.fail.Exception, match="lot jamais écrit"):
-        fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
+        fabriques_seance.module("jamais_ecrit", motif="lot jamais écrit")
 
 
 def test_les_fichiers_par_defaut_de_sortie_ne_vont_pas_dans_le_dossier_courant(

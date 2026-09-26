@@ -22,28 +22,25 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from test_api import ecrire_config
+from test_physique_calibration import sortie_synthetique
+from test_physique_commande import _en_tcx, archive_bouchonnee
+from test_sortie_commande import client_intervals, moteur_brouter, moteur_meteo
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from fastapi.testclient import TestClient  # noqa: E402
-from test_api import ecrire_config  # noqa: E402
-from test_physique_calibration import sortie_synthetique  # noqa: E402
-from test_physique_commande import _en_tcx, archive_bouchonnee  # noqa: E402
-from test_sortie_commande import client_intervals, moteur_brouter, moteur_meteo  # noqa: E402
-
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.api import taches_fond  # noqa: E402
-from ourouler.api.adaptateur import Budgets  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.quotas import Quotas  # noqa: E402
-from ourouler.api.routes.commun import Clients  # noqa: E402
-from ourouler.api.session import MODE_HEBERGE  # noqa: E402
-from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
-from ourouler.physique import commande as physique  # noqa: E402
-from ourouler.services import calibrer  # noqa: E402
-from ourouler.stockage.calibrations import VERSION_CALIBRATION  # noqa: E402
+from ourouler.activites.cache import Cache
+from ourouler.api import taches_fond
+from ourouler.api.adaptateur import Budgets
+from ourouler.api.application import creer_application
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.quotas import Quotas
+from ourouler.api.routes.commun import Clients
+from ourouler.api.session import MODE_HEBERGE
+from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.physique import commande as physique
+from ourouler.services import calibrer
+from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
 PREFIXE = "/api/v1"
 A = "essai-calib-a"

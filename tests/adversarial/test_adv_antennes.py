@@ -30,7 +30,7 @@ import math
 from typing import Any
 
 import fabriques
-import fabriques3
+import fabriques_physique
 import pytest
 from outils import robuste
 
@@ -142,7 +142,7 @@ def test_une_ligne_droite_ne_contient_aucune_antenne():
 def test_un_aller_retour_exact_est_detecte():
     """Contrat §4 : « aller-retour exact »."""
     module = _module()
-    trace, debut, fin = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4)
+    trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(antenne exacte)")
     assert antennes, "aller-retour de 400 m greffé sur une boucle : aucune antenne détectée"
     assert len(antennes) == 1, f"une seule antenne greffée, {len(antennes)} détectées : {antennes}"
@@ -150,7 +150,7 @@ def test_un_aller_retour_exact_est_detecte():
     assert a.debut_idx <= debut + 1 and a.fin_idx >= fin - 1, (
         f"antenne située en ({a.debut_idx}, {a.fin_idx}), greffée en ({debut}, {fin})"
     )
-    attendue = fabriques3.longueur_entre(trace, debut, fin)
+    attendue = fabriques_physique.longueur_entre(trace, debut, fin)
     assert a.longueur_m == pytest.approx(attendue, rel=0.25), (
         f"longueur_m = {a.longueur_m:.0f} m pour un aller-retour de {attendue:.0f} m "
         "(le contrat compte l'aller **et** le retour)"
@@ -160,7 +160,7 @@ def test_un_aller_retour_exact_est_detecte():
 def test_un_aller_retour_bruite_de_dix_metres_reste_detecte():
     """Contrat §4 : « quasi-exact (bruit 10 m) », sous la tolérance de 20 m."""
     module = _module()
-    trace, debut, fin = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4, bruit_m=10.0)
+    trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4, bruit_m=10.0)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(bruit 10 m)")
     assert antennes, (
         "un retour décalé de 10 m (tolérance 20 m) n'est plus reconnu : le détecteur "
@@ -171,7 +171,7 @@ def test_un_aller_retour_bruite_de_dix_metres_reste_detecte():
 def test_un_retour_au_dela_de_la_tolerance_n_est_pas_une_antenne():
     """Le pendant du test précédent : au-delà de la tolérance, deux routes distinctes."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4, bruit_m=120.0)
+    trace, _, _ = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4, bruit_m=120.0)
     antennes = _verifier_antennes(
         module.detecter(trace, tolerance_m=TOLERANCE_DEFAUT_M), trace, "detecter(bruit 120 m)"
     )
@@ -184,7 +184,7 @@ def test_un_retour_au_dela_de_la_tolerance_n_est_pas_une_antenne():
 def test_une_antenne_au_depart_est_detectee():
     """Contrat §4 : « antenne au départ » — le cas où les indices commencent à 0."""
     module = _module()
-    trace, debut, fin = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4, position=0)
+    trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4, position=0)
     assert debut == 0, "le montage doit greffer l'antenne sur le tout premier point"
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(antenne au départ)")
     assert antennes, "antenne greffée au point 0 : non détectée (borne de boucle oubliée ?)"
@@ -198,8 +198,8 @@ def test_une_antenne_au_depart_est_detectee():
 def test_une_antenne_plus_longue_que_la_fenetre_est_laissee_en_place():
     """Contrat §1 : l'antenne se définit « sur une longueur totale ≤ fenetre_m »."""
     module = _module()
-    trace, debut, fin = fabriques3.boucle_avec_antenne(aller_m=1200.0, n_aller=12)
-    longueur = fabriques3.longueur_entre(trace, debut, fin)
+    trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=1200.0, n_aller=12)
+    longueur = fabriques_physique.longueur_entre(trace, debut, fin)
     assert longueur > FENETRE_DEFAUT_M, "le montage doit dépasser la fenêtre par défaut"
     antennes = _verifier_antennes(
         module.detecter(trace, fenetre_m=FENETRE_DEFAUT_M), trace, "detecter(antenne de 2,4 km)"
@@ -218,8 +218,8 @@ def test_une_antenne_exactement_a_la_fenetre_est_dedans():
     c'est exactement ce que le module additionnera.
     """
     module = _module()
-    trace, debut, fin = fabriques3.boucle_avec_antenne(aller_m=250.0, n_aller=5)
-    longueur = fabriques3.longueur_entre(trace, debut, fin)
+    trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=250.0, n_aller=5)
+    longueur = fabriques_physique.longueur_entre(trace, debut, fin)
     en_dessous = _verifier_antennes(
         module.detecter(trace, fenetre_m=longueur / 2), trace, "detecter(fenêtre = moitié)"
     )
@@ -240,8 +240,8 @@ def test_deux_antennes_distinctes_sont_rendues_separement():
     """Deux culs-de-sac sur la même boucle : deux entrées, pas une fusion."""
     module = _module()
     coords = fabriques.cercle(n=32, rayon_m=2000.0)
-    coords, _, _ = fabriques3.greffer_antenne(coords, position=20, aller_m=180.0, n_aller=3)
-    coords, _, _ = fabriques3.greffer_antenne(coords, position=5, aller_m=180.0, n_aller=3)
+    coords, _, _ = fabriques_physique.greffer_antenne(coords, position=20, aller_m=180.0, n_aller=3)
+    coords, _, _ = fabriques_physique.greffer_antenne(coords, position=5, aller_m=180.0, n_aller=3)
     trace = fabriques.trace_fictive(coords)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(deux antennes)")
     assert len(antennes) == 2, f"deux antennes greffées, {len(antennes)} rendues : {antennes}"
@@ -267,7 +267,7 @@ def test_detecter_sur_une_trace_minuscule(nb):
 def test_detecter_avec_des_reglages_absurdes(fenetre, tolerance):
     """Fenêtre ou tolérance nulle ou négative : erreur utilisateur ou résultat cohérent."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne()
+    trace, _, _ = fabriques_physique.boucle_avec_antenne()
     with fabriques.limite_temps(10.0, f"detecter(fenetre_m={fenetre}, tolerance_m={tolerance})"):
         resultat, _ = robuste(
             lambda: module.detecter(trace, fenetre_m=fenetre, tolerance_m=tolerance),
@@ -297,13 +297,13 @@ def test_elaguer_sans_antenne_rend_une_trace_equivalente():
     module = _module()
     coords = fabriques.cercle(n=32, rayon_m=1800.0)
     trace = fabriques.trace_fictive(coords, tags=[{"highway": "tertiary"}] * (len(coords) - 1))
-    avant = fabriques3.copie_lisible(trace)
+    avant = fabriques_physique.copie_lisible(trace)
     apres = module.elaguer(trace, [])
     _verifier_elaguee(trace, apres, "elaguer(trace, [])")
     assert len(apres.points) == len(trace.points), (
         f"{len(trace.points)} points avant, {len(apres.points)} après un élagage sans antenne"
     )
-    assert fabriques3.copie_lisible(apres) == avant, (
+    assert fabriques_physique.copie_lisible(apres) == avant, (
         "elaguer(trace, []) modifie la géométrie ou les distances cumulées"
     )
     assert len(apres.segments) == len(trace.segments), (
@@ -316,14 +316,14 @@ def test_elaguer_sans_antenne_rend_une_trace_equivalente():
 def test_elaguer_retire_l_antenne_et_preserve_la_fermeture():
     """Contrat §4 : « élagage qui préserve la fermeture et les segments »."""
     module = _module()
-    trace, debut, fin = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4)
+    trace, debut, fin = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     assert trace.bornee(), "le montage doit partir d'une boucle fermée"
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter")
     assert antennes, "rien à élaguer : le détecteur a déjà échoué"
     apres = module.elaguer(trace, antennes)
     _verifier_elaguee(trace, apres, "elaguer(boucle avec antenne)")
     assert apres.bornee(), "la boucle n'est plus fermée après élagage"
-    retiree = fabriques3.longueur_entre(trace, debut, fin)
+    retiree = fabriques_physique.longueur_entre(trace, debut, fin)
     assert apres.points[-1].dist_m == pytest.approx(
         trace.points[-1].dist_m - retiree, rel=0.05
     ), (
@@ -336,12 +336,12 @@ def test_elaguer_retire_l_antenne_et_preserve_la_fermeture():
 def test_elaguer_ne_touche_pas_la_trace_d_origine():
     """Le contrat demande un « nouveau Trace » : la comparaison avant/après en dépend."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4)
-    avant = fabriques3.copie_lisible(trace)
+    trace, _, _ = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
+    avant = fabriques_physique.copie_lisible(trace)
     segments_avant = [(s.debut_idx, s.fin_idx, s.longueur_m) for s in trace.segments]
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter")
     module.elaguer(trace, antennes)
-    assert fabriques3.copie_lisible(trace) == avant, "elaguer a modifié les points de l'entrée"
+    assert fabriques_physique.copie_lisible(trace) == avant, "elaguer a modifié les points de l'entrée"
     assert [(s.debut_idx, s.fin_idx, s.longueur_m) for s in trace.segments] == segments_avant, (
         "elaguer a modifié les segments de l'entrée"
     )
@@ -350,7 +350,7 @@ def test_elaguer_ne_touche_pas_la_trace_d_origine():
 def test_elaguer_puis_detecter_ne_trouve_plus_rien():
     """L'élagage converge : une trace élaguée n'a plus d'antenne à élaguer."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne(aller_m=200.0, n_aller=4)
+    trace, _, _ = fabriques_physique.boucle_avec_antenne(aller_m=200.0, n_aller=4)
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter")
     apres = module.elaguer(trace, antennes)
     restantes = _verifier_antennes(module.detecter(apres), apres, "detecter(après élagage)")
@@ -361,7 +361,7 @@ def test_elaguer_conserve_les_tags_des_troncons_gardes():
     """Les segments survivants gardent leurs tags : `couts.evaluer` tourne derrière."""
     module = _module()
     coords = fabriques.cercle(n=24, rayon_m=1500.0)
-    coords, debut, fin = fabriques3.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
+    coords, debut, fin = fabriques_physique.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
     tags = [
         {"highway": "track"} if debut <= i < fin else {"highway": "tertiary"}
         for i in range(len(coords) - 1)
@@ -390,7 +390,7 @@ def test_elaguer_conserve_les_tags_des_troncons_gardes():
 def test_elaguer_avec_des_antennes_fabriquees_hors_bornes(fabrique):
     """Une antenne venue d'ailleurs (JSON relu, appelant bricolé) ne doit pas faire d'`IndexError`."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne()
+    trace, _, _ = fabriques_physique.boucle_avec_antenne()
     debut, fin = fabrique(len(trace.points))
     antenne = module.Antenne(debut_idx=debut, fin_idx=fin, longueur_m=400.0)
     resultat, _ = robuste(
@@ -405,7 +405,7 @@ def test_elaguer_avec_des_antennes_fabriquees_hors_bornes(fabrique):
 def test_elaguer_toute_la_trace_ne_rend_pas_une_trace_incoherente():
     """Cas limite : l'antenne couvre tout. Refus ou trace cohérente, jamais un `Trace` cassé."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne()
+    trace, _, _ = fabriques_physique.boucle_avec_antenne()
     antenne = module.Antenne(debut_idx=0, fin_idx=len(trace.points) - 1, longueur_m=trace.distance_m)
     resultat, _ = robuste(
         lambda: module.elaguer(trace, [antenne]),
@@ -421,7 +421,7 @@ def test_elaguer_une_trace_sans_segment():
     """Un GPX importé n'a pas de segment : la réindexation ne doit pas le supposer."""
     module = _module()
     coords = fabriques.cercle(n=24, rayon_m=1500.0)
-    coords, _, _ = fabriques3.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
+    coords, _, _ = fabriques_physique.greffer_antenne(coords, position=6, aller_m=200.0, n_aller=4)
     trace = fabriques.trace_fictive(coords)  # aucun segment
     assert trace.segments == []
     antennes = _verifier_antennes(module.detecter(trace), trace, "detecter(sans segment)")
@@ -433,7 +433,7 @@ def test_elaguer_une_trace_sans_segment():
 def test_elaguer_avec_des_segments_qui_debordent():
     """Segments incohérents en entrée : erreur utilisateur ou sortie cohérente."""
     module = _module()
-    trace, _, _ = fabriques3.boucle_avec_antenne()
+    trace, _, _ = fabriques_physique.boucle_avec_antenne()
     trace.segments.append(Segment(debut_idx=0, fin_idx=len(trace.points) + 5, longueur_m=10.0, tags={}))
     antennes, _ = robuste(
         lambda: module.detecter(trace), quoi="detecter(segments qui débordent)", erreurs_acceptees=ERREURS

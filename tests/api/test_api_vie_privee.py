@@ -37,30 +37,27 @@ from pathlib import Path
 
 import pytest
 from outils_api import PROPRIETAIRE_A, PROPRIETAIRE_B
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from test_api_isolation_proprietaire import (  # noqa: E402
+from test_api_isolation_proprietaire import (
     MARQUE_A,
     MARQUE_B,
     PREFIXE_API,
     _planter,
     _service_pour_deux,
 )
-from test_apprentissage_routes import LUNDI, droite  # noqa: E402
+from test_apprentissage_routes import LUNDI, droite
 
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.api import vie_privee  # noqa: E402
-from ourouler.api.depots import (  # noqa: E402
+from ourouler.activites.cache import Cache
+from ourouler.api import vie_privee
+from ourouler.api.depots import (
     DepotFichiers,
     DepotGenerations,
     DepotProfils,
     JournalServices,
     SocleVide,
 )
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
-from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.apprentissage.commande import NOM_BASE
+from ourouler.apprentissage.routes import BaseRoutes
 
 #: Un propriétaire tiers, qui n'a jamais rien fait : sert de témoin « jamais
 #: existé » — voir `test_la_suppression_rend_le_profil_comme_neuf`.

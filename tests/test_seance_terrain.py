@@ -387,9 +387,9 @@ POIDS_NON_MESURABLES = {"POIDS_CARREFOUR"}
 
 
 def _validation():
-    """Le script `tests/validation/terrain_retrospectif.py`, chargé par chemin.
+    """Le script `scripts/validation/terrain_retrospectif.py`, chargé par chemin.
 
-    Il n'est pas collecté par pytest (son nom ne commence pas par `test_`) et
+    Il n'est pas collecté par pytest (il vit hors de `tests/`) et
     c'est voulu : il lit le cache réel du mainteneur. On l'importe quand même
     ici, parce que son **contenu** — la liste des postes qu'il diagnostique —
     est ce qui rend les poids auditables, et qu'un poids qui sort de cette
@@ -400,7 +400,7 @@ def _validation():
 
     if "terrain_retrospectif" in sys.modules:
         return sys.modules["terrain_retrospectif"]
-    chemin = RACINE / "tests" / "validation" / "terrain_retrospectif.py"
+    chemin = RACINE / "scripts" / "validation" / "terrain_retrospectif.py"
     spec = importlib.util.spec_from_file_location("terrain_retrospectif", chemin)
     module = importlib.util.module_from_spec(spec)
     sys.modules["terrain_retrospectif"] = module
@@ -530,7 +530,7 @@ def test_la_conclusion_de_la_validation_est_ecrite_dans_la_demarche():
     deux limites ; le README, devenu court, y renvoie.
     """
     demarche = (RACINE / "docs" / "demarche.md").read_text(encoding="utf-8")
-    assert "tests/validation/terrain_retrospectif.py" in demarche
+    assert "scripts/validation/terrain_retrospectif.py" in demarche
     for morceau in ("70 %", "mode nominal", "carrefour", "6 km"):
         assert morceau in demarche, f"docs/demarche.md ne dit pas « {morceau} »"
 

@@ -405,13 +405,22 @@ def test_aucun_client_http_reel_n_est_cree_a_l_import():
         assert not isinstance(noeud, ast.Assign) or "httpx.Client" not in ast.unparse(noeud.value)
 
 
+#: `tests/*.py`, plus les trois tests d'API de bout en bout rangés sous `tests/api/`.
+_PERIMETRE_CLIENT_HTTP = sorted(
+    [
+        *TESTS.glob("test_*.py"),
+        *(TESTS / "api" / nom for nom in ("test_api.py", "test_api_erreurs.py", "test_api_quotas.py")),
+    ]
+)
+
+
 @pytest.mark.parametrize(
-    "fichier", sorted(TESTS.glob("test_*.py")), ids=lambda p: p.name
+    "fichier", _PERIMETRE_CLIENT_HTTP, ids=lambda p: p.relative_to(TESTS).as_posix()
 )
 def test_aucun_test_ne_cree_un_client_http_sans_transport_bouchonne(fichier: Path):
     """`httpx.Client(...)` n'est permis dans les tests qu'avec un MockTransport.
 
-    **Périmètre : `tests/*.py` seulement.** Le `glob` n'est pas récursif, donc
+    **Périmètre : `_PERIMETRE_CLIENT_HTTP`.** Le `glob` n'est pas récursif, donc
     `tests/adversarial/` n'est pas scanné ici — il l'est par l'invariant jumeau
     `test_adv_invariants.test_tout_client_httpx_des_tests_recoit_un_transport`,
     qui parcourt tout `tests/` et couvre donc le fond. Les deux sont gardés :

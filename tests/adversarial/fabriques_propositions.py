@@ -19,7 +19,7 @@ Deux conséquences, et elles structurent tout le dossier.
    échouent. Rien n'est deviné en silence.
 2. **Une implémentation de référence** (`choisir_reference`,
    `densite_reference`, `question_vent_reference`) sert de cobaye : elle est
-   mutée vingt-sept fois dans `test_adv_l53_autocontrole.py`, et chaque
+   mutée vingt-sept fois dans `test_adv_propositions_autocontrole.py`, et chaque
    mutation doit être attrapée par un vérificateur nommé. C'est la discipline
    du lot L5.2, où deux tests s'étaient révélés aveugles à la mutation qu'ils
    annonçaient. Elle ne remplace pas les tests sur le vrai code : elle prouve
@@ -59,7 +59,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 import fabriques
-import fabriques4
+import fabriques_seance
 
 from ourouler.noyau.trace import Trace
 
@@ -767,7 +767,7 @@ def verifier_phrase_parle_du_bon_axe(choix: VueChoix, axe: str, extreme: str) ->
         f"retenues, et c'est la **seule** chose qui la distingue sur ce vivier, mais sa "
         f"phrase « {cible.phrase} » n'en parle pas (axes reconnus : {sorted(noms) or 'aucun'}). "
         "Soit la phrase ne dit pas ce qui distingue, soit sa tournure est absente du lexique "
-        "de `fabriques_l53.AFFIRMATIONS` — dans ce second cas, c'est le lexique qu'il faut "
+        "de `fabriques_propositions.AFFIRMATIONS` — dans ce second cas, c'est le lexique qu'il faut "
         "étendre, et cela se décide avec le mainteneur, pas en silence."
     )
 
@@ -1093,11 +1093,11 @@ def trace_pour_densite(
     """
     pas_m = 100.0
     n = max(int(longueur_m // pas_m), 1)
-    coords = fabriques4.droite(n, pas_m=pas_m, cap_deg=cap_deg, pentes=0.0, alt0=50.0)
+    coords = fabriques_seance.droite(n, pas_m=pas_m, cap_deg=cap_deg, pentes=0.0, alt0=50.0)
     if node_tags is None:
         ecart = max(1, n // max(n_marqueurs, 1))
         node_tags = {i * ecart: {"highway": "traffic_signals"} for i in range(n_marqueurs)}
-    trace = fabriques4.trace_taguee(
+    trace = fabriques_seance.trace_taguee(
         coords, tags={"highway": "tertiary"}, node_tags=node_tags, sans_segments=sans_segments
     )
     if distance_annoncee is not None:
@@ -1393,7 +1393,7 @@ def boucle_avec_marqueurs(n_marqueurs: int, *, rayon_m: float = 4000.0, n: int =
     """Une boucle plate, `n_marqueurs` feux répartis régulièrement dessus."""
     pas = max(1, n // max(n_marqueurs, 1))
     noeuds = {i * pas: {"highway": "traffic_signals"} for i in range(n_marqueurs)}
-    return fabriques4.boucle_plate(
+    return fabriques_seance.boucle_plate(
         rayon_m=rayon_m, n=n, tags={"highway": "tertiary"}, node_tags=noeuds,
         nom=f"boucle à {n_marqueurs} marqueurs",
     )
@@ -1416,13 +1416,9 @@ def depart_fictif() -> tuple[float, float]:
 
 
 def harnais() -> Any:
-    """Le module `tests/test_sortie_commande.py`, ses bouchons et sa configuration."""
-    import sys
-    from pathlib import Path
+    """Le module `tests/test_sortie_commande.py`, ses bouchons et sa configuration.
 
-    dossier_tests = str(Path(__file__).resolve().parent.parent)
-    if dossier_tests not in sys.path:
-        sys.path.insert(0, dossier_tests)
+    `tests/` est sur le chemin d'import par `pythonpath` (`pyproject.toml`)."""
     import test_sortie_commande
 
     return test_sortie_commande

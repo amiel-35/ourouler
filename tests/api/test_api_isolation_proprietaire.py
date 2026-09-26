@@ -65,19 +65,9 @@ from outils_api import (
     transports_du_depot,
 )
 
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, la construction de l'application
-#: levait une erreur au lieu de laisser des tests ignorés.
-#: (La garde est posée par module et non dans `conftest.py` : un `Skipped`
-#: levé dans un conftest fait planter pytest au lieu d'ignorer le dossier.)
-#: Elle est **avant** les imports d'`ourouler.api` ci-dessous, qui n'ont de
-#: sens que si le paquet est installable.
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: E402
+from ourouler.activites.cache import Cache
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 
 #: Importés **au niveau du module**, et pas dans les tests qui s'en servent :
 #: `get_type_hints` résout les annotations dans les globales du module où la
@@ -85,16 +75,16 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire  # noqa: 
 #: `test_une_route_sans_clause_de_proprietaire_est_bien_detectee` sont définies
 #: ici ; avec un import local, `Ctx` et `Qui` seraient irrésolubles et le
 #: détecteur déclarerait « sans clause » une route qui en a une.
-from ourouler.api.routes.commun import Ctx, Qui  # noqa: E402
-from ourouler.api.session import (  # noqa: E402
+from ourouler.api.routes.commun import Ctx, Qui
+from ourouler.api.session import (
     MODE_HEBERGE,
     MODE_PERSONNEL,
     SessionHebergee,
     SessionPersonnelle,
 )
-from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
-from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
-from ourouler.noyau.trace import PointTrace, Segment, Trace  # noqa: E402
+from ourouler.apprentissage.commande import NOM_BASE
+from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.noyau.trace import PointTrace, Segment, Trace
 
 #: Les noms acceptables pour la clause de propriétaire. On n'impose pas le mot :
 #: on impose qu'il y en ait un, et qu'il soit déclaré dans le contrat.
