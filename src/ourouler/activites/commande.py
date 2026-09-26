@@ -48,8 +48,10 @@ def executer(
     le service le construit sur `contexte.dossier_cache` et avec le
     propriétaire par défaut.
 
-    C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
-    cœur : le service reçoit un dépôt déjà fait et ne prononce jamais le mot
+    C'est ce qui tient la décision Q58
+    (`docs/journal/questions/questions_mainteneur.md`) sans faire entrer la
+    notion de service dans le cœur : le service reçoit un dépôt déjà fait et ne
+    prononce jamais le mot
     « propriétaire ». Le seul endroit qui le prononce est l'appelant — pour
     l'API, `api/routes/`, qui construit
     `Cache(config.cache.dossier, proprietaire=str(qui))`, exactement comme

@@ -40,8 +40,7 @@ _DEGRES_PAR_SEMICERCLE = 180.0 / 2**31
 #: Marque d'ordre des octets (BOM) UTF-8, parfois écrite en tête d'un export
 #: GPX ou TCX, parfois accompagnée d'espaces ou d'un saut de ligne avant la
 #: déclaration XML. C'est une **cause plausible, reproduite sur fixture
-#: synthétique** (L6.3 — non vérifié sur des fichiers réels, introuvables sur
-#: la machine au moment du correctif) de l'erreur qu'ElementTree rend pour
+#: synthétique** (non vérifiée sur des fichiers réels) de l'erreur qu'ElementTree rend pour
 #: tout `<?xml ...?>` qui n'est pas au tout premier octet : « XML or text
 #: declaration not at start of entity ». Cette même erreur couvre aussi
 #: d'autres préambules — deux fichiers XML concaténés, du texte non blanc en
