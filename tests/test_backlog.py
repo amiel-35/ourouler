@@ -32,6 +32,8 @@ main = verifier_backlog.main
 
 def test_vrai_sprints_toml_conforme():
     chemin = RACINE_DEPOT / "docs" / "backlog" / "sprints.toml"
+    if not chemin.is_file():
+        pytest.skip("pas encore de docs/backlog/sprints.toml")
     donnees = charger_toml(chemin)
     violations = violations_statiques(donnees, RACINE_DEPOT)
     assert violations == []
@@ -785,6 +787,8 @@ def test_m9_regle_f_titre_change_sans_derogation():
 
 
 def test_m10_fichier_de_chantier_absent(tmp_path):
+    """Un chemin de chantier qui ne correspond à rien de suivi par git (jamais
+    créé, jamais ajouté) est refusé, dépôt git ou pas."""
     racine = _preparer_depot(tmp_path)  # pas de docs/ouverture_plan.md
     donnees = _ecrire_toml(
         racine,
@@ -801,6 +805,33 @@ def test_m10_fichier_de_chantier_absent(tmp_path):
         statut = "en_cours"
         """,
     )
+    _git_init_et_commit(racine)
+    assert _viole(violations_statiques(donnees, racine), "fichier non suivi par git")
+
+
+def test_chantiers_fichier_supprime_du_disque_mais_encore_indexe(tmp_path):
+    """Un chemin suivi par git (bon nom, bon mode) dont le fichier a
+    disparu du disque sans que git le sache (suppression hors `git rm`) reste
+    une violation distincte : « fichier introuvable », pas « non suivi »."""
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "ouverture_plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        """
+        [chantiers]
+        ouverture = "docs/ouverture_plan.md"
+
+        [[sprint]]
+        numero = 1
+        statut = "en_cours"
+        titre = "Titre"
+        [[sprint.element]]
+        chantier = "ouverture"
+        statut = "en_cours"
+        """,
+    )
+    _git_init_et_commit(racine)
+    (racine / "docs" / "ouverture_plan.md").unlink()  # hors git : l'index l'ignore encore
     assert _viole(violations_statiques(donnees, racine), "fichier de chantier introuvable")
 
 
@@ -909,6 +940,15 @@ statut = "prevu"
 
 def _git(racine: Path, *arguments: str) -> None:
     subprocess.run([*GIT, *arguments], cwd=racine, check=True, capture_output=True)
+
+
+def _git_init_et_commit(racine: Path, message: str = "base") -> None:
+    """Initialise un dépôt git sur un dossier déjà rempli et commite tout son
+    contenu (utilisé pour les tests des chemins de chantier : ils doivent
+    être suivis par git, pas seulement présents sur le disque)."""
+    _git(racine, "init", "-q")
+    _git(racine, "add", ".")
+    _git(racine, "commit", "-q", "-m", message)
 
 
 def _depot_git(tmp_path: Path, contenu_base: str | None = TOML_BASE) -> Path:
@@ -1217,6 +1257,7 @@ def test_me_fiche_et_chantier_de_meme_nom_ne_se_confondent_pas(tmp_path):
         statut = "prevu"
         """,
     )
+    _git_init_et_commit(racine)
     assert violations_statiques(donnees, racine) == []
 
 
@@ -1432,6 +1473,7 @@ def test_n26_chantier_reference_dans_deux_sprints(tmp_path):
         statut = "prevu"
         """,
     )
+    _git_init_et_commit(racine)
     violations = violations_statiques(donnees, racine)
     assert _viole(violations, "chantier référencé plusieurs fois")
     assert not _viole(violations, "fiche référencée plusieurs fois")
@@ -1903,6 +1945,7 @@ def test_chantiers_declaration_valide_sans_violation(tmp_path):
         statut = "en_cours"
         """,
     )
+    _git_init_et_commit(racine)
     assert violations_statiques(donnees, racine) == []
 
 
@@ -1971,6 +2014,113 @@ def test_chantiers_reference_a_un_chantier_non_declare(tmp_path):
     assert _viole(violations_statiques(donnees, racine), "chantier inconnu (absent de la table [chantiers])")
 
 
+def test_chantiers_chemin_non_imprimable_refuse(tmp_path):
+    """Tue le mutant qui retirerait le contrôle d'imprimabilité sur un chemin
+    de chantier (un caractère de contrôle dans un chemin sinon valide)."""
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "docs/ouverture\\tplan.md"\n'
+        '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "chemin contient un caractère non imprimable")
+
+
+# --- Chemin de chantier : source de vérité git, pas le système de fichiers --
+#
+# Un chemin de chantier doit être un fichier SUIVI par git, au nom exact, et
+# jamais un lien symbolique. C'est vérifié via `git ls-files -s`, jamais via
+# le système de fichiers seul : `Path.is_file()` suit les liens symboliques
+# et, sur un système de fichiers insensible à la casse (macOS), accepte une
+# casse différente de celle réellement suivie par git — un comportement qui
+# diffère alors silencieusement de la CI (Linux, sensible à la casse).
+
+
+def test_chantiers_hors_depot_git_refuse(tmp_path):
+    """C1 : le fichier existe bel et bien sur le disque, mais `racine` n'est
+    pas un dépôt git — rien n'est vérifiable, c'est une violation."""
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "ouverture_plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "docs/ouverture_plan.md"\n'
+        '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "hors dépôt git")
+
+
+def test_chantiers_lien_symbolique_refuse(tmp_path):
+    """C2 : un chemin de chantier suivi par git mais dont le mode indexé est
+    120000 (lien symbolique) est refusé, même si la cible existe et que le
+    lien ne sort pas du dépôt."""
+    racine = _preparer_depot(tmp_path)
+    cible = racine / "docs" / "cible_reelle.md"
+    cible.write_text("# Cible\n", encoding="utf-8")
+    lien = racine / "docs" / "ouverture_plan.md"
+    lien.symlink_to(cible)
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "docs/ouverture_plan.md"\n'
+        '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    _git_init_et_commit(racine)
+    assert _viole(violations_statiques(donnees, racine), "lien symbolique interdit")
+
+
+def test_chantiers_casse_refusee(tmp_path):
+    """C3 : le fichier réellement suivi par git a une casse différente de
+    celle déclarée dans [chantiers]. `git ls-files` compare le pathspec
+    littéralement (jamais au hasard du système de fichiers de la machine qui
+    exécute le script) : refusé identiquement sur macOS et sur Linux."""
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "Ouverture_Plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "docs/ouverture_plan.md"\n'  # casse différente du fichier réel
+        '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    _git_init_et_commit(racine)
+    assert _viole(violations_statiques(donnees, racine), "fichier non suivi par git")
+
+
+def test_chantiers_ignore_par_gitignore_refuse(tmp_path):
+    """C4 : le fichier existe sur le disque, mais un .gitignore l'exclut donc
+    il n'a jamais été ajouté à l'index — refusé comme non suivi."""
+    racine = _preparer_depot(tmp_path)
+    (racine / ".gitignore").write_text("docs/ouverture_plan.md\n", encoding="utf-8")
+    (racine / "docs" / "ouverture_plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "docs/ouverture_plan.md"\n'
+        '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    _git_init_et_commit(racine)
+    assert _viole(violations_statiques(donnees, racine), "fichier non suivi par git")
+
+
+def test_chantiers_segment_point_git_refuse(tmp_path):
+    """C6 : un chemin qui traverse `.git` (ex. `.git/config`) est refusé
+    d'emblée, avant même de consulter git."""
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = ".git/config"\n[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "segment '.git' interdit")
+
+
+def test_fiche_en_lien_symbolique_refusee(tmp_path):
+    """Même garde côté fiches : docs/backlog/<fiche>.md ne doit pas être un
+    lien symbolique, même si la cible est une fiche par ailleurs valide."""
+    racine = _preparer_depot(tmp_path)
+    cible = racine / "cible-fiche.md"
+    cible.write_text("# Fiche\n\nType : feature\n", encoding="utf-8")
+    lien = racine / "docs" / "backlog" / "une-fiche.md"
+    lien.symlink_to(cible)
+    donnees = _ecrire_toml(racine, _toml_une_fiche("une-fiche"))
+    assert _viole(violations_statiques(donnees, racine), "est un lien symbolique (interdit)")
+
+
 # --- Gel historique : une entrée [chantiers] référencée dans la base --------
 
 
@@ -2002,8 +2152,11 @@ def test_chantiers_reference_a_change_de_chemin_est_une_violation():
 
 
 def test_chantiers_non_reference_retire_est_permis():
-    """Un chantier déclaré mais qu'aucun élément ne référence peut disparaître
-    librement : seul un chantier référencé est gelé."""
+    """Un chantier déclaré mais qu'aucun élément ne référence, ni dans la base
+    ni dans la version courante, peut disparaître librement : seule la
+    disparition d'un chantier référencé (ou l'ayant été depuis un sprint
+    fige/en_cours/clos) est bloquée. Son chemin, tant qu'il est présent,
+    reste lui gelé (cf. test_chantiers_dormant_redirige_est_une_violation)."""
     base = _fichier_avec_chantiers(
         [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])],
         {"ouverture": "docs/ouverture_plan.md", "jamais-utilise": "docs/jamais.md"},
@@ -2013,6 +2166,45 @@ def test_chantiers_non_reference_retire_est_permis():
         {"ouverture": "docs/ouverture_plan.md"},
     )
     assert violations_contre_base(base, courant) == []
+
+
+def test_chantiers_dormant_redirige_est_une_violation():
+    """C8 : un chantier de la base qu'aucun élément ne référence (dormant)
+    garde quand même son chemin — seule sa disparition pure et simple est
+    négociable, pas une redirection déguisée en « nouveau » chantier."""
+    base = _fichier_avec_chantiers(
+        [_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}])],
+        {"dormant": "docs/dormant.md"},
+    )
+    courant = _fichier_avec_chantiers(
+        [_sprint(1, "fige", [{"fiche": "a", "statut": "prevu"}])],
+        {"dormant": "docs/redirige.md"},
+    )
+    assert _viole(violations_contre_base(base, courant), "a changé de chemin")
+
+
+def test_chantiers_reference_seulement_par_un_sprint_esquisse_peut_disparaitre():
+    """Un chantier référencé uniquement par un sprint esquisse de la base
+    n'est pas encore « figé » : il peut disparaître de [chantiers] si plus
+    rien ne le référence dans la version courante."""
+    base = _fichier_avec_chantiers(
+        [_sprint(1, "esquisse", [{"chantier": "ouverture", "statut": "prevu"}])],
+        {"ouverture": "docs/ouverture_plan.md"},
+    )
+    courant = _fichier_avec_chantiers([_sprint(1, "esquisse", [])], {})
+    assert violations_contre_base(base, courant) == []
+
+
+def test_chantiers_reference_par_un_sprint_fige_de_la_base_ne_peut_pas_disparaitre():
+    """Même retiré de tous les éléments de la version courante, un chantier
+    qui était référencé par un sprint fige/en_cours/clos de la base ne peut
+    pas disparaître de [chantiers] (contrairement au cas esquisse ci-dessus)."""
+    base = _fichier_avec_chantiers(
+        [_sprint(1, "fige", [{"chantier": "ouverture", "statut": "prevu"}])],
+        {"ouverture": "docs/ouverture_plan.md"},
+    )
+    courant = _fichier_avec_chantiers([_sprint(1, "fige", [])], {})
+    assert _viole(violations_contre_base(base, courant), "a disparu de [chantiers]")
 
 
 # ---------------------------------------------------------------------------

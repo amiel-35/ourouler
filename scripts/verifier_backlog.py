@@ -373,6 +373,8 @@ def _valider_reference_fiche(fiche: Any, racine: Path, noms_fichiers: set[str], 
     chemin_fiche = racine / "docs" / "backlog" / nom_fichier
     if nom_fichier not in noms_fichiers:
         return [f"{ctx} fichier introuvable (nom exact, casse comprise) : {chemin_fiche}"]
+    if chemin_fiche.is_symlink():
+        return [f"{ctx} {chemin_fiche} est un lien symbolique (interdit)"]
 
     if ligne_type_fiche(chemin_fiche.read_text(encoding="utf-8")) is None:
         return [
@@ -397,7 +399,39 @@ def _segments_chemin(chemin: str) -> list[str]:
     return chemin.split("/")
 
 
+def _racine_est_un_depot_git(racine: Path) -> bool:
+    if not racine.is_dir():
+        return False
+    toplevel = _git(racine, "rev-parse", "--show-toplevel")
+    if toplevel.returncode != 0:
+        return False
+    return Path(toplevel.stdout.strip()).resolve() == racine.resolve()
+
+
+def _entree_index_git(racine: Path, chemin: str) -> tuple[str, str] | None:
+    """(mode, chemin tel qu'indexé) pour `chemin` dans l'index git de `racine`,
+    ou None s'il n'y est pas suivi (jamais ajouté, ou ignoré). Le pathspec de
+    `git ls-files` est comparé littéralement (sensible à la casse, quel que
+    soit le système de fichiers), ce qui est exactement ce qu'on veut vérifier
+    ici : c'est délibéré, pas un aléa de plateforme."""
+    resultat = _git(racine, "ls-files", "-s", "--", chemin)
+    if resultat.returncode != 0 or not resultat.stdout.strip():
+        return None
+    ligne = resultat.stdout.strip().splitlines()[0]
+    entete, separateur, chemin_indexe = ligne.partition("\t")
+    champs = entete.split()
+    if not separateur or not champs:
+        return None
+    return champs[0], chemin_indexe
+
+
 def _valider_chemin_chantier(chemin: Any, racine: Path, ctx: str) -> list[str]:
+    """Un chemin de chantier doit être un fichier SUIVI par git (nom exact,
+    pas de lien symbolique) : la seule source de vérité est l'index git, pas
+    le système de fichiers — sur un système de fichiers insensible à la casse
+    (macOS), `Path.is_file()` accepterait une casse différente de celle
+    réellement suivie, avec un comportement qui diffère alors de la CI
+    (Linux). Hors dépôt git, c'est une violation : rien n'est vérifiable."""
     if not isinstance(chemin, str):
         return [f"{ctx} chemin doit être une chaîne"]
     if not chemin:
@@ -406,8 +440,27 @@ def _valider_chemin_chantier(chemin: Any, racine: Path, ctx: str) -> list[str]:
         return [f"{ctx} chemin contient un caractère non imprimable"]
     if chemin.startswith("/") or Path(chemin).is_absolute():
         return [f"{ctx} chemin absolu interdit : {chemin!r}"]
-    if ".." in _segments_chemin(chemin):
+    segments = _segments_chemin(chemin)
+    if ".." in segments:
         return [f"{ctx} chemin avec un segment '..' interdit : {chemin!r}"]
+    if ".git" in segments:
+        return [f"{ctx} chemin avec un segment '.git' interdit : {chemin!r}"]
+
+    if not _racine_est_un_depot_git(racine):
+        return [f"{ctx} hors dépôt git ({racine}) : impossible de vérifier que {chemin!r} y est suivi"]
+
+    entree = _entree_index_git(racine, chemin)
+    if entree is None:
+        return [f"{ctx} fichier non suivi par git (jamais ajouté, ou ignoré) : {chemin!r}"]
+    mode, chemin_indexe = entree
+    if chemin_indexe != chemin:
+        return [
+            f"{ctx} chemin qui ne correspond pas exactement à celui suivi par git "
+            f"(casse différente ?) : {chemin!r} indexé {chemin_indexe!r}"
+        ]
+    if mode == "120000":
+        return [f"{ctx} lien symbolique interdit : {chemin!r}"]
+
     chemin_chantier = racine / chemin
     if not chemin_chantier.is_file():
         return [f"{ctx} fichier de chantier introuvable : {chemin_chantier}"]
@@ -702,39 +755,49 @@ def _chantiers(donnees: dict[str, Any]) -> dict[str, Any]:
     return valeur if isinstance(valeur, dict) else {}
 
 
-def _chantiers_references(donnees: dict[str, Any]) -> set[str]:
-    """Noms de chantier référencés par au moins un élément, sur tout le fichier."""
+def _chantiers_references(donnees: dict[str, Any], statuts_sprint: set[str] | None = None) -> set[str]:
+    """Noms de chantier référencés par au moins un élément, sur tout le
+    fichier ; si `statuts_sprint` est donné, restreint aux éléments d'un
+    sprint dont le statut y figure."""
     references: set[str] = set()
     sprints = donnees.get("sprint", [])
     for sprint in sprints if isinstance(sprints, list) else []:
-        if isinstance(sprint, dict):
-            for element in _elements(sprint):
-                chantier = element.get("chantier")
-                if isinstance(chantier, str):
-                    references.add(chantier)
+        if not isinstance(sprint, dict):
+            continue
+        if statuts_sprint is not None and sprint.get("statut") not in statuts_sprint:
+            continue
+        for element in _elements(sprint):
+            chantier = element.get("chantier")
+            if isinstance(chantier, str):
+                references.add(chantier)
     return references
 
 
+STATUTS_SPRINT_QUI_FIGENT_UN_CHANTIER = {"fige", "en_cours", "clos"}
+
+
 def _violations_chantiers_reference_geles(base: dict[str, Any], courant: dict[str, Any]) -> list[str]:
-    """Une entrée de [chantiers] présente dans la base et référencée par un
-    élément de la base ne peut ni disparaître ni changer de chemin. Une
-    entrée non référencée peut disparaître librement."""
+    """Toute entrée de [chantiers] présente dans la base garde son chemin,
+    qu'elle soit référencée ou non (un chantier « dormant » ne peut pas non
+    plus être redirigé). Elle ne peut disparaître que si plus aucun élément
+    de la version courante ne la référence ET qu'elle n'était référencée par
+    aucun sprint fige/en_cours/clos de la base (un sprint esquisse ne fige
+    rien : un chantier qui n'y est mentionné que là peut encore disparaître)."""
     chantiers_base = _chantiers(base)
     chantiers_courant = _chantiers(courant)
+    references_courant = _chantiers_references(courant)
+    references_base_figees = _chantiers_references(base, STATUTS_SPRINT_QUI_FIGENT_UN_CHANTIER)
+
     violations: list[str] = []
-    for nom in _chantiers_references(base):
-        if nom not in chantiers_base:
-            continue  # nom référencé mais non déclaré dans la base : règle D le signale déjà
-        chemin_base = chantiers_base[nom]
+    for nom, chemin_base in chantiers_base.items():
         ctx = f"[chantiers.{nom}]"
         if nom not in chantiers_courant:
-            violations.append(f"{ctx} chantier référencé a disparu de [chantiers] (présent dans la base)")
+            if nom in references_courant or nom in references_base_figees:
+                violations.append(f"{ctx} chantier référencé a disparu de [chantiers] (présent dans la base)")
             continue
         chemin_courant = chantiers_courant[nom]
         if chemin_courant != chemin_base:
-            violations.append(
-                f"{ctx} chantier référencé a changé de chemin : {chemin_base!r} -> {chemin_courant!r}"
-            )
+            violations.append(f"{ctx} chantier a changé de chemin : {chemin_base!r} -> {chemin_courant!r}")
     return violations
 
 
