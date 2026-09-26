@@ -8,6 +8,7 @@ from ourouler.apprentissage import commande as service
 from ourouler.apprentissage.commande import (
     DemandeRoutes,
     ResultatApprentissage,
+    ResultatPoids,
     ResultatStats,
     date_depuis,
     valider_action,
@@ -20,14 +21,40 @@ from ourouler.rendu import routes as rendu
 
 
 def lire_options(args: argparse.Namespace) -> DemandeRoutes:
-    """L'action d'abord (sans elle, rien à faire), puis ses options."""
-    action = valider_action(getattr(args, "action", None))
-    return DemandeRoutes(
-        action=action,
-        depuis=date_depuis(getattr(args, "depuis", None)) if action == "apprendre" else None,
+    return interpreter(
+        getattr(args, "action", None),
+        depuis=getattr(args, "depuis", None),
         max_sorties=getattr(args, "max_sorties", None),
         appliquer=bool(getattr(args, "appliquer", False)),
     )
+
+
+def interpreter(
+    action: str | None,
+    *,
+    depuis: str | None = None,
+    max_sorties: int | None = None,
+    appliquer: bool = False,
+) -> DemandeRoutes:
+    """L'action d'abord (sans elle, rien à faire), puis ses options."""
+    action = valider_action(action)
+    return DemandeRoutes(
+        action=action,
+        depuis=date_depuis(depuis) if action == "apprendre" else None,
+        max_sorties=max_sorties,
+        appliquer=appliquer,
+    )
+
+
+def json_routes(resultat: ResultatApprentissage | ResultatStats | ResultatPoids) -> dict:
+    """Le JSON de `ourouler routes <action> --json`, selon ce que l'action a rendu."""
+    if isinstance(resultat, ResultatApprentissage):
+        return rendu.json_apprentissage(resultat.rapport, resultat.depuis)
+    if isinstance(resultat, ResultatStats):
+        return rendu.json_stats(resultat.stats, resultat.appris)
+    sortie = rendu.json_poids(resultat.stats, resultat.exposition, resultat.poids, resultat.echecs)
+    sortie["ecrit_dans"] = str(resultat.ecrit_dans) if resultat.ecrit_dans is not None else None
+    return sortie
 
 
 def executer_depuis_namespace(
@@ -40,21 +67,12 @@ def executer_depuis_namespace(
     resultat = service.executer(
         lire_options(args), contexte(config), client_brouter=client_brouter, base=base
     )
-    en_json = getattr(args, "json", False)
-    if isinstance(resultat, ResultatApprentissage):
-        if en_json:
-            imprimer_json(rendu.json_apprentissage(resultat.rapport, resultat.depuis))
-        else:
-            print(rendu.texte_apprentissage(resultat.rapport, resultat.depuis, resultat.stats))
+    if getattr(args, "json", False):
+        imprimer_json(json_routes(resultat))
+    elif isinstance(resultat, ResultatApprentissage):
+        print(rendu.texte_apprentissage(resultat.rapport, resultat.depuis, resultat.stats))
     elif isinstance(resultat, ResultatStats):
-        if en_json:
-            imprimer_json(rendu.json_stats(resultat.stats, resultat.appris))
-        else:
-            print(rendu.texte_stats(resultat.stats, resultat.appris))
-    elif en_json:
-        sortie = rendu.json_poids(resultat.stats, resultat.exposition, resultat.poids, resultat.echecs)
-        sortie["ecrit_dans"] = str(resultat.ecrit_dans) if resultat.ecrit_dans is not None else None
-        imprimer_json(sortie)
+        print(rendu.texte_stats(resultat.stats, resultat.appris))
     else:
         print(
             rendu.texte_poids(

@@ -28,6 +28,13 @@ partir des PR.
   le vent, sans rien retracer. Aussi en ligne de commande :
   `ourouler analyser`.
 
+### Modifié
+
+- Le service peut calculer sans passer par la ligne de commande
+  (`OUROULER_API_CHEMIN` : `ancien` par défaut, `nouveau`, ou `double` pour
+  comparer les deux avant de basculer) ; les réponses sont identiques, et le
+  contrat de l'API décrit désormais les réponses réussies.
+
 ### Corrigé
 
 - La version affichée par le service et par `ourouler --version` est la

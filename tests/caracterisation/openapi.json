@@ -59,6 +59,26 @@
         "title": "ApercuZones",
         "type": "object"
       },
+      "Avertissement": {
+        "additionalProperties": true,
+        "description": "Une phrase du cœur et son code (`api/adaptateur.Avertissement`).",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "Avertissement",
+        "type": "object"
+      },
       "Body_deposer_parcours_api_v1_parcours_fichier_post": {
         "properties": {
           "fichier": {
@@ -105,6 +125,79 @@
           "fichiers"
         ],
         "title": "Body_importer_activites_api_v1_activites_import_post",
+        "type": "object"
+      },
+      "Budget": {
+        "additionalProperties": true,
+        "description": "Ce qu'une opération est censée coûter sur ce serveur (`adaptateur.Budgets`).",
+        "properties": {
+          "attendu_ms": {
+            "title": "Attendu Ms",
+            "type": "integer"
+          },
+          "median_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Ms"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "defaut",
+              "mesure"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "attendu_ms",
+          "source",
+          "n",
+          "median_ms"
+        ],
+        "title": "Budget",
+        "type": "object"
+      },
+      "Capacites": {
+        "additionalProperties": true,
+        "properties": {
+          "brouter": {
+            "title": "Brouter",
+            "type": "boolean"
+          },
+          "intervals": {
+            "title": "Intervals",
+            "type": "boolean"
+          },
+          "velos": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Velos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "brouter",
+          "intervals",
+          "velos"
+        ],
+        "title": "Capacites",
         "type": "object"
       },
       "DemandeAnalyse": {
@@ -575,6 +668,994 @@
         "title": "DemandeVitesseCompteur",
         "type": "object"
       },
+      "DonneesBoucle": {
+        "additionalProperties": true,
+        "properties": {
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "compteur": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compteur"
+          },
+          "demande": {
+            "additionalProperties": true,
+            "title": "Demande",
+            "type": "object"
+          },
+          "depart": {
+            "additionalProperties": true,
+            "title": "Depart",
+            "type": "object"
+          },
+          "gpx": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FichierServi"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meteo_absente": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meteo Absente"
+          },
+          "modele": {
+            "title": "Modele",
+            "type": "string"
+          },
+          "modele_meteo": {
+            "additionalProperties": true,
+            "title": "Modele Meteo",
+            "type": "object"
+          },
+          "modele_physique": {
+            "additionalProperties": true,
+            "title": "Modele Physique",
+            "type": "object"
+          },
+          "pauses": {
+            "items": {},
+            "title": "Pauses",
+            "type": "array"
+          },
+          "poids_routes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Poids Routes"
+          },
+          "second_avis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Second Avis"
+          },
+          "sens_prefere": {
+            "title": "Sens Prefere",
+            "type": "string"
+          },
+          "vitesse_moyenne_kmh": {
+            "title": "Vitesse Moyenne Kmh",
+            "type": "number"
+          }
+        },
+        "required": [
+          "depart",
+          "demande",
+          "pauses",
+          "compteur",
+          "vitesse_moyenne_kmh",
+          "sens_prefere",
+          "modele",
+          "second_avis",
+          "modele_meteo",
+          "meteo_absente",
+          "gpx",
+          "poids_routes",
+          "modele_physique",
+          "candidates"
+        ],
+        "title": "DonneesBoucle",
+        "type": "object"
+      },
+      "DonneesCalibrations": {
+        "additionalProperties": true,
+        "properties": {
+          "ftp_renseignee": {
+            "title": "Ftp Renseignee",
+            "type": "boolean"
+          },
+          "sorties_necessaires": {
+            "title": "Sorties Necessaires",
+            "type": "integer"
+          },
+          "velos": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Velos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sorties_necessaires",
+          "ftp_renseignee",
+          "velos"
+        ],
+        "title": "DonneesCalibrations",
+        "type": "object"
+      },
+      "DonneesGeocodage": {
+        "additionalProperties": true,
+        "properties": {
+          "adresse": {
+            "title": "Adresse",
+            "type": "string"
+          },
+          "ambigu": {
+            "title": "Ambigu",
+            "type": "boolean"
+          },
+          "candidats": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidats",
+            "type": "array"
+          },
+          "motif_ambiguite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif Ambiguite"
+          }
+        },
+        "required": [
+          "adresse",
+          "ambigu",
+          "motif_ambiguite",
+          "candidats"
+        ],
+        "title": "DonneesGeocodage",
+        "type": "object"
+      },
+      "DonneesInventaire": {
+        "additionalProperties": true,
+        "properties": {
+          "anomalies": {
+            "items": {},
+            "title": "Anomalies",
+            "type": "array"
+          },
+          "autres_sports": {
+            "title": "Autres Sports",
+            "type": "integer"
+          },
+          "autres_sports_par_libelle": {
+            "additionalProperties": true,
+            "title": "Autres Sports Par Libelle",
+            "type": "object"
+          },
+          "depuis": {
+            "title": "Depuis",
+            "type": "string"
+          },
+          "journal": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Journal",
+            "type": "array"
+          },
+          "par_mois": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Par Mois",
+            "type": "array"
+          },
+          "par_velo": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Par Velo",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "depuis",
+          "total",
+          "autres_sports",
+          "autres_sports_par_libelle",
+          "par_velo",
+          "par_mois",
+          "anomalies",
+          "journal"
+        ],
+        "title": "DonneesInventaire",
+        "type": "object"
+      },
+      "DonneesJourSansSeance": {
+        "additionalProperties": false,
+        "description": "Un jour sans séance **n'est pas une erreur** : 200, `seance: null`.",
+        "properties": {
+          "jour": {
+            "title": "Jour",
+            "type": "string"
+          },
+          "seance": {
+            "title": "Seance",
+            "type": "null"
+          }
+        },
+        "required": [
+          "jour",
+          "seance"
+        ],
+        "title": "DonneesJourSansSeance",
+        "type": "object"
+      },
+      "DonneesMeteo": {
+        "additionalProperties": true,
+        "properties": {
+          "cellules": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Cellules",
+            "type": "array"
+          },
+          "debut": {
+            "title": "Debut",
+            "type": "string"
+          },
+          "depart": {
+            "$ref": "#/components/schemas/Lieu"
+          },
+          "horizon_h": {
+            "title": "Horizon H",
+            "type": "integer"
+          },
+          "meilleure_direction": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meilleure Direction"
+          },
+          "modele": {
+            "title": "Modele",
+            "type": "string"
+          },
+          "second_avis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Second Avis"
+          }
+        },
+        "required": [
+          "depart",
+          "debut",
+          "horizon_h",
+          "modele",
+          "second_avis",
+          "meilleure_direction",
+          "cellules"
+        ],
+        "title": "DonneesMeteo",
+        "type": "object"
+      },
+      "DonneesProfil": {
+        "additionalProperties": true,
+        "description": "Le profil **public** : les secrets y sont masqués (`rendu/profil.py`).",
+        "properties": {
+          "assistant_recommande": {
+            "title": "Assistant Recommande",
+            "type": "boolean"
+          },
+          "boucle": {
+            "additionalProperties": true,
+            "title": "Boucle",
+            "type": "object"
+          },
+          "calibration": {
+            "additionalProperties": true,
+            "title": "Calibration",
+            "type": "object"
+          },
+          "cycliste": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycliste"
+          },
+          "depart": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depart"
+          },
+          "evitements": {
+            "items": {},
+            "title": "Evitements",
+            "type": "array"
+          },
+          "historique_depuis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historique Depuis"
+          },
+          "intervals": {
+            "additionalProperties": true,
+            "title": "Intervals",
+            "type": "object"
+          },
+          "meteo": {
+            "additionalProperties": true,
+            "title": "Meteo",
+            "type": "object"
+          },
+          "seance": {
+            "additionalProperties": true,
+            "title": "Seance",
+            "type": "object"
+          },
+          "services": {
+            "additionalProperties": true,
+            "title": "Services",
+            "type": "object"
+          },
+          "tenue": {
+            "additionalProperties": true,
+            "title": "Tenue",
+            "type": "object"
+          },
+          "velos": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Velos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "historique_depuis",
+          "assistant_recommande",
+          "depart",
+          "cycliste",
+          "velos",
+          "meteo",
+          "boucle",
+          "seance",
+          "tenue",
+          "evitements",
+          "intervals",
+          "calibration",
+          "services"
+        ],
+        "title": "DonneesProfil",
+        "type": "object"
+      },
+      "DonneesProfilIntervals": {
+        "additionalProperties": true,
+        "properties": {
+          "ftp_w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp W"
+          },
+          "masse_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Masse Kg"
+          }
+        },
+        "required": [
+          "ftp_w",
+          "masse_kg"
+        ],
+        "title": "DonneesProfilIntervals",
+        "type": "object"
+      },
+      "DonneesSeance": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {},
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "distance_estimee_m": {
+            "title": "Distance Estimee M",
+            "type": "number"
+          },
+          "duree_s": {
+            "title": "Duree S",
+            "type": "integer"
+          },
+          "etapes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Etapes",
+            "type": "array"
+          },
+          "jour": {
+            "title": "Jour",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "title": "Meta",
+            "type": "object"
+          },
+          "n_blocs": {
+            "title": "N Blocs",
+            "type": "integer"
+          },
+          "nom": {
+            "title": "Nom",
+            "type": "string"
+          },
+          "vitesses": {
+            "additionalProperties": true,
+            "title": "Vitesses",
+            "type": "object"
+          }
+        },
+        "required": [
+          "jour",
+          "nom",
+          "duree_s",
+          "n_blocs",
+          "distance_estimee_m",
+          "vitesses",
+          "meta",
+          "avertissements",
+          "etapes"
+        ],
+        "title": "DonneesSeance",
+        "type": "object"
+      },
+      "DonneesSemaine": {
+        "additionalProperties": true,
+        "properties": {
+          "depuis": {
+            "title": "Depuis",
+            "type": "string"
+          },
+          "jours": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Jours",
+            "type": "array"
+          },
+          "jusqua": {
+            "title": "Jusqua",
+            "type": "string"
+          }
+        },
+        "required": [
+          "depuis",
+          "jusqua",
+          "jours"
+        ],
+        "title": "DonneesSemaine",
+        "type": "object"
+      },
+      "DonneesSortie": {
+        "additionalProperties": true,
+        "properties": {
+          "arbitrage": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arbitrage"
+          },
+          "candidates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "carte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FichierServi"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compteur": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compteur"
+          },
+          "demande": {
+            "additionalProperties": true,
+            "title": "Demande",
+            "type": "object"
+          },
+          "ecartees": {
+            "items": {},
+            "title": "Ecartees",
+            "type": "array"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation"
+          },
+          "gpx": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FichierServi"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "jour": {
+            "title": "Jour",
+            "type": "string"
+          },
+          "meteo_absente": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meteo Absente"
+          },
+          "modele_meteo": {
+            "additionalProperties": true,
+            "title": "Modele Meteo",
+            "type": "object"
+          },
+          "modele_physique": {
+            "title": "Modele Physique",
+            "type": "string"
+          },
+          "motif_deux_propositions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif Deux Propositions"
+          },
+          "motif_equivalence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif Equivalence"
+          },
+          "propositions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Propositions",
+            "type": "array"
+          },
+          "question_vent": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Vent"
+          },
+          "seance": {
+            "additionalProperties": true,
+            "title": "Seance",
+            "type": "object"
+          },
+          "seuil_bloc_bien_place": {
+            "title": "Seuil Bloc Bien Place",
+            "type": "number"
+          },
+          "tenue": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenue"
+          },
+          "tolerance_egalite": {
+            "title": "Tolerance Egalite",
+            "type": "number"
+          }
+        },
+        "required": [
+          "jour",
+          "seance",
+          "demande",
+          "compteur",
+          "modele_physique",
+          "modele_meteo",
+          "meteo_absente",
+          "seuil_bloc_bien_place",
+          "tolerance_egalite",
+          "gpx",
+          "carte",
+          "ecartees",
+          "tenue",
+          "propositions",
+          "motif_deux_propositions",
+          "motif_equivalence",
+          "question_vent",
+          "arbitrage",
+          "candidates"
+        ],
+        "title": "DonneesSortie",
+        "type": "object"
+      },
+      "DonneesSortieSansSeance": {
+        "additionalProperties": true,
+        "description": "Rien de planifié ce jour-là : une réponse, pas une erreur (`rendu.json_sans_seance`).",
+        "properties": {
+          "candidates": {
+            "items": {},
+            "title": "Candidates",
+            "type": "array"
+          },
+          "carte": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FichierServi"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "jour": {
+            "title": "Jour",
+            "type": "string"
+          },
+          "seance": {
+            "title": "Seance",
+            "type": "null"
+          }
+        },
+        "required": [
+          "jour",
+          "seance",
+          "candidates",
+          "carte"
+        ],
+        "title": "DonneesSortieSansSeance",
+        "type": "object"
+      },
+      "DonneesVentDepart": {
+        "additionalProperties": true,
+        "properties": {
+          "azimuts_par_choix": {
+            "additionalProperties": true,
+            "title": "Azimuts Par Choix",
+            "type": "object"
+          },
+          "choix": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choix",
+            "type": "array"
+          },
+          "depart": {
+            "title": "Depart",
+            "type": "string"
+          },
+          "horizon_jours": {
+            "title": "Horizon Jours",
+            "type": "integer"
+          },
+          "jour": {
+            "title": "Jour",
+            "type": "string"
+          },
+          "motif": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif"
+          },
+          "posee": {
+            "title": "Posee",
+            "type": "boolean"
+          },
+          "seuil_kmh": {
+            "title": "Seuil Kmh",
+            "type": "number"
+          },
+          "vent_depuis_deg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vent Depuis Deg"
+          },
+          "vent_depuis_nom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vent Depuis Nom"
+          },
+          "vent_kmh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vent Kmh"
+          }
+        },
+        "required": [
+          "jour",
+          "depart",
+          "horizon_jours",
+          "posee",
+          "motif",
+          "vent_kmh",
+          "vent_depuis_deg",
+          "vent_depuis_nom",
+          "seuil_kmh",
+          "choix",
+          "azimuts_par_choix"
+        ],
+        "title": "DonneesVentDepart",
+        "type": "object"
+      },
+      "DonneesZones": {
+        "additionalProperties": true,
+        "properties": {
+          "ftp_w": {
+            "title": "Ftp W",
+            "type": "number"
+          },
+          "hors_bande": {
+            "title": "Hors Bande",
+            "type": "boolean"
+          },
+          "position_zone": {
+            "title": "Position Zone",
+            "type": "number"
+          },
+          "valeurs_liees": {
+            "additionalProperties": true,
+            "title": "Valeurs Liees",
+            "type": "object"
+          },
+          "zone_endurance": {
+            "title": "Zone Endurance",
+            "type": "integer"
+          },
+          "zones": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Zones",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ftp_w",
+          "position_zone",
+          "zone_endurance",
+          "hors_bande",
+          "zones",
+          "valeurs_liees"
+        ],
+        "title": "DonneesZones",
+        "type": "object"
+      },
+      "FichierServi": {
+        "additionalProperties": true,
+        "description": "Un fichier que le serveur garde pour le cycliste (carte, GPX).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "nom": {
+            "title": "Nom",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nom",
+          "url"
+        ],
+        "title": "FichierServi",
+        "type": "object"
+      },
+      "Lieu": {
+        "additionalProperties": true,
+        "properties": {
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "nom": {
+            "title": "Nom",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nom",
+          "latitude",
+          "longitude"
+        ],
+        "title": "Lieu",
+        "type": "object"
+      },
       "Panne": {
         "additionalProperties": false,
         "description": "Une panne traduite : un code stable, une phrase française, le service fautif.\n\n**Le code prime sur le message.** Le message vient du cœur et peut être\nreformulé ; le code est une valeur du contrat, et l'énumération ci-dessous\nest celle que le front branche sur ses écrans. Elle est engendrée de\n`erreurs.CODES_PANNE`, qui en est la seule source.",
@@ -682,6 +1763,119 @@
         "title": "Point",
         "type": "object"
       },
+      "ReponseBoucle": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesBoucle"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseBoucle",
+        "type": "object"
+      },
+      "ReponseBudgets": {
+        "additionalProperties": true,
+        "properties": {
+          "budgets": {
+            "items": {
+              "$ref": "#/components/schemas/Budget"
+            },
+            "title": "Budgets",
+            "type": "array"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "budgets"
+        ],
+        "title": "ReponseBudgets",
+        "type": "object"
+      },
+      "ReponseCalcul": {
+        "additionalProperties": true,
+        "description": "Une route de calcul dont les données ne sont pas détaillées ici (simulation…).",
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "additionalProperties": true,
+            "title": "Donnees",
+            "type": "object"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseCalcul",
+        "type": "object"
+      },
+      "ReponseCalibrations": {
+        "additionalProperties": true,
+        "properties": {
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesCalibrations"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "donnees"
+        ],
+        "title": "ReponseCalibrations",
+        "type": "object"
+      },
       "ReponseErreur": {
         "additionalProperties": false,
         "description": "La forme **unique** d'une réponse en panne, quelle que soit la route.\n\nUne réponse porte `donnees` ou `erreur`, jamais les deux : c'est ce qui\npermet à un front de n'avoir qu'une gestion d'erreur.",
@@ -694,6 +1888,399 @@
           "erreur"
         ],
         "title": "ReponseErreur",
+        "type": "object"
+      },
+      "ReponseGeocodage": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesGeocodage"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseGeocodage",
+        "type": "object"
+      },
+      "ReponseInventaire": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesInventaire"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseInventaire",
+        "type": "object"
+      },
+      "ReponseMeteo": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesMeteo"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseMeteo",
+        "type": "object"
+      },
+      "ReponseProfil": {
+        "additionalProperties": true,
+        "properties": {
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesProfil"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "donnees"
+        ],
+        "title": "ReponseProfil",
+        "type": "object"
+      },
+      "ReponseProfilIntervals": {
+        "additionalProperties": true,
+        "properties": {
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesProfilIntervals"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "donnees"
+        ],
+        "title": "ReponseProfilIntervals",
+        "type": "object"
+      },
+      "ReponseSeance": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DonneesSeance"
+              },
+              {
+                "$ref": "#/components/schemas/DonneesJourSansSeance"
+              }
+            ],
+            "title": "Donnees"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseSeance",
+        "type": "object"
+      },
+      "ReponseSeanceDeposee": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DonneesSeance"
+              },
+              {
+                "$ref": "#/components/schemas/DonneesJourSansSeance"
+              }
+            ],
+            "title": "Donnees"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "fichier": {
+            "$ref": "#/components/schemas/FichierServi"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees",
+          "fichier"
+        ],
+        "title": "ReponseSeanceDeposee",
+        "type": "object"
+      },
+      "ReponseSemaine": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesSemaine"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseSemaine",
+        "type": "object"
+      },
+      "ReponseSortie": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DonneesSortie"
+              },
+              {
+                "$ref": "#/components/schemas/DonneesSortieSansSeance"
+              }
+            ],
+            "title": "Donnees"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseSortie",
+        "type": "object"
+      },
+      "ReponseSysteme": {
+        "additionalProperties": true,
+        "properties": {
+          "budgets": {
+            "items": {
+              "$ref": "#/components/schemas/Budget"
+            },
+            "title": "Budgets",
+            "type": "array"
+          },
+          "capacites": {
+            "$ref": "#/components/schemas/Capacites"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "version",
+          "capacites",
+          "budgets"
+        ],
+        "title": "ReponseSysteme",
+        "type": "object"
+      },
+      "ReponseVentDepart": {
+        "additionalProperties": true,
+        "properties": {
+          "avertissements": {
+            "items": {
+              "$ref": "#/components/schemas/Avertissement"
+            },
+            "title": "Avertissements",
+            "type": "array"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/Budget"
+          },
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesVentDepart"
+          },
+          "duree_ms": {
+            "title": "Duree Ms",
+            "type": "integer"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "avertissements",
+          "duree_ms",
+          "budget",
+          "donnees"
+        ],
+        "title": "ReponseVentDepart",
+        "type": "object"
+      },
+      "ReponseZones": {
+        "additionalProperties": true,
+        "properties": {
+          "donnees": {
+            "$ref": "#/components/schemas/DonneesZones"
+          },
+          "proprietaire": {
+            "title": "Proprietaire",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proprietaire",
+          "donnees"
+        ],
+        "title": "ReponseZones",
         "type": "object"
       }
     }
@@ -1076,9 +2663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Generer Boucle Api V1 Boucles Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseBoucle"
                 }
               }
             },
@@ -1187,9 +2772,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Etat Calibrations Api V1 Calibrations Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseCalibrations"
                 }
               }
             },
@@ -1930,9 +3513,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Geocoder Api V1 Geocodage Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseGeocodage"
                 }
               }
             },
@@ -2060,9 +3641,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Inventaire Api V1 Inventaire Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseInventaire"
                 }
               }
             },
@@ -2426,9 +4005,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Meteo Api V1 Meteo Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseMeteo"
                 }
               }
             },
@@ -2995,9 +4572,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Analyser Parcours Api V1 Parcours Analyser Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseCalcul"
                 }
               }
             },
@@ -3227,9 +4802,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Lire Profil Api V1 Profil Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseProfil"
                 }
               }
             },
@@ -3404,9 +4977,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Modifier Profil Api V1 Profil Patch",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseProfil"
                 }
               }
             },
@@ -3654,9 +5225,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Ftp Generique Api V1 Profil Ftp Generique Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseZones"
                 }
               }
             },
@@ -3765,9 +5334,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Profil Intervals Api V1 Profil Intervals Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseProfilIntervals"
                 }
               }
             },
@@ -3912,9 +5479,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Lire Zones Api V1 Profil Zones Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseZones"
                 }
               }
             },
@@ -4033,9 +5598,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Apercu Zones Api V1 Profil Zones Apercu Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseZones"
                 }
               }
             },
@@ -4276,9 +5839,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Routes Connues Api V1 Routes  Action  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseCalcul"
                 }
               }
             },
@@ -4423,9 +5984,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Seances Api V1 Seances Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseSemaine"
                 }
               }
             },
@@ -4563,9 +6122,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Deposer Seance Api V1 Seances Fichier Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseSeanceDeposee"
                 }
               }
             },
@@ -4686,9 +6243,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Seance Du Jour Api V1 Seances  Jour  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseSeance"
                 }
               }
             },
@@ -4807,9 +6362,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Simuler Api V1 Simulations Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseCalcul"
                 }
               }
             },
@@ -4928,9 +6481,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Generer Sortie Api V1 Sorties Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseSortie"
                 }
               }
             },
@@ -5277,9 +6828,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Systeme Api V1 Systeme Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseSysteme"
                 }
               }
             },
@@ -5388,9 +6937,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Budgets Api V1 Systeme Budgets Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseBudgets"
                 }
               }
             },
@@ -5579,9 +7126,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Vent Depart Api V1 Vent Depart Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ReponseVentDepart"
                 }
               }
             },

@@ -510,13 +510,13 @@ def ecrire_config(chemin: Path, cache: Path, *, avec_intervals: bool = True) -> 
 
 
 #: Variables `OUROULER_*` **gardées** par `preparer` : celles qui choisissent
-#: un chemin de code sans changer ce qui doit être répondu. Point d'extension
-#: du lot 11 (`docs/ouverture_plan.md` §6) : `OUROULER_API_CHEMIN=ancien|
-#: nouveau|double` n'existe pas encore dans `src/` ; le jour où elle existe,
-#: `OUROULER_API_CHEMIN=nouveau uv run pytest tests/caracterisation
-#: tests/api/test_caracterisation_api.py` rejoue tout le filet sur le nouveau
-#: chemin, contre les **mêmes** références. Paramétrer les tests sur ses trois
-#: valeurs est l'affaire du lot 11 : aujourd'hui, elles rendraient la même chose.
+#: un chemin de code sans changer ce qui doit être répondu. Depuis le lot 11
+#: (`api/double_chemin.py`), `OUROULER_API_CHEMIN=ancien|nouveau|double`
+#: choisit par où l'API appelle le cœur. `test_caracterisation_api.py` est
+#: paramétré sur les trois valeurs, contre les **mêmes** références ; la
+#: variable, gardée ici, rejoue en plus tout `tests/api/` sur un chemin
+#: (`OUROULER_API_CHEMIN=nouveau uv run pytest tests/api`, par la fixture
+#: `chemin_api_de_l_environnement` de `tests/api/conftest.py`).
 VARIABLES_GARDEES = frozenset({"OUROULER_API_CHEMIN"})
 
 

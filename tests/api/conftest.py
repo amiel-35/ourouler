@@ -31,6 +31,7 @@ coexistent sous `tests/`, et `import conftest` serait ambigu.
 
 from __future__ import annotations
 
+import logging
 import socket
 import sys
 from pathlib import Path
@@ -89,3 +90,45 @@ def reseau_interdit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket.socket, "connect_ex", refuser)
     monkeypatch.setattr(socket, "create_connection", refuser)
     monkeypatch.setattr(socket, "getaddrinfo", refuser)
+
+
+@pytest.fixture(autouse=True)
+def chemin_api_de_l_environnement(monkeypatch: pytest.MonkeyPatch, request):
+    """`OUROULER_API_CHEMIN=nouveau uv run pytest tests/api` rejoue tout ce dossier sur ce chemin.
+
+    Lot 11 : `creer_application` ne lit pas l'environnement ; une application
+    construite sans `chemin_api` prend `double_chemin.CHEMIN_DEFAUT`. Poser la
+    variable change ce défaut le temps du test, par la même lecture que le
+    service (`exploitation.chemin_api`). Sans la variable, rien ne change.
+
+    En `double`, un test qui laisse une ligne d'écart échoue, sauf s'il porte
+    le marqueur `ecart_attendu` (la mutation de contrôle).
+    """
+    import os
+
+    if not os.environ.get("OUROULER_API_CHEMIN"):
+        yield
+        return
+    try:
+        from ourouler.api import double_chemin, exploitation
+    except Exception:  # noqa: BLE001 — extra « api » absent
+        yield
+        return
+    chemin = exploitation.chemin_api()
+    monkeypatch.setattr(double_chemin, "CHEMIN_DEFAUT", chemin)
+    lignes: list[str] = []
+
+    class Recueil(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            lignes.append(record.getMessage())
+
+    recueil = Recueil(level=logging.WARNING)
+    double_chemin.journal.addHandler(recueil)
+    try:
+        yield
+    finally:
+        double_chemin.journal.removeHandler(recueil)
+    if chemin == double_chemin.CHEMIN_DOUBLE and not request.node.get_closest_marker(
+        "ecart_attendu"
+    ):
+        assert not lignes, f"écarts entre l'ancien et le nouveau chemin : {lignes}"

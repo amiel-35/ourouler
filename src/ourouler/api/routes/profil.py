@@ -13,6 +13,7 @@ from ourouler.api.depots import schema_des_modifications
 from ourouler.api.erreurs import ErreurApi, classer, message_profil_invalide, secrets_de
 from ourouler.api.modeles import ApercuZones, DemandeVitesseCompteur
 from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.reponses import ReponseProfil, ReponseProfilIntervals, ReponseZones, reponse_de
 from ourouler.api.routes.commun import Contexte, Ctx, Qui, _config, _service, nouveau_routeur
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import resoudre_athlete_id
@@ -21,7 +22,7 @@ from ourouler.noyau.erreurs import ErreurConfig
 routeur = nouveau_routeur()
 
 
-@routeur.get("/profil")
+@routeur.get("/profil", **reponse_de(ReponseProfil))
 def lire_profil(
     ctx: Ctx,
     qui: Qui,
@@ -42,6 +43,7 @@ def lire_profil(
 
 @routeur.patch(
     "/profil",
+    **reponse_de(ReponseProfil),
     # Le corps est lu à la main (`await requete.json()`) et validé par
     # `depots.valider` : il n'a donc pas de modèle Pydantic, et FastAPI ne
     # publierait rien. Ce qu'il accepte est engendré de la liste blanche
@@ -161,7 +163,7 @@ def _profil_avec_flags(ctx: Contexte, qui: Proprietaire, config: Config) -> dict
     return donnees
 
 
-@routeur.get("/profil/zones")
+@routeur.get("/profil/zones", **reponse_de(ReponseZones))
 def lire_zones(
     ctx: Ctx,
     qui: Qui,
@@ -183,7 +185,7 @@ def lire_zones(
         raise classer(e) from e
 
 
-@routeur.post("/profil/zones/apercu")
+@routeur.post("/profil/zones/apercu", **reponse_de(ReponseZones))
 def apercu_zones(
     ctx: Ctx,
     qui: Qui,
@@ -226,7 +228,7 @@ def apercu_zones(
         raise classer(e) from e
 
 
-@routeur.get("/profil/intervals")
+@routeur.get("/profil/intervals", **reponse_de(ReponseProfilIntervals))
 def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
     """Ce qu'Intervals.icu sait de l'athlète — FTP, poids — **pour confirmation, sans rien écrire**.
 
@@ -292,7 +294,7 @@ def apercu_ftp_depuis_terrain(
         raise classer(e) from e
 
 
-@routeur.get("/profil/ftp/generique")
+@routeur.get("/profil/ftp/generique", **reponse_de(ReponseZones))
 def ftp_generique(ctx: Ctx, qui: Qui, velo: str | None = None) -> dict:
     """T5 de l'accueil, le fond du tunnel : une FTP à partir du seul poids, **sans rien stocker**.
 

@@ -6,12 +6,13 @@ from datetime import date
 
 from fastapi.responses import Response
 
-from ourouler.api import vues
-from ourouler.api.adaptateur import executer_commande, namespace
+from ourouler.api import calculs, vues
 from ourouler.api.depots import Fichier
-from ourouler.api.erreurs import ErreurApi, secrets_de
+from ourouler.api.double_chemin import calculer
+from ourouler.api.erreurs import ErreurApi
 from ourouler.api.modeles import DemandeBoucle, DemandeSortie
 from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.reponses import ReponseBoucle, ReponseSortie, reponse_de
 from ourouler.api.routes.commun import (
     Contexte,
     Ctx,
@@ -33,7 +34,7 @@ routeur = nouveau_routeur()
 # --- parcours -----------------------------------------------------------------
 
 
-@routeur.post("/sorties")
+@routeur.post("/sorties", **reponse_de(ReponseSortie))
 def generer_sortie(
     ctx: Ctx,
     qui: Qui,
@@ -72,33 +73,40 @@ def generer_sortie(
             ctx,
             qui,
             ("brouter", "openmeteo", "intervals"),
-            lambda: executer_commande(
-                sortie_commande.executer,
-                namespace(
-                    jour=demande.jour,
-                    depart=demande.heure_depart,
-                    distance=demande.distance_km,
-                    direction=demande.direction,
-                    candidates=demande.candidates,
-                    vent=demande.vent,
-                    velo=demande.velo,
-                    profil=demande.profil,
-                    fichier_seance=seance,
-                    carte=str(carte.chemin),
-                    ecraser=True,
-                ),
+            lambda: calculer(
+                ctx.chemin_api,
                 config,
-                secrets=secrets_de(config),
-                chemins={str(carte.chemin): carte.nom},
+                route="sorties",
                 operation="sortie",
+                ancien=sortie_commande.executer,
+                nouveau=calculs.sortie,
+                options={
+                    "jour": demande.jour,
+                    "depart": demande.heure_depart,
+                    "distance": demande.distance_km,
+                    "direction": demande.direction,
+                    "candidates": demande.candidates,
+                    "vent": demande.vent,
+                    "velo": demande.velo,
+                    "profil": demande.profil,
+                    "fichier_seance": seance,
+                    "carte": str(carte.chemin),
+                    "ecraser": True,
+                },
+                clients={
+                    "client_brouter": _service(ctx, config, "brouter"),
+                    "client_meteo": _service(ctx, config, "meteo"),
+                    "client_intervals": _service(ctx, config, "intervals"),
+                    "lieu_depart": _depart(demande.depart),
+                    "recueil_gpx": recueillis.extend,
+                    # Q58, même raison que `POST /boucles`.
+                    "base_routes": _base_routes(config, qui),
+                },
+                chemins={str(carte.chemin): carte.nom},
                 budgets=ctx.budgets,
-                client_brouter=_service(ctx, config, "brouter"),
-                client_meteo=_service(ctx, config, "meteo"),
-                client_intervals=_service(ctx, config, "intervals"),
-                lieu_depart=_depart(demande.depart),
-                recueil_gpx=recueillis.extend,
-                # Q58, même raison que `POST /boucles`.
-                base_routes=_base_routes(config, qui),
+                # En `double`, le nouveau chemin dépose ses GPX à part : ils
+                # sont comparés à ceux de l'ancien, jamais servis.
+                recueils=("recueil_gpx",),
             ),
         )
         donnees = vues.avec_fichiers(resultat.donnees, carte=_note(ctx, qui, carte))
@@ -147,7 +155,7 @@ def gpx_de_proposition(
     )
 
 
-@routeur.post("/boucles")
+@routeur.post("/boucles", **reponse_de(ReponseBoucle))
 def generer_boucle(
     ctx: Ctx,
     qui: Qui,
@@ -164,31 +172,35 @@ def generer_boucle(
         # plutôt que de porter un `None` littéral.
         direction_nom = demande.direction or "toutes-directions"
         gpx = ctx.fichiers.reserver(qui, f"boucle_{direction_nom}_{demande.distance_km:g}km.gpx")
-        resultat = executer_commande(
-            boucle_commande.executer,
-            namespace(
-                distance=demande.distance_km,
-                direction=demande.direction,
-                depart=demande.heure_depart,
-                candidates=demande.candidates,
-                profil=demande.profil,
-                velo=demande.velo,
-                puissance=demande.puissance_w,
-                sortie=str(gpx.chemin),
-                ecraser=True,
-            ),
+        resultat = calculer(
+            ctx.chemin_api,
             config,
-            secrets=secrets_de(config),
-            chemins={str(gpx.chemin): gpx.nom},
+            route="boucles",
             operation="boucle",
+            ancien=boucle_commande.executer,
+            nouveau=calculs.boucle,
+            options={
+                "distance": demande.distance_km,
+                "direction": demande.direction,
+                "depart": demande.heure_depart,
+                "candidates": demande.candidates,
+                "profil": demande.profil,
+                "velo": demande.velo,
+                "puissance": demande.puissance_w,
+                "sortie": str(gpx.chemin),
+                "ecraser": True,
+            },
+            clients={
+                "client_brouter": _service(ctx, config, "brouter"),
+                "client_meteo": _service(ctx, config, "meteo"),
+                "lieu_depart": _depart(demande.depart),
+                # Q58 : la colonne « connu % » est calculée contre les routes
+                # que **ce** cycliste a roulées, pas contre celles du
+                # propriétaire local.
+                "base_routes": _base_routes(config, qui),
+            },
+            chemins={str(gpx.chemin): gpx.nom},
             budgets=ctx.budgets,
-            client_brouter=_service(ctx, config, "brouter"),
-            client_meteo=_service(ctx, config, "meteo"),
-            lieu_depart=_depart(demande.depart),
-            # Q58 : la colonne « connu % » est calculée contre les routes
-            # que **ce** cycliste a roulées, pas contre celles du
-            # propriétaire local.
-            base_routes=_base_routes(config, qui),
         )
         donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
     except Exception:

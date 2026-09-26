@@ -16,6 +16,16 @@ injecté** : chaque service est fabriqué par le code comme en production, et
 c'est `httpx.Client` lui-même qui est rejoué (`outils_caracterisation`). Une
 restructuration qui change la façon d'injecter les clients ne casse donc pas
 ces références ; une qui change ce que l'API répond, si.
+
+**Lot 11 : chaque test tourne sur les trois chemins de l'API**
+(`api/double_chemin.py`) — `ancien` (l'adaptateur de la ligne de commande),
+`nouveau` (service et rendu), `double` (les deux, l'ancien répond) — contre
+les **mêmes** références. En `double`, deux choses de plus : aucune ligne
+d'écart ne doit être journalisée, et chaque appel réseau est fait deux fois,
+dans le même ordre (l'ancien chemin, puis le nouveau) ; le journal comparé à
+la référence est alors la première moitié, après vérification que la
+seconde la répète à l'identique. Les références ne se régénèrent que sur
+l'ancien chemin.
 """
 
 from __future__ import annotations
@@ -79,9 +89,10 @@ class SessionUnCompte:
 
 
 class Serveur:
-    def __init__(self, tmp_path: Path, rejeu, **options: Any) -> None:
+    def __init__(self, tmp_path: Path, rejeu, chemin_api: str, **options: Any) -> None:
         self.racine = tmp_path
         self.rejeu = rejeu
+        self.chemin_api = chemin_api
         avec_intervals = options.pop("avec_intervals", True)
         cache = tmp_path / "cache"
         cache.mkdir(parents=True, exist_ok=True)
@@ -96,6 +107,7 @@ class Serveur:
             creer_application(
                 dossier_donnees=tmp_path / "donnees",
                 budgets=Budgets(),
+                chemin_api=chemin_api,
                 **options,
             )
         )
@@ -118,10 +130,30 @@ class Serveur:
             "statut": reponse.status_code,
             "type": type_media,
             "corps": _chronos(corps),
-            "reseau": sorted(self.rejeu.journal),
+            "reseau": sorted(self._journal_d_un_passage()),
         }
         racine = str(self.racine)
         return normaliser(resultat, {racine: "<TMP>", os.path.realpath(racine): "<TMP>"})
+
+
+    def _journal_d_un_passage(self) -> list[str]:
+        """Le journal réseau d'**un** chemin : en `double`, la moitié répétée.
+
+        Le mode `double` fait tourner l'ancien chemin puis le nouveau, qui
+        refont les mêmes appels dans le même ordre. Une route qui ne passe
+        pas par le double chemin (profil, calibrations…) n'appelle qu'une
+        fois : son journal n'est pas une répétition, il est rendu tel quel.
+        """
+        journal = list(self.rejeu.journal)
+        moitie = len(journal) // 2
+        if (
+            self.chemin_api == CHEMIN_DOUBLE
+            and journal
+            and len(journal) % 2 == 0
+            and journal[:moitie] == journal[moitie:]
+        ):
+            return journal[:moitie]
+        return journal
 
 
 def _chronos(valeur: Any) -> Any:
@@ -143,17 +175,41 @@ def rejeu(monkeypatch: pytest.MonkeyPatch):
     return preparer(monkeypatch)
 
 
+#: Les trois chemins de l'API (lot 11, `api/double_chemin.py`), écrits en
+#: clair : le filet ne dépend que de surfaces stables
+#: (`test_le_filet_ne_depend_que_de_surfaces_stables`), et ces trois mots
+#: sont celles d'`OUROULER_API_CHEMIN`.
+CHEMIN_ANCIEN, CHEMIN_NOUVEAU, CHEMIN_DOUBLE = "ancien", "nouveau", "double"
+CHEMINS = (CHEMIN_ANCIEN, CHEMIN_NOUVEAU, CHEMIN_DOUBLE)
+
+#: Le chemin de l'API de chaque test (lot 11), lu par `verifier`.
+_CHEMIN_COURANT: list[str] = [CHEMIN_ANCIEN]
+
+
+@pytest.fixture(params=CHEMINS)
+def chemin_api(request, caplog: pytest.LogCaptureFixture):
+    """Les trois chemins ; en `double`, **aucun écart** ne doit avoir été journalisé."""
+    _CHEMIN_COURANT[0] = request.param
+    with caplog.at_level("WARNING", logger="ourouler.api.double_chemin"):
+        yield request.param
+    ecarts = [r.getMessage() for r in caplog.records if r.name == "ourouler.api.double_chemin"]
+    assert not ecarts, f"écarts entre l'ancien et le nouveau chemin : {ecarts}"
+
+
 @pytest.fixture
-def serveur(tmp_path: Path, rejeu):
+def serveur(tmp_path: Path, rejeu, chemin_api: str):
     def fabriquer(nom: str = "principal", **options: Any) -> Serveur:
         dossier = tmp_path / nom
         dossier.mkdir()
-        return Serveur(dossier, rejeu, **options)
+        return Serveur(dossier, rejeu, chemin_api, **options)
 
     return fabriquer
 
 
 def verifier(nom: str, obtenu: Any, regenerer_golden: bool) -> None:
+    """Compare à la référence ; ne la réécrit que depuis l'ancien chemin."""
+    if regenerer_golden and _CHEMIN_COURANT[0] != CHEMIN_ANCIEN:
+        pytest.skip("les références se régénèrent sur l'ancien chemin seulement")
     comparer_a_la_reference(obtenu, DOSSIER / f"api_{nom}.json", regenerer_golden, REGENERER)
 
 
@@ -416,3 +472,4 @@ def test_avertissement_second_avis_en_panne(serveur, rejeu, regenerer_golden: bo
     avertissements = obtenu["corps"]["avertissements"]
     assert avertissements and all(a.get("code") for a in avertissements), avertissements
     verifier("avertissement", obtenu, regenerer_golden)
+

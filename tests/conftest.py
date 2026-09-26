@@ -174,6 +174,10 @@ def pytest_configure(config):
         "cache_machine: garde le vrai `CACHE_DEFAUT` (test qui vérifie la constante, "
         "sans rien lire ni écrire dedans)",
     )
+    config.addinivalue_line(
+        "markers",
+        "ecart_attendu: test qui provoque exprès un écart du double chemin de l'API (lot 11)",
+    )
 
 
 # --- fichiers de référence (golden) -------------------------------------------
