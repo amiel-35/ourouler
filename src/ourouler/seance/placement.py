@@ -688,26 +688,10 @@ def _essayer(
             i += 1
             continue
 
-        # Ni bloc, ni paire récup+bloc : l'échauffement, une récupération
-        # isolée (avant le premier bloc, ou en queue sans bloc pour
-        # l'absorber). Elle roule quand même, et sa position se mémorise
-        # comme celle de n'importe quelle autre étape (Q13) — sans note,
-        # aucun terrain n'est évalué ici.
-        depart = etat.position_m
-        parcouru = etat.distance_m
-        if not _rouler(terrain, etat, duree, puissance):
-            return _plus_de_route(etat, terrain, etape, i)
-        debut, longueur = _couloir(depart, etat.position_m)
-        emplacements.append(
-            Emplacement(
-                etape_idx=i,
-                debut_m=debut,
-                longueur_m=longueur,
-                demi_tour=False,
-                note=None,
-                debut_parcouru_m=parcouru,
-            )
-        )
+        emplacement = _etape_libre(terrain, etat, etape, i, duree, puissance)
+        if isinstance(emplacement, str):
+            return emplacement
+        emplacements.append(emplacement)
         i += 1
 
     if idx_fermeture is not None:
@@ -724,15 +708,7 @@ def _essayer(
         )
         if motif is not None:
             return motif
-    elif etat.sens > 0 and terrain.total - etat.position_m > 0:
-        avertissements.append(
-            f"il reste {(terrain.total - etat.position_m) / 1000:.1f} km de tracé "
-            "après la dernière étape"
-        )
-    if etat.sens < 0:
-        avertissements.append(
-            "la séance se termine en sens inverse : le retour se fait sur le tracé à l'envers"
-        )
+    _avertir_fin(terrain, etat, avertissements, fermee=idx_fermeture is not None)
 
     penalite = _penalite_seance(ecarts, elasticite, elasticite_calme)
     # Seuls les blocs portent une note : une récupération n'est jamais évaluée
@@ -752,6 +728,43 @@ def _essayer(
         penalite_seance=penalite,
         jalons_m=[*etat.jalons, etat.position_m],
     )
+
+
+def _etape_libre(
+    terrain: _Terrain, etat: _Etat, etape: Etape, idx: int, duree_s: float, puissance_w: float
+) -> Emplacement | str:
+    """Ni bloc, ni paire récup+bloc : l'échauffement, une récupération isolée.
+
+    Avant le premier bloc, ou en queue sans bloc pour l'absorber. Elle roule
+    quand même, et sa position se mémorise comme celle de n'importe quelle
+    autre étape (Q13) — sans note, aucun terrain n'est évalué ici.
+    """
+    depart = etat.position_m
+    parcouru = etat.distance_m
+    if not _rouler(terrain, etat, duree_s, puissance_w):
+        return _plus_de_route(etat, terrain, etape, idx)
+    debut, longueur = _couloir(depart, etat.position_m)
+    return Emplacement(
+        etape_idx=idx,
+        debut_m=debut,
+        longueur_m=longueur,
+        demi_tour=False,
+        note=None,
+        debut_parcouru_m=parcouru,
+    )
+
+
+def _avertir_fin(terrain: _Terrain, etat: _Etat, avertissements: list[str], *, fermee: bool) -> None:
+    """Ce qu'il faut dire de la fin de séance : tracé restant, retour à l'envers."""
+    if not fermee and etat.sens > 0 and terrain.total - etat.position_m > 0:
+        avertissements.append(
+            f"il reste {(terrain.total - etat.position_m) / 1000:.1f} km de tracé "
+            "après la dernière étape"
+        )
+    if etat.sens < 0:
+        avertissements.append(
+            "la séance se termine en sens inverse : le retour se fait sur le tracé à l'envers"
+        )
 
 
 def _penalite_seance(
