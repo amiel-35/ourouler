@@ -69,6 +69,10 @@ packages = ["src/ourouler"]
 line-length = 110
 target-version = "py312"
 
+[tool.ruff.format]
+# Le journal est une archive : ses blocs de code restent tels qu'écrits.
+exclude = ["docs/journal/**"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "C901", "PLR0912", "PLR0915", "PLR0917"]
 

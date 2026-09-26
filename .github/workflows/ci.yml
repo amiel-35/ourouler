@@ -56,6 +56,8 @@ jobs:
 
       - run: uv run ruff check .
 
+      - run: uv run ruff format --check .
+
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
 

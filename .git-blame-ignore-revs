@@ -1,0 +1,5 @@
+# Commits mécaniques à ignorer dans `git blame` (GitHub lit ce fichier) :
+# git blame --ignore-revs-file .git-blame-ignore-revs <fichier>
+
+# ruff format appliqué une fois à tout le code Python
+4185ed50d3e8288fe713448cfc7dbfc72cd3e682
