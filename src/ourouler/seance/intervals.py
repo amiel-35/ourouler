@@ -1,30 +1,29 @@
 """Lecture d'un `workout_doc` Intervals.icu vers une `Seance`.
 
-Format **relevé le 13/09/2026 sur le compte du mainteneur**, et il est plus
-libre que ce que le contrat de sprint §1 décrit :
+Format **relevé sur un compte réel**, et il est plus libre qu'on ne le
+croirait :
 
 - `doc["steps"]` mélange des **groupes** `{reps, text, duration, steps: [...]}`
   et des **étapes** directes `{duration, power|hr, ...}`. Les deux formes
-  cohabitent dans la même séance (« 4x8 SV1 outdoor » du 22/04 : deux étapes
-  libres, deux groupes `reps`, quatre étapes plates). La lecture est donc
+  cohabitent dans la même séance (une séance réelle : deux étapes libres,
+  deux groupes `reps`, quatre étapes plates). La lecture est donc
   récursive : un élément qui porte une liste `steps` est un groupe, tout le
   reste est une étape.
 - Une consigne se donne par `power` **ou** par `hr`, en
   `{units, value}` ou `{units, start, end}`. Unités observées : `%ftp`,
   `power_zone` (numéro de zone de puissance) et `hr_zone` (numéro de zone de
-  fréquence cardiaque). Le contrat annonçait aussi `watts` : il est accepté,
-  mais n'apparaît pas sur ce compte.
+  fréquence cardiaque). `watts` est accepté aussi, mais n'apparaît pas sur
+  le compte relevé.
 - Une étape peut n'avoir **aucune** consigne (`freeride: true`, ou rien) :
   elle est gardée, sans puissance. Le rendu le dit et aucune longueur de
   route ne lui est attribuée.
 
-**Le cas nominal est `%ftp`, et il est exact.** Comptage des 82 séances vélo
-de 2026 sur le compte du mainteneur : 259 étapes en `%ftp`, 16 en
-`power_zone`, 28 en `hr_zone`. Les séances de son coach et son plan Ironman
-sont toutes en pourcentage de FTP ; elles se traduisent en watts sans
-approximation et sans avertissement. Les zones de fréquence cardiaque sont
-l'exception (un lot de séances de juin à septembre 2026), et c'est la seule
-qui demande des précautions.
+**Le cas nominal est `%ftp`, et il est exact.** Comptage sur 82 séances vélo
+d'un compte réel : 259 étapes en `%ftp`, 16 en `power_zone`, 28 en
+`hr_zone`. Les séances de coach et les plans d'entraînement sont en
+pourcentage de FTP ; elles se traduisent en watts sans approximation et sans
+avertissement. Les zones de fréquence cardiaque sont l'exception, et c'est la
+seule qui demande des précautions.
 
 Les traductions, de la plus sûre à la moins sûre :
 
@@ -32,7 +31,7 @@ Les traductions, de la plus sûre à la moins sûre :
   une fourchette, dont `Etape.puissance_cible_w` prend le milieu. Deux
   écritures coexistent dans la nature et sont toutes deux acceptées, voir
   `SEUIL_FRACTION_FTP`.
-- `watts` → tel quel. Exact aussi, mais absent de ce compte.
+- `watts` → tel quel. Exact aussi.
 - `power_zone` → bornes de la zone × FTP. C'est une **traduction** : la
   consigne était déjà en puissance.
 - `hr_zone` **haute** (au-dessus de `ZONE_FC_BASSE_MAX`) → bornes de la zone
@@ -46,7 +45,7 @@ Les traductions, de la plus sûre à la moins sûre :
   zone de FC n'est pas davantage la zone de puissance de même numéro : un
   plan qui écrit « Z1 de FC » pour une endurance désigne une puissance
   d'endurance franche. Le défaut, 60 % de FTP, est la médiane **mesurée** sur
-  les sorties extérieures du mainteneur (Q11, close le 13/09/2026).
+  des sorties extérieures réelles (décision Q11, `docs/journal/questions/questions_mainteneur.md`).
 
 Seules les deux formes `hr_zone` font passer `meta["puissance_approximee"]`
 à vrai, et le rendu l'affiche alors. `%ftp`, `watts` et `power_zone` ne
@@ -92,8 +91,8 @@ UNITES_POURCENT_FTP = ("%ftp", "ftp%", "percent_ftp", "pctftp")
 #: Frontière entre les deux écritures d'une consigne `%ftp`.
 #:
 #: Le nom de l'unité dit « pourcentage », mais l'écriture ne suit pas : les
-#: séances du mainteneur donnent l'entier (`80` pour 80 % de FTP, soit
-#: 206-219 W pour une FTP de 258 W sur la séance du 08/02), et d'autres
+#: séances relevées donnent l'entier (`80` pour 80 % de FTP, soit 206-219 W
+#: pour une FTP de 258 W), et d'autres
 #: sources donnent la fraction (`1.05` pour 105 %). Aucun champ ne distingue
 #: les deux : c'est l'ordre de grandeur qui tranche, et il tranche sans
 #: ambiguïté pratique. Une valeur **strictement supérieure** à ce seuil est
@@ -257,7 +256,7 @@ def seances_periode(
 def _jour_local(evenement: object) -> date | None:
     """Le jour civil **local** d'un événement, ou `None` s'il ne se lit pas.
 
-    `start_date_local` est une date-heure sans fuseau (« 2026-09-08T06:00:00 »)
+    `start_date_local` est une date-heure sans fuseau (« AAAA-MM-JJT06:00:00 »)
     déjà exprimée dans le fuseau du cycliste — on ne prend que les dix premiers
     caractères, jamais de reconversion UTC → local qui n'aurait pas de sens ici.
     """
@@ -281,8 +280,8 @@ def _seance_retenue(
 ) -> Seance | None:
     """Sélectionne, parmi les événements **déjà connus d'un seul jour**, la séance vélo.
 
-    Le calendrier du mainteneur porte plusieurs événements par jour (une nage
-    et un vélo le 08/09, par exemple) et des entrées qui ne sont pas des
+    Un calendrier réel porte plusieurs événements par jour (une nage et un
+    vélo le même jour, par exemple) et des entrées qui ne sont pas des
     séances (notes, congés). Le filtre est donc triple : catégorie
     « WORKOUT », sport reconnu comme du vélo par `activites.modele.
     est_sport_velo` — le même filtre que l'inventaire — et `workout_doc`
@@ -529,8 +528,8 @@ def _etape(step: dict, *, etat: _Etat, libelle: str) -> _Lue | None:
 def _type(step: dict, *, herite: str) -> tuple[str, str]:
     """(type de l'étape, d'où il vient) — les deux premières règles de la cascade.
 
-    1. **Marqueurs explicites** `warmup`, `cooldown`, `intensity` : la règle du
-       contrat de sprint §1, inchangée. C'est ce que portent les séances
+    1. **Marqueurs explicites** `warmup`, `cooldown`, `intensity`. C'est ce
+       que portent les séances
        « Vélo HIT » et « Sortie EF ».
     2. **Mots du champ `text`**, insensibles à la casse et aux accents. Les
        séances de coach (iDOSport) ne portent aucun marqueur : le type y est
@@ -610,11 +609,10 @@ def _recadrer_extremites(etapes: list[Etape], sources: list[str]) -> None:
     """Une récupération en bout de séance est en réalité un échauffement ou un calme.
 
     Les séances de coach nomment « Récupération » tout ce qui n'est pas un
-    effort, la dernière étape comprise : « 2x20' + 4x3' » du 08/02/2026 finit
-    par 20 minutes ainsi nommées. Ce n'est pas une récupération entre deux
+    effort, la dernière étape comprise : une séance « 2x20' + 4x3' » réelle
+    finit par 20 minutes ainsi nommées. Ce n'est pas une récupération entre deux
     blocs, c'est le retour à la maison — et c'est lui qui referme la boucle,
-    donc lui qui doit être élastique (cadrage du sprint 4 : « la Z2 de fin
-    absorbe le reste »).
+    donc lui qui doit être élastique : la Z2 de fin absorbe le reste.
 
     La position l'emporte donc sur le nom, mais aux deux extrémités
     seulement : une récupération au milieu reste une récupération, quoi qu'on
@@ -633,10 +631,10 @@ def _reclasser_libres(
 ) -> None:
     """Une étape sans aucune consigne n'est pas un bloc : c'est du roulage libre.
 
-    Décision du superviseur (13/09/2026). Sans puissance ni zone, rien ne
+    Sans puissance ni zone, rien ne
     contraint le terrain : chercher un couloir propre pour une telle étape
     n'a pas de sens, et la laisser typée « bloc » enverrait le placement
-    (L4.3) travailler pour rien. Elle devient donc un échauffement si elle
+    travailler pour rien. Elle devient donc un échauffement si elle
     ouvre la séance, un retour au calme si elle la ferme, une récupération
     au milieu.
 
@@ -656,10 +654,10 @@ def _reclasser_libres(
 def _reclasser_par_puissance(etapes: list[Etape], sources: list[str], *, etat: _Etat) -> None:
     """Troisième règle de la cascade : sous le seuil, ce n'est pas un bloc.
 
-    Les séances de coach ne portent ni marqueur ni texte : « 4x8 SV1 outdoor »
-    du 22/04/2026 enchaîne des efforts à 98 et 145 % de FTP et des
+    Les séances de coach ne portent ni marqueur ni texte : une séance réelle
+    enchaîne des efforts à 98 et 145 % de FTP et des
     récupérations à 50 %, sans qu'un seul champ ne le dise. Sans cette règle,
-    la séance entière serait un bloc, et le placement (L4.3) irait chercher un
+    la séance entière serait un bloc, et le placement irait chercher un
     couloir propre pour un retour au calme de 40 minutes.
 
     Le seuil est `seuil_recuperation_pct × FTP`. Si la FTP est inconnue, on se

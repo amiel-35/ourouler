@@ -8,8 +8,7 @@ Six balises de bloc sont couvertes sous `<workout>`, chacune explicitement :
 
 - `Warmup` / `Cooldown` — une rampe de puissance (`PowerLow` à
   `PowerHigh`) ; ce sont les seules étapes élastiques, comme pour une
-  séance Intervals.icu (décision du mainteneur du 13/09, `seance/modele.py`
-  `TYPES_ELASTIQUES`).
+  séance Intervals.icu (`noyau/seance.py`, `TYPES_ELASTIQUES`).
 - `SteadyState` — un bloc à puissance fixe (`Power`).
 - `Ramp` — un bloc à puissance variable (`PowerLow` à `PowerHigh`). Traité
   comme un bloc, pas comme un échauffement : rien dans le fichier ne dit

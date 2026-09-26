@@ -1,16 +1,14 @@
 """Lecture d'un fichier de séance, lecteur choisi par son extension.
 
 `seance/zwo.py` et `seance/mrc.py` savent chacun lire leur propre forme,
-mais rien avant ce module ne choisissait lequel appeler pour un fichier
-donné : c'est le trou relevé en **C1** de `docs/journal/ux/relecture_f0.md` — 683
-lignes lues et testées, sans le moindre appelant. Ce module est ce point
-d'entrée, dans le même esprit que `activites.lecture.lire` pour les
+mais il faut un point qui choisisse lequel appeler pour un fichier donné.
+Ce module est ce point d'entrée, dans le même esprit que `activites.lecture.lire` pour les
 fichiers d'activité (FIT/GPX/TCX).
 
 Le `.FIT` n'est pas couvert ici : ses messages de séance sont d'une autre
 famille que ses messages d'activité, les seuls lus aujourd'hui (l'ordre —
-ZWO et MRC d'abord, FIT ensuite — est celui tranché par le mainteneur, voir
-`docs/journal/ux/maquettes_v1.html` E17).
+ZWO et MRC d'abord, FIT ensuite — est celui de la maquette E17,
+`docs/journal/ux/maquettes_v1.html`).
 
 Ce module ne lit aucune configuration, aucun chemin utilisateur, aucune
 variable d'environnement : `chemin` est un `Path` que l'appelant (`cli.py`

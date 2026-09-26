@@ -6,8 +6,8 @@ pas de 100 m et a besoin du vent **à la position où il se trouve**, pas au
 plus proche échantillon : d'où ce champ, qui interpole entre les deux
 échantillons encadrants.
 
-Ce que ce module apporte au placement, mesuré sur les paramètres calibrés du
-mainteneur (terrain plat, 20 min à 210 W) : 11,1 km sans vent, 13,3 km avec
+Ce que ce module apporte au placement, mesuré sur des paramètres calibrés réels
+(terrain plat, 20 min à 210 W) : 11,1 km sans vent, 13,3 km avec
 20 km/h dans le dos, 9,2 km avec 20 km/h de face. Placer un bloc sans tenir
 compte du vent, c'est se tromper de 4 km sur un bloc qui en fait 11.
 

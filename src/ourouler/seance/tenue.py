@@ -1,7 +1,8 @@
 """Comment s'habiller pour la sortie, d'après la météo le long du tracé.
 
-Règle du mainteneur (13/09) : **la base se décide sur le départ**, parce que
-c'est là qu'on a froid. Le reste du parcours ne change pas ce qu'on met, il
+Règle (décision Q3, `docs/journal/questions/questions_mainteneur.md`) : **la
+base se décide sur le départ**, parce que c'est là qu'on a froid. Le reste du
+parcours ne change pas ce qu'on met, il
 dit ce qu'on emporte et ce qu'on prévoit d'enlever — le ressenti qui monte
 d'une catégorie fait ranger les manchettes, la pluie annoncée fait emporter
 la veste, le ressenti qui redescend en fin de sortie fait garder de quoi se
@@ -91,9 +92,8 @@ TENUES_DEFAUT: dict[str, tuple[str, ...]] = {
 #:
 #: Deux vestes, pas une : l'imperméable arrête l'eau, la coupe-vent arrête le
 #: vent. Et une **veste** coupe-vent, pas le gilet coupe-vent de la tenue de
-#: base : à 30 km/h de vent ce sont les bras qui prennent, et le contrat du
-#: sprint 4 §3 nomme bien la veste (« le vent [...] déclenche seul la veste
-#: au-delà de `vent_veste_kmh` »). Un cycliste qui porte déjà une veste
+#: base : à 30 km/h de vent ce sont les bras qui prennent : le vent déclenche seul la
+#: veste au-delà de `vent_veste_kmh`. Un cycliste qui porte déjà une veste
 #: coupe-vent — la tenue « très froid » — n'en emporte pas une seconde,
 #: `_ajouter` s'en charge.
 VESTE_PLUIE = "veste imperméable"
@@ -273,9 +273,9 @@ def _variation(
 def _tenues(p: ParametresTenue) -> dict[str, tuple[str, ...]]:
     """Le tableau des tenues : le jeu par défaut, catégorie par catégorie, écrasé par la configuration.
 
-    La source est `ParametresTenue.tenue_de`, l'accesseur prévu par le contrat
-    du sprint 4 §0 : `ParametresTenue.tenues` est un **tuple de couples**
-    `(catégorie, vêtements)` — une dataclass gelée ne peut pas porter un dict —
+    La source est `ParametresTenue.tenue_de`, l'accesseur prévu pour ça :
+    `ParametresTenue.tenues` est un **tuple de couples** `(catégorie,
+    vêtements)` — une dataclass gelée ne peut pas porter un dict —
     et c'est cette forme-là, et elle seule, que produit la chaîne
     TOML → `depuis_dict` → `Config`. Une configuration qui ne décrit qu'une
     catégorie garde le défaut pour les autres, comme le promettent les onze

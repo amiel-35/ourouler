@@ -18,7 +18,8 @@ facteur est mesuré ou supposé**. Un facteur supposé (`facteur_compteur_defaut
 est dérivé d'une sortie de référence — 10 m de dénivelé par kilomètre, 5 %
 d'arrêts — et non du cycliste qui regarde l'écran. C'est le seul chiffre de
 cette famille qui ne soit pas une mesure, donc `facteur_mesure` existe et
-tout écran qui affiche la valeur affiche aussi cette mention (règle absolue 5).
+tout écran qui affiche la valeur affiche aussi cette mention (on ne présente
+jamais une estimation comme une mesure).
 
 **Pas d'écrêtage.** Une position hors de [0, 1] se voit et se dit : quelqu'un
 qui saisit sa moyenne compteur dans le champ « à plat » se retrouve *sous* sa
@@ -28,8 +29,8 @@ silence (`seance.zones.position_dans_zone`).
 Ce module ne lit aucun fichier de configuration et ne connaît aucun chemin :
 les paramètres physiques du vélo (calibrés ou non) lui arrivent tout faits,
 et c'est `seance.ecran_ftp`, la couche commande, qui lit la calibration
-et la `Config` pour les construire (lot 7) — comme le reste du cœur (règle
-absolue 2).
+et la `Config` pour les construire — comme le reste du cœur (le cœur ne lit ni
+configuration ni environnement).
 """
 
 from __future__ import annotations
@@ -73,9 +74,9 @@ def valeurs_liees(
     """Les trois valeurs, à la position donnée (défaut : celle de la configuration).
 
     `None` sans vélo (`modele` absent), **ou si le profil ne porte
-    aucune FTP** (facultative depuis le 19/09/2026, `docs/ux/
-    parcours_accueil.md`) : sans l'une ou l'autre, il n'y a ni modèle
-    physique complet ni référence de puissance, donc rien à réconcilier. Un
+    aucune FTP** (facultative, `docs/journal/ux/parcours_accueil.md`) : sans
+    l'une ou l'autre, il n'y a ni modèle physique complet ni référence de
+    puissance, donc rien à réconcilier. Un
     profil qui n'a pas encore franchi l'étage T3/T4 de l'accueil est dans ce
     cas — c'est un état normal, pas une panne.
     """
@@ -103,7 +104,7 @@ def valeurs_liees(
         # Décision 8 : mesuré sur l'historique du cycliste, ou dérivé d'une
         # sortie de référence supposée. L'écran doit le dire.
         "facteur_mesure": mesure,
-        # **Le même fait, en un mot** (ajouté le 17/09/2026). `facteur_mesure`
+        # **Le même fait, en un mot.** `facteur_mesure`
         # est un booléen : un écran qui le lit sait quoi en faire, un écran qui
         # l'ignore affiche une mesure et une supposition de la même façon —
         # « un mensonge par mise en page », dit la maquette de E9. Le mot
@@ -124,12 +125,13 @@ def bloc_compteur(liees: dict, fourchette: FourchettePorteAPorte) -> dict:
     return {
         "velo": liees["velo"],
         # La puissance à laquelle `moyenne_compteur_kmh` a été calculée — sans
-        # elle, un client ne peut pas savoir ce qu'il lit (règle absolue 5).
+        # elle, un client ne peut pas savoir ce qu'il lit (on ne présente jamais
+        # une estimation comme une mesure).
         "puissance_w": liees["puissance_endurance_w"],
         "moyenne_compteur_kmh": liees["moyenne_compteur_kmh"],
         "facteur_compteur": liees["facteur_compteur"],
         "facteur_provenance": liees["facteur_provenance"],
-        # La fourchette qui chronomètre le porte à porte (L9.1) :
+        # La fourchette qui chronomètre le porte à porte :
         # `temps_estime_s × [bas, haut]`. « mesure » : centiles mesurés sur les
         # sorties de ce vélo par `ourouler calibrer` ; « defaut » : la
         # convention de `physique.litterature`, mesurée sur un seul cycliste.
@@ -206,7 +208,7 @@ def rendu(
     entier sans qu'aucun réglage ne change — c'est le point de la décision 7,
     et c'est pourquoi rien ici n'est stocké en watts.
 
-    **Sans FTP** (facultative depuis le 19/09/2026) : il n'y a pas d'échelle
+    **Sans FTP** (elle est facultative) : il n'y a pas d'échelle
     en watts à calculer — `echelle` l'exige, à raison, une bande de zones
     sans référence ne veut rien dire. `zones` et `valeurs_liees` rendent
     alors respectivement une liste vide et `None`, `ftp_w` reste `None`, et
@@ -248,9 +250,9 @@ def rendu(
 
 # --- T4 de l'accueil : vitesse au compteur + terrain → une FTP ---------------
 #
-# Décision du 19/09/2026 (`docs/journal/ux/parcours_accueil.md` §5.2-6) : on ne
-# demande plus « à quelle vitesse roulez-vous à plat, sans vent » — personne
-# ne sait répondre à une question sur des conditions qui n'arrivent jamais —
+# `docs/journal/ux/parcours_accueil.md` §5.2-6 : on ne demande pas « à quelle vitesse
+# roulez-vous à plat, sans vent » — personne ne sait répondre à une question sur
+# des conditions qui n'arrivent jamais —
 # mais la moyenne réellement lue sur le compteur, une vraie expérience, plus
 # un terrain déclaré. La conversion retenue réutilise `facteur_compteur_defaut`
 # tel quel, en lui donnant le dénivelé du terrain choisi au lieu du seul
