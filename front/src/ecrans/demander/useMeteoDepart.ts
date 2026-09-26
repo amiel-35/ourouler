@@ -34,7 +34,6 @@ export function useMeteoDepart(jour: string, heure_depart: string) {
     return () => {
       annule = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jour, heure_depart]);
 
   // La rose : même déclenchement que le vent au départ ci-dessus (jour et

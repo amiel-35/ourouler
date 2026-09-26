@@ -114,6 +114,12 @@ export function PointCardinal({
           montrer avant de cliquer. `RoseDirections` reste un vrai
           contrôle clavier (Tab, puis Entrée ou Espace) : au moins
           aussi accessible que les huit boutons qu'elle remplace. */}
+      {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- ce
+          label décrit la rose SVG ci-dessous, pas un contrôle de formulaire :
+          elle porte déjà son propre role="group" et aria-label
+          (RoseDirections), l'associer par htmlFor/aria-labelledby changerait
+          ce que lit un lecteur d'écran plutôt que de corriger un attribut
+          manquant. */}
       <label>Point cardinal</label>
       {erreurMeteo !== null ? (
         <p className="mention">{erreurMeteo}</p>

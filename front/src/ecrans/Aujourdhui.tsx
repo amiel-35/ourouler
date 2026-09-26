@@ -79,7 +79,6 @@ export function Aujourdhui({
     return () => {
       annule = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortie]);
   const directionsMeteo = meteo ? directionsDepuisCellules(meteo.donnees.cellules) : [];
   const directionRecommandee = meteo?.donnees.meilleure_direction?.nom ?? null;
