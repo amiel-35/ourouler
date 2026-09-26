@@ -214,7 +214,7 @@ def test_ftp_pour_vitesse_compteur_est_l_inverse_de_moyenne_compteur_kmh():
 
 
 def test_ftp_pour_vitesse_compteur_terrain_plus_raide_donne_une_ftp_plus_haute():
-    """Le levier du §6 de `docs/ux/parcours_accueil.md` : à vitesse compteur
+    """Le levier du §6 de `docs/journal/ux/parcours_accueil.md` : à vitesse compteur
     égale, un terrain plus dur implique une puissance plus haute."""
     config = depuis_dict(CONFIG_VELO_SANS_FTP)
     plat = ftp_pour_vitesse_compteur(config, None, vitesse_compteur_kmh=24.0, denivele_m_par_km=3.0)

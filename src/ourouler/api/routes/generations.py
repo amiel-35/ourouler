@@ -45,7 +45,7 @@ def generer_sortie(
     **Semi-synchrone** : le calcul se fait pendant la requête (4 à 6 secondes
     mesurées), et la réponse porte `duree_ms` — ce que ça a réellement pris —
     à côté de `budget` — ce que le front avait annoncé. Voir
-    `docs/ux/api_contrat.md` pour ce que ce choix implique côté écran.
+    `docs/journal/ux/api_contrat.md` pour ce que ce choix implique côté écran.
 
     **Deux propositions au lieu de trois n'est pas une panne** :
     `motif_deux_propositions` porte l'explication, et la réponse reste un 200.

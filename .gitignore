@@ -29,7 +29,7 @@ config.*.toml
 # `ourouler sortie` sauvegardée par mégarde, avec la géométrie de la boucle.
 !docs/journal/ux/maquettes_v1.html
 !front/index.html
-!front/directions/suisse-vivante.html
+!docs/journal/ux/directions/suisse-vivante.html
 
 # Réintégration NOMMÉE, fichier par fichier (règle absolue 1). Surtout pas
 # `!tests/fixtures/**` : cette réintégration en bloc laissait passer sans la

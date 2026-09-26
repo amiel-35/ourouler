@@ -732,7 +732,7 @@ def _nombre_optionnel(
     """Comme `_nombre`, mais une clé absente ou vide rend `None` plutôt que de refuser.
 
     Écrit pour `cycliste.ftp_w` (facultative depuis le 19/09/2026,
-    `docs/ux/parcours_accueil.md`) : l'absence n'est plus une configuration
+    `docs/journal/ux/parcours_accueil.md`) : l'absence n'est plus une configuration
     fautive, c'est un profil qui n'a pas encore d'étage T3 franchi. Une
     valeur **présente** reste soumise aux mêmes bornes qu'avant — ce n'est
     pas parce que le champ est facultatif qu'une FTP de 4 W devient plausible.

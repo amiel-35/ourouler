@@ -177,7 +177,7 @@ reprend le même jeton, rien n'est réémis (`emise.deja_en_cours`).
    renseigner un inconnu sur lequel des trois il a rencontré). Si valable,
    l'invité choisit son mot de passe et le compte s'active.
 2. **L'assistant d'accueil** (`front/src/ecrans/Assistant.tsx`,
-   `docs/ux/parcours_accueil.md`) : identité (prénom/nom), point de départ,
+   `docs/journal/ux/parcours_accueil.md`) : identité (prénom/nom), point de départ,
    puis un entonnoir en cinq étages qui cherche une puissance seuil du plus
    précis au plus flou — compte Intervals.icu (facultatif, clé API + athlète
    Intervals), sinon export Strava/Garmin, sinon une valeur déclarée, sinon
@@ -417,5 +417,5 @@ paramètre `requiert_profil`), `docs/journal/questions/questions_mainteneur.md`,
 `front/src/ecrans/Assistant.tsx`, `front/src/ecrans/Importer.tsx`,
 `front/src/ecrans/Connexion.tsx`, `front/src/ecrans/Entrer.tsx`,
 `front/src/ecrans/Reglages.tsx` (`MonCompteVolet`),
-`front/src/composants/CalibrationVelo.tsx`, `docs/ux/parcours_accueil.md`,
+`front/src/composants/CalibrationVelo.tsx`, `docs/journal/ux/parcours_accueil.md`,
 `src/ourouler/api/exploitation.py` (`chemin_config`, `VARIABLE_CONFIG`).

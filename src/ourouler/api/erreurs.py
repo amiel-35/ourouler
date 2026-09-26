@@ -58,7 +58,7 @@ LONGUEUR_SECRET_MINI = 6
 #:
 #: Un front ne peut pas dessiner un état qu'il ne sait pas reconnaître. Tant
 #: que ces codes ne vivaient que dans le code de l'API et dans un tableau de
-#: `docs/ux/api_contrat.md`, F2 devait lire l'implémentation ou deviner :
+#: `docs/journal/ux/api_contrat.md`, F2 devait lire l'implémentation ou deviner :
 #: `meteo_indisponible` (E14 · dégradé) et `intervals_refuse` (E15 · échec)
 #: étaient dessinés dans les maquettes et **nommés nulle part** dans le
 #: contrat publié. Ils le sont maintenant, avec les autres, et sans liste
@@ -432,7 +432,7 @@ def assainir(message: str, secrets: Iterable[str] = (), chemins: Mapping[str, st
     Trois défauts d'un coup pour un écran : ce n'est pas le nom que le
     cycliste a déposé, c'est inutilisable dans un navigateur, et en hébergé
     ça décrit l'arborescence du serveur à quiconque regarde
-    (`docs/ux/api_contrat.md`, « un fichier est un identifiant, pas un
+    (`docs/journal/ux/api_contrat.md`, « un fichier est un identifiant, pas un
     chemin »). Le chemin est donc remplacé par ce nom-là, au moment où le
     message sort.
     """

@@ -248,7 +248,7 @@ def rendu(
 
 # --- T4 de l'accueil : vitesse au compteur + terrain → une FTP ---------------
 #
-# Décision du 19/09/2026 (`docs/ux/parcours_accueil.md` §5.2-6) : on ne
+# Décision du 19/09/2026 (`docs/journal/ux/parcours_accueil.md` §5.2-6) : on ne
 # demande plus « à quelle vitesse roulez-vous à plat, sans vent » — personne
 # ne sait répondre à une question sur des conditions qui n'arrivent jamais —
 # mais la moyenne réellement lue sur le compteur, une vraie expérience, plus
@@ -305,7 +305,7 @@ def ftp_pour_vitesse_compteur(
 
     Ni le facteur compteur ni le terrain ne sont mesurés sur ce cycliste :
     c'est une **supposition**, du même ordre que `facteur_compteur_defaut`
-    l'est déjà pour tout vélo neuf — voir `docs/ux/parcours_accueil.md` §6
+    l'est déjà pour tout vélo neuf — voir `docs/journal/ux/parcours_accueil.md` §6
     pour ce que chaque terrain vaut en `denivele_m_par_km`, et pourquoi la
     case « Montagne » y est signalée moins fiable que les trois autres.
 

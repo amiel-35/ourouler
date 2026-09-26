@@ -3,7 +3,7 @@
  * composée à partir de ce que le mainteneur a gardé de chacune (voir le
  * journal de bord dans `suisse-vivante.html`). **Ce fichier ne touche à
  * rien d'existant** : `front/src/style.css` reste la source des écrans
- * réels ; celui-ci n'est chargé que par `front/directions/suisse-vivante.html`,
+ * réels ; celui-ci n'est chargé que par `docs/journal/ux/directions/suisse-vivante.html`,
  * la page de démonstration qui l'accompagne. L'adopter pour de vrai est une
  * décision du mainteneur, pas un fait accompli.
  *

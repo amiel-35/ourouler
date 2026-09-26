@@ -508,7 +508,7 @@ describe("le bandeau météo se décide sur le code, jamais sur la phrase", () =
    *
    * Avant le 17/09/2026, `meteoManquante` testait `/m[ée]t[ée]o/i` sur le
    * message. Le jour où quelqu'un reformulait l'avertissement du cœur en
-   * « Open-Meteo injoignable » — ce que `docs/ux/api_contrat.md` autorise
+   * « Open-Meteo injoignable » — ce que `docs/journal/ux/api_contrat.md` autorise
    * explicitement — le bandeau disparaissait en silence, et il restait un
    * parcours servi sans pluie, sans vent et sans la phrase qui dit pourquoi.
    *

@@ -13,7 +13,7 @@ avec les mêmes clients injectables, et rend leur JSON tel quel — voir
 `adaptateur.py` pour le pourquoi de ce choix et son prix.
 
 Le contrat détaillé (routes, formes, codes d'erreur) est dans
-`docs/ux/api_contrat.md`.
+`docs/journal/ux/api_contrat.md`.
 
 Le paquet ne s'importe pas au chargement d'`ourouler` : FastAPI est un extra
 (`uv sync --extra api`), et la ligne de commande doit tourner sans.

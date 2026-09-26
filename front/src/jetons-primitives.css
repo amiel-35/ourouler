@@ -14,10 +14,10 @@
  *
  * Origine : synthèse des huit directions du sprint 8 (encre, papier, filets,
  * les quatre teintes de données, la grille, la typographie) posée dans
- * `front/directions/jetons-suisse-vivante.css` le 19/09/2026, complétée le
- * 20/09/2026 par ce que `docs/ux/inventaire_systeme_visuel.md` a révélé
+ * `docs/journal/ux/directions/jetons-suisse-vivante.css` le 19/09/2026, complétée le
+ * 20/09/2026 par ce que `docs/journal/ux/inventaire_systeme_visuel.md` a révélé
  * manquant pour couvrir les onze écrans réels — espacement, épaisseur des
- * traits, intensité d'effort (Z1–Z5) — dans `front/directions/jetons-systeme.css`.
+ * traits, intensité d'effort (Z1–Z5) — dans `docs/journal/ux/directions/jetons-systeme.css`.
  * Ce fichier fusionne les deux : il n'existe plus qu'un seul endroit où
  * chercher une primitive.
  *
@@ -85,7 +85,7 @@
  * lu dehors, en plein soleil, parfois à 6 h du matin, ne peut pas se
  * permettre de perdre ses phrases les plus importantes — celles qui disent
  * « facteur supposé, faute de mesure » — au premier rayon de soleil. Rien
- * dans `docs/ux/direction_visuelle.md` ni dans l'usage du produit depuis le
+ * dans `docs/journal/ux/direction_visuelle.md` ni dans l'usage du produit depuis le
  * 17/09 ne justifie de revenir sur ce seuil : c'est un choix mesuré, tenu,
  * pas une esthétique. Tranché ici en remontant la seule primitive concernée
  * (teinte identique, un cran plus foncée) — la couche sémantique et les
@@ -288,7 +288,7 @@
 
 /* Bascule manuelle : les mêmes valeurs, retenues même si le système préfère
    le clair. Pas encore posée par l'application (aucun `data-theme` écrit à
-   ce jour, cf. `docs/ux/inventaire_systeme_visuel.md`) — prête si un
+   ce jour, cf. `docs/journal/ux/inventaire_systeme_visuel.md`) — prête si un
    sélecteur de thème arrive. */
 :root[data-theme="dark"] {
   --sv-papier: #0b0d10;

@@ -11,7 +11,7 @@
  *    front ne peut qu'interpoler contre la durée annoncée. Il le dit.
  * 2. **Le budget dit d'où il vient.** `source: "mesure"` est une mesure de ce
  *    serveur, `source: "defaut"` une valeur d'attente. Un écran ne doit
- *    jamais présenter l'une pour l'autre (`docs/ux/api_contrat.md`).
+ *    jamais présenter l'une pour l'autre (`docs/journal/ux/api_contrat.md`).
  *
  * Les jalons ne portent **aucun résultat intermédiaire**. La maquette en
  * montrait un (« Le sud-est est au sec ») ; il aurait fallu l'inventer,

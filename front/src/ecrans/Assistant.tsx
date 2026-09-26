@@ -1,6 +1,6 @@
 /** L'assistant d'accueil — un arbre, pas six étapes fixes.
  *
- * Réécrit le 19/09/2026 pour suivre `docs/ux/parcours_accueil.md` : l'ancien
+ * Réécrit le 19/09/2026 pour suivre `docs/journal/ux/parcours_accueil.md` : l'ancien
  * assistant posait FTP puis poids puis vélo dans un ordre figé. Le nouveau
  * distingue deux axes indépendants — d'où viennent les sorties (Intervals >
  * export > rien), et si la FTP est connue — et descend un **entonnoir en

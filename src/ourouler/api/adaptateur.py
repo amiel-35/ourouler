@@ -66,7 +66,7 @@ class Avertissement:
     Ajouté le 17/09/2026 (relecture F2 · B3). Sans code, le front n'avait
     qu'une prose française pour décider d'un état d'écran, et il la lisait à
     l'expression régulière : le bandeau « Pas de météo » tenait au mot
-    « météo » dans une phrase que `docs/ux/api_contrat.md` déclare
+    « météo » dans une phrase que `docs/journal/ux/api_contrat.md` déclare
     reformulable. Le code prime sur le message ici comme pour les pannes.
     """
 

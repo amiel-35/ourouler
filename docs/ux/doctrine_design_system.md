@@ -16,8 +16,8 @@ résultat, pas les règles qui l'ont produit.
 
 ## 1. Deux couches, jamais une
 
-- **Les primitives** (`front/directions/jetons-suisse-vivante.css` et la
-  section « PRIMITIVES AJOUTÉES » de `front/directions/jetons-systeme.css`)
+- **Les primitives** (`docs/journal/ux/directions/jetons-suisse-vivante.css` et la
+  section « PRIMITIVES AJOUTÉES » de `docs/journal/ux/directions/jetons-systeme.css`)
   portent une valeur brute à un rang : une teinte à un palier (`--sv-pluie-
   600`), une taille à un rang (`--sv-taille-4`), une durée (`--sv-duree`).
   Une primitive ne dit jamais à quoi elle sert.
@@ -75,7 +75,7 @@ et qu'il faut l'ajouter par la règle ci-dessous — pas en réinventer un.
 dans le système que si les trois conditions suivantes tiennent toutes :
 
 1. **Un besoin réel l'exige** — un écran, un composant, ou l'inventaire
-   documenté (`docs/ux/inventaire_systeme_visuel.md`) le demande
+   documenté (`docs/journal/ux/inventaire_systeme_visuel.md`) le demande
    effectivement. Un jeton posé « au cas où » n'entre pas.
 2. **Aucun jeton existant ne répond déjà**, même approximativement. Une
    valeur à 2 px d'un rang existant se règle en arrondissant à ce rang, pas
@@ -111,7 +111,7 @@ Aucune valeur n'est écrite deux fois. En particulier :
   en dur : chaque déclaration y référence un jeton sémantique. Si vous
   trouvez un hexadécimal ou un `px` nu dans ce fichier en dehors des
   définitions de jetons elles-mêmes, c'est une régression de doctrine.
-- La page de démonstration (`front/directions/systeme-composants.html`)
+- La page de démonstration (`docs/journal/ux/directions/systeme-composants.html`)
   n'invente pas non plus de couleur : sa propre feuille de style inline ne
   pose que de la mise en page (grilles, largeurs), jamais une teinte.
 
@@ -171,7 +171,7 @@ l'application.
 
 ## 7. Ce que ce lot a dû trancher, faute de précision dans la direction
 
-`docs/ux/direction_visuelle.md` pose trois règles fermes sur la couleur des
+`docs/journal/ux/direction_visuelle.md` pose trois règles fermes sur la couleur des
 **mesures**, mais ne dit rien de l'espacement, des états interactifs, des
 messages système, ni de l'intensité d'effort. Ce lot a donc pris position
 sur cinq points, chacun documenté en commentaire à l'endroit où il
@@ -283,13 +283,13 @@ partie.
 
 ## Voir aussi
 
-- `docs/ux/direction_visuelle.md` — la direction elle-même, ses trois règles
+- `docs/journal/ux/direction_visuelle.md` — la direction elle-même, ses trois règles
   et ses interdits.
-- `docs/ux/inventaire_systeme_visuel.md` — le contrat : chaque classe
+- `docs/journal/ux/inventaire_systeme_visuel.md` — le contrat : chaque classe
   réellement utilisée par l'application et sa réponse dans ce système.
-- `front/directions/jetons-systeme.css` — les jetons, primitives et
+- `docs/journal/ux/directions/jetons-systeme.css` — les jetons, primitives et
   sémantiques.
-- `front/directions/composants-systeme.css` — les composants, par leurs
+- `docs/journal/ux/directions/composants-systeme.css` — les composants, par leurs
   états.
-- `front/directions/systeme-composants.html` — la démonstration, clair et
+- `docs/journal/ux/directions/systeme-composants.html` — la démonstration, clair et
   sombre.

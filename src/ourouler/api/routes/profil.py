@@ -232,7 +232,7 @@ def apercu_zones(
 def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
     """Ce qu'Intervals.icu sait de l'athlète — FTP, poids — **pour confirmation, sans rien écrire**.
 
-    L'étage T1 de l'accueil (`docs/ux/parcours_accueil.md` §4), une fois la
+    L'étage T1 de l'accueil (`docs/journal/ux/parcours_accueil.md` §4), une fois la
     clé Intervals posée : « on a trouvé ceci, c'est toujours d'actualité ? »
     plutôt que remplacer en silence ou reposer une question dont Intervals
     connaît déjà la réponse ([[Q64]]). Le front confirme ou corrige, puis
@@ -300,7 +300,7 @@ def ftp_generique(ctx: Ctx, qui: Qui, velo: str | None = None) -> dict:
 
     Ne peut pas échouer — `physique.litterature.ftp_defaut` ne demande que
     `cycliste.masse_kg`, qui n'est jamais facultative. C'est la garantie que
-    l'entonnoir de `docs/ux/parcours_accueil.md` promet à l'étage T5 : « rien
+    l'entonnoir de `docs/journal/ux/parcours_accueil.md` promet à l'étage T5 : « rien
     à demander, jamais rien [en échec] ». Même geste que les deux routes
     d'aperçu voisines : le front affiche, et envoie `cycliste.ftp_w` à
     `PATCH /profil` si la personne continue.

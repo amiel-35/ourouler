@@ -85,8 +85,8 @@ et ce qui le distingue le plus des autres.
 
 Page de démonstration et jetons dans le worktree de l'agent qui l'a composée,
 branche `worktree-agent-ae336fbd1f5bcb510` :
-`front/directions/suisse-vivante.html` et
-`front/directions/jetons-suisse-vivante.css`.
+`docs/journal/ux/directions/suisse-vivante.html` et
+`docs/journal/ux/directions/jetons-suisse-vivante.css`.
 
 Les sept autres propositions vivent dans leurs worktrees respectifs. Elles ne
 sont pas à jeter : ce sont les pièces qui ont permis de composer celle-ci, et

@@ -10,7 +10,7 @@ front un schéma OpenAPI lisible sur `/docs`.
 la ligne de commande rend déjà ; le décrire une seconde fois en Pydantic
 créerait exactement la divergence que l'adaptateur évite. Le contrat de ces
 réponses est `docs/journal/ux/discovery_donnees.md`, complété par
-`docs/ux/api_contrat.md`.
+`docs/journal/ux/api_contrat.md`.
 
 **Les pannes, elles, ont un modèle** (`ReponseErreur`, ajouté le 17/09/2026),
 et ce n'est pas la même chose : leur forme n'appartient pas au cœur, elle
@@ -240,7 +240,7 @@ class DemandeVitesseCompteur(Modele):
         ge=0,
         le=100,
         description="dénivelé de référence du terrain déclaré, en m par km (voir "
-        "docs/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
+        "docs/journal/ux/parcours_accueil.md §6 pour les quatre valeurs retenues)",
     )
     velo: TexteUtile | None = None
 

@@ -399,7 +399,7 @@ def verifier_refus_exploitable(reponse: httpx.Response, quoi: str) -> dict[str, 
 
     **Corrigé le 17/09/2026 — le code se cherche où le contrat le range, pas
     où le testeur l'attendait.** Cette fonction exigeait `{"code", "message"}`
-    à la racine du corps. `docs/ux/api_contrat.md` range les pannes sous
+    à la racine du corps. `docs/journal/ux/api_contrat.md` range les pannes sous
     `{"erreur": {"code", "message", "service", "details"}}`, pour qu'une
     réponse porte `donnees` **ou** `erreur` et jamais les deux à la fois. Les
     deux formes portent le même contrat — un code stable et un message

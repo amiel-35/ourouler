@@ -1,4 +1,4 @@
-/** Le contrat de l'API, tel qu'il est écrit dans `docs/ux/api_contrat.md`.
+/** Le contrat de l'API, tel qu'il est écrit dans `docs/journal/ux/api_contrat.md`.
  *
  * Ces types décrivent **ce que l'API rend**, pas ce que le front voudrait
  * recevoir. Quand un champ manque au contrat, il manque ici aussi : c'est la
@@ -16,7 +16,7 @@
  * `/openapi.json`. Il n'a pas toujours existé : jusqu'au 17/09/2026,
  * `avertissements` était une liste de chaînes, et le bandeau « Pas de météo »
  * se décidait en cherchant le mot « météo » dans une prose que
- * `docs/ux/api_contrat.md` déclare reformulable. Aucun écran ne lit plus une
+ * `docs/journal/ux/api_contrat.md` déclare reformulable. Aucun écran ne lit plus une
  * phrase pour en déduire un état.
  *
  * `code` vaut `"autre"` pour ce que le catalogue ne nomme pas encore : on
