@@ -112,3 +112,10 @@ inventer une mesure.
 | `src/ecrans/` | un fichier par écran des maquettes |
 | `src/etat/` | chargement des ressources, mémoire du navigateur |
 | `tests/` | aucun réseau : `tests/serveur.ts` remplace `fetch` |
+
+**Un composant fait 300 lignes au plus** (`tests/taille_composants.test.ts`).
+Un écran qui dépasse se découpe dans un sous-dossier à son nom, en minuscules
+(`ecrans/reglages/` pour `Reglages.tsx`, `composants/carte/` pour
+`Carte.tsx`) : un volet, une étape, une section par fichier, et les fonctions
+pures à part dans un `.ts`. Le fichier d'origine réexporte ce que les autres
+importaient déjà de lui, pour que personne n'ait à changer ses imports.
