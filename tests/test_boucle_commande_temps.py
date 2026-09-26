@@ -1,5 +1,5 @@
-"""`ourouler boucle` : le temps estimé, le temps écoulé porte à porte et le
-bloc « compteur ».
+"""`ourouler boucle` : le temps estimé, l'heure de passage météo qui en
+découle, le temps écoulé porte à porte et le bloc « compteur ».
 
 Bouchons partagés : `outils_boucle_commande.py`.
 """
@@ -36,6 +36,9 @@ from ourouler.rendu.boucle_json import rendre_json
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
+
+
+# --- colonne « temps estimé » ---------------------------------------------------
 
 
 def test_sans_calibration_l_ecran_dit_que_le_modele_vient_de_la_litterature(
@@ -255,6 +258,9 @@ def test_l_entete_dit_que_la_vitesse_de_passage_vient_du_modele(
     assert "heures de passage météo" in entete
     assert "(modèle)" in entete
     assert "27 km/h" not in entete
+
+
+# --- temps écoulé porte à porte, et le bloc « compteur » -----------------------
 
 
 def _demande_de_test(distance_km: float = 100.0) -> Demande:

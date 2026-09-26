@@ -1,8 +1,7 @@
 """`ourouler boucle` : la météo le long du tracé.
 
 Une météo en panne ne fait pas perdre la boucle ; repli de modèle, complet
-ou partiel quand le tracé déborde l'horizon du modèle principal ; heure de
-passage calculée à la vitesse du modèle physique.
+ou partiel quand le tracé déborde l'horizon du modèle principal.
 Bouchons partagés : `outils_boucle_commande.py`.
 """
 

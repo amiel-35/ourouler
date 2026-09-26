@@ -34,7 +34,7 @@ from ourouler.config import (
     ParametresSeance,
 )
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.rendu.sortie import _ligne_modele_meteo, rendre_texte
+from ourouler.rendu.sortie import _ecart_seance, _ligne_modele_meteo, rendre_texte
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
     Proposition,
@@ -395,3 +395,37 @@ def test_le_repli_est_dit_et_nomme_les_deux_modeles():
     assert len(lignes) == 1
     assert "AROME" in lignes[0] and "ICON" in lignes[0]
     assert "ne couvre pas" in lignes[0]
+
+
+# --- Q21 a : l'alerte d'amputation suit le placement, pas un seuil en minutes --
+
+
+def test_moins_d_une_minute_n_est_jamais_dit():
+    """Sous 60 s, l'écart n'est même pas affiché — arrondi du placement, pas une info."""
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=30.0)) == ""
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=-30.0)) == ""
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=None)) == ""
+
+
+def test_un_depassement_positif_reste_neutre():
+    assert _ecart_seance(types.SimpleNamespace(depassement_s=18 * 60.0)) == " (+18 min)"
+
+
+def test_un_ecart_negatif_sans_verdict_d_amputation_n_alerte_pas():
+    """Le défaut mesuré (Q21 a) : 1 min sur 2 h prescrites (0,8 %) déclenchait ⚠
+
+    à tort, alors que le seuil du mainteneur (`elasticite_calme_min`, −5 %)
+    ne le justifiait pas. `seance_amputee` porte le verdict du placement, qui
+    honore déjà ce seuil (`seance.placement`) — ce test fige seulement que
+    l'affichage le respecte, sans lui-même recalculer un pourcentage.
+    """
+    profil = types.SimpleNamespace(depassement_s=-60.0, seance_amputee=False)
+    texte = _ecart_seance(profil)
+    assert "⚠" not in texte
+    assert "amput" not in texte
+    assert texte == " (-1 min)"
+
+
+def test_un_ecart_negatif_amputant_la_seance_alerte():
+    profil = types.SimpleNamespace(depassement_s=-12 * 60.0, seance_amputee=True)
+    assert _ecart_seance(profil) == " (⚠ séance amputée de 12 min)"

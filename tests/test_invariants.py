@@ -405,10 +405,12 @@ def test_aucun_client_http_reel_n_est_cree_a_l_import():
         assert not isinstance(noeud, ast.Assign) or "httpx.Client" not in ast.unparse(noeud.value)
 
 
-#: `tests/*.py`, plus les trois tests d'API de bout en bout rangés sous `tests/api/`.
+#: `tests/*.py` (tests et modules d'outils, qui portent les bouchons partagés),
+#: plus les trois tests d'API de bout en bout rangés sous `tests/api/`.
 _PERIMETRE_CLIENT_HTTP = sorted(
     [
         *TESTS.glob("test_*.py"),
+        *TESTS.glob("outils_*.py"),
         *(TESTS / "api" / nom for nom in ("test_api.py", "test_api_erreurs.py", "test_api_quotas.py")),
     ]
 )

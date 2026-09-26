@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import types
 from pathlib import Path
 
 import httpx
@@ -34,7 +33,7 @@ from ourouler.config import (
 )
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.rendu.sortie import _ecart_seance, rendre_texte
+from ourouler.rendu.sortie import rendre_texte
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
@@ -204,40 +203,6 @@ def test_une_reponse_au_vent_inconnue_est_refusee_avant_tout_appel(tmp_path: Pat
             meteo,
             intervals,
         )
-
-
-# --- Q21 a : l'alerte d'amputation suit le placement, pas un seuil en minutes --
-
-
-def test_moins_d_une_minute_n_est_jamais_dit():
-    """Sous 60 s, l'écart n'est même pas affiché — arrondi du placement, pas une info."""
-    assert _ecart_seance(types.SimpleNamespace(depassement_s=30.0)) == ""
-    assert _ecart_seance(types.SimpleNamespace(depassement_s=-30.0)) == ""
-    assert _ecart_seance(types.SimpleNamespace(depassement_s=None)) == ""
-
-
-def test_un_depassement_positif_reste_neutre():
-    assert _ecart_seance(types.SimpleNamespace(depassement_s=18 * 60.0)) == " (+18 min)"
-
-
-def test_un_ecart_negatif_sans_verdict_d_amputation_n_alerte_pas():
-    """Le défaut mesuré (Q21 a) : 1 min sur 2 h prescrites (0,8 %) déclenchait ⚠
-
-    à tort, alors que le seuil du mainteneur (`elasticite_calme_min`, −5 %)
-    ne le justifiait pas. `seance_amputee` porte le verdict du placement, qui
-    honore déjà ce seuil (`seance.placement`) — ce test fige seulement que
-    l'affichage le respecte, sans lui-même recalculer un pourcentage.
-    """
-    profil = types.SimpleNamespace(depassement_s=-60.0, seance_amputee=False)
-    texte = _ecart_seance(profil)
-    assert "⚠" not in texte
-    assert "amput" not in texte
-    assert texte == " (-1 min)"
-
-
-def test_un_ecart_negatif_amputant_la_seance_alerte():
-    profil = types.SimpleNamespace(depassement_s=-12 * 60.0, seance_amputee=True)
-    assert _ecart_seance(profil) == " (⚠ séance amputée de 12 min)"
 
 
 # --- Q44 : le travers ouvre deux azimuts, et les candidates s'y répartissent ---

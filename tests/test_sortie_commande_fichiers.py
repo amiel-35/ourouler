@@ -78,6 +78,9 @@ def test_le_gpx_ecrit_est_le_parcours_place(tmp_path: Path, monkeypatch, capsys)
     assert "sans demi-tour" in texte, texte[:400]
 
 
+# --- aucun GPX à la génération, un GPX au choix (Q40 g) ------------------------
+
+
 def test_recueil_gpx_n_ecrit_aucun_fichier_et_rend_les_trois_traces(
     tmp_path: Path, monkeypatch, capsys
 ):
