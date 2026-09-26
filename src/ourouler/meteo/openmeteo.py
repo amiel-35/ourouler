@@ -18,13 +18,13 @@ import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine
 
-# Types de prévision rangés au noyau depuis le lot 4.
+# Types de prévision rangés au noyau.
 from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 BASE_URL_DEFAUT = "https://api.open-meteo.com"
 CHEMIN_PREVISION = "/v1/forecast"
 
-#: Variables horaires demandées, dans l'ordre du contrat de sprint.
+#: Variables horaires demandées, dans un ordre fixe.
 VARIABLES_HORAIRES = (
     "precipitation",
     "rain",
@@ -213,7 +213,7 @@ class ClientOpenMeteo:
         return x if math.isfinite(x) else None
 
     def _instant(self, brut: Any) -> datetime:
-        """Un horodatage Open-Meteo (`2026-09-13T08:00`, en UTC car `timezone=UTC`)."""
+        """Un horodatage Open-Meteo (`AAAA-MM-JJT08:00`, en UTC car `timezone=UTC`)."""
         try:
             t = datetime.fromisoformat(str(brut))
         except (TypeError, ValueError) as e:
@@ -232,7 +232,7 @@ def _heure_vide(h: PrevisionHeure) -> bool:
 
 
 def _hors_domaine(modele: str) -> ErreurHorsDomaine:
-    """Le modèle ne rend rien pour ce point ou cette fenêtre (Q19).
+    """Le modèle ne rend rien pour ce point ou cette fenêtre.
 
     Deux signatures, toutes deux mesurées sur le vrai service : un corps
     HTTP 200 contenant des littéraux `nan` (donc invalide en JSON), ou un
@@ -240,7 +240,7 @@ def _hors_domaine(modele: str) -> ErreurHorsDomaine:
     la seconde l'est aussi, mais elle est **également** ce qu'Open-Meteo rend
     quand la fenêtre demandée dépasse la portée temporelle du modèle (AROME
     publie à 67 h) — le message ne tranche donc pas entre les deux plutôt que
-    d'affirmer une cause qu'il ne mesure pas (règle absolue 5).
+    d'affirmer une cause qu'il ne mesure pas (on n'affirme rien sans mesure).
 
     Le message ne cite pas les coordonnées : les messages Open-Meteo ne
     doivent jamais publier le point de départ. Il ne nomme pas non plus

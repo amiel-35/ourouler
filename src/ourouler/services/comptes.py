@@ -6,7 +6,7 @@ ouvert sur la base, l'URL publique du front, les paramètres du relais SMTP (et,
 pour les tests, sa fabrique de client), de quoi demander confirmation, de quoi
 retrouver les dépôts du serveur hébergé et de quoi effacer. Il ne lit lui-même
 ni fichier, ni variable d'environnement, ni chemin de l'utilisateur : c'est
-`cli.py` qui rassemble tout cela (règle absolue 3) et affiche le résultat par
+`cli.py` qui rassemble tout cela (le cœur ne lit ni configuration ni environnement) et affiche le résultat par
 `rendu/comptes.py`.
 
 **Toute la logique d'état d'une invitation — compte déjà actif, invitation en
@@ -157,7 +157,7 @@ def reinitialiser(
 ) -> LienEmis:
     """Émet un lien de nouveau mot de passe pour un compte **déjà actif**.
 
-    Réservé au mainteneur, en ligne de commande : aucune route HTTP anonyme n'appelle
+    Réservé à l'exploitant, en ligne de commande : aucune route HTTP anonyme n'appelle
     `DepotComptes.reinitialiser` — voir la note de module d'`api/comptes.py`. Une adresse
     sans compte actif laisse remonter l'`ErreurCompte` du dépôt telle quelle.
     """

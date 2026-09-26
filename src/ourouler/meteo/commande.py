@@ -43,7 +43,7 @@ def executer(
     Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
     celui de **cette** exécution (`--adresse-depart` géocodée, ou les
     coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit aucune
-    adresse et ne sait pas d'où vient ce point (règle absolue 2).
+    adresse et ne sait pas d'où vient ce point (le cœur ne lit ni configuration ni environnement).
     """
     profil = contexte.profil
     modele, second_avis = demande.modele, demande.second_avis

@@ -1,6 +1,6 @@
 """Ce qu'un cas d'usage reçoit de son appelant, en plus de la demande.
 
-Lot 10 (`docs/ouverture_plan.md` §6) : la `Demande` porte ce que le
+La `Demande` porte ce que le
 cycliste a demandé, déjà interprété ; le `Contexte` porte **où** et **pour
 qui** le service travaille — le profil du cycliste, le dossier de cache et le
 fichier de calibration déjà résolus, et la façon de faire part d'un

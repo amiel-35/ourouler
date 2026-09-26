@@ -69,7 +69,7 @@ def rendre_json(adresse: str, candidats: list[Candidat]) -> dict:
         ],
         # Ce que le front doit savoir pour décider s'il fait confirmer sur la
         # carte ou s'il redemande la commune. **Ce n'est pas un arbitrage** :
-        # les candidats sont rendus quand même, l'API ne tranche jamais (Q34).
+        # les candidats sont rendus quand même, l'API ne tranche jamais.
         "ambigu": trouble is not None,
         "motif_ambiguite": None if trouble is None else trouble.motif,
     }
@@ -78,7 +78,7 @@ def rendre_json(adresse: str, candidats: list[Candidat]) -> dict:
 def rendre_texte(adresse: str, candidats: list[Candidat]) -> str:
     """La liste des candidats. **Cette commande ne refuse jamais** : elle est là pour montrer.
 
-    C'est `--adresse-depart` qui refuse une adresse ambiguë (Q34) ; `ourouler
+    C'est `--adresse-depart` qui refuse une adresse ambiguë (décision Q34) ; `ourouler
     geocoder` est précisément l'outil qu'on lance ensuite pour voir ce qui
     s'oppose. Elle le dit en une ligne, elle ne le sanctionne pas.
     """

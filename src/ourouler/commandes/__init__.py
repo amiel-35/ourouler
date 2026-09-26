@@ -1,6 +1,6 @@
 """Les commandes : d'un `argparse.Namespace` à une `Demande`, puis au rendu imprimé.
 
-Couche 5 (entrées) de `docs/ouverture_plan.md` §2, depuis le lot 10. Pour
+Couche 5 (entrées) de la règle d'imports (`ARCHITECTURE.md`). Pour
 chaque sous-commande, un module de ce paquet :
 
 1. lit les options (`argparse.Namespace`) et construit la `Demande` du
@@ -10,14 +10,14 @@ chaque sous-commande, un module de ce paquet :
 3. appelle le service (couche 3), qui rend un résultat sans rien imprimer ;
 4. appelle le rendu (texte ou JSON selon `--json`) et l'imprime.
 
-`cli.py` appelle ces fonctions. L'API, depuis le lot 11, a deux chemins
+`cli.py` appelle ces fonctions. L'API a deux chemins
 (`api/double_chemin.py`) : l'ancien construit un `Namespace` et capture la
 sortie standard (`api/adaptateur.py`) ; le nouveau (`api/calculs.py`)
 appelle les pièces sans impression de ce paquet — `interpreter(...)` sur les
 valeurs brutes, puis le service, puis les `json_*` — et le service
 directement.
 `executer_depuis_namespace` est ce point d'entrée de compatibilité : il
-reçoit la fonction de service que `api/routes.py` nomme, et appelle la
+reçoit la fonction de service que `api/routes/` nomme, et appelle la
 commande qui la sert.
 """
 
@@ -58,9 +58,9 @@ def commande_de(service: Callable) -> Callable[..., int]:
 def executer_depuis_namespace(
     service: Callable, args: argparse.Namespace, config: Config, **clients
 ) -> int:
-    """Compatibilité du lot 10 pour l'API : la commande du service, avec son `Namespace`.
+    """Compatibilité pour l'ancien chemin de l'API : la commande du service, avec son `Namespace`.
 
-    Imprime exactement ce que la commande imprimait avant le lot 10 ; l'API
-    le capture. Retiré au lot 11, quand l'API appellera service et rendu.
+    Imprime exactement ce que la commande imprime ; l'API le capture. Il
+    disparaîtra avec l'ancien chemin (`api/double_chemin.py`).
     """
     return commande_de(service)(args, config, **clients)

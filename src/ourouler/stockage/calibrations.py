@@ -1,11 +1,11 @@
 """Lecture et écriture du fichier de calibration (un JSON, toutes les calibrations par vélo).
 
 Le format est figé (`tests/compatibilite/LISEZMOI.md`) : ce module le lit et
-l'écrit à l'octet près comme `physique.commande` le faisait avant le lot 7.
+l'écrit à l'octet près.
 Il reçoit un chemin et rend une `physique.parametres_velo.Calibration` ; il
 ne sait ni **où** le fichier se trouve ni comment il s'appelle — c'est
 `physique.commande.chemin_calibration` qui le résout depuis la configuration
-(règle absolue 2).
+(le cœur ne lit ni configuration ni environnement).
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ def ecrire_calibration(chemin: Path, velo: str, contenu: dict) -> None:
     charge["velos"][velo] = contenu
     try:
         chemin.parent.mkdir(parents=True, exist_ok=True)
-        # Écrit à côté puis renommé : depuis L9.4, une calibration s'écrit
+        # Écrit à côté puis renommé : une calibration s'écrit
         # dans une tâche de fond pendant que d'autres requêtes relisent le
         # fichier — elles doivent voir l'ancien ou le nouveau, jamais un
         # fichier à moitié écrit.
@@ -132,7 +132,7 @@ def contenu_calibration(
     return {
         "cda_m2": round(a.cda_m2, 5),
         "crr": round(a.crr, 6),
-        # D'où vient le Crr (L9.1) : « pneu » ou « configuration » (fixé, seul
+        # D'où vient le Crr : « pneu » ou « configuration » (fixé, seul
         # le CdA a été cherché) ou « ajuste » (cherché avec le CdA).
         "crr_source": crr_source,
         "pneu": pneu if crr_source == "pneu" else None,
@@ -179,15 +179,15 @@ def porte_a_porte_json(mesure: calib.MesurePorteAPorte) -> dict | None:
         "n": mesure.n,
         "n_total": len(mesure.sorties),
         # Mesurée sur les seules sorties de validation, jamais vues par
-        # l'ajustement du CdA (contre-lecture du 25/09).
+        # l'ajustement du CdA.
         "sorties": "validation",
         "seuil_groupe": mesure.seuil_groupe,
         # Ce que les centiles mesurent : temps écoulé réel (du premier au
         # dernier point, arrêts compris) / temps simulé en mouvement.
         "base": "temps_ecoule",
         # Les mêmes centiles sur le temps **en mouvement** — l'erreur du
-        # modèle seul, arrêts exclus. Gardés pour comparer à la note du 23/09,
-        # qui les avait lus sous ce nom.
+        # modèle seul, arrêts exclus. Gardés pour comparer aux mesures qui les
+        # lisent sous ce nom.
         "ratio_mouvement": None if mouvement is None else [round(x, 4) for x in mouvement],
     }
 

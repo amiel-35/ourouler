@@ -43,8 +43,8 @@ from ourouler.services.contexte import Contexte
 
 #: Nom du fichier de base des routes connues, sous le dossier de cache. Il vit
 #: ici et non dans `apprentissage/routes.py` : le cœur reçoit un `Path` déjà
-#: résolu, il ne fabrique pas le nom du fichier (règle absolue 2 de CLAUDE.md,
-#: contrat du sprint 3 §2). `boucle/commande.py` le lit ici aussi.
+#: résolu, il ne fabrique pas le nom du fichier (le cœur ne lit ni configuration
+#: ni environnement). `boucle/commande.py` le lit ici aussi.
 NOM_BASE = "routes_connues.sqlite"
 
 #: Nom du fichier de poids appris, sous le dossier de cache. Même raison.
@@ -140,8 +140,10 @@ def executer(
     cas de la ligne de commande — le service la construit sur
     `contexte.dossier_cache` et avec le propriétaire par défaut.
 
-    C'est ce qui ferme [[Q58]] sans faire entrer la notion de service dans le
-    cœur : le service reçoit un dépôt déjà fait et ne prononce jamais le mot
+    C'est ce qui tient la décision Q58
+    (`docs/journal/questions/questions_mainteneur.md`) sans faire entrer la
+    notion de service dans le cœur : le service reçoit un dépôt déjà fait et ne
+    prononce jamais le mot
     « propriétaire ». Voir `activites/commande.executer` pour le raisonnement
     complet et la phrase de doctrine §10.1 qui le porte.
     """
@@ -181,7 +183,7 @@ def _apprendre(
     # action d'administration que l'API n'expose pas (`api/routes/inventaire.py` n'accepte
     # que `stats` et `poids`), donc ce `Cache` n'est jamais construit pour le
     # compte d'un demandeur. Le jour où une route l'exposerait, c'est ce
-    # constructeur-là qu'il faudrait injecter — [[Q58]].
+    # constructeur-là qu'il faudrait injecter (décision Q58).
     cache = Cache(contexte.dossier_cache)
     client = _client(contexte.profil, client_brouter)
     rapport = apprendre(cache, client, base, depuis=depuis, max_sorties=demande.max_sorties)
@@ -244,7 +246,7 @@ def _boucles_exposition(client: ClientBrouter, profil: Profil) -> tuple[list[Tra
     Une direction qui échoue n'annule pas la mesure : on compte l'échec et on
     continue. Comparer sept directions vaut mieux que ne rien comparer — mais
     le nombre de boucles est affiché, pour qu'on sache sur quoi repose le
-    chiffre (règle absolue 5).
+    chiffre (on n'affirme rien sans mesure).
     """
     traces: list[Trace] = []
     echecs: list[str] = []

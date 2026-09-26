@@ -1,9 +1,8 @@
 """Jusqu'à quand la météo répond, et ce qu'on dit quand elle ne répond plus.
 
-**Q40 (a) et (b), tranché par le mainteneur le 17/09/2026** : « pour le
-jusqu'à quand : aucune limite. Juste, si on demande trop loin, ben pas de
-météo. Donc si la personne donne une date hors de portée de la météo, lui
-dire direct "pas de météo" et hop. »
+**Aucune limite de date** (décision Q40 a et b, `docs/journal/questions/questions_mainteneur.md`) :
+si la personne donne une date hors de portée de la météo, on lui dit tout
+de suite « pas de météo ».
 
 Une date lointaine **ne se refuse pas**. Le parcours est servi, et la météo
 est déclarée absente : c'est exactement l'état dégradé que les maquettes
@@ -13,20 +12,20 @@ affirmations qu'on ne peut plus soutenir — la pluie, le vent et la tenue.
 **Le message dit quel jour est le dernier couvert, jamais pourquoi il ne
 l'est pas.** Open-Meteo rend le *même* bloc vide pour un point hors du
 domaine d'un modèle et pour une fenêtre hors de sa portée ; le cœur refuse de
-trancher, et il a raison (règle absolue 5). Côté produit la distinction ne
-sert à rien : dans les deux cas on lit « pas de météo pour ce jour-là », et
-le parcours arrive quand même. C'est ce qui referme (b) du même geste.
+trancher, et il a raison (on n'affirme rien sans mesure). Côté produit la distinction ne sert à
+rien : dans les deux cas on lit « pas de météo pour ce jour-là », et le
+parcours arrive quand même.
 
 **Ce qui n'est pas touché, et qui ne doit pas l'être** : le repli de modèle
-de Q19. AROME s'arrête en cours de J+2 ; sans repli, une sortie à J+2 ou J+3
-perdait *toute* sa météo avec un message trompeur. L'horizon publié ici est
+(décision Q19). AROME s'arrête en cours de J+2 ; sans repli, une sortie à J+2
+ou J+3 perdrait *toute* sa météo avec un message trompeur. L'horizon publié ici est
 celui du modèle de repli, justement pour que ces jours-là restent couverts —
 et E15 sert une séance à J+4 avec sa météo, sans son orientation au vent
 (voir `sortie.vent_demande.HORIZON_ORIENTATION_J`, qui est un autre horizon,
 plus court, et qui ne concerne que la **direction** du vent).
 
 Ce module ne lit ni configuration ni horloge : il reçoit l'horizon, le jour
-demandé et la date du jour (règle absolue 2).
+demandé et la date du jour (le cœur ne lit ni configuration ni environnement).
 """
 
 from __future__ import annotations
