@@ -13,10 +13,11 @@ densité de marqueurs au kilomètre ») sans dire par quelle porte on y entre.
 Deux conséquences, et elles structurent tout le dossier.
 
 1. **Les vérificateurs sont écrits contre une vue générique**
-   (`VueProposition`, `VueChoix`), pas contre l'implémentation. Les
-   adaptateurs (`vue_depuis_json`, `decouvrir_callable`) vont chercher la
-   vraie porte au moment du test et disent ce qu'ils ont cherché quand ils
-   échouent. Rien n'est deviné en silence.
+   (`VueProposition`, `VueChoix`), pas contre l'implémentation.
+   L'adaptateur `vue_depuis_json` lit ce que `sortie --json` publie et dit ce
+   qu'il a cherché quand il échoue ; rien n'est deviné en silence. Les deux
+   portes que le JSON ne porte pas (`boucle.marqueurs.compter`,
+   `sortie.vent_demande.interroger`) sont importées directement par les tests.
 2. **Une implémentation de référence** (`choisir_reference`,
    `densite_reference`, `question_vent_reference`) sert de cobaye : elle est
    mutée vingt-sept fois dans `test_adv_propositions_autocontrole.py`, et chaque
@@ -1695,80 +1696,3 @@ def choix_depuis_json(doc: dict) -> VueChoix:
         motif=texte,
         pool=vues,
     )
-
-
-# --- découverte des points d'entrée non nommés par le contrat -----------------
-
-
-def modules_ourouler() -> list[Any]:
-    """Tous les modules importables du paquet, pour y chercher un point d'entrée."""
-    import importlib
-    import pkgutil
-
-    import ourouler
-
-    trouves = []
-    for info in pkgutil.walk_packages(ourouler.__path__, prefix="ourouler."):
-        try:
-            trouves.append(importlib.import_module(info.name))
-        except Exception:  # noqa: BLE001 - un module qui ne s'importe pas n'est pas le nôtre
-            continue
-    return trouves
-
-
-def decouvrir_callable(
-    motifs: Sequence[Sequence[str]], *, quoi: str, fonctions_seules: bool = True
-) -> Any | None:
-    """Le premier appelable public dont **le nom ou celui de son module** correspond.
-
-    `motifs` est une liste de conjonctions : `[("densite",), ("marqueur", "km")]`
-    accepte `densite_marqueurs` comme `marqueurs_par_km`.
-
-    Deux corrections apportées à la réconciliation, et elles disent la même
-    chose : ma recherche était trop étroite d'un côté, trop large de l'autre.
-
-    * **Le module compte autant que la fonction.** Le lot a écrit
-      `boucle.marqueurs.compter` : un nom de fonction parfaitement clair *dans
-      son module*, que chercher « densite » ou « marqueur » dans le seul nom de
-      fonction ne trouvait pas. On concatène donc les deux.
-    * **Une dataclasse n'est pas un point d'entrée.** La recherche rendait
-      `QuestionVent`, la structure de résultat, au lieu de `interroger`, la
-      fonction qui décide — et l'inspection de signature partait sur les champs
-      de la structure. `fonctions_seules` écarte les classes.
-    """
-    import dataclasses
-    import inspect
-
-    for module in modules_ourouler():
-        court = module.__name__.rsplit(".", 1)[-1]
-        for nom in sorted(vars(module)):
-            if nom.startswith("_"):
-                continue
-            objet = getattr(module, nom)
-            if not callable(objet) or getattr(objet, "__module__", "") != module.__name__:
-                continue
-            if fonctions_seules and (
-                inspect.isclass(objet) or dataclasses.is_dataclass(objet)
-            ):
-                continue
-            plat = _sans_accents_bas(f"{court} {nom}")
-            if any(all(mot in plat for mot in motif) for motif in motifs):
-                return objet
-    return None
-
-
-MOTIFS_DENSITE = (
-    ("marqueur", "compter"),
-    ("densite", "marqueur"),
-    ("densite", "km"),
-    ("marqueur", "km"),
-    ("densite",),
-)
-MOTIFS_QUESTION_VENT = (
-    ("vent", "interroger"),
-    ("vent", "demande"),
-    ("question", "vent"),
-    ("orientation", "vent", "demand"),
-    ("demander", "vent"),
-    ("poser", "vent"),
-)

@@ -94,6 +94,9 @@ from typing import Any
 import fabriques_propositions as f53
 import pytest
 
+from ourouler.boucle.marqueurs import compter
+from ourouler.sortie.vent_demande import interroger
+
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
@@ -103,15 +106,6 @@ MOTIF_PHRASE = (
     "le lot L5.3 n'est pas livré : `ourouler sortie --json` ne publie aucune phrase par "
     "proposition (contrat §3.3.3)"
 )
-MOTIF_DENSITE = (
-    "la densité de marqueurs au kilomètre du contrat §3.3.2 n'est pas trouvable — "
-    "aucun appelable public d'ourouler dont le nom évoque « densité » ou « marqueurs/km »"
-)
-MOTIF_QUESTION = (
-    "la question d'orientation au vent du contrat §3.3.4 n'est pas trouvable — aucun "
-    "appelable public d'ourouler dont le nom évoque « question/orientation » et « vent »"
-)
-
 
 # --- accès ------------------------------------------------------------------
 
@@ -139,20 +133,6 @@ def _choix_ou_skip(doc: dict) -> f53.VueChoix:
     if not choix.retenues:
         pytest.skip(MOTIF_PHRASE)
     return choix
-
-
-def _densite_ou_skip() -> Any:
-    fn = f53.decouvrir_callable(f53.MOTIFS_DENSITE, quoi="densité de marqueurs")
-    if fn is None:
-        pytest.skip(MOTIF_DENSITE)
-    return fn
-
-
-def _question_ou_skip() -> Any:
-    fn = f53.decouvrir_callable(f53.MOTIFS_QUESTION_VENT, quoi="question d'orientation au vent")
-    if fn is None:
-        pytest.skip(MOTIF_QUESTION)
-    return fn
 
 
 #: Les trois constats retenus par le mainteneur le 16/09/2026, en attente de
@@ -195,11 +175,6 @@ def test_sentinelle_l53_pas_encore_livre(tmp_path: Path, monkeypatch, capsys):
             f"{len(proposees)} propositions publiées : le contrat §3.3.3 en demande **trois** "
             "au plus (« et il vaut mieux n'en proposer que deux »)"
         )
-
-    if f53.decouvrir_callable(f53.MOTIFS_DENSITE, quoi="densité") is None:
-        manque.append(MOTIF_DENSITE)
-    if f53.decouvrir_callable(f53.MOTIFS_QUESTION_VENT, quoi="question vent") is None:
-        manque.append(MOTIF_QUESTION)
 
     if manque:
         pytest.fail(
@@ -1060,7 +1035,7 @@ def test_les_deux_gardes_de_la_question_du_vent():
     bascule sur tout le balayage. L'horizon, lui, est chiffré : 3 jours pile est
     dedans, au-delà l'outil dit qu'il ne sait pas.
     """
-    f53.verifier_gardes_vent(_binder(_question_ou_skip()))
+    f53.verifier_gardes_vent(_binder(interroger))
 
 
 def test_une_direction_de_vent_non_finie_ne_doit_pas_poser_la_question():
@@ -1079,7 +1054,7 @@ def test_une_direction_de_vent_non_finie_ne_doit_pas_poser_la_question():
     n'est pas fini, et son docstring en fait un invariant dur. C'est une
     asymétrie d'une ligne, pas un choix.
     """
-    f53.verifier_direction_non_finie(_binder(_question_ou_skip()))
+    f53.verifier_direction_non_finie(_binder(interroger))
 
 
 def test_la_question_du_vent_ne_lit_ni_configuration_ni_chemin_utilisateur():
@@ -1089,7 +1064,7 @@ def test_la_question_du_vent_ne_lit_ni_configuration_ni_chemin_utilisateur():
     `test_adv_invariants.py` : une fonction qui reçoit un `Config` peut fort
     bien rouvrir un fichier au passage, ce qu'aucune analyse d'imports ne voit.
     """
-    poser = _binder(_question_ou_skip())
+    poser = _binder(interroger)
     _interdire_le_disque(
         lambda: poser(vent_kmh=14.0, direction_deg=250.0, jours_a_l_avance=1.0),
         quoi="la question d'orientation au vent",
@@ -1139,7 +1114,7 @@ def test_la_densite_de_marqueurs_tient_ses_invariants():
     Et surtout la division : 10 marqueurs sur 5 km font 2,0 /km — ni 10 (le
     compte brut, « au kilomètre » oublié), ni 0,002 (divisé par les mètres).
     """
-    f53.verifier_densite(_densite_ou_skip(), lire=_lire_densite)
+    f53.verifier_densite(compter, lire=_lire_densite)
 
 
 def _lire_densite(valeur: Any) -> f53.Densite:
@@ -1196,7 +1171,7 @@ def test_une_portion_sans_noeud_tague_n_est_pas_la_campagne_prouvee():
     pas. `terrain.evaluer_couloir` fait déjà la distinction (motif « routes
     inconnues ») : la densité doit la faire aussi.
     """
-    fn = _densite_ou_skip()
+    fn = compter
     sans_segments = f53.trace_pour_densite(5000.0, 0, sans_segments=True)
     tague_sans_marqueur = f53.trace_pour_densite(5000.0, 0)
     inconnue = _lire_densite(fn(sans_segments))
@@ -1212,7 +1187,7 @@ def test_une_portion_sans_noeud_tague_n_est_pas_la_campagne_prouvee():
 
 def test_la_densite_ne_lit_ni_configuration_ni_chemin_utilisateur():
     """Règle absolue 2, contrôle d'exécution."""
-    fn = _densite_ou_skip()
+    fn = compter
     trace = f53.boucle_avec_marqueurs(8)
     _interdire_le_disque(lambda: fn(trace), quoi="la densité de marqueurs")
 
@@ -1221,7 +1196,7 @@ def test_la_densite_est_finie_sur_un_trace_sans_point():
     """Un tracé vide : pas de division par une longueur nulle, pas de NaN."""
     from ourouler.noyau.trace import Trace
 
-    fn = _densite_ou_skip()
+    fn = compter
     vide = Trace(
         nom="vide", points=[], segments=[], distance_m=0.0, denivele_m=None,
         temps_moteur_s=None, meta={},
@@ -1239,7 +1214,6 @@ def test_la_densite_de_marqueurs_est_publiee(tmp_path: Path, monkeypatch, capsys
     villages ». La règle absolue 5 — ne rien affirmer sans mesure — vaut aussi
     pour ce que l'outil affirme de lui-même.
     """
-    _densite_ou_skip()  # tant que la mesure n'existe pas, rien à publier
     doc = _doc(tmp_path, monkeypatch, capsys, candidates=3)
     proposees = f53.propositions_du_json(doc) or (doc.get("candidates") or [])
     if not proposees:
