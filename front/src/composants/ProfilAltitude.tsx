@@ -1,13 +1,11 @@
-/** Le profil d'altitude, en paires `[distance_m, altitude_m]` (lot F0.1).
+/** Le profil d'altitude, en paires `[distance_m, altitude_m]`.
  *
  * Un SVG et rien d'autre : le tracé se lit d'un coup d'œil, et les deux
  * chiffres qui l'encadrent — le point le plus bas et le plus haut — viennent
  * des données, jamais d'une échelle arrondie « pour faire joli ».
  *
- * **La pente colore l'aire sous la courbe** (lot d'affordance, 20/09/2026) —
- * elle ne l'a pas toujours fait : la direction visuelle avait rendu ce
- * polygone gris uniforme, parce que l'agent qui l'a appliquée avait pris un
- * profil pour de l'interface. C'est une mesure (règle 1 de la direction
+ * **La pente colore l'aire sous la courbe** — un polygone gris uniforme
+ * traiterait le profil comme de l'interface. C'est une mesure (règle 1 de la direction
  * visuelle), donc elle se colore, au standard du domaine que tout cycliste
  * lit sans légende : vert < 3 %, jaune 3–6 %, orange 6–9 %, rouge au-delà
  * (`--couleur-pente-1..4`, voir `jetons-primitives.css` pour les seuils, les

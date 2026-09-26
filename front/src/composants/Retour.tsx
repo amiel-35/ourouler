@@ -2,9 +2,9 @@
  *
  * Le retour existait déjà sur chacun de ces écrans, mais tout en bas : sur le
  * détail d'une proposition il venait après la carte, le profil d'altitude,
- * les étapes de la séance, les bandeaux et le bouton d'envoi au compteur. Le
- * mainteneur ne l'a jamais vu et a conclu qu'il n'y en avait pas — ce qui,
- * sur un téléphone, revient au même.
+ * les étapes de la séance, les bandeaux et le bouton d'envoi au compteur. On
+ * ne le voyait pas, et on concluait qu'il n'y en avait pas — ce qui, sur un
+ * téléphone, revient au même.
  *
  * **Pas de routeur, et c'est délibéré.** Le produit a huit écrans et
  * `App.tsx` les enchaîne déjà par une petite machine à états (`vue` +

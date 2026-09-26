@@ -7,7 +7,7 @@ import type { SegmentVent } from "../../composants/Carte";
  * La portion de tracé entre deux distances, en mètres.
  *
  * `trace.profil[i][0]` est la distance cumulée au point `trace.points[i]` :
- * les deux listes ont la même longueur, c'est ce que rend le lot F0.1.
+ * les deux listes ont la même longueur, c'est ce que rend l'API.
  */
 export function portion(trace: Trace, debutM: number, finM: number): [number, number][] {
   const [a, b] = debutM <= finM ? [debutM, finM] : [finM, debutM];
@@ -20,8 +20,8 @@ export function portion(trace: Trace, debutM: number, finM: number): [number, nu
 }
 
 /**
- * Colore le tracé lui-même par ce que le vent y coûte (point 5 du lot
- * d'affordance, 20/09/2026) — pas seulement les huit flèches.
+ * Colore le tracé lui-même par ce que le vent y coûte — pas seulement les
+ * huit flèches.
  *
  * `positions` couvre le tracé entier, échantillon par échantillon, sans
  * filtre de sensibilité (`vent_par_position`, voir sa docstring côté cœur).
@@ -29,9 +29,8 @@ export function portion(trace: Trace, debutM: number, finM: number): [number, nu
  * catégorie de l'échantillon qui l'ouvre (« le vent mesuré ici vaut jusqu'au
  * prochain échantillon ») ; les intervalles consécutifs de même catégorie
  * sont fusionnés en une seule portion, pour ne pas redessiner un segment
- * par échantillon. **Point de relecture du 20/09/2026** : une version
- * antérieure fusionnait les échantillons eux-mêmes plutôt que les
- * intervalles entre eux, ce qui laissait un trou d'un pas d'échantillonnage
+ * par échantillon. **Les intervalles, pas les échantillons** : fusionner les
+ * échantillons eux-mêmes laisserait un trou d'un pas d'échantillonnage
  * (5 km par défaut) à chaque changement de catégorie — un vent qui bascule
  * souvent de face à dos sur une boucle se serait retrouvé troué à chaque
  * bascule. Fusionner les intervalles élimine le trou : la borne de fin d'une
@@ -39,8 +38,8 @@ export function portion(trace: Trace, debutM: number, finM: number): [number, nu
  *
  * Le travers et l'inconnu ne produisent aucune portion — le tracé noir de
  * base reste visible en dessous, exactement comme la direction le demande
- * pour ces deux cas (règle absolue 5, et « le vent traversier n'a
- * délibérément aucune teinte »).
+ * pour ces deux cas (l'ignorance ne se montre pas comme une valeur, et « le
+ * vent traversier n'a délibérément aucune teinte »).
  *
  * Une portion dont `portion()` ne retrouve aucun point réel (bornes trop
  * rapprochées pour qu'un point du tracé simplifié tombe entre les deux,

@@ -1,4 +1,4 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — les deux
+/** Séparé d'`App.tsx` — les deux
  * écrans qui priment sur tout le reste au démarrage : la session perdue, et
  * l'échec d'une des trois ressources de démarrage (système, profil, zones).
  */
@@ -19,7 +19,7 @@ export function EcranAmorcage(props: {
 }): JSX.Element | null {
   const { sessionPerdue, setSessionPerdue, systeme, profil, zones, semaine, seanceDuJour } = props;
 
-  // **Avant même `zones.erreur`** (lot L7.2-D) : une session perdue amène
+  // **Avant même `zones.erreur`** : une session perdue amène
   // l'écran de connexion, pas un écran d'échec. `surConnecte` ne perd rien
   // de ce que le cycliste faisait — `onglet`, `vue`, `demande` restent tels
   // quels, seules les ressources qui ont échoué sont relues.
@@ -44,13 +44,12 @@ export function EcranAmorcage(props: {
     );
   }
 
-  // **`zones.erreur` compte comme les deux autres** (corrigé le 17/09/2026).
-  // Il n'était consulté nulle part, alors que l'affichage est interdit tant
-  // que `zonesCourantes` est `null` : une panne de `/profil/zones` laissait
-  // donc « Connexion au serveur… » pour toujours — sans code, sans bouton,
-  // sans barre d'onglets. C'est exactement l'écran muet que la section
-  // « Quand ça casse » des maquettes interdit, et le seul geste possible
-  // était le rechargement, que l'écran d'attente déconseille (B2).
+  // **`zones.erreur` compte comme les deux autres.** L'affichage est interdit
+  // tant que `zonesCourantes` est `null` : sans ce test, une panne de
+  // `/profil/zones` laisserait « Connexion au serveur… » pour toujours — sans
+  // code, sans bouton, sans barre d'onglets. C'est exactement l'écran muet que
+  // la section « Quand ça casse » des maquettes interdit, et le seul geste
+  // possible serait le rechargement, que l'écran d'attente déconseille.
   if (systeme.erreur || profil.erreur || zones.erreur) {
     return (
       <div className="coquille">

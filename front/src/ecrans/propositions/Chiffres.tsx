@@ -26,11 +26,10 @@ export interface Chiffre {
 export function chiffresDe(proposition: Proposition, candidate: Candidate | null): Chiffre[] {
   const chiffres: Chiffre[] = [];
   if (candidate) chiffres.push({ cle: "km", valeur: nombre(candidate.distance_km, 1) });
-  // Le porte à porte en majeur, le temps sans arrêt juste après
-  // (18/09/2026) : « je demande 5 h, je veux 5 h, pas 4 h et un truc plus
-  // loin qui me dit en fait c'est 5 h ». Sans porte à porte — aucun vélo,
+  // Le porte à porte en majeur, le temps sans arrêt juste après : qui
+  // demande 5 h veut lire 5 h. Sans porte à porte — aucun vélo,
   // donc aucune fourchette — le temps de mouvement reste seul, mais garde
-  // son nom. Depuis L9.1, le porte à porte est une fourchette.
+  // son nom. Le porte à porte est une fourchette.
   const ecoule = candidate?.temps_ecoule_s;
   if (ecoule === null || ecoule === undefined) {
     chiffres.push({ cle: "en roulant", valeur: duree(proposition.duree_s) });

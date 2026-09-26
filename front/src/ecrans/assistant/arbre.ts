@@ -71,11 +71,11 @@ export const CHOIX_TERRAIN: Array<{ libelle: string; denivele_m_par_km: number |
 
 /** Sélectionne tout le contenu d'un champ dès qu'il reçoit le focus.
  *
- * Constaté le 25/09/2026 : les champs préremplis avec une valeur qui n'est
+ * Les champs préremplis avec une valeur qui n'est
  * pas forcément celle de la personne (poids « 70 », nom de vélo « Route » —
  * des défauts posés côté serveur quand rien n'a encore été déclaré, `depots.
- * SOCLE_MINIMAL`, `config.depuis_dict`) laissaient taper à la suite du texte
- * existant : « 70 » puis « 75 » tapé donnait « 7075 ». Le front ne peut pas
+ * SOCLE_MINIMAL`, `config.depuis_dict`) laisseraient taper à la suite du
+ * texte existant : « 70 » puis « 75 » tapé donnerait « 7075 ». Le front ne peut pas
  * distinguer ce défaut fabriqué d'une vraie valeur déjà confirmée — les deux
  * ont le même type côté API — donc la sélection au focus, plutôt qu'un
  * placeholder, est la réponse qui marche pour ces champs-là : reprendre la

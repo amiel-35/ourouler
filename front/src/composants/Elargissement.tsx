@@ -1,13 +1,11 @@
 /** L'écart de distance, quand il cesse d'être tu.
  *
- * Le défaut que le mainteneur a trouvé en utilisant le produit : « j'ai
- * demandé 6 h et j'ai 3 boucles de 5 h ». Le moteur ne refusait pas — il
- * servait la boucle la plus proche, avec son écart, **sans un mot**.
- *
- * Sa décision (Q41 d, 17/09/2026) : « le mieux c'est de dire au user : on n'a
- * pas trouvé de boucle dans les contraintes, on a élargi de X %. Et on
- * incrémente de 5 % en 5 %. Comme ça on explique. » Le chiffre n'est donc pas
- * un seuil à défendre, c'est un **résultat à montrer** — d'où un bandeau qui
+ * Demander 6 h et recevoir trois boucles de 5 h, **sans un mot** : le moteur
+ * ne refuse pas, il sert la boucle la plus proche, avec son écart. On le dit
+ * donc : « on n'a pas trouvé de boucle dans les contraintes, on a élargi de
+ * X % », par paliers de 5 % (décision Q41 d,
+ * `docs/journal/questions/questions_mainteneur.md`). Le chiffre n'est donc
+ * pas un seuil à défendre, c'est un **résultat à montrer** — d'où un bandeau qui
  * porte des nombres mesurés et aucune formule d'excuse.
  *
  * Ce n'est pas une alerte : la boucle est bonne, elle est simplement d'une

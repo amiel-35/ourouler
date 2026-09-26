@@ -10,8 +10,7 @@
  * réellement obtenu pour ce jour**, avec l'heure à laquelle il l'a été, et
  * un bouton quand il n'y en a pas encore.
  *
- * **La rose des huit directions se lit sans avoir rien demandé** (lot du
- * 20/09/2026) : tant qu'aucun parcours n'a encore été cherché aujourd'hui,
+ * **La rose des huit directions se lit sans avoir rien demandé** : tant qu'aucun parcours n'a encore été cherché aujourd'hui,
  * un résumé compact — la direction recommandée, sa pluie, son vent — répond
  * à « où rouler » avant même le bouton « Chercher ». Une fois un parcours
  * obtenu, la carte et son tracé coloré par le vent répondent déjà à cette

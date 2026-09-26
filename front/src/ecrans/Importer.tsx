@@ -25,7 +25,7 @@ interface Props {
   jour: string;
   surSeanceLue: (seance: Seance, identifiant: string) => void;
   surChercher: () => void;
-  /** L9.8 : le troisième usage de cet écran — un parcours déjà en main, à
+  /** Le troisième usage de cet écran — un parcours déjà en main, à
    * analyser plutôt qu'à chercher. */
   surAnalyser: () => void;
   /** D'où l'écran a été ouvert (Aujourd'hui, Ma semaine…) — jamais « Retour » seul. */
@@ -64,9 +64,8 @@ export function Importer({ jour, surSeanceLue, surChercher, surAnalyser, vers, s
 
   return (
     <section>
-      {/* Cet écran n'avait aucun moyen d'en sortir (constat du 19/09/2026) :
-          arrivé ici, le retour arrière du navigateur restait la seule
-          issue. Même geste que `Proposition` : le composant existant, en
+      {/* Une sortie de cet écran, pour que le retour arrière du navigateur ne
+          soit pas la seule issue. Même geste que `Proposition` : le composant existant, en
           tête, nommé. */}
       <RetourEnTete vers={vers} surRetour={surRetour} />
       <div className="app-tete">
@@ -149,11 +148,9 @@ export function Importer({ jour, surSeanceLue, surChercher, surAnalyser, vers, s
 
       <DepotHistorique />
 
-      {/* L9.8 : le troisième usage de « Déposer » — un parcours qu'on a déjà
+      {/* Le troisième usage de « Déposer » — un parcours qu'on a déjà
           (l'imposé d'un brevet, une boucle de club), à analyser plutôt qu'à
-          chercher (constat du mainteneur, 25/09/2026 : « déposer c'est pas
-          que ça, c'est aussi l'analyse d'une trace existante pour y caler
-          la météo, l'estimation, le vent etc. »). */}
+          chercher : y caler la météo, l'estimation et le vent. */}
       <section className="mt-depot">
         <div className="app-tete">
           <h2>Un parcours déjà en main</h2>

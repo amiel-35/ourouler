@@ -1,4 +1,4 @@
-/** Les champs de direction de Q44 : le mode, puis le point cardinal (sur la
+/** Les champs de direction (décision Q44) : le mode, puis le point cardinal (sur la
  * rose des huit directions) ou la préférence au vent. */
 
 import type { Enveloppe, Meteo, Profil, VentDepart } from "../../api/types";
@@ -104,14 +104,12 @@ export function PointCardinal({
 
   return (
     <div className="champ">
-      {/* « Direction » se lisait deux fois : une fois pour le choix du
-          mode (ci-dessus), une fois pour l'azimut qui en dépend —
-          signalé le 18/09/2026. Ce champ-ci choisit un point cardinal,
-          pas une seconde fois « la » direction.
+      {/* « Direction » ne se lit qu'une fois, pour le choix du mode
+          (ci-dessus). Ce champ-ci choisit un point cardinal, pas une
+          seconde fois « la » direction.
 
-          Choisir à l'aveugle était la question ouverte que ce lot ferme
-          (20/09/2026) : huit boutons de texte devenaient huit secteurs
-          qui montrent la pluie cumulée, le vent et le désaccord entre
+          On ne choisit pas à l'aveugle : huit secteurs plutôt que huit
+          boutons de texte, qui montrent la pluie cumulée, le vent et le désaccord entre
           modèles — ce que le produit savait déjà sans jamais le
           montrer avant de cliquer. `RoseDirections` reste un vrai
           contrôle clavier (Tab, puis Entrée ou Espace) : au moins

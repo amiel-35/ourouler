@@ -1,4 +1,4 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — la barre
+/** Séparé d'`App.tsx` — la barre
  * des quatre onglets. */
 
 import { IconeAujourdhui, IconeDemander, IconeReglages, IconeSemaine } from "../composants/Pictogrammes";

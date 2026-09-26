@@ -1,4 +1,4 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — le bandeau
+/** Séparé d'`App.tsx` — le bandeau
  * qui dit qu'un fichier de séance est en usage. */
 
 import { jourEnLettres } from "../api/formats";

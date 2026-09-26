@@ -6,7 +6,8 @@
  * kilométrage de début et de fin, parce que c'est ce qu'on lit sur un
  * compteur en roulant.
  *
- * « Envoyer vers mon compteur » plutôt que « Télécharger » : décision Q5, le
+ * « Envoyer vers mon compteur » plutôt que « Télécharger » (décision Q5,
+ * `docs/journal/questions/questions_mainteneur.md`) : le
  * partage système du mobile, qui marche avec Garmin, Coros, Wahoo et les
  * autres sans intégration par marque. Le téléchargement reste en dessous,
  * discret, pour celui qui est sur un ordinateur — et c'est le seul recours
@@ -43,7 +44,7 @@ export function PropositionDetail({ reponse, numero, seance, surRetour }: Props)
   const [onglet, setOnglet] = useState<"parcours" | "tenue">("parcours");
   // La panne du partage GPX, quand c'est le serveur (ou le réseau) qui a
   // refusé plutôt que le navigateur : un écran ne peut pas rester muet sur
-  // ce cas (18/09/2026).
+  // ce cas.
   const [erreurGpx, setErreurGpx] = useState<PanneGpx | null>(null);
   const sortie = reponse.donnees;
   const proposition = sortie.propositions.find((p) => p.numero === numero) ?? null;

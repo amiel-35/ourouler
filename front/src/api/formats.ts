@@ -69,7 +69,7 @@ export function dureeApprox(secondes: number): string {
 
 /**
  * `(15834, 16723)` → `entre 4 h 24 et 4 h 39` : la fourchette du porte à
- * porte (L9.1, 25/09/2026), à la minute — ses deux bornes disent déjà
+ * porte, à la minute — ses deux bornes disent déjà
  * l'incertitude, inutile de l'arrondir une seconde fois.
  */
 export function entreDurees(basS: number, hautS: number): string {
@@ -137,23 +137,21 @@ export function cardinal(degres: number): string {
 /**
  * Le **nombre** de feux et stops d'un parcours — lu, jamais calculé.
  *
- * Cette fonction multipliait `densite_marqueurs_km` par la distance pour
- * retrouver l'entier d'origine. Le résultat était juste, et c'était quand
- * même la mauvaise méthode (relecture F2 · C1) :
+ * Multiplier `densite_marqueurs_km` par la distance pour retrouver l'entier
+ * d'origine donnerait un résultat juste, mais ce serait la mauvaise méthode :
  *
- * - le cœur portait déjà l'entier, sur le même objet que la densité
- *   (`sortie/contraste.py`), simplement non sérialisé — il l'est depuis le
- *   17/09/2026 ;
+ * - le cœur porte l'entier, sur le même objet que la densité
+ *   (`sortie/contraste.py`), et le sérialise ;
  * - le commentaire de ce champ-là désigne nommément ce geste comme celui à ne
- *   pas faire : « une densité au kilomètre invitait à multiplier — 1,7 au km,
- *   donc 170 sur 100 km » ;
- * - la densité est arrondie à trois décimales, donc le produit sortait de sa
- *   tolérance au-delà d'environ 100 km et **le chiffre disparaissait sans
+ *   pas faire : une densité au kilomètre invite à multiplier — 1,7 au km,
+ *   donc 170 sur 100 km ;
+ * - la densité est arrondie à trois décimales, donc le produit sortirait de
+ *   sa tolérance au-delà d'environ 100 km et **le chiffre disparaîtrait sans
  *   explication** — précisément pour qui prépare une sortie longue.
  *
  * Il ne reste ici qu'une somme de deux entiers que l'API rend. `null` quand le
  * tracé ne porte pas de tag de nœud : le cœur les met à `null` ensemble, et
- * l'ignorance ne s'affiche pas comme un zéro (règle absolue 5).
+ * l'ignorance ne s'affiche pas comme un zéro (on n'affirme rien sans mesure).
  */
 export function compteArrets(feux: number | null, stops: number | null): number | null {
   if (feux === null || stops === null) return null;
@@ -175,22 +173,20 @@ const DIRECTIONS = [
 /**
  * Le titre d'une boucle libre — **son rang, et rien d'autre**.
  *
- * Trois versions successives, et c'est la troisième qui est juste.
+ * Deux titres plus descriptifs sont faux :
  *
- * Le moteur nommait `candidate.nom` « Boucle 340° 5.8 km », où « 5.8 km » est
- * le **rayon** demandé au traceur : affiché trois centimètres au-dessus de la
- * longueur réelle — « 24,8 km » — ça donnait deux distances contradictoires et
- * un azimut que personne n'a demandé. Le mainteneur l'a vu en trois secondes.
+ * - `candidate.nom`, « Boucle 340° 5.8 km », où « 5.8 km » est le **rayon**
+ *   demandé au traceur : affiché trois centimètres au-dessus de la longueur
+ *   réelle — « 24,8 km » — il donne deux distances contradictoires et un
+ *   azimut que personne n'a demandé ;
+ * - l'azimut traduit en direction, « Boucle au nord » : les candidates d'une
+ *   même recherche partent presque toutes dans le même secteur, et le titre ne
+ *   distinguerait plus rien.
  *
- * On a donc traduit l'azimut en direction — « Boucle au nord ». Mais les
- * candidates d'une même recherche partent presque toutes dans le même secteur :
- * les trois s'appelaient « Boucle au nord », et le titre ne distinguait plus
- * rien.
- *
- * Réponse du mainteneur (17/09/2026) : « boucle 1, boucle 2, boucle 3 ». Le
- * titre n'a pas à décrire le parcours — **la carte le fait**, et elle le fait
- * mieux que n'importe quelle phrase (question ouverte Q43 : « le parcours
- * lui-même est distinctif en soi »). Il n'a qu'à dire de laquelle on parle.
+ * « Boucle 1, boucle 2, boucle 3 » : le titre n'a pas à décrire le parcours —
+ * **la carte le fait**, et elle le fait mieux que n'importe quelle phrase (le
+ * parcours est distinctif en soi, décision Q43). Il n'a qu'à dire de laquelle
+ * on parle.
  */
 export function titreDeBoucle(_azimutDeg: number | null, numero: number): string {
   return `Boucle ${numero}`;
@@ -199,13 +195,12 @@ export function titreDeBoucle(_azimutDeg: number | null, numero: number): string
 /**
  * La direction demandée, en toutes lettres — « SE » est un code d'entrée.
  *
- * Le champ vaut ce que le front a envoyé au moteur : « N », « SO »… L'écran
- * l'affichait tel quel en en-tête pendant que `titreDeBoucle` écrivait
- * « Boucle au sud-ouest » deux centimètres plus bas. Un azimut en degrés
+ * Le champ vaut ce que le front a envoyé au moteur : « N », « SO »… Affiché
+ * tel quel en en-tête, il ne se lit pas. Un azimut en degrés
  * passe aussi par ce champ ; on le rend alors à la boussole la plus proche
  * plutôt que d'afficher « 155° » à quelqu'un qui va rouler.
  *
- * `null` (Q47) : aucune direction n'a été demandée, le moteur a balayé tout
+ * `null` : aucune direction n'a été demandée, le moteur a balayé tout
  * l'horizon — ce n'est pas une valeur absente à cacher, c'est ce qui s'est
  * passé, et l'écran le dit.
  */
@@ -229,11 +224,11 @@ export function directionEnToutesLettres(direction: string | null): string {
  *
  * `modele_physique` vaut « calibration », « configuration » ou « défaut » :
  * c'est le vocabulaire du cœur (`physique/commande.parametres_du_velo`), et
- * il s'affichait tel quel au bout d'une phrase écrite pour quelqu'un qui va
- * rouler — « … — modèle calibration » (relecture F2 · C7).
+ * affiché tel quel au bout d'une phrase écrite pour quelqu'un qui va rouler,
+ * il donnerait « … — modèle calibration ».
  *
  * La traduction garde ce que ces mots distinguent, qui est le seul point
- * qui compte : une mesure n'est pas une supposition (règle absolue 5).
+ * qui compte : une mesure n'est pas une supposition (on ne présente jamais une estimation comme une mesure).
  */
 export const MODELE_PHYSIQUE_EN_TOUTES_LETTRES: Record<string, string> = {
   calibration: "mesuré sur vos sorties",
@@ -270,7 +265,7 @@ export function usageDeVelo(usage: string): string {
 }
 
 /**
- * Les catégories de pneu (L9.1, 25/09/2026), dans l'ordre du plus roulant au
+ * Les catégories de pneu, dans l'ordre du plus roulant au
  * moins roulant, avec un exemple qu'un cycliste reconnaît. Mêmes clés que
  * `config.PNEUS_VELO` côté serveur.
  */
@@ -286,9 +281,8 @@ export const PNEUS: { cle: CategoriePneu; libelle: string }[] = [
  * Le poids de vélo supposé quand rien n'est déclaré (miroir de
  * `physique.calibration.MASSE_VELO_DEFAUT_KG` côté serveur).
  *
- * Constaté le 25/09/2026 : l'assistant affichait « on suppose 9 kg » tout en
- * préremplissant le champ avec `8`, une seconde valeur inventée côté front
- * qui ne correspondait à rien. Une seule constante, ici, sert à la fois le
+ * Une seconde valeur inventée côté front ferait afficher « on suppose 9 kg »
+ * à côté d'un champ prérempli avec `8`. Une seule constante, ici, sert à la fois le
  * texte d'aide et le `placeholder` du champ — le champ lui-même reste vide
  * tant que personne n'a rien tapé, et c'est `null` qui part au serveur pour
  * que ce soit lui, et lui seul, qui applique le défaut.
@@ -347,8 +341,8 @@ export const VENT_EN_TOUTES_LETTRES: Record<string, string> = {
 };
 
 /**
- * Les trois préférences du mode « selon le vent » (Q44), telles que le
- * mainteneur les a posées le 17/09/2026 — distinctes de `VENT_EN_TOUTES_LETTRES`,
+ * Les trois préférences du mode « selon le vent » (décision Q44,
+ * `docs/journal/questions/questions_mainteneur.md`) — distinctes de `VENT_EN_TOUTES_LETTRES`,
  * qui garde son quatrième choix (« peu importe ») pour l'ancien réglage.
  */
 export const VENT_PREFERENCE_EN_TOUTES_LETTRES: Record<string, string> = {

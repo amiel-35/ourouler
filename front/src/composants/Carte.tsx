@@ -4,7 +4,7 @@
  * l'attribution que l'ODbL impose ; le front fait pareil plutôt que
  * d'introduire un second moteur de carte dans le même produit.
  *
- * Les tracés arrivent en paires `[latitude, longitude]` (lot F0.1) : c'est
+ * Les tracés arrivent en paires `[latitude, longitude]` : c'est
  * exactement ce que Leaflet attend, aucune conversion.
  *
  * Les formes, styles et filtres sont dans `carte/dessin.ts`, la légende du
@@ -49,7 +49,7 @@ interface Props {
   depart?: { latitude: number; longitude: number; nom?: string } | null;
   /**
    * Le zoom quand il n'y a qu'un point et aucun tracé. 12 montre la commune ;
-   * 16 montre la rue, ce que demande une confirmation d'adresse (Q34) — on ne
+   * 16 montre la rue, ce que demande une confirmation d'adresse — on ne
    * vérifie pas qu'un géocodage a trouvé la bonne rue depuis 20 km d'altitude.
    */
   zoomPoint?: number;
@@ -119,12 +119,11 @@ export function Carte({
           .addTo(couche);
       }
 
-      // Constat du mainteneur (25/09/2026, boucle de 124 km autour de Rennes) :
-      // la carte se cadrait sur l'emprise de **toutes** les boucles proposées
-      // et s'ouvrait à l'échelle de la Bretagne et de la Normandie pour trois
-      // candidates qui tenaient dans un rayon de 30 km. « En fait faut
-      // zoomer sur le circuit sélectionné » — le cadrage porte donc sur les
-      // seuls points de la boucle **retenue** (`trace.choisi`), les autres
+      // Cadrée sur l'emprise de **toutes** les boucles proposées, la carte
+      // s'ouvrirait à l'échelle de deux régions pour trois candidates qui
+      // tiennent dans un rayon de 30 km (constaté sur une boucle réelle de
+      // 124 km). Le cadrage porte donc sur les seuls points de la boucle
+      // **retenue** (`trace.choisi`), les autres
       // restant visibles en pointillé sans peser sur le zoom. Sans boucle
       // sélectionnée (aucune `choisi`, ou son tracé est vide — écran qui ne
       // distingue encore rien), on retombe sur l'emprise de toutes les
@@ -149,9 +148,8 @@ export function Carte({
       function redessinerVent() {
         coucheVent.clearLayers();
         if (vents.length === 0) return;
-        // Amas illisible constaté par l'agent superviseur sur une capture de
-        // production (25/09/2026, trois boucles de ~124 km au départ de
-        // Rennes) : les étiquettes « vitesse/rafale » qui se chevauchent à
+        // Amas illisible constaté sur une capture de production (trois
+        // boucles de ~124 km) : les étiquettes « vitesse/rafale » qui se chevauchent à
         // l'écran se filtrent par détection de collision (`sansChevauchement`),
         // réévaluée à chaque zoom plutôt que figée au premier rendu.
         let visibles: FlecheVent[];

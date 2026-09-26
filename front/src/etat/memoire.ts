@@ -73,7 +73,7 @@ export function derniereLectureSeances(): string | null {
 }
 
 /**
- * L'identifiant du dernier import d'historique lancé (L9.2) — un import réel
+ * L'identifiant du dernier import d'historique lancé — un import réel
  * dure jusqu'à un quart d'heure (archive Strava, ≈2 900 sorties), largement
  * de quoi recharger la page ou fermer l'onglet par erreur pendant l'attente.
  *

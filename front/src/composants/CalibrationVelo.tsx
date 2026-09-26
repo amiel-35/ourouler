@@ -1,4 +1,4 @@
-/** La calibration d'un vélo, sur la fiche vélo des Réglages (lot L9.4).
+/** La calibration d'un vélo, sur la fiche vélo des Réglages.
  *
  * Un cycliste avec capteur de puissance lance le calcul lui-même : « Calibrer
  * sur mes sorties ». Le serveur relit ses sorties, va chercher le vent de

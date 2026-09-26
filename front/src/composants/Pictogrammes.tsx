@@ -1,7 +1,6 @@
-/** Les quatre pictogrammes de la barre d'onglets (point 2 du lot d'affordance).
+/** Les quatre pictogrammes de la barre d'onglets.
  *
- * Dessinés à la main, aucune bibliothèque d'icônes, aucun paquet npm — la
- * consigne du mainteneur. Le style reprend une tradition suisse antérieure à
+ * Dessinés à la main, aucune bibliothèque d'icônes, aucun paquet npm. Le style reprend une tradition suisse antérieure à
  * ce produit : celle d'Otl Aicher et des pictogrammes ISO (signalétique des
  * jeux Olympiques de Munich 1972, panneaux normalisés) — géométrique, un seul
  * poids de trait, aucun détail, lisible à 16 px. Ils portent `currentColor`

@@ -26,7 +26,7 @@ export function ListeVelos({
       // « zéro », et c'est le défaut serveur qui s'applique dans ce cas
       // (voir `defauts` ci-dessous).
       facteurCompteur: v.facteur_compteur === null ? "" : String(v.facteur_compteur),
-      // Vide : aucun pneu déclaré, le Crr reste celui de l'usage (L9.1).
+      // Vide : aucun pneu déclaré, le Crr reste celui de l'usage.
       pneu: v.pneu ?? "",
     })),
   );
@@ -178,13 +178,13 @@ export function ListeVelos({
       <button
         type="button"
         className="bouton second"
-        // **Champ vide, pas un poids inventé** (C8). Un vélo neuf arrivait
-        // avec « 8 » kg, qui ne vient d'aucune API et que personne n'a saisi ;
-        // qui ne corrigeait pas le champ voyait toutes ses estimations de
-        // distance calculées là-dessus, sans que rien le signale — alors même
+        // **Champ vide, pas un poids inventé.** Un vélo neuf prérempli avec
+        // « 8 » kg, qui ne vient d'aucune API et que personne n'a saisi,
+        // ferait calculer toutes les estimations de distance là-dessus, sans
+        // que rien le signale — alors même
         // que le facteur de compteur, lui, dit qu'il est supposé. Un champ
         // vide demande une réponse ; un champ prérempli fait passer un défaut
-        // pour une saisie (règle absolue 5).
+        // pour une saisie (on ne présente jamais une estimation comme une mesure).
         onClick={() =>
           setVelos([
             ...velos,

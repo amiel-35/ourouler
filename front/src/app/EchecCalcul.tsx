@@ -1,4 +1,4 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — l'écran
+/** Séparé d'`App.tsx` — l'écran
  * d'échec d'un calcul de parcours (« aucune boucle », et le reste), avec ses
  * leviers de repli. */
 
