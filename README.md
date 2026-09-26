@@ -25,6 +25,13 @@ GPX file. The project is written in French and licensed under AGPL-3.0-or-later.
 - **La tenue à mettre**, d'après la météo prévue sur le parcours.
 - **Deux vélos comparés** à puissance égale, mesure faite sur vos sorties.
 
+<p align="center">
+  <img src="docs/images/demander.png" width="320"
+       alt="L'écran « Demander » de l'interface web : distance et durée estimées, choix de la séance et du jour, puis la rose des huit directions avec la pluie cumulée et le vent en partant.">
+</p>
+
+<p align="center"><sub>L'écran « Demander », sur le départ inventé de <code>config.example.toml</code>.</sub></p>
+
 ## Pour qui, et où en est le projet
 
 Pour un cycliste qui roule avec un capteur de puissance. Un compte
