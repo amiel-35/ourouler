@@ -1,8 +1,8 @@
-"""La calibration depuis l'écran (lot L9.4).
+"""La calibration depuis l'écran.
 
 Un compte avec capteur de puissance calibre son vélo sans la ligne de
-commande du mainteneur : Crr fixé par le pneu, CdA cherché, fourchette du
-porte à porte (L9.1), sur les sorties qu'il a importées (L9.2) ou
+commande : Crr fixé par le pneu, CdA cherché, fourchette du
+porte à porte, sur les sorties qu'il a importées ou
 synchronisées depuis Intervals.icu. Le calcul est celui de `ourouler
 calibrer` (`services.calibrer.calibrer_velo`) — pas une seconde
 implémentation —, lancé en tâche de fond (`api/taches_fond.py`) parce qu'il
@@ -17,8 +17,7 @@ RGPD l'emportent avec le reste du dossier (`api/vie_privee.py`). En mode
 personnel, rien ne change : le fichier de calibration du dossier de cache, celui
 que la ligne de commande écrit.
 
-**Quelles sorties, pour quel vélo** (rattachement strict, choix du
-25/09/2026) :
+**Quelles sorties, pour quel vélo** (rattachement strict) :
 
 - un seul vélo dans le profil → toutes ses sorties extérieures, qu'elles
   viennent d'Intervals ou d'un fichier déposé : il n'y a personne d'autre à
@@ -66,7 +65,7 @@ from ourouler.stockage import calibrations as stockage
 
 #: La vitesse à laquelle l'écran dit ce que coûte le vélo : « à 30 km/h sur
 #: le plat, sans vent, il vous faut … W ». C'est la grandeur que le contrat
-#: de L9.1 juge (puissance par watt affiché), pas le CdA, qui n'est qu'un
+#: de la calibration juge (puissance par watt affiché), pas le CdA, qui n'est qu'un
 #: paramètre de compensation.
 VITESSE_REPERE_KMH = 30.0
 

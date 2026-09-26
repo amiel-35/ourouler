@@ -1,8 +1,8 @@
-"""L'API HTTP d'`ourouler` (lot F1).
+"""L'API HTTP d'`ourouler`.
 
 **Une couche d'exploitation, comme `cli.py`** : elle a le droit de lire la
-configuration et l'environnement, le cœur non (règle absolue 2 de
-`CLAUDE.md`). Dans ce paquet, un seul module y touche — `exploitation.py` —
+configuration et l'environnement, le cœur non (règle « le cœur ne lit ni
+configuration ni environnement » d'`AGENTS.md`). Dans ce paquet, un seul module y touche — `exploitation.py` —
 et un invariant le vérifie (`tests/test_invariants.py`).
 
 Ce qu'elle expose est **ce que la ligne de commande sait déjà rendre en

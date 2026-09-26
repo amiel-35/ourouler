@@ -1,12 +1,11 @@
-"""Le double chemin du lot 11 : l'ancien (la CLI capturée), le nouveau (service et rendu).
+"""Le double chemin : l'ancien (la CLI capturée), le nouveau (service et rendu).
 
-`docs/ouverture_plan.md` §6, lot 11 : l'API cesse d'appeler la ligne de
-commande. Le risque est de changer, sans le voir, ce que le front reçoit ;
+L'API cesse d'appeler la ligne de commande. Le risque est de changer, sans le voir, ce que le front reçoit ;
 d'où trois modes, choisis au démarrage par `OUROULER_API_CHEMIN`
 (`api/exploitation.py`, le seul endroit qui lit l'environnement) :
 
 - `ancien` — l'adaptateur (`api/adaptateur.py`) : `argparse.Namespace`,
-  sortie standard capturée, verrou global. **Défaut de ce lot** ;
+  sortie standard capturée, verrou global. **Le défaut** ;
 - `nouveau` — `api/calculs.py` : la demande, le service, le rendu JSON ;
   ni `Namespace`, ni capture, ni verrou ;
 - `double` — les deux tournent, l'ancien d'abord ; **l'ancien répond**, et

@@ -10,13 +10,13 @@ dépôts parleront à PostgreSQL, la signature qui force le `WHERE` sera déjà 
 Deux dépôts, deux natures de données :
 
 - `DepotProfils` — le profil : le **socle** servi par le serveur, plus ce que
-  **ce propriétaire-là** a modifié depuis l'interface. Le TOML du mainteneur
+  **ce propriétaire-là** a modifié depuis l'interface. Le TOML du serveur
   n'est jamais réécrit (voir `enregistrer`).
 - `DepotFichiers` — les fichiers produits (carte) et déposés (`.ZWO`,
   `.MRC`), rangés sous un préfixe par propriétaire et servis par un
   identifiant opaque, jamais par un chemin.
 - `DepotGenerations` — les GPX des propositions d'une génération, **en
-  mémoire et bornés**, servis à la demande quand le cycliste choisit (Q40 g).
+  mémoire et bornés**, servis à la demande quand le cycliste choisit.
 
 Aucun des deux ne lit l'environnement : ils reçoivent les chemins que
 `exploitation.py` a résolus, comme le cœur reçoit sa `Config`.
@@ -39,17 +39,18 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.config import CACHE_DEFAUT, PREFIXE_ENV, Config, dossier_cache_depuis
 from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
 
-#: Le tiers 3 de Q35 (« trois tiers, et le vide n'existe pas », tranché le
-#: 17/09/2026) — **perso pur** : jamais hérité, jamais deviné. Ni le TOML du
-#: serveur, ni les variables d'environnement de la machine ne peuvent fournir
+#: Le tiers 3 du découpage du profil (décision Q35,
+#: `docs/journal/questions/questions_mainteneur.md`) — **perso pur** : jamais
+#: hérité, jamais deviné. Ni le TOML du serveur, ni les variables
+#: d'environnement de la machine ne peuvent fournir
 #: une de ces sections à un propriétaire qui ne l'a pas lui-même écrite.
 #: `SocleTOML.config` s'en sert, c'est le seul endroit où un socle hébergé se
-#: construit (Q35 : « le contrôle vit à un seul endroit »).
+#: construit : le contrôle vit à un seul endroit.
 SECTIONS_PERSO_PUR = ("depart", "cycliste", "velos", "intervals")
 
 #: Les suffixes `OUROULER_<suffixe>` (`config.py:_survoler_environnement`,
 #: `PREFIXE_ENV`) qui portent les sections ci-dessus. `brouter` n'y figure
-#: pas : c'est un secret **serveur** d'après Q35, pas un profil de cycliste —
+#: pas : c'est un secret **serveur**, pas un profil de cycliste —
 #: ses variables restent légitimes en mode hébergé.
 VARIABLES_PERSO_PUR = (
     "DEPART_NOM",
@@ -68,9 +69,8 @@ VARIABLES_PERSO_PUR = (
 #: `cycliste.ftp_w` est déjà facultative, `velos` retombe déjà sur un vélo
 #: générique. Les valeurs choisies (0.0/0.0, 70.0) ne désignent personne :
 #: (0, 0) n'est le domicile de personne, 70 kg est un poids générique, au
-#: même titre que le filet de dernier recours de l'entonnoir T5 (Q35, note
-#: sur `docs/journal/questions/questions_mainteneur.md` Q65) — « un modèle générique, dit
-#: comme tel », pas une donnée devinée sur quelqu'un.
+#: même titre que le filet de dernier recours de l'entonnoir d'estimation de
+#: FTP — un modèle générique, dit comme tel, pas une donnée devinée sur quelqu'un.
 COMBLEMENT_EMBARQUEMENT: dict = {
     "depart": {"latitude": 0.0, "longitude": 0.0},
     "cycliste": {"masse_kg": 70.0},
@@ -82,13 +82,11 @@ COMBLEMENT_EMBARQUEMENT: dict = {
 #: ignoré — le front doit apprendre son erreur, pas la découvrir en
 #: constatant que rien n'a changé.
 #:
-#: Le découpage suit, littéralement, les trois tiers tranchés par Q35
-#: (`docs/journal/questions/questions_mainteneur.md`, « trois tiers, et jamais de profil
-#: incomplet », 17/09/2026) :
+#: Le découpage suit, littéralement, les trois tiers de la décision Q35 :
 #:
 #: - **serveur, jamais servi à un cycliste** — absent d'ici, et c'est
 #:   volontaire : `cache` (exploitation, pas profil), `brouter` (le serveur
-#:   BRouter du mainteneur, un secret d'infrastructure), `meteo` (modèle,
+#:   BRouter de l'exploitant, un secret d'infrastructure), `meteo` (modèle,
 #:   second avis, horizons — un réglage de méthode) et `calibration`. Ce
 #:   dernier trompe par son nom : la section `[calibration]` ne porte que des
 #:   réglages de méthode (`mots_groupe`, `part_validation`,
@@ -99,7 +97,7 @@ COMBLEMENT_EMBARQUEMENT: dict = {
 #:   `tolerance_distance` coûtent des appels externes et restent un réglage
 #:   de service) et `seance` (seul `position_zone`, décision 7 : on ne
 #:   stocke jamais une valeur en watts à côté d'une table qui bouge).
-#:   `tenue` appartient à ce tiers **dans le modèle de données** (Q35), mais
+#:   `tenue` appartient à ce tiers **dans le modèle de données**, mais
 #:   son interface d'édition attend explicitement la V2 (« même ça attend
 #:   la V2 ») : ses seuils ne sont donc **pas encore** dans cette liste
 #:   blanche, volontairement.
@@ -111,8 +109,8 @@ COMBLEMENT_EMBARQUEMENT: dict = {
 CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
     "depart": ("nom", "latitude", "longitude"),
     # « prenom » et « nom » : identité du compte, obligatoire pour tout
-    # profil créé par l'assistant depuis le 17/09/2026 (Q36) — mais un profil
-    # antérieur qui ne les porte pas se charge et se modifie normalement
+    # profil créé par l'assistant — mais un profil plus ancien qui ne les
+    # porte pas se charge et se modifie normalement
     # (`Cycliste.prenom`, `config.py`). Aucun calcul ne s'en sert aujourd'hui.
     "cycliste": ("masse_kg", "ftp_w", "prenom", "nom"),
     # La position dans la zone, et elle seule : la décision 7 interdit de
@@ -120,32 +118,30 @@ CHAMPS_MODIFIABLES: dict[str, tuple[str, ...]] = {
     "seance": ("position_zone",),
     "intervals": ("athlete_id", "api_key"),
     # Le sens de la boucle, et lui seul : `candidates`/`tolerance_distance`
-    # restent un réglage de service (Q35).
+    # restent un réglage de service.
     "boucle": ("sens",),
 }
 
 #: Les tables qui se remplacent en entier plutôt que champ par champ. Un vélo
 #: se supprime, se renomme et se réordonne, une zone à éviter aussi :
 #: fusionner une liste par index donnerait des résultats que personne ne
-#: peut prévoir. `evitements` a rejoint `velos` le 17/09/2026 (Q35, « les
-#: deux sections orphelines » : personnel, avec défaut vide).
+#: peut prévoir. `evitements` est personnel, avec un défaut vide.
 LISTES_MODIFIABLES = ("velos", "evitements")
 
 #: Les champs scalaires à la racine du TOML — pas dans une section — qu'un
 #: propriétaire a le droit d'écrire. Un seul aujourd'hui : `historique_depuis`
-#: (Q35, « les deux sections orphelines » : perso pur, avec un défaut pour
-#: que personne ne parte d'une page blanche — `config.HISTORIQUE_DEPUIS_DEFAUT`,
-#: le 1er décembre 2023 du mainteneur, ne s'applique qu'à qui n'a rien réglé).
+#: (perso pur, avec un défaut pour que personne ne parte d'une page blanche :
+#: `config.HISTORIQUE_DEPUIS_DEFAUT` ne s'applique qu'à qui n'a rien réglé).
 CHAMPS_RACINE_MODIFIABLES = ("historique_depuis",)
 
 def schema_des_modifications() -> dict:
-    """Ce que `PATCH /profil` accepte, en schéma publiable (ajouté le 17/09/2026).
+    """Ce que `PATCH /profil` accepte, en schéma publiable.
 
     **Engendré de `CHAMPS_MODIFIABLES`, qui reste la seule source.** Le corps
     de cette route n'a pas de modèle Pydantic — le décrire une seconde fois
     dupliquerait `Config` et la liste blanche ci-dessus, et les trois
-    divergeraient. Mais ne rien publier laissait la principale route
-    d'écriture du produit sans contrat : F2 devait lire `depots.py` pour
+    divergeraient. Mais ne rien publier laisserait la principale route
+    d'écriture du produit sans contrat : le front devrait lire `depots.py` pour
     savoir qu'on enregistre `seance.position_zone` et **jamais** des watts
     (décision 7 du cycle UX), ce qui est exactement ce que le schéma est censé
     éviter.
@@ -224,20 +220,19 @@ class SocleTOML:
     `DepotProfils.config`.
 
     `variables` est **reçu**, jamais lu ici : seul `exploitation.py` sait où
-    il tourne (règle absolue 2), et l'invariant adversarial refuse jusqu'au
+    il tourne (le cœur ne lit ni configuration ni environnement), et l'invariant adversarial refuse jusqu'au
     nom `environ` dans le cœur. Vide par défaut, pour qu'une application
     construite dans un test n'absorbe pas les variables de la machine.
 
     **`proprietaire=None` veut dire « hébergé, ce socle n'est le profil de
     personne » (`application.py`).** Dans ce cas, `config` retire du TOML
     serveur — et rend inertes les variables d'environnement pour — les
-    sections perso pur de Q35 (`SECTIONS_PERSO_PUR`) avant de fusionner la
+    sections perso pur (`SECTIONS_PERSO_PUR`) avant de fusionner la
     surcharge de l'appelant : sans ce retrait, un propriétaire qui n'a pas
     encore écrit son propre `[depart]`/`[cycliste]`/`[[velos]]`/`[intervals]`
-    héritait silencieusement de celui du serveur, ou d'une variable
+    hériterait silencieusement de celui du serveur, ou d'une variable
     `OUROULER_DEPART_*`/`OUROULER_INTERVALS_*` posée pour le déploiement —
-    la fuite mesurée en relecture du 21/09/2026, alors que `verifier_proprietaire`
-    (`DepotProfils`) ne refusait rien puisque ce socle n'appartient
+    une fuite, que `verifier_proprietaire` (`DepotProfils`) ne refuserait pas puisque ce socle n'appartient
     justement à personne. La surcharge de l'appelant, elle, n'est jamais
     touchée : c'est elle, et seulement elle, qui peut porter ces sections en
     mode hébergé.
@@ -263,11 +258,9 @@ class SocleTOML:
             # `SECTIONS_PERSO_PUR` couvre les sections (des dicts) ;
             # `CHAMPS_RACINE_MODIFIABLES` couvre `historique_depuis`, un
             # champ scalaire à la racine du TOML — perso pur lui aussi
-            # (Q35), mais absent de `SECTIONS_PERSO_PUR` parce que ce n'est
-            # pas une section. Oublié une première fois (mesuré le
-            # 22/09/2026, en intégrant ce lot avec L7.4) : un propriétaire
-            # qui n'écrivait rien recevait encore le 1ᵉʳ décembre 2023 — ou
-            # toute autre date — du mainteneur.
+            # mais absent de `SECTIONS_PERSO_PUR` parce que ce n'est
+            # pas une section. Sans lui, un propriétaire qui n'écrit rien
+            # recevrait la date d'historique du serveur.
             a_taire = {*SECTIONS_PERSO_PUR, *CHAMPS_RACINE_MODIFIABLES}
             brut = {cle: valeur for cle, valeur in brut.items() if cle not in a_taire}
             variables_a_taire = {f"{PREFIXE_ENV}{suffixe}" for suffixe in VARIABLES_PERSO_PUR}
@@ -277,8 +270,7 @@ class SocleTOML:
     def config_ou_comblee(self, surcharge: dict) -> Config:
         """Comme `config`, mais ne refuse jamais faute de tiers 3 en mode hébergé.
 
-        **Le trou trouvé en intégrant ce lot avec L7.4 et le RGPD-compte,
-        22/09/2026.** Q35 dit deux choses qui se tiennent mal ensemble à
+        **Le problème.** Le découpage en tiers dit deux choses qui se tiennent mal ensemble à
         l'exécution : « le tiers 3 ne s'hérite jamais » (tenu par `config`
         ci-dessus) et « c'est le but de l'assistant d'embarquement de
         remplir ce qui est vide ». Le second suppose qu'on puisse **lire et
@@ -322,10 +314,10 @@ class SocleTOML:
     def dossier_cache(self) -> Path:
         """Le dossier de cache du **serveur**, sans construire de `Config`.
 
-        `[cache]` est un réglage serveur (Q35), qui ne dépend d'aucune
+        `[cache]` est un réglage serveur, qui ne dépend d'aucune
         section perso pur : l'obtenir ne doit donc pas exiger qu'un
         propriétaire ait déjà écrit son départ ou son cycliste — ce qu'un
-        socle hébergé sans surcharge ne garantit plus depuis `config`
+        socle hébergé sans surcharge ne garantit pas depuis `config`
         ci-dessus. Sert `DepotProfils.dossier_cache` (export et suppression
         RGPD, `api/vie_privee.py`).
         """
@@ -339,17 +331,16 @@ class SocleVide:
     Elle publie son contrat (`/openapi.json`, `/docs`) et sert ses routes,
     mais tant que personne n'a écrit de profil, les routes de données
     refusent. C'est volontaire : inventer un point de départ par défaut
-    mettrait une coordonnée dans le code (règle absolue 1), et aller le
-    chercher sur le disque ferait lire l'environnement à la fabrique (règle
-    absolue 2).
+    mettrait une coordonnée dans le code (aucune donnée personnelle dans le
+    dépôt), et aller le chercher sur le disque ferait lire l'environnement à
+    la fabrique (le cœur ne lit ni configuration ni environnement).
 
-    **Ce qui a changé le 17/09/2026, c'est ce qu'elles répondent.** Le refus
-    était `configuration_invalide` avec, pour toute explication, « section
-    [depart] manquante » : la phrase décrit un fichier TOML que l'appelant n'a
-    jamais eu l'intention d'écrire, et laisse croire à une configuration
-    cassée là où il n'y en a aucune. Le mainteneur s'y est trompé lui-même en
-    lançant cette fabrique-ci pour servir son profil — l'application démarrait
-    et annonçait « configuration invalide » sur tout.
+    **Ce qu'elles répondent compte.** Un refus `configuration_invalide` avec,
+    pour toute explication, « section [depart] manquante » décrirait un
+    fichier TOML que l'appelant n'a jamais eu l'intention d'écrire, et
+    laisserait croire à une configuration cassée là où il n'y en a aucune :
+    l'application démarrerait et annoncerait « configuration invalide » sur
+    tout.
     """
 
     modifiable = True
@@ -375,10 +366,10 @@ class SocleVide:
         """Identique à `config` : pas de socle serveur, donc rien à combler.
 
         Le comblement de `SocleTOML.config_ou_comblee` répond à un socle
-        **partagé** qui ne fournit plus le tiers 3 (Q35) ; `SocleVide` n'a
+        **partagé** qui ne fournit pas le tiers 3 ; `SocleVide` n'a
         jamais rien fourni du tout, et `ErreurProfilAbsent` — avec son
         message qui dit déjà comment compléter le profil — reste la réponse
-        la plus honnête ici, inchangée depuis le 17/09/2026.
+        la plus honnête ici.
         """
         return self.config(surcharge)
 
@@ -390,7 +381,7 @@ class SocleVide:
 class SocleFixe:
     """Une `Config` déjà construite, injectée par l'appelant.
 
-    Le point d'injection de la règle absolue 3 : un test — et demain la
+    Le point d'injection des tests sans réseau ni disque : un test — et demain la
     couche qui lira le profil dans PostgreSQL — donne une `Config` toute
     faite, sans fichier ni environnement. Lecture seule : il n'y a pas de
     dict TOML sous cette `Config` sur lequel fusionner une surcharge, et
@@ -424,10 +415,10 @@ class DepotProfils:
     rangée dans son dossier, appliquée par-dessus avant validation.
 
     **Pourquoi ne pas réécrire le TOML.** Trois raisons, dans l'ordre : le
-    fichier du mainteneur porte ses commentaires et ses réglages fins, et un
+    fichier de l'exploitant porte ses commentaires et ses réglages fins, et un
     service web qui le réécrit les perd ; il n'y a qu'un fichier pour tous
     les propriétaires, donc y écrire ferait fuir le profil de l'un dans celui
-    de l'autre dès le lot F3 ; et la surcharge par propriétaire est
+    de l'autre ; et la surcharge par propriétaire est
     exactement la forme de la table PostgreSQL de demain (doctrine §10.1 :
     « `Config` gagnera un identifiant d'utilisateur et sera chargée depuis la
     base au lieu d'un TOML : le cœur ne le verra pas »).
@@ -462,41 +453,38 @@ class DepotProfils:
         **Un socle qui appartient à quelqu'un ne se sert qu'à lui.** Sans ce
         contrôle, tout ce qu'un propriétaire ne surcharge pas, il en hérite —
         y compris `[intervals] api_key`, `athlete_id` et `[depart]`, c'est-à-dire
-        la clé et le domicile du mainteneur. C'était le cas jusqu'au
-        17/09/2026, et c'était une fuite silencieuse : la surcharge par
+        la clé et le domicile de l'exploitant, une fuite silencieuse : la surcharge par
         propriétaire n'a jamais eu pour but de partager les secrets du socle,
         seulement d'éviter de réécrire un TOML commenté.
 
         En mode **personnel**, le refus reste volontairement **total** — pas de
         socle personnel d'un autre propriétaire servi même pour ses seules
-        sections « serveur » : le TOML du serveur y est le profil du
-        mainteneur, et rien de ce qu'il porte — même `[cache]`, même
+        sections « serveur » : le TOML du serveur y est le profil de
+        son cycliste, et rien de ce qu'il porte — même `[cache]`, même
         `[meteo]` — n'a de sens pour quelqu'un d'autre.
 
         **En mode hébergé** (`socle.proprietaire is None`), ce contrôle-ci ne
         s'applique à personne, puisque le socle n'appartient justement à
         personne — l'invariant tient alors en deux moitiés. `SocleTOML.config`
-        applique le découpage en tiers de Q35 (« trois tiers, et le vide
-        n'existe pas », tranché le 17/09/2026), section par section, pour que
+        applique le découpage en tiers (décision Q35), section par section, pour que
         le tiers 3 (perso pur) ne soit jamais hérité du socle commun.
         `CHAMPS_MODIFIABLES`, `LISTES_MODIFIABLES` et `CHAMPS_RACINE_MODIFIABLES`
         plus haut appliquent le même découpage à **la propre surcharge d'un
         propriétaire** par-dessus ce socle. Ce que ce contrôle-ci refuse
         encore, dans les deux modes, est différent des deux : faire
-        *partager* le socle TOML d'**une personne** (le mainteneur, en mode
+        *partager* le socle TOML d'**une personne** (le cycliste du mode
         personnel) à un **autre** propriétaire, même limité aux sections
-        serveur — c'est le partage d'un socle entre plusieurs comptes que F3
-        doit encore construire (doctrine §10.1 : `Config` viendra de
+        serveur — c'est le partage d'un socle entre plusieurs comptes, qui
+        reste à construire (doctrine §10.1 : `Config` viendra de
         PostgreSQL, pas d'un TOML propre à quelqu'un). Jusque-là, refuser est
         ce qui se fait de moins faux.
 
-        **`config_ou_comblee`, pas `config`** (22/09/2026) : en mode hébergé,
+        **`config_ou_comblee`, pas `config`** : en mode hébergé,
         un propriétaire qui n'a pas encore complété son tiers 3 doit quand
         même pouvoir être lu — c'est le cas d'un compte tout juste activé,
         avant sa première écriture, que le front interroge sans condition au
         démarrage (`front/src/App.tsx`). Voir `SocleTOML.config_ou_comblee`
-        pour ce que ça comble et pourquoi ce n'est pas la fuite que ce lot
-        vient de fermer.
+        pour ce que ça comble et pourquoi ce n'est pas une fuite du socle.
         """
         self.verifier_proprietaire(proprietaire)
         return self._socle.config_ou_comblee(self.surcharge(proprietaire))
@@ -526,8 +514,8 @@ class DepotProfils:
         valide : une FTP négative ou un vélo sans nom laisse le profil
         précédent intact, et le front reçoit le nom du champ fautif.
 
-        **Une écriture partielle, elle, n'est plus refusée en mode hébergé**
-        (22/09/2026, `config_ou_comblee`) : l'assistant d'embarquement écrit
+        **Une écriture partielle, elle, n'est pas refusée en mode hébergé**
+        (`config_ou_comblee`) : l'assistant d'embarquement écrit
         son profil en plusieurs `PATCH /profil` (`front/src/ecrans/Assistant.tsx`,
         `{cycliste: {prenom, nom}}` d'abord, `{depart}` plus tard…), et le
         premier de ces appels, avant que `depart` existe, ne doit pas être
@@ -554,7 +542,7 @@ class DepotProfils:
 
         **Le socle n'est jamais touché** — ni celui du serveur, ni celui d'un
         autre propriétaire : ce n'est la donnée de personne qui demande son
-        effacement (lot L7.B, contrat sprint 7 §L7.B). Pas de vérification de
+        effacement. Pas de vérification de
         propriétaire ici, contrairement à `config`/`enregistrer` : le chemin
         est déjà borné au dossier de **ce** propriétaire (`dossier`), il n'y a
         rien à protéger de plus qu'une écriture normale ne protège déjà.
@@ -662,7 +650,7 @@ class DepotFichiers:
         raise ErreurUtilisateur(f"fichier {identifiant} : introuvable")
 
     def lister(self, proprietaire: Proprietaire) -> list[Fichier]:
-        """Tous les fichiers de ce propriétaire — pour l'export (lot L7.B).
+        """Tous les fichiers de ce propriétaire — pour l'export.
 
         Même filtrage que `trouver` (l'extension, le sidecar `.nom` écarté) :
         c'est la même notion de « fichier de ce propriétaire », lue en une
@@ -702,7 +690,7 @@ class DepotFichiers:
 
 
 #: Combien de générations de parcours on garde, par serveur. Chacune pèse ses
-#: deux ou trois GPX — 65 ko l'un, mesuré le 17/09/2026 — soit ~4 Mo au
+#: deux ou trois GPX — 65 ko l'un, mesuré — soit ~4 Mo au
 #: plafond. Court exprès : un cycliste choisit sa boucle dans la minute qui
 #: suit, pas le lendemain.
 GENERATIONS_GARDEES = 20
@@ -711,10 +699,10 @@ GENERATIONS_GARDEES = 20
 class DepotGenerations:
     """Les GPX des propositions d'une génération, gardés jusqu'au choix.
 
-    **Q40 (g), tranché le 17/09/2026** : « aucun GPX à la génération, et on le
-    fait à la demande quand l'user choisit son parcours ». Écrire les trois,
-    c'était en jeter deux à chaque fois ; n'écrire que celle du classement,
-    c'était envoyer la mauvaise trace au compteur à qui choisissait « la plus
+    **Aucun GPX à la génération, un GPX à la demande quand le cycliste choisit
+    son parcours** (décision Q40 g, `docs/journal/questions/questions_mainteneur.md`).
+    Écrire les trois, ce serait en jeter deux à chaque fois ; n'écrire que
+    celle du classement, ce serait envoyer la mauvaise trace au compteur à qui choisissait « la plus
     sèche ». Ici **rien n'est écrit** : ni à la génération, ni au choix — la
     route rend le contenu, elle ne range pas un fichier de plus à chaque clic.
 
@@ -770,9 +758,9 @@ class DepotGenerations:
         return gpx
 
     def supprimer(self, proprietaire: Proprietaire) -> int:
-        """Purge les générations en mémoire de ce propriétaire (lot L7.B).
+        """Purge les générations en mémoire de ce propriétaire.
 
-        Rien n'est écrit sur le disque (Q40 g) : il n'y a donc qu'un dict à
+        Rien n'est écrit sur le disque : il n'y a donc qu'un dict à
         vider, mais la suppression n'est complète que si on le fait — sans
         ça, `.../propositions/{n}/gpx` continuerait de servir un GPX à
         quelqu'un dont on vient d'effacer le reste.
@@ -896,7 +884,7 @@ class JournalServices:
     connexion" ne dit rien. » Cette date-là n'est pas déductible côté front —
     elle suppose qu'on ait retenu quand la clé marchait encore — et elle n'est
     pas non plus déductible côté cœur, qui ne sait pas qu'il a un appelant
-    (règle absolue 2). Elle appartient donc à l'API, par propriétaire.
+    (le cœur ne lit ni configuration ni environnement). Elle appartient donc à l'API, par propriétaire.
 
     **Un fichier JSON à côté du profil, et c'est assez.** Ce n'est pas une
     donnée qu'on perd gravement : au pire le front n'affiche pas de date la
@@ -945,18 +933,17 @@ class JournalServices:
         return valeur if isinstance(valeur, str) else None
 
     def tout(self, proprietaire: Proprietaire) -> dict:
-        """Le journal complet de ce propriétaire — un instantané, pour l'export (L7.B)."""
+        """Le journal complet de ce propriétaire — un instantané, pour l'export."""
         return dict(self._lire(proprietaire))
 
     def supprimer(self, proprietaire: Proprietaire) -> bool:
-        """Efface le journal de ce propriétaire. Rend vrai s'il existait (lot L7.B).
+        """Efface le journal de ce propriétaire. Rend vrai s'il existait.
 
-        `unlink(missing_ok=True)` plutôt que `if existait: unlink()` — trouvé
-        par le testeur adversarial du trou RGPD (21/09/2026) : deux
+        `unlink(missing_ok=True)` plutôt que `if existait: unlink()` : deux
         `DELETE /moi` réellement simultanés sur le même propriétaire peuvent
-        voir tous les deux `is_file() == True`, et le second levait alors
-        `FileNotFoundError` (500) au lieu de rester idempotent. Même correctif
-        que `DepotFichiers.supprimer_tout` plus haut, qui l'évitait déjà.
+        voir tous les deux `is_file() == True`, et le second lèverait alors
+        `FileNotFoundError` (500) au lieu de rester idempotent. Même précaution
+        que `DepotFichiers.supprimer_tout` plus haut.
         """
         chemin = self._chemin(proprietaire)
         existait = chemin.is_file()

@@ -1,6 +1,6 @@
 """Comment l'API appelle le cœur — et pourquoi elle l'appelle comme la CLI.
 
-**L'ancien chemin, depuis le lot 11.** Le nouveau (`api/calculs.py`) appelle
+**L'ancien chemin.** Le nouveau (`api/calculs.py`) appelle
 le service et le rendu sans `Namespace`, sans capture ni verrou ;
 `api/double_chemin.py` choisit entre les deux (`OUROULER_API_CHEMIN`), et ce
 module reste le défaut jusqu'à la bascule, faite en préproduction par le
@@ -12,7 +12,7 @@ Prise au mot, cette phrase interdit une deuxième implémentation. L'API
 construit donc le même `argparse.Namespace` que la ligne de commande,
 appelle la **même** commande (`commandes.executer_depuis_namespace`) avec `json=True`, et
 rend le JSON qu'elle imprime. Aucune divergence possible : ce que le
-mainteneur vérifie en ligne de commande est exactement ce que le front reçoit.
+cycliste vérifie en ligne de commande est exactement ce que le front reçoit.
 
 **Le prix, et il est réel.** `executer` imprime sur la sortie standard, qui
 est un objet de processus, pas de fil d'exécution : deux commandes qui
@@ -63,11 +63,11 @@ PREFIXE_AVERTISSEMENT = "ourouler : "
 class Avertissement:
     """Une phrase du cœur, **et le code qui dit de quoi elle parle**.
 
-    Ajouté le 17/09/2026 (relecture F2 · B3). Sans code, le front n'avait
-    qu'une prose française pour décider d'un état d'écran, et il la lisait à
-    l'expression régulière : le bandeau « Pas de météo » tenait au mot
-    « météo » dans une phrase que `docs/journal/ux/api_contrat.md` déclare
-    reformulable. Le code prime sur le message ici comme pour les pannes.
+    Sans code, le front n'aurait qu'une prose française pour décider d'un
+    état d'écran, et il la lirait à l'expression régulière : le bandeau
+    « Pas de météo » tiendrait au mot « météo » dans une phrase que
+    `docs/journal/ux/api_contrat.md` déclare reformulable. Le code prime sur le
+    message ici comme pour les pannes.
     """
 
     code: str
@@ -152,8 +152,8 @@ def executer_commande(
     debut = time.perf_counter()
     try:
         with contextlib.redirect_stdout(sortie), contextlib.redirect_stderr(erreurs):
-            # Lot 10 : `fonction` est le service ; la commande qui le sert
-            # depuis un `Namespace` imprime ce qu'il imprimait (lot 11 : fini).
+            # `fonction` est le service ; la commande qui le sert depuis un
+            # `Namespace` imprime ce que la commande imprime.
             code = executer_depuis_namespace(fonction, args, config, **clients)
     except Exception as e:  # traduit, jamais propagé tel quel
         raise classer(e, secrets=secrets, chemins=chemins) from e
@@ -205,11 +205,11 @@ def avertissements_de(
 
 
 #: Ce qu'une opération est censée coûter, en millisecondes, **tant qu'aucune
-#: mesure locale n'existe**. Ces chiffres viennent des mesures du 16/09/2026
+#: mesure locale n'existe**. Ces chiffres viennent des mesures
 #: rapportées dans `docs/journal/ux/cycle_ux_contrat.md` (décision 6) : 3,8 à 6,0 s
 #: pour une sortie complète. Ils sont marqués « defaut » dans la réponse tant
 #: qu'ils ne sont pas remplacés par ce que ce serveur-ci a réellement mesuré
-#: — règle absolue 5 : on ne fait pas passer une estimation pour une mesure.
+#: — on ne fait pas passer une estimation pour une mesure.
 BUDGETS_DEFAUT_MS = {
     "sortie": 6000,
     "boucle": 5000,
@@ -221,7 +221,7 @@ BUDGETS_DEFAUT_MS = {
     "seance": 1500,
     "geocodage": 800,
     "inventaire": 1000,
-    # L9.8 : une météo le long du tracé (comme « boucle »), sur un parcours
+    # Une météo le long du tracé (comme « boucle »), sur un parcours
     # qui peut être bien plus long qu'une boucle (un BRM 600) — plus proche
     # du poste « boucle » que du poste « simulation », muet.
     "analyse": 5000,

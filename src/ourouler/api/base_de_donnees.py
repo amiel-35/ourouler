@@ -6,7 +6,8 @@ d'ORM. » Ce module est l'application littérale de cette phrase, et rien de
 plus : il ne connaît aucune table du produit.
 
 **Il ne lit pas l'environnement.** L'URL de connexion arrive en argument ;
-c'est `api/exploitation.py` — et lui seul, règle absolue 2 — qui sait d'où
+c'est `api/exploitation.py` — et lui seul, puisque le cœur ne lit ni
+configuration ni environnement — qui sait d'où
 elle vient (`OUROULER_DATABASE_URL`). Un module qui ouvrirait la base « en se
 débrouillant » serait exactement le bug que l'invariant de
 `tests/test_invariants.py` cherche.

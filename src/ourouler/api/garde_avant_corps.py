@@ -1,4 +1,4 @@
-"""Intergiciel ASGI : refuser un import **avant** d'en lire le corps (contre-lecture Fable, 25/09/2026).
+"""Intergiciel ASGI : refuser un import **avant** d'en lire le corps.
 
 `POST /activites/import` reçoit jusqu'à `TAILLE_MAX_REQUETE` octets (750 Mo).
 FastAPI lit et écrit **tout** le corps multipart sur disque avant d'appeler la
@@ -15,14 +15,14 @@ du compte. Même code, même forme que ceux de la route — `session_absente`
 le même refus, seulement plus tôt. La route garde les siens : entre ce
 contrôle et la prise du verrou, un autre import peut partir (la course est
 réelle, sa fenêtre est celle d'un envoi), et c'est alors elle qui refuse,
-après l'envoi, comme avant.
+après l'envoi.
 
 Il ne lit ni fichier de configuration ni variable d'environnement : il trouve
 le contexte de l'application là où Starlette le pose (`scope["app"]`).
 
-**`ctx.session.ouvrir` est appelé hors de la boucle d'événements** (contre-lecture
-du 25/09/2026). Pour `SessionParCookie` (`api/session.py`), cet appel ouvre une
-connexion PostgreSQL bloquante (`psycopg.connect`, synchrone) et interroge la
+**`ctx.session.ouvrir` est appelé hors de la boucle d'événements.** Pour
+`SessionParCookie` (`api/session.py`), cet appel ouvre une connexion PostgreSQL
+bloquante (`psycopg.connect`, synchrone) et interroge la
 base — un appel qui, exécuté tel quel dans ce `__call__` asynchrone, gèlerait la
 boucle d'événements entière (et donc BRouter, et toute autre requête) le temps
 de la réponse de la base. `run_in_threadpool` (Starlette, sur `anyio`) le déporte

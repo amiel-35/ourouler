@@ -1,4 +1,4 @@
-"""La calibration d'un vélo depuis l'écran (L9.4), en tâche de fond.
+"""La calibration d'un vélo depuis l'écran, en tâche de fond.
 
 Le travail est dans `api/calibrations.py` ; ces routes résolvent le
 propriétaire, sa `Config`, son quota et le verrou des tâches lourdes.
@@ -29,7 +29,7 @@ from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
 routeur = nouveau_routeur()
 
 
-# --- calibration depuis l'écran (L9.4) ------------------------------------------
+# --- calibration depuis l'écran -----------------------------------------------
 
 
 @routeur.get("/calibrations", **reponse_de(ReponseCalibrations))
@@ -79,7 +79,7 @@ def lancer_calibration(ctx: Ctx, qui: Qui, demande: DemandeCalibration) -> dict:
 
     Crr fixé par le pneu (ou, `sans_pneu`, par l'usage — dit comme tel), CdA
     cherché, fourchette du porte à porte mesurée hors échantillon : le calcul
-    de `ourouler calibrer` (L9.1), sur les sorties importées (L9.2) ou
+    de `ourouler calibrer`, sur les sorties importées ou
     synchronisées depuis Intervals. Voir `api/calibrations.py` pour le choix
     des sorties quand le profil a plusieurs vélos.
 
@@ -136,9 +136,9 @@ def lancer_calibration(ctx: Ctx, qui: Qui, demande: DemandeCalibration) -> dict:
 def _velos_declares(ctx: Contexte, qui: Proprietaire) -> bool:
     """Le compte a-t-il déclaré ses vélos ? Voir `calibrations.verifier`.
 
-    En mode hébergé, `velos` est du tiers 3 (Q35) : jamais hérité du socle,
+    En mode hébergé, `velos` est perso pur : jamais hérité du socle,
     donc absent de la surcharge tant que le cycliste ne l'a pas écrit. En
-    mode personnel, les vélos sont ceux du TOML du mainteneur.
+    mode personnel, les vélos sont ceux du TOML du serveur.
     """
     if ctx.session.mode == MODE_PERSONNEL:
         return True

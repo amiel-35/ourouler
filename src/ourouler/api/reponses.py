@@ -1,8 +1,8 @@
-"""Les réponses réussies de l'API, décrites pour le contrat OpenAPI (lot 11).
+"""Les réponses réussies de l'API, décrites pour le contrat OpenAPI.
 
-Constat du lot 14 : le schéma ne décrivait **aucune** réponse réussie (les
-200 étaient des objets vides), et les types du front n'étaient vérifiés que
-pour les requêtes. Ces modèles décrivent ce que les routes rendent déjà.
+Sans eux, le schéma ne décrirait **aucune** réponse réussie (les 200 seraient
+des objets vides), et les types du front ne seraient vérifiés que pour les
+requêtes. Ces modèles décrivent ce que les routes rendent déjà.
 
 **Ils décrivent, ils ne filtrent pas.** Une route les déclare par
 `responses={200: {"model": …}}` en gardant `response_model=dict`
@@ -148,12 +148,12 @@ class DonneesSortie(_Ouvert):
     propositions: list[dict[str, Any]]
     #: Deux propositions au lieu de trois : l'explication, sinon `null`.
     motif_deux_propositions: str | None
-    #: Trois propositions qui se valent (Q45) : l'explication, sinon `null`.
+    #: Trois propositions qui se valent : l'explication, sinon `null`.
     motif_equivalence: str | None
     question_vent: dict[str, Any] | None
     arbitrage: dict[str, Any] | None
     candidates: list[dict[str, Any]]
-    #: L'identifiant à repasser à `…/propositions/{n}/gpx` (Q40 g).
+    #: L'identifiant à repasser à `…/propositions/{n}/gpx`.
     generation: str | None = None
 
 
