@@ -452,7 +452,7 @@ def test_la_mise_en_garde_sur_les_routes_connues_suit_l_existence_du_cache(tmp_p
     existe, on se tait quand elle n'existe pas — le piège du lot est de casser
     ça en silence.
     """
-    from ourouler.apprentissage.commande import NOM_BASE
+    from ourouler.services.apprentissage import NOM_BASE
 
     dossier = tmp_path / "cache"
     dossier.mkdir()

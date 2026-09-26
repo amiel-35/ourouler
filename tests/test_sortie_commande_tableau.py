@@ -35,7 +35,7 @@ from ourouler.config import (
 )
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.rendu.sortie import _ecart_seance, _ligne_modele_meteo, rendre_texte
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     ARRONDI_DISTANCE_KM,
     Proposition,
     _comparer,

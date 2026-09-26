@@ -54,7 +54,7 @@ def generer_sortie(
     `motif_equivalence` porte alors « ces trois boucles se valent, choisissez
     où vous voulez aller », avec ce qui, mesuré, ne les sépare pas.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     _verifier_quota(ctx, qui, ctx.quotas)
     try:
@@ -160,7 +160,7 @@ def generer_boucle(
     demande: DemandeBoucle,
 ) -> dict:
     """Une boucle libre, sans séance : candidates, coûts, météo le long du tracé, géométrie."""
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     _verifier_quota(ctx, qui, ctx.quotas)
     try:

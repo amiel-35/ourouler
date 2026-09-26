@@ -11,12 +11,12 @@ from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, fleches_vent, vent_par_position
 from ourouler.rendu.boucle_json import porte_a_porte
 from ourouler.seance.placement_resultat import Emplacement
-from ourouler.sortie import contraste, orientation, vent_demande
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     NOTE_BLOC_BIEN_PLACE,
     Proposition,
     _Contexte,
 )
+from ourouler.sortie import contraste, orientation, vent_demande
 
 
 def _modele_meteo_json(propositions: list[Proposition]) -> dict | None:

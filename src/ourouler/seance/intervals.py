@@ -211,7 +211,7 @@ def seances_periode(
     Chaque jour de la plage est une clé du dict rendu, avec `None` si aucune
     séance vélo n'y est planifiée : un jour **vide** (clé présente, valeur
     `None`) se distingue ainsi d'un jour qui n'a jamais été demandé (absent
-    du dict) — c'est ce que `seance/commande.py` sérialise ensuite en JSON.
+    du dict) — c'est ce que `services/seance.py` sérialise ensuite en JSON.
 
     **Plusieurs séances le même jour** : même règle que `seance_du_jour`,
     appliquée jour par jour — on ne retient que la plus longue en durée, les

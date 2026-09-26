@@ -73,12 +73,6 @@ from ourouler.noyau.activite import Activite
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.physique.calibration import echantillonner
-from ourouler.physique.commande import (
-    NOM_CACHE,
-    chemin_calibration,
-    parametres_du_velo,
-    velo_demande,
-)
 from ourouler.physique.echantillonnage import (
     _cap,
     _decouper,
@@ -86,6 +80,12 @@ from ourouler.physique.echantillonnage import (
     _interpoler_archive,
 )
 from ourouler.physique.modele import Parametres, vitesse_regime
+from ourouler.services.physique import (
+    NOM_CACHE,
+    chemin_calibration,
+    parametres_du_velo,
+    velo_demande,
+)
 
 #: Début de l'historique (règle absolue 6). Paramètre, pas constante de code :
 #: `--depuis` le déplace.

@@ -37,7 +37,7 @@ def inventaire(
     conforme. C'est la couche web qui nomme le propriétaire, et elle seule
     (doctrine §10.1).
     """
-    from ourouler.activites import commande as activites
+    from ourouler.services import activites
 
     config = _config(ctx, qui)
     resultat = calculer(
@@ -66,7 +66,7 @@ def routes_connues(
     même raison que `GET /inventaire`
     juste au-dessus.
     """
-    from ourouler.apprentissage import commande as apprentissage
+    from ourouler.services import apprentissage
 
     if action not in ("stats", "poids"):
         raise ErreurApi(

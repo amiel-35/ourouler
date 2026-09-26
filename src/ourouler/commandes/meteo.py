@@ -6,11 +6,11 @@ import argparse
 
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
-from ourouler.meteo import commande as service
-from ourouler.meteo.commande import DemandeMeteo, heure_depart, valider_horizon
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import rendre_json, rendre_texte
 from ourouler.noyau.profil import Depart, Profil
+from ourouler.services import meteo as service
+from ourouler.services.meteo import DemandeMeteo, heure_depart, valider_horizon
 
 
 def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeMeteo:

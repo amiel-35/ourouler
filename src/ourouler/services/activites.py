@@ -44,7 +44,7 @@ def executer(
 
     **`cache` s'injecte, exactement comme un client HTTP** (règle 3 de
     CLAUDE.md, et c'est déjà la forme de `client_brouter` dans
-    `apprentissage/commande.py`). Absent — le cas de la ligne de commande —
+    `services/apprentissage.py`). Absent — le cas de la ligne de commande —
     le service le construit sur `contexte.dossier_cache` et avec le
     propriétaire par défaut.
 

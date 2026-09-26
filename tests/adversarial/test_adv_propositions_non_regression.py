@@ -36,7 +36,7 @@ import pytest
 from ourouler.apprentissage.routes import BaseRoutes
 from ourouler.seance.placement import placer
 from ourouler.seance.terrain import evaluer_couloir
-from ourouler.sortie.commande import POIDS_PLUIE_TRI, Proposition, _comparer, _notes_egales
+from ourouler.services.sortie import POIDS_PLUIE_TRI, Proposition, _comparer, _notes_egales
 
 # =============================================================================
 # 1. `_notes_egales` — la table, au booléen près

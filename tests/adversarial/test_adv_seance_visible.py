@@ -78,7 +78,7 @@ from ourouler.rendu import sortie as module_sortie
 from ourouler.rendu import sortie_json as rendu_json
 from ourouler.seance import placement as module_placement
 from ourouler.seance import placement_resultat
-from ourouler.sortie import commande as module_commande
+from ourouler.services import sortie as module_commande
 
 # =============================================================================
 # Outils du fichier
@@ -432,7 +432,7 @@ def test_le_demi_tour_ne_se_compte_pas_deux_fois(monkeypatch):
     """`Proposition.demi_tours` doit rester à 1 sur un placement à un demi-tour.
 
     La règle garde `demi_tour` « pour les récupérations qui en
-    portent un ». Le compteur de `sortie/commande.py` additionne le drapeau sur
+    portent un ». Le compteur de `services/sortie.py` additionne le drapeau sur
     **tous** les emplacements : si la récupération le porte aussi, il passe de
     1 à 2 sans rien lever, et la colonne « demi-tours » du tableau ment.
 

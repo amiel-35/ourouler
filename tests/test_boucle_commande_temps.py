@@ -22,16 +22,16 @@ from outils_boucle_commande import (
     moteur_meteo,
 )
 
-from ourouler.boucle.commande import (
-    Demande,
-    _info_compteur,
-)
 from ourouler.commandes.boucle import executer_depuis_namespace as executer
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.rendu.boucle import (
     rendre_texte,
 )
 from ourouler.rendu.boucle_json import rendre_json
+from ourouler.services.boucle import (
+    Demande,
+    _info_compteur,
+)
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
@@ -64,7 +64,7 @@ def test_sans_calibration_l_ecran_dit_que_le_modele_vient_de_la_litterature(
 
 
 def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, monkeypatch, capsys):
-    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+    from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
@@ -81,7 +81,7 @@ def test_avec_calibration_la_colonne_dit_le_modele(tmp_path: Path, monkeypatch, 
 
 
 def test_le_temps_du_modele_depend_de_la_puissance(tmp_path: Path, monkeypatch, capsys):
-    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+    from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)  # `executer` écrit la boucle retenue en GPX
@@ -206,7 +206,7 @@ def test_avec_calibration_les_heures_de_passage_suivent_le_modele(tmp_path: Path
     Deux puissances très différentes doivent donner deux vitesses de passage
     différentes : c'est la preuve que la vitesse vient bien de la simulation.
     """
-    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+    from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -232,7 +232,7 @@ def test_avec_calibration_les_heures_de_passage_suivent_le_modele(tmp_path: Path
 
 
 def test_l_entete_dit_que_la_vitesse_de_passage_vient_du_modele(tmp_path: Path, monkeypatch, capsys):
-    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+    from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
     config = config_avec_velo_calibrable(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -364,8 +364,8 @@ def test_temps_ecoule_suit_la_puissance_demandee(tmp_path: Path):
     L9.1) dans les deux cas — pas cinquante minutes d'arrêts imaginaires,
     comme avant le correctif du 18/09 (150 W et 300 W rendaient alors le même
     écoulé)."""
-    from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
     from ourouler.physique.modele import vitesse_a_plat_kmh
+    from ourouler.services.physique import chemin_calibration, parametres_du_velo, velo_demande
 
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     velo = velo_demande(config, None)
@@ -424,7 +424,7 @@ def test_temps_ecoule_json_suit_la_formule_partagee(tmp_path: Path):
 def test_temps_ecoule_json_prend_la_fourchette_mesuree_du_velo(tmp_path: Path):
     """Un vélo calibré depuis L9.1 porte sa fourchette dans calibration.json :
     c'est elle qui chronomètre, et la source le dit (« mesure »)."""
-    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+    from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
     config = config_avec_facteur_mesure(tmp_path, facteur=0.85)
     ecrire_calibration(
@@ -491,8 +491,8 @@ def test_texte_boucle_sans_compteur_n_affiche_pas_la_legende(tmp_path: Path):
 def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(tmp_path: Path, monkeypatch, capsys):
     """Décision du 25/09 : la calibration est gardée, mais l'écran dit qu'elle
     ne suit plus le pneu déclaré — en texte comme en JSON."""
-    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
     from ourouler.physique.parametres_velo import ALERTE_PNEU_CHANGE
+    from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
     config = config_de_test(
         cache={"dossier": str(tmp_path)},

@@ -56,8 +56,8 @@ from ourouler.api.depots import (
     SocleVide,
 )
 from ourouler.api.proprietaire import Proprietaire
-from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.services.apprentissage import NOM_BASE
 
 #: Un propriétaire tiers, qui n'a jamais rien fait : sert de témoin « jamais
 #: existé » — voir `test_la_suppression_rend_le_profil_comme_neuf`.

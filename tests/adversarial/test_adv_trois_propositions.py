@@ -757,7 +757,7 @@ def test_la_part_de_routes_connues_reste_publiee():
     tromper — on perdrait l'instrument de mesure qui justifie l'apprentissage
     des routes connues.
     """
-    from ourouler.sortie.commande import Proposition
+    from ourouler.services.sortie import Proposition
 
     assert "part_connue" in Proposition.__dataclass_fields__, (
         "`Proposition.part_connue` a disparu : la part de routes connues n'est pas un "
@@ -1201,7 +1201,7 @@ def test_aucun_champ_de_candidate_n_est_perpetuellement_nul(tmp_path: Path, monk
     **absente** (l'état constaté sous bouchons) et quand elle est **remplie**,
     et il échoue seulement si elle est présente et nulle pour toutes les
     candidates. C'est ce qui le rend utile pendant que L5.4 réécrit
-    `sortie/commande.py`.
+    `services/sortie.py`.
     """
     doc = _doc(tmp_path, monkeypatch, capsys, candidates=4)
     candidates = doc.get("candidates") or []

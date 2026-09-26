@@ -19,9 +19,6 @@ from typing import Any
 import httpx
 from test_brouter import reponse_fabriquee  # même dossier : pytest y met le sys.path
 
-from ourouler.boucle.commande import (
-    Evaluation,
-)
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
 from ourouler.config import Config, depuis_dict
@@ -30,6 +27,9 @@ from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.rendu.boucle import (
     MARQUE_RETENUE,
+)
+from ourouler.services.boucle import (
+    Evaluation,
 )
 
 CONFIG_BRUTE = {

@@ -97,7 +97,7 @@ sans être avalée.
   `addressdetails=1` : sans lui Nominatim ne rend pas la commune, et
   `ambiguite()` refuserait alors tout résultat de repli.
 - **La commande** `ourouler geocoder "<adresse>" [--max N] [--json]`
-  (`src/ourouler/geocodage/commande.py`) expose le connecteur sans jamais
+  (`src/ourouler/services/geocodage.py`) expose le connecteur sans jamais
   trancher entre les candidats — exactement la forme que la route d'API
   reprend telle quelle.
 - **`--adresse-depart`** existe sur `meteo`, `boucle` et `sortie` : `cli/`

@@ -38,7 +38,7 @@ from ourouler.seance.placement_resultat import Placement
 class PropositionCarte:
     """Une proposition contrastée telle que la page du jour la dessine.
 
-    Construit par `sortie.commande` à partir d'une `contraste.Retenue` : ce
+    Construit par `services.sortie` à partir d'une `contraste.Retenue` : ce
     module ne sait toujours ni trier ni contraster, seulement dessiner ce
     qu'on lui donne. `distinction` et `chiffres` sont déjà en langage de
     cycliste (`sortie.contraste.phrase`, `rendu.sortie._details_proposition`)

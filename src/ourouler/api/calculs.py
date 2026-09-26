@@ -53,8 +53,8 @@ def geocoder(
     nominatim: object | None = None,
 ) -> dict:
     """`GET /geocodage` : tous les candidats, notés. Rien du cycliste n'est lu."""
-    from ourouler.geocodage import commande as service
-    from ourouler.geocodage.commande import rendre_json
+    from ourouler.services import geocodage as service
+    from ourouler.services.geocodage import rendre_json
 
     del config, avertir  # le géocodage ne lit aucun réglage et n'avertit de rien
     resultat = service.executer(
@@ -74,7 +74,7 @@ def vent_depart(
 ) -> dict:
     """`GET /vent-depart` : d'où vient le vent au départ."""
     from ourouler.rendu.sortie import vent_depart_json
-    from ourouler.sortie import commande as service
+    from ourouler.services import sortie as service
 
     demande = cmd_sortie.interpreter_vent(jour=jour, depart=depart)
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
@@ -95,8 +95,8 @@ def meteo(
     lieu_depart: object | None = None,
 ) -> dict:
     """`GET /meteo` : pluie, vent et ressenti par direction et par heure."""
-    from ourouler.meteo import commande as service
     from ourouler.meteo.rapport import rendre_json
+    from ourouler.services import meteo as service
 
     del distance  # ne sert qu'au texte de la ligne de commande
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
@@ -114,7 +114,7 @@ def inventaire(
     cache: object | None = None,
 ) -> dict:
     """`GET /inventaire` : les sorties par vélo et par mois, sans synchroniser."""
-    from ourouler.activites import commande as service
+    from ourouler.services import activites as service
 
     ctx = contexte(config, avertir=avertir)
     demande = cmd_inventaire.interpreter(ctx.profil, depuis=depuis)
@@ -131,7 +131,7 @@ def routes(
     base: object | None = None,
 ) -> dict:
     """`GET /routes/{action}` : `stats` ou `poids`, en lecture seule."""
-    from ourouler.apprentissage import commande as service
+    from ourouler.services import apprentissage as service
 
     demande = cmd_routes.interpreter(action, appliquer=appliquer)
     resultat = service.executer(
@@ -151,7 +151,7 @@ def seance(
     client: object | None = None,
 ) -> dict:
     """`GET /seances`, `GET /seances/{jour}`, `POST /seances/fichier`."""
-    from ourouler.seance import commande as service
+    from ourouler.services import seance as service
 
     demande = cmd_seance.interpreter(jour=jour, depuis=depuis, jusqua=jusqua, fichier_seance=fichier_seance)
     resultat = service.executer(demande, contexte(config, avertir=avertir), client=client)
@@ -169,7 +169,7 @@ def simuler(
     client_meteo: object | None = None,
 ) -> dict:
     """`POST /simulations` : le temps d'un GPX à puissance constante."""
-    from ourouler.physique import commande as service
+    from ourouler.services import physique as service
 
     demande = cmd_physique.interpreter_simulation(gpx=gpx, velo=velo, puissance=puissance, depart=depart)
     r = service.executer_simuler(demande, contexte(config, avertir=avertir), client_meteo=client_meteo)
@@ -187,7 +187,7 @@ def analyser(
     client_meteo: object | None = None,
 ) -> dict:
     """`POST /parcours/analyser` : météo et durée porte à porte d'un parcours en main."""
-    from ourouler.physique import commande as service
+    from ourouler.services import physique as service
 
     demande = cmd_physique.interpreter_analyse(gpx=gpx, depart=depart, velo=velo, puissance=puissance)
     r = service.executer_analyser(demande, contexte(config, avertir=avertir), client_meteo=client_meteo)
@@ -222,7 +222,7 @@ def sortie(
     demande validée sur la configuration, le service, puis `terminer`, qui
     écrit la page du jour et rend le JSON.
     """
-    from ourouler.sortie import commande as service
+    from ourouler.services import sortie as service
 
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
     demande = cmd_sortie.interpreter(
@@ -271,7 +271,7 @@ def boucle(
     base_routes: object | None = None,
 ) -> dict:
     """`POST /boucles` : candidates, coûts, météo le long du tracé, GPX écrit."""
-    from ourouler.boucle import commande as service
+    from ourouler.services import boucle as service
 
     ctx = contexte(config, lieu_depart=lieu_depart, avertir=avertir)
     demande = cmd_boucle.interpreter(

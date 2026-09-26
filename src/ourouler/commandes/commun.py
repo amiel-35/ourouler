@@ -17,8 +17,8 @@ from dataclasses import replace
 
 from ourouler.config import Config
 from ourouler.noyau.profil import Depart
-from ourouler.physique.commande import chemin_calibration
 from ourouler.services.contexte import Contexte
+from ourouler.services.physique import chemin_calibration
 
 
 def avertir(ligne: str) -> None:

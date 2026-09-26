@@ -87,7 +87,7 @@ class FauxPlacement:
 
 @dataclass
 class FausseProposition:
-    """Le strict minimum de l'interface de `sortie.commande.Proposition`."""
+    """Le strict minimum de l'interface de `services.sortie.Proposition`."""
 
     numero: int
     trace: Trace

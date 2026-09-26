@@ -223,7 +223,7 @@ export function directionEnToutesLettres(direction: string | null): string {
  * D'où viennent les paramètres physiques du vélo, **dit à un cycliste**.
  *
  * `modele_physique` vaut « calibration », « configuration » ou « défaut » :
- * c'est le vocabulaire du cœur (`physique/commande.parametres_du_velo`), et
+ * c'est le vocabulaire du cœur (`services/physique.parametres_du_velo`), et
  * affiché tel quel au bout d'une phrase écrite pour quelqu'un qui va rouler,
  * il donnerait « … — modèle calibration ».
  *

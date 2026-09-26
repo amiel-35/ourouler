@@ -44,7 +44,7 @@ from ourouler.services.contexte import Contexte
 #: Nom du fichier de base des routes connues, sous le dossier de cache. Il vit
 #: ici et non dans `apprentissage/routes.py` : le cœur reçoit un `Path` déjà
 #: résolu, il ne fabrique pas le nom du fichier (le cœur ne lit ni configuration
-#: ni environnement). `boucle/commande.py` le lit ici aussi.
+#: ni environnement). `services/boucle.py` le lit ici aussi.
 NOM_BASE = "routes_connues.sqlite"
 
 #: Nom du fichier de poids appris, sous le dossier de cache. Même raison.
@@ -145,7 +145,7 @@ def executer(
     (`docs/journal/questions/questions_mainteneur.md`) sans faire entrer la
     notion de service dans le cœur : le service reçoit un dépôt déjà fait et ne
     prononce jamais le mot
-    « propriétaire ». Voir `activites/commande.executer` pour le raisonnement
+    « propriétaire ». Voir `services/activites.executer` pour le raisonnement
     complet et la phrase de doctrine §10.1 qui le porte.
     """
     action = valider_action(demande.action)

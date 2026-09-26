@@ -1,6 +1,6 @@
 """Sous-commande `ourouler seance` : la séance du jour, et la route qu'elle demande.
 
-Ce module lit `calibration.json` (par `physique.commande`, qui sait où il
+Ce module lit `calibration.json` (par `services.physique`, qui sait où il
 est) et appelle Intervals.icu ; le reste de `seance/` ne connaît ni fichier,
 ni réseau. Le client est injectable pour que les tests ne touchent jamais le
 réseau.

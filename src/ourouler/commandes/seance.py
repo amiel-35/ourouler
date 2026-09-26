@@ -9,8 +9,8 @@ from pathlib import Path
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.seance import commande as service
-from ourouler.seance.commande import (
+from ourouler.services import seance as service
+from ourouler.services.seance import (
     DemandeSeance,
     ResultatPeriode,
     ResultatSeance,

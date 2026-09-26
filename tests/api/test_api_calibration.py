@@ -38,8 +38,7 @@ from ourouler.api.quotas import Quotas
 from ourouler.api.routes.commun import Clients
 from ourouler.api.session import MODE_HEBERGE
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique import commande as physique
-from ourouler.services import calibrer
+from ourouler.services import calibrer, physique
 from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
 PREFIXE = "/api/v1"

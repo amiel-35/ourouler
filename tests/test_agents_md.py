@@ -77,6 +77,11 @@ IGNORES: dict[str, frozenset[str]] = {
             "api/routes.py",
             "boucle/trace.py",
             "cli.py",
+            "commande.py",
+            "boucle/commande.py",
+            "meteo/commande.py",
+            "physique/commande.py",
+            "sortie/commande.py",
             "CLAUDE.local.md",
         }
     ),

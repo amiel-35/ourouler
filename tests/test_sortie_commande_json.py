@@ -18,7 +18,7 @@ from outils_sortie_commande import (
 )
 
 from ourouler.noyau.seance import Etape, Seance
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     _distance,
 )
 

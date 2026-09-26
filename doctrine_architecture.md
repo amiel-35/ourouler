@@ -123,7 +123,7 @@ ourouler/
 │   ├── commandes/             ← du Namespace à la Demande, puis au rendu imprimé
 │   ├── api/                   ← FastAPI, comptes, dépôts par propriétaire
 │   ├── rendu/                 ← texte, JSON, carte HTML
-│   ├── services/              ← cas d'usage (les autres sont dans */commande.py)
+│   ├── services/              ← cas d'usage, un module par sous-commande de calcul
 │   ├── connecteurs/, stockage/  ← adaptateurs HTTP et disque
 │   ├── physique/, meteo/, boucle/, seance/, sortie/  ← le domaine
 │   ├── activites/, apprentissage/, geocodage/

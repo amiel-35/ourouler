@@ -7,8 +7,8 @@ import argparse
 from ourouler.commandes.commun import imprimer_json
 from ourouler.config import Config
 from ourouler.connecteurs.geocodage import LIMITE_DEFAUT, ClientBAN, ClientNominatim
-from ourouler.geocodage import commande as service
-from ourouler.geocodage.commande import DemandeGeocodage, rendre_json, rendre_texte
+from ourouler.services import geocodage as service
+from ourouler.services.geocodage import DemandeGeocodage, rendre_json, rendre_texte
 
 
 def lire_options(args: argparse.Namespace) -> DemandeGeocodage:

@@ -12,7 +12,7 @@ ZWO et MRC d'abord, FIT ensuite — est celui de la maquette E17,
 
 Ce module ne lit aucune configuration, aucun chemin utilisateur, aucune
 variable d'environnement : `chemin` est un `Path` que l'appelant (`cli/`
-via `seance/commande.py` ou `sortie/commande.py`) a déjà choisi.
+via `services/seance.py` ou `services/sortie.py`) a déjà choisi.
 """
 
 from __future__ import annotations

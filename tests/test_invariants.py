@@ -329,8 +329,9 @@ def test_le_coeur_n_importe_pas_tomllib(module: Path):
     assert "os" not in importes
 
 
-#: Les trois paquets de commandes qui partent d'un point. Ils reçoivent un
-#: `Depart` déjà tranché ; ils ne doivent jamais résoudre une adresse eux-mêmes.
+#: Les trois paquets de commandes qui partent d'un point, et leur cas d'usage
+#: (`services/<paquet>.py`). Ils reçoivent un `Depart` déjà tranché ; ils ne
+#: doivent jamais résoudre une adresse eux-mêmes.
 PAQUETS_DE_COMMANDE = ("meteo", "boucle", "sortie")
 
 
@@ -340,10 +341,11 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
 
     Le connecteur de géocodage sort sur le réseau et interprète une saisie
     d'utilisateur : le cœur, qui ne sait pas où il tourne (règle absolue 2),
-    reçoit le point déjà choisi. Seuls `cli/` et le paquet `geocodage`
+    reçoit le point déjà choisi. Seuls `cli/` et `services/geocodage.py`
     (qui sert la sous-commande dédiée) ont le droit de l'importer.
     """
-    for module in sorted((SOURCES / paquet).rglob("*.py")):
+    modules = sorted((SOURCES / paquet).rglob("*.py")) + [SOURCES / "services" / f"{paquet}.py"]
+    for module in modules:
         source = module.read_text(encoding="utf-8")
         for noeud in ast.walk(ast.parse(source)):
             depuis = None
@@ -360,8 +362,8 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
 #: Les lecteurs de séance ZWO et MRC doivent être appelés par le cœur, pas
 #: seulement testés : un lecteur que rien n'appelle passe ses propres tests
 #: sans qu'aucune commande ne sache lire ces fichiers. Ils le sont via
-#: `seance/fichier.py`, lui-même appelé par `seance/commande.py` et
-#: `sortie/commande.py` (constat C1 de `docs/journal/ux/relecture_f0.md`).
+#: `seance/fichier.py`, lui-même appelé par `services/seance.py` et
+#: `services/sortie.py` (constat C1 de `docs/journal/ux/relecture_f0.md`).
 MODULES_SANS_APPELANT_HISTORIQUE = ("seance.zwo", "seance.mrc")
 
 

@@ -1,6 +1,6 @@
 """Ce que `ourouler boucle` montre de ses candidates : le tableau texte et le JSON.
 
-La couche de rendu (`ARCHITECTURE.md`). `boucle/commande.py`
+La couche de rendu (`ARCHITECTURE.md`). `services/boucle.py`
 cherche, mesure, classe et écrit le GPX ; il passe ici des objets déjà
 construits — `Evaluation`, `Demande`, `ModeleTemps`, la `Config` et le bloc
 « compteur » — et imprime ce qui en revient. Ce module ne lit ni fichier, ni
@@ -18,7 +18,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ourouler.boucle.commande import TAGS_PROVENANCE_RAPPROCHEMENT, Demande, Evaluation, ModeleTemps
 from ourouler.boucle.horaire import duree_pauses_s
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.meteo import portee
@@ -30,6 +29,7 @@ from ourouler.rendu.boucle_json import (
     _meteo_rendue,
     porte_a_porte,
 )
+from ourouler.services.boucle import TAGS_PROVENANCE_RAPPROCHEMENT, Demande, Evaluation, ModeleTemps
 
 if TYPE_CHECKING:
     # Le rendu lit les champs d'une `Config` déjà chargée ; il n'importe pas,
@@ -188,7 +188,7 @@ def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
     (`docs/journal/questions/questions_mainteneur.md`). Rien ne s'affiche quand
     toutes les boucles tiennent dans la tolérance — c'est le cas normal, et une
     ligne qui signale ce qui ne compte pas apprend à ne plus lire la ligne
-    (même raison que `SEUIL_ECART_DUREE` dans `sortie/commande.py`).
+    (même raison que `SEUIL_ECART_DUREE` dans `services/sortie.py`).
 
     Partagée avec `sortie`, qui rend le même fait dans un autre tableau : le
     cycliste n'a pas à apprendre deux formulations pour une seule notion.
@@ -637,7 +637,7 @@ def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = 
 def texte_entre(pp: PorteAPorte) -> str:
     """« entre 4 h 23 et 4 h 38 » — la fourchette du porte à porte, en toutes lettres.
 
-    Publique : `sortie.commande` dit la sienne avec les mêmes mots.
+    Publique : `services.sortie` dit la sienne avec les mêmes mots.
     """
     return f"entre {_heures_minutes(pp.bas_s)} et {_heures_minutes(pp.haut_s)}"
 
@@ -666,7 +666,7 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     seul chiffre de plus n'aurait pas tenu en largeur de terminal. La CLI et
     le JSON disent la même chose : `temps_estime_s`/`temps_ecoule_s`.
 
-    **Publique et non préfixée** : `sortie.commande` l'appelle telle quelle
+    **Publique et non préfixée** : `services.sortie` l'appelle telle quelle
     plutôt que de réécrire la même phrase pour son propre tableau — même
     raison que `lignes_elargissement` juste au-dessus.
 

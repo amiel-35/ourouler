@@ -83,14 +83,13 @@ Tout est sous `src/ourouler/`.
 | `connecteurs/` | clients HTTP : BRouter, Intervals.icu, archives Open-Meteo, géocodage | `brouter.py`, `intervals.py`, `openmeteo_archive.py`, `geocodage.py` |
 | `stockage/` | ce qui s'écrit sur disque et se relit : `calibration.json` ; le cache d'activités, les routes connues et le cache des prévisions n'y sont pas encore | `calibrations.py` |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, portée des modèles, cache mutualisé | `rapport.py`, `openmeteo.py`, `cache_previsions.py` |
-| `boucle/` | candidates de boucle, coûts, météo le long du tracé, découpage en mailles, antennes, GPX | `commande.py`, `meteo_trace.py`, `couts.py`, `candidates.py`, `mailles.py` |
-| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr, ses échantillons (`echantillonnage.py`), sa validation (`validation.py`), la détection des sorties en groupe (`groupe.py`) ; `commande.py` porte les cas d'usage `calibrer`, `simuler`, `analyser` | `calibration.py`, `modele.py`, `commande.py` |
-| `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain (`placement.py`, son résultat dans `placement_resultat.py`, sa note dans `placement_note.py`, le tracé en pas dans `pas_trace.py`), tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py`, `terrain.py`, `intervals.py`, `commande.py` |
-| `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions, vent de la demande | `commande.py`, `contraste.py` |
-| `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py`, `commande.py` |
-| `geocodage/` | la sous-commande `geocoder` | `commande.py` |
+| `boucle/` | candidates de boucle, coûts, météo le long du tracé, découpage en mailles, antennes, GPX | `meteo_trace.py`, `couts.py`, `candidates.py`, `mailles.py` |
+| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr, ses échantillons (`echantillonnage.py`), sa validation (`validation.py`), la détection des sorties en groupe (`groupe.py`) | `calibration.py`, `modele.py` |
+| `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain (`placement.py`, son résultat dans `placement_resultat.py`, sa note dans `placement_note.py`, le tracé en pas dans `pas_trace.py`), tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py`, `terrain.py`, `intervals.py` |
+| `sortie/` | la séance du jour posée sur une boucle : contraste des propositions, orientation et vent de la demande (l'orchestration est le cas d'usage `services/sortie.py`) | `contraste.py`, `orientation.py`, `vent_demande.py` |
+| `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` |
 | `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`, `sortie_json.py`) et de `boucle` (`boucle.py`, `boucle_json.py`), la carte HTML (`carte.py`, avec `carte_dessin.py` et `carte_jour.py`), le texte et le JSON de `calibrer`, `simuler` et `analyser` (`physique.py`), de `comparer` (`comparaison.py`) et de `routes` (`routes.py`) | `sortie.py`, `carte.py`, `boucle.py`, `physique.py` |
-| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`) ; comparer deux vélos (`comparer.py`) ; le `Contexte` que reçoit tout service (`contexte.py`). Les autres cas d'usage vivent encore dans les `*/commande.py` de leur paquet, sous la même règle | `comparer.py`, `calibrer.py`, `comptes.py`, `contexte.py` |
+| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`) ; comparer deux vélos (`comparer.py`) ; le `Contexte` que reçoit tout service (`contexte.py`) ; et un module par domaine pour les sous-commandes de calcul : `sortie.py`, `boucle.py`, `physique.py` (`calibrer`, `simuler`, `analyser`), `seance.py`, `meteo.py`, `apprentissage.py` (`routes`), `activites.py` (`inventaire`), `geocodage.py` (`geocoder`) | `sortie.py`, `boucle.py`, `physique.py`, `comptes.py`, `contexte.py` |
 | `api/` | application FastAPI, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond ; les routes, un module par domaine sous `routes/` ; les deux chemins vers le cœur (`adaptateur.py`, `calculs.py`, `double_chemin.py`, voir §4) ; la seule lecture de l'environnement de l'API (`exploitation.py`) | `application.py`, `comptes.py`, `depots.py`, `double_chemin.py`, `routes/` |
 
 Les anciens chemins *boucle/trace.py*, *activites/modele.py*, *erreurs.py*
@@ -98,7 +97,10 @@ et *proprietaire.py* à la racine du paquet, *seance/modele.py*,
 *seance/zones.py*, *sortie/carte.py* et *physique/comparer.py* n'existent
 plus : le code importe directement le noyau (ou `rendu/carte.py`,
 `services/comparer.py`). `config.py` garde `Velo`, `Depart`… comme alias
-public délibéré (souvent importés ainsi).
+public délibéré (souvent importés ainsi). De même, *cli.py*, les huit
+*commande.py* rangés dans le dossier de leur domaine et le paquet
+*geocodage/* n'existent plus : `cli/` et `services/<domaine>.py` les
+remplacent, sans réexport à l'ancien chemin.
 
 argparse est sorti des cas d'usage. Chaque sous-commande a sa `Demande` (une
 dataclass, dans le module du service) et un service
@@ -172,18 +174,15 @@ client SMTP, la lecture des variables de l'hébergé, les dépôts à effacer) :
 c'est lui qui construit ces dépendances et les passe au service, d'une
 entrée à une autre, sans cycle.
 
-**Les cas d'usage n'ont pas tous rejoint `services/`.** Le rendu est sorti
-des `commande.py` (vers `rendu/`), argparse et l'impression aussi (vers
-`commandes/`). Mais `sortie/commande.py`, `boucle/commande.py`,
-`physique/commande.py`, `seance/commande.py`, `meteo/commande.py`,
-`apprentissage/commande.py`, `activites/commande.py` et
-`geocodage/commande.py` restent, chacun dans le dossier de son domaine, des
-cas d'usage (couche 3) : `tests/test_architecture.py` les range par leur
-rôle (`MODULES`), pas par leur dossier.
+**Trois cas d'usage vivent encore hors de `services/`.** Les sous-commandes
+de calcul ont chacune leur module dans `services/` ; restent dans le dossier
+de leur domaine `activites/inventaire.py`, `apprentissage/routes.py` et
+`seance/ecran_ftp.py`, qui lisent le cache ou un fichier pour rendre un
+résultat : `tests/test_architecture.py` les range par leur rôle (`MODULES`),
+pas par leur dossier.
 
-**Par dossier, des cycles d'imports subsistent** — un cas d'usage rangé dans
-le dossier de son domaine importe d'autres paquets, que le domaine importe à
-son tour. Par rôle, aucun : la table `EXCEPTIONS` de
+**Par dossier, des cycles d'imports subsistent** — un module rangé dans un
+dossier importe d'autres paquets, qui importent ce dossier à leur tour. Par rôle, aucun : la table `EXCEPTIONS` de
 `tests/test_architecture.py` est vide, et le test échoue sur toute
 violation nouvelle.
 
@@ -191,8 +190,8 @@ violation nouvelle.
 des activités déjà lues, l'archive météo déjà obtenue
 (`noyau.meteo.HeureArchive`) et une masse ; le choix et la lecture des
 sorties (cache, inventaire, archive, profil) sont dans
-`services/calibrer.py`. Hors `commande.py` (un cas d'usage), `physique/`
-n'importe ni `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`
+`services/calibrer.py`, et ses cas d'usage dans `services/physique.py` :
+`physique/` n'importe ni `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`
 (`tests/test_architecture.py`,
 `test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`).
 
@@ -256,7 +255,7 @@ les exceptions qu'elle rend inutiles.
    `ParametresCache`.
 3. Casser le cycle `api` ↔ `cli` : `profil_json` passe au rendu, les comptes
    et invitations passent aux services. *Fait.*
-4. Sortir le rendu texte et JSON des `commande.py` de `sortie`, `boucle` et
+4. Sortir le rendu texte et JSON des cas d'usage de `sortie`, `boucle` et
    `physique`. *Fait* : `rendu/sortie.py`, `rendu/boucle.py`,
    `rendu/carte.py`, `rendu/physique.py`.
 5. Isoler le stockage des calibrations : le domaine reçoit des paramètres,
@@ -285,6 +284,9 @@ les exceptions qu'elle rend inutiles.
     `front/tests/reseau_unique.test.ts`, `front/tests/types_openapi.test.ts`,
     `front/tests/taille_composants.test.ts`.
 13. Retirer les réexports. *Fait.*
+14. Ranger les cas d'usage des sous-commandes dans `services/` et découper
+    la ligne de commande en paquet `cli/`. *Fait* : `services/sortie.py`,
+    `services/boucle.py`… et `cli/parseur.py`, `cli/comptes.py`.
 
 ## 6. Le trajet d'une demande « sortie »
 
@@ -306,7 +308,7 @@ api/adaptateur.py       Namespace argparse + verrou global
   ▼
 commandes/sortie.py     du Namespace à la Demande, puis le service
   ▼
-sortie/commande.py      executer(demande, contexte, clients…)
+services/sortie.py      executer(demande, contexte, clients…)
   │   ├─ séance du jour ─────────────► connecteurs/intervals.py ──► Intervals.icu
   │   ├─ paramètres du vélo (physique/parametres_velo.py, calibration lue par stockage/calibrations.py)
   │   ├─ vent au départ ─────────────► meteo/openmeteo.py ────────► Open-Meteo

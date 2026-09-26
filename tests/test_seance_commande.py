@@ -22,10 +22,10 @@ from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.seance import Etape, Seance
-from ourouler.physique.commande import chemin_calibration
 from ourouler.physique.modele import Parametres, vitesse_regime
-from ourouler.seance.commande import longueurs, rendre_json, rendre_texte
 from ourouler.seance.intervals import depuis_workout_doc
+from ourouler.services.physique import chemin_calibration
+from ourouler.services.seance import longueurs, rendre_json, rendre_texte
 from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
 JOUR = date(2026, 9, 8)
@@ -314,7 +314,7 @@ def test_le_tableau_a_une_ligne_par_etape(tmp_path):
     ecrire_calibration_de_test(tmp_path)
     seance = seance_4x8()
     mesures = longueurs(seance, parametres=PARAMETRES)
-    from ourouler.seance.commande import SourceVitesse
+    from ourouler.services.seance import SourceVitesse
 
     source = SourceVitesse("calibration", "Route", PARAMETRES, None)
     texte = rendre_texte(seance, mesures, source)
@@ -326,7 +326,7 @@ def test_le_tableau_a_une_ligne_par_etape(tmp_path):
 
 
 def test_le_json_est_serialisable_et_complet():
-    from ourouler.seance.commande import SourceVitesse
+    from ourouler.services.seance import SourceVitesse
 
     seance = depuis_workout_doc(W.groupes_hr_zone(), nom="HIT", jour=JOUR, ftp_w=FTP)
     mesures = longueurs(seance, vitesse_ms=7.5)

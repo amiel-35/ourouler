@@ -163,7 +163,7 @@ def _ligne_candidat(candidat: Candidat) -> str:
 
 def _routes_connues_existent(config: Config) -> bool:
     """Vrai si le cache porte déjà une base de routes apprises. Lecture de fichier : `cli/` a le droit."""
-    from ourouler.apprentissage.commande import NOM_BASE
+    from ourouler.services.apprentissage import NOM_BASE
 
     try:
         return (config.cache.dossier / NOM_BASE).exists()

@@ -21,14 +21,14 @@ from outils_boucle_commande import (
     moteur_meteo,
 )
 
-from ourouler.boucle.commande import (
-    direction_en_azimut,
-)
 from ourouler.cli import construire_parseur, main
 from ourouler.commandes.boucle import executer_depuis_namespace as executer
 from ourouler.commandes.boucle import lire_options
 from ourouler.config import depuis_dict
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.services.boucle import (
+    direction_en_azimut,
+)
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
