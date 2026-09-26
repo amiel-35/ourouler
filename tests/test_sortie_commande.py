@@ -29,7 +29,6 @@ import httpx
 import pytest
 from test_seance_intervals import ATHLETE, CLE, W
 
-from ourouler.boucle.commande import ligne_temps_ecoule
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.cli import construire_parseur, main
@@ -51,6 +50,7 @@ from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.physique.modele import Parametres
 from ourouler.rendu import carte
+from ourouler.rendu.boucle import ligne_temps_ecoule
 from ourouler.rendu.carte import COULEURS_BLOCS
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc

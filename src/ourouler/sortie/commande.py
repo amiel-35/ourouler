@@ -77,12 +77,7 @@ from pathlib import Path
 from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
-from ourouler.boucle.commande import (
-    direction_en_azimut,
-    ligne_temps_ecoule,
-    lignes_elargissement,
-    porte_a_porte,
-)
+from ourouler.boucle.commande import direction_en_azimut
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.couts import evaluer as evaluer_couts
 from ourouler.boucle.geometrie import geometrie_json
@@ -109,6 +104,7 @@ from ourouler.noyau.profil import Depart
 from ourouler.noyau.seance import Seance
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
+from ourouler.rendu.boucle import ligne_temps_ecoule, lignes_elargissement, porte_a_porte
 from ourouler.rendu.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur

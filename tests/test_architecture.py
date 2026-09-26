@@ -25,10 +25,10 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 6 : 1 exception, échéance 2026-11-30
+    lot 6 : 2 exceptions, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
-    lot 10 : 9 exceptions, échéance 2026-12-31
-    total : 14 exceptions
+    lot 10 : 10 exceptions, échéance 2026-12-31
+    total : 16 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -253,6 +253,7 @@ MODULES: dict[str, str] = {
     "ourouler.sortie.commande": "services",
     # 4. rendu
     "ourouler.rendu": "rendu",
+    "ourouler.rendu.boucle": "rendu",
     "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.comptes": "rendu",
     "ourouler.rendu.profil": "rendu",
@@ -297,6 +298,7 @@ ECHEANCES = {
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
     ("ourouler.sortie.commande", "ourouler.rendu.carte", "lot 6", "2026-11-30"),
+    ("ourouler.sortie.commande", "ourouler.rendu.boucle", "lot 6", "2026-11-30"),
     # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
     # cache, l'inventaire ni le connecteur d'archive météo.
     ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
@@ -324,6 +326,13 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # en est devenu la commande, et garde sa signature en `Config` pour `cli`.
     ("ourouler.seance.ecran_ftp", "ourouler.config", "lot 10", "2026-12-31"),
     ("ourouler.sortie.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    # Lot 10 (ouvert au lot 6) : le rendu est sorti des commandes, mais c'est
+    # encore `executer` qui imprime — `cli.py` et l'API l'appellent et lisent
+    # la sortie standard. L'appel au rendu y est différé (le rendu importe les
+    # types de la commande) mais c'est une arête qui monte, nommée ici. Quand
+    # `cli` construit la `Demande` et reçoit un résultat (lot 10), c'est lui
+    # qui appelle le rendu, et ces arêtes tombent.
+    ("ourouler.boucle.commande", "ourouler.rendu.boucle", "lot 10", "2026-12-31"),
 ]
 
 #: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
@@ -351,8 +360,9 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     ("ourouler.cli", "ourouler.api.courriel"),
     ("ourouler.cli", "ourouler.services.comptes"),
     # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
-    # l'entrée qui la charge (lot 5).
+    # l'entrée qui la charge (lot 5) ; celui des parcours de même (lot 6).
     ("ourouler.rendu.profil", "ourouler.config"),
+    ("ourouler.rendu.boucle", "ourouler.config"),
 }
 
 

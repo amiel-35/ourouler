@@ -217,7 +217,7 @@ MOTIFS_AVERTISSEMENT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "météo indisponible",
         "meteo_indisponible",
-        ("sortie/commande.py", "boucle/commande.py", "physique/commande.py"),
+        ("sortie/commande.py", "rendu/boucle.py", "physique/commande.py"),
     ),
     # Écrit par l'API elle-même (`routes.geocodage`), pas par le cœur : zéro
     # candidat n'est pas une panne, mais E16 a besoin d'une phrase.
