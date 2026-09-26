@@ -7,6 +7,7 @@ from datetime import date
 from ourouler.api import calculs
 from ourouler.api.double_chemin import calculer
 from ourouler.api.erreurs import ErreurApi
+from ourouler.api.reponses import ReponseCalcul, ReponseInventaire, reponse_de
 from ourouler.api.routes.commun import Ctx, Qui, _base_routes, _cache, _config, _service, nouveau_routeur
 
 routeur = nouveau_routeur()
@@ -15,7 +16,7 @@ routeur = nouveau_routeur()
 # --- inventaire et routes connues ---------------------------------------------
 
 
-@routeur.get("/inventaire")
+@routeur.get("/inventaire", **reponse_de(ReponseInventaire))
 def inventaire(
     ctx: Ctx,
     qui: Qui,
@@ -51,7 +52,7 @@ def inventaire(
     return resultat.enveloppe(ctx.budgets.budget("inventaire"), qui)
 
 
-@routeur.get("/routes/{action}")
+@routeur.get("/routes/{action}", **reponse_de(ReponseCalcul))
 def routes_connues(
     ctx: Ctx,
     qui: Qui,

@@ -10,6 +10,7 @@ from fastapi import File, Request, UploadFile
 from ourouler.api import calculs
 from ourouler.api.double_chemin import calculer
 from ourouler.api.erreurs import ErreurApi, classer
+from ourouler.api.reponses import ReponseSeance, ReponseSeanceDeposee, ReponseSemaine, reponse_de
 from ourouler.api.routes.commun import (
     TAILLE_MAX_SEANCE,
     Ctx,
@@ -27,7 +28,7 @@ routeur = nouveau_routeur()
 # --- séances ------------------------------------------------------------------
 
 
-@routeur.get("/seances")
+@routeur.get("/seances", **reponse_de(ReponseSemaine))
 def seances(
     ctx: Ctx,
     qui: Qui,
@@ -63,7 +64,7 @@ def seances(
     return resultat.enveloppe(ctx.budgets.budget("seances"), qui)
 
 
-@routeur.get("/seances/{jour}")
+@routeur.get("/seances/{jour}", **reponse_de(ReponseSeance))
 def seance_du_jour(
     ctx: Ctx,
     qui: Qui,
@@ -96,7 +97,7 @@ def seance_du_jour(
     return resultat.enveloppe(ctx.budgets.budget("seance"), qui)
 
 
-@routeur.post("/seances/fichier")
+@routeur.post("/seances/fichier", **reponse_de(ReponseSeanceDeposee))
 async def deposer_seance(
     ctx: Ctx,
     qui: Qui,

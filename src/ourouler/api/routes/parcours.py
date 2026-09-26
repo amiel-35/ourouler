@@ -10,6 +10,7 @@ from ourouler.api import calculs
 from ourouler.api.double_chemin import calculer
 from ourouler.api.erreurs import ErreurApi, classer
 from ourouler.api.modeles import DemandeAnalyse, DemandeSimulation
+from ourouler.api.reponses import ReponseCalcul, reponse_de
 from ourouler.api.routes.commun import (
     TAILLE_MAX_PARCOURS,
     Ctx,
@@ -25,7 +26,7 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 routeur = nouveau_routeur()
 
 
-@routeur.post("/simulations")
+@routeur.post("/simulations", **reponse_de(ReponseCalcul))
 def simuler(
     ctx: Ctx,
     qui: Qui,
@@ -139,7 +140,7 @@ async def deposer_parcours(
     }
 
 
-@routeur.post("/parcours/analyser")
+@routeur.post("/parcours/analyser", **reponse_de(ReponseCalcul))
 def analyser_parcours(
     ctx: Ctx,
     qui: Qui,

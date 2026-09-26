@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from ourouler import __version__
+from ourouler.api.reponses import ReponseBudgets, ReponseSysteme, reponse_de
 from ourouler.api.routes.commun import Ctx, Qui, _config, nouveau_routeur
 from ourouler.api.session import MODE_PERSONNEL
 
 routeur = nouveau_routeur()
 
 
-@routeur.get("/systeme")
+@routeur.get("/systeme", **reponse_de(ReponseSysteme))
 def systeme(
     ctx: Ctx,
     qui: Qui,
@@ -60,7 +61,7 @@ def systeme(
     return charge
 
 
-@routeur.get("/systeme/budgets")
+@routeur.get("/systeme/budgets", **reponse_de(ReponseBudgets))
 def budgets(ctx: Ctx, qui: Qui) -> dict:
     """Combien de temps chaque opération prend **sur ce serveur**, et d'où vient le chiffre.
 

@@ -356,6 +356,7 @@ def creer_application(
         chemin_api=chemin_api,
     )
     app.include_router(routeur)
+    _publier_les_modeles_de_reponse(app)
     app.add_middleware(LimiteTailleCorps, bornes=BORNES_CORPS)
     # Ajouté après, donc **extérieur** : les refus qui se savent sans le
     # corps (session, verrou, quota) passent avant qu'on en compte un octet.
@@ -495,6 +496,20 @@ def creer_application(
         app.mount("/", _StaticFilesAvecCache(directory=dossier_front, html=True), name="front")
 
     return app
+
+
+def _publier_les_modeles_de_reponse(app: FastAPI) -> None:
+    """Le schéma OpenAPI, une fois produit par FastAPI, nettoyé par `reponses.publier_modeles`."""
+    from ourouler.api.reponses import publier_modeles
+
+    produire = app.openapi
+
+    def openapi() -> dict:
+        if app.openapi_schema is None:
+            app.openapi_schema = publier_modeles(produire())
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
 
 
 def application() -> FastAPI:

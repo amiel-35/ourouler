@@ -340,6 +340,7 @@ MODULES: dict[str, str] = {
     "ourouler.api.adaptateur": "api",
     "ourouler.api.calculs": "api",
     "ourouler.api.double_chemin": "api",
+    "ourouler.api.reponses": "api",
     "ourouler.api.application": "api",
     "ourouler.api.base_de_donnees": "api",
     "ourouler.api.calibrations": "api",

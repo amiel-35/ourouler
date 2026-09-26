@@ -9,6 +9,7 @@ from __future__ import annotations
 from ourouler.api.erreurs import ErreurApi, classer
 from ourouler.api.modeles import DemandeCalibration
 from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.reponses import ReponseCalibrations, reponse_de
 from ourouler.api.routes.commun import (
     Contexte,
     Ctx,
@@ -31,7 +32,7 @@ routeur = nouveau_routeur()
 # --- calibration depuis l'écran (L9.4) ------------------------------------------
 
 
-@routeur.get("/calibrations")
+@routeur.get("/calibrations", **reponse_de(ReponseCalibrations))
 def etat_calibrations(ctx: Ctx, qui: Qui) -> dict:
     """Pour chaque vélo : sa calibration en mots simples, de quoi la lancer, la tâche récente.
 

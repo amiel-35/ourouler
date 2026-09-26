@@ -12,6 +12,7 @@ from ourouler.api.double_chemin import calculer
 from ourouler.api.erreurs import ErreurApi
 from ourouler.api.modeles import DemandeBoucle, DemandeSortie
 from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.reponses import ReponseBoucle, ReponseSortie, reponse_de
 from ourouler.api.routes.commun import (
     Contexte,
     Ctx,
@@ -33,7 +34,7 @@ routeur = nouveau_routeur()
 # --- parcours -----------------------------------------------------------------
 
 
-@routeur.post("/sorties")
+@routeur.post("/sorties", **reponse_de(ReponseSortie))
 def generer_sortie(
     ctx: Ctx,
     qui: Qui,
@@ -154,7 +155,7 @@ def gpx_de_proposition(
     )
 
 
-@routeur.post("/boucles")
+@routeur.post("/boucles", **reponse_de(ReponseBoucle))
 def generer_boucle(
     ctx: Ctx,
     qui: Qui,

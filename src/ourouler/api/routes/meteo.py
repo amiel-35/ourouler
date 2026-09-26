@@ -11,6 +11,7 @@ from ourouler.api.adaptateur import Avertissement
 from ourouler.api.double_chemin import calculer
 from ourouler.api.erreurs import ErreurApi, classer_avertissement
 from ourouler.api.modeles import TexteUtile
+from ourouler.api.reponses import ReponseGeocodage, ReponseMeteo, ReponseVentDepart, reponse_de
 from ourouler.api.routes.commun import (
     Ctx,
     Qui,
@@ -28,7 +29,7 @@ routeur = nouveau_routeur()
 # --- géocodage ----------------------------------------------------------------
 
 
-@routeur.get("/geocodage")
+@routeur.get("/geocodage", **reponse_de(ReponseGeocodage))
 def geocoder(
     ctx: Ctx,
     qui: Qui,
@@ -81,7 +82,7 @@ def geocoder(
 # --- météo --------------------------------------------------------------------
 
 
-@routeur.get("/vent-depart")
+@routeur.get("/vent-depart", **reponse_de(ReponseVentDepart))
 def vent_depart(
     ctx: Ctx,
     qui: Qui,
@@ -136,7 +137,7 @@ def vent_depart(
     return resultat.enveloppe(ctx.budgets.budget("vent-depart"), qui)
 
 
-@routeur.get("/meteo")
+@routeur.get("/meteo", **reponse_de(ReponseMeteo))
 def meteo(
     ctx: Ctx,
     qui: Qui,
