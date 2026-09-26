@@ -624,6 +624,78 @@ def _essayer(
     informations: list[str] = []
     ecarts: list[_EcartElastique] = []  # les étapes élastiques telles que placées
 
+    motif = _derouler_etapes(
+        trace,
+        terrain,
+        etat,
+        etapes=etapes,
+        fin=fin,
+        decalage_s=decalage_s,
+        idx_ouverture=idx_ouverture,
+        penalite_demi_tour=penalite_demi_tour,
+        ftp_w=ftp_w,
+        emplacements=emplacements,
+        avertissements=avertissements,
+        ecarts=ecarts,
+    )
+    if motif is not None:
+        return motif
+
+    if idx_fermeture is not None:
+        motif = _fermer(
+            terrain,
+            etat,
+            etapes[idx_fermeture],
+            idx_fermeture,
+            elasticite_calme=elasticite_calme,
+            avertissements=avertissements,
+            informations=informations,
+            ecarts=ecarts,
+            emplacements=emplacements,
+        )
+        if motif is not None:
+            return motif
+    _avertir_fin(terrain, etat, avertissements, fermee=idx_fermeture is not None)
+
+    penalite = _penalite_seance(ecarts, elasticite, elasticite_calme)
+    # Seuls les blocs portent une note : une récupération n'est jamais évaluée
+    # (règle du sprint 4). `_note_ponderee` suppose que chaque emplacement
+    # qu'on lui passe a un `note` non `None` — un filtre, jamais un `or 0.0`,
+    # qui ferait entrer une note neutre inventée dans la moyenne.
+    terrain_note = _note_ponderee([e for e in emplacements if e.note is not None], etapes)
+    return Placement(
+        decalage_z2_s=decalage_s,
+        emplacements=emplacements,
+        note_totale=terrain_note + penalite,
+        duree_totale_s=etat.duree_s,
+        distance_totale_m=etat.distance_m,
+        avertissements=list(dict.fromkeys(avertissements)),
+        informations=list(dict.fromkeys(informations)),
+        note_terrain=terrain_note,
+        penalite_seance=penalite,
+        jalons_m=[*etat.jalons, etat.position_m],
+    )
+
+
+def _derouler_etapes(
+    trace: Trace,
+    terrain: _Terrain,
+    etat: _Etat,
+    *,
+    etapes: Sequence[Etape],
+    fin: int,
+    decalage_s: float,
+    idx_ouverture: int | None,
+    penalite_demi_tour: float,
+    ftp_w: float | None,
+    emplacements: list[Emplacement],
+    avertissements: list[str],
+    ecarts: list[_EcartElastique],
+) -> str | None:
+    """Roule les étapes jusqu'à `fin` (exclue) ; `None`, ou le motif qui a coincé.
+
+    Remplit `emplacements`, `avertissements` et `ecarts` en faisant avancer `etat`.
+    """
     i = 0
     # `True` dès qu'un bloc a été placé : condition exacte de la variante
     # demi-tour, « précédé d'une récupération et d'un autre bloc ». Avant le
@@ -641,13 +713,7 @@ def _essayer(
                 "au-delà de sa durée"
             )
         if i == idx_ouverture and etape.duree_s > 0:
-            ecarts.append(
-                _EcartElastique(
-                    ecart=duree / etape.duree_s - 1.0,
-                    depassement_s=max(0.0, duree - etape.duree_s),
-                    absorbe=False,
-                )
-            )
+            ecarts.append(_ecart_ouverture(etape, duree))
         puissance = _puissance(etape, avertissements, i)
         suivante = etapes[i + 1] if i + 1 < fin else None
 
@@ -693,40 +759,15 @@ def _essayer(
             return emplacement
         emplacements.append(emplacement)
         i += 1
+    return None
 
-    if idx_fermeture is not None:
-        motif = _fermer(
-            terrain,
-            etat,
-            etapes[idx_fermeture],
-            idx_fermeture,
-            elasticite_calme=elasticite_calme,
-            avertissements=avertissements,
-            informations=informations,
-            ecarts=ecarts,
-            emplacements=emplacements,
-        )
-        if motif is not None:
-            return motif
-    _avertir_fin(terrain, etat, avertissements, fermee=idx_fermeture is not None)
 
-    penalite = _penalite_seance(ecarts, elasticite, elasticite_calme)
-    # Seuls les blocs portent une note : une récupération n'est jamais évaluée
-    # (règle du sprint 4). `_note_ponderee` suppose que chaque emplacement
-    # qu'on lui passe a un `note` non `None` — un filtre, jamais un `or 0.0`,
-    # qui ferait entrer une note neutre inventée dans la moyenne.
-    terrain_note = _note_ponderee([e for e in emplacements if e.note is not None], etapes)
-    return Placement(
-        decalage_z2_s=decalage_s,
-        emplacements=emplacements,
-        note_totale=terrain_note + penalite,
-        duree_totale_s=etat.duree_s,
-        distance_totale_m=etat.distance_m,
-        avertissements=list(dict.fromkeys(avertissements)),
-        informations=list(dict.fromkeys(informations)),
-        note_terrain=terrain_note,
-        penalite_seance=penalite,
-        jalons_m=[*etat.jalons, etat.position_m],
+def _ecart_ouverture(etape: Etape, duree: float) -> _EcartElastique:
+    """L'écart de la Z2 d'ouverture à sa durée prescrite, une fois décalée."""
+    return _EcartElastique(
+        ecart=duree / etape.duree_s - 1.0,
+        depassement_s=max(0.0, duree - etape.duree_s),
+        absorbe=False,
     )
 
 
