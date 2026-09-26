@@ -402,9 +402,9 @@ def ajouter_inventaire(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_inventaire(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.activites.commande import executer  # import paresseux (lot L1.3)
+    from ourouler.commandes.inventaire import executer_depuis_namespace  # import paresseux (lot L1.3)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_meteo(sous: argparse._SubParsersAction) -> None:
