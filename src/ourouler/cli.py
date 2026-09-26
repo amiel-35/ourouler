@@ -547,9 +547,9 @@ def ajouter_routes(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_routes(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.apprentissage.commande import executer  # import paresseux (lot L3.2)
+    from ourouler.commandes.routes import executer_depuis_namespace  # import paresseux (lot L3.2)
 
-    return executer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_calibrer(sous: argparse._SubParsersAction) -> None:
