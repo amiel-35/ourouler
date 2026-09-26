@@ -136,7 +136,7 @@ def nom_de_azimut(azimut_deg: float, directions: int = 8) -> str:
     Elle existe pour que le **front n'ait pas à la refaire** : « vent de
     sud-ouest » est une valeur affichée, et une valeur affichée ne se calcule
     pas côté écran. Un azimut non fini n'a pas de nom — on rend `""` plutôt
-    qu'une direction inventée (règle absolue 5).
+    qu'une direction inventée (on n'affirme rien sans mesure).
     """
     if not math.isfinite(azimut_deg):
         return ""

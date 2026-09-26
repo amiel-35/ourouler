@@ -25,11 +25,10 @@ from ourouler.seance.terrain import NoteBloc
 class Emplacement:
     """Où tombe une étape de la séance, et ce que vaut le terrain à cet endroit.
 
-    Depuis le lot L5.2 (Q13), **une étape de la séance = un `Emplacement`**,
+    **Une étape de la séance = un `Emplacement`** (décision Q13),
     pas seulement les blocs : l'échauffement, les récupérations et le retour
     au calme ont eux aussi une position, même sans note — aucun terrain n'est
-    évalué sous une récupération, c'est la règle du sprint 4 et elle ne
-    bouge pas. `note` vaut donc `None` pour tout ce qui n'est pas un bloc ;
+    évalué sous une récupération. `note` vaut donc `None` pour tout ce qui n'est pas un bloc ;
     ce n'est pas une valeur neutre inventée, c'est l'absence de mesure. Un
     appelant qui ne veut que les blocs (l'ancien comportement) utilise
     `Placement.blocs()`, qui filtre sur `note is not None` — c'est exactement
@@ -61,14 +60,14 @@ class Emplacement:
     estimée (`2 × besoin_m`, aller et retour), pas l'écart entre les deux
     points du tracé (qui vaudrait `besoin_m`) et surtout pas zéro (le départ
     et l'arrivée de cette étape sont le même point). C'est cette même
-    estimation `2 × besoin_m` qui est ajoutée à `_Etat.distance_m` ; l'un des
-    deux invariants du contrat §2.2 a) — la somme des longueurs vaut
-    `distance_totale_m` — tient donc par construction.
+    estimation `2 × besoin_m` qui est ajoutée à `_Etat.distance_m` ; l'invariant
+    « la somme des longueurs vaut `distance_totale_m` » tient donc par
+    construction.
 
     **`jalons_m` n'est pas cette même autorité.** Au bout d'une boucle
     fermée, le point de demi-tour qu'il mémorise est écrêté par
-    `_Terrain.dans_le_trace` (approximation connue et documentée depuis le
-    sprint 4, voir sa docstring) : `jalons_m` peut alors totaliser un peu
+    `_Terrain.dans_le_trace` (approximation connue et documentée, voir sa
+    docstring) : `jalons_m` peut alors totaliser un peu
     moins que `distance_totale_m`. `debut_m`/`longueur_m` ne portent pas cet
     écrêtage — ils viennent du point de demi-tour **non écrêté**, cohérent
     avec ce qui est réellement ajouté à `_Etat.distance_m`.
@@ -91,8 +90,7 @@ class Placement:
 
     decalage_z2_s: float  # allongement (ou raccourcissement) de la Z2 d'ouverture
     #: **Toutes** les étapes de la séance, dans l'ordre où on les roule
-    #: (Q13, lot L5.2) — voir `Emplacement`. `blocs()` filtre ce que
-    #: contenait ce champ avant ce lot.
+    #: — voir `Emplacement`. `blocs()` n'en garde que les blocs.
     emplacements: list[Emplacement]
     note_totale: float  # `note_terrain` + `penalite_seance`, et c'est elle qui trie
     duree_totale_s: float
@@ -102,7 +100,7 @@ class Placement:
     avertissements: list[str] = field(default_factory=list)
     #: Ce qui se dit sans être un défaut : un ⚠ y serait un contresens. Le
     #: retour au calme qui s'allonge dans sa fenêtre est une information, pas
-    #: une alerte (Q14) — c'est la façon normale de refermer la boucle.
+    #: une alerte — c'est la façon normale de refermer la boucle.
     informations: list[str] = field(default_factory=list)
     #: Le terrain seul : moyenne des notes de couloir pondérée par la durée des
     #: blocs. C'est ce que `note_totale` valait avant qu'on lui ajoute la
@@ -123,9 +121,8 @@ class Placement:
     def blocs(self) -> list[Emplacement]:
         """Les seuls emplacements notés : les blocs, dans l'ordre où on les roule.
 
-        C'est ce que `Placement.emplacements` rendait avant le lot L5.2
-        (Q13) : la note de terrain, `blocs_bien_places`, `demi_tours`
-        continuent de ne compter qu'eux, jamais une récupération.
+        La note de terrain, `blocs_bien_places`, `demi_tours` ne comptent
+        qu'eux, jamais une récupération.
         """
         return [e for e in self.emplacements if e.note is not None]
 
@@ -141,9 +138,9 @@ def trace_parcourue(placement: Placement, trace: Trace) -> Trace:
 
     Le tracé d'origine décrit la boucle que le moteur a proposée ; le placement,
     lui, en roule parfois un morceau deux fois et en laisse un autre de côté. Le
-    fichier envoyé au compteur doit contenir ce qu'on va rouler : le 22/04, avec
-    quatre demi-tours, le placement comptait 72,7 km sur une boucle de 38,5 et
-    le GPX n'en portait aucun — ce n'était pas la séance.
+    fichier envoyé au compteur doit contenir ce qu'on va rouler : avec quatre
+    demi-tours, un placement réel comptait 72,7 km sur une boucle de 38,5, et
+    le GPX de la boucle n'en portait aucun — ce n'était pas la séance.
 
     `placement.jalons_m` suffit à reconstruire le parcours : entre deux jalons
     on roule dans un seul sens, donc on découpe le tracé à ces positions et on

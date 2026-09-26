@@ -50,7 +50,7 @@ def generer_sortie(
     **Deux propositions au lieu de trois n'est pas une panne** :
     `motif_deux_propositions` porte l'explication, et la réponse reste un 200.
 
-    **Trois propositions qui se valent n'en est pas une non plus** (Q45) :
+    **Trois propositions qui se valent n'en est pas une non plus** :
     `motif_equivalence` porte alors « ces trois boucles se valent, choisissez
     où vous voulez aller », avec ce qui, mesuré, ne les sépare pas.
     """
@@ -63,7 +63,7 @@ def generer_sortie(
             qui, f"sortie_{demande.jour or date.today().isoformat()}.html"
         )
         seance = _chemin_seance(ctx, qui, demande.fichier_seance)
-        # Q40 (g) : **aucun GPX n'est écrit ici**. Le cœur remet les trois
+        # **Aucun GPX n'est écrit ici** (décision Q40 g). Le cœur remet les trois
         # textes à `recueil_gpx` (aucun `sortie=` ne lui est passé, donc
         # aucun fichier), et c'est la route `…/propositions/{n}/gpx` qui en
         # servira un — celui que le cycliste aura choisi, et pas celui du
@@ -99,7 +99,7 @@ def generer_sortie(
                     "client_intervals": _service(ctx, config, "intervals"),
                     "lieu_depart": _depart(demande.depart),
                     "recueil_gpx": recueillis.extend,
-                    # Q58, même raison que `POST /boucles`.
+                    # Même raison que `POST /boucles`.
                     "base_routes": _base_routes(config, qui),
                 },
                 chemins={str(carte.chemin): carte.nom},
@@ -118,7 +118,7 @@ def generer_sortie(
                 prefixe=routeur.prefix,
             )
     except Exception:
-        # L9.3 : seul un succès consomme le crédit décompté ci-dessus — une
+        # Seul un succès consomme le crédit décompté ci-dessus — une
         # panne (BRouter, Open-Meteo, calcul_en_cours, ou tout autre échec)
         # le rend.
         _rembourser_quota(ctx, qui, ctx.quotas)
@@ -135,7 +135,7 @@ def gpx_de_proposition(
 ):
     """Le GPX **de cette proposition-là**, fabriqué au moment où on le demande.
 
-    Q40 (g) : rien n'est écrit à la génération — deux des trois traces
+    Rien n'est écrit à la génération — deux des trois traces
     seraient jetées — et rien n'est écrit ici non plus : la réponse *est* le
     fichier. Le nom proposé au navigateur est celui que le cœur a donné
     (`sortie_20260918_n2.gpx`), pour qu'un dossier de téléchargements dise
@@ -167,7 +167,7 @@ def generer_boucle(
     _verifier_quota(ctx, qui, ctx.quotas)
     try:
         config = _config(ctx, qui)
-        # Q47 : sans direction, la recherche balaie tout l'horizon (comme
+        # Sans direction, la recherche balaie tout l'horizon (comme
         # `sortie`) plutôt que de refuser — le nom réservé le dit en clair
         # plutôt que de porter un `None` littéral.
         direction_nom = demande.direction or "toutes-directions"
@@ -194,7 +194,7 @@ def generer_boucle(
                 "client_brouter": _service(ctx, config, "brouter"),
                 "client_meteo": _service(ctx, config, "meteo"),
                 "lieu_depart": _depart(demande.depart),
-                # Q58 : la colonne « connu % » est calculée contre les routes
+                # La colonne « connu % » est calculée contre les routes
                 # que **ce** cycliste a roulées, pas contre celles du
                 # propriétaire local.
                 "base_routes": _base_routes(config, qui),
@@ -204,7 +204,7 @@ def generer_boucle(
         )
         donnees = vues.avec_fichiers(resultat.donnees, gpx=_note(ctx, qui, gpx))
     except Exception:
-        # L9.3 : même remboursement que `POST /sorties` — voir sa docstring.
+        # Même remboursement que `POST /sorties` — voir sa docstring.
         _rembourser_quota(ctx, qui, ctx.quotas)
         raise
     return _enveloppe_retouchee(resultat, donnees, ctx.budgets.budget("boucle"), qui)

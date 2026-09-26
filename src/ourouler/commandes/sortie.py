@@ -63,7 +63,7 @@ def executer_depuis_namespace(
     reçoit le service : la question du vent, la génération des candidates,
     les en-têtes de texte, la carte et le JSON lisent tous ce départ-là.
 
-    `recueil_gpx` : voir `sortie.commande.executer` (Q40 g).
+    `recueil_gpx` : voir `sortie.commande.executer`.
     """
     ctx = contexte(config, lieu_depart=lieu_depart)
     demande = lire_options(args, config)
@@ -142,7 +142,7 @@ def vent_depuis_namespace(
     *,
     lieu_depart: Depart | None = None,
 ) -> int:
-    """Le vent au départ, **avant** de chercher quoi que ce soit (Q44) : toujours en JSON."""
+    """Le vent au départ, **avant** de chercher quoi que ce soit : toujours en JSON."""
     demande = interpreter_vent(jour=getattr(args, "jour", None), depart=getattr(args, "depart", None))
     r = service.executer_vent(demande, contexte(config, lieu_depart=lieu_depart), client_meteo=client_meteo)
     imprimer_json(rendu.vent_depart_json(r.question, r.jour, r.depart))
@@ -228,11 +228,12 @@ def interpreter(
         )
 
     vent_lu = orientation.valider(vent)
-    # Q44 : les deux réglages fixaient le même azimut, et rien ne disait lequel
-    # gagnait. `--direction` l'emportait en silence, ce qui laissait le
-    # cycliste croire que son orientation au vent avait été honorée. On ne
-    # choisit plus un gagnant : on refuse la contradiction, et le message dit
-    # les deux formulations possibles. « Peu importe » n'est pas une
+    # Les deux réglages fixent le même azimut ; si l'un l'emportait en
+    # silence, le cycliste croirait son orientation au vent honorée. On ne
+    # choisit pas de gagnant (décision Q44,
+    # `docs/journal/questions/questions_mainteneur.md`) : on refuse la
+    # contradiction, et le message dit les deux formulations possibles. « Peu
+    # importe » n'est pas une
     # contradiction — c'est l'absence de demande.
     if azimut is not None and vent_lu != orientation.PEU_IMPORTE:
         raise ErreurUtilisateur(
@@ -293,14 +294,14 @@ def ecrire_page_jour(
     selection: contraste.Selection,
     gpx_propositions: list[GpxPropose],
 ) -> Path:
-    """La page du jour (lot L5.4) : les propositions contrastées, superposées.
+    """La page du jour : les propositions contrastées, superposées.
 
     La page elle-même est construite par `rendu.sortie.page_jour` ; ce module
     ne fait que l'écrire à l'emplacement de la carte (`--carte`, ou le nom
     daté par défaut). Les GPX qu'elle embarque sont ceux de
     `sortie.commande._gpx_propositions`, déjà en mémoire : jamais écrits sur disque, ils
-    partent en base64 dans la page (§4.2 du contrat — « le fichier suit le
-    choix du cycliste, pas le classement »).
+    partent en base64 dans la page : le fichier suit le choix du cycliste, pas
+    le classement.
     """
     chemin = chemin_carte_par_defaut(demande, dossier_cache)
     page = page_jour(seance, demande, profil, selection, gpx_propositions, maintenant=datetime.now())

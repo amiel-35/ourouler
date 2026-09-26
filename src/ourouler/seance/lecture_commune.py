@@ -16,8 +16,8 @@ def type_par_position(indice: int, total: int) -> str:
     En tête, c'est un échauffement ; en queue, un retour au calme ; entre les
     deux, une récupération. Le cas visé au milieu est celui d'une étape prise
     entre deux efforts ; une étape calme au milieu qui ne sépare pas deux
-    blocs est traitée de même — une récupération ne demande rien au terrain
-    (décision du 13/09), c'est donc le classement le plus prudent.
+    blocs est traitée de même — une récupération ne demande rien au terrain,
+    c'est donc le classement le plus prudent.
     """
     if indice == 0:
         return "echauffement"
@@ -41,7 +41,7 @@ def marquer_elastiques(etapes: list[Etape]) -> list[Etape]:
     """Élastiques : la première étape si elle échauffe, la dernière si elle calme.
 
     Jamais ailleurs. Une récupération, courte ou longue, fait partie de la
-    prescription (décision du mainteneur du 13/09).
+    prescription.
     """
     if not etapes:
         return etapes

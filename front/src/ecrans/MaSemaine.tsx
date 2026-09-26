@@ -8,11 +8,10 @@
  * Le parcours n'est pré-calculé pour aucun jour : générer coûte cher, et
  * chaque séance porte donc son propre bouton.
  *
- * **L'aperçu de la semaine** (`ApercuSemaine`, lot du 20/09/2026) répond à
- * une question que l'écran posait avant sans y répondre : « ma semaine
- * est-elle chargée ? » se lisait en additionnant de tête trois cartes,
- * chacune sa propre durée en texte — exactement le genre de reconstruction
- * mentale que le mainteneur a demandé de chercher. Sept colonnes, une par
+ * **L'aperçu de la semaine** (`ApercuSemaine`) répond à une question que
+ * l'écran pose : « ma semaine est-elle chargée ? » ne doit pas se lire en
+ * additionnant de tête trois cartes, chacune sa propre durée en texte — le
+ * genre de reconstruction mentale qu'un écran doit épargner. Sept colonnes, une par
  * jour, la hauteur pour la durée : le repos se lit d'un coup d'œil, pas en
  * cherchant l'absence d'une carte. En encre seule — la durée n'est pas une
  * des familles de données mesurées du système (pluie, vent, trafic, effort,
@@ -45,7 +44,7 @@ function initialeJour(iso: string): string {
  * tous, séance ou non, dans l'ordre chronologique (contrat de `GET
  * /seances`). Un jour de repos est un point à la ligne de base, jamais une
  * barre à hauteur zéro : l'absence de séance n'est pas une séance de durée
- * nulle (règle absolue 5), et une barre à peine visible se confondrait avec
+ * nulle (on n'affirme rien sans mesure), et une barre à peine visible se confondrait avec
  * une vraie séance très courte.
  */
 export function ApercuSemaine({ jours, aujourdhui }: { jours: Semaine["jours"]; aujourdhui: string }) {

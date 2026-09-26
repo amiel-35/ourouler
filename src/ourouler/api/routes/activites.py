@@ -1,4 +1,4 @@
-"""L'historique déposé (L9.2) : l'import en tâche de fond et son état."""
+"""L'historique déposé : l'import en tâche de fond et son état."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from ourouler.api.routes.commun import (
 routeur = nouveau_routeur()
 
 
-# --- historique déposé (L9.2) --------------------------------------------------
+# --- historique déposé -------------------------------------------------------
 
 
 @routeur.get("/activites/import")
@@ -73,9 +73,9 @@ def importer_activites(
 ) -> dict:
     """Lance en tâche de fond le dépôt de l'historique d'un cycliste sans Intervals
     — un invité sans capteur y trouve déjà de la valeur (routes), un porteur de
-    capteur y trouve aussi son niveau ([[Q48]]).
+    capteur y trouve aussi son niveau (décision Q48, `docs/journal/questions/questions_mainteneur.md`).
 
-    **202, pas 200** (suite de la relecture du 25/09/2026) : une archive
+    **202, pas 200** : une archive
     Strava réelle (≈2 900 sorties) prend environ 16 minutes à 0,33 s/fichier,
     bien au-delà des 180 s où le front abandonne. La route rend tout de
     suite un identifiant de tâche ; `GET /activites/import/{id}` dit où elle
@@ -87,7 +87,7 @@ def importer_activites(
     indexe dans le cache de **ce** propriétaire uniquement
     (`activites/import_archive.py`, bornes de sécurité en constantes
     nommées). Réimporter la même archive ne duplique rien : une sortie
-    déposée est identifiée par son contenu ([[Q62]]).
+    déposée est identifiée par son contenu.
 
     **Un seul import à la fois, pour le serveur entier** (`api/imports_fond.py`) :
     un second demandeur, propriétaire ou pas, reçoit `import_deja_en_cours`
@@ -186,10 +186,10 @@ def _copier_en_temporaires(fichiers: list[UploadFile]) -> list[tuple[str, Path]]
 def _refuser_import_sur_la_taille_annoncee(requete: Request) -> None:
     """Même garde que `_refuser_sur_la_taille_annoncee`, sur le plafond de l'import.
 
-    Une archive Strava réelle pèse 665 Mo (`docs/services_externes.md`) : le
+    Une archive Strava réelle pèse 665 Mo (`docs/journal/archives_export_mesures.md`) : le
     plafond n'est donc pas celui d'une séance, mais le principe est le même.
 
-    **Limite, dite (relecture du 25/09/2026)** : FastAPI a déjà reçu tout le
+    **Limite, dite** : FastAPI a déjà reçu tout le
     formulaire, dans des fichiers temporaires sur disque, avant d'appeler la
     route — cette garde évite le traitement, pas la réception. Borner la
     réception demande une limite de taille de corps en amont (proxy ou

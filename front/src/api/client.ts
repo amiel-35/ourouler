@@ -58,7 +58,7 @@ export const CODE_ILLISIBLE = "reponse_illisible";
 
 /**
  * Le code que le **serveur** rend, lui, quand aucune session n'est ouverte
- * (`api/session.py:CODE_SANS_SESSION`, lot L7.2-D). Nommé ici, à côté des
+ * (`api/session.py:CODE_SANS_SESSION`). Nommé ici, à côté des
  * trois codes que le front fabrique, parce que c'est à cette même frontière
  * qu'il déclenche `surSessionAbsente` ci-dessous — un seul endroit qui
  * reconnaît ce code, plutôt qu'une chaîne « session_absente » recopiée dans
@@ -76,10 +76,10 @@ let ecouteurSessionAbsente: EcouteurSessionAbsente | null = null;
  * **Pourquoi il faut ça.** Une requête partie avant l'expiration du cookie
  * peut revenir *après* que le cycliste s'est reconnecté — le temps d'une
  * recherche de sortie, c'est courant. Sans repère, son `session_absente`
- * tardif rouvrait l'écran de connexion alors que la session venait d'être
- * ouverte avec succès : il retapait son mot de passe sans comprendre
- * pourquoi (trouvé en relecture le 19/09/2026, prouvé en laissant une requête
- * en vol pendant la reconnexion).
+ * tardif rouvrirait l'écran de connexion alors que la session vient d'être
+ * ouverte avec succès : le cycliste retaperait son mot de passe sans
+ * comprendre pourquoi (prouvé en laissant une requête en vol pendant la
+ * reconnexion).
  *
  * Chaque appel retient la génération sous laquelle il est parti, et ne
  * prévient l'application que si elle n'a pas changé entre-temps. Une réponse
@@ -100,7 +100,7 @@ export function sessionRouverte(): void {
  * connexion à la place de ce qu'elle montrait.
  *
  * Centralisé ici plutôt que vérifié route par route : `session_absente` peut
- * sortir de **toute** route de données (`api/routes.py`, dépendance
+ * sortir de **toute** route de données (`api/routes/commun.py`, dépendance
  * `proprietaire`), pas seulement des trois appels de démarrage — une séance
  * qui expire pendant que le cycliste choisit une proposition doit amener le
  * même écran, pas une erreur technique nue.
@@ -131,8 +131,8 @@ export class ErreurApi extends Error {
   readonly service: string | null;
   /** Les mesures que la panne porte, quand elle en porte.
    *
-   * L'API les remplit depuis le 17/09/2026 pour le refus sur la distance
-   * (Q41 d) : sans elles, E18 · échec ne pouvait dire que « réessayez ». Le
+   * L'API les remplit pour le refus sur la distance : sans elles, E18 · échec
+   * ne pourrait dire que « réessayez ». Le
    * type reste volontairement ouvert — c'est le `code` qui est le contrat,
    * pas la forme des détails, et chaque écran vérifie ce qu'il lit.
    */
@@ -183,10 +183,9 @@ export function reessayable(erreur: ErreurApi): boolean {
  * fichier, pas d'un JSON désérialisé, pour le passer à `navigator.share` —
  * mais une réponse en échec porte la même enveloppe `{erreur}` que partout
  * ailleurs, et la lire ici évite d'inventer une seconde façon de reconnaître
- * une panne de l'API. Trouvé le 18/09/2026 : `partager` avalait toute
- * réponse en échec (un GPX de génération oubliée, par exemple —
- * `generation_introuvable`) sous « ce navigateur ne sait pas partager de
- * fichier », qui n'est vrai que la moitié du temps et jamais quand c'est le
+ * une panne de l'API. Sans elle, `partager` avalerait toute réponse en échec
+ * (un GPX de génération oubliée, par exemple — `generation_introuvable`)
+ * sous « ce navigateur ne sait pas partager de fichier », qui n'est vrai que la moitié du temps et jamais quand c'est le
  * serveur qui a refusé.
  *
  * Le bouton « Télécharger le GPX », lui, reste un `<a href download>` natif
@@ -222,8 +221,7 @@ export interface PanneGpx {
  * **Reste un `fetch` brut** — le navigateur a besoin d'un fichier, pas d'un
  * JSON désérialisé, pour le passer à `navigator.share` — mais il vit ici,
  * avec `appeler` ci-dessous : `api/client.ts` est le seul module du front
- * qui touche au réseau (`docs/ouverture_plan.md` §7, `tests/reseau_unique.
- * test.ts`).
+ * qui touche au réseau (`tests/reseau_unique.test.ts`).
  *
  * Distingue les deux échecs qui n'appellent pas le même mot : le réseau ne
  * répond pas du tout (`fetch` jette un `TypeError`, hors ligne ou serveur
@@ -280,13 +278,13 @@ function minuterie(delai_ms: number, externe?: AbortSignal) {
 /**
  * Un appel à l'API, et la famille entière de ce qui peut l'empêcher d'aboutir.
  *
- * Quatre issues, pas deux (corrigé le 17/09/2026) :
+ * Quatre issues, pas deux :
  *
  * 1. **Rien ne répond** — `fetch` jette : serveur éteint, adresse fausse,
  *    réseau coupé.
  * 2. **Le délai est dépassé** — la requête est partie, rien ne revient.
  * 3. **Quelque chose répond, mais ce n'est pas l'API** — c'est le cas qui
- *    était passé au travers, et il est le plus courant en développement : le
+ *    passe le plus facilement au travers, et il est le plus courant en développement : le
  *    proxy de Vite, dont la cible est éteinte ou sur un autre port, rend un
  *    **500 `text/plain` au corps vide**. Le `fetch` réussit, la branche 1 ne
  *    se déclenche jamais, et l'écran affichait « le serveur a répondu 500 sans
@@ -310,7 +308,7 @@ async function appeler<T>(
   const generation = generationSession;
   let reponse: Response;
   try {
-    // **`credentials: "same-origin"`, explicite** (lot L7.2-D). Le cookie de
+    // **`credentials: "same-origin"`, explicite.** Le cookie de
     // session est `HttpOnly` : ce module ne le lit ni ne l'écrit jamais, mais
     // il doit accompagner chaque requête pour que le serveur sache qui parle.
     // Le défaut du navigateur est déjà `same-origin` — et le front n'appelle
@@ -420,7 +418,7 @@ export interface DemandeSortie {
 
 export interface DemandeBoucle {
   distance_km: number;
-  // Q47 : facultative, comme côté `DemandeSortie` — sans direction, `/boucles`
+  // Facultative, comme côté `DemandeSortie` — sans direction, `/boucles`
   // balaie tout l'horizon au lieu de refuser.
   direction?: string;
   heure_depart?: string;
@@ -430,7 +428,7 @@ export interface DemandeBoucle {
   depart?: { latitude: number; longitude: number; nom?: string };
 }
 
-/** L9.8 : un parcours déjà en main (imposé d'un BRM, boucle de club) — `POST /parcours/analyser`. */
+/** Un parcours déjà en main (imposé d'un BRM, boucle de club) — `POST /parcours/analyser`. */
 export interface DemandeAnalyse {
   gpx: string;
   /** Obligatoire ici (à la différence de `DemandeBoucle`) : sans elle, rien à caler. */
@@ -459,7 +457,7 @@ function poster<T>(
 }
 
 export const api = {
-  // --- comptes et sessions (lot L7.2-D) — précèdent tout propriétaire ------
+  // --- comptes et sessions — précèdent tout propriétaire -------------------
 
   /** `GET /invitation` : l'état d'un jeton, sans le consommer. */
   invitation: (jeton: string) =>
@@ -477,15 +475,15 @@ export const api = {
   sortir: () => poster<DonneesSeules<Record<string, never>>>("/sortir", {}),
 
   /**
-   * `POST /reinitialiser` (lot L9.6) : consomme un jeton de réinitialisation, pose le
+   * `POST /reinitialiser` : consomme un jeton de réinitialisation, pose le
    * nouveau mot de passe, ferme les autres sessions du compte, ouvre celle-ci. Émis
-   * uniquement par `ourouler reinitialiser` (mainteneur) — pas de « mot de passe
+   * uniquement par `ourouler reinitialiser` (l'exploitant) — pas de « mot de passe
    * oublié » en libre-service ici.
    */
   reinitialiser: (jeton: string, secret: string) =>
     poster<DonneesSeules<AccesOuvert>>("/reinitialiser", { jeton, secret }),
 
-  // --- mon compte (lot L9.6) — routes de données, sous session ouverte -----
+  // --- mon compte — routes de données, sous session ouverte ---------------
 
   /** `GET /moi` : l'adresse du compte de la session en cours. */
   monCompte: () => appeler<Simple<MonCompte>>(url("/moi")),
@@ -564,7 +562,7 @@ export const api = {
 
   /**
    * D'où vient le vent au départ, et ce que chaque préférence imposerait
-   * (Q44) — appelée **pendant** que le cycliste choisit, pas après.
+   * — appelée **pendant** que le cycliste choisit, pas après.
    */
   ventDepart: (parametres?: { jour?: string; heure_depart?: string }) =>
     appeler<Enveloppe<VentDepart>>(url("/vent-depart", parametres)),
@@ -601,14 +599,14 @@ export const api = {
     );
   },
 
-  /** Combien de sorties déjà déposées, et sur quelle période (L9.2). */
+  /** Combien de sorties déjà déposées, et sur quelle période. */
   etatImport: () => appeler<Enveloppe<EtatImport>>(url("/activites/import")),
 
   /**
    * Lance en tâche de fond le dépôt de l'historique d'un cycliste sans
    * Intervals — un ou plusieurs fichiers `.fit`/`.gpx`/`.tcx` (`.gz`
    * compris), ou une archive `.zip` d'export Strava ou Garmin. Plusieurs
-   * dépôts successifs sont le cas normal (Q62) : réimporter ne duplique
+   * dépôts successifs sont le cas normal : réimporter ne duplique
    * rien, c'est le serveur qui dédoublonne.
    *
    * **Rend un `JobImport` tout de suite (202), pas le rapport** : une
@@ -631,11 +629,11 @@ export const api = {
   /** L'état d'un import lancé par `importerActivites` — à interroger périodiquement. */
   suivreImport: (id: string) => appeler<Enveloppe<JobImport>>(url(`/activites/import/${id}`)),
 
-  /** Pour chaque vélo : sa calibration, ce qui la permettrait, la tâche récente (L9.4). */
+  /** Pour chaque vélo : sa calibration, ce qui la permettrait, la tâche récente. */
   etatCalibrations: () => appeler<Simple<EtatCalibrations>>(url("/calibrations")),
 
   /**
-   * Lance la calibration d'un vélo sur les sorties du cycliste (L9.4). Rend
+   * Lance la calibration d'un vélo sur les sorties du cycliste. Rend
    * un `JobCalibration` tout de suite (202) : le calcul relit toutes les
    * sorties et l'archive météo de chaque jour, il se suit par
    * `suivreCalibration`. `sansPneu` : calibrer quand même sans pneu déclaré
@@ -657,7 +655,7 @@ export const api = {
   boucle: (demande: DemandeBoucle, signal?: AbortSignal) =>
     poster<Enveloppe<Boucle>>("/boucles", demande, signal, DELAI_CALCUL_MS),
 
-  // L9.8 : un parcours déjà en main, à analyser plutôt qu'à chercher.
+  // Un parcours déjà en main, à analyser plutôt qu'à chercher.
   deposerParcours: (fichier: File) => {
     const corps = new FormData();
     corps.append("fichier", fichier);

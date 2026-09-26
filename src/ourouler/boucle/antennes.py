@@ -3,26 +3,21 @@
 Une **antenne** est une portion du tracé parcourue deux fois, à l'aller puis
 au retour : le moteur pousse le cycliste dans une impasse, lui fait faire
 demi-tour, et le ramène exactement par où il est venu. C'est le seul défaut
-de tracé que le mainteneur veut corriger (contrat du sprint 3, §1) : les
-traversées de bourg, elles, sont acceptées.
+de tracé qu'on corrige : les traversées de bourg, elles, sont acceptées.
 
 Ces crochets viennent des points de passage que BRouter place lui-même en
 mode boucle : quand l'un d'eux tombe à côté de la route, le moteur va le
-chercher et revient. **Ce module n'est plus la seule ligne de défense.**
-Jusqu'au 18/09/2026, on croyait le mécanisme de recalage du moteur
-(`correctMisplacedViaPoints`) sans effet sur le serveur du mainteneur — une
-mesure du 13/09/2026 concluait à tort en ce sens, pour deux raisons
-empilées : le mauvais nom de paramètre (snake_case envoyé, camelCase
-attendu, voir `connecteurs/brouter.py`), puis un seuil de distance qui ne
-déclenchait rien. Corrigé et mesuré à nouveau le 18/09/2026 : au bon nom et
-au bon seuil (0, « pas de vérification de distance »), le moteur élimine
-l'essentiel des antennes lui-même — mais pas toutes : au rayon de boucle le
+chercher et revient. **Ce module n'est pas la seule ligne de défense.** Le
+mécanisme de recalage du moteur (`correctMisplacedViaPoints`) n'agit que
+sous son nom camelCase (voir `connecteurs/brouter.py`) et avec un seuil de
+distance à 0 (« pas de vérification de distance ») ; ainsi réglé et mesuré,
+le moteur élimine l'essentiel des antennes lui-même — mais pas toutes : au rayon de boucle le
 plus petit mesuré (8 km), 4 boucles sur 7 gardaient encore une antenne
 même à seuil 0, signe que certains crochets ne sont pas des points de
 passage mal placés mais de vrais culs-de-sac du réseau à ce rayon, que le
-moteur ne peut pas recaler. `boucle/antennes.py` passe donc de correctif
-principal à **filet** : un serveur qui régresse sur ce paramètre, un GPX
-importé sans être passé par BRouter, ou un rayon assez petit pour buter sur
+moteur ne peut pas recaler. `boucle/antennes.py` est donc un **filet** : un
+serveur qui régresse sur ce paramètre, un GPX importé sans être passé par
+BRouter, ou un rayon assez petit pour buter sur
 un vrai cul-de-sac continuent d'y trouver une protection. On garde le tracé
 propre après coup, dans tous les cas.
 
@@ -44,8 +39,8 @@ antenne si **chacun** de ses points est à moins de `tolerance_m` de la
 l'aller, mesurée aux segments et non aux sommets).
 
 C'est la géométrie qui compte, pas les nœuds : un moteur de tracé ramène le
-cycliste par le même axe sans forcément repasser par les mêmes points, et le
-contrat §1 admet explicitement un retour décalé jusqu'à `tolerance_m`.
+cycliste par le même axe sans forcément repasser par les mêmes points : un
+retour décalé jusqu'à `tolerance_m` compte.
 
 Deux garde-fous, et ils ne disent pas la même chose :
 
@@ -53,9 +48,9 @@ Deux garde-fous, et ils ne disent pas la même chose :
   qui continue de se superposer au-delà de la fenêtre n'est **pas** une
   antenne tronquée à la fenêtre : c'est un aller-retour assumé sur une route
   (une fin de boucle qui repasse par le départ), et la candidate est
-  abandonnée entièrement. En rendre les premiers mètres aurait coupé une
-  vraie route. Le défaut, 3 000 m, est une décision du mainteneur prise sur
-  mesure : voir `FENETRE_DEFAUT_M`.
+  abandonnée entièrement. En rendre les premiers mètres couperait une
+  vraie route. Le défaut est un arbitrage pris sur mesure : voir
+  `FENETRE_DEFAUT_M`.
 - `LONGUEUR_MIN_M` écarte les micro-allers-retours. Sans lui, deux points
   sous-échantillonnés consécutifs sont toujours à moins de 20 m l'un de
   l'autre : *tout* point du tracé serait le départ d'une « antenne » de
@@ -93,20 +88,20 @@ PAS_ECHANTILLON_M = 10.0
 
 #: Longueur totale (aller + retour) au-delà de laquelle un reparcours n'est
 #: plus tenu pour un crochet du moteur mais pour un aller-retour voulu sur une
-#: route. C'est **le** curseur du lot : il ne mesure rien, il tranche.
+#: route. C'est **le** curseur de ce module : il ne mesure rien, il tranche.
 #:
-#: Décision du mainteneur du 13/09/2026, prise sur mesure. Le contrat partait
-#: sur 600 m ; les culs-de-sac relevés sur les boucles réelles de 60 km font
+#: Un arbitrage pris sur mesure. Une fenêtre de 600 m ne suffit pas : les
+#: culs-de-sac relevés sur les boucles réelles de 60 km font
 #: 1,5 à 2,7 km (jonction d'entrée et de sortie au même point à 0,0 m, bout à
 #: 700-1 065 m à vol d'oiseau, parcours à 60-70 % sur `track` et
-#: `unclassified`) — une fenêtre de 600 m les laissait tous passer. Un vrai
+#: `unclassified`) — une fenêtre de 600 m les laisserait tous passer. Un vrai
 #: aller-retour assumé, lui, dépasse rarement 3 km sur une boucle de 60 km ;
 #: et s'il arrive qu'on en rogne un, la candidate est simplement plus courte,
 #: ce que l'ajustement de rayon de `boucle.candidates` compense à l'appel
 #: suivant.
 FENETRE_DEFAUT_M = 6000.0
 
-#: Écart maximal admis entre le retour et l'aller (contrat §1).
+#: Écart maximal admis entre le retour et l'aller.
 TOLERANCE_DEFAUT_M = 20.0
 
 #: Longueur totale (aller + retour) en dessous de laquelle un aller-retour
@@ -170,7 +165,7 @@ def detecter(
 
     `fenetre_m` borne la longueur totale d'une antenne (aller + retour) ;
     `tolerance_m` est l'écart maximal admis entre le retour et l'aller.
-    Le défaut de `fenetre_m` est un arbitrage du mainteneur, pas une mesure :
+    Le défaut de `fenetre_m` est un arbitrage, pas une mesure :
     voir `FENETRE_DEFAUT_M`.
 
     Une portion qui se superpose à elle-même **au-delà** de `fenetre_m` n'est
@@ -345,17 +340,17 @@ def _appariement_a_l_aller(
 ) -> tuple[float, int]:
     """Écart du `point` du retour à la **géométrie** de l'aller, et sommet de jonction.
 
-    Le contrat §1 définit l'antenne comme une géométrie reparcourue, pas comme
-    des nœuds repassés : un moteur de tracé rend un retour qui emprunte le même
-    axe sans repasser par les mêmes points. On mesure donc la distance du point
+    L'antenne est une géométrie reparcourue, pas des nœuds repassés : un moteur
+    de tracé rend un retour qui emprunte le même axe sans repasser par les mêmes
+    points. On mesure donc la distance du point
     du retour au **segment** de l'aller le plus proche, et non à ses sommets.
 
-    Comparer des sommets faisait rater les retours bruités : un retour décalé
+    Comparer des sommets ferait rater les retours bruités : un retour décalé
     de 10 m est aussi un peu plus long que l'aller (il louvoie), la distance
-    parcourue dérive, et l'appariement à distance égale finissait par tomber en
-    deçà de la vraie jonction — l'aller-retour du contrat §4 « quasi-exact
-    (bruit 10 m) » n'était plus reconnu alors que 10 m tient largement dans les
-    20 m de tolérance.
+    parcourue dérive, et l'appariement à distance égale finirait par tomber en
+    deçà de la vraie jonction — un aller-retour quasi exact (bruit de 10 m) ne
+    serait plus reconnu alors que 10 m tient largement dans les 20 m de
+    tolérance.
 
     La recherche reste bornée à `FENETRE_APPARIEMENT` échantillons autour de
     `debut`, le point de l'aller atteint à distance parcourue égale : sans
@@ -503,18 +498,16 @@ def _resegmenter(
                 longueur_m=longueur,
                 tags=dict(segment.tags),
                 # Le `CostPerKm` du moteur suit le tronçon : il ne dépend pas
-                # de sa longueur. Le perdre à l'élagage faisait disparaître la
-                # colonne « coût profil » de toute candidate générée (lot L3.2),
-                # sans que rien ne le dise.
+                # de sa longueur. Le perdre à l'élagage ferait disparaître la
+                # colonne « coût profil » de toute candidate générée, sans que
+                # rien ne le dise.
                 cout_km=segment.cout_km,
-                # Même histoire que `cout_km`, un champ plus tard : `node_tags`
-                # est arrivé au sprint 4 et ce constructeur ne l'a jamais repris.
-                # Conséquence, trouvée le 16/09/2026 : **toute candidate élaguée
-                # perdait ses feux, stops et passages piétons**, donc
-                # `evaluer_couloir` notait un couloir urbain comme une route de
-                # campagne. Mesuré sur une boucle réelle au nord de Rennes : le
-                # couloir du premier bloc notait 2,43 sans un carrefour, contre
-                # 22,51 avec quatre feux une fois les tags conservés.
+                # Même raison pour `node_tags` : sans lui, **toute candidate
+                # élaguée perdrait ses feux, stops et passages piétons**, et
+                # `evaluer_couloir` noterait un couloir urbain comme une route
+                # de campagne. Mesuré sur une boucle réelle : le couloir du
+                # premier bloc notait 2,43 sans un carrefour, contre 22,51 avec
+                # quatre feux une fois les tags conservés.
                 #
                 # Nuance qui compte : `node_tags` décrit le **nœud de fin** du
                 # tronçon. Si l'élagage a déplacé cette fin, ce ne sont plus les

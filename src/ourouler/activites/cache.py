@@ -31,8 +31,7 @@ NOM_INDEX = "index.sqlite"
 NOM_BRUT = "brut"
 
 #: Le sous-dossier de `brut/` où chaque propriétaire **autre que local** range
-#: ses fichiers, un dossier par propriétaire (contre-lecture Fable du
-#: 25/09/2026). Voir `Cache.__init__`.
+#: ses fichiers, un dossier par propriétaire. Voir `Cache.__init__`.
 NOM_BRUT_COMPTES = "comptes"
 
 #: Ce qu'un propriétaire doit être pour servir tel quel de nom de dossier —
@@ -128,14 +127,13 @@ class EntreeCache:
 class Cache:
     """Dossier de cache : `brut/<identifiant>.<extension>` + `index.sqlite`.
 
-    **Les fichiers bruts d'un compte sont à lui** (contre-lecture Fable du
-    25/09/2026). Ils étaient rangés par contenu dans un `brut/` commun à tous
-    les propriétaires : deux comptes aux octets identiques partageaient le
-    même fichier, la suppression de l'un devait vérifier que l'autre ne le
-    citait plus, et l'existence du fichier disait, à qui savait regarder,
-    qu'un autre compte l'avait déjà déposé. Désormais le propriétaire local
-    — la ligne de commande, le cache du mainteneur — garde `brut/` tel quel,
-    et tout autre propriétaire a le sien, `brut/comptes/<propriétaire>/`.
+    **Les fichiers bruts d'un compte sont à lui.** Rangés par contenu dans un
+    `brut/` commun à tous les propriétaires, deux comptes aux octets
+    identiques partageraient le même fichier, la suppression de l'un devrait
+    vérifier que l'autre ne le cite plus, et l'existence du fichier dirait, à
+    qui sait regarder, qu'un autre compte l'a déjà déposé. Le propriétaire
+    local — la ligne de commande — garde donc `brut/`, et tout autre
+    propriétaire a le sien, `brut/comptes/<propriétaire>/`.
     Supprimer un compte n'y touche qu'à ses propres fichiers.
     """
 
@@ -143,7 +141,8 @@ class Cache:
         self.dossier = Path(dossier)
         self.proprietaire = _proprietaire_valide(proprietaire)
         #: Le `brut/` commun, celui du propriétaire local — et celui où un
-        #: fichier déposé avant le 25/09/2026 par un autre compte se relit encore.
+        #: fichier déposé par un autre compte sous l'ancienne disposition (un
+        #: `brut/` pour tous) se relit encore.
         self.brut_commun = self.dossier / NOM_BRUT
         self.brut = (
             self.brut_commun
@@ -400,10 +399,9 @@ class Cache:
     def supprimer_tout(self) -> int:
         """Efface toutes les entrées de **ce** propriétaire. Rend le nombre effacé.
 
-        Écrit pour le lot L7.B (export et suppression des données
-        personnelles, `docs/journal/sprints/sprint7_contrat.md`). Un fichier du `brut/`
+        Sert à la suppression des données personnelles. Un fichier du `brut/`
         **commun** peut être cité par plusieurs propriétaires (le local, et
-        les comptes qui y ont déposé avant le 25/09/2026) : on ne l'y supprime
+        les comptes qui y ont déposé sous l'ancienne disposition) : on ne l'y supprime
         qu'une fois qu'**aucune** ligne, d'aucun propriétaire, ne le cite
         plus. Un fichier du dossier propre à ce propriétaire, lui, n'est cité
         que par lui : il part avec ses lignes.
@@ -515,8 +513,8 @@ class Cache:
         return self._fichier(identifiant, ligne[0])
 
     def _fichier(self, identifiant: str, extension: str) -> Path:
-        """Le fichier brut de ce propriétaire — ou, s'il a été déposé avant le
-        25/09/2026, celui du `brut/` commun."""
+        """Le fichier brut de ce propriétaire — ou, s'il a été déposé sous
+        l'ancienne disposition, celui du `brut/` commun."""
         propre = self.brut / f"{identifiant}.{extension}"
         if propre.exists() or self.brut == self.brut_commun:
             return propre

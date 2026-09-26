@@ -19,10 +19,9 @@ class ErreurConfig(ErreurUtilisateur, ValueError):
     modèle d'`ErreurDistanceInatteignable` : ils existent pour qu'`api/
     erreurs.py` puisse reconstruire une phrase lisible à l'écran
     (« Votre poids doit être entre 20 et 300 kg ») sans reparser le message
-    technique (« [cycliste] masse_kg = 7075.0 hors de [20, 300] »), constaté
-    affiché tel quel dans l'assistant le 25/09/2026. Une levée qui ne les
-    passe pas (la plupart) laisse simplement `str(exception)` comme message,
-    exactement comme avant.
+    technique (« [cycliste] masse_kg = 7075.0 hors de [20, 300] »), qui
+    s'afficherait sinon tel quel dans l'assistant. Une levée qui ne les passe
+    pas (la plupart) laisse simplement `str(exception)` comme message.
     """
 
     def __init__(
@@ -47,13 +46,11 @@ class ErreurIntervalsAbsent(ErreurUtilisateur):
     """Intervals.icu n'est pas branché, et la commande demandée en a besoin.
 
     Ce n'est pas une demande invalide, et ce n'est pas une panne : c'est une
-    source de données que ce cycliste n'a pas encore reliée. La distinction ne
-    servait à rien tant que seule la ligne de commande appelait — le
-    mainteneur éditait son TOML et recommençait. Elle compte dès qu'une
-    interface le lit : le front rendait « Cette demande n'est pas valide » et
-    renvoyait éditer une section `[intervals]` que personne d'autre que le
-    mainteneur ne verra jamais (constaté le 19/09/2026, sur le premier compte
-    invité).
+    source de données que ce cycliste n'a pas encore reliée. En ligne de
+    commande, on édite son TOML et on recommence ; mais dès qu'une interface
+    le lit, la distinction compte : sans elle, le front rendrait « Cette
+    demande n'est pas valide » et renverrait éditer une section `[intervals]`
+    que le cycliste ne verra jamais.
 
     Le texte porté par l'exception reste celui de la ligne de commande, où il
     est juste. C'est le **type** qui permet à l'API de le traduire.
@@ -74,7 +71,7 @@ class ErreurDistanceInatteignable(ErreurConnecteur):
     Distincte de la panne : le serveur a répondu, les tracés sont bornés, ils
     sont simplement d'une autre longueur que celle demandée. C'est un fait de
     terrain, pas un incident, et l'écran a besoin de le distinguer pour dire
-    *de combien* il aurait fallu élargir au lieu d'un « réessayez » (Q41 d).
+    *de combien* il aurait fallu élargir au lieu d'un « réessayez ».
 
     Les mesures qui justifient le refus voyagent avec l'exception — cible,
     meilleure distance obtenue, écart, tolérance, élargissement qu'il aurait
@@ -104,7 +101,7 @@ class ErreurDistanceInatteignable(ErreurConnecteur):
 
 
 class ErreurHorsDomaine(ErreurConnecteur):
-    """Open-Meteo ne rend rien pour ce point ou cette fenêtre (Q19).
+    """Open-Meteo ne rend rien pour ce point ou cette fenêtre.
 
     Distincte de `ErreurConnecteur` pour qu'un appelant puisse retenter avec
     un modèle de repli (`second_avis`) sans risquer de masquer une vraie

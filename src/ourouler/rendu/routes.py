@@ -1,6 +1,6 @@
 """Le texte et le JSON de `ourouler routes` : apprendre, stats, poids.
 
-Sortis de `apprentissage/commande.py` au lot 10 : le cas d'usage rend ses
+Séparés de `apprentissage/commande.py` : le cas d'usage rend ses
 résultats (rapport, statistiques, poids), l'entrée choisit texte ou JSON et
 imprime. Aucun de ces rendus ne lit de fichier ni de base.
 """

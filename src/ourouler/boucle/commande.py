@@ -6,13 +6,13 @@ par l'entrée (`commandes/boucle.py`, qui lit argparse) et un
 calibration résolus —, et les deux clients (BRouter, Open-Meteo) sont
 injectables pour que les tests ne touchent jamais le réseau.
 
-L'enchaînement est celui du contrat de sprint §6 :
+L'enchaînement :
 
 1. `boucle.candidates.generer` demande au moteur plusieurs boucles autour de
-   la direction voulue (lot L2.3) ;
-2. `boucle.couts.evaluer` mesure trafic, revêtement, virages et sens (L2.4) ;
+   la direction voulue ;
+2. `boucle.couts.evaluer` mesure trafic, revêtement, virages et sens ;
 3. `boucle.meteo_trace.evaluer` regarde la pluie et le vent **à l'heure de
-   passage** sur chaque tronçon (L2.5) ;
+   passage** sur chaque tronçon ;
 4. le tableau est trié par `score + pluie_cumulee_mm × 2` — les kilomètres
    équivalents du score et les millimètres de pluie ne sont pas la même
    grandeur, ce poids est un arbitrage assumé, pas une mesure ;
@@ -20,15 +20,15 @@ L'enchaînement est celui du contrat de sprint §6 :
 
 Avec `--gpx`, les étapes 1 et 5 sautent : on évalue le fichier importé seul.
 
-Le tableau texte et le JSON sont construits par `rendu/boucle.py` (lot 6) :
-ce module mesure, classe, écrit le GPX et rend un `ResultatBoucle` ; c'est
-l'entrée qui appelle le rendu et imprime (lot 10).
+Le tableau texte et le JSON sont construits par `rendu/boucle.py` : ce
+module mesure, classe, écrit le GPX et rend un `ResultatBoucle` ; c'est
+l'entrée qui appelle le rendu et imprime.
 
 La météo est le seul maillon qu'on accepte de perdre : si Open-Meteo ne
 répond pas, le tableau s'affiche sans ses colonnes et un avertissement part
 sur la sortie d'erreur. Perdre la boucle parce qu'il manque la pluie serait
-absurde ; l'inverse (afficher une pluie inventée) est interdit par la règle
-absolue 5.
+absurde ; l'inverse (afficher une pluie inventée) est interdit : on ne
+présente jamais une estimation comme une mesure.
 """
 
 from __future__ import annotations
@@ -67,24 +67,23 @@ from ourouler.noyau.trace import DENIVELE_REROUTE, Trace, denivele_filtre
 from ourouler.services.contexte import Contexte
 
 #: Poids de la pluie dans le tri du tableau : un millimètre cumulé coûte
-#: autant que deux kilomètres équivalents de score (contrat §6).
+#: autant que deux kilomètres équivalents de score.
 POIDS_PLUIE_TRI = 2.0
 
 #: Part de la FTP tenue par défaut pour le temps estimé par le modèle. C'est
-#: un **choix**, pas une mesure : le contrat de sprint donne la colonne
-#: « temps estimé » sans dire à quelle puissance la calculer. 65 % de la FTP
+#: un **choix**, pas une mesure : rien ne dit à quelle puissance calculer la
+#: colonne « temps estimé ». 65 % de la FTP
 #: est une allure d'endurance plausible ; `--puissance` la remplace, et
 #: l'en-tête dit toujours laquelle a servi.
 #:
-#: Q8, close le 13/09/2026 : tant que la séance du jour n'est pas connue,
-#: `boucle` affiche une durée à l'allure Z2. Au sprint 4, `sortie` simulera
-#: la boucle bloc par bloc à partir de la séance Intervals, et la durée sera
-#: celle de la séance sur ce terrain — ce défaut n'aura plus à servir.
+#: Sans séance, `boucle` affiche une durée à l'allure Z2 ; `sortie`, elle,
+#: simule la boucle bloc par bloc à partir de la séance, et sa durée est
+#: celle de la séance sur ce terrain (décision Q8, `docs/journal/questions/questions_mainteneur.md`).
 PART_FTP_DEFAUT = 0.65
 
 
 #: `trace.meta["tags_provenance"]` : d'où viennent les tags OSM d'un tracé
-#: (règle absolue 5 — un tag mesuré directement par le moteur et un tag
+#: (on ne présente jamais une estimation comme une mesure — un tag mesuré directement par le moteur et un tag
 #: deviné par rapprochement ne se présentent pas de la même façon). Une
 #: candidate générée par BRouter porte `MESURE` ; un GPX importé dont le
 #: greffage (`boucle.tags_importes`) a réussi porte `RAPPROCHEMENT` ; un GPX
@@ -157,7 +156,7 @@ class Evaluation:
     rayon_m: float | None
     total: float
     #: De combien il a fallu élargir la tolérance de distance pour accepter
-    #: cette boucle, par paliers de 5 % (Q41 d). `0.0` : elle y tenait déjà.
+    #: cette boucle, par paliers de 5 %. `0.0` : elle y tenait déjà.
     #: `None` : la question ne se pose pas (GPX importé, pas de cible).
     elargissement: float | None = None
     #: La tolérance de distance en vigueur, pour que l'écran puisse dire
@@ -165,7 +164,7 @@ class Evaluation:
     tolerance_distance: float | None = None
     #: Part des kilomètres déjà roulés, entre 0 et 1, ou `None` si aucune base
     #: de routes connues n'existe. **Informative** : elle n'entre dans aucun
-    #: score (contrat du sprint 3 §2 — « inconnu » n'est jamais un malus).
+    #: score (« inconnu » n'est jamais un malus).
     part_connue: float | None = None
     temps_s: float | None = None
     """Temps **en mouvement** rendu par le modèle physique calibré, ou `None`
@@ -214,20 +213,20 @@ def executer(
     `contexte.dossier_cache`, avec le propriétaire par défaut. Une couche web
     qui sert plusieurs cyclistes en construit une par propriétaire et la passe
     ici ; sans quoi la colonne « connu % » dirait à l'un ce que l'autre a
-    roulé ([[Q58]], voir `activites/commande.executer`).
+    roulé (décision Q58, voir `activites/commande.executer`).
 
     Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
     celui de **cette** exécution (`--adresse-depart` géocodée par `cli.py`, ou
     les coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit
-    aucune adresse et ne sait pas d'où vient ce point (règle absolue 2). À ne
+    aucune adresse et ne sait pas d'où vient ce point (le cœur ne lit ni configuration ni environnement). À ne
     pas confondre avec `demande.depart`, qui porte une **heure**.
 
     Ce qui ne suit pas le départ : les **routes connues** et les **poids
     appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
     autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
-    connue est informative et n'entre dans aucun score (contrat du sprint 3
-    §2) — mais elle tombera naturellement à zéro loin de chez soi. `cli.py`
-    le dit sur la sortie d'erreur plutôt que de laisser croire à un tracé
+    connue est informative et n'entre dans aucun score — mais elle tombera
+    naturellement à zéro loin de chez soi. `cli.py` le dit sur la sortie
+    d'erreur plutôt que de laisser croire à un tracé
     inédit.
     """
     profil = contexte.profil
@@ -253,7 +252,7 @@ def executer(
         for trace, _, _ in traces:
             trace.meta.setdefault("tags_provenance", TAGS_PROVENANCE_MESURE)
 
-    # Les trois fichiers appris ou calibrés (L3.2, L3.3) sont lus **ici** et
+    # Les trois fichiers appris ou calibrés sont lus **ici** et
     # passés au cœur en objets : `couts.evaluer` ne connaît pas de chemin,
     # `BaseRoutes` reçoit le sien et le modèle physique reçoit ses
     # `Parametres`. Absents, on retombe sur les poids par défaut, la colonne
@@ -265,7 +264,7 @@ def executer(
     poids = lire_poids(contexte.dossier_cache / NOM_POIDS)
     base_routes = base_routes if base_routes is not None else base_routes_existante(contexte.dossier_cache)
     modele = _modele_temps(demande, contexte)
-    # Le bloc « compteur » (18/09/2026) : la troisième valeur de l'écran de
+    # Le bloc « compteur » : la troisième valeur de l'écran de
     # FTP, déléguée à `ecran_ftp.info_compteur` — jamais recalculée ici. Il
     # sert à réconcilier `temps_estime_s` (mouvement) et `temps_ecoule_s`
     # (porte à porte) dans `rendre_json`/`rendre_texte`. Indépendant de
@@ -275,9 +274,9 @@ def executer(
     #
     # `--puissance`/`--vitesse-a-plat`, déjà validées exclusives par
     # `lire_options`, voyagent jusqu'ici dans la demande : sans elles, la moyenne compteur qui
-    # chronomètre le porte à porte restait celle de la puissance d'endurance
-    # de la configuration quelle que soit la puissance demandée pour CETTE
-    # boucle-ci (corrigé le 18/09/2026).
+    # chronomètre le porte à porte resterait celle de la puissance
+    # d'endurance de la configuration quelle que soit la puissance demandée
+    # pour CETTE boucle-ci.
     compteur_info = _info_compteur(
         profil,
         demande.velo,
@@ -286,7 +285,7 @@ def executer(
         fichier_calibration=contexte.fichier_calibration,
     )
 
-    # Q40 (a) : une heure de départ trop lointaine ne se refuse pas, elle se
+    # Une heure de départ trop lointaine ne se refuse pas, elle se
     # sert **sans météo** — et sans appeler Open-Meteo pour récolter des blocs
     # vides. Même règle et même phrase que `ourouler sortie`.
     dernier_jour = portee.dernier_jour_couvert(
@@ -339,12 +338,10 @@ def executer(
 def _generer_candidates(client: ClientBrouter, profil: Profil, demande: Demande) -> list:
     """Les boucles candidates : la direction demandée, ou tout le tour de l'horizon.
 
-    Même logique que `sortie._candidates` (Q47) — reprise, pas refaite. Sans
-    `--direction`, `boucle` ne choisissait pas moins que `sortie`, elle
-    **refusait** : « --direction … est obligatoire ». C'était une contrainte
-    héritée d'une commande qui n'avait jamais appris à balayer, pas un choix
-    de conception (le mainteneur l'a relevé lui-même — Q47). Elle répartit
-    donc désormais les candidates sur les huit directions, **un appel à
+    Même logique que `sortie._candidates` — reprise, pas refaite. Sans
+    `--direction`, `boucle` ne refuse pas : exiger une direction serait une
+    contrainte héritée, pas un choix de conception. Elle répartit donc les
+    candidates sur les huit directions, **un appel à
     `generer` par azimut** : c'est ce qui garantit que chaque direction
     reçoit sa part plutôt que de laisser `generer` élargir un seul secteur
     (`boucle.candidates.azimuts` balaie ±20°, ±40°… autour d'un azimut, il
@@ -354,7 +351,7 @@ def _generer_candidates(client: ClientBrouter, profil: Profil, demande: Demande)
     même mécanisme que celui que `sortie` utilise déjà, pas un second inventé
     ici pour l'occasion.
 
-    Le refus sur la distance (`ErreurDistanceInatteignable`, Q41 d) est donc
+    Le refus sur la distance (`ErreurDistanceInatteignable`) est donc
     **par direction**, comme dans `sortie` : une direction où le terrain ne
     sait pas faire la distance ne doit pas faire perdre les directions où il
     sait. Il n'est relancé que si **aucune** direction n'a rien donné, et
@@ -404,13 +401,12 @@ def _greffer_tags_sur_gpx(
     Le principe (voir `boucle.tags_importes`) : rejouer le GPX dans BRouter
     avec des points de passage espacés, puis attribuer à chaque point du GPX
     les tags du tronçon rerouté le plus proche, sans jamais remplacer la
-    géométrie d'origine. Le même appel sert aussi le D+ (L7.C) : l'altitude
+    géométrie d'origine. Le même appel sert aussi le D+ : l'altitude
     d'un GPX importé n'est pas meilleure que celle d'un appareil (même bruit
     de baromètre pour un export Garmin/Strava), alors que la réponse de
     BRouter porte déjà, point par point, une altitude tirée de la carte de
     terrain — `boucle.trace.denivele_filtre` appliqué à `trace_reroutee.points`
-    au lieu des altitudes du GPX. C'est cette même réponse qu'on jetait avant
-    (contrat sprint 7 §L7.C).
+    au lieu des altitudes du GPX.
 
     **Chemin dégradé, volontairement large.** BRouter absent de la
     configuration, serveur injoignable, itinéraire refusé, ou rapprochement
@@ -458,16 +454,16 @@ def _modele_temps(demande: Demande, contexte: Contexte) -> ModeleTemps | None:
     """Le modèle physique à utiliser pour la colonne « temps », ou `None`.
 
     C'est **ici**, dans la couche commande, que `calibration.json` est lu : le
-    cœur reçoit des `Parametres` déjà construits (règle absolue 2, même
-    partage que pour `poids_routes.json`).
+    cœur reçoit des `Parametres` déjà construits (le cœur ne lit ni
+    configuration ni environnement, même partage que pour `poids_routes.json`).
 
-    **Une calibration mesurée n'est plus exigée** (18/09/2026) : quelqu'un qui
-    remplit honnêtement sa configuration — FTP, type de vélo, masse — obtenait
-    jusqu'ici la constante `vitesse_moyenne_kmh`, et faire varier sa FTP de
-    150 à 300 W ne déplaçait ni les heures de passage météo ni le temps de
-    mouvement. Le modèle se construit maintenant sur les meilleurs paramètres
+    **Une calibration mesurée n'est pas exigée** : sans modèle, quelqu'un qui
+    remplit honnêtement sa configuration — FTP, type de vélo, masse —
+    obtiendrait la constante `vitesse_moyenne_kmh`, et faire varier sa FTP de
+    150 à 300 W ne déplacerait ni les heures de passage météo ni le temps de
+    mouvement. Le modèle se construit donc sur les meilleurs paramètres
     disponibles, quelle qu'en soit la provenance, et **la provenance voyage
-    avec lui** jusqu'à l'écran (règle absolue 5).
+    avec lui** jusqu'à l'écran (on ne présente jamais une estimation comme une mesure).
 
     Reste le cas « aucun modèle » : un vélo dont l'usage n'est dans aucune
     catégorie de `physique.litterature` n'a que des défauts muets, et un temps
@@ -520,10 +516,9 @@ def _info_compteur(
     `puissance_w`/`vitesse_a_plat_kmh` : `--puissance`/`--vitesse-a-plat`
     telles que `lire_options` les a déjà validées (exclusives) — la puissance
     demandée pour CE parcours-ci, transmise telle quelle pour que la moyenne
-    compteur qui chronomètre le porte à porte la suive (voir le bug du
-    18/09/2026 : sans ça, 150 W et 300 W rendaient le même temps écoulé).
-    `None`, `None` (l'appel par défaut) garde le comportement d'avant :
-    la puissance d'endurance de la configuration.
+    compteur qui chronomètre le porte à porte la suive (sans ça, 150 W et
+    300 W rendraient le même temps écoulé). `None`, `None` (l'appel par
+    défaut) prend la puissance d'endurance de la configuration.
 
     `None` sans vélo dans la configuration : `rendre_json`/`rendre_texte` en
     déduisent alors qu'il n'y a pas de `temps_ecoule_s` à calculer non plus.
@@ -543,7 +538,7 @@ def _info_compteur(
 
 
 def verifier_sortie(demande: Demande) -> None:
-    """Refuse d'avance un GPX qu'on ne pourra pas écrire (contrat §6, avant-réseau).
+    """Refuse d'avance un GPX qu'on ne pourra pas écrire, avant tout appel réseau.
 
     Un dossier inexistant ou non inscriptible se voyait au moment de
     l'écriture, c'est-à-dire après avoir consommé jusqu'à 12 appels BRouter et
@@ -552,8 +547,7 @@ def verifier_sortie(demande: Demande) -> None:
     Un `--sortie` qui existe déjà n'est **pas** écrasé sans `--ecraser` : avec
     un nom choisi, la deuxième exécution est le cas normal, et remplacer sans
     un mot le fichier qu'on vient de relire serait une perte. Le nom par
-    défaut, lui, porte l'horodatage à la minute : il est écrasé sans question
-    (décision du superviseur, point 19 de la relecture).
+    défaut, lui, porte l'horodatage à la minute : il est écrasé sans question.
     """
     chemin = demande.sortie if demande.sortie is not None else Path(nom_par_defaut(demande))
     dossier = chemin.parent if str(chemin.parent) else Path(".")
@@ -667,16 +661,14 @@ def _meteos(
                     horaire=construire_horaire(depart, vitesse, pauses),
                     modele=profil.meteo.modele,
                     second_avis=profil.meteo.second_avis,
-                    # Repli Q19, **le même que `ourouler sortie`**. Il y
-                    # manquait ici, et c'est exactement le piège que Q19
-                    # décrit : le modèle régional s'arrête en cours de J+2, et
-                    # une boucle demandée à J+3 perdait *toute* sa météo — pas
-                    # une colonne, toutes — avec un message qui parle du
+                    # Le repli, **le même que `ourouler sortie`** (décision
+                    # Q19, `docs/journal/questions/questions_mainteneur.md`) : le modèle régional
+                    # s'arrête en cours de J+2, et sans repli une boucle
+                    # demandée à J+3 perdrait *toute* sa météo — pas une
+                    # colonne, toutes — avec un message qui parle du
                     # « domaine » du modèle là où c'est sa portée temporelle
-                    # qui est en cause. Corrigé sur un chemin et pas sur
-                    # l'autre : les deux commandes appellent le même
-                    # `meteo_trace.evaluer`, elles lui passent maintenant le
-                    # même repli.
+                    # qui est en cause. Les deux commandes appellent le même
+                    # `meteo_trace.evaluer` et lui passent le même repli.
                     modele_repli=profil.meteo.second_avis,
                 )
             )
@@ -794,9 +786,9 @@ def _ecrire_meilleure(trace: Trace, demande: Demande) -> Path:
 
 
 def nom_par_defaut(demande: Demande) -> str:
-    """`boucle_<direction>_<distance>km_<AAAAMMJJ-HHMM>.gpx` (contrat §6).
+    """`boucle_<direction>_<distance>km_<AAAAMMJJ-HHMM>.gpx`.
 
-    Sans `--direction` (Q47 : la recherche balaie alors tout l'horizon), le
+    Sans `--direction` (la recherche balaie alors tout l'horizon), le
     nom porte `toutes-directions` plutôt qu'un blanc illisible.
     """
     distance = f"{demande.distance_km:g}" if demande.distance_km is not None else "0"

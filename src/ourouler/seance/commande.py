@@ -5,23 +5,24 @@ est) et appelle Intervals.icu ; le reste de `seance/` ne connaît ni fichier,
 ni réseau. Le client est injectable pour que les tests ne touchent jamais le
 réseau.
 
-**`--fichier-seance`** (F1) remplace Intervals.icu par un `.ZWO`/`.MRC` donné
+**`--fichier-seance`** remplace Intervals.icu par un `.ZWO`/`.MRC` donné
 en ligne de commande, lu par `seance.fichier.lire_fichier_seance` — voir
 `_executer_fichier`. C'est le seul autre module qui touche un chemin ici, et
-seulement celui que `cli.py` lui passe déjà résolu (règle absolue 2).
+seulement celui que `cli.py` lui passe déjà résolu (le cœur ne lit ni configuration ni environnement).
 
 **Ce que « longueur de route nécessaire » veut dire.** Pour chaque étape, on
 demande au modèle physique la vitesse d'équilibre à la puissance cible, **sur
 le plat et sans vent** ; la longueur est cette vitesse multipliée par la
 durée de l'étape. C'est une borne de travail, pas une prédiction : le terrain
-réel monte, descend et le vent souffle. Le lot L4.3 fera le calcul le long
-d'un tracé ; ici, il s'agit de savoir de combien de route droite un bloc a
-besoin — « 8 minutes à 250 W, c'est 4,2 km ».
+réel monte, descend et le vent souffle. Le placement
+(`seance.placement`) fait le calcul le long d'un tracé ; ici, il s'agit de
+savoir de combien de route droite un bloc a besoin — « 8 minutes à 250 W, c'est
+4,2 km ».
 
 **Le demi-tour.** Un bloc peut reprendre le segment du bloc précédent en sens
 inverse, à condition que la récupération qui suit paie l'aller-retour : sa
-première moitié dépasse le bout du segment, la seconde revient dessus
-(mécanique fixée par le mainteneur le 13/09). La colonne « au-delà » donne
+première moitié dépasse le bout du segment, la seconde revient dessus. La
+colonne « au-delà » donne
 donc, pour chaque bloc suivi d'une récupération, la **longueur de route
 nécessaire au-delà de la fin du segment** : moitié de la récupération ×
 vitesse de récupération. Sans récupération derrière, la question ne se pose
@@ -161,8 +162,8 @@ def _vitesses(contexte: Contexte) -> tuple[dict, SourceVitesse]:
     `parametres_du_velo` sait aussi fabriquer des paramètres depuis la
     configuration ou des valeurs par défaut ; on ne s'en sert **pas** ici. Un
     CdA jamais mesuré donnerait une longueur de bloc précise au mètre et
-    fausse : entre une fausse précision et une vitesse moyenne assumée, le
-    mainteneur a demandé la seconde, et qu'on dise laquelle.
+    fausse : entre une fausse précision et une vitesse moyenne assumée, on
+    prend la seconde, et on dit laquelle.
     """
     from ourouler.physique.parametres_velo import velo_demande
     from ourouler.stockage.calibrations import lire_calibration  # import paresseux : lit un fichier
@@ -188,10 +189,9 @@ class DemandeSeance:
 
     Trois modes, exclusifs entre eux (`valider_mode` l'a vérifié) :
 
-    - `jour` seul : un jour chez Intervals.icu (inchangé depuis L4.1) ;
-    - `depuis`/`jusqua` ensemble : une plage chez Intervals.icu (F0.3) ;
-    - `fichier` : un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, comble C1 de
-      `docs/journal/ux/relecture_f0.md`), rattaché à `jour`.
+    - `jour` seul : un jour chez Intervals.icu ;
+    - `depuis`/`jusqua` ensemble : une plage chez Intervals.icu ;
+    - `fichier` : un `.ZWO`/`.MRC` au lieu d'Intervals.icu, rattaché à `jour`.
     """
 
     jour: date | None = None
@@ -255,7 +255,7 @@ def executer(
 
 
 def _executer_fichier(chemin: Path, jour: date, contexte: Contexte) -> ResultatSeance:
-    """Séance lue depuis un `.ZWO`/`.MRC` au lieu d'Intervals.icu (F1, C1).
+    """Séance lue depuis un `.ZWO`/`.MRC` au lieu d'Intervals.icu.
 
     Le reste de l'enchaînement — vitesses, longueurs, rendu — est celui du
     jour chez Intervals : un fichier remplace seulement la source de la
@@ -347,7 +347,7 @@ def rendre_texte(seance: Seance, mesures: list[LongueurEtape], source: SourceVit
     )
     lignes.append(source.resume)
     if seance.meta.get("conversion"):
-        # Séance venue d'un fichier (`.ZWO`/`.MRC`, F1) : la conversion des
+        # Séance venue d'un fichier (`.ZWO`/`.MRC`) : la conversion des
         # pourcentages de FTP en watts doit être visible et dire qu'elle a eu
         # lieu (docs/journal/ux/maquettes_v1.html E17) — c'est ainsi que quelqu'un
         # découvre que sa FTP est mal renseignée.

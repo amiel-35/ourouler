@@ -19,7 +19,7 @@ FENETRE_ALTITUDE = 5
 
 #: Types d'activité cyclistes tels qu'Intervals.icu les nomme. Sert au
 #: connecteur (ne rapatrier que le vélo) comme à l'inventaire (ne compter que
-#: le vélo) : le compte Intervals du mainteneur contient aussi de la course à
+#: le vélo) : un compte Intervals contient souvent aussi de la course à
 #: pied, de la natation et de la musculation, qui n'ont rien à faire dans un
 #: inventaire de sorties vélo.
 TYPES_VELO = (

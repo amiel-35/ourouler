@@ -85,9 +85,8 @@ export function Boucles({ reponse, surRetour }: Props) {
           points: candidate.trace?.points ?? [],
           choisi: candidate.numero === choisie,
           // Surtout pas `candidate.nom` : c'est « Boucle 115° 27.6 km », où
-          // « 27.6 km » est le **rayon** demandé au traceur. Le titre avait
-          // été nettoyé (relecture F2 · C6), l'infobulle de la carte gardait
-          // la même fuite et le même mensonge de dix-neuf kilomètres.
+          // « 27.6 km » est le **rayon** demandé au traceur — la même fuite
+          // et le même mensonge de dix-neuf kilomètres que dans le titre.
           titre: titreDeBoucle(candidate.azimut_deg, candidate.numero),
         }))}
         vents={active?.meteo?.fleches_vent ?? []}
@@ -124,7 +123,7 @@ export function Boucles({ reponse, surRetour }: Props) {
                 </span>
               ) : null}
               {/* Le porte à porte en majeur, le temps sans arrêt juste à
-                  côté : « je demande 5 h, je veux 5 h » (18/09/2026). */}
+                  côté : qui demande 5 h veut lire 5 h. */}
               <DureesDeSortie
                 mouvementS={candidate.temps_estime_s}
                 ecouleS={candidate.temps_ecoule_s}

@@ -108,8 +108,8 @@
      flèche pointillée grise quand `relatif` manque) restent tous deux en
      encre atténuée — sans teinte, par choix pour le premier (la direction
      le dit : « ni gênant ni favorable »), et parce qu'une incertitude n'a
-     pas à emprunter une couleur de mesure pour le second (règle absolue 5 :
-     l'ignorance ne se montre pas comme une valeur). Les deux se distinguent
+     pas à emprunter une couleur de mesure pour le second
+     (l'ignorance ne se montre pas comme une valeur). Les deux se distinguent
      par le trait, pas par la couleur : plein pour le travers connu, très
      pointillé et plus fin pour l'inconnu — voir `style.css`. */
   --couleur-vent-neutre: var(--texte-attenue);

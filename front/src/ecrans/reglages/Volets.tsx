@@ -196,7 +196,7 @@ export function VoletIntervals({
   );
 }
 
-/** La section « Vos vélos, mesurés sur vos sorties » (L9.4). */
+/** La section « Vos vélos, mesurés sur vos sorties ». */
 export function SectionCalibrations({
   calibrations,
   surChoisirPneus,

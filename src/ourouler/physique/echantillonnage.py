@@ -22,7 +22,7 @@ from ourouler.physique.modele import (
     vent_au_cycliste,
 )
 
-#: Longueur visée d'un échantillon, en mètres (contrat de sprint §3).
+#: Longueur visée d'un échantillon, en mètres.
 LONGUEUR_ECHANTILLON_M = 200.0
 
 #: Sous cette vitesse instantanée, le cycliste est à l'arrêt (feu, stop).
@@ -34,7 +34,7 @@ SEUIL_ARRET_MS = 1.0
 #: capteur de puissance qui n'a pas fini de se caler.
 DEBUT_IGNORE_M = 2000.0
 
-#: Bornes de pente des échantillons retenus (contrat §3).
+#: Bornes de pente des échantillons retenus.
 PENTE_MIN = -0.03
 PENTE_MAX = 0.08
 
@@ -47,8 +47,8 @@ FACTEUR_FTP_MAX = 2.0
 
 #: Variation de vitesse tolérée entre deux échantillons voisins, en m/s.
 #:
-#: Le seuil valait 0,3 m/s (contrat §3) : il ne gardait que des tronçons
-#: « stationnaires », 5 % du total, et ceux-là ne sont pas un échantillon
+#: Un seuil à 0,3 m/s ne garderait que des tronçons « stationnaires », 5 % du
+#: total, et ceux-là ne sont pas un échantillon
 #: neutre d'une sortie (faux plats descendants, vent arrière). Depuis que la
 #: variation d'énergie cinétique du tronçon entre dans la part **connue** de sa
 #: puissance (`Echantillon.puissance_cinetique_w`), l'accélération n'est plus
@@ -83,8 +83,7 @@ class Echantillon:
     """Un tronçon d'environ 200 m d'une sortie réelle, et ce qu'on en sait.
 
     `retenu` dit si la calibration s'en sert, `motif` dit pourquoi pas. Les
-    champs après `motif` sont des compléments du contrat de sprint : la
-    longueur (pour pondérer par la distance), la masse volumique de l'air
+    champs après `motif` complètent : la longueur (pour pondérer par la distance), la masse volumique de l'air
     mesurée du jour, si le vent était connu, l'instant de passage, et les
     **vitesses aux deux bouts** — sans elles, on ne sait pas si le cycliste a
     accéléré pendant les 200 m.
@@ -345,7 +344,7 @@ def _contient_un_arret(points: Sequence[Point], i: int, j: int) -> bool:
 def _qualifier(
     echantillons: list[Echantillon], *, ftp_w: float, vitesse_min_kmh: float
 ) -> None:
-    """Pose `retenu` et `motif` sur chaque échantillon, filtres du contrat §3."""
+    """Pose `retenu` et `motif` sur chaque échantillon, selon les filtres ci-dessus."""
     vitesse_min_ms = vitesse_min_kmh / 3.6
     puissance_max = FACTEUR_FTP_MAX * ftp_w
     for indice, e in enumerate(echantillons):

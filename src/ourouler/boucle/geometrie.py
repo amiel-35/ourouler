@@ -1,10 +1,9 @@
 """Géométrie d'un tracé exposée en JSON : simplifiée, avec son profil d'altitude.
 
-Contrat du lot F0.1 (`docs/journal/ux/front_contrat.md`) : aucune coordonnée d'un
-tracé n'existait dans le JSON de `boucle` ou de `sortie`, seulement dans le
-GPX écrit sur disque et dans le HTML Leaflet de `rendu/carte.py`
-(`docs/journal/ux/discovery_donnees.md` §2, §3 « Page du jour ») — un front web ne
-pouvait dessiner aucune carte. Ce module comble ce trou avec `geometrie_json`.
+Sans lui, les coordonnées d'un tracé ne seraient que dans le GPX écrit sur
+disque et dans le HTML Leaflet de `rendu/carte.py`, et un front web ne
+pourrait dessiner aucune carte : `geometrie_json` les met dans le JSON de
+`boucle` et de `sortie`.
 
 **Le volume.** Un tracé BRouter compte quelques milliers de points ; un GPX
 importé à 1 Hz (`boucle --gpx`, `boucle/gpx.py`) peut en compter des dizaines
@@ -19,8 +18,7 @@ mètres dès qu'on dézoome légèrement — en deçà, la simplification n'effa
 du bruit invisible. Le cycliste doit reconnaître sa route : 5 m ne la
 déplacent pas, et `geometrie_json` mesure l'écart réellement introduit
 (`simplification.ecart_max_m`) plutôt que de se fier seulement à la garantie
-théorique de l'algorithme — la règle absolue « ne rien affirmer sans mesure »
-s'applique aussi ici.
+théorique de l'algorithme — on n'affirme rien sans mesure, ici aussi.
 
 **La forme.** `points` est un tableau de paires `[lat, lon]`, pas d'objets
 nommés : c'est exactement ce que Leaflet consomme (`L.polyline(points)`)

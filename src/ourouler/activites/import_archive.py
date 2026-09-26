@@ -1,5 +1,5 @@
 """Importer l'historique qu'un cycliste dépose : fichiers isolés, `.gz`, ou
-archive d'export Strava/Garmin (lot L9.2, `docs/journal/sprints/sprint9_contrat.md`).
+archive d'export Strava/Garmin.
 
 **Doctrine §2** : ce module ne lit ni fichier de configuration ni variable
 d'environnement — il reçoit un `Cache` déjà construit pour un propriétaire
@@ -19,9 +19,8 @@ métadonnées de l'archive (une taille déclarée dans un en-tête `.zip` n'est
 pas digne de confiance : `_lire_borne_compte` coupe au premier
 octet en trop, quoi que l'archive prétende contenir).
 
-**Les bornes ci-dessous viennent des deux archives réelles du mainteneur**
-(`docs/services_externes.md`, §« Les archives d'export, mesurées sur de
-vraies données »), avec une marge généreuse — pas d'un chiffre rond choisi à
+**Les bornes ci-dessous viennent de deux archives réelles**
+(`docs/journal/archives_export_mesures.md`), avec une marge généreuse — pas d'un chiffre rond choisi à
 l'aveugle :
 
 - Strava : 665 Mo, 3 730 entrées, 20 Mo utiles une fois le tri fait.
@@ -29,7 +28,7 @@ l'aveugle :
   décompression de 11 sur l'enveloppe *intérieure* quand l'extérieure n'est
   qu'à 1,5 — d'où un plafond de ratio vérifié **à chaque niveau
   d'imbrication**, pas seulement sur l'archive déposée : « un plafond de
-  ratio posé sur l'enveloppe ne verrait rien » (services_externes.md).
+  ratio posé sur l'enveloppe ne verrait rien » (archives_export_mesures.md).
 
 Un fichier corrompu, une archive hostile ou une entrée hors liste ne fait
 jamais échouer l'import : il compte dans `RapportImport.ignorees`, avec un
@@ -62,8 +61,8 @@ from ourouler.activites.cache import Cache
 Progres = Callable[[int, int], None]
 
 #: `.fit`/`.gpx`/`.tcx`, avec ou sans `.gz` — Strava gzippe ses fichiers
-#: d'activité à l'intérieur de son archive (`docs/journal/questions/questions_mainteneur.md`,
-#: Q48 : « le seul angle mort mesuré »).
+#: d'activité à l'intérieur de son archive (décision Q48,
+#: `docs/journal/questions/questions_mainteneur.md`).
 EXTENSIONS_ACTIVITE = ("fit", "gpx", "tcx")
 
 #: Taille max d'une requête entière (tous les fichiers déposés d'un coup).
@@ -88,12 +87,12 @@ TAILLE_MAX_DECOMPRESSEE = 2 * 1024 * 1024 * 1024
 TAILLE_MAX_FICHIER = 200 * 1024 * 1024
 
 #: Taille décompressée max d'un fichier d'activité (`.fit`/`.gpx`/`.tcx`).
-#: Mesurée le 25/09/2026 sur les 936 fichiers du cache du mainteneur : le plus
-#: gros fait 3,7 Mo (un `.gpx`), le plus gros `.fit` 3,0 Mo — marge x13. Un
-#: plafond de 200 Mo, comme pour les archives, laissait `gpxpy` monter un
+#: Mesurée sur les 936 fichiers d'un historique réel : le plus gros fait
+#: 3,7 Mo (un `.gpx`), le plus gros `.fit` 3,0 Mo. Un plafond de 200 Mo, comme
+#: pour les archives, laisserait `gpxpy` monter un
 #: arbre XML de plusieurs Go à partir d'un seul `.gpx.gz` de quelques Ko.
 #:
-#: **Ramené de 50 à 16 Mo** (contre-lecture Fable du 25/09/2026), sur mesure :
+#: **16 Mo et non 50**, sur mesure :
 #: un `.gpx` valide et synthétique de 50 Mo (555 000 points) prend 6,4 s et
 #: **+745 Mo** de mémoire résidente à lire (`lecture.py`, `gpxpy`) — sur un
 #: serveur partagé avec BRouter, c'est un fichier qui suffit à tout faire
@@ -103,7 +102,7 @@ TAILLE_MAX_FICHIER = 200 * 1024 * 1024
 TAILLE_MAX_ACTIVITE = 16 * 1024 * 1024
 
 #: Ratio décompressé/compressé max toléré pour une entrée. Mesuré à 11 sur
-#: l'archive Garmin réelle (`docs/services_externes.md`) ; marge x9.
+#: l'archive Garmin réelle (`docs/journal/archives_export_mesures.md`) ; marge x9.
 RATIO_MAX_DECOMPRESSION = 100
 
 #: Profondeur d'imbrication max (un `.zip` dans un `.zip`, dans un `.zip`…).
@@ -193,11 +192,12 @@ def importer(
     **fichier binaire positionnable** (le fichier temporaire où la couche web
     a déjà reçu le dépôt). La seconde forme est celle de l'API : une archive
     Strava de 665 Mo n'est jamais chargée en mémoire d'un bloc, `zipfile` la
-    lit entrée par entrée depuis ce fichier (relecture du 25/09/2026).
+    lit entrée par entrée depuis ce fichier.
 
     Chaque élément est traité indépendamment, et un dépôt corrompu n'empêche
     pas les suivants. Plusieurs archives successives, à des appels
-    distincts, sont le cas normal ([[Q62]]) : les bornes de `_Etat` sont
+    distincts, sont le cas normal (un export volumineux peut arriver en
+    plusieurs archives) : les bornes de `_Etat` sont
     neuves à chaque appel.
 
     **L'identité d'une sortie déposée est son contenu**, pas son nom (voir
@@ -314,7 +314,8 @@ def _traiter_entree(
     extension = _extension_utile(info.filename)
     if extension is None and not est_zip_imbrique:
         # Média, `.csv`, `.json`… hors liste (contacts, messages — jamais lus,
-        # règle absolue 1). Compté et motivé, jamais décompressé.
+        # ce ne sont pas des données de sortie). Compté et motivé, jamais
+        # décompressé.
         etat.rapport.ignorees.append(
             Ignoree(
                 nom=nom_interne,
@@ -358,13 +359,12 @@ def _traiter_entree(
 def _importer_contenu(etat: _Etat, nom: str, contenu: bytes, extension: str) -> None:
     """Indexe des octets déjà décompressés, **identifiés par leur contenu**.
 
-    `id_externe` est le sha256 du contenu, pas le nom du fichier (relecture
-    du 25/09/2026). Avec le nom, deux défauts : deux sorties différentes
-    portant le même nom (« Morning_Ride.gpx », le nom qu'un export Strava
-    donne à une sortie) s'écrasaient — `Cache.ajouter` met la ligne à jour —
-    et comptaient comme deux imports ; et la même sortie déposée isolée puis
-    dans l'archive (`1234.fit`, puis `activities/1234.fit.gz`) faisait deux
-    lignes. Le nom reste dans `meta["fichier"]`.
+    `id_externe` est le sha256 du contenu, pas le nom du fichier. Avec le
+    nom, deux défauts : deux sorties différentes portant le même nom
+    (« Morning_Ride.gpx », le nom qu'un export Strava donne à une sortie)
+    s'écraseraient — `Cache.ajouter` met la ligne à jour — et compteraient
+    comme deux imports ; et la même sortie déposée isolée puis dans l'archive
+    (`1234.fit`, puis `activities/1234.fit.gz`) ferait deux lignes. Le nom reste dans `meta["fichier"]`.
 
     `Cache.indexer_dossier` (la ligne de commande) garde le nom : là, c'est
     un chemin sur un disque, qui désigne vraiment un fichier.

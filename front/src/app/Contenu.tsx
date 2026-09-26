@@ -1,7 +1,6 @@
-/** Lot 14 : extrait d'`App.tsx` sans changement de comportement — le
- * contenu principal (hors barre d'onglets et bandeau de séance déposée),
- * choisi sur `vue.genre` puis sur `onglet`. Seule la forme a bougé : le
- * même arbre de décision, dans son propre fichier.
+/** Séparé d'`App.tsx` — le contenu principal (hors barre d'onglets et
+ * bandeau de séance déposée), choisi sur `vue.genre` puis sur `onglet` : un
+ * arbre de décision, dans son propre fichier.
  */
 
 import type { Budget, Enveloppe, Profil, Seance, SeanceResumee, Semaine, Zones } from "../api/types";
@@ -131,8 +130,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
     return (
       // `key` force un démontage à chaque changement de proposition : sans
       // lui, l'état local de l'écran (la panne du partage GPX, par exemple)
-      // survivrait au passage de la proposition N à la M — relevé en
-      // relecture le 18/09/2026.
+      // survivrait au passage de la proposition N à la M.
       <PropositionDetail
         key={vue.numero}
         reponse={resultat.sortie}
@@ -221,10 +219,9 @@ export function Contenu(props: ContenuProps): JSX.Element {
         aujourdhui={jour}
         joursAvecParcours={joursMemorises}
         surGenerer={(quand) => chercher({ mode: "seance", jour: quand })}
-        // **Le jour qu'on nous passe** (C10). `surVoir` l'ignorait et rouvrait
-        // toujours la sortie d'aujourd'hui — un corollaire mort tant qu'un
-        // seul jour pouvait être mémorisé, un faux parcours dès que deux le
-        // sont.
+        // **Le jour qu'on nous passe.** L'ignorer rouvrirait toujours la
+        // sortie d'aujourd'hui — un faux parcours dès que deux jours sont
+        // mémorisés.
         surVoir={(quand) => {
           const memorisee = quand === jour ? memoire : sortieRetenue(quand);
           if (!memorisee) return;
@@ -251,7 +248,7 @@ export function Contenu(props: ContenuProps): JSX.Element {
         dureeSeance_s={seanceDemandee?.duree_s ?? null}
         nomSeance={seanceDemandee?.nom ?? null}
         demande={demande}
-        // Le même budget que celui contre lequel l'attente s'animera (C3).
+        // Le même budget que celui contre lequel l'attente s'animera.
         budget={budgetDe(demande.mode === "seance" ? "sortie" : "boucle")}
         surDemande={setDemande}
         surChercher={() => chercher()}

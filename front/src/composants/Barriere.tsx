@@ -5,11 +5,10 @@
  * toujours là. Sans barrière, React démonte l'arbre entier et le cycliste
  * voit du blanc : indistinguable d'un écran cassé, et sans la moindre piste.
  *
- * C'est arrivé pendant la vérification de bout à bout du lot F2 : un jour
- * sans séance rend `{jour, seance: null}` au lieu d'une séance, et l'écran
- * « Aujourd'hui » se vidait. La cause est corrigée à la frontière de l'API ;
- * la barrière, elle, reste, parce que la prochaine surprise ne sera pas
- * celle-là.
+ * Exemple : un jour sans séance rend `{jour, seance: null}` au lieu d'une
+ * séance, et l'écran « Aujourd'hui » se viderait. Ce cas se traite à la
+ * frontière de l'API ; la barrière, elle, reste, parce que la prochaine
+ * surprise ne sera pas celle-là.
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
@@ -31,7 +30,7 @@ export class Barriere extends Component<Props, Etat> {
 
   componentDidCatch(panne: Error, infos: ErrorInfo): void {
     // La console du navigateur est le seul journal qu'on ait ici, et c'est
-    // là que le mainteneur ira regarder.
+    // là qu'on ira regarder.
     console.error("où rouler : l'interface a buté", panne, infos.componentStack);
   }
 

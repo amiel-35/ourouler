@@ -32,9 +32,9 @@ def lire_profil(
     `donnees.assistant_recommande` dit si ce propriétaire n'a **jamais**
     enregistré de surcharge (`DepotProfils.surcharge` vide) — un compte
     activé mais jamais passé par l'assistant, quel qu'ait été le socle qu'il
-    a lu au démarrage. Corrige le défaut constaté en vrai le 19/09/2026 : un
-    compte neuf atterrissait sur l'écran du jour, qui réclame Intervals et
-    échoue, au lieu de l'assistant qui construit le profil. Le premier
+    a lu au démarrage. Sans lui, un compte neuf atterrirait sur l'écran du
+    jour, qui réclame Intervals et échoue, au lieu de l'assistant qui
+    construit le profil. Le premier
     `PATCH /profil` fait passer ce booléen à faux — pas un drapeau à part à
     tenir à jour, juste la conséquence de ce qui est déjà écrit sur le disque.
     """
@@ -79,9 +79,9 @@ async def modifier_profil(
     except ErreurConfig as e:
         # Ici, et seulement ici, une configuration invalide est la faute de
         # ce que le cycliste vient d'écrire : 422 et non 500. Le message est
-        # traduit pour l'écran (constaté le 25/09/2026 : un poids fautif
-        # rendait « [cycliste] masse_kg = 7075.0 hors de [20, 300] » tel
-        # quel) ; `details.champ` laisse le front l'afficher près du champ.
+        # traduit pour l'écran (sinon un poids fautif afficherait
+        # « [cycliste] masse_kg = 7075.0 hors de [20, 300] » tel quel) ;
+        # `details.champ` laisse le front l'afficher près du champ.
         message, details = message_profil_invalide(e)
         raise ErreurApi(code="profil_invalide", message=message, statut=422, details=details) from e
     except Exception as e:
@@ -92,15 +92,13 @@ async def modifier_profil(
 def _corps_avec_athlete_id_resolu(ctx: Contexte, corps: dict) -> dict:
     """Complète `intervals.athlete_id` quand le corps pose une clé sans lui.
 
-    **Correctif de prod du 25/09/2026.** L'assistant et Réglages n'envoient
+    L'assistant et Réglages n'envoient
     que `{"intervals": {"api_key": "…"}}` — aucun des deux ne demande
     l'`athlete_id` (`front/src/ecrans/Assistant.tsx`, `Reglages.tsx`). Sans ce
     complément, `ParametresIntervals.renseigne` reste faux et toutes les
-    routes Intervals répondent `intervals_absent`, quelle que soit la clé
-    (journaux prod du 25/09 : `GET /profil/intervals` et `GET /seances` en
-    409). Chez le mainteneur ça marchait parce que `athlete_id` venait du
-    TOML du serveur — hérité par le socle, jusqu'à ce que Q66 ferme cette
-    fuite (`depots.DepotProfils.config`, un socle ne se partage plus).
+    routes Intervals répondent `intervals_absent` (409), quelle que soit la
+    clé. L'`athlete_id` ne peut pas venir du TOML du serveur : un socle ne se
+    partage pas (`depots.DepotProfils.config`).
 
     `intervals.athlete_id` **vide** compte comme absent — un champ posé à
     `""` par un front plus ancien ne doit pas empêcher la résolution.
@@ -235,8 +233,10 @@ def profil_intervals(ctx: Ctx, qui: Qui) -> dict:
     L'étage T1 de l'accueil (`docs/journal/ux/parcours_accueil.md` §4), une fois la
     clé Intervals posée : « on a trouvé ceci, c'est toujours d'actualité ? »
     plutôt que remplacer en silence ou reposer une question dont Intervals
-    connaît déjà la réponse ([[Q64]]). Le front confirme ou corrige, puis
-    envoie la valeur retenue à `PATCH /profil` comme n'importe quelle FTP ou
+    connaît déjà la réponse (décision Q64,
+    `docs/journal/questions/questions_mainteneur.md`). Le front confirme ou
+    corrige, puis envoie la valeur retenue à `PATCH /profil` comme n'importe
+    quelle FTP ou
     masse déclarée — cette route ne fait que lire.
 
     401 nommé `intervals_absent` si la clé n'est pas encore posée : ce n'est

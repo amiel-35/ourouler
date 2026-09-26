@@ -24,12 +24,11 @@ export function ChiffresParcours({
           <b>{nombre(candidate.denivele_m)}</b> m D+
         </span>
       ) : null}
-      {/* Le porte à porte en majeur, le temps sans arrêt juste à côté
-          (18/09/2026) : « je demande 5 h, je veux 5 h ». Les deux
-          chiffres restaient corrects mais éloignés — le porte à porte
-          arrivait après le D+, les feux, le trafic et les routes non
-          classées, si loin que l'œil ne les rapprochait plus l'un de
-          l'autre. Ils suivent maintenant tout de suite le D+, comme sur
+      {/* Le porte à porte en majeur, le temps sans arrêt juste à côté :
+          qui demande 5 h veut lire 5 h. Après le D+, les feux, le trafic
+          et les routes non classées, ils seraient si loin l'un de l'autre
+          que l'œil ne les rapprocherait plus. Ils suivent donc tout de
+          suite le D+, comme sur
           `Boucles.tsx` et `Propositions.tsx`. */}
       <DureesDeSortie
         mouvementS={proposition.duree_s}
@@ -72,10 +71,10 @@ export function EnvoiGpx({
 }) {
   return (
     <>
-      {/* Q40 (g) : chaque proposition porte **sa** trace, fabriquée au
-          moment où on la demande. Auparavant un seul GPX existait, celui
-          de la proposition retenue : emporter « la plus sèche » envoyait
-          la trace de « la plus calme » au compteur. */}
+      {/* Chaque proposition porte **sa** trace, fabriquée au moment où on
+          la demande (décision Q40 g) : avec un seul GPX, celui de la
+          proposition retenue, emporter « la plus sèche » enverrait la trace
+          de « la plus calme » au compteur. */}
       {proposition.gpx ? (
         <>
           {erreurGpx ? (

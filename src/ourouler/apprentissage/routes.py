@@ -1,23 +1,24 @@
 """Routes connues : apprendre des sorties passées quelles routes le cycliste accepte.
 
-Le principe (contrat du sprint 3 §2) : rejouer les sorties extérieures du
+Le principe : rejouer les sorties extérieures du
 cache dans BRouter — points de passage tous les 1 500 m — pour obtenir les
 **tags OSM** des routes réellement parcourues, puis comparer ce que le
 cycliste prend à ce que le moteur lui propose. Les étiquettes OSM ne sont pas
 la vérité : les traces le sont, et ce sont elles qui fixent les poids.
 
-Trois précautions, qui sont le cœur du lot :
+Trois précautions, qui sont le cœur du module :
 
-1. **« Inconnu » n'est jamais un malus.** Les traces du mainteneur couvrent
-   le sud et l'ouest de Rennes ; s'en servir comme critère pénaliserait toute
-   boucle vers le nord ou l'est. `part_connue` est **informative**, elle
-   n'entre dans aucun score.
+1. **« Inconnu » n'est jamais un malus.** Les traces d'un cycliste ne
+   couvrent qu'une partie du territoire autour de son départ ; s'en servir
+   comme critère pénaliserait toute boucle vers les directions peu roulées.
+   `part_connue` est **informative**, elle n'entre dans aucun score.
 2. **On ne lit aucun chemin, et on n'en fabrique aucun.** `BaseRoutes` reçoit
    un `Path` déjà résolu, `apprendre` reçoit un `Cache`, un `ClientBrouter` et
    une `BaseRoutes`. Les *noms* des fichiers du cache vivent eux aussi dans
    `apprentissage/commande.py` : écrire le nom du fichier de base ou celui
-   des poids ici, ce serait savoir où l'on tourne — la règle absolue 2 de
-   CLAUDE.md contournée par une chaîne. La ligne de commande sait où vivent
+   des poids ici, ce serait savoir où l'on tourne — la règle « le cœur ne lit ni
+   configuration ni environnement » contournée par une chaîne. La ligne de
+   commande sait où vivent
    les fichiers ; le cœur non.
 3. **Une ignorance se dit.** Une sortie qu'on n'a pas su rejouer est comptée
    dans le rapport ; elle ne disparaît pas en silence.
@@ -47,8 +48,8 @@ from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT, POIDS_HIGHWAY_INCONNU
 
-#: Réexportés : le découpage en mailles vit dans `ourouler.boucle.mailles`
-#: depuis le lot 9, mais il s'est toujours lu depuis ce module.
+#: Réexportés : le découpage en mailles vit dans `ourouler.boucle.mailles`,
+#: mais il se lit aussi depuis ce module.
 from ourouler.boucle.mailles import MAILLE as MAILLE
 from ourouler.boucle.mailles import cle_maille as cle_maille
 from ourouler.boucle.mailles import mailles_ponderees, mailles_traversees
@@ -83,32 +84,29 @@ LIBELLE_SANS_HIGHWAY = "(sans highway)"
 POIDS_MAX = 4.0
 
 #: Classe de référence : le cycliste roule dessus par défaut, elle ne coûte
-#: rien. Le contrat la force à 0 quoi que disent les mesures.
+#: rien. Elle est forcée à 0 quoi que disent les mesures.
 HIGHWAY_REFERENCE = "tertiary"
 
 #: Part d'exposition en dessous de laquelle une classe garde son poids par
 #: défaut au lieu du poids appris.
 #:
-#: Décision du superviseur du 13/09/2026, prise sur la vérification réelle.
-#: L'exposition est mesurée sur ~8 boucles de 40 km : une classe qui n'y pèse
+#: Choisie sur vérification réelle. L'exposition est mesurée sur ~8 boucles de 40 km : une classe qui n'y pèse
 #: que quelques centaines de mètres tient dans une poignée de tronçons, et le
-#: rapport de parts y devient du bruit amplifié par un logarithme. Mesuré ce
-#: jour-là : `living_street` sortait à 2,56 pour 0,8 % d'exposition et
-#: `service` à 2,35 pour 0,6 % — des malus lourds tirés de presque rien, quand
+#: rapport de parts y devient du bruit amplifié par un logarithme. Mesuré :
+#: `living_street` sortait à 2,56 pour 0,8 % d'exposition et `service` à 2,35
+#: pour 0,6 % — des malus lourds tirés de presque rien, quand
 #: leur défaut est 0. En dessous de 2 %, on ne sait pas : on garde ce qu'on
-#: avait avant de mesurer (règle absolue 5 de CLAUDE.md).
+#: avait avant de mesurer (on n'affirme rien sans mesure).
 #:
-#: Une classe **absente** de l'exposition, elle, reste à 0 : le contrat §2 le
-#: dit en toutes lettres (« on n'a rien à comparer, et l'ignorance n'est
-#: jamais un malus »). Les deux cas ne disent pas la même chose — rien vu du
+#: Une classe **absente** de l'exposition, elle, reste à 0 : on n'a rien à
+#: comparer, et l'ignorance n'est jamais un malus. Les deux cas ne disent pas la même chose — rien vu du
 #: tout, contre trop peu vu pour en tirer un rapport.
 PART_EXPOSITION_MIN = 0.02
 
 #: Version du schéma SQLite de la base de routes.
 #:
-#: Passée à 2 le 13/09/2026 : les deux tables gagnent une colonne
-#: `proprietaire`. Passée à 3 le 17/09/2026 : cette colonne entre **en tête
-#: des deux clés primaires**, et toutes les requêtes la filtrent — une colonne
+#: Version 2 : les deux tables gagnent une colonne `proprietaire`. Version 3 :
+#: cette colonne entre **en tête des deux clés primaires**, et toutes les requêtes la filtrent — une colonne
 #: que personne ne filtre ne protège rien. Voir `_migrer`.
 VERSION_SCHEMA = 3
 
@@ -213,10 +211,10 @@ class RapportApprentissage:
     #: Somme des D+ recalculés sur l'altitude du **tracé rerouté** par
     #: BRouter (`boucle.trace.denivele_filtre` appliqué aux points que
     #: `client.itineraire` a déjà renvoyés pour les tags, sans appel
-    #: supplémentaire — contrat sprint 7 §L7.C), pour les sorties apprises
+    #: supplémentaire), pour les sorties apprises
     #: **ce coup-ci** seulement. Ce n'est **pas** le D+ de l'appareil : un
     #: altimètre barométrique accumule du bruit qu'aucun seuil ne rattrape
-    #: (règle absolue 5 — la provenance se dit). `None` tant qu'aucune sortie
+    #: (la provenance se dit). `None` tant qu'aucune sortie
     #: apprise n'a rendu d'altitude exploitable.
     denivele_m: float | None = None
     messages: list[str] = field(default_factory=list)
@@ -493,18 +491,17 @@ class BaseRoutes:
     def sorties(self) -> list[dict]:
         """Les sorties apprises de **ce** propriétaire — id, jour, mailles, mètres.
 
-        Écrit pour l'export du lot L7.B (`docs/journal/sprints/sprint7_contrat.md`, §L7.B) :
-        c'est « le lien » au sens de [[Q46]] (`docs/journal/questions/questions_mainteneur.md`)
-        — que ce cycliste est passé là, ce jour-là, sur cette sortie.
+        Sert à l'export des données personnelles : c'est « le lien » au sens
+        de la décision Q46 (`docs/journal/questions/questions_mainteneur.md`) —
+        que ce cycliste est passé là, ce jour-là, sur cette sortie.
 
         **Lecture seule, volontairement : il n'y a pas de méthode de
         suppression symétrique dans cette classe.** La doctrine (§10.2) est
         tranchée : « les poids de routes appris restent collectifs […] et ne
-        repartent pas avec un compte supprimé ». Le lot L7.B n'invente pas la
-        table de correspondance compte/propriétaire qui permettrait un
-        effacement fin (doctrine §10.2) ; en son absence, la suppression d'un
-        propriétaire laisse `troncons` et `sorties` intacts, et le dit dans
-        l'archive d'export plutôt que de supprimer en silence ou d'inventer
+        repartent pas avec un compte supprimé ». Sans table qui permettrait un
+        effacement fin, la suppression d'un propriétaire laisse `troncons` et
+        `sorties` intacts, et le dit dans l'archive d'export plutôt que de
+        supprimer en silence ou d'inventer
         un défaut.
         """
         with self._connexion() as cx:
@@ -580,10 +577,10 @@ class BaseRoutes:
     def part_connue(self, trace: Trace) -> float:
         """Part des kilomètres d'un tracé passant par des mailles déjà roulées.
 
-        **Informatif seulement.** Le contrat l'interdit dans tout score : les
-        traces ne couvrent qu'une partie du territoire, et pénaliser l'inconnu
-        condamnerait d'avance toute direction jamais explorée. Le lot L5.3 le
-        redit en toutes lettres : la part connue **ne sélectionne pas** les
+        **Informatif seulement**, jamais dans un score : les traces ne couvrent
+        qu'une partie du territoire, et pénaliser l'inconnu condamnerait
+        d'avance toute direction jamais explorée. La part connue **ne
+        sélectionne pas** les
         trois propositions contrastées, elle les décrit, et seulement quand
         elles ont été retenues pour une autre raison.
 
@@ -685,7 +682,7 @@ def _paquets(valeurs: Sequence, taille: int) -> Iterator[list]:
 
 
 def _en_semaine(jour: date) -> bool:
-    """Lundi-vendredi. Le mainteneur : « surtout en semaine ; le dimanche à 90 % »."""
+    """Lundi-vendredi : les sorties de semaine sont celles qu'on veut apprendre."""
     return jour.weekday() < 5
 
 
@@ -792,7 +789,7 @@ def sorties_a_apprendre(cache: Cache, *, depuis: date) -> list[EntreeCache]:
 
     Le home-trainer est exclu (il n'a pas de route), les autres sports aussi,
     et les sorties de moins de `DISTANCE_MIN_M` : elles n'apprennent rien qui
-    justifie un appel au serveur du mainteneur.
+    justifie un appel au serveur BRouter.
     """
     retenues = []
     for entree in cache.lister(depuis=depuis):
@@ -818,21 +815,21 @@ def apprendre(
     la base sont comptées `sorties_deja_connues` et sautées sans appel, donc
     relancer la commande ne coûte rien et ne fausse rien.
 
-    Le même appel sert aussi à recalculer le D+ (`rapport.denivele_m`,
-    contrat sprint 7 §L7.C) sur l'altitude du tracé rerouté plutôt que sur
-    celle de l'appareil : `client.itineraire` répond déjà pour les tags, on
+    Le même appel sert aussi à recalculer le D+ (`rapport.denivele_m`) sur
+    l'altitude du tracé rerouté plutôt que sur celle de l'appareil :
+    `client.itineraire` répond déjà pour les tags, on
     ne fait qu'en lire une seconde grandeur, sans appel de plus.
 
     Une sortie qu'on ne sait pas relire, ou que le moteur refuse, est comptée
     dans `echecs` avec son motif : elle ne fait pas échouer la passe, et elle
-    ne disparaît pas non plus en silence (règle absolue 5).
+    ne disparaît pas non plus en silence.
 
     `max_sorties` borne les **appels au moteur**, pas les succès : un tracé
     refusé par le serveur (deux sorties de vacances hors des tuiles OSM
     rendent « datafile … not found ») a bien coûté un appel, et le quota doit
     s'en souvenir. L'option promet de borner un coût — sinon `--max 5` sur un
-    lot de sorties hors région passait des dizaines d'appels au serveur du
-    mainteneur alors qu'elle existe précisément pour « essayer sans tout
+    lot de sorties hors région passerait des dizaines d'appels au serveur
+    BRouter alors qu'elle existe précisément pour « essayer sans tout
     lancer ». Ce qui ne coûte aucun appel (sortie illisible, sans position
     exploitable) n'entame rien.
     """
@@ -877,9 +874,9 @@ def apprendre(
         rapport.mailles += base.ajouter_trace(trace, jour=jour, id_sortie=entree.identifiant)
         rapport.sorties_apprises += 1
         rapport.km += trace.distance_m / 1000.0
-        # Le D+ recalculé sur l'altitude du tracé rerouté (contrat sprint 7
-        # §L7.C) : `trace` sert déjà au greffage de tags ci-dessus, aucun
-        # appel supplémentaire. `denivele_filtre` rend `None` sans altitude
+        # Le D+ recalculé sur l'altitude du tracé rerouté : `trace` sert déjà au
+        # greffage de tags ci-dessus, aucun appel supplémentaire.
+        # `denivele_filtre` rend `None` sans altitude
         # exploitable (serveur sans données d'élévation) — on n'ajoute alors
         # rien, plutôt que de fausser la somme avec un zéro qui voudrait dire
         # « sortie plate ».
@@ -930,7 +927,7 @@ def statistiques_de_traces(traces: Iterable[Trace], *, jour: date | None = None)
 def poids_appris(stats: Statistiques, exposition: Statistiques | None = None) -> dict[str, float]:
     """Poids par classe `highway`, en kilomètres équivalents par kilomètre.
 
-    Formule du contrat §2 : `min(4, max(0, log2(part_expo / part_sorties)))`.
+    Formule : `min(4, max(0, log2(part_expo / part_sorties)))`.
     On compare ce que le cycliste **prend** (`stats`) à ce que le moteur lui
     **propose** dans les mêmes directions (`exposition`). Une classe qu'il
     prend autant qu'on la lui propose ne coûte rien ; une classe qu'il évite
@@ -938,8 +935,8 @@ def poids_appris(stats: Statistiques, exposition: Statistiques | None = None) ->
 
     Trois cas particuliers, tous voulus :
 
-    * `tertiary` est **forcé à 0** : c'est la route de référence du
-      mainteneur, 65 % de sa pratique mesurée ;
+    * `tertiary` est **forcé à 0** : c'est la route de référence, 65 % de la
+      pratique mesurée sur un cycliste réel ;
     * une classe **absente de l'exposition** vaut 0 — on n'a rien à comparer,
       et l'ignorance n'est jamais un malus ;
     * une classe **trop peu exposée** (moins de `PART_EXPOSITION_MIN`) garde
@@ -982,7 +979,7 @@ def _parts(stats: Statistiques) -> dict[str, float]:
     générée à part) les désynchronise. `poids_appris` comparerait alors des
     **kilomètres** déguisés en parts : multiplier les kilomètres d'un des deux
     jeux par un facteur changerait tous les poids, et une base plus fournie
-    pénaliserait tout. Le contrat §2 compare des parts ; c'est ici qu'on les
+    pénaliserait tout. La formule compare des parts ; c'est ici qu'on les
     fabrique.
 
     Un total nul ou négatif rend un dictionnaire vide : il n'y a pas de part à

@@ -41,7 +41,7 @@ def contexte(
     de l'appelant n'est pas touchée.
 
     `avertir` est la sortie d'erreur pour la ligne de commande ; l'API passe
-    le sien, qui recueille les lignes pour `avertissements` (lot 11).
+    le sien, qui recueille les lignes pour `avertissements`.
     """
     if lieu_depart is not None:
         config = replace(config, depart=lieu_depart)

@@ -31,8 +31,8 @@ const VENT_EN_MOTS: Record<string, string> = {
  *
  * La forme change avec le vent relatif — pleine pour un vent de face, creuse
  * pour un vent de dos, en pointillé pour un vent de travers — et pas
- * seulement la couleur : la page du sprint 5 avait déjà tranché ce point
- * pour que la carte reste lisible en noir et blanc et pour un daltonien.
+ * seulement la couleur : comme sur la page HTML, pour que la carte reste
+ * lisible en noir et blanc et pour un daltonien.
  */
 export function icone(fleche: FlecheVent): L.DivIcon {
   const categorie = fleche.relatif ?? "inconnu";
@@ -63,9 +63,8 @@ export function infobulle(fleche: FlecheVent): string {
 
 /**
  * En dessous de cette distance à l'écran (pixels), deux étiquettes de vent se
- * chevauchent — constat de l'agent superviseur sur une capture de production
- * (25/09/2026, trois boucles de ~124 km autour de Rennes, vitesse **et**
- * rafale empilées dans chaque étiquette). Mesuré à l'œil sur `.vent-
+ * chevauchent — constaté sur une capture de production (trois boucles de
+ * ~124 km, vitesse **et** rafale empilées dans chaque étiquette). Mesuré à l'œil sur `.vent-
  * etiquette` (`style.css`) : une étiquette « 24/38 » tient sur une
  * quarantaine de pixels de large.
  */
@@ -104,7 +103,7 @@ export interface TraceDessinee {
   /** Le tracé retenu est plein ; les autres sont en pointillé (maquette E19). */
   choisi: boolean;
   /**
-   * `ecartee` : le produit l'a jetée, et le lot F2.4 la montre quand même —
+   * `ecartee` : le produit l'a jetée, et l'arbitrage la montre quand même —
    * trait fin et très pointillé (encre, comme une retenue, mais plus fin et
    * sans dérouler tout le tracé), pour qu'elle se distingue d'une
    * proposition non choisie sans jamais lui ressembler. Écarter une
@@ -175,8 +174,7 @@ export interface SegmentDessine {
 }
 
 /**
- * Une portion du tracé retenu, colorée par ce que le vent y coûte (point 5
- * du lot d'affordance, 20/09/2026).
+ * Une portion du tracé retenu, colorée par ce que le vent y coûte.
  *
  * `ChampVent` (`seance.vent`) le dit déjà : le vent est interrogeable à
  * n'importe quelle position du tracé, pas seulement aux huit points des
@@ -184,8 +182,8 @@ export interface SegmentDessine {
  * l'écran appelant en fait des portions avec `portion()` (même fonction
  * que pour les blocs de la séance) et ne garde que celles qui portent une
  * couleur — le travers et l'inconnu restent le tracé noir de base, en
- * encre, jamais une couleur (règle absolue 5 : ni gênant ni favorable pour
- * l'un, une incertitude pour l'autre). `Carte` choisit seule la teinte et
+ * encre, jamais une couleur (ni gênant ni favorable pour l'un, une
+ * incertitude pour l'autre). `Carte` choisit seule la teinte et
  * le motif exacts (`styleVentDe` ci-dessous) : l'écran ne fait que trier
  * « face » de « dos », jamais une couleur.
  */

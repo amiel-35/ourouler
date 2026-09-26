@@ -32,9 +32,8 @@ from ourouler.seance.vent import ChampVent
 #: vitesses. 0,25 m/s vaut 0,9 km/h — bien en deçà de ce que la prévision sait
 #: dire, donc l'arrondi ne coûte aucune justesse.
 #:
-#: Il ne gagne pas grand-chose non plus, et c'est mesuré (15/09/2026, relecture
-#: du lot L5.1) : le supprimer coûte **2 %** sur un placement, pas l'explosion
-#: de cache qu'annonçait la première rédaction de ce commentaire. La raison est
+#: Il ne gagne pas grand-chose non plus, et c'est mesuré : le supprimer coûte
+#: **2 %** sur un placement, pas une explosion du cache. La raison est
 #: que `_Terrain.vent_face` mémoïse déjà par `(pas, sens)` : il n'existe que
 #: deux valeurs de vent possibles par pas, quoi qu'il arrive. On garde
 #: l'arrondi parce qu'il est gratuit et qu'il borne la clé, pas parce qu'il

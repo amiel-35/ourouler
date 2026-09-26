@@ -18,8 +18,7 @@ routeur = nouveau_routeur()
 
 # --- vie privée : export et suppression ----------------------------------------
 #
-# Lot L7.B (`docs/journal/sprints/sprint7_contrat.md`) : un propriétaire récupère ce qui le
-# concerne, et peut en demander l'effacement. La frontière — le tracé est
+# Un propriétaire récupère ce qui le concerne, et peut en demander l'effacement. La frontière — le tracé est
 # collectif, le lien est personnel — et ce qui en découle sont expliqués dans
 # `api/vie_privee.py`, qui fait le travail ; ces deux routes ne font que
 # résoudre le propriétaire et sa `Config`, comme toutes les autres.
@@ -30,17 +29,16 @@ def exporter_mes_donnees(ctx: Ctx, qui: Qui):
     """Toutes les données personnelles de ce propriétaire, dans une archive ZIP.
 
     Un fichier `LISEZ-MOI.txt` à la racine dit ce qu'est chaque entrée — un
-    export que seul le code sait lire ne remplit pas son office (contrat
-    sprint 7 §L7.B). L'archive n'est **pas compressée** : voir
+    export que seul le code sait lire ne remplit pas son office. L'archive n'est **pas compressée** : voir
     `api/vie_privee.py` pour pourquoi (c'est ce qui garde le balayage
     d'isolation capable de la couvrir).
 
-    **Pas de `_config(ctx, qui)` ici** (changé le 21/09/2026) : cette route
-    doit rester utilisable par un propriétaire qui n'a encore rien écrit —
-    exiger sa `Config` entière échouerait sur un profil incomplet depuis que
-    le tiers 3 de Q35 ne s'hérite plus du socle partagé. `dossier_cache()`
-    est le seul réglage dont `vie_privee.construire_export` se sert, et c'est
-    un réglage serveur (Q35), pas un profil.
+    **Pas de `_config(ctx, qui)` ici** : cette route doit rester utilisable
+    par un propriétaire qui n'a encore rien écrit — exiger sa `Config` entière
+    échouerait sur un profil incomplet, puisque les sections personnelles ne
+    s'héritent pas du socle partagé. `dossier_cache()` est le seul réglage
+    dont `vie_privee.construire_export` se sert, et c'est un réglage serveur,
+    pas un profil.
     """
     try:
         archive = vie_privee.construire_export(
@@ -78,7 +76,7 @@ def _comptes_du_deploiement(ctx: Contexte):
 
 @routeur.get("/moi")
 def mon_compte(ctx: Ctx, qui: Qui) -> dict:
-    """L'adresse du compte de la session en cours — pour l'écran « Mon compte » du front (L9.6).
+    """L'adresse du compte de la session en cours — pour l'écran « Mon compte » du front.
 
     `email` vaut `None` sur un déploiement sans base de comptes (mode personnel, ou
     hébergé sans `SessionParCookie`) : il n'y a alors aucun compte à décrire, ce n'est
@@ -132,7 +130,7 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
 
     Idempotent : appeler cette route sur un propriétaire qui n'a rien laissé
     rend des compteurs à zéro, pas une erreur. Ce qui n'est **pas** effacé —
-    les routes apprises, collectives par décision du mainteneur — est nommé
+    les routes apprises, collectives (décision Q46) — est nommé
     dans `donnees.conserve`, jamais tu.
 
     **Ferme aussi le compte, quand ce déploiement en a un** (`SessionParCookie`,
@@ -143,7 +141,7 @@ def supprimer_mes_donnees(ctx: Ctx, qui: Qui) -> dict:
     a pas de compte à fermer et `donnees.supprime` ne porte alors pas la clé
     `"compte"`.
 
-    **Pas de `_config(ctx, qui)` ici non plus** (changé le 21/09/2026), même
+    **Pas de `_config(ctx, qui)` ici non plus**, même
     raison qu'à l'export ci-dessus : l'idempotence promise par ce docstring
     casserait sur un profil incomplet si cette route exigeait la `Config`
     entière du propriétaire pour obtenir un seul réglage serveur.

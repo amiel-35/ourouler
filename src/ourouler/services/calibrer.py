@@ -1,7 +1,6 @@
 """Cas d'usage `calibrer` : choisir et lire les sorties d'un vélo, puis les calibrer.
 
-Couche 3 de `docs/ouverture_plan.md` §2, sortie de `physique/calibration.py`
-et de `physique/commande.py` au lot 8. Le **calcul** — échantillons, deux
+Couche 3 (cas d'usage) de la règle d'imports (`ARCHITECTURE.md`). Le **calcul** — échantillons, deux
 passes d'ajustement, validation, porte à porte — reste dans
 `physique.calibration`, qui ne reçoit que des activités déjà lues, l'archive
 météo déjà obtenue et une masse. Ce module fait le reste :
@@ -18,9 +17,9 @@ météo déjà obtenue et une masse. Ce module fait le reste :
 
 Il reçoit le profil du cycliste (`noyau.profil.Profil`, dont `config.Config`
 est un exemple) et en lit les attributs, sans dépendre de l'entrée qui
-charge la configuration (lot 10 : l'annotation n'est plus la `Config`).
-L'ordre des sorties et des sommes est celui d'avant le lot 8, à l'identique :
-la calibration du mainteneur doit rester la même au dernier chiffre.
+charge la configuration (l'annotation n'est pas la `Config`). L'ordre des
+sorties et des sommes est figé : une calibration existante doit rester la
+même au dernier chiffre.
 """
 
 from __future__ import annotations
@@ -52,8 +51,8 @@ _JAMAIS = datetime.min.replace(tzinfo=UTC)
 def masse_totale_kg(config: Profil, velo: Velo) -> float:
     """Cycliste + vélo. Un vélo sans masse déclarée pèse `MASSE_VELO_DEFAUT_KG`.
 
-    Le mainteneur l'a dit : « une masse approximative par vélo suffit, 1 kg
-    sur 100 kg fait 1 % en montée et rien sur le plat ». Le calcul est
+    Une masse approximative par vélo suffit : 1 kg sur 100 kg fait 1 % en
+    montée et rien sur le plat. Le calcul est
     `physique.calibration.masse_totale` ; ici, on lit la masse du cycliste.
     """
     return calib.masse_totale(config.cycliste.masse_kg, velo)
@@ -71,7 +70,7 @@ def motif_exclusion(
     Rendre le motif, et pas seulement un booléen, permet à la commande de dire
     « 102 calibrables, 8 trop courtes, 2 en groupe » au lieu d'un nombre nu.
 
-    `strict` (L9.4, calibration depuis l'écran) : quand le profil a plusieurs
+    `strict` (calibration depuis l'écran) : quand le profil a plusieurs
     vélos, une sortie qui ne désigne aucun vélo elle-même (ni capteur, ni
     équipement, ni période — `rattachement_explicite`) n'est plus créditée au
     premier vélo de route : elle est écartée, motif `MOTIF_VELO_NON_IDENTIFIE`,
@@ -196,12 +195,12 @@ def calibrer_velo(
 ) -> ResultatCalibration:
     """Calibre `velo` sur les sorties de `cache`. N'écrit rien, n'imprime rien.
 
-    `crr_usage` (L9.4) : un vélo sans pneu ni Crr déclarés garde fixé le Crr
+    `crr_usage` : un vélo sans pneu ni Crr déclarés garde fixé le Crr
     du jeu de son usage (`physique.litterature`) au lieu de l'ajuster avec le
     CdA — c'est ce que l'écran propose à qui ne connaît pas ses pneus,
-    l'ajustement libre dérivant sur les vraies données (note du 23/09).
+    l'ajustement libre dérivant sur les vraies données.
 
-    `rattachement_strict` (L9.4) : quand le profil a plusieurs vélos, seules
+    `rattachement_strict` : quand le profil a plusieurs vélos, seules
     les sorties **explicitement** rattachées à celui-ci (capteur, équipement,
     période) comptent — voir `motif_exclusion`.
 
@@ -282,10 +281,9 @@ def _crr_de_calibration(
     """(Crr fixé ou `None`, provenance) pour `ourouler calibrer`.
 
     Le Crr connu (pneu ou configuration) est gardé fixe et seul le CdA est
-    cherché — la méthode que la note du 23/09 a trouvée convergente.
-    `--crr-libre`, ou un vélo sans pneu ni Crr déclarés, garde l'ajustement à
-    deux paramètres d'avant : provenance « ajuste ». Sauf `crr_usage` (L9.4,
-    l'écran) : le Crr du jeu de l'usage est alors fixé, provenance « usage ».
+    cherché — la méthode qui converge. `--crr-libre`, ou un vélo sans pneu ni
+    Crr déclarés, garde l'ajustement à deux paramètres : provenance
+    « ajuste ». Sauf `crr_usage` (l'écran) : le Crr du jeu de l'usage est alors fixé, provenance « usage ».
     """
     connu = None if crr_libre else crr_du_velo(velo)
     if connu is not None:

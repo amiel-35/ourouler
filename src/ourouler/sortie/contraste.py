@@ -1,7 +1,7 @@
 """Trois propositions qui vont à des endroits différents — et ce qu'on en dit.
 
-Le point dur du lot L5.3, dans les mots du mainteneur : **trois propositions
-ne servent à rien si elles se ressemblent**, et les trois premières d'un même
+Le point dur : **trois propositions ne servent à rien si elles se
+ressemblent**, et les trois premières d'un même
 classement se ressemblent presque toujours.
 
 Le risque, nommé d'abord
@@ -17,31 +17,27 @@ La seule condition : le recouvrement de routes
 
 **Ce que le cycliste voit, c'est le tracé.** Deux boucles qui partagent moins
 de `SEUIL_RECOUVREMENT` de leurs routes vont à des endroits différents, et la
-carte le montre en une seconde. C'est le seul verrou.
+carte le montre en une seconde. C'est le seul verrou : le parcours est
+distinctif en soi (décision Q43, `docs/journal/questions/questions_mainteneur.md`).
 
-Décision du mainteneur du 17/09/2026 ([[Q43]]), dans ses mots : *« oui, et en
-fait le parcours lui-même est distinctif en soi »*.
+Ce qu'on n'exige pas, et pourquoi
+---------------------------------
 
-Ce qui vient d'être retiré, et pourquoi
----------------------------------------
+On n'exige **pas en plus** que chaque proposition soit la meilleure des trois
+sur un axe mesuré, d'une marge perceptible. Cette exigence viserait les
+*descriptions*, pas les tracés, et elle finirait par interdire de montrer
+trois routes franchement différentes sous prétexte qu'on ne sait pas dire en
+une phrase ce qui les sépare.
 
-Jusqu'au 17/09/2026, il fallait **en plus** que chaque proposition soit la
-meilleure des trois sur un axe mesuré, d'une marge perceptible. Cette exigence
-visait les *descriptions*, pas les tracés, et elle finissait par interdire de
-montrer trois routes franchement différentes sous prétexte qu'on ne savait pas
-dire en une phrase ce qui les séparait.
-
-**Mesuré deux fois, pas supposé.** Le lot [[Q44]] a produit quatre candidates
-dont le recouvrement médian valait **1,4 %** — quasi disjointes, aussi
-différentes qu'il est possible de l'être. L'exigence d'axe a absorbé tout le
-gain : le produit n'en servait qu'une ou deux. Et la mesure de [[Q43]] disait
-la même chose autrement : plus on génère de candidates, moins un trio passe —
-à cinq candidates trois axes distinguaient encore, à huit un seul.
+**Mesuré deux fois, pas supposé.** Quatre candidates dont le recouvrement
+médian valait **1,4 %** — quasi disjointes, aussi différentes qu'il est
+possible de l'être — n'étaient servies qu'à une ou deux sous cette exigence :
+elle absorbait tout le gain. Et plus on génère de candidates, moins un trio
+passe : à cinq candidates trois axes distinguaient encore, à huit un seul.
 
 **Ce que ça coûte, et qui est assumé** : parfois, trois propositions porteront
-presque la même phrase. Le mainteneur juge que la carte parle d'elle-même, ce
-qu'elle ne faisait pas au sprint 5 — à l'époque la page du jour n'avait pas
-encore la géométrie des trois tracés en JSON.
+presque la même phrase. La carte, qui porte la géométrie des trois tracés,
+parle d'elle-même.
 
 Les axes restent, comme description
 -----------------------------------
@@ -59,17 +55,17 @@ proposition qui est la meilleure du groupe sur un axe, d'un pas entier, porte
 la phrase qui le dit ; les autres n'en portent pas, et c'est honnête. Une
 phrase reste une affirmation : on n'en écrit jamais une qui soit fausse.
 
-Et quand rien ne les sépare, on le dit ([[Q45]])
-------------------------------------------------
+Et quand rien ne les sépare, on le dit
+--------------------------------------
 
-Mots du mainteneur : *« s'il n'y a pas de pluie et peu de vent et que tout est
-plat, à un moment rien ne change »*. Ces jours-là, aucun axe ne peut
+S'il n'y a pas de pluie, peu de vent et que tout est plat, rien ne change
+d'une boucle à l'autre (décision Q45). Ces jours-là, aucun axe ne peut
 distinguer quoi que ce soit, et chercher une différence reviendrait à en
 fabriquer une. `Selection.motif_equivalence` porte alors la phrase qui le dit
 — « ces trois boucles se valent, choisissez où vous voulez aller ».
 
 C'est le pendant exact de `Selection.motif_deux_propositions`, qui explique
-depuis le sprint 5 pourquoi il n'y en a que deux. Deux silences à ne pas
+pourquoi il n'y en a que deux. Deux silences à ne pas
 laisser : celui qui cache qu'il en manque une, et celui qui cache qu'elles se
 valent.
 
@@ -114,18 +110,15 @@ AXE_TERRAIN = "terrain"
 
 #: Ordre de priorité des axes quand plusieurs attributions sont possibles.
 #:
-#: Ce n'est pas un classement de qualité, c'est l'ordre dans lequel le
-#: mainteneur en a parlé : le **vent** est le seul axe qu'il ait demandé
-#: explicitement (« vent dans le dos au départ de la sortie, ou à la fin, ou
-#: plutôt vent latéral ? ») ; le **demi-tour** vient ensuite (« autorisé mais
-#: pas forcément à mettre en avant… ça peut être un choix visuel ») ; la
-#: **durée** est ce qu'il a reproché trois fois au tri (des dépassements de 29
-#: à 43 min) ; la **ville** est ce qu'il décrit sous « des croisements, des
-#: dos d'âne, des feux » ; le **trafic** est le reproche du contrat §3.1.3 a)
-#: — « un bloc peut tomber sur une départementale rapide sans le moindre
-#: malus », et §3.1.3 b) le chiffre : 24,1 km de routes à trafic sur 55,2 pour
-#: la retenue contre 20,9 pour la quatrième ; la **pluie** et le **terrain**
-#: sont déjà dans le tri et n'ont pas besoin d'une phrase pour exister.
+#: Ce n'est pas un classement de qualité, c'est l'ordre de ce qui parle le
+#: plus au cycliste : le **vent** est l'axe sur lequel il choisit (dans le
+#: dos au départ, au retour, ou de travers) ; le **demi-tour** vient ensuite
+#: (autorisé, mais pas à mettre en avant) ; la **durée**, parce que dépasser
+#: la séance de 30 à 40 min est le défaut le plus visible du tri ; la
+#: **ville** (croisements, dos d'âne, feux) ; le **trafic**, parce qu'un bloc
+#: peut tomber sur une départementale rapide sans le moindre malus ; la
+#: **pluie** et le **terrain** sont déjà dans le tri et n'ont pas besoin d'une
+#: phrase pour exister.
 ORDRE_AXES = (
     AXE_VENT,
     AXE_DEMI_TOURS,
@@ -143,18 +136,17 @@ ORDRE_AXES = (
 #: Écart **à la durée prescrite** en dessous duquel deux propositions tiennent
 #: la séance aussi bien l'une que l'autre. **Un arbitrage, pas une mesure** —
 #: comme `sortie.commande.NOTE_BLOC_BIEN_PLACE`, et il faut le dire. Dix
-#: minutes, parce que c'est l'unité dans laquelle le mainteneur parle de ses
+#: minutes, parce que c'est l'unité dans laquelle un cycliste parle de ses
 #: sorties (« la retenue dépasse de 29 min ») et que sur une séance de 2 h
 #: c'est 8 % du temps, soit l'ordre de grandeur d'un retour au calme entier.
 #:
-#: **Ce que l'axe compare, et pourquoi ce n'est pas la durée nue.** Le contrat
-#: §3.3.2 écrit « durée tenue : écart entre `duree_totale_s` **et la séance** ».
-#: La première rédaction comparait les durées brutes, et la plus courte
-#: gagnait l'axe : une candidate dont le retour au calme était amputé de 60 %
-#: — 2 905 s pour une séance de 7 200 — recevait la phrase « 71 minutes de
-#: moins », présentée comme un avantage. Elle voulait dire « vous ne roulez
-#: pas votre séance ». Une phrase est une affirmation, et celle-là était
-#: fausse de la pire façon : le mensonge était flatteur.
+#: **Ce que l'axe compare, et pourquoi ce n'est pas la durée nue** : l'écart
+#: entre `duree_totale_s` **et la séance**. À comparer les durées brutes, la
+#: plus courte gagnerait l'axe : une candidate dont le retour au calme est
+#: amputé de 60 % — 2 905 s pour une séance de 7 200 — recevrait la phrase
+#: « 71 minutes de moins », présentée comme un avantage. Elle voudrait dire
+#: « vous ne roulez pas votre séance ». Une phrase est une affirmation, et
+#: celle-là serait fausse de la pire façon : le mensonge serait flatteur.
 #:
 #: L'axe porte donc l'écart **en valeur absolue** — dépasser de 20 min et
 #: amputer de 20 min sont deux façons de rater la cible de 20 min — et
@@ -166,28 +158,28 @@ ORDRE_AXES = (
 #: **Ce qui décide qu'une séance est amputée n'est pas un seuil inventé ici**,
 #: c'est le verdict du placement lui-même
 #: (`seance.placement.MOTIF_SEANCE_AMPUTEE`), rendu contre la fenêtre que le
-#: mainteneur a fixée. Aucun seuil sur la durée totale ne séparerait
+#: profil fixe. Aucun seuil sur la durée totale ne séparerait
 #: honnêtement une sortie 49 s plus courte que la prescription — un arrondi —
 #: d'une sortie dont le retour au calme perd 60 % de sa durée.
 PAS_DUREE_S = 600.0
 
 #: Écart de pluie cumulée en dessous duquel deux propositions sont aussi
-#: sèches l'une que l'autre, en mm. Repris de la configuration du mainteneur :
+#: sèches l'une que l'autre, en mm. Repris de la configuration de la tenue :
 #: `ParametresTenue.bornes_pluie_mmh` place à 0,5 mm/h la frontière entre
 #: « humide » et « averses ». C'est une transposition d'une intensité vers un
-#: cumul, pas une mesure de cumul — mais elle vient de son fichier, pas d'un
-#: chiffre inventé ici.
+#: cumul, pas une mesure de cumul — mais elle vient de la configuration, pas
+#: d'un chiffre inventé ici.
 PAS_PLUIE_MM = 0.5
 
 #: Écart de densité de marqueurs en dessous duquel deux propositions traversent
 #: autant de village l'une que l'autre, en marqueurs par kilomètre.
 #:
-#: **Chiffré sur la mesure du 16/09/2026**
-#: (`tests/validation/marqueurs_retrospectif.py`, 143 boucles proposées par le
-#: moteur autour du départ du mainteneur) : q1 = 1,21, médiane = 1,50,
+#: **Chiffré sur une mesure**
+#: (`scripts/validation/marqueurs_retrospectif.py`, 143 boucles proposées par
+#: le moteur autour d'un départ réel) : q1 = 1,21, médiane = 1,50,
 #: q3 = 2,01, soit un écart interquartile de 0,80. La moitié de cet écart,
 #: 0,40, est l'oscillation ordinaire entre deux candidates ; 0,50 est
-#: au-dessus. Et dans ses unités à lui : sur une boucle de 60 km, c'est
+#: au-dessus. Et en unités de cycliste : sur une boucle de 60 km, c'est
 #: 30 marqueurs d'écart — un arrêt tous les deux kilomètres contre un arrêt
 #: tous les kilomètres.
 PAS_MARQUEURS_KM = 0.5
@@ -198,12 +190,12 @@ PAS_MARQUEURS_KM = 0.5
 #: longueur, et 24 km de départementale sur 55 n'est pas la même sortie que
 #: 24 km sur 100.
 #:
-#: **Chiffré sur la mesure du 16/09/2026** (35 boucles proposées par le moteur
-#: autour du départ du mainteneur, à 40, 60 et 80 km) : q1 = 34,8 %,
+#: **Chiffré sur une mesure** (35 boucles proposées par le moteur autour d'un
+#: départ réel, à 40, 60 et 80 km) : q1 = 34,8 %,
 #: médiane = 41,1 %, q3 = 49,5 %, soit un écart interquartile de 14,7 points
 #: et un écart-type de 12,0. La moitié de l'écart interquartile, 7,4 points,
 #: est l'oscillation ordinaire entre deux candidates ; 10 points est au-dessus.
-#: Et dans ses unités à lui : sur une boucle de 60 km, 6 km de départementale
+#: Et en unités de cycliste : sur une boucle de 60 km, 6 km de départementale
 #: en plus ou en moins.
 PAS_TRAFIC_PART = 0.10
 
@@ -216,8 +208,8 @@ PAS_TERRAIN_KM_EQ = 1.0
 #: Part de routes communes au-delà de laquelle deux propositions se
 #: ressemblent sur la carte, quoi que disent leurs notes.
 #:
-#: **Mesuré le 16/09/2026**, sur les recouvrements deux à deux de boucles de
-#: 60 km générées depuis le départ du mainteneur dans 12 directions :
+#: **Mesuré** sur les recouvrements deux à deux de boucles de 60 km générées
+#: depuis un départ réel dans 12 directions :
 #:
 #: | écart d'azimut | recouvrement médian | max |
 #: |---|---|---|
@@ -236,13 +228,13 @@ PAS_TERRAIN_KM_EQ = 1.0
 #: directions voisines. En absolu, sur une boucle de 60 km : 15 km de route
 #: identique.
 #:
-#: **Depuis [[Q43]], c'est le seul verrou** : plus aucune autre condition ne
+#: **C'est le seul verrou** (décision Q43) : plus aucune autre condition ne
 #: décide qui entre dans le trio. Ce seuil porte donc seul la promesse « trois
 #: propositions qui ne se ressemblent pas », et il faut savoir ce qu'il
 #: refuse.
 #:
-#: **Ce qu'il refuse, mesuré le 17/09/2026** ([[Q44]], contre le vrai BRouter
-#: et le vrai Open-Meteo, quatre candidates par préférence de vent) :
+#: **Ce qu'il refuse, mesuré** (contre le vrai BRouter et le vrai Open-Meteo,
+#: quatre candidates par préférence de vent) :
 #:
 #: | préférence | azimuts ouverts | recouvrement médian |
 #: |---|---|---|
@@ -255,18 +247,17 @@ PAS_TERRAIN_KM_EQ = 1.0
 #: cette préférence n'ouvre qu'un azimut, et `boucle.candidates.azimuts`
 #: élargit ce secteur de ±20° en ±20° sans jamais en ouvrir un second. Les
 #: quatre candidates sont donc quatre variantes à 30° d'écart — très
-#: exactement la famille que la mesure du 16/09 chiffre à 28 % de médiane, et
-#: dont le mainteneur dit qu'elle « va au même endroit ». Trois d'entre elles
+#: exactement la famille que la mesure ci-dessus chiffre à 28 % de médiane,
+#: et qui va au même endroit. Trois d'entre elles
 #: sur une carte seraient trois fois la même boucle.
 #:
 #: **La conséquence est donc voulue** : sur cette préférence, le produit rend
 #: souvent moins de trois propositions, et `motif_deux_propositions` le dit.
 #: Faire autrement demanderait de changer les *azimuts ouverts* — décision de
-#: conception, pas de seuil, laissée au mainteneur en [[Q44]].
+#: conception, pas de seuil (décision Q44, `docs/journal/questions/questions_mainteneur.md`).
 #:
-#: **Relevé à 30 %, décision du mainteneur du 17/09/2026.** Une nouvelle
-#: mesure, faite le matin même, chiffre quatre candidates générées dans
-#: **chacune des huit directions** autour du départ du mainteneur, boucles de
+#: **Relevé à 30 %.** Une mesure chiffre quatre candidates générées dans
+#: **chacune des huit directions** autour d'un départ réel, boucles de
 #: 59,5 km, vrai BRouter, `apprentissage.routes.recouvrement_max` :
 #:
 #: | direction | recouvrement médian |
@@ -280,26 +271,26 @@ PAS_TERRAIN_KM_EQ = 1.0
 #: | sud-ouest (225°) | 31,8 % |
 #: | ouest (270°) | 32,7 % |
 #:
-#: **Ce que cette mesure a d'abord établi** : l'asymétrie de [[Q44]] entre
+#: **Ce que cette mesure a d'abord établi** : l'asymétrie entre
 #: « rentrer avec le vent » (33,2 %) et « partir avec » (8,6 %) ne vient pas
 #: de la préférence, elle vient du **terrain**. Les paires opposées ne se
 #: ressemblent pas — 15 % au nord contre 30 % au sud, 19 % à l'est contre
-#: 33 % à l'ouest : le sud et l'ouest de Rennes enferment, le nord et l'est
-#: ouvrent. Ce jour-là le vent venait du sud-ouest, donc « rentrer avec »
+#: 33 % à l'ouest : autour de ce départ, le sud et l'ouest enferment, le nord
+#: et l'est ouvrent. Ce jour-là le vent venait du sud-ouest, donc « rentrer avec »
 #: tombait sur la deuxième pire direction — un hasard de météo, pas un défaut
 #: de la préférence.
 #:
-#: **Le compromis, écrit honnêtement.** Les 25 % d'origine tombaient juste
+#: **Le compromis, écrit honnêtement.** Un seuil à 25 % tomberait juste
 #: entre 28 % (deux directions à 30° d'écart, qui vont au même endroit) et
-#: 14 % (à 60°, qui n'y vont pas) : ils séparaient « deux directions
+#: 14 % (à 60°, qui n'y vont pas) : il séparerait « deux directions
 #: voisines » de « deux directions franchement différentes ». **Monter à
 #: 30 % revient à accepter que deux boucles à 30° d'écart comptent comme
-#: différentes** — cohérent avec [[Q43]] (« le parcours est distinctif en
-#: soi »), deux boucles à 30° vont bien à deux endroits distincts même en
-#: partageant un tiers de leurs routes, mais c'est un renversement de ce que
-#: la constante protégeait à l'origine, pas un ajustement fin.
+#: différentes** — cohérent avec la décision Q43 (le parcours est
+#: distinctif en soi) : deux boucles à 30° vont bien à deux endroits distincts même en
+#: partageant un tiers de leurs routes, mais c'est un renversement de ce
+#: qu'un seuil à 25 % protégerait, pas un ajustement fin.
 #:
-#: **Et ça ne règle pas tout.** Au sud (29,9 %) la médiane passe désormais
+#: **Et ça ne règle pas tout.** Au sud (29,9 %) la médiane passe
 #: sous le seuil ; à l'ouest (32,7 %) et au sud-ouest (31,8 %) elle reste
 #: au-dessus. Ces deux directions continueront de rendre souvent moins de
 #: trois propositions, et `motif_deux_propositions` continuera de le dire.
@@ -320,7 +311,7 @@ class Profil:
 
     Toute valeur peut manquer, et `None` veut dire **on ne sait pas**, jamais
     zéro : une boucle relue d'un GPX ne porte aucun tag de nœud, ce qui n'est
-    pas la même chose que n'avoir aucun feu (règle absolue 5). Un axe inconnu
+    pas la même chose que n'avoir aucun feu (on n'affirme rien sans mesure). Un axe inconnu
     ne distingue rien et ne pénalise rien.
     """
 
@@ -339,20 +330,20 @@ class Profil:
     pluie_mm: float | None = None
     densite_marqueurs_km: float | None = None
     #: Feux et stops du parcours, en nombre absolu. Affiché tel quel : « 28
-    #: feux, 20 stops ». Une densité au kilomètre invitait à multiplier —
-    #: « 1,7 au km, donc 170 sur 100 km » — sur un composite dont 65 % étaient
-    #: des passages piétons (mesuré le 16/09/2026).
+    #: feux, 20 stops ». Une densité au kilomètre inviterait à multiplier —
+    #: « 1,7 au km, donc 170 sur 100 km » — sur un composite dont 65 % sont des
+    #: passages piétons (mesuré).
     feux: int | None = None
     stops: int | None = None
-    #: Part de la boucle en `highway=primary` seul (Q21 c) — plus le
-    #: composite `boucle.couts.HIGHWAY_TRAFIC` (primary + secondary + trunk)
-    #: d'avant ce correctif. Mesuré sur les vraies sorties du mainteneur :
-    #: `trunk` vaut zéro sur 381 km dans huit directions (BRouter n'y envoie
-    #: jamais un vélo), et `secondary` — une départementale ordinaire, pas
-    #: une quatre-voies — portait deux tiers du chiffre composite « alors
-    #: qu'il n'en a cure » (ses mots). Le nom du champ ne change pas : ce que
-    #: `primary` mesure reste une route à trafic, la seule que le composite
-    #: comptait à raison.
+    #: Part de la boucle en `highway=primary` seul — pas le composite
+    #: `boucle.couts.HIGHWAY_TRAFIC` (primary + secondary + trunk). Mesuré sur
+    #: des sorties réelles : `trunk` vaut zéro sur 381 km dans huit directions
+    #: (BRouter n'y envoie jamais un vélo), et `secondary` — une départementale
+    #: ordinaire, pas une quatre-voies, dont le cycliste ne se soucie pas —
+    #: porterait deux tiers du chiffre composite (décision Q21 c,
+    #: `docs/journal/questions/questions_mainteneur.md`). Le nom du champ reste
+    #: : ce que `primary` mesure est une route à trafic, la seule que le
+    #: composite comptait à raison.
     part_trafic: float | None = None
     orientation: str | None = None
 
@@ -431,13 +422,13 @@ def _seance_amputee(placement) -> bool:
 
 
 def _part_trafic(proposition) -> float | None:
-    """Part de la boucle en `highway=primary`, ou `None` si les tags manquent (Q21 c).
+    """Part de la boucle en `highway=primary`, ou `None` si les tags manquent.
 
-    Avant ce correctif, la mesure était `couts.km_trafic` — le composite
-    `boucle.couts.HIGHWAY_TRAFIC` (primary + secondary + trunk) que le score
-    utilise pour router. Décision du mainteneur : la catégorie composite
-    disparaît de l'affichage, `primary` seul reste. `couts.km_par_highway`
-    porte déjà le détail par classe, il n'y avait rien à mesurer de plus.
+    Pas `couts.km_trafic`, le composite `boucle.couts.HIGHWAY_TRAFIC`
+    (primary + secondary + trunk) que le score utilise pour router : la
+    catégorie composite n'est pas affichée, `primary` seul l'est (décision
+    Q21 c). `couts.km_par_highway` porte déjà le détail par classe, il n'y a
+    rien à mesurer de plus.
 
     `trace.meta["couts_partiels"]` est vrai quand le tracé n'a pas de
     `segments` (un GPX importé) : les kilomètres par type de route valent
@@ -537,8 +528,8 @@ SORT_PLACE_PRISE = "place_prise"
 class Verdict:
     """Ce que le contraste a décidé d'**une** candidate, et contre laquelle.
 
-    Le lot F2.4 existe parce que ce verdict était invisible : le produit
-    montrait ce qu'il retenait, jamais ce qu'il jetait ni pourquoi. Un motif
+    Sans lui, ce verdict serait invisible : le produit montrerait ce qu'il
+    retient, jamais ce qu'il jette ni pourquoi. Un motif
     littéraire n'y suffit pas — ce qui décide est un **pourcentage de routes
     communes avec une proposition nommée**, et c'est ce que cette structure
     porte.
@@ -589,7 +580,7 @@ class Selection:
     retenues: list[Retenue] = field(default_factory=list)
     #: Pourquoi il y en a moins de `combien`. `None` quand le compte y est.
     motif_deux_propositions: str | None = None
-    #: La phrase de [[Q45]] : **aucune retenue ne se détache des autres**, et
+    #: La phrase « elles se valent » : **aucune retenue ne se détache des autres**, et
     #: le dire vaut mieux que fabriquer une différence. `None` dès qu'au moins
     #: une porte une phrase de distinction — il y a alors quelque chose à dire,
     #: et c'est elle qui le dit.
@@ -601,7 +592,7 @@ class Selection:
     #: appelant en passe un autre.
     seuil_recouvrement: float = SEUIL_RECOUVREMENT
     #: Le sort de **toutes** les candidates, retenues comprises, dans l'ordre
-    #: du tri (lot F2.4).
+    #: du tri.
     verdicts: list[Verdict] = field(default_factory=list)
     #: Les recouvrements deux à deux de **toutes** les candidates, par rang.
     #: C'est la matrice que l'écran d'arbitrage dessine : une case au-dessus
@@ -625,8 +616,8 @@ def choisir(
     """Les `combien` propositions les mieux classées **qui vont ailleurs**.
 
     « Qui vont ailleurs » est tout le critère : leurs recouvrements deux à deux
-    restent sous `seuil_recouvrement`. Depuis [[Q43]], rien d'autre n'est
-    exigé — le tracé se distingue par lui-même, et la carte le montre.
+    restent sous `seuil_recouvrement`. Rien d'autre n'est
+    exigé (décision Q43) — le tracé se distingue par lui-même, et la carte le montre.
 
     La première du tri — celle que l'outil recommande — fait toujours partie
     du groupe : on ne remet pas en cause ce qu'il recommande, on ajoute ce à
@@ -641,7 +632,7 @@ def choisir(
     mieux classées (rangs les plus bas) : « les meilleures qui diffèrent »,
     jamais « trois prises n'importe où ». **On ne départage pas sur le nombre
     de phrases qu'un groupe permettrait d'écrire** : ce serait réintroduire par
-    la bande l'exigence que [[Q43]] a retirée, et préférer un groupe moins bien
+    la bande l'exigence d'axe écartée plus haut, et préférer un groupe moins bien
     classé parce qu'il se raconte mieux.
 
     Si aucun groupe de `combien` ne tient, on redescend à `combien - 1`, et
@@ -676,7 +667,7 @@ def choisir(
         for j in range(i + 1, len(groupe)):
             selection.recouvrements[(i, j)] = mesure.entre(groupe[i].trace, groupe[j].trace)
 
-    # L'arbitrage rendu visible (lot F2.4). Toutes les paires sont mesurées, y
+    # L'arbitrage rendu visible. Toutes les paires sont mesurées, y
     # compris celles que `_meilleur_groupe` n'a pas eu besoin de regarder : la
     # matrice complète est ce qui montre qu'une seule case rouge suffit à
     # interdire un trio. Les mailles sont déjà en cache, ça ne coûte rien.
@@ -752,8 +743,7 @@ def _motif_verdict(
     """La phrase d'un verdict — un pourcentage et un numéro, jamais de la prose.
 
     « 55 % des mêmes routes que la n° 1 » : c'est le critère qui a vraiment
-    décidé, dit dans ses propres termes. Le mainteneur a demandé à voir ça et
-    pas une paraphrase.
+    décidé, dit dans ses propres termes, pas une paraphrase.
     """
     if pire is None or contre is None:
         return "retenue — seule proposition, il n'y a rien à comparer"
@@ -806,7 +796,7 @@ def _essais(
 def _phrase_arbitrage(essais: Essais | None, seuil: float) -> str | None:
     """Ce que les essais **mesurent**, en une phrase — jamais ce qu'on en croit.
 
-    Le point que le mainteneur veut voir sans qu'on le lui explique : un
+    Le point à voir sans qu'on l'explique : un
     groupe tombe dès qu'**une** de ses paires dépasse le seuil. La phrase ne
     l'affirme que quand le compte le montre, et dit autre chose sinon.
     """
@@ -930,11 +920,11 @@ def axes_muets(profils: list[Profil]) -> tuple[list[str], list[str]]:
     Un axe est **muet** quand tous les profils y valent la même chose à moins
     d'un pas près, ou quand la mesure y est inconnue partout.
 
-    C'est ce qui donne sa substance à la phrase de [[Q45]] : « ces trois
+    C'est ce qui donne sa substance à la phrase « ces trois
     boucles se valent » est vrai mais n'apprend rien, alors que « la pluie, le
     terrain, les demi-tours et le vent valaient la même chose sur les trois »
     dit au cycliste **ce qui manquait ce jour-là**, et donc qu'on ne lui cache
-    rien (règle absolue 5 : ne rien affirmer sans mesure).
+    rien (on n'affirme rien sans mesure).
     """
     muets, vivants = [], []
     for axe in ORDRE_AXES:
@@ -954,7 +944,7 @@ def _distingue(axe: str, profils: list[Profil]) -> bool:
 
 
 def _motif(retenues: int, voulu: int, candidates: int) -> str:
-    """Pourquoi il y en a moins de `voulu` — et depuis [[Q43]] il n'y a qu'une raison.
+    """Pourquoi il y en a moins de `voulu` — et il n'y a qu'une raison.
 
     Le recouvrement est le seul verrou : si un groupe a été écarté, c'est que
     deux de ses boucles allaient au même endroit. Plus besoin de dire « soit…
@@ -978,7 +968,7 @@ _EN_LETTRES = {2: "deux", 3: "trois"}
 
 
 def _motif_equivalence(retenues: list[Retenue]) -> str | None:
-    """La phrase de [[Q45]] : ces boucles se valent, et voici ce qui le dit.
+    """La phrase « elles se valent », et ce qui le dit.
 
     Elle ne sort que si **aucune** retenue ne porte de phrase de distinction.
     Dès qu'une seule se détache, quelque chose distingue le lot, et c'est sa
@@ -1006,7 +996,7 @@ def _ce_qui_les_egale(profils: list[Profil]) -> str:
     les autres — ce n'est pas « identique », c'est « personne ne s'en
     détache », et on l'écrit comme ça.
 
-    La nuance n'est pas décorative. Sur une vraie sortie du 19/09/2026, les
+    La nuance n'est pas décorative. Sur une vraie sortie, les
     parts de nationales valaient 17 %, 5 % et 8 % : l'écart total dépasse le
     pas, mais les deux meilleures sont à trois points l'une de l'autre, et
     aucune ne peut se dire celle qui évite les nationales. Écrire « elles y
@@ -1044,17 +1034,17 @@ def _et(noms) -> str:
 def _attribuer(profils: list[Profil]) -> list[str]:
     """L'axe sur lequel chaque profil se détache, ou `""` s'il ne se détache sur aucun.
 
-    **Une attribution, plus un verdict.** Avant [[Q43]], cette fonction rendait
-    `None` dès qu'un profil ne gagnait aucun axe, et le groupe entier était
-    jeté. Elle ne juge plus : le recouvrement a tranché avant elle, et elle
-    répond seulement à « qu'y a-t-il de vrai à écrire sous chacune ». Un `""`
+    **Une attribution, pas un verdict.** Rendre `None` dès qu'un profil ne
+    gagne aucun axe ferait jeter le groupe entier. Elle ne juge pas : le
+    recouvrement a tranché avant elle, et elle répond seulement à « qu'y a-t-il
+    de vrai à écrire sous chacune ». Un `""`
     n'est plus un échec, c'est une proposition dont le tracé parle seul.
 
     Avec une seule proposition, il n'y a rien à distinguer, et `""` est encore
     ce qu'il y a de juste — elle est seule, pas contrastée.
 
     Le choix entre plusieurs axes gagnés suit `ORDRE_AXES`, du plus au moins
-    parlant pour le mainteneur.
+    parlant pour le cycliste.
 
     **Les axes se répartissent d'eux-mêmes, sans arbitrage.** Deux profils ne
     peuvent pas gagner le même axe : sur un axe chiffré il faut être meilleur
@@ -1065,11 +1055,9 @@ def _attribuer(profils: list[Profil]) -> list[str]:
 
     **Le vent compte pour autant d'axes qu'il a d'orientations**, sous les
     clés `vent:retour-dos`, `vent:depart-dos`, `vent:travers`, `vent:face`.
-    Sans cela, l'exemple que le contrat donne lui-même en §3.1 serait interdit
-    — « vous rentrez avec le vent dans le dos », « vent dans le dos au
-    départ », « vent de travers » sont trois propositions qui ne diffèrent
-    *que* par le vent, et c'est très exactement ce que le mainteneur a
-    demandé.
+    Sans cela, le cas le plus attendu serait interdit — « vous rentrez avec
+    le vent dans le dos », « vent dans le dos au départ », « vent de
+    travers » sont trois propositions qui ne diffèrent *que* par le vent.
     """
     if len(profils) <= 1:
         return [""] * len(profils)
@@ -1110,11 +1098,11 @@ def _gagne(axe: str, sujet: Profil, autres: list[Profil]) -> bool:
     if valeur is None:
         return False
     if axe == AXE_VENT:  # lisibilité : chaque axe a sa clause
-        # Le vent n'a pas de « meilleur » : le mainteneur a dit qu'il voulait
-        # arbitrer lui-même entre rentrer avec, partir avec, ou du travers.
+        # Le vent n'a pas de « meilleur » : c'est au cycliste d'arbitrer entre
+        # rentrer avec, partir avec, ou du travers.
         # « Gagner » l'axe, c'est donc être la **seule** de son orientation —
         # c'est bien ce qui la distingue des deux autres, et c'est la marge
-        # que le contrat demande pour un axe catégoriel.
+        # qui vaut pour un axe catégoriel.
         return all(autre.orientation != valeur for autre in autres)
     if axe == AXE_DUREE and not sujet.seance_tenue:
         # Une séance amputée ne « tient » pas sa durée : elle ne peut pas

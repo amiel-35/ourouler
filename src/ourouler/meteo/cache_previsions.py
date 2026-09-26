@@ -1,4 +1,4 @@
-"""Cache mutualisé des prévisions Open-Meteo, pour le service hébergé (lot L9.3).
+"""Cache mutualisé des prévisions Open-Meteo, pour le service hébergé.
 
 Doctrine §10.1 : Open-Meteo gratuit tolère ~10 000 appels par jour et par
 **adresse IP** — et un service hébergé, où tous les comptes appellent depuis
@@ -92,8 +92,8 @@ class ClientOpenMeteoCache:
 
     Une requête à plusieurs points est coupée en deux : les points déjà en
     cache sont servis directement, les autres partent en **un seul** appel
-    groupé au client enrobé — exactement la mutualisation « un seul appel
-    pour tous » du contrat de sprint, y compris quand certains points d'une
+    groupé au client enrobé — la mutualisation « un seul appel pour tous »,
+    y compris quand certains points d'une
     même requête sont déjà connus et d'autres non.
     """
 

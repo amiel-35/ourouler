@@ -42,9 +42,9 @@ def geocoder(
 ) -> dict:
     """Tous les candidats d'une adresse, notés — **l'API ne tranche jamais**.
 
-    C'est l'inverse de la ligne de commande, et c'est écrit dans F0.7 : une
-    commande doit bien partir de quelque part, donc elle retient le premier
-    candidat et le dit ; un front, lui, peut montrer la liste et faire
+    C'est l'inverse de la ligne de commande : une commande doit bien partir de
+    quelque part, donc elle retient le premier candidat et le dit ; un front,
+    lui, peut montrer la liste et faire
     choisir. Les coordonnées choisies reviennent ensuite dans `depart`.
     """
     from ourouler.geocodage import commande as geocodage
@@ -92,7 +92,7 @@ def vent_depart(
     longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
     nom: str = "Départ",
 ) -> dict:
-    """D'où vient le vent au départ, et ce que chaque préférence donnerait (Q44).
+    """D'où vient le vent au départ, et ce que chaque préférence donnerait.
 
     L'écran de demande appelle cette route **pendant** que le cycliste choisit,
     pas après : on ne demande pas une direction sans donner l'information qui
@@ -157,7 +157,7 @@ def meteo(
     """
     from ourouler.meteo import commande as meteo_commande
 
-    # L9.3 : quota séparé de celui des générations — ~50 appels Open-Meteo
+    # Quota séparé de celui des générations — ~50 appels Open-Meteo
     # par consultation (une couronne, deux modèles), contre ~150 pour une
     # sortie ou une boucle. Pas de remboursement ici (à la différence de
     # `POST /sorties`/`POST /boucles`) : ce n'est pas demandé, et une

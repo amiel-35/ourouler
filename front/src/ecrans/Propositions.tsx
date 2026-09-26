@@ -129,7 +129,7 @@ export function Propositions({
         </div>
       ) : null}
 
-      {/* Q45, et c'est le pendant exact du bandeau précédent : là il manquait
+      {/* Le pendant exact du bandeau précédent (décision Q45) : là il manquait
           une proposition, ici il manque une raison de préférer l'une des
           trois. Les deux se disent, parce que dans les deux cas le silence
           laisserait chercher quelque chose qui n'est pas là. Celui-ci est une
@@ -164,7 +164,7 @@ export function Propositions({
               aria-pressed={active}
             >
               <div className="bloc-tete">
-                {/* Sans axe distinctif — le cas normal depuis Q43 — le titre
+                {/* Sans axe distinctif — le cas normal (décision Q43) — le titre
                     est le numéro de la proposition, et rien d'autre : nommer
                     un axe qui ne la distingue pas serait une invention. */}
                 <h2>{AXES[proposition.axe_distinctif ?? ""] ?? `Proposition ${proposition.numero}`}</h2>
@@ -191,8 +191,7 @@ export function Propositions({
       })}
 
       {/* Replié sous les propositions, et non derrière un mode qui change
-          toute la page : le mainteneur n'a pas tranché entre les deux, et
-          celui-ci ne gêne personne tout en se découvrant à la souris. Un mode
+          toute la page : celui-ci ne gêne personne tout en se découvrant à la souris. Un mode
           d'inspection global demanderait de décider ce que deviennent la
           tenue, la séance et le bouton « Ouvrir » — ce qui est une autre
           question que celle posée. */}

@@ -8,9 +8,10 @@ averse qui traverse la région à 10 h ne concerne que les kilomètres 25 à 35.
 Un **seul** appel Open-Meteo pour tous les échantillons (le service accepte
 plusieurs coordonnées par requête) ; un second appel seulement si un second
 avis est demandé, un troisième seulement si le modèle principal ne couvre
-pas toute la fenêtre et qu'un modèle de repli existe (Q19, prolongé au repli
-**partiel** — voir `evaluer`). Les valeurs horaires sont interpolées
-linéairement entre les deux heures encadrantes — angulairement pour la
+pas toute la fenêtre et qu'un modèle de repli existe (décision Q19,
+`docs/journal/questions/questions_mainteneur.md`, prolongée au repli **partiel**
+— voir `evaluer`). Les valeurs horaires sont interpolées linéairement entre les
+deux heures encadrantes — angulairement pour la
 direction du vent, sans quoi 350° et 10° donneraient 180°, c'est-à-dire le
 sud au lieu du nord.
 
@@ -46,7 +47,7 @@ from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint, interpoler_angl
 from ourouler.noyau.ports import SourcePrevisions
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 
-#: Au-delà, on compte l'échantillon comme « sous la pluie » (seuil du contrat).
+#: Au-delà, on compte l'échantillon comme « sous la pluie ».
 SEUIL_PLUIE_MM_H = 0.2
 
 #: Vent moyen (à 10 m, en km/h) en dessous duquel on considère qu'il n'y a
@@ -56,12 +57,12 @@ SEUIL_PLUIE_MM_H = 0.2
 #: force 1 de l'échelle de Beaufort (« très légère brise, à peine perceptible
 #: sur un visage ») et le bas de la force 2 (« légère brise, sentie sur le
 #: visage ») — le seuil météorologique usuel entre « rien à sentir » et « on
-#: sent quelque chose ». Le vent médian du mainteneur est de 14 km/h (bien
-#: au-dessus) mais descend à 2,5 km/h.
+#: sent quelque chose ». Le vent médian mesuré sur des sorties réelles est de
+#: 14 km/h (bien au-dessus) mais descend à 2,5 km/h.
 #:
-#: **Une seule constante pour trois usages**, et c'est voulu (lot L5.3) : les
-#: flèches de la carte (`fleches_vent` ci-dessous, que dessinent la page HTML
-#: du sprint 5 et le front) se dessinent exactement quand la question de
+#: **Une seule constante pour trois usages**, et c'est voulu : les flèches de
+#: la carte (`fleches_vent` ci-dessous, que dessinent la page HTML et le
+#: front) se dessinent exactement quand la question de
 #: l'orientation au vent se pose (`sortie.vent_demande`). Si le vent ne mérite
 #: pas d'être montré, il ne mérite pas qu'on demande son orientation.
 #:
@@ -101,21 +102,21 @@ class Echantillon:
     le modèle physique ne s'en sert pas, seul `vent_kmh` l'alimente."""
     modele: str | None = None
     """Le modèle qui a renseigné **cet** échantillon : `None` si ni le
-    modèle principal ni son repli (Q19) ne couvrent l'heure de passage ici.
+    modèle principal ni son repli ne couvrent l'heure de passage ici.
 
     Une sortie longue dépasse parfois l'horizon du modèle principal en
     cours de route (une nuit de sommeil, par exemple) sans que la fenêtre
     entière soit hors domaine : les premiers échantillons ont une vraie
-    réponse d'AROME, les derniers basculent sur le repli. Avant ce champ,
-    `MeteoTrace.modele_utilise` ne portait qu'un seul nom pour tout le
-    tracé — un mensonge par mise en page pour la moitié qui n'avait pas
-    cette réponse-là (règle absolue 5)."""
+    réponse d'AROME, les derniers basculent sur le repli. Sans ce champ,
+    `MeteoTrace.modele_utilise` porterait un seul nom pour tout le tracé — un
+    mensonge par mise en page pour la moitié qui n'a pas cette réponse-là
+    (on ne présente jamais une estimation comme une mesure)."""
     au_dela_prevision: bool = False
     """Vrai quand l'heure de passage ici est **au-delà de la prévision** :
     après `limite` (l'horizon que le produit accepte, voir `evaluer`), ou
     hors de la série qu'aucun modèle n'a rendue. Toutes les valeurs sont
     alors absentes, et l'écran doit le dire plutôt que de montrer un vide
-    (L9.8 : un 600 km parti le dernier jour couvert arrive le lendemain)."""
+    (un 600 km parti le dernier jour couvert arrive le lendemain)."""
 
 
 @dataclass
@@ -136,7 +137,7 @@ class MeteoTrace:
     l'horizon de prévision."""
     modele_utilise: str = ""
     """Le modèle qui a effectivement répondu — celui demandé, ou le repli
-    (Q19) quand celui-ci ne couvrait pas la fenêtre. Toujours renseigné
+    quand celui-ci ne couvrait pas la fenêtre. Toujours renseigné
     quand la météo a pu être évaluée, pour que l'affichage nomme le modèle
     plutôt que de se taire dessus."""
     repli: bool = False
@@ -145,7 +146,7 @@ class MeteoTrace:
     fenêtre du tout (`bascule_dist_m` reste `None`, tout le tracé est sur
     le repli), soit qu'il ne la couvrait qu'en partie (`bascule_dist_m`
     donne alors le premier kilomètre concerné). Deux modèles qui divergent
-    s'affichent (règle absolue 5) ; ici un seul répond par échantillon, et
+    s'affichent comme un désaccord, jamais moyennés ; ici un seul répond par échantillon, et
     c'est encore une divergence à dire."""
     bascule_dist_m: float | None = None
     """Le premier kilomètre (en mètres) où un échantillon bascule sur le
@@ -170,13 +171,13 @@ def evaluer(
 
     `horaire` répond « à quelle heure suis-je au kilomètre X » — construit
     par l'appelant (`boucle.horaire.construire_horaire`, dans `cli.py` ou
-    `boucle.commande`), jamais lu ici (règle absolue 2). Sans pause déclarée,
-    c'est exactement `depart + distance / vitesse`, le calcul d'avant ce lot.
+    `boucle.commande`), jamais lu ici (le cœur ne lit ni configuration ni environnement). Sans pause déclarée,
+    c'est exactement `depart + distance / vitesse`.
     `horaire(0.0)` sert de départ pour la fenêtre demandée à Open-Meteo :
     aucune pause ne peut être strictement avant le kilomètre zéro, donc il
     vaut toujours le départ tel quel.
 
-    `modele_repli` est le **repli** (Q19) : quand `modele` ne couvre pas la
+    `modele_repli` est le **repli** : quand `modele` ne couvre pas la
     fenêtre demandée du tout (`ErreurHorsDomaine` — AROME publie à 67 h, une
     sortie à J+3 en demande davantage), on retente une fois avec
     `modele_repli` comme modèle **principal** de remplacement, pas comme
@@ -192,11 +193,11 @@ def evaluer(
     couverts. `Echantillon.modele` dit, échantillon par échantillon, lequel a
     répondu ; `MeteoTrace.bascule_dist_m` donne le premier kilomètre
     concerné — pour que l'affichage le nomme plutôt que de se taire dessus
-    (règle absolue 5, deux qualités de prévision ne s'affichent jamais de la
-    même façon). Le second avis (`second_avis`) n'est jamais redemandé au
-    modèle qui sert déjà de repli : le comparer à lui-même n'apprendrait rien.
+    (deux qualités de prévision ne s'affichent jamais de la même façon). Le
+    second avis (`second_avis`) n'est jamais redemandé au modèle qui sert déjà
+    de repli : le comparer à lui-même n'apprendrait rien.
 
-    `limite` (L9.8) : l'instant au-delà duquel **aucune** valeur n'est
+    `limite` : l'instant au-delà duquel **aucune** valeur n'est
     présentée comme une prévision, même si Open-Meteo en rendait une — la fin
     du dernier jour couvert (`meteo.portee`). Les échantillons après elle
     sont vides et marqués `au_dela_prevision`, et la fenêtre demandée
@@ -312,7 +313,7 @@ def _previsions_avec_repli(
     debut_heure: datetime,
     horizon_h: int,
 ) -> tuple[list[PrevisionPoint], str, bool]:
-    """Les prévisions du modèle principal, ou du repli (Q19) s'il ne couvre pas la fenêtre.
+    """Les prévisions du modèle principal, ou du repli s'il ne couvre pas la fenêtre.
 
     Ne retente **que** sur `ErreurHorsDomaine` : une panne réseau, un JSON
     illisible ou un refus du service restent des échecs sur lesquels
@@ -362,11 +363,10 @@ def _tenter_repli_partiel(
 def fleches_vent(meteo: MeteoTrace | None) -> list[dict]:
     """Un point de flèche par échantillon assez venté, prêt à dessiner.
 
-    **La règle est celle de la page HTML du sprint 5** (`rendu.carte`), qui
-    l'appliquait la première et qui appelle maintenant cette fonction : rien
-    n'est réinventé ici, le code a seulement été remonté d'un cran pour que le
-    JSON puisse le servir au front. Un écran qui dessine le vent et une page
-    qui le dessine doivent le dessiner au même seuil, sans quoi le même
+    **La règle est celle de la page HTML** (`rendu.carte`), qui appelle cette
+    fonction : elle vit ici pour que le JSON puisse la servir au front. Un écran
+    qui dessine le vent et une page qui le dessine doivent le dessiner au même
+    seuil, sans quoi le même
     parcours montre deux vents différents selon la porte par laquelle on le
     regarde.
 
@@ -380,7 +380,7 @@ def fleches_vent(meteo: MeteoTrace | None) -> list[dict]:
     `seance.vent` traite pareillement ce cas comme « inconnu », jamais
     « nul ») — sans direction connue, aucune rotation n'aurait de sens, et en
     inventer une (par exemple 0°) affirmerait une direction sans preuve
-    (règle absolue 5). Écarté aussi sous `SEUIL_VENT_SENSIBLE_KMH` : ce
+    (on n'affirme rien sans mesure). Écarté aussi sous `SEUIL_VENT_SENSIBLE_KMH` : ce
     vent-là ne se sent pas sur le visage, et le dessiner serait du bruit.
     """
     if meteo is None:
@@ -430,8 +430,8 @@ def vent_par_position(meteo: MeteoTrace | None) -> list[dict]:
     ici, et sait y découper une portion — voir `Proposition.portion` côté
     front). `relatif` vaut `None` quand `meteo.rapport.vent_relatif` n'a pas
     pu trancher (direction ou cap local absents) : le front garde alors cette
-    portion en encre, jamais en couleur (règle absolue 5 — l'ignorance ne se
-    montre pas comme une valeur).
+    portion en encre, jamais en couleur (l'ignorance ne se montre pas comme
+    une valeur).
     """
     if meteo is None:
         return []

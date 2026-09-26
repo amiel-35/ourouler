@@ -25,10 +25,10 @@ BASE_URL = "https://intervals.icu"
 #: Délai par défaut d'un appel, en secondes.
 DELAI_S = 30.0
 
-#: **User-Agent explicite** (ajouté le 25/09/2026, correctif de prod). Sans
-#: lui, le pare-feu d'Intervals.icu renvoie 403 sur certains appels — constaté
-#: en vrai sur `GET /athlete/0` (voir `resoudre_athlete_id`). Même convention
-#: que `connecteurs/geocodage.py` (`USER_AGENT_NOMINATIM`) : un User-Agent par
+#: **User-Agent explicite.** Sans lui, le pare-feu d'Intervals.icu renvoie 403
+#: sur certains appels — constaté en production sur `GET /athlete/0` (voir
+#: `resoudre_athlete_id`). Même convention que `connecteurs/geocodage.py`
+#: (`USER_AGENT_NOMINATIM`) : un User-Agent par
 #: défaut de bibliothèque HTTP ne suffit pas.
 USER_AGENT = "ourouler-cli (https://github.com/amiel-35/ourouler)"
 
@@ -93,12 +93,11 @@ class ClientIntervals:
         `id` à l'arrivée (deux fenêtres mensuelles peuvent renvoyer la même
         activité).
 
-        Il y avait avant une détection de troncature : au-delà de 100
-        activités dans une réponse, on redemandait mois par mois. Ce 100
-        était **deviné** — la limite de l'API n'est pas documentée et le
-        connecteur n'a jamais pu être confronté au vrai service, faute de clé
-        (Q1). Si la vraie limite est plus basse, la troncature passait
-        inaperçue et des sorties manquaient sans un mot. La découpe
+        Pas de détection de troncature (« au-delà de 100 activités dans une
+        réponse, redemander mois par mois ») : ce 100 serait **deviné**, la
+        limite de l'API n'étant pas documentée. Si la vraie limite était plus
+        basse, la troncature passerait inaperçue et des sorties manqueraient
+        sans un mot. La découpe
         systématique coûte 25 appels gratuits pour deux ans d'historique et
         ne dépend d'aucune constante devinée.
         """
@@ -125,11 +124,11 @@ class ClientIntervals:
 
         C'est ce qui dit **où les blocs sont réellement tombés** sur une sortie
         passée, et c'est la matière de la validation rétrospective du terrain
-        (`tests/validation/terrain_retrospectif.py`).
+        (`scripts/validation/terrain_retrospectif.py`).
 
         Le service répond soit un tableau d'intervalles, soit un objet portant
         `icu_intervals` : les deux formes sont acceptées, parce que le
-        connecteur n'a pas pu être confronté aux deux (Q1). Toute autre forme
+        connecteur n'a pas pu être confronté aux deux. Toute autre forme
         est une erreur, jamais une liste vide : « aucun intervalle » et « le
         service a répondu autre chose » ne sont pas la même situation.
         """
@@ -156,14 +155,13 @@ class ClientIntervals:
     def profil_athlete(self) -> dict:
         """Ce qu'Intervals.icu sait de l'athlète lui-même — FTP, poids, zones.
 
-        `GET /api/v1/athlete/{id}` — jamais appelée avant le 19/09/2026
-        ([[Q64]] : « le connecteur ne lit pas le profil, seulement les
-        sorties »), ce qui laissait un compte branché sur Intervals repartir
-        sans jamais lire la FTP que la personne y a pourtant déjà renseignée.
+        `GET /api/v1/athlete/{id}` — sans elle, un compte branché sur
+        Intervals repartirait sans lire la FTP que la personne y a déjà
+        renseignée (décision Q64, `docs/journal/questions/questions_mainteneur.md`).
 
         **Les noms de champs ci-dessous ne sont pas vérifiés sur un vrai
-        compte dans ce lot** (règle absolue 4 : ce qui n'est pas vérifié se
-        dit). La forme relevée par le mainteneur le 19/09/2026 ([[Q64]]) donne
+        compte** (ce qui n'est pas vérifié se dit). La forme relevée sur un
+        compte réel donne
         les *valeurs* attendues (FTP vélo, FCmax, LTHR, zones, poids, FC de
         repos, date de naissance), pas les clés JSON exactes qui les portent.
         La documentation publique d'Intervals.icu place le seuil et les zones
@@ -175,7 +173,7 @@ class ClientIntervals:
 
         Rend un dictionnaire minimal, prêt à afficher pour confirmation —
         jamais les zones ou la FC (l'étage cardiaque est hors de l'entonnoir
-        d'accueil, [[Q63]]) :
+        d'accueil, décision Q63) :
 
             {"ftp_w": 235.0 | None, "masse_kg": 90.7 | None}
 
@@ -279,18 +277,17 @@ def resoudre_athlete_id(
 ) -> str:
     """L'identifiant de l'athlète propriétaire de cette clé, sans le connaître d'avance.
 
-    Correctif de prod du 25/09/2026 : un invité hébergé branche Intervals
+    Un invité hébergé branche Intervals
     depuis l'assistant ou Réglages en ne donnant que sa clé d'API — le
     formulaire ne demande jamais son `athlete_id` (`front/src/ecrans/
     Assistant.tsx`, `Reglages.tsx`). Sans lui, `ParametresIntervals.renseigne`
     (`config.py`) reste faux et toutes les routes Intervals répondent
-    `intervals_absent`, quelle que soit la clé. Chez le mainteneur ça
-    marchait parce que `athlete_id` venait du TOML du serveur — un héritage
-    que Q66 a supprimé à raison (`depots.DepotProfils.config`, « un socle qui
-    appartient à quelqu'un ne se sert qu'à lui »).
+    `intervals_absent`, quelle que soit la clé. L'`athlete_id` ne peut pas
+    venir du TOML du serveur (`depots.DepotProfils.config` : un socle qui
+    appartient à quelqu'un ne se sert qu'à lui).
 
     Intervals.icu traite l'identifiant spécial `0` comme « l'athlète
-    propriétaire de la clé d'API fournie » — vérifié le 25/09/2026,
+    propriétaire de la clé d'API fournie » — vérifié :
     `GET /api/v1/athlete/0` rend `200` avec le vrai `id` (« i123456 »). C'est
     une fonction **libre**, pas une méthode de `ClientIntervals` : elle
     tourne *avant* qu'un `athlete_id` existe, donc avant qu'un client complet
@@ -477,9 +474,8 @@ def metadonnees(activite: dict, equipements: dict[str, str] | None = None) -> di
     equipements()` : la liste d'activités ne porte qu'un `gear.id`, le nom
     lisible vient de là. Sans elle, on se rabat sur ce que `gear` contient.
 
-    Les champs de rattachement (contrat §7) sont recopiés tels quels :
-    `power_meter` (« MARQUE 1234 », inventé : la valeur réelle du
-    mainteneur reste dans `docs/`), son numéro de série, `bilateral` (déduit de
+    Les champs de rattachement sont recopiés tels quels : `power_meter`
+    (« MARQUE 1234 » dans les exemples, inventé), son numéro de série, `bilateral` (déduit de
     la présence d'`avg_lr_balance`, qu'un capteur unilatéral ne renvoie pas),
     `gear_id`, `trainer` et `device_name`.
     """
@@ -525,12 +521,12 @@ def synchroniser(
 
     Le filtre est `activites.modele.est_sport_velo`, **le même que celui de
     l'inventaire** : seul un sport nommé et manifestement autre (« Run »,
-    « Swim », « WeightTraining ») est écarté, le compte du mainteneur en
-    contenant beaucoup. Une activité sans `type`, ou d'un type nouveau, est
+    « Swim », « WeightTraining ») est écarté, un compte réel en contenant
+    beaucoup. Une activité sans `type`, ou d'un type nouveau, est
     rapatriée et classée ensuite par le fichier — on ne jette pas une sortie
-    parce que la source s'est tue. Les deux filtres se contredisaient jusqu'à
-    la relecture du sprint 2 (point 7) : le connecteur écartait ce que
-    l'inventaire aurait compté, et l'activité était perdue en silence.
+    parce que la source s'est tue. Deux filtres différents se contrediraient :
+    le connecteur écarterait ce que l'inventaire aurait compté, et l'activité
+    serait perdue en silence.
 
     `filtre_velo=False` élargit à tout.
 
@@ -541,7 +537,7 @@ def synchroniser(
 
     `cache` est un `noyau.ports.DepotActivites` — `activites.cache.Cache` en
     pratique, que l'appelant construit : le connecteur ne connaît pas le
-    cache, seulement les trois questions qu'il lui pose (lot 7).
+    cache, seulement les trois questions qu'il lui pose.
     """
     rapport = RapportSynchro()
     activites = client.activites(depuis)
@@ -565,8 +561,7 @@ def synchroniser(
             rapport.autres_sports += 1
             continue
         if sans_contenu(activite):
-            # Décision du superviseur (13/09/2026) : le compte du mainteneur
-            # contient des entrées Strava creuses (ni type, ni nom, ni durée)
+            # Un compte réel peut contenir des entrées Strava creuses (ni type, ni nom, ni durée)
             # dont le téléchargement répond 422 à chaque passage. Une entrée
             # sans contenu n'a pas de fichier : on la compte, on ne l'appelle pas.
             rapport.sans_contenu += 1

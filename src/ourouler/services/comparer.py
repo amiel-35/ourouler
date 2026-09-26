@@ -1,19 +1,19 @@
 """`ourouler comparer` : combien de km/h — et donc de watts — séparent deux vélos.
 
-La question du mainteneur, mot pour mot : « mon CLM va plus vite sur le plat
-grâce aux prolongateurs, on doit pouvoir voir sur des segments identiques la
-différence approximative ». Cette commande y répond sans modèle physique du
+La question : un vélo de chrono va-t-il plus vite sur le plat grâce aux
+prolongateurs, et de combien, à voir sur des segments identiques ? Cette
+commande y répond sans modèle physique du
 tout — ni CdA, ni Crr, ni vent, ni masse. Elle compare des moyennes.
 
-La première version comparait la **puissance à vitesse égale**, par classes de
-2 km/h, sur toutes les mailles roulées par les deux vélos, arrêts et relances
-compris. Elle rendait « BMC +6 W à 30 km/h », en contradiction avec la
-calibration (−17 W) et avec ce que le mainteneur vit sur la route : une classe
+Comparer la **puissance à vitesse égale**, par classes de 2 km/h, sur toutes
+les mailles roulées par les deux vélos, arrêts et relances compris, rendrait
+« +6 W à 30 km/h » pour le vélo de route, en contradiction avec la
+calibration (−17 W) et avec ce que le cycliste vit sur la route : une classe
 de vitesse mélange le sprint de fin de ligne droite, la relance après un
 carrefour et l'allure de croisière, et le vélo qui sort les jours de vallons y
 pèse autant que celui qui sort les jours de plat.
 
-Le schéma retenu (validé par le mainteneur le 13/09) mesure l'inverse — la
+Le schéma retenu (validé sur des sorties réelles) mesure l'inverse — la
 **vitesse à puissance égale** — sur des morceaux de route où la vitesse a un
 sens, c'est-à-dire là où le cycliste roule vraiment :
 
@@ -28,7 +28,7 @@ sens, c'est-à-dire là où le cycliste roule vraiment :
    `longueur_min` (500 m par défaut) ; `--cap-max` peut en plus couper la série
    dès que la route tourne de plus de tant de degrés d'un tronçon au suivant,
    mais ce filtre est **optionnel et désactivé par défaut** : la mesure validée
-   par le mainteneur a été faite sans lui ;
+   a été faite sans lui ;
 4. par série : vitesse moyenne (longueur / temps), puissance moyenne pondérée
    par la longueur, longueur ;
 5. par vélo : vitesse médiane dans trois bandes de puissance égales à
@@ -82,8 +82,8 @@ from ourouler.stockage.calibrations import lire_calibration
 PENTE_MAX_DEFAUT = 0.008
 
 #: Écart de cap toléré d'un tronçon au suivant, en degrés, **quand l'option est
-#: posée**. Le défaut est `None` : aucun filtre de cap. C'est la mesure validée
-#: par le mainteneur, et la seule qui reste cohérente avec la calibration —
+#: posée**. Le défaut est `None` : aucun filtre de cap. C'est la mesure validée,
+#: et la seule qui reste cohérente avec la calibration —
 #: exiger 15° ne garde que les lignes droites franches, divise par deux la
 #: pente de la régression et double le chiffre en watts. `--cap-max 15` reste
 #: disponible pour ceux qui veulent ne voir que les segments rectilignes.
@@ -258,7 +258,7 @@ def _admissible(echantillon, *, zone_w: tuple[float, float], pente_max: float) -
     """Tronçon plat, roulé d'un trait, dans la zone de puissance, et localisé.
 
     Les motifs acceptés sont ceux qui ne disent **rien contre** la vitesse du
-    tronçon : `retenu`, `accélération` (le contrat de calibration écarte un
+    tronçon : `retenu`, `accélération` (la calibration écarte un
     tronçon dont la vitesse change de plus de 1 m/s ; ici c'est la vitesse elle
     -même qu'on mesure, et la série n'est pas coupée pour si peu) et `départ`
     (les deux premiers kilomètres ne dérangent que l'ajustement d'un modèle).

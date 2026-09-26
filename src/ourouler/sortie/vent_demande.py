@@ -1,8 +1,7 @@
 """La question d'orientation au vent, posée **avant** la recherche.
 
-Idée du mainteneur, et elle réduit aussi l'espace de recherche : « pour moi ça
-peut être une question avant de lancer la recherche » plutôt que de contraster
-après coup. Forme retenue : une option, dont **« peu importe » est une réponse
+Posée avant la recherche plutôt que de contraster après coup, elle réduit
+aussi l'espace de recherche. Forme retenue : une option, dont **« peu importe » est une réponse
 valable et le défaut** — elle retombe alors sur les propositions contrastées.
 Quand il répond, on cherche dans cette direction.
 
@@ -16,17 +15,17 @@ n'apprend qu'à cliquer sans lire. C'est **la même constante** que celle qui
 décide de dessiner les flèches de vent sur la carte : si le vent ne mérite pas
 d'être montré, il ne mérite pas qu'on demande son orientation.
 
-**On ne la pose pas au-delà de trois jours.** Mesuré le 16/09/2026 sur
-2 064 heures à Rennes, référence archive ERA5 : la direction tombe dans le bon
+**On ne la pose pas au-delà de trois jours.** Mesuré sur 2 064 heures en un
+point réel, référence archive ERA5 : la direction tombe dans le bon
 secteur de ±45° neuf fois sur dix à 1-3 jours (93 %, 92 %, 88 %) et plus
 qu'une fois sur cinq à 5 jours (78 %) ; AROME France HD, notre modèle
 principal, s'arrête de toute façon à 67 h. **Trois jours inclus**, quatre non :
 88 % reste utile, la suite ne l'est plus. Au-delà, l'outil dit qu'il ne sait
 pas plutôt que de promettre « vous rentrerez avec le vent dans le dos »
-(règle absolue 5).
+(on n'affirme rien sans mesure).
 
 Ce module ne lit ni configuration ni chemin : il reçoit le client météo et le
-point de départ (règle absolue 2).
+point de départ (le cœur ne lit ni configuration ni environnement).
 """
 
 from __future__ import annotations
@@ -57,21 +56,21 @@ HORIZON_ORIENTATION_J = 3
 #: le dos, il faut **partir vers lui**, c'est-à-dire viser la direction d'où il
 #: vient (décalage 0). Pour partir avec, viser l'opposé (180).
 #:
-#: **Le travers en ouvre deux, opposés** (Q44, 17/09/2026). Le vent latéral ne
-#: nomme pas un côté : à 90° comme à 270° de la direction d'où souffle le vent,
-#: il vient du flanc, et les deux sont également valables. Jusqu'ici on n'en
-#: gardait qu'un, en comptant sur les azimuts voisins de
-#: `boucle.candidates.azimuts` (±20°, ±40°…) pour explorer l'autre — or ils
+#: **Le travers en ouvre deux, opposés** (décision Q44, `docs/journal/questions/questions_mainteneur.md`).
+#: Le vent latéral ne nomme pas un côté : à 90° comme à 270° de la direction
+#: d'où souffle le vent, il vient du flanc, et les deux sont également
+#: valables. N'en garder qu'un, en comptant sur les azimuts voisins de
+#: `boucle.candidates.azimuts` (±20°, ±40°…) pour explorer l'autre, ne suffit
+#: pas — ils
 #: n'atteignent jamais 180° d'écart : ils élargissent un secteur, ils n'en
 #: ouvrent pas un second.
 #:
 #: Et c'est la préférence la plus intéressante pour qui veut trois propositions
 #: différentes : deux directions séparées de 180° ne partagent que **0,4 %** de
-#: leurs routes (médiane, boucles de 60 km, mesure du 16/09/2026 documentée
-#: sous `contraste.SEUIL_RECOUVREMENT`), contre 28 % à 30° d'écart. La
-#: préférence qui contraint le moins l'azimut est celle qui produit les
-#: propositions les moins ressemblantes — réponse par la conception à Q43 et
-#: Q45.
+#: leurs routes (médiane, boucles de 60 km, mesure documentée sous
+#: `contraste.SEUIL_RECOUVREMENT`), contre 28 % à 30° d'écart. La préférence
+#: qui contraint le moins l'azimut est celle qui produit les propositions les
+#: moins ressemblantes.
 DECALAGE_AZIMUT_DEG: dict[str, tuple[float, ...]] = {
     ORIENTATION_RETOUR_DOS: (0.0,),
     ORIENTATION_DEPART_DOS: (180.0,),
@@ -96,16 +95,16 @@ class QuestionVent:
         """Les azimuts de recherche qu'impose `reponse`. Vide si aucune contrainte.
 
         **Un ou deux**, jamais plus : « rentrer avec » et « partir avec » en
-        fixent un, « de travers » en ouvre deux opposés (Q44). Le tuple vide
+        fixent un, « de travers » en ouvre deux opposés. Le tuple vide
         veut dire « cherchez partout » — c'est ce que rend « peu importe », et
         aussi ce que rend une question non posée, vent trop faible ou trop
         lointain : on ne dirige pas une recherche sur un vent qu'on ne sait pas
-        prévoir (règle absolue 5).
+        prévoir (on n'affirme rien sans mesure).
 
         Il n'existe **pas** de variante qui n'en rendrait qu'un : un appelant
         qui prendrait le premier et jetterait le second entasserait toutes les
         candidates du travers sur un seul côté, ce qui est précisément le
-        défaut que Q44 demande d'éviter.
+        défaut à éviter.
         """
         if not self.posee or self.vent_depuis_deg is None:
             return ()
@@ -165,11 +164,11 @@ def interroger(
     try:
         points = _demander(modele)
     except ErreurHorsDomaine:
-        # Même repli que la météo du tracé (Q19) : le modèle régional ne couvre
+        # Même repli que la météo du tracé : le modèle régional ne couvre
         # pas la fenêtre, le modèle global la couvre. Sans ce repli, la page
-        # affichait le vent dans son tableau **et** « vent indisponible » dans
-        # la question d'orientation, sur la même sortie — une contradiction que
-        # le mainteneur aurait vue avant nous.
+        # afficherait le vent dans son tableau **et** « vent indisponible »
+        # dans la question d'orientation, sur la même sortie — une
+        # contradiction que le cycliste verrait tout de suite.
         if not modele_repli:
             return QuestionVent(
                 vent_kmh=None, vent_depuis_deg=None, posee=False,

@@ -1,47 +1,46 @@
 """Sous-commande `ourouler sortie` : la séance du jour, posée sur une boucle.
 
-L'enchaînement est celui du contrat du sprint 4 §4 :
+L'enchaînement :
 
-1. la **séance du jour** est lue chez Intervals.icu (lot L4.1) ; s'il n'y en a
+1. la **séance du jour** est lue chez Intervals.icu ; s'il n'y en a
    pas, on le dit et on sort en 0 — ce n'est pas une erreur ;
 1 bis. la **question de l'orientation au vent** est posée **avant** la
-   recherche (lot L5.3) : un appel Open-Meteo sur un point et une heure, donc
+   recherche : un appel Open-Meteo sur un point et une heure, donc
    le poste le moins cher, et il tombe avant BRouter. Elle ne se pose que si
    le vent se sent (8 km/h, `boucle.meteo_trace.SEUIL_VENT_SENSIBLE_KMH`) et à trois
    jours au plus. Quand elle a une réponse (`--vent`), elle **dirige** la
    recherche au lieu de contraster après coup ;
-2. des **boucles candidates** sont demandées au moteur (lot L2.3), de la
+2. des **boucles candidates** sont demandées au moteur, de la
    longueur qu'il faut pour la séance ;
-3. chacune reçoit un premier **placement** des blocs, sans vent (lot L4.3).
+3. chacune reçoit un premier **placement** des blocs, sans vent.
    Celles où la séance ne tient pas sont écartées, et le tableau dit combien
    et pourquoi ;
 4. sur les retenues : ce premier placement date une météo qui n'a qu'un but,
-   donner le **champ de vent** le long du tracé (lot L5.1) — et la séance est
+   donner le **champ de vent** le long du tracé — et la séance est
    **replacée** avec ce vent. C'est une deuxième passe, pas une itération : le
    vent bouge lentement et l'écart d'heure de passage qu'induit le premier
-   placement se compte en minutes (contrat §1.2 d, §1.6) ;
-5. sur les retenues, avec leur placement définitif : **coûts** du tracé
-   (L2.4), **météo** à l'heure de passage définitive (L2.5) et **tenue**
-   (L4.3) ;
-6. tri par **note de placement d'abord** — elle inclut le vent depuis le
-   sprint 5 —, puis par **pluie cumulée** quand deux notes sont égales à
+   placement se compte en minutes ;
+5. sur les retenues, avec leur placement définitif : **coûts** du tracé,
+   **météo** à l'heure de passage définitive et **tenue** ;
+6. tri par **note de placement d'abord** — elle inclut le vent —, puis par
+   **pluie cumulée** quand deux notes sont égales à
    `config.seance.tolerance_egalite` près ;
 7. la meilleure part en **GPX** sur disque (le parcours qu'on va rouler) ;
 8. et **deux ou trois propositions contrastées** sont extraites de ce
-   classement (lot L5.3, `sortie.contraste`), chacune avec la phrase qui la
+   classement (`sortie.contraste`), chacune avec la phrase qui la
    distingue des autres en langage de cycliste. La première reste celle du
    tri : on ne change pas ce que l'outil recommande, on ajoute ce à quoi le
    comparer. Quand aucune phrase n'est écrivable pour une troisième, on en
    rend deux et on dit pourquoi ;
-9. et ces mêmes propositions deviennent **la page du jour** (lot L5.4,
-   `rendu.sortie.page_jour`) : une carte, les tracés superposés,
+9. et ces mêmes propositions deviennent **la page du jour**
+   (`rendu.sortie.page_jour`) : une carte, les tracés superposés,
    seule la sélectionnée en couleurs — et un GPX par proposition,
    téléchargeable depuis la page, qui suit le choix du cycliste et non le
    classement.
 
-L'ordre du tri est celui du contrat et il n'est pas anodin : la pluie se
-contourne en partant une heure plus tard, un bloc de seuil dans un village ne
-se contourne pas, et depuis le sprint 5 un vent de face non plus. La météo
+L'ordre du tri n'est pas anodin : la pluie se contourne en partant une heure
+plus tard, un bloc de seuil dans un village ne se contourne pas, un vent de
+face non plus. La météo
 départage, elle ne décide pas — sauf à égalité de note, où c'est elle qui
 tranche entre deux boucles que le terrain et le vent ne distinguent pas.
 
@@ -51,14 +50,14 @@ par l'entrée (`commandes/sortie.py`, qui lit argparse) et un
 `poids_routes.json` (aux chemins que le contexte a résolus) et qui passe des
 objets au cœur. Les trois clients — BRouter, Open-Meteo, Intervals — sont
 injectables pour que les tests ne touchent jamais le réseau. Ce qu'il montre
-— tableau, JSON, phrases, page du jour — est construit par `rendu/sortie.py`
-(lot 6) ; depuis le lot 10, ce module écrit le GPX et rend un résultat, et
-c'est l'entrée qui écrit la page du jour et imprime.
+— tableau, JSON, phrases, page du jour — est construit par `rendu/sortie.py` ;
+ce module écrit le GPX et rend un résultat, et c'est l'entrée qui écrit la
+page du jour et imprime.
 
-**`--fichier-seance`** (F1) : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
+**`--fichier-seance`** : l'étape 1 lit alors un `.ZWO`/`.MRC` donné en
 ligne de commande au lieu d'interroger Intervals.icu — `_seance` bascule
 dessus quand `demande.fichier` est renseigné, tout le reste de l'enchaînement
-est inchangé (comble C1 de `docs/journal/ux/relecture_f0.md`).
+est inchangé.
 
 **Ce que la météo n'empêche pas.** Comme pour `boucle`, une panne d'Open-Meteo
 fait disparaître les colonnes météo et la tenue, avec un avertissement sur la
@@ -148,9 +147,9 @@ class Demande:
     ecraser: bool = False
     #: Réponse à la question d'orientation au vent (`--vent`). « peu-importe »
     #: est le défaut **et une réponse valable** : elle retombe sur les
-    #: propositions contrastées (contrat §3.3.4).
+    #: propositions contrastées.
     vent: str = orientation.PEU_IMPORTE
-    #: `--fichier-seance` (F1) : un `.ZWO`/`.MRC` à la place d'Intervals.icu.
+    #: `--fichier-seance` : un `.ZWO`/`.MRC` à la place d'Intervals.icu.
     #: `None` — le cas courant — garde le comportement inchangé.
     fichier: Path | None = None
 
@@ -169,7 +168,7 @@ class Proposition:
     part_connue: float | None
     vitesse_kmh: float
     #: De combien la tolérance de distance a dû être élargie pour accepter
-    #: cette boucle, par paliers de 5 % (Q41 d). `0.0` : elle y tenait.
+    #: cette boucle, par paliers de 5 %. `0.0` : elle y tenait.
     elargissement: float | None = None
     #: La tolérance de distance en vigueur quand la boucle a été jugée.
     tolerance_distance: float | None = None
@@ -180,18 +179,17 @@ class Proposition:
 
     @property
     def blocs_bien_places(self) -> int:
-        # `placement.blocs()`, jamais `placement.emplacements` : depuis le lot
-        # L5.2, cette liste porte aussi l'échauffement, les récupérations et le
+        # `placement.blocs()`, jamais `placement.emplacements` : cette liste
+        # porte aussi l'échauffement, les récupérations et le
         # retour au calme, qui n'ont pas de note. `e.note.note` lèverait sur un
         # `None`, et un `e.note.note if e.note else 0.0` compterait ces
-        # non-blocs comme « bien placés » — la régression silencieuse que le
-        # contrat signale explicitement.
+        # non-blocs comme « bien placés », une régression silencieuse.
         return sum(1 for e in self.placement.blocs() if e.note.note < NOTE_BLOC_BIEN_PLACE)
 
     @property
     def demi_tours(self) -> int:
         # Idem : une récupération de demi-tour porte aussi `demi_tour=True`
-        # (contrat §2.2 a)) — la compter en plus du bloc doublerait l'affichage.
+        # — la compter en plus du bloc doublerait l'affichage.
         return sum(1 for e in self.placement.blocs() if e.demi_tour)
 
     @property
@@ -211,10 +209,10 @@ class Proposition:
 
     @property
     def tri(self) -> tuple[float, float]:
-        """Note de placement d'abord, pluie cumulée ensuite (contrat §4).
+        """Note de placement d'abord, pluie cumulée ensuite.
 
-        **N'est pas le tri réellement appliqué par `executer`** depuis que le
-        vent entre dans la note (sprint 5) : ce tuple compare les notes au
+        **N'est pas le tri réellement appliqué par `executer`**, puisque le
+        vent entre dans la note : ce tuple compare les notes au
         bit près, alors que `executer` les compare à `tolerance_egalite`
         près (`_comparer`), pour laisser la pluie départager deux boucles que
         le terrain et le vent ne distinguent pas vraiment. Cette propriété
@@ -237,9 +235,9 @@ ETAPE_PLACEMENT = "placement"
 class Ecartee:
     """Une candidate que le placement a refusée, et le motif qu'il a rangé dans `meta`.
 
-    `trace` est la boucle elle-même quand elle existe (lot F2.4). Un azimut et
-    une distance ne se dessinent pas : sans la géométrie, « 8 candidates
-    écartées » restait une ligne de texte que le mainteneur ne pouvait pas
+    `trace` est la boucle elle-même quand elle existe. Un azimut et une
+    distance ne se dessinent pas : sans la géométrie, « 8 candidates
+    écartées » resterait une ligne de texte que le cycliste ne pourrait pas
     regarder. `None` pour un refus sur la distance — aucune boucle n'a été
     construite dans cette direction, et inventer un tracé serait pire que de
     n'en montrer aucun.
@@ -302,7 +300,7 @@ def executer(
     """Exécute `ourouler sortie` : `SansSeance` un jour sans séance, `ResultatSortie` sinon.
 
     `base_routes` s'injecte comme les clients, pour la même raison et de la
-    même façon que dans `boucle/commande.executer` ([[Q58]]) : absente, la
+    même façon que dans `boucle/commande.executer` (décision Q58) : absente, la
     base est ouverte sur `contexte.dossier_cache` avec le propriétaire par
     défaut, ce qui est le bon comportement en ligne de commande et le mauvais
     dans un service qui sert plusieurs cyclistes.
@@ -310,38 +308,39 @@ def executer(
     Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
     celui de **cette** exécution (`--adresse-depart` géocodée par `cli.py`, ou
     les coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit
-    aucune adresse et ne sait pas d'où vient ce point (règle absolue 2). À ne
+    aucune adresse et ne sait pas d'où vient ce point (le cœur ne lit ni
+    configuration ni environnement). À ne
     pas confondre avec `demande.depart`, qui porte une **heure**.
 
-    `recueil_gpx` décide **à qui va le GPX** (Q40 g, tranché le 17/09/2026 :
-    « aucun GPX à la génération, et on le fait à la demande quand l'user
-    choisit son parcours »). Absent — le cas de la ligne de commande — le GPX
+    `recueil_gpx` décide **à qui va le GPX** : aucun GPX à la génération, un
+    GPX à la demande quand le cycliste choisit son parcours (décision Q40 g,
+    `docs/journal/questions/questions_mainteneur.md`). Absent — le cas de la ligne de commande — le GPX
     de la proposition retenue est écrit sur le disque, à `--sortie` ou au nom
-    daté par défaut, exactement comme avant. Présent, **aucun fichier n'est
+    daté par défaut. Présent, **aucun fichier n'est
     écrit** : les trois GPX sont remis à l'appelant, qui n'en servira qu'un,
     celui que le cycliste aura choisi. Les trois propositions sont
-    contrastées exprès ; n'écrire que celle du classement, c'était envoyer la
-    mauvaise trace au compteur à qui choisissait « la plus sèche ».
+    contrastées exprès ; n'écrire que celle du classement, ce serait envoyer
+    la mauvaise trace au compteur à qui choisissait « la plus sèche ».
 
     Ce qui ne suit pas le départ : les **routes connues** et les **poids
     appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
     autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
-    connue est informative et n'entre dans aucun score (contrat du sprint 3
-    §2) — mais elle tombera naturellement à zéro loin de chez soi. `cli.py`
-    le dit sur la sortie d'erreur plutôt que de laisser croire à un tracé
+    connue est informative et n'entre dans aucun score — mais elle tombera
+    naturellement à zéro loin de chez soi. `cli.py` le dit sur la sortie
+    d'erreur plutôt que de laisser croire à un tracé
     inédit.
     """
     profil = contexte.profil
     seance = _seance(demande, profil, client_intervals)
     if seance is None:
-        # Service planifié (contrat de l'hébergé minimal, périmètre point 4) :
-        # l'entrée écrit alors, si on le lui demande, la page qui le dit.
+        # Pas de séance : pour un service planifié, l'entrée écrit, si on le lui
+        # demande, la page qui le dit.
         return SansSeance(demande=demande)
 
     parametres, provenance = _parametres(profil, demande.velo, contexte.fichier_calibration)
     distance_km, distance_source = _distance(demande, seance, parametres, profil)
 
-    # Q40 (a) : une date lointaine ne se refuse pas, elle se sert **sans
+    # Une date lointaine ne se refuse pas, elle se sert **sans
     # météo**. On le constate ici, avant le premier appel : demander une
     # prévision pour dans dix ans coûterait ~150 appels Open-Meteo pour
     # récolter trois blocs vides, puis un message sur ce qu'Open-Meteo ne
@@ -354,7 +353,7 @@ def executer(
         portee.constater(demande.jour, dernier_jour) if demande.jour > dernier_jour else None
     )
 
-    # La question du vent se pose **avant** la recherche (contrat §3.3.4) :
+    # La question du vent se pose **avant** la recherche :
     # c'est un appel Open-Meteo sur un point et une heure, donc le poste le
     # moins cher de la commande, et il tombe avant les appels BRouter, qui
     # sont le seul poste qui compte.
@@ -389,7 +388,7 @@ def executer(
     candidates, hors_bande = _candidates(client_brouter, profil, demande, distance_km, azimuts_vent)
 
     retenues, ecartees = _placer_toutes(candidates, seance, profil, parametres)
-    # Les directions refusées sur la distance (Q41 d) rejoignent celles que le
+    # Les directions refusées sur la distance rejoignent celles que le
     # placement a refusées : deux motifs différents, un seul endroit où le
     # cycliste les lit. Sans ça, demander cinq directions et en voir trois se
     # passait en silence — c'est le défaut même que ce lot corrige, il n'a pas
@@ -406,7 +405,7 @@ def executer(
     for numero, proposition in enumerate(propositions, start=1):
         proposition.numero = numero
 
-    # Les trois propositions contrastées (lot L5.3). La première reste celle
+    # Les trois propositions contrastées. La première reste celle
     # que le tri ci-dessus a retenue : on ne change pas ce que l'outil
     # recommande, on ajoute ce à quoi le comparer.
     selection = contraste.choisir(propositions, duree_seance_s=seance.duree_s)
@@ -444,7 +443,7 @@ def executer(
         selection=selection,
         question_vent=question,
         meteo_absente=meteo_absente,
-        # La troisième valeur de l'écran de FTP (18/09/2026) : `sortie` a
+        # La troisième valeur de l'écran de FTP : `sortie` a
         # toujours un vélo (`_parametres` lève sinon), donc ce bloc n'est
         # `None` qu'en test avec une configuration construite à la main. Lu
         # ici et non dans le rendu : il relit la calibration du vélo.
@@ -466,7 +465,7 @@ class _Contexte:
 
     seance: Seance
     demande: Demande
-    #: Le profil du cycliste (le nom est resté celui d'avant le lot 10).
+    #: Le profil du cycliste (le champ garde son nom historique, `config`).
     config: Profil
     distance_km: float
     distance_source: str
@@ -475,11 +474,11 @@ class _Contexte:
     tenue: Tenue | None
     gpx: Path | None
     carte: Path | None
-    #: Les propositions contrastées et leurs phrases (lot L5.3).
+    #: Les propositions contrastées et leurs phrases.
     selection: contraste.Selection | None = None
     #: Ce que le vent au départ permettait de demander, et pourquoi.
     question_vent: vent_demande.QuestionVent | None = None
-    #: L'état « pas de météo » quand il y en a un (Q40 a) — la phrase à
+    #: L'état « pas de météo » quand il y en a un — la phrase à
     #: afficher et le dernier jour couvert. `None` quand la météo a répondu.
     meteo_absente: portee.MeteoAbsente | None = None
     #: Le bloc « compteur » (`seance.ecran_ftp.info_compteur`) : moyenne
@@ -495,8 +494,8 @@ def motif_aucune(seance: Seance, ecartees: list[Ecartee], distance_km: float) ->
     le même cas que `boucle` quand le moteur ne rend aucune boucle bornée, qui
     sort déjà en 2. Un script qui enchaîne sur le GPX doit s'arrêter là.
 
-    Au cas d'usage depuis le lot 10 (il était au rendu) : c'est le texte de
-    l'erreur qu'il lève, pas un rendu de son résultat.
+    Il appartient au cas d'usage, pas au rendu : c'est le texte de l'erreur
+    qu'il lève, pas un rendu de son résultat.
     """
 
     detail = "; ".join(
@@ -531,18 +530,18 @@ def heure_depart_du_jour(brut: str | None, jour: date) -> datetime:
 
 
 def _dossier_sorties_par_defaut(dossier_cache: Path) -> Path:
-    """Le dossier des fichiers produits par défaut, hors du dépôt (Q23).
+    """Le dossier des fichiers produits par défaut, hors du dépôt.
 
-    Avant ce correctif, sans `--sortie` ni `--carte`, `sortie_AAAAMMJJ.gpx`
-    et `.html` s'écrivaient dans le répertoire courant — le dépôt, quand la
-    commande est lancée de là, ce que fait le mainteneur. `.gitignore` les
-    couvre, mais ces fichiers portent ses coordonnées de départ : « un
+    Sans lui, sans `--sortie` ni `--carte`, `sortie_AAAAMMJJ.gpx` et `.html`
+    s'écriraient dans le répertoire courant — le dépôt, quand la commande est
+    lancée de là. `.gitignore` les couvre, mais ces fichiers portent des
+    coordonnées de départ : « un
     fichier que seul `.gitignore` protège n'est pas protégé, il est
     seulement discret. »
 
     Un sous-dossier du cache déjà configuré (`Contexte.dossier_cache`,
-    `~/.cache/ourouler` par défaut) — l'une des deux destinations que le
-    contrat proposait, et celle qui n'ajoute pas un nouveau réglage. Créé au
+    `~/.cache/ourouler` par défaut) : une destination qui n'ajoute pas de
+    nouveau réglage. Créé au
     besoin : le premier `ourouler sortie` d'une machine neuve ne doit pas
     échouer faute de dossier.
     """
@@ -599,7 +598,7 @@ def verifier_ecriture(chemin: Path, *, explicite: bool, ecraser: bool) -> None:
 
 
 def _seance(demande: Demande, config: Profil, client: ClientIntervals | None) -> Seance | None:
-    """La séance à placer : Intervals.icu, ou `demande.fichier` s'il est donné (F1, C1)."""
+    """La séance à placer : Intervals.icu, ou `demande.fichier` s'il est donné."""
     if demande.fichier is not None:
         from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier
 
@@ -659,14 +658,13 @@ def _distance(
         return demande.distance_km, "demandée"
     mesures = longueurs(seance, parametres=parametres)
     # Une étape « libre » — sans puissance prescrite — n'a pas de longueur
-    # chiffrée. La première rédaction la comptait pour **zéro kilomètre**, ce
-    # qui sous-dimensionnait la boucle à proportion. Mesuré le 16/09/2026 sur
-    # la séance de référence « 4x8 SV1 outdoor » du 22/04 : 22 étapes, dont
-    # trois libres (échauffement 20 min, récupération 12 min, retour au calme
-    # 40 min). 63 min chiffrées sur 135 — **plus de la moitié de la séance
-    # était invisible**, et le moteur demandait 35 km pour une sortie de 67.
-    # Il rattrapait ensuite en roulant la boucle presque deux fois, avec des
-    # demi-tours dont personne n'avait besoin.
+    # chiffrée. La compter pour **zéro kilomètre** sous-dimensionnerait la
+    # boucle à proportion. Mesuré sur une séance de référence de 22 étapes,
+    # dont trois libres (échauffement 20 min, récupération 12 min, retour au
+    # calme 40 min) : 63 min chiffrées sur 135 — **plus de la moitié de la
+    # séance serait invisible**, et le moteur demanderait 35 km pour une
+    # sortie de 67. Il rattraperait ensuite en roulant la boucle presque deux
+    # fois, avec des demi-tours dont personne n'a besoin.
     #
     # Une étape libre se roule à l'allure d'endurance : c'est l'hypothèse la
     # plus plate qui soit, et infiniment meilleure que zéro.
@@ -726,16 +724,16 @@ def executer_vent(
     contexte: Contexte,
     client_meteo: ClientOpenMeteo | None = None,
 ) -> ResultatVent:
-    """Le vent au départ, **avant** de chercher quoi que ce soit (Q44).
+    """Le vent au départ, **avant** de chercher quoi que ce soit.
 
     Un seul appel Open-Meteo, un point, une heure : le poste le moins cher du
     produit. Il existe parce que l'écran de demande doit montrer d'où vient le
     vent *pendant* que le cycliste choisit sa direction — « Vent de sud-ouest à
-    22 km/h demain matin », ce que la maquette E16 prévoyait et que l'écran ne
-    faisait pas.
+    22 km/h demain matin », comme le prévoit la maquette E16.
 
-    Le mainteneur posait un « soit / soit » : montrer le vent **ou** proposer
-    trois préférences. Les deux modes en ont besoin, et c'est pour ça que
+    Montrer le vent **ou** proposer trois préférences n'est pas un « soit /
+    soit » : les deux modes en ont besoin (décision Q44,
+    `docs/journal/questions/questions_mainteneur.md`), et c'est pour ça que
     `azimuts_par_choix` accompagne toujours le vent : celui qui choisit sa
     direction doit savoir d'où il souffle, celui qui choisit selon le vent doit
     pouvoir vérifier ce qu'on lui propose avant de lancer le calcul.
@@ -797,23 +795,21 @@ def _candidates(
     """Les boucles candidates, et les directions refusées sur la distance.
 
     Le second élément n'est pas un détail d'implémentation : une direction
-    écartée sans qu'on le dise, c'est exactement le défaut que Q41 (d)
-    corrige. Il rejoint les `Ecartee` du placement chez l'appelant.
+    écartée sans qu'on le dise laisserait le cycliste deviner pourquoi il voit
+    moins de propositions que demandé. Il rejoint les `Ecartee` du placement chez l'appelant.
 
     Sans `--direction`, la commande ne choisit pas à la place du cycliste :
     elle réparti les candidates sur **tout le tour de l'horizon** et laisse le
     tableau montrer ce que chaque direction donne, terrain et pluie compris.
-    C'est aussi ce qui rend `ourouler sortie --jour …` utilisable tel quel, ce
-    que le contrat de sprint demande.
+    C'est aussi ce qui rend `ourouler sortie --jour …` utilisable tel quel.
 
     `azimuts_vent` sont les azimuts qu'impose une réponse à la question
-    d'orientation au vent (lot L5.3). Ils **réduisent l'espace de recherche**
+    d'orientation au vent. Ils **réduisent l'espace de recherche**
     au lieu de contraster après coup, ce qui est l'intérêt de poser la question
-    avant. Ils sont **un ou deux** : « de travers » en ouvre deux opposés
-    (Q44).
+    avant. Ils sont **un ou deux** : « de travers » en ouvre deux opposés.
 
-    `--direction` et `--vent` ne se contredisent plus ici : `_lire` refuse
-    qu'on demande les deux (Q44). Quand `--direction` est là, elle est seule.
+    `--direction` et `--vent` ne se contredisent pas ici : `_lire` refuse
+    qu'on demande les deux. Quand `--direction` est là, elle est seule.
     """
     if demande.azimut_deg is not None:
         repartition = [(demande.azimut_deg, demande.nb_candidates)]
@@ -835,9 +831,9 @@ def _candidates(
     # répartition. `generer(azimut, nb)` explore `azimut`, puis ±20°, ±40°… —
     # il élargit un secteur, il n'en ouvre jamais un second. Un seul appel pour
     # deux azimuts opposés entasserait donc toutes les candidates du premier
-    # côté ; c'est exactement ce que Q44 demande de vérifier.
+    # côté, et « de travers » ne proposerait qu'un des deux côtés.
     #
-    # Le refus sur la distance (Q41 d) est par azimut, et un azimut où le
+    # Le refus sur la distance est par azimut, et un azimut où le
     # terrain ne sait pas faire la distance ne doit pas emporter ceux où il
     # sait — c'est déjà la règle à l'intérieur de `generer`, elle vaut aussi
     # ici. Le refus n'est relancé que si aucun azimut n'a rien donné, comme le
@@ -927,7 +923,7 @@ def _replacer_avec_vent(
 ) -> list[tuple[object, Placement]]:
     """Rejoue le placement de chaque candidate retenue avec son champ de vent.
 
-    La deuxième passe du contrat §1.6 : le premier placement (sans vent) sert
+    La deuxième passe : le premier placement (sans vent) sert
     à dater un premier appel à Open-Meteo, dont on ne garde que le vent —
     c'est lui qui construit le `ChampVent` qui replace la séance. On ne
     boucle pas une seconde fois : le champ de vent bouge lentement (pas
@@ -944,9 +940,9 @@ def _replacer_avec_vent(
     d'erreur ; ici on se tait, silencieusement correct.
     """
     if client_meteo is None:
-        # Pas de météo demandée (Q40 a) : pas de champ de vent, donc pas de
+        # Pas de météo demandée : pas de champ de vent, donc pas de
         # seconde passe. Le placement sans vent est ce qu'on sert, et il est
-        # valable — c'est le premier placement du contrat §1.6.
+        # valable — c'est le premier placement.
         return retenues
     elasticite = (config.seance.elasticite_z2_min, config.seance.elasticite_z2_max)
     elasticite_calme = (config.seance.elasticite_calme_min, config.seance.elasticite_calme_max)
@@ -965,9 +961,9 @@ def _replacer_avec_vent(
                 # principal — l'économiser garde le coût à un appel de plus
                 # par candidate, pas deux.
                 #
-                # `modele_repli` (Q19), lui, ne coûte rien tant que le
+                # `modele_repli`, lui, ne coûte rien tant que le
                 # principal répond : il ne se déclenche que si celui-ci ne
-                # couvre pas la fenêtre, exactement le cas qui privait cette
+                # couvre pas la fenêtre, exactement le cas qui priverait cette
                 # deuxième passe de vent — et donc de son replacement.
                 modele_repli=config.meteo.second_avis,
             )
@@ -1001,15 +997,14 @@ def _replacer_avec_vent(
 
 
 def _comparer(tolerance: float):
-    """Le comparateur de tri du contrat §4 : note de placement d'abord, pluie
+    """Le comparateur de tri : note de placement d'abord, pluie
     cumulée ensuite — mais seulement quand les deux notes sont égales à
     `tolerance` (écart relatif) près.
 
-    Depuis que le vent entre dans la note (sprint 5), deux notes ne sont
-    presque plus jamais égales au bit près, même pour deux boucles dont le
-    terrain sous les blocs est identique : sans cette tolérance, le vent
-    déciderait toujours et la pluie ne départagerait plus jamais, ce que le
-    contrat du sprint 4 avait pourtant pesé. `tolerance` est une préférence
+    Le vent entrant dans la note, deux notes ne sont presque jamais égales au
+    bit près, même pour deux boucles dont le terrain sous les blocs est
+    identique : sans cette tolérance, le vent
+    déciderait toujours et la pluie ne départagerait jamais. `tolerance` est une préférence
     du cycliste (`config.seance.tolerance_egalite`), pas une constante du
     code : à 0, le vent tranche toujours, sans exception.
     """
@@ -1046,12 +1041,11 @@ def _mesurer(
     """Coûts, routes connues et météo des candidates retenues.
 
     La vitesse qui date les heures de passage est celle **de la séance sur ce
-    tracé** — distance placée divisée par durée placée — et non plus la
-    vitesse moyenne de la configuration : c'est ce que la question Q8
-    promettait au sprint 4.
+    tracé** — distance placée divisée par durée placée — et non la vitesse
+    moyenne de la configuration (décision Q8, `docs/journal/questions/questions_mainteneur.md`).
 
-    `client_meteo` à `None` veut dire « on ne demande pas de météo » (Q40 a,
-    jour au-delà de l'horizon) : les coûts et le placement sont mesurés comme
+    `client_meteo` à `None` veut dire « on ne demande pas de météo » (jour
+    au-delà de l'horizon) : les coûts et le placement sont mesurés comme
     d'habitude, la météo reste absente, et ce n'est **pas** une panne — il n'y
     a rien à signaler qui ne soit déjà dit par `meteo_absente`.
     """
@@ -1071,8 +1065,8 @@ def _mesurer(
                     horaire=construire_horaire(demande.depart, vitesse),
                     modele=config.meteo.modele,
                     second_avis=config.meteo.second_avis,
-                    # Repli Q19 : sans lui, une fenêtre hors de portée
-                    # d'AROME (sortie à J+3, par exemple) perdait toute la
+                    # Le repli : sans lui, une fenêtre hors de portée
+                    # d'AROME (sortie à J+3, par exemple) perdrait toute la
                     # météo et toute la tenue, pas seulement une colonne.
                     modele_repli=config.meteo.second_avis,
                 )
@@ -1113,10 +1107,10 @@ def _ecrire_gpx(
 ) -> Path:
     """Le GPX du **parcours placé**, demi-tours compris — pas celui de la boucle.
 
-    Défaut mesuré le 22/04 : avec quatre demi-tours, le placement comptait
-    72,7 km sur une boucle de 38,5, et le fichier envoyé au compteur n'en
-    portait aucun. Ce qu'on écrit doit être ce qu'on va rouler, sans quoi le
-    GPX ne correspond pas à la séance. La carte, elle, montre toujours la
+    Mesuré : avec quatre demi-tours, le placement peut compter 72,7 km sur une
+    boucle de 38,5, et le fichier de la boucle n'en porterait aucun. Ce qu'on
+    écrit doit être ce qu'on va rouler, sans quoi le GPX ne correspond pas à la
+    séance. La carte, elle, montre toujours la
     boucle : c'est son rôle de situer les blocs sur le tracé d'origine.
     """
     chemin = chemin_gpx_par_defaut(demande, dossier_cache)
@@ -1141,7 +1135,7 @@ def _gpx_propositions(
     embarque en base64 pour son téléchargement `blob:`. Les nommer ici les
     rend servables à qui appelle la commande (`recueil_gpx`) sans les calculer
     deux fois — et c'est ce qui permet à l'API de ne rien écrire tant que le
-    cycliste n'a pas choisi (Q40 g).
+    cycliste n'a pas choisi.
     """
     proposees = []
     for retenue in selection.retenues:
@@ -1163,8 +1157,8 @@ def _gpx_propositions(
 
 def _description_parcours(parcours: Trace, placement: Placement) -> str:
     """« 47,8 km · D+ 210 m (parcours placé) · 4 demi-tours » — ce que contient le fichier."""
-    # `.blocs()` : la récupération d'un demi-tour porte aussi `demi_tour=True`
-    # (contrat §2.2 a)), la compter en plus du bloc doublerait ce chiffre.
+    # `.blocs()` : la récupération d'un demi-tour porte aussi `demi_tour=True` ;
+    # la compter en plus du bloc doublerait ce chiffre.
     demi_tours = sum(1 for e in placement.blocs() if e.demi_tour)
     if demi_tours == 0:
         combien = "sans demi-tour"

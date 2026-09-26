@@ -3,17 +3,16 @@
 import type { AzimutVent, Enveloppe, ValeursLiees, VentDepart } from "../../api/types";
 import { nombre, ventDepuisAvecPreposition } from "../../api/formats";
 import { aujourdhui } from "../../etat/ressource";
-/** Les trois préférences de « selon le vent », dans l'ordre où Q44 les pose. */
+/** Les trois préférences de « selon le vent », dans l'ordre de la décision Q44. */
 export const PREFERENCES_VENT = ["depart-dos", "retour-dos", "travers"];
 
 /**
  * Un motif ou un message d'échec qui porte une URL ou un code HTTP — le
  * signe qu'il vient tel quel d'un connecteur externe (Open-Meteo, ici) et
- * n'a pas été mis en français pour le cycliste. Constaté le 25/09/2026 en
- * rejouant l'arrivée d'un invité en préproduction : « vent au départ
+ * n'a pas été mis en français pour le cycliste. Exemple réel : « vent au départ
  * indisponible (Open-Meteo : HTTP 400 sur https://api.open-meteo.com/v1/
  * forecast — No data is available for this location…) » s'affichait tel
- * quel sous « Direction ». On ne montre plus jamais ce détail — il reste
+ * quel sous « Direction ». On ne montre jamais ce détail — il reste
  * dans le `title` de la phrase, pour qui inspecte la page.
  */
 const MOTIF_TECHNIQUE = /:\/\/|\bhttp\b/i;
@@ -26,7 +25,7 @@ export interface Demande {
   heure_depart: string;
   duree_min: number;
   /**
-   * Le **premier choix** de Q44 : indépendant de `mode`, il décide lequel
+   * Le **premier choix** (décision Q44) : indépendant de `mode`, il décide lequel
    * des deux sélecteurs suivants s'affiche — jamais les deux à la fois, pour
    * que la contradiction entre eux disparaisse par la forme.
    */
@@ -70,11 +69,8 @@ export function texteDuree(minutes: number): string {
 }
 
 /**
- * La phrase sous « Ce que ça donnera » (backlog « la phrase sur la vitesse »,
- * note du mainteneur du 20/09/2026 : « c'est débile, faut faire plus simple »
- * devant l'ancien paragraphe — chiffre de moyenne compteur et jargon « modèle
- * physique littérature » compris). Décision du 25/09/2026 (« fais 8 ») :
- * formulation A, la plus courte des deux proposées, sans chiffre ni jargon.
+ * La phrase sous « Ce que ça donnera » : la plus courte possible, sans
+ * chiffre de moyenne compteur ni jargon (« modèle physique littérature »).
  *
  * Mesuré = le facteur de compteur est mesuré sur l'historique, ou le vélo est
  * calibré (`modele_physique === "calibration"` — la calibration mesure aussi

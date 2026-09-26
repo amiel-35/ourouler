@@ -8,11 +8,11 @@
  * d'attente anime contre le budget annoncé par `/systeme/budgets`, et la
  * réponse dit ce que ça a réellement pris.
  *
- * **Lot 14** : ce fichier ne porte plus que l'assemblage — la page (avant
+ * Ce fichier ne porte que l'assemblage — la page (avant
  * toute session), le chargement des ressources de démarrage, et le choix de
  * l'écran. Les types de navigation, la barre d'onglets, le bandeau de séance
  * déposée, l'état d'une recherche et le contenu selon la vue vivent dans
- * `src/app/`, sans changement de comportement.
+ * `src/app/`.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -42,8 +42,7 @@ export type { SeanceDeposee } from "./app/navigation";
 
 /**
  * Le point d'entrée : décide une fois pour toutes sur quelle page on est
- * (lot L7.2-D), et rend `ApplicationPrincipale` — les quatre onglets
- * d'aujourd'hui, inchangés — pour tout le reste.
+ * et rend `ApplicationPrincipale` — les quatre onglets — pour tout le reste.
  *
  * `Entrer` et `Connexion` naviguent en repartant à la racine
  * (`window.location.assign`) plutôt qu'en gardant un état de page ici : une
@@ -80,13 +79,11 @@ function ApplicationPrincipale() {
   const [profilCourant, setProfilCourant] = useState<Profil | null>(null);
   const [zonesCourantes, setZonesCourantes] = useState<Zones | null>(null);
   /**
-   * Vrai dès qu'une route quelconque a répondu 401 `session_absente` (lot
-   * L7.2-D) — la session a expiré, ou n'a jamais existé. `api.client`
+   * Vrai dès qu'une route quelconque a répondu 401 `session_absente` — la session a expiré, ou n'a jamais existé. `api.client`
    * prévient au moment même où **n'importe quel** appel reçoit ce code, pas
    * seulement les trois ressources de démarrage ci-dessous : une séance qui
    * expire pendant que le cycliste choisit une proposition doit amener le
-   * même écran de connexion, pas l'erreur technique nue que `session_absente`
-   * produisait avant ce lot.
+   * même écran de connexion, pas l'erreur technique nue de `session_absente`.
    */
   const [sessionPerdue, setSessionPerdue] = useState(false);
 
@@ -103,8 +100,7 @@ function ApplicationPrincipale() {
 
   /**
    * Un compte neuf atterrit dans l'assistant, pas sur l'écran du jour
-   * (défaut constaté en vrai le 19/09/2026 : « Aujourd'hui » réclame
-   * Intervals et échoue). Ne force qu'**une seule fois** — dès que la
+   * (« Aujourd'hui » réclame Intervals et échouerait). Ne force qu'**une seule fois** — dès que la
    * personne a fini l'assistant ou l'a quitté volontairement, plus rien ne
    * doit l'y ramener, y compris quand `profil.valeur` se recharge ensuite
    * (reconnexion, `recharger()`).
@@ -144,8 +140,7 @@ function ApplicationPrincipale() {
 
   // Intervals se branche via l'assistant ou Réglages sans que `jour` bouge :
   // sans ce rechargement, la séance et la semaine restent sur leur premier
-  // échec (409 intervals_absent) jusqu'au rechargement de page (constaté en
-  // prod le 25/09/2026). Seul le passage « profil connu, non branché » →
+  // échec (409 intervals_absent) jusqu'au rechargement de page. Seul le passage « profil connu, non branché » →
   // « branché » recharge : l'arrivée du profil au démarrage (null → branché)
   // ne doit pas doubler les appels de chaque ouverture.
   const intervalsBranche = profilCourant ? profilCourant.services.intervals.renseigne : null;
@@ -164,7 +159,7 @@ function ApplicationPrincipale() {
   }, [semaine.valeur, jour]);
 
   // Au retour sur l'application, les parcours déjà calculés de la semaine
-  // sont dans le stockage : on les y relit plutôt que de les oublier (C10).
+  // sont dans le stockage : on les y relit plutôt que de les oublier.
   useEffect(() => {
     const jours = semaine.valeur?.donnees.jours ?? [];
     setJoursMemorises(jours.map((j) => j.jour).filter((j) => sortieRetenue(j) !== null));

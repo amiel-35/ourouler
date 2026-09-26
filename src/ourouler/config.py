@@ -1,7 +1,7 @@
 """Configuration : objets de données + chargement TOML.
 
-Règle absolue 2 de CLAUDE.md : ce module et `cli.py` sont les seuls
-autorisés à lire un fichier, `Path.home()` ou une variable d'environnement.
+Le cœur ne lit ni configuration ni environnement (`AGENTS.md`) : ce module
+et `cli.py` sont les seuls autorisés à lire un fichier, `Path.home()` ou une variable d'environnement.
 Le reste du cœur reçoit un objet `Config` déjà construit.
 """
 
@@ -17,7 +17,7 @@ from typing import Any
 
 from ourouler.noyau.erreurs import ErreurConfig
 
-# Le profil du cycliste vit au noyau depuis le lot 4 (`noyau/profil.py`) ;
+# Le profil du cycliste vit au noyau (`noyau/profil.py`) ;
 # `Config` le compose. Ces types restent aussi importables depuis ce module
 # (`config.Velo`, `config.Depart`…) — alias public délibéré, souvent importé
 # ainsi par les appelants (tests compris) plutôt que depuis `noyau.profil`.
@@ -86,13 +86,14 @@ HORIZON_JOURS_MAX = 16
 
 #: Emplacement du cache quand la configuration n'en nomme pas.
 #:
-#: **Développé ici, et pas ailleurs** (corrigé le 18/09/2026). Le chemin était
-#: écrit `Path("~/.cache/ourouler")` et le `~` n'était jamais résolu : tout
-#: appelant qui oubliait `.expanduser()` — et la moitié du dépôt l'oubliait —
-#: créait un dossier **littéral** nommé `~` dans le répertoire courant. La
-#: suite de tests en fabriquait un à la racine du dépôt à chaque exécution.
+#: **Développé ici, et pas ailleurs.** Laissé en `Path("~/.cache/ourouler")`,
+#: le `~` ne serait jamais résolu : tout appelant qui oublierait
+#: `.expanduser()` créerait un dossier **littéral** nommé `~` dans le
+#: répertoire courant — la suite de tests en fabriquerait un à la racine du
+#: dépôt à chaque exécution.
 #:
-#: La règle absolue 2 désigne `config.py` comme le seul endroit du cœur
+#: La règle « le cœur ne lit ni configuration ni environnement » désigne
+#: `config.py` comme le seul endroit du cœur
 #: autorisé à résoudre un chemin utilisateur : c'est donc ici que le `~` se
 #: développe, une fois, pour que plus personne n'ait à y penser.
 CACHE_DEFAUT = Path("~/.cache/ourouler").expanduser()
@@ -104,7 +105,7 @@ class ParametresCache:
     #: Où lire et écrire `calibration.json`. `None` — la ligne de commande, et
     #: `ourouler api` en mode personnel — : dans `dossier`, comme toujours.
     #: **Jamais lu dans un TOML** : c'est la couche web hébergée qui le pose,
-    #: par propriétaire (`api/routes/commun._config`, L9.4), pour que la calibration
+    #: par propriétaire (`api/routes/commun._config`), pour que la calibration
     #: d'un compte ne soit lue que par lui. Le dossier de cache, lui, est
     #: celui du serveur et se partage (l'index d'activités y porte déjà sa
     #: colonne de propriétaire ; `calibration.json`, un fichier entier, n'en a
@@ -151,23 +152,23 @@ def charger(
 
     Chemin par défaut : ~/.config/ourouler/config.toml. `environ` est
     injectable pour les tests (défaut : `os.environ`, jamais lu ailleurs que
-    dans ce module et `cli.py`, règle absolue 2).
+    dans ce module et `cli.py` : le cœur ne lit ni configuration ni environnement).
 
-    Contrat de l'hébergé minimal (docs/journal/sprints/heberge_minimal_contrat.md, § « Les
+    Pour l'hébergé (`docs/journal/sprints/heberge_minimal_contrat.md`, § « Les
     secrets ») : la tâche planifiée conteneurisée n'a ni fichier de
     configuration personnel dans l'image, ni coordonnée de départ commitée.
     La clé Intervals, le point de départ et le serveur BRouter viennent donc
     de l'environnement — posés dans l'interface Coolify, jamais écrits
     ailleurs — et l'emportent sur le TOML quand ils sont présents. Pour
     l'usage local (CLI interactive), rien ne change : sans ces variables,
-    le TOML seul décide, comme avant.
+    le TOML seul décide.
 
-    `requiert_profil=False` (`cli.py`, commandes de comptes — constat du
-    25/09/2026 en invitant depuis la prod) : `[depart]` et `[cycliste]`
+    `requiert_profil=False` (`cli.py`, commandes de comptes) : `[depart]` et
+    `[cycliste]`
     deviennent facultatives. Ces commandes ne parlent qu'à la base des
     comptes et, pour `inviter`/`reinitialiser`, au relais SMTP — jamais au
-    profil du cycliste — et un déploiement hébergé sans tiers 3 (Q35/Q66)
-    n'écrit justement plus ces deux sections dans son TOML.
+    profil du cycliste — et un déploiement hébergé, sans sections personnelles
+    (décision Q35), n'écrit justement pas ces deux sections dans son TOML.
     """
     environ = os.environ if environ is None else environ
     chemin = (chemin or CHEMIN_CONFIG_DEFAUT).expanduser()
@@ -192,10 +193,10 @@ def finaliser(
 ) -> Config:
     """La fin du chargement, à partir d'un dict TOML déjà lu.
 
-    Extraite de `charger` pour l'API (lot F1) : le profil d'un propriétaire
+    Séparée de `charger` pour l'API : le profil d'un propriétaire
     se superpose au TOML **entre** la lecture du fichier et la validation, et
-    `charger` ne laissait aucun point d'entrée à cet endroit-là. Aucun
-    changement de comportement : `charger` appelle cette fonction.
+    `charger` seul ne laisserait aucun point d'entrée à cet endroit-là.
+    `charger` appelle cette fonction.
     """
     environ = os.environ if environ is None else environ
     config = depuis_dict(_survoler_environnement(brut, environ), requiert_profil=requiert_profil)
@@ -204,8 +205,8 @@ def finaliser(
 
 
 def _survoler_environnement(brut: dict[str, Any], environ: Mapping[str, str]) -> dict[str, Any]:
-    """Complète ou remplace, dans le dict TOML, les trois sections que le contrat de
-    l'hébergé minimal fait venir de l'environnement : le point de départ, la
+    """Complète ou remplace, dans le dict TOML, les trois sections que l'hébergé
+    minimal fait venir de l'environnement : le point de départ, la
     clé Intervals, l'URL et les identifiants BRouter. Une variable absente
     laisse le TOML inchangé ; présente, elle l'emporte toujours — c'est
     l'environnement qui fait foi en conteneur. Ne mute jamais `brut` : une
@@ -244,11 +245,11 @@ def _reporter(section: dict[str, Any], champ: str, environ: Mapping[str, str], s
     `OUROULER_DEPART_LATITUDE: ${OUROULER_DEPART_LATITUDE}` pour laisser
     l'hébergeur poser la variable, et l'hébergeur qui ne la pose pas la
     transmet quand même au conteneur, vide. Avec `valeur is not None` seul,
-    cette chaîne vide écrasait la latitude du TOML et le démarrage échouait
-    sur « [depart] latitude : nombre attendu, reçu '' » — un fichier de
-    configuration valide rendu invalide par une variable que personne n'a
-    remplie (constaté le 18/09/2026 sur le premier déploiement Coolify de
-    l'API : boucle de redémarrage, 503 derrière le proxy).
+    cette chaîne vide écraserait la latitude du TOML et le démarrage
+    échouerait sur « [depart] latitude : nombre attendu, reçu '' » — un
+    fichier de configuration valide rendu invalide par une variable que
+    personne n'a remplie (constaté en déploiement : boucle de redémarrage,
+    503 derrière le proxy).
 
     Effacer une valeur du TOML par l'environnement n'est donc pas possible,
     et n'a jamais été demandé : ces variables servent à **fournir** ce que le
@@ -263,7 +264,7 @@ def dossier_cache_depuis(brut: Mapping[str, Any]) -> Path:
     """Le dossier de cache, lu dans un dict TOML déjà chargé — sans construire toute la `Config`.
 
     Extraite pour l'API (`api/application.py`, mode hébergé) : `[cache]` est
-    un réglage serveur (Q35), qui ne dépend d'aucune section perso pur
+    un réglage serveur, qui ne dépend d'aucune section perso pur
     (`depart`, `cycliste`, `velos`, `intervals`) ; le lire seul ne doit donc
     pas exiger que ces sections soient déjà renseignées. C'est précisément ce
     que `depuis_dict` ne peut plus garantir en mode hébergé, depuis que
@@ -579,7 +580,8 @@ def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, fl
     `zones_pct` : 0,60 de FTP avec la table par défaut donne 0,2105, et la
     puissance d'endurance dérivée revient exactement à 0,60 (`DECIMALES_PCT`
     garantit l'aller-retour). Rien ne bouge pour une configuration existante,
-    et c'est la seule réponse acceptable à la règle absolue 5.
+    et c'est la seule réponse acceptable : on ne change pas en silence une
+    valeur mesurée.
 
     Les bornes de lecture de l'ancienne clé sont inchangées
     ([`ENDURANCE_PCT_MINI` ; `ENDURANCE_PCT_MAXI`]) : on ne convertit pas plus
@@ -590,9 +592,9 @@ def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, fl
     compte : *tout ce qui se charge doit pouvoir se recharger*. Un profil
     chargé est réécrit par le produit sous sa forme d'aujourd'hui — une
     position — et la relecture de cette position ne doit jamais échouer.
-    Avant cette borne, `zones = [[0,0.55],[0.70,0.72],[0.73,0.90],[0.91,1.05]]`
-    avec `puissance_endurance_pct = 0.40` se chargeait en silence sur
-    `position_zone = −15,0`, valeur que le chargement suivant refusait.
+    Sans cette borne, `zones = [[0,0.55],[0.70,0.72],[0.73,0.90],[0.91,1.05]]`
+    avec `puissance_endurance_pct = 0.40` se chargerait en silence sur
+    `position_zone = −15,0`, valeur que le chargement suivant refuserait.
 
     **Ce qui est refusé, et pourquoi c'est un refus et non un écrêtage.** Une
     table `zones` personnalisée dont la Z2 ne contient ni n'approche l'ancienne
@@ -602,8 +604,7 @@ def _position_zone(seance_brut: dict[str, Any], zones_pct: tuple[tuple[float, fl
 
     - écrêter à −1 ferait passer l'endurance de 0,40 à 0,68 × FTP — +70 %, en
       silence, sur la valeur qui pilote les étapes prescrites en FC basse.
-      Règle absolue 5 : on n'aligne pas deux sources qui divergent, on montre
-      le désaccord ;
+      On n'aligne pas deux sources qui divergent, on montre le désaccord ;
     - convertir dans la table **par défaut** puis appliquer la position à la
       table de l'utilisateur ferait passer 0,40 à 0,7042 × FTP — pire ;
     - élargir les bornes garderait un chiffre (« −15 ») auquel ne correspond
@@ -685,8 +686,8 @@ def _section(d: dict[str, Any], nom: str, *, requis: bool = True) -> dict[str, A
 
     `requis=False` sert au chargement allégé des commandes de comptes
     (`ourouler inviter`, `invitations`, `reinitialiser`, `retirer`) : elles
-    n'ont besoin ni de `[depart]` ni de `[cycliste]`, et un TOML hébergé sans
-    tiers 3 (Q35/Q66) ne les porte pas — voir `charger`/`depuis_dict`.
+    n'ont besoin ni de `[depart]` ni de `[cycliste]`, et un TOML hébergé, sans
+    sections personnelles (décision Q35), ne les porte pas — voir `charger`/`depuis_dict`.
     Une section **présente** mais du mauvais type reste toujours un refus,
     `requis` ou pas : ce n'est plus une absence, c'est un TOML fautif.
     """
@@ -731,8 +732,8 @@ def _nombre_optionnel(
 ) -> float | None:
     """Comme `_nombre`, mais une clé absente ou vide rend `None` plutôt que de refuser.
 
-    Écrit pour `cycliste.ftp_w` (facultative depuis le 19/09/2026,
-    `docs/journal/ux/parcours_accueil.md`) : l'absence n'est plus une configuration
+    Écrit pour `cycliste.ftp_w` (facultative,
+    `docs/journal/ux/parcours_accueil.md`) : l'absence n'est pas une configuration
     fautive, c'est un profil qui n'a pas encore d'étage T3 franchi. Une
     valeur **présente** reste soumise aux mêmes bornes qu'avant — ce n'est
     pas parce que le champ est facultatif qu'une FTP de 4 W devient plausible.
@@ -792,8 +793,8 @@ def _entier(
     """Un entier de configuration, ou `ErreurConfig` nommant le champ.
 
     `int(meteo.get(...))` laissait remonter la `ValueError` brute de
-    `int("huit")` : trace et code 1, là où le contrat demande une erreur
-    utilisateur nommant le champ. Les bornes sont vérifiées ici plutôt qu'au
+    `int("huit")` : trace et code 1, là où il faut une erreur utilisateur
+    nommant le champ. Les bornes sont vérifiées ici plutôt qu'au
     moment de s'en servir, pour que la faute soit signalée au chargement.
     """
     if isinstance(x, bool):
@@ -836,8 +837,8 @@ def _distances(brut: Any) -> tuple[float, ...]:
 
 def _date(x: Any, champ: str) -> date:
     # `isinstance(x, date)` est vrai pour un `datetime` : TOML accepte
-    # parfaitement `historique_depuis = 2023-12-01T00:00:00`, et le `datetime`
-    # qui en sortait cassait la première comparaison de période en
+    # parfaitement `historique_depuis = AAAA-MM-JJT00:00:00`, et le `datetime`
+    # qui en sortirait casserait la première comparaison de période en
     # `TypeError: '<=' not supported between date and datetime`. On le ramène
     # donc à sa date avant tout autre test.
     if isinstance(x, datetime):
@@ -850,7 +851,7 @@ def _date(x: Any, champ: str) -> date:
     except ValueError:
         pass
     try:
-        # Même tolérance pour la forme écrite en chaîne (« 2024-03-01T06:30:00 »).
+        # Même tolérance pour la forme écrite en chaîne (« AAAA-MM-JJT06:30:00 »).
         return datetime.fromisoformat(texte).date()
     except ValueError as e:
         raise ErreurConfig(f"{champ} : date AAAA-MM-JJ attendue, reçu {x!r}") from e

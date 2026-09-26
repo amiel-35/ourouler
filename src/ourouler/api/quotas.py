@@ -1,4 +1,4 @@
-"""Quotas journaliers par compte hébergé, contre le poste Open-Meteo partagé (lot L9.3).
+"""Quotas journaliers par compte hébergé, contre le poste Open-Meteo partagé.
 
 Doctrine §10.1 : Open-Meteo gratuit tolère ~10 000 appels par jour et par
 adresse IP, et **un service hébergé les additionne pour tous ses comptes** —
@@ -9,9 +9,8 @@ modèles) ~50. Le cache mutualisé des prévisions
 cherchent le même point à la même heure ; il ne l'annule pas — deux comptes
 qui cherchent chacun un point différent le paient chacun, **et grouper
 plusieurs points dans une requête n'économise aucun appel décompté : Open-
-Meteo compte par coordonnée, pas par requête** (doctrine §10.1, correction du
-16/09/2026 — c'est ce que la première version de ce module disait à l'envers
-en excluant `GET /meteo` du quota comme s'il était « groupé donc gratuit »).
+Meteo compte par coordonnée, pas par requête** (doctrine §10.1) : `GET
+/meteo` n'est donc pas « groupé donc gratuit », il a son quota.
 Le quota est le second levier — contre un compte, malveillant ou simplement
 maladroit (un bouton qu'on martèle), qui épuiserait à lui seul le poste
 partagé.
@@ -88,7 +87,7 @@ GENERATIONS_PAR_JOUR_DEFAUT = 20
 #: userait toutes les deux à fond le même jour.
 CONSULTATIONS_METEO_PAR_JOUR_DEFAUT = 100
 
-#: Le plafond des **calibrations** (`POST /calibrations`, L9.4), compteur
+#: Le plafond des **calibrations** (`POST /calibrations`), compteur
 #: séparé des deux autres. **Une** par jour et par compte : une calibration
 #: relit toutes les sorties du compte et demande l'archive météo de chaque
 #: jour de sortie jamais vu (une fois dans la vie du cache partagé, mais ~150
@@ -97,10 +96,10 @@ CONSULTATIONS_METEO_PAR_JOUR_DEFAUT = 100
 CALIBRATIONS_PAR_JOUR_DEFAUT = 1
 
 #: Le plafond des **imports d'historique** (`POST /activites/import`),
-#: compteur séparé (contre-lecture Fable du 25/09/2026). Ce n'est pas
+#: compteur séparé. Ce n'est pas
 #: Open-Meteo qui paie ici, c'est le serveur : jusqu'à 750 Mo reçus, écrits,
 #: décompressés et relus par import. **5** : de quoi déposer une archive en
-#: plusieurs fois (Q62) ou recommencer après une erreur de fichier, pas de
+#: plusieurs fois ou recommencer après une erreur de fichier, pas de
 #: quoi occuper le serveur toute la journée. Remboursé si l'import échoue.
 IMPORTS_PAR_JOUR_DEFAUT = 5
 

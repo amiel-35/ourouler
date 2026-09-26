@@ -109,11 +109,11 @@ class RapportMeteo:
         l'aller — on rentre alors poussé, ce qui est le bon sens du cycliste.
         Le point « ici » n'est pas une direction : il est exclu.
 
-        Une cellule de pluie absente n'ajoutait rien au cumul : une direction
-        dont le modèle ne rendait aucune pluie affichait donc 0,0 mm et
-        était **conseillée**, avec le motif « cumul de pluie le plus faible ».
-        C'est l'affirmation sans mesure que la règle absolue 5 interdit. Les
-        directions incomplètes sont donc écartées tant qu'il reste une
+        Une cellule de pluie absente n'ajoute rien au cumul : une direction
+        dont le modèle ne rend aucune pluie afficherait donc 0,0 mm et serait
+        **conseillée**, avec le motif « cumul de pluie le plus faible ». Ce
+        serait affirmer sans mesure. Les directions incomplètes sont donc
+        écartées tant qu'il reste une
         direction complète ; s'il n'en reste aucune, on conseille la moins
         trouée et **le motif dit combien d'heures manquent**.
         """

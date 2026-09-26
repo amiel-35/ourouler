@@ -3,24 +3,19 @@
 // Tout ce qu'`Echec` ne traite pas par un écran dédié : une panne qu'on
 // nomme, et ce qui marche encore.
 //
-// **Inventaire complet du 18/09/2026** (L7.D). Avant ce lot, 13 des 21
-// codes d'`api/erreurs.CODES_PANNE` avaient un écran — 9 par une entrée de
-// ce tableau, 4 par un écran dédié (`aucune_boucle`, `meteo_indisponible`,
-// `meteo_hors_domaine`, `intervals_refuse`, tous traités plus haut). Les 8
-// restants (`requete_invalide`, `fichier_introuvable`,
-// `generation_introuvable`, `route_inconnue`, `methode_refusee`,
-// `service_externe_indisponible`, `configuration_invalide`,
-// `erreur_interne`) tombaient dans « Ça n'a pas marché » — pas un écran
-// muet (le message et le code restaient affichés), mais pas non plus le
-// titre qui dit ce qui s'est passé. `tests/inventaire_erreurs.test.tsx`
-// relit `CODES_PANNE` dans les sources Python pour qu'un code qu'on y
-// ajoute sans le nommer ici casse un test, plutôt que de retomber en
-// silence dans le générique — c'est ainsi que `session_absente` (L7.A,
-// mergé pendant ce lot) a été trouvé, et il a son propre écran plus haut.
+// **Un inventaire complet.** Chaque code d'`api/erreurs.CODES_PANNE` a un
+// titre ici, ou un écran dédié dans `Echec` (`aucune_boucle`,
+// `meteo_indisponible`, `meteo_hors_domaine`, `intervals_refuse`…). Sans
+// lui, un code tomberait dans « Ça n'a pas marché » — pas un écran muet (le
+// message et le code restent affichés), mais pas non plus le titre qui dit
+// ce qui s'est passé. `tests/inventaire_erreurs.test.tsx` relit
+// `CODES_PANNE` dans les sources Python pour qu'un code qu'on y ajoute sans
+// le nommer ici casse un test, plutôt que de retomber en silence dans le
+// générique.
 export const TITRES_PANNE: Record<string, string> = {
   // Sans écran dédié : `App.tsx` intercepte ces quatre codes avant qu'ils
-  // n'atteignent `Echec` (lot L7.2-D — l'écran de connexion, ou celui
-  // d'activation d'une invitation, les traite lui-même). Un titre nommé
+  // n'atteignent `Echec` (l'écran de connexion, ou celui d'activation d'une
+  // invitation, les traite lui-même). Un titre nommé
   // reste ici en filet, pour le jour où l'un d'eux échapperait à cette
   // interception.
   session_absente: "Vous n'êtes plus connecté",
@@ -46,13 +41,13 @@ export const TITRES_PANNE: Record<string, string> = {
   route_inconnue: "Cette route de l'API n'existe pas",
   methode_refusee: "Cette route n'accepte pas cette méthode",
   calcul_en_cours: "Un calcul occupe déjà le serveur",
-  // L9.3 : un compte hébergé qui a épuisé son quota du jour. Le message de
+  // Un compte hébergé qui a épuisé son quota du jour. Le message de
   // l'API dit déjà quand ça se libère (minuit UTC) — pas de bouton
   // « réessayer » ici (absent de `reessayable`, `api/client.ts`) : un
   // nouvel essai immédiat échouera pareil.
   quota_atteint: "Quota quotidien atteint",
   import_deja_en_cours: "Un import occupe déjà le serveur",
-  // L9.4 — la calibration depuis l'écran. `Reglages` montre d'ordinaire
+  // La calibration depuis l'écran. `Reglages` montre d'ordinaire
   // ces refus dans la fiche vélo elle-même ; les titres restent ici en
   // filet, comme pour les autres codes.
   tache_lourde_en_cours: "Un calcul long occupe déjà le serveur",

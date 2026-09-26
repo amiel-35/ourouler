@@ -11,8 +11,8 @@ Ce script est **hors** de `src/ourouler/` : ce n'est pas le cœur, c'est la
 couche d'exploitation du contrat de l'hébergé minimal, au même titre que
 `cli.py` pour l'usage interactif. Il a donc le droit de lire l'environnement,
 l'horloge, et d'invoquer un sous-processus — rien de tout cela n'entre dans
-`src/ourouler/`, où la règle absolue 2 de CLAUDE.md continue de s'appliquer
-sans exception.
+`src/ourouler/`, où « le cœur ne lit ni configuration ni environnement » continue de
+s'appliquer sans exception.
 
 Toute la configuration vient de variables d'environnement, jamais d'une
 valeur écrite ici. En particulier, la clé Intervals, le point de départ et le
@@ -90,7 +90,7 @@ def _ecrire_config_depuis_environnement() -> None:
     Le fichier est écrit en 0600 : il ne porte aucun secret par construction
     (départ, clé Intervals et BRouter restent des variables, voir la
     docstring de module), mais il porte la masse, la FTP et les vélos du
-    cycliste — des données personnelles au sens de la règle absolue 1.
+    cycliste — des données personnelles (aucune donnée personnelle dans le dépôt).
     """
     if not CONFIG_TOML_B64:
         return
@@ -113,11 +113,11 @@ def _ecrire_config_depuis_environnement() -> None:
 def _valider_heure(heure: str) -> tuple[int, int]:
     """« HH:MM », ou une erreur claire **avant** la première génération.
 
-    Relecture du 16/09/2026, point 2 b : sans cette validation, une faute de
-    frappe (`6h`, `06h00`) laissait passer la première génération — ~150 appels
-    Open-Meteo et 5 BRouter — puis faisait tomber le conteneur sur
-    `int("6h")`. Avec `restart: unless-stopped`, Docker le relançait, et la
-    boucle brûlait le quota toute la nuit à raison d'un cycle par minute.
+    Sans cette validation, une faute de frappe (`6h`, `06h00`) laisserait
+    passer la première génération — ~150 appels Open-Meteo et 5 BRouter — puis
+    ferait tomber le conteneur sur `int("6h")`. Avec `restart:
+    unless-stopped`, Docker le relancerait, et la boucle brûlerait le quota
+    toute la nuit à raison d'un cycle par minute.
     On échoue donc **au démarrage**, avant de dépenser quoi que ce soit.
     """
     morceaux = heure.split(":")

@@ -41,7 +41,7 @@ export type NiveauPluie = "aucune-donnee" | "sec" | "faible" | "modere" | "fort"
 
 /**
  * Quatre paliers d'**affichage** pour un cumul de pluie sur l'horizon de la
- * rose — repris tels quels de la direction retenue le 19/09/2026
+ * rose — repris tels quels de la direction visuelle retenue
  * (`docs/journal/ux/directions/suisse-vivante.html`, légende « Pluie (3 h) ») : sec à
  * 0, faible de 0,1 à 1,0 mm, modérée de 1,1 à 3,0, forte au-delà.
  *
@@ -63,7 +63,7 @@ export function niveauPluie(cumulMm: number | null): NiveauPluie {
 export interface DirectionMeteo {
   nom: (typeof HUIT_DIRECTIONS)[number];
   azimutDeg: number;
-  /** `null` : aucune cellule pour cette direction (pas un 0 — règle absolue 5). */
+  /** `null` : aucune cellule pour cette direction (pas un 0 : on n'affirme rien sans mesure). */
   pluieMm: number | null;
   niveau: NiveauPluie;
   /** Vrai si au moins une cellule de cette direction porte `confiance === "desaccord"`. */

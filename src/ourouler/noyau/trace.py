@@ -18,8 +18,8 @@ FERMETURE_M = 300.0
 #: Provenances de `Trace.denivele_m`, rangées dans `meta["denivele_source"]`.
 #: Le « filtered ascend » du moteur et le D+ recalculé à la relecture d'un GPX
 #: divergent de 10 à 32 % sur les tracés mesurés, dans les deux sens : afficher
-#: un chiffre sans dire d'où il vient laisse l'écart inexplicable (règle
-#: absolue 5, un désaccord s'affiche comme un désaccord).
+#: un chiffre sans dire d'où il vient laisse l'écart inexplicable (un
+#: désaccord s'affiche comme un désaccord).
 DENIVELE_MOTEUR = "moteur"
 DENIVELE_GPX_RELU = "gpx relu"
 #: Dénivelé recalculé sur le parcours réellement roulé, demi-tours compris
@@ -30,7 +30,7 @@ DENIVELE_PARCOURS = "parcours placé"
 #: Dénivelé recalculé sur l'altitude du **tracé rerouté** par BRouter, pour une
 #: trace dont l'altitude d'origine vient d'un appareil (baromètre) ou d'un
 #: fichier importé. Les deux sources accumulent du bruit qu'aucun seuil ne
-#: rattrape correctement : mesuré le 18/09/2026 sur une sortie de 86 km,
+#: rattrape correctement : mesuré sur une sortie de 86 km,
 #: un altimètre barométrique fabrique 20 cm de bruit par point, soit 1 563 m
 #: de fausse montée sur une amplitude d'altitude réelle de 41 m. La carte
 #: d'altitude que BRouter connaît du terrain n'a pas ce défaut — c'est la
@@ -39,7 +39,7 @@ DENIVELE_PARCOURS = "parcours placé"
 #:
 #: **Ce n'est pas le dénivelé du parcours réellement roulé.** La géométrie
 #: reroutée s'écarte du tracé réel de 2 m en médiane (mesuré sur trois
-#: sorties du mainteneur, 18/09/2026) : c'est le profil de la route que
+#: sorties réelles) : c'est le profil de la route que
 #: BRouter a choisie, pas exactement celle roulée.
 DENIVELE_REROUTE = "tracé rerouté"
 

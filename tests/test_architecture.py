@@ -132,10 +132,9 @@ est rompu depuis le lot 5 :
    entre dossiers, le cycle ne tient plus que par `physique/commande.py`
    (un cas d'usage) qui importe `boucle/`, et n'est pas une violation.
 
-Ces deux-là appartiennent à une seule composante de huit paquets :
-`activites`, `apprentissage`, `boucle`, `config`, `connecteurs`, `meteo`,
-`physique` et `seance`. Rangés dans leurs couches cibles, ces cycles
-deviennent des arêtes qui montent, listées dans `EXCEPTIONS`.
+Ces deux-là liaient plusieurs paquets en une seule composante. Rangés dans
+leurs couches cibles, ces cycles deviennent des arêtes qui montent ; une
+arête qui monterait encore serait listée dans `EXCEPTIONS`.
 
 Le rangement de chaque module est dans `MODULES` : la couche qu'il occupe
 **de fait** aujourd'hui, par son rôle, pas par son dossier.

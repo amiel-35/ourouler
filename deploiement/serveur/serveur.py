@@ -9,8 +9,8 @@ dossier de fichiers.
 
 Comme `deploiement/generateur/entrypoint.py`, ce script est hors de
 `src/ourouler/` : il joue le rôle de point d'entrée (lit l'environnement) pour
-le contrat de l'hébergé minimal, pas pour le cœur — la règle absolue 2 de
-CLAUDE.md ne s'applique qu'à `src/ourouler/`.
+le contrat de l'hébergé minimal, pas pour le cœur — « le cœur ne lit ni configuration ni environnement » ne
+s'applique qu'à `src/ourouler/`.
 """
 
 from __future__ import annotations
@@ -63,8 +63,8 @@ class GestionnaireAuthentifie(http.server.SimpleHTTPRequestHandler):
 
     def list_directory(self, path):  # signature imposée par http.server
         """Pas de listage : un volume neuf ou une première génération ratée
-        exposait sinon les noms des `sortie_AAAAMMJJ.gpx` accumulés. Derrière
-        l'authentification, mais gratuit à fermer (relecture du 16/09/2026).
+        exposerait sinon les noms des `sortie_AAAAMMJJ.gpx` accumulés. Derrière
+        l'authentification, mais gratuit à fermer.
         """
         self.send_error(404, "Rien à cet endroit")
         return None

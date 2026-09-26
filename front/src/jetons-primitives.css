@@ -10,19 +10,20 @@
  * Convention de nommage : tout nom commence par `--sv-`. Si vous voyez
  * `--sv-*` référencé depuis un `.tsx` ou un fichier d'écran, c'est un bug de
  * doctrine — au même titre qu'une fonction du cœur Python qui lit une
- * variable d'environnement (règle absolue 2 de `CLAUDE.md`).
+ * variable d'environnement (le cœur ne lit ni configuration ni environnement,
+ * `AGENTS.md`).
  *
- * Origine : synthèse des huit directions du sprint 8 (encre, papier, filets,
- * les quatre teintes de données, la grille, la typographie) posée dans
- * `docs/journal/ux/directions/jetons-suisse-vivante.css` le 19/09/2026, complétée le
- * 20/09/2026 par ce que `docs/journal/ux/inventaire_systeme_visuel.md` a révélé
- * manquant pour couvrir les onze écrans réels — espacement, épaisseur des
- * traits, intensité d'effort (Z1–Z5) — dans `docs/journal/ux/directions/jetons-systeme.css`.
- * Ce fichier fusionne les deux : il n'existe plus qu'un seul endroit où
+ * Origine : synthèse des huit directions visuelles étudiées (encre, papier,
+ * filets, les quatre teintes de données, la grille, la typographie) posée dans
+ * `docs/journal/ux/directions/jetons-suisse-vivante.css`, complétée par ce que
+ * `docs/journal/ux/inventaire_systeme_visuel.md` a révélé manquant pour
+ * couvrir les onze écrans réels — espacement, épaisseur des traits, intensité
+ * d'effort (Z1–Z5) ; la règle d'ensemble est dans
+ * `docs/ux/doctrine_design_system.md`. Ce fichier est le seul endroit où
  * chercher une primitive.
  *
- * Le parti pris tient en une phrase du mainteneur : « l'interface en noir et
- * blanc, les données en couleur ». Tout ce qui est structure — grille,
+ * Le parti pris tient en une phrase : « l'interface en noir et blanc, les
+ * données en couleur ». Tout ce qui est structure — grille,
  * filets, boutons, la marque « recommandée » — reste en encre, jamais en
  * couleur : une décision n'est pas une donnée mesurée, elle n'a pas à
  * emprunter une teinte. Seules les données mesurées (pluie, vent, trafic,
@@ -77,20 +78,17 @@
  * « 600 = jamais de texte » n'est donc pas une prudence en trop, elle évite
  * ce cas précis en pratique.
  *
- * **`--sv-encre-att` relevée à 7,6:1 (lot d'application, 20/09/2026).** La
- * synthèse du 19/09 l'avait posée à 6,8:1 en clair — sous le seuil de 7,5:1
- * que le mainteneur avait explicitement porté dans `front/src/style.css` le
- * 17/09/2026 (relecture F2 · C5) pour `--muet`, la même famille de texte
+ * **`--sv-encre-att` à 7,6:1, et non 6,8:1.** 6,8:1 en clair tomberait sous
+ * le seuil de 7,5:1 fixé pour cette famille de texte
  * (phrases d'honnêteté, notes, mentions), précisément parce qu'un produit
  * lu dehors, en plein soleil, parfois à 6 h du matin, ne peut pas se
  * permettre de perdre ses phrases les plus importantes — celles qui disent
  * « facteur supposé, faute de mesure » — au premier rayon de soleil. Rien
- * dans `docs/journal/ux/direction_visuelle.md` ni dans l'usage du produit depuis le
- * 17/09 ne justifie de revenir sur ce seuil : c'est un choix mesuré, tenu,
- * pas une esthétique. Tranché ici en remontant la seule primitive concernée
- * (teinte identique, un cran plus foncée) — la couche sémantique et les
- * composants n'ont rien à savoir de ce changement. La valeur sombre
- * (9,0:1) tenait déjà la marge, elle n'a pas bougé.
+ * dans `docs/journal/ux/direction_visuelle.md` ni dans l'usage du produit ne
+ * justifie de revenir sur ce seuil : c'est un choix mesuré, tenu, pas une
+ * esthétique. Il se tient ici, dans la seule primitive concernée (teinte
+ * identique, un cran plus foncée) — la couche sémantique et les composants
+ * n'ont rien à en savoir. La valeur sombre (9,0:1) tient la marge.
  */
 
 :root {
@@ -202,11 +200,10 @@
   --sv-effort-5: #54300b;
 
   /* ---------- la pente (ProfilAltitude) : un sixième métier ----------
-     Ajoutée le 20/09/2026 (lot d'application) : la pente est **une mesure**
-     (règle 1), pas une décision, et le profil d'altitude était resté en
-     encre par erreur — un agent avait pris un profil pour de l'interface.
-     Quatre crans, pas trois ni cinq : c'est le standard du domaine que le
-     mainteneur a demandé mot pour mot, vert jusqu'à 3 %, jaune de 3 à 6,
+     La pente est **une mesure** (règle 1), pas une décision : le profil
+     d'altitude ne reste pas en encre, ce n'est pas de l'interface.
+     Quatre crans, pas trois ni cinq : c'est le standard du domaine, vert
+     jusqu'à 3 %, jaune de 3 à 6,
      orange de 6 à 9, rouge au-delà — tout cycliste le lit sans légende,
      contrairement aux quatre familles météo/route dont le rôle se lit dans
      un jeton nommé, pas dans une convention universelle. Comme l'effort,
@@ -225,8 +222,8 @@
      dans ce cas précis : ce sont deux diagrammes distincts (une carte, un
      profil), jamais le même tracé, et `ProfilAltitude` porte en plus
      l'épaisseur du trait et le pourcentage écrit au point le plus raide —
-     voir `composants/ProfilAltitude.tsx`. Décision du mainteneur, prise
-     mot pour mot ; à confirmer à l'usage réel, pas seulement en revue.
+     voir `composants/ProfilAltitude.tsx`. À confirmer à l'usage réel, pas
+     seulement en revue.
 
      CONTRASTES VÉRIFIÉS PAR LE CALCUL (WCAG 2.1, luminance relative,
      méthode identique à l'en-tête de ce fichier) :

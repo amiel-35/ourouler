@@ -1,22 +1,23 @@
 """Le courriel d'invitation : composition et envoi par SMTP standard, STARTTLS.
 
-Lot L7.2-B, doctrine §10.2. Décision du mainteneur : **SMTP de la bibliothèque
-standard (`smtplib`), pas de bibliothèque de fournisseur.** Brevo distribue une
+Doctrine §10.2 : **SMTP de la bibliothèque standard (`smtplib`), pas de
+bibliothèque de fournisseur.** Brevo distribue une
 clé dédiée à son relais SMTP — voir `service.example.toml`, section `[brevo]`
 — et le protocole est assez standard pour qu'on change de prestataire en
 éditant trois valeurs, sans réécrire ce module.
 
-**Ce module ne lit ni fichier ni variable d'exécution** (règle absolue 2) : il
+**Ce module ne lit ni fichier ni variable d'exécution** (le cœur ne lit ni
+configuration ni environnement) : il
 reçoit ses paramètres déjà résolus — `ParametresBrevo` — construits par
 `cli.py` à partir du fichier de secrets du service. `tests/test_invariants.py`
 vérifie que ce module n'a pas cette permission ; lui en écrire une reviendrait
 à rouvrir la porte que la doctrine tient fermée.
 
 Le client SMTP est **injectable** (`fabrique`) : les tests y passent un
-double, jamais `smtplib.SMTP` pour de vrai — ni dans ce lot, ni faute d'y
-penser. Ce module ne se connecte donc lui-même à rien pendant les tests
-(règle absolue 3), et **rien de ce dépôt n'envoie de courriel réel** avant que
-le mainteneur ne le décide lui-même (règle absolue 4 du lot).
+double, jamais `smtplib.SMTP` pour de vrai. Ce module ne se connecte donc
+lui-même à rien pendant les tests (pas de réseau dans les tests), et **aucun
+test de ce dépôt n'envoie de courriel réel** : seul le service configuré, à
+la demande de son exploitant, en envoie.
 """
 
 from __future__ import annotations
@@ -149,7 +150,7 @@ def message_reinitialisation(
     expire_le: datetime,
     parametres: ParametresBrevo,
 ) -> EmailMessage:
-    """Compose le courriel de réinitialisation (`ourouler reinitialiser`, lot L9.6).
+    """Compose le courriel de réinitialisation (`ourouler reinitialiser`).
 
     Même forme que `message_invitation` — texte simple, français, court, composé avec
     `EmailMessage` et non par concaténation (même garde-fou contre un en-tête hostile) —
@@ -197,7 +198,7 @@ class ClientSMTP(Protocol):
 
 #: Une fabrique de client SMTP : `(serveur, port) -> ClientSMTP`. `smtplib.SMTP` en est une
 #: par construction (son constructeur prend hôte et port). Injectable pour ne jamais
-#: dépendre du réseau en test (règle absolue 3).
+#: dépendre du réseau en test (pas de réseau dans les tests).
 FabriqueSMTP = Callable[[str, int], ClientSMTP]
 
 
@@ -210,8 +211,8 @@ def envoyer_invitation(
     """Remet `message` au relais SMTP décrit par `parametres`, en STARTTLS.
 
     `fabrique` par défaut vaut `smtplib.SMTP` — une vraie connexion — mais seulement si rien
-    n'est injecté : les tests de ce dépôt lui passent toujours un double (règles absolues 3
-    et 4 du lot L7.2-B, aucun courriel réel envoyé d'ici).
+    n'est injecté : les tests de ce dépôt lui passent toujours un double (pas de réseau dans
+    les tests, aucun courriel réel envoyé d'ici).
     """
     fabrique_effective = fabrique or smtplib.SMTP
     try:

@@ -54,14 +54,12 @@ MASQUE = "***"
 #: remplacer "" dans une chaîne la détruit).
 LONGUEUR_SECRET_MINI = 6
 
-#: **Le catalogue des pannes, publié dans le schéma** (ajouté le 17/09/2026).
+#: **Le catalogue des pannes, publié dans le schéma.**
 #:
-#: Un front ne peut pas dessiner un état qu'il ne sait pas reconnaître. Tant
-#: que ces codes ne vivaient que dans le code de l'API et dans un tableau de
-#: `docs/journal/ux/api_contrat.md`, F2 devait lire l'implémentation ou deviner :
-#: `meteo_indisponible` (E14 · dégradé) et `intervals_refuse` (E15 · échec)
-#: étaient dessinés dans les maquettes et **nommés nulle part** dans le
-#: contrat publié. Ils le sont maintenant, avec les autres, et sans liste
+#: Un front ne peut pas dessiner un état qu'il ne sait pas reconnaître. Si ces
+#: codes ne vivaient que dans le code de l'API et dans un tableau de
+#: `docs/journal/ux/api_contrat.md`, le front devrait lire l'implémentation ou
+#: deviner. Ils sont donc tous nommés dans le contrat publié, sans liste
 #: d'exceptions (doctrine §10.1).
 #:
 #: Cette table est la **seule** source : la description de l'application et
@@ -108,7 +106,7 @@ CODES_PANNE: dict[str, str] = {
         "un import d'historique tourne déjà sur ce serveur (un seul à la fois, "
         "quel que soit le propriétaire) — réessayer une fois celui-ci terminé"
     ),
-    # L9.4 — la calibration depuis l'écran. Un calcul lourd occupe le
+    # La calibration depuis l'écran. Un calcul lourd occupe le
     # serveur (import *ou* calibration, un seul à la fois) ; et quatre
     # préconditions, chacune avec ce qu'il faut faire pour la lever.
     "tache_lourde_en_cours": (
@@ -151,9 +149,9 @@ CODES_PANNE: dict[str, str] = {
     ),
     "intervals_indisponible": "panne côté Intervals.icu",
     # Ni une panne ni une faute : ce cycliste n'a simplement pas encore relié
-    # son compte Intervals. Distingué de `requete_invalide` le 19/09/2026, sur
-    # le premier compte invité — l'écran lui disait que sa demande n'était pas
-    # valide et l'envoyait éditer un fichier TOML qu'il ne verra jamais.
+    # son compte Intervals. Distingué de `requete_invalide`, sans quoi l'écran
+    # lui dirait que sa demande n'est pas valide et l'enverrait éditer un
+    # fichier TOML qu'il ne verra jamais.
     "intervals_absent": "Intervals.icu n'est pas relié à ce compte",
     "geocodage_indisponible": "BAN ou Nominatim en erreur",
     "service_externe_indisponible": "un service externe non reconnu",
@@ -170,18 +168,18 @@ CODES_PANNE: dict[str, str] = {
 }
 
 
-#: **Le catalogue des avertissements, publié lui aussi** (ajouté le 17/09/2026).
+#: **Le catalogue des avertissements, publié lui aussi.**
 #:
 #: Un avertissement n'est pas une panne : le parcours est servi, mais une
 #: affirmation manque — la pluie, le vent, la tenue. Les maquettes en font un
 #: bandeau (E14 · dégradé), donc un **état** de l'écran ; et un état se
 #: reconnaît à un code, jamais à une phrase.
 #:
-#: Tant que `avertissements` était une liste de chaînes, le front n'avait pas
-#: le choix : il cherchait « météo » dans la prose du cœur
-#: (`front/src/composants/Echec.tsx`, relecture F2 · B3). Le jour où
-#: quelqu'un reformulait l'avertissement en « Open-Meteo injoignable », le
-#: bandeau disparaissait en silence et il restait un parcours servi sans
+#: Si `avertissements` était une liste de chaînes, le front n'aurait pas le
+#: choix : il chercherait « météo » dans la prose du cœur
+#: (`front/src/composants/Echec.tsx`). Le jour où quelqu'un reformulerait
+#: l'avertissement en « Open-Meteo injoignable », le bandeau disparaîtrait
+#: en silence et il restait un parcours servi sans
 #: pluie, sans vent et **sans la phrase qui dit pourquoi**. C'est le trou du
 #: contrat que cette table bouche.
 #:
@@ -240,10 +238,9 @@ def classer_avertissement(message: str) -> str:
     return "autre"
 
 
-#: **Le libellé humain d'un champ du profil hors bornes** (ajouté le
-#: 25/09/2026, constaté en vrai sur l'assistant : un poids fautif rendait
-#: « [cycliste] masse_kg = 7075.0 hors de [20, 300] » affiché tel quel à
-#: l'écran). Clé : `(famille, champ)`, où `famille` vaut le nom de la
+#: **Le libellé humain d'un champ du profil hors bornes** : sans lui, un poids
+#: fautif afficherait tel quel à l'écran « [cycliste] masse_kg = 7075.0 hors
+#: de [20, 300] ». Clé : `(famille, champ)`, où `famille` vaut le nom de la
 #: section pour tout ce qui n'est pas un vélo, et toujours `"velo"` pour
 #: `velos[i]` — la personne ne sait pas qu'un vélo est un élément de liste
 #: dans le TOML, elle sait qu'elle regarde une fiche vélo. `%s` reçoit les
@@ -322,7 +319,8 @@ class ErreurProfilAbsent(ErreurConfig):
     et l'appelant n'a jamais eu l'intention d'en écrire un. L'application au
     socle vide (`creer_application()` sans argument) est faite pour publier
     son contrat et recevoir un profil, pas pour servir un départ inventé —
-    c'est la règle absolue 1, et `depots.SocleVide` l'explique.
+    c'est la règle « aucune donnée personnelle dans le dépôt », et
+    `depots.SocleVide` l'explique.
 
     Elle existe pour que ce cas porte **son** code (`profil_absent`) au lieu
     de `configuration_invalide` : un message qui parle d'une « section
@@ -359,14 +357,13 @@ class ErreurApi(Exception):
 def _erreur_api_setattr(self: ErreurApi, nom: str, valeur: object) -> None:
     """Le `__setattr__` d'`ErreurApi`, posé **après** le décorateur (voir plus bas).
 
-    Trouvé en relecture le 25/09/2026, lot L9.6, sur `POST /moi/mot-de-passe` — la
-    première route du dépôt à lever `ErreurApi` depuis l'intérieur d'un
+    Nécessaire dès qu'une route lève `ErreurApi` depuis l'intérieur d'un
     `@contextmanager` (`api/routes/moi.py:_comptes_du_deploiement`) : `contextlib`
     réattribue `exc.__traceback__` en repropageant une exception depuis un
     générateur (`throw()`), et le `__setattr__` qu'un `@dataclass(frozen=True)`
     génère refuse **tout** attribut, y compris les champs internes qu'une
     exception standard doit pouvoir recevoir après coup — `FrozenInstanceError`
-    explosait alors à la sortie du `with`, masquant la vraie panne (401) derrière
+    exploserait alors à la sortie du `with`, masquant la vraie panne (401) derrière
     un 500 générique.
 
     Les champs déclarés (`code`, `message`, `statut`, `service`, `details`) restent
@@ -425,7 +422,7 @@ DEBUTS_AUCUNE_BOUCLE = (
 def assainir(message: str, secrets: Iterable[str] = (), chemins: Mapping[str, str] | None = None) -> str:
     """Le message, privé des secrets connus et des chemins du serveur.
 
-    **Les chemins** (ajouté le 17/09/2026). L'API donne au cœur des chemins
+    **Les chemins.** L'API donne au cœur des chemins
     qu'elle a fabriqués — le `.ZWO` qu'elle vient de ranger, le GPX qu'elle a
     réservé — et le cœur, qui ne sait pas d'où ils viennent, les cite dans ses
     messages : « /var/folders/…/local/fichiers/137a….zwo : fichier vide ».
@@ -472,7 +469,7 @@ def classer(
     # « service indisponible » au lieu de l'écran dessiné pour ce cas-là.
     # Le refus sur la distance se reconnaît **à son type**, pas à son préfixe :
     # il porte ses mesures, et l'écran d'échec en a besoin pour dire de combien
-    # il aurait fallu élargir au lieu d'un « réessayez » (Q41 d). Même code
+    # il aurait fallu élargir au lieu d'un « réessayez ». Même code
     # `aucune_boucle` — c'est le même écran, E18 · échec — mais les `details`
     # sont remplis.
     if isinstance(exception, ErreurDistanceInatteignable):

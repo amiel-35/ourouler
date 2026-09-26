@@ -13,8 +13,7 @@ export function partager(url: string, nom: string, surEchec: (panne: PanneGpx | 
     } catch (panne) {
       // Le serveur a refusé, ou le réseau ne répond pas : ni l'un ni l'autre
       // n'est une affaire de navigateur, et dire « ce navigateur ne sait pas
-      // partager » serait faux ici — c'est exactement le défaut trouvé le
-      // 18/09/2026.
+      // partager » serait faux ici.
       surEchec(panne as PanneGpx);
       return;
     }

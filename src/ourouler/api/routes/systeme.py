@@ -50,9 +50,9 @@ def systeme(
                 "restant": ctx.quotas_import.restant(qui),
             },
         }
-    # **Les compteurs du cache météo ne sortent plus ici** (relecture
-    # Opus, L9.3) : `appels_reels`/`appels_servis_cache` sont globaux au
-    # processus, pas au compte qui interroge — les publier à n'importe quel
+    # **Les compteurs du cache météo ne sortent pas ici** :
+    # `appels_reels`/`appels_servis_cache` sont globaux au processus, pas au
+    # compte qui interroge — les publier à n'importe quel
     # compte authentifié laisse deviner l'activité de tous les autres (une
     # fuite de voisinage, même sans identifiant nominatif dans le nombre
     # lui-même). `ctx.clients.meteo.stats()` (`ClientOpenMeteoCache`) reste

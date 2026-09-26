@@ -1,12 +1,12 @@
 /** D'où l'on part — **des champs séparés, une carte, et la position du téléphone**.
  *
- * Remplace la ligne de texte libre, et c'est la décision du mainteneur sur
- * Q34, le 17/09/2026 : « on refuse. Et on peut faire contrôler la position en
- * affichant un point, voire proposer la géoloc sur mobile. S'il faut, en V1,
- * on fait un formulaire à champs obligatoires. »
+ * Pas de ligne de texte libre : une adresse ambiguë se refuse, la position se
+ * fait contrôler en affichant un point, la géolocalisation est proposée sur
+ * mobile, et le formulaire a des champs obligatoires (décision Q34,
+ * `docs/journal/questions/questions_mainteneur.md`).
  *
  * **Ce que la mesure dit, et pourquoi la forme est celle-là.** Quinze requêtes
- * sur la vraie BAN (17/09/2026, lieux publics uniquement) : une adresse sans
+ * sur la vraie BAN (lieux publics uniquement) : une adresse sans
  * commune rend cinq candidats séparés de 0,0016 à 0,0024 de score, dans cinq
  * communes distinctes jusqu'à 400 km d'écart — le premier est arbitraire. Les
  * neuf adresses complètes rendent toutes une seule commune. La commune n'est
@@ -25,8 +25,7 @@
  * **Le point confirmé vient au lecteur.** Il s'affiche sous les quatre champs
  * — c'est sa place pour un géocodage, dont il est le résultat — mais le bouton
  * de position est tout en haut, et sur un téléphone la carte naît alors hors
- * de l'écran : on a cliqué, rien n'a bougé, on croit que ça a raté. Constaté
- * par le mainteneur le 20/09/2026. Le bloc se fait donc défiler jusqu'à lui
+ * de l'écran : on a cliqué, rien n'a bougé, on croit que ça a raté. Le bloc se fait donc défiler jusqu'à lui
  * quand il apparaît, quel que soit le chemin qui l'a produit.
  *
  * **Ce qui manque, et qu'on ne fabrique pas** : l'API ne fait pas de géocodage
@@ -127,9 +126,8 @@ export function FormulaireAdresse({
       const reponse = await api.geocodage(requete(champs));
       setCandidats(reponse.donnees.candidats);
       if (reponse.donnees.candidats.length === 0) {
-        // `avertissements` porte `{code, message}` depuis la correction du
-        // troisième bloquant de la relecture F2 : le front ne lit plus une
-        // phrase française pour décider d'un état.
+        // `avertissements` porte `{code, message}` : le front ne lit jamais
+        // une phrase française pour décider d'un état.
         setPhrase(reponse.avertissements[0]?.message ?? "Aucune adresse trouvée.");
       } else if (reponse.donnees.candidats.length === 1) {
         // Un seul candidat : il reste à confirmer sur la carte, mais on évite

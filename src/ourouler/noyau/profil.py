@@ -2,7 +2,7 @@
 
 Le cycliste, ses vélos, son point de départ, ses préférences de météo, de
 boucle, de séance, de tenue et de calibration, ses zones à éviter et les
-accès aux services (Intervals, BRouter). Rangés au noyau (lot 4) pour que le
+accès aux services (Intervals, BRouter). Rangés au noyau pour que le
 domaine les connaisse sans importer `config.py`, qui lit le TOML et
 l'environnement, les compose dans `Config` et les réexporte.
 
@@ -29,10 +29,10 @@ DIRECTIONS_ACCEPTEES = (8, 16)
 HORIZON_MAX_H = 48
 
 #: Jusqu'à combien de jours en avant on accepte de demander une météo pour un
-#: parcours (Q40 a). **Mesuré le 17/09/2026 sur le vrai service**, depuis un
-#: point français, avec les deux modèles par défaut : AROME HD rendait sa
-#: dernière valeur le 19/09 à 03 h (J+2), `icon_seamless` le 24/09 à 12 h
-#: (J+7). C'est donc le **modèle de repli** qui fixe la portée du produit.
+#: parcours. **Mesuré sur le vrai service**, depuis un point français, avec
+#: les deux modèles par défaut : AROME HD rend sa dernière valeur à J+2 en
+#: début de nuit, `icon_seamless` à J+7 à midi. C'est donc le **modèle de
+#: repli** qui fixe la portée du produit.
 #:
 #: Réglable parce que la portée appartient au modèle et non au projet :
 #: quelqu'un qui configure un autre second avis a un autre horizon, et un
@@ -51,42 +51,40 @@ class Depart:
 @dataclass(frozen=True)
 class Cycliste:
     masse_kg: float
-    #: La puissance seuil, en watts. **Facultative depuis le 19/09/2026**
+    #: La puissance seuil, en watts. **Facultative**
     #: (`docs/journal/ux/parcours_accueil.md`) : ce que quelqu'un donne à l'accueil —
     #: « je roule à 25 de moyenne » — est sa puissance d'**endurance**, pas
-    #: son seuil, et rien n'oblige plus à en connaître un pour avoir un
+    #: son seuil, et rien n'oblige à en connaître un pour avoir un
     #: profil qui tourne. `None` veut dire « pas encore établie » : les zones
     #: en watts ne se calculent pas (`seance.ecran_ftp`), mais le reste du
     #: cœur (terrain, lecture de séance ZWO/MRC) sait déjà fonctionner sans
-    #: (`seance/terrain.py`, `seance/zwo.py`, conçus pour ça avant même ce
-    #: changement). Quand elle est donnée, la borne [50, 1000] W reste celle
-    #: d'avant — une FTP hors de cette plage est toujours une faute de
+    #: (`seance/terrain.py`, `seance/zwo.py`). Quand elle est donnée, la borne
+    #: [50, 1000] W s'applique — une FTP hors de cette plage est toujours une faute de
     #: frappe, pas une valeur rare.
     ftp_w: float | None = None
 
-    #: Identité du compte. Décision du mainteneur (17/09/2026, Q36) : « nom
-    #: prénom obligatoire car c'est la base, voilà, point. » L'assistant de
-    #: configuration **est** la création du profil (Q36) — il n'y a pas
-    #: d'étape « identité » séparée des autres — et il refuse maintenant de
-    #: continuer sans les deux, au même titre que sans point de départ.
+    #: Identité du compte : nom et prénom sont obligatoires, c'est la base
+    #: (décision Q36, `docs/journal/questions/questions_mainteneur.md`).
+    #: L'assistant de configuration **est** la création du profil — il n'y a pas
+    #: d'étape « identité » séparée des
+    #: autres — et il refuse de continuer sans les deux, au même titre que
+    #: sans point de départ.
     #:
     #: **Optionnels ici, dans le cœur, et c'est volontaire.** L'obligation est
     #: une règle de *parcours* (l'assistant), pas une règle de *chargement* :
-    #: une configuration écrite avant ce lot — celle du mainteneur comprise —
-    #: ne porte ni l'un ni l'autre, et doit continuer à se charger et à se
+    #: une configuration plus ancienne ne porte ni l'un ni l'autre, et doit
+    #: continuer à se charger et à se
     #: modifier (FTP, poids, vélos, tout le reste) sans qu'on lui invente un
     #: nom. Même traitement que la migration `puissance_endurance_pct` →
     #: `position_zone` (`config._position_zone`) et que la colonne
     #: propriétaire des dépôts (`api/depots.py`) : ce qui existait déjà
     #: continue de tourner, la nouvelle règle s'applique à ce qui s'écrit à
     #: partir de maintenant. Une valeur absente reste une chaîne vide, jamais
-    #: un nom inventé — la règle absolue 1 l'interdirait de toute façon.
+    #: un nom inventé — aucune donnée personnelle dans le dépôt, de toute façon.
     #:
     #: **Aucun calcul du cœur ne s'en sert aujourd'hui** — ni le modèle
-    #: physique, ni les zones, ni la tenue (règle absolue 5 : on n'affirme pas
-    #: un usage qui n'existe pas). L'usage réel attend le lot F3 des comptes
-    #: multi-utilisateurs : l'e-mail d'invitation et l'affichage d'un compte
-    #: parmi plusieurs. Jusque-là, c'est une donnée de compte pure.
+    #: physique, ni les zones, ni la tenue : c'est une donnée de compte pure,
+    #: pour l'e-mail d'invitation et l'affichage d'un compte parmi plusieurs.
     prenom: str = ""
     nom: str = ""
 
@@ -109,7 +107,7 @@ class Velo:
     masse_kg: float | None = None
     cda_m2: float | None = None
     #: Coefficient de roulement. Écrit à la main, il est **respecté et figé**
-    #: par `ourouler calibrer`, comme celui d'un pneu (L9.1) : seul le CdA est
+    #: par `ourouler calibrer`, comme celui d'un pneu : seul le CdA est
     #: alors cherché.
     crr: float | None = None
     intervals_gear: str = ""
@@ -125,8 +123,8 @@ class Velo:
     #: de décaler tout son escalier de zones.
     #:
     #: **Par vélo, et non par cycliste** : le chrono et la route n'ont ni la
-    #: même aérodynamique ni les mêmes parcours, et la mesure du 16/09/2026 les
-    #: sépare de trois points. **Réglage utilisateur, et non constante** : le
+    #: même aérodynamique ni les mêmes parcours, et la mesure les sépare de trois
+    #: points. **Réglage utilisateur, et non constante** : le
     #: facteur dépend de la masse du cycliste autant que de ses routes, et un
     #: chiffre écrit en dur serait celui d'un seul homme.
     #:
@@ -134,12 +132,12 @@ class Velo:
     #: fait tomber le cœur sur `physique.modele.facteur_compteur_defaut`, qui
     #: le dérive du modèle et de la masse sur une sortie de référence. C'est
     #: une supposition, pas une mesure, et l'écran doit le dire. La mesure se
-    #: fait avec `tests/validation/facteur_compteur_retrospectif.py`.
+    #: fait avec `scripts/validation/facteur_compteur_retrospectif.py`.
     facteur_compteur: float | None = None
 
     #: La catégorie de pneu (une des `config.PNEUS_VELO`), ou `None`. Elle donne le
     #: Crr du vélo par la littérature (`physique.litterature.PNEUS`) : la
-    #: calibration le garde alors fixe et ne cherche que le CdA (L9.1). Sans
+    #: calibration le garde alors fixe et ne cherche que le CdA. Sans
     #: pneu, rien ne change — le Crr vient du jeu de l'usage, et la
     #: calibration ajuste les deux.
     pneu: str | None = None
@@ -153,7 +151,7 @@ class ParametresMeteo:
     second_avis: str = "icon_seamless"
     horizon_h: int = 6
     #: Jusqu'à combien de jours en avant on accepte de demander une météo
-    #: (Q40 a). Au-delà, le parcours est servi et la météo déclarée absente,
+    #: Au-delà, le parcours est servi et la météo déclarée absente,
     #: **sans appeler Open-Meteo** — voir `meteo.portee`. La valeur par défaut
     #: est celle du modèle de repli, mesurée sur le vrai service.
     horizon_jours: int = HORIZON_JOURS_DEFAUT
@@ -204,19 +202,18 @@ class ParametresBrouter:
 
 @dataclass(frozen=True)
 class ParametresSeance:
-    """Marge de placement d'une séance sur une boucle (sprint 4).
+    """Marge de placement d'une séance sur une boucle.
 
     Seules les zones 2 d'ouverture et de fermeture sont élastiques : toutes
     les récupérations font partie de la prescription et ne bougent pas.
 
-    Les deux élasticités ne sont pas la même chose (Q14, close le 13/09/2026).
-    La Z2 d'**ouverture** est le levier de placement : l'allonger fait
-    coulisser les blocs jusqu'à un bon couloir, et le mainteneur a fixé sa
-    fenêtre à −5 % / +20 %. Le **retour au calme**, lui, ne place rien : il
-    referme une boucle dont la longueur n'est jamais exacte, et sa fenêtre est
-    largement ouverte vers le haut — « le retour au calme en fait peut dépasser
-    de plus, c'est souvent ce que je fais car c'est incontrôlable de faire
-    parfait, et c'est du kilomètre facile. Faut réduire le dépassement au max. »
+    Les deux élasticités ne sont pas la même chose (décision Q14,
+    `docs/journal/questions/questions_mainteneur.md`). La Z2 d'**ouverture** est le levier de
+    placement : l'allonger fait coulisser les blocs jusqu'à un bon couloir,
+    dans une fenêtre de −5 % / +20 %. Le **retour au calme**, lui, ne place
+    rien : il referme une boucle dont la longueur n'est jamais exacte, et sa
+    fenêtre est largement ouverte vers le haut — dépasser est normal, c'est du
+    kilomètre facile, mais le dépassement doit rester le plus court possible.
     """
 
     elasticite_z2_max: float = 0.20  # allongement maximal de la Z2 d'ouverture
@@ -242,7 +239,7 @@ class ParametresSeance:
     #: constante Python que rien ne reliait à `Config`, contrairement à tous
     #: les autres réglages de séance. Le défaut est la table de Coggan
     #: (`seance/modele.ZONES_PUISSANCE_DEFAUT`), celle que le compte
-    #: Intervals.icu du mainteneur renvoie au pourcent près.
+    #: Intervals.icu renvoie au pourcent près.
     zones_pct: tuple[tuple[float, float], ...] = ZONES_PUISSANCE_DEFAUT
 
     #: **La position du cycliste dans sa bande**, entre 0 (bas de la zone) et
@@ -252,9 +249,9 @@ class ParametresSeance:
     #: zones fermées : qui se met au milieu de sa Z2 prend le milieu de sa Z3.
     #:
     #: Le défaut n'est pas un chiffre choisi mais la position qu'occupe la
-    #: puissance d'endurance **mesurée** du mainteneur (0,60 de FTP, Q11) dans
-    #: la Z2 de la table par défaut — de sorte que la dérivation ne change
-    #: aucun comportement (règle absolue 5).
+    #: puissance d'endurance **mesurée** (0,60 de FTP, décision Q11) dans la Z2
+    #: de la table par défaut — de sorte que la dérivation ne change aucun
+    #: comportement.
     #:
     #: Bornes de chargement : [`config.POSITION_ZONE_MINI`, `config.POSITION_ZONE_MAXI`],
     #: soit au plus une largeur de bande au-dessous ou au-dessus. Une position
@@ -270,7 +267,7 @@ class ParametresSeance:
 
         Elle sert de cible aux étapes prescrites en **zone de fréquence
         cardiaque basse** (Z1, Z2 de FC), dont la traduction par la table des
-        zones de puissance donne un résultat faux (Q11, close le 13/09/2026).
+        zones de puissance donne un résultat faux (décision Q11).
         Depuis la décision 7 elle n'est plus un réglage : elle se lit dans la
         Z2 de `zones_pct`, à `position_zone`. C'est une
         propriété et non un champ — les appelants ne changent pas, et il n'y a
@@ -285,19 +282,18 @@ class ParametresSeance:
     seuil_recuperation_pct: float = 0.75
 
     #: Écart relatif de note de placement en dessous duquel deux boucles
-    #: comptent comme équivalentes. Depuis le sprint 5 la note inclut le
-    #: vent, donc deux boucles ne sont quasiment plus jamais égales au bit
-    #: près : sans cette tolérance, le vent l'emporterait toujours, même sur
-    #: un écart de note minuscule, et la pluie ne départagerait plus jamais
-    #: comme au sprint 4. Au-dessus du seuil, c'est la note — vent compris —
+    #: comptent comme équivalentes. La note inclut le vent, donc deux boucles
+    #: ne sont quasiment jamais égales au bit près : sans cette tolérance, le
+    #: vent l'emporterait toujours, même sur un écart de note minuscule, et la
+    #: pluie ne départagerait jamais. Au-dessus du seuil, c'est la note — vent compris —
     #: qui décide directement.
     #:
     #: **Ce n'est pas un réglage technique, c'est une préférence du
     #: cycliste** : « le vent doit-il faire préférer une boucle plus mouillée
     #: à une boucle plus sèche ? » Le défaut ci-dessous répond non dans le cas
-    #: mesuré en L5.1 (deux boucles de même relief, seul le vent les
-    #: distingue) : voir `docs/journal/sprints/sprint5_contrat.md` §1.6 pour la mesure sur
-    #: les boucles réelles du mainteneur qui le justifie. 0.0 = le vent
+    #: mesuré (deux boucles de même relief, seul le vent les distingue) : voir
+    #: `docs/journal/sprints/sprint5_contrat.md` §1.6 pour la mesure sur des
+    #: boucles réelles qui le justifie. 0.0 = le vent
     #: tranche toujours, sans tolérance — l'autre réponse possible.
     tolerance_egalite: float = 0.15
 
@@ -327,17 +323,17 @@ class ParametresTenue:
 @dataclass(frozen=True)
 class ParametresCalibration:
     # Une sortie dont le nom contient un de ces mots est écartée de la
-    # calibration (peloton). Les quatre valeurs du contrat de sprint §0 : la
-    # recherche étant par sous-chaîne, « club » couvre déjà « sortie club »,
-    # mais la valeur par défaut doit dire ce que le contrat écrit.
+    # calibration (peloton). La recherche étant par sous-chaîne, « club »
+    # couvre déjà « sortie club », mais la valeur par défaut nomme les quatre
+    # formes qu'on rencontre.
     mots_groupe: tuple[str, ...] = ("club", "groupe", "peloton", "sortie club")
     part_validation: float = 0.25  # part des sorties (les plus récentes) réservée au test
     vitesse_min_kmh: float = 8.0
     #: Part de signal de groupe au-delà de laquelle une sortie d'apprentissage
-    #: ne sert pas à chercher le CdA sur le temps (L9.1). 0,30 et non 0,50 :
-    #: mesuré le 25/09/2026, les sorties d'apprentissage du vélo de route du
-    #: mainteneur portent 36 % de signal de groupe en moyenne (20 % en
-    #: validation) — une roue partielle que le seuil de 50 % laisse passer, et
+    #: ne sert pas à chercher le CdA sur le temps. 0,30 et non 0,50 : mesuré,
+    #: les sorties d'apprentissage d'un vélo de route de référence portent 36 %
+    #: de signal de groupe en moyenne (20 % en validation) — une roue partielle
+    #: que le seuil de 50 % laisse passer, et
     #: qui fait paraître le vélo plus fin qu'il n'est. À 0,30 : erreur de
     #: validation 3,5 % au lieu de 4,6 %, biais −0,8 % au lieu de −4,2 %.
     part_groupe_max: float = 0.30
@@ -376,11 +372,10 @@ class PorteVelos(Protocol):
 class Profil(PorteVelos, Protocol):
     """Ce qu'un cas d'usage lit du cycliste : `config.Config` en est un, **sans son cache**.
 
-    Lot 10 (`docs/ouverture_plan.md` §6) : un service ne reçoit plus la
-    `Config` entière. Il reçoit ce profil, plus un dossier de cache et un
+    Un service ne reçoit pas la `Config` entière. Il reçoit ce profil, plus un dossier de cache et un
     fichier de calibration **déjà résolus** par l'entrée qui l'appelle
     (`services.contexte.Contexte`). `ParametresCache` n'y figure pas exprès :
-    son défaut résout le répertoire de l'utilisateur (règle absolue 3), et
+    son défaut résout le répertoire de l'utilisateur (le cœur ne lit ni configuration ni environnement), et
     c'est l'entrée — `cli.py`, l'API — qui décide où est le cache.
     """
 

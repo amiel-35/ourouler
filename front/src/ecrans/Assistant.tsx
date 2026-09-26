@@ -1,12 +1,11 @@
 /** L'assistant d'accueil — un arbre, pas six étapes fixes.
  *
- * Réécrit le 19/09/2026 pour suivre `docs/journal/ux/parcours_accueil.md` : l'ancien
- * assistant posait FTP puis poids puis vélo dans un ordre figé. Le nouveau
- * distingue deux axes indépendants — d'où viennent les sorties (Intervals >
+ * Il suit `docs/journal/ux/parcours_accueil.md` : pas FTP puis poids puis vélo
+ * dans un ordre figé, mais deux axes indépendants — d'où viennent les sorties (Intervals >
  * export > rien), et si la FTP est connue — et descend un **entonnoir en
  * cinq étages** (T1 à T5, du plus précis au plus flou) qui saute les étages
  * inutiles dès qu'un chiffre exploitable est trouvé plus haut. C'est pour ça
- * que l'état n'est plus un simple index dans un tableau : `Etape` est une
+ * que l'état n'est pas un simple index dans un tableau : `Etape` est une
  * union nommée, et chaque écran décide lui-même de la suivante.
  *
  * Le socle — identité, départ — reste en tête, dans un ordre humain qui ne
@@ -53,14 +52,12 @@ export function Assistant({ profil, zones, surProfil, surZones, surFin, vers, su
 
   return (
     <section>
-      {/* L'assistant n'avait aucun moyen d'en sortir avant la fin (constat
-          du 19/09/2026) — seulement un pas en arrière dans l'arbre
-          (`revenir`, plus bas), jamais une sortie complète. */}
+      {/* Une sortie complète de l'assistant avant la fin, en plus du pas en
+          arrière dans l'arbre (`revenir`, plus bas). */}
       <RetourEnTete vers={vers} surRetour={surRetour} />
-      {/* La rubrique ne s'affiche qu'une fois. Elle l'était deux : ici et dans
-          `app-tete` juste dessous — reste du compteur « Étape X sur Y »,
-          retiré quand l'assistant est devenu un arbre qui branche, sans que
-          son emplacement le soit. Constaté à l'écran le 20/09/2026. */}
+      {/* La rubrique ne s'affiche qu'une fois, dans `app-tete` juste dessous :
+          l'assistant est un arbre qui branche, pas un compteur « Étape X sur
+          Y ». */}
       <div className="app-tete">
         <div>
           <span className="quand">{rubrique}</span>

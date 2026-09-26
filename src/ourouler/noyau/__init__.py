@@ -1,7 +1,8 @@
 """Noyau : les types et constantes que tout le reste partage.
 
-Couche 0 du contrat d'imports (`docs/ouverture_plan.md` §2) : le noyau
-n'importe que la bibliothèque standard. `trace` (le tracé), `activite` (le
-modèle d'activité), `erreurs` et `proprietaire` (lot 3) ; `seance` (le
-modèle de séance) et `zones` (lot 4).
+Couche 0 de la règle d'imports (`ARCHITECTURE.md`) : le noyau n'importe que
+la bibliothèque standard. `trace` (le tracé), `activite` (le modèle
+d'activité), `erreurs`, `proprietaire`, `seance` (le modèle de séance),
+`zones`, `meteo`, `profil`, `ports`, et des aides
+(`lecture`, `sqlite`, `texte`).
 """

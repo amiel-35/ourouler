@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { api, ErreurApi } from "../../api/client";
 
 /**
- * Le volet « Mon compte » (lot L9.6) : adresse, changement de mot de passe, export,
- * suppression — les quatre gestes que F2 avait renvoyés au lot des comptes.
+ * Le volet « Mon compte » : adresse, changement de mot de passe, export,
+ * suppression — les quatre gestes qui reviennent au compte.
  *
  * Composant séparé plutôt qu'un bloc de plus dans `Reglages` : il porte son propre état
  * (adresse chargée à la demande, formulaire de mot de passe, double confirmation de
@@ -72,9 +72,8 @@ export function MonCompteVolet({ surCompteSupprime }: { surCompteSupprime: () =>
   // Vrai seulement sur un déploiement hébergé avec un compte lié à cette
   // session — `GET /moi` rend `email: null` en mode personnel (un seul
   // cycliste, pas de compte) ou hébergé sans base de comptes configurée
-  // (`api/routes.py:mon_compte`). Changer un mot de passe ou fermer un
-  // compte n'a alors aucun sens : il n'y en a pas (relecture du 25/09/2026,
-  // point 1) — `DELETE /moi` viserait quand même le propriétaire local et
+  // (`api/routes/moi.py:mon_compte`). Changer un mot de passe ou fermer un
+  // compte n'a alors aucun sens : il n'y en a pas — `DELETE /moi` viserait quand même le propriétaire local et
   // effacerait tout son cache en deux clics si les boutons restaient là.
   const aUnCompte = email !== undefined && email !== null;
 
@@ -164,8 +163,8 @@ export function MonCompteVolet({ surCompteSupprime }: { surCompteSupprime: () =>
                   `vie_privee.GABARIT_LISEZ_MOI` (`api/vie_privee.py`) — repris
                   ici en substance, pas copié mot à mot (c'est un fichier
                   d'archive, pas un texte d'écran), et sans le jargon interne
-                  (relecture du 25/09/2026, point 4 : « doctrine du projet,
-                  §10.2 » ne veut rien dire pour un cycliste). */}
+                  (« doctrine du projet, §10.2 » ne veut rien dire pour un
+                  cycliste). */}
               <div className="encart alerte">
                 <p>
                   <b>Ceci efface définitivement</b> votre profil, vos fichiers déposés ou

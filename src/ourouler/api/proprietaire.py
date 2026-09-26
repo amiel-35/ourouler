@@ -4,8 +4,7 @@ Doctrine §10.2 : « Isolation des données : par utilisateur, vérifiée côté
 serveur à chaque requête, jamais seulement côté front. **Aucune requête sans
 clause de propriétaire.** »
 
-Les comptes sont le lot F3, pas celui-ci. Ce qui s'écrit **maintenant** est
-la *forme* : toute lecture et toute écriture de données passe par un dépôt
+Ce module fixe la *forme* : toute lecture et toute écriture de données passe par un dépôt
 dont chaque méthode reçoit un `Proprietaire` en **premier argument
 positionnel** — l'équivalent du `WHERE proprietaire = …` qu'aucune requête
 n'aura le droit d'omettre le jour où la base sera un PostgreSQL. Un invariant
@@ -13,12 +12,12 @@ de `tests/test_invariants.py` le vérifie sur l'arbre syntaxique : un dépôt
 qui prendrait un raccourci casse la suite.
 
 **Ce module dit à qui appartient une ligne ; il ne dit pas qui parle.** Le
-rattachement d'une requête à quelqu'un est le travail d'`api/session.py`,
-séparé le 18/09/2026 (lot L7.A). Ce fichier portait jusque-là un `resoudre()`
-qui rendait `PROPRIETAIRE_LOCAL` quoi qu'il arrive : une requête anonyme
-obtenait les données du mainteneur. Il a été **retiré** plutôt que déprécié —
-une fonction nommée « résoudre le propriétaire » qui rend toujours le même
-est précisément ce qu'on rappelle sans y penser.
+rattachement d'une requête à quelqu'un est le travail d'`api/session.py`.
+Il n'y a volontairement ici aucun `resoudre()` qui rendrait
+`PROPRIETAIRE_LOCAL` quoi qu'il arrive : une requête anonyme obtiendrait les
+données du cycliste local, et une fonction nommée « résoudre le
+propriétaire » qui rend toujours le même est précisément ce qu'on rappelle
+sans y penser.
 
 L'identité d'aujourd'hui reste unique et fixe en mode personnel
 (`PROPRIETAIRE_LOCAL`, un cycliste sur sa machine) ; en mode hébergé, elle

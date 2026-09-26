@@ -3,7 +3,7 @@
  * Ces types décrivent **ce que l'API rend**, pas ce que le front voudrait
  * recevoir. Quand un champ manque au contrat, il manque ici aussi : c'est la
  * seule façon que le compilateur ait de refuser un écran qui afficherait une
- * valeur inventée (doctrine §10.2, règle absolue 5).
+ * valeur inventée (doctrine §10.2 ; on n'affirme rien sans mesure).
  *
  * Tout ce qui peut valoir `null` le vaut ici. Le cœur distingue « zéro » de
  * « on ne sait pas », et l'interface doit pouvoir le distinguer aussi.
@@ -13,11 +13,10 @@
  * Un avertissement de l'API : **un code qu'on teste, un message qu'on affiche**.
  *
  * Le code vient de `api/erreurs.CODES_AVERTISSEMENT`, publié dans
- * `/openapi.json`. Il n'a pas toujours existé : jusqu'au 17/09/2026,
- * `avertissements` était une liste de chaînes, et le bandeau « Pas de météo »
- * se décidait en cherchant le mot « météo » dans une prose que
- * `docs/journal/ux/api_contrat.md` déclare reformulable. Aucun écran ne lit plus une
- * phrase pour en déduire un état.
+ * `/openapi.json`. Sans lui, le bandeau « Pas de météo » se déciderait en
+ * cherchant le mot « météo » dans une prose que
+ * `docs/journal/ux/api_contrat.md` déclare reformulable. Aucun écran ne lit
+ * une phrase pour en déduire un état.
  *
  * `code` vaut `"autre"` pour ce que le catalogue ne nomme pas encore : on
  * affiche alors le message sans rien en conclure.
@@ -68,7 +67,7 @@ export interface Panne {
 }
 
 /**
- * Les quatre routes de session (lot L7.2-D, `api/routes.py` : « comptes et
+ * Les quatre routes de session (`api/routes/sessions.py` : « comptes et
  * sessions »). Elles précèdent tout propriétaire, donc rendent seulement
  * `donnees` — jamais l'enveloppe complète (`Enveloppe`) ni la forme courte
  * des routes de profil (`Simple`, qui porte un `proprietaire` que ces
@@ -90,10 +89,10 @@ export interface AccesOuvert {
   proprietaire: string;
 }
 
-/** `GET /moi` : l'adresse du compte de la session en cours (lot L9.6).
+/** `GET /moi` : l'adresse du compte de la session en cours.
  *
  * `email` vaut `null` sur un déploiement sans base de comptes — mode personnel, ou
- * hébergé sans compte configuré — voir `api/routes.py:mon_compte`.
+ * hébergé sans compte configuré — voir `api/routes/moi.py:mon_compte`.
  */
 export interface MonCompte {
   email: string | null;
@@ -128,7 +127,7 @@ export interface VeloProfil {
   crr: number | null;
   facteur_compteur: number | null;
   capteur_puissance?: string | null;
-  /** La catégorie de pneu (L9.1, 25/09/2026) : elle donne le Crr du vélo par
+  /** La catégorie de pneu : elle donne le Crr du vélo par
    * la littérature, et la calibration ne cherche plus alors que le CdA.
    * `null` ou absent : pas de pneu déclaré. */
   pneu?: CategoriePneu | null;
@@ -144,12 +143,11 @@ export type CategoriePneu =
 
 export interface Profil {
   depart: PointDepart;
-  /** `prenom`/`nom` : identité du compte, obligatoire depuis l'assistant (Q36,
-   * 17/09/2026), mais peuvent revenir vides pour un profil créé avant ce lot —
-   * jamais absents. Aucun calcul ne s'en sert aujourd'hui ; l'usage prévu est
-   * le compte multi-utilisateurs du lot F3 (e-mail d'invitation, affichage).
-   * `ftp_w` est **facultative depuis le 19/09/2026** (`docs/ux/
-   * parcours_accueil.md`) : `null` tant que l'entonnoir de l'accueil n'a pas
+  /** `prenom`/`nom` : identité du compte, obligatoire dans l'assistant
+   * (décision Q36), mais peuvent revenir vides pour un profil plus ancien —
+   * jamais absents. Aucun calcul ne s'en sert ; ils servent au compte (e-mail
+   * d'invitation, affichage). `ftp_w` est **facultative**
+   * (`docs/journal/ux/parcours_accueil.md`) : `null` tant que l'entonnoir de l'accueil n'a pas
    * établi de FTP, quelle qu'en soit la voie (T1 à T5). */
   cycliste: { masse_kg: number; ftp_w: number | null; prenom: string; nom: string };
   velos: VeloProfil[];
@@ -166,11 +164,10 @@ export interface Profil {
   /**
    * Vrai tant que ce compte n'a **jamais** écrit de `PATCH /profil` — un
    * compte activé mais jamais passé par l'assistant, quel qu'ait été le
-   * socle lu au démarrage. Corrige le défaut constaté en vrai le
-   * 19/09/2026 : un compte neuf atterrissait sur l'écran du jour, qui
-   * réclame Intervals et échoue. Le premier `PATCH /profil` le fait tomber
-   * à `false` — dans **sa propre réponse** déjà, pas seulement au prochain
-   * `GET` (`api/routes.py::_profil_avec_flags`).
+   * socle lu au démarrage. Sans lui, un compte neuf atterrirait sur l'écran
+   * du jour, qui réclame Intervals et échoue. Le premier `PATCH /profil` le
+   * fait tomber à `false` — dans **sa propre réponse** déjà, pas seulement au
+   * prochain `GET` (`api/routes/profil.py::_profil_avec_flags`).
    */
   assistant_recommande: boolean;
 }
@@ -203,7 +200,7 @@ export interface Palier {
 
 export interface Zones {
   /** `null` sans FTP encore établie — `zones` vaut alors `[]` et
-   * `valeurs_liees` vaut `null` (`seance.ecran_ftp.rendu`, 19/09/2026). La
+   * `valeurs_liees` vaut `null` (`seance.ecran_ftp.rendu`). La
    * position, elle, reste rendue : elle ne dépend pas de la FTP. */
   ftp_w: number | null;
   position_zone: number;
@@ -223,7 +220,7 @@ export interface Candidat {
   source: string;
   /**
    * La commune, seule chose qui distingue vraiment deux candidats — un même
-   * `label` de rue existe dans des centaines de communes (Q34). `null` quand
+   * `label` de rue existe dans des centaines de communes. `null` quand
    * le géocodeur ne la rend pas : ce n'est pas une erreur, c'est un candidat
    * qu'on ne sait pas situer.
    */
@@ -291,7 +288,7 @@ export interface FicheFichier {
   url: string;
 }
 
-/** Un motif de dépôt ignoré, groupé — `POST /activites/import` (L9.2). */
+/** Un motif de dépôt ignoré, groupé — `POST /activites/import`. */
 export interface MotifIgnore {
   motif: string;
   nombre: number;
@@ -313,7 +310,7 @@ export interface EtatImport {
 }
 
 /**
- * Ce que rendent `POST /activites/import` (202) et `GET /activites/import/{id}` (L9.2).
+ * Ce que rendent `POST /activites/import` (202) et `GET /activites/import/{id}`.
  *
  * Une archive Strava réelle (≈2 900 sorties) prend environ 16 minutes à
  * importer — bien au-delà des 180 s où le front abandonne un appel — d'où
@@ -334,7 +331,7 @@ export interface JobImport {
 
 /**
  * Une calibration, en mots simples — `GET /calibrations` et le rapport d'un
- * job de calibration (L9.4).
+ * job de calibration.
  *
  * Ce qui se montre d'abord : la puissance qu'il faut à `vitesse_repere_kmh`
  * sur le plat sans vent, l'erreur mesurée sur des sorties que le calcul
@@ -369,7 +366,7 @@ export interface ResumeCalibration {
   detail: { cda_m2: number; crr: number; masse_totale_kg: number };
 }
 
-/** Ce que rendent `POST /calibrations` (202) et `GET /calibrations/{id}` (L9.4). */
+/** Ce que rendent `POST /calibrations` (202) et `GET /calibrations/{id}`. */
 export interface JobCalibration {
   id: string;
   statut: "en_cours" | "fini" | "echoue";
@@ -413,7 +410,7 @@ export interface EtatCalibrations {
 }
 
 /**
- * Le GPX d'une proposition (Q40 g). Pas d'`id` : ce n'est pas un fichier
+ * Le GPX d'une proposition (décision Q40 g). Pas d'`id` : ce n'est pas un fichier
  * rangé quelque part, c'est une adresse qui le fabrique à l'appel — rien
  * n'est écrit tant que le cycliste n'a pas choisi.
  */
@@ -448,9 +445,7 @@ export interface Cellule {
    * direction-là** — déjà tranché par `meteo.rapport.vent_relatif` (secteur
    * de ±45°) et sérialisé par `rendre_json`, au même titre que `confiance`.
    * `null` sur le point « ici » (exclu du contrat, voir `meteo/rapport.py`)
-   * ou quand le vent manque à cette heure-là. Champ ajouté au type le
-   * 20/09/2026 : l'API le rendait déjà, ce type ne le portait pas encore —
-   * jamais recalculé côté front (même discipline que `azimuts_par_choix`,
+   * ou quand le vent manque à cette heure-là. Jamais recalculé côté front (même discipline que `azimuts_par_choix`,
    * `direction_vent.test.tsx`).
    */
   vent_relatif: string | null;
@@ -518,7 +513,7 @@ export interface Placement {
  * liste qu'il reçoit est celle que `boucle.meteo_trace.fleches_vent` a
  * filtrée au seuil où le vent se sent (8 km/h, le haut de la force 1 de
  * Beaufort). C'est la même liste, produite par le même code, que celle que
- * dessine la page HTML autonome du sprint 5 : deux écrans qui montreraient
+ * dessine la page HTML autonome : deux écrans qui montreraient
  * deux vents différents pour le même parcours seraient un défaut, pas une
  * variante.
  */
@@ -572,30 +567,29 @@ export interface Candidate {
   ecart_relatif?: number | null;
   /** Vrai quand la boucle n'entre pas dans la tolérance de distance demandée. */
   hors_tolerance?: boolean;
-  /** De combien la tolérance a dû être élargie, par paliers de 5 % (Q41 d). */
+  /** De combien la tolérance a dû être élargie, par paliers de 5 %. */
   elargissement?: number | null;
   /** La tolérance de distance en vigueur, pour dire « ±10 % demandés, ±20 % servis ». */
   tolerance_distance?: number | null;
   vitesse_kmh?: number | null;
   /** Le temps de **mouvement**, modèle physique de cette boucle-ci — INCHANGÉ. */
   temps_estime_s?: number | null;
-  /** D'où vient `temps_estime_s`. Absent d'une réponse d'avant le 18/09/2026. */
+  /** D'où vient `temps_estime_s`. Absent d'une réponse plus ancienne. */
   temps_source?: "modele" | "vitesse_moyenne";
   /**
-   * Porte à porte, arrêts compris (18/09/2026) — depuis L9.1 (25/09/2026),
-   * la **médiane** d'une fourchette : `temps_estime_s × médiane`. `null`
+   * Porte à porte, arrêts compris : la **médiane** d'une fourchette : `temps_estime_s × médiane`. `null`
    * quand `compteur` (sur la réponse) l'est aussi : sans vélo enregistré, il
    * n'y a pas de fourchette. Absent d'une réponse plus ancienne.
    */
   temps_ecoule_s?: number | null;
   /** Les bornes de la fourchette : la moitié des sorties du cycliste tombe
-   * entre les deux (centiles 25 et 75). Absentes d'une réponse d'avant L9.1. */
+   * entre les deux (centiles 25 et 75). Absentes d'une réponse plus ancienne. */
   temps_ecoule_bas_s?: number | null;
   temps_ecoule_haut_s?: number | null;
   /**
    * `"mesure"` : fourchette mesurée sur les sorties de ce vélo (`ourouler
    * calibrer`). `"defaut"` : convention, mesurée sur un seul cycliste — à
-   * dire à l'écran (règle absolue 5).
+   * dire à l'écran (on ne présente jamais une estimation comme une mesure).
    */
   temps_ecoule_source?: "mesure" | "defaut" | null;
   couts: {
@@ -628,7 +622,7 @@ export interface Proposition {
   /**
    * Ce qui la distingue des autres, en une phrase du cœur.
    *
-   * **Vide ou `null` est normal depuis Q43** (17/09/2026) : le tracé se
+   * **Vide ou `null` est normal** (décision Q43) : le tracé se
    * distingue par lui-même, et le cœur n'écrit une phrase que quand elle est
    * vraie. Ne jamais la remplacer par un texte de remplissage — quand aucune
    * n'en a, `motif_equivalence` dit pourquoi.
@@ -644,9 +638,9 @@ export interface Proposition {
   /**
    * Feux et stops en **nombre absolu**, tels que le cœur les compte.
    *
-   * Sérialisés depuis le 17/09/2026. Avant, le front les retrouvait en
-   * multipliant `densite_marqueurs_km` par la distance — le geste exact que
-   * `sortie/contraste.py` nomme comme le piège à éviter, et qui effaçait le
+   * Sérialisés pour que le front n'ait pas à les retrouver en multipliant
+   * `densite_marqueurs_km` par la distance — le geste exact que
+   * `sortie/contraste.py` nomme comme le piège à éviter, et qui effacerait le
    * chiffre au-delà de 100 km parce que la densité est arrondie à trois
    * décimales.
    */
@@ -656,7 +650,7 @@ export interface Proposition {
   orientation_vent: string | null;
   note_terrain: number | null;
   recouvrement_max_avec: Record<string, number> | null;
-  /** Où demander **cette** trace-ci. `null` sur une réponse d'avant Q40 (g). */
+  /** Où demander **cette** trace-ci. `null` sur une réponse plus ancienne. */
   gpx: FicheGpx | null;
 }
 
@@ -669,7 +663,7 @@ export interface Tenue {
   motifs: string[];
 }
 
-/** Un azimut qu'une préférence de vent imposerait — **jamais recalculé côté front** (Q44). */
+/** Un azimut qu'une préférence de vent imposerait — **jamais recalculé côté front**. */
 export interface AzimutVent {
   azimut_deg: number;
   nom: string;
@@ -677,7 +671,7 @@ export interface AzimutVent {
 
 /**
  * Ce que `GET /vent-depart` rend : d'où souffle le vent, et l'azimut (ou les
- * deux, pour le latéral) que chaque préférence imposerait (Q44).
+ * deux, pour le latéral) que chaque préférence imposerait (décision Q44).
  *
  * `posee: false` veut dire qu'on ne pose pas la question — vent sous le
  * seuil, séance trop loin dans l'horizon, ou météo indisponible — et
@@ -752,7 +746,7 @@ export interface PaireRecouvrement {
 }
 
 /**
- * Ce que le contraste a décidé, et de quoi le refaire (lot F2.4).
+ * Ce que le contraste a décidé, et de quoi le refaire.
  *
  * Rien ici ne se recalcule côté front : les pourcentages, les verdicts et la
  * phrase viennent tous de `sortie/contraste.py`. `paires` porte **toutes**
@@ -776,22 +770,22 @@ export interface Arbitrage {
 
 /**
  * D'où vient la distance visée, et le facteur du second temps de sortie
- * (« porte à porte ») — 18/09/2026.
+ * (« porte à porte »).
  *
  * `null` quand la configuration ne porte aucun vélo : il n'y a alors ni
  * modèle ni facteur, `temps_ecoule_s` vaut `null` sur chaque candidate, et
  * aucun écran n'affiche de second chiffre — pas même un tiret. Absent d'une
- * réponse d'avant ce lot, ce qui revient au même côté lecture.
+ * réponse plus ancienne, ce qui revient au même côté lecture.
  */
 export interface Compteur {
   velo: string;
   moyenne_compteur_kmh: number;
   facteur_compteur: number;
   /** Mesuré sur l'historique, ou supposé par le modèle — à dire à l'écran
-   * (décision 8 du cycle UX, règle absolue 5) chaque fois que la valeur
+   * (décision 8 du cycle UX ; on ne présente jamais une estimation comme une mesure) chaque fois que la valeur
    * s'affiche. */
   facteur_provenance: "mesure" | "suppose";
-  /** La fourchette qui chronomètre le porte à porte (L9.1, 25/09/2026) :
+  /** La fourchette qui chronomètre le porte à porte :
    * `temps_estime_s × [bas, haut]`, et d'où elle vient. `n` : le nombre de
    * sorties roulées seul sur lesquelles elle a été mesurée (0 en convention). */
   porte_a_porte: FourchettePorteAPorte;
@@ -817,11 +811,11 @@ export interface Sortie {
     lieu_depart: PointDepart;
     velo: string | null;
   };
-  /** Absent d'une réponse d'avant le 18/09/2026 : à lire comme `null`. */
+  /** Absent d'une réponse plus ancienne : à lire comme `null`. */
   compteur?: Compteur | null;
   modele_physique: string | null;
   modele_meteo: { utilise: string; repli: boolean } | null;
-  /** Déclarée absente plutôt que rendue en panne (Q40 a). */
+  /** Déclarée absente plutôt que rendue en panne (décision Q40 a). */
   meteo_absente: MeteoAbsente | null;
   /**
    * L'identifiant de cette génération, à qui appartiennent les GPX.
@@ -832,7 +826,7 @@ export interface Sortie {
    * mais un futur usage doit lire le cas plutôt que le supposer toujours là.
    */
   generation?: string | null;
-  /** Toujours `null` depuis Q40 (g) : aucun GPX n'est écrit à la génération. */
+  /** Toujours `null` : aucun GPX n'est écrit à la génération (décision Q40 g). */
   gpx: FicheFichier | null;
   carte: FicheFichier | null;
   tenue: Tenue | null;
@@ -841,7 +835,7 @@ export interface Sortie {
   /** Rempli quand le cœur n'a pas pu en rendre trois. Ce n'est pas une panne. */
   motif_deux_propositions: string | null;
   /**
-   * Rempli quand **aucune proposition ne se détache** des autres (Q45).
+   * Rempli quand **aucune proposition ne se détache** des autres (décision Q45).
    *
    * « Ces trois boucles se valent, choisissez où vous voulez aller », avec ce
    * qui, mesuré, ne les sépare pas. C'est une bonne nouvelle, pas un défaut :
@@ -857,16 +851,16 @@ export interface Sortie {
 
 export interface Boucle {
   depart: PointDepart & { heure: string };
-  // Q47 : `null` sans direction demandée — le moteur a balayé tout l'horizon.
+  // `null` sans direction demandée — le moteur a balayé tout l'horizon.
   demande: { distance_km: number; direction: string | null; candidates: number };
-  /** Absent d'une réponse d'avant le 18/09/2026 : à lire comme `null`. */
+  /** Absent d'une réponse plus ancienne : à lire comme `null`. */
   compteur?: Compteur | null;
   meteo_absente: MeteoAbsente | null;
   gpx: FicheFichier | null;
   candidates: Candidate[];
 }
 
-// --- un parcours déjà en main, à analyser (L9.8) -------------------------------
+// --- un parcours déjà en main, à analyser -------------------------------------
 
 /** Ce que `POST /parcours/fichier` rend tout de suite, avant l'analyse. */
 export interface ApercuParcours {
@@ -880,7 +874,7 @@ export interface ApercuParcours {
 /**
  * `POST /parcours/analyser` — le pendant de `Candidate`, pour un parcours **déjà
  * choisi** (l'imposé d'un BRM, une boucle de club) plutôt qu'une candidate du moteur.
- * Même forme de `trace`/`meteo` que `Candidate` (F0.1) : `Carte`, `LegendeVent` et
+ * Même forme de `trace`/`meteo` que `Candidate` : `Carte`, `LegendeVent` et
  * `ProfilAltitude` se réutilisent sans rien réécrire.
  */
 export interface Analyse {

@@ -11,7 +11,7 @@ La chaîne, en cinq temps :
    face et masse volumique de l'air — puis marque ceux qu'on garde et
    **pourquoi** on jette les autres ;
 3. `calibrer` ajuste (CdA, Crr) aux moindres carrés sur l'écart de puissance —
-   ou, quand le pneu donne le Crr (L9.1), le CdA seul, que
+   ou, quand le pneu donne le Crr, le CdA seul, que
    `chercher_cda_sur_sorties` affine ensuite sur le temps des sorties ;
 4. `detecter_groupe` repère, avec le modèle obtenu, les sorties
    anormalement rapides — l'aspiration d'un peloton, que ni la pente ni le
@@ -19,12 +19,12 @@ La chaîne, en cinq temps :
 5. `valider` rejoue les sorties **les plus récentes**, jamais vues par
    l'ajustement, et rend l'erreur de temps en mouvement ;
 6. `mesurer_porte_a_porte` rejoue les sorties de validation avec les
-   paramètres finaux et en tire la fourchette du porte à porte (L9.1).
+   paramètres finaux et en tire la fourchette du porte à porte.
 
 Le tout deux fois (`calibrer_en_deux_passes`) : la première passe sert à
 trouver les sorties en groupe, la seconde à calibrer sans elles.
 
-**Ce module ne fait que calculer** (lot 8, `docs/ouverture_plan.md` §2) : il
+**Ce module ne fait que calculer** : il
 reçoit des activités déjà lues, l'archive météo déjà obtenue
 (`noyau.meteo.HeureArchive`), une masse et des options. Choisir et lire les
 sorties — l'index du cache, le rattachement aux vélos, l'archive, la
@@ -36,15 +36,15 @@ vent que ce qu'une maille d'archive de plusieurs kilomètres en dit, interpolée
 à l'heure — pas la haie qui coupe le vent sur deux cents mètres. Ces écarts
 vont dans le même sens : ils font paraître le cycliste plus lent que le modèle.
 
-Troisième réserve, mesurée le 16/09/2026 et expliquée par le mainteneur :
-**le CdA d'un vélo n'est pas le CdA d'une position, c'est la moyenne des
-positions réellement tenues sur ce vélo.** Sur ses deux vélos, la calibration
+Troisième réserve, mesurée : **le CdA d'un vélo n'est pas le CdA d'une
+position, c'est la moyenne des positions réellement tenues sur ce vélo.** Sur
+les deux vélos d'un cycliste de référence, la calibration
 trouve le même CdA à 0,7 % près — dans le bruit des incertitudes (±2 % et
 ±2,5 %) — alors qu'un chrono devrait être nettement plus aérodynamique. Tout
 l'écart entre les deux (16 W à 25 km/h, 26 W à 40 km/h) est passé dans le Crr,
 plus bas de 21 % sur le chrono.
 
-Ce n'est pas un artefact de régression. Le mainteneur roule une partie de ses
+Ce n'est pas un artefact de régression. Ce cycliste roule une partie de ses
 sorties de chrono **hors prolongateur**, en particulier en Z2 ; le chrono porte
 de meilleures roues et des pneus plus larges, donc son Crr est réellement plus
 bas ; et les gains marginaux (tenue, casque, chaussettes) ne sont pas mis à
@@ -98,7 +98,7 @@ from ourouler.physique.validation import (
     valider,
 )
 
-#: Bornes de l'ajustement (contrat §3).
+#: Bornes de l'ajustement.
 CDA_MIN, CDA_MAX = 0.18, 0.60
 CRR_MIN, CRR_MAX = 0.002, 0.012
 
@@ -113,15 +113,15 @@ DISTANCE_MINIMALE_M = 20_000.0
 
 #: Les deux allures auxquelles le rapport chiffre la résistance totale — la
 #: somme des forces, bien contrainte par les données même quand CdA et Crr
-#: pris séparément le sont mal (décision du 13/09, point 5 de la relecture) : l'allure d'entraînement et
-#: l'allure de contre-la-montre. Deux points valent mieux qu'un : c'est leur
+#: pris séparément le sont mal (décision Q9, `docs/journal/questions/questions_mainteneur.md`) :
+#: l'allure d'entraînement et l'allure de contre-la-montre. Deux points valent mieux qu'un : c'est leur
 #: **écart** qui dit la part aérodynamique, sans qu'on ait à prétendre séparer
 #: CdA de Crr.
 V_REFERENCES_KMH = (27.0, 35.0)
 
 #: Motif d'exclusion d'un fichier qui ne contient pas *que* du vélo : un FIT de
 #: triathlon, un enregistrement coupé en plusieurs sessions, un fichier dont le
-#: sport déclaré n'est pas cycliste (Q10 du mainteneur).
+#: sport déclaré n'est pas cycliste (décision Q10).
 MOTIF_MULTISPORT = "multisport"
 
 
@@ -157,7 +157,7 @@ class Ajustement:
     bornes_atteintes: tuple[str, ...] = ()
     avertissements: tuple[str, ...] = ()
     #: Vrai quand le Crr n'a pas été cherché mais **reçu** (pneu déclaré ou
-    #: valeur de configuration, L9.1) : seul le CdA est alors ajusté, et
+    #: valeur de configuration) : seul le CdA est alors ajusté, et
     #: `incertitudes.crr` vaut `None`.
     crr_fixe: bool = False
 
@@ -199,19 +199,19 @@ def calibrer(
 ) -> Ajustement:
     """Moindres carrés sur (CdA, Crr), bornés, à partir des échantillons retenus.
 
-    **`crr_fixe` donné (L9.1)** : le Crr n'est pas cherché, seul le CdA l'est
+    **`crr_fixe` donné** : le Crr n'est pas cherché, seul le CdA l'est
     — moindres carrés à une inconnue sur la même équation, écrêtés à
-    `[CDA_MIN, CDA_MAX]`. C'est la méthode que la note du 23/09 a trouvée
-    convergente : laissés libres ensemble, CdA et Crr se compensent l'un
-    l'autre et la solution dérive (voir `calibrer_en_deux_passes`).
+    `[CDA_MIN, CDA_MAX]`. C'est la méthode qui converge : laissés libres
+    ensemble, CdA et Crr se compensent l'un l'autre et la solution dérive (voir
+    `calibrer_en_deux_passes`).
 
     **Le modèle est linéaire en CdA et en Crr** : à vitesse, pente et vent
     donnés, la puissance vaut `a·CdA + b·Crr + c`, où a, b et c ne dépendent
-    d'aucun des deux. Le contrat de sprint prévoyait une grille grossière puis
-    un affinage ; la solution exacte existe, on la prend — et les coefficients
+    d'aucun des deux. Pas de grille grossière puis d'affinage : la solution
+    exacte existe, on la prend — et les coefficients
     a, b, c sont obtenus en appelant `puissance_requise` avec des paramètres
     unitaires, de sorte que la calibration ne puisse pas diverger de la
-    physique du modèle. Écart au contrat assumé et signalé.
+    physique du modèle.
 
     Hors des bornes, le minimum d'une forme quadratique convexe sur un pavé
     est sur le bord : on résout alors les quatre arêtes et on garde la
@@ -442,11 +442,11 @@ def _incertitudes(
     return (float(racines[0]), float(racines[1]))
 
 
-# --- CdA cherché sur le temps des sorties (L9.1) --------------------------------
+# --- CdA cherché sur le temps des sorties --------------------------------------
 
 #: Précision de la recherche du CdA sur le temps des sorties, en m². En deçà,
-#: le minimum est plat (note du 23/09 : 0,30 à 0,36 donnent presque la même
-#: erreur sur le vélo de route du mainteneur) — chercher plus fin ne dirait
+#: le minimum est plat (mesuré : 0,30 à 0,36 donnent presque la même erreur
+#: sur un vélo de route de référence) — chercher plus fin ne dirait
 #: rien de plus.
 PRECISION_CDA_M2 = 0.002
 
@@ -466,8 +466,8 @@ def chercher_cda_sur_sorties(
 ) -> float:
     """Le CdA qui minimise l'erreur de temps en mouvement sur ces sorties, Crr fixé.
 
-    **Pourquoi pas les moindres carrés des échantillons.** Mesuré le
-    25/09/2026 sur le vélo de route du mainteneur, Crr fixé à 0,006 : les
+    **Pourquoi pas les moindres carrés des échantillons.** Mesuré sur un vélo
+    de route de référence, Crr fixé à 0,006 : les
     moindres carrés à une inconnue sur les tronçons filtrés donnent CdA 0,299
     et une erreur de validation de 6,5 % ; minimiser l'erreur de temps sur
     les sorties complètes d'apprentissage donne 0,33 et 4,6 %. Les tronçons
@@ -551,12 +551,12 @@ def ajuster_sur_sorties(
     )
 
 
-# --- la fourchette du porte à porte (L9.1) -------------------------------------
+# --- la fourchette du porte à porte -------------------------------------------
 
 
 #: Les centiles du ratio réel/simulé qui bornent la fourchette affichée : la
-#: moitié centrale des sorties (tranché par le mainteneur le 23/09 — « assez
-#: resserrée pour rester utile, assez large pour ne pas mentir »).
+#: moitié centrale des sorties — assez resserrée pour rester utile, assez
+#: large pour ne pas mentir.
 CENTILES_PORTE_A_PORTE = (25, 50, 75)
 
 #: En dessous de ce nombre de sorties de validation roulées seul, les
@@ -613,9 +613,8 @@ class MesurePorteAPorte:
     """Le ratio réel/simulé sortie par sortie, et la fourchette qu'on en tire.
 
     Le filtre de groupe se fait **ici, une fois**, sur la part brute rendue
-    par `detecter_groupe` avec les paramètres finaux — jamais à la main
-    (condition du mainteneur, 23/09 : « si je mets moi du temps, ça marchera
-    jamais »).
+    par `detecter_groupe` avec les paramètres finaux — jamais à la main : un
+    réglage qui demande au cycliste d'y passer du temps ne sera pas tenu.
     """
 
     sorties: list[RatioSortie] = field(default_factory=list)
@@ -656,17 +655,17 @@ def mesurer_porte_a_porte(
     """Rejoue chaque sortie avec `p` et mesure temps écoulé réel / temps simulé.
 
     `calibrer_en_deux_passes` ne lui passe que les sorties de **validation**,
-    jamais vues par l'ajustement (contre-lecture du 25/09) : mesurée sur les
-    sorties apprises, la fourchette héritait de l'ajustement du CdA sur elles
-    et sous-prédisait le porte à porte d'une sortie neuve (médiane 1,054 en
-    échantillon contre 1,072 en validation sur le vélo de route du
-    mainteneur). Le ratio dit ce qu'une sortie nouvelle coûte en plus du
-    temps simulé : arrêts, relances, et l'erreur propre du modèle.
+    jamais vues par l'ajustement : mesurée sur les sorties apprises, la
+    fourchette hériterait de l'ajustement du CdA sur elles et sous-prédirait
+    le porte à porte d'une sortie neuve (médiane 1,054 en échantillon contre
+    1,072 en validation sur un vélo de route de référence). Le ratio dit ce
+    qu'une sortie nouvelle coûte en plus du temps simulé : arrêts, relances, et
+    l'erreur propre du modèle.
 
     Le temps de référence est le temps **écoulé** (dernier point − premier) :
-    c'est lui que la fourchette doit prédire, porte à porte. La note du 23/09
-    lisait le `temps_reel_s` de la validation, qui est un temps **en
-    mouvement** ; ce ratio-là est gardé à côté (`ratio_mouvement`), pour
+    c'est lui que la fourchette doit prédire, porte à porte. Le
+    `temps_reel_s` de la validation est un temps **en mouvement** ; ce
+    ratio-là est gardé à côté (`ratio_mouvement`), pour
     qu'on puisse comparer.
     """
     mesure = MesurePorteAPorte(seuil_groupe=seuil_groupe)
@@ -700,10 +699,9 @@ def mesurer_porte_a_porte(
 def masse_totale(masse_cycliste_kg: float, velo: Velo) -> float:
     """Cycliste + vélo. Un vélo sans masse déclarée pèse `MASSE_VELO_DEFAUT_KG`.
 
-    Le mainteneur l'a dit : « une masse approximative par vélo suffit, 1 kg
-    sur 100 kg fait 1 % en montée et rien sur le plat ». La masse du cycliste
-    est reçue : c'est `services.calibrer.masse_totale_kg` qui la lit dans le
-    profil (lot 8).
+    Une masse approximative par vélo suffit : 1 kg sur 100 kg fait 1 % en
+    montée et rien sur le plat. La masse du cycliste est reçue : c'est
+    `services.calibrer.masse_totale_kg` qui la lit dans le profil.
     """
     return masse_cycliste_kg + (
         velo.masse_kg if velo.masse_kg is not None else MASSE_VELO_DEFAUT_KG
@@ -790,7 +788,7 @@ class RapportCalibration:
     echantillons_sans_vent: int = 0
     porte_a_porte: MesurePorteAPorte = field(default_factory=MesurePorteAPorte)
     """Le ratio temps écoulé réel / temps simulé sur les sorties de
-    validation, rejouées avec les paramètres finaux (L9.1)."""
+    validation, rejouées avec les paramètres finaux."""
     n_solo: int = 0
     """À Crr fixé : combien de sorties d'apprentissage ont servi à chercher le
     CdA sur le temps (sous `part_groupe_max`). 0 en calibration libre."""
@@ -801,7 +799,7 @@ class RapportCalibration:
 
 
 def sorties_minimum(part_validation: float) -> int:
-    """Le moins de sorties calibrables avec lequel une calibration a un sens (L9.4).
+    """Le moins de sorties calibrables avec lequel une calibration a un sens.
 
     Dérivé, pas choisi : il faut `SORTIES_MIN_SOLO` sorties d'**apprentissage**
     pour que le CdA ne soit pas cherché sur une poignée de sorties (en deçà,
@@ -822,7 +820,7 @@ def sorties_minimum(part_validation: float) -> int:
 def partager(
     sorties: Sequence[SortieCalibration], part_validation: float
 ) -> tuple[list[SortieCalibration], list[SortieCalibration]]:
-    """(apprentissage, validation) : les plus récentes en validation (contrat §3).
+    """(apprentissage, validation) : les plus récentes en validation.
 
     Partager par date et non au hasard est le seul partage honnête ici : un
     tirage aléatoire mettrait dans le test des sorties voisines, faites le même
@@ -849,16 +847,16 @@ def calibrer_en_deux_passes(
 ) -> RapportCalibration:
     """Calibre, repère les sorties en groupe au résidu, recalibre sans elles, valide.
 
-    Une seule itération, comme décidé le 13/09 : « calibrer d'abord sur les
-    sorties sûres, puis utiliser le modèle obtenu pour repérer les autres et
-    les écarter ; itérer une fois ».
+    Une seule itération : calibrer d'abord sur les sorties sûres, puis
+    utiliser le modèle obtenu pour repérer les autres et les écarter, une
+    fois.
 
-    `crr_fixe` (L9.1) : le Crr connu par le pneu ou la configuration. Les
+    `crr_fixe` : le Crr connu par le pneu ou la configuration. Les
     deux passes ne cherchent alors que le CdA. Sans lui, l'ajustement libre à
-    deux paramètres d'avant — qui ne sépare pas CdA et Crr sur les données du
-    mainteneur (0,0106 de Crr au vélo en pneus quatre saisons, note du 23/09).
+    deux paramètres — qui ne sépare pas CdA et Crr sur des données réelles
+    (0,0106 de Crr pour un vélo en pneus quatre saisons, mesuré).
 
-    `part_groupe_max` (L9.1, contre-lecture du 25/09) : à Crr fixé, le CdA
+    `part_groupe_max` : à Crr fixé, le CdA
     n'est cherché sur le temps que des sorties d'apprentissage dont la part
     de signal de groupe est **sous** ce seuil — une roue partielle, sous les
     50 % qui écartent une sortie, suffit à faire paraître le vélo plus fin.
@@ -914,14 +912,14 @@ def calibrer_en_deux_passes(
     n_solo = 0
     repli_solo = ""
     if crr_fixe is not None:
-        # L9.1 : à Crr fixé, le CdA retenu est celui qui prédit le mieux le
+        # À Crr fixé, le CdA retenu est celui qui prédit le mieux le
         # **temps** des sorties d'apprentissage roulées seul, pas celui qui
-        # explique le mieux la puissance des tronçons plats — mesuré le
-        # 25/09/2026, voir `chercher_cda_sur_sorties`.
+        # explique le mieux la puissance des tronçons plats — mesuré, voir
+        # `chercher_cda_sur_sorties`.
         #
         # La part de groupe qui trie ici n'est **pas** celle de la première
         # passe : ses paramètres sortent des moindres carrés des tronçons,
-        # dont le CdA trop bas (0,287 sur le vélo de route du mainteneur)
+        # dont le CdA trop bas (0,287 sur un vélo de route de référence)
         # prédit des vitesses trop hautes et cache la roue partielle — 45
         # sorties passaient sous 30 %, contre 27 avec des paramètres
         # justes. On cherche donc d'abord le CdA sur toutes les sorties

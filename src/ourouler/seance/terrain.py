@@ -1,7 +1,7 @@
 """Le terrain sous un bloc d'intervalle : une note, jamais un filtre.
 
 Un bloc de seuil ne se tient pas n'importe où. Ce qui le gâche, du plus grave
-au moins grave (cadrage du sprint 4, corrigé par le mainteneur le 13/09) :
+au moins grave :
 
 1. **une descente longue** — on ne peut pas tenir la puissance en roue libre ;
 2. **un village ou un carrefour dans le bloc** — il faut lever le pied ;
@@ -11,14 +11,13 @@ Une montée régulière, elle, n'est pas un défaut : la puissance se tient trè
 bien, seule la vitesse baisse. Elle n'est donc pénalisée qu'au-delà de
 `PENTE_MONTEE_TOLEREE`, et faiblement.
 
-**Ce que coûte une descente dépend de l'intensité demandée** (décision du
-mainteneur, 13/09) : « la descente doit être réduite dans les blocs et son
-poids négatif augmente avec la zone. Faire du Z3 en descente faible à
-moyenne, ça reste possible, position relevée face au vent. Z5 en descente,
-pas possible ou presque. » `evaluer_couloir` accepte donc la puissance cible
+**Ce que coûte une descente dépend de l'intensité demandée** : la descente
+doit être réduite dans les blocs, et son poids augmente avec la zone. Du Z3
+en descente faible à moyenne reste possible, position relevée face au vent ;
+du Z5 en descente ne l'est pas, ou presque. `evaluer_couloir` accepte donc la puissance cible
 du bloc et la FTP, et multiplie `POIDS_M_DESCENTE` par
-`facteur_zone(fraction de FTP)`. Sans ces deux valeurs, le poids reste celui
-d'avant : on ne devine pas une intensité qu'on ne nous a pas donnée.
+`facteur_zone(fraction de FTP)`. Sans ces deux valeurs, le poids reste le poids
+nu : on ne devine pas une intensité qu'on ne nous a pas donnée.
 
 **Ce module ne dit jamais non.** Il rend une note en kilomètres équivalents
 (0 = parfait, plus haut = moins bon, même unité que `boucle.couts`) et des
@@ -26,7 +25,7 @@ motifs lisibles — « deux feux », « descente de 1,2 km ». Le placement gard
 la boucle la moins mauvaise et affiche ce qui cloche ; il ne renvoie pas le
 cycliste chez lui parce qu'aucun couloir n'est parfait.
 
-**Aucune évaluation sous une récupération** (décision du mainteneur, 13/09).
+**Aucune évaluation sous une récupération.**
 Pendant une récup, village, carrefour et revêtement sont sans importance :
 `evaluer_couloir` n'a rien à y faire. La seule question qu'on pose à une
 récup est mécanique — reste-t-il de la route au-delà du segment, et le
@@ -36,7 +35,7 @@ Ce que ce module ne sait pas et qu'il dit : sans altitude (un GPX sans `ele`),
 les pentes valent 0 et le motif « altitude inconnue » le signale ; sans
 `segments` (un tracé relu d'une activité), les kilomètres bâtis valent 0 et
 le motif « routes inconnues » le signale. Zéro ne veut jamais dire « parfait »
-en silence (règle absolue 5).
+en silence (on n'affirme rien sans mesure).
 """
 
 from __future__ import annotations
@@ -52,19 +51,18 @@ from ourouler.noyau.trace import PointTrace, Trace
 # --- ce qui fait un carrefour -------------------------------------------------
 #
 # Le vocabulaire — `NOEUDS_CARREFOUR`, `CLE_RALENTISSEUR`,
-# `RALENTISSEURS_SANS_EFFET` — vit dans `boucle.marqueurs` depuis le lot L5.3
+# `RALENTISSEURS_SANS_EFFET` — vit dans `boucle.marqueurs`
 # et n'est **pas** redéfini ici : le même module compte la densité de
 # marqueurs sur le tracé entier, et deux définitions de « ce qui fait lever le
 # pied » finiraient par diverger. Les noms restent lisibles comme
 # `boucle.marqueurs.nature_du_noeud`, la seule fonction qui décide si un nœud
 # fait lever le pied.
 #
-# Le mainteneur les nomme lui-même parmi ce qui fait « la ville » : « des
-# croisements, des voitures, des dos d'âne ou des chicanes, des feux ». Sous
-# un bloc, un dos d'âne fait lever du selle : on le compte comme un carrefour.
-# Sous une Z2 ou une récupération, on ne le compte pas — « en Z2 je m'en fous,
-# c'est les blocs qui doivent limiter ça » — mais c'est déjà acquis, aucun
-# terrain n'est évalué hors bloc.
+# Ils font partie de ce qu'un cycliste appelle « la ville » : croisements,
+# voitures, dos d'âne ou chicanes, feux. Sous un bloc, un dos d'âne fait lever
+# de la selle : on le compte comme un carrefour. Sous une Z2 ou une
+# récupération, on ne le compte pas — ce sont les blocs qui doivent en être
+# protégés — et c'est déjà acquis, aucun terrain n'est évalué hors bloc.
 
 #: Changement de direction à partir duquel on compte un carrefour, même sans
 #: nœud tagué : à 60° on a tourné, donc on a ralenti. La détection elle-même
@@ -80,8 +78,8 @@ HIGHWAY_BATI = frozenset({"residential", "living_street", "service"})
 #: Vitesse limite (km/h) au-dessous ou égale à laquelle on se sait en
 #: agglomération, quand le tag existe. Une `tertiary` à 50 traverse un bourg.
 #:
-#: **Cette règle ne se déclenche jamais avec BRouter, et c'est mesuré**
-#: (16/09/2026) : les `WayTags` renvoyés par notre serveur portent `highway`,
+#: **Cette règle ne se déclenche jamais avec BRouter, et c'est mesuré** : les
+#: `WayTags` renvoyés par notre serveur portent `highway`,
 #: `surface`, `smoothness`, `oneway`, `cycleway*`, `estimated_traffic_class`,
 #: `access`, `junction`, `tracktype` — **jamais `maxspeed`**. Le profil ne
 #: l'exporte pas. On garde le code, qui est juste et servirait si le profil
@@ -89,11 +87,10 @@ HIGHWAY_BATI = frozenset({"residential", "living_street", "service"})
 #: pratique la zone bâtie se réduit aujourd'hui à `HIGHWAY_BATI` : un bourg
 #: traversé sur une départementale n'est pas vu.
 #:
-#: La piste à instruire pour le corriger n'était pas `maxspeed` mais la
+#: Ce qui le corrige n'est pas `maxspeed` mais la
 #: **densité de marqueurs au kilomètre** — feux, passages piétons,
 #: ralentisseurs, cédez-le-passage — qui est ce qu'un cycliste perçoit
-#: réellement comme « la ville ». Elle est écrite depuis le lot L5.3 :
-#: `boucle.marqueurs.compter`. Elle ne remplace pas ce code-ci, qui mesure
+#: réellement comme « la ville » : `boucle.marqueurs.compter`. Elle ne remplace pas ce code-ci, qui mesure
 #: des **kilomètres bâtis sous un bloc** et reste juste ; elle couvre le
 #: tracé entier, et c'est elle qui sert de contraste sur une séance sans
 #: bloc, où la note de terrain vaut zéro.
@@ -124,16 +121,16 @@ PENTE_MONTEE_TOLEREE = 0.02
 
 # --- poids de la note, en kilomètres équivalents ------------------------------
 #
-# Calibrés sur la validation rétrospective (`tests/validation/
-# terrain_retrospectif.py`) : les emplacements où le mainteneur a réellement
-# fait ses blocs doivent recevoir une note nettement meilleure que des
+# Calibrés sur la validation rétrospective (`scripts/validation/
+# terrain_retrospectif.py`) : les emplacements où un cycliste réel a fait ses
+# blocs doivent recevoir une note nettement meilleure que des
 # emplacements tirés au hasard sur la même sortie.
 #
 # **Tous les chiffres cités ci-dessous viennent du mode nominal du script**
-# — celui qui lit les intervalles marqués dans Intervals — **relancé le
-# 13/09/2026**, et sont reproductibles en relançant :
+# — celui qui lit les intervalles marqués dans Intervals — et sont
+# reproductibles en relançant :
 #
-#     uv run python tests/validation/terrain_retrospectif.py
+#     uv run python scripts/validation/terrain_retrospectif.py
 #
 # Le mode nominal fait foi (voir l'en-tête du script). Le mode `--sans-reseau`
 # détecte les blocs par la seule puissance : il en retient 15 au lieu des 11
@@ -142,36 +139,34 @@ PENTE_MONTEE_TOLEREE = 0.02
 # éclairent, jamais comme référence.
 #
 # Une mesure citée doit être reproductible par le script versionné, sinon elle
-# redevient une opinion (règle absolue 5). Les chiffres de la première
-# rédaction ne l'étaient plus : ceux-ci le sont.
+# redevient une opinion.
 
 #: Un **nœud tagué** traversé pendant un bloc — un feu, un stop, un
 #: cédez-le-passage : on lève le pied, parfois on pose le pied.
 #:
 #: Non validé par la validation rétrospective : une sortie enregistrée est une
 #: trace GPS sans nœuds OSM, le script ne voit donc aucun feu. Ce poids reste
-#: celui du raisonnement produit, pas d'une mesure — et le dire fait partie du
-#: lot (règle absolue 5).
+#: celui du raisonnement produit, pas d'une mesure — et on le dit.
 POIDS_CARREFOUR = 1.0
 
 #: Un **virage marqué** sans nœud tagué : la route tourne, c'est tout. Dix fois
-#: moins cher qu'un feu, et pour cause — mesuré le 13/09 sur les deux sorties
-#: de référence (mode nominal), les blocs réels du mainteneur en contiennent
-#: **0,74 par km contre 1,00 au hasard**, soit 74 % : il les évite un peu, pas
+#: moins cher qu'un feu, et pour cause — mesuré sur les deux sorties de
+#: référence (mode nominal), les blocs réels en contiennent **0,74 par km
+#: contre 1,00 au hasard**, soit 74 % : le cycliste les évite un peu, pas
 #: assez pour que le poste pèse. (Mode dégradé : 0,67 contre 1,15, 58 %.)
 #: À 1,0 ce poste noyait, à lui seul, tout le reste de la note.
 POIDS_VIRAGE_MARQUE = 0.10
 
-#: Un kilomètre de bloc en zone bâtie. Mesuré le 13/09 (mode nominal) : les
+#: Un kilomètre de bloc en zone bâtie. Mesuré (mode nominal) : les
 #: blocs réels en contiennent **0,00 km par km contre 0,05 au hasard**, soit
 #: 3 %. (Mode dégradé : 0,00 contre 0,04, 6 %.) C'est le poste le plus
-#: discriminant qui soit — le seul que le mainteneur évite presque
+#: discriminant qui soit — le seul que le cycliste évite presque
 #: entièrement — et c'est pour cela qu'il pèse le plus lourd.
 POIDS_KM_BATI = 3.0
 
 #: Un mètre de dénivelé perdu dans une descente qualifiante. Le second poste le
-#: plus discriminant, mais nettement moins que ne le disait la première
-#: rédaction : mesuré le 13/09 (mode nominal), **1,08 m par km dans les blocs
+#: plus discriminant, mais nettement moins qu'on ne le croirait : mesuré
+#: (mode nominal), **1,08 m par km dans les blocs
 #: réels contre 1,89 au hasard, soit 57 %** — le script imprime « sépare un
 #: peu » et non « nettement évité ». (Mode dégradé : 1,49 contre 1,63, 91 %,
 #: soit rien du tout : ce mode découpe les blocs autrement et y fait entrer des
@@ -179,7 +174,7 @@ POIDS_KM_BATI = 3.0
 #:
 #: Le poids reste à 0,10 malgré cela, et c'est un choix qui se dit : c'est le
 #: défaut le plus **grave** sur un bloc de seuil — en descente, on ne peut pas
-#: tenir la puissance, quoi qu'en dise la fréquence à laquelle le mainteneur
+#: tenir la puissance, quoi qu'en dise la fréquence à laquelle le cycliste
 #: l'évite. Une descente de 1 km à −3 % (30 m) coûte trois fois un feu.
 #:
 #: **C'est le poids à intensité inconnue, et à cette seule condition.** Dès que
@@ -191,38 +186,37 @@ POIDS_M_DESCENTE = 0.10
 #: `(borne haute de la fraction de FTP, facteur, adjectif du motif)`, bornes
 #: hautes **exclues**, table croissante lue de haut en bas.
 #:
-#: Décision du mainteneur du 13/09, dans ses mots : « la descente doit être
-#: réduite dans les blocs et son poids négatif augmente avec la zone. Faire du
-#: Z3 en descente faible à moyenne, ça reste possible, position relevée face au
-#: vent. Z5 en descente, pas possible ou presque. »
+#: La règle : la descente doit être réduite dans les blocs, et son poids
+#: augmente avec la zone. Du Z3 en descente faible à moyenne reste possible,
+#: position relevée face au vent ; du Z5 en descente, pas possible ou presque.
 #:
-#: D'où les quatre paliers, qui sont sa phrase traduite en chiffres :
-#: * **sous 75 % de FTP** — en dessous de sa zone de travail, une descente
+#: D'où les quatre paliers, qui sont cette règle traduite en chiffres :
+#: * **sous 75 % de FTP** — en dessous de la zone de travail, une descente
 #:   gêne peu : on relance, on ne perd rien de la séance. Facteur 0,4 ;
-#: * **75 à 90 %** — son Z3, « possible, position relevée » : la descente est
+#: * **75 à 90 %** — le Z3, « possible, position relevée » : la descente est
 #:   tolérable, et c'est le palier qui garde le poids nu, 1,0. C'est aussi ce
 #:   que vaut une intensité inconnue : le défaut par défaut est « tolérable »,
 #:   ni gratuit ni rédhibitoire ;
 #: * **90 à 105 %** — autour du seuil, tenir la puissance en descente devient
 #:   un exercice : coûteuse, facteur 2,0 ;
-#: * **au-delà de 105 %** — son Z5, « pas possible ou presque ». Facteur 4,0 :
+#: * **au-delà de 105 %** — le Z5, « pas possible ou presque ». Facteur 4,0 :
 #:   une descente de 1 km à −3 % (30 m) coûte alors 12 km équivalents, plus
 #:   que `PENALITE_BLOC_TRONQUE`, c'est-à-dire plus qu'un bloc qui ne tient
 #:   pas sur le tracé. C'est voulu, et c'est le sens de « presque ».
 #:
-#: **Les facteurs sont un ordre de grandeur, pas une mesure**, et la règle
-#: absolue 5 veut qu'on le dise : la validation rétrospective mesure la
-#: *composition* des blocs réels — combien de mètres de descente — pas ce que
+#: **Les facteurs sont un ordre de grandeur, pas une mesure**, et on le dit : la
+#: validation rétrospective mesure la *composition* des blocs réels — combien de
+#: mètres de descente — pas ce que
 #: le cycliste ressent à y tenir sa puissance. Aucune donnée du dépôt ne dit
-#: qu'un Z5 en descente coûte quatre fois un Z3 ; c'est la phrase du
-#: mainteneur, chiffrée.
+#: qu'un Z5 en descente coûte quatre fois un Z3 ; c'est la règle produit,
+#: chiffrée.
 #:
 #: Ce que la mesure dit, en revanche, c'est que la table ne dégrade pas la
-#: discrimination : `tests/validation/terrain_retrospectif.py` relancé le
-#: 13/09/2026 conclut toujours OUI, et le rapport passe de **42,7 % à 33,2 %**
+#: discrimination : `scripts/validation/terrain_retrospectif.py` conclut
+#: toujours OUI, et le rapport passe de **42,7 % à 33,2 %**
 #: de la note du hasard (critère : au plus 70 %). Il s'améliore parce que les
 #: emplacements tirés au hasard portent plus de descente que ceux que le
-#: mainteneur a choisis (1,89 m/km contre 1,08) : rendre la descente plus
+#: cycliste a choisis (1,89 m/km contre 1,08) : rendre la descente plus
 #: chère les éloigne davantage. Blocs réels et tirages y sont notés à la même
 #: intensité, sans quoi on mesurerait le facteur au lieu du terrain.
 FACTEURS_ZONE_DESCENTE: tuple[tuple[float, float, str], ...] = (
@@ -233,32 +227,30 @@ FACTEURS_ZONE_DESCENTE: tuple[tuple[float, float, str], ...] = (
 )
 
 #: Le facteur retenu quand on ignore l'intensité — aucune puissance, aucune
-#: FTP, ou l'une des deux inexploitable. Il vaut 1,0, donc le poids nu : le
-#: comportement d'avant la décision du 13/09, à l'identique. Une intensité
+#: FTP, ou l'une des deux inexploitable. Il vaut 1,0, donc le poids nu. Une
+#: intensité
 #: inconnue n'est ni une excuse (facteur plus bas) ni un soupçon (facteur plus
 #: haut), et le motif ne dit alors rien de l'intensité.
 FACTEUR_ZONE_INCONNUE = 1.0
 
 #: Un mètre de dénivelé gagné dans une portion plus raide que
-#: `PENTE_MONTEE_TOLEREE`. Presque rien, et c'est mesuré : le 13/09 (mode
-#: nominal), les blocs réels du mainteneur montent **plus** que le hasard —
+#: `PENTE_MONTEE_TOLEREE`. Presque rien, et c'est mesuré (mode nominal) :
+#: les blocs réels montent **plus** que le hasard —
 #: **4,34 m par km contre 3,39, soit 128 %**. (Mode dégradé : 5,39 contre
-#: 2,61, 207 %, même conclusion en plus net.) Il ne fuit pas les montées, il
-#: les cherche : la puissance s'y tient mieux qu'ailleurs. Le poids ne sert
+#: 2,61, 207 %, même conclusion en plus net.) Le cycliste ne fuit pas les
+#: montées, il les cherche : la puissance s'y tient mieux qu'ailleurs. Le poids ne sert
 #: plus qu'à départager deux couloirs par ailleurs identiques.
 POIDS_M_MONTEE = 0.002
 
 #: Une unité d'écart-type de la pente sur le bloc — la pente étant une
 #: tangente, un point de pourcentage d'écart-type coûte donc 0,30. Faible,
-#: comme le veut le contrat, et la mesure du 13/09 (mode nominal) dit pourquoi
+#: et la mesure (mode nominal) dit pourquoi
 #: il doit le rester : **1,55 % dans les blocs réels contre 1,58 % au hasard,
 #: soit 98 %** — ce poste ne sépare **rien**. (Mode dégradé : 1,63 contre 1,44,
 #: 113 %, c'est-à-dire l'inverse, et pas davantage de discrimination.)
 #:
-#: La première rédaction citait 1,47 % contre 1,72 % (86 %), « une
-#: discrimination réelle mais ténue » : ce chiffre n'était reproductible par
-#: aucun mode du script, parce que `NoteBloc` n'exposait pas l'écart-type.
-#: Il l'expose maintenant, et le script le mesure comme les autres postes.
+#: `NoteBloc` expose l'écart-type pour que le script le mesure comme les
+#: autres postes.
 POIDS_IRREGULARITE = 30.0
 
 #: Ce que coûte un bloc qui **ne tient pas** sur le tracé disponible.
@@ -308,10 +300,8 @@ class NoteBloc:
     #: tolérée n'y est pas.
     montee_m: float = 0.0
     #: Écart-type de la pente sur le bloc, **en tangente** : 0,015 pour
-    #: ± 1,5 %. Ajout au contrat §2, qui ne le listait pas : c'est le seul
-    #: poste de la note dont le poids ne pouvait pas être audité par la
-    #: validation rétrospective, faute d'être lisible depuis l'extérieur. Il
-    #: était déjà calculé et déjà utilisé — il n'était pas rendu.
+    #: ± 1,5 %. Rendu pour que la validation rétrospective puisse auditer le
+    #: poids de ce poste, comme les autres, depuis l'extérieur.
     irregularite: float = 0.0
     #: Ce par quoi `POIDS_M_DESCENTE` a été multiplié, d'après l'intensité
     #: demandée sous ce bloc (`FACTEURS_ZONE_DESCENTE`). Vaut
@@ -443,14 +433,13 @@ def _fraction_ftp(puissance_w: float | None, ftp_w: float | None) -> float | Non
 def route_au_dela(trace: Trace, position_m: float, besoin_m: float) -> bool:
     """Reste-t-il `besoin_m` de route après `position_m` ?
 
-    C'est la **seule** question posée à une récupération (cadrage du 13/09 :
-    « en récup, village, croisement etc. c'est pas grave ; il faut de la route
-    au-delà du segment »). La moitié d'une récup sert à dépasser le segment
+    C'est la **seule** question posée à une récupération : en récup, village
+    et croisements ne sont pas graves, il faut seulement de la route au-delà
+    du segment. La moitié d'une récup sert à dépasser le segment
     avant de faire demi-tour : 4 min à 25 km/h ≈ 800 m, 1'30 ≈ 300 m.
 
     Sur une boucle fermée, **la réponse est toujours oui** : la route ne
-    s'arrête pas, on repart sur le tour suivant (contrat §2, « ou si le tracé
-    est une boucle fermée (on continue sur la boucle) »). Un besoin plus long
+    s'arrête pas, on repart sur le tour suivant. Un besoin plus long
     que le tour lui-même ne change rien à la question posée — on repasse au
     même endroit, mais on roule. Sur un tracé ouvert, il faut que la longueur
     restante suffise.
@@ -474,7 +463,7 @@ def demi_tour_faisable(trace: Trace, position_m: float) -> bool:
     Faux sur une route à trafic (`boucle.couts.HIGHWAY_TRAFIC`) : une
     départementale passante, on ne s'y retourne pas. Vrai partout ailleurs,
     **y compris quand on ne sait pas** : une classe de route inconnue n'est
-    jamais un malus (contrat du sprint 3 §2).
+    jamais un malus.
     """
     tags = _tags_a(trace, position_m)
     if tags is None:
@@ -693,8 +682,7 @@ def _zone_batie(trace: Trace, couloir: _Couloir) -> tuple[float, bool]:
     Ce sont les tags du **tronçon** parcouru, pas ceux de son point de départ :
     le point de départ d'un tronçon est aussi le point d'arrivée du précédent,
     et c'est par là que le village traversé pendant la récupération se
-    retrouvait facturé au bloc qui suit (décision du 13/09 : aucune évaluation
-    sous une récup).
+    retrouverait facturé au bloc qui suit (aucune évaluation sous une récup).
 
     Sans `segments` — un tracé relu d'une activité enregistrée — on ne sait
     rien des routes : 0 km bâti, et le second membre est faux pour que le
@@ -794,11 +782,11 @@ def _pente_moyenne(profil: list[tuple[float, float]], longueur_m: float) -> floa
     """Le dénivelé du profil divisé par la longueur **sur laquelle il est mesuré**.
 
     `profil` ne retient que les points qui portent une altitude : sur un couloir
-    dont la moitié est sans altitude, diviser par la longueur du couloir donnait
-    une pente moyenne deux fois trop faible. C'est cette pente-là qui décide du
-    demi-tour (`placement.PENTE_DEMI_TOUR_MAX`), donc la sous-estimer autorisait
-    un demi-tour dans une côte — précisément la condition que le mainteneur a
-    posée.
+    dont la moitié est sans altitude, diviser par la longueur du couloir
+    donnerait une pente moyenne deux fois trop faible. C'est cette pente-là qui
+    décide du demi-tour (`placement.PENTE_DEMI_TOUR_MAX`), donc la sous-estimer
+    autoriserait un demi-tour dans une côte — précisément ce que la condition
+    interdit.
 
     On divise donc par l'étendue du profil, et par la longueur du couloir
     seulement si cette étendue est nulle (tous les points d'altitude à la même

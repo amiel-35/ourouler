@@ -1,4 +1,4 @@
-"""Le nouveau chemin de l'API (lot 11) : la demande, le service, le rendu JSON.
+"""Le nouveau chemin de l'API : la demande, le service, le rendu JSON.
 
 Chaque fonction de ce module est ce que l'ancien chemin faisait en passant
 par la ligne de commande (`api/adaptateur.py` : un `argparse.Namespace`, la
@@ -72,7 +72,7 @@ def vent_depart(
     client_meteo: object | None = None,
     lieu_depart: object | None = None,
 ) -> dict:
-    """`GET /vent-depart` : d'où vient le vent au départ (Q44)."""
+    """`GET /vent-depart` : d'où vient le vent au départ."""
     from ourouler.rendu.sortie import vent_depart_json
     from ourouler.sortie import commande as service
 

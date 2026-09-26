@@ -1,16 +1,15 @@
 """Rendu des commandes du modèle physique : `calibrer`, `simuler`, `analyser`, `comparer`.
 
-Couche 4 de `docs/ouverture_plan.md` §2, sortie de `physique/commande.py`
-et de `services/comparer.py` au lot 8. Chaque fonction reçoit des objets déjà
+La couche de rendu de `physique/commande.py` et de `services/comparer.py`
+(`ARCHITECTURE.md`). Chaque fonction reçoit des objets déjà
 calculés — le rapport de calibration, la simulation, la météo le long du
 tracé, la comparaison — et rend une chaîne ou un dictionnaire : aucun accès
 disque ni réseau, aucune lecture de configuration. Ce que la commande
 connaissait par la `Config` ou le client d'archive (date de début de
 l'historique, appels à l'archive, fichier écrit) lui est passé en valeurs.
 
-Le texte et le JSON sont ceux d'avant le lot 8, à l'octet près : les
-références `tests/caracterisation/cli_calibrer.json` et `cli_comparer.json`
-les figent.
+Le texte et le JSON sont figés à l'octet près : les références
+`tests/caracterisation/cli_calibrer.json` et `cli_comparer.json` les figent.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ from ourouler.stockage.calibrations import porte_a_porte_json
 #: Mention affichée à côté d'un temps, selon d'où il vient. La seconde vaut
 #: pour un modèle qui tourne sur des valeurs de `physique.litterature` : le
 #: temps est calculé, mais sur des CdA et Crr jamais mesurés sur ce vélo
-#: (règle absolue 5). Mêmes mots que `boucle.commande`.
+#: (on ne présente jamais une estimation comme une mesure). Mêmes mots que `boucle.commande`.
 MENTION_MODELE = "(modèle)"
 MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 
@@ -99,7 +98,7 @@ def _lignes_apprentissage(rapport: RapportCalibration, velo: Velo, crr_source: s
         )
     # Ce que les données mesurent vraiment vient en premier ; CdA et Crr, qui
     # peuvent se compenser l'un l'autre, sont relégués à une ligne de détail
-    # (décision du 13/09 — on ne cherche plus à les séparer).
+    # (décision Q9, `docs/journal/questions/questions_mainteneur.md` : on ne cherche pas à les séparer).
     lignes.append("  résistance totale sur le plat sans vent, vélo + cycliste :")
     for vitesse, force, puissance in a.resistances:
         lignes.append(
@@ -109,7 +108,7 @@ def _lignes_apprentissage(rapport: RapportCalibration, velo: Velo, crr_source: s
         f"  résidu de puissance : RMSE {nombre_fr(a.rmse_w, 1)} W, MAE {nombre_fr(a.mae_w, 1)} W"
     )
     if a.crr_fixe:
-        # L9.1 : le Crr est reçu (pneu ou configuration), seul le CdA est
+        # Le Crr est reçu (pneu ou configuration), seul le CdA est
         # cherché — il se cite donc, lui, sans la réserve « mal séparé ».
         lignes.append(
             f"  CdA {nombre_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)} (cherché), "
@@ -402,9 +401,9 @@ def rendre_json_analyse(
         "vitesse_moy_kmh": round(simulation.vitesse_moy_kmh, 2),
         "pas_plafonnes": simulation.pas_plafonnes,
         "pas_bloques": simulation.pas_bloques,
-        # Le porte à porte en fourchette (L9.1) — jamais un seul chiffre, la
+        # Le porte à porte en fourchette — jamais un seul chiffre, la
         # provenance dit si elle vient des sorties de ce vélo ou d'une
-        # convention (règle absolue 5). Même trio de champs que les
+        # convention (on ne présente jamais une estimation comme une mesure). Même trio de champs que les
         # candidates de `boucle` (`temps_ecoule_s`/`_bas_s`/`_haut_s`).
         "temps_ecoule_s": round(ecoule.mediane_s),
         "temps_ecoule_bas_s": round(ecoule.bas_s),
@@ -432,7 +431,7 @@ def rendre_json_analyse(
         "meteo_panne": panne,
         "avertissements_trace": avertissements_trace,
         "meteo": _meteo_json_analyse(meteo),
-        # Même forme que `boucle._candidate_json["trace"]` (F0.1) : `points`
+        # Même forme que `boucle._candidate_json["trace"]` : `points`
         # pour la carte, `profil` pour la courbe d'altitude — le front
         # réutilise `Carte`/`ProfilAltitude` sans rien réécrire.
         "trace": geometrie_json(trace),
@@ -559,11 +558,10 @@ def rendre_texte_simulation(
 def lignes_litterature(provenance: str, usage: str) -> list[str]:
     """Ce que vaut le jeu générique servi, en clair. Vide si rien de générique.
 
-    Règle absolue 5 : un temps calculé sur des valeurs jamais mesurées le dit,
-    et dit **de combien il dérive** là où la dérive a pu être mesurée. Le
-    chiffre vient de `physique.litterature`, qui le tient de la campagne du
-    17/09/2026 sur les 34 sorties de validation du mainteneur — un cycliste,
-    deux vélos.
+    Un temps calculé sur des valeurs jamais mesurées le dit, et dit **de
+    combien il dérive** là où la dérive a pu être mesurée. Le chiffre vient de
+    `physique.litterature`, qui le tient d'une campagne sur 34 sorties de
+    validation — un cycliste, deux vélos.
     """
     if provenance != "littérature":
         return []
