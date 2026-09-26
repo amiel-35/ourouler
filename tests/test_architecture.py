@@ -311,6 +311,7 @@ MODULES: dict[str, str] = {
     "ourouler.rendu.profil": "rendu",
     "ourouler.rendu.routes": "rendu",
     "ourouler.rendu.sortie": "rendu",
+    "ourouler.rendu.sortie_json": "rendu",
     # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
