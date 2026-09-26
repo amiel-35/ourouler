@@ -670,5 +670,3 @@ export const api = {
   analyserParcours: (demande: DemandeAnalyse, signal?: AbortSignal) =>
     poster<Enveloppe<Analyse>>("/parcours/analyser", demande, signal, DELAI_CALCUL_MS),
 };
-
-export type Api = typeof api;
