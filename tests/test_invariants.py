@@ -362,16 +362,16 @@ def test_le_coeur_ne_geocode_jamais_lui_meme(paquet: str):
             )
 
 
-#: C1 de `docs/journal/ux/relecture_f0.md` : `zwo.py` et `mrc.py` (683 lignes, testées)
-#: n'avaient aucun appelant dans `src/` — un trou du cadrage compté comme
-#: comblé qui ne l'était qu'à moitié. F1 les branche via `seance/fichier.py`,
-#: lui-même appelé par `seance/commande.py` et `sortie/commande.py`.
+#: Les lecteurs de séance ZWO et MRC doivent être appelés par le cœur, pas
+#: seulement testés : un lecteur que rien n'appelle passe ses propres tests
+#: sans qu'aucune commande ne sache lire ces fichiers. Ils le sont via
+#: `seance/fichier.py`, lui-même appelé par `seance/commande.py` et
+#: `sortie/commande.py` (constat C1 de `docs/journal/ux/relecture_f0.md`).
 MODULES_SANS_APPELANT_HISTORIQUE = ("seance.zwo", "seance.mrc")
 
 
-def test_zwo_et_mrc_ont_desormais_un_appelant():
-    """Régression de C1 : si ce branchement disparaissait, ce test doit le dire
-    avant qu'un futur agent ne recompte le trou comme comblé.
+def test_les_lecteurs_zwo_et_mrc_sont_appeles_par_le_coeur():
+    """Un lecteur de séance sans appelant serait compté comme livré à tort.
 
     Ne vérifie pas que ces lecteurs *marchent* (leurs propres tests le font),
     seulement qu'au moins un module du cœur, en dehors d'eux-mêmes, les
