@@ -218,7 +218,7 @@ class Echantillon:
     lat: float | None = None
     lon: float | None = None
     """Position du **milieu** du tronçon, quand elle est connue. Elle ne sert
-    pas à la calibration mais à `physique.comparer`, qui range les tronçons par
+    pas à la calibration mais à `services.comparer`, qui range les tronçons par
     maille du terrain pour comparer deux vélos sur les mêmes routes."""
 
     @property

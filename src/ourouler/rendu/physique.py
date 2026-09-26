@@ -30,8 +30,8 @@ from ourouler.physique.calibration import (
     MesurePorteAPorte,
     RapportCalibration,
 )
-from ourouler.physique.comparer import SERIES_MIN_BANDE, SERIES_MIN_REGRESSION, Bande, Comparaison
 from ourouler.physique.modele import FourchettePorteAPorte, Parametres, PorteAPorte, Simulation
+from ourouler.services.comparer import SERIES_MIN_BANDE, SERIES_MIN_REGRESSION, Bande, Comparaison
 from ourouler.stockage.calibrations import porte_a_porte_json
 
 #: Mention affichée à côté d'un temps, selon d'où il vient. La seconde vaut

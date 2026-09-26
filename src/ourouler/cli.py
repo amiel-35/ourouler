@@ -695,9 +695,9 @@ def ajouter_comparer(sous: argparse._SubParsersAction) -> None:
 
 
 def _commande_comparer(args: argparse.Namespace, config: Config) -> int:
-    from ourouler.physique.comparer import executer_comparer  # import paresseux (lot L3.3)
+    from ourouler.commandes.comparer import executer_depuis_namespace  # import paresseux (lot L3.3)
 
-    return executer_comparer(args, config)
+    return executer_depuis_namespace(args, config)
 
 
 def ajouter_seance(sous: argparse._SubParsersAction) -> None:
