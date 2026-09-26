@@ -34,22 +34,23 @@ dossier dans `OUROULER_FRONT_DIST` (`api/exploitation.py`), que le
 
 ## Préparer
 
-1. **Le fichier TOML non-secrets.** Copier
-   `deploiement/api/config.example.toml`, le renseigner (masse, FTP, vélos,
-   météo...). **Jamais** `[depart]`, `[intervals]`, ni `[brouter].url` /
-   `.utilisateur` / `.mot_de_passe` dedans — ces valeurs viennent
-   exclusivement de variables d'environnement, listées ci-dessous. C'est la
-   même contrainte, pour la même raison, que `deploiement/config.example.toml`
-   (le générateur de la page du jour) : voir sa docstring si le pourquoi
-   intéresse.
+1. **Le fichier TOML non-secrets.** Deux modèles, un par mode — copier celui
+   du mode choisi et le renseigner (météo, vélos pour le personnel...) :
+   - `deploiement/api/config.personnel.example.toml` — un seul cycliste
+     (celui qui héberge) : porte `[cycliste]` et `[[velos]]`.
+   - `deploiement/api/config.heberge.example.toml` — plusieurs cyclistes,
+     chacun avec son compte : **sans** `[cycliste]` ni `[[velos]]`, que
+     chaque cycliste renseigne lui-même depuis l'assistant, une fois son
+     compte activé — l'API **refuse de démarrer** si l'une de ces deux
+     sections y figure.
 
-   **`[cycliste]` et `[[velos]]`, eux, ne valent qu'en mode `personnel`** :
-   ce sont des réglages personnels, jamais hérités d'un socle partagé. En
-   mode `heberge`, ces deux sections aussi
-   doivent disparaître de ce fichier : l'API **refuse de démarrer** si
-   `[depart]`, `[cycliste]`, `[[velos]]` ou `[intervals]` y figurent — elles
-   seraient sinon servies à chaque personne invitée. Chaque cycliste les
-   renseigne lui-même depuis l'assistant, une fois son compte activé.
+   Dans les deux cas, **jamais** `[depart]`, `[intervals]`, ni
+   `[brouter].url` / `.utilisateur` / `.mot_de_passe` dedans — ces valeurs
+   viennent exclusivement de variables d'environnement, listées ci-dessous ;
+   l'API refuse aussi de démarrer si `[depart]` ou `[intervals]` figurent
+   dans le TOML hébergé. C'est la même contrainte, pour la même raison, que
+   `deploiement/config.example.toml` (le générateur de la page du jour) :
+   voir sa docstring si le pourquoi intéresse.
 
 2. **Les secrets, le point de départ, et le mode.**
    ```
@@ -277,7 +278,7 @@ son propre `Dockerfile`, son propre compose, sa propre variable
    pointé sur ce dépôt, fichier compose `docker-compose.api.coolify.yml`.
 2. Poser les variables listées ci-dessus dans l'interface Coolify —
    `OUROULER_CONFIG_TOML_B64` (le TOML de l'étape 1, encodé :
-   `base64 -i config.toml`, ou `base64 -i deploiement/api/config.example.toml`
+   `base64 -i config.toml`, ou `base64 -i deploiement/api/config.heberge.example.toml`
    pour un premier essai à blanc) et `OUROULER_MODE` en premier.
 3. Choisir le nom du service dans le compose (`api` ici) : c'est lui qui
    détermine le nom exact de `SERVICE_FQDN_API_8000` que Coolify attend.
@@ -292,6 +293,5 @@ son propre `Dockerfile`, son propre compose, sa propre variable
 **Un premier essai à blanc** (par exemple sur `https://ourouler.exemple.org`)
 prouve la chaîne sans rien exposer : `/sante` donne `{"etat":"ok"}`, `/` sert
 le front, `/api/v1/...` refuse tout en 401 `session_absente` sans session
-ouverte. Avec `config.example.toml` tel quel et un point de départ
-générique, aucune donnée personnelle n'est sur le serveur, ni clé
-Intervals, ni identifiants BRouter.
+ouverte. Avec `config.heberge.example.toml` tel quel, aucune donnée
+personnelle n'est sur le serveur, ni clé Intervals, ni identifiants BRouter.

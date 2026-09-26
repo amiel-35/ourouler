@@ -48,8 +48,8 @@ hors du dépôt :
   dans le compose). **Sans lui, `ourouler inviter` (hors `--sans-courriel`)
   refuse en disant que le fichier manque** — voir `_charger_service` dans
   `src/ourouler/cli.py`.
-- `deploiement/api/config.example.toml` — le profil TOML non-secrets du
-  conteneur. Encodé dans `OUROULER_CONFIG_TOML_B64`.
+- `deploiement/api/config.heberge.example.toml` — le profil TOML non-secrets
+  du conteneur, pour ce mode. Encodé dans `OUROULER_CONFIG_TOML_B64`.
 
 ### Vider les variables personnelles du serveur
 
@@ -64,10 +64,9 @@ Les noms exacts, lus par le code (`src/ourouler/api/depots.py:SECTIONS_PERSO_PUR
 `VARIABLES_PERSO_PUR`, `CHAMPS_RACINE_MODIFIABLES`), pour mémoire :
 
 - Sections TOML à retirer : `[depart]`, `[cycliste]`, `[[velos]]`,
-  `[intervals]`. `deploiement/api/config.example.toml`, tel qu'il est
-  aujourd'hui, ne porte déjà ni `[depart]` ni `[intervals]` (voir sa
-  docstring) — il ne reste donc à retirer que `[cycliste]` et `[[velos]]`
-  avant de l'encoder.
+  `[intervals]`. `deploiement/api/config.heberge.example.toml` n'en porte
+  déjà aucune (voir sa docstring) : c'est le modèle du mode hébergé, distinct
+  de `config.personnel.example.toml`, qui les porte lui.
 - Champ racine à retirer : `historique_depuis`.
 - Variables d'environnement à laisser **vides** dans le panneau Coolify :
   `OUROULER_DEPART_NOM`, `OUROULER_DEPART_LATITUDE`,
@@ -75,20 +74,12 @@ Les noms exacts, lus par le code (`src/ourouler/api/depots.py:SECTIONS_PERSO_PUR
   `OUROULER_INTERVALS_ATHLETE_ID` (les cinq déjà nommées, sans valeur,
   dans `docker-compose.api.coolify.yml`).
 
-Reconstruire `OUROULER_CONFIG_TOML_B64` sur macOS, à partir du modèle du
-dépôt, en retirant `[cycliste]` et `[[velos]]` :
+`OUROULER_CONFIG_TOML_B64` s'obtient donc directement depuis le modèle du
+dépôt, sans retouche :
 
 ```bash
-awk '/^\[cycliste\]/{skip=1} /^\[meteo\]/{skip=0} !skip' \
-  deploiement/api/config.example.toml > /tmp/config-heberge.toml
-base64 -i /tmp/config-heberge.toml
+base64 -i deploiement/api/config.heberge.example.toml
 ```
-
-(Vérifier le résultat à l'œil avant de coller : `[cycliste]` et `[[velos]]`
-doivent avoir disparu, `[meteo]` et la suite doivent rester intacts — la
-commande `awk` ci-dessus suppose que `[meteo]` suit directement `[[velos]]`
-dans le fichier, comme c'est le cas aujourd'hui ; si l'ordre des sections
-change, l'éditer à la main plutôt que faire confiance à `awk`.)
 
 **Ce qui arrive si une de ces variables ou sections est oubliée** : l'API
 refuse de démarrer, avec un message qui nomme précisément ce qui est en
@@ -158,7 +149,7 @@ un courriel texte simple, sujet « Invitation à où rouler », qui dit qui
 invite (si l'exploitant a renseigné son prénom/nom dans son propre
 `config.toml` — absent d'un TOML hébergé, donc « Vous êtes invité·e » en
 pratique) ou « Vous êtes invité·e » sinon, le lien
-`<url_publique>/entrer?jeton=<jeton>`, et l'échéance au format `JJ/MM/AAAA`.
+`<url_publique>/entrer?jeton=<jeton>`, et l'échéance au format JJ/MM/AAAA.
 
 **Le lien s'affiche toujours en sortie de commande**, courriel envoyé ou
 non — pour que l'exploitant puisse le relire et le renvoyer par un autre
@@ -308,7 +299,7 @@ l'API (`src/ourouler/api/routes/moi.py`) :
 
 - **Export** — bouton « Export ZIP », qui pointe vers `GET /moi/export` :
   toutes ses données personnelles dans une archive ZIP non compressée, avec
-  un `LISEZ-MOI.txt` à la racine qui dit ce qu'est chaque entrée.
+  un fichier *LISEZ-MOI.txt* à la racine qui dit ce qu'est chaque entrée.
 - **Changer de mot de passe** — formulaire (mot de passe actuel + nouveau),
   `POST /moi/mot-de-passe`. Ne ferme pas les autres sessions ouvertes de ce
   compte (contrairement à `reinitialiser` ci-dessous).
@@ -413,7 +404,7 @@ docker exec api-<identifiant>-<...> \
 `src/ourouler/api/vie_privee.py`, `src/ourouler/api/erreurs.py`,
 `src/ourouler/api/calibrations.py`,
 `src/ourouler/activites/import_archive.py`, `docker-compose.api.coolify.yml`,
-`deploiement/api/README.md`, `deploiement/api/config.example.toml`,
+`deploiement/api/README.md`, `deploiement/api/config.heberge.example.toml`,
 `service.example.toml`, `src/ourouler/config.py` (`charger`/`depuis_dict`,
 paramètre `requiert_profil`), `docs/journal/questions/questions_mainteneur.md`,
 `front/src/ecrans/Assistant.tsx`, `front/src/ecrans/Importer.tsx`,
