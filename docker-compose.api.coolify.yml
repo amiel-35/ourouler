@@ -102,6 +102,11 @@ services:
       # météo servie est celle de 11:00 à Paris l'été. Pansement : le vrai
       # correctif passe un fuseau explicite au cœur.
       - TZ=Europe/Paris
+      # Quel chemin l'API prend pour appeler le cœur (voir docs/retour_arriere.md
+      # et api/exploitation.py) : vide ou absent = le défaut, `ancien` ; la
+      # préproduction passe en `double` pour comparer, la production ira
+      # directement en `nouveau`. Déclarée ici, sinon Coolify ne la transmet pas.
+      - 'OUROULER_API_CHEMIN=${OUROULER_API_CHEMIN:-}'
       # **Les cinq variables suivantes ne valent qu'en OUROULER_MODE=personnel**
       # (Q35, tiers 3 — « perso pur, jamais hérité », tranché le 17/09/2026 ;
       # fuite fermée le 21/09/2026, voir deploiement/api/README.md). En
