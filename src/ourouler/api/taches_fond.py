@@ -21,7 +21,7 @@ second demandeur reçoit un refus lisible et sait qu'il peut réessayer.
 `calcul_en_cours`) : une calibration qui tiendrait celui-là bloquerait toutes
 les générations de boucles pendant des minutes. Une tâche de fond n'écrit
 donc **jamais** sur la sortie standard — c'est ce que ce verrou-là protège —
-et appelle le cœur par une fonction qui rend un objet (`physique.commande.calibrer_velo`,
+et appelle le cœur par une fonction qui rend un objet (`services.calibrer.calibrer_velo`,
 `activites.import_archive.importer`), jamais par une commande qui imprime.
 
 **Cloisonné par propriétaire.** `Job.proprietaire` porte l'identité de qui a

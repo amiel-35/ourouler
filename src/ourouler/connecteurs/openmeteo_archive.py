@@ -29,7 +29,6 @@ import sqlite3
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -37,6 +36,10 @@ from typing import Any
 import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+
+# Le type d'une heure d'archive est au noyau depuis le lot 8 (le calcul de
+# calibration le lit sans importer ce connecteur) ; réexporté ici.
+from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
 
 BASE_URL_DEFAUT = "https://archive-api.open-meteo.com"
@@ -71,17 +74,6 @@ CREATE TABLE IF NOT EXISTS archive (
     PRIMARY KEY (proprietaire, lat, lon, jour)
 );
 """
-
-
-@dataclass(frozen=True)
-class HeureArchive:
-    """Une heure d'archive en un point. Toute valeur peut manquer (`null` côté API)."""
-
-    t: datetime  # UTC
-    vent_kmh: float | None
-    vent_depuis_deg: float | None
-    temp_c: float | None
-    pression_hpa: float | None
 
 
 def arrondir(valeur: float, pas: float = ARRONDI_DEG) -> float:

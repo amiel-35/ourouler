@@ -17,7 +17,7 @@ ligne de commande, et aucun écran des maquettes ne les demande.
 **`calibrer` l'est depuis L9.4** (`POST /calibrations`,
 `docs/journal/sprints/sprint9_contrat.md`) : un compte hébergé avec capteur calibre son vélo
 sans la ligne de commande du mainteneur. Même calcul
-(`physique.commande.calibrer_velo`), en tâche de fond comme l'import
+(`services.calibrer.calibrer_velo`), en tâche de fond comme l'import
 (`api/taches_fond.py`, un seul calcul lourd à la fois), et écrit dans le
 dossier **du compte** — jamais dans le fichier de calibration du cache du
 serveur (`_config`, `api/calibrations.py`).

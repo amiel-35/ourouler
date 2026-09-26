@@ -102,11 +102,11 @@ from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m  # noqa: E402
 from ourouler.physique.calibration import (  # noqa: E402
     echantillonner,
-    masse_totale_kg,
     puissance_moyenne_en_mouvement,
     trace_depuis_activite,
 )
 from ourouler.physique.commande import velo_demande  # noqa: E402
+from ourouler.services.calibrer import masse_totale_kg  # noqa: E402
 
 #: Taille de la maille du projet, en degrés inversés : `cle_maille` multiplie
 #: par 3000, donc une maille vaut 1/3000 de degré, ~30 m de côté. Recopié ici

@@ -2,9 +2,10 @@
 
 La chaîne, en cinq temps :
 
-1. `sorties_calibrables` choisit les sorties exploitables (extérieur, avec
-   puissance, ≥ 20 km, nom sans mot de groupe, et — quand elle peut relire les
-   fichiers — sans mélange de sports dans le même enregistrement) ;
+1. `services.calibrer.sorties_calibrables` choisit les sorties exploitables
+   (extérieur, avec puissance, ≥ 20 km, nom sans mot de groupe, et — quand
+   elle peut relire les fichiers — sans mélange de sports dans le même
+   enregistrement, `motif_multisport`) ;
 2. `echantillonner` découpe chaque sortie en tronçons d'environ 200 m et note,
    pour chacun, vitesse (moyenne et aux deux bouts), puissance, pente, vent de
    face et masse volumique de l'air — puis marque ceux qu'on garde et
@@ -22,6 +23,12 @@ La chaîne, en cinq temps :
 
 Le tout deux fois (`calibrer_en_deux_passes`) : la première passe sert à
 trouver les sorties en groupe, la seconde à calibrer sans elles.
+
+**Ce module ne fait que calculer** (lot 8, `docs/ouverture_plan.md` §2) : il
+reçoit des activités déjà lues, l'archive météo déjà obtenue
+(`noyau.meteo.HeureArchive`), une masse et des options. Choisir et lire les
+sorties — l'index du cache, le rattachement aux vélos, l'archive, la
+configuration — est le cas d'usage `services.calibrer`.
 
 Ce que le modèle ne sait pas, et qu'il faut lire avec le rapport : il ignore
 les arrêts (le temps rendu est un temps **en mouvement**) et il ne connaît du
@@ -65,17 +72,14 @@ import math
 import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import NamedTuple
 
 import numpy as np
 
-from ourouler.activites.cache import Cache, EntreeCache
-from ourouler.activites.inventaire import en_interieur, rattachement_explicite, rattacher_velo
-from ourouler.config import Config
-from ourouler.connecteurs.openmeteo_archive import HeureArchive
 from ourouler.noyau.activite import Activite, Point, est_sport_velo
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.profil import Velo
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
 from ourouler.physique.modele import (
@@ -176,11 +180,6 @@ MOTIF_RETENU = ""
 #: triathlon, un enregistrement coupé en plusieurs sessions, un fichier dont le
 #: sport déclaré n'est pas cycliste (Q10 du mainteneur).
 MOTIF_MULTISPORT = "multisport"
-
-#: Date de repli pour trier une entrée sans horodatage — avant tout le reste,
-#: et consciente du fuseau, sinon la comparaison échoue sur un mélange de
-#: dates naïves et datées.
-_JAMAIS = datetime.min.replace(tzinfo=UTC)
 
 
 # --- échantillons -------------------------------------------------------------
@@ -1409,57 +1408,20 @@ def mesurer_porte_a_porte(
     return mesure
 
 
-# --- choix des sorties --------------------------------------------------------
+# --- masse et fichiers multisport -------------------------------------------
 
 
-def masse_totale_kg(config: Config, velo: Velo) -> float:
+def masse_totale(masse_cycliste_kg: float, velo: Velo) -> float:
     """Cycliste + vélo. Un vélo sans masse déclarée pèse `MASSE_VELO_DEFAUT_KG`.
 
     Le mainteneur l'a dit : « une masse approximative par vélo suffit, 1 kg
-    sur 100 kg fait 1 % en montée et rien sur le plat ».
+    sur 100 kg fait 1 % en montée et rien sur le plat ». La masse du cycliste
+    est reçue : c'est `services.calibrer.masse_totale_kg` qui la lit dans le
+    profil (lot 8).
     """
-    return config.cycliste.masse_kg + (
+    return masse_cycliste_kg + (
         velo.masse_kg if velo.masse_kg is not None else MASSE_VELO_DEFAUT_KG
     )
-
-
-#: Le motif d'une sortie qu'on ne sait pas attribuer, en rattachement strict.
-MOTIF_VELO_NON_IDENTIFIE = "vélo non identifié"
-
-
-def motif_exclusion(
-    entree: EntreeCache, config: Config, velo: Velo, *, strict: bool = False
-) -> str | None:
-    """Pourquoi cette sortie n'est pas calibrable, ou `None` si elle l'est.
-
-    Rendre le motif, et pas seulement un booléen, permet à la commande de dire
-    « 102 calibrables, 8 trop courtes, 2 en groupe » au lieu d'un nombre nu.
-
-    `strict` (L9.4, calibration depuis l'écran) : quand le profil a plusieurs
-    vélos, une sortie qui ne désigne aucun vélo elle-même (ni capteur, ni
-    équipement, ni période — `rattachement_explicite`) n'est plus créditée au
-    premier vélo de route : elle est écartée, motif `MOTIF_VELO_NON_IDENTIFIE`,
-    et comptée **pour chaque vélo**, pour que l'écran dise combien de sorties
-    attendent d'être rattachées. Avec un seul vélo, rien ne change : toutes
-    ses sorties sont les siennes.
-    """
-    if not est_sport_velo(entree.sport):
-        return "pas du vélo"
-    if en_interieur(entree):
-        return "home-trainer"
-    if strict and len(config.velos) > 1 and rattachement_explicite(entree, config) is None:
-        return MOTIF_VELO_NON_IDENTIFIE
-    if rattacher_velo(entree, config) != velo.nom:
-        return "autre vélo"
-    if entree.puissance_moy_w is None:
-        return "sans puissance"
-    if (entree.distance_m or 0.0) < DISTANCE_MINIMALE_M:
-        return "moins de 20 km"
-    nom = str(entree.meta.get("nom") or "").casefold()
-    for mot in config.calibration.mots_groupe:
-        if mot and mot in nom:
-            return f"nom « {mot} »"
-    return None
 
 
 def motif_multisport(activite: Activite | None) -> str | None:
@@ -1474,7 +1436,8 @@ def motif_multisport(activite: Activite | None) -> str | None:
       encore la clé le dit quand même) ;
     - le sport **du fichier** n'est pas cycliste.
 
-    Ce dernier point ne fait pas doublon avec `motif_exclusion`, qui regarde le
+    Ce dernier point ne fait pas doublon avec `services.calibrer.motif_exclusion`,
+    qui regarde le
     sport de l'**index** : celui-ci vient d'Intervals, qui annonce « Ride »
     pour le segment vélo d'un triathlon alors que le FIT d'origine, partagé
     entre les trois segments, contient aussi la natation et la course. Relu
@@ -1496,56 +1459,6 @@ def motif_multisport(activite: Activite | None) -> str | None:
     if not est_sport_velo(activite.sport):
         return MOTIF_MULTISPORT
     return None
-
-
-def sorties_calibrables_et_motifs(
-    cache: Cache,
-    config: Config,
-    velo: Velo,
-    *,
-    depuis: date | None = None,
-    relire: Callable[[str], Activite | None] | None = None,
-    strict: bool = False,
-) -> tuple[list[EntreeCache], dict[str, int]]:
-    """(sorties utilisables, décompte des sorties **de ce vélo** écartées et pourquoi).
-
-    `relire` est le seul moyen d'atteindre le contenu d'un fichier : l'index ne
-    dit pas combien de sessions il porte. Il n'est appelé que sur les sorties
-    qui ont déjà passé tous les filtres à bon marché, donc jamais sur les
-    footings ni sur les sorties de l'autre vélo. Sans lui, la fonction se
-    comporte exactement comme avant : le motif « multisport » n'existe pas.
-
-    Les motifs « pas du vélo », « autre vélo » et « home-trainer » ne sont pas
-    comptés : ils décrivent le reste du cache, pas ce que ce vélo a perdu.
-    """
-    depuis = depuis if depuis is not None else config.historique_depuis
-    hors_sujet = ("pas du vélo", "autre vélo", "home-trainer")
-    retenues: list[EntreeCache] = []
-    motifs: dict[str, int] = {}
-    for entree in cache.lister(depuis=depuis):
-        motif = motif_exclusion(entree, config, velo, strict=strict)
-        if motif is None and relire is not None:
-            motif = motif_multisport(relire(entree.identifiant))
-        if motif is None:
-            retenues.append(entree)
-        elif motif not in hors_sujet:
-            motifs[motif] = motifs.get(motif, 0) + 1
-    retenues.sort(key=lambda e: (e.debut or _JAMAIS, e.identifiant))
-    return (retenues, motifs)
-
-
-def sorties_calibrables(
-    cache: Cache,
-    config: Config,
-    velo: Velo,
-    *,
-    depuis: date | None = None,
-    relire: Callable[[str], Activite | None] | None = None,
-) -> list[EntreeCache]:
-    """Les sorties utilisables pour calibrer ce vélo, de la plus ancienne à la plus récente."""
-    return sorties_calibrables_et_motifs(
-        cache, config, velo, depuis=depuis, relire=relire
-    )[0]
 
 
 # --- les deux passes ----------------------------------------------------------

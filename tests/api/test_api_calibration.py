@@ -42,6 +42,7 @@ from ourouler.api.routes import Clients  # noqa: E402
 from ourouler.api.session import MODE_HEBERGE  # noqa: E402
 from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
 from ourouler.physique import commande as physique  # noqa: E402
+from ourouler.services import calibrer  # noqa: E402
 
 PREFIXE = "/api/v1"
 A = "essai-calib-a"
@@ -384,7 +385,7 @@ def test_une_calibration_qui_echoue_rend_son_credit_et_le_dit_sans_chemin(
     def _casse(*args, **kwargs):
         raise ErreurUtilisateur(f"calibration : panne fabriquée dans {cache_serveur}/brut")
 
-    monkeypatch.setattr(physique, "calibrer_velo", _casse)
+    monkeypatch.setattr(calibrer, "calibrer_velo", _casse)
     fini = _calibrer(client, A)
     assert fini["statut"] == "echoue"
     assert "panne fabriquée" in fini["erreur"]

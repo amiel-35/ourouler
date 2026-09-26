@@ -34,13 +34,9 @@ from ourouler.physique.calibration import (
     calibrer_en_deux_passes,
     detecter_groupe,
     echantillonner,
-    masse_totale_kg,
-    motif_exclusion,
     motif_multisport,
     partager,
     puissance_moyenne_en_mouvement,
-    sorties_calibrables,
-    sorties_calibrables_et_motifs,
     temps_mouvement_s,
     valider,
 )
@@ -50,6 +46,12 @@ from ourouler.physique.modele import (
     puissance_requise,
     vent_au_cycliste,
     vitesse_regime,
+)
+from ourouler.services.calibrer import (
+    masse_totale_kg,
+    motif_exclusion,
+    sorties_calibrables,
+    sorties_calibrables_et_motifs,
 )
 
 MASSE = 100.0

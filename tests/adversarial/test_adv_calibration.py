@@ -61,6 +61,11 @@ def _module():
     return pytest.importorskip("ourouler.physique.calibration", reason=MOTIF_ABSENT)
 
 
+def _selection():
+    """Le choix des sorties : sorti de `physique.calibration` au lot 8 (cas d'usage)."""
+    return pytest.importorskip("ourouler.services.calibrer", reason=MOTIF_ABSENT)
+
+
 def _modele():
     return pytest.importorskip("ourouler.physique.modele", reason=MOTIF_MODELE)
 
@@ -616,7 +621,7 @@ def _cache(tmp_path):
 
 
 def test_sorties_calibrables_sur_un_cache_vide(tmp_path):
-    module = _module()
+    module = _selection()
     config = _config(tmp_path)
     resultat, _ = robuste(
         lambda: module.sorties_calibrables(_cache(tmp_path), config, config.velos[0]),
@@ -628,7 +633,7 @@ def test_sorties_calibrables_sur_un_cache_vide(tmp_path):
 
 def test_sorties_calibrables_ecarte_le_home_trainer_et_les_sorties_de_groupe(tmp_path, generateur):
     """Contrat §3 : « extérieur, puissance présente, ≥ 20 km, hors mots_groupe »."""
-    module = _module()
+    module = _selection()
     config = _config(tmp_path)
     cache = _cache(tmp_path)
     # Des longueurs toutes différentes : le cache range un fichier brut par
@@ -686,7 +691,7 @@ def test_sorties_calibrables_ecarte_le_home_trainer_et_les_sorties_de_groupe(tmp
 
 def test_sorties_calibrables_respecte_les_mots_de_groupe_configures(tmp_path, generateur):
     """`mots_groupe` est un paramètre de configuration, pas une constante du code."""
-    module = _module()
+    module = _selection()
     config = _config(tmp_path, mots_groupe=("cyclosportive",))
     cache = _cache(tmp_path)
     cache.ajouter(
@@ -722,7 +727,7 @@ def test_sorties_calibrables_respecte_les_mots_de_groupe_configures(tmp_path, ge
 
 def test_sorties_calibrables_respecte_la_date_de_depart(tmp_path, generateur):
     """`depuis` : un historique tronqué ne doit pas ramener des sorties antérieures."""
-    module = _module()
+    module = _selection()
     if "depuis" not in inspect.signature(module.sorties_calibrables).parameters:
         pytest.skip("sorties_calibrables ne prend pas de date de départ (contrat §3 muet)")
     config = _config(tmp_path)
