@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from ourouler.apprentissage.commande import NOM_BASE, NOM_POIDS
+from ourouler.apprentissage.commande import NOM_POIDS, base_routes_existante
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids, points_de_passage_depuis_coordonnees
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
@@ -263,7 +263,7 @@ def executer(
     # Le modèle est construit **avant** la météo : c'est lui qui dit à quelle
     # vitesse le cycliste passera, donc à quelle heure interroger la prévision.
     poids = lire_poids(contexte.dossier_cache / NOM_POIDS)
-    base_routes = base_routes if base_routes is not None else _base_routes(contexte.dossier_cache)
+    base_routes = base_routes if base_routes is not None else base_routes_existante(contexte.dossier_cache)
     modele = _modele_temps(demande, contexte)
     # Le bloc « compteur » (18/09/2026) : la troisième valeur de l'écran de
     # FTP, déléguée à `ecran_ftp.info_compteur` — jamais recalculée ici. Il
@@ -452,22 +452,6 @@ def _greffer_tags_sur_gpx(
     if denivele is not None:
         trace_gpx.denivele_m = denivele
         trace_gpx.meta["denivele_source"] = DENIVELE_REROUTE
-
-
-def _base_routes(dossier_cache: Path) -> BaseRoutes | None:
-    """La base des routes connues si elle existe déjà, sinon `None`.
-
-    On ne la **crée** pas au passage : `ourouler boucle` n'a pas à fabriquer
-    un fichier vide dans le cache pour afficher une colonne informative. Une
-    base illisible ne fait pas non plus perdre la boucle — on s'en passe.
-    """
-    chemin = dossier_cache / NOM_BASE
-    if not chemin.is_file():
-        return None
-    try:
-        return BaseRoutes(chemin)
-    except ErreurUtilisateur:
-        return None
 
 
 def _modele_temps(demande: Demande, contexte: Contexte) -> ModeleTemps | None:

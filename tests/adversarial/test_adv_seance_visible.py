@@ -73,6 +73,8 @@ import fabriques_l52 as fab
 import pytest
 from outils import fabriquer
 
+from ourouler.noyau.texte import nombre_fr
+
 MOTIF_CARTE = "module du sprint 4 absent (ourouler.rendu.carte)"
 MOTIF_SORTIE = "module du sprint 4 absent (ourouler.sortie.commande)"
 
@@ -1020,8 +1022,8 @@ def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
 
     vues = []
     for e in resultat.emplacements:
-        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
-        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = nombre_fr(e.debut_m / 1000.0, 1)
+        fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         portantes = [ligne for ligne in lignes if debut in ligne and fin in ligne]
         assert portantes, (
             f"étape {e.etape_idx} ({seance.etapes[e.etape_idx].type}) : aucune ligne ne "
@@ -1053,8 +1055,8 @@ def test_la_colonne_de_note_reste_vide_pour_les_non_blocs(monkeypatch):
 
     lignes_etapes = []
     for e in resultat.emplacements:
-        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
-        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = nombre_fr(e.debut_m / 1000.0, 1)
+        fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         lignes_etapes.append(
             (e, next(ligne for ligne in lignes if debut in ligne and fin in ligne))
         )
@@ -1088,8 +1090,8 @@ def test_l_affichage_d_une_seance_tres_longue_reste_coherent(monkeypatch):
     lignes = _lignes_seance(commande, _proposition(commande, resultat, trace), seance)
     texte = "\n".join(lignes)
     for e in resultat.emplacements:
-        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
-        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = nombre_fr(e.debut_m / 1000.0, 1)
+        fin = nombre_fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         assert any(debut in ligne and fin in ligne for ligne in lignes), (
             f"étape {e.etape_idx} absente de l'affichage d'une séance à 31 étapes"
         )

@@ -19,13 +19,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ourouler.boucle.commande import TAGS_PROVENANCE_RAPPROCHEMENT, Demande, Evaluation, ModeleTemps
+from ourouler.boucle.horaire import duree_pauses_s
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.meteo import portee
 from ourouler.meteo.rapport import date_en_francais
+from ourouler.noyau.texte import duree_h_min, nombre_fr
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import PorteAPorte
 from ourouler.rendu.boucle_json import (
-    _duree_pauses_s,
     _meteo_rendue,
     porte_a_porte,
 )
@@ -158,7 +159,7 @@ def rendre_texte(
     non_classes = _non_classes_signales(evaluations)
     if non_classes:
         lignes.append(
-            f"{_fr(non_classes, 1)} km sur des routes non classées (ni trafic ni calme) : "
+            f"{nombre_fr(non_classes, 1)} km sur des routes non classées (ni trafic ni calme) : "
             "« trafic » et « calme » ne couvrent pas tout le tracé."
         )
     ignores = sum(int(e.trace.meta.get("segments_ignores") or 0) for e in evaluations)
@@ -207,12 +208,12 @@ def lignes_elargissement(evaluations, distance_km: float | None) -> list[str]:
     palier_max = max(e.elargissement or 0.0 for e in elargies)
     numeros = ", ".join(f"n° {e.numero}" for e in elargies)
     lignes = [
-        f"Aucune boucle à ±{tolerance:.0%} de {_fr(distance_km, 0)} km : la tolérance a été "
+        f"Aucune boucle à ±{tolerance:.0%} de {nombre_fr(distance_km, 0)} km : la tolérance a été "
         f"élargie de {palier_max:.0%}, soit ±{tolerance + palier_max:.0%} ({numeros})."
     ]
     for e in elargies:
         lignes.append(
-            f"    n° {e.numero} : {_fr(e.trace.distance_m / 1000, 1)} km, "
+            f"    n° {e.numero} : {nombre_fr(e.trace.distance_m / 1000, 1)} km, "
             f"{e.ecart_relatif:+.0%} de la distance demandée."
         )
     return lignes
@@ -303,7 +304,7 @@ def _ligne_rapprochement_tags(evaluations: list[Evaluation]) -> str | None:
     km_sans_tag = sum(float(e.trace.meta.get("tags_km_sans_tag") or 0.0) for e in greffees)
     return (
         f"Tags de route rapprochés du tracé rerouté par BRouter (seuil {seuil:g} m) : "
-        f"{_fr(km_sans_tag, 1)} km n'ont trouvé aucun tronçon assez proche, comptés en "
+        f"{nombre_fr(km_sans_tag, 1)} km n'ont trouvé aucun tronçon assez proche, comptés en "
         "routes non classées."
     )
 
@@ -480,7 +481,7 @@ def _classes_citees(
             if classe:
                 km_par_classe[classe] = km_par_classe.get(classe, 0.0) + km
     classes = sorted(km_par_classe.items(), key=lambda kv: (-kv[1], kv[0]))[:nombre]
-    return ", ".join(f"{classe} {_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
+    return ", ".join(f"{classe} {nombre_fr(poids.get(classe, 0.0), 1)}" for classe, _ in classes)
 
 
 def _cellules(
@@ -490,15 +491,15 @@ def _cellules(
     partiels = bool(evaluation.trace.meta.get("couts_partiels"))
     cellules = [
         str(evaluation.numero),
-        f"{_fr(evaluation.trace.distance_m / 1000, 1)} km",
+        f"{nombre_fr(evaluation.trace.distance_m / 1000, 1)} km",
         _denivele(evaluation.trace),
         _temps(evaluation, config, compteur_info),
-        ABSENT if partiels else f"{_fr(couts.km_trafic, 1)} km",
-        ABSENT if partiels else f"{_fr(couts.km_non_revetu, 1)} km",
+        ABSENT if partiels else f"{nombre_fr(couts.km_trafic, 1)} km",
+        ABSENT if partiels else f"{nombre_fr(couts.km_non_revetu, 1)} km",
     ]
     if "cout" in presentes:
         cellules.append(
-            _fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT
+            nombre_fr(couts.cout_km_moyen, 0) if couts.cout_km_moyen is not None else ABSENT
         )
     cellules += [
         f"{couts.virages_gauche} ({couts.virages_gauche_trafic})",
@@ -518,9 +519,13 @@ def _cellules(
         )
     if "meteo" in presentes:
         cellules += [
-            f"{_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
+            f"{nombre_fr(meteo.pluie_cumulee_mm, 1)} mm" if meteo else ABSENT,
             _vent_face(meteo),
-            f"{_fr(meteo.ressenti_min_c, 1)} °C" if meteo and meteo.ressenti_min_c is not None else ABSENT,
+            (
+                f"{nombre_fr(meteo.ressenti_min_c, 1)} °C"
+                if meteo and meteo.ressenti_min_c is not None
+                else ABSENT
+            ),
         ]
     return cellules
 
@@ -573,7 +578,7 @@ def _temps_ecoule_s(
     La médiane de la fourchette du vélo (`porte_a_porte`) quand un vélo en
     donne une ; à défaut, le temps en mouvement tel quel. `None` si même
     celui-ci manque. Les pauses s'ajoutent par-dessus, ailleurs
-    (`_duree_pauses_s` + ce résultat) : la fourchette ne les connaît pas, et
+    (`duree_pauses_s` + ce résultat) : la fourchette ne les connaît pas, et
     ne doit pas les connaître — les compter ici *et* les ajouter ensuite les
     compterait deux fois.
     """
@@ -597,7 +602,7 @@ def _heure_arrivee(
     ecoule_s = _temps_ecoule_s(evaluation, config, compteur_info)
     if ecoule_s is None:
         return None
-    return demande.depart + timedelta(seconds=ecoule_s + _duree_pauses_s(demande.pauses))
+    return demande.depart + timedelta(seconds=ecoule_s + duree_pauses_s(demande.pauses))
 
 
 def _ligne_pauses(
@@ -616,7 +621,7 @@ def _ligne_pauses(
     if not demande.pauses:
         return None
     retenue = evaluations[0]
-    total_texte = _duree_texte(_duree_pauses_s(demande.pauses))
+    total_texte = duree_h_min(duree_pauses_s(demande.pauses))
     n = len(demande.pauses)
     arrivee = _heure_arrivee(retenue, demande, config, compteur_info)
     if arrivee is None:
@@ -646,9 +651,9 @@ def _temps(evaluation: Evaluation, config: Config, compteur_info: dict | None = 
     if mouvement_s is None:
         return ABSENT
     if compteur_info is None:
-        return _duree_texte(mouvement_s)
+        return duree_h_min(mouvement_s)
     pp = porte_a_porte(mouvement_s, compteur_info)
-    return f"{_duree_texte(pp.bas_s)}-{_duree_texte(pp.haut_s)} / {_duree_texte(mouvement_s)}"
+    return f"{duree_h_min(pp.bas_s)}-{duree_h_min(pp.haut_s)} / {duree_h_min(mouvement_s)}"
 
 
 def texte_entre(pp: PorteAPorte) -> str:
@@ -700,17 +705,9 @@ def ligne_temps_ecoule(compteur_info: dict) -> str:
     brut = compteur_info["porte_a_porte"]
     return (
         "Temps affiché : porte à porte, arrêts compris / sans un seul arrêt — le porte "
-        f"à porte est le temps sans arrêt × {_fr(brut['bas'], 2)} à × {_fr(brut['haut'], 2)} "
+        f"à porte est le temps sans arrêt × {nombre_fr(brut['bas'], 2)} à × {nombre_fr(brut['haut'], 2)} "
         f"({provenance_fourchette(compteur_info)}) : la moitié des sorties tombe dans "
         "cette fourchette."
     )
 
 
-def _duree_texte(secondes: float) -> str:
-    minutes = round(secondes / 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"
-
-
-def _fr(valeur: float, decimales: int) -> str:
-    """Un nombre à la française : virgule décimale, pas de séparateur de milliers."""
-    return f"{valeur:.{decimales}f}".replace(".", ",")

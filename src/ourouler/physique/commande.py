@@ -25,7 +25,7 @@ from pathlib import Path
 
 from ourouler.activites.cache import Cache
 from ourouler.boucle.gpx import lire_gpx_parcours, lire_gpx_trace
-from ourouler.boucle.horaire import Pause, construire_horaire, valider_pauses
+from ourouler.boucle.horaire import Pause, construire_horaire, duree_pauses_s, valider_pauses
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.boucle.meteo_trace import evaluer as evaluer_meteo
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
@@ -313,7 +313,7 @@ def executer_simuler(
 
     simulation = simuler(trace, float(puissance), parametres, vent=vent)
     arrivee = (
-        depart_dt + timedelta(seconds=simulation.temps_s + _duree_pauses_s(pauses))
+        depart_dt + timedelta(seconds=simulation.temps_s + duree_pauses_s(pauses))
         if depart_dt is not None
         else None
     )
@@ -331,10 +331,6 @@ def executer_simuler(
         arrivee=arrivee,
         alerte=alerte,
     )
-
-
-def _duree_pauses_s(pauses: Sequence[Pause]) -> float:
-    return sum(p.duree_s for p in pauses)
 
 
 def vent_prevu(

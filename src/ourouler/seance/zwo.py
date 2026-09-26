@@ -53,12 +53,17 @@ from __future__ import annotations
 import math
 import xml.etree.ElementTree as ET
 from datetime import date
-from pathlib import Path
 
 from ourouler.noyau.erreurs import ErreurLecture
+from ourouler.noyau.lecture import Entree, lire_octets
 from ourouler.noyau.seance import Etape, Seance
-
-Entree = Path | str | bytes | bytearray
+from ourouler.seance.lecture_commune import (
+    joindre,
+    marquer_elastiques,
+    nombre_court,
+    retyper,
+    type_par_position,
+)
 
 #: Balises de bloc reconnues sous `<workout>`, traduites en étapes.
 BALISES_CONNUES = ("SteadyState", "Warmup", "Cooldown", "Ramp", "IntervalsT", "FreeRide")
@@ -87,7 +92,7 @@ def lire_zwo(
     pas de date propre, c'est l'appelant (la commande) qui sait pour quel
     jour elle est importée.
     """
-    contenu, fichier = _octets(source)
+    contenu, fichier = lire_octets(source)
     try:
         racine = ET.fromstring(contenu)
     except ET.ParseError as e:
@@ -107,7 +112,7 @@ def lire_zwo(
     etapes = _reclasser_sans_consigne(
         [e for e, _, _ in paires], [d for _, d, _ in paires], [s for _, _, s in paires]
     )
-    etapes = _marquer_elastiques(etapes)
+    etapes = marquer_elastiques(etapes)
 
     meta: dict = {"source": "zwo", "ftp_w": ftp_w}
     if ftp_w is not None:
@@ -230,7 +235,7 @@ def _intervalles(
                         duree_s=duree,
                         puissance_min_w=bas_w,
                         puissance_max_w=haut_w,
-                        libelle=_joindre(f"{tour}/{reps}", _libelle(pct, pct)),
+                        libelle=joindre(f"{tour}/{reps}", _libelle(pct, pct)),
                     ),
                     False,
                     pct is None,
@@ -260,49 +265,8 @@ def _reclasser_sans_consigne(
     ):
         if not defaut or not sans_consigne:
             continue
-        sortie[indice] = _retyper(etape, _type_par_position(indice, total))
+        sortie[indice] = retyper(etape, type_par_position(indice, total))
     return sortie
-
-
-def _type_par_position(indice: int, total: int) -> str:
-    if indice == 0:
-        return "echauffement"
-    if indice == total - 1:
-        return "calme"
-    return "recuperation"
-
-
-def _retyper(etape: Etape, type_: str) -> Etape:
-    return Etape(
-        type=type_,
-        duree_s=etape.duree_s,
-        puissance_min_w=etape.puissance_min_w,
-        puissance_max_w=etape.puissance_max_w,
-        libelle=etape.libelle,
-    )
-
-
-def _marquer_elastiques(etapes: list[Etape]) -> list[Etape]:
-    """Élastiques : la première étape si elle échauffe, la dernière si elle calme."""
-    if not etapes:
-        return etapes
-    sortie = list(etapes)
-    if sortie[0].type == "echauffement":
-        sortie[0] = _elastique(sortie[0])
-    if sortie[-1].type == "calme":
-        sortie[-1] = _elastique(sortie[-1])
-    return sortie
-
-
-def _elastique(etape: Etape) -> Etape:
-    return Etape(
-        type=etape.type,
-        duree_s=etape.duree_s,
-        puissance_min_w=etape.puissance_min_w,
-        puissance_max_w=etape.puissance_max_w,
-        libelle=etape.libelle,
-        elastique=True,
-    )
 
 
 # --- puissance ------------------------------------------------------------------
@@ -341,35 +305,11 @@ def _libelle(bas_pct: float | None, haut_pct: float | None) -> str:
     if bas_pct is None and haut_pct is None:
         return "libre"
     if bas_pct == haut_pct:
-        return f"{_court(bas_pct * 100)}% FTP"
-    return f"{_court(bas_pct * 100)}-{_court(haut_pct * 100)}% FTP"
-
-
-def _court(valeur: float) -> str:
-    return f"{valeur:g}"
-
-
-def _joindre(*morceaux: str) -> str:
-    return " · ".join(m for m in morceaux if m)
+        return f"{nombre_court(bas_pct * 100)}% FTP"
+    return f"{nombre_court(bas_pct * 100)}-{nombre_court(haut_pct * 100)}% FTP"
 
 
 # --- petits utilitaires ---------------------------------------------------------
-
-
-def _octets(source: Entree) -> tuple[bytes, str | None]:
-    """Renvoie (contenu, chemin informatif). Lève `ErreurLecture` si vide ou illisible."""
-    if isinstance(source, bytes | bytearray):
-        contenu, fichier = bytes(source), None
-    else:
-        chemin = Path(source)
-        try:
-            contenu = chemin.read_bytes()
-        except OSError as e:
-            raise ErreurLecture(f"{chemin} : lecture impossible ({e})") from e
-        fichier = str(chemin)
-    if not contenu:
-        raise ErreurLecture(f"{fichier or '<octets>'} : fichier vide")
-    return contenu, fichier
 
 
 def _flottant(valeur: str | None) -> float | None:

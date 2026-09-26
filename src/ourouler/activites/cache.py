@@ -25,6 +25,7 @@ from ourouler.activites.lecture import EXTENSIONS, lecteur_pour
 from ourouler.noyau.activite import Activite
 from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
 from ourouler.noyau.proprietaire import PROPRIETAIRE_LOCAL
+from ourouler.noyau.sqlite import colonne_existe, table_existe
 
 NOM_INDEX = "index.sqlite"
 NOM_BRUT = "brut"
@@ -184,11 +185,11 @@ class Cache:
                 "— supprimer le fichier index.sqlite le reconstruira (les fichiers "
                 "bruts sont conservés)"
             )
-        if not _table_existe(cx, "activites"):
+        if not table_existe(cx, "activites"):
             return  # base neuve : `_SCHEMA` la crée directement au schéma courant
         if not _index_existe(cx, INDEX_IDENTITE):
             self._migrer_vers_identite(cx)  # 1 → 3, d'un coup : la table est recopiée
-        if not _colonne_existe(cx, "activites", "proprietaire"):
+        if not colonne_existe(cx, "activites", "proprietaire"):
             self._migrer_vers_proprietaire(cx)  # 2 → 3
 
     def _migrer_vers_identite(self, cx: sqlite3.Connection) -> None:
@@ -580,15 +581,6 @@ class Cache:
         )
 
 
-def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
-    return (
-        cx.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
-        ).fetchone()
-        is not None
-    )
-
-
 def _index_existe(cx: sqlite3.Connection, nom: str) -> bool:
     return (
         cx.execute(
@@ -596,11 +588,6 @@ def _index_existe(cx: sqlite3.Connection, nom: str) -> bool:
         ).fetchone()
         is not None
     )
-
-
-def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
-    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
-    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
 
 
 def _segment(proprietaire: str) -> str:

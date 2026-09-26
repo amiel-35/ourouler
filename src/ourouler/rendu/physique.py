@@ -23,6 +23,7 @@ from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.horaire import Pause
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.noyau.profil import Velo
+from ourouler.noyau.texte import duree_h_min, nombre_fr
 from ourouler.physique import litterature
 from ourouler.physique.calibration import (
     SORTIES_MIN_FOURCHETTE,
@@ -102,29 +103,29 @@ def _lignes_apprentissage(rapport: RapportCalibration, velo: Velo, crr_source: s
     lignes.append("  résistance totale sur le plat sans vent, vélo + cycliste :")
     for vitesse, force, puissance in a.resistances:
         lignes.append(
-            f"    à {vitesse:g} km/h : {_fr(force, 1)} N  —  {_fr(puissance, 0)} W au pédalier"
+            f"    à {vitesse:g} km/h : {nombre_fr(force, 1)} N  —  {nombre_fr(puissance, 0)} W au pédalier"
         )
     lignes.append(
-        f"  résidu de puissance : RMSE {_fr(a.rmse_w, 1)} W, MAE {_fr(a.mae_w, 1)} W"
+        f"  résidu de puissance : RMSE {nombre_fr(a.rmse_w, 1)} W, MAE {nombre_fr(a.mae_w, 1)} W"
     )
     if a.crr_fixe:
         # L9.1 : le Crr est reçu (pneu ou configuration), seul le CdA est
         # cherché — il se cite donc, lui, sans la réserve « mal séparé ».
         lignes.append(
-            f"  CdA {_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)} (cherché), "
-            f"Crr {_fr(a.crr, 4)} fixé ({_crr_texte(crr_source, velo)}), "
-            f"masse {_fr(a.masse_totale_kg, 1)} kg, ρ moyen {_fr(a.rho_moyen, 3)}"
+            f"  CdA {nombre_fr(a.cda_m2, 3)} m²{_incertitude(a.incertitudes.cda, 3)} (cherché), "
+            f"Crr {nombre_fr(a.crr, 4)} fixé ({_crr_texte(crr_source, velo)}), "
+            f"masse {nombre_fr(a.masse_totale_kg, 1)} kg, ρ moyen {nombre_fr(a.rho_moyen, 3)}"
         )
     else:
         lignes.append(
-            f"  détail (mal séparé, à ne pas citer seul) : CdA {_fr(a.cda_m2, 3)} m²"
-            f"{_incertitude(a.incertitudes.cda, 3)}, Crr {_fr(a.crr, 5)}"
-            f"{_incertitude(a.incertitudes.crr, 5)}, masse {_fr(a.masse_totale_kg, 1)} kg, "
-            f"ρ moyen {_fr(a.rho_moyen, 3)}"
+            f"  détail (mal séparé, à ne pas citer seul) : CdA {nombre_fr(a.cda_m2, 3)} m²"
+            f"{_incertitude(a.incertitudes.cda, 3)}, Crr {nombre_fr(a.crr, 5)}"
+            f"{_incertitude(a.incertitudes.crr, 5)}, masse {nombre_fr(a.masse_totale_kg, 1)} kg, "
+            f"ρ moyen {nombre_fr(a.rho_moyen, 3)}"
         )
     lignes.append(
-        f"  première passe (avec les sorties en groupe) : CdA {_fr(rapport.passe1.cda_m2, 3)}, "
-        f"Crr {_fr(rapport.passe1.crr, 5)}"
+        f"  première passe (avec les sorties en groupe) : CdA {nombre_fr(rapport.passe1.cda_m2, 3)}, "
+        f"Crr {nombre_fr(rapport.passe1.crr, 5)}"
     )
     if a.crr_fixe:
         lignes.append(
@@ -159,7 +160,7 @@ def _lignes_validation(rapport: RapportCalibration) -> list[str]:
         for sortie in sorted(v.sorties, key=lambda s: abs(s.erreur_relative), reverse=True):
             lignes.append(
                 f"  {sortie.jour or '?':<12}{sortie.distance_m / 1000:>7.1f}"
-                f"{_duree(sortie.temps_reel_s):>9}{_duree(sortie.temps_simule_s):>9}"
+                f"{duree_h_min(sortie.temps_reel_s):>9}{duree_h_min(sortie.temps_simule_s):>9}"
                 f"{sortie.erreur_relative * 100:>+8.1f}%  {sortie.nom[:40]}"
             )
     if rapport.groupes_en_validation:
@@ -194,16 +195,16 @@ def _lignes_porte_a_porte(mesure: MesurePorteAPorte) -> list[str]:
         ]
     bas, mediane, haut = centiles
     lignes = [
-        f"Porte à porte : temps simulé × {_fr(bas, 3)} à × {_fr(haut, 3)} "
-        f"(médiane × {_fr(mediane, 3)}), centiles 25-75 du temps écoulé réel sur le "
+        f"Porte à porte : temps simulé × {nombre_fr(bas, 3)} à × {nombre_fr(haut, 3)} "
+        f"(médiane × {nombre_fr(mediane, 3)}), centiles 25-75 du temps écoulé réel sur le "
         f"temps simulé, {mesure.n} sortie(s) de validation sur {len(mesure.sorties)} à "
         f"moins de {seuil} de signal de groupe"
     ]
     mouvement = mesure.centiles_mouvement
     if mouvement is not None:
         lignes.append(
-            f"  sur le seul temps en mouvement : × {_fr(mouvement[0], 3)} à × "
-            f"{_fr(mouvement[2], 3)} (médiane × {_fr(mouvement[1], 3)}) — l'erreur du modèle, "
+            f"  sur le seul temps en mouvement : × {nombre_fr(mouvement[0], 3)} à × "
+            f"{nombre_fr(mouvement[2], 3)} (médiane × {nombre_fr(mouvement[1], 3)}) — l'erreur du modèle, "
             "arrêts exclus"
         )
     return lignes
@@ -310,23 +311,23 @@ def rendre_texte_analyse(
     panne: str | None,
 ) -> str:
     lignes = [
-        f"Analyse de « {trace.nom} » — {_fr(trace.distance_m / 1000, 1)} km"
+        f"Analyse de « {trace.nom} » — {nombre_fr(trace.distance_m / 1000, 1)} km"
         + (f", D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else ""),
-        f"Vélo {velo.nom} — CdA {_fr(parametres.cda_m2, 3)} m², Crr {_fr(parametres.crr, 5)}, "
-        f"{_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {_fr(parametres.rho, 3)}",
+        f"Vélo {velo.nom} — CdA {nombre_fr(parametres.cda_m2, 3)} m², Crr {nombre_fr(parametres.crr, 5)}, "
+        f"{nombre_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {nombre_fr(parametres.rho, 3)}",
         f"Puissance tenue : {puissance_w:.0f} W",
         "",
     ]
     mention = MENTION_MODELE_LITTERATURE if provenance == "littérature" else MENTION_MODELE
     lignes.append(
-        f"Temps en mouvement : {_duree(simulation.temps_s)} "
-        f"({_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
+        f"Temps en mouvement : {duree_h_min(simulation.temps_s)} "
+        f"({nombre_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
     source = (
         "mesurée sur vos sorties" if ecoule.provenance == "mesure" else "convention par défaut"
     )
     lignes.append(
-        f"Porte à porte : {_duree(ecoule.bas_s)} à {_duree(ecoule.haut_s)} "
+        f"Porte à porte : {duree_h_min(ecoule.bas_s)} à {duree_h_min(ecoule.haut_s)} "
         f"({source}) — arrivée vers {arrivee_mediane.strftime('%d/%m %H:%M')}"
     )
     if panne is not None:
@@ -337,7 +338,7 @@ def rendre_texte_analyse(
         lignes.append(
             f"Vent : face sur {meteo.part_vent_face:.0%} des échantillons "
             f"({meteo.n_vent_connu}/{len(meteo.echantillons)} connus), "
-            f"pluie cumulée {_fr(meteo.pluie_cumulee_mm, 1)} mm"
+            f"pluie cumulée {nombre_fr(meteo.pluie_cumulee_mm, 1)} mm"
             + (" (sur la partie prévue)" if _debut_au_dela(meteo) is not None else "")
         )
         if meteo.repli and meteo.bascule_dist_m is not None:
@@ -505,10 +506,10 @@ def rendre_texte_simulation(
     alerte: str | None = None,
 ) -> str:
     lignes = [
-        f"Simulation de « {trace.nom} » — {_fr(simulation.distance_m / 1000, 1)} km"
+        f"Simulation de « {trace.nom} » — {nombre_fr(simulation.distance_m / 1000, 1)} km"
         + (f", D+ {trace.denivele_m:.0f} m" if trace.denivele_m is not None else ""),
-        f"Vélo {velo.nom} — CdA {_fr(parametres.cda_m2, 3)} m², Crr {_fr(parametres.crr, 5)}, "
-        f"{_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {_fr(parametres.rho, 3)}",
+        f"Vélo {velo.nom} — CdA {nombre_fr(parametres.cda_m2, 3)} m², Crr {nombre_fr(parametres.crr, 5)}, "
+        f"{nombre_fr(parametres.masse_totale_kg, 1)} kg ({provenance}), ρ {nombre_fr(parametres.rho, 3)}",
         f"Puissance tenue : {puissance_w:.0f} W",
     ]
     if meteo is not None:
@@ -519,8 +520,8 @@ def rendre_texte_simulation(
     lignes.append("")
     mention = MENTION_MODELE_LITTERATURE if provenance == "littérature" else MENTION_MODELE
     lignes.append(
-        f"Temps en mouvement : {_duree(simulation.temps_s)} "
-        f"({_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
+        f"Temps en mouvement : {duree_h_min(simulation.temps_s)} "
+        f"({nombre_fr(simulation.vitesse_moy_kmh, 1)} km/h de moyenne) {mention}"
     )
     if simulation.pas_plafonnes:
         lignes.append(
@@ -537,7 +538,7 @@ def rendre_texte_simulation(
     if pauses:
         total = sum(p.duree_s for p in pauses)
         lignes.append(
-            f"Pauses déclarées : {len(pauses)}, {_duree(total)} au total — s'ajoutent "
+            f"Pauses déclarées : {len(pauses)}, {duree_h_min(total)} au total — s'ajoutent "
             "par-dessus le temps en mouvement, pas confondues avec les arrêts ci-dessus."
         )
         if arrivee is not None:
@@ -649,13 +650,8 @@ def rendre_json_simulation(
 # --- petits rendus ------------------------------------------------------------
 
 
-def _fr(valeur: float, decimales: int) -> str:
-    """Un nombre à la française : virgule décimale."""
-    return f"{valeur:.{decimales}f}".replace(".", ",")
-
-
 def _incertitude(valeur: float | None, decimales: int) -> str:
-    return "" if valeur is None else f" ± {_fr(valeur, decimales)}"
+    return "" if valeur is None else f" ± {nombre_fr(valeur, decimales)}"
 
 
 def _pourcent(valeur: float | None, *, signe: bool = False) -> str:
@@ -665,7 +661,3 @@ def _pourcent(valeur: float | None, *, signe: bool = False) -> str:
     return texte.replace(".", ",") + " %"
 
 
-def _duree(secondes: float) -> str:
-    """« 2:14 » — heures et minutes."""
-    minutes = round(secondes / 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"

@@ -74,6 +74,7 @@ from ourouler.noyau.seance import (
     Etape,
     Seance,
 )
+from ourouler.seance.lecture_commune import joindre, marquer_elastiques, nombre_court, type_par_position
 
 #: Profondeur d'imbrication maximale des groupes. Le format n'en impose
 #: aucune ; trois niveaux ont été vus. Au-delà, on s'arrête plutôt que de
@@ -146,7 +147,7 @@ def depuis_workout_doc(
     brut = doc.get("steps") if isinstance(doc, dict) else None
     lues = _aplatir(brut, etat=etat, profondeur=0, libelle="")
     etapes, sources = _reclasser(lues, etat=etat)
-    etapes = _marquer_elastiques(etapes)
+    etapes = marquer_elastiques(etapes)
     duree_s = sum(e.duree_s for e in etapes)
     meta = etat.meta()
     meta["typage_source"] = sources
@@ -484,7 +485,7 @@ def _groupe(groupe: dict, *, etat: _Etat, profondeur: int, libelle: str) -> list
     texte = str(groupe.get("text") or "").strip()
     etapes: list[_Lue] = []
     for tour in range(1, reps + 1):
-        prefixe = _joindre(libelle, _libelle_groupe(texte, tour, reps))
+        prefixe = joindre(libelle, _libelle_groupe(texte, tour, reps))
         etapes.extend(
             _aplatir(groupe["steps"], etat=etat, profondeur=profondeur + 1, libelle=prefixe)
         )
@@ -508,7 +509,7 @@ def _etape(step: dict, *, etat: _Etat, libelle: str) -> _Lue | None:
         # perte se compte.
         etat.puissances_negatives += 1
         bas = haut = None
-        descripteur = _joindre(descripteur, "puissance négative ignorée")
+        descripteur = joindre(descripteur, "puissance négative ignorée")
     if bas is None and haut is None:
         etat.sans_puissance += 1
     type_, source = _type(step, herite=libelle)
@@ -518,7 +519,7 @@ def _etape(step: dict, *, etat: _Etat, libelle: str) -> _Lue | None:
             duree_s=duree,
             puissance_min_w=bas,
             puissance_max_w=haut,
-            libelle=_joindre(libelle, descripteur),
+            libelle=joindre(libelle, descripteur),
         ),
         sans_consigne=sans_consigne,
         source_type=source,
@@ -646,7 +647,7 @@ def _reclasser_libres(
     for indice, lue in enumerate(lues):
         if not lue.sans_consigne or sources[indice] != "defaut":
             continue
-        type_ = _type_par_position(indice, len(etapes))
+        type_ = type_par_position(indice, len(etapes))
         etapes[indice] = _retyper(etapes[indice], type_)
         sources[indice] = "libre"
         etat.libres_reclassees.append({"indice": indice, "type": type_})
@@ -681,25 +682,9 @@ def _reclasser_par_puissance(etapes: list[Etape], sources: list[str], *, etat: _
         cible = etape.puissance_cible_w
         if cible is None or cible >= seuil:
             continue
-        type_ = _type_par_position(indice, len(etapes))
+        type_ = type_par_position(indice, len(etapes))
         etapes[indice] = _retyper(etape, type_)
         sources[indice] = "puissance"
-
-
-def _type_par_position(indice: int, total: int) -> str:
-    """Ce qu'est une étape qui n'est pas un bloc, selon l'endroit où elle tombe.
-
-    En tête, c'est un échauffement ; en queue, un retour au calme ; entre les
-    deux, une récupération. Le cas visé au milieu est celui d'une étape prise
-    entre deux efforts ; une étape calme au milieu qui ne sépare pas deux
-    blocs est traitée de même — une récupération ne demande rien au terrain
-    (décision du 13/09), c'est donc le classement le plus prudent.
-    """
-    if indice == 0:
-        return "echauffement"
-    if indice == total - 1:
-        return "calme"
-    return "recuperation"
 
 
 def _seuil_recuperation(etapes: list[Etape], *, etat: _Etat) -> float | None:
@@ -723,33 +708,6 @@ def _retyper(etape: Etape, type_: str) -> Etape:
         puissance_max_w=etape.puissance_max_w,
         libelle=etape.libelle,
         elastique=etape.elastique,
-    )
-
-
-def _marquer_elastiques(etapes: list[Etape]) -> list[Etape]:
-    """Élastiques : la première étape si elle échauffe, la dernière si elle calme.
-
-    Jamais ailleurs. Une récupération, courte ou longue, fait partie de la
-    prescription (décision du mainteneur du 13/09).
-    """
-    if not etapes:
-        return etapes
-    sortie = list(etapes)
-    if sortie[0].type == "echauffement":
-        sortie[0] = _elastique(sortie[0])
-    if sortie[-1].type == "calme":
-        sortie[-1] = _elastique(sortie[-1])
-    return sortie
-
-
-def _elastique(etape: Etape) -> Etape:
-    return Etape(
-        type=etape.type,
-        duree_s=etape.duree_s,
-        puissance_min_w=etape.puissance_min_w,
-        puissance_max_w=etape.puissance_max_w,
-        libelle=etape.libelle,
-        elastique=True,
     )
 
 
@@ -882,19 +840,11 @@ def _bornes(consigne: dict) -> tuple[float, float] | None:
 
 def _descripteur(bas: float, haut: float, unite: str) -> str:
     if bas == haut:
-        return f"{_nombre_court(bas)} {unite}"
-    return f"{_nombre_court(bas)}-{_nombre_court(haut)} {unite}"
-
-
-def _nombre_court(valeur: float) -> str:
-    return f"{valeur:g}"
+        return f"{nombre_court(bas)} {unite}"
+    return f"{nombre_court(bas)}-{nombre_court(haut)} {unite}"
 
 
 # --- petits utilitaires -------------------------------------------------------
-
-
-def _joindre(*morceaux: str) -> str:
-    return " · ".join(m for m in morceaux if m)
 
 
 def _libelle_groupe(texte: str, tour: int, reps: int) -> str:

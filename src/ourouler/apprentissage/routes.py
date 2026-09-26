@@ -59,6 +59,7 @@ from ourouler.noyau.erreurs import ErreurConnecteur, ErreurLecture, ErreurUtilis
 #: Réexporté : la constante vit désormais dans `ourouler.noyau.proprietaire`, mais
 #: elle s'est toujours lue depuis ce module.
 from ourouler.noyau.proprietaire import PROPRIETAIRE_LOCAL
+from ourouler.noyau.sqlite import colonne_existe, table_existe
 from ourouler.noyau.trace import PointTrace, Trace, denivele_filtre, distance_m
 
 #: Espacement des points de passage envoyés à BRouter pour rejouer une sortie.
@@ -377,7 +378,7 @@ class BaseRoutes:
                 "(`ourouler routes apprendre` la remplit à nouveau)"
             )
         for table in ("troncons", "sorties"):
-            if _table_existe(cx, table) and not _colonne_existe(cx, table, "proprietaire"):
+            if table_existe(cx, table) and not colonne_existe(cx, table, "proprietaire"):
                 # Le nom de table vient d'un littéral de ce fichier, jamais
                 # d'une entrée : rien à échapper ici.
                 cx.execute(
@@ -400,7 +401,7 @@ class BaseRoutes:
         migration peut donc s'exécuter autant de fois qu'on veut.
         """
         for table in ("troncons", "sorties"):
-            if not _table_existe(cx, table) or _dans_la_cle(cx, table, "proprietaire"):
+            if not table_existe(cx, table) or _dans_la_cle(cx, table, "proprietaire"):
                 continue
             colonnes = ", ".join(_colonnes_de(cx, table))
             # Un `ALTER TABLE … RENAME` emmène les index avec la table : sans
@@ -686,20 +687,6 @@ def _paquets(valeurs: Sequence, taille: int) -> Iterator[list]:
 def _en_semaine(jour: date) -> bool:
     """Lundi-vendredi. Le mainteneur : « surtout en semaine ; le dimanche à 90 % »."""
     return jour.weekday() < 5
-
-
-def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
-    return (
-        cx.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
-        ).fetchone()
-        is not None
-    )
-
-
-def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
-    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
-    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
 
 
 def _colonnes_de(cx: sqlite3.Connection, table: str) -> list[str]:

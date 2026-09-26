@@ -284,7 +284,7 @@ def _base_routes(config: Config, qui: Proprietaire):
     authentifié ».
 
     **Le fichier est ouvert même s'il n'existe pas encore**, contrairement à
-    ce que font `boucle/commande._base_routes` et son jumeau de `sortie` —
+    ce que font `apprentissage.commande.base_routes_existante` pour `boucle` et `sortie` —
     eux s'abstiennent pour ne pas fabriquer un SQLite vide dans le cache d'un
     cycliste qui n'a rien appris. Ici il le faut : passer `None` ferait
     retomber la commande sur son propre constructeur, donc sur le

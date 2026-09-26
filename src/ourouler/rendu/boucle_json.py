@@ -9,14 +9,13 @@ aucune horloge ; la forme est figée par `tests/caracterisation`.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ourouler.boucle.commande import Demande, Evaluation, ModeleTemps
 from ourouler.boucle.geometrie import geometrie_json
-from ourouler.boucle.horaire import Pause
+from ourouler.boucle.horaire import duree_pauses_s
 from ourouler.boucle.marqueurs import Marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.meteo import portee
@@ -74,10 +73,6 @@ def porte_a_porte(mouvement_s: float, compteur_info: dict) -> PorteAPorte:
         n=brut.get("n", 0),
     )
     return temps_ecoule(mouvement_s, fourchette)
-
-
-def _duree_pauses_s(pauses: Sequence[Pause]) -> float:
-    return sum(p.duree_s for p in pauses)
 
 
 # --- rendu JSON ----------------------------------------------------------------
@@ -194,7 +189,7 @@ def _candidate_json(
     # seconde avant d'ajouter les pauses (`temps_ecoule_s`, arrondi pour
     # l'affichage de cette seule valeur) décalait l'heure affichée d'une
     # minute entière une fois sur deux, une fois formatée à la minute près.
-    pauses_s = _duree_pauses_s(demande.pauses)
+    pauses_s = duree_pauses_s(demande.pauses)
     heure_arrivee = demande.depart + timedelta(seconds=ecoule_base_s + pauses_s)
     return {
         "numero": evaluation.numero,

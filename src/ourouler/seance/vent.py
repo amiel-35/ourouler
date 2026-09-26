@@ -41,11 +41,8 @@ import bisect
 import math
 from collections.abc import Sequence
 
-from ourouler.boucle.meteo_trace import (
-    SEUIL_VENT_SENSIBLE_KMH,
-    Echantillon,
-    interpoler_angle,
-)
+from ourouler.boucle.meteo_trace import SEUIL_VENT_SENSIBLE_KMH, Echantillon
+from ourouler.noyau.meteo import interpoler_angle
 from ourouler.physique.modele import FACTEUR_VENT_HAUTEUR
 
 __all__ = ["ChampVent", "seuil_vent_sensible_ms"]

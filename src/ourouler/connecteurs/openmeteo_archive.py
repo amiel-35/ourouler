@@ -35,12 +35,14 @@ from typing import Any
 
 import httpx
 
+from ourouler.meteo.openmeteo import motif_api
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 # Le type d'une heure d'archive est au noyau depuis le lot 8 (le calcul de
 # calibration le lit sans importer ce connecteur).
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
+from ourouler.noyau.sqlite import colonne_existe, table_existe
 
 BASE_URL_DEFAUT = "https://archive-api.open-meteo.com"
 CHEMIN_ARCHIVE = "/v1/archive"
@@ -207,7 +209,7 @@ class ClientArchive:
         if reponse.status_code >= 400:
             raise ErreurConnecteur(
                 f"archive Open-Meteo : HTTP {reponse.status_code} sur {self.url_archive}"
-                f"{_motif(reponse)} (jour {jour.isoformat()})"
+                f"{motif_api(reponse)} (jour {jour.isoformat()})"
             )
         try:
             charge = reponse.json()
@@ -262,7 +264,7 @@ class ClientArchive:
         l'incompatibilité se manifester à la lecture, qui rend `None` et
         rappelle le service.
         """
-        if not _table_existe(cx, "archive") or _colonne_existe(cx, "archive", "proprietaire"):
+        if not table_existe(cx, "archive") or colonne_existe(cx, "archive", "proprietaire"):
             return
         cx.executescript(
             f"""
@@ -342,20 +344,6 @@ class ClientArchive:
 
 
 # --- structure du cache -------------------------------------------------------
-
-
-def _table_existe(cx: sqlite3.Connection, nom: str) -> bool:
-    return (
-        cx.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nom,)
-        ).fetchone()
-        is not None
-    )
-
-
-def _colonne_existe(cx: sqlite3.Connection, table: str, colonne: str) -> bool:
-    """`PRAGMA table_info` plutôt que le texte du `CREATE TABLE` : on lit la structure."""
-    return any(ligne[1] == colonne for ligne in cx.execute(f"PRAGMA table_info({table})"))
 
 
 def _proprietaire_valide(valeur: str) -> str:
@@ -438,16 +426,6 @@ def _instant(brut: Any) -> datetime | None:
     except (TypeError, ValueError):
         return None
     return t.replace(tzinfo=UTC) if t.tzinfo is None else t.astimezone(UTC)
-
-
-def _motif(reponse: httpx.Response) -> str:
-    try:
-        charge = reponse.json()
-    except ValueError:
-        return ""
-    if isinstance(charge, dict) and charge.get("reason"):
-        return f" — {charge['reason']}"
-    return ""
 
 
 def _heure_en_json(h: HeureArchive) -> dict:

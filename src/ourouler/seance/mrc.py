@@ -32,12 +32,11 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from pathlib import Path
 
 from ourouler.noyau.erreurs import ErreurLecture
+from ourouler.noyau.lecture import Entree, lire_octets
 from ourouler.noyau.seance import SEUIL_RECUPERATION_PCT_DEFAUT, Etape, Seance
-
-Entree = Path | str | bytes | bytearray
+from ourouler.seance.lecture_commune import marquer_elastiques, nombre_court, retyper, type_par_position
 
 _UNITES = {"percent": "percent", "pct": "percent", "watts": "watts", "watt": "watts"}
 _RE_DONNEE = re.compile(r"^\s*([+-]?\d+(?:\.\d+)?)\s+([+-]?\d+(?:\.\d+)?)\s*$")
@@ -59,7 +58,7 @@ def lire_mrc(
     l'unité de puissance, ou s'il ne contient pas au moins deux points de
     données (rien à en tirer). `jour` vaut la date du jour si omis.
     """
-    contenu, fichier = _octets(source)
+    contenu, fichier = lire_octets(source)
     texte = contenu.decode("utf-8", errors="replace")
 
     unite = _unite(texte)
@@ -83,7 +82,7 @@ def lire_mrc(
             "ou négative, aucune étape à en tirer"
         )
     etapes = _typer(etapes, ftp_w=ftp_w, seuil_pct=seuil_recuperation_pct)
-    etapes = _marquer_elastiques(etapes)
+    etapes = marquer_elastiques(etapes)
 
     description = _description(texte)
     meta: dict = {"source": "mrc", "unite": unite, "ftp_w": ftp_w}
@@ -181,12 +180,8 @@ def _en_watts(valeur: float, unite: str, ftp_w: float | None) -> float | None:
 def _libelle(v1: float, v2: float, unite: str) -> str:
     suffixe = "W" if unite == "watts" else "% FTP"
     if v1 == v2:
-        return f"{_court(v1)} {suffixe}"
-    return f"{_court(v1)}-{_court(v2)} {suffixe}"
-
-
-def _court(valeur: float) -> str:
-    return f"{valeur:g}"
+        return f"{nombre_court(v1)} {suffixe}"
+    return f"{nombre_court(v1)}-{nombre_court(v2)} {suffixe}"
 
 
 # --- typage par puissance et position, comme Intervals.icu ------------------------
@@ -202,7 +197,7 @@ def _typer(etapes: list[Etape], *, ftp_w: float | None, seuil_pct: float) -> lis
         cible = etape.puissance_cible_w
         if cible is None or cible >= seuil:
             continue
-        sortie[indice] = _retyper(etape, _type_par_position(indice, total))
+        sortie[indice] = retyper(etape, type_par_position(indice, total))
     return sortie
 
 
@@ -215,66 +210,6 @@ def _seuil(etapes: list[Etape], *, ftp_w: float | None, seuil_pct: float) -> flo
         # récupération : on ne devine pas, tout reste « bloc ».
         return None
     return (min(cibles) + max(cibles)) / 2
-
-
-def _type_par_position(indice: int, total: int) -> str:
-    if indice == 0:
-        return "echauffement"
-    if indice == total - 1:
-        return "calme"
-    return "recuperation"
-
-
-def _retyper(etape: Etape, type_: str) -> Etape:
-    return Etape(
-        type=type_,
-        duree_s=etape.duree_s,
-        puissance_min_w=etape.puissance_min_w,
-        puissance_max_w=etape.puissance_max_w,
-        libelle=etape.libelle,
-    )
-
-
-def _marquer_elastiques(etapes: list[Etape]) -> list[Etape]:
-    """Élastiques : la première étape si elle échauffe, la dernière si elle calme."""
-    if not etapes:
-        return etapes
-    sortie = list(etapes)
-    if sortie[0].type == "echauffement":
-        sortie[0] = _elastique(sortie[0])
-    if sortie[-1].type == "calme":
-        sortie[-1] = _elastique(sortie[-1])
-    return sortie
-
-
-def _elastique(etape: Etape) -> Etape:
-    return Etape(
-        type=etape.type,
-        duree_s=etape.duree_s,
-        puissance_min_w=etape.puissance_min_w,
-        puissance_max_w=etape.puissance_max_w,
-        libelle=etape.libelle,
-        elastique=True,
-    )
-
-
-# --- petits utilitaires ------------------------------------------------------------
-
-
-def _octets(source: Entree) -> tuple[bytes, str | None]:
-    """Renvoie (contenu, chemin informatif). Lève `ErreurLecture` si vide ou illisible."""
-    if isinstance(source, bytes | bytearray):
-        contenu, fichier = bytes(source), None
-    else:
-        chemin = Path(source)
-        try:
-            contenu = chemin.read_bytes()
-        except OSError as e:
-            raise ErreurLecture(f"{chemin} : lecture impossible ({e})") from e
-        fichier = str(chemin)
-    if not contenu:
-        raise ErreurLecture(f"{fichier or '<octets>'} : fichier vide")
-    return contenu, fichier
 
 
 __all__ = ["lire_mrc"]

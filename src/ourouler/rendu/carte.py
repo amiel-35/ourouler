@@ -70,6 +70,7 @@ from collections.abc import Sequence
 
 from ourouler.boucle.meteo_trace import MeteoTrace
 from ourouler.noyau.seance import Seance
+from ourouler.noyau.texte import nombre_fr
 from ourouler.noyau.trace import Trace
 from ourouler.rendu.carte_dessin import (
     _FORME_FLECHE_VENT,
@@ -90,7 +91,6 @@ from ourouler.rendu.carte_dessin import (
     _blocs,
     _charge_json,
     _cumuls,
-    _fr,
     _liaisons,
     _profil_svg,
     _section_vent,
@@ -297,7 +297,7 @@ def _page(
     """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
     puces = "".join(
         f'<li><i style="background:{bloc["couleur"]}"></i>bloc {bloc["n"]} — note '
-        f"{_fr(bloc['note'], 2)}</li>"
+        f"{nombre_fr(bloc['note'], 2)}</li>"
         for bloc in blocs
     )
     lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
