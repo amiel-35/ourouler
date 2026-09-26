@@ -567,25 +567,15 @@ vitesse moyenne puis rafale, en km/h. Rien en dessous de {SEUIL_AFFICHAGE_VENT_K
 (en deçà, on ne sent quasiment plus l'air).</p>"""
 
 
-def _page(
-    *, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool
-) -> str:
-    """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
-    puces = "".join(
-        f'<li><i style="background:{bloc["couleur"]}"></i>bloc {bloc["n"]} — note '
-        f"{_fr(bloc['note'], 2)}</li>"
-        for bloc in blocs
-    )
-    lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
-    section_vent = _section_vent() if avec_vent else ""
-    charge = _charge_json(donnees)
-    return f"""<!doctype html>
+#: La carte d'une séance, en morceaux fixes : `_page` n'y insère que ce qui
+#: dépend de la séance (titre, légende, notes, profil, données).
+_PAGE_TETE = """<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(titre)}</title>
-<link rel="stylesheet" href="{LEAFLET_CSS}">
+"""
+_PAGE_STYLE = f"""<link rel="stylesheet" href="{LEAFLET_CSS}">
 <style>
 :root {{ color-scheme: light; }}
 body {{ margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1c1c1c;
@@ -636,26 +626,8 @@ ul.legende-vent li {{ display: flex; align-items: center; }}
 </head>
 <body>
 <header>
-<h1>{html.escape(titre)}</h1>
-<h2>{html.escape(sous_titre)}</h2>
-</header>
-<div id="carte"></div>
-<section>
-<h3>Blocs</h3>
-<ul class="legende">{puces}
-<li><i style="background:{COULEUR_TRACE}"></i>tracé</li>
-<li><i style="background:{COULEUR_LIAISON}"></i>échauffement, récupérations, retour au calme
-(non notés)</li>
-</ul>
-{lignes_notes}
-{section_vent}
-<h3>Profil d'altitude</h3>
-{profil}
-</section>
-<script src="{LEAFLET_JS}"></script>
-<script>
-const D = {charge};
-const carte = L.map('carte');
+"""
+_PAGE_SCRIPT = f"""const carte = L.map('carte');
 L.tileLayer(D.tuiles.url, {{attribution: D.tuiles.attribution, maxZoom: 19}}).addTo(carte);
 const groupe = L.featureGroup();
 if (D.trace.length > 1) {{
@@ -721,6 +693,46 @@ window.addEventListener('resize', function () {{ carte.invalidateSize(); }});
 </body>
 </html>
 """
+
+
+def _page(
+    *, titre: str, sous_titre: str, notes, donnees: dict, blocs, profil: str, avec_vent: bool
+) -> str:
+    """Le HTML autonome. Les données partent en JSON, jamais interpolées en dur."""
+    puces = "".join(
+        f'<li><i style="background:{bloc["couleur"]}"></i>bloc {bloc["n"]} — note '
+        f"{_fr(bloc['note'], 2)}</li>"
+        for bloc in blocs
+    )
+    lignes_notes = "".join(f"<p class=\"note\">{html.escape(str(n))}</p>" for n in notes)
+    section_vent = _section_vent() if avec_vent else ""
+    charge = _charge_json(donnees)
+    return (
+        _PAGE_TETE
+        + f"<title>{html.escape(titre)}</title>\n"
+        + _PAGE_STYLE
+        + f"""<h1>{html.escape(titre)}</h1>
+<h2>{html.escape(sous_titre)}</h2>
+</header>
+<div id="carte"></div>
+<section>
+<h3>Blocs</h3>
+<ul class="legende">{puces}
+<li><i style="background:{COULEUR_TRACE}"></i>tracé</li>
+<li><i style="background:{COULEUR_LIAISON}"></i>échauffement, récupérations, retour au calme
+(non notés)</li>
+</ul>
+{lignes_notes}
+{section_vent}
+<h3>Profil d'altitude</h3>
+{profil}
+</section>
+<script src="{LEAFLET_JS}"></script>
+<script>
+const D = {charge};
+"""
+        + _PAGE_SCRIPT
+    )
 
 
 def _fr(valeur: float, decimales: int) -> str:
