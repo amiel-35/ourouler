@@ -23,30 +23,25 @@ import hashlib
 import json
 import shutil
 import sqlite3
-import sys
 import uuid
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+import donnees_synthetiques as synth
 import pytest
+from outils_caracterisation import ecrire_config, preparer
+
+from ourouler.activites.cache import Cache
+from ourouler.api.comptes import hacher_mot_de_passe
+from ourouler.api.depots import DepotFichiers, DepotProfils, JournalServices, SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.boucle.gpx import ecrire_gpx
+from ourouler.cli import main
+from ourouler.noyau.trace import PointTrace, Segment, Trace, distance_m
 
 DOSSIER = Path(__file__).resolve().parent
-CARACTERISATION = DOSSIER.parent / "caracterisation"
-if str(CARACTERISATION) not in sys.path:
-    sys.path.insert(0, str(CARACTERISATION))
-
-import donnees_synthetiques as synth  # noqa: E402
-from outils_caracterisation import ecrire_config, preparer  # noqa: E402
-
-from ourouler.activites.cache import Cache  # noqa: E402
-from ourouler.api.comptes import hacher_mot_de_passe  # noqa: E402
-from ourouler.api.depots import DepotFichiers, DepotProfils, JournalServices, SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
-from ourouler.boucle.gpx import ecrire_gpx  # noqa: E402
-from ourouler.cli import main  # noqa: E402
-from ourouler.noyau.trace import PointTrace, Segment, Trace, distance_m  # noqa: E402
 
 #: Où vivent les échantillons figés.
 ECHANTILLONS = DOSSIER / "echantillons"

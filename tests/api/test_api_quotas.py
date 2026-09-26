@@ -16,9 +16,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 from fastapi.testclient import TestClient
 from test_api import ecrire_config, moteur_muet
 from test_seance_intervals import ATHLETE, CLE, W

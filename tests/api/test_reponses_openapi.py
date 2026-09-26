@@ -18,9 +18,7 @@ from typing import Any
 import pytest
 from outils_api import client_api, schema_openapi
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api import reponses  # noqa: E402
+from ourouler.api import reponses
 
 REFERENCES = Path(__file__).resolve().parents[1] / "caracterisation"
 

@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-import sys
 import time
 from dataclasses import dataclass
 from datetime import date
@@ -40,15 +39,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-#: Sans l'extra `api`, ce module se saute au lieu de casser la collecte.
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "caracterisation"))
-
-from donnees_synthetiques import ATHLETE, CLE, ROUTE, tcx_synthetique  # noqa: E402
-from outils_api import ClientApi  # noqa: E402
-from outils_caracterisation import (  # noqa: E402
+from donnees_synthetiques import ATHLETE, CLE, ROUTE, tcx_synthetique
+from outils_api import ClientApi
+from outils_caracterisation import (
     DOSSIER,
     JOUR,
     MODELE_SECOND,
@@ -58,12 +51,12 @@ from outils_caracterisation import (  # noqa: E402
     preparer,
 )
 
-from ourouler.api.adaptateur import Budgets  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.quotas import Quotas  # noqa: E402
-from ourouler.api.session import MODE_HEBERGE, SessionHebergee  # noqa: E402
+from ourouler.api.adaptateur import Budgets
+from ourouler.api.application import creer_application
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.quotas import Quotas
+from ourouler.api.session import MODE_HEBERGE, SessionHebergee
 
 pytestmark = pytest.mark.usefixtures("fuseau_de_paris")
 

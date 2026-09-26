@@ -17,8 +17,6 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 from ourouler.api import exploitation
 from ourouler.api.quotas import (
     CONSULTATIONS_METEO_PAR_JOUR_DEFAUT,

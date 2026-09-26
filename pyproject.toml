@@ -87,3 +87,8 @@ max-positional-args = 6
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Les modules d'outils des tests (`outils.py`, `fabriques*.py`, `outils_api.py`,
+# `outils_caracterisation.py`, `donnees_synthetiques.py`) et les bouchons
+# partagés d'un test à l'autre s'importent par leur nom, sans `sys.path.insert`.
+# Leurs noms sont uniques dans tout `tests/` : c'est ce qui rend l'import sûr.
+pythonpath = ["tests", "tests/adversarial", "tests/api", "tests/caracterisation"]

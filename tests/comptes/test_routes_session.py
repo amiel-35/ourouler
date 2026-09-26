@@ -21,15 +21,12 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
-import pytest
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.base_de_donnees import ouvrir  # noqa: E402
-from ourouler.api.comptes import DepotComptes  # noqa: E402
-from ourouler.api.depots import SocleVide  # noqa: E402
-from ourouler.api.session import (  # noqa: E402
+from ourouler.api.application import creer_application
+from ourouler.api.base_de_donnees import ouvrir
+from ourouler.api.comptes import DepotComptes
+from ourouler.api.depots import SocleVide
+from ourouler.api.session import (
     NOM_COOKIE,
     SessionHebergee,
     SessionParCookie,

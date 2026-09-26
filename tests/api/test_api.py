@@ -15,16 +15,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-#: **Sans l'extra `api`, ce module se saute au lieu de casser la collecte.**
-#: `uv sync && uv run pytest` sur un dépôt fraîchement cloné n'installe pas
-#: FastAPI (extra `api`) : sans cette ligne, l'import ci-dessous levait une
-#: erreur de collecte, et le contributeur voyait la suite échouer au lieu de
-#: voir des tests ignorés. `uv sync --all-extras` les rend.
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 from test_seance_intervals import ATHLETE, CLE, W
 from test_sortie_commande import (

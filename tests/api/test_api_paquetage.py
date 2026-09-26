@@ -25,8 +25,6 @@ from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.session import SessionHebergee
 from ourouler.noyau.erreurs import ErreurConfig
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 
 def test_la_sonde_de_sante_repond_sans_session():
     """Un service hébergé, sans authentification branchée, reste sondable.

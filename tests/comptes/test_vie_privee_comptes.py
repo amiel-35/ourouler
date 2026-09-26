@@ -29,21 +29,17 @@ import asyncio
 from pathlib import Path
 
 import httpx
-import pytest
+from test_apprentissage_routes import LUNDI, droite
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from test_apprentissage_routes import LUNDI, droite  # noqa: E402
-
-from ourouler.api import vie_privee  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.base_de_donnees import ouvrir  # noqa: E402
-from ourouler.api.comptes import DepotComptes  # noqa: E402
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.session import NOM_COOKIE, SessionParCookie  # noqa: E402
-from ourouler.apprentissage.commande import NOM_BASE  # noqa: E402
-from ourouler.apprentissage.routes import BaseRoutes  # noqa: E402
+from ourouler.api import vie_privee
+from ourouler.api.application import creer_application
+from ourouler.api.base_de_donnees import ouvrir
+from ourouler.api.comptes import DepotComptes
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import NOM_COOKIE, SessionParCookie
+from ourouler.apprentissage.commande import NOM_BASE
+from ourouler.apprentissage.routes import BaseRoutes
 
 PREFIXE = "/api/v1"
 

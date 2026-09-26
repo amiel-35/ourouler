@@ -32,18 +32,16 @@ from pathlib import Path
 import httpx
 import pytest
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from ourouler.api import vie_privee  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.base_de_donnees import ouvrir  # noqa: E402
-from ourouler.api.comptes import (  # noqa: E402
+from ourouler.api import vie_privee
+from ourouler.api.application import creer_application
+from ourouler.api.base_de_donnees import ouvrir
+from ourouler.api.comptes import (
     DepotComptes,
     ErreurInvitationRefusee,
 )
-from ourouler.api.depots import SocleTOML  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.session import (  # noqa: E402
+from ourouler.api.depots import SocleTOML
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.session import (
     NOM_COOKIE,
     SessionHebergee,
     SessionParCookie,

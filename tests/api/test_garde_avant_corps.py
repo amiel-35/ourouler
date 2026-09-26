@@ -14,18 +14,14 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import pytest
+from fastapi.testclient import TestClient
+from outils_api import config_d_essai
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
-from fastapi.testclient import TestClient  # noqa: E402
-from outils_api import config_d_essai  # noqa: E402
-
-from ourouler.api import taches_fond  # noqa: E402
-from ourouler.api.application import creer_application  # noqa: E402
-from ourouler.api.proprietaire import Proprietaire  # noqa: E402
-from ourouler.api.quotas import Quotas  # noqa: E402
-from ourouler.api.session import MODE_HEBERGE  # noqa: E402
+from ourouler.api import taches_fond
+from ourouler.api.application import creer_application
+from ourouler.api.proprietaire import Proprietaire
+from ourouler.api.quotas import Quotas
+from ourouler.api.session import MODE_HEBERGE
 
 CHEMIN = "/api/v1/activites/import"
 

@@ -23,8 +23,6 @@ from outils_api import (
     corps_json,
 )
 
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
-
 #: Le vent des fixtures du dépôt vient de 45° (nord-est) à 14 km/h — au-dessus
 #: du seuil de 8 km/h, donc la question se pose.
 VENT_DEPUIS_DEG = 45.0

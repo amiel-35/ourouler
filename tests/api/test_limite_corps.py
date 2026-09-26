@@ -13,11 +13,7 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from ourouler.api.limite_corps import LimiteTailleCorps
-
-pytest.importorskip("fastapi", reason="extra « api » absent — uv sync --all-extras")
 
 
 class _AppEspion:

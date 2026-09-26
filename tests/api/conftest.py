@@ -33,17 +33,9 @@ from __future__ import annotations
 
 import logging
 import socket
-import sys
-from pathlib import Path
 from typing import Any
 
 import pytest
-
-DOSSIER = Path(__file__).resolve().parent
-
-# Rend `outils_api.py` importable depuis les modules de test de ce dossier.
-if str(DOSSIER) not in sys.path:
-    sys.path.insert(0, str(DOSSIER))
 
 
 class ReseauInterdit(BaseException):

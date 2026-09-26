@@ -1416,13 +1416,9 @@ def depart_fictif() -> tuple[float, float]:
 
 
 def harnais() -> Any:
-    """Le module `tests/test_sortie_commande.py`, ses bouchons et sa configuration."""
-    import sys
-    from pathlib import Path
+    """Le module `tests/test_sortie_commande.py`, ses bouchons et sa configuration.
 
-    dossier_tests = str(Path(__file__).resolve().parent.parent)
-    if dossier_tests not in sys.path:
-        sys.path.insert(0, dossier_tests)
+    `tests/` est sur le chemin d'import par `pythonpath` (`pyproject.toml`)."""
     import test_sortie_commande
 
     return test_sortie_commande

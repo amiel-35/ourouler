@@ -27,13 +27,14 @@ import fabriques_seance
 import httpx
 import outils
 import pytest
-from conftest import RACINE, ReseauInterdit
+from outils import ReseauInterdit
 
 from ourouler import cli
 from ourouler import config as module_config
 from ourouler.noyau import erreurs
 from ourouler.sortie import commande as commande_sortie
 
+RACINE = Path(__file__).resolve().parents[2]
 SRC = RACINE / "src" / "ourouler"
 TESTS = RACINE / "tests"
 
