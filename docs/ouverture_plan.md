@@ -211,10 +211,20 @@ N5 et N6 (la documentation décrit le code nettoyé), N7, N8, N9.
 **État au 26/09/2026.** N0 fait (0.10.0 en prod, étiquette `v0.10.0`). N1
 fait. N2 mergé (#83), N3 (#84), N6 (#85), N5 (#86), N4 (#87 : 1 523 lignes
 d'historique → 69, AST identique hors docstrings, P3 identique), N7 (#88 :
-métadonnées, CI à délai maximal et actions épinglées, Dependabot). N8 en
-cours (relecture Fable). `ruff format` : reporté en un commit mécanique
-unique après N8, pour ne pas croiser les lots en cours. Restent pour après la
-phase, hors comportement : les chaînes affichées qui portent encore de
+métadonnées, CI à délai maximal et actions épinglées, Dependabot). N8 : la
+relecture Fable (30 constats : 17 A, 5 B, 8 C) juge le dépôt « au-dessus de
+la moyenne » ; les 17 A sont faits (#99 accueil et documentation, #100 tests
+sans histoire de sprint), Dependabot groupé (#101), `ruff format` appliqué une
+fois et vérifié en CI (#103). Reste N9, avec le mainteneur : les 8 questions C
+de la revue et les gestes de fin.
+
+**Backlog issu de N8 (classe B, changements visibles)** : en-têtes HTTP de
+sécurité sur l'API ; limitation des tentatives de connexion (avant
+l'ouverture publique du service) ; conteneur de l'API hors root (avec
+migration des droits du volume, essai en préprod) ; bascule du chemin API
+vers `nouveau` puis retrait d'`api/adaptateur.py` ; fusion des petites
+conversions dupliquées (`_flottant`, `_instant`…) dans le noyau, sous tests
+de caractérisation. Restent aussi pour après la phase, hors comportement : les chaînes affichées qui portent encore de
 l'historique (aide de `Volets.tsx`, `CODES_PANNE`), à traiter comme un
 changement visible ; l'écart doctrine ↔ code sur la conservation des fichiers
 bruts après export (Q67), à trancher par le mainteneur.
