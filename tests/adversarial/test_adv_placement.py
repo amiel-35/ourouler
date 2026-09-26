@@ -28,6 +28,7 @@ passeraient sur une implémentation qui n'en propose jamais.
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 import fabriques
@@ -66,7 +67,9 @@ def _placement() -> Any:
 
 
 def _modele() -> Any:
-    return fabriques4.module("modele", motif=MOTIF_MODELE)
+    # Le modèle de séance vit au noyau depuis le lot 4 : import direct, jamais
+    # de saut (un saut ici rendait 30 tests adversariaux silencieusement verts).
+    return importlib.import_module("ourouler.noyau.seance")
 
 
 def _physique() -> Any:

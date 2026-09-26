@@ -58,6 +58,7 @@ from ourouler.physique import calibration as calib
 from ourouler.physique import commande as physique
 from ourouler.physique import litterature
 from ourouler.physique.modele import puissance_a_plat_w
+from ourouler.physique.parametres_velo import crr_du_velo
 from ourouler.services import calibrer
 from ourouler.stockage import calibrations as stockage
 
@@ -141,7 +142,7 @@ def verifier(
                 "ecartees": motifs,
             },
         )
-    if physique.crr_du_velo(velo) is None and not sans_pneu:
+    if crr_du_velo(velo) is None and not sans_pneu:
         crr = calibrer.crr_de_l_usage(velo)
         raise ErreurApi(
             code="pneu_absent",
@@ -235,7 +236,7 @@ def etat(config: Config, cache: Cache, proprietaire: str) -> dict:
                 "sorties_disponibles": disponibles,
                 "sorties_ecartees": motifs,
                 "pneu": pneu.cle if pneu is not None else None,
-                "crr_connu": physique.crr_du_velo(velo) is not None,
+                "crr_connu": crr_du_velo(velo) is not None,
                 "crr_usage": calibrer.crr_de_l_usage(velo),
                 "tache": tache.json() if tache is not None else None,
             }

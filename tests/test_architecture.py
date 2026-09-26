@@ -139,6 +139,15 @@ deviennent des arêtes qui montent, listées dans `EXCEPTIONS`.
 
 Le rangement de chaque module est dans `MODULES` : la couche qu'il occupe
 **de fait** aujourd'hui, par son rôle, pas par son dossier.
+
+**Lot final fait.** Les modules de réexport des lots 3, 4, 6 et 10
+(`boucle/trace.py`, `activites/modele.py`, `erreurs.py`, `proprietaire.py`,
+`seance/modele.py`, `seance/zones.py`, `sortie/carte.py`,
+`physique/comparer.py`) sont retirés : tout import passe par leur cible
+(`noyau`, `rendu/carte.py` ou `services/comparer.py`) directement.
+`REEXPORTS` est vide. `config.Velo`/`Depart`/… restent un alias public
+délibéré (souvent importés) ; `config.MASQUE` et `config.en_dict_public`,
+inutilisés en dehors du module, sont retirés.
 """
 
 from __future__ import annotations
@@ -220,13 +229,6 @@ MODULES: dict[str, str] = {
     "ourouler.noyau.trace": "noyau",
     "ourouler.noyau.zones": "noyau",
     "ourouler.activites": "noyau",
-    # les réexports temporaires des lots 3 et 4 (`REEXPORTS`), retirés au lot final
-    "ourouler.activites.modele": "noyau",
-    "ourouler.boucle.trace": "noyau",
-    "ourouler.erreurs": "noyau",
-    "ourouler.proprietaire": "noyau",
-    "ourouler.seance.modele": "noyau",
-    "ourouler.seance.zones": "noyau",
     "ourouler.api.proprietaire": "noyau",
     # 1. domaine pur
     "ourouler.physique": "physique",
@@ -300,8 +302,6 @@ MODULES: dict[str, str] = {
     "ourouler.geocodage.commande": "services",
     "ourouler.meteo.commande": "services",
     "ourouler.physique.commande": "services",
-    # le réexport temporaire du lot 10 (`REEXPORTS`), retiré au lot final
-    "ourouler.physique.comparer": "services",
     "ourouler.seance.commande": "services",
     "ourouler.seance.ecran_ftp": "services",
     "ourouler.sortie.commande": "services",
@@ -319,8 +319,6 @@ MODULES: dict[str, str] = {
     "ourouler.rendu.routes": "rendu",
     "ourouler.rendu.sortie": "rendu",
     "ourouler.rendu.sortie_json": "rendu",
-    # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
-    "ourouler.sortie.carte": "rendu",
     # 5. entrées
     "ourouler.config": "config",
     "ourouler.cli": "cli",
@@ -390,24 +388,10 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # un lot du §6 qui la retire, et une date.
 ]
 
-#: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
-#: carte, au rendu). Un réexport
-#: n'importe que sa cible, et plus aucun module de `src/` ne l'importe : un
-#: `monkeypatch.setattr` qui le viserait ne remplacerait rien dans le vrai
-#: module. `scripts/reecrire_imports.py` a fait suivre imports et cibles de
-#: `src/` et `tests/` ; le lot final retire ces modules et cette table.
-REEXPORTS: dict[str, str] = {
-    "ourouler.activites.modele": "ourouler.noyau.activite",
-    "ourouler.boucle.trace": "ourouler.noyau.trace",
-    "ourouler.erreurs": "ourouler.noyau.erreurs",
-    "ourouler.proprietaire": "ourouler.noyau.proprietaire",
-    "ourouler.seance.modele": "ourouler.noyau.seance",
-    "ourouler.seance.zones": "ourouler.noyau.zones",
-    # lot 6 : la carte HTML, rangée au rendu avec sa cible
-    "ourouler.sortie.carte": "ourouler.rendu.carte",
-    # lot 10 : la comparaison de deux vélos, un cas d'usage comme sa cible
-    "ourouler.physique.comparer": "ourouler.services.comparer",
-}
+#: Ancien chemin → module qu'il réexporte. Vide depuis le lot final : les
+#: modules de réexport des lots 3, 4, 6 et 10 sont retirés, et tout import
+#: passe par la cible directement (`scripts/reecrire_imports.py`).
+REEXPORTS: dict[str, str] = {}
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
@@ -665,21 +649,9 @@ def test_aucune_exception_echue():
     )
 
 
-def test_un_reexport_n_importe_que_sa_cible():
-    for ancien, cible in REEXPORTS.items():
-        assert MODULES[ancien] == MODULES[cible]
-        importes = {i.importe for i in tous_les_imports() if i.importeur == ancien}
-        assert importes == {cible}, ancien
-
-
-def test_personne_n_importe_un_reexport():
-    """Le code importe le noyau directement : les réexports ne servent qu'aux appelants du dehors."""
-    fautifs = [
-        f"{i.importeur}:{i.ligne} → {i.importe}"
-        for i in tous_les_imports()
-        if i.importe in REEXPORTS and i.importeur not in REEXPORTS
-    ]
-    assert not fautifs, "importer depuis ourouler.noyau :\n  " + "\n  ".join(fautifs)
+def test_aucun_reexport_ne_reste():
+    """Le lot final a retiré tous les modules de réexport : la table est vide."""
+    assert REEXPORTS == {}
 
 
 #: `docs/ouverture_plan.md` §2 : « Le modèle physique pur […] n'importe ni
@@ -694,8 +666,8 @@ INTERDITS_PHYSIQUE_PURE = (
 )
 
 #: Le module de `physique/` qui n'est pas du domaine : un cas d'usage
-#: (`MODULES`) qui lit le cache et les fichiers. `physique/comparer.py` n'est
-#: plus qu'un réexport de `services/comparer.py` (lot 10), vérifié comme pur.
+#: (`MODULES`) qui lit le cache et les fichiers. `physique/comparer.py` a
+#: rejoint `services/comparer.py` au lot 10 (retiré, lot final).
 PHYSIQUE_CAS_D_USAGE = ("ourouler.physique.commande",)
 
 

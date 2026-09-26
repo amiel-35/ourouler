@@ -77,7 +77,7 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.activite import Activite, Point
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.trace import Segment, Trace
-from ourouler.physique.calibration import trace_depuis_activite
+from ourouler.physique.validation import trace_depuis_activite
 from ourouler.seance.terrain import NoteBloc, evaluer_couloir
 
 #: Les sorties à relire : (jour, morceau du nom). Ce sont les deux séances de

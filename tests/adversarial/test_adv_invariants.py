@@ -368,12 +368,13 @@ def test_aucun_test_ne_fabrique_un_faux_module_ourouler():
     )
 
 
-def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monkeypatch):
-    """`fabriques4.module` doit laisser remonter un `ImportError` **interne**.
+def test_fabriques4_ne_saute_jamais(tmp_path, monkeypatch):
+    """`fabriques4.module` ne saute plus : il échoue si le module manque.
 
-    Sauter est le bon comportement quand le lot n'existe pas encore. Le faire
-    quand le paquet est là mais qu'un de ses imports a disparu transforme une
-    suite adversariale entière en « skipped », c'est-à-dire en vert.
+    Tous les lots du contrat existent. Un module introuvable est donc une
+    régression, et un `ImportError` interne remonte tel quel : dans les deux
+    cas, un saut transformerait une suite adversariale entière en vert (c'est
+    arrivé au retrait des réexports : 30 tests sautaient en silence).
     """
     paquet = tmp_path / "paquet_de_test"
     paquet.mkdir()
@@ -390,7 +391,7 @@ def test_fabriques4_ne_saute_que_si_le_paquet_lui_meme_est_absent(tmp_path, monk
     with pytest.raises(ModuleNotFoundError):
         fabriques4.module("casse", motif="ne doit pas être sauté")
 
-    with pytest.raises(pytest.skip.Exception, match="lot jamais écrit"):
+    with pytest.raises(pytest.fail.Exception, match="lot jamais écrit"):
         fabriques4.module("jamais_ecrit", motif="lot jamais écrit")
 
 

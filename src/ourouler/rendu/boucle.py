@@ -27,9 +27,7 @@ from ourouler.physique.modele import PorteAPorte
 from ourouler.rendu.boucle_json import (
     _duree_pauses_s,
     _meteo_rendue,
-    _modele_meteo_json,  # noqa: F401 — réexporté (tests)
     porte_a_porte,
-    rendre_json,  # noqa: F401 — réexporté
 )
 
 if TYPE_CHECKING:

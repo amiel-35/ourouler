@@ -70,6 +70,7 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.profil import Profil, Velo
 from ourouler.noyau.trace import PointTrace, cap_deg, distance_m
 from ourouler.physique import calibration as calib
+from ourouler.physique.echantillonnage import MOTIF_RETENU
 from ourouler.physique.modele import Parametres, puissance_requise
 from ourouler.services import calibrer
 from ourouler.services.contexte import Contexte
@@ -264,7 +265,7 @@ def _admissible(echantillon, *, zone_w: tuple[float, float], pente_max: float) -
     Sont exclus « arrêt » — un feu rouge au milieu casse la série — et « sans
     puissance », « vitesse », « pente », qui ne sont pas comparables.
     """
-    if echantillon.motif not in (calib.MOTIF_RETENU, "accélération", "départ"):
+    if echantillon.motif not in (MOTIF_RETENU, "accélération", "départ"):
         return False
     if echantillon.lat is None or echantillon.lon is None:
         return False

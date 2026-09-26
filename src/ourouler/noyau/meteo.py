@@ -1,13 +1,12 @@
 """Types de prévision météo : ce que le client Open-Meteo rend et ce que le domaine lit.
 
 Rangés au noyau (lot 4) pour que le domaine et le cache des prévisions les
-connaissent sans importer le client HTTP (`meteo.openmeteo`), qui les
-réexporte.
+connaissent sans importer le client HTTP (`meteo.openmeteo`), qui les utilise.
 
 `HeureArchive` (lot 8) : une heure de l'archive Open-Meteo — le vent qu'il
 faisait. Le calcul de calibration (`physique.calibration`) la lit sans
-importer le connecteur d'archive (`connecteurs.openmeteo_archive`), qui la
-réexporte.
+importer le connecteur d'archive (`connecteurs.openmeteo_archive`), qui
+l'utilise aussi.
 """
 
 from __future__ import annotations

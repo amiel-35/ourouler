@@ -22,7 +22,8 @@ from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.profil import Depart, Profil
-from ourouler.rendu.boucle import avertissement_meteo, rendre_json, rendre_texte
+from ourouler.rendu.boucle import avertissement_meteo, rendre_texte
+from ourouler.rendu.boucle_json import rendre_json
 from ourouler.services.contexte import Contexte
 
 

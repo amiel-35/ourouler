@@ -1,6 +1,6 @@
 """Le JSON de `ourouler boucle` et les mesures qu'il partage avec le tableau texte.
 
-Sorti de `rendu/boucle.py`, qui réexporte `rendre_json` et `porte_a_porte` :
+Sorti de `rendu/boucle.py`, qui importe `porte_a_porte` :
 la fourchette porte à porte, la durée des pauses et le modèle météo
 réellement utilisé servent aux deux rendus, et vivent ici pour que
 `rendu/boucle.py` les importe sans cycle. Aucun fichier, aucune configuration,

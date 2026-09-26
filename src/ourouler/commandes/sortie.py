@@ -27,6 +27,7 @@ from ourouler.noyau.profil import Depart, Profil
 from ourouler.noyau.seance import Seance
 from ourouler.rendu import sortie as rendu
 from ourouler.rendu.sortie import page_jour, page_sans_seance
+from ourouler.rendu.sortie_json import rendre_json
 from ourouler.services.contexte import Contexte
 from ourouler.sortie import commande as service
 from ourouler.sortie import contraste, orientation
@@ -130,7 +131,7 @@ def terminer(
     if avertissement is not None:
         ctx.avertir(avertissement)
     if en_json:
-        return rendu.rendre_json(resultat.propositions, pour_le_rendu), None
+        return rendre_json(resultat.propositions, pour_le_rendu), None
     return None, rendu.rendre_texte(resultat.propositions, pour_le_rendu)
 
 

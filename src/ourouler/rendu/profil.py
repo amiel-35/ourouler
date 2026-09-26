@@ -5,8 +5,7 @@ même endroit pour les deux : la ligne de commande imprime `profil_json`, l'API
 (`api/vues.py`) en retire ensuite ce qui décrit la machine.
 
 Ce module reçoit une `Config` déjà chargée ; il ne lit ni fichier ni
-environnement. `config.py` réexporte `MASQUE` et `en_dict_public` à leur
-ancien chemin.
+environnement.
 """
 
 from __future__ import annotations

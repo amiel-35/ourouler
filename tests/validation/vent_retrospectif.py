@@ -66,23 +66,24 @@ from pathlib import Path
 from ourouler.activites.lecture import lecteur_pour
 from ourouler.config import Config, charger
 from ourouler.connecteurs.intervals import ClientIntervals
-from ourouler.connecteurs.openmeteo_archive import ClientArchive, HeureArchive
+from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo.couronne import ecart_angulaire
 from ourouler.meteo.rapport import SECTEUR_VENT_DEG, VENT_DOS, VENT_FACE, vent_relatif
 from ourouler.noyau.activite import Activite
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-from ourouler.physique.calibration import (
-    _cap,
-    _decouper,
-    _distances_points,
-    _interpoler_archive,
-    echantillonner,
-)
+from ourouler.noyau.meteo import HeureArchive
+from ourouler.physique.calibration import echantillonner
 from ourouler.physique.commande import (
     NOM_CACHE,
     chemin_calibration,
     parametres_du_velo,
     velo_demande,
+)
+from ourouler.physique.echantillonnage import (
+    _cap,
+    _decouper,
+    _distances_points,
+    _interpoler_archive,
 )
 from ourouler.physique.modele import Parametres, vitesse_regime
 

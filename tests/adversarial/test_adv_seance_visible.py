@@ -527,10 +527,10 @@ def test_le_parcours_reconstruit_fait_la_distance_annoncee(monkeypatch):
     bougé.
     """
     exiger_lot()
-    module = fab.placement_mod()
+    placement_resultat = pytest.importorskip("ourouler.seance.placement_resultat", reason=MOTIF_SORTIE)
     trace = fab.boucle_carree()
     seance, resultat = _resultat_demi_tour(monkeypatch, trace)
-    parcours = module.trace_parcourue(resultat, trace)
+    parcours = placement_resultat.trace_parcourue(resultat, trace)
     somme = sum(e.longueur_m for e in resultat.emplacements)
     assert parcours.distance_m == pytest.approx(somme, rel=0.01), (
         f"le parcours recollé fait {parcours.distance_m / 1000:.2f} km, la somme des "
@@ -1131,7 +1131,8 @@ def test_le_json_porte_toutes_les_etapes_et_aucune_note_inventee(monkeypatch):
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace, bon=(-2.0, -1.0), mauvais=10.0)
-    charge = rendu_mod()._candidate_json(_proposition(commande, resultat, trace))
+    rendu_json = pytest.importorskip("ourouler.rendu.sortie_json", reason=MOTIF_SORTIE)
+    charge = rendu_json._candidate_json(_proposition(commande, resultat, trace))
     json.dumps(charge, ensure_ascii=False)  # doit rester sérialisable tel quel
 
     emplacements = charge["placement"]["emplacements"]

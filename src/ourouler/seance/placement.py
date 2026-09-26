@@ -85,24 +85,17 @@ from ourouler.physique.modele import (
     Parametres,
 )
 from ourouler.seance.pas_trace import (
-    PAS_VENT_MS,  # noqa: F401 — réexporté
-    _arrondir_vent,  # noqa: F401 — réexporté (tests)
     _distances_cumulees,
-    _point_a,  # noqa: F401 — réexporté (tests)
     _Terrain,
 )
 from ourouler.seance.placement_note import (
-    PENALITE_CALME_ALLONGE_KM_PAR_H,  # noqa: F401 — réexporté
-    PENALITE_SEANCE_NON_TENUE,  # noqa: F401 — réexporté
     _EcartElastique,
     _note_ponderee,
     _penalite_seance,
 )
 from ourouler.seance.placement_resultat import (
-    DOUBLON_PARCOURS_M,  # noqa: F401 — réexporté
     Emplacement,
     Placement,
-    trace_parcourue,  # noqa: F401 — réexporté
 )
 from ourouler.seance.terrain import demi_tour_faisable, evaluer_couloir, route_au_dela
 from ourouler.seance.vent import ChampVent

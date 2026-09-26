@@ -176,22 +176,21 @@ import numpy as np
 from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattacher_velo
 from ourouler.config import Config, Velo, charger
-from ourouler.connecteurs.openmeteo_archive import HeureArchive
 from ourouler.noyau.activite import Activite, est_sport_velo, puissance_moyenne
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.meteo import HeureArchive
 from ourouler.physique.calibration import (
     CDA_MAX,
     CDA_MIN,
     CRR_MAX,
     CRR_MIN,
-    DELTA_V_MAX_MS,
-    LONGUEUR_ECHANTILLON_M,
     V_REFERENCES_KMH,
     Echantillon,
     _matrices,
     detecter_groupe,
     echantillonner,
 )
+from ourouler.physique.echantillonnage import DELTA_V_MAX_MS, LONGUEUR_ECHANTILLON_M
 from ourouler.physique.modele import Parametres, puissance_requise
 from ourouler.services.calibrer import masse_totale_kg
 

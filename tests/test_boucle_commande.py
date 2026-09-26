@@ -47,10 +47,9 @@ from ourouler.rendu.boucle import (
     TITRE_ANTENNES_DETECTEES,
     TITRE_ANTENNES_RETIREES,
     _ligne_modele_meteo,
-    _modele_meteo_json,
-    rendre_json,
     rendre_texte,
 )
+from ourouler.rendu.boucle_json import _modele_meteo_json, rendre_json
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
@@ -2030,11 +2029,8 @@ def test_boucle_dit_que_le_pneu_a_change_depuis_la_calibration(
 ):
     """Décision du 25/09 : la calibration est gardée, mais l'écran dit qu'elle
     ne suit plus le pneu déclaré — en texte comme en JSON."""
-    from ourouler.physique.commande import (
-        ALERTE_PNEU_CHANGE,
-        chemin_calibration,
-        ecrire_calibration,
-    )
+    from ourouler.physique.commande import chemin_calibration, ecrire_calibration
+    from ourouler.physique.parametres_velo import ALERTE_PNEU_CHANGE
 
     config = config_de_test(
         cache={"dossier": str(tmp_path)},

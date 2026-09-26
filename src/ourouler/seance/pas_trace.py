@@ -1,6 +1,6 @@
 """Le tracé vu comme une suite de pas, tel que le placement le parcourt.
 
-Sorti de `seance/placement.py`, qui le réexporte : distances cumulées,
+Sorti de `seance/placement.py` : distances cumulées,
 altitude, caps et vent arrondi de chaque pas (`_Terrain`). Rien ici ne
 décide d'un placement ; les mêmes calculs, dans le même ordre, qu'avant le
 déplacement.

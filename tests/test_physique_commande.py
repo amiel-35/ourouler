@@ -28,21 +28,23 @@ from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.physique import litterature
 from ourouler.physique.commande import (
-    ALERTE_PNEU_CHANGE,
-    CDA_DEFAUT,
-    VERSION_CALIBRATION,
-    Calibration,
     alerte_calibration,
     chemin_calibration,
-    crr_du_velo,
     ecrire_calibration,
-    fourchette_defaut,
     fourchette_du_velo,
     lire_calibration,
     parametres_du_velo,
     velo_demande,
 )
 from ourouler.physique.modele import Parametres
+from ourouler.physique.parametres_velo import (
+    ALERTE_PNEU_CHANGE,
+    CDA_DEFAUT,
+    Calibration,
+    crr_du_velo,
+    fourchette_defaut,
+)
+from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
 METRE_EN_DEGRE = 1.0 / 111_194.93
 

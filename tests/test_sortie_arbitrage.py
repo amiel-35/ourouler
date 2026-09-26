@@ -29,7 +29,7 @@ import pytest
 from test_sortie_commande import _contexte_minimal, _seance_fabriquee, lancer
 from test_sortie_contraste import droite, profil, selection_de
 
-from ourouler.rendu.sortie import rendre_json
+from ourouler.rendu.sortie_json import rendre_json
 from ourouler.sortie import contraste
 from ourouler.sortie.commande import (
     ETAPE_DISTANCE,

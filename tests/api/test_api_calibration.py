@@ -43,6 +43,7 @@ from ourouler.api.session import MODE_HEBERGE  # noqa: E402
 from ourouler.noyau.erreurs import ErreurUtilisateur  # noqa: E402
 from ourouler.physique import commande as physique  # noqa: E402
 from ourouler.services import calibrer  # noqa: E402
+from ourouler.stockage.calibrations import VERSION_CALIBRATION  # noqa: E402
 
 PREFIXE = "/api/v1"
 A = "essai-calib-a"
@@ -227,7 +228,7 @@ def test_un_compte_heberge_ne_lit_jamais_la_calibration_commune(tmp_path: Path):
     commun = tmp_path / "cache" / physique.NOM_CALIBRATION
     commun.parent.mkdir(parents=True, exist_ok=True)
     commun.write_text(
-        json.dumps({"version": physique.VERSION_CALIBRATION, "velos": {"Route": {
+        json.dumps({"version": VERSION_CALIBRATION, "velos": {"Route": {
             "cda_m2": 0.9, "crr": 0.02, "masse_totale_kg": 100.0, "rendement": 0.97,
             "rho": 1.2, "date": "2026-01-01", "n_sorties": 50}}}),
         encoding="utf-8",

@@ -38,7 +38,7 @@ import httpx
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
 # Le type d'une heure d'archive est au noyau depuis le lot 8 (le calcul de
-# calibration le lit sans importer ce connecteur) ; réexporté ici.
+# calibration le lit sans importer ce connecteur).
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
 

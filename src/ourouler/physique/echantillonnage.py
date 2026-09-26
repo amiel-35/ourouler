@@ -1,6 +1,6 @@
 """Les échantillons de la calibration : des tronçons de sortie qualifiés, avec leur vent.
 
-Sorti de `physique/calibration.py`, qui réexporte ces noms. Physique pure
+Sorti de `physique/calibration.py`. Physique pure
 comme lui : des objets en entrée, aucun chemin, réseau ni configuration.
 Mêmes calculs, dans le même ordre, qu'avant le déplacement.
 """
