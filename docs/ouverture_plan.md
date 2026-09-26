@@ -215,8 +215,19 @@ métadonnées, CI à délai maximal et actions épinglées, Dependabot). N8 : la
 relecture Fable (30 constats : 17 A, 5 B, 8 C) juge le dépôt « au-dessus de
 la moyenne » ; les 17 A sont faits (#99 accueil et documentation, #100 tests
 sans histoire de sprint), Dependabot groupé (#101), `ruff format` appliqué une
-fois et vérifié en CI (#103). Reste N9, avec le mainteneur : les 8 questions C
-de la revue et les gestes de fin.
+fois et vérifié en CI (#103). N9, décisions du mainteneur du 26/09/2026 :
+`.claude/` retiré du dépôt et Q67 tranchée, la doctrine suit le code (#107) ;
+ESLint au front (#108) ; capture de l'interface au README (#109) ; `cli.py`
+devenu le paquet `cli/` et les huit cas d'usage rangés dans `services/`, P3
+identique (#110) ; pyright avec une ligne de base de 159 erreurs (#111) ;
+hébergement autonome de la page du jour retiré (#112). Dependabot : mineures
+mergées, quatre majeures qui cassent la CI fermées (React 19, TypeScript 7,
+jsdom 30, vitest 5 : chacune une migration à part, au backlog). **La phase de
+nettoyage est close.** Restent au mainteneur : merger les trois PR d'actions
+GitHub (#90–#92, qui demandent le droit `workflow`), arrêter l'application
+« page du jour » sur Coolify avant le prochain déploiement de `prod`, les
+réglages GitHub au passage en public, et le tri des branches garées et des
+worktrees d'autres sessions.
 
 **Backlog issu de N8 (classe B, changements visibles)** : en-têtes HTTP de
 sécurité sur l'API ; limitation des tentatives de connexion (avant
