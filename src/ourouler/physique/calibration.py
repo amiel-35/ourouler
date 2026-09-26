@@ -677,7 +677,7 @@ def calibrer(
 
     a, b, c, y = _matrices(retenus, masse_totale_kg)
     if crr_fixe is not None:
-        return _calibrer_cda_seul(retenus, a, b, c, y, masse_totale_kg, crr_fixe)
+        return _calibrer_cda_seul(retenus, a, b, c, y, masse_totale_kg=masse_totale_kg, crr=crr_fixe)
     matrice = np.column_stack((a, b))
     reste = y - c
     avertissements: list[str] = []
@@ -721,6 +721,7 @@ def _calibrer_cda_seul(
     b: np.ndarray,
     c: np.ndarray,
     y: np.ndarray,
+    *,
     masse_totale_kg: float,
     crr: float,
 ) -> Ajustement:
