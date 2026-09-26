@@ -25,7 +25,7 @@ from ourouler.meteo.rapport import date_en_francais
 from ourouler.noyau.seance import Seance
 from ourouler.rendu.boucle import ligne_temps_ecoule, lignes_elargissement, porte_a_porte
 from ourouler.rendu.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
-from ourouler.rendu.sortie_json import rendre_json  # noqa: F401 — réexporté
+from ourouler.rendu.sortie_json import _candidate_json, rendre_json  # noqa: F401 — réexportés
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.sortie import contraste, orientation, vent_demande
