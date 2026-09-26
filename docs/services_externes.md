@@ -6,10 +6,13 @@ la carte, pas le territoire.
 
 Deux règles encadrent tout ce qui suit, et elles ne se négocient pas :
 
-- **Aucun test n'appelle le réseau** (règle absolue 3). Chaque connecteur prend
+- **Aucun test n'appelle le réseau** (`AGENTS.md`, « Pas de réseau dans
+  les tests »). Chaque connecteur prend
   un client HTTP injectable ; les tests répondent depuis `tests/fixtures/`.
-- **Aucune clé dans le dépôt** (règle absolue 1). Les secrets vivent dans le
-  fichier de configuration de l'utilisateur, jamais commité, et n'apparaissent
+- **Aucune clé dans le dépôt** (`AGENTS.md`, « Aucune donnée personnelle ni
+  clé dans le dépôt »). Les secrets vivent dans le fichier de configuration
+  de l'utilisateur (ou, pour le service, dans `service.toml` et
+  l'environnement du serveur), jamais commité, et n'apparaissent
   ni dans un message d'erreur, ni dans un log, ni dans un `repr`.
 
 ## En un coup d'œil
@@ -22,7 +25,9 @@ Deux règles encadrent tout ce qui suit, et elles ne se négocient pas :
 | Intervals.icu | activités, fichiers d'origine, séances | clé perso | compte gratuit | `connecteurs/intervals.py` |
 | BAN / Géoplateforme | une adresse française → coordonnées | non | Etalab 2.0 | `connecteurs/geocodage.py` |
 | Nominatim (OSM) | la même chose, hors de France | non | politique d'usage stricte | `connecteurs/geocodage.py` |
-| Tuiles OSM | le fond de carte du front | non | politique d'usage | `front/src/composants/Carte.tsx` |
+| Relais SMTP (Brevo) | le courriel d'invitation et de nouveau mot de passe, en hébergé | identifiants SMTP | offre du fournisseur | `api/courriel.py` |
+| Tuiles OSM | le fond de carte du front et de la carte HTML | non | politique d'usage | `front/src/composants/carte/dessin.ts`, `rendu/carte_dessin.py` |
+| cdnjs (Cloudflare) | Leaflet pour la carte HTML de la ligne de commande | non | gratuit | `rendu/carte_dessin.py` |
 
 ---
 
@@ -37,7 +42,8 @@ Deux modèles, jamais moyennés :
 - `meteofrance_arome_france_hd` — 1,3 km de maille, la France seulement ;
 - `icon_seamless` — le **second avis**, qui porte plus loin dans le temps.
 
-Quand les deux divergent, l'écran affiche un désaccord (règle absolue 5). Les
+Quand les deux divergent, l'écran affiche un désaccord, jamais une moyenne
+(`AGENTS.md`). Les
 noms sont des paramètres de configuration (`[meteo] modele`, `second_avis`),
 pas des constantes.
 
@@ -109,18 +115,29 @@ toujours une **liste** de candidats notés et ne tranche jamais seul.
    l'autocomplétion et des requêtes systématiques, et une attribution ODbL
    visible dès qu'un résultat est affiché. Le connecteur respecte les quatre.
 
-## Le front
+## Le courriel
 
-Leaflet est chargé depuis `cdnjs.cloudflare.com`, les tuiles viennent de
-`tile.openstreetmap.org`, avec l'attribution OSM obligatoire.
+En hébergé, `ourouler inviter` et `ourouler reinitialiser` envoient leur
+lien par un relais SMTP (Brevo), avec `smtplib` de la bibliothèque standard
+(`api/courriel.py`). Les identifiants vivent dans la section `[brevo]` de
+`service.toml` (six champs, `CHAMPS_REQUIS_BREVO` ; modèle :
+`service.example.toml`). `--sans-courriel` s'en passe : le lien s'affiche
+toujours dans le terminal.
+
+## Les cartes
+
+Le front embarque Leaflet comme dépendance npm (`front/package.json`) ; la
+carte HTML de la ligne de commande (`ourouler sortie --carte`) le charge
+depuis `cdnjs.cloudflare.com` (`rendu/carte_dessin.py`). Dans les deux cas,
+les tuiles viennent de `tile.openstreetmap.org`, avec l'attribution OSM
+obligatoire.
 
 ## Ce qui n'est pas encore branché
 
 | Service | Pour quoi | État |
 |---|---|---|
-| Brevo | le courriel d'inscription, modérée par l'exploitant | clé promise, rien d'écrit |
 | Garmin Connect | pousser le parcours sur le compteur | rien d'installé, rien de décidé |
-| Strava / Garmin (export) | importer l'historique d'un nouvel utilisateur | les deux, par dépôt de fichier (pas de lien direct) |
+| Strava / Garmin (export) par lien | importer l'historique sans télécharger l'archive soi-même | non construit : l'import passe par un dépôt de fichier |
 
 **Aucune installation sur une machine ou un serveur sans l'accord explicite de
 qui l'exploite** (voir `AGENTS.md`). On propose, on attend.
@@ -134,116 +151,34 @@ qu'on a déjà, et c'est sur lui seul que travaillent les scripts de mesure de
 
 ## Les archives d'export, mesurées sur de vraies données
 
-Tout ce chapitre vient de **deux archives réelles**, demandées et lues pour
-l'occasion — pas d'une documentation de plateforme. Ce qu'on croyait savoir
-avant était faux sur plusieurs points, tous corrigés ici.
+Une archive Garmin et une archive Strava réelles ont été demandées et lues
+avant d'écrire l'import ; les mesures (tailles, agencement, liens) sont
+dans [`journal/archives_export_mesures.md`](journal/archives_export_mesures.md).
+Ce qu'elles fixent, et que le code applique
+(`src/ourouler/activites/import_archive.py`) :
 
-### Le lien n'est pas celui de la plateforme, et il change à chaque saut
+- **Une liste blanche d'entrées.** Seuls les fichiers d'activité (`.fit`,
+  `.gpx`, `.tcx`, éventuellement en `.gz`) et les `.zip` imbriqués sont lus
+  (`EXTENSIONS_ACTIVITE`) ; tout le reste de l'archive — photos et vidéos,
+  qui en font l'essentiel chez Strava, contacts, messages, identifiants
+  d'appareils — est ignoré sans être extrait.
+- **Des bornes vérifiées à la lecture, à chaque niveau d'imbrication.**
+  Garmin range les sorties dans des `.zip` à l'intérieur du `.zip` ; le
+  ratio de décompression de l'enveloppe intérieure y est bien plus fort
+  que celui de l'extérieure, donc un plafond posé sur l'enveloppe seule ne
+  verrait rien (`RATIO_MAX_DECOMPRESSION`, `PROFONDEUR_MAX_ARCHIVE`).
+- **Un délai non garanti.** Une plateforme peut livrer l'archive dans
+  l'heure comme en plusieurs jours : ne rien promettre au cycliste au-delà
+  de « de quelques heures à quelques jours ».
 
-| | Garmin | Strava |
-|---|---|---|
-| hôte final | `s3.amazonaws.com` | `s3.amazonaws.com` |
-| préfixe de chemin | `it-gdpr-bucket/` | `strava.portability/athlete/<id>/export/live/` |
-| validité | **3 jours** (`X-Amz-Expires=259200`) | à mesurer |
-| taille | 240 Mo | **665 Mo** |
-| redirections avant d'y arriver | aucune | **deux** |
+Et pour ce qui n'est pas construit — importer par **lien** plutôt que par
+fichier, ou lire le profil (FTP, zones) dans l'archive :
 
-Trois conséquences qui décident de l'implémentation :
-
-1. **La liste blanche porte sur l'hôte *et* le préfixe de chemin.** Les deux
-   plateformes servent depuis `s3.amazonaws.com`, où la moitié d'Internet est
-   hébergée : l'hôte seul ne filtre rien. C'est le préfixe qui discrimine.
-2. **Elle s'applique à chaque saut, pas à ce que la personne colle.** Le lien
-   Strava reçu lors de la mesure traversait une enveloppe
-   `safelinks.protection.outlook.com` (ajoutée par sa messagerie) puis un
-   traceur `email.strava.com`, avant d'atteindre S3. Vérifier seulement l'URL
-   collée laisserait passer n'importe quoi ; ne pas suivre les redirections du
-   tout casserait le cas normal.
-3. **`HEAD` est refusé (403).** Une URL S3 pré-signée n'est valable que pour la
-   méthode signée, ici `GET`. Sonder la taille avant de télécharger ne marche
-   pas — il faut lire `Content-Length` sur le `GET` lui-même.
-
-### On n'a pas besoin de télécharger l'archive
-
-**S3 accepte les requêtes par plage** (`Range`, réponse `206`). Le répertoire
-central d'un zip étant à la fin, on lit **la liste complète des entrées** en
-récupérant les derniers mégaoctets, puis on ne va chercher que les octets des
-entrées qu'on veut.
-
-Mesuré sur l'archive Strava : **les 3 730 entrées lues en téléchargeant 4 Mo
-sur 665**. Ce qui nous intéresse vraiment — `activities.csv`, `profile.csv`,
-`bikes.csv` et un an de sorties — tient dans l'ordre de 20 Mo.
-
-C'est ce qui fait de la **liste blanche d'entrées** la pièce centrale plutôt
-qu'une précaution après coup : elle ne décide plus seulement de ce qu'on
-extrait, elle décide de ce qu'on **télécharge**. Et moins on extrait, moins il
-y a à isoler.
-
-### Garmin : où sont les choses, et les pièges
-
-```
-DI_CONNECT/DI-Connect-Uploaded-Files/UploadedFiles_0-_Part{1..6}.zip   238 Mo
-DI_CONNECT/DI-Connect-Wellness/<id>_powerZones.json
-DI_CONNECT/DI-Connect-Wellness/<id>_heartRateZones.json
-DI_CONNECT/DI-Connect-Wellness/<id>_bioMetrics_latest.json
-customer_data/customer.json
-```
-
-Le profil **y est** : FTP et paliers de puissance, FCmax, FC de repos, seuil
-lactique, zones cardiaques. C'est ce qui permet à l'étage export de rendre ce
-que la route `athlete` d'Intervals rend — pour beaucoup plus de
-monde, puisque peu de cyclistes ont Intervals.
-
-Trois pièges, tous rencontrés :
-
-- **Les zones trouvées peuvent être celles d'un autre sport.** Le
-  `powerZones.json` mesuré porte `sport = RUNNING` et une FTP de course à
-  pied bien plus haute que la FTP vélo. Prendre le premier fichier de zones
-  donnerait un cycliste bien trop fort — et **la valeur reste plausible**, donc
-  l'erreur ne se verrait pas. **Filtrer sur le sport.** La confirmation par
-  l'utilisateur ne rattrape pas ce cas : celui qui ne connaît pas sa FTP —
-  précisément celui pour qui l'entonnoir existe — cliquera « oui ».
-- **Les sorties sont dans des archives imbriquées.** Six `.zip` dans le `.zip`.
-- **Le ratio de décompression y est de 11**, quand celui de l'enveloppe
-  extérieure est de 1,5 : 9 Mo qui deviennent 100, pour 2 487 fichiers. Un
-  plafond de ratio posé sur l'enveloppe ne verrait rien.
-
-### Strava : où sont les choses, et ce qu'on ignore
-
-```
-activities.csv        1,1 Mo   l'index de toutes les sorties, sans en ouvrir une
-profile.csv                    l'athlète
-bikes.csv                      les vélos, avec leurs noms
-activities/           165 Mo   2 613 .fit.gz et 311 .gpx
-media/                504 Mo   photos et vidéos — 76 % de l'archive
-routes/                27 Mo
-```
-
-**76 % de l'archive sont des photos et des vidéos**, dont ce produit n'a aucun
-usage. Sans liste blanche, on les ferait traverser le serveur pour rien.
-
-Et ce qu'on ne doit **jamais** lire, présent dans la même archive :
-`contacts.csv`, `followers.csv`, `following.csv`, `messaging.json`,
-`reactions.csv`, `logins.csv`, `mobile_device_identifiers.csv`. Ne pas
-extraire une donnée personnelle est la seule façon sûre de ne pas la
-conserver (règle absolue 1).
-
-### Ce que ça corrige
-
-- « Garmin met plusieurs jours là où Strava met des heures » : l'archive
-  Garmin mesurée est arrivée **le jour même**. La conclusion reste bonne —
-  le parcours doit survivre à une interruption longue — mais parce que le
-  délai **n'est pas garanti**, pas parce qu'il serait toujours long. Ne rien
-  promettre au cycliste au-delà de « de quelques heures à quelques jours ».
-- « durée de validité inconnue chez Garmin » : **3 jours**, dit par le
-  courriel et confirmé par le paramètre signé.
-- « agencement interne de l'archive, seul point qui demande un adaptateur » :
-  vrai, et c'est plus que de la lecture — c'est la **liste de ce qu'on va
-  chercher**, par plateforme, qui décide aussi du réseau consommé.
-
-### Non vérifié
-
-L'export en plusieurs parties. Le fichier Garmin s'appelle `<uuid>_1.zip`, ce
-que le suffixe rend suspect, mais rien ne dit qu'un `_2` existe et aucun n'a
-été observé. Hypothèse retenue : **une seule archive**. Si un jour un `_2` existe, il doit se **voir** plutôt que
-d'importer la moitié d'un historique en silence.
+- les deux plateformes servent leur archive depuis une URL S3 pré-signée ;
+  une liste blanche porterait sur l'hôte **et** le préfixe de chemin, à
+  chaque redirection, pas seulement sur l'URL collée ;
+- `HEAD` y est refusé : la taille se lit sur le `GET` ;
+- S3 accepte les requêtes par plage (`Range`) : on lit la liste des
+  entrées à la fin du `.zip` sans télécharger le reste ;
+- les zones de puissance d'une archive Garmin peuvent être celles d'un
+  autre sport : **filtrer sur le sport** avant d'en tirer une FTP.
