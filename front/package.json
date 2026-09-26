@@ -4,6 +4,10 @@
   "version": "0.10.0",
   "type": "module",
   "description": "L'interface du cycliste — elle ne parle qu'à l'API d'ourouler.",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
