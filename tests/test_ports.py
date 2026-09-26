@@ -16,15 +16,17 @@ from typing import Protocol
 
 import pytest
 
+from ourouler.activites.cache import Cache
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.meteo.openmeteo import ClientOpenMeteo
-from ourouler.noyau.ports import Routeur, SourcePrevisions, SourceSeances
+from ourouler.noyau.ports import DepotActivites, Routeur, SourcePrevisions, SourceSeances
 
 PAIRES = [
     (Routeur, ClientBrouter),
     (SourcePrevisions, ClientOpenMeteo),
     (SourceSeances, ClientIntervals),
+    (DepotActivites, Cache),
 ]
 
 

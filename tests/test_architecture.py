@@ -26,10 +26,9 @@ qui doit la retirer. Le test échoue :
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
     lot 6 : 1 exception, échéance 2026-11-30
-    lot 7 : 3 exceptions, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
-    lot 10 : 8 exceptions, échéance 2026-12-31
-    total : 16 exceptions
+    lot 10 : 9 exceptions, échéance 2026-12-31
+    total : 14 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -67,6 +66,15 @@ mailles passe d'`apprentissage/routes` (un cas d'usage) au domaine
 (`boucle/mailles`), que `sortie/contraste` importe désormais. Ses 5
 exceptions sont tombées.
 
+**Lot 7 fait.** `stockage/` existe : `stockage/calibrations` lit et écrit
+`calibration.json` (réexporté par `physique.commande`). Le choix des
+paramètres d'un vélo (`physique/parametres_velo`) et le calcul de l'écran de
+FTP (`seance/ftp`) sont du domaine pur : ils reçoivent la calibration lue et
+le modèle du vélo. `seance/ecran_ftp` devient la commande qui les prépare
+(rangée aux cas d'usage, son import de `config` re-daté au lot 10). Le
+connecteur Intervals range les sorties dans un `noyau.ports.DepotActivites`
+au lieu d'importer le cache. Ses 3 exceptions sont tombées ; une est re-datée.
+
 Les deux cycles principaux qui restent, sur les paquets tels qu'ils sont
 rangés aujourd'hui (imports différés compris) — le premier, `api` ↔ `cli`,
 est rompu depuis le lot 5 :
@@ -75,7 +83,8 @@ est rompu depuis le lot 5 :
    zones, que `seance/commande.py`, `seance/ecran_ftp.py` et
    `seance/tenue.py` lui rendaient en important `Config`. Depuis le lot 4,
    `config.py` les prend au noyau et `seance/tenue.py` y prend
-   `ParametresTenue` ; restent l'écran de FTP (lot 7) et la commande (lot 10).
+   `ParametresTenue` ; depuis le lot 7, l'écran de FTP est une commande ;
+   restent les commandes (lot 10).
 2. `boucle` ↔ `physique` : `physique/modele.py` et `physique/calibration.py`
    importaient `boucle/trace.py`, et `boucle/commande.py` importe
    `physique/modele.py`. Depuis le lot 3, ils importent `noyau/trace.py` ;
@@ -118,7 +127,7 @@ PAQUETS: dict[str, tuple[int, bool]] = {
     "seance": (1, True),
     "sortie": (1, True),
     "connecteurs": (2, True),
-    "stockage": (2, False),
+    "stockage": (2, True),
     "services": (3, True),
     "rendu": (4, True),
     "config": (5, True),
@@ -179,6 +188,7 @@ MODULES: dict[str, str] = {
     "ourouler.physique.modele": "physique",
     "ourouler.physique.litterature": "physique",
     "ourouler.physique.calibration": "physique",
+    "ourouler.physique.parametres_velo": "physique",
     "ourouler.meteo": "meteo",
     "ourouler.meteo.couronne": "meteo",
     "ourouler.meteo.rapport": "meteo",
@@ -194,8 +204,8 @@ MODULES: dict[str, str] = {
     "ourouler.boucle.meteo_trace": "boucle",
     "ourouler.boucle.tags_importes": "boucle",
     "ourouler.seance": "seance",
-    "ourouler.seance.ecran_ftp": "seance",
     "ourouler.seance.fichier": "seance",
+    "ourouler.seance.ftp": "seance",
     "ourouler.seance.intervals": "seance",
     "ourouler.seance.mrc": "seance",
     "ourouler.seance.placement": "seance",
@@ -214,6 +224,8 @@ MODULES: dict[str, str] = {
     "ourouler.connecteurs.intervals": "connecteurs",
     "ourouler.connecteurs.openmeteo_archive": "connecteurs",
     "ourouler.meteo.openmeteo": "connecteurs",
+    "ourouler.stockage": "stockage",
+    "ourouler.stockage.calibrations": "stockage",
     "ourouler.activites.cache": "stockage",
     "ourouler.activites.import_archive": "stockage",
     "ourouler.activites.lecture": "stockage",
@@ -236,6 +248,7 @@ MODULES: dict[str, str] = {
     "ourouler.physique.commande": "services",
     "ourouler.physique.comparer": "services",
     "ourouler.seance.commande": "services",
+    "ourouler.seance.ecran_ftp": "services",
     "ourouler.sortie.commande": "services",
     # 4. rendu
     "ourouler.rendu": "rendu",
@@ -281,15 +294,6 @@ ECHEANCES = {
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
     ("ourouler.sortie.commande", "ourouler.sortie.carte", "lot 6", "2026-11-30"),
-    # Lot 7 : `stockage/` s'ouvre avec les calibrations ; le domaine reçoit
-    # des `Parametres`, plus la commande qui lit le fichier de calibration.
-    # La synchronisation Intervals → cache passe du connecteur au service.
-    ("ourouler.seance.ecran_ftp", "ourouler.physique.commande", "lot 7", "2026-11-30"),
-    # Re-daté du lot 4 : l'écran de FTP ne lit de `Config` que les vélos, la
-    # FTP et les zones, mais la passe entière à `physique.commande`
-    # (`parametres_du_velo`, `velo_demande`) ; les deux arêtes tombent ensemble.
-    ("ourouler.seance.ecran_ftp", "ourouler.config", "lot 7", "2026-11-30"),
-    ("ourouler.connecteurs.intervals", "ourouler.activites.cache", "lot 7", "2026-11-30"),
     # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
     # cache, l'inventaire ni le connecteur d'archive météo.
     ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
@@ -312,6 +316,10 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     ("ourouler.physique.commande", "ourouler.config", "lot 10", "2026-12-31"),
     ("ourouler.physique.comparer", "ourouler.config", "lot 10", "2026-12-31"),
     ("ourouler.seance.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    # Re-daté du lot 7 : le calcul de l'écran de FTP est passé au domaine
+    # (`seance/ftp.py`, qui reçoit le modèle du vélo) ; `seance/ecran_ftp.py`
+    # en est devenu la commande, et garde sa signature en `Config` pour `cli`.
+    ("ourouler.seance.ecran_ftp", "ourouler.config", "lot 10", "2026-12-31"),
     ("ourouler.sortie.commande", "ourouler.config", "lot 10", "2026-12-31"),
 ]
 

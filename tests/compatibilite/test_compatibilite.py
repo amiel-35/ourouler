@@ -62,7 +62,7 @@ from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique.commande import lire_calibration
+from ourouler.stockage.calibrations import lire_calibration
 
 MESSAGE = (
     "format persisté modifié : un lot de restructuration ne touche ni format, ni "
