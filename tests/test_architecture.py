@@ -25,10 +25,9 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 6 : 2 exceptions, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
-    lot 10 : 10 exceptions, échéance 2026-12-31
-    total : 16 exceptions
+    lot 10 : 11 exceptions, échéance 2026-12-31
+    total : 15 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -58,6 +57,17 @@ de `api/` — le serveur, le dépôt des comptes, le client SMTP, la lecture de
 l'environnement de l'hébergé, les dépôts à effacer — pour construire les
 dépendances qu'il passe au service : ce sont des arêtes d'une entrée à une
 autre, sans cycle, donc permises.
+
+**Lot 6 fait** (pour `sortie` et `boucle` ; `physique/commande.py` attend le
+lot 8). Le tableau texte, le JSON, les phrases et la page du jour sont dans
+`rendu/sortie.py` et `rendu/boucle.py`, la carte HTML dans `rendu/carte.py`
+(`sortie/carte.py` n'en est plus que le réexport, dans `REEXPORTS`). Les
+commandes cherchent, mesurent, écrivent les fichiers et appellent le rendu,
+qui ne lit ni fichier, ni configuration, ni horloge. L'exception du lot 6
+(`sortie.commande` → la carte) est tombée ; mais c'est encore `executer`
+qui imprime, donc chaque commande importe son rendu (import différé) : ces
+deux arêtes qui montent sont datées au lot 10, quand `cli` appellera le
+rendu lui-même.
 
 **Lot 9 fait.** `noyau/ports` porte les protocoles que le domaine reçoit à
 la place des clients concrets : `Routeur` (BRouter), `SourcePrevisions`
@@ -257,6 +267,7 @@ MODULES: dict[str, str] = {
     "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.comptes": "rendu",
     "ourouler.rendu.profil": "rendu",
+    "ourouler.rendu.sortie": "rendu",
     # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
@@ -296,9 +307,6 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
-    ("ourouler.sortie.commande", "ourouler.rendu.carte", "lot 6", "2026-11-30"),
-    ("ourouler.sortie.commande", "ourouler.rendu.boucle", "lot 6", "2026-11-30"),
     # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
     # cache, l'inventaire ni le connecteur d'archive météo.
     ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
@@ -333,6 +341,7 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # `cli` construit la `Demande` et reçoit un résultat (lot 10), c'est lui
     # qui appelle le rendu, et ces arêtes tombent.
     ("ourouler.boucle.commande", "ourouler.rendu.boucle", "lot 10", "2026-12-31"),
+    ("ourouler.sortie.commande", "ourouler.rendu.sortie", "lot 10", "2026-12-31"),
 ]
 
 #: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
@@ -363,6 +372,7 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     # l'entrée qui la charge (lot 5) ; celui des parcours de même (lot 6).
     ("ourouler.rendu.profil", "ourouler.config"),
     ("ourouler.rendu.boucle", "ourouler.config"),
+    ("ourouler.rendu.sortie", "ourouler.config"),
 }
 
 

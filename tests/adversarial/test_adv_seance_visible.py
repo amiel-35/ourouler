@@ -167,6 +167,11 @@ def commande_mod() -> Any:
     return pytest.importorskip("ourouler.sortie.commande", reason=MOTIF_SORTIE)
 
 
+def rendu_mod() -> Any:
+    """Le rendu de `sortie` (tableau, séance placée, JSON), sorti de la commande au lot 6."""
+    return pytest.importorskip("ourouler.rendu.sortie", reason=MOTIF_SORTIE)
+
+
 # =============================================================================
 # 0. Sentinelle
 # =============================================================================
@@ -973,7 +978,7 @@ def test_le_denominateur_du_tableau_est_le_nombre_de_blocs(monkeypatch):
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
     proposition = _proposition(commande, resultat, trace)
-    cellules = commande._cellules(proposition, set())
+    cellules = rendu_mod()._cellules(proposition, set())
     fractions = [c for c in cellules if re.fullmatch(r"\d+/\d+", c)]
     assert fractions == ["2/2"], (
         f"la cellule « blocs bien placés » vaut {fractions} ; la séance a 2 blocs "
@@ -988,11 +993,11 @@ def test_le_denominateur_du_tableau_est_le_nombre_de_blocs(monkeypatch):
 
 def _lignes_seance(commande: Any, proposition: Any, seance: Any) -> list[str]:
     """`_seance_placee`, qui ne lit du contexte que `contexte.seance`."""
-    assert hasattr(commande, "_seance_placee"), (
-        "`sortie.commande._seance_placee` a disparu : c'est la fonction que le "
+    assert hasattr(rendu_mod(), "_seance_placee"), (
+        "`rendu.sortie._seance_placee` a disparu : c'est la fonction que le "
         "contrat §2.2 b) fait évoluer, et six tests de ce fichier la visent"
     )
-    return commande._seance_placee(proposition, SimpleNamespace(seance=seance))
+    return rendu_mod()._seance_placee(proposition, SimpleNamespace(seance=seance))
 
 
 def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
@@ -1015,8 +1020,8 @@ def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
 
     vues = []
     for e in resultat.emplacements:
-        debut = commande._fr(e.debut_m / 1000.0, 1)
-        fin = commande._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
+        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         portantes = [ligne for ligne in lignes if debut in ligne and fin in ligne]
         assert portantes, (
             f"étape {e.etape_idx} ({seance.etapes[e.etape_idx].type}) : aucune ligne ne "
@@ -1048,8 +1053,8 @@ def test_la_colonne_de_note_reste_vide_pour_les_non_blocs(monkeypatch):
 
     lignes_etapes = []
     for e in resultat.emplacements:
-        debut = commande._fr(e.debut_m / 1000.0, 1)
-        fin = commande._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
+        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         lignes_etapes.append(
             (e, next(ligne for ligne in lignes if debut in ligne and fin in ligne))
         )
@@ -1083,8 +1088,8 @@ def test_l_affichage_d_une_seance_tres_longue_reste_coherent(monkeypatch):
     lignes = _lignes_seance(commande, _proposition(commande, resultat, trace), seance)
     texte = "\n".join(lignes)
     for e in resultat.emplacements:
-        debut = commande._fr(e.debut_m / 1000.0, 1)
-        fin = commande._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
+        debut = rendu_mod()._fr(e.debut_m / 1000.0, 1)
+        fin = rendu_mod()._fr((e.debut_m + e.longueur_m) / 1000.0, 1)
         assert any(debut in ligne and fin in ligne for ligne in lignes), (
             f"étape {e.etape_idx} absente de l'affichage d'une séance à 31 étapes"
         )
@@ -1126,7 +1131,7 @@ def test_le_json_porte_toutes_les_etapes_et_aucune_note_inventee(monkeypatch):
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace, bon=(-2.0, -1.0), mauvais=10.0)
-    charge = commande._candidate_json(_proposition(commande, resultat, trace))
+    charge = rendu_mod()._candidate_json(_proposition(commande, resultat, trace))
     json.dumps(charge, ensure_ascii=False)  # doit rester sérialisable tel quel
 
     emplacements = charge["placement"]["emplacements"]
