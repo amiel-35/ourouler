@@ -3,7 +3,7 @@
 Le routeur essaie les routes **dans l'ordre d'enregistrement** et s'arrête à
 la première qui correspond entièrement (méthode et chemin) ; une route qui ne
 correspond que par le chemin ne sert que si aucune autre ne correspond
-entièrement, et rend alors 405. Scinder `api/routes.py` en modules change
+entièrement, et rend alors 405. Répartir les routes entre les modules de `api/routes/` change
 l'ordre dans lequel les routes s'enregistrent si l'on n'y prend garde :
 `GET /seances/fichier`, par exemple, est servi par `seance_du_jour`
 (`/seances/{jour}`), et `POST /seances/fichier` par `deposer_seance`

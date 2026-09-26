@@ -1402,7 +1402,7 @@ def test_le_placement_et_la_carte_ne_touchent_ni_disque_ni_horloge(monkeypatch):
 
     `open`, `Path.open`, `datetime.now` et `os.environ.get` sont remplacés par
     des refus le temps d'un placement complet et d'une construction de carte.
-    Le lot ajoute du code à `seance/placement.py` et à `sortie/carte.py` ; un
+    Le lot ajoute du code à `seance/placement.py` et à `rendu/carte.py` ; un
     `datetime.now()` glissé pour dater une étiquette, ou un chemin lu pour
     choisir une palette, tomberait ici.
     """
