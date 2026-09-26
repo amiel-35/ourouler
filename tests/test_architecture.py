@@ -97,6 +97,9 @@ datées au lot 10 : les commandes impriment encore le rendu
 `test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`
 tient le §2 : hors `commande.py` et `comparer.py`, `physique/` n'importe ni
 `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`.
+`physique/comparer.py`, déjà rangé aux cas d'usage (`MODULES`), rejoint
+`services/` au lot 10 (2026-12-31), avec les autres commandes : c'est alors
+que `PHYSIQUE_CAS_D_USAGE` se réduit à `commande.py`.
 
 Les deux cycles principaux qui restent, sur les paquets tels qu'ils sont
 rangés aujourd'hui (imports différés compris) — le premier, `api` ↔ `cli`,

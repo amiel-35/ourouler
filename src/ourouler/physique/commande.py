@@ -59,6 +59,10 @@ from ourouler.physique.parametres_velo import (
 # d'usage de la calibration (`services.calibrer`) à leur ancien emplacement,
 # pour les appelants que ce lot ne touche pas (`boucle/commande.py`, les
 # scripts de `tests/validation/`) ; retirés avec les autres au lot final.
+# Ils sont liés **par nom** : remplacer l'un d'eux ici ne change rien à qui
+# l'appelle ailleurs. Un monkeypatch de test vise donc `services.calibrer`
+# pour ce que l'API appelle (`calibrer_velo`), et `physique.commande` pour ce
+# que la ligne de commande appelle depuis ce module.
 from ourouler.rendu.physique import (
     MENTION_MODELE,
     MENTION_MODELE_LITTERATURE,
