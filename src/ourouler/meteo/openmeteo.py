@@ -18,7 +18,7 @@ import httpx
 
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurHorsDomaine
 
-# Types de prévision rangés au noyau (lot 4), réexportés ici pour les appelants du dehors.
+# Types de prévision rangés au noyau depuis le lot 4.
 from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 BASE_URL_DEFAUT = "https://api.open-meteo.com"

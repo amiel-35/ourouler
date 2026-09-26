@@ -85,19 +85,20 @@ from vent_retrospectif import (  # noqa: E402
 from ourouler.activites.lecture import lecteur_pour  # noqa: E402
 from ourouler.config import charger  # noqa: E402
 from ourouler.connecteurs.intervals import ClientIntervals  # noqa: E402
-from ourouler.connecteurs.openmeteo_archive import ClientArchive, HeureArchive  # noqa: E402
+from ourouler.connecteurs.openmeteo_archive import ClientArchive  # noqa: E402
 from ourouler.meteo.couronne import ecart_angulaire  # noqa: E402
 from ourouler.meteo.rapport import VENT_DOS, VENT_FACE, VENT_TRAVERS, vent_relatif  # noqa: E402
 from ourouler.noyau.activite import Activite  # noqa: E402
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur  # noqa: E402
-from ourouler.physique.calibration import (  # noqa: E402
+from ourouler.noyau.meteo import HeureArchive  # noqa: E402
+from ourouler.physique.commande import NOM_CACHE  # noqa: E402
+from ourouler.physique.echantillonnage import (  # noqa: E402
     _cap,
     _decouper,
     _distances_points,
     _interpoler_archive,
     _vent_de_face,
 )
-from ourouler.physique.commande import NOM_CACHE  # noqa: E402
 from ourouler.physique.modele import vent_au_cycliste  # noqa: E402
 
 #: Nombre de quarts de distance dans lesquels chaque sortie est découpée.

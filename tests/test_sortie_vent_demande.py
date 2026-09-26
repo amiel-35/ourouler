@@ -11,8 +11,8 @@ from datetime import UTC, date, datetime
 import pytest
 
 from ourouler.config import Depart
-from ourouler.meteo.openmeteo import PrevisionHeure, PrevisionPoint
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 from ourouler.seance.vent import SEUIL_VENT_SENSIBLE_KMH
 from ourouler.sortie.orientation import (
     CHOIX,

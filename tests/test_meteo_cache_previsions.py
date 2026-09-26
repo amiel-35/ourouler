@@ -15,7 +15,7 @@ from ourouler.meteo.cache_previsions import (
     ClientOpenMeteoCache,
     _arrondir,
 )
-from ourouler.meteo.openmeteo import PrevisionHeure, PrevisionPoint
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
 

@@ -8,7 +8,6 @@ import pytest
 
 from ourouler.config import Depart
 from ourouler.meteo.couronne import NOMS_DIRECTIONS, couronne
-from ourouler.meteo.openmeteo import PrevisionHeure, PrevisionPoint
 from ourouler.meteo.rapport import (
     CONFIANCE_ACCORD,
     CONFIANCE_DESACCORD,
@@ -28,6 +27,7 @@ from ourouler.meteo.rapport import (
     rendre_texte,
     vent_relatif,
 )
+from ourouler.noyau.meteo import PrevisionHeure, PrevisionPoint
 
 DEPART = Depart(nom="Point zéro", latitude=0.0, longitude=0.0)
 DEBUT = datetime(2026, 9, 13, 8, 0, tzinfo=UTC)
