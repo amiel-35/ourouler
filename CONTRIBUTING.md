@@ -46,15 +46,17 @@ uv run pytest -q                 # la suite complète, pas un sous-ensemble
 cd front && npm run verifier     # tsc --noEmit puis vitest run
 ```
 
-La CI (`.github/workflows/ci.yml`) tourne sur chaque PR vers `main` et
-comporte trois jobs :
+La CI (`.github/workflows/ci.yml`) tourne sur chaque PR vers `main`, et à
+chaque poussée sur `main` et `prod`. Elle comporte quatre jobs :
 
-1. **python** — Linux, Python 3.12, fuseau UTC : `ruff check`, puis toute
+1. **secrets** — `gitleaks` parcourt tout l'historique du dépôt ; les faux
+   positifs connus sont écartés par `.gitleaksignore`.
+2. **python** — Linux, Python 3.12, fuseau UTC : `ruff check`, puis toute
    la suite `pytest` avec l'image Postgres ; elle échoue sur tout test sauté
    dont le motif n'est pas dans `tests/sauts_autorises.py`, un test Postgres
    sauté compris. `CI=1 uv run pytest -q` rejoue cette garde chez vous.
-2. **front** — Node 20 : `npm ci` puis `npm run verifier`.
-3. **image** — construit l'image de l'API (`deploiement/api/Dockerfile`),
+3. **front** — Node 20 : `npm ci` puis `npm run verifier`.
+4. **image** — construit l'image de l'API (`deploiement/api/Dockerfile`),
    la démarre en mode hébergé sans base, et vérifie que `/sante` répond 200,
    `/` répond 200 et `/api/v1/profil` répond 401.
 
@@ -67,14 +69,16 @@ arrondis flottants propres à une plateforme, casse des noms de fichiers.
 1. **Aucune donnée personnelle, aucune clé.** Pas de fichier d'activité
    réel, de coordonnées de départ, de clé d'API ni de jeton dans le dépôt,
    même dans un test. Les fixtures sont synthétiques (ou anonymisées) et
-   vivent dans `tests/fixtures/`. Le fichier de configuration réel ne se
-   commite jamais : seul `config.example.toml` l'est.
+   vivent dans `tests/fixtures/`. Les fichiers de configuration réels ne
+   se commitent jamais : seuls les modèles `config.example.toml` et
+   `service.example.toml` le sont.
 2. **Pas de réseau dans les tests.** Chaque connecteur reçoit un client HTTP
    injectable ; les tests lui passent des réponses enregistrées dans
    `tests/fixtures/`. Un test qui appelle Internet est refusé.
 3. **Le cœur ne sait pas où il tourne.** Sous `src/ourouler/`, seuls
-   `cli.py` et `config.py` lisent un fichier de configuration, une variable
-   d'environnement ou un chemin de l'utilisateur. Le reste reçoit des
+   `cli.py`, `config.py` et `api/exploitation.py` lisent un fichier de
+   configuration, une variable d'environnement ou un chemin de
+   l'utilisateur (`tests/test_invariants.py` le vérifie). Le reste reçoit des
    objets (`Config`, un client HTTP…). Une fonction du cœur qui ouvre
    `~/.config` ou lit `os.environ` est un bug.
 4. **Tout en français** : documentation, messages de la ligne de commande
@@ -92,26 +96,38 @@ Python 3.12, dataclasses et annotations, pas d'ORM ; HTTP avec `httpx`,
 ligne de commande avec `argparse`. Du code lisible et direct : cinquante
 lignes évidentes valent mieux que vingt lignes astucieuses.
 
-Des seuils de taille sont fixés, mesurés en lignes de code (sans
-docstrings ni commentaires) :
+ruff (`[tool.ruff]` de `pyproject.toml`) vérifie, en plus des règles
+`E`, `F`, `I`, `B` et `UP` et d'une ligne de 110 caractères au plus, quatre
+seuils par fonction :
 
-- une fonction : 60 lignes au plus ;
-- un fichier : 600 lignes au plus ;
-- complexité cyclomatique (`C901` de ruff) : 12 au plus.
+- complexité cyclomatique (`C901`) : 12 au plus ;
+- branches (`PLR0912`) : 15 au plus ;
+- instructions (`PLR0915`) : 50 au plus ;
+- arguments positionnels (`PLR0917`) : 6 au plus.
 
-Ils sont vérifiés par ruff ; l'existant est listé en exceptions datées dans
-`pyproject.toml`. Le code existant qui les dépasse est listé en exceptions
-datées, qui ne peuvent que disparaître : un nouveau code respecte les
-seuils d'emblée, et une exception n'est pas un précédent.
+Aucune règle ne borne le nombre de lignes d'une fonction ou d'un fichier ;
+côté front, un composant fait 300 lignes au plus
+(`front/tests/taille_composants.test.ts`). Le code qui dépasse un seuil de
+ruff est listé dans `[tool.ruff.lint.per-file-ignores]`, chaque exception
+précédée d'un commentaire « datée » (avec une échéance) ou « permanente »
+(avec sa raison) ; `tests/test_regles_ruff.py` échoue quand une exception ne
+sert plus ou a passé son échéance. Un nouveau code respecte les seuils
+d'emblée, et une exception n'est pas un précédent. ruff sert de linter, pas
+de formateur : `ruff format` n'est pas appliqué au dépôt.
 
 ## Fichiers de référence
 
-Certains tests comparent une sortie à un fichier figé. Le principal est le
-**contrat de l'API**, `tests/caracterisation/openapi.json` : toute route,
-tout champ ou tout code de réponse modifié fait échouer
-`tests/api/test_contrat_openapi.py`.
+Certains tests comparent une sortie à un fichier figé :
 
-Si la modification est voulue, régénérez la référence :
+- le **contrat de l'API**, `tests/caracterisation/openapi.json` : toute
+  route, tout champ ou tout code de réponse modifié fait échouer
+  `tests/api/test_contrat_openapi.py` ;
+- les **sorties de référence** de la ligne de commande et de l'API
+  (`tests/caracterisation/`, voir son `LISEZMOI.md`) ;
+- les **formats persistés** (`tests/compatibilite/`, voir son `LISEZMOI.md`).
+
+Si la modification est voulue, régénérez la référence concernée avec
+l'option `--regenerer-golden`, par exemple :
 
 ```sh
 uv run pytest --regenerer-golden tests/api/test_contrat_openapi.py
