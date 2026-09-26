@@ -76,6 +76,10 @@ Postgres**. Les comptes réels (base, invitations, sessions, retrait) restent
 `openapi.json` (filet 0c) vit ici aussi ; son test est
 `tests/api/test_contrat_openapi.py`.
 
+`resolution_routes.json` (lot 13) fige l'ordre d'enregistrement des routes et,
+pour chaque chemin littéral et chaque méthode, le point d'entrée que le
+routeur choisit ; son test est `tests/api/test_resolution_routes.py`.
+
 ## Ce que chaque lot du §6 a pour se vérifier
 
 Pour chaque lot, au moins une référence **dépend** de ce qu'il déplace
