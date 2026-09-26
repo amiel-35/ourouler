@@ -31,7 +31,7 @@ d'origine.
 Ce module ne lit ni fichier de configuration ni variable d'environnement
 (doctrine §2) : il reçoit un `Cache` déjà construit pour un propriétaire et
 des dépôts déjà résolus (chemins de fichiers temporaires) — exactement ce
-que `api/routes.py` lui passe.
+que `api/routes/` lui passe.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ def lancer(
     """Démarre un import en tâche de fond. Lève `ErreurImportEnCours` si une tâche lourde tourne.
 
     `depots` : `[(nom, chemin)]` — des chemins de fichiers déjà sur disque
-    (une copie propre au job, voir `api/routes.py`), jamais l'`UploadFile` de
+    (une copie propre au job, voir `api/routes/`), jamais l'`UploadFile` de
     la requête : celui-ci ne survit pas à la réponse 202 que cette fonction
     permet de rendre tout de suite (Starlette referme ses fichiers temporaires
     une fois la requête terminée).
@@ -94,7 +94,7 @@ def lancer(
     )
 
 
-#: Le préfixe des copies temporaires d'un dépôt (`api/routes._copier_en_temporaires`).
+#: Le préfixe des copies temporaires d'un dépôt (`api/routes/activites._copier_en_temporaires`).
 PREFIXE_TEMPORAIRE = "ourouler-import-"
 
 #: Âge au-delà duquel une copie temporaire est tenue pour orpheline. Une copie

@@ -120,7 +120,7 @@ def _apprendre(
 ) -> int:
     depuis = _depuis(getattr(args, "depuis", None), config)
     # Pas de dépôt injecté ici, contrairement à `base` : `apprendre` est une
-    # action d'administration que l'API n'expose pas (`api/routes.py` n'accepte
+    # action d'administration que l'API n'expose pas (`api/routes/inventaire.py` n'accepte
     # que `stats` et `poids`), donc ce `Cache` n'est jamais construit pour le
     # compte d'un demandeur. Le jour où une route l'exposerait, c'est ce
     # constructeur-là qu'il faudrait injecter — [[Q58]].

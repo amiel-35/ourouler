@@ -50,7 +50,7 @@ from ourouler.api.depots import (
 )
 from ourouler.api.erreurs import CODES_PANNE
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
-from ourouler.api.routes import Clients
+from ourouler.api.routes.commun import Clients
 from ourouler.config import depuis_dict
 from ourouler.connecteurs.brouter import ClientBrouter
 from ourouler.connecteurs.geocodage import ClientBAN, ClientNominatim
@@ -946,7 +946,7 @@ def test_un_gpx_impossible_est_refuse_lisiblement_au_depot(tmp_path: Path, cas: 
 def test_un_depot_de_parcours_en_flux_sans_longueur_est_coupe_a_la_borne(tmp_path: Path):
     """Relecture de L9.8 : la route manquait à `BORNES_CORPS` — un envoi sans
     `Content-Length` s'écrivait en entier avant d'être compté."""
-    from ourouler.api.routes import TAILLE_MAX_PARCOURS
+    from ourouler.api.routes.commun import TAILLE_MAX_PARCOURS
 
     frontiere = "xyz"
     entete = (

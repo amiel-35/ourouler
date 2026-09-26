@@ -87,7 +87,7 @@ class ClientOpenMeteoCache:
     **Injectable** : `client` est ce qui appelle vraiment le réseau (ou un
     bouchon, dans un test) — ce module n'en construit aucun lui-même. C'est
     l'objet posé sur `Clients.meteo` par `api/application.application()` en
-    mode hébergé (`api/routes.FABRIQUES_CONNECTEUR` le prend alors tel quel,
+    mode hébergé (`api/routes/commun.FABRIQUES_CONNECTEUR` le prend alors tel quel,
     comme n'importe quel connecteur déjà construit).
 
     Une requête à plusieurs points est coupée en deux : les points déjà en

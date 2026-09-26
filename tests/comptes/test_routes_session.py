@@ -2,7 +2,7 @@
 
 `test_sessions.py` prouve les propriétés au niveau du dépôt ; ce fichier
 rejoue les mêmes propriétés par HTTP, à travers `creer_application`, les
-routes de `api/routes.py` et un **vrai** PostgreSQL en conteneur — pas un
+routes de `api/routes/` et un **vrai** PostgreSQL en conteneur — pas un
 bouchon. C'est la différence entre « le dépôt isole bien » et « le fil qui va
 du cookie du navigateur au dépôt isole bien », et [[Q58]] est justement une
 fuite qui vivait dans ce second fil, pas dans le premier.

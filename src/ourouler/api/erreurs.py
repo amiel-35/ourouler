@@ -219,9 +219,9 @@ MOTIFS_AVERTISSEMENT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "meteo_indisponible",
         ("rendu/sortie.py", "rendu/boucle.py", "physique/commande.py"),
     ),
-    # Écrit par l'API elle-même (`routes.geocodage`), pas par le cœur : zéro
+    # Écrit par l'API elle-même (`routes.meteo.geocoder`), pas par le cœur : zéro
     # candidat n'est pas une panne, mais E16 a besoin d'une phrase.
-    ("aucune adresse trouvée", "adresse_introuvable", ("api/routes.py",)),
+    ("aucune adresse trouvée", "adresse_introuvable", ("api/routes/meteo.py",)),
 )
 
 
@@ -361,7 +361,7 @@ def _erreur_api_setattr(self: ErreurApi, nom: str, valeur: object) -> None:
 
     Trouvé en relecture le 25/09/2026, lot L9.6, sur `POST /moi/mot-de-passe` — la
     première route du dépôt à lever `ErreurApi` depuis l'intérieur d'un
-    `@contextmanager` (`api/routes.py:_comptes_du_deploiement`) : `contextlib`
+    `@contextmanager` (`api/routes/moi.py:_comptes_du_deploiement`) : `contextlib`
     réattribue `exc.__traceback__` en repropageant une exception depuis un
     générateur (`throw()`), et le `__setattr__` qu'un `@dataclass(frozen=True)`
     génère refuse **tout** attribut, y compris les champs internes qu'une

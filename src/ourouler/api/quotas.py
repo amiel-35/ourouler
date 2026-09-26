@@ -35,13 +35,13 @@ deux plafonds est atteint (`Quotas.libelle`).
 **Un crédit consommé qui ne sert à rien est rendu.** `consommer` décompte
 *avant* le travail (fail fast : un compte au plafond ne doit rien coûter au
 serveur) ; si la génération échoue ensuite — `calcul_en_cours` (409), une
-panne BRouter ou Open-Meteo, n'importe quelle exception — `api/routes.py`
+panne BRouter ou Open-Meteo, n'importe quelle exception — `api/routes/`
 appelle `rembourser` pour annuler ce décompte. Seul un aller-retour qui
 aboutit consomme réellement le quota ; sinon un compte qui a la malchance de
 tomber sur BRouter en panne trois fois de suite perdrait trois crédits pour
 rien.
 
-**Le mode personnel n'a pas de quota.** `api/routes.py` n'appelle ni
+**Le mode personnel n'a pas de quota.** `api/routes/` n'appelle ni
 `consommer` ni `rembourser` quand `ctx.session.mode == MODE_PERSONNEL` : un
 cycliste chez lui (`ourouler api`) appelle Open-Meteo depuis sa propre
 adresse IP, sans rien de partagé (doctrine §10.1, « en CLI, chacun appelle

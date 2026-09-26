@@ -30,7 +30,7 @@ from ourouler.api.application import creer_application
 from ourouler.api.depots import SocleTOML
 from ourouler.api.proprietaire import PROPRIETAIRE_LOCAL, Proprietaire
 from ourouler.api.quotas import Quotas
-from ourouler.api.routes import Clients
+from ourouler.api.routes.commun import Clients
 from ourouler.api.session import MODE_HEBERGE, SessionPersonnelle
 
 #: Le profil qu'un compte de test écrit sur lui-même avant sa première

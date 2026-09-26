@@ -97,7 +97,7 @@ les tests nommés).
 | 10 (argparse sort des commandes) | tous les scénarios CLI, dont les refus (code 2) | — |
 | 11 (l'API sans `Namespace`) | toutes les références API, dont `api_avertissement` (mutation `adaptateur.avertissements_de → ()` : rouge) | le **double chemin** : `OUROULER_API_CHEMIN` n'existe pas encore dans `src/` ; `preparer` la laisse passer (`VARIABLES_GARDEES`) pour que le lot 11 rejoue le filet sur chaque valeur, contre les mêmes références |
 | 12 (fonctions trop longues) | toutes | — |
-| 13 (`api/routes.py` scindé) | toutes les références API, `openapi.json` | — |
+| 13 (`api/routes.py` scindé) | toutes les références API, `openapi.json`, `resolution_routes.json` | — |
 | 14 (front) | — | le front n'est pas dans ce filet |
 
 ## Comment c'est tenu stable

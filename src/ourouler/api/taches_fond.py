@@ -38,7 +38,7 @@ main**, et bloque tout nouveau lancement pour ce propriétaire jusqu'à la fin
 de l'effacement (`suspendre`).
 
 Ce module ne lit ni fichier de configuration ni variable d'environnement
-(doctrine §2) : il reçoit un travail déjà préparé par `api/routes.py`.
+(doctrine §2) : il reçoit un travail déjà préparé par `api/routes/`.
 """
 
 from __future__ import annotations
