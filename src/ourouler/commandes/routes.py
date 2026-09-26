@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import argparse
 
-from ourouler.apprentissage import commande as service
-from ourouler.apprentissage.commande import (
+from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.commandes.commun import contexte, imprimer_json
+from ourouler.config import Config
+from ourouler.connecteurs.brouter import ClientBrouter
+from ourouler.rendu import routes as rendu
+from ourouler.services import apprentissage as service
+from ourouler.services.apprentissage import (
     DemandeRoutes,
     ResultatApprentissage,
     ResultatPoids,
@@ -13,11 +18,6 @@ from ourouler.apprentissage.commande import (
     date_depuis,
     valider_action,
 )
-from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.commandes.commun import contexte, imprimer_json
-from ourouler.config import Config
-from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.rendu import routes as rendu
 
 
 def lire_options(args: argparse.Namespace) -> DemandeRoutes:

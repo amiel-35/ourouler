@@ -224,7 +224,7 @@ def test_une_direction_refusee_ne_condamne_pas_les_autres_dans_sortie(monkeypatc
     tomber toute la recherche — y compris les directions où il savait. C'est
     un défaut que ce lot a failli introduire, et que ce test garde fermé.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     appels: list[float] = []
 
@@ -267,7 +267,7 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe(monke
     C'est le refus qui demandait le plus petit élargissement : c'est lui qui
     dit le plus justement de combien il aurait fallu élargir.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     def faux_generer(_client, _depart, *, azimut_deg, **_reste):
         requis = 0.60 if azimut_deg < 180.0 else 0.20
@@ -316,7 +316,7 @@ def test_une_direction_refusee_ne_condamne_pas_les_autres_dans_boucle(monkeypatc
     sait pas faire la distance ne doit pas faire tomber les directions où il
     sait.
     """
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     appels: list[float] = []
 
@@ -364,7 +364,7 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe_dans_
     refuser — avec le message le plus utile, celui du plus petit élargissement
     requis.
     """
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     def faux_generer(_client, _depart, *, azimut_deg, **_reste):
         requis = 0.60 if azimut_deg < 180.0 else 0.20
@@ -400,7 +400,7 @@ def test_toutes_les_directions_refusees_relancent_le_refus_le_moins_severe_dans_
 
 def test_avec_direction_un_seul_appel_est_fait_dans_boucle(monkeypatch):
     """`--direction` reste prioritaire et n'ouvre qu'un seul appel (comportement inchangé)."""
-    from ourouler.boucle import commande as boucle_commande
+    from ourouler.services import boucle as boucle_commande
 
     appels: list[float] = []
 

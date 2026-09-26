@@ -47,7 +47,7 @@ def geocoder(
     lui, peut montrer la liste et faire
     choisir. Les coordonnées choisies reviennent ensuite dans `depart`.
     """
-    from ourouler.geocodage import commande as geocodage
+    from ourouler.services import geocodage
 
     config = _config(ctx, qui)
     resultat = calculer(
@@ -104,7 +104,7 @@ def vent_depart(
     `latitude`/`longitude` remplacent le départ du profil pour cette requête
     seulement — toutes deux ou aucune, comme pour `/meteo`.
     """
-    from ourouler.sortie import commande as sortie_commande
+    from ourouler.services import sortie as sortie_commande
 
     config = _config(ctx, qui)
     if (latitude is None) != (longitude is None):
@@ -151,7 +151,7 @@ def meteo(
     `latitude`/`longitude` remplacent le départ du profil pour cette requête
     seulement — toutes deux ou aucune.
     """
-    from ourouler.meteo import commande as meteo_commande
+    from ourouler.services import meteo as meteo_commande
 
     # Quota séparé de celui des générations — ~50 appels Open-Meteo
     # par consultation (une couronne, deux modèles), contre ~150 pour une

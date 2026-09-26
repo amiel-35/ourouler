@@ -38,8 +38,8 @@ from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import SocleTOML
 from ourouler.api.proprietaire import Proprietaire
 from ourouler.api.session import NOM_COOKIE, SessionParCookie
-from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
+from ourouler.services.apprentissage import NOM_BASE
 
 PREFIXE = "/api/v1"
 

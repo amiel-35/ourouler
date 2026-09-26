@@ -2,7 +2,7 @@
 
 `lire_options` valide tout ce qui peut l'être **avant** la moindre
 connexion et construit la `Demande` du service
-(`boucle/commande.py`) ; le rendu est `rendu/boucle.py`.
+(`services/boucle.py`) ; le rendu est `rendu/boucle.py`.
 """
 
 from __future__ import annotations
@@ -12,19 +12,19 @@ import math
 from pathlib import Path
 
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.boucle import commande as service
-from ourouler.boucle.commande import Demande, ResultatBoucle, direction_en_azimut, verifier_sortie
 from ourouler.boucle.horaire import analyser_pause, valider_pauses
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
-from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.profil import Depart, Profil
 from ourouler.rendu.boucle import avertissement_meteo, rendre_texte
 from ourouler.rendu.boucle_json import rendre_json
+from ourouler.services import boucle as service
+from ourouler.services.boucle import Demande, ResultatBoucle, direction_en_azimut, verifier_sortie
 from ourouler.services.contexte import Contexte
+from ourouler.services.meteo import heure_depart
 
 
 def executer_depuis_namespace(
@@ -39,7 +39,7 @@ def executer_depuis_namespace(
     """Exécute `ourouler boucle`. Renvoie le code de sortie (0 = succès).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant (`cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant (`cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API). Il remplace celui de la configuration **avant** la
     lecture des options : la génération des candidates,
     les en-têtes de texte et le JSON lisent tous le départ du profil, et un
@@ -137,7 +137,7 @@ def interpreter(
 
     # `--puissance` et `--vitesse-a-plat` sont exclusives : le refus se dit
     # ici, avant tout appel à BRouter ou à Open-Meteo. La
-    # conversion, elle, a besoin du vélo et attend `boucle.commande._modele_temps`.
+    # conversion, elle, a besoin du vélo et attend `services.boucle._modele_temps`.
     if puissance is not None and vitesse_a_plat is not None:
         raise ErreurUtilisateur(
             "--puissance et --vitesse-a-plat disent la même chose de deux façons "

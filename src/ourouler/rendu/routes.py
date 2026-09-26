@@ -1,6 +1,6 @@
 """Le texte et le JSON de `ourouler routes` : apprendre, stats, poids.
 
-Séparés de `apprentissage/commande.py` : le cas d'usage rend ses
+Séparés de `services/apprentissage.py` : le cas d'usage rend ses
 résultats (rapport, statistiques, poids), l'entrée choisit texte ou JSON et
 imprime. Aucun de ces rendus ne lit de fichier ni de base.
 """
@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import date
 
-from ourouler.apprentissage.commande import ABSENT, DISTANCE_EXPOSITION_KM
 from ourouler.apprentissage.routes import (
     LIBELLE_SANS_HIGHWAY,
     PART_EXPOSITION_MIN,
@@ -19,6 +18,7 @@ from ourouler.apprentissage.routes import (
 from ourouler.boucle.couts import POIDS_HIGHWAY_DEFAUT
 from ourouler.meteo.couronne import NOMS_DIRECTIONS
 from ourouler.noyau.texte import nombre_fr
+from ourouler.services.apprentissage import ABSENT, DISTANCE_EXPOSITION_KM
 
 
 def texte_apprentissage(rapport: RapportApprentissage, depuis: date, stats: Statistiques) -> str:

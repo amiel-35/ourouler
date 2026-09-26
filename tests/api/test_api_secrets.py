@@ -6,7 +6,7 @@ un log, une erreur, un JSON de sortie (`ourouler config --json` les masque
 déjà). » Règle absolue 1 de `CLAUDE.md` : aucune clé dans le dépôt.
 
 Le mot important est « déjà ». Le masquage existe — et il est écrit **à la
-main dans `cli.py`**, deux lignes après un `dataclasses.asdict(config)` qui,
+main dans `cli/`**, deux lignes après un `dataclasses.asdict(config)` qui,
 lui, rend tout (`discovery_donnees.md` §2). L'API est une seconde sortie JSON
 de la même `Config` : elle refera ce geste, ou elle l'oubliera. Ces tests
 cherchent l'oubli, par cinq chemins : la réponse nominale, le message
@@ -182,7 +182,7 @@ def test_asdict_d_une_config_expose_les_secrets_en_clair():
     """Contre-épreuve des tests ci-dessus : mesure le piège au lieu de le supposer.
 
     `repr(Config)` est déjà masqué — quelqu'un y a pensé. Mais la sortie JSON
-    ne passe pas par `repr` : `cli.py` fait `dataclasses.asdict(config)` puis
+    ne passe pas par `repr` : `cli/` fait `dataclasses.asdict(config)` puis
     remasque les deux champs **à la main**. Ce test constate que le premier
     geste fuit, ce qui est la raison d'être du second. Le jour où `asdict`
     cesserait de fuir, ce test tombe et il faudra le relire, pas le supprimer.
@@ -195,7 +195,7 @@ def test_asdict_d_une_config_expose_les_secrets_en_clair():
 
 
 # Écrit en `xfail(strict=True)` par le testeur en aveugle, le masquage étant
-# alors deux lignes recopiées dans `cli.py`. La marque est tombée le
+# alors deux lignes recopiées dans `cli/`. La marque est tombée le
 # 17/09/2026 avec l'extraction de `config.en_dict_public` — et c'est `strict`
 # qui l'a signalé : le test s'est mis à passer, et la suite a échoué pour le
 # dire au lieu de laisser une marque périmée derrière elle.
@@ -204,7 +204,7 @@ def test_le_masquage_des_secrets_est_une_fonction_partagee():
 
     Un invariant qui tient parce que deux lignes ont été recopiées au bon
     endroit n'est pas un invariant, c'est une chance. La fonction doit vivre
-    hors de `cli.py` pour que l'API, et demain l'export RGPD de E21
+    hors de `cli/` pour que l'API, et demain l'export RGPD de E21
     (« Mes données · Tout exporter »), s'en servent au lieu de la réécrire.
     """
     from importlib import import_module
@@ -221,7 +221,7 @@ def test_le_masquage_des_secrets_est_une_fonction_partagee():
                 break
     assert trouvee, (
         f"aucune fonction de masquage partagée. Cherché {noms} dans {candidats}. "
-        "Aujourd'hui le masquage vit dans cli.py, inatteignable depuis l'API."
+        "Aujourd'hui le masquage vit dans cli/, inatteignable depuis l'API."
     )
     a_plat = texte_entier(trouvee(config_d_essai()))
     for sentinelle in SENTINELLES:

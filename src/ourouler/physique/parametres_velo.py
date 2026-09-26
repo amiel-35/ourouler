@@ -3,7 +3,7 @@
 Du domaine pur : ce module **reçoit** la calibration déjà lue (une
 `Calibration`, ou `None` quand le vélo n'en a pas) et ne connaît aucun
 chemin. C'est `stockage.calibrations` qui lit et écrit le fichier de calibration,
-et la couche commande (`physique.commande`) qui fait le lien entre les deux.
+et la couche commande (`services.physique`) qui fait le lien entre les deux.
 """
 
 from __future__ import annotations

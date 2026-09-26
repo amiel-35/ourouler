@@ -1,4 +1,4 @@
-"""`ourouler retirer` : le câblage complet de `cli.py`, jusqu'au chemin RGPD partagé (lot L9.6).
+"""`ourouler retirer` : le câblage complet de `cli/`, jusqu'au chemin RGPD partagé (lot L9.6).
 
 Deux niveaux de preuve, comme le brief du lot le demande :
 

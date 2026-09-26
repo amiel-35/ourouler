@@ -12,7 +12,7 @@ organisateur de BRM le tracé est le sujet. On rejoue le GPX dans BRouter
 tracé rerouté, jetable, qui porte des tags **et** une altitude), puis pour
 chaque point du GPX on cherche le tronçon rerouté le plus proche et on lui
 emprunte ses tags, son `cout_km` et les tags de son nœud de fin. L'altitude,
-elle, ne se rapproche pas point par point : `boucle.commande._greffer_tags_sur_gpx`
+elle, ne se rapproche pas point par point : `services.boucle._greffer_tags_sur_gpx`
 applique directement `boucle.trace.denivele_filtre` à la séquence de points
 du tracé rerouté, qui vient de la carte de terrain de BRouter et non plus du
 GPX (l'altitude d'un GPX exporté d'un appareil porte le même bruit de

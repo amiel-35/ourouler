@@ -51,7 +51,7 @@ from ourouler.rendu.sortie import rendre_texte
 from ourouler.rendu.sortie_json import rendre_json
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     _ecrire_gpx,
 )
 

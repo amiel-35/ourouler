@@ -13,13 +13,13 @@ from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ourouler.boucle.commande import Demande, Evaluation, ModeleTemps
 from ourouler.boucle.geometrie import geometrie_json
 from ourouler.boucle.horaire import duree_pauses_s
 from ourouler.boucle.marqueurs import Marqueurs
 from ourouler.boucle.meteo_trace import MeteoTrace, fleches_vent
 from ourouler.meteo import portee
 from ourouler.physique.modele import FourchettePorteAPorte, PorteAPorte, temps_ecoule
+from ourouler.services.boucle import Demande, Evaluation, ModeleTemps
 
 if TYPE_CHECKING:
     # Même règle que `rendu/boucle.py` : la `Config` est lue, jamais importée
@@ -59,7 +59,7 @@ def _litterature_json(modele: ModeleTemps) -> dict | None:
 def porte_a_porte(mouvement_s: float, compteur_info: dict) -> PorteAPorte:
     """`temps_ecoule(mouvement_s, fourchette du vélo)` — la fourchette lue dans le bloc compteur.
 
-    **Publique** : `sortie.commande` chronomètre ses propositions de la même
+    **Publique** : `services.sortie` chronomètre ses propositions de la même
     façon, sans réécrire la lecture du bloc.
     """
     brut = compteur_info["porte_a_porte"]

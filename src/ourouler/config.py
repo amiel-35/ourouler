@@ -1,7 +1,7 @@
 """Configuration : objets de données + chargement TOML.
 
 Le cœur ne lit ni configuration ni environnement (`AGENTS.md`) : ce module
-et `cli.py` sont les seuls autorisés à lire un fichier, `Path.home()` ou une variable d'environnement.
+et `cli/` sont les seuls autorisés à lire un fichier, `Path.home()` ou une variable d'environnement.
 Le reste du cœur reçoit un objet `Config` déjà construit.
 """
 
@@ -152,7 +152,7 @@ def charger(
 
     Chemin par défaut : ~/.config/ourouler/config.toml. `environ` est
     injectable pour les tests (défaut : `os.environ`, jamais lu ailleurs que
-    dans ce module et `cli.py` : le cœur ne lit ni configuration ni environnement).
+    dans ce module et `cli/` : le cœur ne lit ni configuration ni environnement).
 
     Pour l'hébergé (`docs/journal/sprints/heberge_minimal_contrat.md`, § « Les
     secrets ») : la tâche planifiée conteneurisée n'a ni fichier de
@@ -163,7 +163,7 @@ def charger(
     l'usage local (CLI interactive), rien ne change : sans ces variables,
     le TOML seul décide.
 
-    `requiert_profil=False` (`cli.py`, commandes de comptes) : `[depart]` et
+    `requiert_profil=False` (`cli/`, commandes de comptes) : `[depart]` et
     `[cycliste]`
     deviennent facultatives. Ces commandes ne parlent qu'à la base des
     comptes et, pour `inviter`/`reinitialiser`, au relais SMTP — jamais au

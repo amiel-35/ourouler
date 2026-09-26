@@ -1630,7 +1630,7 @@ def vue_depuis_json(candidate: dict, doc: dict, *, cle: Any = None) -> VuePropos
     poser("pluie_mm", candidate.get("pluie_mm", meteo.get("pluie_cumulee_mm")))
     poser("demi_tours", candidate.get("demi_tours", placement.get("demi_tours")))
     # Densité : la clé publiée par le lot d'abord, puis une recherche en
-    # profondeur — L5.4 réécrit `sortie/commande.py` en ce moment, et une
+    # profondeur — L5.4 réécrit `services/sortie.py` en ce moment, et une
     # densité qui déménagerait sous `placement` ne doit pas rendre l'axe muet.
     poser("densite_marqueurs_km", candidate.get("densite_marqueurs_km"))
     if "densite_marqueurs_km" not in lus:

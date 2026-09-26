@@ -192,8 +192,8 @@ def _liaisons(trace: Trace, placement: Placement, cumuls: Sequence[float]) -> li
 # --- flèches de vent -----------------------------------------------------------
 
 #: La règle des flèches vit dans `boucle.meteo_trace.fleches_vent`, avec son
-#: code et ses raisons, parce que le JSON de `boucle.commande`
-#: et de `sortie.commande` doit servir les mêmes flèches au front, et que
+#: code et ses raisons, parce que le JSON de `services.boucle`
+#: et de `services.sortie` doit servir les mêmes flèches au front, et que
 #: `boucle` ne peut pas importer `sortie`. Ce nom local reste pour ne pas
 #: casser les appelants ; les deux chemins dessinent le même vent.
 _vent_fleches = fleches_vent

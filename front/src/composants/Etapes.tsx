@@ -3,7 +3,7 @@
  * Quand un emplacement accompagne l'étape (écran du détail), la colonne de
  * droite porte le **kilométrage parcouru**, celui qui monte sur un compteur,
  * jamais la position sur le tracé — qui peut reculer après un demi-tour
- * (`src/ourouler/sortie/commande.py`).
+ * (`src/ourouler/services/sortie.py`).
  */
 
 import type { Emplacement, Etape } from "../api/types";

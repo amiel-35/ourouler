@@ -70,7 +70,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ourouler.activites.lecture import lecteur_pour
-from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import cle_maille
 from ourouler.config import charger
 from ourouler.connecteurs.intervals import ClientIntervals
@@ -79,6 +78,7 @@ from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.trace import Segment, Trace
 from ourouler.physique.validation import trace_depuis_activite
 from ourouler.seance.terrain import NoteBloc, evaluer_couloir
+from ourouler.services.apprentissage import NOM_BASE
 
 #: Les sorties à relire : (jour, morceau du nom). Ce sont les deux séances de
 #: référence du contrat du sprint 4 §2 — « 4x8 SV1 outdoor » du 22/04/2026 et

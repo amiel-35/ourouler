@@ -47,7 +47,7 @@ hors du dépôt :
   `OUROULER_SERVICE_TOML_B64` (`- OUROULER_SERVICE_TOML_B64=${OUROULER_SERVICE_TOML_B64:-}`
   dans le compose). **Sans lui, `ourouler inviter` (hors `--sans-courriel`)
   refuse en disant que le fichier manque** — voir `_charger_service` dans
-  `src/ourouler/cli.py`.
+  `src/ourouler/cli/comptes.py`.
 - `deploiement/api/config.heberge.example.toml` — le profil TOML non-secrets
   du conteneur, pour ce mode. Encodé dans `OUROULER_CONFIG_TOML_B64`.
 
@@ -110,7 +110,7 @@ docker ps --filter name=api-<identifiant> --format '{{.Names}}'
 docker exec api-<identifiant>-<...> ourouler inviter adresse@example.com
 ```
 
-Options réelles (`src/ourouler/cli.py:ajouter_inviter`) :
+Options réelles (`src/ourouler/cli/comptes.py:ajouter_inviter`) :
 `adresse` (positionnel, obligatoire), `--sans-courriel` (n'envoie pas le
 courriel, affiche seulement le lien), `--json` (hérité de `parent_json()`).
 `docker exec <conteneur> ourouler invitations` liste les invitations en
@@ -130,7 +130,7 @@ cours (adresse, lien, échéance).
    l'obligation pour ces quatre commandes seulement.
 
 Secrets et paramètres lus, et par quoi (`_commande_inviter`,
-`src/ourouler/cli.py`) :
+`src/ourouler/cli/comptes.py`) :
 
 - `OUROULER_DATABASE_URL` — obligatoire, sinon refus nommant la variable
   (`_url_des_comptes`). Déjà posée dans le conteneur (`docker-compose.api.coolify.yml`),
@@ -328,7 +328,7 @@ l'API (`src/ourouler/api/routes/moi.py`) :
 pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
 
 - `ourouler reinitialiser <adresse>` — émet un lien de nouveau mot de passe
-  pour un compte **déjà actif** qui l'a perdu (`src/ourouler/cli.py`,
+  pour un compte **déjà actif** qui l'a perdu (`src/ourouler/cli/comptes.py`,
   `ajouter_reinitialiser`/`_commande_reinitialiser`,
   `src/ourouler/services/comptes.py`). Même patron que `inviter` :
   mêmes secrets `service.toml`, `--sans-courriel` pour n'afficher que le
@@ -355,7 +355,7 @@ pour trouver le conteneur, puis `docker exec <conteneur> ourouler …`) :
   depuis un poste personnel, elle fermerait bien le compte dans la base
   Postgres distante, mais chercherait les fichiers dans un dossier local
   presque toujours vide, laissant le vrai dépôt du propriétaire orphelin
-  tout en annonçant un succès. `_depots_de_l_hebergement` (`cli.py`) refuse
+  tout en annonçant un succès. `_depots_de_l_hebergement` (`cli/comptes.py`) refuse
   maintenant si le dossier de données attendu n'existe pas, mais ce n'est
   qu'un filet — voir `deploiement/api/README.md`.
 
@@ -389,7 +389,7 @@ docker exec api-<identifiant>-<...> \
 
 ## Sources vérifiées
 
-`src/ourouler/cli.py` (`ajouter_inviter`, `_commande_inviter`,
+`src/ourouler/cli/comptes.py` (`ajouter_inviter`, `_commande_inviter`,
 `_url_des_comptes`, `_url_publique`, `_charger_service`),
 `src/ourouler/services/comptes.py`, `src/ourouler/rendu/comptes.py`,
 `src/ourouler/api/courriel.py`,

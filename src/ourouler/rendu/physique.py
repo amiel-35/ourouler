@@ -1,6 +1,6 @@
 """Rendu des commandes du modèle physique : `calibrer`, `simuler`, `analyser`, `comparer`.
 
-La couche de rendu de `physique/commande.py` et de `services/comparer.py`
+La couche de rendu de `services/physique.py` et de `services/comparer.py`
 (`ARCHITECTURE.md`). Chaque fonction reçoit des objets déjà
 calculés — le rapport de calibration, la simulation, la météo le long du
 tracé, la comparaison — et rend une chaîne ou un dictionnaire : aucun accès
@@ -35,7 +35,7 @@ from ourouler.stockage.calibrations import porte_a_porte_json
 #: Mention affichée à côté d'un temps, selon d'où il vient. La seconde vaut
 #: pour un modèle qui tourne sur des valeurs de `physique.litterature` : le
 #: temps est calculé, mais sur des CdA et Crr jamais mesurés sur ce vélo
-#: (on ne présente jamais une estimation comme une mesure). Mêmes mots que `boucle.commande`.
+#: (on ne présente jamais une estimation comme une mesure). Mêmes mots que `services.boucle`.
 MENTION_MODELE = "(modèle)"
 MENTION_MODELE_LITTERATURE = "(modèle, littérature)"
 
@@ -427,11 +427,11 @@ def rendre_json_analyse(
 
 
 def _meteo_json_analyse(meteo: MeteoTrace | None) -> dict | None:
-    """Même forme que `boucle.commande._meteo_json` (candidate d'une boucle) : un front qui
+    """Même forme que `services.boucle._meteo_json` (candidate d'une boucle) : un front qui
     sait déjà lire `candidate.meteo` (flèches de vent, échantillons) lit celui-ci sans
-    code neuf. Dupliquée plutôt qu'importée depuis `boucle.commande` : c'est de la mise en
+    code neuf. Dupliquée plutôt qu'importée depuis `services.boucle` : c'est de la mise en
     forme de données déjà calculées par `MeteoTrace`/`fleches_vent`, pas une deuxième
-    implémentation du calcul météo — la même règle que `boucle.commande._meteo_json`
+    implémentation du calcul météo — la même règle que `services.boucle._meteo_json`
     documente pour elle-même.
     """
     if meteo is None:

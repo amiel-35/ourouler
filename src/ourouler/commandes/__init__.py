@@ -10,7 +10,7 @@ chaque sous-commande, un module de ce paquet :
 3. appelle le service (couche 3), qui rend un résultat sans rien imprimer ;
 4. appelle le rendu (texte ou JSON selon `--json`) et l'imprime.
 
-`cli.py` appelle ces fonctions. L'API a deux chemins
+`cli/` appelle ces fonctions. L'API a deux chemins
 (`api/double_chemin.py`) : l'ancien construit un `Namespace` et capture la
 sortie standard (`api/adaptateur.py`) ; le nouveau (`api/calculs.py`)
 appelle les pièces sans impression de ce paquet — `interpreter(...)` sur les
@@ -31,18 +31,18 @@ from ourouler.config import Config
 
 #: Service (`module.nom`) → commande (`module:nom`, sous `ourouler.commandes`) qui le sert.
 _COMMANDES: dict[str, str] = {
-    "ourouler.activites.commande.executer": "inventaire:executer_depuis_namespace",
-    "ourouler.apprentissage.commande.executer": "routes:executer_depuis_namespace",
-    "ourouler.boucle.commande.executer": "boucle:executer_depuis_namespace",
-    "ourouler.geocodage.commande.executer": "geocoder:executer_depuis_namespace",
-    "ourouler.meteo.commande.executer": "meteo:executer_depuis_namespace",
-    "ourouler.physique.commande.executer_calibrer": "physique:calibrer_depuis_namespace",
-    "ourouler.physique.commande.executer_simuler": "physique:simuler_depuis_namespace",
-    "ourouler.physique.commande.executer_analyser": "physique:analyser_depuis_namespace",
+    "ourouler.services.activites.executer": "inventaire:executer_depuis_namespace",
+    "ourouler.services.apprentissage.executer": "routes:executer_depuis_namespace",
+    "ourouler.services.boucle.executer": "boucle:executer_depuis_namespace",
+    "ourouler.services.geocodage.executer": "geocoder:executer_depuis_namespace",
+    "ourouler.services.meteo.executer": "meteo:executer_depuis_namespace",
+    "ourouler.services.physique.executer_calibrer": "physique:calibrer_depuis_namespace",
+    "ourouler.services.physique.executer_simuler": "physique:simuler_depuis_namespace",
+    "ourouler.services.physique.executer_analyser": "physique:analyser_depuis_namespace",
     "ourouler.services.comparer.executer": "comparer:executer_depuis_namespace",
-    "ourouler.seance.commande.executer": "seance:executer_depuis_namespace",
-    "ourouler.sortie.commande.executer": "sortie:executer_depuis_namespace",
-    "ourouler.sortie.commande.executer_vent": "sortie:vent_depuis_namespace",
+    "ourouler.services.seance.executer": "seance:executer_depuis_namespace",
+    "ourouler.services.sortie.executer": "sortie:executer_depuis_namespace",
+    "ourouler.services.sortie.executer_vent": "sortie:vent_depuis_namespace",
 }
 
 

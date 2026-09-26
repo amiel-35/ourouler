@@ -35,7 +35,7 @@ from ourouler.config import (
 )
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     _seance,
 )
 

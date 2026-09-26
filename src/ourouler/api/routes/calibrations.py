@@ -24,7 +24,7 @@ from ourouler.api.routes.commun import (
 )
 from ourouler.api.session import MODE_PERSONNEL
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
-from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
+from ourouler.services.physique import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 routeur = nouveau_routeur()
 

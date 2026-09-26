@@ -9,7 +9,7 @@ du conteneur), puis chaque jour à l'heure configurée.
 
 Ce script est **hors** de `src/ourouler/` : ce n'est pas le cœur, c'est la
 couche d'exploitation du contrat de l'hébergé minimal, au même titre que
-`cli.py` pour l'usage interactif. Il a donc le droit de lire l'environnement,
+`cli/` pour l'usage interactif. Il a donc le droit de lire l'environnement,
 l'horloge, et d'invoquer un sous-processus — rien de tout cela n'entre dans
 `src/ourouler/`, où « le cœur ne lit ni configuration ni environnement » continue de
 s'appliquer sans exception.

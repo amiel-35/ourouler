@@ -99,10 +99,10 @@ from ourouler.config import Config, charger
 from ourouler.noyau.activite import Activite, puissance_normalisee
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import PointTrace, Trace, cap_deg, distance_m
-from ourouler.physique.commande import velo_demande
 from ourouler.physique.echantillonnage import echantillonner
 from ourouler.physique.validation import puissance_moyenne_en_mouvement, trace_depuis_activite
 from ourouler.services.calibrer import masse_totale_kg
+from ourouler.services.physique import velo_demande
 
 #: Taille de la maille du projet, en degrés inversés : `cle_maille` multiplie
 #: par 3000, donc une maille vaut 1/3000 de degré, ~30 m de côté. Recopié ici

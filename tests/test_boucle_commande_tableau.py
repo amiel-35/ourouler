@@ -257,8 +257,8 @@ def base_de_routes(tmp_path: Path, trace) -> None:
     """Apprend un tracé dans la base du cache de test."""
     from datetime import date
 
-    from ourouler.apprentissage.commande import NOM_BASE
     from ourouler.apprentissage.routes import BaseRoutes
+    from ourouler.services.apprentissage import NOM_BASE
 
     BaseRoutes(tmp_path / "cache" / NOM_BASE).ajouter_trace(
         trace, jour=date(2024, 3, 4), id_sortie="sortie-de-test"
@@ -266,8 +266,8 @@ def base_de_routes(tmp_path: Path, trace) -> None:
 
 
 def ecrire_poids_de_test(tmp_path: Path, poids: dict) -> None:
-    from ourouler.apprentissage.commande import NOM_POIDS
     from ourouler.apprentissage.routes import ecrire_poids
+    from ourouler.services.apprentissage import NOM_POIDS
 
     ecrire_poids(tmp_path / "cache" / NOM_POIDS, poids)
 

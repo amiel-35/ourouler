@@ -4,7 +4,7 @@ Le format est figé (`tests/compatibilite/LISEZMOI.md`) : ce module le lit et
 l'écrit à l'octet près.
 Il reçoit un chemin et rend une `physique.parametres_velo.Calibration` ; il
 ne sait ni **où** le fichier se trouve ni comment il s'appelle — c'est
-`physique.commande.chemin_calibration` qui le résout depuis la configuration
+`services.physique.chemin_calibration` qui le résout depuis la configuration
 (le cœur ne lit ni configuration ni environnement).
 """
 

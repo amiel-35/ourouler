@@ -1111,7 +1111,7 @@ def _source_vent() -> str:
     "interdit", ("tomllib", "os.environ", "getenv", "Path.home()", ".expanduser(", "load_dotenv")
 )
 def test_le_champ_de_vent_ne_lit_pas_son_environnement(interdit: str):
-    """Règle absolue 2 : hors `cli.py` et `config.py`, le cœur reçoit, il ne lit pas.
+    """Règle absolue 2 : hors `cli/` et `config.py`, le cœur reçoit, il ne lit pas.
 
     `tests/test_invariants.py` balaie déjà tout `src/ourouler/` ; ce doublon
     cible `seance/vent.py` pour que l'échec nomme le module fautif du lot au

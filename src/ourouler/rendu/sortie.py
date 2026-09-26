@@ -1,6 +1,6 @@
 """Ce que `ourouler sortie` montre : le tableau texte, le JSON et la page du jour.
 
-La couche de rendu (`ARCHITECTURE.md`). `sortie/commande.py` lit la
+La couche de rendu (`ARCHITECTURE.md`). `services/sortie.py` lit la
 séance, cherche les boucles, place, mesure, trie et écrit les fichiers ; il
 passe ici des objets déjà construits — les `Proposition`, le `_Contexte` (qui
 porte la `Config` et le bloc « compteur » déjà lus), la `Selection`
@@ -30,14 +30,14 @@ from ourouler.rendu.boucle_json import porte_a_porte
 from ourouler.rendu.carte import PropositionCarte, construire_page_jour, construire_page_sans_seance
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
-from ourouler.sortie import contraste, orientation, vent_demande
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     NOTE_BLOC_BIEN_PLACE,
     Demande,
     GpxPropose,
     Proposition,
     _Contexte,
 )
+from ourouler.sortie import contraste, orientation, vent_demande
 
 if TYPE_CHECKING:
     # Le rendu lit les champs d'une `Config` déjà chargée ; il n'importe pas,

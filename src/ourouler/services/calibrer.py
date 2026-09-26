@@ -12,7 +12,7 @@ météo déjà obtenue et une masse. Ce module fait le reste :
 - **lire** chaque sortie retenue (une seule fois, `_Lecteur`) et l'archive
   météo de son jour à son point de départ (`connecteurs.openmeteo_archive`) ;
 - **calibrer** (`calibrer_velo`) avec les réglages du profil, sans rien
-  écrire ni imprimer : la ligne de commande (`physique.commande`) et la
+  écrire ni imprimer : la ligne de commande (`services.physique`) et la
   tâche de fond de l'API (`api/calibrations.py`) en sont les adaptateurs.
 
 Il reçoit le profil du cycliste (`noyau.profil.Profil`, dont `config.Config`

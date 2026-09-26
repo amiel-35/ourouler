@@ -383,7 +383,7 @@ def test_invitations_sans_database_url_echoue_avec_un_message_lisible(tmp_path, 
 
 # --- _charger_service / _url_publique : les deux lecteurs propres à ce lot --
 #
-# Seul `cli.py` a le droit de lire `service.toml` ou la variable qui porte
+# Seul `cli/` a le droit de lire `service.toml` ou la variable qui porte
 # l'URL publique (règle absolue 2) — ces deux fonctions sont donc testées ici,
 # directement, avec un fichier à nous. Jamais le vrai `service.toml` du
 # mainteneur : ni ouvert, ni approché.

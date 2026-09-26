@@ -138,11 +138,11 @@ from ourouler.noyau.activite import est_sport_velo
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.seance import Etape, Seance
 from ourouler.noyau.trace import PointTrace, Trace, distance_m
-from ourouler.physique.commande import chemin_calibration, parametres_du_velo, velo_demande
 from ourouler.physique.modele import Parametres
 from ourouler.physique.validation import trace_depuis_activite
-from ourouler.seance.commande import longueurs
 from ourouler.seance.placement import CLE_MOTIF, Emplacement, placer
+from ourouler.services.physique import chemin_calibration, parametres_du_velo, velo_demande
+from ourouler.services.seance import longueurs
 
 # --- réglages ------------------------------------------------------------------
 

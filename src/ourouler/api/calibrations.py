@@ -56,11 +56,10 @@ from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.profil import Velo
 from ourouler.noyau.texte import nombre_fr
 from ourouler.physique import calibration as calib
-from ourouler.physique import commande as physique
 from ourouler.physique import litterature
 from ourouler.physique.modele import puissance_a_plat_w
 from ourouler.physique.parametres_velo import crr_du_velo
-from ourouler.services import calibrer
+from ourouler.services import calibrer, physique
 from ourouler.stockage import calibrations as stockage
 
 #: La vitesse à laquelle l'écran dit ce que coûte le vélo : « à 30 km/h sur

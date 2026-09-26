@@ -1260,7 +1260,7 @@ def main() -> int:
     client = None
     if not args.sans_vent:
         from ourouler.connecteurs.openmeteo_archive import ClientArchive
-        from ourouler.physique.commande import NOM_CACHE
+        from ourouler.services.physique import NOM_CACHE
 
         client = ClientArchive(chemin_cache=Path(config.cache.dossier).expanduser() / NOM_CACHE)
 
@@ -1390,11 +1390,11 @@ def _velo_commun(groupe_a: Groupe, groupe_b: Groupe, config: Config) -> Velo:
 def _diagnostiquer_aspiration(groupe_a: Groupe, groupe_b: Groupe, config: Config, velo: Velo, client) -> None:
     """Pose la part de distance inexpliquée, avec les paramètres déjà calibrés du vélo.
 
-    Import tardif : `physique.commande` lit la configuration et le fichier de
+    Import tardif : `services.physique` lit la configuration et le fichier de
     calibration, ce qui n'a rien à faire dans l'en-tête d'un script qui doit
     aussi pouvoir tourner sans eux.
     """
-    from ourouler.physique.commande import chemin_calibration, parametres_du_velo
+    from ourouler.services.physique import chemin_calibration, parametres_du_velo
 
     try:
         parametres, _ = parametres_du_velo(config, velo, chemin_calibration(config))

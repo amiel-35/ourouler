@@ -30,12 +30,12 @@ from outils_sortie_commande import _contexte_minimal, _seance_fabriquee, lancer
 from test_sortie_contraste import droite, profil, selection_de
 
 from ourouler.rendu.sortie_json import rendre_json
-from ourouler.sortie import contraste
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     ETAPE_DISTANCE,
     ETAPE_PLACEMENT,
     Ecartee,
 )
+from ourouler.sortie import contraste
 from ourouler.sortie.contraste import (
     SORT_PLACE_PRISE,
     SORT_RETENUE,

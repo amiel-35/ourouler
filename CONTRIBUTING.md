@@ -79,7 +79,7 @@ arrondis flottants propres à une plateforme, casse des noms de fichiers.
    injectable ; les tests lui passent des réponses enregistrées dans
    `tests/fixtures/`. Un test qui appelle Internet est refusé.
 3. **Le cœur ne sait pas où il tourne.** Sous `src/ourouler/`, seuls
-   `cli.py`, `config.py` et `api/exploitation.py` lisent un fichier de
+   `cli/`, `config.py` et `api/exploitation.py` lisent un fichier de
    configuration, une variable d'environnement ou un chemin de
    l'utilisateur (`tests/test_invariants.py` le vérifie). Le reste reçoit des
    objets (`Config`, un client HTTP…). Une fonction du cœur qui ouvre

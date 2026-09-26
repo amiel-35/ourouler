@@ -6,11 +6,11 @@ import argparse
 
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
-from ourouler.meteo import commande as service
-from ourouler.meteo.commande import DemandeMeteo, heure_depart, valider_horizon
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.meteo.rapport import rendre_json, rendre_texte
 from ourouler.noyau.profil import Depart, Profil
+from ourouler.services import meteo as service
+from ourouler.services.meteo import DemandeMeteo, heure_depart, valider_horizon
 
 
 def lire_options(args: argparse.Namespace, profil: Profil) -> DemandeMeteo:
@@ -57,7 +57,7 @@ def executer_depuis_namespace(
     """Exécute `ourouler meteo`. Renvoie le code de sortie (0 = succès).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant : `cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant : `cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API. Absent, c'est celui de la configuration. À ne pas confondre
     avec `args.depart`, qui porte une **heure** (ancien nom de
     `--heure-depart`).

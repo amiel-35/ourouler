@@ -15,7 +15,7 @@ Trois précautions, qui sont le cœur du module :
 2. **On ne lit aucun chemin, et on n'en fabrique aucun.** `BaseRoutes` reçoit
    un `Path` déjà résolu, `apprendre` reçoit un `Cache`, un `ClientBrouter` et
    une `BaseRoutes`. Les *noms* des fichiers du cache vivent eux aussi dans
-   `apprentissage/commande.py` : écrire le nom du fichier de base ou celui
+   `services/apprentissage.py` : écrire le nom du fichier de base ou celui
    des poids ici, ce serait savoir où l'on tourne — la règle « le cœur ne lit ni
    configuration ni environnement » contournée par une chaîne. La ligne de
    commande sait où vivent

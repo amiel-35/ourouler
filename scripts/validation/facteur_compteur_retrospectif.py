@@ -58,13 +58,13 @@ from ourouler.activites.cache import Cache, EntreeCache
 from ourouler.activites.inventaire import en_interieur, rattacher_velo
 from ourouler.config import Config, Velo, charger
 from ourouler.noyau.activite import est_sport_velo
-from ourouler.physique.commande import chemin_calibration, parametres_du_velo
 from ourouler.physique.modele import (
     DENIVELE_REFERENCE_M_PAR_KM,
     PART_ARRET_REFERENCE,
     facteur_compteur_defaut,
     vitesse_a_plat_kmh,
 )
+from ourouler.services.physique import chemin_calibration, parametres_du_velo
 
 #: Durée minimale d'une sortie retenue. Sous une heure, une sortie extérieure
 #: est souvent un trajet ou un bout de séance : ses arrêts et ses relances n'y

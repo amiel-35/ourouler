@@ -33,7 +33,7 @@ from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.profil import Depart
-from ourouler.physique.commande import NOM_CACHE as NOM_CACHE_ARCHIVE
+from ourouler.services.physique import NOM_CACHE as NOM_CACHE_ARCHIVE
 
 #: Les pannes déclarées sur **toutes** les routes, et non route par route.
 #:
@@ -87,7 +87,7 @@ TAILLE_MAX_SEANCE = 1_000_000
 #: 600 km, un point tous les 10 m, pèse environ 4 Mo. 5 Mo et pas plus : la
 #: lecture (gpxpy) coûte en mémoire environ 24 fois la taille du fichier —
 #: mesuré, +465 Mo de pic pour 20 Mo, +120 Mo pour 5 Mo (dépôt 0,8 s, analyse 1,1 s).
-#: `physique.commande.DISTANCE_MAX_ANALYSE_M` borne ensuite le contenu lu.
+#: `services.physique.DISTANCE_MAX_ANALYSE_M` borne ensuite le contenu lu.
 TAILLE_MAX_PARCOURS = 5_000_000
 
 
@@ -275,7 +275,7 @@ def _base_routes(config: Config, qui: Proprietaire):
     authentifié ».
 
     **Le fichier est ouvert même s'il n'existe pas encore**, contrairement à
-    ce que font `apprentissage.commande.base_routes_existante` pour `boucle` et `sortie` —
+    ce que font `services.apprentissage.base_routes_existante` pour `boucle` et `sortie` —
     eux s'abstiennent pour ne pas fabriquer un SQLite vide dans le cache d'un
     cycliste qui n'a rien appris. Ici il le faut : passer `None` ferait
     retomber la commande sur son propre constructeur, donc sur le
@@ -283,8 +283,8 @@ def _base_routes(config: Config, qui: Proprietaire):
     `GET /routes/{action}` l'ouvrait déjà sans condition, le fichier n'est
     donc pas une nouveauté de ce service.
     """
-    from ourouler.apprentissage.commande import NOM_BASE
     from ourouler.apprentissage.routes import BaseRoutes
+    from ourouler.services.apprentissage import NOM_BASE
 
     try:
         return BaseRoutes(config.cache.dossier / NOM_BASE, proprietaire=str(qui))

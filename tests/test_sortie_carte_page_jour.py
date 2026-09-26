@@ -2,7 +2,7 @@
 
 Unitaires, sans réseau ni fichier — les mêmes fabriques que
 `test_sortie_carte.py` (importées, pas dupliquées), une `PropositionCarte`
-par proposition fictive. `sortie.commande` a ses propres tests d'intégration
+par proposition fictive. `services.sortie` a ses propres tests d'intégration
 (`carte_produite` de `outils_sortie_commande.py`, `test_sortie_commande_carte.py`) ; ici on
 vérifie le module `carte` seul : ce qu'il dessine à partir de ce qu'on lui
 donne, sans reconstruire une vraie séance placée.

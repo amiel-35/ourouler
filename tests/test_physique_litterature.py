@@ -40,13 +40,13 @@ from ourouler.commandes.boucle import executer_depuis_namespace as executer
 from ourouler.commandes.physique import simuler_depuis_namespace as executer_simuler
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.physique import litterature
-from ourouler.physique.commande import (
+from ourouler.physique.modele import Parametres, puissance_a_plat_w, simuler, vitesse_a_plat_kmh
+from ourouler.services.physique import (
     VITESSE_A_PLAT_MAXI_KMH,
     chemin_calibration,
     ecrire_calibration,
     puissance_voulue,
 )
-from ourouler.physique.modele import Parametres, puissance_a_plat_w, simuler, vitesse_a_plat_kmh
 
 #: La calibration mesurée du vélo de route du mainteneur (campagne du
 #: 17/09/2026, `docs/journal/questions/questions_mainteneur.md`). Sa `MAE` valait 4,23 %.

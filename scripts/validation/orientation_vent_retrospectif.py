@@ -89,7 +89,6 @@ from ourouler.meteo.rapport import VENT_DOS, VENT_FACE, VENT_TRAVERS, vent_relat
 from ourouler.noyau.activite import Activite
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 from ourouler.noyau.meteo import HeureArchive
-from ourouler.physique.commande import NOM_CACHE
 from ourouler.physique.echantillonnage import (
     _cap,
     _decouper,
@@ -98,6 +97,7 @@ from ourouler.physique.echantillonnage import (
     _vent_de_face,
 )
 from ourouler.physique.modele import vent_au_cycliste
+from ourouler.services.physique import NOM_CACHE
 
 #: Nombre de quarts de distance dans lesquels chaque sortie est découpée.
 NOMBRE_QUARTS = 4

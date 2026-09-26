@@ -10,11 +10,12 @@ from ourouler.boucle.horaire import analyser_pause
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.connecteurs.openmeteo_archive import ClientArchive
-from ourouler.meteo.commande import heure_depart
 from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique import commande as service
-from ourouler.physique.commande import (
+from ourouler.rendu import physique as rendu
+from ourouler.services import physique as service
+from ourouler.services.meteo import heure_depart
+from ourouler.services.physique import (
     DemandeAnalyse,
     DemandeCalibration,
     DemandeSimulation,
@@ -23,7 +24,6 @@ from ourouler.physique.commande import (
     date_option,
     velo_demande,
 )
-from ourouler.rendu import physique as rendu
 
 # --- calibrer -----------------------------------------------------------------
 

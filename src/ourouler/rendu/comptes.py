@@ -1,6 +1,6 @@
 """Ce que les commandes de comptes affichent, en texte et en JSON.
 
-`ourouler inviter`, `reinitialiser`, `invitations` et `retirer` : `cli.py` imprime
+`ourouler inviter`, `reinitialiser`, `invitations` et `retirer` : `cli/` imprime
 ces chaînes telles quelles. **Le lien s'affiche toujours**, que le courriel parte
 ou non — l'exploitant doit pouvoir le relire et le renvoyer par un autre canal.
 """

@@ -12,7 +12,7 @@ quel vélo l'appelant regarde (le cœur ne lit ni configuration ni environnement
 publications revues par les pairs, et surtout **pas une mesure du cycliste qui
 les reçoit**. Tout écran qui affiche un temps calculé avec elles doit porter la
 mention correspondante — c'est le rôle de la provenance `littérature` rendue
-par `physique.commande.parametres_du_velo` (on ne présente jamais une estimation comme une mesure).
+par `services.physique.parametres_du_velo` (on ne présente jamais une estimation comme une mesure).
 
 **Ce qu'elles valent, mesuré.** Une campagne de mesure (commit `b6114b2`) a
 rejoué **34 sorties de validation d'un cycliste de référence** avec ces jeux

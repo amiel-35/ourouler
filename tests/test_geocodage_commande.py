@@ -15,7 +15,7 @@ from ourouler.cli import construire_parseur
 from ourouler.commandes.geocoder import executer_depuis_namespace as executer
 from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.geocodage import Candidat, ClientBAN, ClientNominatim
-from ourouler.geocodage.commande import rendre_json, rendre_texte
+from ourouler.services.geocodage import rendre_json, rendre_texte
 
 CONFIG_BRUTE = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},

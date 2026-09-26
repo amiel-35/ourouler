@@ -12,9 +12,9 @@ import pytest
 
 from ourouler.config import depuis_dict
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique.commande import chemin_calibration, ecrire_calibration
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.seance.ecran_ftp import ftp_pour_vitesse_compteur, info_compteur, rendu, valeurs_liees
+from ourouler.services.physique import chemin_calibration, ecrire_calibration
 
 CONFIG_SANS_VELO = {
     "depart": {"nom": "Point zéro", "latitude": 0.0, "longitude": 0.0},

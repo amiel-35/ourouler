@@ -141,7 +141,7 @@ def test_charger_absent_ou_invalide(tmp_path: Path):
 # --- requiert_profil=False (commandes de comptes, constat du 25/09/2026) ----
 #
 # `ourouler inviter`/`invitations`/`reinitialiser`/`retirer` ne parlent
-# jamais au profil du cycliste ([depart], [cycliste]) — voir `cli.py`. Un
+# jamais au profil du cycliste ([depart], [cycliste]) — voir `cli/`. Un
 # TOML hébergé sans tiers 3 (Q35/Q66) ne porte plus ces deux sections, et les
 # exiger quand même les faisait échouer en prod avant même d'atteindre la
 # base des comptes.

@@ -75,7 +75,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from ourouler.apprentissage.commande import NOM_POIDS, base_routes_existante
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
@@ -100,7 +99,6 @@ from ourouler.noyau.seance import Seance
 from ourouler.noyau.texte import azimut_texte
 from ourouler.noyau.trace import Trace
 from ourouler.physique.modele import Parametres, vitesse_a_plat_ms
-from ourouler.seance.commande import longueurs
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.intervals import seance_du_jour
 from ourouler.seance.placement import CLE_MOTIF, placer
@@ -108,7 +106,9 @@ from ourouler.seance.placement_resultat import Placement, trace_parcourue
 from ourouler.seance.tenue import Tenue
 from ourouler.seance.tenue import conseiller as conseiller_tenue
 from ourouler.seance.vent import ChampVent
+from ourouler.services.apprentissage import NOM_POIDS, base_routes_existante
 from ourouler.services.contexte import Contexte
+from ourouler.services.seance import longueurs
 from ourouler.sortie import contraste, orientation, vent_demande
 
 #: Multiple auquel la distance déduite de la séance est arrondie, **vers le
@@ -300,13 +300,13 @@ def executer(
     """Exécute `ourouler sortie` : `SansSeance` un jour sans séance, `ResultatSortie` sinon.
 
     `base_routes` s'injecte comme les clients, pour la même raison et de la
-    même façon que dans `boucle/commande.executer` (décision Q58) : absente, la
+    même façon que dans `services/boucle.executer` (décision Q58) : absente, la
     base est ouverte sur `contexte.dossier_cache` avec le propriétaire par
     défaut, ce qui est le bon comportement en ligne de commande et le mauvais
     dans un service qui sert plusieurs cyclistes.
 
     Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
-    celui de **cette** exécution (`--adresse-depart` géocodée par `cli.py`, ou
+    celui de **cette** exécution (`--adresse-depart` géocodée par `cli/`, ou
     les coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit
     aucune adresse et ne sait pas d'où vient ce point (le cœur ne lit ni
     configuration ni environnement). À ne
@@ -326,7 +326,7 @@ def executer(
     appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
     autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
     connue est informative et n'entre dans aucun score — mais elle tombera
-    naturellement à zéro loin de chez soi. `cli.py` le dit sur la sortie
+    naturellement à zéro loin de chez soi. `cli/` le dit sur la sortie
     d'erreur plutôt que de laisser croire à un tracé
     inédit.
     """
@@ -513,7 +513,7 @@ def heure_depart_du_jour(brut: str | None, jour: date) -> datetime:
     calcule, et on remplace la date par celle de la séance — sauf si
     l'utilisateur a écrit la date lui-même.
     """
-    from ourouler.meteo.commande import heure_depart
+    from ourouler.services.meteo import heure_depart
 
     quand = heure_depart(brut)
     if brut and "T" in str(brut):
@@ -627,7 +627,7 @@ def _parametres(profil: Profil, velo: str | None, fichier_calibration: Path) -> 
     configuration ou valeurs par défaut — et la provenance est affichée en
     toutes lettres.
     """
-    from ourouler.physique.commande import (
+    from ourouler.services.physique import (
         alerte_calibration,
         parametres_du_velo,
         velo_demande,

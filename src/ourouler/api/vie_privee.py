@@ -59,9 +59,9 @@ from ourouler.api import taches_fond
 from ourouler.api.comptes import DepotComptes
 from ourouler.api.depots import DepotFichiers, DepotGenerations, DepotProfils, JournalServices
 from ourouler.api.proprietaire import Proprietaire
-from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.physique.commande import NOM_CALIBRATION
+from ourouler.services.apprentissage import NOM_BASE
+from ourouler.services.physique import NOM_CALIBRATION
 
 #: Le fichier qui dit ce que chaque entrée de l'archive est — sans lui, un
 #: export RGPD n'est lisible que par qui a écrit le code, et un export que

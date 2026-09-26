@@ -28,7 +28,7 @@ tourne, la pluie et le vent manquent.
 import sys
 from dataclasses import replace
 
-import ourouler.sortie.commande as cmd
+import ourouler.services.sortie as cmd
 from ourouler.cli import main
 
 VRAI = cmd.seance_du_jour

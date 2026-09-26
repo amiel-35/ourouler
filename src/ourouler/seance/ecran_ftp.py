@@ -4,7 +4,7 @@ Le calcul des trois valeurs liées et de l'escalier est du domaine pur, dans
 `seance.ftp`, qui reçoit le profil du cycliste et le modèle physique du vélo
 tout faits. Ce module-ci est la couche
 commande qui les lui prépare : il choisit le vélo demandé dans le profil,
-lit sa calibration par `physique.commande` (qui résout le chemin de
+lit sa calibration par `services.physique` (qui résout le chemin de
 du fichier de calibration et passe par `stockage.calibrations`) et délègue.
 
 Les signatures prennent un profil et un nom de vélo, pour que la ligne de
@@ -16,7 +16,7 @@ là où le calcul avait besoin du vélo.
 `fichier_calibration` : un service le lui passe (`Contexte.fichier_calibration`)
 et ne lit donc jamais le cache de la configuration. Absent, il est résolu
 depuis `profil`, qui doit alors être une `config.Config` entière
-(`physique.commande.chemin_calibration`) — c'est le cas de l'ancien chemin
+(`services.physique.chemin_calibration`) — c'est le cas de l'ancien chemin
 de l'API et de `rendu.profil`.
 """
 
@@ -25,14 +25,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from ourouler.noyau.profil import Profil, Velo
-from ourouler.physique.commande import (
+from ourouler.physique.modele import Parametres
+from ourouler.seance import ftp
+from ourouler.services.physique import (
     chemin_calibration,
     fourchette_du_velo,
     parametres_du_velo,
     velo_demande,
 )
-from ourouler.physique.modele import Parametres
-from ourouler.seance import ftp
 
 
 def modele_du_velo(

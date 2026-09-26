@@ -162,7 +162,7 @@ def test_aucune_boucle_trouvee_propose_les_deux_leviers_avec_leurs_valeurs():
 def test_meteo_indisponible_sert_quand_meme_le_parcours():
     """Protège E14 · dégradé (« Pas de météo ce matin »).
 
-    `boucle/commande.py` le dit déjà dans son docstring : « la météo est le
+    `services/boucle.py` le dit déjà dans son docstring : « la météo est le
     seul maillon qu'on accepte de perdre ». L'écran le montre : le parcours
     reste là, ce sont les affirmations qui disparaissent. Une API qui répond
     503 parce qu'Open-Meteo est tombé supprime un écran qui marche.

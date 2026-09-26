@@ -33,7 +33,7 @@ def simuler(
     demande: DemandeSimulation,
 ) -> dict:
     """Le temps d'un GPX du dépôt à puissance constante, avec le modèle calibré."""
-    from ourouler.physique import commande as physique
+    from ourouler.services import physique
 
     config = _config(ctx, qui)
     try:
@@ -107,7 +107,7 @@ async def deposer_parcours(
     # à l'analyse — même geste que `/seances/fichier`, qui lit la séance
     # déposée avant de rendre la main.
     from ourouler.boucle.gpx import lire_gpx_parcours
-    from ourouler.physique.commande import DISTANCE_MAX_ANALYSE_M
+    from ourouler.services.physique import DISTANCE_MAX_ANALYSE_M
 
     try:
         trace, avertissements_trace = lire_gpx_parcours(depose.chemin)
@@ -157,7 +157,7 @@ def analyser_parcours(
     Open-Meteo, départ au-delà de l'horizon), où
     la durée est servie mais la consultation n'a rien rapporté — la rembourse.
     """
-    from ourouler.physique import commande as physique
+    from ourouler.services import physique
 
     _verifier_quota(ctx, qui, ctx.quotas_meteo)
     try:

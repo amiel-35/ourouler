@@ -288,7 +288,7 @@ function erreurInterne(cause: unknown): ErreurApi {
 }
 
 /** Le refus faute de FTP, quand ni puissance ni vitesse à plat n'ont été
- * données (`physique/commande.py`, commande « analyser » : « donner
+ * données (`services/physique.py`, commande « analyser » : « donner
  * --puissance W ou --vitesse-a-plat KMH — aucune FTP dans le profil »). Le
  * message de ligne de commande n'a pas sa place à l'écran ; le code d'abord,
  * la mention de FTP dans le message ensuite, pour ne pas confondre avec un

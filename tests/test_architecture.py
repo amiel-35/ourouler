@@ -39,10 +39,10 @@ Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
   fichier de calibration **déjà résolus**. Le paquet d'entrée `commandes/`
   lit le `Namespace`, construit la demande, appelle le service puis le rendu,
   et imprime.
-* La physique est pure : hors `commande.py`, `physique/` n'importe ni
+* La physique est pure : `physique/` n'importe ni
   `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`
   (`test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`).
-* `cli.py` importe des modules de `api/` (serveur, dépôt des comptes, client
+* `cli/` importe des modules de `api/` (serveur, dépôt des comptes, client
   SMTP, environnement de l'hébergé) pour construire les dépendances qu'il passe
   aux services : ce sont des arêtes d'une entrée à une autre, sans cycle, donc
   permises.
@@ -100,9 +100,9 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #: Chaque module de `src/ourouler/`, rangé dans son paquet cible.
 #:
 #: Choix de rangement, là où le code mêle deux rôles :
-#: - les `*/commande.py` sont des **cas d'usage** (couche 3) : ils
-#:   orchestrent connecteurs et domaine ; le rendu et argparse en sont
-#:   sortis, vers `rendu/` et `commandes/` ;
+#: - les `services/<domaine>.py` (`sortie`, `boucle`, `physique`…) sont des
+#:   **cas d'usage** (couche 3) : ils orchestrent connecteurs et domaine ; le
+#:   rendu et argparse en sont sortis, vers `rendu/` et `commandes/` ;
 #: - `physique/calibration.py` est au **domaine** : il ne fait que
 #:   calculer ; le choix et la lecture des sorties sont dans
 #:   `services/calibrer.py` ;
@@ -202,19 +202,18 @@ MODULES: dict[str, str] = {
     "ourouler.services.comparer": "services",
     "ourouler.services.comptes": "services",
     "ourouler.services.contexte": "services",
-    "ourouler.activites.commande": "services",
+    "ourouler.services.activites": "services",
+    "ourouler.services.apprentissage": "services",
+    "ourouler.services.boucle": "services",
+    "ourouler.services.geocodage": "services",
+    "ourouler.services.meteo": "services",
+    "ourouler.services.physique": "services",
+    "ourouler.services.seance": "services",
+    "ourouler.services.sortie": "services",
     "ourouler.activites.inventaire": "services",
     "ourouler.apprentissage": "services",
-    "ourouler.apprentissage.commande": "services",
     "ourouler.apprentissage.routes": "services",
-    "ourouler.boucle.commande": "services",
-    "ourouler.geocodage": "services",
-    "ourouler.geocodage.commande": "services",
-    "ourouler.meteo.commande": "services",
-    "ourouler.physique.commande": "services",
-    "ourouler.seance.commande": "services",
     "ourouler.seance.ecran_ftp": "services",
-    "ourouler.sortie.commande": "services",
     # 4. rendu
     "ourouler.rendu": "rendu",
     "ourouler.rendu.boucle": "rendu",
@@ -232,6 +231,11 @@ MODULES: dict[str, str] = {
     # 5. entrées
     "ourouler.config": "config",
     "ourouler.cli": "cli",
+    "ourouler.cli.__main__": "cli",
+    "ourouler.cli.comptes": "cli",
+    "ourouler.cli.depart": "cli",
+    "ourouler.cli.options": "cli",
+    "ourouler.cli.parseur": "cli",
     # du `Namespace` à la `Demande`, puis au rendu imprimé
     "ourouler.commandes": "commandes",
     "ourouler.commandes.boucle": "commandes",
@@ -304,11 +308,11 @@ REEXPORTS: dict[str, str] = {}
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
 IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
-    # Les annotations des adaptateurs de comptes : `cli.py` reste importable sans
-    # le pilote PostgreSQL, que `services/comptes.py` tire.
-    ("ourouler.cli", "ourouler.api.comptes"),
-    ("ourouler.cli", "ourouler.api.courriel"),
-    ("ourouler.cli", "ourouler.services.comptes"),
+    # Les annotations des adaptateurs de comptes : `cli/comptes.py` reste importable
+    # sans le pilote PostgreSQL, que `services/comptes.py` tire.
+    ("ourouler.cli.comptes", "ourouler.api.comptes"),
+    ("ourouler.cli.comptes", "ourouler.api.courriel"),
+    ("ourouler.cli.comptes", "ourouler.services.comptes"),
     # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
     # l'entrée qui la charge ; celui des parcours de même.
     ("ourouler.rendu.profil", "ourouler.config"),
@@ -525,7 +529,7 @@ def test_chaque_module_a_sa_place():
 def test_les_paquets_a_venir_sont_bien_a_venir():
     """Quand un lot crée `noyau/` ou `services/`, la table doit le dire."""
     for nom, (_, existe) in PAQUETS.items():
-        if nom in ("config", "cli"):
+        if nom == "config":
             assert (SOURCES / f"{nom}.py").exists()
             continue
         assert (SOURCES / nom).is_dir() == existe, f"{nom}/ : « existe={existe} » ne dit plus vrai"
@@ -574,10 +578,9 @@ INTERDITS_PHYSIQUE_PURE = (
     "ourouler.boucle",
 )
 
-#: Le module de `physique/` qui n'est pas du domaine : un cas d'usage
-#: (`MODULES`) qui lit le cache et les fichiers. La comparaison physique vit
-#: dans `services/comparer.py`.
-PHYSIQUE_CAS_D_USAGE = ("ourouler.physique.commande",)
+#: Tout `physique/` est du domaine : ses cas d'usage (`calibrer`, `simuler`,
+#: `analyser`) vivent dans `services/physique.py`, la comparaison dans
+#: `services/comparer.py`.
 
 
 def _modules_importes(source: str) -> list[tuple[str, int]]:
@@ -595,10 +598,7 @@ def _modules_importes(source: str) -> list[tuple[str, int]]:
 def test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration():
     fautifs = []
     pures = [
-        nom
-        for nom in modules_sources()
-        if (nom == "ourouler.physique" or nom.startswith("ourouler.physique."))
-        and nom not in PHYSIQUE_CAS_D_USAGE
+        nom for nom in modules_sources() if nom == "ourouler.physique" or nom.startswith("ourouler.physique.")
     ]
     assert "ourouler.physique.calibration" in pures and "ourouler.physique.modele" in pures
     for nom in pures:

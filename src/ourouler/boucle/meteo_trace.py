@@ -170,8 +170,8 @@ def evaluer(
     """La météo le long de `trace`, échantillonnée tous les `pas_m`.
 
     `horaire` répond « à quelle heure suis-je au kilomètre X » — construit
-    par l'appelant (`boucle.horaire.construire_horaire`, dans `cli.py` ou
-    `boucle.commande`), jamais lu ici (le cœur ne lit ni configuration ni environnement). Sans pause déclarée,
+    par l'appelant (`boucle.horaire.construire_horaire`, dans `cli/` ou
+    `services.boucle`), jamais lu ici (le cœur ne lit ni configuration ni environnement). Sans pause déclarée,
     c'est exactement `depart + distance / vitesse`.
     `horaire(0.0)` sert de départ pour la fenêtre demandée à Open-Meteo :
     aucune pause ne peut être strictement avant le kilomètre zéro, donc il

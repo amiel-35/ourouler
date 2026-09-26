@@ -40,7 +40,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from ourouler.apprentissage.commande import NOM_POIDS, base_routes_existante
 from ourouler.apprentissage.routes import BaseRoutes, lire_poids, points_de_passage_depuis_coordonnees
 from ourouler.boucle.candidates import appels_pour, generer
 from ourouler.boucle.couts import Couts
@@ -64,6 +63,7 @@ from ourouler.noyau.erreurs import (
 )
 from ourouler.noyau.profil import Profil
 from ourouler.noyau.trace import DENIVELE_REROUTE, Trace, denivele_filtre
+from ourouler.services.apprentissage import NOM_POIDS, base_routes_existante
 from ourouler.services.contexte import Contexte
 
 #: Poids de la pluie dans le tri du tableau : un millimètre cumulé coûte
@@ -133,7 +133,7 @@ class ModeleTemps:
     #: `physique.litterature` quand la provenance en vient — sans rouvrir la
     #: configuration depuis un rendu.
     usage: str = ""
-    #: `physique.commande.ALERTE_PNEU_CHANGE` quand la calibration ne suit
+    #: `services.physique.ALERTE_PNEU_CHANGE` quand la calibration ne suit
     #: plus le pneu déclaré du vélo (elle reste utilisée), sinon vide.
     alerte: str = ""
 
@@ -213,10 +213,10 @@ def executer(
     `contexte.dossier_cache`, avec le propriétaire par défaut. Une couche web
     qui sert plusieurs cyclistes en construit une par propriétaire et la passe
     ici ; sans quoi la colonne « connu % » dirait à l'un ce que l'autre a
-    roulé (décision Q58, voir `activites/commande.executer`).
+    roulé (décision Q58, voir `services/activites.executer`).
 
     Le point de départ est `contexte.profil.depart` : l'entrée y a déjà mis
-    celui de **cette** exécution (`--adresse-depart` géocodée par `cli.py`, ou
+    celui de **cette** exécution (`--adresse-depart` géocodée par `cli/`, ou
     les coordonnées que l'API a reçues). Le cœur ne géocode rien, ne lit
     aucune adresse et ne sait pas d'où vient ce point (le cœur ne lit ni configuration ni environnement). À ne
     pas confondre avec `demande.depart`, qui porte une **heure**.
@@ -225,7 +225,7 @@ def executer(
     appris** du cache (`routes.sqlite`, `poids_routes.json`) ont été mesurés
     autour du départ configuré. Partir d'ailleurs ne les casse pas — la part
     connue est informative et n'entre dans aucun score — mais elle tombera
-    naturellement à zéro loin de chez soi. `cli.py` le dit sur la sortie
+    naturellement à zéro loin de chez soi. `cli/` le dit sur la sortie
     d'erreur plutôt que de laisser croire à un tracé
     inédit.
     """
@@ -464,7 +464,7 @@ def _modele_temps(demande: Demande, contexte: Contexte) -> ModeleTemps | None:
     dans la configuration : rien pour construire une puissance par défaut,
     donc pas de colonne « temps » plutôt qu'un calcul sur une valeur inventée.
     """
-    from ourouler.physique.commande import (
+    from ourouler.services.physique import (
         alerte_calibration,
         parametres_du_velo,
         puissance_voulue,
@@ -748,8 +748,8 @@ def _temps_modele(trace: Trace, meteo: MeteoTrace | None, modele: ModeleTemps | 
     """
     if modele is None:
         return None
-    from ourouler.physique.commande import vent_depuis_meteo
     from ourouler.physique.modele import simuler
+    from ourouler.services.physique import vent_depuis_meteo
 
     vent = vent_depuis_meteo(meteo) if meteo is not None else None
     try:

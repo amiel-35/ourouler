@@ -711,7 +711,7 @@ class DepotGenerations:
     coûterait exactement ce que la décision voulait éviter, puisque la
     géométrie d'une trace pèse ce que pèse son GPX.
 
-    Les propositions reçues sont des `sortie.commande.GpxPropose`, mais le
+    Les propositions reçues sont des `services.sortie.GpxPropose`, mais le
     dépôt n'en connaît que trois attributs (`numero`, `nom_fichier`, `texte`)
     et n'importe pas le cœur : il range des couples, pas des objets du cœur.
     """

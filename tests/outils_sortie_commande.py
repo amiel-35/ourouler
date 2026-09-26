@@ -46,7 +46,7 @@ from ourouler.physique.modele import Parametres
 from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
-from ourouler.sortie.commande import (
+from ourouler.services.sortie import (
     Proposition,
     _Contexte,
 )

@@ -1,4 +1,4 @@
-"""`ourouler reinitialiser` : le câblage complet de `cli.py` (lot L9.6).
+"""`ourouler reinitialiser` : le câblage complet de `cli/` (lot L9.6).
 
 Même patron que `test_cli_inviter.py` — `cli.main()` de bout en bout, contre une vraie
 base PostgreSQL jetable (fixture `url_base`). Sans Docker, ces tests sautent proprement.

@@ -18,7 +18,7 @@
 #
 # ## Ce qui le lit
 #
-# `ourouler inviter` : `cli.py` l'ouvre, valide la section
+# `ourouler inviter` : `cli/` l'ouvre, valide la section
 # [brevo] et passe le résultat à `api/courriel.py`, qui ne lit ni fichier ni
 # variable lui-même (le cœur ne lit ni configuration ni environnement — `tests/test_invariants.py` le vérifie). Sans `--sans-courriel`, la commande refuse de démarrer avec un
 # message lisible si ce fichier manque ou si [brevo] est incomplète.

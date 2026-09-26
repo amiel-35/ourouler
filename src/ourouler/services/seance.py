@@ -1,6 +1,6 @@
 """Sous-commande `ourouler seance` : la séance du jour, et la route qu'elle demande.
 
-Ce module lit `calibration.json` (par `physique.commande`, qui sait où il
+Ce module lit `calibration.json` (par `services.physique`, qui sait où il
 est) et appelle Intervals.icu ; le reste de `seance/` ne connaît ni fichier,
 ni réseau. Le client est injectable pour que les tests ne touchent jamais le
 réseau.
@@ -8,7 +8,7 @@ réseau.
 **`--fichier-seance`** remplace Intervals.icu par un `.ZWO`/`.MRC` donné
 en ligne de commande, lu par `seance.fichier.lire_fichier_seance` — voir
 `_executer_fichier`. C'est le seul autre module qui touche un chemin ici, et
-seulement celui que `cli.py` lui passe déjà résolu (le cœur ne lit ni configuration ni environnement).
+seulement celui que `cli/` lui passe déjà résolu (le cœur ne lit ni configuration ni environnement).
 
 **Ce que « longueur de route nécessaire » veut dire.** Pour chaque étape, on
 demande au modèle physique la vitesse d'équilibre à la puissance cible, **sur
@@ -259,7 +259,7 @@ def _executer_fichier(chemin: Path, jour: date, contexte: Contexte) -> ResultatS
     jour chez Intervals : un fichier remplace seulement la source de la
     `Seance`. `lire_fichier_seance` lève `ErreurLecture` (sous-classe
     d'`ErreurUtilisateur`) pour un fichier absent, vide, mal formé ou
-    d'extension inconnue ; `cli.py` l'affiche en une ligne comme toute autre
+    d'extension inconnue ; `cli/` l'affiche en une ligne comme toute autre
     erreur utilisateur.
     """
     from ourouler.seance.fichier import lire_fichier_seance  # import paresseux : lit un fichier

@@ -27,15 +27,6 @@ from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import PointTrace, Trace
 from ourouler.physique import litterature
-from ourouler.physique.commande import (
-    alerte_calibration,
-    chemin_calibration,
-    ecrire_calibration,
-    fourchette_du_velo,
-    lire_calibration,
-    parametres_du_velo,
-    velo_demande,
-)
 from ourouler.physique.modele import Parametres
 from ourouler.physique.parametres_velo import (
     ALERTE_PNEU_CHANGE,
@@ -43,6 +34,15 @@ from ourouler.physique.parametres_velo import (
     Calibration,
     crr_du_velo,
     fourchette_defaut,
+)
+from ourouler.services.physique import (
+    alerte_calibration,
+    chemin_calibration,
+    ecrire_calibration,
+    fourchette_du_velo,
+    lire_calibration,
+    parametres_du_velo,
+    velo_demande,
 )
 from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
@@ -579,8 +579,8 @@ def test_vent_prevu_est_ramene_a_hauteur_de_cycliste():
     Pendant exact de ce que la calibration fait sur l'archive : le modèle est
     calibré avec un vent converti, il doit être utilisé avec un vent converti.
     """
-    from ourouler.physique.commande import vent_depuis_meteo
     from ourouler.physique.modele import vent_au_cycliste
+    from ourouler.services.physique import vent_depuis_meteo
 
     face = vent_depuis_meteo(_meteo_a_vent_constant(18.0, 90.0))
     assert face is not None
@@ -593,7 +593,7 @@ def test_vent_prevu_est_ramene_a_hauteur_de_cycliste():
 
 def test_vent_prevu_absent_reste_absent():
     """Un tracé sans vent connu ne fabrique pas un vent nul converti."""
-    from ourouler.physique.commande import vent_depuis_meteo
+    from ourouler.services.physique import vent_depuis_meteo
 
     meteo = _meteo_a_vent_constant(18.0, 90.0)
     meteo.echantillons[0].vent_kmh = None

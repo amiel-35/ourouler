@@ -8,7 +8,7 @@ avertissement. Les clients HTTP et les dépôts, eux, restent des paramètres
 nommés du service, injectables un par un comme avant.
 
 Le service ne lit donc ni `Config.cache` ni le répertoire de l'utilisateur :
-c'est l'entrée (`cli.py`, l'API) qui résout les chemins, une fois.
+c'est l'entrée (`cli/`, l'API) qui résout les chemins, une fois.
 """
 
 from __future__ import annotations

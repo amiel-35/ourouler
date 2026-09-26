@@ -12,7 +12,6 @@ import argparse
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique.commande import date_option
 from ourouler.physique.echantillonnage import LONGUEUR_ECHANTILLON_M
 from ourouler.rendu.comparaison import rendre_json_comparaison, rendre_texte_comparaison
 from ourouler.services import comparer as service
@@ -22,6 +21,7 @@ from ourouler.services.comparer import (
     ZONE_DEFAUT,
     DemandeComparaison,
 )
+from ourouler.services.physique import date_option
 
 
 def lire_options(args: argparse.Namespace, config: Config) -> DemandeComparaison:

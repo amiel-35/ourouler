@@ -470,7 +470,7 @@ def temps_ecoule(temps_estime_s: float, fourchette: FourchettePorteAPorte) -> Po
     `temps_estime_s` est le temps **en mouvement** d'une candidate (celui que
     `simuler` rend sur ce tracé-ci, relief et vent compris, ou son repli à
     vitesse moyenne). La fourchette est celle du vélo
-    (`physique.commande.fourchette_du_velo`) : mesurée sur ses sorties, ou la
+    (`services.physique.fourchette_du_velo`) : mesurée sur ses sorties, ou la
     convention par défaut.
 
     **La moyenne compteur n'entre plus ici.** Elle garde son rôle ailleurs —

@@ -1,7 +1,7 @@
 """`ourouler sortie` : la demande, le service, la page du jour, le rendu imprimé.
 
 `lire_options` valide tout ce qui peut l'être **avant** le premier appel
-réseau et construit la `Demande` du service (`sortie/commande.py`). Le
+réseau et construit la `Demande` du service (`services/sortie.py`). Le
 service cherche, place, mesure et écrit le GPX ; ce module écrit la page du
 jour (construite par `rendu.sortie`) puis imprime le tableau ou le JSON.
 """
@@ -16,7 +16,6 @@ from datetime import datetime
 from pathlib import Path
 
 from ourouler.apprentissage.routes import BaseRoutes
-from ourouler.boucle.commande import direction_en_azimut
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.connecteurs.brouter import ClientBrouter
@@ -28,11 +27,11 @@ from ourouler.noyau.seance import Seance
 from ourouler.rendu import sortie as rendu
 from ourouler.rendu.sortie import page_jour, page_sans_seance
 from ourouler.rendu.sortie_json import rendre_json
-from ourouler.seance.commande import jour_option
+from ourouler.services import sortie as service
+from ourouler.services.boucle import direction_en_azimut
 from ourouler.services.contexte import Contexte
-from ourouler.sortie import commande as service
-from ourouler.sortie import contraste, orientation
-from ourouler.sortie.commande import (
+from ourouler.services.seance import jour_option
+from ourouler.services.sortie import (
     Demande,
     DemandeVent,
     GpxPropose,
@@ -42,6 +41,7 @@ from ourouler.sortie.commande import (
     heure_depart_du_jour,
     verifier_ecriture,
 )
+from ourouler.sortie import contraste, orientation
 
 
 def executer_depuis_namespace(
@@ -58,12 +58,12 @@ def executer_depuis_namespace(
     """Exécute `ourouler sortie`. 0 = succès (y compris « aucune séance ce jour-là »).
 
     `lieu_depart` est le **point de départ de cette exécution**, déjà tranché
-    par l'appelant (`cli.py` quand `--adresse-depart` a été géocodée, une
+    par l'appelant (`cli/` quand `--adresse-depart` a été géocodée, une
     requête d'API). Il remplace celui de la configuration dans le profil que
     reçoit le service : la question du vent, la génération des candidates,
     les en-têtes de texte, la carte et le JSON lisent tous ce départ-là.
 
-    `recueil_gpx` : voir `sortie.commande.executer`.
+    `recueil_gpx` : voir `services.sortie.executer`.
     """
     ctx = contexte(config, lieu_depart=lieu_depart)
     demande = lire_options(args, config)
@@ -299,7 +299,7 @@ def ecrire_page_jour(
     La page elle-même est construite par `rendu.sortie.page_jour` ; ce module
     ne fait que l'écrire à l'emplacement de la carte (`--carte`, ou le nom
     daté par défaut). Les GPX qu'elle embarque sont ceux de
-    `sortie.commande._gpx_propositions`, déjà en mémoire : jamais écrits sur disque, ils
+    `services.sortie._gpx_propositions`, déjà en mémoire : jamais écrits sur disque, ils
     partent en base64 dans la page : le fichier suit le choix du cycliste, pas
     le classement.
     """

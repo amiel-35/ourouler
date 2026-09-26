@@ -82,9 +82,9 @@ from ourouler.api.session import (
     SessionHebergee,
     SessionPersonnelle,
 )
-from ourouler.apprentissage.commande import NOM_BASE
 from ourouler.apprentissage.routes import BaseRoutes
 from ourouler.noyau.trace import PointTrace, Segment, Trace
+from ourouler.services.apprentissage import NOM_BASE
 
 #: Les noms acceptables pour la clause de propriétaire. On n'impose pas le mot :
 #: on impose qu'il y en ait un, et qu'il soit déclaré dans le contrat.

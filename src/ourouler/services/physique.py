@@ -187,7 +187,7 @@ def executer_calibrer(
 ) -> CalibrationEcrite:
     """Calibre un vélo sur les sorties réelles du cache et écrit `calibration.json`.
 
-    **`cache` s'injecte**, sur le patron d'`activites/commande.executer` :
+    **`cache` s'injecte**, sur le patron d'`services/activites.executer` :
     absent — la ligne de commande —, le service construit celui du
     propriétaire local sur `contexte.dossier_cache`. Le calcul
     lui-même est `calibrer_velo`, qui n'imprime rien : c'est lui que la tâche
@@ -434,7 +434,7 @@ def executer_analyser(
 
     **La vitesse qui date les échantillons météo est celle du modèle, pas la moyenne
     configurée** : `physique.modele.simuler` à vent nul donne une vitesse moyenne qui
-    tient compte du relief de *ce* parcours-ci — exactement `boucle.commande._vitesse_meteo`,
+    tient compte du relief de *ce* parcours-ci — exactement `services.boucle._vitesse_meteo`,
     rejoué ici pour un GPX déposé plutôt que pour une candidate générée. Sur un parcours
     vallonné, c'est très différent d'une vitesse moyenne plate, et c'est tout l'intérêt :
     la météo d'un col à 12 km/h n'est pas celle d'une plaine à 30.
@@ -557,7 +557,7 @@ def executer_analyser(
 
 def _vitesse_a_vent_nul(trace, puissance_w: float, parametres: Parametres, profil: Profil) -> float:
     """La vitesse qui date les échantillons météo — le pendant, pour un GPX déposé, de
-    `boucle.commande._vitesse_meteo` : une simulation à vent nul (la météo qu'on cherche
+    `services.boucle._vitesse_meteo` : une simulation à vent nul (la météo qu'on cherche
     dépendrait sinon de l'heure, qui dépend de la vitesse, qui dépend du vent — second
     ordre, voir la docstring de `_vitesse_meteo`). Retombe sur la vitesse moyenne
     configurée si la simulation échoue (tracé dégénéré) : la météo reste utilisable.

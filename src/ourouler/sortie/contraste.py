@@ -68,7 +68,7 @@ Ce que ce module ne fait pas
 ----------------------------
 
 Il ne **replace** rien et ne **retrie** rien. La première proposition reste
-celle que le tri de `sortie.commande` a retenue : on ne change pas ce que
+celle que le tri de `services.sortie` a retenue : on ne change pas ce que
 l'outil recommande, on ajoute ce à quoi le comparer. Les deux autres sont
 cherchées parmi toutes les combinaisons possibles, et à validité égale on
 prend celles que ce même tri classe le mieux — « les meilleures qui diffèrent
@@ -130,7 +130,7 @@ ORDRE_AXES = (
 
 #: Écart **à la durée prescrite** en dessous duquel deux propositions tiennent
 #: la séance aussi bien l'une que l'autre. **Un arbitrage, pas une mesure** —
-#: comme `sortie.commande.NOTE_BLOC_BIEN_PLACE`, et il faut le dire. Dix
+#: comme `services.sortie.NOTE_BLOC_BIEN_PLACE`, et il faut le dire. Dix
 #: minutes, parce que c'est l'unité dans laquelle un cycliste parle de ses
 #: sorties (« la retenue dépasse de 29 min ») et que sur une séance de 2 h
 #: c'est 8 % du temps, soit l'ordre de grandeur d'un retour au calme entier.
@@ -362,7 +362,7 @@ class Profil:
 
 
 def profil(proposition, meteo: MeteoTrace | None = None, *, duree_seance_s: float | None = None) -> Profil:
-    """Le profil d'une `sortie.commande.Proposition`.
+    """Le profil d'une `services.sortie.Proposition`.
 
     `meteo` est celle de la proposition ; elle n'est prise en argument à part
     que pour que les tests puissent en fournir une sans construire une
@@ -516,7 +516,7 @@ class Verdict:
     porte.
 
     `rang` est la place de la candidate dans la liste passée à `choisir`, et
-    `numero` son numéro affiché : `sortie.commande` numérote les propositions
+    `numero` son numéro affiché : `services.sortie` numérote les propositions
     **avant** d'appeler, dans l'ordre du tri, donc `numero == rang + 1`. Les
     deux sont rendus pour qu'un consommateur n'ait pas à le redécouvrir.
     """

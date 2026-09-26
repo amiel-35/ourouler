@@ -376,7 +376,7 @@ class Profil(PorteVelos, Protocol):
     fichier de calibration **déjà résolus** par l'entrée qui l'appelle
     (`services.contexte.Contexte`). `ParametresCache` n'y figure pas exprès :
     son défaut résout le répertoire de l'utilisateur (le cœur ne lit ni configuration ni environnement), et
-    c'est l'entrée — `cli.py`, l'API — qui décide où est le cache.
+    c'est l'entrée — `cli/`, l'API — qui décide où est le cache.
     """
 
     @property
