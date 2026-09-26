@@ -36,11 +36,8 @@ import httpx
 import pytest
 from outils import robuste, sans_accents, verifier_utc
 
+from ourouler.connecteurs import openmeteo_archive as module_openmeteo_archive
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-
-MOTIF_ABSENT = (
-    "module attendu par le contrat L3.3 absent (ourouler.connecteurs.openmeteo_archive)"
-)
 
 CHAMPS_HEURE = {"t", "vent_kmh", "vent_depuis_deg", "temp_c", "pression_hpa"}
 
@@ -51,10 +48,6 @@ ERREURS = (ErreurConnecteur, ErreurUtilisateur, ValueError)
 
 #: Jetons qui trahissent un paramètre de mémoïsation dans une signature.
 JETONS_CACHE = ("cache", "memo", "chemin", "sqlite", "base")
-
-
-def _module():
-    return pytest.importorskip("ourouler.connecteurs.openmeteo_archive", reason=MOTIF_ABSENT)
 
 
 def _parametre_cache(fonction) -> str | None:
@@ -123,7 +116,7 @@ def _verifier_heures(heures: Any, quoi: str) -> list[Any]:
 
 
 def test_une_journee_complete_se_relit():
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     heures = _verifier_heures(
@@ -143,7 +136,7 @@ def test_une_journee_complete_se_relit():
 
 def test_les_heures_sont_datees_en_utc():
     """Le reste du produit range tout en UTC ; une heure naïve décale le vent d'une sortie."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     heures = _verifier_heures(
         _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE),
@@ -156,7 +149,7 @@ def test_les_heures_sont_datees_en_utc():
 
 
 def test_la_requete_demande_bien_le_jour_voulu():
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     _client(module, espion).horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
     params = espion.params(0)
@@ -171,7 +164,7 @@ def test_la_requete_demande_bien_le_jour_voulu():
 
 def test_un_jour_futur_est_refuse_sans_appel():
     """Contrat §4 : « jour futur refusé »."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     demain = datetime.now(UTC).date() + timedelta(days=3)
@@ -188,7 +181,7 @@ def test_un_jour_futur_est_refuse_sans_appel():
 
 def test_un_jour_anterieur_a_1940_est_refuse():
     """Angle obligatoire : la réanalyse ERA5 commence en 1940, avant c'est un vide mémorisé."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion(heures=0)
     client = _client(module, espion)
     ancien = date(PREMIERE_ANNEE - 11, 6, 15)
@@ -218,7 +211,7 @@ def test_un_jour_anterieur_a_1940_est_refuse():
 )
 def test_des_coordonnees_hors_du_globe_sont_refusees_sans_appel(lat, lon):
     """Angle obligatoire : lat/lon hors bornes. Une faute d'appelant n'est pas une requête."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     resultat, _ = robuste(
@@ -239,7 +232,7 @@ def test_des_coordonnees_hors_du_globe_sont_refusees_sans_appel(lat, lon):
 
 def test_une_reponse_aux_heures_manquantes():
     """Angle obligatoire : `time` a 24 entrées, les mesures 10."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion(colonnes_courtes=10)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
@@ -275,7 +268,7 @@ def test_une_reponse_aux_heures_manquantes():
 )
 def test_des_reponses_incompletes(options):
     """Contrat §4 : « archive météo vide/partielle »."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion(**options)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
@@ -290,7 +283,7 @@ def test_des_reponses_incompletes(options):
 
 def test_des_valeurs_nulles_restent_nulles():
     """Contrat §4 : « null ». `None` n'est pas `0.0` : un vent inconnu n'est pas un vent nul."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion(vent_kmh=None, vent_depuis_deg=None, temp_c=None, pression_hpa=None)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
@@ -311,7 +304,7 @@ def test_des_valeurs_nulles_restent_nulles():
 
 @pytest.mark.parametrize("code", [400, 404, 429, 500, 503])
 def test_une_erreur_http_devient_une_erreur_utilisateur(code):
-    module = _module()
+    module = module_openmeteo_archive
     espion = fabriques.EspionHttp(httpx.Response(code, json={"reason": "essai"}))
     client = _client(module, espion)
     with pytest.raises(ErreurConnecteur) as capture:
@@ -333,7 +326,7 @@ def test_une_erreur_http_devient_une_erreur_utilisateur(code):
     ],
 )
 def test_des_corps_de_reponse_inexploitables(reponse):
-    module = _module()
+    module = module_openmeteo_archive
     espion = fabriques.EspionHttp(reponse)
     resultat, _ = robuste(
         lambda: _client(module, espion).horaires(
@@ -347,7 +340,7 @@ def test_des_corps_de_reponse_inexploitables(reponse):
 
 
 def test_un_reseau_qui_tombe_devient_une_erreur_utilisateur():
-    module = _module()
+    module = module_openmeteo_archive
 
     def couper(_requete):
         raise httpx.ConnectError("serveur injoignable")
@@ -363,7 +356,7 @@ def test_un_reseau_qui_tombe_devient_une_erreur_utilisateur():
 
 def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
     """Contrat §3 : « un appel par (jour, point arrondi à 0,05°) »."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     for _ in range(3):
@@ -376,7 +369,7 @@ def test_le_meme_jour_au_meme_point_n_est_demande_qu_une_fois():
 
 def test_deux_points_de_la_meme_maille_ne_font_qu_un_appel():
     """Contrat §3 : « point arrondi à 0,05° » — soit environ 5,5 km."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
@@ -389,7 +382,7 @@ def test_deux_points_de_la_meme_maille_ne_font_qu_un_appel():
 
 def test_deux_mailles_distinctes_font_deux_appels():
     """Le pendant du test précédent : l'arrondi ne doit pas tout écraser sur un seul point."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     client.horaires(0.0011, 0.0017, fabriques_physique.JOUR_ARCHIVE)
@@ -400,7 +393,7 @@ def test_deux_mailles_distinctes_font_deux_appels():
 
 
 def test_deux_jours_distincts_font_deux_appels():
-    module = _module()
+    module = module_openmeteo_archive
     espion = _espion()
     client = _client(module, espion)
     client.horaires(fabriques.LAT0, fabriques.LON0, fabriques_physique.JOUR_ARCHIVE)
@@ -413,7 +406,7 @@ def test_deux_jours_distincts_font_deux_appels():
 
 def test_la_memoisation_survit_a_un_nouveau_client(tmp_path):
     """Contrat §3 : mémoïsé « dans cache.dossier / archive_meteo.sqlite »."""
-    module = _module()
+    module = module_openmeteo_archive
     memo = tmp_path / "archive_meteo.sqlite"
     premier = _espion()
     _client(module, premier, memo=memo).horaires(
@@ -434,7 +427,7 @@ def test_la_memoisation_survit_a_un_nouveau_client(tmp_path):
 
 def test_un_fichier_de_memoisation_corrompu(tmp_path):
     """Le fichier appartient à l'utilisateur : message ou contournement, pas de trace."""
-    module = _module()
+    module = module_openmeteo_archive
     memo = tmp_path / "archive_meteo.sqlite"
     memo.write_bytes(b"ni sqlite ni json\x00\xff" * 50)
     espion = _espion()
@@ -451,7 +444,7 @@ def test_un_fichier_de_memoisation_corrompu(tmp_path):
 
 def test_une_reponse_en_erreur_n_est_pas_memorisee_comme_une_journee():
     """Mémoriser un échec transforme un incident passager en trou permanent."""
-    module = _module()
+    module = module_openmeteo_archive
     espion = fabriques.EspionHttp(httpx.Response(500, json={"reason": "essai"}))
     client = _client(module, espion)
     for _ in range(2):

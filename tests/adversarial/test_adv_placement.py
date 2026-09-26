@@ -38,10 +38,9 @@ import pytest
 from outils import robuste
 
 from ourouler.noyau.erreurs import ErreurUtilisateur
+from ourouler.physique import modele as module_modele
+from ourouler.seance import placement as module_placement
 
-MOTIF_ABSENT = "module attendu par le contrat L4.3 absent (ourouler.seance.placement)"
-MOTIF_MODELE = "module attendu par le contrat L4.1 absent (ourouler.noyau.seance)"
-MOTIF_PHYSIQUE = "module du sprint 3 absent (ourouler.physique.modele)"
 MOTIF_NODE_TAGS = "Segment.node_tags absent : prérequis du lot L4.2 (contrat §2)"
 
 ERREURS = (ErreurUtilisateur, ValueError)
@@ -62,27 +61,19 @@ RAYON_BOUCLE_M = 9549.0  # 60 km de tour : la courbure reste très loin d'un vir
 N_COTES = 600
 
 
-def _placement() -> Any:
-    return fabriques_seance.module("placement", motif=MOTIF_ABSENT)
-
-
 def _modele() -> Any:
     # Le modèle de séance vit au noyau depuis le lot 4 : import direct, jamais
     # de saut (un saut ici rendait 30 tests adversariaux silencieusement verts).
     return importlib.import_module("ourouler.noyau.seance")
 
 
-def _physique() -> Any:
-    return pytest.importorskip("ourouler.physique.modele", reason=MOTIF_PHYSIQUE)
-
-
 def _parametres() -> Any:
-    return fabriques_physique.parametres(_physique())
+    return fabriques_physique.parametres(module_modele)
 
 
 def _vitesse(puissance_w: float) -> float:
     """Vitesse d'équilibre sur le plat, en m/s — la même que celle du placement."""
-    return _physique().vitesse_regime(puissance_w, 0.0, 0.0, _parametres())
+    return module_modele.vitesse_regime(puissance_w, 0.0, 0.0, _parametres())
 
 
 def _seance(**surcharges: Any) -> Any:
@@ -102,7 +93,7 @@ def _boucle(**kwargs: Any) -> Any:
 
 
 def _appeler(seance: Any, trace: Any, **kwargs: Any):
-    mod = _placement()
+    mod = module_placement
     return robuste(
         lambda: mod.placer(seance, trace, _parametres(), **kwargs),
         quoi=f"placer(..., {kwargs})",

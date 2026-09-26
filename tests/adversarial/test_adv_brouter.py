@@ -28,9 +28,8 @@ from fabriques import EspionHttp, geojson_brouter
 from outils import robuste
 
 from ourouler.config import ParametresBrouter
+from ourouler.connecteurs import brouter as module_brouter
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L2.1 absent (ourouler.connecteurs.brouter)"
 
 #: Un départ et une arrivée volontairement dissymétriques : si le connecteur
 #: inverse `lat` et `lon`, l'URL le dit tout de suite.
@@ -43,10 +42,6 @@ TAGS_DISTINCTS = [
     {"highway": "primary"},
     {"highway": "track", "surface": "gravel"},
 ]
-
-
-def _module():
-    return pytest.importorskip("ourouler.connecteurs.brouter", reason=MOTIF_ABSENT)
 
 
 def _params(**surcharges) -> ParametresBrouter:
@@ -101,7 +96,7 @@ def _verifier_urls_sans_secret(espion: EspionHttp) -> None:
 
 
 def test_itineraire_lit_la_reponse_fabriquee():
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(5, pas_m=400.0, cap_deg=90.0)
     client, espion = _client(module, _reponse(coords, tags=TAGS_DISTINCTS))
     trace = client.itineraire([DEPART, ARRIVEE])
@@ -116,7 +111,7 @@ def test_itineraire_lit_la_reponse_fabriquee():
 
 def test_les_points_partent_en_lon_lat():
     """Contrat §1 : (lat, lon) côté Python, `lon,lat` côté BRouter."""
-    module = _module()
+    module = module_brouter
     client, espion = _client(module, _reponse(fabriques.ligne(3)))
     client.itineraire([DEPART, ARRIVEE])
 
@@ -135,7 +130,7 @@ def test_les_points_partent_en_lon_lat():
 
 
 def test_boucle_envoie_les_parametres_du_mode_4():
-    module = _module()
+    module = module_brouter
     coords = fabriques.cercle(12, rayon_m=800.0)
     client, espion = _client(module, _reponse(coords))
     trace = client.boucle(DEPART, azimut_deg=45.0, rayon_m=8000.0, nb_points=5)
@@ -158,7 +153,7 @@ def test_boucle_envoie_les_parametres_du_mode_4():
 
 
 def test_le_profil_passe_en_argument_prime_sur_la_configuration():
-    module = _module()
+    module = module_brouter
     client, espion = _client(module, _reponse(fabriques.ligne(3)), profil="fastbike")
     client.itineraire([DEPART, ARRIVEE], profil="gravel")
     assert espion.params().get("profile") == "gravel"
@@ -166,7 +161,7 @@ def test_le_profil_passe_en_argument_prime_sur_la_configuration():
 
 def test_l_url_configuree_est_respectee():
     """`url` est une base : le chemin `/brouter` s'y ajoute, sans doublon de `/`."""
-    module = _module()
+    module = module_brouter
     client, espion = _client(module, _reponse(fabriques.ligne(3)))
     client.itineraire([DEPART, ARRIVEE])
     url = espion.requetes[0].url
@@ -186,7 +181,7 @@ def test_les_messages_en_microdegres_ou_en_degres_ne_donnent_jamais_une_trace_ab
     une trace de plusieurs milliers de kilomètres ou des segments rattachés
     n'importe où : c'est exactement ce que produit une confusion d'unité.
     """
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(5, pas_m=500.0, cap_deg=45.0)
     client, _ = _client(
         module, _reponse(coords, tags=TAGS_DISTINCTS, microdegres=microdegres)
@@ -224,7 +219,7 @@ def test_chaque_troncon_est_rattache_au_point_qui_le_termine(microdegres):
     consomme les points dans l'ordre, un par message, découpe les trois
     premiers tronçons et abandonne les deux tiers du tracé.
     """
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(10, pas_m=300.0, cap_deg=60.0)
     client, _ = _client(
         module,
@@ -269,7 +264,7 @@ def test_la_bande_d_ambiguite_autour_des_axes_est_lue_dans_la_bonne_unite(microd
     latitude de 570° — c'est-à-dire n'importe lequel, en silence. Les tags,
     et donc `km_trafic`, deviennent faux sans le moindre message.
     """
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(9, **BANDE_AMBIGUE)
     assert all(abs(lat) <= 0.001 and abs(lon) <= 0.001 for lat, lon, _ in coords), (
         "le tracé de ce test doit rester dans la bande d'ambiguïté"
@@ -302,7 +297,7 @@ def test_la_bande_d_ambiguite_autour_des_axes_est_lue_dans_la_bonne_unite(microd
 
 
 def test_messages_absents_ne_font_pas_de_segments_imaginaires():
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(4, pas_m=300.0)
     client, _ = _client(module, _reponse(coords, messages=False))
     trace, erreur = robuste(
@@ -317,7 +312,7 @@ def test_messages_absents_ne_font_pas_de_segments_imaginaires():
 
 def test_messages_sans_entete_ne_produisent_pas_de_tags_fantaisistes():
     """Sans en-tête, la première ligne est une donnée : ne pas la lire comme des noms de colonnes."""
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(4, pas_m=300.0)
     client, _ = _client(module, _reponse(coords, tags=TAGS_DISTINCTS[:3], entete=False))
     trace, erreur = robuste(
@@ -357,7 +352,7 @@ def test_messages_sans_entete_ne_produisent_pas_de_tags_fantaisistes():
     ],
 )
 def test_une_reponse_hostile_donne_une_erreur_utilisateur(reponse, quoi):
-    module = _module()
+    module = module_brouter
     client, _ = _client(module, reponse)
     with pytest.raises(ErreurUtilisateur) as capture:
         client.itineraire([DEPART, ARRIVEE])
@@ -370,7 +365,7 @@ def test_une_reponse_hostile_donne_une_erreur_utilisateur(reponse, quoi):
 
 def test_le_profil_inconnu_est_explique():
     """Contrat §1 : un profil absent du serveur donne un 500 sans corps — le dire."""
-    module = _module()
+    module = module_brouter
     client, _ = _client(module, httpx.Response(500, content=b""), profil="fastbike-lowtraffic")
     with pytest.raises(ErreurUtilisateur) as capture:
         client.itineraire([DEPART, ARRIVEE])
@@ -389,7 +384,7 @@ def test_le_profil_inconnu_est_explique():
     ],
 )
 def test_un_echec_reseau_devient_une_erreur_utilisateur(erreur):
-    module = _module()
+    module = module_brouter
 
     def _lever(_requete):
         raise erreur
@@ -401,7 +396,7 @@ def test_un_echec_reseau_devient_une_erreur_utilisateur(erreur):
 
 
 def test_geometrie_a_un_seul_point_ne_casse_rien():
-    module = _module()
+    module = module_brouter
     client, _ = _client(module, _reponse(fabriques.ligne(1), tags=[], track_length=0.0))
     trace, erreur = robuste(
         lambda: client.itineraire([DEPART, ARRIVEE]),
@@ -414,7 +409,7 @@ def test_geometrie_a_un_seul_point_ne_casse_rien():
 
 
 def test_distance_nulle_ne_provoque_pas_de_division_par_zero():
-    module = _module()
+    module = module_brouter
     coords = [(fabriques.LAT0, fabriques.LON0, 10.0)] * 3
     client, _ = _client(module, _reponse(coords, track_length=0.0))
     trace, erreur = robuste(
@@ -429,7 +424,7 @@ def test_distance_nulle_ne_provoque_pas_de_division_par_zero():
 
 def test_une_boucle_qui_ne_se_referme_pas_n_est_pas_maquillee():
     """Le tri des candidates (L2.3) repose sur `bornee()` : le connecteur ne doit pas mentir."""
-    module = _module()
+    module = module_brouter
     coords = fabriques.ligne(6, pas_m=1000.0, cap_deg=90.0)
     client, _ = _client(module, _reponse(coords))
     trace, erreur = robuste(
@@ -447,7 +442,7 @@ def test_une_boucle_qui_ne_se_referme_pas_n_est_pas_maquillee():
 
 
 def test_l_authentification_basique_part_bien_en_en_tete():
-    module = _module()
+    module = module_brouter
     client, espion = _client(module, _reponse(fabriques.ligne(3)))
     client.itineraire([DEPART, ARRIVEE])
     entetes = espion.requetes[0].headers
@@ -459,14 +454,14 @@ def test_l_authentification_basique_part_bien_en_en_tete():
 
 
 def test_le_repr_du_client_ne_montre_pas_le_mot_de_passe():
-    module = _module()
+    module = module_brouter
     client, _ = _client(module, _reponse(fabriques.ligne(3)))
     _verifier_sans_mot_de_passe(client, "ClientBrouter")
     _verifier_sans_mot_de_passe(client.params if hasattr(client, "params") else _params(), "params")
 
 
 def test_sans_utilisateur_aucune_authentification_n_est_inventee():
-    module = _module()
+    module = module_brouter
     client, espion = _client(
         module, _reponse(fabriques.ligne(3)), utilisateur="", mot_de_passe=""
     )
@@ -479,7 +474,7 @@ def test_sans_utilisateur_aucune_authentification_n_est_inventee():
 
 def test_aucune_requete_quand_les_points_manquent():
     """Zéro ou un point : une erreur utilisateur, pas un appel au serveur."""
-    module = _module()
+    module = module_brouter
     client, espion = _client(module, _reponse(fabriques.ligne(3)))
     _, erreur = robuste(
         lambda: client.itineraire([]),

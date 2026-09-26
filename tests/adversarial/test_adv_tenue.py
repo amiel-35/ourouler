@@ -34,8 +34,7 @@ from ourouler import config as module_config
 from ourouler.boucle import meteo_trace
 from ourouler.config import ParametresSeance, ParametresTenue
 from ourouler.noyau.erreurs import ErreurConfig, ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L4.3 absent (ourouler.seance.tenue)"
+from ourouler.seance import tenue as module_tenue
 
 ERREURS = (ErreurUtilisateur, ValueError)
 
@@ -44,12 +43,8 @@ DEFAUT = ParametresTenue()
 RESSENTIS_PAR_CATEGORIE = (-2.0, 6.0, 12.0, 18.0, 26.0, 34.0)
 
 
-def _tenue() -> Any:
-    return fabriques_seance.module("tenue", motif=MOTIF_ABSENT)
-
-
 def _conseiller(meteo: Any, p: ParametresTenue = DEFAUT) -> Any:
-    tenue = _tenue().conseiller(meteo, p)
+    tenue = module_tenue.conseiller(meteo, p)
     _verifier(tenue)
     return tenue
 
@@ -81,7 +76,7 @@ def _contient(morceaux: Any, mot: str) -> bool:
 
 def test_une_meteo_sans_echantillon_ne_casse_pas():
     """Tracé hors horizon de prévision : aucun échantillon exploitable."""
-    mod = _tenue()
+    mod = module_tenue
     meteo = fabriques_seance.meteo_fictive(meteo_trace, [], confiance="aucune")
     tenue, erreur = robuste(
         lambda: mod.conseiller(meteo, DEFAUT), quoi="conseiller sans échantillon", erreurs_acceptees=ERREURS
@@ -96,7 +91,7 @@ def test_une_meteo_sans_echantillon_ne_casse_pas():
     ids=["sans_pluie", "rien_du_tout"],
 )
 def test_des_valeurs_absentes_ne_fabriquent_pas_de_conseil_faux(ressenti, pluie, vent):
-    mod = _tenue()
+    mod = module_tenue
     meteo = _meteo(ressenti=ressenti, pluie=pluie, vent=vent)
     tenue, erreur = robuste(
         lambda: mod.conseiller(meteo, DEFAUT),
@@ -116,7 +111,7 @@ def test_un_seul_echantillon_suffit_a_habiller_le_cycliste():
 
 
 def test_des_echantillons_en_desordre_ne_levent_pas():
-    mod = _tenue()
+    mod = module_tenue
     echantillons = [
         fabriques_seance.echantillon(meteo_trace, 20_000.0, minute=40.0, ressenti=18.0),
         fabriques_seance.echantillon(meteo_trace, 0.0, minute=0.0, ressenti=6.0),

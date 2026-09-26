@@ -95,6 +95,7 @@ import fabriques_propositions as f53
 import pytest
 
 from ourouler.boucle.marqueurs import compter
+from ourouler.sortie import contraste
 from ourouler.sortie.vent_demande import interroger
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
@@ -339,7 +340,6 @@ def test_les_pas_du_lot_ne_sont_pas_plus_laxistes_que_le_contrat():
     Un pas plus **large** que le contrat est une exigence renforcée et passe ;
     un pas plus **étroit** échoue.
     """
-    pytest.importorskip("ourouler.sortie.contraste", reason="module du lot L5.3 absent")
     f53.verifier_pas_de_marge_relachee()
 
 
@@ -695,9 +695,6 @@ def test_l_axe_duree_compare_l_ecart_a_la_seance_pas_la_duree_brute():
     Ce test fabrique la même situation en deux candidates, avec la pluie pour
     que le groupe de deux soit valide, et regarde la phrase attribuée.
     """
-    contraste = pytest.importorskip(
-        "ourouler.sortie.contraste", reason="module de contraste du lot L5.3 absent"
-    )
     prescrite = 7200.0
     tient = _proposition_factice(
         duree_s=7151.0, pluie_mm=0.0, longueur_m=54_000.0, cap_deg=90.0
@@ -766,9 +763,6 @@ def test_la_part_de_routes_connues_ne_doit_jamais_entrer_dans_la_selection():
 
     Trois contrôles, du plus structurel au plus observable.
     """
-    contraste = pytest.importorskip(
-        "ourouler.sortie.contraste", reason="module de contraste du lot L5.3 absent"
-    )
 
     # 1. Aucun axe déclaré ne porte les routes connues.
     axes = [str(a) for a in getattr(contraste, "ORDRE_AXES", ())]

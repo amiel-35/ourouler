@@ -1,4 +1,4 @@
-"""Socle des tests adversariaux du sprint 1.
+"""Socle des tests adversariaux.
 
 Deux garanties données à tous les tests de ce dossier :
 
@@ -12,9 +12,9 @@ Deux garanties données à tous les tests de ce dossier :
    `fixtures/generer_hostiles.py` dans un dossier temporaire (rien de
    binaire n'est versionné, voir le docstring du générateur).
 
-Les tests des modules encore absents (L1.2 à L1.5) utilisent
-`pytest.importorskip` : la suite reste exécutable pendant que le code
-arrive, et devient exigeante dès que le module existe.
+Les modules testés s'importent normalement : un module absent ou renommé
+fait échouer la collecte au lieu de sauter des tests en silence
+(`tests/sauts_autorises.py` dit quels sauts sont admis).
 """
 
 from __future__ import annotations

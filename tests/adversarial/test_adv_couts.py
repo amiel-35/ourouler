@@ -25,10 +25,9 @@ import outils
 import pytest
 from outils import robuste
 
+from ourouler.boucle import couts as module_couts
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import Segment
-
-MOTIF_ABSENT = "module attendu par le contrat L2.4 absent (ourouler.boucle.couts)"
 
 CHAMPS = {
     "km_trafic",
@@ -48,10 +47,6 @@ POIDS_NON_REVETU = 4.0
 POIDS_VIRAGE_GAUCHE = 0.3
 POIDS_VIRAGE_GAUCHE_TRAFIC = 1.0
 POIDS_MAUVAIS_SENS = 2.0
-
-
-def _module():
-    return pytest.importorskip("ourouler.boucle.couts", reason=MOTIF_ABSENT)
 
 
 def _verifier_couts(couts: Any, quoi: str) -> None:
@@ -95,7 +90,7 @@ def _droite(tags: list[dict[str, str]], *, pas_m: float = 1000.0):
     "highway", ["primary", "primary_link", "secondary", "secondary_link", "trunk"]
 )
 def test_les_routes_a_trafic_sont_comptees_comme_telles(highway):
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"highway": highway}]))
     assert couts.km_trafic == pytest.approx(1.0, rel=0.02), (
         f"highway={highway} : 1 km de trafic attendu, reçu {couts.km_trafic}"
@@ -108,7 +103,7 @@ def test_les_routes_a_trafic_sont_comptees_comme_telles(highway):
     ["tertiary", "unclassified", "residential", "cycleway", "track", "service", "living_street"],
 )
 def test_les_routes_calmes_ne_comptent_pas_dans_le_trafic(highway):
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"highway": highway}]))
     assert couts.km_calme == pytest.approx(1.0, rel=0.02), (
         f"highway={highway} : 1 km calme attendu, reçu {couts.km_calme}"
@@ -120,7 +115,7 @@ def test_les_routes_calmes_ne_comptent_pas_dans_le_trafic(highway):
     "surface", ["gravel", "unpaved", "dirt", "ground", "grass", "compacted", "fine_gravel", "sand"]
 )
 def test_les_surfaces_non_revetues_sont_comptees(surface):
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"highway": "tertiary", "surface": surface}]))
     assert couts.km_non_revetu == pytest.approx(1.0, rel=0.02), (
         f"surface={surface} : 1 km non revêtu attendu, reçu {couts.km_non_revetu}"
@@ -129,7 +124,7 @@ def test_les_surfaces_non_revetues_sont_comptees(surface):
 
 def test_un_chemin_sans_surface_est_repute_non_revetu():
     """Contrat §4 : « ou track sans surface »."""
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"highway": "track"}]))
     assert couts.km_non_revetu == pytest.approx(1.0, rel=0.02), (
         f"un track sans tag `surface` compte pour du non revêtu, reçu {couts.km_non_revetu}"
@@ -137,7 +132,7 @@ def test_un_chemin_sans_surface_est_repute_non_revetu():
 
 
 def test_un_track_asphalte_n_est_pas_non_revetu():
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"highway": "track", "surface": "asphalt"}]))
     assert couts.km_non_revetu == pytest.approx(0.0, abs=0.01), (
         "un `track` explicitement asphalté n'est pas un chemin de terre"
@@ -145,7 +140,7 @@ def test_un_track_asphalte_n_est_pas_non_revetu():
 
 
 def test_un_troncon_sans_highway_ne_compte_ni_en_trafic_ni_en_calme():
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"surface": "asphalt"}, {}]))
     assert couts.km_trafic == pytest.approx(0.0, abs=0.01)
     assert couts.km_calme == pytest.approx(0.0, abs=0.01), (
@@ -154,7 +149,7 @@ def test_un_troncon_sans_highway_ne_compte_ni_en_trafic_ni_en_calme():
 
 
 def test_un_highway_inconnu_n_est_pas_range_d_office():
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, _droite([{"highway": "motorway"}, {"highway": "footway"}]))
     assert couts.km_trafic + couts.km_calme <= 2.05, "chaque tronçon ne compte qu'une fois"
 
@@ -186,7 +181,7 @@ def _trace_bouclee():
 @pytest.mark.parametrize("fabrique", [_trace_melangee, _trace_avec_virage, _trace_bouclee])
 @pytest.mark.parametrize("sens_prefere", ["horaire", "antihoraire"])
 def test_le_score_suit_la_formule_du_contrat(fabrique, sens_prefere):
-    module = _module()
+    module = module_couts
     couts = _evaluer(module, fabrique(), sens_prefere=sens_prefere)
     attendu = (
         couts.km_trafic * POIDS_TRAFIC
@@ -204,7 +199,7 @@ def test_le_score_suit_la_formule_du_contrat(fabrique, sens_prefere):
 
 
 def test_le_mauvais_sens_coute_exactement_deux_kilometres():
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(
         fabriques.cercle(24, rayon_m=1200.0, sens="horaire"),
         tags=[{"highway": "tertiary"}] * 24,
@@ -219,13 +214,13 @@ def test_le_mauvais_sens_coute_exactement_deux_kilometres():
 
 
 def test_le_sens_antihoraire_est_reconnu():
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(fabriques.cercle(24, rayon_m=1200.0, sens="antihoraire"))
     assert _evaluer(module, trace).sens == "antihoraire"
 
 
 def test_une_trace_ouverte_a_un_sens_indetermine():
-    module = _module()
+    module = module_couts
     assert _evaluer(module, _droite([{"highway": "tertiary"}] * 3)).sens == "indetermine"
 
 
@@ -234,7 +229,7 @@ def test_une_trace_ouverte_a_un_sens_indetermine():
 
 def test_le_bruit_gps_ne_fabrique_pas_de_virages():
     """Contrat §4 : cap calculé sur des points espacés d'au moins 15 m."""
-    module = _module()
+    module = module_couts
     coords = []
     lat, lon = fabriques.LAT0, fabriques.LON0
     for i in range(120):
@@ -251,7 +246,7 @@ def test_le_bruit_gps_ne_fabrique_pas_de_virages():
 
 
 def test_un_virage_a_gauche_net_est_compte_a_gauche():
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(
         fabriques.coude(cap_avant=90.0, cap_apres=0.0, pas_m=25.0, n=8)
     )
@@ -261,7 +256,7 @@ def test_un_virage_a_gauche_net_est_compte_a_gauche():
 
 
 def test_un_virage_a_droite_net_est_compte_a_droite():
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(
         fabriques.coude(cap_avant=0.0, cap_apres=90.0, pas_m=25.0, n=8)
     )
@@ -277,7 +272,7 @@ def test_le_passage_du_meridien_zero_n_invente_pas_de_virage():
     part et d'autre de 0° (donc entre 359,x° et 0,x°). Un écart de cap calculé
     sans modulo 360 y voit un virage à gauche de −359° à chaque point.
     """
-    module = _module()
+    module = module_couts
     coords = []
     lat, lon = fabriques.LAT0, -0.00005
     for i in range(60):
@@ -297,7 +292,7 @@ def test_le_passage_du_meridien_zero_n_invente_pas_de_virage():
 
 
 def test_un_demi_tour_ne_compte_pas_des_deux_cotes():
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(
         fabriques.coude(cap_avant=0.0, cap_apres=185.0, pas_m=25.0, n=8)
     )
@@ -309,7 +304,7 @@ def test_un_demi_tour_ne_compte_pas_des_deux_cotes():
 
 
 def test_un_virage_a_gauche_sur_une_route_a_trafic_est_signale():
-    module = _module()
+    module = module_couts
     coords = fabriques.coude(cap_avant=90.0, cap_apres=0.0, pas_m=25.0, n=8)
     tags = [{"highway": "secondary"}] * (len(coords) - 1)
     couts = _evaluer(module, fabriques.trace_fictive(coords, tags=tags))
@@ -325,7 +320,7 @@ def test_un_virage_a_gauche_sur_une_route_a_trafic_est_signale():
 
 def test_une_trace_sans_segments_donne_des_couts_partiels():
     """Contrat §4 : un GPX importé n'a pas de tronçon décrit."""
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(fabriques.ligne(20, pas_m=200.0))
     assert trace.segments == []
     couts = _evaluer(module, trace)
@@ -339,7 +334,7 @@ def test_une_trace_sans_segments_donne_des_couts_partiels():
 
 @pytest.mark.parametrize("nb_points", [0, 1, 2])
 def test_une_trace_minuscule_ne_casse_rien(nb_points):
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(fabriques.ligne(nb_points) if nb_points else [])
     couts, erreur = robuste(
         lambda: module.evaluer(trace),
@@ -355,7 +350,7 @@ def test_une_trace_minuscule_ne_casse_rien(nb_points):
 
 
 def test_des_points_confondus_ne_donnent_pas_de_nan():
-    module = _module()
+    module = module_couts
     coords = [(fabriques.LAT0, fabriques.LON0, 10.0)] * 8
     couts, erreur = robuste(
         lambda: module.evaluer(fabriques.trace_fictive(coords)),
@@ -377,7 +372,7 @@ def test_des_points_confondus_ne_donnent_pas_de_nan():
     ],
 )
 def test_un_segment_incoherent_ne_provoque_pas_d_index_error(attributs, quoi):
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(fabriques.ligne(5, pas_m=200.0))
     trace.segments = [Segment(tags={"highway": "primary"}, **attributs)]
     couts, erreur = robuste(
@@ -390,7 +385,7 @@ def test_un_segment_incoherent_ne_provoque_pas_d_index_error(attributs, quoi):
 
 
 def test_des_tags_qui_ne_sont_pas_des_chaines_ne_cassent_rien():
-    module = _module()
+    module = module_couts
     trace = fabriques.trace_fictive(fabriques.ligne(4, pas_m=200.0))
     trace.segments = [
         Segment(debut_idx=0, fin_idx=1, longueur_m=200.0, tags={"highway": None}),
@@ -406,7 +401,7 @@ def test_des_tags_qui_ne_sont_pas_des_chaines_ne_cassent_rien():
 
 
 def test_evaluer_ne_detruit_pas_la_trace():
-    module = _module()
+    module = module_couts
     trace = _droite([{"highway": "primary"}, {"highway": "tertiary"}])
     avant = (len(trace.points), len(trace.segments), trace.distance_m)
     _evaluer(module, trace)

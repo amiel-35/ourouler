@@ -74,10 +74,12 @@ import pytest
 from outils import fabriquer
 
 from ourouler.noyau.texte import nombre_fr
-
-MOTIF_CARTE = "module du sprint 4 absent (ourouler.rendu.carte)"
-MOTIF_SORTIE = "module du sprint 4 absent (ourouler.sortie.commande)"
-
+from ourouler.rendu import carte as module_carte
+from ourouler.rendu import sortie as module_sortie
+from ourouler.rendu import sortie_json as rendu_json
+from ourouler.seance import placement as module_placement
+from ourouler.seance import placement_resultat
+from ourouler.sortie import commande as module_commande
 
 # =============================================================================
 # Outils du fichier
@@ -106,7 +108,7 @@ def placer(monkeypatch: Any, seance: Any, trace: Any, **kw: Any) -> Any:
         cle: kw.pop(cle) for cle in ("bon", "mauvais", "pente", "demi_tour") if cle in kw
     }
     appels = fab.terrain_factice(monkeypatch, **options)
-    module = fab.placement_mod()
+    module = module_placement
     resultat = module.placer(seance, trace, fab.parametres(), **kw)
     assert resultat is not None, (
         "le placement a échoué alors que la fixture est faite pour tenir : "
@@ -161,19 +163,6 @@ def exiger_lot() -> None:
         pytest.skip(motif)
 
 
-def carte_mod() -> Any:
-    return pytest.importorskip("ourouler.rendu.carte", reason=MOTIF_CARTE)
-
-
-def commande_mod() -> Any:
-    return pytest.importorskip("ourouler.sortie.commande", reason=MOTIF_SORTIE)
-
-
-def rendu_mod() -> Any:
-    """Le rendu de `sortie` (tableau, séance placée, JSON), sorti de la commande au lot 6."""
-    return pytest.importorskip("ourouler.rendu.sortie", reason=MOTIF_SORTIE)
-
-
 # =============================================================================
 # 0. Sentinelle
 # =============================================================================
@@ -202,7 +191,7 @@ def test_sentinelle_l5_2_pas_encore_livre():
             "vérifient rien."
         )
 
-    module = fab.placement_mod()
+    module = module_placement
     annotation = str(module.Emplacement.__annotations__.get("note", ""))
     assert "None" in annotation or "Optional" in annotation, (
         "contrat §2.2 a) : « les non-blocs n'ont pas de note […] `note` devient "
@@ -457,7 +446,7 @@ def test_le_demi_tour_ne_se_compte_pas_deux_fois(monkeypatch):
     impose que le **compte affiché** reste juste.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance, resultat = _resultat_demi_tour(monkeypatch)
     proposition = _proposition(commande, resultat, fab.trace_droite(78_000.0))
     assert proposition.demi_tours == 1, (
@@ -529,7 +518,6 @@ def test_le_parcours_reconstruit_fait_la_distance_annoncee(monkeypatch):
     bougé.
     """
     exiger_lot()
-    placement_resultat = pytest.importorskip("ourouler.seance.placement_resultat", reason=MOTIF_SORTIE)
     trace = fab.boucle_carree()
     seance, resultat = _resultat_demi_tour(monkeypatch, trace)
     parcours = placement_resultat.trace_parcourue(resultat, trace)
@@ -868,7 +856,7 @@ def test_l_ordre_des_candidates_ne_bouge_pas(monkeypatch):
     note, l'ordre basculerait ici avant de basculer chez le mainteneur.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     propositions = []
     for numero, cas in enumerate(("seance_amputee", "calme_allonge", "reference"), start=1):
@@ -945,7 +933,7 @@ def test_le_compte_de_blocs_bien_places_ne_compte_que_des_blocs(monkeypatch, cas
       c'est précisément la mesure que le mainteneur lit pour choisir.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     attendu = GOLDEN[cas]
     seance = fab.seance_2x20()
     trace = fab.trace_droite(attendu["trace_m"])
@@ -975,12 +963,12 @@ def test_le_denominateur_du_tableau_est_le_nombre_de_blocs(monkeypatch):
     que le mainteneur lit.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
     proposition = _proposition(commande, resultat, trace)
-    cellules = rendu_mod()._cellules(proposition, set())
+    cellules = module_sortie._cellules(proposition, set())
     fractions = [c for c in cellules if re.fullmatch(r"\d+/\d+", c)]
     assert fractions == ["2/2"], (
         f"la cellule « blocs bien placés » vaut {fractions} ; la séance a 2 blocs "
@@ -995,11 +983,11 @@ def test_le_denominateur_du_tableau_est_le_nombre_de_blocs(monkeypatch):
 
 def _lignes_seance(commande: Any, proposition: Any, seance: Any) -> list[str]:
     """`_seance_placee`, qui ne lit du contexte que `contexte.seance`."""
-    assert hasattr(rendu_mod(), "_seance_placee"), (
+    assert hasattr(module_sortie, "_seance_placee"), (
         "`rendu.sortie._seance_placee` a disparu : c'est la fonction que le "
         "contrat §2.2 b) fait évoluer, et six tests de ce fichier la visent"
     )
-    return rendu_mod()._seance_placee(proposition, SimpleNamespace(seance=seance))
+    return module_sortie._seance_placee(proposition, SimpleNamespace(seance=seance))
 
 
 def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
@@ -1014,7 +1002,7 @@ def test_toutes_les_etapes_sont_listees_avec_leur_kilometrage(monkeypatch):
     ni le libellé : seulement que les deux nombres tombent sur la même ligne.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
@@ -1047,7 +1035,7 @@ def test_la_colonne_de_note_reste_vide_pour_les_non_blocs(monkeypatch):
     inventée.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace, bon=(-2.0, -1.0), mauvais=10.0)
@@ -1083,7 +1071,7 @@ def test_l_affichage_d_une_seance_tres_longue_reste_coherent(monkeypatch):
     pas.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_longue()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
@@ -1107,7 +1095,7 @@ def test_l_affichage_supporte_deux_etapes_au_meme_kilometre(monkeypatch):
     `min()`/`max()` sur une plage vide.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_etape_nulle()
     trace = fab.trace_droite(50_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
@@ -1129,11 +1117,10 @@ def test_le_json_porte_toutes_les_etapes_et_aucune_note_inventee(monkeypatch):
     supposer le chemin : le contrat ne fige pas le schéma.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     resultat, _ = placer(monkeypatch, seance, trace, bon=(-2.0, -1.0), mauvais=10.0)
-    rendu_json = pytest.importorskip("ourouler.rendu.sortie_json", reason=MOTIF_SORTIE)
     charge = rendu_json._candidate_json(_proposition(commande, resultat, trace))
     json.dumps(charge, ensure_ascii=False)  # doit rester sérialisable tel quel
 
@@ -1234,7 +1221,7 @@ def test_la_carte_distingue_ce_qui_est_roule_de_ce_qui_ne_l_est_pas(monkeypatch)
     Les deux moitiés sont donc nécessaires.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
     trace = fab.trace_droite(78_000.0)
     seance, resultat = _resultat_demi_tour(monkeypatch, trace)
     page = carte.construire(trace, seance, resultat)
@@ -1284,7 +1271,7 @@ def test_un_libelle_hostile_ne_casse_pas_le_html_de_la_carte(monkeypatch):
     rouge dès que les deux tombent — vérifié.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
 
     def _seance_libellee(libelle: str) -> Any:
         return fab.seance(
@@ -1339,7 +1326,7 @@ def test_un_libelle_hostile_ne_casse_pas_l_affichage_texte(monkeypatch):
     deux et ferait mentir tous les comptes de ce fichier.
     """
     exiger_lot()
-    commande = commande_mod()
+    commande = module_commande
     etapes = [
         fab.etape("echauffement", 60, fab.PUISSANCE_Z2, elastique=True, libelle=HOSTILE),
         fab.etape("bloc", 20, fab.PUISSANCE_BLOC, libelle=HOSTILE),
@@ -1363,7 +1350,7 @@ def test_la_carte_accepte_une_seance_sans_aucun_bloc(monkeypatch):
     `None`.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
     seance = fab.seance_sans_bloc()
     trace = fab.trace_droite(44_000.0)
     resultat, _ = placer(monkeypatch, seance, trace)
@@ -1407,7 +1394,7 @@ def test_le_placement_et_la_carte_ne_touchent_ni_disque_ni_horloge(monkeypatch):
     choisir une palette, tomberait ici.
     """
     exiger_lot()
-    carte = carte_mod()
+    carte = module_carte
 
     import builtins
     import os
@@ -1422,7 +1409,7 @@ def test_le_placement_et_la_carte_ne_touchent_ni_disque_ni_horloge(monkeypatch):
     seance = fab.seance_2x20()
     trace = fab.trace_droite(78_000.0)
     appels = fab.terrain_factice(monkeypatch)
-    module = fab.placement_mod()
+    module = module_placement
 
     monkeypatch.setattr(builtins, "open", refuser)
     monkeypatch.setattr(pathlib.Path, "open", refuser)

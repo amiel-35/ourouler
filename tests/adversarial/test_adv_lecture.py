@@ -14,12 +14,13 @@ import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from pathlib import Path
 
+import fitdecode
+import gpxpy
 import outils
 import pytest
 
+from ourouler.activites import lecture as module_lecture
 from ourouler.noyau.erreurs import ErreurLecture, ErreurUtilisateur
-
-MOTIF_ABSENT = "module attendu par le contrat L1.2 absent (ourouler.activites.lecture)"
 
 # Instants UTC attendus dans les fichiers du changement d'heure (cf. générateur).
 UTC_HEURE_ETE = [
@@ -36,10 +37,6 @@ UTC_PRINTEMPS = [
 ]
 
 
-def _lecture():
-    return pytest.importorskip("ourouler.activites.lecture", reason=MOTIF_ABSENT)
-
-
 # --- garde-fous sur les fixtures --------------------------------------------
 
 
@@ -53,7 +50,6 @@ def test_le_catalogue_est_documente(generateur, hostiles):
 
 
 def test_le_fit_nominal_est_bien_un_fit(hostiles):
-    fitdecode = pytest.importorskip("fitdecode")
     noms = []
     with fitdecode.FitReader(io.BytesIO(hostiles["nominal.fit"].read_bytes())) as fr:
         for trame in fr:
@@ -64,7 +60,6 @@ def test_le_fit_nominal_est_bien_un_fit(hostiles):
 
 
 def test_les_gpx_et_tcx_nominaux_sont_valides(hostiles):
-    gpxpy = pytest.importorskip("gpxpy")
     gpx = gpxpy.parse(hostiles["nominal.gpx"].read_text(encoding="utf-8"))
     points = [p for t in gpx.tracks for s in t.segments for p in s.points]
     assert len(points) == 30
@@ -89,7 +84,7 @@ def test_les_gpx_et_tcx_nominaux_sont_valides(hostiles):
     ],
 )
 def test_extension_insensible_a_la_casse(hostiles, nom, source):
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite, source_attendue=source)
 
@@ -98,7 +93,7 @@ def test_extension_insensible_a_la_casse(hostiles, nom, source):
     "nom", ["activite.inconnu", "activite_sans_extension", "activite.fit.gz", "activite.gpx.bak"]
 )
 def test_extension_inconnue_refusee(hostiles, nom):
-    lecture = _lecture()
+    lecture = module_lecture
     with pytest.raises(ErreurLecture) as capture:
         lecture.lire(hostiles[nom])
     assert nom in str(capture.value), "le message doit nommer le fichier fautif (contrat §1)"
@@ -106,7 +101,7 @@ def test_extension_inconnue_refusee(hostiles, nom):
 
 def test_le_choix_se_fait_sur_l_extension_pas_sur_le_contenu(hostiles, tmp_path):
     """Un GPX déguisé en .tcx doit être refusé, pas reniflé."""
-    lecture = _lecture()
+    lecture = module_lecture
     piege = tmp_path / "piege.tcx"
     piege.write_bytes(hostiles["nominal.gpx"].read_bytes())
     with pytest.raises(ErreurLecture):
@@ -114,14 +109,14 @@ def test_le_choix_se_fait_sur_l_extension_pas_sur_le_contenu(hostiles, tmp_path)
 
 
 def test_chemin_exotique_accepte(hostiles, tmp_path):
-    lecture = _lecture()
+    lecture = module_lecture
     cible = tmp_path / "activité (1) — copie.GPX"
     cible.write_bytes(hostiles["nominal.gpx"].read_bytes())
     outils.verifier_activite(lecture.lire(cible), source_attendue="gpx")
 
 
 def test_fichier_absent_ou_dossier(tmp_path):
-    lecture = _lecture()
+    lecture = module_lecture
     with pytest.raises(ErreurUtilisateur):
         lecture.lire(tmp_path / "jamais_vu.gpx")
     dossier = tmp_path / "un_dossier.gpx"
@@ -149,7 +144,7 @@ def test_fichier_absent_ou_dossier(tmp_path):
     ],
 )
 def test_fichier_illisible_leve_erreur_lecture(hostiles, nom):
-    lecture = _lecture()
+    lecture = module_lecture
     with pytest.raises(ErreurLecture) as capture:
         lecture.lire(hostiles[nom])
     message = str(capture.value)
@@ -166,7 +161,7 @@ def test_fichier_sans_enregistrement_leve_erreur_lecture(hostiles, nom):
     Étendu ici aux GPX/TCX sans point : `Activite.debut` et `duree_s` ne sont
     pas optionnels, un fichier sans aucun point ne peut pas les remplir.
     """
-    lecture = _lecture()
+    lecture = module_lecture
     with pytest.raises(ErreurLecture):
         lecture.lire(hostiles[nom])
 
@@ -174,7 +169,7 @@ def test_fichier_sans_enregistrement_leve_erreur_lecture(hostiles, nom):
 @pytest.mark.parametrize("nom", ["crc_faux.fit", "tcx_sans_espaces_de_noms.tcx", "fit_sans_session.fit"])
 def test_fichier_douteux_degrade_sans_bug(hostiles, nom):
     """Cas que le contrat ne tranche pas : refus propre ou lecture cohérente."""
-    lecture = _lecture()
+    lecture = module_lecture
     activite, _ = outils.robuste(
         lambda: lecture.lire(hostiles[nom]), quoi=f"lire({nom})", erreurs_acceptees=(ErreurUtilisateur,)
     )
@@ -185,7 +180,7 @@ def test_fichier_douteux_degrade_sans_bug(hostiles, nom):
 @pytest.mark.parametrize("nom", ["gpx_sans_temps.gpx", "gpx_temps_naif.gpx", "gpx_temps_absurde.gpx"])
 def test_horodatages_absents_ou_illisibles(hostiles, nom):
     """Sans horodatage exploitable, `debut` est indéterminable : refus ou UTC assumé."""
-    lecture = _lecture()
+    lecture = module_lecture
     activite, _ = outils.robuste(
         lambda: lecture.lire(hostiles[nom]), quoi=f"lire({nom})", erreurs_acceptees=(ErreurUtilisateur,)
     )
@@ -198,7 +193,7 @@ def test_horodatages_absents_ou_illisibles(hostiles, nom):
 
 @pytest.mark.parametrize("nom, source", [("fit_sans_gps.fit", "fit"), ("tcx_sans_gps.tcx", "tcx")])
 def test_sans_gps_reste_valide(hostiles, nom, source):
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite, source_attendue=source)
     assert all(p.lat is None and p.lon is None for p in activite.points), (
@@ -215,7 +210,7 @@ def test_sans_gps_reste_valide(hostiles, nom, source):
     ],
 )
 def test_sans_puissance_reste_valide_et_ne_vaut_pas_zero(hostiles, nom, source):
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite, source_attendue=source)
     assert all(p.puissance_w is None for p in activite.points), "puissance absente ≠ puissance nulle"
@@ -227,7 +222,7 @@ def test_sans_puissance_reste_valide_et_ne_vaut_pas_zero(hostiles, nom, source):
     "nom, source", [("nominal.fit", "fit"), ("nominal.gpx", "gpx"), ("nominal.tcx", "tcx")]
 )
 def test_fichier_complet_renseigne_les_champs(hostiles, nom, source):
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite, source_attendue=source)
     assert activite.debut == datetime(2026, 4, 12, 9, 0, tzinfo=UTC)
@@ -247,7 +242,7 @@ def test_le_denivele_est_lisse_et_non_cumule_a_l_aveugle(hostiles):
     supérieur signerait un double comptage, un dénivelé négatif un signe
     inversé. Le contrat demande un calcul « lissé », donc au plus le brut.
     """
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles["nominal.fit"])
     if activite.denivele_m is None:
         pytest.skip("dénivelé non calculé par cette implémentation")
@@ -262,7 +257,7 @@ def test_le_denivele_est_lisse_et_non_cumule_a_l_aveugle(hostiles):
 )
 def test_non_monotone_tolere_et_signale(hostiles, nom):
     """Contrat §1 : toléré, et signalé dans meta["avertissements"]."""
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite)
     avertissements = activite.meta.get("avertissements")
@@ -273,7 +268,7 @@ def test_non_monotone_tolere_et_signale(hostiles, nom):
 
 @pytest.mark.parametrize("nom", ["nominal.fit", "nominal.gpx", "nominal.tcx"])
 def test_pas_d_avertissement_gratuit(hostiles, nom):
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     assert not activite.meta.get("avertissements"), (
         "un fichier propre ne doit pas produire d'avertissement"
@@ -298,7 +293,7 @@ def test_changement_d_heure_les_instants_restent_monotones_en_utc(hostiles, nom,
     ils avancent. Un lecteur qui passe par une heure locale naïve produit
     soit un avertissement fantôme, soit une durée négative.
     """
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles[nom])
     outils.verifier_activite(activite, source_attendue=source)
     assert [p.t for p in activite.points] == attendus
@@ -317,7 +312,7 @@ def test_changement_d_heure_les_instants_restent_monotones_en_utc(hostiles, nom,
     [("lire_fit", "nominal.fit"), ("lire_gpx", "nominal.gpx"), ("lire_tcx", "nominal.tcx")],
 )
 def test_lecteurs_acceptent_des_bytes(hostiles, fonction, nom):
-    lecture = _lecture()
+    lecture = module_lecture
     lire_x = getattr(lecture, fonction)
     depuis_chemin = lire_x(hostiles[nom])
     depuis_octets = lire_x(hostiles[nom].read_bytes())
@@ -330,14 +325,14 @@ def test_lecteurs_acceptent_des_bytes(hostiles, fonction, nom):
 
 @pytest.mark.parametrize("fonction", ["lire_fit", "lire_gpx", "lire_tcx"])
 def test_lecteurs_refusent_des_bytes_vides(fonction):
-    lecture = _lecture()
+    lecture = module_lecture
     with pytest.raises(ErreurLecture):
         getattr(lecture, fonction)(b"")
 
 
 def test_un_seul_point_ne_casse_ni_la_duree_ni_la_puissance_normalisee(hostiles):
     """Une activité d'un point : durée nulle, aucune division par zéro, aucun NaN."""
-    lecture = _lecture()
+    lecture = module_lecture
     activite = lecture.lire(hostiles["fit_un_point.fit"])
     outils.verifier_activite(activite, source_attendue="fit")
     assert len(activite.points) == 1

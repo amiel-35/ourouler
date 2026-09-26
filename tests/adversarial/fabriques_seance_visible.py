@@ -54,7 +54,9 @@ import fabriques
 import fabriques_seance
 import pytest
 
+from ourouler.noyau import seance as module_seance
 from ourouler.noyau.trace import PointTrace, Trace
+from ourouler.seance import placement as module_placement
 
 #: Un cycliste plausible, aucune donnée personnelle : 80 kg tout compris.
 #: Les mêmes chiffres que `tests/test_seance_placement.py`, pour que les
@@ -71,22 +73,12 @@ PUISSANCE_CALME = 150.0
 #: Degrés de longitude par mètre à l'équateur.
 DEG_PAR_M = 1.0 / 111_194.9
 
-MOTIF_PLACEMENT = "module du sprint 4 absent (ourouler.seance.placement)"
-MOTIF_CARTE = "module du sprint 4 absent (ourouler.rendu.carte)"
 
 
 def parametres() -> Any:
     from ourouler.physique.modele import Parametres
 
     return Parametres(masse_totale_kg=MASSE_KG, cda_m2=CDA_M2, crr=CRR)
-
-
-def placement_mod() -> Any:
-    return pytest.importorskip("ourouler.seance.placement", reason=MOTIF_PLACEMENT)
-
-
-def modele_mod() -> Any:
-    return pytest.importorskip("ourouler.noyau.seance", reason=MOTIF_PLACEMENT)
 
 
 # --- géométries --------------------------------------------------------------
@@ -159,7 +151,7 @@ def etape(
     elastique: bool = False,
     libelle: str | None = None,
 ) -> Any:
-    mod = modele_mod()
+    mod = module_seance
     return fabriques_seance.etape(
         mod,
         type_,
@@ -172,7 +164,7 @@ def etape(
 
 
 def seance(etapes: Sequence[Any], *, nom: str = "séance d'essai") -> Any:
-    return fabriques_seance.seance(modele_mod(), etapes, nom=nom)
+    return fabriques_seance.seance(module_seance, etapes, nom=nom)
 
 
 def seance_2x20() -> Any:
@@ -267,7 +259,7 @@ def terrain_factice(
     """
     from ourouler.seance.terrain import NoteBloc
 
-    placement = placement_mod()
+    placement = module_placement
     appels: list[tuple[float, float, float | None, float | None]] = []
 
     def evaluer_couloir(trace, debut_m, longueur_m, *, puissance_w=None, ftp_w=None) -> Any:

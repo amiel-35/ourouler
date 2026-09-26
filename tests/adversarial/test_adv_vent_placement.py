@@ -51,14 +51,11 @@ import fabriques_seance
 import fabriques_vent
 import pytest
 
+from ourouler.boucle import meteo_trace as module_meteo_trace
 from ourouler.noyau.erreurs import ErreurUtilisateur
-
-MOTIF_VENT = (
-    "module attendu par le contrat L5.1 §1.2 b) absent (ourouler.seance.vent) — "
-    "normal tant que le lot n'est pas fusionné"
-)
-MOTIF_METEO = "module du sprint 2 absent (ourouler.boucle.meteo_trace)"
-MOTIF_PLACEMENT = "module du sprint 4 absent (ourouler.seance.placement)"
+from ourouler.physique import modele as module_modele
+from ourouler.seance import placement as module_placement
+from ourouler.seance import vent as module_vent
 
 #: Ce qu'une entrée franchement absurde a le droit de lever. Tout le reste
 #: (TypeError, IndexError, ZeroDivisionError…) est un bug, pas un refus.
@@ -71,32 +68,20 @@ CAPS = (17.0, 103.0, 198.0, 291.0)
 # --- accès aux interfaces du contrat ----------------------------------------
 
 
-def _meteo() -> Any:
-    return pytest.importorskip("ourouler.boucle.meteo_trace", reason=MOTIF_METEO)
-
-
-def _placement() -> Any:
-    return pytest.importorskip("ourouler.seance.placement", reason=MOTIF_PLACEMENT)
-
-
-def _vent() -> Any:
-    return pytest.importorskip("ourouler.seance.vent", reason=MOTIF_VENT)
-
-
 def _champ(directions, *, pas_m: float = 5000.0, vitesses=None, **kw: Any) -> Any:
     """Un `ChampVent` sur une série d'échantillons construits par écart voulu."""
-    echantillons = fabriques_vent.serie(_meteo(), directions, pas_m=pas_m, vitesses_kmh=vitesses)
-    return _vent().ChampVent(echantillons, **kw)
+    echantillons = fabriques_vent.serie(module_meteo_trace, directions, pas_m=pas_m, vitesses_kmh=vitesses)
+    return module_vent.ChampVent(echantillons, **kw)
 
 
 def _parametres() -> Any:
     import fabriques_physique
 
-    return fabriques_physique.parametres(pytest.importorskip("ourouler.physique.modele"))
+    return fabriques_physique.parametres(module_modele)
 
 
 def _placer_accepte_vent() -> bool:
-    return "vent" in inspect.signature(_placement().placer).parameters
+    return "vent" in inspect.signature(module_placement.placer).parameters
 
 
 def _exiger_parametre_vent() -> None:
@@ -408,7 +393,7 @@ def test_champ_sans_direction_est_inconnu():
 
 def test_champ_sans_aucun_echantillon():
     """Aucun échantillon du tout : pas d'exception, pas de vent, `complet` faux."""
-    champ = _vent().ChampVent([])
+    champ = module_vent.ChampVent([])
     assert champ.complet is False
     assert champ.vent_face_ms(0.0, 0.0, 1) == 0.0
     assert champ.vent_face_ms(42000.0, 123.0, -1) == 0.0
@@ -434,7 +419,7 @@ def test_complet_est_un_vrai_booleen():
     """
     assert isinstance(_champ([0.0] * 3).complet, bool)
     assert isinstance(_champ([0.0] * 3, vitesses=[None, None, None]).complet, bool)
-    assert isinstance(_vent().ChampVent([]).complet, bool)
+    assert isinstance(module_vent.ChampVent([]).complet, bool)
 
 
 def test_vent_nul_mesure_n_est_pas_un_vent_inconnu():
@@ -492,13 +477,13 @@ def test_deux_echantillons_a_la_meme_position():
     Le contrat ne dit pas laquelle gagne ; on exige seulement un résultat fini
     et borné, jamais un NaN (qui ferait lever `vitesse_regime` plus loin).
     """
-    mod = _meteo()
+    mod = module_meteo_trace
     doublons = [
         fabriques_vent.echantillon(mod, dist_m=0.0, vent_depuis_deg=0.0),
         fabriques_vent.echantillon(mod, dist_m=0.0, vent_depuis_deg=180.0),
         fabriques_vent.echantillon(mod, dist_m=5000.0, vent_depuis_deg=0.0),
     ]
-    champ = _vent().ChampVent(doublons)
+    champ = module_vent.ChampVent(doublons)
     for position in (0.0, 1.0, 2500.0, 5000.0):
         valeur = champ.vent_face_ms(position, 0.0, 1)
         assert math.isfinite(valeur), f"position {position} : {valeur!r}"
@@ -510,13 +495,13 @@ def test_echantillons_en_desordre():
     Un tri manquant donne, au mieux, un vent pris au mauvais endroit ; ce qui
     est refusé ici, c'est le non-fini et le dépassement du vent du champ.
     """
-    mod = _meteo()
+    mod = module_meteo_trace
     desordre = [
         fabriques_vent.echantillon(mod, dist_m=10000.0, vent_depuis_deg=180.0),
         fabriques_vent.echantillon(mod, dist_m=0.0, vent_depuis_deg=0.0),
         fabriques_vent.echantillon(mod, dist_m=5000.0, vent_depuis_deg=90.0),
     ]
-    champ = _vent().ChampVent(desordre)
+    champ = module_vent.ChampVent(desordre)
     plafond = fabriques_vent.VENT_MS * fabriques_vent.facteur_hauteur_du_projet()
     for position in (0.0, 2500.0, 7500.0, 10000.0):
         valeur = champ.vent_face_ms(position, 0.0, 1)
@@ -533,7 +518,7 @@ def test_le_champ_ne_depend_pas_des_horodatages():
     amont (les heures de passage sont figées à l'allure d'endurance), aucune
     arithmétique de fuseau ne doit subsister ici.
     """
-    mod = _meteo()
+    mod = module_meteo_trace
     heures = [
         datetime(2026, 3, 29, 1, 30, tzinfo=UTC),
         datetime(2026, 3, 29, 2, 30),  # naïf, et dans l'heure qui n'existe pas à Paris
@@ -547,7 +532,7 @@ def test_le_champ_ne_depend_pas_des_horodatages():
     ]
     for e, t in zip(bizarres, heures, strict=True):
         e.t = t
-    champ = _vent().ChampVent(bizarres)
+    champ = module_vent.ChampVent(bizarres)
     for position in (0.0, 2500.0, 7500.0, 10000.0):
         assert champ.vent_face_ms(position, 33.0, 1) == pytest.approx(
             reference.vent_face_ms(position, 33.0, 1), abs=1e-12
@@ -619,12 +604,12 @@ def test_valeur_non_finie_ne_ressort_jamais(vitesse: float, direction: float):
     (0,0 et `complet` faux), ou refuser franchement à la construction. La
     seule issue refusée est le NaN propagé en silence.
     """
-    mod = _meteo()
+    mod = module_meteo_trace
     abimes = [
         fabriques_vent.echantillon(mod, dist_m=i * 5000.0, vent_kmh=vitesse, vent_depuis_deg=direction)
         for i in range(3)
     ]
-    champ, erreur = _resultat_ou_erreur(lambda: _vent().ChampVent(abimes))
+    champ, erreur = _resultat_ou_erreur(lambda: module_vent.ChampVent(abimes))
     if erreur is not None:
         return  # refus explicite : acceptable
     valeur, erreur = _resultat_ou_erreur(lambda: champ.vent_face_ms(2500.0, 0.0, 1))
@@ -644,7 +629,7 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
     `ourouler sortie` ne s'effondre pas dessus.
     """
     _exiger_parametre_vent()
-    mod = _meteo()
+    mod = module_meteo_trace
     trace = fabriques_vent.boucle_vallonnee(rayon_m=4300.0, n=430)
     abimes = [
         fabriques_vent.echantillon(
@@ -652,7 +637,7 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
         )
         for d in (0.0, 13000.0, 26000.0)
     ]
-    champ, erreur = _resultat_ou_erreur(lambda: _vent().ChampVent(abimes))
+    champ, erreur = _resultat_ou_erreur(lambda: module_vent.ChampVent(abimes))
     if erreur is not None:
         return
     import fabriques_seance as f4
@@ -660,7 +645,7 @@ def test_un_champ_abime_ne_casse_pas_le_placement():
     from ourouler.noyau import seance as seance_modele
 
     resultat, erreur = _resultat_ou_erreur(
-        lambda: _placement().placer(
+        lambda: module_placement.placer(
             f4.seance_deux_blocs(seance_modele), trace, _parametres(), vent=champ
         )
     )
@@ -787,7 +772,7 @@ def test_sans_vent_le_placement_est_celui_d_avant_le_lot(nom: str):
     recalculée au passage, un cap qui déplace un pas d'un mètre).
     """
     _exiger_parametre_vent()
-    placement = _placement().placer(
+    placement = module_placement.placer(
         _seance_golden(), _trace_golden(nom), _parametres(), vent=None
     )
     assert placement is not None, "le placement de référence n'est pas None"
@@ -799,7 +784,7 @@ def test_sans_vent_le_placement_est_celui_d_avant_le_lot(nom: str):
 def test_le_defaut_de_vent_est_none(nom: str):
     """Ne pas passer `vent` doit valoir `vent=None` : pas de champ implicite."""
     _exiger_parametre_vent()
-    mod = _placement()
+    mod = module_placement
     sans = mod.placer(_seance_golden(), _trace_golden(nom), _parametres())
     explicite = mod.placer(_seance_golden(), _trace_golden(nom), _parametres(), vent=None)
     assert _mesure(sans) == _mesure(explicite)
@@ -813,7 +798,7 @@ def test_un_champ_entierement_inconnu_vaut_l_absence_de_champ():
     « vent non pris en compte », et ce serait un ajout légitime.
     """
     _exiger_parametre_vent()
-    mod = _placement()
+    mod = module_placement
     trace = _trace_golden("vallonnee")
     champ = _champ([0.0, 0.0, 0.0], vitesses=[None, None, None])
     assert champ.complet is False
@@ -833,7 +818,7 @@ def test_un_vent_reel_change_le_placement_controle_positif():
     identiques au bit près.
     """
     _exiger_parametre_vent()
-    mod = _placement()
+    mod = module_placement
     trace = _trace_golden("vallonnee")
     champ = _champ([0.0, 0.0, 0.0], pas_m=13500.0)
     assert champ.complet is True
@@ -852,7 +837,7 @@ def test_le_placement_ne_modifie_pas_le_champ_recu():
     candidates ; deux appels successifs doivent donner le même résultat.
     """
     _exiger_parametre_vent()
-    mod = _placement()
+    mod = module_placement
     trace = _trace_golden("vallonnee")
     champ = _champ([0.0, 90.0, 200.0], pas_m=13500.0)
     premier = mod.placer(_seance_golden(), trace, _parametres(), vent=champ)
@@ -869,7 +854,7 @@ def test_le_placement_ne_modifie_pas_le_champ_recu():
 
 
 def _terrain(trace: Any) -> Any:
-    return _placement()._Terrain(trace, _parametres())
+    return module_placement._Terrain(trace, _parametres())
 
 
 def _caps(terrain: Any) -> list[float]:
@@ -996,7 +981,7 @@ def _terrain_avec_vent(trace: Any, champ: Any) -> Any:
     le champ y entre ; on accepte un troisième argument positionnel ou un
     mot-clé `vent`.
     """
-    classe = _placement()._Terrain
+    classe = module_placement._Terrain
     parametres = inspect.signature(classe.__init__).parameters
     if "vent" in parametres:
         return classe(trace, _parametres(), vent=champ)
@@ -1063,7 +1048,7 @@ def test_le_vent_de_dos_mene_plus_loin_que_le_vent_de_face():
     trace = fabriques_vent.droite_au_cap(cap, n_troncons=600, pas_m=100.0)
     face = _champ([cap] * 3, pas_m=30000.0)
     dos = _champ([(cap + 180.0) % 360.0] * 3, pas_m=30000.0)
-    mod = _placement()
+    mod = module_placement
     avec_face = mod.placer(_seance_golden(), trace, _parametres(), vent=face)
     avec_dos = mod.placer(_seance_golden(), trace, _parametres(), vent=dos)
     assert avec_face is not None and avec_dos is not None, (
@@ -1193,7 +1178,7 @@ def test_les_fixtures_de_ce_fichier_ne_portent_aucune_coordonnee_reelle():
     même déguisé en fixture de vent.
     """
     assert abs(fabriques.LAT0) < 0.01 and abs(fabriques.LON0) < 0.01
-    echantillon = fabriques_vent.echantillon(_meteo(), dist_m=5000.0)
+    echantillon = fabriques_vent.echantillon(module_meteo_trace, dist_m=5000.0)
     assert abs(echantillon.lat) < 1.0 and abs(echantillon.lon) < 1.0, (
         "un échantillon de test s'éloigne du point fictif : coordonnée réelle ?"
     )
