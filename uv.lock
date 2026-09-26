@@ -252,19 +252,16 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.115" },
-    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115" },
     { name = "fitdecode", specifier = ">=0.10" },
     { name = "gpxpy", specifier = ">=1.6" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "numpy", specifier = ">=2.5.3" },
+    { name = "ourouler", extras = ["api"], marker = "extra == 'dev'" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'api'", specifier = ">=3.2" },
-    { name = "psycopg", extras = ["binary"], marker = "extra == 'dev'", specifier = ">=3.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.9" },
-    { name = "python-multipart", marker = "extra == 'dev'", specifier = ">=0.0.9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.30" },
-    { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.30" },
 ]
 provides-extras = ["api", "dev"]
 
