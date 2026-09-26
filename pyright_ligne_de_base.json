@@ -1,0 +1,797 @@
+[
+  {
+    "fichier": "src/ourouler/activites/import_archive.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"IO[bytes]\" cannot be assigned to parameter \"source\" of type \"BinaryIO\" in function \"_lire_activite\"\n  \"IO[bytes]\" is not assignable to \"BinaryIO\""
+  },
+  {
+    "fichier": "src/ourouler/activites/import_archive.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"str | None\" cannot be assigned to parameter \"extension\" of type \"str\" in function \"_importer_contenu\"\n  Type \"str | None\" is not assignable to type \"str\"\n    \"None\" is not assignable to \"str\""
+  },
+  {
+    "fichier": "src/ourouler/api/application.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Mapping[Unknown, Unknown]\" cannot be assigned to parameter \"scope\" of type \"Scope\" in function \"file_response\"\n  \"Mapping[Unknown, Unknown]\" is not assignable to \"MutableMapping[str, Any]\""
+  },
+  {
+    "fichier": "src/ourouler/api/application.py",
+    "regle": "reportIncompatibleMethodOverride",
+    "message": "Method \"file_response\" overrides class \"StaticFiles\" in an incompatible manner\n  Parameter 2 type mismatch: base parameter is type \"PathLike\", override parameter is type \"str | Path\"\n    Type \"PathLike\" is not assignable to type \"str | Path\"\n      Type \"PathLike[str]\" is not assignable to type \"str | Path\"\n        \"PathLike[str]\" is not assignable to \"str\"\n        \"PathLike[str]\" is not assignable to \"Path\""
+  },
+  {
+    "fichier": "src/ourouler/api/base_de_donnees.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"str\" cannot be assigned to parameter \"query\" of type \"Template\" in function \"execute\"\n  \"str\" is not assignable to \"Template\""
+  },
+  {
+    "fichier": "src/ourouler/api/base_de_donnees.py",
+    "regle": "reportCallIssue",
+    "message": "No overloads for \"execute\" match the provided arguments"
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"ban\" of type \"ClientBAN | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientBAN | None\"\n    Type \"object\" is not assignable to type \"ClientBAN | None\"\n      \"object\" is not assignable to \"ClientBAN\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"base\" of type \"BaseRoutes | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"BaseRoutes | None\"\n    Type \"object\" is not assignable to type \"BaseRoutes | None\"\n      \"object\" is not assignable to \"BaseRoutes\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"base_routes\" of type \"BaseRoutes | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"BaseRoutes | None\"\n    Type \"object\" is not assignable to type \"BaseRoutes | None\"\n      \"object\" is not assignable to \"BaseRoutes\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"base_routes\" of type \"BaseRoutes | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"BaseRoutes | None\"\n    Type \"object\" is not assignable to type \"BaseRoutes | None\"\n      \"object\" is not assignable to \"BaseRoutes\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"cache\" of type \"Cache | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"Cache | None\"\n    Type \"object\" is not assignable to type \"Cache | None\"\n      \"object\" is not assignable to \"Cache\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client\" of type \"ClientIntervals | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientIntervals | None\"\n    Type \"object\" is not assignable to type \"ClientIntervals | None\"\n      \"object\" is not assignable to \"ClientIntervals\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client\" of type \"ClientOpenMeteo | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientOpenMeteo | None\"\n    Type \"object\" is not assignable to type \"ClientOpenMeteo | None\"\n      \"object\" is not assignable to \"ClientOpenMeteo\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_brouter\" of type \"ClientBrouter | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientBrouter | None\"\n    Type \"object\" is not assignable to type \"ClientBrouter | None\"\n      \"object\" is not assignable to \"ClientBrouter\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_brouter\" of type \"ClientBrouter | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientBrouter | None\"\n    Type \"object\" is not assignable to type \"ClientBrouter | None\"\n      \"object\" is not assignable to \"ClientBrouter\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_brouter\" of type \"ClientBrouter | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientBrouter | None\"\n    Type \"object\" is not assignable to type \"ClientBrouter | None\"\n      \"object\" is not assignable to \"ClientBrouter\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_intervals\" of type \"ClientIntervals | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientIntervals | None\"\n    Type \"object\" is not assignable to type \"ClientIntervals | None\"\n      \"object\" is not assignable to \"ClientIntervals\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_meteo\" of type \"ClientOpenMeteo | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientOpenMeteo | None\"\n    Type \"object\" is not assignable to type \"ClientOpenMeteo | None\"\n      \"object\" is not assignable to \"ClientOpenMeteo\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_meteo\" of type \"ClientOpenMeteo | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientOpenMeteo | None\"\n    Type \"object\" is not assignable to type \"ClientOpenMeteo | None\"\n      \"object\" is not assignable to \"ClientOpenMeteo\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_meteo\" of type \"ClientOpenMeteo | None\" in function \"executer_analyser\"\n  Type \"object | None\" is not assignable to type \"ClientOpenMeteo | None\"\n    Type \"object\" is not assignable to type \"ClientOpenMeteo | None\"\n      \"object\" is not assignable to \"ClientOpenMeteo\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_meteo\" of type \"ClientOpenMeteo | None\" in function \"executer_simuler\"\n  Type \"object | None\" is not assignable to type \"ClientOpenMeteo | None\"\n    Type \"object\" is not assignable to type \"ClientOpenMeteo | None\"\n      \"object\" is not assignable to \"ClientOpenMeteo\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"client_meteo\" of type \"ClientOpenMeteo | None\" in function \"executer_vent\"\n  Type \"object | None\" is not assignable to type \"ClientOpenMeteo | None\"\n    Type \"object\" is not assignable to type \"ClientOpenMeteo | None\"\n      \"object\" is not assignable to \"ClientOpenMeteo\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"lieu_depart\" of type \"Depart | None\" in function \"contexte\"\n  Type \"object | None\" is not assignable to type \"Depart | None\"\n    Type \"object\" is not assignable to type \"Depart | None\"\n      \"object\" is not assignable to \"Depart\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"lieu_depart\" of type \"Depart | None\" in function \"contexte\"\n  Type \"object | None\" is not assignable to type \"Depart | None\"\n    Type \"object\" is not assignable to type \"Depart | None\"\n      \"object\" is not assignable to \"Depart\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"lieu_depart\" of type \"Depart | None\" in function \"contexte\"\n  Type \"object | None\" is not assignable to type \"Depart | None\"\n    Type \"object\" is not assignable to type \"Depart | None\"\n      \"object\" is not assignable to \"Depart\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"lieu_depart\" of type \"Depart | None\" in function \"contexte\"\n  Type \"object | None\" is not assignable to type \"Depart | None\"\n    Type \"object\" is not assignable to type \"Depart | None\"\n      \"object\" is not assignable to \"Depart\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | None\" cannot be assigned to parameter \"nominatim\" of type \"ClientNominatim | None\" in function \"executer\"\n  Type \"object | None\" is not assignable to type \"ClientNominatim | None\"\n    Type \"object\" is not assignable to type \"ClientNominatim | None\"\n      \"object\" is not assignable to \"ClientNominatim\"\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/calculs.py",
+    "regle": "reportReturnType",
+    "message": "Type \"dict[Unknown, Unknown] | None\" is not assignable to return type \"dict[Unknown, Unknown]\"\n  Type \"dict[Unknown, Unknown] | None\" is not assignable to type \"dict[Unknown, Unknown]\"\n    \"None\" is not assignable to \"dict[Unknown, Unknown]\""
+  },
+  {
+    "fichier": "src/ourouler/api/depots.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"nom_fichier\" for class \"object\"\n  Attribute \"nom_fichier\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/depots.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/depots.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"texte\" for class \"object\"\n  Attribute \"texte\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/garde_avant_corps.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Send\" cannot be assigned to parameter \"send\" of type \"Send\" in function \"__call__\"\n  Type \"ourouler.api.garde_avant_corps.Send\" is not assignable to type \"starlette.types.Send\"\n    Parameter 1: type \"Message\" is incompatible with type \"dict[Unknown, Unknown]\"\n      \"MutableMapping[str, Any]\" is not assignable to \"dict[Unknown, Unknown]\""
+  },
+  {
+    "fichier": "src/ourouler/api/modeles.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"dict[str, list[str]]\" cannot be assigned to parameter \"json_schema_extra\" of type \"JsonDict | ((JsonDict) -> None) | None\" in function \"Field\"\n  Type \"dict[str, list[str]]\" is not assignable to type \"JsonDict | ((JsonDict) -> None) | None\"\n    \"dict[str, list[str]]\" is not assignable to \"dict[str, JsonValue]\"\n      Type parameter \"_VT@dict\" is invariant, but \"list[str]\" is not the same as \"JsonValue\"\n      Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type\n    Type \"dict[str, list[str]]\" is not assignable to type \"(JsonDict) -> None\"\n    \"dict[str, list[str]]\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/generations.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: Demande, contexte: Contexte, client_brouter: ClientBrouter | None = None, client_meteo: ClientOpenMeteo | None = None, *, base_routes: BaseRoutes | None = None) -> ResultatBoucle\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: Demande, contexte: Contexte, client_brouter: ClientBrouter | None = None, client_meteo: ClientOpenMeteo | None = None, *, base_routes: BaseRoutes | None = None) -> ResultatBoucle\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatBoucle\" is incompatible with type \"int\"\n      \"ResultatBoucle\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/generations.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: Demande, contexte: Contexte, client_brouter: ClientBrouter | None = None, client_meteo: ClientOpenMeteo | None = None, client_intervals: ClientIntervals | None = None, *, recueil_gpx: ((list[GpxPropose]) -> None) | None = None, base_routes: BaseRoutes | None = None) -> (SansSeance | ResultatSortie)\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: Demande, contexte: Contexte, client_brouter: ClientBrouter | None = None, client_meteo: ClientOpenMeteo | None = None, client_intervals: ClientIntervals | None = None, *, recueil_gpx: ((list[GpxPropose]) -> None) | None = None, base_routes: BaseRoutes | None = None) -> (SansSeance | ResultatSortie)\" is not assignable to type \"(...) -> int\"\n    Function return type \"SansSeance | ResultatSortie\" is incompatible with type \"int\"\n      Type \"SansSeance | ResultatSortie\" is not assignable to type \"int\"\n        \"ResultatSortie\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/generations.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"nom_fichier\" for class \"object\"\n  Attribute \"nom_fichier\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/routes/generations.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/routes/inventaire.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeInventaire, contexte: Contexte, cache: Cache | None = None) -> ResultatInventaire\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeInventaire, contexte: Contexte, cache: Cache | None = None) -> ResultatInventaire\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatInventaire\" is incompatible with type \"int\"\n      \"ResultatInventaire\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/inventaire.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeRoutes, contexte: Contexte, client_brouter: ClientBrouter | None = None, base: BaseRoutes | None = None) -> (ResultatApprentissage | ResultatStats | ResultatPoids)\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeRoutes, contexte: Contexte, client_brouter: ClientBrouter | None = None, base: BaseRoutes | None = None) -> (ResultatApprentissage | ResultatStats | ResultatPoids)\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatApprentissage | ResultatStats | ResultatPoids\" is incompatible with type \"int\"\n      Type \"ResultatApprentissage | ResultatStats | ResultatPoids\" is not assignable to type \"int\"\n        \"ResultatApprentissage\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/meteo.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeGeocodage, contexte: Contexte | None = None, ban: ClientBAN | None = None, nominatim: ClientNominatim | None = None) -> ResultatGeocodage\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeGeocodage, contexte: Contexte | None = None, ban: ClientBAN | None = None, nominatim: ClientNominatim | None = None) -> ResultatGeocodage\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatGeocodage\" is incompatible with type \"int\"\n      \"ResultatGeocodage\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/meteo.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeMeteo, contexte: Contexte, client: ClientOpenMeteo | None = None) -> RapportMeteo\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeMeteo, contexte: Contexte, client: ClientOpenMeteo | None = None) -> RapportMeteo\" is not assignable to type \"(...) -> int\"\n    Function return type \"RapportMeteo\" is incompatible with type \"int\"\n      \"RapportMeteo\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/meteo.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeVent, contexte: Contexte, client_meteo: ClientOpenMeteo | None = None) -> ResultatVent\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeVent, contexte: Contexte, client_meteo: ClientOpenMeteo | None = None) -> ResultatVent\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatVent\" is incompatible with type \"int\"\n      \"ResultatVent\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/meteo.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"longitude\" of type \"float\" in function \"__init__\"\n  Type \"float | None\" is not assignable to type \"float\"\n    \"None\" is not assignable to \"float\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/meteo.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"longitude\" of type \"float\" in function \"__init__\"\n  Type \"float | None\" is not assignable to type \"float\"\n    \"None\" is not assignable to \"float\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/parcours.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeAnalyse, contexte: Contexte, client_meteo: ClientOpenMeteo | None = None) -> ResultatAnalyse\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeAnalyse, contexte: Contexte, client_meteo: ClientOpenMeteo | None = None) -> ResultatAnalyse\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatAnalyse\" is incompatible with type \"int\"\n      \"ResultatAnalyse\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/parcours.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeSimulation, contexte: Contexte, client_meteo: ClientOpenMeteo | None = None) -> ResultatSimulation\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeSimulation, contexte: Contexte, client_meteo: ClientOpenMeteo | None = None) -> ResultatSimulation\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatSimulation\" is incompatible with type \"int\"\n      \"ResultatSimulation\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/profil.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"profil_athlete\" for class \"object\"\n  Attribute \"profil_athlete\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/routes/seances.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None) -> (ResultatSeance | ResultatPeriode)\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None) -> (ResultatSeance | ResultatPeriode)\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatSeance | ResultatPeriode\" is incompatible with type \"int\"\n      Type \"ResultatSeance | ResultatPeriode\" is not assignable to type \"int\"\n        \"ResultatPeriode\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/seances.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None) -> (ResultatSeance | ResultatPeriode)\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None) -> (ResultatSeance | ResultatPeriode)\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatSeance | ResultatPeriode\" is incompatible with type \"int\"\n      Type \"ResultatSeance | ResultatPeriode\" is not assignable to type \"int\"\n        \"ResultatPeriode\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/routes/seances.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None) -> (ResultatSeance | ResultatPeriode)\" cannot be assigned to parameter \"ancien\" of type \"(...) -> int\" in function \"calculer\"\n  Type \"(demande: DemandeSeance, contexte: Contexte, client: ClientIntervals | None = None) -> (ResultatSeance | ResultatPeriode)\" is not assignable to type \"(...) -> int\"\n    Function return type \"ResultatSeance | ResultatPeriode\" is incompatible with type \"int\"\n      Type \"ResultatSeance | ResultatPeriode\" is not assignable to type \"int\"\n        \"ResultatPeriode\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/taches_fond.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"json\" for class \"object\"\n  Attribute \"json\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/api/vie_privee.py",
+    "regle": "reportReturnType",
+    "message": "Function with declared return type \"dict[Unknown, Unknown]\" must return value on all code paths\n  \"None\" is not assignable to \"dict[Unknown, Unknown]\""
+  },
+  {
+    "fichier": "src/ourouler/api/vues.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"key\" of type \"int\" in function \"get\"\n  Type \"Unknown | None\" is not assignable to type \"int\"\n    \"None\" is not assignable to \"int\""
+  },
+  {
+    "fichier": "src/ourouler/api/vues.py",
+    "regle": "reportCallIssue",
+    "message": "No overloads for \"get\" match the provided arguments"
+  },
+  {
+    "fichier": "src/ourouler/cli/depart.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | TextIO\" cannot be assigned to parameter \"file\" of type \"SupportsWrite[str] | None\" in function \"print\"\n  Type \"object | TextIO\" is not assignable to type \"SupportsWrite[str] | None\"\n    Type \"object\" is not assignable to type \"SupportsWrite[str] | None\"\n      \"object\" is incompatible with protocol \"SupportsWrite[str]\"\n        \"write\" is not present\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/cli/depart.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | TextIO\" cannot be assigned to parameter \"file\" of type \"SupportsWrite[str] | None\" in function \"print\"\n  Type \"object | TextIO\" is not assignable to type \"SupportsWrite[str] | None\"\n    Type \"object\" is not assignable to type \"SupportsWrite[str] | None\"\n      \"object\" is incompatible with protocol \"SupportsWrite[str]\"\n        \"write\" is not present\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/cli/depart.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | TextIO\" cannot be assigned to parameter \"file\" of type \"SupportsWrite[str] | None\" in function \"print\"\n  Type \"object | TextIO\" is not assignable to type \"SupportsWrite[str] | None\"\n    Type \"object\" is not assignable to type \"SupportsWrite[str] | None\"\n      \"object\" is incompatible with protocol \"SupportsWrite[str]\"\n        \"write\" is not present\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/cli/depart.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object | TextIO\" cannot be assigned to parameter \"file\" of type \"SupportsWrite[str] | None\" in function \"print\"\n  Type \"object | TextIO\" is not assignable to type \"SupportsWrite[str] | None\"\n    Type \"object\" is not assignable to type \"SupportsWrite[str] | None\"\n      \"object\" is incompatible with protocol \"SupportsWrite[str]\"\n        \"write\" is not present\n      \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Profil\" cannot be assigned to parameter \"config\" of type \"Config\" in function \"rendre_json\"\n  \"Profil\" is not assignable to \"Config\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Profil\" cannot be assigned to parameter \"config\" of type \"Config\" in function \"rendre_texte\"\n  \"Profil\" is not assignable to \"Config\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"meteo_absente\" of type \"MeteoAbsente | None\" in function \"avertissement_meteo\"\n  Type \"object\" is not assignable to type \"MeteoAbsente | None\"\n    \"object\" is not assignable to \"MeteoAbsente\"\n    \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"meteo_absente\" of type \"MeteoAbsente | None\" in function \"rendre_json\"\n  Type \"object\" is not assignable to type \"MeteoAbsente | None\"\n    \"object\" is not assignable to \"MeteoAbsente\"\n    \"object\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/inventaire.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"str | None\" cannot be assigned to parameter \"importer\" of type \"Path | None\" in function \"__init__\"\n  Type \"str | None\" is not assignable to type \"Path | None\"\n    Type \"str\" is not assignable to type \"Path | None\"\n      \"str\" is not assignable to \"Path\"\n      \"str\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/seance.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"SourceVitesse | None\" cannot be assigned to parameter \"source\" of type \"SourceVitesse\" in function \"rendre_json\"\n  Type \"SourceVitesse | None\" is not assignable to type \"SourceVitesse\"\n    \"None\" is not assignable to \"SourceVitesse\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/seance.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"SourceVitesse | None\" cannot be assigned to parameter \"source\" of type \"SourceVitesse\" in function \"rendre_texte\"\n  Type \"SourceVitesse | None\" is not assignable to type \"SourceVitesse\"\n    \"None\" is not assignable to \"SourceVitesse\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/seance.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"list[Unknown]\" cannot be assigned to parameter \"resultats\" of type \"dict[date, Seance | None]\" in function \"rendre_json_periode\"\n  \"list[Unknown]\" is not assignable to \"dict[date, Seance | None]\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/seance.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"list[Unknown]\" cannot be assigned to parameter \"resultats\" of type \"dict[date, Seance | None]\" in function \"rendre_texte_periode\"\n  \"list[Unknown]\" is not assignable to \"dict[date, Seance | None]\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/sortie.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Profil\" cannot be assigned to parameter \"config\" of type \"Config\" in function \"page_jour\"\n  \"Profil\" is not assignable to \"Config\""
+  },
+  {
+    "fichier": "src/ourouler/commandes/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"contexte\" for class \"object\"\n  Attribute \"contexte\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/commandes/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"gpx_propositions\" for class \"object\"\n  Attribute \"gpx_propositions\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/commandes/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"panne\" for class \"object\"\n  Attribute \"panne\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/commandes/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"propositions\" for class \"object\"\n  Attribute \"propositions\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/commandes/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"propositions\" for class \"object\"\n  Attribute \"propositions\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/brouter.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"get\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/brouter.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"get\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/brouter.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"get\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/brouter.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"get\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/brouter.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"get\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/brouter.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"get\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/intervals.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"object\" is not assignable to type \"ConvertibleToFloat\"\n    \"object\" is not assignable to \"str\"\n    \"object\" is incompatible with protocol \"Buffer\"\n      \"__buffer__\" is not present\n    \"object\" is incompatible with protocol \"SupportsFloat\"\n      \"__float__\" is not present\n    \"object\" is incompatible with protocol \"SupportsIndex\"\n      \"__index__\" is not present"
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/openmeteo_archive.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Path | None\" cannot be assigned to parameter \"database\" of type \"StrOrBytesPath\" in function \"connect\"\n  Type \"Path | None\" is not assignable to type \"StrOrBytesPath\"\n    Type \"None\" is not assignable to type \"StrOrBytesPath\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is not assignable to \"bytes\"\n      \"None\" is incompatible with protocol \"PathLike[str]\"\n        \"__fspath__\" is not present\n      \"None\" is incompatible with protocol \"PathLike[bytes]\"\n        \"__fspath__\" is not present"
+  },
+  {
+    "fichier": "src/ourouler/connecteurs/openmeteo_archive.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"parent\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/meteo/cache_previsions.py",
+    "regle": "reportReturnType",
+    "message": "Type \"list[PrevisionPoint | None]\" is not assignable to return type \"list[PrevisionPoint]\"\n  \"list[PrevisionPoint | None]\" is not assignable to \"list[PrevisionPoint]\"\n    Type parameter \"_T@list\" is invariant, but \"PrevisionPoint | None\" is not the same as \"PrevisionPoint\"\n    Consider switching from \"list\" to \"Sequence\" which is covariant"
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/physique/echantillonnage.py",
+    "regle": "reportOperatorIssue",
+    "message": "Operator \">=\" not supported for types \"float | None\" and \"float | None\"\n  Operator \">=\" not supported for types \"float\" and \"None\" when expected type is \"object\"\n  Operator \">=\" not supported for types \"None\" and \"float\" when expected type is \"object\"\n  Operator \">=\" not supported for types \"None\" and \"None\" when expected type is \"object\""
+  },
+  {
+    "fichier": "src/ourouler/physique/modele.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/physique/modele.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/rendu/boucle_json.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"cda_m2\" for class \"object\"\n  Attribute \"cda_m2\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/boucle_json.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"crr\" for class \"object\"\n  Attribute \"crr\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/boucle_json.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"masse_totale_kg\" for class \"object\"\n  Attribute \"masse_totale_kg\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/carte_dessin.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"motifs\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/carte_dessin.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"motifs\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/carte_dessin.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/carte_dessin.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/carte_dessin.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/comparaison.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"cda_m2\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/comparaison.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"crr\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/comparaison.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"masse_totale_kg\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Profil\" cannot be assigned to parameter \"config\" of type \"Config\" in function \"_ligne_modele_meteo\"\n  \"Profil\" is not assignable to \"Config\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"proposition\" of type \"Proposition\" in function \"_notes_carte\"\n  \"object\" is not assignable to \"Proposition\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"proposition\" of type \"Proposition\" in function \"_sous_titre\"\n  \"object\" is not assignable to \"Proposition\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"meteo\" for class \"object\"\n  Attribute \"meteo\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"meteo\" for class \"object\"\n  Attribute \"meteo\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"meteo\" for class \"object\"\n  Attribute \"meteo\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"placement\" for class \"object\"\n  Attribute \"placement\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"trace\" for class \"object\"\n  Attribute \"trace\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie_json.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"trace\" of type \"Trace\" in function \"geometrie_json\"\n  \"object\" is not assignable to \"Trace\""
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie_json.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/rendu/sortie_json.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/seance/ftp.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"number\" of type \"_SupportsRound2[_T@round]\" in function \"round\"\n  Type \"float | None\" is not assignable to type \"_SupportsRound2[float]\"\n    \"None\" is incompatible with protocol \"_SupportsRound2[float]\"\n      \"__round__\" is not present"
+  },
+  {
+    "fichier": "src/ourouler/seance/ftp.py",
+    "regle": "reportCallIssue",
+    "message": "No overloads for \"round\" match the provided arguments"
+  },
+  {
+    "fichier": "src/ourouler/seance/ftp.py",
+    "regle": "reportOptionalOperand",
+    "message": "Operator \"/\" not supported for \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/intervals.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"object\" is not assignable to type \"ConvertibleToFloat\"\n    \"object\" is not assignable to \"str\"\n    \"object\" is incompatible with protocol \"Buffer\"\n      \"__buffer__\" is not present\n    \"object\" is incompatible with protocol \"SupportsFloat\"\n      \"__float__\" is not present\n    \"object\" is incompatible with protocol \"SupportsIndex\"\n      \"__index__\" is not present"
+  },
+  {
+    "fichier": "src/ourouler/seance/intervals.py",
+    "regle": "reportReturnType",
+    "message": "Type \"tuple[float | None, float | None]\" is not assignable to return type \"tuple[float, float] | None\"\n  Type \"tuple[float | None, float | None]\" is not assignable to type \"tuple[float, float] | None\"\n    \"tuple[float | None, float | None]\" is not assignable to \"tuple[float, float]\"\n      Tuple entry 1 is incorrect type\n        Type \"float | None\" is not assignable to type \"float\"\n          \"None\" is not assignable to \"float\"\n    \"tuple[float | None, float | None]\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/pas_trace.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/seance/pas_trace.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/seance/placement.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/placement_note.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/placement_note.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/vent.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/seance/vent.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\""
+  },
+  {
+    "fichier": "src/ourouler/seance/vent.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/seance/vent.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\"\n  Type \"float | None\" is not assignable to type \"ConvertibleToFloat\"\n    Type \"None\" is not assignable to type \"ConvertibleToFloat\"\n      \"None\" is not assignable to \"str\"\n      \"None\" is incompatible with protocol \"Buffer\"\n        \"__buffer__\" is not present\n      \"None\" is incompatible with protocol \"SupportsFloat\"\n        \"__float__\" is not present\n      \"None\" is incompatible with protocol \"SupportsIndex\"\n  ..."
+  },
+  {
+    "fichier": "src/ourouler/seance/zwo.py",
+    "regle": "reportOptionalOperand",
+    "message": "Operator \"*\" not supported for \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/zwo.py",
+    "regle": "reportOptionalOperand",
+    "message": "Operator \"*\" not supported for \"None\""
+  },
+  {
+    "fichier": "src/ourouler/seance/zwo.py",
+    "regle": "reportOptionalOperand",
+    "message": "Operator \"*\" not supported for \"None\""
+  },
+  {
+    "fichier": "src/ourouler/services/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"distance_km\" of type \"float\" in function \"generer\"\n  Type \"float | None\" is not assignable to type \"float\"\n    \"None\" is not assignable to \"float\""
+  },
+  {
+    "fichier": "src/ourouler/services/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"list[None] | list[MeteoTrace | None]\" cannot be assigned to parameter \"meteos\" of type \"list[MeteoTrace | None]\" in function \"_classer\"\n  Type \"list[None] | list[MeteoTrace | None]\" is not assignable to type \"list[MeteoTrace | None]\"\n    \"list[None]\" is not assignable to \"list[MeteoTrace | None]\"\n      Type parameter \"_T@list\" is invariant, but \"None\" is not the same as \"MeteoTrace | None\"\n      Consider switching from \"list\" to \"Sequence\" which is covariant"
+  },
+  {
+    "fichier": "src/ourouler/services/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"list[tuple[Trace, None, None]] | list[tuple[Unknown, Unknown, Unknown]]\" cannot be assigned to parameter \"traces\" of type \"list[tuple[Trace, float | None, object]]\" in function \"_classer\"\n  Type \"list[tuple[Trace, None, None]] | list[tuple[Unknown, Unknown, Unknown]]\" is not assignable to type \"list[tuple[Trace, float | None, object]]\"\n    \"list[tuple[Trace, None, None]]\" is not assignable to \"list[tuple[Trace, float | None, object]]\"\n      Type parameter \"_T@list\" is invariant, but \"tuple[Trace, None, None]\" is not the same as \"tuple[Trace, float | None, object]\"\n      Consider switching from \"list\" to \"Sequence\" which is covariant"
+  },
+  {
+    "fichier": "src/ourouler/services/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"p\" of type \"Parametres\" in function \"simuler\"\n  \"object\" is not assignable to \"Parametres\""
+  },
+  {
+    "fichier": "src/ourouler/services/boucle.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"p\" of type \"Parametres\" in function \"simuler\"\n  \"object\" is not assignable to \"Parametres\""
+  },
+  {
+    "fichier": "src/ourouler/services/calibrer.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"(identifiant: str) -> object\" cannot be assigned to parameter \"relire\" of type \"((str) -> (Activite | None)) | None\" in function \"sorties_calibrables_et_motifs\"\n  Type \"(identifiant: str) -> object\" is not assignable to type \"((str) -> (Activite | None)) | None\"\n    Type \"(identifiant: str) -> object\" is not assignable to type \"(str) -> (Activite | None)\"\n      Function return type \"object\" is incompatible with type \"Activite | None\"\n        Type \"object\" is not assignable to type \"Activite | None\"\n          \"object\" is not assignable to \"Activite\"\n          \"object\" is not assignable to \"None\"\n    \"FunctionType\" is not assignable to \"None\""
+  },
+  {
+    "fichier": "src/ourouler/services/calibrer.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"activite\" of type \"Activite\" in function \"__init__\"\n  \"object\" is not assignable to \"Activite\""
+  },
+  {
+    "fichier": "src/ourouler/services/calibrer.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"meta\" for class \"object\"\n  Attribute \"meta\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/comparer.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"ftp_w\" of type \"float\" in function \"series_droites\"\n  Type \"float | None\" is not assignable to type \"float\"\n    \"None\" is not assignable to \"float\""
+  },
+  {
+    "fichier": "src/ourouler/services/comparer.py",
+    "regle": "reportOperatorIssue",
+    "message": "Operator \"*\" not supported for types \"float\" and \"float | None\"\n  Operator \"*\" not supported for types \"float\" and \"None\""
+  },
+  {
+    "fichier": "src/ourouler/services/comparer.py",
+    "regle": "reportOperatorIssue",
+    "message": "Operator \"*\" not supported for types \"float\" and \"float | None\"\n  Operator \"*\" not supported for types \"float\" and \"None\""
+  },
+  {
+    "fichier": "src/ourouler/services/meteo.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"str | None\" cannot be assigned to parameter \"second_avis\" of type \"str\" in function \"construire\"\n  Type \"str | None\" is not assignable to type \"str\"\n    \"None\" is not assignable to \"str\""
+  },
+  {
+    "fichier": "src/ourouler/services/seance.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"Parametres | None\" cannot be assigned to parameter \"p\" of type \"Parametres\" in function \"vitesse_a_plat_ms\"\n  Type \"Parametres | None\" is not assignable to type \"Parametres\"\n    \"None\" is not assignable to \"Parametres\""
+  },
+  {
+    "fichier": "src/ourouler/services/seance.py",
+    "regle": "reportArgumentType",
+    "message": "Argument of type \"dict[date, Seance | None]\" cannot be assigned to parameter \"resultats\" of type \"list[Unknown]\" in function \"__init__\"\n  \"dict[date, Seance | None]\" is not assignable to \"list[Unknown]\""
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"numero\" for class \"object\"\n  Attribute \"numero\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"placement\" for class \"object\"\n  Attribute \"placement\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"placement\" for class \"object\"\n  Attribute \"placement\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"trace\" for class \"object\"\n  Attribute \"trace\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"trace\" for class \"object\"\n  Attribute \"trace\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"trace\" for class \"object\"\n  Attribute \"trace\" is unknown"
+  },
+  {
+    "fichier": "src/ourouler/services/sortie.py",
+    "regle": "reportOptionalMemberAccess",
+    "message": "\"note\" is not a known attribute of \"None\""
+  },
+  {
+    "fichier": "src/ourouler/sortie/vent_demande.py",
+    "regle": "reportOptionalOperand",
+    "message": "Operator \"<\" not supported for \"None\""
+  }
+]

@@ -19,6 +19,9 @@ durée, cohérente avec la séance du jour et la tenue. Licence AGPL-3.0-or-late
 ## Vérifier avant tout commit
 
 - `uv run ruff check .` et `uv run ruff format --check .`
+- `uv run python scripts/pyright_ligne_de_base.py` : vérifie les types dans
+  `src/` (pas encore `tests/`) contre une ligne de base figée
+  (`pyright_ligne_de_base.json`) — voir `CONTRIBUTING.md`.
 - `uv run pytest -q`, **en entier**. Les tests de comptes lancent eux-mêmes
   un conteneur PostgreSQL : il faut Docker et l'image
   (`docker pull postgres:17-alpine`), sinon ils sont sautés, et la CI

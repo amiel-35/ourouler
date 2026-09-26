@@ -40,11 +40,12 @@ tourner chez vous avant d'ouvrir la PR.
 
 ## Vérifier avant d'ouvrir une PR
 
-Les trois commandes doivent passer, sans exception :
+Les commandes suivantes doivent passer, sans exception :
 
 ```sh
 uv run ruff check .
 uv run ruff format --check .   # ou `ruff format .` pour corriger
+uv run python scripts/pyright_ligne_de_base.py   # typage de src/, voir plus bas
 uv run pytest -q                 # la suite complète, pas un sous-ensemble
 cd front && npm run verifier     # tsc --noEmit, eslint, puis vitest run
 ```
@@ -54,7 +55,8 @@ chaque poussée sur `main` et `prod`. Elle comporte quatre jobs :
 
 1. **secrets** — `gitleaks` parcourt tout l'historique du dépôt ; les faux
    positifs connus sont écartés par `.gitleaksignore`.
-2. **python** — Linux, Python 3.12, fuseau UTC : `ruff check` et `ruff format --check`, puis toute
+2. **python** — Linux, Python 3.12, fuseau UTC : `ruff check`, `ruff format --check`,
+   puis `scripts/pyright_ligne_de_base.py` (typage), puis toute
    la suite `pytest` avec l'image Postgres ; elle échoue sur tout test sauté
    dont le motif n'est pas dans `tests/sauts_autorises.py`, un test Postgres
    sauté compris. `CI=1 uv run pytest -q` rejoue cette garde chez vous.
@@ -119,6 +121,32 @@ d'emblée, et une exception n'est pas un précédent. Le code est formaté par
 `ruff format` (le journal, `docs/journal/`, en est exclu) ; le commit qui l'a
 appliqué d'un coup est listé dans `.git-blame-ignore-revs`, à passer à
 `git blame --ignore-revs-file` (GitHub le lit tout seul).
+
+## Typage (pyright) et sa ligne de base
+
+`pyright` (`[tool.pyright]` de `pyproject.toml`) vérifie les types dans
+`src/` en mode `standard` ; `tests/` n'est pas encore couvert (périmètre
+du lot d'adoption, à élargir plus tard). L'outil télécharge et gère son
+propre Node privé (`nodeenv`, dans le cache de `uv`) : aucune installation
+globale n'est nécessaire.
+
+Les erreurs déjà présentes le jour de l'adoption sont tolérées, mais gelées
+dans `pyright_ligne_de_base.json` à la racine du dépôt (une entrée par
+(fichier, règle, message), sans numéro de ligne pour ne pas casser la
+comparaison au moindre déplacement). `scripts/pyright_ligne_de_base.py` :
+
+```sh
+uv run python scripts/pyright_ligne_de_base.py             # vérifie
+uv run python scripts/pyright_ligne_de_base.py --regenerer # réécrit la ligne de base
+```
+
+**La ligne de base ne peut que descendre.** Une erreur nouvelle, absente
+du fichier figé, fait échouer la vérification : le code se corrige, la
+ligne de base ne se régénère jamais pour la faire entrer. Une erreur
+corrigée disparaît du rapport et le script l'annonce comme un progrès
+sans faire échouer la commande ; c'est alors, et seulement alors, qu'on
+régénère la ligne de base avec `--regenerer`, pour qu'elle baisse pour de
+bon (elle ne baisse jamais toute seule).
 
 ## Fichiers de référence
 
