@@ -74,13 +74,13 @@ HTTP injectable :
 | `stockage/` | ce qui s'écrit sur disque et se relit : `calibration.json` (lot 7) ; le cache d'activités, les routes connues et le cache des prévisions y viendront | `calibrations.py` |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
 | `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (904), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
-| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calibration CdA/Crr, comparaison de vélos | `calibration.py` (1 782), `commande.py` (1 330), `comparer.py` (884), `modele.py` (668) |
+| `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calcul de la calibration CdA/Crr (pur depuis le lot 8), comparaison de vélos | `calibration.py` (1 696), `modele.py` (668), `comparer.py` (672), `commande.py` (641) |
 | `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
 | `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions | `commande.py` (1 305), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
-| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`) et de `boucle` (`boucle.py`), la carte HTML (`carte.py`) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `profil.py`, `comptes.py` |
-| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) | `comptes.py` |
+| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`) et de `boucle` (`boucle.py`), la carte HTML (`carte.py`), le texte et le JSON de `calibrer`, `simuler`, `analyser` et `comparer` (`physique.py`, lot 8) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `physique.py` (874), `profil.py`, `comptes.py` |
+| `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) ; choisir, lire et calibrer les sorties d'un vélo (`calibrer.py`, lot 8) | `calibrer.py`, `comptes.py` |
 | `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `routes.py` (2 122), `comptes.py` (1 095), `depots.py` (988), `application.py` (621), `adaptateur.py` (277) |
 
 Les anciens chemins `boucle/trace.py`, `activites/modele.py`, `erreurs.py`,
@@ -168,10 +168,13 @@ commandes de `boucle`, `meteo`, `seance` et `apprentissage`.
   Intervals range ses sorties dans un `DepotActivites`) ;
 - `boucle/candidates.py` reçoit un `ClientBrouter` concret, pas une interface.
 
-**La physique n'est pas pure.** `physique/calibration.py` importe le `Cache`
-d'activités, `Config`, l'inventaire et un type du connecteur d'archive météo.
-Le calcul (moindres carrés sur des sorties) et l'accès aux données y sont
-dans le même fichier.
+**La physique est pure depuis le lot 8.** `physique/calibration.py` ne fait
+plus que calculer, sur des activités déjà lues, l'archive météo déjà obtenue
+(`noyau.meteo.HeureArchive`) et une masse ; le choix et la lecture des
+sorties (cache, inventaire, archive, `Config`) sont dans `services/calibrer.py`.
+Hors `commande.py` et `comparer.py` (des cas d'usage), `physique/` n'importe
+ni `pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`
+(`tests/test_architecture.py`).
 
 **Des fonctions trop longues.** 110 fonctions dépassent 50 lignes, 16 en
 dépassent 100, 4 en dépassent 200 : `rendu/carte.py:_page_jour` (333),
@@ -241,7 +244,8 @@ identiques, et retire les exceptions qu'elle rend inutiles.
    plus un chemin. *Fait (lot 7)* : `stockage/calibrations.py`,
    `physique/parametres_velo.py` et `seance/ftp.py`.
 6. Couper `physique/calibration.py` entre le calcul pur et le service qui
-   lit les données, à résultat identique au dernier chiffre.
+   lit les données, à résultat identique au dernier chiffre. *Fait (lot 8)* :
+   `services/calibrer.py` et `rendu/physique.py`.
 7. Introduire une interface de routeur et découper `generer`. *Fait (lot 9)* :
    `noyau/ports.py`, et le découpage en mailles passé à `boucle/mailles.py`.
 8. Sortir argparse des commandes : la `Demande` est construite par `cli`.

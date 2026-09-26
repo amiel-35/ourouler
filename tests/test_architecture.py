@@ -25,9 +25,8 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 8 : 4 exceptions, échéance 2026-11-30
-    lot 10 : 11 exceptions, échéance 2026-12-31
-    total : 15 exceptions
+    lot 10 : 13 exceptions, échéance 2026-12-31
+    total : 13 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -84,6 +83,20 @@ le modèle du vélo. `seance/ecran_ftp` devient la commande qui les prépare
 (rangée aux cas d'usage, son import de `config` re-daté au lot 10). Le
 connecteur Intervals range les sorties dans un `noyau.ports.DepotActivites`
 au lieu d'importer le cache. Ses 3 exceptions sont tombées ; une est re-datée.
+
+**Lot 8 fait.** La physique est pure : `physique/calibration.py` ne fait
+plus que calculer (échantillons, ajustement, validation, porte à porte, filtre
+des fichiers multisport) sur des activités déjà lues, l'archive déjà obtenue
+(`HeureArchive`, passée au noyau dans `noyau/meteo`) et une masse. Choisir et
+lire les sorties — index du cache, rattachement aux vélos, archive météo,
+`Config` — est le cas d'usage `services/calibrer` (qui n'annote la `Config`
+que sous `TYPE_CHECKING`) ; le texte et le JSON des commandes physiques sont
+dans `rendu/physique`. Ses 4 exceptions sont tombées ; deux s'ouvrent,
+datées au lot 10 : les commandes impriment encore le rendu
+(`physique.commande` et `physique.comparer` → `rendu.physique`).
+`test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration`
+tient le §2 : hors `commande.py` et `comparer.py`, `physique/` n'importe ni
+`pathlib`, ni `httpx`, ni `config`, ni le cache, ni `boucle`.
 
 Les deux cycles principaux qui restent, sur les paquets tels qu'ils sont
 rangés aujourd'hui (imports différés compris) — le premier, `api` ↔ `cli`,
@@ -154,8 +167,9 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #: - les `*/commande.py` sont des **cas d'usage** (couche 3) : ils
 #:   orchestrent connecteurs et domaine ; le rendu (lot 6) et argparse
 #:   (lot 10) en sortiront, l'orchestration y restera ;
-#: - `physique/calibration.py` reste au **domaine** : c'est le calcul qu'il
-#:   porte, et l'accès aux données qu'il fait aussi est la dette du lot 8 ;
+#: - `physique/calibration.py` est au **domaine** : depuis le lot 8, il ne
+#:   fait plus que calculer ; le choix et la lecture des sorties sont dans
+#:   `services/calibrer.py` ;
 #: - `activites/inventaire.py`, `apprentissage/routes.py` et
 #:   `physique/comparer.py` sont des **cas d'usage** : ils lisent le cache
 #:   (et BRouter pour les routes) pour rendre un résultat ;
@@ -246,6 +260,7 @@ MODULES: dict[str, str] = {
     "ourouler.api.courriel": "connecteurs",
     # 3. cas d'usage
     "ourouler.services": "services",
+    "ourouler.services.calibrer": "services",
     "ourouler.services.comptes": "services",
     "ourouler.activites.commande": "services",
     "ourouler.activites.inventaire": "services",
@@ -266,6 +281,7 @@ MODULES: dict[str, str] = {
     "ourouler.rendu.boucle": "rendu",
     "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.comptes": "rendu",
+    "ourouler.rendu.physique": "rendu",
     "ourouler.rendu.profil": "rendu",
     "ourouler.rendu.sortie": "rendu",
     # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
@@ -307,15 +323,6 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
-    # cache, l'inventaire ni le connecteur d'archive météo.
-    ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
-    ("ourouler.physique.calibration", "ourouler.activites.inventaire", "lot 8", "2026-11-30"),
-    ("ourouler.physique.calibration", "ourouler.connecteurs.openmeteo_archive", "lot 8", "2026-11-30"),
-    # Re-daté du lot 4 : la sélection des sorties à calibrer (`motif_exclusion`,
-    # `sorties_calibrables`…) lit vélos, masse, historique et mots de groupe
-    # dans la `Config` (33 appels dans 8 fichiers) ; elle part au service au lot 8.
-    ("ourouler.physique.calibration", "ourouler.config", "lot 8", "2026-11-30"),
     # Lot 10 (re-daté du lot 4) : les cas d'usage reçoivent la `Config` entière,
     # dont `cache.dossier`. `Config` ne peut pas descendre au noyau avec le
     # reste du profil : le défaut de `ParametresCache` résout le répertoire de
@@ -342,6 +349,13 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # qui appelle le rendu, et ces arêtes tombent.
     ("ourouler.boucle.commande", "ourouler.rendu.boucle", "lot 10", "2026-12-31"),
     ("ourouler.sortie.commande", "ourouler.rendu.sortie", "lot 10", "2026-12-31"),
+    # Lot 10 (ouvertes au lot 8) : le texte et le JSON de `calibrer`,
+    # `simuler`, `analyser` et `comparer` sont passés au rendu
+    # (`rendu/physique.py`), mais ce sont encore les commandes qui les
+    # impriment, parce qu'elles lisent aussi argparse. Quand `cli` construit la
+    # `Demande` et imprime le rendu du résultat (lot 10), l'arête tombe.
+    ("ourouler.physique.commande", "ourouler.rendu.physique", "lot 10", "2026-12-31"),
+    ("ourouler.physique.comparer", "ourouler.rendu.physique", "lot 10", "2026-12-31"),
 ]
 
 #: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
@@ -373,6 +387,9 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     ("ourouler.rendu.profil", "ourouler.config"),
     ("ourouler.rendu.boucle", "ourouler.config"),
     ("ourouler.rendu.sortie", "ourouler.config"),
+    # Le choix des sorties à calibrer lit vélos, historique, masse et mots de
+    # groupe dans la `Config`, sans dépendre de l'entrée qui la charge (lot 8).
+    ("ourouler.services.calibrer", "ourouler.config"),
 }
 
 
@@ -631,6 +648,57 @@ def test_personne_n_importe_un_reexport():
         if i.importe in REEXPORTS and i.importeur not in REEXPORTS
     ]
     assert not fautifs, "importer depuis ourouler.noyau :\n  " + "\n  ".join(fautifs)
+
+
+#: `docs/ouverture_plan.md` §2 : « Le modèle physique pur […] n'importe ni
+#: `Config`, ni cache, ni `Path`, ni `httpx`, ni `boucle` ; numpy est permis. »
+#: Préfixes interdits, bibliothèque standard et tierces comprises.
+INTERDITS_PHYSIQUE_PURE = (
+    "pathlib",
+    "httpx",
+    "ourouler.config",
+    "ourouler.activites.cache",
+    "ourouler.boucle",
+)
+
+#: Les deux modules de `physique/` qui ne sont pas du domaine : des cas d'usage
+#: (`MODULES`) qui lisent la configuration, le cache et les fichiers.
+PHYSIQUE_CAS_D_USAGE = ("ourouler.physique.commande", "ourouler.physique.comparer")
+
+
+def _modules_importes(source: str) -> list[tuple[str, int]]:
+    """Tous les modules importés (absolus), différés et `TYPE_CHECKING` compris."""
+    trouves = []
+    for noeud in ast.walk(ast.parse(source)):
+        if isinstance(noeud, ast.Import):
+            trouves += [(alias.name, noeud.lineno) for alias in noeud.names]
+        elif isinstance(noeud, ast.ImportFrom) and noeud.module and not noeud.level:
+            trouves.append((noeud.module, noeud.lineno))
+            trouves += [(f"{noeud.module}.{alias.name}", noeud.lineno) for alias in noeud.names]
+    return trouves
+
+
+def test_la_physique_pure_n_importe_ni_chemin_ni_reseau_ni_configuration():
+    fautifs = []
+    pures = [
+        nom
+        for nom in modules_sources()
+        if (nom == "ourouler.physique" or nom.startswith("ourouler.physique."))
+        and nom not in PHYSIQUE_CAS_D_USAGE
+    ]
+    assert "ourouler.physique.calibration" in pures and "ourouler.physique.modele" in pures
+    for nom in pures:
+        source = modules_sources()[nom].read_text(encoding="utf-8")
+        for importe, ligne in _modules_importes(source):
+            for interdit in INTERDITS_PHYSIQUE_PURE:
+                if importe == interdit or importe.startswith(interdit + "."):
+                    fautifs.append(f"{nom}:{ligne} importe {importe}")
+    assert not fautifs, "la physique pure (§2) importe :\n  " + "\n  ".join(sorted(set(fautifs)))
+
+
+def test_la_verification_de_la_physique_pure_voit_un_import_differe():
+    source = "def f():\n    from pathlib import Path\n    import httpx\n"
+    assert {m for m, _ in _modules_importes(source)} >= {"pathlib", "httpx"}
 
 
 def test_les_exceptions_sont_bien_formees():
