@@ -31,7 +31,7 @@ config.*.toml
 !front/index.html
 !docs/journal/ux/directions/suisse-vivante.html
 
-# Réintégration NOMMÉE, fichier par fichier (aucune donnée personnelle dans le dépôt). Surtout pas
+# Réintégration NOMMÉE, fichier par fichier (aucune donnée personnelle ni clé dans le dépôt). Surtout pas
 # `!tests/fixtures/**` : cette réintégration en bloc laissait passer sans la
 # moindre résistance un vrai `.fit` déposé dans `tests/fixtures/activites/`,
 # alors que la règle a justement été écrite pour que le filet se resserre nom
@@ -60,13 +60,19 @@ config.*.toml
 
 # Les fixtures hostiles, elles, ne sont jamais versionnées : le générateur les
 # matérialise dans un dossier temporaire (`tests/adversarial/conftest.py`).
-# Lancé à la main, il écrit dans `hostiles/` — et sa sortie porte des noms sans
-# extension (`activite_sans_extension`) qu'aucune règle ci-dessus n'attrape.
+# Lancé à la main, il écrit dans `hostiles/` (dossier courant par défaut) — et
+# sa sortie porte des noms sans extension (`activite_sans_extension`)
+# qu'aucune règle ci-dessus n'attrape.
 hostiles/
 tests/adversarial/fixtures/*
 !tests/adversarial/fixtures/generer_hostiles.py
+
+# Dossiers locaux du cycliste (cache de météo/géocodage, données), où qu'ils
+# soient créés : non ancrés exprès, ils peuvent porter des données personnelles.
 cache/
 data/
+
+# Secrets de service : jamais dans le dépôt (aucune donnée personnelle ni clé dans le dépôt).
 .env
 .env.*
 !.env.example
@@ -84,7 +90,7 @@ front/.vite/
 .DS_Store
 
 # Le fichier de service réel — secrets du serveur, jamais dans le dépôt.
-# Son modèle vide, `service.example.toml`, est commité (aucune donnée personnelle dans le dépôt).
+# Son modèle vide, `service.example.toml`, est commité (aucune donnée personnelle ni clé dans le dépôt).
 service.toml
 
 # Consignes locales de Claude Code (jamais commitées)
