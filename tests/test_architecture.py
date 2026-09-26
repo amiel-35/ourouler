@@ -302,6 +302,7 @@ MODULES: dict[str, str] = {
     # 4. rendu
     "ourouler.rendu": "rendu",
     "ourouler.rendu.boucle": "rendu",
+    "ourouler.rendu.boucle_json": "rendu",
     "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.carte_dessin": "rendu",
     "ourouler.rendu.carte_jour": "rendu",
@@ -410,6 +411,7 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     # l'entrée qui la charge (lot 5) ; celui des parcours de même (lot 6).
     ("ourouler.rendu.profil", "ourouler.config"),
     ("ourouler.rendu.boucle", "ourouler.config"),
+    ("ourouler.rendu.boucle_json", "ourouler.config"),  # lot 12, le JSON de boucle
     ("ourouler.rendu.sortie", "ourouler.config"),
 }
 
