@@ -80,7 +80,7 @@ CONSTANTES_DE_VERSION = (
     "ourouler.activites.cache.VERSION_SCHEMA",
     "ourouler.apprentissage.routes.VERSION_SCHEMA",
     "ourouler.connecteurs.openmeteo_archive.VERSION_SCHEMA",
-    "ourouler.physique.commande.VERSION_CALIBRATION",
+    "ourouler.stockage.calibrations.VERSION_CALIBRATION",
 )
 
 #: Migrations Postgres autorisées à contenir `DROP` ou `RENAME`, par nom de
@@ -465,7 +465,7 @@ def test_les_versions_ecrites_sont_celles_des_constantes(fraiche: Path):
     for constante, relatif in ecrit.items():
         assert vider_sqlite(fraiche / relatif)["user_version"] == _constante(constante), relatif
     calibration = json.loads((fraiche / "donnees/calibration.json").read_text(encoding="utf-8"))
-    assert calibration["version"] == _constante("ourouler.physique.commande.VERSION_CALIBRATION")
+    assert calibration["version"] == _constante("ourouler.stockage.calibrations.VERSION_CALIBRATION")
 
 
 def test_aucune_migration_ne_detruit_ni_ne_renomme():
@@ -541,7 +541,7 @@ def test_une_calibration_d_une_autre_version_est_ignoree(copie: Path):
     chemin = copie / "donnees" / "calibration.json"
     charge = json.loads(chemin.read_text(encoding="utf-8"))
     assert lire_calibration(chemin, "RCR") is not None
-    charge["version"] = _constante("ourouler.physique.commande.VERSION_CALIBRATION") + 1
+    charge["version"] = _constante("ourouler.stockage.calibrations.VERSION_CALIBRATION") + 1
     chemin.write_text(json.dumps(charge), encoding="utf-8")
     assert lire_calibration(chemin, "RCR") is None
 

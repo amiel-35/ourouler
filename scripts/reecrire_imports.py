@@ -46,6 +46,8 @@ DEPLACEMENTS: dict[str, str] = {
     "ourouler.seance.zones": "ourouler.noyau.zones",
     # lot 6 : la carte HTML passe au rendu
     "ourouler.sortie.carte": "ourouler.rendu.carte",
+    # lot 10 : la comparaison de deux vélos passe aux cas d'usage
+    "ourouler.physique.comparer": "ourouler.services.comparer",
 }
 
 #: Fichiers qui nomment les anciens chemins exprès.

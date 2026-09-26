@@ -22,10 +22,11 @@ from ourouler.config import Config, depuis_dict
 from ourouler.connecteurs.intervals import ClientIntervals
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.seance import Etape, Seance
-from ourouler.physique.commande import VERSION_CALIBRATION, chemin_calibration
+from ourouler.physique.commande import chemin_calibration
 from ourouler.physique.modele import Parametres, vitesse_regime
 from ourouler.seance.commande import longueurs, rendre_json, rendre_texte
 from ourouler.seance.intervals import depuis_workout_doc
+from ourouler.stockage.calibrations import VERSION_CALIBRATION
 
 JOUR = date(2026, 9, 8)
 FTP = 200.0

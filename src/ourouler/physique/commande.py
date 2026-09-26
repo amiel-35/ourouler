@@ -44,38 +44,13 @@ from ourouler.physique.modele import (
     temps_ecoule,
     vent_au_cycliste,
 )
-
-# Réexports temporaires (lot 7) : l'ancien emplacement de ce qui touche à
-# `calibration.json`, retirés avec les autres réexports au lot final.
-from ourouler.physique.parametres_velo import (
-    ALERTE_PNEU_CHANGE,
-    CDA_DEFAUT,
-    CRR_DEFAUT,
-    Calibration,
-    crr_du_velo,
-    fourchette_defaut,
-)
-
-# Réexports temporaires (lot 8) : le cas d'usage de la calibration
-# (`services.calibrer`) à son ancien emplacement, pour les appelants que ce
-# lot ne touche pas (les scripts de `tests/validation/`) ; retirés avec les
-# autres au lot final. Liés **par nom** : un monkeypatch de test vise donc
-# `services.calibrer` pour ce que l'API appelle (`calibrer_velo`). Le rendu
-# (`rendu.physique`), lui, n'est plus réexporté ici depuis le lot 10 : c'est
-# l'entrée qui l'appelle.
 from ourouler.services.calibrer import (
-    ETAPE_AJUSTEMENT,
-    ETAPE_LECTURE,
-    ETAPE_METEO,
-    Progres,
     ResultatCalibration,
     calibrer_velo,
-    crr_de_l_usage,
     masse_totale_kg,
 )
 from ourouler.services.contexte import Contexte
 from ourouler.stockage.calibrations import (
-    VERSION_CALIBRATION,
     ecrire_calibration,
     lire_calibration,
 )
@@ -636,26 +611,14 @@ __all__ = [
     "date_option",
     "DISTANCE_MAX_ANALYSE_M",
     "NOM_CALIBRATION",
-    "VERSION_CALIBRATION",
-    "CDA_DEFAUT",
-    "CRR_DEFAUT",
-    "ALERTE_PNEU_CHANGE",
-    "ETAPE_AJUSTEMENT",
-    "ETAPE_LECTURE",
-    "ETAPE_METEO",
-    "Calibration",
-    "Progres",
     "ResultatCalibration",
     "alerte_calibration",
     "calibrer_velo",
     "chemin_calibration",
-    "crr_de_l_usage",
-    "crr_du_velo",
     "ecrire_calibration",
     "executer_analyser",
     "executer_calibrer",
     "executer_simuler",
-    "fourchette_defaut",
     "fourchette_du_velo",
     "lire_calibration",
     "masse_totale_kg",

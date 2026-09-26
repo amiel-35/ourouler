@@ -12,9 +12,9 @@ import argparse
 from ourouler.commandes.commun import contexte, imprimer_json
 from ourouler.config import Config
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique import calibration as calib
 from ourouler.physique.commande import date_option
-from ourouler.rendu.physique import rendre_json_comparaison, rendre_texte_comparaison
+from ourouler.physique.echantillonnage import LONGUEUR_ECHANTILLON_M
+from ourouler.rendu.comparaison import rendre_json_comparaison, rendre_texte_comparaison
 from ourouler.services import comparer as service
 from ourouler.services.comparer import (
     LONGUEUR_MIN_M_DEFAUT,
@@ -122,9 +122,9 @@ def _longueur_min(valeur) -> float:
         longueur = float(valeur)
     except (TypeError, ValueError) as e:
         raise ErreurUtilisateur(f"--longueur-min {valeur!r} : une longueur en mètres est attendue") from e
-    if longueur < calib.LONGUEUR_ECHANTILLON_M:
+    if longueur < LONGUEUR_ECHANTILLON_M:
         raise ErreurUtilisateur(
             f"--longueur-min {valeur!r} : au moins la longueur d'un tronçon "
-            f"({calib.LONGUEUR_ECHANTILLON_M:.0f} m) est attendue"
+            f"({LONGUEUR_ECHANTILLON_M:.0f} m) est attendue"
         )
     return longueur

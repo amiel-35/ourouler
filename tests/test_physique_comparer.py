@@ -19,7 +19,8 @@ from ourouler.activites.cache import Cache
 from ourouler.commandes.comparer import executer_depuis_namespace as executer_comparer
 from ourouler.noyau.activite import Activite, Point
 from ourouler.noyau.erreurs import ErreurUtilisateur
-from ourouler.physique.comparer import (
+from ourouler.physique.modele import Parametres, puissance_requise
+from ourouler.services.comparer import (
     CAP_MAX_DEG_SUGGERE,
     LONGUEUR_MIN_M_DEFAUT,
     PENTE_MAX_DEFAUT,
@@ -30,7 +31,6 @@ from ourouler.physique.comparer import (
     regresser,
     series_droites,
 )
-from ourouler.physique.modele import Parametres, puissance_requise
 
 METRE_EN_DEGRE = 1.0 / 111_194.93
 DEPART = datetime(2026, 3, 15, 9, 0, tzinfo=UTC)
