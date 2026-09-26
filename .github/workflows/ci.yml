@@ -52,18 +52,11 @@ jobs:
       # les tests de comptes lancent ce conteneur eux-mêmes et sont sautés si l'image manque
       - run: docker pull postgres:17-alpine
 
+      # CI=true (posé par GitHub Actions) : tests/conftest.py fait échouer la
+      # session sur tout saut absent de tests/sauts_autorises.py — un test
+      # Postgres sauté compris (« PostgreSQL local indisponible » n'y est pas).
       - name: Tests
-        run: |
-          set -o pipefail
-          uv run pytest -q -rs 2>&1 | tee pytest.log
-
-      # un test Postgres sauté = CI rouge
-      - name: Vérifier qu’aucun test Postgres n’a été sauté
-        run: |
-          if grep -q "PostgreSQL local indisponible" pytest.log; then
-            echo "Test(s) Postgres sauté(s) : CI rouge."
-            exit 1
-          fi
+        run: uv run pytest -q -rs
 
   front:
     runs-on: ubuntu-latest
