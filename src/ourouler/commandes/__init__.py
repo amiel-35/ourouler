@@ -10,9 +10,12 @@ chaque sous-commande, un module de ce paquet :
 3. appelle le service (couche 3), qui rend un résultat sans rien imprimer ;
 4. appelle le rendu (texte ou JSON selon `--json`) et l'imprime.
 
-`cli.py` appelle ces fonctions. L'API aussi, **encore** : elle construit un
-`Namespace` et capture la sortie standard (`api/adaptateur.py`), et c'est le
-lot 11 qui la fera appeler le service et le rendu directement.
+`cli.py` appelle ces fonctions. L'API, depuis le lot 11, a deux chemins
+(`api/double_chemin.py`) : l'ancien construit un `Namespace` et capture la
+sortie standard (`api/adaptateur.py`) ; le nouveau (`api/calculs.py`)
+appelle les pièces sans impression de ce paquet — `demande(...)` sur les
+valeurs brutes, puis le service, puis les `json_*` — et le service
+directement.
 `executer_depuis_namespace` est ce point d'entrée de compatibilité : il
 reçoit la fonction de service que `api/routes.py` nomme, et appelle la
 commande qui la sert.
