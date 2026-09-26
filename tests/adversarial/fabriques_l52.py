@@ -72,7 +72,7 @@ PUISSANCE_CALME = 150.0
 DEG_PAR_M = 1.0 / 111_194.9
 
 MOTIF_PLACEMENT = "module du sprint 4 absent (ourouler.seance.placement)"
-MOTIF_CARTE = "module du sprint 4 absent (ourouler.sortie.carte)"
+MOTIF_CARTE = "module du sprint 4 absent (ourouler.rendu.carte)"
 
 
 def parametres() -> Any:

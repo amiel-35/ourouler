@@ -73,13 +73,13 @@ HTTP injectable :
 | `connecteurs/` | clients HTTP : BRouter, Intervals.icu, archives Open-Meteo, géocodage | `brouter.py` (604), `intervals.py` (595), `openmeteo_archive.py` (478) |
 | `stockage/` | ce qui s'écrit sur disque et se relit : `calibration.json` (lot 7) ; le cache d'activités, les routes connues et le cache des prévisions y viendront | `calibrations.py` |
 | `meteo/` | couronne de points, client de prévisions, rapport par direction, cache mutualisé | `rapport.py` (397), `openmeteo.py` (307) |
-| `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (1 857), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
+| `boucle/` | candidates de boucle, coûts, météo le long du tracé, GPX | `commande.py` (904), `meteo_trace.py` (697), `couts.py` (487), `candidates.py` (446) |
 | `physique/` | modèle puissance ↔ vitesse, paramètres d'un vélo (`parametres_velo.py`), calibration CdA/Crr, comparaison de vélos | `calibration.py` (1 782), `commande.py` (1 330), `comparer.py` (884), `modele.py` (668) |
 | `seance/` | lecteurs ZWO/MRC/Intervals, placement sur le terrain, tenue, écran de FTP (calcul dans `ftp.py`, commande dans `ecran_ftp.py`) | `placement.py` (1 490), `terrain.py` (1 002), `intervals.py` (974), `commande.py` (611) |
-| `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions, carte HTML | `commande.py` (2 494), `carte.py` (1 283), `contraste.py` (1 198) |
+| `sortie/` | la séance du jour posée sur une boucle : orchestration, contraste des propositions | `commande.py` (1 305), `contraste.py` (1 198) |
 | `apprentissage/` | routes connues : rejouer les sorties passées dans BRouter pour en tirer des poids | `routes.py` (1 122), `commande.py` (451) |
 | `geocodage/` | la sous-commande `geocoder` | `commande.py` |
-| `rendu/` | ce qu'une entrée montre d'un résultat : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`) | `profil.py`, `comptes.py` |
+| `rendu/` | ce qu'une entrée montre d'un résultat, sans rien lire ni écrire : le profil en JSON et le masquage des secrets (`profil.py`), l'affichage des commandes de comptes (`comptes.py`), le tableau, le JSON et la page du jour de `sortie` (`sortie.py`) et de `boucle` (`boucle.py`), la carte HTML (`carte.py`) | `sortie.py` (1 293), `carte.py` (1 283), `boucle.py` (1 005), `profil.py`, `comptes.py` |
 | `services/` | cas d'usage sans argparse ni affichage : les comptes de l'hébergé (inviter, lister les invitations, réinitialiser, retirer) | `comptes.py` |
 | `api/` | application FastAPI, routes, sessions, comptes, dépôts par propriétaire, quotas, tâches de fond, adaptateur vers la CLI | `routes.py` (2 122), `comptes.py` (1 095), `depots.py` (988), `application.py` (621), `adaptateur.py` (277) |
 
@@ -89,7 +89,14 @@ des réexports du noyau, pour un appelant extérieur ; le code du dépôt import
 `ourouler.noyau`, et le lot final les retire. `config.py` réexporte de même
 le profil, et `meteo/openmeteo.py` les types de prévision. Depuis le lot 7,
 `physique/commande.py` réexporte de même la lecture et l'écriture de
-`calibration.json` (`stockage/calibrations.py`) et la `Calibration`.
+`calibration.json` (`stockage/calibrations.py`) et la `Calibration`. Depuis
+le lot 6, `sortie/carte.py` réexporte `rendu/carte.py`.
+
+Les commandes `boucle` et `sortie` ne font plus de rendu (lot 6) : elles
+cherchent, mesurent, écrivent les fichiers et impriment ce que `rendu/` leur
+rend. C'est encore `executer` qui imprime, donc chacune importe son rendu —
+une arête qui monte, datée au lot 10 dans `tests/test_architecture.py`.
+`physique/commande.py` garde le sien jusqu'au lot 8.
 
 Chaque paquet de domaine a son `commande.py` : c'est la sous-commande de la
 ligne de commande, et, on le verra, bien plus que ça.
@@ -167,7 +174,7 @@ Le calcul (moindres carrés sur des sorties) et l'accès aux données y sont
 dans le même fichier.
 
 **Des fonctions trop longues.** 110 fonctions dépassent 50 lignes, 16 en
-dépassent 100, 4 en dépassent 200 : `sortie/carte.py:_page_jour` (333),
+dépassent 100, 4 en dépassent 200 : `rendu/carte.py:_page_jour` (333),
 `api/application.py:creer_application` (281), `boucle/candidates.py:generer`
 (213), `sortie/commande.py:executer` (209). Les tests (5 189) sont nombreux
 mais collés aux chemins internes : 203 usages de `monkeypatch` visent souvent
@@ -275,8 +282,8 @@ sortie/commande.py      executer(args, config, clients…)
   │   ├─ météo le long du tracé ─────► boucle/meteo_trace.py ─────► Open-Meteo
   │   ├─ coûts, classement, contraste ► boucle/couts.py, sortie/contraste.py
   │   ├─ tenue ──────────────────────► seance/tenue.py
-  │   ├─ carte HTML ─────────────────► sortie/carte.py (fichier du propriétaire)
-  │   └─ rendu JSON imprimé sur stdout (rendre_json)
+  │   ├─ page du jour ───────────────► rendu/sortie.py, rendu/carte.py (écrite chez le propriétaire)
+  │   └─ JSON imprimé sur stdout ────► rendu/sortie.py (rendre_json)
   ▼
 api/adaptateur.py       relit le JSON capturé, classe les avertissements
   ▼

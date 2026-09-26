@@ -29,7 +29,6 @@ import httpx
 import pytest
 from test_seance_intervals import ATHLETE, CLE, W
 
-from ourouler.boucle.commande import ligne_temps_ecoule
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import lire_gpx_trace
 from ourouler.cli import construire_parseur, main
@@ -50,25 +49,24 @@ from ourouler.noyau.trace import distance_m as distance_points
 from ourouler.physique.commande import VERSION_CALIBRATION
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
 from ourouler.physique.modele import Parametres
+from ourouler.rendu import carte
+from ourouler.rendu.boucle import ligne_temps_ecoule
+from ourouler.rendu.carte import COULEURS_BLOCS
+from ourouler.rendu.sortie import _ecart_seance, _ligne_modele_meteo, rendre_json, rendre_texte
+from ourouler.seance.ecran_ftp import info_compteur
 from ourouler.seance.placement import Emplacement, Placement
 from ourouler.seance.terrain import NoteBloc
-from ourouler.sortie import carte
-from ourouler.sortie.carte import COULEURS_BLOCS
 from ourouler.sortie.commande import (
     ARRONDI_DISTANCE_KM,
     Proposition,
     _comparer,
     _Contexte,
     _distance,
-    _ecart_seance,
     _ecrire_gpx,
-    _ligne_modele_meteo,
     _notes_egales,
     _seance,
     executer,
     lire_options,
-    rendre_json,
-    rendre_texte,
 )
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
@@ -1036,9 +1034,10 @@ def _contexte_minimal(tmp_path: Path, seance: Seance) -> Any:
 def _contexte_avec(seance: Seance, config: Config) -> Any:
     """Comme `_contexte_minimal`, mais avec une configuration donnée — pour
     tester le bloc `compteur` à facteur mesuré, ou sans vélo du tout."""
+    demande = lire_options(args(), config)
     return _Contexte(
         seance=seance,
-        demande=lire_options(args(), config),
+        demande=demande,
         config=config,
         distance_km=34.0,
         distance_source="déduite de la séance",
@@ -1047,6 +1046,9 @@ def _contexte_avec(seance: Seance, config: Config) -> Any:
         tenue=None,
         gpx=None,
         carte=None,
+        # Comme `executer` : le bloc « compteur » est lu par la commande, le
+        # rendu le reçoit (lot 6).
+        compteur_info=info_compteur(config, demande.velo),
     )
 
 

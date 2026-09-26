@@ -25,19 +25,12 @@ import pytest
 from test_brouter import reponse_fabriquee  # même dossier : pytest y met le sys.path
 
 from ourouler.boucle.commande import (
-    MARQUE_RETENUE,
-    TITRE_ANTENNES_DETECTEES,
-    TITRE_ANTENNES_RETIREES,
     Demande,
     Evaluation,
     _info_compteur,
-    _ligne_modele_meteo,
-    _modele_meteo_json,
     direction_en_azimut,
     executer,
     lire_options,
-    rendre_json,
-    rendre_texte,
 )
 from ourouler.boucle.couts import Couts
 from ourouler.boucle.gpx import ecrire_gpx
@@ -49,6 +42,15 @@ from ourouler.meteo.openmeteo import ClientOpenMeteo
 from ourouler.noyau.erreurs import ErreurUtilisateur
 from ourouler.noyau.trace import PointTrace, Segment, Trace
 from ourouler.physique.litterature import FOURCHETTE_PORTE_A_PORTE_DEFAUT
+from ourouler.rendu.boucle import (
+    MARQUE_RETENUE,
+    TITRE_ANTENNES_DETECTEES,
+    TITRE_ANTENNES_RETIREES,
+    _ligne_modele_meteo,
+    _modele_meteo_json,
+    rendre_json,
+    rendre_texte,
+)
 
 # Le fuseau que les bouchons Open-Meteo de ce module supposent (voir
 # `fuseau_de_paris` dans conftest.py) : dit ici, pas emprunté à la machine.
@@ -2006,8 +2008,8 @@ def test_texte_boucle_affiche_mouvement_et_ecoule(tmp_path: Path):
 
 def test_texte_boucle_dit_la_fourchette_de_la_retenue_en_toutes_lettres():
     """« entre 4 h 23 et 4 h 38 » : l'exemple de la note du 23/09."""
-    from ourouler.boucle.commande import texte_entre
     from ourouler.physique.modele import FourchettePorteAPorte, temps_ecoule
+    from ourouler.rendu.boucle import texte_entre
 
     pp = temps_ecoule(15_600.0, FourchettePorteAPorte(bas=1.015, mediane=1.039, haut=1.072))
     assert texte_entre(pp) == "entre 4 h 24 et 4 h 39"

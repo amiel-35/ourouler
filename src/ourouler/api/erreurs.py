@@ -217,7 +217,7 @@ MOTIFS_AVERTISSEMENT: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "météo indisponible",
         "meteo_indisponible",
-        ("sortie/commande.py", "boucle/commande.py", "physique/commande.py"),
+        ("rendu/sortie.py", "rendu/boucle.py", "physique/commande.py"),
     ),
     # Écrit par l'API elle-même (`routes.geocodage`), pas par le cœur : zéro
     # candidat n'est pas une panne, mais E16 a besoin d'une phrase.
@@ -408,11 +408,11 @@ PREFIXES_SERVICE: tuple[tuple[str, str, str], ...] = (
 #: cycliste vers l'écran de la clé, pas lui dire de réessayer plus tard.
 INDICE_CLE_REFUSEE = "clé d'API refusée"
 
-#: Le début du message de `sortie/commande._motif_aucune` et de son équivalent
+#: Le début du message de `rendu/sortie.motif_aucune` et de son équivalent
 #: dans `boucle`. Ce n'est pas une panne technique : le moteur a répondu, et
 #: aucune de ses boucles ne convient. Le front a un écran dessiné pour ça.
 #: Les trois messages concernés, tous vérifiés par un test contre le code
-#: qui les lève : `sortie/commande._motif_aucune` (aucune boucle ne porte la
+#: qui les lève : `rendu/sortie.motif_aucune` (aucune boucle ne porte la
 #: séance), `sortie/commande._candidates` et `boucle/commande.executer`
 #: (le moteur n'a rendu aucune boucle dans la tolérance de distance).
 DEBUTS_AUCUNE_BOUCLE = (

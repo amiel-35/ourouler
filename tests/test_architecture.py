@@ -25,10 +25,9 @@ qui doit la retirer. Le test échoue :
 
 Résumé des exceptions (vérifié par `test_le_resume_dit_vrai`) :
 
-    lot 6 : 1 exception, échéance 2026-11-30
     lot 8 : 4 exceptions, échéance 2026-11-30
-    lot 10 : 9 exceptions, échéance 2026-12-31
-    total : 14 exceptions
+    lot 10 : 11 exceptions, échéance 2026-12-31
+    total : 15 exceptions
 
 Le lot 3 n'en retire aucune : il a déplacé sous `noyau/` des modules que
 cette table rangeait déjà au noyau. Les lots 11 à 14 non plus : ils
@@ -58,6 +57,17 @@ de `api/` — le serveur, le dépôt des comptes, le client SMTP, la lecture de
 l'environnement de l'hébergé, les dépôts à effacer — pour construire les
 dépendances qu'il passe au service : ce sont des arêtes d'une entrée à une
 autre, sans cycle, donc permises.
+
+**Lot 6 fait** (pour `sortie` et `boucle` ; `physique/commande.py` attend le
+lot 8). Le tableau texte, le JSON, les phrases et la page du jour sont dans
+`rendu/sortie.py` et `rendu/boucle.py`, la carte HTML dans `rendu/carte.py`
+(`sortie/carte.py` n'en est plus que le réexport, dans `REEXPORTS`). Les
+commandes cherchent, mesurent, écrivent les fichiers et appellent le rendu,
+qui ne lit ni fichier, ni configuration, ni horloge. L'exception du lot 6
+(`sortie.commande` → la carte) est tombée ; mais c'est encore `executer`
+qui imprime, donc chaque commande importe son rendu (import différé) : ces
+deux arêtes qui montent sont datées au lot 10, quand `cli` appellera le
+rendu lui-même.
 
 **Lot 9 fait.** `noyau/ports` porte les protocoles que le domaine reçoit à
 la place des clients concrets : `Routeur` (BRouter), `SourcePrevisions`
@@ -152,7 +162,8 @@ ORDRE_DOMAINE = ("physique", "meteo", "boucle", "seance", "sortie")
 #: - `meteo/openmeteo.py` est un **connecteur** (client HTTP) ; ses types de
 #:   prévision sont au noyau depuis le lot 4 (`noyau/meteo.py`) ;
 #: - `boucle/gpx.py` est du **stockage** (lecteur et écrivain GPX) ;
-#: - `sortie/carte.py` est du **rendu** (carte HTML) ;
+#: - la carte HTML est du **rendu** : `rendu/carte.py` depuis le lot 6,
+#:   `sortie/carte.py` n'en est plus que le réexport ;
 #: - dans `api/`, trois modules ne sont pas des entrées (lot 5) :
 #:   `api/comptes.py` est du **stockage** (le dépôt PostgreSQL des comptes),
 #:   `api/courriel.py` un **connecteur** (le client SMTP), et
@@ -252,8 +263,12 @@ MODULES: dict[str, str] = {
     "ourouler.sortie.commande": "services",
     # 4. rendu
     "ourouler.rendu": "rendu",
+    "ourouler.rendu.boucle": "rendu",
+    "ourouler.rendu.carte": "rendu",
     "ourouler.rendu.comptes": "rendu",
     "ourouler.rendu.profil": "rendu",
+    "ourouler.rendu.sortie": "rendu",
+    # le réexport temporaire du lot 6 (`REEXPORTS`), retiré au lot final
     "ourouler.sortie.carte": "rendu",
     # 5. entrées
     "ourouler.config": "config",
@@ -292,8 +307,6 @@ ECHEANCES = {
 #: échéance). Une ligne par paire de modules, quel que soit le nombre
 #: d'instructions `import` qui la portent.
 EXCEPTIONS: list[tuple[str, str, str, str]] = [
-    # Lot 6 : le rendu sort des commandes (la carte HTML part au rendu).
-    ("ourouler.sortie.commande", "ourouler.sortie.carte", "lot 6", "2026-11-30"),
     # Lot 8 : la physique pure. Le calcul de calibration ne lit plus le
     # cache, l'inventaire ni le connecteur d'archive météo.
     ("ourouler.physique.calibration", "ourouler.activites.cache", "lot 8", "2026-11-30"),
@@ -321,9 +334,18 @@ EXCEPTIONS: list[tuple[str, str, str, str]] = [
     # en est devenu la commande, et garde sa signature en `Config` pour `cli`.
     ("ourouler.seance.ecran_ftp", "ourouler.config", "lot 10", "2026-12-31"),
     ("ourouler.sortie.commande", "ourouler.config", "lot 10", "2026-12-31"),
+    # Lot 10 (ouvert au lot 6) : le rendu est sorti des commandes, mais c'est
+    # encore `executer` qui imprime — `cli.py` et l'API l'appellent et lisent
+    # la sortie standard. L'appel au rendu y est différé (le rendu importe les
+    # types de la commande) mais c'est une arête qui monte, nommée ici. Quand
+    # `cli` construit la `Demande` et reçoit un résultat (lot 10), c'est lui
+    # qui appelle le rendu, et ces arêtes tombent.
+    ("ourouler.boucle.commande", "ourouler.rendu.boucle", "lot 10", "2026-12-31"),
+    ("ourouler.sortie.commande", "ourouler.rendu.sortie", "lot 10", "2026-12-31"),
 ]
 
-#: Ancien chemin → module du noyau qu'il réexporte (lot 3). Un réexport
+#: Ancien chemin → module qu'il réexporte (lots 3 et 4 : le noyau ; lot 6 : la
+#: carte, au rendu). Un réexport
 #: n'importe que sa cible, et plus aucun module de `src/` ne l'importe : un
 #: `monkeypatch.setattr` qui le viserait ne remplacerait rien dans le vrai
 #: module. `scripts/reecrire_imports.py` a fait suivre imports et cibles de
@@ -335,6 +357,8 @@ REEXPORTS: dict[str, str] = {
     "ourouler.proprietaire": "ourouler.noyau.proprietaire",
     "ourouler.seance.modele": "ourouler.noyau.seance",
     "ourouler.seance.zones": "ourouler.noyau.zones",
+    # lot 6 : la carte HTML, rangée au rendu avec sa cible
+    "ourouler.sortie.carte": "ourouler.rendu.carte",
 }
 
 #: Les imports sous `if TYPE_CHECKING:` : permis, mais nommés.
@@ -345,8 +369,10 @@ IMPORTS_TYPE_CHECKING: set[tuple[str, str]] = {
     ("ourouler.cli", "ourouler.api.courriel"),
     ("ourouler.cli", "ourouler.services.comptes"),
     # Le rendu du profil annote `Config` sans dépendre, à l'exécution, de
-    # l'entrée qui la charge (lot 5).
+    # l'entrée qui la charge (lot 5) ; celui des parcours de même (lot 6).
     ("ourouler.rendu.profil", "ourouler.config"),
+    ("ourouler.rendu.boucle", "ourouler.config"),
+    ("ourouler.rendu.sortie", "ourouler.config"),
 }
 
 
@@ -592,7 +618,7 @@ def test_aucune_exception_echue():
 
 def test_un_reexport_n_importe_que_sa_cible():
     for ancien, cible in REEXPORTS.items():
-        assert MODULES[ancien] == MODULES[cible] == "noyau"
+        assert MODULES[ancien] == MODULES[cible]
         importes = {i.importe for i in tous_les_imports() if i.importeur == ancien}
         assert importes == {cible}, ancien
 

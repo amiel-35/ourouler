@@ -30,8 +30,8 @@ from ourouler.boucle.candidates import (
     generer,
     palier,
 )
-from ourouler.boucle.commande import lignes_elargissement
 from ourouler.noyau.erreurs import ErreurDistanceInatteignable
+from ourouler.rendu.boucle import lignes_elargissement
 
 # --- le palier lui-même -------------------------------------------------------
 

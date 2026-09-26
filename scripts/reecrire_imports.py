@@ -21,7 +21,8 @@ Ce qu'il réécrit, dans chaque fichier `.py` de `src/` et `tests/` :
 
 Il laisse les modules de réexport eux-mêmes, le noyau et
 `tests/test_architecture.py` (sa table nomme les anciens chemins exprès).
-Le lot 4 y a ajouté le modèle de séance et les zones.
+Le lot 4 y a ajouté le modèle de séance et les zones, le lot 6 la carte HTML
+(`sortie/carte.py` → `rendu/carte.py`).
 """
 
 from __future__ import annotations
@@ -43,6 +44,8 @@ DEPLACEMENTS: dict[str, str] = {
     # lot 4
     "ourouler.seance.modele": "ourouler.noyau.seance",
     "ourouler.seance.zones": "ourouler.noyau.zones",
+    # lot 6 : la carte HTML passe au rendu
+    "ourouler.sortie.carte": "ourouler.rendu.carte",
 }
 
 #: Fichiers qui nomment les anciens chemins exprès.
@@ -53,6 +56,7 @@ EPARGNES = {
     "src/ourouler/proprietaire.py",
     "src/ourouler/seance/modele.py",
     "src/ourouler/seance/zones.py",
+    "src/ourouler/sortie/carte.py",
     "tests/test_architecture.py",
 }
 

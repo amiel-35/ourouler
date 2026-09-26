@@ -79,8 +79,6 @@ max-positional-args = 6
 # exception datée : 2 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/api/routes.py" = ["PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"src/ourouler/boucle/commande.py" = ["PLR0917"]
-# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/boucle/meteo_trace.py" = ["PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/physique/calibration.py" = ["PLR0917"]
@@ -88,12 +86,14 @@ max-positional-args = 6
 "src/ourouler/physique/commande.py" = ["C901", "PLR0912", "PLR0915", "PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/physique/comparer.py" = ["C901"]
+# exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
+"src/ourouler/rendu/boucle.py" = ["PLR0917"]
 # exception datée : 5 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/seance/placement.py" = ["C901", "PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "src/ourouler/seance/tenue.py" = ["PLR0917"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
-"src/ourouler/sortie/commande.py" = ["C901", "PLR0912", "PLR0915"]
+"src/ourouler/sortie/commande.py" = ["PLR0915"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)
 "tests/adversarial/test_adv_invariants.py" = ["C901"]
 # exception datée : 1 fonction(s), à retirer au lot 12 (2026-12-31)

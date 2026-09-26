@@ -42,7 +42,7 @@ journal des appels aux services :
 Fichiers écrits : un GPX par l'empreinte de ses octets ; une carte HTML par
 l'empreinte de son texte normalisé (chemins, UUID, jetons), **une seule
 ligne retirée** : `<p class="horodatage">Page générée le JJ/MM/AAAA à
-HH:MM.</p>` (`sortie/carte.py`). L'horloge étant figée, elle serait stable ;
+HH:MM.</p>` (`rendu/carte.py`). L'horloge étant figée, elle serait stable ;
 elle est retirée pour qu'un lot qui déplace la lecture de l'horloge de la
 carte ne casse pas l'empreinte de toute la page.
 
