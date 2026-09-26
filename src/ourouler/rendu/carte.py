@@ -886,60 +886,15 @@ def _panneau_proposition(prop: PropositionCarte, blocs: Sequence[dict], avec_ven
 {profil}"""
 
 
-def _page_jour(
-    *,
-    titre: str,
-    donnees: dict,
-    propositions: Sequence[PropositionCarte],
-    panneaux: Sequence[str],
-    motif_deux_propositions: str | None,
-    motif_equivalence: str | None,
-    horodatage: str,
-) -> str:
-    """Le HTML autonome de la page du jour. Les données partent en JSON, comme `_page`."""
-    n = len(propositions)
-    premiere = propositions[0]
-    accord = "s" if n != 1 else ""
-    sous_titre = (
-        f"{n} proposition{accord} contrastée{accord}"
-        + (" — cliquez une miniature pour l'afficher sur la carte" if n > 1 else "")
-    )
-    items = []
-    for prop in propositions:
-        actif = prop is premiere
-        recommandee = ' <span class="badge badge-reco">recommandée</span>' if actif else ""
-        items.append(
-            f"""<div class="carte-item{' actif' if actif else ''}" role="button" tabindex="0"
-     aria-pressed="{'true' if actif else 'false'}" data-prop="{prop.numero}">
-<div class="mini-carte" aria-hidden="true"></div>
-<p class="distinction"><span class="badge">n° {prop.numero}</span>{recommandee}
-{html.escape(prop.distinction or ("la seule candidate" if n == 1 else ""))}</p>
-<p class="chiffres">{html.escape(prop.chiffres)}</p>
-<a class="gpx-dl" data-prop="{prop.numero}" download="{html.escape(prop.gpx_nom)}" href="#">
-Télécharger le GPX</a>
-</div>"""
-        )
-    panneaux_html = "".join(
-        f'<div class="panneau-prop" data-prop="{prop.numero}"{"" if prop is premiere else " hidden"}>'
-        f"{panneau}</div>"
-        for prop, panneau in zip(propositions, panneaux, strict=True)
-    )
-    # Deux phrases possibles, au même endroit : « il n'y en a que deux, et
-    # voici pourquoi » et « elles se valent, choisissez ». Elles ne s'excluent
-    # pas — deux boucles qui vont ailleurs peuvent parfaitement se valoir.
-    motif_html = "".join(
-        f'<p class="note motif">{html.escape(texte)}</p>'
-        for texte in (motif_deux_propositions, motif_equivalence)
-        if texte
-    )
-    charge = _charge_json(donnees)
-    return f"""<!doctype html>
+#: La page du jour, en morceaux fixes : `_page_jour` n'y insère que ce qui
+#: dépend des propositions (titre, sélecteur, panneaux, données, heure).
+_PAGE_JOUR_TETE = """<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(titre)}</title>
-<link rel="stylesheet" href="{LEAFLET_CSS}">
+"""
+_PAGE_JOUR_STYLE = f"""<link rel="stylesheet" href="{LEAFLET_CSS}">
 <style>
 :root {{ color-scheme: light; }}
 body {{ margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1c1c1c;
@@ -1017,20 +972,8 @@ ul.legende-vent li {{ display: flex; align-items: center; }}
 </head>
 <body>
 <header>
-<h1>{html.escape(titre)}</h1>
-<h2>{html.escape(sous_titre)}</h2>
-</header>
-<div id="carte"></div>
-<section>
-<h3>Propositions</h3>
-<div class="carte-selecteur">{"".join(items)}</div>
-{motif_html}
-{panneaux_html}
-</section>
-<script src="{LEAFLET_JS}"></script>
-<script>
-const D = {charge};
-const carte = L.map('carte');
+"""
+_PAGE_JOUR_SCRIPT = f"""const carte = L.map('carte');
 // Le cadrage se fait **avant** tout ajout de couche (tuiles comprises) :
 // un `L.map()` sans vue calcule des coordonnées de tuile `NaN` dès qu'on lui
 // ajoute une couche, avant que `fitBounds` n'ait rien fixé — erreur bénigne
@@ -1215,10 +1158,80 @@ document.querySelectorAll('.carte-item').forEach(function (el) {{
   }});
 }});
 </script>
-<p class="horodatage">Page générée le {horodatage}.</p>
+"""
+
+
+def _page_jour(
+    *,
+    titre: str,
+    donnees: dict,
+    propositions: Sequence[PropositionCarte],
+    panneaux: Sequence[str],
+    motif_deux_propositions: str | None,
+    motif_equivalence: str | None,
+    horodatage: str,
+) -> str:
+    """Le HTML autonome de la page du jour. Les données partent en JSON, comme `_page`."""
+    n = len(propositions)
+    premiere = propositions[0]
+    accord = "s" if n != 1 else ""
+    sous_titre = (
+        f"{n} proposition{accord} contrastée{accord}"
+        + (" — cliquez une miniature pour l'afficher sur la carte" if n > 1 else "")
+    )
+    items = [_item_selecteur(prop, actif=prop is premiere, seule=n == 1) for prop in propositions]
+    panneaux_html = "".join(
+        f'<div class="panneau-prop" data-prop="{prop.numero}"{"" if prop is premiere else " hidden"}>'
+        f"{panneau}</div>"
+        for prop, panneau in zip(propositions, panneaux, strict=True)
+    )
+    # Deux phrases possibles, au même endroit : « il n'y en a que deux, et
+    # voici pourquoi » et « elles se valent, choisissez ». Elles ne s'excluent
+    # pas — deux boucles qui vont ailleurs peuvent parfaitement se valoir.
+    motif_html = "".join(
+        f'<p class="note motif">{html.escape(texte)}</p>'
+        for texte in (motif_deux_propositions, motif_equivalence)
+        if texte
+    )
+    charge = _charge_json(donnees)
+    return (
+        _PAGE_JOUR_TETE
+        + f"<title>{html.escape(titre)}</title>\n"
+        + _PAGE_JOUR_STYLE
+        + f"""<h1>{html.escape(titre)}</h1>
+<h2>{html.escape(sous_titre)}</h2>
+</header>
+<div id="carte"></div>
+<section>
+<h3>Propositions</h3>
+<div class="carte-selecteur">{"".join(items)}</div>
+{motif_html}
+{panneaux_html}
+</section>
+<script src="{LEAFLET_JS}"></script>
+<script>
+const D = {charge};
+"""
+        + _PAGE_JOUR_SCRIPT
+        + f"""<p class="horodatage">Page générée le {horodatage}.</p>
 </body>
 </html>
 """
+    )
+
+
+def _item_selecteur(prop: PropositionCarte, *, actif: bool, seule: bool) -> str:
+    """La miniature d'une proposition dans le sélecteur de la page du jour."""
+    recommandee = ' <span class="badge badge-reco">recommandée</span>' if actif else ""
+    return f"""<div class="carte-item{' actif' if actif else ''}" role="button" tabindex="0"
+     aria-pressed="{'true' if actif else 'false'}" data-prop="{prop.numero}">
+<div class="mini-carte" aria-hidden="true"></div>
+<p class="distinction"><span class="badge">n° {prop.numero}</span>{recommandee}
+{html.escape(prop.distinction or ("la seule candidate" if seule else ""))}</p>
+<p class="chiffres">{html.escape(prop.chiffres)}</p>
+<a class="gpx-dl" data-prop="{prop.numero}" download="{html.escape(prop.gpx_nom)}" href="#">
+Télécharger le GPX</a>
+</div>"""
 
 
 # --- la page « rien de prévu » (contrat de l'hébergé minimal) ---------------
