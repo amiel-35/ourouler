@@ -4,7 +4,7 @@ Un compte avec capteur de puissance calibre son vélo sans la ligne de
 commande du mainteneur : Crr fixé par le pneu, CdA cherché, fourchette du
 porte à porte (L9.1), sur les sorties qu'il a importées (L9.2) ou
 synchronisées depuis Intervals.icu. Le calcul est celui de `ourouler
-calibrer` (`physique.commande.calibrer_velo`) — pas une seconde
+calibrer` (`services.calibrer.calibrer_velo`) — pas une seconde
 implémentation —, lancé en tâche de fond (`api/taches_fond.py`) parce qu'il
 dure et appelle l'archive Open-Meteo, une fois par jour de sortie.
 
@@ -58,6 +58,7 @@ from ourouler.physique import calibration as calib
 from ourouler.physique import commande as physique
 from ourouler.physique import litterature
 from ourouler.physique.modele import puissance_a_plat_w
+from ourouler.services import calibrer
 from ourouler.stockage import calibrations as stockage
 
 #: La vitesse à laquelle l'écran dit ce que coûte le vélo : « à 30 km/h sur
@@ -79,7 +80,7 @@ def compter_sorties(config: Config, velo: Velo, cache: Cache) -> tuple[int, dict
     pourra en écarter encore quelques-uns (multisport) ; ce décompte est donc
     un plafond honnête, pas une promesse.
     """
-    retenues, motifs = calib.sorties_calibrables_et_motifs(
+    retenues, motifs = calibrer.sorties_calibrables_et_motifs(
         cache, config, velo, depuis=config.historique_depuis, strict=True
     )
     return (len(retenues), motifs)
@@ -141,7 +142,7 @@ def verifier(
             },
         )
     if physique.crr_du_velo(velo) is None and not sans_pneu:
-        crr = physique.crr_de_l_usage(velo)
+        crr = calibrer.crr_de_l_usage(velo)
         raise ErreurApi(
             code="pneu_absent",
             message=(
@@ -164,8 +165,8 @@ def _message_sorties(
         f"au moins {il_en_faut} — des sorties en extérieur de 20 km et plus, avec un "
         f"capteur de puissance, depuis le {config.historique_depuis.isoformat()}"
     ]
-    non_identifiees = motifs.get(calib.MOTIF_VELO_NON_IDENTIFIE, 0)
-    autres = {m: n for m, n in motifs.items() if m != calib.MOTIF_VELO_NON_IDENTIFIE}
+    non_identifiees = motifs.get(calibrer.MOTIF_VELO_NON_IDENTIFIE, 0)
+    autres = {m: n for m, n in motifs.items() if m != calibrer.MOTIF_VELO_NON_IDENTIFIE}
     if autres:
         detail = ", ".join(f"{n} {m}" for m, n in sorted(autres.items()))
         lignes.append(f"écartées : {detail}")
@@ -235,7 +236,7 @@ def etat(config: Config, cache: Cache, proprietaire: str) -> dict:
                 "sorties_ecartees": motifs,
                 "pneu": pneu.cle if pneu is not None else None,
                 "crr_connu": physique.crr_du_velo(velo) is not None,
-                "crr_usage": physique.crr_de_l_usage(velo),
+                "crr_usage": calibrer.crr_de_l_usage(velo),
                 "tache": tache.json() if tache is not None else None,
             }
         )
@@ -266,7 +267,7 @@ def lancer(
 
     def travailler(job: taches_fond.Job) -> dict:
         try:
-            resultat = physique.calibrer_velo(
+            resultat = calibrer.calibrer_velo(
                 config,
                 velo,
                 cache,

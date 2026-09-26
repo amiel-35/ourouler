@@ -191,9 +191,9 @@ from ourouler.physique.calibration import (
     _matrices,
     detecter_groupe,
     echantillonner,
-    masse_totale_kg,
 )
 from ourouler.physique.modele import Parametres, puissance_requise
+from ourouler.services.calibrer import masse_totale_kg
 
 #: Bornes des trois inconnues, dans l'ordre (CdA du groupe A, CdA du groupe B,
 #: Crr commun). Ce sont celles du contrat de sprint, reprises telles quelles :
