@@ -24,6 +24,7 @@ Ce qui est traqué :
 
 from __future__ import annotations
 
+import importlib
 import json
 from datetime import date
 from typing import Any
@@ -47,7 +48,9 @@ TYPES_CONTRAT = ("echauffement", "bloc", "recuperation", "calme")
 
 
 def _modele() -> Any:
-    return fabriques4.module("modele", motif=MOTIF_MODELE)
+    # Le modèle de séance vit au noyau depuis le lot 4 : import direct, jamais
+    # de saut (un saut ici rendait 30 tests adversariaux silencieusement verts).
+    return importlib.import_module("ourouler.noyau.seance")
 
 
 def _intervals() -> Any:

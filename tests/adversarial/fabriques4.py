@@ -64,7 +64,10 @@ def module(nom: str, *, motif: str) -> Any:
             ):
                 raise  # le paquet est là, c'est un de ses imports qui manque
             continue
-    pytest.skip(motif)
+    # Tous les lots du contrat existent désormais : un module introuvable est
+    # une régression (renommage, suppression), plus jamais un lot à venir.
+    # Un saut rendait ici des suites entières silencieusement vertes.
+    pytest.fail(motif)
 
 
 # --- documents Intervals ----------------------------------------------------
