@@ -789,6 +789,9 @@ def test_m10_fichier_de_chantier_absent(tmp_path):
     donnees = _ecrire_toml(
         racine,
         """
+        [chantiers]
+        ouverture = "docs/ouverture_plan.md"
+
         [[sprint]]
         numero = 1
         statut = "en_cours"
@@ -1199,6 +1202,9 @@ def test_me_fiche_et_chantier_de_meme_nom_ne_se_confondent_pas(tmp_path):
     donnees = _ecrire_toml(
         racine,
         """
+        [chantiers]
+        ouverture = "docs/ouverture_plan.md"
+
         [[sprint]]
         numero = 1
         statut = "en_cours"
@@ -1406,6 +1412,9 @@ def test_n26_chantier_reference_dans_deux_sprints(tmp_path):
     donnees = _ecrire_toml(
         racine,
         """
+        [chantiers]
+        ouverture = "docs/ouverture_plan.md"
+
         [[sprint]]
         numero = 1
         statut = "en_cours"
@@ -1847,6 +1856,175 @@ def test_robustesse_type_raison(tmp_path):
     violations = violations_statiques(donnees, racine)  # ne doit pas lever
     assert violations != []
     assert _viole(violations, "'raison' doit être une chaîne")
+
+
+# ---------------------------------------------------------------------------
+# Table [chantiers] : validation statique et gel historique des références.
+# ---------------------------------------------------------------------------
+
+
+def test_chantiers_cle_racine_inconnue_toujours_refusee(tmp_path):
+    """[chantiers] est désormais une clé racine valide, mais une autre clé
+    inconnue à côté d'elle reste refusée."""
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "ouverture_plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        """
+        cle_orpheline = 1
+
+        [chantiers]
+        ouverture = "docs/ouverture_plan.md"
+
+        [[sprint]]
+        numero = 1
+        statut = "esquisse"
+        titre = "T"
+        """,
+    )
+    assert _viole(violations_statiques(donnees, racine), "inconnue(s) à la racine")
+
+
+def test_chantiers_declaration_valide_sans_violation(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "ouverture_plan.md").write_text("# Plan\n", encoding="utf-8")
+    donnees = _ecrire_toml(
+        racine,
+        """
+        [chantiers]
+        ouverture = "docs/ouverture_plan.md"
+
+        [[sprint]]
+        numero = 1
+        statut = "en_cours"
+        titre = "T"
+        [[sprint.element]]
+        chantier = "ouverture"
+        statut = "en_cours"
+        """,
+    )
+    assert violations_statiques(donnees, racine) == []
+
+
+def test_chantiers_pas_une_table(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine, 'chantiers = "pas une table"\n[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n'
+    )
+    assert _viole(violations_statiques(donnees, racine), "[chantiers] doit être une table")
+
+
+def test_chantiers_nom_invalide(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    (racine / "docs" / "x.md").write_text("# X\n", encoding="utf-8")
+    for nom in ("Majuscule", "double--tiret", "sous_tiret", "-debut", "fin-"):
+        donnees = _ecrire_toml(
+            racine,
+            f'[chantiers]\n"{nom}" = "docs/x.md"\n[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+        )
+        assert _viole(violations_statiques(donnees, racine), "nom de chantier invalide"), nom
+
+
+def test_chantiers_chemin_absolu_refuse(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "/etc/passwd"\n[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "chemin absolu interdit")
+
+
+def test_chantiers_chemin_avec_segment_double_point_refuse(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        '[chantiers]\nouverture = "docs/../secrets.md"\n'
+        '[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n',
+    )
+    assert _viole(violations_statiques(donnees, racine), "segment '..' interdit")
+
+
+def test_chantiers_chemin_vide_refuse(tmp_path):
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine, '[chantiers]\nouverture = ""\n[[sprint]]\nnumero = 1\nstatut = "esquisse"\ntitre = "T"\n'
+    )
+    assert _viole(violations_statiques(donnees, racine), "chemin vide")
+
+
+def test_chantiers_reference_a_un_chantier_non_declare(tmp_path):
+    """Un élément référence un chantier absent de [chantiers] (même vide ou
+    absente) : refusé, comme avant l'introduction de la table."""
+    racine = _preparer_depot(tmp_path)
+    donnees = _ecrire_toml(
+        racine,
+        """
+        [[sprint]]
+        numero = 1
+        statut = "en_cours"
+        titre = "Titre"
+        [[sprint.element]]
+        chantier = "jamais-declare"
+        statut = "en_cours"
+        """,
+    )
+    assert _viole(violations_statiques(donnees, racine), "chantier inconnu (absent de la table [chantiers])")
+
+
+# --- Gel historique : une entrée [chantiers] référencée dans la base --------
+
+
+def _fichier_avec_chantiers(sprints: list[dict], chantiers: dict[str, str]) -> dict:
+    return {"sprint": sprints, "chantiers": chantiers}
+
+
+def test_chantiers_reference_retiree_de_la_base_est_une_violation():
+    base = _fichier_avec_chantiers(
+        [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])],
+        {"ouverture": "docs/ouverture_plan.md"},
+    )
+    courant = _fichier_avec_chantiers(
+        [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])], {}
+    )
+    assert _viole(violations_contre_base(base, courant), "a disparu de [chantiers]")
+
+
+def test_chantiers_reference_a_change_de_chemin_est_une_violation():
+    base = _fichier_avec_chantiers(
+        [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])],
+        {"ouverture": "docs/ouverture_plan.md"},
+    )
+    courant = _fichier_avec_chantiers(
+        [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])],
+        {"ouverture": "docs/autre_plan.md"},
+    )
+    assert _viole(violations_contre_base(base, courant), "a changé de chemin")
+
+
+def test_chantiers_non_reference_retire_est_permis():
+    """Un chantier déclaré mais qu'aucun élément ne référence peut disparaître
+    librement : seul un chantier référencé est gelé."""
+    base = _fichier_avec_chantiers(
+        [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])],
+        {"ouverture": "docs/ouverture_plan.md", "jamais-utilise": "docs/jamais.md"},
+    )
+    courant = _fichier_avec_chantiers(
+        [_sprint(1, "en_cours", [{"chantier": "ouverture", "statut": "en_cours"}])],
+        {"ouverture": "docs/ouverture_plan.md"},
+    )
+    assert violations_contre_base(base, courant) == []
+
+
+# ---------------------------------------------------------------------------
+# --version
+# ---------------------------------------------------------------------------
+
+
+def test_version_affiche_et_quitte(capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+    assert exc.value.code == 0
+    assert verifier_backlog.VERSION in capsys.readouterr().out
 
 
 def test_robustesse_type_derogations(tmp_path):

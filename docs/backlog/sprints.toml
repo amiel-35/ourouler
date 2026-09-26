@@ -10,6 +10,11 @@
 # --base pour empêcher un retour en arrière ou un remaniement furtif d'un
 # sprint déjà figé/en cours).
 
+# Chantiers : nom -> chemin (relatif à la racine du dépôt) du fichier qui le
+# documente. Référencés par un élément [[sprint.element]] via chantier = "...".
+[chantiers]
+ouverture = "docs/ouverture_plan.md"
+
 [[sprint]]
 numero = 10
 statut = "en_cours"
