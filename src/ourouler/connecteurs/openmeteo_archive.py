@@ -2,14 +2,15 @@
 
 Sans le vent réel, calibrer un CdA revient à attribuer au cycliste ce qui
 appartenait à la brise : trois mètres par seconde de face sur une sortie
-plate, c'est 20 % de puissance aérodynamique en plus. C'est le seul point sur
-lequel le mainteneur a demandé de ne pas transiger (« l'effort va dans ce qui
-compte : CdA par vélo, vent réel, exclusion des sorties en groupe »).
+plate, c'est 20 % de puissance aérodynamique en plus. C'est un point sur
+lequel on ne transige pas : l'effort va dans ce qui compte — CdA par vélo,
+vent réel, exclusion des sorties en groupe.
 
 L'archive d'un jour **clos** ne change plus : ces réponses-là sont mémoïsées
 dans un SQLite dont le chemin est passé au constructeur (le cœur ne connaît
-aucun chemin, règle absolue 2). Une deuxième calibration ne les rappelle donc
-pas. Le jour courant, lui, change encore — la réponse est souvent tronquée ou
+aucun chemin : le cœur ne lit ni configuration ni environnement). Une deuxième
+calibration ne les rappelle donc pas. Le jour courant, lui, change encore — la
+réponse est souvent tronquée ou
 partiellement `null` — et une réponse vide peut aussi bien être un point hors
 grille qu'un hoquet du service : ni l'un ni l'autre n'est écrit sur disque,
 seulement gardé le temps du processus.
@@ -38,8 +39,8 @@ import httpx
 from ourouler.meteo.openmeteo import motif_api
 from ourouler.noyau.erreurs import ErreurConnecteur, ErreurUtilisateur
 
-# Le type d'une heure d'archive est au noyau depuis le lot 8 (le calcul de
-# calibration le lit sans importer ce connecteur).
+# Le type d'une heure d'archive est au noyau : le calcul de calibration le
+# lit sans importer ce connecteur.
 from ourouler.noyau.meteo import HeureArchive
 from ourouler.noyau.proprietaire import PROPRIETAIRE_PARTAGE
 from ourouler.noyau.sqlite import colonne_existe, table_existe
@@ -51,7 +52,7 @@ CHEMIN_ARCHIVE = "/v1/archive"
 #: Pas d'arrondi du point interrogé, en degrés (0,05° ≈ 5,5 km en latitude).
 ARRONDI_DEG = 0.05
 
-#: Variables horaires demandées (contrat de sprint §3).
+#: Variables horaires demandées.
 VARIABLES_HORAIRES = (
     "wind_speed_10m",
     "wind_direction_10m",

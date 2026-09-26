@@ -16,15 +16,15 @@ Deux fournisseurs, chacun sans clé d'API :
    (adresse au numéro de rue près), **inexistantes hors de France** — la
    BAN ne connaît que le territoire national, elle rend alors zéro
    candidat, jamais une erreur. Licence Etalab 2.0 (licence ouverte),
-   aucune clé, débit limité à 50 requêtes/s par IP (mesuré sur la
-   documentation officielle, 16/09/2026) — sans commune mesure avec l'usage
+   aucune clé, débit limité à 50 requêtes/s par IP (selon la
+   documentation officielle) — sans commune mesure avec l'usage
    d'un cycliste qui tape une adresse de temps en temps.
 
 2. **Nominatim** (OpenStreetMap, `https://nominatim.openstreetmap.org`),
    en repli quand la BAN ne rend aucun candidat — hors de France, ou
    adresse que la BAN ne reconnaît pas. Couverture mondiale, mais la
    politique d'usage du service (operations.osmfoundation.org/policies/
-   nominatim, relevée le 16/09/2026) impose :
+   nominatim) impose :
    - **1 requête par seconde maximum** — jamais en jeu ici : ce connecteur
      n'appelle Nominatim qu'une fois par recherche d'adresse, après un
      échec de la BAN, jamais en boucle ;
@@ -127,10 +127,10 @@ def _clef_commune(candidat: Candidat) -> str | None:
 def ambiguite(candidats: list[Candidat]) -> Ambiguite | None:
     """Ces candidats désignent-ils un seul lieu ? `None` si oui, un `Ambiguite` sinon.
 
-    **Aucun seuil de score n'est utilisé, et c'est le fond de la décision du
-    mainteneur sur Q34** (« on refuse », 17/09/2026). La mesure du 17/09/2026,
-    quinze requêtes sur la vraie BAN avec des lieux publics, dit pourquoi
-    aucun seuil n'est possible : l'écart de score entre les deux premiers
+    **Aucun seuil de score n'est utilisé** : dans le doute, on refuse
+    (décision Q34, `docs/journal/questions/questions_mainteneur.md`). La mesure,
+    quinze requêtes sur la vraie BAN avec des lieux publics, dit pourquoi aucun
+    seuil n'est possible : l'écart de score entre les deux premiers
     candidats vaut 0,0016 à 0,0024 quand la réponse est arbitraire (cinq
     communes distinctes, jusqu'à 400 km d'écart) et 0,0020 quand elle est
     juste (cinq candidats, une seule commune). Les deux intervalles se
@@ -227,7 +227,7 @@ class ClientNominatim:
             raise ErreurConnecteur("Nominatim : adresse vide")
         # `addressdetails=1` : sans lui, Nominatim ne rend pas la commune, et
         # `ambiguite()` refuserait alors *tout* résultat de repli faute de
-        # pouvoir vérifier qu'une seule commune est en jeu (Q34).
+        # pouvoir vérifier qu'une seule commune est en jeu.
         params = {"q": adresse, "format": "jsonv2", "limit": limite, "addressdetails": 1}
         # Le User-Agent est passé par requête, pas seulement à la construction
         # du client HTTP : un client injecté par un test (ou un futur
