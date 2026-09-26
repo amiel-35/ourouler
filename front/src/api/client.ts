@@ -632,7 +632,7 @@ export const api = {
   suivreImport: (id: string) => appeler<Enveloppe<JobImport>>(url(`/activites/import/${id}`)),
 
   /** Pour chaque vélo : sa calibration, ce qui la permettrait, la tâche récente (L9.4). */
-  etatCalibrations: () => appeler<Enveloppe<EtatCalibrations>>(url("/calibrations")),
+  etatCalibrations: () => appeler<Simple<EtatCalibrations>>(url("/calibrations")),
 
   /**
    * Lance la calibration d'un vélo sur les sorties du cycliste (L9.4). Rend

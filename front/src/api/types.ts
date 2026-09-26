@@ -823,8 +823,15 @@ export interface Sortie {
   modele_meteo: { utilise: string; repli: boolean } | null;
   /** Déclarée absente plutôt que rendue en panne (Q40 a). */
   meteo_absente: MeteoAbsente | null;
-  /** L'identifiant de cette génération, à qui appartiennent les GPX. */
-  generation: string | null;
+  /**
+   * L'identifiant de cette génération, à qui appartiennent les GPX.
+   *
+   * Absent (pas seulement `null`) quand aucun GPX n'a été recueilli
+   * (`api/routes/generations.py::generer_sortie`, `if recueillis:` avant
+   * `vues.avec_gpx_par_proposition`) — le front ne s'en sert pas aujourd'hui,
+   * mais un futur usage doit lire le cas plutôt que le supposer toujours là.
+   */
+  generation?: string | null;
   /** Toujours `null` depuis Q40 (g) : aucun GPX n'est écrit à la génération. */
   gpx: FicheFichier | null;
   carte: FicheFichier | null;

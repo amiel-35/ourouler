@@ -1,5 +1,6 @@
 // @vitest-environment node
-/** Lot 14 — les types du front vérifiés contre la référence openapi.
+/** Lot 14, puis lot 11 (25/09/2026) — les types du front vérifiés contre la
+ * référence openapi.
  *
  * `docs/ouverture_plan.md` §7 : « les types sont vérifiés contre openapi ».
  * Sans dépendance nouvelle (ni générateur de types, ni analyseur TypeScript) :
@@ -13,16 +14,33 @@
  *    la liste de la table est bien celle du type réel — sinon la table
  *    pourrait mentir et le point 2 ne prouverait rien.
  *
- * **Ce que la référence permet de vérifier, et ce qu'elle ne permet pas.**
- * L'API ne déclare aucun modèle de réponse : les réponses 200 sont toutes
- * décrites par `{"type": "object", "additionalProperties": true}`, un
- * dictionnaire sans champs. Profil, zones, séance, sortie, boucle, système…
- * ne peuvent donc **pas** être comparés champ à champ à openapi aujourd'hui :
- * il n'y a rien en face. Ce qui l'est : la panne (seul modèle de réponse
- * décrit, via `ReponseErreur`) et tous les corps de requête JSON que le front
- * envoie. Un dernier test fait de cette limite un garde-fou : le jour où une
- * réponse 200 reçoit un vrai schéma, il échoue et demande d'ajouter sa ligne
- * à la table.
+ * **Depuis le lot 11, les réponses réussies ont un schéma** (`api/reponses.py`) :
+ * un modèle par route, qui nomme les champs que le rendu écrit toujours, et
+ * laisse `extra="allow"` au-delà — ces modèles **décrivent, ils ne
+ * filtrent pas** (`reponses.py`, en-tête). La table couvre maintenant aussi
+ * les réponses, avec une différence de méthode par rapport aux requêtes :
+ *
+ * - pour une **requête**, un champ requis par le schéma que le front ne
+ *   déclarerait pas serait un appel qui échoue — la table exige donc que
+ *   *tout* champ requis soit couvert (`ligne.champs`).
+ * - pour une **réponse**, le front n'est pas obligé de tout lire : il type
+ *   ce dont les écrans se servent, et le schéma peut en garantir davantage
+ *   (`Profil` ne porte pas `boucle`, `intervals`… que `DonneesProfil`
+ *   décrit). Ne pas couvrir un champ n'est donc pas une erreur — seul
+ *   compte ce qui *est* déclaré : un champ que le front lit doit exister
+ *   dans le schéma sous le même nom (`champsHorsSchema` documente les rares
+ *   exceptions), et parmi les champs qu'il déclare, l'optionnalité doit
+ *   concorder dans les deux sens (`facultatifsConnus` documente le front
+ *   plus prudent que le serveur — rétrocompatibilité —, `garantisHorsSchema`
+ *   le contraire — un champ que pydantic ne dit pas requis mais que le rendu
+ *   écrit toujours).
+ *
+ * Les réponses à enveloppe générique (`ReponseCalcul` : simulations, analyse
+ * de parcours, routes apprises) n'ont pas de modèle de données précis —
+ * `donnees` y reste un dictionnaire ouvert — et sont donc listées comme
+ * *non couvertes*, avec leur raison, plutôt que forcées dans la table.
+ * Pareil pour deux routes que le front n'appelle pas du tout aujourd'hui
+ * (`GET /inventaire`, `GET /systeme/budgets`).
  *
  * Autres limites, assumées :
  * - on compare des **noms** et une **optionnalité**, pas des types (`number`
@@ -32,7 +50,11 @@
  *   pas à une déclaration qui mettrait une fonction fléchée ou un générique à
  *   virgule en tête de champ ;
  * - les paramètres de chemin et de requête (`?jour=`, `?velo=`…) ne sont pas
- *   couverts, ni les corps multipart (`FormData`).
+ *   couverts, ni les corps multipart (`FormData`) ;
+ * - les champs de type `list[dict[str, Any]]` ou `dict[str, Any]` côté
+ *   serveur (`candidates`, `propositions`, `demande`, `seance`…) n'ont pas de
+ *   schéma imbriqué à comparer : le contrat les laisse ouverts, la table
+ *   s'arrête donc au premier niveau typé pour ces champs-là.
  */
 
 import { readFileSync } from "node:fs";
@@ -86,6 +108,20 @@ interface Correspondance {
    * connu, justifié à côté ; la liste doit rester exacte.
    */
   garantisHorsSchema?: string[];
+  /**
+   * Pour une réponse : les champs facultatifs côté front (rétrocompatibilité
+   * avec une réponse plus ancienne, voir le commentaire du champ dans
+   * `types.ts`) alors que le schéma les déclare `required` aujourd'hui.
+   * Chacun est un écart connu ; la liste doit rester exacte.
+   */
+  facultatifsConnus?: string[];
+  /**
+   * Pour une réponse : les champs que le front déclare mais qu'openapi ne
+   * décrit pas du tout (ni requis, ni facultatif) — un champ ajouté
+   * dynamiquement par le serveur, hors du modèle pydantic. Chacun est un
+   * écart connu, justifié à côté.
+   */
+  champsHorsSchema?: string[];
 }
 
 const TABLE: Correspondance[] = [
@@ -221,7 +257,360 @@ const TABLE: Correspondance[] = [
     champs: ["velo", "sans_pneu"],
     facultatifs: [],
   },
+
+  // --- réponses (lot 11, 25/09/2026) --------------------------------------
+  //
+  // L'enveloppe d'abord (`Enveloppe<T>`/`Simple<T>`, génériques : un seul
+  // bloc source, vérifié contre chaque schéma qui l'utilise), puis le
+  // contenu (`donnees`) de chaque route, type par type.
+
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseBoucle",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseGeocodage",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseMeteo",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseVentDepart",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseSemaine",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseSeance",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseSeanceDeposee",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Enveloppe<T> {",
+    schema: "ReponseSortie",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees", "avertissements", "duree_ms", "budget"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Simple<T> {",
+    schema: "ReponseCalibrations",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Simple<T> {",
+    schema: "ReponseZones",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Simple<T> {",
+    schema: "ReponseProfilIntervals",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Simple<T> {",
+    schema: "ReponseProfil",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "donnees"],
+    facultatifs: [],
+  },
+
+  // Le contenu (« donnees ») de chaque route, type par type.
+
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Boucle {",
+    schema: "DonneesBoucle",
+    genre: "type",
+    sens: "reponse",
+    champs: ["depart", "demande", "compteur", "meteo_absente", "gpx", "candidates"],
+    facultatifs: ["compteur"],
+    // Le schéma le dit requis (nullable) ; le front le garde facultatif pour
+    // rester lisible sur une réponse d'avant le 18/09/2026 (commentaire du
+    // champ, `types.ts`).
+    facultatifsConnus: ["compteur"],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Geocodage {",
+    schema: "DonneesGeocodage",
+    genre: "type",
+    sens: "reponse",
+    champs: ["adresse", "candidats", "ambigu", "motif_ambiguite"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Meteo {",
+    schema: "DonneesMeteo",
+    genre: "type",
+    sens: "reponse",
+    champs: ["depart", "debut", "horizon_h", "modele", "second_avis", "meilleure_direction", "cellules"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface VentDepart {",
+    schema: "DonneesVentDepart",
+    genre: "type",
+    sens: "reponse",
+    champs: [
+      "jour",
+      "depart",
+      "posee",
+      "motif",
+      "vent_kmh",
+      "vent_depuis_deg",
+      "vent_depuis_nom",
+      "seuil_kmh",
+      "horizon_jours",
+      "choix",
+      "azimuts_par_choix",
+    ],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Semaine {",
+    schema: "DonneesSemaine",
+    genre: "type",
+    sens: "reponse",
+    champs: ["depuis", "jusqua", "jours"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Seance {",
+    schema: "DonneesSeance",
+    genre: "type",
+    sens: "reponse",
+    champs: ["jour", "nom", "duree_s", "n_blocs", "distance_estimee_m", "etapes", "avertissements", "meta"],
+    facultatifs: [],
+  },
+  {
+    // `GET /seances/{jour}` sans séance ce jour-là : `donnees` prend cette
+    // forme-ci plutôt que la précédente (`api/client.ts::seance`).
+    fichier: "api/client.ts",
+    ancre: "Enveloppe<Seance | {",
+    schema: "DonneesJourSansSeance",
+    genre: "type",
+    sens: "reponse",
+    champs: ["jour", "seance"],
+    facultatifs: [],
+  },
+  {
+    // `POST /seances/fichier` : le second membre de l'intersection
+    // (`Enveloppe<Seance> & { fichier: … }`) — la partie `Enveloppe<Seance>`
+    // est déjà vérifiée par la ligne « ReponseSeanceDeposee » ci-dessus.
+    fichier: "api/client.ts",
+    ancre: "Enveloppe<Seance> & {",
+    schema: "ReponseSeanceDeposee",
+    genre: "type",
+    sens: "reponse",
+    champs: ["fichier"],
+    facultatifs: [],
+  },
+  {
+    // Le détail du `fichier` ci-dessus : le front n'y lit que `id` (pour la
+    // resoumission) et `nom` — jamais `url`, que `FichierServi` porte aussi.
+    fichier: "api/client.ts",
+    ancre: "& { fichier: {",
+    schema: "FichierServi",
+    genre: "type",
+    sens: "reponse",
+    champs: ["id", "nom"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface FicheFichier {",
+    schema: "FichierServi",
+    genre: "type",
+    sens: "reponse",
+    champs: ["id", "nom", "url"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Sortie {",
+    schema: "DonneesSortie",
+    genre: "type",
+    sens: "reponse",
+    champs: [
+      "jour",
+      "seance",
+      "demande",
+      "compteur",
+      "modele_physique",
+      "modele_meteo",
+      "meteo_absente",
+      "generation",
+      "gpx",
+      "carte",
+      "tenue",
+      "propositions",
+      "question_vent",
+      "motif_deux_propositions",
+      "motif_equivalence",
+      "ecartees",
+      "arbitrage",
+      "candidates",
+    ],
+    facultatifs: ["compteur", "ecartees", "arbitrage", "generation"],
+    // `compteur`, `ecartees`, `arbitrage` : le schéma les dit requis, le
+    // front les garde facultatifs pour rester lisible sur une réponse plus
+    // ancienne (commentaire de chaque champ, `types.ts`). `generation` : le
+    // schéma ne le dit pas requis non plus — corrigé de « toujours présent »
+    // à facultatif dans ce lot, voir le commentaire du champ (`types.ts`).
+    facultatifsConnus: ["compteur", "ecartees", "arbitrage"],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Zones {",
+    schema: "DonneesZones",
+    genre: "type",
+    sens: "reponse",
+    champs: ["ftp_w", "position_zone", "zone_endurance", "hors_bande", "zones", "valeurs_liees"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Profil {",
+    schema: "DonneesProfil",
+    genre: "type",
+    sens: "reponse",
+    champs: ["depart", "cycliste", "velos", "seance", "historique_depuis", "services", "assistant_recommande"],
+    facultatifs: [],
+  },
+  {
+    // T1 de l'accueil (`GET /profil/intervals`) : un littéral en ligne,
+    // jamais nommé côté front.
+    fichier: "api/client.ts",
+    ancre: "Simple<{",
+    schema: "DonneesProfilIntervals",
+    genre: "type",
+    sens: "reponse",
+    champs: ["ftp_w", "masse_kg"],
+    facultatifs: [],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface EtatCalibrations {",
+    schema: "DonneesCalibrations",
+    genre: "type",
+    sens: "reponse",
+    champs: ["sorties_necessaires", "ftp_renseignee", "velos", "quota"],
+    facultatifs: ["quota"],
+    // `quota` : ajouté au dict par la route en mode hébergé
+    // (`api/routes/calibrations.py::etat_calibrations`), hors du modèle
+    // pydantic qui décrit `DonneesCalibrations` — `extra="allow"` l'admet,
+    // openapi ne le décrit pas.
+    champsHorsSchema: ["quota"],
+  },
+  {
+    fichier: "api/types.ts",
+    ancre: "export interface Systeme {",
+    schema: "ReponseSysteme",
+    genre: "type",
+    sens: "reponse",
+    champs: ["proprietaire", "version", "capacites", "budgets"],
+    facultatifs: [],
+  },
+  {
+    // Le détail de `capacites` ci-dessus, en ligne dans `Systeme`.
+    fichier: "api/types.ts",
+    ancre: "capacites: {",
+    schema: "Capacites",
+    genre: "type",
+    sens: "reponse",
+    champs: ["intervals", "brouter", "velos"],
+    facultatifs: [],
+  },
+  {
+    // `Meteo.depart` : le seul endroit où `PointDepart` reflète un schéma
+    // imbriqué nommé (`Lieu`) plutôt qu'un dictionnaire ouvert — `Boucle.depart`
+    // et `Sortie.demande.lieu_depart` restent génériques côté serveur.
+    fichier: "api/types.ts",
+    ancre: "export interface PointDepart {",
+    schema: "Lieu",
+    genre: "type",
+    sens: "reponse",
+    champs: ["nom", "latitude", "longitude"],
+    facultatifs: [],
+  },
 ];
+
+/**
+ * Les réponses 200 avec schéma que la table ci-dessus ne couvre pas, et
+ * pourquoi. Un schéma de réponse qui n'est ni dans la table ni ici fait
+ * échouer le test « toute réponse 200… ».
+ */
+const NON_COUVERTES_REPONSES: Record<string, string> = {
+  // `donnees` y reste un dictionnaire ouvert (`api/reponses.py::ReponseCalcul`) :
+  // aucun champ précis à comparer à un type du front.
+  ReponseCalcul: "enveloppe générique (simulations, analyse de parcours, routes apprises) — donnees non typé",
+  // Le front n'appelle aucune de ces deux routes aujourd'hui.
+  ReponseInventaire: "le front n'appelle pas GET /inventaire",
+  ReponseBudgets: "le front n'appelle pas GET /systeme/budgets (il lit budgets sur GET /systeme)",
+};
 
 /**
  * Les schémas de requête openapi que la table ne couvre pas, et pourquoi.
@@ -346,8 +735,13 @@ describe.each(TABLE)("$fichier · $ancre → openapi $schema", (ligne) => {
     expect(proprietes.length).toBeGreaterThan(0);
   });
 
-  it("chaque champ du front existe dans le schéma, sous le même nom", () => {
-    expect(ligne.champs.filter((c) => !proprietes.includes(c))).toEqual([]);
+  it("chaque champ du front existe dans le schéma, sous le même nom, sauf écart documenté", () => {
+    const horsSchema = ligne.champsHorsSchema ?? [];
+    const inattendus = ligne.champs.filter((c) => !proprietes.includes(c) && !horsSchema.includes(c));
+    expect(inattendus).toEqual([]);
+    // Et réciproquement : un écart documenté qui existe bel et bien dans le
+    // schéma aujourd'hui est périmé — il devrait redevenir une vérification.
+    expect(horsSchema.filter((c) => proprietes.includes(c))).toEqual([]);
   });
 
   if (ligne.sens === "requete") {
@@ -361,8 +755,13 @@ describe.each(TABLE)("$fichier · $ancre → openapi $schema", (ligne) => {
       });
     }
   } else {
-    it("ce que le schéma garantit, le front ne le tient pas pour facultatif", () => {
-      expect(requis.filter((c) => !obligatoires.includes(c))).toEqual([]);
+    // Une réponse n'oblige pas le front à tout lire (voir l'en-tête) : on ne
+    // regarde que les champs qu'il déclare *ici*, jamais ceux qu'il omet.
+    const requisEtDeclares = requis.filter((c) => ligne.champs.includes(c));
+
+    it("un champ déclaré par le front et requis par le schéma n'est pas tenu pour facultatif, sauf écart documenté", () => {
+      const manquants = requisEtDeclares.filter((c) => !obligatoires.includes(c));
+      expect(trie(manquants)).toEqual(trie(ligne.facultatifsConnus ?? []));
     });
     it("les champs tenus pour présents hors schéma sont exactement les écarts connus", () => {
       const horsSchema = obligatoires.filter((c) => !requis.includes(c));
@@ -387,9 +786,7 @@ describe("la couverture de la référence", () => {
     expect(Object.keys(NON_COUVERTS).filter((nom) => !(nom in reference.components.schemas))).toEqual([]);
   });
 
-  it("toute réponse 200 est un dictionnaire sans champs déclarés — sinon, l'ajouter à la table", () => {
-    // Le garde-fou de la limite principale (voir l'en-tête) : aujourd'hui,
-    // aucune réponse de données n'a de schéma à comparer.
+  it("toute réponse 200 avec schéma est dans la table, ou écartée avec sa raison", () => {
     const typees: string[] = [];
     for (const [chemin, methodes] of Object.entries(reference.paths)) {
       for (const [methode, op] of Object.entries(methodes)) {
@@ -397,12 +794,17 @@ describe("la couverture de la référence", () => {
         if (!schema) continue;
         const nomme = refs(schema)[0];
         const sansChamps = !schema.$ref && !schema.properties;
-        if (!sansChamps && !(nomme && TABLE.some((l) => l.schema === nomme))) {
+        const couverte = nomme && (TABLE.some((l) => l.schema === nomme) || nomme in NON_COUVERTES_REPONSES);
+        if (!sansChamps && !couverte) {
           typees.push(`${methode.toUpperCase()} ${chemin}`);
         }
       }
     }
     expect(typees).toEqual([]);
+    // Et réciproquement : une raison d'écarter un schéma qui n'existe plus est périmée.
+    expect(Object.keys(NON_COUVERTES_REPONSES).filter((nom) => !(nom in reference.components.schemas))).toEqual(
+      [],
+    );
   });
 
   it("les réponses en panne suivent ReponseErreur → Panne", () => {
